@@ -145,12 +145,12 @@ public partial class PersistentSuffixTreeBuilder
             // table reserve block whose offsets are still compact-addressable.
             long currentSize = _storage.Size;
             long jumpReserveBytes = Math.Max(
-                _compactOffsetLimit / JUMP_TABLE_RESERVE_FRACTION,
+                CompactOffsetLimit / JUMP_TABLE_RESERVE_FRACTION,
                 JUMP_TABLE_MIN_RESERVE);
-            bool largeCompactZone = _compactOffsetLimit > jumpReserveBytes * 4;
+            bool largeCompactZone = CompactOffsetLimit > jumpReserveBytes * 4;
             long effectiveLimit = largeCompactZone
-                ? _compactOffsetLimit - jumpReserveBytes
-                : _compactOffsetLimit;
+                ? CompactOffsetLimit - jumpReserveBytes
+                : CompactOffsetLimit;
 
             if ((currentSize + size) > effectiveLimit)
             {

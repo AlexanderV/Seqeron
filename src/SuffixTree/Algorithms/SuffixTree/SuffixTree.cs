@@ -62,7 +62,7 @@ public partial class SuffixTree : ISuffixTree
     private int _position = -1;
     private SuffixTreeNode? _lastCreatedInternalNode;
     private SuffixTreeNode? _activeNode;
-    private int _activeEdgeIndex = -1;
+    private int _activeEdgeIndex;   // set to -1 by the constructor (S3604: no redundant initializer)
     private int _activeLength;
 
     /// <summary>

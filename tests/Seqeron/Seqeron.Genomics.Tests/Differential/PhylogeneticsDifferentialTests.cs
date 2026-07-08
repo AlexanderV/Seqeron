@@ -112,6 +112,8 @@ public class PhylogeneticsDifferentialTests
         int n = allLeaves.Count;
         var splits = new HashSet<string>();
 
+        // S3241 false positive: the returned list IS consumed by the recursive SelectMany(Collect) below.
+#pragma warning disable S3241
         List<string> Collect(Node node)
         {
             if (node.IsLeaf) return new List<string> { node.Name };
@@ -128,6 +130,7 @@ public class PhylogeneticsDifferentialTests
             }
             return sub;
         }
+#pragma warning restore S3241
         Collect(root);
         return splits;
     }

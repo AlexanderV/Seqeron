@@ -655,32 +655,10 @@ internal static class NtthalHairpin
         ("TTTTTA", -500, 1610),
     };
 
-    private static readonly int[] TriloopKeys;
-    private static readonly double[] TriloopDh;
-    private static readonly double[] TriloopDs;
-    private static readonly int[] TetraloopKeys;
-    private static readonly double[] TetraloopDh;
-    private static readonly double[] TetraloopDs;
-
-    static NtthalHairpin()
-    {
-        TriloopKeys = new int[TriloopTable.Length];
-        TriloopDh = new double[TriloopTable.Length];
-        TriloopDs = new double[TriloopTable.Length];
-        for (int k = 0; k < TriloopTable.Length; k++)
-        {
-            TriloopKeys[k] = Enc(TriloopTable[k].Loop);
-            TriloopDh[k] = TriloopTable[k].Dh;
-            TriloopDs[k] = TriloopTable[k].Ds;
-        }
-        TetraloopKeys = new int[TetraloopTable.Length];
-        TetraloopDh = new double[TetraloopTable.Length];
-        TetraloopDs = new double[TetraloopTable.Length];
-        for (int k = 0; k < TetraloopTable.Length; k++)
-        {
-            TetraloopKeys[k] = Enc(TetraloopTable[k].Loop);
-            TetraloopDh[k] = TetraloopTable[k].Dh;
-            TetraloopDs[k] = TetraloopTable[k].Ds;
-        }
-    }
+    private static readonly int[] TriloopKeys = TriloopTable.Select(t => Enc(t.Loop)).ToArray();
+    private static readonly double[] TriloopDh = TriloopTable.Select(t => t.Dh).ToArray();
+    private static readonly double[] TriloopDs = TriloopTable.Select(t => t.Ds).ToArray();
+    private static readonly int[] TetraloopKeys = TetraloopTable.Select(t => Enc(t.Loop)).ToArray();
+    private static readonly double[] TetraloopDh = TetraloopTable.Select(t => t.Dh).ToArray();
+    private static readonly double[] TetraloopDs = TetraloopTable.Select(t => t.Ds).ToArray();
 }

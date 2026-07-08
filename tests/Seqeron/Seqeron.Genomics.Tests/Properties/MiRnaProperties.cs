@@ -1098,15 +1098,8 @@ public class MiRnaProperties
     /// <summary>Pure RNA alphabet used to build hairpin arms.</summary>
     private static readonly char[] HairpinArmAlphabet = { 'A', 'C', 'G', 'U' };
 
-    /// <summary>The allowed pre-miRNA pairing set {A-U, U-A, G-C, C-G, G-U, U-G} (§2.2).</summary>
-    private static bool IsAllowedHairpinPair(char a, char b)
-    {
-        char x = a == 'T' ? 'U' : char.ToUpperInvariant(a);
-        char y = b == 'T' ? 'U' : char.ToUpperInvariant(b);
-        return (x == 'A' && y == 'U') || (x == 'U' && y == 'A') ||
-               (x == 'G' && y == 'C') || (x == 'C' && y == 'G') ||
-               (x == 'G' && y == 'U') || (x == 'U' && y == 'G');
-    }
+    /// <summary>The allowed pre-miRNA pairing set {A-U, U-A, G-C, C-G, G-U, U-G} (§2.2) — same rule as <see cref="OracleCanPair"/>.</summary>
+    private static bool IsAllowedHairpinPair(char a, char b) => OracleCanPair(a, b);
 
     /// <summary>
     /// Independent STRICT Watson-Crick reverse complement (A↔U, G↔C only — no wobble),

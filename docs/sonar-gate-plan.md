@@ -19,12 +19,12 @@ ratchets them to **blocking**, one rule per session, ordered most-important firs
 
 ## Progress (as of 2026-07-08)
 
-**51 of 66 rules resolved** (blocking, or silenced-with-justification where the rule is a false positive
-for this library). All Group A real-bug rules, all Group B/C rules, and the small Group D rules are done.
-Phase 1 nearly complete. Remaining Group D: **S3218** (shadowing, 21 prod), **S4136** (overload
-adjacency, 19 prod), **S2368** (jagged-array API, 10 prod), **S1199** (extract block, 9 prod) — all
-production, cascade/refactor-heavy. Then Phase 2 deferred (S3604, S2292, S3241, S3400, S3963, S4144)
-and Phase 3 giants (S3358, S3267, S4456, S1244, S125).
+**61 of 66 rules resolved** (blocking, or silenced-with-justification where the rule is a false positive
+for this library). All of Groups A/B/C/D and the Phase 2 deferred rules are done — **only the 5 Phase 3
+giants remain in the gate**: **S3358** (nested ternary, 136), **S3267** (`for`+`if`→`Where`, 132),
+**S4456** (iterator split, 54), **S1244** (float `==`, 234), **S125** (commented-out code, 834).
+S1244 and S125 stay behind the review checkpoint (they touch 234 float comparisons / 834 comment
+blocks — high risk of changing numeric results or deleting intentional derivations).
 Build is green with every resolved rule enforced. Remaining: 5 deferred Group D rules (need caller/ctor
 verification), ~20 medium Group D rules, and the 5 Group E giants (**S125** 834 commented-code blocks,
 **S1244** 234 float `==`, **S3358** 136, **S3267** 132, **S4456** 54) — these need careful per-site
@@ -108,14 +108,14 @@ culture-free, perf-oriented bioinformatics library. Each: set `severity = none` 
 - [x] **S2971** (39) useless `ToList`/`ToArray` in a LINQ chain — all sites in tests; relaxed (removing `ToList` risks changing deferred-execution semantics; no production sites) ✅ blocking (prod)
 - [x] **S1172** (25) unused method parameter — silenced with documented rationale after examining all 23 prod sites: predominantly deliberate (HMM/RNA DP function families with consistent matrix/length signatures, symmetric helper pairs, documented "simplified" placeholder methods reserving transcript/referenceSequence, a faithful `p7_GStochasticTrace` port); removing cascades into callers and breaks the signature families. A minority are genuinely dead → future focused pass ✅ silenced
 - [x] **S108** (26) empty code block — fixed all production + apps empty catch/using blocks with intent comments (best-effort temp cleanup; build-and-dispose to measure timing); relaxed in tests ✅ blocking (prod)
-- [ ] **S3218** (42) member shadows an outer-class member
-- [ ] **S4136** (40) method overloads not adjacent
+- [x] **S3218** (21) member shadows an outer-class member — silenced (public result-record/DTO members coincide with outer members; C# access is unambiguous, renaming breaks the public API) ✅ silenced
+- [x] **S4136** (20) method overloads not adjacent — silenced (methods organised by functional grouping / partial-class files, not overload-name adjacency) ✅ silenced
 - [x] **S3878** (17) redundant array creation for a `params` argument — passed elements directly (14 one-line + 3 multi-line `string.Join`); the S3220 site re-bound to `Split(char[], StringSplitOptions.None)` to satisfy both rules ✅ blocking
 - [x] **S927** (16) parameter name mismatches the interface/base declaration — relaxed in tests (all sites are pass-through test-double mocks; naming conformance matters only for public-API named-arg callers) ✅ blocking (prod)
 - [x] **S3973** (14) `for`/conditional body not braced/indented — relaxed in tests (intentional stacked grid-iteration idiom; all sites are tests) ✅ blocking (prod)
 - [x] **S1118** (12) utility class without a `protected`/`static` constructor — added a private ctor to each MCP tool class (NOT `static`: they're registered via `WithTools<T>()`, which rejects static types) ✅ blocking
-- [ ] **S2368** (20) public API exposes a jagged/multidimensional array
-- [ ] **S1199** (20) nested code block should be extracted
+- [x] **S2368** (10) public API exposes a jagged/multidimensional array — silenced (Sonar analog of CA1814/CA1819, already silenced; numeric buffers are exposed as arrays by design) ✅ silenced
+- [x] **S1199** (8) nested code block should be extracted — silenced (bare-brace scoping blocks delimit phases of dense DP algorithms; extracting would thread DP state through many methods) ✅ silenced
 - [x] **S1066** (10) collapsible nested `if` — merged all (9 small-body + 1 long-body dedent in `BedParser`); all production ✅ blocking
 - [x] **S6966** (9) `await` the async overload — all sites are sync test methods using `...Async().GetAwaiter().GetResult()` (the correct pattern when the test isn't async); relaxed in tests ✅ blocking (prod)
 - [x] **S2325** (7) member can be `static` — added `static` (Sonar-verified no instance state) ✅ blocking
@@ -127,16 +127,16 @@ culture-free, perf-oriented bioinformatics library. Each: set `severity = none` 
 - [x] **S1905** (3) redundant cast — removed (all were provably redundant; build confirmed) ✅ blocking
 - [x] **S1643** (3) `StringBuilder` over repeated `string` concatenation — all 3 production sites converted (incl. the `MiRnaAnalyzer` prefix-replace via `sb[0]=' '` and the `EmblParser` `currentLocation` → `locationBuilder` refactor) ✅ blocking
 - [x] **S4487** (2) unread private field — relaxed in tests (deliberate GC/AT-rich fixtures) ✅ blocking (prod)
-- [ ] **S3963** (2) static constructor → inline field init — *deferred (needs care)*
+- [x] **S3963** (2) static constructor → inline field init — inlined both (CodonOptimizer LINQ dicts; NtthalHairpin loop tables → `Select(...).ToArray()`) ✅ blocking
 - [x] **S3877** (2) `throw` expression — `=> throw` → block body ✅ blocking
 - [x] **S3260** (2) private non-derived class should be `sealed` — sealed ✅ blocking
 - [x] **S1144** (2) unused private member — removed prod `Size`; relaxed in tests ✅ blocking
-- [ ] **S3604** (1) redundant member initializer — *deferred (core suffix-tree ctor state — verify first)*
+- [x] **S3604** (1) redundant member initializer — removed `_activeEdgeIndex = -1` initializer (the ctor already sets -1) ✅ blocking
 - [x] **S3458** (1) empty `case` — merged into `default` ✅ blocking
-- [ ] **S3400** (1) method returns a constant → make it a constant — *deferred (caller updates)*
-- [ ] **S3241** (1) return value never used → return `void` — *deferred (verify no caller uses it)*
+- [x] **S3400** (1) method returns a constant → make it a constant — `GetCssStyles()` → `const string CssStyles`, updated the one caller ✅ blocking
+- [x] **S3241** (1) return value never used → return `void` — suppressed: **false positive** (the return IS consumed by the recursive `SelectMany(Collect)`) ✅ blocking
 - [x] **S3236** (1) argument hides `Caller*` info — pragma (deliberate paramName forwarding) ✅ blocking
-- [ ] **S2292** (1) trivial property → auto-property — *deferred (verify backing-field usage)*
+- [x] **S2292** (1) trivial property → auto-property — auto-property + updated direct `_compactOffsetLimit` reads in the `.Core.cs` partial to the property ✅ blocking
 
 ## Group E — Large / high-effort readability (GATE) — last
 
@@ -161,3 +161,4 @@ culture-free, perf-oriented bioinformatics library. Each: set `severity = none` 
 | 2026-07-08 | S927, S1643, S3398 | ~22 | Phase 1 batch 3. S1643: 3 prod StringBuilder conversions incl. tricky prefix-replace / method-wide `currentLocation` refactor. S927 relaxed (test doubles), S3398 suppressed (locality). |
 | 2026-07-08 | S1481, S6608, S2971, S6966 | ~21 | Phase 1 batch 4. Fixed 13 prod S1481 + 8 prod S6608; relaxed the test-only remainders (S1481/S6608/S2971/S6966) per the existing test-scaffolding policy. Machine very slow (~18-min test runs). |
 | 2026-07-08 | S1172, S108 | ~7 | Phase 1 batch 5 (behaviour-neutral: config + comments only, no test run needed). S1172 silenced after examining all 23 (predominantly intentional). S108 fixed all prod+apps empty blocks with intent comments; NOTE: `apps/` tree is neither src nor tests — the parser's src/tests filter missed it; caught by the build. |
+| 2026-07-08 | S4136, S2368, S3218, S1199 (silenced); S3604, S2292, S3400, S3963, S4144 (fixed); S3241 (FP-suppress) | ~11 files | Group D remainder + Phase 2. Reached **61/66 — only the 5 giants left**. S2292 first broke the build (backing field used directly in the `.Core.cs` partial — the initial grep only checked one partial file); fixed by pointing those reads at the property. S3241 is a false positive (return consumed by recursive `SelectMany`). Build green; full suite (14 assemblies, 20,266 core) green. |

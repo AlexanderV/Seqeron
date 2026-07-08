@@ -218,7 +218,7 @@ public static class ReportGenerator
         sb.AppendLine("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
         sb.AppendLine($"  <title>{HtmlEncode(report.Title)}</title>");
         sb.AppendLine("  <style>");
-        sb.AppendLine(GetCssStyles());
+        sb.AppendLine(CssStyles);
         sb.AppendLine("  </style>");
         sb.AppendLine("</head>");
         sb.AppendLine("<body>");
@@ -378,9 +378,7 @@ public static class ReportGenerator
         return sb.ToString();
     }
 
-    private static string GetCssStyles()
-    {
-        return @"
+    private const string CssStyles = @"
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 1200px; margin: 0 auto; padding: 20px; }
     .container { background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 30px; }
     header { border-bottom: 2px solid #4CAF50; padding-bottom: 20px; margin-bottom: 30px; }
@@ -403,7 +401,6 @@ public static class ReportGenerator
     .chart { display: block; margin: 20px auto; }
     .statistics dt { background: #f0f0f0; padding: 8px; border-radius: 4px; }
     .statistics dd { padding: 8px; }";
-    }
 
     private static string HtmlEncode(string text)
     {

@@ -27,7 +27,7 @@
        listed here. Ratchet the gate tighter by clearing a rule's findings and deleting its code
        from this list. To silence a rule permanently instead, set it to `none` in .editorconfig. -->
   <PropertyGroup>
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);S125;S1199;S1244;S2292;S2368;S3218;S3241;S3267;S3358;S3400;S3604;S3963;S4136;S4144;S4456</WarningsNotAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);S125;S1244;S3267;S3358;S4456</WarningsNotAsErrors>
   </PropertyGroup>
 
   <!-- Reproducible builds: deterministic output; path-map normalised on CI. -->

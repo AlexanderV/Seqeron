@@ -114,7 +114,9 @@ public static class CodonOptimizer
         { "GGU", "G" }, { "GGC", "G" }, { "GGA", "G" }, { "GGG", "G" }
     };
 
-    private static readonly Dictionary<string, List<string>> AminoAcidToCodons;
+    private static readonly Dictionary<string, List<string>> AminoAcidToCodons = StandardGeneticCode
+        .GroupBy(kv => kv.Value)
+        .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToList());
 
     /// <summary>
     /// Amino acids encoded by a single codon in the standard genetic code
@@ -123,22 +125,10 @@ public static class CodonOptimizer
     /// exclude them from CAI to avoid skewing the geometric mean.
     /// Derived from <see cref="AminoAcidToCodons"/> (groups of size 1), not hard-coded.
     /// </summary>
-    private static readonly HashSet<string> SingleCodonAminoAcids;
-
-    static CodonOptimizer()
-    {
-        AminoAcidToCodons = StandardGeneticCode
-            .GroupBy(kv => kv.Value)
-            .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToList());
-
-        // Single-codon (non-degenerate) amino acids: those with exactly one synonymous
-        // codon. In the standard genetic code these are Met ("M", AUG) and Trp ("W", UGG).
-        // Stop ("*") has 3 codons and is handled separately. Source: Sharp & Li (1987).
-        SingleCodonAminoAcids = AminoAcidToCodons
-            .Where(kv => kv.Key != "*" && kv.Value.Count == 1)
-            .Select(kv => kv.Key)
-            .ToHashSet();
-    }
+    private static readonly HashSet<string> SingleCodonAminoAcids = AminoAcidToCodons
+        .Where(kv => kv.Key != "*" && kv.Value.Count == 1)
+        .Select(kv => kv.Key)
+        .ToHashSet();
 
     #endregion
 

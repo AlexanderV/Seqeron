@@ -29,7 +29,6 @@ public partial class PersistentSuffixTreeBuilder
     private readonly DepthStoreAdapter _depthStoreAdapter;
     private readonly NodeLayout _initialLayout;  // layout before any transition (always the compact variant)
     private NodeLayout _layout;                // switches Compact → Large on overflow
-    private long _compactOffsetLimit = NodeLayout.CompactMaxOffset;
     private readonly long _rootOffset;
     private ITextSource _text = new StringTextSource(string.Empty);
     private string? _rawString;
@@ -100,11 +99,7 @@ public partial class PersistentSuffixTreeBuilder
     /// Override the compact address-space limit. Used by <see cref="PersistentSuffixTreeFactory"/>
     /// and tests to control the Compact → Large promotion threshold.
     /// </summary>
-    internal long CompactOffsetLimit
-    {
-        get => _compactOffsetLimit;
-        set => _compactOffsetLimit = value;
-    }
+    internal long CompactOffsetLimit { get; set; } = NodeLayout.CompactMaxOffset;
 
     /// <summary>The offset where the compact→large transition occurred, or -1.</summary>
     internal long TransitionOffset => _transitionOffset;

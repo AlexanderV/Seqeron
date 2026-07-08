@@ -155,6 +155,21 @@ dotnet_diagnostic.S101.severity = none         # type naming — interop (WIN32_
 # impl), and faithful algorithm ports. Removing them breaks the intended signatures and cascades into
 # callers; a minority are genuinely dead and can be pruned in a focused pass. Opinion-heavy for this library.
 dotnet_diagnostic.S1172.severity = none
+# S4136: methods are organised by functional grouping, not overload-name adjacency — FastaParser keeps
+# per-mode trios (Parse/ParseFile/ParseFileAsync), and the SuffixTree partials keep each public API
+# method next to its private helpers. Forcing overload adjacency would fragment those deliberate groups.
+dotnet_diagnostic.S4136.severity = none
+# S2368: public jagged/multidimensional arrays — Sonar analog of CA1814/CA1819, already silenced above
+# (numeric buffers are exposed as arrays by design in this library).
+dotnet_diagnostic.S2368.severity = none
+# S3218: members of public result records/DTOs (e.g. ContextPlusPlusScore's documented contribution
+# properties) coincide with outer-class members. C# access is unambiguous via the instance; renaming
+# would break the public API and degrade the descriptive scientific names for a harmless coincidence.
+dotnet_diagnostic.S3218.severity = none
+# S1199: bare-brace scoping blocks deliberately delimit phases of dense dynamic-programming algorithms
+# (RNA folding / thermodynamics), keeping the DP state local. Extracting each into a method would
+# thread that state through many small methods and fragment the algorithm — a readability net-negative.
+dotnet_diagnostic.S1199.severity = none
 
 # ── Test code: relax the aggressive cleanup rules ────────────────────────────
 # Production code is fully cleaned and gated above. In test code these rules are
