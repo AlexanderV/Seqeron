@@ -451,9 +451,21 @@ APIs may still change between releases. Here is exactly where it stands — the 
 - **Extensive automated testing** — 22,000+ executed test cases (`[Test]` methods plus parametrized
   `[TestCase]` / combinatorial expansions) across 258 algorithm units, with roughly 3.8× more test
   code than product code. The full suite is green on .NET 10, warnings-as-errors, CI-gated.
-- **Ten complementary test methodologies** — property-based, metamorphic, fuzzing, mutation,
-  snapshot, algebraic, architecture, differential, combinatorial, and characterization testing (see
-  [docs/checklists](docs/checklists)).
+- **Ten complementary test methodologies** — each catches a different class of defect, and each has
+  a per-algorithm checklist under [docs/checklists](docs/checklists):
+
+  | Methodology | What it catches |
+  |---|---|
+  | **Property-based** (FsCheck) | Invariant violations across thousands of *generated* inputs, not just hand-picked cases. |
+  | **Metamorphic** | Wrong outputs when the exact answer is unknown, by asserting relations between related inputs (e.g. `revcomp(revcomp(x)) == x`). |
+  | **Fuzzing** | Crashes and unhandled edge cases from malformed, random, or adversarial input. |
+  | **Mutation** (Stryker.NET) | *Weak tests* — seeds deliberate bugs into the code and fails if the suite doesn't notice. |
+  | **Snapshot / approval** (Verify) | Unintended changes to complex outputs, locked against reviewed baselines. |
+  | **Algebraic** | Broken algebraic laws the operations must obey — identity, inverse, idempotence, commutativity. |
+  | **Architecture** (ArchUnitNET) | Layering / dependency-rule drift in the package graph. |
+  | **Differential** | Divergence from an independent or reference implementation of the same algorithm. |
+  | **Combinatorial / pairwise** | Interaction bugs across large parameter-combination spaces, covered efficiently. |
+  | **Characterization** | Regressions during refactoring, by pinning current behaviour. |
 - **A per-unit internal validation campaign** — a documented findings register, a published
   limitations / operating-envelope document, and a runtime `LimitationPolicy` that guards algorithms
   used outside their validated scope. One report per unit under
