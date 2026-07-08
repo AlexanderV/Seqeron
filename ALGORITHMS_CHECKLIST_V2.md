@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 255 |
+| **Total Test Units** | 364 |
 | **Completed** | 255 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 0 |
+| **Not Started** | 109 (proposed roadmap — §58 Assembly, §59 Phylogenetics, §60–64 Oncology, §65–78 cross-domain; prioritized in [ALGORITHMS_ROADMAP.md](ALGORITHMS_ROADMAP.md)) |
 
 ---
 
@@ -277,6 +277,115 @@
 | ☑ | REP-APPROX-001 | Repeats | 2 | Benson (1999) TRF | [TestSpec](tests/TestSpecs/REP-APPROX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs) |
 | ☑ | CHROM-ALPHASAT-001 | Chromosome | 2 | Waye & Willard (1987), Henikoff et al. (2001), CENP-B box motif | [TestSpec](tests/TestSpecs/CHROM-ALPHASAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_AlphaSatellite_Tests.cs) |
 | ☑ | CHROM-HOR-001 | Chromosome | 1 | McNulty & Sullivan (2018), Alkan et al. (2007) | [TestSpec](tests/TestSpecs/CHROM-HOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs) |
+| ☐ | ASSEMBLY-STRINGGRAPH-001 | Assembly | 3 | Myers (2005), Simpson & Durbin (2012) SGA | — (proposed) | SequenceAssembler_StringGraph_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-UNITIG-001 | Assembly | 2 | Myers et al. (2000), Chikhi et al. (2016) BCALM2 | — (proposed) | SequenceAssembler_Unitig_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-SIMPLIFY-001 | Assembly | 3 | Zerbino & Birney (2008) Velvet | — (proposed) | SequenceAssembler_GraphSimplification_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-MULTIK-001 | Assembly | 2 | Bankevich et al. (2012) SPAdes, Peng et al. (2012) IDBA-UD | — (proposed) | SequenceAssembler_MultiK_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-MINIMIZER-001 | Assembly | 3 | Roberts et al. (2004), Li (2018) minimap2 | — (proposed) | SequenceAssembler_MinimizerOverlap_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-MINHASH-001 | Assembly | 2 | Berlin et al. (2015) MHAP, Ondov et al. (2016) Mash | — (proposed) | SequenceAssembler_MinHashOverlap_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-REPEATGRAPH-001 | Assembly | 2 | Kolmogorov et al. (2019) Flye, Lin et al. (2016) A-Bruijn | — (proposed) | SequenceAssembler_RepeatGraph_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-POA-001 | Assembly | 3 | Lee et al. (2002) POA, Vaser et al. (2017) Racon | — (proposed) | SequenceAssembler_PoaConsensus_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-GAPFILL-001 | Assembly | 2 | Luo et al. (2012) GapCloser, Paulino et al. (2015) Sealer | — (proposed) | SequenceAssembler_GapFill_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-KMERHIST-001 | Assembly | 2 | Vurture et al. (2017) GenomeScope, Lander & Waterman (1988) | — (proposed) | GenomeAssemblyAnalyzer_KmerSpectrumModel_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-BLOOMDBG-001 | Assembly | 2 | Pell et al. (2012), Chikhi & Rizk (2013) Minia | — (proposed) | SequenceAssembler_BloomDeBruijn_Tests.cs (proposed) |
+| ☐ | ASSEMBLY-MISASSEMBLY-001 | Assembly | 3 | Gurevich et al. (2013) QUAST, Salzberg et al. (2012) GAGE | — (proposed) | GenomeAssemblyAnalyzer_ReferenceEvaluation_Tests.cs (proposed) |
+| ☐ | PHYLO-PARSIMONY-001 | Phylogenetic | 3 | Fitch (1971), Sankoff (1975) | — (proposed) | PhylogeneticAnalyzer_Parsimony_Tests.cs (proposed) |
+| ☐ | PHYLO-ML-001 | Phylogenetic | 3 | Felsenstein (1981), Stamatakis (2014) RAxML | — (proposed) | PhylogeneticAnalyzer_MaximumLikelihood_Tests.cs (proposed) |
+| ☐ | PHYLO-SUBMODEL-001 | Phylogenetic | 3 | Tavaré (1986) GTR, HKY (1985), Yang (1994) Γ | — (proposed) | PhylogeneticAnalyzer_SubstitutionModel_Tests.cs (proposed) |
+| ☐ | PHYLO-ME-001 | Phylogenetic | 3 | Gascuel (1997) BIONJ, Desper & Gascuel (2002) FastME | — (proposed) | PhylogeneticAnalyzer_MinimumEvolution_Tests.cs (proposed) |
+| ☐ | PHYLO-LSFIT-001 | Phylogenetic | 2 | Fitch & Margoliash (1967) | — (proposed) | PhylogeneticAnalyzer_LeastSquaresFit_Tests.cs (proposed) |
+| ☐ | PHYLO-REARRANGE-001 | Phylogenetic | 3 | Robinson (1971) NNI, Swofford et al. (1996) SPR/TBR | — (proposed) | PhylogeneticAnalyzer_TreeRearrangement_Tests.cs (proposed) |
+| ☐ | PHYLO-CONSENSUS-001 | Phylogenetic | 2 | Margush & McMorris (1981), Bryant (2003) | — (proposed) | PhylogeneticAnalyzer_ConsensusTree_Tests.cs (proposed) |
+| ☐ | PHYLO-ROOT-001 | Phylogenetic | 2 | Farris (1972), Hess & De Moraes Russo (2007) | — (proposed) | PhylogeneticAnalyzer_TreeRooting_Tests.cs (proposed) |
+| ☐ | PHYLO-ANCESTRAL-001 | Phylogenetic | 2 | Yang, Kumar & Nei (1995), Pupko et al. (2000) | — (proposed) | PhylogeneticAnalyzer_AncestralReconstruction_Tests.cs (proposed) |
+| ☐ | PHYLO-MODELSEL-001 | Phylogenetic | 2 | Akaike (1974), Schwarz (1978), Posada (2008) jModelTest | — (proposed) | PhylogeneticAnalyzer_ModelSelection_Tests.cs (proposed) |
+| ☐ | PHYLO-DISTCORR-001 | Phylogenetic | 3 | Tamura & Nei (1993), Kishino & Hasegawa (1989) F84, Lockhart et al. (1994) LogDet | — (proposed) | PhylogeneticAnalyzer_DistanceCorrections_Tests.cs (proposed) |
+| ☐ | PHYLO-ALRT-001 | Phylogenetic | 2 | Anisimova & Gascuel (2006), Guindon et al. (2010) SH-aLRT | — (proposed) | PhylogeneticAnalyzer_AlrtSupport_Tests.cs (proposed) |
+| ☐ | ONCO-SIGID-001 | Oncology | 2 | Alexandrov et al. (2020) COSMIC v3 ID83 | — (proposed) | OncologyAnalyzer_IndelSignatures_Tests.cs (proposed) |
+| ☐ | ONCO-SIGDBS-001 | Oncology | 2 | Alexandrov et al. (2020) COSMIC v3 DBS78 | — (proposed) | OncologyAnalyzer_DoubletSignatures_Tests.cs (proposed) |
+| ☐ | ONCO-SIGCN-001 | Oncology | 2 | Steele et al. (2022) CN48, Macintyre et al. (2018) | — (proposed) | OncologyAnalyzer_CopyNumberSignatures_Tests.cs (proposed) |
+| ☐ | ONCO-SIGSV-001 | Oncology | 2 | Nik-Zainal et al. (2016) RS, Degasperi et al. (2020) | — (proposed) | OncologyAnalyzer_RearrangementSignatures_Tests.cs (proposed) |
+| ☐ | ONCO-SIGFIT-001 | Oncology | 2 | Rosenthal et al. (2016) deconstructSigs, Jin et al. (2024) MuSiCal | — (proposed) | OncologyAnalyzer_SignatureAssignment_Tests.cs (proposed) |
+| ☐ | ONCO-HRDETECT-001 | Oncology | 2 | Davies et al. (2017) HRDetect | — (proposed) | OncologyAnalyzer_HrDetect_Tests.cs (proposed) |
+| ☐ | ONCO-CHORD-001 | Oncology | 2 | Nguyen et al. (2020) CHORD | — (proposed) | OncologyAnalyzer_Chord_Tests.cs (proposed) |
+| ☐ | ONCO-CHROMOTHRIPSIS-001 | Oncology | 3 | Korbel & Campbell (2013), Cortés-Ciriano et al. (2020) ShatterSeek | — (proposed) | OncologyAnalyzer_Chromothripsis_Tests.cs (proposed) |
+| ☐ | ONCO-KATAEGIS-001 | Oncology | 2 | Nik-Zainal et al. (2012), Alexandrov et al. (2013) APOBEC | — (proposed) | OncologyAnalyzer_Kataegis_Tests.cs (proposed) |
+| ☐ | ONCO-ECDNA-001 | Oncology | 3 | Deshpande et al. (2019) AmpliconArchitect, Kim et al. (2020) | — (proposed) | OncologyAnalyzer_EcDnaAmplicon_Tests.cs (proposed) |
+| ☐ | ONCO-WGD-001 | Oncology | 2 | Bielski et al. (2018), Zack et al. (2013) | — (proposed) | OncologyAnalyzer_WholeGenomeDoubling_Tests.cs (proposed) |
+| ☐ | ONCO-TIMING-001 | Oncology | 2 | Gerstung et al. (2020) MutationTimeR / PCAWG | — (proposed) | OncologyAnalyzer_MutationTiming_Tests.cs (proposed) |
+| ☐ | ONCO-DNDS-001 | Oncology | 2 | Martincorena et al. (2017) dNdScv | — (proposed) | OncologyAnalyzer_DndsDrivers_Tests.cs (proposed) |
+| ☐ | ONCO-GISTIC-001 | Oncology | 3 | Mermel et al. (2011) GISTIC2, Beroukhim et al. (2007) | — (proposed) | OncologyAnalyzer_RecurrentCna_Tests.cs (proposed) |
+| ☐ | ONCO-PYCLONE-001 | Oncology | 2 | Roth et al. (2014) PyClone, Gillis & Roth (2020) PyClone-VI | — (proposed) | OncologyAnalyzer_SubcloneClustering_Tests.cs (proposed) |
+| ☐ | ONCO-SUBCLONALCN-001 | Oncology | 2 | Nik-Zainal et al. (2012) Battenberg, Van Loo et al. (2010) ASCAT | — (proposed) | OncologyAnalyzer_SubclonalCopyNumber_Tests.cs (proposed) |
+| ☐ | ONCO-MHCII-001 | Oncology | 2 | Reynisson et al. (2020) NetMHCIIpan-4.0 | — (proposed) | OncologyAnalyzer_MhcClassII_Tests.cs (proposed) |
+| ☐ | ONCO-IMMUNOGEN-001 | Oncology | 2 | Duan et al. (2014) DAI, Li et al. (2021) DeepImmuno, Albert et al. (2023) BigMHC | — (proposed) | OncologyAnalyzer_NeoepitopeImmunogenicity_Tests.cs (proposed) |
+| ☐ | ONCO-NEOFITNESS-001 | Oncology | 2 | Łuksza et al. (2017, 2022) fitness model | — (proposed) | OncologyAnalyzer_NeoantigenFitness_Tests.cs (proposed) |
+| ☐ | ONCO-LOHHLA-001 | Oncology | 2 | McGranahan et al. (2017) LOHHLA | — (proposed) | OncologyAnalyzer_HlaLoh_Tests.cs (proposed) |
+| ☐ | ONCO-ICHOR-001 | Oncology | 2 | Adalsteinsson et al. (2017) ichorCNA | — (proposed) | OncologyAnalyzer_IchorTumorFraction_Tests.cs (proposed) |
+| ☐ | ONCO-FRAGMENT-001 | Oncology | 3 | Cristiano et al. (2019) DELFI, Jiang et al. (2020) end-motifs | — (proposed) | OncologyAnalyzer_Fragmentomics_Tests.cs (proposed) |
+| ☐ | ONCO-PHASED-001 | Oncology | 2 | Kurtz et al. (2021) PhasED-seq | — (proposed) | OncologyAnalyzer_PhasedVariantMrd_Tests.cs (proposed) |
+| ☐ | ONCO-MSIPRO-001 | Oncology | 2 | Jia et al. (2020) MSIsensor-pro, Niu et al. (2014) MSIsensor | — (proposed) | OncologyAnalyzer_MsiSingleSample_Tests.cs (proposed) |
+| ☐ | IDX-SUFFIXARRAY-001 | Indexing | 2 | Nong, Zhang & Chan (2009) SA-IS | — (proposed) | TextIndex_SuffixArray_Tests.cs (proposed) |
+| ☐ | IDX-LCP-001 | Indexing | 2 | Kasai et al. (2001), Abouelhoda et al. (2004) | — (proposed) | TextIndex_LcpArray_Tests.cs (proposed) |
+| ☐ | IDX-BWT-001 | Indexing | 2 | Burrows & Wheeler (1994) | — (proposed) | TextIndex_Bwt_Tests.cs (proposed) |
+| ☐ | IDX-FM-001 | Indexing | 3 | Ferragina & Manzini (2000) FM-index | — (proposed) | TextIndex_FmIndex_Tests.cs (proposed) |
+| ☐ | ALIGN-HIRSCHBERG-001 | Alignment | 1 | Hirschberg (1975), Myers & Miller (1988) | — (proposed) | SequenceAligner_Hirschberg_Tests.cs (proposed) |
+| ☐ | ALIGN-MYERS-001 | Alignment | 2 | Myers (1986) O(ND), Myers (1999) bit-vector | — (proposed) | SequenceAligner_BitVectorEdit_Tests.cs (proposed) |
+| ☐ | ALIGN-BANDED-001 | Alignment | 1 | Ukkonen (1985), Chao et al. (1992) | — (proposed) | SequenceAligner_BandedAlign_Tests.cs (proposed) |
+| ☐ | ALIGN-SUBOPT-001 | Alignment | 1 | Waterman & Eggert (1987) | — (proposed) | SequenceAligner_Suboptimal_Tests.cs (proposed) |
+| ☐ | VARIANT-GLK-001 | Variants | 2 | Li (2011) samtools, DePristo et al. (2011) GATK | — (proposed) | VariantCaller_GenotypeLikelihoods_Tests.cs (proposed) |
+| ☐ | VARIANT-NORM-001 | Variants | 2 | Tan, Abecasis & Kang (2015) vt normalize | — (proposed) | VariantCaller_Normalize_Tests.cs (proposed) |
+| ☐ | PHASE-READ-001 | Variants | 2 | Edge, Bafna & Bansal (2017) HapCUT2 | — (proposed) | HaplotypePhaser_ReadBacked_Tests.cs (proposed) |
+| ☐ | PHASE-STAT-001 | Variants | 2 | Li & Stephens (2003), Delaneau et al. (2013) SHAPEIT2 | — (proposed) | HaplotypePhaser_LiStephens_Tests.cs (proposed) |
+| ☐ | VARIANT-DENOVO-001 | Variants | 2 | Ramu et al. (2013) DeNovoGear, Wei et al. (2015) | — (proposed) | VariantCaller_DeNovoTrio_Tests.cs (proposed) |
+| ☐ | POP-KINSHIP-001 | PopGen | 2 | Manichaikul et al. (2010) KING | — (proposed) | PopulationGeneticsAnalyzer_Kinship_Tests.cs (proposed) |
+| ☐ | POP-IBD-001 | PopGen | 1 | Gusev et al. (2009) GERMLINE, Browning & Browning (2013) | — (proposed) | PopulationGeneticsAnalyzer_Ibd_Tests.cs (proposed) |
+| ☐ | POP-PCA-001 | PopGen | 2 | Patterson, Price & Reich (2006) EIGENSTRAT | — (proposed) | PopulationGeneticsAnalyzer_Pca_Tests.cs (proposed) |
+| ☐ | POP-NEUTRAL-001 | PopGen | 2 | Fu & Li (1993), Fay & Wu (2000) | — (proposed) | PopulationGeneticsAnalyzer_NeutralityTests_Tests.cs (proposed) |
+| ☐ | POP-MK-001 | PopGen | 3 | McDonald & Kreitman (1991), Hudson-Kreitman-Aguadé (1987) | — (proposed) | PopulationGeneticsAnalyzer_McDonaldKreitman_Tests.cs (proposed) |
+| ☐ | POP-NE-001 | PopGen | 2 | Hill (1981), Waples (2006) | — (proposed) | PopulationGeneticsAnalyzer_NeLd_Tests.cs (proposed) |
+| ☐ | TRANS-NBDE-001 | Transcriptome | 3 | Love, Huber & Anders (2014) DESeq2, Robinson et al. (2010) edgeR | — (proposed) | TranscriptomeAnalyzer_NbDifferentialExpression_Tests.cs (proposed) |
+| ☐ | TRANS-NORM-001 | Transcriptome | 2 | Robinson & Oshlack (2010) TMM, Anders & Huber (2010) | — (proposed) | TranscriptomeAnalyzer_TmmNormalization_Tests.cs (proposed) |
+| ☐ | TRANS-GSVA-001 | Transcriptome | 2 | Hänzelmann et al. (2013) GSVA, Barbie et al. (2009) ssGSEA | — (proposed) | TranscriptomeAnalyzer_Gsva_Tests.cs (proposed) |
+| ☐ | TRANS-WGCNA-001 | Transcriptome | 2 | Zhang & Horvath (2005), Langfelder & Horvath (2008) WGCNA | — (proposed) | TranscriptomeAnalyzer_Wgcna_Tests.cs (proposed) |
+| ☐ | TRANS-ESTIMATE-001 | Transcriptome | 2 | Yoshihara et al. (2013) ESTIMATE | — (proposed) | TranscriptomeAnalyzer_Estimate_Tests.cs (proposed) |
+| ☐ | TRANS-BATCH-001 | Transcriptome | 1 | Johnson, Li & Rabinovic (2007) ComBat | — (proposed) | TranscriptomeAnalyzer_Combat_Tests.cs (proposed) |
+| ☐ | CLIN-KM-001 | Clinical | 2 | Kaplan & Meier (1958), Mantel (1966) log-rank | — (proposed) | SurvivalAnalyzer_KaplanMeier_Tests.cs (proposed) |
+| ☐ | CLIN-COX-001 | Clinical | 2 | Cox (1972), Breslow (1974) | — (proposed) | SurvivalAnalyzer_Cox_Tests.cs (proposed) |
+| ☐ | CLIN-CINDEX-001 | Clinical | 1 | Harrell et al. (1982/1996) | — (proposed) | SurvivalAnalyzer_ConcordanceIndex_Tests.cs (proposed) |
+| ☐ | CLIN-ROC-001 | Clinical | 3 | DeLong et al. (1988), Davis & Goadrich (2006) | — (proposed) | ClassifierMetrics_RocAuc_Tests.cs (proposed) |
+| ☐ | CLIN-SUBTYPE-001 | Clinical | 2 | Parker et al. (2009) PAM50, Tibshirani et al. (2002) | — (proposed) | SubtypeClassifier_NearestCentroid_Tests.cs (proposed) |
+| ☐ | STAT-MWU-001 | Statistics | 2 | Mann & Whitney (1947), Wilcoxon (1945) | — (proposed) | StatisticalTests_MannWhitney_Tests.cs (proposed) |
+| ☐ | STAT-KS-001 | Statistics | 2 | Smirnov (1948), Massey (1951) | — (proposed) | StatisticalTests_KolmogorovSmirnov_Tests.cs (proposed) |
+| ☐ | STAT-QVALUE-001 | Statistics | 2 | Storey & Tibshirani (2003) | — (proposed) | StatisticalTests_QValue_Tests.cs (proposed) |
+| ☐ | STAT-PERM-001 | Statistics | 2 | Efron (1979), Good (2005) | — (proposed) | StatisticalTests_Permutation_Tests.cs (proposed) |
+| ☐ | STAT-BENJYEK-001 | Statistics | 1 | Benjamini & Yekutieli (2001), Holm (1979) | — (proposed) | StatisticalTests_MultipleTesting_Tests.cs (proposed) |
+| ☐ | ANNOT-IMM-001 | Annotation | 2 | Salzberg et al. (1998), Delcher et al. (1999) Glimmer | — (proposed) | GenomeAnnotator_ImmGeneFinder_Tests.cs (proposed) |
+| ☐ | ANNOT-TRNA-001 | Annotation | 2 | Lowe & Eddy (1997) tRNAscan-SE | — (proposed) | GenomeAnnotator_TRna_Tests.cs (proposed) |
+| ☐ | ANNOT-CRISPRARRAY-001 | Annotation | 2 | Bland et al. (2007) CRT, Edgar (2007) PILER-CR | — (proposed) | GenomeAnnotator_CrisprArray_Tests.cs (proposed) |
+| ☐ | ANNOT-INFERNAL-001 | Annotation | 2 | Eddy & Durbin (1994), Nawrocki & Eddy (2013) Infernal | — (proposed) | GenomeAnnotator_CovarianceModel_Tests.cs (proposed) |
+| ☐ | RNA-MEA-001 | RnaStructure | 2 | Do et al. (2006) CONTRAfold, Ding et al. (2005) centroid | — (proposed) | RnaSecondaryStructure_MaximumExpectedAccuracy_Tests.cs (proposed) |
+| ☐ | RNA-SAMPLE-001 | RnaStructure | 2 | Ding & Lawrence (2003) | — (proposed) | RnaSecondaryStructure_BoltzmannSampling_Tests.cs (proposed) |
+| ☐ | RNA-INTERACT-001 | RnaStructure | 2 | Mückstein et al. (2006) RNAup, Busch et al. (2008) IntaRNA | — (proposed) | RnaSecondaryStructure_Interaction_Tests.cs (proposed) |
+| ☐ | RNA-SANKOFF-001 | RnaStructure | 1 | Sankoff (1985), Havgaard et al. (2007) FOLDALIGN | — (proposed) | RnaSecondaryStructure_Sankoff_Tests.cs (proposed) |
+| ☐ | HIC-NORM-001 | Chromosome | 2 | Imakaev et al. (2012) ICE, Knight & Ruiz (2013) | — (proposed) | HiCAnalyzer_MatrixBalancing_Tests.cs (proposed) |
+| ☐ | HIC-TAD-001 | Chromosome | 3 | Dixon et al. (2012), Crane et al. (2015) | — (proposed) | HiCAnalyzer_TadCalling_Tests.cs (proposed) |
+| ☐ | HIC-COMPARTMENT-001 | Chromosome | 2 | Lieberman-Aiden et al. (2009) | — (proposed) | HiCAnalyzer_Compartments_Tests.cs (proposed) |
+| ☐ | EPIGEN-PEAK-001 | Epigenetics | 2 | Zhang et al. (2008) MACS | — (proposed) | EpigeneticsAnalyzer_PeakCalling_Tests.cs (proposed) |
+| ☐ | EPIGEN-FOOTPRINT-001 | Epigenetics | 2 | Piper et al. (2013) Wellington, Gusmao et al. (2014) HINT | — (proposed) | EpigeneticsAnalyzer_Footprinting_Tests.cs (proposed) |
+| ☐ | EPIGEN-NUCLEO-001 | Epigenetics | 2 | Schep et al. (2015) NucleoATAC | — (proposed) | EpigeneticsAnalyzer_Nucleosome_Tests.cs (proposed) |
+| ☐ | PROT-GOR-001 | ProteinPred | 1 | Garnier, Gibrat & Robson (1996) GOR IV | — (proposed) | ProteinStructurePredictor_GorIv_Tests.cs (proposed) |
+| ☐ | PROT-RSA-001 | ProteinPred | 1 | Rost & Sander (1994), Kyte & Doolittle (1982) | — (proposed) | ProteinStructurePredictor_Rsa_Tests.cs (proposed) |
+| ☐ | PROT-DCA-001 | ProteinPred | 2 | Morcos et al. (2011) DCA, Ekeberg et al. (2013) plmDCA | — (proposed) | ProteinStructurePredictor_Dca_Tests.cs (proposed) |
+| ☐ | PROT-BEPITOPE-001 | ProteinMotif | 2 | Larsen et al. (2006) BepiPred, Parker et al. (1986) | — (proposed) | ProteinMotifFinder_BCellEpitope_Tests.cs (proposed) |
+| ☐ | META-UNIFRAC-001 | Metagenomics | 1 | Lozupone & Knight (2005), Lozupone et al. (2007) | — (proposed) | MetagenomicsAnalyzer_UniFrac_Tests.cs (proposed) |
+| ☐ | META-ASV-001 | Metagenomics | 2 | Callahan et al. (2016) DADA2 | — (proposed) | MetagenomicsAnalyzer_Asv_Tests.cs (proposed) |
+| ☐ | META-MASH-001 | Metagenomics | 2 | Ondov et al. (2016) Mash | — (proposed) | MetagenomicsAnalyzer_MashDistance_Tests.cs (proposed) |
+| ☐ | META-COABUND-001 | Metagenomics | 2 | Kang et al. (2019) MetaBAT2 | — (proposed) | MetagenomicsAnalyzer_CoAbundanceBinning_Tests.cs (proposed) |
+| ☐ | CRISPR-EFF-001 | MolTools | 1 | Doench et al. (2016) Rule Set 2 / Azimuth | — (proposed) | CrisprDesigner_OnTargetEfficiency_Tests.cs (proposed) |
+| ☐ | CRISPR-CFD-001 | MolTools | 2 | Doench et al. (2016) CFD, Hsu et al. (2013) | — (proposed) | CrisprDesigner_Cfd_Tests.cs (proposed) |
+| ☐ | CRISPR-PRIME-001 | MolTools | 3 | Anzalone et al. (2019) prime editing, Komor et al. (2016) base editing | — (proposed) | CrisprDesigner_PrimeBaseEditor_Tests.cs (proposed) |
+| ☐ | CLONE-ASSEMBLY-001 | MolTools | 2 | Gibson et al. (2009), Engler et al. (2008) Golden Gate | — (proposed) | CloningDesigner_AssemblyDesign_Tests.cs (proposed) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 
@@ -5689,5 +5798,2044 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 **Methods:** `DetectHigherOrderRepeat`
 
 **Tests:** `ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs`
+
+---
+
+## Test Units by Area — Proposed Algorithms: De Novo Assembly & Phylogenetics (24 units)
+
+> **Roadmap set** — net-new algorithms proposed to broaden the de novo genome-assembly and
+> phylogenetic-analysis coverage beyond the units already shipped (§24 / §33 Assembly, §8 / §41
+> Phylogenetics). These are **not yet implemented**: each is `☐ Not Started (proposed)` and does
+> **not** count toward the 255 validated units in the Quick Reference. Canonical method, source class,
+> and test-file names are the intended targets; every entry must go through the two-stage
+> validation protocol (independent Stage A/B, CLEAN) before it can be marked `☑`.
+>
+> Each row lists the reference algorithm and a peer-reviewed citation so implementation can proceed
+> spec-first. Ordering within each area is roughly graph-construction → simplification → resolution → QC.
+
+### 58. De Novo Genome Assembly — Proposed (12 units)
+
+#### ASSEMBLY-STRINGGRAPH-001: String Graph + Transitive Reduction
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.BuildStringGraph(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Myers (2005) *Bioinformatics* 21(suppl 2):ii79–ii85 (fragment-assembly string graph); Simpson & Durbin (2012) SGA *Genome Res* 22:549 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Build an overlap/string graph from read overlaps and apply Myers transitive-edge reduction so only irreducible overlaps remain — the OLC layout backbone that scales past the O(n²) all-pairs graph.
+
+**Methods (proposed):** `BuildStringGraph(overlaps)`, `TransitiveReduction(graph, fuzz)`, `ContainedReadRemoval(reads, overlaps)`
+
+**Tests (proposed):** `SequenceAssembler_StringGraph_Tests.cs`
+
+---
+
+#### ASSEMBLY-UNITIG-001: Unitig Compaction (Non-Branching Path Collapse)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.CompactUnitigs(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Myers et al. (2000) *Science* 287:2196 (unitig); Chikhi et al. (2016) BCALM2 *Bioinformatics* 32:i201 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Collapse maximal non-branching paths of the de Bruijn / string graph into unitigs (unambiguous contiguous segments), the standard pre-scaffold contig unit.
+
+**Methods (proposed):** `CompactUnitigs(graph)`, `FindNonBranchingPaths(graph)`
+
+**Tests (proposed):** `SequenceAssembler_Unitig_Tests.cs`
+
+---
+
+#### ASSEMBLY-SIMPLIFY-001: Graph Simplification — Tip Removal & Bubble Popping
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.SimplifyGraph(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Zerbino & Birney (2008) Velvet *Genome Res* 18:821; Zerbino et al. (2009) (Pebble/Rock Band) |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Clean sequencing-error artifacts from the assembly graph — remove short dead-end tips and pop bubbles (near-identical parallel paths from errors/heterozygosity) with coverage/length thresholds.
+
+**Methods (proposed):** `SimplifyGraph(graph, params)`, `RemoveTips(graph, maxTipLen)`, `PopBubbles(graph, maxDivergence)`
+
+**Tests (proposed):** `SequenceAssembler_GraphSimplification_Tests.cs`
+
+---
+
+#### ASSEMBLY-MULTIK-001: Iterative Multi-k De Bruijn Assembly
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.AssembleMultiK(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Bankevich et al. (2012) SPAdes *J Comput Biol* 19:455; Peng et al. (2012) IDBA-UD *Bioinformatics* 28:1420 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Iterate de Bruijn assembly over an increasing set of k values, carrying forward the graph so small-k gives connectivity in low-coverage regions and large-k resolves repeats.
+
+**Methods (proposed):** `AssembleMultiK(reads, kValues)`, `MergeGraphAcrossK(prevGraph, k)`
+
+**Tests (proposed):** `SequenceAssembler_MultiK_Tests.cs`
+
+---
+
+#### ASSEMBLY-MINIMIZER-001: Minimizer-Based Overlap Indexing
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.FindOverlapsByMinimizer(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Roberts et al. (2004) *Bioinformatics* 20:3363 (minimizers); Li (2018) minimap2 *Bioinformatics* 34:3094 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Index reads by (w,k) minimizers and seed-chain candidate overlaps, avoiding the all-pairs alignment cost — the standard long-read/large-dataset overlap step.
+
+**Methods (proposed):** `FindOverlapsByMinimizer(reads, w, k)`, `ComputeMinimizers(seq, w, k)`, `ChainAnchors(anchors)`
+
+**Tests (proposed):** `SequenceAssembler_MinimizerOverlap_Tests.cs`
+
+---
+
+#### ASSEMBLY-MINHASH-001: MinHash Overlap Estimation
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.EstimateOverlapMinHash(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Berlin et al. (2015) MHAP *Nat Biotechnol* 33:623; Ondov et al. (2016) Mash *Genome Biol* 17:132 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Estimate read-to-read overlap (Jaccard containment) from MinHash sketches for noisy long reads, giving candidate overlaps without base-level alignment.
+
+**Methods (proposed):** `EstimateOverlapMinHash(reads, sketchSize, k)`, `ComputeMinHashSketch(seq, sketchSize, k)`
+
+**Tests (proposed):** `SequenceAssembler_MinHashOverlap_Tests.cs`
+
+---
+
+#### ASSEMBLY-REPEATGRAPH-001: Repeat / A-Bruijn Graph (Long Reads)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.BuildRepeatGraph(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Kolmogorov et al. (2019) Flye *Nat Biotechnol* 37:540; Lin et al. (2016) A-Bruijn *PNAS* 113:E8396 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Construct a repeat graph that collapses repeat copies into single edges, then resolve them by threading spanning long reads — the long-read repeat-resolution core.
+
+**Methods (proposed):** `BuildRepeatGraph(reads)`, `ResolveRepeatsByThreading(graph, reads)`
+
+**Tests (proposed):** `SequenceAssembler_RepeatGraph_Tests.cs`
+
+---
+
+#### ASSEMBLY-POA-001: Partial-Order-Alignment Consensus Polishing
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.PolishConsensusPoa(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Lee, Grasso & Sharlow (2002) POA *Bioinformatics* 18:452; Vaser et al. (2017) Racon *Genome Res* 27:737 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Build a partial-order-alignment DAG from reads mapped to a draft contig and emit the heaviest-bundle consensus, correcting residual indel/substitution errors (POA is the engine behind Racon/SPOA polishing).
+
+**Methods (proposed):** `PolishConsensusPoa(draft, reads)`, `BuildPoaGraph(sequences)`, `PoaConsensus(graph)`
+
+**Tests (proposed):** `SequenceAssembler_PoaConsensus_Tests.cs`
+
+---
+
+#### ASSEMBLY-GAPFILL-001: Scaffold Gap Filling
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.FillGaps(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Luo et al. (2012) SOAPdenovo2/GapCloser *GigaScience* 1:18; Paulino et al. (2015) Sealer *BMC Bioinformatics* 16:230 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Close intra-scaffold N-gaps by locally assembling reads whose mates anchor into the flanks, replacing `N` runs with resolved sequence where evidence supports it.
+
+**Methods (proposed):** `FillGaps(scaffolds, reads)`, `LocalAssembleGap(leftFlank, rightFlank, reads)`
+
+**Tests (proposed):** `SequenceAssembler_GapFill_Tests.cs`
+
+---
+
+#### ASSEMBLY-KMERHIST-001: K-mer Coverage Histogram → Genome Size & Heterozygosity
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `GenomeAssemblyAnalyzer.EstimateGenomeFromKmerSpectrum(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Vurture et al. (2017) GenomeScope *Bioinformatics* 33:2202; Li & Waterman (1988) (Lander–Waterman coverage) |
+| **Source** | `GenomeAssemblyAnalyzer.cs` (proposed) |
+
+**Purpose:** Fit the k-mer multiplicity histogram to a mixture model to estimate genome size, sequencing coverage, heterozygosity, and repeat content before assembly.
+
+**Methods (proposed):** `EstimateGenomeFromKmerSpectrum(kmerHistogram)`, `FitCoveragePeaks(histogram)`
+
+**Tests (proposed):** `GenomeAssemblyAnalyzer_KmerSpectrumModel_Tests.cs`
+
+---
+
+#### ASSEMBLY-BLOOMDBG-001: Bloom-Filter Probabilistic De Bruijn Graph
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAssembler.BuildBloomDeBruijn(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Pell et al. (2012) *PNAS* 109:13272; Chikhi & Rizk (2013) Minia *Algorithms Mol Biol* 8:22 |
+| **Source** | `SequenceAssembler.cs` (proposed) |
+
+**Purpose:** Represent the de Bruijn graph via a Bloom filter of k-mers plus a critical false-positive set, cutting memory to a few bits per k-mer for large-genome assembly.
+
+**Methods (proposed):** `BuildBloomDeBruijn(reads, k, fpr)`, `NavigateBloomGraph(node)`
+
+**Tests (proposed):** `SequenceAssembler_BloomDeBruijn_Tests.cs`
+
+---
+
+#### ASSEMBLY-MISASSEMBLY-001: Reference-Based Misassembly Detection & NGA50
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `GenomeAssemblyAnalyzer.EvaluateAgainstReference(...)` (proposed) |
+| **Area** | Assembly |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Gurevich et al. (2013) QUAST *Bioinformatics* 29:1072; Salzberg et al. (2012) GAGE *Genome Res* 22:557 |
+| **Source** | `GenomeAssemblyAnalyzer.cs` (proposed) |
+
+**Purpose:** Align contigs to a reference, break them at misassembly breakpoints (relocations/translocations/inversions), and report corrected contiguity metrics NGA50/NGA75 and misassembly counts.
+
+**Methods (proposed):** `EvaluateAgainstReference(contigs, reference)`, `CalculateNGA50(alignedBlocks, refLength)`, `FindMisassemblyBreakpoints(contigAlignment)`
+
+**Tests (proposed):** `GenomeAssemblyAnalyzer_ReferenceEvaluation_Tests.cs`
+
+---
+
+### 59. Phylogenetic Analysis — Proposed (12 units)
+
+#### PHYLO-PARSIMONY-001: Maximum Parsimony (Fitch / Sankoff)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.ParsimonyScore(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Fitch (1971) *Syst Zool* 20:406 (small parsimony); Sankoff (1975) *SIAM J Appl Math* 28:35 (weighted) |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Score a tree by the minimum number of character-state changes (Fitch for equal weights, Sankoff DP for a cost matrix) — the parsimony criterion for tree evaluation and search.
+
+**Methods (proposed):** `ParsimonyScore(tree, alignment)`, `FitchDownPass(node, column)`, `SankoffScore(node, costMatrix)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_Parsimony_Tests.cs`
+
+---
+
+#### PHYLO-ML-001: Maximum Likelihood via Felsenstein Pruning
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.LogLikelihood(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Felsenstein (1981) *J Mol Evol* 17:368 (pruning algorithm); Stamatakis (2014) RAxML *Bioinformatics* 30:1312 |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Compute the log-likelihood of a tree + substitution model over an alignment using Felsenstein's post-order pruning (conditional likelihood vectors), the basis for ML tree scoring and branch-length optimization.
+
+**Methods (proposed):** `LogLikelihood(tree, alignment, model)`, `ConditionalLikelihood(node, model)`, `OptimizeBranchLengths(tree, alignment, model)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_MaximumLikelihood_Tests.cs`
+
+---
+
+#### PHYLO-SUBMODEL-001: Nucleotide Substitution Models (JC69→GTR + Γ)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.TransitionProbabilityMatrix(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Jukes & Cantor (1969); Kimura (1980); Hasegawa, Kishino & Yano (1985) HKY; Tavaré (1986) GTR; Yang (1994) *J Mol Evol* 39:306 (Γ rates) |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Provide the continuous-time Markov substitution models (JC69, K80, F81, HKY85, GTR) as rate matrices with `P(t)=e^{Qt}`, plus discrete-Γ among-site rate heterogeneity — the model layer PHYLO-ML-001 consumes.
+
+**Methods (proposed):** `TransitionProbabilityMatrix(model, t)`, `BuildRateMatrix(model, freqs, rates)`, `DiscreteGammaRates(alpha, nCategories)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_SubstitutionModel_Tests.cs`
+
+---
+
+#### PHYLO-ME-001: Minimum Evolution — BIONJ / FastME
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.BuildTreeMinimumEvolution(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Gascuel (1997) BIONJ *Mol Biol Evol* 14:685; Desper & Gascuel (2002) FastME *J Comput Biol* 9:687; Rzhetsky & Nei (1993) |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Build distance trees under the minimum-evolution criterion — BIONJ (variance-weighted NJ) plus balanced-ME branch-swapping (FastME) — improving on plain NJ for divergent distances.
+
+**Methods (proposed):** `BuildTreeMinimumEvolution(distMatrix)`, `BionjJoin(distMatrix, variance)`, `MeBranchSwap(tree, distMatrix)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_MinimumEvolution_Tests.cs`
+
+---
+
+#### PHYLO-LSFIT-001: Least-Squares Branch Lengths (Fitch–Margoliash)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.FitBranchLengthsLeastSquares(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Fitch & Margoliash (1967) *Science* 155:279; Cavalli-Sforza & Edwards (1967) |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Given a fixed topology, solve for branch lengths that minimize the (optionally weighted) sum of squared differences between patristic and observed pairwise distances, and report the fit residual.
+
+**Methods (proposed):** `FitBranchLengthsLeastSquares(tree, distMatrix, weighting)`, `CalculateFitResidual(tree, distMatrix)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_LeastSquaresFit_Tests.cs`
+
+---
+
+#### PHYLO-REARRANGE-001: Tree Rearrangement Moves (NNI / SPR / TBR)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.EnumerateNni(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Robinson (1971) NNI *J Comb Theory* 11:105; Swofford et al. (1996) (SPR/TBR); Allen & Steel (2001) |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Generate topology neighbors — nearest-neighbor interchange, subtree prune-and-regraft, tree bisection-reconnection — as the move set for heuristic parsimony/ML tree searches.
+
+**Methods (proposed):** `EnumerateNni(tree)`, `EnumerateSpr(tree)`, `EnumerateTbr(tree)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_TreeRearrangement_Tests.cs`
+
+---
+
+#### PHYLO-CONSENSUS-001: Consensus Trees (Strict / Majority-Rule / Extended)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.BuildConsensusTree(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Margush & McMorris (1981) *Bull Math Biol* 43:239 (majority-rule); Bryant (2003) (consensus review) |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Summarize a set of trees (bootstrap replicates / MCMC samples) into a strict, majority-rule (≥50%), or extended-majority-rule (greedy) consensus with clade-frequency support annotations.
+
+**Methods (proposed):** `BuildConsensusTree(trees, method, threshold)`, `CountBipartitions(trees)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_ConsensusTree_Tests.cs`
+
+---
+
+#### PHYLO-ROOT-001: Tree Rooting (Midpoint / Outgroup)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.RootTree(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Farris (1972) *Am Nat* 106:645 (midpoint); Hess & De Moraes Russo (2007) *Biol J Linn Soc* 92:669 |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Root an unrooted tree at the midpoint of the longest leaf-to-leaf path or on a specified outgroup clade, so downstream directional analyses (ancestral states, clock) have a defined root.
+
+**Methods (proposed):** `RootTree(tree, method, outgroup)`, `FindMidpoint(tree)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_TreeRooting_Tests.cs`
+
+---
+
+#### PHYLO-ANCESTRAL-001: Ancestral State Reconstruction
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.ReconstructAncestralStates(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Fitch (1971) (parsimony ASR); Yang, Kumar & Nei (1995) *Genetics* 141:1641 (marginal ML); Pupko et al. (2000) (joint ML) |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Infer internal-node character states on a fixed tree — by parsimony (Fitch/accelerated) or marginal/joint maximum likelihood under a substitution model — with per-node posterior probabilities.
+
+**Methods (proposed):** `ReconstructAncestralStates(tree, alignment, method, model)`, `MarginalAncestralProbabilities(node, model)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_AncestralReconstruction_Tests.cs`
+
+---
+
+#### PHYLO-MODELSEL-001: Substitution-Model Selection (AIC / BIC / AICc)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.SelectBestModel(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Akaike (1974) AIC; Schwarz (1978) BIC; Posada & Crandall (1998) ModelTest *Bioinformatics* 14:817; Posada (2008) jModelTest |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Rank candidate substitution models by information criteria (AIC/AICc/BIC) from their maximized log-likelihood and free-parameter count, returning the best-fit model for ML/Bayesian analysis.
+
+**Methods (proposed):** `SelectBestModel(alignment, tree, candidateModels)`, `ComputeInformationCriteria(logL, k, n)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_ModelSelection_Tests.cs`
+
+---
+
+#### PHYLO-DISTCORR-001: Advanced Distance Corrections (TN93 / F84 / LogDet)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.CalculatePairwiseDistance(..., method)` (extend) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Tamura & Nei (1993) TN93 *Mol Biol Evol* 10:512; Kishino & Hasegawa (1989) F84; Lockhart et al. (1994) LogDet/paralinear *Mol Biol Evol* 11:605 |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Extend the distance-matrix engine (PHYLO-DIST-001) with Tamura–Nei (TN93), Felsenstein F84, and LogDet/paralinear distances — the last robust to base-composition bias that breaks stationary-model distances.
+
+**Methods (proposed):** `CalculatePairwiseDistanceTn93(s1, s2)`, `CalculatePairwiseDistanceF84(s1, s2)`, `CalculateLogDetDistance(s1, s2)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_DistanceCorrections_Tests.cs`
+
+---
+
+#### PHYLO-ALRT-001: Branch Support — SH-aLRT (Approximate Likelihood-Ratio Test)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PhylogeneticAnalyzer.CalculateAlrtSupport(...)` (proposed) |
+| **Area** | Phylogenetic |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Anisimova & Gascuel (2006) aLRT *Syst Biol* 55:539; Guindon et al. (2010) PhyML SH-aLRT *Syst Biol* 59:307 |
+| **Source** | `PhylogeneticAnalyzer.cs` (proposed) |
+
+**Purpose:** Assign fast internal-branch support by comparing the likelihood of each branch's ML configuration against its best NNI alternative (aLRT / Shimodaira–Hasegawa-corrected SH-aLRT), a non-bootstrap alternative to PHYLO-BOOT-001.
+
+**Methods (proposed):** `CalculateAlrtSupport(tree, alignment, model)`, `ShAlrtStatistic(branch, model)`
+
+**Tests (proposed):** `PhylogeneticAnalyzer_AlrtSupport_Tests.cs`
+
+---
+
+## Test Units by Area — Proposed Algorithms: Oncology (recent methods emphasis) (24 units)
+
+> **Roadmap set (oncology, 2017–2025 literature).** The shipped `OncologyAnalyzer` already covers ASCAT
+> purity/ploidy, SBS96 signatures (NMF extraction + NNLS refit + bootstrap), fusions, TMB, MSI, an HRD
+> scar score (LOH/LST/TAI) + LOH, neoantigen peptides + MHC-I binding (MHCflurry / SMM-BIMAS), clonality
+> (CCF, phylogeny), ctDNA/MRD/CHIP, driver/actionability annotation, and CIBERSORT ν-SVR deconvolution.
+> The units below are **net-new, not yet implemented** (`☐ Not Started (proposed)`), chosen to close the
+> gap to current best practice — newer mutational-signature *types*, composite HRD classifiers, complex
+> genome-instability events, cohort-level drivers, subclonal architecture, neoantigen immunogenicity, and
+> next-generation liquid-biopsy readouts. They do **not** count toward the 255 validated units. All are
+> **research-grade / alpha — not for clinical or diagnostic use** and must clear the two-stage validation
+> protocol before `☑`. Each row cites the reference method.
+
+### 60. Oncology — Extended Mutational Signatures (5 units)
+
+#### ONCO-SIGID-001: Small-Insertion/Deletion (ID83) Signatures
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.ClassifyIndelContext(...)` / `ExtractSignatures(catalog=ID83)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Alexandrov et al. (2020) *Nature* 578:94 (COSMIC v3 ID83); PCAWG Mutational Signatures WG |
+| **Source** | `OncologyAnalyzer.Signatures.cs` (proposed) |
+
+**Purpose:** Build the 83-channel indel catalog (1 bp C/T at homopolymers, longer indels by repeat/microhomology context) and extract/refit ID signatures — captures MMR-deficiency (ID1/2), HRD microhomology deletions (ID6/8), and tobacco processes invisible to SBS96.
+
+**Methods (proposed):** `ClassifyIndelContext(variant, reference)`, `BuildId83Catalog(variants, reference)`
+
+**Tests (proposed):** `OncologyAnalyzer_IndelSignatures_Tests.cs`
+
+---
+
+#### ONCO-SIGDBS-001: Doublet-Base-Substitution (DBS78) Signatures
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.BuildDbs78Catalog(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Alexandrov et al. (2020) *Nature* 578:94 (COSMIC v3 DBS78) |
+| **Source** | `OncologyAnalyzer.Signatures.cs` (proposed) |
+
+**Purpose:** Classify tandem double-nucleotide substitutions into the 78-channel DBS catalog and refit DBS signatures — flags UV (DBS1, CC>TT), platinum therapy (DBS5), and tobacco (DBS2) processes.
+
+**Methods (proposed):** `BuildDbs78Catalog(variants)`, `ClassifyDoubletContext(variant)`
+
+**Tests (proposed):** `OncologyAnalyzer_DoubletSignatures_Tests.cs`
+
+---
+
+#### ONCO-SIGCN-001: Copy-Number (CN48) Signatures
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.BuildCn48Catalog(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Steele et al. (2022) *Nature* 606:984 (pan-cancer CN48); Macintyre et al. (2018) *Nat Genet* 50:1262 |
+| **Source** | `OncologyAnalyzer.Signatures.cs` (proposed) |
+
+**Purpose:** Summarize an allele-specific copy-number profile into the 48-component vector (heterozygosity state × total copy number × segment size) and extract CN signatures — resolves HRD, whole-genome-doubling, chromothripsis, and ecDNA-associated instability.
+
+**Methods (proposed):** `BuildCn48Catalog(segments)`, `ClassifyCnSegment(segment)`
+
+**Tests (proposed):** `OncologyAnalyzer_CopyNumberSignatures_Tests.cs`
+
+---
+
+#### ONCO-SIGSV-001: Structural-Variant / Rearrangement (RS32) Signatures
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.BuildRearrangementCatalog(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Nik-Zainal et al. (2016) *Nature* 534:47 (6 rearrangement signatures); Degasperi et al. (2020) *Nat Cancer* 1:249 |
+| **Source** | `OncologyAnalyzer.Signatures.cs` (proposed) |
+
+**Purpose:** Classify SVs by type (del/dup/inv/translocation) × clustered-vs-dispersed × size bin into the 32-channel rearrangement catalog and extract RS signatures — RS3 (HRD tandem duplications), RS5 (deletions), RS1/RS4 (clustered, chromoplexy/chromothripsis).
+
+**Methods (proposed):** `BuildRearrangementCatalog(svs)`, `ClassifyRearrangement(sv)`
+
+**Tests (proposed):** `OncologyAnalyzer_RearrangementSignatures_Tests.cs`
+
+---
+
+#### ONCO-SIGFIT-001: Sparse Signature Assignment + Confidence
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.AssignSignaturesSparse(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Rosenthal et al. (2016) deconstructSigs *Genome Biol* 17:31; Díaz-Gay et al. (2023) SigProfilerAssignment; Jin et al. (2024) MuSiCal *Nat Genet* |
+| **Source** | `OncologyAnalyzer.Signatures.cs` (proposed) |
+
+**Purpose:** Refit a *single* sample against a reference COSMIC signature set with L1-sparsity / greedy pruning and per-signature bootstrap confidence, avoiding the overfitting of unconstrained NNLS — the standard single-sample assignment complementing de novo `ExtractSignatures`.
+
+**Methods (proposed):** `AssignSignaturesSparse(catalog, referenceSignatures)`, `BootstrapAssignmentConfidence(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_SignatureAssignment_Tests.cs`
+
+---
+
+### 61. Oncology — HRD Classifiers & Genome Instability (7 units)
+
+#### ONCO-HRDETECT-001: HRDetect Composite Classifier
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.ComputeHrDetectScore(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Davies et al. (2017) HRDetect *Nat Med* 23:517 |
+| **Source** | `OncologyAnalyzer.HrdLoh.cs` (proposed) |
+
+**Purpose:** Combine six weighted features (SBS3, SBS8, rearrangement signatures RS3/RS5, HRD-LOH index, deletion-microhomology proportion) via the published logistic model into a 0–1 probability of BRCA1/2-type homologous-recombination deficiency — a signature-based classifier beyond the scar-count `CalculateHRDScore`.
+
+**Methods (proposed):** `ComputeHrDetectScore(features)`, `AssembleHrDetectFeatures(sample)`
+
+**Tests (proposed):** `OncologyAnalyzer_HrDetect_Tests.cs`
+
+---
+
+#### ONCO-CHORD-001: CHORD Random-Forest HRD & Subtype
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.PredictChord(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Nguyen et al. (2020) CHORD *Nat Commun* 11:5584 |
+| **Source** | `OncologyAnalyzer.HrdLoh.cs` (proposed) |
+
+**Purpose:** Predict HRD from relative counts of mutation-context features (indels with microhomology, structural-variant type/size) with a random-forest, and further split BRCA1-type (more SV) vs BRCA2-type (more deletions) — a mutation-context classifier requiring no signature priors.
+
+**Methods (proposed):** `PredictChord(mutationContextFeatures)`, `ClassifyHrdSubtype(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_Chord_Tests.cs`
+
+---
+
+#### ONCO-CHROMOTHRIPSIS-001: Chromothripsis Detection (ShatterSeek criteria)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.DetectChromothripsis(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Korbel & Campbell (2013) *Cell* 152:1226 (criteria); Cortés-Ciriano et al. (2020) ShatterSeek *Nat Genet* 52:331 |
+| **Purpose** | Flags catastrophic single-event shattering — a distinct evolutionary mechanism from gradual CNA. |
+| **Source** | `OncologyAnalyzer.PhylogenyHeterogeneity.cs` (proposed) |
+
+**Purpose:** Test genomic regions for chromothripsis using the consensus criteria — clustered breakpoints, oscillating copy-number states (2–3 levels), interleaved SV types, and randomness of fragment order/join — returning per-region statistical evidence.
+
+**Methods (proposed):** `DetectChromothripsis(svs, cnSegments)`, `TestOscillatingCopyNumber(...)`, `TestBreakpointClustering(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_Chromothripsis_Tests.cs`
+
+---
+
+#### ONCO-KATAEGIS-001: Kataegis (Localized Hypermutation) Detection
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.DetectKataegis(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Nik-Zainal et al. (2012) *Cell* 149:979; Alexandrov et al. (2013) *Nature* 500:415 (APOBEC) |
+| **Source** | `OncologyAnalyzer.Signatures.cs` (proposed) |
+
+**Purpose:** Segment the inter-mutation-distance ("rainfall") profile (piecewise-constant fit) to call foci of ≥6 consecutive substitutions with mean spacing ≤ ~1 kb, typically C>T/C>G at TpС (APOBEC) — a localized-hypermutation readout distinct from genome-wide TMB.
+
+**Methods (proposed):** `DetectKataegis(variants)`, `SegmentIntermutationDistance(positions)`
+
+**Tests (proposed):** `OncologyAnalyzer_Kataegis_Tests.cs`
+
+---
+
+#### ONCO-ECDNA-001: ecDNA / Focal Amplicon Reconstruction & Classification
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.ReconstructAmplicon(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Deshpande et al. (2019) AmpliconArchitect *Nat Commun* 10:392; Kim et al. (2020) AmpliconClassifier *Nat Genet* 52:891 |
+| **Source** | `OncologyAnalyzer.CopyNumberPloidy.cs` (proposed) |
+
+**Purpose:** From focal high-copy segments + SV breakpoints, build the breakpoint graph and search for cyclic paths, then classify the amplicon as circular ecDNA vs BFB vs linear/complex — ecDNA is a major, actionable oncogene-amplification mechanism absent from `DetectFocalAmplifications`.
+
+**Methods (proposed):** `ReconstructAmplicon(cnSegments, svs)`, `ClassifyAmpliconStructure(graph)`, `FindCyclicPaths(breakpointGraph)`
+
+**Tests (proposed):** `OncologyAnalyzer_EcDnaAmplicon_Tests.cs`
+
+---
+
+#### ONCO-WGD-001: Whole-Genome Doubling Detection
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.DetectWholeGenomeDoubling(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Bielski et al. (2018) *Nat Genet* 50:1189; Zack et al. (2013) *Nat Genet* 45:1134; Dewhurst et al. (2014) |
+| **Source** | `OncologyAnalyzer.CopyNumberPloidy.cs` (proposed) |
+
+**Purpose:** Call WGD from ASCAT-derived ploidy and the fraction of the genome with major-copy-number ≥ 2 (even-ploidy MCN-based rule) — a prognostic macro-evolutionary event that reshapes CCF and timing interpretation.
+
+**Methods (proposed):** `DetectWholeGenomeDoubling(cnSegments, ploidy)`, `FractionGenomeMajorCnAboveTwo(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_WholeGenomeDoubling_Tests.cs`
+
+---
+
+#### ONCO-TIMING-001: Molecular Timing of Copy-Number Gains
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.TimeCopyNumberGains(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Gerstung et al. (2020) MutationTimeR / PCAWG evolution *Nature* 578:122; Purdom et al. (2013) |
+| **Source** | `OncologyAnalyzer.Clonality.cs` (proposed) |
+
+**Purpose:** Use the ratio of duplicated (pre-gain) to non-duplicated (post-gain) clonal mutations within amplified segments to place each gain on a molecular-time axis and classify mutations as early-clonal / late-clonal / subclonal — orders the events `ReconstructPhylogeny` produces.
+
+**Methods (proposed):** `TimeCopyNumberGains(variants, cnSegments, purity)`, `ClassifyMutationTiming(variant)`
+
+**Tests (proposed):** `OncologyAnalyzer_MutationTiming_Tests.cs`
+
+---
+
+### 62. Oncology — Cohort Drivers & Subclonal Architecture (4 units)
+
+#### ONCO-DNDS-001: dN/dS Positive-Selection Driver Detection
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.CalculateDndsDrivers(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Martincorena et al. (2017) dNdScv *Cell* 171:1029; Greenman et al. (2006) |
+| **Source** | `OncologyAnalyzer.DriversArtifactsAnnotation.cs` (proposed) |
+
+**Purpose:** Estimate per-gene dN/dS ratios (missense, nonsense, splice vs synonymous) under a trinucleotide-context substitution model with negative-binomial variation to call genes under positive selection — a statistically principled, cohort-level driver test beyond curated-list `IdentifyDriverMutations`.
+
+**Methods (proposed):** `CalculateDndsDrivers(cohortVariants, geneModel)`, `EstimateGlobalMutationRates(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_DndsDrivers_Tests.cs`
+
+---
+
+#### ONCO-GISTIC-001: Recurrent Focal Copy-Number Driver Detection
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.FindRecurrentCnaDrivers(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Mermel et al. (2011) GISTIC2 *Genome Biol* 12:R41; Beroukhim et al. (2007) |
+| **Source** | `OncologyAnalyzer.CopyNumberPloidy.cs` (proposed) |
+
+**Purpose:** Score each genomic marker by amplitude × frequency of CNA across a cohort, assess significance against a background permutation/convolution null, and peel out peak driver regions with confidence intervals — identifies recurrently amplified/deleted loci (oncogenes/TSGs).
+
+**Methods (proposed):** `FindRecurrentCnaDrivers(cohortSegments)`, `ComputeGScores(...)`, `PeelOffPeaks(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_RecurrentCna_Tests.cs`
+
+---
+
+#### ONCO-PYCLONE-001: Dirichlet-Process Subclonal Clustering
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.ClusterSubclonesDp(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Roth et al. (2014) PyClone *Nat Methods* 11:396; Gillis & Roth (2020) PyClone-VI *BMC Bioinformatics* 21:571; Miller et al. (2014) SciClone |
+| **Source** | `OncologyAnalyzer.Clonality.cs` (proposed) |
+
+**Purpose:** Cluster mutations into subclonal populations by jointly modeling VAF, copy-number, and purity under a Dirichlet-process / variational mixture, returning per-cluster cellular prevalence and mutation assignments — infers the number of subclones instead of the fixed-threshold `ClassifyClonality`.
+
+**Methods (proposed):** `ClusterSubclonesDp(variants, cnSegments, purity)`, `EstimateCellularPrevalence(cluster)`
+
+**Tests (proposed):** `OncologyAnalyzer_SubcloneClustering_Tests.cs`
+
+---
+
+#### ONCO-SUBCLONALCN-001: Subclonal Allele-Specific Copy Number
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.FitSubclonalCopyNumber(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Nik-Zainal et al. (2012) Battenberg *Cell* 149:994; Van Loo et al. (2010) ASCAT |
+| **Source** | `OncologyAnalyzer.CopyNumberPloidy.cs` (proposed) |
+
+**Purpose:** Extend allele-specific CN to a mixture of two copy-number states per segment with a mixing fraction, so segments not explained by a single clonal state are modeled as subclonal — the CN complement to mutation-level subclone clustering.
+
+**Methods (proposed):** `FitSubclonalCopyNumber(bafLogr, purity, ploidy)`, `TestClonalVsSubclonalSegment(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_SubclonalCopyNumber_Tests.cs`
+
+---
+
+### 63. Oncology — Neoantigen Immunogenicity & Immune Genomics (4 units)
+
+#### ONCO-MHCII-001: MHC Class-II Binding Prediction
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.PredictMhcIIBinding(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Reynisson et al. (2020) NetMHCIIpan-4.0 *NAR* 48:W449; Jensen et al. (2018) |
+| **Source** | `OncologyAnalyzer.Neoantigen.cs` (proposed) |
+
+**Purpose:** Score binding of longer (13–25 aa) peptides to HLA-DR/DQ/DP via a binding-core registration + PSSM/NN model with %-rank normalization — CD4⁺-helper neoepitopes drive vaccine/checkpoint response and are missing from the class-I-only pipeline.
+
+**Methods (proposed):** `PredictMhcIIBinding(peptide, allele)`, `FindBindingCore(peptide, allele)`
+
+**Tests (proposed):** `OncologyAnalyzer_MhcClassII_Tests.cs`
+
+---
+
+#### ONCO-IMMUNOGEN-001: Neoepitope Immunogenicity (Agretopicity / DAI / Foreignness)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.ScoreNeoepitopeImmunogenicity(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Duan et al. (2014) DAI *J Exp Med* 211:2231; Ghorani et al. (2018); Li et al. (2021) DeepImmuno *Brief Bioinform*; Albert et al. (2023) BigMHC *Nat Mach Intell* |
+| **Source** | `OncologyAnalyzer.Neoantigen.cs` (proposed) |
+
+**Purpose:** Rank neoepitopes beyond raw affinity — differential agretopicity index (mutant vs wild-type binding), TCR-facing position substitution, hydrophobicity/foreignness, and self-similarity filtering — the features that separate presented from truly immunogenic peptides.
+
+**Methods (proposed):** `ScoreNeoepitopeImmunogenicity(mutantPeptide, wildTypePeptide, allele)`, `DifferentialAgretopicity(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_NeoepitopeImmunogenicity_Tests.cs`
+
+---
+
+#### ONCO-NEOFITNESS-001: Neoantigen Fitness Model
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.ComputeNeoantigenFitness(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Łuksza et al. (2017) *Nature* 551:517; Łuksza et al. (2022) *Nature* 606:389 |
+| **Source** | `OncologyAnalyzer.Neoantigen.cs` (proposed) |
+
+**Purpose:** Model the immune fitness cost of a clone as MHC amplitude × TCR-recognition probability (alignment to IEDB epitopes via a Boltzmann sum), combined with clone frequency — predicts immune-mediated clonal selection and response to checkpoint blockade.
+
+**Methods (proposed):** `ComputeNeoantigenFitness(neoantigens, cloneFrequencies)`, `TcrRecognitionProbability(peptide, iedbEpitopes)`
+
+**Tests (proposed):** `OncologyAnalyzer_NeoantigenFitness_Tests.cs`
+
+---
+
+#### ONCO-LOHHLA-001: HLA Allele-Specific Loss of Heterozygosity
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.DetectHlaLoh(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | McGranahan et al. (2017) LOHHLA *Cell* 171:1259 |
+| **Source** | `OncologyAnalyzer.Neoantigen.cs` (proposed) |
+
+**Purpose:** Detect loss of one HLA allele (a major immune-escape route) by comparing allele-specific coverage/BAF at mismatched positions between the patient's HLA haplotypes, corrected for purity/ploidy — flags neoantigens whose presenting allele is lost.
+
+**Methods (proposed):** `DetectHlaLoh(hlaAlleleCoverage, purity, ploidy)`, `AlleleSpecificCoverageAtMismatches(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_HlaLoh_Tests.cs`
+
+---
+
+### 64. Oncology — Next-Generation Liquid Biopsy (4 units)
+
+#### ONCO-ICHOR-001: Tumor Fraction from Low-Pass WGS (ichorCNA)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.EstimateTumorFractionLpWgs(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Adalsteinsson et al. (2017) ichorCNA *Nat Commun* 8:1324 |
+| **Source** | `OncologyAnalyzer.CtdnaMrdChip.cs` (proposed) |
+
+**Purpose:** Jointly estimate circulating tumor fraction, ploidy, and subclonal CNA from GC/mappability-corrected low-pass WGS read-depth via a probabilistic HMM — a mutation-free ctDNA quantifier that sets whether tumor-informed variant calling is even feasible.
+
+**Methods (proposed):** `EstimateTumorFractionLpWgs(binnedCoverage)`, `CorrectGcMappability(bins)`
+
+**Tests (proposed):** `OncologyAnalyzer_IchorTumorFraction_Tests.cs`
+
+---
+
+#### ONCO-FRAGMENT-001: cfDNA Fragmentomics (Fragment-Size + End-Motif)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.ComputeFragmentomicFeatures(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Cristiano et al. (2019) DELFI *Nature* 570:385; Jiang et al. (2020) end-motifs *Cancer Discov* 10:664 |
+| **Source** | `OncologyAnalyzer.CtdnaMrdChip.cs` (proposed) |
+
+**Purpose:** Derive genome-wide fragment-length distributions (short/long ratios per bin) and 4-mer end-motif frequencies from cfDNA, then estimate a tumor-fraction / cancer-signal score — orthogonal, mutation-independent signal that boosts low-tumor-fraction MRD detection.
+
+**Methods (proposed):** `ComputeFragmentomicFeatures(fragments)`, `ShortLongRatioProfile(...)`, `EndMotifFrequencies(fragments, reference)`
+
+**Tests (proposed):** `OncologyAnalyzer_Fragmentomics_Tests.cs`
+
+---
+
+#### ONCO-PHASED-001: Phased-Variant MRD Detection (PhasED-seq)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.DetectMrdPhasedVariants(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Kurtz et al. (2021) PhasED-seq *Nat Biotechnol* 39:1537 |
+| **Source** | `OncologyAnalyzer.CtdnaMrdChip.cs` (proposed) |
+
+**Purpose:** Require ≥2 in-phase tumor variants co-occurring on the same cfDNA fragment before counting a positive read, collapsing the background error rate to enable parts-per-million MRD detection — a sensitivity ceiling raise over single-variant `DetectMRD`.
+
+**Methods (proposed):** `DetectMrdPhasedVariants(reads, phasedVariantSets)`, `EnumeratePhasedVariantBlocks(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_PhasedVariantMrd_Tests.cs`
+
+---
+
+#### ONCO-MSIPRO-001: Single-Sample MSI (MSIsensor-pro)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `OncologyAnalyzer.DetectMsiSingleSample(...)` (proposed) |
+| **Area** | Oncology |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Jia et al. (2020) MSIsensor-pro *GPB* 18:65; Niu et al. (2014) MSIsensor |
+| **Source** | `OncologyAnalyzer.TmbMsi.cs` (proposed) |
+
+**Purpose:** Call MSI from a *tumor-only* sample by modeling each microsatellite's read-length distribution against a normal baseline (distribution shift / entropy of repeat length) — removes the matched-normal requirement of the current `DetectMSI`.
+
+**Methods (proposed):** `DetectMsiSingleSample(microsatelliteProfiles, baseline)`, `RepeatLengthDistributionShift(...)`
+
+**Tests (proposed):** `OncologyAnalyzer_MsiSingleSample_Tests.cs`
+
+---
+
+## Test Units by Area — Proposed Algorithms: Cross-Domain Expansion (61 units)
+
+> **Broad roadmap set** spanning every subsystem of the library, chosen for high scientific value and
+> feasibility of a from-scratch, dependency-free C# implementation. All are **net-new, not yet
+> implemented** (`☐ Not Started (proposed)`), do **not** count toward the 255 validated units, are
+> **research-grade / alpha**, and must clear the two-stage validation protocol before `☑`. Methods
+> already shipped were excluded (affine-gap NW/SW + anchor-based aligner, Chou-Fasman, Benjamini-Hochberg,
+> hypergeometric ORA, GSEA, iHS/EHH, quantile normalization). Each row cites the reference method.
+
+### 65. Text Indexing (4 units)
+
+#### IDX-SUFFIXARRAY-001: Linear-Time Suffix Array (SA-IS)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TextIndex.BuildSuffixArray(...)` (proposed) |
+| **Area** | Indexing |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Nong, Zhang & Chan (2009/2011) SA-IS *IEEE Trans Comput* 60:1471; Manber & Myers (1993) |
+| **Source** | `TextIndex.cs` (proposed) |
+
+**Purpose:** Build a suffix array in O(n) via the induced-sorting SA-IS algorithm — the compact index underpinning fast substring search, BWT, and read mapping without the memory of a suffix tree.
+
+**Methods (proposed):** `BuildSuffixArray(text)`, `SearchSuffixArray(sa, text, pattern)`
+
+**Tests (proposed):** `TextIndex_SuffixArray_Tests.cs`
+
+---
+
+#### IDX-LCP-001: LCP Array & Enhanced Suffix Array
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TextIndex.BuildLcpArray(...)` (proposed) |
+| **Area** | Indexing |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Kasai et al. (2001) *CPM* LNCS 2089:181; Abouelhoda, Kurtz & Ohlebusch (2004) enhanced SA |
+| **Source** | `TextIndex.cs` (proposed) |
+
+**Purpose:** Compute the longest-common-prefix array in O(n) (Kasai) and expose child-table traversal so an enhanced suffix array replaces suffix-tree operations (maximal repeats, MUMs, matching statistics).
+
+**Methods (proposed):** `BuildLcpArray(text, sa)`, `EnumerateMaximalRepeats(sa, lcp)`
+
+**Tests (proposed):** `TextIndex_LcpArray_Tests.cs`
+
+---
+
+#### IDX-BWT-001: Burrows-Wheeler Transform + Inverse
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TextIndex.BurrowsWheelerTransform(...)` (proposed) |
+| **Area** | Indexing |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Burrows & Wheeler (1994) DEC SRC-124 |
+| **Source** | `TextIndex.cs` (proposed) |
+
+**Purpose:** Compute the BWT (from the suffix array) and its LF-mapping inverse — the reversible permutation that makes long genomic strings both compressible and searchable.
+
+**Methods (proposed):** `BurrowsWheelerTransform(text, sa)`, `InverseBwt(bwt)`
+
+**Tests (proposed):** `TextIndex_Bwt_Tests.cs`
+
+---
+
+#### IDX-FM-001: FM-Index Backward Search
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TextIndex.FmSearch(...)` (proposed) |
+| **Area** | Indexing |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Ferragina & Manzini (2000) *FOCS* 390 (opportunistic FM-index) |
+| **Source** | `TextIndex.cs` (proposed) |
+
+**Purpose:** Count/locate exact pattern occurrences in O(m) via BWT rank (C[] + Occ) backward search — the core of BWA/Bowtie-style aligners in a fraction of a reference's memory.
+
+**Methods (proposed):** `FmSearch(index, pattern)`, `BuildFmIndex(bwt, sampleRate)`, `Locate(index, range)`
+
+**Tests (proposed):** `TextIndex_FmIndex_Tests.cs`
+
+---
+
+### 66. Extended Pairwise Alignment (4 units)
+
+#### ALIGN-HIRSCHBERG-001: Linear-Space Global Alignment
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAligner.GlobalAlignLinearSpace(...)` (proposed) |
+| **Area** | Alignment |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Hirschberg (1975) *CACM* 18:341; Myers & Miller (1988) |
+| **Source** | `SequenceAligner.cs` (proposed) |
+
+**Purpose:** Produce the optimal Needleman-Wunsch alignment in O(n) space via divide-and-conquer on the midpoint row — lets megabase sequences align without an O(nm) matrix.
+
+**Methods (proposed):** `GlobalAlignLinearSpace(s1, s2, scoring)`
+
+**Tests (proposed):** `SequenceAligner_Hirschberg_Tests.cs`
+
+---
+
+#### ALIGN-MYERS-001: Bit-Vector / O(ND) Edit Distance
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAligner.EditDistanceBitVector(...)` (proposed) |
+| **Area** | Alignment |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Myers (1986) O(ND) *Algorithmica* 1:251; Myers (1999) bit-vector *J ACM* 46:395 |
+| **Source** | `SequenceAligner.cs` (proposed) |
+
+**Purpose:** Compute edit distance in O(⌈m/w⌉·n) with word-parallel bit-vectors (and the O(ND) diagonal method for similar strings) — order-of-magnitude faster than the DP matrix for verification/mapping.
+
+**Methods (proposed):** `EditDistanceBitVector(s1, s2)`, `EditDistanceOnd(s1, s2, maxD)`
+
+**Tests (proposed):** `SequenceAligner_BitVectorEdit_Tests.cs`
+
+---
+
+#### ALIGN-BANDED-001: Banded (Ukkonen) Alignment
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAligner.BandedAlign(...)` (proposed) |
+| **Area** | Alignment |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Ukkonen (1985) *Inf Control* 64:100; Chao, Pearson & Miller (1992) |
+| **Source** | `SequenceAligner.cs` (proposed) |
+
+**Purpose:** Restrict the DP to a diagonal band of width k for near-identical sequences, giving O(nk) alignment with a guaranteed-optimal result when the true alignment stays in-band.
+
+**Methods (proposed):** `BandedAlign(s1, s2, bandWidth, scoring)`
+
+**Tests (proposed):** `SequenceAligner_BandedAlign_Tests.cs`
+
+---
+
+#### ALIGN-SUBOPT-001: Waterman-Eggert Suboptimal Local Alignments
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SequenceAligner.SuboptimalLocalAlignments(...)` (proposed) |
+| **Area** | Alignment |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Waterman & Eggert (1987) *J Mol Biol* 197:723 |
+| **Source** | `SequenceAligner.cs` (proposed) |
+
+**Purpose:** Enumerate the top-k non-overlapping high-scoring local alignments (not just the best) by iterative re-scoring — needed for repeats, multi-domain hits, and tandem structure.
+
+**Methods (proposed):** `SuboptimalLocalAlignments(s1, s2, k, scoring)`
+
+**Tests (proposed):** `SequenceAligner_Suboptimal_Tests.cs`
+
+---
+
+### 67. Variant Calling & Phasing (5 units)
+
+#### VARIANT-GLK-001: Bayesian Genotype Likelihoods
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `VariantCaller.CalculateGenotypeLikelihoods(...)` (proposed) |
+| **Area** | Variants |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Li (2011) *Bioinformatics* 27:2987 (samtools model); DePristo et al. (2011) GATK *Nat Genet* 43:491 |
+| **Source** | `VariantCaller.cs` (proposed) |
+
+**Purpose:** Compute per-site genotype likelihoods from base qualities and a prior to output posterior genotype + phred-scaled QUAL, replacing fixed VAF thresholds with a probabilistic call.
+
+**Methods (proposed):** `CalculateGenotypeLikelihoods(pileup)`, `CallGenotypePosterior(likelihoods, prior)`
+
+**Tests (proposed):** `VariantCaller_GenotypeLikelihoods_Tests.cs`
+
+---
+
+#### VARIANT-NORM-001: Indel Left-Alignment & Normalization
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `VariantCaller.NormalizeVariant(...)` (proposed) |
+| **Area** | Variants |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Tan, Abecasis & Kang (2015) vt normalize *Bioinformatics* 31:2202 |
+| **Source** | `VariantCaller.cs` (proposed) |
+
+**Purpose:** Left-align and parsimoniously trim indels/complex variants to a canonical representation so the same event from different callers compares equal — a prerequisite for merging/annotation correctness.
+
+**Methods (proposed):** `NormalizeVariant(variant, reference)`, `LeftAlignIndel(variant, reference)`
+
+**Tests (proposed):** `VariantCaller_Normalize_Tests.cs`
+
+---
+
+#### PHASE-READ-001: Read-Backed Haplotype Phasing
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `HaplotypePhaser.PhaseByReads(...)` (proposed) |
+| **Area** | Variants |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Edge, Bafna & Bansal (2017) HapCUT2 *Genome Res* 27:801 |
+| **Source** | `HaplotypePhaser.cs` (proposed) |
+
+**Purpose:** Phase heterozygous variants into haplotype blocks by max-cut over the read-overlap graph (reads spanning ≥2 hets), giving switch-error-aware block assignments.
+
+**Methods (proposed):** `PhaseByReads(variants, reads)`, `BuildFragmentMatrix(variants, reads)`
+
+**Tests (proposed):** `HaplotypePhaser_ReadBacked_Tests.cs`
+
+---
+
+#### PHASE-STAT-001: Statistical Phasing / Li-Stephens HMM
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `HaplotypePhaser.PhaseByHmm(...)` (proposed) |
+| **Area** | Variants |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Li & Stephens (2003) *Genetics* 165:2213; Delaneau et al. (2013) SHAPEIT2 |
+| **Source** | `HaplotypePhaser.cs` (proposed) |
+
+**Purpose:** Phase (and impute) genotypes against a reference panel with the Li-Stephens copying-model HMM (forward-backward over haplotype states) — the population-based alternative to read phasing.
+
+**Methods (proposed):** `PhaseByHmm(genotypes, panel)`, `ImputeMissing(genotypes, panel)`
+
+**Tests (proposed):** `HaplotypePhaser_LiStephens_Tests.cs`
+
+---
+
+#### VARIANT-DENOVO-001: Trio De Novo / Mendelian-Violation Calling
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `VariantCaller.CallDeNovoTrio(...)` (proposed) |
+| **Area** | Variants |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Ramu et al. (2013) DeNovoGear *Nat Methods* 10:985; Wei et al. (2015) TrioDeNovo |
+| **Source** | `VariantCaller.cs` (proposed) |
+
+**Purpose:** Call de novo mutations in a proband from parent-child genotype likelihoods under a Mendelian-transmission prior, flagging violations with a posterior de novo probability.
+
+**Methods (proposed):** `CallDeNovoTrio(childGl, fatherGl, motherGl, mutationRate)`, `CheckMendelianConsistency(trio)`
+
+**Tests (proposed):** `VariantCaller_DeNovoTrio_Tests.cs`
+
+---
+
+### 68. Population & Statistical Genetics (6 units)
+
+#### POP-KINSHIP-001: Robust Kinship / Relatedness (KING)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PopulationGeneticsAnalyzer.EstimateKinship(...)` (proposed) |
+| **Area** | PopGen |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Manichaikul et al. (2010) KING *Bioinformatics* 26:2867 |
+| **Source** | `PopulationGeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Estimate pairwise kinship coefficients from genotype sharing robust to population structure (KING-robust), classifying relationships (MZ/parent-offspring/sib/unrelated) for QC and pedigree checks.
+
+**Methods (proposed):** `EstimateKinship(genotypesA, genotypesB)`, `ClassifyRelationship(kinship, ibs0)`
+
+**Tests (proposed):** `PopulationGeneticsAnalyzer_Kinship_Tests.cs`
+
+---
+
+#### POP-IBD-001: Identity-by-Descent Segment Detection
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PopulationGeneticsAnalyzer.FindIbdSegments(...)` (proposed) |
+| **Area** | PopGen |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Gusev et al. (2009) GERMLINE *Genome Res* 19:318; Browning & Browning (2013) |
+| **Source** | `PopulationGeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Detect shared haplotype (IBD) segments between individuals via seed-and-extend over phased genotypes — the basis for relatedness, demographic, and disease-mapping inference.
+
+**Methods (proposed):** `FindIbdSegments(haplotypesA, haplotypesB, minLengthCm)`
+
+**Tests (proposed):** `PopulationGeneticsAnalyzer_Ibd_Tests.cs`
+
+---
+
+#### POP-PCA-001: Genotype PCA / Population Structure
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PopulationGeneticsAnalyzer.GenotypePca(...)` (proposed) |
+| **Area** | PopGen |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Patterson, Price & Reich (2006) EIGENSTRAT *PLoS Genet* 2:e190 |
+| **Source** | `PopulationGeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Compute principal components of the standardized genotype matrix (covariance eigendecomposition) to visualize ancestry and correct GWAS for stratification.
+
+**Methods (proposed):** `GenotypePca(genotypeMatrix, nComponents)`, `ProjectSamples(pca, genotypes)`
+
+**Tests (proposed):** `PopulationGeneticsAnalyzer_Pca_Tests.cs`
+
+---
+
+#### POP-NEUTRAL-001: Fu & Li's D and Fay & Wu's H
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PopulationGeneticsAnalyzer.CalculateNeutralityTests(...)` (proposed) |
+| **Area** | PopGen |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Fu & Li (1993) *Genetics* 133:693; Fay & Wu (2000) *Genetics* 155:1405 |
+| **Source** | `PopulationGeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Add Fu & Li's D/F (singleton-based) and Fay & Wu's H (high-frequency-derived, needs an outgroup) neutrality statistics — complementary to the existing Tajima's D for distinguishing selection from demography.
+
+**Methods (proposed):** `CalculateFuLiD(sfs)`, `CalculateFayWuH(sfs, ancestralStates)`
+
+**Tests (proposed):** `PopulationGeneticsAnalyzer_NeutralityTests_Tests.cs`
+
+---
+
+#### POP-MK-001: McDonald-Kreitman & HKA Tests
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PopulationGeneticsAnalyzer.McDonaldKreitmanTest(...)` (proposed) |
+| **Area** | PopGen |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | McDonald & Kreitman (1991) *Nature* 351:652; Hudson, Kreitman & Aguadé (1987) *Genetics* 116:153 |
+| **Source** | `PopulationGeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Contrast synonymous vs non-synonymous polymorphism-to-divergence ratios (MK 2×2 + neutrality index / α) and the HKA multi-locus test to detect adaptive protein evolution.
+
+**Methods (proposed):** `McDonaldKreitmanTest(polymorphism, divergence)`, `CalculateAlpha(mkTable)`, `HkaTest(loci)`
+
+**Tests (proposed):** `PopulationGeneticsAnalyzer_McDonaldKreitman_Tests.cs`
+
+---
+
+#### POP-NE-001: LD-Based Effective Population Size
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PopulationGeneticsAnalyzer.EstimateNeLd(...)` (proposed) |
+| **Area** | PopGen |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Hill (1981) *Genet Res* 38:209; Waples (2006) *Conserv Genet* 7:167 |
+| **Source** | `PopulationGeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Estimate contemporary effective population size from the average r² among unlinked loci with Waples' bias correction — a core conservation-genetics and demographic metric.
+
+**Methods (proposed):** `EstimateNeLd(genotypes)`, `MeanR2Corrected(pairs, sampleSize)`
+
+**Tests (proposed):** `PopulationGeneticsAnalyzer_NeLd_Tests.cs`
+
+---
+
+### 69. Transcriptome & Expression (6 units)
+
+#### TRANS-NBDE-001: Negative-Binomial GLM Differential Expression
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TranscriptomeAnalyzer.DifferentialExpressionNb(...)` (proposed) |
+| **Area** | Transcriptome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Love, Huber & Anders (2014) DESeq2 *Genome Biol* 15:550; Robinson et al. (2010) edgeR |
+| **Source** | `TranscriptomeAnalyzer.cs` (proposed) |
+
+**Purpose:** Model raw counts with a negative-binomial GLM and shrink per-gene dispersion (empirical Bayes) for a Wald/LRT test — the count-appropriate DE method the current t-test on normalized values approximates poorly at low counts.
+
+**Methods (proposed):** `DifferentialExpressionNb(countMatrix, groups)`, `EstimateDispersions(counts)`, `WaldTest(fit)`
+
+**Tests (proposed):** `TranscriptomeAnalyzer_NbDifferentialExpression_Tests.cs`
+
+---
+
+#### TRANS-NORM-001: TMM & Median-of-Ratios Normalization
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TranscriptomeAnalyzer.NormalizeTmm(...)` (proposed) |
+| **Area** | Transcriptome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Robinson & Oshlack (2010) TMM *Genome Biol* 11:R25; Anders & Huber (2010) median-of-ratios |
+| **Source** | `TranscriptomeAnalyzer.cs` (proposed) |
+
+**Purpose:** Compute library-size normalization factors robust to composition bias (trimmed mean of M-values; DESeq size factors) — the correct between-sample scaling for count data, complementing quantile normalization.
+
+**Methods (proposed):** `NormalizeTmm(countMatrix)`, `SizeFactorsMedianOfRatios(countMatrix)`
+
+**Tests (proposed):** `TranscriptomeAnalyzer_TmmNormalization_Tests.cs`
+
+---
+
+#### TRANS-GSVA-001: Single-Sample Gene-Set Enrichment (GSVA / ssGSEA)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TranscriptomeAnalyzer.GeneSetVariationAnalysis(...)` (proposed) |
+| **Area** | Transcriptome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Hänzelmann, Castelo & Guinney (2013) GSVA *BMC Bioinformatics* 14:7; Barbie et al. (2009) ssGSEA |
+| **Source** | `TranscriptomeAnalyzer.cs` (proposed) |
+
+**Purpose:** Produce a per-sample enrichment score for each gene set (rank-based KS/ECDF statistic) so pathways become sample-level features for clustering/classification — distinct from the cohort-level GSEA already present.
+
+**Methods (proposed):** `GeneSetVariationAnalysis(expression, geneSets)`, `SingleSampleEnrichmentScore(rankedGenes, set)`
+
+**Tests (proposed):** `TranscriptomeAnalyzer_Gsva_Tests.cs`
+
+---
+
+#### TRANS-WGCNA-001: Weighted Gene Co-Expression Network Modules
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TranscriptomeAnalyzer.BuildCoexpressionModules(...)` (proposed) |
+| **Area** | Transcriptome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Zhang & Horvath (2005) *SAGMB* 4:17; Langfelder & Horvath (2008) WGCNA *BMC Bioinformatics* 9:559 |
+| **Source** | `TranscriptomeAnalyzer.cs` (proposed) |
+
+**Purpose:** Build a soft-thresholded (scale-free) co-expression adjacency, compute topological overlap, and cluster genes into modules with eigengenes — reveals coordinated gene programs beyond the existing correlation network.
+
+**Methods (proposed):** `BuildCoexpressionModules(expression, softPower)`, `ModuleEigengene(module, expression)`
+
+**Tests (proposed):** `TranscriptomeAnalyzer_Wgcna_Tests.cs`
+
+---
+
+#### TRANS-ESTIMATE-001: Stromal / Immune / Purity Score from Expression
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TranscriptomeAnalyzer.EstimatePurityFromExpression(...)` (proposed) |
+| **Area** | Transcriptome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Yoshihara et al. (2013) ESTIMATE *Nat Commun* 4:2612 |
+| **Source** | `TranscriptomeAnalyzer.cs` (proposed) |
+
+**Purpose:** Score stromal and immune infiltration by ssGSEA over the ESTIMATE signatures and convert the combined score to tumor purity — an expression-only complement to the DNA-based ASCAT purity in oncology.
+
+**Methods (proposed):** `EstimatePurityFromExpression(expression)`, `StromalImmuneScores(expression)`
+
+**Tests (proposed):** `TranscriptomeAnalyzer_Estimate_Tests.cs`
+
+---
+
+#### TRANS-BATCH-001: ComBat Empirical-Bayes Batch Correction
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `TranscriptomeAnalyzer.CorrectBatchCombat(...)` (proposed) |
+| **Area** | Transcriptome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Johnson, Li & Rabinovic (2007) ComBat *Biostatistics* 8:118 |
+| **Source** | `TranscriptomeAnalyzer.cs` (proposed) |
+
+**Purpose:** Remove known batch effects with location/scale empirical-Bayes adjustment while preserving the biological covariate — essential before merging multi-run expression matrices.
+
+**Methods (proposed):** `CorrectBatchCombat(expression, batch, covariates)`
+
+**Tests (proposed):** `TranscriptomeAnalyzer_Combat_Tests.cs`
+
+---
+
+### 70. Survival & Clinical Biostatistics (5 units)
+
+#### CLIN-KM-001: Kaplan-Meier Estimator + Log-Rank Test
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SurvivalAnalyzer.KaplanMeier(...)` (proposed) |
+| **Area** | Clinical |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Kaplan & Meier (1958) *JASA* 53:457; Mantel (1966) log-rank |
+| **Source** | `SurvivalAnalyzer.cs` (proposed) |
+
+**Purpose:** Estimate the survival function from right-censored time-to-event data (with Greenwood variance / CIs) and compare groups by the log-rank test — the standard readout linking a genomic marker to outcome.
+
+**Methods (proposed):** `KaplanMeier(times, events)`, `LogRankTest(groupA, groupB)`
+
+**Tests (proposed):** `SurvivalAnalyzer_KaplanMeier_Tests.cs`
+
+---
+
+#### CLIN-COX-001: Cox Proportional-Hazards Regression
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SurvivalAnalyzer.FitCox(...)` (proposed) |
+| **Area** | Clinical |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Cox (1972) *J R Stat Soc B* 34:187; Breslow (1974) ties |
+| **Source** | `SurvivalAnalyzer.cs` (proposed) |
+
+**Purpose:** Fit a semi-parametric proportional-hazards model (Newton-Raphson on the partial likelihood) to estimate covariate hazard ratios with CIs — multivariable survival modeling for biomarker studies.
+
+**Methods (proposed):** `FitCox(times, events, covariates)`, `HazardRatios(fit)`
+
+**Tests (proposed):** `SurvivalAnalyzer_Cox_Tests.cs`
+
+---
+
+#### CLIN-CINDEX-001: Harrell's Concordance Index
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SurvivalAnalyzer.ConcordanceIndex(...)` (proposed) |
+| **Area** | Clinical |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Harrell et al. (1982/1996) *Stat Med* 15:361 |
+| **Source** | `SurvivalAnalyzer.cs` (proposed) |
+
+**Purpose:** Quantify a risk model's discrimination as the fraction of concordant comparable pairs (censoring-aware) — the standard survival-model accuracy metric.
+
+**Methods (proposed):** `ConcordanceIndex(riskScores, times, events)`
+
+**Tests (proposed):** `SurvivalAnalyzer_ConcordanceIndex_Tests.cs`
+
+---
+
+#### CLIN-ROC-001: ROC / AUC + Precision-Recall
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ClassifierMetrics.RocAuc(...)` (proposed) |
+| **Area** | Clinical |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | DeLong et al. (1988) *Biometrics* 44:837; Davis & Goadrich (2006) PR |
+| **Source** | `ClassifierMetrics.cs` (proposed) |
+
+**Purpose:** Compute ROC curve + AUC (with the DeLong variance for comparison) and precision-recall/average-precision — model-evaluation utilities reused by every classifier in the library.
+
+**Methods (proposed):** `RocAuc(scores, labels)`, `PrecisionRecall(scores, labels)`, `DelongTest(aucA, aucB)`
+
+**Tests (proposed):** `ClassifierMetrics_RocAuc_Tests.cs`
+
+---
+
+#### CLIN-SUBTYPE-001: Nearest-Centroid Molecular Subtyping (PAM50-style)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `SurvivalAnalyzer.ClassifyNearestCentroid(...)` (proposed) |
+| **Area** | Clinical |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Parker et al. (2009) PAM50 *J Clin Oncol* 27:1160; Tibshirani et al. (2002) PAM/nearest-shrunken-centroid |
+| **Source** | `SubtypeClassifier.cs` (proposed) |
+
+**Purpose:** Assign a sample to the nearest expression centroid (Spearman/Euclidean) over a subtype gene panel — the algorithm behind PAM50 (breast) and CMS (colorectal) intrinsic subtyping.
+
+**Methods (proposed):** `ClassifyNearestCentroid(expression, centroids)`, `TrainCentroids(trainingExpression, labels)`
+
+**Tests (proposed):** `SubtypeClassifier_NearestCentroid_Tests.cs`
+
+---
+
+### 71. General Statistical Methods (5 units)
+
+#### STAT-MWU-001: Mann-Whitney U / Wilcoxon Rank-Sum
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `StatisticalTests.MannWhitneyU(...)` (proposed) |
+| **Area** | Statistics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Mann & Whitney (1947) *Ann Math Stat* 18:50; Wilcoxon (1945) |
+| **Source** | `StatisticalTests.cs` (proposed) |
+
+**Purpose:** Non-parametric two-group location test (exact + normal approximation with tie correction) — the default when expression/abundance data violate normality.
+
+**Methods (proposed):** `MannWhitneyU(groupA, groupB)`, `WilcoxonSignedRank(paired)`
+
+**Tests (proposed):** `StatisticalTests_MannWhitney_Tests.cs`
+
+---
+
+#### STAT-KS-001: Kolmogorov-Smirnov Two-Sample Test
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `StatisticalTests.KolmogorovSmirnov(...)` (proposed) |
+| **Area** | Statistics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Smirnov (1948) *Ann Math Stat* 19:279; Massey (1951) *JASA* 46:68 |
+| **Source** | `StatisticalTests.cs` (proposed) |
+
+**Purpose:** Compare two empirical distributions by their maximum CDF difference — used for fragment-length, quality, and enrichment-score distribution comparisons.
+
+**Methods (proposed):** `KolmogorovSmirnov(sampleA, sampleB)`, `KsOneSample(sample, cdf)`
+
+**Tests (proposed):** `StatisticalTests_KolmogorovSmirnov_Tests.cs`
+
+---
+
+#### STAT-QVALUE-001: Storey q-value / Local FDR
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `StatisticalTests.StoreyQValues(...)` (proposed) |
+| **Area** | Statistics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Storey & Tibshirani (2003) *PNAS* 100:9440 |
+| **Source** | `StatisticalTests.cs` (proposed) |
+
+**Purpose:** Convert a p-value vector to q-values with π₀ (proportion-of-nulls) estimation — higher power than Benjamini-Hochberg for genome-wide testing and adds a local-FDR readout.
+
+**Methods (proposed):** `StoreyQValues(pValues)`, `EstimatePi0(pValues)`
+
+**Tests (proposed):** `StatisticalTests_QValue_Tests.cs`
+
+---
+
+#### STAT-PERM-001: Permutation & Bootstrap Resampling
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `StatisticalTests.PermutationTest(...)` (proposed) |
+| **Area** | Statistics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Efron (1979) bootstrap *Ann Stat* 7:1; Good (2005) permutation tests |
+| **Source** | `StatisticalTests.cs` (proposed) |
+
+**Purpose:** Provide a general label-permutation p-value and bootstrap confidence-interval framework (percentile / BCa) for arbitrary statistics — the distribution-free backstop the whole library can call.
+
+**Methods (proposed):** `PermutationTest(groupA, groupB, statistic, nPerm, seed)`, `BootstrapCi(sample, statistic, nBoot, seed)`
+
+**Tests (proposed):** `StatisticalTests_Permutation_Tests.cs`
+
+---
+
+#### STAT-BENJYEK-001: Benjamini-Yekutieli & Holm Corrections
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `StatisticalTests.AdjustPValues(...)` (proposed) |
+| **Area** | Statistics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Benjamini & Yekutieli (2001) *Ann Stat* 29:1165; Holm (1979) *Scand J Stat* 6:65 |
+| **Source** | `StatisticalTests.cs` (proposed) |
+
+**Purpose:** Add dependency-robust BY-FDR and the Holm step-down FWER correction alongside the existing Benjamini-Hochberg — needed when tests are correlated (LD, overlapping windows).
+
+**Methods (proposed):** `AdjustPValues(pValues, method)` (BY / Holm / Hommel)
+
+**Tests (proposed):** `StatisticalTests_MultipleTesting_Tests.cs`
+
+---
+
+### 72. Gene & ncRNA Finding (4 units)
+
+#### ANNOT-IMM-001: Interpolated Markov Model Gene Finder (Glimmer)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `GenomeAnnotator.FindGenesImm(...)` (proposed) |
+| **Area** | Annotation |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Salzberg et al. (1998) Glimmer *NAR* 26:544; Delcher et al. (1999) *NAR* 27:4636 |
+| **Source** | `GenomeAnnotator.cs` (proposed) |
+
+**Purpose:** Score ORFs with an interpolated Markov model (variable-order codon statistics) trained on the genome's own long ORFs — a real prokaryotic gene finder beyond the current fixed ORF/RBS heuristics.
+
+**Methods (proposed):** `FindGenesImm(sequence)`, `TrainInterpolatedMarkovModel(trainingOrfs)`
+
+**Tests (proposed):** `GenomeAnnotator_ImmGeneFinder_Tests.cs`
+
+---
+
+#### ANNOT-TRNA-001: Covariance-Model tRNA Detection
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `GenomeAnnotator.FindTRnaGenes(...)` (proposed) |
+| **Area** | Annotation |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Lowe & Eddy (1997) tRNAscan-SE *NAR* 25:955 |
+| **Source** | `GenomeAnnotator.cs` (proposed) |
+
+**Purpose:** Detect tRNA genes by cloverleaf secondary-structure scoring (covariance-model / thermodynamic) and assign isotype from the anticodon — a standard ncRNA annotation the library currently lacks.
+
+**Methods (proposed):** `FindTRnaGenes(sequence)`, `ScoreCloverleaf(candidate)`
+
+**Tests (proposed):** `GenomeAnnotator_TRna_Tests.cs`
+
+---
+
+#### ANNOT-CRISPRARRAY-001: CRISPR Array (Repeat-Spacer) Detection
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `GenomeAnnotator.FindCrisprArrays(...)` (proposed) |
+| **Area** | Annotation |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Bland et al. (2007) CRT *BMC Bioinformatics* 8:209; Edgar (2007) PILER-CR |
+| **Source** | `GenomeAnnotator.cs` (proposed) |
+
+**Purpose:** Find genomic CRISPR loci as regularly spaced direct repeats separated by unique spacers — used for defense-system annotation and spacer/phage-matching (distinct from the MolTools CRISPR *guide designer*).
+
+**Methods (proposed):** `FindCrisprArrays(sequence)`, `ExtractSpacers(array)`
+
+**Tests (proposed):** `GenomeAnnotator_CrisprArray_Tests.cs`
+
+---
+
+#### ANNOT-INFERNAL-001: RNA Covariance-Model Homology Search
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `GenomeAnnotator.SearchCovarianceModel(...)` (proposed) |
+| **Area** | Annotation |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Eddy & Durbin (1994) *NAR* 22:2079; Nawrocki & Eddy (2013) Infernal *Bioinformatics* 29:2933 |
+| **Source** | `GenomeAnnotator.cs` (proposed) |
+
+**Purpose:** Score a sequence against a structure-aware covariance model (SCFG Inside/CYK) to find structured ncRNA families (Rfam-style) where primary sequence alone is too diverged.
+
+**Methods (proposed):** `SearchCovarianceModel(sequence, model)`, `CykAlign(sequence, cm)`
+
+**Tests (proposed):** `GenomeAnnotator_CovarianceModel_Tests.cs`
+
+---
+
+### 73. RNA Structure — Extended (4 units)
+
+#### RNA-MEA-001: Maximum-Expected-Accuracy / Centroid Structure
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `RnaSecondaryStructure.MaximumExpectedAccuracy(...)` (proposed) |
+| **Area** | RnaStructure |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Do, Woods & Batzoglou (2006) CONTRAfold *Bioinformatics* 22:e90; Ding, Chan & Lawrence (2005) centroid *RNA* 11:1157 |
+| **Source** | `RnaSecondaryStructure.cs` (proposed) |
+
+**Purpose:** From the McCaskill base-pair probabilities (already implemented), pick the structure maximizing expected accuracy (γ-centroid) rather than MFE — often closer to the true structure.
+
+**Methods (proposed):** `MaximumExpectedAccuracy(basePairProbs, gamma)`, `CentroidStructure(basePairProbs)`
+
+**Tests (proposed):** `RnaSecondaryStructure_MaximumExpectedAccuracy_Tests.cs`
+
+---
+
+#### RNA-SAMPLE-001: Boltzmann Stochastic Structure Sampling
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `RnaSecondaryStructure.SampleStructures(...)` (proposed) |
+| **Area** | RnaStructure |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Ding & Lawrence (2003) *NAR* 31:7280 |
+| **Source** | `RnaSecondaryStructure.cs` (proposed) |
+
+**Purpose:** Sample suboptimal structures from the Boltzmann ensemble via stochastic traceback of the partition function, enabling base-pair support/cluster analysis instead of a single MFE structure.
+
+**Methods (proposed):** `SampleStructures(partitionFunction, nSamples, seed)`, `ClusterSampledStructures(samples)`
+
+**Tests (proposed):** `RnaSecondaryStructure_BoltzmannSampling_Tests.cs`
+
+---
+
+#### RNA-INTERACT-001: RNA-RNA Interaction / Target Accessibility
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `RnaSecondaryStructure.PredictInteraction(...)` (proposed) |
+| **Area** | RnaStructure |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Mückstein et al. (2006) RNAup *Bioinformatics* 22:1177; Busch et al. (2008) IntaRNA *Bioinformatics* 24:2849 |
+| **Source** | `RnaSecondaryStructure.cs` (proposed) |
+
+**Purpose:** Predict the hybridization energy of two RNAs accounting for the accessibility (unpairing cost) of the interaction sites — the biophysical basis for sRNA/miRNA-target and antisense-oligo binding.
+
+**Methods (proposed):** `PredictInteraction(rnaA, rnaB)`, `HybridizationEnergyWithAccessibility(...)`
+
+**Tests (proposed):** `RnaSecondaryStructure_Interaction_Tests.cs`
+
+---
+
+#### RNA-SANKOFF-001: Simultaneous Fold-and-Align (Sankoff)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `RnaSecondaryStructure.FoldAndAlign(...)` (proposed) |
+| **Area** | RnaStructure |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Sankoff (1985) *SIAM J Appl Math* 45:810; Havgaard et al. (2007) FOLDALIGN |
+| **Source** | `RnaSecondaryStructure.cs` (proposed) |
+
+**Purpose:** Jointly align and fold two RNAs (banded Sankoff DP) to find a conserved secondary structure that pure sequence alignment misses — the basis for structural-homology detection.
+
+**Methods (proposed):** `FoldAndAlign(rnaA, rnaB, bandWidth)`
+
+**Tests (proposed):** `RnaSecondaryStructure_Sankoff_Tests.cs`
+
+---
+
+### 74. Chromatin & 3D Genome (3 units)
+
+#### HIC-NORM-001: Hi-C Matrix Balancing (ICE / Knight-Ruiz)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `HiCAnalyzer.BalanceMatrix(...)` (proposed) |
+| **Area** | Chromosome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Imakaev et al. (2012) ICE *Nat Methods* 9:999; Knight & Ruiz (2013) |
+| **Source** | `HiCAnalyzer.cs` (proposed) |
+
+**Purpose:** Remove per-bin bias from a Hi-C contact matrix by iterative correction to equal marginals (doubly-stochastic) — the required preprocessing before any 3D-genome feature calling.
+
+**Methods (proposed):** `BalanceMatrix(contactMatrix)`, `KnightRuizBalance(matrix)`
+
+**Tests (proposed):** `HiCAnalyzer_MatrixBalancing_Tests.cs`
+
+---
+
+#### HIC-TAD-001: TAD Calling (Insulation Score / Directionality Index)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `HiCAnalyzer.CallTads(...)` (proposed) |
+| **Area** | Chromosome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Dixon et al. (2012) directionality index *Nature* 485:376; Crane et al. (2015) insulation *Nature* 523:240 |
+| **Source** | `HiCAnalyzer.cs` (proposed) |
+
+**Purpose:** Call topologically associating domains from the balanced matrix via the insulation-score minima and the directionality-index HMM — the fundamental unit of 3D genome organization.
+
+**Methods (proposed):** `CallTads(matrix, method)`, `InsulationScore(matrix, window)`, `DirectionalityIndex(matrix)`
+
+**Tests (proposed):** `HiCAnalyzer_TadCalling_Tests.cs`
+
+---
+
+#### HIC-COMPARTMENT-001: A/B Compartment Eigenvector
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `HiCAnalyzer.CallCompartments(...)` (proposed) |
+| **Area** | Chromosome |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Lieberman-Aiden et al. (2009) *Science* 326:289 |
+| **Source** | `HiCAnalyzer.cs` (proposed) |
+
+**Purpose:** Assign each bin to the active (A) or inactive (B) compartment from the first principal eigenvector of the observed/expected correlation matrix, oriented by GC/gene density.
+
+**Methods (proposed):** `CallCompartments(matrix, gcTrack)`, `ObservedOverExpected(matrix)`
+
+**Tests (proposed):** `HiCAnalyzer_Compartments_Tests.cs`
+
+---
+
+### 75. Epigenomic Signal (3 units)
+
+#### EPIGEN-PEAK-001: Poisson Peak Calling (MACS2-style)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `EpigeneticsAnalyzer.CallPeaks(...)` (proposed) |
+| **Area** | Epigenetics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Zhang et al. (2008) MACS *Genome Biol* 9:R137 |
+| **Source** | `EpigeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Call ChIP-seq/ATAC-seq enrichment peaks by modeling background as a local dynamic-λ Poisson (from control/surrounding windows) with FDR — the core signal-to-peak step absent from the current chromatin-state annotator.
+
+**Methods (proposed):** `CallPeaks(treatment, control, params)`, `LocalLambda(position, control)`
+
+**Tests (proposed):** `EpigeneticsAnalyzer_PeakCalling_Tests.cs`
+
+---
+
+#### EPIGEN-FOOTPRINT-001: Transcription-Factor Footprinting
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `EpigeneticsAnalyzer.FindTfFootprints(...)` (proposed) |
+| **Area** | Epigenetics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Piper et al. (2013) Wellington *NAR* 41:e201; Gusmao et al. (2014) HINT |
+| **Source** | `EpigeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Detect TF-bound footprints as short cut-depletion dips flanked by high accessibility within ATAC/DNase peaks — pinpoints occupied motifs at base resolution.
+
+**Methods (proposed):** `FindTfFootprints(cutProfile, peaks)`, `FootprintScore(window)`
+
+**Tests (proposed):** `EpigeneticsAnalyzer_Footprinting_Tests.cs`
+
+---
+
+#### EPIGEN-NUCLEO-001: Nucleosome Positioning
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `EpigeneticsAnalyzer.CallNucleosomes(...)` (proposed) |
+| **Area** | Epigenetics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Schep et al. (2015) NucleoATAC *Genome Res* 25:1757 |
+| **Source** | `EpigeneticsAnalyzer.cs` (proposed) |
+
+**Purpose:** Infer well-positioned nucleosomes from the periodic fragment-size (~147 bp) signal and dyad occupancy — resolves the chromatin architecture around regulatory elements.
+
+**Methods (proposed):** `CallNucleosomes(fragmentSizes, positions)`, `DyadOccupancy(signal)`
+
+**Tests (proposed):** `EpigeneticsAnalyzer_Nucleosome_Tests.cs`
+
+---
+
+### 76. Protein Structure & Features — Extended (4 units)
+
+#### PROT-GOR-001: GOR IV Secondary-Structure Prediction
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ProteinStructurePredictor.PredictSecondaryStructureGor(...)` (proposed) |
+| **Area** | ProteinPred |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Garnier, Gibrat & Robson (1996) GOR IV *Methods Enzymol* 266:540 |
+| **Source** | `ProteinStructurePredictor.cs` (proposed) |
+
+**Purpose:** Predict helix/strand/coil from windowed information-theoretic residue propensities (GOR IV) — an information-based complement to the existing Chou-Fasman method with pairwise terms.
+
+**Methods (proposed):** `PredictSecondaryStructureGor(protein)`
+
+**Tests (proposed):** `ProteinStructurePredictor_GorIv_Tests.cs`
+
+---
+
+#### PROT-RSA-001: Relative Solvent Accessibility Prediction
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ProteinStructurePredictor.PredictSolventAccessibility(...)` (proposed) |
+| **Area** | ProteinPred |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Rost & Sander (1994) *Proteins* 20:216; Kyte & Doolittle (1982) |
+| **Source** | `ProteinStructurePredictor.cs` (proposed) |
+
+**Purpose:** Predict per-residue burial vs exposure (relative solvent accessibility, buried/exposed classes) from sequence windows — informs surface epitopes, active sites, and mutation impact.
+
+**Methods (proposed):** `PredictSolventAccessibility(protein)`
+
+**Tests (proposed):** `ProteinStructurePredictor_Rsa_Tests.cs`
+
+---
+
+#### PROT-DCA-001: Direct Coupling Analysis Residue Contacts
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ProteinStructurePredictor.DirectCouplingContacts(...)` (proposed) |
+| **Area** | ProteinPred |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Morcos et al. (2011) DCA *PNAS* 108:E1293; Ekeberg et al. (2013) plmDCA |
+| **Source** | `ProteinStructurePredictor.cs` (proposed) |
+
+**Purpose:** Infer residue-residue contacts from an MSA by disentangling direct from transitive coevolution (mean-field / pseudo-likelihood maximum-entropy) — the evolutionary-coupling signal used for de novo contact/fold prediction.
+
+**Methods (proposed):** `DirectCouplingContacts(msa)`, `DirectInformation(couplings)`
+
+**Tests (proposed):** `ProteinStructurePredictor_Dca_Tests.cs`
+
+---
+
+#### PROT-BEPITOPE-001: Linear B-Cell Epitope Prediction
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ProteinMotifFinder.PredictBCellEpitopes(...)` (proposed) |
+| **Area** | ProteinMotif |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Larsen, Lund & Nielsen (2006) BepiPred *Immunome Res* 2:2; Parker et al. (1986) hydrophilicity |
+| **Source** | `ProteinMotifFinder.cs` (proposed) |
+
+**Purpose:** Score linear antibody-epitope propensity from combined hydrophilicity, flexibility, surface-accessibility, and β-turn scales — complements the MHC T-cell-epitope tools with the B-cell side.
+
+**Methods (proposed):** `PredictBCellEpitopes(protein)`, `PropensityProfile(protein, scale)`
+
+**Tests (proposed):** `ProteinMotifFinder_BCellEpitope_Tests.cs`
+
+---
+
+### 77. Metagenomics — Extended (4 units)
+
+#### META-UNIFRAC-001: UniFrac Phylogenetic Beta Diversity
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `MetagenomicsAnalyzer.UniFrac(...)` (proposed) |
+| **Area** | Metagenomics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Lozupone & Knight (2005) *AEM* 71:8228; Lozupone et al. (2007) weighted UniFrac |
+| **Source** | `MetagenomicsAnalyzer.cs` (proposed) |
+
+**Purpose:** Measure between-sample dissimilarity accounting for the phylogenetic relatedness of taxa (fraction of unique/weighted branch length) — a more powerful beta-diversity metric than the taxon-count Bray-Curtis/Jaccard already present.
+
+**Methods (proposed):** `UniFrac(sampleA, sampleB, tree, weighted)`
+
+**Tests (proposed):** `MetagenomicsAnalyzer_UniFrac_Tests.cs`
+
+---
+
+#### META-ASV-001: DADA2 Amplicon Denoising / ASV Inference
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `MetagenomicsAnalyzer.InferAmpliconVariants(...)` (proposed) |
+| **Area** | Metagenomics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Callahan et al. (2016) DADA2 *Nat Methods* 13:581 |
+| **Source** | `MetagenomicsAnalyzer.cs` (proposed) |
+
+**Purpose:** Resolve exact amplicon sequence variants by modeling per-run error rates and partitioning reads by a divisive abundance/error likelihood — replaces fixed-identity OTU clustering with single-nucleotide resolution.
+
+**Methods (proposed):** `InferAmpliconVariants(reads, qualities)`, `LearnErrorRates(reads)`
+
+**Tests (proposed):** `MetagenomicsAnalyzer_Asv_Tests.cs`
+
+---
+
+#### META-MASH-001: MinHash Genome Distance / Sketch ANI
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `MetagenomicsAnalyzer.MashDistance(...)` (proposed) |
+| **Area** | Metagenomics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Ondov et al. (2016) Mash *Genome Biol* 17:132 |
+| **Source** | `MetagenomicsAnalyzer.cs` (proposed) |
+
+**Purpose:** Estimate genome/metagenome distance and approximate ANI from MinHash sketch Jaccard in near-constant memory — enables all-vs-all dereplication and taxonomic placement at scale.
+
+**Methods (proposed):** `MashDistance(sketchA, sketchB, k)`, `BuildSketch(sequence, sketchSize, k)`
+
+**Tests (proposed):** `MetagenomicsAnalyzer_MashDistance_Tests.cs`
+
+---
+
+#### META-COABUND-001: Co-Abundance Metagenomic Binning (MetaBAT2-style)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `MetagenomicsAnalyzer.BinByCoAbundance(...)` (proposed) |
+| **Area** | Metagenomics |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Kang et al. (2019) MetaBAT2 *PeerJ* 7:e7359 |
+| **Source** | `MetagenomicsAnalyzer.cs` (proposed) |
+
+**Purpose:** Bin contigs into MAGs by combining tetranucleotide-frequency similarity with cross-sample coverage covariance (probabilistic distance + graph clustering) — improves on single-signal binning already present.
+
+**Methods (proposed):** `BinByCoAbundance(contigs, coverageBySample)`, `CompositeDistance(contigA, contigB)`
+
+**Tests (proposed):** `MetagenomicsAnalyzer_CoAbundanceBinning_Tests.cs`
+
+---
+
+### 78. Molecular Tools — Extended CRISPR & Cloning (4 units)
+
+#### CRISPR-EFF-001: On-Target Guide Efficiency (Doench Rule Set 2)
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `CrisprDesigner.ScoreOnTargetEfficiency(...)` (proposed) |
+| **Area** | MolTools |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Doench et al. (2016) Rule Set 2 / Azimuth *Nat Biotechnol* 34:184; Doench et al. (2014) |
+| **Source** | `CrisprDesigner.cs` (proposed) |
+
+**Purpose:** Predict SpCas9 cutting efficiency from position-specific sequence + GC + melting features (gradient-boosted / logistic Rule Set 2) so guides are ranked by activity, not just PAM presence.
+
+**Methods (proposed):** `ScoreOnTargetEfficiency(guide, context)`
+
+**Tests (proposed):** `CrisprDesigner_OnTargetEfficiency_Tests.cs`
+
+---
+
+#### CRISPR-CFD-001: CFD Off-Target Specificity Score
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `CrisprDesigner.ScoreOffTargetCfd(...)` (proposed) |
+| **Area** | MolTools |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Doench et al. (2016) CFD *Nat Biotechnol* 34:184; Hsu et al. (2013) MIT score |
+| **Source** | `CrisprDesigner.cs` (proposed) |
+
+**Purpose:** Score off-target cleavage likelihood from position- and mismatch-type-specific penalty matrices (Cutting Frequency Determination) and aggregate a genome-wide specificity score — quantitative upgrade to the current off-target enumerator.
+
+**Methods (proposed):** `ScoreOffTargetCfd(guide, offTarget)`, `AggregateSpecificityScore(guide, offTargets)`
+
+**Tests (proposed):** `CrisprDesigner_Cfd_Tests.cs`
+
+---
+
+#### CRISPR-PRIME-001: Prime / Base Editor Design
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `CrisprDesigner.DesignPrimeEditor(...)` (proposed) |
+| **Area** | MolTools |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Anzalone et al. (2019) prime editing *Nature* 576:149; Komor et al. (2016) base editing *Nature* 533:420 |
+| **Source** | `CrisprDesigner.cs` (proposed) |
+
+**Purpose:** Design pegRNAs (spacer + PBS + RT template) for a desired edit and identify base-editor windows/target C·G or A·T positions with bystander assessment — extends the guide designer to precision editing.
+
+**Methods (proposed):** `DesignPrimeEditor(target, edit)`, `DesignBaseEditor(target, edit)`, `AssessBystanderEdits(window)`
+
+**Tests (proposed):** `CrisprDesigner_PrimeBaseEditor_Tests.cs`
+
+---
+
+#### CLONE-ASSEMBLY-001: Gibson / Golden Gate Assembly Design
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `CloningDesigner.DesignAssemblyJunctions(...)` (proposed) |
+| **Area** | MolTools |
+| **Status** | ☐ Not Started (proposed — not yet implemented) |
+| **Evidence** | Gibson et al. (2009) *Nat Methods* 6:343; Engler et al. (2008) Golden Gate *PLoS ONE* 3:e3647 |
+| **Source** | `CloningDesigner.cs` (proposed) |
+
+**Purpose:** Design overlap primers/fragment junctions for Gibson assembly (Tm-matched homology arms) and Type-IIS Golden Gate fusion sites (unique, scar-minimizing 4-nt overhangs) — turns the restriction/primer tools into a multi-fragment cloning planner.
+
+**Methods (proposed):** `DesignAssemblyJunctions(fragments, method)`, `SelectGoldenGateOverhangs(fragments)`
+
+**Tests (proposed):** `CloningDesigner_AssemblyDesign_Tests.cs`
 
 ---
