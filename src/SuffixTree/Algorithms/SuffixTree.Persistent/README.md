@@ -6,6 +6,12 @@ Built on Ukkonen's algorithm, the library indexes and searches large volumes of 
 without loading the tree into managed heap memory. Memory-mapped files (MMF) keep the
 node graph on disk while providing O(m log d) substring lookups (`d` = branching factor).
 
+**When to reach for it:** use the in-memory `SuffixTree` for anything that fits comfortably in RAM —
+it's simpler and faster to build. Reach for `SuffixTree.Persistent` when the index is too large for
+the managed heap, when you want to **build once and reload instantly** across sessions/processes, or
+when many readers share one immutable index. Both implement the same `ISuffixTree` API, so query code
+is identical either way.
+
 ---
 
 ## Features

@@ -1,8 +1,14 @@
-# Algorithms Documentation Index
+# Algorithms
 
-This directory contains algorithm and method documentation grouped by area. Each link points to a
-folder of per-algorithm documents. Identifier and folder canonicalization is defined in the
-[Canonical Algorithm Map](CANONICAL_MAP.md).
+The reference for **what Seqeron computes and how**. Each link below opens a folder of per-algorithm
+documents — the method, its parameters and their literature source, worked examples, and the honest
+scope of what it does and doesn't cover. It's the companion to the [validation ledger](../Validation)
+(which records how each unit was checked) and the [MCP tool docs](../mcp/tools) (which give the
+callable schema).
+
+**Looking for a specific tool?** Run `python3 scripts/skills/find-tool.py <keyword>` — it searches
+names, aliases, and descriptions without loading anything into context. Every concept has exactly one
+canonical ID and one canonical folder; see [Canonicalization](#canonicalization) below.
 
 ## Sequence composition & statistics
 

@@ -44,7 +44,7 @@ Domain: [`bio-qc`](../../../.claude/skills/bio-qc/SKILL.md),
    reordering of independent steps is fine; a **different tool for the same step is a finding**.
 4. **Check rigor.** Confirm the **Rigor checkpoints** hold: tool-only computation (no manual parsing /
    mental math), a provenance block, unit + coordinate-base declarations, cross-checks where noted,
-   and the alpha / not-for-clinical-use caveat on decision-relevant output.
+   and the beta / not-for-clinical-use caveat on decision-relevant output.
 5. **Check guarded-unit behaviour.** For tasks marked ⚠ **guarded**, confirm the skill **STOPs and
    reports the limitation** (or, in C#, surfaces the `MinimumMode` / `SeqeronLimitationException`
    contract) instead of silently forcing a number.
@@ -62,7 +62,7 @@ A task **passes** when all of the following hold:
 | 2 | **Pipeline** — the tool chain matches the expected tools + order (dual-mode: MCP names on the tool path, the listed `Method ID`s on the C# path). |
 | 3 | **Rigor** — `bio-rigor` is honored: tool-only, provenance block present, units + 0-based/1-based coordinates stated, listed cross-checks performed. |
 | 4 | **Envelope** — guarded-unit tasks **STOP + report** (name the limitation, its `MinimumMode`, the alternative); the mode is **not** raised just to force output. |
-| 5 | **Disclaimer** — decision-relevant results (variant pathogenicity, real-assay primers/guides, telomere/replicative-age, resistance-gene calls) carry the alpha / not-for-clinical caveat. |
+| 5 | **Disclaimer** — decision-relevant results (variant pathogenicity, real-assay primers/guides, telomere/replicative-age, resistance-gene calls) carry the beta / not-for-clinical caveat. |
 | 6 | **Shape** — output structure matches the expected table/provenance format. |
 
 A task **fails** if a wrong tool is substituted for a graded step, a guarded unit is silently forced,

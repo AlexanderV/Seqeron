@@ -2,10 +2,10 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **22 tools** wrapping the `Seqeron.Genomics` library. Every tool has an
-explicit JSON input/output schema, a Schema+Binding test, and per-tool docs under
-[`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment) — see the
-campaign ledger [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
+Exposes **22 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
+per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
+[`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
 
 ## Run
 
@@ -13,7 +13,7 @@ campaign ledger [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
 dotnet run --project Seqeron.Mcp.Alignment
 ```
 
-Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Alignment"]`). See [`docs/mcp/README.md`](../../../../docs/mcp/README.md).
+Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Alignment"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
 ## Tools (22)
 
