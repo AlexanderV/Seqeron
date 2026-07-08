@@ -19,10 +19,9 @@ ratchets them to **blocking**, one rule per session, ordered most-important firs
 
 ## Progress (as of 2026-07-08)
 
-**62 of 66 rules resolved** (blocking, or silenced-with-justification where the rule is a false positive
-for this library). Groups A/B/C/D, Phase 2, and S4456 are done — **4 giants remain in the gate**:
-**S3358** (nested ternary, 136), **S3267** (`for`+`if`→`Where`, 132), **S1244** (float `==`, 234),
-**S125** (commented-out code, 834). S1244 and S125 stay behind the review checkpoint (they touch 234
+**63 of 66 rules resolved** (blocking, or silenced-with-justification where the rule is a false positive
+for this library). Groups A/B/C/D, Phase 2, S4456, and S3358 are done — **3 giants remain in the gate**:
+**S3267** (`for`+`if`→`Where`, 132), **S1244** (float `==`, 234), **S125** (commented-out code, 834). S1244 and S125 stay behind the review checkpoint (they touch 234
 float comparisons / 834 comment blocks — high risk of changing numeric results or deleting intentional
 derivations). Standing rule: **tests must encode the algorithm/business spec, not a buggy impl** — when
 a fix changes a test, verify against the documented algorithm and fix the code if it was wrong.
@@ -141,7 +140,7 @@ culture-free, perf-oriented bioinformatics library. Each: set `severity = none` 
 
 ## Group E — Large / high-effort readability (GATE) — last
 
-- [ ] **S3358** (136) nested ternary → extract
+- [x] **S3358** (9 prod) nested ternary → extract — 3-way classifications → `switch` expressions / `CompareTo(...) switch`; genuinely-nested ones → extracted inner ternary to a variable; `Fusions` used `if/else` to keep `IsInFrame` conditionally evaluated (not hoisted). Relaxed the 49 test sites. Behaviour-preserving (verified NaN/edge ordering matches). ✅ blocking (prod)
 - [ ] **S3267** (132) `for` + `if` → `Where`
 - [x] **S4456** (27 prod) split parameter-check from iterator body — all 27 iterator methods split into an eager-validation wrapper + private `...Core` iterator. **Behaviour change (intended, per the tests-match-spec principle): invalid arguments now fail fast instead of throwing on first enumeration.** Two ApproximateMatcher-style methods had validation *after* a `yield break` empty-guard (empty input masked an invalid arg) — reordered so the arg check is unconditional. Two `...Core` iterators had a *deeper* validation throw (length-mismatch, guide-length) that had to be lifted into the wrapper too. ✅ blocking
 - [ ] **S1244** (234) exact `==` on floating point → range/epsilon (per-site judgement; some are intentional 0.0 checks) — **review checkpoint**
@@ -163,4 +162,5 @@ culture-free, perf-oriented bioinformatics library. Each: set `severity = none` 
 | 2026-07-08 | S1481, S6608, S2971, S6966 | ~21 | Phase 1 batch 4. Fixed 13 prod S1481 + 8 prod S6608; relaxed the test-only remainders (S1481/S6608/S2971/S6966) per the existing test-scaffolding policy. Machine very slow (~18-min test runs). |
 | 2026-07-08 | S1172, S108 | ~7 | Phase 1 batch 5 (behaviour-neutral: config + comments only, no test run needed). S1172 silenced after examining all 23 (predominantly intentional). S108 fixed all prod+apps empty blocks with intent comments; NOTE: `apps/` tree is neither src nor tests — the parser's src/tests filter missed it; caught by the build. |
 | 2026-07-08 | S4136, S2368, S3218, S1199 (silenced); S3604, S2292, S3400, S3963, S4144 (fixed); S3241 (FP-suppress) | ~11 files | Group D remainder + Phase 2. Reached **61/66 — only the 5 giants left**. S2292 first broke the build (backing field used directly in the `.Core.cs` partial — the initial grep only checked one partial file); fixed by pointing those reads at the property. S3241 is a false positive (return consumed by recursive `SelectMany`). Build green; full suite (14 assemblies, 20,266 core) green. |
+| 2026-07-09 | S3358 | 8 files | **63/66.** 9 prod nested ternaries → `switch`/`CompareTo switch`/extracted-variable (Fusions kept `if/else` so `IsInFrame` stays conditionally evaluated); 49 test sites relaxed. Watched NaN/edge ordering (fractions are non-NaN here; `CompareTo` on ints for OverhangType). Full suite green. |
 | 2026-07-08 | S4456 | 15 files | **62/66.** Split all 27 iterator methods into eager-validation wrapper + private `...Core`. Behaviour change = fail-fast arg validation (the intended contract). Per the tests-match-spec principle, ran the full suite specifically to catch tests asserting the old lazy/masked behaviour — **none existed**, all 14 assemblies / 20,266 core tests green. Lesson: 2 methods validated *after* a `yield break` empty-guard (empty masked an invalid arg → reordered to unconditional), and 2 `...Core` iterators had a deeper validation throw that also had to be lifted to the wrapper. |

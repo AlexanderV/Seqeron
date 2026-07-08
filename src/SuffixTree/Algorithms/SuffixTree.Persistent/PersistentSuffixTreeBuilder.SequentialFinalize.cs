@@ -67,9 +67,8 @@ public partial class PersistentSuffixTreeBuilder
             uint* cKeys = stackalloc uint[CHILD_BUF_MAX];
             long* cOffs = stackalloc long[CHILD_BUF_MAX];
 
-            long compactEnd = IsHybrid
-                ? (_compactNodesEnd >= 0 ? _compactNodesEnd : _transitionOffset)
-                : _maxNodeEndOffset;
+            long hybridCompactEnd = _compactNodesEnd >= 0 ? _compactNodesEnd : _transitionOffset;
+            long compactEnd = IsHybrid ? hybridCompactEnd : _maxNodeEndOffset;
             int compactNodeSize = _initialLayout.NodeSize;
             int totalNodes = nodeCount;
             int reportInterval = Math.Max(totalNodes / 200, 1);

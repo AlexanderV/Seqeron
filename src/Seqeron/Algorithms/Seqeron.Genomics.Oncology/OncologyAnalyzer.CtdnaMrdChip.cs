@@ -1029,7 +1029,8 @@ public static partial class OncologyAnalyzer
             double lo = Math.Min(sd, iqr / 1.34);
             if (lo <= 0.0)
             {
-                lo = sd > 0.0 ? sd : (Math.Abs(sorted[0]) > 0.0 ? Math.Abs(sorted[0]) : 1.0);
+                double loFallback = Math.Abs(sorted[0]) > 0.0 ? Math.Abs(sorted[0]) : 1.0;
+                lo = sd > 0.0 ? sd : loFallback;
             }
 
             return 0.9 * lo * Math.Pow(n, -0.2);

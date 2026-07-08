@@ -286,7 +286,7 @@ public static class TranscriptomeAnalyzer
             var (geneId, log2FC, pValue) = sortedByPValue[i];
             double adjPValue = adjustedList[i];
             bool isSignificant = adjPValue < pValueThreshold && Math.Abs(log2FC) >= foldChangeThreshold;
-            string regulation = log2FC > 0 ? "Upregulated" : (log2FC < 0 ? "Downregulated" : "Unchanged");
+            string regulation = log2FC switch { > 0 => "Upregulated", < 0 => "Downregulated", _ => "Unchanged" };
 
             yield return new DifferentialExpression(
                 GeneId: geneId,
@@ -391,7 +391,7 @@ public static class TranscriptomeAnalyzer
 
             // DE = BOTH criteria: |log2FC| >= threshold AND adjusted p-value < alpha.
             bool isSignificant = Math.Abs(log2Fc) >= log2FoldChangeThreshold && adjP < alpha;
-            string regulation = log2Fc > 0 ? "Upregulated" : (log2Fc < 0 ? "Downregulated" : "Unchanged");
+            string regulation = log2Fc switch { > 0 => "Upregulated", < 0 => "Downregulated", _ => "Unchanged" };
 
             results[g] = new DifferentialExpression(
                 GeneId: geneId,

@@ -611,11 +611,12 @@ public sealed record RestrictionEnzyme(
     /// <summary>
     /// Gets the type of overhang produced.
     /// </summary>
-    public OverhangType OverhangType => CutPositionForward == CutPositionReverse
-        ? OverhangType.Blunt
-        : CutPositionForward < CutPositionReverse
-            ? OverhangType.FivePrime
-            : OverhangType.ThreePrime;
+    public OverhangType OverhangType => CutPositionForward.CompareTo(CutPositionReverse) switch
+    {
+        0 => OverhangType.Blunt,
+        < 0 => OverhangType.FivePrime,
+        _ => OverhangType.ThreePrime
+    };
 
     /// <summary>
     /// Gets the length of the recognition sequence.

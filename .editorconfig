@@ -207,6 +207,9 @@ dotnet_diagnostic.S6966.severity = suggestion
 # S108: empty blocks in test scaffolding are typically intentional (empty catch in a throwing test
 # double, empty exercise loops). Enforced in production; advisory in tests.
 dotnet_diagnostic.S108.severity = suggestion
+# S3358: nested ternaries in test data/assertion setup are a readability preference; enforced in
+# production (all 9 prod sites refactored), advisory in the 49 test sites.
+dotnet_diagnostic.S3358.severity = suggestion
 # S2114: determinism property tests intentionally call f(x).SequenceEqual(f(x)) to prove a function
 # is pure/reproducible — the two calls are meant to be re-evaluated, not folded to "always true".
 dotnet_diagnostic.S2114.severity = none

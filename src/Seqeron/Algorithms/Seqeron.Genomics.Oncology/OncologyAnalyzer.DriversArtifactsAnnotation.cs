@@ -120,9 +120,12 @@ public static partial class OncologyAnalyzer
         {
             // Both criteria pass (atypical per Vogelstein 2013 — well-documented genes far surpass one
             // criterion). Resolve by the dominant signal; an exact tie is genuinely ambiguous.
-            role = truncatingFraction > recurrentMissenseFraction ? DriverGeneRole.TumorSuppressor
-                 : recurrentMissenseFraction > truncatingFraction ? DriverGeneRole.Oncogene
-                 : DriverGeneRole.Ambiguous;
+            role = truncatingFraction.CompareTo(recurrentMissenseFraction) switch
+            {
+                > 0 => DriverGeneRole.TumorSuppressor,
+                < 0 => DriverGeneRole.Oncogene,
+                _ => DriverGeneRole.Ambiguous
+            };
         }
         else if (isTsg)
         {

@@ -457,11 +457,13 @@ public static partial class OncologyAnalyzer
                        && fusion.Site3Prime == BreakpointSite.Cds;
 
         // A frame call is only defined for a coding-to-coding junction (Arriba reading_frame = '.' otherwise).
-        BreakpointFrameStatus frame = bothCoding
-            ? (IsInFrame(fusion.FivePrimeCodingBases, fusion.ThreePrimeStartPhase)
-                ? BreakpointFrameStatus.InFrame
-                : BreakpointFrameStatus.OutOfFrame)
-            : BreakpointFrameStatus.NotPredicted;
+        BreakpointFrameStatus frame;
+        if (!bothCoding)
+            frame = BreakpointFrameStatus.NotPredicted;
+        else if (IsInFrame(fusion.FivePrimeCodingBases, fusion.ThreePrimeStartPhase))
+            frame = BreakpointFrameStatus.InFrame;
+        else
+            frame = BreakpointFrameStatus.OutOfFrame;
 
         return new BreakpointAnalysis(
             fusion.Gene5Prime,

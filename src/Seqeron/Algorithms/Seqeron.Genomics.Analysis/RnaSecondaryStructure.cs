@@ -2864,7 +2864,8 @@ public static class RnaSecondaryStructure
             }
 
             // j unpaired externally — blocked if j is a required (must-pair) endpoint.
-            double wj = UnpairedOk(j) ? ((j >= 1) ? wExp[j - 1] : 1.0) : 0.0;
+            double wjUnpaired = j >= 1 ? wExp[j - 1] : 1.0;
+            double wj = UnpairedOk(j) ? wjUnpaired : 0.0;
 
             for (int i = 0; i <= j; i++)
             {

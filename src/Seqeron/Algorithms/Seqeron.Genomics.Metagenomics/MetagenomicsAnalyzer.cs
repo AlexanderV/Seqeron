@@ -1611,7 +1611,8 @@ public static class MetagenomicsAnalyzer
             double mean1 = values1.Average();
             double mean2 = values2.Average();
 
-            double foldChange = mean1 > 0 ? mean2 / mean1 : (mean2 > 0 ? double.PositiveInfinity : 1);
+            double foldChangeNoBaseline = mean2 > 0 ? double.PositiveInfinity : 1;
+            double foldChange = mean1 > 0 ? mean2 / mean1 : foldChangeNoBaseline;
             double logFoldChange = Math.Log2(Math.Max(foldChange, 0.001));
 
             // Simple t-test (Welch's approximation)
