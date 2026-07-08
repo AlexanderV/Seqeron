@@ -135,6 +135,20 @@ public class MiRnaAnalyzerMutationTests
     }
 
     [Test]
+    public void CalculateSiteAccessibility_OddLengthWindow_UsesFloatingPointMaxPairs()
+    {
+        // Discriminating case for the maxPairs = (W*(W-4))/2 → /2.0 fix. The KnownWindow test above
+        // uses an even window (W=10, 60/2 == 60/2.0 == 30) and therefore CANNOT detect integer-division
+        // truncation. Here W=11 (odd) ⇒ W*(W-4) = 77 is odd, so the correct maxPairs = 77/2.0 = 38.5
+        // while the old truncating `77/2` gave 38. Sequence G·A₉·C (len 11) has exactly one Watson–Crick
+        // non-wobble pair with j ≥ i+4 (G0–C10) ⇒ structureScore = 1.
+        double acc = CalculateSiteAccessibility("GAAAAAAAAAC", 2, 7);
+
+        // Correct model: 1 − (1/38.5)·10 ≈ 0.74026. The old truncating `/2` produced 1 − (1/38)·10 ≈ 0.73684.
+        Assert.That(acc, Is.EqualTo(1.0 - (1.0 / (11.0 * 7.0 / 2.0)) * 10.0).Within(Tol));
+    }
+
+    [Test]
     public void CalculateSiteAccessibility_SiteStartZero_StillComputes()
     {
         // siteStart == 0 is valid (guard is strict siteStart < 0). A '<=' mutant returns 0.
