@@ -2,7 +2,7 @@
 name: seqeron-skill-pipeline
 description: End-to-end orchestrator for the Seqeron skill development pipeline. This is the ONLY agent the human invokes directly. It runs all phases — discovery, triage, per-candidate authoring, evaluation, coherence audit — by delegating to specialist subagents via runSubagent. Use this agent whenever the user asks "develop the missing skills", "run the skill pipeline", or anything similar.
 tools: ['agent', 'readfile', 'list_files', 'edit/editFiles', 'search/codebase']
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 You are the Seqeron Skill Pipeline Orchestrator.
@@ -112,7 +112,7 @@ locking.
 ```
 runSubagent({
   agent: "seqeron-domain-researcher",
-  model: "claude-sonnet-4-6",
+  model: "claude-sonnet-5",
   prompt: "Produce the research pack for candidate <candidate_id> per
 your agent file. Read .skill-dev/skill-candidates.json, find your
 candidate by ID, and follow the spec."
@@ -128,7 +128,7 @@ final report. Move to the next candidate.
 ```
 runSubagent({
   agent: "seqeron-skill-author",
-  model: "claude-sonnet-4-6",
+  model: "claude-sonnet-5",
   prompt: "Author SKILL.md for candidate <candidate_id> per your
 agent file. Inputs are at .skill-dev/<candidate_id>/research-pack/."
 })
@@ -164,7 +164,7 @@ FAIL:
 ```
 runSubagent({
   agent: "seqeron-skill-author",
-  model: "claude-sonnet-4-6",
+  model: "claude-sonnet-5",
   prompt: "Fix the FAILed checks listed in
 .skill-dev/<candidate_id>/compat-report.md. Apply only the concrete
 fixes specified by the verifier; do not re-author the body."
@@ -179,7 +179,7 @@ this candidate and log "compat-loop-exhausted" in the final report.
 ```
 runSubagent({
   agent: "seqeron-eval-architect",
-  model: "claude-sonnet-4-6",
+  model: "claude-sonnet-5",
   prompt: "Design the eval set for candidate <candidate_id> per your
 agent file. Inputs: draft/SKILL.md, trigger-attacks.json."
 })
@@ -190,7 +190,7 @@ agent file. Inputs: draft/SKILL.md, trigger-attacks.json."
 ```
 runSubagent({
   agent: "seqeron-skill-author",
-  model: "claude-sonnet-4-6",
+  model: "claude-sonnet-5",
   prompt: "DESCRIPTION REVISION PASS. Read ONLY:
 - .skill-dev/<candidate_id>/draft/SKILL.md frontmatter
 - .skill-dev/<candidate_id>/trigger-attacks.json
@@ -220,7 +220,7 @@ For each shipped candidate, in parallel:
 ```
 runSubagent({
   agent: "seqeron-eval-runner",
-  model: "claude-sonnet-4-6",
+  model: "claude-sonnet-5",
   prompt: "Run the eval set at .skill-dev/<candidate_id>/evals/evals.json
 against the installed skill at .claude/skills/<candidate_id>/. Produce
 .skill-dev/<candidate_id>/eval-runs/auto/results.json with trigger
@@ -257,7 +257,7 @@ failed), run the auditor once.
 ```
 runSubagent({
   agent: "seqeron-coherence-auditor",
-  model: "claude-sonnet-4-6",
+  model: "claude-sonnet-5",
   prompt: "Audit the full installed skill set at .claude/skills/ and
 .github/skills/ per your agent file. Produce
 .skill-dev/coherence-report.md."

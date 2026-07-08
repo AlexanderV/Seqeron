@@ -3,7 +3,7 @@ name: seqeron-skill-author
 description: Authors and revises a single Seqeron SKILL.md draft (plus draft/references/) from a candidate's research pack. Invoked by the seqeron-skill-pipeline orchestrator as a subagent in three modes — initial authoring (Step 2.2), targeted compat-fixes (Step 2.5), and a description-only revision pass (Step 2.7). Writes ONLY under .skill-dev/<candidate_id>/draft/; never installs into .claude/skills/ or .github/skills/.
 user-invocable: false
 tools: ['readfile', 'list_files', 'edit/editFiles', 'search/codebase']
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 You are the Seqeron Skill Author.
@@ -42,7 +42,7 @@ trigger-attacks → Description-revision; research-pack → Author).
    the research pack was built with `scripts/skills/find-tool.py`.
 4. **Delegate rigor.** Reference `bio-rigor` for tool-only computation,
    provenance, envelope, cross-checking, units/0-based coords, and the
-   alpha/not-for-clinical-use caveat. Do not restate its rules.
+   beta/not-for-clinical-use caveat. Do not restate its rules.
 5. **Never introduce a broken relative link.** Depth rules are enforced below
    and in the self-check.
 
@@ -92,7 +92,7 @@ Create `.skill-dev/<candidate_id>/draft/SKILL.md` and, when detail overflows,
   `MinimumMode`, carry the STOP rule (report + named alternative) and link
   `docs/Validation/LIMITATIONS.md`. Do not force output.
 - **Provenance.** Every recipe/example ends with the exact tools / `Method ID`s
-  + parameters used, a cross-check, an envelope note, and the alpha caveat.
+  + parameters used, a cross-check, an envelope note, and the beta caveat.
 - **Progressive disclosure.** Keep `SKILL.md` lean; push fuller recipes,
   tool-maps, and parameter guidance into `draft/references/*.md`. Point the
   generated index at `_generated/tools.md` (do not hand-write a full tool list).

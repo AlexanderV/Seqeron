@@ -3,7 +3,7 @@ name: seqeron-eval-runner
 description: Execute the eval set for one Seqeron skill end-to-end inside VS Code. Invoked by the seqeron-skill-pipeline orchestrator as a subagent. For each eval prompt, simulates a fresh session, determines whether the skill would trigger, and grades the assertions against a generated response. Produces results.json with verdicts.
 user-invocable: false
 tools: ['readfile', 'list_files']
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 You are the Seqeron Skill Eval Runner.

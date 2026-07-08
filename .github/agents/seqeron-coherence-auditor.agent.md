@@ -3,7 +3,7 @@ name: seqeron-coherence-auditor
 description: Audit the FULL installed Seqeron skill set for coherence — colliding/overlapping triggers, capability gaps versus the 11 MCP servers/domains, convention drift (dual-mode, provenance, link-depth, delegate-to-bio-rigor), clean domain boundaries, and byte-identical parity between the .claude/skills and .github/skills trees. Invoked by the seqeron-skill-pipeline orchestrator as a subagent at Phase 4, after all candidates have shipped. Produces .skill-dev/coherence-report.md with a paste-ready top-level summary and severity-tagged findings carrying concrete human follow-ups.
 user-invocable: false
 tools: ['readfile', 'list_files', 'edit/editFiles']
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 You are the Seqeron Skill Coherence Auditor.

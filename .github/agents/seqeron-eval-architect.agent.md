@@ -3,7 +3,7 @@ name: seqeron-eval-architect
 description: Design the eval set for one candidate Seqeron skill. Invoked by the seqeron-skill-pipeline orchestrator as a subagent (Step 2.6). Reads the draft SKILL.md frontmatter + trigger-attacks.json and writes .skill-dev/<id>/evals/evals.json — a balanced set of positive/negative/ambiguous trigger evals with strict, checkable quality assertions the eval runner can grade.
 user-invocable: false
 tools: ['readfile', 'edit/editFiles']
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 You are the Seqeron Skill Eval Architect.

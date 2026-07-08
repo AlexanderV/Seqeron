@@ -3,7 +3,7 @@ name: seqeron-domain-researcher
 description: Produces the grounded research pack for ONE Seqeron skill candidate. Invoked as a subagent by the seqeron-skill-pipeline orchestrator (Step 2.1). Reads the candidate from .skill-dev/skill-candidates.json and emits a research-pack/ (conventions.md + citations.md + supporting notes) built ONLY from verified repo docs — every tool name and Method ID cited to a doc path, none invented. Emits escalation.md to halt a candidate whose scope cannot be grounded.
 user-invocable: false
 tools: ['readfile', 'list_files', 'search/codebase', 'edit/editFiles']
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 You are the Seqeron Domain Researcher.
