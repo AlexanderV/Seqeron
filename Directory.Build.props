@@ -21,14 +21,14 @@
     <EnforceCodeStyleInBuild Condition="'$(EnforceCodeStyleInBuild)' == ''">true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
-  <!-- Sonar onboarding (report-only). SonarAnalyzer.CSharp is newly added, so its Sxxxx rules
-       stay warnings (visible in build/IDE) instead of tripping TreatWarningsAsErrors above. This
-       is the initial debt snapshot: every Sonar rule that currently fires across the solution is
-       listed here. Ratchet the gate tighter by clearing a rule's findings and deleting its code
-       from this list. To silence a rule permanently instead, set it to `none` in .editorconfig. -->
-  <PropertyGroup>
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);S125;S1244;S3267</WarningsNotAsErrors>
-  </PropertyGroup>
+  <!-- Sonar ratchet complete: every SonarAnalyzer rule that fired across the solution is now either
+       resolved (its findings fixed, so the rule is blocking under TreatWarningsAsErrors above) or
+       silenced with a documented justification in .editorconfig (false-positive-in-context for this
+       ASCII, culture-free, performance-oriented bioinformatics library). Nothing is report-only, so
+       WarningsNotAsErrors carries no Sonar codes. The ratchet history is in docs/sonar-gate-plan.md.
+       If a NEW Sonar rule starts firing (e.g. after an analyzer upgrade), add it to a report-only
+       WarningsNotAsErrors here first, then fix or silence it. -->
+
 
   <!-- Reproducible builds: deterministic output; path-map normalised on CI. -->
   <PropertyGroup>
