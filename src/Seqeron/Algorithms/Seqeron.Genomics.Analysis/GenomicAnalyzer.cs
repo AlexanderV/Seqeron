@@ -441,7 +441,11 @@ public static class GenomicAnalyzer
     public static IEnumerable<OrfInfo> FindOpenReadingFrames(DnaSequence sequence, int minLength = 100)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return FindOpenReadingFramesCore(sequence, minLength);
+    }
 
+    private static IEnumerable<OrfInfo> FindOpenReadingFramesCore(DnaSequence sequence, int minLength)
+    {
         string seq = sequence.Sequence;
         for (int frame = 0; frame < FramesPerStrand; frame++)
         {

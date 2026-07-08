@@ -75,7 +75,11 @@ namespace Seqeron.Genomics.Core
             int minLength = 100, bool searchBothStrands = true)
         {
             ArgumentNullException.ThrowIfNull(dna);
+            return FindOrfsCore(dna, geneticCode, minLength, searchBothStrands);
+        }
 
+        private static IEnumerable<OrfResult> FindOrfsCore(DnaSequence dna, GeneticCode? geneticCode, int minLength, bool searchBothStrands)
+        {
             var code = geneticCode ?? GeneticCode.Standard;
 
             // Search forward strand in all three frames

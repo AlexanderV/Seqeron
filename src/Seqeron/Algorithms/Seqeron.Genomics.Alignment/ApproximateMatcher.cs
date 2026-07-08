@@ -38,11 +38,19 @@ namespace Seqeron.Genomics.Alignment
             int maxMismatches,
             CancellationToken cancellationToken)
         {
-            if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
-                yield break;
-
             if (maxMismatches < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxMismatches), "Cannot be negative.");
+            return FindWithMismatchesCore(sequence, pattern, maxMismatches, cancellationToken);
+        }
+
+        private static IEnumerable<ApproximateMatchResult> FindWithMismatchesCore(
+            string sequence,
+            string pattern,
+            int maxMismatches,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
+                yield break;
 
             var seq = sequence.ToUpperInvariant();
             var pat = pattern.ToUpperInvariant();
@@ -113,11 +121,16 @@ namespace Seqeron.Genomics.Alignment
         public static IEnumerable<ApproximateMatchResult> FindWithEdits(
             string sequence, string pattern, int maxEdits)
         {
-            if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
-                yield break;
-
             if (maxEdits < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxEdits), "Cannot be negative.");
+            return FindWithEditsCore(sequence, pattern, maxEdits);
+        }
+
+        private static IEnumerable<ApproximateMatchResult> FindWithEditsCore(
+            string sequence, string pattern, int maxEdits)
+        {
+            if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
+                yield break;
 
             var seq = sequence.ToUpperInvariant();
             var pat = pattern.ToUpperInvariant();
@@ -307,14 +320,18 @@ namespace Seqeron.Genomics.Alignment
         public static IEnumerable<(string Kmer, int Count)> FindFrequentKmersWithMismatches(
             string sequence, int k, int d)
         {
-            if (string.IsNullOrEmpty(sequence))
-                yield break;
-
             if (k <= 0)
                 throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
-
             if (d < 0)
                 throw new ArgumentOutOfRangeException(nameof(d), "D cannot be negative.");
+            return FindFrequentKmersWithMismatchesCore(sequence, k, d);
+        }
+
+        private static IEnumerable<(string Kmer, int Count)> FindFrequentKmersWithMismatchesCore(
+            string sequence, int k, int d)
+        {
+            if (string.IsNullOrEmpty(sequence))
+                yield break;
 
             var seq = sequence.ToUpperInvariant();
             var counts = new Dictionary<string, int>();

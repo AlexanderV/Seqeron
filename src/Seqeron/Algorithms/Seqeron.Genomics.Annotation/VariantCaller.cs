@@ -39,11 +39,16 @@ public static class VariantCaller
         string alignedQuery)
     {
         if (string.IsNullOrEmpty(alignedReference) || string.IsNullOrEmpty(alignedQuery))
-            yield break;
-
+            return Enumerable.Empty<Variant>();
         if (alignedReference.Length != alignedQuery.Length)
             throw new ArgumentException("Aligned sequences must have the same length.");
+        return CallVariantsFromAlignmentCore(alignedReference, alignedQuery);
+    }
 
+    private static IEnumerable<Variant> CallVariantsFromAlignmentCore(
+        string alignedReference,
+        string alignedQuery)
+    {
         int refPos = 0;
         int queryPos = 0;
 
@@ -318,7 +323,11 @@ public static class VariantCaller
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(query);
+        return AnnotateVariantsCore(reference, query, isCodingSequence);
+    }
 
+    private static IEnumerable<AnnotatedVariant> AnnotateVariantsCore(DnaSequence reference, DnaSequence query, bool isCodingSequence)
+    {
         foreach (var variant in CallVariants(reference, query))
         {
             var effect = isCodingSequence
@@ -349,7 +358,11 @@ public static class VariantCaller
         string sampleName = "SAMPLE")
     {
         ArgumentNullException.ThrowIfNull(variants);
+        return ToVcfLinesCore(variants, chromosome, sampleName);
+    }
 
+    private static IEnumerable<string> ToVcfLinesCore(IEnumerable<Variant> variants, string chromosome, string sampleName)
+    {
         // VCF header
         yield return "##fileformat=VCFv4.2";
         yield return $"##source=Seqeron.Genomics";

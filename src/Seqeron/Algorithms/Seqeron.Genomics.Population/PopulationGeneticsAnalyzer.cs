@@ -1131,7 +1131,11 @@ public static class PopulationGeneticsAnalyzer
         ArgumentNullException.ThrowIfNull(standardizedScores);
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1.");
+        return ScanForSelectionCore(standardizedScores, windowSize);
+    }
 
+    private static IEnumerable<SelectionScanWindow> ScanForSelectionCore(IReadOnlyList<double> standardizedScores, int windowSize)
+    {
         int windowIndex = 0;
         for (int start = 0; start < standardizedScores.Count; start += windowSize)
         {

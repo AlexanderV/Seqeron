@@ -174,6 +174,12 @@ public static class CrisprDesigner
             throw new ArgumentOutOfRangeException(nameof(regionStart));
         if (regionEnd < regionStart || regionEnd >= sequence.Length)
             throw new ArgumentOutOfRangeException(nameof(regionEnd));
+        return DesignGuideRnasCore(sequence, regionStart, regionEnd, systemType, parameters);
+    }
+
+    private static IEnumerable<GuideRnaCandidate> DesignGuideRnasCore(
+        DnaSequence sequence, int regionStart, int regionEnd, CrisprSystemType systemType, GuideRnaParameters? parameters)
+    {
 
         var effectiveParams = parameters ?? GuideRnaParameters.Default;
         var system = GetSystem(systemType);
@@ -335,13 +341,18 @@ public static class CrisprDesigner
         ArgumentNullException.ThrowIfNull(genome);
         if (maxMismatches < 0 || maxMismatches > 5)
             throw new ArgumentOutOfRangeException(nameof(maxMismatches));
-
         var system = GetSystem(systemType);
-
         if (guideSequence.Length != system.GuideLength)
             throw new ArgumentException(
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
+        return FindOffTargetsCore(guideSequence, genome, maxMismatches, systemType);
+    }
+
+    private static IEnumerable<OffTargetSite> FindOffTargetsCore(
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
+    {
+        var system = GetSystem(systemType);
 
         var guide = guideSequence.ToUpperInvariant();
 

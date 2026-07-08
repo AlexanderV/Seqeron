@@ -203,7 +203,11 @@ public static class RestrictionAnalyzer
     public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, params string[] enzymeNames)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return FindSitesCore(sequence, enzymeNames);
+    }
 
+    private static IEnumerable<RestrictionSite> FindSitesCore(DnaSequence sequence, string[] enzymeNames)
+    {
         foreach (var name in enzymeNames)
         {
             foreach (var site in FindSites(sequence, name))
@@ -217,7 +221,11 @@ public static class RestrictionAnalyzer
     public static IEnumerable<RestrictionSite> FindAllSites(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return FindAllSitesCore(sequence);
+    }
 
+    private static IEnumerable<RestrictionSite> FindAllSitesCore(DnaSequence sequence)
+    {
         foreach (var enzyme in _enzymes.Values)
         {
             foreach (var site in FindSitesCore(sequence.Sequence, enzyme))
@@ -257,7 +265,11 @@ public static class RestrictionAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         if (enzymeNames == null || enzymeNames.Length == 0)
             throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
+        return DigestCore(sequence, enzymeNames);
+    }
 
+    private static IEnumerable<DigestFragment> DigestCore(DnaSequence sequence, string[] enzymeNames)
+    {
         // Find all cut sites
         var cutPositions = new SortedSet<int>();
         var sitesByPosition = new Dictionary<int, RestrictionSite>();

@@ -107,7 +107,11 @@ namespace Seqeron.Genomics.Core
         {
             if (frame < 0 || frame > 2)
                 throw new ArgumentOutOfRangeException(nameof(frame), "Frame must be 0, 1, or 2.");
+            return GetCodonsCore(frame);
+        }
 
+        private IEnumerable<string> GetCodonsCore(int frame)
+        {
             for (int i = frame; i + 3 <= _sequence.Length; i += 3)
             {
                 yield return _sequence.Substring(i, 3);

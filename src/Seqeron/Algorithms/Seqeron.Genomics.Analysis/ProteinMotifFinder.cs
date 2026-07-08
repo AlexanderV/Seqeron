@@ -1134,7 +1134,12 @@ public static class ProteinMotifFinder
     {
         if (windowSize <= 0)
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be positive.");
+        return FindLowComplexityRegionsCore(proteinSequence, windowSize, triggerComplexity, extensionComplexity);
+    }
 
+    private static IEnumerable<(int Start, int End, double Complexity)> FindLowComplexityRegionsCore(
+        string proteinSequence, int windowSize, double triggerComplexity, double extensionComplexity)
+    {
         if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < windowSize)
             yield break;
 

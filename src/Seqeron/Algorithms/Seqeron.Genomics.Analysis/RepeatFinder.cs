@@ -979,11 +979,9 @@ public static class RepeatFinder
             throw new ArgumentOutOfRangeException(nameof(minLength), "Must be even and >= 4");
         ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
 
-        if (string.IsNullOrEmpty(sequence))
-            yield break;
-
-        foreach (var result in FindPalindromesCore(sequence.ToUpperInvariant(), minLength, maxLength))
-            yield return result;
+        return string.IsNullOrEmpty(sequence)
+            ? Enumerable.Empty<PalindromeResult>()
+            : FindPalindromesCore(sequence.ToUpperInvariant(), minLength, maxLength);
     }
 
     private static IEnumerable<PalindromeResult> FindPalindromesCore(

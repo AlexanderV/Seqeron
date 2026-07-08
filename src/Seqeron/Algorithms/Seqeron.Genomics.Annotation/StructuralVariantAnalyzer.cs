@@ -155,7 +155,16 @@ public static class StructuralVariantAnalyzer
         int maxInsertSize = 10000)
     {
         ArgumentNullException.ThrowIfNull(readPairs);
+        return FindDiscordantPairsCore(readPairs, expectedInsertSize, insertSizeStdDev, cutoffSd, maxInsertSize);
+    }
 
+    private static IEnumerable<ReadPairSignature> FindDiscordantPairsCore(
+        IEnumerable<(string ReadId, string Chr1, int Pos1, char Strand1, string Chr2, int Pos2, char Strand2, int InsertSize)> readPairs,
+        int expectedInsertSize,
+        int insertSizeStdDev,
+        double cutoffSd,
+        int maxInsertSize)
+    {
         // Anomaly bounds: a pair is discordant-by-span when its insert size is strictly
         // outside [mean − c·sd, mean + c·sd] (BreakDancer README: bounds = mean ± c·std).
         double lowerBound = expectedInsertSize - cutoffSd * insertSizeStdDev;
@@ -302,7 +311,17 @@ public static class StructuralVariantAnalyzer
         double cutoffSd = DefaultInsertSizeCutoffSd)
     {
         ArgumentNullException.ThrowIfNull(discordantPairs);
+        return ClusterDiscordantPairsCore(discordantPairs, clusterDistance, minSupport, expectedInsertSize, insertSizeStdDev, cutoffSd);
+    }
 
+    private static IEnumerable<StructuralVariant> ClusterDiscordantPairsCore(
+        IEnumerable<ReadPairSignature> discordantPairs,
+        int clusterDistance,
+        int minSupport,
+        int expectedInsertSize,
+        int insertSizeStdDev,
+        double cutoffSd)
+    {
         var pairs = discordantPairs.OrderBy(p => p.Chromosome1).ThenBy(p => p.Position1).ToList();
 
         if (pairs.Count == 0)

@@ -20,6 +20,11 @@ public static class MotifFinder
     public static IEnumerable<int> FindExactMotif(DnaSequence sequence, string motif)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return FindExactMotifCore(sequence, motif);
+    }
+
+    private static IEnumerable<int> FindExactMotifCore(DnaSequence sequence, string motif)
+    {
         if (string.IsNullOrEmpty(motif)) yield break;
 
         string motifUpper = motif.ToUpperInvariant();
@@ -86,6 +91,11 @@ public static class MotifFinder
     public static IEnumerable<MotifMatch> FindDegenerateMotif(DnaSequence sequence, string motif)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return FindDegenerateMotifCore(sequence, motif);
+    }
+
+    private static IEnumerable<MotifMatch> FindDegenerateMotifCore(DnaSequence sequence, string motif)
+    {
         if (string.IsNullOrEmpty(motif)) yield break;
 
         string seq = sequence.Sequence;
@@ -282,7 +292,11 @@ public static class MotifFinder
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(pwm);
+        return ScanWithPwmCore(sequence, pwm, threshold);
+    }
 
+    private static IEnumerable<MotifMatch> ScanWithPwmCore(DnaSequence sequence, PositionWeightMatrix pwm, double threshold)
+    {
         string seq = sequence.Sequence;
         int motifLen = pwm.Length;
 
@@ -515,6 +529,11 @@ public static class MotifFinder
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+        return DiscoverMotifsCore(sequence, k, minCount);
+    }
+
+    private static IEnumerable<DiscoveredMotif> DiscoverMotifsCore(DnaSequence sequence, int k, int minCount)
+    {
 
         string seq = sequence.Sequence;
         var kmerPositions = new Dictionary<string, List<int>>();
@@ -586,6 +605,11 @@ public static class MotifFinder
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(minSequences, 1);
+        return FindSharedMotifsCore(sequences, k, minSequences);
+    }
+
+    private static IEnumerable<SharedMotif> FindSharedMotifsCore(IEnumerable<DnaSequence> sequences, int k, int minSequences)
+    {
 
         var seqList = sequences.ToList();
         var kmerOccurrences = new Dictionary<string, List<int>>();
@@ -680,7 +704,11 @@ public static class MotifFinder
     public static IEnumerable<RegulatoryElement> FindRegulatoryElements(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return FindRegulatoryElementsCore(sequence);
+    }
 
+    private static IEnumerable<RegulatoryElement> FindRegulatoryElementsCore(DnaSequence sequence)
+    {
         var patterns = new (string Name, string Pattern, string Description)[]
         {
             ("TATA Box", KnownMotifs.TataBox, "Eukaryotic core promoter element"),

@@ -724,7 +724,12 @@ public static class VariantAnnotator
     {
         ArgumentNullException.ThrowIfNull(variants);
         ArgumentNullException.ThrowIfNull(annotations);
+        return AnnotateCore(variants, annotations, referenceSequence, sequenceStart);
+    }
 
+    private static IEnumerable<VariantAnnotation> AnnotateCore(
+        IEnumerable<Variant> variants, IEnumerable<Transcript> annotations, string? referenceSequence, int sequenceStart)
+    {
         var transcripts = annotations.ToList();
 
         foreach (var variant in variants)

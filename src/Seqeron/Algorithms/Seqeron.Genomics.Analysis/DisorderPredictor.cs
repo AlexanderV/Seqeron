@@ -683,6 +683,12 @@ public static class DisorderPredictor
         int minLength = 1)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return PredictLowComplexityRegionsCore(sequence, triggerWindow, triggerThreshold, extensionThreshold, minLength);
+    }
+
+    private static IEnumerable<(int Start, int End, string Type)> PredictLowComplexityRegionsCore(
+        string sequence, int triggerWindow, double triggerThreshold, double extensionThreshold, int minLength)
+    {
         sequence = sequence.ToUpperInvariant();
         if (sequence.Length < triggerWindow)
             yield break;
