@@ -502,8 +502,8 @@ public class KmerMetamorphicTests
         foreach (var seq in new[] { "ACGTACGTTGGCCAATAC", "AAAAAAA", "GCGCGCGCGC" })
             foreach (int k in new[] { 1, 2, 3, 4 })
             {
-                var async = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
-                async.Should().BeEquivalentTo(KmerAnalyzer.CountKmers(seq, k),
+                var asyncResult = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
+                asyncResult.Should().BeEquivalentTo(KmerAnalyzer.CountKmers(seq, k),
                     because: $"the async count of '{seq}' (k={k}) must equal the synchronous count");
             }
     }
@@ -723,7 +723,7 @@ public class KmerMetamorphicTests
         const string kmer = "AA";
 
         var positions = KmerAnalyzer.FindKmerPositions(seq, kmer).ToList();
-        positions.Should().Equal(new[] { 0, 1, 2 });
+        positions.Should().Equal(0, 1, 2);
         positions.Should().BeInAscendingOrder(because: "the scan reports positions left to right");
         KmerAnalyzer.FindKmerPositions(seq, kmer).Should().Equal(positions, because: "the search is a pure function");
     }

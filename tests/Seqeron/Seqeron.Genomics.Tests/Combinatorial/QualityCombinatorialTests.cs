@@ -69,8 +69,8 @@ public class QualityCombinatorialTests
     [Test]
     public void QualityPhred_OffsetConvention()
     {
-        QualityScoreAnalyzer.ParseQualityString("!", QualityScoreAnalyzer.QualityEncoding.Phred33).Should().Equal(new[] { 0 });
-        QualityScoreAnalyzer.ParseQualityString("@", QualityScoreAnalyzer.QualityEncoding.Phred64).Should().Equal(new[] { 0 });
+        QualityScoreAnalyzer.ParseQualityString("!", QualityScoreAnalyzer.QualityEncoding.Phred33).Should().Equal(0);
+        QualityScoreAnalyzer.ParseQualityString("@", QualityScoreAnalyzer.QualityEncoding.Phred64).Should().Equal(0);
 
         // Q20: char '5' (53) in Phred+33, char 'T' (84) in Phred+64 — same score, char shifted by 31.
         QualityScoreAnalyzer.ToQualityString(new[] { 20 }, QualityScoreAnalyzer.QualityEncoding.Phred33).Should().Be("5");

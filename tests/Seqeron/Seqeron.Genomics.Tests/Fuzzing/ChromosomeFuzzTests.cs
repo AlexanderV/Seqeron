@@ -1117,7 +1117,7 @@ public class ChromosomeFuzzTests
 
         result.TotalChromosomes.Should().Be(2);
         result.AutosomeCount.Should().Be(0);
-        result.SexChromosomes.Should().BeEquivalentTo(new[] { "chrX", "chrY" });
+        result.SexChromosomes.Should().BeEquivalentTo("chrX", "chrY");
         result.HasAneuploidy.Should().BeFalse("sex chromosomes are never grouped for abnormality calling");
         result.Abnormalities.Should().BeEmpty();
         result.TotalGenomeSize.Should().Be(2_100_000);

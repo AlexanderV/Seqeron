@@ -1787,7 +1787,12 @@ public class OncologyMetamorphicTests
         var adjacency = new Dictionary<int, List<int>>();
         void Link(int x, int y)
         {
-            (adjacency.TryGetValue(x, out var l) ? l : adjacency[x] = new List<int>()).Add(y);
+            if (!adjacency.TryGetValue(x, out var l))
+            {
+                l = new List<int>();
+                adjacency[x] = l;
+            }
+            l.Add(y);
         }
         foreach (var e in p.Edges) { Link(e.ParentId, e.ChildId); Link(e.ChildId, e.ParentId); }
 

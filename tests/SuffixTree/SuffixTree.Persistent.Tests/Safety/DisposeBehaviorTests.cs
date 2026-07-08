@@ -209,7 +209,9 @@ namespace SuffixTree.Persistent.Tests.Safety
             public IEnumerator<char> GetEnumerator() => _text.GetEnumerator();
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
             public override string ToString() => _text;
+#pragma warning disable S3877 // intentional: throwing test double exercises dispose-safety paths
             public void Dispose() => throw new InvalidOperationException("ThrowingTextSource.Dispose boom");
+#pragma warning restore S3877
         }
 
         /// <summary>Storage decorator that tracks Dispose calls for S10 testing.</summary>
@@ -250,7 +252,9 @@ namespace SuffixTree.Persistent.Tests.Safety
             public void WriteChar(long offset, char value) => _inner.WriteChar(offset, value);
             public void ReadBytes(long offset, byte[] buffer, int bufferOffset, int count) => _inner.ReadBytes(offset, buffer, bufferOffset, count);
             public void WriteBytes(long offset, byte[] data, int dataOffset, int count) => _inner.WriteBytes(offset, data, dataOffset, count);
+#pragma warning disable S3877 // intentional: throwing test double exercises dispose-safety paths
             public void Dispose() => throw new InvalidOperationException("ThrowingStorageProvider.Dispose boom");
+#pragma warning restore S3877
         }
     }
 }

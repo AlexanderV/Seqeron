@@ -89,7 +89,7 @@ ORIGIN
             Sequence: "ATGCATGCATGC",
             Organism: "Test organism",
             Taxonomy: "Test; Taxonomy",
-            Date: new DateTime(2024, 1, 15),
+            Date: new DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Unspecified),
             Features: new List<SequenceIO.SequenceFeature>
             {
                 new("gene", 1, 12, '+', new Dictionary<string, string> { { "gene", "test" } })
@@ -545,7 +545,7 @@ Seq3      TTTTTTTTTT
             Sequence: "ATGC",
             Organism: "org",
             Taxonomy: "tax",
-            Date: new DateTime(2024, 1, 1),
+            Date: new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
             Features: new List<SequenceIO.SequenceFeature>(),
             References: new List<SequenceIO.Reference>(),
             Metadata: new Dictionary<string, string>());

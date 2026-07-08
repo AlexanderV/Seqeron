@@ -10,6 +10,9 @@ namespace Seqeron.Mcp.Population.Tools;
 [McpServerToolType]
 public class PopulationTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private PopulationTools() { }
+
     #region PopulationGeneticsAnalyzer
 
     // -------- Allele Frequency --------

@@ -231,14 +231,14 @@ public sealed class EpigeneticsFuzzTests
     {
         // "CGCGCG" → CpG at indices 0, 2, 4 (the C of each CG pair).
         string seq = "CGCGCG";
-        FindCpGSites(seq).Should().Equal(new[] { 0, 2, 4 });
+        FindCpGSites(seq).Should().Equal(0, 2, 4);
     }
 
     [Test]
     public void FindCpGSites_AdjacentCpGs_ReportsBoth()
     {
         // Docs §6.1: "CGCG" → both CpG positions (0 and 2) are reported.
-        FindCpGSites("CGCG").Should().Equal(new[] { 0, 2 });
+        FindCpGSites("CGCG").Should().Equal(0, 2);
     }
 
     // ── BE: windowSize == 0 (minLength = 0) — no crash, no islands ───────────

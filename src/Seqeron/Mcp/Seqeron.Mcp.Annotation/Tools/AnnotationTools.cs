@@ -9,6 +9,9 @@ namespace Seqeron.Mcp.Annotation.Tools;
 [McpServerToolType]
 public class AnnotationTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private AnnotationTools() { }
+
     /// <summary>Find all open reading frames in a DNA sequence.</summary>
     [McpServerTool(Name = "find_orfs", Title = "Annotation — Find ORFs", ReadOnly = true)]
     [Description("Find all open reading frames (ORFs) in a DNA sequence across forward and reverse strands.")]
@@ -613,7 +616,7 @@ public class AnnotationTools
         ArgumentNullException.ThrowIfNull(regulatoryRegions);
 
         var input = regulatoryRegions.Select(r =>
-            (r.Chromosome, r.Start, r.End, r.Type, r.CellType, r.Score, (IReadOnlyList<string>)(r.TranscriptionFactors ?? new List<string>())));
+            (r.Chromosome, r.Start, r.End, r.Type, r.CellType, r.Score, r.TranscriptionFactors ?? new List<string>()));
 
         var annotations = VariantAnnotator.AnnotateRegulatoryElements(FromDto(variant), input)
             .Select(a => new RegulatoryAnnotationDto(

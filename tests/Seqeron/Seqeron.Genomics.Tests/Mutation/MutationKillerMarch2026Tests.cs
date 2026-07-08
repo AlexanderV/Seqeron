@@ -168,7 +168,7 @@ public class MutationKillerTests
     public void FindDegenerateMotif_Cancellable_CancellationRespected()
     {
         // Ensures the cancellation path on line 163 executes
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.Cancel();
 
         var act = () => MotifFinder.FindDegenerateMotif(
@@ -494,7 +494,7 @@ public class MutationKillerTests
     public void FindMicrosatellites_CancellationToken_ThrowsWhenCancelled()
     {
         // Ensures L120: cancellationToken.ThrowIfCancellationRequested() is reachable
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.Cancel();
 
         var act = () => RepeatFinder.FindMicrosatellites(
@@ -593,11 +593,11 @@ public class MutationKillerTests
         // Loop=3 → CanFormHairpin=true, Loop=2 → false
         var seqLoop3 = "GCGCAAAGCGC";
         var results3 = RepeatFinder.FindInvertedRepeats(seqLoop3, minArmLength: 4, minLoopLength: 3).ToList();
-        results3.Should().Contain(r => r.CanFormHairpin == true && r.LoopLength == 3);
+        results3.Should().Contain(r => r.CanFormHairpin && r.LoopLength == 3);
 
         var seqLoop2 = "GCGCAAGCGC";
         var results2 = RepeatFinder.FindInvertedRepeats(seqLoop2, minArmLength: 4, minLoopLength: 2).ToList();
-        results2.Should().Contain(r => r.CanFormHairpin == false && r.LoopLength == 2);
+        results2.Should().Contain(r => !r.CanFormHairpin && r.LoopLength == 2);
     }
 
     [Test]

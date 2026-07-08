@@ -1546,7 +1546,12 @@ public class MetagenomicsProperties
         {
             var rng = new Random(seed);
             const string aa = "ACDEFGHIKLMNPQRSTVWY";
-            string Rand(int n) { var c = new char[n]; for (int i = 0; i < n; i++) c[i] = aa[rng.Next(aa.Length)]; return new string(c); }
+            string Rand(int n)
+            {
+                var c = new char[n];
+                for (int i = 0; i < n; i++) c[i] = aa[rng.Next(aa.Length)];
+                return new string(c);
+            }
             var sigs = FunctionDb.Keys.ToList();
             int n = 1 + rng.Next(4);
             var genes = new (string, string)[n];
@@ -1703,7 +1708,12 @@ public class MetagenomicsProperties
         {
             var rng = new Random(seed);
             const string aa = "ACDEFGHIKLMNPQRSTVWY";
-            string Rand(int n) { var c = new char[n]; for (int i = 0; i < n; i++) c[i] = aa[rng.Next(aa.Length)]; return new string(c); }
+            string Rand(int n)
+            {
+                var c = new char[n];
+                for (int i = 0; i < n; i++) c[i] = aa[rng.Next(aa.Length)];
+                return new string(c);
+            }
             var motifs = ResistanceDb.Keys.ToList();
             int n = 1 + rng.Next(4);
             var genes = new (string, string)[n];

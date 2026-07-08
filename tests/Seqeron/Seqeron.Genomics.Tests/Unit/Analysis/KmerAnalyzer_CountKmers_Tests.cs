@@ -591,7 +591,7 @@ public class KmerAnalyzer_CountKmers_Tests
     [Test]
     public void CountKmers_CancellationOverload_NormalizesCase()
     {
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         var counts = KmerAnalyzer.CountKmers("acgtacgt", 4, cts.Token);
 
         Assert.Multiple(() =>

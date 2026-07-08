@@ -967,10 +967,7 @@ public static partial class OncologyAnalyzer
             double decrease = previousObjective - currentObjective;
             double denominator = previousObjective > NmfEpsilon ? previousObjective : 1.0;
             if (!double.IsInfinity(previousObjective) && decrease / denominator < tolerance)
-            {
-                previousObjective = currentObjective;
                 break;
-            }
 
             previousObjective = currentObjective;
         }

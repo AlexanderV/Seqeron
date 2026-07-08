@@ -4,7 +4,7 @@ namespace SuffixTree.Persistent.Tests.Validation
     [Category("Validation")]
     public class BoundaryAndEdgeCaseTests
     {
-        private string _tempFile = "boundary_test.tree";
+        private readonly string _tempFile = "boundary_test.tree";
 
         [TearDown]
         public void Cleanup()

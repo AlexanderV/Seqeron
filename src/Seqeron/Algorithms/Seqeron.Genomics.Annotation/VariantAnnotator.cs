@@ -868,7 +868,6 @@ public static class VariantAnnotator
 
         // Get codon position
         int codonNumber = (cdsPosition - 1) / 3 + 1;
-        int positionInCodon = (cdsPosition - 1) % 3;
 
         // Placeholder for actual codon lookup
         // Would need reference sequence to get actual codons
@@ -1318,7 +1317,7 @@ public static class VariantAnnotator
         if (variant.Type != VariantType.SNV)
             yield break;
 
-        foreach (var (tfName, motif, threshold) in motifs)
+        foreach (var (tfName, motif, _) in motifs)
         {
             // Get reference and alternate contexts
             int motifStart = Math.Max(0, contextOffset - motif.Length + 1);
@@ -1438,7 +1437,7 @@ public static class VariantAnnotator
     /// <summary>
     /// Helper class for grouping annotations.
     /// </summary>
-    private class VariantAnnotationGroup : IGrouping<Variant, VariantAnnotation>
+    private sealed class VariantAnnotationGroup : IGrouping<Variant, VariantAnnotation>
     {
         private readonly Variant _variant;
         private readonly List<VariantAnnotation> _annotations;

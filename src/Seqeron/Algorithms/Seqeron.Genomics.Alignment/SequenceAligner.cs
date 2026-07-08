@@ -729,7 +729,7 @@ public static class SequenceAligner
         // Step 3: Reconcile pairwise alignments into a single MSA.
         // ReconcileAlignments performs all pairwise alignments (parallelized for k≥3)
         // and merges gap patterns from independent center-vs-other alignments.
-        var (mergedAligned, mergedScore) = ReconcileAlignments(
+        var (mergedAligned, _) = ReconcileAlignments(
             seqList, centerIdx, centerStr, centerTree, effectiveScoring);
 
         // Pad sequences to same length
@@ -1089,14 +1089,16 @@ public static class SequenceAligner
                 {
                     char cj = pos < aligned[j].Length ? aligned[j][pos] : '-';
 
-                    if (ci == '-' && cj == '-')
-                        continue; // Gap-gap: neutral (standard SP convention)
-                    else if (ci == '-' || cj == '-')
-                        totalScore += scoring.GapExtend; // Gap-nucleotide penalty
-                    else if (ci == cj)
-                        totalScore += scoring.Match;
-                    else
-                        totalScore += scoring.Mismatch;
+                    // Gap-gap is neutral (standard SP convention) and simply contributes nothing.
+                    if (ci != '-' || cj != '-')
+                    {
+                        if (ci == '-' || cj == '-')
+                            totalScore += scoring.GapExtend; // Gap-nucleotide penalty
+                        else if (ci == cj)
+                            totalScore += scoring.Match;
+                        else
+                            totalScore += scoring.Mismatch;
+                    }
                 }
             }
         }

@@ -1065,7 +1065,7 @@ public class PrimerProbeProperties
             var result = PrimerDesigner.DesignPrimers(dna, s.targetStart, s.targetEnd, s.param);
 
             if (result.Forward is null || result.Reverse is null)
-                return result.IsValid == false ? true.ToProperty()  // INV-01: missing side ⇒ invalid.
+                return !result.IsValid ? true.ToProperty()  // INV-01: missing side ⇒ invalid.
                     : false.ToProperty().Label("missing primer but IsValid==true");
 
             bool expected = ExpectedPairValid(result.Forward, result.Reverse);

@@ -21,6 +21,15 @@
     <EnforceCodeStyleInBuild Condition="'$(EnforceCodeStyleInBuild)' == ''">true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
+  <!-- Sonar onboarding (report-only). SonarAnalyzer.CSharp is newly added, so its Sxxxx rules
+       stay warnings (visible in build/IDE) instead of tripping TreatWarningsAsErrors above. This
+       is the initial debt snapshot: every Sonar rule that currently fires across the solution is
+       listed here. Ratchet the gate tighter by clearing a rule's findings and deleting its code
+       from this list. To silence a rule permanently instead, set it to `none` in .editorconfig. -->
+  <PropertyGroup>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);S125;S1199;S1244;S2292;S2368;S3218;S3241;S3267;S3358;S3400;S3604;S3963;S4136;S4144;S4456</WarningsNotAsErrors>
+  </PropertyGroup>
+
   <!-- Reproducible builds: deterministic output; path-map normalised on CI. -->
   <PropertyGroup>
     <Deterministic>true</Deterministic>
@@ -32,5 +41,15 @@
     <Version Condition="'$(Version)' == ''">1.0.0</Version>
     <Authors Condition="'$(Authors)' == ''">Seqeron</Authors>
   </PropertyGroup>
+
+  <!-- Static analysis: SonarAnalyzer.CSharp runs its Sxxxx rules in-build on every project,
+       alongside the .NET CA/IDE rules already curated in .editorconfig. Analyzer-only reference
+       (no runtime/compile assets, non-transitive) so it never ships with the packages. -->
+  <ItemGroup>
+    <PackageReference Include="SonarAnalyzer.CSharp">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 
 </Project>

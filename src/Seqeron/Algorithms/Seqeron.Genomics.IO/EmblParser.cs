@@ -475,7 +475,7 @@ public static partial class EmblParser
         var features = new List<Feature>();
 
         string? currentKey = null;
-        string currentLocation = "";
+        var locationBuilder = new StringBuilder();
         var currentQualifiers = new Dictionary<string, string>();
         var qualifierBuilder = new StringBuilder();
         string? currentQualifierName = null;
@@ -504,7 +504,7 @@ public static partial class EmblParser
                 {
                     // Finish any pending qualifier
                     FinishQualifier(currentQualifierName, qualifierBuilder, currentQualifiers);
-                    features.Add(CreateFeature(currentKey, currentLocation, currentQualifiers));
+                    features.Add(CreateFeature(currentKey, locationBuilder.ToString(), currentQualifiers));
                 }
 
                 // Parse new feature: key and location
@@ -513,12 +513,12 @@ public static partial class EmblParser
                 if (spaceIdx > 0)
                 {
                     currentKey = trimmed[..spaceIdx];
-                    currentLocation = trimmed[(spaceIdx + 1)..].Trim();
+                    locationBuilder.Clear().Append(trimmed[(spaceIdx + 1)..].Trim());
                 }
                 else
                 {
                     currentKey = trimmed;
-                    currentLocation = "";
+                    locationBuilder.Clear();
                 }
                 currentQualifiers = new Dictionary<string, string>();
                 qualifierBuilder.Clear();
@@ -561,7 +561,7 @@ public static partial class EmblParser
                 else if (currentKey != null)
                 {
                     // Location continuation
-                    currentLocation += trimmed;
+                    locationBuilder.Append(trimmed);
                 }
             }
         }
@@ -570,7 +570,7 @@ public static partial class EmblParser
         if (currentKey != null)
         {
             FinishQualifier(currentQualifierName, qualifierBuilder, currentQualifiers);
-            features.Add(CreateFeature(currentKey, currentLocation, currentQualifiers));
+            features.Add(CreateFeature(currentKey, locationBuilder.ToString(), currentQualifiers));
         }
 
         return features;

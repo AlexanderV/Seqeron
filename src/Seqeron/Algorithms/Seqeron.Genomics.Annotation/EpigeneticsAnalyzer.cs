@@ -1034,22 +1034,19 @@ public static partial class EpigeneticsAnalyzer
 
                 lastPosition = pos;
             }
-            else if (regionStart != null)
+            else if (regionStart != null && pos - lastPosition > maxGap)
             {
-                if (pos - lastPosition > maxGap)
+                if (lastPosition - regionStart.Value >= minWidth)
                 {
-                    if (lastPosition - regionStart.Value >= minWidth)
-                    {
-                        yield return new AccessibilityRegion(
-                            Start: regionStart.Value,
-                            End: lastPosition,
-                            AccessibilityScore: maxSignal,
-                            PeakType: ClassifyPeakType(maxSignal),
-                            NearbyGenes: new List<string>());
-                    }
-                    regionStart = null;
-                    maxSignal = 0;
+                    yield return new AccessibilityRegion(
+                        Start: regionStart.Value,
+                        End: lastPosition,
+                        AccessibilityScore: maxSignal,
+                        PeakType: ClassifyPeakType(maxSignal),
+                        NearbyGenes: new List<string>());
                 }
+                regionStart = null;
+                maxSignal = 0;
             }
         }
 

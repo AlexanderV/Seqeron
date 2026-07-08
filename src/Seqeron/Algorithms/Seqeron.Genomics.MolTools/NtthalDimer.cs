@@ -386,7 +386,11 @@ internal static class NtthalDimer
                         for (; ii > 0 && jj < j; --ii, ++jj)
                         {
                             if (!IsFinite(enH[ii, jj])) continue;
-                            var r = CalcBulgeInternal(ii, jj, i, j, traceback: false);
+                            // Caller's (i,j) is the outer pair; the method expects the inner pair (ii,jj)
+                            // as its (i,j). Named args document the mapping; the swap is deliberate, not a bug.
+#pragma warning disable S2234
+                            var r = CalcBulgeInternal(i: ii, j: jj, ii: i, jj: j, traceback: false);
+#pragma warning restore S2234
                             if (r is { } rr)
                             {
                                 double cs = rr.S, ch = rr.H;
@@ -448,7 +452,10 @@ internal static class NtthalDimer
                     if (jj < 1) { ii -= Math.Abs(jj - 1); jj = 1; }
                     for (; !done && ii > 0 && jj < j; --ii, ++jj)
                     {
-                        var r = CalcBulgeInternal(ii, jj, i, j, traceback: true);
+                        // Same deliberate inner/outer-pair mapping as the fill pass above (see S2234 note).
+#pragma warning disable S2234
+                        var r = CalcBulgeInternal(i: ii, j: jj, ii: i, jj: j, traceback: true);
+#pragma warning restore S2234
                         if (r is { } rr && Eq(enS[i, j], rr.S) && Eq(enH[i, j], rr.H))
                         {
                             i = ii; j = jj; ps1[i - 1] = j; ps2[j - 1] = i; done = true; break;

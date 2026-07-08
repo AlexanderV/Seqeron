@@ -143,6 +143,19 @@ dotnet_diagnostic.CA1859.severity = none       # concrete types for perf — not
 dotnet_diagnostic.CA2000.severity = none       # dispose-before-scope — many false positives with pooling
 dotnet_diagnostic.CA1815.severity = none       # equals/hashcode on value types
 
+# ── Silenced: SonarAnalyzer rules that fight deliberate design of this library ────────────────
+dotnet_diagnostic.S2245.severity = none        # Random — test data / sampling, not crypto (cf. CA5394)
+dotnet_diagnostic.S1133.severity = none        # "remove deprecated code someday" — informational, not actionable
+dotnet_diagnostic.S6640.severity = none        # unsafe blocks — deliberate for memory-mapped persistence / perf
+dotnet_diagnostic.S1215.severity = none        # GC.Collect — deliberate in perf / memory-measurement paths
+dotnet_diagnostic.S101.severity = none         # type naming — interop (WIN32_*), acronyms (SNP), benchmark ids (cf. CA1707)
+# S1172: unused parameters here are predominantly deliberate — HMM/RNA dynamic-programming function
+# families that pass a consistent (matrix / length / index) signature, symmetric helper pairs, pipeline
+# placeholder methods documented as "simplified" (reserving transcript/referenceSequence for the full
+# impl), and faithful algorithm ports. Removing them breaks the intended signatures and cascades into
+# callers; a minority are genuinely dead and can be pruned in a focused pass. Opinion-heavy for this library.
+dotnet_diagnostic.S1172.severity = none
+
 # ── Test code: relax the aggressive cleanup rules ────────────────────────────
 # Production code is fully cleaned and gated above. In test code these rules are
 # advisory only: removing an "unused" private field/helper can silently delete
@@ -154,3 +167,34 @@ dotnet_diagnostic.IDE0052.severity = suggestion   # unread private members
 dotnet_diagnostic.CA1823.severity = suggestion    # unused private fields
 dotnet_diagnostic.CA1868.severity = suggestion    # Contains-before-Add
 dotnet_diagnostic.CA1870.severity = suggestion    # cached SearchValues
+# Sonar equivalents of the unused-member rules above: same rationale — an "unused" private
+# field/method/property in a fixture is often intended-but-unwired coverage, not dead code.
+dotnet_diagnostic.S4487.severity = suggestion     # unread private field (e.g. GC/AT-rich templates)
+dotnet_diagnostic.S1144.severity = suggestion     # unused private member
+# S3973: stacked `for`/`foreach` grid-iteration loops are an intentional, readable idiom in these
+# combinatorial tests; brace-style is not enforced in test scaffolding.
+dotnet_diagnostic.S3973.severity = suggestion
+# S927: parameter-name conformance to an interface matters for named-argument callers of a public API,
+# not for pass-through test doubles; all sites are test mocks that just forward to an inner impl.
+dotnet_diagnostic.S927.severity = suggestion
+# S1481: an "unused" local in a test is usually a `var r = MethodUnderTest(...)` exercise-call whose
+# result isn't asserted (coverage / no-throw). Same rationale as the unused-member rules above —
+# removing it silently deletes intended coverage. Enforced in production; advisory in tests.
+dotnet_diagnostic.S1481.severity = suggestion
+# S2971 (drop useless ToList) / S6608 (index instead of .Last()): micro-perf/style. Removing a
+# ToList in a test can change deferred-execution semantics; both add no value to test scaffolding.
+# Enforced in production; advisory in tests.
+dotnet_diagnostic.S2971.severity = suggestion
+dotnet_diagnostic.S6608.severity = suggestion
+# S6966: all sites are sync test methods calling `...Async(...).GetAwaiter().GetResult()` — the correct
+# pattern when the test itself is not async; "await instead" would force the test to become async.
+dotnet_diagnostic.S6966.severity = suggestion
+# S108: empty blocks in test scaffolding are typically intentional (empty catch in a throwing test
+# double, empty exercise loops). Enforced in production; advisory in tests.
+dotnet_diagnostic.S108.severity = suggestion
+# S2114: determinism property tests intentionally call f(x).SequenceEqual(f(x)) to prove a function
+# is pure/reproducible — the two calls are meant to be re-evaluated, not folded to "always true".
+dotnet_diagnostic.S2114.severity = none
+# S2234: symmetry / permutation-invariance tests deliberately pass arguments in swapped order
+# (e.g. HammingDistance(b,a), all permutations of an HRD triple) to assert the result is invariant.
+dotnet_diagnostic.S2234.severity = none

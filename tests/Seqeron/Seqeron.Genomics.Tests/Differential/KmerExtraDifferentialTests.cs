@@ -43,8 +43,8 @@ public class KmerExtraDifferentialTests
     {
         const string seq = "ACGTACGTACGT";
         var sync = KmerAnalyzer.CountKmers(seq, 3);
-        var async = KmerAnalyzer.CountKmersAsync(seq, 3).GetAwaiter().GetResult();
-        Assert.That(async, Is.EquivalentTo(sync));
+        var asyncResult = KmerAnalyzer.CountKmersAsync(seq, 3).GetAwaiter().GetResult();
+        Assert.That(asyncResult, Is.EquivalentTo(sync));
     }
 
     // ---- Row 157: KMER-BOTH-001 — both-strand = forward[w] + forward[RC(w)] ----

@@ -210,7 +210,7 @@ public static class SuffixTreeSerializer
         return PersistentSuffixTreeFactory.Load(filePath);
     }
 
-    private class HashVisitor : ISuffixTreeVisitor
+    private sealed class HashVisitor : ISuffixTreeVisitor
     {
         private readonly SHA256 _sha;
         private readonly byte[] _buffer = new byte[4];

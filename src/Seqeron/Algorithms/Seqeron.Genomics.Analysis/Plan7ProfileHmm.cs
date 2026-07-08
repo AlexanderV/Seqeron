@@ -437,7 +437,7 @@ public sealed class Plan7ProfileHmm
 
     // Emission log-odds (nats) against HMMER's standard amino background bg->f (NOT the COMPO line):
     // ln P(a | M_k) - ln bg->f[a]. Used only by the hmmsearch-parity local/null2 path.
-    private double EmissionLogOddsHmmer(double[] emissionLn, int residueIndex)
+    private static double EmissionLogOddsHmmer(double[] emissionLn, int residueIndex)
     {
         if (residueIndex < 0) return 0.0;
         double e = emissionLn[residueIndex];
@@ -546,7 +546,7 @@ public sealed class Plan7ProfileHmm
     // null2OddsLn[a] is the natural-log null2 odds ratio ln(f'_d(a)/f(a)) per residue type a.
     // Ambiguous/unknown residues contribute 0 (null2 odds ratio 1) — HMMER sets degenerate
     // residues' null2 to averaged odds; an out-of-alphabet residue uses ratio 1 here.
-    private double SeqBias(double[] null2OddsLn, string sequence)
+    private static double SeqBias(double[] null2OddsLn, string sequence)
     {
         double sum = 0.0;
         foreach (char c in sequence)

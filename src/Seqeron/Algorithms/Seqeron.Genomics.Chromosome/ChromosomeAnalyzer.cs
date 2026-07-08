@@ -341,11 +341,9 @@ public static class ChromosomeAnalyzer
         // Strips a trailing "_N" integer copy suffix, e.g. "chr1_2" -> "chr1".
         // Only numeric "_N" suffixes are removed; letter suffixes (e.g. "chr1a") are left intact.
         int underscoreIdx = name.LastIndexOf('_');
-        if (underscoreIdx > 0 && underscoreIdx < name.Length - 1)
-        {
-            if (int.TryParse(name[(underscoreIdx + 1)..], out _))
-                return name[..underscoreIdx];
-        }
+        if (underscoreIdx > 0 && underscoreIdx < name.Length - 1
+            && int.TryParse(name[(underscoreIdx + 1)..], out _))
+            return name[..underscoreIdx];
 
         return name;
     }
@@ -598,7 +596,6 @@ public static class ChromosomeAnalyzer
             return 0;
 
         // Count k-mers appearing more than once
-        int repeatedKmers = kmerCounts.Values.Count(c => c > 1);
         int totalRepeatInstances = kmerCounts.Values.Where(c => c > 1).Sum();
 
         return totalRepeatInstances / (double)(sequence.Length - kmerSize + 1);
@@ -1393,8 +1390,8 @@ public static class ChromosomeAnalyzer
                     if (geneCount >= minGenes)
                     {
                         var blockGenes = sorted.Skip(blockStart).Take(geneCount).ToList();
-                        var first = blockGenes.First();
-                        var last = blockGenes.Last();
+                        var first = blockGenes[0];
+                        var last = blockGenes[^1];
 
                         yield return new SyntenyBlock(
                             group.Key.Chr1,
@@ -1597,7 +1594,7 @@ public static class ChromosomeAnalyzer
 
             if (cnCounts.Count > 0)
             {
-                var dominant = cnCounts.First();
+                var dominant = cnCounts[0];
 
                 if (dominant.Fraction >= minFraction && dominant.CopyNumber != 2)
                 {

@@ -174,7 +174,7 @@ public sealed class StructuralVariantBreakpointFuzzTests
         var breakpoints = FindBreakpoints(reads, clusterTolerance: 5, minSupport: 2).ToList();
 
         breakpoints.Should().HaveCount(2, "same coordinate on different contigs ⇒ separate (INV-02)");
-        breakpoints.Select(b => b.Chromosome1).Should().BeEquivalentTo(new[] { "chr1", "chr2" });
+        breakpoints.Select(b => b.Chromosome1).Should().BeEquivalentTo("chr1", "chr2");
         breakpoints.Should().OnlyContain(b => b.Position1 == 2000 && b.SupportingReads == 2);
         AssertWellFormed(breakpoints, inputReadCount: 4, minSupport: 2);
     }

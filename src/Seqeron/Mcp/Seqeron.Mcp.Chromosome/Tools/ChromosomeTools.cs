@@ -12,6 +12,9 @@ namespace Seqeron.Mcp.Chromosome.Tools;
 [McpServerToolType]
 public class ChromosomeTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private ChromosomeTools() { }
+
     #region ChromosomeAnalyzer tools
 
     [McpServerTool(Name = "analyze_karyotype", Title = "Karyotype — Analyze", ReadOnly = true)]

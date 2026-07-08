@@ -127,7 +127,10 @@ public static class GenomicAnalyzer
 
         for (int unitLen = minUnitLength; unitLen <= seq.Length / minRepetitions; unitLen++)
         {
-            for (int start = 0; start <= seq.Length - unitLen * minRepetitions; start++)
+            // `start` advances by 1 normally, but jumps past a found tandem — a while loop
+            // makes the in-body skip explicit (a for loop would flag S127).
+            int start = 0;
+            while (start <= seq.Length - unitLen * minRepetitions)
             {
                 string unit = seq.Substring(start, unitLen);
                 int repetitions = 1;
@@ -145,6 +148,8 @@ public static class GenomicAnalyzer
                     yield return new TandemRepeat(unit, start, repetitions);
                     start = pos - unitLen; // Skip to end of this tandem
                 }
+
+                start++;
             }
         }
     }

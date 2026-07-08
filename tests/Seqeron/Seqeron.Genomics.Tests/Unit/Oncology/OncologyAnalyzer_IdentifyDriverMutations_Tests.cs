@@ -381,7 +381,12 @@ public class OncologyAnalyzer_IdentifyDriverMutations_Tests
 
         // Verify subset + order: driver list is the input filtered, so it must appear as an in-order subsequence.
         int idx = -1;
-        bool inOrder = drivers.All(d => (idx = input.IndexOf(d, idx + 1)) >= 0);
+        bool inOrder = true;
+        foreach (var d in drivers)
+        {
+            idx = input.IndexOf(d, idx + 1);
+            if (idx < 0) { inOrder = false; break; }
+        }
         Assert.Multiple(() =>
         {
             Assert.That(drivers.All(input.Contains), Is.True, "INV-01: every driver is an input mutation");

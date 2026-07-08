@@ -124,10 +124,12 @@ public class AlignmentMetamorphicTests
                 for (int j = i + 1; j < rows.Count; j++)
                 {
                     char cj = pos < rows[j].Length ? rows[j][pos] : '-';
-                    if (ci == '-' && cj == '-') continue;
-                    else if (ci == '-' || cj == '-') total += s.GapExtend;
-                    else if (ci == cj) total += s.Match;
-                    else total += s.Mismatch;
+                    if (ci != '-' || cj != '-')
+                    {
+                        if (ci == '-' || cj == '-') total += s.GapExtend;
+                        else if (ci == cj) total += s.Match;
+                        else total += s.Mismatch;
+                    }
                 }
             }
 

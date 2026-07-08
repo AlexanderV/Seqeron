@@ -225,7 +225,7 @@ public class ISequenceTests
 
         var masked = seq.MaskLowQuality(minQuality: 20);
 
-        Assert.That(masked.Sequence, Is.EqualTo("ANGT".Replace('G', 'N').Replace("AN", "AN")[0] == 'A' ? "ANGN" : "ANGN"));
+        Assert.That(masked.Sequence, Is.EqualTo("ANGN"));
         Assert.That(masked.Sequence[0], Is.EqualTo('A'));
         Assert.That(masked.Sequence[1], Is.EqualTo('N'));
         Assert.That(masked.Sequence[2], Is.EqualTo('G'));

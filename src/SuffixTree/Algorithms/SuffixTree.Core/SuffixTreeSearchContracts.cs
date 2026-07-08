@@ -12,8 +12,12 @@ public static class SuffixTreeSearchContracts
     /// <summary>
     /// Ensures that a string argument is not null.
     /// </summary>
+    // S3236: paramName is deliberately forwarded from this contract helper's own caller, so the
+    // thrown exception names the original argument — not overriding CallerArgumentExpression by accident.
+#pragma warning disable S3236
     public static void EnsureNotNull(string? value, string paramName)
         => ArgumentNullException.ThrowIfNull(value, paramName);
+#pragma warning restore S3236
 
     /// <summary>
     /// Builds the canonical index list for empty-pattern matches: all valid start positions.

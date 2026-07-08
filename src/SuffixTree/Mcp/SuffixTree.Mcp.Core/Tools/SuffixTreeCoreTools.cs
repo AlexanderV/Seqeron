@@ -9,6 +9,9 @@ namespace SuffixTree.Mcp.Core.Tools;
 [McpServerToolType]
 public class SuffixTreeCoreTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private SuffixTreeCoreTools() { }
+
     /// <summary>
     /// Check if a pattern exists in text using suffix tree.
     /// </summary>

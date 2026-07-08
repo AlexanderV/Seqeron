@@ -834,7 +834,7 @@ public static class PopulationGeneticsAnalyzer
         {
             yield return new HaplotypeBlock(
                 Start: blockStart,
-                End: variantList.Last().Position,
+                End: variantList[^1].Position,
                 Variants: blockVariants.ToList(),
                 Haplotypes: new List<(string, double)>());
         }
@@ -1341,10 +1341,7 @@ public static class PopulationGeneticsAnalyzer
 
             double logLik = AncestryLogLikelihood(genotypes, refList, q, k, m);
             if (logLik - previousLogLik < AncestryLogLikelihoodTolerance)
-            {
-                previousLogLik = logLik;
                 break; // converged per Eq. 5
-            }
             previousLogLik = logLik;
         }
 

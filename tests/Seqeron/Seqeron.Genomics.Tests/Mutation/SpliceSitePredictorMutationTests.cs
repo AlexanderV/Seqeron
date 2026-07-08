@@ -618,12 +618,10 @@ public class SpliceSitePredictorMutationTests
     {
         string exon = new string('G', 40);                       // 40-nt exon (GC-rich, no GU/AG)
         string donor = "CAGGUAAGU";                              // strong 5' splice site
-        string body = new string('A', 30);                       // intron body
         string ppt = "CUCUCUCUCUCUCUU";                          // polypyrimidine tract (15)
         string accept = "CAGG";                                  // …CAG|G acceptor
-        string intron = donor + body + ppt + accept;             // ~32-nt? extend body for length
-        // Pad intron body so intron length comfortably exceeds 60 and stays < 500.
-        intron = donor + new string('A', 40) + ppt + accept;     // 9 + 40 + 15 + 4 = 68
+        // Intron body padded so intron length comfortably exceeds 60 and stays < 500.
+        string intron = donor + new string('A', 40) + ppt + accept;     // 9 + 40 + 15 + 4 = 68
         return exon + intron + exon + intron + exon;
     }
 

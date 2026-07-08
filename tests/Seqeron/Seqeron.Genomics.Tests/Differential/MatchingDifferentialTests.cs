@@ -67,8 +67,8 @@ public class MatchingDifferentialTests
             if (i == 0) return j;
             if (j == 0) return i;
             if (memo.TryGetValue((i, j), out int cached)) return cached;
-            int cost = a[i - 1] == b[j - 1] ? 0 : 1;
-            int r = Math.Min(Math.Min(Rec(i - 1, j) + 1, Rec(i, j - 1) + 1), Rec(i - 1, j - 1) + cost);
+            int r = Math.Min(Math.Min(Rec(i - 1, j) + 1, Rec(i, j - 1) + 1),
+                             Rec(i - 1, j - 1) + (a[i - 1] == b[j - 1] ? 0 : 1));
             memo[(i, j)] = r;
             return r;
         }

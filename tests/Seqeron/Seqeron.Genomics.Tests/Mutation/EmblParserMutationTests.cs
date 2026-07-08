@@ -10,8 +10,7 @@ namespace Seqeron.Genomics.Tests.Mutation;
 [TestFixture]
 public class EmblParserMutationTests
 {
-    private static readonly string Record = string.Join("\n", new[]
-    {
+    private static readonly string Record = string.Join("\n",
         "ID   X56734; SV 1; linear; mRNA; STD; PLN; 1859 BP.",
         "XX",
         "AC   X56734; S46826;",
@@ -46,8 +45,7 @@ public class EmblParserMutationTests
         "XX",
         "SQ   Sequence 1859 BP;",
         "     aaacaaacca aatatggatt                                              20",
-        "//"
-    });
+        "//");
 
     // ── ID line decomposition ───────────────────────────────────────────────────────────
 
@@ -114,8 +112,7 @@ public class EmblParserMutationTests
         // ID line carries no accession token and no "SV n" ⇒ the parser must source the
         // accession from the AC line and the version from the SV line (covers the two fallback
         // branches the canonical sample never reached).
-        var content = string.Join("\n", new[]
-        {
+        var content = string.Join("\n",
             "ID   ; ; linear; mRNA; STD; PLN; 100 BP.",
             "XX",
             "AC   Y99999; Z11111;",
@@ -124,8 +121,7 @@ public class EmblParserMutationTests
             "XX",
             "SQ   Sequence 100 BP;",
             "     acgtacgtac",
-            "//"
-        });
+            "//");
 
         var rec = EmblParser.Parse(content).Single();
         rec.Accession.Should().Be("Y99999");        // primary accession from AC line

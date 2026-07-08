@@ -383,8 +383,7 @@ public static class CodonOptimizer
                 // Use weighted random selection based on frequencies
                 return SelectWeightedCodon(synonymousCodons, table);
 
-            case OptimizationStrategy.BalancedOptimization:
-            default:
+            default: // includes OptimizationStrategy.BalancedOptimization
                 var goodCodons = synonymousCodons
                     .Where(c => table.CodonFrequencies.GetValueOrDefault(c, 0) >= rareCodonThreshold)
                     .OrderByDescending(c => table.CodonFrequencies.GetValueOrDefault(c, 0))

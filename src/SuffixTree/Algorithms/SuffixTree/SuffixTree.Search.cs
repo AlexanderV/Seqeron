@@ -105,11 +105,18 @@ public partial class SuffixTree
     [ThreadStatic]
     private static Stack<(SuffixTreeNode Node, int Depth)>? _sharedStack;
 
-    private void CollectLeaves(SuffixTreeNode node, int depth, List<int> results)
+    // Lazily creates (and clears) the per-thread traversal stack. Kept static so the write to the
+    // [ThreadStatic] field does not happen inside an instance method (S2696).
+    private static Stack<(SuffixTreeNode Node, int Depth)> RentTraversalStack()
     {
         _sharedStack ??= new Stack<(SuffixTreeNode Node, int Depth)>(64);
-        var stack = _sharedStack;
-        stack.Clear();
+        _sharedStack.Clear();
+        return _sharedStack;
+    }
+
+    private void CollectLeaves(SuffixTreeNode node, int depth, List<int> results)
+    {
+        var stack = RentTraversalStack();
         stack.Push((node, depth));
 
         var buffer = GetSearchBuffer();

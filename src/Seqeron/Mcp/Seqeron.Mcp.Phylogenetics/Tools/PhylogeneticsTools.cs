@@ -7,6 +7,9 @@ namespace Seqeron.Mcp.Phylogenetics.Tools;
 [McpServerToolType]
 public class PhylogeneticsTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private PhylogeneticsTools() { }
+
     #region PhylogeneticAnalyzer
 
     /// <summary>Build a phylogenetic tree from aligned sequences.</summary>

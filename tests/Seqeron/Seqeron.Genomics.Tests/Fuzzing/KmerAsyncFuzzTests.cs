@@ -331,11 +331,11 @@ public class KmerAsyncFuzzTests
 
         foreach (int k in new[] { 1, 2, 3, 5, 8, 13, 21 })
         {
-            var async = await KmerAnalyzer.CountKmersAsync(seq, k);
+            var asyncResult = await KmerAnalyzer.CountKmersAsync(seq, k);
             var sync = KmerAnalyzer.CountKmers(seq, k); // synchronous reference oracle
 
-            AssertWellFormed(async, length, k);
-            async.Should().BeEquivalentTo(sync,
+            AssertWellFormed(asyncResult, length, k);
+            asyncResult.Should().BeEquivalentTo(sync,
                 $"INV-01: at k = {k} the awaited async result equals the synchronous reference key-for-key and count-for-count");
         }
     }
@@ -355,14 +355,14 @@ public class KmerAsyncFuzzTests
     [CancelAfter(30000)]
     public async Task CountKmersAsync_KnownSequence_EqualsSynchronousReference()
     {
-        var async = await KmerAnalyzer.CountKmersAsync("ATGG", 3);
+        var asyncResult = await KmerAnalyzer.CountKmersAsync("ATGG", 3);
 
-        async.Should().HaveCount(2, "'ATGG' has exactly two 3-mers: ATG and TGG");
-        async.Should().ContainKey("ATG").WhoseValue.Should().Be(1, "'ATG' starts at position 0");
-        async.Should().ContainKey("TGG").WhoseValue.Should().Be(1, "'TGG' starts at position 1");
-        async.Values.Sum().Should().Be("ATGG".Length - 3 + 1, "INV-02: Σ counts = L − k + 1 = 2");
+        asyncResult.Should().HaveCount(2, "'ATGG' has exactly two 3-mers: ATG and TGG");
+        asyncResult.Should().ContainKey("ATG").WhoseValue.Should().Be(1, "'ATG' starts at position 0");
+        asyncResult.Should().ContainKey("TGG").WhoseValue.Should().Be(1, "'TGG' starts at position 1");
+        asyncResult.Values.Sum().Should().Be("ATGG".Length - 3 + 1, "INV-02: Σ counts = L − k + 1 = 2");
 
-        async.Should().BeEquivalentTo(KmerAnalyzer.CountKmers("ATGG", 3),
+        asyncResult.Should().BeEquivalentTo(KmerAnalyzer.CountKmers("ATGG", 3),
             "INV-01: the awaited async result equals the synchronous reference");
     }
 

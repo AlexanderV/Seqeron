@@ -19,7 +19,7 @@ namespace SuffixTree.Tests.Algorithms
         private const double ExpectedLinearScalingBound = 6.0;
         private const int BaseN = 100_000;
         
-        private string GenerateRandomDna(int length, int seed = 42)
+        private static string GenerateRandomDna(int length, int seed = 42)
         {
             var random = new Random(seed);
             const string chars = "ACGT";

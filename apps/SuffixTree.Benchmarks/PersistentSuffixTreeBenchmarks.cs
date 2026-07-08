@@ -91,6 +91,7 @@ public class PersistentSuffixTreeBenchmarks
         _loadFile = AllocTempFile();
         using (PersistentSuffixTreeFactory.Create(new StringTextSource(_dnaText), _loadFile) as IDisposable ?? throw new InvalidOperationException())
         {
+            // build + dispose only — pre-materialises the on-disk file used by the Load benchmarks
         }
 
         // Fixed paths for Build benchmarks — create once so Windows Defender

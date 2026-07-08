@@ -41,4 +41,10 @@
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Static analysis: SonarAnalyzer rules (Sxxxx) run in-build alongside the .NET CA rules.
+         Referenced solution-wide from Directory.Build.props as an analyzer-only package. -->
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.28.0.143324" />
+  </ItemGroup>
+
 </Project>

@@ -531,7 +531,7 @@ public static class GenomeAssemblyAnalyzer
         int fragmented = 0;
         int missing = 0;
 
-        foreach (var (geneId, geneSeq) in markers)
+        foreach (var (_, geneSeq) in markers)
         {
             var hits = FindMarkerHits(geneSeq, assemblySeqs, identityThreshold, coverageThreshold);
 
@@ -643,7 +643,7 @@ public static class GenomeAssemblyAnalyzer
 
         int peakCoverage = expectedCoverage > 0 ?
             expectedCoverage :
-            countDistribution.First().Count;
+            countDistribution[0].Count;
 
         // Calculate error rate from singleton ratio
         int singletons = spectrum.Count(k => k.Count == 1);
@@ -676,7 +676,7 @@ public static class GenomeAssemblyAnalyzer
         // Build k-mer frequency table
         var kmerCounts = new Dictionary<string, int>();
 
-        foreach (var (id, sequence) in sequences)
+        foreach (var (_, sequence) in sequences)
         {
             var upper = sequence.ToUpperInvariant();
             for (int i = 0; i <= upper.Length - kmerSize; i++)
@@ -706,13 +706,10 @@ public static class GenomeAssemblyAnalyzer
                 for (int j = i; j <= windowEnd - kmerSize; j++)
                 {
                     string kmer = upper.Substring(j, kmerSize);
-                    if (!kmer.Contains('N') && kmerCounts.TryGetValue(kmer, out int count))
+                    if (!kmer.Contains('N') && kmerCounts.TryGetValue(kmer, out int count) && count >= minCopies)
                     {
-                        if (count >= minCopies)
-                        {
-                            highCopyKmers++;
-                            localMaxCopies = Math.Max(localMaxCopies, count);
-                        }
+                        highCopyKmers++;
+                        localMaxCopies = Math.Max(localMaxCopies, count);
                     }
                 }
 
@@ -756,7 +753,10 @@ public static class GenomeAssemblyAnalyzer
         {
             var upper = sequence.ToUpperInvariant();
 
-            for (int i = 0; i < upper.Length - minUnitLength * minCopies; i++)
+            // `i` normally steps by 1 but jumps past a called repeat (below); a while loop makes that
+            // in-body skip explicit where a for loop would flag S127.
+            int i = 0;
+            while (i < upper.Length - minUnitLength * minCopies)
             {
                 for (int unitLen = minUnitLength; unitLen <= maxUnitLength && i + unitLen * minCopies <= upper.Length; unitLen++)
                 {
@@ -801,6 +801,8 @@ public static class GenomeAssemblyAnalyzer
                         break;
                     }
                 }
+
+                i++;
             }
         }
     }

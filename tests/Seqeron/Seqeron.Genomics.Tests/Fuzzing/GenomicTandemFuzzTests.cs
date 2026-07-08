@@ -94,7 +94,8 @@ public class GenomicTandemFuzzTests
         var hits = new List<(string, int, int)>();
         for (int unitLen = minUnitLength; unitLen <= seq.Length / minRepetitions; unitLen++)
         {
-            for (int start = 0; start <= seq.Length - unitLen * minRepetitions; start++)
+            int start = 0;
+            while (start <= seq.Length - unitLen * minRepetitions)
             {
                 string unit = seq.Substring(start, unitLen);
                 int reps = 1;
@@ -107,8 +108,10 @@ public class GenomicTandemFuzzTests
                 if (reps >= minRepetitions)
                 {
                     hits.Add((unit, start, reps));
-                    start = pos - unitLen; // forward-skip; for() then does start++
+                    start = pos - unitLen; // forward-skip
                 }
+
+                start++;
             }
         }
         return hits;

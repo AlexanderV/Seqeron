@@ -377,10 +377,9 @@ public class ProteinPrositeFuzzTests
         {
             // Conversion: disciplined outcome only — a string, OR the documented FormatException.
             // It must NEVER be an IndexOutOfRange / NullReference (running off the end of the string).
-            string? regex = null;
             try
             {
-                regex = ConvertPrositeToRegex(pattern);
+                _ = ConvertPrositeToRegex(pattern);
             }
             catch (FormatException)
             {

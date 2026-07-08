@@ -759,6 +759,9 @@ public static class ReportGenerator
 
     #region Formatting Helpers
 
+    // S3398: grouped private static formatting helpers used only by ReportBuilder; kept together here
+    // rather than moved into the nested class — a locality-only refactor not worth the churn.
+#pragma warning disable S3398
     private static string FormatSequence(string sequence, int lineLength)
     {
         if (string.IsNullOrEmpty(sequence))
@@ -831,6 +834,7 @@ public static class ReportGenerator
         }
         return sb.ToString();
     }
+#pragma warning restore S3398
 
     #endregion
 

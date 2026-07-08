@@ -400,7 +400,7 @@ public static class StructuralVariantAnalyzer
         {
             var clips = ParseSoftClips(cigar);
 
-            foreach (var (clipPos, clipLen, isLeft) in clips)
+            foreach (var (_, clipLen, isLeft) in clips)
             {
                 if (clipLen >= minClipLength)
                 {
@@ -777,7 +777,7 @@ public static class StructuralVariantAnalyzer
         return new CopyNumberSegment(
             Chromosome: chromosome,
             Start: start,
-            End: probes.Last().Position,
+            End: probes[^1].Position,
             LogRatio: meanLogR,
             CopyNumber: copyNumber,
             BAlleleFrequency: meanBAF,
@@ -1057,7 +1057,6 @@ public static class StructuralVariantAnalyzer
         if (svList.Count == 0)
             yield break;
 
-        var merged = new List<StructuralVariant>();
         var current = svList[0];
 
         for (int i = 1; i < svList.Count; i++)
@@ -1209,7 +1208,6 @@ public static class StructuralVariantAnalyzer
             return ("./.", 0);
 
         double altFraction = (double)altReads / totalReads;
-        double refFraction = (double)refReads / totalReads;
 
         string genotype;
         double quality;

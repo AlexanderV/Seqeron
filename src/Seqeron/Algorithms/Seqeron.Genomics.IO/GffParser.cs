@@ -128,11 +128,9 @@ public static class GffParser
             return null;
 
         double? score = null;
-        if (fields[5] != ".")
-        {
-            if (double.TryParse(fields[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double s))
-                score = s;
-        }
+        if (fields[5] != "." &&
+            double.TryParse(fields[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double s))
+            score = s;
 
         char strand = fields[6].Length > 0 ? fields[6][0] : '.';
 

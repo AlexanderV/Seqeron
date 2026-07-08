@@ -204,41 +204,38 @@ public static class BedParser
         int[]? blockSizes = null;
         int[]? blockStarts = null;
 
-        if (fields.Length >= 12)
+        if (fields.Length >= 12 && int.TryParse(fields[9], out int bc))
         {
-            if (int.TryParse(fields[9], out int bc))
-            {
-                var sizes = ParseIntList(fields[10]);
-                var starts = ParseIntList(fields[11]);
+            var sizes = ParseIntList(fields[10]);
+            var starts = ParseIntList(fields[11]);
 
-                // Per UCSC spec: blockCount must match array lengths
-                if (sizes.Length != bc || starts.Length != bc)
+            // Per UCSC spec: blockCount must match array lengths
+            if (sizes.Length != bc || starts.Length != bc)
+                return null;
+
+            if (bc > 0)
+            {
+                // Per UCSC spec: first blockStart must be 0
+                if (starts[0] != 0)
                     return null;
 
-                if (bc > 0)
+                int featureLength = chromEnd - chromStart;
+
+                // Per UCSC spec: final blockStart + final blockSize must equal chromEnd - chromStart
+                if (starts[bc - 1] + sizes[bc - 1] != featureLength)
+                    return null;
+
+                // Per UCSC spec: blocks may not overlap
+                for (int i = 1; i < bc; i++)
                 {
-                    // Per UCSC spec: first blockStart must be 0
-                    if (starts[0] != 0)
+                    if (starts[i] < starts[i - 1] + sizes[i - 1])
                         return null;
-
-                    int featureLength = chromEnd - chromStart;
-
-                    // Per UCSC spec: final blockStart + final blockSize must equal chromEnd - chromStart
-                    if (starts[bc - 1] + sizes[bc - 1] != featureLength)
-                        return null;
-
-                    // Per UCSC spec: blocks may not overlap
-                    for (int i = 1; i < bc; i++)
-                    {
-                        if (starts[i] < starts[i - 1] + sizes[i - 1])
-                            return null;
-                    }
                 }
-
-                blockCount = bc;
-                blockSizes = sizes;
-                blockStarts = starts;
             }
+
+            blockCount = bc;
+            blockSizes = sizes;
+            blockStarts = starts;
         }
 
         return new BedRecord(

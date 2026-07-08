@@ -180,7 +180,7 @@ public class AnnotationMetamorphicTests
 
         const int flankLen = 9;
         var shiftedOrf = GenomeAnnotator.FindOrfs(new string('C', flankLen) + body, MinAa, searchBothStrands: false)
-            .Single(o => o.Frame == 1 && o.IsReverseComplement == false && o.Sequence == baseOrf.Sequence);
+            .Single(o => o.Frame == 1 && !o.IsReverseComplement && o.Sequence == baseOrf.Sequence);
 
         shiftedOrf.Start.Should().Be(0 + flankLen, because: "the in-frame poly-C prefix shifts the ORF start by exactly the flank length");
         shiftedOrf.End.Should().Be(18 + flankLen, because: "the ORF end shifts by the same flank length");

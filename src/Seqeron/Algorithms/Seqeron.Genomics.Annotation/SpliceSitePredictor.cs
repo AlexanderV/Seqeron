@@ -208,24 +208,11 @@ public static class SpliceSitePredictor
 
         for (int i = 0; i <= upper.Length - 6; i++)
         {
-            // Check for canonical GT/GU
-            if (upper[i] == 'G' && upper[i + 1] == 'U')
+            // Canonical GU, or (opt-in) non-canonical GC — same donor scoring; GC naturally
+            // scores lower because position +1 mismatches the U consensus.
+            if (upper[i] == 'G' && (upper[i + 1] == 'U' || (includeNonCanonical && upper[i + 1] == 'C')))
             {
                 double score = ScoreDonorSite(upper, i);
-                if (score >= minScore)
-                {
-                    yield return new SpliceSite(
-                        Position: i,
-                        Type: SpliceSiteType.Donor,
-                        Motif: GetMotifContext(upper, i, 3, 6),
-                        Score: score,
-                        Confidence: CalculateConfidence(score, 0.5, 1.0));
-                }
-            }
-            // Non-canonical GC
-            else if (includeNonCanonical && upper[i] == 'G' && upper[i + 1] == 'C')
-            {
-                double score = ScoreDonorSite(upper, i); // GC naturally scores lower (position +1 mismatches U consensus)
                 if (score >= minScore)
                 {
                     yield return new SpliceSite(
@@ -437,11 +424,8 @@ public static class SpliceSitePredictor
         int pptScore = 0;
         for (int i = position - 15; i < position - 3; i++)
         {
-            if (i >= 0 && i < sequence.Length)
-            {
-                if (sequence[i] == 'C' || sequence[i] == 'U')
-                    pptScore++;
-            }
+            if (i >= 0 && i < sequence.Length && (sequence[i] == 'C' || sequence[i] == 'U'))
+                pptScore++;
         }
 
         score += pptScore / 12.0 * 2; // PPT contribution
@@ -943,11 +927,8 @@ public static class SpliceSitePredictor
             for (int i = 0; i < upper.Length && i < 9; i++)
             {
                 int offset = i - 3;
-                if (DonorPwm.TryGetValue(offset, out var weights))
-                {
-                    if (weights.TryGetValue(upper[i], out double w))
-                        score += Math.Log2(w + 0.01);
-                }
+                if (DonorPwm.TryGetValue(offset, out var weights) && weights.TryGetValue(upper[i], out double w))
+                    score += Math.Log2(w + 0.01);
             }
             return score;
         }
@@ -957,11 +938,8 @@ public static class SpliceSitePredictor
             for (int i = 0; i < upper.Length; i++)
             {
                 int offset = i - 15;
-                if (AcceptorPwm.TryGetValue(offset, out var weights))
-                {
-                    if (weights.TryGetValue(upper[i], out double w))
-                        score += Math.Log2(w + 0.01);
-                }
+                if (AcceptorPwm.TryGetValue(offset, out var weights) && weights.TryGetValue(upper[i], out double w))
+                    score += Math.Log2(w + 0.01);
             }
             return score;
         }

@@ -6,6 +6,9 @@ namespace Seqeron.Mcp.Parsers.Tools;
 [McpServerToolType]
 public class ParsersTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private ParsersTools() { }
+
     // ========================
     // FASTA Tools
     // ========================

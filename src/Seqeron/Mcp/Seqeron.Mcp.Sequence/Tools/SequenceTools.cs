@@ -9,6 +9,9 @@ namespace Seqeron.Mcp.Sequence.Tools;
 [McpServerToolType]
 public class SequenceTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private SequenceTools() { }
+
     /// <summary>
     /// Validate a DNA sequence.
     /// </summary>
@@ -20,7 +23,7 @@ public class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var isValid = global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna);
+        var isValid = global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out _);
 
         if (isValid)
         {

@@ -231,7 +231,7 @@ public class ChromosomeCombinatorialTests
     [Test]
     public void ChromAneu_UniformTrisomy_Called_DisomyNot()
     {
-        var trisomy = Enumerable.Range(0, 10).Select(b => ("chrT", b * AneuBinSize, 1.5 * MedianDepth)).Cast<(string, int, double)>();
+        var trisomy = Enumerable.Range(0, 10).Select(b => ("chrT", b * AneuBinSize, 1.5 * MedianDepth));
         var trisomyStates = ChromosomeAnalyzer.DetectAneuploidy(trisomy, MedianDepth, AneuBinSize).ToList();
         trisomyStates.Should().OnlyContain(s => s.CopyNumber == 3);
         ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(trisomyStates, 0.8)

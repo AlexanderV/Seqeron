@@ -854,7 +854,7 @@ public static class SequenceIO
         var headerParts = header.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
         if (headerParts.Length < 2) yield break;
 
-        int numSeq = int.Parse(headerParts[0]);
+        _ = int.Parse(headerParts[0]);
         // int seqLen = int.Parse(headerParts[1]); // Not strictly needed
 
         var names = new List<string>();

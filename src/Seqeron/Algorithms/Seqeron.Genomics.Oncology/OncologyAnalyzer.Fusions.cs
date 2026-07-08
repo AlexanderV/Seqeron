@@ -58,6 +58,10 @@ public static partial class OncologyAnalyzer
     /// <param name="MinJunctionReads">Minimum junction (split) reads required (STAR-Fusion min_junction_reads).</param>
     /// <param name="MinSumFrags">Minimum total support when ≥1 junction read present (STAR-Fusion min_sum_frags).</param>
     /// <param name="MinSpanningFragsOnly">Minimum discordant fragments required when there are no junction reads (STAR-Fusion min_spanning_frags_only).</param>
+    // S3427: the explicit parameterless ctor deliberately overlaps the positional ctor's all-defaults
+    // call — that overlap is the fix (it restores the STAR-Fusion defaults that `new()`/default(T) would
+    // otherwise zero out), not an accident. Suppressed rather than removed.
+#pragma warning disable S3427
     public readonly record struct FusionDetectionThresholds(
         int MinJunctionReads = DefaultMinJunctionReads,
         int MinSumFrags = DefaultMinSumFrags,
@@ -71,6 +75,7 @@ public static partial class OncologyAnalyzer
         {
         }
     }
+#pragma warning restore S3427
 
     /// <summary>Reading-frame status of the 3' partner across the fusion junction.</summary>
     public enum FusionReadingFrame

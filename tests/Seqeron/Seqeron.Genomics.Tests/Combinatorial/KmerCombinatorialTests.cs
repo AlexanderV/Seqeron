@@ -130,7 +130,7 @@ public class KmerCombinatorialTests
     {
         const string text = "ACGTTGCATGTCGCATGATGCATGAGAGCT";
 
-        KmerAnalyzer.FindMostFrequentKmers(text, 4).Should().BeEquivalentTo(new[] { "CATG", "GCAT" });
+        KmerAnalyzer.FindMostFrequentKmers(text, 4).Should().BeEquivalentTo("CATG", "GCAT");
         var counts = KmerAnalyzer.CountKmers(text, 4);
         counts["CATG"].Should().Be(3);
         counts["GCAT"].Should().Be(3);

@@ -304,7 +304,7 @@ public static class SequenceAssembler
                 {
                     sb.Append(read);
                 }
-                else if (bestSuccessor.TryGetValue(current, out var info))
+                else if (bestSuccessor.TryGetValue(current, out _))
                 {
                     // Already added previous, now extend
                 }
@@ -595,7 +595,7 @@ public static class SequenceAssembler
             totalReads,
             totalReads, // Simplified: assume all reads used
             n50,
-            sortedLengths.First(),
+            sortedLengths[0],
             totalLength);
     }
 

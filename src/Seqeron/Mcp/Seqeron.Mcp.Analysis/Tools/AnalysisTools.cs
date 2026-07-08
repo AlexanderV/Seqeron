@@ -9,6 +9,9 @@ namespace Seqeron.Mcp.Analysis.Tools;
 [McpServerToolType]
 public class AnalysisTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private AnalysisTools() { }
+
     private static DnaSequence RequireDna(string sequence, string paramName)
     {
         if (string.IsNullOrEmpty(sequence))
@@ -1064,7 +1067,7 @@ public class AnalysisTools
             throw new ArgumentException("Ortholog groups map cannot be null", nameof(orthologGroups));
 
         var genomeLists = genomes
-            .Select(g => (IReadOnlyList<global::Seqeron.Genomics.Analysis.ComparativeGenomics.Gene>)ToGenes(g))
+            .Select(ToGenes)
             .ToList();
         var clusters = global::Seqeron.Genomics.Analysis.ComparativeGenomics
             .FindConservedClusters(genomeLists, orthologGroups, minClusterSize, maxGap)

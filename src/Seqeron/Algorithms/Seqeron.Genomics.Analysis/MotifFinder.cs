@@ -61,18 +61,18 @@ public static class MotifFinder
     /// <summary>
     /// Validates that all characters in a motif pattern are valid IUPAC codes.
     /// </summary>
-    /// <param name="motifUpper">The uppercased motif pattern to validate.</param>
+    /// <param name="motif">The motif pattern to validate (expected already uppercased).</param>
     /// <exception cref="ArgumentException">Thrown when the pattern contains non-IUPAC characters.</exception>
-    private static void ValidateIupacPattern(string motifUpper)
+    private static void ValidateIupacPattern(string motif)
     {
-        for (int i = 0; i < motifUpper.Length; i++)
+        for (int i = 0; i < motif.Length; i++)
         {
-            if (!IupacCodes.ContainsKey(motifUpper[i]))
+            if (!IupacCodes.ContainsKey(motif[i]))
             {
                 throw new ArgumentException(
-                    $"Invalid IUPAC code '{motifUpper[i]}' at position {i} in motif pattern. " +
+                    $"Invalid IUPAC code '{motif[i]}' at position {i} in motif pattern. " +
                     "Valid codes: A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V.",
-                    "motif");
+                    nameof(motif));
             }
         }
     }

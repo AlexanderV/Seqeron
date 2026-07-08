@@ -277,9 +277,9 @@ public class KmerProperties
         {
             int k = Math.Min(3, seq.Length);
             var sync = KmerAnalyzer.CountKmers(seq, k);
-            var async = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
-            bool same = sync.Count == async.Count
-                        && sync.All(kv => async.TryGetValue(kv.Key, out int v) && v == kv.Value);
+            var asyncResult = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
+            bool same = sync.Count == asyncResult.Count
+                        && sync.All(kv => asyncResult.TryGetValue(kv.Key, out int v) && v == kv.Value);
             return same.Label($"async result differs from sync (k={k}, len={seq.Length})");
         });
     }

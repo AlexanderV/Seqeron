@@ -569,7 +569,10 @@ public static class RnaSecondaryStructure
 
         double energy = 0;
 
-        // Sum stacking energies (Turner 2004 nearest-neighbor)
+        // Sum stacking energies (Turner 2004 nearest-neighbor).
+        // S127: the GGUC/CUGG special context deliberately advances `i` inside the body to consume
+        // the extra stacks it already scored; converting this well-tested energy loop is not worth the risk.
+#pragma warning disable S127
         for (int i = 0; i < basePairs.Count - 1; i++)
         {
             // Special GGUC/CUGG 3-stack context (NNDB note b):
@@ -594,6 +597,7 @@ public static class RnaSecondaryStructure
                 energy += stackEnergy;
             // Unknown stacking pairs contribute 0 (no data available)
         }
+#pragma warning restore S127
 
         // Terminal AU/GU penalty: +0.45 per helix end that terminates with AU/UA or GU/UG
         // Source: NNDB — "Per AU end" (wc-parameters.html), "Per GU end" (gu-parameters.html)
@@ -852,12 +856,11 @@ public static class RnaSecondaryStructure
     private static double GetInternalLoop2x3MismatchEnergy(char mm5, char mm3)
     {
         bool isPurine5 = mm5 is 'A' or 'G';
-        bool isPurine3 = mm3 is 'A' or 'G';
 
         if (mm5 == 'G' && mm3 == 'G') return IL_2x3_GG;
         if (mm5 == 'U' && mm3 == 'U') return IL_2x3_UU;
-        if (isPurine5 && mm3 == 'A') return isPurine3 ? IL_2x3_RA_YG : IL_2x3_RA_YG; // RA
-        if (!isPurine5 && mm3 == 'A') return isPurine3 ? IL_2x3_YA_RG : IL_2x3_YA_RG; // YA
+        if (isPurine5 && mm3 == 'A') return IL_2x3_RA_YG; // RA
+        if (!isPurine5 && mm3 == 'A') return IL_2x3_YA_RG; // YA
         if (isPurine5 && mm3 == 'G') return IL_2x3_RG_YA;
         if (!isPurine5 && mm3 == 'G') return IL_2x3_YG_RA;
 
@@ -2530,7 +2533,8 @@ public static class RnaSecondaryStructure
                 FillPartitionDp(seq, n, minLoopSize, rt, vF, wmF, wF, forbiddenStart: i, forbiddenEnd: i);
                 double zForbid = wF[n - 1];
                 double pu = zForbid / z;
-                if (pu < 0) pu = 0; if (pu > 1) pu = 1;
+                if (pu < 0) pu = 0;
+                if (pu > 1) pu = 1;
                 unpaired[i] = pu;
             }
 

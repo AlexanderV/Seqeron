@@ -10,6 +10,9 @@ namespace Seqeron.Mcp.Alignment.Tools;
 [McpServerToolType]
 public class AlignmentTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private AlignmentTools() { }
+
     #region SequenceAligner
 
     [McpServerTool(Name = "global_align", Title = "Pairwise — Global Alignment (Needleman–Wunsch)", ReadOnly = true)]

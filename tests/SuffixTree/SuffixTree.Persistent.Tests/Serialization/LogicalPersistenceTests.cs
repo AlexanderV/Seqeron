@@ -4,9 +4,9 @@ namespace SuffixTree.Persistent.Tests.Serialization
     [Category("Serialization")]
     public class LogicalPersistenceTests
     {
-        private string _tempExportFile = "test_export.bin";
-        private string _tempMmfFile = "test_mmf_import.tree";
-        private string _tempSaveFile = "test_save.tree";
+        private readonly string _tempExportFile = "test_export.bin";
+        private readonly string _tempMmfFile = "test_mmf_import.tree";
+        private readonly string _tempSaveFile = "test_save.tree";
 
         [TearDown]
         public void Cleanup()

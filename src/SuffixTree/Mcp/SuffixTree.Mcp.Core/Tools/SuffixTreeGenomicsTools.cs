@@ -9,6 +9,9 @@ namespace SuffixTree.Mcp.Core.Tools;
 [McpServerToolType]
 public class SuffixTreeGenomicsTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private SuffixTreeGenomicsTools() { }
+
     /// <summary>
     /// Find the longest repeated region in a DNA sequence.
     /// </summary>

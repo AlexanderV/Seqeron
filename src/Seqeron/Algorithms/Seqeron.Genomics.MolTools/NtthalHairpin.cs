@@ -138,10 +138,8 @@ internal static class NtthalHairpin
             {
                 if (TriloopBonus(s, i, out double th, out double ts)) { h += th; eS += ts; }
             }
-            else if (loopSize == 4) // tetraloop bonus, keyed on s[i..i+5] (thal.c 2118-2127).
-            {
-                if (TetraloopBonus(s, i, out double th, out double ts)) { h += th; eS += ts; }
-            }
+            // tetraloop bonus, keyed on s[i..i+5] (thal.c 2118-2127).
+            else if (loopSize == 4 && TetraloopBonus(s, i, out double th, out double ts)) { h += th; eS += ts; }
 
             if (!IsFinite(h)) { h = Inf; eS = -1.0; }
             // both S and H positive and the cell isn't already positive → reject (thal.c 2133-2136).

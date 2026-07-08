@@ -369,9 +369,11 @@ public class AlignmentCombinatorialTests
                 for (int j = i + 1; j < rows.Length; j++)
                 {
                     char cj = pos < rows[j].Length ? rows[j][pos] : '-';
-                    if (ci == '-' && cj == '-') continue;
-                    else if (ci == '-' || cj == '-') total += gap;
-                    else total += ci == cj ? match : mismatch;
+                    if (ci != '-' || cj != '-')
+                    {
+                        if (ci == '-' || cj == '-') total += gap;
+                        else total += ci == cj ? match : mismatch;
+                    }
                 }
             }
         return total;

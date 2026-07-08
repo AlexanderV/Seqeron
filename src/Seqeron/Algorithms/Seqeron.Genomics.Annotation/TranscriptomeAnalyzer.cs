@@ -496,7 +496,10 @@ public static class TranscriptomeAnalyzer
         if (x < (a + 1.0) / (a + b + 2.0))
             return front * BetaContinuedFraction(a, b, x) / a;
 
-        return 1.0 - front * BetaContinuedFraction(b, a, 1.0 - x) / b;
+        // Deliberate symmetry swap I_x(a,b) = 1 - I_{1-x}(b,a); named args document the intended mapping.
+#pragma warning disable S2234
+        return 1.0 - front * BetaContinuedFraction(a: b, b: a, x: 1.0 - x) / b;
+#pragma warning restore S2234
     }
 
     private static double BetaContinuedFraction(double a, double b, double x)
@@ -1198,7 +1201,7 @@ public static class TranscriptomeAnalyzer
             meanCorr = corrCount > 0 ? meanCorr / corrCount : 0;
 
             // Representative gene is one with highest mean correlation to others
-            string representative = clusterGenes.First();
+            string representative = clusterGenes[0];
 
             yield return new CoExpressionCluster(
                 ClusterId: c + 1,

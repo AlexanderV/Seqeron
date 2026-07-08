@@ -327,7 +327,8 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
         // Dispose any MMF handle that was partially created before the error
         // to avoid native handle leak. Dispose must not throw — suppress if it does.
 #pragma warning disable CA1031 // Safety Dispose: must not throw during recovery
-        try { _mmf?.Dispose(); } catch (Exception) { }
+        try { _mmf?.Dispose(); }
+        catch (Exception) { /* best-effort cleanup during recovery; a failed dispose must not mask the original resize error */ }
 #pragma warning restore CA1031
 
         _capacity = oldCapacity;

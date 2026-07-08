@@ -1264,12 +1264,17 @@ public static class MiRnaAnalyzer
         if (utr.Length < (begin + length))
         {
             int lengthDiff = begin + length - utr.Length;
+            var sb = new StringBuilder(sub);
             for (int i = 0; i < lengthDiff; i++)
             {
-                sub += "N";
-                if (sub.StartsWith("NN", StringComparison.Ordinal))
-                    sub = string.Concat("  ", sub.AsSpan(2));
+                sb.Append('N');
+                if (sb.Length >= 2 && sb[0] == 'N' && sb[1] == 'N')
+                {
+                    sb[0] = ' ';
+                    sb[1] = ' ';
+                }
             }
+            sub = sb.ToString();
         }
         return sub;
     }
@@ -2648,7 +2653,7 @@ public static class MiRnaAnalyzer
         }
 
         // Higher structure score = less accessible
-        double maxPairs = (window.Length * (window.Length - 4)) / 2;
+        double maxPairs = window.Length * (window.Length - 4) / 2.0;
         double structureDensity = structureScore / Math.Max(1, maxPairs);
 
         return Math.Max(0, 1.0 - structureDensity * 10);
@@ -2711,8 +2716,8 @@ public static class MiRnaAnalyzer
     {
         yield return seedSequence;
 
-        // Generate single-nucleotide variants at each position
-        string bases = includeWobble ? "ACGU" : "ACGU";
+        // Generate single-nucleotide variants at each position (all four bases)
+        const string bases = "ACGU";
 
         for (int i = 0; i < seedSequence.Length; i++)
         {

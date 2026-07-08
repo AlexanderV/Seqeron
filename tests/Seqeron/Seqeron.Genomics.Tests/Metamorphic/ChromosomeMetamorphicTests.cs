@@ -287,7 +287,7 @@ public class ChromosomeMetamorphicTests
         ("X", 156_000_000, true), ("X", 156_000_000, true),
     };
 
-    private List<(string Name, long Length, bool IsSexChromosome)> Shuffle(
+    private static List<(string Name, long Length, bool IsSexChromosome)> Shuffle(
         List<(string, long, bool)> items)
     {
         var list = items.ToList();

@@ -10,6 +10,9 @@ namespace Seqeron.Mcp.Metagenomics.Tools;
 [McpServerToolType]
 public class MetagenomicsTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private MetagenomicsTools() { }
+
     #region MetagenomicsAnalyzer
 
     /// <summary>

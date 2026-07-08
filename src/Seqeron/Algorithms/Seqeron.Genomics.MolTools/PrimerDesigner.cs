@@ -1557,7 +1557,6 @@ public static class PrimerDesigner
             if (tmCelsius > bestTm)
             {
                 bestTm = tmCelsius;
-                int s2Start = (runStart - offset);                 // index into s2Rev (3'→5')
                 int strand2Start5 = s2Rev.Length - 1 - (runEnd - offset); // → 5'→3' index on strand 2
                 double dG37 = dH - ReferenceTemperatureKelvin * dS / 1000.0;
                 best = new DimerResult(runStart, strand2Start5, basePairs, dH, dS, dG37);

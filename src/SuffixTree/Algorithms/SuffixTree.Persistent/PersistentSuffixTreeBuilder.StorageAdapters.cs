@@ -77,8 +77,6 @@ public partial class PersistentSuffixTreeBuilder
             _mmf = mmf;
         }
 
-        public long Size => _store.Size;
-
         public void EnsureSizeAtLeast(long size)
         {
             while (_store.Size < size)

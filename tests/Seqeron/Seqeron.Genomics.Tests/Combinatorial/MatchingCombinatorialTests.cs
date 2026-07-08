@@ -152,7 +152,7 @@ public class MatchingCombinatorialTests
         st.Should().Equal(BruteForce(text, pattern));
         kmp.Should().Equal(BruteForce(text, pattern));
         st.Should().Equal(kmp);
-        st.Should().Equal(new[] { 0, 1, 2, 3, 4, 5, 6, 7 });
+        st.Should().Equal(0, 1, 2, 3, 4, 5, 6, 7);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -555,7 +555,12 @@ public class MatchingCombinatorialTests
         for (int i = 0; i + k <= s.Length; i++)
         {
             string km = s.Substring(i, k);
-            (d.TryGetValue(km, out var l) ? l : d[km] = new List<int>()).Add(i);
+            if (!d.TryGetValue(km, out var l))
+            {
+                l = new List<int>();
+                d[km] = l;
+            }
+            l.Add(i);
         }
         return d;
     }
@@ -657,7 +662,14 @@ public class MatchingCombinatorialTests
         var present = new Dictionary<string, HashSet<int>>();
         for (int s = 0; s < texts.Count; s++)
             foreach (var km in BruteKmerPositions(texts[s], k).Keys)
-                (present.TryGetValue(km, out var set) ? set : present[km] = new HashSet<int>()).Add(s);
+            {
+                if (!present.TryGetValue(km, out var set))
+                {
+                    set = new HashSet<int>();
+                    present[km] = set;
+                }
+                set.Add(s);
+            }
         var quorumTruth = present.Where(kv => kv.Value.Count >= 2).Select(kv => kv.Key).ToHashSet();
 
         shared.Select(m => m.Sequence).Should().BeEquivalentTo(quorumTruth, "exactly the quorum words are reported (INV-3)");

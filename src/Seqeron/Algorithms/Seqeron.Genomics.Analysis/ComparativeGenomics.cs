@@ -956,7 +956,7 @@ public static class ComparativeGenomics
                 if (set.Count < effectiveMin)
                     continue;
 
-                string key = string.Join("", set);
+                string key = string.Join("\u0001", set);
                 if (candidates.Add(key))
                     byKey[key] = new SortedSet<string>(set, StringComparer.Ordinal);
             }
@@ -980,7 +980,7 @@ public static class ComparativeGenomics
         {
             int c = a.Count.CompareTo(b.Count);
             if (c != 0) return c;
-            return string.CompareOrdinal(string.Join("", a), string.Join("", b));
+            return string.CompareOrdinal(string.Join("\u0001", a), string.Join("\u0001", b));
         });
 
         return reported;

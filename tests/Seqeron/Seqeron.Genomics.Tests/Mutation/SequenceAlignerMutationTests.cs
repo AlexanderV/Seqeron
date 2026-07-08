@@ -21,10 +21,12 @@ public class SequenceAlignerMutationTests
         for (int i = 0; i < a.Length; i++)
         {
             char c1 = a[i], c2 = b[i];
-            if (c1 == '-' && c2 == '-') continue;
-            else if (c1 == '-' || c2 == '-') total += s.GapExtend;
-            else if (c1 == c2) total += s.Match;
-            else total += s.Mismatch;
+            if (c1 != '-' || c2 != '-')
+            {
+                if (c1 == '-' || c2 == '-') total += s.GapExtend;
+                else if (c1 == c2) total += s.Match;
+                else total += s.Mismatch;
+            }
         }
         return total;
     }
@@ -202,10 +204,12 @@ public class SequenceAlignerMutationTests
                 for (int j = i + 1; j < rows.Length; j++)
                 {
                     char ci = rows[i][p], cj = rows[j][p];
-                    if (ci == '-' && cj == '-') continue;
-                    else if (ci == '-' || cj == '-') total += s.GapExtend;
-                    else if (ci == cj) total += s.Match;
-                    else total += s.Mismatch;
+                    if (ci != '-' || cj != '-')
+                    {
+                        if (ci == '-' || cj == '-') total += s.GapExtend;
+                        else if (ci == cj) total += s.Match;
+                        else total += s.Mismatch;
+                    }
                 }
         return total;
     }

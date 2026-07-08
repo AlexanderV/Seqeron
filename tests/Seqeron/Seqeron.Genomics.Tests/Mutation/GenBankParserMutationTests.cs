@@ -12,8 +12,7 @@ namespace Seqeron.Genomics.Tests.Mutation;
 [TestFixture]
 public class GenBankParserMutationTests
 {
-    private static readonly string Record = string.Join("\n", new[]
-    {
+    private static readonly string Record = string.Join("\n",
         "LOCUS       SCU49845     5028 bp    DNA     linear   PLN 21-JUN-1999",
         "DEFINITION  Saccharomyces cerevisiae TCP1-beta gene.",
         "ACCESSION   U49845",
@@ -44,8 +43,7 @@ public class GenBankParserMutationTests
         "NID         g1293613",
         "ORIGIN",
         "        1 atggtgcacc tgactcctga ggagaagtct",
-        "//"
-    });
+        "//");
 
     // ── A complete record decomposes into every field exactly ──────────────────────────
 
@@ -59,7 +57,7 @@ public class GenBankParserMutationTests
         rec.MoleculeType.Should().Be("DNA");
         rec.Topology.Should().Be("linear");
         rec.Division.Should().Be("PLN");
-        rec.Date.Should().Be(new System.DateTime(1999, 6, 21));
+        rec.Date.Should().Be(new System.DateTime(1999, 6, 21, 0, 0, 0, System.DateTimeKind.Unspecified));
 
         rec.Definition.Should().Be("Saccharomyces cerevisiae TCP1-beta gene.");
         rec.Accession.Should().Be("U49845");
@@ -122,7 +120,7 @@ public class GenBankParserMutationTests
 
         // Standard sections route to typed fields; only the non-standard "NID" lands in
         // AdditionalFields. This pins the IsStandardField partition.
-        rec.AdditionalFields.Keys.Should().BeEquivalentTo(new[] { "NID" });
+        rec.AdditionalFields.Keys.Should().BeEquivalentTo("NID");
         rec.AdditionalFields["NID"].Should().Be("g1293613");
     }
 

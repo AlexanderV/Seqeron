@@ -140,7 +140,7 @@ namespace SuffixTree.Persistent.Tests.Algorithms
             });
         }
 
-        private void CorruptFile(string path, long offset, byte[] payload)
+        private static void CorruptFile(string path, long offset, byte[] payload)
         {
             using var fs = new FileStream(path, FileMode.Open, FileAccess.ReadWrite);
             fs.Seek(offset, SeekOrigin.Begin);

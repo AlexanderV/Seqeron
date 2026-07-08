@@ -187,9 +187,9 @@ public class AssemblyDeBruijnFuzzTests
 
         // Edges: AA→AA, AA→AB, AB→BB, BB→BB, BB→BA  (5 k-mers → 5 edges, INV-02).
         EdgeCount(graph).Should().Be(5, "INV-02: #edges = #k-mers chopped");
-        graph["AA"].Should().BeEquivalentTo(new[] { "AA", "AB" });
-        graph["AB"].Should().BeEquivalentTo(new[] { "BB" });
-        graph["BB"].Should().BeEquivalentTo(new[] { "BB", "BA" });
+        graph["AA"].Should().BeEquivalentTo("AA", "AB");
+        graph["AB"].Should().BeEquivalentTo("BB");
+        graph["BB"].Should().BeEquivalentTo("BB", "BA");
     }
 
     #endregion

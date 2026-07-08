@@ -51,6 +51,11 @@ internal static class AnchorBasedAligner
             int cmp = RefStart.CompareTo(other.RefStart);
             return cmp != 0 ? cmp : QueryStart.CompareTo(other.QueryStart);
         }
+
+        public static bool operator <(Anchor left, Anchor right) => left.CompareTo(right) < 0;
+        public static bool operator >(Anchor left, Anchor right) => left.CompareTo(right) > 0;
+        public static bool operator <=(Anchor left, Anchor right) => left.CompareTo(right) <= 0;
+        public static bool operator >=(Anchor left, Anchor right) => left.CompareTo(right) >= 0;
     }
 
     /// <summary>

@@ -1475,7 +1475,7 @@ public class MetagenomicsFuzzTests
 
         // Every contig is assigned exactly once across the two bins.
         var assigned = bins.SelectMany(b => b.ContigIds).ToList();
-        assigned.Should().BeEquivalentTo(new[] { "gc1", "gc2", "gc3", "at1", "at2", "at3" });
+        assigned.Should().BeEquivalentTo("gc1", "gc2", "gc3", "at1", "at2", "at3");
         assigned.Should().OnlyHaveUniqueItems();
 
         // The GC-rich and AT-rich contigs must NOT be mixed in the same bin.

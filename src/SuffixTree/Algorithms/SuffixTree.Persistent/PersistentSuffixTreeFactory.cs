@@ -175,8 +175,8 @@ public static class PersistentSuffixTreeFactory
         if (!string.IsNullOrEmpty(filePath))
         {
             try { File.Delete(filePath); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            catch (IOException) { /* best-effort temp cleanup; ignore if locked/gone */ }
+            catch (UnauthorizedAccessException) { /* best-effort temp cleanup; ignore if access denied */ }
         }
     }
 }

@@ -1305,13 +1305,13 @@ public static class ProteinMotifFinder
             if (i < regexPattern.Length && regexPattern[i] == '{')
             {
                 i++; // skip {
-                string num = "";
+                var num = new StringBuilder();
                 while (i < regexPattern.Length && regexPattern[i] != ',' && regexPattern[i] != '}')
                 {
-                    num += regexPattern[i];
+                    num.Append(regexPattern[i]);
                     i++;
                 }
-                if (int.TryParse(num, out int n))
+                if (int.TryParse(num.ToString(), out int n))
                     repeat = n;
 
                 // Skip to closing }

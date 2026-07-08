@@ -80,17 +80,9 @@ public partial class PersistentSuffixTreeBuilder
             // Compact zone — sequential scan
             for (long off = hdr; off < compactEnd; off += compactNodeSize, idx++)
             {
-                uint nodeStart, nodeEnd;
-                if (mmfMain != null)
-                {
-                    nodeStart = mmfMain.ReadUInt32Unchecked(off);
-                    nodeEnd = mmfMain.ReadUInt32Unchecked(off + 4);
-                }
-                else
-                {
-                    nodeStart = _storage.ReadUInt32(off);
-                    nodeEnd = _storage.ReadUInt32(off + 4);
-                }
+                uint nodeEnd = mmfMain != null
+                    ? mmfMain.ReadUInt32Unchecked(off + 4)
+                    : _storage.ReadUInt32(off + 4);
 
                 if (nodeEnd == PersistentConstants.BOUNDLESS)
                 {
@@ -140,7 +132,6 @@ public partial class PersistentSuffixTreeBuilder
             }
 
             // Dispose child store — free its page cache for subsequent passes
-            childBase = null;
             if (_ownsChildStore) _childStore.Dispose();
 
             RunPass2LeafCountPropagation(tp, nodeCount, tempQueuePath);
@@ -283,7 +274,7 @@ public partial class PersistentSuffixTreeBuilder
 
     private static void TryDeleteTempFile(string path)
     {
-        try { File.Delete(path); } catch (IOException) { }
+        try { File.Delete(path); } catch (IOException) { /* best-effort temp cleanup; ignore if locked/gone */ }
     }
 
 }

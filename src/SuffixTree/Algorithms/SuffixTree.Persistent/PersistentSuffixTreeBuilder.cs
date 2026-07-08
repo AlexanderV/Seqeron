@@ -209,7 +209,7 @@ public partial class PersistentSuffixTreeBuilder
     /// <summary>
     /// Header size used by this builder's layout.
     /// </summary>
-    private int HeaderSize => PersistentConstants.HEADER_SIZE_V6;
+    private static int HeaderSize => PersistentConstants.HEADER_SIZE_V6;
 
     /// <summary>Initializes a new builder with the specified storage provider and optional layout.</summary>
     /// <param name="storage">Main tree storage (the MMF or heap that holds the final tree).</param>

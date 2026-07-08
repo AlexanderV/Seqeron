@@ -3332,8 +3332,12 @@ public class OncologyCombinatorialTests
         for (int i = 0; i < truncating; i++)
             mutations.Add(new OncologyAnalyzer.GeneMutation(FocalGene, 200 + i, OncologyAnalyzer.MutationConsequence.Nonsense));
 
-        for (int p = 0; mutations.Count < DriverSpectrumTotal; p++)
+        int p = 0;
+        while (mutations.Count < DriverSpectrumTotal)
+        {
             mutations.Add(new OncologyAnalyzer.GeneMutation(FocalGene, 300 + p, OncologyAnalyzer.MutationConsequence.Missense));
+            p++;
+        }
 
         return mutations;
     }

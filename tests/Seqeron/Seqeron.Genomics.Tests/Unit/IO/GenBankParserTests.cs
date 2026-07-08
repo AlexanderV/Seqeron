@@ -109,7 +109,7 @@ ORIGIN
             Assert.That(record.Topology, Is.EqualTo("linear"));
             Assert.That(record.Division, Is.EqualTo("UNK"));
             Assert.That(record.Date, Is.Not.Null);
-            Assert.That(record.Date!.Value, Is.EqualTo(new System.DateTime(2024, 1, 1)));
+            Assert.That(record.Date!.Value, Is.EqualTo(new System.DateTime(2024, 1, 1, 0, 0, 0, System.DateTimeKind.Unspecified)));
         });
     }
 

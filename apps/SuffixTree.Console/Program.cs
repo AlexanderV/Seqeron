@@ -11,6 +11,7 @@ try
     var buildSw = Stopwatch.StartNew();
     using (PersistentSuffixTreeFactory.CreatePersistent(new StringTextSource(text), tempFile))
     {
+        // build + dispose only — the point is to measure persistent-build wall time
     }
     buildSw.Stop();
 
@@ -118,8 +119,10 @@ static void TryDelete(string path)
     }
     catch (IOException)
     {
+        // best-effort temp cleanup; ignore if the file is locked/gone
     }
     catch (UnauthorizedAccessException)
     {
+        // best-effort temp cleanup; ignore if access is denied
     }
 }

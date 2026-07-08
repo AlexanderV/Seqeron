@@ -550,7 +550,8 @@ public class MetagenomicsCombinatorialTests
         // DB = the nGenes real signatures + decoys to reach dbSize.
         var db = new Dictionary<string, (string Function, string Pathway, string Ko)>(StringComparer.Ordinal);
         for (int i = 0; i < nGenes; i++) db[FuncSignatures[i]] = ($"func{i}", $"path{i}", $"K0000{i}");
-        for (int d = 0; db.Count < dbSize; d++) db[FuncDecoys[d]] = ($"decoy{d}", "-", "-");
+        int d = 0;
+        while (db.Count < dbSize) { db[FuncDecoys[d]] = ($"decoy{d}", "-", "-"); d++; }
 
         var results = MetagenomicsAnalyzer.PredictFunctions(proteins, db).ToList();
 
@@ -699,7 +700,8 @@ public class MetagenomicsCombinatorialTests
 
         var refs = new List<(string, string, string, string)> { ("arr1", ResistRef, "ARR-1", "beta-lactam") };
         string[] decoys = { "GGGGCCCCGGGGCCCCGGGG", "TTAATTAATTAATTAATTAA", "CCCCGGGGCCCCGGGGCCCC", "AATTAATTAATTAATTAATT" };
-        for (int d = 0; refs.Count < dbSize; d++) refs.Add(($"decoy{d}", decoys[d], $"DCY{d}", "none"));
+        int d = 0;
+        while (refs.Count < dbSize) { refs.Add(($"decoy{d}", decoys[d], $"DCY{d}", "none")); d++; }
 
         var hits = MetagenomicsAnalyzer.FindAntibioticResistanceGenes(
             new[] { ("contig1", contig) }, refs, identityThreshold: identity).ToList();

@@ -127,7 +127,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
     /// Runs both algorithms and reports timing comparison.
     /// Returns (classicMs, anchorMs, speedup).
     /// </summary>
-    private (double ClassicMs, double AnchorMs, double Speedup) RunBenchmark(
+    private static (double ClassicMs, double AnchorMs, double Speedup) RunBenchmark(
         List<DnaSequence> sequences, string label, int warmupRuns = 1, int measuredRuns = 3)
     {
         var seqList = sequences.ToList();
@@ -309,7 +309,8 @@ public class SequenceAligner_MultipleAlign_Benchmark
     public void Benchmark_HighSimilarity_10x500_95pct()
     {
         var seqs = GenerateRelatedSequences(count: 10, length: 500, similarity: 0.95, seed: 111);
-        RunBenchmark(seqs, "High similarity: 10 × 500bp, 95%");
+        var r = RunBenchmark(seqs, "High similarity: 10 × 500bp, 95%");
+        Assert.That(r.ClassicMs, Is.GreaterThan(0)); // benchmark actually executed (no timing threshold — non-flaky)
     }
 
     /// <summary>
@@ -320,7 +321,8 @@ public class SequenceAligner_MultipleAlign_Benchmark
     public void Benchmark_MediumSimilarity_10x500_80pct()
     {
         var seqs = GenerateRelatedSequences(count: 10, length: 500, similarity: 0.80, seed: 222);
-        RunBenchmark(seqs, "Medium similarity: 10 × 500bp, 80%");
+        var r = RunBenchmark(seqs, "Medium similarity: 10 × 500bp, 80%");
+        Assert.That(r.ClassicMs, Is.GreaterThan(0)); // benchmark actually executed (no timing threshold — non-flaky)
     }
 
     /// <summary>
@@ -332,7 +334,8 @@ public class SequenceAligner_MultipleAlign_Benchmark
     public void Benchmark_LowSimilarity_10x500_60pct()
     {
         var seqs = GenerateRelatedSequences(count: 10, length: 500, similarity: 0.60, seed: 333);
-        RunBenchmark(seqs, "Low similarity: 10 × 500bp, 60%");
+        var r = RunBenchmark(seqs, "Low similarity: 10 × 500bp, 60%");
+        Assert.That(r.ClassicMs, Is.GreaterThan(0)); // benchmark actually executed (no timing threshold — non-flaky)
     }
 
     #endregion

@@ -152,11 +152,8 @@ public partial class SuffixTree
             var node = stack.Pop();
             if (!visited.Add(node)) continue;
 
-            if (!node.IsLeaf && node != _root)
-            {
-                if (node.SuffixLink == null)
-                    throw new InvalidOperationException($"Node at depth {node.DepthFromRoot} missing suffix link");
-            }
+            if (!node.IsLeaf && node != _root && node.SuffixLink == null)
+                throw new InvalidOperationException($"Node at depth {node.DepthFromRoot} missing suffix link");
 
             node.GetChildren(buffer);
             foreach (var child in buffer)

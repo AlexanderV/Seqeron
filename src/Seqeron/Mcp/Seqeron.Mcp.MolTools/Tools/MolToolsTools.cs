@@ -9,6 +9,9 @@ namespace Seqeron.Mcp.MolTools.Tools;
 [McpServerToolType]
 public class MolToolsTools
 {
+    // Utility holder for static MCP tools; never instantiated (S1118).
+    private MolToolsTools() { }
+
     #region PrimerDesigner
 
     [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward and reverse PCR primers flanking a target region in a DNA template; picks the highest-scoring valid candidates from a 200 bp flanking window on each side and reports product size and pair compatibility. target_start/target_end are 0-based; the region must satisfy 0 <= target_start < target_end < template.Length.")]

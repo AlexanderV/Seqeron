@@ -701,7 +701,7 @@ public static class QualityScoreAnalyzer
 
             // Parse header
             string header = headerLine.Substring(1);
-            string id = header.Split(' ', '\t')[0];
+            string id = header.Split([' ', '\t'], StringSplitOptions.None)[0];
             string? description = header.Contains(' ') ? header.Substring(header.IndexOf(' ') + 1) : null;
 
             // Sequence line
