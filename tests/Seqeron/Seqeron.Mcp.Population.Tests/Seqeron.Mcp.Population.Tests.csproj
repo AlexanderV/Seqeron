@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.Population\Seqeron.Mcp.Population.csproj" />
+    <ProjectReference Include="..\Seqeron.Mcp.Tests.Contracts\Seqeron.Mcp.Tests.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

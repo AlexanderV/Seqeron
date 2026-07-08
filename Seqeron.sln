@@ -113,6 +113,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Persistent.Tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Tests", "tests\SuffixTree\SuffixTree.Tests\SuffixTree.Tests.csproj", "{2E9DC434-ABC0-4293-B365-D0313D565D20}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Tests.Contracts", "tests\Seqeron\Seqeron.Mcp.Tests.Contracts\Seqeron.Mcp.Tests.Contracts.csproj", "{D175AE9C-12E9-46EE-8F1B-449019EC41C3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -651,6 +653,18 @@ Global
 		{2E9DC434-ABC0-4293-B365-D0313D565D20}.Release|x64.Build.0 = Release|Any CPU
 		{2E9DC434-ABC0-4293-B365-D0313D565D20}.Release|x86.ActiveCfg = Release|Any CPU
 		{2E9DC434-ABC0-4293-B365-D0313D565D20}.Release|x86.Build.0 = Release|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Debug|x64.Build.0 = Debug|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Debug|x86.Build.0 = Debug|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Release|x64.ActiveCfg = Release|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Release|x64.Build.0 = Release|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Release|x86.ActiveCfg = Release|Any CPU
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -708,5 +722,6 @@ Global
 		{558EF514-535C-4C26-A701-D97FEE01B6AD} = {2837F60A-79D7-4DAD-79C8-0CEBDFCA8D40}
 		{344D23FA-D545-439B-9E12-5FCBCAC0BDCD} = {2837F60A-79D7-4DAD-79C8-0CEBDFCA8D40}
 		{2E9DC434-ABC0-4293-B365-D0313D565D20} = {2837F60A-79D7-4DAD-79C8-0CEBDFCA8D40}
+		{D175AE9C-12E9-46EE-8F1B-449019EC41C3} = {D57C21C6-7CF4-160C-7FFF-8651A26780EE}
 	EndGlobalSection
 EndGlobal

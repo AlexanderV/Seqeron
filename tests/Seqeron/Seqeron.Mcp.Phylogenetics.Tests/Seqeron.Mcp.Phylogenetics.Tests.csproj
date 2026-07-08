@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.Phylogenetics\Seqeron.Mcp.Phylogenetics.csproj" />
+    <ProjectReference Include="..\Seqeron.Mcp.Tests.Contracts\Seqeron.Mcp.Tests.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
