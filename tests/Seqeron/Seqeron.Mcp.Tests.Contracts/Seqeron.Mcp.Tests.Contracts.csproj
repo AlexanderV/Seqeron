@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared test-support library (NOT a test project): holds the reusable MCP server contract
+    fixtures that every Seqeron.Mcp.*.Tests project derives from. References only the NUnit
+    framework; no test adapter, so it is never collected as a runnable test assembly itself.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NUnit" />
+  </ItemGroup>
+
+</Project>
