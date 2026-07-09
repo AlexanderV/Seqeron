@@ -46,6 +46,13 @@ homologous genes derived from a common ancestor" (Wikipedia). The unit exposes t
 `FindSyntenyBlocks` builds blocks from ortholog pairs, and `DetectRearrangements` classifies the
 structural events between adjacent blocks.
 
+> **Note — two formulations of rearrangement detection.** This page classifies rearrangements from
+> **adjacent synteny-block coordinate signals** (chromosome / strand / gap). The comparative-genomics
+> [[genome-rearrangement-breakpoint-distance]] unit (COMPGEN-REARR-001) solves the same problem from a
+> **signed gene-order permutation** — counting breakpoints `b(α)`, the reversal-distance lower bound
+> `d≥b/2`, and classifying Inversion vs Transposition (Hannenhalli–Pevzner / Bafna–Pevzner). The two
+> are complementary `alternative_to` formulations.
+
 ## FindSyntenyBlocks (blocks from ortholog pairs)
 
 Input: a list of **ortholog pairs** (each with a position in both genomes) plus two parameters —

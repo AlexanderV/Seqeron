@@ -37,6 +37,7 @@ sources:
   - docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md
   - docs/Evidence/COMPGEN-ORTHO-001-Evidence.md
   - docs/Evidence/COMPGEN-RBH-001-Evidence.md
+  - docs/Evidence/COMPGEN-REARR-001-Evidence.md
 source_commit: 458398bca4eee7e7fa828acbe182e07695db5e28
 created: 2026-07-09
 updated: 2026-07-09
@@ -95,7 +96,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[codon-usage-001-evidence]], [[compgen-ani-001-evidence]],
 [[compgen-cluster-001-evidence]], [[compgen-compare-001-evidence]],
 [[compgen-dotplot-001-evidence]], [[compgen-ortho-001-evidence]],
-[[compgen-rbh-001-evidence]]). An
+[[compgen-rbh-001-evidence]], [[compgen-rearr-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -124,4 +125,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[conserved-gene-clusters-common-intervals]] (the comparative-genomics common-interval / conserved-cluster unit), or
 [[genome-comparison-core-dispensable]] (the comparative-genomics end-to-end genome-comparison pipeline — core/dispensable partition + syntenic fraction), or
 [[dot-plot-word-match]] (the comparative-genomics word-match / k-tuple dot-matrix visual sequence-comparison unit), or
-[[ortholog-detection-reciprocal-best-hits]] (the comparative-genomics RBH ortholog + within-genome in-paralog detection unit, shared anchor for COMPGEN-RBH-001).
+[[ortholog-detection-reciprocal-best-hits]] (the comparative-genomics RBH ortholog + within-genome in-paralog detection unit, shared anchor for COMPGEN-RBH-001), or
+[[genome-rearrangement-breakpoint-distance]] (the comparative-genomics signed-permutation / breakpoint-distance rearrangement-detection unit, the alternative formulation to the block-signal [[synteny-and-rearrangement-detection]]).

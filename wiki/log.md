@@ -859,3 +859,26 @@ Operations:
    and Moreno-Hagelsieb operational RBH are consistent, the latter the pairwise operationalization of the
    former); Deviations = None beyond the metric substitution. No new typed graph edges (reused existing
    concept, no new concept/relationship; mentions auto-derived).
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-REARR-001-Evidence.md → compgen-rearr-001-evidence (source) + 1 concept
+   Thirty-fifth per-algorithm Evidence file; seventh of the Comparative-genomics (COMPGEN) family
+   (after ANI, CLUSTER, COMPARE, DOTPLOT, ORTHO, RBH). Created a NEW concept
+   genome-rearrangement-breakpoint-distance — the signed-permutation / breakpoint formulation of
+   rearrangement detection (Hannenhalli–Pevzner / Bafna–Pevzner), genuinely distinct from the existing
+   block-signal synteny-and-rearrangement-detection (CHROM-SYNT-001), which classifies from adjacent
+   synteny-block coordinates. Modeled the two as alternative_to: this unit counts breakpoints b(α) on a
+   signed permutation (extended (0,…,n+1), breakpoint = consecutive pair where neither (x,y) nor (−y,−x)
+   survives in β), reports the breakpoint distance d_BP=n−sim(common adjacencies) and the reversal-distance
+   lower bound d≥b/2, and ClassifyRearrangement returns Inversion (sign-flip reversal) vs Transposition
+   (orientation-preserving block move) — Translocation/Deletion/Insertion/Duplication are a documented
+   "Not implemented" (a single in-order permutation can't express them). Sources all rank 1: Hunter
+   College Lecture 16 (verbatim signed-permutation/reversal/breakpoint/lower-bound), Tannier–Zheng–Sankoff
+   PMC3887456 (adjacency vocabulary + d=n−sim + telomeres), Bafna–Pevzner 1998 (transposition vs inversion).
+   Oracles: Hunter α=(−2,−3,+1,+6,−5,−4)→b=6/d≥3 with (−5,−4) excluded via (−y,−x); identity→0;
+   single reversed block (+1,−4,−3,−2,+5)→b=2. Three source-backed ASSUMPTIONS (orthologMap-supplied
+   anchors delegating anchor generation to the ORTHO/synteny units; strand '+'/'-'=sign; only
+   Inversion/Transposition classified). Concise source page written; linked into the
+   algorithm-validation-evidence hub (frontmatter sources + source-list + concept-list); added a reciprocal
+   "two formulations" note on synteny-and-rearrangement-detection; index updated (source + concept lines).
+   Contradictions: none among sources; Deviations = None beyond the three scoping assumptions.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, alternative_to synteny-and-rearrangement-detection)
