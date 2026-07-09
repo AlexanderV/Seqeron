@@ -36,6 +36,7 @@ sources:
   - docs/Evidence/COMPGEN-COMPARE-001-Evidence.md
   - docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md
   - docs/Evidence/COMPGEN-ORTHO-001-Evidence.md
+  - docs/Evidence/COMPGEN-RBH-001-Evidence.md
 source_commit: 458398bca4eee7e7fa828acbe182e07695db5e28
 created: 2026-07-09
 updated: 2026-07-09
@@ -93,7 +94,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[codon-rscu-001-evidence]], [[codon-stats-001-evidence]],
 [[codon-usage-001-evidence]], [[compgen-ani-001-evidence]],
 [[compgen-cluster-001-evidence]], [[compgen-compare-001-evidence]],
-[[compgen-dotplot-001-evidence]], [[compgen-ortho-001-evidence]]). An
+[[compgen-dotplot-001-evidence]], [[compgen-ortho-001-evidence]],
+[[compgen-rbh-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],

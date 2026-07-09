@@ -4,6 +4,7 @@ title: "Ortholog & in-paralog detection (Reciprocal Best Hits)"
 tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-ORTHO-001-Evidence.md
+  - docs/Evidence/COMPGEN-RBH-001-Evidence.md
 source_commit: 29ce869c75abab6c57f5482a2e2ec51750607d3c
 created: 2026-07-09
 updated: 2026-07-09
@@ -36,13 +37,15 @@ genomes are **orthologs** (diverged by *speciation*) versus **paralogs** (diverg
 duplication*), using the operational **Reciprocal Best Hits (RBH)** criterion for orthologs and a
 **within-genome best-hit** rule for recent (in-)paralogs. It is the shared sub-unit behind the
 [[genome-comparison-core-dispensable|genome-comparison pipeline]]'s core/dispensable partition and
-is deliberately scoped as the anchor the **COMPGEN-RBH-001** unit will reuse rather than
-re-derive. Its Comparative-genomics siblings are [[average-nucleotide-identity]] (nucleotide-level
+is the shared anchor the **COMPGEN-RBH-001** unit reuses rather than re-deriving. Its
+Comparative-genomics siblings are [[average-nucleotide-identity]] (nucleotide-level
 relatedness), [[synteny-and-rearrangement-detection]] (gene-order conservation),
 [[conserved-gene-clusters-common-intervals]] (order-free gene sets), and [[dot-plot-word-match]]
-(visual comparison). Validated under test unit **COMPGEN-ORTHO-001**; the validation record is
-[[compgen-ortho-001-evidence]], [[test-unit-registry]] tracks the unit, and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+(visual comparison). Validated under **two test units**: the RBH-plus-in-paralog
+**COMPGEN-ORTHO-001** (record [[compgen-ortho-001-evidence]]) and the RBH-only
+**COMPGEN-RBH-001** (record [[compgen-rbh-001-evidence]]) — the latter is the between-genome
+ortholog slice without the within-genome in-paralog rule. [[test-unit-registry]] tracks the units
+and [[algorithm-validation-evidence]] describes the artifact pattern.
 
 ## Orthology vs paralogy (Fitch 1970)
 

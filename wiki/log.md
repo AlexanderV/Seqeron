@@ -836,3 +836,26 @@ Operations:
    duplicating; remaining COMPGEN units (COMPGEN-SYNTENY-001 reusing synteny-and-rearrangement-detection,
    reversal distance) warrant their own concepts or share existing ones.
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, genome-comparison-core-dispensable, average-nucleotide-identity)
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-RBH-001-Evidence.md → compgen-rbh-001-evidence (source)
+   Thirty-fourth per-algorithm Evidence file; sixth of the Comparative-genomics (COMPGEN) family (after
+   ANI, CLUSTER, COMPARE, DOTPLOT, ORTHO). NO new concept — this file is the RBH-only slice of the
+   already-ingested COMPGEN-ORTHO-001, and the ortholog-detection-reciprocal-best-hits concept was
+   deliberately scoped (during the ORTHO ingest) as the shared RBH anchor COMPGEN-RBH-001 reuses.
+   Reused that concept: added COMPGEN-RBH-001 to its sources frontmatter and rewrote its intro to cite
+   BOTH validation records (COMPGEN-ORTHO-001 = RBH + within-genome in-paralog; COMPGEN-RBH-001 = the
+   between-genome ortholog slice, no in-paralog rule). Distinctive content vs ORTHO: only TWO sources
+   (Moreno-Hagelsieb & Latimer 2008 operational RBH + thresholds; Tatusov 1997 COG genome-specific BeTs/
+   mutually-consistent-best-hit triangles) — no Fitch, no Remm, no in-paralog dataset; verbatim quotes
+   from the fetched OUP article (best hit = descending bit-score then ascending E-value; ≥50% coverage of
+   "any of the protein sequences"; max E-value 1e-6); and an in-file DATA-QUALITY note where a
+   search-engine summary claiming a 60% coverage threshold was rejected in favor of the article body's
+   50% (recorded as a resolved discrepancy, not a source-vs-source contradiction). Datasets: reciprocity
+   {a1↔b1,a2↔b2}, non-reciprocity (b2 = a1's superstring shares all 5-mers but a1↛b2 → RBH count 1),
+   coverage/min-identity gate. Concise source page written; linked into the algorithm-validation-evidence
+   hub (frontmatter sources + link list). ONE ASSUMPTION, source-backed: alignment-free 5-mer Jaccard
+   replaces the BLAST bit-score ranking (cf. Mash) — affects only near-identical tie-breaks; reciprocity/
+   coverage/threshold semantics unchanged. Contradictions: none between sources (Tatusov symmetrical BeTs
+   and Moreno-Hagelsieb operational RBH are consistent, the latter the pairwise operationalization of the
+   former); Deviations = None beyond the metric substitution. No new typed graph edges (reused existing
+   concept, no new concept/relationship; mentions auto-derived).
