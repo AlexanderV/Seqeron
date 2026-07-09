@@ -1548,3 +1548,19 @@ Operations:
    sibling (no stub). Contradictions: none.
    graph: +2 nodes (concept + source page), +1 typed edge (concept relates_to test-unit-registry;
    source/concept [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | META-BETA-001-Evidence.md → meta-beta-001-evidence (source) + beta-diversity (concept)
+   Second Metagenomics-family unit: between-sample dissimilarity CalculateBetaDiversity → Bray-Curtis
+   (abundance, not a true metric) + Jaccard distance (presence/absence, true metric), from
+   Whittaker 1960 (α/β/γ) + Bray & Curtis 1957 + Jaccard 1901 + Wikipedia primaries. Created a dedicated
+   [[beta-diversity]] concept (the [[alpha-diversity]] page already referenced it as its expected
+   sibling) + [[meta-beta-001-evidence]] source page. Wired into index (source + concept lines) + the
+   algorithm-validation-evidence hub (frontmatter source + body evidence-link + own-concept list).
+   Cross-linked reciprocally with [[alpha-diversity]] (within- vs between-sample halves of Whittaker's
+   framework; added a relates_to edge on each). Noted ecological-Jaccard shares the index math but not
+   the domain with sequence [[kmer-jaccard-similarity]] (prose mention only, no typed edge). Reconciled
+   backlog: moved Metagenomics/Beta_Diversity.md from pending Metagenomics (9→8) to covered-via-concept
+   (57→58 covered / 188→187 pending, 30 domains). Contradictions: none.
+   graph: +2 nodes (concept + source page), +3 typed edges (beta relates_to test-unit-registry;
+   beta relates_to alpha-diversity; alpha relates_to beta-diversity — reciprocal); body [[wikilinks]]
+   mentions auto-derived

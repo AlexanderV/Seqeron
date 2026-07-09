@@ -16,6 +16,12 @@ graph:
       evidence: "Test Unit ID: META-ALPHA-001 ... Area: Metagenomics ... Canonical Methods: MetagenomicsAnalyzer.CalculateAlphaDiversity"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:beta-diversity
+      source: meta-alpha-001-evidence
+      evidence: "Whittaker 1960 α/β/γ framework: alpha = within-sample diversity, beta = between-sample turnover; the two halves of the metagenomics diversity topic, both over a taxon→abundance map"
+      confidence: high
+      status: current
 ---
 
 # Alpha diversity (within-sample diversity indices)
@@ -25,7 +31,7 @@ graph:
 of scalar statistics. It is the local term of Whittaker's α/β/γ framework (Whittaker 1960): alpha =
 within-sample, beta = between-sample turnover, gamma = regional. This is the **first ingested unit of
 the Metagenomics family** and the **anchor** for the metagenomics diversity topic; its between-sample
-sibling [[beta-diversity]] (Bray-Curtis / Jaccard turnover) is a future unit. Validated under test unit
+sibling is [[beta-diversity]] (Bray-Curtis / Jaccard turnover, META-BETA-001). Validated under test unit
 **META-ALPHA-001**; the record is [[meta-alpha-001-evidence]], [[test-unit-registry]] tracks the unit,
 and [[algorithm-validation-evidence]] describes the artifact pattern.
 
@@ -103,7 +109,7 @@ indices over one abundance profile. All formulas match their primary sources exa
 Simpson 1949, Hill 1973, Chao 1984, Pielou 1966); the only implementation-specific behaviour is the
 Chao1 count-vs-proportion gate and the `S ≤ 1 → J = 0` convention. It computes summary statistics over a
 *supplied* abundance map — taxonomic classification / profiling that produces that map, and the
-between-sample turnover metrics, are separate units ([[beta-diversity]] and the rest of the metagenomics
-family). No rarefaction, no confidence intervals, no Hill-number series beyond order 2. No source
-contradictions.
+between-sample turnover metrics ([[beta-diversity]], Bray-Curtis / Jaccard), are separate units in the
+metagenomics family. No rarefaction, no confidence intervals, no Hill-number series beyond order 2. No
+source contradictions.
 </content>
