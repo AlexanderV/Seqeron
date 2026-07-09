@@ -1666,3 +1666,26 @@ Operations:
    graph: +2 nodes (source + concept), +3 typed edges (pathway-enrichment-ora relates_to
    test-unit-registry + relates_to functional-prediction; reciprocal functional-prediction relates_to
    pathway-enrichment-ora); body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] ingest | docs/Evidence/META-PROF-001-Evidence.md → meta-prof-001-evidence (source) + 1 concept
+   Seventh ingested Metagenomics-family Evidence file (META-PROF-001). Decision: created the
+   genuinely-distinct concept [[taxonomic-profile]] rather than enriching [[taxonomic-classification]] —
+   profiling is the aggregation/estimation step the classification unit explicitly deferred, with its own
+   method `MetagenomicsAnalyzer.GenerateTaxonomicProfile(IEnumerable<TaxonomicClassification>)` producing a
+   `TaxonomicProfile` (relative-abundance maps at four ranks kingdom/phylum/genus/species = count(taxon)/
+   Σcount(classified), inline species-level Shannon H=−Σpᵢln(pᵢ) nats + Simpson concentration λ=Σpᵢ², and
+   TotalReads/ClassifiedReads). Counting rules: Unclassified excluded from denominators, empty rank strings
+   filtered, per-rank Σ≈1.0. Invariants ClassifiedReads≤TotalReads / =Σ(counts any rank) / Shannon≥0 /
+   0≤Simpson≤1; oracles Shannon=ln(3) (3 uniform), Simpson=0.375 ([2,1,1]), TotalReads3/ClassifiedReads2;
+   empty→0/0/empty & single taxon→1.0/H0/λ1 vs empty→λ0 (empty-sum convention). Sources Wikipedia
+   Metagenomics + Relative-abundance-distribution + MetaPhlAn docs + Segata 2012 (Nature Methods). Created
+   source page [[meta-prof-001-evidence]]. Cross-linked reciprocally: rewrote taxonomic-classification's
+   deferred-profiling sentence to point at [[taxonomic-profile]] ("not yet ingested"→link + input-shape).
+   Hub [[algorithm-validation-evidence]]: added META-PROF to frontmatter sources (bumped source_commit to
+   HEAD 02f28f4) + source-list + concept-list. index.md: +1 source +1 concept. Backlog: moved
+   Metagenomics/Taxonomic_Profile.md pending→covered (62→63 covered / 183→182 pending; §Metagenomics 4→3).
+   Contradictions: none — the verified design decisions (nats log, concentration-index λ, empty→0) are
+   mathematical facts, no literature deviations. Scope note: count-based tally, NOT MetaPhlAn marker-gene
+   coverage estimation; no genome-size/copy-number correction; inherits upstream classifier accuracy.
+   graph: +2 nodes (source + concept), +3 typed edges (taxonomic-profile relates_to test-unit-registry +
+   depends_on taxonomic-classification + relates_to alpha-diversity); body [[wikilinks]] mentions auto-derived.

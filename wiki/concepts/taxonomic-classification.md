@@ -47,8 +47,10 @@ Validated under test unit **META-CLASS-001**; the record is [[meta-class-001-evi
 pattern.
 
 This concept is deliberately scoped to the **per-read classification / LCA assignment**. Abundance
-*profiling* (community composition / relative-abundance estimation) is a separate, later unit
-(`docs/algorithms/Metagenomics/Taxonomic_Profile.md`, not yet ingested).
+*profiling* (community composition / relative-abundance estimation) is the separate
+[[taxonomic-profile]] unit (META-PROF-001), which aggregates *this* unit's per-read output
+(`GenerateTaxonomicProfile` takes an `IEnumerable<TaxonomicClassification>`) into normalized
+per-taxon relative abundances at four ranks.
 
 ## Database build (`BuildKmerDatabase`)
 
