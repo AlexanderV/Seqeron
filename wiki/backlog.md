@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **48** algorithm docs covered-via-concept, **197** pending across 31 domains.
+Status at generation: **49** algorithm docs covered-via-concept, **196** pending across 30 domains.
 
 ## Covered via concept (done)
 
@@ -71,6 +71,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md` | [[coding-potential-hexamer-score]] |
 | `docs/algorithms/Extended_Assembly/Contig_Merging.md` | [[contig-merge-overlap-collapse]] |
 | `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
+| `docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
@@ -135,12 +136,6 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/FileIO/GFF_Parsing.md` | `gff-parsing` |
 | `docs/algorithms/FileIO/GenBank_Parsing.md` | `genbank-parsing` |
 | `docs/algorithms/FileIO/VCF_Parsing.md` | `vcf-parsing` |
-
-### Genomic_Analysis (1)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md` | `tandem-repeat-detection` |
 
 ### K-mer (10)
 

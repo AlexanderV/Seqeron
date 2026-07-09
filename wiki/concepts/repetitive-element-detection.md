@@ -5,7 +5,9 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/ANNOT-REPEAT-001-Evidence.md
   - docs/algorithms/Annotation/Repetitive_Element_Detection.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
+  - docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
+source_commit: 4ee1ab19359eab0c144e9a59219013e0c0f4ec91
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -14,6 +16,12 @@ graph:
       object: concept:test-unit-registry
       source: annot-repeat-001-evidence
       evidence: "Test Unit ID: ANNOT-REPEAT-001 ... Algorithm: Repetitive Element Detection and Classification (tandem repeats, inverted repeats, repeat-class assignment)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: genomic-tandem-001-evidence
+      evidence: "Test Unit ID: GENOMIC-TANDEM-001 ... Algorithm: Tandem Repeat Detection (GenomicAnalyzer.FindTandemRepeats); duplicate Registry entry resolved by consolidation with REP-TANDEM-001"
       confidence: high
       status: current
 ---
@@ -40,9 +48,21 @@ a motif occurring once is not a tandem repeat. By repeat-unit length:
 - **Minisatellite** — 10–60 bp unit.
 - **Satellite** — larger units.
 
-**Primitive-unit rule:** report the shortest period. `AAAAAA` is the mononucleotide `A`
-repeated, not the dinucleotide `AA` or trinucleotide `AAA` — reporting a non-primitive unit
-double-counts.
+**Primitive-unit rule:** the shortest period is the canonical unit. `AAAAAA` is the
+mononucleotide `A` repeated, not the dinucleotide `AA` or trinucleotide `AAA` — reporting a
+non-primitive unit double-counts. This is the **annotation `RepeatAnalyzer` convention**
+([[annot-repeat-001-evidence|ANNOT-REPEAT-001]]).
+
+**Two entry points, different period handling.** Seqeron detects tandem repeats through two
+methods over the same **exact-copy** model. `GenomicAnalyzer.FindTandemRepeats`
+([[genomic-tandem-001-evidence|GENOMIC-TANDEM-001]], a consolidated duplicate of
+REP-TANDEM-001) is a brute-force detector that does **not** canonicalize competing periods:
+a run like `AAAA` is reported once per unit-length interpretation meeting the threshold
+(period 1 ×4 *and* period 2 ×2). The annotation `RepeatAnalyzer` path instead applies the
+primitive-unit rule above. Both are **exact** — neither reports the *approximate* tandem
+copies of Benson's Tandem Repeats Finder (1999); that is a documented Framework/Simplified
+[[research-grade-limitations|limitation]], and over exact repeats both match the formal
+definition (period = unit length, copy number ≥ 2).
 
 ### 2. Inverted repeats (reverse-complement arms)
 

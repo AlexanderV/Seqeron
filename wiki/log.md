@@ -1344,3 +1344,24 @@ Operations:
   k-mer-set application are consistent; deviations None.
   graph: +2 nodes (source + concept), +2 typed edges (concept relates_to test-unit-registry,
   alternative_to alignment-statistics; source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/GENOMIC-TANDEM-001-Evidence.md → genomic-tandem-001-evidence (source) + repetitive-element-detection (concept, enriched)
+  Per-algorithm Evidence file validating `GenomicAnalyzer.FindTandemRepeats` (exact tandem-repeat
+  detection). REUSED the existing repeats/tandem anchor [[repetitive-element-detection]] rather than
+  creating a new page — GENOMIC-TANDEM-001 is a consolidated duplicate of REP-TANDEM-001 (same method,
+  same brute-force scan, canonical fixture, no new tests), and tandem detection is already sub-problem #1
+  of that concept. Enriched the concept's tandem section with the two entry points over the same
+  exact-copy model: `GenomicAnalyzer.FindTandemRepeats` (reports EVERY unit-length/period interpretation,
+  no primitive-unit canonicalization — `AAAA` → period 1×4 AND period 2×2) vs the annotation
+  `RepeatAnalyzer` path (primitive-unit rule); both exact-only, neither reports Benson TRF's approximate
+  copies (Framework/Simplified limitation). Sources: Benson 1999 (Tandem Repeats Finder, period/copy-number/
+  k≥2 definition, approximate-vs-exact) + Wikipedia "Tandem repeat" (ATTCG×3 worked example, STR/mini/
+  macrosatellite classes, ~8% genome / >50 diseases). Oracles ATTCGATTCGATTCG→ATTCG/period5/3copies/len15
+  and ATGATGATG→ATG/3. Concise source page written. Wired into index (source line). Reconciled backlog:
+  moved Genomic_Analysis/Tandem_Repeat_Detection.md from pending Genomic_Analysis (section emptied, 1→0)
+  to covered-via-concept under [[repetitive-element-detection]] (48→49 covered / 197→196 pending, 30
+  domains); Repeat_Analysis/Tandem_Repeat_Detection.md (REP-TANDEM-001, a separate unit) left pending.
+  Contradictions: none among sources; the two entry points' period-handling divergence documented, not a
+  source conflict.
+  graph: +1 node (source page), +1 typed edge (concept relates_to test-unit-registry from
+  genomic-tandem-001-evidence; source-page [[wikilinks]] mentions auto-derived)

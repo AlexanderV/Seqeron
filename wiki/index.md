@@ -72,6 +72,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[genomic-repeat-001-evidence]] — evidence artifact for test unit GENOMIC-REPEAT-001 (Repeat Detection — Longest Repeated Substring + all-repeats enumeration via suffix tree): CMU 15-451 §2.1 + Wikipedia + GeeksforGeeks App-3 + JHU/Gusfield sources; `FindLongestRepeat`/`FindRepeats` deepest-internal-node-≥2-leaves, ATCGATCGA→ATCGA{0,4} + AAAAAAAAAA→AAAAAAAAA{0,1} overlap + ACGTACGTTTTTACGT minLen3→8-substring oracles; tie-break + ascending-positions assumptions, deviations None.
 - [[genomic-similarity-001-evidence]] — evidence artifact for test unit GENOMIC-SIMILARITY-001 (sequence similarity, k-mer Jaccard index `CalculateSimilarity`): Jaccard 1901 (`|A∩B|/|A∪B|`, `[0,1]`, non-empty-set scope, distance `1−J`) + Ondov 2016 *Mash* (k-mer-set Jaccard = fraction of shared k-mers, MinHash sketch `|A_s∩B_s|/s`) + Mash distance docs sources; distinct-k-mer set (HashSet, repeats once) J×100 in `[0,100]`; k=3 oracles ACGTACGT/ACGTACGA→80, ACGT/ACGA→100/3, identical→100, disjoint→0, AAAAAA/AAAA→100; three assumptions (empty-union→0 ASM-1, ×100 scaling, default k=5) all source-backed; suffix-tree-evaluated-not-used; no contradictions. Concept [[kmer-jaccard-similarity]].
 - [[genomic-orf-001-evidence]] — evidence artifact for test unit GENOMIC-ORF-001 (Open Reading Frame detection, `GenomicAnalyzer.FindOpenReadingFrames`): Rosalind ORF + Wikipedia + NCBI ORFfinder + NCBI transl_table=1 sources; six-frame ATG→first-in-frame-stop, stop-inclusive span (Length%3==0) / protein excludes stop, nested-ORFs-sharing-a-stop both reported, minLength in nucleotides; Rosalind_99→4 distinct proteins + ATGAAAAAATAA→MKK oracles; three source-anchored assumptions (stop-inclusive span / nt minLength / ATG-only), one fixed greedy-scan deviation; distinct from annotation `GenomeAnnotator.FindOrfs` (ANNOT-ORF-001).
+- [[genomic-tandem-001-evidence]] — evidence artifact for test unit GENOMIC-TANDEM-001 (Tandem Repeat Detection, `GenomicAnalyzer.FindTandemRepeats`): Benson 1999 (Tandem Repeats Finder) + Wikipedia "Tandem repeat" sources; exact ≥2 contiguous copies (period = unit length, k ≥ 2), ATTCGATTCGATTCG→ATTCG/3/len15 + ATGATGATG→ATG/3 oracles; exact-copy-not-approximate simplification + reports-every-period-interpretation (no primitive-unit canonicalization, diverges from ANNOT-REPEAT path); consolidated duplicate of REP-TANDEM-001 (no new tests). Enriches [[repetitive-element-detection]].
 
 ## Concepts
 
@@ -137,7 +138,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 
 ## Meta
 
-- [[backlog]] — ingestion backlog: `docs/algorithms/**` coverage reconciliation (48 covered-via-concept / 197 pending) plus the source batches queued for ingestion (10 checklists, 4 Validation ledgers, 3 MCP top-level docs).
+- [[backlog]] — ingestion backlog: `docs/algorithms/**` coverage reconciliation (49 covered-via-concept / 196 pending) plus the source batches queued for ingestion (10 checklists, 4 Validation ledgers, 3 MCP top-level docs).
 
 ## Synthesis
 
