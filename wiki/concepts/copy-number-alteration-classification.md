@@ -43,6 +43,10 @@ tracks the unit, and [[algorithm-validation-evidence]] describes the evidence-ar
 - [[aneuploidy-detection]] (CHROM-ANEU-001) applies the same `n = 2·2^log2` conversion but at
   **whole-chromosome** granularity with a ≥80%-of-bins vote; this unit classifies **per segment** into
   the five discrete oncology CNA states.
+- [[chromothripsis-inference]] (ONCO-SV-001) is a **downstream consumer**: it reads a run of the
+  per-segment integer CN states this unit produces and classifies the *pattern* (oscillating two-state
+  → Chromothripsis vs monotone rising → not) — a region-level pattern classifier, not a per-segment
+  caller.
 - The in-repo `StructuralVariantAnalyzer.DetectCNV` / `SegmentCopyNumber` (SV-CNV-001) already converts
   read-depth → log2 → **integer** CN via `round(2·2^log2)` and merges segments, but does **not**
   classify into discrete CNA states. This unit is the classification layer on top of that log2 ratio,

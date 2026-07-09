@@ -2602,3 +2602,23 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    filters sequencing-artifact-detection + clonal-hematopoiesis-cfdna-filtering (reciprocal body links
    added to both). Index updated (1 source + 1 concept).
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry; concept relates_to sequencing-artifact-detection; concept relates_to clonal-hematopoiesis-cfdna-filtering)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-SV-001-Evidence.md
+   ONCO-SV-001 (somatic complex-rearrangement classification / chromothripsis inference), thirty-fourth
+   Oncology unit and the wiki's first complex-SV / chromothripsis method. Genuinely distinct region-level
+   pattern classifier (Chromothripsis vs NotComplex) over a per-segment integer CN profile — created new
+   concept chromothripsis-inference + source onco-sv-001-evidence. Korbel & Campbell 2013 six hallmark
+   criteria (A clustering / B oscillating CN states / C-F heterozygosity, haplotype, randomness, derivative
+   walk); computes B (oscillation = adjacent-segment CN-state reversal, ≤3 canonically 2 states) gated by
+   Magrangeas-2011 ≥10 first-pass oscillation screen + Cortes-Ciriano-2020 tiers (≥7 high / 4-6 low / <4
+   not-called), >60% two-state fraction, ≥6 clustered intrachromosomal SV floor; and A (breakpoint
+   clustering) via exponential-null CV>1 flag. Oracles 2,1,...×11→10→Chromothripsis · 6-seg→5<10→NotComplex
+   · monotone 2..7→0 oscillations/>2 states→NotComplex (progressive amp/BFB, clustering necessary-but-not-
+   sufficient). Two operationalisation assumptions (oscillation=CN-state-transition count; clustering=CV>1
+   vs exponential CV=1); no source contradictions. Consumes the per-segment CN states of
+   copy-number-alteration-classification (ONCO-CNA-001, reciprocal body link added there); orthogonal to
+   gene-fusion-detection-read-evidence + focal-amplification-detection, distinct from the gene-order
+   genome-rearrangement-breakpoint-distance. Wired into algorithm-validation-evidence hub (frontmatter
+   source + summary link + anchor bullet, source_commit bumped to 1d2674a9). Index updated (1 source + 1
+   concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; concept relates_to copy-number-alteration-classification)
