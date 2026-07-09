@@ -68,7 +68,9 @@ The clamp-and-refit case is the defining NNLS behaviour: the unconstrained norma
 
 The **uncertainty** on this refit — a per-signature confidence interval rather than a bare point estimate — is
 the separate ONCO-SIG-003 unit [[signature-exposure-bootstrap-confidence-intervals]], which resamples the
-catalog and re-runs this exact NNLS fit per replicate.
+catalog and re-runs this exact NNLS fit per replicate. The **interpretation** of these exposures — mapping the
+normalized proportions to named **mutational processes** (APOBEC, Aging, Tobacco, UV, MMR) under a 6% presence
+cutoff — is the downstream ONCO-SIG-004 unit [[mutational-process-classification]].
 
 ## Cosine similarity — the shared quality/comparison metric
 

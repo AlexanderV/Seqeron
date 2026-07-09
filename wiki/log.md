@@ -2562,3 +2562,22 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    bumped to 2c404cc). Index updated (1 source + 1 concept). Two source-aligned assumptions (type-7
    interpolation, fixed seed 42), multinomial the backward-compatible default; no source contradictions.
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; concept depends_on mutational-signature-fitting-and-extraction)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-SIG-004-Evidence.md
+   ONCO-SIG-004 (mutational process classification), thirty-second Oncology unit and the aetiology-annotation
+   layer over the ONCO-SIG-002 NNLS refit. Genuinely distinct from the fitting/bootstrap siblings: adds no
+   decomposition but turns per-signature exposures into a set of active mutational processes via
+   normalize → cutoff → map → aggregate. Created source onco-sig-004-evidence + new concept
+   mutational-process-classification: normalize to relative contributions Wᵢ = exposureᵢ/Σexposure
+   (deconstructSigs "weights between 0 and 1"); drop Wᵢ < 0.06 (verbatim signature.cutoff = 0.06 /
+   weights[weights < signature.cutoff] <- 0, strict < so exactly 0.06 retained, 1.4% false-negative
+   calibration); map each surviving COSMIC label to its proposed aetiology (SBS1/5→Aging, SBS2/13→APOBEC,
+   SBS4→Tobacco, SBS7a–d→UV, SBS6/15/20/26→MMR; COSMIC + Alexandrov 2020); sum member contributions per
+   process → active-process set + argmax dominant process. Hand-derived oracle SBS2/13/1/4 = 50/30/15/5 →
+   APOBEC 0.80 (dominant) / Aging 0.15 / Tobacco 0 (SBS4 0.05 below cutoff). Corner cases: surviving mass < 1
+   (rest unknown), multiple simultaneous processes, unmapped/"Unknown"-aetiology label → no process, Σ=0 →
+   none. Two source-aligned assumptions (per-process summation, per-signature-cutoff-then-group); no source
+   contradictions. Cross-linked mutational-signature-fitting-and-extraction (its NNLS section now points here
+   for interpretation; new concept depends_on it). Wired into algorithm-validation-evidence hub (frontmatter
+   source + summary link + anchor bullet, source_commit bumped to 3c5a975). Index updated (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; concept depends_on mutational-signature-fitting-and-extraction)
