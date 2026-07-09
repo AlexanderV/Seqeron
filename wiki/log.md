@@ -128,3 +128,20 @@ Operations:
    global-alignment-needleman-wunsch. No contradictions; only deviation is the rendering-only
    `.`-tier collapse, non-correctness-affecting.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to global-alignment-needleman-wunsch)
+
+## [2026-07-09] ingest | docs/Evidence/ANNOT-CODING-001-Evidence.md → annot-coding-001-evidence (source) + 1 concept
+   Fifth per-algorithm Evidence file and the first from the annotation domain. Created the
+   genuinely-distinct concept coding-potential-hexamer-score (CPAT hexamer usage-bias coding
+   potential, Wang et al. 2013): score = mean of ln(coding[k]/noncoding[k]) over in-frame
+   hexamers (wordSize 6, stepSize 3, natural log, codon-boundary words via word_generator);
+   sign convention positive=coding / negative=noncoding; pseudo-score branches (coding-only
+   +1, noncoding-only -1), both-zero-in-both hexamer skipped-not-counted (verified verbatim
+   vs canonical liguowang/cpat + WGLab/lncScore 2026-06-15), short-seq and missing-key skips;
+   unit-agnostic tables (counts vs proportions differ by additive constant). Concise source
+   page for the ANNOT-CODING-001 artifact (CPAT paper + FrameKmer.py + EMBOSS tcode/Fickett
+   sources, worked example 0.34657359027997264, two assumption records). Linked new source +
+   concept into the algorithm-validation-evidence hub and added ANNOT-CODING to that hub's
+   frontmatter. Contradictions: none between sources; only deviation is the C# port's -1->0
+   no-scorable-hexamer sentinel (affects meaningless empty scores only). Follow-up: Fickett
+   TESTCODE recorded as a related not-implemented alternative if it is ever ingested.
+   graph: +2 nodes, +1 typed edges (relates_to test-unit-registry)

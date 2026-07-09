@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 10 / 1610
+Progress: 11 / 1610
 
 ## (top-level)  (6)
 
@@ -20,7 +20,7 @@ Progress: 10 / 1610
 - [x] docs/Evidence/ALIGN-MULTI-001-Evidence.md
 - [x] docs/Evidence/ALIGN-SEMI-001-Evidence.md
 - [x] docs/Evidence/ALIGN-STATS-001-Evidence.md
-- [ ] docs/Evidence/ANNOT-CODING-001-Evidence.md
+- [x] docs/Evidence/ANNOT-CODING-001-Evidence.md
 - [ ] docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md
 - [ ] docs/Evidence/ANNOT-REPEAT-001-Evidence.md
 - [ ] docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md
