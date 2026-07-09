@@ -2622,3 +2622,23 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    source + summary link + anchor bullet, source_commit bumped to 1d2674a9). Index updated (1 source + 1
    concept).
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; concept relates_to copy-number-alteration-classification)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-TMB-001-Evidence.md
+   ONCO-TMB-001 (Tumor Mutational Burden — mutations/Mb + TMB-high classification), thirty-fifth Oncology
+   unit. Genuinely distinct immunotherapy biomarker (not represented) — created new concept
+   tumor-mutational-burden + source onco-tmb-001-evidence. TMB = counted somatic mutations / sequenced
+   coding region in Mb (Chalmers 2017 Methods; denominator = assay coding footprint, FoundationOne
+   315-gene 1.1 Mb / F1CDx 324-gene ~0.8 Mb / WES ~30-40 Mb, taken as a parameter; panel counting includes
+   synonymous to reduce noise, germline/driver removed before counting). TMB-High = TMB >= 10 mut/Mb
+   inclusive (FDA pembrolizumab tumor-agnostic approval 2020-06-16, F1CDx companion diagnostic, Marcus 2021;
+   mut/Mb reporting + cutoff cross-confirmed by FoCR Harmonization Project, Merino 2020). Oracles 11/1.1->10.0
+   High · 300/30->10.0 High · 150/10->15.0 High · 99/10->9.9 not-High · 100/10->10.0 High(boundary) · 0->not-
+   High; corner cases regionMb=0->div-by-zero throws · negative rejected · <0.5 Mb computes but known-unstable
+   · monotone in count/region. One flagged conflict: unsupported registry three-tier Low<6/Intermediate
+   6-20/High>20 (no source for the 6/20 boundaries) resolved to the single source-backed two-tier >=10 cutoff.
+   Counts the caller-supplied somatic list of somatic-variant-calling-tumor-normal (ONCO-SOMATIC-001), sibling
+   immunotherapy biomarker of microsatellite-instability-detection (reciprocal body link added there),
+   correlated with neoantigen-peptide-generation. Wired into algorithm-validation-evidence hub (frontmatter
+   source + summary link + anchor bullet, source_commit bumped to 701e1721). Index updated (1 source + 1
+   concept).
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry; concept relates_to somatic-variant-calling-tumor-normal; concept relates_to microsatellite-instability-detection)

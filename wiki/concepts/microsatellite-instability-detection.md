@@ -108,7 +108,8 @@ No MSI-L band is invented for the continuous score.
 
 MSI is an independent **genomic-biomarker** unit: it consumes per-locus stability calls (or an
 unstable/valid count), not the allele-specific copy-number substrate. It is a distinct
-immunotherapy/mismatch-repair biomarker, orthogonal to the copy-number-scar
+immunotherapy/mismatch-repair biomarker — the sibling of the mutations/Mb immunotherapy biomarker
+[[tumor-mutational-burden]] (TMB-H) — orthogonal to the copy-number-scar
 [[homologous-recombination-deficiency-score]] (which sums LOH + TAI + LST from allele-specific
 segments) and to the clinical-interpretation units [[cancer-variant-tier-classification-amp-asco-cap]]
 and [[clinical-actionability-oncokb-levels]]. High MSI (MSI-H) is one of the tumor phenotypes those
