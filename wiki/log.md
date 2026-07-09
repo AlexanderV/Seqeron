@@ -1768,3 +1768,37 @@ Operations:
   Argonaute recognition not base pairing (out of scope). No contradictions. graph: +2 nodes
   (source + concept), +1 typed edge (rna-base-pairing relates_to test-unit-registry); body
   [[wikilinks]] mentions auto-derived.
+- 2026-07-09 — ingest `docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md` (test unit MIRNA-PRECURSOR-001,
+  Pre-miRNA Hairpin Detection; SECOND MiRNA-family unit). Created source
+  [[mirna-precursor-001-evidence]] + NEW concept [[pre-mirna-hairpin-detection]] (genuinely distinct
+  method — precursor stem-loop hairpin detection, not the miRNA-target duplex of [[rna-base-pairing]]).
+  Algorithm = `MiRnaAnalyzer`: DEFAULT heuristic `FindPreMiRnaHairpins` counts uninterrupted
+  complementary pairs ({A-U,G-C}+G-U wobble — the [[rna-base-pairing]] primitive) from both ends
+  inward → accept iff stem ≥18 bp (Krol 2004) + loop 3-25 nt (Bartel 2004); extracts mature(5' arm)/
+  star(3' arm), balanced dot-bracket, Turner-2004 ΔG (stacking+loop+terminal-mismatch+0.45 AU/GU).
+  DOCUMENTED LIMITATION (accepted, not a bug): consecutive-pairing is stricter than real structure →
+  rejects natural miRBase precursors (hsa-mir-21 16 end-pairs, let-7a-1 5, tests M18/M19). Three
+  OPT-IN production paths (default unchanged): (1) `AssessHairpinByMfe`/`FindPreMiRnaHairpinsByMfe`
+  fold via the RNA-STRUCT-001 Zuker–Stiegler engine and read the hairpin from the real MFE structure
+  (single dominant hairpin/no multibranch + stem bp ≥16 (Ambros 2003) + loop 3-25 + MFEI ≥0.85 (Zhang
+  2006, AMFE=100·|ΔG°|/n, MFEI=AMFE/GC%)) → detects hsa-mir-21 (ΔG° −35.13/32 bp/MFEI 1.0037) &
+  let-7a-1 (ΔG° −34.31/MFEI 1.0091) the heuristic rejects; a 120-nt multibranch 5S-rRNA-like fold is
+  REJECTED on STRUCTURE (multibranch, not a single dominant hairpin) despite a strongly negative
+  ΔG° −47.04 — proving acceptance rests on topology, not merely a weak ΔG°. (2)
+  `PredictDroshaDicerCleavage` = published measuring ruler only — Drosha
+  +11 bp from basal junction (Han 2006), Dicer 22-nt 5'-counting (Park 2011), RNase III 2-nt 3'
+  overhang (Lee 2003), optional CNNC 16-18 nt confidence flag (Auyeung 2013); hsa-miR-21-5p
+  cross-check reproduces `UAGCUUAUCAGACUGAUGUUGA` (22 nt) exactly. (3) `ClassifyPreMiRna` = trained
+  logistic regression over [ΔG,AMFE,MFEI,GC,%paired], 13 public-domain miRBase positives vs
+  Altschul-Erickson 1985 di-shuffle negatives (Bonnet 2004 convention), held-out accuracy=AUC=1.0 —
+  NO GPL miRDeep2 code/weights. Sources: Bartel 2004/2009 + Ambros 2003 + Krol 2004 + miRBase +
+  Wikipedia + Bonnet 2004 + Zhang 2006 + Meyers 2008 + Han 2006 + Park 2011 + Lee 2003 + Auyeung 2013
+  + Altschul-Erickson 1985 + Turner 2004. Two accepted assumptions (ASM-03 5'-arm mature extraction;
+  ASM-01 uninterrupted-stem strictness — both mitigated by the opt-in MFE fold); residual read-stacking
+  miRDeep2 signal data-blocked (needs caller's reads). No contradictions. Hub
+  [[algorithm-validation-evidence]]: added MIRNA-PRECURSOR to frontmatter sources (bumped source_commit
+  to HEAD e0541d58) + source-list + concept-list. rna-base-pairing: added reciprocal sibling nav link.
+  index.md: +1 source +1 concept. Backlog: moved MiRNA/Pre_miRNA_Detection.md pending→covered (66→67
+  covered / 179→178 pending; §MiRNA 3→2). graph: +2 nodes (source + concept), +2 typed edges
+  (pre-mirna-hairpin-detection relates_to test-unit-registry + depends_on rna-base-pairing); body
+  [[wikilinks]] mentions auto-derived.
