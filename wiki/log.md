@@ -2021,3 +2021,21 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    III/IV discriminator = direct Figure 2/Table 6-7 reading). No contradictions. index + hub updated
    (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (relates_to → test-unit-registry, relates_to → clinical-actionability-oncokb-levels on the concept); graph lint clean.
+
+## [2026-07-09] ingest | docs/Evidence/ONCO-ARTIFACT-001-Evidence.md → onco-artifact-001-evidence (source) + 1 concept
+   Third Oncology unit: Sequencing Artifact Detection (FilterArtifacts) — OxoG / FFPE deamination
+   substitution classification + strand-orientation bias. Created concept sequencing-artifact-detection,
+   deliberately framed as the QC sibling of the two clinical-significance ONCO units (it removes
+   false-positive somatic calls from DNA damage / mapping bias BEFORE clinical interpretation, rather than
+   judging significance). Three disjoint signals: (1) substitution-class — OxoG oxidation G>T(R1)/C>A(R2)
+   [Chen 2017] vs FFPE cytosine-deamination C>T/G>A [Do & Dobrovic 2015], else not-an-artifact; (2) GIV
+   (Global Imbalance Value) = per-substitution R1/R2 count ratio (GIV_G_T = count(G>T in R1)/count(G>T in
+   R2)), neutral 1 / damaged > 1.5 [Chen 2017 + Ettwiller Damage-estimator]; (3) FisherStrand FS =
+   -10*log10(two-sided Fisher-exact p) on the [ref_fwd,ref_rev,alt_fwd,alt_rev] 2x2 table, MIN_PVALUE
+   1e-320 [GATK]. Oracles: GIV 200/100->2.0 & balanced->1.0; FS [10,10,10,10]->0.0 & [20,0,0,20]->large;
+   class table G>T/C>A->OxoG, C>T/G>A->FFPE, A>G->neither. Result subset of input. Two assumptions:
+   no BAM parser (per-strand/read-mate evidence passed on the variant record, API-shape only); GIV 1/1.5
+   thresholds verbatim from the Nature Methods summary of Chen 2017. No source contradictions — the four
+   sources each cover a disjoint signal and are mutually consistent. Wired into algorithm-validation-evidence
+   hub (frontmatter source + evidence link + anchor bullet); index updated (1 source + 1 concept).
+   graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept)
