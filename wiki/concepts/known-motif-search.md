@@ -24,7 +24,9 @@ graph:
 sequence by **exact** substring matching, reporting **all** start positions of each
 motif. It is the "you know what you are looking for" end of motif analysis — distinct
 from *discovery* (finding over-represented / unknown motifs) and from *degenerate*
-matching (IUPAC / PROSITE / PWM). Seqeron exposes it as `GenomicAnalyzer.FindMotif`.
+matching (IUPAC / PROSITE / PWM). Its *inverse* is de novo
+[[overrepresented-kmer-discovery|motif discovery]] — which searches for **unknown**
+over-represented motifs rather than matching a supplied set. Seqeron exposes it as `GenomicAnalyzer.FindMotif`.
 Validated under test unit **GENOMIC-MOTIFS-001**; the validation record is
 [[genomic-motifs-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern.

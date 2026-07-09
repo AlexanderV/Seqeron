@@ -87,7 +87,9 @@ This is the **plain most-frequent** consensus. The richer motif representations 
 same MotifFinder area but are **separate** methods (not this unit): an **IUPAC-degenerate**
 consensus via `GenerateConsensus` (collapses column variability to an ambiguity code) and a
 **position-weight matrix** via `CreatePwm` (probabilistic per-column model — the input to
-motif *scanning/discovery*). It shares the aligned-input model with the
+motif *scanning/discovery*). The de novo end of the motif family — finding **unknown**
+over-represented motifs in an unaligned sequence — is [[overrepresented-kmer-discovery]]
+(this consensus instead collapses an already-known/aligned instance set). It shares the aligned-input model with the
 [[multiple-sequence-alignment|MSA]] consensus step but applies the strict no-threshold /
 alphabetical-tie-break rule rather than MSA's own voting. See [[known-motif-search]] for the
 exact-match end of the motif family. **No source contradictions**; the only assumptions are

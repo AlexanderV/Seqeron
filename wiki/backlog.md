@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **70** algorithm docs covered-via-concept, **175** pending across 29 domains.
+Status at generation: **71** algorithm docs covered-via-concept, **174** pending across 29 domains.
 
 ## Covered via concept (done)
 
@@ -93,6 +93,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/MiRNA/Seed_Sequence_Analysis.md` | [[seed-sequence-analysis]] |
 | `docs/algorithms/MiRNA/Target_Site_Prediction.md` | [[mirna-target-site-prediction]] |
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
+| `docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md` | [[overrepresented-kmer-discovery]] |
 | `docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md` | [[consensus-from-alignment]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
@@ -194,11 +195,10 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/MolTools/Restriction_Enzyme_Filtering.md` | `restriction-enzyme-filtering` |
 | `docs/algorithms/MolTools/Restriction_Site_Detection.md` | `restriction-site-detection` |
 
-### Motif_Discovery (3)
+### Motif_Discovery (2)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md` | `overrepresented-kmer-discovery` |
 | `docs/algorithms/Motif_Discovery/Regulatory_Elements.md` | `regulatory-elements` |
 | `docs/algorithms/Motif_Discovery/Shared_Motifs.md` | `shared-motifs` |
 

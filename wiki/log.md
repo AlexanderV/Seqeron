@@ -1867,3 +1867,32 @@ Operations:
    (69→70 covered / 176→175 pending; §Pattern_Matching 9→8, domains still 29).
    graph: +2 nodes (source + concept), +2 typed edges (consensus-from-alignment relates_to
    test-unit-registry + alternative_to consensus-sequence); body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] ingest | docs/Evidence/MOTIF-DISCOVER-001-Evidence.md → motif-discover-001-evidence (source) + 1 concept
+   Per-algorithm Evidence file; second Motif-family unit (after MOTIF-CONS / GENOMIC-MOTIFS).
+   Created the genuinely-distinct concept overrepresented-kmer-discovery — the de novo
+   motif-discovery method (`MotifFinder.DiscoverMotifs`): enumerate every length-k k-mer of ONE
+   DNA sequence, count overlapping occurrences, rank by observed/expected enrichment
+   `Count / ((N−k+1)/4^k)` under a zero-order i.i.d. uniform background (Compeau & Pevzner);
+   deterministic exact single-pass hash-map, 0-based positions. Distinct from the sibling motif
+   concepts by *question asked*: it finds UNKNOWN over-represented words (motif = output) whereas
+   [[known-motif-search]] matches a supplied set of KNOWN motifs (motif = input) — modelled
+   `alternative_to` it — and [[consensus-from-alignment]] collapses an already-aligned instance
+   set. Oracles: `ATGC` in `ATGCATGCATGC` k=4 → Count 3 @ {0,4,8}, E=9/256, enrichment 768/9≈85.333;
+   `AAA` in `AAAAAAAAAA` k=3 → Count 8, E=0.125, enrichment 64.0. Corner cases k>N→empty, null→
+   ArgumentNullException, k<1→ArgumentOutOfRangeException. One assumption: minCount (default 2) is a
+   presentation threshold, not correctness-affecting (O/E defined for every k-mer). Intentional
+   simplifications (not deviations): zero-order uniform background only (no higher-order Markov, so
+   O/E can over/under-state on biased sequences), no closed-form p-value/E-value (self-overlap
+   approximation affects only the probability statistic, not Count/E). Sources: Compeau & Pevzner
+   *Bioinformatics Algorithms* Ch.2 (wikiselev wiki, rank 1) + monaLisa `getKmerFreq`/PeerJ O/E-ratio
+   corroboration (rank 3). Linked new source + concept into the algorithm-validation-evidence hub
+   (added MOTIF-DISCOVER to frontmatter sources + source-list + concept-list) and cross-linked both
+   sibling motif concepts (known-motif-search, consensus-from-alignment) to it. index.md: +1 source
+   +1 concept. Backlog: moved Motif_Discovery/Overrepresented_Kmer_Discovery.md pending→covered
+   (70→71 covered / 175→174 pending; §Motif_Discovery 3→2, domains still 29). Contradictions: none.
+   Follow-up: remaining Motif_Discovery units (Regulatory_Elements, Shared_Motifs / FindSharedMotifs)
+   warrant their own pages when ingested; other de novo families (greedy/median-string/Gibbs) not
+   implemented.
+   graph: +2 nodes (source + concept), +2 typed edges (overrepresented-kmer-discovery relates_to
+   test-unit-registry + alternative_to known-motif-search); body [[wikilinks]] mentions auto-derived.
