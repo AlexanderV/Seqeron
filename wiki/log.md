@@ -1164,3 +1164,31 @@ Operations:
    state-assignment logic is fully source-backed but this is NOT a trained HMM (no LearnModel / Poisson
    binarization / spatial context). Contradictions: none.
    graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry; source-page mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/EPIGEN-CPG-001-Evidence.md → epigen-cpg-001-evidence (source) + 1 concept
+   FOURTH unit of the Epigenetics family (EPIGEN-CPG-001) — CpG site detection + canonical CpG
+   observed/expected ratio + CpG-island detection. Surveyed wiki/concepts: NO pre-existing CpG /
+   CpG-island concept (the sibling [[bisulfite-methylation-calling]] only *reuses* `FindCpGSites` inline),
+   so created a genuinely-distinct anchor concept [[cpg-island-detection]] — a SEQUENCE-ONLY algorithm
+   touching no methylation state, distinct from all three siblings (bisulfite measures state, Horvath clock
+   scores age from β-values, chromatin works on histone marks). Three ops on `EpigeneticsAnalyzer`:
+   `FindCpGSites` (linear O(n) scan, 0-based C position, adjacent `CGCG`→2 distinct sites; the same call
+   [[bisulfite-methylation-calling]] reuses); `CalculateCpGObservedExpected` (Gardiner-Garden & Frommer
+   O/E = CpG_count/((C·G)/L), UCSC-standard, div-by-zero guard → 0 when no C/G or L<2); `FindCpGIslands`
+   (sliding-window merge, default ≥200 bp / GC ≥0.5 / O-E ≥0.6 INCLUSIVE, 0-based inclusive-Start /
+   exclusive-End tuple, O(n·w) rescan). Oracles: CGCG×20→O/E 2.0, ACGTCGACG→3.0, ACGT→4.0, AT-only→0.0,
+   400 bp CGCG→1 island. Corner cases: GpC≠CpG, case-insensitive uppercase-normalize, length-1→0 sites,
+   zero C/G→O/E 0. Sources: Gardiner-Garden & Frommer 1987 (J Mol Biol, rank-1, canonical criteria +
+   formula) + Takai & Jones 2002 (PNAS, rank-1, stricter ≥500/55%/0.65 + confirms the ≥ inclusive
+   operators) + Saxonov 2006 (PNAS, rank-1, alt expected ((C+G)/2)²/L) + Wikipedia CpG site (rank-4).
+   Concept also lists docs/algorithms/Epigenetics/CpG_Site_Detection.md as a second source (backlog
+   reconciliation). Reconciled backlog: moved CpG_Site_Detection.md from pending Epigenetics (3→2) to
+   covered-via-concept (40→41 covered / 205→204 pending); updated the index backlog-summary counts.
+   Cross-linked all three Epigenetics siblings bidirectionally ([[bisulfite-methylation-calling]] tightest
+   — shares `FindCpGSites`; [[epigenetic-age-horvath-clock]]; [[chromatin-state-prediction]]); linked into
+   the algorithm-validation-evidence hub (frontmatter sources + source-list + distinct-concept list) and
+   index (source + concept lines). Takai-Jones stricter + Saxonov alt-formula recorded as NOT-preset
+   (supplied via custom args), an impl scoping decision not a deviation. Assumptions: None (all behaviour
+   source-defined per the Evidence file). Contradictions: none.
+   graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
+   source-page [[wikilinks]] mentions auto-derived)

@@ -24,7 +24,8 @@ Annotating a genomic locus with its **chromatin state** from the **combination o
 modification marks** present there, following the **ChromHMM** model (Ernst & Kellis 2012) and the
 **Roadmap Epigenomics** 15-/18-state definitions. This is the **third ingested unit of the Epigenetics
 family** and a **genuinely distinct algorithm** from its siblings [[epigenetic-age-horvath-clock]] (age
-from β-values) and [[bisulfite-methylation-calling]] (methylation calling) — it operates on **histone
+from β-values), [[bisulfite-methylation-calling]] (methylation calling), and
+[[cpg-island-detection]] (sequence-only CpG site / island detection) — it operates on **histone
 ChIP-seq mark signals**, not on DNA methylation. Validated under test unit **EPIGEN-CHROM-001**; the
 record is [[epigen-chrom-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern.

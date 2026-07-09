@@ -25,7 +25,8 @@ the **second ingested unit of the Epigenetics family** and a **distinct algorith
 [[epigenetic-age-horvath-clock]] (which scores age from *already-measured* β-values — this concept is
 how those per-CpG β-values are *produced* from bisulfite reads). A third Epigenetics-family sibling,
 [[chromatin-state-prediction]], works on a different axis entirely — histone-mark ChIP-seq signals
-rather than DNA methylation. Validated under test unit
+rather than DNA methylation. A fourth sibling, [[cpg-island-detection]], is the sequence-only unit
+that *locates* the CpGs this caller scores (via the shared `FindCpGSites`). Validated under test unit
 **EPIGEN-BISULF-001**; the record is [[epigen-bisulf-001-evidence]], [[test-unit-registry]] tracks the
 unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
 
@@ -54,7 +55,8 @@ protected stays `C`; C@4 unmethylated → `T`; non-C bases unchanged).
 
 ## 2. Per-CpG methylation calling (Bismark rule)
 
-Reference CpG cytosines are enumerated by reusing `FindCpGSites` (one linear scan; the repository
+Reference CpG cytosines are enumerated by reusing `FindCpGSites` (the
+[[cpg-island-detection|CpG site & island detection]] unit) (one linear scan; the repository
 suffix tree is deliberately not used — a single fixed two-character pattern in one pass is already
 O(n)-optimal). For each aligned read (`(ReadSequence, StartPosition)`, 0-based start), at every covered
 reference CpG C the read base is tallied by the **Bismark C=methylated / T=unmethylated rule** (Krueger

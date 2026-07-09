@@ -23,8 +23,9 @@ graph:
 Estimating **DNA-methylation ("epigenetic") age** from methylation **β-values** measured at clock CpG
 sites, following the **Horvath (2013) multi-tissue clock**. This is the **first ingested unit of the
 Epigenetics family**; two siblings now exist — [[bisulfite-methylation-calling]] *produces* the per-CpG
-β-values this clock consumes, and [[chromatin-state-prediction]] annotates chromatin state from
-histone marks (CpG islands and DMRs remain queued). Validated under test
+β-values this clock consumes, [[chromatin-state-prediction]] annotates chromatin state from
+histone marks, and [[cpg-island-detection]] is the sequence-only unit that *locates* CpG sites and
+islands (DMRs remain queued). Validated under test
 unit **EPIGEN-AGE-001**;
 the validation record is [[epigen-age-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern.
