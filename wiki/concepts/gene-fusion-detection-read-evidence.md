@@ -78,7 +78,9 @@ An in-frame fusion reads through into a protein made of parts of both partners; 
 shifts the downstream reading frame and is unlikely to yield a functional protein. This uses
 codon **phase** only — it does **not** scan the spliced transcript for a premature stop codon
 (Arriba's `stop-codon` reading_frame value), which needs full transcript reconstruction (out of
-scope, ONCO-FUSION-003).
+scope, ONCO-FUSION-003). Naming a detected fusion — the canonical HGNC `5′::3′` designation and
+directional known-fusion matching — is the separate annotation unit
+[[gene-fusion-nomenclature-known-fusion-lookup]] (ONCO-FUSION-002).
 
 ## Invariants and edge cases
 

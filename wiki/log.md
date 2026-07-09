@@ -2241,3 +2241,18 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    [[onco-fusion-001-evidence]] created, wired into the algorithm-validation-evidence hub (frontmatter
    source + evidence link + anchor bullet); index updated (1 source + 1 concept).
    graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
+
+## [2026-07-10] ingest | ONCO-FUSION-002-Evidence.md → onco-fusion-002-evidence (source) + gene-fusion-nomenclature-known-fusion-lookup (concept)
+   Fifteenth Oncology unit. Known Fusion Database Lookup: HGNC gene-fusion designation
+   (Bruford et al. 2021 — `::` double-colon separator, 5′-partner-first directional order, approved
+   symbols, read-throughs keep the hyphen) `GetFusionAnnotation(5p,3p)="5p::3p"` + directional
+   `MatchKnownFusions` against a caller-supplied set keyed by 5′::3′, case-insensitive. A Framework
+   algorithm — format/keying source-backed, set contents caller-supplied (no bundled
+   Mitelman/COSMIC/ChimerDB). BCR::ABL1 worked example; A::B ≠ B::A + hyphen ≠ :: corner cases.
+   Distinct from the read-evidence caller ONCO-FUSION-001 (detection); this is the naming/annotation
+   layer downstream of it (round-trips a DetectFusions FusionCall), distinct from the ONCO-FUSION-003
+   premature-stop scope. New concept [[gene-fusion-nomenclature-known-fusion-lookup]] + source
+   [[onco-fusion-002-evidence]] created, wired into the algorithm-validation-evidence hub (frontmatter
+   source + anchor bullet) and cross-linked from [[gene-fusion-detection-read-evidence]]; index
+   updated (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to gene-fusion-detection-read-evidence + test-unit-registry)
