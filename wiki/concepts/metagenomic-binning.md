@@ -4,8 +4,9 @@ title: "Metagenomic binning (contigs → MAGs: k-means on composition + coverage
 tags: [metagenomics, algorithm]
 sources:
   - docs/Evidence/META-BIN-001-Evidence.md
+  - docs/Evidence/META-BIN-001-MarkerQC-Evidence.md
   - docs/algorithms/Metagenomics/Genome_Binning.md
-source_commit: 0627f8b8dd6ecb12eedb6143693e51bfe06dac31
+source_commit: c21e0be5032ffdc39a0e53405a4c7fbd09482958
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -75,13 +76,55 @@ Contamination = min(gcStdDev / 0.5 × 100, 100)                        (0.5 = th
 - **Contamination** is the GC-content dispersion within the bin, normalized by the theoretical maximum
   GC std-dev of 0.5: uniform GC → **0**, maximal GC variance → **100** (oracle M6).
 
-> **GOTCHA — these are proxies, not CheckM.** The published state of the art (**CheckM**, Parks 2014/2015)
-> estimates completeness from **lineage-specific single-copy marker genes present** and contamination
-> from **duplicated marker genes**. That path is **NOT implemented**: CheckM's marker sets are a
-> large trained database (`checkm_data`: Pfam/TIGRFAM HMM libraries + a reference-genome tree,
-> ~GB-scale) not cleanly retrievable as plaintext, so per the evidence file's STOP RULE it is left as
-> an **honest residual**. The `Completeness`/`Contamination` returned here are the length-ratio and
-> GC-variance **proxies** above — useful ordering signals, not CheckM marker calls.
+> **GOTCHA — the `GenomeBin.Completeness`/`Contamination` fields are still proxies; CheckM marker-gene
+> QC is now a SEPARATE opt-in path.** The default `BinContigs` output above remains the length-ratio /
+> GC-variance **proxies** — useful ordering signals, not marker calls. The published CheckM
+> (Parks 2015) single-copy marker-gene metrics are now **built and validated** (test unit
+> [[meta-bin-001-markerqc-evidence|META-BIN-001 MarkerQC addendum]]) but exposed through a
+> **distinct API** (`EstimateBinQualityFromMarkerCounts` / `EstimateBinQualityFromMarkers` /
+> `DetectMarkers`, see *Marker-gene QC* below), NOT wired into `BinContigs`. So a `GenomeBin` from
+> `BinContigs` still carries proxy values; to get CheckM-style completeness/contamination you run the
+> marker-QC path over a bin's contigs with a marker HMM set.
+
+## Marker-gene QC — CheckM completeness & contamination (opt-in)
+
+The MarkerQC addendum ([[meta-bin-001-markerqc-evidence]]) implements the published **CheckM**
+(Parks et al. 2015) genome-quality metrics over **collocated single-copy marker sets** `M`, verbatim
+against the CheckM reference `MarkerSet.genomeCheck`:
+
+```
+Completeness  = 100 · ( Σ_{s∈M} |s ∩ G_M| / |s| ) / |M|      (CheckM Eq. 1)
+Contamination = 100 · ( Σ_{s∈M} Σ_{g∈s} C_g / |s| ) / |M|    (CheckM Eq. 2), C_g = N−1 for a gene seen N≥1×, else 0
+```
+
+A **multi-copy marker** counts **once** toward `present` (completeness uses set intersection, not the
+copy count) and contributes `N−1` to contamination. Completeness ≈ fraction of unique single-copy
+genes present; contamination ≈ how many are present in multiple copies. Grouping into marker *sets*
+down-weights correlated, consistently-collocated genes.
+
+- **API:** `EstimateBinQualityFromMarkerCounts` (feed a marker→copy-count map directly),
+  `EstimateBinQualityFromMarkers` (over an end-to-end HMM-detected count), `DetectMarkers` (HMM search).
+  Profiles load via `LoadMarkerHmms` (caller-supplied) or bundled loaders.
+- **Bundled marker sets (licence-gated):** the 9 universal ribosomal Pfams (S2/S7/S8/S9/S10/S11/S19/
+  L1/L3, Xu 2022) plus the **CC0 Pfam subsets** of GTDB's domain-level universal sets —
+  `LoadBundledBacterialMarkerHmms`/`BundledBacterialMarkerSets` (**bac120**, 6 Pfams) and
+  `LoadBundledArchaealMarkerHmms`/`BundledArchaealMarkerSets` (**ar122**, 35 Pfams). Each bundled
+  family is treated as its own **singleton set** (|s|=1). **TIGRFAM-defined** bac120/ar122 members are
+  **CC BY-SA 4.0 (share-alike) and deliberately NOT bundled** — caller supplies them via
+  `LoadMarkerHmms`; only the CC0 Pfam subsets ship (39 distinct Pfam accessions across both bundles).
+- **Detection gate:** a marker is present iff its **glocal Plan7 Viterbi** bit score ≥ the Pfam
+  **GA1** per-sequence gathering threshold. The GA1 gate is sourced from the HMM file, but this
+  engine's whole-sequence Viterbi differs from HMMER's local + null2-corrected `hmmsearch`, so
+  absolute bit scores diverge (documented engine difference); the true-positive separation is
+  decisive (E. coli uS8 vs PF00410 = +176 bits vs all other ribosomal families < 0).
+- **Worked oracles:** synthetic 3-set bin → **Completeness = 250/3 ≈ 83.333%, Contamination =
+  100/9 ≈ 11.111%** (pins Eqs. 1–2); one bundled family detected out of 9/6/35 singleton sets →
+  **100/9 ≈ 11.111% / 100/6 ≈ 16.667% / ≈2.857%** respectively, contamination 0.
+- **Guards:** empty marker set excluded (no div-by-zero); `|M|=0` → both metrics 0; missing marker
+  contributes 0.
+- **Residual:** CheckM's operon-based **collocation grouping** of markers into non-singleton sets
+  needs the full lineage DB — not built (bundled families stay singleton sets); the QC path is also
+  not auto-wired into `BinContigs` (call it explicitly over a bin's contigs).
 
 ## The TETRA z-score tetranucleotide signature (opt-in)
 
@@ -128,9 +171,12 @@ quality metrics, matching the compositional/coverage feature families the litera
 (Wikipedia binning, TETRA). Known limits, several source-documented (Maguire 2020): chromosomes bin
 well (82–94% recovered) but **plasmids (1–29%) and genomic islands (38–44%) are poorly recovered**
 because their copy number and composition diverge from the host chromosome; organisms with **similar
-GC and coverage** co-bin; high-contamination bins mix genomes. The **CheckM marker-gene QC is not
-implemented** (honest residual — see the GOTCHA above); there is no supervised taxonomic assignment,
-no differential-coverage model across many samples, and no DAS-Tool-style bin refinement.
+GC and coverage** co-bin; high-contamination bins mix genomes. The **CheckM marker-gene QC is now
+built** (opt-in path — see *Marker-gene QC* above; the default `BinContigs` metrics stay proxies), but
+only the **CC0 Pfam** subsets of the universal / bac120 / ar122 marker sets are bundled (each as a
+singleton set — no lineage-specific collocation grouping), and TIGRFAM-defined markers must be
+caller-supplied. There is still no supervised taxonomic assignment, no differential-coverage model
+across many samples, and no DAS-Tool-style bin refinement.
 
 ## Relation to siblings
 

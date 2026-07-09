@@ -1579,3 +1579,26 @@ Operations:
    Contradictions: none.
    graph: +2 nodes (concept + source page), +1 typed edge (metagenomic-binning relates_to
    test-unit-registry); body [[wikilinks]] mentions auto-derived
+
+## [2026-07-09] ingest | docs/Evidence/META-BIN-001-MarkerQC-Evidence.md → meta-bin-001-markerqc-evidence (source); enriched metagenomic-binning (concept)
+   ADDENDUM to META-BIN-001 — validates the CheckM-style single-copy marker-gene completeness/
+   contamination now built on top of the TNF/coverage binning. Created source page
+   [[meta-bin-001-markerqc-evidence]]. ENRICHED the existing [[metagenomic-binning]] concept rather
+   than creating a new one (the marker QC is the quality-metric layer of binning, not a separate
+   wiki-worthy algorithm): rewrote the proxy-vs-CheckM GOTCHA (the residual is now BUILT but exposed
+   through a distinct opt-in API `EstimateBinQualityFromMarkerCounts`/`EstimateBinQualityFromMarkers`/
+   `DetectMarkers`, NOT wired into `BinContigs`, whose fields stay length-ratio/GC-variance proxies);
+   added a Marker-gene QC section (CheckM Eqs. 1–2 over collocated sets `M`, multi-copy counts once
+   toward present + N−1 toward contamination; bundled CC0 Pfam sets = 9 ribosomal + bac120 6 + ar122
+   35 as singleton sets, TIGRFAM CC BY-SA NOT bundled/caller-supplied; glocal Plan7 Viterbi ≥ Pfam GA1
+   gate vs HMMER local+null2 engine diff; oracles 250/3%≈83.333 comp / 100/9%≈11.111 cont, uS8→PF00410
+   +176 bits); refreshed the scope/limitations paragraph. Added the new source + HEAD source_commit to
+   the concept frontmatter. Added a forward-pointer on the base [[meta-bin-001-evidence]] source page
+   (its "honest residual" note now flags the addendum built it). Wired into index (new source line +
+   refreshed the metagenomic-binning concept summary). Hub [[algorithm-validation-evidence]] frontmatter
+   NOT edited — its per-file list drifted (base META-BIN/META-BETA absent too); the source page links
+   the hub in prose (mention edge). Backlog: no change — base Genome_Binning.md already covered-via-
+   concept, the addendum has no separate docs/algorithms doc. Contradictions: none (the addendum
+   supersedes the base file's "not implemented" residual; recorded as an evolution, not a conflict).
+   graph: +1 node (source page); no new typed edges (concept already relates_to test-unit-registry);
+   body [[wikilinks]] mentions auto-derived

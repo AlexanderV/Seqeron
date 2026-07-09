@@ -98,6 +98,9 @@ N(ACGT)=4, N(ACG)=N(CGT)=4, N(CG)=5 → E=3.2, var=0.128, **z(ACGT)=√5=2.23606
   RULE the evidence file implements **only** the z-score signature; the marker-gene completeness/
   contamination is left explicitly unbuilt rather than fabricated. The `Completeness`/`Contamination`
   the code returns are the **length-ratio / GC-variance proxies**, not CheckM marker calls.
+  **Update:** a later addendum ([[meta-bin-001-markerqc-evidence]]) has since **built** this residual
+  as a separate opt-in path (CheckM Eqs. 1–2 over CC0 Pfam marker sets); the `BinContigs` proxies
+  documented here are unchanged.
 - **z-score guards:** absent middle dinucleotide `N(n2n3)=0` → E undefined → **z=0**; non-positive
   variance (`N(n2n3)−N(n1n2n3) ≤ 0` etc.) → **z=0**; degenerate signature → correlation `r=0` not NaN.
   RC-extension means even a ≥2-base input yields a signature.
