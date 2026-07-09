@@ -116,7 +116,9 @@ tumour 0.30 / WBC 0.40 → **Tumor** (0.40 < 2×0.30=0.60); tumour 0.25 / WBC 0.
 CHIP filtering is a **QC / origin filter that runs before clinical interpretation**, the
 **biological-origin sibling** of the technical-artifact filter [[sequencing-artifact-detection]]
 (`FilterArtifacts` removes OxoG / FFPE-deamination / strand-bias *sequencing* artifacts; this removes
-*blood-clone* biology). Cleaned tumor variants then flow into the clinical-significance units
+*blood-clone* biology). On the same cfDNA input, [[ctdna-detection-and-tumor-fraction]] is the
+**quantification counterpart** — it measures detection probability and tumor fraction rather than
+filtering calls. Cleaned tumor variants then flow into the clinical-significance units
 [[clinical-actionability-oncokb-levels]] and [[cancer-variant-tier-classification-amp-asco-cap]], and
 the clonal-structure layers [[allele-specific-copy-number-ascat]] /
 [[cancer-cell-fraction-clonal-clustering]] — a CH variant left unfiltered would corrupt every one of

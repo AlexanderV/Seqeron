@@ -2156,3 +2156,23 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    tumour-suppressor panel); no source contradictions. Wired into the algorithm-validation-evidence hub
    (frontmatter source + evidence link + anchor bullet); index updated (1 source + 1 concept).
    graph: +2 nodes, +4 typed edges (concept relates_to test-unit-registry + copy-number-alteration-classification + focal-amplification-detection; focal-amplification-detection relates_to homozygous-deletion-detection)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-CTDNA-001-Evidence.md → ctDNA detection + tumor-fraction (eleventh Oncology unit)
+   ctDNA analysis (liquid-biopsy quantification / limit-of-detection layer): the Poisson detection
+   probability `DetectionProbability` p = 1 − e^(−n·d·k) (n genome equivalents, d mutant allele
+   fraction, k reporters) with a detectability test (caller threshold default 0.95 AND λ = n·d·k ≥ 1;
+   only p is non-assumption), `CalculateTumorFraction` = 2 × mean clonal-heterozygous VAF (copy-neutral
+   diploid, v = π/2), `CalculateMeanVaf` = mean altReads/totalReads across reporters, and a
+   genome-equivalents helper (3.3 pg/haploid ⇒ ≈303 GE/ng). Sources Newman 2014 CAPP-Seq (detection
+   0.025%–10%, 96% specificity ~0.02%, background 0.006%/0.0003%, across-reporter fraction) + Patent US
+   11,085,084 restating Avanzini 2020 Sci. Adv. (Poisson λ=n·d, low-burden λ<3) + Pessoa 2023 (λ=15,000
+   ×0.001=15) + Devonshire 2014 (3.3 pg/haploid) + Alcaide 2020 (303 GE/ng) + CNAqc/Antonello 2024
+   (TF=2·VAF). Judged genuinely DISTINCT from the sibling clonal-hematopoiesis-cfdna-filtering (which
+   FILTERS non-tumor cfDNA calls) — this QUANTIFIES the tumor signal on the same cfDNA input, so a new
+   concept was created and cross-linked (relates_to test-unit-registry + clonal-hematopoiesis-cfdna-
+   filtering; reciprocal body link added on the CHIP page). Oracles n=15000,d=0.001,k=1→1−e⁻¹⁵≈
+   0.99999969, λ=0→p=0 not-detected, TF 0.10→0.20, 303 GE/ng, 3.3 pg→1 GE. One flagged
+   detection-threshold assumption; no source contradictions (seven references cover disjoint stages).
+   Wired into the algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet);
+   index updated (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry + clonal-hematopoiesis-cfdna-filtering)
