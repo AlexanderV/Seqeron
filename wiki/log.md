@@ -1522,3 +1522,29 @@ Operations:
    BioInfoLogics, and Compeau & Pevzner are mutually consistent; deviations None.
    graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
    relates_to k-mer-statistics; source/concept [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/META-ALPHA-001-Evidence.md → meta-alpha-001-evidence (source) + 1 concept
+   First per-algorithm Evidence file from the Metagenomics domain (new topic area — confirmed no
+   existing metagenomics/diversity concept). Created the genuinely-distinct concept alpha-diversity —
+   the anchor for the Metagenomics diversity family: within-sample diversity indices from one
+   taxon→abundance map via `MetagenomicsAnalyzer.CalculateAlphaDiversity` → `AlphaDiversity` record with
+   six fields. Formulas traced verbatim to the primary literature: observed richness S_obs=|{pᵢ>0}|,
+   Shannon H=−Σpᵢln(pᵢ) using Math.Log (nats) per Shannon 1948, Simpson concentration λ=Σpᵢ² per Simpson
+   1949, inverse Simpson 1/λ = Hill order-2 effective species per Hill 1973, Pielou evenness J=H/ln(S)
+   for S>1 else 0 (standard ecological convention, ln(1)=0) per Pielou 1966, Chao1 S_obs+f₁²/(2f₂) with
+   the f₂=0 bias-corrected branch S_obs+f₁(f₁−1)/2 per Chao 1984; Whittaker 1960 α/β/γ framing.
+   Counts-or-proportions accepted (positive values internally normalized to sum 1), non-positive
+   filtered (ln(0) undefined), O(n). INV-01..05 + empty/null→all-0 + single-species H0/λ1/J0 corner
+   cases; oracles single→H0/λ1, (0.5,0.5)→ln2/0.5/2/J1, 4-equal→ln4/0.25/4/J1, (0.9,0.1)→H0.325/J0.469.
+   FLAGGED NUANCE (not a contradiction): the Evidence file says "Deviations: None — all formulas match
+   exactly", while the algorithm doc §5.4 records one accepted deviation — Chao1 falls back to
+   ObservedSpecies for non-integer/proportional abundance input (data-type gate, not a formula change);
+   captured on both the source and concept pages as consistent. Concise source page (Wikipedia
+   Diversity-index/Alpha-diversity/Species-richness/Species-evenness + Shannon/Simpson/Hill/Chao/Pielou
+   primaries). Wired into index (source + concept lines) + the algorithm-validation-evidence hub
+   (frontmatter source + body evidence-link + own-concept list). Reconciled backlog: moved
+   Metagenomics/Alpha_Diversity.md from pending Metagenomics (10→9) to covered-via-concept (56→57
+   covered / 189→188 pending, 30 domains). Cross-linked [[beta-diversity]] as a not-yet-created future
+   sibling (no stub). Contradictions: none.
+   graph: +2 nodes (concept + source page), +1 typed edge (concept relates_to test-unit-registry;
+   source/concept [[wikilinks]] mentions auto-derived)
