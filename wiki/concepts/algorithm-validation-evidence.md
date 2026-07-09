@@ -10,6 +10,7 @@ sources:
   - docs/Evidence/ANNOT-CODING-001-Evidence.md
   - docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md
   - docs/Evidence/ANNOT-REPEAT-001-Evidence.md
+  - docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md
 source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
 created: 2026-07-09
 updated: 2026-07-09
@@ -55,9 +56,11 @@ Because these files are near-templated across the ~213 documented units, the wik
 **one** shared page for the pattern (this page) plus a concise per-file source summary
 (e.g. [[align-global-001-evidence]], [[align-multi-001-evidence]],
 [[align-semi-001-evidence]], [[align-stats-001-evidence]], [[annot-coding-001-evidence]],
-[[annot-codonusage-001-evidence]], [[annot-repeat-001-evidence]]). An
+[[annot-codonusage-001-evidence]], [[annot-repeat-001-evidence]],
+[[assembly-consensus-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
-[[coding-potential-hexamer-score]], [[relative-synonymous-codon-usage]], or
-[[repetitive-element-detection]] (the anchor for the repeats/tandem family).
+[[coding-potential-hexamer-score]], [[relative-synonymous-codon-usage]],
+[[repetitive-element-detection]] (the anchor for the repeats/tandem family), or
+[[consensus-sequence]] (the anchor for the assembly CONSENSUS family).

@@ -186,3 +186,22 @@ Operations:
    GENOMIC-REPEAT/GENOMIC-TANDEM and other repeat-family units are ingested, share
    repetitive-element-detection rather than duplicating.
    graph: +2 nodes, +1 typed edges (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md → assembly-consensus-001-evidence (source) + 1 concept
+   Eighth per-algorithm Evidence file; first of the large Assembly family (DBG/OLC/SCAFFOLD/COVER/
+   STATS/TRIM/CONSENSUS/CORRECT/MERGE still to come). Rejected a broad "genome-assembly" hub as too
+   vague/heterogeneous for a useful anchor; instead created the genuinely-distinct concept
+   consensus-sequence (column-wise majority/threshold consensus — the C of Overlap-Layout-Consensus
+   and the same operation as the MSA consensus step). Decision rule traced verbatim to Biopython
+   dumb_consensus: tally non-gap residues only, emit iff unique max AND max_size/num_atoms >= threshold
+   (strict >=) else ambiguous; tie→ambiguous (not arbitrary pick); all-gap column→ambiguous with no
+   div-by-zero (short-circuit and); consensus length = longest read (ragged handled). EMBOSS cons
+   plurality + Wikipedia definition/IUPAC corroborate. Two parameterized presentation-only default
+   assumptions: ambiguous symbol N-not-X (DNA/RNA IUPAC), default threshold 0.5-not-Biopython-0.7
+   (simple-majority); neither alters the source-backed rule. Concise source page for the artifact
+   (three sources, four datasets, nine MUST tests). Linked new source + concept into the
+   algorithm-validation-evidence hub and added ASSEMBLY-CONSENSUS to that hub's frontmatter.
+   Contradictions: none. Follow-up: future Assembly-family and MSA-consensus units share
+   consensus-sequence rather than duplicating; graph/OLC/scaffold units likely warrant their own
+   distinct concepts.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to multiple-sequence-alignment)
