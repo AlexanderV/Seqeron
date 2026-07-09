@@ -109,6 +109,11 @@ with p/ρ = purity, c/N_tot = tumor total CN, M = multiplicity, 2 = normal CN. *
 raw value < 0.5 would round to 0 (no mutated copy) — non-physical for an observed variant — so it is
 clamped to ≥ 1 (and ≤ major-allele CN).
 
+This same CCF closed form is the standalone estimator of the **downstream** clonal-structure unit
+[[cancer-cell-fraction-clonal-clustering]] (ONCO-CCF-001), which adds the reported-value **[0,1] cap**
+(exposing the uncapped raw) and a **deterministic 1D Lloyd k-means** that deconvolutes the per-mutation
+CCF vector into clones/subclones — the reconstruction step this copy-number layer stops short of.
+
 ## Corner cases and failure modes
 
 - **Non-identifiability / multiple optima:** the sunrise plot can show several local minima (e.g. a

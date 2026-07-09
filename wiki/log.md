@@ -2061,3 +2061,19 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    disjoint stages). Wired into algorithm-validation-evidence hub (frontmatter source + evidence link +
    anchor bullet); index updated (1 source + 1 concept).
    graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept)
+
+## [2026-07-09] ingest | docs/Evidence/ONCO-CCF-001-Evidence.md → onco-ccf-001-evidence (source) + 1 concept
+   Fifth Oncology unit: cancer cell fraction (CCF) estimation + 1D clonal/subclonal clustering — the
+   downstream clonal-structure layer above the ASCAT copy-number substrate. The CCF point formula is
+   already carried by allele-specific-copy-number-ascat §4, so this reuses/cross-links ASCAT for it; the
+   genuinely distinct, wiki-worthy content is the standalone EstimateCCF with the reported-value [0,1]
+   cap (exposing uncapped raw — CNAqc 1.06 noise case) and ClusterCCFValues, a deterministic 1D Lloyd
+   k-means (quantile seeding, no RNG) that deconvolutes the CCF vector into clones/subclones with the
+   highest-centroid = clonal rule (Tarabichi 2021). New concept cancer-cell-fraction-clonal-clustering.
+   Sources corroborate the CCF closed form three ways (Tarabichi 2021 Nat. Methods / Zheng 2022
+   PICTograph / McGranahan 2016 Science) + CNAqc (CCF>1 from noise) + Lloyd 1982. Two source-consistent
+   assumptions ([0,1] cap via invariant + McGranahan clonal definition; Lloyd k-means as the concrete 1D
+   method — sources name clustering only broadly). No contradictions. Enriched ASCAT §4 with a forward
+   cross-link to the clustering concept; wired into algorithm-validation-evidence hub (frontmatter
+   source + evidence link + anchor bullet); index updated (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (relates_to → test-unit-registry, depends_on → allele-specific-copy-number-ascat, on the concept)
