@@ -84,4 +84,3 @@ mutation-pattern classification method is synthesized in its own concept,
 
 No source contradictions — the four references are mutually consistent; the sole `≥` vs `>` glyph
 difference (OncodriveROLE) is resolved in favour of the primary Vogelstein / Tokheim strict ">20%".
-</content>

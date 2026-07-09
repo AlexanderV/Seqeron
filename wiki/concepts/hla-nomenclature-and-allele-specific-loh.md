@@ -131,5 +131,3 @@ LOH call. The nomenclature rules are the WHO/IPD-IMGT/HLA standard (rank 1–2 s
 thresholds are McGranahan 2017 verbatim, corroborated by the `mskcc/lohhla` reference R. **Not for
 clinical or diagnostic use.** No source contradictions — the WHO nomenclature standard and the LOHHLA
 paper/implementation cover disjoint parts of the unit.
-</content>
-</invoke>

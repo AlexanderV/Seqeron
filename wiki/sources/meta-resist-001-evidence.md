@@ -99,5 +99,3 @@ service default and the 0.98 study threshold) with the same **0.60** coverage de
 user-selectable constants (`DefaultResistanceIdentityThreshold` / `DefaultResistanceCoverageThreshold`), so
 the choice does not change the algorithm — it only sets the out-of-box operating point. Recorded here so
 the 0.90 default is not mistaken for a source value; see [[antibiotic-resistance-gene-detection]].
-</content>
-</invoke>

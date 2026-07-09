@@ -77,5 +77,3 @@ derivation.
 No source contradictions — Zielezinski's word-vector model, Lau's `L − k + 1` normalization, and
 Boden's "Euclidean over relative-frequency vectors" are mutually consistent; the only implementation
 choices (case folding, empty→zero-vector) are documented assumptions.
-</content>
-</invoke>

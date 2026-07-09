@@ -82,4 +82,3 @@ of functional prediction, but it also has its **own** test unit **META-PATHWAY-0
 ingested** as [[meta-pathway-001-evidence]]). META-FUNC-001 validates **only**
 `docs/algorithms/Metagenomics/Functional_Prediction.md`; the shared ORA statistics are **owned** by the
 dedicated concept [[pathway-enrichment-ora]], which [[functional-prediction]] links to.
-</content>

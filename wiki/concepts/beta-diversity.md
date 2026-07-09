@@ -119,4 +119,3 @@ rarefaction; the Jaccard branch can be dominated by rare taxa because abundance 
   domain: here A and B are sets of **taxa present in two community samples** (ecological turnover),
   whereas there they are sets of **k-mers of two sequences** (sequence resemblance). Same formula,
   ecologically vs compositionally distinct — not interchangeable.
-</content>

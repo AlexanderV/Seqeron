@@ -119,4 +119,3 @@ search against a text.
 - The generated `n^k` universe is the natural **index space** for the frequency vectors that
   [[k-mer-euclidean-distance]] and [[kmer-jaccard-similarity]] compare, and for the k-mer tables used
   in [[de-bruijn-graph-assembly]] and [[kmer-spectrum-error-correction]].
-</content>

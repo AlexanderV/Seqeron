@@ -86,5 +86,3 @@ Two **ASSUMPTIONs**, both inherited/source-backed, neither a partition-logic gap
 No contradictions among sources — Tettelin (core/dispensable definitions), Moreno-Hagelsieb/Tatusov
 (RBH operationalisation), and the synteny sources (fraction-of-syntenic-genes metric + MCScanX block
 threshold) are mutually consistent and each governs a distinct output of the pipeline.
-</content>
-</invoke>

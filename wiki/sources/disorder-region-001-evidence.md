@@ -113,5 +113,3 @@ charge thresholds (FCR/NCPR at 0.35, enrichment at 0.32) *are* source-exact.
 TOP-IDP, no assumptions there). The default `RegionType` composition thresholds and the rescaled
 `Confidence` are declared **first-principles heuristics**; the MobiDB-lite flavors are the sourced,
 opt-in alternative added 2026-06-24. No source contradictions beyond the 0.25-NCPR clarification.
-</content>
-</invoke>

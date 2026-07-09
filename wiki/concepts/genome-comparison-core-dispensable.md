@@ -131,4 +131,3 @@ The definitions trace to **Tettelin et al. 2005** (PNAS, pan-genome core/dispens
 (Wang et al. 2012, the collinearity block model). No deviations from the sources are recorded; the
 two assumptions are the inherited alignment-free RBH gate and the MCScanX block threshold, both
 source-backed.
-</content>

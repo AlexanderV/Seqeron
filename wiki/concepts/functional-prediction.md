@@ -133,4 +133,3 @@ pathway p-values. For production-scale annotation and multiple-testing control, 
 BLAST+, DIAMOND, clusterProfiler) apply. The bit-score model assumes the ungapped BLOSUM62 scoring system;
 another matrix would need its own `λ, K`. The single accepted deviation (ASM-01) affects which hits are
 found, not the significance formulas. No source contradictions.
-</content>

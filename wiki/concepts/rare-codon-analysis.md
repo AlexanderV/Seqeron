@@ -120,4 +120,3 @@ Rare-codon analysis is the family's **localization / diagnostic** view: it names
 [[codon-optimization|codon optimization]]'s `AvoidRareCodons` strategy (which replaces exactly the
 sub-threshold codons this unit flags). See [[algorithm-validation-evidence]] for the shared
 evidence-artifact pattern.
-</content>

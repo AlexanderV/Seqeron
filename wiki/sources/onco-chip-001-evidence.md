@@ -99,5 +99,3 @@ run, a QC sibling of [[sequencing-artifact-detection]].
 No source contradictions among the five primaries: the VAF-2% + driver-gene definition (Steensma /
 Genovese), the matched-WBC origin gold standard (Razavi / Arango-Argoty), and the strict fold-ratio
 origin rule (Bolton) address disjoint stages and reinforce one another.
-</content>
-</invoke>

@@ -94,5 +94,3 @@ a high [[codon-adaptation-index|CAI]]. Its **AvoidRareCodons** strategy removes 
 [[rare-codon-analysis]] flags. Other siblings still in `docs/Evidence/` (raw frequency/usage tables)
 share the same synonymous-family machinery. See
 [[algorithm-validation-evidence]] for the shared evidence-artifact pattern.
-</content>
-</invoke>

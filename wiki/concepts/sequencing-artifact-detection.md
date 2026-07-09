@@ -115,5 +115,3 @@ unchanged. The GIV thresholds (neutral 1, damaged > 1.5) are documented operatio
 from the Nature Methods summary of Chen 2017, not invented. **Not for clinical or diagnostic use.** No
 source contradictions — Chen 2017 / Damage-estimator (oxidation), Do & Dobrovic 2015 (FFPE deamination),
 and GATK FisherStrand (strand bias) each cover a disjoint signal and are mutually consistent.
-</content>
-</invoke>

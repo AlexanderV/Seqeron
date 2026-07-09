@@ -68,5 +68,3 @@ in a given sequence.
 in upper case**, matching the sibling `KmerAnalyzer` methods; the alphabet is used verbatim, so the
 lexicographic-ordering guarantee holds only when the supplied alphabet is itself sorted (`{A,C,G,T}`
 already is, so default DNA output is lexicographic). No source contradictions.
-</content>
-</invoke>

@@ -154,5 +154,3 @@ parity claimed); ABIS-Seq is bundled under CC BY 4.0 as a working default; and E
 **simplified ssGSEA** (rank-weighted mean, not the full enrichment-score computation). No source
 contradictions — the CIBERSORT, ESTIMATE, MCP-counter, and ν-SVR sources cover complementary
 methods and agree on the shared linear-mixture / signature-scoring framing.
-</content>
-</invoke>

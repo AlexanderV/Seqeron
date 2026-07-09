@@ -113,4 +113,3 @@ Sources are mutually consistent — the Poisson LoD model (Patent/Avanzini), the
 conversion (Devonshire/Alcaide, both 3.3 pg ⇒ 303/ng), the detection range and across-reporter
 fraction (Newman), the λ = n·d worked count (Pessoa), and the TF = 2·VAF diploid relation
 (CNAqc/Antonello) each cover a disjoint stage. **Not for clinical or diagnostic use.**
-</content>

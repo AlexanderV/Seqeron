@@ -85,4 +85,3 @@ own concept, [[homologous-recombination-deficiency-score]]; [[test-unit-registry
 No source contradictions — the primary papers (Telli/Stewart/Abkevich/Birkbak/Popova), the scarHRD
 reference implementation, and the UCSC/NCBI centromere coordinate databases each cover a disjoint part
 and agree on the unweighted sum, the 42 cutoff, and the LOH/TAI/LST component rules.
-</content>

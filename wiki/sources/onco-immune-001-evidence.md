@@ -97,4 +97,3 @@ the unit.
 No source contradictions — CIBERSORT (ν-SVR deconvolution), ESTIMATE (ssGSEA scoring), MCP-counter
 (marker geometric mean), and the Schölkopf ν-SVR formulation cover complementary methods and agree on
 the shared linear-mixture / signature framing.
-</content>

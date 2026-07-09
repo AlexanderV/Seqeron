@@ -137,4 +137,3 @@ the matched-WBC origin gold standard (Razavi 2019 / Arango-Argoty 2025), and the
 origin rule (Bolton 2020) each cover a disjoint stage and reinforce one another. **Two flagged
 assumptions**, both source-consistent: the canonical default gene set and the ≥1-alt-read matched-WBC
 presence test. **Not for clinical or diagnostic use.**
-</content>

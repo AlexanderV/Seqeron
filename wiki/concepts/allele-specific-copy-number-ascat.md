@@ -153,4 +153,3 @@ inputs** — the production derivation consumes **measured** logR/BAF. **Not for
 use.** No source contradictions: Van Loo 2010 + the ASCAT R reference (core fit), Nilsen 2012 + Ross
 2021 (ASPCF segmentation), Nik-Zainal 2012 / Battenberg (subclonal), and McGranahan 2016 / PICTograph /
 DeCiFering (multiplicity/CCF) each cover a disjoint stage and are mutually consistent.
-</content>

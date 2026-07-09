@@ -76,4 +76,3 @@ artifact-classification method is synthesized in its own concept,
 
 No source contradictions — Chen 2017 / Damage-estimator (oxidation), Do & Dobrovic 2015 (FFPE deamination),
 and GATK FisherStrand (strand bias) each describe a disjoint artifact signal and are mutually consistent.
-</content>

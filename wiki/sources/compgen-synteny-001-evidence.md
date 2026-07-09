@@ -79,4 +79,3 @@ Two **ASSUMPTIONs**, both source-backed, neither a correctness gap:
 No contradictions among sources — the two MCScanX renderings and Wikipedia give the same DP /
 collinearity model. A `VisualizeSynteny` smoke test and an O(n²) per-block invariant (GeneCount ≥ 5,
 coordinates within parent gene bounds) round out the recommended coverage.
-</content>

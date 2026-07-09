@@ -70,4 +70,3 @@ own concept, [[hla-nomenclature-and-allele-specific-loh]]; [[test-unit-registry]
 No source contradictions — the WHO/IPD-IMGT/HLA nomenclature standard (naming rules) and the LOHHLA
 paper + reference implementation (LOH thresholds) cover disjoint parts of the unit and are mutually
 consistent.
-</content>

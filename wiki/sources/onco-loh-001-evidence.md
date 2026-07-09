@@ -83,5 +83,3 @@ tracks the unit.
 No source contradictions — the primary paper (Abkevich), the scarHRD reference implementation, and
 the independent oncoscanR implementation each cover a disjoint part and agree on the LOH criterion,
 the 15 Mb strict cut-off, and the whole-chromosome exclusion.
-</content>
-</invoke>

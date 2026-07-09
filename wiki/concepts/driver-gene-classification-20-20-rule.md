@@ -105,5 +105,3 @@ Gene-level classification here is **orthogonal** to the variant-level clinical-s
 **Not for clinical or diagnostic use.** No source contradictions — Vogelstein 2013, Tokheim & Karchin
 2020, Schroeder 2014 (OncodriveROLE), and Miller 2017 are mutually consistent (the sole `≥` vs `>` glyph
 difference is resolved in favour of the primary source's strict ">20%").
-</content>
-</invoke>

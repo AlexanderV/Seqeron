@@ -129,4 +129,3 @@ Euclidean among the usable metrics), **Vinga & Almeida (2003)** (*Bioinformatics
 `4^k` word-frequency vector and its family of dissimilarity scores), and **Boden et al. (2014)**
 (*Bioinformatics* 30(14):1991 — Euclidean over relative-frequency vectors). No source
 contradictions.
-</content>

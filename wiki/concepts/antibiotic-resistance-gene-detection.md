@@ -130,4 +130,3 @@ fabricated), nucleotide-only case-sensitive comparison. A legacy `FindResistance
 stub is retained separately for an existing MCP tool and is **not** part of this unit. No source
 contradictions in the algorithm itself; a threshold-default provenance note (evidence records 0.80/0.98,
 implementation ships 0.90) is flagged on [[meta-resist-001-evidence]].
-</content>

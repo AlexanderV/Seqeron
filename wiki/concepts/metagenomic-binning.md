@@ -189,4 +189,3 @@ across many samples, and no DAS-Tool-style bin refinement.
   compositional fingerprint with a Markov-expectation z-score normalization — related in spirit to the
   general k-mer composition captured by the K-mer family, but distinct in its expectation model and
   RC-extension.
-</content>

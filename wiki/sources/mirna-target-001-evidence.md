@@ -82,5 +82,3 @@ regression scorer.
 
 **No source contradictions** — Bartel 2009, Lewis 2005, Grimson 2007, Agarwal 2015, Garcia 2011,
 Friedman 2009, TargetScan, and miRBase are mutually consistent on the site ladder and the context++ model.
-</content>
-</invoke>

@@ -95,4 +95,3 @@ database is bundled (pathways are caller-supplied). The single accepted deviatio
 to the pathway-member union when no universe is given) affects `N` on the no-background path only, not the
 formula. Though registered under metagenomics via `FindPathwayEnrichment`, the statistic is generic (the
 sources are GO::TermFinder and proteomics ORA). No source contradictions.
-</content>

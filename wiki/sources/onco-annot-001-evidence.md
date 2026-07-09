@@ -85,4 +85,3 @@ artifact]] pattern. The distinct four-tier decision rule is synthesized in its o
 No source contradictions — Li et al. 2017 and Tate et al. 2019 are mutually consistent; the AMP/ASCO/CAP
 consensus is the same one the OncoKB SOP (sibling [[clinical-actionability-oncokb-levels]]) declares
 itself consistent with.
-</content>

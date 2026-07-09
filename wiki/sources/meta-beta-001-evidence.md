@@ -83,5 +83,3 @@ subsumed by IdenticalSamples / DifferentSingleSpecies / SymmetryProperty / OneSa
 
 No source contradictions — the Bray & Curtis 1957 and Jaccard 1901 primary definitions and the
 Wikipedia formulations are the standard, mutually consistent measures.
-</content>
-</invoke>

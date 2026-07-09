@@ -96,5 +96,3 @@ Chartier Sherlocc) are complementary published algorithms retrieved and cross-ch
 each cited to peer-reviewed sources plus a reference implementation. The addendum's overlapping-window
 merge is an explicitly flagged implementation choice (Sherlocc reports regions), not a departure from
 any source rule. Additional references: Plotkin & Kudla 2011 (Nat. Rev. Genet. 12(1):32–42).
-</content>
-</invoke>

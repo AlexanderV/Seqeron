@@ -151,4 +151,3 @@ contradictions** — Bartel 2009, Lewis 2005, Grimson 2007, Agarwal 2015, Garcia
 TargetScan, and miRBase agree on the site ladder and the context++ model; the recorded items are the
 intentional heuristic-score / partial-CS simplifications and the unemitted `Centered`/`Supplementary`
 enum members.
-</content>

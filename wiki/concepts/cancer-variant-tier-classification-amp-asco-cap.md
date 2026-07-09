@@ -116,5 +116,3 @@ verbatim to whatever is supplied. The Tier III ↔ IV discriminator (MAF ≥ 1% 
 Tier IV) is a direct reading of the Figure 2 boxes + Tables 6/7, not invented. **Not for clinical or
 diagnostic use.** No source contradictions — Li et al. 2017 and Tate et al. 2019 are mutually consistent
 (the "≥" glyph lost in PDF extraction is fixed by the guideline's 1% primary benign cutoff).
-</content>
-</invoke>

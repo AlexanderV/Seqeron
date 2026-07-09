@@ -78,5 +78,3 @@ transcriptome method** to enter the wiki; the distinct method is synthesized in
 
 No further source contradictions — the z formula is corroborated four independent ways; the sole
 NA-vs-throw divergence is resolved in favour of the reference code.
-</content>
-</invoke>

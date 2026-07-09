@@ -78,5 +78,3 @@ padded. These are captured on [[intrinsic-disorder-prediction-top-idp]]. The evi
 `0.542` published cutoff; the sibling [[morf-prediction-dip-in-disorder|MoRF]] unit uses the `0.5`
 order/disorder threshold (PMC2570644) — different published thresholds for different purposes, not a
 contradiction.
-</content>
-</invoke>

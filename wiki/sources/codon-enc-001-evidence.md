@@ -60,4 +60,3 @@ empty/whitespace → 0; lowercase-normalized / invalid-codon-skip; overshoot re-
 NCBI degeneracy partition matches the Eq. 3 constants exactly. The only recorded deviation is the
 non-source-prescribed lower clamp at 20 (a harmless defensive bound). Flagged on
 [[effective-number-of-codons]].
-</content>

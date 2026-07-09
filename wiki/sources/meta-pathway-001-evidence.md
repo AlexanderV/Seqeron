@@ -74,5 +74,3 @@ hence p. COULD: many pathways processed independently in one call.
 standalone with its own GO::TermFinder + PNNL sources, adds the **M↔n symmetry** invariant and the exact
 rational oracles, and validates `docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md`. The
 [[pathway-enrichment-ora]] concept **owns** the method; [[functional-prediction]] links to it.
-</content>
-</invoke>

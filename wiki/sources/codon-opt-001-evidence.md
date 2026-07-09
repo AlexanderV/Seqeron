@@ -59,4 +59,3 @@ See [[test-unit-registry]] for how units are tracked.
 point. Several behaviours (strategies, invariants, edge cases) are recorded as "from theory" /
 "from implementation" rather than a single external worked oracle — the correctness anchor is the
 protein-preservation invariant plus the CAI formula, both source-backed.
-</content>

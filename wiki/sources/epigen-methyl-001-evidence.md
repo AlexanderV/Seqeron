@@ -70,5 +70,3 @@ context-classification method is synthesized in its own concept,
 
 No source contradictions — IUPAC (Cornish-Bowden 1985), Bismark (Krueger & Andrews 2011), Lister
 (2009), and Schultz (2012) are mutually consistent.
-</content>
-</invoke>

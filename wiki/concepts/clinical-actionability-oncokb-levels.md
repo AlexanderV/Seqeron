@@ -95,4 +95,3 @@ drug–gene–level evidence, it does not annotate biomarkers from scratch. This
 not an algorithm parameter. **Not for clinical or diagnostic use.** No source contradictions —
 Chakravarty 2017, the OncoKB Levels-of-Evidence PDF, the OncoKB SOP v3, and the oncokb-annotator README
 are mutually consistent.
-</content>

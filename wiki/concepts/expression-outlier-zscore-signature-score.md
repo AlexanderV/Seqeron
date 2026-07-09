@@ -91,4 +91,3 @@ outlier test is threshold-based. It shares the **single-sample signature/pathway
 layer with the ssGSEA immune/stromal scores of [[immune-infiltration-deconvolution]] (ONCO-IMMUNE-001,
 the other expression/transcriptome ONCO unit). No source contradictions beyond the single NA-vs-throw
 divergence, resolved to throw.
-</content>

@@ -149,5 +149,3 @@ the operational algorithm, and UCSC cytoBand + NCBI GRC supplying the centromere
 **Not for clinical or diagnostic use.** No source contradictions — the primary papers, the
 reference implementation, and the coordinate databases each cover a disjoint part and agree on
 the sum, the cutoff, and the component rules.
-</content>
-</invoke>

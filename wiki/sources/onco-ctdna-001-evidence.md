@@ -92,5 +92,3 @@ No source contradictions among the seven references: the Poisson LoD model (pate
 mass→molecule conversion (Devonshire / Alcaide, both giving 3.3 pg ⇒ 303/ng), the detection-range and
 across-reporter fraction (Newman), the λ = n·d worked count (Pessoa), and the TF = 2·VAF diploid
 relation (CNAqc / Antonello) each cover a disjoint stage and reinforce one another.
-</content>
-</invoke>

@@ -138,4 +138,3 @@ exclusion are Abkevich 2012 + scarHRD `calc.hrd.R` + oncoscanR `score_loh`; only
 LOH-fraction aggregation is a definitional/API choice. **Not for clinical or diagnostic use.** No
 source contradictions — the primary paper and the two reference implementations each cover a disjoint
 part and agree on the criterion, the cut-off, and the exclusion.
-</content>

@@ -71,5 +71,3 @@ natural logarithm (`Math.Log`), Simpson `Σpᵢ²`, inverse Simpson `1/λ`, Piel
 
 No source contradictions — the encyclopedic and primary-literature formulas (Shannon 1948, Simpson
 1949, Hill 1973, Chao 1984, Pielou 1966) are the standard, mutually consistent definitions.
-</content>
-</invoke>

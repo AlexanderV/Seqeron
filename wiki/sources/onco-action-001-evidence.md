@@ -87,5 +87,3 @@ the unit.
 No source contradictions — Chakravarty 2017, the OncoKB Levels-of-Evidence PDF, the OncoKB SOP v3, and
 the oncokb-annotator README are mutually consistent (the SOP is explicitly consistent with the
 AMP/ASCO/CAP Li et al. 2017 consensus).
-</content>
-</invoke>
