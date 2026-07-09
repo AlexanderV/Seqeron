@@ -288,3 +288,28 @@ Operations:
    warrant their own pages when ingested; FindOverlap/FindAllOverlaps (the overlap-discovery side)
    would share contig-merge-overlap-collapse.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to de-bruijn-graph-assembly)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-OLC-001-Evidence.md → assembly-olc-001-evidence (source) + 1 concept
+   Thirteenth per-algorithm Evidence file; sixth of the Assembly family (after CONSENSUS, CORRECT,
+   COVER, DBG, MERGE). Created the genuinely-distinct concept overlap-layout-consensus-assembly —
+   the anchor for the assembly OLC family and the second of the two canonical fragment-assembly
+   paradigms (FindAllOverlaps + AssembleOLC). Three stages traced verbatim to Compeau, Pevzner &
+   Tesler 2011 + Langmead OLC/SCS notes: Overlap (read=node overlap graph, directed edge A→B on the
+   longest suffix-of-A/prefix-of-B ≥ threshold, report only longest per pair), Layout (exact = a
+   Hamiltonian path = NP-complete → heuristic transitive reduction + non-branching-stretch contigs),
+   Consensus (majority vote per column). Complexity suffix-tree O(N+a) vs all-pairs DP O(N²).
+   Published oracles: GTACGTACGAT 6-mers minOverlap4 → exactly 12 directed edges (lengths 4/5,
+   re-derived), 5-overlap tiling → single AAAAACCCCCGGGGGTTTTT, CTCTAGGCC/TAGGCCCTC l=3 → overlap 6.
+   Failure modes: NP-complete layout, repeats>read-length split contigs, error dead-end subgraphs,
+   greedy-SCS suboptimal, sub-resolution repeats collapse. Two assumptions: exact-match identity 1.0
+   for canonical numeric cases (minIdentity generalizes; separate threshold test 0.875 accepted@0.85/
+   rejected@0.95), empty read set → empty AssemblyResult. Concise source page for the artifact. Linked
+   new source + concept into the algorithm-validation-evidence hub and added ASSEMBLY-OLC to that hub's
+   frontmatter; added reciprocal nav links from de-bruijn-graph-assembly (fulfilling its flagged OLC
+   follow-up) and contig-merge-overlap-collapse. Modeled OLC as alternative_to de-bruijn-graph-assembly
+   (Hamiltonian/overlap-graph vs Eulerian/k-mer, the contrast Compeau 2011 draws explicitly).
+   Contradictions: none — Compeau 2011 and both Langmead notes give the identical overlap-graph/
+   Hamiltonian-path/three-stage account; re-derived numeric oracles match the source slides. Follow-up:
+   remaining Assembly units (SCAFFOLD/STATS/TRIM) warrant their own pages; FindOverlap/FindAllOverlaps
+   overlap-discovery shares both this concept and contig-merge-overlap-collapse.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, alternative_to de-bruijn-graph-assembly)

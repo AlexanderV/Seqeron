@@ -102,7 +102,7 @@ self-loop.
 
 No contradictions among the sources — Langmead's notes derive from and cite the same Jones &
 Pevzner Euler theorems that Compeau, Pevzner & Tesler (2011) build the assembly application on.
-The OLC (Overlap-Layout-Consensus) approach is the alternative fragment-assembly formulation; its
-suffix–prefix overlap/merge primitive is covered by [[contig-merge-overlap-collapse]] and its
-consensus step by [[consensus-sequence]]. A dedicated end-to-end OLC concept page is a follow-up
-when that unit is ingested.
+The [[overlap-layout-consensus-assembly|OLC (Overlap-Layout-Consensus)]] approach is the
+alternative fragment-assembly formulation (Hamiltonian-path layout over an overlap graph vs DBG's
+Eulerian walk over a k-mer graph); its suffix–prefix overlap/merge primitive is covered by
+[[contig-merge-overlap-collapse]] and its consensus step by [[consensus-sequence]].

@@ -77,7 +77,8 @@ Traced verbatim to Langmead's JHU SCS/OLC notes and MIT 7.91J Lecture 6:
 ## Relation to the other assembly formulations
 
 Contig merging is the **overlap-based** primitive: it collapses variable-length suffix/prefix
-matches, which is what OLC and greedy SCS do. The [[de-bruijn-graph-assembly]] approach sidesteps
+matches, which is what [[overlap-layout-consensus-assembly|OLC]] and greedy SCS do. The
+[[de-bruijn-graph-assembly]] approach sidesteps
 this pairwise-overlap search by using fixed-length `k`-mers and an Eulerian walk instead (the
 overlap search that makes the Hamiltonian/SCS formulation NP-hard is exactly what DBG avoids). The
 Consensus stage that finishes an OLC layout is [[consensus-sequence]].
