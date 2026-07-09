@@ -2666,3 +2666,19 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    facets. Wired into algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet,
    source_commit bumped to 68661290). Index updated (1 source + 1 concept). Follow-ups: none.
    graph: +2 nodes, +4 typed edges (concept relates_to test-unit-registry; concept relates_to somatic-variant-calling-tumor-normal; concept relates_to tumor-purity-from-mutation-vaf; concept relates_to cancer-cell-fraction-clonal-clustering)
+
+## [2026-07-10] ingest | docs/Evidence/PANGEN-CLUSTER-001-Evidence.md → pan-genome gene clustering
+Ingested PANGEN-CLUSTER-001 (Gene Clustering — greedy incremental homolog grouping by sequence
+identity), the first pan-genome PANGEN-* unit. New concept [[pan-genome-gene-clustering]] (greedy
+incremental CD-HIT-model clustering: long→short, first-match representative assignment, global
+identity = identical aligned positions / alignment length; Li & Godzik 2006 + CD-HIT guide + Roary
+Page 2015 95% default + EMBOSS needle). New source [[pangen-cluster-001-evidence]]. Wired into the
+[[algorithm-validation-evidence]] hub (frontmatter source + source-link list + anchor bullet) and
+cross-linked to the comparative-genomics siblings [[genome-comparison-core-dispensable]],
+[[ortholog-detection-reciprocal-best-hits]], [[average-nucleotide-identity]]. No source
+contradictions; two assumptions (alignment-free identity may underestimate with internal indels;
+homolog groups only, no synteny/paralog-split). index updated (1 source + 1 concept).
+NOTE: original ingest subagent died mid-run on an API error after writing both pages + the hub
+frontmatter/source-link edit; the hub anchor bullet, index entries, this log line, and the graph
+rebuild were completed by the orchestrator during recovery.
+   graph: +2 nodes, +2 typed edges
