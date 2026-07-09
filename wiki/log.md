@@ -1385,3 +1385,28 @@ Operations:
    cancellation contracts are orthogonal and mutually consistent).
    graph: +2 nodes (concept + source page), +1 typed edge (concept relates_to test-unit-registry from
    asynchronous-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | KMER-BOTH-001-Evidence.md → kmer-both-001-evidence (source) + both-strand-kmer-counting (concept)
+   Second K-mer family unit. KMER-BOTH-001 validates `KmerAnalyzer.CountKmersBothStrands` — additive
+   strand-aware counting. Determined this IS a genuinely distinct method (not a thin wrapper like
+   KMER-ASYNC): the ADDITIVE / kPAL-"balance" convention `count[w]=forward[w]+forward[RC(w)]` (count
+   k-mers of S and of RC(S), sum per key), which keeps a key per observed k-mer — explicitly NOT the
+   canonical-collapsing convention (lexicographically-smaller of {w,RC(w)} as one key) of Jellyfish `-C`
+   / Mash, which the algorithm does not implement. Created concept `both-strand-kmer-counting` (core
+   model, INV-01..05 incl. grand-total 2·(L−k+1) / strand-symmetry / palindrome-doubling, additive-vs-
+   canonical table, contract, three oracles, complexity, deviations). Sources: kPAL Methodology + Anvar
+   2014 (Genome Biology 15:555, balance = sum of k-mer and its RC) + Shporer 2016 (inversion symmetry,
+   grounds INV-01) + Marçais-Kingsford 2011 Jellyfish (single-strand primitive + `-C` contrast) + Mash
+   issue #45 (canonical def) + Clavijo 2018 (strand rationale). Oracles ATGGC k=2→{AT:2,TG:1,GG:1,GC:2,
+   CC:1,CA:1}, palindromic ACGT→{AC:2,CG:2,GT:2}, AAA→{AA:2,TT:2}. Two API-shape assumptions (empty/k>L→
+   empty dict, k≤0→ArgumentOutOfRangeException inherited from CountKmers); Deviations = None. Cross-linked
+   with sibling [[asynchronous-kmer-counting]] (shared sync CountKmers primitive; linked its both-strand
+   mention). Concept covers the Both_Strand algorithm doc too. Wired into index (source + concept lines)
+   and the algorithm-validation-evidence hub (frontmatter + body source list + own-concept list; also
+   back-filled the missing kmer-async-001-evidence hub-body link). Reconciled backlog: moved
+   K-mer/Both_Strand_Kmer_Counting.md from pending K-mer (9→8) to covered-via-concept (50→51 covered /
+   195→194 pending, 30 domains); the other 8 K-mer docs (incl. K-mer_Counting.md / KMER-COUNT-001) left
+   pending. Contradictions: none — kPAL balance and inversion symmetry give identical additive semantics;
+   canonical wording cited only to contrast the not-implemented collapsing mode.
+   graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
+   relates_to asynchronous-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)

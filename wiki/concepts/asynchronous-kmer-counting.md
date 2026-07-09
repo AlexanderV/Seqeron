@@ -103,4 +103,4 @@ The distinctive, separately validated behaviour comes from the .NET task-cancell
 ## Relation to other units
 
 - **Wrapper of the synchronous count** `KmerAnalyzer.CountKmers` (KMER-COUNT-001, `docs/algorithms/K-mer/K-mer_Counting.md`; not yet ingested) — the async method delegates verbatim to the synchronous cancellation/progress overload. The `L − k + 1` count contract is shared; a future sync-count concept will own the count definition, and this page will link to it.
-- The same k-mer sliding-window primitive underlies the K-mer family's other operations (frequency analysis, generation, statistics, both-strand counting) and downstream [[de-bruijn-graph-assembly]] and [[kmer-spectrum-error-correction]].
+- The same k-mer sliding-window primitive underlies the K-mer family's other operations (frequency analysis, generation, statistics, and [[both-strand-kmer-counting|both-strand counting]]) and downstream [[de-bruijn-graph-assembly]] and [[kmer-spectrum-error-correction]].
