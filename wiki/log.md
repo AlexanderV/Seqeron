@@ -1365,3 +1365,23 @@ Operations:
   source conflict.
   graph: +1 node (source page), +1 typed edge (concept relates_to test-unit-registry from
   genomic-tandem-001-evidence; source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | KMER-ASYNC-001-Evidence.md → kmer-async-001-evidence (source) + asynchronous-kmer-counting (concept)
+   First K-mer family unit. KMER-ASYNC-001 validates the asynchronous k-mer count `KmerAnalyzer.CountKmersAsync`
+   — the cooperatively cancelable, progress-reporting `Task.Run` wrapper over synchronous `CountKmers`
+   (KMER-COUNT-001). Determined this is NOT a distinct counting algorithm: the numeric result is fixed by
+   the k-mer formula L−k+1 and is identical to the sync reference; the uniquely validated content is the
+   .NET cooperative-cancellation + progress contract (ThrowIfCancellationRequested→OperationCanceledException
+   + Canceled state, pre-start Task.Run(func,token) cancellation, awaiting a canceled task throws,
+   IProgress 0→1.0). No existing k-mer-counting concept to enrich (sync KMER-COUNT-001 not yet ingested), so
+   created a focused concept `asynchronous-kmer-counting` (folds the execution contract + inherited count
+   into one wiki-worthy page rather than a thin gotcha). Sources: Wikipedia K-mer (L−k+1 / nᵏ, ATGG→ATG+TGG,
+   GTAGAGCTGT k=2/3/4 total 9/8/7 distinct 7/8/7) + Microsoft Learn Task Cancellation / Task.Run. One
+   assumption = numeric contract identical to sync (non-correctness-affecting); not parallelized; suffix-tree
+   evaluated-not-used. Wired into index (source + concept lines). Reconciled backlog: moved
+   K-mer/Asynchronous_K-mer_Counting.md from pending K-mer (10→9) to covered-via-concept under
+   [[asynchronous-kmer-counting]] (49→50 covered / 196→195 pending, 30 domains); the other 9 K-mer docs
+   (incl. K-mer_Counting.md / KMER-COUNT-001) left pending. Contradictions: none (count definition and .NET
+   cancellation contracts are orthogonal and mutually consistent).
+   graph: +2 nodes (concept + source page), +1 typed edge (concept relates_to test-unit-registry from
+   asynchronous-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)

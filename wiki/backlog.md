@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **49** algorithm docs covered-via-concept, **196** pending across 30 domains.
+Status at generation: **50** algorithm docs covered-via-concept, **195** pending across 30 domains.
 
 ## Covered via concept (done)
 
@@ -46,6 +46,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md` | [[centromere-analysis]] |
 | `docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md` | [[karyotype-analysis]] |
 | `docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md` | [[synteny-and-rearrangement-detection]] |
+| `docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md` | [[asynchronous-kmer-counting]] |
 | `docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md` | [[telomere-analysis]] |
 | `docs/algorithms/Codon/Effective_Number_of_Codons.md` | [[effective-number-of-codons]] |
 | `docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
@@ -137,11 +138,10 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/FileIO/GenBank_Parsing.md` | `genbank-parsing` |
 | `docs/algorithms/FileIO/VCF_Parsing.md` | `vcf-parsing` |
 
-### K-mer (10)
+### K-mer (9)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md` | `asynchronous-k-mer-counting` |
 | `docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md` | `both-strand-kmer-counting` |
 | `docs/algorithms/K-mer/K-mer_Counting.md` | `k-mer-counting` |
 | `docs/algorithms/K-mer/K-mer_Euclidean_Distance.md` | `k-mer-euclidean-distance` |
