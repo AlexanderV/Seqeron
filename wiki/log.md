@@ -2220,3 +2220,24 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    into the algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet);
    index updated (1 source + 1 concept).
    graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-FUSION-001-Evidence.md → onco-fusion-001-evidence (source) + 1 concept
+   ONCO-FUSION-001 = Fusion Gene Detection (candidate fusion calling from breakpoint-supporting
+   reads), the fourteenth ingested Oncology unit and the wiki's first gene-fusion / read-evidence
+   structural-rearrangement method. Genuinely distinct from all existing ONCO concepts (copy-number,
+   clonal, expression, clinical-interpretation) and from the gene-order signed-permutation
+   [[genome-rearrangement-breakpoint-distance]] → new concept warranted. The STAR-Fusion / Arriba
+   split-read + discordant-pair + minimum-support paradigm, corroborated across two independent tools
+   + their papers (Haas 2017/2019, Uhrig 2021), no contradictions. Detection rule: DETECTED iff
+   (junction ≥ MIN_JUNCTION_READS=1 AND total ≥ MIN_SUM_FRAGS=2) OR (zero junction AND discordant ≥
+   MIN_SPANNING_FRAGS_ONLY=5), with total support = split_reads1+split_reads2+discordant_mates
+   (Arriba) and the gene5p ≠ gene3p distinct-gene invariant; results ordered by descending support.
+   Separate exon-phase in-frame check (5' coding bases − 3' start phase) mod 3 == 0 (Genomics England
+   / Wikipedia Reading-frame primary cites). Oracles: EML4-ALK(3,2,4)/TMPRSS2-ERG(1,0,1)/CD74-ROS1
+   (0,0,5) DETECTED, NCOA4-RET(0,0,4) span<5 / KIF5B-RET(1,0,0) sum<2 / ALK-ALK same-gene REJECTED,
+   frame 300/0→in 301/0→out 301/1→in. Two scope assumptions (candidate-level counts not raw BAM —
+   chimeric-read extraction is a separate FindChimericReads; phase-only in-frame, no premature-stop
+   scan = ONCO-FUSION-003). New concept [[gene-fusion-detection-read-evidence]] + source
+   [[onco-fusion-001-evidence]] created, wired into the algorithm-validation-evidence hub (frontmatter
+   source + evidence link + anchor bullet); index updated (1 source + 1 concept).
+   graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
