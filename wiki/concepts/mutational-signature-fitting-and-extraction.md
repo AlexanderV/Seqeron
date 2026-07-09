@@ -66,6 +66,10 @@ mutational process not represented in `S`, not an error. Raw exposures (counts) 
 The clamp-and-refit case is the defining NNLS behaviour: the unconstrained normal equations give `x = [−1,1]`;
 `x₁ < 0` so signature 1 is removed and signature 2 is refit alone, `x₂ = (s₂·d)/(s₂·s₂) = 1/2`.
 
+The **uncertainty** on this refit — a per-signature confidence interval rather than a bare point estimate — is
+the separate ONCO-SIG-003 unit [[signature-exposure-bootstrap-confidence-intervals]], which resamples the
+catalog and re-runs this exact NNLS fit per replicate.
+
 ## Cosine similarity — the shared quality/comparison metric
 
 `CS(A,B) = A·B / (‖A‖·‖B‖) ∈ [0,1]` — the cosine of the angle between two non-negative profile vectors. Used

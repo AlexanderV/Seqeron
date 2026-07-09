@@ -2542,3 +2542,23 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    Five modelling assumptions (Frobenius objective, seeded init, exposure proportions, zero-vector cosine,
    consensus/silhouette/greedy matching); no source contradictions.
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; concept depends_on sbs96-mutational-signature-catalog)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-SIG-003-Evidence.md
+   ONCO-SIG-003 (signature exposure bootstrap confidence intervals), thirty-first Oncology unit and the
+   uncertainty layer directly above the ONCO-SIG-002 NNLS refit. Genuinely distinct from the fitting page:
+   it adds no decomposition but wraps FitSignatures in a resample→refit→percentile loop producing a
+   per-signature CI. Created source onco-sig-003-evidence + new concept
+   signature-exposure-bootstrap-confidence-intervals: resample the 96-channel catalog R times (default
+   1000, sigminer ≥100), re-run NNLS per replicate, take [2.5%,97.5%] percentiles (Efron 1979) via the
+   type-7 sample quantile (Hyndman & Fan 1996, R/NumPy default). Two resampling schemes differing only by
+   whether total burden N is fixed — multinomial (sigminer fixed-N, the byte-for-byte default) vs Poisson
+   (Senkin 2021 MSA variant, each channel Poisson(observedₖ), N unfixed, Poisson↔multinomial conditional
+   equivalence). Discriminating corner case = single non-zero channel: multinomial collapses
+   deterministically (width 0) while Poisson(λ>0) fluctuates (var=mean, positive width — the reason the
+   Poisson variant was added); plus N=0→[0,0], R=1→lower=upper=mean. Type-7 oracles [0,1,2,3,4]→0.1/2.0/3.9
+   and [2,4,6,8]→2.15/5.0/7.85. Cross-linked mutational-signature-fitting-and-extraction both ways (new
+   concept depends_on it; its NNLS section now points here for uncertainty). Wired into
+   algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet, source_commit
+   bumped to 2c404cc). Index updated (1 source + 1 concept). Two source-aligned assumptions (type-7
+   interpolation, fixed seed 42), multinomial the backward-compatible default; no source contradictions.
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; concept depends_on mutational-signature-fitting-and-extraction)
