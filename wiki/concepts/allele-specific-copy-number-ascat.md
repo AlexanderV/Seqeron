@@ -32,7 +32,9 @@ This is the tumor **allele-specific / clonal** layer. It sits below the clinical
 siblings — the therapeutic ranking [[clinical-actionability-oncokb-levels]], the four-tier
 [[cancer-variant-tier-classification-amp-asco-cap]], and the QC filter [[sequencing-artifact-detection]]
 — and is distinct from the chromosome-arm-scale total-copy-number [[aneuploidy-detection]] (a log2
-depth-ratio caller with no allelic contrast or purity fit).
+depth-ratio caller with no allelic contrast or purity fit). The same logR + BAF allelic-contrast idea,
+restricted to the HLA genes, is the **HLA-locus specialization**
+[[hla-nomenclature-and-allele-specific-loh]] (LOHHLA — allele-specific HLA loss-of-heterozygosity).
 
 ## 1. ASCAT joint (ρ, ψ) fit — the core
 

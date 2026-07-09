@@ -2294,3 +2294,20 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    from cancer-cell-fraction-clonal-clustering (downstream-summary note), index updated (1 source +
    1 concept).
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, depends_on cancer-cell-fraction-clonal-clustering, relates_to clonal-subclonal-classification-ccf-posterior)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-HLA-001-Evidence.md → onco-hla-001-evidence (source) + 1 concept
+   Eighteenth Oncology unit — HLA allele nomenclature parsing/validation + allele-specific HLA LOH
+   (LOHHLA), the wiki's first HLA / immuno-oncology antigen-presentation method. Created concept
+   [[hla-nomenclature-and-allele-specific-loh]]: (1) WHO IPD-IMGT/HLA name parse/validate
+   `HLA-[Gene]*[F1]:[F2][:F3][:F4][suffix]` (Marsh 2010 colon-delimited fields, two-field minimum /
+   four-field maximum, N/L/S/C/A/Q suffixes) and (2) LOHHLA LOH call — copy number < 0.5 AND
+   allelic-imbalance paired t-test p < 0.01 (both strict <, McGranahan 2017 Cell PMC5720478 +
+   mskcc/lohhla LOHHLAscript.R). Oracles: HLA-A*24:02:01:02L valid / HLA-A*02 / A*02:01 / five-fields
+   / ...X rejected; (1.8,0.30,0.001)→LOH allele 2 / (1.60,0.40,0.05)→no (p≥0.01 guard) /
+   (1.50,0.50,0.001)→no (0.5 not <0.5) / (1.70,0.40,0.01)→no (0.01 not <0.01). Judged genuinely
+   distinct (no existing HLA/MHC/neoantigen concept) → dedicated concept, cross-linked to
+   [[allele-specific-copy-number-ascat]] as its HLA-locus specialization (reciprocal link added).
+   One assumption (both alleles <0.5 → HomozygousLoss label, thresholds unchanged), no contradictions.
+   Wired into the algorithm-validation-evidence hub (frontmatter source + list link + anchor bullet),
+   index updated (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to allele-specific-copy-number-ascat)
