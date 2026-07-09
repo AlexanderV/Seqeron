@@ -882,3 +882,27 @@ Operations:
    "two formulations" note on synteny-and-rearrangement-detection; index updated (source + concept lines).
    Contradictions: none among sources; Deviations = None beyond the three scoping assumptions.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, alternative_to synteny-and-rearrangement-detection)
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md → compgen-reversal-001-evidence (source)
+   Thirty-sixth per-algorithm Evidence file; eighth of the Comparative-genomics (COMPGEN) family
+   (after ANI, CLUSTER, COMPARE, DOTPLOT, ORTHO, RBH, REARR). NO new concept — this file is NOT a
+   distinct algorithm: CalculateReversalDistance computes the SAME reversal-distance lower bound
+   d≥b/2 already documented in genome-rearrangement-breakpoint-distance (COMPGEN-REARR-001), only on
+   UNSIGNED gene-order indices (breakpoint = |π_{i+1}−π_i|≠1 on the extended perm, the magnitude
+   specialization of the signed criterion per Bafna–Pevzner §2 / Hübotter 2020) and returning the
+   tightest integer ⌈b/2⌉=(b+1)/2 rather than a raw breakpoint count. It is a lower bound, NOT the
+   exact distance (no Hannenhalli–Pevzner cycle/hurdle refinement). Reused that concept: added a new
+   "Unsigned reversal distance ⌈b/2⌉" subsection with the unsigned breakpoint rule + oracle table,
+   added COMPGEN-REVERSAL to its frontmatter sources (source_commit bumped to c6c3b01), and added a
+   relates_to test-unit-registry typed edge for the new source. Sources: Bafna–Pevzner 1998 (rank 1,
+   breakpoint def + lower-bound construction, identity=only 0-breakpoint perm), Hunter Lecture 16
+   (rank 2, reversal removes ≤2, d≥b/2, symmetry d_β(α)=d_α(β)), Hübotter 2020 survey (rank 4,
+   unsigned |Δ|≠1 specialization, corroboration only), Bergeron–Mixtacki–Stoye 2009 (rank 1,
+   adjacency-vs-breakpoint). Oracles (unsigned): [2,3,1,6,5,4]→b=4→2, [4,3,2,1]→b=2→1, identity→0.
+   Two source-backed ASSUMPTIONS: integer ⌈b/2⌉ rounding (tightest integer the theorem guarantees),
+   unequal-length inputs throw ArgumentException (distance defined only within one marker set).
+   Concise source page written; linked into the algorithm-validation-evidence hub (frontmatter sources
+   + source-list) and the genome-rearrangement-breakpoint-distance concept; index updated (source line
+   + concept-entry now marks COMPGEN-REARR-001 + COMPGEN-REVERSAL-001). Contradictions: none —
+   signed/unsigned criteria are the same rule under |Δ|; Deviations = None beyond the two assumptions.
+   graph: +1 node, +1 typed edge (relates_to test-unit-registry)

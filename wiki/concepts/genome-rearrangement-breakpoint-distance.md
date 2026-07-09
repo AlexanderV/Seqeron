@@ -4,7 +4,8 @@ title: "Genome rearrangement detection by breakpoints (signed permutations)"
 tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-REARR-001-Evidence.md
-source_commit: d4fdff436171d32c7e3ac8000f49cfda9e1e28fb
+  - docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md
+source_commit: c6c3b0169735a83d79bdf659368b539f39fc6995
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -13,6 +14,12 @@ graph:
       object: concept:test-unit-registry
       source: compgen-rearr-001-evidence
       evidence: "Test Unit ID: COMPGEN-REARR-001 ... Genome Rearrangement Detection by Breakpoints (signed gene-order comparison)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: compgen-reversal-001-evidence
+      evidence: "Test Unit ID: COMPGEN-REVERSAL-001 ... Reversal Distance (breakpoint-based lower bound); CalculateReversalDistance returns ceil(b/2) on the unsigned specialization of the same breakpoint criterion"
       confidence: high
       status: current
     - predicate: alternative_to
@@ -34,8 +41,10 @@ same "what rearrangements separate two genomes?" problem from adjacent **synteny
 rather than a permutation. Its sibling COMPGEN units are [[average-nucleotide-identity]],
 [[ortholog-detection-reciprocal-best-hits]], [[conserved-gene-clusters-common-intervals]],
 [[dot-plot-word-match]], and [[genome-comparison-core-dispensable]]. Validated under test unit
-**COMPGEN-REARR-001**; the validation record is [[compgen-rearr-001-evidence]],
-[[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the artifact
+**COMPGEN-REARR-001** (signed breakpoint count + rearrangement classification) and
+**COMPGEN-REVERSAL-001** (the unsigned reversal-distance lower bound `⌈b/2⌉`, see below); the
+validation records are [[compgen-rearr-001-evidence]] and [[compgen-reversal-001-evidence]],
+[[test-unit-registry]] tracks the units, and [[algorithm-validation-evidence]] describes the artifact
 pattern.
 
 ## Signed permutation model
@@ -81,6 +90,31 @@ d(α) ≥ b(α) / 2
 ```
 
 `b(α)` is therefore a computable lower bound on how many inversions must separate the two genomes.
+
+### Unsigned reversal distance `⌈b/2⌉` (`CalculateReversalDistance`, COMPGEN-REVERSAL-001)
+
+The **same** lower bound applied to **unsigned** gene-order indices (strand ignored), returned as an
+integer distance estimate rather than a raw breakpoint count. On unsigned indices the breakpoint
+criterion is the magnitude specialization of the signed one (Bafna–Pevzner §2 / Hübotter 2020):
+
+```
+(π_i, π_{i+1}) is a breakpoint  ⇔  |π_{i+1} − π_i| ≠ 1     (extended with 0 … n+1)
+```
+
+`CalculateReversalDistance` counts these unsigned breakpoints `b` and returns the tightest integer
+satisfying `d ≥ b/2`, i.e. `⌈b/2⌉ = (b + 1) / 2` (integer arithmetic). It is a **lower bound, not the
+exact reversal distance** — the exact value needs the Hannenhalli–Pevzner cycle/hurdle refinement,
+**not implemented** here. Documented oracles (validation record [[compgen-reversal-001-evidence]]):
+
+| perm1 (vs identity) | extended | unsigned breakpoints `b` | returned `⌈b/2⌉` |
+|---------------------|----------|--------------------------|-------------------|
+| `[2,3,1,6,5,4]` (Hunter unsigned) | `[0,2,3,1,6,5,4,7]` | 4 (`0→2`,`3→1`,`1→6`,`4→7`) | **2** |
+| `[4,3,2,1]` (fully reversed)      | `[0,4,3,2,1,5]`     | 2 (`0→4`,`1→5`)             | **1** |
+| `[1,2,3,4,5]` (identity)          | —                   | 0                           | **0** |
+
+Contracts: single-element / empty input → 0 (no internal adjacency); unequal-length inputs throw
+`ArgumentException` (distance is defined only within one marker set); distance is symmetric
+(`d(α,β) = d(β,α)`, Hunter).
 
 ## Classification (`DetectRearrangements` / `ClassifyRearrangement`)
 
