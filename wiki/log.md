@@ -1125,3 +1125,11 @@ Operations:
    state, bisulfite) remains pending — those are distinct algorithms and will get their own concepts.
    graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
    source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/EPIGEN-BISULF-001-Evidence.md → epigen-bisulf-001-evidence (source) + 1 concept
+   Created bisulfite-methylation-calling concept (second Epigenetics unit: SimulateBisulfiteConversion
+   Frommer 1992 + CalculateMethylationFromBisulfite Bismark meth/(meth+unmeth) + GenerateMethylationProfile
+   Schultz 2012 weighted level). Cross-linked sibling epigenetic-age-horvath-clock (produces the β-values it
+   consumes). Updated algorithm-validation-evidence (source list + mention), index, backlog (Bisulfite_Sequencing_Analysis
+   moved to covered: 39/206). No contradictions.
+   graph: +2 nodes, +1 typed edge
