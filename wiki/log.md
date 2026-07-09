@@ -2276,3 +2276,21 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    (two deferral references now resolve to it) and [[gene-fusion-nomenclature-known-fusion-lookup]];
    index updated (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (concept relates_to gene-fusion-detection-read-evidence + test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-HETERO-001-Evidence.md → onco-hetero-001-evidence (source) + 1 concept
+   Seventeenth Oncology unit — Tumor Heterogeneity Analysis. Created concept
+   [[intratumor-heterogeneity-metrics]]: the scalar-summary ITH-metric layer — MATH score
+   100·1.4826·median(|VAF−median VAF|)/median(VAF) (Mroz & Rocco 2013 / Mroz 2015 PLOS Med /
+   maftools mathScore.R, three-way identical, no clustering) + Shannon clonal diversity
+   H=−Σ pᵢ ln pᵢ (natural log, Liu 2017 / Shannon 1948) + subclone count (Liu richness = occupied
+   CCF clusters) + subclonal fraction #(CCF<0.95)/n (Landau 2013 threshold). Oracles MATH 49.42
+   (odd) / 59.304 (even), Shannon 0/ln2/ln4; zero-median-VAF→throw, MAD=0→MATH=0. Judged genuinely
+   distinct — a metric/summary layer, NOT per-mutation reconstruction — so a dedicated concept vs
+   reusing the CCF clustering / posterior units; it depends_on [[cancer-cell-fraction-clonal-clustering]]
+   (subclone count + Shannon pᵢ consume its clusters) and reuses the 0.95 threshold of
+   [[clonal-subclonal-classification-ccf-posterior]]. Two source-consistent assumptions (Shannon pᵢ =
+   per-cluster mutation proportions; R even-count median), no contradictions. Wired into the
+   algorithm-validation-evidence hub (frontmatter source + list link + anchor bullet), cross-linked
+   from cancer-cell-fraction-clonal-clustering (downstream-summary note), index updated (1 source +
+   1 concept).
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, depends_on cancer-cell-fraction-clonal-clustering, relates_to clonal-subclonal-classification-ccf-posterior)

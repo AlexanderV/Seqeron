@@ -93,6 +93,11 @@ the same clonal/subclonal question **without clustering** — a per-mutation **B
 labelled clonal iff `P(CCF > 0.95) > 0.5` (Landau 2013 / ABSOLUTE). This unit clusters point
 estimates; that one classifies each mutation on its own read-count uncertainty.
 
+**Downstream summary:** [[intratumor-heterogeneity-metrics]] (ONCO-HETERO-001) consumes these clusters
+— its **subclone count** is the number of occupied CCF clusters (Liu 2017 richness) and its **Shannon
+clonal diversity** takes pᵢ = the per-cluster mutation proportions — to report scalar heterogeneity
+metrics (alongside the clustering-free MATH score).
+
 ## Relationship to the ASCAT copy-number layer
 
 Complementary, not overlapping: [[allele-specific-copy-number-ascat]] **produces** purity ρ, total
