@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **63** algorithm docs covered-via-concept, **182** pending across 30 domains.
+Status at generation: **64** algorithm docs covered-via-concept, **181** pending across 30 domains.
 
 ## Covered via concept (done)
 
@@ -79,6 +79,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_Assembly/Contig_Merging.md` | [[contig-merge-overlap-collapse]] |
 | `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
 | `docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md` | [[repetitive-element-detection]] |
+| `docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md` | [[antibiotic-resistance-gene-detection]] |
 | `docs/algorithms/Metagenomics/Alpha_Diversity.md` | [[alpha-diversity]] |
 | `docs/algorithms/Metagenomics/Beta_Diversity.md` | [[beta-diversity]] |
 | `docs/algorithms/Metagenomics/Functional_Prediction.md` | [[functional-prediction]] |
@@ -159,11 +160,10 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/K-mer/K-mer_Frequency_Analysis.md` | `k-mer-frequency-analysis` |
 | `docs/algorithms/K-mer/K-mer_Search.md` | `k-mer-search` |
 
-### Metagenomics (3)
+### Metagenomics (2)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md` | `antibiotic-resistance-detection` |
 | `docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md` | `pangenome-core-accessory` |
 | `docs/algorithms/Metagenomics/Significant_Taxa_Detection.md` | `significant-taxa-detection` |
 

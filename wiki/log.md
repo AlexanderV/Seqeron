@@ -1689,3 +1689,33 @@ Operations:
    coverage estimation; no genome-size/copy-number correction; inherits upstream classifier accuracy.
    graph: +2 nodes (source + concept), +3 typed edges (taxonomic-profile relates_to test-unit-registry +
    depends_on taxonomic-classification + relates_to alpha-diversity); body [[wikilinks]] mentions auto-derived.
+- 2026-07-09 — ingest `docs/Evidence/META-RESIST-001-Evidence.md` (test unit META-RESIST-001,
+  Antibiotic-Resistance Gene Detection; seventh Metagenomics-family unit). Created source
+  [[meta-resist-001-evidence]] + NEW concept [[antibiotic-resistance-gene-detection]] (genuinely
+  distinct method — no prior AMR/resistance concept). Algorithm =
+  `MetagenomicsAnalyzer.FindAntibioticResistanceGenes(contigs, referenceGenes, id=0.90, cov=0.60)`:
+  ResFinder-style screen of assembled contigs vs a CALLER-SUPPLIED resistance-gene reference DB
+  (curated CARD/ResFinder tables not embedded). Private `BestUngappedMatch` slides each reference
+  across the contig at every offset −(m−1)..n−1 (overhanging both ends so contig-edge/split genes
+  score against the reference length), keeps the max-match window (tie→shorter=higher identity),
+  then identity=matches/w (BLAST gapless denominator, Heng Li 2018) & coverage=w/m (fraction of
+  REFERENCE length); reports the reference iff identity≥idThreshold AND coverage≥covThreshold;
+  best-matching gene per contig = max identity, tie→max coverage (Zankari 2012 "best-matching
+  gene"; CARD RGI best-hit by bit score). INV-01..05; defaults 0.90 ID / 0.60 cov named constants;
+  oracles CGTACGT@AAACGTACGT→1.0/1.0, CGTTCGT vs CGTACGT→6/7≈0.857/1.0, contig-edge CGTA→1.0 /
+  4⁄7≈0.571. Sources: Zankari 2012 (original ResFinder) + ResFinder GitHub (-t 0.80/-l 0.60) + Sci
+  Rep 2023 + JAC 2016 (98% ID/60% cov, edge/split rationale) + Heng Li 2018 (identity formula) +
+  CARD RGI. One assumption ASM-01 = gapless ungapped model (indel-requiring matches under-scored vs
+  gapped BLAST; substitution divergence + contig-edge truncation scored exactly). Cross-linked
+  [[functional-prediction]] as the sibling BLAST-style homology screen (shared machinery; AMR scores
+  nucleotide identity/coverage, PredictFunctions a BLOSUM62 protein bit-score/E-value) — comparison
+  table on the concept. Hub [[algorithm-validation-evidence]]: added META-RESIST to frontmatter
+  sources (bumped source_commit to HEAD c81ef58a) + source-list + concept-list. index.md: +1 source
+  +1 concept. Backlog: moved Metagenomics/Antibiotic_Resistance_Detection.md pending→covered (63→64
+  covered / 182→181 pending; §Metagenomics 3→2). Contradiction flagged (non-blocking): the evidence
+  file's extracted ResFinder README default is 0.80 ID (and the study SELECTED 0.98), while the
+  implementation ships 0.90 ID as the default — recorded as a threshold-provenance note on the source
+  page; the 0.90 constant is user-selectable so it does not change the algorithm, only the operating
+  point. graph: +2 nodes (source + concept), +2 typed edges (antibiotic-resistance-gene-detection
+  relates_to test-unit-registry + relates_to functional-prediction); body [[wikilinks]] mentions
+  auto-derived.
