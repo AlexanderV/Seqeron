@@ -10,15 +10,22 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 
 ## Sources
 
-(populated as sources are ingested)
-
-## Entities
-
-(populated as entity pages are created)
+- [[readme]] — the project's front-page `README.md`: what Seqeron is, its three entry points, and headline facts.
+- [[algorithms-checklist-v2]] — the test-unit validation registry: 364 units (255 done / 109 proposed), DoD, evidence, coverage.
 
 ## Concepts
 
-(populated as concept pages are created)
+- [[three-front-doors]] — one algorithm engine exposed through skills, the C# API, and MCP, with identical results.
+- [[skill-layer]] — the Agent-Skill routing + discipline layer that keeps 427 tool schemas out of the model's context.
+- [[layered-architecture]] — the strict up-only dependency layering (Levels 0–4) enforced by architecture tests.
+- [[scientific-rigor]] — runtime honesty: `LimitationPolicy`, tool-only computation, provenance on every result.
+- [[validation-and-testing]] — 22k+ tests across ten methodologies plus the per-unit validation campaign.
+- [[test-unit-registry]] — the area-prefixed Test Unit ID scheme and per-unit record behind the validation effort.
+- [[definition-of-done]] — the six-criterion acceptance bar (TestSpec, tests, ≥80% coverage, edge cases, CI, evidence) each unit must clear.
+
+## Gotchas
+
+- [[research-grade-limitations]] — beta, not for clinical use; simplified-subset implementations; internal-only validation.
 
 ## Synthesis
 

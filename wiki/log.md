@@ -10,3 +10,13 @@ Operations:
 - `shard` — an index was sharded.
 
 ---
+
+## [2026-07-09] ingest | README.md → readme (source) + 5 concepts + 1 gotcha
+   Established hub pages from the project front page: three-front-doors, skill-layer,
+   layered-architecture, scientific-rigor, validation-and-testing, research-grade-limitations.
+   graph: +7 nodes, +4 typed edges
+
+## [2026-07-09] ingest | ALGORITHMS_CHECKLIST_V2.md → algorithms-checklist-v2 (source) + 2 concepts
+   Created test-unit-registry, definition-of-done. Updated validation-and-testing and
+   research-grade-limitations (campaign-added pending re-validation, unverified complexity claims).
+   graph: +3 nodes, +2 typed edges
