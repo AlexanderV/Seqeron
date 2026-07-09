@@ -4,7 +4,8 @@ title: "Three front doors (skills / C# API / MCP)"
 tags: [architecture]
 sources:
   - README.md
-source_commit: 6a14170477c9472c0be07e3b7c7f7123e31eddcf
+  - docs/MCP-Methods-Audit.md
+source_commit: 6abaea7ca1fdd97060f8b0130b193f07c8ffaa0b
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -24,7 +25,7 @@ Seqeron exposes one algorithm engine through three interchangeable entry points 
 ## The three doors
 
 1. **Plain-language skills** — describe a biology task; the matching skills load, pick tools, and chain a correct pipeline. See [[skill-layer]].
-2. **The C# library** — call the algorithms directly (`using Seqeron.Genomics`), with `TryCreate` validation on sequence types.
+2. **The C# library** — call the algorithms directly (`using Seqeron.Genomics`), with `TryCreate` validation on sequence types. A 2026-01-23 census counts **277 public static methods across 54 classes** on this surface — see [[mcp-methods-audit]] (note this is a smaller, different surface from the README's 427 MCP tools).
 3. **MCP integration** — any LLM calls the tools with strict schemas and reproducible outputs; each call is a real algorithm, so results are deterministic and auditable.
 
 ## Why it matters

@@ -26,3 +26,10 @@ Operations:
    Updated validation-and-testing (coverage-gap paragraph + typed edge). Flagged internal 79-vs-86
    unit discrepancy and that only architecture testing is complete. No new concepts (elaborates existing).
    graph: +1 node, +1 typed edge
+
+## [2026-07-09] ingest | docs/MCP-Methods-Audit.md → mcp-methods-audit (source)
+   New source page: 277 public static methods / 54 classes census of the C# API surface, with
+   counting rules (overloads, extensions, SAM-flag one-liners, StatisticsHelper). Updated
+   three-front-doors (quantified the C# API door). Flagged 277-methods-vs-427-MCP-tools and
+   54-vs-57-class-denominator discrepancies as data points, not contradictions.
+   graph: no typed edges (flat inventory; mentions auto-derived); +1 node
