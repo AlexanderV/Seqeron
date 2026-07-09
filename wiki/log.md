@@ -112,3 +112,19 @@ Operations:
    global-alignment-needleman-wunsch. No contradictions; deviation = deliberate fitting-variant
    selection + standard .NET null contract.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, alternative_to global-alignment-needleman-wunsch)
+
+## [2026-07-09] ingest | docs/Evidence/ALIGN-STATS-001-Evidence.md → align-stats-001-evidence (source) + 1 concept
+   Fourth per-algorithm Evidence file. Created the genuinely-distinct concept
+   alignment-statistics (post-alignment metric layer, not an aligner): percent
+   identity/similarity/gaps under the EMBOSS/BLAST convention (count / Length × 100,
+   denominator includes gap columns; Similarity = identical OR positively-scoring columns, so
+   Similarity ≥ Identity; "positive substitution score ⇒ similar"); DNA SimpleDna ⇒ Similarity
+   = Identity vs Mismatch=+1 ⇒ Similarity > Identity; srspair three-line markup (|/:/space, the
+   graded `.` tier unreachable → rendering-only). Concise source page for the ALIGN-STATS-001
+   artifact (EMBOSS needle/AlignFormats + BLAST NBK1734 + pseqsid sources, the 149-column
+   HBA/HBB worked example as a formula cross-check, two hand-built DNA datasets, empty/null/
+   lineWidth contracts). Linked new source + concept into the algorithm-validation-evidence hub
+   and added ALIGN-STATS to that hub's frontmatter; added a reciprocal nav link from
+   global-alignment-needleman-wunsch. No contradictions; only deviation is the rendering-only
+   `.`-tier collapse, non-correctness-affecting.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to global-alignment-needleman-wunsch)

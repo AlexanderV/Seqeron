@@ -21,6 +21,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[align-global-001-evidence]] — evidence artifact for test unit ALIGN-GLOBAL-001 (Needleman–Wunsch): Wikipedia sources, the `GCATGCG`/`GATTACA` worked example, and the GapExtend-as-*d* / GapOpen-unused note.
 - [[align-multi-001-evidence]] — evidence artifact for test unit ALIGN-MULTI-001 (MSA): main doc + MUSCLE and T-Coffee addenda; star/iterative/consistency aligners, SP-score and consensus design choices.
 - [[align-semi-001-evidence]] — evidence artifact for test unit ALIGN-SEMI-001 (semi-global / fitting): Wikipedia + Rosalind SIMS/SMGB + Brudno 2003 sources, fitting-variant init/traceback, INV-1..5.
+- [[align-stats-001-evidence]] — evidence artifact for test unit ALIGN-STATS-001 (identity/similarity/gaps + srspair formatting): EMBOSS needle/AlignFormats + BLAST + pseqsid sources, denominator-includes-gaps rule, three datasets.
 
 ## Concepts
 
@@ -36,6 +37,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[global-alignment-needleman-wunsch]] — the canonical DP global-alignment algorithm (`GlobalAlign`): linear-gap recurrence, O(nm), traceback, affine-as-extension.
 - [[multiple-sequence-alignment]] — aligning 3+ sequences (NP-complete): Seqeron's star (`MultipleAlign`), iterative-refinement (MUSCLE), and consistency (T-Coffee) aligners; sum-of-pairs + consensus.
 - [[semi-global-alignment-fitting]] — ends-free "glocal" alignment: fitting/query-in-reference variant (Rosalind SIMS); NW recurrence with free reference end gaps, traceback from max of last row.
+- [[alignment-statistics]] — post-alignment metrics: percent identity/similarity/gaps (EMBOSS/BLAST convention, denominator includes gaps, positive-score ⇒ similar) and srspair three-line markup.
 
 ## Gotchas
 

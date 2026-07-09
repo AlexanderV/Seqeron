@@ -6,6 +6,7 @@ sources:
   - docs/Evidence/ALIGN-GLOBAL-001-Evidence.md
   - docs/Evidence/ALIGN-MULTI-001-Evidence.md
   - docs/Evidence/ALIGN-SEMI-001-Evidence.md
+  - docs/Evidence/ALIGN-STATS-001-Evidence.md
 source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
 created: 2026-07-09
 updated: 2026-07-09
@@ -50,6 +51,7 @@ Every evidence file follows the same shape:
 Because these files are near-templated across the ~213 documented units, the wiki keeps
 **one** shared page for the pattern (this page) plus a concise per-file source summary
 (e.g. [[align-global-001-evidence]], [[align-multi-001-evidence]],
-[[align-semi-001-evidence]]). An individual algorithm gets its own concept page only when it
-is itself distinct and wiki-worthy — for example [[global-alignment-needleman-wunsch]],
-[[multiple-sequence-alignment]], or [[semi-global-alignment-fitting]].
+[[align-semi-001-evidence]], [[align-stats-001-evidence]]). An individual algorithm gets its
+own concept page only when it is itself distinct and wiki-worthy — for example
+[[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
+[[semi-global-alignment-fitting]], or [[alignment-statistics]].

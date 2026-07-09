@@ -47,6 +47,9 @@ reference end gaps to fit a short query inside a long reference.
 `GlobalAlign`. **Affine** gap penalties (gap-open + gap-extend) are a documented *extension*
 to the basic model, not part of the standard NW recurrence used here.
 
+Once an alignment is produced, [[alignment-statistics]] summarizes it as percent
+identity / similarity / gaps and renders the EMBOSS/BLAST three-line display.
+
 This algorithm is one [[test-unit-registry|test unit]] (ALIGN-GLOBAL-001), validated against
 the Wikipedia worked example; see [[algorithm-validation-evidence]] for the evidence-artifact
 pattern behind that validation.
