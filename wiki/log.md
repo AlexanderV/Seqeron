@@ -2039,3 +2039,25 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    sources each cover a disjoint signal and are mutually consistent. Wired into algorithm-validation-evidence
    hub (frontmatter source + evidence link + anchor bullet); index updated (1 source + 1 concept).
    graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept)
+
+## [2026-07-09] ingest | docs/Evidence/ONCO-ASCAT-001-Evidence.md → onco-ascat-001-evidence (source) + 1 concept
+   Fourth Oncology unit: allele-specific copy number + joint tumor purity/ploidy fit — the upstream
+   copy-number layer beneath the three clinical-interpretation ONCO units. New concept
+   allele-specific-copy-number-ascat spanning FOUR disjoint algorithm stages with disjoint primary
+   literature: (1) ASCAT core (Van Loo 2010 PNAS + ascat.runAscat.R) — nA/nB inversion from per-locus
+   logR r + BAF b, joint (ρ,ψ) grid search minimising length-weighted squared minor-allele distance to
+   non-negative integers (BAF=0.5 down-weighted x0.05), GoF=(1−d/TheoretMaxdist)*100, round+clamp-0,
+   major=larger, γ=1 for sequencing (0.55 arrays only); (2) ASPCF segmentation (Nilsen 2012 PCF
+   `Σ(y−ȳ)²+γ|S|` O(n²) DP e_k=min_j(d_jk+e_{j−1}+γ) + Ross 2021 joint common-breakpoint separate-means
+   + BAF mirroring); (3) subclonal two-state Battenberg (Nik-Zainal 2012) n_obs=f·n₁+(1−f)·n₂ over
+   bracketing integers ⌊⌋/⌈⌉, integer→single clonal state; (4) multiplicity/CCF (McGranahan 2016 /
+   PICTograph VAF=(m·CCF·p)/(c·p+2(1−p)) / DeCiFering c=(F·v)/(ρ·M)), clamp m to [1,major-CN]. Planted
+   oracles invert the forward model: ρ₀=0.80, ψ₀∈{2,3}, segments 1+1/2+0(CN-LOH)/2+1, clonal CCF≈1.0;
+   ASPCF two-level track γ=0.5→1 breakpoint; subclonal 1.4/0.6→states (2,0)/(1,1) f≈0.4. Four
+   synthesis-only/scope assumptions (het-SNP BAF forward model + avg-ploidy logR normalisation used only
+   to synthesise inputs; γ exposed not hard-coded; two-state uses bracketing integers, ≥3 populations
+   out of scope). Genuinely distinct from the total-CN chromosome-arm aneuploidy-detection (no allelic
+   contrast/purity) — cross-linked as its allele-specific counterpart. No source contradictions (four
+   disjoint stages). Wired into algorithm-validation-evidence hub (frontmatter source + evidence link +
+   anchor bullet); index updated (1 source + 1 concept).
+   graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept)
