@@ -1910,3 +1910,23 @@ Operations:
    Position_Weight_Matrix (CreatePwm) still pending; warrant their own pages when ingested.
    graph: +2 nodes (source + concept), +2 typed edges (iupac-degenerate-consensus relates_to
    test-unit-registry + alternative_to consensus-from-alignment); body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] ingest | MOTIF-REGULATORY-001-Evidence.md → motif-regulatory-001-evidence (source) + regulatory-element-detection (concept)
+   Ingested the Regulatory-Elements evidence unit: scanning a DNA sequence against a curated
+   `KnownMotifs` catalog of 12 canonical regulatory consensus strings (TATA/−10/−35/CAAT/GC
+   promoter boxes, Kozak + Shine-Dalgarno translation signals, poly(A), E-box/AP-1/NF-κB/CREB
+   TF sites), each source-anchored to its primary literature; reports Name/Pattern/Sequence per
+   occurrence at 0-based start, mixes exact + one IUPAC-degenerate (E-box `CANNTG`) match.
+   Decision: created a DEDICATED concept [[regulatory-element-detection]] rather than enriching
+   [[known-motif-search]] — the unit's correctness is its *cited catalog of named biological
+   elements* (incl. the AP-1 `TGAGTCA`→`TGACTCA` corrected-defect regression), a fixed-catalog
+   specialization of the generic caller-supplied exact scan. Cross-linked as the canonical-catalog
+   sibling of [[known-motif-search]] and the matching-in-practice counterpart of the generation
+   [[iupac-degenerate-consensus]] (both concept pages updated with back-links). index.md: +1
+   source +1 concept. Backlog: moved Motif_Discovery/Regulatory_Elements.md pending→covered
+   (72→73 covered / 173→172 pending; §Motif_Discovery 2→1, domains still 29). Contradictions: none
+   (two source-backed representative-site assumptions: NF-κB strong site `GGGACTTTCC`, Kozak exact
+   `GCCGCCACCATGG`). Follow-up: distinct promoter-detection unit (Annotation/Promoter_Detection.md)
+   + Motif_Discovery/Shared_Motifs.md still pending.
+   graph: +2 nodes (source + concept), +2 typed edges (regulatory-element-detection relates_to
+   test-unit-registry + relates_to known-motif-search); body [[wikilinks]] mentions auto-derived.

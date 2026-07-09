@@ -101,6 +101,7 @@ richer position-weight-matrix model (`CreatePwm`, the input to motif *scanning*)
 **generation/encoding**, distinct from the matching direction (scanning a subject for a
 degenerate/IUPAC pattern) and from de novo [[overrepresented-kmer-discovery]] (finding
 **unknown** motifs in unaligned sequence). See [[known-motif-search]] for the exact-match end of
-the motif family. **No source contradictions**; the only assumptions are the 25 % threshold
+the motif family, and [[regulatory-element-detection]] for the matching direction of an IUPAC
+pattern in practice (its E-box `CANNTG` uses the `N` = any-base ambiguity code from the table above). **No source contradictions**; the only assumptions are the 25 % threshold
 value, the strict-`>` boundary, and the no-pass fallback — all documented in
 [[motif-generate-001-evidence]].
