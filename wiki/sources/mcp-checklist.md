@@ -22,7 +22,7 @@ So this page documents the plan's *shape and conventions*, which partly survived
 ## What the plan defined
 
 - **Layered Definition of Done.** Three nested DoD bars: **Tool DoD** (MethodId linked; tool/server name frozen; input+output schema; error mapping; 2 tests; `.mcp.json` + `.md`; traceability row), **Server DoD** (all tools pass; `Program.cs`; builds; integration test; README), and **Delivery DoD** (all servers pass; gates G1–G5; cross-server tests; release notes).
-- **Two tests per tool, by design.** Every tool gets exactly two minimal tests — a **Schema** test (`*_Schema_ValidatesCorrectly`) and a **Binding** test (`*_Binding_InvokesSuccessfully`) — deliberately *no business-logic asserts* (gate G5.3 audits for that; the algorithm correctness is validated elsewhere — see [[validation-and-testing]]).
+- **Two tests per tool, by design.** Every tool gets exactly two minimal tests — a **Schema** test (`*_Schema_ValidatesCorrectly`) and a **Binding** test (`*_Binding_InvokesSuccessfully`) — deliberately *no business-logic asserts* (gate G5.3 audits for that; the algorithm correctness is validated elsewhere — see [[validation-and-testing]]). **Superseded on this point:** the current operational workflow ([[mcp-prompt]]) *reverses* this, requiring the Binding test to assert the algorithm's exact documented values so a wrong wrapper fails.
 - **Error-code catalog (1000–5999).** A shared numeric error taxonomy: e.g. `1001` empty text, `1002` null pattern, `1003` empty second sequence, `1004` length mismatch, `1006` invalid nucleotide, `1007` invalid k, `1008` invalid IUPAC bases, `1009` invalid reading frame, `2001` invalid sequence, `2002` invalid protein, `2003` invalid RNA.
 - **Traceability to the C# surface.** Each tool row pins a **MethodId** (e.g. `SuffixTree.Contains`, `SequenceStatistics.CalculateMeltingTemperature`), a **HasDocs** flag, and a **DocRef** pointing at either the XML doc in source (`File.cs:Lnn#xml`) or an algorithm markdown page under `docs/algorithms/**`. This is the plan's bridge to the [[mcp-methods-audit|C# method inventory]].
 - **Quality gates G1–G5.** Coverage (count = 241, per-server distribution), Docs-first ordering, Traceability-matrix completeness, Documentation-file completeness, and Tests (482 = 241 × 2, all passing, no business asserts).
@@ -47,6 +47,7 @@ The plan is mid-rename from the old `SuffixTree.Mcp.*` project namespace to `Seq
 
 ## Where this fits
 
+- [[mcp-prompt]] — the current, live per-tool completion workflow that declares this checklist superseded and points to `docs/mcp/MCP_STATUS.md` for real status; it also names the shipped 11 servers and evolves the testing policy.
 - [[mcp-plan]] — the sibling *design document* (MCP Implementation Plan v4) for this same superseded plan: it carries the v3→v4 rationale, the full 241-tool inventory across all 12 servers, and the standards (sections 6–8) declared still-valid.
 - [[three-front-doors]] — this tracker operationalizes the **MCP door** (schemas, error mapping, deterministic tool calls).
 - [[mcp-methods-audit]] — the C# method inventory the checklist's MethodId/DocRef columns trace back to.

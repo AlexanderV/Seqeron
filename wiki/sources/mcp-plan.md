@@ -39,7 +39,7 @@ These are the reusable, still-valid part of the document:
 - **Schema rules.** JSON Schema **draft 2020-12**; required fields explicit (no implicit); nullability via `["string","null"]`; defaults specified and documented; string enums with descriptions.
 - **Error mapping (1000–5999).** Ranged taxonomy: 1000–1999 input validation, 2000–2999 sequence format, 3000–3999 file I/O, 4000–4999 algorithm, 5000–5999 resource limits. (The [[mcp-checklist]] enumerates specific codes within these ranges.)
 - **Versioning.** SemVer 2.0 — breaking→major, new optional param→minor, fix→patch, experimental→`0.x.y`.
-- **Testing policy.** Minimum **2 tests per tool** — a **Schema** test and a **Binding** test — with extra tests only when justified (per overload, per union input variant, complex validation). Deliberately no business-logic asserts (algorithm correctness is validated elsewhere; see [[validation-and-testing]]).
+- **Testing policy.** Minimum **2 tests per tool** — a **Schema** test and a **Binding** test — with extra tests only when justified (per overload, per union input variant, complex validation). Deliberately no business-logic asserts (algorithm correctness is validated elsewhere; see [[validation-and-testing]]). **Note:** the current operational workflow ([[mcp-prompt]]) revises this — its Binding test must assert the algorithm's exact documented values (evidence-based; a wrong wrapper must fail).
 - **Documentation contract.** Every tool ships a machine-readable `{toolName}.mcp.json` (name, server, description, methodId, input/output schema, references, examples, version, stability) **and** a human-readable `{toolName}.md` (Description / Parameters / Returns / Errors / Examples / References).
 - **Quality gates G1–G5.** Coverage (count = 241, per-server distribution), Docs-first ordering, Traceability-matrix completeness, Documentation-file completeness, Tests. **Definition of Done** is layered Tool → Server → Delivery, matching the checklist.
 
@@ -59,6 +59,7 @@ Sections 6 still use the pre-rebrand `SuffixTree.Mcp.*` namespace, a marker of t
 
 ## Where this fits
 
+- [[mcp-prompt]] — the current, live per-tool completion workflow that supersedes this plan's operative status (its standards §6–8 survive; per-tool status now lives in `docs/mcp/MCP_STATUS.md`); it names the shipped 11 servers this plan only alluded to.
 - [[mcp-checklist]] — the sibling *build tracker* for this same superseded plan; that page documents the DoD/gate mechanics, this one the design rationale and full inventory.
 - [[three-front-doors]] — this plan operationalizes the **MCP door**.
 - [[skill-layer]] — solves the same tool-context problem this plan raised (5–7% per tool set), but by keeping schemas out of context rather than sharding servers.

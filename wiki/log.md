@@ -53,3 +53,16 @@ Operations:
    Cross-linked bidirectionally with mcp-checklist. No typed edges (superseded near-sibling source;
    ontology has no fitting source→source predicate, and count deltas are reconciled not contradictory;
    mentions auto-derived).
+
+## [2026-07-09] ingest | docs/mcp-prompt.md → mcp-prompt (source)
+   New source page for the CURRENT one-tool-per-session MCP-completion subagent prompt (the live
+   successor to the superseded mcp-plan/mcp-checklist). Captured: docs/mcp/MCP_STATUS.md as authoritative
+   B/T/D ledger; the shipped 11-server decomposition named concretely (server→project→tools file) —
+   first source to enumerate it (no Variants/Assembly/Epigenetics/Structure servers; Analysis+Annotation+
+   MolTools consolidate them; Core still under SuffixTree.Mcp.Core); Sequence/Parsers/Core gold standard;
+   the 3-part tool-wrapper DoD (binding attribute+record return, ≥2 NUnit tests, .mcp.json+.md docs);
+   execution flow + full-green-gate + stale-bin/obj caveat. FLAGGED CONTRADICTION: the prompt's DoD
+   requires evidence-based Binding tests asserting exact documented values, reversing the
+   no-business-asserts policy in mcp-checklist/mcp-plan (annotated both pages surgically). Cross-linked
+   both ways with mcp-checklist and mcp-plan.
+   graph: +1 node, +2 typed edges (contradicts → mcp-checklist, mcp-plan)
