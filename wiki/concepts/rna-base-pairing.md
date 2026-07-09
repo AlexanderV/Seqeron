@@ -63,8 +63,9 @@ precursor stem is scored as consecutive {A-U, G-C} + G-U wobble pairs between th
 ## 2. Reverse complement for seed → target matching
 
 `GetReverseComplement` reverses and complements a sequence (A↔U, G↔C, `T`→A complement, output in the
-RNA alphabet), length-preserving. It turns a miRNA seed into the target motif that pairs with it
-antiparallel (Lewis et al. 2005). Oracle: the **hsa-let-7a-5p** seed (pos 2-8) `GAGGUAG` →
+RNA alphabet), length-preserving. It turns a miRNA seed — extracted by the sibling unit
+[[seed-sequence-analysis]] (positions 2-8) — into the target motif that pairs with it antiparallel
+(Lewis et al. 2005). Oracle: the **hsa-let-7a-5p** seed (pos 2-8) `GAGGUAG` →
 complement `CUCCAUC` → reversed `CUACCUC`, trivially checkable from A-U/G-C. Unrecognised bases
 complement to `N`; empty/null input → `""`.
 

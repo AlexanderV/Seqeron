@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 116 / 1610
+Progress: 117 / 1610
 
 ## (top-level)  (6)
 
@@ -89,7 +89,7 @@ Progress: 116 / 1610
 - [x] docs/Evidence/META-TAXA-001-Evidence.md
 - [x] docs/Evidence/MIRNA-PAIR-001-Evidence.md
 - [x] docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md
-- [ ] docs/Evidence/MIRNA-SEED-001-Evidence.md
+- [x] docs/Evidence/MIRNA-SEED-001-Evidence.md
 - [ ] docs/Evidence/MIRNA-TARGET-001-Evidence.md
 - [ ] docs/Evidence/MOTIF-CONS-001-Evidence.md
 - [ ] docs/Evidence/MOTIF-DISCOVER-001-Evidence.md

@@ -1802,3 +1802,27 @@ Operations:
   covered / 179→178 pending; §MiRNA 3→2). graph: +2 nodes (source + concept), +2 typed edges
   (pre-mirna-hairpin-detection relates_to test-unit-registry + depends_on rna-base-pairing); body
   [[wikilinks]] mentions auto-derived.
+- 2026-07-09 — ingest `docs/Evidence/MIRNA-SEED-001-Evidence.md` (test unit MIRNA-SEED-001, Seed
+  Sequence Analysis; THIRD MiRNA-family unit). Created source [[mirna-seed-001-evidence]] + NEW concept
+  [[seed-sequence-analysis]] (genuinely distinct — string-level seed extraction / family equality, not
+  the base-pairing predicate/duplex of [[rna-base-pairing]] nor the precursor hairpins of
+  [[pre-mirna-hairpin-detection]]). Algorithm = `MiRnaAnalyzer`: `GetSeedSequence` returns positions
+  **2-8** (7-nt extended seed) via `Substring(1,7)` uppercase — casing only, **no** T→U (that is
+  `CreateMiRna`), `<8 nt`/null/empty → `""`; `CreateMiRna(name, sequence)` normalises
+  `ToUpperInvariant()`+`T→U`, extracts the seed from the normalised sequence, stores `SeedSequence` +
+  fixed zero-based `SeedStart=1`/`SeedEnd=7`; `CompareSeedRegions` = Hamming over the 7-nt seed
+  (`Matches`+`Mismatches`=7, mismatches also count length diff), `IsSameFamily` ⟺ exact seed equality,
+  empty seed → zeroed. **miRNA family = identical 2-8 seed** (let-7a/-7b/-7c-5p all `GAGGUAG` → same
+  family; miR-21-5p `AGCUUAU` differs; self→0 mismatches). Sources: Wikipedia MicroRNA + TargetScan
+  FAQ/7mer + Lewis 2005 + Bartel 2009 + Agarwal 2015 + Grimson/Friedman + miRBase. Domain context: site
+  ladder 8mer/7mer-m8/7mer-A1/6mer over the 2-7 (6-nt canonical) vs 2-8 (7-nt extended) distinction, but
+  matching-to-target + site-class assignment DEFERRED to target-site prediction (MIRNA-TARGET-001,
+  future); seed→target reverse complement owned by [[rna-base-pairing]] (`GetReverseComplement`).
+  Intentionally simplified: exact-7-mer family equality (no isomiR/offset/noncanonical seeds, not a
+  curated taxonomy). Terminology nuance FLAGGED (2-7-vs-2-8 collapse), no source contradictions. Hub
+  [[algorithm-validation-evidence]]: added MIRNA-SEED to frontmatter sources (bumped source_commit to
+  HEAD 989c8a14) + source-list + concept-list. rna-base-pairing: added reciprocal seed-extraction nav
+  link (§2 seed→target). index.md: +1 source +1 concept. Backlog: moved MiRNA/Seed_Sequence_Analysis.md
+  pending→covered (67→68 covered / 178→177 pending; §MiRNA 2→1). graph: +2 nodes (source + concept),
+  +2 typed edges (seed-sequence-analysis relates_to test-unit-registry + relates_to rna-base-pairing);
+  body [[wikilinks]] mentions auto-derived.
