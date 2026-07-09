@@ -30,6 +30,6 @@ A flat, method-level census of `Seqeron.Genomics` (`docs/MCP-Methods-Audit.md`, 
 
 ## Caveats and discrepancies
 
-- **"Public static methods" ≠ "MCP tools."** This is a C#-surface census (277 static methods); the README's headline **427 MCP tools** counts a different, larger surface (instance methods, per-server tool wrappers, and parameter variants also become tools). The two numbers are not comparable and neither contradicts the other.
+- **"Public static methods" ≠ "MCP tools."** This is a C#-surface census (277 static methods); the README's headline **427 MCP tools** counts a different, larger surface (instance methods, per-server tool wrappers, and parameter variants also become tools). The two numbers are not comparable and neither contradicts the other. A third, historical figure — **241 tools across 12 servers** — appears in the superseded [[mcp-checklist]] build plan; it too counts a different thing at a different time (a design that was never built).
 - **Class-count denominators disagree.** This audit finds 54 classes exposing public static methods; the checklist's Appendix D coverage table uses 57. The gap is almost certainly an inclusion-criteria difference (static-method-bearing files here vs. all analyzer classes there) rather than a true conflict — worth confirming if the two inventories are ever reconciled.
 - **Snapshot, not a contract.** The line numbers and counts are a 2026-01-23 snapshot of an unstable public API (see [[research-grade-limitations]]); they drift as the code changes.

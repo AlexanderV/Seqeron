@@ -33,3 +33,12 @@ Operations:
    three-front-doors (quantified the C# API door). Flagged 277-methods-vs-427-MCP-tools and
    54-vs-57-class-denominator discrepancies as data points, not contradictions.
    graph: no typed edges (flat inventory; mentions auto-derived); +1 node
+
+## [2026-07-09] ingest | docs/mcp-checklist.md → mcp-checklist (source)
+   New source page for the MCP Implementation Checklist v4. Flagged prominently as SUPERSEDED
+   (2026-07-01): a 12-server/241-tool plan never built; live status is docs/mcp/MCP_STATUS.md (11
+   real servers). Captured DoD gates, 1000-5999 error catalog, two-tests-per-tool (Schema+Binding,
+   no business asserts), MethodId/HasDocs/DocRef traceability, G1-G5 gates, and the SuffixTree.Mcp→
+   Seqeron.Mcp rename. Added 241-vs-277-vs-427 tool-count reconciliation; cross-linked from
+   mcp-methods-audit. No typed edges (supersession target docs/mcp/MCP_STATUS.md is not yet a wiki
+   node; mentions auto-derived).
