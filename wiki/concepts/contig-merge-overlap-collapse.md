@@ -81,7 +81,10 @@ matches, which is what [[overlap-layout-consensus-assembly|OLC]] and greedy SCS 
 [[de-bruijn-graph-assembly]] approach sidesteps
 this pairwise-overlap search by using fixed-length `k`-mers and an Eulerian walk instead (the
 overlap search that makes the Hamiltonian/SCS formulation NP-hard is exactly what DBG avoids). The
-Consensus stage that finishes an OLC layout is [[consensus-sequence]].
+Consensus stage that finishes an OLC layout is [[consensus-sequence]]. [[scaffolding]] hands off to
+this primitive on its **negative-gap** case: a negative inter-contig distance estimate means the two
+contigs should overlap, so if the overlap is found they are merged here rather than joined by an
+`N`-gap.
 
 No contradictions among the sources — Langmead's SCS notes, Langmead's OLC notes, and MIT 7.91J all
 state the identical suffix-of-X / prefix-of-Y overlap definition; each corroborates the others.

@@ -313,3 +313,30 @@ Operations:
    remaining Assembly units (SCAFFOLD/STATS/TRIM) warrant their own pages; FindOverlap/FindAllOverlaps
    overlap-discovery shares both this concept and contig-merge-overlap-collapse.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, alternative_to de-bruijn-graph-assembly)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md → assembly-scaffold-001-evidence (source) + 1 concept
+   Fourteenth per-algorithm Evidence file; seventh of the Assembly family (after CONSENSUS, CORRECT,
+   COVER, DBG, MERGE, OLC). Created the genuinely-distinct concept scaffolding — the anchor for the
+   assembly SCAFFOLD family, deliberately positioned as a *downstream* step orthogonal to the
+   overlap-vs-k-mer DBG/OLC contrast (it lays finished ordered contigs onto a coordinate frame with
+   sized gaps rather than reconstructing sequence). Construction rule traced verbatim to Jackman et
+   al. ABySS 2.0 (Genome Research 2017): scaffold = ordered path contigs concatenated interspersed
+   with runs of `N` whose length = the (upstream ML-estimated) inter-contig distance; positive gap
+   g → exactly g fill chars, scaffold length = Σ|contig|+Σgap; each contig in ≤1 scaffold, unlinked →
+   singleton; fill char parameterized (source fixes default `N`). Non-positive (zero/negative) gap →
+   AGP unknown-size default 100 N: NCBI AGP v2.1 ("gap lengths must be positive ... use U and 100
+   ... GenBank/EMBL/DDBJ standard for unknown-size gaps") supplies the source-backed 100 constant,
+   Sahlin et al. 2012 confirm the negative-gap case is frequent (de Bruijn one-k-mer overlap), ABySS
+   says negative = overlap → merge if found. Oracles ACGTNNNTTGGNNCCAA (len 17, 1 scaffold) and
+   AAAA+100N+TTTT (len 108). One assumption, a scoping decision not an invented value: unresolved-
+   overlap placeholder falls back to the AGP unknown-gap length 100 (this unit does no overlap
+   resolution) — the 100 is source-backed, only the fall-back-rather-than-resolve choice is assumed.
+   Concise source page for the artifact (ABySS 2.0 + AGP v2.1 + Sahlin 2012 + Bambus sources, two
+   oracles, MUST/SHOULD/COULD coverage). Linked new source + concept into the algorithm-validation-
+   evidence hub and added ASSEMBLY-SCAFFOLD to that hub's frontmatter; added a reciprocal nav link
+   from contig-merge-overlap-collapse (scaffolding hands off to the suffix–prefix merge primitive on
+   the negative-gap = overlap case). Contradictions: none — ABySS/AGP/Sahlin/Bambus give the same
+   ordered-contigs + sized-`N`-gap model; the AGP 100-N default and the ABySS negative-gap=overlap
+   rule are complementary. Follow-up: remaining Assembly units (STATS/TRIM) warrant their own pages;
+   an overlap-resolving scaffolder (if ever built) would compose scaffolding with contig-merge.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to contig-merge-overlap-collapse)
