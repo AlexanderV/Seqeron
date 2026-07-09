@@ -929,3 +929,34 @@ Operations:
    source-list + concept-list); index updated (source line). Contradictions: none — the two MCScanX
    renderings and Wikipedia agree; Deviations = None beyond the two scoping assumptions.
    graph: +1 node, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/DISORDER-LC-001-Evidence.md → disorder-lc-001-evidence (source) + 1 concept
+   Thirty-eighth per-algorithm Evidence file; FIRST of the protein disorder / features family
+   (DISORDER-LC / MORF / PRED / PROPENSITY / REGION). Created the genuinely-distinct concept
+   protein-low-complexity-seg — the anchor for the protein-disorder/features family: the SEG algorithm
+   (Wootton & Federhen 1993/1996) partitioning a protein into low- and high-complexity segments.
+   Complexity = Shannon entropy H=−Σpᵢ·log₂pᵢ in bits/residue (max log₂20≈4.322), matching NCBI
+   `blast_seg.c` `s_Entropy`; two-stage scan with three parameters W=12 (trigger window) / K1=2.2
+   (trigger/locut cutoff) / K2=2.5 (extension/hicut cutoff), all verbatim NCBI/GCG defaults: stage-1
+   triggers windows with entropy ≤ K1, stage-2 extends while ≤ K2. Judged genuinely distinct — SEG
+   low-complexity is a different algorithm from intrinsic-disorder prediction (TOP-IDP) / MoRFs, so
+   PRED/PROPENSITY/MORF/REGION are expected to warrant their own concept(s); and it is the PROTEIN
+   counterpart of the genomic-DNA low-complexity under repetitive-element-detection (different alphabet
+   + complexity measure), so I did NOT fold it into that repeats anchor. Hand-derived oracle window
+   entropies (L=12): QQ..→0.0 triggers, AAAAAALLLLLL→1.0 triggers, AAABBBCCCDDD→2.0 triggers@K1=2.2
+   (not strict 0.5), ACDEFGHIKLMN 12-distinct→3.584963>K2 no segment; corner cases seq<W→empty,
+   homopolymer≥W→one full-span segment, all-distinct→none. Concise source page for the artifact (NCBI
+   `blast_seg.c` rank-3 reference impl + GCG/Weizmann SEG help & `ncbi-seg` manpage rank-3 + Wootton &
+   Federhen 1993 C&C 17(2):149-163 / 1996 Meth.Enzymol. 266:554-571 rank-1 primary). Linked new source
+   + concept into the algorithm-validation-evidence hub (frontmatter sources + both link lists) and
+   updated the index (source + concept lines). TWO documented ASSUMPTIONs, both flagged as deviations
+   from Wootton & Federhen but neither moving segment boundaries on the canonical cases: (1) region-type
+   label string "X-rich"/"X/Y-rich" (dominant-residue >50% presentation extension — SEG defines only
+   segment location, not a label); (2) greedy single-residue extension (grow contig one residue at a
+   time while whole-segment entropy ≤ K2 vs the reference merge of length-W extension windows — identical
+   boundaries on homopolymer/dipeptide oracles). Contradictions: none — the NCBI reference impl, the
+   GCG/manpage program docs, and the Wootton & Federhen primary literature agree on W=12/K1=2.2/K2=2.5,
+   the Shannon-entropy bits/residue measure, and the two-stage trigger/extend scan. Follow-up: remaining
+   protein-disorder units (MORF/PRED/PROPENSITY/REGION) warrant their own concept(s) — likely a shared
+   intrinsic-disorder (TOP-IDP) anchor distinct from this low-complexity one — when ingested.
+   graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
