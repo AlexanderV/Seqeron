@@ -4,7 +4,8 @@ title: "Scaffolding (contig ordering and N-gap linking)"
 tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md
-source_commit: 3fda6bc37e2510c7c559dcc3b40efb62ecf722bd
+  - docs/algorithms/Extended_Assembly/Scaffolding.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

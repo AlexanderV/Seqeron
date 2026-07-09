@@ -4,7 +4,8 @@ title: "Effective Number of Codons (ENC / Nc)"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-ENC-001-Evidence.md
-source_commit: 5bc4ea5003342f5c5c657d68183edfae40fba29a
+  - docs/algorithms/Codon/Effective_Number_of_Codons.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

@@ -4,7 +4,8 @@ title: "Conserved gene clusters (common intervals)"
 tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md
-source_commit: 2ef49f21aacb36551908473c37944c54ebe55323
+  - docs/algorithms/Comparative_Genomics/Conserved_Gene_Clusters.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

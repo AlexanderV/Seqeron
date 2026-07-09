@@ -4,7 +4,8 @@ title: "Genome comparison pipeline (core/dispensable partition + syntenic fracti
 tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-COMPARE-001-Evidence.md
-source_commit: 8af87d1e0136942ca38a8ae9156e8ee5fee35080
+  - docs/algorithms/Comparative_Genomics/Genome_Comparison.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

@@ -4,7 +4,8 @@ title: "Codon Adaptation Index (CAI)"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-CAI-001-Evidence.md
-source_commit: 06dbe159ef5ed5e03f98988579713403bc50f51b
+  - docs/algorithms/Codon_Optimization/CAI_Calculation.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

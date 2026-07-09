@@ -4,7 +4,8 @@ title: "Karyotype analysis (chromosome-count karyotyping + ploidy detection)"
 tags: [chromosome, algorithm]
 sources:
   - docs/Evidence/CHROM-KARYO-001-Evidence.md
-source_commit: 64c8b3182c8d371780369749eecca402938cbc44
+  - docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

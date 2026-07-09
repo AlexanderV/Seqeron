@@ -4,7 +4,8 @@ title: "Alignment statistics (identity / similarity / gaps)"
 tags: [alignment, algorithm]
 sources:
   - docs/Evidence/ALIGN-STATS-001-Evidence.md
-source_commit: 9e4eb79fe421228e018c91fb093940f3feff24a0
+  - docs/algorithms/Alignment/Alignment_Statistics.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

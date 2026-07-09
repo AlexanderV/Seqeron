@@ -5,7 +5,9 @@ tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-REARR-001-Evidence.md
   - docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md
-source_commit: c6c3b0169735a83d79bdf659368b539f39fc6995
+  - docs/algorithms/Comparative_Genomics/Genome_Rearrangement_Detection.md
+  - docs/algorithms/Comparative_Genomics/Reversal_Distance.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

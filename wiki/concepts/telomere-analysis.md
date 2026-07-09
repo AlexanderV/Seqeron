@@ -4,7 +4,8 @@ title: "Telomere analysis (TTAGGG repeat detection + T/S ratio length)"
 tags: [chromosome, algorithm]
 sources:
   - docs/Evidence/CHROM-TELO-001-Evidence.md
-source_commit: 3b01c634a9332ecb839b0da26ecc154feebc1d56
+  - docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

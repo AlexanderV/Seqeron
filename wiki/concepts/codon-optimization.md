@@ -4,7 +4,8 @@ title: "Codon optimization (OptimizeSequence)"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-OPT-001-Evidence.md
-source_commit: 8d1b85e321fa52d6dea20205e2d0a4d2f28d1dbc
+  - docs/algorithms/Codon_Optimization/Sequence_Optimization.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

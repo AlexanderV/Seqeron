@@ -4,7 +4,8 @@ title: "Rare codon analysis (FindRareCodons + %MinMax / Sherlocc clusters)"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-RARE-001-Evidence.md
-source_commit: 496eef96c5b3099b418a04b72a333aa2a248be2d
+  - docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

@@ -4,7 +4,8 @@ title: "Dot plot (word-match / k-tuple dot matrix)"
 tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md
-source_commit: e932a6407e97bc684626ab5e2012dccf91053200
+  - docs/algorithms/Comparative_Genomics/Dot_Plot_Generation.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

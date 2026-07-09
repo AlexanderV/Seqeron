@@ -4,7 +4,8 @@ title: "De Bruijn graph assembly (k-mer graph + Eulerian-walk reconstruction)"
 tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-DBG-001-Evidence.md
-source_commit: ccacb64ccd743b9ec2d044971ec779c003f3b73c
+  - docs/algorithms/Assembly/De_Bruijn_Graph_Assembly.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

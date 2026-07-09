@@ -4,7 +4,8 @@ title: "Average Nucleotide Identity (ANI)"
 tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-ANI-001-Evidence.md
-source_commit: 908b2139cdb38b9897cafa7d07a0d525758cb281
+  - docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

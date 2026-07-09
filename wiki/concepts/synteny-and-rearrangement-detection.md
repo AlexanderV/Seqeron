@@ -4,7 +4,9 @@ title: "Synteny blocks and rearrangement detection"
 tags: [chromosome, comparative-genomics, algorithm]
 sources:
   - docs/Evidence/CHROM-SYNT-001-Evidence.md
-source_commit: ba8861eae3de465dbda5246943d5465da6af6389
+  - docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md
+  - docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

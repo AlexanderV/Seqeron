@@ -4,7 +4,8 @@ title: "Semi-global alignment (fitting / query-in-reference)"
 tags: [alignment, algorithm]
 sources:
   - docs/Evidence/ALIGN-SEMI-001-Evidence.md
-source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
+  - docs/algorithms/Alignment/Semi_Global_Alignment.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

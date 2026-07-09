@@ -4,7 +4,8 @@ title: "Coverage / sequencing-depth calculation (per-base depth, breadth, averag
 tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-COVER-001-Evidence.md
-source_commit: 23dd89a5788feaa17e8af26acb9b4e605f6baab7
+  - docs/algorithms/Assembly/Coverage_Calculation.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

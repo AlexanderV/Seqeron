@@ -4,7 +4,8 @@ title: "Codon usage table and TVD comparison"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-USAGE-001-Evidence.md
-source_commit: dda05cc3a1a2b473ced5663ee7beeeb062b11907
+  - docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

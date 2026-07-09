@@ -4,7 +4,8 @@ title: "Consensus sequence computation (column-wise majority/threshold)"
 tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md
-source_commit: 6a70d38db6e348e18fa4be3f6bcd6b2c8ba0c9f8
+  - docs/algorithms/Assembly/Consensus_Computation.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

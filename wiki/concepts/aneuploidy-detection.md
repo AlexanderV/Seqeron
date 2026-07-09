@@ -4,7 +4,8 @@ title: "Aneuploidy detection (copy number from read depth)"
 tags: [chromosome, algorithm]
 sources:
   - docs/Evidence/CHROM-ANEU-001-Evidence.md
-source_commit: b7e487d18a1de294e6480341479959136380a546
+  - docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

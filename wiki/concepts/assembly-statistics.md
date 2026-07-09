@@ -4,7 +4,8 @@ title: "Assembly statistics (N50 / L50 / Nx / Lx / auN)"
 tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-STATS-001-Evidence.md
-source_commit: ca833349c871b6ae6b0fc30b5a251408d2ede693
+  - docs/algorithms/Assembly/Assembly_Statistics.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

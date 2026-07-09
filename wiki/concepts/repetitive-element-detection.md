@@ -4,7 +4,8 @@ title: "Repetitive element detection and classification"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/ANNOT-REPEAT-001-Evidence.md
-source_commit: 3ecff734f0954cc6cd463f353d3994e99068f93f
+  - docs/algorithms/Annotation/Repetitive_Element_Detection.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

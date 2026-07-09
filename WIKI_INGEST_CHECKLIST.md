@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 44 / 1610
+Progress: 81 / 1610
 
 ## (top-level)  (6)
 
@@ -494,49 +494,49 @@ Progress: 44 / 1610
 
 ## algorithms  (247)
 
-- [ ] docs/algorithms/Alignment/Alignment_Statistics.md
-- [ ] docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md
+- [x] docs/algorithms/Alignment/Alignment_Statistics.md  (done-via-concept)
+- [x] docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md  (done-via-concept)
 - [ ] docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md
-- [ ] docs/algorithms/Alignment/Multiple_Sequence_Alignment.md
-- [ ] docs/algorithms/Alignment/Semi_Global_Alignment.md
+- [x] docs/algorithms/Alignment/Multiple_Sequence_Alignment.md  (done-via-concept)
+- [x] docs/algorithms/Alignment/Semi_Global_Alignment.md  (done-via-concept)
 - [ ] docs/algorithms/Analysis/Open_Reading_Frame_Detection.md
 - [ ] docs/algorithms/Analysis/Sequence_Similarity.md
 - [ ] docs/algorithms/Annotation/GFF3_IO.md
 - [ ] docs/algorithms/Annotation/Gene_Prediction.md
 - [ ] docs/algorithms/Annotation/ORF_Detection.md
 - [ ] docs/algorithms/Annotation/Promoter_Detection.md
-- [ ] docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md
-- [ ] docs/algorithms/Annotation/Repetitive_Element_Detection.md
-- [ ] docs/algorithms/Assembly/Assembly_Statistics.md
-- [ ] docs/algorithms/Assembly/Consensus_Computation.md
-- [ ] docs/algorithms/Assembly/Coverage_Calculation.md
-- [ ] docs/algorithms/Assembly/De_Bruijn_Graph_Assembly.md
-- [ ] docs/algorithms/Assembly/Error_Correction.md
-- [ ] docs/algorithms/Assembly/Overlap_Layout_Consensus.md
-- [ ] docs/algorithms/Assembly/Quality_Trimming.md
+- [x] docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md  (done-via-concept)
+- [x] docs/algorithms/Annotation/Repetitive_Element_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Assembly_Statistics.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Consensus_Computation.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Coverage_Calculation.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/De_Bruijn_Graph_Assembly.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Error_Correction.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Overlap_Layout_Consensus.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Quality_Trimming.md  (done-via-concept)
 - [ ] docs/algorithms/CANONICAL_MAP.md
-- [ ] docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md
-- [ ] docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md
+- [x] docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md  (done-via-concept)
 - [ ] docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md
-- [ ] docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md
-- [ ] docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md
-- [ ] docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md
+- [x] docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md  (done-via-concept)
+- [x] docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md  (done-via-concept)
+- [x] docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md  (done-via-concept)
 - [ ] docs/algorithms/Codon/Codon_Usage_Statistics.md
-- [ ] docs/algorithms/Codon/Effective_Number_of_Codons.md
-- [ ] docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md
-- [ ] docs/algorithms/Codon_Optimization/CAI_Calculation.md
-- [ ] docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md
-- [ ] docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md
-- [ ] docs/algorithms/Codon_Optimization/Sequence_Optimization.md
-- [ ] docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md
-- [ ] docs/algorithms/Comparative_Genomics/Conserved_Gene_Clusters.md
-- [ ] docs/algorithms/Comparative_Genomics/Dot_Plot_Generation.md
-- [ ] docs/algorithms/Comparative_Genomics/Genome_Comparison.md
-- [ ] docs/algorithms/Comparative_Genomics/Genome_Rearrangement_Detection.md
-- [ ] docs/algorithms/Comparative_Genomics/Ortholog_Identification.md
-- [ ] docs/algorithms/Comparative_Genomics/Reciprocal_Best_Hits.md
-- [ ] docs/algorithms/Comparative_Genomics/Reversal_Distance.md
-- [ ] docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md
+- [x] docs/algorithms/Codon/Effective_Number_of_Codons.md  (done-via-concept)
+- [x] docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md  (done-via-concept)
+- [x] docs/algorithms/Codon_Optimization/CAI_Calculation.md  (done-via-concept)
+- [x] docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md  (done-via-concept)
+- [x] docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Codon_Optimization/Sequence_Optimization.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Conserved_Gene_Clusters.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Dot_Plot_Generation.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Genome_Comparison.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Genome_Rearrangement_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Ortholog_Identification.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Reciprocal_Best_Hits.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Reversal_Distance.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md  (done-via-concept)
 - [ ] docs/algorithms/Complexity/DUST_Score.md
 - [ ] docs/algorithms/Complexity/K-mer_Entropy.md
 - [ ] docs/algorithms/Complexity/Lempel_Ziv_Complexity.md
@@ -547,9 +547,9 @@ Progress: 44 / 1610
 - [ ] docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md
 - [ ] docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md
 - [ ] docs/algorithms/Epigenetics/Methylation_Analysis.md
-- [ ] docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md
-- [ ] docs/algorithms/Extended_Assembly/Contig_Merging.md
-- [ ] docs/algorithms/Extended_Assembly/Scaffolding.md
+- [x] docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md  (done-via-concept)
+- [x] docs/algorithms/Extended_Assembly/Contig_Merging.md  (done-via-concept)
+- [x] docs/algorithms/Extended_Assembly/Scaffolding.md  (done-via-concept)
 - [ ] docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md
 - [ ] docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md
 - [ ] docs/algorithms/FileIO/BED_Parsing.md
@@ -681,7 +681,7 @@ Progress: 44 / 1610
 - [ ] docs/algorithms/ProteinPred/Disorder_Prediction.md
 - [ ] docs/algorithms/ProteinPred/Disorder_Propensity.md
 - [ ] docs/algorithms/ProteinPred/Disordered_Region_Detection.md
-- [ ] docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md
+- [x] docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md  (done-via-concept)
 - [ ] docs/algorithms/ProteinPred/MoRF_Prediction.md
 - [ ] docs/algorithms/Quality/Phred_Score_Handling.md
 - [ ] docs/algorithms/Quality/Quality_Statistics.md

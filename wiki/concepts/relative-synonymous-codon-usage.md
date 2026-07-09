@@ -5,7 +5,9 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md
   - docs/Evidence/CODON-RSCU-001-Evidence.md
-source_commit: 458398bca4eee7e7fa828acbe182e07695db5e28
+  - docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md
+  - docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

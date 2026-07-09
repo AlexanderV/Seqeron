@@ -4,7 +4,8 @@ title: "Coding potential (CPAT hexamer usage-bias score)"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/ANNOT-CODING-001-Evidence.md
-source_commit: 9c179d10f250f0459ff34603c92634ceb60cf68c
+  - docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

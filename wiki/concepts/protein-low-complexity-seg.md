@@ -4,7 +4,8 @@ title: "Protein low-complexity region detection (SEG algorithm)"
 tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-LC-001-Evidence.md
-source_commit: 35bcacb8fa9a2080358233de559d2678d7600b14
+  - docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

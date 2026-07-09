@@ -4,7 +4,8 @@ title: "K-mer spectrum read error correction (two-sided, Musket/Quake)"
 tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md
-source_commit: 4167da78fdda4821db88c34df210958d7da43cde
+  - docs/algorithms/Assembly/Error_Correction.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

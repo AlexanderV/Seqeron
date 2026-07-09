@@ -4,7 +4,8 @@ title: "Quality trimming (BWA/cutadapt running-sum)"
 tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md
-source_commit: 6b24d624caf0d1b12aba8c6569fd25efe0c496ee
+  - docs/algorithms/Assembly/Quality_Trimming.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

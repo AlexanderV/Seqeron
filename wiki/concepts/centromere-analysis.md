@@ -4,7 +4,8 @@ title: "Centromere analysis (arm-ratio class + alpha-satellite / HOR / SF)"
 tags: [chromosome, algorithm]
 sources:
   - docs/Evidence/CHROM-CENT-001-Evidence.md
-source_commit: a973e9b9fb6201395fd56c6177eff279548669e2
+  - docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

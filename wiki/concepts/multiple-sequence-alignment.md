@@ -4,7 +4,8 @@ title: "Multiple sequence alignment (MSA)"
 tags: [alignment, algorithm]
 sources:
   - docs/Evidence/ALIGN-MULTI-001-Evidence.md
-source_commit: 4fc6a948f66d23331a4fe87fd3f5176d56789e13
+  - docs/algorithms/Alignment/Multiple_Sequence_Alignment.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

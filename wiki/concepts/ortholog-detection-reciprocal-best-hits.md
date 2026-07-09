@@ -5,7 +5,9 @@ tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-ORTHO-001-Evidence.md
   - docs/Evidence/COMPGEN-RBH-001-Evidence.md
-source_commit: 29ce869c75abab6c57f5482a2e2ec51750607d3c
+  - docs/algorithms/Comparative_Genomics/Ortholog_Identification.md
+  - docs/algorithms/Comparative_Genomics/Reciprocal_Best_Hits.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

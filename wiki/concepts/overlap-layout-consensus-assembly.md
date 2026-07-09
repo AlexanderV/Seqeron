@@ -4,7 +4,8 @@ title: "Overlap-Layout-Consensus (OLC) assembly"
 tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-OLC-001-Evidence.md
-source_commit: ad9a76ef0b2ef475bdc2d4d9e866bf22676f0f84
+  - docs/algorithms/Assembly/Overlap_Layout_Consensus.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:

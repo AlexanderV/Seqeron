@@ -4,7 +4,8 @@ title: "Global alignment (Needleman–Wunsch)"
 tags: [alignment, algorithm]
 sources:
   - docs/Evidence/ALIGN-GLOBAL-001-Evidence.md
-source_commit: 46d4efa2e08a672c942aa455eeb8b724705081e3
+  - docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md
+source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
 created: 2026-07-09
 updated: 2026-07-09
 graph:
