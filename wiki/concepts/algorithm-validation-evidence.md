@@ -19,6 +19,7 @@ sources:
   - docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md
   - docs/Evidence/ASSEMBLY-STATS-001-Evidence.md
   - docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md
+  - docs/Evidence/CHROM-ANEU-001-Evidence.md
 source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
 created: 2026-07-09
 updated: 2026-07-09
@@ -69,7 +70,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[assembly-cover-001-evidence]], [[assembly-dbg-001-evidence]],
 [[assembly-merge-001-evidence]], [[assembly-olc-001-evidence]],
 [[assembly-scaffold-001-evidence]], [[assembly-stats-001-evidence]],
-[[assembly-trim-001-evidence]]). An
+[[assembly-trim-001-evidence]], [[chrom-aneu-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -83,4 +84,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[overlap-layout-consensus-assembly]] (the anchor for the assembly OLC family), or
 [[scaffolding]] (the anchor for the assembly SCAFFOLD family),
 [[assembly-statistics]] (the anchor for the assembly STATS family), or
-[[quality-trimming-running-sum]] (the anchor for the assembly TRIM family).
+[[quality-trimming-running-sum]] (the anchor for the assembly TRIM family), or
+[[aneuploidy-detection]] (the anchor for the chromosome-analysis copy-number/ploidy family).

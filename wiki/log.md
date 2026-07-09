@@ -390,3 +390,26 @@ Operations:
    sums of (q−threshold); Cock supplies the shared Phred+33 encoding. Follow-up: the Assembly family is
    now fully ingested (9/9); FASTQ-quality-parsing units, if ingested, would relate to this concept.
    graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/CHROM-ANEU-001-Evidence.md → chrom-aneu-001-evidence (source) + 1 concept
+   Seventeenth per-algorithm Evidence file; first of the Chromosome-analysis family. Created the
+   genuinely-distinct concept aneuploidy-detection — the anchor for the chromosome copy-number/ploidy
+   family (karyotype/centromere/arm-ratio/synteny units will get their own concepts). Two-stage
+   algorithm: per-bin copy number from read depth (logRatio = log2(observedDepth/medianDepth), CN =
+   round(2^logRatio × 2) clamped [0,10], ×2 rescales the ratio onto the diploid baseline so ratio
+   1.0 → CN 2) then whole-chromosome classification requiring a dominant CN across ≥ minFraction
+   (default 80%) of bins, returning only CN ≠ 2 (nullisomy/monosomy/trisomy/tetrasomy/pentasomy/
+   "Copy number = N"); the ≥80% gate is also the mosaicism tolerance. Confidence = 1 − min(1,
+   |expected − observed|) with expected = CN/2, observed = 2^logRatio; = 1.0 at every integer-CN
+   ratio (S1 boundary test 0.0/0.5/1.0/1.5/2.0). Concise source page for the artifact (Wikipedia
+   Aneuploidy + CNV + Griffiths 2000 + Santaguida-Amon 2015 + McCarroll-Altshuler 2007 sources;
+   Down/Edwards/Patau/Turner/Klinefelter clinical oracles). Linked new source + concept into the
+   algorithm-validation-evidence hub and added CHROM-ANEU to that hub's frontmatter. Two documented
+   limitations (artifact §7): sex chromosomes not special-cased (X/Y scored vs CN=2 baseline, normal
+   male single-X would flag monosomic — research-grade simplification, autosome-focused) and partial
+   aneuploidy detected per-bin but not whole-chromosome (needs consistent CN ≥80% bins). Contradictions:
+   none — Wikipedia supplies the definition + CN terminology ladder, the depth→CN model and confidence
+   formula are implementation definitions the sources don't contradict. Follow-up: remaining
+   Chromosome-analysis units (karyotype, centromere/telomere, arm-ratio, synteny, GC-skew) warrant their
+   own concepts when ingested.
+   graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
