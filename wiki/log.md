@@ -1282,3 +1282,24 @@ Operations:
    including overlaps are reported.
    graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
    source-page [[wikilinks]] mentions auto-derived)
+
+- 2026-07-09 — ingest `docs/Evidence/GENOMIC-ORF-001-Evidence.md` (test unit GENOMIC-ORF-001,
+  Open Reading Frame detection). Created source [[genomic-orf-001-evidence]] + NEW concept
+  [[open-reading-frame-detection]] (no prior ORF/gene-prediction concept existed). Algorithm =
+  `GenomicAnalyzer.FindOpenReadingFrames`: six-frame ATG→first-in-frame-stop enumeration, standard
+  code (start ATG / stops TAA-TAG-TGA), reported span INCLUDES the stop (Length%3==0) while the
+  translated protein EXCLUDES it; THE correctness rule = every in-frame ATG reaching a stop is
+  reported so nested ORFs sharing a stop are both returned (Rosalind MGMTPRLGLESLLE/MTPRLGLESLLE),
+  ATG-with-no-stop→none; minLength in NUCLEOTIDES inclusive (default 100), 0-based Position / Frame
+  1–3 / IsReverseComplement, INV-01..05, O(n²) worst / O(n) typical. Oracles: Rosalind_99→4 distinct
+  proteins, ATGAAAAAATAA→MKK (pos 0 / frame 1). Sources Rosalind + Wikipedia + NCBI ORFfinder +
+  NCBI transl_table=1. Three source-anchored assumptions (stop-inclusive span / nt minLength /
+  ATG-only), deviations None (one fixed pre-existing greedy bug). Scope-disambiguated from the
+  annotation-layer `GenomeAnnotator.FindOrfs` (ANNOT-ORF-001, ATG/GTG/TTG + aa-length + strand/start
+  flags) and `Translator.FindOrfs` (genetic-code-parameterized) — deliberately NOT contract-equivalent.
+  Wired into algorithm-validation-evidence hub (frontmatter sources + source-list + distinct-concept
+  list) and index (source + concept lines). Reconciled backlog: moved Open_Reading_Frame_Detection.md
+  from pending Analysis (2→1) to covered-via-concept (45→46 covered / 200→199 pending, 31 domains).
+  Contradictions: none — Rosalind/Wikipedia/NCBI agree on six-frame ATG→stop, distinct-protein return.
+  graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
+  source-page [[wikilinks]] mentions auto-derived)

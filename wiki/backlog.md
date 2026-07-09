@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **45** algorithm docs covered-via-concept, **200** pending across 31 domains.
+Status at generation: **46** algorithm docs covered-via-concept, **199** pending across 31 domains.
 
 ## Covered via concept (done)
 
@@ -31,6 +31,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md` | [[global-alignment-needleman-wunsch]] |
 | `docs/algorithms/Alignment/Multiple_Sequence_Alignment.md` | [[multiple-sequence-alignment]] |
 | `docs/algorithms/Alignment/Semi_Global_Alignment.md` | [[semi-global-alignment-fitting]] |
+| `docs/algorithms/Analysis/Open_Reading_Frame_Detection.md` | [[open-reading-frame-detection]] |
 | `docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
 | `docs/algorithms/Annotation/Repetitive_Element_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Assembly/Assembly_Statistics.md` | [[assembly-statistics]] |
@@ -84,11 +85,10 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | --- | --- |
 | `docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md` | `local-alignment-smith-waterman` |
 
-### Analysis (2)
+### Analysis (1)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Analysis/Open_Reading_Frame_Detection.md` | `open-reading-frame-detection` |
 | `docs/algorithms/Analysis/Sequence_Similarity.md` | `sequence-similarity` |
 
 ### Annotation (4)
