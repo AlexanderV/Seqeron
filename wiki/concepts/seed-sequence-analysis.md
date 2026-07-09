@@ -32,8 +32,9 @@ membership**. This is the **third ingested unit of the MiRNA family** (test unit
 and [[algorithm-validation-evidence]] describes the artifact pattern. The seed is the primary
 determinant of animal target recognition (Bartel 2009; Lewis et al. 2005), so this unit produces the
 normalised seed string that the sibling pairing unit [[rna-base-pairing]] turns into a target motif
-(`GetReverseComplement`) and that target-site prediction (`FindTargetSites`, MIRNA-TARGET-001 — a
-future neighbour) consumes. It is **string-level analysis, not binding prediction**.
+(`GetReverseComplement`) and that [[mirna-target-site-prediction|target-site prediction]]
+(`FindTargetSites`, MIRNA-TARGET-001) **depends on** to seek the seed's reverse complement on the
+mRNA. It is **string-level analysis, not binding prediction**.
 
 The unit exposes three operations on `MiRnaAnalyzer`:
 
@@ -57,7 +58,7 @@ ladder (**8mer** = 2-8 + A opposite pos 1; **7mer-m8** = 2-8; **7mer-A1** = 2-7 
 **6mer** = 2-7) rests on that 6-vs-7 distinction (Agarwal et al. 2015; TargetScan). This unit stores a
 single 7-nt (2-8) region and calls it "the canonical seed," collapsing that distinction — matching a
 seed to a target and assigning a site class is deliberately **out of scope** and belongs to
-target-site prediction (MIRNA-TARGET-001).
+[[mirna-target-site-prediction|target-site prediction]] (MIRNA-TARGET-001).
 
 ## 2. The `MiRna` record — `CreateMiRna`
 
@@ -100,7 +101,7 @@ offset/centered seeds, **isomiR-shifted seeds**, and broader curated family defi
 represented — it is an operational grouping inside this repository, not a complete biological family
 taxonomy (use miRBase / TargetScan for curated families). Seed→target-motif reverse complement is
 owned by [[rna-base-pairing]] (`GetReverseComplement`); site-type (8mer/7mer/6mer) classification and
-binding-efficacy scoring belong to target-site prediction (MIRNA-TARGET-001, not yet ingested). **No
+binding-efficacy scoring belong to [[mirna-target-site-prediction|target-site prediction]] (MIRNA-TARGET-001). **No
 source contradictions** — Bartel 2009, Lewis 2005, Agarwal 2015, TargetScan, and miRBase agree on the
 seed definition and family concept; the only recorded item is the intentional exact-7-mer-equality
 simplification, with the 2-7-vs-2-8 terminology collapse noted above.

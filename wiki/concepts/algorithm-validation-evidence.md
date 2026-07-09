@@ -67,7 +67,8 @@ sources:
   - docs/Evidence/MIRNA-PAIR-001-Evidence.md
   - docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md
   - docs/Evidence/MIRNA-SEED-001-Evidence.md
-source_commit: 989c8a14c92271602bfd8ee10f709009b73178b3
+  - docs/Evidence/MIRNA-TARGET-001-Evidence.md
+source_commit: aa11631f0f0b525bc218f877ce18b6e69d373542
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -140,7 +141,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[meta-func-001-evidence]], [[meta-pathway-001-evidence]],
 [[meta-prof-001-evidence]], [[meta-resist-001-evidence]],
 [[meta-taxa-001-evidence]], [[mirna-pair-001-evidence]],
-[[mirna-precursor-001-evidence]], [[mirna-seed-001-evidence]]). An
+[[mirna-precursor-001-evidence]], [[mirna-seed-001-evidence]],
+[[mirna-target-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -198,4 +200,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[significant-taxa-detection]] (the Metagenomics family's differential-abundance unit, META-TAXA-001 — the per-taxon two-group **Mann–Whitney U / Wilcoxon rank-sum** test `MetagenomicsAnalyzer.MannWhitneyU` / `FindSignificantTaxa` with midrank tie correction, optional 0.5 continuity correction, and the asymptotic normal-approximation two-tailed p-value `2·(1−Φ(z))`; consumes the per-sample [[taxonomic-profile]] abundance vectors, distinct from the hypergeometric [[pathway-enrichment-ora]] and the Fisher's-exact [[differentially-methylated-regions]] by its rank-sum test), or
 [[rna-base-pairing]] (the MiRNA family anchor + shared RNA base-pairing primitive, MIRNA-PAIR-001 — the Watson-Crick {A-U,G-C} + standard G-U wobble pairing rule (`CanPair`/`IsWobblePair`), the antiparallel seed reverse complement (`GetReverseComplement`), and the ungapped antiparallel miRNA-target duplex `AlignMiRnaToTarget` with a sign-only-reliable simplified Turner-2004 stacking ΔG; the reusable pairing rule that RNA secondary-structure classification also builds on, distinct from target-site efficacy prediction), or
 [[pre-mirna-hairpin-detection]] (the MiRNA family's precursor-hairpin unit, MIRNA-PRECURSOR-001 — `MiRnaAnalyzer.FindPreMiRnaHairpins` stem-loop detection (consecutive-pairing stem ≥18 bp, loop 3-25 nt, mature/star arm extraction, dot-bracket + Turner ΔG) plus three opt-in production paths: real-MFE-fold assessment `AssessHairpinByMfe` (RNA-STRUCT-001 Zuker–Stiegler, single-hairpin + stem ≥16 + MFEI ≥0.85 — detects the natural miRBase precursors the heuristic rejects), Drosha/Dicer cleavage-ruler prediction `PredictDroshaDicerCleavage`, and a trained logistic-regression natural-vs-background classifier `ClassifyPreMiRna`; depends on the [[rna-base-pairing]] pairing primitive), or
-[[seed-sequence-analysis]] (the MiRNA family's seed-extraction unit, MIRNA-SEED-001 — `MiRnaAnalyzer.GetSeedSequence`/`CreateMiRna`/`CompareSeedRegions`: string-level extraction of the 7-nt positions-2-8 seed, the normalised `MiRna` record, and exact-seed **family equality** via a Hamming comparison; the seed determines animal targeting and feeds the [[rna-base-pairing]] `GetReverseComplement` seed→target motif and the future target-site predictor, distinct from base-pairing and from site-type classification).
+[[seed-sequence-analysis]] (the MiRNA family's seed-extraction unit, MIRNA-SEED-001 — `MiRnaAnalyzer.GetSeedSequence`/`CreateMiRna`/`CompareSeedRegions`: string-level extraction of the 7-nt positions-2-8 seed, the normalised `MiRna` record, and exact-seed **family equality** via a Hamming comparison; the seed determines animal targeting and feeds the [[rna-base-pairing]] `GetReverseComplement` seed→target motif and the target-site predictor, distinct from base-pairing and from site-type classification), or
+[[mirna-target-site-prediction]] (the MiRNA family's target-site-prediction unit, MIRNA-TARGET-001 — the **completing** unit — `MiRnaAnalyzer.FindTargetSites` two-pass antiparallel seed-complement scan classifying the Bartel/TargetScan hierarchy (8mer/7mer-m8/7mer-A1/6mer + offset 6mer, higher classes suppress overlapping offset-6mer) with a heuristic site score, plus the opt-in fully-source-traced but partial TargetScan **context++** regression scorer `ScoreTargetSiteContextPlusPlus` (per-site-type coefficients, min-max-scaled continuous + raw indicator features; computed Local_AU/3P_score/Min_dist/Len_3UTR/Off6m + `ComputeTa3Utr` TA=log10 N + McCaskill-partition SA + Friedman-Bls PCT; SPS/Len_ORF/ORF8m/PCT-sigmoid caller-supplied); depends on [[seed-sequence-analysis]] (the seed determines targeting) and [[rna-base-pairing]] (`GetReverseComplement` + `AlignMiRnaToTarget` duplex)).

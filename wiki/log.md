@@ -1826,3 +1826,24 @@ Operations:
   pending→covered (67→68 covered / 178→177 pending; §MiRNA 2→1). graph: +2 nodes (source + concept),
   +2 typed edges (seed-sequence-analysis relates_to test-unit-registry + relates_to rna-base-pairing);
   body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] ingest | docs/Evidence/MIRNA-TARGET-001-Evidence.md → mirna-target-001-evidence (source) + 1 concept
+   miRNA target-site prediction — the FOURTH and FINAL MiRNA-family unit (COMPLETES the family).
+   Created concept [[mirna-target-site-prediction]]: two-pass antiparallel seed-RC scan classifying the
+   Bartel/TargetScan hierarchy (8mer=2-8+A1 / 7mer-m8=2-8 / 7mer-A1=2-7+A1 / 6mer=2-7 / offset-6mer=3-8,
+   higher classes suppress overlapping offset-6mer), heuristic score (base 1.0/0.52/0.32/0.15/0.10,
+   +0.05 >10 matches, −0.01/mismatch, clamp [0,1]) + heuristic ΔG; opt-in TargetScan context++ scorer
+   (per-site-type MLR, min-max-scaled continuous + raw indicators; computed Local_AU/3P_score/Min_dist/
+   Len_3UTR/Off6m + ComputeTa3Utr TA=log10 N + McCaskill-partition SA + Friedman-Bls PCT; SPS/Len_ORF/
+   ORF8m/PCT-sigmoid caller-supplied → partial CS + OmittedFeatures). Sources: Bartel 2009 + Lewis 2005 +
+   Grimson 2007 + Agarwal 2015 + Garcia 2011 + Friedman 2009 + McCaskill/ViennaRNA + TargetScan 8 +
+   miRBase. let-7a GAGGUAG→CUACCUC site oracles; 8mer partial CS −0.7561913315126536; TA=log10(5)=0.69897.
+   No source contradictions (heuristic-score + partial-CS + unemitted Centered/Supplementary enum are
+   intentional simplifications). Hub [[algorithm-validation-evidence]]: added MIRNA-TARGET to frontmatter
+   sources (bumped source_commit to HEAD aa11631f) + source-list + concept-list. Reciprocal nav links added
+   on [[seed-sequence-analysis]] (target now depends_on it) and [[rna-base-pairing]] (finder depends on
+   GetReverseComplement + AlignMiRnaToTarget). index.md: +1 source +1 concept. Backlog: moved
+   MiRNA/Target_Site_Prediction.md pending→covered (68→69 covered / 177→176 pending; §MiRNA now 0, 30→29
+   domains). graph: +2 nodes (source + concept), +3 typed edges (mirna-target-site-prediction relates_to
+   test-unit-registry + depends_on seed-sequence-analysis + depends_on rna-base-pairing); body [[wikilinks]]
+   mentions auto-derived.

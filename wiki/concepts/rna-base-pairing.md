@@ -109,7 +109,8 @@ Worked oracles:
 A [[scientific-rigor|research-grade]] correctness reference for the base-pairing rule, seed reverse
 complement, and the ungapped antiparallel duplex. **It is a pairing primitive, not target-site
 prediction:** seed-context efficacy scoring and site-type (8mer / 7mer / 6mer) classification are out
-of scope — those belong to `MiRnaAnalyzer.FindTargetSites` (MIRNA-TARGET-001). The **A-opposite-
+of scope — those belong to [[mirna-target-site-prediction]] (`MiRnaAnalyzer.FindTargetSites`,
+MIRNA-TARGET-001), which **depends on** this concept's `GetReverseComplement` + `AlignMiRnaToTarget`. The **A-opposite-
 position-1** preference (Agarwal et al. 2015) is an **Argonaute recognition event, not base pairing**,
 so it is deliberately **not** represented here. The **free-energy magnitude is approximate**
 (stacking-only) — do not treat it as a calibrated thermodynamic ΔG; the aligner models no bulges,
