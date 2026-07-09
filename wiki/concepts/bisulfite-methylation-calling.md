@@ -28,7 +28,10 @@ how those per-CpG β-values are *produced* from bisulfite reads). A third Epigen
 rather than DNA methylation. A fourth sibling, [[cpg-island-detection]], is the sequence-only unit
 that *locates* the CpGs this caller scores (via the shared `FindCpGSites`). A fifth sibling,
 [[differentially-methylated-regions]], *consumes* the per-CpG β-values this caller produces to compare
-methylation between two samples (methylKit tiling windows + Fisher's exact test). Validated under test unit
+methylation between two samples (methylKit tiling windows + Fisher's exact test). A sixth sibling,
+[[methylation-context-classification]], is the sequence-only classifier that partitions cytosines into
+CpG/CHG/CHH contexts (the CHG/CHH non-CpG classification this caller does *not* do from reads) and
+shares this unit's `GenerateMethylationProfile` aggregator. Validated under test unit
 **EPIGEN-BISULF-001**; the record is [[epigen-bisulf-001-evidence]], [[test-unit-registry]] tracks the
 unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
 
@@ -111,7 +114,8 @@ A [[research-grade-limitations|research-grade]] correctness reference for the co
 calling formulas, **not** a production BS-seq read aligner. **Not implemented:** complementary-strand
 conversion/merging; bisulfite non-conversion-rate correction; sequencing-error filtering; statistical
 significance testing; **CHG/CHH calling from reads** (the caller targets CpG sites — the profile
-aggregator still buckets CHG/CHH sites if supplied). One accepted API-contract deviation: the registry
+aggregator still buckets CHG/CHH sites if supplied; sequence-only CpG/CHG/CHH *context* classification
+is [[methylation-context-classification]]). One accepted API-contract deviation: the registry
 signature `CalculateMethylationFromBisulfite(bsSeq, refSeq)` is realised as `(referenceSequence,
 bisulfiteReads)` because per-site coverage needs per-read multiplicity that a single converted string
 cannot carry. For full-genome BS-seq, use dedicated pipelines (Bismark, methylKit). No source

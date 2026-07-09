@@ -1225,3 +1225,21 @@ Operations:
    reference, and the Fisher hypergeometric definition are mutually consistent.
    graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
    source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/EPIGEN-METHYL-001-Evidence.md → epigen-methyl-001-evidence (source) + methylation-context-classification (concept)
+   Sixth and FINAL unit of the Epigenetics family — completes it. New source page epigen-methyl-001-evidence
+   + new concept methylation-context-classification (CpG/CHG/CHH sequence-context classifier). Kept as its
+   own concept (not folded into bisulfite): the distinct, wiki-worthy method is the IUPAC H="not G"
+   trinucleotide classification of NON-CpG cytosines (CHG/CHH), which [[bisulfite-methylation-calling]]
+   explicitly does not call from reads. The shared GenerateMethylationProfile (Schultz 2012 weighted level)
+   is documented on bisulfite and only referenced here (no duplication). Sources: Cornish-Bowden 1985 IUPAC
+   (H=A/C/T), Krueger-Andrews 2011 Bismark (CpG/CHG/CHH discrimination, CpG/CHG symmetric vs CHH asymmetric),
+   Lister 2009 (non-CG mCHG/mCHH prevalence, IMR90 99.98% CG vs H1 ES ~25% non-CG), Schultz 2012 (weighted
+   level). Oracles CGACAGCAA→CpG@0/CHG@3/CHH@6 + weighted (8+2)/(10+10)=0.5. Two assumptions (sequence-only
+   level=0 placeholder, 0.5 MethylatedCpG count cutoff descriptive-only). Cross-linked all Epigenetics
+   siblings (bisulfite tightest — added reciprocal cross-links on bisulfite's intro + not-implemented note);
+   wired into algorithm-validation-evidence hub (frontmatter sources + source-list + distinct-concept list)
+   and index (source + concept lines). Reconciled backlog: moved Methylation_Analysis.md from pending
+   Epigenetics (1→0, section removed) to covered-via-concept (42→43 covered / 203→202 pending, 34→33 domains);
+   Epigenetics family now 6/6 covered. Contradictions: none — IUPAC, Bismark, Lister 2009, Schultz 2012 mutually consistent.
+   graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry; source-page [[wikilinks]] mentions auto-derived)
