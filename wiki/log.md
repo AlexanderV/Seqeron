@@ -465,3 +465,27 @@ Operations:
    architecture/nomenclature notes not departures. Follow-up: remaining Chromosome-analysis units
    (telomere, arm-ratio, synteny, GC-skew) warrant their own concepts when ingested.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to aneuploidy-detection)
+
+## [2026-07-09] ingest | docs/Evidence/CHROM-SYNT-001-Evidence.md → chrom-synt-001-evidence (source) + 1 concept
+   Twentieth per-algorithm Evidence file; fourth of the Chromosome-analysis family (after ANEU, CENT,
+   KARYO). Created the genuinely-distinct concept synteny-and-rearrangement-detection — deliberately
+   named as the SHARED synteny anchor so the upcoming comparative-genomics COMPGEN-SYNTENY-001 unit
+   reuses it rather than re-deriving syntenic-block definitions. Two algorithms: `FindSyntenyBlocks`
+   (group ortholog pairs by chromosome pair, sort by reference position, identify collinear runs, merge
+   consecutive segments under maxGap, emit blocks ≥ minGenes; each block carries strand '+'/'-',
+   GeneCount, and SequenceIdentity=NaN — not computable from coordinate-only input per MCScanX; I1–I5)
+   and `DetectRearrangements` (sort blocks by ref chr/position, compare adjacent pairs: different target
+   chr → Translocation, same target chr + different strand → Inversion, gap asymmetry → Deletion,
+   overlapping source coords + different targets → Duplication; Type recognized-value + Position1 non-null
+   + Chromosome2-differs invariants). Sources: Wikipedia Synteny/Comparative-genomics/Chromosomal-
+   rearrangement + MCScanX (Wang 2012), SyRI (Goel 2019), Liu 2018, MUMmer. Oracles: collinear-forward
+   (4 genes chr1→chrA → 1 block '+', 1000–8000), inverted block ('-'), translocation (chrA→chrB @ 50000),
+   inversion (positions 50000/60000, size 10000). Captured artifact §7 coverage-strengthen (8 weak→exact,
+   2 duplicate removed, 1 missing M16 maxGap-split implemented). Concise source page for the artifact.
+   Linked new source + concept into the algorithm-validation-evidence hub and added CHROM-SYNT to that
+   hub's frontmatter; added a reciprocal sibling nav link from aneuploidy-detection. Contradictions: none
+   — the artifact's Deviations section is None; Wikipedia synteny/rearrangement definitions and MCScanX/
+   SyRI tool descriptions agree; SequenceIdentity=NaN is MCScanX-backed. Follow-up: remaining Chromosome-
+   analysis units (telomere, arm-ratio, GC-skew) warrant their own concepts; COMPGEN-SYNTENY-001 shares
+   synteny-and-rearrangement-detection when ingested.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to aneuploidy-detection)

@@ -23,8 +23,9 @@ Detecting an **abnormal chromosome copy number** — the canonical aneuploidies 
 (monosomy, trisomy) — from sequencing **read depth**. This is the first ingested unit of the
 **Chromosome-analysis** family and its copy-number/ploidy anchor; sibling chromosome-family units get
 their own concepts — see [[centromere-analysis]] for the centromere / alpha-satellite anchor and
-[[karyotype-analysis]] for descriptor-based karyotyping + ploidy detection; telomere,
-arm-ratio, and synteny follow. Validated under test unit
+[[karyotype-analysis]] for descriptor-based karyotyping + ploidy detection and
+[[synteny-and-rearrangement-detection]] for the synteny-block / rearrangement anchor; telomere and
+arm-ratio follow. Validated under test unit
 **CHROM-ANEU-001**; the validation record is [[chrom-aneu-001-evidence]], and [[test-unit-registry]]
 tracks the unit. See [[algorithm-validation-evidence]] for the artifact pattern.
 
