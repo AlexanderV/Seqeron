@@ -27,7 +27,9 @@ record is [[onco-sig-001-evidence]]; [[test-unit-registry]] tracks the unit and
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern.
 
 This unit is **only the catalog / classification**. Fitting the spectrum against COSMIC reference
-signatures (NMF extraction / NNLS exposure estimation) is a separate downstream concern.
+signatures (NMF extraction / NNLS exposure estimation) is a separate downstream concern, synthesized in
+[[mutational-signature-fitting-and-extraction]] (ONCO-SIG-002), which consumes this catalog's 96-channel
+spectrum.
 
 ## The 96 channels: 6 × 4 × 4
 
@@ -95,7 +97,8 @@ mutation-pattern biomarkers and is orthogonal to the copy-number-scar
 [[homologous-recombination-deficiency-score]] and the immunotherapy biomarker
 [[microsatellite-instability-detection]]; a high-`C>T`-at-CpG or SBS-specific spectrum is the kind of signal
 those interpretation layers ([[cancer-variant-tier-classification-amp-asco-cap]],
-[[clinical-actionability-oncokb-levels]]) can act on once exposures are fit.
+[[clinical-actionability-oncokb-levels]]) can act on once exposures are fit by
+[[mutational-signature-fitting-and-extraction]].
 
 ## Scope and limitations
 

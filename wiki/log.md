@@ -2523,3 +2523,22 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    bumped to 6fdbd84). Index updated (1 source + 1 concept). One cosmetic label-rendering assumption; no
    contradictions.
    graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-SIG-002-Evidence.md
+   ONCO-SIG-002 (mutational signature fitting/refitting + de-novo NMF extraction), thirtieth Oncology
+   unit and the downstream deconvolution partner of ONCO-SIG-001. Genuinely distinct from the SBS-96
+   catalog — SIG-001's page explicitly deferred "NMF extraction / NNLS exposure estimation" as a separate
+   concern, and no existing concept covers signature fitting. Created source onco-sig-002-evidence + new
+   concept mutational-signature-fitting-and-extraction: supervised NNLS refit (min ‖Sx−d‖², x≥0;
+   Lawson-Hanson active-set clamp-and-refit → S=[[1,1],[0,1]],d=[0,1]⇒[0,0.5]; cosine-≥0.95 reconstruction
+   gate; raw + proportion exposures) and unsupervised de-novo NMF (Lee & Seung Frobenius+KL multiplicative
+   updates, monotone non-increase, V≈WH blind-source-separation, COSMIC L1-normalized signatures), shared
+   cosine metric (zero-norm→0.0 convention), Brunet-2004 cophenetic + SigProfiler silhouette rank
+   selection, greedy best-cosine COSMIC reference matching; NMF non-convex→local-minimum / permutation-
+   scale ambiguity / ε-guarded denominators sharp edges. Cross-linked the catalog concept
+   sbs96-mutational-signature-catalog both ways (its two "separate downstream concern" mentions now point
+   here; new concept depends_on it). Wired into algorithm-validation-evidence hub (frontmatter source +
+   summary link + anchor bullet, source_commit bumped to 8cb9903). Index updated (1 source + 1 concept).
+   Five modelling assumptions (Frobenius objective, seeded init, exposure proportions, zero-vector cosine,
+   consensus/silhouette/greedy matching); no source contradictions.
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; concept depends_on sbs96-mutational-signature-catalog)
