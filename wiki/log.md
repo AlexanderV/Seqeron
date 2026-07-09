@@ -165,3 +165,24 @@ Operations:
    family are ingested, share this concept rather than duplicating; CAI/ENC/etc. may each warrant
    their own concept.
    graph: +2 nodes, +1 typed edges (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/ANNOT-REPEAT-001-Evidence.md → annot-repeat-001-evidence (source) + 1 concept
+   Seventh per-algorithm Evidence file. Created the genuinely-distinct concept
+   repetitive-element-detection, deliberately scoped as the shared anchor for the whole
+   repeats/tandem family (GENOMIC-REPEAT, GENOMIC-TANDEM, microsatellite/STR, low-complexity)
+   so future repeat ingests link in rather than re-deriving definitions. Covers the three
+   sub-problems: tandem repeats (head-to-tail, ≥2 copies, STR 1-6bp / minisatellite 10-60bp,
+   primitive-shortest-period rule), inverted repeats (IUPACpal grammar W W̄ᴿ / W G W̄ᴿ, imperfect
+   δ_H ≤ k, zero-gap = even-length palindrome), and RepeatMasker-class assignment (SINE/LINE/LTR/
+   DNA/Satellite/Simple_repeat/Low_complexity/Small RNA/Unknown). Concise source page for the
+   ANNOT-REPEAT-001 artifact (Wikipedia Tandem/Inverted + IUPACpal Hampson 2021 PMC7866733 +
+   RepeatMasker sources; ATTCGATTCGATTCG/GAATTC/TTACGAAAAAACGTAA datasets; six MUST tests).
+   Captured the one assumption: ClassifyRepeat matches by exact-substring containment (element ⊆
+   query, longest match, one-directional) with motif-size Simple_repeat fallback, NOT Smith-
+   Waterman-Gotoh homology against a curated Repbase library — a Framework/Simplified limitation,
+   vocabulary source-backed. Linked new source + concept into the algorithm-validation-evidence hub
+   and added ANNOT-REPEAT to that hub's frontmatter. Contradictions: none (Wikipedia & IUPACpal IR
+   definitions are the same grammar; RepeatMasker class list is shared vocabulary). Follow-up: when
+   GENOMIC-REPEAT/GENOMIC-TANDEM and other repeat-family units are ingested, share
+   repetitive-element-detection rather than duplicating.
+   graph: +2 nodes, +1 typed edges (relates_to test-unit-registry)

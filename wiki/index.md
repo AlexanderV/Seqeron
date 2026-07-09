@@ -24,6 +24,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[align-stats-001-evidence]] — evidence artifact for test unit ALIGN-STATS-001 (identity/similarity/gaps + srspair formatting): EMBOSS needle/AlignFormats + BLAST + pseqsid sources, denominator-includes-gaps rule, three datasets.
 - [[annot-coding-001-evidence]] — evidence artifact for test unit ANNOT-CODING-001 (CPAT hexamer coding-potential score): CPAT paper + FrameKmer.py + EMBOSS tcode sources, mean-ln-ratio formula, ±1 pseudo-scores, worked example 0.3466.
 - [[annot-codonusage-001-evidence]] — evidence artifact for test unit ANNOT-CODONUSAGE-001 (RSCU): LIRMM + PMC2528880 + Sharp & Li 1986 + CodonU sources, n_i·x/Σx formula, Leu 3/1.5/1.5/0/0/0 example, pooled-counts + sense-codons-only, no CAI pseudocount.
+- [[annot-repeat-001-evidence]] — evidence artifact for test unit ANNOT-REPEAT-001 (repeat detection/classification): Wikipedia + IUPACpal + RepeatMasker sources; tandem/inverted/gapped-IR + repeat-class vocab; exact-substring-not-Smith-Waterman ClassifyRepeat assumption.
 
 ## Concepts
 
@@ -42,6 +43,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[alignment-statistics]] — post-alignment metrics: percent identity/similarity/gaps (EMBOSS/BLAST convention, denominator includes gaps, positive-score ⇒ similar) and srspair three-line markup.
 - [[coding-potential-hexamer-score]] — CPAT hexamer usage-bias coding-potential score: mean of ln(coding/noncoding) over in-frame hexamers (wordSize 6/step 3), sign convention, ±1 pseudo-scores; Fickett TESTCODE as not-implemented alternative.
 - [[relative-synonymous-codon-usage]] — RSCU (Sharp & Li 1986) codon-usage-bias measure: n_i·x/Σx normalization, 1.0=no bias, bounded [0,n_i], Σ-over-family=n_i invariant; pooled counts, sense codons only; base anchor of the codon-usage family (vs CAI's 0.5 pseudocount).
+- [[repetitive-element-detection]] — repeats/tandem family anchor: tandem (head-to-tail, ≥2 copies, primitive unit), inverted (W·G·W̄ᴿ / zero-gap palindrome, IUPACpal), and RepeatMasker-class assignment; ClassifyRepeat = exact-substring containment, not Smith-Waterman homology.
 
 ## Gotchas
 
