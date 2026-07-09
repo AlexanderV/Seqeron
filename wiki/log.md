@@ -145,3 +145,23 @@ Operations:
    no-scorable-hexamer sentinel (affects meaningless empty scores only). Follow-up: Fickett
    TESTCODE recorded as a related not-implemented alternative if it is ever ingested.
    graph: +2 nodes, +1 typed edges (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md → annot-codonusage-001-evidence (source) + 1 concept
+   Sixth per-algorithm Evidence file; first of the large codon-usage family (CODON-CAI/ENC/OPT/
+   RARE/RSCU/STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON still to come). Created the
+   genuinely-distinct concept relative-synonymous-codon-usage (RSCU, Sharp & Li 1986): per-codon
+   codon-usage-bias normalization RSCU = n_i·x_{i,j}/Σx over a synonymous family; 1.0=no bias,
+   >1 preferred / <1 under-represented, bounded [0,n_i], Σ-over-family=n_i invariant; counts
+   pooled across all reference sequences, sense codons only (forward_table), single-codon Met/Trp
+   always 1.0, unobserved family → 0.0; Standard NCBI table 1 default. Deliberately positioned as
+   the base anchor of the codon family so future codon ingests link in; distinguished from CAI's
+   0.5 pseudocount (Sharp & Li 1987, CAI-only, NOT applied to plain RSCU). Concise source page for
+   the ANNOT-CODONUSAGE-001 artifact (LIRMM formula page + PMC2528880 + Sharp & Li 1986 primary +
+   CodonU internal_comp.py::rscu + NCBI table 1 sources; Leu CTTCTTCTGTTA → 3/1.5/1.5/0/0/0,
+   uniform Phe → 1.0, Met → 1.0 datasets; two API-default assumptions). Linked new source + concept
+   into the algorithm-validation-evidence hub and added ANNOT-CODONUSAGE to that hub's frontmatter.
+   Contradictions: none — LIRMM formula, PMC2528880 definition, and CodonU code are algebraically
+   identical. Follow-up: when CODON-RSCU-001 (an apparent RSCU duplicate) and the rest of the codon
+   family are ingested, share this concept rather than duplicating; CAI/ENC/etc. may each warrant
+   their own concept.
+   graph: +2 nodes, +1 typed edges (relates_to test-unit-registry)
