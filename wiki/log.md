@@ -364,3 +364,29 @@ Operations:
    largest-first inclusive-≥ definitions and QUAST au_metric matches Heng Li's ΣL²/ΣL exactly.
    Follow-up: remaining Assembly unit (TRIM) warrants its own page when ingested.
    graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md → assembly-trim-001-evidence (source) + 1 concept
+   Sixteenth per-algorithm Evidence file; ninth and last of the Assembly family (after CONSENSUS,
+   CORRECT, COVER, DBG, MERGE, OLC, SCAFFOLD, STATS). Created the genuinely-distinct concept
+   quality-trimming-running-sum — the anchor for the assembly TRIM family, deliberately positioned as
+   a read-QC *preprocessing* step (operates on one read's Phred quality string, reconstructs no
+   sequence) upstream of error-correction and the DBG/OLC build steps. Running-sum core traced
+   verbatim to cutadapt algorithm docs (which state the algorithm "is the same as the one used by
+   BWA"): subtract the cutoff from every quality, compute partial sums from each index to the 3' end,
+   cut at the argmin; "repeat for the other end" on the 5' pass. BWA `bwa_trim_read` (bwaseqio.c, Heng
+   Li) gives the algebraically-equivalent argmax form (accumulate threshold−(q−33) from the 3' end,
+   track argmax max_l) plus two BWA-specifics: `s<0` early break and the `BWA_MIN_RDLEN=35` hard floor
+   (bwtaln.h). Phred+33 decode `q = ASCII−33` from Cock et al. 2010 (NAR, rank 1). Published oracle:
+   qualities 42,40,26,27,8,7,11,4,2,3 (`KI;<)(,%#$`) @ threshold 10 → partial sums min −25 at index 4
+   → first 4 bases kept (with full ASCII derivation). Failure modes: threshold<1 disables (BWA guard /
+   cutoff 0 → nothing trimmed), all-high unchanged, all-low fully removed, good-base-among-bad retained
+   only if no new minimum reached (cutadapt "refinement"). Two assumptions, both outside the running-sum
+   optimum: both-end pass order (3'-then-5' on the surviving window — not numerically significant since
+   passes act on disjoint ends), and the `minLength` post-trim filter (cutadapt `--minimum-length`,
+   drops trimmed length < minLength — a documented downstream filter, not the core). Concise source page
+   for the artifact. Linked new source + concept into the algorithm-validation-evidence hub and added
+   ASSEMBLY-TRIM to that hub's frontmatter. Contradictions: none — cutadapt explicitly identifies its
+   algorithm with BWA's; the BWA argmax of accumulated (threshold−q) is the argmin of cutadapt's partial
+   sums of (q−threshold); Cock supplies the shared Phred+33 encoding. Follow-up: the Assembly family is
+   now fully ingested (9/9); FASTQ-quality-parsing units, if ingested, would relate to this concept.
+   graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
