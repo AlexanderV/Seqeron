@@ -60,9 +60,12 @@ identity of the formula, and a good differential-test oracle).
 
 ## Relation to other codon-usage statistics
 
-RSCU is the shared normalization at the base of the codon-usage-bias family. The **CAI**
-(Codon Adaptation Index) reuses RSCU-style relative adaptiveness but adds a **0.5 pseudocount**
-for unobserved codons to avoid `log(0)` (Sharp & Li 1987) — a CAI-specific convention that
-plain RSCU does **not** apply. Other siblings in `docs/Evidence/` include ENC (effective number
+RSCU is the shared normalization at the base of the codon-usage-bias family. The **[[codon-adaptation-index|CAI]]**
+(Codon Adaptation Index) reuses RSCU-style relative adaptiveness — but referenced to the family
+**maximum** codon and reduced to a single geometric-mean gene score — and guards `log(0)` for
+unobserved codons with a pseudocount-style adjustment that plain RSCU does **not** apply (Sharp &
+Li 1987 use a **0.5 pseudocount** at reference-table build time; Seqeron's CAI implementation uses
+a **`1e-6` clamp** at score time — see [[codon-adaptation-index]]). Other siblings in
+`docs/Evidence/` include ENC (effective number
 of codons), rare-codon analysis, codon optimization, and raw codon-frequency/usage tables; each
 builds on the same synonymous-family counting that RSCU formalizes.

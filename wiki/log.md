@@ -513,3 +513,27 @@ Operations:
    analysis units (telomere, arm-ratio, GC-skew) warrant their own concepts; COMPGEN-SYNTENY-001 shares
    synteny-and-rearrangement-detection when ingested.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to aneuploidy-detection)
+
+## [2026-07-09] ingest | docs/Evidence/CODON-CAI-001-Evidence.md → codon-cai-001-evidence (source) + 1 concept
+   Twenty-second per-algorithm Evidence file; second of the codon-usage family (after ANNOT-CODONUSAGE/
+   RSCU). Created the genuinely-distinct concept codon-adaptation-index (CAI, Sharp & Li 1987): a
+   whole-gene directional codon-bias / expression-proxy score in [0,1] = geometric mean of relative
+   adaptiveness w_i = f_i/max_synonym_f (family-MAX normalization, one level above RSCU's family
+   normalization), equivalently exp((1/L)Σ ln w); the geometric mean makes it low-value-sensitive (one
+   rare codon drags CAI down). Captured: stop codons excluded; single-codon Met/Trp w≡1 → canonical
+   Sharp & Li 1987 / Jansen 2003 EXCLUSION rule (quoted verbatim in the artifact), exposed as the opt-in
+   excludeSingleCodonAminoAcids flag (default includes them, historical); exclude can yield L=0→CAI 0;
+   E. coli K12 (Kazusa 316407) oracles AUG→1.0, CUG-CCG-ACC→1.0, CUA-CCA-ACA→0.1980, plus the four
+   exclusion-mode cases. Concise source page for the artifact (Wikipedia + Sharp & Li 1987 + Jansen 2003
+   PMC2684136 + Kazusa sources). Linked new source + concept into the algorithm-validation-evidence hub
+   and added CODON-CAI to that hub's frontmatter; cross-linked bidirectionally with
+   relative-synonymous-codon-usage (CAI reuses RSCU-style weights). One deviation: the Seqeron
+   implementation clamps zero-frequency codons (freq=0 but family maxFreq>0) to w=1e-6 (incomplete-table
+   protection) rather than strict w=0/log(0); unknown-AA/maxFreq=0 → NaN skipped; empty → 0.
+   FLAGGED cross-page nuance (not a source contradiction): the RSCU page described CAI's log(0) guard as
+   Sharp & Li's "0.5 pseudocount" (a reference-table-build convention) whereas this implementation uses
+   a 1e-6 score-time clamp — reconciled the RSCU page wording and noted it on both pages. Sources agree
+   internally (Wikipedia formulae = Sharp & Li = Jansen exclusion quote). Follow-up: remaining codon-usage
+   units (CODON-ENC/OPT/RARE/STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON) — ENC/optimization likely warrant
+   their own concepts, raw frequency/usage tables may share existing concepts.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to relative-synonymous-codon-usage)
