@@ -6,6 +6,7 @@ sources:
   - README.md
   - ALGORITHMS_CHECKLIST_V2.md
   - docs/ADVANCED_TESTING_CHECKLIST.md
+  - docs/sonar-gate-plan.md
 source_commit: 7bad3df2460ec31b7b1a3be1e605c11198342268
 created: 2026-07-09
 updated: 2026-07-09
@@ -21,7 +22,7 @@ graph:
 
 # Validation and testing strategy
 
-Seqeron's development-time correctness story: 22,000+ executed test cases across 258 algorithm units (roughly 3.8× more test code than product code), green on .NET 10 with warnings-as-errors and CI-gated, plus a documented per-unit validation campaign.
+Seqeron's development-time correctness story: 22,000+ executed test cases across 258 algorithm units (roughly 3.8× more test code than product code), green on .NET 10 with warnings-as-errors and CI-gated, plus a documented per-unit validation campaign. The "warnings-as-errors" half of that gate is its own discipline — see the [[build-quality-gate]] (SonarAnalyzer ratcheted to blocking under `TreatWarningsAsErrors`).
 
 ## Ten complementary methodologies
 

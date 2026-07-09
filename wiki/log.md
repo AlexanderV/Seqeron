@@ -66,3 +66,14 @@ Operations:
    no-business-asserts policy in mcp-checklist/mcp-plan (annotated both pages surgically). Cross-linked
    both ways with mcp-checklist and mcp-plan.
    graph: +1 node, +2 typed edges (contradicts → mcp-checklist, mcp-plan)
+
+## [2026-07-09] ingest | docs/sonar-gate-plan.md → sonar-gate-plan (source) + 1 concept
+   New source page for the Sonar gate ratchet tracker (66/66 SonarAnalyzer rules → blocking or
+   silenced-with-justification; green under TreatWarningsAsErrors; 14 assemblies / 20,266 core
+   tests). Created the build-quality-gate concept (static-analysis gate + warnings-as-errors,
+   fix-vs-silence ratchet, review-not-blind-fix on S1244/S125). Linked it from validation-and-testing
+   (added docs/sonar-gate-plan.md to that page's sources). Flagged the doc's internal staleness: a
+   "remaining 31 rules" planning section survives alongside the 66/66 completion banner (Log rows are
+   ground truth). Captured the S4456 fail-fast behaviour change and the pre-existing flaky FsCheck
+   properties.
+   graph: +2 nodes, +1 typed edge (build-quality-gate relates_to validation-and-testing)

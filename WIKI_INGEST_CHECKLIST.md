@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 5 / 1610
+Progress: 6 / 1610
 
 ## (top-level)  (6)
 
@@ -12,7 +12,7 @@ Progress: 5 / 1610
 - [x] docs/mcp-checklist.md
 - [x] docs/mcp-plan.md
 - [x] docs/mcp-prompt.md
-- [ ] docs/sonar-gate-plan.md
+- [x] docs/sonar-gate-plan.md
 
 ## Evidence  (213)
 
