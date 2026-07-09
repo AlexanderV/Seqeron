@@ -69,7 +69,9 @@ Integer assignment rounds and clamps: `nA = max(round(nAfull),0)`, `nB = max(rou
 they carry little allele-specific information (cannot tell 1+1 from 2+2 except via logR).
 
 **ψ scale:** ploidy = DNA amount relative to a haploid genome; pure diploid → ψ = 2, ">2.7n" marks
-aneuploidy.
+aneuploidy. The *fitted* ψ here is the joint grid-search output; the **post-hoc** summary of ψ as a
+length-weighted mean over already-called segments — plus the whole-genome-doubling flag — is the
+distinct downstream unit [[tumor-ploidy-estimation-and-whole-genome-doubling]] (ONCO-PLOIDY-001).
 
 ## 2. ASPCF segmentation front-end (Nilsen 2012 / Ross 2021)
 

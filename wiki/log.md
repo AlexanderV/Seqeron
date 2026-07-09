@@ -2473,3 +2473,21 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet, source_commit
    bumped to ea992b8). Index updated (1 source + 1 concept).
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry; depends_on cancer-cell-fraction-clonal-clustering; relates_to clonal-subclonal-classification-ccf-posterior)
+
+- 2026-07-10 — Ingested docs/Evidence/ONCO-PLOIDY-001-Evidence.md (Tumor Ploidy Estimation +
+   Whole-Genome-Doubling detection; twenty-seventh Oncology unit). GENUINELY DISTINCT from the
+   ONCO-ASCAT-001 joint grid fit: this is a post-hoc summary over already-called allele-specific
+   segments, not an inference from raw logR/BAF. Two methods: (1) average ploidy `EstimatePloidy` =
+   length-weighted mean per-segment total CN ψ = Σ(CN_i·L_i)/Σ(L_i) (Patchwork PMC4053982; n-scale
+   Van Loo 2010, pure diploid → 2.0, >2.7n aneuploidy; CN 2/4/3 at 100/100/50 Mb → 3.0); (2)
+   whole-genome doubling `DetectWholeGenomeDoubling` = facets-suite `is_genome_doubled` / Bielski 2018
+   rule — WGD iff autosome-restricted fraction at major CN ≥ 2 strictly > 0.5 (mcn = tcn − lcn,
+   denominator = reference chromosome-size table, ReferenceGenome {GRCh38,GRCh37}, UCSC hg38/hg19
+   Ensembl-verified Σchr1–22 = 2,875,001,522 / 2,881,033,286 bp, autosomes only), legacy
+   `DetectWholeGenomeDoublingFromSuppliedLength` keeps the supplied-length denominator. Created source
+   onco-ploidy-001-evidence + new concept tumor-ploidy-estimation-and-whole-genome-doubling. Cross-linked
+   allele-specific-copy-number-ascat (added post-hoc-summary note), loss-of-heterozygosity-detection,
+   homologous-recombination-deficiency-score (shared segment substrate). Wired into
+   algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet, source_commit
+   bumped to 57c2be1). Index updated (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; relates_to allele-specific-copy-number-ascat)
