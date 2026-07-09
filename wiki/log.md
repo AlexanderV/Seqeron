@@ -1243,3 +1243,23 @@ Operations:
    Epigenetics (1→0, section removed) to covered-via-concept (42→43 covered / 203→202 pending, 34→33 domains);
    Epigenetics family now 6/6 covered. Contradictions: none — IUPAC, Bismark, Lister 2009, Schultz 2012 mutually consistent.
    graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry; source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | GENOMIC-COMMON-001-Evidence.md → genomic-common-001-evidence (source) + longest-common-substring (concept)
+   Ingested the Longest Common Substring / Common Region Detection evidence unit (generalized suffix
+   tree). Created source page genomic-common-001-evidence and NEW concept longest-common-substring —
+   genuinely distinct (a string/suffix-tree algorithm, no prior LCS concept). Synthesized: LCS = a
+   longest *contiguous* substring of both strings (contiguity is THE distinction from the gapped
+   longest common *subsequence*); generalized-suffix-tree solution (LCS = path label to the deepest
+   internal node whose subtree holds leaves from both strings, Θ(n+m)/O(M+N) build+DFS, Gusfield 1997).
+   API contract: FindLongestCommonRegion (0-based positions in both) + FindCommonRegions(minLength);
+   CommonRegion.None = empty/len 0/positions −1, identical→whole seq at 0/0. One assumption =
+   documented deterministic first-found-in-`other` tie-break (Wikipedia reports all, GeeksforGeeks
+   returns one); DNA oracle CACAGAG/TACATAGAT ties ACA vs AGA → selects ACA. Sources Wikipedia
+   "Longest common substring" + GeeksforGeeks "Suffix Tree Application 5". Cross-linked
+   [[dot-plot-word-match]] (shared generalized-suffix-tree exact-match engine, reciprocal link added).
+   Wired into algorithm-validation-evidence hub (frontmatter sources + source-list + distinct-concept
+   list) and index (source + concept lines). Reconciled backlog: moved Common_Region_Detection.md from
+   pending Sequence_Comparison (1→0, section removed) to covered-via-concept (43→44 covered / 202→201
+   pending, 33→32 domains). Contradictions: none — Wikipedia and GeeksforGeeks agree on contiguity + GST
+   mechanism, differ only on reporting ties (all vs one), resolved deterministically by the repo.
+   graph: +2 nodes (source + concept), +2 typed edges (concept relates_to test-unit-registry + relates_to dot-plot-word-match; source-page [[wikilinks]] mentions auto-derived)

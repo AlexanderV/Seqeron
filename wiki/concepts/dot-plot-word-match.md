@@ -64,7 +64,8 @@ substitution-matrix scoring form (`dotmatcher`).
    each occurrence.
 
 The exact-match engine finds occurrences via a suffix tree, so a word appearing multiple times
-contributes multiple dots on its row.
+contributes multiple dots on its row — the same generalized-suffix-tree machinery behind
+[[longest-common-substring]] (which instead returns the single deepest two-string node).
 
 ### Word size — the sensitivity/noise trade-off
 

@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **43** algorithm docs covered-via-concept, **202** pending across 33 domains.
+Status at generation: **44** algorithm docs covered-via-concept, **201** pending across 32 domains.
 
 ## Covered via concept (done)
 
@@ -70,6 +70,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_Assembly/Contig_Merging.md` | [[contig-merge-overlap-collapse]] |
 | `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
+| `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 
 ## Pending (fold into the ingest campaign)
 
@@ -366,12 +367,6 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/RnaStructure/RNA_Secondary_Structure.md` | `rna-secondary-structure` |
 | `docs/algorithms/RnaStructure/RNA_Stemloop.md` | `rna-stemloop` |
 | `docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md` | `turner-mccaskill-partition-function` |
-
-### Sequence_Comparison (1)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | `common-region-detection` |
 
 ### Sequence_Composition (8)
 
