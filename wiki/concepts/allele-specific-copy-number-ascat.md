@@ -6,7 +6,7 @@ sources:
   - docs/Evidence/ONCO-ASCAT-001-Evidence.md
 source_commit: ee6df31c1d54006d2fcc189bb794df7d37c89cf0
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -35,6 +35,9 @@ siblings — the therapeutic ranking [[clinical-actionability-oncokb-levels]], t
 depth-ratio caller with no allelic contrast or purity fit). The same logR + BAF allelic-contrast idea,
 restricted to the HLA genes, is the **HLA-locus specialization**
 [[hla-nomenclature-and-allele-specific-loh]] (LOHHLA — allele-specific HLA loss-of-heterozygosity).
+The downstream **genomic-scar** unit [[homologous-recombination-deficiency-score]] (ONCO-HRD-001) reads
+LOH / TAI / LST scar counts straight off these allele-specific major/minor CN segments and sums them
+into the HRD score.
 
 ## 1. ASCAT joint (ρ, ψ) fit — the core
 

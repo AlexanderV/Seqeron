@@ -2311,3 +2311,26 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    Wired into the algorithm-validation-evidence hub (frontmatter source + list link + anchor bullet),
    index updated (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to allele-specific-copy-number-ascat)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-HRD-001-Evidence.md
+   Nineteenth Oncology unit — HRD composite genomic-scar score `HRD = LOH + TAI + LST`, an unweighted
+   sum of three large-scale copy-number scar counts with the HRD-high cutoff >= 42 inclusive (Telli
+   2016 + Stewart 2022, independently corroborated). Created concept
+   [[homologous-recombination-deficiency-score]]: all three components derived per segment from the
+   [[allele-specific-copy-number-ascat]] major/minor CN substrate in `DetectHRD(segments)` — HRD-LOH
+   (regions >15 Mb & < whole chromosome, exclude whole-chr LOH; Abkevich 2012 / oncoscanR / scarHRD
+   calc.hrd.R, no centromere table) + TAI (imbalanced major!=minor segments reaching a sub-telomere
+   not crossing the centromere; Birkbak 2012 / calc.ai_new.R, sub-1 Mb dropped, single-segment
+   whole-chr imbalance excluded) + LST (adjacent >=10 Mb same-arm regions <3 Mb apart after iterative
+   3 Mb smoothing; Popova 2012 / calc.lst.R, autosomes only; sum via scar_score.R). TAI+LST need the
+   per-chromosome centromere acen [start,end] table embedded for GRCh38/GRCh37 (UCSC cytoBand
+   cross-verified vs NCBI GRC modeled centromeres — resolving the prior "centromere table
+   unretrievable" blocker). Oracles (14,14,14)->42 HRD-high (boundary) / (14,13,14)->41 negative /
+   (0,0,0)->0 near-diploid. Judged genuinely distinct (composite score + its own LOH/TAI/LST defs +
+   cutoff + centromere tables; no existing concept covers it) -> dedicated concept, cross-linked to
+   [[allele-specific-copy-number-ascat]] as the downstream genomic-scar aggregation layer (reciprocal
+   link added) and distinguished from the total-CN [[aneuploidy-detection]]. One even-ploidy AI-path
+   assumption (major!=minor, ASCAT ploidy column absent), no contradictions. Wired into the
+   algorithm-validation-evidence hub (frontmatter source + list link + anchor bullet), index updated
+   (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to allele-specific-copy-number-ascat)
