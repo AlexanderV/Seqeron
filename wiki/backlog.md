@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **73** algorithm docs covered-via-concept, **172** pending across 29 domains.
+Status at generation: **74** algorithm docs covered-via-concept, **171** pending across 28 domains.
 
 ## Covered via concept (done)
 
@@ -95,6 +95,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
 | `docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md` | [[overrepresented-kmer-discovery]] |
 | `docs/algorithms/Motif_Discovery/Regulatory_Elements.md` | [[regulatory-element-detection]] |
+| `docs/algorithms/Motif_Discovery/Shared_Motifs.md` | [[shared-motifs]] |
 | `docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md` | [[consensus-from-alignment]] |
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md` | [[iupac-degenerate-consensus]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
@@ -196,12 +197,6 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/MolTools/Restriction_Digest_Simulation.md` | `restriction-digest-simulation` |
 | `docs/algorithms/MolTools/Restriction_Enzyme_Filtering.md` | `restriction-enzyme-filtering` |
 | `docs/algorithms/MolTools/Restriction_Site_Detection.md` | `restriction-site-detection` |
-
-### Motif_Discovery (1)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Motif_Discovery/Shared_Motifs.md` | `shared-motifs` |
 
 ### Oncology (37)
 

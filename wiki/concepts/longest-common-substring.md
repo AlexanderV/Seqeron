@@ -65,6 +65,14 @@ word occurrences. The **single-string** counterpart — the longest substring re
 within *one* sequence — is [[longest-repeated-substring]] (deepest internal node with
 ≥ 2 leaves, rather than leaves from both strings).
 
+The **many-string** relative is a genuinely *different* algorithm, not this suffix-tree
+method generalized: [[shared-motifs]] (`FindSharedMotifs`, MOTIF-SHARED-001) is the
+van Helden / RSAT oligo-analysis *"matching sequences"* quorum — it enumerates every
+**fixed-length** exact word across a *set* of sequences and returns **all** words present in
+≥ `minSequences` of them, rather than the *single longest* substring present in *all*. LCS
+is the "single longest, in all" specialization; shared-motifs is the "all words, in a quorum"
+family (see that page's contrast table).
+
 ## API contract and invariants
 
 | Operation | Returns |

@@ -105,9 +105,12 @@ motif concepts and is modelled `alternative_to` the known-motif matcher:
   self-overlap, and only affects a *probability* statistic, not the exact Count or the O/E
   denominator. Rank by the deterministic Count / Enrichment, or use an external
   significance tool.
-- **Single-sequence, DNA-only.** Cross-sequence shared-motif discovery is a separate unit
-  (`FindSharedMotifs`); other de novo families (greedy / median-string / Gibbs-sampling
-  motif search) are separate methods not implemented here.
+- **Single-sequence, DNA-only.** Cross-sequence shared-motif discovery is a separate unit,
+  [[shared-motifs]] (`FindSharedMotifs`, MOTIF-SHARED-001 — the same fixed-`k` exact
+  word-enumeration family, but counting *how many sequences of a set* contain each word via
+  the van Helden / RSAT "matching sequences" quorum instead of one sequence's O/E enrichment);
+  other de novo families (greedy / median-string / Gibbs-sampling motif search) are separate
+  methods not implemented here.
 
 **No source contradictions.** The only assumption is that `minCount` is a presentation
 threshold, not part of the published statistic — it changes which rows appear, never a

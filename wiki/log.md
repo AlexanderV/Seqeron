@@ -1930,3 +1930,33 @@ Operations:
    + Motif_Discovery/Shared_Motifs.md still pending.
    graph: +2 nodes (source + concept), +2 typed edges (regulatory-element-detection relates_to
    test-unit-registry + relates_to known-motif-search); body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] ingest | MOTIF-SHARED-001-Evidence.md → motif-shared-001-evidence (source) + shared-motifs (concept)
+   Shared motifs across a sequence set (`FindSharedMotifs`): the van Helden / RSAT oligo-analysis
+   **"matching sequences"** quorum — enumerate every fixed-`k` exact word across a *set* of sequences
+   and report each word present in ≥ `minSequences` of them, keyed by presence/absence per sequence
+   (a within-sequence repeat contributes 1, not its occurrence multiplicity), each carrying its
+   `SequenceIndices` set + `Prevalence`=matching/total. Decision: created a DEDICATED concept
+   [[shared-motifs]] rather than enriching [[longest-common-substring]] — the source explicitly
+   contrasts this fixed-k + quorum + ALL-qualifying-words method against the ROSALIND LCSM framing
+   (variable-length single longest substring present in *all*, via generalized suffix tree), which it
+   does NOT implement. Modeled as `alternative_to` [[longest-common-substring]] (the k-string quorum
+   vs single-longest-in-all pair) and `relates_to` [[overrepresented-kmer-discovery]] (same van Helden
+   word-enumeration family: cross-sequence quorum vs single-sequence O/E enrichment). Cross-linked both
+   ways: enriched overrepresented-kmer-discovery (wikilinked its FindSharedMotifs mention) and
+   longest-common-substring (added a many-string-relative nav paragraph). Oracle: S0=`ATGATG`/
+   S1=`ATGCCC`/S2=`CCCGGG`, k=3 minSeq=2 → `ATG`{0,1}(2/3)/`CCC`{1,2}; Rosalind GATTACA/TAGACCA/ATACA
+   contrast (all-2-mers-in-all vs single LCSM `AC`). Corner cases: within-seq repeat→1, below-quorum
+   excluded, k>shortest→no words, empty→none, k<1→throws; exact-word only (Das & Dai "no variations").
+   Sources: RSAT oligo-analysis manual (rank 3, reference impl — verbatim matching-sequences/occurrence
+   defs) + Das & Dai 2007 (rank 1, word-enumeration family) + van Helden/André/Collado-Vides 1998 (rank
+   1 primary, HTTP 403) + Rosalind LCSM (rank 4, contrast-only). Linked new source + concept into the
+   algorithm-validation-evidence hub (added MOTIF-SHARED to frontmatter sources + source-list +
+   concept-list). index.md: +1 source +1 concept. Backlog: moved Motif_Discovery/Shared_Motifs.md
+   pending→covered (73→74 covered / 172→171 pending; §Motif_Discovery removed, domains 29→28).
+   Contradictions: none; deviations None — two presentation/API assumptions (default k=6/minSeq=2,
+   Prevalence as fraction). Follow-up: ProteinMotif/Common_Motif_Finding + Motif_Search still pending
+   (protein-side motif family).
+   graph: +2 nodes (source + concept), +3 typed edges (shared-motifs relates_to test-unit-registry +
+   alternative_to longest-common-substring + relates_to overrepresented-kmer-discovery); body
+   [[wikilinks]] mentions auto-derived.
