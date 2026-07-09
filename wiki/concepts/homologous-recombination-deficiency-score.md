@@ -58,7 +58,8 @@ input is invalid. The sum is commutative — component order does not matter.
   15 Mb but shorter than a whole chromosome**. A chromosome carrying a *global* (whole-chromosome)
   LOH alteration is **excluded** entirely. Reproduced by scarHRD `calc.hrd.R`: LOH segment =
   minor CN 0 & major CN ≠ 0, size `> 15 Mb`, drop any chromosome that is entirely LOH
-  (`chrDel`). **Needs no centromere table** — this is exactly what `DetectLOH` implements.
+  (`chrDel`). **Needs no centromere table.** This is the standalone LOH caller
+  [[loss-of-heterozygosity-detection]] (ONCO-LOH-001, `DetectLOH`) reused here as the LOH term.
 - **TAI** (Telomeric Allelic Imbalance; Birkbak 2012) — count of regions of allelic imbalance
   that **extend to a sub-telomere but do not cross the centromere**. Allelic imbalance =
   major CN ≠ minor CN (at least one allele present).

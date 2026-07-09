@@ -2351,3 +2351,24 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    link + anchor bullet), index updated (1 source + 1 concept). Two scope assumptions (LM22
    caller-supplied, simplified ssGSEA) + Affymetrix purity domain, no contradictions.
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to expression-outlier-zscore-signature-score)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-LOH-001-Evidence.md — Loss of Heterozygosity detection (twenty-first ONCO-* unit)
+   Genome-wide LOH caller: DetectLOH counts HRD-LOH regions (minor CN 0 & major CN != 0 = allelic
+   loss not homozygous deletion; length strictly > 15 Mb, length = end-start; whole-chromosome
+   global-LOH chromosomes excluded via chrDel; major CN capped to 1 before merge so LOH state drives
+   merging) + CalculateLOHFraction (length-weighted per-chromosome LOH fraction in [0,1]). Sources
+   Abkevich 2012 Br J Cancer PMID 23047548 (HRD score = number of intermediate-size LOH regions,
+   BRCA1/2-correlated) + scarHRD calc.hrd.R/scar_score.R (exact R criterion + 15 Mb cut-off + chrDel,
+   sizelimitLOH=15e6) + oncoscanR score_loh (independent; adjacent/overlapping LOH merged <=1 bp).
+   Synthetic 7-segment dataset -> score 1 (only 20 Mb chr1; exactly-15 Mb / het-retained /
+   homozygous-deletion / whole-chr-LOH excluded), LOH-fraction 0.333/0.0/1.0. Judged distinct: the
+   HRD concept treated HRD-LOH only as one summed component and pointed to DetectLOH, and
+   CalculateLOHFraction is unrepresented -> dedicated concept [[loss-of-heterozygosity-detection]],
+   cross-linked as the LOH term of [[homologous-recombination-deficiency-score]] (reciprocal link:
+   HRD-LOH bullet now names DetectLOH's page), reads segments off [[allele-specific-copy-number-ascat]]
+   (reciprocal prose link added), and genome-wide counterpart of the HLA-locus
+   [[hla-nomenclature-and-allele-specific-loh]]. Two assumptions (segment input shape; length-weighted
+   LOH-fraction a definitional/API choice — segment criterion fully source-backed), no contradictions.
+   Wired into the algorithm-validation-evidence hub (frontmatter source + list link + anchor bullet),
+   index updated (1 source + 1 concept; also backfilled the missing onco-immune-001-evidence source line).
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, relates_to allele-specific-copy-number-ascat, relates_to homologous-recombination-deficiency-score)

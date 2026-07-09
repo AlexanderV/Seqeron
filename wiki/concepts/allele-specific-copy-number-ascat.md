@@ -37,7 +37,9 @@ restricted to the HLA genes, is the **HLA-locus specialization**
 [[hla-nomenclature-and-allele-specific-loh]] (LOHHLA — allele-specific HLA loss-of-heterozygosity).
 The downstream **genomic-scar** unit [[homologous-recombination-deficiency-score]] (ONCO-HRD-001) reads
 LOH / TAI / LST scar counts straight off these allele-specific major/minor CN segments and sums them
-into the HRD score.
+into the HRD score; its LOH term is the standalone genome-wide LOH caller
+[[loss-of-heterozygosity-detection]] (ONCO-LOH-001), which counts minor-CN-0 / major-CN-≠0 segments
+> 15 Mb over the same segments.
 
 ## 1. ASCAT joint (ρ, ψ) fit — the core
 
