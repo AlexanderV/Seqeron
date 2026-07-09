@@ -1496,3 +1496,29 @@ Operations:
    none — count tables and both k-entropy sources are mutually consistent.
    graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
    relates_to asynchronous-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/KMER-UNIQUE-001-Evidence.md → kmer-unique-001-evidence (source) + unique-and-mincount-kmers (concept)
+   Seventh K-mer family Evidence file (after ASYNC, BOTH, DIST, GENERATE, POSITIONS, STATS). Judged
+   `KmerAnalyzer.FindUniqueKmers` + `FindKmersWithMinCount` a GENUINELY DISTINCT frequency-filtering
+   unit — confirmed by the prior KMER-STATS-001 flag that "unique" (count==1 singletons) is THIS unit,
+   separate from k-mer-statistics' `UniqueKmers`=distinct-count field. Created concept
+   [[unique-and-mincount-kmers]] (expected backlog slug). Two operations filter the shared CountKmers
+   multiset by per-k-mer Count at opposite ends of the distribution: FindUniqueKmers = Count==1
+   singletons, FindKmersWithMinCount = Count≥minCount recurrent k-mers ordered by count desc. Captured
+   the total/distinct/unique terminology (BioInfoLogics: unique="appear only once") and the reciprocal
+   GOTCHA against [[k-mer-statistics]] (ATCGATCAC k=3 → 5 unique singletons vs 6 distinct; ATC=2
+   excluded), surgically enriching the k-mer-statistics gotcha to link the new concept. Sources:
+   Wikipedia K-mer (L−k+1 total, AGAT) + BioInfoLogics (distinct/unique, ATCGATCAC 7/6/5) + Compeau &
+   Pevzner (`Count(Text,Pattern)`, most-frequent / Count≥t recurrent). Oracles ATCGATCAC k=3→{TCG,CGA,
+   GAT,TCA,CAC}, AGAT k=2→{AG,GA,AT}, ACGTACGT k=4 (ACGT=2) FindKmersWithMinCount(…,2)→{(ACGT,2)} /
+   (…,1)→all-4-count-desc / FindUniqueKmers→{CGTA,GTAC,TACG}, AAAAA k=3→∅; corner cases empty/k>L→empty,
+   k≤0→ArgumentOutOfRangeException, case-insensitive. Two source-consistent assumptions (minCount≤1 ⇒
+   Count≥minCount holds for all ⇒ returns all distinct count-desc; upper-casing per sibling methods),
+   neither correctness-affecting. Concise source page; concept lists both the Evidence file and
+   Unique_And_MinCount_Kmers.md algorithm doc in sources. Wired into index (source + concept lines) +
+   the algorithm-validation-evidence hub (frontmatter source + body evidence-link + own-concept list).
+   Reconciled backlog: moved K-mer/Unique_And_MinCount_Kmers.md from pending K-mer (4→3) to
+   covered-via-concept (55→56 covered / 190→189 pending, 30 domains). Contradictions: none — Wikipedia,
+   BioInfoLogics, and Compeau & Pevzner are mutually consistent; deviations None.
+   graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
+   relates_to k-mer-statistics; source/concept [[wikilinks]] mentions auto-derived)

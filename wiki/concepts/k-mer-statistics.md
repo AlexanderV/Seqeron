@@ -61,8 +61,9 @@ distinct k-mer, maximal (`log₂(L−k+1)`) when every window is distinct.
 
 Despite the name, the `UniqueKmers` field holds `D` = the number of **distinct** k-mers (each different
 k-mer counted once), **not** the number of k-mers that occur exactly once. The "unique" (count == 1)
-notion is a **separate** unit, KMER-UNIQUE-001 (`Unique_And_MinCount_Kmers.md`). For `ATCGATCAC` k=3
-the distinct count is 6 (`UniqueKmers = 6`) while the singleton count is 5.
+singleton notion is a **separate** unit, KMER-UNIQUE-001 — synthesized in
+[[unique-and-mincount-kmers]] (`KmerAnalyzer.FindUniqueKmers`). For `ATCGATCAC` k=3 the distinct count
+is 6 (`UniqueKmers = 6`) while the singleton count is 5.
 
 ## Properties and invariants
 
