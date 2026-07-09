@@ -205,3 +205,22 @@ Operations:
    consensus-sequence rather than duplicating; graph/OLC/scaffold units likely warrant their own
    distinct concepts.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to multiple-sequence-alignment)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md → assembly-correct-001-evidence (source) + 1 concept
+   Ninth per-algorithm Evidence file; second of the Assembly family (after CONSENSUS). Created the
+   genuinely-distinct concept kmer-spectrum-error-correction — the anchor for the assembly CORRECT
+   family (distinct from consensus-sequence). Two-sided k-mer-spectrum read error correction traced
+   verbatim to Musket (Liu 2013) + Quake (Kelley 2010): trusted k-mer = multiplicity > coverage
+   cut-off, base trusted if covered by any trusted k-mer; find the unique alternative base making
+   ALL k-mers covering position i trusted (evaluate leftmost AND rightmost covering k-mer), ≤1
+   substitution per k-mer; >1 valid alternative → unchanged (ambiguity), no correcting set →
+   unchanged; substitution-only so read count + per-read length preserved. Song & Florea 2018
+   corroborate (solid/weak k-mers). Concise source page for the artifact (three rank-1 sources, the
+   k=3/cut-off=2 single-substitution ACGTACGT worked example, the k=1 ambiguity example, six MUST
+   tests). Linked new source + concept into the algorithm-validation-evidence hub and added
+   ASSEMBLY-CORRECT to that hub's frontmatter. One assumption: kmerSize=15/minKmerFrequency=2 fixed
+   defaults (vs reference auto-cut-off-from-histogram-valley) are non-behavioral — every behavioral
+   test passes k and cut-off explicitly. Contradictions: none (all three sources describe the same
+   trusted/untrusted two-sided model). Follow-up: remaining Assembly-family units (DBG/OLC/SCAFFOLD/
+   COVER/STATS/TRIM/MERGE) likely warrant their own distinct concepts.
+   graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)

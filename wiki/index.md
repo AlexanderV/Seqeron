@@ -26,6 +26,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[annot-codonusage-001-evidence]] — evidence artifact for test unit ANNOT-CODONUSAGE-001 (RSCU): LIRMM + PMC2528880 + Sharp & Li 1986 + CodonU sources, n_i·x/Σx formula, Leu 3/1.5/1.5/0/0/0 example, pooled-counts + sense-codons-only, no CAI pseudocount.
 - [[annot-repeat-001-evidence]] — evidence artifact for test unit ANNOT-REPEAT-001 (repeat detection/classification): Wikipedia + IUPACpal + RepeatMasker sources; tandem/inverted/gapped-IR + repeat-class vocab; exact-substring-not-Smith-Waterman ClassifyRepeat assumption.
 - [[assembly-consensus-001-evidence]] — evidence artifact for test unit ASSEMBLY-CONSENSUS-001 (column-wise consensus): Biopython dumb_consensus + EMBOSS cons + Wikipedia sources; threshold/tie→ambiguous/gap-skip decision rule; default N-not-X and 0.5-not-0.7 assumptions.
+- [[assembly-correct-001-evidence]] — evidence artifact for test unit ASSEMBLY-CORRECT-001 (two-sided k-mer-spectrum read error correction): Musket + Quake + solid-k-mer sources; trusted/untrusted rule, ambiguity→unchanged, k=3/k=1 worked examples; non-behavioral kmerSize=15/minKmerFrequency=2 defaults.
 
 ## Concepts
 
@@ -46,6 +47,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[relative-synonymous-codon-usage]] — RSCU (Sharp & Li 1986) codon-usage-bias measure: n_i·x/Σx normalization, 1.0=no bias, bounded [0,n_i], Σ-over-family=n_i invariant; pooled counts, sense codons only; base anchor of the codon-usage family (vs CAI's 0.5 pseudocount).
 - [[repetitive-element-detection]] — repeats/tandem family anchor: tandem (head-to-tail, ≥2 copies, primitive unit), inverted (W·G·W̄ᴿ / zero-gap palindrome, IUPACpal), and RepeatMasker-class assignment; ClassifyRepeat = exact-substring containment, not Smith-Waterman homology.
 - [[consensus-sequence]] — assembly CONSENSUS family anchor: column-wise majority/threshold consensus (Biopython dumb_consensus rule) — gaps skipped, emit iff unique max and freq ≥ threshold else ambiguous, tie→ambiguous, all-gap→N no div-by-zero; N/0.5 parameterized defaults; shared with MSA consensus step.
+- [[kmer-spectrum-error-correction]] — assembly CORRECT family anchor: two-sided k-mer-spectrum read error correction (Musket/Quake) — trusted (multiplicity > cut-off) vs untrusted k-mers, base trusted if covered by any trusted k-mer, unique alternative making all covering k-mers trusted, ambiguity/no-set→unchanged; substitution-only (count+length preserved); kmerSize=15/minKmerFrequency=2 non-behavioral defaults.
 
 ## Gotchas
 
