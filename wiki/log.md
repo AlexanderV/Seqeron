@@ -2709,3 +2709,17 @@ updated. Exact oracles x=[2,3] y=[8,4]→alpha≈1.7095/K≈26.164/closed and co
 contradictions; two source-backed assumptions (optimizer method non-correctness-affecting vs L-BFGS-B,
 fixed-seed permutation RNG).
    graph: +2 nodes, +3 typed edges
+
+## [2026-07-10] ingest | docs/Evidence/PANGEN-MARKER-001-Evidence.md
+Fourth PANGEN-* unit (phylogenetic marker selection). Created source summary
+[[pangen-marker-001-evidence]] and a NEW concept [[phylogenetic-marker-selection]] (genuinely distinct:
+single-copy core marker selection + parsimony-informative-site scoring, not covered by clustering/
+partition/Heaps siblings). SelectPhylogeneticMarkers keeps single-copy core clusters (panX "all strains
+exactly once" + Roary 99% core + paralog filtering) with PIS≥1, ranked by descending PIS capped at
+maxMarkers; CountParsimonyInformativeSites per Zvelebil & Baum 2008 (≥2 states each in ≥2 seqs).
+Cross-linked from [[pan-genome-core-accessory-partition]] and [[pan-genome-gene-clustering]]; hub
+[[algorithm-validation-evidence]] frontmatter/source-list/anchor + index updated. Oracles AAAAA/AAACA/
+AACCG/ACCTG→PIS 2 (cols 3,5), 3-genome selection excludes paralog/not-core/0-PIS-conserved. One
+source-backed assumption (no in-repo aligner → PIS over equal-length members, unequal→PIS 0), no
+contradictions.
+   graph: +2 nodes, +4 typed edges

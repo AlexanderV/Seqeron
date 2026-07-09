@@ -39,7 +39,9 @@ gene-family clustering step [[pan-genome-gene-clustering]] (PANGEN-CLUSTER-001, 
 clusters this unit counts) and is the **N-genome, occupancy-based** counterpart of the pairwise
 reciprocal-best-hit pipeline [[genome-comparison-core-dispensable]] (COMPGEN-COMPARE-001) — both
 realise the Tettelin et al. 2005 core/dispensable model, one over many genomes by occupancy, the
-other over two genomes by RBH. Validated under test unit **PANGEN-CORE-001**; the validation record
+other over two genomes by RBH. The **single-copy subset** of the core it defines is what
+[[phylogenetic-marker-selection]] (PANGEN-MARKER-001) picks as phylogenetic markers. Validated under
+test unit **PANGEN-CORE-001**; the validation record
 is [[pangen-core-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern.
 

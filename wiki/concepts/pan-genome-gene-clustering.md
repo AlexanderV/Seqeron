@@ -41,7 +41,9 @@ sequence-identity, single-collection clustering step that pan-genome pipelines s
 [[ortholog-detection-reciprocal-best-hits]] and the positional
 [[conserved-gene-clusters-common-intervals]], and **upstream** of the N-genome pan-genome partition
 [[pan-genome-core-accessory-partition]] (PANGEN-CORE-001, which counts these clusters' occupancy)
-and its pairwise relative [[genome-comparison-core-dispensable]]. Validated under test unit
+and its pairwise relative [[genome-comparison-core-dispensable]]; its single-copy core clusters are
+the candidate pool for phylogenetic-marker selection [[phylogenetic-marker-selection]]
+(PANGEN-MARKER-001). Validated under test unit
 **PANGEN-CLUSTER-001**;
 the validation record is [[pangen-cluster-001-evidence]], [[test-unit-registry]] tracks the unit,
 and [[algorithm-validation-evidence]] describes the artifact pattern.
