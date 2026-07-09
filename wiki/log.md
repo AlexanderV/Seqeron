@@ -442,6 +442,30 @@ Operations:
    Chromosome-analysis units (telomere, arm-ratio, synteny, GC-skew) warrant their own concepts.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to aneuploidy-detection)
 
+## [2026-07-09] ingest | docs/Evidence/CHROM-TELO-001-Evidence.md → chrom-telo-001-evidence (source) + 1 concept
+   Twenty-first per-algorithm Evidence file; fifth of the Chromosome-analysis family (after ANEU, CENT,
+   KARYO, SYNT). Created the genuinely-distinct concept telomere-analysis — the anchor for the chromosome
+   telomere family, sibling of aneuploidy-detection. Two parts: repeat detection at each end (3′ forward
+   TTAGGG / 5′ reverse-complement CCCTAA, 6-bp vertebrate unit) with a configurable 70%-per-window purity
+   threshold (5/6 match for 6-bp, 5/7 for Arabidopsis TTTAGGG; divergent TTAGGA → purity 5/6≈0.833),
+   purity∈[0,1] tracked with length; and length estimation direct from the run or via the qPCR T/S ratio
+   (Cawthon 2002 linearity EstimatedLength=referenceLength×(tsRatio/referenceRatio)). Invariants: length≥0,
+   purity∈[0,1], threshold consistency (has⇒len≥minTelomereLength), IsCriticallyShort=(hasTelomere&&
+   len<criticalLength)OR empty, orientation (5′=revcomp / 3′=forward). Four configurable parameters flagged
+   as implementation defaults NOT biological constants: criticalLength 3000, minTelomereLength 500,
+   searchLength (truncates reported length), referenceLength 7000. Sources: Wikipedia Telomere + Meyne 1989
+   (TTAGGG conserved across vertebrates, PMID 2780561) + Cawthon 2002 (T/S ∝ length, r²=0.677, PMID
+   12000852) + Blackburn-Gall 1978. Oracles: 200×TTAGGG on 1000 A's → len 1200/purity 1.0, both-ends,
+   no-telomere/empty→critically-short, TTAGGA×200→0.833, TTAGGG×2000→12000, searchLen 600→truncate to 600;
+   T/S table {1.0,1.5,0.5,2.0}@7000→{7000,10500,3500,14000}, refRatio 2.0→3500, 0.0→0. Concise source page
+   for the artifact. Linked new source + concept into the algorithm-validation-evidence hub and added
+   CHROM-TELO to that hub's frontmatter; added a reciprocal sibling nav link from aneuploidy-detection.
+   Contradictions: none — Deviations and Assumptions is None; Wikipedia repeat table, Meyne 1989 repeat
+   conservation, and Cawthon 2002 T/S proportionality agree. Follow-up: remaining Chromosome-analysis units
+   (arm-ratio, GC-skew) warrant their own concepts; non-vertebrate telomere repeats (documented in the
+   species table) need their own repeat unit + per-window match count.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to aneuploidy-detection)
+
 ## [2026-07-09] ingest | docs/Evidence/CHROM-KARYO-001-Evidence.md → chrom-karyo-001-evidence (source) + 1 concept
    Nineteenth per-algorithm Evidence file; third of the Chromosome-analysis family (after ANEU, CENT).
    Created the genuinely-distinct concept karyotype-analysis — the anchor for the chromosome

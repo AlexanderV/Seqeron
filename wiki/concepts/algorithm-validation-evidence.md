@@ -23,6 +23,7 @@ sources:
   - docs/Evidence/CHROM-CENT-001-Evidence.md
   - docs/Evidence/CHROM-KARYO-001-Evidence.md
   - docs/Evidence/CHROM-SYNT-001-Evidence.md
+  - docs/Evidence/CHROM-TELO-001-Evidence.md
 source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
 created: 2026-07-09
 updated: 2026-07-09
@@ -74,7 +75,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[assembly-merge-001-evidence]], [[assembly-olc-001-evidence]],
 [[assembly-scaffold-001-evidence]], [[assembly-stats-001-evidence]],
 [[assembly-trim-001-evidence]], [[chrom-aneu-001-evidence]],
-[[chrom-cent-001-evidence]], [[chrom-karyo-001-evidence]], [[chrom-synt-001-evidence]]). An
+[[chrom-cent-001-evidence]], [[chrom-karyo-001-evidence]], [[chrom-synt-001-evidence]],
+[[chrom-telo-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -92,4 +94,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[aneuploidy-detection]] (the anchor for the chromosome-analysis copy-number/ploidy family), or
 [[centromere-analysis]] (the anchor for the chromosome centromere / alpha-satellite family), or
 [[karyotype-analysis]] (the anchor for the chromosome karyotyping / ploidy-detection family), or
-[[synteny-and-rearrangement-detection]] (the shared anchor for the chromosome + comparative-genomics synteny/rearrangement family).
+[[synteny-and-rearrangement-detection]] (the shared anchor for the chromosome + comparative-genomics synteny/rearrangement family), or
+[[telomere-analysis]] (the anchor for the chromosome telomere family).
