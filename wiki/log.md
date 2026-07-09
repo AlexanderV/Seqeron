@@ -2682,3 +2682,14 @@ NOTE: original ingest subagent died mid-run on an API error after writing both p
 frontmatter/source-link edit; the hub anchor bullet, index entries, this log line, and the graph
 rebuild were completed by the orchestrator during recovery.
    graph: +2 nodes, +2 typed edges
+
+## [2026-07-10] ingest | docs/Evidence/PANGEN-CORE-001-Evidence.md
+Ingested PANGEN-CORE-001 (pan-genome partition — core/accessory/unique by occupancy + genomic
+fluidity + Heaps open/closed; `ConstructPanGenome`). Genuinely distinct from siblings: it is the
+N-genome occupancy-based partition (fractional Roary 99% core rule, Kislyuk fluidity, Heaps alpha),
+not the clustering step [[pan-genome-gene-clustering]] (PANGEN-CLUSTER-001) nor the pairwise-RBH
+[[genome-comparison-core-dispensable]] (COMPGEN-COMPARE-001). Created source [[pangen-core-001-evidence]]
++ concept [[pan-genome-core-accessory-partition]]; cross-linked both siblings; hub
+[[algorithm-validation-evidence]] frontmatter/source-list/anchor + index updated. No contradictions;
+two source-backed assumptions (clustering delegated to k-mer-Jaccard ClusterGenes; empty-pair fluidity term→0).
+   graph: +2 nodes, +3 typed edges

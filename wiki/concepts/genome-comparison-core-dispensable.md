@@ -34,9 +34,10 @@ graph:
 
 `CompareGenomes` is the **end-to-end two-genome comparison pipeline** of the
 **Comparative-genomics** family (`COMPGEN-*`). It partitions each genome's genes into a **core
-(conserved)** set and a **dispensable (genome-specific)** set — the pairwise case of the
-**pan-genome** model of Tettelin et al. 2005 — and reports an overall **syntenic-gene fraction**
-`OverallSynteny`. Unlike the family's single-metric units it is an **orchestrating pipeline**: it
+(conserved)** set and a **dispensable (genome-specific)** set — the **pairwise (two-genome)** case of
+the **pan-genome** model of Tettelin et al. 2005 — and reports an overall **syntenic-gene fraction**
+`OverallSynteny`. Its N-genome, occupancy-based counterpart (with genomic fluidity and Heaps'-law
+open/closed classification) is [[pan-genome-core-accessory-partition]] (PANGEN-CORE-001). Unlike the family's single-metric units it is an **orchestrating pipeline**: it
 composes reciprocal-best-hit ortholog detection
 ([[ortholog-detection-reciprocal-best-hits]], COMPGEN-ORTHO-001) and MCScanX synteny
 ([[synteny-and-rearrangement-detection]], COMPGEN-SYNTENY-001). Its single-metric siblings are

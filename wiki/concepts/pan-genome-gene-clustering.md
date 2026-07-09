@@ -39,8 +39,10 @@ distinct genomes contributed) and an `AverageIdentity` (members vs the represent
 sequence-identity, single-collection clustering step that pan-genome pipelines such as **Roary**
 (Page et al. 2015) run to build gene families — distinct from the pairwise best-hit
 [[ortholog-detection-reciprocal-best-hits]] and the positional
-[[conserved-gene-clusters-common-intervals]], and upstream of the pan-genome core/dispensable
-partition [[genome-comparison-core-dispensable]]. Validated under test unit **PANGEN-CLUSTER-001**;
+[[conserved-gene-clusters-common-intervals]], and **upstream** of the N-genome pan-genome partition
+[[pan-genome-core-accessory-partition]] (PANGEN-CORE-001, which counts these clusters' occupancy)
+and its pairwise relative [[genome-comparison-core-dispensable]]. Validated under test unit
+**PANGEN-CLUSTER-001**;
 the validation record is [[pangen-cluster-001-evidence]], [[test-unit-registry]] tracks the unit,
 and [[algorithm-validation-evidence]] describes the artifact pattern.
 
