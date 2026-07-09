@@ -2734,3 +2734,17 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
 2010); deviations None. Hub [[algorithm-validation-evidence]] frontmatter/source-list/anchor + index
 (Sources + Concepts) updated; cross-linked to [[fuzzing]] (parsers = hottest malformed-input target).
    graph: +2 nodes, +1 typed edge
+
+## [2026-07-10] ingest | docs/Evidence/PARSE-EMBL-001-Evidence.md → parse-embl-001-evidence (source)
+   EMBL flat-file parsing (EmblParser.Parse/ParseFile): line-type records (ID/AC/DT/DE/KW/OS/OC/
+   FH/FT/SQ/`//`), ID-line grammar, INSDC feature-table location descriptors (simple/^-site/</>
+   partials, complement/join/order operators, remote refs accession.version:span, no nested join/
+   order), data-class/division/IUPAC vocabularies, lowercase-sequence normalization. Enhancement:
+   offline-first caller-supplied resolver for remote-aware location→sequence assembly (complement
+   of a join reverses order; remote spans 1-based inclusive); remote-prefix per-segment strip fix
+   (Location.RemoteParts); </>-verbatim-slice + missing-resolver→empty-segment assumptions.
+   Sources EBI EMBL User Manual Rel. 143 + INSDC Feature Table v11.3; deviations None. No new
+   concept — cross-linked to family anchor [[bed-format-parsing]] (INSDC grammar shared with the
+   GenBank cousin, not yet ingested). Hub [[algorithm-validation-evidence]] frontmatter/source-list/
+   per-file-link + index Sources updated; cross-linked to [[test-unit-registry]] and [[fuzzing]].
+   graph: +1 node, +0 typed edges
