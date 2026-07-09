@@ -690,3 +690,33 @@ Operations:
    choice the sources don't contradict. Follow-up: remaining codon-usage units (SEQ-CODON-FREQ, TRANS-CODON)
    — raw frequency/usage tables may share codon-usage-comparison or RSCU rather than minting new concepts.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to relative-synonymous-codon-usage)
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-ANI-001-Evidence.md → compgen-ani-001-evidence (source) + 1 concept
+   Twenty-ninth per-algorithm Evidence file; FIRST of the Comparative-genomics (COMPGEN) family. Created
+   the genuinely-distinct concept average-nucleotide-identity — the anchor for the COMPGEN ANI
+   genome-similarity family, sibling of the already-existing shared synteny anchor
+   synteny-and-rearrangement-detection (ANI = how nucleotide-identical two genomes are; synteny = whether
+   their gene order is conserved). ANIb definition traced verbatim to Goris et al. 2007 (IJSEM): fragment
+   the query into consecutive 1020 nt pieces (mirrors ~1 kb DDH shearing), best-match place each against
+   the reference, keep only fragments with >30% identity over ≥70% alignable length — BOTH recalculated
+   over the full query-fragment length (pyani ani_pid=ani_alnids/qlen, ani_coverage=ani_alnlen/qlen, not
+   the local sub-region) — and average the qualifying per-fragment identities; non-conserved fragments are
+   discarded, not zero-scored. Species boundary ANI≈95%↔70% DDH (Goris; Konstantinidis & Tiedje 2005 ≈94%).
+   2026-06-23 refresh resolved the old ungapped assumption: gapped Smith-Waterman placement (pyani BLASTN
+   -xdrop_gap_final 150, ani_alnlen=blast_alnlen-blast_gaps) recovers indels (AAAACCCC/AAAATCCCC 0.875→1.0),
+   and CalculateReciprocalAni implements the reciprocal/symmetric value = mean of both directions
+   (order-independent, since only the query is fragmented → single-direction is asymmetric). Exact-arithmetic
+   oracles (identical→1.0, one mismatch→0.9375, AATT→0.875, CGTC-excluded→1.0, ref<frag→0, query<frag→0);
+   null/empty→0, non-positive fragmentLength→ArgumentOutOfRangeException. Concise source page for the
+   artifact (Goris 2007 + Konstantinidis & Tiedje 2005 rank-1 + pyani rank-3 sources). Linked new source +
+   concept into the algorithm-validation-evidence hub (frontmatter sources + both link lists) and added a
+   reciprocal sibling nav link from synteny-and-rearrangement-detection. One documented DECISION (not a
+   correctness gap, not a deviation): the gapped path uses SequenceAligner.LocalAlign (full-DP Smith-Waterman,
+   BLAST DNA scoring) rather than the NCBI BLASTN engine — more sensitive than BLAST's heuristic seeding, same
+   recalculated-over-fragment identity/coverage; numeric ANI may differ slightly from NCBI-BLASTN pipelines,
+   indel handling correct (algorithm doc §5.3). Contradictions: none — Goris, Konstantinidis & Tiedje, and
+   pyani agree on fragmentation, cut-offs, averaging, gapped placement, and reciprocal computation. Follow-up:
+   remaining COMPGEN units (orthologs/RBH, COMPGEN-SYNTENY-001 which reuses synteny-and-rearrangement-detection,
+   reversal distance, dot-plot, conserved gene clusters) warrant their own concepts or share existing ones when
+   ingested.
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to synteny-and-rearrangement-detection)
