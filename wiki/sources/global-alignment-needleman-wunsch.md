@@ -1,2 +1,0 @@
-# global-alignment-needleman-wunsch
-
