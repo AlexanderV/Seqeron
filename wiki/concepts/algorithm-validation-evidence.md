@@ -60,7 +60,8 @@ sources:
   - docs/Evidence/KMER-UNIQUE-001-Evidence.md
   - docs/Evidence/META-ALPHA-001-Evidence.md
   - docs/Evidence/META-FUNC-001-Evidence.md
-source_commit: ab6548a3b59cfe5105eb5aa7cb252e63ffed5de7
+  - docs/Evidence/META-PATHWAY-001-Evidence.md
+source_commit: 14005a6134e0cf637135d54041289269cd71c467
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -130,7 +131,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[kmer-both-001-evidence]], [[kmer-dist-001-evidence]],
 [[kmer-positions-001-evidence]], [[kmer-stats-001-evidence]],
 [[kmer-unique-001-evidence]], [[meta-alpha-001-evidence]],
-[[meta-func-001-evidence]]). An
+[[meta-func-001-evidence]], [[meta-pathway-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -181,4 +182,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[k-mer-statistics]] (the K-mer family's *summary-statistics* unit — `KmerAnalyzer.AnalyzeKmers` reduces the count profile to Total/Unique(=distinct)/Max/Min/Average multiplicity + Shannon **k-entropy** in bits, a companion summary layer over the shared `CountKmers`, distinct from the counting/generation/distance siblings), or
 [[unique-and-mincount-kmers]] (the K-mer family's *frequency-filtering* unit — `KmerAnalyzer.FindUniqueKmers` returns the `Count == 1` singleton set and `FindKmersWithMinCount` the `Count ≥ t` recurrent k-mers ordered by count; the "unique"=singleton notion is distinct from [[k-mer-statistics]]'s `UniqueKmers`=distinct-count field), or
 [[alpha-diversity]] (the anchor for the Metagenomics diversity family, the first ingested META-* unit — `MetagenomicsAnalyzer.CalculateAlphaDiversity` computes the six within-sample indices Shannon/Simpson/inverse-Simpson/Pielou-evenness/observed-richness/Chao1 over one taxon→abundance map; between-sample [[beta-diversity]] is a future sibling), or
-[[functional-prediction]] (the Metagenomics family's functional-prediction unit, META-FUNC-001 — homology-based annotation transfer `MetagenomicsAnalyzer.PredictFunctions` scored with BLAST bit-score / E-value Karlin-Altschul statistics (ungapped BLOSUM62 λ=0.3176/K=0.134, best-hit = lowest E-value) plus the hypergeometric pathway ORA `FindPathwayEnrichment`; the ORA half is shared with the not-yet-ingested META-PATHWAY-001).
+[[functional-prediction]] (the Metagenomics family's functional-prediction unit, META-FUNC-001 — homology-based annotation transfer `MetagenomicsAnalyzer.PredictFunctions` scored with BLAST bit-score / E-value Karlin-Altschul statistics (ungapped BLOSUM62 λ=0.3176/K=0.134, best-hit = lowest E-value) plus the hypergeometric pathway ORA `FindPathwayEnrichment`; the ORA half is owned by [[pathway-enrichment-ora]]), or
+[[pathway-enrichment-ora]] (the Metagenomics family's pathway-enrichment / over-representation-analysis unit, META-PATHWAY-001 — the GO::TermFinder / clusterProfiler hypergeometric right-tail test `FindPathwayEnrichment` / `HypergeometricUpperTail`; the dedicated owner of the ORA machinery that [[functional-prediction]] exercises as component B).

@@ -74,12 +74,12 @@ enrichment without throwing. COULD: monotonicity — larger raw score ⇒ larger
 No source contradictions — the Altschul E-value/bit-score forms, the `blast_stat.c` ungapped parameters,
 the BLOSUM62 diagonals, and the PNNL hypergeometric formula are mutually consistent.
 
-## Scope note — the ORA half has its own dedicated unit
+## Scope note — the ORA half has its own dedicated unit (ingested)
 
 The hypergeometric ORA (`FindPathwayEnrichment` / `HypergeometricUpperTail`) appears here as **component B**
 of functional prediction, but it also has its **own** test unit **META-PATHWAY-001**
-(`docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md`, evidence `META-PATHWAY-001-Evidence.md`, **not
-yet ingested**). META-FUNC-001 validates **only** `docs/algorithms/Metagenomics/Functional_Prediction.md`;
-the shared ORA statistics are captured on [[functional-prediction]] and will be revisited when
-META-PATHWAY-001 is ingested.
+(`docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md`, evidence `META-PATHWAY-001-Evidence.md`, **now
+ingested** as [[meta-pathway-001-evidence]]). META-FUNC-001 validates **only**
+`docs/algorithms/Metagenomics/Functional_Prediction.md`; the shared ORA statistics are **owned** by the
+dedicated concept [[pathway-enrichment-ora]], which [[functional-prediction]] links to.
 </content>

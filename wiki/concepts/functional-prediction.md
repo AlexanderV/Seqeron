@@ -16,6 +16,12 @@ graph:
       evidence: "Test Unit ID: META-FUNC-001, Area: Metagenomics, Methods MetagenomicsAnalyzer.PredictFunctions + FindPathwayEnrichment"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:pathway-enrichment-ora
+      source: meta-func-001-evidence
+      evidence: "Component B FindPathwayEnrichment / HypergeometricUpperTail is the shared ORA machinery owned by pathway-enrichment-ora (META-PATHWAY-001, its dedicated unit)"
+      confidence: high
+      status: current
 ---
 
 # Functional prediction (homology-based annotation transfer + pathway ORA)
@@ -93,11 +99,13 @@ P(X ≥ x) = 1 − Σ_{i=0}^{x−1}  C(M,i) · C(N−M, n−i) / C(N, n)
 - **Not implemented:** multiple-testing correction (BH/Bonferroni) — apply your own over the returned
   p-values.
 
-> **This ORA half has its own dedicated unit.** `FindPathwayEnrichment` / `HypergeometricUpperTail` is
-> shared with test unit **META-PATHWAY-001** (`docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md`,
-> *Framework* status, not yet ingested), which frames ORA standalone (adds the M↔n symmetry invariant and
-> a GSEA comparison). META-FUNC-001 validates only `Functional_Prediction.md`; when META-PATHWAY-001 is
-> ingested it may get its own `pathway-enrichment-ora` page sharing this material.
+> **This ORA half has its own dedicated unit, now ingested.** `FindPathwayEnrichment` /
+> `HypergeometricUpperTail` is shared with test unit **META-PATHWAY-001**
+> (`docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md`), which frames ORA standalone and **owns** the
+> statistic on [[pathway-enrichment-ora]] — see that page for the M↔n symmetry invariant, the exact
+> rational oracles (1/252, 5/6, 251/252), and the GSEA/FDR scope notes. META-FUNC-001 validates only
+> `Functional_Prediction.md`; the pathway ORA details above are the shared machinery synthesized in full
+> on [[pathway-enrichment-ora]].
 
 ## Invariants and edge cases
 

@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 110 / 1610
+Progress: 111 / 1610
 
 ## (top-level)  (6)
 
@@ -83,7 +83,7 @@ Progress: 110 / 1610
 - [x] docs/Evidence/META-BIN-001-MarkerQC-Evidence.md
 - [x] docs/Evidence/META-CLASS-001-Evidence.md
 - [x] docs/Evidence/META-FUNC-001-Evidence.md
-- [ ] docs/Evidence/META-PATHWAY-001-Evidence.md
+- [x] docs/Evidence/META-PATHWAY-001-Evidence.md
 - [ ] docs/Evidence/META-PROF-001-Evidence.md
 - [ ] docs/Evidence/META-RESIST-001-Evidence.md
 - [ ] docs/Evidence/META-TAXA-001-Evidence.md

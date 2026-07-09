@@ -1640,3 +1640,29 @@ Operations:
    concept pages so META-PATHWAY-001 can share this material later.
    graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry); body
    [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] ingest | docs/Evidence/META-PATHWAY-001-Evidence.md → meta-pathway-001-evidence (source) + pathway-enrichment-ora (concept)
+   Sixth Metagenomics-family Evidence unit and the DEDICATED unit for the ORA / hypergeometric machinery
+   that META-FUNC-001 exercised as component B. DECISION: created a focused new concept
+   [[pathway-enrichment-ora]] that OWNS the method (rather than only enriching [[functional-prediction]]) —
+   the evidence is substantial enough to stand alone: its own GO::TermFinder (Boyle 2004) + PNNL ORA §8.2
+   sources, the M↔n symmetry invariant, and exact hand-derived rational oracles. The concept synthesizes
+   the hypergeometric right-tail `P(X≥x)=1−Σ_{i=0}^{x−1}C(M,i)C(N−M,n−i)/C(N,n)` (`phyper(x−1,M,N−M,n,
+   lower.tail=FALSE)`, N=background/M=pathway/n=query/x=overlap, upper-tail/without-replacement), log-Gamma
+   summation to N=8000, p∈[0,1], sorted ascending; p=1 when x/M/n=0; background = explicit else
+   union-of-pathway-members default (query unioned in, members intersected); NO BH/Bonferroni FDR. Oracles
+   PNNL N8000/M100/n400/x20→7.88e−8 + exact 1/252 / 5/6 / 1 / 251/252. Created source page
+   [[meta-pathway-001-evidence]]. Reciprocally cross-linked with [[functional-prediction]]: rewrote its
+   component-B blockquote to defer ownership here (was "not yet ingested / may get its own page") and added
+   a typed edge functional-prediction relates_to pathway-enrichment-ora; also updated the
+   [[meta-func-001-evidence]] source page's scope note ("now ingested"). Hub
+   [[algorithm-validation-evidence]]: added META-PATHWAY to frontmatter sources (bumped source_commit to
+   HEAD 14005a6) + source-list + concept-list. index.md: +1 source +1 concept, refreshed the
+   functional-prediction / meta-func lines. Backlog: moved Metagenomics/Pathway_Enrichment_ORA.md
+   pending→covered (61→62 covered / 184→183 pending; §Metagenomics 5→4). Contradictions: none — Boyle 2004
+   and PNNL §8.2 give the identical right-tail formula; the background-defaulting assumption is
+   formula-preserving and caller-overridable. Note: the ORA statistic is generic (GO/proteomics sources)
+   though registered under metagenomics via `FindPathwayEnrichment`.
+   graph: +2 nodes (source + concept), +3 typed edges (pathway-enrichment-ora relates_to
+   test-unit-registry + relates_to functional-prediction; reciprocal functional-prediction relates_to
+   pathway-enrichment-ora); body [[wikilinks]] mentions auto-derived.
