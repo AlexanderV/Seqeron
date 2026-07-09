@@ -1192,3 +1192,36 @@ Operations:
    source-defined per the Evidence file). Contradictions: none.
    graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
    source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/EPIGEN-DMR-001-Evidence.md → epigen-dmr-001-evidence (source) + 1 concept
+   FIFTH unit of the Epigenetics family (EPIGEN-DMR-001) — differentially methylated region (DMR)
+   detection by the methylKit tiling-window + Fisher's-exact-test model. Surveyed wiki/concepts: NO
+   pre-existing DMR / methylation-comparison concept, and this is a genuinely-distinct algorithm —
+   it COMPARES methylation between two samples (vs the single-sample siblings), consuming the per-CpG
+   C/(C+T) β-values [[bisulfite-methylation-calling]] produces over the CpGs [[cpg-island-detection]]
+   locates. Created anchor concept [[differentially-methylated-regions]]. Core: fixed tiling windows
+   (`win.size=1000/step.size=1000/cov.bases=0`, tileMethylCounts), meth.diff=group2%−group1%
+   (percentage points), per-window pooled 2×2 methylated/unmethylated counts → Fisher's exact test
+   (one sample per group; replicates→logistic regression out of scope), hypergeometric single-table p
+   `(a+b)!(c+d)!(a+c)!(b+d)!/(a!b!c!d!n!)` + two-sided sum-of-≤-observed; getMethylDiff reports
+   q<0.01 AND |meth.diff|>25 STRICT (hyper meth.diff>+25 / hypo <−25). Corner cases: empty→no DMRs,
+   zero-coverage group / zero marginal→degenerate 2×2→p=1.0 (not reported), |meth.diff|=25→excluded.
+   Oracles: Fisher single-table a=1/b=9/c=11/d=3,n=24→≈0.001346076 (Wikipedia studying-by-gender);
+   hyper window g1 level 0.0/cov 20 + g2 level 1.0/cov 20 × 3 sites → pooled meth {0,60}/unmeth {60,0}
+   → meth.diff +100, p≈0 (complete separation), Hypermethylated. Sources: Akalin 2012 methylKit
+   (Genome Biology 13:R87, PMC3491415, rank-1/3) + tileMethylCounts/calculateDiffMeth man pages +
+   get.methylDiff diffMeth.R source (rank-3) + Fisher's exact test Wikipedia citing Fisher 1922/1935
+   (rank-4, primary math). Concept also lists docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md
+   as a second source. Reconciled backlog: moved Differentially_Methylated_Regions.md from pending
+   Epigenetics (2→1) to covered-via-concept (41→42 covered / 204→203 pending); updated the index
+   backlog-summary counts. Cross-linked all four Epigenetics siblings ([[bisulfite-methylation-calling]]
+   tightest — DMR consumes its β-values, added reciprocal link; [[cpg-island-detection]];
+   [[epigenetic-age-horvath-clock]]; [[chromatin-state-prediction]]); linked into the
+   algorithm-validation-evidence hub (frontmatter sources + source-list + distinct-concept list) and
+   index (source + concept lines). Two evidence-backed assumptions (per-window pooling into one 2×2 =
+   tileMethylCounts→Fisher documented pipeline; numC/numT=round(level×coverage) count reconstruction
+   from the fractional-level MethylationSite). Research-grade: no logistic-regression replicate path /
+   SLIM q-value model / overlapping-window tiling. Contradictions: none — Akalin 2012, the methylKit
+   reference, and the Fisher hypergeometric definition are mutually consistent.
+   graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
+   source-page [[wikilinks]] mentions auto-derived)

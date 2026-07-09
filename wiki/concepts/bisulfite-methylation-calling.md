@@ -26,7 +26,9 @@ the **second ingested unit of the Epigenetics family** and a **distinct algorith
 how those per-CpG β-values are *produced* from bisulfite reads). A third Epigenetics-family sibling,
 [[chromatin-state-prediction]], works on a different axis entirely — histone-mark ChIP-seq signals
 rather than DNA methylation. A fourth sibling, [[cpg-island-detection]], is the sequence-only unit
-that *locates* the CpGs this caller scores (via the shared `FindCpGSites`). Validated under test unit
+that *locates* the CpGs this caller scores (via the shared `FindCpGSites`). A fifth sibling,
+[[differentially-methylated-regions]], *consumes* the per-CpG β-values this caller produces to compare
+methylation between two samples (methylKit tiling windows + Fisher's exact test). Validated under test unit
 **EPIGEN-BISULF-001**; the record is [[epigen-bisulf-001-evidence]], [[test-unit-registry]] tracks the
 unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
 

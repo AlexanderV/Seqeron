@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **41** algorithm docs covered-via-concept, **204** pending across 34 domains.
+Status at generation: **42** algorithm docs covered-via-concept, **203** pending across 34 domains.
 
 ## Covered via concept (done)
 
@@ -63,6 +63,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Epigenetics/Bisulfite_Sequencing_Analysis.md` | [[bisulfite-methylation-calling]] |
 | `docs/algorithms/Epigenetics/Chromatin_State_Prediction.md` | [[chromatin-state-prediction]] |
 | `docs/algorithms/Epigenetics/CpG_Site_Detection.md` | [[cpg-island-detection]] |
+| `docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md` | [[differentially-methylated-regions]] |
 | `docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md` | [[epigenetic-age-horvath-clock]] |
 | `docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md` | [[coding-potential-hexamer-score]] |
 | `docs/algorithms/Extended_Assembly/Contig_Merging.md` | [[contig-merge-overlap-collapse]] |
@@ -117,11 +118,10 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/Complexity/Lempel_Ziv_Complexity.md` | `lempel-ziv-complexity` |
 | `docs/algorithms/Complexity/Windowed_Complexity.md` | `windowed-complexity` |
 
-### Epigenetics (2)
+### Epigenetics (1)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md` | `differentially-methylated-regions` |
 | `docs/algorithms/Epigenetics/Methylation_Analysis.md` | `methylation-analysis` |
 
 ### Extended_GC_Skew_Analysis (2)
