@@ -87,3 +87,15 @@ Operations:
    the ALIGN-GLOBAL-001 artifact (Wikipedia sources, GCATGCG/GATTACA example, score 0). Linked
    the evidence hub from test-unit-registry. No contradictions; deviations = None.
    graph: +3 nodes, +3 typed edges
+
+## [2026-07-09] ingest | docs/Evidence/ALIGN-MULTI-001-Evidence.md → align-multi-001-evidence (source) + 1 concept
+   Second per-algorithm Evidence file. Created the genuinely-distinct concept
+   multiple-sequence-alignment (star `MultipleAlign`, iterative-refinement `MultipleAlignIterative`
+   = MUSCLE Stage 3, consistency `MultipleAlignConsistency` = T-Coffee; SP-score objective, majority
+   consensus, invariants, NP-completeness). Concise source page capturing the unusually rich file
+   (main doc + MUSCLE and T-Coffee addenda, 2026-06-23) and its design-choice deviations (cosine-
+   similarity center pick, gap-gap=0, gap-votes/tie-to-nucleotide consensus, UPGMA vs NJ, gap-0
+   progressive DP). Linked the new source + concept into the algorithm-validation-evidence hub and
+   added the ALIGN-MULTI source to that hub's frontmatter. No contradictions; all deviations flagged
+   as API/structure choices preserving the verified properties.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, alternative_to global-alignment-needleman-wunsch)

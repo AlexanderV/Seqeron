@@ -19,6 +19,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[mcp-prompt]] — the CURRENT one-tool-per-session MCP-completion subagent prompt: names the real 11 servers (server→project→file), the 3-part tool DoD (binding+tests+docs), and reverses the old no-business-asserts test policy. Ground truth: `docs/mcp/MCP_STATUS.md`.
 - [[sonar-gate-plan]] — the Sonar-ratchet tracker: 66/66 SonarAnalyzer rules moved from report-only to blocking (or silenced-with-justification); Groups A–E, notable behaviour changes, and review-not-blind-fix on the S1244/S125 giants.
 - [[align-global-001-evidence]] — evidence artifact for test unit ALIGN-GLOBAL-001 (Needleman–Wunsch): Wikipedia sources, the `GCATGCG`/`GATTACA` worked example, and the GapExtend-as-*d* / GapOpen-unused note.
+- [[align-multi-001-evidence]] — evidence artifact for test unit ALIGN-MULTI-001 (MSA): main doc + MUSCLE and T-Coffee addenda; star/iterative/consistency aligners, SP-score and consensus design choices.
 
 ## Concepts
 
@@ -32,6 +33,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[definition-of-done]] — the six-criterion acceptance bar (TestSpec, tests, ≥80% coverage, edge cases, CI, evidence) each unit must clear.
 - [[algorithm-validation-evidence]] — the templated per-unit `docs/Evidence/` artifact pattern (sources, worked-example dataset, deviations) behind the "Evidence documented" DoD criterion.
 - [[global-alignment-needleman-wunsch]] — the canonical DP global-alignment algorithm (`GlobalAlign`): linear-gap recurrence, O(nm), traceback, affine-as-extension.
+- [[multiple-sequence-alignment]] — aligning 3+ sequences (NP-complete): Seqeron's star (`MultipleAlign`), iterative-refinement (MUSCLE), and consistency (T-Coffee) aligners; sum-of-pairs + consensus.
 
 ## Gotchas
 

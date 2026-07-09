@@ -4,7 +4,8 @@ title: "Algorithm validation evidence artifacts"
 tags: [validation, testing]
 sources:
   - docs/Evidence/ALIGN-GLOBAL-001-Evidence.md
-source_commit: 46d4efa2e08a672c942aa455eeb8b724705081e3
+  - docs/Evidence/ALIGN-MULTI-001-Evidence.md
+source_commit: 4fc6a948f66d23331a4fe87fd3f5176d56789e13
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -47,6 +48,6 @@ Every evidence file follows the same shape:
 
 Because these files are near-templated across the ~213 documented units, the wiki keeps
 **one** shared page for the pattern (this page) plus a concise per-file source summary
-(e.g. [[align-global-001-evidence]]). An individual algorithm gets its own concept page
-only when it is itself distinct and wiki-worthy — for example
-[[global-alignment-needleman-wunsch]].
+(e.g. [[align-global-001-evidence]], [[align-multi-001-evidence]]). An individual algorithm
+gets its own concept page only when it is itself distinct and wiki-worthy — for example
+[[global-alignment-needleman-wunsch]] or [[multiple-sequence-alignment]].
