@@ -614,3 +614,27 @@ Operations:
    remaining codon-usage units (CODON-STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON) — raw frequency/usage tables
    may share existing concepts.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to codon-optimization)
+
+## [2026-07-09] ingest | docs/Evidence/CODON-RSCU-001-Evidence.md → codon-rscu-001-evidence (source)
+   Twenty-sixth per-algorithm Evidence file; sixth of the codon-usage family and the SECOND RSCU
+   unit (after ANNOT-CODONUSAGE-001). REUSED the existing relative-synonymous-codon-usage concept
+   rather than duplicating — this file validates the same n_i·x/Σx measure but adds the supporting
+   `CountCodons` counting operation and a broader reference panel. No new concept created. Concise
+   source page for the CODON-RSCU-001 artifact: Sharp/Tuohy/Mosurski 1986 (NAR 14(13):5125-5143, the
+   RSCU-introducing paper) + LIRMM RSCU RS + GenomicSig (CRAN) + seqinr `uco` + cubar `est_rscu` +
+   PMC2528880 sources; Leu CTGCTGCTGCTA→4.5/1.5/0 (Σ=6), Phe TTTTTTTTC→4/3,2/3 (Σ=2), unbiased
+   TTTTTC→1.0, Met ATGATG→1.0, CountCodons frame/exclusion (ATGAAATGA/ATGAA/ATGNNNAAA) datasets; two
+   assumptions (absent-family 0/0→0 vs cubar pseudocount default 1; stop codons as a degeneracy-3
+   family). Surgically updated the RSCU concept (added CODON-RSCU source + a 2nd relates_to
+   test-unit-registry edge; documented the CountCodons counting contract and the primary-attribution
+   note) and the algorithm-validation-evidence hub (frontmatter + source-list). FLAGGED two cross-page
+   nuances, neither a source contradiction: (1) stop-codon handling — the concept/ANNOT-CODONUSAGE say
+   stops are EXCLUDED (Biopython forward_table) whereas CODON-RSCU says the repo treats the 3 stops as
+   a degeneracy-3 synonymous family; both agree it never changes an amino-acid codon's RSCU; (2)
+   primary attribution — CODON-RSCU + seqinr cite Sharp, Tuohy & Mosurski 1986 (the RSCU-introducing
+   paper) whereas the concept/begomovirus restatement wrote "Sharp & Li 1986"; noted both on the
+   concept. Sources internally consistent (LIRMM/GenomicSig/seqinr/Sharp-Tuohy-Mosurski algebraically
+   identical; cubar pseudocount an explicit zero-division convention). Follow-up: remaining codon-usage
+   units (CODON-STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON) — raw frequency/usage tables may share
+   existing concepts.
+   graph: +1 node, +1 typed edge (relates_to test-unit-registry)

@@ -28,7 +28,8 @@ sources:
   - docs/Evidence/CODON-ENC-001-Evidence.md
   - docs/Evidence/CODON-OPT-001-Evidence.md
   - docs/Evidence/CODON-RARE-001-Evidence.md
-source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
+  - docs/Evidence/CODON-RSCU-001-Evidence.md
+source_commit: 458398bca4eee7e7fa828acbe182e07695db5e28
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -81,7 +82,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[assembly-trim-001-evidence]], [[chrom-aneu-001-evidence]],
 [[chrom-cent-001-evidence]], [[chrom-karyo-001-evidence]], [[chrom-synt-001-evidence]],
 [[chrom-telo-001-evidence]], [[codon-cai-001-evidence]],
-[[codon-enc-001-evidence]], [[codon-opt-001-evidence]], [[codon-rare-001-evidence]]). An
+[[codon-enc-001-evidence]], [[codon-opt-001-evidence]], [[codon-rare-001-evidence]],
+[[codon-rscu-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
