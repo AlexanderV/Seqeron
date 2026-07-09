@@ -413,3 +413,31 @@ Operations:
    Chromosome-analysis units (karyotype, centromere/telomere, arm-ratio, synteny, GC-skew) warrant their
    own concepts when ingested.
    graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/CHROM-CENT-001-Evidence.md → chrom-cent-001-evidence (source) + 1 concept
+   Eighteenth per-algorithm Evidence file; second of the Chromosome-analysis family (after ANEU).
+   Created the genuinely-distinct concept centromere-analysis — the anchor for the chromosome
+   centromere / alpha-satellite family, sibling of aneuploidy-detection. Unusually this artifact is a
+   layered multi-session record: base `AnalyzeCentromere` (generic tandem-repeat-density heuristic,
+   sliding-window k-mer + low GC-variability + k=15 repeat content; AlphaSatelliteContent is a repeat
+   score NOT alpha-satellite-specific) + Levan 1964 q/p arm-ratio classification (exact thresholds
+   1.7/3.0/7.0/∞ → Metacentric/Submetacentric/Subtelocentric/Acrocentric/Telocentric) + four opt-in
+   additive detectors: DetectAlphaSatellite/FindCenpBBoxes (171-bp tandem period ±5, ≥0.50
+   self-similarity, AT>0.50, 17-bp CENP-B box IUPAC `YTTCGTTGGAARCGGGA` — no embedded monomer string),
+   DetectHigherOrderRepeat (split into 171-bp monomers, GlobalAlign+CalculateStatistics, HOR period =
+   smallest k with monomers k apart ≥95% identical / <5% divergence across ≥90% of array; intra-HOR
+   50–70% vs inter-HOR 97–100%; period 1 = homogeneous 1-mer not multi-monomer HOR), and
+   AssignSuprachromosomalFamily (bundled CC0 Dfam ALR/ALRa=A, ALRb=B via CENP-B box; ≥60% gate; SF3
+   pentameric period%5==0 / SF4 monomeric A-type / {SF1,SF2} dimeric A→B / SF5 irregular). Sources:
+   Wikipedia Centromere/Karyotype/Chromosome + Levan 1964 + Hartley/O'Neill 2019 & McNulty/Sullivan
+   2018 (PMC6121732) + Masumoto 1989 (PMC4843215) + Rosandić 2024 (PMC11050224) & Alkan 2007/ColorHOR +
+   Shepelev 2009 + Dfam (CC0) + T2T/CHM13 (CC0). Concise source page for the artifact. Linked new
+   source + concept into the algorithm-validation-evidence hub and added CHROM-CENT to that hub's
+   frontmatter; added a reciprocal sibling nav link from aneuploidy-detection. Two flagged ASSUMPTION
+   parameters (≥60% alpha-satellite gate, SF3⇔period%5==0 pentameric proxy). Contradictions: none — the
+   encyclopedic + alphoid-DNA literature + Dfam/T2T reference agree (171-bp monomer, 17-bp box, <5%
+   inter-HOR recur). Residual data-blocked limitation: SF1-vs-SF2 not separated and diverged-pentamer
+   SF3 (e.g. DXZ1 period 12) not tagged — needs an SF-resolved consensus monomer library that is
+   non-redistributable (no LICENSE / non-machine-retrievable supplements). Follow-up: remaining
+   Chromosome-analysis units (telomere, arm-ratio, synteny, GC-skew) warrant their own concepts.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to aneuploidy-detection)
