@@ -243,3 +243,25 @@ Operations:
    definitions). Follow-up: remaining Assembly-family units (DBG/OLC/SCAFFOLD/STATS/TRIM/MERGE) likely
    warrant their own distinct concepts.
    graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-DBG-001-Evidence.md → assembly-dbg-001-evidence (source) + 1 concept
+   Eleventh per-algorithm Evidence file; fourth of the Assembly family (after CONSENSUS, CORRECT,
+   COVER). Created the genuinely-distinct concept de-bruijn-graph-assembly — the anchor for the
+   assembly DBG family (BuildDeBruijnGraph + AssembleDeBruijn). Graph construction traced verbatim to
+   Langmead's JHU DBG notes: distinct (k-1)-mers are nodes, each k-mer is one directed prefix→suffix
+   edge, repeated k-mers make a directed multigraph; chop bound range(0,len-(k-1)) ⇒ reads < k yield
+   no k-mers. Reconstruction as an Eulerian walk under Jones & Pevzner Theorems 8.1 (cycle iff all
+   balanced) / 8.2 (path iff ≤2 semi-balanced), O(|E|) Hierholzer, spelled as path[0] + last char of
+   each subsequent node; Compeau-Pevzner-Tesler 2011 supply the assembly application (Eulerian-path
+   tractable vs NP-complete Hamiltonian/overlap). Unique-walk oracles (AAABBBA k=3 with full node/edge
+   set, a_long_long_long_time k=5, to_every… k=4-correct/k=3-wrong turn-repeat, ATGGCGTGCA k=4) plus
+   the AAABBBBA multiedge case; failure modes (repeat≥k-1 → multiple walks, gap → disconnected/multi-
+   contig, extra copy/error → non-Eulerian, Superwalk NP-hard). Concise source page for the artifact.
+   Linked new source + concept into the algorithm-validation-evidence hub and added ASSEMBLY-DBG to
+   that hub's frontmatter. Three assumptions: walk-selection unspecified (exact asserts on unique-walk
+   inputs only; non-unique checked on invariants/branch structure), empty/null → empty AssemblyResult
+   (mirrors OLC), reads < k contribute no k-mers. Contradictions: none — Langmead cites the same J&P
+   Euler theorems Compeau builds on; Compeau 2011 PDFs are image-only so cited for metadata only.
+   Follow-up: OLC (the alternative fragment-assembly formulation) warrants its own concept when
+   ingested; remaining Assembly units (SCAFFOLD/STATS/TRIM/MERGE) likely warrant distinct concepts.
+   graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
