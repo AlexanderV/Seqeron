@@ -47,6 +47,7 @@ The plan is mid-rename from the old `SuffixTree.Mcp.*` project namespace to `Seq
 
 ## Where this fits
 
+- [[mcp-plan]] — the sibling *design document* (MCP Implementation Plan v4) for this same superseded plan: it carries the v3→v4 rationale, the full 241-tool inventory across all 12 servers, and the standards (sections 6–8) declared still-valid.
 - [[three-front-doors]] — this tracker operationalizes the **MCP door** (schemas, error mapping, deterministic tool calls).
 - [[mcp-methods-audit]] — the C# method inventory the checklist's MethodId/DocRef columns trace back to.
 - [[validation-and-testing]] — the two-tests-per-tool discipline (Schema + Binding, no business asserts) complements the deeper per-unit algorithm validation.

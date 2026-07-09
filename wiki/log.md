@@ -42,3 +42,14 @@ Operations:
    Seqeron.Mcp rename. Added 241-vs-277-vs-427 tool-count reconciliation; cross-linked from
    mcp-methods-audit. No typed edges (supersession target docs/mcp/MCP_STATUS.md is not yet a wiki
    node; mentions auto-derived).
+
+## [2026-07-09] ingest | docs/mcp-plan.md → mcp-plan (source)
+   New source page for the MCP Implementation Plan v4 — the sibling *design doc* to mcp-checklist.
+   Flagged SUPERSEDED (2026-07-01): 12-server/241-tool design never built (real: 11 servers/427
+   tools, docs/mcp/MCP_STATUS.md). Distinctive content vs the checklist: v3→v4 context-budget
+   rationale (5-7%/24%/2-8%), full 241-tool inventory across all 12 servers, and sections 6-8
+   standards the banner declares still-valid (naming, JSON-Schema 2020-12, error ranges 1000-5999,
+   SemVer, 2-tests-per-tool, .mcp.json+.md doc contract). Reused the 241/277/427 reconciliation.
+   Cross-linked bidirectionally with mcp-checklist. No typed edges (superseded near-sibling source;
+   ontology has no fitting source→source predicate, and count deltas are reconciled not contradictory;
+   mentions auto-derived).
