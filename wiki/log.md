@@ -1046,3 +1046,27 @@ Operations:
    REGION — Disorder_Propensity.md, Disordered_Region_Detection.md) can reuse this anchor;
    Disordered_Region_Detection is the aggregation layer over PredictDisorder's per-residue calls.
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry + relates_to protein-low-complexity-seg; morf depends_on intrinsic-disorder-prediction-top-idp)
+
+## [2026-07-09] ingest | docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md → disorder-propensity-001-evidence (source)
+   Fourth protein-disorder-family unit. NOT a new algorithm — the RAW per-residue propensity
+   primitive layer beneath PredictDisorder, so REUSED/enriched the existing anchor concept
+   [[intrinsic-disorder-prediction-top-idp]] rather than creating a new one (as the DISORDER-PRED
+   log entry anticipated). Four in-scope methods: GetDisorderPropensity (returns the RAW
+   un-normalized TOP-IDP Table-2 value W−0.884…P+0.987 — explicitly NOT the [0,1] normalized Sᵢ the
+   windowed predictor uses; unknown residue→0.0 via GetValueOrDefault; case-folded), IsDisorderPromoting,
+   and the two public sets DisorderPromotingAminoAcids={A,E,G,K,P,Q,R,S} / OrderPromotingAminoAcids=
+   {C,F,I,L,N,V,W,Y} (with ambiguous {D,H,M,T} in neither; three sets disjoint + cover all 20 = 8+8+4).
+   Sources: Campen 2008 (PMC2676888 rank-1, Table 2 raw values + anchors) + Wikipedia IDP (rank-4, for
+   the Dunker 2001 classification it cites) + Dunker 2001 PubMed (rank-1 citation locator). Enriched
+   the concept with a new "Per-residue propensity primitives" section (raw-vs-normalized value-space
+   caveat), added the new evidence path to its frontmatter sources + bumped source_commit, and
+   cross-linked from the intro. Updated index (new source line + concept line now names both units).
+   Assumptions: two, both implementation-side, not source contradictions — (1) unknown-residue
+   propensity 0.0 = GetValueOrDefault contract not a source value; (2) ranking-string vs Table-2-value
+   S/K discrepancy (rendered "…Q,K,S,E,P" but S=0.341<K=0.586 → by value "…Q,S,K,E,P"; numeric values
+   authoritative, no correctness impact). The 0.542 cutoff is recorded in-source for completeness but
+   governs PredictDisorder, NOT this unit's four methods. Contradictions: none. Follow-up: only the
+   REGION unit (Disordered_Region_Detection.md, the contiguous-run aggregation layer over
+   PredictDisorder) remains in the protein-disorder family.
+   graph: +1 node (source), +0 typed edges (concept↔registry / ↔SEG edges already exist from the
+   DISORDER-PRED slug; source-page mentions auto-derived)

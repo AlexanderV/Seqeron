@@ -4,8 +4,9 @@ title: "Intrinsic-disorder prediction (TOP-IDP sliding window, PredictDisorder)"
 tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-PRED-001-Evidence.md
+  - docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
-source_commit: 05fff695e889b79023301d7319afbc8a24e0bec4
+source_commit: 1934ccea3f2b16ce6f2ae8fb793ac8f0704a6500
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -32,8 +33,10 @@ under physiological conditions and instead populate dynamic conformational ensem
 each residue as the **sliding-window average of the normalized TOP-IDP propensity scale** (Campen et
 al. 2008) and labels residues at or above a cutoff as disordered. Validated under test unit
 **DISORDER-PRED-001**; the validation record is [[disorder-pred-001-evidence]] and
-[[test-unit-registry]] tracks the unit. See [[algorithm-validation-evidence]] for the artifact
-pattern.
+[[test-unit-registry]] tracks the unit. The **raw per-residue propensity primitives** underneath the
+predictor (`GetDisorderPropensity` + the Dunker classification) are separately validated as
+**DISORDER-PROPENSITY-001** ([[disorder-propensity-001-evidence]]) — see the primitives section
+below. See [[algorithm-validation-evidence]] for the artifact pattern.
 
 This is the **third ingested unit of the protein disorder / features family** (DISORDER-LC / MORF /
 PRED / PROPENSITY / REGION) and the **shared `PredictDisorder` anchor** the family was expected to
@@ -105,6 +108,30 @@ Three disjoint sets covering all 20 residues, exposed as public properties and c
 Pro promotes disorder via its rigid cyclic side chain (α-helix breaker); Gly via its side-chain-less
 flexibility. `CalculateHydropathy` is a bundled Kyte & Doolittle (1982) utility returning a window's
 mean hydropathy, supporting the Uversky et al. (2000) charge–hydropathy view of disorder.
+
+## Per-residue propensity primitives (DISORDER-PROPENSITY-001)
+
+Beneath the windowed predictor sit four **per-residue lookup primitives**, validated separately as
+test unit **DISORDER-PROPENSITY-001** ([[disorder-propensity-001-evidence]]):
+
+- `GetDisorderPropensity(residue)` — returns the **raw, un-normalized TOP-IDP Table 2 value**
+  (`W = −0.884` … `P = +0.987`), **not** the `[0, 1]` normalized `p(c)` the windowed `Sᵢ` uses. Case
+  is folded (input upper-cased first), and any residue outside the 20-residue scale (B, J, O, U, X, Z,
+  gaps) returns **`0.0`** — a `GetValueOrDefault(..., 0)` implementation contract, *not* a
+  source-defined value.
+- `IsDisorderPromoting(residue)` — `true` iff the residue is in the Dunker disorder-promoting set;
+  `false` for both order-promoting and the ambiguous `{D, H, M, T}`.
+- `DisorderPromotingAminoAcids` = `{A, E, G, K, P, Q, R, S}` and `OrderPromotingAminoAcids` =
+  `{C, F, I, L, N, V, W, Y}` — the two public sets (8 members each); the two plus ambiguous
+  `{D, H, M, T}` are pairwise disjoint and cover all 20 residues (8 + 8 + 4).
+
+**Do not conflate the two value spaces:** `GetDisorderPropensity` exposes the *raw* scale value,
+whereas `PredictDisorder`'s `Sᵢ` averages the *min-max-normalized* value `(p − (−0.884))/1.871`. Anchor
+residues coincide (W = raw min / normalized 0, P = raw max / normalized 1), but interior values differ.
+The DISORDER-PROPENSITY-001 evidence flags a **ranking-vs-value discrepancy**: the rendered ranking
+string places `…Q, K, S, E, P`, yet the Table 2 values give `S = 0.341 < K = 0.586` (so by value
+`Q, S, K, E, P`) — the **numeric values are authoritative**, the ranking string is a presentation-order
+artifact with no correctness impact.
 
 ## Result object
 
