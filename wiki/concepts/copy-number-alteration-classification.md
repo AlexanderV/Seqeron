@@ -32,6 +32,9 @@ tracks the unit, and [[algorithm-validation-evidence]] describes the evidence-ar
   sibling: it asks the orthogonal **length** question (segment < 98% of its arm → focal) and maps arms
   to oncogenes. It shares only the GISTIC2 amplitude threshold (`t_amp = 0.1`) this unit uses to place
   the Amplification bin — it does **not** bin log2 into the five discrete states.
+- [[homozygous-deletion-detection]] (ONCO-CNA-003) is the **loss-side consumer** of this unit's CN-0
+  call: a homozygous deletion is *exactly* the `DeepDeletion` (integer CN 0) state defined here, which it
+  filters for and then maps arm→tumour-suppressor. It invents no new threshold — it reuses this binning.
 
 
 - [[allele-specific-copy-number-ascat]] (ONCO-ASCAT-001) is the **allele-specific** layer — it derives

@@ -21,6 +21,12 @@ graph:
       evidence: "Both are GISTIC2-informed CNA units; CNA-002's amplitude test reuses the GISTIC2 t_amp=0.1 threshold that CNA-001's Amplification state also cites, but CNA-002 classifies focal-vs-broad by LENGTH and maps to oncogenes rather than binning log2 into five states."
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:homozygous-deletion-detection
+      source: onco-cna-002-evidence
+      evidence: "ONCO-CNA-003 is the deletion counterpart: IdentifyDeletedTumorSuppressors mirrors this unit's IdentifyAmplifiedOncogenes (arm→gene panel), filtering to CN-0 homozygous deletions instead of focal amplifications."
+      confidence: high
+      status: current
 ---
 
 # Focal amplification detection (length-based focal/broad split + oncogene mapping)
@@ -116,7 +122,9 @@ Segment A on 17q maps to **ERBB2**; B/C/D produce no oncogene amplification.
   this unit bundles no cytoband table. The **caller supplies each segment's arm label and the arm's
   length**, and the algorithm computes `SegLen / ArmLength`. The 0.98 cutoff and the amplitude rule are
   unchanged.
-- **Scope note:** deletions are out of scope here (GISTIC2 `t_del`; covered by ONCO-CNA-003).
+- **Scope note:** deletions are out of scope here (GISTIC2 `t_del`); the deletion mirror is
+  [[homozygous-deletion-detection]] (ONCO-CNA-003) — CN-0 homozygous-deletion filter + tumour-suppressor
+  mapping, the loss-side counterpart of this unit's `IdentifyAmplifiedOncogenes`.
 
 A [[scientific-rigor|research-grade]] correctness reference — **not for clinical or diagnostic use.**
 No source contradictions: Mermel 2011 (98%-of-arm length rule), GISTIC2 docs (`broad_len_cutoff` 0.98,

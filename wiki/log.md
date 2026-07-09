@@ -2136,3 +2136,23 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    the algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet); index updated
    (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (relates_to → test-unit-registry, relates_to → copy-number-alteration-classification, on the concept)
+
+## [2026-07-09] ingest | docs/Evidence/ONCO-CNA-003-Evidence.md → homozygous / deep deletion detection (tenth Oncology unit)
+   Homozygous (deep) deletion detection, the deletion mirror of ONCO-CNA-002: filter segments whose
+   classified integer copy number is exactly 0 (homozygous / deep deletion), then
+   `IdentifyDeletedTumorSuppressors` maps each arm prefix to a built-in tumour-suppressor panel
+   (17p→TP53, 13q→RB1 AND BRCA2, 9p→CDKN2A, 10q→PTEN, 17q→BRCA1, NCBI Gene cytobands). Sources cBioPortal
+   file-format + FAQ (−2 = "Deep Deletion, possibly a homozygous deletion"; −1 = shallow/heterozygous) +
+   Cheng et al. 2017 Nat Commun (homozygous deletion = total copy number 0, "zero copies of both alleles",
+   two hits, targets tumour suppressors) + CNVkit `absolute_threshold` (integer CN 0 ⇒ DeepDeletion —
+   REUSES ONCO-CNA-001, no new threshold) + NCBI Gene tumour-suppressor cytobands. Judged genuinely
+   DISTINCT and wiki-worthy — it is the loss-side counterpart of the amplification unit
+   focal-amplification-detection (IdentifyDeletedTumorSuppressors mirrors IdentifyAmplifiedOncogenes) and
+   a consumer of copy-number-alteration-classification's CN-0/DeepDeletion state; new concept created and
+   cross-linked (relates_to test-unit-registry, copy-number-alteration-classification, and
+   focal-amplification-detection; reciprocal body links + a reciprocal relates_to edge added on
+   focal-amplification-detection). Oracles CN 0→homozygous→gene, CN 1 single-copy loss→not, neutral/gain/
+   amp→not, boundary log2 −1.1 inclusive→CN 0. Two assumptions (CN-0 reuse of ONCO-CNA-001, caller-fixed
+   tumour-suppressor panel); no source contradictions. Wired into the algorithm-validation-evidence hub
+   (frontmatter source + evidence link + anchor bullet); index updated (1 source + 1 concept).
+   graph: +2 nodes, +4 typed edges (concept relates_to test-unit-registry + copy-number-alteration-classification + focal-amplification-detection; focal-amplification-detection relates_to homozygous-deletion-detection)
