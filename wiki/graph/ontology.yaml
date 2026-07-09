@@ -1,0 +1,137 @@
+# Wiki Graph Ontology
+#
+# Declares the node types and predicates that the compiled graph layer
+# (wiki/graph/) recognises. Edit this file when you introduce a new
+# domain-specific predicate or node type — wiki_graph_lint.py reads it
+# to validate every typed edge declared in page frontmatter.
+#
+# Markdown remains canonical. This file is just the contract that makes
+# the graph layer machine-checkable.
+
+node_types:
+  # A documentation wiki for a C# genomics library. Nodes map 1:1 from the
+  # page `type:` frontmatter used in this wiki (see wiki/SCHEMA.md).
+  module:
+    maps_from:
+      type: module
+  api:
+    maps_from:
+      type: api
+  concept:
+    maps_from:
+      type: concept
+  decision:
+    maps_from:
+      type: decision
+  gotcha:
+    maps_from:
+      type: gotcha
+  source:
+    maps_from:
+      type: source
+  synthesis:
+    maps_from:
+      type: synthesis
+  # Fine-grained assertion node, declared explicitly on a page when you want
+  # to reason about a specific claim (e.g. a contract or invariant).
+  claim:
+    explicit_only: true
+
+predicates:
+  # --- Implicit predicates emitted by the extractor. ---
+  mentions:
+    subject_types: ["*"]
+    object_types: ["*"]
+    requires_evidence: false
+    description: |
+      Low-specificity edge derived from body wikilinks. Use it for
+      navigation, not as evidence of a typed relationship.
+  sourced_from:
+    subject_types: ["*"]
+    object_types: [source]
+    requires_evidence: false
+    description: |
+      Derived from each non-source page's frontmatter `sources:` list.
+  summarizes_raw:
+    subject_types: [source]
+    object_types: ["*"]
+    requires_evidence: false
+    description: |
+      Derived from a source page's frontmatter `raw:` field. Object is
+      the raw file path string, not a wiki node id.
+
+  # --- Typed semantic predicates for a code-library wiki. ---
+  # Structure of the codebase.
+  exposes:
+    subject_types: [module]
+    object_types: [api]
+    requires_evidence: true
+    description: |
+      The module surfaces this public API element (type, function, contract).
+  part_of:
+    subject_types: [api, concept]
+    object_types: [module]
+    requires_evidence: true
+    description: |
+      The API element or concept belongs to / is implemented within this module.
+  depends_on:
+    subject_types: [module, api, concept]
+    object_types: [module, api, concept]
+    requires_evidence: true
+    description: |
+      Compile-time or logical dependency: the subject needs the object present
+      to function.
+  calls:
+    subject_types: [module, api]
+    object_types: [module, api]
+    requires_evidence: true
+    description: |
+      Runtime call/delegation from one code element to another.
+
+  # Concepts and algorithms.
+  implements:
+    subject_types: [module, api]
+    object_types: [concept]
+    requires_evidence: true
+    description: |
+      The code element realises the algorithm/method/pattern described by a
+      concept page (e.g. an aligner api implements the Needleman-Wunsch concept).
+  relates_to:
+    subject_types: [concept, module, api]
+    object_types: [concept, module, api]
+    requires_evidence: true
+    description: |
+      General semantic relation between concepts/code when no sharper predicate
+      applies. Prefer a specific predicate when one fits.
+
+  # Evolution, alternatives, and sharp edges.
+  supersedes:
+    subject_types: [api, module, concept, decision, claim, source]
+    object_types: [api, module, concept, decision, claim, source]
+    requires_evidence: true
+    description: |
+      The subject replaces the object (a newer API/decision over a deprecated one).
+  alternative_to:
+    subject_types: [api, module, concept]
+    object_types: [api, module, concept]
+    requires_evidence: true
+    description: |
+      Two elements solve the same problem differently (e.g. two alignment modes).
+  constrains:
+    subject_types: [gotcha, decision, claim]
+    object_types: [api, module, concept]
+    requires_evidence: true
+    description: |
+      A gotcha, decision, or claim imposes a limitation or invariant on the target.
+  decided_for:
+    subject_types: [decision]
+    object_types: [module, api, concept]
+    requires_evidence: true
+    description: |
+      The architectural decision governs this module/api/concept.
+  contradicts:
+    subject_types: [claim, source, synthesis, gotcha]
+    object_types: [claim, source, synthesis, gotcha]
+    requires_evidence: true
+    description: |
+      The subject asserts something incompatible with the object.

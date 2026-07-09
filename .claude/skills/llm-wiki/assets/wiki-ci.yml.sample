@@ -1,0 +1,15 @@
+# Deterministic wiki gates (no LLM, no API key). Copy to .github/workflows/wiki.yml
+name: wiki-gates
+on:
+  pull_request:
+    paths: ["docs/**", "wiki/**"]
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # full history: wiki_stale needs git log
+      - run: python .claude/skills/llm-wiki/scripts/wiki_lint.py wiki/
+      - run: python .claude/skills/llm-wiki/scripts/wiki_stale.py wiki/
+      - run: python .claude/skills/llm-wiki/scripts/wiki_coverage.py wiki/ --docs-dir docs
+        # add --strict once initial ingest backlog is done
