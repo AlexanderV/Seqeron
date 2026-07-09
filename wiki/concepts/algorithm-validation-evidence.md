@@ -27,6 +27,7 @@ sources:
   - docs/Evidence/CODON-CAI-001-Evidence.md
   - docs/Evidence/CODON-ENC-001-Evidence.md
   - docs/Evidence/CODON-OPT-001-Evidence.md
+  - docs/Evidence/CODON-RARE-001-Evidence.md
 source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
 created: 2026-07-09
 updated: 2026-07-09
@@ -80,7 +81,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[assembly-trim-001-evidence]], [[chrom-aneu-001-evidence]],
 [[chrom-cent-001-evidence]], [[chrom-karyo-001-evidence]], [[chrom-synt-001-evidence]],
 [[chrom-telo-001-evidence]], [[codon-cai-001-evidence]],
-[[codon-enc-001-evidence]], [[codon-opt-001-evidence]]). An
+[[codon-enc-001-evidence]], [[codon-opt-001-evidence]], [[codon-rare-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -88,6 +89,7 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[codon-adaptation-index]] (the CAI index in the codon-usage family),
 [[effective-number-of-codons]] (the reference-free ENC/Nc measure in the codon-usage family),
 [[codon-optimization]] (the CDS-rewriting operation of the codon-usage family),
+[[rare-codon-analysis]] (the thresholded-frequency + %MinMax/Sherlocc cluster-detection unit of the codon-usage family),
 [[repetitive-element-detection]] (the anchor for the repeats/tandem family),
 [[consensus-sequence]] (the anchor for the assembly CONSENSUS family),
 [[kmer-spectrum-error-correction]] (the anchor for the assembly CORRECT family),

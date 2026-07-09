@@ -53,7 +53,8 @@ Seqeron's `OptimizeSequence` exposes five strategies, each tracing to a source p
 - **HarmonizeExpression** — match the *distribution* of host codon usage rather than always picking the
   optimum, i.e. codon harmonization (Mignon et al. 2018).
 - **AvoidRareCodons** — replace only codons whose frequency falls below a threshold; leaves the rest
-  untouched (consecutive rare codons inhibit translation).
+  untouched (consecutive rare codons inhibit translation). This is the actuator for exactly what
+  [[rare-codon-analysis]] detects.
 - **MinimizeSecondary** — avoid mRNA secondary structures (5' structure especially inhibits
   initiation). In codon *selection* it delegates to BalancedOptimization; a dedicated
   `ReduceSecondaryStructure` method handles structure reduction separately.
@@ -88,8 +89,9 @@ E. coli but AGA in yeast) as the organism-specific test fixtures.
 
 Codon optimization is the **actuator** of the family that RSCU/CAI/ENC only measure: it consumes a
 codon-usage table (the object [[relative-synonymous-codon-usage|RSCU]] normalizes) and optimizes toward
-a high [[codon-adaptation-index|CAI]]. Other siblings still in `docs/Evidence/` (rare-codon analysis,
-raw frequency/usage tables) share the same synonymous-family machinery. See
+a high [[codon-adaptation-index|CAI]]. Its **AvoidRareCodons** strategy removes exactly the codons
+[[rare-codon-analysis]] flags. Other siblings still in `docs/Evidence/` (raw frequency/usage tables)
+share the same synonymous-family machinery. See
 [[algorithm-validation-evidence]] for the shared evidence-artifact pattern.
 </content>
 </invoke>

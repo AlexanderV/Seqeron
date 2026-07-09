@@ -99,7 +99,8 @@ CAI normalizes to the family **maximum** and reduces a gene to a single geometri
 proxy. The **[[effective-number-of-codons|ENC / Nc]]** (Wright 1990) is CAI's reference-free
 counterpart — same single-number goal, but measuring intrinsic synonymous-codon evenness on a
 [20, 61] scale with no reference gene set. **[[codon-optimization]]** is the family's *rewriting*
-operation — its MaximizeCAI strategy drives a gene's CAI toward 1 by synonymous substitution. Other
-siblings still in `docs/Evidence/` (rare-codon analysis, raw frequency/usage tables) share the same
+operation — its MaximizeCAI strategy drives a gene's CAI toward 1 by synonymous substitution.
+**[[rare-codon-analysis]]** localizes the low-`w` codons (and their clusters) that pull CAI down.
+Other siblings still in `docs/Evidence/` (raw frequency/usage tables) share the same
 synonymous-family counting.
 See [[algorithm-validation-evidence]] for the shared evidence-artifact pattern.

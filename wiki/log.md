@@ -585,3 +585,32 @@ Operations:
    source-backed. Follow-up: remaining codon-usage units (CODON-RARE/STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON)
    — rare-codon analysis may warrant its own concept, raw frequency/usage tables may share existing concepts.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to codon-adaptation-index)
+
+## [2026-07-09] ingest | docs/Evidence/CODON-RARE-001-Evidence.md → codon-rare-001-evidence (source) + 1 concept
+   Twenty-fifth per-algorithm Evidence file; fifth of the codon-usage family (after ANNOT-CODONUSAGE/RSCU,
+   CODON-CAI, CODON-ENC, CODON-OPT). Judged genuinely distinct — beyond a thresholded-frequency view, the
+   2026-06-24 addendum adds two published cluster-detection algorithms with their own formulas and oracles —
+   so created the concept rare-codon-analysis (the family's localization/diagnostic unit vs RSCU/CAI/ENC's
+   whole-gene summaries; feeds codon-optimization's AvoidRareCodons). Base `FindRareCodons`: codon rare when
+   per-family frequency < threshold (default 0.15), reports 0-indexed position(×3)/AA/actual-freq; E. coli
+   K12 rare set AGA 0.04/AGG 0.02/CGA 0.06/CUA 0.04 (Kazusa MG1655); invariants (pos multiples of 3 in
+   [0,len−3], freq∈[0,1], reported<threshold, deterministic), edges (empty→empty, non-÷3 trailing ignored,
+   T→U, threshold 0/1 extremes, unknown codon→freq 0 always reported). Addendum cluster methods: Clarke &
+   Clark 2008 %MinMax (per-AA synonymous Xij/Xmax/Xmin/Xavg, signed %Min/%Max ∈[−100,+100], default 18-codon
+   window, rare clusters = negative %Min peaks) + Chartier/Gaudreault/Najmanovich 2012 Sherlocc (7-codon
+   window, ≥4 of 7 "slow"=freq≤threshold positions → rare-codon cluster). Corner cases: single-codon AA
+   (Met/Trp) contributes 0 to %MinMax num+denom → no divide-by-zero/NaN; window>seq → none; overlapping
+   qualifying windows merged into one maximal cluster (flagged implementation choice, Sherlocc reports
+   regions). Arg-family oracles AGA³→−86.36% / CGC³→+100% / CUG·AGA→+36.47% and Sherlocc 7×AGA→1 cluster /
+   4+3→cluster / 3+4→none. Sources: Wikipedia codon-usage-bias + GenScript GenRCA (Fan 2024 BMC
+   Bioinformatics) + Kazusa + Shu 2006 (5×CUA ~3-fold inhibition, PMC6032470) + Sharp & Li 1987 + Clarke &
+   Clark 2008 (PLoS ONE) + Rodriguez 2018 (%MinMax) + Chartier 2012 (Bioinformatics, DOI bts149) +
+   mtthchrtr/sherlocc README. Concise source page for the artifact. Linked new source + concept into the
+   algorithm-validation-evidence hub and added CODON-RARE to that hub's frontmatter; added reciprocal nav
+   links from codon-optimization (AvoidRareCodons actuator) and codon-adaptation-index (localizes the low-w
+   codons that pull CAI down). Contradictions: none — Deviations and Assumptions is None; the base
+   threshold-frequency approach and the two complementary cluster methods each cite peer-reviewed sources
+   plus a reference implementation; the overlapping-window merge is an explicitly flagged choice. Follow-up:
+   remaining codon-usage units (CODON-STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON) — raw frequency/usage tables
+   may share existing concepts.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to codon-optimization)
