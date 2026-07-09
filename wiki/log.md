@@ -1018,3 +1018,31 @@ Operations:
      the 800 hard cap, not worth sharding).
    Cadence note: coverage should always be run with the SCHEMA exclude globs from now on;
    without them every lint re-surfaces the ~693-doc generated long-tail.
+
+## [2026-07-09] ingest | docs/Evidence/DISORDER-PRED-001-Evidence.md → disorder-pred-001-evidence (source) + 1 concept
+   Fortieth per-algorithm Evidence file; THIRD of the protein disorder / features family (after
+   DISORDER-LC-001 / SEG and DISORDER-MORF-001 / MoRF). Created the genuinely-distinct SHARED
+   anchor concept intrinsic-disorder-prediction-top-idp — the TOP-IDP `PredictDisorder`
+   sliding-window intrinsic-disorder predictor that MoRF prediction + disordered-region detection
+   sit on (the "likely next distinct concept" flagged by the MORF ingest follow-up; NOT previously
+   represented — only referenced inline on the morf page). Per-residue Sᵢ = mean over a window
+   (default 21, edge-clipped) of min-max-normalized TOP-IDP `(p−(−0.884))/1.871 ∈ [0,1]`, disordered
+   when Sᵢ ≥ 0.542 (Campen 2008 maximum-likelihood cutoff); Dunker 2001 disorder{A,R,G,Q,S,P,E,K} /
+   order{W,C,F,I,Y,V,L,N} / ambiguous{D,H,M,T} sets; Kyte-Doolittle `CalculateHydropathy` utility;
+   W30→0.0 / P30→1.0 / E30→0.866 homopolymer oracles; null/empty→empty, non-canonical residues
+   skipped (all-unknown window→0.0), case-insensitive, O(n·w). Sources: Campen 2008 (PMC2676888
+   rank-1 primary, TOP-IDP Table 2 + cutoff) + Dunker 2001 + Kyte-Doolittle 1982 + Wikipedia rank-3;
+   concept also lists docs/algorithms/ProteinPred/Disorder_Prediction.md as a second source (SEG
+   precedent; aids backlog reconciliation). Cross-linked: MoRF concept now `depends_on` this anchor
+   (replaced its inline PredictDisorder prose with a wikilink) and SEG concept + index updated to
+   point at the now-existing concept; linked into the algorithm-validation-evidence hub (frontmatter
+   + both link lists) and index (source + concept lines). Assumptions: None in the evidence file —
+   every parameter (TOP-IDP scale, 0.542 cutoff, Dunker sets, hydropathy) is source-traced;
+   implementation-side note only = explicitly SIMPLIFIED single-feature TOP-IDP heuristic, not
+   competitive with IUPred2A/MobiDB-lite, non-canonical residues skipped, edge windows clipped.
+   Contradictions: none — the PRED unit's 0.542 max-likelihood cutoff vs the MoRF unit's 0.5
+   order/disorder threshold (PMC2570644) are different published thresholds for different purposes,
+   flagged as such, NOT a contradiction. Follow-up: remaining protein-disorder units (PROPENSITY /
+   REGION — Disorder_Propensity.md, Disordered_Region_Detection.md) can reuse this anchor;
+   Disordered_Region_Detection is the aggregation layer over PredictDisorder's per-residue calls.
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry + relates_to protein-low-complexity-seg; morf depends_on intrinsic-disorder-prediction-top-idp)

@@ -5,7 +5,7 @@ tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-LC-001-Evidence.md
   - docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+source_commit: 05fff695e889b79023301d7319afbc8a24e0bec4
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -28,8 +28,9 @@ alignment and database search. Seqeron implements the **SEG algorithm** of Woott
 [[algorithm-validation-evidence]] for the artifact pattern.
 
 This is the **first ingested unit of the protein disorder / features family** (DISORDER-LC / MORF /
-PRED / PROPENSITY / REGION). SEG low-complexity detection is a *distinct algorithm* from intrinsic
-disorder prediction (TOP-IDP) and [[morf-prediction-dip-in-disorder|MoRF prediction]] (the
+PRED / PROPENSITY / REGION). SEG low-complexity detection is a *distinct algorithm* from
+[[intrinsic-disorder-prediction-top-idp|intrinsic-disorder prediction]] (the TOP-IDP `PredictDisorder`
+anchor, DISORDER-PRED-001, now ingested) and [[morf-prediction-dip-in-disorder|MoRF prediction]] (the
 dip-in-disorder unit, DISORDER-MORF-001, now ingested), so those units warrant their own
 concepts — low-complexity regions overlap with but are not identical to intrinsically
 disordered regions. It is also the **protein counterpart** of the genomic/DNA low-complexity handled

@@ -4,7 +4,7 @@ title: "MoRF prediction (dip-in-disorder heuristic)"
 tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-MORF-001-Evidence.md
-source_commit: 765f3b80c80cdce808d04012bc1cfb1e421a4a36
+source_commit: 05fff695e889b79023301d7319afbc8a24e0bec4
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -19,6 +19,12 @@ graph:
       object: concept:protein-low-complexity-seg
       source: disorder-morf-001-evidence
       evidence: "MoRF prediction is the second unit of the protein disorder / features family after SEG low-complexity (DISORDER-LC-001); both operate on protein compositional/disorder signals but detect different features"
+      confidence: high
+      status: current
+    - predicate: depends_on
+      object: concept:intrinsic-disorder-prediction-top-idp
+      source: disorder-morf-001-evidence
+      evidence: "The per-residue disorder profile comes from the repository's PredictDisorder, which uses the TOP-IDP amino-acid scale normalized to [0,1]; MoRF prediction reads that profile to find an ordered dip inside disorder"
       confidence: high
       status: current
 ---
@@ -58,8 +64,10 @@ therefore **not** a MoRF.
 
 ## Underlying disorder score (TOP-IDP)
 
-The per-residue disorder profile comes from the repository's `PredictDisorder`, which uses the
-**TOP-IDP amino-acid scale** (Campen et al. 2008) normalized to `[0,1]`:
+The per-residue disorder profile comes from the repository's `PredictDisorder` —
+[[intrinsic-disorder-prediction-top-idp|intrinsic-disorder prediction]] (DISORDER-PRED-001), the
+shared anchor of the disorder family — which uses the **TOP-IDP amino-acid scale** (Campen et al.
+2008) normalized to `[0,1]`:
 
 ```
 score(residue) = (TOP-IDP_raw + 0.884) / 1.871      # Campen Table 2; higher = more disordered
