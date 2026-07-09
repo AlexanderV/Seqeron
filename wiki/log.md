@@ -2103,3 +2103,18 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    (reciprocal body link added there); wired into the algorithm-validation-evidence hub (frontmatter source +
    evidence link + anchor bullet); index updated (1 source + 1 concept).
    graph: +2 nodes, +3 typed edges (relates_to → test-unit-registry, alternative_to → cancer-cell-fraction-clonal-clustering, depends_on → allele-specific-copy-number-ascat, on the concept)
+
+## [2026-07-09] ingest | ONCO-CNA-001-Evidence.md → onco-cna-001-evidence (source) + copy-number-alteration-classification (concept)
+   Eighth Oncology unit: copy-number alteration classification — a single log2 copy ratio → absolute integer
+   CN (n=2·2^log2, CNVkit `_log2_ratio_to_absolute_pure`, diploid ref_copies=2) → discrete CNA state via
+   CNVkit `absolute_threshold` hard-threshold caller (default −1.1/−0.25/0.2/0.7 → DeepDeletion/Loss/Neutral/
+   Gain/Amplification; first `log2<=thresh` boundary-inclusive→lower bin; above-last→ceil(2·2^log2); NaN→
+   neutral CN). Sources CNVkit call.py + docs (germline −0.4/0.3 vs tumor −0.25/0.2, purity≥30% caveat) +
+   GISTIC2 Mermel 2011 (±0.1 noise band + +0.848/−0.737 high-amplitude cutoffs) + GISTIC2 -ta/-td docs +
+   SV-CNV-001 in-repo overlap check. Judged genuinely DISTINCT from allele-specific ONCO-ASCAT-001 (no allelic
+   contrast / purity fit) and from whole-chromosome CHROM-ANEU-001 (per-segment 5-state oncology call vs
+   ≥80%-bin chromosome vote) — both share only the n=2·2^log2 conversion; and from SV-CNV-001's round-based
+   integer CN (no state classification). New concept created and cross-linked; wired into the
+   algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet); index updated
+   (1 source + 1 concept). One diploid-ploidy=2 assumption, no source contradictions.
+   graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry, on the concept)
