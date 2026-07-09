@@ -88,6 +88,11 @@ fully-specified 1D** method (ASSUMPTION — no fabricated Dirichlet process): **
 = indices {3,4,5}, high = {0,1,2}, **clonal = the 0.98-centroid cluster**. Boundary: k=1 → one
 cluster at the overall mean.
 
+**Alternative approach:** [[clonal-subclonal-classification-ccf-posterior]] (ONCO-CLONAL-001) answers
+the same clonal/subclonal question **without clustering** — a per-mutation **Binomial CCF posterior**
+labelled clonal iff `P(CCF > 0.95) > 0.5` (Landau 2013 / ABSOLUTE). This unit clusters point
+estimates; that one classifies each mutation on its own read-count uncertainty.
+
 ## Relationship to the ASCAT copy-number layer
 
 Complementary, not overlapping: [[allele-specific-copy-number-ascat]] **produces** purity ρ, total

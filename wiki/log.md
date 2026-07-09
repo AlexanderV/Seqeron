@@ -2090,3 +2090,16 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet); index updated (1 source
    + 1 concept).
    graph: +2 nodes, +2 typed edges (relates_to → test-unit-registry, relates_to → sequencing-artifact-detection, on the concept)
+
+## [2026-07-09] ingest | ONCO-CLONAL-001-Evidence.md → onco-clonal-001-evidence (source) + clonal-subclonal-classification-ccf-posterior (concept)
+   Seventh Oncology unit: clonal vs subclonal mutation classification via a Bayesian CCF posterior — the
+   probabilistic clonal-structure classifier. Sources Landau 2013 Cell (ABSOLUTE-style expected allele fraction
+   f(c)=αc/(2(1−α)+αq), posterior P(c)∝Binom(a|N,f(c)) uniform prior on 100-point grid c∈[0.01,1], rule clonal iff
+   P(CCF>0.95)>0.5) + Satas 2021 Cell Systems DeCiFering (multiplicity-general f(c)=αMc/(2(1−α)+αq), Eq. 1). Grid
+   oracles A1/B2/E clonal, C1/D subclonal, E the M=2 multiplicity lift; point-estimate IdentifyClonalMutations
+   strict CCF>0.95 → indices {0,2,4}. One API-shape assumption (per-variant local copy number q over a genome-wide
+   ploidy scalar), no source contradictions. Judged genuinely DISTINCT from ONCO-CCF-001 (point estimate + Lloyd
+   k-means clustering): new concept created and cross-linked alternative_to cancer-cell-fraction-clonal-clustering
+   (reciprocal body link added there); wired into the algorithm-validation-evidence hub (frontmatter source +
+   evidence link + anchor bullet); index updated (1 source + 1 concept).
+   graph: +2 nodes, +3 typed edges (relates_to → test-unit-registry, alternative_to → cancer-cell-fraction-clonal-clustering, depends_on → allele-specific-copy-number-ascat, on the concept)
