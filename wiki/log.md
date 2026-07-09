@@ -2414,3 +2414,20 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    (per-variant "detected"=>=1 alt read, tunable; panel >=2 rule unaffected); KDE opt-in vs discrete
    default resolved; no source contradictions.
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, depends_on ctdna-detection-and-tumor-fraction)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-MSI-001-Evidence.md → onco-msi-001-evidence (source) + 1 concept
+   Twenty-fourth Oncology unit: Microsatellite Instability (MSI) detection — unstable-loci fraction
+   score + status classification. Judged DISTINCT and wiki-worthy (an independent immunotherapy /
+   mismatch-repair biomarker not previously represented) -> dedicated concept
+   [[microsatellite-instability-detection]]. Two inputs, two classifiers: continuous MSIsensor/MSIsensor2
+   score = unstable/valid loci (as %) with MSI-High cutoff >=20% inclusive (Niu-lab README; per-site
+   chi-square tumor-vs-normal repeat-length test at FDR 0.05, Niu 2014; tumor-only unchanged; 3.5% cohort
+   separation is dataset-specific) -> binary MSI-H vs not-High; and the categorical Bethesda marker-count
+   rule over the 5-marker panel (0/5->MSS, 1/5->MSI-L, >=2/5->MSI-H; Boland 1998, cross-checked vs 2004
+   revised-Bethesda fraction form BJC 2014). Key modelling choice: no MSI-L band fabricated for the
+   continuous score. Cross-linked homologous-recombination-deficiency-score,
+   cancer-variant-tier-classification-amp-asco-cap, clinical-actionability-oncokb-levels. Wired into
+   algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet, source_commit
+   bumped to ea6d7a9). Index updated (1 source + 1 concept). One flagged assumption (no MSI-L band on the
+   continuous score); no source contradictions.
+   graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)

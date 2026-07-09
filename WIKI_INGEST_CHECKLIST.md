@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 157 / 1610
+Progress: 158 / 1610
 
 ## (top-level)  (6)
 
@@ -120,7 +120,7 @@ Progress: 157 / 1610
 - [x] docs/Evidence/ONCO-LOH-001-Evidence.md
 - [x] docs/Evidence/ONCO-MHC-001-Evidence.md
 - [x] docs/Evidence/ONCO-MRD-001-Evidence.md
-- [ ] docs/Evidence/ONCO-MSI-001-Evidence.md
+- [x] docs/Evidence/ONCO-MSI-001-Evidence.md
 - [ ] docs/Evidence/ONCO-NEO-001-Evidence.md
 - [ ] docs/Evidence/ONCO-PHYLO-001-Evidence.md
 - [ ] docs/Evidence/ONCO-PLOIDY-001-Evidence.md
