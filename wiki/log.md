@@ -1410,3 +1410,21 @@ Operations:
    canonical wording cited only to contrast the not-implemented collapsing mode.
    graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
    relates_to asynchronous-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/KMER-DIST-001-Evidence.md → kmer-dist-001-evidence (source) + k-mer-euclidean-distance (concept)
+   K-mer Euclidean distance (`KmerAnalyzer.KmerDistance`): alignment-free L2 distance over normalized
+   k-mer FREQUENCY vectors f_s(w)=count/(L−k+1), summed over the union of observed k-mers (absent word→0
+   component). Genuinely distinct from the presence/absence set measure — created a dedicated concept
+   rather than enriching [[kmer-jaccard-similarity]] (Euclidean captures k-mer abundance; Jaccard does
+   not), wired as `alternative_to` it. Sources Zielezinski 2017 (word-vector model, Fig.1 x=ATGTGTG/
+   y=CATGTG k=3) + Lau 2022 (frequency normalization + Euclidean metric) + Vinga-Almeida 2003 (4^k vector)
+   + Boden 2014 (relative-frequency Euclidean). Oracles √0.11≈0.3316624790, AAAA/AAAT k=1 √0.125,
+   identical→0, disjoint-single-kmer→√2. Two assumptions (ASM-01 case-fold, ASM-02 empty/L<k→zero-vector);
+   count-based/Manhattan/Canberra/Chebyshev/cosine/D2/spaced-word not implemented; Deviations = None.
+   Concept lists both the Evidence file and K-mer_Euclidean_Distance.md algorithm doc in sources. Wired
+   into index (source + concept lines) + the algorithm-validation-evidence hub (frontmatter sources +
+   body evidence-link + own-concept list). Reconciled backlog: moved K-mer/K-mer_Euclidean_Distance.md
+   from pending K-mer (8→7) to covered-via-concept (51→52 covered / 194→193 pending, 30 domains).
+   Contradictions: none.
+   graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
+   alternative_to kmer-jaccard-similarity; source/concept [[wikilinks]] mentions auto-derived)
