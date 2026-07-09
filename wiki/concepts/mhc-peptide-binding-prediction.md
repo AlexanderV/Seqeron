@@ -27,6 +27,12 @@ graph:
       evidence: "The evidence file explicitly analogizes its caller-supplied trained matrix / non-embedded weights packaging boundary to 'CIBERSORT LM22 in ONCO-IMMUNE-001' (twice)."
       confidence: medium
       status: current
+    - predicate: relates_to
+      object: concept:neoantigen-peptide-generation
+      source: onco-mhc-001-evidence
+      evidence: "This is the affinity gate downstream of neoantigen-peptide generation (ONCO-NEO-001, GenerateNeoantigenPeptides); the resolved class I 8-14 window propagates to the neoantigen generator default."
+      confidence: high
+      status: current
 ---
 
 # MHC-peptide binding prediction + binder classification
@@ -142,8 +148,8 @@ the caller-supplied **CIBERSORT LM22** matrix of [[immune-infiltration-deconvolu
 
 ## Relation to the immuno-oncology / neoantigen area
 
-This is the **affinity gate** downstream of neoantigen-peptide generation (**ONCO-NEO-001**,
-`GenerateNeoantigenPeptides` — not yet ingested) and upstream of neoantigen ranking: a mutant peptide is a
+This is the **affinity gate** downstream of [[neoantigen-peptide-generation|neoantigen-peptide generation]]
+(**ONCO-NEO-001**, `GenerateNeoantigenPeptides`) and upstream of neoantigen ranking: a mutant peptide is a
 candidate only if it is a valid-length, sufficiently strong binder to one of the tumour's HLA alleles.
 [[hla-nomenclature-and-allele-specific-loh]] (ONCO-HLA-001) is the presentation-platform sibling: HLA LOH
 **removes** an allele, so the neoantigens this predictor scores against that allele can no longer be

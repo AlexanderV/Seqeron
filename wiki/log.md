@@ -2431,3 +2431,23 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    bumped to ea6d7a9). Index updated (1 source + 1 concept). One flagged assumption (no MSI-L band on the
    continuous score); no source contradictions.
    graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-NEO-001-Evidence.md
+   Twenty-fifth Oncology unit: Neoantigen Candidate Peptide Window Generation for a somatic missense
+   mutation (`GenerateNeoantigenPeptides`) — the UPSTREAM partner of the ONCO-MHC-001 affinity gate.
+   Judged DISTINCT and wiki-worthy (a windowing/enumeration algorithm not previously represented; the MHC
+   page even carried a "not yet ingested" placeholder for it) -> dedicated concept
+   [[neoantigen-peptide-generation]]. Given a missense SNV at 1-based position p in a length-L protein,
+   enumerate every length-k window of the mutant protein spanning the mutated residue (valid 0-based start
+   s in [max(0,p-1-k+1), min(p-1,L-k)]; interior mutation -> exactly k windows/length), each paired with
+   its matched wild-type (germline) peptide at the same coordinates + the mutation offset = the mutant/WT
+   agretope (DAI, Wells 2020 TESLA). Class I lengths 8-11 (pVACtools Hundal 2020; ProGeo-neo Li 2020 21-mer
+   +-10 flank; NetMHCpan 8-14/9-mer-dominant Jurtz 2017). Oracles: interior Y5C on MKTAYIAKQRSTVWLNDEFGH ->
+   5 windows per k=8/9/10/11 -> 20 candidates (WT = mutant with C->Y at offset); terminal M1V k=9 -> 1
+   truncated window. Two source-backed scoping assumptions (single-residue substitution only; binding
+   affinity out of scope, caller-supplied via ONCO-MHC-001); no source contradictions. Cross-linked
+   mhc-peptide-binding-prediction (resolved its two "not yet ingested" mentions + added a relates_to edge)
+   and hla-nomenclature-and-allele-specific-loh. Wired into algorithm-validation-evidence hub (frontmatter
+   source + summary link + anchor bullet, source_commit bumped to 643a974). Index updated (1 source + 1
+   concept, MHC lines de-placeholdered).
+   graph: +2 nodes, +4 typed edges (concept relates_to test-unit-registry / mhc-peptide-binding-prediction / hla-nomenclature-and-allele-specific-loh; mhc relates_to neoantigen-peptide-generation)
