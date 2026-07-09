@@ -17,6 +17,7 @@ sources:
   - docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md
   - docs/Evidence/ASSEMBLY-OLC-001-Evidence.md
   - docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md
+  - docs/Evidence/ASSEMBLY-STATS-001-Evidence.md
 source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
 created: 2026-07-09
 updated: 2026-07-09
@@ -66,7 +67,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[assembly-consensus-001-evidence]], [[assembly-correct-001-evidence]],
 [[assembly-cover-001-evidence]], [[assembly-dbg-001-evidence]],
 [[assembly-merge-001-evidence]], [[assembly-olc-001-evidence]],
-[[assembly-scaffold-001-evidence]]). An
+[[assembly-scaffold-001-evidence]], [[assembly-stats-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -78,4 +79,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[de-bruijn-graph-assembly]] (the anchor for the assembly DBG family),
 [[contig-merge-overlap-collapse]] (the anchor for the assembly MERGE family),
 [[overlap-layout-consensus-assembly]] (the anchor for the assembly OLC family), or
-[[scaffolding]] (the anchor for the assembly SCAFFOLD family).
+[[scaffolding]] (the anchor for the assembly SCAFFOLD family), or
+[[assembly-statistics]] (the anchor for the assembly STATS family).

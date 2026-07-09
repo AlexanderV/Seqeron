@@ -340,3 +340,27 @@ Operations:
    rule are complementary. Follow-up: remaining Assembly units (STATS/TRIM) warrant their own pages;
    an overlap-resolving scaffolder (if ever built) would compose scaffolding with contig-merge.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to contig-merge-overlap-collapse)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-STATS-001-Evidence.md → assembly-stats-001-evidence (source) + 1 concept
+   Fifteenth per-algorithm Evidence file; eighth of the Assembly family (after CONSENSUS, CORRECT,
+   COVER, DBG, MERGE, OLC, SCAFFOLD). Created the genuinely-distinct concept assembly-statistics —
+   the anchor for the assembly STATS family: the read-only contiguity/QC summary metrics over a set
+   of contig lengths (N50/L50/Nx/Lx/N90/L90/auN + totals/largest/smallest/GC/N-run gaps), downstream
+   of and orthogonal to the DBG/OLC/merge build steps and the scaffolding layout step. Definitions
+   traced verbatim to Miller, Koren & Sutton 2010 (N50 = smallest of the fewest largest contigs whose
+   combined length is "at least 50%") + Wikipedia worked examples + QUAST `N50.py` (`NG50_and_LG50`
+   stop test `s <= limit` = inclusive cumulative ≥ threshold; `au_metric` = ΣL²/ΣL) + Heng Li 2020
+   (Nx covers x%, auN = area under Nx curve = ΣLᵢ²/ΣLⱼ). Nx is a length, Lx a count; N90 ≤ N50 /
+   L90 ≥ L50 monotonicity; boundary inclusive (≥). Published oracles: Assembly A {80,70,50,40,30,20}
+   total 290 → N50 70/L50 2/N90 30/L90 5/auN≈57.586, Assembly B (+10,+5) total 305 → N50 50/L50 3,
+   auN check {100,80,60,40,20} → 22000/300 = 73.333…/N50 80/L50 2. Two assumptions outside the cited
+   contract: empty input → all-zero AssemblyStatistics (QUAST returns None) — an API-shape choice
+   changing no defined value (§6.1); and CalculateStatistics.MedianLength reports the upper median
+   (lengths[count/2]), an auxiliary field the N50 literature doesn't define, tested-as-implemented and
+   flagged not-source-derived. Concise source page for the artifact (Miller 2010 rank-1 + Wikipedia
+   rank-4 + QUAST rank-3 + Heng Li rank-3 sources, three datasets, MUST/SHOULD/COULD coverage). Linked
+   new source + concept into the algorithm-validation-evidence hub and added ASSEMBLY-STATS to that
+   hub's frontmatter. Contradictions: none — Miller/Wikipedia/QUAST/Heng Li give identical
+   largest-first inclusive-≥ definitions and QUAST au_metric matches Heng Li's ΣL²/ΣL exactly.
+   Follow-up: remaining Assembly unit (TRIM) warrants its own page when ingested.
+   graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
