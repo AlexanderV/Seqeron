@@ -23,7 +23,9 @@ graph:
 Turning **sodium-bisulfite sequencing** chemistry into base-level **DNA-methylation calls**. This is
 the **second ingested unit of the Epigenetics family** and a **distinct algorithm** from the sibling
 [[epigenetic-age-horvath-clock]] (which scores age from *already-measured* β-values — this concept is
-how those per-CpG β-values are *produced* from bisulfite reads). Validated under test unit
+how those per-CpG β-values are *produced* from bisulfite reads). A third Epigenetics-family sibling,
+[[chromatin-state-prediction]], works on a different axis entirely — histone-mark ChIP-seq signals
+rather than DNA methylation. Validated under test unit
 **EPIGEN-BISULF-001**; the record is [[epigen-bisulf-001-evidence]], [[test-unit-registry]] tracks the
 unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
 

@@ -1133,3 +1133,34 @@ Operations:
    consumes). Updated algorithm-validation-evidence (source list + mention), index, backlog (Bisulfite_Sequencing_Analysis
    moved to covered: 39/206). No contradictions.
    graph: +2 nodes, +1 typed edge
+
+## [2026-07-09] ingest | docs/Evidence/EPIGEN-CHROM-001-Evidence.md → epigen-chrom-001-evidence (source) + 1 concept
+   Third unit of the Epigenetics family (EPIGEN-CHROM-001) — ChromHMM-style chromatin state prediction
+   from histone modification marks. Surveyed wiki/concepts: NO pre-existing chromatin / histone /
+   ChromHMM concept (grep hits in epigenetic-age/centromere/log were incidental), and this is a
+   genuinely-distinct algorithm from the two methylation siblings (histone ChIP-seq axis, not DNA
+   methylation), so created a new anchor concept [[chromatin-state-prediction]]. Core = the ChromHMM
+   binary present/absent mark model (Ernst & Kellis 2012 multivariate HMM; BinarizeBed/BinarizeBam →
+   LearnModel operates on 1/0 calls; state = function of the SET of present marks, magnitude beyond the
+   call irrelevant = binary invariance). `PredictChromatinState` takes the six Roadmap 18-state marks
+   {H3K4me3, H3K4me1, H3K27ac, H3K36me3, H3K27me3, H3K9me3} as [0,1] signals, present > threshold
+   (default 0.5), maps the pattern → ActivePromoter(TssA)/ActiveEnhancer/WeakEnhancer/Transcribed(Tx)/
+   Repressed(ReprPC)/Heterochromatin(Het)/BivalentPromoter(TssBiv)/BivalentEnhancer(EnhBiv)/
+   LowSignal(Quies). Two combinatorial rules captured: bivalency (H3K4me3+H3K27me3) is a state not a
+   contradiction, and promoter(H3K4me3) dominates enhancer(H3K4me1) at one locus. Companions
+   `AnnotateHistoneModifications` (per-mark region label) + `FindAccessibleRegions` (ATAC-like
+   contiguous-above-threshold merge + minWidth exclusion). Sources: Ernst & Kellis 2012 (Nat Methods,
+   rank-1) + ChromHMM manual (rank-3, binarization) + Roadmap Epigenomics 15/18-state definitions
+   (rank-2) + six per-mark Wikipedia primaries (Liang 2004 H3K4me3 / Rada-Iglesias 2018 H3K4me1 /
+   Creyghton 2010 H3K27ac / Ferrari 2014 H3K27me3 / Nicetto 2019 H3K9me3 / Kimura 2013 H3K36me3).
+   Concept also lists docs/algorithms/Epigenetics/Chromatin_State_Prediction.md as a second source.
+   Reconciled backlog: moved Chromatin_State_Prediction.md from pending Epigenetics (4→3) to
+   covered-via-concept (39→40 covered / 206→205 pending). Cross-linked both methylation siblings
+   ([[epigenetic-age-horvath-clock]], [[bisulfite-methylation-calling]]) bidirectionally; linked into
+   the algorithm-validation-evidence hub (frontmatter sources + both link lists) and index (source +
+   concept lines). Two assumptions: presence-threshold value 0.5 (ChromHMM uses a Poisson background
+   from raw counts, not a fixed [0,1] cut — tests choose unambiguous magnitudes) and single-locus
+   promoter-over-enhancer precedence (Roadmap derives it from spatial HMM context). Research-grade: the
+   state-assignment logic is fully source-backed but this is NOT a trained HMM (no LearnModel / Poisson
+   binarization / spatial context). Contradictions: none.
+   graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry; source-page mentions auto-derived)
