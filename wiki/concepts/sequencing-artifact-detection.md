@@ -21,7 +21,8 @@ graph:
 
 Distinguishing **technical sequencing artifacts** from true somatic variants (`FilterArtifacts`) — the
 **third ingested unit of the Oncology family** and the upstream quality-control step that precedes
-clinical interpretation. Unlike the two clinical-significance siblings — the therapeutic ranking
+clinical interpretation. It runs on the raw somatic call set produced by the upstream caller
+[[somatic-variant-calling-tumor-normal]]. Unlike the two clinical-significance siblings — the therapeutic ranking
 [[clinical-actionability-oncokb-levels]] and the four-tier [[cancer-variant-tier-classification-amp-asco-cap]]
 — this unit does not judge biological significance; it removes **false-positive calls caused by DNA
 damage and mapping bias** before any variant reaches those classifiers. `FilterArtifacts` removes flagged

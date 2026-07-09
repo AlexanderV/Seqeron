@@ -30,8 +30,8 @@ The **pre-interpretation biological-origin filter** of the Oncology family: in a
 they come from **clonal hematopoiesis (CHIP)**, the age-related expansion of blood-cell clones
 carrying leukemia-driver mutations. Razavi 2019 measured this as the **dominant false-positive
 class**: **81.6%** of cfDNA mutations in healthy controls and **53.2%** in cancer patients have CH
-features. This unit identifies and removes those CH-derived calls before variants reach the
-clinical-interpretation ONCO layers. Validated under test unit **ONCO-CHIP-001**; the
+features. This unit identifies and removes those CH-derived calls from the raw somatic call set produced by
+[[somatic-variant-calling-tumor-normal]], before variants reach the clinical-interpretation ONCO layers. Validated under test unit **ONCO-CHIP-001**; the
 literature-traced record is [[onco-chip-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern. Research-grade
 ([[scientific-rigor|research-grade]]), **not for clinical or diagnostic use**.

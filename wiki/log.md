@@ -2581,3 +2581,24 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    for interpretation; new concept depends_on it). Wired into algorithm-validation-evidence hub (frontmatter
    source + summary link + anchor bullet, source_commit bumped to 3c5a975). Index updated (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; concept depends_on mutational-signature-fitting-and-extraction)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-SOMATIC-001-Evidence.md
+   ONCO-SOMATIC-001 (somatic mutation calling, tumor vs matched-normal VAF classification), thirty-third
+   Oncology unit and the foundational somatic SNV caller at the head of the pipeline. Genuinely distinct
+   from the downstream QC filters and copy-number/clonal units: classify each candidate variant
+   Somatic/Germline/NotDetected by comparing tumor allele frequency f_t vs matched-normal f_n
+   (VAF=altReads/totalReads). Created source onco-somatic-001-evidence + new concept
+   somatic-variant-calling-tumor-normal. Strelka somatic state S={(f_t,f_n): f_t≠f_n} restricted to a
+   ref/ref normal genotype (Saunders 2012; raw somatic prob over-calls in LOH/CN regions) / Strelka2
+   continuous-VAF somatic-LOD+VAF (Kim 2018); three configurable thresholds (tumor LoD f_t≥0.05 Yan 2021
+   WES 5%, normal absent ceiling f_n≤0.01 normalVafThreshold, f_n>0.01→Germline per Mutect2 germline
+   filter Benjamin 2019); bounded monotone somatic score max(0,f_t−f_n)∈[0,1]; tumor-only mode
+   (no matched normal → Mutect2 ℓ_n=1); FilterGermlineVariants = somatic subset of input. Oracles
+   A 0.25/0.00→Somatic · B 0.48/0.50→Germline · C 0.02→NotDetected · D 0.30/0.03→Germline (CHIP-like) ·
+   E tumor-only 0.20→Somatic · boundaries f_t=0.05 present / f_n=0.01 absent. Two flagged source-consistent
+   assumptions (1% normal ceiling parameterized not invented; score a documented simplification not a
+   caller LOD); no source contradictions. Wired into algorithm-validation-evidence hub (frontmatter source
+   + summary link + anchor bullet, source_commit bumped to cd2346b7). Cross-linked upstream of the two QC
+   filters sequencing-artifact-detection + clonal-hematopoiesis-cfdna-filtering (reciprocal body links
+   added to both). Index updated (1 source + 1 concept).
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry; concept relates_to sequencing-artifact-detection; concept relates_to clonal-hematopoiesis-cfdna-filtering)
