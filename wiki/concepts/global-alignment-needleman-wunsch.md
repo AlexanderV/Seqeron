@@ -38,6 +38,8 @@ Seqeron implements it as `GlobalAlign`; its validation record is
 Global alignment is most useful when the sequences are similar and of roughly equal length,
 and may start or end in gaps. Multiple optimal tracebacks can exist for a single optimal
 score (common with repeats / low-complexity regions); Seqeron returns one deterministically.
+The [[semi-global-alignment-fitting]] mode reuses this same recurrence but frees the
+reference end gaps to fit a short query inside a long reference.
 
 ## Seqeron implementation note
 

@@ -20,6 +20,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[sonar-gate-plan]] — the Sonar-ratchet tracker: 66/66 SonarAnalyzer rules moved from report-only to blocking (or silenced-with-justification); Groups A–E, notable behaviour changes, and review-not-blind-fix on the S1244/S125 giants.
 - [[align-global-001-evidence]] — evidence artifact for test unit ALIGN-GLOBAL-001 (Needleman–Wunsch): Wikipedia sources, the `GCATGCG`/`GATTACA` worked example, and the GapExtend-as-*d* / GapOpen-unused note.
 - [[align-multi-001-evidence]] — evidence artifact for test unit ALIGN-MULTI-001 (MSA): main doc + MUSCLE and T-Coffee addenda; star/iterative/consistency aligners, SP-score and consensus design choices.
+- [[align-semi-001-evidence]] — evidence artifact for test unit ALIGN-SEMI-001 (semi-global / fitting): Wikipedia + Rosalind SIMS/SMGB + Brudno 2003 sources, fitting-variant init/traceback, INV-1..5.
 
 ## Concepts
 
@@ -34,6 +35,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[algorithm-validation-evidence]] — the templated per-unit `docs/Evidence/` artifact pattern (sources, worked-example dataset, deviations) behind the "Evidence documented" DoD criterion.
 - [[global-alignment-needleman-wunsch]] — the canonical DP global-alignment algorithm (`GlobalAlign`): linear-gap recurrence, O(nm), traceback, affine-as-extension.
 - [[multiple-sequence-alignment]] — aligning 3+ sequences (NP-complete): Seqeron's star (`MultipleAlign`), iterative-refinement (MUSCLE), and consistency (T-Coffee) aligners; sum-of-pairs + consensus.
+- [[semi-global-alignment-fitting]] — ends-free "glocal" alignment: fitting/query-in-reference variant (Rosalind SIMS); NW recurrence with free reference end gaps, traceback from max of last row.
 
 ## Gotchas
 

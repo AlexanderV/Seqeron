@@ -99,3 +99,16 @@ Operations:
    added the ALIGN-MULTI source to that hub's frontmatter. No contradictions; all deviations flagged
    as API/structure choices preserving the verified properties.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, alternative_to global-alignment-needleman-wunsch)
+
+## [2026-07-09] ingest | docs/Evidence/ALIGN-SEMI-001-Evidence.md → align-semi-001-evidence (source) + 1 concept
+   Third per-algorithm Evidence file. Created the genuinely-distinct concept
+   semi-global-alignment-fitting (ends-free "glocal" hybrid; fitting/query-in-reference variant
+   = Rosalind SIMS; NW recurrence with no zero floor, first row = 0 free reference start gaps,
+   first column = d·i, traceback from max of last row; overlap/OAP and full-semiglobal/SMGB
+   noted as sibling variants; INV-1..5). Concise source page for the ALIGN-SEMI-001 artifact
+   (Wikipedia + Rosalind SIMS/SMGB + Brudno 2003 glocal sources, corner cases, fitting-variant
+   design choice). Linked new source + concept into the algorithm-validation-evidence hub and
+   added ALIGN-SEMI to that hub's frontmatter; added a reciprocal nav link from
+   global-alignment-needleman-wunsch. No contradictions; deviation = deliberate fitting-variant
+   selection + standard .NET null contract.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, alternative_to global-alignment-needleman-wunsch)
