@@ -38,7 +38,9 @@ disjoint pieces that share the HLA locus as their subject:
 The literature-traced record is [[onco-hla-001-evidence]]; [[test-unit-registry]] tracks the unit and
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern. HLA LOH is a mechanism of
 **immune escape** — a tumour that loses an HLA allele can no longer present the neoantigens restricted
-to it, so this unit sits in the antigen-presentation / neoantigen area of the Oncology family. Its
+to it, so this unit sits in the antigen-presentation / neoantigen area of the Oncology family. The
+affinity gate that decides which peptides an HLA allele presents (and thereby which neoantigens a lost
+allele would have shown) is [[mhc-peptide-binding-prediction]] (ONCO-MHC-001). Its
 antigen-agnostic quantitative sibling in the immuno-oncology area is
 [[immune-infiltration-deconvolution]] (ONCO-IMMUNE-001), which quantifies the immune *cell content* of
 the microenvironment rather than the antigen-presentation machinery.

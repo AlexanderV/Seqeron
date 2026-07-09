@@ -2372,3 +2372,29 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    Wired into the algorithm-validation-evidence hub (frontmatter source + list link + anchor bullet),
    index updated (1 source + 1 concept; also backfilled the missing onco-immune-001-evidence source line).
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, relates_to allele-specific-copy-number-ascat, relates_to homologous-recombination-deficiency-score)
+## [2026-07-10] ingest | docs/Evidence/ONCO-MHC-001-Evidence.md — MHC-Peptide Binding prediction + binder classification (twenty-second ONCO-* unit)
+   The immuno-oncology affinity gate of neoantigen candidate scoring, three layers over one
+   Strong/Weak/NonBinder output space. (1) Classification: IC50 tiers <50 Strong / <500 Weak /
+   >=500 NonBinder (Sette 1994 ~500 nM CTL threshold + IEDB) and NetMHCpan-4.1 %Rank tiers (class I
+   SB <0.5 / WB <2; class II <2 / <10, all strict <; Reynisson 2020) + peptide-length validity
+   (class I 8-14, class II 13-25). (2) Matrix prediction: BIMAS product rule (T1/2 = const * prod
+   coeffs, 180 coeffs + const, unlisted residue = 1.0; Parker 1994/BIMAS) and SMM additive rule
+   IC50 = 50000^(1-score) (Peters & Sette 2005 / IEDB log50k; anchors 0->50000, 0.5->223.6068,
+   1->1 nM). (3) Ported MHCflurry 2.0 pan-allele class-I NN (Apache-2.0; BLOSUM62
+   left_pad_centered_right_pad 45x21 peptide + 37-residue allele pseudosequence 37x21, tanh Dense
+   feedforward/with-skip-connections topologies, to_ic50 = 50000^(1-x), geometric-mean ensemble;
+   C# port matches mhcflurry 2.1.5 single-net + full-ensemble to <0.03%). Oracles: IC50
+   10/50/200/500->Strong/Weak/Weak/NonBinder, %Rank 0.4/0.5/2.0->Strong/Weak/NonBinder, BIMAS
+   LMV->90 / AAA->10, MHCflurry GILGFVFTL~19 nM / SIINFEKL~11.5 uM; strict-< boundaries. Framework
+   packaging boundary: trained matrix + full 80 MB ensemble caller-supplied (BIMAS CGI defunct /
+   Parker paywalled / IEDB non-commercial / repo size), one member embedded for CI + LoadWeightPack,
+   ~0.7 MB pseudosequence table bundled -- explicitly analogized in-file to CIBERSORT LM22 in
+   ONCO-IMMUNE-001. Class I length window resolved 11->14 (full NetMHCpan-4.1 window), propagates to
+   GenerateNeoantigenPeptides (ONCO-NEO-001). Judged distinct + wiki-worthy: no MHC/neoantigen concept
+   existed -> dedicated concept [[mhc-peptide-binding-prediction]], cross-linked as the presentation
+   affinity gate of [[hla-nomenclature-and-allele-specific-loh]] (reciprocal prose link added: HLA LOH
+   removes the platform), the packaging-boundary twin of [[immune-infiltration-deconvolution]]
+   (source's own analogy), and downstream of the not-yet-ingested ONCO-NEO-001. Wired into the
+   algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet); index
+   updated (1 source + 1 concept). Follow-up: ONCO-NEO-001 (GenerateNeoantigenPeptides) not yet ingested.
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, relates_to hla-nomenclature-and-allele-specific-loh, relates_to immune-infiltration-deconvolution)
