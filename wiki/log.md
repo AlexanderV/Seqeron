@@ -265,3 +265,26 @@ Operations:
    Follow-up: OLC (the alternative fragment-assembly formulation) warrants its own concept when
    ingested; remaining Assembly units (SCAFFOLD/STATS/TRIM/MERGE) likely warrant distinct concepts.
    graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md → assembly-merge-001-evidence (source) + 1 concept
+   Twelfth per-algorithm Evidence file; fifth of the Assembly family (after CONSENSUS, CORRECT,
+   COVER, DBG). Created the genuinely-distinct concept contig-merge-overlap-collapse — the anchor
+   for the assembly MERGE family: the suffix–prefix overlap collapse primitive
+   MergeContigs(contig1, contig2, overlapLength) behind greedy shortest-common-superstring and the
+   OLC layout step. Overlap traced verbatim to Langmead's JHU SCS/OLC notes + MIT 7.91J Lecture 6:
+   overlap = length-l suffix of X exactly matching a length-l prefix of Y (l ≤ min(|X|,|Y|)),
+   suffixPrefixMatch returns the longest such match else 0, collapse keeps one copy so
+   |merge| = |c1|+|c2|−l; overlap 0 → plain concatenation X+Y. Published oracles BAA+AAB(ov2)→BAAB,
+   {AAA,AAB,ABB,BBB,BBA} chain→AAABBBA (len 7), BAA+AAB(ov0)→BAAAAB. Two API-contract assumptions
+   (caller-supplied overlap length trusted not re-verified — verification is FindOverlap's job;
+   out-of-range overlap ≤0 or >min → concatenation), both derived directly from the source facts,
+   neither a correctness/scoring parameter. Concise source page for the artifact (Langmead SCS +
+   Langmead OLC + MIT 7.91J rank-1 sources, Compeau 2011 background-only, three oracles, MUST/SHOULD/
+   COULD tests). Linked new source + concept into the algorithm-validation-evidence hub and added
+   ASSEMBLY-MERGE to that hub's frontmatter; added a reciprocal nav link from de-bruijn-graph-assembly
+   (MERGE is the overlap-based sibling of the DBG k-mer/Eulerian formulation). Contradictions: none —
+   the three sources give the identical suffix-of-X/prefix-of-Y overlap definition and corroborate one
+   another. Follow-up: an end-to-end OLC concept (and remaining Assembly units SCAFFOLD/STATS/TRIM)
+   warrant their own pages when ingested; FindOverlap/FindAllOverlaps (the overlap-discovery side)
+   would share contig-merge-overlap-collapse.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to de-bruijn-graph-assembly)

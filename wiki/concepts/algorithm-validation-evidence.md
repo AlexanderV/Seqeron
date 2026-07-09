@@ -14,6 +14,7 @@ sources:
   - docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md
   - docs/Evidence/ASSEMBLY-COVER-001-Evidence.md
   - docs/Evidence/ASSEMBLY-DBG-001-Evidence.md
+  - docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md
 source_commit: c806b157357d5eccb302b3e1ea1c569f7fe48d1d
 created: 2026-07-09
 updated: 2026-07-09
@@ -61,7 +62,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[align-semi-001-evidence]], [[align-stats-001-evidence]], [[annot-coding-001-evidence]],
 [[annot-codonusage-001-evidence]], [[annot-repeat-001-evidence]],
 [[assembly-consensus-001-evidence]], [[assembly-correct-001-evidence]],
-[[assembly-cover-001-evidence]], [[assembly-dbg-001-evidence]]). An
+[[assembly-cover-001-evidence]], [[assembly-dbg-001-evidence]],
+[[assembly-merge-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -69,5 +71,6 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[repetitive-element-detection]] (the anchor for the repeats/tandem family),
 [[consensus-sequence]] (the anchor for the assembly CONSENSUS family),
 [[kmer-spectrum-error-correction]] (the anchor for the assembly CORRECT family),
-[[coverage-depth-calculation]] (the anchor for the assembly COVER family), or
-[[de-bruijn-graph-assembly]] (the anchor for the assembly DBG family).
+[[coverage-depth-calculation]] (the anchor for the assembly COVER family),
+[[de-bruijn-graph-assembly]] (the anchor for the assembly DBG family), or
+[[contig-merge-overlap-collapse]] (the anchor for the assembly MERGE family).
