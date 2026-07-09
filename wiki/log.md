@@ -1960,3 +1960,36 @@ Operations:
    graph: +2 nodes (source + concept), +3 typed edges (shared-motifs relates_to test-unit-registry +
    alternative_to longest-common-substring + relates_to overrepresented-kmer-discovery); body
    [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] lint | structural + graph + semantic pass (172 pages)
+Structural: 2 orphans → 1 fixed (mutation-testing now linked from [[validation-and-testing]] and
+[[mutation-testing-analysis]]); backlog orphan is intentional (index). Broken wikilink fixed
+(methylation-context-classification anchored link to bisulfite-methylation-calling — the lint resolver
+does not support `#anchor` syntax, so dropped to a plain link + prose section reference). Oversize:
+backlog.md 453 lines (soft cap only, working coverage tracker — left as-is). Stale: none.
+Graph: 1 broken source ref fixed by creating the missing companion source page
+[[mutation-testing-analysis]] for docs/Evidence/MUTATION-TESTING-ANALYSIS.md (the mutation-testing
+concept had been ingested without it); edge source: mutation-testing-analysis now resolves.
+Graph re-extracted: +2 nodes, +12 edges; graph lint clean.
+Coverage: 324 uncovered under docs/** (172 algorithms tracked in backlog + 132 Evidence = active
+per-unit campaign + 10 checklists + others) — not triaged item-by-item (that many is the "lint report
+too long" signal; see recommendations). No source contradictions found in the semantic pass over the
+recently-updated motif/epigenetics/testing pages.
+
+## [2026-07-09] ingest | docs/checklists/*.md → 10 testing-methodology checklists (9 concepts + 10 sources)
+Ingested the full 10-doc testing-methodology family as a coherent batch. New concepts:
+[[property-based-testing]], [[metamorphic-testing]], [[fuzzing]], [[snapshot-testing]],
+[[algebraic-testing]], [[architecture-testing]], [[differential-testing]],
+[[combinatorial-testing]], [[characterization-testing]] (mutation already had [[mutation-testing]],
+now enriched with the checklist end-state). New source pages: one per checklist
+(*-checklist slugs). Wired all nine concepts + mutation into the [[validation-and-testing]] hub
+bullet list (each now links its concept + P0–P3 priority) and refreshed the coverage paragraph:
+per-checklist end-state (property/metamorphic/fuzzing 258/258, architecture 22/22, combinatorial
+193, mutation all-files-≥80% by 2026-06-30, algebraic 89+169-N/A, differential 107) supersedes the
+older "only architecture complete" 2026-03-19 baseline — a temporal progression, no contradiction.
+Real remaining gap: snapshot 37/255 + on-demand characterization. Semantic note recorded on
+[[mutation-testing]]: the [[mutation-testing-analysis]] 60.6% baseline (2026-02-14) and the
+[[mutation-testing-checklist]] ≥80% end-state (2026-06-30) are two points in time, not a conflict.
+graph: +21 nodes, +126 edges (10 typed relates_to edges to validation-and-testing/property-based/
+layered-architecture/snapshot; rest are body-wikilink mentions); graph lint clean. index updated
+(10 sources + 9 concepts). Wiki now 191 pages.

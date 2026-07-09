@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 123 / 1610
+Progress: 134 / 1610
 
 ## (top-level)  (6)
 
@@ -96,7 +96,7 @@ Progress: 123 / 1610
 - [x] docs/Evidence/MOTIF-GENERATE-001-Evidence.md
 - [x] docs/Evidence/MOTIF-REGULATORY-001-Evidence.md
 - [x] docs/Evidence/MOTIF-SHARED-001-Evidence.md
-- [ ] docs/Evidence/MUTATION-TESTING-ANALYSIS.md
+- [x] docs/Evidence/MUTATION-TESTING-ANALYSIS.md
 - [ ] docs/Evidence/ONCO-ACTION-001-Evidence.md
 - [ ] docs/Evidence/ONCO-ANNOT-001-Evidence.md
 - [ ] docs/Evidence/ONCO-ARTIFACT-001-Evidence.md
@@ -744,16 +744,16 @@ Progress: 123 / 1610
 
 ## checklists  (10)
 
-- [ ] docs/checklists/01_PROPERTY_BASED_TESTING.md
-- [ ] docs/checklists/02_METAMORPHIC_TESTING.md
-- [ ] docs/checklists/03_FUZZING.md
-- [ ] docs/checklists/04_MUTATION_TESTING.md
-- [ ] docs/checklists/05_SNAPSHOT_TESTING.md
-- [ ] docs/checklists/06_ALGEBRAIC_TESTING.md
-- [ ] docs/checklists/07_ARCHITECTURE_TESTING.md
-- [ ] docs/checklists/08_DIFFERENTIAL_TESTING.md
-- [ ] docs/checklists/09_COMBINATORIAL_TESTING.md
-- [ ] docs/checklists/10_CHARACTERIZATION_TESTING.md
+- [x] docs/checklists/01_PROPERTY_BASED_TESTING.md
+- [x] docs/checklists/02_METAMORPHIC_TESTING.md
+- [x] docs/checklists/03_FUZZING.md
+- [x] docs/checklists/04_MUTATION_TESTING.md
+- [x] docs/checklists/05_SNAPSHOT_TESTING.md
+- [x] docs/checklists/06_ALGEBRAIC_TESTING.md
+- [x] docs/checklists/07_ARCHITECTURE_TESTING.md
+- [x] docs/checklists/08_DIFFERENTIAL_TESTING.md
+- [x] docs/checklists/09_COMBINATORIAL_TESTING.md
+- [x] docs/checklists/10_CHARACTERIZATION_TESTING.md
 
 ## external  (2)
 

@@ -77,7 +77,7 @@ per position is already optimal).
 `GenerateMethylationProfile` partitions sites by context and computes the **weighted methylation
 level** `Σ(level·coverage)/Σ(coverage)` per context (CG/CHG/CHH separately), plus `TotalCpGSites`,
 `MethylatedCpGSites`, and `MethylationByPosition`. This is the **same aggregator** documented in
-[[bisulfite-methylation-calling#3-per-context-weighted-profile-schultz-2012|bisulfite-methylation-calling]]
+[[bisulfite-methylation-calling]] (§ *Per-context weighted profile*)
 — weighted (read-pooled) fraction, not the unweighted mean; when a context's total coverage is 0
 (sequence-only sites) it **falls back to the unweighted mean** so such sites are not dropped. Worked
 oracle: sites (0.8, cov 10) and (0.2, cov 10) → weighted CpG = (8+2)/(10+10) = **0.5** (equals the

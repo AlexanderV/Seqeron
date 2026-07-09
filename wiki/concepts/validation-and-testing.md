@@ -28,18 +28,18 @@ Seqeron's development-time correctness story: 22,000+ executed test cases across
 
 Each catches a different class of defect, with a per-algorithm checklist under `docs/checklists`. The [[advanced-testing-checklist]] rates all ten by applicability, current coverage, effort, and P0–P3 priority against the completed-unit set:
 
-- **Property-based** (FsCheck) — invariant violations across generated inputs.
-- **Metamorphic** — wrong outputs when the exact answer is unknown, via relations like `revcomp(revcomp(x)) == x`.
-- **Fuzzing** — crashes/edge cases from malformed or adversarial input.
-- **Mutation** (Stryker.NET) — weak tests, by seeding deliberate bugs.
-- **Snapshot / approval** (Verify) — unintended changes to complex outputs.
-- **Algebraic** — broken identity/inverse/idempotence/commutativity laws.
-- **Architecture** (ArchUnitNET) — layering/dependency-rule drift (see [[layered-architecture]]).
-- **Differential** — divergence from a reference implementation.
-- **Combinatorial / pairwise** — interaction bugs across parameter spaces.
-- **Characterization** — regressions during refactoring, by pinning behaviour.
+- **[[property-based-testing|Property-based]]** (FsCheck) — invariant violations across generated inputs. **P0.**
+- **[[metamorphic-testing|Metamorphic]]** — wrong outputs when the exact answer is unknown, via relations like `revcomp(revcomp(x)) == x`. **P0.**
+- **[[fuzzing|Fuzzing]]** — crashes/edge cases from malformed or adversarial input. **P2.**
+- **[[mutation-testing|Mutation]]** (Stryker.NET) — weak tests, by seeding deliberate bugs. **P1.**
+- **[[snapshot-testing|Snapshot / approval]]** (Verify) — unintended changes to complex outputs. **P1.**
+- **[[algebraic-testing|Algebraic]]** — broken identity/inverse/idempotence/commutativity laws. **P1.**
+- **[[architecture-testing|Architecture]]** (ArchUnitNET) — layering/dependency-rule drift (see [[layered-architecture]]). **P2.**
+- **[[differential-testing|Differential]]** — divergence from a reference implementation. **P2.**
+- **[[combinatorial-testing|Combinatorial / pairwise]]** — interaction bugs across parameter spaces. **P3.**
+- **[[characterization-testing|Characterization]]** — regressions during refactoring, by pinning behaviour. **P3.**
 
-Coverage across these ten is uneven and mostly aspirational. As of the [[advanced-testing-checklist]] baseline (2026-03-19), only **architecture testing** was marked complete; the two highest-priority techniques (property-based and metamorphic) were the biggest gap — property files existed for ~22 areas but many units lacked specific invariants, and 72 completed units had no metamorphic relations. Fuzzing and differential testing existed only for SuffixTree, not Genomics.
+Coverage was uneven at the [[advanced-testing-checklist]] baseline (2026-03-19) — only **architecture testing** was complete, and the two P0 techniques (property-based, metamorphic) were the biggest gap. The **per-methodology checklists under `docs/checklists`** record a much-advanced later state: [[property-based-testing]], [[metamorphic-testing]], and [[fuzzing]] are now **258/258**, [[architecture-testing]] 22/22, [[combinatorial-testing]] 193/255, [[mutation-testing]] all-files-≥-80% (2026-06-30), [[algebraic-testing]] 89 (+169 not-applicable), [[differential-testing]] 107/255. The real remaining gap is **[[snapshot-testing]] (37/255)** and the on-demand [[characterization-testing]] — so the program is deep but still uneven, not uniformly done.
 
 ## Validation campaign
 
