@@ -638,3 +638,30 @@ Operations:
    units (CODON-STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON) — raw frequency/usage tables may share
    existing concepts.
    graph: +1 node, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/CODON-STATS-001-Evidence.md → codon-stats-001-evidence (source)
+   Twenty-seventh per-algorithm Evidence file; seventh of the codon-usage family. NO new concept
+   created — CODON-STATS-001 is the family's aggregation/reporting view (`GetStatistics` bundles codon
+   counts + RSCU + ENC + CAI + positional GC + total codons; `CalculateCai` = the same CAI validated as
+   CODON-CAI-001), so it REUSES the existing family concepts (relative-synonymous-codon-usage,
+   codon-adaptation-index, effective-number-of-codons; cross-refs codon-optimization, rare-codon-analysis)
+   rather than duplicating them — consistent with the "aggregation view reuses concepts" rule. The one
+   piece not covered by an existing concept — positional GC composition (GC1/GC2/GC3, OverallGc, and
+   GC3s = GC of *synonymous* third positions, excluding Met/Trp/stop, Peden 1999 §1.8.2.1.3 / EMBOSS cusp
+   / PMC7596632 "59 synonymous codons") — is documented inline on the source page, not promoted to a
+   concept (small facet of a stats bundle; a dedicated positional-GC unit can mint one later if needed).
+   Sources: Sharp & Li 1987 (+ Biopython SharpEcoliIndex `w` reproduction) + Wikipedia + seqinr + CodonW/
+   Peden thesis + EMBOSS cusp + Kazusa H. sapiens. Oracles: ATGGCA→GC3s 0 vs GC3 50 (shows the Met/Trp/
+   stop exclusion), GCTGCC→CAI √0.122=0.34928…, ATGTGGTAA→CAI 0 (no scorable codon), CTGGTTAAA→GC1/GC2/
+   GC3 66.67/0/33.33; EColiOptimalCodons reproduces Sharp&Li w, HumanOptimalCodons reproduces Kazusa RSCU
+   (CTG≈2.3713). Two documented deviations: GC3s reported as a percentage (×100, EMBOSS-style, vs CodonW
+   fraction — labeling only, subset exactly per Peden) and zero-`w` codons skipped rather than floored to
+   0.01 (Bulmer 1988) — real-CDS CAI unaffected (no reference synonymous codon has w=0). Surgically updated
+   the algorithm-validation-evidence hub (frontmatter sources + source-link list) and the RSCU base-anchor
+   concept (noted CODON-STATS as the aggregation view + the GC3s definition). Contradictions: none — all
+   sources agree on the formulae and the synonymous-codon exclusion set; the CAI zero-handling wording here
+   (skip-zero-w) and CODON-CAI-001's (1e-6 clamp) describe the same guard from different angles, flagged on
+   the source page. Follow-up: remaining codon-usage units (CODON-USAGE, SEQ-CODON-FREQ, TRANS-CODON) — raw
+   frequency/usage tables likely share existing concepts.
+   graph: no typed edges (aggregation source reusing existing concepts; source pages can't be relates_to
+   subjects per the ontology, so no new node warrants an edge; mentions auto-derived from wikilinks)

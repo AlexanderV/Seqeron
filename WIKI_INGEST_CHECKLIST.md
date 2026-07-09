@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 32 / 1610
+Progress: 33 / 1610
 
 ## (top-level)  (6)
 
@@ -42,7 +42,7 @@ Progress: 32 / 1610
 - [x] docs/Evidence/CODON-OPT-001-Evidence.md
 - [x] docs/Evidence/CODON-RARE-001-Evidence.md
 - [x] docs/Evidence/CODON-RSCU-001-Evidence.md
-- [ ] docs/Evidence/CODON-STATS-001-Evidence.md
+- [x] docs/Evidence/CODON-STATS-001-Evidence.md
 - [ ] docs/Evidence/CODON-USAGE-001-Evidence.md
 - [ ] docs/Evidence/COMPGEN-ANI-001-Evidence.md
 - [ ] docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md
