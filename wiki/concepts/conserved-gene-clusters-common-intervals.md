@@ -32,7 +32,9 @@ that block. Formally this is the **common interval** model of permutations (Uno 
 family (`COMPGEN-*`) and a sibling of [[average-nucleotide-identity]] and the shared synteny
 anchor [[synteny-and-rearrangement-detection]]: where ANI measures *nucleotide* identity and
 synteny requires a *collinear ordered* block, a common interval only requires the same **gene
-set** to be contiguous in each genome — order and strand inside the window are free. Validated
+set** to be contiguous in each genome — order and strand inside the window are free. The
+end-to-end pipeline [[genome-comparison-core-dispensable]] composes ortholog detection and
+synteny into a core/dispensable gene partition. Validated
 under test unit **COMPGEN-CLUSTER-001**; the validation record is
 [[compgen-cluster-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern.

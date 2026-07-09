@@ -35,7 +35,9 @@ Comparative-genomics family are [[average-nucleotide-identity]] — the genome-s
 (how nucleotide-identical two genomes are) to this page's gene-order-conservation view — and
 [[conserved-gene-clusters-common-intervals]], the order-free counterpart that asks only whether
 a gene *set* is contiguous in every genome (a common interval) rather than requiring a collinear
-ordered block. Validated under test
+ordered block. The end-to-end pipeline [[genome-comparison-core-dispensable]] reuses this unit's
+syntenic blocks to report an `OverallSynteny` fraction alongside its core/dispensable gene
+partition. Validated under test
 unit **CHROM-SYNT-001**; the validation record is [[chrom-synt-001-evidence]], [[test-unit-registry]]
 tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
 

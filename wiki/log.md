@@ -750,3 +750,29 @@ Operations:
    (orthologs/RBH, COMPGEN-SYNTENY-001 reusing synteny-and-rearrangement-detection, reversal distance,
    dot-plot, genome-comparison pipeline) warrant their own concepts or share existing ones when ingested.
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to synteny-and-rearrangement-detection)
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-COMPARE-001-Evidence.md → compgen-compare-001-evidence (source) + 1 concept
+   Thirty-first per-algorithm Evidence file; third of the Comparative-genomics (COMPGEN) family (after ANI,
+   CLUSTER). This one is an ORCHESTRATING PIPELINE, not a single-metric unit: `CompareGenomes` performs the
+   end-to-end two-genome comparison, partitioning each genome's genes into a CORE (conserved) set and a
+   DISPENSABLE (genome-specific) set and reporting an OverallSynteny fraction. Created the genuinely-distinct
+   concept genome-comparison-core-dispensable — distinct because it composes sub-units into the pairwise
+   pan-genome model (Tettelin et al. 2005 PNAS, the paper that coined pan-genome/core/dispensable): core =
+   the reciprocal-best-hit ortholog pairs (Moreno-Hagelsieb & Latimer 2008 + Tatusov 1997, COMPGEN-RBH-001),
+   dispensable = the rest of each genome; outputs Conserved/Specific1/Specific2 + OverallSynteny = (genes in
+   MCScanX syntenic blocks)/min(|g1|,|g2|) clamped ≤1 (fraction-of-syntenic-genes metric; blocks from MCScanX
+   Wang 2012 = COMPGEN-SYNTENY-001, min 5 collinear anchors). Oracles: one-shared-one-unique → 1/1/1,
+   disjoint → 0/2/2, identical-5-collinear+1-unique → Conserved 5, Specific 1/1, OverallSynteny 5/6=0.8333,
+   0 rearrangements; symmetric partition (swap g1/g2 swaps Specific1/Specific2); empty genomes → all 0.
+   Concise source page for the artifact (Tettelin 2005 + Moreno-Hagelsieb 2008/Tatusov 1997 + ScienceDirect/
+   Wikipedia synteny overview + MCScanX Wang 2012 sources). Linked new source + concept into the
+   algorithm-validation-evidence hub (frontmatter sources + both link lists) and added reciprocal sibling nav
+   links from average-nucleotide-identity, conserved-gene-clusters-common-intervals, and
+   synteny-and-rearrangement-detection. TWO documented ASSUMPTIONs, both source-backed, neither a
+   partition-logic gap: (1) alignment-free 5-mer Jaccard RBH gate (identity ≥0.3, coverage ≥0.5) replaces the
+   Tettelin 50%/50% alignment gate, inherited verbatim from COMPGEN-RBH-001 — partition logic unchanged;
+   (2) MCScanX ≥5-collinear-anchor block threshold means OverallSynteny can be 0 even when conserved orthologs
+   exist. Contradictions: none — Tettelin (core/dispensable), Moreno-Hagelsieb/Tatusov (RBH), and the synteny
+   sources each govern a distinct pipeline output and are mutually consistent; Deviations = None. Follow-up:
+   remaining COMPGEN units (RBH orthologs, reversal distance, dot-plot) warrant their own concepts when ingested.
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, relates_to synteny-and-rearrangement-detection, relates_to average-nucleotide-identity)

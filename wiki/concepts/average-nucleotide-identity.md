@@ -38,6 +38,8 @@ Seqeron exposes `CalculateAni` (single-direction) and `CalculateReciprocalAni`
 (symmetric, both-directions mean). A third COMPGEN sibling,
 [[conserved-gene-clusters-common-intervals]], compares the two genomes at the
 gene-*content* level (sets of genes contiguous in both) rather than nucleotide identity.
+The end-to-end pipeline [[genome-comparison-core-dispensable]] orchestrates these views into a
+single core/dispensable gene partition plus a syntenic-gene fraction.
 
 ## The ANIb algorithm (Goris et al. 2007)
 
