@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **65** algorithm docs covered-via-concept, **180** pending across 30 domains.
+Status at generation: **66** algorithm docs covered-via-concept, **179** pending across 30 domains.
 
 ## Covered via concept (done)
 
@@ -88,6 +88,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Metagenomics/Significant_Taxa_Detection.md` | [[significant-taxa-detection]] |
 | `docs/algorithms/Metagenomics/Taxonomic_Classification.md` | [[taxonomic-classification]] |
 | `docs/algorithms/Metagenomics/Taxonomic_Profile.md` | [[taxonomic-profile]] |
+| `docs/algorithms/MiRNA/MiRNA_Target_Pairing.md` | [[rna-base-pairing]] |
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
@@ -167,11 +168,10 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | --- | --- |
 | `docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md` | `pangenome-core-accessory` |
 
-### MiRNA (4)
+### MiRNA (3)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/MiRNA/MiRNA_Target_Pairing.md` | `mirna-target-pairing` |
 | `docs/algorithms/MiRNA/Pre_miRNA_Detection.md` | `pre-mirna-detection` |
 | `docs/algorithms/MiRNA/Seed_Sequence_Analysis.md` | `seed-sequence-analysis` |
 | `docs/algorithms/MiRNA/Target_Site_Prediction.md` | `target-site-prediction` |

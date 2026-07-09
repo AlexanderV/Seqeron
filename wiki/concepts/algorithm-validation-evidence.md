@@ -64,7 +64,8 @@ sources:
   - docs/Evidence/META-PROF-001-Evidence.md
   - docs/Evidence/META-RESIST-001-Evidence.md
   - docs/Evidence/META-TAXA-001-Evidence.md
-source_commit: b8447d68c5661a777dae965c591071beb8225772
+  - docs/Evidence/MIRNA-PAIR-001-Evidence.md
+source_commit: da06ef5590c4a92834125cfd650b942f61f9b586
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -136,7 +137,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[kmer-unique-001-evidence]], [[meta-alpha-001-evidence]],
 [[meta-func-001-evidence]], [[meta-pathway-001-evidence]],
 [[meta-prof-001-evidence]], [[meta-resist-001-evidence]],
-[[meta-taxa-001-evidence]]). An
+[[meta-taxa-001-evidence]], [[mirna-pair-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -191,4 +192,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[pathway-enrichment-ora]] (the Metagenomics family's pathway-enrichment / over-representation-analysis unit, META-PATHWAY-001 — the GO::TermFinder / clusterProfiler hypergeometric right-tail test `FindPathwayEnrichment` / `HypergeometricUpperTail`; the dedicated owner of the ORA machinery that [[functional-prediction]] exercises as component B), or
 [[taxonomic-profile]] (the Metagenomics family's community-abundance profiling unit, META-PROF-001 — `MetagenomicsAnalyzer.GenerateTaxonomicProfile` aggregates the per-read output of [[taxonomic-classification]] into normalized per-taxon relative abundances at four ranks plus inline Shannon/Simpson diversity and read counts; the aggregation step that the classification unit deliberately deferred, sibling of [[alpha-diversity]] / [[beta-diversity]]), or
 [[antibiotic-resistance-gene-detection]] (the Metagenomics family's AMR gene-detection unit, META-RESIST-001 — the ResFinder-style `MetagenomicsAnalyzer.FindAntibioticResistanceGenes` screen of contigs against a caller-supplied resistance-gene DB, reporting the best-matching gene per contig by BLAST percent identity + reference coverage under a dual threshold (default 0.90 ID / 0.60 cov); a BLAST-style homology screen sharing machinery with [[functional-prediction]] but scoring nucleotide identity/coverage rather than a BLOSUM62 bit-score), or
-[[significant-taxa-detection]] (the Metagenomics family's differential-abundance unit, META-TAXA-001 — the per-taxon two-group **Mann–Whitney U / Wilcoxon rank-sum** test `MetagenomicsAnalyzer.MannWhitneyU` / `FindSignificantTaxa` with midrank tie correction, optional 0.5 continuity correction, and the asymptotic normal-approximation two-tailed p-value `2·(1−Φ(z))`; consumes the per-sample [[taxonomic-profile]] abundance vectors, distinct from the hypergeometric [[pathway-enrichment-ora]] and the Fisher's-exact [[differentially-methylated-regions]] by its rank-sum test).
+[[significant-taxa-detection]] (the Metagenomics family's differential-abundance unit, META-TAXA-001 — the per-taxon two-group **Mann–Whitney U / Wilcoxon rank-sum** test `MetagenomicsAnalyzer.MannWhitneyU` / `FindSignificantTaxa` with midrank tie correction, optional 0.5 continuity correction, and the asymptotic normal-approximation two-tailed p-value `2·(1−Φ(z))`; consumes the per-sample [[taxonomic-profile]] abundance vectors, distinct from the hypergeometric [[pathway-enrichment-ora]] and the Fisher's-exact [[differentially-methylated-regions]] by its rank-sum test), or
+[[rna-base-pairing]] (the MiRNA family anchor + shared RNA base-pairing primitive, MIRNA-PAIR-001 — the Watson-Crick {A-U,G-C} + standard G-U wobble pairing rule (`CanPair`/`IsWobblePair`), the antiparallel seed reverse complement (`GetReverseComplement`), and the ungapped antiparallel miRNA-target duplex `AlignMiRnaToTarget` with a sign-only-reliable simplified Turner-2004 stacking ΔG; the reusable pairing rule that RNA secondary-structure classification also builds on, distinct from target-site efficacy prediction).

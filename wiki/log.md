@@ -1744,3 +1744,27 @@ Operations:
   point. graph: +2 nodes (source + concept), +2 typed edges (antibiotic-resistance-gene-detection
   relates_to test-unit-registry + relates_to functional-prediction); body [[wikilinks]] mentions
   auto-derived.
+- 2026-07-09 — ingest `docs/Evidence/MIRNA-PAIR-001-Evidence.md` (test unit MIRNA-PAIR-001,
+  MiRNA-Target Pairing Analysis; FIRST MiRNA-family unit — NEW topic area, no prior RNA
+  base-pairing / miRNA concept existed). Created source [[mirna-pair-001-evidence]] + NEW concept
+  [[rna-base-pairing]] ("RNA base pairing (Watson-Crick + G-U wobble) and the miRNA-target
+  duplex"). Algorithm = `MiRnaAnalyzer.AlignMiRnaToTarget` + `CanPair`/`IsWobblePair`/
+  `GetReverseComplement`: `CanPair`⟺{A-U,U-A,G-C,C-G,G-U,U-G} = Watson-Crick {A-U,G-C}
+  (Agarwal 2015 / PMC4532895) + the single standard **G-U wobble** (Crick 1966), `IsWobblePair`⟺
+  {G-U,U-G} (wobble⊆pairable, counted separately from matches per PMC4870184); `GetReverseComplement`
+  = antiparallel RNA reverse complement for seed→target motif (Lewis 2005; let-7a `GAGGUAG`→
+  `CUACCUC`); `AlignMiRnaToTarget` pairs miRNA[i]↔target[len−1−i] over the shorter overlap, ungapped,
+  `|`(WC)/`:`(wobble)/space(mismatch), counts sum to min(len)/Gaps=0, ΔG = simplified Turner-2004
+  stacking sum over consecutive paired runs (sign reliable — fully-WC ≤0, all-mismatch ≥0 —
+  magnitude NOT). Oracles AAAA/UUUU→4 matches, GGGG/UUUU→4 wobbles, AAAA/AAAA→4 mismatches. Made the
+  concept the **shared base-pairing primitive** anchor (per ingest brief: Watson-Crick/G-U wobble is
+  a primitive both RNA-structure and miRNA use) — documented so a future RnaStructure
+  `RNA_Base_Pairing.md` ingest can reference/enrich the same page rather than duplicate the rule.
+  Hub [[algorithm-validation-evidence]]: added MIRNA-PAIR to frontmatter sources (bumped
+  source_commit to HEAD da06ef55) + source-list + concept-list. index.md: +1 source +1 concept.
+  Backlog: moved MiRNA/MiRNA_Target_Pairing.md pending→covered (65→66 covered / 180→179 pending;
+  §MiRNA 4→3). One ASSUMPTION recorded (Turner stacking numerics not re-retrieved this session →
+  tests assert base-pairing structure + ΔG sign, not kcal/mol magnitude); A-opposite-position-1 is
+  Argonaute recognition not base pairing (out of scope). No contradictions. graph: +2 nodes
+  (source + concept), +1 typed edge (rna-base-pairing relates_to test-unit-registry); body
+  [[wikilinks]] mentions auto-derived.
