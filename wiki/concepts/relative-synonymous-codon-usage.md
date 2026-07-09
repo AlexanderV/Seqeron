@@ -68,6 +68,7 @@ Li 1987 use a **0.5 pseudocount** at reference-table build time; Seqeron's CAI i
 a **`1e-6` clamp** at score time — see [[codon-adaptation-index]]). The
 **[[effective-number-of-codons|ENC / Nc]]** (Wright 1990) is the reference-free sibling: it reduces a
 gene's codon bias to a single number in [20, 61] using codon homozygosity `F̂` built from the same
-synonymous-codon frequencies `p_i`. Other siblings in `docs/Evidence/` include rare-codon analysis,
-codon optimization, and raw codon-frequency/usage tables; each builds on the same synonymous-family
-counting that RSCU formalizes.
+synonymous-codon frequencies `p_i`. **[[codon-optimization]]** is the family's *rewriting* operation:
+it consumes a codon-usage table and substitutes synonymous codons to improve host expression. Other
+siblings in `docs/Evidence/` include rare-codon analysis and raw codon-frequency/usage tables; each
+builds on the same synonymous-family counting that RSCU formalizes.

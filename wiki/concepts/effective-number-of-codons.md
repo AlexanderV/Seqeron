@@ -105,8 +105,7 @@ Nc is the **reference-free** counterpart of the reference-based [[codon-adaptati
 reduce a whole gene's codon bias to one number, but Nc needs no reference gene set (it measures
 evenness of synonymous-codon usage intrinsically, 20–61) while CAI measures adaptation toward a
 reference set (0–1). Both are built from the same synonymous-family codon frequencies that
-[[relative-synonymous-codon-usage|RSCU]] formalizes (`F̂` is a function of the `p_i`). Other
-siblings still in `docs/Evidence/` include rare-codon analysis, codon optimization, and raw
+[[relative-synonymous-codon-usage|RSCU]] formalizes (`F̂` is a function of the `p_i`).
+**[[codon-optimization]]** is the family's *rewriting* operation that acts on codon choice rather than
+measuring it. Other siblings still in `docs/Evidence/` include rare-codon analysis and raw
 codon-frequency/usage tables. See [[algorithm-validation-evidence]] for the shared evidence pattern.
-</content>
-</invoke>

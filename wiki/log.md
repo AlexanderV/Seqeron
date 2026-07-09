@@ -560,3 +560,28 @@ Operations:
    remaining codon-usage units (CODON-OPT/RARE/STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON) — optimization
    likely warrants its own concept, raw frequency/usage tables may share existing concepts.
    graph: +2 nodes, +3 typed edges (relates_to test-unit-registry, alternative_to codon-adaptation-index, relates_to relative-synonymous-codon-usage)
+
+## [2026-07-09] ingest | docs/Evidence/CODON-OPT-001-Evidence.md → codon-opt-001-evidence (source) + 1 concept
+   Twenty-fourth per-algorithm Evidence file; fourth of the codon-usage family (after ANNOT-CODONUSAGE/
+   RSCU, CODON-CAI, CODON-ENC). Created the genuinely-distinct concept codon-optimization — the family's
+   sole *rewriting* operation (`OptimizeSequence`): synonymous-codon substitution to improve heterologous
+   host expression, deliberately positioned as the ACTUATOR to RSCU/CAI/ENC's measurement. Five strategies
+   each traced to a source point: MaximizeCAI (most-frequent codon, Sharp & Li 1987 CAI), BalancedOptimization
+   (CAI vs 40-60% GC, rebuilds Changes list after GC balancing), HarmonizeExpression (match host distribution,
+   Mignon 2018), AvoidRareCodons (replace only sub-threshold codons), MinimizeSecondary (delegates to
+   BalancedOptimization for selection + dedicated ReduceSecondaryStructure). Invariants: protein preservation
+   across all strategies (synonymous only), Met/AUG & Trp/UGG fixed points (single-codon families), stop
+   preserved, CAI∈(0,1]; RNA notation with T→U, trim-to-complete-codon, case-insensitive, 1e-6 zero-freq CAI
+   clamp (same guard as codon-adaptation-index). Organism fixtures: E. coli K12 (Kazusa 316407), S. cerevisiae
+   (4932), H. sapiens (9606) preferred-codon tables. Concise source page for the artifact (Wikipedia
+   codon-usage-bias + CAI + Plotkin-Kudla 2011 + Mignon 2018 + Kazusa sources). Linked new source + concept
+   into the algorithm-validation-evidence hub and added CODON-OPT to that hub's frontmatter; cross-linked the
+   new concept from codon-adaptation-index (MaximizeCAI drives CAI→1), relative-synonymous-codon-usage, and
+   effective-number-of-codons (all three "sibling still in docs/Evidence" lines now resolve to the ingested
+   page). Also removed stray `</content></invoke>` tags left at the tail of effective-number-of-codons.md
+   (pre-existing Write artifact). Contradictions: none — Wikipedia strategy catalogue, Sharp & Li 1987,
+   Plotkin-Kudla 2011 review and Mignon 2018 harmonization agree; behaviours recorded "from theory/
+   implementation" so the correctness anchor is the protein-preservation invariant + CAI formula, both
+   source-backed. Follow-up: remaining codon-usage units (CODON-RARE/STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON)
+   — rare-codon analysis may warrant its own concept, raw frequency/usage tables may share existing concepts.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to codon-adaptation-index)
