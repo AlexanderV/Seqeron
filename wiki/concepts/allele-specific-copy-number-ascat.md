@@ -54,6 +54,12 @@ nB = (rho-1 +  b   *2^(r/gamma) * ((1-rho)*2 + rho*psi)) / rho
 with `rho` = aberrant-cell fraction (purity ρ), `psi` = tumor ploidy ψ, `gamma` = platform gain
 (**γ = 1 for massively-parallel sequencing — WGS/WES/TS**; ≈0.55 for SNP arrays only).
 
+The purity ρ recovered here is a **joint logR/BAF grid** output. The **`alternative_to`** route — a
+standalone **closed-form purity call inverted from a single somatic-SNV VAF** plus the local
+copy-number state (`π = 2·VAF` at a copy-neutral diploid het locus, or the general CNAqc inversion
+`π = 2v/(m·c + 2v − v·n_tot)`) — is [[tumor-purity-from-mutation-vaf]] (ONCO-PURITY-001): same purity
+scalar, different substrate (mutation VAF vs logR/BAF) and method (algebra vs grid).
+
 **Grid-search objective ("sunrise" plot).** ρ and ψ are chosen over a grid to minimise the
 segment-length-weighted **squared distance of the minor allele to the nearest non-negative integer**
 (germline-heterozygous SNPs *should* land on whole numbers):

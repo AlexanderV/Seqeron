@@ -42,7 +42,9 @@ allele-specific segments, it computes ψ as a **deterministic closed-form weight
 **rule-based** WGD classifier. Same n-scale scalar (Van Loo 2010's ASCAT `ploidy` field), different
 method — a post-hoc summary, not a grid search. It reads the same segment substrate as the other
 genomic-scar oncology units [[loss-of-heterozygosity-detection]] and
-[[homologous-recombination-deficiency-score]].
+[[homologous-recombination-deficiency-score]]. On the **purity** side, the standalone counterpart is
+[[tumor-purity-from-mutation-vaf]] (ONCO-PURITY-001), which inverts a somatic-SNV VAF for π rather than
+summarising ψ.
 
 ## 1. Average ploidy ψ — length-weighted mean total CN (`EstimatePloidy`)
 

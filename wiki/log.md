@@ -2491,3 +2491,16 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet, source_commit
    bumped to 57c2be1). Index updated (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; relates_to allele-specific-copy-number-ascat)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-PURITY-001-Evidence.md
+   ONCO-PURITY-001 (Tumor Purity Estimation from somatic SNV VAF / allele-specific copy number),
+   twenty-eighth Oncology unit. A genuinely distinct STANDALONE closed-form purity estimator, NOT an
+   enrichment of ONCO-ASCAT-001: it inverts the CNAqc expected-VAF model v = m·π·c/[2(1−π)+π(n_A+n_B)]
+   (Antonello 2024, verbatim) — EstimatePurityFromVAF = copy-neutral diploid het special case π = 2·VAF,
+   EstimatePurity = general inversion π = 2v/(m·c + 2v − v·n_tot); FACETS 2016 confirms the denominator,
+   ABSOLUTE 2012 is the inverse direction. Created source onco-purity-001-evidence + new concept
+   tumor-purity-from-mutation-vaf. Cross-linked allele-specific-copy-number-ascat (alternative_to note:
+   VAF inversion vs logR/BAF grid) and tumor-ploidy-estimation-and-whole-genome-doubling (reciprocal
+   purity-side counterpart). Wired into algorithm-validation-evidence hub (frontmatter source + summary
+   link + anchor bullet, source_commit bumped to fdf583e). Index updated (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; alternative_to allele-specific-copy-number-ascat)
