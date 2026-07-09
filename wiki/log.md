@@ -1096,3 +1096,32 @@ Operations:
    PROPENSITY/REGION) is now fully ingested.
    graph: +1 node (source), +0 typed edges (concept↔registry / ↔SEG edges already exist on the anchor;
    source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/EPIGEN-AGE-001-Evidence.md → epigen-age-001-evidence (source) + 1 concept
+   FIRST unit of the NEW Epigenetics family (EPIGEN-AGE-001) — epigenetic ("DNAm") age via the Horvath
+   2013 multi-tissue DNA-methylation clock. Surveyed wiki/concepts: NO pre-existing epigenetics /
+   methylation / CpG concept to reuse (grep hits in log/backlog/registry were incidental), so created a
+   genuinely-distinct anchor concept [[epigenetic-age-horvath-clock]] — the two-stage scorer: linear
+   predictor Y = intercept + Σ coef_i·β_i over 353 elastic-net-selected clock CpGs (transformed-age
+   units), then the two-branch Horvath inverse calibration `anti.trafo` (adult.age=20): 21·exp(Y)−1 for
+   Y<0, 21·Y+20 for Y≥0, continuous at (0,20)=age 20. Embedded intercept 0.695507258 + 353
+   `CoefficientTraining` weights (Additional file 3), cross-verified byte-identical vs an independent
+   GitHub mirror (all 353 pairs). Invariants Y=0→20 / CpGs-absent-ignored / empty-map→F⁻¹(intercept);
+   null map|coeffs→ArgumentNullException, empty coeffs→ArgumentException. Oracles: anti.trafo 0→20 / 1→41
+   / −1→6.7254682646002895 / −2.5→0.7237849711018749, linear-assembly Y=0.684247258→34.369192418.
+   Sources: Horvath 2013 paper (Genome Biology 14:R115, rank-1) + aldringsvitenskap reference R
+   `horvath2013.R`/`StepwiseAnalysis.R` (rank-3, trafo/anti.trafo + predictedAge assembly) + Additional
+   file 3 Springer supplement (rank-1) + its byte-identical GitHub mirror (rank-3, the cross-check) +
+   perishky/meffonym (rank-3). Concept also lists docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md
+   as a second source (backlog reconciliation). Reconciled backlog: moved Epigenetic_Age_Estimation.md
+   from pending Epigenetics (6→5) to covered-via-concept (37→38 covered / 208→207 pending). Linked into
+   the algorithm-validation-evidence hub (frontmatter sources + both link lists) and index (source +
+   concept lines). Scope note: the Evidence unit covers ONLY the multi-tissue 353-CpG clock; the
+   algorithm doc (reviewed 2026-06-23, one day later) has since extended the impl with Horvath-2018
+   skin&blood (391 CpG, same anti.trafo) + Levine-2018 PhenoAge (513 CpG, NO transform) — recorded as an
+   evolution, NOT a contradiction. Assumptions: table-embed assumption RESOLVED 2026-06-22
+   (caller-supplied → embedded + cross-verified); no correctness gap remains. Contradictions: none.
+   Follow-up: the rest of the Epigenetics family (CpG detection, methylation calling, DMRs, chromatin
+   state, bisulfite) remains pending — those are distinct algorithms and will get their own concepts.
+   graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
+   source-page [[wikilinks]] mentions auto-derived)

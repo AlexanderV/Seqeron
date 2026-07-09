@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **37** algorithm docs covered-via-concept, **208** pending across 34 domains.
+Status at generation: **38** algorithm docs covered-via-concept, **207** pending across 34 domains.
 
 ## Covered via concept (done)
 
@@ -60,6 +60,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Comparative_Genomics/Reciprocal_Best_Hits.md` | [[ortholog-detection-reciprocal-best-hits]] |
 | `docs/algorithms/Comparative_Genomics/Reversal_Distance.md` | [[genome-rearrangement-breakpoint-distance]] |
 | `docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md` | [[synteny-and-rearrangement-detection]] |
+| `docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md` | [[epigenetic-age-horvath-clock]] |
 | `docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md` | [[coding-potential-hexamer-score]] |
 | `docs/algorithms/Extended_Assembly/Contig_Merging.md` | [[contig-merge-overlap-collapse]] |
 | `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
@@ -113,7 +114,7 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/Complexity/Lempel_Ziv_Complexity.md` | `lempel-ziv-complexity` |
 | `docs/algorithms/Complexity/Windowed_Complexity.md` | `windowed-complexity` |
 
-### Epigenetics (6)
+### Epigenetics (5)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
@@ -121,7 +122,6 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/Epigenetics/Chromatin_State_Prediction.md` | `chromatin-state-prediction` |
 | `docs/algorithms/Epigenetics/CpG_Site_Detection.md` | `cpg-site-detection` |
 | `docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md` | `differentially-methylated-regions` |
-| `docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md` | `epigenetic-age-estimation` |
 | `docs/algorithms/Epigenetics/Methylation_Analysis.md` | `methylation-analysis` |
 
 ### Extended_GC_Skew_Analysis (2)
