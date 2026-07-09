@@ -1447,3 +1447,29 @@ Operations:
    Contradictions: none.
    graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
    relates_to both-strand-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | KMER-POSITIONS-001-Evidence.md → kmer-positions-001-evidence (source) + k-mer-positions (concept)
+   Fifth K-mer family Evidence. Test unit KMER-POSITIONS-001, `KmerAnalyzer.FindKmerPositions(sequence, kmer)`
+   — the ascending 0-based positions where a given k-mer occurs in a sequence (a *position / occurrence
+   index*: *where*, not *how many*), solving the exact Pattern Matching Problem `Occ(P,T)={i∈[0,L−k]:
+   T[i..i+k)=P}` with all overlapping starts reported. Judged GENUINELY DISTINCT from the counting units
+   (positions = an ordered IEnumerable<int> of offsets for one k-mer, the inverse index to the
+   Dictionary<string,int> count table) → new dedicated concept [[k-mer-positions]] rather than enriching a
+   counting concept. Positioned as the single-pattern K-mer-family sibling of the multi-pattern exact
+   matcher [[known-motif-search]] (`GenomicAnalyzer.FindMotif`) — same 0-based ascending all-overlapping
+   semantics, one list vs a per-motif map. Sources: Rosalind BA1D (binding 0-based worked example ATAT/
+   GATATATGCATATACTT→1 3 9, overlapping all reported) + Wikipedia k-mer (L−k+1 candidates, AGAT 2-mers) +
+   Compeau & Pevzner Pattern Matching Problem (textbook 1-based prose deferred to BA1D's machine-checked
+   0-based). INV-01..04 (match predicate / ascending / count=overlap-occurrence-count / range [0,L−k], empty
+   when k>L). Oracles ATAT→[1,3,9], AA/AAAA→[0,1,2] self-overlap, whole-seq→[0], absent/longer/null-empty→
+   empty (no throw). Impl = O(L·k) naive span scan (ReadOnlySpan.SequenceEqual, lazy yield), suffix-tree
+   evaluated-and-rejected (unordered leaves + no single-query amortization). Three API-shape / repo-interop
+   assumptions (0-based, case-insensitive upper-casing per sibling CountKmers, null/empty→empty); Deviations
+   = None. Cross-linked reciprocally with [[known-motif-search]] (single-pattern counterpart note) and
+   [[both-strand-kmer-counting]] (inverse-index note). Concept lists both the Evidence file and
+   K-mer_Positions.md algorithm doc in sources. Wired into index (source + concept lines) + the
+   algorithm-validation-evidence hub (frontmatter sources + body evidence-link + own-concept list).
+   Reconciled backlog: moved K-mer/K-mer_Positions.md from pending K-mer (6→5) to covered-via-concept
+   (53→54 covered / 192→191 pending, 30 domains). Contradictions: none.
+   graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
+   relates_to both-strand-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)

@@ -55,6 +55,7 @@ sources:
   - docs/Evidence/GENOMIC-REPEAT-001-Evidence.md
   - docs/Evidence/KMER-BOTH-001-Evidence.md
   - docs/Evidence/KMER-DIST-001-Evidence.md
+  - docs/Evidence/KMER-POSITIONS-001-Evidence.md
 source_commit: 05fff695e889b79023301d7319afbc8a24e0bec4
 created: 2026-07-09
 updated: 2026-07-09
@@ -122,7 +123,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[epigen-methyl-001-evidence]], [[genomic-common-001-evidence]],
 [[genomic-motifs-001-evidence]], [[genomic-orf-001-evidence]],
 [[genomic-repeat-001-evidence]], [[kmer-async-001-evidence]],
-[[kmer-both-001-evidence]], [[kmer-dist-001-evidence]]). An
+[[kmer-both-001-evidence]], [[kmer-dist-001-evidence]],
+[[kmer-positions-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -168,4 +170,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[longest-repeated-substring]] (the Repeat-Analysis LRS + all-repeats-enumeration unit — `GenomicAnalyzer.FindLongestRepeat` / `FindRepeats` via the deepest-internal-node-with-≥2-leaves of a *single-string* suffix tree, the one-string sibling of [[longest-common-substring]] and distinct from the tandem/inverted [[repetitive-element-detection]] anchor), or
 [[asynchronous-kmer-counting]] (the K-mer family's cancelable/progress-reporting `Task.Run` count wrapper — first ingested K-mer unit, numeric result identical to the synchronous count), or
 [[both-strand-kmer-counting]] (the K-mer family's additive / kPAL-"balance" strand-aware count — `count[w] = forward[w] + forward[RC(w)]` summed over both strands, distinct from the not-implemented canonical-collapsing convention of Jellyfish `-C` / Mash), or
-[[k-mer-euclidean-distance]] (the K-mer family's alignment-free word-frequency **distance** — Euclidean L2 over normalized k-mer frequency vectors `count/(L−k+1)`, an `alternative_to` the presence/absence [[kmer-jaccard-similarity]], the third ingested K-mer unit).
+[[k-mer-euclidean-distance]] (the K-mer family's alignment-free word-frequency **distance** — Euclidean L2 over normalized k-mer frequency vectors `count/(L−k+1)`, an `alternative_to` the presence/absence [[kmer-jaccard-similarity]], the third ingested K-mer unit), or
+[[k-mer-positions]] (the K-mer family's *occurrence-index* unit — `KmerAnalyzer.FindKmerPositions` returns the ascending 0-based positions where a given k-mer occurs in a sequence, *where* not *how many*; the single-pattern sibling of the multi-pattern exact-matcher [[known-motif-search]], distinct from the counting siblings).

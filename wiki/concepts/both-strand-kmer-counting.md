@@ -118,4 +118,7 @@ suffix tree adds `O(n)` construction with no benefit.
 - The same k-mer machinery feeds the K-mer family's other operations (frequency analysis,
   [[k-mer-generation|generation]], statistics) and downstream [[de-bruijn-graph-assembly]],
   [[kmer-spectrum-error-correction]], and [[kmer-jaccard-similarity]]. Note [[k-mer-generation]]
-  enumerates the full `n^k` universe (sequence-independent) rather than counting observed windows.
+  enumerates the full `n^k` universe (sequence-independent) rather than counting observed windows,
+  and [[k-mer-positions]] indexes *where* one k-mer occurs (an ordered position list) rather than
+  tallying *how many* — the inverse index to this counting operation, sharing the same
+  case-insensitive upper-casing convention.

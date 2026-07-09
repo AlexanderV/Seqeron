@@ -74,6 +74,9 @@ scanning) that relax the exact-equality test; known-motif search is the exact-eq
 baseline. It shares the *exact all-occurrences* semantics with the exact-match engine
 behind [[longest-common-substring]] and [[dot-plot-word-match]], but operates on a
 caller-supplied set of literal query motifs rather than deriving shared substrings.
+The **single-pattern** K-mer-family counterpart is [[k-mer-positions]]
+(`KmerAnalyzer.FindKmerPositions`) — the same 0-based ascending all-overlapping-occurrences
+semantics for one k-mer against one sequence (a single position list rather than a per-motif map).
 
 ## Reference sources
 
