@@ -2748,3 +2748,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    GenBank cousin, not yet ingested). Hub [[algorithm-validation-evidence]] frontmatter/source-list/
    per-file-link + index Sources updated; cross-linked to [[test-unit-registry]] and [[fuzzing]].
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | PARSE-FASTA-001-Evidence.md → parse-fasta-001-evidence (source)
+   FileIO/PARSE-* family FASTA parsing (FastaParser Parse/ParseFile/ParseFileAsync + ToFasta/
+   WriteFile): >defline (first-word Id / rest description) + sequence lines, multi-FASTA, opt-in
+   SequenceAlphabet (default strict DNA; IUPAC-nucleotide/RNA/protein), round-trip w/ line-width 80.
+   Sources Wikipedia FASTA + NCBI BLAST/FASTA spec + Lipman&Pearson 1985/1988 + NC-IUB 1985/IUPAC
+   tables; deviations None (default-DNA + header-without-sequence-not-yielded + blank-line-skip
+   assumptions). No new concept — FASTA has no coordinate/record grammar to summarize; cross-linked
+   to family anchor [[bed-format-parsing]] and sibling [[parse-embl-001-evidence]]. Hub
+   [[algorithm-validation-evidence]] frontmatter/source-list/per-file-link + index Sources updated;
+   cross-linked to [[test-unit-registry]] and [[fuzzing]].
+   graph: +1 node, +0 typed edges
