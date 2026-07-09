@@ -4,7 +4,8 @@ title: "HLA allele nomenclature parsing + allele-specific HLA LOH (LOHHLA)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-HLA-001-Evidence.md
-source_commit: e7ed7ce32c4de4c278b31b2d397903f64fc2c8c8
+  - docs/Evidence/ONCO-IMMUNE-001-Evidence.md
+source_commit: a197fb86ceeffb8de5c09005d269f020e46584f5
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -37,7 +38,10 @@ disjoint pieces that share the HLA locus as their subject:
 The literature-traced record is [[onco-hla-001-evidence]]; [[test-unit-registry]] tracks the unit and
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern. HLA LOH is a mechanism of
 **immune escape** — a tumour that loses an HLA allele can no longer present the neoantigens restricted
-to it, so this unit sits in the antigen-presentation / neoantigen area of the Oncology family.
+to it, so this unit sits in the antigen-presentation / neoantigen area of the Oncology family. Its
+antigen-agnostic quantitative sibling in the immuno-oncology area is
+[[immune-infiltration-deconvolution]] (ONCO-IMMUNE-001), which quantifies the immune *cell content* of
+the microenvironment rather than the antigen-presentation machinery.
 
 ## 1. HLA allele nomenclature (WHO / IPD-IMGT/HLA; Marsh et al. 2010)
 

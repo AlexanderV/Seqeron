@@ -4,7 +4,8 @@ title: "Gene-expression z-score outlier + combined-z signature score"
 tags: [oncology, transcriptome, algorithm]
 sources:
   - docs/Evidence/ONCO-EXPR-001-Evidence.md
-source_commit: 5f2e01c34bbe92d69b44839590da6713907640d3
+  - docs/Evidence/ONCO-IMMUNE-001-Evidence.md
+source_commit: a197fb86ceeffb8de5c09005d269f020e46584f5
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -86,6 +87,8 @@ orthogonal to the copy-number / clonal-structure ONCO units (e.g.
 [[copy-number-alteration-classification]], [[cancer-cell-fraction-clonal-clustering]]); the
 diploid reference-population option intersects the copy-number world only as an input filter.
 Unlike the ranking-based GSEA, the combined-z score treats all set members equally and the
-outlier test is threshold-based. No source contradictions beyond the single NA-vs-throw
+outlier test is threshold-based. It shares the **single-sample signature/pathway-activity scoring**
+layer with the ssGSEA immune/stromal scores of [[immune-infiltration-deconvolution]] (ONCO-IMMUNE-001,
+the other expression/transcriptome ONCO unit). No source contradictions beyond the single NA-vs-throw
 divergence, resolved to throw.
 </content>

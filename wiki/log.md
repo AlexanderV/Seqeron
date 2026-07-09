@@ -2334,3 +2334,20 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    algorithm-validation-evidence hub (frontmatter source + list link + anchor bullet), index updated
    (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to allele-specific-copy-number-ascat)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-IMMUNE-001-Evidence.md — Immune Infiltration Estimation (twentieth ONCO-* unit)
+   Tumor immune-microenvironment quantification: CIBERSORT linear-mixture m=S·f solved by ν-SVR
+   (DeconvoluteImmuneCellsNuSvr; Newman 2015 / Schölkopf 2000 — z-standardize, sweep ν∈{0.25,0.5,0.75}
+   by lowest RMSE, zero-clip + normalize Σf=1; cross-checked vs scikit-learn NuSVR + planted-truth) with
+   NNLS/LLSR baseline (Abbas 2009) retained, plus ESTIMATE ssGSEA immune/stromal scoring (simplified
+   rank-weighted mean) + opt-in Affymetrix-only cosine tumor-purity transform (negative→NaN), and
+   MCP-counter marker geometric-mean note. LM22 (547×22) caller-supplied (Stanford licence forbids
+   redistribution, no exact-CIBERSORT parity); ABIS-Seq (Monaco 2019, CC BY 4.0, 1296×17) bundled via
+   LoadBundledAbisSignatureMatrix. Judged genuinely distinct (deconvolution + signature scoring, no
+   existing concept covers it) -> dedicated concept [[immune-infiltration-deconvolution]], cross-linked
+   to [[expression-outlier-zscore-signature-score]] (shared ssGSEA signature-scoring layer, typed edge +
+   reciprocal prose link) and [[hla-nomenclature-and-allele-specific-loh]] (immuno-oncology sibling,
+   reciprocal prose link). Wired into the algorithm-validation-evidence hub (frontmatter source + list
+   link + anchor bullet), index updated (1 source + 1 concept). Two scope assumptions (LM22
+   caller-supplied, simplified ssGSEA) + Affymetrix purity domain, no contradictions.
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to expression-outlier-zscore-signature-score)
