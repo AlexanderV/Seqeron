@@ -5,8 +5,9 @@ tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-PRED-001-Evidence.md
   - docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
+  - docs/Evidence/DISORDER-REGION-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
-source_commit: 1934ccea3f2b16ce6f2ae8fb793ac8f0704a6500
+source_commit: 98b44f1a8112227eb70a11c589272ca8ce62e7af
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -41,8 +42,10 @@ below. See [[algorithm-validation-evidence]] for the artifact pattern.
 This is the **third ingested unit of the protein disorder / features family** (DISORDER-LC / MORF /
 PRED / PROPENSITY / REGION) and the **shared `PredictDisorder` anchor** the family was expected to
 grow: [[morf-prediction-dip-in-disorder|MoRF prediction]] reads *this* per-residue disorder profile
-to find its ordered "dip within disorder", and disordered-region detection aggregates *this* profile
-into contiguous runs. It is a **distinct algorithm** from [[protein-low-complexity-seg|SEG
+to find its ordered "dip within disorder", and **disordered-region detection** aggregates *this*
+profile into contiguous runs — validated as **DISORDER-REGION-001**
+([[disorder-region-001-evidence]]) and written up in the region-detection section below. It is a
+**distinct algorithm** from [[protein-low-complexity-seg|SEG
 low-complexity]] (which measures *compositional Shannon entropy*, not disorder propensity) — low-
 complexity regions overlap with, but are not identical to, intrinsically disordered regions.
 
@@ -139,6 +142,51 @@ artifact with no correctness impact.
 `ResiduePredictions` (one per residue — 0-based `Position`, `Residue`, `DisorderScore`,
 `IsDisordered`); `DisorderedRegions` (contiguous runs ≥ `minRegionLength`); `OverallDisorderContent`
 (fraction of residues flagged disordered); and `MeanDisorderScore` (mean of all residue scores).
+
+## Disordered-region detection (DISORDER-REGION-001)
+
+The **aggregation layer** over the per-residue profile: it collapses a scored `ResiduePredictions`
+list into `DisorderedRegions` and labels each region. Validated as test unit **DISORDER-REGION-001**
+([[disorder-region-001-evidence]]) — the **fifth unit of the protein-disorder family**, and exactly
+the growth this anchor anticipated. It introduces no new per-residue math; it re-uses *this* TOP-IDP
+profile (cutoff 0.542, window 21).
+
+**Contiguous-run aggregation.** A region is a maximal run of residues with `IsDisordered == true` of
+length ≥ `minRegionLength` (default **5**). Each region carries `Start`/`End`, and a `MeanScore` =
+mean of its constituent residue `DisorderScore`s. Boundary contract (the oracle set): empty
+predictions → **no regions**; all-ordered → **no regions**; all-disordered with length ≥ minLength →
+**exactly one region spanning the sequence**; an isolated disordered residue shorter than minLength →
+**no region**; a region reaching the sequence end must be captured (**no off-by-one trailing bug**).
+Because the underlying window blurs order↔disorder transitions by ±½-window, region boundaries in
+mixed sequences may shift by up to `window/2`.
+
+**Region classification — two schemes.** Every region is labelled by a **default first-principles
+`RegionType`** and may optionally be re-labelled by the **sourced MobiDB-lite flavor scheme**:
+
+| Scheme | Trigger | Labels | Threshold |
+|--------|---------|--------|-----------|
+| **Default `RegionType`** (always on) | dominant residue fraction over the region | Proline-rich (P) · Acidic (D/E) · Basic (K/R) · Ser/Thr-rich (S/T) · else **Long IDR** (len > 30, van der Lee 2014) · else **Standard IDR** | fraction **> 0.25** (internal ~5×-random heuristic — **NOT** Das & Pappu NCPR; see contradiction) |
+| **`ClassifyRegionFlavorMobiDbLite`** (opt-in) | composition-only, Necci et al. 2020 v3 source | charge: Polyampholyte / Positive- / Negative-Polyelectrolyte / WeaklyCharged; then composition: CysteineRich → ProlineRich → GlycineRich → SEG-low-complexity → Polar `{S,T,N,Q}` | charge FCR/NCPR at **0.35**; enrichment at **≥ 0.32** (inclusive); 9-residue window, sub-region ≥ 9 |
+
+Each region also carries a rescaled **`Confidence` ∈ [0,1]** (INV) — a declared first-principles
+heuristic; **MobiDB-lite defines no per-residue confidence**, so `Confidence` is unchanged when the
+opt-in flavor scheme is used, and so are the region boundaries. van der Lee et al. 2014 supplies the
+compositional IDR subtypes (proline-rich/acidic/basic/Ser-Thr-rich) and the short-vs-long (≥30)
+functional split the default labels reproduce; Dunker 2001 supplies the >30-residue long-IDR
+significance.
+
+**Classification oracles.** Homopolymers pin the labels: 30×P → 1 proline-rich region; 30×E → acidic;
+K/R 40-mer → basic; 31×S → Ser/Thr-rich (note **T alone** normalizes to ≈0.504, *below* the 0.542
+cutoff, so it is not disordered on its own); 30×W → 0 regions. MobiDB-lite hand-traced anchors:
+`RKDERKDE`→Polyampholyte, `RKRKPPPPPP`→PositivePolyelectrolyte (charge beats P), `RKRKRKR`+13×A →
+FCR = 0.35 **not** > 0.35 → WeaklyCharged, `CCCCPPPPAA`→CysteineRich (C first in priority), 8×C+17×A →
+C = 0.32 (inclusive) → CysteineRich, 7×C+18×A → 0.28 → WeaklyCharged.
+
+**Contradiction flagged:** the artifact warns that **Das & Pappu 2013's 0.25 boundary is NCPR** (a
+globule/coil conformational-state threshold), **not** a compositional-enrichment threshold — so the
+default `RegionType` 0.25 cutoff is an internal heuristic, *not* citable to Das & Pappu. MobiDB-lite's
+own 0.35 / 0.32 thresholds *are* source-exact. Full trace, the 12-row flavor table and coverage list
+are on [[disorder-region-001-evidence]].
 
 ## Canonical oracle and corner cases
 

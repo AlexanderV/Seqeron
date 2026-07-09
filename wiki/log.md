@@ -1070,3 +1070,29 @@ Operations:
    PredictDisorder) remains in the protein-disorder family.
    graph: +1 node (source), +0 typed edges (concept↔registry / ↔SEG edges already exist from the
    DISORDER-PRED slug; source-page mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/DISORDER-REGION-001-Evidence.md → disorder-region-001-evidence (source)
+   Fifth (and final anticipated) protein-disorder-family unit. NOT a new algorithm — the contiguous-run
+   AGGREGATION + region-classification layer over the per-residue PredictDisorder TOP-IDP profile, so
+   REUSED/enriched the existing anchor concept [[intrinsic-disorder-prediction-top-idp]] rather than
+   creating a new one (exactly the growth the DISORDER-PRED/PROPENSITY log entries anticipated). Added a
+   new "Disordered-region detection (DISORDER-REGION-001)" section to the anchor: contiguous run ≥
+   minRegionLength(5) with MeanScore + boundary oracles (empty/all-ordered→no regions, all-disordered→one
+   region, isolated<minLen→none, trailing region no off-by-one), and a two-scheme classification table.
+   Default RegionType heuristic = dominant residue fraction > 0.25 → Proline-rich/Acidic/Basic/Ser-Thr-rich
+   else Long IDR(len>30, van der Lee)/Standard IDR; opt-in ClassifyRegionFlavorMobiDbLite (Necci 2020 v3
+   source-exact) = charge classes PA/PPE/NPE/WeaklyCharged via Das&Pappu FCR/NCPR at 0.35, then composition
+   Cys→Pro→Gly→SEG→Polar{S,T,N,Q} at ≥0.32 inclusive, 9-residue window, sub-region≥9; boundaries + rescaled
+   Confidence∈[0,1] unchanged when flavor scheme used (MobiDB-lite defines no per-residue confidence).
+   Sources: Campen 2008 (rank-1, scale/cutoff/region idea) + Dunker 2001 (rank-1, long-IDR>30 significance)
+   + van der Lee 2014 (rank-1, proline/acidic/basic/Ser-Thr subtypes + short-vs-long split) + Necci 2020
+   MobiDB-lite 3.0 (rank-1 paper + rank-3 version-pinned v3 impl) + Wikipedia (rank-4). Added the new
+   evidence path to the anchor frontmatter sources + bumped source_commit to 98b44f1a; cross-linked the
+   intro; updated index (new source line + anchor concept line now names all three PRED/PROPENSITY/REGION
+   units + region-detection layer). CONTRADICTION flagged (in-source ref #6): the default RegionType 0.25
+   composition cutoff is an internal ~5×-random heuristic, NOT Das&Pappu 2013's 0.25 — that value is NCPR,
+   a globule/coil conformational-state threshold, not a compositional-enrichment threshold; MobiDB-lite's
+   own 0.35/0.32 thresholds ARE source-exact. Follow-up: none — the protein-disorder family (LC/MoRF/PRED/
+   PROPENSITY/REGION) is now fully ingested.
+   graph: +1 node (source), +0 typed edges (concept↔registry / ↔SEG edges already exist on the anchor;
+   source-page [[wikilinks]] mentions auto-derived)
