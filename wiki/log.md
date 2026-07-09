@@ -1303,3 +1303,25 @@ Operations:
   Contradictions: none — Rosalind/Wikipedia/NCBI agree on six-frame ATG→stop, distinct-protein return.
   graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
   source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/GENOMIC-REPEAT-001-Evidence.md → genomic-repeat-001-evidence (source) + 1 concept
+  Per-algorithm Evidence file. Created the genuinely-distinct concept longest-repeated-substring —
+  the Repeat-Analysis LRS + all-repeats-enumeration unit (`GenomicAnalyzer.FindLongestRepeat` /
+  `FindRepeats`): LRS = deepest internal node with ≥2 leaves in a *single-string* suffix tree
+  (string depth = repeat length, CMU 15-451 §2.1 verbatim / Wikipedia / GeeksforGeeks App-3 /
+  Gusfield 5.4 via JHU); FindRepeats enumerates every substring occurring ≥2× via sorted-suffix
+  adjacent-LCP *every-prefix* expansion (O(n²), the FINDINGS_REGISTER short-prefix fix). Positioned
+  as the one-string sibling of longest-common-substring (added a comparison table + reciprocal nav
+  link on both pages) and explicitly distinguished from the tandem/inverted repetitive-element-detection
+  anchor (§2.5 LRS-vs-FindTandemRepeats contrast). Oracles ATCGATCGA→ATCGA{0,4}, AAAAAAAAAA→AAAAAAAAA{0,1}
+  overlap, ATATATA→ATATA{0,2}, ACGT/empty→None, ACGTACGTTTTTACGT@3→8-substring set. Corner cases:
+  overlaps counted, minLength≤0→max(1,minLength), ACGT-only, no reverse-complement / maximal-repeat
+  classification. Concise source page for the GENOMIC-REPEAT-001 artifact (four sources, LRS + brute-force
+  enumeration datasets, tie-break + ascending-positions assumptions). Wired into algorithm-validation-evidence
+  hub (frontmatter sources + source-list + distinct-concept list) and index (source + concept lines).
+  Reconciled backlog: moved Repeat_Analysis/Repeat_Detection.md from pending Repeat_Analysis (6→5) to
+  covered-via-concept (46→47 covered / 199→198 pending, 31 domains). Contradictions: none — all four
+  sources agree on the deepest-internal-node characterisation and overlap allowance; deviations None.
+  graph: +2 nodes (source + concept), +3 typed edges (concept relates_to test-unit-registry,
+  relates_to longest-common-substring, relates_to repetitive-element-detection; source-page
+  [[wikilinks]] mentions auto-derived)

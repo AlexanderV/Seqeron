@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **46** algorithm docs covered-via-concept, **199** pending across 31 domains.
+Status at generation: **47** algorithm docs covered-via-concept, **198** pending across 31 domains.
 
 ## Covered via concept (done)
 
@@ -72,6 +72,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
+| `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 
 ## Pending (fold into the ingest campaign)
@@ -334,7 +335,7 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/Quality/Phred_Score_Handling.md` | `phred-score-handling` |
 | `docs/algorithms/Quality/Quality_Statistics.md` | `quality-statistics` |
 
-### Repeat_Analysis (6)
+### Repeat_Analysis (5)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
@@ -342,7 +343,6 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md` | `inverted-repeat-detection` |
 | `docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md` | `microsatellite-detection` |
 | `docs/algorithms/Repeat_Analysis/Palindrome_Detection.md` | `palindrome-detection` |
-| `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | `repeat-detection` |
 | `docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md` | `tandem-repeat-detection` |
 
 ### RnaStructure (13)

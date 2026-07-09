@@ -61,7 +61,9 @@ tree (GST)** over both strings and finds the LCS in **Θ(n + m)** time:
 Both stages are linear: GST construction is O(M + N) and the DFS is O(M + N), so the
 whole operation is **linear in time and space** (GeeksforGeeks). This is the
 exact-match engine Seqeron also reuses for the [[dot-plot-word-match|dot plot]]'s
-word occurrences.
+word occurrences. The **single-string** counterpart — the longest substring recurring
+within *one* sequence — is [[longest-repeated-substring]] (deepest internal node with
+≥ 2 leaves, rather than leaves from both strings).
 
 ## API contract and invariants
 
