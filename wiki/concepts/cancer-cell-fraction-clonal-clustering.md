@@ -55,7 +55,10 @@ PICTograph). Equivalently CCF = observed mutation copy number `n_mut` / multipli
 cluster with the largest CCF is the clonal one (see §3).
 
 **Multiplicity m** is itself `m = f·(ρ·N_T + 2(1−ρ)) / ρ`, rounded to the nearest non-zero integer
-for clonal copy-number regions; valid range **1 ≤ m ≤ tumor copy number**.
+for clonal copy-number regions; valid range **1 ≤ m ≤ tumor copy number**. The numerator
+`f·(ρ·N_T + 2(1−ρ))/ρ = m·CCF` is exactly what `AdjustVAFForPurity` in
+[[variant-allele-frequency-and-binomial-ci]] (ONCO-VAF-001) returns from the same VAF; this unit
+divides it by `m` to recover CCF.
 
 **Domain guards:** purity ρ ∈ (0,1] (it divides), VAF ∈ [0,1], copy number ≥ 1, multiplicity ∈
 [1, tumor CN] — invalid inputs throw.

@@ -35,7 +35,9 @@ The **foundational somatic SNV caller** of the Oncology family — the **thirty-
 ONCO-\* unit** — that classifies each candidate variant as **Somatic / Germline / NotDetected** by
 comparing the **tumor allele frequency `f_t`** against the **matched-normal allele frequency `f_n`**,
 plus `FilterGermlineVariants` (keep only the somatic calls). Every variant frequency is
-`VAF = altReads / totalReads`. This is the **upstream caller** that produces the raw somatic call set
+`VAF = altReads / totalReads` — the empirical VAF primitive owned by
+[[variant-allele-frequency-and-binomial-ci]] (ONCO-VAF-001), which also gives its Wilson binomial
+confidence interval. This is the **upstream caller** that produces the raw somatic call set
 which the two pre-interpretation QC filters clean — the technical-artifact
 [[sequencing-artifact-detection]] (`FilterArtifacts`) and the biological-origin
 [[clonal-hematopoiesis-cfdna-filtering]] (`FilterCHIP`) — before any variant reaches the

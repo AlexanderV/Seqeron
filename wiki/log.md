@@ -2642,3 +2642,27 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    source + summary link + anchor bullet, source_commit bumped to 701e1721). Index updated (1 source + 1
    concept).
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry; concept relates_to somatic-variant-calling-tumor-normal; concept relates_to microsatellite-instability-detection)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-VAF-001-Evidence.md
+   ONCO-VAF-001 (Variant Allele Frequency Analysis — empirical VAF + Wilson binomial CI + purity/ploidy
+   correction), thirty-sixth Oncology unit. Genuinely distinct (created new concept
+   variant-allele-frequency-and-binomial-ci + source onco-vaf-001-evidence) rather than folding into the
+   three neighbouring VAF units — because it owns the model-free VAF primitive and, above all, the Wilson
+   score binomial confidence interval, which is not represented anywhere else in the wiki. Three quantities:
+   (1) empirical VAF = altReads/totalReads (= alt AD / sum AD, GATK Mutect2 FAQ; deliberately NOT Mutect2's
+   model-estimate AF FORMAT field); (2) Wilson score interval center=(p̂+z²/2n)/(1+z²/n), margin=
+   (z/(1+z²/n))·√(p̂(1−p̂)/n+z²/4n²), z=1.96 for 95% (Wilson 1927 via Wikipedia), chosen over Wald for
+   staying in [0,1] with non-zero width at the extremes (p̂=0→lower 0, p̂=1→upper 1); (3) AdjustVAFForPurity
+   = m·CCF = VAF·(2(1−π)+π·n_tot)/π, inverting the CNAqc (Genome Biology 2024) expected-VAF model, normal
+   ploidy 2. Oracles empirical 25/100→0.25 · 0/10→0.00 · 10/10→1.00; Wilson (25,100)→0.2592 [0.1755,0.3430]
+   & no-overshoot (0,10)→[0,0.2775] / (10,10)→[0.7225,1]; correction (0.40,0.80,2)→1.00 / (0.20,0.50,2)→0.80
+   / (0.30,0.50,4)→1.80. Corner cases VAF>1 alignment-artifact→invalid, totalReads=0→0/0 guarded, π=0→
+   undefined. Cross-linked heavily: empirical VAF = the altReads/totalReads primitive somatic-variant-calling-
+   tumor-normal (ONCO-SOMATIC-001) compares and ctdna-detection-and-tumor-fraction averages; AdjustVAFForPurity
+   shares the CNAqc/Tarabichi model tumor-purity-from-mutation-vaf inverts for π and cancer-cell-fraction-
+   clonal-clustering divides by m for CCF (its m·CCF output = the CCF-formula numerator) — reciprocal body
+   links added to all three. Two source-backed assumptions (z=1.96 verbatim not 1.959964; AdjustVAFForPurity
+   normal CN=2 diploid background). Contradictions: none — GATK / Wilson 1927 / CNAqc+Tarabichi cover disjoint
+   facets. Wired into algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet,
+   source_commit bumped to 68661290). Index updated (1 source + 1 concept). Follow-ups: none.
+   graph: +2 nodes, +4 typed edges (concept relates_to test-unit-registry; concept relates_to somatic-variant-calling-tumor-normal; concept relates_to tumor-purity-from-mutation-vaf; concept relates_to cancer-cell-fraction-clonal-clustering)

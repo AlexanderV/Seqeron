@@ -56,6 +56,11 @@ n_tot = n_A + n_B), CNAqc (Antonello et al., *Genome Biology* 2024) gives the ex
 v = m·π·c / [ 2(1−π) + π·(n_A + n_B) ]
 ```
 
+The same generative model is inverted the *other* way (for the per-tumour-copy mutant fraction
+`m·CCF = VAF·(2(1−π)+π·n_tot)/π`) by `AdjustVAFForPurity` in
+[[variant-allele-frequency-and-binomial-ci]] (ONCO-VAF-001), which owns the empirical
+`VAF = altReads/totalReads` primitive and its Wilson binomial CI.
+
 The denominator is the mean allele-copy count per cell in the tumour/normal mixture: `2(1−π)` is the
 **healthy diploid normal** contribution (2 copies weighted by 1−π) and `π·n_tot` is the tumour
 contribution. **FACETS** (Shen & Seshan, *NAR* 2016) independently confirms this structure — it mixes a
