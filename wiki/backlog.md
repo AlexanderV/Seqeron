@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **64** algorithm docs covered-via-concept, **181** pending across 30 domains.
+Status at generation: **65** algorithm docs covered-via-concept, **180** pending across 30 domains.
 
 ## Covered via concept (done)
 
@@ -85,6 +85,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Metagenomics/Functional_Prediction.md` | [[functional-prediction]] |
 | `docs/algorithms/Metagenomics/Genome_Binning.md` | [[metagenomic-binning]] |
 | `docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md` | [[pathway-enrichment-ora]] |
+| `docs/algorithms/Metagenomics/Significant_Taxa_Detection.md` | [[significant-taxa-detection]] |
 | `docs/algorithms/Metagenomics/Taxonomic_Classification.md` | [[taxonomic-classification]] |
 | `docs/algorithms/Metagenomics/Taxonomic_Profile.md` | [[taxonomic-profile]] |
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
@@ -160,12 +161,11 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/K-mer/K-mer_Frequency_Analysis.md` | `k-mer-frequency-analysis` |
 | `docs/algorithms/K-mer/K-mer_Search.md` | `k-mer-search` |
 
-### Metagenomics (2)
+### Metagenomics (1)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
 | `docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md` | `pangenome-core-accessory` |
-| `docs/algorithms/Metagenomics/Significant_Taxa_Detection.md` | `significant-taxa-detection` |
 
 ### MiRNA (4)
 

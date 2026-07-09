@@ -101,4 +101,5 @@ classifier already assigned and normalizes them — it does **not** implement Me
 marker-gene coverage estimation, does no genome-size / copy-number correction, and inherits the
 accuracy of whatever [[taxonomic-classification]] produced upstream. The richer within-sample index
 set (inverse-Simpson, Pielou evenness, Chao1) lives in [[alpha-diversity]]; between-sample turnover
-in [[beta-diversity]].
+in [[beta-diversity]]; and the between-**group** differential-abundance test that consumes these
+per-sample abundance vectors is [[significant-taxa-detection]] (Mann–Whitney U / Wilcoxon rank-sum).

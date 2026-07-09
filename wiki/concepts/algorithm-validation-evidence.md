@@ -63,7 +63,8 @@ sources:
   - docs/Evidence/META-PATHWAY-001-Evidence.md
   - docs/Evidence/META-PROF-001-Evidence.md
   - docs/Evidence/META-RESIST-001-Evidence.md
-source_commit: c81ef58a4d2d8fd4a9ceb1e322d2c6a1ee237cfc
+  - docs/Evidence/META-TAXA-001-Evidence.md
+source_commit: b8447d68c5661a777dae965c591071beb8225772
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -134,7 +135,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[kmer-positions-001-evidence]], [[kmer-stats-001-evidence]],
 [[kmer-unique-001-evidence]], [[meta-alpha-001-evidence]],
 [[meta-func-001-evidence]], [[meta-pathway-001-evidence]],
-[[meta-prof-001-evidence]], [[meta-resist-001-evidence]]). An
+[[meta-prof-001-evidence]], [[meta-resist-001-evidence]],
+[[meta-taxa-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -188,4 +190,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[functional-prediction]] (the Metagenomics family's functional-prediction unit, META-FUNC-001 — homology-based annotation transfer `MetagenomicsAnalyzer.PredictFunctions` scored with BLAST bit-score / E-value Karlin-Altschul statistics (ungapped BLOSUM62 λ=0.3176/K=0.134, best-hit = lowest E-value) plus the hypergeometric pathway ORA `FindPathwayEnrichment`; the ORA half is owned by [[pathway-enrichment-ora]]), or
 [[pathway-enrichment-ora]] (the Metagenomics family's pathway-enrichment / over-representation-analysis unit, META-PATHWAY-001 — the GO::TermFinder / clusterProfiler hypergeometric right-tail test `FindPathwayEnrichment` / `HypergeometricUpperTail`; the dedicated owner of the ORA machinery that [[functional-prediction]] exercises as component B), or
 [[taxonomic-profile]] (the Metagenomics family's community-abundance profiling unit, META-PROF-001 — `MetagenomicsAnalyzer.GenerateTaxonomicProfile` aggregates the per-read output of [[taxonomic-classification]] into normalized per-taxon relative abundances at four ranks plus inline Shannon/Simpson diversity and read counts; the aggregation step that the classification unit deliberately deferred, sibling of [[alpha-diversity]] / [[beta-diversity]]), or
-[[antibiotic-resistance-gene-detection]] (the Metagenomics family's AMR gene-detection unit, META-RESIST-001 — the ResFinder-style `MetagenomicsAnalyzer.FindAntibioticResistanceGenes` screen of contigs against a caller-supplied resistance-gene DB, reporting the best-matching gene per contig by BLAST percent identity + reference coverage under a dual threshold (default 0.90 ID / 0.60 cov); a BLAST-style homology screen sharing machinery with [[functional-prediction]] but scoring nucleotide identity/coverage rather than a BLOSUM62 bit-score).
+[[antibiotic-resistance-gene-detection]] (the Metagenomics family's AMR gene-detection unit, META-RESIST-001 — the ResFinder-style `MetagenomicsAnalyzer.FindAntibioticResistanceGenes` screen of contigs against a caller-supplied resistance-gene DB, reporting the best-matching gene per contig by BLAST percent identity + reference coverage under a dual threshold (default 0.90 ID / 0.60 cov); a BLAST-style homology screen sharing machinery with [[functional-prediction]] but scoring nucleotide identity/coverage rather than a BLOSUM62 bit-score), or
+[[significant-taxa-detection]] (the Metagenomics family's differential-abundance unit, META-TAXA-001 — the per-taxon two-group **Mann–Whitney U / Wilcoxon rank-sum** test `MetagenomicsAnalyzer.MannWhitneyU` / `FindSignificantTaxa` with midrank tie correction, optional 0.5 continuity correction, and the asymptotic normal-approximation two-tailed p-value `2·(1−Φ(z))`; consumes the per-sample [[taxonomic-profile]] abundance vectors, distinct from the hypergeometric [[pathway-enrichment-ora]] and the Fisher's-exact [[differentially-methylated-regions]] by its rank-sum test).

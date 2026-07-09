@@ -1687,6 +1687,31 @@ Operations:
    Contradictions: none — the verified design decisions (nats log, concentration-index λ, empty→0) are
    mathematical facts, no literature deviations. Scope note: count-based tally, NOT MetaPhlAn marker-gene
    coverage estimation; no genome-size/copy-number correction; inherits upstream classifier accuracy.
+
+## [2026-07-09] ingest | docs/Evidence/META-TAXA-001-Evidence.md → meta-taxa-001-evidence (source) + significant-taxa-detection (concept)
+   Eighth ingested Metagenomics-family Evidence file (META-TAXA-001). Decision: created the
+   genuinely-distinct concept [[significant-taxa-detection]] rather than folding into an existing unit —
+   community **differential abundance** via the per-taxon two-group **Mann–Whitney U / Wilcoxon rank-sum**
+   test is a distinct *statistical test* from the hypergeometric [[pathway-enrichment-ora]] and the
+   Fisher's-exact [[differentially-methylated-regions]] (cross-linked as alternatives-by-test). Two methods
+   `MetagenomicsAnalyzer.MannWhitneyU(group1,group2,useContinuityCorrection=true)` (core, U1/U2/z/p) +
+   `FindSignificantTaxa(profiles,groups,pThreshold=0.05,useContinuityCorrection=true)` (per-taxon →
+   SignificantTaxon ascending by p). Model: pool→midranks (Σ(t³−t)) → U1=R1−n1(n1+1)/2, U2=n1·n2−U1,
+   m_U=n1·n2/2, tie-corrected σ_U, z=(|U−m_U|−cc)/σ_U on max(U1,U2), two-tailed p=2·(1−Φ(z)) via shared
+   `StatisticsHelper.NormalCDF` (A&S 7.1.26 erf, ≈1e−6). INV-01..06 incl. all-tied→σ0→p1 and group-swap
+   symmetry; oracles SciPy x[19,22,16,29,24]/y[20,11,17,12]→U1=17/U2=3/σ=sqrt(200/12)/z_cc=1.5922→p≈0.11135
+   & z_nocc=1.7146→p≈0.08641, tortoise/hare U_T=11/U_H=25/sum=36. Sources Wikipedia Mann–Whitney U (Mann &
+   Whitney 1947) + SciPy mannwhitneyu + Xia & Sun 2017 (PMC6128532, microbiome domain) + A&S 7.1.26.
+   Created source page [[meta-taxa-001-evidence]]. Cross-linked: [[significant-taxa-detection]] depends_on
+   [[taxonomic-profile]] (consumes its per-sample abundance vectors) + reciprocal mention added to
+   taxonomic-profile's scope paragraph. Hub [[algorithm-validation-evidence]]: added META-TAXA to
+   frontmatter sources (bumped source_commit→HEAD b8447d68) + source-list + concept-list. index.md: +1
+   source +1 concept. Backlog: moved Metagenomics/Significant_Taxa_Detection.md pending→covered (64→65
+   covered / 181→180 pending; §Metagenomics 2→1). Contradictions: none — three source-backed assumptions
+   (continuity-correction-on default = SciPy, two-tailed, two-label/absence=0); only simplifications are
+   asymptotic-not-exact p and A&S-7.1.26 Φ numerics. Scope: two-group only, no FDR (caller applies BH),
+   rank test ignores compositionality.
+   graph: +2 nodes, +3 typed edges
    graph: +2 nodes (source + concept), +3 typed edges (taxonomic-profile relates_to test-unit-registry +
    depends_on taxonomic-classification + relates_to alpha-diversity); body [[wikilinks]] mentions auto-derived.
 - 2026-07-09 — ingest `docs/Evidence/META-RESIST-001-Evidence.md` (test unit META-RESIST-001,
