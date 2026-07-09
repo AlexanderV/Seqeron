@@ -20,7 +20,7 @@ graph:
 
 # Three front doors (skills / C# API / MCP)
 
-Seqeron exposes one algorithm engine through three interchangeable entry points — plain-language [[skill-layer|Agent Skills]], a normal C# API, and [MCP](https://modelcontextprotocol.io) tools — such that the same validated algorithm produces the same result regardless of which door is used. The README frames this as "one engine, three front doors."
+Seqeron exposes one algorithm engine through three interchangeable entry points — plain-language [[skill-layer|Agent Skills]], a normal C# API, and [MCP](https://modelcontextprotocol.io) tools — such that the same validated algorithm produces the same result regardless of which door is used. The [[readme|project README]] frames this as "one engine, three front doors."
 
 ## The three doors
 

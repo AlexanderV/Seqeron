@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 81 / 1610
+Progress: 82 / 1610
 
 ## (top-level)  (6)
 
@@ -54,7 +54,7 @@ Progress: 81 / 1610
 - [x] docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md
 - [x] docs/Evidence/COMPGEN-SYNTENY-001-Evidence.md
 - [x] docs/Evidence/DISORDER-LC-001-Evidence.md
-- [ ] docs/Evidence/DISORDER-MORF-001-Evidence.md
+- [x] docs/Evidence/DISORDER-MORF-001-Evidence.md
 - [ ] docs/Evidence/DISORDER-PRED-001-Evidence.md
 - [ ] docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
 - [ ] docs/Evidence/DISORDER-REGION-001-Evidence.md

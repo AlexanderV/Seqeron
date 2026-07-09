@@ -960,3 +960,61 @@ Operations:
    protein-disorder units (MORF/PRED/PROPENSITY/REGION) warrant their own concept(s) — likely a shared
    intrinsic-disorder (TOP-IDP) anchor distinct from this low-complexity one — when ingested.
    graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/DISORDER-MORF-001-Evidence.md → disorder-morf-001-evidence (source) + 1 concept
+   Thirty-ninth per-algorithm Evidence file; SECOND of the protein disorder / features family
+   (after DISORDER-LC-001 / SEG low-complexity). Created the genuinely-distinct concept
+   morf-prediction-dip-in-disorder — MoRF (Molecular Recognition Feature) prediction by the "dip
+   within disorder" heuristic. A MoRF = a short ordered segment embedded in a longer intrinsically
+   disordered region that undergoes a disorder-to-order transition on partner binding. Criterion
+   traced verbatim: Seqeron reports a MoRF where an ordered run (per-residue disorder score < 0.5,
+   the PMC2570644 threshold) of TOTAL length within the Mohan 2006 10–70 residue band is flanked on
+   BOTH sides by a disordered residue (score ≥ 0.5) inside a disordered region; terminal dips (not
+   flanked both sides) excluded. Per-residue score from `PredictDisorder` = TOP-IDP scale (Campen
+   2008) normalized `(raw+0.884)/1.871` to [0,1]; window averaging smooths boundaries. Mohan 2006
+   α/β/ι bound-state sub-types recorded; MoRF score∈[0,1] rising with dip depth (bounded
+   normalization = documented derivation, 0.5 threshold source-backed). Judged distinct from the SEG
+   [[protein-low-complexity-seg]] sibling — SEG partitions by compositional complexity, MoRF reads a
+   per-residue disorder profile for an ordered dip (the DISORDER-LC ingest had pre-flagged MORF as
+   warranting its own concept). Oracle: synthetic ordered-L-dip in long P/E disordered flanks → one
+   MoRF; corner cases fully-ordered/fully-disordered/out-of-10–70-band/terminal-dip → none. Concise
+   source page for the artifact (Mohan 2006 J Mol Biol PMID 16935303 rank-1 + Cheng/Oldfield
+   PMC2570644 rank-1 "dip" operational def + Oldfield 2005 Biochemistry PMID 16156658 rank-1 +
+   Wikipedia rank-4; Campen 2008 TOP-IDP for the underlying score). Linked new source + concept into
+   the algorithm-validation-evidence hub (frontmatter + both link lists) and updated the index
+   (source + concept lines); added a reciprocal sibling nav link from protein-low-complexity-seg.
+   ONE documented ASSUMPTION, scoped to the flank-length detail only: Oldfield 2005's exact numeric
+   dip parameters (flank lengths, ordered-run window) are PAYWALLED and unretrievable, so the unit
+   implements the fully-retrievable qualitative criterion — the 0.5 threshold, the 10–70 band, and
+   the order-within-disorder shape are all source-traceable and NOT assumptions. Contradictions:
+   none — Mohan/Cheng-Oldfield/Oldfield/Wikipedia agree on the 10–70 length, the short-order-within-
+   longer-disorder shape, and the disorder-to-order transition. Follow-up: remaining protein-disorder
+   units (PRED/PROPENSITY/REGION) warrant their own concept(s) — a shared intrinsic-disorder (TOP-IDP)
+   `PredictDisorder` anchor is the likely next distinct concept.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to protein-low-complexity-seg)
+
+## [2026-07-09] lint | structural + staleness + coverage + graph (89 pages)
+   Structural: 1 orphan (readme) — fixed by adding a reciprocal [[readme]] content link
+   from three-front-doors (README is that concept's source). Staleness: clean. Graph
+   lint: clean (no typed-edge issues). Coverage: 1135 uncovered — the step-7 "report too
+   long" signal; dominated by generated/reference material, not real gaps. Triaged with
+   the user in batch:
+   - Added a Coverage exclude policy to SCHEMA.md for generated subtrees (docs/mcp/tools/**
+     427 tool docs, docs/Validation/reports/** per-run reports, docs/refactoring/**,
+     docs/skills/_generated/**, docs/templates/**) → residual coverage drops to 405.
+   - docs/algorithms/** kept IN scope. Reconciliation found step-1 already done: every
+     existing algorithm concept already lists its docs/algorithms doc in sources: (commit
+     9ce49ba, staleness-clean) → no frontmatter edits/source_commit bumps needed. 37 docs
+     covered-via-concept, 208 pending (+2 index/map docs README/CANONICAL_MAP noted).
+   - Created wiki/backlog.md (type: index): covered→concept table, pending grouped by 34
+     domains with expected slugs (Oncology 37 / MolTools 17 / RnaStructure 13 / … the
+     largest gaps), and the three approved queued source batches (10 testing checklists,
+     4 Validation ledgers, 3 MCP top-level docs incl. MCP_STATUS.md). Pending list folds
+     into the main per-algorithm ingest campaign, not a separate one. Registered under a
+     new Meta section in index.md.
+   - Known residual lint noise, accepted by design: backlog.md reads as an orphan (index-
+     only inbound link, same quirk as readme pre-fix — it is an index-discoverable meta
+     page) and trips the 400-line soft cap (488 lines; a flat reference table, well under
+     the 800 hard cap, not worth sharding).
+   Cadence note: coverage should always be run with the SCHEMA exclude globs from now on;
+   without them every lint re-surfaces the ~693-doc generated long-tail.

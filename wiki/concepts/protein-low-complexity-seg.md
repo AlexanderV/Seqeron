@@ -29,8 +29,9 @@ alignment and database search. Seqeron implements the **SEG algorithm** of Woott
 
 This is the **first ingested unit of the protein disorder / features family** (DISORDER-LC / MORF /
 PRED / PROPENSITY / REGION). SEG low-complexity detection is a *distinct algorithm* from intrinsic
-disorder prediction (TOP-IDP) and MoRF prediction, so those units are expected to warrant their own
-concepts when ingested — low-complexity regions overlap with but are not identical to intrinsically
+disorder prediction (TOP-IDP) and [[morf-prediction-dip-in-disorder|MoRF prediction]] (the
+dip-in-disorder unit, DISORDER-MORF-001, now ingested), so those units warrant their own
+concepts — low-complexity regions overlap with but are not identical to intrinsically
 disordered regions. It is also the **protein counterpart** of the genomic/DNA low-complexity handled
 under [[repetitive-element-detection]] — a different alphabet and complexity measure (SEG's Shannon
 entropy over 20 amino acids vs the DNA repeats/masking family).

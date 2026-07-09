@@ -41,6 +41,7 @@ sources:
   - docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md
   - docs/Evidence/COMPGEN-SYNTENY-001-Evidence.md
   - docs/Evidence/DISORDER-LC-001-Evidence.md
+  - docs/Evidence/DISORDER-MORF-001-Evidence.md
 source_commit: 458398bca4eee7e7fa828acbe182e07695db5e28
 created: 2026-07-09
 updated: 2026-07-09
@@ -101,7 +102,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[compgen-dotplot-001-evidence]], [[compgen-ortho-001-evidence]],
 [[compgen-rbh-001-evidence]], [[compgen-rearr-001-evidence]],
 [[compgen-reversal-001-evidence]], [[compgen-synteny-001-evidence]],
-[[disorder-lc-001-evidence]]). An
+[[disorder-lc-001-evidence]], [[disorder-morf-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -132,4 +133,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[dot-plot-word-match]] (the comparative-genomics word-match / k-tuple dot-matrix visual sequence-comparison unit), or
 [[ortholog-detection-reciprocal-best-hits]] (the comparative-genomics RBH ortholog + within-genome in-paralog detection unit, shared anchor for COMPGEN-RBH-001), or
 [[genome-rearrangement-breakpoint-distance]] (the comparative-genomics signed-permutation / breakpoint-distance rearrangement-detection unit, the alternative formulation to the block-signal [[synteny-and-rearrangement-detection]]), or
-[[protein-low-complexity-seg]] (the anchor for the protein disorder / features family — SEG low-complexity region detection, the first ingested DISORDER-* unit).
+[[protein-low-complexity-seg]] (the anchor for the protein disorder / features family — SEG low-complexity region detection, the first ingested DISORDER-* unit), or
+[[morf-prediction-dip-in-disorder]] (the MoRF dip-in-disorder prediction unit of the protein-disorder family, the second ingested DISORDER-* unit).

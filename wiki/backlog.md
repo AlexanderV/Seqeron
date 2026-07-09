@@ -1,456 +1,487 @@
-# Algorithm Docs Reconciliation Backlog
-
-Reconciliation of the 245 canonical algorithm reference docs under `docs/algorithms/` against the Evidence-driven concept pages. `docs/algorithms/**` is NOT excluded from coverage.
-
-- **done-via-concept** — a concept page already synthesizes this algorithm; the doc path has been added to that page's `sources:` frontmatter.
-- **pending** — no concept page yet; a real gap folded into the main ingest campaign (expected future page slug shown).
-- **meta** — index/map files, not an algorithm (no page expected).
-
-Generated at commit `9ce49bade5c1`.
-
-## (root)
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `CANONICAL_MAP.md` | meta | — |
-| `README.md` | meta | — |
-
-## Alignment
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Alignment_Statistics.md` | done-via-concept | [[alignment-statistics]] |
-| `Global_Alignment_Needleman_Wunsch.md` | done-via-concept | [[global-alignment-needleman-wunsch]] |
-| `Local_Alignment_Smith_Waterman.md` | pending | `local-alignment-smith-waterman` (expected) |
-| `Multiple_Sequence_Alignment.md` | done-via-concept | [[multiple-sequence-alignment]] |
-| `Semi_Global_Alignment.md` | done-via-concept | [[semi-global-alignment-fitting]] |
-
-## Analysis
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Open_Reading_Frame_Detection.md` | pending | `open-reading-frame-detection` (expected) |
-| `Sequence_Similarity.md` | pending | `sequence-similarity` (expected) |
-
-## Annotation
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `GFF3_IO.md` | pending | `gff3-io` (expected) |
-| `Gene_Prediction.md` | pending | `gene-prediction` (expected) |
-| `ORF_Detection.md` | pending | `orf-detection` (expected) |
-| `Promoter_Detection.md` | pending | `promoter-detection` (expected) |
-| `Relative_Synonymous_Codon_Usage.md` | done-via-concept | [[relative-synonymous-codon-usage]] |
-| `Repetitive_Element_Detection.md` | done-via-concept | [[repetitive-element-detection]] |
-
-## Assembly
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Assembly_Statistics.md` | done-via-concept | [[assembly-statistics]] |
-| `Consensus_Computation.md` | done-via-concept | [[consensus-sequence]] |
-| `Coverage_Calculation.md` | done-via-concept | [[coverage-depth-calculation]] |
-| `De_Bruijn_Graph_Assembly.md` | done-via-concept | [[de-bruijn-graph-assembly]] |
-| `Error_Correction.md` | done-via-concept | [[kmer-spectrum-error-correction]] |
-| `Overlap_Layout_Consensus.md` | done-via-concept | [[overlap-layout-consensus-assembly]] |
-| `Quality_Trimming.md` | done-via-concept | [[quality-trimming-running-sum]] |
-
-## Chromosome_Analysis
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Aneuploidy_Detection.md` | done-via-concept | [[aneuploidy-detection]] |
-| `Centromere_Analysis.md` | done-via-concept | [[centromere-analysis]] |
-| `Higher_Order_Repeat_Detection.md` | pending | `higher-order-repeat-detection` (expected) |
-| `Karyotype_Analysis.md` | done-via-concept | [[karyotype-analysis]] |
-| `Synteny_Analysis.md` | done-via-concept | [[synteny-and-rearrangement-detection]] |
-| `Telomere_Analysis.md` | done-via-concept | [[telomere-analysis]] |
-
-## Codon
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Codon_Usage_Statistics.md` | pending | `codon-usage-statistics` (expected) |
-| `Effective_Number_of_Codons.md` | done-via-concept | [[effective-number-of-codons]] |
-| `Relative_Synonymous_Codon_Usage.md` | done-via-concept | [[relative-synonymous-codon-usage]] |
-
-## Codon_Optimization
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `CAI_Calculation.md` | done-via-concept | [[codon-adaptation-index]] |
-| `Codon_Usage_Analysis.md` | done-via-concept | [[codon-usage-comparison]] |
-| `Rare_Codon_Detection.md` | done-via-concept | [[rare-codon-analysis]] |
-| `Sequence_Optimization.md` | done-via-concept | [[codon-optimization]] |
-
-## Comparative_Genomics
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Average_Nucleotide_Identity.md` | done-via-concept | [[average-nucleotide-identity]] |
-| `Conserved_Gene_Clusters.md` | done-via-concept | [[conserved-gene-clusters-common-intervals]] |
-| `Dot_Plot_Generation.md` | done-via-concept | [[dot-plot-word-match]] |
-| `Genome_Comparison.md` | done-via-concept | [[genome-comparison-core-dispensable]] |
-| `Genome_Rearrangement_Detection.md` | done-via-concept | [[genome-rearrangement-breakpoint-distance]] |
-| `Ortholog_Identification.md` | done-via-concept | [[ortholog-detection-reciprocal-best-hits]] |
-| `Reciprocal_Best_Hits.md` | done-via-concept | [[ortholog-detection-reciprocal-best-hits]] |
-| `Reversal_Distance.md` | done-via-concept | [[genome-rearrangement-breakpoint-distance]] |
-| `Synteny_Block_Detection.md` | done-via-concept | [[synteny-and-rearrangement-detection]] |
-
-## Complexity
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `DUST_Score.md` | pending | `dust-score` (expected) |
-| `K-mer_Entropy.md` | pending | `k-mer-entropy` (expected) |
-| `Lempel_Ziv_Complexity.md` | pending | `lempel-ziv-complexity` (expected) |
-| `Windowed_Complexity.md` | pending | `windowed-complexity` (expected) |
-
-## Epigenetics
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Bisulfite_Sequencing_Analysis.md` | pending | `bisulfite-sequencing-analysis` (expected) |
-| `Chromatin_State_Prediction.md` | pending | `chromatin-state-prediction` (expected) |
-| `CpG_Site_Detection.md` | pending | `cpg-site-detection` (expected) |
-| `Differentially_Methylated_Regions.md` | pending | `differentially-methylated-regions` (expected) |
-| `Epigenetic_Age_Estimation.md` | pending | `epigenetic-age-estimation` (expected) |
-| `Methylation_Analysis.md` | pending | `methylation-analysis` (expected) |
-
-## Extended_Annotation
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Coding_Potential_Calculation.md` | done-via-concept | [[coding-potential-hexamer-score]] |
-
-## Extended_Assembly
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Contig_Merging.md` | done-via-concept | [[contig-merge-overlap-collapse]] |
-| `Scaffolding.md` | done-via-concept | [[scaffolding]] |
-
-## Extended_GC_Skew_Analysis
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `AT_Skew.md` | pending | `at-skew` (expected) |
-| `Comprehensive_GC_Analysis.md` | pending | `comprehensive-gc-analysis` (expected) |
-
-## FileIO
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `BED_Parsing.md` | pending | `bed-parsing` (expected) |
-| `EMBL_Parsing.md` | pending | `embl-parsing` (expected) |
-| `FASTA_Parsing.md` | pending | `fasta-parsing` (expected) |
-| `FASTQ_Parsing.md` | pending | `fastq-parsing` (expected) |
-| `GFF_Parsing.md` | pending | `gff-parsing` (expected) |
-| `GenBank_Parsing.md` | pending | `genbank-parsing` (expected) |
-| `VCF_Parsing.md` | pending | `vcf-parsing` (expected) |
-
-## Genomic_Analysis
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Tandem_Repeat_Detection.md` | pending | `tandem-repeat-detection` (expected) |
-
-## K-mer
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Asynchronous_K-mer_Counting.md` | pending | `asynchronous-k-mer-counting` (expected) |
-| `Both_Strand_Kmer_Counting.md` | pending | `both-strand-kmer-counting` (expected) |
-| `K-mer_Counting.md` | pending | `k-mer-counting` (expected) |
-| `K-mer_Euclidean_Distance.md` | pending | `k-mer-euclidean-distance` (expected) |
-| `K-mer_Frequency_Analysis.md` | pending | `k-mer-frequency-analysis` (expected) |
-| `K-mer_Generation.md` | pending | `k-mer-generation` (expected) |
-| `K-mer_Positions.md` | pending | `k-mer-positions` (expected) |
-| `K-mer_Search.md` | pending | `k-mer-search` (expected) |
-| `K-mer_Statistics.md` | pending | `k-mer-statistics` (expected) |
-| `Unique_And_MinCount_Kmers.md` | pending | `unique-and-mincount-kmers` (expected) |
-
-## Metagenomics
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Alpha_Diversity.md` | pending | `alpha-diversity` (expected) |
-| `Antibiotic_Resistance_Detection.md` | pending | `antibiotic-resistance-detection` (expected) |
-| `Beta_Diversity.md` | pending | `beta-diversity` (expected) |
-| `Functional_Prediction.md` | pending | `functional-prediction` (expected) |
-| `Genome_Binning.md` | pending | `genome-binning` (expected) |
-| `PanGenome_Core_Accessory.md` | pending | `pangenome-core-accessory` (expected) |
-| `Pathway_Enrichment_ORA.md` | pending | `pathway-enrichment-ora` (expected) |
-| `Significant_Taxa_Detection.md` | pending | `significant-taxa-detection` (expected) |
-| `Taxonomic_Classification.md` | pending | `taxonomic-classification` (expected) |
-| `Taxonomic_Profile.md` | pending | `taxonomic-profile` (expected) |
-
-## MiRNA
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `MiRNA_Target_Pairing.md` | pending | `mirna-target-pairing` (expected) |
-| `Pre_miRNA_Detection.md` | pending | `pre-mirna-detection` (expected) |
-| `Seed_Sequence_Analysis.md` | pending | `seed-sequence-analysis` (expected) |
-| `Target_Site_Prediction.md` | pending | `target-site-prediction` (expected) |
-
-## MolTools
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `DNA_Dimer_Tm.md` | pending | `dna-dimer-tm` (expected) |
-| `DNA_Hairpin_Folding_Tm.md` | pending | `dna-hairpin-folding-tm` (expected) |
-| `DNA_Hairpin_Special_Loop_Bonus.md` | pending | `dna-hairpin-special-loop-bonus` (expected) |
-| `Guide_RNA_Design.md` | pending | `guide-rna-design` (expected) |
-| `Hybridization_Probe_Design.md` | pending | `hybridization-probe-design` (expected) |
-| `LNA_Adjusted_Nearest_Neighbor_Tm.md` | pending | `lna-adjusted-nearest-neighbor-tm` (expected) |
-| `Melting_Temperature.md` | pending | `melting-temperature` (expected) |
-| `NearestNeighbor_Salt_Corrected_Tm.md` | pending | `nearestneighbor-salt-corrected-tm` (expected) |
-| `Off_Target_Analysis.md` | pending | `off-target-analysis` (expected) |
-| `PAM_Site_Detection.md` | pending | `pam-site-detection` (expected) |
-| `Primer3_Penalty_Objective.md` | pending | `primer3-penalty-objective` (expected) |
-| `Primer_Design.md` | pending | `primer-design` (expected) |
-| `Primer_Structure_Analysis.md` | pending | `primer-structure-analysis` (expected) |
-| `Probe_Validation.md` | pending | `probe-validation` (expected) |
-| `Restriction_Digest_Simulation.md` | pending | `restriction-digest-simulation` (expected) |
-| `Restriction_Enzyme_Filtering.md` | pending | `restriction-enzyme-filtering` (expected) |
-| `Restriction_Site_Detection.md` | pending | `restriction-site-detection` (expected) |
-
-## Motif_Analysis
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Known_Motif_Search.md` | pending | `known-motif-search` (expected) |
-
-## Motif_Discovery
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Overrepresented_Kmer_Discovery.md` | pending | `overrepresented-kmer-discovery` (expected) |
-| `Regulatory_Elements.md` | pending | `regulatory-elements` (expected) |
-| `Shared_Motifs.md` | pending | `shared-motifs` (expected) |
-
-## Oncology
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Allele_Specific_Copy_Number_Derivation.md` | pending | `allele-specific-copy-number-derivation` (expected) |
-| `Cancer_Cell_Fraction_Estimation.md` | pending | `cancer-cell-fraction-estimation` (expected) |
-| `Cancer_Variant_Annotation.md` | pending | `cancer-variant-annotation` (expected) |
-| `Clinical_Actionability_Assessment.md` | pending | `clinical-actionability-assessment` (expected) |
-| `Clonal_Hematopoiesis_Filtering.md` | pending | `clonal-hematopoiesis-filtering` (expected) |
-| `Clonal_Subclonal_Classification.md` | pending | `clonal-subclonal-classification` (expected) |
-| `Complex_Rearrangement_Classification.md` | pending | `complex-rearrangement-classification` (expected) |
-| `Copy_Number_Alteration_Classification.md` | pending | `copy-number-alteration-classification` (expected) |
-| `CtDNA_Analysis.md` | pending | `ctdna-analysis` (expected) |
-| `Driver_Mutation_Detection.md` | pending | `driver-mutation-detection` (expected) |
-| `Focal_Amplification_Detection.md` | pending | `focal-amplification-detection` (expected) |
-| `Fusion_Breakpoint_Analysis.md` | pending | `fusion-breakpoint-analysis` (expected) |
-| `Fusion_Gene_Detection.md` | pending | `fusion-gene-detection` (expected) |
-| `HLA_Nomenclature_And_Allele_Specific_LOH.md` | pending | `hla-nomenclature-and-allele-specific-loh` (expected) |
-| `HRD_Score.md` | pending | `hrd-score` (expected) |
-| `Homozygous_Deletion_Detection.md` | pending | `homozygous-deletion-detection` (expected) |
-| `Immune_Infiltration_Estimation.md` | pending | `immune-infiltration-estimation` (expected) |
-| `Known_Fusion_Database_Lookup.md` | pending | `known-fusion-database-lookup` (expected) |
-| `Loss_Of_Heterozygosity.md` | pending | `loss-of-heterozygosity` (expected) |
-| `MHC_Peptide_Binding_Classification.md` | pending | `mhc-peptide-binding-classification` (expected) |
-| `MRD_Detection.md` | pending | `mrd-detection` (expected) |
-| `Microsatellite_Instability_Detection.md` | pending | `microsatellite-instability-detection` (expected) |
-| `Mutational_Process_Classification.md` | pending | `mutational-process-classification` (expected) |
-| `Mutational_Signature_Exposure_Bootstrap.md` | pending | `mutational-signature-exposure-bootstrap` (expected) |
-| `Mutational_Signature_Extraction_NMF.md` | pending | `mutational-signature-extraction-nmf` (expected) |
-| `Mutational_Signature_Fitting.md` | pending | `mutational-signature-fitting` (expected) |
-| `Neoantigen_Peptide_Generation.md` | pending | `neoantigen-peptide-generation` (expected) |
-| `SBS96_Trinucleotide_Context_Catalog.md` | pending | `sbs96-trinucleotide-context-catalog` (expected) |
-| `Sequencing_Artifact_Detection.md` | pending | `sequencing-artifact-detection` (expected) |
-| `Somatic_Mutation_Calling.md` | pending | `somatic-mutation-calling` (expected) |
-| `Tumor_Gene_Expression_Outlier.md` | pending | `tumor-gene-expression-outlier` (expected) |
-| `Tumor_Heterogeneity_Analysis.md` | pending | `tumor-heterogeneity-analysis` (expected) |
-| `Tumor_Mutational_Burden.md` | pending | `tumor-mutational-burden` (expected) |
-| `Tumor_Phylogeny_Reconstruction.md` | pending | `tumor-phylogeny-reconstruction` (expected) |
-| `Tumor_Ploidy_Estimation.md` | pending | `tumor-ploidy-estimation` (expected) |
-| `Tumor_Purity_Estimation.md` | pending | `tumor-purity-estimation` (expected) |
-| `Variant_Allele_Frequency.md` | pending | `variant-allele-frequency` (expected) |
-
-## PanGenome
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Gene_Clustering.md` | pending | `gene-clustering` (expected) |
-| `Pan_Genome_Growth_Model.md` | pending | `pan-genome-growth-model` (expected) |
-| `Phylogenetic_Marker_Selection.md` | pending | `phylogenetic-marker-selection` (expected) |
-
-## Pattern_Matching
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Approximate_Matching_Hamming.md` | pending | `approximate-matching-hamming` (expected) |
-| `Consensus_From_Alignment.md` | pending | `consensus-from-alignment` (expected) |
-| `Edit_Distance.md` | pending | `edit-distance` (expected) |
-| `Exact_Pattern_Search.md` | pending | `exact-pattern-search` (expected) |
-| `Frequent_Words_With_Mismatches.md` | pending | `frequent-words-with-mismatches` (expected) |
-| `IUPAC_Degenerate_Consensus.md` | pending | `iupac-degenerate-consensus` (expected) |
-| `IUPAC_Degenerate_Matching.md` | pending | `iupac-degenerate-matching` (expected) |
-| `Position_Weight_Matrix.md` | pending | `position-weight-matrix` (expected) |
-| `Suffix_Tree.md` | pending | `suffix-tree` (expected) |
-
-## Phylogenetics
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Bootstrap_Analysis.md` | pending | `bootstrap-analysis` (expected) |
-| `Distance_Matrix.md` | pending | `distance-matrix` (expected) |
-| `Newick_Format.md` | pending | `newick-format` (expected) |
-| `Tree_Comparison.md` | pending | `tree-comparison` (expected) |
-| `Tree_Construction.md` | pending | `tree-construction` (expected) |
-| `Tree_Statistics.md` | pending | `tree-statistics` (expected) |
-
-## Population_Genetics
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Allele_Frequency.md` | pending | `allele-frequency` (expected) |
-| `Ancestry_Estimation.md` | pending | `ancestry-estimation` (expected) |
-| `Diversity_Statistics.md` | pending | `diversity-statistics` (expected) |
-| `F_Statistics.md` | pending | `f-statistics` (expected) |
-| `Hardy_Weinberg_Test.md` | pending | `hardy-weinberg-test` (expected) |
-| `Integrated_Haplotype_Score.md` | pending | `integrated-haplotype-score` (expected) |
-| `Linkage_Disequilibrium.md` | pending | `linkage-disequilibrium` (expected) |
-| `Runs_Of_Homozygosity.md` | pending | `runs-of-homozygosity` (expected) |
-
-## ProteinMotif
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Coiled_Coil_Prediction.md` | pending | `coiled-coil-prediction` (expected) |
-| `Common_Motif_Finding.md` | pending | `common-motif-finding` (expected) |
-| `Domain_Prediction.md` | pending | `domain-prediction` (expected) |
-| `Low_Complexity_Region_Detection.md` | pending | `low-complexity-region-detection` (expected) |
-| `Motif_Search.md` | pending | `motif-search` (expected) |
-| `PROSITE_Pattern_Matching.md` | pending | `prosite-pattern-matching` (expected) |
-| `Pattern_Matching_Methods.md` | pending | `pattern-matching-methods` (expected) |
-| `Profile_HMM_Domain_Detection.md` | pending | `profile-hmm-domain-detection` (expected) |
-| `Signal_Peptide_Prediction.md` | pending | `signal-peptide-prediction` (expected) |
-| `Transmembrane_Helix_Prediction.md` | pending | `transmembrane-helix-prediction` (expected) |
-
-## ProteinPred
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Disorder_Prediction.md` | pending | `disorder-prediction` (expected) |
-| `Disorder_Propensity.md` | pending | `disorder-propensity` (expected) |
-| `Disordered_Region_Detection.md` | pending | `disordered-region-detection` (expected) |
-| `Low_Complexity_Region_Detection.md` | done-via-concept | [[protein-low-complexity-seg]] |
-| `MoRF_Prediction.md` | pending | `morf-prediction` (expected) |
-
-## Quality
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Phred_Score_Handling.md` | pending | `phred-score-handling` (expected) |
-| `Quality_Statistics.md` | pending | `quality-statistics` (expected) |
-
-## Repeat_Analysis
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Direct_Repeat_Detection.md` | pending | `direct-repeat-detection` (expected) |
-| `Inverted_Repeat_Detection.md` | pending | `inverted-repeat-detection` (expected) |
-| `Microsatellite_Detection.md` | pending | `microsatellite-detection` (expected) |
-| `Palindrome_Detection.md` | pending | `palindrome-detection` (expected) |
-| `Repeat_Detection.md` | pending | `repeat-detection` (expected) |
-| `Tandem_Repeat_Detection.md` | pending | `tandem-repeat-detection` (expected) |
-
-## RnaStructure
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Dot_Bracket_Notation.md` | pending | `dot-bracket-notation` (expected) |
-| `Hairpin_Energy_Calculation.md` | pending | `hairpin-energy-calculation` (expected) |
-| `Inverted_Repeats.md` | pending | `inverted-repeats` (expected) |
-| `Minimum_Free_Energy.md` | pending | `minimum-free-energy` (expected) |
-| `Pseudoknot_Detection.md` | pending | `pseudoknot-detection` (expected) |
-| `Pseudoknot_Prediction.md` | pending | `pseudoknot-prediction` (expected) |
-| `Pseudoknot_Prediction_Recursive.md` | pending | `pseudoknot-prediction-recursive` (expected) |
-| `RNA_Base_Pairing.md` | pending | `rna-base-pairing` (expected) |
-| `RNA_Free_Energy.md` | pending | `rna-free-energy` (expected) |
-| `RNA_Partition_Function.md` | pending | `rna-partition-function` (expected) |
-| `RNA_Secondary_Structure.md` | pending | `rna-secondary-structure` (expected) |
-| `RNA_Stemloop.md` | pending | `rna-stemloop` (expected) |
-| `Turner_McCaskill_Partition_Function.md` | pending | `turner-mccaskill-partition-function` (expected) |
-
-## Sequence_Comparison
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Common_Region_Detection.md` | pending | `common-region-detection` (expected) |
-
-## Sequence_Composition
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `GC_Skew.md` | pending | `gc-skew` (expected) |
-| `Linguistic_Complexity.md` | pending | `linguistic-complexity` (expected) |
-| `RNA_Complement.md` | pending | `rna-complement` (expected) |
-| `Replication_Origin_Prediction.md` | pending | `replication-origin-prediction` (expected) |
-| `Sequence_Composition.md` | pending | `sequence-composition` (expected) |
-| `Sequence_Composition_Statistics.md` | pending | `sequence-composition-statistics` (expected) |
-| `Sequence_Validation.md` | pending | `sequence-validation` (expected) |
-| `Shannon_Entropy.md` | pending | `shannon-entropy` (expected) |
-
-## Splicing
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Acceptor_Site_Detection.md` | pending | `acceptor-site-detection` (expected) |
-| `Donor_Site_Detection.md` | pending | `donor-site-detection` (expected) |
-| `Gene_Structure_Prediction.md` | pending | `gene-structure-prediction` (expected) |
-
-## Statistics
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Codon_Frequencies.md` | pending | `codon-frequencies` (expected) |
-| `DNA_Thermodynamics.md` | pending | `dna-thermodynamics` (expected) |
-| `Dinucleotide_Analysis.md` | pending | `dinucleotide-analysis` (expected) |
-| `Entropy_Profile.md` | pending | `entropy-profile` (expected) |
-| `GC_Content_Profile.md` | pending | `gc-content-profile` (expected) |
-| `Hydrophobicity_Analysis.md` | pending | `hydrophobicity-analysis` (expected) |
-| `Isoelectric_Point.md` | pending | `isoelectric-point` (expected) |
-| `Melting_Temperature.md` | pending | `melting-temperature` (expected) |
-| `Molecular_Weight_Calculation.md` | pending | `molecular-weight-calculation` (expected) |
-| `Secondary_Structure_Prediction.md` | pending | `secondary-structure-prediction` (expected) |
-| `Sequence_Summary.md` | pending | `sequence-summary` (expected) |
-
-## StructuralVar
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Breakpoint_Detection.md` | pending | `breakpoint-detection` (expected) |
-| `Copy_Number_Variation.md` | pending | `copy-number-variation` (expected) |
-| `SV_Detection.md` | pending | `sv-detection` (expected) |
-
-## Transcriptome
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Alternative_Splicing.md` | pending | `alternative-splicing` (expected) |
-| `Differential_Expression.md` | pending | `differential-expression` (expected) |
-| `Expression_Quantification.md` | pending | `expression-quantification` (expected) |
-
-## Translation
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Codon_Translation.md` | pending | `codon-translation` (expected) |
-| `Protein_Translation.md` | pending | `protein-translation` (expected) |
-| `Six_Frame_Translation.md` | pending | `six-frame-translation` (expected) |
-
-## Variants
-
-| Doc | Status | Concept page / expected slug |
-| --- | --- | --- |
-| `Indel_Detection.md` | pending | `indel-detection` (expected) |
-| `SNP_Detection.md` | pending | `snp-detection` (expected) |
-| `Variant_Annotation.md` | pending | `variant-annotation` (expected) |
-| `Variant_Detection.md` | pending | `variant-detection` (expected) |
+---
+type: index
+title: "Ingestion backlog — docs/algorithms reconciliation + queued sources"
+tags: [meta, coverage]
+created: 2026-07-09
+updated: 2026-07-09
+---
+
+# Ingestion backlog
+
+Coverage reconciliation for `docs/algorithms/**` (kept **in scope** by the
+[coverage exclude policy](SCHEMA.md#coverage-exclude-policy)) plus source batches
+queued for ingestion. Generated during the 2026-07-09 lint pass; regenerate when
+concept pages are added or algorithm docs change.
+
+The **pending** rows are a real coverage gap that folds into the main per-algorithm
+ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — not a
+separate effort. A pending algorithm doc is resolved when a concept page lists it in
+`sources:`; at that point it moves to the covered table.
+
+Status at generation: **37** algorithm docs covered-via-concept, **208** pending across 34 domains.
+
+## Covered via concept (done)
+
+Each algorithm doc below is already synthesized by a concept page that lists it in
+`sources:` (added at commit `9ce49ba`; staleness-clean, so no re-sync needed).
+
+| Algorithm doc | Concept page |
+| --- | --- |
+| `docs/algorithms/Alignment/Alignment_Statistics.md` | [[alignment-statistics]] |
+| `docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md` | [[global-alignment-needleman-wunsch]] |
+| `docs/algorithms/Alignment/Multiple_Sequence_Alignment.md` | [[multiple-sequence-alignment]] |
+| `docs/algorithms/Alignment/Semi_Global_Alignment.md` | [[semi-global-alignment-fitting]] |
+| `docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
+| `docs/algorithms/Annotation/Repetitive_Element_Detection.md` | [[repetitive-element-detection]] |
+| `docs/algorithms/Assembly/Assembly_Statistics.md` | [[assembly-statistics]] |
+| `docs/algorithms/Assembly/Consensus_Computation.md` | [[consensus-sequence]] |
+| `docs/algorithms/Assembly/Coverage_Calculation.md` | [[coverage-depth-calculation]] |
+| `docs/algorithms/Assembly/De_Bruijn_Graph_Assembly.md` | [[de-bruijn-graph-assembly]] |
+| `docs/algorithms/Assembly/Error_Correction.md` | [[kmer-spectrum-error-correction]] |
+| `docs/algorithms/Assembly/Overlap_Layout_Consensus.md` | [[overlap-layout-consensus-assembly]] |
+| `docs/algorithms/Assembly/Quality_Trimming.md` | [[quality-trimming-running-sum]] |
+| `docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md` | [[aneuploidy-detection]] |
+| `docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md` | [[centromere-analysis]] |
+| `docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md` | [[karyotype-analysis]] |
+| `docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md` | [[synteny-and-rearrangement-detection]] |
+| `docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md` | [[telomere-analysis]] |
+| `docs/algorithms/Codon/Effective_Number_of_Codons.md` | [[effective-number-of-codons]] |
+| `docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
+| `docs/algorithms/Codon_Optimization/CAI_Calculation.md` | [[codon-adaptation-index]] |
+| `docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md` | [[codon-usage-comparison]] |
+| `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
+| `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
+| `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
+| `docs/algorithms/Comparative_Genomics/Conserved_Gene_Clusters.md` | [[conserved-gene-clusters-common-intervals]] |
+| `docs/algorithms/Comparative_Genomics/Dot_Plot_Generation.md` | [[dot-plot-word-match]] |
+| `docs/algorithms/Comparative_Genomics/Genome_Comparison.md` | [[genome-comparison-core-dispensable]] |
+| `docs/algorithms/Comparative_Genomics/Genome_Rearrangement_Detection.md` | [[genome-rearrangement-breakpoint-distance]] |
+| `docs/algorithms/Comparative_Genomics/Ortholog_Identification.md` | [[ortholog-detection-reciprocal-best-hits]] |
+| `docs/algorithms/Comparative_Genomics/Reciprocal_Best_Hits.md` | [[ortholog-detection-reciprocal-best-hits]] |
+| `docs/algorithms/Comparative_Genomics/Reversal_Distance.md` | [[genome-rearrangement-breakpoint-distance]] |
+| `docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md` | [[synteny-and-rearrangement-detection]] |
+| `docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md` | [[coding-potential-hexamer-score]] |
+| `docs/algorithms/Extended_Assembly/Contig_Merging.md` | [[contig-merge-overlap-collapse]] |
+| `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
+| `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
+
+## Pending (fold into the ingest campaign)
+
+No concept page synthesizes these yet. `Expected slug` is the anticipated concept
+page name once ingested (subject to change if a shared anchor concept fits better).
+
+### Alignment (1)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md` | `local-alignment-smith-waterman` |
+
+### Analysis (2)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Analysis/Open_Reading_Frame_Detection.md` | `open-reading-frame-detection` |
+| `docs/algorithms/Analysis/Sequence_Similarity.md` | `sequence-similarity` |
+
+### Annotation (4)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Annotation/GFF3_IO.md` | `gff3-io` |
+| `docs/algorithms/Annotation/Gene_Prediction.md` | `gene-prediction` |
+| `docs/algorithms/Annotation/ORF_Detection.md` | `orf-detection` |
+| `docs/algorithms/Annotation/Promoter_Detection.md` | `promoter-detection` |
+
+### Chromosome_Analysis (1)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md` | `higher-order-repeat-detection` |
+
+### Codon (1)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Codon/Codon_Usage_Statistics.md` | `codon-usage-statistics` |
+
+### Complexity (4)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Complexity/DUST_Score.md` | `dust-score` |
+| `docs/algorithms/Complexity/K-mer_Entropy.md` | `k-mer-entropy` |
+| `docs/algorithms/Complexity/Lempel_Ziv_Complexity.md` | `lempel-ziv-complexity` |
+| `docs/algorithms/Complexity/Windowed_Complexity.md` | `windowed-complexity` |
+
+### Epigenetics (6)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Epigenetics/Bisulfite_Sequencing_Analysis.md` | `bisulfite-sequencing-analysis` |
+| `docs/algorithms/Epigenetics/Chromatin_State_Prediction.md` | `chromatin-state-prediction` |
+| `docs/algorithms/Epigenetics/CpG_Site_Detection.md` | `cpg-site-detection` |
+| `docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md` | `differentially-methylated-regions` |
+| `docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md` | `epigenetic-age-estimation` |
+| `docs/algorithms/Epigenetics/Methylation_Analysis.md` | `methylation-analysis` |
+
+### Extended_GC_Skew_Analysis (2)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md` | `at-skew` |
+| `docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md` | `comprehensive-gc-analysis` |
+
+### FileIO (7)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/FileIO/BED_Parsing.md` | `bed-parsing` |
+| `docs/algorithms/FileIO/EMBL_Parsing.md` | `embl-parsing` |
+| `docs/algorithms/FileIO/FASTA_Parsing.md` | `fasta-parsing` |
+| `docs/algorithms/FileIO/FASTQ_Parsing.md` | `fastq-parsing` |
+| `docs/algorithms/FileIO/GFF_Parsing.md` | `gff-parsing` |
+| `docs/algorithms/FileIO/GenBank_Parsing.md` | `genbank-parsing` |
+| `docs/algorithms/FileIO/VCF_Parsing.md` | `vcf-parsing` |
+
+### Genomic_Analysis (1)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md` | `tandem-repeat-detection` |
+
+### K-mer (10)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md` | `asynchronous-k-mer-counting` |
+| `docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md` | `both-strand-kmer-counting` |
+| `docs/algorithms/K-mer/K-mer_Counting.md` | `k-mer-counting` |
+| `docs/algorithms/K-mer/K-mer_Euclidean_Distance.md` | `k-mer-euclidean-distance` |
+| `docs/algorithms/K-mer/K-mer_Frequency_Analysis.md` | `k-mer-frequency-analysis` |
+| `docs/algorithms/K-mer/K-mer_Generation.md` | `k-mer-generation` |
+| `docs/algorithms/K-mer/K-mer_Positions.md` | `k-mer-positions` |
+| `docs/algorithms/K-mer/K-mer_Search.md` | `k-mer-search` |
+| `docs/algorithms/K-mer/K-mer_Statistics.md` | `k-mer-statistics` |
+| `docs/algorithms/K-mer/Unique_And_MinCount_Kmers.md` | `unique-and-mincount-kmers` |
+
+### Metagenomics (10)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Metagenomics/Alpha_Diversity.md` | `alpha-diversity` |
+| `docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md` | `antibiotic-resistance-detection` |
+| `docs/algorithms/Metagenomics/Beta_Diversity.md` | `beta-diversity` |
+| `docs/algorithms/Metagenomics/Functional_Prediction.md` | `functional-prediction` |
+| `docs/algorithms/Metagenomics/Genome_Binning.md` | `genome-binning` |
+| `docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md` | `pangenome-core-accessory` |
+| `docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md` | `pathway-enrichment-ora` |
+| `docs/algorithms/Metagenomics/Significant_Taxa_Detection.md` | `significant-taxa-detection` |
+| `docs/algorithms/Metagenomics/Taxonomic_Classification.md` | `taxonomic-classification` |
+| `docs/algorithms/Metagenomics/Taxonomic_Profile.md` | `taxonomic-profile` |
+
+### MiRNA (4)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/MiRNA/MiRNA_Target_Pairing.md` | `mirna-target-pairing` |
+| `docs/algorithms/MiRNA/Pre_miRNA_Detection.md` | `pre-mirna-detection` |
+| `docs/algorithms/MiRNA/Seed_Sequence_Analysis.md` | `seed-sequence-analysis` |
+| `docs/algorithms/MiRNA/Target_Site_Prediction.md` | `target-site-prediction` |
+
+### MolTools (17)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/MolTools/DNA_Dimer_Tm.md` | `dna-dimer-tm` |
+| `docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md` | `dna-hairpin-folding-tm` |
+| `docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md` | `dna-hairpin-special-loop-bonus` |
+| `docs/algorithms/MolTools/Guide_RNA_Design.md` | `guide-rna-design` |
+| `docs/algorithms/MolTools/Hybridization_Probe_Design.md` | `hybridization-probe-design` |
+| `docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md` | `lna-adjusted-nearest-neighbor-tm` |
+| `docs/algorithms/MolTools/Melting_Temperature.md` | `melting-temperature` |
+| `docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md` | `nearestneighbor-salt-corrected-tm` |
+| `docs/algorithms/MolTools/Off_Target_Analysis.md` | `off-target-analysis` |
+| `docs/algorithms/MolTools/PAM_Site_Detection.md` | `pam-site-detection` |
+| `docs/algorithms/MolTools/Primer3_Penalty_Objective.md` | `primer3-penalty-objective` |
+| `docs/algorithms/MolTools/Primer_Design.md` | `primer-design` |
+| `docs/algorithms/MolTools/Primer_Structure_Analysis.md` | `primer-structure-analysis` |
+| `docs/algorithms/MolTools/Probe_Validation.md` | `probe-validation` |
+| `docs/algorithms/MolTools/Restriction_Digest_Simulation.md` | `restriction-digest-simulation` |
+| `docs/algorithms/MolTools/Restriction_Enzyme_Filtering.md` | `restriction-enzyme-filtering` |
+| `docs/algorithms/MolTools/Restriction_Site_Detection.md` | `restriction-site-detection` |
+
+### Motif_Analysis (1)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | `known-motif-search` |
+
+### Motif_Discovery (3)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md` | `overrepresented-kmer-discovery` |
+| `docs/algorithms/Motif_Discovery/Regulatory_Elements.md` | `regulatory-elements` |
+| `docs/algorithms/Motif_Discovery/Shared_Motifs.md` | `shared-motifs` |
+
+### Oncology (37)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md` | `allele-specific-copy-number-derivation` |
+| `docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md` | `cancer-cell-fraction-estimation` |
+| `docs/algorithms/Oncology/Cancer_Variant_Annotation.md` | `cancer-variant-annotation` |
+| `docs/algorithms/Oncology/Clinical_Actionability_Assessment.md` | `clinical-actionability-assessment` |
+| `docs/algorithms/Oncology/Clonal_Hematopoiesis_Filtering.md` | `clonal-hematopoiesis-filtering` |
+| `docs/algorithms/Oncology/Clonal_Subclonal_Classification.md` | `clonal-subclonal-classification` |
+| `docs/algorithms/Oncology/Complex_Rearrangement_Classification.md` | `complex-rearrangement-classification` |
+| `docs/algorithms/Oncology/Copy_Number_Alteration_Classification.md` | `copy-number-alteration-classification` |
+| `docs/algorithms/Oncology/CtDNA_Analysis.md` | `ctdna-analysis` |
+| `docs/algorithms/Oncology/Driver_Mutation_Detection.md` | `driver-mutation-detection` |
+| `docs/algorithms/Oncology/Focal_Amplification_Detection.md` | `focal-amplification-detection` |
+| `docs/algorithms/Oncology/Fusion_Breakpoint_Analysis.md` | `fusion-breakpoint-analysis` |
+| `docs/algorithms/Oncology/Fusion_Gene_Detection.md` | `fusion-gene-detection` |
+| `docs/algorithms/Oncology/HLA_Nomenclature_And_Allele_Specific_LOH.md` | `hla-nomenclature-and-allele-specific-loh` |
+| `docs/algorithms/Oncology/HRD_Score.md` | `hrd-score` |
+| `docs/algorithms/Oncology/Homozygous_Deletion_Detection.md` | `homozygous-deletion-detection` |
+| `docs/algorithms/Oncology/Immune_Infiltration_Estimation.md` | `immune-infiltration-estimation` |
+| `docs/algorithms/Oncology/Known_Fusion_Database_Lookup.md` | `known-fusion-database-lookup` |
+| `docs/algorithms/Oncology/Loss_Of_Heterozygosity.md` | `loss-of-heterozygosity` |
+| `docs/algorithms/Oncology/MHC_Peptide_Binding_Classification.md` | `mhc-peptide-binding-classification` |
+| `docs/algorithms/Oncology/MRD_Detection.md` | `mrd-detection` |
+| `docs/algorithms/Oncology/Microsatellite_Instability_Detection.md` | `microsatellite-instability-detection` |
+| `docs/algorithms/Oncology/Mutational_Process_Classification.md` | `mutational-process-classification` |
+| `docs/algorithms/Oncology/Mutational_Signature_Exposure_Bootstrap.md` | `mutational-signature-exposure-bootstrap` |
+| `docs/algorithms/Oncology/Mutational_Signature_Extraction_NMF.md` | `mutational-signature-extraction-nmf` |
+| `docs/algorithms/Oncology/Mutational_Signature_Fitting.md` | `mutational-signature-fitting` |
+| `docs/algorithms/Oncology/Neoantigen_Peptide_Generation.md` | `neoantigen-peptide-generation` |
+| `docs/algorithms/Oncology/SBS96_Trinucleotide_Context_Catalog.md` | `sbs96-trinucleotide-context-catalog` |
+| `docs/algorithms/Oncology/Sequencing_Artifact_Detection.md` | `sequencing-artifact-detection` |
+| `docs/algorithms/Oncology/Somatic_Mutation_Calling.md` | `somatic-mutation-calling` |
+| `docs/algorithms/Oncology/Tumor_Gene_Expression_Outlier.md` | `tumor-gene-expression-outlier` |
+| `docs/algorithms/Oncology/Tumor_Heterogeneity_Analysis.md` | `tumor-heterogeneity-analysis` |
+| `docs/algorithms/Oncology/Tumor_Mutational_Burden.md` | `tumor-mutational-burden` |
+| `docs/algorithms/Oncology/Tumor_Phylogeny_Reconstruction.md` | `tumor-phylogeny-reconstruction` |
+| `docs/algorithms/Oncology/Tumor_Ploidy_Estimation.md` | `tumor-ploidy-estimation` |
+| `docs/algorithms/Oncology/Tumor_Purity_Estimation.md` | `tumor-purity-estimation` |
+| `docs/algorithms/Oncology/Variant_Allele_Frequency.md` | `variant-allele-frequency` |
+
+### PanGenome (3)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/PanGenome/Gene_Clustering.md` | `gene-clustering` |
+| `docs/algorithms/PanGenome/Pan_Genome_Growth_Model.md` | `pan-genome-growth-model` |
+| `docs/algorithms/PanGenome/Phylogenetic_Marker_Selection.md` | `phylogenetic-marker-selection` |
+
+### Pattern_Matching (9)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md` | `approximate-matching-hamming` |
+| `docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md` | `consensus-from-alignment` |
+| `docs/algorithms/Pattern_Matching/Edit_Distance.md` | `edit-distance` |
+| `docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md` | `exact-pattern-search` |
+| `docs/algorithms/Pattern_Matching/Frequent_Words_With_Mismatches.md` | `frequent-words-with-mismatches` |
+| `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md` | `iupac-degenerate-consensus` |
+| `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md` | `iupac-degenerate-matching` |
+| `docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md` | `position-weight-matrix` |
+| `docs/algorithms/Pattern_Matching/Suffix_Tree.md` | `suffix-tree` |
+
+### Phylogenetics (6)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Phylogenetics/Bootstrap_Analysis.md` | `bootstrap-analysis` |
+| `docs/algorithms/Phylogenetics/Distance_Matrix.md` | `distance-matrix` |
+| `docs/algorithms/Phylogenetics/Newick_Format.md` | `newick-format` |
+| `docs/algorithms/Phylogenetics/Tree_Comparison.md` | `tree-comparison` |
+| `docs/algorithms/Phylogenetics/Tree_Construction.md` | `tree-construction` |
+| `docs/algorithms/Phylogenetics/Tree_Statistics.md` | `tree-statistics` |
+
+### Population_Genetics (8)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Population_Genetics/Allele_Frequency.md` | `allele-frequency` |
+| `docs/algorithms/Population_Genetics/Ancestry_Estimation.md` | `ancestry-estimation` |
+| `docs/algorithms/Population_Genetics/Diversity_Statistics.md` | `diversity-statistics` |
+| `docs/algorithms/Population_Genetics/F_Statistics.md` | `f-statistics` |
+| `docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md` | `hardy-weinberg-test` |
+| `docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md` | `integrated-haplotype-score` |
+| `docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md` | `linkage-disequilibrium` |
+| `docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md` | `runs-of-homozygosity` |
+
+### ProteinMotif (10)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md` | `coiled-coil-prediction` |
+| `docs/algorithms/ProteinMotif/Common_Motif_Finding.md` | `common-motif-finding` |
+| `docs/algorithms/ProteinMotif/Domain_Prediction.md` | `domain-prediction` |
+| `docs/algorithms/ProteinMotif/Low_Complexity_Region_Detection.md` | `low-complexity-region-detection` |
+| `docs/algorithms/ProteinMotif/Motif_Search.md` | `motif-search` |
+| `docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md` | `prosite-pattern-matching` |
+| `docs/algorithms/ProteinMotif/Pattern_Matching_Methods.md` | `pattern-matching-methods` |
+| `docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md` | `profile-hmm-domain-detection` |
+| `docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md` | `signal-peptide-prediction` |
+| `docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md` | `transmembrane-helix-prediction` |
+
+### ProteinPred (4)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/ProteinPred/Disorder_Prediction.md` | `disorder-prediction` |
+| `docs/algorithms/ProteinPred/Disorder_Propensity.md` | `disorder-propensity` |
+| `docs/algorithms/ProteinPred/Disordered_Region_Detection.md` | `disordered-region-detection` |
+| `docs/algorithms/ProteinPred/MoRF_Prediction.md` | `morf-prediction` |
+
+### Quality (2)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Quality/Phred_Score_Handling.md` | `phred-score-handling` |
+| `docs/algorithms/Quality/Quality_Statistics.md` | `quality-statistics` |
+
+### Repeat_Analysis (6)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md` | `direct-repeat-detection` |
+| `docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md` | `inverted-repeat-detection` |
+| `docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md` | `microsatellite-detection` |
+| `docs/algorithms/Repeat_Analysis/Palindrome_Detection.md` | `palindrome-detection` |
+| `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | `repeat-detection` |
+| `docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md` | `tandem-repeat-detection` |
+
+### RnaStructure (13)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/RnaStructure/Dot_Bracket_Notation.md` | `dot-bracket-notation` |
+| `docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md` | `hairpin-energy-calculation` |
+| `docs/algorithms/RnaStructure/Inverted_Repeats.md` | `inverted-repeats` |
+| `docs/algorithms/RnaStructure/Minimum_Free_Energy.md` | `minimum-free-energy` |
+| `docs/algorithms/RnaStructure/Pseudoknot_Detection.md` | `pseudoknot-detection` |
+| `docs/algorithms/RnaStructure/Pseudoknot_Prediction.md` | `pseudoknot-prediction` |
+| `docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md` | `pseudoknot-prediction-recursive` |
+| `docs/algorithms/RnaStructure/RNA_Base_Pairing.md` | `rna-base-pairing` |
+| `docs/algorithms/RnaStructure/RNA_Free_Energy.md` | `rna-free-energy` |
+| `docs/algorithms/RnaStructure/RNA_Partition_Function.md` | `rna-partition-function` |
+| `docs/algorithms/RnaStructure/RNA_Secondary_Structure.md` | `rna-secondary-structure` |
+| `docs/algorithms/RnaStructure/RNA_Stemloop.md` | `rna-stemloop` |
+| `docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md` | `turner-mccaskill-partition-function` |
+
+### Sequence_Comparison (1)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | `common-region-detection` |
+
+### Sequence_Composition (8)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Sequence_Composition/GC_Skew.md` | `gc-skew` |
+| `docs/algorithms/Sequence_Composition/Linguistic_Complexity.md` | `linguistic-complexity` |
+| `docs/algorithms/Sequence_Composition/RNA_Complement.md` | `rna-complement` |
+| `docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md` | `replication-origin-prediction` |
+| `docs/algorithms/Sequence_Composition/Sequence_Composition.md` | `sequence-composition` |
+| `docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md` | `sequence-composition-statistics` |
+| `docs/algorithms/Sequence_Composition/Sequence_Validation.md` | `sequence-validation` |
+| `docs/algorithms/Sequence_Composition/Shannon_Entropy.md` | `shannon-entropy` |
+
+### Splicing (3)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Splicing/Acceptor_Site_Detection.md` | `acceptor-site-detection` |
+| `docs/algorithms/Splicing/Donor_Site_Detection.md` | `donor-site-detection` |
+| `docs/algorithms/Splicing/Gene_Structure_Prediction.md` | `gene-structure-prediction` |
+
+### Statistics (11)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Statistics/Codon_Frequencies.md` | `codon-frequencies` |
+| `docs/algorithms/Statistics/DNA_Thermodynamics.md` | `dna-thermodynamics` |
+| `docs/algorithms/Statistics/Dinucleotide_Analysis.md` | `dinucleotide-analysis` |
+| `docs/algorithms/Statistics/Entropy_Profile.md` | `entropy-profile` |
+| `docs/algorithms/Statistics/GC_Content_Profile.md` | `gc-content-profile` |
+| `docs/algorithms/Statistics/Hydrophobicity_Analysis.md` | `hydrophobicity-analysis` |
+| `docs/algorithms/Statistics/Isoelectric_Point.md` | `isoelectric-point` |
+| `docs/algorithms/Statistics/Melting_Temperature.md` | `melting-temperature` |
+| `docs/algorithms/Statistics/Molecular_Weight_Calculation.md` | `molecular-weight-calculation` |
+| `docs/algorithms/Statistics/Secondary_Structure_Prediction.md` | `secondary-structure-prediction` |
+| `docs/algorithms/Statistics/Sequence_Summary.md` | `sequence-summary` |
+
+### StructuralVar (3)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/StructuralVar/Breakpoint_Detection.md` | `breakpoint-detection` |
+| `docs/algorithms/StructuralVar/Copy_Number_Variation.md` | `copy-number-variation` |
+| `docs/algorithms/StructuralVar/SV_Detection.md` | `sv-detection` |
+
+### Transcriptome (3)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Transcriptome/Alternative_Splicing.md` | `alternative-splicing` |
+| `docs/algorithms/Transcriptome/Differential_Expression.md` | `differential-expression` |
+| `docs/algorithms/Transcriptome/Expression_Quantification.md` | `expression-quantification` |
+
+### Translation (3)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Translation/Codon_Translation.md` | `codon-translation` |
+| `docs/algorithms/Translation/Protein_Translation.md` | `protein-translation` |
+| `docs/algorithms/Translation/Six_Frame_Translation.md` | `six-frame-translation` |
+
+### Variants (4)
+
+| Algorithm doc | Expected slug |
+| --- | --- |
+| `docs/algorithms/Variants/Indel_Detection.md` | `indel-detection` |
+| `docs/algorithms/Variants/SNP_Detection.md` | `snp-detection` |
+| `docs/algorithms/Variants/Variant_Annotation.md` | `variant-annotation` |
+| `docs/algorithms/Variants/Variant_Detection.md` | `variant-detection` |
+
+## Queued source batches (approved 2026-07-09)
+
+Approved for ingestion in the 2026-07-09 lint triage; pending `/wiki:ingest`.
+
+### Testing methodology checklists (10) — `docs/checklists/`
+
+- `docs/checklists/01_PROPERTY_BASED_TESTING.md`
+- `docs/checklists/02_METAMORPHIC_TESTING.md`
+- `docs/checklists/03_FUZZING.md`
+- `docs/checklists/04_MUTATION_TESTING.md`
+- `docs/checklists/05_SNAPSHOT_TESTING.md`
+- `docs/checklists/06_ALGEBRAIC_TESTING.md`
+- `docs/checklists/07_ARCHITECTURE_TESTING.md`
+- `docs/checklists/08_DIFFERENTIAL_TESTING.md`
+- `docs/checklists/09_COMBINATORIAL_TESTING.md`
+- `docs/checklists/10_CHARACTERIZATION_TESTING.md`
+
+### Validation governance ledgers (4) — `docs/Validation/`
+
+- `docs/Validation/FINDINGS_REGISTER.md`
+- `docs/Validation/LIMITATIONS.md`
+- `docs/Validation/VALIDATION_LEDGER.md`
+- `docs/Validation/VALIDATION_PROTOCOL.md`
+
+### MCP top-level docs (3) — `docs/mcp/`
+
+- `docs/mcp/MCP_STATUS.md`
+- `docs/mcp/README.md`
+- `docs/mcp/traceability.md`
+
+## Notes
+
+- `docs/algorithms/README.md` and `docs/algorithms/CANONICAL_MAP.md` are index/map
+  docs, not algorithm units — ingest only if a navigational need arises.
+- The `docs/Evidence/**` campaign (175 of 213 remaining) is the primary driver: each
+  Evidence ingest typically creates or extends the concept that also covers the
+  matching algorithm doc, clearing a pending row here as a side effect.

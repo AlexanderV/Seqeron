@@ -30,6 +30,26 @@ This file is **co-evolved with the user**. When the LLM notices a recurring patt
 5. Ingest is triggered per changed source: `/wiki:ingest <repo-relative-path>`
    (e.g. `/wiki:ingest docs/api/parsers.md` or `/wiki:ingest README.md`).
 
+## Coverage exclude policy
+
+`scripts/wiki_coverage.py` treats every markdown file under `docs/**` as an
+expected wiki source. Several subtrees are **generated or reference-only** and are
+NOT ingestion targets — they would otherwise swamp the coverage signal (they
+accounted for ~693 of 1135 uncovered docs at the 2026-07-09 lint). Always pass
+these `--exclude` globs when running the coverage check:
+
+```
+--exclude 'docs/mcp/tools/**'          # 427 generated per-tool reference docs
+--exclude 'docs/Validation/reports/**' # generated per-run validation reports
+--exclude 'docs/refactoring/**'        # internal/historical refactoring logs
+--exclude 'docs/skills/_generated/**'  # generated skill artifacts
+--exclude 'docs/templates/**'          # doc templates
+```
+
+Everything else under `docs/**` remains in scope. `docs/algorithms/**` is
+explicitly **in scope**: each algorithm doc is reconciled against its synthesizing
+concept page (recorded in `wiki/backlog.md`), not excluded.
+
 ## Page types
 
 This wiki uses these page types, each with a dedicated subdirectory:
