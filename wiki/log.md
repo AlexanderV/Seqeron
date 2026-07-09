@@ -1473,3 +1473,26 @@ Operations:
    (53→54 covered / 192→191 pending, 30 domains). Contradictions: none.
    graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
    relates_to both-strand-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/KMER-STATS-001-Evidence.md → kmer-stats-001-evidence (source) + 1 concept
+   Sixth K-mer family Evidence file (after ASYNC, BOTH, DIST, GENERATE, POSITIONS). Judged
+   `KmerAnalyzer.AnalyzeKmers` a GENUINELY DISTINCT companion summary layer over the shared CountKmers
+   multiset — it reduces the count profile to a KmerStatistics bundle {TotalKmers, UniqueKmers, MaxCount,
+   MinCount, AverageCount, Entropy} and adds the one formula unique to this unit, the Shannon **k-entropy**
+   `E_k=−Σ p(α)log₂p(α)`, `p(α)=mult/(L−k+1)` (Manca 2021 arXiv:2106.15351 + Entropy–Rank Ratio
+   arXiv:2511.05300), so it warrants its own concept rather than enriching a counting concept. Created
+   concept [[k-mer-statistics]]. Captured the naming GOTCHA: `UniqueKmers` holds the **distinct** count
+   (each different k-mer once), NOT the count==1 singletons (that is the separate KMER-UNIQUE-001 /
+   Unique_And_MinCount_Kmers.md unit). Count facts (TotalKmers=L−k+1, distinct) from Wikipedia + BioInfoLogics
+   count tables; AverageCount=total/distinct. Oracles GTAGAGCTGT k=1 (10/4/max4(G)/min1(C)/avg2.5/H1.846439…) +
+   k=3 (8/8/1/1/H log₂8=3.0) + ATCGATCAC k=3 (7/6/2(ATC)/1/avg1.17/H2.521640…) + AAAA k=2 homopolymer
+   (3/1/3/3/H0); corner cases homopolymer→H0/max=min=total, all-distinct→H log₂D/max=min=1, k>L·empty→all-zero,
+   k≤0→ArgumentOutOfRangeException, case-insensitive. Two presentation-only assumptions (AverageCount rounded
+   2dp via Math.Round; Entropy unrounded bits, tests within 1e-10), neither correctness-affecting. Concise
+   source page for the artifact; concept lists both the Evidence file and K-mer_Statistics.md algorithm doc in
+   sources. Wired into index (source + concept lines) + the algorithm-validation-evidence hub (frontmatter
+   source + body evidence-link + own-concept list). Reconciled backlog: moved K-mer/K-mer_Statistics.md from
+   pending K-mer (5→4) to covered-via-concept (54→55 covered / 191→190 pending, 30 domains). Contradictions:
+   none — count tables and both k-entropy sources are mutually consistent.
+   graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
+   relates_to asynchronous-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)
