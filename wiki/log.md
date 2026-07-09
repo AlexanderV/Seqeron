@@ -2398,3 +2398,19 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet); index
    updated (1 source + 1 concept). Follow-up: ONCO-NEO-001 (GenerateNeoantigenPeptides) not yet ingested.
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, relates_to hla-nomenclature-and-allele-specific-loh, relates_to immune-infiltration-deconvolution)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-MRD-001-Evidence.md → onco-mrd-001-evidence (source) + 1 concept
+   Twenty-third Oncology unit: tumor-informed minimal/molecular residual disease (MRD) detection.
+   Judged DISTINCT from ONCO-CTDNA-001 (multi-variant MRD verdict vs single-reporter Poisson
+   probability) -> dedicated concept [[tumor-informed-mrd-detection]]. Two engines: Signatera
+   panel positivity DetectMRD (>=2 of 16 tracked variants = MRD-positive; Reinert 2019 / PMC9265001
+   Table 1; longitudinal TrackVariantsOverTime; panel Poisson p=1-e^(-nfm) reused from ONCO-CTDNA-001)
+   + INVAR GLRT (Wan 2020 + INVAR2 verbatim: per-locus mixture q=p*g+e(1-p), EM ctDNA-fraction,
+   LR=logL(p̂)-logL(0), AF/SNR-weighting, IMAFv2 background-subtracted depth-weighted, fragment-size
+   weighting + opt-in Gaussian-KDE size profile, repolish outlier suppression, control-derived
+   background). Cross-linked ctdna-detection-and-tumor-fraction (prose link both ways via depends_on
+   edge + mention). Wired into algorithm-validation-evidence hub (frontmatter source + summary link +
+   anchor bullet, source_commit bumped). Index updated (1 source + 1 concept). One flagged assumption
+   (per-variant "detected"=>=1 alt read, tunable; panel >=2 rule unaffected); KDE opt-in vs discrete
+   default resolved; no source contradictions.
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, depends_on ctdna-detection-and-tumor-fraction)

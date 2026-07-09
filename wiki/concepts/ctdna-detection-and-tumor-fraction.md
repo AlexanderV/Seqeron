@@ -29,8 +29,10 @@ The **quantification / limit-of-detection layer** of the Oncology family for **c
 (ctDNA)** in a **liquid biopsy** (cell-free DNA / cfDNA from plasma). Where the sibling
 [[clonal-hematopoiesis-cfdna-filtering]] *filters out* non-tumor cfDNA calls, this unit *quantifies*
 the tumor signal: the **probability of detecting** ≥1 tumor molecule under Poisson sampling, the
-**tumor fraction** from clonal VAF, and the **mean VAF** across reporters — the machinery behind
-**minimal residual disease (MRD)** monitoring. Validated under test unit **ONCO-CTDNA-001**; the
+**tumor fraction** from clonal VAF, and the **mean VAF** across reporters — the quantification
+primitive beneath **minimal residual disease (MRD)** monitoring. The multi-variant MRD *calling*
+layer that reuses this Poisson primitive is [[tumor-informed-mrd-detection]] (ONCO-MRD-001).
+Validated under test unit **ONCO-CTDNA-001**; the
 literature-traced record is [[onco-ctdna-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern. Research-grade
 ([[scientific-rigor|research-grade]]), **not for clinical or diagnostic use**.
