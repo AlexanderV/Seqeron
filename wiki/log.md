@@ -1616,3 +1616,27 @@ Operations:
    as evolution, not conflict; Evidence file lists no open questions / no deviations).
    graph: +2 nodes (source + concept), +3 typed edges (concept relates_to test-unit-registry /
    metagenomic-binning / alpha-diversity); body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] ingest | docs/Evidence/META-FUNC-001-Evidence.md → meta-func-001-evidence (source) + functional-prediction (concept)
+   Fifth Metagenomics-family Evidence unit. Source page [[meta-func-001-evidence]] + new concept
+   [[functional-prediction]] (PICRUSt/KO-style functional prediction in two exact-numeric pieces:
+   (A) homology-based annotation transfer `PredictFunctions` — exact-signature `string.Contains` hit
+   scored by BLOSUM62 self-score, BLAST bit `S'=(λS−lnK)/ln2` + E-value `E=K·m·n·e^(−λS)=m·n·2^(−S')`
+   with ungapped BLOSUM62 λ=0.3176/K=0.134 (Altschul tutorial + NCBI blast_stat.c + BLOSUM62 diagonals),
+   best hit = lowest E-value; (B) hypergeometric pathway ORA `FindPathwayEnrichment` — right-tail
+   P(X≥x) in log-Gamma space, x/M/n=0→p=1, sorted ascending). Genuinely distinct concept (functional
+   capability, not who-is-there / diversity). Cross-linked to all four siblings [[taxonomic-classification]]
+   (added a reciprocal "who is there vs what can they do" nav link there) / [[metagenomic-binning]] /
+   [[alpha-diversity]] / [[beta-diversity]], and to [[alignment-statistics]] (BLAST significance is a
+   different layer from percent-id). One assumption ASM-01 = ungapped exact-match model (affects which
+   hits found, not the bit-score/E-value formulas); Evidence lists no contradictions. Oracles WWW→
+   S'18.0202932787533/E 3.3852730346546e−5 (both forms agree) + ORA N8000/M400/n100/x20→7.88e−8.
+   Hub [[algorithm-validation-evidence]]: added META-FUNC to frontmatter sources (bumped source_commit to
+   HEAD) + source-list + concept-list. index.md: +1 source +1 concept. Backlog: moved
+   Metagenomics/Functional_Prediction.md pending→covered (60→61 covered / 185→184 pending; §Metagenomics
+   6→5). SCOPE NOTE: the shared ORA half (`FindPathwayEnrichment`/`HypergeometricUpperTail`) is its OWN
+   unit META-PATHWAY-001 (Pathway_Enrichment_ORA.md, separate META-PATHWAY-001-Evidence.md, not yet
+   ingested) — META-FUNC-001 validates only Functional_Prediction.md; flagged on both the source and
+   concept pages so META-PATHWAY-001 can share this material later.
+   graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry); body
+   [[wikilinks]] mentions auto-derived.

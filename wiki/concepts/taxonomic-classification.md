@@ -40,7 +40,9 @@ a k-mer shared by several taxa is stored as their **LCA**, and a per-read **root
 maximum-weight-path** classifier. This is the **fourth ingested unit of the Metagenomics family**; its
 siblings are [[metagenomic-binning]] (unsupervised per-contig grouping into MAGs) and the diversity
 pair [[alpha-diversity]] / [[beta-diversity]] (which summarize the abundance profile classification
-produces). Validated under test unit **META-CLASS-001**; the record is [[meta-class-001-evidence]],
+produces), and [[functional-prediction]] (which transfers *functional* annotation to genes and tests
+pathway over-representation — the "what can they do" complement to this "who is there" assignment).
+Validated under test unit **META-CLASS-001**; the record is [[meta-class-001-evidence]],
 [[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the artifact
 pattern.
 

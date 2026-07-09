@@ -59,7 +59,8 @@ sources:
   - docs/Evidence/KMER-STATS-001-Evidence.md
   - docs/Evidence/KMER-UNIQUE-001-Evidence.md
   - docs/Evidence/META-ALPHA-001-Evidence.md
-source_commit: 88b3a1e12a0b76ef17934a3d6d3c12f96a1fe058
+  - docs/Evidence/META-FUNC-001-Evidence.md
+source_commit: ab6548a3b59cfe5105eb5aa7cb252e63ffed5de7
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -128,7 +129,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[genomic-repeat-001-evidence]], [[kmer-async-001-evidence]],
 [[kmer-both-001-evidence]], [[kmer-dist-001-evidence]],
 [[kmer-positions-001-evidence]], [[kmer-stats-001-evidence]],
-[[kmer-unique-001-evidence]], [[meta-alpha-001-evidence]]). An
+[[kmer-unique-001-evidence]], [[meta-alpha-001-evidence]],
+[[meta-func-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -178,4 +180,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[k-mer-positions]] (the K-mer family's *occurrence-index* unit — `KmerAnalyzer.FindKmerPositions` returns the ascending 0-based positions where a given k-mer occurs in a sequence, *where* not *how many*; the single-pattern sibling of the multi-pattern exact-matcher [[known-motif-search]], distinct from the counting siblings), or
 [[k-mer-statistics]] (the K-mer family's *summary-statistics* unit — `KmerAnalyzer.AnalyzeKmers` reduces the count profile to Total/Unique(=distinct)/Max/Min/Average multiplicity + Shannon **k-entropy** in bits, a companion summary layer over the shared `CountKmers`, distinct from the counting/generation/distance siblings), or
 [[unique-and-mincount-kmers]] (the K-mer family's *frequency-filtering* unit — `KmerAnalyzer.FindUniqueKmers` returns the `Count == 1` singleton set and `FindKmersWithMinCount` the `Count ≥ t` recurrent k-mers ordered by count; the "unique"=singleton notion is distinct from [[k-mer-statistics]]'s `UniqueKmers`=distinct-count field), or
-[[alpha-diversity]] (the anchor for the Metagenomics diversity family, the first ingested META-* unit — `MetagenomicsAnalyzer.CalculateAlphaDiversity` computes the six within-sample indices Shannon/Simpson/inverse-Simpson/Pielou-evenness/observed-richness/Chao1 over one taxon→abundance map; between-sample [[beta-diversity]] is a future sibling).
+[[alpha-diversity]] (the anchor for the Metagenomics diversity family, the first ingested META-* unit — `MetagenomicsAnalyzer.CalculateAlphaDiversity` computes the six within-sample indices Shannon/Simpson/inverse-Simpson/Pielou-evenness/observed-richness/Chao1 over one taxon→abundance map; between-sample [[beta-diversity]] is a future sibling), or
+[[functional-prediction]] (the Metagenomics family's functional-prediction unit, META-FUNC-001 — homology-based annotation transfer `MetagenomicsAnalyzer.PredictFunctions` scored with BLAST bit-score / E-value Karlin-Altschul statistics (ungapped BLOSUM62 λ=0.3176/K=0.134, best-hit = lowest E-value) plus the hypergeometric pathway ORA `FindPathwayEnrichment`; the ORA half is shared with the not-yet-ingested META-PATHWAY-001).
