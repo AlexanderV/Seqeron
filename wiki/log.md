@@ -2201,3 +2201,22 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    contradictions. New concept + source created, wired into the algorithm-validation-evidence hub
    (frontmatter source + evidence link + anchor bullet); index updated (1 source + 1 concept).
    graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-EXPR-001-Evidence.md → onco-expr-001-evidence (source) + 1 concept
+   ONCO-EXPR-001 = Tumor Gene Expression Outlier (z-score) + Signature Score, the thirteenth ingested
+   Oncology unit and the wiki's first expression/transcriptome method. Per-gene outlier z = (r−μ)/σ
+   against a caller-supplied reference (base) population (cBioPortal diploid or all-samples), with
+   σ = sample SD divisor (n−1) — settled by the reference `NormalizeExpressionLevels.java` `std()` over
+   the prose spec's silence — classified over/under-expressed under the strict ±2 default threshold
+   (exactly ±2 NOT an outlier). Combined-z signature/pathway activity a = (Σzᵢ)/√k (Lee et al. 2008,
+   GSVA `zscore` method, corroborated by the GSVA vignette). Zero-SD reference throws (`fatalError`),
+   a behavioural deviation from the prose "z ← NA when SD = 0" — the two cBioPortal sources disagree
+   and the code wins. Oracles: reference {2,2,4,6,6}→μ=4/σ=2, x=10→3.0 over / x=8→2.0 boundary-not-
+   outlier / x=4→0.0 / x=−1→−2.5 under; signature {3,1,−1,1}→a=2.0, single-gene {2.5}→2.5. Corner
+   cases: n≤1 SD undefined, k=0 invalid, k=1 well-defined. Two scope assumptions (caller-supplied
+   cohort+signature; inputs pre-normalized / z meaningful) + one behavioural deviation (throw not NA);
+   no further contradictions (z formula corroborated four ways). New concept
+   [[expression-outlier-zscore-signature-score]] + source [[onco-expr-001-evidence]] created, wired
+   into the algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet);
+   index updated (1 source + 1 concept).
+   graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
