@@ -906,3 +906,26 @@ Operations:
    + concept-entry now marks COMPGEN-REARR-001 + COMPGEN-REVERSAL-001). Contradictions: none —
    signed/unsigned criteria are the same rule under |Δ|; Deviations = None beyond the two assumptions.
    graph: +1 node, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-SYNTENY-001-Evidence.md → compgen-synteny-001-evidence (source)
+   Thirty-seventh per-algorithm Evidence file; ninth of the Comparative-genomics (COMPGEN) family
+   (after ANI, CLUSTER, COMPARE, DOTPLOT, ORTHO, RBH, REARR, REVERSAL). NO new concept — REUSED the
+   existing shared synteny anchor synteny-and-rearrangement-detection (created for CHROM-SYNT-001,
+   which was pre-named as the anchor COMPGEN-SYNTENY would reuse). This file is the comparative-genomics
+   whole-genome counterpart and supplies the concrete MCScanX collinearity DP scoring parameters behind
+   that anchor's FindSyntenyBlocks: chain DP Score(v)=max(MatchScore(v), max_u[Score(u)+MatchScore(v)+
+   GapPenalty×NumberofGaps(u,v)]), MatchScore 50 / GapPenalty −1 / MAX_GAPS 25, report non-overlapping
+   chains scoring over 250 (≥5 collinear anchor pairs), both transcriptional directions → forward +
+   inverted (IsInverted) blocks, anchors from BLASTP E≤1e-5 with <5-gene collapse (generation delegated
+   to COMPGEN-ORTHO-001). Enriched the concept with a new "MCScanX collinearity DP model" section + the
+   scoring block, and updated its intro to record dual validation (CHROM-SYNT-001 chromosome-scale +
+   COMPGEN-SYNTENY-001 whole-genome). Sources: MCScanX (Wang 2012, PMC3326336, rank 1, verbatim
+   recurrence/params) + MCScanX Oxford HTML (synteny-vs-collinearity, anchors=homologs) + Wikipedia
+   Synteny (rank 4, definitions). Oracles: 5 forward anchors→score 250→forward block; reversed order→
+   inverted block; 4 anchors→score 200→no block; ≥25-gene gap→chain breaks; empty→no blocks. Two
+   source-backed ASSUMPTIONS: report rule ≥250 AND ≥5 pairs (resolves the "over 250" vs "≥5 pairs"
+   wording tension in favour of the explicit 5-pair minimum); anchors supplied as an orthologMap.
+   Concise source page written; linked into the algorithm-validation-evidence hub (frontmatter sources +
+   source-list + concept-list); index updated (source line). Contradictions: none — the two MCScanX
+   renderings and Wikipedia agree; Deviations = None beyond the two scoping assumptions.
+   graph: +1 node, +1 typed edge (relates_to test-unit-registry)

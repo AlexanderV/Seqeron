@@ -21,6 +21,12 @@ graph:
       evidence: "CHROM-SYNT-001 is a sibling Chromosome-analysis unit of CHROM-ANEU-001; both operate at whole-chromosome scale (synteny/rearrangement vs copy-number)"
       confidence: medium
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: compgen-synteny-001-evidence
+      evidence: "Test Unit ID: COMPGEN-SYNTENY-001 ... Algorithm: Synteny / Collinearity Block Detection (MCScanX collinearity model) — the comparative-genomics unit reusing this anchor"
+      confidence: high
+      status: current
 ---
 
 # Synteny blocks and rearrangement detection
@@ -37,9 +43,12 @@ Comparative-genomics family are [[average-nucleotide-identity]] — the genome-s
 a gene *set* is contiguous in every genome (a common interval) rather than requiring a collinear
 ordered block. The end-to-end pipeline [[genome-comparison-core-dispensable]] reuses this unit's
 syntenic blocks to report an `OverallSynteny` fraction alongside its core/dispensable gene
-partition. Validated under test
-unit **CHROM-SYNT-001**; the validation record is [[chrom-synt-001-evidence]], [[test-unit-registry]]
-tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
+partition. Validated under two test units: **CHROM-SYNT-001** at chromosome scale (validation record
+[[chrom-synt-001-evidence]]) and the comparative-genomics **COMPGEN-SYNTENY-001** at whole-genome
+scale, which reuses this anchor and supplies the concrete MCScanX DP scoring parameters (validation
+record [[compgen-synteny-001-evidence]]; see the *MCScanX collinearity DP model* section below).
+[[test-unit-registry]] tracks the units and [[algorithm-validation-evidence]] describes the artifact
+pattern.
 
 A **syntenic block** is "a region of chromosomes between genomes that shares a common order of
 homologous genes derived from a common ancestor" (Wikipedia). The unit exposes two algorithms:
@@ -117,6 +126,30 @@ Chromosome2 differs from source block's target chromosome (for translocations) (
 - **Multiple chromosome pairs** → separate blocks per pair.
 - **Single block** into `DetectRearrangements` → empty (no adjacent pairs to compare).
 - **All same chromosome, same strand** → empty (no rearrangement).
+
+## MCScanX collinearity DP model (COMPGEN-SYNTENY-001)
+
+The comparative-genomics unit makes the MCScanX chaining scheme behind `FindSyntenyBlocks`
+explicit. Given an input **ortholog/anchor map** (anchor *generation* is delegated to
+COMPGEN-ORTHO-001), a dynamic program chains adjacent anchors:
+
+```
+Score(v) = max( MatchScore(v),
+                max_u [ Score(u) + MatchScore(v) + GapPenalty × NumberofGaps(u,v) ] )
+MatchScore   = 50   per anchored gene pair
+GapPenalty   = -1
+NumberofGaps = max intervening genes between anchors u and v; must be < 25 (MAX_GAPS)
+```
+
+A non-overlapping chain is reported iff its score is **over 250** — equivalently **≥ 5 collinear
+anchor pairs** (`5 × 50 = 250`), the MCScanX default minimum block. Because matches are sorted in
+**both transcriptional directions**, forward and inverted (reverse) blocks are both detected
+(`IsInverted`), matching the strand `+`/`-` distinction above. Anchors come from BLASTP at E ≤ 10⁻⁵
+with near-duplicate collapsing (< 5 genes apart → representative pair, smallest E-value). Worked
+oracles: 5 adjacent forward anchors → one forward block (score 250); reversed order → one inverted
+block; 4 anchors (score 200) → no block; a ≥ 25-gene gap breaks the chain. Two source-backed
+assumptions (report rule ≥ 250 **and** ≥ 5 pairs; anchors supplied as an `orthologMap`) are detailed
+in [[compgen-synteny-001-evidence]].
 
 ## Reference tools
 
