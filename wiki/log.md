@@ -1993,3 +1993,18 @@ Real remaining gap: snapshot 37/255 + on-demand characterization. Semantic note 
 graph: +21 nodes, +126 edges (10 typed relates_to edges to validation-and-testing/property-based/
 layered-architecture/snapshot; rest are body-wikilink mentions); graph lint clean. index updated
 (10 sources + 9 concepts). Wiki now 191 pages.
+
+## [2026-07-09] ingest | docs/Evidence/ONCO-ACTION-001-Evidence.md → clinical actionability (OncoKB levels)
+First Oncology-family unit. New source page [[onco-action-001-evidence]] and new anchor concept
+[[clinical-actionability-oncokb-levels]] (Clinical Actionability Assessment by the OncoKB Therapeutic
+Levels of Evidence). The algorithm is a pure level-ranking of caller-supplied leveled drug associations
+under the fixed combined order R1 > 1 > 2 > 3A > 3B > 4 > R2 (sensitivity axis 1 > 2 > 3A > 3B > 4,
+resistance axis R1 > R2), reporting the max per axis + combined, or NotActionable when a variant carries
+no leveled association. Genuinely distinct from all existing concepts (no oncology page existed) →
+warranted its own concept, wired into the [[algorithm-validation-evidence]] hub (frontmatter source +
+evidence link + anchor bullet). Sources: Chakravarty 2017 OncoKB (JCO PO, DOI paywalled) + OncoKB
+Levels-of-Evidence PDF V2 + OncoKB Curation SOP v3 + oncokb-annotator README — all mutually consistent
+(SOP explicitly consistent with AMP/ASCO/CAP Li 2017). Two assumptions: NotActionable is the library's
+name for OncoKB's empty-HIGHEST_LEVEL observable; the knowledgebase is a caller input (library ranks,
+does not embed the OncoKB DB). No contradictions. index updated (1 source + 1 concept).
+graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept); graph lint clean.
