@@ -1428,3 +1428,22 @@ Operations:
    Contradictions: none.
    graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
    alternative_to kmer-jaccard-similarity; source/concept [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | KMER-GENERATE-001-Evidence.md → kmer-generate-001-evidence (source) + k-mer-generation (concept)
+   Fourth K-mer family Evidence. Test unit KMER-GENERATE-001, KmerAnalyzer.GenerateAllKmers — exhaustive
+   enumeration of ALL possible k-mers of length k over an alphabet (the complete n^k universe Σ^k, 4^k for
+   DNA), sequence-independent. Judged GENUINELY DISTINCT from the counting siblings → new dedicated concept
+   [[k-mer-generation]] (generation = full n^k word set / frequency-array address space; counting = observed
+   substrings + counts). Sources Wikipedia K-mer (n^k / 4^k, AGAT example) + BioInfoLogics 4^k (per-position
+   Cartesian product) + Python itertools.product (k-fold product, odometer/lexicographic emission on sorted
+   alphabet). Model = k-fold Cartesian product, lazy recursive prefix-extension, INV-01..04 (n^k count /
+   all-distinct-set / length-k / sorted→lexicographic). Oracles k=1→{A,C,G,T}, k=2→16 AA..TT, k=3→64
+   (AAA..TTT), protein 20^2=400, single-letter 1^4=1. Edge cases k≤0→ArgumentOutOfRangeException,
+   empty alphabet→ArgumentException, unsorted→positional order, no dedup. One assumption (default "ACGT"
+   sorted, documented property); Deviations = None. Cross-linked to sibling K-mer concepts; enriched
+   both-strand-kmer-counting with an inbound [[k-mer-generation]] wikilink. Concept lists both the Evidence
+   file and K-mer_Generation.md algorithm doc in sources. Reconciled backlog: moved K-mer/K-mer_Generation.md
+   from pending K-mer (7→6) to covered-via-concept (52→53 covered / 193→192 pending, 30 domains).
+   Contradictions: none.
+   graph: +2 nodes (concept + source page), +2 typed edges (concept relates_to test-unit-registry +
+   relates_to both-strand-kmer-counting; source/concept [[wikilinks]] mentions auto-derived)

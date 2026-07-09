@@ -116,5 +116,6 @@ suffix tree adds `O(n)` construction with no benefit.
   once on `S` and once on `RC(S)`. The `L − k + 1` count model is shared; a future sync-count concept
   will own that definition and this page will link to it.
 - The same k-mer machinery feeds the K-mer family's other operations (frequency analysis,
-  generation, statistics) and downstream [[de-bruijn-graph-assembly]],
-  [[kmer-spectrum-error-correction]], and [[kmer-jaccard-similarity]].
+  [[k-mer-generation|generation]], statistics) and downstream [[de-bruijn-graph-assembly]],
+  [[kmer-spectrum-error-correction]], and [[kmer-jaccard-similarity]]. Note [[k-mer-generation]]
+  enumerates the full `n^k` universe (sequence-independent) rather than counting observed windows.
