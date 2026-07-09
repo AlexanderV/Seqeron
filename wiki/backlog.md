@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **59** algorithm docs covered-via-concept, **186** pending across 30 domains.
+Status at generation: **60** algorithm docs covered-via-concept, **185** pending across 30 domains.
 
 ## Covered via concept (done)
 
@@ -82,6 +82,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Metagenomics/Alpha_Diversity.md` | [[alpha-diversity]] |
 | `docs/algorithms/Metagenomics/Beta_Diversity.md` | [[beta-diversity]] |
 | `docs/algorithms/Metagenomics/Genome_Binning.md` | [[metagenomic-binning]] |
+| `docs/algorithms/Metagenomics/Taxonomic_Classification.md` | [[taxonomic-classification]] |
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
@@ -155,7 +156,7 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/K-mer/K-mer_Frequency_Analysis.md` | `k-mer-frequency-analysis` |
 | `docs/algorithms/K-mer/K-mer_Search.md` | `k-mer-search` |
 
-### Metagenomics (7)
+### Metagenomics (6)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
@@ -164,7 +165,6 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md` | `pangenome-core-accessory` |
 | `docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md` | `pathway-enrichment-ora` |
 | `docs/algorithms/Metagenomics/Significant_Taxa_Detection.md` | `significant-taxa-detection` |
-| `docs/algorithms/Metagenomics/Taxonomic_Classification.md` | `taxonomic-classification` |
 | `docs/algorithms/Metagenomics/Taxonomic_Profile.md` | `taxonomic-profile` |
 
 ### MiRNA (4)

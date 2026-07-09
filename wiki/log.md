@@ -1602,3 +1602,17 @@ Operations:
    supersedes the base file's "not implemented" residual; recorded as an evolution, not a conflict).
    graph: +1 node (source page); no new typed edges (concept already relates_to test-unit-registry);
    body [[wikilinks]] mentions auto-derived
+
+## [2026-07-09] ingest | docs/Evidence/META-CLASS-001-Evidence.md → meta-class-001-evidence (source) + taxonomic-classification (concept)
+   Fourth Metagenomics-family Evidence unit. Source page [[meta-class-001-evidence]] + new concept
+   [[taxonomic-classification]] (faithful Kraken k-mer/LCA/RTL per-read classifier: canonical-k-mer→
+   LCA-of-owning-taxa database, classification-tree max-scoring root-to-leaf path, tie→LCA of leaves,
+   Confidence=C/Q, no-hit→Unclassified root). Genuinely distinct concept — per-read/LCA assignment, not
+   diversity or binning; deliberately scoped to classification (abundance profiling Taxonomic_Profile
+   left as a separate future unit). Cross-linked to siblings [[metagenomic-binning]] +
+   [[alpha-diversity]]/[[beta-diversity]]. index.md: +1 source +1 concept. Backlog: moved
+   Metagenomics/Taxonomic_Classification.md pending→covered (59→60 covered / 186→185 pending; §Metagenomics 7→6).
+   Contradictions: none (pre-C1 flat best-hit wording superseded by the LCA/RTL enhancement — recorded
+   as evolution, not conflict; Evidence file lists no open questions / no deviations).
+   graph: +2 nodes (source + concept), +3 typed edges (concept relates_to test-unit-registry /
+   metagenomic-binning / alpha-diversity); body [[wikilinks]] mentions auto-derived.
