@@ -2118,3 +2118,21 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet); index updated
    (1 source + 1 concept). One diploid-ploidy=2 assumption, no source contradictions.
    graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry, on the concept)
+
+## [2026-07-09] ingest | ONCO-CNA-002-Evidence.md → onco-cna-002-evidence (source) + focal-amplification-detection (concept)
+   Ninth Oncology unit: focal amplification detection — a two-part predicate `DetectFocalAmplifications`
+   keeps segments both amplified (log2 gain > GISTIC2 t_amp 0.1) AND focal (SegLen/ArmLength <
+   broad_len_cutoff 0.98 — Mermel 2011's length-based focal/arm-level split; strict < 0.98, exactly 0.98
+   → arm-level), then `IdentifyAmplifiedOncogenes` maps each focal amp's arm prefix to a built-in oncogene
+   panel (17q→ERBB2, 8q→MYC, 7p→EGFR, 11q→CCND1, 12q→MDM2 AND CDK4, NCBI Gene cytobands). Sources GISTIC2
+   Mermel 2011 (Genome Biology, length rule) + GISTIC2 docs (broad_len_cutoff 0.98 / t_amp 0.1) + CNVkit
+   (single-copy gain log2(3/2)=0.585 > 0.1 → 0.1 admits all gains) + NCBI Gene oncogene cytobands. Judged
+   genuinely DISTINCT from ONCO-CNA-001 (log2→5-state classification): it asks the orthogonal LENGTH
+   question and maps to oncogenes, sharing only the GISTIC2 t_amp=0.1 amplitude gate — new concept created
+   and cross-linked (relates_to copy-number-alteration-classification, reciprocal body link added there).
+   Worked oracles A 17q 0.50/log2 1.0→ERBB2, B 8q 0.99→arm-level, C 7p log2 0.05→not amplified, D 11q 0.98
+   boundary→no. Two assumptions (amplitude+length fusion = integration choice; caller supplies arm label +
+   length, no cytoband table); deletions out of scope (ONCO-CNA-003); no source contradictions. Wired into
+   the algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet); index updated
+   (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (relates_to → test-unit-registry, relates_to → copy-number-alteration-classification, on the concept)

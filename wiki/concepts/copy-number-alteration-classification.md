@@ -28,6 +28,12 @@ tracks the unit, and [[algorithm-validation-evidence]] describes the evidence-ar
 
 **How it differs from its neighbours (all three are distinct layers, not duplicates):**
 
+- [[focal-amplification-detection]] (ONCO-CNA-002) is the **GISTIC2 focal/broad + oncogene-mapping**
+  sibling: it asks the orthogonal **length** question (segment < 98% of its arm → focal) and maps arms
+  to oncogenes. It shares only the GISTIC2 amplitude threshold (`t_amp = 0.1`) this unit uses to place
+  the Amplification bin — it does **not** bin log2 into the five discrete states.
+
+
 - [[allele-specific-copy-number-ascat]] (ONCO-ASCAT-001) is the **allele-specific** layer — it derives
   nA/nB and jointly fits purity ρ / ploidy ψ from logR **and** BAF. This unit is **total-CN only**:
   no allelic contrast, no purity fit, just a single log2 ratio → state.
