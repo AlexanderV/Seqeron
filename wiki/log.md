@@ -2693,3 +2693,19 @@ not the clustering step [[pan-genome-gene-clustering]] (PANGEN-CLUSTER-001) nor 
 [[algorithm-validation-evidence]] frontmatter/source-list/anchor + index updated. No contradictions;
 two source-backed assumptions (clustering delegated to k-mer-Jaccard ClusterGenes; empty-pair fluidity term→0).
    graph: +2 nodes, +3 typed edges
+
+## [2026-07-10] ingest | docs/Evidence/PANGEN-HEAP-001-Evidence.md
+Ingested PANGEN-HEAP-001 (Pan-Genome Growth Model — Heaps'-law fit of the new-gene curve). Genuinely
+distinct from the sibling PANGEN-CORE-001: it is the dedicated fitting engine (presence/absence
+binarization, micropan first-appearance new-gene curve, bounded power-law least-squares
+`y=K·x^(-alpha)`, permutation pooling, open ⟺ alpha<1 rule) that the occupancy partition
+[[pan-genome-core-accessory-partition]] only *reports* as one open/closed output — so a dedicated
+concept was warranted rather than enriching the partition. Created concept [[pan-genome-heaps-law-fit]]
++ source [[pangen-heap-001-evidence]] (micropan `heaps()` powerlaw.R + Tettelin 2008 power-law openness
++ Tettelin 2005 *S. agalactiae* anchor). Cross-linked the partition sibling (added a fitting-engine
+pointer to its Heaps section) and the clustering sibling [[pan-genome-gene-clustering]]. Hub
+[[algorithm-validation-evidence]] frontmatter/source-list/anchor + index (1 source + 1 concept)
+updated. Exact oracles x=[2,3] y=[8,4]→alpha≈1.7095/K≈26.164/closed and constant→alpha 0/K 1/open. No
+contradictions; two source-backed assumptions (optimizer method non-correctness-affecting vs L-BFGS-B,
+fixed-seed permutation RNG).
+   graph: +2 nodes, +3 typed edges

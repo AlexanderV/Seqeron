@@ -93,7 +93,11 @@ returning the **decay exponent alpha**:
 - **Closed** ⟺ **alpha > 1** — few new genes per added genome, the pan-genome size approaches a
   limit (e.g. *S. pneumoniae*).
 
-micropan's verbatim rule: *"if alpha<1.0 the pan-genome is open, if alpha>1.0 it is closed."*
+micropan's verbatim rule: *"if alpha<1.0 the pan-genome is open, if alpha>1.0 it is closed."* The
+decay-exponent fit itself — presence/absence binarization, the first-appearance new-gene curve, and
+the bounded power-law least-squares — is the dedicated growth-model unit [[pan-genome-heaps-law-fit]]
+(PANGEN-HEAP-001); this partition only *reports* its open/closed verdict as one output alongside the
+occupancy partition and fluidity.
 
 ## Edge cases
 
