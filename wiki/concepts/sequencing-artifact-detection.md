@@ -27,7 +27,10 @@ clinical interpretation. Unlike the two clinical-significance siblings — the t
 damage and mapping bias** before any variant reaches those classifiers. `FilterArtifacts` removes flagged
 artifacts and keeps real variants, so the result is a **subset of the input**. Validated under test unit
 **ONCO-ARTIFACT-001**; the record is [[onco-artifact-001-evidence]], [[test-unit-registry]] tracks the
-unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
+unit, and [[algorithm-validation-evidence]] describes the artifact pattern. Its **biological-origin
+counterpart** is [[clonal-hematopoiesis-cfdna-filtering]] — same pre-interpretation QC stage, but
+removing clonal-hematopoiesis (CHIP) blood-clone false positives rather than technical DNA-damage
+artifacts.
 
 ## Three independent artifact signals
 

@@ -2077,3 +2077,16 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    cross-link to the clustering concept; wired into algorithm-validation-evidence hub (frontmatter
    source + evidence link + anchor bullet); index updated (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (relates_to → test-unit-registry, depends_on → allele-specific-copy-number-ascat, on the concept)
+
+## [2026-07-09] ingest | ONCO-CHIP-001-Evidence.md → onco-chip-001-evidence (source) + clonal-hematopoiesis-cfdna-filtering (concept)
+   Sixth Oncology unit: clonal-hematopoiesis (CHIP) filtering for cfDNA liquid biopsy — the pre-interpretation
+   biological-origin filter. Sources Steensma 2015 (CHIP def: VAF ≥ 2% + driver gene + no malignancy) + Genovese
+   2014 (recurrent CH genes) + Razavi 2019 (CH = dominant cfDNA confounder 81.6%/53.2%, matched-WBC = definitive
+   origin test) + Arango-Argoty 2025 (gold standard) + Bolton 2020 (strict origin: WBC VAF ≥ 2% AND ≥ 10 reads
+   AND ≥ φ× tumour VAF, φ=2.0 / 1.5 lymph node). Three methods IdentifyCHIPVariants / FilterCHIP (matched-WBC +
+   conservative gene+VAF fallback) / CallVariantOrigin. Two source-consistent assumptions (canonical default gene
+   set, ≥1-alt-read WBC presence test); no contradictions. New concept cross-linked as the biological-origin
+   sibling of sequencing-artifact-detection (reciprocal body link added there); wired into the
+   algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet); index updated (1 source
+   + 1 concept).
+   graph: +2 nodes, +2 typed edges (relates_to → test-unit-registry, relates_to → sequencing-artifact-detection, on the concept)
