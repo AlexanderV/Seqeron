@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **71** algorithm docs covered-via-concept, **174** pending across 29 domains.
+Status at generation: **72** algorithm docs covered-via-concept, **173** pending across 29 domains.
 
 ## Covered via concept (done)
 
@@ -95,6 +95,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
 | `docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md` | [[overrepresented-kmer-discovery]] |
 | `docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md` | [[consensus-from-alignment]] |
+| `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md` | [[iupac-degenerate-consensus]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
@@ -252,7 +253,7 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/PanGenome/Pan_Genome_Growth_Model.md` | `pan-genome-growth-model` |
 | `docs/algorithms/PanGenome/Phylogenetic_Marker_Selection.md` | `phylogenetic-marker-selection` |
 
-### Pattern_Matching (8)
+### Pattern_Matching (7)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
@@ -260,7 +261,6 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/Pattern_Matching/Edit_Distance.md` | `edit-distance` |
 | `docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md` | `exact-pattern-search` |
 | `docs/algorithms/Pattern_Matching/Frequent_Words_With_Mismatches.md` | `frequent-words-with-mismatches` |
-| `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md` | `iupac-degenerate-consensus` |
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md` | `iupac-degenerate-matching` |
 | `docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md` | `position-weight-matrix` |
 | `docs/algorithms/Pattern_Matching/Suffix_Tree.md` | `suffix-tree` |

@@ -1896,3 +1896,17 @@ Operations:
    implemented.
    graph: +2 nodes (source + concept), +2 typed edges (overrepresented-kmer-discovery relates_to
    test-unit-registry + alternative_to known-motif-search); body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-09] ingest | MOTIF-GENERATE-001-Evidence.md → motif-generate-001-evidence (source) + 1 concept
+   IUPAC-Degenerate Consensus Generation (MotifFinder.GenerateConsensus): per-column keep every
+   base with count > 0.25·n (strict >) → NC-IUB 1984 IUPAC symbol for that base set; no-pass
+   fallback → most-frequent (alphabetical tie). Created concept iupac-degenerate-consensus and
+   cross-linked the plurality [[consensus-from-alignment]] (str_replace: named GenerateConsensus
+   as MOTIF-GENERATE-001 with a wikilink) and the exact [[known-motif-search]] / de-novo
+   [[overrepresented-kmer-discovery]] siblings. index.md: +1 source +1 concept. Backlog: moved
+   Pattern_Matching/IUPAC_Degenerate_Consensus.md pending→covered (71→72 covered / 174→173
+   pending; §Pattern_Matching 8→7, domains still 29). Contradictions: none.
+   Follow-up: sibling degenerate units IUPAC_Degenerate_Matching (scanning direction) +
+   Position_Weight_Matrix (CreatePwm) still pending; warrant their own pages when ingested.
+   graph: +2 nodes (source + concept), +2 typed edges (iupac-degenerate-consensus relates_to
+   test-unit-registry + alternative_to consensus-from-alignment); body [[wikilinks]] mentions auto-derived.

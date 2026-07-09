@@ -84,9 +84,9 @@ and MOTIF-CONS-001 deliberately does not (its `n`/`x` no-consensus output is out
 ## Scope and siblings
 
 This is the **plain most-frequent** consensus. The richer motif representations live in the
-same MotifFinder area but are **separate** methods (not this unit): an **IUPAC-degenerate**
-consensus via `GenerateConsensus` (collapses column variability to an ambiguity code) and a
-**position-weight matrix** via `CreatePwm` (probabilistic per-column model — the input to
+same MotifFinder area but are **separate** methods (not this unit): the **IUPAC-degenerate**
+consensus [[iupac-degenerate-consensus]] via `GenerateConsensus` (test unit MOTIF-GENERATE-001 —
+collapses column variability to an ambiguity code) and a **position-weight matrix** via `CreatePwm` (probabilistic per-column model — the input to
 motif *scanning/discovery*). The de novo end of the motif family — finding **unknown**
 over-represented motifs in an unaligned sequence — is [[overrepresented-kmer-discovery]]
 (this consensus instead collapses an already-known/aligned instance set). It shares the aligned-input model with the
