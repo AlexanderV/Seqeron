@@ -1564,3 +1564,18 @@ Operations:
    graph: +2 nodes (concept + source page), +3 typed edges (beta relates_to test-unit-registry;
    beta relates_to alpha-diversity; alpha relates_to beta-diversity — reciprocal); body [[wikilinks]]
    mentions auto-derived
+
+## [2026-07-09] ingest | docs/Evidence/META-BIN-001-Evidence.md → meta-bin-001-evidence (source) + metagenomic-binning (concept)
+   Third Metagenomics-family unit. Created source page [[meta-bin-001-evidence]] and new concept
+   [[metagenomic-binning]] (MetagenomicsAnalyzer.BinContigs — k-means over composite distance
+   |ΔGC|+|Δcoverage|+TNF-Pearson-distance → MAGs; completeness/contamination are length-ratio/GC-variance
+   PROXIES, not CheckM marker calls; opt-in TETRA z-score signature CalculateTetranucleotideZScores/
+   TetranucleotideZScoreCorrelation, z(ACGT)=√5 oracle). Flagged the CheckM marker-gene QC as an
+   explicit honest residual (not implemented) and the three now-resolved prior assumptions (deviations
+   None). Cross-linked as Metagenomics-family sibling of [[alpha-diversity]]/[[beta-diversity]] in prose
+   (different question — genome reconstruction vs community diversity — so no typed sibling edge, source
+   does not assert one). Reconciled backlog: moved Metagenomics/Genome_Binning.md from pending
+   Metagenomics (8→7) to covered-via-concept (58→59 covered / 187→186 pending, 30 domains).
+   Contradictions: none.
+   graph: +2 nodes (concept + source page), +1 typed edge (metagenomic-binning relates_to
+   test-unit-registry); body [[wikilinks]] mentions auto-derived
