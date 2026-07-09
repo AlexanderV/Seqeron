@@ -39,7 +39,9 @@ Seqeron exposes `CalculateAni` (single-direction) and `CalculateReciprocalAni`
 [[conserved-gene-clusters-common-intervals]], compares the two genomes at the
 gene-*content* level (sets of genes contiguous in both) rather than nucleotide identity.
 The end-to-end pipeline [[genome-comparison-core-dispensable]] orchestrates these views into a
-single core/dispensable gene partition plus a syntenic-gene fraction.
+single core/dispensable gene partition plus a syntenic-gene fraction. The
+[[dot-plot-word-match]] sibling keeps the same two-sequence comparison as a **visual** word-match
+matrix (diagonals = similarity) rather than reducing it to a single identity number.
 
 ## The ANIb algorithm (Goris et al. 2007)
 

@@ -776,3 +776,30 @@ Operations:
    sources each govern a distinct pipeline output and are mutually consistent; Deviations = None. Follow-up:
    remaining COMPGEN units (RBH orthologs, reversal distance, dot-plot) warrant their own concepts when ingested.
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, relates_to synteny-and-rearrangement-detection, relates_to average-nucleotide-identity)
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md → compgen-dotplot-001-evidence (source) + 1 concept
+   Thirty-second per-algorithm Evidence file; fourth of the Comparative-genomics (COMPGEN) family (after ANI,
+   CLUSTER, COMPARE). Created the genuinely-distinct concept dot-plot-word-match — genuinely distinct from the
+   metric (ANI), ordered-block (synteny), gene-set (conserved-clusters), and pipeline (genome-comparison)
+   siblings because it is the VISUAL word-match / k-tuple dot matrix that keeps the whole match relation as a
+   2-D plot. Algorithm traced verbatim: dot at (x,y) iff the length-`wordSize` word starting at x in sequence1
+   exactly matches the word at y in sequence2 (EMBOSS `dottup` exact word match — NOT scored `dotmatcher`),
+   case-insensitive (both upper-cased), x=seq1 / y=seq2, all overlapping occurrences via suffix tree; `wordSize`
+   default 10 (EMBOSS) is the noise-vs-sensitivity trade-off (longer=less noise/faster/less sensitive), `stepSize`
+   subsamples x. Diagonals = similarity, main diagonal = self-comparison, repeats = extra diagonals, indels break
+   the diagonal (Wikipedia). Oracles: Huttley `AGCGT`/`AT` k=1 → exactly {(0,0),(4,1)}; `ACGTACGT` self wordSize4
+   → {(0,0),(0,4),(1,1),(2,2),(3,3),(4,0),(4,4)} (all overlapping word starts); `ACGT` self main diagonal.
+   Corner cases: word>sequence / null / empty / disjoint-alphabet → no dots; non-positive wordSize/stepSize →
+   ArgumentOutOfRangeException. Sources: Gibbs & McIntyre 1970 (Eur.J.Biochem. 16:1–11, rank 1, paywalled → method
+   via secondaries, only citation/DOI attributed) + EMBOSS `dottup` manual+manpage (rank 3, default wordsize 10) +
+   Wikipedia Dot plot (rank 4) + Huttley TIB Dotplot (rank 4, k=1 worked example). Concise source page for the
+   artifact. Linked new source + concept into the algorithm-validation-evidence hub (frontmatter sources + both
+   link lists) and added a reciprocal sibling nav link from average-nucleotide-identity. TWO ASSUMPTIONs, both
+   explicitly non-correctness-affecting: (1) coordinate orientation x=seq1/y=seq2 (a presentation convention;
+   transposing mirrors the plot but not the match set as a relation); (2) case-insensitive comparison (dottup/Gibbs
+   do not mandate case folding; impl upper-cases both). Contradictions: none — Gibbs & McIntyre (via secondaries),
+   Wikipedia, EMBOSS dottup, and Huttley agree on the exact-word match rule, diagonals-as-similarity, and the
+   wordSize noise/sensitivity trade-off; Deviations = None. Follow-up: remaining COMPGEN units (RBH orthologs,
+   COMPGEN-SYNTENY-001 reusing synteny-and-rearrangement-detection, reversal distance) warrant their own concepts
+   or share existing ones when ingested.
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, relates_to average-nucleotide-identity, relates_to synteny-and-rearrangement-detection)
