@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 15 / 1610
+Progress: 16 / 1610
 
 ## (top-level)  (6)
 
@@ -25,7 +25,7 @@ Progress: 15 / 1610
 - [x] docs/Evidence/ANNOT-REPEAT-001-Evidence.md
 - [x] docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md
 - [x] docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md
-- [ ] docs/Evidence/ASSEMBLY-COVER-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-COVER-001-Evidence.md
 - [ ] docs/Evidence/ASSEMBLY-DBG-001-Evidence.md
 - [ ] docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md
 - [ ] docs/Evidence/ASSEMBLY-OLC-001-Evidence.md

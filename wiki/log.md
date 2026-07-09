@@ -224,3 +224,22 @@ Operations:
    trusted/untrusted two-sided model). Follow-up: remaining Assembly-family units (DBG/OLC/SCAFFOLD/
    COVER/STATS/TRIM/MERGE) likely warrant their own distinct concepts.
    graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-09] ingest | docs/Evidence/ASSEMBLY-COVER-001-Evidence.md → assembly-cover-001-evidence (source) + 1 concept
+   Tenth per-algorithm Evidence file; third of the Assembly family (after CONSENSUS, CORRECT).
+   Created the genuinely-distinct concept coverage-depth-calculation — the anchor for the assembly
+   COVER family. Per-base sequencing depth = count of placed reads spanning each reference position
+   (exact, model-free); average depth = Σdepth/G = Lander-Waterman C=LN/G; breadth = (#depth≥1)/G =
+   1−e^−c. Boundary-clip at reference end + all-zero/empty-input rules; hand-built ACGTTGCAAT oracle
+   (depth [1,1,1,2,2,2,2,2,1,1], avg 1.5, breadth 1.0); Lander-Waterman Poisson (P(uncovered)=e^−c,
+   1×→0.37, 5×→0.0067) captured explicitly as a property/derivation check only — the per-base array
+   is exact regardless of uniformity. Concise source page for the artifact (Illumina rank-2 + Daniel
+   Cook + Metagenomics Wiki rank-3 + Daley PMC7398442 rank-1 + Lander-Waterman 1988 primary sources,
+   two datasets, seven MUST/SHOULD/COULD tests). Linked new source + concept into the
+   algorithm-validation-evidence hub and added ASSEMBLY-COVER to that hub's frontmatter. One
+   assumption: read-placement model (ungapped minOverlap best-match FindBestAlignment) is
+   implementation-level and out of scope — tests use unambiguous exact-match reads to isolate the
+   source-defined counting rule. Contradictions: none (all sources give the same depth/average/breadth
+   definitions). Follow-up: remaining Assembly-family units (DBG/OLC/SCAFFOLD/STATS/TRIM/MERGE) likely
+   warrant their own distinct concepts.
+   graph: +2 nodes, +1 typed edge (relates_to test-unit-registry)

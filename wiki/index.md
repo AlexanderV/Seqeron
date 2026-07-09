@@ -27,6 +27,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[annot-repeat-001-evidence]] — evidence artifact for test unit ANNOT-REPEAT-001 (repeat detection/classification): Wikipedia + IUPACpal + RepeatMasker sources; tandem/inverted/gapped-IR + repeat-class vocab; exact-substring-not-Smith-Waterman ClassifyRepeat assumption.
 - [[assembly-consensus-001-evidence]] — evidence artifact for test unit ASSEMBLY-CONSENSUS-001 (column-wise consensus): Biopython dumb_consensus + EMBOSS cons + Wikipedia sources; threshold/tie→ambiguous/gap-skip decision rule; default N-not-X and 0.5-not-0.7 assumptions.
 - [[assembly-correct-001-evidence]] — evidence artifact for test unit ASSEMBLY-CORRECT-001 (two-sided k-mer-spectrum read error correction): Musket + Quake + solid-k-mer sources; trusted/untrusted rule, ambiguity→unchanged, k=3/k=1 worked examples; non-behavioral kmerSize=15/minKmerFrequency=2 defaults.
+- [[assembly-cover-001-evidence]] — evidence artifact for test unit ASSEMBLY-COVER-001 (per-base coverage/depth): Illumina + Daniel Cook + Metagenomics Wiki + Lander-Waterman sources; depth/average/breadth definitions, ACGTTGCAAT worked example (1.5/1.0), e^−c gap/breadth Poisson check; placement-out-of-scope assumption.
 
 ## Concepts
 
@@ -47,6 +48,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[relative-synonymous-codon-usage]] — RSCU (Sharp & Li 1986) codon-usage-bias measure: n_i·x/Σx normalization, 1.0=no bias, bounded [0,n_i], Σ-over-family=n_i invariant; pooled counts, sense codons only; base anchor of the codon-usage family (vs CAI's 0.5 pseudocount).
 - [[repetitive-element-detection]] — repeats/tandem family anchor: tandem (head-to-tail, ≥2 copies, primitive unit), inverted (W·G·W̄ᴿ / zero-gap palindrome, IUPACpal), and RepeatMasker-class assignment; ClassifyRepeat = exact-substring containment, not Smith-Waterman homology.
 - [[consensus-sequence]] — assembly CONSENSUS family anchor: column-wise majority/threshold consensus (Biopython dumb_consensus rule) — gaps skipped, emit iff unique max and freq ≥ threshold else ambiguous, tie→ambiguous, all-gap→N no div-by-zero; N/0.5 parameterized defaults; shared with MSA consensus step.
+- [[coverage-depth-calculation]] — assembly COVER family anchor: per-base sequencing depth over a reference (count of placed reads spanning each position, exact); average depth = Σdepth/G = Lander-Waterman C=LN/G, breadth = covered/G = 1−e^−c; boundary-clip + empty-input rules; ACGTTGCAAT→1.5/1.0 oracle; Poisson (e^−c gap) as a property check only; read placement (minOverlap best-match) out of scope.
 - [[kmer-spectrum-error-correction]] — assembly CORRECT family anchor: two-sided k-mer-spectrum read error correction (Musket/Quake) — trusted (multiplicity > cut-off) vs untrusted k-mers, base trusted if covered by any trusted k-mer, unique alternative making all covering k-mers trusted, ambiguity/no-set→unchanged; substitution-only (count+length preserved); kmerSize=15/minKmerFrequency=2 non-behavioral defaults.
 
 ## Gotchas
