@@ -2504,3 +2504,22 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    purity-side counterpart). Wired into algorithm-validation-evidence hub (frontmatter source + summary
    link + anchor bullet, source_commit bumped to fdf583e). Index updated (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry; alternative_to allele-specific-copy-number-ascat)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-SIG-001-Evidence.md
+   ONCO-SIG-001 (SBS-96 single-base-substitution trinucleotide context catalog — pyrimidine-strand
+   folding), twenty-ninth Oncology unit and the wiki's first mutational-signature method. Genuinely
+   distinct — no existing concept covers mutational signatures. Created source onco-sig-001-evidence +
+   new concept sbs96-mutational-signature-catalog: the 96-channel catalog (6 pyrimidine subtypes
+   C>A/C>G/C>T/T>A/T>C/T>G × 4 5′ × 4 3′, labelled 5'[REF>ALT]3', mutated base centred; COSMIC SBS96 +
+   SigProfilerMatrixGenerator Bergstrom 2019 + Alexandrov 2013, identical 6×4×4 definition) with the
+   defining pyrimidine-strand folding rule (purine A/G reference reverse-complemented onto the pyrimidine
+   strand — context via A↔T/C↔G + reverse, plus the substitution — before counting; C/T self-classifies).
+   Seven worked folding oracles + partition invariants (exactly 96 keys, Σ counts = classifiable SBS
+   variants). SCOPE NOTE: this unit is catalog/classification ONLY — the NMF/NNLS signature-exposure
+   fitting against COSMIC reference signatures (mentioned in the ingest hint) is a separate downstream
+   concern, not in this Evidence file. Cross-linked orthogonal ONCO biomarkers
+   homologous-recombination-deficiency-score + microsatellite-instability-detection. Wired into
+   algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet, source_commit
+   bumped to 6fdbd84). Index updated (1 source + 1 concept). One cosmetic label-rendering assumption; no
+   contradictions.
+   graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
