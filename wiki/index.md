@@ -18,6 +18,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[mcp-plan]] — the SUPERSEDED (2026-07-01) MCP design doc (sibling of the checklist): v3→v4 rationale, full 241-tool inventory across 12 servers, and the still-valid standards (naming, JSON-Schema 2020-12, error ranges, SemVer, 2-tests-per-tool, doc contract).
 - [[mcp-prompt]] — the CURRENT one-tool-per-session MCP-completion subagent prompt: names the real 11 servers (server→project→file), the 3-part tool DoD (binding+tests+docs), and reverses the old no-business-asserts test policy. Ground truth: `docs/mcp/MCP_STATUS.md`.
 - [[sonar-gate-plan]] — the Sonar-ratchet tracker: 66/66 SonarAnalyzer rules moved from report-only to blocking (or silenced-with-justification); Groups A–E, notable behaviour changes, and review-not-blind-fix on the S1244/S125 giants.
+- [[align-global-001-evidence]] — evidence artifact for test unit ALIGN-GLOBAL-001 (Needleman–Wunsch): Wikipedia sources, the `GCATGCG`/`GATTACA` worked example, and the GapExtend-as-*d* / GapOpen-unused note.
 
 ## Concepts
 
@@ -29,6 +30,8 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[build-quality-gate]] — the build-time static-analysis gate: SonarAnalyzer ratcheted to blocking under `TreatWarningsAsErrors`, fix-or-silence, review-not-blind-fix.
 - [[test-unit-registry]] — the area-prefixed Test Unit ID scheme and per-unit record behind the validation effort.
 - [[definition-of-done]] — the six-criterion acceptance bar (TestSpec, tests, ≥80% coverage, edge cases, CI, evidence) each unit must clear.
+- [[algorithm-validation-evidence]] — the templated per-unit `docs/Evidence/` artifact pattern (sources, worked-example dataset, deviations) behind the "Evidence documented" DoD criterion.
+- [[global-alignment-needleman-wunsch]] — the canonical DP global-alignment algorithm (`GlobalAlign`): linear-gap recurrence, O(nm), traceback, affine-as-extension.
 
 ## Gotchas
 

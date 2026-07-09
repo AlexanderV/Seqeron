@@ -33,4 +33,4 @@ Each unit carries:
 - a **spec block** — canonical method, complexity, invariant, and enumerated edge cases;
 - a **status** — `☑` completed, `☐` not started (with a distinct `☐`-pending-re-validation state for campaign-added units).
 
-At the ingested revision: **364 units, 255 completed, 109 proposed**, and 44/57 classes covered. Every unit must clear the [[definition-of-done]]. This registry is the concrete mechanism behind the [[validation-and-testing]] strategy, and future ingests of individual `TestSpecs/` documents should link back here by unit ID.
+At the ingested revision: **364 units, 255 completed, 109 proposed**, and 44/57 classes covered. Every unit must clear the [[definition-of-done]]. This registry is the concrete mechanism behind the [[validation-and-testing]] strategy, and future ingests of individual `TestSpecs/` documents should link back here by unit ID. The literature-traced source record for each unit lives in a per-unit [[algorithm-validation-evidence|evidence artifact]] under `docs/Evidence/`.

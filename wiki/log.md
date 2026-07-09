@@ -77,3 +77,13 @@ Operations:
    ground truth). Captured the S4456 fail-fast behaviour change and the pre-existing flaky FsCheck
    properties.
    graph: +2 nodes, +1 typed edge (build-quality-gate relates_to validation-and-testing)
+
+## [2026-07-09] ingest | docs/Evidence/ALIGN-GLOBAL-001-Evidence.md → align-global-001-evidence (source) + 2 concepts
+   First per-algorithm Evidence file (of ~213). Created the shared hub concept
+   algorithm-validation-evidence (templated 5-part structure: header/online-sources/dataset/
+   deviations/references) so future evidence ingests link in rather than duplicate. Created the
+   genuinely-distinct algorithm concept global-alignment-needleman-wunsch (linear-gap recurrence,
+   O(nm), traceback, GapExtend=d / GapOpen-unused, affine-as-extension). Concise source page for
+   the ALIGN-GLOBAL-001 artifact (Wikipedia sources, GCATGCG/GATTACA example, score 0). Linked
+   the evidence hub from test-unit-registry. No contradictions; deviations = None.
+   graph: +3 nodes, +3 typed edges
