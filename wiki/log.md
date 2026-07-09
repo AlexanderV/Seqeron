@@ -2176,3 +2176,28 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    Wired into the algorithm-validation-evidence hub (frontmatter source + evidence link + anchor bullet);
    index updated (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry + clonal-hematopoiesis-cfdna-filtering)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-DRIVER-001-Evidence.md → driver-gene-classification-20-20-rule (twelfth Oncology unit)
+   Driver Mutation Detection, the Vogelstein 2013 20/20 rule — a per-gene mutation-pattern heuristic
+   classifying a cancer gene Oncogene (> 20% missense at recurrent positions, recurrent = same protein
+   position ≥ 2×, = activating), TumorSuppressor (> 20% truncating/inactivating — nonsense, frameshift,
+   splice donor/acceptor, gained/lost stop = loss of function), or Ambiguous (neither criterion, or exact
+   dual-pass tie). Methods IdentifyDriverMutations (driver ⊆ somatic), MatchCancerHotspots
+   (caller-supplied (gene, position) hotspot set), ScoreDriverPotential (= max of the two criterion
+   fractions in [0,1]; CADD/SIFT/PolyPhen are externally trained models → caller-supplied, not
+   implemented). Sources Vogelstein 2013 Science "Cancer Genome Landscapes" (originating source; PMC
+   CAPTCHA + DOI 403 so wording taken verbatim from three open-access secondaries) + Tokheim & Karchin
+   2020 20/20+ (verbatim rule, inactivating = nonsense/frameshift) + Schroeder 2014 OncodriveROLE
+   (truncating list = frameshift / gained-or-lost stop / splice donor-acceptor; writes "≥20%") + Miller
+   2017 (recurrent = ≥2×, IDH1 codon 132 R132H). Oracles IDH1 10 missense@codon132 → recurrent-missense
+   1.00 → Oncogene; dispersed 8/10 truncating → 0.80 → TumorSuppressor; truncating exactly 0.20 → NOT TSG
+   (strict >). Judged genuinely DISTINCT and wiki-worthy — a GENE-level driver classifier orthogonal to
+   the VARIANT-level clinical classifiers cancer-variant-tier-classification-amp-asco-cap and
+   clinical-actionability-oncokb-levels (body-linked as context, not typed edges); a heuristic not a
+   statistical test (passenger truncations + low-recurrence drivers mislead it; 20/20+ / MutSigCV
+   successors out of scope). Three assumptions: strict > 0.20 for both (Vogelstein/Tokheim ">20%" over
+   OncodriveROLE's "≥20%" — the sole glyph difference, resolved to strict); dual-pass tie-break by larger
+   fraction, Ambiguous on exact tie; ScoreDriverPotential = max-of-fractions proxy. No source
+   contradictions. New concept + source created, wired into the algorithm-validation-evidence hub
+   (frontmatter source + evidence link + anchor bullet); index updated (1 source + 1 concept).
+   graph: +2 nodes, +1 typed edge (concept relates_to test-unit-registry)
