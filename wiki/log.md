@@ -441,3 +441,27 @@ Operations:
    non-redistributable (no LICENSE / non-machine-retrievable supplements). Follow-up: remaining
    Chromosome-analysis units (telomere, arm-ratio, synteny, GC-skew) warrant their own concepts.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to aneuploidy-detection)
+
+## [2026-07-09] ingest | docs/Evidence/CHROM-KARYO-001-Evidence.md → chrom-karyo-001-evidence (source) + 1 concept
+   Nineteenth per-algorithm Evidence file; third of the Chromosome-analysis family (after ANEU, CENT).
+   Created the genuinely-distinct concept karyotype-analysis — the anchor for the chromosome
+   karyotyping / ploidy-detection family, sibling of aneuploidy-detection and centromere-analysis. Two
+   independent algorithms: `AnalyzeKaryotype` karyotypes chromosome *descriptors* (split sex/autosome,
+   group autosomes by base name, count copies, compare to expected ploidy, label nullisomy..pentasomy
+   by absolute copy count — same cytogenetic ladder as ANEU but keyed on descriptor counts not depth
+   log-ratios; TotalChromosomes/TotalGenomeSize/MeanChromosomeLength invariants); and `DetectPloidy`
+   estimates whole-genome ploidy from read depth (true median of sorted depths, ratio=medianDepth/
+   expectedDiploidDepth, ploidy=round(ratio×2) clamped [1,8] — note the [1,8] whole-genome clamp and
+   direct ratio vs ANEU's [0,10] CN clamp via 2^logRatio; confidence=1−|ratio×2−ploidy|×2, empty→(2,0)).
+   Sources all Wikipedia (Karyotype/Ploidy/Aneuploidy, verified 2026-03-08). Oracles: normal diploid
+   human 46/no-aneuploidy, Down (3×chr21→Trisomy), Turner (45,X→Monosomy), disomy-in-tetraploid,
+   tetrasomy/pentasomy, diploid/tetraploid/haploid depth ratios. Five design decisions captured (DD1
+   empty-karyotype, DD2 empty-depth→(2,0), DD3 [1,8] clamp, DD4 nullisomy unreachable via GroupBy —
+   absent chromosomes form no group, term mapped for completeness only, DD5 disomy is aneuploidy only
+   in non-diploid/ISCN contexts). Concise source page for the artifact. Linked new source + concept
+   into the algorithm-validation-evidence hub and added CHROM-KARYO to that hub's frontmatter; added a
+   reciprocal sibling nav link from aneuploidy-detection. Contradictions: none — the artifact's
+   Deviations and Assumptions section is None; the three Wikipedia sources agree and DD4/DD5 are
+   architecture/nomenclature notes not departures. Follow-up: remaining Chromosome-analysis units
+   (telomere, arm-ratio, synteny, GC-skew) warrant their own concepts when ingested.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to aneuploidy-detection)
