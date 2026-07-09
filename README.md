@@ -512,6 +512,31 @@ full terms.
   [LIMITATIONS.md](docs/Validation/LIMITATIONS.md).
 - Algorithm test specifications: [tests/TestSpecs](tests/TestSpecs).
 
+**Project wiki (LLM Wiki)**
+
+The repo carries an AI-curated knowledge base — an
+[LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — whose sources are the
+repo's *own* documentation. Curated pages live under [`wiki/`](wiki); the sources are everything under
+`docs/**` plus the root markdown files (`README.md`, `ALGORITHMS_CHECKLIST_V2.md`,
+`ALGORITHMS_ROADMAP.md`). There is no `raw/` directory — those sources are read-only and the wiki only
+references them by path, never copies or edits them.
+
+The tooling ships as the [`llm-wiki`](.claude/skills/llm-wiki) skill. One-time setup per clone
+activates a pre-commit guard that flags stale or unreferenced pages whenever a source or a wiki page
+is staged:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Then, from Claude Code:
+
+- `/wiki:ingest docs/<file>.md` (or `README.md`) — synthesize a source into the wiki.
+- `/wiki:query <question>` — answer from accumulated pages, cited with `[[wikilinks]]`.
+- `/wiki:lint` — structural + staleness health check.
+
+Conventions, page types, and the staleness rule are defined in [`wiki/SCHEMA.md`](wiki/SCHEMA.md).
+
 ## Contributing
 
 **External review is exactly what would move this project past its current, self-validated state** —
