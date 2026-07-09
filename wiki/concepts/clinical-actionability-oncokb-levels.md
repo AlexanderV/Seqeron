@@ -48,7 +48,8 @@ professional guidelines, and scientific literature. Two implication **axes** exi
 4, R2** are *investigational*. **3A ranks above 3B** because the system was refined to deprioritize
 standard-care biomarkers used outside the approved indication. Levels 1/2/R1 are **fixed by guideline
 inclusion**, so conflicting literature does not move them. The system is consistent with the AMP/ASCO/CAP
-Joint Consensus (Li et al. 2017).
+Joint Consensus (Li et al. 2017), whose sibling **four-tier clinical-significance** classification is
+[[cancer-variant-tier-classification-amp-asco-cap]] (Tier I–IV) — the second ingested Oncology unit.
 
 ## The three ordering axes (oncokb-annotator)
 

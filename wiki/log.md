@@ -2008,3 +2008,16 @@ Levels-of-Evidence PDF V2 + OncoKB Curation SOP v3 + oncokb-annotator README —
 name for OncoKB's empty-HIGHEST_LEVEL observable; the knowledgebase is a caller input (library ranks,
 does not embed the OncoKB DB). No contradictions. index updated (1 source + 1 concept).
 graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept); graph lint clean.
+
+## [2026-07-09] ingest | docs/Evidence/ONCO-ANNOT-001-Evidence.md → onco-annot-001-evidence (source) + 1 concept
+   Second Oncology unit: Cancer-Specific Variant Annotation by the AMP/ASCO/CAP 2017 four-tier
+   clinical-significance classification (AnnotateCancerVariants + GetCOSMICAnnotation). Created concept
+   cancer-variant-tier-classification-amp-asco-cap (decision rule: evidence level A/B→Tier I, C/D→Tier II,
+   no-level+MAF≥1%-or-no-assoc→Tier IV, no-level+rare+assoc→Tier III; 1% primary benign cutoff inclusive;
+   evidence level dominates frequency; GetCOSMICAnnotation = null-on-miss caller-supplied catalog lookup).
+   Sources: Li MM et al. 2017 (J Mol Diagn, four-tier consensus, Figure 2 / Tables 3-7) + Tate JG et al.
+   2019 (COSMIC external DB) — mutually consistent. Cross-linked as the sibling of, and consistent with,
+   clinical-actionability-oncokb-levels (OncoKB levels). Two assumptions (caller-supplied evidence inputs;
+   III/IV discriminator = direct Figure 2/Table 6-7 reading). No contradictions. index + hub updated
+   (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (relates_to → test-unit-registry, relates_to → clinical-actionability-oncokb-levels on the concept); graph lint clean.

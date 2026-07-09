@@ -72,6 +72,7 @@ sources:
   - docs/Evidence/MOTIF-DISCOVER-001-Evidence.md
   - docs/Evidence/MOTIF-SHARED-001-Evidence.md
   - docs/Evidence/ONCO-ACTION-001-Evidence.md
+  - docs/Evidence/ONCO-ANNOT-001-Evidence.md
 source_commit: f43bbbd5379ef59f0f01dabd2d4a7378e8cb23da
 created: 2026-07-09
 updated: 2026-07-09
@@ -148,7 +149,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[mirna-precursor-001-evidence]], [[mirna-seed-001-evidence]],
 [[mirna-target-001-evidence]], [[motif-cons-001-evidence]],
 [[motif-discover-001-evidence]], [[motif-shared-001-evidence]],
-[[onco-action-001-evidence]]). An
+[[onco-action-001-evidence]], [[onco-annot-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -211,4 +212,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[consensus-from-alignment]] (the Motif-Analysis consensus-from-a-multiple-alignment unit, MOTIF-CONS-001 — `MotifFinder.CreateConsensusFromAlignment`, the **pure most-frequent** (plurality) column-wise consensus over equal-length aligned strings with a deterministic **alphabetical** tie-break (A<C<G<T) and **no threshold**; the `alternative_to` the assembly [[consensus-sequence]] (which uses a plurality threshold + tie→ambiguous `dumb_consensus` rule), and the motif-family sibling of the exact [[known-motif-search]]), or
 [[overrepresented-kmer-discovery]] (the Motif-Discovery de-novo motif-discovery unit, MOTIF-DISCOVER-001 — `MotifFinder.DiscoverMotifs`, enumerate-count-rank of *unknown* over-represented k-mers by the observed/expected enrichment `Count / ((N−k+1)/4^k)` under a zero-order uniform background; `alternative_to` the [[known-motif-search]] matcher — discovery outputs motifs, known-search takes them as input — and distinct from the [[consensus-from-alignment]] plurality consensus), or
 [[shared-motifs]] (the Motif-Discovery cross-sequence shared-motif unit, MOTIF-SHARED-001 — `FindSharedMotifs`, the van Helden / RSAT oligo-analysis **"matching sequences"** quorum: enumerate every fixed-`k` exact word across a *set* of sequences and report each word present in ≥ `minSequences` of them, each carrying its `SequenceIndices` set + `Prevalence`; the cross-sequence sibling of the single-sequence O/E [[overrepresented-kmer-discovery]] and `alternative_to` the fixed-k-quorum-vs-single-longest [[longest-common-substring]] LCSM framing), or
-[[clinical-actionability-oncokb-levels]] (the anchor for the Oncology family, the first ingested ONCO-* unit — `Clinical Actionability Assessment` by the OncoKB Therapeutic Levels of Evidence: a **pure level-ranking** of caller-supplied leveled drug associations under the fixed combined order `R1 > 1 > 2 > 3A > 3B > 4 > R2` (with separate sensitive `1 > 2 > 3A > 3B > 4` and resistance `R1 > R2` axes), returning the maximum level or `NotActionable` when a variant carries no leveled association; the knowledgebase is a caller input, not embedded).
+[[clinical-actionability-oncokb-levels]] (the anchor for the Oncology family, the first ingested ONCO-* unit — `Clinical Actionability Assessment` by the OncoKB Therapeutic Levels of Evidence: a **pure level-ranking** of caller-supplied leveled drug associations under the fixed combined order `R1 > 1 > 2 > 3A > 3B > 4 > R2` (with separate sensitive `1 > 2 > 3A > 3B > 4` and resistance `R1 > R2` axes), returning the maximum level or `NotActionable` when a variant carries no leveled association; the knowledgebase is a caller input, not embedded), or
+[[cancer-variant-tier-classification-amp-asco-cap]] (the second ingested ONCO-* unit — `Cancer-Specific Variant Annotation` by the **AMP/ASCO/CAP 2017 four-tier** clinical-significance classification: a decision rule over caller-supplied evidence level (A–D) + population MAF + cancer-association flag → Tier I (strong, Level A/B) / II (potential, Level C/D) / III (unknown, rare + assoc) / IV (benign, MAF ≥ 1% or no assoc), with `GetCOSMICAnnotation` a null-on-miss lookup against a caller-supplied COSMIC catalog; distinct from but consistent with the OncoKB therapeutic-level ranking [[clinical-actionability-oncokb-levels]]).
