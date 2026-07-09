@@ -803,3 +803,36 @@ Operations:
    COMPGEN-SYNTENY-001 reusing synteny-and-rearrangement-detection, reversal distance) warrant their own concepts
    or share existing ones when ingested.
    graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, relates_to average-nucleotide-identity, relates_to synteny-and-rearrangement-detection)
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-ORTHO-001-Evidence.md → compgen-ortho-001-evidence (source) + 1 concept
+   Thirty-third per-algorithm Evidence file; fifth of the Comparative-genomics (COMPGEN) family (after ANI,
+   CLUSTER, COMPARE, DOTPLOT). Created the genuinely-distinct concept ortholog-detection-reciprocal-best-hits
+   — the homology-classification unit and the shared RBH/ortholog anchor deliberately scoped so the future
+   COMPGEN-RBH-001 unit reuses it, and the already-ingested genome-comparison-core-dispensable pipeline's
+   conserved/core set IS these RBH pairs. Two rules traced verbatim: (1) ORTHOLOGS by Reciprocal Best Hits
+   (Moreno-Hagelsieb & Latimer 2008: two genes in two genomes are orthologs iff each is the other's best hit;
+   Tatusov 1997 COG symmetrical best hits; Fitch 1970 orthology=speciation / paralogy=duplication) — best hit
+   = max-similarity candidate with deterministic tie-break (descending bit-score then ascending E-value),
+   RECIPROCITY MANDATORY so a one-directional best hit (A→B, B→C≠A) is NOT an ortholog (the guarded defect
+   class), ≥50% coverage gate + max E-value 1e-6 significance gate; (2) recent (IN-)PARALOGS by within-genome
+   mutual best hits (Remm/Storm/Sonnhammer 2001 InParanoid in-paralog rule; out-paralogs pre-speciation
+   excluded). Partial-matching output, determinism, empty-sequence/null contracts. Oracles: reciprocity
+   {a1↔b1,a2↔b2}, non-reciprocity (b2=a1's superstring shares all 5-mers but a1↛b2 → RBH count 1), in-paralog
+   {p1↔p2} with unrelated q1 excluded, empty→no orthologs / single-gene→no paralogs. Sources: Fitch 1970
+   (Syst.Zool. 19:99-113, via Koonin 2011 PMC3178060 verbatim quote) + Tatusov 1997 (Science 278:631-637,
+   full text 403/404-blocked, method via search summary+scirp, DOI confirmed) + Moreno-Hagelsieb 2008
+   (Bioinformatics 24:319-324) + Remm 2001 (JMB 314:1041-1052, PMC5674930 corroboration) + Li 2003 OrthoMCL +
+   Ondov 2016 Mash (alignment-free basis). Concise source page for the artifact. Linked new source + concept
+   into the algorithm-validation-evidence hub (frontmatter sources + both link lists); cross-linked the
+   already-ingested genome-comparison-core-dispensable concept (replaced its bare "COMPGEN-RBH-001" reference
+   with [[ortholog-detection-reciprocal-best-hits]] in the intro + core/conserved bullet) and added a
+   navigation link in the compgen-compare-001-evidence source page. ONE ASSUMPTION, source-backed and
+   non-correctness-affecting: alignment-free 5-mer Jaccard replaces the BLAST bit-score ranking (the
+   ComparativeGenomics class does not reference the Alignment project; cf. Mash) — affects only which
+   near-identical pair wins ties; the RBH reciprocity rule, coverage gate (→ shared k-mers ≥50% of smaller
+   set), and min-similarity gate are source-backed. Contradictions: none — Fitch/Tatusov/Moreno-Hagelsieb/Remm
+   are mutually consistent, each governing a distinct part of the rule; Deviations = None beyond the metric
+   substitution. Follow-up: COMPGEN-RBH-001 (apparent RBH duplicate) shares this concept rather than
+   duplicating; remaining COMPGEN units (COMPGEN-SYNTENY-001 reusing synteny-and-rearrangement-detection,
+   reversal distance) warrant their own concepts or share existing ones.
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry, genome-comparison-core-dispensable, average-nucleotide-identity)

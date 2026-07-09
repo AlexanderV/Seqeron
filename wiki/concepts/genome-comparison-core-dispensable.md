@@ -36,7 +36,8 @@ graph:
 (conserved)** set and a **dispensable (genome-specific)** set — the pairwise case of the
 **pan-genome** model of Tettelin et al. 2005 — and reports an overall **syntenic-gene fraction**
 `OverallSynteny`. Unlike the family's single-metric units it is an **orchestrating pipeline**: it
-composes reciprocal-best-hit ortholog detection (COMPGEN-RBH-001) and MCScanX synteny
+composes reciprocal-best-hit ortholog detection
+([[ortholog-detection-reciprocal-best-hits]], COMPGEN-ORTHO-001) and MCScanX synteny
 ([[synteny-and-rearrangement-detection]], COMPGEN-SYNTENY-001). Its single-metric siblings are
 [[average-nucleotide-identity]] (nucleotide identity of the two genomes) and
 [[conserved-gene-clusters-common-intervals]] (order-free contiguous gene sets). Validated under
@@ -52,7 +53,8 @@ one or more strains and genes that are unique to each strain"). In the two-genom
 implements:
 
 - **Core / conserved** = genes present in *both* genomes = the **reciprocal-best-hit (RBH)
-  ortholog pairs** (Moreno-Hagelsieb & Latimer 2008; Tatusov et al. 1997): *"two genes ... are
+  ortholog pairs** ([[ortholog-detection-reciprocal-best-hits]]; Moreno-Hagelsieb & Latimer 2008;
+  Tatusov et al. 1997): *"two genes ... are
   deemed orthologs if their protein products find each other as the best hit in the opposite
   genome."*
 - **Dispensable / genome-specific** = everything else — a gene with no reciprocated best hit in

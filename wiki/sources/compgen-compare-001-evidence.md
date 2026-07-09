@@ -22,7 +22,8 @@ file and one instance of the templated per-algorithm
 invariants, worked oracles, and corner cases are summarized in the dedicated concept
 [[genome-comparison-core-dispensable]]. This is an **orchestrating pipeline** built on the
 comparative-genomics sub-units it composes: reciprocal-best-hit ortholog detection
-(COMPGEN-RBH-001) and MCScanX synteny (COMPGEN-SYNTENY-001, summarized in
+([[ortholog-detection-reciprocal-best-hits]], COMPGEN-ORTHO-001) and MCScanX synteny
+(COMPGEN-SYNTENY-001, summarized in
 [[synteny-and-rearrangement-detection]]). Its sibling COMPGEN units are
 [[average-nucleotide-identity]] and [[conserved-gene-clusters-common-intervals]]. See
 [[test-unit-registry]] for how units are tracked.
