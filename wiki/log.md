@@ -2256,3 +2256,23 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    source + anchor bullet) and cross-linked from [[gene-fusion-detection-read-evidence]]; index
    updated (1 source + 1 concept).
    graph: +2 nodes, +2 typed edges (concept relates_to gene-fusion-detection-read-evidence + test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-FUSION-003-Evidence.md → onco-fusion-003-evidence (source) + fusion-breakpoint-frame-and-protein-prediction (concept)
+   Sixteenth Oncology unit, third member of the fusion trio (the protein-consequence layer both
+   siblings explicitly deferred to). Fusion Breakpoint Analysis: junction reading-frame consequence
+   + fusion protein prediction. Four-state BreakpointFrameStatus (InFrame/OutOfFrame/StopCodon/
+   NotPredicted) via Arriba's two-way native-frame model (Uhrig 2021) — NOT AGFusion's three-way
+   class; `in-frame (with mutation)` (contiguous ORF mult-of-3 but 3′ frameshifted) maps to
+   OutOfFrame. In/out reuses ONCO-FUSION-001's exon-phase rule (5' coding bases − 3' start phase)
+   mod 3 == 0; gated by breakpoint-site classification (CDS vs UTR/intron/intergenic → NotPredicted).
+   PredictFusionProtein follows AGFusion model.py exactly: 5′ CDS prefix + 3′ CDS suffix →
+   concatenate → translate (transl_table=1) → truncate at first stop (out-of-frame trims to whole
+   codons first). Oracles ATGAAA|GATGGT→MKDG, ATGAAA|GATTAAGGT→MKD (premature stop), ATGA|AAGGT
+   phase-0→OutOfFrame yet clean MKG (Arriba-vs-AGFusion divergence) / phase-1→in-frame. One
+   API-shape assumption (caller supplies CDS strings + junction offsets, no bundled GTF); no
+   contradictions. New concept [[fusion-breakpoint-frame-and-protein-prediction]] + source
+   [[onco-fusion-003-evidence]] created, wired into the algorithm-validation-evidence hub
+   (frontmatter source + anchor bullet) and cross-linked from both [[gene-fusion-detection-read-evidence]]
+   (two deferral references now resolve to it) and [[gene-fusion-nomenclature-known-fusion-lookup]];
+   index updated (1 source + 1 concept).
+   graph: +2 nodes, +2 typed edges (concept relates_to gene-fusion-detection-read-evidence + test-unit-registry)

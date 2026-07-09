@@ -85,5 +85,5 @@ annotated via `GetFusionAnnotation` and round-tripped through `MatchKnownFusions
 integration COULD-test). It is orthogonal to the copy-number / clonal-structure ONCO units and to
 the clinical-interpretation units ([[clinical-actionability-oncokb-levels]],
 [[cancer-variant-tier-classification-amp-asco-cap]]) that would consume a matched driver fusion.
-Distinct also from the premature-stop / transcript-reconstruction scope deferred to
-ONCO-FUSION-003. No source contradictions.
+Distinct also from the premature-stop / transcript-reconstruction protein-consequence unit
+[[fusion-breakpoint-frame-and-protein-prediction]] (ONCO-FUSION-003). No source contradictions.

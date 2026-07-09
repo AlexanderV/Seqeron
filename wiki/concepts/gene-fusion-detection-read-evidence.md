@@ -77,8 +77,10 @@ in-frame  ⇔  (5' coding bases before breakpoint − 3' partner coding-start ph
 An in-frame fusion reads through into a protein made of parts of both partners; **out-of-frame**
 shifts the downstream reading frame and is unlikely to yield a functional protein. This uses
 codon **phase** only — it does **not** scan the spliced transcript for a premature stop codon
-(Arriba's `stop-codon` reading_frame value), which needs full transcript reconstruction (out of
-scope, ONCO-FUSION-003). Naming a detected fusion — the canonical HGNC `5′::3′` designation and
+(Arriba's `stop-codon` reading_frame value), which needs full transcript reconstruction — that is
+the separate protein-consequence unit
+[[fusion-breakpoint-frame-and-protein-prediction]] (ONCO-FUSION-003), which elaborates this binary
+in-frame check into a four-state `BreakpointFrameStatus` plus `PredictFusionProtein`. Naming a detected fusion — the canonical HGNC `5′::3′` designation and
 directional known-fusion matching — is the separate annotation unit
 [[gene-fusion-nomenclature-known-fusion-lookup]] (ONCO-FUSION-002).
 
@@ -87,7 +89,8 @@ directional known-fusion matching — is the separate annotation unit
 - **Read-through false positives.** Adjacent same-strand neighbouring genes produce common
   read-through chimeras; guarded against by the support thresholds and the distinct-gene rule.
 - **Stop codon before junction.** Even when numerically in-frame, an upstream stop means the 3'
-  partner is not translated — out of scope here (transcript reconstruction).
+  partner is not translated — out of scope here (transcript reconstruction), handled by
+  [[fusion-breakpoint-frame-and-protein-prediction]] (ONCO-FUSION-003).
 - **Input validation.** Null input → `ArgumentNullException`; negative counts → `ArgumentException`.
 
 Worked oracles (from [[onco-fusion-001-evidence]], `split1,split2,discordant`): **EML4-ALK**
