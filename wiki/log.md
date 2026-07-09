@@ -2723,3 +2723,14 @@ AACCG/ACCTG→PIS 2 (cols 3,5), 3-genome selection excludes paralog/not-core/0-P
 source-backed assumption (no in-repo aligner → PIS over equal-length members, unequal→PIS 0), no
 contradictions.
    graph: +2 nodes, +4 typed edges
+
+## 2026-07-10 — ingest PARSE-BED-001-Evidence
+Ingested docs/Evidence/PARSE-BED-001-Evidence.md (first FileIO/PARSE-* file-parsing unit). Source
+summary [[parse-bed-001-evidence]]; new concept [[bed-format-parsing]] as the PARSE-* family anchor —
+UCSC BED interval parsing on the 0-based half-open coordinate model (chromStart 0-based / chromEnd
+1-based-exclusive, chromStart==chromEnd = zero-length insertion), BED3→BED12 column ladder, and UCSC
+validation rules (chromStart ≤ chromEnd else null, score clamp [0,1000], strand +/−/., first-line
+column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDTools (Quinlan & Hall
+2010); deviations None. Hub [[algorithm-validation-evidence]] frontmatter/source-list/anchor + index
+(Sources + Concepts) updated; cross-linked to [[fuzzing]] (parsers = hottest malformed-input target).
+   graph: +2 nodes, +1 typed edge
