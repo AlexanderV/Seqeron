@@ -720,3 +720,33 @@ Operations:
    reversal distance, dot-plot, conserved gene clusters) warrant their own concepts or share existing ones when
    ingested.
    graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to synteny-and-rearrangement-detection)
+
+## [2026-07-09] ingest | docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md → compgen-cluster-001-evidence (source) + 1 concept
+   Thirtieth per-algorithm Evidence file; second of the Comparative-genomics (COMPGEN) family (after ANI).
+   Created the genuinely-distinct concept conserved-gene-clusters-common-intervals — a conserved gene
+   cluster = a gene-label SET that is contiguous (an interval) in EVERY genome, order- and strand-free
+   inside the window: the common-interval model. Distinct from both COMPGEN siblings — ANI measures
+   nucleotide identity, synteny requires a COLLINEAR ORDERED block, a common interval only requires the
+   same gene SET contiguous in each genome. Definitions traced verbatim to Uno & Yagiura 2000
+   (Algorithmica, originating common-interval model, O(n²) LHP + output-sensitive O(n+K) RC), Heber &
+   Stoye 2001 (CPM, k-permutation generalisation, optimal O(kn+z)/O(n)), Bui-Xuan/Habib/Paul 2013
+   (MinMax-Profiles arXiv:1304.5140, unifying view: interval [i,j] defined only for i<j → size ≥2,
+   singletons excluded, whole set (1..n) always common; golden-vector Example 1), and Didier et al. 2013
+   (arXiv:1310.4290, extension permutations→sequences with duplicates: paralogs handled, a set is common
+   iff SOME contiguous window/location in each genome has exactly that label set). Seqeron does the simple
+   strict O(n²·K_genomes) check with a minClusterSize filter; K≥2 required (single genome → every interval
+   trivially common). Oracles: golden vector Id₇ vs (7 2 1 3 6 4 5) → non-trivial {1,2}/{1,2,3}/{3,4,5,6}/
+   {4,5}/{4,5,6}/{1..6} + trivial {1..7} (brute-force reproduced); split-negative {2,3} (positions 2,4 in
+   genome 2 → non-adjacent); sequence-with-duplicates T/S → {1,2} not common, {1,2,3,4} common. Concise
+   source page for the artifact (Uno & Yagiura 2000 + Heber & Stoye 2001 + Bui-Xuan/Habib/Paul 2013 +
+   Didier et al. 2013, all rank-1). Linked new source + concept into the algorithm-validation-evidence hub
+   (frontmatter sources + both link lists) and added reciprocal sibling nav links from
+   average-nucleotide-identity and synteny-and-rearrangement-detection. ONE documented ASSUMPTION (API-shape,
+   not a correctness gap): the public method keeps a maxGap parameter but the validated/tested behaviour is
+   the STRICT gap-free common-interval model — maxGap does NOT relax it, and the gene-teams gapped extension
+   (Bergeron, Corteel & Raffinot 2002) is NOT implemented (source not retrievable). Contradictions: none —
+   the four sources agree on the interval definition, the contiguous-in-every-genome cluster rule, the
+   size-≥2 constraint, and the sequence-with-duplicates generalisation. Follow-up: remaining COMPGEN units
+   (orthologs/RBH, COMPGEN-SYNTENY-001 reusing synteny-and-rearrangement-detection, reversal distance,
+   dot-plot, genome-comparison pipeline) warrant their own concepts or share existing ones when ingested.
+   graph: +2 nodes, +2 typed edges (concept relates_to test-unit-registry, relates_to synteny-and-rearrangement-detection)

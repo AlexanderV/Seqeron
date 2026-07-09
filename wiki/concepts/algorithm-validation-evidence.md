@@ -32,6 +32,7 @@ sources:
   - docs/Evidence/CODON-STATS-001-Evidence.md
   - docs/Evidence/CODON-USAGE-001-Evidence.md
   - docs/Evidence/COMPGEN-ANI-001-Evidence.md
+  - docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md
 source_commit: 458398bca4eee7e7fa828acbe182e07695db5e28
 created: 2026-07-09
 updated: 2026-07-09
@@ -87,7 +88,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[chrom-telo-001-evidence]], [[codon-cai-001-evidence]],
 [[codon-enc-001-evidence]], [[codon-opt-001-evidence]], [[codon-rare-001-evidence]],
 [[codon-rscu-001-evidence]], [[codon-stats-001-evidence]],
-[[codon-usage-001-evidence]], [[compgen-ani-001-evidence]]). An
+[[codon-usage-001-evidence]], [[compgen-ani-001-evidence]],
+[[compgen-cluster-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -112,4 +114,5 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[karyotype-analysis]] (the anchor for the chromosome karyotyping / ploidy-detection family), or
 [[synteny-and-rearrangement-detection]] (the shared anchor for the chromosome + comparative-genomics synteny/rearrangement family), or
 [[telomere-analysis]] (the anchor for the chromosome telomere family), or
-[[average-nucleotide-identity]] (the anchor for the comparative-genomics ANI genome-similarity family).
+[[average-nucleotide-identity]] (the anchor for the comparative-genomics ANI genome-similarity family), or
+[[conserved-gene-clusters-common-intervals]] (the comparative-genomics common-interval / conserved-cluster unit).

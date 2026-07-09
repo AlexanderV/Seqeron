@@ -30,9 +30,12 @@ compared" (Wikipedia) — and the **chromosomal rearrangements** that break it. 
 ingested unit of the **Chromosome-analysis** family, a sibling of [[aneuploidy-detection]],
 [[centromere-analysis]], and [[karyotype-analysis]]. It is deliberately positioned as the **shared
 synteny anchor**: the comparative-genomics `COMPGEN-SYNTENY-001` unit covers the same syntenic-block
-concept between whole genomes and should link here rather than re-deriving it. Its sibling in the
-Comparative-genomics family is [[average-nucleotide-identity]] — the genome-similarity metric
-(how nucleotide-identical two genomes are) to this page's gene-order-conservation view. Validated under test
+concept between whole genomes and should link here rather than re-deriving it. Its siblings in the
+Comparative-genomics family are [[average-nucleotide-identity]] — the genome-similarity metric
+(how nucleotide-identical two genomes are) to this page's gene-order-conservation view — and
+[[conserved-gene-clusters-common-intervals]], the order-free counterpart that asks only whether
+a gene *set* is contiguous in every genome (a common interval) rather than requiring a collinear
+ordered block. Validated under test
 unit **CHROM-SYNT-001**; the validation record is [[chrom-synt-001-evidence]], [[test-unit-registry]]
 tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
 

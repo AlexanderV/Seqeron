@@ -35,7 +35,9 @@ are. Validated under test unit **COMPGEN-ANI-001**; the validation record is
 [[algorithm-validation-evidence]] describes the artifact pattern.
 
 Seqeron exposes `CalculateAni` (single-direction) and `CalculateReciprocalAni`
-(symmetric, both-directions mean).
+(symmetric, both-directions mean). A third COMPGEN sibling,
+[[conserved-gene-clusters-common-intervals]], compares the two genomes at the
+gene-*content* level (sets of genes contiguous in both) rather than nucleotide identity.
 
 ## The ANIb algorithm (Goris et al. 2007)
 
