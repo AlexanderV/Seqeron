@@ -1325,3 +1325,22 @@ Operations:
   graph: +2 nodes (source + concept), +3 typed edges (concept relates_to test-unit-registry,
   relates_to longest-common-substring, relates_to repetitive-element-detection; source-page
   [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md → genomic-similarity-001-evidence (source) + kmer-jaccard-similarity (concept)
+  Per-algorithm Evidence file. Created the genuinely-distinct concept kmer-jaccard-similarity — the
+  Analysis family's alignment-free pairwise-similarity unit (`GenomicAnalyzer.CalculateSimilarity`):
+  Jaccard index `|A∩B|/|A∪B|` over the two sequences' *distinct* k-mer sets (HashSet, within-sequence
+  repeats collapse), exact (no MinHash sketch) J×100 in [0,100], O(n+m). Sources: Jaccard 1901 (index
+  definition, [0,1] range, non-empty-set scope, distance 1−J) + Ondov 2016 *Mash* (k-mer-set Jaccard =
+  fraction of shared k-mers, sketch estimate |A_s∩B_s|/s) + Mash distance docs. INV symmetry / identical→100 /
+  disjoint→0 / distinct-set; k=3 oracles 80.0 / 100⁄3 / 100 / 0 / (AAAAAA vs AAAA→100). Three source-backed
+  assumptions (empty-union→0.0 ASM-1 convention, ×100 scaling, default k=5) + suffix-tree-evaluated-not-used
+  note. Positioned as `alternative_to` the positional [[alignment-statistics]] (§2.5 set-resemblance vs
+  residue-by-residue), and cross-linked (body/mentions) to the 5-mer-Jaccard metric behind
+  ortholog-detection-reciprocal-best-hits and the exact-set basis Mash sketches for average-nucleotide-identity.
+  Concise source page for the artifact. Wired into index (source + concept lines). Reconciled backlog: moved
+  Analysis/Sequence_Similarity.md from pending Analysis (section emptied, 1→0) to covered-via-concept
+  (47→48 covered / 198→197 pending, 31 domains). Contradictions: none — Jaccard's set definition and Mash's
+  k-mer-set application are consistent; deviations None.
+  graph: +2 nodes (source + concept), +2 typed edges (concept relates_to test-unit-registry,
+  alternative_to alignment-statistics; source-page [[wikilinks]] mentions auto-derived)

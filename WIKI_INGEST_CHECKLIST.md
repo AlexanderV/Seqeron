@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 95 / 1610
+Progress: 96 / 1610
 
 ## (top-level)  (6)
 
@@ -68,7 +68,7 @@ Progress: 95 / 1610
 - [x] docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md
 - [x] docs/Evidence/GENOMIC-ORF-001-Evidence.md
 - [x] docs/Evidence/GENOMIC-REPEAT-001-Evidence.md
-- [ ] docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md
+- [x] docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md
 - [ ] docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
 - [ ] docs/Evidence/KMER-ASYNC-001-Evidence.md
 - [ ] docs/Evidence/KMER-BOTH-001-Evidence.md
