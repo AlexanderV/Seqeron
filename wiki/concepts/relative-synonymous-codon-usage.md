@@ -93,5 +93,6 @@ it consumes a codon-usage table and substitutes synonymous codons to improve hos
 **aggregation / reporting view** is [[codon-stats-001-evidence|CODON-STATS-001]] (`GetStatistics`),
 which bundles RSCU, ENC and CAI over one input together with a positional-GC block
 (GC1/GC2/GC3, plus **GC3s** = GC of synonymous third positions, Met/Trp/stop excluded, Peden 1999).
-Other siblings in `docs/Evidence/` include rare-codon analysis and raw codon-frequency/usage tables;
+Other siblings in `docs/Evidence/` include rare-codon analysis and the raw codon-count table +
+TVD distribution comparison ([[codon-usage-comparison]], `CalculateCodonUsage`/`CompareCodonUsage`);
 each builds on the same synonymous-family counting that RSCU formalizes.

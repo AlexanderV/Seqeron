@@ -665,3 +665,28 @@ Operations:
    frequency/usage tables likely share existing concepts.
    graph: no typed edges (aggregation source reusing existing concepts; source pages can't be relates_to
    subjects per the ontology, so no new node warrants an edge; mentions auto-derived from wikilinks)
+
+## [2026-07-09] ingest | docs/Evidence/CODON-USAGE-001-Evidence.md → codon-usage-001-evidence (source) + 1 concept
+   Twenty-eighth per-algorithm Evidence file; eighth of the codon-usage family. Created ONE new concept
+   codon-usage-comparison — the *raw* end of the family (`CalculateCodonUsage` + `CompareCodonUsage`).
+   Judged genuinely distinct despite the "raw table likely reuses RSCU" hint: the raw counting IS the
+   RSCU primitive (documented as reuse + a relates_to edge to relative-synonymous-codon-usage), but
+   `CompareCodonUsage`'s Total Variation Distance similarity — Similarity = 1 − Σ|f₁−f₂|/2 ∈ [0,1] between
+   two codon-frequency distributions, with proven identity 1.0 / symmetry / range / disjoint→0 /
+   partial-overlap-exact properties — is a distribution-comparison operation no existing bias concept
+   (RSCU/CAI/ENC/optimization/rare/stats) provides, so it warrants its own page. `CalculateCodonUsage`:
+   non-overlapping triplets from offset 0, T→U internally, uppercase, drop partial trailing codon, returns
+   unnormalized Dictionary<codon,int> (Σcounts=total invariant). Oracles: AUGGCUGCU→{AUG:1,GCU:2}, all-64
+   codons→64 keys count 1; TVD sims identical→1.0, disjoint UUU/GGG→0, 2/3-shared→2/3, 0.5/0.75/0.75/0.25
+   cases (all analytically derivable). Sources: Wikipedia codon-usage-bias (degeneracy) + Kazusa CUTG
+   format + Sharp & Li 1987 (per-AA normalization) + Plotkin-Kudla 2011 + Athey 2017; predefined E. coli
+   K12 / S. cerevisiae / H. sapiens tables Kazusa-verified (all 64 relative fractions, March 2026). Two
+   deviations, both deliberate/benign: TVD-not-cosine metric choice (Wikipedia lists cosine + correlation;
+   every test value derivable from the TVD formula and the 4 proven properties follow from TVD theory) and
+   empty→similarity 0 (no data → 0, not NaN/exception). Concise source page for the artifact. Linked new
+   source + concept into the algorithm-validation-evidence hub (frontmatter sources + both link lists) and
+   cross-linked from the RSCU base-anchor concept (raw-table sibling). Contradictions: none — Wikipedia,
+   Kazusa, and Sharp & Li agree on the codon-usage biology; the TVD similarity is an implementation metric
+   choice the sources don't contradict. Follow-up: remaining codon-usage units (SEQ-CODON-FREQ, TRANS-CODON)
+   — raw frequency/usage tables may share codon-usage-comparison or RSCU rather than minting new concepts.
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to relative-synonymous-codon-usage)
