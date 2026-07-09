@@ -34,6 +34,11 @@ the [[multiple-sequence-alignment|MSA]] consensus step performs. Validated under
 [[test-unit-registry]] tracks the unit. See [[algorithm-validation-evidence]] for the artifact
 pattern.
 
+The motif-family sibling [[consensus-from-alignment]] (test unit MOTIF-CONS-001,
+`MotifFinder.CreateConsensusFromAlignment`) is the `alternative_to` this rule: same goal, but
+**pure most-frequent with no threshold** and a **deterministic alphabetical tie-break**
+(A<C<G<T) instead of this unit's plurality cut-off + tie→ambiguous behaviour.
+
 ## Decision rule (per column)
 
 Traced verbatim to Biopython `Bio.Align.AlignInfo.SummaryInfo.dumb_consensus`

@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **69** algorithm docs covered-via-concept, **176** pending across 29 domains.
+Status at generation: **70** algorithm docs covered-via-concept, **175** pending across 29 domains.
 
 ## Covered via concept (done)
 
@@ -93,6 +93,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/MiRNA/Seed_Sequence_Analysis.md` | [[seed-sequence-analysis]] |
 | `docs/algorithms/MiRNA/Target_Site_Prediction.md` | [[mirna-target-site-prediction]] |
 | `docs/algorithms/Motif_Analysis/Known_Motif_Search.md` | [[known-motif-search]] |
+| `docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md` | [[consensus-from-alignment]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
@@ -251,12 +252,11 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | `docs/algorithms/PanGenome/Pan_Genome_Growth_Model.md` | `pan-genome-growth-model` |
 | `docs/algorithms/PanGenome/Phylogenetic_Marker_Selection.md` | `phylogenetic-marker-selection` |
 
-### Pattern_Matching (9)
+### Pattern_Matching (8)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
 | `docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md` | `approximate-matching-hamming` |
-| `docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md` | `consensus-from-alignment` |
 | `docs/algorithms/Pattern_Matching/Edit_Distance.md` | `edit-distance` |
 | `docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md` | `exact-pattern-search` |
 | `docs/algorithms/Pattern_Matching/Frequent_Words_With_Mismatches.md` | `frequent-words-with-mismatches` |

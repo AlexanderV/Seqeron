@@ -1847,3 +1847,23 @@ Operations:
    domains). graph: +2 nodes (source + concept), +3 typed edges (mirna-target-site-prediction relates_to
    test-unit-registry + depends_on seed-sequence-analysis + depends_on rna-base-pairing); body [[wikilinks]]
    mentions auto-derived.
+
+## [2026-07-09] ingest | docs/Evidence/MOTIF-CONS-001-Evidence.md → motif-cons-001-evidence (source) + 1 concept
+   Consensus from a multiple alignment (MotifFinder.CreateConsensusFromAlignment) — a Motif-Analysis unit
+   distinct from the assembly [[consensus-sequence]] (ASSEMBLY-CONSENSUS-001). Created concept
+   [[consensus-from-alignment]]: PURE most-frequent (plurality) column consensus over equal-length aligned
+   strings, deterministic ALPHABETICAL tie-break (A<C<G<T), NO threshold (always emits — no n/x
+   no-consensus output). Sources: Wikipedia "Consensus sequence" (Schneider & Stephens 1990) + Rosalind
+   CONS (profile matrix + equal-length precondition + ties→multiple valid) + EMBOSS cons (the plurality-
+   threshold alternative NOT adopted) + Geneious/LANL (alphabetical tie-break). Oracles: Rosalind 7×8
+   sample → profile A=`5 1 0 0 5 5 0 0`/C/G/T → consensus ATGCAACT; tie-break AT+GT→AT; identical→unchanged;
+   single→unchanged. Two documented assumptions (alphabetical tie-break, no-threshold scope — the area's
+   IUPAC-degenerate GenerateConsensus + PWM CreatePwm are separate methods, not stubbed). Contract:
+   equal-length→ArgumentException, non-ACGT→ArgumentException, null→ArgumentNullException, empty→"".
+   No source contradictions. Reciprocal nav cross-link added on [[consensus-sequence]] (kept its own
+   frontmatter sources per precedent). Hub [[algorithm-validation-evidence]]: added MOTIF-CONS to
+   frontmatter sources (bumped source_commit to HEAD de59ece4) + source-list + concept-list. index.md:
+   +1 source +1 concept. Backlog: moved Pattern_Matching/Consensus_From_Alignment.md pending→covered
+   (69→70 covered / 176→175 pending; §Pattern_Matching 9→8, domains still 29).
+   graph: +2 nodes (source + concept), +2 typed edges (consensus-from-alignment relates_to
+   test-unit-registry + alternative_to consensus-sequence); body [[wikilinks]] mentions auto-derived.
