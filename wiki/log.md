@@ -2451,3 +2451,25 @@ graph: +2 nodes, +1 typed edge (relates_to → test-unit-registry on the concept
    source + summary link + anchor bullet, source_commit bumped to 643a974). Index updated (1 source + 1
    concept, MHC lines de-placeholdered).
    graph: +2 nodes, +4 typed edges (concept relates_to test-unit-registry / mhc-peptide-binding-prediction / hla-nomenclature-and-allele-specific-loh; mhc relates_to neoantigen-peptide-generation)
+
+## [2026-07-10] ingest | docs/Evidence/ONCO-PHYLO-001-Evidence.md
+   Twenty-sixth Oncology unit: Tumor Phylogeny Reconstruction — a clonal-evolution tree assembled from
+   CCF clusters via the sum rule + lineage-precedence rule (LICHeE Popic 2015 / PICTograph Zheng 2022).
+   Judged DISTINCT and wiki-worthy (a constraint-satisfaction / perfect-phylogeny tree BUILDER, the
+   reconstruction step CCF clustering stops short of; no general NJ/UPGMA phylogenetics concept exists in
+   the wiki to reuse) -> dedicated concept [[tumor-phylogeny-clonal-tree-reconstruction]]. Two per-sample
+   CCF-ordering constraints: lineage precedence (ancestor CCF >= descendant CCF - e + presence pattern
+   u.CCF=0 => v.CCF=0, LICHeE Eq. 2) and the sum rule (sum of children CCF <= parent CCF + e per node =
+   pigeonhole generalization, LICHeE Eq. 5 / PICTograph sum condition -> forces branching vs nesting),
+   plus trunk (CCF~1 root-path = clonal) vs branch (subclone) identification. Oracles: linear
+   Normal->A->B->C (1.0/1.0/0.6/0.3, Trunk {A}); two-sample branching A->{B,C} (B 0.6/0.0, C 0.0/0.7,
+   mutually non-ancestral); equal 0.6/0.6 siblings forced into a chain by the sum rule. Two
+   reconstructed-tree invariants as oracles (ancestor >= descendant per edge; per-node sum rule). Two
+   source-consistent assumptions (deepest-valid-ancestor deterministic tie-break for under-constrained
+   private clusters; default e=0 strict inequalities); no source contradictions (LICHeE VAF form and
+   PICTograph CCF form state the identical two constraints). Cross-linked cancer-cell-fraction-clonal-
+   clustering (added a reciprocal "Downstream reconstruction" note + depends_on edge),
+   clonal-subclonal-classification-ccf-posterior, intratumor-heterogeneity-metrics. Wired into
+   algorithm-validation-evidence hub (frontmatter source + summary link + anchor bullet, source_commit
+   bumped to ea992b8). Index updated (1 source + 1 concept).
+   graph: +2 nodes, +3 typed edges (concept relates_to test-unit-registry; depends_on cancer-cell-fraction-clonal-clustering; relates_to clonal-subclonal-classification-ccf-posterior)
