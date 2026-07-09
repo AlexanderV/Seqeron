@@ -20,3 +20,9 @@ Operations:
    Created test-unit-registry, definition-of-done. Updated validation-and-testing and
    research-grade-limitations (campaign-added pending re-validation, unverified complexity claims).
    graph: +3 nodes, +2 typed edges
+
+## [2026-07-09] ingest | docs/ADVANCED_TESTING_CHECKLIST.md → advanced-testing-checklist (source)
+   New source page (technique effectiveness/gap analysis, 10 techniques, P0–P3, 2026-03-19 baseline).
+   Updated validation-and-testing (coverage-gap paragraph + typed edge). Flagged internal 79-vs-86
+   unit discrepancy and that only architecture testing is complete. No new concepts (elaborates existing).
+   graph: +1 node, +1 typed edge

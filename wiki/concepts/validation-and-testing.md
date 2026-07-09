@@ -5,9 +5,18 @@ tags: [testing, validation]
 sources:
   - README.md
   - ALGORITHMS_CHECKLIST_V2.md
-source_commit: 6a14170477c9472c0be07e3b7c7f7123e31eddcf
+  - docs/ADVANCED_TESTING_CHECKLIST.md
+source_commit: 7bad3df2460ec31b7b1a3be1e605c11198342268
 created: 2026-07-09
 updated: 2026-07-09
+graph:
+  relationships:
+    - predicate: relates_to
+      object: concept:layered-architecture
+      source: advanced-testing-checklist
+      evidence: "Architecture Testing (ArchUnitNET) ... Enforces layer boundaries (Core -> Analysis -> IO) ... 22 rules across all 13 modules"
+      confidence: high
+      status: current
 ---
 
 # Validation and testing strategy
@@ -16,7 +25,7 @@ Seqeron's development-time correctness story: 22,000+ executed test cases across
 
 ## Ten complementary methodologies
 
-Each catches a different class of defect, with a per-algorithm checklist under `docs/checklists`:
+Each catches a different class of defect, with a per-algorithm checklist under `docs/checklists`. The [[advanced-testing-checklist]] rates all ten by applicability, current coverage, effort, and P0–P3 priority against the completed-unit set:
 
 - **Property-based** (FsCheck) — invariant violations across generated inputs.
 - **Metamorphic** — wrong outputs when the exact answer is unknown, via relations like `revcomp(revcomp(x)) == x`.
@@ -28,6 +37,8 @@ Each catches a different class of defect, with a per-algorithm checklist under `
 - **Differential** — divergence from a reference implementation.
 - **Combinatorial / pairwise** — interaction bugs across parameter spaces.
 - **Characterization** — regressions during refactoring, by pinning behaviour.
+
+Coverage across these ten is uneven and mostly aspirational. As of the [[advanced-testing-checklist]] baseline (2026-03-19), only **architecture testing** was marked complete; the two highest-priority techniques (property-based and metamorphic) were the biggest gap — property files existed for ~22 areas but many units lacked specific invariants, and 72 completed units had no metamorphic relations. Fuzzing and differential testing existed only for SuffixTree, not Genomics.
 
 ## Validation campaign
 
