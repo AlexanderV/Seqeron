@@ -65,7 +65,9 @@ RSCU is the shared normalization at the base of the codon-usage-bias family. The
 **maximum** codon and reduced to a single geometric-mean gene score — and guards `log(0)` for
 unobserved codons with a pseudocount-style adjustment that plain RSCU does **not** apply (Sharp &
 Li 1987 use a **0.5 pseudocount** at reference-table build time; Seqeron's CAI implementation uses
-a **`1e-6` clamp** at score time — see [[codon-adaptation-index]]). Other siblings in
-`docs/Evidence/` include ENC (effective number
-of codons), rare-codon analysis, codon optimization, and raw codon-frequency/usage tables; each
-builds on the same synonymous-family counting that RSCU formalizes.
+a **`1e-6` clamp** at score time — see [[codon-adaptation-index]]). The
+**[[effective-number-of-codons|ENC / Nc]]** (Wright 1990) is the reference-free sibling: it reduces a
+gene's codon bias to a single number in [20, 61] using codon homozygosity `F̂` built from the same
+synonymous-codon frequencies `p_i`. Other siblings in `docs/Evidence/` include rare-codon analysis,
+codon optimization, and raw codon-frequency/usage tables; each builds on the same synonymous-family
+counting that RSCU formalizes.

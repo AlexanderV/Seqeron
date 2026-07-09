@@ -537,3 +537,26 @@ Operations:
    units (CODON-ENC/OPT/RARE/STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON) — ENC/optimization likely warrant
    their own concepts, raw frequency/usage tables may share existing concepts.
    graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, relates_to relative-synonymous-codon-usage)
+
+## [2026-07-09] ingest | docs/Evidence/CODON-ENC-001-Evidence.md → codon-enc-001-evidence (source) + 1 concept
+   Twenty-third per-algorithm Evidence file; third of the codon-usage family (after ANNOT-CODONUSAGE/
+   RSCU, CODON-CAI). Created the genuinely-distinct concept effective-number-of-codons (ENC / Nc,
+   Wright 1990): a reference-free whole-gene codon-bias measure in [20,61] = reciprocal of codon
+   homozygosity F̂=(n·Σp_i²−1)/(n−1) aggregated by degeneracy class as Nc=2+9/F̂₂+1/F̂₃+5/F̂₄+3/F̂₆
+   (constants = the standard-code partition: 2 singlets Met/Trp, 9 doublets, 1 triplet Ile, 5 quartets,
+   3 sextets; stops excluded). 20 = max bias (one codon per aa), 61 = uniform usage; sampling
+   WITHOUT replacement (Fuglsang 2006 superior estimator). Corner cases: n≤1 → F̂ undefined, drop and
+   within-class-average (Eq. 4); Ile-absent 3-fold → F̂₃=(F̂₂+F̂₄)/2 fallback (Eq. 5a); Eq. 3 overshoot
+   > 61 → re-adjust to 61; per-aa overshoot on small n. Oracles: unbiased→61, max-bias→20, Fuglsang
+   no-bias-discrepancy sim→40.5, Phe TTT×3/TTC×1→F̂=0.5/Nc=2 (even split→3). One assumption: the
+   Math.Max(20,…) lower clamp is a defensive bound NOT a Wright instruction (only re-adjust-DOWN-to-61
+   is source-prescribed; 20 is the structural minimum). Concise source page for the artifact (Fuglsang
+   2004 rank-1 verbatim Wright equations + Fuglsang 2006 Genetics rank-1 + NCBI degeneracy partition
+   rank-2 + Wright 1990 Gene primary). Linked new source + concept into the algorithm-validation-evidence
+   hub and added CODON-ENC to that hub's frontmatter; cross-linked bidirectionally with
+   codon-adaptation-index (ENC = reference-free counterpart, modeled alternative_to) and
+   relative-synonymous-codon-usage (F̂ built from the same p_i). Contradictions: none — Fuglsang 2004 &
+   2006 reproduce identical Wright equations, NCBI partition matches Eq. 3 constants. Follow-up:
+   remaining codon-usage units (CODON-OPT/RARE/STATS/USAGE, SEQ-CODON-FREQ, TRANS-CODON) — optimization
+   likely warrants its own concept, raw frequency/usage tables may share existing concepts.
+   graph: +2 nodes, +3 typed edges (relates_to test-unit-registry, alternative_to codon-adaptation-index, relates_to relative-synonymous-codon-usage)

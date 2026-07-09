@@ -96,6 +96,8 @@ by the caller.
 CAI sits one level above [[relative-synonymous-codon-usage|RSCU]] in the codon-usage-bias family:
 both count synonymous-family usage, but RSCU normalizes to the family and stays per-codon, while
 CAI normalizes to the family **maximum** and reduces a gene to a single geometric-mean expression
-proxy. Siblings still in `docs/Evidence/` (ENC, rare-codon analysis, codon optimization, raw
-frequency/usage tables) share the same synonymous-family counting. See
-[[algorithm-validation-evidence]] for the shared evidence-artifact pattern.
+proxy. The **[[effective-number-of-codons|ENC / Nc]]** (Wright 1990) is CAI's reference-free
+counterpart — same single-number goal, but measuring intrinsic synonymous-codon evenness on a
+[20, 61] scale with no reference gene set. Other siblings still in `docs/Evidence/` (rare-codon
+analysis, codon optimization, raw frequency/usage tables) share the same synonymous-family counting.
+See [[algorithm-validation-evidence]] for the shared evidence-artifact pattern.
