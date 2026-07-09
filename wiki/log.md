@@ -1263,3 +1263,22 @@ Operations:
    pending, 33→32 domains). Contradictions: none — Wikipedia and GeeksforGeeks agree on contiguity + GST
    mechanism, differ only on reporting ties (all vs one), resolved deterministically by the repo.
    graph: +2 nodes (source + concept), +2 typed edges (concept relates_to test-unit-registry + relates_to dot-plot-word-match; source-page [[wikilinks]] mentions auto-derived)
+
+## [2026-07-09] ingest | docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md → genomic-motifs-001-evidence (source) + known-motif-search (concept)
+   New source page [[genomic-motifs-001-evidence]] + new concept [[known-motif-search]] — the
+   Motif-Analysis "Known Motif Search" unit: multi-pattern EXACT substring matching of a set of
+   known query motifs (`GenomicAnalyzer.FindMotif`), the exact-equality baseline distinct from motif
+   discovery and degenerate (IUPAC/PROSITE/PWM) matching. THE correctness rule = all OVERLAPPING
+   occurrences reported (AAA in AAAAA→{0,1,2}, per Gusfield/Tufts + Biopython `count_overlap` 3-not-2);
+   API contract 0-based sorted positions, per-motif position lists (absent motifs omitted),
+   upper-cased result keys, empty/whitespace motif→no entry (`Array.Empty<int>()`). Oracles: EcoRI
+   GAATTC in GAATTCAAAGAATTC→{0,9}, `{ACGT,AA,TTT}` in ACGTACGTAA→{0,4}/{8}/omitted. Sources
+   Tufts COMP 150GEN (Gusfield) + Biopython `Seq.search`/`count_overlap` + Wikipedia "Restriction
+   site" (EcoRI). Two API-shape assumptions (empty-motif→no entry, upper-case keys), deviations None.
+   Wired into algorithm-validation-evidence hub (frontmatter sources + source-list + distinct-concept
+   list) and index (source + concept lines). Reconciled backlog: moved Known_Motif_Search.md from
+   pending Motif_Analysis (1→0, section removed) to covered-via-concept (44→45 covered / 201→200
+   pending, 32→31 domains). Contradictions: none — Gusfield and Biopython agree all occurrences
+   including overlaps are reported.
+   graph: +2 nodes (source + concept), +1 typed edge (concept relates_to test-unit-registry;
+   source-page [[wikilinks]] mentions auto-derived)
