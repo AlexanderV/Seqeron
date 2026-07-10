@@ -4,9 +4,10 @@ title: "Scientific rigor by construction"
 tags: [rigor]
 sources:
   - README.md
-source_commit: 6a14170477c9472c0be07e3b7c7f7123e31eddcf
+  - docs/Validation/LIMITATIONS.md
+source_commit: 45545719fbdd7689c20bb680104862f6098adf32
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -23,7 +24,7 @@ The principle that Seqeron results are trustworthy because the system is built t
 
 ## Mechanisms
 
-- **`LimitationPolicy`** — a runtime guard that constrains each algorithm to its validated operating envelope, refusing (or flagging) use outside it. Its honest scope is documented in `docs/Validation/LIMITATIONS.md`.
+- **`LimitationPolicy`** — a runtime guard that constrains each algorithm to its validated operating envelope, refusing (or flagging) use outside it. Its three modes (`Strict`/`Moderate`/`Permissive`) and honest scope catalog (`docs/Validation/LIMITATIONS.md`) are written up in [[operating-envelope-and-limitation-policy]].
 - **Tool-only computation** — results come from tool/algorithm calls, not model guesses; the `bio-rigor` skill enforces this discipline (tool-only, 0-based coordinates, provenance on every result).
 - **Provenance** — outputs are reproducible and cited back to the tool chain that produced them.
 

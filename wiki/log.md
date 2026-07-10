@@ -3420,3 +3420,17 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Did NOT force the algorithm-validation-evidence hub (this is a governance register, not per-algorithm
    Evidence). Updated wiki/index.md (Sources + Concepts). No contradictions flagged.
    graph: +2 nodes, +2 typed edges (validation-findings-disposition relates_to validation-and-testing, relates_to build-quality-gate)
+
+## [2026-07-10] ingest | docs/Validation/LIMITATIONS.md -> limitations (source) + 1 concept
+   GOVERNANCE. New source page for the validated operating-envelope document (what the library does
+   NOT do; every row BY-DESIGN + ✅ CLEAN; three kinds irreducible/data-blocked/scope across ~13 units;
+   research-vs-clinical disclaimer). Created concept operating-envelope-and-limitation-policy (the
+   LimitationPolicy Strict/Moderate/Permissive runtime guard, minimum-access-mode table, and the
+   limitation taxonomy) with relates_to edges to scientific-rigor and validation-and-testing. ENRICHED
+   scientific-rigor (LimitationPolicy bullet now links the new concept + names the three modes),
+   research-grade-limitations (LIMITATIONS.md sentence links the per-unit envelope), and
+   validation-and-testing (operating-envelope-document phrase links [[limitations]] + the concept) —
+   each with LIMITATIONS.md added to sources + source_commit bumped. Did NOT force the
+   algorithm-validation-evidence hub (governance envelope, not per-algorithm Evidence). Updated
+   wiki/index.md (Sources + Concepts). No contradictions flagged.
+   graph: +2 nodes, +2 typed edges (operating-envelope-and-limitation-policy relates_to scientific-rigor, relates_to validation-and-testing)

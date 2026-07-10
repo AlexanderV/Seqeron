@@ -8,7 +8,8 @@ sources:
   - docs/ADVANCED_TESTING_CHECKLIST.md
   - docs/sonar-gate-plan.md
   - docs/Validation/FINDINGS_REGISTER.md
-source_commit: 9710ae416a27c89fd4c0699c0a7631c0df408224
+  - docs/Validation/LIMITATIONS.md
+source_commit: 45545719fbdd7689c20bb680104862f6098adf32
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -44,7 +45,7 @@ Coverage was uneven at the [[advanced-testing-checklist]] baseline (2026-03-19) 
 
 ## Validation campaign
 
-Beyond tests, the README describes a per-unit internal validation campaign: a findings register, a published limitations / operating-envelope document, literature-traced parameters, and one report per unit under `docs/Validation/reports`. This is the evidence base behind the runtime [[scientific-rigor]] guarantees — but it is internal and self-validated, with the caveats spelled out in [[research-grade-limitations]].
+Beyond tests, the README describes a per-unit internal validation campaign: a findings register, a published [[limitations|limitations / operating-envelope document]] (enforced at runtime — see [[operating-envelope-and-limitation-policy]]), literature-traced parameters, and one report per unit under `docs/Validation/reports`. This is the evidence base behind the runtime [[scientific-rigor]] guarantees — but it is internal and self-validated, with the caveats spelled out in [[research-grade-limitations]].
 
 The [[findings-register]] is that register made concrete: it triages **every** note across all 86 per-unit reports into one of four dispositions (fixed-now / feasible / not-possible / by-design) via the [[validation-findings-disposition]] process. Its most striking output is **green-washing detection** — a large share of "green" tests were found to assert a defective spec (tautologies, code-echo oracles), and were re-anchored to independently sourced literals and mutation-checked. Note the register is a 2026-06-12 snapshot **superseded by a full re-validation reset on 2026-06-24**, so read it as historical reasoning, not live status.
 
