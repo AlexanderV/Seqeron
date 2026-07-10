@@ -2817,3 +2817,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    the source in the algorithm-validation-evidence hub (frontmatter + body list). Index Sources
    updated. No contradictions.
    graph: +1 node (parse-vcf-001-evidence source), +0 typed edges (source-only page; mentions edges auto-derived)
+
+## [2026-07-10] ingest | docs/Evidence/PAT-APPROX-003-Evidence.md → [[pat-approx-003-evidence]] (source) + [[approximate-pattern-matching-mismatches]] (new concept)
+   Approximate (Hamming-distance / k-mismatch) pattern matching — ROSALIND BA1H/BA1I/BA1N
+   (Compeau & Pevzner) + go-rosalind/Rosalind-Solutions reference impls. New concept: the PAT-APPROX
+   family anchor (Count_d / FindApproximateOccurrences / FindFrequentKmersWithMismatches / Neighbors
+   d-neighborhood / FindBestMatch). Genuinely distinct from the exact matchers — created rather than
+   folded in. Cross-linked as mismatch-tolerant alternative_to [[k-mer-positions]] and fuzzy sibling of
+   [[known-motif-search]] / [[overrepresented-kmer-discovery]]; scoped against the indel-tolerant
+   alignment/edit-distance family. Registered in algorithm-validation-evidence hub (frontmatter +
+   source list + own-concept list); index Sources + Concepts updated. Deviations none; one FindBestMatch
+   leftmost-tie-break API assumption.
+   graph: +2 nodes (pat-approx-003-evidence source, approximate-pattern-matching-mismatches concept), +2 typed edges (relates_to test-unit-registry, alternative_to k-mer-positions)
