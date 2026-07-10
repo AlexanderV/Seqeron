@@ -3,10 +3,11 @@ type: concept
 title: "Nucleotide composition skew (AT skew / GC skew)"
 tags: [sequence-statistics, composition, chromosome]
 sources:
+  - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-ATSKEW-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
-source_commit: c094b65e4a89b3c3c146d655c12489e6d28e8564
+source_commit: 6e8fde12868aa0db4347950e4cf52449588e0b68
 created: 2026-07-10
 updated: 2026-07-10
 ---
@@ -22,14 +23,16 @@ identical shape:
 
 Both were introduced by **Lobry (1996)** — the founding observation was a *"departure
 from intrastrand equifrequency between A and T or between C and G, showing that the
-substitution patterns of the two strands of DNA were asymmetric."* The **SEQ-ATSKEW-001**
-test unit ([[seq-atskew-001-evidence]]) validates the AT-skew member; GC skew is the
-sibling member. Both skews are also computed together (as `OverallGcSkew`/`OverallAtSkew`,
-plus a **windowed** GC-skew profile and its population variance) by the composite
-**SEQ-GC-ANALYSIS-001** GC-analysis unit — see [[windowed-gc-profile-and-variance]] and
-[[seq-gc-analysis-001-evidence]]; a standalone `gc-skew` unit is separately flagged, not yet
-ingested. [[test-unit-registry]] tracks the units and [[algorithm-validation-evidence]]
-describes the artifact pattern.
+substitution patterns of the two strands of DNA were asymmetric."* Both skew members were
+first delivered *together* under the original **SEQ-STATS-001** sequence-statistics umbrella
+([[seq-stats-001-evidence]]), alongside the [[base-composition]] tally. The **SEQ-ATSKEW-001**
+test unit ([[seq-atskew-001-evidence]]) later validates the AT-skew member as its own registry
+entry; GC skew is the sibling member. Both skews are also computed together (as
+`OverallGcSkew`/`OverallAtSkew`, plus a **windowed** GC-skew profile and its population variance)
+by the composite **SEQ-GC-ANALYSIS-001** GC-analysis unit — see
+[[windowed-gc-profile-and-variance]] and [[seq-gc-analysis-001-evidence]]; a standalone `gc-skew`
+unit is separately flagged, not yet ingested. [[test-unit-registry]] tracks the units and
+[[algorithm-validation-evidence]] describes the artifact pattern.
 
 ## Definition and range
 

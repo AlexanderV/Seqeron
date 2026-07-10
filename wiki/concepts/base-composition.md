@@ -3,11 +3,12 @@ type: concept
 title: "Sequence composition (base/residue counts, fractions, GC content)"
 tags: [sequence-statistics, composition]
 sources:
+  - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
-source_commit: e058738ff312bb90e5022081cf85e0b9da5b67cb
+source_commit: 6e8fde12868aa0db4347950e4cf52449588e0b68
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -16,6 +17,12 @@ graph:
       object: concept:test-unit-registry
       source: seq-composition-001-evidence
       evidence: "Test Unit ID: SEQ-COMPOSITION-001 ... Algorithm: Sequence Composition (nucleotide composition + amino-acid composition)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: seq-stats-001-evidence
+      evidence: "Test Unit ID: SEQ-STATS-001 ... Algorithm: Sequence Composition Statistics (nucleotide composition, GC content, GC/AT skew) — the original umbrella that first delivered the nucleotide-composition + GC-content methods."
       confidence: high
       status: current
 ---
@@ -27,6 +34,13 @@ counts and fractions of each symbol. It underlies almost every downstream sequen
 The **SEQ-COMPOSITION-001** unit ([[seq-composition-001-evidence]]) validates three related
 outputs over the standard {A,T,G,C,U} + amino-acid alphabets; [[test-unit-registry]] tracks the
 unit and [[algorithm-validation-evidence]] describes the artifact pattern.
+
+**Original home.** The nucleotide-composition and GC-content methods were first delivered under
+the **SEQ-STATS-001** sequence-statistics *umbrella* ([[seq-stats-001-evidence]]);
+SEQ-COMPOSITION-001 is its later duplicate/consolidated registry entry over those same two
+methods, and `SummarizeNucleotideSequence` is the umbrella's thin aggregation wrapper re-exposing
+this GC content / count tally. The skew members of that umbrella live on the sibling
+[[nucleotide-composition-skew]].
 
 ## The three outputs
 

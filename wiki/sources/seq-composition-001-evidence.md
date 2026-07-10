@@ -28,7 +28,7 @@ sibling concept [[nucleotide-composition-skew]].
 SEQ-COMPOSITION-001 is a **duplicate Registry entry for the two composition methods already
 delivered under SEQ-STATS-001** — consolidated rather than re-implemented (see TestSpec §7).
 So this unit is a documentation/registry artifact over an existing implementation, not a new
-algorithm. (SEQ-STATS-001 is not yet ingested — see follow-up.)
+algorithm — the original umbrella is [[seq-stats-001-evidence|SEQ-STATS-001]].
 
 ## What this file records
 
