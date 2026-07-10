@@ -51,8 +51,11 @@ formulae and pins them to the primary FASTQ specification, **Cock et al. (2010)*
 | 40 | 0.0001 (1 in 10,000) | 99.99% |
 
 **Q20** and **Q30** are the conventional QC thresholds — the "% of bases ≥ Q20 / ≥ Q30"
-reported by FASTQ statistics. The inverse conversion caps at **Q93** for `p ≤ 0` (the maximum
-value representable in a Sanger Phred+33 string).
+reported by FASTQ statistics. Those run-quality summaries (Q20/Q30 fractions, mean, median,
+min/max, std dev) are a **separate surface** that *consumes* these decoded scores; they live on
+their own concept page [[fastq-quality-statistics]] (unit [[quality-stats-001-evidence]]). The
+inverse conversion caps at **Q93** for `p ≤ 0` (the maximum value representable in a Sanger
+Phred+33 string).
 
 ## The two live encodings (ASCII offset)
 

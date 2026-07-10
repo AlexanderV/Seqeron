@@ -146,6 +146,7 @@ sources:
   - docs/Evidence/PROTMOTIF-SP-001-Evidence.md
   - docs/Evidence/PROTMOTIF-TM-001-Evidence.md
   - docs/Evidence/QUALITY-PHRED-001-Evidence.md
+  - docs/Evidence/QUALITY-STATS-001-Evidence.md
 source_commit: 25fe7f865ba8c3ce681652d15fc633919907a6e5
 created: 2026-07-09
 updated: 2026-07-10
@@ -226,7 +227,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[parse-bed-001-evidence]], [[parse-embl-001-evidence]], [[parse-fasta-001-evidence]],
 [[parse-fastq-001-evidence]], [[parse-genbank-001-evidence]],
 [[parse-gff-001-evidence]], [[parse-vcf-001-evidence]],
-[[quality-phred-001-evidence]],
+[[quality-phred-001-evidence]], [[quality-stats-001-evidence]],
 [[onco-action-001-evidence]], [[onco-annot-001-evidence]],
 [[onco-artifact-001-evidence]], [[onco-ascat-001-evidence]],
 [[onco-ccf-001-evidence]], [[onco-chip-001-evidence]],
