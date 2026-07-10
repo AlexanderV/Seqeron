@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md
   - docs/algorithms/Assembly/Error_Correction.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-CORRECT-001.md
+source_commit: 02551f587247480dd3dff1cbb59fba61ed5ffae2
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -23,8 +24,10 @@ graph:
 Correcting substitution errors in sequencing reads using the **k-mer spectrum**: real genomic
 k-mers recur at high coverage, while k-mers carrying a sequencing error are rare. This is the
 error-correction preprocessing step ahead of assembly, and the anchor for the assembly **CORRECT**
-family. Validated under test unit **ASSEMBLY-CORRECT-001**; the validation record is
-[[assembly-correct-001-evidence]], and [[test-unit-registry]] tracks the unit. See
+family. Validated under test unit **ASSEMBLY-CORRECT-001**; the pre-implementation record is
+[[assembly-correct-001-evidence]] and the independent two-stage verdict is
+[[assembly-correct-001-report]] (Stage A 🟡 PASS-WITH-NOTES / Stage B ✅ PASS / State CLEAN, feeding
+one row of the [[validation-ledger]]), while [[test-unit-registry]] tracks the unit. See
 [[algorithm-validation-evidence]] for the artifact pattern.
 
 ## Trusted vs untrusted (the spectrum model)
@@ -71,3 +74,10 @@ deviation from the algorithm: every behavioral test passes `k` and the cut-off e
 correctness for a given `(k, cut-off)` is fully source-defined. Contract behaviour: null reads ⇒
 `ArgumentNullException`; `kmerSize < 1` ⇒ `ArgumentOutOfRangeException`; input is upper-cased
 (case-insensitive) per the analyzer convention.
+
+The re-validation ([[assembly-correct-001-report]]) also records two documented, non-defect
+divergences from Musket: **(N1)** the repo tests **all** k-mers covering a position, whereas Musket
+checks only the **leftmost + rightmost** for speed — a stricter, equally-valid realisation of the
+same "make all covering k-mers trusted" goal that agrees with Musket under the ≤1-error assumption;
+and **(N2)** the trusted threshold is `mult ≥ minKmerFrequency` (inclusive `≥`) versus the sources'
+`abundance > m` — a parameter-naming convention, not a behavioral change.

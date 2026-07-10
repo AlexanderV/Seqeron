@@ -3679,3 +3679,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    parameter-reachable default divergences carried, not defects). Kept distinct from the
    pre-existing evidence page assembly-consensus-001-evidence. Updated wiki/index.md (+1 source
    line). No contradictions flagged. No typed graph edges added (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-CORRECT-001.md
+   Created source-summary wiki/sources/assembly-correct-001-report.md (two-stage validation
+   report for ASSEMBLY-CORRECT-001 — k-mer spectrum two-sided read error correction,
+   SequenceAssembler.ErrorCorrectReads; Stage A PASS-WITH-NOTES / Stage B PASS / End state CLEAN,
+   full suite 6535/0). Tied the report to [[validation-ledger]] / [[validation-protocol]] /
+   [[validation-and-testing]] and the algorithm concept [[kmer-spectrum-error-correction]], NOT
+   the algorithm-validation-evidence hub. Reused the existing concept (already covers
+   ASSEMBLY-CORRECT-001) — surgically added the report to its sources:, bumped source_commit, and
+   captured the two carried Stage-A notes (repo tests all covering k-mers vs Musket's
+   leftmost+rightmost; `>=` vs `>` threshold) plus the fixed code-echoing test A22 (M4 rewritten
+   to a genuine no-valid-correction case AAAAAAAA*3 + AACCAAAA, k=4; no algorithm defect). Kept
+   distinct from the pre-existing evidence page assembly-correct-001-evidence. Updated
+   wiki/index.md (+1 source line). No contradictions flagged. No typed graph edges added (report
+   is source-type; N/A).
