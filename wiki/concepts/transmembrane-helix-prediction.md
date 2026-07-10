@@ -4,7 +4,8 @@ title: "Transmembrane helix prediction (Kyte-Doolittle hydropathy sliding window
 tags: [analysis, algorithm]
 sources:
   - docs/Evidence/PROTMOTIF-TM-001-Evidence.md
-source_commit: 12eadbfe614a7835d3d88f0c1d2ea1a8cb209612
+  - docs/Evidence/SEQ-HYDRO-001-Evidence.md
+source_commit: 3e90ada29a32f385c5a7ffa5227e4471967a9915
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -41,7 +42,11 @@ This is a **distinct unit of the protein-motif / ProteinMotif family** (alongsid
 the same Kyte-Doolittle scale used by the `CalculateHydropathy` utility inside
 [[intrinsic-disorder-prediction-top-idp]] (which applies it to the charge–hydropathy view of
 disorder), but here the signal is the sustained hydrophobic stretch long enough to cross the
-bilayer. It differs from [[coiled-coil-prediction]] (which scores heptad **a/d** periodicity,
+bilayer. This unit is the **segment-calling layer over the raw hydropathy profile** validated
+by [[hydrophobicity-gravy-and-profile]] (SEQ-HYDRO-001) — that concept owns the same
+Kyte-Doolittle scale, the identical `edge=1.0` window mean, and the whole-sequence GRAVY
+scalar, and its GCAT/Davidson source is where this unit's `W=19` / threshold `1.6` defaults
+come from. It differs from [[coiled-coil-prediction]] (which scores heptad **a/d** periodicity,
 not raw window-mean hydropathy) and from the signal-peptide model in
 [[protein-domain-and-signal-peptide-prediction]] (a cleaved N-terminal targeting sequence, not
 a membrane-spanning segment).
