@@ -5,7 +5,8 @@ tags: [validation, sequence-statistics, composition]
 doc_path: docs/Evidence/SEQ-SUMMARY-001-Evidence.md
 sources:
   - docs/Evidence/SEQ-SUMMARY-001-Evidence.md
-source_commit: 37c18482dfb0ee53a0be1fc073c2b4c6694012cc
+  - docs/Evidence/SEQ-TM-001-Evidence.md
+source_commit: 52c02ee8f4642a46e7ab17988a729a45ffbe5268
 ingested: 2026-07-10
 created: 2026-07-10
 updated: 2026-07-10
@@ -24,7 +25,7 @@ statistics computed by already-validated sibling methods:
 | `GcContent` | `(G+C)/(A+T+G+C+U)` ∈ [0,1] | `CalculateGcContent` → [[base-composition]] |
 | `Entropy` | Shannon `H = −Σ pᵢ log₂ pᵢ` (bits) | [[seq-entropy-profile-001-evidence]] / [[windowed-sequence-complexity-profile]] |
 | `Complexity` | linguistic complexity (vocabulary-usage) | `CalculateLinguisticComplexity` → [[windowed-sequence-complexity-profile]] |
-| `MeltingTemperature` | Wallace (len<14) / GC-Marmur-Doty (len≥14) | `CalculateMeltingTemperature` → [[primer-dimer-thermodynamics-tm]] (legacy Wallace/Marmur default) |
+| `MeltingTemperature` | Wallace (len<14) / GC-Marmur-Doty (len≥14) | `CalculateMeltingTemperature` → [[melting-temperature]] (SEQ-TM-001, the scalar Wallace/Marmur Tm) |
 
 It is one instance of the templated per-algorithm [[algorithm-validation-evidence|evidence
 artifact]] pattern; [[test-unit-registry]] tracks the unit.
@@ -37,7 +38,7 @@ input. Any divergence (different rounding, alphabet handling, or formula selecti
 the summary, **independent** of whether each underlying metric is itself correct — those are the
 scope of the sibling units (composition → [[base-composition]] / SEQ-COMPOSITION-001; entropy →
 SEQ-ENTROPY-PROFILE-001; linguistic complexity → SEQ-COMPLEX-WINDOW-001; Tm → the SEQ-TM-001
-`CalculateMeltingTemperature`, not yet separately ingested). So this page adds no new concept: every
+`CalculateMeltingTemperature` → [[melting-temperature]]). So this page adds no new concept: every
 aggregated method is already synthesized on an existing concept page.
 
 **Scope note / cross-reference correction.** [[base-composition]] and [[seq-stats-001-evidence]]

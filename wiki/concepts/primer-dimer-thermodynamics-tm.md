@@ -8,7 +8,8 @@ sources:
   - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
   - docs/Evidence/SEQ-THERMO-001-Evidence.md
-source_commit: 41aaf8a4899a8795559ba409d32abc24d36553a1
+  - docs/Evidence/SEQ-TM-001-Evidence.md
+source_commit: 52c02ee8f4642a46e7ab17988a729a45ffbe5268
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -102,7 +103,8 @@ per stack. This makes Tm **monotonic in salt** — lower [Na⁺] gives lower Tm.
 The simplest use of this model is the **per-oligo (single-strand) design Tm** — a primer's own
 Tm as one input to the [[primer3-weighted-penalty-objective|penalty objective]] — computed by
 summing the NN stacks of the primer against its own complement and applying Eq. 3 directly
-(opt-in NN Tm; the legacy Wallace / Marmur-Doty Tm is the unchanged default). The published
+(opt-in NN Tm; the legacy Wallace / Marmur-Doty scalar Tm — the SEQ-family
+[[melting-temperature]], SEQ-TM-001 — is the unchanged default). The published
 oracle is SantaLucia & Hicks (2004) p.419: ΔH°=−43.5, ΔS°=−122.5, 0.2 mM each strand →
 **Tm = 35.8 °C**. Hand-derived Table-1 sums confirm it term-by-term (`GCGCGC` self x=1 →
 Tm 35.0473 °C; `ATGCATGC` x=4 → 30.4338 °C; `CGCGAATTCGCG` self → 61.1452 °C at 1 M Na, 0.5 µM).

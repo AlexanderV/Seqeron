@@ -4,7 +4,8 @@ title: "DNA duplex nearest-neighbor thermodynamics (ΔH°/ΔS°/ΔG°/Tm)"
 tags: [thermodynamics, sequence-statistics, validation]
 sources:
   - docs/Evidence/SEQ-THERMO-001-Evidence.md
-source_commit: 41aaf8a4899a8795559ba409d32abc24d36553a1
+  - docs/Evidence/SEQ-TM-001-Evidence.md
+source_commit: 52c02ee8f4642a46e7ab17988a729a45ffbe5268
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -88,10 +89,11 @@ thermodynamics** one:
   `init_A/T` / `init_G/C`** counted off the terminal bases. That engine also models dimers, hairpins
   and mismatches and exposes only a Tm/structure; SEQ-THERMO returns the whole **ΔH°/ΔS°/ΔG°** tuple.
   The salt term (`0.368·(N/2)·ln[Na⁺]`, N/2 = NN stacks = `len − 1`) is the **same** Eq. 5 in both.
-- The **legacy Wallace / Marmur-Doty scalar Tm** (`CalculateMeltingTemperature`, SEQ-TM-001) bundled
-  by [[seq-summary-001-evidence|SummarizeNucleotideSequence]] (see [[base-composition]]) is a `%GC`
-  rule of thumb (`4(G+C)+2(A+T)` / `69.3 + 0.41·%GC − 650/N`), **not** a thermodynamic model — it
-  carries no ΔH°/ΔS°/ΔG°.
+- The **legacy Wallace / Marmur-Doty scalar Tm** — the SEQ-family [[melting-temperature]]
+  (`CalculateMeltingTemperature`, SEQ-TM-001), also bundled by
+  [[seq-summary-001-evidence|SummarizeNucleotideSequence]] (see [[base-composition]]) — is a `%GC`
+  rule of thumb length-dispatched between `4(G+C)+2(A+T)` (short) and `64.9 + 41·(GC−16.4)/N`
+  (len ≥ 14), **not** a thermodynamic model — it carries no ΔH°/ΔS°/ΔG°.
 
 The RNA analogue — nearest-neighbor free energy for single-strand folding — is the Turner-parameter
 model on [[rna-free-energy-turner-model]]; this DNA duplex engine and that RNA folding engine share
