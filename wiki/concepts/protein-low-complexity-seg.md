@@ -48,7 +48,11 @@ dip-in-disorder unit, DISORDER-MORF-001, now ingested), so those units warrant t
 concepts — low-complexity regions overlap with but are not identical to intrinsically
 disordered regions. It is also the **protein counterpart** of the genomic/DNA low-complexity handled
 under [[repetitive-element-detection]] — a different alphabet and complexity measure (SEG's Shannon
-entropy over 20 amino acids vs the DNA repeats/masking family). A further protein sequence-feature
+entropy over 20 amino acids vs the DNA repeats/masking family). SEG's Shannon-entropy-of-composition
+is also just **one** member of the broader sequence complexity/entropy family: the compression-based
+[[sequence-complexity-compression-lempel-ziv]] (Lempel–Ziv LZ76 phrase count) scores the *pattern
+buildup along the whole sequence* rather than the composition of a single window, a genuinely
+distinct scalar measure. A further protein sequence-feature
 sibling — from the separate **ProteinMotif** algorithm group — is
 [[coiled-coil-prediction]] (heptad a/d hydrophobic-core occupancy), likewise a windowed sequence-only
 heuristic but scoring the α-helical a/d hydrophobic periodicity rather than compositional entropy.

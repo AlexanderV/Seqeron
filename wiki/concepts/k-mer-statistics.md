@@ -117,3 +117,7 @@ is 6 (`UniqueKmers = 6`) while the singleton count is 5.
   **two** sequences — whereas this unit summarizes the profile of **one**.
 - The **k-entropy** here is the k-mer specialization of Shannon sequence entropy; a general
   `shannon-entropy` unit (pending ingest) would relate to it as the character-level counterpart.
+  A **different** member of the same complexity/entropy family is the compression-based
+  [[sequence-complexity-compression-lempel-ziv]] (Lempel–Ziv LZ76 count): it counts adaptively
+  discovered **variable-length** phrases along the whole sequence rather than a fixed-`k`
+  frequency distribution, so it captures ordered pattern buildup that a fixed-`k` k-entropy misses.
