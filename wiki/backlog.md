@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **76** algorithm docs covered-via-concept, **169** pending across 27 domains.
+Status at generation: **77** algorithm docs covered-via-concept, **168** pending across 27 domains.
 
 ## Covered via concept (done)
 
@@ -103,6 +103,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
+| `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 
 ## Pending (fold into the ingest campaign)
 
@@ -171,14 +172,13 @@ page name once ingested (subject to change if a shared anchor concept fits bette
 | --- | --- |
 | `docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md` | `pangenome-core-accessory` |
 
-### MolTools (17)
+### MolTools (16)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
 | `docs/algorithms/MolTools/DNA_Dimer_Tm.md` | `dna-dimer-tm` |
 | `docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md` | `dna-hairpin-folding-tm` |
 | `docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md` | `dna-hairpin-special-loop-bonus` |
-| `docs/algorithms/MolTools/Guide_RNA_Design.md` | `guide-rna-design` |
 | `docs/algorithms/MolTools/Hybridization_Probe_Design.md` | `hybridization-probe-design` |
 | `docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md` | `lna-adjusted-nearest-neighbor-tm` |
 | `docs/algorithms/MolTools/Melting_Temperature.md` | `melting-temperature` |

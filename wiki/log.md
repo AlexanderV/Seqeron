@@ -4249,3 +4249,19 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    distinct from evidence artifact compgen-synteny-001-evidence and the chromosome-scale chrom-synt-001-report.
    No new typed graph edges (report is a source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/CRISPR-GUIDE-001.md → crispr-guide-001-report (source) + 1 concept
+   Per-unit validation report for CRISPR-GUIDE-001 (MolTools — CRISPR gRNA design + on-target efficacy
+   scoring). Stage A/B both PASS, State CLEAN, 54/54 CRISPR tests green, zero code/test change. CRISPR was
+   genuinely unrepresented in the wiki (no prior crispr/gRNA/PAM/Doench concept), so created the new concept
+   crispr-guide-rna-design as the CrisprDesigner/MolTools anchor — two layers: (1) composition heuristic
+   DesignGuideRnas/EvaluateGuideRna, (2) learned on-target efficacy Doench-2014 Rule Set 1
+   (CalculateOnTargetDoench2014, 30-mer 4+20+3+3, intercept 0.59763615, 70-entry table byte-identical to the
+   re-downloaded CRISPOR reference) + Doench-2016 Rule Set 2 / Azimuth (CalculateOnTargetRuleSet2, sklearn-free
+   GBRT, externally-derived oracles). Source-summary page records the re-grounding, three worked oracles
+   (≤2e-8), NGG PAM guard, and by-design heuristic simplifications. Tied to validation-ledger /
+   validation-and-testing / test-unit-registry; did NOT force the algorithm-validation-evidence hub. Covered
+   backlog slug guide-rna-design (moved Guide_RNA_Design.md pending→covered; MolTools 17→16; status 76→77
+   covered / 169→168 pending). Updated wiki/index.md (+1 source, +1 concept). Concept sources list both the
+   report and docs/algorithms/MolTools/Guide_RNA_Design.md. No contradictions.
+   graph: +2 nodes, +2 typed edges (crispr-guide-rna-design relates_to test-unit-registry, relates_to primer-dimer-thermodynamics-tm)
