@@ -113,7 +113,11 @@ optimal fold, whereas the [[rna-partition-function-mccaskill|McCaskill partition
 Boltzmann-weighted **ensemble** counterpart (a probability distribution over all structures + per-pair
 probabilities rather than one optimum). By contrast [[rna-free-energy-turner-model]] only **scores** a
 *given* structure with the Turner terms this folder consumes, and [[rna-dot-bracket-notation]] only
-**parses/validates** the notation this folder emits.
+**parses/validates** the notation this folder emits. Both this folder and the McCaskill ensemble
+search only **nested (pseudoknot-free)** structure space; the crossing-helix extension —
+**pseudoknots** — is [[rna-pseudoknot-prediction]] (RNA-PKPREDICT-001), which **depends on** this
+folder both as its fallback baseline (`FreeEnergy ≤ CalculateMfeStructure().FreeEnergy`) and to fold
+its internal loops.
 It builds on the [[rna-base-pairing]] Watson-Crick + G-U wobble pairing rule. The
 [[pre-mirna-hairpin-detection|pre-miRNA hairpin detector]]'s opt-in `AssessHairpinByMfe` /
 `FindPreMiRnaHairpinsByMfe` paths fold with this engine and read the hairpin from the real MFE

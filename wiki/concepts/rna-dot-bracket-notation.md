@@ -43,7 +43,9 @@ is purely about the **bracket string**, not the nucleotides.
   families are not required to nest** with each other. Crossing is what encodes a pseudoknot —
   `([)]` is two crossing 1-bp helices, and the three ViennaRNA equivalents
   `<<<<[[[[....>>>>]]]]`, `((((AAAA....))))aaaa`, `AAAA{{{{....aaaa}}}}` all encode the **same**
-  pair of size-4 crossing helices.
+  pair of size-4 crossing helices. This two-layer notation is exactly what the
+  [[rna-pseudoknot-prediction|H-type pseudoknot predictor]] (RNA-PKPREDICT-001) emits — e.g.
+  `((((..[[[[..))))..]]]]` for a canonical H-type knot.
 - **Non-bracket WUSS symbols are all single-stranded (unpaired):** Rfam's `-` (internal loops /
   bulges), `,` (single strand between helices), `:` (external single-stranded), and `.` (insertions).
   A parser/validator must **ignore** these, not error on them.
