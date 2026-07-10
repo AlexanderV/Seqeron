@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 190 / 1610
+Progress: 191 / 1610
 
 ## (top-level)  (6)
 
@@ -153,7 +153,7 @@ Progress: 190 / 1610
 - [x] docs/Evidence/PHYLO-TREE-001-Evidence.md
 - [x] docs/Evidence/POP-ANCESTRY-001-Evidence.md
 - [x] docs/Evidence/POP-DIV-001-Evidence.md
-- [ ] docs/Evidence/POP-FREQ-001-Evidence.md
+- [x] docs/Evidence/POP-FREQ-001-Evidence.md
 - [ ] docs/Evidence/POP-FST-001-Evidence.md
 - [ ] docs/Evidence/POP-HW-001-Evidence.md
 - [ ] docs/Evidence/POP-LD-001.md

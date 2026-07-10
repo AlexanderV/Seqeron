@@ -41,7 +41,9 @@ Genotypes are the **allele-1 copy counts** `g_ij ∈ {0, 1, 2}` for individual `
 homozygous 1/1, 1 = heterozygous 1/2, 0 = homozygous 2/2). Two parameter matrices:
 
 - **Q = {q_ik}** (I×K) — fraction of individual `i`'s genome from population `k`.
-- **F = {f_kj}** (K×J) — frequency of allele 1 at SNP `j` in population `k`.
+- **F = {f_kj}** (K×J) — frequency of allele 1 at SNP `j` in population `k`. These per-population
+  allele frequencies are exactly the output of the foundational
+  [[allele-genotype-frequencies]] primitive (POP-FREQ-001), here taken as fixed/known input.
 
 Assuming Hardy–Weinberg within populations and independence across SNPs, the **log-likelihood
 (Eq. 2)** is

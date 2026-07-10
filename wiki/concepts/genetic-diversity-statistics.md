@@ -52,7 +52,9 @@ pairwise differences between sequences i and j, and `p_i` = allele frequencies a
   estimate. Variance terms `a_1 = Σ 1/i`, `a_2 = Σ 1/i²`, `b_1 = (n+1)/(3(n−1))`,
   `b_2 = 2(n²+n+3)/(9n(n−1))`, `c_1 = b_1 − 1/a_1`, `c_2 = b_2 − (n+2)/(a_1·n) + a_2/a_1²`,
   `e_1 = c_1/a_1`, `e_2 = c_2/(a_1²+a_2)`.
-- **Heterozygosity / gene diversity** (Nei 1978) — expected `H_exp = (1/L)·Σ_pos(1 − Σ_i p_i²)`
+- **Heterozygosity / gene diversity** (Nei 1978) — from the per-site allele frequencies `p_i`
+  produced by the [[allele-genotype-frequencies]] primitive (POP-FREQ-001), expected
+  `H_exp = (1/L)·Σ_pos(1 − Σ_i p_i²)`
   (per-site `1 − Σ f_i²`); unbiased observed analogue for **haploid** data
   `H_obs = n/(n−1)·H_exp`, which equals π for haploid sequences. (True diploid `H_o` = fraction of
   heterozygous individuals; unavailable without genotypes.)

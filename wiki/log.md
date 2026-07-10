@@ -2953,3 +2953,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    undefined→0, S=0/monomorphic→all 0, Var≤0→D=0. All formulae exact-match; distinct from the
    ancestry anchor (variation amount vs ancestry decomposition). Contradictions: none. Follow-ups: none.
    graph: +2 nodes (pop-div-001-evidence source, genetic-diversity-statistics concept), +2 typed edges (genetic-diversity-statistics relates_to test-unit-registry; genetic-diversity-statistics relates_to ancestry-estimation-admixture)
+## [2026-07-10] ingest | POP-FREQ-001-Evidence.md → pop-freq-001-evidence (source) + allele-genotype-frequencies (concept)
+   Foundational population-genetics POP-* primitive — allele/genotype frequencies, minor allele
+   frequency (MAF), MAF filtering; the numeric substrate under the POP family (produces the fixed F
+   for POP-ANCESTRY-001 and the per-site p_i for POP-DIV-001's heterozygosity term). Biallelic
+   allele freq p=f(AA)+½f(AB)/q=f(BB)+½f(AB) via counts total=2·(n_AA+n_AB+n_BB), major=2·n_AA+n_AB,
+   minor=2·n_BB+n_AB (INV p+q=1, major+minor=total; four-o'clock oracle 49/42/9→0.70/0.30); VCF/PLINK
+   dosage alt_freq=Σg/(2n), MAF=min(alt_freq,1−alt_freq) (INV 0≤MAF≤0.5, symmetric alt 0.7→MAF 0.3;
+   monomorphic→0; 50/50→0.5); MAF filter inclusive [minMAF,maxMAF] band, HapMap/common(>0.05)-vs-
+   rare(<0.05) thresholds. Edge cases: zero samples→(0,0), empty vector→MAF 0, negative count→
+   ArgumentOutOfRangeException. Scope biallelic counting/normalization only (no HWE, no multiallelic,
+   no phasing). All exact-match (Wikipedia Allele/Minor-allele/Genotype frequency + Gillespie 2004 +
+   NDSU). Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (pop-freq-001-evidence source, allele-genotype-frequencies concept), +3 typed edges (allele-genotype-frequencies relates_to test-unit-registry; relates_to ancestry-estimation-admixture; relates_to genetic-diversity-statistics)
