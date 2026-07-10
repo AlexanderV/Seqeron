@@ -2760,3 +2760,19 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    [[algorithm-validation-evidence]] frontmatter/source-list/per-file-link + index Sources updated;
    cross-linked to [[test-unit-registry]] and [[fuzzing]].
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Evidence/PARSE-FASTQ-001-Evidence.md → parse-fastq-001-evidence (source) + 1 concept
+   FileIO PARSE-* family, fourth parsing unit (after BED/EMBL/FASTA). Source page for the FASTQ
+   parsing artifact (4-line record @header/seq/+/quality, seq-len==qual-len invariant, Q20/Q30 +
+   per-position stats, quality/length filter, quality+adapter trim, round-trip; Wikipedia FASTQ +
+   Cock et al. 2009 + NCBI SRA sources; edge cases multi-line/@-in-quality/+-in-seq/blank-skip;
+   assumptions Q93-cap-for-p<=0 + ambiguous-window->Phred+33 default; no contradictions). Unlike the
+   grammar-only FASTA/EMBL siblings, FASTQ carries a genuine encoding scheme, so created the
+   cross-cutting concept phred-quality-encoding (Q=-10log10p, Phred+33 vs Phred+64 ASCII offsets +
+   ranges + boundary chars, deterministic per-record offset auto-detection, mis-detection = silent
+   corruption) — not yet represented and shared with the Assembly trimming layer. Cross-linked the
+   new concept from quality-trimming-running-sum's Phred+33 section (2 inbound links). Linked source
+   into the algorithm-validation-evidence hub (frontmatter source-list + per-file-link) and both new
+   pages to family anchor [[bed-format-parsing]], siblings, [[test-unit-registry]], [[fuzzing]]. Index
+   Sources + Concepts updated.
+   graph: +2 nodes, +1 typed edge (phred-quality-encoding relates_to test-unit-registry)

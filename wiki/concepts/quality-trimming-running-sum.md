@@ -62,7 +62,8 @@ of accumulated `(threshold − q)` from the end equals cutadapt's argmin of part
 
 Qualities are decoded from ASCII with the **Sanger/Phred+33** offset: `q = ASCII − 33` (Cock et al.
 2010: ASCII 33–126 encode Phred 0–93). Phred `Q = −10·log₁₀(P)`, but the trimming operates on the
-integer Phred values directly.
+integer Phred values directly. See [[phred-quality-encoding]] for the full encoding scheme
+(Phred+33 vs Phred+64 offsets and offset auto-detection).
 
 ## Worked example (cutadapt docs, the test oracle)
 
