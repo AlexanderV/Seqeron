@@ -43,7 +43,7 @@ standards are [[mcp-plan]] and [[mcp-checklist]]; the reference operating prompt
 
 ## Coverage
 
-Deterministic mapping (`tools/wiki-ingest/mcp_map.py`) binds **209 / 427**
+Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **209 / 427**
 tools to an existing concept (via authoritative method-ID / algorithm-doc / literal bridges, or
 high-confidence name overlap), touching **120 distinct concepts**. The
 remaining **218** are listed per server as *unmapped* — a tool with no confidently
