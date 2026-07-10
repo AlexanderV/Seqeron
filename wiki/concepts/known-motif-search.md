@@ -73,7 +73,9 @@ is a defect for this problem. Biopython confirms the same distinction:
 This is the **exact** DNA-motif finder. The degenerate/consensus family lives in
 separate units (IUPAC-degenerate matching, PROSITE patterns, position-weight-matrix
 scanning) that relax the exact-equality test; known-motif search is the exact-equality
-baseline. The **canonical-biology** specialization is [[regulatory-element-detection]]
+baseline. A worked biological instance of the position-weight-matrix branch is
+[[splice-acceptor-site-prediction]] (the AcceptorPwm 3' splice-site scorer). The
+**canonical-biology** specialization is [[regulatory-element-detection]]
 (MOTIF-REGULATORY-001) — the same all-occurrences scan applied to a *fixed, cited catalog*
 of regulatory consensus strings rather than a caller-supplied set. It shares the *exact all-occurrences* semantics with the exact-match engine
 behind [[longest-common-substring]] and [[dot-plot-word-match]], but operates on a
