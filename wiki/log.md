@@ -3087,3 +3087,13 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Contradictions: none (Biopython tables verified as faithful transcriptions of the primaries).
    Follow-ups: none.
    graph: +1 node, +1 typed edge
+- 2026-07-10 — ingest docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md. Created source page
+   [[primer-tm-001-special-loop-evidence]] (bundled special tri/tetraloop hairpin bonus tables:
+   libprimer3 triloop.*/tetraloop.* config + thal.c calc_hairpin application + primer3-py 2.3.0
+   oracles). Enriched concept [[primer-dimer-thermodynamics-tm]] rather than creating a new one —
+   this unit completes the previously opt-in triloop/tetraloop increment it already flagged;
+   updated the hairpin-section special-loop paragraph, failure-modes contract, intro, frontmatter
+   (+source, +typed edge), and updated hub [[algorithm-validation-evidence]] (frontmatter sources +
+   body evidence-link list) and wiki/index.md (source + concept entries). Contradictions: none
+   (all values verbatim from libprimer3 + machine-precision verified vs primer3-py). Follow-ups: none.
+   graph: +1 node, +1 typed edge

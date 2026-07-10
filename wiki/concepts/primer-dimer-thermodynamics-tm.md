@@ -6,7 +6,8 @@ sources:
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
-source_commit: 01b5cc55b34e3f57b5833e3d47e818b8acd2c7c6
+  - docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
+source_commit: c7a5a1030898a4cc5f776e764c05a46d17c80904
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -29,6 +30,12 @@ graph:
       evidence: "Test Unit ID: PRIMER-TM-001 ... Algorithm: Primer melting temperature — nearest-neighbour salt-corrected Tm (opt-in); adds the ΔH°/ΔS° → Tm path and the salt corrections"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: primer-tm-001-special-loop-evidence
+      evidence: "Test Unit ID: PRIMER-TM-001 (special tri/tetraloop hairpin bonus tables — bundled & applied) ... bundled sequence-specific special triloop / tetraloop stability bonuses"
+      confidence: high
+      status: current
 ---
 
 # Primer-dimer thermodynamics and nearest-neighbour melting temperature (Tm)
@@ -42,7 +49,9 @@ intermolecular dimer), [[primer-tm-001-hairpin-evidence]] (the intramolecular ha
 extension, synthesized in the [[#Intramolecular hairpin self-folding|hairpin section]] below),
 and [[primer-tm-001-nn-evidence]] (the **per-oligo design Tm** path plus the salt-correction
 methods, synthesized in the [[#Per-oligo design Tm and salt corrections|per-oligo section]]
-below); [[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes
+below). [[primer-tm-001-special-loop-evidence]] adds the **bundled special tri/tetraloop
+hairpin bonus tables** — the increment the hairpin section flags — now applied automatically
+inside the ntthal hairpin DP. [[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes
 the artifact pattern. The **base** PRIMER-TM-001 unit is a separate algorithm —
 [[primer3-weighted-penalty-objective]], the weighted per-primer selection penalty — which
 *consumes* a per-primer Tm (and self-/dimer-alignment scores) as input terms.
@@ -152,11 +161,18 @@ Two features distinguish the hairpin from the dimer:
   `R·ln(C_T/x)` term — a unimolecular transition, confirmed by Vallone & Benight (1999) over
   0.5–260 µM.
 
-**Steric floor:** loops < 3 nt are prohibited. **Length-3 / length-4** loops additionally want a
-supplementary triloop/tetraloop bonus (length-3 also a +0.5 closing-A·T penalty) + terminal
-mismatch; those supplementary tables are **not** in the article body and ship as an **opt-in
-caller-supplied increment** — this is the same "hairpin bonus tables" capability noted as the one
-feature the dimer engine deliberately does not model.
+**Steric floor:** loops < 3 nt are prohibited. **Length-3 / length-4** loops additionally get a
+sequence-specific triloop/tetraloop stability bonus (length-3 also a closing-A·T penalty; length-4
+a terminal mismatch). Those bonus values are **not** in the SantaLucia article body — they are the
+libprimer3 `triloop.*`/`tetraloop.*` config tables ([[primer-tm-001-special-loop-evidence]]). The
+full `NtthalHairpin` port now **bundles** them (16 triloop rows, all ΔS = 0; 76 tetraloop rows)
+and applies the bonus **automatically** in `calc_hairpin` for a recognised loop — the bsearch key
+is the **full loop string including the closing pair**, ΔH in cal/mol, ΔS in cal/(K·mol), added to
+the loop ΔH°/ΔS°. A ≥ 5-nt loop, or a 3/4-nt loop whose closing pair or bases are not in the table,
+gets no bonus. Verified to machine precision against primer3-py 2.3.0 `calc_hairpin` (e.g. tetraloop
+`GGGGCGAAAGCCCC` → Tm 85.033 °C; triloop `GGGCGAAGCCC` → Tm 84.706 °C). The **legacy** Table-4
+`FindMostStableHairpin` with its caller-supplied `loopBonusDeltaG37` path is unchanged — the earlier
+"opt-in hairpin bonus tables" capability is now also available bundled.
 
 **Hairpin oracles** (hand-derived from Table 1 + Table 4): `GGGCTTTTGCCC` (4-bp GGGC stem, TTTT
 loop) → ΔH° = −25.8, ΔS° = −75.48486216346927, ΔG°37 = −2.3883700000000054, **Tm = 68.6404 °C**;
@@ -169,8 +185,9 @@ loop) → ΔH° = −25.8, ΔS° = −75.48486216346927, ΔG°37 = −2.38837000
 - **Symmetry trap:** x = 1 applies only when **both** aligned oligos are palindromes; a
   self-dimer of a *non*-palindromic oligo still uses **x = 4**.
 - **Invalid input** (null, < 2 bases, non-ACGT) → null / NaN.
-- The only capability not modelled is the optional caller-supplied tri/tetraloop &
-  terminal-mismatch **hairpin bonus tables** (a hairpin/monomer feature, not a dimer one).
+- The tri/tetraloop **hairpin bonus tables** are a hairpin/monomer feature (see
+  [[primer-tm-001-special-loop-evidence]]), not a dimer one — the dimer engine deliberately
+  does not model them; the hairpin path bundles and applies them.
 
 ## Worked oracles
 
