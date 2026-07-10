@@ -5,7 +5,8 @@ tags: [sequence-statistics, composition]
 sources:
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
-source_commit: 4a7f3b50df393c2ccf0fe505da489d087d4f22f4
+  - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
+source_commit: f6fc5f03fffb7fd2053db36d0ad79995b8affe3e
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -68,7 +69,11 @@ Composition is the base layer that several other wiki concepts build on:
   its `CG`-specialized CpG observed/expected ratio.
 - **Windowed composition entropy** — [[windowed-sequence-complexity-profile]] computes a
   Shannon entropy of *base composition* per window; composition is its per-window input.
-- **GC variability** — [[centromere-analysis]] uses a GC-content heuristic over windows.
+- **Windowed GC profile & variability** — [[windowed-gc-profile-and-variance]] slides a window
+  along the sequence, emitting a per-window GC%/GC-skew profile and the population variance of
+  each series (the composite `GcAnalysisResult`, SEQ-GC-ANALYSIS-001, which re-exposes GC
+  content as a **percentage ×100** rather than this page's `[0,1]` fraction). [[centromere-analysis]]
+  uses a related GC-content heuristic over windows.
 
 GC content is also a design/QC constraint elsewhere in the library (e.g. the 30–80% probe GC
 window in [[taqman-probe-design-rules]] and the 40–60% balanced-GC codon-optimization

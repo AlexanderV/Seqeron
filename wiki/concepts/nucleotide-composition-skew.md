@@ -4,7 +4,8 @@ title: "Nucleotide composition skew (AT skew / GC skew)"
 tags: [sequence-statistics, composition, chromosome]
 sources:
   - docs/Evidence/SEQ-ATSKEW-001-Evidence.md
-source_commit: ee3cfca8f1c41de229969aa234c2558284581909
+  - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
+source_commit: f6fc5f03fffb7fd2053db36d0ad79995b8affe3e
 created: 2026-07-10
 updated: 2026-07-10
 ---
@@ -22,8 +23,12 @@ Both were introduced by **Lobry (1996)** — the founding observation was a *"de
 from intrastrand equifrequency between A and T or between C and G, showing that the
 substitution patterns of the two strands of DNA were asymmetric."* The **SEQ-ATSKEW-001**
 test unit ([[seq-atskew-001-evidence]]) validates the AT-skew member; GC skew is the
-sibling member (unit `gc-skew`, not yet ingested). [[test-unit-registry]] tracks the units
-and [[algorithm-validation-evidence]] describes the artifact pattern.
+sibling member. Both skews are also computed together (as `OverallGcSkew`/`OverallAtSkew`,
+plus a **windowed** GC-skew profile and its population variance) by the composite
+**SEQ-GC-ANALYSIS-001** GC-analysis unit — see [[windowed-gc-profile-and-variance]] and
+[[seq-gc-analysis-001-evidence]]; a standalone `gc-skew` unit is separately flagged, not yet
+ingested. [[test-unit-registry]] tracks the units and [[algorithm-validation-evidence]]
+describes the artifact pattern.
 
 ## Definition and range
 
