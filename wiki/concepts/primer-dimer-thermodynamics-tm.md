@@ -7,7 +7,8 @@ sources:
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
-source_commit: c7a5a1030898a4cc5f776e764c05a46d17c80904
+  - docs/Evidence/SEQ-THERMO-001-Evidence.md
+source_commit: 41aaf8a4899a8795559ba409d32abc24d36553a1
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -60,6 +61,15 @@ Unlike the **RNA** nearest-neighbour folding used in [[rna-base-pairing]] and
 [[pre-mirna-hairpin-detection]] (Turner 2004 parameters, single-strand secondary structure),
 this unit uses the **DNA** SantaLucia & Hicks (2004) parameters and models an
 **intermolecular** duplex between two oligos at a finite strand concentration.
+
+A **third** DNA-duplex Tm surface — the SEQ-family
+[[dna-duplex-nearest-neighbor-thermodynamics]] (SEQ-THERMO-001) — computes the same SantaLucia
+bimolecular Tm but over the **1997 DNA_NN3** (Allawi & SantaLucia) table with **per-terminus
+`init_A/T` (2.3, 4.1) / `init_G/C` (0.1, −2.8)** counted off the terminal bases, rather than this
+engine's **2004 unified** table with a fixed duplex-initiation (+0.2 / −5.7) plus a terminal-A·T
+penalty (+2.2 / +6.9). That engine returns the whole **ΔH°/ΔS°/ΔG°** tuple (not just a Tm) and does
+not model dimers/hairpins; the **salt correction is identical** (`0.368·(N/2)·ln[Na⁺]`, N/2 = NN
+stacks = `len − 1`).
 
 ## The nearest-neighbour Tm model
 

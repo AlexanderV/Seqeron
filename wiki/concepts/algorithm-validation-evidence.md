@@ -179,7 +179,8 @@ sources:
   - docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md
   - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-SUMMARY-001-Evidence.md
-source_commit: 37c18482dfb0ee53a0be1fc073c2b4c6694012cc
+  - docs/Evidence/SEQ-THERMO-001-Evidence.md
+source_commit: 41aaf8a4899a8795559ba409d32abc24d36553a1
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -307,7 +308,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[seq-entropy-profile-001-evidence]], [[seq-gc-analysis-001-evidence]],
 [[seq-gc-profile-001-evidence]], [[seq-hydro-001-evidence]],
 [[seq-mw-001-evidence]], [[seq-secstruct-001-evidence]],
-[[seq-stats-001-evidence]], [[seq-summary-001-evidence]]). An
+[[seq-stats-001-evidence]], [[seq-summary-001-evidence]],
+[[seq-thermo-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
