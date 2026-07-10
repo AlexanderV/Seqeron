@@ -4002,3 +4002,19 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    wiki/index.md (+1 source line). No backlog slug to move. No new typed graph edges (report is a
    source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/CODON-RSCU-001.md → codon-rscu-001-report (source)
+   New source-summary page for the 2026-06-15 two-stage validation of CODON-RSCU-001 (Relative
+   Synonymous Codon Usage + codon counting — CodonUsageAnalyzer.CalculateRscu :88 / CountCodons :37).
+   Stage A PASS / Stage B PASS-WITH-NOTES / End state ✅ CLEAN, suite 6526/0, zero code change; formula
+   n_i·x/Σx confirmed verbatim (LIRMM/GenomicSig/seqinr, Sharp Tuohy & Mosurski 1986), hand oracles
+   reproduced live; PASS-WITH-NOTES = two documented test-coverage gaps closed (absent-family→0 guard,
+   stop-codon 3-fold family), fixture 16→19, all test-only. Kept distinct from the same-measure sibling
+   report annot-codonusage-001-report (GenomeAnnotator.GetCodonUsage) and from the evidence artifact
+   codon-rscu-001-evidence (docs/Evidence). Existing concept relative-synonymous-codon-usage already
+   synthesizes the measure; tied to validation-and-testing (ledger) / test-unit-registry; did NOT force
+   the algorithm-validation-evidence hub. Surgically updated concept relative-synonymous-codon-usage:
+   added the report to sources, bumped source_commit to e3c96b23, cross-linked both report verdicts in
+   the intro. Updated wiki/index.md (+1 source line). No new typed graph edges (report is a
+   source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges
