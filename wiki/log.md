@@ -3758,3 +3758,23 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    exact-value test M5b. No defect, no contradictions. Updated wiki/index.md (+1 source line). No
    backlog slug (backlog tracks the algorithm doc, already covered; the report path is not a
    backlog entry). No typed graph edges added (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-SCAFFOLD-001.md
+   Created source-summary wiki/sources/assembly-scaffold-001-report.md (two-stage validation report
+   for ASSEMBLY-SCAFFOLD-001 — scaffolding: SequenceAssembler.Scaffold(contigs, links,
+   gapCharacter='N'); Stage A PASS / Stage B PASS / End state CLEAN, full suite 6529->6531/0, zero
+   production-code change). Tied to [[validation-ledger]] / [[validation-and-testing]] and the
+   algorithm concept [[scaffolding]] (assembly SCAFFOLD anchor), NOT the algorithm-validation-
+   evidence hub. Reused the existing concept — surgically added the report path to its sources:,
+   bumped source_commit to HEAD, updated:, and cross-linked the new report alongside the pre-
+   existing evidence artifact assembly-scaffold-001-evidence. Concatenate-with-N-run construction
+   (Jackman/ABySS 2.0 verbatim); gap rule gapLength = gapSize>0 ? gapSize : UnknownGapLength(100)
+   (NCBI AGP unknown-size default, source-backed constant); `used` HashSet = one scaffold per
+   contig, unreached -> length-1 ascending. Hand cross-check reproduced ACGTNNNTTGGNNCCAA (17),
+   AAAA+100N+TTTT (108), gap-0 -> 100 N. HARD gate PASS (M3/M4 lock exactly 100 N, defeating a wrong
+   Math.Max(1,gapSize)); two branch-coverage gaps closed with sourced tests (successor-already-
+   placed -> AANNCCNNNGG; multi-forward-link first-declared tie-break -> ["AANNCC","GG"]). No defect,
+   no contradictions; documented simplifications (link ranking / overlap resolution / orientation)
+   out of scope. Updated wiki/index.md (+1 source line). No backlog slug (backlog tracks the
+   algorithm doc, already covered; the report path is not a backlog entry). No typed graph edges
+   added (report is source-type; N/A).

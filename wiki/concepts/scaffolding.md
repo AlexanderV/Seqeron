@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md
   - docs/algorithms/Extended_Assembly/Scaffolding.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-SCAFFOLD-001.md
+source_commit: e187814f8c9c929bb1cbf71405eb9f99777a9c92
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -33,8 +34,9 @@ character `N`**. It is the step *after* contig construction ([[de-bruijn-graph-a
 are already built and ordered/oriented (here supplied pre-ordered as links); scaffolding lays them
 out on a common coordinate frame with sized gaps. This is the anchor for the assembly **SCAFFOLD**
 family, validated under test unit **ASSEMBLY-SCAFFOLD-001**. The literature-traced validation record
-is [[assembly-scaffold-001-evidence]]; [[test-unit-registry]] tracks the unit and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+is [[assembly-scaffold-001-evidence]]; the independent two-stage re-validation verdict
+(Stage A/B PASS, CLEAN) is [[assembly-scaffold-001-report]]; [[test-unit-registry]] tracks the unit
+and [[algorithm-validation-evidence]] describes the artifact pattern.
 
 ## The scaffold-construction rule (source-traced)
 
