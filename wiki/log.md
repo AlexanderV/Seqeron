@@ -3075,3 +3075,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Contradictions: none. Follow-ups: length-3/4 triloop/tetraloop bonus tables remain opt-in
    caller increments (supplementary material not bundled).
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Evidence/PRIMER-TM-001-NN-Evidence.md → primer-tm-001-nn-evidence (source)
+   Per-oligo NN salt-corrected design Tm (opt-in) for PRIMER-TM-001. Heavy overlap with the
+   existing concept: ENRICHED [[primer-dimer-thermodynamics-tm]] with a "Per-oligo design Tm and
+   salt corrections" section (Eq. 3 per-primer Tm; Owczarzy 2004 monovalent-quadratic + Owczarzy
+   2008 divalent-Mg²⁺/dNTP 1/Tm corrections, Biopython salt_correction methods 5–7; DNA_IMM/DNA_DE
+   mismatch/dangling tables → NnInternalMismatch/NnDanglingEnd; complement-not-revcomp Tm_NN
+   convention) rather than creating a new concept. Updated hub [[algorithm-validation-evidence]]
+   (frontmatter sources + body evidence-link list) and wiki/index.md (source + concept entries).
+   Contradictions: none (Biopython tables verified as faithful transcriptions of the primaries).
+   Follow-ups: none.
+   graph: +1 node, +1 typed edge

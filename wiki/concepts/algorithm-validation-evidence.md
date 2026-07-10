@@ -131,6 +131,7 @@ sources:
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
   - docs/Evidence/PRIMER-TM-001-Evidence.md
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
+  - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
 source_commit: 6c16153e119b7de7b8958cdb6c9dfc7fb2d092a8
 created: 2026-07-09
 updated: 2026-07-10
@@ -237,7 +238,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[pop-div-001-evidence]], [[pop-freq-001-evidence]], [[pop-fst-001-evidence]],
 [[pop-hw-001-evidence]], [[pop-ld-001-evidence]], [[pop-roh-001-evidence]],
 [[pop-select-001-evidence]], [[primer-tm-001-dimer-evidence]],
-[[primer-tm-001-evidence]], [[primer-tm-001-hairpin-evidence]]). An
+[[primer-tm-001-evidence]], [[primer-tm-001-hairpin-evidence]],
+[[primer-tm-001-nn-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],

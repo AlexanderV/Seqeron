@@ -5,7 +5,8 @@ tags: [primer, algorithm, validation]
 sources:
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
-source_commit: 6c16153e119b7de7b8958cdb6c9dfc7fb2d092a8
+  - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
+source_commit: 01b5cc55b34e3f57b5833e3d47e818b8acd2c7c6
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -22,6 +23,12 @@ graph:
       evidence: "Test Unit ID: PRIMER-TM-001 (hairpin / secondary-structure Tm extension) ... Algorithm: DNA self-folding hairpin (stem + loop) MFE detection + unimolecular hairpin Tm"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: primer-tm-001-nn-evidence
+      evidence: "Test Unit ID: PRIMER-TM-001 ... Algorithm: Primer melting temperature — nearest-neighbour salt-corrected Tm (opt-in); adds the ΔH°/ΔS° → Tm path and the salt corrections"
+      confidence: high
+      status: current
 ---
 
 # Primer-dimer thermodynamics and nearest-neighbour melting temperature (Tm)
@@ -31,10 +38,12 @@ of the most stable **self-dimer / hetero-dimer** two primers can form — from t
 **SantaLucia unified nearest-neighbour (NN) thermodynamic model**. This is the **first
 ingested unit of the PRIMER (PCR primer-design / MolTools) family** (test unit
 **PRIMER-TM-001**). The literature-traced records are [[primer-tm-001-dimer-evidence]] (the
-intermolecular dimer) and [[primer-tm-001-hairpin-evidence]] (the intramolecular hairpin
+intermolecular dimer), [[primer-tm-001-hairpin-evidence]] (the intramolecular hairpin
 extension, synthesized in the [[#Intramolecular hairpin self-folding|hairpin section]] below),
-[[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the
-artifact pattern. The **base** PRIMER-TM-001 unit is a separate algorithm —
+and [[primer-tm-001-nn-evidence]] (the **per-oligo design Tm** path plus the salt-correction
+methods, synthesized in the [[#Per-oligo design Tm and salt corrections|per-oligo section]]
+below); [[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes
+the artifact pattern. The **base** PRIMER-TM-001 unit is a separate algorithm —
 [[primer3-weighted-penalty-objective]], the weighted per-primer selection penalty — which
 *consumes* a per-primer Tm (and self-/dimer-alignment scores) as input terms.
 
@@ -68,6 +77,40 @@ Entropy carries a **[Na⁺] salt correction** (Eq. 5):
 `ΔS°[Na⁺] = ΔS°[1 M] + 0.368·(N/2)·ln[Na⁺]`, where N = total phosphates so N/2 = number of NN
 stacks. In `thal.c` this is `saltCorrection = 0.368·ln((mv + 120·√max(0, dv − dntp))/1000)`
 per stack. This makes Tm **monotonic in salt** — lower [Na⁺] gives lower Tm.
+
+## Per-oligo design Tm and salt corrections
+
+The simplest use of this model is the **per-oligo (single-strand) design Tm** — a primer's own
+Tm as one input to the [[primer3-weighted-penalty-objective|penalty objective]] — computed by
+summing the NN stacks of the primer against its own complement and applying Eq. 3 directly
+(opt-in NN Tm; the legacy Wallace / Marmur-Doty Tm is the unchanged default). The published
+oracle is SantaLucia & Hicks (2004) p.419: ΔH°=−43.5, ΔS°=−122.5, 0.2 mM each strand →
+**Tm = 35.8 °C**. Hand-derived Table-1 sums confirm it term-by-term (`GCGCGC` self x=1 →
+Tm 35.0473 °C; `ATGCATGC` x=4 → 30.4338 °C; `CGCGAATTCGCG` self → 61.1452 °C at 1 M Na, 0.5 µM).
+
+Beyond the SantaLucia Eq. 5 entropy correction, two **Owczarzy 1/Tm corrections** are ported
+verbatim from Biopython `salt_correction` (methods 5–7):
+
+- **Monovalent, Owczarzy 2004 (method 6):**
+  `1/Tm[Na] = 1/Tm[1 M] + (4.29·f(GC) − 3.95)·1e−5·ln[Na⁺] + 9.40e−6·(ln[Na⁺])²` — the Tm-vs-Na⁺
+  relationship is **quadratic** (non-linear) over 69 mM–1.02 M, GC-dependent via f(GC).
+- **Divalent Mg²⁺/dNTP, Owczarzy 2008 (method 7):**
+  `1/Tm = 1/Tm[1 M] + a + b·ln[Mg] + f(GC)·(c + d·ln[Mg]) + (1/(2(N−1)))·(e + f·ln[Mg] + g·ln[Mg]²)`;
+  in the mixed regime (0.22 ≤ R < 6, R = √[Mg]/[Mon]) a, d, g are reparameterised, and free Mg²⁺
+  is reduced by **dNTP chelation** (Ka = 3×10⁴). With no Mg²⁺ it falls back to the monovalent path.
+
+The same NN engine also scores **internal single mismatches and single dangling ends** on a
+per-oligo duplex (`CalculateNearestNeighborThermodynamicsMismatch`). The parameter tables are
+Biopython transcriptions of the primaries — `NnInternalMismatch` from `DNA_IMM`
+(Allawi & SantaLucia 1997/1998, Peyret 1999; the WC-placeholder and inosine entries dropped)
+and `NnDanglingEnd` from `DNA_DE` (Bommarito 2000) — verified against SantaLucia & Hicks (2004)
+Tables 2 (mismatch worked example ΔG°37 −8.32 vs −8.349 within rounding) and 3 (all 32
+dangling-end ΔH° reproduced exactly). The C# path mirrors the `Tm_NN` convention exactly: the
+bottom strand is the **plain complement** (not reverse-complement), each NN/mismatch key is
+looked up forward then character-reversed, dangling ends strip the outer column, and the
+terminal-A·T count uses the un-dotted top strand. A **non-ACGT** base has no NN parameter →
+thermodynamics not computable → **null / NaN**. Default C_T = 0.5 µM (caller-overridable) and
+Eq. 5's phosphate count N = 2·(length − 1) are the two documented assumptions.
 
 ## Dimer analysis via ntthal thermodynamic alignment
 
