@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 243 / 1181
+Progress: 244 / 1181
 
 ## (top-level)  (6)
 
@@ -207,7 +207,7 @@ Progress: 243 / 1181
 - [x] docs/Evidence/SEQ-HYDRO-001-Evidence.md
 - [x] docs/Evidence/SEQ-MW-001-Evidence.md
 - [x] docs/Evidence/SEQ-PI-001-Evidence.md
-- [ ] docs/Evidence/SEQ-REPLICATION-001-Evidence.md
+- [x] docs/Evidence/SEQ-REPLICATION-001-Evidence.md
 - [ ] docs/Evidence/SEQ-RNACOMP-001-Evidence.md
 - [ ] docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md
 - [ ] docs/Evidence/SEQ-STATS-001-Evidence.md

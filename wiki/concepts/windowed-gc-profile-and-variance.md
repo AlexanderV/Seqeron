@@ -5,7 +5,8 @@ tags: [sequence-statistics, composition, chromosome]
 sources:
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md
-source_commit: 599fc94985c5e39969feee53560e6db69d7bb21f
+  - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
+source_commit: c094b65e4a89b3c3c146d655c12489e6d28e8564
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -121,8 +122,10 @@ doctests scaled ×100 — `ACTG` → 50.0, `ACTGN` (remove) → 50.0, `ACTGN` (i
 The variance summaries quantify **compositional heterogeneity along a sequence** — how much GC
 content and strand skew fluctuate window-to-window. This is the scalar counterpart of the
 isochore / GC-heterogeneity view of a genome, and the cumulative version of GC skew is what
-locates the **replication origin/terminus** (its sign switch; Grigoriev 1998), the biological
-motivation the skew family carries in [[nucleotide-composition-skew]]. It is the same
+locates the **replication origin/terminus** (its sign switch; Grigoriev 1998) — the distinct
+argmin/argmax locating algorithm synthesized on [[replication-origin-cumulative-skew]]
+(SEQ-REPLICATION-001), the biological motivation the skew family carries in
+[[nucleotide-composition-skew]]. It is the same
 GC-variability signal the centromere heuristic in [[centromere-analysis]] leans on, made
 explicit as a windowed profile plus a variance. The per-window entropy/complexity profile of
 [[windowed-sequence-complexity-profile]] is the information-theoretic sibling of this

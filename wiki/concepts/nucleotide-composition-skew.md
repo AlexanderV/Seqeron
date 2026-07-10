@@ -5,7 +5,8 @@ tags: [sequence-statistics, composition, chromosome]
 sources:
   - docs/Evidence/SEQ-ATSKEW-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
-source_commit: f6fc5f03fffb7fd2053db36d0ad79995b8affe3e
+  - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
+source_commit: c094b65e4a89b3c3c146d655c12489e6d28e8564
 created: 2026-07-10
 updated: 2026-07-10
 ---
@@ -53,7 +54,11 @@ Skew is not random: on a bacterial chromosome the sign of GC (and AT) skew tends
 constant along a replichore and **flips at the replication origin and terminus**, because
 the leading and lagging strands accumulate different mutational/substitution biases. A
 **cumulative skew** plotted along the sequence therefore locates the origin/terminus as
-its extrema — the practical use that motivated Lobry's work. AT skew is the weaker,
+its extrema — the practical use that motivated Lobry's work. That locator is a distinct
+algorithm in its own right, synthesized on [[replication-origin-cumulative-skew]]
+(SEQ-REPLICATION-001): it integrates an *integer* running skew (G:+1, C:−1, A/T:0) and reads
+the origin off the global **minimum** and the terminus off the **maximum** (Grigoriev 1998).
+AT skew is the weaker,
 sometimes atypical signal: **Charneski et al. (2011)** showed Firmicute AT skew arises
 from *selection*, not mutation, so the two skews need not co-vary.
 

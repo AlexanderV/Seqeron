@@ -174,6 +174,7 @@ sources:
   - docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md
   - docs/Evidence/SEQ-HYDRO-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
+  - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
 source_commit: e058738ff312bb90e5022081cf85e0b9da5b67cb
 created: 2026-07-09
 updated: 2026-07-10
