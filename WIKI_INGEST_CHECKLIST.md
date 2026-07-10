@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 319 / 1181
+Progress: 320 / 1181
 
 ## (top-level)  (6)
 
@@ -286,7 +286,7 @@ Progress: 319 / 1181
 - [x] docs/Validation/reports/CRISPR-PAM-001.md
 - [x] docs/Validation/reports/DISORDER-LC-001.md
 - [x] docs/Validation/reports/DISORDER-MORF-001.md
-- [ ] docs/Validation/reports/DISORDER-PRED-001.md
+- [x] docs/Validation/reports/DISORDER-PRED-001.md
 - [ ] docs/Validation/reports/DISORDER-PROPENSITY-001.md
 - [ ] docs/Validation/reports/DISORDER-REGION-001.md
 - [ ] docs/Validation/reports/EPIGEN-AGE-001.md

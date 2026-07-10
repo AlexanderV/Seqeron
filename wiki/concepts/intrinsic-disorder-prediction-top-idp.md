@@ -3,13 +3,14 @@ type: concept
 title: "Intrinsic-disorder prediction (TOP-IDP sliding window, PredictDisorder)"
 tags: [analysis, algorithm]
 sources:
+  - docs/Validation/reports/DISORDER-PRED-001.md
   - docs/Evidence/DISORDER-PRED-001-Evidence.md
   - docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
   - docs/Evidence/DISORDER-REGION-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
-source_commit: 98b44f1a8112227eb70a11c589272ca8ce62e7af
+source_commit: 920bd895c63f51453f3d267e06abb5c61d0b6fc3
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -33,8 +34,10 @@ under physiological conditions and instead populate dynamic conformational ensem
 2001) — from **amino-acid composition alone**. Seqeron's `DisorderPredictor.PredictDisorder` scores
 each residue as the **sliding-window average of the normalized TOP-IDP propensity scale** (Campen et
 al. 2008) and labels residues at or above a cutoff as disordered. Validated under test unit
-**DISORDER-PRED-001**; the validation record is [[disorder-pred-001-evidence]] and
-[[test-unit-registry]] tracks the unit. The **raw per-residue propensity primitives** underneath the
+**DISORDER-PRED-001**; the pre-implementation evidence is [[disorder-pred-001-evidence]] and the
+independent two-stage re-validation verdict — **Stage A PASS / Stage B PASS / CLEAN, full
+DisorderPredictor family 113/113 green, zero code change** — is [[disorder-pred-001-report]] (one row
+of the [[validation-ledger]]). [[test-unit-registry]] tracks the unit. The **raw per-residue propensity primitives** underneath the
 predictor (`GetDisorderPropensity` + the Dunker classification) are separately validated as
 **DISORDER-PROPENSITY-001** ([[disorder-propensity-001-evidence]]) — see the primitives section
 below. See [[algorithm-validation-evidence]] for the artifact pattern.

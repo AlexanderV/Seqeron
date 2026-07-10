@@ -4370,3 +4370,36 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    graph: +1 node (disorder-morf-001-report source), +0 typed edges (report ties to validation-ledger /
    validation-and-testing / test-unit-registry via auto-derived mentions/sourced_from; concept already
    carries relates_to test-unit-registry + depends_on intrinsic-disorder-prediction-top-idp)
+
+## [2026-07-10] ingest | docs/Validation/reports/DISORDER-PRED-001.md → disorder-pred-001-report (source)
+   Two-stage validation report for test unit DISORDER-PRED-001 — the CORE per-residue intrinsic-disorder
+   predictor DisorderPredictor.PredictDisorder (the shared PredictDisorder anchor the whole protein-disorder
+   family reads from). Stage A PASS / Stage B PASS / End state CLEAN, full DisorderPredictor test family
+   113/113 green (focused DisorderPredictor_DisorderPrediction_Tests 22/22), NO code changed this session, no
+   divergences at either stage. Validates PredictDisorder (DisorderPredictor.cs:190) -> CalculatePerResidueScores
+   (:227 centered truncated window) -> CalculateDisorderScore (:255 normalize (prop-TopIdpMin)/TopIdpRange +
+   average), threshold score>=disorderThreshold (:242); constants TopIdpMin=-0.884(W) / TopIdpMax=0.987(P) /
+   TopIdpRange=1.871 / TopIdpCutoff=0.542, default window 21; bundled CalculateHydropathy (Kyte-Doolittle 1982).
+   Score S(aa)=(TOP-IDP(aa)-(-0.884))/1.871 averaged over window, disordered when >=0.542. All 20 Table 2
+   values + cutoff 0.542 + window 21 + normalization + Dunker 8/8/4 classification (order {W,C,F,I,Y,V,L,N} /
+   disorder {A,R,G,Q,S,P,E,K} / ambiguous {H,M,T,D}) re-confirmed LIVE vs Campen 2008 PMC2676888 (WebFetch of
+   PMC full text; prediction eq I=-(<TOP-IDP>-0.542), positive=>ordered) and Wikipedia/Dunker 2001 PMID11381529.
+   Hand-computed normalized scores reproduce spec M8b: W->0.0, I->0.398/1.871=0.21272 (ordered), E->1.620/1.871=
+   0.86585 (disordered), P->1.0 (disordered). Edge semantics defined/sourced: empty->zeroed (INV-7), unknown
+   residues skipped in mean (poly-X->0.0), termini truncated, case via ToUpperInvariant, scores in [0,1]. Tests
+   assert exact externally-confirmed values (20 propensities M8, normalized W=0/I=0.2127/E=0.8660/P=1.0 M8b/S1,
+   poly-I 0.0 / poly-E,P 1.0 M4-M6, hydropathy I=4.5/W=-0.9/E=-3.5 C4) with tight tolerances, not tautologies;
+   division guarded count>0. Honest scoping preserved: composition heuristic AUC~0.65-0.72 (vs IUPred2A
+   0.75-0.80, flDPnn 0.85-0.90), NOT an energy/ML predictor — no false IUPred-grade claim. Prior cosmetic
+   ranking-string fix (S before K) already present in code+Evidence, no new divergence. Findings: NONE at both
+   stages. SURGICALLY updated the existing concept intrinsic-disorder-prediction-top-idp (already the core
+   PredictDisorder anchor) rather than a new concept — the algorithm is already fully represented: added the
+   report to sources, bumped source_commit to 920bd895 + updated 2026-07-10, added a one-line CLEAN verdict
+   cross-link to disorder-pred-001-report + validation-ledger in the intro. New source-summary page
+   disorder-pred-001-report. Updated wiki/index.md (+1 source line). Tied to validation-ledger /
+   validation-and-testing / test-unit-registry; did NOT force the algorithm-validation-evidence hub. Kept
+   distinct from the evidence artifact disorder-pred-001-evidence and the sibling reports disorder-lc-001-report
+   / disorder-morf-001-report. No contradictions.
+   graph: +1 node (disorder-pred-001-report source), +0 typed edges (report ties to validation-ledger /
+   validation-and-testing / test-unit-registry via auto-derived mentions/sourced_from; concept already carries
+   relates_to test-unit-registry + relates_to protein-low-complexity-seg — no new typed edges added)
