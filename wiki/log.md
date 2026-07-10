@@ -4228,3 +4228,24 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    artifact compgen-reversal-001-evidence and sibling compgen-rearr-001-report.
    No new typed graph edges (report is a source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-SYNTENY-001.md → compgen-synteny-001-report (source)
+   Two-stage validation report for COMPGEN-SYNTENY-001 (whole-genome syntenic-block detection, MCScanX
+   collinearity DP scoring; ComparativeGenomics.FindSyntenicBlocks(g1, g2, orthologMap, minAnchors=5,
+   maxGap=25) + VisualizeSynteny; ComparativeGenomics.cs:84-299). Stage A PASS-WITH-NOTES / Stage B
+   PASS / End state CLEAN — no defect, no code change; tests strengthened +3. DP recurrence + constants
+   (MatchScore 50, GapPenalty -1, NumberofGaps<25, report >250 i.e. >=5 pairs) confirmed verbatim vs
+   Wang 2012 (Oxford Academic HTML, WebFetch) + wyp1125/MCScanX README; impl score=n*50-Sigma(|dpos2|-1)
+   proven the single-monotone-chain closed form. Two Stage-A doc-only notes (MAX_GAPS paper=25 vs current
+   tool default 20 = F-SYNTENY-001; "over 250" resolved to >=250 per the paper's own equivalence). +3
+   tests close real gaps (S2b null genome2, S2c null orthologMap = full 3-arg contract; S4
+   direction-switch flush branch/INV-3). Honest green 6504 passed/0 failed, warning-free. One BY-DESIGN
+   note: greedy single-pass chaining == predecessor-DP for direction-consistent/gap-bounded/non-interleaved
+   inputs (doc 5.2/5.3). Existing concept synteny-and-rearrangement-detection is the shared synteny anchor
+   and already documents the MCScanX DP model (economical — no new concept); surgically enriched it: added
+   the report to sources, bumped source_commit to 3d86b2b7, cross-linked the CLEAN verdict + the +3 tests
+   in the MCScanX DP model section. Updated wiki/index.md (+1 source line). Tied to validation-ledger /
+   validation-and-testing / test-unit-registry; did NOT force the algorithm-validation-evidence hub. Kept
+   distinct from evidence artifact compgen-synteny-001-evidence and the chromosome-scale chrom-synt-001-report.
+   No new typed graph edges (report is a source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges

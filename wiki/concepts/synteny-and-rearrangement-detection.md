@@ -7,7 +7,8 @@ sources:
   - docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md
   - docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md
   - docs/Validation/reports/CHROM-SYNT-001.md
-source_commit: 7a7cdd292084b683c3ee8baa98bbbcd61e441c4b
+  - docs/Validation/reports/COMPGEN-SYNTENY-001.md
+source_commit: 3d86b2b7c044235f2082bf78748c355fefbb6176
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -154,7 +155,12 @@ with near-duplicate collapsing (< 5 genes apart → representative pair, smalles
 oracles: 5 adjacent forward anchors → one forward block (score 250); reversed order → one inverted
 block; 4 anchors (score 200) → no block; a ≥ 25-gene gap breaks the chain. Two source-backed
 assumptions (report rule ≥ 250 **and** ≥ 5 pairs; anchors supplied as an `orthologMap`) are detailed
-in [[compgen-synteny-001-evidence]].
+in [[compgen-synteny-001-evidence]]. Independent two-stage re-validation verdict
+[[compgen-synteny-001-report]] — **Stage A PASS-WITH-NOTES / Stage B PASS / CLEAN**, full suite 6504
+passing, no code change; the `score = n×50 − Σgaps` closed form confirmed as the cited DP recurrence's
+single-chain form, and tests strengthened (+3) to lock the null-arg contract and the
+direction-consistency branch. Its Stage-A notes (MAX_GAPS paper=25 vs current tool=20; "over 250"
+resolved to ≥ 250 per the paper's own equivalence) are documentation-only.
 
 ## Reference tools
 
