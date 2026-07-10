@@ -6,7 +6,8 @@ sources:
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
-source_commit: f6fc5f03fffb7fd2053db36d0ad79995b8affe3e
+  - docs/Evidence/SEQ-MW-001-Evidence.md
+source_commit: e058738ff312bb90e5022081cf85e0b9da5b67cb
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -69,6 +70,10 @@ Composition is the base layer that several other wiki concepts build on:
   its `CG`-specialized CpG observed/expected ratio.
 - **Windowed composition entropy** — [[windowed-sequence-complexity-profile]] computes a
   Shannon entropy of *base composition* per window; composition is its per-window input.
+- **Molecular weight** — [[molecular-weight]] (SEQ-MW-001) is the **mass-weighted** view of this
+  same per-monomer tally: `Σ (monomer mass) − (len−1)·water` over the identical {A,T,G,C,U}+
+  amino-acid alphabets, sharing the case-fold and skip-unknown contract. Composition counts the
+  monomers; MW sums their Daltons.
 - **Windowed GC profile & variability** — [[windowed-gc-profile-and-variance]] slides a window
   along the sequence, emitting a per-window GC%/GC-skew profile and the population variance of
   each series (the composite `GcAnalysisResult`, SEQ-GC-ANALYSIS-001, which re-exposes GC

@@ -4,7 +4,8 @@ title: "Hydrophobicity — Kyte-Doolittle GRAVY index & sliding-window hydropath
 tags: [sequence-statistics, protein, algorithm]
 sources:
   - docs/Evidence/SEQ-HYDRO-001-Evidence.md
-source_commit: 3e90ada29a32f385c5a7ffa5227e4471967a9915
+  - docs/Evidence/SEQ-MW-001-Evidence.md
+source_commit: e058738ff312bb90e5022081cf85e0b9da5b67cb
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -31,8 +32,10 @@ classic **Kyte-Doolittle (1982) hydropathy scale**. The **SEQ-HYDRO-001** unit
 index** and a per-position **sliding-window hydropathy profile**. [[test-unit-registry]] tracks
 the unit; [[algorithm-validation-evidence]] describes the artifact pattern.
 
-This is the **protein-property member of the SEQ-\* sequence-statistics family** — the
-amino-acid hydropathy analogue of the nucleotide [[base-composition]] tally. It shares the
+This is a **protein-property member of the SEQ-\* sequence-statistics family** — the
+amino-acid hydropathy analogue of the nucleotide [[base-composition]] tally, and a whole-sequence-
+scalar sibling of [[molecular-weight]] (SEQ-MW-001), which sums the same 20 residues' Daltons
+instead of averaging their hydropathy. It shares the
 exact Kyte-Doolittle scale and the unweighted-window-mean mechanism with the *segment-calling*
 [[transmembrane-helix-prediction]] (PROTMOTIF-TM-001) and with the `CalculateHydropathy`
 utility inside [[intrinsic-disorder-prediction-top-idp]] — **same scale, different output**:
