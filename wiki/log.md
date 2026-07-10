@@ -3154,3 +3154,20 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Deviations: COILS 21×20 PSSM deliberately omitted (weights not retrievable → use COILS/Paircoil2);
    {I,L,V}-only core-set is source-verbatim. Contradictions: none. Follow-ups: none.
    graph: +2 nodes, +2 typed edges
+
+## [2026-07-10] ingest | PROTMOTIF-COMMON-001-Evidence.md → protmotif-common-001-evidence (source) + 1 concept
+   Common motif finding (`ProteinMotifFinder.FindCommonMotifs`): whole-dictionary scan of a fixed
+   built-in `CommonMotifs` catalog of canonical PROSITE patterns (PS00001 N-glycosylation, PS00005
+   PKC / PS00006 CK2 phospho sites, PS00016 RGD, PS00017 ATP/GTP P-loop), aggregating each hit with
+   its accession/name. Judged genuinely distinct — second ingested ProteinMotif unit, a degenerate
+   PROSITE-pattern dictionary scan (not the windowed a/d heuristic) → new concept
+   [[common-protein-motifs]], the protein fixed-catalog analogue of the DNA [[regulatory-element-detection]]
+   and sibling of [[coiled-coil-prediction]]; distinguished from the caller-supplied-set DNA exact
+   [[known-motif-search]]. Updated hub [[algorithm-validation-evidence]] (frontmatter sources + body
+   evidence-link + concept list) and wiki/index.md (concept entry).
+   Oracles: NFTA (PS00001) / N-P-[ST] Pro-exclusion no-match / SAR / SAAE+SDED / GXXXXGKS / RGD+RGD
+   overlap; 0-based-inclusive MotifMatch vs PROSITE 1-based; overlaps all reported.
+   Deviations: none. Assumption: 0- vs 1-based coordinate origin (API shape, no correctness effect).
+   Contradictions: none. Follow-ups: sibling units PROTMOTIF-FIND-001 / PROTMOTIF-PATTERN-001 (general
+   PROSITE engine) not yet ingested.
+   graph: +2 nodes, +2 typed edges
