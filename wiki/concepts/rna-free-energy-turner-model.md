@@ -4,7 +4,8 @@ title: "RNA free-energy model (Turner 2004 nearest-neighbor terms)"
 tags: [rna, algorithm]
 sources:
   - docs/Evidence/RNA-ENERGY-001-Evidence.md
-source_commit: 79389a8898bca00ca6eabf4fef4b51f3ea73fae6
+  - docs/Evidence/RNA-HAIRPIN-001-Evidence.md
+source_commit: 8346ce2d97d95f5b806caf203fd3d1dc19271cf5
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -28,8 +29,10 @@ graph:
 The **thermodynamic (energy) layer** of the RNA secondary-structure family (test unit
 **RNA-ENERGY-001**): the individual **Turner 2004 nearest-neighbor free-energy terms** — stacking,
 hairpin-loop initiation, terminal mismatch, dangling ends, special-hairpin totals, and AU/GU-end
-penalties — that are summed to give the folding free energy `ΔG°` (kcal/mol at 37 °C). The record is
-[[rna-energy-001-evidence]], [[test-unit-registry]] tracks the unit, and
+penalties — that are summed to give the folding free energy `ΔG°` (kcal/mol at 37 °C). The records are
+[[rna-energy-001-evidence]] (the aggregate energy layer) and [[rna-hairpin-001-evidence]] (a focused
+deep-dive on the hairpin-loop + stem terms `CalculateHairpinLoopEnergy` / `CalculateStemEnergy`, with
+NNDB worked Examples 1 and 2); [[test-unit-registry]] tracks the units, and
 [[algorithm-validation-evidence]] describes the artifact pattern.
 
 This is the **energy** layer, distinct from its two neighbours: the **chemistry** of *which* bases
@@ -100,6 +103,11 @@ destabilizing (positive)**: `UG/GU` **+0.30** and `GU/UG` **+1.29**. Two NNDB ex
   `GG/CC`(−3.26)+`GG/CC`(−3.26)+`GA/CU`(−2.35) = −8.87; hairpin init(4) 5.6 + terminal mismatch
   (AUAU −0.6) = 5.0; inner AU-end +0.45 → total **−3.42 kcal/mol**.
 - **GGUC/CUGG special 3-stack:** **−4.12** (vs −1.77 without the special context).
+- **NNDB hairpin example 1** (closing A-U, 6-nt loop A…A): loop +4.6 (init(6) 5.4 + terminal mismatch
+  A·A −0.8) + helix −6.01 (3 stacks + AU-end) = total **−1.4** (RNA-HAIRPIN-001).
+- **NNDB hairpin example 2** (closing A-U, 5-nt loop G…G): loop +4.1 (init(5) 5.7 − 0.8 tm − 0.8 GG
+  first-mismatch bonus) + helix −6.01 = total **−1.9**. **3-nt loops get no first-mismatch term**;
+  loops < 3 nt are prohibited; a stem of P pairs has P−1 stacks (P ≤ 1 ⇒ 0) (RNA-HAIRPIN-001).
 
 ## Invariants and edge cases
 
