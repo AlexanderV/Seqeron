@@ -5,7 +5,8 @@ tags: [rna, algorithm]
 sources:
   - docs/Evidence/RNA-PKPREDICT-001-Evidence.md
   - docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md
-source_commit: 562cd41454b50a8036d6440d5df044dff35a93c9
+  - docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
+source_commit: ae0dfc54b6b719a8fa68c2f120f3f4e3235cd02e
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -105,7 +106,9 @@ pseudoknot-free alternative. Reeder & Giegerich chose 9.0 empirically ("performs
 - **INV (no spurious knot):** when a nested structure is more stable, `HasPseudoknot == false` and the
   output equals the plain MFE.
 - **INV (validity):** when a knot is returned, every index is in range, each position is paired at
-  most once, and `DetectPseudoknots` finds ≥1 genuine crossing (`i<k<j<l`).
+  most once, and `DetectPseudoknots` finds ≥1 genuine crossing (`i<k<j<l`). That crossing check is the
+  standalone [[rna-pseudoknot-detection|pseudoknot-detection]] primitive (RNA-PSEUDOKNOT-001) — a pure
+  O(n²) scan over a given base-pair set, the analysis-side sibling of this energy-driven predictor.
 - **Designed H-type oracle:** `GGGGAACCCCAACCCCAAGGGG` (22 nt) → `HasPseudoknot==true`, stem 1
   (0,15)(1,14)(2,13)(3,12) + stem 2 (6,21)(7,20)(8,19)(9,18), two-layer dot-bracket
   `((((..[[[[..))))..]]]]`, ΔG strictly below MFE.

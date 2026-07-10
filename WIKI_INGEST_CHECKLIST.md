@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 226 / 1181
+Progress: 227 / 1181
 
 ## (top-level)  (6)
 
@@ -190,7 +190,7 @@ Progress: 226 / 1181
 - [x] docs/Evidence/RNA-PARTITION-001-Evidence.md
 - [x] docs/Evidence/RNA-PKPREDICT-001-Evidence.md
 - [x] docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md
-- [ ] docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
+- [x] docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
 - [ ] docs/Evidence/RNA-STEMLOOP-001-Evidence.md
 - [ ] docs/Evidence/RNA-STRUCT-001-Evidence.md
 - [ ] docs/Evidence/SEQ-ATSKEW-001-Evidence.md
