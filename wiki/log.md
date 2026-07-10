@@ -4312,3 +4312,29 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    on-target/off-target siblings. No contradictions. Backlog slug pam-site-detection
    (PAM_Site_Detection.md algorithm doc) left pending — this report validates the unit, not that doc.
    graph: +1 node, +1 typed edge (crispr-guide-rna-design relates_to test-unit-registry for CRISPR-PAM-001)
+
+## [2026-07-10] ingest | docs/Validation/reports/DISORDER-LC-001.md → disorder-lc-001-report (source) + 1 concept
+   Two-stage validation report for test unit DISORDER-LC-001 (protein low-complexity region detection —
+   SEG / Wootton & Federhen). This is SEG low-complexity detection despite the DisorderPredictor host class
+   and the DISORDER-LC prefix — a distinct algorithm from TOP-IDP intrinsic-disorder-prediction. Stage A
+   PASS-WITH-NOTES / Stage B PASS / End state CLEAN-FIXED, full suite 6612/0, zero production-code change.
+   Validates DisorderPredictor.PredictLowComplexityRegions (:497) + private CalculateShannonEntropy (:280) +
+   ClassifyLowComplexityType. H=-Sum p_i*log2(p_i) bits/residue + defaults W=12/K1=2.2/K2=2.5 confirmed
+   verbatim vs GCG/Weizmann SEG help + ncbi-seg manpage + NCBI blast_seg.c (kSegWindow/kSegLocut/kSegHicut,
+   s_Entropy); two-stage trigger(<=K1)/greedy-extend(whole segment <=K2)/merge/minLength scan. Detector
+   re-implemented independently in Python — every expected value reproduced (M1 26Q->(0,25); M6
+   20Q+60spacer+20A->(0,34),(67,99) as genuine H=2.4939<=2.5<2.6077 crossings with spacer H=3.585 gap
+   preserved; S3 12Q->(0,11)). Test gate PASS: 3 coverage gaps closed with exact sourced values (M8 A/L-rich
+   label branch A=L=50%, M9 custom triggerWindow W=4, M10 custom extensionThreshold K2=2.0), fixture 18->21.
+   Stage-A notes (documented, non-blocking) = Shannon-entropy trigger stands in for WF eq-3 multinomial
+   complexity + P0 optimization (disclosed algorithm-doc simplification, can differ from NCBI SEG on
+   mixed-complexity edges, matches on homopolymer/biased inputs) + cosmetic X-rich/X/Y-rich label; neither
+   moves segment boundaries. ENRICHED existing concept protein-low-complexity-seg (the SEG anchor already
+   covering DISORDER-LC-001 + PROTMOTIF-LC-001) rather than a new concept: added report to sources, bumped
+   source_commit to c9ed6cf3, added a relates_to test-unit-registry typed edge sourced from the report,
+   updated intro to cite the report + validation-ledger. New source-summary page disorder-lc-001-report.
+   Updated wiki/index.md (+1 source line). Tied to validation-ledger / validation-and-testing /
+   test-unit-registry; did NOT force the algorithm-validation-evidence hub. Kept distinct from the evidence
+   artifact disorder-lc-001-evidence. No contradictions. Backlog: ProteinPred SEG algorithm doc already
+   covered via protein-low-complexity-seg (no pending slug to move).
+   graph: +1 node, +1 typed edge (protein-low-complexity-seg relates_to test-unit-registry for DISORDER-LC-001, sourced from the report)

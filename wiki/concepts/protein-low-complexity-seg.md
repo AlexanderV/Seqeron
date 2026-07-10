@@ -5,8 +5,9 @@ tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-LC-001-Evidence.md
   - docs/Evidence/PROTMOTIF-LC-001-Evidence.md
+  - docs/Validation/reports/DISORDER-LC-001.md
   - docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md
-source_commit: dda0efbabe0d4288e2a5f4e50964fb84a531cf23
+source_commit: c9ed6cf3055a7708deeca143f62df61bea0e7263
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -23,6 +24,12 @@ graph:
       evidence: "Test Unit ID: PROTMOTIF-LC-001 ... Algorithm: Low-Complexity Region Detection (SEG, Wootton & Federhen 1993) — same SEG method, ProteinMotif-family registration"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: disorder-lc-001-report
+      evidence: "Validation Report DISORDER-LC-001 — Stage A PASS-WITH-NOTES / Stage B PASS / End state CLEAN for DisorderPredictor.PredictLowComplexityRegions; W=12/K1=2.2/K2=2.5 defaults verified verbatim vs NCBI blast_seg.c"
+      confidence: high
+      status: current
 ---
 
 # Protein low-complexity region detection (SEG algorithm)
@@ -30,8 +37,10 @@ graph:
 Partitioning a protein into **low-complexity** and **high-complexity** segments — the
 compositionally biased runs (homopolymers, dipeptide repeats, `X/Y`-rich stretches) that confound
 alignment and database search. Seqeron implements the **SEG algorithm** of Wootton & Federhen
-(1993/1996), validated under test unit **DISORDER-LC-001**; the validation record is
-[[disorder-lc-001-evidence]] and [[test-unit-registry]] tracks the unit. See
+(1993/1996), validated under test unit **DISORDER-LC-001**; the pre-implementation evidence record is
+[[disorder-lc-001-evidence]], the independent two-stage validation verdict is
+[[disorder-lc-001-report]] (Stage A PASS-WITH-NOTES / Stage B PASS / CLEAN, 21 tests, feeding the
+[[validation-ledger]]), and [[test-unit-registry]] tracks the unit. See
 [[algorithm-validation-evidence]] for the artifact pattern.
 
 The **same SEG method** is also registered in the **ProteinMotif** family as test unit
