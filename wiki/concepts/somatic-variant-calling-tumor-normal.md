@@ -4,7 +4,8 @@ title: "Somatic variant calling (tumor vs matched-normal VAF classification)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-SOMATIC-001-Evidence.md
-source_commit: cd2346b7cf5bc7b9f84f0e5cfa7716f539b2cbce
+  - docs/Evidence/VARIANT-CALL-001-Evidence.md
+source_commit: 5b4dd805db54d51bae30445a884e122fc4d97bd5
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -124,7 +125,10 @@ Boundary conventions: **f_t = 0.05 is detected** (inclusive `≥`); **f_n = 0.01
 
 ## 6. Relationship to the rest of the Oncology family
 
-This caller sits at the **head of the somatic-SNV pipeline**. Its raw call set flows into two
+This caller sits at the **head of the somatic-SNV pipeline**. It is the tumor-vs-matched-normal VAF
+counterpart to the **germline, reference↔query** caller [[germline-variant-calling-snp-indel]]
+(VARIANT-CALL-001) — same goal (detect variants), different evidence — and both feed the same
+downstream VEP-style annotator [[variant-effect-annotation-vep]]. Its raw call set flows into two
 pre-interpretation QC filters that both output a subset:
 
 - [[sequencing-artifact-detection]] removes **technical** false positives (OxoG / FFPE deamination /

@@ -4,7 +4,8 @@ title: "Variant effect annotation (VEP-style consequence + Sequence-Ontology IMP
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/VARIANT-ANNOT-001-Evidence.md
-source_commit: dfa368702c4b3153cdb3b2bb48877ac663f4e019
+  - docs/Evidence/VARIANT-CALL-001-Evidence.md
+source_commit: 5b4dd805db54d51bae30445a884e122fc4d97bd5
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -87,8 +88,10 @@ codon (TAA/TAG/TGA) that yields a sense codon is `stop_lost`.
 ## Where it sits in the variant-analysis family
 
 Annotation is **downstream of variant calling** and orthogonal to pathogenicity/tier classification.
-On the oncology side, calling is [[somatic-variant-calling-tumor-normal]] (tumor-vs-normal VAF
-classification); this unit is the germline-style VEP consequence layer that would consume such calls.
+The upstream germline caller is [[germline-variant-calling-snp-indel]] (VARIANT-CALL-001 —
+SNP/indel detection from a reference↔query alignment, with Ti/Tv); on the oncology side, calling is
+[[somatic-variant-calling-tumor-normal]] (tumor-vs-normal VAF classification). This unit is the
+germline-style VEP consequence layer that consumes the variants either caller produces.
 It **reuses** the [[genetic-code-translation|genetic code]] table that also powers
 [[open-reading-frame-detection|ORF detection]] and [[codon-optimization]] — here to translate the two
 codons whose peptides the predicates compare.

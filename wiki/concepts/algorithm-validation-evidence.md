@@ -192,7 +192,8 @@ sources:
   - docs/Evidence/TRANS-EXPR-001-Evidence.md
   - docs/Evidence/TRANS-PROT-001-Evidence.md
   - docs/Evidence/VARIANT-ANNOT-001-Evidence.md
-source_commit: deb32560df90dfd97221f5218e71f6fd6cf3b2fd
+  - docs/Evidence/VARIANT-CALL-001-Evidence.md
+source_commit: 5b4dd805db54d51bae30445a884e122fc4d97bd5
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -326,7 +327,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[sv-breakpoint-001-evidence]], [[sv-cnv-001-evidence]],
 [[sv-detect-001-evidence]], [[trans-codon-001-evidence]],
 [[trans-diff-001-evidence]], [[trans-expr-001-evidence]],
-[[trans-prot-001-evidence]], [[variant-annot-001-evidence]]). An
+[[trans-prot-001-evidence]], [[variant-annot-001-evidence]],
+[[variant-call-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],

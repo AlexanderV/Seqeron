@@ -3367,3 +3367,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Follow-ups: variant calling (SNP/indel), pathogenicity/ACMG classification, and splice-region consequence
    scoring are adjacent variant-family units not yet ingested.
    graph: +2 nodes, +3 typed edges (variant-effect-annotation-vep relates_to test-unit-registry; depends_on genetic-code-translation; relates_to somatic-variant-calling-tumor-normal)
+
+## [2026-07-10] ingest | VARIANT-CALL-001-Evidence.md → variant-call-001-evidence (source) + 1 concept
+   Ingested germline variant calling (SNP/indel from a reference↔query global alignment + transition/
+   transversion classification + Ti/Tv). Created source [[variant-call-001-evidence]] and NEW concept
+   [[germline-variant-calling-snp-indel]] (the calling/detection member of the variant-analysis family:
+   `CallVariantsFromAlignment` → `SequenceAligner.GlobalAlign`, SNP/Insertion/Deletion per aligned column,
+   `"-"` gap sentinel + 0-based position in-memory, VCF padding/1-based POS only in serialized `ToVcfLines`;
+   Ti/Tv with undefined `#Tv=0`→0). Cross-linked both siblings: enriched [[variant-effect-annotation-vep]]
+   (named the germline caller as the upstream producer) and [[somatic-variant-calling-tumor-normal]] (added
+   the germline reference↔query counterpart clause); both siblings' frontmatter gained the source path.
+   Added to hub [[algorithm-validation-evidence]] (frontmatter source + roster body link); updated
+   wiki/index.md (Sources + Concepts). Sources VCFv4.3 + Danecek 2011 + Tan 2015 + Collins & Jukes 1994;
+   no source contradictions; research-grade, not clinical. Follow-ups: pathogenicity/ACMG classification and
+   read-pileup (depth/genotype) calling remain adjacent variant-family units not yet ingested.
+   graph: +2 nodes, +3 typed edges (germline-variant-calling-snp-indel relates_to test-unit-registry; relates_to variant-effect-annotation-vep; alternative_to somatic-variant-calling-tumor-normal)
