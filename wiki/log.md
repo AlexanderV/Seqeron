@@ -3124,3 +3124,17 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Contradictions: none (McTigue + MELTING + rmelting agree; 0.086 °C = documented base-NN-set diff).
    Follow-ups: none.
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Evidence/PROBE-VALID-001-Evidence.md → probe-valid-001-evidence (source) + 1 concept
+   PROBE-VALID-001 = hybridization-probe off-target specificity scan via gapped Smith–Waterman
+   local alignment (replaces earlier ungapped Hamming), + Kane-2000 0.75 identity threshold + opt-in
+   Karlin–Altschul E-value/bit-score/λ statistics. Judged genuinely distinct from
+   [[taqman-probe-design-rules]] (composition rules) → new concept [[probe-offtarget-specificity-scan]],
+   cross-linked both ways as the specificity-checking sibling. Updated hub
+   [[algorithm-validation-evidence]] (frontmatter sources + body evidence-link list), enriched
+   [[taqman-probe-design-rules]] (sibling cross-link), wiki/index.md (source + concept entries).
+   Oracles: indel copy ACGTAC-GTACGT 12/12=1.0 found by gapped / missed by ungapped; trimmed
+   indel+mismatch 10/12=0.8333; λ(+1/−3)=1.3740631 (≈ blastn 1.37), bit 59.9627 / E 1.7802e−14.
+   Contradictions: none (SW + BLAST gapped/ungapped + Karlin–Altschul + Kane mutually consistent).
+   Follow-ups: none.
+   graph: +2 nodes, +3 typed edges

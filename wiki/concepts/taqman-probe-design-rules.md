@@ -5,7 +5,8 @@ tags: [primer, algorithm, validation]
 sources:
   - docs/Evidence/PROBE-DESIGN-001-Evidence.md
   - docs/Evidence/PROBE-DESIGN-001-LNA-Evidence.md
-source_commit: 56951fd9ed19b4c55b2183678292d5041eb772e1
+  - docs/Evidence/PROBE-VALID-001-Evidence.md
+source_commit: 4de32c233ad726853dbae99f237ce61d34c3b01a
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -40,7 +41,10 @@ reagent-design family, sibling to the primer units [[primer-dimer-thermodynamics
 [[probe-design-001-evidence]] (the base TaqMan rules) and
 [[probe-design-001-lna-evidence]] (the **LNA (locked nucleic acid) Tm-adjustment** variant,
 see the LNA section below); [[test-unit-registry]] tracks the unit, and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+[[algorithm-validation-evidence]] describes the artifact pattern. Its **specificity-checking
+sibling** is [[probe-offtarget-specificity-scan]] (PROBE-VALID-001) — a distinct algorithm that
+aligns a candidate probe against a pooled reference to find cross-hybridizing off-targets, as
+opposed to checking these composition rules.
 
 ## Scope: an opt-in layer over the generic probe designer
 
