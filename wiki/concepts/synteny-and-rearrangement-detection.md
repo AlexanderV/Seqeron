@@ -6,9 +6,10 @@ sources:
   - docs/Evidence/CHROM-SYNT-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md
   - docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/CHROM-SYNT-001.md
+source_commit: 7a7cdd292084b683c3ee8baa98bbbcd61e441c4b
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -45,8 +46,10 @@ Comparative-genomics family are [[average-nucleotide-identity]] — the genome-s
 a gene *set* is contiguous in every genome (a common interval) rather than requiring a collinear
 ordered block. The end-to-end pipeline [[genome-comparison-core-dispensable]] reuses this unit's
 syntenic blocks to report an `OverallSynteny` fraction alongside its core/dispensable gene
-partition. Validated under two test units: **CHROM-SYNT-001** at chromosome scale (validation record
-[[chrom-synt-001-evidence]]) and the comparative-genomics **COMPGEN-SYNTENY-001** at whole-genome
+partition. Validated under two test units: **CHROM-SYNT-001** at chromosome scale (pre-implementation evidence
+[[chrom-synt-001-evidence]]; independent two-stage re-validation verdict [[chrom-synt-001-report]] —
+Stage A PASS-WITH-NOTES / Stage B PASS / CLEAN, 19 tests passing, zero code change) and the
+comparative-genomics **COMPGEN-SYNTENY-001** at whole-genome
 scale, which reuses this anchor and supplies the concrete MCScanX DP scoring parameters (validation
 record [[compgen-synteny-001-evidence]]; see the *MCScanX collinearity DP model* section below).
 [[test-unit-registry]] tracks the units and [[algorithm-validation-evidence]] describes the artifact

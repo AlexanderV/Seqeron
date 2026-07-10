@@ -3899,3 +3899,13 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    wiki/index.md (+1 source line). No backlog slug matched (report is a generated per-run validation
    artifact, excluded from coverage).
    graph: +1 node, +1 typed edge
+
+2026-07-10 — Ingested docs/Validation/reports/CHROM-SYNT-001.md (validation report, synteny analysis
+   — collinear blocks + rearrangement detection). Created wiki/sources/chrom-synt-001-report.md
+   (Stage A PASS-WITH-NOTES / Stage B PASS / CLEAN, 19 synteny tests, zero code change; re-derived
+   from fresh context, source unchanged since cb113ce). Enriched
+   [[synteny-and-rearrangement-detection]]: added report to sources, bumped source_commit to
+   7a7cdd29, cross-linked the report verdict alongside the evidence artifact in the intro. Updated
+   wiki/index.md (+1 source line). Did not force the algorithm-validation-evidence hub; tied to
+   validation-ledger/validation-protocol. No backlog slug matched (report path is coverage-excluded).
+   graph: +0 nodes, +0 typed edges (report is source-type; concept already relates_to test-unit-registry)
