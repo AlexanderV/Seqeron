@@ -4,7 +4,8 @@ title: "Splice acceptor site prediction (3' splice site: AG, polypyrimidine trac
 tags: [splicing, motif, algorithm]
 sources:
   - docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md
-source_commit: 0176ee87cbff0a49e2b03a1d4b2f5e0d02034ab3
+  - docs/Evidence/SPLICE-DONOR-001-Evidence.md
+source_commit: ce6f817f61151956d1e97909c1ccf5d70f0c333c
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -31,7 +32,9 @@ downstream exon. In the canonical **GU-AG rule** (>99% of introns) the intron be
 `GU` at the 5' **donor** site and ends `AG` at the 3' acceptor. Acceptor-site
 prediction scores candidate `AG` dinucleotides for the surrounding signal that marks a
 *real* 3'ss versus a **cryptic** intronic `AG`. This concept is the anchor for the
-**splicing family** (acceptor / donor / branch point); it is the first ingested member.
+**splicing family** (acceptor / donor / branch point); it is the first ingested member,
+and its 5' partner is [[splice-donor-site-prediction]] (SPLICE-DONOR-001 — the `GU`/GT
+donor).
 Validated under test unit **SPLICE-ACCEPTOR-001** — record
 [[splice-acceptor-001-evidence]]; [[test-unit-registry]] tracks the unit and
 [[algorithm-validation-evidence]] describes the artifact pattern. Seqeron exposes
@@ -99,6 +102,12 @@ recorded in `Data/maxent_score3.LICENSE.md`.
   equivalence and case-insensitivity are honoured.
 
 ## Relation to other units
+
+The 5' partner is [[splice-donor-site-prediction]] — the `GU`/GT donor at the *other* end
+of the same intron under the GU-AG rule. The donor is a single contiguous `MAG|GURAGU`
+motif (no branch point / PPT), so its default scorer is a plainer **consensus match
+fraction** and its MaxEntScan **score5ss** uses a single 16,384-entry table (vs this
+acceptor's PWM+PPT default and score3ss's 82,560-record overlapping-sub-window model).
 
 The default acceptor scorer is a **position-weight-matrix** scan — the PWM branch of
 the degenerate/consensus motif family whose exact-match baseline is
