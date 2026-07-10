@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 323 / 1181
+Progress: 325 / 1181
 
 ## (top-level)  (6)
 
@@ -758,8 +758,8 @@ Progress: 323 / 1181
 
 ## external  (2)
 
-- [ ] docs/external/VCFv4.3.pdf
-- [ ] docs/external/gaps.pdf
+- [x] docs/external/VCFv4.3.pdf
+- [x] docs/external/gaps.pdf
 
 ## mcp  (430)
 
