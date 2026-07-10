@@ -3395,3 +3395,17 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    contradictions; research-grade, not clinical. Follow-ups: indel left-normalization as a standalone
    method and read-pileup genotype calling remain adjacent units not yet ingested.
    graph: +1 node, +1 typed edge (germline-variant-calling-snp-indel relates_to test-unit-registry for variant-indel-001-evidence)
+
+## [2026-07-10] ingest | docs/Evidence/VARIANT-SNP-001-Evidence.md → variant-snp-001-evidence (source)
+   SNP detection (FindSnps alignment-based + FindSnpsDirect positional/Hamming-style). ENRICHED the
+   existing concept [[germline-variant-calling-snp-indel]] rather than forking a new concept: it is the
+   SNP facet of the same VARIANT-CALL-001 caller (mirrors the VARIANT-INDEL-001 enrichment). Added a
+   "SNP detection" subsection (FindSnps = filter over the caller; FindSnpsDirect = Hamming-mismatch
+   enumeration over equal-length sequences, SNP count = Hamming distance; equal-length/common-prefix
+   precondition; REF==ALT is not a variant; case-insensitive; oracles ATGC→ATTC / AAAA→TGTA / VCFv4.3 §1.1
+   G→A). Concept frontmatter gained the source path + a relates_to test-unit-registry edge for the new
+   unit; lede + reference-sources paragraph updated to cite Acharya 2017 (PMC5410656, Hamming). Updated
+   wiki/index.md (Sources + Concepts). Sources VCFv4.3 + Wikipedia/Futuyma Transversion + Acharya 2017 +
+   Collins & Jukes 1994; no source contradictions; research-grade, not clinical. Follow-ups: read-pileup
+   genotype calling and indel left-normalization remain adjacent units not yet ingested.
+   graph: +1 node, +1 typed edge (germline-variant-calling-snp-indel relates_to test-unit-registry for variant-snp-001-evidence)
