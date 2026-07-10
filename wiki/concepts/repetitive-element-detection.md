@@ -8,9 +8,10 @@ sources:
   - docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
   - docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
   - docs/Evidence/REP-STR-001-Evidence.md
-source_commit: 32e9f11dfac8dcd66d61e1eff994bb086758eb81
+  - docs/Evidence/RNA-INVERT-001-Evidence.md
+source_commit: b36d042573850cc6e5d5f099aa7f01a4be79cdb7
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -29,6 +30,12 @@ graph:
       object: concept:test-unit-registry
       source: rep-str-001-evidence
       evidence: "Test Unit ID: REP-STR-001 ... Algorithm: Microsatellite / Short Tandem Repeat (STR) detection — perfect (default) and approximate/imperfect/interrupted (opt-in, Tandem Repeats Finder model)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: rna-invert-001-evidence
+      evidence: "Test Unit ID: RNA-INVERT-001 ... Algorithm: RNA Inverted Repeats (potential stem regions) — the W G W̄ᴿ IUPACpal model in the RNA secondary-structure family"
       confidence: high
       status: current
 ---
@@ -113,6 +120,13 @@ Following IUPACpal (Hampson et al. 2021), an IR has the form **W W̄ᴿ** (perfe
 - **Zero gap ⇒ palindrome.** When `|G| = 0` the composite is an even-length reverse-complement
   palindrome (e.g. `GAATTC` → arm `GAA`, revcomp arm `TTC`).
 - Detection parameters: minimum arm length, maximum arm length, maximum gap, maximum mismatches.
+
+The **RNA** flavour of this exact `W G W̄ᴿ` model — antiparallel complementary arms that form a
+potential **stem-loop** — lives in the RNA secondary-structure family as test unit
+RNA-INVERT-001 ([[rna-invert-001-evidence]]): same IUPACpal definition, but the arm complement is
+the RNA base-pairing rule {A-U, G-C} of [[rna-base-pairing]] and a non-zero loop is required (the
+object is then a stem-loop, cf. [[pre-mirna-hairpin-detection]] / [[rna-dot-bracket-notation]]).
+That unit reports the **perfect, ungapped `k = 0`** case only.
 
 ### 3. Repeat-class assignment
 

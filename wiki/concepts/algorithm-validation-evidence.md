@@ -152,6 +152,7 @@ sources:
   - docs/Evidence/RNA-DOTBRACKET-001-Evidence.md
   - docs/Evidence/RNA-ENERGY-001-Evidence.md
   - docs/Evidence/RNA-HAIRPIN-001-Evidence.md
+  - docs/Evidence/RNA-INVERT-001-Evidence.md
 source_commit: 79389a8898bca00ca6eabf4fef4b51f3ea73fae6
 created: 2026-07-09
 updated: 2026-07-10
@@ -269,7 +270,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[protmotif-sp-001-evidence]], [[protmotif-tm-001-evidence]],
 [[rep-str-001-evidence]], [[restr-filter-001-evidence]],
 [[rna-dotbracket-001-evidence]], [[rna-energy-001-evidence]],
-[[rna-hairpin-001-evidence]]). An
+[[rna-hairpin-001-evidence]], [[rna-invert-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
