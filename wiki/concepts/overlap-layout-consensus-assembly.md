@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-OLC-001-Evidence.md
   - docs/algorithms/Assembly/Overlap_Layout_Consensus.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-OLC-001.md
+source_commit: 288511090f725435564292b6bf3fc8fa05fb7b4c
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -31,9 +32,11 @@ graph:
 named stages — **Overlap**, **Layout**, **Consensus** — over an *overlap graph* whose nodes are
 whole reads. This is the anchor for the assembly **OLC** family, validated under test unit
 **ASSEMBLY-OLC-001** (`FindAllOverlaps` for overlap detection + `AssembleOLC` for end-to-end
-assembly). The literature-traced validation record is [[assembly-olc-001-evidence]];
-[[test-unit-registry]] tracks the unit and [[algorithm-validation-evidence]] describes the
-artifact pattern.
+assembly). The literature-traced validation record is [[assembly-olc-001-evidence]], and the independent
+two-stage re-validation verdict (Stage A ✅ PASS / Stage B 🟡 PASS-WITH-NOTES for the sourced
+greedy-layout + concatenation-consensus simplifications / State CLEAN, suite 6494/0, one
+test-coverage gap fixed) is [[assembly-olc-001-report]]; [[test-unit-registry]] tracks the unit and
+[[algorithm-validation-evidence]] describes the artifact pattern.
 
 ## The three stages (source-traced)
 

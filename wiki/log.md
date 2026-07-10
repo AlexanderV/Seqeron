@@ -3740,3 +3740,21 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    contradictions. Updated wiki/index.md (+1 source line). No backlog slug (backlog tracks the
    algorithm doc, already covered; the report path is not a backlog entry). No typed graph edges
    added (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-OLC-001.md
+   Created source-summary wiki/sources/assembly-olc-001-report.md (two-stage validation report for
+   ASSEMBLY-OLC-001 — Overlap-Layout-Consensus, SequenceAssembler.AssembleOLC + FindAllOverlaps
+   (+cancellable) + FindOverlap; Stage A PASS / Stage B PASS-WITH-NOTES / End state CLEAN, full
+   suite 6494/0, zero code change). Tied to [[validation-ledger]] / [[validation-and-testing]] and
+   the algorithm concept [[overlap-layout-consensus-assembly]] (assembly OLC anchor), NOT the
+   algorithm-validation-evidence hub. Reused the existing concept — surgically added the report to
+   its sources:, bumped source_commit to HEAD, updated:, and cross-linked the new report alongside
+   the pre-existing evidence artifact assembly-olc-001-evidence. Longest-suffix-prefix via
+   descending scan (pos1=len1-L, pos2=0), case-insensitive identity fraction, no self-overlaps;
+   greedy best-successor layout = superstring merge. Independent Python re-derived the 12-edge
+   GTACGTACGAT set {4,5}, CTCTAGGCC len 6, chain->AAAAACCCCCGGGGGTTTTT, 7/8 identity gate. PASS-
+   WITH-NOTES = two sourced intentional simplifications (greedy vs Hamiltonian-optimal; concat vs
+   majority consensus). Only issue a test-coverage gap (MinContigLength discard), closed with
+   exact-value test M5b. No defect, no contradictions. Updated wiki/index.md (+1 source line). No
+   backlog slug (backlog tracks the algorithm doc, already covered; the report path is not a
+   backlog entry). No typed graph edges added (report is source-type; N/A).
