@@ -3608,3 +3608,21 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    ANNOT-* report ingests. No contradictions flagged.
    graph: +1 node (source annot-gff-001-report); no typed edges added (surgical sources:/cross-link only); body
    [[wikilinks]] mentions auto-derived.
+
+## [2026-07-10] ingest | docs/Validation/reports/ANNOT-ORF-001.md → annot-orf-001-report (source) + open-reading-frame-detection (concept)
+   New source page annot-orf-001-report (two-stage validation write-up for the ANNOTATION-LAYER ORF detection —
+   GenomeAnnotator.FindOrfs / FindLongestOrfsPerFrame: Stage A PASS, Stage B PASS-WITH-NOTES, End state CLEAN;
+   ORF filter 35/0, full project 18208/0). NO code defect — start set ATG+GTG/TTG, stops TAA/TAG/TGA, six
+   frames, `minLength` in AMINO ACIDS, 0-based half-open stop-inclusive coords all confirmed vs Rosalind (live
+   fetch) / Wikipedia / NCBI ORFfinder / Deonier 2005 / Claverie 1997; the authoritative Rosalind four-protein
+   sample reproduced (incl. the reverse-strand MLLGSFRLIPKETLIQVAGSSPCNLS) + nested shared-stop ORF (start 24
+   MGMTPRLGLESLLE nests start 30 MTPRLGLESLLE, shared end 69) verified in-code. Sole note = the non-canonical
+   `requireStartCodon=false` run-off seeding path (outside standard-ORF scope). Kept DISTINCT from the ATG-only
+   GenomicAnalyzer unit [[genomic-orf-001-evidence]] (different code path + start set + minLength unit) and from
+   any annot-orf-001-evidence artifact (none exists). Did NOT create a new concept — [[open-reading-frame-detection]]
+   already covers this; surgically updated it (added the report to sources: + a one-line verdict cross-link in the
+   sibling-ORF-finder section). Did NOT force the algorithm-validation-evidence hub; tied the report to
+   [[validation-ledger]] / [[validation-protocol]] / [[validation-and-testing]]. Updated wiki/index.md (+1 source).
+   No contradictions flagged.
+   graph: +1 node (source annot-orf-001-report); no typed edges added (surgical sources:/cross-link only); body
+   [[wikilinks]] mentions auto-derived.

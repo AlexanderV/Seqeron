@@ -5,9 +5,10 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/GENOMIC-ORF-001-Evidence.md
   - docs/algorithms/Analysis/Open_Reading_Frame_Detection.md
-source_commit: b8df572dba1d19e639aaf1a2ac9e35e2d68aea4e
+  - docs/Validation/reports/ANNOT-ORF-001.md
+source_commit: 23decb5c5e895bf2baa626a971bfb7de3b02322b
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -82,7 +83,9 @@ contract-equivalent** to the annotation-layer `GenomeAnnotator.FindOrfs` (test u
 ANNOT-ORF-001, `docs/algorithms/Annotation/ORF_Detection.md`, not ingested here), which
 recognizes the prokaryotic start set ATG/GTG/TTG, measures `minLength` in **amino acids**,
 and exposes `searchBothStrands`/`requireStartCodon` flags — plus `Translator.FindOrfs`
-for genetic-code-parameterized ORF finding. That annotation layer's ORF-based gene
+for genetic-code-parameterized ORF finding. That annotation `FindOrfs` unit was independently
+validated as [[annot-orf-001-report]] (Stage A PASS / Stage B PASS-WITH-NOTES, End state CLEAN,
+35/35 tests, no defect — sole note is the non-canonical `requireStartCodon=false` run-off path). That annotation layer's ORF-based gene
 prediction + Shine-Dalgarno RBS finder is [[prokaryotic-gene-prediction-rbs]]
 (test unit ANNOT-GENE-001). Callers pick the entry point deliberately.
 Coding-potential scoring of a candidate ORF is a separate step ([[coding-potential-hexamer-score]]).
