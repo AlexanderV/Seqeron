@@ -76,6 +76,7 @@ sources:
   - docs/Evidence/PARSE-FASTA-001-Evidence.md
   - docs/Evidence/PARSE-FASTQ-001-Evidence.md
   - docs/Evidence/PARSE-GENBANK-001-Evidence.md
+  - docs/Evidence/PARSE-GFF-001-Evidence.md
   - docs/Evidence/ONCO-ACTION-001-Evidence.md
   - docs/Evidence/ONCO-ANNOT-001-Evidence.md
   - docs/Evidence/ONCO-ARTIFACT-001-Evidence.md
@@ -116,7 +117,7 @@ sources:
   - docs/Evidence/PANGEN-CORE-001-Evidence.md
   - docs/Evidence/PANGEN-HEAP-001-Evidence.md
   - docs/Evidence/PANGEN-MARKER-001-Evidence.md
-source_commit: 6dbe2cbf99c5f8ee4eb8eb90b438d7b10e3d5021
+source_commit: 0dc9d22d7d1e7c57ca0bd01652ff34963a0b08a7
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -194,6 +195,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[motif-discover-001-evidence]], [[motif-shared-001-evidence]],
 [[parse-bed-001-evidence]], [[parse-embl-001-evidence]], [[parse-fasta-001-evidence]],
 [[parse-fastq-001-evidence]], [[parse-genbank-001-evidence]],
+[[parse-gff-001-evidence]],
 [[onco-action-001-evidence]], [[onco-annot-001-evidence]],
 [[onco-artifact-001-evidence]], [[onco-ascat-001-evidence]],
 [[onco-ccf-001-evidence]], [[onco-chip-001-evidence]],

@@ -2790,3 +2790,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    algorithm-validation-evidence hub (frontmatter + body list) and to [[bed-format-parsing]], siblings,
    [[test-unit-registry]], [[fuzzing]]. Index Sources + Concepts updated. No contradictions.
    graph: +2 nodes, +1 typed edge (insdc-feature-location relates_to test-unit-registry)
+
+## [2026-07-10] ingest | PARSE-GFF-001-Evidence.md → parse-gff-001-evidence (source only, cross-link)
+   Ingested the GFF/GTF annotation-file-parsing Evidence artifact (FileIO/PARSE-* family). Wrote
+   source summary parse-gff-001-evidence (Wikipedia General Feature Format + UCSC GFF/GTF FAQ +
+   Sequence Ontology GFF3 v1.26 sources; 9 tab-delimited columns, 1-based inclusive coords, phase
+   0/1/2 for CDS, attribute dialects GFF3 key=value; vs GTF key "value"; vs GFF2 group, Parent
+   part-of hierarchy + multi-parent + discontinuous features, RFC 3986 percent-escaping, directives,
+   null/empty→empty + <8-fields→skip contracts, column/attribute/escape/hierarchy/format-detect/
+   round-trip test categories; deviations None). Determination: NO new concept — GFF is a
+   tab-delimited sibling of BED, cross-linked to family anchor [[bed-format-parsing]] where the
+   BED-vs-GFF 0-based-vs-1-based coordinate contrast already lives; distinct GFF facts captured in
+   the source page (economical per directive). Added inbound link from bed-format-parsing anchor;
+   registered the source in the algorithm-validation-evidence hub (frontmatter + body list). Index
+   Sources updated. No contradictions.
+   graph: +1 node (parse-gff-001-evidence source), +0 typed edges (source-only page; mentions edges auto-derived)

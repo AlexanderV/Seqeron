@@ -43,7 +43,9 @@ explains why parsers like this one are the campaign's highest-priority malformed
 The browser display `chr1:1-100` (1-based inclusive) corresponds to BED `chromStart=0,
 chromEnd=100`. Mixing the two conventions is the classic off-by-one source when converting
 between BED and 1-based formats (GFF/GTF/VCF are 1-based inclusive), so coordinate/coordinate
-conversions must always account for the half-open, 0-based origin.
+conversions must always account for the half-open, 0-based origin. The sibling GFF/GTF
+tab-delimited annotation format (9-column, 1-based inclusive) is traced in
+[[parse-gff-001-evidence]].
 
 ## The column ladder: BED3 → BED12
 
