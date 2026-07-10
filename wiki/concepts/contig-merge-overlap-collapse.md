@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md
   - docs/algorithms/Extended_Assembly/Contig_Merging.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-MERGE-001.md
+source_commit: 6abf4edca8f18ac8c0d17c25f3949d7c1dea135d
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -31,8 +32,10 @@ removing a single copy of their shared region. It is the **merge** step behind g
 shortest-common-superstring (SCS) assembly and the **layout/consensus** stitching of
 Overlap-Layout-Consensus (OLC). This is the anchor for the assembly **MERGE** family, validated
 under test unit **ASSEMBLY-MERGE-001** (`MergeContigs`). The literature-traced validation record is
-[[assembly-merge-001-evidence]]; [[test-unit-registry]] tracks the unit and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+[[assembly-merge-001-evidence]], and the independent two-stage re-validation verdict (Stage A ✅ PASS /
+Stage B ✅ PASS / State CLEAN, suite 6529/0, zero code change) is [[assembly-merge-001-report]];
+[[test-unit-registry]] tracks the unit and [[algorithm-validation-evidence]] describes the artifact
+pattern.
 
 ## The overlap definition (source-traced)
 

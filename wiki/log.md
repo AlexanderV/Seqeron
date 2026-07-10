@@ -3725,3 +3725,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    page assembly-dbg-001-evidence. Updated wiki/index.md (+1 source line). No backlog slug
    (backlog tracks the algorithm doc, already covered; the report path is not a backlog entry).
    No typed graph edges added (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-MERGE-001.md
+   Created source-summary wiki/sources/assembly-merge-001-report.md (two-stage validation report
+   for ASSEMBLY-MERGE-001 — contig merging, SequenceAssembler.MergeContigs(c1,c2,overlapLength);
+   Stage A PASS / Stage B PASS / End state CLEAN, full suite 6529/0, zero code change). Tied to
+   [[validation-ledger]] / [[validation-and-testing]] and the algorithm concept
+   [[contig-merge-overlap-collapse]] (assembly MERGE anchor), NOT the algorithm-validation-evidence
+   hub. Reused the existing concept — surgically added the report to its sources:, bumped
+   source_commit to HEAD, and cross-linked the new report alongside the pre-existing evidence
+   artifact assembly-merge-001-evidence. Merge = X+Y[l:], |merge|=|c1|+|c2|-l; single fallback
+   covers l<=0 and l>min -> plain concat (suffixPrefixMatch guard); BAAB/AAABBBA trace to exact
+   Langmead SCS/OLC printed strings, all 12 tests exact-value, HARD gate PASS. No defect, no
+   contradictions. Updated wiki/index.md (+1 source line). No backlog slug (backlog tracks the
+   algorithm doc, already covered; the report path is not a backlog entry). No typed graph edges
+   added (report is source-type; N/A).
