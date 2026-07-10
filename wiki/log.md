@@ -3349,3 +3349,21 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    wiki/index.md (Sources + Concepts entries). Follow-ups: rMATS/SUPPA2 replicate ΔPSI significance +
    isoform-switching remain adjacent not-yet-ingested transcriptome units.
    graph: +2 nodes, +2 typed edges (alternative-splicing-psi relates_to test-unit-registry; relates_to differential-expression)
+
+## [2026-07-10] ingest | VARIANT-ANNOT-001-Evidence.md → variant-annot-001-evidence (source) + variant-effect-annotation-vep (concept)
+   VEP-style variant effect annotation: map an already-called variant to its functional consequence +
+   Sequence-Ontology term/accession + IMPACT (HIGH/MODERATE/LOW/MODIFIER) via the Ensembl
+   OverlapConsequence predicate system (Constants.pm consequence→IMPACT→rank table + VariationEffect.pm
+   peptide predicates). IMPACT is stored on the term, not computed; most-severe = lowest rank
+   (McLaren 2016). Coding engine translates ref/alt codons through the standard genetic code (NCBI table 1)
+   and compares peptides: synonymous / missense / stop_gained / stop_lost; frameshift purely length-based
+   |alt−ref| mod 3 ≠ 0; inframe ins/del = ×3 indel. Precedence stop_gained>missense, start_lost(rank 7)>
+   coding-substitution. Oracles GAA→GTA missense · TTA→TTG synonymous · CAA→TAA stop_gained · TAA→CAA
+   stop_lost · ATG→ATC start_lost · AC→A frameshift · A→ATTT inframe_insertion. Two assumptions (table 1
+   only; single-codon SNV comparison). Wrote source [[variant-annot-001-evidence]] + NEW concept
+   [[variant-effect-annotation-vep]]; enriched [[genetic-code-translation]] (added variant-annotation as a
+   reader of the codon table); added to hub [[algorithm-validation-evidence]] (sources + body link + concept
+   list); updated wiki/index.md (Sources + Concepts). No source contradictions; research-grade, not clinical.
+   Follow-ups: variant calling (SNP/indel), pathogenicity/ACMG classification, and splice-region consequence
+   scoring are adjacent variant-family units not yet ingested.
+   graph: +2 nodes, +3 typed edges (variant-effect-annotation-vep relates_to test-unit-registry; depends_on genetic-code-translation; relates_to somatic-variant-calling-tumor-normal)

@@ -41,7 +41,9 @@ higher codon-level operation reads — [[open-reading-frame-detection|ORF detect
 for ATG→stop spans, [[codon-optimization]] substitutes within its synonymous families, and the
 [[relative-synonymous-codon-usage|RSCU]] / [[codon-adaptation-index|CAI]] /
 [[effective-number-of-codons|ENC]] measures all partition codons by the amino acid this table
-assigns. Validated as test unit **TRANS-CODON-001** ([[trans-codon-001-evidence]]); the
+assigns, and [[variant-effect-annotation-vep|VEP-style variant annotation]] translates a variant's
+reference and alternate codons through it to decide synonymous / missense / stop_gained / stop_lost.
+Validated as test unit **TRANS-CODON-001** ([[trans-codon-001-evidence]]); the
 **whole-sequence** layer above it — framed / six-frame translation and ORF finding via the
 `Translator` class — is validated as **TRANS-PROT-001** ([[trans-prot-001-evidence]]) and
 described below. See [[test-unit-registry]] for how the units are tracked and
