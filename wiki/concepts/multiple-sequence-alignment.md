@@ -5,9 +5,10 @@ tags: [alignment, algorithm]
 sources:
   - docs/Evidence/ALIGN-MULTI-001-Evidence.md
   - docs/algorithms/Alignment/Multiple_Sequence_Alignment.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ALIGN-MULTI-001.md
+source_commit: 5035604e5bf429aebca354e08cf9e246b1c0079e
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -28,8 +29,10 @@ graph:
 
 Aligning **three or more** sequences at once so that every column expresses a shared
 position across all of them. Finding the *optimal* MSA is NP-complete, so all practical
-methods are heuristics. Seqeron exposes three, all validated under test unit
-**ALIGN-MULTI-001**; the validation record is [[align-multi-001-evidence]], and pairwise
+methods are heuristics. Seqeron exposes these under test unit **ALIGN-MULTI-001**; the
+pre-impl validation record is [[align-multi-001-evidence]], and the 2026-06-24 re-validation
+[[align-multi-001-report|report]] independently re-confirms **star, progressive, and consistency**
+(Stage A/B PASS, State CLEAN, no defects). Pairwise
 [[global-alignment-needleman-wunsch|global alignment]] is the two-sequence sibling.
 
 ## Shared model

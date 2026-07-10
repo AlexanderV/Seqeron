@@ -3490,3 +3490,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    hub — no Evidence artifact exists for this unit). Updated index.md (Sources + Concepts); moved the doc
    from backlog pending → covered. No contradictions flagged.
    graph: +2 nodes, +2 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/ALIGN-MULTI-001.md → align-multi-001-report (source)
+   New source page align-multi-001-report (full re-validation write-up: Stage A/B both PASS, State CLEAN,
+   96 MSA-family tests green, suite 18208/0; re-confirms star + progressive/UPGMA + consistency/T-Coffee,
+   probe-verified GARFIELD relation 200→375, once-a-gap + zero-gap-DP + signal-add library). Kept distinct
+   from the pre-impl [[align-multi-001-evidence]]. ENRICHED concept [[multiple-sequence-alignment]] (added
+   report to sources + source_commit bump + a one-line re-validation CLEAN-verdict cross-link). Did NOT
+   create a new concept (MSA/consensus/progressive/consistency already represented) and did NOT force the
+   algorithm-validation-evidence hub (that hub rosters Evidence artifacts, not reports); tied the report to
+   [[validation-ledger]]/[[validation-protocol]] from the source page. Updated wiki/index.md (Sources).
+   One minor note (not a contradiction): the concept's numbered list of "three implementations" omits
+   MultipleAlignProgressive (lists star/iterative/consistency), while the report treats progressive as a
+   first-class named variant and iterative as the addendum sibling — left as a follow-up, not rewritten.
+   graph: no typed edges (source→concept report link is an auto-derived mentions/sourced_from edge; no new
+   typed concept-to-concept predicate is warranted).
