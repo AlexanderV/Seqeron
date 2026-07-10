@@ -2829,3 +2829,22 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    source list + own-concept list); index Sources + Concepts updated. Deviations none; one FindBestMatch
    leftmost-tie-break API assumption.
    graph: +2 nodes (pat-approx-003-evidence source, approximate-pattern-matching-mismatches concept), +2 typed edges (relates_to test-unit-registry, alternative_to k-mer-positions)
+
+## [2026-07-10] ingest | docs/Evidence/PHYLO-BOOT-001-Evidence.md → [[phylo-boot-001-evidence]] (source) + [[phylogenetic-bootstrap-support]] (new concept)
+   First phylogenetics (PHYLO-*) unit. Survey confirmed NO general distance-based-phylogenetics
+   concept exists yet (no Neighbor-Joining/UPGMA/distance-matrix page), so created a dedicated anchor
+   concept for the family: Felsenstein's bootstrap (FBP) — resample alignment columns with replacement
+   → same-length pseudo-alignments → tree per replicate (distance matrix → UPGMA/NJ) → clade support =
+   fraction of replicate trees containing the identical terminal-leaf-set clade of the reference tree.
+   Sources Felsenstein 1985 (Evolution) + Lemoine 2018 (Nature, PMC6030568) + Biopython
+   Bio.Phylo.Consensus (get_support terminal-set matching). Oracles: two-group AAAAAAAAAA/GGGGGGGGGG
+   UPGMA+JukesCantor seed 42 → support 1.0 (saturated distances), all-identical ACGTACGT → all 1.0.
+   Two source-consistent assumptions (rooted-clade vs unrooted bipartition matching Biopython;
+   proportion [0,1] vs percentage ×100). Explicitly distinguished from the CCF-constraint oncology
+   builder [[tumor-phylogeny-clonal-tree-reconstruction]] (no distance matrix / no resampling) and
+   positioned as the confidence layer over the tree [[phylogenetic-marker-selection]] feeds; added a
+   reciprocal distinction link on the tumor-phylogeny page. Registered in algorithm-validation-evidence
+   hub (frontmatter + source list + own-concept list); index Sources + Concepts updated. No contradictions.
+   Follow-up: when NJ/UPGMA/distance-matrix or other PHYLO-* units are ingested, split tree-construction
+   into its own concept and make bootstrap depend_on it.
+   graph: +2 nodes (phylo-boot-001-evidence source, phylogenetic-bootstrap-support concept), +1 typed edge (relates_to test-unit-registry)

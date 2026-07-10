@@ -146,5 +146,8 @@ respectively, with PICTograph naming the sum rule the pigeonhole generalization.
 assumptions**, both source-consistent rather than source-mandated: (1) the **deepest-valid-ancestor**
 deterministic tie-break for under-constrained private clusters (does not change the valid-tree set),
 and (2) the default **ε = 0** strict inequalities (the sources' ε only widens admissibility).
-Distance-based phylogenetics (Neighbor-Joining / UPGMA) is a **different problem** and out of scope.
+Distance-based sequence phylogenetics (Neighbor-Joining / UPGMA, and its bootstrap-support layer
+[[phylogenetic-bootstrap-support]]) is a **different problem** and out of scope — that family orders
+taxa by sequence divergence and resamples alignment columns, whereas this unit orders clusters by
+per-sample cell-fraction inequalities and never builds a distance matrix.
 **Not for clinical or diagnostic use.**
