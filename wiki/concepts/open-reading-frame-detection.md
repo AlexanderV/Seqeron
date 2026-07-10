@@ -37,8 +37,8 @@ An ORF is a span `S[a..b+3)` where `S[a..a+3) = ATG`, `S[b..b+3)` is a stop, `(b
 and no codon strictly between `a` and `b` is a stop. The **reported span includes the stop
 codon** (so `Length % 3 == 0`); the **translated protein candidate excludes** it
 (translation runs "until a stop", Rosalind). The reverse complement is scanned identically,
-marking results `IsReverseComplement = true`. Standard genetic code, NCBI transl_table=1
-(start ATG; stops TAA/TAG/TGA).
+marking results `IsReverseComplement = true`. Standard [[genetic-code-translation|genetic code]],
+NCBI transl_table=1 (start ATG; stops TAA/TAG/TGA).
 
 ## Nested ORFs sharing a stop (the correctness rule)
 

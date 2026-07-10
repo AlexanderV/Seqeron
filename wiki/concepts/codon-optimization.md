@@ -65,9 +65,9 @@ Seqeron's `OptimizeSequence` exposes five strategies, each tracing to a source p
 - **Protein preservation.** Optimization must not change the encoded amino-acid sequence — every
   substitution is synonymous. This is the defining correctness invariant, verified across *all*
   strategies.
-- **Met and Trp are fixed points.** AUG (Met) and UGG (Trp) are the only codons for their amino acids,
-  so they are never rewritten — the same single-codon-family fact that gives them `w ≡ 1` in
-  [[codon-adaptation-index|CAI]].
+- **Met and Trp are fixed points.** AUG (Met) and UGG (Trp) are the only codons for their amino acids
+  in the [[genetic-code-translation|genetic code]], so they are never rewritten — the same
+  single-codon-family fact that gives them `w ≡ 1` in [[codon-adaptation-index|CAI]].
 - **Stop codons preserved**, not optimized.
 - **CAI range** of any result stays in **(0, 1]** (geometric mean of `w ∈ (0, 1]`).
 
