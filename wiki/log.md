@@ -3653,3 +3653,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    graph: +2 nodes (source annot-prom-001-report, concept promoter-detection), +2 typed edges
    (promoter-detection --alternative_to--> regulatory-element-detection; --relates_to-->
    test-unit-registry); body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-10] ingest | docs/Validation/reports/ANNOT-REPEAT-001.md
+   Created source-summary wiki/sources/annot-repeat-001-report.md (two-stage validation report
+   for ANNOT-REPEAT-001 — repetitive element detection & classification; Stage A/B PASS, End
+   state CLEAN, suite 6566/0, ledger row 58 / finding A17; one real defect found+fixed:
+   ClassifyRepeat bidirectional-containment → one-directional element⊆query). Tied the report to
+   [[validation-ledger]] / [[validation-protocol]] / [[validation-and-testing]] and the algorithm
+   concept [[repetitive-element-detection]], NOT the algorithm-validation-evidence hub. Reused the
+   existing concept (already covers ANNOT-REPEAT-001) — surgically added the report to its
+   sources:, bumped source_commit, and cross-linked the defect fix in the deviation section; no
+   new concept. Kept distinct from the pre-existing evidence page annot-repeat-001-evidence.
+   Updated wiki/index.md (+1 source line). No contradictions flagged. No typed graph edges added
+   (report is source-type; N/A).

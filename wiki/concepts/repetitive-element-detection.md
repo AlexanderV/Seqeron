@@ -4,12 +4,13 @@ title: "Repetitive element detection and classification"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/ANNOT-REPEAT-001-Evidence.md
+  - docs/Validation/reports/ANNOT-REPEAT-001.md
   - docs/algorithms/Annotation/Repetitive_Element_Detection.md
   - docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
   - docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
   - docs/Evidence/REP-STR-001-Evidence.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
-source_commit: b36d042573850cc6e5d5f099aa7f01a4be79cdb7
+source_commit: f11e8bc7feeba4d997051309d93f661db1f53382
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -146,7 +147,11 @@ else Unknown. Only the *matching relaxation* (exact substring vs. scored homolog
 the class vocabulary is source-backed. The one-directional containment prevents a trivially short
 query from being forced into a class just because a longer consensus happens to contain its
 letters. Documented as a Framework/Simplified [[research-grade-limitations|limitation]], not an
-invented constant.
+invented constant. The one-directional fix was **not** cosmetic: the two-stage validation
+([[annot-repeat-001-report|ANNOT-REPEAT-001 report]], ledger row 58) found and fixed a real
+defect here — the original bidirectional `query.Contains(element) || element.Contains(query)`
+misclassified a 1-bp query (`ClassifyRepeat("A", …)` → `"SINE/Alu"`) because a longer consensus
+contained those letters; RepeatMasker instead screens the query *for* library elements.
 
 ## Structural invariants (good test oracles)
 
