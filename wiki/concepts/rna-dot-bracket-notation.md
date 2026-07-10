@@ -23,8 +23,9 @@ The **notation layer** of the RNA secondary-structure family (test unit **RNA-DO
 parse a structure string into the set of base pairs `(i, j)` it encodes, and validate that the
 string is **well-formed** (every bracket has a correctly ordered, same-family partner). This is the
 representation on which the folding units operate — the [[pre-mirna-hairpin-detection|pre-miRNA
-hairpin detector]] emits a balanced `(`/`.`/`)` dot-bracket and the MFE folder (RNA-STRUCT-001)
-reads its hairpin from the real dot-bracket structure. The record is [[rna-dotbracket-001-evidence]],
+hairpin detector]] emits a balanced `(`/`.`/`)` dot-bracket and the
+[[rna-minimum-free-energy-folding|MFE folder (RNA-MFE-001)]] reads its hairpin from the real
+dot-bracket structure. The record is [[rna-dotbracket-001-evidence]],
 [[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the artifact
 pattern. It is distinct from the chemistry of **which bases pair** ([[rna-base-pairing]]) — this unit
 is purely about the **bracket string**, not the nucleotides.

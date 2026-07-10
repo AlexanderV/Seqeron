@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 221 / 1610
+Progress: 222 / 1610
 
 ## (top-level)  (6)
 
@@ -184,7 +184,7 @@ Progress: 221 / 1610
 - [x] docs/Evidence/RNA-ENERGY-001-Evidence.md
 - [x] docs/Evidence/RNA-HAIRPIN-001-Evidence.md
 - [x] docs/Evidence/RNA-INVERT-001-Evidence.md
-- [ ] docs/Evidence/RNA-MFE-001-Evidence.md
+- [x] docs/Evidence/RNA-MFE-001-Evidence.md
 - [ ] docs/Evidence/RNA-PAIR-001-Evidence.md
 - [ ] docs/Evidence/RNA-PARTITION-001-Evidence.md
 - [ ] docs/Evidence/RNA-PKPREDICT-001-Evidence.md

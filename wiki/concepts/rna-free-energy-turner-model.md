@@ -122,7 +122,7 @@ destabilizing (positive)**: `UG/GU` **+0.30** and `GU/UG` **+1.29**. Two NNDB ex
 
 A [[scientific-rigor|research-grade]] reference for the **energy terms**, not a folder — assigning the
 Turner ΔG° to a *given* structure is what these methods do; searching structure space for the minimum
-is the RNA-STRUCT-001 MFE folder's job (which reuses these very terms). **No source contradictions** —
+is the [[rna-minimum-free-energy-folding|RNA-MFE-001 MFE folder]]'s job (which reuses these very terms). **No source contradictions** —
 every parameter set is an exact match against **NNDB Turner 2004** (WC 16, GU 20 incl. notes a/b,
 hairpin initiation 28, terminal mismatch 96, special tri/tetra/hexaloops 22, bonuses/penalties 6), and
 Turner 2004, Mathews et al. 2004, Xia et al. 1998, and SantaLucia 1998 are mutually consistent. The
