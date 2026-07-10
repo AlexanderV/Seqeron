@@ -3587,3 +3587,24 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    #7), same as the ANNOT-CODING/CODONUSAGE report precedent. No contradictions flagged.
    graph: +2 nodes (source + concept), +2 typed edges (prokaryotic-gene-prediction-rbs relates_to
    test-unit-registry + alternative_to open-reading-frame-detection); body [[wikilinks]] mentions auto-derived.
+
+## [2026-07-10] ingest | docs/Validation/reports/ANNOT-GFF-001.md → annot-gff-001-report (source) + bed-format-parsing (concept)
+   New source page annot-gff-001-report (Stage A/B two-stage validation write-up for the ANNOTATION-LAYER GFF3
+   I/O — GenomeAnnotator.ToGff3 / ParseGff3 / ComputeCdsPhases + Format/Encode/ParseGff3Attributes: Stage A
+   PASS, Stage B PASS, State CLEAN; GFF3 fixture 46/46, full dotnet test Seqeron.sln 18783/0). NO code defect —
+   a FRESH re-validation of the campaign export-fidelity fix (real source/score columns + per-transcript
+   cumulative CDS phase on both strands), with SO GFF3 Spec v1.26 retrieved live and phases hand-recomputed
+   against the canonical EDEN gene: plus-strand cds00003 = 0,1,1; cds00001 = 0,0,0,0; minus-strand (input
+   order) = 2,2,0 — the load-bearing formula phase_i = (3 − Σ preceding lengths mod 3) mod 3, segments ordered
+   5′→3′ (ascending start on +, DESCENDING on −). Kept DISTINCT from PARSE-GFF-001 / [[parse-gff-001-evidence]]
+   (the FileIO GffParser, different code path + record type: GeneAnnotation 0-based half-open export vs
+   GenomicFeature file-1-based parse). Did NOT create a new concept — the GFF3 9-column format is already
+   anchored on [[bed-format-parsing]]; surgically updated that concept instead (added the report to sources: +
+   a cross-link paragraph noting the second, annotation-layer GFF3 path and the CDS-phase formula). Did NOT
+   force the algorithm-validation-evidence hub; tied the report to [[validation-ledger]] / [[validation-protocol]]
+   / [[validation-and-testing]]. No annot-gff-001-evidence artifact exists. Updated wiki/index.md (+1 source).
+   No backlog move — the Annotation/GFF3_IO.md (gff3-io) slug resolves only when a concept lists that ALGORITHM
+   doc in sources:; this ingest covers the coverage-excluded validation report, same precedent as the prior
+   ANNOT-* report ingests. No contradictions flagged.
+   graph: +1 node (source annot-gff-001-report); no typed edges added (surgical sources:/cross-link only); body
+   [[wikilinks]] mentions auto-derived.
