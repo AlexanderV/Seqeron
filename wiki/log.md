@@ -4403,3 +4403,42 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    graph: +1 node (disorder-pred-001-report source), +0 typed edges (report ties to validation-ledger /
    validation-and-testing / test-unit-registry via auto-derived mentions/sourced_from; concept already carries
    relates_to test-unit-registry + relates_to protein-low-complexity-seg — no new typed edges added)
+
+## [2026-07-10] ingest | docs/Validation/reports/DISORDER-PROPENSITY-001.md → disorder-propensity-001-report (source)
+   Two-stage validation report for test unit DISORDER-PROPENSITY-001 — the O(1) per-residue propensity
+   primitives beneath the sliding-window predictor: the raw TOP-IDP Table-2 lookup GetDisorderPropensity +
+   Dunker order/disorder/ambiguous classification (IsDisorderPromoting / DisorderPromotingAminoAcids /
+   OrderPromotingAminoAcids / AmbiguousAminoAcids), DisorderPredictor.cs:680-712 over the DisorderPropensity
+   dict :85-107 and the three sets :111-121. Stage A PASS / Stage B PASS / End state CLEAN, full UNFILTERED
+   suite 6609 passed / 0 failed / 0 skipped (14-test canonical fixture green), NO code/test/spec change this
+   session, no divergences. Scope note: the session prompt's sliding-window smoothing / mean-disorder profile
+   is NOT this unit — it lives in PredictDisorder under DISORDER-PRED-001; per Registry
+   (ALGORITHMS_CHECKLIST_V2.md 3658-3676) + Method Index (5070-5073) this unit is scoped to the O(1) lookup +
+   classification, validated as registered. GetDisorderPropensity returns the RAW un-normalized value
+   (W-0.884...P+0.987), NOT the [0,1] normalized Si PredictDisorder uses. All 20 Table-2 values match exactly
+   vs Campen 2008 PMC2676888 (WebFetch, Table 2 verbatim), min W=-0.884 / max P=0.987 confirmed; Dunker 8/8/4
+   sets disorder {A,R,G,Q,S,P,E,K} / order {W,C,F,I,Y,V,L,N} / ambiguous {H,M,T,D} match, union 20 pairwise
+   disjoint (INV-4). localCIDER (sequenceParameters.py:221) corroborates the Campen citation (not the raw
+   numbers); PubMed 18991772 / USF DigitalCommons / Bentham confirm the rank string. Pitfall confirmed +
+   correctly handled: rendered rank string places ...Q,K,S,E,P but Table-2 values give S=0.341<K=0.586 (by
+   value ...Q,S,K,E,P) — presentation artifact, numeric values authoritative, both locked. Edge semantics:
+   scale defined for 20 standard residues only, unknown->0.0 (GetValueOrDefault contract, not source value),
+   case-fold via ToUpperInvariant — both impl contracts, honestly registered. HARD test-quality gate PASS:
+   fixture hardcodes sourced literals (not code echoes) M1/M2 exact values + M6/M7/M8 exact set equivalence +
+   counts; M3 disorder->true / M4 order->false / M5 ambiguous->false exercise both predicate branches; exact
+   Is.EqualTo(...).Within(1e-10) + Is.EquivalentTo+Count, no Greater/AtLeast/Contains where exact known, no
+   widened tolerance, no skipped tests; all 5 members + both branches + edge/contract cases (unknown X/Z/B/*
+   ->0.0, lowercase, sorted property order) covered; honest green on full unfiltered suite. IsDisorderPromoting
+   <=> membership in DisorderPromotingAminoAcids (M10) consistent. Findings: NONE at both stages. SURGICALLY
+   updated the existing concept intrinsic-disorder-prediction-top-idp (already the shared PredictDisorder
+   anchor + already hosts the DISORDER-PROPENSITY-001 primitives section) rather than a new concept — the
+   primitives are already fully represented: added the report to sources, bumped source_commit to 540cb0df,
+   added a one-line CLEAN verdict cross-link to disorder-propensity-001-report + validation-ledger in the
+   primitives section. New source-summary page disorder-propensity-001-report. Updated wiki/index.md (+1 source
+   line). Tied to validation-ledger / validation-and-testing / test-unit-registry; did NOT force the
+   algorithm-validation-evidence hub. Kept distinct from the evidence artifact disorder-propensity-001-evidence
+   and the sibling reports disorder-pred-001-report / disorder-lc-001-report / disorder-morf-001-report. No
+   contradictions.
+   graph: +1 node (disorder-propensity-001-report source), +0 typed edges (report ties to validation-ledger /
+   validation-and-testing / test-unit-registry via auto-derived mentions/sourced_from; concept already carries
+   its typed relates_to edges — no new typed edges added)

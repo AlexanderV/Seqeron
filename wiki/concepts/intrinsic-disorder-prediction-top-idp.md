@@ -4,11 +4,12 @@ title: "Intrinsic-disorder prediction (TOP-IDP sliding window, PredictDisorder)"
 tags: [analysis, algorithm]
 sources:
   - docs/Validation/reports/DISORDER-PRED-001.md
+  - docs/Validation/reports/DISORDER-PROPENSITY-001.md
   - docs/Evidence/DISORDER-PRED-001-Evidence.md
   - docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
   - docs/Evidence/DISORDER-REGION-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
-source_commit: 920bd895c63f51453f3d267e06abb5c61d0b6fc3
+source_commit: 540cb0dff42f0ca3f526ff0743d2c31e144ff4d6
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -118,7 +119,9 @@ mean hydropathy, supporting the Uversky et al. (2000) charge–hydropathy view o
 ## Per-residue propensity primitives (DISORDER-PROPENSITY-001)
 
 Beneath the windowed predictor sit four **per-residue lookup primitives**, validated separately as
-test unit **DISORDER-PROPENSITY-001** ([[disorder-propensity-001-evidence]]):
+test unit **DISORDER-PROPENSITY-001** ([[disorder-propensity-001-evidence]]); the independent
+two-stage re-validation verdict — **Stage A PASS / Stage B PASS / CLEAN, full unfiltered suite 6609/0,
+zero code change** — is [[disorder-propensity-001-report]] (one row of the [[validation-ledger]]):
 
 - `GetDisorderPropensity(residue)` — returns the **raw, un-normalized TOP-IDP Table 2 value**
   (`W = −0.884` … `P = +0.987`), **not** the `[0, 1]` normalized `p(c)` the windowed `Sᵢ` uses. Case
