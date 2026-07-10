@@ -4018,3 +4018,23 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    the intro. Updated wiki/index.md (+1 source line). No new typed graph edges (report is a
    source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/CODON-STATS-001.md → codon-stats-001-report (source)
+   New source-summary page for the 2026-06-15 two-stage validation of CODON-STATS-001 (Codon Usage
+   Statistics — the codon-family aggregation method CodonUsageAnalyzer.GetStatistics + CalculateCai,
+   CodonUsageAnalyzer.cs:142/389). Stage A PASS-WITH-NOTES / Stage B PASS / End state ✅ CLEAN, suite
+   6528/0, zero production-code change; CAI exp[(1/L)Σln w] + non-synonymous/stop exclusions, GC3s
+   "synonymous 3rd-position GC excl. Met/Trp/stop" (Peden 1999 §1.8.2.1.3 verbatim), GC1/2/3 (EMBOSS
+   cusp), RSCU n·x/Σx all confirmed against fetched sources (Wikipedia/seqinr/CodonW/Biopython/Kazusa);
+   hand oracles reproduced live (√0.122=0.34928…, ∛(·)=0.011149…, S6=0.47706538…). PASS-WITH-NOTES = 3
+   documented unit/edge choices (GC3s-as-percentage, skip-zero-w vs 0.01 floor, GC3s 6-fold subtlety);
+   2 test-quality defects fixed in-session (bounds-only S6 strengthened to exact geometric mean; missing
+   non-ACGT test added). Kept distinct from the evidence artifact codon-stats-001-evidence (docs/Evidence,
+   the fuller aggregation description). Existing concept codon-adaptation-index synthesizes the co-canonical
+   CalculateCai; tied to validation-and-testing (ledger) / test-unit-registry; did NOT force the
+   algorithm-validation-evidence hub, and did NOT create a new codon-position-GC concept (positional GC /
+   GC3s already documented on the evidence page — economical). Surgically updated concept
+   codon-adaptation-index: added the report to sources, bumped source_commit to 518339cc, cross-linked the
+   CODON-STATS-001 verdict in the intro. Updated wiki/index.md (+1 source line). No new typed graph edges
+   (report is a source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges

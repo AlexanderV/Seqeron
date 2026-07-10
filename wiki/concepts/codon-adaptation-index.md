@@ -6,7 +6,8 @@ sources:
   - docs/Evidence/CODON-CAI-001-Evidence.md
   - docs/algorithms/Codon_Optimization/CAI_Calculation.md
   - docs/Validation/reports/CODON-CAI-001.md
-source_commit: 01b6d4e55e6b0e58c9b6d0b08a8c4cf532287e5d
+  - docs/Validation/reports/CODON-STATS-001.md
+source_commit: 518339cc81914ec10d51a388064f311afb0abd4f
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -42,7 +43,10 @@ collapses an entire gene to one number in **[0, 1]** measuring how closely its c
 [[codon-cai-001-evidence|CODON-CAI-001]] — pre-implementation evidence artifact — and independently
 re-validated (Stage A PASS / Stage B PASS / CLEAN, 34 CAI tests + 18787 full-suite passing, zero code
 change) in the two-stage report [[codon-cai-001-report]]; see [[test-unit-registry]] for how the unit
-is tracked.
+is tracked. The same CAI computation is re-validated once more as one piece of the codon-stats
+aggregation `GetStatistics` in [[codon-stats-001-report|CODON-STATS-001]] (Stage A PASS-WITH-NOTES /
+Stage B PASS / CLEAN — where the sole standalone-CAI note is the `1e-6`-clamp-vs-skip-zero-`w`
+zero-frequency choice documented below).
 
 ## The measure
 
