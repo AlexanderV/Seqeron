@@ -3952,3 +3952,27 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    edge (codon-cai-001-report relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No
    backlog slug matched (report path is coverage-excluded per SCHEMA).
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Validation/reports/CODON-ENC-001.md → codon-enc-001-report (source)
+   Created wiki/sources/codon-enc-001-report.md — validation report for CODON-ENC-001 (Effective
+   Number of Codons — ENC/Nc, Wright 1990; CodonUsageAnalyzer.CalculateEnc(string) core +
+   CalculateEnc(DnaSequence) delegate + private CalculateEncCore, CodonUsageAnalyzer.cs:274–360).
+   Validated 2026-06-15, Stage A PASS-WITH-NOTES / Stage B PASS-WITH-NOTES / End state ✅ CLEAN; full
+   dotnet test 6527 passed, 0 failed, zero production-code change. Formula (Eq. 1 F̂=(n·Σp²−1)/(n−1),
+   Eq. 3 Nc=2+9/F̂₂+1/F̂₃+5/F̂₄+3/F̂₆, Eq. 4 within-class averaging, Eq. 5a Ile fallback, cap 61)
+   confirmed verbatim vs Fuglsang 2004 (BBRC 317:957–964) + codonW (Peden thesis, "Nc not calculated"
+   for empty class) + NCBI degeneracy partition (9 doublets/1 triplet/5 quartets/3 sextets/2 singlets).
+   Independent Python reference reproduced to full double precision: M3=41.288461538461526,
+   M5 Ile-absent Eq.5a=39.47394540942927, C1 2:1-bias=56.0, M1 one-codon-per-aa=20, M2 near-uniform
+   cap=61. Fixed two code-echo tests (old M3=29.0/M5=40.4 asserted the unsourced full-count fallback);
+   defect B1 (ClassContribution :357–360 returns raw codon count instead of declining, diverging from
+   codonW; low severity, unreachable on real coding sequences) pinned by an explicitly LIBRARY-SPECIFIC
+   M5b test (whole-class-absent→29.0). Note A2 = non-source lower clamp at 20. NO new concept —
+   effective-number-of-codons already synthesizes the algorithm; kept distinct from the evidence
+   artifact codon-enc-001-evidence (docs/Evidence). Tied to validation-ledger / validation-and-testing /
+   test-unit-registry; did NOT force the algorithm-validation-evidence hub. Surgically updated concept
+   effective-number-of-codons: added the report to sources, bumped source_commit to 816a85f7, updated
+   date to 2026-07-10, cross-linked the report verdict + B1 divergence in the intro, +1 typed graph edge
+   (codon-enc-001-report relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No
+   backlog slug matched (report path is coverage-excluded per SCHEMA).
+   graph: +1 node, +1 typed edge

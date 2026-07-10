@@ -5,15 +5,22 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-ENC-001-Evidence.md
   - docs/algorithms/Codon/Effective_Number_of_Codons.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/CODON-ENC-001.md
+source_commit: 816a85f76e86d111265c4d6db5e02b68b16f7c07
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
       source: codon-enc-001-evidence
       evidence: "Test Unit ID: CODON-ENC-001 ... Algorithm: Effective Number of Codons (ENC / Nc), Wright 1990"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: codon-enc-001-report
+      evidence: "Validation report CODON-ENC-001: two-stage validation of CalculateEnc — Stage A/B PASS-WITH-NOTES, End state CLEAN"
       confidence: high
       status: current
     - predicate: alternative_to
@@ -38,7 +45,12 @@ an analogue of the population-genetics "effective number of alleles". Where
 codons are *effectively* in use** across all amino acids — from **20** (each amino acid uses a
 single codon: maximal bias) up to **61** (every synonymous codon used equally: no bias). Lower Nc
 = stronger bias. Validated as [[codon-enc-001-evidence|CODON-ENC-001]] against Fuglsang (2004,
-2006), which reproduce Wright's original equations verbatim; see [[test-unit-registry]] for how
+2006), which reproduce Wright's original equations verbatim; the independent two-stage validation
+verdict is [[codon-enc-001-report|CODON-ENC-001 report]] (Stage A/B **PASS-WITH-NOTES**, End state
+**✅ CLEAN**, 6527 tests passing) — it fixed two code-echo tests to sourced exact values (M3 =
+41.288…, M5 = 39.474…) and pinned one low-severity documented divergence (defect B1: the
+whole-class-absent path returns the raw codon count instead of codonW's "Nc not calculated",
+reachable only on genes missing an entire 2/4/6-fold class). See [[test-unit-registry]] for how
 the unit is tracked.
 
 ## The measure
