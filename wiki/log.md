@@ -3328,3 +3328,24 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    source_commit→HEAD 950ce49) + six-frame & ORF bullets + Reference-sources; wiki/index.md (Sources
    entry + concept line). Genetic-code-parameterized sibling of ATG-only [[open-reading-frame-detection]].
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Evidence/TRANS-SPLICE-001-Evidence.md → trans-splice-001-evidence (source) + alternative-splicing-psi (concept)
+   TRANS-SPLICE-001 — RNA-seq alternative / differential splicing: event classification + Percent-
+   Spliced-In (PSI, Ψ). Per brief, read the Transcriptome-family concepts ([[differential-expression]],
+   [[expression-quantification]]) first and CONFIRMED this is RNA-seq read-quantification of splicing
+   (PSI from inclusion/exclusion reads), NOT the genomic splice-site motif predictors
+   [[splice-donor-site-prediction]] / [[splice-acceptor-site-prediction]] /
+   [[gene-structure-prediction-intron-exon]]. DECISION: NEW concept [[alternative-splicing-psi]] —
+   genuinely distinct from both the DE anchor (gene-level mean test) and the genomic splice family
+   (sequence-motif scoring); anchored on the transcriptome family via [[differential-expression]], with
+   a disambiguation cross-link (body + index) to the genomic splice family. `TranscriptomeAnalyzer.
+   CalculatePSI` / `DetectAlternativeSplicing`: PSI Ψ = I/(I+S) (Wang 2008 / PMC3330053 / SUPPA2) +
+   opt-in rMATS length-normalized ψ̂ = (I/lᵢ)/(I/lᵢ+S/lₛ) (Shen 2014); ΔPSI = splicing-level differential
+   readout; five canonical AS classes (SE/RI/A5SS/A3SS/MXE, Wang 2008 = rMATS codes), event needs ≥2
+   isoforms. Oracles: (80,20)→0.80; (80,20,200,100)→0.6666…. Corner cases: 0/0→NaN, S=0→1, I=0→0,
+   0≤PSI≤1. Two source-backed ASSUMPTIONs (length normalization opt-in; forward strand). No source
+   contradictions. Wrote source [[trans-splice-001-evidence]] + concept [[alternative-splicing-psi]];
+   enriched anchor [[differential-expression]] (splicing-level counterpart cross-link); updated
+   wiki/index.md (Sources + Concepts entries). Follow-ups: rMATS/SUPPA2 replicate ΔPSI significance +
+   isoform-switching remain adjacent not-yet-ingested transcriptome units.
+   graph: +2 nodes, +2 typed edges (alternative-splicing-psi relates_to test-unit-registry; relates_to differential-expression)

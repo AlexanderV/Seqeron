@@ -145,7 +145,8 @@ with dispersion shrinkage (DESeq2 is cited only for the log2FC definition, sign 
 BH-as-standard-FDR fact, not as the fitted model). Three source-backed assumptions: pseudocount = 1;
 <2 replicates → p = 1; se = 0 → p = 1 (equal means) / p = 0 (unequal means). All formulas match their
 primary sources (DESeq2 log2FC/BH; Welch 1947 t-statistic; Student-t CDF regularized-incomplete-beta
-identity; R `p.adjust` BH) — no source contradictions. **Not for clinical use.** The first
-Transcriptome sibling, [[expression-quantification]] (TPM/FPKM + quantile normalization,
-TRANS-EXPR-001), now supplies the upstream normalized input; further siblings (PCA/clustering,
-alternative splicing) would enrich this family anchor.
+identity; R `p.adjust` BH) — no source contradictions. **Not for clinical use.** The Transcriptome sibling
+[[expression-quantification]] (TPM/FPKM + quantile normalization, TRANS-EXPR-001) supplies the
+upstream normalized input, and [[alternative-splicing-psi]] (PSI / ΔPSI, TRANS-SPLICE-001) is the
+splicing-level counterpart — a gene can be differentially *spliced* without changing its total
+expression; further siblings (PCA/clustering) would enrich this family anchor.
