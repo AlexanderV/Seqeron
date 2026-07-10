@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-STATS-001-Evidence.md
   - docs/algorithms/Assembly/Assembly_Statistics.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-STATS-001.md
+source_commit: d584af4da843a888434b5c54e7277e8f3085b085
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -27,7 +28,8 @@ result is. Unlike the contig-*building* steps ([[de-bruijn-graph-assembly|DBG]] 
 downstream [[scaffolding]] layout step, this unit consumes lengths and emits numbers: **N50, L50,
 Nx, Lx, N90, L90, auN**, plus totals, largest/smallest, GC, and an N-run **gap** summary. It is the
 anchor for the assembly **STATS** family, validated under test unit **ASSEMBLY-STATS-001**. The
-literature-traced validation record is [[assembly-stats-001-evidence]]; [[test-unit-registry]]
+literature-traced validation record is [[assembly-stats-001-evidence]]; the independent two-stage
+re-validation verdict (Stage A/B PASS, CLEAN) is [[assembly-stats-001-report]]; [[test-unit-registry]]
 tracks the unit and [[algorithm-validation-evidence]] describes the artifact pattern.
 
 ## The metric definitions (source-traced)

@@ -3778,3 +3778,22 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    out of scope. Updated wiki/index.md (+1 source line). No backlog slug (backlog tracks the
    algorithm doc, already covered; the report path is not a backlog entry). No typed graph edges
    added (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-STATS-001.md
+   Created source-summary wiki/sources/assembly-stats-001-report.md (two-stage validation report for
+   ASSEMBLY-STATS-001 — assembly statistics: GenomeAssemblyAnalyzer.CalculateStatistics / CalculateNx
+   (3-arg core + 2-arg delegate) / CalculateN50 / CalculateAuN / FindGaps + CalculateNxCurve wrapper;
+   Stage A PASS / Stage B PASS / State CLEAN / test-quality PASS, full suite 6497/0, zero code or test
+   change). Tied to [[validation-ledger]] / [[validation-and-testing]] and the algorithm concept
+   [[assembly-statistics]] (assembly STATS anchor), NOT the algorithm-validation-evidence hub. Reused
+   the existing concept — surgically added the report path to its sources:, bumped source_commit to
+   HEAD, updated:, and cross-linked the new report alongside the pre-existing evidence artifact
+   assembly-stats-001-evidence. Inclusive Nx boundary proven equal to QUAST s<=limit via
+   cumulative*100 >= totalLength*threshold (long accum, no overflow); auN=Sigma l^2 / Sigma l
+   (lh3/QUAST au_metric); FindGaps 0-based inclusive [Start,End] maximal N-runs + minGap filter. Hand
+   cross-check reproduced Assembly A -> N50 70/L50 2, N90 30/L90 5, auN 57.586; Assembly B -> 50/3;
+   {50,50} -> 50/1 (inclusive); minGap-5 gap filter. 23 tests, exact Is.EqualTo / Within(1e-10), no
+   green-washing. No defect, no contradictions (Miller 2010 / Wikipedia / QUAST N50.py / Heng Li 2020
+   agree). Non-defect notes: CalculateNxCurve wrapper + MedianLength upper-median (Assumption 2),
+   empty->zeros vs QUAST None (Assumption 1). Updated wiki/index.md (+1 source line). No backlog slug
+   (no assembly-stats entry in backlog). No typed graph edges added (report is source-type; N/A).
