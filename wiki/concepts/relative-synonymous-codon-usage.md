@@ -7,9 +7,10 @@ sources:
   - docs/Evidence/CODON-RSCU-001-Evidence.md
   - docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md
   - docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ANNOT-CODONUSAGE-001.md
+source_commit: 987ea6c1cf04c61c6257f0034ea4d51e00e0fffc
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -36,7 +37,10 @@ evidence units: [[annot-codonusage-001-evidence|ANNOT-CODONUSAGE-001]] (against 
 methods page, PMC2528880, and the CodonU reference implementation) and
 [[codon-rscu-001-evidence|CODON-RSCU-001]] (same measure plus the supporting `CountCodons`
 operation, cross-checked against LIRMM, GenomicSig, seqinr `uco`, and cubar `est_rscu`). See
-[[test-unit-registry]] for how the units are tracked.
+[[test-unit-registry]] for how the units are tracked. The two-stage validation write-up
+([[annot-codonusage-001-report|ANNOT-CODONUSAGE-001 report]]) verdict is **✅ CLEAN** — no code
+defect; the formula was confirmed verbatim and only three test-coverage gaps (Trp single-codon,
+the 61-sense-codon set, the empty-enumerable branch) were closed in-session.
 
 **Primary attribution.** RSCU was introduced by **Sharp, Tuohy & Mosurski (1986)**, *Nucleic
 Acids Res.* 14(13):5125-5143 (the precise citation given by CODON-RSCU-001 and seqinr); the

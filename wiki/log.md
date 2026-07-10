@@ -3550,3 +3550,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    contradictions flagged (the report itself corrects a prior doc/test transcription error, now consistent).
    graph: no typed edges (source->concept report link is an auto-derived mentions/sourced_from edge; no new
    typed concept-to-concept predicate is warranted).
+
+## [2026-07-10] ingest | docs/Validation/reports/ANNOT-CODONUSAGE-001.md → annot-codonusage-001-report (source) + 1 concept
+   New source page annot-codonusage-001-report (Stage A/B two-stage validation write-up for RSCU,
+   GenomeAnnotator.GetCodonUsage at GenomeAnnotator.cs:922-992: Stage A PASS, Stage B PASS-WITH-NOTES, State
+   CLEAN, full suite 6568/0). NO code defect — the formula n_i·x/Σx was confirmed VERBATIM against LIRMM/Rivals
+   and cubar est_rscu, families/stops against NCBI table 1; the PASS-WITH-NOTES qualifier is solely three
+   test-only coverage gaps closed in-session with zero code change (Trp single-codon=1.0, the 61-sense-codon
+   set/stop exclusion, the empty-enumerable Array.Empty branch). Kept distinct from the pre-impl
+   [[annot-codonusage-001-evidence]] artifact. ENRICHED existing concept [[relative-synonymous-codon-usage]]
+   (added report to sources + commit bump 9ce49ba->987ea6c + one-line CLEAN-verdict cross-link). Did NOT create a
+   new concept (RSCU already fully represented) and did NOT force the algorithm-validation-evidence hub; tied the
+   report to [[validation-ledger]]/[[validation-protocol]]. Updated wiki/index.md (Sources). No backlog move
+   (validation reports are coverage-excluded, not a backlog slug). No contradictions flagged.
+   graph: no typed edges (source->concept report link is an auto-derived mentions/sourced_from edge; no new
+   typed concept-to-concept predicate is warranted).
