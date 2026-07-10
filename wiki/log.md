@@ -4214,3 +4214,17 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    the algorithm-validation-evidence hub. Kept distinct from evidence artifact compgen-rearr-001-evidence.
    No new typed graph edges (report is a source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-REVERSAL-001.md → compgen-reversal-001-report (source)
+   Two-stage validation report for COMPGEN-REVERSAL-001 (reversal/inversion distance = unsigned
+   breakpoint lower bound ceil(b/2), CalculateReversalDistance, ComparativeGenomics.cs:840-880).
+   Stage A PASS / Stage B PASS / End state CLEAN — no defect, no code or test change. Unsigned
+   |Delta|!=1 = Hubotter 2020 Def 2.1; d>=b/2 (Corollary 2.1.1) => ceil(b/2); lower bound not exact HP
+   distance (by design). Existing concept genome-rearrangement-breakpoint-distance already documents the
+   algorithm (economical — no new concept); surgically enriched it: added the report to sources, bumped
+   source_commit to e4a1444b, cross-linked the CLEAN verdict in the intro + the Unsigned-reversal
+   section. Updated wiki/index.md (+1 source line). Tied to validation-ledger / validation-and-testing /
+   test-unit-registry; did NOT force the algorithm-validation-evidence hub. Kept distinct from evidence
+   artifact compgen-reversal-001-evidence and sibling compgen-rearr-001-report.
+   No new typed graph edges (report is a source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges

@@ -8,7 +8,8 @@ sources:
   - docs/algorithms/Comparative_Genomics/Genome_Rearrangement_Detection.md
   - docs/algorithms/Comparative_Genomics/Reversal_Distance.md
   - docs/Validation/reports/COMPGEN-REARR-001.md
-source_commit: 4c3caf900067a440f88ab2a5d4addc3dac8cb20f
+  - docs/Validation/reports/COMPGEN-REVERSAL-001.md
+source_commit: e4a1444b69f5b25d8a9f776d0c7f7c36746d8425
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -47,9 +48,11 @@ rather than a permutation. Its sibling COMPGEN units are [[average-nucleotide-id
 **COMPGEN-REARR-001** (signed breakpoint count + rearrangement classification) and
 **COMPGEN-REVERSAL-001** (the unsigned reversal-distance lower bound `⌈b/2⌉`, see below); the
 pre-implementation validation records are [[compgen-rearr-001-evidence]] and
-[[compgen-reversal-001-evidence]], and the independent two-stage re-validation verdict for REARR-001 is
-[[compgen-rearr-001-report]] (Stage A/B PASS-WITH-NOTES / CLEAN — the `y≠x+1` breakpoint reduction
-proven exact, Hunter `b=6` reproduced, two test-coverage gaps M9b/M10 fixed in-session).
+[[compgen-reversal-001-evidence]], and the independent two-stage re-validation verdicts are
+[[compgen-rearr-001-report]] (REARR-001: Stage A/B PASS-WITH-NOTES / CLEAN — the `y≠x+1` breakpoint
+reduction proven exact, Hunter `b=6` reproduced, two test-coverage gaps M9b/M10 fixed in-session) and
+[[compgen-reversal-001-report]] (REVERSAL-001: Stage A/B PASS / CLEAN — the `⌈b/2⌉` unsigned bound
+confirmed against Hübotter Def 2.1, no code or test change).
 [[test-unit-registry]] tracks the units, and [[algorithm-validation-evidence]] describes the artifact
 pattern.
 
@@ -110,7 +113,8 @@ criterion is the magnitude specialization of the signed one (Bafna–Pevzner §2
 `CalculateReversalDistance` counts these unsigned breakpoints `b` and returns the tightest integer
 satisfying `d ≥ b/2`, i.e. `⌈b/2⌉ = (b + 1) / 2` (integer arithmetic). It is a **lower bound, not the
 exact reversal distance** — the exact value needs the Hannenhalli–Pevzner cycle/hurdle refinement,
-**not implemented** here. Documented oracles (validation record [[compgen-reversal-001-evidence]]):
+**not implemented** here. Documented oracles (validation record [[compgen-reversal-001-evidence]];
+independent re-validation verdict [[compgen-reversal-001-report]], Stage A/B PASS / CLEAN):
 
 | perm1 (vs identity) | extended | unsigned breakpoints `b` | returned `⌈b/2⌉` |
 |---------------------|----------|--------------------------|-------------------|
