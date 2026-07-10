@@ -113,7 +113,10 @@ signals sit adjacent to [[open-reading-frame-detection]] (they mark the start co
 coding ORF, though this scanner does not link them to ORFs) — the strand-aware,
 spacing-scored SD-to-start ribosome-binding-site finder is
 [[prokaryotic-gene-prediction-rbs]] (ANNOT-GENE-001), where this catalog only reports a
-bare `AGGAGG` match anywhere. A distinct promoter-detection
-unit (`docs/algorithms/Annotation/Promoter_Detection.md`) remains un-ingested. **No source
-contradictions**; the only assumptions are the two representative-site choices above, both
-source-anchored.
+bare `AGGAGG` match anywhere. The distinct, scored −10/−35 promoter detector
+[[promoter-detection]] (ANNOT-PROM-001, `GenomeAnnotator.FindPromoterMotifs`) is the
+alternative treatment of the two prokaryotic promoter boxes: it reports the same `TATAAT` /
+`TTGACA` boxes with **partial-variant score fractions** (prefix-5/suffix-5/prefix-4, score
+∈ [0,1]), where this catalog scanner reports only the exact hexamer with no scoring. **No
+source contradictions**; the only assumptions are the two representative-site choices above,
+both source-anchored.

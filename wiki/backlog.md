@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **75** algorithm docs covered-via-concept, **170** pending across 27 domains.
+Status at generation: **76** algorithm docs covered-via-concept, **169** pending across 27 domains.
 
 ## Covered via concept (done)
 
@@ -34,6 +34,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Alignment/Semi_Global_Alignment.md` | [[semi-global-alignment-fitting]] |
 | `docs/algorithms/Analysis/Open_Reading_Frame_Detection.md` | [[open-reading-frame-detection]] |
 | `docs/algorithms/Analysis/Sequence_Similarity.md` | [[kmer-jaccard-similarity]] |
+| `docs/algorithms/Annotation/Promoter_Detection.md` | [[promoter-detection]] |
 | `docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
 | `docs/algorithms/Annotation/Repetitive_Element_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Assembly/Assembly_Statistics.md` | [[assembly-statistics]] |
@@ -108,14 +109,13 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 No concept page synthesizes these yet. `Expected slug` is the anticipated concept
 page name once ingested (subject to change if a shared anchor concept fits better).
 
-### Annotation (4)
+### Annotation (3)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
 | `docs/algorithms/Annotation/GFF3_IO.md` | `gff3-io` |
 | `docs/algorithms/Annotation/Gene_Prediction.md` | `gene-prediction` |
 | `docs/algorithms/Annotation/ORF_Detection.md` | `orf-detection` |
-| `docs/algorithms/Annotation/Promoter_Detection.md` | `promoter-detection` |
 
 ### Chromosome_Analysis (1)
 

@@ -3626,3 +3626,30 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    No contradictions flagged.
    graph: +1 node (source annot-orf-001-report); no typed edges added (surgical sources:/cross-link only); body
    [[wikilinks]] mentions auto-derived.
+
+## [2026-07-10] ingest | docs/Validation/reports/ANNOT-PROM-001.md → annot-prom-001-report (source) + promoter-detection (NEW concept)
+   New source page annot-prom-001-report (two-stage validation write-up for prokaryotic
+   promoter motif detection — GenomeAnnotator.FindPromoterMotifs: Stage A PASS, Stage B PASS,
+   End state CLEAN; promoter-motif filter 20/0 across 28 [TestCase]s, zero code change). No
+   defect: −35 `TTGACA` / −10 `TATAAT` consensus, E. coli per-position probabilities (sums
+   373 / 412), score = Σ matched-position p / Σ all-6 p ∈ [0,1] all confirmed vs Wikipedia
+   Promoter-genetics / Pribnow-box (live fetch) + Pribnow 1975 / Harley & Reynolds 1987; all 8
+   partial-variant scores hand-recomputed (full 6-mer + prefix-5/suffix-5/prefix-4, e.g.
+   `TTGAC` 0.855 / `ATAAT` 0.813 / full boxes 1.000). Declared scope limits (17 bp spacing NOT
+   enforced; exact-substring not PWM/HMM/mismatch-tolerant) are TestSpec-locked, not defects;
+   `position` is a 0-based string index, not the biological TSS-relative negative coordinate.
+   CREATED a new concept [[promoter-detection]] — genuinely unrepresented: this scored −10/−35
+   detector is a DIFFERENT code path from the exact-hexamer catalog scan
+   [[regulatory-element-detection]] (MOTIF-REGULATORY-001, GenomicAnalyzer.FindMotif), which
+   the existing concept itself flagged as "un-ingested". Sourced the concept from both the
+   report and docs/algorithms/Annotation/Promoter_Detection.md; surgically cross-linked
+   regulatory-element-detection (replaced the "un-ingested" note with the sibling link). Did
+   NOT force the algorithm-validation-evidence hub; tied the report to [[validation-ledger]] /
+   [[validation-protocol]] / [[validation-and-testing]]. No annot-prom-001-evidence artifact
+   exists. Backlog: moved `docs/algorithms/Annotation/Promoter_Detection.md` (promoter-detection)
+   from pending Annotation (4→3) to covered-via-concept (75→76 covered, 170→169 pending), since
+   the new concept lists that algorithm doc in sources:. Updated wiki/index.md (+1 source, +1
+   concept). No contradictions flagged.
+   graph: +2 nodes (source annot-prom-001-report, concept promoter-detection), +2 typed edges
+   (promoter-detection --alternative_to--> regulatory-element-detection; --relates_to-->
+   test-unit-registry); body [[wikilinks]] mentions auto-derived.
