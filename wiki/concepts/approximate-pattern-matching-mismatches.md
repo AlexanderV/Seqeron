@@ -2,6 +2,8 @@
 type: concept
 title: "Approximate pattern matching with mismatches (Hamming ball / d-neighborhood)"
 tags: [motif, algorithm]
+mcp_tools:
+  - find_with_mismatches
 sources:
   - docs/Evidence/PAT-APPROX-003-Evidence.md
 source_commit: dd94a7819ba9764ca0165e710710b83844931da9

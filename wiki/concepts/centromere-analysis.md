@@ -2,6 +2,10 @@
 type: concept
 title: "Centromere analysis (arm-ratio class + alpha-satellite / HOR / SF)"
 tags: [chromosome, algorithm]
+mcp_tools:
+  - analyze_centromere
+  - arm_ratio
+  - classify_chromosome_by_arm_ratio
 sources:
   - docs/Evidence/CHROM-CENT-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md

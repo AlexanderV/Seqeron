@@ -2,6 +2,8 @@
 type: concept
 title: "Effective Number of Codons (ENC / Nc)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - effective_number_of_codons
 sources:
   - docs/Evidence/CODON-ENC-001-Evidence.md
   - docs/algorithms/Codon/Effective_Number_of_Codons.md

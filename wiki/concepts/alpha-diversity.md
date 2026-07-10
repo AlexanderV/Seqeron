@@ -2,6 +2,8 @@
 type: concept
 title: "Alpha diversity (within-sample diversity indices)"
 tags: [metagenomics, algorithm]
+mcp_tools:
+  - alpha_diversity
 sources:
   - docs/Evidence/META-ALPHA-001-Evidence.md
   - docs/algorithms/Metagenomics/Alpha_Diversity.md

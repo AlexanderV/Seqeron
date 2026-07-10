@@ -2,6 +2,11 @@
 type: concept
 title: "Longest repeated substring + repeat enumeration (single-string suffix tree)"
 tags: [sequence-comparison, algorithm]
+mcp_tools:
+  - find_longest_repeat
+  - find_repeats
+  - suffix_tree_find_all
+  - suffix_tree_lrs
 sources:
   - docs/Evidence/GENOMIC-REPEAT-001-Evidence.md
   - docs/algorithms/Repeat_Analysis/Repeat_Detection.md

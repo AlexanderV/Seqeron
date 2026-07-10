@@ -2,6 +2,8 @@
 type: concept
 title: "K-mer statistics (composition summary + Shannon k-entropy over the count profile)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - kmer_entropy
 sources:
   - docs/Evidence/KMER-STATS-001-Evidence.md
   - docs/algorithms/K-mer/K-mer_Statistics.md

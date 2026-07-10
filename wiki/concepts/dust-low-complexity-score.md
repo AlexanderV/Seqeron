@@ -2,6 +2,11 @@
 type: concept
 title: "DUST low-complexity score (triplet-frequency masking score)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - complexity_dust_score
+  - complexity_mask_low
+  - dust_score
+  - mask_low_complexity
 sources:
   - docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md
 source_commit: dfe172057b03d328680fbf256469d7675c2604a4

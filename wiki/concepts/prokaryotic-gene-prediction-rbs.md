@@ -2,6 +2,8 @@
 type: concept
 title: "Prokaryotic gene prediction & Shine-Dalgarno RBS detection"
 tags: [annotation, algorithm]
+mcp_tools:
+  - predict_genes
 sources:
   - docs/Validation/reports/ANNOT-GENE-001.md
 source_commit: fc49476951d4c26bf663220b231007d8327e59cf

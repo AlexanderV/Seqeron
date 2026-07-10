@@ -2,6 +2,8 @@
 type: concept
 title: "Global alignment (Needleman–Wunsch)"
 tags: [alignment, algorithm]
+mcp_tools:
+  - global_align
 sources:
   - docs/Evidence/ALIGN-GLOBAL-001-Evidence.md
   - docs/Validation/reports/ALIGN-GLOBAL-001.md

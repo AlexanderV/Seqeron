@@ -2,6 +2,12 @@
 type: concept
 title: "Assembly statistics (N50 / L50 / Nx / Lx / auN)"
 tags: [assembly, algorithm]
+mcp_tools:
+  - assembly_statistics
+  - assembly_stats
+  - au_n
+  - find_gaps
+  - nx_statistics
 sources:
   - docs/Evidence/ASSEMBLY-STATS-001-Evidence.md
   - docs/algorithms/Assembly/Assembly_Statistics.md

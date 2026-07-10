@@ -2,6 +2,10 @@
 type: concept
 title: "Restriction-enzyme filtering (cutter classification + recognition-length selection)"
 tags: [moldesign, restriction]
+mcp_tools:
+  - find_all_restriction_sites
+  - find_restriction_sites
+  - get_enzyme
 sources:
   - docs/Evidence/RESTR-FILTER-001-Evidence.md
 source_commit: 94748c8ca67c5c8b70dcdcf27a2c2d69087c0eaa

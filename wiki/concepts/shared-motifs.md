@@ -2,6 +2,8 @@
 type: concept
 title: "Shared motifs across a sequence set (fixed-k word enumeration + matching-sequence quorum)"
 tags: [motif, algorithm]
+mcp_tools:
+  - find_shared_motifs
 sources:
   - docs/Evidence/MOTIF-SHARED-001-Evidence.md
   - docs/algorithms/Motif_Discovery/Shared_Motifs.md

@@ -2,6 +2,8 @@
 type: concept
 title: "IUPAC-degenerate consensus generation (threshold → ambiguity code)"
 tags: [motif, algorithm]
+mcp_tools:
+  - iupac_code
 sources:
   - docs/Evidence/MOTIF-GENERATE-001-Evidence.md
   - docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md

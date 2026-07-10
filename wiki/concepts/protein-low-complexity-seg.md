@@ -2,6 +2,9 @@
 type: concept
 title: "Protein low-complexity region detection (SEG algorithm)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - find_protein_low_complexity_regions
+  - predict_low_complexity_seg
 sources:
   - docs/Evidence/DISORDER-LC-001-Evidence.md
   - docs/Evidence/PROTMOTIF-LC-001-Evidence.md

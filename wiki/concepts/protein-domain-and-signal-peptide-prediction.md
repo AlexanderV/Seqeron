@@ -2,6 +2,9 @@
 type: concept
 title: "Protein domain prediction (PROSITE pattern + Plan7 profile-HMM) & signal-peptide prediction"
 tags: [analysis, algorithm, protein, motif]
+mcp_tools:
+  - find_protein_domains
+  - predict_signal_peptide
 sources:
   - docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md
   - docs/Evidence/PROTMOTIF-SP-001-Evidence.md

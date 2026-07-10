@@ -2,6 +2,8 @@
 type: concept
 title: "Quality trimming (BWA/cutadapt running-sum)"
 tags: [assembly, algorithm]
+mcp_tools:
+  - quality_trim_reads
 sources:
   - docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md
   - docs/algorithms/Assembly/Quality_Trimming.md

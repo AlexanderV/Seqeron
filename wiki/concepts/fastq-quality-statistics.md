@@ -2,6 +2,9 @@
 type: concept
 title: "FASTQ quality statistics (Q20/Q30, mean, median, min/max, std dev)"
 tags: [file-io, algorithm, validation]
+mcp_tools:
+  - fastq_filter
+  - fastq_statistics
 sources:
   - docs/Evidence/QUALITY-STATS-001-Evidence.md
 source_commit: 8f4f606b371e3b0654cce99998263706c7d8c185

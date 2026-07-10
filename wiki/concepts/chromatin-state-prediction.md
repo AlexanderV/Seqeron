@@ -2,6 +2,10 @@
 type: concept
 title: "Chromatin state prediction (ChromHMM-style histone-mark annotation)"
 tags: [epigenetics, algorithm]
+mcp_tools:
+  - annotate_histone_modifications
+  - find_accessible_regions
+  - predict_chromatin_state
 sources:
   - docs/Evidence/EPIGEN-CHROM-001-Evidence.md
   - docs/algorithms/Epigenetics/Chromatin_State_Prediction.md

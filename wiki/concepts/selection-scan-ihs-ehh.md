@@ -2,6 +2,8 @@
 type: concept
 title: "Selection-signature detection (iHS / EHH haplotype scan)"
 tags: [population-genetics, algorithm]
+mcp_tools:
+  - integrated_haplotype_score
 sources:
   - docs/Evidence/POP-SELECT-001-Evidence.md
 source_commit: 0d5c33fdcb6b264e682c9d593a37867121e26d99

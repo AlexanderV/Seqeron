@@ -2,6 +2,8 @@
 type: concept
 title: "Discordant read-pair (PEM) structural-variant detection"
 tags: [structural-variant, algorithm]
+mcp_tools:
+  - find_discordant_pairs
 sources:
   - docs/Evidence/SV-DETECT-001-Evidence.md
 source_commit: e525e3116b0a1c220283ce93c3fa751af524a7ae

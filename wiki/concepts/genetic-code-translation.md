@@ -2,6 +2,9 @@
 type: concept
 title: "Genetic code (codon → amino-acid translation tables)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - translate_dna
+  - translate_rna
 sources:
   - docs/Evidence/TRANS-CODON-001-Evidence.md
   - docs/Evidence/TRANS-PROT-001-Evidence.md

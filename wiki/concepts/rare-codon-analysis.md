@@ -2,6 +2,8 @@
 type: concept
 title: "Rare codon analysis (FindRareCodons + %MinMax / Sherlocc clusters)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - find_rare_codons
 sources:
   - docs/Evidence/CODON-RARE-001-Evidence.md
   - docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md

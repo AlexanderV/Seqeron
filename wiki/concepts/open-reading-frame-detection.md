@@ -2,6 +2,8 @@
 type: concept
 title: "Open reading frame detection (six-frame ATG→stop enumeration)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - find_open_reading_frames
 sources:
   - docs/Evidence/GENOMIC-ORF-001-Evidence.md
   - docs/algorithms/Analysis/Open_Reading_Frame_Detection.md

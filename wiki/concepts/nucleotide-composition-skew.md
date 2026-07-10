@@ -2,6 +2,9 @@
 type: concept
 title: "Nucleotide composition skew (AT skew / GC skew)"
 tags: [sequence-statistics, composition, chromosome]
+mcp_tools:
+  - at_skew
+  - nucleotide_composition
 sources:
   - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-ATSKEW-001-Evidence.md

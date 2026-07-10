@@ -2,6 +2,10 @@
 type: concept
 title: "Primer-dimer thermodynamics and nearest-neighbour melting temperature (Tm)"
 tags: [primer, algorithm, validation]
+mcp_tools:
+  - primer_dimer
+  - primer_melting_temperature
+  - primer_melting_temperature_salt
 sources:
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md

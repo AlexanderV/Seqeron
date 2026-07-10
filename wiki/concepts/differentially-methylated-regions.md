@@ -2,6 +2,8 @@
 type: concept
 title: "Differentially methylated region (DMR) detection"
 tags: [epigenetics, algorithm]
+mcp_tools:
+  - find_dmrs
 sources:
   - docs/Evidence/EPIGEN-DMR-001-Evidence.md
   - docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md

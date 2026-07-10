@@ -2,6 +2,8 @@
 type: concept
 title: "RNA minimum-free-energy folding (Zuker–Stiegler dynamic programming)"
 tags: [rna, algorithm]
+mcp_tools:
+  - minimum_free_energy
 sources:
   - docs/Evidence/RNA-MFE-001-Evidence.md
   - docs/Evidence/RNA-PARTITION-001-Evidence.md

@@ -2,6 +2,10 @@
 type: concept
 title: "Tree comparison metrics (Robinson–Foulds distance, MRCA, patristic distance)"
 tags: [phylogenetics, algorithm]
+mcp_tools:
+  - mrca
+  - patristic_distance
+  - robinson_foulds_distance
 sources:
   - docs/Evidence/PHYLO-COMP-001-Evidence.md
 source_commit: 3f492b584e4bfe5aee958659ec2f15a8fabed25a

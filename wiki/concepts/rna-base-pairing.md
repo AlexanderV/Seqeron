@@ -2,6 +2,9 @@
 type: concept
 title: "RNA base pairing (Watson-Crick + G-U wobble) and the miRNA-target duplex"
 tags: [mirna, algorithm]
+mcp_tools:
+  - can_pair
+  - is_wobble_pair
 sources:
   - docs/Evidence/MIRNA-PAIR-001-Evidence.md
   - docs/Evidence/RNA-PAIR-001-Evidence.md

@@ -2,6 +2,8 @@
 type: concept
 title: "Ancestry estimation (supervised/projection ADMIXTURE)"
 tags: [population-genetics, algorithm]
+mcp_tools:
+  - estimate_ancestry
 sources:
   - docs/Evidence/POP-ANCESTRY-001-Evidence.md
 source_commit: 9e7930d3c6f0f119ea8d74d1a72b1581f0850ac4

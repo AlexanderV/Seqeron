@@ -2,6 +2,9 @@
 type: concept
 title: "Allele & genotype frequencies (MAF, MAF filtering)"
 tags: [population-genetics, algorithm]
+mcp_tools:
+  - allele_frequencies
+  - filter_variants_by_maf
 sources:
   - docs/Evidence/POP-FREQ-001-Evidence.md
 source_commit: fec2c72b4f77c252586394fe43424909b13d98d6

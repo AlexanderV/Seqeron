@@ -2,6 +2,8 @@
 type: concept
 title: "Sequence composition (base/residue counts, fractions, GC content)"
 tags: [sequence-statistics, composition]
+mcp_tools:
+  - analyze_gc_content
 sources:
   - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md

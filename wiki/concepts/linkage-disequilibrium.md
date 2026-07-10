@@ -2,6 +2,9 @@
 type: concept
 title: "Linkage disequilibrium (D, D', r², haplotype blocks)"
 tags: [population-genetics, algorithm]
+mcp_tools:
+  - haplotype_blocks
+  - linkage_disequilibrium
 sources:
   - docs/Evidence/POP-LD-001.md
 source_commit: fadbea3029500764efb2211347df8b83ad90d190

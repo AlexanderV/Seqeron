@@ -2,6 +2,8 @@
 type: concept
 title: "K-mer generation (n^k universe enumeration)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - generate_all_kmers
 sources:
   - docs/Evidence/KMER-GENERATE-001-Evidence.md
   - docs/algorithms/K-mer/K-mer_Generation.md

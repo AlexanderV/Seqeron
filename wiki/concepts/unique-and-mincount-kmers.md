@@ -2,6 +2,9 @@
 type: concept
 title: "Unique & min-count k-mers (frequency-1 singletons + Count ≥ t frequency filtering)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - kmers_with_min_count
+  - unique_kmers
 sources:
   - docs/Evidence/KMER-UNIQUE-001-Evidence.md
   - docs/algorithms/K-mer/Unique_And_MinCount_Kmers.md

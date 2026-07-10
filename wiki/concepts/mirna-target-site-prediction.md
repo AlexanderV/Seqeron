@@ -2,6 +2,10 @@
 type: concept
 title: "miRNA target-site prediction (site-type classification + context++ scoring)"
 tags: [mirna, algorithm]
+mcp_tools:
+  - analyze_target_context
+  - parse_newick
+  - site_accessibility
 sources:
   - docs/Evidence/MIRNA-TARGET-001-Evidence.md
   - docs/algorithms/MiRNA/Target_Site_Prediction.md

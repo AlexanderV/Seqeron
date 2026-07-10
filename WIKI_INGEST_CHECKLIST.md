@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 325 / 1181
+Progress: 752 / 1181
 
 ## (top-level)  (6)
 
@@ -765,433 +765,433 @@ Progress: 325 / 1181
 
 - [ ] docs/mcp/MCP_STATUS.md
 - [ ] docs/mcp/README.md
-- [ ] docs/mcp/tools/alignment/alignment_statistics.md
-- [ ] docs/mcp/tools/alignment/assemble_de_bruijn.md
-- [ ] docs/mcp/tools/alignment/assemble_olc.md
-- [ ] docs/mcp/tools/alignment/assembly_stats.md
-- [ ] docs/mcp/tools/alignment/calculate_coverage.md
-- [ ] docs/mcp/tools/alignment/compute_consensus.md
-- [ ] docs/mcp/tools/alignment/error_correct_reads.md
-- [ ] docs/mcp/tools/alignment/find_all_overlaps.md
-- [ ] docs/mcp/tools/alignment/find_best_match.md
-- [ ] docs/mcp/tools/alignment/find_overlap.md
-- [ ] docs/mcp/tools/alignment/find_with_edits.md
-- [ ] docs/mcp/tools/alignment/find_with_mismatches.md
-- [ ] docs/mcp/tools/alignment/format_alignment.md
-- [ ] docs/mcp/tools/alignment/frequent_kmers_with_mismatches.md
-- [ ] docs/mcp/tools/alignment/global_align.md
-- [ ] docs/mcp/tools/alignment/local_align.md
-- [ ] docs/mcp/tools/alignment/merge_contigs.md
-- [ ] docs/mcp/tools/alignment/multiple_align.md
-- [ ] docs/mcp/tools/alignment/quality_trim_reads.md
-- [ ] docs/mcp/tools/alignment/scaffold_contigs.md
-- [ ] docs/mcp/tools/alignment/semi_global_align.md
-- [ ] docs/mcp/tools/alignment/sequence_identity.md
-- [ ] docs/mcp/tools/analysis/analyze_gc_content.md
-- [ ] docs/mcp/tools/analysis/analyze_kmers.md
-- [ ] docs/mcp/tools/analysis/at_skew.md
-- [ ] docs/mcp/tools/analysis/base_pair_type.md
-- [ ] docs/mcp/tools/analysis/bulge_loop_energy.md
-- [ ] docs/mcp/tools/analysis/calculate_ani.md
-- [ ] docs/mcp/tools/analysis/can_pair.md
-- [ ] docs/mcp/tools/analysis/codon_frequencies.md
-- [ ] docs/mcp/tools/analysis/compare_genomes.md
-- [ ] docs/mcp/tools/analysis/compression_ratio.md
-- [ ] docs/mcp/tools/analysis/count_kmers.md
-- [ ] docs/mcp/tools/analysis/count_kmers_both_strands.md
-- [ ] docs/mcp/tools/analysis/create_pwm.md
-- [ ] docs/mcp/tools/analysis/cumulative_gc_skew.md
-- [ ] docs/mcp/tools/analysis/dangling_end_energy.md
-- [ ] docs/mcp/tools/analysis/detect_pseudoknots.md
-- [ ] docs/mcp/tools/analysis/detect_rearrangements.md
-- [ ] docs/mcp/tools/analysis/dinucleotide_frequencies.md
-- [ ] docs/mcp/tools/analysis/dinucleotide_ratios.md
-- [ ] docs/mcp/tools/analysis/discover_motifs.md
-- [ ] docs/mcp/tools/analysis/disorder_propensity.md
-- [ ] docs/mcp/tools/analysis/dust_score.md
-- [ ] docs/mcp/tools/analysis/entropy_profile.md
-- [ ] docs/mcp/tools/analysis/find_clumps.md
-- [ ] docs/mcp/tools/analysis/find_common_regions.md
-- [ ] docs/mcp/tools/analysis/find_conserved_clusters.md
-- [ ] docs/mcp/tools/analysis/find_degenerate_motif.md
-- [ ] docs/mcp/tools/analysis/find_direct_repeats.md
-- [ ] docs/mcp/tools/analysis/find_exact_motif.md
-- [ ] docs/mcp/tools/analysis/find_inverted_repeats.md
-- [ ] docs/mcp/tools/analysis/find_known_motifs.md
-- [ ] docs/mcp/tools/analysis/find_low_complexity_regions.md
-- [ ] docs/mcp/tools/analysis/find_microsatellites.md
-- [ ] docs/mcp/tools/analysis/find_motif.md
-- [ ] docs/mcp/tools/analysis/find_motif_by_pattern.md
-- [ ] docs/mcp/tools/analysis/find_motif_by_prosite.md
-- [ ] docs/mcp/tools/analysis/find_open_reading_frames.md
-- [ ] docs/mcp/tools/analysis/find_orthologs.md
-- [ ] docs/mcp/tools/analysis/find_palindromes.md
-- [ ] docs/mcp/tools/analysis/find_protein_domains.md
-- [ ] docs/mcp/tools/analysis/find_protein_low_complexity_regions.md
-- [ ] docs/mcp/tools/analysis/find_protein_motifs.md
-- [ ] docs/mcp/tools/analysis/find_reciprocal_best_hits.md
-- [ ] docs/mcp/tools/analysis/find_regulatory_elements.md
-- [ ] docs/mcp/tools/analysis/find_repeats.md
-- [ ] docs/mcp/tools/analysis/find_rna_inverted_repeats.md
-- [ ] docs/mcp/tools/analysis/find_shared_motifs.md
-- [ ] docs/mcp/tools/analysis/find_stem_loops.md
-- [ ] docs/mcp/tools/analysis/find_syntenic_blocks.md
-- [ ] docs/mcp/tools/analysis/find_tandem_repeats.md
-- [ ] docs/mcp/tools/analysis/flush_coaxial_stacking.md
-- [ ] docs/mcp/tools/analysis/gc_content_profile.md
-- [ ] docs/mcp/tools/analysis/gc_skew.md
-- [ ] docs/mcp/tools/analysis/generate_all_kmers.md
-- [ ] docs/mcp/tools/analysis/generate_consensus.md
-- [ ] docs/mcp/tools/analysis/generate_dot_plot.md
-- [ ] docs/mcp/tools/analysis/hairpin_loop_energy.md
-- [ ] docs/mcp/tools/analysis/hydrophobicity_profile.md
-- [ ] docs/mcp/tools/analysis/internal_loop_energy.md
-- [ ] docs/mcp/tools/analysis/is_disorder_promoting.md
-- [ ] docs/mcp/tools/analysis/kmer_distance.md
-- [ ] docs/mcp/tools/analysis/kmer_frequencies.md
-- [ ] docs/mcp/tools/analysis/kmer_positions.md
-- [ ] docs/mcp/tools/analysis/kmer_spectrum.md
-- [ ] docs/mcp/tools/analysis/kmers_with_min_count.md
-- [ ] docs/mcp/tools/analysis/mask_low_complexity.md
-- [ ] docs/mcp/tools/analysis/minimum_free_energy.md
-- [ ] docs/mcp/tools/analysis/mismatch_coaxial_stacking.md
-- [ ] docs/mcp/tools/analysis/most_frequent_kmers.md
-- [ ] docs/mcp/tools/analysis/multibranch_loop_energy.md
-- [ ] docs/mcp/tools/analysis/parse_dot_bracket.md
-- [ ] docs/mcp/tools/analysis/predict_chou_fasman.md
-- [ ] docs/mcp/tools/analysis/predict_coiled_coils.md
-- [ ] docs/mcp/tools/analysis/predict_disorder.md
-- [ ] docs/mcp/tools/analysis/predict_low_complexity_seg.md
-- [ ] docs/mcp/tools/analysis/predict_morfs.md
-- [ ] docs/mcp/tools/analysis/predict_replication_origin.md
-- [ ] docs/mcp/tools/analysis/predict_rna_structure.md
-- [ ] docs/mcp/tools/analysis/predict_signal_peptide.md
-- [ ] docs/mcp/tools/analysis/predict_transmembrane_helices.md
-- [ ] docs/mcp/tools/analysis/prosite_to_regex.md
-- [ ] docs/mcp/tools/analysis/reversal_distance.md
-- [ ] docs/mcp/tools/analysis/rna_complement_base.md
-- [ ] docs/mcp/tools/analysis/scan_with_pwm.md
-- [ ] docs/mcp/tools/analysis/stem_energy.md
-- [ ] docs/mcp/tools/analysis/tandem_repeat_summary.md
-- [ ] docs/mcp/tools/analysis/terminal_mismatch_energy.md
-- [ ] docs/mcp/tools/analysis/unique_kmers.md
-- [ ] docs/mcp/tools/analysis/validate_dot_bracket.md
-- [ ] docs/mcp/tools/analysis/windowed_complexity.md
-- [ ] docs/mcp/tools/analysis/windowed_gc_skew.md
-- [ ] docs/mcp/tools/annotation/align_mirna_to_target.md
-- [ ] docs/mcp/tools/annotation/analyze_target_context.md
-- [ ] docs/mcp/tools/annotation/annotate_histone_modifications.md
-- [ ] docs/mcp/tools/annotation/annotate_regulatory_elements.md
-- [ ] docs/mcp/tools/annotation/annotate_svs.md
-- [ ] docs/mcp/tools/annotation/annotate_variant_on_transcripts.md
-- [ ] docs/mcp/tools/annotation/annotate_variants.md
-- [ ] docs/mcp/tools/annotation/assemble_breakpoint_sequence.md
-- [ ] docs/mcp/tools/annotation/build_coexpression_network.md
-- [ ] docs/mcp/tools/annotation/calculate_conservation.md
-- [ ] docs/mcp/tools/annotation/calculate_tpm.md
-- [ ] docs/mcp/tools/annotation/call_variants.md
-- [ ] docs/mcp/tools/annotation/call_variants_from_alignment.md
-- [ ] docs/mcp/tools/annotation/can_pair.md
-- [ ] docs/mcp/tools/annotation/classify_mutation.md
-- [ ] docs/mcp/tools/annotation/classify_variant.md
-- [ ] docs/mcp/tools/annotation/cluster_discordant_pairs.md
-- [ ] docs/mcp/tools/annotation/cluster_genes_by_expression.md
-- [ ] docs/mcp/tools/annotation/cluster_split_reads.md
-- [ ] docs/mcp/tools/annotation/coding_potential.md
-- [ ] docs/mcp/tools/annotation/codon_usage.md
-- [ ] docs/mcp/tools/annotation/compare_seed_regions.md
-- [ ] docs/mcp/tools/annotation/cpg_observed_expected.md
-- [ ] docs/mcp/tools/annotation/create_mirna.md
-- [ ] docs/mcp/tools/annotation/detect_alternative_splicing.md
-- [ ] docs/mcp/tools/annotation/detect_differential_splicing.md
-- [ ] docs/mcp/tools/annotation/detect_isoform_switching.md
-- [ ] docs/mcp/tools/annotation/differential_expression.md
-- [ ] docs/mcp/tools/annotation/enrichment_score.md
-- [ ] docs/mcp/tools/annotation/epigenetic_age.md
-- [ ] docs/mcp/tools/annotation/filter_svs.md
-- [ ] docs/mcp/tools/annotation/find_acceptor_sites.md
-- [ ] docs/mcp/tools/annotation/find_accessible_regions.md
-- [ ] docs/mcp/tools/annotation/find_branch_points.md
-- [ ] docs/mcp/tools/annotation/find_conserved_elements.md
-- [ ] docs/mcp/tools/annotation/find_cpg_islands.md
-- [ ] docs/mcp/tools/annotation/find_cpg_sites.md
-- [ ] docs/mcp/tools/annotation/find_deletions.md
-- [ ] docs/mcp/tools/annotation/find_discordant_pairs.md
-- [ ] docs/mcp/tools/annotation/find_dmrs.md
-- [ ] docs/mcp/tools/annotation/find_dominant_isoforms.md
-- [ ] docs/mcp/tools/annotation/find_donor_sites.md
-- [ ] docs/mcp/tools/annotation/find_indels.md
-- [ ] docs/mcp/tools/annotation/find_insertions.md
-- [ ] docs/mcp/tools/annotation/find_methylation_sites.md
-- [ ] docs/mcp/tools/annotation/find_microhomology.md
-- [ ] docs/mcp/tools/annotation/find_mirna_target_sites.md
-- [ ] docs/mcp/tools/annotation/find_orfs.md
-- [ ] docs/mcp/tools/annotation/find_pre_mirna_hairpins.md
-- [ ] docs/mcp/tools/annotation/find_promoter_motifs.md
-- [ ] docs/mcp/tools/annotation/find_repetitive_elements.md
-- [ ] docs/mcp/tools/annotation/find_retained_intron_candidates.md
-- [ ] docs/mcp/tools/annotation/find_ribosome_binding_sites.md
-- [ ] docs/mcp/tools/annotation/find_similar_mirnas.md
-- [ ] docs/mcp/tools/annotation/find_skipped_exon_events.md
-- [ ] docs/mcp/tools/annotation/find_snps.md
-- [ ] docs/mcp/tools/annotation/find_snps_direct.md
-- [ ] docs/mcp/tools/annotation/find_split_reads.md
-- [ ] docs/mcp/tools/annotation/format_vcf_info.md
-- [ ] docs/mcp/tools/annotation/generate_seed_variants.md
-- [ ] docs/mcp/tools/annotation/genotype_sv.md
-- [ ] docs/mcp/tools/annotation/group_by_seed_family.md
-- [ ] docs/mcp/tools/annotation/identify_cnvs.md
-- [ ] docs/mcp/tools/annotation/impact_level.md
-- [ ] docs/mcp/tools/annotation/is_within_coding_region.md
-- [ ] docs/mcp/tools/annotation/is_wobble_pair.md
-- [ ] docs/mcp/tools/annotation/log2_transform.md
-- [ ] docs/mcp/tools/annotation/longest_orfs_per_frame.md
-- [ ] docs/mcp/tools/annotation/maxent_score.md
-- [ ] docs/mcp/tools/annotation/merge_overlapping_svs.md
-- [ ] docs/mcp/tools/annotation/methylation_from_bisulfite.md
-- [ ] docs/mcp/tools/annotation/methylation_profile.md
-- [ ] docs/mcp/tools/annotation/mirna_seed_sequence.md
-- [ ] docs/mcp/tools/annotation/normalize_variant.md
-- [ ] docs/mcp/tools/annotation/over_representation_analysis.md
-- [ ] docs/mcp/tools/annotation/parse_gff3.md
-- [ ] docs/mcp/tools/annotation/parse_vcf_variant.md
-- [ ] docs/mcp/tools/annotation/pearson_correlation.md
-- [ ] docs/mcp/tools/annotation/perform_pca.md
-- [ ] docs/mcp/tools/annotation/predict_chromatin_state.md
-- [ ] docs/mcp/tools/annotation/predict_gene_structure.md
-- [ ] docs/mcp/tools/annotation/predict_genes.md
-- [ ] docs/mcp/tools/annotation/predict_imprinted_genes.md
-- [ ] docs/mcp/tools/annotation/predict_introns.md
-- [ ] docs/mcp/tools/annotation/predict_pathogenicity.md
-- [ ] docs/mcp/tools/annotation/predict_tf_binding_change.md
-- [ ] docs/mcp/tools/annotation/predict_variant_effect.md
-- [ ] docs/mcp/tools/annotation/quantile_normalize.md
-- [ ] docs/mcp/tools/annotation/rna_reverse_complement.md
-- [ ] docs/mcp/tools/annotation/rnaseq_quality_metrics.md
-- [ ] docs/mcp/tools/annotation/segment_copy_number.md
-- [ ] docs/mcp/tools/annotation/simulate_bisulfite_conversion.md
-- [ ] docs/mcp/tools/annotation/site_accessibility.md
-- [ ] docs/mcp/tools/annotation/titv_ratio.md
-- [ ] docs/mcp/tools/annotation/to_gff3.md
-- [ ] docs/mcp/tools/annotation/variant_statistics.md
-- [ ] docs/mcp/tools/annotation/variants_to_vcf.md
-- [ ] docs/mcp/tools/chromosome/analyze_centromere.md
-- [ ] docs/mcp/tools/chromosome/analyze_karyotype.md
-- [ ] docs/mcp/tools/chromosome/analyze_scaffolds.md
-- [ ] docs/mcp/tools/chromosome/analyze_telomeres.md
-- [ ] docs/mcp/tools/chromosome/arm_ratio.md
-- [ ] docs/mcp/tools/chromosome/assembly_statistics.md
-- [ ] docs/mcp/tools/chromosome/assess_completeness.md
-- [ ] docs/mcp/tools/chromosome/au_n.md
-- [ ] docs/mcp/tools/chromosome/classify_chromosome_by_arm_ratio.md
-- [ ] docs/mcp/tools/chromosome/compare_assemblies.md
-- [ ] docs/mcp/tools/chromosome/detect_aneuploidy.md
-- [ ] docs/mcp/tools/chromosome/detect_ploidy.md
-- [ ] docs/mcp/tools/chromosome/detect_rearrangements.md
-- [ ] docs/mcp/tools/chromosome/estimate_cell_divisions_from_telomere_length.md
-- [ ] docs/mcp/tools/chromosome/estimate_completeness_from_kmers.md
-- [ ] docs/mcp/tools/chromosome/estimate_telomere_length_from_ts_ratio.md
-- [ ] docs/mcp/tools/chromosome/extract_contigs.md
-- [ ] docs/mcp/tools/chromosome/find_gaps.md
-- [ ] docs/mcp/tools/chromosome/find_heterochromatin_regions.md
-- [ ] docs/mcp/tools/chromosome/find_repetitive_regions.md
-- [ ] docs/mcp/tools/chromosome/find_suspicious_regions.md
-- [ ] docs/mcp/tools/chromosome/find_syntenic_blocks_assemblies.md
-- [ ] docs/mcp/tools/chromosome/find_synteny_blocks.md
-- [ ] docs/mcp/tools/chromosome/find_tandem_repeats.md
-- [ ] docs/mcp/tools/chromosome/gap_distribution.md
-- [ ] docs/mcp/tools/chromosome/identify_whole_chromosome_aneuploidy.md
-- [ ] docs/mcp/tools/chromosome/length_distribution.md
-- [ ] docs/mcp/tools/chromosome/local_quality.md
-- [ ] docs/mcp/tools/chromosome/nx_curve.md
-- [ ] docs/mcp/tools/chromosome/nx_statistics.md
-- [ ] docs/mcp/tools/chromosome/predict_g_bands.md
-- [ ] docs/mcp/tools/chromosome/repeat_content.md
-- [ ] docs/mcp/tools/core/calculate_similarity.md
-- [ ] docs/mcp/tools/core/count_approximate_occurrences.md
-- [ ] docs/mcp/tools/core/edit_distance.md
-- [ ] docs/mcp/tools/core/find_longest_common_region.md
-- [ ] docs/mcp/tools/core/find_longest_repeat.md
-- [ ] docs/mcp/tools/core/hamming_distance.md
-- [ ] docs/mcp/tools/core/suffix_tree_contains.md
-- [ ] docs/mcp/tools/core/suffix_tree_count.md
-- [ ] docs/mcp/tools/core/suffix_tree_find_all.md
-- [ ] docs/mcp/tools/core/suffix_tree_lcs.md
-- [ ] docs/mcp/tools/core/suffix_tree_lrs.md
-- [ ] docs/mcp/tools/core/suffix_tree_stats.md
-- [ ] docs/mcp/tools/metagenomics/accessory_genes.md
-- [ ] docs/mcp/tools/metagenomics/alpha_diversity.md
-- [ ] docs/mcp/tools/metagenomics/beta_diversity.md
-- [ ] docs/mcp/tools/metagenomics/bin_contigs.md
-- [ ] docs/mcp/tools/metagenomics/build_kmer_database.md
-- [ ] docs/mcp/tools/metagenomics/classify_reads.md
-- [ ] docs/mcp/tools/metagenomics/cluster_genes.md
-- [ ] docs/mcp/tools/metagenomics/construct_pangenome.md
-- [ ] docs/mcp/tools/metagenomics/core_gene_clusters.md
-- [ ] docs/mcp/tools/metagenomics/core_genome_alignment.md
-- [ ] docs/mcp/tools/metagenomics/differential_abundance.md
-- [ ] docs/mcp/tools/metagenomics/find_genome_specific_genes.md
-- [ ] docs/mcp/tools/metagenomics/find_resistance_genes.md
-- [ ] docs/mcp/tools/metagenomics/fit_heaps_law.md
-- [ ] docs/mcp/tools/metagenomics/functional_diversity.md
-- [ ] docs/mcp/tools/metagenomics/gene_presence_absence_matrix.md
-- [ ] docs/mcp/tools/metagenomics/predict_functions.md
-- [ ] docs/mcp/tools/metagenomics/select_phylogenetic_markers.md
-- [ ] docs/mcp/tools/metagenomics/taxonomic_profile.md
-- [ ] docs/mcp/tools/moltools/analyze_oligo.md
-- [ ] docs/mcp/tools/moltools/blunt_cutters.md
-- [ ] docs/mcp/tools/moltools/build_codon_table.md
-- [ ] docs/mcp/tools/moltools/cai_from_organism_table.md
-- [ ] docs/mcp/tools/moltools/codon_adaptation_index.md
-- [ ] docs/mcp/tools/moltools/codon_usage_statistics.md
-- [ ] docs/mcp/tools/moltools/compare_codon_usage.md
-- [ ] docs/mcp/tools/moltools/compatible_enzymes.md
-- [ ] docs/mcp/tools/moltools/count_codons.md
-- [ ] docs/mcp/tools/moltools/crispr_specificity_score.md
-- [ ] docs/mcp/tools/moltools/crispr_system_info.md
-- [ ] docs/mcp/tools/moltools/design_antisense_probes.md
-- [ ] docs/mcp/tools/moltools/design_guide_rnas.md
-- [ ] docs/mcp/tools/moltools/design_molecular_beacon.md
-- [ ] docs/mcp/tools/moltools/design_primers.md
-- [ ] docs/mcp/tools/moltools/design_probes.md
-- [ ] docs/mcp/tools/moltools/design_tiling_probes.md
-- [ ] docs/mcp/tools/moltools/digest_summary.md
-- [ ] docs/mcp/tools/moltools/effective_number_of_codons.md
-- [ ] docs/mcp/tools/moltools/enzymes_by_cut_length.md
-- [ ] docs/mcp/tools/moltools/enzymes_compatible.md
-- [ ] docs/mcp/tools/moltools/evaluate_guide_rna.md
-- [ ] docs/mcp/tools/moltools/evaluate_primer.md
-- [ ] docs/mcp/tools/moltools/find_all_restriction_sites.md
-- [ ] docs/mcp/tools/moltools/find_off_targets.md
-- [ ] docs/mcp/tools/moltools/find_pam_sites.md
-- [ ] docs/mcp/tools/moltools/find_rare_codons.md
-- [ ] docs/mcp/tools/moltools/find_restriction_sites.md
-- [ ] docs/mcp/tools/moltools/generate_primer_candidates.md
-- [ ] docs/mcp/tools/moltools/get_enzyme.md
-- [ ] docs/mcp/tools/moltools/hairpin_potential.md
-- [ ] docs/mcp/tools/moltools/longest_dinucleotide_repeat.md
-- [ ] docs/mcp/tools/moltools/longest_homopolymer.md
-- [ ] docs/mcp/tools/moltools/oligo_concentration_from_absorbance.md
-- [ ] docs/mcp/tools/moltools/oligo_extinction_coefficient.md
-- [ ] docs/mcp/tools/moltools/optimize_codons.md
-- [ ] docs/mcp/tools/moltools/primer_dimer.md
-- [ ] docs/mcp/tools/moltools/primer_melting_temperature.md
-- [ ] docs/mcp/tools/moltools/primer_melting_temperature_salt.md
-- [ ] docs/mcp/tools/moltools/reduce_secondary_structure.md
-- [ ] docs/mcp/tools/moltools/remove_restriction_sites.md
-- [ ] docs/mcp/tools/moltools/restriction_digest.md
-- [ ] docs/mcp/tools/moltools/restriction_map.md
-- [ ] docs/mcp/tools/moltools/rscu.md
-- [ ] docs/mcp/tools/moltools/sticky_cutters.md
-- [ ] docs/mcp/tools/moltools/three_prime_stability.md
-- [ ] docs/mcp/tools/moltools/validate_probe.md
-- [ ] docs/mcp/tools/parsers/bed_filter.md
-- [ ] docs/mcp/tools/parsers/bed_intersect.md
-- [ ] docs/mcp/tools/parsers/bed_merge.md
-- [ ] docs/mcp/tools/parsers/bed_parse.md
-- [ ] docs/mcp/tools/parsers/embl_features.md
-- [ ] docs/mcp/tools/parsers/embl_parse.md
-- [ ] docs/mcp/tools/parsers/embl_statistics.md
-- [ ] docs/mcp/tools/parsers/fasta_format.md
-- [ ] docs/mcp/tools/parsers/fasta_parse.md
-- [ ] docs/mcp/tools/parsers/fasta_write.md
-- [ ] docs/mcp/tools/parsers/fastq_detect_encoding.md
-- [ ] docs/mcp/tools/parsers/fastq_encode_quality.md
-- [ ] docs/mcp/tools/parsers/fastq_error_to_phred.md
-- [ ] docs/mcp/tools/parsers/fastq_filter.md
-- [ ] docs/mcp/tools/parsers/fastq_format.md
-- [ ] docs/mcp/tools/parsers/fastq_parse.md
-- [ ] docs/mcp/tools/parsers/fastq_phred_to_error.md
-- [ ] docs/mcp/tools/parsers/fastq_statistics.md
-- [ ] docs/mcp/tools/parsers/fastq_trim_adapter.md
-- [ ] docs/mcp/tools/parsers/fastq_trim_quality.md
-- [ ] docs/mcp/tools/parsers/fastq_write.md
-- [ ] docs/mcp/tools/parsers/genbank_extract_sequence.md
-- [ ] docs/mcp/tools/parsers/genbank_features.md
-- [ ] docs/mcp/tools/parsers/genbank_parse.md
-- [ ] docs/mcp/tools/parsers/genbank_parse_location.md
-- [ ] docs/mcp/tools/parsers/genbank_statistics.md
-- [ ] docs/mcp/tools/parsers/gff_filter.md
-- [ ] docs/mcp/tools/parsers/gff_parse.md
-- [ ] docs/mcp/tools/parsers/gff_statistics.md
-- [ ] docs/mcp/tools/parsers/vcf_classify.md
-- [ ] docs/mcp/tools/parsers/vcf_filter.md
-- [ ] docs/mcp/tools/parsers/vcf_has_flag.md
-- [ ] docs/mcp/tools/parsers/vcf_is_het.md
-- [ ] docs/mcp/tools/parsers/vcf_is_hom_alt.md
-- [ ] docs/mcp/tools/parsers/vcf_is_hom_ref.md
-- [ ] docs/mcp/tools/parsers/vcf_is_indel.md
-- [ ] docs/mcp/tools/parsers/vcf_is_snp.md
-- [ ] docs/mcp/tools/parsers/vcf_parse.md
-- [ ] docs/mcp/tools/parsers/vcf_statistics.md
-- [ ] docs/mcp/tools/parsers/vcf_variant_length.md
-- [ ] docs/mcp/tools/parsers/vcf_write.md
-- [ ] docs/mcp/tools/phylogenetics/bootstrap_support.md
-- [ ] docs/mcp/tools/phylogenetics/build_phylogenetic_tree.md
-- [ ] docs/mcp/tools/phylogenetics/build_tree_from_matrix.md
-- [ ] docs/mcp/tools/phylogenetics/distance_matrix.md
-- [ ] docs/mcp/tools/phylogenetics/mrca.md
-- [ ] docs/mcp/tools/phylogenetics/pairwise_distance.md
-- [ ] docs/mcp/tools/phylogenetics/parse_newick.md
-- [ ] docs/mcp/tools/phylogenetics/patristic_distance.md
-- [ ] docs/mcp/tools/phylogenetics/robinson_foulds_distance.md
-- [ ] docs/mcp/tools/phylogenetics/to_newick.md
-- [ ] docs/mcp/tools/phylogenetics/tree_depth.md
-- [ ] docs/mcp/tools/phylogenetics/tree_leaves.md
-- [ ] docs/mcp/tools/phylogenetics/tree_length.md
-- [ ] docs/mcp/tools/population/allele_frequencies.md
-- [ ] docs/mcp/tools/population/diversity_statistics.md
-- [ ] docs/mcp/tools/population/estimate_ancestry.md
-- [ ] docs/mcp/tools/population/f_statistics.md
-- [ ] docs/mcp/tools/population/filter_variants_by_maf.md
-- [ ] docs/mcp/tools/population/fst.md
-- [ ] docs/mcp/tools/population/haplotype_blocks.md
-- [ ] docs/mcp/tools/population/hardy_weinberg_test.md
-- [ ] docs/mcp/tools/population/inbreeding_from_roh.md
-- [ ] docs/mcp/tools/population/integrated_haplotype_score.md
-- [ ] docs/mcp/tools/population/linkage_disequilibrium.md
-- [ ] docs/mcp/tools/population/minor_allele_frequency.md
-- [ ] docs/mcp/tools/population/nucleotide_diversity.md
-- [ ] docs/mcp/tools/population/pairwise_fst.md
-- [ ] docs/mcp/tools/population/runs_of_homozygosity.md
-- [ ] docs/mcp/tools/population/scan_selection_signals.md
-- [ ] docs/mcp/tools/population/tajimas_d.md
-- [ ] docs/mcp/tools/population/wattersons_theta.md
-- [ ] docs/mcp/tools/sequence/amino_acid_composition.md
-- [ ] docs/mcp/tools/sequence/complement_base.md
-- [ ] docs/mcp/tools/sequence/complexity_compression_ratio.md
-- [ ] docs/mcp/tools/sequence/complexity_dust_score.md
-- [ ] docs/mcp/tools/sequence/complexity_kmer_entropy.md
-- [ ] docs/mcp/tools/sequence/complexity_linguistic.md
-- [ ] docs/mcp/tools/sequence/complexity_mask_low.md
-- [ ] docs/mcp/tools/sequence/complexity_shannon.md
-- [ ] docs/mcp/tools/sequence/dna_reverse_complement.md
-- [ ] docs/mcp/tools/sequence/dna_validate.md
-- [ ] docs/mcp/tools/sequence/gc_content.md
-- [ ] docs/mcp/tools/sequence/hydrophobicity.md
-- [ ] docs/mcp/tools/sequence/is_valid_dna.md
-- [ ] docs/mcp/tools/sequence/is_valid_rna.md
-- [ ] docs/mcp/tools/sequence/isoelectric_point.md
-- [ ] docs/mcp/tools/sequence/iupac_code.md
-- [ ] docs/mcp/tools/sequence/iupac_match.md
-- [ ] docs/mcp/tools/sequence/iupac_matches.md
-- [ ] docs/mcp/tools/sequence/kmer_analyze.md
-- [ ] docs/mcp/tools/sequence/kmer_count.md
-- [ ] docs/mcp/tools/sequence/kmer_distance.md
-- [ ] docs/mcp/tools/sequence/kmer_entropy.md
-- [ ] docs/mcp/tools/sequence/linguistic_complexity.md
-- [ ] docs/mcp/tools/sequence/melting_temperature.md
-- [ ] docs/mcp/tools/sequence/molecular_weight_nucleotide.md
-- [ ] docs/mcp/tools/sequence/molecular_weight_protein.md
-- [ ] docs/mcp/tools/sequence/nucleotide_composition.md
-- [ ] docs/mcp/tools/sequence/protein_validate.md
-- [ ] docs/mcp/tools/sequence/rna_from_dna.md
-- [ ] docs/mcp/tools/sequence/rna_validate.md
-- [ ] docs/mcp/tools/sequence/shannon_entropy.md
-- [ ] docs/mcp/tools/sequence/summarize_sequence.md
-- [ ] docs/mcp/tools/sequence/thermodynamics.md
-- [ ] docs/mcp/tools/sequence/translate_dna.md
-- [ ] docs/mcp/tools/sequence/translate_rna.md
+- [x] docs/mcp/tools/alignment/alignment_statistics.md
+- [x] docs/mcp/tools/alignment/assemble_de_bruijn.md
+- [x] docs/mcp/tools/alignment/assemble_olc.md
+- [x] docs/mcp/tools/alignment/assembly_stats.md
+- [x] docs/mcp/tools/alignment/calculate_coverage.md
+- [x] docs/mcp/tools/alignment/compute_consensus.md
+- [x] docs/mcp/tools/alignment/error_correct_reads.md
+- [x] docs/mcp/tools/alignment/find_all_overlaps.md
+- [x] docs/mcp/tools/alignment/find_best_match.md
+- [x] docs/mcp/tools/alignment/find_overlap.md
+- [x] docs/mcp/tools/alignment/find_with_edits.md
+- [x] docs/mcp/tools/alignment/find_with_mismatches.md
+- [x] docs/mcp/tools/alignment/format_alignment.md
+- [x] docs/mcp/tools/alignment/frequent_kmers_with_mismatches.md
+- [x] docs/mcp/tools/alignment/global_align.md
+- [x] docs/mcp/tools/alignment/local_align.md
+- [x] docs/mcp/tools/alignment/merge_contigs.md
+- [x] docs/mcp/tools/alignment/multiple_align.md
+- [x] docs/mcp/tools/alignment/quality_trim_reads.md
+- [x] docs/mcp/tools/alignment/scaffold_contigs.md
+- [x] docs/mcp/tools/alignment/semi_global_align.md
+- [x] docs/mcp/tools/alignment/sequence_identity.md
+- [x] docs/mcp/tools/analysis/analyze_gc_content.md
+- [x] docs/mcp/tools/analysis/analyze_kmers.md
+- [x] docs/mcp/tools/analysis/at_skew.md
+- [x] docs/mcp/tools/analysis/base_pair_type.md
+- [x] docs/mcp/tools/analysis/bulge_loop_energy.md
+- [x] docs/mcp/tools/analysis/calculate_ani.md
+- [x] docs/mcp/tools/analysis/can_pair.md
+- [x] docs/mcp/tools/analysis/codon_frequencies.md
+- [x] docs/mcp/tools/analysis/compare_genomes.md
+- [x] docs/mcp/tools/analysis/compression_ratio.md
+- [x] docs/mcp/tools/analysis/count_kmers.md
+- [x] docs/mcp/tools/analysis/count_kmers_both_strands.md
+- [x] docs/mcp/tools/analysis/create_pwm.md
+- [x] docs/mcp/tools/analysis/cumulative_gc_skew.md
+- [x] docs/mcp/tools/analysis/dangling_end_energy.md
+- [x] docs/mcp/tools/analysis/detect_pseudoknots.md
+- [x] docs/mcp/tools/analysis/detect_rearrangements.md
+- [x] docs/mcp/tools/analysis/dinucleotide_frequencies.md
+- [x] docs/mcp/tools/analysis/dinucleotide_ratios.md
+- [x] docs/mcp/tools/analysis/discover_motifs.md
+- [x] docs/mcp/tools/analysis/disorder_propensity.md
+- [x] docs/mcp/tools/analysis/dust_score.md
+- [x] docs/mcp/tools/analysis/entropy_profile.md
+- [x] docs/mcp/tools/analysis/find_clumps.md
+- [x] docs/mcp/tools/analysis/find_common_regions.md
+- [x] docs/mcp/tools/analysis/find_conserved_clusters.md
+- [x] docs/mcp/tools/analysis/find_degenerate_motif.md
+- [x] docs/mcp/tools/analysis/find_direct_repeats.md
+- [x] docs/mcp/tools/analysis/find_exact_motif.md
+- [x] docs/mcp/tools/analysis/find_inverted_repeats.md
+- [x] docs/mcp/tools/analysis/find_known_motifs.md
+- [x] docs/mcp/tools/analysis/find_low_complexity_regions.md
+- [x] docs/mcp/tools/analysis/find_microsatellites.md
+- [x] docs/mcp/tools/analysis/find_motif.md
+- [x] docs/mcp/tools/analysis/find_motif_by_pattern.md
+- [x] docs/mcp/tools/analysis/find_motif_by_prosite.md
+- [x] docs/mcp/tools/analysis/find_open_reading_frames.md
+- [x] docs/mcp/tools/analysis/find_orthologs.md
+- [x] docs/mcp/tools/analysis/find_palindromes.md
+- [x] docs/mcp/tools/analysis/find_protein_domains.md
+- [x] docs/mcp/tools/analysis/find_protein_low_complexity_regions.md
+- [x] docs/mcp/tools/analysis/find_protein_motifs.md
+- [x] docs/mcp/tools/analysis/find_reciprocal_best_hits.md
+- [x] docs/mcp/tools/analysis/find_regulatory_elements.md
+- [x] docs/mcp/tools/analysis/find_repeats.md
+- [x] docs/mcp/tools/analysis/find_rna_inverted_repeats.md
+- [x] docs/mcp/tools/analysis/find_shared_motifs.md
+- [x] docs/mcp/tools/analysis/find_stem_loops.md
+- [x] docs/mcp/tools/analysis/find_syntenic_blocks.md
+- [x] docs/mcp/tools/analysis/find_tandem_repeats.md
+- [x] docs/mcp/tools/analysis/flush_coaxial_stacking.md
+- [x] docs/mcp/tools/analysis/gc_content_profile.md
+- [x] docs/mcp/tools/analysis/gc_skew.md
+- [x] docs/mcp/tools/analysis/generate_all_kmers.md
+- [x] docs/mcp/tools/analysis/generate_consensus.md
+- [x] docs/mcp/tools/analysis/generate_dot_plot.md
+- [x] docs/mcp/tools/analysis/hairpin_loop_energy.md
+- [x] docs/mcp/tools/analysis/hydrophobicity_profile.md
+- [x] docs/mcp/tools/analysis/internal_loop_energy.md
+- [x] docs/mcp/tools/analysis/is_disorder_promoting.md
+- [x] docs/mcp/tools/analysis/kmer_distance.md
+- [x] docs/mcp/tools/analysis/kmer_frequencies.md
+- [x] docs/mcp/tools/analysis/kmer_positions.md
+- [x] docs/mcp/tools/analysis/kmer_spectrum.md
+- [x] docs/mcp/tools/analysis/kmers_with_min_count.md
+- [x] docs/mcp/tools/analysis/mask_low_complexity.md
+- [x] docs/mcp/tools/analysis/minimum_free_energy.md
+- [x] docs/mcp/tools/analysis/mismatch_coaxial_stacking.md
+- [x] docs/mcp/tools/analysis/most_frequent_kmers.md
+- [x] docs/mcp/tools/analysis/multibranch_loop_energy.md
+- [x] docs/mcp/tools/analysis/parse_dot_bracket.md
+- [x] docs/mcp/tools/analysis/predict_chou_fasman.md
+- [x] docs/mcp/tools/analysis/predict_coiled_coils.md
+- [x] docs/mcp/tools/analysis/predict_disorder.md
+- [x] docs/mcp/tools/analysis/predict_low_complexity_seg.md
+- [x] docs/mcp/tools/analysis/predict_morfs.md
+- [x] docs/mcp/tools/analysis/predict_replication_origin.md
+- [x] docs/mcp/tools/analysis/predict_rna_structure.md
+- [x] docs/mcp/tools/analysis/predict_signal_peptide.md
+- [x] docs/mcp/tools/analysis/predict_transmembrane_helices.md
+- [x] docs/mcp/tools/analysis/prosite_to_regex.md
+- [x] docs/mcp/tools/analysis/reversal_distance.md
+- [x] docs/mcp/tools/analysis/rna_complement_base.md
+- [x] docs/mcp/tools/analysis/scan_with_pwm.md
+- [x] docs/mcp/tools/analysis/stem_energy.md
+- [x] docs/mcp/tools/analysis/tandem_repeat_summary.md
+- [x] docs/mcp/tools/analysis/terminal_mismatch_energy.md
+- [x] docs/mcp/tools/analysis/unique_kmers.md
+- [x] docs/mcp/tools/analysis/validate_dot_bracket.md
+- [x] docs/mcp/tools/analysis/windowed_complexity.md
+- [x] docs/mcp/tools/analysis/windowed_gc_skew.md
+- [x] docs/mcp/tools/annotation/align_mirna_to_target.md
+- [x] docs/mcp/tools/annotation/analyze_target_context.md
+- [x] docs/mcp/tools/annotation/annotate_histone_modifications.md
+- [x] docs/mcp/tools/annotation/annotate_regulatory_elements.md
+- [x] docs/mcp/tools/annotation/annotate_svs.md
+- [x] docs/mcp/tools/annotation/annotate_variant_on_transcripts.md
+- [x] docs/mcp/tools/annotation/annotate_variants.md
+- [x] docs/mcp/tools/annotation/assemble_breakpoint_sequence.md
+- [x] docs/mcp/tools/annotation/build_coexpression_network.md
+- [x] docs/mcp/tools/annotation/calculate_conservation.md
+- [x] docs/mcp/tools/annotation/calculate_tpm.md
+- [x] docs/mcp/tools/annotation/call_variants.md
+- [x] docs/mcp/tools/annotation/call_variants_from_alignment.md
+- [x] docs/mcp/tools/annotation/can_pair.md
+- [x] docs/mcp/tools/annotation/classify_mutation.md
+- [x] docs/mcp/tools/annotation/classify_variant.md
+- [x] docs/mcp/tools/annotation/cluster_discordant_pairs.md
+- [x] docs/mcp/tools/annotation/cluster_genes_by_expression.md
+- [x] docs/mcp/tools/annotation/cluster_split_reads.md
+- [x] docs/mcp/tools/annotation/coding_potential.md
+- [x] docs/mcp/tools/annotation/codon_usage.md
+- [x] docs/mcp/tools/annotation/compare_seed_regions.md
+- [x] docs/mcp/tools/annotation/cpg_observed_expected.md
+- [x] docs/mcp/tools/annotation/create_mirna.md
+- [x] docs/mcp/tools/annotation/detect_alternative_splicing.md
+- [x] docs/mcp/tools/annotation/detect_differential_splicing.md
+- [x] docs/mcp/tools/annotation/detect_isoform_switching.md
+- [x] docs/mcp/tools/annotation/differential_expression.md
+- [x] docs/mcp/tools/annotation/enrichment_score.md
+- [x] docs/mcp/tools/annotation/epigenetic_age.md
+- [x] docs/mcp/tools/annotation/filter_svs.md
+- [x] docs/mcp/tools/annotation/find_acceptor_sites.md
+- [x] docs/mcp/tools/annotation/find_accessible_regions.md
+- [x] docs/mcp/tools/annotation/find_branch_points.md
+- [x] docs/mcp/tools/annotation/find_conserved_elements.md
+- [x] docs/mcp/tools/annotation/find_cpg_islands.md
+- [x] docs/mcp/tools/annotation/find_cpg_sites.md
+- [x] docs/mcp/tools/annotation/find_deletions.md
+- [x] docs/mcp/tools/annotation/find_discordant_pairs.md
+- [x] docs/mcp/tools/annotation/find_dmrs.md
+- [x] docs/mcp/tools/annotation/find_dominant_isoforms.md
+- [x] docs/mcp/tools/annotation/find_donor_sites.md
+- [x] docs/mcp/tools/annotation/find_indels.md
+- [x] docs/mcp/tools/annotation/find_insertions.md
+- [x] docs/mcp/tools/annotation/find_methylation_sites.md
+- [x] docs/mcp/tools/annotation/find_microhomology.md
+- [x] docs/mcp/tools/annotation/find_mirna_target_sites.md
+- [x] docs/mcp/tools/annotation/find_orfs.md
+- [x] docs/mcp/tools/annotation/find_pre_mirna_hairpins.md
+- [x] docs/mcp/tools/annotation/find_promoter_motifs.md
+- [x] docs/mcp/tools/annotation/find_repetitive_elements.md
+- [x] docs/mcp/tools/annotation/find_retained_intron_candidates.md
+- [x] docs/mcp/tools/annotation/find_ribosome_binding_sites.md
+- [x] docs/mcp/tools/annotation/find_similar_mirnas.md
+- [x] docs/mcp/tools/annotation/find_skipped_exon_events.md
+- [x] docs/mcp/tools/annotation/find_snps.md
+- [x] docs/mcp/tools/annotation/find_snps_direct.md
+- [x] docs/mcp/tools/annotation/find_split_reads.md
+- [x] docs/mcp/tools/annotation/format_vcf_info.md
+- [x] docs/mcp/tools/annotation/generate_seed_variants.md
+- [x] docs/mcp/tools/annotation/genotype_sv.md
+- [x] docs/mcp/tools/annotation/group_by_seed_family.md
+- [x] docs/mcp/tools/annotation/identify_cnvs.md
+- [x] docs/mcp/tools/annotation/impact_level.md
+- [x] docs/mcp/tools/annotation/is_within_coding_region.md
+- [x] docs/mcp/tools/annotation/is_wobble_pair.md
+- [x] docs/mcp/tools/annotation/log2_transform.md
+- [x] docs/mcp/tools/annotation/longest_orfs_per_frame.md
+- [x] docs/mcp/tools/annotation/maxent_score.md
+- [x] docs/mcp/tools/annotation/merge_overlapping_svs.md
+- [x] docs/mcp/tools/annotation/methylation_from_bisulfite.md
+- [x] docs/mcp/tools/annotation/methylation_profile.md
+- [x] docs/mcp/tools/annotation/mirna_seed_sequence.md
+- [x] docs/mcp/tools/annotation/normalize_variant.md
+- [x] docs/mcp/tools/annotation/over_representation_analysis.md
+- [x] docs/mcp/tools/annotation/parse_gff3.md
+- [x] docs/mcp/tools/annotation/parse_vcf_variant.md
+- [x] docs/mcp/tools/annotation/pearson_correlation.md
+- [x] docs/mcp/tools/annotation/perform_pca.md
+- [x] docs/mcp/tools/annotation/predict_chromatin_state.md
+- [x] docs/mcp/tools/annotation/predict_gene_structure.md
+- [x] docs/mcp/tools/annotation/predict_genes.md
+- [x] docs/mcp/tools/annotation/predict_imprinted_genes.md
+- [x] docs/mcp/tools/annotation/predict_introns.md
+- [x] docs/mcp/tools/annotation/predict_pathogenicity.md
+- [x] docs/mcp/tools/annotation/predict_tf_binding_change.md
+- [x] docs/mcp/tools/annotation/predict_variant_effect.md
+- [x] docs/mcp/tools/annotation/quantile_normalize.md
+- [x] docs/mcp/tools/annotation/rna_reverse_complement.md
+- [x] docs/mcp/tools/annotation/rnaseq_quality_metrics.md
+- [x] docs/mcp/tools/annotation/segment_copy_number.md
+- [x] docs/mcp/tools/annotation/simulate_bisulfite_conversion.md
+- [x] docs/mcp/tools/annotation/site_accessibility.md
+- [x] docs/mcp/tools/annotation/titv_ratio.md
+- [x] docs/mcp/tools/annotation/to_gff3.md
+- [x] docs/mcp/tools/annotation/variant_statistics.md
+- [x] docs/mcp/tools/annotation/variants_to_vcf.md
+- [x] docs/mcp/tools/chromosome/analyze_centromere.md
+- [x] docs/mcp/tools/chromosome/analyze_karyotype.md
+- [x] docs/mcp/tools/chromosome/analyze_scaffolds.md
+- [x] docs/mcp/tools/chromosome/analyze_telomeres.md
+- [x] docs/mcp/tools/chromosome/arm_ratio.md
+- [x] docs/mcp/tools/chromosome/assembly_statistics.md
+- [x] docs/mcp/tools/chromosome/assess_completeness.md
+- [x] docs/mcp/tools/chromosome/au_n.md
+- [x] docs/mcp/tools/chromosome/classify_chromosome_by_arm_ratio.md
+- [x] docs/mcp/tools/chromosome/compare_assemblies.md
+- [x] docs/mcp/tools/chromosome/detect_aneuploidy.md
+- [x] docs/mcp/tools/chromosome/detect_ploidy.md
+- [x] docs/mcp/tools/chromosome/detect_rearrangements.md
+- [x] docs/mcp/tools/chromosome/estimate_cell_divisions_from_telomere_length.md
+- [x] docs/mcp/tools/chromosome/estimate_completeness_from_kmers.md
+- [x] docs/mcp/tools/chromosome/estimate_telomere_length_from_ts_ratio.md
+- [x] docs/mcp/tools/chromosome/extract_contigs.md
+- [x] docs/mcp/tools/chromosome/find_gaps.md
+- [x] docs/mcp/tools/chromosome/find_heterochromatin_regions.md
+- [x] docs/mcp/tools/chromosome/find_repetitive_regions.md
+- [x] docs/mcp/tools/chromosome/find_suspicious_regions.md
+- [x] docs/mcp/tools/chromosome/find_syntenic_blocks_assemblies.md
+- [x] docs/mcp/tools/chromosome/find_synteny_blocks.md
+- [x] docs/mcp/tools/chromosome/find_tandem_repeats.md
+- [x] docs/mcp/tools/chromosome/gap_distribution.md
+- [x] docs/mcp/tools/chromosome/identify_whole_chromosome_aneuploidy.md
+- [x] docs/mcp/tools/chromosome/length_distribution.md
+- [x] docs/mcp/tools/chromosome/local_quality.md
+- [x] docs/mcp/tools/chromosome/nx_curve.md
+- [x] docs/mcp/tools/chromosome/nx_statistics.md
+- [x] docs/mcp/tools/chromosome/predict_g_bands.md
+- [x] docs/mcp/tools/chromosome/repeat_content.md
+- [x] docs/mcp/tools/core/calculate_similarity.md
+- [x] docs/mcp/tools/core/count_approximate_occurrences.md
+- [x] docs/mcp/tools/core/edit_distance.md
+- [x] docs/mcp/tools/core/find_longest_common_region.md
+- [x] docs/mcp/tools/core/find_longest_repeat.md
+- [x] docs/mcp/tools/core/hamming_distance.md
+- [x] docs/mcp/tools/core/suffix_tree_contains.md
+- [x] docs/mcp/tools/core/suffix_tree_count.md
+- [x] docs/mcp/tools/core/suffix_tree_find_all.md
+- [x] docs/mcp/tools/core/suffix_tree_lcs.md
+- [x] docs/mcp/tools/core/suffix_tree_lrs.md
+- [x] docs/mcp/tools/core/suffix_tree_stats.md
+- [x] docs/mcp/tools/metagenomics/accessory_genes.md
+- [x] docs/mcp/tools/metagenomics/alpha_diversity.md
+- [x] docs/mcp/tools/metagenomics/beta_diversity.md
+- [x] docs/mcp/tools/metagenomics/bin_contigs.md
+- [x] docs/mcp/tools/metagenomics/build_kmer_database.md
+- [x] docs/mcp/tools/metagenomics/classify_reads.md
+- [x] docs/mcp/tools/metagenomics/cluster_genes.md
+- [x] docs/mcp/tools/metagenomics/construct_pangenome.md
+- [x] docs/mcp/tools/metagenomics/core_gene_clusters.md
+- [x] docs/mcp/tools/metagenomics/core_genome_alignment.md
+- [x] docs/mcp/tools/metagenomics/differential_abundance.md
+- [x] docs/mcp/tools/metagenomics/find_genome_specific_genes.md
+- [x] docs/mcp/tools/metagenomics/find_resistance_genes.md
+- [x] docs/mcp/tools/metagenomics/fit_heaps_law.md
+- [x] docs/mcp/tools/metagenomics/functional_diversity.md
+- [x] docs/mcp/tools/metagenomics/gene_presence_absence_matrix.md
+- [x] docs/mcp/tools/metagenomics/predict_functions.md
+- [x] docs/mcp/tools/metagenomics/select_phylogenetic_markers.md
+- [x] docs/mcp/tools/metagenomics/taxonomic_profile.md
+- [x] docs/mcp/tools/moltools/analyze_oligo.md
+- [x] docs/mcp/tools/moltools/blunt_cutters.md
+- [x] docs/mcp/tools/moltools/build_codon_table.md
+- [x] docs/mcp/tools/moltools/cai_from_organism_table.md
+- [x] docs/mcp/tools/moltools/codon_adaptation_index.md
+- [x] docs/mcp/tools/moltools/codon_usage_statistics.md
+- [x] docs/mcp/tools/moltools/compare_codon_usage.md
+- [x] docs/mcp/tools/moltools/compatible_enzymes.md
+- [x] docs/mcp/tools/moltools/count_codons.md
+- [x] docs/mcp/tools/moltools/crispr_specificity_score.md
+- [x] docs/mcp/tools/moltools/crispr_system_info.md
+- [x] docs/mcp/tools/moltools/design_antisense_probes.md
+- [x] docs/mcp/tools/moltools/design_guide_rnas.md
+- [x] docs/mcp/tools/moltools/design_molecular_beacon.md
+- [x] docs/mcp/tools/moltools/design_primers.md
+- [x] docs/mcp/tools/moltools/design_probes.md
+- [x] docs/mcp/tools/moltools/design_tiling_probes.md
+- [x] docs/mcp/tools/moltools/digest_summary.md
+- [x] docs/mcp/tools/moltools/effective_number_of_codons.md
+- [x] docs/mcp/tools/moltools/enzymes_by_cut_length.md
+- [x] docs/mcp/tools/moltools/enzymes_compatible.md
+- [x] docs/mcp/tools/moltools/evaluate_guide_rna.md
+- [x] docs/mcp/tools/moltools/evaluate_primer.md
+- [x] docs/mcp/tools/moltools/find_all_restriction_sites.md
+- [x] docs/mcp/tools/moltools/find_off_targets.md
+- [x] docs/mcp/tools/moltools/find_pam_sites.md
+- [x] docs/mcp/tools/moltools/find_rare_codons.md
+- [x] docs/mcp/tools/moltools/find_restriction_sites.md
+- [x] docs/mcp/tools/moltools/generate_primer_candidates.md
+- [x] docs/mcp/tools/moltools/get_enzyme.md
+- [x] docs/mcp/tools/moltools/hairpin_potential.md
+- [x] docs/mcp/tools/moltools/longest_dinucleotide_repeat.md
+- [x] docs/mcp/tools/moltools/longest_homopolymer.md
+- [x] docs/mcp/tools/moltools/oligo_concentration_from_absorbance.md
+- [x] docs/mcp/tools/moltools/oligo_extinction_coefficient.md
+- [x] docs/mcp/tools/moltools/optimize_codons.md
+- [x] docs/mcp/tools/moltools/primer_dimer.md
+- [x] docs/mcp/tools/moltools/primer_melting_temperature.md
+- [x] docs/mcp/tools/moltools/primer_melting_temperature_salt.md
+- [x] docs/mcp/tools/moltools/reduce_secondary_structure.md
+- [x] docs/mcp/tools/moltools/remove_restriction_sites.md
+- [x] docs/mcp/tools/moltools/restriction_digest.md
+- [x] docs/mcp/tools/moltools/restriction_map.md
+- [x] docs/mcp/tools/moltools/rscu.md
+- [x] docs/mcp/tools/moltools/sticky_cutters.md
+- [x] docs/mcp/tools/moltools/three_prime_stability.md
+- [x] docs/mcp/tools/moltools/validate_probe.md
+- [x] docs/mcp/tools/parsers/bed_filter.md
+- [x] docs/mcp/tools/parsers/bed_intersect.md
+- [x] docs/mcp/tools/parsers/bed_merge.md
+- [x] docs/mcp/tools/parsers/bed_parse.md
+- [x] docs/mcp/tools/parsers/embl_features.md
+- [x] docs/mcp/tools/parsers/embl_parse.md
+- [x] docs/mcp/tools/parsers/embl_statistics.md
+- [x] docs/mcp/tools/parsers/fasta_format.md
+- [x] docs/mcp/tools/parsers/fasta_parse.md
+- [x] docs/mcp/tools/parsers/fasta_write.md
+- [x] docs/mcp/tools/parsers/fastq_detect_encoding.md
+- [x] docs/mcp/tools/parsers/fastq_encode_quality.md
+- [x] docs/mcp/tools/parsers/fastq_error_to_phred.md
+- [x] docs/mcp/tools/parsers/fastq_filter.md
+- [x] docs/mcp/tools/parsers/fastq_format.md
+- [x] docs/mcp/tools/parsers/fastq_parse.md
+- [x] docs/mcp/tools/parsers/fastq_phred_to_error.md
+- [x] docs/mcp/tools/parsers/fastq_statistics.md
+- [x] docs/mcp/tools/parsers/fastq_trim_adapter.md
+- [x] docs/mcp/tools/parsers/fastq_trim_quality.md
+- [x] docs/mcp/tools/parsers/fastq_write.md
+- [x] docs/mcp/tools/parsers/genbank_extract_sequence.md
+- [x] docs/mcp/tools/parsers/genbank_features.md
+- [x] docs/mcp/tools/parsers/genbank_parse.md
+- [x] docs/mcp/tools/parsers/genbank_parse_location.md
+- [x] docs/mcp/tools/parsers/genbank_statistics.md
+- [x] docs/mcp/tools/parsers/gff_filter.md
+- [x] docs/mcp/tools/parsers/gff_parse.md
+- [x] docs/mcp/tools/parsers/gff_statistics.md
+- [x] docs/mcp/tools/parsers/vcf_classify.md
+- [x] docs/mcp/tools/parsers/vcf_filter.md
+- [x] docs/mcp/tools/parsers/vcf_has_flag.md
+- [x] docs/mcp/tools/parsers/vcf_is_het.md
+- [x] docs/mcp/tools/parsers/vcf_is_hom_alt.md
+- [x] docs/mcp/tools/parsers/vcf_is_hom_ref.md
+- [x] docs/mcp/tools/parsers/vcf_is_indel.md
+- [x] docs/mcp/tools/parsers/vcf_is_snp.md
+- [x] docs/mcp/tools/parsers/vcf_parse.md
+- [x] docs/mcp/tools/parsers/vcf_statistics.md
+- [x] docs/mcp/tools/parsers/vcf_variant_length.md
+- [x] docs/mcp/tools/parsers/vcf_write.md
+- [x] docs/mcp/tools/phylogenetics/bootstrap_support.md
+- [x] docs/mcp/tools/phylogenetics/build_phylogenetic_tree.md
+- [x] docs/mcp/tools/phylogenetics/build_tree_from_matrix.md
+- [x] docs/mcp/tools/phylogenetics/distance_matrix.md
+- [x] docs/mcp/tools/phylogenetics/mrca.md
+- [x] docs/mcp/tools/phylogenetics/pairwise_distance.md
+- [x] docs/mcp/tools/phylogenetics/parse_newick.md
+- [x] docs/mcp/tools/phylogenetics/patristic_distance.md
+- [x] docs/mcp/tools/phylogenetics/robinson_foulds_distance.md
+- [x] docs/mcp/tools/phylogenetics/to_newick.md
+- [x] docs/mcp/tools/phylogenetics/tree_depth.md
+- [x] docs/mcp/tools/phylogenetics/tree_leaves.md
+- [x] docs/mcp/tools/phylogenetics/tree_length.md
+- [x] docs/mcp/tools/population/allele_frequencies.md
+- [x] docs/mcp/tools/population/diversity_statistics.md
+- [x] docs/mcp/tools/population/estimate_ancestry.md
+- [x] docs/mcp/tools/population/f_statistics.md
+- [x] docs/mcp/tools/population/filter_variants_by_maf.md
+- [x] docs/mcp/tools/population/fst.md
+- [x] docs/mcp/tools/population/haplotype_blocks.md
+- [x] docs/mcp/tools/population/hardy_weinberg_test.md
+- [x] docs/mcp/tools/population/inbreeding_from_roh.md
+- [x] docs/mcp/tools/population/integrated_haplotype_score.md
+- [x] docs/mcp/tools/population/linkage_disequilibrium.md
+- [x] docs/mcp/tools/population/minor_allele_frequency.md
+- [x] docs/mcp/tools/population/nucleotide_diversity.md
+- [x] docs/mcp/tools/population/pairwise_fst.md
+- [x] docs/mcp/tools/population/runs_of_homozygosity.md
+- [x] docs/mcp/tools/population/scan_selection_signals.md
+- [x] docs/mcp/tools/population/tajimas_d.md
+- [x] docs/mcp/tools/population/wattersons_theta.md
+- [x] docs/mcp/tools/sequence/amino_acid_composition.md
+- [x] docs/mcp/tools/sequence/complement_base.md
+- [x] docs/mcp/tools/sequence/complexity_compression_ratio.md
+- [x] docs/mcp/tools/sequence/complexity_dust_score.md
+- [x] docs/mcp/tools/sequence/complexity_kmer_entropy.md
+- [x] docs/mcp/tools/sequence/complexity_linguistic.md
+- [x] docs/mcp/tools/sequence/complexity_mask_low.md
+- [x] docs/mcp/tools/sequence/complexity_shannon.md
+- [x] docs/mcp/tools/sequence/dna_reverse_complement.md
+- [x] docs/mcp/tools/sequence/dna_validate.md
+- [x] docs/mcp/tools/sequence/gc_content.md
+- [x] docs/mcp/tools/sequence/hydrophobicity.md
+- [x] docs/mcp/tools/sequence/is_valid_dna.md
+- [x] docs/mcp/tools/sequence/is_valid_rna.md
+- [x] docs/mcp/tools/sequence/isoelectric_point.md
+- [x] docs/mcp/tools/sequence/iupac_code.md
+- [x] docs/mcp/tools/sequence/iupac_match.md
+- [x] docs/mcp/tools/sequence/iupac_matches.md
+- [x] docs/mcp/tools/sequence/kmer_analyze.md
+- [x] docs/mcp/tools/sequence/kmer_count.md
+- [x] docs/mcp/tools/sequence/kmer_distance.md
+- [x] docs/mcp/tools/sequence/kmer_entropy.md
+- [x] docs/mcp/tools/sequence/linguistic_complexity.md
+- [x] docs/mcp/tools/sequence/melting_temperature.md
+- [x] docs/mcp/tools/sequence/molecular_weight_nucleotide.md
+- [x] docs/mcp/tools/sequence/molecular_weight_protein.md
+- [x] docs/mcp/tools/sequence/nucleotide_composition.md
+- [x] docs/mcp/tools/sequence/protein_validate.md
+- [x] docs/mcp/tools/sequence/rna_from_dna.md
+- [x] docs/mcp/tools/sequence/rna_validate.md
+- [x] docs/mcp/tools/sequence/shannon_entropy.md
+- [x] docs/mcp/tools/sequence/summarize_sequence.md
+- [x] docs/mcp/tools/sequence/thermodynamics.md
+- [x] docs/mcp/tools/sequence/translate_dna.md
+- [x] docs/mcp/tools/sequence/translate_rna.md
 - [ ] docs/mcp/traceability.md
 
 ## refactoring  (7)

@@ -2,6 +2,8 @@
 type: concept
 title: "Metagenomic binning (contigs → MAGs: k-means on composition + coverage, TETRA z-score signature)"
 tags: [metagenomics, algorithm]
+mcp_tools:
+  - bin_contigs
 sources:
   - docs/Evidence/META-BIN-001-Evidence.md
   - docs/Evidence/META-BIN-001-MarkerQC-Evidence.md

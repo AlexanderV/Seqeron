@@ -2,6 +2,8 @@
 type: concept
 title: "RNA pseudoknot detection (crossing base pairs in a given structure)"
 tags: [rna, algorithm]
+mcp_tools:
+  - detect_pseudoknots
 sources:
   - docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
 source_commit: ae0dfc54b6b719a8fa68c2f120f3f4e3235cd02e

@@ -2,6 +2,12 @@
 type: concept
 title: "CRISPR guide RNA design, on-target efficacy, and off-target scoring"
 tags: [primer, algorithm, validation]
+mcp_tools:
+  - crispr_system_info
+  - design_guide_rnas
+  - evaluate_guide_rna
+  - find_pam_sites
+  - iupac_matches
 sources:
   - docs/Validation/reports/CRISPR-GUIDE-001.md
   - docs/Validation/reports/CRISPR-OFF-001.md

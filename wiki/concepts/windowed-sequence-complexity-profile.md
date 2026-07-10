@@ -2,6 +2,10 @@
 type: concept
 title: "Windowed sequence complexity profile (sliding-window Shannon + linguistic complexity)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - complexity_linguistic
+  - linguistic_complexity
+  - windowed_complexity
 sources:
   - docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md
   - docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md

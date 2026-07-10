@@ -2,6 +2,8 @@
 type: concept
 title: "Coiled-coil prediction (heptad a/d hydrophobic-core occupancy)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - predict_coiled_coils
 sources:
   - docs/Evidence/PROTMOTIF-CC-001-Evidence.md
   - docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md

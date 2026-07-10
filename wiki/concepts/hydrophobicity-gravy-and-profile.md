@@ -2,6 +2,8 @@
 type: concept
 title: "Hydrophobicity — Kyte-Doolittle GRAVY index & sliding-window hydropathy profile"
 tags: [sequence-statistics, protein, algorithm]
+mcp_tools:
+  - hydrophobicity_profile
 sources:
   - docs/Evidence/SEQ-HYDRO-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md

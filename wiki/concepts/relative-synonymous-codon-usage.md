@@ -2,6 +2,10 @@
 type: concept
 title: "Relative Synonymous Codon Usage (RSCU)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - codon_usage
+  - count_codons
+  - rscu
 sources:
   - docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md
   - docs/Evidence/CODON-RSCU-001-Evidence.md

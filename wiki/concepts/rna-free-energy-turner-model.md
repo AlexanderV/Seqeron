@@ -2,6 +2,8 @@
 type: concept
 title: "RNA free-energy model (Turner 2004 nearest-neighbor terms)"
 tags: [rna, algorithm]
+mcp_tools:
+  - terminal_mismatch_energy
 sources:
   - docs/Evidence/RNA-ENERGY-001-Evidence.md
   - docs/Evidence/RNA-HAIRPIN-001-Evidence.md

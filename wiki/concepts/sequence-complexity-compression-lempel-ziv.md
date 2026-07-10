@@ -2,6 +2,8 @@
 type: concept
 title: "Sequence complexity via compression (Lempel–Ziv)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - complexity_compression_ratio
 sources:
   - docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md
 source_commit: c2d2b19e7359c655c98c0b2b7fc08aadd63ff843

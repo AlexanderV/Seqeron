@@ -2,6 +2,9 @@
 type: concept
 title: "Molecular weight — average molecular mass of a protein / DNA / RNA sequence (Daltons)"
 tags: [sequence-statistics, protein, algorithm]
+mcp_tools:
+  - molecular_weight_nucleotide
+  - molecular_weight_protein
 sources:
   - docs/Evidence/SEQ-MW-001-Evidence.md
 source_commit: e058738ff312bb90e5022081cf85e0b9da5b67cb

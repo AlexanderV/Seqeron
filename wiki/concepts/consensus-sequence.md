@@ -2,6 +2,8 @@
 type: concept
 title: "Consensus sequence computation (column-wise majority/threshold)"
 tags: [assembly, algorithm]
+mcp_tools:
+  - compute_consensus
 sources:
   - docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md
   - docs/algorithms/Assembly/Consensus_Computation.md

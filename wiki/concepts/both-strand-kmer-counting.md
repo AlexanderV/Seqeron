@@ -2,6 +2,8 @@
 type: concept
 title: "Both-strand (additive / kPAL-balance) k-mer counting"
 tags: [analysis, algorithm]
+mcp_tools:
+  - count_kmers_both_strands
 sources:
   - docs/Evidence/KMER-BOTH-001-Evidence.md
   - docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md

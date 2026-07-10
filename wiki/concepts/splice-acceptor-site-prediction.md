@@ -2,6 +2,8 @@
 type: concept
 title: "Splice acceptor site prediction (3' splice site: AG, polypyrimidine tract, branch point)"
 tags: [splicing, motif, algorithm]
+mcp_tools:
+  - find_branch_points
 sources:
   - docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md
   - docs/Evidence/SPLICE-DONOR-001-Evidence.md

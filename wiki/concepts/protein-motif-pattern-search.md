@@ -2,6 +2,10 @@
 type: concept
 title: "Protein motif search by pattern (general PROSITE→regex engine + IC scoring)"
 tags: [analysis, algorithm, protein, motif]
+mcp_tools:
+  - find_motif_by_pattern
+  - find_motif_by_prosite
+  - prosite_to_regex
 sources:
   - docs/Evidence/PROTMOTIF-FIND-001-Evidence.md
   - docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md

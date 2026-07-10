@@ -2,6 +2,8 @@
 type: concept
 title: "De Bruijn graph assembly (k-mer graph + Eulerian-walk reconstruction)"
 tags: [assembly, algorithm]
+mcp_tools:
+  - assemble_de_bruijn
 sources:
   - docs/Evidence/ASSEMBLY-DBG-001-Evidence.md
   - docs/algorithms/Assembly/De_Bruijn_Graph_Assembly.md

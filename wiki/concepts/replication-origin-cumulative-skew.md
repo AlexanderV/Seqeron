@@ -2,6 +2,9 @@
 type: concept
 title: "Replication origin/terminus via cumulative GC-skew extrema"
 tags: [sequence-statistics, composition, chromosome]
+mcp_tools:
+  - cumulative_gc_skew
+  - predict_replication_origin
 sources:
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
 source_commit: c094b65e4a89b3c3c146d655c12489e6d28e8564

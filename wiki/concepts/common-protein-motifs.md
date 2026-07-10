@@ -2,6 +2,8 @@
 type: concept
 title: "Common protein motifs (built-in PROSITE-pattern dictionary scan)"
 tags: [analysis, algorithm, protein, motif]
+mcp_tools:
+  - find_protein_motifs
 sources:
   - docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md
 source_commit: 12b13e4ecc31636e0c27a2c4b0098bf11d6cc054

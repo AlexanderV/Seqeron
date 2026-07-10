@@ -2,6 +2,8 @@
 type: concept
 title: "Pan-genome Heaps'-law fit (power-law new-gene curve → open/closed)"
 tags: [comparative-genomics, pan-genome, algorithm]
+mcp_tools:
+  - fit_heaps_law
 sources:
   - docs/Evidence/PANGEN-HEAP-001-Evidence.md
 source_commit: 7ed06ad09b44f5c210d8477a3ffa537c7e9920f4

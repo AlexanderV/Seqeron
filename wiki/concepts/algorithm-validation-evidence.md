@@ -2,6 +2,8 @@
 type: concept
 title: "Algorithm validation evidence artifacts"
 tags: [validation, testing]
+mcp_tools:
+  - parse_dot_bracket
 sources:
   - docs/Evidence/ALIGN-GLOBAL-001-Evidence.md
   - docs/Evidence/ALIGN-MULTI-001-Evidence.md

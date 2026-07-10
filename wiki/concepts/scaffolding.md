@@ -2,6 +2,9 @@
 type: concept
 title: "Scaffolding (contig ordering and N-gap linking)"
 tags: [assembly, algorithm]
+mcp_tools:
+  - analyze_scaffolds
+  - scaffold_contigs
 sources:
   - docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md
   - docs/algorithms/Extended_Assembly/Scaffolding.md

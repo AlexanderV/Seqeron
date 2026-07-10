@@ -2,6 +2,9 @@
 type: concept
 title: "Variant effect annotation (VEP-style consequence + Sequence-Ontology IMPACT)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - annotate_variants
+  - predict_variant_effect
 sources:
   - docs/Evidence/VARIANT-ANNOT-001-Evidence.md
   - docs/Evidence/VARIANT-CALL-001-Evidence.md

@@ -2,6 +2,9 @@
 type: concept
 title: "Runs of homozygosity & inbreeding coefficient (ROH, F_ROH)"
 tags: [population-genetics, algorithm]
+mcp_tools:
+  - inbreeding_from_roh
+  - runs_of_homozygosity
 sources:
   - docs/Evidence/POP-ROH-001-Evidence.md
 source_commit: 0885cd52a7dfdf9158d2607127ceea1945c8dff2

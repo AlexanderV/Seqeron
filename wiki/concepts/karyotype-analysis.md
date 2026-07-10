@@ -2,6 +2,9 @@
 type: concept
 title: "Karyotype analysis (chromosome-count karyotyping + ploidy detection)"
 tags: [chromosome, algorithm]
+mcp_tools:
+  - analyze_karyotype
+  - detect_ploidy
 sources:
   - docs/Evidence/CHROM-KARYO-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md

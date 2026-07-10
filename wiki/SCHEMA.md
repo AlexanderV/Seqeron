@@ -44,6 +44,9 @@ these `--exclude` globs when running the coverage check:
 --exclude 'docs/refactoring/**'        # internal/historical refactoring logs
 --exclude 'docs/skills/_generated/**'  # generated skill artifacts
 --exclude 'docs/templates/**'          # doc templates
+--exclude 'docs/mcp/MCP_STATUS.md'     # live campaign/status ledger, not a knowledge source
+--exclude 'docs/mcp/traceability.md'   # generated tool→test traceability matrix
+--exclude 'docs/skills/golden/tasks.md' # golden regression task list, reference-only
 ```
 
 Everything else under `docs/**` remains in scope. `docs/algorithms/**` is

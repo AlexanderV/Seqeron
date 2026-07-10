@@ -2,6 +2,10 @@
 type: concept
 title: "Overlap-Layout-Consensus (OLC) assembly"
 tags: [assembly, algorithm]
+mcp_tools:
+  - assemble_olc
+  - find_all_overlaps
+  - find_overlap
 sources:
   - docs/Evidence/ASSEMBLY-OLC-001-Evidence.md
   - docs/algorithms/Assembly/Overlap_Layout_Consensus.md

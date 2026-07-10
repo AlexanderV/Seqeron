@@ -2,6 +2,10 @@
 type: concept
 title: "CpG site & CpG-island detection (Gardiner-Garden & Frommer)"
 tags: [epigenetics, algorithm]
+mcp_tools:
+  - cpg_observed_expected
+  - find_cpg_islands
+  - find_cpg_sites
 sources:
   - docs/Evidence/EPIGEN-CPG-001-Evidence.md
   - docs/algorithms/Epigenetics/CpG_Site_Detection.md

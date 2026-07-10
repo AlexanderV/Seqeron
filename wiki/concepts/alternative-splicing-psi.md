@@ -2,6 +2,8 @@
 type: concept
 title: "Alternative splicing: event classification + Percent-Spliced-In (PSI / Ψ, ΔPSI)"
 tags: [transcriptome, splicing, algorithm]
+mcp_tools:
+  - detect_alternative_splicing
 sources:
   - docs/Evidence/TRANS-SPLICE-001-Evidence.md
 source_commit: 82e3e03992f6e370559efdde3124a4b870a57893

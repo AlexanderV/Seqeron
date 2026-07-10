@@ -2,6 +2,9 @@
 type: concept
 title: "Aneuploidy detection (copy number from read depth)"
 tags: [chromosome, algorithm]
+mcp_tools:
+  - detect_aneuploidy
+  - identify_whole_chromosome_aneuploidy
 sources:
   - docs/Evidence/CHROM-ANEU-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md

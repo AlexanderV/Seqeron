@@ -2,6 +2,10 @@
 type: concept
 title: "miRNA seed-sequence analysis (seed extraction + seed-family equality)"
 tags: [mirna, algorithm]
+mcp_tools:
+  - compare_seed_regions
+  - group_by_seed_family
+  - mirna_seed_sequence
 sources:
   - docs/Evidence/MIRNA-SEED-001-Evidence.md
   - docs/algorithms/MiRNA/Seed_Sequence_Analysis.md

@@ -2,6 +2,8 @@
 type: concept
 title: "Dot plot (word-match / k-tuple dot matrix)"
 tags: [comparative-genomics, algorithm]
+mcp_tools:
+  - generate_dot_plot
 sources:
   - docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Dot_Plot_Generation.md

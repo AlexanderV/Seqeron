@@ -2,6 +2,8 @@
 type: concept
 title: "K-mer positions (occurrence / position index)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - kmer_positions
 sources:
   - docs/Evidence/KMER-POSITIONS-001-Evidence.md
   - docs/algorithms/K-mer/K-mer_Positions.md

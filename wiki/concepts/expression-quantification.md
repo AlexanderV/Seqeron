@@ -2,6 +2,8 @@
 type: concept
 title: "Expression quantification (TPM / FPKM / RPKM + quantile normalization)"
 tags: [transcriptome, algorithm]
+mcp_tools:
+  - calculate_tpm
 sources:
   - docs/Evidence/TRANS-EXPR-001-Evidence.md
 source_commit: deb32560df90dfd97221f5218e71f6fd6cf3b2fd

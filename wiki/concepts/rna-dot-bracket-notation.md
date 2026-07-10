@@ -2,6 +2,8 @@
 type: concept
 title: "RNA dot-bracket (extended WUSS) notation — parsing and validation"
 tags: [rna, algorithm]
+mcp_tools:
+  - validate_dot_bracket
 sources:
   - docs/Evidence/RNA-DOTBRACKET-001-Evidence.md
 source_commit: 4c6115f113e0ef75414b050883a31e2594d48d35

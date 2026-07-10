@@ -2,6 +2,8 @@
 type: concept
 title: "Differential expression analysis (log2 fold change + Welch's t-test + Benjamini-Hochberg FDR)"
 tags: [transcriptome, algorithm]
+mcp_tools:
+  - differential_expression
 sources:
   - docs/Evidence/TRANS-DIFF-001-Evidence.md
 source_commit: e00919fd4a7a3e5c624a134af281d66dfe6d4831

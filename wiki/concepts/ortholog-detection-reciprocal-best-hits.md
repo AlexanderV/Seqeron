@@ -2,6 +2,9 @@
 type: concept
 title: "Ortholog & in-paralog detection (Reciprocal Best Hits)"
 tags: [comparative-genomics, algorithm]
+mcp_tools:
+  - find_orthologs
+  - find_reciprocal_best_hits
 sources:
   - docs/Evidence/COMPGEN-ORTHO-001-Evidence.md
   - docs/Evidence/COMPGEN-RBH-001-Evidence.md

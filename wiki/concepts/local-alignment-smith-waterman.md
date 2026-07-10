@@ -2,6 +2,8 @@
 type: concept
 title: "Local alignment (Smith–Waterman)"
 tags: [alignment, algorithm]
+mcp_tools:
+  - local_align
 sources:
   - docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md
   - docs/Validation/reports/ALIGN-LOCAL-001.md

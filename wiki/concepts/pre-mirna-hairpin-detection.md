@@ -2,6 +2,8 @@
 type: concept
 title: "Pre-miRNA precursor hairpin detection"
 tags: [mirna, algorithm]
+mcp_tools:
+  - find_pre_mirna_hairpins
 sources:
   - docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md
   - docs/algorithms/MiRNA/Pre_miRNA_Detection.md

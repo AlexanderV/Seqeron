@@ -2,6 +2,8 @@
 type: concept
 title: "Significant taxa detection (Mann–Whitney U / Wilcoxon rank-sum differential abundance)"
 tags: [metagenomics, algorithm]
+mcp_tools:
+  - differential_abundance
 sources:
   - docs/Evidence/META-TAXA-001-Evidence.md
   - docs/algorithms/Metagenomics/Significant_Taxa_Detection.md

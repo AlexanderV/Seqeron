@@ -2,6 +2,8 @@
 type: concept
 title: "De novo motif discovery via over-represented k-mers (observed/expected enrichment)"
 tags: [motif, algorithm]
+mcp_tools:
+  - discover_motifs
 sources:
   - docs/Evidence/MOTIF-DISCOVER-001-Evidence.md
   - docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md

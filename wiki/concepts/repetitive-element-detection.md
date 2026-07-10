@@ -2,6 +2,11 @@
 type: concept
 title: "Repetitive element detection and classification"
 tags: [annotation, algorithm]
+mcp_tools:
+  - find_repetitive_elements
+  - find_repetitive_regions
+  - find_tandem_repeats
+  - tandem_repeat_summary
 sources:
   - docs/Evidence/ANNOT-REPEAT-001-Evidence.md
   - docs/Validation/reports/ANNOT-REPEAT-001.md

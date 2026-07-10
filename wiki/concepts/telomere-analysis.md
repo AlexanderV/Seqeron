@@ -2,6 +2,9 @@
 type: concept
 title: "Telomere analysis (TTAGGG repeat detection + T/S ratio length)"
 tags: [chromosome, algorithm]
+mcp_tools:
+  - analyze_telomeres
+  - estimate_telomere_length_from_ts_ratio
 sources:
   - docs/Evidence/CHROM-TELO-001-Evidence.md
   - docs/Validation/reports/CHROM-TELO-001.md

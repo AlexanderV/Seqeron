@@ -2,6 +2,9 @@
 type: concept
 title: "Population differentiation (Fst, F-statistics, pairwise Fst)"
 tags: [population-genetics, algorithm]
+mcp_tools:
+  - fst
+  - pairwise_fst
 sources:
   - docs/Evidence/POP-FST-001-Evidence.md
 source_commit: 6a9852103155b627075f1a105de26fac5b97f70a

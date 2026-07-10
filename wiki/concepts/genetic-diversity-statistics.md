@@ -2,6 +2,9 @@
 type: concept
 title: "Genetic diversity statistics (π, Watterson's θ, Tajima's D, heterozygosity)"
 tags: [population-genetics, algorithm]
+mcp_tools:
+  - diversity_statistics
+  - tajimas_d
 sources:
   - docs/Evidence/POP-DIV-001-Evidence.md
 source_commit: 909848bd266e323a5133b9158dd0cd3bf668ef43

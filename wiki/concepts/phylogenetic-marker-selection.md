@@ -2,6 +2,8 @@
 type: concept
 title: "Phylogenetic marker selection (single-copy core genes ranked by parsimony-informative sites)"
 tags: [comparative-genomics, pan-genome, phylogenetics, algorithm]
+mcp_tools:
+  - select_phylogenetic_markers
 sources:
   - docs/Evidence/PANGEN-MARKER-001-Evidence.md
 source_commit: 955bde0590e52fa1c979f009a5965d15a3a44722

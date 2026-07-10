@@ -2,6 +2,8 @@
 type: concept
 title: "Coding potential (CPAT hexamer usage-bias score)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - coding_potential
 sources:
   - docs/Evidence/ANNOT-CODING-001-Evidence.md
   - docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md

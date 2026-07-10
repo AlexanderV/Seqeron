@@ -2,6 +2,9 @@
 type: concept
 title: "Taxonomic classification (Kraken k-mer / LCA / RTL read assignment)"
 tags: [metagenomics, algorithm]
+mcp_tools:
+  - build_kmer_database
+  - classify_reads
 sources:
   - docs/Evidence/META-CLASS-001-Evidence.md
   - docs/algorithms/Metagenomics/Taxonomic_Classification.md

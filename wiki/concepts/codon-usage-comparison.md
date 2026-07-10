@@ -2,6 +2,9 @@
 type: concept
 title: "Codon usage table and TVD comparison"
 tags: [annotation, algorithm]
+mcp_tools:
+  - codon_frequencies
+  - compare_codon_usage
 sources:
   - docs/Evidence/CODON-USAGE-001-Evidence.md
   - docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md

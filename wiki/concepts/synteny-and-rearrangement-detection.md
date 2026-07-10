@@ -2,6 +2,10 @@
 type: concept
 title: "Synteny blocks and rearrangement detection"
 tags: [chromosome, comparative-genomics, algorithm]
+mcp_tools:
+  - detect_rearrangements
+  - find_syntenic_blocks
+  - find_synteny_blocks
 sources:
   - docs/Evidence/CHROM-SYNT-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md

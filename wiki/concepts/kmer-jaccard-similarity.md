@@ -2,6 +2,8 @@
 type: concept
 title: "k-mer Jaccard similarity (alignment-free sequence resemblance)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - calculate_similarity
 sources:
   - docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md
   - docs/algorithms/Analysis/Sequence_Similarity.md

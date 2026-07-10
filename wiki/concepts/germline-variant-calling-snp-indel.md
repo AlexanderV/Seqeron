@@ -2,6 +2,10 @@
 type: concept
 title: "Variant calling (SNP/indel from reference↔query alignment + Ti/Tv)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - find_indels
+  - find_snps
+  - titv_ratio
 sources:
   - docs/Evidence/VARIANT-CALL-001-Evidence.md
   - docs/Evidence/VARIANT-INDEL-001-Evidence.md

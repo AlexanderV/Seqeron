@@ -2,6 +2,8 @@
 type: concept
 title: "Isoelectric point (pI) — pH at which a protein's net charge is zero"
 tags: [sequence-statistics, protein, algorithm]
+mcp_tools:
+  - isoelectric_point
 sources:
   - docs/Evidence/SEQ-PI-001-Evidence.md
 source_commit: 8a4f33ace0d47f5ad2116aa8e775cab5608ccfc2

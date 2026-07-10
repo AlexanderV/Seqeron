@@ -2,6 +2,8 @@
 type: concept
 title: "Methylation context classification (CpG/CHG/CHH)"
 tags: [epigenetics, algorithm]
+mcp_tools:
+  - find_methylation_sites
 sources:
   - docs/Evidence/EPIGEN-METHYL-001-Evidence.md
   - docs/algorithms/Epigenetics/Methylation_Analysis.md

@@ -2,6 +2,8 @@
 type: concept
 title: "Promoter detection (scored −10 / −35 box motif scan)"
 tags: [motif, algorithm, annotation]
+mcp_tools:
+  - find_promoter_motifs
 sources:
   - docs/Validation/reports/ANNOT-PROM-001.md
   - docs/algorithms/Annotation/Promoter_Detection.md

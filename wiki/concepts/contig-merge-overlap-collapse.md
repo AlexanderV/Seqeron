@@ -2,6 +2,8 @@
 type: concept
 title: "Contig merging (suffix–prefix overlap collapse / superstring merge)"
 tags: [assembly, algorithm]
+mcp_tools:
+  - merge_contigs
 sources:
   - docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md
   - docs/algorithms/Extended_Assembly/Contig_Merging.md

@@ -2,6 +2,8 @@
 type: concept
 title: "BED format parsing (0-based half-open intervals)"
 tags: [file-io, algorithm]
+mcp_tools:
+  - to_gff3
 sources:
   - docs/Evidence/PARSE-BED-001-Evidence.md
   - docs/Validation/reports/ANNOT-GFF-001.md

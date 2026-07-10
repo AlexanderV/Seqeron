@@ -2,6 +2,9 @@
 type: concept
 title: "Gene structure prediction (intron/exon): donor+acceptor pairing, exon typing/phase, spliced sequence"
 tags: [splicing, algorithm]
+mcp_tools:
+  - predict_gene_structure
+  - predict_introns
 sources:
   - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
 source_commit: ef8542055a460fa508da5902be1ed2256c1c6f83

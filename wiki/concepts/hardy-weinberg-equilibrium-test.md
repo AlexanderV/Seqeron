@@ -2,6 +2,8 @@
 type: concept
 title: "Hardy-Weinberg equilibrium test (chi-square)"
 tags: [population-genetics, algorithm]
+mcp_tools:
+  - hardy_weinberg_test
 sources:
   - docs/Evidence/POP-HW-001-Evidence.md
 source_commit: 0ddacceea3a398cc68e027111682aa4ce726fcb7

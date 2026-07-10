@@ -2,6 +2,8 @@
 type: concept
 title: "Conserved gene clusters (common intervals)"
 tags: [comparative-genomics, algorithm]
+mcp_tools:
+  - find_conserved_clusters
 sources:
   - docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Conserved_Gene_Clusters.md

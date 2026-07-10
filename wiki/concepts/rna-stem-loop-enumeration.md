@@ -2,6 +2,9 @@
 type: concept
 title: "RNA stem-loop / hairpin enumeration (sequence scan, tetraloops)"
 tags: [rna, algorithm]
+mcp_tools:
+  - find_stem_loops
+  - hairpin_loop_energy
 sources:
   - docs/Evidence/RNA-STEMLOOP-001-Evidence.md
 source_commit: 05292f4bc746f5b7f5f6637a2953864d096833cc

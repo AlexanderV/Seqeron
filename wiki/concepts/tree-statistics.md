@@ -2,6 +2,8 @@
 type: concept
 title: "Tree statistics (leaf count, total tree length, tree depth/height)"
 tags: [phylogenetics, algorithm]
+mcp_tools:
+  - tree_depth
 sources:
   - docs/Evidence/PHYLO-STATS-001-Evidence.md
 source_commit: 956d8f52e81160361eaf4673e2b2dedcc906ea08

@@ -2,6 +2,9 @@
 type: concept
 title: "Known motif search (multi-pattern exact substring matching)"
 tags: [motif, algorithm]
+mcp_tools:
+  - find_exact_motif
+  - find_known_motifs
 sources:
   - docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md
   - docs/algorithms/Motif_Analysis/Known_Motif_Search.md

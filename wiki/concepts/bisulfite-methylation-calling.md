@@ -2,6 +2,9 @@
 type: concept
 title: "Bisulfite sequencing methylation calling"
 tags: [epigenetics, algorithm]
+mcp_tools:
+  - methylation_from_bisulfite
+  - simulate_bisulfite_conversion
 sources:
   - docs/Evidence/EPIGEN-BISULF-001-Evidence.md
   - docs/algorithms/Epigenetics/Bisulfite_Sequencing_Analysis.md

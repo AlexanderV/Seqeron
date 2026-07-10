@@ -17,6 +17,9 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[mcp-checklist]] — the SUPERSEDED (2026-07-01) MCP build tracker: a 12-server/241-tool plan never built; DoD gates, error-code catalog, two-tests-per-tool. Live status now in `docs/mcp/MCP_STATUS.md`.
 - [[mcp-plan]] — the SUPERSEDED (2026-07-01) MCP design doc (sibling of the checklist): v3→v4 rationale, full 241-tool inventory across 12 servers, and the still-valid standards (naming, JSON-Schema 2020-12, error ranges, SemVer, 2-tests-per-tool, doc contract).
 - [[mcp-prompt]] — the CURRENT one-tool-per-session MCP-completion subagent prompt: names the real 11 servers (server→project→file), the 3-part tool DoD (binding+tests+docs), and reverses the old no-business-asserts test policy. Ground truth: `docs/mcp/MCP_STATUS.md`.
+- [[mcp-readme]] — the MCP front-door guide (`docs/mcp/README.md`): why MCP (real computation, structured I/O, local/auditable), the current 427-tools/11-servers table, stdio/Codex connection, and two worked tool-only workflows; supersedes the mcp-plan/mcp-checklist tool counts.
+- [[skills-strategy]] — the Claude Code skills plan of record (`docs/skills/STRATEGY.md`): many independent dual-mode skills over the source of truth, point-don't-duplicate, the generated-catalog anti-drift mechanism, and the (complete) phase plan.
+- [[golden-skills-regression]] — the golden skills regression set (`docs/skills/golden/README.md`): 12 hard dual-mode tasks with expected routing/pipeline/rigor/shape as a manual eval aid; the Phase-3 acceptance instrument for the skills strategy.
 - [[sonar-gate-plan]] — the Sonar-ratchet tracker: 66/66 SonarAnalyzer rules moved from report-only to blocking (or silenced-with-justification); Groups A–E, notable behaviour changes, and review-not-blind-fix on the S1244/S125 giants.
 - [[findings-register]] — the validation-campaign disposition ledger: every note across all 86 per-unit reports triaged into fixed-now / feasible / not-possible / by-design; green-washing detection; a 2026-06-12 snapshot superseded by the 2026-06-24 re-validation reset.
 - [[validation-ledger]] — the live per-unit validation status board (VALIDATION_LEDGER.md): Stage A / Stage B pass-fail matrix across three phases (86 implemented + 24 new campaign units, 148 Phase-2, 12 enhanced), refreshed by reset banners after code churn; ground truth for *where things stand*, superseding the findings-register snapshot.
@@ -305,6 +308,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 
 - [[three-front-doors]] — one algorithm engine exposed through skills, the C# API, and MCP, with identical results.
 - [[skill-layer]] — the Agent-Skill routing + discipline layer that keeps 427 tool schemas out of the model's context.
+- [[mcp-tool-catalog]] — reference map of all 427 MCP tools across 11 servers to the [[concept]] each thin wrapper delegates to (209 mapped / 218 unmapped, 120 concepts); replaces per-tool ingestion.
 - [[layered-architecture]] — the strict up-only dependency layering (Levels 0–4) enforced by architecture tests.
 - [[scientific-rigor]] — runtime honesty: `LimitationPolicy`, tool-only computation, provenance on every result.
 - [[validation-and-testing]] — 22k+ tests across ten methodologies plus the per-unit validation campaign.

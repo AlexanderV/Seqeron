@@ -2,6 +2,8 @@
 type: concept
 title: "Average Nucleotide Identity (ANI)"
 tags: [comparative-genomics, algorithm]
+mcp_tools:
+  - calculate_ani
 sources:
   - docs/Evidence/COMPGEN-ANI-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md

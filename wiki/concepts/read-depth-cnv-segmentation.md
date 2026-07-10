@@ -2,6 +2,8 @@
 type: concept
 title: "Read-depth CNV detection (windowed depth → log2 ratio → integer copy number → del/dup)"
 tags: [structural-variant, algorithm]
+mcp_tools:
+  - segment_copy_number
 sources:
   - docs/Evidence/SV-CNV-001-Evidence.md
 source_commit: 59811dacff3428aa9f6ae78b68795bba34ce864d

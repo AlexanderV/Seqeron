@@ -2,6 +2,9 @@
 type: concept
 title: "Codon Adaptation Index (CAI)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - cai_from_organism_table
+  - codon_adaptation_index
 sources:
   - docs/Evidence/CODON-CAI-001-Evidence.md
   - docs/algorithms/Codon_Optimization/CAI_Calculation.md

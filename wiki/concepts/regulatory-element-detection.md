@@ -2,6 +2,12 @@
 type: concept
 title: "Regulatory-element detection (canonical consensus catalog scan)"
 tags: [motif, algorithm]
+mcp_tools:
+  - annotate_regulatory_elements
+  - create_pwm
+  - find_degenerate_motif
+  - find_regulatory_elements
+  - scan_with_pwm
 sources:
   - docs/Evidence/MOTIF-REGULATORY-001-Evidence.md
   - docs/algorithms/Motif_Discovery/Regulatory_Elements.md

@@ -2,6 +2,10 @@
 type: concept
 title: "Intrinsic-disorder prediction (TOP-IDP sliding window, PredictDisorder)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - disorder_propensity
+  - is_disorder_promoting
+  - predict_disorder
 sources:
   - docs/Validation/reports/DISORDER-PRED-001.md
   - docs/Validation/reports/DISORDER-PROPENSITY-001.md

@@ -2,6 +2,8 @@
 type: concept
 title: "Functional prediction (homology-based annotation transfer + hypergeometric pathway ORA)"
 tags: [metagenomics, algorithm]
+mcp_tools:
+  - predict_functions
 sources:
   - docs/Evidence/META-FUNC-001-Evidence.md
   - docs/algorithms/Metagenomics/Functional_Prediction.md

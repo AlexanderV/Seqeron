@@ -2,6 +2,9 @@
 type: concept
 title: "K-mer spectrum read error correction (two-sided, Musket/Quake)"
 tags: [assembly, algorithm]
+mcp_tools:
+  - error_correct_reads
+  - kmer_spectrum
 sources:
   - docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md
   - docs/algorithms/Assembly/Error_Correction.md

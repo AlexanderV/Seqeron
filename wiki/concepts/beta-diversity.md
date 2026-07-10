@@ -2,6 +2,8 @@
 type: concept
 title: "Beta diversity (between-sample dissimilarity: Bray-Curtis + Jaccard)"
 tags: [metagenomics, algorithm]
+mcp_tools:
+  - beta_diversity
 sources:
   - docs/Evidence/META-BETA-001-Evidence.md
   - docs/algorithms/Metagenomics/Beta_Diversity.md

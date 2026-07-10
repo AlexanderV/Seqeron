@@ -2,6 +2,8 @@
 type: concept
 title: "Coverage / sequencing-depth calculation (per-base depth, breadth, average)"
 tags: [assembly, algorithm]
+mcp_tools:
+  - calculate_coverage
 sources:
   - docs/Evidence/ASSEMBLY-COVER-001-Evidence.md
   - docs/algorithms/Assembly/Coverage_Calculation.md

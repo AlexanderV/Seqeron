@@ -2,6 +2,9 @@
 type: concept
 title: "Codon optimization (OptimizeSequence)"
 tags: [annotation, algorithm]
+mcp_tools:
+  - optimize_codons
+  - reduce_secondary_structure
 sources:
   - docs/Evidence/CODON-OPT-001-Evidence.md
   - docs/algorithms/Codon_Optimization/Sequence_Optimization.md

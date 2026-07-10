@@ -2,6 +2,8 @@
 type: concept
 title: "Epigenetic age (Horvath DNAm methylation clock)"
 tags: [epigenetics, algorithm]
+mcp_tools:
+  - epigenetic_age
 sources:
   - docs/Evidence/EPIGEN-AGE-001-Evidence.md
   - docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md

@@ -2,6 +2,8 @@
 type: concept
 title: "Taxonomic profile (community abundance profiling)"
 tags: [metagenomics, algorithm]
+mcp_tools:
+  - taxonomic_profile
 sources:
   - docs/Evidence/META-PROF-001-Evidence.md
   - docs/algorithms/Metagenomics/Taxonomic_Profile.md

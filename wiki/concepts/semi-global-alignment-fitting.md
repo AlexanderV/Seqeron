@@ -2,6 +2,8 @@
 type: concept
 title: "Semi-global alignment (fitting / query-in-reference)"
 tags: [alignment, algorithm]
+mcp_tools:
+  - semi_global_align
 sources:
   - docs/Evidence/ALIGN-SEMI-001-Evidence.md
   - docs/algorithms/Alignment/Semi_Global_Alignment.md

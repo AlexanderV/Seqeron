@@ -2,6 +2,8 @@
 type: concept
 title: "Protein secondary structure — Chou-Fasman Pα/Pβ/Pt sliding-window propensity profile"
 tags: [sequence-statistics, protein, algorithm]
+mcp_tools:
+  - predict_chou_fasman
 sources:
   - docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md
 source_commit: 60297de1f42b4812ee249dc1773b8d88d89aa0d5

@@ -2,6 +2,9 @@
 type: concept
 title: "Evolutionary distance matrix (p-distance / Jukes–Cantor / Kimura-2-parameter / Hamming — the substrate distance-based tree building consumes)"
 tags: [phylogenetics, algorithm]
+mcp_tools:
+  - build_tree_from_matrix
+  - distance_matrix
 sources:
   - docs/Evidence/PHYLO-DIST-001-Evidence.md
 source_commit: 3a53115ec5fbdbc54448d69550c3b961c40a320a

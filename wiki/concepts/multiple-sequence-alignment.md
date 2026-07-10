@@ -2,6 +2,8 @@
 type: concept
 title: "Multiple sequence alignment (MSA)"
 tags: [alignment, algorithm]
+mcp_tools:
+  - multiple_align
 sources:
   - docs/Evidence/ALIGN-MULTI-001-Evidence.md
   - docs/algorithms/Alignment/Multiple_Sequence_Alignment.md

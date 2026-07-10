@@ -2,6 +2,9 @@
 type: concept
 title: "Genome rearrangement detection by breakpoints (signed permutations)"
 tags: [comparative-genomics, algorithm]
+mcp_tools:
+  - detect_rearrangements
+  - reversal_distance
 sources:
   - docs/Evidence/COMPGEN-REARR-001-Evidence.md
   - docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md

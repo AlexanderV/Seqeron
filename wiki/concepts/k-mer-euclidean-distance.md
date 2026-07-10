@@ -2,6 +2,9 @@
 type: concept
 title: "k-mer Euclidean distance (alignment-free word-frequency distance)"
 tags: [analysis, algorithm]
+mcp_tools:
+  - kmer_distance
+  - kmer_frequencies
 sources:
   - docs/Evidence/KMER-DIST-001-Evidence.md
   - docs/algorithms/K-mer/K-mer_Euclidean_Distance.md

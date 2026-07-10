@@ -2,6 +2,10 @@
 type: concept
 title: "Longest common substring / common-region detection (generalized suffix tree)"
 tags: [sequence-comparison, algorithm]
+mcp_tools:
+  - find_common_regions
+  - find_longest_common_region
+  - suffix_tree_lcs
 sources:
   - docs/Evidence/GENOMIC-COMMON-001-Evidence.md
   - docs/algorithms/Sequence_Comparison/Common_Region_Detection.md

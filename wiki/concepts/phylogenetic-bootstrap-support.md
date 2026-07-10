@@ -2,6 +2,8 @@
 type: concept
 title: "Phylogenetic bootstrap support (Felsenstein bootstrap proportions — column resampling → tree replicates → clade support)"
 tags: [phylogenetics, algorithm]
+mcp_tools:
+  - bootstrap_support
 sources:
   - docs/Evidence/PHYLO-BOOT-001-Evidence.md
 source_commit: fd10c2dd29b1edd788a25d3aed9b67cdab80685d

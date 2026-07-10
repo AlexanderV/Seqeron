@@ -2,6 +2,9 @@
 type: concept
 title: "Alignment statistics (identity / similarity / gaps)"
 tags: [alignment, algorithm]
+mcp_tools:
+  - alignment_statistics
+  - format_alignment
 sources:
   - docs/Evidence/ALIGN-STATS-001-Evidence.md
   - docs/algorithms/Alignment/Alignment_Statistics.md

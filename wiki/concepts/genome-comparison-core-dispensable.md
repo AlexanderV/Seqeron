@@ -2,6 +2,8 @@
 type: concept
 title: "Genome comparison pipeline (core/dispensable partition + syntenic fraction)"
 tags: [comparative-genomics, algorithm]
+mcp_tools:
+  - compare_genomes
 sources:
   - docs/Evidence/COMPGEN-COMPARE-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Genome_Comparison.md

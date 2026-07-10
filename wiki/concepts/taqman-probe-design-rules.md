@@ -2,6 +2,10 @@
 type: concept
 title: "TaqMan hydrolysis-probe design rules"
 tags: [primer, algorithm, validation]
+mcp_tools:
+  - design_antisense_probes
+  - design_probes
+  - design_tiling_probes
 sources:
   - docs/Evidence/PROBE-DESIGN-001-Evidence.md
   - docs/Evidence/PROBE-DESIGN-001-LNA-Evidence.md
