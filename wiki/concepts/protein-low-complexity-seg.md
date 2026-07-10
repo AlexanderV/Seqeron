@@ -4,8 +4,9 @@ title: "Protein low-complexity region detection (SEG algorithm)"
 tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-LC-001-Evidence.md
+  - docs/Evidence/PROTMOTIF-LC-001-Evidence.md
   - docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md
-source_commit: 05fff695e889b79023301d7319afbc8a24e0bec4
+source_commit: dda0efbabe0d4288e2a5f4e50964fb84a531cf23
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -14,6 +15,12 @@ graph:
       object: concept:test-unit-registry
       source: disorder-lc-001-evidence
       evidence: "Test Unit ID: DISORDER-LC-001 ... Algorithm: Low-Complexity Region Detection in Protein Sequences (SEG algorithm; Wootton & Federhen)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: protmotif-lc-001-evidence
+      evidence: "Test Unit ID: PROTMOTIF-LC-001 ... Algorithm: Low-Complexity Region Detection (SEG, Wootton & Federhen 1993) — same SEG method, ProteinMotif-family registration"
       confidence: high
       status: current
 ---
@@ -26,6 +33,12 @@ alignment and database search. Seqeron implements the **SEG algorithm** of Woott
 (1993/1996), validated under test unit **DISORDER-LC-001**; the validation record is
 [[disorder-lc-001-evidence]] and [[test-unit-registry]] tracks the unit. See
 [[algorithm-validation-evidence]] for the artifact pattern.
+
+The **same SEG method** is also registered in the **ProteinMotif** family as test unit
+**PROTMOTIF-LC-001** — a second Evidence artifact ([[protmotif-lc-001-evidence]]) tracing the
+identical algorithm (same W=12 / K1=2.2 / K2=2.5 defaults, same Shannon-entropy bits/residue
+measure, same two-stage trigger/extend scan) with an additional Pei & Grishin 2005 primary
+source. It is **not a different low-complexity method**; the two units share this one concept.
 
 This is the **first ingested unit of the protein disorder / features family** (DISORDER-LC / MORF /
 PRED / PROPENSITY / REGION). SEG low-complexity detection is a *distinct algorithm* from
