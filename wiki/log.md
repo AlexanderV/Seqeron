@@ -3505,3 +3505,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    first-class named variant and iterative as the addendum sibling — left as a follow-up, not rewritten.
    graph: no typed edges (source→concept report link is an auto-derived mentions/sourced_from edge; no new
    typed concept-to-concept predicate is warranted).
+
+## [2026-07-10] ingest | docs/Validation/reports/ALIGN-SEMI-001.md → align-semi-001-report (source) + 1 concept
+   New source page align-semi-001-report (Stage A/B validation write-up: both PASS, State CLEAN, 17 canonical
+   + property tests green; hand-recomputed fitting cases M1 4 / GAP 2 / MIX 1 / MAX 3, 11/11 cross-verification
+   table, first-row-0 + no-zero-floor + argmax-last-row code evidence). Kept distinct from the pre-impl
+   [[align-semi-001-evidence]] artifact. ENRICHED existing concept [[semi-global-alignment-fitting]] (added
+   report to sources + source_commit bump + one-line re-validation CLEAN-verdict cross-link). Did NOT create a
+   new concept (semi-global/fitting/overlap/glocal already represented) and did NOT force the
+   algorithm-validation-evidence hub; tied the report to [[validation-ledger]]/[[validation-protocol]] from the
+   source page. Updated wiki/index.md (Sources). No backlog move (validation reports are coverage-excluded, not
+   a backlog slug). No contradictions flagged.
+   graph: no typed edges (source→concept report link is an auto-derived mentions/sourced_from edge; no new
+   typed concept-to-concept predicate is warranted).

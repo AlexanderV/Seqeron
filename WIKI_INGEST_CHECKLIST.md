@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 273 / 1181
+Progress: 274 / 1181
 
 ## (top-level)  (6)
 
@@ -240,7 +240,7 @@ Progress: 273 / 1181
 - [x] docs/Validation/reports/ALIGN-GLOBAL-001.md
 - [x] docs/Validation/reports/ALIGN-LOCAL-001.md
 - [x] docs/Validation/reports/ALIGN-MULTI-001.md
-- [ ] docs/Validation/reports/ALIGN-SEMI-001.md
+- [x] docs/Validation/reports/ALIGN-SEMI-001.md
 - [ ] docs/Validation/reports/ALIGN-STATS-001.md
 - [ ] docs/Validation/reports/ANNOT-CODING-001.md
 - [ ] docs/Validation/reports/ANNOT-CODONUSAGE-001.md

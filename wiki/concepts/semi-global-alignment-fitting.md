@@ -5,7 +5,8 @@ tags: [alignment, algorithm]
 sources:
   - docs/Evidence/ALIGN-SEMI-001-Evidence.md
   - docs/algorithms/Alignment/Semi_Global_Alignment.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ALIGN-SEMI-001.md
+source_commit: a8a874422c1e77ba29bb0c230252ed0e96a82660
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -71,4 +72,6 @@ corresponding to Rosalind SIMS. Its defining invariants: the query is fully repr
 reference, with score = max_j F(m,j).
 
 See [[algorithm-validation-evidence]] for the evidence-artifact pattern behind this unit and
-[[global-alignment-needleman-wunsch]] for the global mode it extends.
+[[global-alignment-needleman-wunsch]] for the global mode it extends. The 2026-06-24
+validation write-up ([[align-semi-001-report|Stage A/B report]]) closed it **✅ CLEAN** —
+Stage A and Stage B both PASS, 17 canonical + property tests green, no code changes.
