@@ -9,7 +9,8 @@ sources:
   - docs/sonar-gate-plan.md
   - docs/Validation/FINDINGS_REGISTER.md
   - docs/Validation/LIMITATIONS.md
-source_commit: 45545719fbdd7689c20bb680104862f6098adf32
+  - docs/Validation/VALIDATION_LEDGER.md
+source_commit: 255a8836226b75d0cded56b57ffdb14184737664
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -47,6 +48,6 @@ Coverage was uneven at the [[advanced-testing-checklist]] baseline (2026-03-19) 
 
 Beyond tests, the README describes a per-unit internal validation campaign: a findings register, a published [[limitations|limitations / operating-envelope document]] (enforced at runtime — see [[operating-envelope-and-limitation-policy]]), literature-traced parameters, and one report per unit under `docs/Validation/reports`. This is the evidence base behind the runtime [[scientific-rigor]] guarantees — but it is internal and self-validated, with the caveats spelled out in [[research-grade-limitations]].
 
-The [[findings-register]] is that register made concrete: it triages **every** note across all 86 per-unit reports into one of four dispositions (fixed-now / feasible / not-possible / by-design) via the [[validation-findings-disposition]] process. Its most striking output is **green-washing detection** — a large share of "green" tests were found to assert a defective spec (tautologies, code-echo oracles), and were re-anchored to independently sourced literals and mutation-checked. Note the register is a 2026-06-12 snapshot **superseded by a full re-validation reset on 2026-06-24**, so read it as historical reasoning, not live status.
+The [[findings-register]] is that register made concrete: it triages **every** note across all 86 per-unit reports into one of four dispositions (fixed-now / feasible / not-possible / by-design) via the [[validation-findings-disposition]] process. Its most striking output is **green-washing detection** — a large share of "green" tests were found to assert a defective spec (tautologies, code-echo oracles), and were re-anchored to independently sourced literals and mutation-checked. Note the register is a 2026-06-12 snapshot **superseded by a full re-validation reset on 2026-06-24**, so read it as historical reasoning, not live status — the live per-unit status board is the [[validation-ledger]] (three phases: 86 implemented + 24 new campaign units, 148 Phase-2, 12 enhanced), which every governance page treats as ground truth for *where things stand*.
 
 The campaign is tracked unit-by-unit in the [[test-unit-registry]] (364 units, 255 complete at the ingested revision), where each unit must clear the [[definition-of-done]]. Note the "258 algorithm units" figure from the README and the "364 test units" figure from [[algorithms-checklist-v2]] count different things — algorithm implementations versus tracked test units (255 done + 109 proposed) — and are not in conflict.

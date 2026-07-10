@@ -64,6 +64,6 @@ A finding that turns out to be a sourced non-defect is correctly closed as **BY-
 
 A disposition register is a **snapshot** of one pass, not a live tracker. The findings register was
 explicitly **superseded on 2026-06-24** by a full re-validation reset (all units back to pending in
-`docs/Validation/VALIDATION_LEDGER.md`); the per-unit [[test-unit-registry]] and its
+the [[validation-ledger]], `docs/Validation/VALIDATION_LEDGER.md`); the per-unit [[test-unit-registry]] and its
 [[definition-of-done]] carry current state. Treat a disposition table as historical evidence of *how*
-findings were reasoned about, and the ledger as ground truth for *where things stand*.
+findings were reasoned about, and the [[validation-ledger|ledger]] as ground truth for *where things stand*.

@@ -58,7 +58,7 @@ S1244/S125 Sonar giants.
 ## Status and the re-validation reset
 
 The document opens with a **superseding banner**: on **2026-06-24** a full re-validation reset moved all
-units back to pending in `docs/Validation/VALIDATION_LEDGER.md` and `docs/checklists/` for a fresh
+units back to pending in the [[validation-ledger]] (`docs/Validation/VALIDATION_LEDGER.md`) and `docs/checklists/` for a fresh
 end-to-end re-verification (triggered by the extensive code churn of the limitations-elimination campaign).
 The dispositions below the banner are therefore **retained as historical evidence but SUPERSEDED** until
 each unit is re-validated. Read this register as a snapshot of the 2026-06-12 pass plus its per-row
@@ -69,4 +69,5 @@ completion notes, not as live status — the ledger is ground truth for current 
 - [[validation-and-testing]] — the correctness/validation strategy this register operationalizes finding-by-finding.
 - [[validation-findings-disposition]] — the triage governance process (the A/B/C/D mechanism) abstracted from this document.
 - [[build-quality-gate]] — shares the "review, don't green-wash" / spec-not-impl standing rule.
+- [[validation-ledger]] — the live per-unit status tracker that supersedes this snapshot as ground truth for current state.
 - [[test-unit-registry]] / [[definition-of-done]] — the per-unit tracking and bar that produce these findings.

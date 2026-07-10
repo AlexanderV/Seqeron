@@ -3434,3 +3434,19 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    algorithm-validation-evidence hub (governance envelope, not per-algorithm Evidence). Updated
    wiki/index.md (Sources + Concepts). No contradictions flagged.
    graph: +2 nodes, +2 typed edges (operating-envelope-and-limitation-policy relates_to scientific-rigor, relates_to validation-and-testing)
+
+## [2026-07-10] ingest | docs/Validation/VALIDATION_LEDGER.md -> validation-ledger (source), 3 pages enriched
+   GOVERNANCE. New source page for the live per-unit validation status tracker — the ground-truth
+   "where things stand" board (distinct from the test-unit-registry ID-scheme/spec and from the
+   superseded findings-register snapshot). Captured the two-context protocol (fresh session/unit,
+   implementer != validator, external primary sources, mutation checks), Stage A/B + State legend,
+   and all three phases: Phase 1 (86 implemented CLEAN after the 2026-06-24 reset; 1 defect fixed
+   PARSE-GENBANK-001; 19 re-reset 2026-06-25; +24 new campaign units) / Phase 2 (148 units, 13 genuine
+   defects fixed) / Phase 3 (12 enhanced units, 1 latent defect PHYLO-NEWICK-001). Did NOT create a new
+   concept (economical — enriched existing governance concepts instead) and did NOT force the
+   algorithm-validation-evidence hub. ENRICHED test-unit-registry (added the live-status ledger vs
+   registry-spec distinction; +ledger source/commit bump), validation-and-testing (campaign paragraph
+   now links the ledger as ground truth; +ledger source/commit bump), validation-findings-disposition
+   (ledger wikilinks in the live-status section), and the findings-register source page (back-link +
+   Where-this-fits). Updated wiki/index.md (Sources). No contradictions flagged.
+   graph: +1 node, +1 typed edge (validation-ledger supersedes findings-register)

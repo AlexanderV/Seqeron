@@ -4,9 +4,10 @@ title: "Test-unit registry and ID scheme"
 tags: [validation, testing]
 sources:
   - ALGORITHMS_CHECKLIST_V2.md
-source_commit: 6a14170477c9472c0be07e3b7c7f7123e31eddcf
+  - docs/Validation/VALIDATION_LEDGER.md
+source_commit: 255a8836226b75d0cded56b57ffdb14184737664
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -32,5 +33,7 @@ Each unit carries:
 - a **Processing Registry** row — area, method count, **evidence** (Wikipedia + primary literature + reference tools), a `TestSpecs/<ID>.md`, and the test file(s);
 - a **spec block** — canonical method, complexity, invariant, and enumerated edge cases;
 - a **status** — `☑` completed, `☐` not started (with a distinct `☐`-pending-re-validation state for campaign-added units).
+
+The registry fixes each unit's *identity and spec*; the **live pass/fail state** of every unit lives in the [[validation-ledger]] (`docs/Validation/VALIDATION_LEDGER.md`), a per-stage (Stage A / Stage B) status board refreshed by reset banners after code churn. Registry and ledger track the same units for different purposes — the registry says *what a unit is and whether it's built*, the ledger says *whether its latest validation still holds*.
 
 At the ingested revision: **364 units, 255 completed, 109 proposed**, and 44/57 classes covered. Every unit must clear the [[definition-of-done]]. This registry is the concrete mechanism behind the [[validation-and-testing]] strategy, and future ingests of individual `TestSpecs/` documents should link back here by unit ID. The literature-traced source record for each unit lives in a per-unit [[algorithm-validation-evidence|evidence artifact]] under `docs/Evidence/`.
