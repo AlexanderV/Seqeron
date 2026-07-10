@@ -3533,3 +3533,20 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    a backlog slug). No contradictions flagged.
    graph: no typed edges (source→concept report link is an auto-derived mentions/sourced_from edge; no new
    typed concept-to-concept predicate is warranted).
+
+## [2026-07-10] ingest | docs/Validation/reports/ANNOT-CODING-001.md → annot-coding-001-report (source)
+   New source page annot-coding-001-report (Stage A/B two-stage validation write-up: Stage A PASS-WITH-NOTES,
+   Stage B PASS after in-session fix, State CLEAN, full suite 6561/0). Records a GENUINE defect found+fixed:
+   the shipped CalculateCodingPotential had no both-zero branch and counted a both-in-both-tables-zero hexamer
+   as a scored 0, contradicting canonical CPAT/lncScore FrameKmer.py which continues (not counted). Fix added
+   the missing branch; the mirror-defect also lived in a code-echo test C1 (rewritten 0.6931->1.3863 sourced
+   value) and three docs (algorithm doc 2.2 / Evidence / TestSpec). Discriminating cross-check: both-zero case
+   scores ln4 = 1.3862943611198906, not the diluted value. Kept distinct from the pre-impl
+   [[annot-coding-001-evidence]] artifact. ENRICHED existing concept [[coding-potential-hexamer-score]] (added
+   report to sources + commit bump + one-line both-zero-defect cross-link on the exact branch). Did NOT create a
+   new concept (coding-potential/CPAT/hexamer already represented) and did NOT force the
+   algorithm-validation-evidence hub; tied the report to [[validation-ledger]]/[[validation-protocol]]. Updated
+   wiki/index.md (Sources). No backlog move (validation reports are coverage-excluded, not a backlog slug). No
+   contradictions flagged (the report itself corrects a prior doc/test transcription error, now consistent).
+   graph: no typed edges (source->concept report link is an auto-derived mentions/sourced_from edge; no new
+   typed concept-to-concept predicate is warranted).

@@ -5,9 +5,10 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/ANNOT-CODING-001-Evidence.md
   - docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ANNOT-CODING-001.md
+source_commit: e748206486a14ab05fe3c14e312e74cd77874af2
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -26,6 +27,9 @@ hexamer usage resembles known coding vs. noncoding sequence. It is the hexamer f
 protein-coding transcripts and lncRNAs/noncoding RNA. Validated as
 [[annot-coding-001-evidence|ANNOT-CODING-001]] against the CPAT paper and the reference
 `cpmodule/FrameKmer.py`. See [[test-unit-registry]] for how the unit is tracked.
+The two-stage validation run ([[annot-coding-001-report]]) found and fixed a real code
+defect in exactly the both-zero branch below (it was being counted, not skipped) — see that
+report for the verdict and cross-check.
 
 ## The score
 
