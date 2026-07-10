@@ -5,9 +5,10 @@ tags: [epigenetics, algorithm]
 sources:
   - docs/Evidence/EPIGEN-AGE-001-Evidence.md
   - docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md
-source_commit: e90a75989c52785a566e034477454379fd0535e0
+  - docs/Validation/reports/EPIGEN-AGE-001.md
+source_commit: 4416f109abc62e50a964a9613c0361828869e163
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -27,7 +28,9 @@ Epigenetics family**; two siblings now exist — [[bisulfite-methylation-calling
 histone marks, and [[cpg-island-detection]] is the sequence-only unit that *locates* CpG sites and
 islands (DMRs remain queued). Validated under test
 unit **EPIGEN-AGE-001**;
-the validation record is [[epigen-age-001-evidence]], [[test-unit-registry]] tracks the unit, and
+the pre-implementation evidence record is [[epigen-age-001-evidence]], the independent two-stage
+re-validation verdict is [[epigen-age-001-report]] (Stage A/B PASS, CLEAN — feeds the
+[[validation-ledger]]), [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern.
 
 DNA methylation at **CpG dinucleotides** changes systematically with age. Horvath (2013) selected
@@ -108,6 +111,12 @@ two more embedded clocks that share this concept's linear-predictor structure:
   (adult.age = 20) path; `CalculateSkinBloodAge`.
 - **Levine (2018) DNAm PhenoAge** — 513 CpGs, intercept 60.664, **no transform** (the linear
   predictor is already in years); `CalculatePhenoAge`.
+
+The [[epigen-age-001-report]] re-validation (2026-06-24) independently confirmed **all three** clocks:
+the embedded 391-CpG (skin&blood) and 513-CpG (PhenoAge) tables are **numerically identical** to the
+biolearn reference (`Horvath2.csv` / `PhenoAge.csv`, max abs coefficient diff **0.0**), the multi-tissue
+353-CpG table is byte-identical, and a PhenoAge **negative control** (`anti.trafo(60.664) = 1293.944`)
+locks in that PhenoAge is returned untransformed. Verdict CLEAN, no code change.
 
 The implementation does **not** perform the full Horvath pipeline's upstream **BMIQ normalisation** of
 input β-values or array-platform handling — callers must pre-normalise. A
