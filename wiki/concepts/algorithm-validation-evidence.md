@@ -171,6 +171,7 @@ sources:
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
   - docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
+  - docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md
 source_commit: f6fc5f03fffb7fd2053db36d0ad79995b8affe3e
 created: 2026-07-09
 updated: 2026-07-10

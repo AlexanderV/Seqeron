@@ -4,7 +4,8 @@ title: "Windowed GC profile & compositional variance"
 tags: [sequence-statistics, composition, chromosome]
 sources:
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
-source_commit: f6fc5f03fffb7fd2053db36d0ad79995b8affe3e
+  - docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md
+source_commit: 599fc94985c5e39969feee53560e6db69d7bb21f
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -13,6 +14,18 @@ graph:
       object: concept:test-unit-registry
       source: seq-gc-analysis-001-evidence
       evidence: "Test Unit ID: SEQ-GC-ANALYSIS-001 ... Algorithm: Comprehensive GC Analysis (GC content, GC skew, AT skew, windowed profiles, compositional variance)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: seq-gc-profile-001-evidence
+      evidence: "Test Unit ID: SEQ-GC-PROFILE-001; Algorithm: GC Content Profile (sliding-window GC content) — the same windowed GC%=(G+C)/(A+T+G+C)×100 and window geometry as the composite's GC-content channel, emitted standalone (GC% only, no skew profile, no variance)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:base-composition
+      source: seq-gc-profile-001-evidence
+      evidence: "SEQ-GC-PROFILE-001 windows the GC%=(G+C)/(A+T+G+C)×100 quantity base-composition defines (Wikipedia GC-content; Biopython gc_fraction ×100), N excluded from the denominator (remove mode)"
       confidence: high
       status: current
     - predicate: relates_to
@@ -36,7 +49,9 @@ graph:
 GC/AT scalars with a **sliding-window profile** of GC content and GC skew, plus the
 **population variance** of each windowed series. The scalars are not new — this concept is the
 home for the two things that are: the **windowed GC profiles** and the **compositional
-variance** summaries.
+variance** summaries. The windowed GC%-content channel also ships as a **standalone unit**,
+**SEQ-GC-PROFILE-001** ([[seq-gc-profile-001-evidence]]) — GC% only, no skew profile and no
+variance; see the [standalone-unit section](#standalone-entry-point-the-gc-only-window-profile-seq-gc-profile-001) below.
 
 ## The six outputs
 
@@ -76,6 +91,30 @@ this sequence, not a sample of a larger set, so population variance is the natur
 `6.8`). Worked GC datasets: `GGGCCAT` (whole-sequence window) → GC% `71.428…`, GC skew `0.2`,
 AT skew `0.0`; windowing `GGCC` at w=2/s=2 → windows `GG` (skew `+1`, GC% 100) and `CC`
 (skew `−1`, GC% 100) ⇒ `GcSkewVariance = ((1)²+(−1)²)/2 = 1.0`, `GcContentVariance = 0.0`.
+
+## Standalone entry point: the GC%-only window profile (SEQ-GC-PROFILE-001)
+
+The windowed **GC-content** channel above has a **standalone entry point** validated as test unit
+**SEQ-GC-PROFILE-001** — a **sliding-window GC-content profile** that slides a fixed-width window
+along the sequence and emits, per fully-contained window, its **`GC% = (G+C)/(A+T+G+C) × 100`**
+*alone*, without the paired GC-skew profile or the population-variance summaries. It is the **same
+measure and the same window geometry** as this composite's GC-content channel — not a different
+statistic — just that channel emitted on its own. Same conventions apply: **GC% percentage (×100)**
+units, **N and other non-standard symbols excluded from the denominator** (matching Biopython's
+default `ambiguous="remove"` and the Wikipedia A+T+G+C denominator — window `GGAN` → `2/3×100 =
+66.66…%`), **RNA U treated as a non-GC base** (= T), and the **empty-window convention** (a window
+with no standard base ⇒ `A+T+G+C = 0` division by zero ⇒ **GC% `0`**, mirroring the sibling
+`GcSkewCalculator`). Window count `⌊(n − w)/step⌋ + 1` with offsets `0, step, 2·step, …`; a sequence
+**shorter than one window** (or null/empty) ⇒ **empty profile**; every window value is bounded
+`[0, 100]`.
+
+Worked window oracles (×100): `GGGG` → **100.0**, `AAAA` → **0.0**, `ATGC` → **50.0**, `GGGA` →
+**75.0**, `GCAT` → **50.0**, `GGAN` (N excluded) → **66.66666666666666**; Biopython `gc_fraction`
+doctests scaled ×100 — `ACTG` → 50.0, `ACTGN` (remove) → 50.0, `ACTGN` (ignore) → 40.0, RNA
+`GGAUCUUCGGAUCU` → 50.0. Source trace and full dataset in [[seq-gc-profile-001-evidence]];
+[[test-unit-registry]] tracks the unit. This is the composition analogue of the standalone
+[[windowed-sequence-complexity-profile|windowed Shannon-entropy profile]] (SEQ-ENTROPY-PROFILE-001)
+— a per-window scalar channel factored out of a richer composite scan.
 
 ## Why it matters
 
