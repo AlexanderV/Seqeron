@@ -4,10 +4,11 @@ title: "Codon usage table and TVD comparison"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-USAGE-001-Evidence.md
+  - docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md
   - docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+source_commit: ae4a6ae53a125dceb08b5ff21c344ab447afe335
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -43,6 +44,14 @@ It converts `T → U` internally (RNA representation), uppercases, and drops an 
 codon. This is the same counting primitive behind [[relative-synonymous-codon-usage|RSCU]]'s
 `CountCodons`, but **left unnormalized** — hence the raw base of the family rather than a bias
 measure. Invariant: Σ counts = total codons.
+
+**Normalized, frame-aware sibling:** `SequenceStatistics.CalculateCodonFrequencies(sequence, frame)`
+([[seq-codon-freq-001-evidence|SEQ-CODON-FREQ-001]], Analysis assembly) is the frequency analog of
+this table — it returns `count / total` fractions directly (`double`, not `int` counts), keeps DNA
+codons (no `T→U` rewrite), **excludes non-ACGT/ambiguous triplets** (Kazusa CUTG convention), and
+adds a **reading-frame offset** (0/1/2) so the same sequence yields a different codon multiset per
+frame. Use the raw-count table here when you need integer counts or the TVD comparison; use the
+frequency method when you want normalized fractions or a non-zero frame.
 
 ## TVD-based comparison
 

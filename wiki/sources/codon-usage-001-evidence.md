@@ -82,7 +82,9 @@ the TVD similarity is an implementation metric choice the sources do not contrad
 
 ## Related units
 
-Same codon-usage family: [[codon-cai-001-evidence|CODON-CAI-001]] (uses codon frequencies for
-CAI), [[codon-rare-001-evidence|CODON-RARE-001]] (rare codons from usage tables),
+Same codon-usage family: [[seq-codon-freq-001-evidence|SEQ-CODON-FREQ-001]] (the normalized,
+frame-aware frequency analog of this raw-count table), [[codon-cai-001-evidence|CODON-CAI-001]]
+(uses codon frequencies for CAI), [[codon-rare-001-evidence|CODON-RARE-001]] (rare codons from usage
+tables),
 [[codon-opt-001-evidence|CODON-OPT-001]] (optimization consumes usage), and the RSCU units
 [[annot-codonusage-001-evidence|ANNOT-CODONUSAGE-001]] / [[codon-rscu-001-evidence|CODON-RSCU-001]].

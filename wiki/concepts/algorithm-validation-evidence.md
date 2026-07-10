@@ -162,7 +162,8 @@ sources:
   - docs/Evidence/RNA-STEMLOOP-001-Evidence.md
   - docs/Evidence/RNA-STRUCT-001-Evidence.md
   - docs/Evidence/SEQ-ATSKEW-001-Evidence.md
-source_commit: bb82b7ec80bbbf5750e53616ccc60df7b45c010c
+  - docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md
+source_commit: ae4a6ae53a125dceb08b5ff21c344ab447afe335
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -217,7 +218,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[chrom-telo-001-evidence]], [[codon-cai-001-evidence]],
 [[codon-enc-001-evidence]], [[codon-opt-001-evidence]], [[codon-rare-001-evidence]],
 [[codon-rscu-001-evidence]], [[codon-stats-001-evidence]],
-[[codon-usage-001-evidence]], [[compgen-ani-001-evidence]],
+[[codon-usage-001-evidence]], [[seq-codon-freq-001-evidence]], [[compgen-ani-001-evidence]],
 [[compgen-cluster-001-evidence]], [[compgen-compare-001-evidence]],
 [[compgen-dotplot-001-evidence]], [[compgen-ortho-001-evidence]],
 [[compgen-rbh-001-evidence]], [[compgen-rearr-001-evidence]],
