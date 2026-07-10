@@ -4,7 +4,8 @@ title: "RNA minimum-free-energy folding (Zuker–Stiegler dynamic programming)"
 tags: [rna, algorithm]
 sources:
   - docs/Evidence/RNA-MFE-001-Evidence.md
-source_commit: 18048c17104987bc34f26dbdfdc4c48f30fef2d2
+  - docs/Evidence/RNA-PARTITION-001-Evidence.md
+source_commit: c74e2076b6e891a02c917198a54544896c4dbafa
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -107,9 +108,12 @@ hairpin initiation(6) +5.4. (Helix −6.01 + loop +4.6 = −1.41.)
 
 ## 5. Scope, assumptions, and relationships
 
-A [[scientific-rigor|research-grade]] MFE folder — it **searches** structure space, whereas
-[[rna-free-energy-turner-model]] only **scores** a *given* structure with the Turner terms this folder
-consumes, and [[rna-dot-bracket-notation]] only **parses/validates** the notation this folder emits.
+A [[scientific-rigor|research-grade]] MFE folder — it **searches** structure space for the *single*
+optimal fold, whereas the [[rna-partition-function-mccaskill|McCaskill partition function]] is its
+Boltzmann-weighted **ensemble** counterpart (a probability distribution over all structures + per-pair
+probabilities rather than one optimum). By contrast [[rna-free-energy-turner-model]] only **scores** a
+*given* structure with the Turner terms this folder consumes, and [[rna-dot-bracket-notation]] only
+**parses/validates** the notation this folder emits.
 It builds on the [[rna-base-pairing]] Watson-Crick + G-U wobble pairing rule. The
 [[pre-mirna-hairpin-detection|pre-miRNA hairpin detector]]'s opt-in `AssessHairpinByMfe` /
 `FindPreMiRnaHairpinsByMfe` paths fold with this engine and read the hairpin from the real MFE
