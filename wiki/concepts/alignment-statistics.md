@@ -5,9 +5,10 @@ tags: [alignment, algorithm]
 sources:
   - docs/Evidence/ALIGN-STATS-001-Evidence.md
   - docs/algorithms/Alignment/Alignment_Statistics.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ALIGN-STATS-001.md
+source_commit: 9d11fab0e13fcd2856375d2db84d917b0806f9ec
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -86,3 +87,6 @@ Empty alignment ⇒ `AlignmentStatistics.Empty` / `""` (denominator undefined); 
 
 This is one [[test-unit-registry|test unit]] (ALIGN-STATS-001); see
 [[algorithm-validation-evidence]] for the evidence-artifact pattern behind its validation.
+The two-stage validation verdict is recorded in [[align-stats-001-report]] — **Stage A/B both
+PASS-WITH-NOTES, State ✅ CLEAN** (the only note is the rendering-only srspair `:`/`.` display
+simplification above; no counted statistic affected), full suite 6536/0.

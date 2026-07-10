@@ -3518,3 +3518,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    a backlog slug). No contradictions flagged.
    graph: no typed edges (source→concept report link is an auto-derived mentions/sourced_from edge; no new
    typed concept-to-concept predicate is warranted).
+
+## [2026-07-10] ingest | docs/Validation/reports/ALIGN-STATS-001.md → align-stats-001-report (source) + 1 concept
+   New source page align-stats-001-report (Stage A/B two-stage validation write-up: both PASS-WITH-NOTES,
+   State CLEAN, full suite 6536/0; validator independently re-derived the EMBOSS 65/90/9 → 43.6/60.4/6.0%
+   numbers + the hand 9-col case, 7/7 cross-verification table, O(L) column-classify with `score.Mismatch>0`
+   similarity rule as code evidence). Sole note on both stages is the rendering-only srspair `:`/`.` display
+   simplification (no counted statistic affected). Kept distinct from the pre-impl [[align-stats-001-evidence]]
+   artifact. ENRICHED existing concept [[alignment-statistics]] (added report to sources + source_commit bump +
+   one-line PASS-WITH-NOTES/CLEAN verdict cross-link). Did NOT create a new concept (identity/similarity/gap/
+   percent-identity/scoring-matrix already represented by [[alignment-statistics]]) and did NOT force the
+   algorithm-validation-evidence hub; tied the report to [[validation-ledger]]/[[validation-protocol]] from the
+   source page. Updated wiki/index.md (Sources). No backlog move (validation reports are coverage-excluded, not
+   a backlog slug). No contradictions flagged.
+   graph: no typed edges (source→concept report link is an auto-derived mentions/sourced_from edge; no new
+   typed concept-to-concept predicate is warranted).
