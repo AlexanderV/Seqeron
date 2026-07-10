@@ -4,6 +4,7 @@ title: "Splice donor site prediction (5' splice site: GU/GT dinucleotide, MAG|GU
 tags: [splicing, motif, algorithm]
 sources:
   - docs/Evidence/SPLICE-DONOR-001-Evidence.md
+  - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
 source_commit: ce6f817f61151956d1e97909c1ccf5d70f0c333c
 created: 2026-07-10
 updated: 2026-07-10
@@ -108,7 +109,10 @@ precomputed table is embedded as `Data/maxent_score5.txt` (16,384 records) from 
 
 The donor and [[splice-acceptor-site-prediction|acceptor]] are the two halves of the same
 intron under the GU-AG rule; together with a future branch-point-as-its-own-unit they form
-the splicing family anchored on the acceptor page. The default donor scorer is a
+the splicing family anchored on the acceptor page. The composite
+[[gene-structure-prediction-intron-exon]] (SPLICE-PREDICT-001) **consumes this donor unit** —
+pairing each `GT/GU` donor with an `AG` acceptor into an intron, then assembling the whole
+exon-intron gene model. The default donor scorer is a
 **consensus / IUPAC-degenerate** motif matcher (`MAG|GURAGU` is a
 [[consensus-sequence|consensus motif]] / [[iupac-degenerate-consensus|IUPAC-degenerate
 pattern]]), the position-independent cousin of the acceptor's position-weight-matrix

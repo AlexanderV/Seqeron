@@ -5,6 +5,7 @@ tags: [splicing, motif, algorithm]
 sources:
   - docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md
   - docs/Evidence/SPLICE-DONOR-001-Evidence.md
+  - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
 source_commit: ce6f817f61151956d1e97909c1ccf5d70f0c333c
 created: 2026-07-10
 updated: 2026-07-10
@@ -104,7 +105,10 @@ recorded in `Data/maxent_score3.LICENSE.md`.
 ## Relation to other units
 
 The 5' partner is [[splice-donor-site-prediction]] — the `GU`/GT donor at the *other* end
-of the same intron under the GU-AG rule. The donor is a single contiguous `MAG|GURAGU`
+of the same intron under the GU-AG rule. The composite
+[[gene-structure-prediction-intron-exon]] (SPLICE-PREDICT-001) **consumes this acceptor unit**,
+pairing each `AG` 3'ss with a `GT/GU` donor into an intron and assembling the full
+exon-intron gene structure (with exon typing, phase, and the spliced sequence). The donor is a single contiguous `MAG|GURAGU`
 motif (no branch point / PPT), so its default scorer is a plainer **consensus match
 fraction** and its MaxEntScan **score5ss** uses a single 16,384-entry table (vs this
 acceptor's PWM+PPT default and score3ss's 82,560-record overlapping-sub-window model).
