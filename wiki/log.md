@@ -3909,3 +3909,26 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    wiki/index.md (+1 source line). Did not force the algorithm-validation-evidence hub; tied to
    validation-ledger/validation-protocol. No backlog slug matched (report path is coverage-excluded).
    graph: +0 nodes, +0 typed edges (report is source-type; concept already relates_to test-unit-registry)
+
+## [2026-07-10] ingest | docs/Validation/reports/CHROM-TELO-001.md → chrom-telo-001-report (source)
+   Created wiki/sources/chrom-telo-001-report.md — validation report for CHROM-TELO-001 (telomere
+   analysis: ChromosomeAnalyzer.AnalyzeTelomeres(name, sequence, telomereRepeat="TTAGGG",
+   searchLength=10000, minTelomereLength=500, criticalLength=3000) + EstimateTelomereLengthFromTSRatio(
+   tsRatio, referenceRatio=1.0, referenceLength=7000) + constant HumanTelomereRepeat="TTAGGG",
+   ChromosomeAnalyzer.cs:250–352). Validated 2026-06-24, Stage A PASS / Stage B PASS / End state ✅ CLEAN,
+   build 0 warnings/errors, 33 Telomere tests pass, zero code change. TTAGGG (Moyzis 1988 / Meyne 1989,
+   91 vertebrate species) + CCCTAA reverse-complement 5′ strand + Cawthon 2002 T/S proportionality
+   confirmed vs first-sources; 3′=forward TTAGGG backward from terminus, 5′=CCCTAA forward from start,
+   contiguous-tandem-till-<0.7-similarity counting (internal motif not counted), length=windows×repeatLen,
+   purity=match/total, T/S=refLen×(tsRatio/refRatio). Independent hand cross-check reproduced 1200/purity-1.0,
+   divergent TTAGGA→5/6, searchLen-600→600 truncation, T/S {1.5,0.5,2.0,1@ref2,0}→{10500,3500,14000,3500,0}.
+   Findings none; in-spec note: 3′ scan phase-anchored to the terminus. NO new concept — telomere-analysis
+   already synthesizes both algorithms; kept distinct from the evidence artifact chrom-telo-001-evidence
+   (docs/Evidence). Tied to validation-ledger / validation-protocol / validation-and-testing /
+   test-unit-registry; NOT forced onto algorithm-validation-evidence. Surgically updated concept
+   telomere-analysis: added the report to sources, bumped source_commit to 9dfe8fee, cross-linked the
+   report verdict alongside the evidence artifact in the intro, +1 typed graph edge (chrom-telo-001-report
+   relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No backlog slug matched (report
+   is a generated per-run validation artifact, excluded from coverage; the algorithm doc is already
+   covered by telomere-analysis).
+   graph: +1 node, +1 typed edge

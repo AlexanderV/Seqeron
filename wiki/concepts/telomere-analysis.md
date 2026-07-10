@@ -4,16 +4,23 @@ title: "Telomere analysis (TTAGGG repeat detection + T/S ratio length)"
 tags: [chromosome, algorithm]
 sources:
   - docs/Evidence/CHROM-TELO-001-Evidence.md
+  - docs/Validation/reports/CHROM-TELO-001.md
   - docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+source_commit: 9dfe8fee4470a739dd91e9192efd5d7319ec5c50
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
       source: chrom-telo-001-evidence
       evidence: "ID: CHROM-TELO-001 ... Title: Telomere Analysis ... Area: Chromosome"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: chrom-telo-001-report
+      evidence: "Validation report CHROM-TELO-001 (Stage A/B PASS, CLEAN, 2026-06-24) validates the telomere-analysis unit; Area: Chromosome"
       confidence: high
       status: current
     - predicate: relates_to
@@ -31,8 +38,10 @@ is the fifth ingested unit of the **Chromosome-analysis** family; sibling units 
 see [[aneuploidy-detection]] (copy-number/ploidy anchor), [[centromere-analysis]] (centromere /
 alpha-satellite), [[karyotype-analysis]] (descriptor karyotyping + ploidy), and
 [[synteny-and-rearrangement-detection]] (synteny / rearrangement). Validated under test unit
-**CHROM-TELO-001**; the validation record is [[chrom-telo-001-evidence]], and [[test-unit-registry]]
-tracks the unit. See [[algorithm-validation-evidence]] for the artifact pattern.
+**CHROM-TELO-001**; the literature-source record is [[chrom-telo-001-evidence]] and the two-stage
+verdict (Stage A/B PASS, ✅ CLEAN, no code changed) is [[chrom-telo-001-report]], with
+[[test-unit-registry]] tracking the unit. See [[algorithm-validation-evidence]] for the artifact
+pattern.
 
 A telomere is a run of the conserved vertebrate hexamer `TTAGGG` (Meyne et al. 1989; conserved across
 all vertebrates). It shortens ~50–100 bp per cell division; once **critically short** it triggers a DNA
