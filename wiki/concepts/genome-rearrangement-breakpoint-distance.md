@@ -7,9 +7,10 @@ sources:
   - docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Genome_Rearrangement_Detection.md
   - docs/algorithms/Comparative_Genomics/Reversal_Distance.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/COMPGEN-REARR-001.md
+source_commit: 4c3caf900067a440f88ab2a5d4addc3dac8cb20f
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -45,7 +46,10 @@ rather than a permutation. Its sibling COMPGEN units are [[average-nucleotide-id
 [[dot-plot-word-match]], and [[genome-comparison-core-dispensable]]. Validated under test unit
 **COMPGEN-REARR-001** (signed breakpoint count + rearrangement classification) and
 **COMPGEN-REVERSAL-001** (the unsigned reversal-distance lower bound `⌈b/2⌉`, see below); the
-validation records are [[compgen-rearr-001-evidence]] and [[compgen-reversal-001-evidence]],
+pre-implementation validation records are [[compgen-rearr-001-evidence]] and
+[[compgen-reversal-001-evidence]], and the independent two-stage re-validation verdict for REARR-001 is
+[[compgen-rearr-001-report]] (Stage A/B PASS-WITH-NOTES / CLEAN — the `y≠x+1` breakpoint reduction
+proven exact, Hunter `b=6` reproduced, two test-coverage gaps M9b/M10 fixed in-session).
 [[test-unit-registry]] tracks the units, and [[algorithm-validation-evidence]] describes the artifact
 pattern.
 

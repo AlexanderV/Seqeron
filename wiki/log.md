@@ -4186,3 +4186,31 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    sibling report compgen-ortho-001-report. No new typed graph edges (report is a source-summary;
    mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-REARR-001.md → compgen-rearr-001-report (source)
+   New source-summary page for the two-stage validation report of COMPGEN-REARR-001 (genome
+   rearrangement detection by breakpoints on a signed gene-order permutation,
+   ComparativeGenomics.DetectRearrangements / ClassifyRearrangement, cs:581-723). Validated 2026-06-15.
+   Independent re-validation: Stage A PASS-WITH-NOTES / Stage B PASS-WITH-NOTES / End state CLEAN — NO
+   correctness defect in DetectRearrangements. The doc's "breakpoint iff y≠x+1" reduction PROVEN exact
+   vs the full Hunter criterion (against beta=identity both clauses (x,y) and (-y,-x) collapse to
+   y=x+1); Hunter alpha=(-2,-3,+1,+6,-5,-4)→b=6 reproduced incl. the (-5,-4) exclusion, plus independent
+   hand cross-check (M2=0, M3=2, M4=2, S2=2, C1∈[0,n+1]) computed before running code. Iterator builds
+   signedRank=sign×rank, relabels markers to 1..n, walks [0,…,n+1] emitting a breakpoint on curr≠prev+1;
+   eager null checks split from the yield-iterator, <2 markers→yield break, dangling ortholog
+   TryGetValue-guarded; ClassifyRearrangement re-parses TargetPosition and delegates to the emission-time
+   ClassifyBoundary (stored Type == re-classification). Two test-coverage gaps found & fixed in-session
+   (the only Stage-B defects): M9b (null genome2 throws ArgumentNullException) and M10
+   (ClassifyRearrangement fallback returns stored Type on null/unparsable TargetPosition) → 16 REARR
+   tests. Full unfiltered suite 6508 passed / 0 failed, build 0 errors, warning-free. Two documented
+   notes (not defects): per-boundary Inversion/Transposition classifier is an intentionally simplified
+   heuristic with no formal single-permutation basis (doc §5.3 / Evidence Assumption 3); d_BP=n−sim
+   equality is telomere-convention-dependent while the unit reports/tests the extended-permutation count
+   b(alpha). Sources Hunter Lecture 16 / Tannier PMC3887456 / Bafna–Pevzner 1998. Existing concept
+   genome-rearrangement-breakpoint-distance already represents the algorithm (economical — no new
+   concept); surgically updated it: added the report to sources, bumped source_commit to 4c3caf90,
+   cross-linked the CLEAN verdict + the two coverage-gap fixes in the intro. Updated wiki/index.md (+1
+   source line). Tied to validation-ledger / validation-and-testing / test-unit-registry; did NOT force
+   the algorithm-validation-evidence hub. Kept distinct from evidence artifact compgen-rearr-001-evidence.
+   No new typed graph edges (report is a source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges
