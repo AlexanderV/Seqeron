@@ -2942,3 +2942,14 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    label non-identifiability pinned by fixed labelled panels. Two research-grade assumptions
    (maxIterations+ε; skip missing genotype). Contradictions: none. Follow-ups: none.
    graph: +2 nodes (pop-ancestry-001-evidence source, ancestry-estimation-admixture concept), +1 typed edge (ancestry-estimation-admixture relates_to test-unit-registry)
+
+## [2026-07-10] ingest | POP-DIV-001-Evidence.md → pop-div-001-evidence (source) + genetic-diversity-statistics (concept)
+   Second population-genetics POP-* unit, sibling of POP-ANCESTRY-001. Diversity-statistics panel:
+   nucleotide diversity π = Σd_ij/(C(n,2)·L) (Nei & Li 1979), Watterson's θ_W = S/a_n with harmonic
+   a_n (Watterson 1975), Tajima's D = (k̂ − S/a_1)/√(e_1·S+e_2·S(S−1)) (Tajima 1989; k̂ = pairwise-
+   difference COUNT not per-site π; D<0 sweep/expansion, D>0 balancing/contraction), and Nei-1978
+   unbiased gene diversity/heterozygosity (H_obs = n/(n−1)·H_exp ≡ π for haploid). Oracle: Wikipedia
+   Tajima's D example n=5/L=20/S=4 → k̂=2.0/π=0.1/θ_W≈0.096/D≈0.273 (TD-C01/TD-C02). Guards n<3→D
+   undefined→0, S=0/monomorphic→all 0, Var≤0→D=0. All formulae exact-match; distinct from the
+   ancestry anchor (variation amount vs ancestry decomposition). Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (pop-div-001-evidence source, genetic-diversity-statistics concept), +2 typed edges (genetic-diversity-statistics relates_to test-unit-registry; genetic-diversity-statistics relates_to ancestry-estimation-admixture)
