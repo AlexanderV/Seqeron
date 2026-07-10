@@ -7,7 +7,8 @@ sources:
   - docs/algorithms/Annotation/Repetitive_Element_Detection.md
   - docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
   - docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
-source_commit: 4ee1ab19359eab0c144e9a59219013e0c0f4ec91
+  - docs/Evidence/REP-STR-001-Evidence.md
+source_commit: 32e9f11dfac8dcd66d61e1eff994bb086758eb81
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -22,6 +23,12 @@ graph:
       object: concept:test-unit-registry
       source: genomic-tandem-001-evidence
       evidence: "Test Unit ID: GENOMIC-TANDEM-001 ... Algorithm: Tandem Repeat Detection (GenomicAnalyzer.FindTandemRepeats); duplicate Registry entry resolved by consolidation with REP-TANDEM-001"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: rep-str-001-evidence
+      evidence: "Test Unit ID: REP-STR-001 ... Algorithm: Microsatellite / Short Tandem Repeat (STR) detection — perfect (default) and approximate/imperfect/interrupted (opt-in, Tandem Repeats Finder model)"
       confidence: high
       status: current
 ---
@@ -59,10 +66,42 @@ methods over the same **exact-copy** model. `GenomicAnalyzer.FindTandemRepeats`
 REP-TANDEM-001) is a brute-force detector that does **not** canonicalize competing periods:
 a run like `AAAA` is reported once per unit-length interpretation meeting the threshold
 (period 1 ×4 *and* period 2 ×2). The annotation `RepeatAnalyzer` path instead applies the
-primitive-unit rule above. Both are **exact** — neither reports the *approximate* tandem
-copies of Benson's Tandem Repeats Finder (1999); that is a documented Framework/Simplified
-[[research-grade-limitations|limitation]], and over exact repeats both match the formal
-definition (period = unit length, copy number ≥ 2).
+primitive-unit rule above. Both of these default paths are **exact** — they report only
+head-to-tail copies with no substitutions or indels, and over exact repeats both match the
+formal definition (period = unit length, copy number ≥ 2). The *approximate* tandem copies of
+Benson's Tandem Repeats Finder (1999) — interrupted / imperfect tracts — are covered by a
+separate **opt-in** detector; see *Approximate STR detection* below. The exact-only default
+was historically a Framework/Simplified [[research-grade-limitations|limitation]]; the opt-in
+approximate path closes that gap for the microsatellite/STR case.
+
+#### Approximate STR detection (Benson TRF model)
+
+The opt-in `FindApproximateTandemRepeats` + `ComputeBernoulliStatistics`
+([[rep-str-001-evidence|REP-STR-001]]) implement the *approximate*-repeat model of Benson's
+**Tandem Repeats Finder** (1999): "two or more contiguous, **approximate** copies of a
+pattern". Where the exact detectors *fragment* an interrupted tract into short perfect runs,
+this path reports it as **one** repeat with quantified imperfection. Per reported repeat it
+records the TRF statistics — period size, copy number, consensus size (built by **majority
+rule** over period-aligned columns, so `ConsensusSize == Period` in the subset), **percent
+matches** and **percent indels** (as a fraction of total alignment columns), and an alignment
+**score** using the recommended TRF weights match `+2`, mismatch/indel `−7`. Only repeats
+scoring at least `Minscore` (default **50**, ≈25 aligned chars) are reported.
+
+Worked oracle: `CAGCAGCAGTAGCAGCAG` (copy 4 `C→T`) → one period-3 repeat, `CAG`×6, 17 match /
+1 mismatch, score `17·2 − 7 = 27`, 94.4% matches; the perfect detector reports only `CAG`×3.
+A single-base deletion tract scoring 51 clears the default gate; a below-50 tract does not.
+
+`ComputeBernoulliStatistics` adds Benson's statistical layer: alignment of two **adjacent**
+copies is modelled as *n* independent Bernoulli trials (heads = match), yielding **PM**
+(matching probability = average percent identity between adjacent copies) and **PI** (indel
+probability), with defaults **PM = 0.80 / PI = 0.10**. These adjacent-copy statistics are
+deliberately *distinct* from the consensus-based percent-matches (e.g. adjacent PM `13/15` vs
+consensus `17/18` for the tract above), exactly as Benson specifies ("between adjacent copies
+… not … the consensus pattern"). The expected-matches moment `E[heads] = PM·d` is reproduced;
+the probabilistic **k-tuple seeding** (`R(d,k,pM)` / `W(d,pI)` 95% percentiles from
+non-redistributable simulation tables) is **not** — a deterministic exhaustive (start, period)
+scan replaces it, a documented [[research-grade-limitations|research-grade residual]] that
+changes which windows are examined, not the statistics of a reported repeat.
 
 ### 2. Inverted repeats (reverse-complement arms)
 

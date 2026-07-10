@@ -147,7 +147,8 @@ sources:
   - docs/Evidence/PROTMOTIF-TM-001-Evidence.md
   - docs/Evidence/QUALITY-PHRED-001-Evidence.md
   - docs/Evidence/QUALITY-STATS-001-Evidence.md
-source_commit: 25fe7f865ba8c3ce681652d15fc633919907a6e5
+  - docs/Evidence/REP-STR-001-Evidence.md
+source_commit: 32e9f11dfac8dcd66d61e1eff994bb086758eb81
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -261,7 +262,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[protmotif-common-001-evidence]], [[protmotif-domain-001-evidence]],
 [[protmotif-find-001-evidence]], [[protmotif-lc-001-evidence]],
 [[protmotif-pattern-001-evidence]], [[protmotif-prosite-001-evidence]],
-[[protmotif-sp-001-evidence]], [[protmotif-tm-001-evidence]]). An
+[[protmotif-sp-001-evidence]], [[protmotif-tm-001-evidence]],
+[[rep-str-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
