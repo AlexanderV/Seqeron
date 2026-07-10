@@ -98,6 +98,7 @@ of MAF < 0.01 is a frequent QC filter for very rare / likely-genotyping-error va
 
 Faithful implementation of the textbook biallelic frequency formulae (exact match to Wikipedia
 *Allele frequency* / *Minor allele frequency* / *Genotype frequency*, Gillespie 2004). It is a
-counting/normalization primitive: it does **not** test Hardy–Weinberg equilibrium, handle
-multiallelic (>2) sites, phase haplotypes, or impute missing genotypes. No source contradictions —
+counting/normalization primitive: it does **not** test Hardy–Weinberg equilibrium (that is the
+sibling unit [[hardy-weinberg-equilibrium-test]], POP-HW-001, which consumes these frequencies),
+handle multiallelic (>2) sites, phase haplotypes, or impute missing genotypes. No source contradictions —
 the algorithm is fully determined by the sources (Open Questions: none).

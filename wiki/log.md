@@ -2983,3 +2983,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    counting, POP-DIV within-sample diversity, POP-ANCESTRY decomposition). Contradictions: none.
    Follow-ups: none.
    graph: +2 nodes (pop-fst-001-evidence source, population-differentiation-fst concept), +3 typed edges (population-differentiation-fst relates_to test-unit-registry; depends_on allele-genotype-frequencies; relates_to genetic-diversity-statistics)
+## [2026-07-10] ingest | POP-HW-001-Evidence.md → pop-hw-001-evidence (source) + hardy-weinberg-equilibrium-test (concept)
+   Population-genetics POP-* unit — Hardy-Weinberg equilibrium (HWE) chi-square test. Consumes
+   genotype counts from POP-FREQ-001 (whose scope explicitly leaves the HWE test to this unit).
+   Expected genotype freqs p²/2pq/q² (Hardy 1908 / Weinberg 1908); allele freq p=(2·n_AA+n_Aa)/(2n),
+   q=1−p; expected counts E={p²n,2pqn,q²n}; Pearson χ²=Σ(O−E)²/E over 3 genotype classes; df=1
+   (#genotypes−#alleles=3−2); p-value via chi-square CDF (lower-incomplete-gamma approx); default
+   α=0.05 critical value 3.841. TestHardyWeinberg returns InEquilibrium/ChiSquare/PValue. Oracles:
+   Ford moth (1469,138,5)→p≈0.954/χ²≈0.83→in-eq, perfect (25,50,25)→χ²=0, excess-het (10,80,10)→
+   χ²=36≫3.84→out-of-eq, zero samples→InEquilibrium true/PValue 1, fixed (100,0,0)→in-eq, all-het
+   (0,100,0)→out-of-eq. Edge cases: zero n→PValue 1 (no evidence against H₀, hypothesis-testing
+   framework not ad-hoc), expected-0 term skipped (div-by-zero guard). Scope = biallelic chi-square
+   goodness-of-fit only; exact test (Wigginton 2005) and multiallelic loci noted out of scope. New
+   concept created (distinct: a hypothesis test on counts vs POP-FREQ counting/normalization).
+   Cross-linked allele-genotype-frequencies scope note. Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (pop-hw-001-evidence source, hardy-weinberg-equilibrium-test concept), +2 typed edges (hardy-weinberg-equilibrium-test relates_to test-unit-registry; depends_on allele-genotype-frequencies)
