@@ -3097,3 +3097,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    body evidence-link list) and wiki/index.md (source + concept entries). Contradictions: none
    (all values verbatim from libprimer3 + machine-precision verified vs primer3-py). Follow-ups: none.
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Evidence/PROBE-DESIGN-001-Evidence.md → probe-design-001-evidence (source) + 1 concept
+   TaqMan 5'-nuclease hydrolysis-probe design rules (opt-in over the unchanged generic probe
+   designer). Judged genuinely distinct from the primer units (probe-specific hard constraints:
+   no 5'-G reporter-quench, more-C-than-G + antisense strand fallback, ≥4-G run, GC 30-80%,
+   length 18-22, probe Tm ≥ primer Tm + 10) so created new PROBE-family anchor concept
+   [[taqman-probe-design-rules]]; it reuses the PRIMER-TM-001-validated salt-adjusted Tm engine
+   (relates_to [[primer-dimer-thermodynamics-tm]]). Updated hub [[algorithm-validation-evidence]]
+   (frontmatter sources + body evidence-link list + own-concept enumeration) and wiki/index.md
+   (source + concept entries). Contradictions: none (four vendor/reference sources corroborate
+   point-for-point). Follow-ups: none.
+   graph: +2 nodes, +2 typed edges
