@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md
   - docs/algorithms/Assembly/Consensus_Computation.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-CONSENSUS-001.md
+source_commit: ac0a26ca9923867f41c95e2d4a7046a9712ccca6
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -75,4 +76,8 @@ source-defined value is reachable:
   is 0.5; exact Biopython behaviour is reproduced with `threshold: 0.7`. The rule itself
   (strict `>=`, tie→ambiguous, gaps skipped) is source-backed, not assumed.
 
-Both are the only deviations; both are documented assumptions, not invented constants.
+Both are the only deviations; both are documented assumptions, not invented constants. The
+independent two-stage re-validation ([[assembly-consensus-001-report]], Stage A
+PASS-WITH-NOTES / Stage B PASS / ✅ CLEAN) re-ran the **Biopython 1.85** `dumb_consensus`
+reference on the datasets — 10/10 match — and confirmed both divergences are parameter-reachable,
+so no defect and no code change.

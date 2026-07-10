@@ -3666,3 +3666,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    new concept. Kept distinct from the pre-existing evidence page annot-repeat-001-evidence.
    Updated wiki/index.md (+1 source line). No contradictions flagged. No typed graph edges added
    (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-CONSENSUS-001.md
+   Created source-summary wiki/sources/assembly-consensus-001-report.md (two-stage validation
+   report for ASSEMBLY-CONSENSUS-001 — consensus computation, SequenceAssembler.ComputeConsensus,
+   the C of OLC; Stage A PASS-WITH-NOTES / Stage B PASS / End state CLEAN, full suite 6532/0, zero
+   code or test change; validator re-ran Biopython 1.85 dumb_consensus reference, 10/10 datasets
+   match). Tied the report to [[validation-ledger]] / [[validation-protocol]] and the algorithm
+   concept [[consensus-sequence]], NOT the algorithm-validation-evidence hub. Reused the existing
+   concept (already covers ASSEMBLY-CONSENSUS-001) — surgically added the report to its sources:,
+   bumped source_commit, and noted the independent re-validation (10/10 Biopython match, two
+   parameter-reachable default divergences carried, not defects). Kept distinct from the
+   pre-existing evidence page assembly-consensus-001-evidence. Updated wiki/index.md (+1 source
+   line). No contradictions flagged. No typed graph edges added (report is source-type; N/A).
