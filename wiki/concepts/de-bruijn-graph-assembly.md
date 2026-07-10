@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-DBG-001-Evidence.md
   - docs/algorithms/Assembly/De_Bruijn_Graph_Assembly.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-DBG-001.md
+source_commit: 131c8e266fdd08713526890d833f52901b803517
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -26,7 +27,9 @@ directed edge for every `k`-mer from its left (k-1)-mer prefix to its right (k-1
 Reconstructing the genome is then an **Eulerian walk** — a walk that uses each edge exactly once
 — and spelling that walk recovers the superstring. This is the anchor for the assembly **DBG**
 family, validated under test unit **ASSEMBLY-DBG-001** (`BuildDeBruijnGraph` +
-`AssembleDeBruijn`). The literature-traced validation record is [[assembly-dbg-001-evidence]];
+`AssembleDeBruijn`). The literature-traced validation record is [[assembly-dbg-001-evidence]]; the independent
+two-stage re-validation verdict (Stage A PASS / Stage B PASS-WITH-NOTES / CLEAN — a closed
+test-coverage gap, no code defect) is [[assembly-dbg-001-report]];
 [[test-unit-registry]] tracks the unit and [[algorithm-validation-evidence]] describes the
 artifact pattern.
 

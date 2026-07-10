@@ -3709,3 +3709,19 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Fixed test gap noted (empty reference → []). Kept distinct from the pre-existing evidence page
    assembly-cover-001-evidence. Updated wiki/index.md (+1 source line). No backlog slug (none
    existed). No typed graph edges added (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-DBG-001.md
+   Created source-summary wiki/sources/assembly-dbg-001-report.md (two-stage validation report
+   for ASSEMBLY-DBG-001 — de Bruijn graph assembly, SequenceAssembler.BuildDeBruijnGraph +
+   AssembleDeBruijn / Hierholzer helpers; Stage A PASS / Stage B PASS-WITH-NOTES / End state
+   CLEAN, full suite 6497/0, zero code change). Tied to [[validation-ledger]] /
+   [[validation-and-testing]] and the algorithm concept [[de-bruijn-graph-assembly]] (assembly
+   DBG anchor), NOT the algorithm-validation-evidence hub. Reused the existing concept —
+   surgically added the report to its sources:, bumped source_commit to HEAD, and cross-linked
+   the new report alongside the pre-existing evidence artifact. Only issue was a test-coverage
+   gap (three untested-but-documented branches: disconnected-graph one-contig-per-component,
+   MinContigLength filter, BuildDeBruijnGraph(null) guard), closed in-session with three
+   exact-value tests; no algorithm defect, no contradictions. Kept distinct from the evidence
+   page assembly-dbg-001-evidence. Updated wiki/index.md (+1 source line). No backlog slug
+   (backlog tracks the algorithm doc, already covered; the report path is not a backlog entry).
+   No typed graph edges added (report is source-type; N/A).
