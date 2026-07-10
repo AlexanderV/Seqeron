@@ -2930,3 +2930,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    (root 16.5, tips all 16.5) + NJ 5-taxon (Q₁(a,b)=−50, δ(a,u)=2…δ(e,w)=1). Deviations None (§8).
    Contradictions: none. Follow-ups: none.
    graph: +2 nodes (phylo-tree-001-evidence source, distance-based-tree-construction concept), +4 typed edges (distance-based-tree-construction relates_to test-unit-registry + depends_on evolutionary-distance-matrix; bootstrap/comparison/statistics each depends_on distance-based-tree-construction)
+
+## [2026-07-10] ingest | POP-ANCESTRY-001-Evidence.md → pop-ancestry-001-evidence (source) + ancestry-estimation-admixture (concept)
+   First population-genetics POP-* unit. Supervised/projection ADMIXTURE: estimate ancestry
+   proportions Q by FRAPPE EM (Eq. 4) with fixed reference allele frequencies F; log-likelihood
+   Eq. 2 under simplex Σ_k q_ik=1, convergence Eq. 5 ε=10⁻⁴, O(IJK²). Sources: Alexander, Novembre
+   & Lange 2009 (Genome Research) + Alexander & Lange 2011 (supervised mode, Springer-gated) +
+   ADMIXTURE 1.4 Manual §2.10/§2.14. Oracles: symmetric K=2/J=2 panel g=[2,0] → one EM iter
+   (0.8,0.2) exactly → converges (1.0,0.0); single-SNP g=2→(0.9,0.1); identical panels uniform
+   fixed point. Distinct from the PHYLO-* tree family (mixture-weight decomposition, not a tree);
+   label non-identifiability pinned by fixed labelled panels. Two research-grade assumptions
+   (maxIterations+ε; skip missing genotype). Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (pop-ancestry-001-evidence source, ancestry-estimation-admixture concept), +1 typed edge (ancestry-estimation-admixture relates_to test-unit-registry)
