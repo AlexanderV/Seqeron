@@ -3875,3 +3875,27 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    (chrom-hor-001-report relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No
    backlog slug matched (report is a generated per-run validation artifact, excluded from coverage).
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Validation/reports/CHROM-KARYO-001.md → chrom-karyo-001-report (source)
+   Created wiki/sources/chrom-karyo-001-report.md — validation report for CHROM-KARYO-001 (karyotype
+   analysis: ChromosomeAnalyzer.AnalyzeKaryotype(chromosomes, expectedPloidyLevel) + DetectPloidy(
+   normalizedDepths, expectedDiploidDepth), ChromosomeAnalyzer.cs:136–241). Stage A/B both PASS, End
+   state CLEAN, 36 exact-value tests 0 failed, zero code or test change. IMPORTANT scope clarification:
+   the session prompt framed this around the Levan arm-ratio / centromeric-index classification
+   (metacentric/submetacentric/subtelocentric/telocentric) — the report finds that is a DIFFERENT unit,
+   CHROM-CENT-001 (CalculateArmRatio/ClassifyChromosomeByArmRatio/AnalyzeCentromere, centromere-analysis
+   / chrom-cent-001-report) per ALGORITHMS_CHECKLIST_V2.md:73–74. CHROM-KARYO-001 is the
+   karyotype/ploidy/aneuploidy unit. Absolute copy-count aneuploidy ladder (Nullisomy0…Pentasomy5) +
+   ploidy/depth-ratio mapping confirmed vs Wikipedia Aneuploidy/Ploidy; 7-row DetectPloidy hand
+   cross-check reproduced (ratio→round(ratio×2) clamped [1,8]; confidence uses the CLAMPED ploidy as
+   reference → 0 conf out of range; true median). Boundary vs CHROM-ANEU-001: sibling
+   IdentifyWholeChromosomeAneuploidy hardcodes a diploid baseline — correct for ANEU, not a KARYO
+   divergence. Findings none. NO new concept — karyotype-analysis already synthesizes both algorithms;
+   kept distinct from the evidence artifact chrom-karyo-001-evidence. Tied to validation-ledger /
+   validation-protocol / validation-and-testing / test-unit-registry; NOT forced onto
+   algorithm-validation-evidence. Surgically updated concept karyotype-analysis: added the report to
+   sources, bumped source_commit to fcb5a4bc, cross-linked the report + Levan/CENT scope note in the
+   intro, +1 typed graph edge (chrom-karyo-001-report relates_to test-unit-registry). Updated
+   wiki/index.md (+1 source line). No backlog slug matched (report is a generated per-run validation
+   artifact, excluded from coverage).
+   graph: +1 node, +1 typed edge

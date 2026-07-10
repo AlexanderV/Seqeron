@@ -5,15 +5,22 @@ tags: [chromosome, algorithm]
 sources:
   - docs/Evidence/CHROM-KARYO-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/CHROM-KARYO-001.md
+source_commit: fcb5a4bc5a9d45258189b05e8014c648d0c5197e
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
       source: chrom-karyo-001-evidence
       evidence: "Test Unit ID: CHROM-KARYO-001 ... Area: Chromosome Analysis ... AnalyzeKaryotype / DetectPloidy"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: chrom-karyo-001-report
+      evidence: "Validation report CHROM-KARYO-001 (Stage A/B PASS, CLEAN) re-validates AnalyzeKaryotype + DetectPloidy per docs/Validation/reports/CHROM-KARYO-001.md"
       confidence: high
       status: current
     - predicate: relates_to
@@ -30,8 +37,11 @@ Building a **karyotype** — "the general appearance of the complete set of chro
 (Wikipedia) — and detecting the **ploidy level** of a genome. This is the third ingested unit of the
 **Chromosome-analysis** family, a sibling of [[aneuploidy-detection]] (the copy-number/read-depth anchor)
 and [[centromere-analysis]] (the centromere / alpha-satellite anchor). Validated under test unit
-**CHROM-KARYO-001**; the validation record is [[chrom-karyo-001-evidence]], [[test-unit-registry]]
-tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
+**CHROM-KARYO-001**; the pre-implementation evidence is [[chrom-karyo-001-evidence]], the independent
+two-stage re-validation verdict (Stage A/B PASS, CLEAN) is [[chrom-karyo-001-report]],
+[[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the artifact
+pattern. (Note: the Levan arm-ratio / centromeric-index classification is a *separate* unit,
+CHROM-CENT-001 / [[centromere-analysis]] — not this one.)
 
 A normal human diploid karyotype is 46 chromosomes (22 autosomal pairs + 2 sex chromosomes), written
 `46,XX` (female) or `46,XY` (male). The unit exposes two independent algorithms: `AnalyzeKaryotype`

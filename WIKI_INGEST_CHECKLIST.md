@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 295 / 1181
+Progress: 296 / 1181
 
 ## (top-level)  (6)
 
@@ -262,7 +262,7 @@ Progress: 295 / 1181
 - [x] docs/Validation/reports/CHROM-ANEU-001.md
 - [x] docs/Validation/reports/CHROM-CENT-001.md
 - [x] docs/Validation/reports/CHROM-HOR-001.md
-- [ ] docs/Validation/reports/CHROM-KARYO-001.md
+- [x] docs/Validation/reports/CHROM-KARYO-001.md
 - [ ] docs/Validation/reports/CHROM-SYNT-001.md
 - [ ] docs/Validation/reports/CHROM-TELO-001.md
 - [ ] docs/Validation/reports/CODON-CAI-001.md
