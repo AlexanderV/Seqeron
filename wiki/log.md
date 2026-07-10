@@ -3837,3 +3837,22 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    test-unit-registry). Updated wiki/index.md (+1 source line). No backlog slug matched (backlog row is
    the algorithm doc, already covered by the pre-existing concept).
    graph: +1 node, +1 typed edge
+
+## 2026-07-10 — ingest docs/Validation/reports/CHROM-CENT-001.md
+   Created source page chrom-cent-001-report (two-stage validation verdict for CHROM-CENT-001,
+   centromere classification + α-satellite suprachromosomal-family assignment — new
+   `ChromosomeAnalyzer.AssignSuprachromosomalFamily` / `LoadBundledAlphaSatelliteReference` + confirmation
+   pass over Levan / DetectAlphaSatellite / DetectHigherOrderRepeat, ChromosomeAnalyzer.cs:1090/1187):
+   re-validated 2026-06-26 after limitation-fix 887a9945 ADDED SF assignment (prior validation SUPERSEDED);
+   Stage A PASS / Stage B PASS / CLEAN, 18860 passed 0 failed, zero code or test change. Bundled CC0 Dfam
+   reference byte-verified (ALRb CENP-B box@126=B-type); SF rule = HOR period + A/B composition. Distinct
+   from the evidence artifact chrom-cent-001-evidence (docs/Evidence) and from the narrow monomer-slice unit
+   chrom-alphasat-001-report. Captured the LIMITED end-state: SF1-vs-SF2 unresolved + Sf1OrSf2Dimeric branch
+   runtime-guarded to Permissive (LimitationPolicy) — CHROM-CENT-001 named in the operating-envelope doc.
+   Tied to validation-ledger / validation-protocol / validation-and-testing / test-unit-registry; NOT forced
+   onto algorithm-validation-evidence.
+   Surgically updated concept centromere-analysis: added the report to sources, bumped source_commit to
+   d0034a86, cross-linked the report + verdict in the intro, +1 typed graph edge (chrom-cent-001-report
+   relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No backlog slug matched (report
+   is a generated per-run validation artifact, excluded from coverage).
+   graph: +1 node, +1 typed edge

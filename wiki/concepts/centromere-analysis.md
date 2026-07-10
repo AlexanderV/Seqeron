@@ -6,7 +6,8 @@ sources:
   - docs/Evidence/CHROM-CENT-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md
   - docs/Validation/reports/CHROM-ALPHASAT-001.md
-source_commit: c2d37439e969b3159523581e9415ead8a622e666
+  - docs/Validation/reports/CHROM-CENT-001.md
+source_commit: d0034a86c805e107791d627b1505f78d3bef288d
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -29,6 +30,12 @@ graph:
       evidence: "CHROM-ALPHASAT-001 validation report; Area: Chromosome; Canonical methods ChromosomeAnalyzer.DetectAlphaSatellite / FindCenpBBoxes — the monomer-detection slice of this concept, validated as its own test unit"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: chrom-cent-001-report
+      evidence: "CHROM-CENT-001 validation report (2026-06-26); Area: Chromosome; re-validated after additive AssignSuprachromosomalFamily; Stage A/B PASS, CLEAN, 18860 passed / 0 failed, no code changed"
+      confidence: high
+      status: current
 ---
 
 # Centromere analysis (arm-ratio class + alpha-satellite / HOR / SF)
@@ -40,7 +47,10 @@ unit of the **Chromosome-analysis** family and its centromere/satellite anchor, 
 (telomere, arm-ratio as a standalone, synteny, GC-skew — the compositional-skew statistic
 now synthesized on [[nucleotide-composition-skew]]) get their own concepts. Validated under test
 unit **CHROM-CENT-001**; the validation record is [[chrom-cent-001-evidence]], [[test-unit-registry]]
-tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
+tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern. The two-stage
+validation verdict is [[chrom-cent-001-report]] — Stage A/B PASS, ✅ CLEAN (18860 passed / 0 failed, no
+code changed), re-validated 2026-06-26 after the additive `AssignSuprachromosomalFamily` (SF) surface,
+whose unresolved `Sf1OrSf2Dimeric` branch is runtime-guarded to `Permissive` mode.
 
 The canonical method is `ChromosomeAnalyzer.AnalyzeCentromere(...)`; four **opt-in, additive** detectors
 were layered onto it over successive sessions without changing its defaults. The base method is a
