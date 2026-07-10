@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 207 / 1610
+Progress: 208 / 1610
 
 ## (top-level)  (6)
 
@@ -170,7 +170,7 @@ Progress: 207 / 1610
 - [x] docs/Evidence/PROTMOTIF-CC-001-Evidence.md
 - [x] docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md
 - [x] docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md
-- [ ] docs/Evidence/PROTMOTIF-FIND-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-FIND-001-Evidence.md
 - [ ] docs/Evidence/PROTMOTIF-LC-001-Evidence.md
 - [ ] docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md
 - [ ] docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md

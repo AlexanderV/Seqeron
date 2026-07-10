@@ -101,8 +101,11 @@ Only **one** assumption, an API-shape convention with no correctness effect: PRO
 report **1-based** inclusive coordinates, whereas `MotifMatch` records **0-based** `Start`/`End`
 (matching the sibling units PROTMOTIF-FIND-001 and PROTMOTIF-PATTERN-001). The matched substring
 content and relative positions are identical; only the coordinate origin differs. No algorithm
-deviations. The catalog is a small curated subset of PROSITE, not the full database — a general
-PROSITE-pattern engine (arbitrary caller-supplied patterns) is the separate PROTMOTIF-PATTERN unit.
+deviations. The catalog is a small curated subset of PROSITE, not the full database — the general
+engine that scans an **arbitrary caller-supplied** PROSITE pattern (with PROSITE→regex
+conversion, overlapping-match lookahead and information-content scoring) is
+[[protein-motif-pattern-search]] (`FindMotifByPattern`, unit PROTMOTIF-FIND-001), of which
+this fixed-dictionary scan is one application.
 
 ## References
 
