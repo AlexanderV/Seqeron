@@ -4338,3 +4338,35 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    artifact disorder-lc-001-evidence. No contradictions. Backlog: ProteinPred SEG algorithm doc already
    covered via protein-low-complexity-seg (no pending slug to move).
    graph: +1 node, +1 typed edge (protein-low-complexity-seg relates_to test-unit-registry for DISORDER-LC-001, sourced from the report)
+
+## [2026-07-10] ingest | docs/Validation/reports/DISORDER-MORF-001.md → disorder-morf-001-report (source)
+   Two-stage validation report for test unit DISORDER-MORF-001 (MoRF / Molecular Recognition Feature
+   prediction — the "dip within disorder" heuristic). Stage A PASS-WITH-NOTES / Stage B PASS / End state
+   CLEAN, full unfiltered suite 6609/0, dotnet build 0 errors (4 pre-existing NUnit-analyzer warnings in
+   unrelated files), zero code change. Validates DisorderPredictor.PredictMoRFs(sequence, minLength=10,
+   maxLength=70) (DisorderPredictor.cs:615-671) over PredictDisorder window-21 normalized-TOP-IDP scores
+   (constants MoRFOrderThreshold=0.5 :578 / MoRFMinLength=10 :584 / MoRFMaxLength=70 :589). MoRF = maximal
+   ordered dip (per-residue disorder d<0.5) of length 10-70 flanked both sides by d>=0.5, score
+   (0.5-mean d)/0.5 clamped [0,1]; every constant source-traced — 0.5 (Cheng/Oldfield PMC2570644), 10-70
+   band (Mohan 2006 PMID16935303 / Wikipedia), TOP-IDP (Campen 2008 PMC2676888). Validator re-derived the
+   smoothed profile independently in Python from source TOP-IDP raw values (not the repo): 25P+30L+25P dips
+   [29,50] len22 mean0.362033 score0.275934; 25P+30I+25P dips [28,51] len24 score0.399608; both reproduce the
+   locked test values, plus the empty cases (40L no-flank, 40P no-dip, 25P+16L+25P dip-8<10, 25P+95L+25P
+   dip-87>70, 15L+30P terminal) and S1 two-dip (29,50)+(89,110). HARD test gate PASS (exact coords + scores
+   Within(1e-6), monotonicity/bounds invariants alongside not instead of exact values, no green-washing).
+   Stage-A notes: N1 = one bounded assumption (exact dip flank/run-length parameters live in Oldfield 2005's
+   paywalled Methods -> documented qualitative criterion; load-bearing constants all source-traceable, not a
+   correctness error); N2 = spec-prose M1 coordinate nit "20-34" -> 29-50/len22/score0.275934 corrected
+   (doc-only, no code/test change); N3 = iota-subtype naming confirmed correct vs Mohan 2006 verbatim
+   (Wikipedia less precise). ENRICHED the existing concept morf-prediction-dip-in-disorder (already the MoRF
+   anchor) rather than a new concept — MoRF prediction is genuinely distinct but already represented: added
+   report to sources, bumped source_commit to dc13c70f + updated 2026-07-10, updated intro to cite the report
+   + validation-ledger. New source-summary page disorder-morf-001-report. Updated wiki/index.md (+1 source
+   line). Tied to validation-ledger / validation-and-testing / test-unit-registry; did NOT force the
+   algorithm-validation-evidence hub. Kept distinct from the evidence artifact disorder-morf-001-evidence.
+   No contradictions. Backlog: the ProteinPred MoRF_Prediction algorithm-doc slug (morf-prediction) is a
+   separate algorithm-doc reconciliation item, not this validation report (excluded from coverage) — no
+   pending slug to move.
+   graph: +1 node (disorder-morf-001-report source), +0 typed edges (report ties to validation-ledger /
+   validation-and-testing / test-unit-registry via auto-derived mentions/sourced_from; concept already
+   carries relates_to test-unit-registry + depends_on intrinsic-disorder-prediction-top-idp)

@@ -4,9 +4,10 @@ title: "MoRF prediction (dip-in-disorder heuristic)"
 tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-MORF-001-Evidence.md
-source_commit: 05fff695e889b79023301d7319afbc8a24e0bec4
+  - docs/Validation/reports/DISORDER-MORF-001.md
+source_commit: dc13c70fe90b2fa15b75169c79a58a5cd060d39a
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -35,8 +36,10 @@ A **Molecular Recognition Feature (MoRF)** is a short, loosely structured protei
 **within a longer intrinsically disordered region** that **undergoes a disorder-to-order transition
 when it binds a partner** — disordered in isolation, folded in the bound complex. Seqeron predicts
 them with the **"dip within disorder" heuristic** (Oldfield et al. 2005 / Cheng, Oldfield et al.),
-validated under test unit **DISORDER-MORF-001**; the validation record is
-[[disorder-morf-001-evidence]] and [[test-unit-registry]] tracks the unit. See
+validated under test unit **DISORDER-MORF-001**; the pre-implementation evidence record is
+[[disorder-morf-001-evidence]] and the independent two-stage re-validation verdict (Stage A
+PASS-WITH-NOTES / Stage B PASS / CLEAN, suite 6609/0) is [[disorder-morf-001-report]] — one row of
+the [[validation-ledger]]. [[test-unit-registry]] tracks the unit. See
 [[algorithm-validation-evidence]] for the artifact pattern.
 
 This is the **second ingested unit of the protein disorder / features family** (DISORDER-LC / MORF /
