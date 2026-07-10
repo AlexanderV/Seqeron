@@ -5,9 +5,10 @@ tags: [chromosome, algorithm]
 sources:
   - docs/Evidence/CHROM-CENT-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/CHROM-ALPHASAT-001.md
+source_commit: c2d37439e969b3159523581e9415ead8a622e666
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -21,6 +22,12 @@ graph:
       source: chrom-cent-001-evidence
       evidence: "Both are Chromosome-analysis family units; Wikipedia Karyotype groups human chromosomes by centromere position, the same karyotype layer aneuploidy scores"
       confidence: medium
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: chrom-alphasat-001-report
+      evidence: "CHROM-ALPHASAT-001 validation report; Area: Chromosome; Canonical methods ChromosomeAnalyzer.DetectAlphaSatellite / FindCenpBBoxes — the monomer-detection slice of this concept, validated as its own test unit"
+      confidence: high
       status: current
 ---
 
@@ -69,7 +76,12 @@ tandemly repeated and organised into higher-order arrays. Four additive detector
   **≥0.50 self-similarity** (lower bound of 50–70% intra-array monomer identity), **AT-richness > 0.50**,
   and the **17-bp CENP-B box** (IUPAC consensus `YTTCGTTGGAARCGGGA`, Y=C/T R=A/G; present in only a
   subset of monomers). **No consensus monomer string is embedded** — detection is period + AT + box, so
-  no alphoid sequence is invented.
+  no alphoid sequence is invented. This monomer-detection slice (`DetectAlphaSatellite` /
+  `FindCenpBBoxes` + the 171-bp and 17-bp-box constants) was independently re-validated — Stage A/B PASS,
+  CLEAN, no code defect — as its own test unit **CHROM-ALPHASAT-001**; see the report
+  [[chrom-alphasat-001-report]] (periodicity search window [166,176], AT over ACGT bases only,
+  `IsAlphaSatellite = periodicity ≥ 0.50 AND AT > 0.50`; note the PMC6121732 16-bp CENP-B rendering is a
+  typo, the code uses the correct 17-bp form).
 
 - **`DetectHigherOrderRepeat`** — the **HOR** organisation: split the array into consecutive 171-bp
   monomers, align monomer-vs-monomer (`SequenceAligner.GlobalAlign` + `CalculateStatistics`, EMBOSS-style

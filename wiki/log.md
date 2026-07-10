@@ -3812,3 +3812,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    bumped source_commit. Updated wiki/index.md (+1 source line). No backlog slug (report path not a
    backlog row; Quality_Trimming algorithm doc already covered-via-concept). No new typed graph edges
    (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/CHROM-ALPHASAT-001.md → chrom-alphasat-001-report (source)
+   Created wiki/sources/chrom-alphasat-001-report.md — validation report for CHROM-ALPHASAT-001
+   (alpha-satellite monomer detection: ChromosomeAnalyzer.DetectAlphaSatellite / FindCenpBBoxes +
+   171-bp / 17-bp-CENP-B-box constants). Stage A/B PASS, CLEAN, no code defect; one Stage-B test gap
+   (non-ACGT excluded from AT denominator) closed. Tied to validation-ledger / validation-protocol /
+   validation-and-testing / test-unit-registry; NOT forced onto algorithm-validation-evidence. Kept
+   distinct from CHROM-CENT-001 (whole-centromere unit) — this is the narrow monomer-detection slice.
+   Surgically updated concept centromere-analysis: added the report to sources, bumped source_commit,
+   cross-linked the DetectAlphaSatellite bullet, +1 typed graph edge (chrom-alphasat-001-report
+   relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No backlog slug matched
+   (alphasat/alpha-satellite absent from backlog).
+   graph: +1 node, +1 typed edge
