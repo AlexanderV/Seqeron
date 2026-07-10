@@ -3565,3 +3565,25 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    (validation reports are coverage-excluded, not a backlog slug). No contradictions flagged.
    graph: no typed edges (source->concept report link is an auto-derived mentions/sourced_from edge; no new
    typed concept-to-concept predicate is warranted).
+
+## [2026-07-10] ingest | docs/Validation/reports/ANNOT-GENE-001.md → annot-gene-001-report (source) + prokaryotic-gene-prediction-rbs (concept)
+   New source page annot-gene-001-report (Stage A/B two-stage validation write-up for ORF-based prokaryotic
+   gene prediction + Shine-Dalgarno RBS detection — GenomeAnnotator.PredictGenes / FindRibosomeBindingSites /
+   FindRibosomeBindingSitesBothStrands / ScanStrandForShineDalgarno: Stage A PASS, Stage B PASS, State CLEAN,
+   filtered suite GenomeAnnotator_Gene_Tests 39/0). NO code defect — an INDEPENDENT re-validation that
+   re-fetched every consensus/spacing value (SD AGGAGG, anti-SD YACCUCCUUA, ~8 nt location, 5 nt optimal
+   aligned spacing / Chen 1994) and HAND-re-derived every reverse-strand coordinate in Python without lifting
+   repo expected values; the reverse-strand SD mapping forwardPos = len − hit.position − motifLen (scan the
+   reverse complement, since the SD is an mRNA feature) was mutation-falsified (forwardPosition = hit.position
+   → R1/R3/R4 fail), zero code change. UNLIKE the two prior report ingests, gene prediction + strand/spacing-
+   aware SD RBS detection was genuinely UNREPRESENTED (open-reading-frame-detection is the Analysis-layer ORF
+   sibling and explicitly excludes the annotation layer; regulatory-element-detection only lists a bare AGGAGG
+   catalog string) — so CREATED a new concept [[prokaryotic-gene-prediction-rbs]] and added surgical back-links
+   from [[open-reading-frame-detection]] (scope section) and [[regulatory-element-detection]] (SD row). Kept
+   distinct from any annot-gene-001-evidence artifact; did NOT force the algorithm-validation-evidence hub;
+   tied the report to [[validation-ledger]]/[[validation-protocol]]. Updated wiki/index.md (+1 source, +1
+   concept). No backlog move — the Annotation/Gene_Prediction.md slug is resolved only when a concept lists that
+   algorithm doc in sources:; this concept's source is the coverage-excluded validation report (per instruction
+   #7), same as the ANNOT-CODING/CODONUSAGE report precedent. No contradictions flagged.
+   graph: +2 nodes (source + concept), +2 typed edges (prokaryotic-gene-prediction-rbs relates_to
+   test-unit-registry + alternative_to open-reading-frame-detection); body [[wikilinks]] mentions auto-derived.

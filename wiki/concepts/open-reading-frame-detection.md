@@ -82,7 +82,9 @@ contract-equivalent** to the annotation-layer `GenomeAnnotator.FindOrfs` (test u
 ANNOT-ORF-001, `docs/algorithms/Annotation/ORF_Detection.md`, not ingested here), which
 recognizes the prokaryotic start set ATG/GTG/TTG, measures `minLength` in **amino acids**,
 and exposes `searchBothStrands`/`requireStartCodon` flags — plus `Translator.FindOrfs`
-for genetic-code-parameterized ORF finding. Callers pick the entry point deliberately.
+for genetic-code-parameterized ORF finding. That annotation layer's ORF-based gene
+prediction + Shine-Dalgarno RBS finder is [[prokaryotic-gene-prediction-rbs]]
+(test unit ANNOT-GENE-001). Callers pick the entry point deliberately.
 Coding-potential scoring of a candidate ORF is a separate step ([[coding-potential-hexamer-score]]).
 
 ## Reference sources

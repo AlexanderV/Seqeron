@@ -110,7 +110,10 @@ ambiguity code from an alignment rather than matching one against a subject). It
 unrelated to de novo [[overrepresented-kmer-discovery]] (finding **unknown** motifs) and to
 alignment-derived [[consensus-from-alignment]]. The Kozak / Shine-Dalgarno translation
 signals sit adjacent to [[open-reading-frame-detection]] (they mark the start context of a
-coding ORF, though this scanner does not link them to ORFs). A distinct promoter-detection
+coding ORF, though this scanner does not link them to ORFs) — the strand-aware,
+spacing-scored SD-to-start ribosome-binding-site finder is
+[[prokaryotic-gene-prediction-rbs]] (ANNOT-GENE-001), where this catalog only reports a
+bare `AGGAGG` match anywhere. A distinct promoter-detection
 unit (`docs/algorithms/Annotation/Promoter_Detection.md`) remains un-ingested. **No source
 contradictions**; the only assumptions are the two representative-site choices above, both
 source-anchored.
