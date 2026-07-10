@@ -3382,3 +3382,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    no source contradictions; research-grade, not clinical. Follow-ups: pathogenicity/ACMG classification and
    read-pileup (depth/genotype) calling remain adjacent variant-family units not yet ingested.
    graph: +2 nodes, +3 typed edges (germline-variant-calling-snp-indel relates_to test-unit-registry; relates_to variant-effect-annotation-vep; alternative_to somatic-variant-calling-tumor-normal)
+
+## [2026-07-10] ingest | docs/Evidence/VARIANT-INDEL-001-Evidence.md → variant-indel-001-evidence (source)
+   Indel detection (FindInsertions/FindDeletions — filters over the aligned-column caller). ENRICHED the
+   existing concept [[germline-variant-calling-snp-indel]] rather than forking a new concept: it is the
+   indel facet of the same VARIANT-CALL-001 caller. Added an "Indel detection" subsection (directional
+   length invariant insertion⇒ALT>REF / deletion⇒REF>ALT, per-base multi-indel columns, minimal_representation
+   CFTR/BRCA2 oracles) and expanded the normalization ASM with Tan 2015 Algorithm 1 (suffix-then-prefix
+   trimming) + PharmCAT tandem-repeat left-shift. Concept frontmatter gained the source path + a
+   relates_to test-unit-registry edge for the new unit. Updated wiki/index.md (Sources + Concepts).
+   Sources VCFv4.3 + Tan 2015 (PMID 25701572) + minimal_representation (Minikel) + PharmCAT; no source
+   contradictions; research-grade, not clinical. Follow-ups: indel left-normalization as a standalone
+   method and read-pileup genotype calling remain adjacent units not yet ingested.
+   graph: +1 node, +1 typed edge (germline-variant-calling-snp-indel relates_to test-unit-registry for variant-indel-001-evidence)

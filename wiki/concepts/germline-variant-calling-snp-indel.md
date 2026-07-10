@@ -4,7 +4,8 @@ title: "Variant calling (SNP/indel from reference↔query alignment + Ti/Tv)"
 tags: [annotation, algorithm]
 sources:
   - docs/Evidence/VARIANT-CALL-001-Evidence.md
-source_commit: 5b4dd805db54d51bae30445a884e122fc4d97bd5
+  - docs/Evidence/VARIANT-INDEL-001-Evidence.md
+source_commit: 744b87f09d5f0949dd2f3eec7ec5a2c84e389606
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -13,6 +14,12 @@ graph:
       object: concept:test-unit-registry
       source: variant-call-001-evidence
       evidence: "Test Unit ID: VARIANT-CALL-001 — Variant Detection (SNP / Insertion / Deletion calling from a reference↔query comparison, with transition/transversion classification)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: variant-indel-001-evidence
+      evidence: "Test Unit ID: VARIANT-INDEL-001 — Indel Detection (FindInsertions/FindDeletions filters over the aligned-column caller); the indel facet of this same calling unit"
       confidence: high
       status: current
     - predicate: relates_to
@@ -55,6 +62,25 @@ Walking the reference/query alignment column by column yields exactly three diff
 Identical sequences yield **zero variants**. Mismatched aligned lengths throw `ArgumentException`; empty
 input yields an empty call set.
 
+## Indel detection: FindInsertions / FindDeletions and the directional length invariant
+
+The indel facet is validated separately as **VARIANT-INDEL-001** ([[variant-indel-001-evidence]]).
+`FindInsertions` and `FindDeletions` are **filters over `CallVariants`** — they run the same
+alignment-column caller and return only the columns of their class (`FindInsertions` → insertions only,
+`FindDeletions` → deletions only; no SNPs). A **multi-base** indel is reported as **consecutive per-base
+indel columns**. The load-bearing correctness claim is the **directional length invariant**:
+
+- **insertion ⇒ ALT longer than REF** — serialized VCF `C → CA`; in-memory, `ReferenceAllele = "-"` gap
+  sentinel + a one-base `AlternateAllele`.
+- **deletion ⇒ REF longer than ALT** — serialized VCF `TC → T`; in-memory, a one-base `ReferenceAllele`
+  + `AlternateAllele = "-"`.
+
+The VCFv4.3 §1.1 microsatellite record `GTC → G,GTCT` shows both at once (one 2-base deletion `TC`, one
+1-base insertion `T`, each anchored at `G`). Reference implementations of the normalized form —
+minimal_representation (Minikel) worked cases CFTR p.F508del `(7,117199646,CTT,-) → (7,117199644,ATCT,A)`
+and BRCA2 `(13,32914438,T,-) → (13,32914437,GT,G)` — independently confirm the same length direction and
+the left-anchor padding of empty alleles.
+
 ## Transition / transversion classification
 
 Every **SNP** is classified case-insensitively as a **transition** (a base change *within* a ring class —
@@ -91,9 +117,13 @@ format; VEP-style annotation and the oncology tier/pathogenicity layers consume 
   (2-base deletion) and `GTC→GTCT` (1-base insertion) both anchor at the preceding `G` — a serialization
   concern, not a detection concern.
 - **Indels are not left-aligned / parsimony-normalized** — per Tan 2015 the canonical representation
-  requires **left-alignment + parsimony**; this caller reports the indel at the column `GlobalAlign`
-  produces, with no normalization pass. This affects reported **position** in low-complexity / repeated
-  regions only (the alignment there is non-unique), **not** variant counts or types.
+  requires **left-alignment + parsimony** (Algorithm 1: right-trim shared trailing nucleotides, re-padding
+  left when an allele empties, then left-trim shared leading nucleotides while all alleles are length ≥2 —
+  the suffix-then-prefix trimming that minimal_representation and PharmCAT implement). This caller reports
+  the indel at the column `GlobalAlign` produces, with **no** normalization pass. This affects reported
+  **position** in low-complexity / repeated regions only (the alignment there is non-unique — e.g.
+  PharmCAT's tandem-repeat `AATGA→A` @97740414 left-shifts to `GATGA→G` @97740410, same count and type),
+  **not** variant counts or types.
 - **Alignment-based, not pileup-based** — this is a single-query-vs-reference comparison, not a
   read-pileup genotype caller; there is no depth model, base-quality weighting, or diploid genotype
   assignment.
@@ -101,4 +131,5 @@ format; VEP-style annotation and the oncology tier/pathogenicity layers consume 
 Reference sources — **VCFv4.3** (samtools/hts-specs, the REF/ALT/POS + padding grammar), **Danecek 2011**
 (the VCF variant classes), **Tan 2015** (left-align + parsimony normalization), **Collins & Jukes 1994**
 (transitional bias), and Wikipedia Transition/Transversion (the classification table) — full record in
-[[variant-call-001-evidence]]. No source contradictions.
+[[variant-call-001-evidence]]; the indel-detection facet (`FindInsertions`/`FindDeletions`, directional
+length invariant, normalization theory) in [[variant-indel-001-evidence]]. No source contradictions.
