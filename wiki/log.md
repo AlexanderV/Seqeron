@@ -4038,3 +4038,21 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    CODON-STATS-001 verdict in the intro. Updated wiki/index.md (+1 source line). No new typed graph edges
    (report is a source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/CODON-USAGE-001.md → codon-usage-001-report (source)
+   New source-summary page for the 2026-06-24 two-stage validation of CODON-USAGE-001 (raw codon-usage
+   table + TVD comparison — CodonOptimizer.CalculateCodonUsage :634 / CompareCodonUsage :657 /
+   SplitIntoCodons :687, MolTools). Stage A PASS-WITH-NOTES / Stage B PASS / End state ✅ CLEAN, 22/22
+   unit tests, full Seqeron.Genomics.Tests suite 18208/0, zero production-code change. Count(c)=raw
+   Dictionary<codon,int> + Similarity=1−Σ|f₁−f₂|/2 (TVD=½·L¹, ∈[0,1]) confirmed vs EMBOSS cusp
+   (Number/Frequency/Fraction), Kazusa row format, Wikipedia codon-usage-bias, TVD theory; hand oracles
+   reproduced (ATGGCTGCTTAA→{AUG:1,GCU:2,UAA:1}; M9=0.75, M7=0.5, S6=2/3). Sole Stage-A note = scope
+   framing (per-1000 frequency / per-family fraction / RSCU belong to CODON-RSCU-001 / CODON-STATS-001 /
+   SEQ-CODON-FREQ-001), not a formula error; no defect, no code change. Kept distinct from the evidence
+   artifact codon-usage-001-evidence (docs/Evidence). Existing concept codon-usage-comparison synthesizes
+   the measure; tied to validation-ledger / validation-and-testing / test-unit-registry; did NOT force the
+   algorithm-validation-evidence hub, and did NOT create a new concept (measure already represented —
+   economical). Surgically updated concept codon-usage-comparison: added the report to sources, bumped
+   source_commit to b0db43a8, cross-linked the CODON-USAGE-001 verdict in the intro. Updated wiki/index.md
+   (+1 source line). No new typed graph edges (report is a source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges

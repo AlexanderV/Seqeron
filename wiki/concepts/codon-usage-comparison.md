@@ -6,7 +6,8 @@ sources:
   - docs/Evidence/CODON-USAGE-001-Evidence.md
   - docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md
   - docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md
-source_commit: ae4a6ae53a125dceb08b5ff21c344ab447afe335
+  - docs/Validation/reports/CODON-USAGE-001.md
+source_commit: b0db43a8692338b09003a14ca3e87a130a9b5a63
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -32,6 +33,12 @@ The **raw** end of the codon-usage family (`CodonOptimizer.CalculateCodonUsage` 
 unnormalized codon-count table, and compare two such tables with a distribution-distance
 similarity. Distinct from the codon-usage-*bias* measures — it does no per-amino-acid
 normalization and computes no single per-gene score. See [[test-unit-registry]] for tracking.
+
+**Validation verdict:** the independent two-stage re-validation
+[[codon-usage-001-report|CODON-USAGE-001 report]] closed **Stage A PASS-WITH-NOTES / Stage B PASS /
+CLEAN** (22/22 unit tests, suite 18208/0, zero code change) — counts + TVD confirmed against EMBOSS
+`cusp`, Kazusa and TVD theory; the only note is a scope framing (per-1000 frequency / per-family
+fraction / RSCU belong to adjacent units), not a formula error.
 
 ## The raw usage table
 
