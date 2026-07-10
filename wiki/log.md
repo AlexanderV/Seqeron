@@ -4265,3 +4265,26 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    covered / 169→168 pending). Updated wiki/index.md (+1 source, +1 concept). Concept sources list both the
    report and docs/algorithms/MolTools/Guide_RNA_Design.md. No contradictions.
    graph: +2 nodes, +2 typed edges (crispr-guide-rna-design relates_to test-unit-registry, relates_to primer-dimer-thermodynamics-tm)
+
+## [2026-07-10] ingest | docs/Validation/reports/CRISPR-OFF-001.md → crispr-off-001-report (source)
+   Per-unit validation report for CRISPR-OFF-001 (MolTools — CRISPR off-target scoring: scan a genome for
+   near-matches to a gRNA and score off-target risk). Two independent parts, both Stage A/B PASS, State
+   CLEAN, zero production-code change: (1) MIT/Hsu-Zhang 2013 single-hit + aggregate specificity
+   (CalculateMitHitScore / CalculateMitSpecificityScore; 20-element W byte-identical to CRISPOR hitScoreM;
+   hitScore=Pi(1-W[i])*score2*score3*100, aggregate 100/(100+Sigma)*100; orientation index 0=PAM-distal,
+   19=PAM-proximal seed; oracles perfect->100, mm@5->60.5, mm@13->14.9, mm@19->41.7, agg{60.5}->62.30529595
+   reproduced from source; committed orientation-guard test), and (2) CFD Doench-2016 (CalculateCfdScore
+   in [0,1]; 240-entry mismatch + 16-entry PAM matrices cross-checked 240/240 + 16/16 identical across
+   CRISPOR + iGWOS; PAM GG=1.0/AG=0.259259/...; oracles perfect+GG->1.0, iGWOS doctests
+   0.4635989007074176 / 0.5140384614450001). 71/71 off-target+CFD tests green; full suite 6812 passed/0
+   failed, 0 warnings. Closed finding C7 (CFD was its last off-target residual). ENRICHED existing concept
+   crispr-guide-rna-design (the CrisprDesigner/MolTools anchor) with a Layer-3 off-target section rather
+   than creating a new concept (off-target is the complementary half of on-target guide selection on the
+   same class): retitled to add off-target, added the report to sources, bumped source_commit to
+   c763b50c, added a relates_to test-unit-registry typed edge for the off-target unit, updated intro +
+   assumptions. New source-summary page crispr-off-001-report. Updated wiki/index.md (+1 source line,
+   revised the concept line). Tied to validation-ledger / validation-and-testing / test-unit-registry; did
+   NOT force the algorithm-validation-evidence hub. Kept distinct from the on-target sibling
+   crispr-guide-001-report. No contradictions. Backlog slug off-target-analysis (Off_Target_Analysis.md)
+   left pending — this report validates the MIT/CFD scoring layer, not that algorithm doc.
+   graph: +1 node, +1 typed edge (crispr-guide-rna-design relates_to test-unit-registry for CRISPR-OFF-001)

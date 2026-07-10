@@ -1,11 +1,12 @@
 ---
 type: concept
-title: "CRISPR guide RNA design and on-target efficacy scoring"
+title: "CRISPR guide RNA design, on-target efficacy, and off-target scoring"
 tags: [primer, algorithm, validation]
 sources:
   - docs/Validation/reports/CRISPR-GUIDE-001.md
+  - docs/Validation/reports/CRISPR-OFF-001.md
   - docs/algorithms/MolTools/Guide_RNA_Design.md
-source_commit: 8ab783ae77cc9e5a6a05c3daefb18a3a4ad4a52d
+source_commit: c763b50cd147a56f659298a8626d2ede865297f1
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -17,6 +18,12 @@ graph:
       confidence: high
       status: current
     - predicate: relates_to
+      object: concept:test-unit-registry
+      source: crispr-off-001-report
+      evidence: "Test Unit ID CRISPR-OFF-001 (MolTools); the two-stage report validates the off-target scoring surface CrisprDesigner.CalculateMitHitScore / CalculateMitSpecificityScore (MIT/Hsu 2013) and CalculateCfdScore (Doench 2016)."
+      confidence: high
+      status: current
+    - predicate: relates_to
       object: concept:primer-dimer-thermodynamics-tm
       source: crispr-guide-001-report
       evidence: "Sibling MolTools reagent-design unit in the CrisprDesigner/MolTools family, alongside the primer and probe design units."
@@ -24,18 +31,27 @@ graph:
       status: current
 ---
 
-# CRISPR guide RNA design and on-target efficacy scoring
+# CRISPR guide RNA design, on-target efficacy, and off-target scoring
 
-The **CRISPR guide RNA (gRNA/sgRNA) design** surface (test unit **CRISPR-GUIDE-001**, MolTools) — a
-distinct reagent-design algorithm in the `CrisprDesigner` family, sibling to the primer units
-[[primer-dimer-thermodynamics-tm]] / [[primer3-weighted-penalty-objective]] and the probe units
-[[taqman-probe-design-rules]] / [[probe-offtarget-specificity-scan]]. It has **two clearly separated
-layers**: (1) a **composition-based heuristic** that extracts candidate guides at PAM sites and ranks
-them, and (2) **two experimentally-calibrated on-target efficacy models** (Doench 2014 Rule Set 1 and
-Doench 2016 Rule Set 2 / Azimuth) that predict editing activity from a fixed 30-nt context. The
-independent two-stage validation verdict is [[crispr-guide-001-report]]; [[test-unit-registry]] tracks
-the unit and [[algorithm-validation-evidence]] describes the artifact pattern. Implementation:
+The **CRISPR guide RNA (gRNA/sgRNA) design** surface — a distinct reagent-design algorithm in the
+`CrisprDesigner` family, sibling to the primer units [[primer-dimer-thermodynamics-tm]] /
+[[primer3-weighted-penalty-objective]] and the probe units [[taqman-probe-design-rules]] /
+[[probe-offtarget-specificity-scan]]. It has **three clearly separated layers**: (1) a
+**composition-based heuristic** that extracts candidate guides at PAM sites and ranks them
+(test unit **CRISPR-GUIDE-001**); (2) **two experimentally-calibrated on-target efficacy models**
+(Doench 2014 Rule Set 1 and Doench 2016 Rule Set 2 / Azimuth) that predict editing activity from a
+fixed 30-nt context (CRISPR-GUIDE-001); and (3) **off-target risk scoring** — scanning a genome for
+near-matches to a guide and scoring each hit's cutting risk, via the **MIT/Hsu-Zhang 2013**
+specificity model and the **CFD (Doench 2016)** score (test unit **CRISPR-OFF-001**). The two
+independent two-stage validation verdicts are [[crispr-guide-001-report]] (on-target) and
+[[crispr-off-001-report]] (off-target); [[test-unit-registry]] tracks both units and
+[[algorithm-validation-evidence]] describes the artifact pattern. Implementation:
 `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs`.
+
+On-target and off-target scoring are the **two complementary halves of guide selection**: on-target
+predicts *how well* a guide cuts its intended site, off-target predicts *how much* it also cuts elsewhere.
+Both are learned/experimentally-calibrated models grounded byte-for-byte against the CRISPOR reference
+implementation; both are research-grade, not for clinical use.
 
 ## Layer 1 — heuristic guide extraction and ranking
 
@@ -107,10 +123,48 @@ rows) carry both the verified reference `ref_score` **and** the upstream Azimuth
 with an `agrees` flag (documented ~38 % upstream-fixture drift), so tests assert against the reference,
 never against the C# output. The `nopos`/`full` wrappers delegate to one engine.
 
+## Layer 3 — off-target risk scoring (CRISPR-OFF-001)
+
+Off-target scoring answers the complementary question: given a designed guide, **scan a genome for
+near-matches and score each hit's cutting risk**. Two independent models live on `CrisprDesigner`, both
+grounded against the CRISPOR reference and validated in [[crispr-off-001-report]] (Stage A/B PASS, CLEAN;
+71/71 off-target+CFD tests). The pre-existing honest-heuristic `FindOffTargets` /
+`CalculateSpecificityScore` / `CalculateOffTargetScore` are unchanged; the scored models below were added
+on top of them.
+
+**MIT / Hsu-Zhang 2013 specificity** — `CalculateMitHitScore(guide20, offTarget20)` returns a single-hit
+score in [0,100]; `CalculateMitSpecificityScore(...)` aggregates per-hit scores into a guide specificity
+(with a genome-scanning overload that reuses `FindOffTargets`). Realised verbatim from CRISPOR
+`calcHitScore` / `calcMitGuideScore` over a **20-element mismatch-penalty vector `W`** (byte-identical to
+the reference `hitScoreM`):
+
+- `score1 = Π over mismatched positions i of (1 − W[i])`;
+- `score2 = 1` if `nmm < 2` else `1/(((19 − meanInterMismatchDist)/19)·4 + 1)` (`maxDist = 19`);
+- `score3 = 1` if `nmm == 0` else `1/nmm²`;
+- `hitScore = score1·score2·score3·100`; aggregate `= 100/(100 + Σ hitScores)·100`.
+
+**Orientation** (pinned from the source): `W` index 0 = PAM-distal 5' (low/zero weight), index 19 =
+PAM-proximal seed (max `W[13]=0.851`) — mismatches in the seed are least tolerated. Worked oracles:
+perfect→100, mm@0 (W=0)→100, mm@5→60.5, mm@13→14.9, mm@19→41.7, two-mm{5,15}→0.8987, aggregate
+{60.5}→62.30529595. A committed orientation-guard test fails if `W` is reversed.
+
+**CFD (Cutting Frequency Determination, Doench 2016)** — `CalculateCfdScore(sgRna20, offTarget20,
+offTargetPam)` returns a score in [0,1]. `score = 1`; guide/off `T→U`; per position `i` (0..19, 5'→3'),
+matched → ×1, else × `mm_scores["r{guide[i]}:d{complement(off[i])},{i+1}"]`; finally × `pam_scores[last-2
+PAM-nt]`. The **240-entry mismatch matrix + 16-entry PAM table** (Doench et al. 2016, *Nat Biotechnol*
+34:184) are cross-checked **240/240 + 16/16 identical across two independent sources** (CRISPOR + iGWOS)
+and reproduced at full `double` precision. PAM table: `GG=1.0`, `AG=0.259259`, `CG=0.107143`,
+`GA=0.069444`, `TG=0.038961`, `GC=0.022222`, `GT=0.016129`, all others `0.0`. Same orientation convention
+(index 0 = PAM-distal); key `rX` = guide base T→U, `dY` = complement of the off-target base. Oracles:
+perfect+GG→1.0, published iGWOS doctests 0.4635989007074176 / 0.5140384614450001, single mm rC:dT,20→0.5.
+This closed finding **C7** (CFD was its last off-target residual; Rule Set 2 / Azimuth cleared separately).
+
 ## Validation status
 
-Independently re-validated 2026-06-24: **Stage A PASS · Stage B PASS · State CLEAN**, 54/54 CRISPR tests
-green, **no code or test change**. This session re-downloaded the CRISPOR reference and re-confirmed the
+Independently re-validated 2026-06-24 (on-target, CRISPR-GUIDE-001): **Stage A PASS · Stage B PASS · State
+CLEAN**, 54/54 CRISPR tests green, **no code or test change**. Off-target (CRISPR-OFF-001) likewise
+**Stage A/B PASS · CLEAN**, 71/71 off-target+CFD tests, no production-code change (one in-tree MIT
+orientation-guard test verified source-correct and committed); full suite 6812 passed / 0 failed. This session re-downloaded the CRISPOR reference and re-confirmed the
 intercept, gcLow/gcHigh, the 4+20+3+3 layout, the GC-term boundary, and the full 70-entry table as
 byte-identical, reproducing three worked-example scores to ≤ 2e-8; Rule Set 2 provenance and oracle
 externality re-confirmed. Full detail and the test-quality (green-washing) audit are in
@@ -125,6 +179,13 @@ externality re-confirmed. Full detail and the test-quality (green-washing) audit
   input throws rather than silently scoring.
 - **Rule Set 2 is only reproducible from the shipped pickles**, not from published constants; its tests
   are anchored to externally-derived oracles.
+- **Off-target scoring is a separate surface from on-target efficacy.** MIT/Hsu (`CalculateMitHitScore`,
+  [0,100]) and CFD (`CalculateCfdScore`, [0,1]) score a guide against a **specific 20-nt off-target
+  protospacer** (CFD also takes the off-target PAM); both require 20-nt ACGT inputs and throw otherwise.
+  Their **orientation is index 0 = PAM-distal, seed = PAM-proximal** — reversing it is the classic bug
+  and is caught by dedicated guard tests. A HIGH MIT/CFD hit score means MORE off-target cutting risk;
+  the aggregate MIT specificity inverts this (high = specific guide).
 
-No source contradictions: the Doench 2014 model matches the CRISPOR reference exactly, and the Azimuth
-provenance is consistent with the prior multi-session report.
+No source contradictions: the Doench 2014 model, the MIT/Hsu `W` vector, and the CFD matrices all match
+the CRISPOR reference exactly (CFD additionally 240/240 + 16/16 identical across CRISPOR and iGWOS), and
+the Azimuth provenance is consistent with the prior multi-session report.
