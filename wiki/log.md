@@ -4113,3 +4113,26 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    did NOT force the algorithm-validation-evidence hub. Kept distinct from evidence artifact
    compgen-compare-001-evidence. No new typed graph edges (report is a source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-DOTPLOT-001.md → compgen-dotplot-001-report (source)
+   New source-summary page for the two-stage validation report of COMPGEN-DOTPLOT-001 (dot plot —
+   word-match / k-tuple dot matrix, ComparativeGenomics.GenerateDotPlot(seq1, seq2, wordSize=10,
+   stepSize=1), cs:1169-1207). Validated 2026-06-16. Independent re-validation: Stage A PASS / Stage B
+   PASS-WITH-NOTES / End state CLEAN — NO implementation defect and no product-code change. Match
+   relation D={(i,j):A[i..i+w-1]=B[j..j+w-1]} case-insensitive (ToUpperInvariant), suffix-tree
+   FindAllOccurrences yields ALL overlapping occurrences, eager wordSize/stepSize<=0→AOORE before
+   iterator. Sources retrieved this session: Huttley TIB (k=1 rule, AGCGT/AT→{(0,0),(4,1)}, x=seq1/y=seq2),
+   EMBOSS dottup (exact word match, default wordsize 10, noise/sensitivity trade-off), Wikipedia (Gibbs &
+   McIntyre 1970, main diagonal). Ten cross-checks recomputed vs code all matched (incl. ACGTACGT self
+   w=4→7-dot set, ACGT self w=1→exact main diagonal, disjoint→∅, default w=10→{(0,0)}). Two TEST-QUALITY
+   fixes in-session (not code defects): M3 self-diagonal Is.SupersetOf→Is.EquivalentTo exact main diagonal
+   (anti-green-wash), and new S3 locking the default wordSize=10 path. Honest green: full suite 6606
+   passed/0 failed/0 skipped, build 0 errors. Axis-orientation / case-fold / non-positive-window-throws are
+   documented decisions, not defects; no open follow-ups. Existing concept dot-plot-word-match already
+   represents the algorithm (economical — no new concept); surgically updated it: added the report to
+   sources, bumped source_commit to 37c54d6d, cross-linked the CLEAN verdict + the two in-session test
+   fixes in the intro. Updated wiki/index.md (+1 source line). Tied to validation-ledger /
+   validation-and-testing / test-unit-registry; did NOT force the algorithm-validation-evidence hub. Kept
+   distinct from evidence artifact compgen-dotplot-001-evidence. No new typed graph edges (report is a
+   source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges

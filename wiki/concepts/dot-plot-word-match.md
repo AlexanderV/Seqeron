@@ -5,9 +5,10 @@ tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Dot_Plot_Generation.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/COMPGEN-DOTPLOT-001.md
+source_commit: 37c54d6df345672ac216015eda5a1639544b4b01
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -43,9 +44,12 @@ family (`COMPGEN-*`) unit, a sibling of [[average-nucleotide-identity]],
 [[conserved-gene-clusters-common-intervals]], and the end-to-end pipeline
 [[genome-comparison-core-dispensable]]: where ANI reduces the comparison to one *number* and
 synteny to *ordered blocks*, the dot plot keeps the **whole match relation** as a visual
-matrix. Validated under test unit **COMPGEN-DOTPLOT-001**; the validation record is
-[[compgen-dotplot-001-evidence]], [[test-unit-registry]] tracks the unit, and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+matrix. Validated under test unit **COMPGEN-DOTPLOT-001**; the pre-implementation evidence is
+[[compgen-dotplot-001-evidence]] and the independent two-stage verdict is
+[[compgen-dotplot-001-report]] (Stage A PASS / Stage B PASS-WITH-NOTES / End state CLEAN — no code
+defect; one weak self-diagonal assertion strengthened to the exact main-diagonal set and the
+default `wordSize=10` path newly covered, both in-session). [[test-unit-registry]] tracks the unit,
+and [[algorithm-validation-evidence]] describes the artifact pattern.
 
 ## The word-match algorithm (Gibbs & McIntyre 1970 → EMBOSS `dottup`)
 
