@@ -3109,3 +3109,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    (source + concept entries). Contradictions: none (four vendor/reference sources corroborate
    point-for-point). Follow-ups: none.
    graph: +2 nodes, +2 typed edges
+
+## [2026-07-10] ingest | docs/Evidence/PROBE-DESIGN-001-LNA-Evidence.md → probe-design-001-lna-evidence (source)
+   LNA (locked nucleic acid) Tm-adjustment variant of PROBE-DESIGN-001: an LNA-adjusted
+   nearest-neighbour Tm (McTigue/Peterson/Kahn 2004 — 32 LNA+DNA:DNA NN increments in cal/mol;
+   internal LNA raises Tm/specificity → shorter MGB-style 13-20 nt probes). Additive-increment
+   model onto the library's SantaLucia-1998-unified DNA NN engine (same as PRIMER-TM-001);
+   terminal-LNA/non-ACGT/out-of-range → not-computable. Enriched existing concept
+   [[taqman-probe-design-rules]] (new LNA section, LNA base-NN assumption, +typed edge relates_to
+   [[primer-dimer-thermodynamics-tm]]) rather than creating a new concept — genuinely the same
+   PROBE unit's modified-base Tm variant. Updated hub [[algorithm-validation-evidence]]
+   (frontmatter sources + body evidence-link list) and wiki/index.md (source entry). Oracle
+   CCATTGCTACC LNA@4 → Tm 63.528 °C vs all-DNA 59.692 (+3.84), MELTING mct04 63.614 to 0.086 °C.
+   Contradictions: none (McTigue + MELTING + rmelting agree; 0.086 °C = documented base-NN-set diff).
+   Follow-ups: none.
+   graph: +1 node, +1 typed edge
