@@ -4159,3 +4159,30 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    did NOT force the algorithm-validation-evidence hub. Kept distinct from evidence artifact
    compgen-ortho-001-evidence. No new typed graph edges (report is a source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-RBH-001.md → compgen-rbh-001-report (source)
+   New source-summary page for the two-stage validation report of COMPGEN-RBH-001 (reciprocal best hits
+   — the core between-genome ortholog primitive ComparativeGenomics.FindReciprocalBestHits, delegate
+   FindOrthologs, private FindBestHit / CalculateSequenceSimilarity, cs:410–549; the RBH-only slice of
+   COMPGEN-ORTHO-001, no in-paralog rule). Validated 2026-06-16. Independent re-validation: Stage A
+   PASS-WITH-NOTES / Stage B PASS / End state CLEAN — NO code defect and no code change. The one Stage-A
+   note is the documented alignment-free simplification (5-mer Jaccard replaces BLAST bit-score ranking,
+   order-preserving on all datasets); Stage B is a clean PASS. Moreno-Hagelsieb 2008 (RBH def verbatim
+   from the PubMed abstract; ≥50%/E≤1e-6 body quotes paywalled but the load-bearing definition
+   independently confirmed) + Tatusov 1997 (COG mutually-consistent BeTs) + Best-Match-Graph literature
+   confirm the symmetric requirement. Formula RBH(a,b) ⇔ bestHit(a→G2)=b ∧ bestHit(b→G1)=a with
+   deterministic tie-break + both gates; independent Python 5-mer Jaccard reproduced self-match 1.0 /
+   alignLen 14, superstring 0.667, and the new coverage case AAAAACCCCCGGGGG vs AAAAACCCCCTTTTT → shared
+   6 / union 16 = 0.375, cov 6/11 = 0.5455. 13 unit tests; M2 excludes the non-reciprocal b2. Two
+   test-coverage gaps closed in-session (test-surface only, impl already correct): M7 (coverage-gate
+   rejection, exact 6/16 & 6/11 values; kept at default minCoverage 0.5, rejected at 0.6) and S4 (< k=5
+   short-sequence similarity-0). Full suite 6605 passed / 0 failed / 1 skipped (unrelated MFE benchmark),
+   build 0 warnings / 0 errors. Existing concept ortholog-detection-reciprocal-best-hits already
+   represents the algorithm (RBH IS its core method — economical, no new concept); surgically updated it:
+   added the report to sources, bumped source_commit to 00c5ea42, cross-linked the RBH-001 CLEAN verdict
+   + the two in-session coverage-gap closures (M7/S4) in the intro. Updated wiki/index.md (+1 source
+   line). Tied to validation-ledger / validation-and-testing / test-unit-registry; did NOT force the
+   algorithm-validation-evidence hub. Kept distinct from evidence artifact compgen-rbh-001-evidence and
+   sibling report compgen-ortho-001-report. No new typed graph edges (report is a source-summary;
+   mentions auto-derived).
+   graph: +1 node, +0 typed edges

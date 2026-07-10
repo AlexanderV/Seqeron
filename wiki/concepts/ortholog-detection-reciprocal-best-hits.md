@@ -6,9 +6,10 @@ sources:
   - docs/Evidence/COMPGEN-ORTHO-001-Evidence.md
   - docs/Evidence/COMPGEN-RBH-001-Evidence.md
   - docs/Validation/reports/COMPGEN-ORTHO-001.md
+  - docs/Validation/reports/COMPGEN-RBH-001.md
   - docs/algorithms/Comparative_Genomics/Ortholog_Identification.md
   - docs/algorithms/Comparative_Genomics/Reciprocal_Best_Hits.md
-source_commit: 0752d91e99ea903a09b9b514deb4d3bbd8688f68
+source_commit: 00c5ea423943b75acdee59bd9ce88cc801bb2a37
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -53,7 +54,11 @@ re-validation of COMPGEN-ORTHO-001 ([[compgen-ortho-001-report]]) graded it **St
 PASS-WITH-NOTES · End state ✅ CLEAN** — no code defect (the historical non-reciprocal-`FindOrthologs`
 bug is already fixed), the notes being the honestly-documented alignment-free simplifications below;
 three test-quality improvements were applied in-session (including correcting a comment that wrongly
-called TtBlock/GcBlock "Jaccard 0.0" when they share 8/12 5-mers = 0.5).
+called TtBlock/GcBlock "Jaccard 0.0" when they share 8/12 5-mers = 0.5). The RBH-only unit's own
+re-validation ([[compgen-rbh-001-report]]) graded it **Stage A PASS-WITH-NOTES · Stage B PASS · End
+state ✅ CLEAN** — again no code defect; the only in-session work was closing two test-coverage gaps on
+the `FindReciprocalBestHits` primitive (a missing `minCoverage`-gate test M7 with exact 6/16 = 0.375,
+6/11 = 0.5455, and a missing `< k` short-sequence-edge test S4).
 
 ## Orthology vs paralogy (Fitch 1970)
 
