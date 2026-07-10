@@ -169,7 +169,8 @@ sources:
   - docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
-source_commit: 4a7f3b50df393c2ccf0fe505da489d087d4f22f4
+  - docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md
+source_commit: 60364fa35e17472ed4b4847deceae1f24784348f
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -293,7 +294,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[rna-stemloop-001-evidence]], [[rna-struct-001-evidence]],
 [[seq-complex-compress-001-evidence]], [[seq-complex-dust-001-evidence]],
 [[seq-complex-kmer-001-evidence]], [[seq-complex-window-001-evidence]],
-[[seq-composition-001-evidence]], [[seq-dinuc-001-evidence]]). An
+[[seq-composition-001-evidence]], [[seq-dinuc-001-evidence]],
+[[seq-entropy-profile-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],

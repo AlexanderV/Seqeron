@@ -4,7 +4,8 @@ title: "Windowed sequence complexity profile (sliding-window Shannon + linguisti
 tags: [analysis, algorithm]
 sources:
   - docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md
-source_commit: 177b19d39600766e767f4acb04f34eca05bb79d7
+  - docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md
+source_commit: 60364fa35e17472ed4b4847deceae1f24784348f
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -13,6 +14,12 @@ graph:
       object: concept:test-unit-registry
       source: seq-complex-window-001-evidence
       evidence: "Test Unit ID: SEQ-COMPLEX-WINDOW-001 ... Algorithm: Windowed Sequence Complexity (sliding-window complexity profile)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: seq-entropy-profile-001-evidence
+      evidence: "Test Unit ID: SEQ-ENTROPY-PROFILE-001; Algorithm: Shannon Entropy Profile (sliding-window per-symbol Shannon entropy) — the same per-window Shannon H=−Σpᵢlog₂pᵢ over single-base composition, emitted as a standalone entropy profile (second entry point)"
       confidence: high
       status: current
 ---
@@ -26,7 +33,9 @@ complexity as a function of position along the sequence (Troyanskaya et al. 2002
 caller thresholds to locate low-complexity regions. Validated as test unit
 **SEQ-COMPLEX-WINDOW-001**; the source trace and worked oracles are in
 [[seq-complex-window-001-evidence]], [[test-unit-registry]] tracks the unit, and see
-[[algorithm-validation-evidence]] for the artifact pattern.
+[[algorithm-validation-evidence]] for the artifact pattern. The **same per-window Shannon scan** is
+also exposed standalone (entropy profile only, no linguistic complexity) as a second entry point,
+**SEQ-ENTROPY-PROFILE-001** — see the [second-entry-point section](#second-entry-point-the-standalone-shannon-entropy-profile-seq-entropy-profile-001) below and [[seq-entropy-profile-001-evidence]].
 
 ## Where it sits in the complexity family — the *profiling* layer
 
@@ -98,6 +107,32 @@ computed for an explicitly specified window).
   **LC = 6/29 = 0.20689655172413793**.
 - **Geometry** `L = 24, w = 8, s = 8` ⇒ **3** windows: [0,7] center 4, [8,15] center 12, [16,23]
   center 20.
+
+## Second entry point: the standalone Shannon entropy profile (SEQ-ENTROPY-PROFILE-001)
+
+The per-window Shannon scan above has a **second, standalone entry point** validated as test unit
+**SEQ-ENTROPY-PROFILE-001** — a **sliding-window Shannon entropy profile** that emits, per window,
+the **entropy value alone** (`H = −Σ pᵢ log₂ pᵢ` in **bits** over the window's **single-base,
+k = 1** composition), *without* the paired linguistic complexity. It is the **same measure and the
+same window geometry** as the Shannon component of the `ComplexityPoint` profile — not a different
+statistic — just the entropy channel exposed on its own (a `List<double>` rather than a list of
+`ComplexityPoint`s). Convention `0·log 0 = 0`; DNA bounds `0 ≤ H ≤ log₂k ≤ 2` (uniform 4-base window
+⇒ `2.0`, homopolymer ⇒ `0`). The source trace and worked oracles are in
+[[seq-entropy-profile-001-evidence]]; [[test-unit-registry]] tracks the unit.
+
+This is the **character-level (k = 1) counterpart** of the k-mer/block Shannon **k-entropy**
+([[k-mer-statistics]] `AnalyzeKmers.Entropy` / SEQ-COMPLEX-KMER-001 `CalculateKmerEntropy`), which is
+the same formula over the `L − k + 1` overlapping k-mer distribution of a **whole sequence**; this
+unit instead scans **per-position windows** and uses the mono-nucleotide (n = 4) alphabet.
+
+Worked per-window oracles (bits): `AAAA` → **0.0** (homopolymer); `AATT` → **1.0**; `ATGC` → **2.0**
+(= log₂4, uniform); `AAAT` → **0.8112781244591328** (3:1 skew); `AATG`/`GCAA` → **1.5**; `AAATTC` →
+**1.4591479170272448**. Sliding profiles: `AAATGC` w = 4 s = 1 → `[0.8112781244591328, 1.5, 2.0]`;
+`AAATGCAA` w = 4 s = 2 → `[0.8112781244591328, 2.0, 1.5]`. Corner cases mirror the profile driver:
+`windowSize > length` ⇒ **empty** profile (no partial trailing window), `windowSize == length` ⇒ a
+single value; case-folded before counting (case-insensitive). One non-value-affecting ASSUMPTION —
+the mono-symbol (k = 1) alphabet is the implementation's modelling choice; the cited sources define
+`H` over any symbol distribution.
 
 ## Corner cases and contract
 
