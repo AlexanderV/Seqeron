@@ -45,6 +45,11 @@ This is a **distinct complexity measure**, not a repeat detector or an entropy o
   substrings; LZ collapses repetitiveness into a single scalar (repetitive ⇒ low `c`). LZ
   complexity is *low* exactly where those repeat/low-complexity tracts are, so the two are
   complementary views of the same signal.
+- vs. **DUST triplet score** — [[dust-low-complexity-score]] is the other `SEQ-COMPLEX-*` family
+  member and the DNA low-complexity **masker**: `∑_t c(c−1)/2 / (L−2)` over a fixed `k = 3` triplet
+  count distribution, where a *high* score means *low* complexity (opposite numeric direction to LZ)
+  and a published mask threshold (2.0, window 64). LZ uses adaptive variable-length phrases rather
+  than fixed triplet counts.
 
 ## Definition and parsing rule (LZ76 exhaustive history)
 
