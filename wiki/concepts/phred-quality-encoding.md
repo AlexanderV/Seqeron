@@ -4,7 +4,8 @@ title: "Phred quality-score encoding (Phred+33 / Phred+64)"
 tags: [file-io, algorithm]
 sources:
   - docs/Evidence/PARSE-FASTQ-001-Evidence.md
-source_commit: d977e955ad5bf9f2eea32e0bd6c12987ab01edbc
+  - docs/Evidence/QUALITY-PHRED-001-Evidence.md
+source_commit: 25fe7f865ba8c3ce681652d15fc633919907a6e5
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -13,6 +14,12 @@ graph:
       object: concept:test-unit-registry
       source: parse-fastq-001-evidence
       evidence: "Test Unit ID: PARSE-FASTQ-001 ... Area: FileIO ... FASTQ Parsing ... Quality encoding: Phred+33 and Phred+64"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: quality-phred-001-evidence
+      evidence: "Test Unit ID: QUALITY-PHRED-001 ... Algorithm: Phred Score Handling (FASTQ quality string parsing, encoding, and Phred+33 ↔ Phred+64 conversion)"
       confidence: high
       status: current
 ---
@@ -24,7 +31,10 @@ numeric payload of the FASTQ quality line and the input to quality trimming, fil
 statistics — so its ASCII encoding is a cross-cutting concern rather than a detail of any one
 format. This page is the shared reference for that encoding; it is first traced in the FASTQ
 parsing evidence [[parse-fastq-001-evidence]] and is the quality-decoding step reused by
-[[quality-trimming-running-sum]]. [[test-unit-registry]] tracks the owning unit.
+[[quality-trimming-running-sum]]. The dedicated **Phred score handling** unit
+[[quality-phred-001-evidence]] (parse / encode / cross-variant convert) is anchored on this page's
+formulae and pins them to the primary FASTQ specification, **Cock et al. (2010)**.
+[[test-unit-registry]] tracks the owning units.
 
 ## The score: a log-scaled error probability
 
@@ -71,6 +81,24 @@ across quality strings:
 
 Because detection reads a bounded alphabet, it is **deterministic** for a given input; Seqeron
 runs it **per record**.
+
+## Converting between the two offsets
+
+Because the **Phred score is invariant** across the Sanger (offset 33) and Illumina 1.3+
+(offset 64) variants, converting a quality string between them is a **pure re-offset** — shift
+every byte by ±31, with no numeric rescaling (Cock et al. 2010). Two representability rules bound
+the conversion:
+
+- **Phred+64 → Phred+33 is always safe:** Phred+64 holds `Q ∈ [0, 62] ⊆ [0, 93]`, so every valid
+  Phred+64 score fits Phred+33. Worked: `@h~` → `!I_` (Q 0/40/62).
+- **Phred+33 → Phred+64 can overflow:** a Phred+33 score in `(62, 93]` exceeds the Phred+64
+  maximum and cannot be encoded (Seqeron raises `ArgumentOutOfRangeException`; e.g. `~`=Q93).
+  Worked in-range: `!I` → `@h` (Q 0/40).
+
+A byte **below the variant's offset** decodes to a negative Phred score — invalid for either
+variant (`Q ≥ 0`) — and is treated as malformed input (`ArgumentOutOfRangeException`). Contrast
+this with the **Solexa** obsolete variant, whose odds-ratio score `Q = −10·log₁₀(p/(1−p))`
+requires a *lossy numeric* conversion (not a re-offset) and is out of scope for the Phred path.
 
 ## Why the distinction bites
 
