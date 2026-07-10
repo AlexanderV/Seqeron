@@ -149,7 +149,8 @@ sources:
   - docs/Evidence/QUALITY-STATS-001-Evidence.md
   - docs/Evidence/REP-STR-001-Evidence.md
   - docs/Evidence/RESTR-FILTER-001-Evidence.md
-source_commit: 94748c8ca67c5c8b70dcdcf27a2c2d69087c0eaa
+  - docs/Evidence/RNA-DOTBRACKET-001-Evidence.md
+source_commit: 4c6115f113e0ef75414b050883a31e2594d48d35
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -264,7 +265,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[protmotif-find-001-evidence]], [[protmotif-lc-001-evidence]],
 [[protmotif-pattern-001-evidence]], [[protmotif-prosite-001-evidence]],
 [[protmotif-sp-001-evidence]], [[protmotif-tm-001-evidence]],
-[[rep-str-001-evidence]], [[restr-filter-001-evidence]]). An
+[[rep-str-001-evidence]], [[restr-filter-001-evidence]],
+[[rna-dotbracket-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -326,6 +328,7 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[pre-mirna-hairpin-detection]] (the MiRNA family's precursor-hairpin unit, MIRNA-PRECURSOR-001 — `MiRnaAnalyzer.FindPreMiRnaHairpins` stem-loop detection (consecutive-pairing stem ≥18 bp, loop 3-25 nt, mature/star arm extraction, dot-bracket + Turner ΔG) plus three opt-in production paths: real-MFE-fold assessment `AssessHairpinByMfe` (RNA-STRUCT-001 Zuker–Stiegler, single-hairpin + stem ≥16 + MFEI ≥0.85 — detects the natural miRBase precursors the heuristic rejects), Drosha/Dicer cleavage-ruler prediction `PredictDroshaDicerCleavage`, and a trained logistic-regression natural-vs-background classifier `ClassifyPreMiRna`; depends on the [[rna-base-pairing]] pairing primitive), or
 [[seed-sequence-analysis]] (the MiRNA family's seed-extraction unit, MIRNA-SEED-001 — `MiRnaAnalyzer.GetSeedSequence`/`CreateMiRna`/`CompareSeedRegions`: string-level extraction of the 7-nt positions-2-8 seed, the normalised `MiRna` record, and exact-seed **family equality** via a Hamming comparison; the seed determines animal targeting and feeds the [[rna-base-pairing]] `GetReverseComplement` seed→target motif and the target-site predictor, distinct from base-pairing and from site-type classification), or
 [[mirna-target-site-prediction]] (the MiRNA family's target-site-prediction unit, MIRNA-TARGET-001 — the **completing** unit — `MiRnaAnalyzer.FindTargetSites` two-pass antiparallel seed-complement scan classifying the Bartel/TargetScan hierarchy (8mer/7mer-m8/7mer-A1/6mer + offset 6mer, higher classes suppress overlapping offset-6mer) with a heuristic site score, plus the opt-in fully-source-traced but partial TargetScan **context++** regression scorer `ScoreTargetSiteContextPlusPlus` (per-site-type coefficients, min-max-scaled continuous + raw indicator features; computed Local_AU/3P_score/Min_dist/Len_3UTR/Off6m + `ComputeTa3Utr` TA=log10 N + McCaskill-partition SA + Friedman-Bls PCT; SPS/Len_ORF/ORF8m/PCT-sigmoid caller-supplied); depends on [[seed-sequence-analysis]] (the seed determines targeting) and [[rna-base-pairing]] (`GetReverseComplement` + `AlignMiRnaToTarget` duplex)), or
+[[rna-dot-bracket-notation]] (the notation/representation layer of the RNA secondary-structure family, RNA-DOTBRACKET-001 — `RnaSecondaryStructure.ParseDotBracket` / `ValidateDotBracket`: parse an extended-WUSS structure string into its base pairs and validate well-formedness with **one balanced-bracket stack per family** (`()`/`<>`/`{}`/`[]` + uppercase/lowercase letter pairs), so crossing families encode pseudoknots (`([)]` valid) and mismatched families (`(]`) are rejected; non-bracket WUSS symbols `-`/`,`/`:`/`.` are unpaired; distinct from the base-pairing chemistry [[rna-base-pairing]] and consumed by the folding units), or
 [[consensus-from-alignment]] (the Motif-Analysis consensus-from-a-multiple-alignment unit, MOTIF-CONS-001 — `MotifFinder.CreateConsensusFromAlignment`, the **pure most-frequent** (plurality) column-wise consensus over equal-length aligned strings with a deterministic **alphabetical** tie-break (A<C<G<T) and **no threshold**; the `alternative_to` the assembly [[consensus-sequence]] (which uses a plurality threshold + tie→ambiguous `dumb_consensus` rule), and the motif-family sibling of the exact [[known-motif-search]]), or
 [[overrepresented-kmer-discovery]] (the Motif-Discovery de-novo motif-discovery unit, MOTIF-DISCOVER-001 — `MotifFinder.DiscoverMotifs`, enumerate-count-rank of *unknown* over-represented k-mers by the observed/expected enrichment `Count / ((N−k+1)/4^k)` under a zero-order uniform background; `alternative_to` the [[known-motif-search]] matcher — discovery outputs motifs, known-search takes them as input — and distinct from the [[consensus-from-alignment]] plurality consensus), or
 [[shared-motifs]] (the Motif-Discovery cross-sequence shared-motif unit, MOTIF-SHARED-001 — `FindSharedMotifs`, the van Helden / RSAT oligo-analysis **"matching sequences"** quorum: enumerate every fixed-`k` exact word across a *set* of sequences and report each word present in ≥ `minSequences` of them, each carrying its `SequenceIndices` set + `Prevalence`; the cross-sequence sibling of the single-sequence O/E [[overrepresented-kmer-discovery]] and `alternative_to` the fixed-k-quorum-vs-single-longest [[longest-common-substring]] LCSM framing), or

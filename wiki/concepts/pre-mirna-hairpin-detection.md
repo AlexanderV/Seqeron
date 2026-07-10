@@ -51,7 +51,8 @@ non-pairing mirrored position. A window `S = 5'stem + loop + 3'stem` is accepted
 
 It then extracts the **mature** strand from the 5' arm and the **star (miRNA\*)** strand from the
 mirrored 3' arm (both length `min(matureLength, stemLength)`), builds a **dot-bracket** structure
-(`(`×stem, `.`×loop, `)`×stem — always balanced, `|Structure| = |Sequence|`), and computes a
+(`(`×stem, `.`×loop, `)`×stem — always balanced, `|Structure| = |Sequence|`; the notation is parsed
+and validated by [[rna-dot-bracket-notation]]), and computes a
 **Turner 2004** nearest-neighbor hairpin `FreeEnergy` (stacking + loop-initiation + terminal-mismatch
 + a fixed 0.45 kcal/mol AU/GU-end penalty). Coordinates are 0-based inclusive.
 

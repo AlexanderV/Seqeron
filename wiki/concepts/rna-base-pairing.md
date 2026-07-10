@@ -57,6 +57,8 @@ IsWobblePair  ⟺  {G-U, U-G}
 
 This {A-U, G-C} + G-U rule is the **same base-pairing primitive** used by RNA secondary-structure
 classification (Watson-Crick vs G-U wobble in a fold); this concept is the reusable anchor for it.
+The **notation** in which a fold's pairs are written and validated — dot-bracket / extended WUSS — is
+a distinct, purely syntactic layer covered by [[rna-dot-bracket-notation]].
 The sibling MiRNA-family unit [[pre-mirna-hairpin-detection]] builds directly on this rule — a
 precursor stem is scored as consecutive {A-U, G-C} + G-U wobble pairs between the two arms.
 
