@@ -5,9 +5,10 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-RARE-001-Evidence.md
   - docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/CODON-RARE-001.md
+source_commit: 8ce0af79a29f9fbddc217026508abc6f2c572e61
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -33,7 +34,9 @@ rare codons that matter most biologically. Where [[relative-synonymous-codon-usa
 bias *summary*, rare-codon analysis **localizes** the problematic codons and stretches;
 [[codon-optimization]]'s `AvoidRareCodons` strategy is the actuator that removes exactly what this
 unit detects. Validated as [[codon-rare-001-evidence|CODON-RARE-001]]; see [[test-unit-registry]]
-for how the unit is tracked.
+for how the unit is tracked. The independent two-stage re-validation verdict — Stage A
+PASS-WITH-NOTES / Stage B PASS / CLEAN, 45/45 tests, every %MinMax and Sherlocc oracle reproduced
+against the live library — is recorded in the report [[codon-rare-001-report]].
 
 ## Why rare codons matter
 

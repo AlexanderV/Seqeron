@@ -3988,3 +3988,17 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    wiki/index.md (+1 source line). No new typed graph edges (report is a source-summary; mentions
    auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/CODON-RARE-001.md → codon-rare-001-report (source)
+   New source-summary page for the fresh 2026-06-25 two-stage re-validation of CODON-RARE-001 (rare
+   codon detection — CodonOptimizer.FindRareCodons :663 + CalculateMinMaxProfile :720 +
+   FindRareCodonClusters :825). Stage A PASS-WITH-NOTES / Stage B PASS / CLEAN, 45/45 tests, zero code
+   change; %MinMax (Clarke&Clark 2008) and Sherlocc (Chartier 2012) formulas confirmed verbatim, all
+   hand oracles reproduced live. Existing concept rare-codon-analysis already synthesizes the algorithm;
+   kept distinct from the evidence artifact codon-rare-001-evidence (docs/Evidence). Tied to
+   validation-and-testing (ledger) / test-unit-registry; did NOT force the algorithm-validation-evidence
+   hub. Surgically updated concept rare-codon-analysis: added the report to sources, bumped source_commit
+   to 8ce0af79, updated date to 2026-07-10, cross-linked the report verdict in the intro. Updated
+   wiki/index.md (+1 source line). No backlog slug to move. No new typed graph edges (report is a
+   source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges
