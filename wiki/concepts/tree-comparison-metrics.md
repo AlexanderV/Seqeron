@@ -117,7 +117,9 @@ it scores a reference clade by presence across replicate trees — bootstrap cou
 RF counts clade *disagreement* — but the two are separate units: this one is a deterministic tree-vs-tree
 (or tree-query) computation with **no resampling and no tree inference**. Distinct again from
 [[tumor-phylogeny-clonal-tree-reconstruction]] (ONCO-PHYLO-001), which builds an oncology-specific tree
-from cancer-cell-fraction constraints and computes none of these metrics.
+from cancer-cell-fraction constraints and computes none of these metrics. The `PhyloNode` trees this
+unit reads are serialized to/from the **Newick text format** by the family's I/O layer, PHYLO-NEWICK-001
+([[phylo-newick-001-evidence]]) — a format serializer, not a separate algorithm.
 
 ## Reference tools
 

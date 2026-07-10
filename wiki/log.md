@@ -2890,3 +2890,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    *construction* step itself (which consumes this matrix) remains unconcepted and would warrant its own page
    when a PHYLO tree-build unit is ingested.
    graph: +2 nodes (phylo-dist-001-evidence source, evolutionary-distance-matrix concept), +2 typed edges (relates_to test-unit-registry, relates_to phylogenetic-bootstrap-support)
+
+## [2026-07-10] ingest | docs/Evidence/PHYLO-NEWICK-001-Evidence.md → [[phylo-newick-001-evidence]]
+   Fourth phylogenetics PHYLO-* Evidence file: Newick I/O (ToNewick/ParseNewick), the tree
+   serialization layer. Decision: source-only cross-link, NO new concept — Newick is a format
+   serializer, not a distinct algorithm; the tree semantics it round-trips already live in the PHYLO
+   concept pages. Source page synthesizes the Wikipedia/PHYLIP-Felsenstein/Olsen-1990 grammar,
+   label rules, invariants N1–N9, and binary-only/no-quoted-labels/no-comments scope limits. Linked
+   from the [[algorithm-validation-evidence]] hub (added to frontmatter sources list + body list) and
+   index Sources; cross-linked reciprocally from [[tree-comparison-metrics]] (the PhyloNode trees it
+   compares are what Newick serializes) and to [[evolutionary-distance-matrix]] /
+   [[phylogenetic-bootstrap-support]]. No typed concept-to-concept edges (source-only). Contradictions:
+   none — grammar and label rules are the standard Newick spec. Follow-ups: none.
+   graph: +1 node (phylo-newick-001-evidence source), +0 typed edges (source-only; mentions auto-derived)
