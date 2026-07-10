@@ -5,15 +5,22 @@ tags: [analysis, algorithm]
 sources:
   - docs/Evidence/KMER-STATS-001-Evidence.md
   - docs/algorithms/K-mer/K-mer_Statistics.md
-source_commit: bb4c7f6095c6934658109faa87d4e9a6734ca72a
+  - docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md
+source_commit: 49a4b6f93203c68a4ef386c8867dce3dcabf99d9
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
       source: kmer-stats-001-evidence
       evidence: "Test Unit ID: KMER-STATS-001; Algorithm: K-mer Statistics (docs/algorithms/K-mer/K-mer_Statistics.md)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: seq-complex-kmer-001-evidence
+      evidence: "Test Unit ID: SEQ-COMPLEX-KMER-001; Algorithm: K-mer Entropy (SequenceComplexity.CalculateKmerEntropy) — the same Shannon k-entropy H=−Σ pᵢ log₂ pᵢ, pᵢ=nᵢ/(L−k+1), as AnalyzeKmers.Entropy, registered as the SEQ-COMPLEX-* family entropy member"
       confidence: high
       status: current
     - predicate: relates_to
@@ -104,6 +111,26 @@ is 6 (`UniqueKmers = 6`) while the singleton count is 5.
   the underlying `total/distinct` ratio is exact; `Entropy` is returned unrounded in bits (log base 2).
   Neither affects correctness; tests assert the rounded average and entropy within `1e-10`.
 
+## Second entry point: the same k-entropy as the `SEQ-COMPLEX-*` complexity member (SEQ-COMPLEX-KMER-001)
+
+The k-entropy above has a **second, standalone implementation** validated as test unit
+**SEQ-COMPLEX-KMER-001** — `SequenceComplexity.CalculateKmerEntropy(sequence, k = 2)`, the
+**entropy member of the sequence complexity/entropy family** (siblings
+[[sequence-complexity-compression-lempel-ziv]] LZ76 and [[dust-low-complexity-score]] DUST). It
+computes the **identical formula** — `H = −Σ (nᵢ/N) log₂(nᵢ/N)`, `N = L − k + 1`, bits — over the
+same overlapping k-mer multiset; it is *not a different measure*, just the complexity-family entry
+point (a sibling of `CalculateLinguisticComplexity` / `EstimateCompressionRatio` / `CalculateDustScore`
+in the `SequenceComplexity` class) rather than a field of the `KmerStatistics` bundle. Low-complexity
+⇒ skewed distribution ⇒ **low** H; high-complexity (uniform) ⇒ **high** H. The source trace and worked
+oracles are in [[seq-complex-kmer-001-evidence]]; [[test-unit-registry]] tracks the unit.
+
+Worked oracles (bits): `ACGT` k=1 → `log₂4 = 2.0`; `ACGT` k=2 → `log₂3 ≈ 1.5849625` (all-distinct);
+`ATATAT` k=2 → `0.9709505945` (binary entropy of p=0.6); `AAAA` k=2 → `0.0` (homopolymer); `AAACGT`
+k=2 → `1.9219280949` (= log₂5 − 0.4). Contract mirrors the siblings: `L < k → 0`; `k < 1` →
+`ArgumentOutOfRangeException`; null `DnaSequence` → `ArgumentNullException`; null/empty string → 0;
+string and `DnaSequence` overloads agree (case-insensitive). Bounds: `0 ≤ H ≤ log₂(L−k+1)`
+(Shannon). This matches INV-04/INV-05 of the `AnalyzeKmers` version above.
+
 ## Relation to other units
 
 - **Summary layer over the shared count.** `AnalyzeKmers` aggregates the same synchronous
@@ -117,7 +144,11 @@ is 6 (`UniqueKmers = 6`) while the singleton count is 5.
   **two** sequences — whereas this unit summarizes the profile of **one**.
 - The **k-entropy** here is the k-mer specialization of Shannon sequence entropy; a general
   `shannon-entropy` unit (pending ingest) would relate to it as the character-level counterpart.
-  A **different** member of the same complexity/entropy family is the compression-based
-  [[sequence-complexity-compression-lempel-ziv]] (Lempel–Ziv LZ76 count): it counts adaptively
-  discovered **variable-length** phrases along the whole sequence rather than a fixed-`k`
-  frequency distribution, so it captures ordered pattern buildup that a fixed-`k` k-entropy misses.
+  It is the **entropy member of the `SEQ-COMPLEX-*` complexity family** (validated standalone as
+  SEQ-COMPLEX-KMER-001, above). Its family siblings are **distinct scalar measures** over the same
+  sequence: the compression-based [[sequence-complexity-compression-lempel-ziv]] (Lempel–Ziv LZ76
+  count) counts adaptively discovered **variable-length** phrases along the whole sequence rather
+  than a fixed-`k` frequency distribution, so it captures ordered pattern buildup that a fixed-`k`
+  k-entropy misses; the [[dust-low-complexity-score]] DUST masker sums `∑ c(c−1)/2` over a fixed
+  `k = 3` triplet count profile (a *high* score ⇒ low complexity, the opposite numeric direction to
+  entropy). All three are low exactly where low-complexity/repeat tracts are.

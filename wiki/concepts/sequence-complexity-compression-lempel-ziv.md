@@ -38,9 +38,10 @@ This is a **distinct complexity measure**, not a repeat detector or an entropy o
   sequence**, so it is sensitive to *order/pattern buildup*, not just symbol frequencies. A
   perfectly periodic string (`1010…`) has flat composition entropy per window yet a small,
   slowly-growing LZ count.
-- vs. **k-mer Shannon k-entropy** — [[k-mer-statistics]] reduces a k-mer count profile to a
-  fixed-`k` Shannon entropy; LZ uses **variable-length** phrases discovered adaptively rather than
-  a fixed word length.
+- vs. **k-mer Shannon k-entropy** — the family's **entropy member** ([[k-mer-statistics]], validated
+  standalone as SEQ-COMPLEX-KMER-001 = `SequenceComplexity.CalculateKmerEntropy`) reduces a k-mer
+  count profile to a fixed-`k` Shannon entropy `H = −Σ pᵢ log₂ pᵢ`; LZ uses **variable-length**
+  phrases discovered adaptively rather than a fixed word length.
 - vs. **repeat detection** — [[repetitive-element-detection]] finds and types explicit repeated
   substrings; LZ collapses repetitiveness into a single scalar (repetitive ⇒ low `c`). LZ
   complexity is *low* exactly where those repeat/low-complexity tracts are, so the two are

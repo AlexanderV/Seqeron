@@ -165,7 +165,8 @@ sources:
   - docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md
   - docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md
   - docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md
-source_commit: dfe172057b03d328680fbf256469d7675c2604a4
+  - docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md
+source_commit: 49a4b6f93203c68a4ef386c8867dce3dcabf99d9
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -287,7 +288,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[rna-partition-001-evidence]], [[rna-pkpredict-001-evidence]],
 [[rna-pkrecursive-001-evidence]], [[rna-pseudoknot-001-evidence]],
 [[rna-stemloop-001-evidence]], [[rna-struct-001-evidence]],
-[[seq-complex-compress-001-evidence]], [[seq-complex-dust-001-evidence]]). An
+[[seq-complex-compress-001-evidence]], [[seq-complex-dust-001-evidence]],
+[[seq-complex-kmer-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],

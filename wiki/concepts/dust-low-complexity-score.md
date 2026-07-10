@@ -49,9 +49,12 @@ siblings, not a re-derivation:
   (`H = −Σ pᵢ log₂ pᵢ`, *low* H ⇒ low complexity). DUST is the DNA analogue with the opposite
   numeric direction (*high* DUST score ⇒ low complexity) and a triplet-frequency rather than
   single-residue-frequency statistic.
-- vs. **k-mer k-entropy** — [[k-mer-statistics]] reduces a k-mer count profile to a Shannon
-  k-entropy; DUST uses the same idea of a k-mer (triplet) count profile but a **sum-of-pair-counts**
-  `∑ c(c−1)/2` statistic tuned for masking rather than an entropy.
+- vs. **k-mer k-entropy** — the family's **entropy member** ([[k-mer-statistics]], validated
+  standalone as SEQ-COMPLEX-KMER-001 = `SequenceComplexity.CalculateKmerEntropy`) reduces a k-mer
+  count profile to a Shannon k-entropy; DUST uses the same idea of a k-mer (triplet) count profile
+  but a **sum-of-pair-counts** `∑ c(c−1)/2` statistic tuned for masking rather than an entropy, and
+  in the **opposite numeric direction** (high DUST ⇒ low complexity, whereas low entropy ⇒ low
+  complexity).
 - vs. **explicit repeats** — [[repetitive-element-detection]] finds and types explicit repeated
   substrings; DUST collapses low-complexity/repetitiveness into a single maskable scalar. Link
   DNA low-complexity masking there as the repeats-family anchor; DUST is the score behind it.
