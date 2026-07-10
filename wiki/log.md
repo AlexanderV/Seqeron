@@ -3026,3 +3026,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    vs the other POP siblings (frequencies/diversity/Fst/LD/HWE). Cross-linked all POP concepts +
    ancestry family anchor. Contradictions: none. Follow-ups: none.
    graph: +2 nodes (pop-roh-001-evidence source, runs-of-homozygosity-inbreeding concept), +2 typed edges (runs-of-homozygosity-inbreeding relates_to test-unit-registry; relates_to ancestry-estimation-admixture)
+
+## [2026-07-10] ingest | docs/Evidence/POP-SELECT-001-Evidence.md — Selection-signature detection (iHS/EHH)
+   Ingested the POP-SELECT-001 evidence artifact (integrated Haplotype Score iHS + Extended Haplotype
+   Homozygosity EHH scan; CalculateEhh/CalculateIHS/StandardizeIHS/ScanForSelection). Created source
+   summary [[pop-select-001-evidence]] and a NEW dedicated concept [[selection-scan-ihs-ehh]] —
+   genuinely distinct from the POP siblings: a haplotype-length/decay statistic, not frequencies,
+   diversity, Fst, HWE, LD, or ROH. Synthesized the EHH→iHH→iHS→scan pipeline, the trapezoidal iHH
+   with the 0.05 cutoff, the Voight vs selscan sign-convention pitfall (ln(iHH_A/iHH_D) vs its
+   inverse), worked oracles (rehh F1205400 −1.978569274; constructed panel ln(0.25)=−1.386294361),
+   invariants and edge cases. Updated hub [[algorithm-validation-evidence]] (frontmatter sources +
+   body pop-* link list) and wiki/index.md (source + concept entries). Cross-linked all POP concepts.
+   Contradictions: none (the sign difference is a documented convention). Follow-ups: none.
+   graph: +2 nodes (pop-select-001-evidence source, selection-scan-ihs-ehh concept), +3 typed edges (selection-scan-ihs-ehh relates_to test-unit-registry; depends_on allele-genotype-frequencies; relates_to linkage-disequilibrium)
