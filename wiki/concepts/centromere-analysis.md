@@ -30,7 +30,8 @@ Analysing the **centromere** of a chromosome — the constriction that links sis
 splits the chromosome into a short **p** arm ("petit") and long **q** arm. This is the second ingested
 unit of the **Chromosome-analysis** family and its centromere/satellite anchor, a sibling of
 [[aneuploidy-detection]] (which scores whole-chromosome copy number). Future chromosome-family units
-(telomere, arm-ratio as a standalone, synteny, GC-skew) get their own concepts. Validated under test
+(telomere, arm-ratio as a standalone, synteny, GC-skew — the compositional-skew statistic
+now synthesized on [[nucleotide-composition-skew]]) get their own concepts. Validated under test
 unit **CHROM-CENT-001**; the validation record is [[chrom-cent-001-evidence]], [[test-unit-registry]]
 tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
 

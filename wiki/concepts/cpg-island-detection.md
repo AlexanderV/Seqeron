@@ -64,7 +64,9 @@ or `L < 2`, or null/empty), the ratio returns **0.0**. A sequence with no CpG di
 Worked oracles: `CGCGCG…` (20 bp, C=G=10) → Expected (10·10)/20 = 5.0, O/E = **2.0**; `ACGTCGACG`
 (9 bp, C=G=3) → Expected 1.0, O/E = **3.0**; `ACGT` → Expected 0.25, O/E = **4.0**; AT-only → **0.0**.
 Saxonov et al. (2006) give an **alternative** expected `((C+G)/2)²/L`; the repository uses the
-Gardiner-Garden form.
+Gardiner-Garden form. The CpG O/E ratio is a *dinucleotide* composition statistic; its
+single-base compositional-asymmetry cousin is strand skew (`(A−T)/(A+T)`, `(G−C)/(G+C)`) —
+see [[nucleotide-composition-skew]].
 
 ## 3. CpG-island detection (sliding window)
 

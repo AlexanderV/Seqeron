@@ -1,0 +1,67 @@
+---
+type: concept
+title: "Nucleotide composition skew (AT skew / GC skew)"
+tags: [sequence-statistics, composition, chromosome]
+sources:
+  - docs/Evidence/SEQ-ATSKEW-001-Evidence.md
+source_commit: ee3cfca8f1c41de229969aa234c2558284581909
+created: 2026-07-10
+updated: 2026-07-10
+---
+
+# Nucleotide composition skew (AT skew / GC skew)
+
+**Strand compositional skew** measures how far a single DNA strand departs from
+intra-strand equifrequency of complementary bases. The family has two members with
+identical shape:
+
+- **AT skew** = `(A − T) / (A + T)`
+- **GC skew** = `(G − C) / (G + C)`
+
+Both were introduced by **Lobry (1996)** — the founding observation was a *"departure
+from intrastrand equifrequency between A and T or between C and G, showing that the
+substitution patterns of the two strands of DNA were asymmetric."* The **SEQ-ATSKEW-001**
+test unit ([[seq-atskew-001-evidence]]) validates the AT-skew member; GC skew is the
+sibling member (unit `gc-skew`, not yet ingested). [[test-unit-registry]] tracks the units
+and [[algorithm-validation-evidence]] describes the artifact pattern.
+
+## Definition and range
+
+- **Bounded** to `[−1, +1]`. For AT skew: `+1 ⇔ T = 0` (all A among A/T), `−1 ⇔ A = 0`
+  (all T among A/T); for GC skew symmetrically with G/C.
+- **Zero-denominator convention:** when the relevant pair is absent (`A + T = 0`, resp.
+  `G + C = 0`) the skew is defined as **`0.0`**, not NaN or an exception. This is the
+  Biopython `Bio.SeqUtils.GC_skew` behaviour (`ZeroDivisionError → 0.0`) that the library
+  follows.
+- **Case-insensitive counting**; **non-canonical symbols ignored** — gaps, `N`, and any
+  IUPAC ambiguity code contribute to neither numerator nor denominator ("does NOT look at
+  any ambiguous nucleotides"). The library normalizes via `ToUpperInvariant` and counts
+  only the two relevant bases.
+
+Worked values (arithmetic consequences of the formula, no library run needed):
+`AAAA → +1.0`, `TTTT → −1.0`, `ATAT → 0.0`, `AAAT → +0.5`, `GGCC → 0.0` (no A/T),
+`AAATGGGCCC → +0.5` (G/C ignored), `aaat → +0.5` (case-insensitive).
+
+## Why it matters — replication-strand asymmetry
+
+Skew is not random: on a bacterial chromosome the sign of GC (and AT) skew tends to be
+constant along a replichore and **flips at the replication origin and terminus**, because
+the leading and lagging strands accumulate different mutational/substitution biases. A
+**cumulative skew** plotted along the sequence therefore locates the origin/terminus as
+its extrema — the practical use that motivated Lobry's work. AT skew is the weaker,
+sometimes atypical signal: **Charneski et al. (2011)** showed Firmicute AT skew arises
+from *selection*, not mutation, so the two skews need not co-vary.
+
+This is the compositional-asymmetry counterpart to two other composition statistics in the
+wiki: the CpG observed/expected density of [[cpg-island-detection]] (a dinucleotide
+composition ratio) and the GC-variability heuristic used inside [[centromere-analysis]]
+(which flags GC-skew as a chromosome-analysis unit warranting its own concept — this page).
+
+## Scope / assumptions
+
+The formula itself is fully sourced (Charneski 2011; Lobry 1996; corroborated by the
+Wikipedia "GC skew" entry). Only the **symbol-handling convention** for the AT-skew member
+(case-insensitive counting, ignore-everything-not-A/T) is taken by analogy from the shipped
+`GC_skew` reference implementation, because Biopython ships `GC_skew` but not an AT-skew
+line — a documented assumption in [[seq-atskew-001-evidence]], matching the repository
+implementation.
