@@ -5,9 +5,10 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-OPT-001-Evidence.md
   - docs/algorithms/Codon_Optimization/Sequence_Optimization.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/CODON-OPT-001.md
+source_commit: 9dfa56d90f2bf6d5d33c73c8ba12dd34ad267513
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -32,7 +33,9 @@ heterologous (cross-species) expression, while leaving the encoded protein uncha
 [[relative-synonymous-codon-usage|RSCU]], [[codon-adaptation-index|CAI]] and
 [[effective-number-of-codons|ENC/Nc]] *measure* a gene's existing codon bias, codon optimization
 *produces a new gene* that better matches the host's tRNA abundances. Validated as
-[[codon-opt-001-evidence|CODON-OPT-001]]; see [[test-unit-registry]] for how the unit is tracked.
+[[codon-opt-001-evidence|CODON-OPT-001]]; see [[test-unit-registry]] for how the unit is tracked. The
+independent two-stage re-validation verdict is **Stage A/B both PASS, State CLEAN** (59/0 tests, zero
+code change) — details in the report [[codon-opt-001-report]].
 
 ## Why it exists
 

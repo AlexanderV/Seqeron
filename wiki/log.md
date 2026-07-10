@@ -3976,3 +3976,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    (codon-enc-001-report relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No
    backlog slug matched (report path is coverage-excluded per SCHEMA).
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Validation/reports/CODON-OPT-001.md → codon-opt-001-report (source)
+   New source-summary page for the two-stage validation report of CODON-OPT-001 (sequence/codon
+   optimization, CodonOptimizer.OptimizeSequence). Stage A/B both PASS, State CLEAN, 59/0 tests, zero
+   code change. Existing concept codon-optimization already synthesizes the algorithm; kept distinct
+   from the evidence artifact codon-opt-001-evidence (docs/Evidence). Tied to validation-ledger /
+   validation-and-testing / test-unit-registry; did NOT force the algorithm-validation-evidence hub.
+   Surgically updated concept codon-optimization: added the report to sources, bumped source_commit to
+   9dfa56d9, updated date to 2026-07-10, cross-linked the report PASS/CLEAN verdict in the intro. Updated
+   wiki/index.md (+1 source line). No new typed graph edges (report is a source-summary; mentions
+   auto-derived).
+   graph: +1 node, +0 typed edges
