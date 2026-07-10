@@ -90,8 +90,12 @@ transcript fusion) and the copy-number-pattern **chromothripsis** classifier
 [[chromothripsis-inference]]. It is likewise distinct from the gene-order, signed-permutation
 [[genome-rearrangement-breakpoint-distance]] (rearrangement *distance* between whole gene orders,
 not read-evidence breakpoint localization) and the chromosome-scale
-[[synteny-and-rearrangement-detection]]. Its first germline-SV sibling is the read-depth
+[[synteny-and-rearrangement-detection]]. Its germline-SV siblings are the read-depth
 [[read-depth-cnv-segmentation]] (SV-CNV-001) — CNV deletion/duplication calls from **read depth of
-coverage** rather than split-read junctions (orthogonal evidence, same family). Further siblings —
-discordant-pair clustering, SV genotyping/merging — would enrich this anchor. No source
-contradictions.
+coverage** rather than split-read junctions — and the discordant-read-pair
+[[discordant-pair-sv-detection]] (SV-DETECT-001), which reads the **paired-end mapping (PEM)
+span/orientation signature** to classify the SV type; all three are orthogonal read-evidence
+channels of the same family (integrated callers such as DELLY combine split reads with discordant
+pairs, and this split-read channel is what recovers the single-base breakpoint and the inserted
+sequence that PEM span alone cannot). Further siblings — SV genotyping/merging — would enrich this
+anchor. No source contradictions.
