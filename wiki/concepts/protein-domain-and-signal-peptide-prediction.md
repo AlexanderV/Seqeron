@@ -4,7 +4,8 @@ title: "Protein domain prediction (PROSITE pattern + Plan7 profile-HMM) & signal
 tags: [analysis, algorithm, protein, motif]
 sources:
   - docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md
-source_commit: d7b350cc67d3684eb247a261ab387137e91e7fba
+  - docs/Evidence/PROTMOTIF-SP-001-Evidence.md
+source_commit: 1513221ea012107594feec09dd5b4e850e3d5f37
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -13,6 +14,12 @@ graph:
       object: concept:test-unit-registry
       source: protmotif-domain-001-evidence
       evidence: "Test Unit ID: PROTMOTIF-DOMAIN-001 ... Algorithm: Domain Prediction & Signal Peptide Prediction (FindDomains / FindDomainsByHmm / PredictSignalPeptide)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: protmotif-sp-001-evidence
+      evidence: "Test Unit ID: PROTMOTIF-SP-001 ... Algorithm: Signal Peptide Cleavage-Site Prediction (von Heijne 1986 weight matrix) on ProteinMotifFinder.PredictSignalPeptide"
       confidence: high
       status: current
     - predicate: relates_to
@@ -25,12 +32,13 @@ graph:
 
 # Protein domain prediction & signal-peptide prediction
 
-Test unit **PROTMOTIF-DOMAIN-001** validates two related protein-feature capabilities on
-`ProteinMotifFinder`: **domain prediction** (`FindDomains`, plus an opt-in profile-HMM engine
-`FindDomainsByHmm`) and **signal-peptide prediction** (`PredictSignalPeptide`). It is a unit of the
-**ProteinMotif family**, a sibling of the fixed-dictionary [[common-protein-motifs]] and the windowed
-[[coiled-coil-prediction]]. The validation record is [[protmotif-domain-001-evidence]] and
-[[test-unit-registry]] tracks the unit; see [[algorithm-validation-evidence]] for the artifact pattern.
+Two related protein-feature capabilities on `ProteinMotifFinder`: **domain prediction** (`FindDomains`,
+plus an opt-in profile-HMM engine `FindDomainsByHmm`), validated by test unit **PROTMOTIF-DOMAIN-001**
+([[protmotif-domain-001-evidence]]); and **signal-peptide prediction** (`PredictSignalPeptide`),
+validated by test unit **PROTMOTIF-SP-001** ([[protmotif-sp-001-evidence]]) against the von Heijne 1986
+weight matrix. These are units of the **ProteinMotif family**, siblings of the fixed-dictionary
+[[common-protein-motifs]] and the windowed [[coiled-coil-prediction]]. [[test-unit-registry]] tracks the
+units; see [[algorithm-validation-evidence]] for the artifact pattern.
 
 ## `FindDomains` — deterministic PROSITE-pattern domain scan
 
@@ -90,42 +98,63 @@ reimplemented; **bit-for-bit** trace-ensemble identity would need HMMER's float3
 the **3 bundled CC0 profiles** are shipped (any other family is a caller-supplied `.hmm`). A
 [[research-grade-limitations|research-grade]] implementation.
 
-## `PredictSignalPeptide` — von Heijne tripartite model + −1,−3 rule
+## `PredictSignalPeptide` — von Heijne 1986 weight matrix (EMBOSS `sigcleave`)
 
-A **signal peptide** is an N-terminal 16–30 aa targeting sequence with a **tripartite** structure
-(von Heijne 1985/1986):
+The **current** `PredictSignalPeptide` implements the **von Heijne (1986) log-odds weight-matrix**
+cleavage-site method — the algorithm of EMBOSS `sigcleave`. Test unit **PROTMOTIF-SP-001**
+([[protmotif-sp-001-evidence]]) validates it. This **superseded** an earlier tripartite n/h/c + −1,−3
+scoring (constants 0.95/0.825, an `NRegion`/`Probability` record) that was found **fabricated** and
+removed; see the "Superseded" note below.
 
-- **n-region** (1–5 residues, positively charged K/R),
-- **h-region** (7–15 hydrophobic residues, a single α-helix — "necessary and sufficient for membrane
-  targeting"),
-- **c-region** (3–7 polar residues) ending at a cleavage site obeying the **−1,−3 rule**: small neutral
-  residues **{A, G, S}** at positions −1 and −3.
+A **signal peptide** is an N-terminal 16–30 aa targeting sequence. Prediction is by a
+position-specific **weight matrix** rather than the tripartite heuristic:
 
-Scoring: `score = (nScore + 2·hScore + cScore)/4` (h-region double weight, per its dominant role).
-Detection uses two **literature-derived constraints** (no arbitrary threshold): the n-region must carry
-positive charge (`nScore > 0`) and the h-region must be predominantly hydrophobic (`hScore ≥ 0.5`).
-`Probability = Score` directly (no scaling). Returns the three regions and the cleavage position.
+- At each candidate site the **score** is `Σ ln(count/expect)` over positions **−13..+2** (15 matrix
+  columns; the `Expect` column is not scored). Natural log. Zero counts become `1.0e-10` at the
+  conserved columns **−3 and −1** (a strong penalty) and `1.0` elsewhere before the log.
+- The single prediction is the **argmax** of the score over all positions; cleavage lies between `−1`
+  and `+1`, and `+1` (1-based `CleavagePosition`) is the first residue of the mature protein.
+- **`IsLikelySignalPeptide ⇔ Score ≥ 3.5`** (`minWeight` default 3.5; ~95% sensitivity/specificity,
+  cleavage-site correct in only 75–80% of cases — heuristic).
+- Two 20×16 count matrices from von Heijne (1986): **eukaryotic** (161 aligned sequences, default) and
+  **prokaryotic** (36, via `prokaryote:true`), each column summing to its sample size.
+
+The record returns `CleavagePosition`, `Score`, `SignalSequence` (residues 1..`CleavagePosition−1`),
+`WindowSequence` (the 15-residue window), and `IsLikelySignalPeptide`. Inputs shorter than one full
+15-residue window return `null`; non-standard residues (X/B/Z/*) contribute 0; case-insensitive.
+
+**Worked oracle:** **ACH2_DROME (UniProt P17644**, 576 aa) → maximum `Score` **13.739**,
+`CleavagePosition` **42**, window `LLVLLLLCETVQA` (residues 29–41); reproduced exactly by an
+independent Python re-derivation.
+
+> **Superseded (2026-06-14):** DOMAIN-001 ([[protmotif-domain-001-evidence]]) described this same
+> method as a **tripartite n/h/c + −1,−3-rule** model with `score = (nScore + 2·hScore + cScore)/4`
+> and `Probability = Score`. That model's fields and constants were fabricated and have been replaced
+> by the weight-matrix method above. Treat the tripartite description as **historical** for
+> `PredictSignalPeptide`.
 
 ## Invariants, oracles, corner cases
 
 - Domain hits: 0-based inclusive `Start`/`End`; empty/null input → no domains; tandem-repeat domains
   (multiple zinc fingers, 7 WD40 blades) all detected; only a match fully contained in another is
   suppressed.
-- Signal peptide: sequences shorter than ~15 aa cannot hold n+h+c → none; charged/cytoplasmic
-  sequences → null (no signal); case-insensitive.
+- Signal peptide: `Score` = argmax over sites of `Σ ln(count/expect)` (−13..+2); `CleavagePosition`
+  1-based mature start; `IsLikelySignalPeptide ⇔ Score ≥ 3.5`; inputs shorter than the 15-residue
+  window return `null`; non-standard residues contribute 0; case-insensitive.
 - Synthetic oracles: C2H2 `AAAACXXCXXXLXXXXXXXXHXXXHAAA` → domain at 4..24 (PF00096); P-loop
-  `AAAAGXXXXGKSAAAA` → 4..11 (PF00069); signal peptide `MKRLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF` → detected,
-  cleavage ≈ 25.
+  `AAAAGXXXXGKSAAAA` → 4..11 (PF00069); signal-peptide ACH2_DROME (P17644) → `Score` 13.739,
+  `CleavagePosition` 42, window `LLVLLLLCETVQA`.
 
 ## Design decisions (previously assumptions — all resolved)
 
-1. **Signal-peptide weights 1:2:1** — h-region double weight, justified by von Heijne (1985) "hydrophobic
-   core … necessary and sufficient".
-2. **Evidence-based constraints** replace the old arbitrary 0.4 threshold (n-region charge + h-region
-   hydrophobicity).
-3. **`Probability = Score`** — the old `min(1, score×1.2)` scaling was eliminated.
-4. **Small-residue set strictly {A, G, S}** — the canonical −1,−3 set (von Heijne 1983); T/C/V/L
-   occasionally seen but excluded.
+1. **Signal-peptide method = von Heijne 1986 weight matrix** (EMBOSS `sigcleave`), replacing the
+   earlier fabricated tripartite n/h/c heuristic (weights 1:2:1, `Probability = Score`, {A,G,S} −1,−3
+   set) — see the Superseded note and [[protmotif-sp-001-evidence]].
+2. **Natural-log log-odds + −3/−1 zero-count `1.0e-10` penalty** — the exact EMBOSS transform;
+   base-10 or a missing penalty changes every score.
+3. **`minWeight` default 3.5** governs `IsLikelySignalPeptide` only; the argmax site is always returned
+   (no intrinsic cutoff).
+4. **Eukaryotic matrix default; prokaryotic via `prokaryote:true`** — both von Heijne (1986).
 5. **PROSITE-derived regex patterns** for domain detection is a deliberate scope decision (PROSITE itself
    uses consensus patterns; Hulo 2006), not an assumption.
 6. **Method naming `FindDomains`** (not `PredictDomains`) — pattern search, not probabilistic prediction.
@@ -137,4 +166,6 @@ h-core); Walker 1982 (P-loop); Krishna 2003 & Pabo 2001 (C2H2 zinc finger); PROS
 PS00678 + ScanProsite syntax; Pfam PF00096/PF00400/PF00018/PF00595/PF00069 (El-Gebali 2019, Mistry
 2021, CC0 licence); HMMER User's Guide v3.4 (Eddy 2023), Durbin et al. 1998 §5.4, Eddy 2008/2011,
 HMMER/Easel source (`generic_fwdback.c`, `generic_null2.c`, `p7_domaindef.c`, `p7_spensemble.c`,
-`esl_gumbel.c`), pyhmmer 0.12.1. Full citations in [[protmotif-domain-001-evidence]] (do not duplicate).
+`esl_gumbel.c`), pyhmmer 0.12.1. Signal-peptide method: von Heijne 1986 (Nucleic Acids Res 14:4683–4690)
+via EMBOSS 6.6.0 `sigcleave` (`sigcleave.c`, `data/Esig.euk`/`Esig.pro`; Rice 2000) + UniProt P17644.
+Full citations in [[protmotif-domain-001-evidence]] and [[protmotif-sp-001-evidence]] (do not duplicate).
