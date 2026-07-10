@@ -53,8 +53,9 @@ It then extracts the **mature** strand from the 5' arm and the **star (miRNA\*)*
 mirrored 3' arm (both length `min(matureLength, stemLength)`), builds a **dot-bracket** structure
 (`(`×stem, `.`×loop, `)`×stem — always balanced, `|Structure| = |Sequence|`; the notation is parsed
 and validated by [[rna-dot-bracket-notation]]), and computes a
-**Turner 2004** nearest-neighbor hairpin `FreeEnergy` (stacking + loop-initiation + terminal-mismatch
-+ a fixed 0.45 kcal/mol AU/GU-end penalty). Coordinates are 0-based inclusive.
+**Turner 2004** nearest-neighbor hairpin `FreeEnergy` ([[rna-free-energy-turner-model|stacking +
+loop-initiation + terminal-mismatch + a fixed 0.45 kcal/mol AU/GU-end penalty]]). Coordinates are
+0-based inclusive.
 
 **Documented limitation (accepted, not a bug):** the consecutive-pairing model is stricter than real
 pre-miRNA structure — natural precursors carry internal mismatches, asymmetric bulges, and G:U

@@ -95,7 +95,8 @@ same family — `(]` is malformed even though one open and one close are present
 ## Scope and limitations
 
 A [[scientific-rigor|research-grade]] correctness reference for the **notation** only — it does not
-fold, score, or assign energies (that is the RNA-STRUCT-001 MFE folder). Symbol identity is
+fold, score, or assign energies (the [[rna-free-energy-turner-model|Turner 2004 free-energy terms]]
+are a separate layer, summed by the RNA-STRUCT-001 MFE folder). Symbol identity is
 semantically ignored (any matched `()`/`[]`/`{}`/letter pair is just "a base pair"), matching the
 Infernal `vrna_db_from_WUSS()` flattening convention. **No source contradictions** — ViennaRNA
 (readthedocs + tbi.univie.ac.at), the WUSS/`vrna_db_from_WUSS()` docs, Infernal (Nawrocki & Eddy
