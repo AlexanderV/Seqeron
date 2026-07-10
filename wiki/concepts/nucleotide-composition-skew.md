@@ -52,10 +52,13 @@ its extrema — the practical use that motivated Lobry's work. AT skew is the we
 sometimes atypical signal: **Charneski et al. (2011)** showed Firmicute AT skew arises
 from *selection*, not mutation, so the two skews need not co-vary.
 
-This is the compositional-asymmetry counterpart to two other composition statistics in the
-wiki: the CpG observed/expected density of [[cpg-island-detection]] (a dinucleotide
-composition ratio) and the GC-variability heuristic used inside [[centromere-analysis]]
-(which flags GC-skew as a chromosome-analysis unit warranting its own concept — this page).
+Skew is the *asymmetry* view of the same per-base tally that [[base-composition]] counts as
+magnitudes/fractions (A/T/G/C/U counts, GC content) — the two are siblings, both surfaced by
+the SEQ-COMPOSITION-001 doc. It is also the compositional-asymmetry counterpart to two other
+composition statistics in the wiki: the CpG observed/expected density of
+[[cpg-island-detection]] (a dinucleotide composition ratio) and the GC-variability heuristic
+used inside [[centromere-analysis]] (which flags GC-skew as a chromosome-analysis unit
+warranting its own concept — this page).
 
 ## Scope / assumptions
 
