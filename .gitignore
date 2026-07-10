@@ -282,3 +282,6 @@ persistent_*.txt
 /data/chr1.suffixtree.dat
 /*.ps1
 .skill-dev/
+
+# Obsidian editor workspace state (local, not content)
+wiki/.obsidian/
