@@ -3,7 +3,7 @@ type: index
 title: "Ingestion backlog — docs/algorithms reconciliation + queued sources"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 ---
 
 # Ingestion backlog
@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **74** algorithm docs covered-via-concept, **171** pending across 28 domains.
+Status at generation: **75** algorithm docs covered-via-concept, **170** pending across 27 domains.
 
 ## Covered via concept (done)
 
@@ -29,6 +29,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | --- | --- |
 | `docs/algorithms/Alignment/Alignment_Statistics.md` | [[alignment-statistics]] |
 | `docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md` | [[global-alignment-needleman-wunsch]] |
+| `docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md` | [[local-alignment-smith-waterman]] |
 | `docs/algorithms/Alignment/Multiple_Sequence_Alignment.md` | [[multiple-sequence-alignment]] |
 | `docs/algorithms/Alignment/Semi_Global_Alignment.md` | [[semi-global-alignment-fitting]] |
 | `docs/algorithms/Analysis/Open_Reading_Frame_Detection.md` | [[open-reading-frame-detection]] |
@@ -106,12 +107,6 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 No concept page synthesizes these yet. `Expected slug` is the anticipated concept
 page name once ingested (subject to change if a shared anchor concept fits better).
-
-### Alignment (1)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md` | `local-alignment-smith-waterman` |
 
 ### Annotation (4)
 

@@ -3480,3 +3480,13 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    rosters Evidence artifacts, not reports). Updated wiki/index.md (Sources). No contradictions flagged.
    graph: no typed edges (source→source/concept report link is an auto-derived mentions/sourced_from edge; no
    new typed concept-to-concept predicate is warranted).
+
+## [2026-07-10] ingest | docs/Validation/reports/ALIGN-LOCAL-001.md → align-local-001-report (source) + 1 concept
+   New source page align-local-001-report (Stage A/B validation write-up, both PASS, State CLEAN, 7/7
+   tests; hand-recomputed Wikipedia DP matrix, score 13). Created NEW concept local-alignment-smith-waterman
+   — genuinely unrepresented (siblings global-alignment-needleman-wunsch and semi-global-alignment-fitting
+   each had a concept; local existed only in their comparison tables; slug reserved in backlog). Tied the
+   report to [[validation-ledger]]/[[validation-protocol]] (did NOT force the algorithm-validation-evidence
+   hub — no Evidence artifact exists for this unit). Updated index.md (Sources + Concepts); moved the doc
+   from backlog pending → covered. No contradictions flagged.
+   graph: +2 nodes, +2 typed edges
