@@ -5,7 +5,8 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/TRANS-CODON-001-Evidence.md
   - docs/Evidence/TRANS-PROT-001-Evidence.md
-source_commit: 7122c87a12f8c52d64ed7d5f5241ff5aa19879ef
+  - docs/Evidence/TRANS-SIXFRAME-001-Evidence.md
+source_commit: 950ce49428fde05020ff3c08e70ac1231947fc59
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -20,6 +21,12 @@ graph:
       object: concept:test-unit-registry
       source: trans-prot-001-evidence
       evidence: "Test Unit ID: TRANS-PROT-001 — Area: Translation — whole-sequence framed / six-frame translation + ORF (Translator)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: trans-sixframe-001-evidence
+      evidence: "Test Unit ID: TRANS-SIXFRAME-001 — Area: Translation — six-frame translation + START→STOP ORF finding (Translator), Biopython/EMBOSS reference-implementation anchors"
       confidence: high
       status: current
 ---
@@ -99,17 +106,28 @@ start/stop sets flow through unchanged.
   throw. Each single strand thus has three frames, and reverse-complementing the strand gives
   three more — **six frames** total (Wikipedia "Reading frame").
 - **Six-frame translation** returns a dictionary keyed **−3…−1, +1…+3 (0 excluded)**: three
-  forward frames and three on the reverse complement, each read 5'→3'.
+  forward frames and three on the reverse complement, each read 5'→3'. **Reverse-frame numbering
+  follows the Biopython "independent-offset" convention** (validated as **TRANS-SIXFRAME-001**,
+  [[trans-sixframe-001-evidence]]): frame **−k = the reverse complement translated 5'→3' at
+  offset k−1** (−1 = RC offset 0, −2 = offset 1, −3 = offset 2), with *no* codon correspondence
+  to forward frame +1. This is the dominant reference-implementation behaviour
+  (Biopython `six_frame_translations`) and the documented "alternative" in EMBOSS `transeq`;
+  the EMBOSS *default* is instead **phase-locked** (frame −1 shares frame +1's phase). Both are
+  correct biology — only the −1/−2/−3 **labels** differ. (Oracle: `ACTGG` → frame −1 = `P` here
+  vs `S` under EMBOSS phase-locked; and the 39-nt six-frame table in [[trans-sixframe-001-evidence]].)
 - **`toFirstStop`** optionally terminates translation at the first in-frame stop (the codon-table
   `'*'`), matching the "translate until a stop" convention; otherwise stops render as `*` and
   reading continues to the sequence end.
 - **Input contract** mirrors the codon layer: **DNA or RNA** (automatic `T→U`), case-insensitive;
   a trailing partial codon (length not divisible by 3) is simply not translated.
-- **ORF finding.** `Translator.FindOrfs` is a **genetic-code-parameterized** ORF scanner
-  (configurable minimum length, both-strand search) — deliberately **not** contract-equivalent to
-  the ATG-only / standard-code `GenomicAnalyzer.FindOpenReadingFrames`
-  ([[open-reading-frame-detection]]) nor the prokaryotic-start annotation-layer
-  `GenomeAnnotator.FindOrfs`; callers pick the entry point deliberately.
+- **ORF finding.** `Translator.FindOrfs` is a **genetic-code-parameterized** ORF scanner —
+  a **START→STOP** model (EMBOSS `getorf -find 1`): a span from a start codon to the next
+  in-frame stop, protein **including** the start residue and **excluding** the stop, with
+  configurable minimum length (counted in **amino acids**, not nucleotides) and both-strand
+  search. It is deliberately **not** contract-equivalent to the ATG-only / standard-code
+  `GenomicAnalyzer.FindOpenReadingFrames` ([[open-reading-frame-detection]]) nor the
+  prokaryotic-start annotation-layer `GenomeAnnotator.FindOrfs`; callers pick the entry point
+  deliberately. (Oracle: `GGGATGAAACCCTAAGGG` → one ORF, start 3, end 14 inclusive, `MKP`.)
 
 **Correctness oracle:** the human insulin **B chain** (UniProt P01308, positions 25–54) DNA
 `TTCGTG…AAGACC` (90 nt) → `FVNQHLCGSHLVEALYLVCGERGFFYTPKT` (30 aa). All four tables verified
@@ -130,4 +148,7 @@ historical Nirenberg & Matthaei 1961 and Crick 1968 citations. Full record in
 [[trans-codon-001-evidence]]. For the whole-sequence layer: **Wikipedia "Translation (biology)"**
 (triplet reading, start/stop, release factors), **Wikipedia "Reading frame"** (three/six frames),
 **Wikipedia "Open reading frame"** (six-frame, sORFs), and **UniProt P01308** (insulin B-chain
-oracle) — full record in [[trans-prot-001-evidence]].
+oracle) — full record in [[trans-prot-001-evidence]]. The six-frame surface is independently
+anchored to reference implementations — **Biopython `six_frame_translations`** (governing
+reverse-frame convention), **EMBOSS `transeq`** (frame numbering / phase-locked alternative) and
+**EMBOSS `getorf`** (START→STOP ORF model) — in [[trans-sixframe-001-evidence]].
