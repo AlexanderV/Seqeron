@@ -5,9 +5,10 @@ tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-COMPARE-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Genome_Comparison.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/COMPGEN-COMPARE-001.md
+source_commit: 654fe3363f991b6b57549179139dcaa83c31f491
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -43,8 +44,10 @@ composes reciprocal-best-hit ortholog detection
 ([[synteny-and-rearrangement-detection]], COMPGEN-SYNTENY-001). Its single-metric siblings are
 [[average-nucleotide-identity]] (nucleotide identity of the two genomes) and
 [[conserved-gene-clusters-common-intervals]] (order-free contiguous gene sets). Validated under
-test unit **COMPGEN-COMPARE-001**; the validation record is [[compgen-compare-001-evidence]],
-[[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the
+test unit **COMPGEN-COMPARE-001**; the pre-implementation record is [[compgen-compare-001-evidence]]
+and the independent two-stage re-validation is [[compgen-compare-001-report]] (Stage A PASS / Stage B
+PASS / End state CLEAN — no code defect, no code change; 8 exact-value tests, full suite 6605 passed /
+0 failed). [[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the
 artifact pattern.
 
 ## The core/dispensable (pan-genome) partition

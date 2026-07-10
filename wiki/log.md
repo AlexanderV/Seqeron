@@ -4091,3 +4091,25 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    validation-and-testing / test-unit-registry; did NOT force the algorithm-validation-evidence hub. No new
    typed graph edges (report is a source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-COMPARE-001.md → compgen-compare-001-report (source)
+   New source-summary page for the two-stage validation report of COMPGEN-COMPARE-001 (comprehensive
+   two-genome comparison — core/dispensable gene partition + overall syntenic-gene fraction,
+   ComparativeGenomics.CompareGenomes, cs:765–810). CompareGenomes is an aggregator delegating to the
+   already-validated sub-units COMPGEN-RBH-001 / SYNTENY-001 / REARR-001; it adds only three sourced
+   pieces of unit logic (Tettelin 2005 pan-genome core/dispensable, Moreno-Hagelsieb 2008/Tatusov 1997
+   RBH=shared gene, fraction-of-syntenic-genes metric + MCScanX Wang 2012). Independent re-validation:
+   Stage A PASS / Stage B PASS / End state CLEAN — NO code defect and no code/spec/test change. Four
+   invariants confirmed (Conserved=|orthologs|; core+specific_i=|genome_i|; OverallSynteny∈[0,1] via
+   Math.Min(1.0,…); swap symmetry); 8 cases recomputed vs code (M1 1/1/1, M2 0/2/2, C1 2/0/0, M3
+   5-collinear+1→5/1/1 & Synteny 5/6=0.8333 hand-traced, S1 3-collinear→Synteny 0, S2 symmetry, M4
+   empty→all-0, Null→ArgumentException×2). Test-quality gate PASS: exact Is.EqualTo/Within(1e-10), prior
+   permissive GreaterThan(-OrEqualTo) tests removed, full MUST/SHOULD/COULD + all-four-invariant coverage,
+   honest green (full suite 6605 passed/0 failed, build 0 errors). One BY-DESIGN simplification inherited
+   from COMPGEN-RBH-001 (alignment-free 5-mer Jaccard, id≥0.3/cov≥0.5, vs Tettelin 50%/50%); Stage-B
+   nice-to-have notes only, not defects; no follow-ups. Existing concept genome-comparison-core-dispensable
+   already represents the algorithm (economical — no new concept); surgically updated it: added the report
+   to sources, bumped source_commit to 654fe336, cross-linked the CLEAN verdict in the intro. Updated
+   wiki/index.md (+1 source line). Tied to validation-ledger / validation-and-testing / test-unit-registry;
+   did NOT force the algorithm-validation-evidence hub. Kept distinct from evidence artifact
+   compgen-compare-001-evidence. No new typed graph edges (report is a source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges
