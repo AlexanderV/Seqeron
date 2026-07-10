@@ -3450,3 +3450,19 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    (ledger wikilinks in the live-status section), and the findings-register source page (back-link +
    Where-this-fits). Updated wiki/index.md (Sources). No contradictions flagged.
    graph: +1 node, +1 typed edge (validation-ledger supersedes findings-register)
+
+## [2026-07-10] ingest | docs/Validation/VALIDATION_PROTOCOL.md → validation-protocol (source)
+   Ingested the two-stage, one-session-per-unit validation METHODOLOGY doc that the ledger references.
+   Created wiki/sources/validation-protocol.md: fresh-context-per-unit (implementer != validator), Stage A
+   (validate description vs external primary sources — papers/textbooks/Biopython/EMBOSS/samtools/Rosalind,
+   independent cross-check) BEFORE Stage B (validate code realises it); never fix code to a wrong spec; two
+   completion end-states (✅ CLEAN / 🔧 LIMITED); verdict legend; report template; net10.0 green baseline
+   4484/0 (2026-06-12); Phase-1 scope = 86 implemented units. Did NOT create a separate concept (economical —
+   the source page is the methodology's canonical home) and did NOT force the algorithm-validation-evidence
+   hub. ENRICHED validation-ledger (raw-path ref → [[validation-protocol]] wikilink + Where-this-fits bullet),
+   validation-and-testing (campaign paragraph now names the protocol/Stage-A-before-B/end-states),
+   validation-findings-disposition (green-washing remedy tied to the protocol's independent-external-source
+   session), test-unit-registry ({UNIT-ID} is the handle a protocol session validates). Updated wiki/index.md
+   (Sources). No contradictions flagged.
+   graph: no typed edges (ontology has no relates_to/typed predicate targeting a source node, and the protocol
+   neither supersedes nor contradicts anything; auto-derived sourced_from/mentions edges suffice).

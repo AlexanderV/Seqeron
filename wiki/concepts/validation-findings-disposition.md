@@ -60,6 +60,11 @@ This is the "**tests must encode the algorithm/business spec, not a buggy impl**
 principle the [[build-quality-gate]] used to reject blind linter autofixes on the S1244/S125 giants.
 A finding that turns out to be a sourced non-defect is correctly closed as **BY-DESIGN**, not "fixed."
 
+This remedy is not ad-hoc — it is baked into the [[validation-protocol]] itself: every unit is
+re-validated in a **fresh session** separate from the implementer's, cross-checking each formula and
+oracle against an **independent external primary source** before the code is trusted, which is exactly
+what surfaces a code-echo oracle in the first place.
+
 ## Relationship to live status
 
 A disposition register is a **snapshot** of one pass, not a live tracker. The findings register was

@@ -29,9 +29,9 @@ governance page defers to it — the register, the [[validation-findings-disposi
 
 ## What a row records
 
-Each unit gets two per-stage marks plus an end state, driven by the two-context protocol
-([VALIDATION_PROTOCOL.md](../../docs/Validation/VALIDATION_PROTOCOL.md) — one **fresh session per unit**,
-implementer and validator deliberately different contexts, checked against **external primary sources**
+Each unit gets two per-stage marks plus an end state, driven by the two-context
+[[validation-protocol]] (one **fresh session per unit**, implementer and validator deliberately different
+contexts, **Stage A description before Stage B implementation**, checked against **external primary sources**
 with hand/reference cross-checks and mutation checks):
 
 - **Stage A** (algorithm *description*) and **Stage B** (*implementation*): ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
@@ -75,6 +75,7 @@ restriction digest, N-ary phylo trees, published CRISPR scoring models, EMBL rem
 
 ## Where this fits
 
+- [[validation-protocol]] — the two-stage, one-session-per-unit methodology whose sessions produce every row of this board.
 - [[test-unit-registry]] — defines the units this ledger tracks the live state of (the ID scheme / per-unit spec vs. this pass/fail board).
 - [[findings-register]] — the 2026-06-12 disposition snapshot this ledger **supersedes** via the 2026-06-24 reset.
 - [[validation-findings-disposition]] — the A/B/C/D triage process; treats this ledger as ground truth for current state.
