@@ -3694,3 +3694,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    distinct from the pre-existing evidence page assembly-correct-001-evidence. Updated
    wiki/index.md (+1 source line). No contradictions flagged. No typed graph edges added (report
    is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-COVER-001.md
+   Created source-summary wiki/sources/assembly-cover-001-report.md (two-stage validation report
+   for ASSEMBLY-COVER-001 — coverage/depth, SequenceAssembler.CalculateCoverage→int[]; Stage A
+   PASS-WITH-NOTES / Stage B PASS / End state CLEAN, full suite 6532→6533/0, zero code change).
+   Tied to [[validation-ledger]] / [[validation-and-testing]] and the algorithm concept
+   [[coverage-depth-calculation]] (assembly COVER anchor), NOT the algorithm-validation-evidence
+   hub. Reused the existing concept — surgically added the report to its sources:, bumped
+   source_commit, cross-linked the new report, and REFINED the boundary-clip rule: the report
+   shows the min(pos+L,refLen) clip is dead/defensive (FindBestAlignment places reads only where
+   they fit entirely, so the overhang partial-contribution case is unreachable — a near-contradiction
+   with the concept's prior "contributes only its overlapping portion" wording, now reconciled).
+   Fixed test gap noted (empty reference → []). Kept distinct from the pre-existing evidence page
+   assembly-cover-001-evidence. Updated wiki/index.md (+1 source line). No backlog slug (none
+   existed). No typed graph edges added (report is source-type; N/A).

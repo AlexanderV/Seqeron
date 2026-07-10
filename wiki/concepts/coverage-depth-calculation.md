@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-COVER-001-Evidence.md
   - docs/algorithms/Assembly/Coverage_Calculation.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-COVER-001.md
+source_commit: 5a20c8c6a7047e13a84f9574bbe39793571da8f6
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -23,9 +24,10 @@ graph:
 Given a reference and a set of reads placed on it, **coverage (sequencing depth)** is the number
 of reads that align over each reference base. This is the assembly QC read-out that answers "how
 deeply is each position sequenced," and the anchor for the assembly **COVER** family. Validated
-under test unit **ASSEMBLY-COVER-001**; the validation record is [[assembly-cover-001-evidence]],
-and [[test-unit-registry]] tracks the unit. See [[algorithm-validation-evidence]] for the artifact
-pattern.
+under test unit **ASSEMBLY-COVER-001**; the pre-implementation evidence is
+[[assembly-cover-001-evidence]], the independent re-validation verdict (Stage A PASS-WITH-NOTES /
+Stage B PASS) is [[assembly-cover-001-report]], and [[test-unit-registry]] tracks the unit. See
+[[algorithm-validation-evidence]] for the artifact pattern.
 
 ## The three quantities (source definitions)
 
@@ -42,8 +44,13 @@ Traced verbatim to samtools workflows (Daniel Cook; Metagenomics Wiki) and Illum
 
 ## Boundary and empty-input rules
 
-- **Clip at the reference end** — a read extending past the reference end contributes only its
-  overlapping portion to per-base depth.
+- **Clip at the reference end** — the depth loop increments `[pos, min(pos + L, refLen))`, so in
+  principle a read overhanging the reference end would contribute only its overlapping portion. In
+  the shipped code this clip is **dead / defensive**: `FindBestAlignment` scans only positions
+  `0 … refLen − L`, placing a read *only where it fits entirely*, so an over-long read fails to
+  place (depth 0) and the `min()` clip is never exercised. The overhang → partial-contribution case
+  is therefore unreachable — an intentional placement-model simplification, not an arithmetic error
+  (validation report [[assembly-cover-001-report]], Stage A note).
 - **Unmatched / empty input** — a read that does not place (below `minOverlap`) contributes `0` to
   every position; an empty read set yields an all-zero depth array of reference length, average
   depth `0` and breadth `0`.

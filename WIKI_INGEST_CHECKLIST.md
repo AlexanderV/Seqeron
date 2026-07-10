@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 284 / 1181
+Progress: 285 / 1181
 
 ## (top-level)  (6)
 
@@ -251,7 +251,7 @@ Progress: 284 / 1181
 - [x] docs/Validation/reports/ANNOT-REPEAT-001.md
 - [x] docs/Validation/reports/ASSEMBLY-CONSENSUS-001.md
 - [x] docs/Validation/reports/ASSEMBLY-CORRECT-001.md
-- [ ] docs/Validation/reports/ASSEMBLY-COVER-001.md
+- [x] docs/Validation/reports/ASSEMBLY-COVER-001.md
 - [ ] docs/Validation/reports/ASSEMBLY-DBG-001.md
 - [ ] docs/Validation/reports/ASSEMBLY-MERGE-001.md
 - [ ] docs/Validation/reports/ASSEMBLY-OLC-001.md
