@@ -98,9 +98,10 @@ Closed-form over the tables (average, water = 18.0153) — Biopython docstring w
 ## Scope
 
 A **sequence-only mass scalar** — one number per sequence. It reports mass; it does not derive
-charge or isoelectric point (pI), which the Expasy Compute pI/Mw source pairs with Mw but which is a
-separate calculation not in this unit. A [[research-grade-limitations|research-grade]] implementation
-of the Expasy/Biopython average-mass method.
+charge or **isoelectric point (pI)** — the [[isoelectric-point]] calculation (SEQ-PI-001) that the
+Expasy Compute pI/Mw source pairs with Mw but which is a separate unit. A
+[[research-grade-limitations|research-grade]] implementation of the Expasy/Biopython average-mass
+method.
 
 ## References
 
