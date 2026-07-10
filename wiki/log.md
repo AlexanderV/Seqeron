@@ -3138,3 +3138,19 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Contradictions: none (SW + BLAST gapped/ungapped + Karlin–Altschul + Kane mutually consistent).
    Follow-ups: none.
    graph: +2 nodes, +3 typed edges
+
+## [2026-07-10] ingest | docs/Evidence/PROTMOTIF-CC-001-Evidence.md → protmotif-cc-001-evidence (source) + 1 concept
+   Coiled-coil prediction (PROTMOTIF-CC-001): heptad a/d hydrophobic-core occupancy predictor
+   `ProteinMotifFinder.PredictCoiledCoils` — per-window fraction of a/d core positions ∈ {I,L,V}
+   maximised over 7 heptad registers, contiguous runs ≥21 residues (3 heptads) emitted with peak
+   Score∈[0,1]; defaults window 28 (Lupas 1991) / threshold 0.5 / min-region 21 (Mason & Arndt).
+   Judged genuinely distinct — first ingested unit of the ProteinMotif family, separate from the
+   ProteinPred disorder/features family → new concept [[coiled-coil-prediction]], cross-linked from
+   the [[protein-low-complexity-seg]] anchor as a sibling sequence-only protein-feature heuristic.
+   Enriched with the algorithm doc docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md (INV-01..05).
+   Updated hub [[algorithm-validation-evidence]] (frontmatter sources + body evidence-link + concept
+   list), wiki/index.md (source + concept entries).
+   Oracles: (LAALAAA)×5→(0,34,1.0); all-Gly/no-{I,L,V}→none; (LAAAAAA)→0.5 threshold boundary.
+   Deviations: COILS 21×20 PSSM deliberately omitted (weights not retrievable → use COILS/Paircoil2);
+   {I,L,V}-only core-set is source-verbatim. Contradictions: none. Follow-ups: none.
+   graph: +2 nodes, +2 typed edges

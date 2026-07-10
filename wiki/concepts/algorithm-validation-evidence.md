@@ -136,6 +136,7 @@ sources:
   - docs/Evidence/PROBE-DESIGN-001-Evidence.md
   - docs/Evidence/PROBE-DESIGN-001-LNA-Evidence.md
   - docs/Evidence/PROBE-VALID-001-Evidence.md
+  - docs/Evidence/PROTMOTIF-CC-001-Evidence.md
 source_commit: 4de32c233ad726853dbae99f237ce61d34c3b01a
 created: 2026-07-09
 updated: 2026-07-10
@@ -245,7 +246,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[primer-tm-001-evidence]], [[primer-tm-001-hairpin-evidence]],
 [[primer-tm-001-nn-evidence]], [[primer-tm-001-special-loop-evidence]],
 [[probe-design-001-evidence]], [[probe-design-001-lna-evidence]],
-[[probe-valid-001-evidence]]). An
+[[probe-valid-001-evidence]], [[protmotif-cc-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
@@ -279,6 +280,7 @@ individual algorithm gets its own concept page only when it is itself distinct a
 [[protein-low-complexity-seg]] (the anchor for the protein disorder / features family — SEG low-complexity region detection, the first ingested DISORDER-* unit), or
 [[morf-prediction-dip-in-disorder]] (the MoRF dip-in-disorder prediction unit of the protein-disorder family, the second ingested DISORDER-* unit), or
 [[intrinsic-disorder-prediction-top-idp]] (the TOP-IDP `PredictDisorder` sliding-window intrinsic-disorder anchor of the protein-disorder family, the third ingested DISORDER-* unit that MoRF + region detection sit on), or
+[[coiled-coil-prediction]] (the heptad a/d hydrophobic-core occupancy coiled-coil predictor `ProteinMotifFinder.PredictCoiledCoils`, the first ingested unit of the ProteinMotif family — 7-register max over {I,L,V} a/d occupancy, COILS PSSM omitted), or
 [[epigenetic-age-horvath-clock]] (the Horvath DNAm methylation-clock epigenetic-age estimator, the first ingested unit of the Epigenetics family), or
 [[bisulfite-methylation-calling]] (the bisulfite-sequencing conversion/methylation-calling/profile unit of the Epigenetics family, the second ingested EPIGEN-* unit — distinct from the age clock), or
 [[chromatin-state-prediction]] (the ChromHMM-style histone-mark chromatin-state annotation unit of the Epigenetics family, the third ingested EPIGEN-* unit — operates on histone ChIP-seq marks, not DNA methylation), or
