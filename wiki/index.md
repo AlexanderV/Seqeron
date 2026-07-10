@@ -18,6 +18,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[mcp-plan]] — the SUPERSEDED (2026-07-01) MCP design doc (sibling of the checklist): v3→v4 rationale, full 241-tool inventory across 12 servers, and the still-valid standards (naming, JSON-Schema 2020-12, error ranges, SemVer, 2-tests-per-tool, doc contract).
 - [[mcp-prompt]] — the CURRENT one-tool-per-session MCP-completion subagent prompt: names the real 11 servers (server→project→file), the 3-part tool DoD (binding+tests+docs), and reverses the old no-business-asserts test policy. Ground truth: `docs/mcp/MCP_STATUS.md`.
 - [[sonar-gate-plan]] — the Sonar-ratchet tracker: 66/66 SonarAnalyzer rules moved from report-only to blocking (or silenced-with-justification); Groups A–E, notable behaviour changes, and review-not-blind-fix on the S1244/S125 giants.
+- [[findings-register]] — the validation-campaign disposition ledger: every note across all 86 per-unit reports triaged into fixed-now / feasible / not-possible / by-design; green-washing detection; a 2026-06-12 snapshot superseded by the 2026-06-24 re-validation reset.
 - [[align-global-001-evidence]] — evidence artifact for test unit ALIGN-GLOBAL-001 (Needleman–Wunsch): Wikipedia sources, the `GCATGCG`/`GATTACA` worked example, and the GapExtend-as-*d* / GapOpen-unused note.
 - [[align-multi-001-evidence]] — evidence artifact for test unit ALIGN-MULTI-001 (MSA): main doc + MUSCLE and T-Coffee addenda; star/iterative/consistency aligners, SP-score and consensus design choices.
 - [[align-semi-001-evidence]] — evidence artifact for test unit ALIGN-SEMI-001 (semi-global / fitting): Wikipedia + Rosalind SIMS/SMGB + Brudno 2003 sources, fitting-variant init/traceback, INV-1..5.
@@ -251,6 +252,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[layered-architecture]] — the strict up-only dependency layering (Levels 0–4) enforced by architecture tests.
 - [[scientific-rigor]] — runtime honesty: `LimitationPolicy`, tool-only computation, provenance on every result.
 - [[validation-and-testing]] — 22k+ tests across ten methodologies plus the per-unit validation campaign.
+- [[validation-findings-disposition]] — the A/B/C/D triage governance process for validation findings, with green-washing detection and the spec-not-impl remedy.
 - [[property-based-testing]] — P0 methodology (FsCheck): hundreds of generated inputs checked against expressible invariants (R/S/I/M/P/RT/D); 258/258.
 - [[metamorphic-testing]] — P0 methodology: metamorphic relations across runs (SUB/MON/INV/SYM/COMP/SHIFT) that solve the oracle problem; 258/258, ~200+ relations.
 - [[fuzzing]] — P2 methodology: random/malformed/boundary input for clean-failure; parsers the hot target; zero→258/258.

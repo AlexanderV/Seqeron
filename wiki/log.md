@@ -3409,3 +3409,14 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Collins & Jukes 1994; no source contradictions; research-grade, not clinical. Follow-ups: read-pileup
    genotype calling and indel left-normalization remain adjacent units not yet ingested.
    graph: +1 node, +1 typed edge (germline-variant-calling-snp-indel relates_to test-unit-registry for variant-snp-001-evidence)
+
+## [2026-07-10] ingest | docs/Validation/FINDINGS_REGISTER.md -> findings-register (source) + 1 concept
+   GOVERNANCE. New source page for the validation-campaign disposition ledger (every note across
+   86 per-unit reports triaged into FIXED-NOW/FEASIBLE/NOT-POSSIBLE/BY-DESIGN; green-washing detection;
+   2026-06-12 snapshot SUPERSEDED by the 2026-06-24 re-validation reset). Created concept
+   validation-findings-disposition (the A/B/C/D triage process + spec-not-impl green-washing remedy) with
+   relates_to edges to validation-and-testing and build-quality-gate. ENRICHED validation-and-testing
+   (Validation campaign paragraph now links findings-register + disposition; added the source path/commit).
+   Did NOT force the algorithm-validation-evidence hub (this is a governance register, not per-algorithm
+   Evidence). Updated wiki/index.md (Sources + Concepts). No contradictions flagged.
+   graph: +2 nodes, +2 typed edges (validation-findings-disposition relates_to validation-and-testing, relates_to build-quality-gate)
