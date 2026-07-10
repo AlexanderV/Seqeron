@@ -159,7 +159,8 @@ sources:
   - docs/Evidence/RNA-PKPREDICT-001-Evidence.md
   - docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md
   - docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
-source_commit: ae0dfc54b6b719a8fa68c2f120f3f4e3235cd02e
+  - docs/Evidence/RNA-STEMLOOP-001-Evidence.md
+source_commit: 05292f4bc746f5b7f5f6637a2953864d096833cc
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -279,7 +280,8 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[rna-hairpin-001-evidence]], [[rna-invert-001-evidence]],
 [[rna-mfe-001-evidence]], [[rna-pair-001-evidence]],
 [[rna-partition-001-evidence]], [[rna-pkpredict-001-evidence]],
-[[rna-pkrecursive-001-evidence]], [[rna-pseudoknot-001-evidence]]). An
+[[rna-pkrecursive-001-evidence]], [[rna-pseudoknot-001-evidence]],
+[[rna-stemloop-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],

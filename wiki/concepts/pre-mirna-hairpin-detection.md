@@ -5,9 +5,10 @@ tags: [mirna, algorithm]
 sources:
   - docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md
   - docs/algorithms/MiRNA/Pre_miRNA_Detection.md
-source_commit: e0541d580467f016d02636dab852b866b6e05940
+  - docs/Evidence/RNA-STEMLOOP-001-Evidence.md
+source_commit: 05292f4bc746f5b7f5f6637a2953864d096833cc
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -33,8 +34,8 @@ is [[mirna-precursor-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern. It **builds on the shared RNA
 base-pairing primitive** [[rna-base-pairing]] — a candidate stem is scored as consecutive
 {A-U, G-C} + **G-U wobble** pairs between mirrored positions. This unit is the precursor-hairpin
-sibling of the miRNA-target duplex; a general RNA secondary-structure (stem-loop) concept is a future
-neighbour, not this page.
+sibling of the miRNA-target duplex; the **general** RNA secondary-structure stem-loop enumerator is
+its neighbour [[rna-stem-loop-enumeration]] (RNA-STEMLOOP-001), not this page.
 
 The unit has one **default heuristic** path plus three **opt-in** production paths — the default is
 never changed by the opt-ins.

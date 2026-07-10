@@ -18,9 +18,10 @@ Free-Energy Calculation** (Turner 2004 nearest-neighbor model). It is one instan
 per-algorithm [[algorithm-validation-evidence|evidence artifact]] pattern; the synthesizing concept
 is [[rna-free-energy-turner-model]]. [[test-unit-registry]] tracks the unit.
 
-This unit is **not** a stem-loop *enumerator* and is **not** miRNA-specific: it is a focused
-deep-dive on the two hairpin/stem **energy** methods `CalculateHairpinLoopEnergy` and
-`CalculateStemEnergy` on `RnaSecondaryStructure`. It therefore **overlaps and complements**
+This unit is **not** a stem-loop *enumerator* (that is [[rna-stem-loop-enumeration]], RNA-STEMLOOP-001,
+which *finds* hairpins and consumes these energy terms for its tetraloop bonus) and is **not**
+miRNA-specific: it is a focused deep-dive on the two hairpin/stem **energy** methods
+`CalculateHairpinLoopEnergy` and `CalculateStemEnergy` on `RnaSecondaryStructure`. It therefore **overlaps and complements**
 [[rna-free-energy-turner-model|RNA-ENERGY-001]] (the aggregate energy layer, which already exposes
 these same methods) rather than defining a new concept, and it is **distinct** from
 [[pre-mirna-hairpin-detection]] (which *finds* pre-miRNA stem-loops and only sums a hairpin
