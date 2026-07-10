@@ -36,8 +36,9 @@ The **foundational population-genetics primitive**: turn per-locus **genotype co
 This is a population-genetics `POP-*` unit (**POP-FREQ-001**) and the numeric substrate the rest of
 the family builds on — the reference allele frequencies **F** that
 [[ancestry-estimation-admixture]] treats as fixed, and the per-site frequencies `p_i` behind the
-gene-diversity/heterozygosity term of [[genetic-diversity-statistics]], are exactly these
-quantities. Validated under test unit **POP-FREQ-001**; the literature-traced record is
+gene-diversity/heterozygosity term of [[genetic-diversity-statistics]], and the per-population
+allele frequencies that [[population-differentiation-fst]] compares to measure Fst, are exactly
+these quantities. Validated under test unit **POP-FREQ-001**; the literature-traced record is
 [[pop-freq-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern.
 

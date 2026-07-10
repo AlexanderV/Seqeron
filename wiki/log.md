@@ -2966,3 +2966,20 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    no phasing). All exact-match (Wikipedia Allele/Minor-allele/Genotype frequency + Gillespie 2004 +
    NDSU). Contradictions: none. Follow-ups: none.
    graph: +2 nodes (pop-freq-001-evidence source, allele-genotype-frequencies concept), +3 typed edges (allele-genotype-frequencies relates_to test-unit-registry; relates_to ancestry-estimation-admixture; relates_to genetic-diversity-statistics)
+## [2026-07-10] ingest | POP-FST-001-Evidence.md → pop-fst-001-evidence (source) + population-differentiation-fst (concept)
+   Population-genetics POP-* differentiation unit — Fst (fixation index), F-statistics (Fis/Fit/Fst),
+   pairwise Fst. Consumes per-population allele frequencies from POP-FREQ-001. Wright 1965 variance
+   Fst = σ_S²/(pBar(1−pBar)); two-pop size-weighted pBar=(n1·p1+n2·p2)/(n1+n2),
+   σ_S²=(n1(p1−pBar)²+n2(p2−pBar)²)/(n1+n2); multi-locus ratio-of-sums Σσ_S²/Σhet — computes the
+   population PARAMETER from known allele freqs, explicitly NOT the Weir & Cockerham 1984 θ estimator
+   (no ANOVA/finite-sample bias correction). F-statistics heterozygosity partition Fis=1−Hi/Hs,
+   Fit=1−Hi/Ht, Fst=1−Hs/Ht with exact identity (1−Fit)=(1−Fis)(1−Fst). INV Fst∈[0,1] (0=panmixia,
+   1=fixed differences), Fis∈[−1,1] (negative under excess heterozygotes), pairwise matrix symmetric +
+   zero diagonal, NOT a metric (fails triangle inequality). Oracles: fixed p1=1/p2=0→1.0 exactly,
+   pop1=(.9,.8)/pop2=(.1,.2)→1/2, unequal sizes 0.006274…, components 1/19,1/13,1/39, excess-het
+   negative Fis=−2/3, pairwise cells 1/99,4/21,3/25; ref values Cavalli-Sforza 1994 + Elhaik 2012
+   HapMap; Hartl-Clark interpretation bands. Edge cases denominator 0 (empty/both-fixed-same/
+   monomorphic)→return 0. 25 tests (−1 dup +4 new). New concept created (distinct from POP-FREQ
+   counting, POP-DIV within-sample diversity, POP-ANCESTRY decomposition). Contradictions: none.
+   Follow-ups: none.
+   graph: +2 nodes (pop-fst-001-evidence source, population-differentiation-fst concept), +3 typed edges (population-differentiation-fst relates_to test-unit-registry; depends_on allele-genotype-frequencies; relates_to genetic-diversity-statistics)

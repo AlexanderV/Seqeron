@@ -126,6 +126,7 @@ sources:
   - docs/Evidence/POP-ANCESTRY-001-Evidence.md
   - docs/Evidence/POP-DIV-001-Evidence.md
   - docs/Evidence/POP-FREQ-001-Evidence.md
+  - docs/Evidence/POP-FST-001-Evidence.md
 source_commit: 909848bd266e323a5133b9158dd0cd3bf668ef43
 created: 2026-07-09
 updated: 2026-07-10
@@ -229,7 +230,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[pangen-marker-001-evidence]], [[phylo-boot-001-evidence]],
 [[phylo-comp-001-evidence]], [[phylo-dist-001-evidence]],
 [[phylo-newick-001-evidence]], [[pop-ancestry-001-evidence]],
-[[pop-div-001-evidence]], [[pop-freq-001-evidence]]). An
+[[pop-div-001-evidence]], [[pop-freq-001-evidence]], [[pop-fst-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
