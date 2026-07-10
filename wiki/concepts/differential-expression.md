@@ -133,7 +133,9 @@ DE is one of several **per-feature two-group significance** units in the wiki, d
   z-score / signature score — a within-sample outlier call, not a between-group comparison.
 
 DE gene lists are the natural **input to over-representation / enrichment analysis**
-([[pathway-enrichment-ora]]).
+([[pathway-enrichment-ora]]). Upstream, the two-group test operates on **normalized** expression —
+the within-sample TPM/FPKM and cross-sample quantile-normalization corrections of the sibling
+[[expression-quantification]] unit (TRANS-EXPR-001).
 
 ## Scope and limitations
 
@@ -143,6 +145,7 @@ with dispersion shrinkage (DESeq2 is cited only for the log2FC definition, sign 
 BH-as-standard-FDR fact, not as the fitted model). Three source-backed assumptions: pseudocount = 1;
 <2 replicates → p = 1; se = 0 → p = 1 (equal means) / p = 0 (unequal means). All formulas match their
 primary sources (DESeq2 log2FC/BH; Welch 1947 t-statistic; Student-t CDF regularized-incomplete-beta
-identity; R `p.adjust` BH) — no source contradictions. **Not for clinical use.** Future Transcriptome
-siblings (TPM/FPKM quantification, quantile normalization, PCA/clustering, alternative splicing) would
-enrich this family anchor.
+identity; R `p.adjust` BH) — no source contradictions. **Not for clinical use.** The first
+Transcriptome sibling, [[expression-quantification]] (TPM/FPKM + quantile normalization,
+TRANS-EXPR-001), now supplies the upstream normalized input; further siblings (PCA/clustering,
+alternative splicing) would enrich this family anchor.

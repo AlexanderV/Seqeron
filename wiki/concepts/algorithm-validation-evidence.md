@@ -189,7 +189,8 @@ sources:
   - docs/Evidence/SV-DETECT-001-Evidence.md
   - docs/Evidence/TRANS-CODON-001-Evidence.md
   - docs/Evidence/TRANS-DIFF-001-Evidence.md
-source_commit: e00919fd4a7a3e5c624a134af281d66dfe6d4831
+  - docs/Evidence/TRANS-EXPR-001-Evidence.md
+source_commit: deb32560df90dfd97221f5218e71f6fd6cf3b2fd
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -322,7 +323,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[splice-acceptor-001-evidence]], [[splice-donor-001-evidence]],
 [[sv-breakpoint-001-evidence]], [[sv-cnv-001-evidence]],
 [[sv-detect-001-evidence]], [[trans-codon-001-evidence]],
-[[trans-diff-001-evidence]]). An
+[[trans-diff-001-evidence]], [[trans-expr-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],
