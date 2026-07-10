@@ -4072,3 +4072,22 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    algorithm-validation-evidence hub. No new typed graph edges (report is a source-summary; mentions
    auto-derived).
    graph: +1 node, +0 typed edges
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-CLUSTER-001.md → compgen-cluster-001-report (source)
+   New source-summary page for the two-stage validation report of COMPGEN-CLUSTER-001 (Conserved Gene
+   Clusters — common intervals of permutations, ComparativeGenomics.FindConservedClusters, cs:914–1021 +
+   IsIntervalOf helper). Independent re-validation: Stage A PASS / Stage B PASS-WITH-NOTES / End state
+   CLEAN — NO code defect and no code change; Stage B is with-notes solely because three weak test
+   assertions were strengthened in-session (M3 Contains.Item→Is.EquivalentTo; M5 Does.Not.Contain→Is.Empty;
+   S3 Does.Not.Contain/Contains→Is.EquivalentTo), all brute-forced, closing a green-wash gap. Scope
+   clarified: the generic COG/OrthoMCL/MCL-clustering prompt notwithstanding, the sole method under test is
+   the common-interval model (COG/OrthoMCL grouping → COMPGEN-ORTHO-001/RBH-001). Bui-Xuan/Habib/Paul 2013
+   + Didier 2013 + Uno & Yagiura 2000 + Heber & Stoye 2001 confirmed verbatim; golden vector Id7 vs
+   (7 2 1 3 6 4 5)→7 sets = paper Example 1, Didier {1,2,3,4} yes/{1,2} no, all brute-forced; full suite
+   6605 passed/0 failed, build 0 errors. maxGap API-shape-only (strict gap-free; gene-teams not
+   implemented). Kept distinct from evidence artifact compgen-cluster-001-evidence. Existing concept
+   conserved-gene-clusters-common-intervals already represents the algorithm (economical — no new concept);
+   surgically updated it: added the report to sources, bumped source_commit to 665dc336, cross-linked the
+   CLEAN verdict in the intro. Updated wiki/index.md (+1 source line). Tied to validation-ledger /
+   validation-and-testing / test-unit-registry; did NOT force the algorithm-validation-evidence hub. No new
+   typed graph edges (report is a source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges

@@ -5,7 +5,8 @@ tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Conserved_Gene_Clusters.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/COMPGEN-CLUSTER-001.md
+source_commit: 665dc3361ce2789ca8ede9ad2e88ea718c20310e
 created: 2026-07-09
 updated: 2026-07-09
 graph:
@@ -37,8 +38,10 @@ set** to be contiguous in each genome — order and strand inside the window are
 end-to-end pipeline [[genome-comparison-core-dispensable]] composes ortholog detection and
 synteny into a core/dispensable gene partition. Validated
 under test unit **COMPGEN-CLUSTER-001**; the validation record is
-[[compgen-cluster-001-evidence]], [[test-unit-registry]] tracks the unit, and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+[[compgen-cluster-001-evidence]], the independent two-stage re-validation verdict is
+[[compgen-cluster-001-report]] (Stage A PASS / Stage B PASS-WITH-NOTES / End state CLEAN — no code
+defect; three weak test assertions strengthened to exact sourced sets), [[test-unit-registry]]
+tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
 
 ## The common-interval model
 
