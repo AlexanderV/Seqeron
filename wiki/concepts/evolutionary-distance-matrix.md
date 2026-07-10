@@ -114,7 +114,8 @@ Other documented corner cases:
 ## Relationship to the rest of the PHYLO family
 
 This unit is the **upstream substrate** of the family, not a tree method itself: it emits the distance
-matrix that **UPGMA/NJ** turn into a `PhyloNode` tree. [[phylogenetic-bootstrap-support]] resamples the
+matrix that the [[distance-based-tree-construction]] step (PHYLO-TREE-001, **UPGMA/NJ**) turns into a
+`PhyloNode` tree. [[phylogenetic-bootstrap-support]] resamples the
 *alignment columns* and re-runs this distance step + tree builder per replicate (bootstrap **wraps**
 the distance calculation); [[tree-comparison-metrics]] operates on the finished trees. It is **distinct
 from** [[phylogenetic-marker-selection]] (PANGEN-MARKER-001), which selects the informative *columns* a

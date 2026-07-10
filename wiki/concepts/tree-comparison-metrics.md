@@ -15,6 +15,12 @@ graph:
       evidence: "Test Unit ID: PHYLO-COMP-001 ... Algorithm: Tree Comparison (Robinson-Foulds Distance, MRCA, Patristic Distance)"
       confidence: high
       status: current
+    - predicate: depends_on
+      object: concept:distance-based-tree-construction
+      source: phylo-comp-001-evidence
+      evidence: "All three operate on the same rooted binary PhyloNode that the UPGMA/NJ builder produces — the comparison metrics need the tree the construction step (PHYLO-TREE-001) emits"
+      confidence: high
+      status: current
 ---
 
 # Tree comparison metrics (Robinson–Foulds distance, MRCA, patristic distance)
@@ -32,9 +38,10 @@ tree building. Validated under test unit **PHYLO-COMP-001**; the literature-trac
 reference ([[scientific-rigor|research-grade]]), not for clinical use.
 
 All three operate on the same rooted binary `PhyloNode` (`Left`/`Right` children) that the
-UPGMA/NJ builder produces from an [[evolutionary-distance-matrix]] (PHYLO-DIST-001, the family's
-pairwise-distance substrate) — the same machinery [[phylogenetic-bootstrap-support]] resamples; the
-scope is therefore **rooted, bifurcating trees** (§7 resolved design decisions).
+[[distance-based-tree-construction]] step (PHYLO-TREE-001, UPGMA/NJ) produces from an
+[[evolutionary-distance-matrix]] (PHYLO-DIST-001, the family's pairwise-distance substrate) — the same
+machinery [[phylogenetic-bootstrap-support]] resamples; the scope is therefore **rooted, bifurcating
+trees** (§7 resolved design decisions).
 
 ## 1. Robinson–Foulds distance (`RobinsonFouldsDistance`)
 

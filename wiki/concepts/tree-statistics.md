@@ -15,6 +15,12 @@ graph:
       evidence: "Test Unit ID: PHYLO-STATS-001 ... Algorithm: Tree Statistics (leaves, total tree length, tree height/depth)"
       confidence: high
       status: current
+    - predicate: depends_on
+      object: concept:distance-based-tree-construction
+      source: phylo-stats-001-evidence
+      evidence: "operate on the same rooted binary PhyloNode that the UPGMA/NJ builder produces — the statistics summarize the tree the construction step (PHYLO-TREE-001) emits"
+      confidence: high
+      status: current
 ---
 
 # Tree statistics (leaf count, total tree length, tree depth/height)
@@ -25,8 +31,9 @@ single, already-built phylogenetic tree**: **`GetLeaves`** (its terminal nodes),
 longest root-to-leaf path). These are whole-tree *summary statistics*, not inference and not comparison —
 genuinely separate from [[tree-comparison-metrics]] (PHYLO-COMP-001), which computes *relationships between*
 taxa (RF distance, MRCA, patristic distance). They operate on the same rooted binary `PhyloNode`
-(`Left`/`Right` children) that the UPGMA/NJ builder produces from an [[evolutionary-distance-matrix]]
-(PHYLO-DIST-001) and that [[phylogenetic-bootstrap-support]] resamples. Validated under test unit
+(`Left`/`Right` children) that the [[distance-based-tree-construction]] step (PHYLO-TREE-001, UPGMA/NJ)
+produces from an [[evolutionary-distance-matrix]] (PHYLO-DIST-001) and that
+[[phylogenetic-bootstrap-support]] resamples. Validated under test unit
 **PHYLO-STATS-001**; the literature-traced record is [[phylo-stats-001-evidence]], [[test-unit-registry]]
 tracks the unit, and [[algorithm-validation-evidence]] describes the evidence-artifact pattern.
 Research-grade correctness reference ([[scientific-rigor|research-grade]]), not for clinical use.

@@ -2915,3 +2915,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    BaseTree + DendroPy Tree.length() + Minimum-evolution. One assumption (null PhyloNode ↔ empty-tree
    height −1). Contradictions: none. Follow-ups: none.
    graph: +2 nodes (phylo-stats-001-evidence source, tree-statistics concept), +1 typed edge (tree-statistics relates_to test-unit-registry)
+
+## [2026-07-10] ingest | PHYLO-TREE-001-Evidence.md → phylo-tree-001-evidence (source) + distance-based-tree-construction (concept)
+   Ingested the Tree Construction unit (PHYLO-TREE-001): UPGMA + Neighbor-Joining — the PHYLO family's
+   tree-building core that consumes a distance matrix and emits a PhyloNode tree (BuildTree /
+   BuildTreeFromMatrix). Created the dedicated concept [[distance-based-tree-construction]] that prior
+   PHYLO ingests explicitly flagged as MISSING/WANTED (UPGMA rooted-ultrametric height=d/2 clock;
+   NJ minimum-Q additive-topology, negative branches preserved, midpoint-rooted final join). Wired it
+   as the family hinge: concept depends_on [[evolutionary-distance-matrix]]; added reciprocal
+   depends_on edges + wikilinks on [[phylogenetic-bootstrap-support]] (wraps it per replicate),
+   [[tree-comparison-metrics]] and [[tree-statistics]] (operate on its output); linked from
+   [[evolutionary-distance-matrix]]. Sources: Wikipedia UPGMA/Neighbor-joining/Phylogenetic-tree +
+   Saitou & Nei 1987 + Sokal & Michener 1958 + Felsenstein 2004. Worked oracles: UPGMA 5S-rRNA
+   (root 16.5, tips all 16.5) + NJ 5-taxon (Q₁(a,b)=−50, δ(a,u)=2…δ(e,w)=1). Deviations None (§8).
+   Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (phylo-tree-001-evidence source, distance-based-tree-construction concept), +4 typed edges (distance-based-tree-construction relates_to test-unit-registry + depends_on evolutionary-distance-matrix; bootstrap/comparison/statistics each depends_on distance-based-tree-construction)

@@ -15,6 +15,12 @@ graph:
       evidence: "Test Unit ID: PHYLO-BOOT-001 ... Algorithm: Phylogenetic Bootstrap Analysis (Felsenstein's Bootstrap Proportions)"
       confidence: high
       status: current
+    - predicate: depends_on
+      object: concept:distance-based-tree-construction
+      source: phylo-boot-001-evidence
+      evidence: "rebuilds a tree from each pseudo-alignment with the same method as the reference tree (here a distance matrix + UPGMA/NJ) — bootstrap re-runs the tree-construction step per replicate"
+      confidence: high
+      status: current
 ---
 
 # Phylogenetic bootstrap support (Felsenstein bootstrap proportions)
@@ -30,10 +36,11 @@ and [[algorithm-validation-evidence]] describes the evidence-artifact pattern. R
 correctness reference ([[scientific-rigor|research-grade]]), not for clinical use.
 
 Bootstrap is the first `PHYLO-*` unit ingested, so this page doubles as the family anchor. The
-per-replicate tree here is built by the same **distance-matrix → UPGMA/NJ** machinery the datasets
-exercise (`UPGMA` + `JukesCantor` distance below) — the pairwise evolutionary distances are the
-dedicated [[evolutionary-distance-matrix]] unit (PHYLO-DIST-001: p-distance / JC69 / K2P / Hamming),
-which bootstrap **wraps** and re-runs per replicate rather than replacing. The second `PHYLO-*` unit,
+per-replicate tree here is built by the same [[distance-based-tree-construction|distance-matrix →
+UPGMA/NJ]] machinery (PHYLO-TREE-001) the datasets exercise (`UPGMA` + `JukesCantor` distance below) —
+bootstrap **wraps and re-runs** that tree-construction step per replicate rather than replacing it. The
+pairwise evolutionary distances it consumes are the dedicated [[evolutionary-distance-matrix]] unit
+(PHYLO-DIST-001: p-distance / JC69 / K2P / Hamming). The second `PHYLO-*` unit,
 [[tree-comparison-metrics]] (PHYLO-COMP-001 — Robinson–Foulds distance, MRCA, patristic distance),
 operates on the *same* rooted `PhyloNode` tree but *compares* topologies instead of inferring them:
 bootstrap counts clade **agreement** across replicates, Robinson–Foulds counts clade **disagreement**
