@@ -2998,3 +2998,20 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    concept created (distinct: a hypothesis test on counts vs POP-FREQ counting/normalization).
    Cross-linked allele-genotype-frequencies scope note. Contradictions: none. Follow-ups: none.
    graph: +2 nodes (pop-hw-001-evidence source, hardy-weinberg-equilibrium-test concept), +2 typed edges (hardy-weinberg-equilibrium-test relates_to test-unit-registry; depends_on allele-genotype-frequencies)
+## [2026-07-10] ingest | POP-LD-001.md → pop-ld-001-evidence (source) + linkage-disequilibrium (concept)
+   Population-genetics POP-* unit — linkage disequilibrium between two loci (CalculateLD: D, D', r²)
+   + haplotype-block detection (FindHaplotypeBlocks). Consumes allele/haplotype frequencies from
+   POP-FREQ-001. Sources: Wikipedia Linkage-disequilibrium (D=p_AB−p_A·p_B; Lewontin 1964 D'=|D|/D_max
+   sign-branched clamped [0,1]; Hill & Robertson 1968 r²=D²/(p_A·q_A·p_B·q_B); diploid-frequency result
+   R_AB=r_AB Wright 1933 ⇒ r² computable WITHOUT phase) + Wikipedia Haplotype-block (Gabriel 2002 /
+   Patil 2001). Implementation: r² = squared Pearson correlation of 0/1/2 genotype dosage vectors
+   Cov²/(Var·Var); D from diploid covariance Cov=2D ⇒ D=Cov/2; FindHaplotypeBlocks = simplified
+   adjacent-pair Gabriel (consecutive r²≥threshold, default 0.7, ≥2 variants). Oracles perfect LD→r²≈1,
+   no LD→r²≈0, anti-correlation→r²=1/D'=1 (sign-blind), block single→none/two-high→one/two-low→none/
+   all-strong→one span/non-contiguous→multiple. INV 0≤r²≤1, 0≤|D'|≤1, empty→r²=0/D'=0, monomorphic
+   (zero-variance denominator)→r²=0 guarded, distance+IDs preserved, blocks Start≤End/≥2/non-overlapping/
+   ordered. Scope = two-biallelic-loci r²/D' + adjacent-pair blocks only (no full LD matrix, no
+   phasing/EM, no decay-curve fit, no exact Gabriel CI). New concept created (distinct: pairwise
+   inter-locus association vs per-locus counting/diversity/differentiation/HWE-test). Cross-linked
+   allele-genotype-frequencies scope note. Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (pop-ld-001-evidence source, linkage-disequilibrium concept), +2 typed edges (linkage-disequilibrium relates_to test-unit-registry; depends_on allele-genotype-frequencies)

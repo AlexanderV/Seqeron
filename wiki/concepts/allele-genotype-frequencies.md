@@ -100,5 +100,7 @@ Faithful implementation of the textbook biallelic frequency formulae (exact matc
 *Allele frequency* / *Minor allele frequency* / *Genotype frequency*, Gillespie 2004). It is a
 counting/normalization primitive: it does **not** test Hardy–Weinberg equilibrium (that is the
 sibling unit [[hardy-weinberg-equilibrium-test]], POP-HW-001, which consumes these frequencies),
-handle multiallelic (>2) sites, phase haplotypes, or impute missing genotypes. No source contradictions —
+handle multiallelic (>2) sites, phase haplotypes, or impute missing genotypes. The allele and
+two-locus haplotype frequencies it produces are also the inputs to [[linkage-disequilibrium]]
+(POP-LD-001), which measures non-random association *between* loci. No source contradictions —
 the algorithm is fully determined by the sources (Open Questions: none).
