@@ -3063,3 +3063,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    (source + concept entries).
    Contradictions: none. Follow-ups: none.
    graph: +2 nodes (primer-tm-001-evidence source, primer3-weighted-penalty-objective concept), +2 typed edges (primer3-weighted-penalty-objective relates_to test-unit-registry; relates_to primer-dimer-thermodynamics-tm)
+
+## [2026-07-10] ingest | docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md → primer-tm-001-hairpin-evidence (source)
+   Hairpin/secondary-structure extension of PRIMER-TM-001 (intramolecular self-fold MFE +
+   unimolecular hairpin Tm). OVERLAP resolved by ENRICHING [[primer-dimer-thermodynamics-tm]]
+   (same ntthal/thal.c engine, same NnUnifiedParams stem stacks) with a new "Intramolecular
+   hairpin self-folding" section (Table 4 loop increments, Eq. 11 no-concentration Tm,
+   Jacobson-Stockmayer, exclusions, hairpin oracles) rather than creating a new concept.
+   Updated hub [[algorithm-validation-evidence]] (frontmatter sources + body evidence-link list)
+   and wiki/index.md (source + concept entries).
+   Contradictions: none. Follow-ups: length-3/4 triloop/tetraloop bonus tables remain opt-in
+   caller increments (supplementary material not bundled).
+   graph: +1 node, +1 typed edge

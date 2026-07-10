@@ -4,7 +4,8 @@ title: "Primer-dimer thermodynamics and nearest-neighbour melting temperature (T
 tags: [primer, algorithm, validation]
 sources:
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
-source_commit: 6c22f2b1ee758fb6d2b4c748c139d0193a4e313a
+  - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
+source_commit: 6c16153e119b7de7b8958cdb6c9dfc7fb2d092a8
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -15,6 +16,12 @@ graph:
       evidence: "Test Unit ID: PRIMER-TM-001 (self-/hetero-dimer Tm extension) ... Algorithm: Self-dimer / hetero-dimer (intermolecular) Tm via thermodynamic alignment"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: primer-tm-001-hairpin-evidence
+      evidence: "Test Unit ID: PRIMER-TM-001 (hairpin / secondary-structure Tm extension) ... Algorithm: DNA self-folding hairpin (stem + loop) MFE detection + unimolecular hairpin Tm"
+      confidence: high
+      status: current
 ---
 
 # Primer-dimer thermodynamics and nearest-neighbour melting temperature (Tm)
@@ -23,7 +30,9 @@ Computing the **melting temperature (Tm)** of a DNA duplex — and, for PCR prim
 of the most stable **self-dimer / hetero-dimer** two primers can form — from the
 **SantaLucia unified nearest-neighbour (NN) thermodynamic model**. This is the **first
 ingested unit of the PRIMER (PCR primer-design / MolTools) family** (test unit
-**PRIMER-TM-001**). The literature-traced record is [[primer-tm-001-dimer-evidence]],
+**PRIMER-TM-001**). The literature-traced records are [[primer-tm-001-dimer-evidence]] (the
+intermolecular dimer) and [[primer-tm-001-hairpin-evidence]] (the intramolecular hairpin
+extension, synthesized in the [[#Intramolecular hairpin self-folding|hairpin section]] below),
 [[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the
 artifact pattern. The **base** PRIMER-TM-001 unit is a separate algorithm —
 [[primer3-weighted-penalty-objective]], the weighted per-primer selection penalty — which
@@ -79,6 +88,36 @@ port of `thal.c` and models the **full, possibly non-contiguous** optimum:
 `(i,j)`; the best terminal pair over all `(i,j)` minimises ΔG, then N (stacks) from traceback
 feeds the Tm formula above. The C# port reproduces primer3-py 2.3.0's `calc_homodimer` /
 `calc_heterodimer` to machine precision on both contiguous and non-contiguous cases.
+
+## Intramolecular hairpin self-folding
+
+The same SantaLucia thermodynamics power a **unimolecular** structure: a single primer folding
+back on itself into a **stem + loop hairpin** (ntthal hairpin mode). QC asks for the most stable
+self-fold (MFE) and its Tm. The energy model reuses the identical **`NnUnifiedParams` stem NN
+stacks** (SantaLucia & Hicks 2004 Table 1) and adds a **hairpin-loop initiation** ΔG°37 read
+from Table 4 by loop size (3→3.5, 4→3.5, 5→3.3, 6→4.0 … 30→6.3 kcal/mol), with **loop ΔH° = 0**
+and **loop ΔS° = −ΔG°37·1000/310.15** (footnote a). Loops beyond the largest tabulated size use
+the **Jacobson-Stockmayer** extrapolation `ΔG°37(n) = ΔG°37(x) + 2.44·R·310.15·ln(n/x)`.
+
+Two features distinguish the hairpin from the dimer:
+
+- **No bimolecular initiation, no terminal-A·T penalty.** The hairpin is stem NN stacks + loop
+  only; the +0.2/−5.7 duplex-initiation term (a two-strand nucleation cost) and the Eq. 3
+  terminal-A·T penalty are **excluded** — the loop-initiation term is the unimolecular nucleation
+  cost. (UNAFold-consistent; the exact, sourced core.)
+- **Concentration-independent Tm (Eq. 11):** `Tm = ΔH°·1000/ΔS° − 273.15`, carrying **no**
+  `R·ln(C_T/x)` term — a unimolecular transition, confirmed by Vallone & Benight (1999) over
+  0.5–260 µM.
+
+**Steric floor:** loops < 3 nt are prohibited. **Length-3 / length-4** loops additionally want a
+supplementary triloop/tetraloop bonus (length-3 also a +0.5 closing-A·T penalty) + terminal
+mismatch; those supplementary tables are **not** in the article body and ship as an **opt-in
+caller-supplied increment** — this is the same "hairpin bonus tables" capability noted as the one
+feature the dimer engine deliberately does not model.
+
+**Hairpin oracles** (hand-derived from Table 1 + Table 4): `GGGCTTTTGCCC` (4-bp GGGC stem, TTTT
+loop) → ΔH° = −25.8, ΔS° = −75.48486216346927, ΔG°37 = −2.3883700000000054, **Tm = 68.6404 °C**;
+`GGGCAAAAAGCCC` (5-nt loop, increment 3.3) → **Tm ≈ 71.585 °C**; poly-A → no hairpin (null) / NaN.
 
 ## Failure modes and contract
 
