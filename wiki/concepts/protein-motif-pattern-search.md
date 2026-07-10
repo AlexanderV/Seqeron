@@ -4,7 +4,8 @@ title: "Protein motif search by pattern (general PROSITE→regex engine + IC sco
 tags: [analysis, algorithm, protein, motif]
 sources:
   - docs/Evidence/PROTMOTIF-FIND-001-Evidence.md
-source_commit: fb7daac68f3ea1c2203fdafb193818710566a1ee
+  - docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md
+source_commit: 1527877d257a6d630aba1236cf1b6d4c6e184832
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -21,6 +22,18 @@ graph:
       evidence: "This unit is the general FindMotifByPattern engine (arbitrary caller-supplied PROSITE pattern → regex via ConvertPrositeToRegex); FindCommonMotifs is the fixed-dictionary application over the same CommonMotifs catalog documented in the same Evidence file"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: protmotif-pattern-001-evidence
+      evidence: "Test Unit ID: PROTMOTIF-PATTERN-001 ... Algorithm: Protein Pattern Matching Methods (FindMotifByPattern, FindMotifByProsite, ConvertPrositeToRegex, FindDomains)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:protein-domain-and-signal-peptide-prediction
+      source: protmotif-pattern-001-evidence
+      evidence: "PROTMOTIF-PATTERN-001 groups FindDomains with the pattern-matching methods; FindDomains is the deterministic PROSITE-pattern domain scan covered by protein-domain-and-signal-peptide-prediction"
+      confidence: medium
+      status: current
 ---
 
 # Protein motif search by pattern (general PROSITE→regex engine + IC scoring)
@@ -31,9 +44,11 @@ regex) and it reports every occurrence in an amino-acid sequence. Seqeron expose
 `ProteinMotifFinder.FindMotifByPattern`. The fixed-dictionary scanner
 [[common-protein-motifs|`FindCommonMotifs`]] is just a curated application of this engine
 over a built-in catalog — this page is the **engine underneath it**. Validated under test
-unit **PROTMOTIF-FIND-001** ("Protein Motif Search (Pattern-based)"); the validation record
-is [[protmotif-find-001-evidence]] and [[test-unit-registry]] tracks the unit. See
-[[algorithm-validation-evidence]] for the artifact pattern.
+unit **PROTMOTIF-FIND-001** ("Protein Motif Search (Pattern-based)") and revalidated by
+**PROTMOTIF-PATTERN-001** ("Protein Pattern Matching Methods"); the validation records are
+[[protmotif-find-001-evidence]] and [[protmotif-pattern-001-evidence]], and
+[[test-unit-registry]] tracks the units. See [[algorithm-validation-evidence]] for the
+artifact pattern.
 
 Within the ProteinMotif family it is the general engine, sibling of the fixed-catalog
 [[common-protein-motifs]], the windowed [[coiled-coil-prediction]], and the longer-signature
@@ -47,6 +62,7 @@ catalog [[regulatory-element-detection]]).
 |-----------|------|
 | `ConvertPrositeToRegex` | translate a PROSITE pattern into a .NET regex |
 | `FindMotifByPattern` | run the regex against a sequence and emit all `MotifMatch` hits (incl. overlaps) |
+| `FindMotifByProsite` | end-to-end convenience path: PROSITE string → `ConvertPrositeToRegex` → `FindMotifByPattern` (PROTMOTIF-PATTERN-001 pins it on PS00001 and PS00016) |
 | `CalculateMotifScore` / `CalculateEValue` | information-content score and expected random-match count for a motif |
 
 ## PROSITE → regex conversion
@@ -61,9 +77,23 @@ User Manual `PA` line rules):
 | `{ABC}` | exclusion — any except the set | `[^ABC]` |
 | `x(n)` | fixed repetition | `.{n}` |
 | `x(n,m)` | range repetition | `.{n,m}` |
+| `A(n)` | fixed count on a residue letter | `A{n}` |
 | `<` | N-terminus anchor | `^` |
 | `>` | C-terminus anchor | `$` |
 | `-` | element separator | (removed) |
+| `.` (trailing) | pattern terminator | (ends the PA line) |
+
+### PA-line grammar corner cases
+
+PROTMOTIF-PATTERN-001 sharpens three grammar rules the converter must honour (ScanProsite
+doc / PROSITE User Manual §IV.E):
+
+- **Ranges only on `x`.** `x(2,4)` is valid; a range on a residue letter (`A(2,4)`) is **not**
+  a valid PROSITE element, though a fixed count `A(3)` is.
+- **Trailing period terminates the pattern** — characters after the `.` are ignored.
+- **Reject the `*` Kleene star.** `<{C}*>` uses the ScanProsite *query* extension, not the
+  standard PA-line grammar; the converter must raise `FormatException` rather than silently
+  treat `*` as a residue ("reject, don't silently drop").
 
 ## Overlapping-match discovery
 
@@ -144,4 +174,5 @@ ExPASy PROSITE database and User Manual (accessed 2026-02-12); Hulo et al. 2007 
 Acids Res.* 36:D245–9, "20 years of PROSITE"); De Castro et al. 2006 (ScanProsite);
 Schneider & Stephens 1990 (*Nucleic Acids Res.* 18:6097–6100, sequence logos / information
 content); Dingwall & Laskey 1991; la Cour et al. 2004; Hecker et al. 2006; Chen & Sudol 1995;
-Mayer 2001. Full citations in [[protmotif-find-001-evidence]] (do not duplicate here).
+Mayer 2001. Full citations in [[protmotif-find-001-evidence]] and
+[[protmotif-pattern-001-evidence]] (do not duplicate here).
