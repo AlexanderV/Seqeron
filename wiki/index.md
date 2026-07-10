@@ -525,7 +525,8 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 ## Meta
 
 - [[backlog]] — ingestion backlog: `docs/algorithms/**` coverage reconciliation (74 covered-via-concept / 171 pending) plus the source batches queued for ingestion (10 checklists, 4 Validation ledgers, 3 MCP top-level docs).
+- [[backlog-pending]] — the per-domain pending algorithm-doc tables split out of [[backlog]] (168 docs, 27 domains) to keep the hub under the size cap.
 
 ## Synthesis
 
-(populated as query answers are filed back)
+- [[evidence-artifact-index]] — flat per-unit index of the 190 `docs/Evidence/**` source-summary pages, split out of the [[algorithm-validation-evidence]] concept.
