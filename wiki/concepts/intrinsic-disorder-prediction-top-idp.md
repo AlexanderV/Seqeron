@@ -5,11 +5,12 @@ tags: [analysis, algorithm]
 sources:
   - docs/Validation/reports/DISORDER-PRED-001.md
   - docs/Validation/reports/DISORDER-PROPENSITY-001.md
+  - docs/Validation/reports/DISORDER-REGION-001.md
   - docs/Evidence/DISORDER-PRED-001-Evidence.md
   - docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
   - docs/Evidence/DISORDER-REGION-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
-source_commit: 540cb0dff42f0ca3f526ff0743d2c31e144ff4d6
+source_commit: 8bd6a5e1b48367a44632668b3e6d980ebe3e6d2c
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -153,9 +154,15 @@ artifact with no correctness impact.
 
 The **aggregation layer** over the per-residue profile: it collapses a scored `ResiduePredictions`
 list into `DisorderedRegions` and labels each region. Validated as test unit **DISORDER-REGION-001**
-([[disorder-region-001-evidence]]) — the **fifth unit of the protein-disorder family**, and exactly
-the growth this anchor anticipated. It introduces no new per-residue math; it re-uses *this* TOP-IDP
-profile (cutoff 0.542, window 21).
+— the pre-implementation evidence is [[disorder-region-001-evidence]] and the independent two-stage
+re-validation verdict — **Stage A PASS-WITH-NOTES / Stage B PASS / CLEAN, boundary logic zero-change,
+one flavour-typing defect (histidine omitted from f₊) found and fully fixed with two new sourced
+tests, full suite 18819/0** — is [[disorder-region-001-report]] (one row of the [[validation-ledger]]).
+This is the **fifth unit of the protein-disorder family**, and exactly the growth this anchor
+anticipated. It introduces no new per-residue math; it re-uses *this* TOP-IDP profile (cutoff 0.542,
+window 21). Region grouping (`IdentifyDisorderedRegions`, `DisorderPredictor.cs:358`) is a single-pass
+scan with a documented, correctly-handled trailing-run branch (no off-by-one); the uncalibrated
+per-region `Confidence` is a `LimitationPolicy`-guarded branch (min access `Permissive`).
 
 **Contiguous-run aggregation.** A region is a maximal run of residues with `IsDisordered == true` of
 length ≥ `minRegionLength` (default **5**). Each region carries `Start`/`End`, and a `MeanScore` =

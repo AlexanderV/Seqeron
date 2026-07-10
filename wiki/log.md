@@ -4442,3 +4442,40 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    graph: +1 node (disorder-propensity-001-report source), +0 typed edges (report ties to validation-ledger /
    validation-and-testing / test-unit-registry via auto-derived mentions/sourced_from; concept already carries
    its typed relates_to edges — no new typed edges added)
+
+## 2026-07-10 — ingest docs/Validation/reports/DISORDER-REGION-001.md
+   Ingested the per-unit VALIDATION REPORT for DISORDER-REGION-001 (disordered-region detection — the
+   segment-calling layer collapsing the per-residue PredictDisorder TOP-IDP profile into contiguous IDR
+   regions, plus opt-in MobiDB-lite v3 flavour typing). Re-validated 2026-06-25, supersedes 2026-06-24 pass
+   (reset to pending after F4 ClassifyRegionFlavorMobiDbLite added). Verdict Stage A PASS-WITH-NOTES / Stage B
+   PASS / End state CLEAN. Region-calling logic (IdentifyDisorderedRegions DisorderPredictor.cs:358, single-pass
+   with explicit trailing-run branch -> no off-by-one; ClassifyDisorderedRegion :428 / CalculateConfidence
+   :470) validated correct + sourced: consecutive-grouping score>=0.542, configurable minRegionLength default 5,
+   0-based inclusive Start/End length=End-Start+1, Long IDR label at length>30 anchored to Ward 2004 DISOPRED2
+   (>30 consecutive residues, 2.0% archaea/4.2% bacteria/33% eukaryotes). Independent Python recompute
+   reproduced M2 P30->[0,29] / M6 W10+P20->[11,29] / S2 P20+W30->[0,18] / S5 W15+P20+W15->[16,33] / M14 two
+   regions [(16,33),(51,68)] + homopolymer MeanScore/Confidence P30 1.0/1.0, E30 0.866/0.707, K30 0.786/0.532,
+   S30 0.655/0.246 — all matching test assertions. Stage-B fidelity DEFECT found and FULLY FIXED this session:
+   ClassifyRegionFlavorMobiDbLite computed f+ over {R,K} only, but MobiDB-lite v3 states.py translation table
+   maps H->positive (f+=(R+K+H)/L) — HHHHHHHHAA (f+=0.8) returned WeaklyCharged instead of
+   PositivePolyelectrolyte; the 16 prior flavour tests were all His-free so the gap was invisible. Fix: added H
+   to positive count, corrected docstring (translation table cited), added F5b (HHHHHHHHAA->PPE) + F5c
+   (HHHHDDDDAA->Polyampholyte, H balancing D); boundaries + default RegionType/Confidence untouched. Notes
+   (PASS-WITH-NOTES) = disclosed first-principles labelling heuristics (enrichment 0.25 ~5x-random NOT Das&Pappu
+   NCPR, priority Pro>Acidic>Basic>S/T>Long>Standard, Confidence=(mean-0.542)/(1-0.542)) affecting labels not
+   boundaries, + no citable per-region confidence standard (MobiDB-lite/IUPred/PONDR report per-residue only;
+   LimitationPolicy-guarded branch min access Permissive, throws under default Moderate); cosmetic Campen comment
+   S/K-swap nit. Boundary fixture 24/24, flavour fixture 16/16 (incl. F5b/F5c), full unfiltered dotnet test
+   Failed 0 (Genomics 18819). New source-summary page disorder-region-001-report. SURGICALLY enriched the
+   existing anchor concept intrinsic-disorder-prediction-top-idp (already hosts the DISORDER-REGION-001
+   region-detection section + already linked the evidence) rather than a new concept — added the report to
+   sources, bumped source_commit to 8bd6a5e1, cross-linked disorder-region-001-report + the CLEAN/one-fix
+   verdict + validation-ledger in the region-detection section. Updated wiki/index.md (+1 source line). Tied to
+   validation-ledger / validation-and-testing / test-unit-registry; did NOT force the
+   algorithm-validation-evidence hub. Kept distinct from the evidence artifact disorder-region-001-evidence and
+   the sibling reports disorder-pred-001-report / disorder-propensity-001-report / disorder-lc-001-report /
+   disorder-morf-001-report. No contradictions (the 0.25-vs-NCPR clarification is a disclosed heuristic
+   distinction, already recorded on the evidence page, not a new source contradiction).
+   graph: +1 node (disorder-region-001-report source), +0 typed edges (report ties to validation-ledger /
+   validation-and-testing / test-unit-registry via auto-derived mentions/sourced_from; concept already carries
+   its typed relates_to edges — no new typed edges added)
