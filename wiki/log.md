@@ -4056,3 +4056,19 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    source_commit to b0db43a8, cross-linked the CODON-USAGE-001 verdict in the intro. Updated wiki/index.md
    (+1 source line). No new typed graph edges (report is a source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-ANI-001.md → compgen-ani-001-report (source)
+   New source-summary page for the two-stage validation report of COMPGEN-ANI-001 (Average Nucleotide
+   Identity — ANIb, ComparativeGenomics.CalculateANI / CalculateReciprocalAni). Independent re-validation
+   of the 69c51fa0 limitations-campaign change (gapped fragment alignment via SequenceAligner.LocalAlign +
+   reciprocal two-way ANI): Stage A/B both PASS, End state CLEAN, 20/20 ANI tests + 480/480 ~Comparative,
+   zero code/test change; both prior PASS-WITH-NOTES resolved (minAlignableFraction now active; gapped +
+   reciprocal replace ungapped/single-direction). Goris 2007 + pyani conventions confirmed verbatim; hand
+   oracles G2 gapped 1.0>ungapped 0.875, R3 (1.0+1.0)/2=1.0. Kept distinct from the evidence artifact
+   compgen-ani-001-evidence. Existing concept average-nucleotide-identity already represents the algorithm
+   (economical — no new concept). Surgically updated that concept: added the report to sources, bumped
+   source_commit to 205b259d, cross-linked the CLEAN verdict in the intro. Updated wiki/index.md (+1 source
+   line). Tied to validation-ledger / validation-and-testing / test-unit-registry; did NOT force the
+   algorithm-validation-evidence hub. No new typed graph edges (report is a source-summary; mentions
+   auto-derived).
+   graph: +1 node, +0 typed edges

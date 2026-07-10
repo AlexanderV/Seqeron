@@ -5,9 +5,10 @@ tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-ANI-001-Evidence.md
   - docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/COMPGEN-ANI-001.md
+source_commit: 205b259dc3168dfda72a89caf5103f39ac5e1ce9
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -33,7 +34,10 @@ species boundary. It is the first ingested unit of the **Comparative-genomics** 
 conserved between two genomes, ANI asks how *nucleotide-identical* their conserved regions
 are. Validated under test unit **COMPGEN-ANI-001**; the validation record is
 [[compgen-ani-001-evidence]], [[test-unit-registry]] tracks the unit, and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+[[algorithm-validation-evidence]] describes the artifact pattern. The independent two-stage
+re-validation [[compgen-ani-001-report]] closed the verdict at **Stage A/B PASS · CLEAN**
+(20/20 tests, zero code change), confirming the gapped-placement and reciprocal-ANI additions
+resolved the prior report's two PASS-WITH-NOTES items.
 
 Seqeron exposes `CalculateAni` (single-direction) and `CalculateReciprocalAni`
 (symmetric, both-directions mean). A third COMPGEN sibling,
