@@ -3797,3 +3797,18 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    agree). Non-defect notes: CalculateNxCurve wrapper + MedianLength upper-median (Assumption 2),
    empty->zeros vs QUAST None (Assumption 1). Updated wiki/index.md (+1 source line). No backlog slug
    (no assembly-stats entry in backlog). No typed graph edges added (report is source-type; N/A).
+
+## [2026-07-10] ingest | docs/Validation/reports/ASSEMBLY-TRIM-001.md
+   Created source page assembly-trim-001-report (validation report, distinct from the
+   assembly-trim-001-evidence artifact). Verdict Stage A PASS / Stage B FAIL -> FIXED / State CLEAN;
+   full suite 6535/0. One real defect fully fixed: original TrimEnd/TrimStart took the global-minimum
+   partial sum with NO `s<0` early break and chained the 5' pass onto the 3'-surviving window (~19.5%
+   of random reads diverged from cutadapt); fix adds the early break to both passes, runs each
+   independently over the full read [0,n), and adds the start>=stop -> (0,0) drop rule. Python port vs
+   cutadapt quality_trim_index = 0/900k mismatches. Tied to validation-ledger + validation-and-testing.
+   Surgically corrected the concept quality-trimming-running-sum: its "5'-pass-on-surviving-window"
+   wording and BWA-only early-break framing described the pre-fix (buggy) behaviour; updated to the
+   validated both-passes-over-full-read + start>=stop-drop algorithm, added the report to sources,
+   bumped source_commit. Updated wiki/index.md (+1 source line). No backlog slug (report path not a
+   backlog row; Quality_Trimming algorithm doc already covered-via-concept). No new typed graph edges
+   (report is source-type; N/A).

@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 290 / 1181
+Progress: 291 / 1181
 
 ## (top-level)  (6)
 
@@ -257,7 +257,7 @@ Progress: 290 / 1181
 - [x] docs/Validation/reports/ASSEMBLY-OLC-001.md
 - [x] docs/Validation/reports/ASSEMBLY-SCAFFOLD-001.md
 - [x] docs/Validation/reports/ASSEMBLY-STATS-001.md
-- [ ] docs/Validation/reports/ASSEMBLY-TRIM-001.md
+- [x] docs/Validation/reports/ASSEMBLY-TRIM-001.md
 - [ ] docs/Validation/reports/CHROM-ALPHASAT-001.md
 - [ ] docs/Validation/reports/CHROM-ANEU-001.md
 - [ ] docs/Validation/reports/CHROM-CENT-001.md

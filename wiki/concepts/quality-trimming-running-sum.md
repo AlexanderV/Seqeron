@@ -5,9 +5,10 @@ tags: [assembly, algorithm]
 sources:
   - docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md
   - docs/algorithms/Assembly/Quality_Trimming.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/ASSEMBLY-TRIM-001.md
+source_commit: 9e3afa723f48771feef69632da397e2992f74114
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -23,8 +24,9 @@ graph:
 Removing low-quality bases from the ends of a sequencing read using the **running-sum** algorithm
 shared by **BWA** (`bwa_trim_read`) and **cutadapt**. This is a read-preprocessing/QC step that runs
 *before* assembly or alignment; it is the anchor for the assembly **TRIM** family. Validated under
-test unit **ASSEMBLY-TRIM-001**; the validation record is [[assembly-trim-001-evidence]], and
-[[test-unit-registry]] tracks the unit. See [[algorithm-validation-evidence]] for the artifact
+test unit **ASSEMBLY-TRIM-001**; the pre-implementation record is [[assembly-trim-001-evidence]], the
+independent two-stage verdict is [[assembly-trim-001-report]] (Stage B **FAIL → FIXED** — see below),
+and [[test-unit-registry]] tracks the unit. See [[algorithm-validation-evidence]] for the artifact
 pattern.
 
 Unlike the other assembly-family units, trimming reconstructs no sequence — it operates on a single
@@ -37,26 +39,33 @@ cutadapt states its algorithm "is the same as the one used by BWA". Given a per-
 array and a cutoff threshold, the 3'-end trim is:
 
 1. **Subtract the threshold** from every quality: `q - cutoff`.
-2. **Compute partial sums from each index to the 3' end** of the read.
-3. **Cut at the index where that partial sum is minimal** — keep everything 5' of it.
+2. **Accumulate from the end, tracking the running max** — and **break as soon as the sum goes
+   negative** (`if s < 0: break`), i.e. stop at the argmin/argmax before the sum could recover.
+3. **Cut at the tracked boundary** — keep everything 5' of it.
 
 The intent (cutadapt, verbatim): "remove all bases starting from the end of the read whose quality is
 smaller than the given threshold ... refined a bit by allowing some good-quality bases among the
-bad-quality ones." A lone high-quality base inside a bad tail survives only if the cumulative sum
-does not hit a new minimum before it.
+bad-quality ones." The `s < 0` early break **is** that refinement: a lone high-quality base inside a
+bad tail survives only if the cumulative sum has not already gone negative before it (validated by
+[[assembly-trim-001-report]] — omitting the break was the shipped defect).
 
-**Both ends:** if requested, "repeat this for the other end" — a 5' pass on the surviving window.
+**Both ends** (`quality_trim_index`, the authoritative reference): the 5' and 3' passes run
+**independently over the full read `[0, n)`** — the 5' pass is *not* chained onto the 3'-surviving
+window — yielding `(start, stop)`. Then the **drop rule**: `if start >= stop: (start, stop) = (0, 0)`,
+i.e. when the two passes cross, the whole read is discarded.
 
 ## BWA's equivalent argmax form
 
 BWA's `bwa_trim_read` (bwaseqio.c, Heng Li) accumulates `s += trim_qual - (q - 33)` walking from the
 3' end and tracks the **argmax** position `max_l`. This is algebraically the same optimum: the argmax
 of accumulated `(threshold − q)` from the end equals cutadapt's argmin of partial sums of
-`(q − threshold)`. Two BWA-specific implementation details:
+`(q − threshold)`. Two details:
 
-- **Early break** when `s < 0` (the running sum can never recover to a new max after that).
-- **Hard floor** `BWA_MIN_RDLEN = 35`: BWA never trims a read below 35 bp, independent of the
-  running-sum optimum.
+- **Early break** when `s < 0` (the running sum can never recover to a new max after that). This is
+  **shared** with cutadapt's `quality_trim_index` reference — it is *not* a BWA-only quirk, and its
+  absence was the ASSEMBLY-TRIM-001 defect ([[assembly-trim-001-report]]).
+- **Hard floor** `BWA_MIN_RDLEN = 35` (BWA-specific): BWA never trims a read below 35 bp, independent
+  of the running-sum optimum.
 
 ## Phred+33 decoding
 
@@ -86,5 +95,6 @@ trimmed to the **first four bases** (qualities 42, 40, 26, 27).
 The running-sum core defines **no** minimum-length drop. The `minLength` parameter in the test-unit
 signature is the standard post-trim length filter (cutadapt `--minimum-length`): reads whose trimmed
 length `< minLength` are dropped. This is a documented downstream filter, not part of the running-sum
-optimum. Similarly, the **both-end pass order** (this unit does 3' then 5' on the surviving window) is
-not numerically significant because the two passes act on disjoint ends of the surviving window.
+optimum. Similarly, the **both-end pass order** (5' vs 3' first) is not numerically significant: after
+the fix ([[assembly-trim-001-report]]) both passes run **independently over the full read**, so they
+act on disjoint ends and the order cannot change the `(start, stop)` result.
