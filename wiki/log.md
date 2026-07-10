@@ -3015,3 +3015,14 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    inter-locus association vs per-locus counting/diversity/differentiation/HWE-test). Cross-linked
    allele-genotype-frequencies scope note. Contradictions: none. Follow-ups: none.
    graph: +2 nodes (pop-ld-001-evidence source, linkage-disequilibrium concept), +2 typed edges (linkage-disequilibrium relates_to test-unit-registry; depends_on allele-genotype-frequencies)
+
+## [2026-07-10] ingest | docs/Evidence/POP-ROH-001-Evidence.md → pop-roh-001-evidence (source) + runs-of-homozygosity-inbreeding (concept)
+   POP-ROH-001: runs of homozygosity (FindROH) + genomic inbreeding coefficient F_ROH. Window-free
+   consecutive-runs scan (Marras 2015/detectRUNS): grow runs over position-sorted 0/1/2 genotypes,
+   terminate on maxOppRun exceeded or gap>maxGap, retain only if minSNP AND minLengthBps pass (PLINK
+   --homozyg-snp 100 AND --homozyg-kb 1000). F_ROH = ΣL_roh/L_auto (McQuillan 2008; L_auto≈2,674 Mb;
+   oracle 20/100 Mb→0.20, whole-genome→1.0). Two API-encoding assumptions (0/1/2 encoding; missing
+   handling out of scope). New concept created — genuinely distinct per-individual segment detection
+   vs the other POP siblings (frequencies/diversity/Fst/LD/HWE). Cross-linked all POP concepts +
+   ancestry family anchor. Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (pop-roh-001-evidence source, runs-of-homozygosity-inbreeding concept), +2 typed edges (runs-of-homozygosity-inbreeding relates_to test-unit-registry; relates_to ancestry-estimation-admixture)
