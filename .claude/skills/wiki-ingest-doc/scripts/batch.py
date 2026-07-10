@@ -63,10 +63,17 @@ def do_reports(args):
             cp, st, _ = mcp_map.match_concept(pseudo, concepts, prov)
             v["concept"] = os.path.splitext(os.path.basename(cp))[0] if cp and st in ("present", "matched", "proposed") else ""
         (defect if v["defect"] else clean).append(v)
-    print(f"[batch reports] {len(paths)} reports | clean {len(clean)} | defect {len(defect)} (need subagent each)")
+    # a clean report that already has a full wiki/sources/<unit>-report.md page (done under the
+    # old policy) is already reflected — don't also add a registry row for it.
+    def _has_page(v):
+        return os.path.exists(os.path.join(args.wiki, "sources", v["unit"].lower() + "-report.md"))
+    to_register = [v for v in clean if not _has_page(v)]
+    print(f"[batch reports] {len(paths)} reports | clean {len(clean)} "
+          f"({len(to_register)} to register, {len(clean) - len(to_register)} already have pages) | "
+          f"defect {len(defect)} (need subagent each)")
     if args.apply:
-        added, present = report_verdict.register_clean(args.wiki, clean)
-        marked = _mark_done([v["path"] for v in clean])
+        added, present = report_verdict.register_clean(args.wiki, to_register)
+        marked = _mark_done([v["path"] for v in to_register])
         print(f"  registered {added} new rows ({present} already there); marked {marked} CLEAN reports done")
         _commit_hint("docs(wiki): batch-register CLEAN validation verdicts")
     else:
