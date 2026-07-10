@@ -3856,3 +3856,22 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No backlog slug matched (report
    is a generated per-run validation artifact, excluded from coverage).
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Validation/reports/CHROM-HOR-001.md → chrom-hor-001-report (source)
+   Created wiki/sources/chrom-hor-001-report.md — validation report for CHROM-HOR-001 (higher-order
+   repeat (HOR) detection: ChromosomeAnalyzer.DetectHigherOrderRepeat(sequence, monomerLength=171) →
+   HorResult, ChromosomeAnalyzer.cs:751). Stage A/B PASS, CLEAN, no code defect; one Stage-B non-ACGT
+   test gap closed (N tail dropped as partial monomer). HOR period = smallest k where ≥90% of k-spaced
+   monomers ≥95% identical; unit k×171 bp, copy ⌊monomers/k⌋, HasHigherOrderStructure=period≥2 (k=1 1-mer
+   is NOT a HOR); defining inter-HOR ≥ intra-HOR ordering confirmed vs McNulty&Sullivan 2018 / Rosandić
+   2024 / Willard 1985 / Alkan 2007; independent k=4/m=7 hand cross-check (period 4, unit 684 bp, copy 7,
+   inter 100% / intra 64.91%). NO new concept — HOR already synthesized in centromere-analysis; kept
+   distinct from the monomer-slice unit chrom-alphasat-001-report (HOR out of scope there) and the
+   whole-centromere unit chrom-cent-001-report. Tied to validation-ledger / validation-protocol /
+   validation-and-testing / test-unit-registry; NOT forced onto algorithm-validation-evidence. Documented
+   data-blocked boundary: suprachromosomal-family/HOR-family assignment not attempted (needs T2T-CHM13 HOR
+   libraries). Surgically updated concept centromere-analysis: added the report to sources, bumped
+   source_commit to 26fb94a8, cross-linked the DetectHigherOrderRepeat bullet, +1 typed graph edge
+   (chrom-hor-001-report relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No
+   backlog slug matched (report is a generated per-run validation artifact, excluded from coverage).
+   graph: +1 node, +1 typed edge

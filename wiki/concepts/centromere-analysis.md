@@ -7,7 +7,8 @@ sources:
   - docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md
   - docs/Validation/reports/CHROM-ALPHASAT-001.md
   - docs/Validation/reports/CHROM-CENT-001.md
-source_commit: d0034a86c805e107791d627b1505f78d3bef288d
+  - docs/Validation/reports/CHROM-HOR-001.md
+source_commit: 26fb94a83697567ac130e7f9454ea3429b8ccf73
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -34,6 +35,12 @@ graph:
       object: concept:test-unit-registry
       source: chrom-cent-001-report
       evidence: "CHROM-CENT-001 validation report (2026-06-26); Area: Chromosome; re-validated after additive AssignSuprachromosomalFamily; Stage A/B PASS, CLEAN, 18860 passed / 0 failed, no code changed"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: chrom-hor-001-report
+      evidence: "CHROM-HOR-001 validation report (2026-06-25); Area: Chromosome; Canonical method ChromosomeAnalyzer.DetectHigherOrderRepeat — the multi-monomer HOR-periodicity slice of this concept, validated as its own test unit; Stage A/B PASS, CLEAN, 18780 passed / 0 failed, one non-ACGT test gap closed, no code defect"
       confidence: high
       status: current
 ---
@@ -100,6 +107,13 @@ tandemly repeated and organised into higher-order arrays. Four additive detector
   single-monomer (1-mer) array, *not* a multi-monomer HOR. Reports period, unit length (k×171 bp), copy
   number (⌊monomers/k⌋), and mean inter- vs intra-HOR identity. The key contrast: **intra-HOR** monomers
   are only 50–70% identical (distinct monomer types) while **inter-HOR** copies are 97–100% identical.
+  This HOR method was independently validated — Stage A/B PASS, ✅ CLEAN, no code defect (one non-ACGT
+  test gap closed; 18780 passed / 0 failed) — as its own test unit **CHROM-HOR-001**; see the report
+  [[chrom-hor-001-report]] (`InterHorMinIdentityPercent = 95.0` = "<5% divergence", period-consistency
+  0.90, `HasHigherOrderStructure = period ≥ 2`; independent k=4/m=7 cross-check: period 4, unit 684 bp,
+  copy 7, inter 100% / intra 64.91%). Distinct from the monomer-detection slice
+  [[chrom-alphasat-001-report]] (which left HOR out of scope) and the whole-centromere unit
+  [[chrom-cent-001-report]].
 
 - **`AssignSuprachromosomalFamily`** — SF1–SF5 assignment backed by a **bundled CC0 Dfam reference**
   (ALR/ALRa = A-type, ALRb carries the CENP-B box = B-type). Best-match each monomer (≥60% identity
