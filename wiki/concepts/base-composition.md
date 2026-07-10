@@ -8,7 +8,8 @@ sources:
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
-source_commit: 6e8fde12868aa0db4347950e4cf52449588e0b68
+  - docs/Evidence/SEQ-SUMMARY-001-Evidence.md
+source_commit: 37c18482dfb0ee53a0be1fc073c2b4c6694012cc
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -25,6 +26,12 @@ graph:
       evidence: "Test Unit ID: SEQ-STATS-001 ... Algorithm: Sequence Composition Statistics (nucleotide composition, GC content, GC/AT skew) — the original umbrella that first delivered the nucleotide-composition + GC-content methods."
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: seq-summary-001-evidence
+      evidence: "Test Unit ID: SEQ-SUMMARY-001 ... Algorithm: Sequence Summary — SummarizeNucleotideSequence aggregates the nucleotide composition + GC content tally (plus Shannon entropy, linguistic complexity, Tm) into one per-sequence record."
+      confidence: high
+      status: current
 ---
 
 # Sequence composition (base/residue counts, fractions, GC content)
@@ -38,8 +45,11 @@ unit and [[algorithm-validation-evidence]] describes the artifact pattern.
 **Original home.** The nucleotide-composition and GC-content methods were first delivered under
 the **SEQ-STATS-001** sequence-statistics *umbrella* ([[seq-stats-001-evidence]]);
 SEQ-COMPOSITION-001 is its later duplicate/consolidated registry entry over those same two
-methods, and `SummarizeNucleotideSequence` is the umbrella's thin aggregation wrapper re-exposing
-this GC content / count tally. The skew members of that umbrella live on the sibling
+methods, and `SummarizeNucleotideSequence` (validated separately as **SEQ-SUMMARY-001** —
+[[seq-summary-001-evidence]]) is the umbrella's aggregation wrapper: a per-sequence summary record
+that re-exposes this GC content / count tally **and bundles** the sequence's Shannon entropy,
+linguistic complexity, and melting temperature alongside it (a pure field-by-field aggregation of
+the already-validated per-metric methods). The skew members of that umbrella live on the sibling
 [[nucleotide-composition-skew]].
 
 ## The three outputs

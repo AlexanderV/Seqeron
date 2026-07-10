@@ -39,8 +39,10 @@ the connective tissue tying together the piecemeal-ingested composition family:
   [[windowed-gc-profile-and-variance|SEQ-GC-ANALYSIS-001]] (`OverallGcSkew`/`OverallAtSkew` + a
   windowed profile).
 - **Aggregation & protein variant** — the coverage recommendations also exercise
-  `SummarizeNucleotideSequence` (a thin summary wrapper re-exposing the same GC content /
-  counts) and `CalculateAminoAcidComposition` (exact per-residue counts + Length over the 20
+  `SummarizeNucleotideSequence` (the summary wrapper re-exposing the same GC content / counts —
+  validated in its own right as **SEQ-SUMMARY-001**, [[seq-summary-001-evidence]], where it is
+  shown to also bundle the sequence's Shannon entropy, linguistic complexity, and Tm) and
+  `CalculateAminoAcidComposition` (exact per-residue counts + Length over the 20
   IUPAC amino-acid letters — the amino-acid composition also covered by [[base-composition]];
   MW/pI/hydrophobicity are explicitly *out of scope* here, belonging to SEQ-MW / SEQ-PI /
   SEQ-HYDRO units — see [[molecular-weight]], [[isoelectric-point]],
@@ -93,5 +95,5 @@ Wikipedia, and Lobry agree on the formulas and alphabet.
 Recommended coverage (from the artifact): MUST — GC content `(G+C)/(A+T+G+C+U)`; GC skew
 `(G−C)/(G+C)` incl. a negative case; AT skew `(A−T)/(A+T)`; exact A/T/G/C/U/N/Other counts +
 Length; empty/null ⇒ all-zero. SHOULD — case-insensitivity; zero-denominator skews ⇒ 0. COULD —
-`SummarizeNucleotideSequence` aggregates the same GC content/counts; `CalculateAminoAcidComposition`
-returns exact residue counts + length.
+`SummarizeNucleotideSequence` aggregates the same GC content/counts (plus entropy/complexity/Tm —
+[[seq-summary-001-evidence]]); `CalculateAminoAcidComposition` returns exact residue counts + length.
