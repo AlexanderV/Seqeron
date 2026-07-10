@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 752 / 1181
+Progress: 755 / 1181
 
 ## (top-level)  (6)
 
@@ -763,8 +763,8 @@ Progress: 752 / 1181
 
 ## mcp  (430)
 
-- [ ] docs/mcp/MCP_STATUS.md
-- [ ] docs/mcp/README.md
+- [x] docs/mcp/MCP_STATUS.md  (SCHEMA-excluded status ledger; provenance for mcp-tool-catalog)
+- [x] docs/mcp/README.md  (ingested -> wiki/sources/mcp-readme.md)
 - [x] docs/mcp/tools/alignment/alignment_statistics.md
 - [x] docs/mcp/tools/alignment/assemble_de_bruijn.md
 - [x] docs/mcp/tools/alignment/assemble_olc.md
@@ -1192,7 +1192,7 @@ Progress: 752 / 1181
 - [x] docs/mcp/tools/sequence/thermodynamics.md
 - [x] docs/mcp/tools/sequence/translate_dna.md
 - [x] docs/mcp/tools/sequence/translate_rna.md
-- [ ] docs/mcp/traceability.md
+- [x] docs/mcp/traceability.md  (SCHEMA-excluded generated tool->test matrix)
 
 ## refactoring  (7)
 
