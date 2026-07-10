@@ -24,8 +24,9 @@ anchor [[bed-format-parsing]] (the first ingested `PARSE-*` unit); see [[test-un
 for how units are tracked and [[fuzzing]] for why parsers are the family's hottest
 malformed-input target. EMBL is a **flat-file record** format — categorically different from
 BED's tab-delimited intervals — but shares the INSDC feature-table grammar with GenBank (a
-close cousin; the parser even exposes a `ToGenBank` conversion), so no separate concept page
-is warranted yet.
+close cousin; the parser even exposes a `ToGenBank` conversion). That shared descriptor grammar
+(complement/join/order/partial/remote) is now factored into its own concept,
+[[insdc-feature-location]], traced jointly by this unit and [[parse-genbank-001-evidence]].
 
 ## What this file records
 

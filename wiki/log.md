@@ -2776,3 +2776,17 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    pages to family anchor [[bed-format-parsing]], siblings, [[test-unit-registry]], [[fuzzing]]. Index
    Sources + Concepts updated.
    graph: +2 nodes, +1 typed edge (phred-quality-encoding relates_to test-unit-registry)
+
+## [2026-07-10] ingest | PARSE-GENBANK-001-Evidence.md → parse-genbank-001-evidence (source) + insdc-feature-location (new concept)
+   Ingested the GenBank flat-file-parsing Evidence artifact (FileIO/PARSE-* family). Wrote source
+   summary parse-genbank-001-evidence (NCBI Sample Record + Wikipedia + INSDC feature-table sources;
+   LOCUS/section grammar, 18 divisions, ORIGIN lowercase-normalized sequence, U49845 record,
+   defensive null/empty/missing-LOCUS/missing-ORIGIN contracts, length-match/`//`/Start≤End
+   invariants). Created shared concept insdc-feature-location (the DDBJ/ENA/GenBank location-descriptor
+   grammar — complement/join/order/partial/remote, 1-based inclusive, operator assembly semantics +
+   caller-supplied offline resolver + <>-verbatim-slice assumption; oracles join(1..3,7..9)→ACGGTA,
+   complement(Y.1:1..4)→GTTT), now warranted with 2 inbound units (GenBank + EMBL). Re-pointed the
+   EMBL source page's "no separate concept yet" note to the new concept. Linked GenBank source into the
+   algorithm-validation-evidence hub (frontmatter + body list) and to [[bed-format-parsing]], siblings,
+   [[test-unit-registry]], [[fuzzing]]. Index Sources + Concepts updated. No contradictions.
+   graph: +2 nodes, +1 typed edge (insdc-feature-location relates_to test-unit-registry)
