@@ -5,7 +5,8 @@ tags: [analysis, algorithm, protein, motif]
 sources:
   - docs/Evidence/PROTMOTIF-FIND-001-Evidence.md
   - docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md
-source_commit: 1527877d257a6d630aba1236cf1b6d4c6e184832
+  - docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md
+source_commit: 0908c5f04255fcb3d51c7706d74a689eee481faa
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -34,6 +35,12 @@ graph:
       evidence: "PROTMOTIF-PATTERN-001 groups FindDomains with the pattern-matching methods; FindDomains is the deterministic PROSITE-pattern domain scan covered by protein-domain-and-signal-peptide-prediction"
       confidence: medium
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: protmotif-prosite-001-evidence
+      evidence: "Test Unit ID: PROTMOTIF-PROSITE-001 ... Algorithm: PROSITE Pattern Matching (ConvertPrositeToRegex, FindMotifByProsite)"
+      confidence: high
+      status: current
 ---
 
 # Protein motif search by pattern (general PROSITE→regex engine + IC scoring)
@@ -45,8 +52,9 @@ regex) and it reports every occurrence in an amino-acid sequence. Seqeron expose
 [[common-protein-motifs|`FindCommonMotifs`]] is just a curated application of this engine
 over a built-in catalog — this page is the **engine underneath it**. Validated under test
 unit **PROTMOTIF-FIND-001** ("Protein Motif Search (Pattern-based)") and revalidated by
-**PROTMOTIF-PATTERN-001** ("Protein Pattern Matching Methods"); the validation records are
-[[protmotif-find-001-evidence]] and [[protmotif-pattern-001-evidence]], and
+**PROTMOTIF-PATTERN-001** ("Protein Pattern Matching Methods") and **PROTMOTIF-PROSITE-001**
+("PROSITE Pattern Matching"); the validation records are [[protmotif-find-001-evidence]],
+[[protmotif-pattern-001-evidence]] and [[protmotif-prosite-001-evidence]], and
 [[test-unit-registry]] tracks the units. See [[algorithm-validation-evidence]] for the
 artifact pattern.
 
@@ -80,8 +88,9 @@ User Manual `PA` line rules):
 | `A(n)` | fixed count on a residue letter | `A{n}` |
 | `<` | N-terminus anchor | `^` |
 | `>` | C-terminus anchor | `$` |
+| `[G>]` | residue **or** end-of-sequence (rare; PS00267/PS00539) | `(?:G\|$)` |
 | `-` | element separator | (removed) |
-| `.` (trailing) | pattern terminator | (ends the PA line) |
+| `.` | pattern terminator (trailing or mid-pattern) | (ends the PA line) |
 
 ### PA-line grammar corner cases
 
@@ -94,6 +103,14 @@ doc / PROSITE User Manual §IV.E):
 - **Reject the `*` Kleene star.** `<{C}*>` uses the ScanProsite *query* extension, not the
   standard PA-line grammar; the converter must raise `FormatException` rather than silently
   treat `*` as a residue ("reject, don't silently drop").
+- **`>` inside brackets = "residue OR end-of-sequence".** PROTMOTIF-PROSITE-001 pins this rare
+  case (only PS00267 and PS00539 use it): `[G>]` means Gly-or-C-terminus and converts to the
+  regex alternation `(?:G|$)`, **not** a plain class. Verified: PS00267 `F-[IVFY]-G-[LM]-M-[G>]`
+  → `F[IVFY]G[LM]M(?:G|$)`, PS00539 `F-[GSTV]-P-R-L-[G>]` → `F[GSTV]PRL(?:G|$)`. Matching must
+  succeed via **both** the `G` branch and the C-terminus branch, and fail mid-sequence without
+  a `G`.
+- **Period terminates parsing (mid-pattern too).** Beyond a trailing `.`, a period anywhere
+  ends the pattern — `R-G-D.A-B-C` → `RGD` (content after `.` is dropped), per User Manual §IV.E.
 
 ## Overlapping-match discovery
 
@@ -144,6 +161,9 @@ The full verified accession set (patterns confirmed against ExPASy PROSITE) incl
 PS00004–PS00009, PS00016–PS00018, PS00028 (C2H2 zinc finger) and PS00029 (leucine zipper).
 Several (PS00001/00004–00009/00016/00017/00029) carry PROSITE's **SKIP-FLAG=TRUE** — very
 common sites that generate many false positives, which callers may choose to skip.
+PROTMOTIF-PROSITE-001 adds a **real-protein positive control**: Human Transferrin (UniProt
+P02787, TRFE_HUMAN) scanned against PS00001 `N-{P}-[ST]-{P}` yields exactly 2 N-glycosylation
+sites at ScanProsite 1-based 432–435 and 630–633 (0-based 431–434 and 629–632).
 
 ## Non-PROSITE literature-verified patterns
 
@@ -174,5 +194,6 @@ ExPASy PROSITE database and User Manual (accessed 2026-02-12); Hulo et al. 2007 
 Acids Res.* 36:D245–9, "20 years of PROSITE"); De Castro et al. 2006 (ScanProsite);
 Schneider & Stephens 1990 (*Nucleic Acids Res.* 18:6097–6100, sequence logos / information
 content); Dingwall & Laskey 1991; la Cour et al. 2004; Hecker et al. 2006; Chen & Sudol 1995;
-Mayer 2001. Full citations in [[protmotif-find-001-evidence]] and
-[[protmotif-pattern-001-evidence]] (do not duplicate here).
+Mayer 2001. Full citations in [[protmotif-find-001-evidence]],
+[[protmotif-pattern-001-evidence]] and [[protmotif-prosite-001-evidence]] (do not duplicate
+here).
