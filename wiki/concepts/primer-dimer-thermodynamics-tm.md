@@ -25,7 +25,9 @@ of the most stable **self-dimer / hetero-dimer** two primers can form — from t
 ingested unit of the PRIMER (PCR primer-design / MolTools) family** (test unit
 **PRIMER-TM-001**). The literature-traced record is [[primer-tm-001-dimer-evidence]],
 [[test-unit-registry]] tracks the unit, and [[algorithm-validation-evidence]] describes the
-artifact pattern.
+artifact pattern. The **base** PRIMER-TM-001 unit is a separate algorithm —
+[[primer3-weighted-penalty-objective]], the weighted per-primer selection penalty — which
+*consumes* a per-primer Tm (and self-/dimer-alignment scores) as input terms.
 
 Unlike the **RNA** nearest-neighbour folding used in [[rna-base-pairing]] and
 [[pre-mirna-hairpin-detection]] (Turner 2004 parameters, single-strand secondary structure),

@@ -3052,3 +3052,14 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    distinct-concept-anchor list) and wiki/index.md (source + concept entries).
    Contradictions: none. Follow-ups: none.
    graph: +2 nodes (primer-tm-001-dimer-evidence source, primer-dimer-thermodynamics-tm concept), +1 typed edge (primer-dimer-thermodynamics-tm relates_to test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/PRIMER-TM-001-Evidence.md → primer-tm-001-evidence (source) + primer3-weighted-penalty-objective (concept)
+   Base PRIMER-TM-001 unit = Primer3 weighted per-primer penalty (objective function) `p_obj_fn` — a
+   selection/scoring algorithm, NOT a Tm calc despite the unit ID. Distinct from the sibling dimer-Tm
+   [[primer-dimer-thermodynamics-tm]] (same unit ID), so created a new concept
+   [[primer3-weighted-penalty-objective]] and cross-linked both directions (penalty consumes Tm/self-align
+   scores as terms). Default objective collapses to |Tm−60|+|len−20|. Updated hub
+   [[algorithm-validation-evidence]] (frontmatter sources + body evidence-link list) and wiki/index.md
+   (source + concept entries).
+   Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (primer-tm-001-evidence source, primer3-weighted-penalty-objective concept), +2 typed edges (primer3-weighted-penalty-objective relates_to test-unit-registry; relates_to primer-dimer-thermodynamics-tm)
