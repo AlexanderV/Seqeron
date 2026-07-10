@@ -4136,3 +4136,26 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    distinct from evidence artifact compgen-dotplot-001-evidence. No new typed graph edges (report is a
    source-summary; mentions auto-derived).
    graph: +1 node, +0 typed edges
+
+## [2026-07-10] ingest | docs/Validation/reports/COMPGEN-ORTHO-001.md → compgen-ortho-001-report (source)
+   New source-summary page for the two-stage validation report of COMPGEN-ORTHO-001 (ortholog detection
+   by Reciprocal Best Hits + in-paralog identification, ComparativeGenomics.FindOrthologs / FindParalogs /
+   FindReciprocalBestHits, cs:334–518). Validated 2026-06-15. Independent re-validation: Stage A
+   PASS-WITH-NOTES / Stage B PASS-WITH-NOTES / End state CLEAN — NO code defect and no code change; the
+   PASS-WITH-NOTES grades are honestly-documented alignment-free simplifications (A1 5-mer Jaccard replaces
+   BLAST bit-score ranking; A2 FindParalogs within-genome mutual-best-hit proxy does not discriminate in-
+   vs out-paralogs; A3 the 50% coverage gate is largely subsumed by the identity gate, a 200k-pair brute
+   force found no separating input — a consequence of A1). FindOrthologs delegates to FindReciprocalBestHits
+   (single source of truth, locked by S5); the historical non-reciprocity defect is already fixed (M2:
+   a1↔b1 kept, b2 excluded). Fitch 1970 + Moreno-Hagelsieb 2008 (RBH def, ≥50% coverage, E≤1e-6) + Tatusov
+   1997 + Remm 2001 confirmed; Python 5-mer Jaccard recomputation reproduced every asserted identity (1.0 /
+   0.667 ranking / 0.0 rejection) and showed TtBlock vs GcBlock = 0.5 not 0.0; hand oracles M1–M6/S1
+   reproduced exactly; full suite 6506 passed/0 failed, build 0 errors. Three in-session test-quality fixes
+   (corrected the wrong "Jaccard 0.0" comment; added OrthologPair.Coverage assertions; direct S5/S6 tests
+   for FindReciprocalBestHits). Existing concept ortholog-detection-reciprocal-best-hits already represents
+   the algorithm (economical — no new concept); surgically updated it: added the report to sources, bumped
+   source_commit to 0752d91e, cross-linked the CLEAN verdict + in-session fixes in the intro. Updated
+   wiki/index.md (+1 source line). Tied to validation-ledger / validation-and-testing / test-unit-registry;
+   did NOT force the algorithm-validation-evidence hub. Kept distinct from evidence artifact
+   compgen-ortho-001-evidence. No new typed graph edges (report is a source-summary; mentions auto-derived).
+   graph: +1 node, +0 typed edges

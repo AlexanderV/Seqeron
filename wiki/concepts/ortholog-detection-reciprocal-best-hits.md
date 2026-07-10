@@ -5,11 +5,12 @@ tags: [comparative-genomics, algorithm]
 sources:
   - docs/Evidence/COMPGEN-ORTHO-001-Evidence.md
   - docs/Evidence/COMPGEN-RBH-001-Evidence.md
+  - docs/Validation/reports/COMPGEN-ORTHO-001.md
   - docs/algorithms/Comparative_Genomics/Ortholog_Identification.md
   - docs/algorithms/Comparative_Genomics/Reciprocal_Best_Hits.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+source_commit: 0752d91e99ea903a09b9b514deb4d3bbd8688f68
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -47,7 +48,12 @@ relatedness), [[synteny-and-rearrangement-detection]] (gene-order conservation),
 **COMPGEN-ORTHO-001** (record [[compgen-ortho-001-evidence]]) and the RBH-only
 **COMPGEN-RBH-001** (record [[compgen-rbh-001-evidence]]) — the latter is the between-genome
 ortholog slice without the within-genome in-paralog rule. [[test-unit-registry]] tracks the units
-and [[algorithm-validation-evidence]] describes the artifact pattern.
+and [[algorithm-validation-evidence]] describes the artifact pattern. The independent two-stage
+re-validation of COMPGEN-ORTHO-001 ([[compgen-ortho-001-report]]) graded it **Stage A/B
+PASS-WITH-NOTES · End state ✅ CLEAN** — no code defect (the historical non-reciprocal-`FindOrthologs`
+bug is already fixed), the notes being the honestly-documented alignment-free simplifications below;
+three test-quality improvements were applied in-session (including correcting a comment that wrongly
+called TtBlock/GcBlock "Jaccard 0.0" when they share 8/12 5-mers = 0.5).
 
 ## Orthology vs paralogy (Fitch 1970)
 

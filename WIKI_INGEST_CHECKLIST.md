@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 309 / 1181
+Progress: 310 / 1181
 
 ## (top-level)  (6)
 
@@ -276,7 +276,7 @@ Progress: 309 / 1181
 - [x] docs/Validation/reports/COMPGEN-CLUSTER-001.md
 - [x] docs/Validation/reports/COMPGEN-COMPARE-001.md
 - [x] docs/Validation/reports/COMPGEN-DOTPLOT-001.md
-- [ ] docs/Validation/reports/COMPGEN-ORTHO-001.md
+- [x] docs/Validation/reports/COMPGEN-ORTHO-001.md
 - [ ] docs/Validation/reports/COMPGEN-RBH-001.md
 - [ ] docs/Validation/reports/COMPGEN-REARR-001.md
 - [ ] docs/Validation/reports/COMPGEN-REVERSAL-001.md
