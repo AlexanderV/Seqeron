@@ -58,6 +58,11 @@ siblings, not a re-derivation:
 - vs. **explicit repeats** — [[repetitive-element-detection]] finds and types explicit repeated
   substrings; DUST collapses low-complexity/repetitiveness into a single maskable scalar. Link
   DNA low-complexity masking there as the repeats-family anchor; DUST is the score behind it.
+- vs. **windowed complexity profile** — [[windowed-sequence-complexity-profile]] is the family's
+  *profiling* member (SEQ-COMPLEX-WINDOW-001): a sliding-window scan emitting a per-position
+  `ComplexityPoint` profile (Shannon entropy + linguistic complexity per window) that a caller
+  thresholds to locate low-complexity regions — the *scanning* companion to DUST's masking scalar,
+  but built on Shannon + linguistic-complexity statistics rather than the `∑ c(c−1)/2` triplet sum.
 
 ## Default parameters and the masking threshold
 

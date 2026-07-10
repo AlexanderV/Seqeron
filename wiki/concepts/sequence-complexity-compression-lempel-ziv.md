@@ -46,6 +46,11 @@ This is a **distinct complexity measure**, not a repeat detector or an entropy o
   substrings; LZ collapses repetitiveness into a single scalar (repetitive ⇒ low `c`). LZ
   complexity is *low* exactly where those repeat/low-complexity tracts are, so the two are
   complementary views of the same signal.
+- vs. **windowed complexity profile** — [[windowed-sequence-complexity-profile]] is the family's
+  *profiling* member (SEQ-COMPLEX-WINDOW-001): a sliding-window scan emitting a per-position
+  `ComplexityPoint` (Shannon entropy + linguistic complexity per window) rather than one scalar for
+  the whole string. LZ could be scanned the same way, but this unit reports the *local* Shannon +
+  linguistic-complexity signal along the sequence.
 - vs. **DUST triplet score** — [[dust-low-complexity-score]] is the other `SEQ-COMPLEX-*` family
   member and the DNA low-complexity **masker**: `∑_t c(c−1)/2 / (L−2)` over a fixed `k = 3` triplet
   count distribution, where a *high* score means *low* complexity (opposite numeric direction to LZ)
