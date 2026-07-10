@@ -5,9 +5,10 @@ tags: [annotation, algorithm]
 sources:
   - docs/Evidence/CODON-CAI-001-Evidence.md
   - docs/algorithms/Codon_Optimization/CAI_Calculation.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/CODON-CAI-001.md
+source_commit: 01b6d4e55e6b0e58c9b6d0b08a8c4cf532287e5d
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -22,6 +23,12 @@ graph:
       evidence: "w_i = f_i / max(f_j) where i,j in synonymous codons for amino acid — the per-family relative-adaptiveness weight is the same synonymous-family normalization RSCU formalizes"
       confidence: high
       status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: codon-cai-001-report
+      evidence: "Validation Report: CODON-CAI-001 — Codon Adaptation Index (CAI); Area: Codon Optimization; canonical method CodonOptimizer.CalculateCAI; Stage A PASS / Stage B PASS / CLEAN"
+      confidence: high
+      status: current
 ---
 
 # Codon Adaptation Index (CAI)
@@ -32,7 +39,10 @@ to **predict a gene's expression level** from its codon choices. Where
 [[relative-synonymous-codon-usage|RSCU]] reports a per-codon over/under-representation, CAI
 collapses an entire gene to one number in **[0, 1]** measuring how closely its codons match a
 **reference set of (ideally highly expressed) genes**. Validated as
-[[codon-cai-001-evidence|CODON-CAI-001]]; see [[test-unit-registry]] for how the unit is tracked.
+[[codon-cai-001-evidence|CODON-CAI-001]] — pre-implementation evidence artifact — and independently
+re-validated (Stage A PASS / Stage B PASS / CLEAN, 34 CAI tests + 18787 full-suite passing, zero code
+change) in the two-stage report [[codon-cai-001-report]]; see [[test-unit-registry]] for how the unit
+is tracked.
 
 ## The measure
 

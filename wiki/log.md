@@ -3932,3 +3932,23 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    is a generated per-run validation artifact, excluded from coverage; the algorithm doc is already
    covered by telomere-analysis).
    graph: +1 node, +1 typed edge
+
+## [2026-07-10] ingest | docs/Validation/reports/CODON-CAI-001.md → codon-cai-001-report (source)
+   Created wiki/sources/codon-cai-001-report.md — validation report for CODON-CAI-001 (Codon Adaptation
+   Index — CAI, CodonOptimizer.CalculateCAI(codingSequence, table, excludeSingleCodonAminoAcids=false) +
+   helper CalculateRelativeAdaptiveness + derived SingleCodonAminoAcids set, CodonOptimizer.cs:473–522,
+   :131–144). Validated 2026-06-24 with 2026-06-25 re-validation, Stage A PASS / Stage B PASS / End state
+   CLEAN; 34 CAI fixture tests + 18787 full Seqeron.Genomics.Tests pass, zero production-code change (4
+   edge-case tests added for the 1e-6 zero-freq clamp + NaN no-data-AA skip). w=f/f_max geometric mean
+   exp((1/L)·Σ ln w) confirmed vs Wikipedia + Sharp & Li 1987 (PMID 3547335) + Jansen 2003 (PMC2684136,
+   verbatim single-codon-AA exclusion quote) + Kazusa; former D-A1 divergence resolved (opt-in
+   excludeSingleCodonAminoAcids). Hand cross-checks reproduced to ≤1e-10 (CUAACU→0.17056, AGAAGG→0.07071,
+   CUGCUA→0.28284; AUGUGG incl 1.0/excl 0.0, AUGCUACUA 0.18566/0.08; clamp CUACUG→0.001, CUA→1e-6,
+   UUUCUG→1.0). NO new concept — codon-adaptation-index already synthesizes the algorithm; kept distinct
+   from the evidence artifact codon-cai-001-evidence (docs/Evidence). Tied to validation-ledger /
+   validation-and-testing / test-unit-registry; did NOT force the algorithm-validation-evidence hub.
+   Surgically updated concept codon-adaptation-index: added the report to sources, bumped source_commit to
+   01b6d4e5, cross-linked the report verdict alongside the evidence artifact in the intro, +1 typed graph
+   edge (codon-cai-001-report relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No
+   backlog slug matched (report path is coverage-excluded per SCHEMA).
+   graph: +1 node, +1 typed edge
