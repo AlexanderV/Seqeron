@@ -4,7 +4,8 @@ title: "RNA pseudoknot prediction (canonical H-type, pknotsRG class)"
 tags: [rna, algorithm]
 sources:
   - docs/Evidence/RNA-PKPREDICT-001-Evidence.md
-source_commit: b5cb44721acd570224bd0d138372f30e6f95b2a5
+  - docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md
+source_commit: 562cd41454b50a8036d6440d5df044dff35a93c9
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -42,8 +43,11 @@ predict the energetically optimal fold that may contain a single **pseudoknot** 
 base pairs **cross** (`i < k < j < l`, Antczak 2018). This is the one structural feature that every
 **nested** predictor in the family is definitionally blind to: [[rna-minimum-free-energy-folding|MFE
 folding]] and the [[rna-partition-function-mccaskill|McCaskill ensemble]] both enumerate only
-**non-crossing** structures. The record is [[rna-pkpredict-001-evidence]]; [[test-unit-registry]]
-tracks the unit and [[algorithm-validation-evidence]] describes the artifact pattern.
+**non-crossing** structures. Two test units realize this class: the **single**-knot predictor
+`PredictStructurePseudoknot` (record [[rna-pkpredict-001-evidence]]) and its **recursive** extension
+(record [[rna-pkrecursive-001-evidence]]) that composes **nested / multiple / over-arching** knots
+in one structure (§6). [[test-unit-registry]] tracks the units and [[algorithm-validation-evidence]]
+describes the artifact pattern.
 
 ## 1. What a pseudoknot is (H-type geometry)
 
@@ -112,13 +116,17 @@ pseudoknot-free alternative. Reeder & Giegerich chose 9.0 empirically ("performs
 
 ## 5. Scope, limitations, and relationships
 
-A [[scientific-rigor|research-grade]] predictor of the **single canonical H-type** pseudoknot. Two
-documented boundaries (neither an invented parameter):
+A [[scientific-rigor|research-grade]] predictor. The **single**-knot unit
+(`PredictStructurePseudoknot`, [[rna-pkpredict-001-evidence]]) predicts one canonical H-type knot; its
+**recursive** sibling (§6, [[rna-pkrecursive-001-evidence]]) lifts that restriction. Two documented
+boundaries remain (neither an invented parameter):
 
-1. **PARTIAL pknotsRG coverage.** The full pknotsRG O(n⁴) grammar also composes recursively-nested and
-   over-arching / multiple knots within one structure; only the **single** canonical H-type is
-   implemented. Loops *u*/*v*/*w* fold with the existing pseudoknot-free MFE
-   (`CalculateMinimumFreeEnergy`) rather than re-searching a second knot inside a loop.
+1. **PARTIAL pknotsRG coverage — split across the two units.** The full pknotsRG O(n⁴) grammar composes
+   recursively-nested, over-arching, and multiple knots within one structure. The **single**-knot unit
+   folds loops *u*/*v*/*w* with the pseudoknot-free MFE (`CalculateMinimumFreeEnergy`) and does **not**
+   re-search a second knot inside a loop; the **recursive** unit (§6) does. Neither reproduces every
+   yield of the reference 4-boundary ADP parser bit-for-bit (helices are enumerated by a maximal-extent
+   start/end scan), but the recursive unit realizes the faithful recursive *class*.
 2. **Tertiary-stabilized knots are not recovered.** Real knots such as the **BWYV** frameshifting
    pseudoknot (PDB 437D, `GGCGCGGCACCGUCCGCGGAACAAACGG`) are held together by minor-groove triplexes
    and Mg²⁺/Na⁺ coordination — interactions **outside** the secondary-structure NN model. The NN
@@ -131,5 +139,34 @@ baseline and folds the internal loops); it emits a two-layer [[rna-dot-bracket-n
 and builds on the [[rna-base-pairing]] Watson-Crick + G-U wobble rule. It is the crossing-structure
 complement of the nested [[rna-minimum-free-energy-folding|MFE folder]] and
 [[rna-partition-function-mccaskill|McCaskill ensemble]]. **No source contradictions** — Reeder &
-Giegerich 2004, the pknotsRG `Energy.lhs` source, the Wikipedia/Rivas & Eddy H-type geometry, the
+Giegerich 2004/2007, the pknotsRG `Energy.lhs` source, the Wikipedia/Rivas & Eddy H-type geometry, the
 BWYV structural record, and Antczak 2018's crossing condition are mutually consistent.
+
+## 6. Recursive extension — nested / multiple / over-arching knots (RNA-PKRECURSIVE-001)
+
+The **recursive** unit ([[rna-pkrecursive-001-evidence]]) realizes the part of the pknotsRG grammar the
+single-knot unit leaves out. Same class, same energy model, same 9.0 / 0.3 / 0.0 penalties, same
+canonization rules — but the three loops *u*/*v*/*w* now fold by the **same recursive folder** (a loop
+may contain a further knot), the top level **chains multiple knots**, and an enclosing helix may
+**over-arch** a knot in its loop. Reeder & Giegerich 2004 define the class verbatim: the unpaired
+strands "fold internally in an arbitrary way, **including simple recursive pseudoknots**"; the 2007
+paper supplies the whole-sequence mechanism — the pseudoknot value "**competes with values of unknotted
+foldings for the interval (i, j)**," which is what lets one structure carry several knots and knots
+nested inside loops.
+
+Two constructed, fully-derivable oracles show the delta over the single-knot method (which recovers
+neither, because it cannot combine an outer/second helix with a knot):
+
+- **Over-arching knot** `AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU` (38 nt, A×8 clamp + designed H-type +
+  U×8 clamp) → `((((((((((((..[[[[..))))..]]]]))))))))`, **ΔG −14.37**, `HasPseudoknot==true`, 1
+  crossing; single-knot method and plain MFE both give **−13.05** with no combined structure.
+- **Two separate knots** (80 nt, two clamped H-type copies) → **two** crossing knots (crossing-count
+  32), **ΔG −28.74**; single-knot method and MFE both **−27.14** with no knot.
+
+The **MFE-fallback bound still holds** (recursive ΔG ≤ MFE; 0 violations on a 150-sequence random
+sweep) and no spurious knots are reported on plain hairpins / A·U runs. Two engineered-scope notes
+apply: two strong G·C knots are the genuine MFE **only** when each region is isolated by flanking A·U
+clamps (else a cross-region nested helix is more stable — a property of the NN energy model), and the
+implementation realizes the recursive *class* without guaranteeing every yield of the reference O(n⁴)
+ADP parser. **Excluded** (verbatim): triple-crossing helices and kissing hairpins are not in the
+canonical simple-recursive class.
