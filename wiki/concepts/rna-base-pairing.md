@@ -5,8 +5,9 @@ tags: [mirna, algorithm]
 sources:
   - docs/Evidence/MIRNA-PAIR-001-Evidence.md
   - docs/Evidence/RNA-PAIR-001-Evidence.md
+  - docs/Evidence/SEQ-RNACOMP-001-Evidence.md
   - docs/algorithms/MiRNA/MiRNA_Target_Pairing.md
-source_commit: 59665e71035d6a10504325a61b2d3329858ebf36
+source_commit: 51ed4d23872ce7c6646683d002e13e9388412d53
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -21,6 +22,12 @@ graph:
       object: concept:test-unit-registry
       source: rna-pair-001-evidence
       evidence: "Test Unit ID: RNA-PAIR-001 ... Algorithm: RNA Base Pairing (CanPair / GetBasePairType / GetComplement) — the RNA-secondary-structure family's base-pairing primitive"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: seq-rnacomp-001-evidence
+      evidence: "Test Unit ID: SEQ-RNACOMP-001 ... Algorithm: RNA-specific Complement (per-base, IUPAC-complete)"
       confidence: high
       status: current
 ---
@@ -90,6 +97,29 @@ Both surfaces are **symmetric** (`f(x,y) == f(y,x)`) and both treat non-alphabet
 (false / null, no exception). This typed classifier is the pairing chemistry that
 [[rna-free-energy-turner-model]] assigns stacking energies to and that [[rna-dot-bracket-notation]]
 folds encode; no source contradictions between the miRNA and RNA-structure copies of the rule.
+
+### The SEQ-family full-IUPAC RNA complement (SEQ-RNACOMP-001)
+
+A **third** copy of the RNA base complement lives on the SEQ-\* sequence-utility surface as
+`GetRnaComplementBase` (test unit **SEQ-RNACOMP-001**, [[seq-rnacomp-001-evidence]]) — the RNA sibling
+of the DNA per-base `GetComplementBase` (SEQ-COMP-001, not yet ingested). It is the same base chemistry
+(A→U, U→A, G→C, C→G, **T→A** with DNA T treated as U) but **IUPAC-complete**: it maps *every*
+ambiguity code, not just the canonical bases and the handful (N/R/Y) the `RnaSecondaryStructure`
+`GetComplement` above documents. The complement table is Biopython's `ambiguous_rna_complement`, which
+is **identical to `ambiguous_dna_complement` except the alphabet swaps T→U**:
+
+- **Reciprocal codes:** A↔U, C↔G, R↔Y, M↔K, D↔H, B↔V.
+- **Self-complementary:** W→W, S→S, X→X, N→N.
+- **Pass-through:** non-IUPAC characters (gaps `-`/`.`, digits, `Z`) return unchanged, never an error.
+- **Casing (only divergence from Biopython):** recognized bases return **uppercase** (repo
+  normalize-to-uppercase convention); Biopython preserves input case. Casing-only — the complement
+  identity is unchanged.
+
+Complement is an **involution** on the canonical bases and ambiguity codes (within the U-alphabet;
+`T` is absorbed into U, so `complement(complement(T)) = U`, not T). It is distinct from the DNA path:
+`GetRnaComplementBase('A') = 'U'` vs `GetComplementBase('A') = 'T'`. Sources: Biopython
+`IUPACData.py` / `Seq.py` / API docs, bioinformatics.org SMS, and the NC-IUB 1984 standard
+(Cornish-Bowden 1985) — all mutually consistent.
 
 ## 2. Reverse complement for seed → target matching
 

@@ -175,7 +175,8 @@ sources:
   - docs/Evidence/SEQ-HYDRO-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
-source_commit: e058738ff312bb90e5022081cf85e0b9da5b67cb
+  - docs/Evidence/SEQ-RNACOMP-001-Evidence.md
+source_commit: 51ed4d23872ce7c6646683d002e13e9388412d53
 created: 2026-07-09
 updated: 2026-07-10
 graph:
