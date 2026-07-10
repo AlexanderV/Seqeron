@@ -5,12 +5,19 @@ tags: [primer, algorithm, validation]
 sources:
   - docs/Validation/reports/CRISPR-GUIDE-001.md
   - docs/Validation/reports/CRISPR-OFF-001.md
+  - docs/Validation/reports/CRISPR-PAM-001.md
   - docs/algorithms/MolTools/Guide_RNA_Design.md
-source_commit: c763b50cd147a56f659298a8626d2ede865297f1
+source_commit: 13507add3b861dc2ba03395b72f3913eda8ef054
 created: 2026-07-10
 updated: 2026-07-10
 graph:
   relationships:
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: crispr-pam-001-report
+      evidence: "Test Unit ID CRISPR-PAM-001 (MolTools); the two-stage report validates the PAM-site-detection surface CrisprDesigner.FindPamSites / GetSystem (7 CRISPR systems, both-strand scan), the geometric front end that feeds candidate-guide extraction."
+      confidence: high
+      status: current
     - predicate: relates_to
       object: concept:test-unit-registry
       source: crispr-guide-001-report
@@ -42,9 +49,12 @@ The **CRISPR guide RNA (gRNA/sgRNA) design** surface — a distinct reagent-desi
 (Doench 2014 Rule Set 1 and Doench 2016 Rule Set 2 / Azimuth) that predict editing activity from a
 fixed 30-nt context (CRISPR-GUIDE-001); and (3) **off-target risk scoring** — scanning a genome for
 near-matches to a guide and scoring each hit's cutting risk, via the **MIT/Hsu-Zhang 2013**
-specificity model and the **CFD (Doench 2016)** score (test unit **CRISPR-OFF-001**). The two
-independent two-stage validation verdicts are [[crispr-guide-001-report]] (on-target) and
-[[crispr-off-001-report]] (off-target); [[test-unit-registry]] tracks both units and
+specificity model and the **CFD (Doench 2016)** score (test unit **CRISPR-OFF-001**). Upstream of all
+three sits a **Layer 0 — PAM site detection** (`FindPamSites`, test unit **CRISPR-PAM-001**): the
+geometric front end that resolves each CRISPR system's motif/orientation and scans **both strands** for
+the protospacer-adjacent motifs that Layer 1 then extracts spacers around. The three independent two-stage
+validation verdicts are [[crispr-pam-001-report]] (PAM geometry), [[crispr-guide-001-report]] (on-target),
+and [[crispr-off-001-report]] (off-target); [[test-unit-registry]] tracks all three units and
 [[algorithm-validation-evidence]] describes the artifact pattern. Implementation:
 `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs`.
 
@@ -52,6 +62,38 @@ On-target and off-target scoring are the **two complementary halves of guide sel
 predicts *how well* a guide cuts its intended site, off-target predicts *how much* it also cuts elsewhere.
 Both are learned/experimentally-calibrated models grounded byte-for-byte against the CRISPOR reference
 implementation; both are research-grade, not for clinical use.
+
+## Layer 0 — PAM site detection (CRISPR-PAM-001)
+
+Before any guide can be extracted, the **PAM** (protospacer-adjacent motif) sites must be located.
+`FindPamSites(sequence, systemType)` (string + `DnaSequence` overloads, identical results) resolves the
+system via `GetSystem` and scans for the motif on **both strands**. Validated in [[crispr-pam-001-report]]
+(Stage A PASS · Stage B PASS-WITH-NOTES · CLEAN, 58/58 tests). `GetSystem` carries **7 systems** whose
+PAM / orientation / guide-length literals were confirmed byte-for-byte against the primary literature:
+
+| System | PAM | IUPAC | Position | Guide len |
+|--------|-----|-------|----------|-----------|
+| SpCas9 | `NGG` | N=any | 3′ (after) | 20 |
+| SpCas9-NAG | `NAG` | secondary | 3′ (after) | 20 |
+| SaCas9 | `NNGRRT` | R∈{A,G} | 3′ (after) | 21 |
+| Cas12a / AsCas12a | `TTTV` | V∈{A,C,G} | 5′ (before) | 23 |
+| LbCas12a | `TTTV` | V∈{A,C,G} | 5′ (before) | 24 |
+| CasX / Cas12e | `TTCN` | N=any | 5′ (before) | 20 |
+
+Degenerate matching goes through `IupacHelper.MatchesIupac` (NC-IUB 1984 codes). Key contract:
+
+- **Both strands are scanned** — the forward strand and its reverse complement. A forward-strand `CCN` is
+  the reverse-complement of a reverse-strand `NGG`; both must be found. `PamAfterTarget` selects the spacer
+  side (Cas9 PAM 3′ of the protospacer, Cas12a/CasX PAM 5′), and a boundary check
+  `targetStart ≥ 0 && targetEnd < len` drops sites whose spacer would run off either end.
+- **Coordinates are 0-based; `Position` is always a forward-strand PAM start.** Reverse hits report
+  `Position = len − i − pamLen` and a reverse-complemented `PamSequence`. Worked oracle (SpCas9,
+  `CCAACGTACGT…`, len 31): 0 forward hits, one reverse hit → `Position 0`, `PamSequence "CCA"`, target 20.
+- **Documented coordinate note (not a bug):** for reverse hits `PamSite.TargetStart` indexes the
+  *reverse-complement* string (used to slice `TargetSequence`), so it is in a **different coordinate
+  system** than the forward-strand `Position` (XML-documented at `CrisprDesigner.cs :1035–1041`). This is
+  exactly the caveat that surfaces again in the Layer-1 note below (`Position` copied from
+  `pamSite.TargetStart` for reverse-strand designs).
 
 ## Layer 1 — heuristic guide extraction and ranking
 
@@ -167,8 +209,12 @@ CLEAN**, 54/54 CRISPR tests green, **no code or test change**. Off-target (CRISP
 orientation-guard test verified source-correct and committed); full suite 6812 passed / 0 failed. This session re-downloaded the CRISPOR reference and re-confirmed the
 intercept, gcLow/gcHigh, the 4+20+3+3 layout, the GC-term boundary, and the full 70-entry table as
 byte-identical, reproducing three worked-example scores to ≤ 2e-8; Rule Set 2 provenance and oracle
-externality re-confirmed. Full detail and the test-quality (green-washing) audit are in
-[[crispr-guide-001-report]]. Research-grade, not for clinical use.
+externality re-confirmed. PAM detection (Layer 0, CRISPR-PAM-001, validated 2026-06-24) is **Stage A PASS ·
+Stage B PASS-WITH-NOTES · CLEAN**, 58/58 tests, zero code change — all 7 systems' PAM/orientation/guide-len
+literals confirmed against the literature and the both-strand `NGG`/`CCN` scan reproduced by hand; the sole
+note is the reverse-strand `TargetStart` coordinate caveat (see [[crispr-pam-001-report]]). Full detail and
+the test-quality (green-washing) audit are in [[crispr-guide-001-report]]. Research-grade, not for clinical
+use.
 
 ## Assumptions and contract
 

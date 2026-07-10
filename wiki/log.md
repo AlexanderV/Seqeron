@@ -4288,3 +4288,27 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    crispr-guide-001-report. No contradictions. Backlog slug off-target-analysis (Off_Target_Analysis.md)
    left pending — this report validates the MIT/CFD scoring layer, not that algorithm doc.
    graph: +1 node, +1 typed edge (crispr-guide-rna-design relates_to test-unit-registry for CRISPR-OFF-001)
+
+## [2026-07-10] ingest | docs/Validation/reports/CRISPR-PAM-001.md → crispr-pam-001-report (source)
+   Two-stage validation report for test unit CRISPR-PAM-001 (CRISPR PAM site detection — locate
+   protospacer-adjacent motifs like SpCas9 NGG on both strands for gRNA design). Stage A PASS / Stage B
+   PASS-WITH-NOTES / State CLEAN, 58/58 PAM tests green, zero production-code change. Validates
+   CrisprDesigner.FindPamSites (string + DnaSequence overloads, identical results) + GetSystem: 7 systems
+   with literature-confirmed PAM/orientation/guide-len (SpCas9 NGG/3'/20, SpCas9-NAG NAG, SaCas9
+   NNGRRT(R in A,G)/21, Cas12a/AsCas12a TTTV(V in A,C,G)/5'/23, LbCas12a TTTV/24, CasX/Cas12e TTCN/20;
+   Jinek 2012/Hsu 2013/Ran 2015/Zetsche 2015/Liu 2019). IUPAC via IupacHelper.MatchesIupac (NC-IUB 1984).
+   Both-strand scan (forward CCN = revcomp of reverse NGG); 0-based coords, Position always forward-strand
+   (reverse hit Position=len-i-pamLen, PamSequence revcomp); boundary targetStart>=0 && targetEnd<len.
+   Hand oracle CCAACGTACGT...(len31)->0 fwd + 1 rev hit Position0/PamSequence "CCA"/target20 (M8); overlap
+   AGGTGG->@20,@23; TTTV rejects TTTT, NNGRRT rejects C at R. Sole Stage-B note = reverse-strand
+   PamSite.TargetStart indexes the revcomp string (different coord system than forward Position;
+   XML-documented at :1035-1041, spec-invariant-consistent) — not a bug. ENRICHED existing concept
+   crispr-guide-rna-design with a Layer 0 (PAM geometry) section rather than a new concept (PAM finding is
+   the front end of guide design on the same CrisprDesigner class): added report to sources, bumped
+   source_commit to 13507add, added a relates_to test-unit-registry typed edge for CRISPR-PAM-001, updated
+   intro + Validation-status. New source-summary page crispr-pam-001-report. Updated wiki/index.md (+1
+   source line, revised the concept line). Tied to validation-ledger / validation-and-testing /
+   test-unit-registry; did NOT force the algorithm-validation-evidence hub. Kept distinct from the
+   on-target/off-target siblings. No contradictions. Backlog slug pam-site-detection
+   (PAM_Site_Detection.md algorithm doc) left pending — this report validates the unit, not that doc.
+   graph: +1 node, +1 typed edge (crispr-guide-rna-design relates_to test-unit-registry for CRISPR-PAM-001)
