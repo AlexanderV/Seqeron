@@ -3466,3 +3466,17 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    (Sources). No contradictions flagged.
    graph: no typed edges (ontology has no relates_to/typed predicate targeting a source node, and the protocol
    neither supersedes nor contradicts anything; auto-derived sourced_from/mentions edges suffice).
+
+## [2026-07-10] ingest | docs/Validation/reports/ALIGN-GLOBAL-001.md → align-global-001-report (source)
+   First per-unit VALIDATION REPORT ingested (all prior sources were Evidence/governance docs). New source
+   page for the Stage A/B validation write-up of ALIGN-GLOBAL-001 (Needleman–Wunsch): Stage A PASS (spec
+   faithful to Wikipedia — border d·j/d·i, max-of-three recurrence, GCATGCG/GATTACA optimum 0, GapExtend-as-d),
+   Stage B PASS (GlobalAlignCore+Traceback + cancellation overload, 13/13 cross-verification table, integer DP
+   no overflow), State CLEAN, no defects; one documented non-defect (empty-DnaSequence overload returns
+   score-0 empty alignment vs string overload's AlignmentResult.Empty). Kept it as a source summary distinct
+   from the pre-impl [[align-global-001-evidence]]. ENRICHED concept [[global-alignment-needleman-wunsch]]
+   (added report to sources + source_commit bump + a one-line CLEAN-verdict cross-link). Did NOT create a new
+   concept (algorithm already represented) and did NOT force the algorithm-validation-evidence hub (that hub
+   rosters Evidence artifacts, not reports). Updated wiki/index.md (Sources). No contradictions flagged.
+   graph: no typed edges (source→source/concept report link is an auto-derived mentions/sourced_from edge; no
+   new typed concept-to-concept predicate is warranted).

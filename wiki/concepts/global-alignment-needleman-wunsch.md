@@ -4,10 +4,11 @@ title: "Global alignment (Needleman–Wunsch)"
 tags: [alignment, algorithm]
 sources:
   - docs/Evidence/ALIGN-GLOBAL-001-Evidence.md
+  - docs/Validation/reports/ALIGN-GLOBAL-001.md
   - docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+source_commit: 4bcdb5e14c3f69dc14f370a3bdd05044a7951032
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -53,4 +54,6 @@ identity / similarity / gaps and renders the EMBOSS/BLAST three-line display.
 
 This algorithm is one [[test-unit-registry|test unit]] (ALIGN-GLOBAL-001), validated against
 the Wikipedia worked example; see [[algorithm-validation-evidence]] for the evidence-artifact
-pattern behind that validation.
+pattern behind that validation. The 2026-06-24 validation write-up
+([[align-global-001-report|Stage A/B report]]) closed it **CLEAN** — Stage A and Stage B both
+PASS, 13/13 tests green, one documented (non-defect) empty-`DnaSequence`-input nuance.
