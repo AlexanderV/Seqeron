@@ -33,7 +33,12 @@ No general distance-based-phylogenetics concept exists yet in this wiki (there i
 Neighbor-Joining / UPGMA / distance-matrix page); bootstrap is the first `PHYLO-*` unit ingested, so
 this page doubles as the family anchor. The per-replicate tree here is built by the same
 **distance-matrix → UPGMA/NJ** machinery the datasets exercise (`UPGMA` + `JukesCantor` distance
-below); bootstrap **wraps** that tree builder rather than replacing it.
+below); bootstrap **wraps** that tree builder rather than replacing it. The second `PHYLO-*` unit,
+[[tree-comparison-metrics]] (PHYLO-COMP-001 — Robinson–Foulds distance, MRCA, patristic distance),
+operates on the *same* rooted `PhyloNode` tree but *compares* topologies instead of inferring them:
+bootstrap counts clade **agreement** across replicates, Robinson–Foulds counts clade **disagreement**
+between two trees — the same split/clade primitive, opposite direction, and no resampling on the RF
+side.
 
 ## The FBP procedure (Felsenstein 1985 / Lemoine 2018 / Biopython)
 

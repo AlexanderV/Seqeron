@@ -2848,3 +2848,20 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Follow-up: when NJ/UPGMA/distance-matrix or other PHYLO-* units are ingested, split tree-construction
    into its own concept and make bootstrap depend_on it.
    graph: +2 nodes (phylo-boot-001-evidence source, phylogenetic-bootstrap-support concept), +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/PHYLO-COMP-001-Evidence.md → [[phylo-comp-001-evidence]] (source) + [[tree-comparison-metrics]] (new concept)
+   Second phylogenetics (PHYLO-*) unit. Judged genuinely distinct from the PHYLO-BOOT-001 bootstrap
+   anchor and warranted a dedicated concept: PHYLO-COMP-001 is deterministic tree COMPARISON / query
+   over an already-built rooted binary PhyloNode tree, not confidence-by-resampling. Three operations —
+   Robinson–Foulds distance (RobinsonFouldsDistance = symmetric difference A+B of canonical split sets;
+   raw count, proper metric, even; rooted-clade = Wikipedia dummy-leaf; max RF = 2(n−2) rooted vs
+   2(n−3) unrooted, reconciled by dummy-leaf equivalence), MRCA (FindMRCA, O(n) recursive leaf-name
+   traversal, not-in-tree→null), patristic distance (PatristicDistance = dist(x,MRCA)+dist(y,MRCA),
+   not-in-tree→NaN, zero-branches→0). Sources Wikipedia RF-metric/MRCA/Phylogenetic-tree + Robinson &
+   Foulds 1981 (doi:10.1016/0025-5564(81)90043-2) + Smith 2020 (btaa614) + Day 1985. Two source-backed
+   scope decisions (binary-only via PhyloNode Left/Right; rooted-only via UPGMA/NJ); no deviations, no
+   contradictions. Cross-linked reciprocally with [[phylogenetic-bootstrap-support]] (agreement vs
+   disagreement of the same split primitive) and distinguished from [[tumor-phylogeny-clonal-tree-reconstruction]].
+   Registered in algorithm-validation-evidence hub (frontmatter source list + source_commit bump +
+   source-summary list + concept list); index Sources + Concepts updated.
+   graph: +2 nodes (phylo-comp-001-evidence source, tree-comparison-metrics concept), +1 typed edge (relates_to test-unit-registry)
