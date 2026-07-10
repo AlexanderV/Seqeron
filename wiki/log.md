@@ -2805,3 +2805,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    registered the source in the algorithm-validation-evidence hub (frontmatter + body list). Index
    Sources updated. No contradictions.
    graph: +1 node (parse-gff-001-evidence source), +0 typed edges (source-only page; mentions edges auto-derived)
+
+## [2026-07-10] ingest | docs/Evidence/PARSE-VCF-001-Evidence.md → [[parse-vcf-001-evidence]]
+   VCF (Variant Call Format) parsing, seventh FileIO/PARSE-* unit. Source-only cross-link (no new
+   concept): VCF is a tab-delimited, 1-based sibling of BED/GFF, cross-linked to family anchor
+   [[bed-format-parsing]] where the 0-based-vs-1-based coordinate contrast already lives (anchor
+   names GFF/GTF/VCF as its 1-based counterparts). VCF-specific richness (##headers, 8 fixed cols
+   + FORMAT/genotype samples, SNP/MNP/Ins/Del/Symbolic classification, the audit's five
+   spec-compliance points incl. FILTER "." ≠ PASS and Ti/Tv-over-all-ALT) captured in the source
+   page (economical per directive). Added inbound link from bed-format-parsing anchor; registered
+   the source in the algorithm-validation-evidence hub (frontmatter + body list). Index Sources
+   updated. No contradictions.
+   graph: +1 node (parse-vcf-001-evidence source), +0 typed edges (source-only page; mentions edges auto-derived)

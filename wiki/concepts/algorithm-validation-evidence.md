@@ -77,6 +77,7 @@ sources:
   - docs/Evidence/PARSE-FASTQ-001-Evidence.md
   - docs/Evidence/PARSE-GENBANK-001-Evidence.md
   - docs/Evidence/PARSE-GFF-001-Evidence.md
+  - docs/Evidence/PARSE-VCF-001-Evidence.md
   - docs/Evidence/ONCO-ACTION-001-Evidence.md
   - docs/Evidence/ONCO-ANNOT-001-Evidence.md
   - docs/Evidence/ONCO-ARTIFACT-001-Evidence.md
@@ -195,7 +196,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[motif-discover-001-evidence]], [[motif-shared-001-evidence]],
 [[parse-bed-001-evidence]], [[parse-embl-001-evidence]], [[parse-fasta-001-evidence]],
 [[parse-fastq-001-evidence]], [[parse-genbank-001-evidence]],
-[[parse-gff-001-evidence]],
+[[parse-gff-001-evidence]], [[parse-vcf-001-evidence]],
 [[onco-action-001-evidence]], [[onco-annot-001-evidence]],
 [[onco-artifact-001-evidence]], [[onco-ascat-001-evidence]],
 [[onco-ccf-001-evidence]], [[onco-chip-001-evidence]],

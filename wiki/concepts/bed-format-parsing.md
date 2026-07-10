@@ -45,7 +45,8 @@ chromEnd=100`. Mixing the two conventions is the classic off-by-one source when 
 between BED and 1-based formats (GFF/GTF/VCF are 1-based inclusive), so coordinate/coordinate
 conversions must always account for the half-open, 0-based origin. The sibling GFF/GTF
 tab-delimited annotation format (9-column, 1-based inclusive) is traced in
-[[parse-gff-001-evidence]].
+[[parse-gff-001-evidence]], and the tab-delimited **VCF** variant format (8 fixed columns +
+optional FORMAT/genotype samples, 1-based `POS`) in [[parse-vcf-001-evidence]].
 
 ## The column ladder: BED3 → BED12
 
