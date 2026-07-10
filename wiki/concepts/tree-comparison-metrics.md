@@ -32,8 +32,9 @@ tree building. Validated under test unit **PHYLO-COMP-001**; the literature-trac
 reference ([[scientific-rigor|research-grade]]), not for clinical use.
 
 All three operate on the same rooted binary `PhyloNode` (`Left`/`Right` children) that the
-distance-matrix → UPGMA/NJ machinery under [[phylogenetic-bootstrap-support]] produces; the scope is
-therefore **rooted, bifurcating trees** (§7 resolved design decisions).
+UPGMA/NJ builder produces from an [[evolutionary-distance-matrix]] (PHYLO-DIST-001, the family's
+pairwise-distance substrate) — the same machinery [[phylogenetic-bootstrap-support]] resamples; the
+scope is therefore **rooted, bifurcating trees** (§7 resolved design decisions).
 
 ## 1. Robinson–Foulds distance (`RobinsonFouldsDistance`)
 

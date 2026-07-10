@@ -2865,3 +2865,28 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Registered in algorithm-validation-evidence hub (frontmatter source list + source_commit bump +
    source-summary list + concept list); index Sources + Concepts updated.
    graph: +2 nodes (phylo-comp-001-evidence source, tree-comparison-metrics concept), +1 typed edge (relates_to test-unit-registry)
+
+## [2026-07-10] ingest | docs/Evidence/PHYLO-DIST-001-Evidence.md → phylo-dist-001-evidence (source) + 1 concept
+   Third phylogenetics-family (PHYLO-*) Evidence file (after BOOT, COMP). Created the genuinely-distinct
+   concept evolutionary-distance-matrix — the pairwise evolutionary-distance substrate the family sits on:
+   CalculatePairwiseDistance / CalculateDistanceMatrix over four methods Hamming (raw diff count),
+   p-distance (differences/comparableSites, uncorrected), Jukes-Cantor JC69 (-3/4·ln(1−4p/3), equal-base/
+   equal-rate model), Kimura-2-parameter K2P (-1/2·ln((1−2S−V)·√(1−2V)), S=transition/V=transversion).
+   Matrix invariants symmetric / zero-diagonal / non-negative / n×n, correction ordering JC69≥p & K2P≥p,
+   triangle inequality expected-not-guaranteed for corrected distances; pairwise deletion (gaps + ambiguous
+   IUPAC N/R/Y skipped, only A,C,G,T compared), case-insensitive; saturation JC69→+∞ at p≥3/4 and K2P→+∞ at
+   V≥1/2; all-gap/empty→0 (0/n→0), unequal-length→ArgumentException, null→ArgumentNullException. Oracles
+   ACGTACGT/TCGTACGT→Hamming 1/p 0.125/JC69≈0.137, pure-transition GCGT K2P≈0.34657 vs pure-transversion
+   CCGT≈0.31713, mixed≈0.30679, gap case→7 comparable sites. Positioned as the UPGMA/NJ substrate that
+   bootstrap wraps and re-runs per replicate and that tree-comparison's trees come out of. Sources: Wikipedia
+   Models-of-DNA-evolution / Substitution-model / Distance-matrices-in-phylogeny + Jukes & Cantor 1969 +
+   Kimura 1980 + Felsenstein 2004. Concise source page for the artifact. Registered in algorithm-validation-
+   evidence hub (frontmatter source list + source_commit bump to 3a53115 + source-summary list + concept
+   list); index Sources + Concepts updated. Updated the two prior PHYLO concepts reciprocally: fixed the now-
+   stale "no distance-matrix page yet" note in phylogenetic-bootstrap-support and cross-linked evolutionary-
+   distance-matrix from both bootstrap and tree-comparison-metrics. Two API-contract assumptions (empty/all-
+   gap→0, pairwise deletion for gaps+ambiguity). Contradictions: none — JC69/K2P formulas, symmetric zero-
+   diagonal matrix, and saturation limits are the standard textbook definitions. Follow-up: the UPGMA/NJ tree
+   *construction* step itself (which consumes this matrix) remains unconcepted and would warrant its own page
+   when a PHYLO tree-build unit is ingested.
+   graph: +2 nodes (phylo-dist-001-evidence source, evolutionary-distance-matrix concept), +2 typed edges (relates_to test-unit-registry, relates_to phylogenetic-bootstrap-support)

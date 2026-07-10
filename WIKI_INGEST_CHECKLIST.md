@@ -3,7 +3,7 @@
 Checklist of all 1610 files under `docs/` to ingest into the LLM Wiki, one per `/wiki:ingest` run.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 184 / 1610
+Progress: 185 / 1610
 
 ## (top-level)  (6)
 
@@ -147,7 +147,7 @@ Progress: 184 / 1610
 - [x] docs/Evidence/PAT-APPROX-003-Evidence.md
 - [x] docs/Evidence/PHYLO-BOOT-001-Evidence.md
 - [x] docs/Evidence/PHYLO-COMP-001-Evidence.md
-- [ ] docs/Evidence/PHYLO-DIST-001-Evidence.md
+- [x] docs/Evidence/PHYLO-DIST-001-Evidence.md
 - [ ] docs/Evidence/PHYLO-NEWICK-001-Evidence.md
 - [ ] docs/Evidence/PHYLO-STATS-001-Evidence.md
 - [ ] docs/Evidence/PHYLO-TREE-001-Evidence.md

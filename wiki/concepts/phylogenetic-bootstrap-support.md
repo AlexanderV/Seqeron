@@ -29,11 +29,11 @@ the literature-traced record is [[phylo-boot-001-evidence]], [[test-unit-registr
 and [[algorithm-validation-evidence]] describes the evidence-artifact pattern. Research-grade
 correctness reference ([[scientific-rigor|research-grade]]), not for clinical use.
 
-No general distance-based-phylogenetics concept exists yet in this wiki (there is no
-Neighbor-Joining / UPGMA / distance-matrix page); bootstrap is the first `PHYLO-*` unit ingested, so
-this page doubles as the family anchor. The per-replicate tree here is built by the same
-**distance-matrix → UPGMA/NJ** machinery the datasets exercise (`UPGMA` + `JukesCantor` distance
-below); bootstrap **wraps** that tree builder rather than replacing it. The second `PHYLO-*` unit,
+Bootstrap is the first `PHYLO-*` unit ingested, so this page doubles as the family anchor. The
+per-replicate tree here is built by the same **distance-matrix → UPGMA/NJ** machinery the datasets
+exercise (`UPGMA` + `JukesCantor` distance below) — the pairwise evolutionary distances are the
+dedicated [[evolutionary-distance-matrix]] unit (PHYLO-DIST-001: p-distance / JC69 / K2P / Hamming),
+which bootstrap **wraps** and re-runs per replicate rather than replacing. The second `PHYLO-*` unit,
 [[tree-comparison-metrics]] (PHYLO-COMP-001 — Robinson–Foulds distance, MRCA, patristic distance),
 operates on the *same* rooted `PhyloNode` tree but *compares* topologies instead of inferring them:
 bootstrap counts clade **agreement** across replicates, Robinson–Foulds counts clade **disagreement**
