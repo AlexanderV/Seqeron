@@ -23,9 +23,13 @@ structure space for the fold of lowest folding free energy (`CalculateMinimumFre
 This is the **folding / search** layer of the RNA secondary-structure family — the unit that
 **consumes** the [[rna-free-energy-turner-model|Turner 2004 nearest-neighbor terms]] (summing them
 over candidate structures) and **produces** a [[rna-dot-bracket-notation|dot-bracket]] structure as
-output. Prior RNA ingests repeatedly flagged it as "the not-yet-ingested MFE folder that consumes the
-Turner energy terms" (referred to generically as *RNA-STRUCT-001*); this Evidence file records the
-unit under its own id **RNA-MFE-001**.
+output. Prior RNA ingests, before the RNA-STRUCT-001 artifact was ingested, flagged it as "the
+not-yet-ingested MFE folder that consumes the Turner energy terms" and referred to it generically as
+*RNA-STRUCT-001*; this Evidence file records the unit under its own id **RNA-MFE-001**. That alias
+assumption is now superseded — RNA-STRUCT-001 is a **distinct sibling** test unit
+([[rna-secondary-structure-prediction|the top-level Nussinov base-pair-maximization predictor]]) that
+shares this unit's `RnaSecondaryStructure` Zuker MFE machinery, not another name for it (see
+[[rna-struct-001-evidence]]).
 
 ## What this file records
 

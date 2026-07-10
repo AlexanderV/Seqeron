@@ -5,7 +5,8 @@ tags: [rna, algorithm]
 sources:
   - docs/Evidence/RNA-MFE-001-Evidence.md
   - docs/Evidence/RNA-PARTITION-001-Evidence.md
-source_commit: c74e2076b6e891a02c917198a54544896c4dbafa
+  - docs/Evidence/RNA-STRUCT-001-Evidence.md
+source_commit: bb82b7ec80bbbf5750e53616ccc60df7b45c010c
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -40,10 +41,16 @@ candidate structures — and **produces** a [[rna-dot-bracket-notation|dot-brack
 The record is [[rna-mfe-001-evidence]]; [[test-unit-registry]] tracks the unit and
 [[algorithm-validation-evidence]] describes the artifact pattern.
 
-Prior RNA ingests repeatedly flagged this as "the not-yet-ingested MFE folder that consumes the Turner
-terms", referring to it generically as **RNA-STRUCT-001** (the id the [[pre-mirna-hairpin-detection]]
-opt-in `AssessHairpinByMfe` path and several source pages cite). The Evidence artifact records the same
-folder under its own id **RNA-MFE-001**; the two names denote this one MFE-folding unit.
+Prior RNA ingests, before the RNA-STRUCT-001 artifact was ingested, flagged this as "the not-yet-ingested
+MFE folder that consumes the Turner terms" and referred to it generically as *RNA-STRUCT-001* (the id the
+[[pre-mirna-hairpin-detection]] opt-in `AssessHairpinByMfe` path and several source pages cite). That
+alias assumption is now **superseded**: RNA-STRUCT-001 is a **distinct sibling unit** —
+[[rna-secondary-structure-prediction|the top-level Nussinov base-pair-maximization predictor]]
+(`Predict` / `PredictWithConstraints` / `ToDotBracket` / `FromDotBracket`) — while this physical
+kcal/mol MFE folder is recorded under its own id **RNA-MFE-001**. The two are separate test units in the
+`RnaStructure` area that **share** the same `RnaSecondaryStructure` Zuker MFE machinery (RNA-STRUCT-001's
+deviation D5 added `CalculateMfeStructure`/`PredictStructureMfe`, the traceback partner of this unit's
+`PredictStructure`), not two names for one unit.
 
 ## 1. What the algorithm does
 
