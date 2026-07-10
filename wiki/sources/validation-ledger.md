@@ -25,7 +25,8 @@ holds a *superseded snapshot* of one triage pass, this ledger is the **live stat
 pass/fail matrix, refreshed by reset banners whenever code churn invalidates prior results. Every other
 governance page defers to it — the register, the [[validation-findings-disposition]] process, and
 [[validation-and-testing]] all name `docs/Validation/VALIDATION_LEDGER.md` as the authority for
-"where things stand."
+"where things stand." CLEAN units that needed no correction are rolled up compactly in the
+[[validation-verdicts]] registry; units that found a defect get their own `[[<unit>-report]]` page.
 
 ## What a row records
 

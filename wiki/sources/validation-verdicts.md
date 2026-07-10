@@ -4,6 +4,8 @@ title: "Validation verdict registry (CLEAN per-unit reports)"
 tags: [validation, governance, registry]
 sources:
   - docs/Validation/reports/
+created: 2026-07-11
+updated: 2026-07-11
 ---
 
 # Validation verdict registry

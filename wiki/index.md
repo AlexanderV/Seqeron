@@ -315,6 +315,7 @@ When this file exceeds ~300 lines or the wiki passes ~150 pages, shard into `wik
 - [[sv-cnv-001-report]] — validation report for SV-CNV-001 (read-depth CNV: windowed depth → log2 ratio → integer copy number): Stage A PASS / Stage B PASS-WITH-NOTES, ✅ CLEAN — a round-half-away-from-zero rounding defect corrected to NumPy round-half-to-even (CNVkit parity), suite 6493/0.
 - [[sv-detect-001-report]] — validation report for SV-DETECT-001 (paired-end-mapping SV detection: span + orientation → SV type): Stage A / Stage B both PASS-WITH-NOTES, ✅ CLEAN — the RF-everted signature corrected from "concordant" to a discordant tandem-Duplication (DELLY/SVXplorer), suite 6485/0.
 - [[trans-splice-001-report]] — validation report for TRANS-SPLICE-001 (alternative-splicing event classification + Percent-Spliced-In): Stage A PASS-WITH-NOTES / Stage B FAIL→fixed, ✅ CLEAN — swapped A5SS/A3SS labels in ClassifyIsoformPair corrected against the rMATS convention, suite 6501/0.
+- [[validation-verdicts]] — CLEAN validation-verdict registry: one row per per-unit report that found **no defect** (reports that found one get their own `[[<unit>-report]]` page instead), each linking the unit to its concept + Stage A/B state; see [[validation-ledger]] / [[validation-protocol]].
 
 ## Concepts
 
