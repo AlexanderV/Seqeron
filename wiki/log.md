@@ -3039,3 +3039,16 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    body pop-* link list) and wiki/index.md (source + concept entries). Cross-linked all POP concepts.
    Contradictions: none (the sign difference is a documented convention). Follow-ups: none.
    graph: +2 nodes (pop-select-001-evidence source, selection-scan-ihs-ehh concept), +3 typed edges (selection-scan-ihs-ehh relates_to test-unit-registry; depends_on allele-genotype-frequencies; relates_to linkage-disequilibrium)
+
+## [2026-07-10] ingest | docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md → primer-tm-001-dimer-evidence (source) + primer-dimer-thermodynamics-tm (concept)
+   First PCR primer-design PRIMER-* / MolTools family unit. New concept
+   [[primer-dimer-thermodynamics-tm]]: self-/hetero-dimer Tm via Primer3 ntthal thermodynamic
+   alignment over the SantaLucia & Hicks 2004 DNA nearest-neighbour model — 10 WC NN stacks +
+   initiation + terminal A·T penalty + symmetry, bimolecular Tm with x=1(palindrome)/x=4 factor,
+   [Na+] salt correction, full non-contiguous dimer DP (mismatch/loop/bulge/tstack2 overhang)
+   reproducing primer3-py 2.3.0 to machine precision; poly-A/invalid → null/NaN. Cross-linked as
+   the DNA counterpart of the RNA Turner-2004 folding [[rna-base-pairing]] / [[pre-mirna-hairpin-detection]].
+   Updated hub [[algorithm-validation-evidence]] (frontmatter sources + body evidence-link list +
+   distinct-concept-anchor list) and wiki/index.md (source + concept entries).
+   Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (primer-tm-001-dimer-evidence source, primer-dimer-thermodynamics-tm concept), +1 typed edge (primer-dimer-thermodynamics-tm relates_to test-unit-registry)
