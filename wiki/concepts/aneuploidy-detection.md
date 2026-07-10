@@ -5,15 +5,22 @@ tags: [chromosome, algorithm]
 sources:
   - docs/Evidence/CHROM-ANEU-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md
-source_commit: 9ce49bade5c11e63eebbf8c06dd642662321d5a2
+  - docs/Validation/reports/CHROM-ANEU-001.md
+source_commit: 15b20caaeff245cda0742f1f97189ee5419ef422
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
       source: chrom-aneu-001-evidence
       evidence: "Test Unit ID: CHROM-ANEU-001 ... Algorithm Group: Chromosome Analysis ... Aneuploidy Detection"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: chrom-aneu-001-report
+      evidence: "Validation Report: CHROM-ANEU-001 — Aneuploidy Detection ... Stage A verdict: PASS / Stage B verdict: PASS"
       confidence: high
       status: current
 ---
@@ -28,8 +35,10 @@ their own concepts — see [[centromere-analysis]] for the centromere / alpha-sa
 [[synteny-and-rearrangement-detection]] for the synteny-block / rearrangement anchor and
 [[telomere-analysis]] for the telomere repeat-detection / T/S-length anchor; arm-ratio follows.
 Validated under test unit
-**CHROM-ANEU-001**; the validation record is [[chrom-aneu-001-evidence]], and [[test-unit-registry]]
-tracks the unit. See [[algorithm-validation-evidence]] for the artifact pattern.
+**CHROM-ANEU-001**; the pre-implementation evidence artifact is [[chrom-aneu-001-evidence]] and the
+independent two-stage validation verdict (Stage A/B both PASS, CLEAN, 31/0) is
+[[chrom-aneu-001-report]]; [[test-unit-registry]] tracks the unit. See
+[[algorithm-validation-evidence]] for the artifact pattern.
 
 Aneuploidy is "an abnormal number of chromosomes in a cell" (Wikipedia) — a human somatic cell with 45
 or 47 instead of the usual 46. The algorithm has two stages: a per-bin **copy-number estimate** from

@@ -3825,3 +3825,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    relates_to test-unit-registry). Updated wiki/index.md (+1 source line). No backlog slug matched
    (alphasat/alpha-satellite absent from backlog).
    graph: +1 node, +1 typed edge
+
+## 2026-07-10 — ingest docs/Validation/reports/CHROM-ANEU-001.md
+   Created source page chrom-aneu-001-report (two-stage validation verdict for CHROM-ANEU-001,
+   aneuploidy detection — `ChromosomeAnalyzer.DetectAneuploidy` / `IdentifyWholeChromosomeAneuploidy`,
+   ChromosomeAnalyzer.cs:832–917): Stage A PASS / Stage B PASS / CLEAN, 31 passed 0 failed, zero code
+   or test change. Distinct from the evidence artifact chrom-aneu-001-evidence (docs/Evidence). Tied to
+   validation-ledger / validation-and-testing; concept anchor aneuploidy-detection.
+   Surgically updated concept aneuploidy-detection: added the report to sources, bumped source_commit,
+   cross-linked the report in the intro, +1 typed graph edge (chrom-aneu-001-report relates_to
+   test-unit-registry). Updated wiki/index.md (+1 source line). No backlog slug matched (backlog row is
+   the algorithm doc, already covered by the pre-existing concept).
+   graph: +1 node, +1 typed edge
