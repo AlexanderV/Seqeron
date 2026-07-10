@@ -39,9 +39,11 @@ protein analogue of the fixed-catalog DNA scanner [[regulatory-element-detection
 matches a cited catalog of regulatory consensus strings), and unlike the caller-supplies-the-set
 exact matcher [[known-motif-search]] (DNA), the query set here is a **built-in, curated
 protein-motif dictionary**. Within the ProteinMotif family it is a sibling of the windowed
-[[coiled-coil-prediction]]: both live on `ProteinMotifFinder` and share the 0-based
-`MotifMatch` shape, but coiled-coil scores a/d hydrophobic periodicity while this unit does
-degenerate PROSITE-pattern matching.
+[[coiled-coil-prediction]] and of
+[[protein-domain-and-signal-peptide-prediction]] (which matches longer PROSITE **domain**
+patterns and adds an opt-in Plan7 profile-HMM engine for profile-only families): all live on
+`ProteinMotifFinder`; this unit scans a fixed short-motif dictionary while domain prediction
+matches domain-length signatures, and coiled-coil scores a/d hydrophobic periodicity.
 
 ## PROSITE pattern syntax
 

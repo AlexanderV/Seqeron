@@ -3171,3 +3171,36 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    Contradictions: none. Follow-ups: sibling units PROTMOTIF-FIND-001 / PROTMOTIF-PATTERN-001 (general
    PROSITE engine) not yet ingested.
    graph: +2 nodes, +2 typed edges
+
+## [2026-07-10] ingest | docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md → protmotif-domain-001-evidence (source) + 1 concept
+   Third ProteinMotif-family Evidence file (after PROTMOTIF-CC coiled-coil, PROTMOTIF-COMMON common motifs).
+   Created the genuinely-distinct concept protein-domain-and-signal-peptide-prediction — the ProteinMotif
+   family's domain + signal-peptide unit, covering three algorithms on ProteinMotifFinder: (1) FindDomains,
+   a deterministic PROSITE-PATTERN domain scan (PS00028 C2H2 zinc finger/PF00096, PS00017 P-loop-Walker A/
+   PF00069, PS00678 WD40 14-element/15-residue signature/PF00400; ScanProsite→regex translation; real
+   GBB1_HUMAN P62873 WD40 positive at 0-based 69/156/284) — SH3(PS50002)/PDZ(PS50106) are PROSITE PROFILEs
+   with NO deterministic pattern so are excluded (honest residual; prior unsourced ad-hoc regexes removed);
+   (2) the opt-in FindDomainsByHmm / Plan7ProfileHmm engine reproducing the HMMER3 pipeline over 3 bundled
+   CC0 Pfam HMMs (PF00018 SH3/PF00595 PDZ/PF00400 WD40) — Viterbi/Forward log-odds (exact 1e-9 on a
+   hand-built 2-symbol HMM = 0.5187937934 nats), hmmsearch-parity local-multihit pre_score scored vs
+   Swiss-Prot bg->f not COMPO (SH3 68.7097/PDZ 84.8629/WD40 213.4120 bits, ~1e-5-bit parity), null2
+   biased-composition correction (omega=1/256), Gumbel(MSV/Viterbi)/exponential(Forward) E-values with
+   E=P·Z from STATS LOCAL, p7_domaindef multi-domain envelope decomposition (GBB1/PF00400→7 β-propeller
+   blades, coords exact) + stochastic-traceback single-linkage clustering (Easel LCG seed 42) for
+   closely-overlapping tandems — all cross-checked against pyhmmer 0.12.1 ground truth and a from-scratch
+   Python re-derivation; (3) PredictSignalPeptide, the von Heijne tripartite n(K/R+)/h(hydrophobic
+   α-helix)/c(polar) model with the −1,−3 rule {A,G,S}, score (nScore+2·hScore+cScore)/4 and evidence-based
+   detection constraints (nScore>0 & hScore≥0.5, replacing the eliminated 0.4 threshold), Probability=Score.
+   Oracles: C2H2 AAAACXXCXXXLXXXXXXXXHXXXHAAA→4..24, P-loop AAAAGXXXXGKSAAAA→4..11, signal
+   MKRLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF→detected cleavage≈25. Concise source page for the artifact. Updated
+   hub [[algorithm-validation-evidence]] (frontmatter sources + body evidence-link list) and wiki/index.md
+   (source entry + concept entry). Added a reciprocal ProteinMotif-family cross-link from
+   [[common-protein-motifs]]. Deviations: the six previously-listed items are all RESOLVED design decisions
+   (1:2:1 weights, evidence-based constraints, Probability=Score, strict {A,G,S}, PROSITE-pattern scope,
+   FindDomains naming), not open assumptions. Contradictions: none — the encyclopedic + PROSITE/Pfam +
+   von Heijne + HMMER/Easel/Durbin sources agree. Honest residuals: SH3/PDZ profile-only; only 3 CC0 HMMs
+   bundled; MSV/bias prefilters and exact-RNG trace-ensemble bit parity not reproduced (research-grade).
+   Follow-ups: PROTMOTIF-FIND-001 / PROTMOTIF-PATTERN-001 (general PROSITE engine), transmembrane-helix
+   and other ProteinMotif units not yet ingested; noted the sibling protmotif-common-001-evidence source
+   entry was absent from wiki/index.md (prior-ingest gap, left as-is).
+   graph: +2 nodes, +2 typed edges (relates_to test-unit-registry, common-protein-motifs)
