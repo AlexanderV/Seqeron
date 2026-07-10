@@ -4,7 +4,8 @@ title: "Sequence composition (base/residue counts, fractions, GC content)"
 tags: [sequence-statistics, composition]
 sources:
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
-source_commit: 2fa9affeb77d7240ffffd91ffd809647c4297484
+  - docs/Evidence/SEQ-DINUC-001-Evidence.md
+source_commit: 4a7f3b50df393c2ccf0fe505da489d087d4f22f4
 created: 2026-07-10
 updated: 2026-07-10
 graph:
@@ -61,8 +62,10 @@ Composition is the base layer that several other wiki concepts build on:
   *asymmetry* view of the same tally; this page is the *magnitude/fraction* view. The
   SEQ-COMPOSITION-001 doc mentions both GC/AT skew alongside GC content, which is why the two
   concepts are siblings.
-- **Dinucleotide composition** — [[cpg-island-detection]] uses a CpG observed/expected ratio,
-  the dinucleotide-frequency generalization of single-base composition.
+- **Dinucleotide composition** — [[dinucleotide-relative-abundance]] counts adjacent base pairs and
+  scores each pair's Karlin odds ratio `ρ_XY = f_XY/(f_X·f_Y)` against these single-base frequencies,
+  the dinucleotide-frequency generalization of single-base composition; [[cpg-island-detection]] is
+  its `CG`-specialized CpG observed/expected ratio.
 - **Windowed composition entropy** — [[windowed-sequence-complexity-profile]] computes a
   Shannon entropy of *base composition* per window; composition is its per-window input.
 - **GC variability** — [[centromere-analysis]] uses a GC-content heuristic over windows.

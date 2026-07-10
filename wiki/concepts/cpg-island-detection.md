@@ -5,9 +5,10 @@ tags: [epigenetics, algorithm]
 sources:
   - docs/Evidence/EPIGEN-CPG-001-Evidence.md
   - docs/algorithms/Epigenetics/CpG_Site_Detection.md
-source_commit: c066419cf49d3dfb54307f5f20853e66d89c0dbd
+  - docs/Evidence/SEQ-DINUC-001-Evidence.md
+source_commit: 4a7f3b50df393c2ccf0fe505da489d087d4f22f4
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
@@ -64,8 +65,12 @@ or `L < 2`, or null/empty), the ratio returns **0.0**. A sequence with no CpG di
 Worked oracles: `CGCGCG…` (20 bp, C=G=10) → Expected (10·10)/20 = 5.0, O/E = **2.0**; `ACGTCGACG`
 (9 bp, C=G=3) → Expected 1.0, O/E = **3.0**; `ACGT` → Expected 0.25, O/E = **4.0**; AT-only → **0.0**.
 Saxonov et al. (2006) give an **alternative** expected `((C+G)/2)²/L`; the repository uses the
-Gardiner-Garden form. The CpG O/E ratio is a *dinucleotide* composition statistic; its
-single-base compositional-asymmetry cousin is strand skew (`(A−T)/(A+T)`, `(G−C)/(G+C)`) —
+Gardiner-Garden form. The CpG O/E ratio is a *dinucleotide* composition statistic — it is the
+`CG`-specialized case of the general **Karlin dinucleotide odds ratio** `ρ_XY = f_XY/(f_X·f_Y)`
+([[dinucleotide-relative-abundance]]); the two share the odds-ratio shape and differ only by the
+dinucleotide-frequency normalization (this page divides the count by `L`/`N`, the general method by
+`N − 1` — a documented modeling choice, `N/(N−1) → 1` for long sequences). Its single-base
+compositional-asymmetry cousin is strand skew (`(A−T)/(A+T)`, `(G−C)/(G+C)`) —
 see [[nucleotide-composition-skew]].
 
 ## 3. CpG-island detection (sliding window)
