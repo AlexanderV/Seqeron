@@ -115,7 +115,11 @@ assumptions remain unresolved.
 RF's split/bipartition comparison is the same primitive that [[phylogenetic-bootstrap-support]] uses when
 it scores a reference clade by presence across replicate trees — bootstrap counts clade agreement,
 RF counts clade *disagreement* — but the two are separate units: this one is a deterministic tree-vs-tree
-(or tree-query) computation with **no resampling and no tree inference**. Distinct again from
+(or tree-query) computation with **no resampling and no tree inference**. Also distinct from
+[[tree-statistics]] (PHYLO-STATS-001), which reports whole-tree *descriptive summaries* (leaf count, total
+branch length, depth/height) rather than comparing trees or querying taxon relationships — its per-path
+branch-length sum for a single taxon pair (patristic distance) is the two-taxon analogue of that unit's
+sum-over-all-branches tree length. Distinct again from
 [[tumor-phylogeny-clonal-tree-reconstruction]] (ONCO-PHYLO-001), which builds an oncology-specific tree
 from cancer-cell-fraction constraints and computes none of these metrics. The `PhyloNode` trees this
 unit reads are serialized to/from the **Newick text format** by the family's I/O layer, PHYLO-NEWICK-001

@@ -2903,3 +2903,15 @@ column-count lock, BED12 block constraints). Sources UCSC FAQ + Wikipedia + BEDT
    [[phylogenetic-bootstrap-support]]. No typed concept-to-concept edges (source-only). Contradictions:
    none — grammar and label rules are the standard Newick spec. Follow-ups: none.
    graph: +1 node (phylo-newick-001-evidence source), +0 typed edges (source-only; mentions auto-derived)
+
+## [2026-07-10] ingest | PHYLO-STATS-001-Evidence.md → phylo-stats-001-evidence (source) + tree-statistics (concept)
+   Ingested the Tree Statistics unit (PHYLO-STATS-001): GetLeaves / CalculateTreeLength / GetTreeDepth —
+   whole-tree descriptive summaries (leaf count, total branch length = Σ all edges, height in edges).
+   Judged genuinely distinct from [[tree-comparison-metrics]] (descriptive summaries vs compare/query
+   operations) so created a modest dedicated concept [[tree-statistics]] rather than a source-only
+   cross-link. Cross-linked reciprocally with [[tree-comparison-metrics]] (added a paragraph there) and
+   to the PHYLO family ([[phylogenetic-bootstrap-support]], [[evolutionary-distance-matrix]],
+   [[phylo-newick-001-evidence]]). Sources: Wikipedia Tree-(graph-theory)/Tree-(ADT) + Biopython
+   BaseTree + DendroPy Tree.length() + Minimum-evolution. One assumption (null PhyloNode ↔ empty-tree
+   height −1). Contradictions: none. Follow-ups: none.
+   graph: +2 nodes (phylo-stats-001-evidence source, tree-statistics concept), +1 typed edge (tree-statistics relates_to test-unit-registry)
