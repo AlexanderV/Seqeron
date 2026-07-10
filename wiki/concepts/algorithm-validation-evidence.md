@@ -154,7 +154,8 @@ sources:
   - docs/Evidence/RNA-HAIRPIN-001-Evidence.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
   - docs/Evidence/RNA-MFE-001-Evidence.md
-source_commit: 18048c17104987bc34f26dbdfdc4c48f30fef2d2
+  - docs/Evidence/RNA-PAIR-001-Evidence.md
+source_commit: 59665e71035d6a10504325a61b2d3329858ebf36
 created: 2026-07-09
 updated: 2026-07-10
 graph:
@@ -272,7 +273,7 @@ Because these files are near-templated across the ~213 documented units, the wik
 [[rep-str-001-evidence]], [[restr-filter-001-evidence]],
 [[rna-dotbracket-001-evidence]], [[rna-energy-001-evidence]],
 [[rna-hairpin-001-evidence]], [[rna-invert-001-evidence]],
-[[rna-mfe-001-evidence]]). An
+[[rna-mfe-001-evidence]], [[rna-pair-001-evidence]]). An
 individual algorithm gets its own concept page only when it is itself distinct and wiki-worthy
 — for example [[global-alignment-needleman-wunsch]], [[multiple-sequence-alignment]],
 [[semi-global-alignment-fitting]], [[alignment-statistics]],

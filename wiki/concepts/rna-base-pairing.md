@@ -4,16 +4,23 @@ title: "RNA base pairing (Watson-Crick + G-U wobble) and the miRNA-target duplex
 tags: [mirna, algorithm]
 sources:
   - docs/Evidence/MIRNA-PAIR-001-Evidence.md
+  - docs/Evidence/RNA-PAIR-001-Evidence.md
   - docs/algorithms/MiRNA/MiRNA_Target_Pairing.md
-source_commit: da06ef5590c4a92834125cfd650b942f61f9b586
+source_commit: 59665e71035d6a10504325a61b2d3329858ebf36
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
       source: mirna-pair-001-evidence
       evidence: "Test Unit ID: MIRNA-PAIR-001 ... Algorithm: MiRNA-Target Pairing Analysis (miRNA-mRNA duplex base pairing) ... Algorithm Group: MiRNA"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:test-unit-registry
+      source: rna-pair-001-evidence
+      evidence: "Test Unit ID: RNA-PAIR-001 ... Algorithm: RNA Base Pairing (CanPair / GetBasePairType / GetComplement) — the RNA-secondary-structure family's base-pairing primitive"
       confidence: high
       status: current
 ---
@@ -61,6 +68,28 @@ The **notation** in which a fold's pairs are written and validated — dot-brack
 a distinct, purely syntactic layer covered by [[rna-dot-bracket-notation]].
 The sibling MiRNA-family unit [[pre-mirna-hairpin-detection]] builds directly on this rule — a
 precursor stem is scored as consecutive {A-U, G-C} + G-U wobble pairs between the two arms.
+
+### The RNA-secondary-structure family's own copy (RNA-PAIR-001)
+
+The RNA-secondary-structure family exposes the **same primitive** on `RnaSecondaryStructure` as its
+own test unit **RNA-PAIR-001** ([[rna-pair-001-evidence]]) — same {A-U, G-C} + G-U wobble rule, same
+`T`→`U` normalisation, same case-insensitivity — with two shape differences from the `MiRnaAnalyzer`
+surface:
+
+- `CanPair(base1, base2)` — the pairing predicate (identical semantics).
+- `GetBasePairType(base1, base2)` — a **typed classifier** returning `WatsonCrick` for {A-U, U-A,
+  G-C, C-G}, `Wobble` for {G-U, U-G}, and `null` for every non-pair. This makes the
+  Watson-Crick-vs-wobble distinction a first-class return value (where the miRNA surface splits it
+  across `CanPair` + `IsWobblePair`). `GetBasePairType('G','U')` must be `Wobble`, never
+  `WatsonCrick` (Crick 1966).
+- `GetComplement(base)` — the single-base RNA complement (A→U, U→A, G→C, C→G, **T→A** as a DNA input,
+  degenerate IUPAC preserved: N→N, R→Y, Y→R), the base-level counterpart of the sequence-level
+  `GetReverseComplement`.
+
+Both surfaces are **symmetric** (`f(x,y) == f(y,x)`) and both treat non-alphabet input as a non-pair
+(false / null, no exception). This typed classifier is the pairing chemistry that
+[[rna-free-energy-turner-model]] assigns stacking energies to and that [[rna-dot-bracket-notation]]
+folds encode; no source contradictions between the miRNA and RNA-structure copies of the rule.
 
 ## 2. Reverse complement for seed → target matching
 
