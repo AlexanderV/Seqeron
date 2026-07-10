@@ -6,6 +6,7 @@ mcp_tools:
   - segment_copy_number
 sources:
   - docs/Evidence/SV-CNV-001-Evidence.md
+  - docs/Validation/reports/SV-CNV-001.md
 source_commit: 59811dacff3428aa9f6ae78b68795bba34ce864d
 created: 2026-07-10
 updated: 2026-07-10
@@ -32,7 +33,9 @@ anchor [[breakpoint-detection-split-reads]] localizes a breakpoint from **split-
 unit calls **copy-number variants (deletions / duplications) from read depth of coverage** — a
 genuinely distinct method (aggregate depth signal, not per-read junction geometry). Validated under
 test unit **SV-CNV-001** ([[sv-cnv-001-evidence]]); [[test-unit-registry]] tracks the unit and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+[[algorithm-validation-evidence]] describes the artifact pattern. The two-stage validation
+verdict is recorded in [[sv-cnv-001-report]] — **Stage A PASS · Stage B PASS-WITH-NOTES,
+State ✅ CLEAN** (one round-half-to-even rounding defect fixed in-session; full suite 6493/0).
 
 The evidence is the standard **read-depth (RD) CNV** paradigm — **Yoon et al. 2009** (the RD∝CN
 hypothesis, windowed counting, GC correction) plus the **CNVkit** reference implementation

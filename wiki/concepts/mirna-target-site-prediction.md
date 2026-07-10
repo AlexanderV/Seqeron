@@ -9,6 +9,7 @@ mcp_tools:
 sources:
   - docs/Evidence/MIRNA-TARGET-001-Evidence.md
   - docs/algorithms/MiRNA/Target_Site_Prediction.md
+  - docs/Validation/reports/MIRNA-TARGET-001.md
 source_commit: aa11631f0f0b525bc218f877ce18b6e69d373542
 created: 2026-07-09
 updated: 2026-07-09
@@ -155,3 +156,9 @@ contradictions** — Bartel 2009, Lewis 2005, Grimson 2007, Agarwal 2015, Garcia
 TargetScan, and miRBase agree on the site ladder and the context++ model; the recorded items are the
 intentional heuristic-score / partial-CS simplifications and the unemitted `Centered`/`Supplementary`
 enum members.
+
+The two-stage validation verdict is recorded in [[mirna-target-001-report]] — **Stage A/B both PASS,
+State ✅ CLEAN**. The one divergence from Garcia's literal "non-overlapping" requirement (`TA_3UTR`
+over-counting on periodic seed cores) was found and fully fixed in-session with a greedy
+non-overlapping scan and lock test CTX-TA-009; the residual (PCT params, SPS, Len_ORF, ORF-8mer
+caller-supplied; no bundled transcriptome) is a declared boundary. Full suite 18861/0.

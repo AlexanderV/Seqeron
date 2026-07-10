@@ -5,6 +5,7 @@ tags: [metagenomics, algorithm]
 sources:
   - docs/Evidence/META-RESIST-001-Evidence.md
   - docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md
+  - docs/Validation/reports/META-RESIST-001.md
 source_commit: c81ef58a4d2d8fd4a9ceb1e322d2c6a1ee237cfc
 created: 2026-07-09
 updated: 2026-07-09
@@ -130,3 +131,10 @@ fabricated), nucleotide-only case-sensitive comparison. A legacy `FindResistance
 stub is retained separately for an existing MCP tool and is **not** part of this unit. No source
 contradictions in the algorithm itself; a threshold-default provenance note (evidence records 0.80/0.98,
 implementation ships 0.90) is flagged on [[meta-resist-001-evidence]].
+
+The two-stage validation verdict is recorded in [[meta-resist-001-report]] — **Stage A PASS-WITH-NOTES,
+Stage B PASS (after in-session fix), End-state ✅ CLEAN** (full suite 6556/0). The review found and fixed
+a real defect: `BestUngappedMatch` originally broke ties toward the *longer* window, which pads the
+alignment with mismatching flanks and lowered identity — a genuine false negative at the 0.90/0.60
+defaults (an edge-perfect 7/10 HSP was diluted to 0.778 and wrongly missed). The shorter/higher-identity
+tie-break documented above is that fix, locked by the new **M3b** edge-HSP regression guard.

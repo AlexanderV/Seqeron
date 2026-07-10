@@ -5,6 +5,7 @@ tags: [file-io, algorithm]
 sources:
   - docs/Evidence/PARSE-GENBANK-001-Evidence.md
   - docs/Evidence/PARSE-EMBL-001-Evidence.md
+  - docs/Validation/reports/PARSE-GENBANK-001.md
 source_commit: 6dbe2cbf99c5f8ee4eb8eb90b438d7b10e3d5021
 created: 2026-07-10
 updated: 2026-07-10
@@ -78,6 +79,13 @@ a **caller-supplied resolver delegate** (`FeatureLocationHelper.ResolveLocationS
 local segments are still assembled in place. See [[parse-embl-001-evidence]] for the resolver
 mechanics and the remote-reference per-segment prefix-strip fix, and [[parse-genbank-001-evidence]]
 for the GenBank `LOCUS`/`ORIGIN`/division specifics.
+
+The GenBank parser's two-stage validation verdict is recorded in [[parse-genbank-001-report]] —
+**Stage A PASS (the 1-based-inclusive / `complement` / `join`-vs-`order` / partial-marker grammar is
+faithful to INSDC/NCBI), Stage B PASS-WITH-NOTES, State CLEAN**. The one code defect was outside the
+location grammar — multi-line qualifier reconstruction inserted a spurious space in `/translation`
+and left an unstripped opening quote on wrapped values — fixed to the Biopython reference behaviour
+(wrap→single space; `/translation`→no space) and locked with two RED→GREEN tests. Full suite 18213/0.
 
 ## Partial-flag slicing (assumption)
 

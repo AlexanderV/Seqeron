@@ -5,6 +5,7 @@ tags: [analysis, algorithm]
 sources:
   - docs/Evidence/PROTMOTIF-TM-001-Evidence.md
   - docs/Evidence/SEQ-HYDRO-001-Evidence.md
+  - docs/Validation/reports/PROTMOTIF-TM-001.md
 source_commit: 3e90ada29a32f385c5a7ffa5227e4471967a9915
 created: 2026-07-10
 updated: 2026-07-10
@@ -114,7 +115,9 @@ run maps to exact residue boundaries. This unit reports
 residue actually covered by an above-threshold window. A **2026-06-16 validation corrected an
 earlier off-by-one** (`lastProfileIndex + windowSize`, which named a residue no passing window
 covered). This is the sole documented assumption; there are no deviations from the scale or the
-mean-windowing rule.
+mean-windowing rule. The two-stage validation verdict is recorded in [[protmotif-tm-001-report]] —
+**Stage A PASS-WITH-NOTES / Stage B PASS, State ✅ CLEAN** (the off-by-one End was fixed in-session;
+full suite 6579/0).
 
 ## Scope
 

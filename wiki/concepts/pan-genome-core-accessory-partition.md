@@ -4,6 +4,7 @@ title: "Pan-genome partition (core/accessory/unique + genomic fluidity + open/cl
 tags: [comparative-genomics, pan-genome, algorithm]
 sources:
   - docs/Evidence/PANGEN-CORE-001-Evidence.md
+  - docs/Validation/reports/PANGEN-CORE-001.md
 source_commit: 9957b475387e91865d553279d914fddef30ae85b
 created: 2026-07-10
 updated: 2026-07-10
@@ -63,6 +64,13 @@ least 99% of samples"**, i.e. `occupancy / N ≥ coreFraction` — **not** `floo
 for small N: with N = 3 and coreFraction 0.99, only 3/3 is core; **2/3 (66.7%) is accessory**, not
 core. Roary's four-tier refinement is **hard core >99% / soft core 95–99% / shell 15–95% / cloud
 <15%**.
+
+This fractional rule was itself the outcome of validation: the two-stage verdict is recorded in
+[[pangen-core-001-report]] — **Stage A/B both PASS-WITH-NOTES, State CLEAN**. The original code and
+description used the unsourced floor `floor(coreFraction·N)`, which wrongly made 2/3 core at N=3;
+the defect was fixed to the fractional `occupancy/N ≥ coreFraction` (shared `IsCoreOccupancy`) across
+code, tests, and all three description artifacts. Fluidity and Heaps openness were already correct
+(the single-order α fit is a disclosed simplification). Full suite 6509/0.
 
 Worked partition (occupancy oracle): 3 genomes; c1 in all 3, c2 in 2, c3/c4/c5 each in 1. With
 `coreFraction = 1.0` (coreThreshold 3) → **core {c1}**, **accessory {c2}**, **unique {c3,c4,c5}**.

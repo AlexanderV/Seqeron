@@ -6,6 +6,7 @@ mcp_tools:
   - complexity_compression_ratio
 sources:
   - docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md
+  - docs/Validation/reports/SEQ-COMPLEX-COMPRESS-001.md
 source_commit: c2d2b19e7359c655c98c0b2b7fc08aadd63ff843
 created: 2026-07-10
 updated: 2026-07-10
@@ -100,7 +101,10 @@ the normalized value `γ = c / b(n) → 1` as randomness increases. Worked: `100
   reference **clamps the log base to 2** and still returns the *normalized* value, not the raw
   count: `"0"×16` → `5 / (16 / log₂16) = 1.25`. (An earlier "return raw count" reading was
   corrected to 1.25 during validation — see the [[seq-complex-compress-001-evidence|Evidence]]
-  correction note.)
+  correction note.) The two-stage validation verdict is recorded in
+  [[seq-complex-compress-001-report]] — **Stage A PASS-WITH-NOTES / Stage B FAIL → FIXED, State
+  ✅ CLEAN** (the code returned the raw count for b<2 instead of the reference's clamp-to-2
+  normalized value; fixed to the clamp, test locked to the sourced 1.25; full suite 6603/0).
 - **Trailing-component convention (ASSUMPTION):** the parse can end on a partial substring that
   never became "new". The Wikipedia pseudocode adds 1 for it (`if v ≠ 1 then C := C+1`); the
   Naereen set-based reference does not. Seqeron adopts the **Naereen contract** because its

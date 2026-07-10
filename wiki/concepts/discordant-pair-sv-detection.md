@@ -6,6 +6,7 @@ mcp_tools:
   - find_discordant_pairs
 sources:
   - docs/Evidence/SV-DETECT-001-Evidence.md
+  - docs/Validation/reports/SV-DETECT-001.md
 source_commit: e525e3116b0a1c220283ce93c3fa751af524a7ae
 created: 2026-07-10
 updated: 2026-07-10
@@ -35,7 +36,10 @@ this unit reads the **paired-end mapping (PEM) signature** — how a mate pair's
 It is the third, orthogonal read-evidence channel of the same family (DELLY does "integrated
 paired-end and split-read analysis"). Validated under test unit **SV-DETECT-001**
 ([[sv-detect-001-evidence]]); [[test-unit-registry]] tracks the unit and
-[[algorithm-validation-evidence]] describes the artifact pattern.
+[[algorithm-validation-evidence]] describes the artifact pattern. The two-stage validation
+verdict is recorded in [[sv-detect-001-report]] — **Stage A / Stage B both PASS-WITH-NOTES,
+State ✅ CLEAN** (the RF-everted pair was corrected from concordant to a discordant
+tandem-Duplication signature in-session; full suite 6485/0).
 
 The evidence is the standard **PEM / discordant-pair** paradigm — **Medvedev, Stanciu & Brudno 2009**
 (the signature catalogue) plus the **BreakDancer** (Chen 2009) reference cutoffs and the
@@ -110,5 +114,3 @@ parsing.
 - Distinct from the oncology read-evidence rearrangement units — the fusion caller
   [[gene-fusion-detection-read-evidence]] and the copy-number-pattern [[chromothripsis-inference]] —
   and from the gene-order [[genome-rearrangement-breakpoint-distance]]. No source contradictions.
-</content>
-</invoke>

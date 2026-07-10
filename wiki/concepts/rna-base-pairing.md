@@ -10,6 +10,7 @@ sources:
   - docs/Evidence/RNA-PAIR-001-Evidence.md
   - docs/Evidence/SEQ-RNACOMP-001-Evidence.md
   - docs/algorithms/MiRNA/MiRNA_Target_Pairing.md
+  - docs/Validation/reports/MIRNA-PAIR-001.md
 source_commit: 51ed4d23872ce7c6646683d002e13e9388412d53
 created: 2026-07-09
 updated: 2026-07-10
@@ -183,3 +184,11 @@ pattern search, so the repository suffix tree is **not** applicable. No source c
 Bartel 2009, Agarwal 2015, PMC4870184, Crick 1966, Lewis 2005, and Turner 2004 are mutually
 consistent; the pairing classification is exact and only the ΔG magnitude is an intentional
 simplification.
+
+The two-stage validation verdict is recorded in [[mirna-pair-001-report]] — **Stage A PASS,
+Stage B PASS-WITH-NOTES, End-state CLEAN** (full suite 6543/0). The review found and fixed a real
+gap: `CanPair`/`IsWobblePair` did not honour the documented DNA-`T`→`U` contract
+(`CanPair('A','T')` returned false while `AlignMiRnaToTarget`/`GetReverseComplement` normalise T→U),
+and the canonical test was green-washed by silently omitting the `A-T` assertion. A private
+`NormalizeBase` was added so the predicates (and the MCP tools that delegate to them) treat T as U,
+with the tests rewritten to the sourced contract values.

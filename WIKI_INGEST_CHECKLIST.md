@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 945 / 1181
+Progress: 957 / 1181
 
 ## (top-level)  (6)
 
@@ -298,7 +298,7 @@ Progress: 945 / 1181
 - [x] docs/Validation/reports/GENOMIC-COMMON-001.md
 - [x] docs/Validation/reports/GENOMIC-MOTIFS-001.md
 - [x] docs/Validation/reports/GENOMIC-ORF-001.md
-- [ ] docs/Validation/reports/GENOMIC-REPEAT-001.md
+- [x] docs/Validation/reports/GENOMIC-REPEAT-001.md
 - [x] docs/Validation/reports/GENOMIC-SIMILARITY-001.md
 - [x] docs/Validation/reports/GENOMIC-TANDEM-001.md
 - [x] docs/Validation/reports/IMMUNE-NUSVR-001.md
@@ -320,7 +320,7 @@ Progress: 945 / 1181
 - [x] docs/Validation/reports/META-FUNC-001.md
 - [x] docs/Validation/reports/META-PATHWAY-001.md
 - [x] docs/Validation/reports/META-PROF-001.md
-- [ ] docs/Validation/reports/META-RESIST-001.md
+- [x] docs/Validation/reports/META-RESIST-001.md
 - [x] docs/Validation/reports/META-TAXA-001.md
 - [x] docs/Validation/reports/META-TETRA-001.md
 - [x] docs/Validation/reports/MHC-MATRIX-001.md
@@ -328,11 +328,11 @@ Progress: 945 / 1181
 - [x] docs/Validation/reports/MIRNA-CLASSIFY-001.md
 - [x] docs/Validation/reports/MIRNA-CLEAVAGE-001.md
 - [x] docs/Validation/reports/MIRNA-CONTEXT-001.md
-- [ ] docs/Validation/reports/MIRNA-PAIR-001.md
+- [x] docs/Validation/reports/MIRNA-PAIR-001.md
 - [x] docs/Validation/reports/MIRNA-PCT-001.md
 - [x] docs/Validation/reports/MIRNA-PRECURSOR-001.md
 - [x] docs/Validation/reports/MIRNA-SEED-001.md
-- [ ] docs/Validation/reports/MIRNA-TARGET-001.md
+- [x] docs/Validation/reports/MIRNA-TARGET-001.md
 - [x] docs/Validation/reports/MOTIF-CONS-001.md
 - [x] docs/Validation/reports/MOTIF-DISCOVER-001.md
 - [x] docs/Validation/reports/MOTIF-GENERATE-001.md
@@ -375,14 +375,14 @@ Progress: 945 / 1181
 - [x] docs/Validation/reports/ONCO-TMB-001.md
 - [x] docs/Validation/reports/ONCO-VAF-001.md
 - [x] docs/Validation/reports/PANGEN-CLUSTER-001.md
-- [ ] docs/Validation/reports/PANGEN-CORE-001.md
+- [x] docs/Validation/reports/PANGEN-CORE-001.md
 - [x] docs/Validation/reports/PANGEN-HEAP-001.md
 - [x] docs/Validation/reports/PANGEN-MARKER-001.md
 - [x] docs/Validation/reports/PARSE-BED-001.md
 - [x] docs/Validation/reports/PARSE-EMBL-001.md
 - [x] docs/Validation/reports/PARSE-FASTA-001.md
 - [x] docs/Validation/reports/PARSE-FASTQ-001.md
-- [ ] docs/Validation/reports/PARSE-GENBANK-001.md
+- [x] docs/Validation/reports/PARSE-GENBANK-001.md
 - [x] docs/Validation/reports/PARSE-GFF-001.md
 - [x] docs/Validation/reports/PARSE-VCF-001.md
 - [x] docs/Validation/reports/PAT-APPROX-001.md
@@ -424,7 +424,7 @@ Progress: 945 / 1181
 - [x] docs/Validation/reports/PROTMOTIF-PATTERN-001.md
 - [x] docs/Validation/reports/PROTMOTIF-PROSITE-001.md
 - [x] docs/Validation/reports/PROTMOTIF-SP-001.md
-- [ ] docs/Validation/reports/PROTMOTIF-TM-001.md
+- [x] docs/Validation/reports/PROTMOTIF-TM-001.md
 - [x] docs/Validation/reports/QUALITY-PHRED-001.md
 - [x] docs/Validation/reports/QUALITY-STATS-001.md
 - [x] docs/Validation/reports/REP-APPROX-001.md
@@ -443,7 +443,7 @@ Progress: 945 / 1181
 - [x] docs/Validation/reports/RNA-INVERT-001.md
 - [x] docs/Validation/reports/RNA-MFE-001.md
 - [x] docs/Validation/reports/RNA-PAIR-001.md
-- [ ] docs/Validation/reports/RNA-PARTITION-001.md
+- [x] docs/Validation/reports/RNA-PARTITION-001.md
 - [x] docs/Validation/reports/RNA-PSEUDOKNOT-001.md
 - [x] docs/Validation/reports/RNA-STEMLOOP-001.md
 - [x] docs/Validation/reports/RNA-STRUCT-001.md
@@ -451,7 +451,7 @@ Progress: 945 / 1181
 - [x] docs/Validation/reports/SEQ-CODON-FREQ-001.md
 - [x] docs/Validation/reports/SEQ-COMP-001.md
 - [x] docs/Validation/reports/SEQ-COMPLEX-001.md
-- [ ] docs/Validation/reports/SEQ-COMPLEX-COMPRESS-001.md
+- [x] docs/Validation/reports/SEQ-COMPLEX-COMPRESS-001.md
 - [x] docs/Validation/reports/SEQ-COMPLEX-DUST-001.md
 - [x] docs/Validation/reports/SEQ-COMPLEX-KMER-001.md
 - [x] docs/Validation/reports/SEQ-COMPLEX-WINDOW-001.md
@@ -480,14 +480,14 @@ Progress: 945 / 1181
 - [x] docs/Validation/reports/SPLICE-MAXENT5-001.md
 - [x] docs/Validation/reports/SPLICE-PREDICT-001.md
 - [x] docs/Validation/reports/SV-BREAKPOINT-001.md
-- [ ] docs/Validation/reports/SV-CNV-001.md
-- [ ] docs/Validation/reports/SV-DETECT-001.md
+- [x] docs/Validation/reports/SV-CNV-001.md
+- [x] docs/Validation/reports/SV-DETECT-001.md
 - [x] docs/Validation/reports/TRANS-CODON-001.md
 - [x] docs/Validation/reports/TRANS-DIFF-001.md
 - [x] docs/Validation/reports/TRANS-EXPR-001.md
 - [x] docs/Validation/reports/TRANS-PROT-001.md
 - [x] docs/Validation/reports/TRANS-SIXFRAME-001.md
-- [ ] docs/Validation/reports/TRANS-SPLICE-001.md
+- [x] docs/Validation/reports/TRANS-SPLICE-001.md
 - [x] docs/Validation/reports/VARIANT-ANNOT-001.md
 - [x] docs/Validation/reports/VARIANT-CALL-001.md
 - [x] docs/Validation/reports/VARIANT-INDEL-001.md

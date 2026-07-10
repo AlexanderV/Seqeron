@@ -4,6 +4,7 @@ title: "RNA partition function (McCaskill algorithm — base-pair probabilities 
 tags: [rna, algorithm]
 sources:
   - docs/Evidence/RNA-PARTITION-001-Evidence.md
+  - docs/Validation/reports/RNA-PARTITION-001.md
 source_commit: c74e2076b6e891a02c917198a54544896c4dbafa
 created: 2026-07-10
 updated: 2026-07-10
@@ -84,7 +85,11 @@ O_kl = Q_{1,k-1}·Q_{l+1,n} + Σ_{i<k, j>l, CanPair(i,j), j−i>m} w·Q_{i+1,k-1
 for nestable pairs** — a pair that can be enclosed by another gets probability strictly larger than its
 external term. E.g. `GGGAAACCC` P(2,6) = 6/20 = 0.30, not the external 1/20 = 0.05; `GGGGCCCC` P(1,5) =
 3/16, not 1/16. The outside recursion matches Boltzmann-weighted brute-force enumeration to machine
-precision (max error 3.3e-16); a prior "external term suffices" claim was a since-fixed bug.
+precision (max error 3.3e-16); a prior "external term suffices" claim was a since-fixed bug. The
+two-stage validation verdict is recorded in [[rna-partition-001-report]] — **Stage A
+PASS-WITH-NOTES / Stage B FAIL → FIXED, State ✅ CLEAN** (the external-only base-pair-probability
+defect was corrected to the outside recursion, docs corrected, strict nested-pair tests added;
+`Z` and the Boltzmann structure probability were already correct; full suite 6596/0).
 
 ## 4. Worked oracles
 

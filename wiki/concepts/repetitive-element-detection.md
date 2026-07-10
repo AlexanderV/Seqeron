@@ -15,6 +15,7 @@ sources:
   - docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
   - docs/Evidence/REP-STR-001-Evidence.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
+  - docs/Validation/reports/GENOMIC-REPEAT-001.md
 source_commit: f11e8bc7feeba4d997051309d93f661db1f53382
 created: 2026-07-09
 updated: 2026-07-10
@@ -55,6 +56,16 @@ anchor for the whole **repeats / tandem family** — sibling units (GENOMIC-REPE
 GENOMIC-TANDEM, microsatellite/STR, low-complexity, etc.) should link here rather than
 re-deriving the same definitions. See [[test-unit-registry]] for how units are tracked and
 [[algorithm-validation-evidence]] for the evidence-artifact pattern.
+
+The general longest-repeated-substring + all-repeats enumerator
+(`GenomicAnalyzer.FindLongestRepeat` = deepest suffix-tree internal node;
+`GenomicAnalyzer.FindRepeats` = every distinct substring occurring ≥ 2 times) is the
+sibling **GENOMIC-REPEAT-001** unit. Its two-stage validation verdict is recorded in
+[[genomic-repeat-001-report]] — **Stage A PASS, Stage B FAIL → FIXED, End-state CLEAN**:
+the review found `FindRepeats` emitted only the maximal adjacent-pair LCP and dropped
+shorter repeated prefixes (`ACGTACGTTTTTACGT`@3 returned 5 of the 8 true repeats), a
+real completeness defect fixed this session and locked with a brute-force-sourced
+regression guard (full suite 6571/0).
 
 ## The three sub-problems
 

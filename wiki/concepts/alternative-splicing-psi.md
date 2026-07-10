@@ -6,6 +6,7 @@ mcp_tools:
   - detect_alternative_splicing
 sources:
   - docs/Evidence/TRANS-SPLICE-001-Evidence.md
+  - docs/Validation/reports/TRANS-SPLICE-001.md
 source_commit: 82e3e03992f6e370559efdde3124a4b870a57893
 created: 2026-07-10
 updated: 2026-07-10
@@ -35,7 +36,10 @@ fraction of transcripts that *include* an alternatively spliced segment — from
 read support. A **Transcriptome / RNA-seq family** sibling of the anchor [[differential-expression]],
 distinct in method (read-ratio splicing quantification, not a two-group mean test). Validated under
 test unit **TRANS-SPLICE-001**; the record is [[trans-splice-001-evidence]], [[test-unit-registry]]
-tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern.
+tracks the unit, and [[algorithm-validation-evidence]] describes the artifact pattern. The
+two-stage validation verdict is recorded in [[trans-splice-001-report]] — **Stage A
+PASS-WITH-NOTES · Stage B FAIL → fixed, State ✅ CLEAN** (the swapped A5SS/A3SS event labels
+in `ClassifyIsoformPair` were corrected in-session; full suite 6501/0).
 
 Impl `TranscriptomeAnalyzer` (`Seqeron.Genomics.Annotation`, the Annotation server):
 `CalculatePSI(...)` → the inclusion fraction, and `DetectAlternativeSplicing(...)` → the AS event
