@@ -4494,3 +4494,18 @@ Ran the full lint suite. Staleness CLEAN, graph lint CLEAN (491 nodes, 0 issues)
 Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference mapping all **427 MCP tools across 11 servers** to the concept each thin wrapper delegates to (deterministic map from `tools/wiki-ingest/mcp_map.py`). Concept-grouped rows (`[[concept]] — tool_a, tool_b`) keep every tool→concept visible while staying compact; unmapped tools grouped by wrapped C# class per server. Coverage: **209 mapped / 218 unmapped**, **120 distinct concepts** referenced (all resolve; no broken wikilinks). No new concept page created — unmapped tools recorded as gaps (largest clusters: Parsers 39/41 whole-server gap, PrimerDesigner, GenomeAssemblyAnalyzer, StructuralVariantAnalyzer, RestrictionAnalyzer, RnaSecondaryStructure energy terms). Typed graph: catalog `relates_to` three-front-doors + skill-layer (both high, README-sourced). Updated wiki/index.md (+1 Concepts line).
 - **Validation reports (12)** — ingested the 12 remaining `docs/Validation/reports/**` as full `[[<unit>-report]]` verdict pages (GENOMIC-REPEAT-001, META-RESIST-001, MIRNA-PAIR-001, MIRNA-TARGET-001, PANGEN-CORE-001, PARSE-GENBANK-001, PROTMOTIF-TM-001, RNA-PARTITION-001, SEQ-COMPLEX-COMPRESS-001, SV-CNV-001, SV-DETECT-001, TRANS-SPLICE-001), each wired into its existing concept (`sources:` + body wikilink) and listed under index `## Sources`; all end-state ✅ CLEAN. Complements the bulk `validation-verdicts` registry (these 12 were not in it). Also removed a stray tool-call tag block at the end of `discordant-pair-sv-detection.md`.
 - **Oversize split (2)** — split the two soft-cap pages: `backlog.md` (448→149) moved its per-domain pending tables to the new [[backlog-pending]] (type index); `concepts/algorithm-validation-evidence.md` (468→376) moved its inline 190-item `[[..-evidence]]` enumeration to the new [[evidence-artifact-index]] (type synthesis, so the links still count as inbound — no evidence page orphaned). Both new pages indexed; wiki lint clean (0 oversize).
+
+## [2026-07-11] ingest | docs/algorithms/Annotation/GFF3_IO.md → gff3-io (concept)
+   New concept [[gff3-io]] synthesizing the ANNOT-GFF-001 **annotation-layer** GFF3 helper
+   (`GenomeAnnotator.ParseGff3` / `ToGff3` / `EncodeGff3Value`, Implementation Status *Simplified*) —
+   the second GFF3 path, kept distinct from the FileIO `GffParser` unit ([[parse-gff-001-evidence]]).
+   Carries what is distinct: reduced `GenomicFeature` parse record (drops `seqid`/`source` → lossy
+   round-trip), `GeneAnnotation`-only exporter, col-9 encoder, and the load-bearing **per-transcript
+   cumulative CDS phase** `(3 − Σ preceding-lengths mod 3) mod 3` (5′→3′, both strands). Reused
+   existing pages rather than duplicating the 9-column schema/dialect facts (on [[parse-gff-001-evidence]])
+   and coordinate contrast (on [[bed-format-parsing]] / [[insdc-feature-location]]). Cross-linked from
+   [[annot-gff-001-report]] (validation verdict), [[bed-format-parsing]], [[parse-gff-001-evidence]].
+   Re-homed the `parse_gff3` / `to_gff3` MCP tools from [[bed-format-parsing]] onto [[gff3-io]] in
+   [[mcp-tool-catalog]] (mapped 209→210, unmapped 218→217, concepts 120→121). Moved GFF3_IO from
+   [[backlog-pending]] (Annotation 3→2) to [[backlog]] covered (77→78). Updated index. No contradictions.
+   graph: +1 node, +1 typed edge

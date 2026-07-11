@@ -7,7 +7,7 @@ sources:
   - docs/mcp/MCP_STATUS.md
 source_commit: b3f950caf701615bb8a0296df6c5368d26dde7ec
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-11
 graph:
   relationships:
     - predicate: relates_to
@@ -43,10 +43,11 @@ standards are [[mcp-plan]] and [[mcp-checklist]]; the reference operating prompt
 
 ## Coverage
 
-Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **209 / 427**
+Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **210 / 427**
 tools to an existing concept (via authoritative method-ID / algorithm-doc / literal bridges, or
-high-confidence name overlap), touching **120 distinct concepts**. The
-remaining **218** are listed per server as *unmapped* — a tool with no confidently
+high-confidence name overlap), touching **121 distinct concepts** (the `parse_gff3` / `to_gff3`
+pair was re-homed from [[bed-format-parsing]] onto the dedicated [[gff3-io]] concept). The
+remaining **217** are listed per server as *unmapped* — a tool with no confidently
 matched existing concept, not necessarily a missing algorithm. No new concept page was created; the
 unmapped tools are recorded as gaps (see the closing section) so a future ingest can decide whether a
 cluster deserves its own concept.
@@ -180,12 +181,11 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _SequenceComplexity_: `compression_ratio`, `find_low_complexity_regions`
   - _SequenceStatistics_: `dinucleotide_frequencies`, `dinucleotide_ratios`, `entropy_profile`, `gc_content_profile`
 
-### Annotation — 97 tools (39 mapped, 58 unmapped)
+### Annotation — 97 tools (40 mapped, 57 unmapped)
 
 `Seqeron.Mcp.Annotation` — genes/ORFs/promoters, variants, epigenetics, miRNA, splicing, SVs, transcriptomics.
 
 - [[alternative-splicing-psi]] — `detect_alternative_splicing`
-- [[bed-format-parsing]] — `to_gff3`
 - [[bisulfite-methylation-calling]] — `methylation_from_bisulfite`, `simulate_bisulfite_conversion`
 - [[chromatin-state-prediction]] — `annotate_histone_modifications`, `find_accessible_regions`, `predict_chromatin_state`
 - [[coding-potential-hexamer-score]] — `coding_potential`
@@ -195,6 +195,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
 - [[discordant-pair-sv-detection]] — `find_discordant_pairs`
 - [[epigenetic-age-horvath-clock]] — `epigenetic_age`
 - [[expression-quantification]] — `calculate_tpm`
+- [[gff3-io]] — `parse_gff3`, `to_gff3`
 - [[gene-structure-prediction-intron-exon]] — `predict_gene_structure`, `predict_introns`
 - [[germline-variant-calling-snp-indel]] — `find_indels`, `find_snps`, `titv_ratio`
 - [[methylation-context-classification]] — `find_methylation_sites`
@@ -213,7 +214,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
 
 Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _EpigeneticsAnalyzer_: `methylation_profile`, `predict_imprinted_genes`
-  - _GenomeAnnotator_: `find_orfs`, `find_ribosome_binding_sites`, `longest_orfs_per_frame`, `parse_gff3`
+  - _GenomeAnnotator_: `find_orfs`, `find_ribosome_binding_sites`, `longest_orfs_per_frame`
   - _MiRnaAnalyzer_: `align_mirna_to_target`, `create_mirna`, `find_mirna_target_sites`, `find_similar_mirnas`, `generate_seed_variants`, `rna_reverse_complement`
   - _SpliceSitePredictor_: `find_acceptor_sites`, `find_donor_sites`, `find_retained_intron_candidates`, `is_within_coding_region`, `maxent_score`
   - _StructuralVariantAnalyzer_: `annotate_svs`, `assemble_breakpoint_sequence`, `cluster_discordant_pairs`, `cluster_split_reads`, `filter_svs`, `find_microhomology`, `find_split_reads`, `genotype_sv`, `identify_cnvs`, `merge_overlapping_svs`

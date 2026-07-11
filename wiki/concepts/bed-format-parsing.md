@@ -2,14 +2,12 @@
 type: concept
 title: "BED format parsing (0-based half-open intervals)"
 tags: [file-io, algorithm]
-mcp_tools:
-  - to_gff3
 sources:
   - docs/Evidence/PARSE-BED-001-Evidence.md
   - docs/Validation/reports/ANNOT-GFF-001.md
 source_commit: ffe651dc64c6b2478550efc53671d6f5e2c1ccbe
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-11
 graph:
   relationships:
     - predicate: relates_to
@@ -51,9 +49,9 @@ tab-delimited annotation format (9-column, 1-based inclusive) is traced in
 [[parse-gff-001-evidence]], and the tab-delimited **VCF** variant format (8 fixed columns +
 optional FORMAT/genotype samples, 1-based `POS`) in [[parse-vcf-001-evidence]]. GFF3 has a
 **second, annotation-layer** code path (`GenomeAnnotator.ToGff3` / `ParseGff3`, distinct from the
-FileIO parser above), whose validation — including the per-transcript **cumulative CDS phase**
-formula `(3 − Σ preceding lengths mod 3) mod 3` on both strands — is recorded in
-[[annot-gff-001-report]].
+FileIO parser above) — its own concept [[gff3-io]], whose validation, including the per-transcript
+**cumulative CDS phase** formula `(3 − Σ preceding lengths mod 3) mod 3` on both strands, is
+recorded in [[annot-gff-001-report]].
 
 ## The column ladder: BED3 → BED12
 

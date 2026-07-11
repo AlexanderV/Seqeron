@@ -8,7 +8,7 @@ sources:
 source_commit: 0dc9d22d7d1e7c57ca0bd01652ff34963a0b08a7
 ingested: 2026-07-10
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-11
 ---
 
 # Evidence: PARSE-GFF-001
@@ -25,8 +25,12 @@ is a **tab-delimited interval** format (not an INSDC flat file such as
 [[bed-format-parsing]]; the **coordinate contrast** that matters here — GFF is **1-based,
 inclusive** whereas BED is 0-based half-open — is already spelled out on that anchor page. See
 [[test-unit-registry]] for how units are tracked and [[fuzzing]] for why parsers are the
-family's hottest malformed-input target. No dedicated concept page is warranted: the format's
-distinct facts are captured below and the coordinate model is on the shared anchor.
+family's hottest malformed-input target. No dedicated concept page is warranted **for this FileIO
+unit**: the format's distinct facts are captured below and the coordinate model is on the shared
+anchor. Note the **separate annotation-layer** GFF3 path — `GenomeAnnotator.ParseGff3` / `ToGff3`,
+test unit ANNOT-GFF-001 — is its own concept [[gff3-io]] (reduced record shape,
+`GeneAnnotation`-only export, per-transcript CDS phase); this evidence file covers the fuller
+`GffParser` (GFF3 **and** GTF/GFF2, hierarchical gene models).
 
 ## What this file records
 

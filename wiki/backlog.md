@@ -3,7 +3,7 @@ type: index
 title: "Ingestion backlog — docs/algorithms reconciliation + queued sources"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-11
 ---
 
 # Ingestion backlog
@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **77** algorithm docs covered-via-concept, **168** pending across 27 domains.
+Status at generation: **78** algorithm docs covered-via-concept, **167** pending across 27 domains.
 
 ## Covered via concept (done)
 
@@ -34,6 +34,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Alignment/Semi_Global_Alignment.md` | [[semi-global-alignment-fitting]] |
 | `docs/algorithms/Analysis/Open_Reading_Frame_Detection.md` | [[open-reading-frame-detection]] |
 | `docs/algorithms/Analysis/Sequence_Similarity.md` | [[kmer-jaccard-similarity]] |
+| `docs/algorithms/Annotation/GFF3_IO.md` | [[gff3-io]] |
 | `docs/algorithms/Annotation/Promoter_Detection.md` | [[promoter-detection]] |
 | `docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
 | `docs/algorithms/Annotation/Repetitive_Element_Detection.md` | [[repetitive-element-detection]] |

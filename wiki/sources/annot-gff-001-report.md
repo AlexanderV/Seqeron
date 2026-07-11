@@ -8,7 +8,7 @@ sources:
 source_commit: ffe651dc64c6b2478550efc53671d6f5e2c1ccbe
 ingested: 2026-07-10
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-11
 ---
 
 # Validation report: ANNOT-GFF-001
@@ -18,7 +18,9 @@ inside the annotation layer** (`GenomeAnnotator.ToGff3` / `ParseGff3`), validate
 This is the *report* artifact that feeds one row of the [[validation-ledger]]; it records the
 validator's verdict on both the format description and the shipped code, following the
 [[validation-protocol]] Stage A / Stage B method that underpins the [[validation-and-testing]]
-campaign.
+campaign. The annotation-layer format/algorithm itself — the reduced `GenomicFeature` record, the
+`GeneAnnotation`-only exporter, and the per-transcript CDS-phase rule below — is synthesized on the
+concept page [[gff3-io]] (which cites the primary spec `docs/algorithms/Annotation/GFF3_IO.md`).
 
 **Scope note — distinct from PARSE-GFF-001.** This unit is the **annotation layer's own** GFF3
 emitter/parser on `GenomeAnnotator` (record `GeneAnnotation`, 0-based half-open internally,
