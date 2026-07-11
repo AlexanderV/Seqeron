@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 957 / 1181
+Progress: 997 / 1181
 
 ## (top-level)  (6)
 
@@ -497,15 +497,15 @@ Progress: 957 / 1181
 
 - [x] docs/algorithms/Alignment/Alignment_Statistics.md  (done-via-concept)
 - [x] docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md  (done-via-concept)
-- [ ] docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md
+- [x] docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md
 - [x] docs/algorithms/Alignment/Multiple_Sequence_Alignment.md  (done-via-concept)
 - [x] docs/algorithms/Alignment/Semi_Global_Alignment.md  (done-via-concept)
-- [ ] docs/algorithms/Analysis/Open_Reading_Frame_Detection.md
-- [ ] docs/algorithms/Analysis/Sequence_Similarity.md
+- [x] docs/algorithms/Analysis/Open_Reading_Frame_Detection.md
+- [x] docs/algorithms/Analysis/Sequence_Similarity.md
 - [ ] docs/algorithms/Annotation/GFF3_IO.md
 - [ ] docs/algorithms/Annotation/Gene_Prediction.md
 - [ ] docs/algorithms/Annotation/ORF_Detection.md
-- [ ] docs/algorithms/Annotation/Promoter_Detection.md
+- [x] docs/algorithms/Annotation/Promoter_Detection.md
 - [x] docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md  (done-via-concept)
 - [x] docs/algorithms/Annotation/Repetitive_Element_Detection.md  (done-via-concept)
 - [x] docs/algorithms/Assembly/Assembly_Statistics.md  (done-via-concept)
@@ -542,12 +542,12 @@ Progress: 957 / 1181
 - [ ] docs/algorithms/Complexity/K-mer_Entropy.md
 - [ ] docs/algorithms/Complexity/Lempel_Ziv_Complexity.md
 - [ ] docs/algorithms/Complexity/Windowed_Complexity.md
-- [ ] docs/algorithms/Epigenetics/Bisulfite_Sequencing_Analysis.md
-- [ ] docs/algorithms/Epigenetics/Chromatin_State_Prediction.md
-- [ ] docs/algorithms/Epigenetics/CpG_Site_Detection.md
-- [ ] docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md
-- [ ] docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md
-- [ ] docs/algorithms/Epigenetics/Methylation_Analysis.md
+- [x] docs/algorithms/Epigenetics/Bisulfite_Sequencing_Analysis.md
+- [x] docs/algorithms/Epigenetics/Chromatin_State_Prediction.md
+- [x] docs/algorithms/Epigenetics/CpG_Site_Detection.md
+- [x] docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md
+- [x] docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md
+- [x] docs/algorithms/Epigenetics/Methylation_Analysis.md
 - [x] docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md  (done-via-concept)
 - [x] docs/algorithms/Extended_Assembly/Contig_Merging.md  (done-via-concept)
 - [x] docs/algorithms/Extended_Assembly/Scaffolding.md  (done-via-concept)
@@ -560,35 +560,35 @@ Progress: 957 / 1181
 - [ ] docs/algorithms/FileIO/GFF_Parsing.md
 - [ ] docs/algorithms/FileIO/GenBank_Parsing.md
 - [ ] docs/algorithms/FileIO/VCF_Parsing.md
-- [ ] docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
-- [ ] docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md
-- [ ] docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md
+- [x] docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
+- [x] docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md
+- [x] docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md
 - [ ] docs/algorithms/K-mer/K-mer_Counting.md
-- [ ] docs/algorithms/K-mer/K-mer_Euclidean_Distance.md
+- [x] docs/algorithms/K-mer/K-mer_Euclidean_Distance.md
 - [ ] docs/algorithms/K-mer/K-mer_Frequency_Analysis.md
-- [ ] docs/algorithms/K-mer/K-mer_Generation.md
-- [ ] docs/algorithms/K-mer/K-mer_Positions.md
+- [x] docs/algorithms/K-mer/K-mer_Generation.md
+- [x] docs/algorithms/K-mer/K-mer_Positions.md
 - [ ] docs/algorithms/K-mer/K-mer_Search.md
-- [ ] docs/algorithms/K-mer/K-mer_Statistics.md
-- [ ] docs/algorithms/K-mer/Unique_And_MinCount_Kmers.md
-- [ ] docs/algorithms/Metagenomics/Alpha_Diversity.md
-- [ ] docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md
-- [ ] docs/algorithms/Metagenomics/Beta_Diversity.md
-- [ ] docs/algorithms/Metagenomics/Functional_Prediction.md
-- [ ] docs/algorithms/Metagenomics/Genome_Binning.md
+- [x] docs/algorithms/K-mer/K-mer_Statistics.md
+- [x] docs/algorithms/K-mer/Unique_And_MinCount_Kmers.md
+- [x] docs/algorithms/Metagenomics/Alpha_Diversity.md
+- [x] docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md
+- [x] docs/algorithms/Metagenomics/Beta_Diversity.md
+- [x] docs/algorithms/Metagenomics/Functional_Prediction.md
+- [x] docs/algorithms/Metagenomics/Genome_Binning.md
 - [ ] docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md
-- [ ] docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md
-- [ ] docs/algorithms/Metagenomics/Significant_Taxa_Detection.md
-- [ ] docs/algorithms/Metagenomics/Taxonomic_Classification.md
-- [ ] docs/algorithms/Metagenomics/Taxonomic_Profile.md
-- [ ] docs/algorithms/MiRNA/MiRNA_Target_Pairing.md
-- [ ] docs/algorithms/MiRNA/Pre_miRNA_Detection.md
-- [ ] docs/algorithms/MiRNA/Seed_Sequence_Analysis.md
-- [ ] docs/algorithms/MiRNA/Target_Site_Prediction.md
+- [x] docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md
+- [x] docs/algorithms/Metagenomics/Significant_Taxa_Detection.md
+- [x] docs/algorithms/Metagenomics/Taxonomic_Classification.md
+- [x] docs/algorithms/Metagenomics/Taxonomic_Profile.md
+- [x] docs/algorithms/MiRNA/MiRNA_Target_Pairing.md
+- [x] docs/algorithms/MiRNA/Pre_miRNA_Detection.md
+- [x] docs/algorithms/MiRNA/Seed_Sequence_Analysis.md
+- [x] docs/algorithms/MiRNA/Target_Site_Prediction.md
 - [ ] docs/algorithms/MolTools/DNA_Dimer_Tm.md
 - [ ] docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md
 - [ ] docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md
-- [ ] docs/algorithms/MolTools/Guide_RNA_Design.md
+- [x] docs/algorithms/MolTools/Guide_RNA_Design.md
 - [ ] docs/algorithms/MolTools/Hybridization_Probe_Design.md
 - [ ] docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md
 - [ ] docs/algorithms/MolTools/Melting_Temperature.md
@@ -602,10 +602,10 @@ Progress: 957 / 1181
 - [ ] docs/algorithms/MolTools/Restriction_Digest_Simulation.md
 - [ ] docs/algorithms/MolTools/Restriction_Enzyme_Filtering.md
 - [ ] docs/algorithms/MolTools/Restriction_Site_Detection.md
-- [ ] docs/algorithms/Motif_Analysis/Known_Motif_Search.md
-- [ ] docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md
-- [ ] docs/algorithms/Motif_Discovery/Regulatory_Elements.md
-- [ ] docs/algorithms/Motif_Discovery/Shared_Motifs.md
+- [x] docs/algorithms/Motif_Analysis/Known_Motif_Search.md
+- [x] docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md
+- [x] docs/algorithms/Motif_Discovery/Regulatory_Elements.md
+- [x] docs/algorithms/Motif_Discovery/Shared_Motifs.md
 - [ ] docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md
 - [ ] docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md
 - [ ] docs/algorithms/Oncology/Cancer_Variant_Annotation.md
@@ -647,11 +647,11 @@ Progress: 957 / 1181
 - [ ] docs/algorithms/PanGenome/Pan_Genome_Growth_Model.md
 - [ ] docs/algorithms/PanGenome/Phylogenetic_Marker_Selection.md
 - [ ] docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
-- [ ] docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md
+- [x] docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md
 - [ ] docs/algorithms/Pattern_Matching/Edit_Distance.md
 - [ ] docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md
 - [ ] docs/algorithms/Pattern_Matching/Frequent_Words_With_Mismatches.md
-- [ ] docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md
+- [x] docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md
 - [ ] docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md
 - [ ] docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md
 - [ ] docs/algorithms/Pattern_Matching/Suffix_Tree.md
@@ -691,7 +691,7 @@ Progress: 957 / 1181
 - [ ] docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md
 - [ ] docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
 - [ ] docs/algorithms/Repeat_Analysis/Palindrome_Detection.md
-- [ ] docs/algorithms/Repeat_Analysis/Repeat_Detection.md
+- [x] docs/algorithms/Repeat_Analysis/Repeat_Detection.md
 - [ ] docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md
 - [ ] docs/algorithms/RnaStructure/Dot_Bracket_Notation.md
 - [ ] docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
@@ -706,7 +706,7 @@ Progress: 957 / 1181
 - [ ] docs/algorithms/RnaStructure/RNA_Secondary_Structure.md
 - [ ] docs/algorithms/RnaStructure/RNA_Stemloop.md
 - [ ] docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md
-- [ ] docs/algorithms/Sequence_Comparison/Common_Region_Detection.md
+- [x] docs/algorithms/Sequence_Comparison/Common_Region_Detection.md
 - [ ] docs/algorithms/Sequence_Composition/GC_Skew.md
 - [ ] docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
 - [ ] docs/algorithms/Sequence_Composition/RNA_Complement.md
