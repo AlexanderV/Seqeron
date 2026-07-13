@@ -9,7 +9,7 @@ sources:
   - docs/algorithms/Annotation/GFF3_IO.md
 source_commit: d4bfbd6d7b77287fda1b9ce616720a53312b9779
 created: 2026-07-11
-updated: 2026-07-11
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -29,7 +29,8 @@ lightweight helper surface — `GenomeAnnotator.ParseGff3(...)` / `ToGff3(...)` 
 `EncodeGff3Value(...)`, test unit **ANNOT-GFF-001** (Implementation Status: *Simplified*). The
 **FileIO** full parser (`GffParser.Parse` / `ParseFile` / `WriteToStream` / `BuildGeneModels`,
 GFF3 **and** GTF/GFF2 dialects, hierarchical gene models) is the separate **PARSE-GFF-001** unit,
-traced on [[parse-gff-001-evidence]]. The shared 9-column schema, attribute-dialect facts, and the
+synthesized in the concept [[gff-parsing]] and traced on [[parse-gff-001-evidence]]. The shared
+9-column schema, attribute-dialect facts, and the
 `Parent`/child hierarchy live there; this page carries only what is **distinct** about the
 annotation-layer helper — a deliberately reduced record shape, a `GeneAnnotation`-only exporter,
 and the load-bearing **per-transcript cumulative CDS phase** algorithm.
@@ -108,7 +109,8 @@ translated payloads are not preserved in lightweight output). Parse **decodes** 
 - **Lossy parse:** drops `seqid`/`source`; not a round-trip-faithful reader.
 - **`GeneAnnotation`-only export:** cannot serialize arbitrary feature records.
 - **No hierarchy:** no `Parent`/child gene-model reconstruction, no multi-parent handling — for
-  those, and for **GTF/GFF2** dialects, use the FileIO `GffParser` ([[parse-gff-001-evidence]]).
+  those, and for **GTF/GFF2** dialects, use the FileIO `GffParser` ([[gff-parsing]],
+  [[parse-gff-001-evidence]]).
 - **No FASTA-section** handling; **no** faithful classic quoted-GFF2-attribute parsing (no repo
   surface covers the latter).
 - **No validation** of Sequence Ontology terms, `seqId` encoding, or parent-child consistency; the
