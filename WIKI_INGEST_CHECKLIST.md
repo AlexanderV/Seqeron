@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1017 / 1181
+Progress: 1018 / 1181
 
 ## (top-level)  (6)
 
@@ -565,7 +565,7 @@ Progress: 1017 / 1181
 - [x] docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md
 - [x] docs/algorithms/K-mer/K-mer_Counting.md
 - [x] docs/algorithms/K-mer/K-mer_Euclidean_Distance.md
-- [ ] docs/algorithms/K-mer/K-mer_Frequency_Analysis.md
+- [x] docs/algorithms/K-mer/K-mer_Frequency_Analysis.md
 - [x] docs/algorithms/K-mer/K-mer_Generation.md
 - [x] docs/algorithms/K-mer/K-mer_Positions.md
 - [ ] docs/algorithms/K-mer/K-mer_Search.md
