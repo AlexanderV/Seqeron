@@ -8,10 +8,11 @@ mcp_tools:
   - dust_score
   - mask_low_complexity
 sources:
+  - docs/algorithms/Complexity/DUST_Score.md
   - docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md
-source_commit: dfe172057b03d328680fbf256469d7675c2604a4
+source_commit: be6d15bca022e562accd0c0deb18161f55a1a294
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -108,6 +109,31 @@ counts `0+1+…+(c−1) = c(c−1)/2` per triplet, so it is provably equal to th
   complexity) — a defined-output convention, not a source value.
 - API-contract behaviours: case-insensitive (`ToUpperInvariant`); null DnaSequence →
   ArgumentNullException; null/empty string → 0; DnaSequence and string overloads agree.
+
+## Implementation surface and what is / isn't the published DUST
+
+Per the algorithm spec (`docs/algorithms/Complexity/DUST_Score.md`, unit `SEQ-COMPLEX-DUST-001`,
+status *Simplified*), the score lives in `SequenceComplexity.cs`:
+
+- `CalculateDustScore(DnaSequence, int)` and `CalculateDustScore(string, int)` — one linear pass
+  tallying overlapping words, `Σ c(c−1)/2` over distinct words, divided by the word count
+  `L − wordSize + 1`. Cost **O(L·wordSize) time**, **O(min(L, 4^wordSize)) space** (a hash map of
+  distinct words). No suffix tree is used: the operation is a single scan over overlapping words, not
+  an occurrence-enumeration query against a fixed text, so the repository suffix tree does not fit
+  (recorded per the reuse policy).
+- `MaskLowComplexity(...)` — masks fixed **64-base windows** whose triplet score exceeds the **2.0**
+  threshold, sharing the same score core.
+
+Two spec caveats worth carrying:
+
+- **Normalization-bug correction:** the earlier code divided by `(words − 1)`, which *over-scaled*
+  the result; it was corrected to divide by the **word count** to conform to the `1/(L−2)`
+  normalization of the reference (Li 2025; lh3/sdust). The worked oracles above assume the corrected
+  divisor.
+- **SDUST interval rule is NOT implemented:** the symmetric perfect-interval masking that selects
+  *maximal* high-scoring subwindows is absent. `MaskLowComplexity` applies a simpler fixed-window
+  threshold scan, so masked boundaries may differ from `dustmasker` / `sdust`. Only `wordSize = 3` is
+  source-backed; other word sizes are an extrapolation.
 
 ## References
 

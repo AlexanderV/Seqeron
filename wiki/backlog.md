@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **82** algorithm docs covered-via-concept, **163** pending across 24 domains.
+Status at generation: **83** algorithm docs covered-via-concept, **162** pending across 24 domains.
 
 ## Covered via concept (done)
 
@@ -47,6 +47,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Assembly/Error_Correction.md` | [[kmer-spectrum-error-correction]] |
 | `docs/algorithms/Assembly/Overlap_Layout_Consensus.md` | [[overlap-layout-consensus-assembly]] |
 | `docs/algorithms/Assembly/Quality_Trimming.md` | [[quality-trimming-running-sum]] |
+| `docs/algorithms/Complexity/DUST_Score.md` | [[dust-low-complexity-score]] |
 | `docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md` | [[aneuploidy-detection]] |
 | `docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md` | [[centromere-analysis]] |
 | `docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md` | [[centromere-analysis]] |
