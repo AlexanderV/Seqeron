@@ -6,13 +6,14 @@ mcp_tools:
   - at_skew
   - nucleotide_composition
 sources:
+  - docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md
   - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-ATSKEW-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
-source_commit: 6e8fde12868aa0db4347950e4cf52449588e0b68
+source_commit: 4beb586f662e59a317383820445c2dc5b176a08e
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 ---
 
 # Nucleotide composition skew (AT skew / GC skew)
@@ -84,3 +85,20 @@ Wikipedia "GC skew" entry). Only the **symbol-handling convention** for the AT-s
 `GC_skew` reference implementation, because Biopython ships `GC_skew` but not an AT-skew
 line — a documented assumption in [[seq-atskew-001-evidence]], matching the repository
 implementation.
+
+## Implementation
+
+Both scalar skews live in `GcSkewCalculator` (`Seqeron.Genomics.Analysis`; primary spec
+`docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md`, test unit SEQ-ATSKEW-001). AT skew
+has two overloads over a shared private core: `CalculateAtSkew(string)` is the canonical entry
+(upper-cases, counts `A`/`T` via `string.Count`, returns the skew — `null`/empty ⇒ `0`), and
+`CalculateAtSkew(DnaSequence)` forwards the already-normalized value object (`null` ⇒
+`ArgumentNullException`). Cost is **O(n) time / O(1) space** — two linear symbol counts. The
+repository suffix tree does **not** apply: AT skew is a two-symbol count, not a substring-search
+or occurrence-enumeration problem.
+
+This unit returns only the **single global scalar** — windowed/cumulative *AT*-skew profiles
+and AT-skew-based origin location are deliberately *not* implemented. For localization along a
+sequence the same class exposes the GC-skew-based `CalculateWindowedGcSkew` /
+`CalculateCumulativeGcSkew` / `PredictReplicationOrigin` (see
+[[windowed-gc-profile-and-variance]] and [[replication-origin-cumulative-skew]]).
