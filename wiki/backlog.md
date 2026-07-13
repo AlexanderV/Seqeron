@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **80** algorithm docs covered-via-concept, **165** pending across 26 domains.
+Status at generation: **81** algorithm docs covered-via-concept, **164** pending across 25 domains.
 
 ## Covered via concept (done)
 
@@ -49,6 +49,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Assembly/Quality_Trimming.md` | [[quality-trimming-running-sum]] |
 | `docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md` | [[aneuploidy-detection]] |
 | `docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md` | [[centromere-analysis]] |
+| `docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md` | [[centromere-analysis]] |
 | `docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md` | [[karyotype-analysis]] |
 | `docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md` | [[synteny-and-rearrangement-detection]] |
 | `docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md` | [[asynchronous-kmer-counting]] |
@@ -110,7 +111,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (165 algorithm docs across 26 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (164 algorithm docs across 25 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

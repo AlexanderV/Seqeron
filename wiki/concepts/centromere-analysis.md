@@ -9,12 +9,13 @@ mcp_tools:
 sources:
   - docs/Evidence/CHROM-CENT-001-Evidence.md
   - docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md
+  - docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md
   - docs/Validation/reports/CHROM-ALPHASAT-001.md
   - docs/Validation/reports/CHROM-CENT-001.md
   - docs/Validation/reports/CHROM-HOR-001.md
-source_commit: 26fb94a83697567ac130e7f9454ea3429b8ccf73
+source_commit: b8c0053177f07ad0218835374e920df51029953a
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -117,7 +118,15 @@ tandemly repeated and organised into higher-order arrays. Four additive detector
   0.90, `HasHigherOrderStructure = period ≥ 2`; independent k=4/m=7 cross-check: period 4, unit 684 bp,
   copy 7, inter 100% / intra 64.91%). Distinct from the monomer-detection slice
   [[chrom-alphasat-001-report]] (which left HOR out of scope) and the whole-centromere unit
-  [[chrom-cent-001-report]].
+  [[chrom-cent-001-report]]. The result is a read-only `HorResult` record struct (the 7 fields above);
+  `monomerLength` defaults to 171 and must be ≥ 1 (else `ArgumentOutOfRangeException`); the search
+  returns the **smallest** qualifying period (a dimeric array is period 2, not 4 or 6) and a trailing
+  partial monomer is silently dropped. Cost is `O(M² · L²)` worst case (`M` monomers, `L`≈171 bp) —
+  up to `O(M²)` Needleman-Wunsch monomer pairs at `O(L²)` each — but every ordered pair `(min, max)` is
+  aligned at most once via a memoisation dictionary, so multi-kb arrays run in milliseconds. The
+  detector recovers HOR *structure* only; it does **not** decompose **cascading / nested HOR-of-HORs**
+  (Rosandić 2024) — that and SF-family labelling are left to dedicated centromere tooling (HORmon,
+  alpha-CENTAURI) with curated T2T/CHM13 reference libraries.
 
 - **`AssignSuprachromosomalFamily`** — SF1–SF5 assignment backed by a **bundled CC0 Dfam reference**
   (ALR/ALRa = A-type, ALRb carries the CENP-B box = B-type). Best-match each monomer (≥60% identity

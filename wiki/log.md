@@ -4553,3 +4553,14 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    index Sources; updated the [[backlog]] Notes row (CANONICAL_MAP now points at the new page,
    README.md remains index-only). Per the meta-doc rule: NO per-algorithm concept pages created. No
    typed graph edges (source page). No contradictions.
+
+## [2026-07-13] ingest | docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md → enriched [[centromere-analysis]]
+   Reused the existing chromosome centromere/satellite anchor rather than creating a new page: the
+   HOR method (`DetectHigherOrderRepeat`) was already synthesized there (validated as CHROM-HOR-001).
+   Added the primary spec to `sources:` (source_commit → HEAD b8c0053), enriched the HOR bullet with
+   genuinely-distinct spec detail: the `HorResult` record struct, `monomerLength` default/validation,
+   smallest-qualifying-period rule, O(M²·L²) cost with per-pair memoisation, and the not-implemented
+   cascading/nested HOR-of-HORs decomposition (HORmon / alpha-CENTAURI). Resolved the last pending
+   Chromosome_Analysis backlog row: moved to Covered via concept, updated counts (80→81 covered,
+   165→164 pending, 26→25 domains) and removed the section from [[backlog-pending]]. No new page,
+   no new typed edges (existing chrom-hor-001-report edge already links this slice). No contradictions.
