@@ -6,9 +6,10 @@ sources:
   - docs/Evidence/PARSE-GENBANK-001-Evidence.md
   - docs/Evidence/PARSE-EMBL-001-Evidence.md
   - docs/Validation/reports/PARSE-GENBANK-001.md
-source_commit: 6dbe2cbf99c5f8ee4eb8eb90b438d7b10e3d5021
+  - docs/algorithms/FileIO/EMBL_Parsing.md
+source_commit: 29ba2bb8cf7a7694b213a007619b5af9363477d6
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -86,6 +87,41 @@ faithful to INSDC/NCBI), Stage B PASS-WITH-NOTES, State CLEAN**. The one code de
 location grammar — multi-line qualifier reconstruction inserted a spurious space in `/translation`
 and left an unstripped opening quote on wrapped values — fixed to the Biopython reference behaviour
 (wrap→single space; `/translation`→no space) and locked with two RED→GREEN tests. Full suite 18213/0.
+
+## The EMBL parser surface (`EmblParser`)
+
+The EMBL dialect's parser is specified in `docs/algorithms/FileIO/EMBL_Parsing.md`
+(test unit **PARSE-EMBL-001**, Implementation Status *Simplified*). Beyond the shared
+location grammar above, it handles the EMBL flat-file **line-oriented record shape**:
+each line is a two-character code plus content, and records terminate with `//` (INV-01).
+`EmblParser.Parse(string)` / `ParseFile(string)` split input on `\n//`, keep only trimmed
+blocks that begin with `ID`, then `GroupLinesByPrefix(...)` concatenates repeated same-prefix
+lines before field parsing. The `ID` line is decoded as
+`accession; SV n; topology; mol_type; data_class; division; length BP`; when `SequenceVersion`
+is absent from `ID` it falls back to the `SV` line, and `Accession` falls back to the first
+`AC` line. Recognised line codes: `ID`, `AC`, `SV`, `DE`, `KW`, `OS`, `OC`, `RN`, `RA`, `RT`,
+`RL`, `FT`, `SQ`. Non-consumed groups (e.g. `DT`, `DR`, `CC`, `OG`) are preserved in
+`AdditionalFields` rather than dropped. Sequence letters are extracted from the `SQ` section,
+stripped of digits/spaces and uppercased.
+
+Key entry points (all `O(n)` in text length; `ToGenBank` is `O(features + references)`):
+
+- `ParseLocation(string)` — parses one INSDC location string (empty → zeroed `Location`).
+- `GetFeatures(...)` / `GetCDS(...)` / `GetGenes(...)` — feature selection helpers.
+- `ExtractSequence(...)` — local-parts subsequence extraction, 1-based inclusive, via the
+  shared `FeatureLocationHelper` (joins + reverse-complement).
+- `ResolveLocationSequence(record, location, resolver)` — the opt-in remote-aware assembly
+  described above (caller-supplied `RemoteSequenceResolver`; no network I/O in the library).
+- `ToGenBank(...)` — converts an `EmblRecord` into the repository's GenBank record shape,
+  so the two INSDC dialects interoperate through one in-memory model.
+
+**Simplified by design:** the parser preserves the main parsed fields but is **not** a
+full-fidelity round-trip serializer — feature qualifiers are flattened to a string dictionary
+(bare qualifiers → `"true"`), original quoting/line-layout is not reproduced, and malformed
+record separators or non-`ID` preambles are skipped rather than repaired. Full EMBL
+occurrence-count validation and `SQ` composition cross-checking are not implemented. The
+shared location parser is `SequenceFormatHelper.ParseLocationParts(...)`, reused by both the
+GenBank and EMBL paths.
 
 ## Partial-flag slicing (assumption)
 

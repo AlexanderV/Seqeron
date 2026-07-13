@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1010 / 1181
+Progress: 1011 / 1181
 
 ## (top-level)  (6)
 
@@ -554,7 +554,7 @@ Progress: 1010 / 1181
 - [x] docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md
 - [x] docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md
 - [x] docs/algorithms/FileIO/BED_Parsing.md
-- [ ] docs/algorithms/FileIO/EMBL_Parsing.md
+- [x] docs/algorithms/FileIO/EMBL_Parsing.md
 - [ ] docs/algorithms/FileIO/FASTA_Parsing.md
 - [ ] docs/algorithms/FileIO/FASTQ_Parsing.md
 - [ ] docs/algorithms/FileIO/GFF_Parsing.md
