@@ -8,9 +8,10 @@ sources:
   - docs/Evidence/KMER-STATS-001-Evidence.md
   - docs/algorithms/K-mer/K-mer_Statistics.md
   - docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md
-source_commit: 49a4b6f93203c68a4ef386c8867dce3dcabf99d9
+  - docs/algorithms/Complexity/K-mer_Entropy.md
+source_commit: 116678377644ae769df023b35b507b9c9cc2c0be
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -127,11 +128,40 @@ in the `SequenceComplexity` class) rather than a field of the `KmerStatistics` b
 oracles are in [[seq-complex-kmer-001-evidence]]; [[test-unit-registry]] tracks the unit.
 
 Worked oracles (bits): `ACGT` k=1 → `log₂4 = 2.0`; `ACGT` k=2 → `log₂3 ≈ 1.5849625` (all-distinct);
-`ATATAT` k=2 → `0.9709505945` (binary entropy of p=0.6); `AAAA` k=2 → `0.0` (homopolymer); `AAACGT`
-k=2 → `1.9219280949` (= log₂5 − 0.4). Contract mirrors the siblings: `L < k → 0`; `k < 1` →
-`ArgumentOutOfRangeException`; null `DnaSequence` → `ArgumentNullException`; null/empty string → 0;
-string and `DnaSequence` overloads agree (case-insensitive). Bounds: `0 ≤ H ≤ log₂(L−k+1)`
-(Shannon). This matches INV-04/INV-05 of the `AnalyzeKmers` version above.
+`ATATAT` k=2 → `0.9709505945` (binary entropy of p=0.6; dimers AT×3, TA×2 over N=5); `AAAA` k=2 →
+`0.0` (homopolymer); `AAACGT` k=2 → `1.9219280949` (= log₂5 − 0.4). Contract mirrors the siblings:
+`L < k → 0`; `k < 1` → `ArgumentOutOfRangeException`; null `DnaSequence` → `ArgumentNullException`;
+null/empty string → 0; string and `DnaSequence` overloads agree (case-insensitive). Bounds:
+`0 ≤ H ≤ log₂(L−k+1)` (Shannon). This matches INV-04/INV-05 of the `AnalyzeKmers` version above. The
+default window is `k = 2` (di-nucleotide structure). The alphabet of outcomes is **unconstrained** —
+every distinct length-`k` substring is a symbol, with **no IUPAC filtering**, so any character
+(including `N`) participates.
+
+### Implementation surface and design notes (SEQ-COMPLEX-KMER-001 spec)
+
+The primary algorithm spec `docs/algorithms/Complexity/K-mer_Entropy.md` adds the implementation
+detail behind this entry point (all in `SequenceComplexity.cs`): the public
+`CalculateKmerEntropy(DnaSequence, int)` / `(string, int)` overloads validate and upper-case, then
+delegate to a private `CalculateKmerEntropyCore(string, int)` that enumerates the overlapping k-mers
+in a **single linear scan** with a `Dictionary<string,int>` of counts and applies
+`H = −Σ p_i log₂ p_i` over the dictionary values. **Complexity: O(N·k) time, O(D·k) space**
+(N = L − k + 1 windows, each substring build/hash O(k); D = distinct k-mers stored). The repository
+suffix tree was **evaluated and deliberately not used** — this is one linear pass building a full
+frequency table (every position visited once), not a repeated occurrence-query workload, so a suffix
+tree would add construction overhead without lowering the linear cost (the same reuse-policy note the
+sibling [[dust-low-complexity-score]] records).
+
+**vs. per-base Shannon entropy (`CalculateShannonEntropy`).** K-mer entropy generalizes the family's
+character-level per-base Shannon entropy (`shannon-entropy`, pending ingest): the per-base version is effectively `k = 1` over just the
+4 nucleotides (max `log₂4 = 2` bits, composition-only, blind to order), whereas k-mer entropy with
+`k ≥ 2` captures di-/tri-nucleotide **local order** and saturates at `log₂(L − k + 1)`.
+
+**Not implemented (spec-flagged).** Only the **raw bits** value is returned — the **normalised**
+entropy `H / log₂ N` and the *entropy–rank ratio* of Çakır et al. (arXiv:2511.05300) are **not**
+computed; normalise externally if you need it. Because the metric is un-normalised, values from
+sequences of **different lengths are not directly comparable**, and it models k-mer frequency only —
+**not** positional structure or reverse-complement equivalence. Cited basis: Li 2025 *longdust*
+(arXiv:2509.07357), the Entropy–Rank Ratio preprint, and Shannon 1948.
 
 ## Relation to other units
 
