@@ -9,13 +9,14 @@ mcp_tools:
 sources:
   - docs/algorithms/MolTools/DNA_Dimer_Tm.md
   - docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md
+  - docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
   - docs/Evidence/SEQ-THERMO-001-Evidence.md
   - docs/Evidence/SEQ-TM-001-Evidence.md
-source_commit: 1f9b4d8bdbc77d3f52eff4a137104b1a31f02c39
+source_commit: f8bd7ad6d29a578a135da3b410ea97a07d036a68
 created: 2026-07-10
 updated: 2026-07-13
 graph:
@@ -217,6 +218,21 @@ gets no bonus. Verified to machine precision against primer3-py 2.3.0 `calc_hair
 `GGGGCGAAAGCCCC` → Tm 85.033 °C; triloop `GGGCGAAGCCC` → Tm 84.706 °C). The **legacy** Table-4
 `FindMostStableHairpin` with its caller-supplied `loopBonusDeltaG37` path is unchanged — the earlier
 "opt-in hairpin bonus tables" capability is now also available bundled.
+
+The bundled path is a **separate entry point** (`docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md`):
+`PrimerDesigner.CalculateHairpinThermodynamicsNtthal(sequence, sodiumMolar = 0.05)` → `NtthalHairpin.Run`,
+returning a `HairpinThermodynamics?` (ΔH° kcal/mol, ΔS° cal/(K·mol) incl. the salt term, ΔG°37, Tm °C,
+`BasePairs` = ntthal N/2), or **`null`** when no hairpin forms (homopolymer / too short → ntthal
+`no_structure`) or the input is invalid (empty / non-ACGT). Two implementation facts distinguish it from
+the legacy folder: (a) it is the **full monomer ntthal DP** — `initMatrix2`/`fillMatrix2` over closing
+pairs stacking inward, modelling internal loops/bulges (`calc_bulge_internal2`) as well as the hairpin
+close, then `calc_terminal_bp`/`END5` for the 5′ exterior and `tracebacku` to count paired bases — at
+**O(n³) time / O(n²) space**, whereas the legacy `FindMostStableHairpin` allows only a single stem
+closing one loop; and (b) its **unimolecular Tm carries the [Na⁺] salt correction** —
+`Tm = ΔH°/(ΔS° + (N/2 − 1)·saltCorrection) − 273.15` with `saltCorrection = 0.368·ln[Na⁺]` and no
+strand-concentration term — unlike the legacy Eq. 11 (`Tm = ΔH°·1000/ΔS° − 273.15`) which has no salt
+term. Monovalent salt only (dv = dntp = 0), matching the captured primer3 conditions; the worked
+tetraloop oracle is `GGGGCGAAAGCCCC` at 0.05 M Na⁺ → ΔH° = −40.9 kcal/mol, ΔS° = −114.1873, Tm 85.033 °C.
 
 **Hairpin oracles** (hand-derived from Table 1 + Table 4): `GGGCTTTTGCCC` (4-bp GGGC stem, TTTT
 loop) → ΔH° = −25.8, ΔS° = −75.48486216346927, ΔG°37 = −2.3883700000000054, **Tm = 68.6404 °C**;
