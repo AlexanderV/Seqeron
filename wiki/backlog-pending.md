@@ -8,13 +8,12 @@ updated: 2026-07-13
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (161 algorithm docs across 24 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
+The per-domain pending tables (160 algorithm docs across 24 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
 
-### Complexity (2)
+### Complexity (1)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Complexity/Lempel_Ziv_Complexity.md` | `lempel-ziv-complexity` |
 | `docs/algorithms/Complexity/Windowed_Complexity.md` | `windowed-complexity` |
 
 ### Extended_GC_Skew_Analysis (2)

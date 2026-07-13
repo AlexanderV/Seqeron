@@ -5,11 +5,12 @@ tags: [analysis, algorithm]
 mcp_tools:
   - complexity_compression_ratio
 sources:
+  - docs/algorithms/Complexity/Lempel_Ziv_Complexity.md
   - docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md
   - docs/Validation/reports/SEQ-COMPLEX-COMPRESS-001.md
-source_commit: c2d2b19e7359c655c98c0b2b7fc08aadd63ff843
+source_commit: 6cc4dea2635932be127c50e48a455bb8621f8656
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -112,6 +113,31 @@ the normalized value `γ = c / b(n) → 1` as randomness increases. Worked: `100
   component by 1.
 - **Monotonicity invariant:** a more repetitive sequence has `c` ≤ that of a less repetitive
   sequence of equal length (the "productivity buildup" property) — a good property-based test.
+
+## Implementation surface and spec cross-check
+
+The primary algorithm spec (`docs/algorithms/Complexity/Lempel_Ziv_Complexity.md`) exposes
+three entry points on `SequenceComplexity` (`SequenceComplexity.cs`, `Seqeron.Genomics.Analysis`),
+each accepting a `DnaSequence` or `string`:
+
+- `CalculateLempelZivComplexity` → `int` raw component count `c(S)`.
+- `CalculateNormalizedLempelZivComplexity` → `double` `c / (n / log_b n)`.
+- `EstimateCompressionRatio` → `double` **thin delegate** to the normalized method (this is the
+  registry-canonical name behind the `complexity_compression_ratio` MCP tool; INV-05 in the spec).
+
+The parse is a single left-to-right factorization over a `HashSet<string>` of produced components —
+**not** a suffix-tree multi-query search (the repo suffix tree was evaluated and rejected as the
+wrong structure). Cost is `O(n)` amortized but `O(n²)` worst case on highly repetitive long inputs
+because of the substring/hash work; space `O(n)`. A null `DnaSequence` throws `ArgumentNullException`;
+null/empty `string` returns 0.
+
+**Contradiction (primary spec vs. validated behavior) — b < 2 handling.** The spec still documents
+the *raw count* being returned for single-symbol input (INV table, §3.3, §6.1, deviation #2, last
+reviewed 2026-06-14). Validation of SEQ-COMPLEX-COMPRESS-001 (2026-07-10) **corrected** this: the
+reference (Vallat `entropy`/AntroPy) clamps the log base to 2 and returns the *normalized* value, so
+`"0"×16 → 1.25`, and the code + test were changed to match (see the corner-cases section above and
+[[seq-complex-compress-001-report]]). The spec doc is read-only and now lags the shipped behavior on
+this one degenerate case; the validated 1.25 convention is authoritative.
 
 ## References
 

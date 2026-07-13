@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1005 / 1181
+Progress: 1006 / 1181
 
 ## (top-level)  (6)
 
@@ -540,7 +540,7 @@ Progress: 1005 / 1181
 - [x] docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md  (done-via-concept)
 - [x] docs/algorithms/Complexity/DUST_Score.md
 - [x] docs/algorithms/Complexity/K-mer_Entropy.md
-- [ ] docs/algorithms/Complexity/Lempel_Ziv_Complexity.md
+- [x] docs/algorithms/Complexity/Lempel_Ziv_Complexity.md
 - [ ] docs/algorithms/Complexity/Windowed_Complexity.md
 - [x] docs/algorithms/Epigenetics/Bisulfite_Sequencing_Analysis.md
 - [x] docs/algorithms/Epigenetics/Chromatin_State_Prediction.md
