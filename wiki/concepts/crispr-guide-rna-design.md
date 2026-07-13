@@ -14,7 +14,8 @@ sources:
   - docs/Validation/reports/CRISPR-PAM-001.md
   - docs/algorithms/MolTools/Guide_RNA_Design.md
   - docs/algorithms/MolTools/Off_Target_Analysis.md
-source_commit: 36296b485470bd542776ce84842c463f37ca7db5
+  - docs/algorithms/MolTools/PAM_Site_Detection.md
+source_commit: e2ce307279a0e97ded358d79bfee8068b67035fa
 created: 2026-07-10
 updated: 2026-07-13
 graph:
@@ -101,6 +102,20 @@ Degenerate matching goes through `IupacHelper.MatchesIupac` (NC-IUB 1984 codes).
   system** than the forward-strand `Position` (XML-documented at `CrisprDesigner.cs :1035–1041`). This is
   exactly the caveat that surfaces again in the Layer-1 note below (`Position` copied from
   `pamSite.TargetStart` for reverse-strand designs).
+
+The spacer interval is computed directly from the PAM position and orientation (primary spec
+`docs/algorithms/MolTools/PAM_Site_Detection.md`): for **PAM-after-target** systems (Cas9)
+`targetStart = PamPos − guideLength`, `targetEnd = PamPos − 1`; for **PAM-before-target** systems
+(Cas12a / CasX) `targetStart = PamPos + pamLength`, `targetEnd = targetStart + guideLength − 1` — and
+the same `targetStart ≥ 0 && targetEnd < len` bounds check gates the yield. Each yielded `PamSite`
+carries `Position`, `PamSequence`, `TargetSequence`, `TargetStart`, `IsForwardStrand`, and the resolved
+`System` metadata (name, PAM pattern, guide length, PAM orientation, description). The scan is **O(n)
+time / O(k) yielded-sites space**. The two overloads differ only on invalid input: the `DnaSequence`
+overload throws `ArgumentNullException` on null, whereas the raw-`string` overload returns an empty
+result for null/empty and upper-cases before scanning (lowercase therefore matches case-insensitively);
+for valid input both yield identical sites. Scope (spec §5.3): this is a sequence-pattern detector over
+the fixed 7-system table only — no cleavage-efficiency, chromatin-state, or unlisted-Cas discovery; those
+are Layer 1+ / out of scope.
 
 ## Layer 1 — heuristic guide extraction and ranking
 
