@@ -8,13 +8,14 @@ mcp_tools:
   - primer_melting_temperature_salt
 sources:
   - docs/algorithms/MolTools/DNA_Dimer_Tm.md
+  - docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
   - docs/Evidence/SEQ-THERMO-001-Evidence.md
   - docs/Evidence/SEQ-TM-001-Evidence.md
-source_commit: d5b7080935936edfcd363a8c46c78788c9f97fd8
+source_commit: 1f9b4d8bdbc77d3f52eff4a137104b1a31f02c39
 created: 2026-07-10
 updated: 2026-07-13
 graph:
@@ -180,7 +181,15 @@ divalent Mg²⁺ is not modelled in the dimer path (use the per-oligo Owczarzy-2
 
 The same SantaLucia thermodynamics power a **unimolecular** structure: a single primer folding
 back on itself into a **stem + loop hairpin** (ntthal hairpin mode). QC asks for the most stable
-self-fold (MFE) and its Tm. The energy model reuses the identical **`NnUnifiedParams` stem NN
+self-fold (MFE) and its Tm. The **legacy folder** (`docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md`)
+`PrimerDesigner.FindMostStableHairpin(sequence, minStemLength = 2, loopBonusDeltaG37 = 0)` restricts
+structures to a **single stem closing one hairpin loop** (no bulges/internal/multibranch), scans every
+Watson-Crick closing pair `(i, j)` and extends each stem maximally inward, rejects loops < 3 nt or stems
+< `minStemLength` (which must be ≥ 2, i.e. ≥ 1 NN stack), and keeps the minimum-total-ΔG°37 fold —
+**O(n³)** worst case (O(n²) closing-pair scan × O(n) extension; primers are short, ≤ ~40 nt).
+`CalculateHairpinMeltingTemperature` returns its Eq. 11 Tm (or `NaN`); the returned `HairpinResult`
+record struct carries `StemStart`/`StemEnd` (0-based outermost pair), `StemLength`, `LoopSize`, and
+ΔH°/ΔS°/ΔG°37. The energy model reuses the identical **`NnUnifiedParams` stem NN
 stacks** (SantaLucia & Hicks 2004 Table 1) and adds a **hairpin-loop initiation** ΔG°37 read
 from Table 4 by loop size (3→3.5, 4→3.5, 5→3.3, 6→4.0 … 30→6.3 kcal/mol), with **loop ΔH° = 0**
 and **loop ΔS° = −ΔG°37·1000/310.15** (footnote a). Loops beyond the largest tabulated size use
