@@ -102,6 +102,6 @@ the same codon counts per synonymous family; **[[codon-adaptation-index|CAI]]** 
 single geometric-mean gene score; **[[effective-number-of-codons|ENC/Nc]]** measures reference-free
 bias via codon homozygosity; **[[rare-codon-analysis]]** thresholds per-family frequencies; and
 **[[codon-optimization]]** consumes a usage table to rewrite a CDS. The aggregation/reporting view
-is [[codon-stats-001-evidence|CODON-STATS-001]] (`GetStatistics`). What is unique here is the
+is [[codon-usage-statistics]] (CODON-STATS-001, `GetStatistics`). What is unique here is the
 **distribution-comparison** operation (`CompareCodonUsage`): a TVD similarity between two whole
 codon-frequency distributions, which none of the bias measures provide.

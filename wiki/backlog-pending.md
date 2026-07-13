@@ -8,13 +8,7 @@ updated: 2026-07-13
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
-
-### Codon (1)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Codon/Codon_Usage_Statistics.md` | `codon-usage-statistics` |
+The per-domain pending tables (163 algorithm docs across 24 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
 
 ### Complexity (4)
 

@@ -104,7 +104,7 @@ a **`1e-6` clamp** at score time — see [[codon-adaptation-index]]). The
 gene's codon bias to a single number in [20, 61] using codon homozygosity `F̂` built from the same
 synonymous-codon frequencies `p_i`. **[[codon-optimization]]** is the family's *rewriting* operation:
 it consumes a codon-usage table and substitutes synonymous codons to improve host expression. The
-**aggregation / reporting view** is [[codon-stats-001-evidence|CODON-STATS-001]] (`GetStatistics`),
+**aggregation / reporting view** is [[codon-usage-statistics]] (CODON-STATS-001, `GetStatistics`),
 which bundles RSCU, ENC and CAI over one input together with a positional-GC block
 (GC1/GC2/GC3, plus **GC3s** = GC of synonymous third positions, Met/Trp/stop excluded, Peden 1999).
 Other siblings in `docs/Evidence/` include rare-codon analysis and the raw codon-count table +

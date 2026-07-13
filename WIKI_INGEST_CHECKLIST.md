@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1002 / 1181
+Progress: 1003 / 1181
 
 ## (top-level)  (6)
 
@@ -522,7 +522,7 @@ Progress: 1002 / 1181
 - [x] docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md  (done-via-concept)
 - [x] docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md  (done-via-concept)
 - [x] docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md  (done-via-concept)
-- [ ] docs/algorithms/Codon/Codon_Usage_Statistics.md
+- [x] docs/algorithms/Codon/Codon_Usage_Statistics.md
 - [x] docs/algorithms/Codon/Effective_Number_of_Codons.md  (done-via-concept)
 - [x] docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md  (done-via-concept)
 - [x] docs/algorithms/Codon_Optimization/CAI_Calculation.md  (done-via-concept)

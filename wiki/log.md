@@ -4564,3 +4564,21 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    Chromosome_Analysis backlog row: moved to Covered via concept, updated counts (80→81 covered,
    165→164 pending, 26→25 domains) and removed the section from [[backlog-pending]]. No new page,
    no new typed edges (existing chrom-hor-001-report edge already links this slice). No contradictions.
+
+## [2026-07-13] ingest | docs/algorithms/Codon/Codon_Usage_Statistics.md → new concept [[codon-usage-statistics]]
+   Created a dedicated concept for the codon-usage family's aggregation/reporting view
+   (CODON-STATS-001, `CodonUsageAnalyzer.GetStatistics` + `CalculateCai`). Rationale for a new page
+   rather than enrichment: the component measures (RSCU/ENC/CAI) are each owned by existing concepts,
+   but the **positional-GC block (GC1/GC2/GC3, GC3s, OverallGc)** and the one-pass bundle contract are
+   genuinely distinct and unowned. Page synthesizes the bundle contract + positional GC — GC3s =
+   %G/C at synonymous third positions with Met/Trp/stop excluded (Peden 1999 §1.8.2.1.3, the ATGGCA
+   GC3=50% vs GC3s=0% contrast), GC3s-as-percentage (100× CodonW fraction) deviation, and the
+   skip-zero-w CAI note (vs the [[codon-adaptation-index]] 1e-6 clamp; bundled E.coli/Kazusa tables
+   never hit it). The CODON-STATS-001 Evidence and Validation-report artifacts were already ingested
+   as source pages ([[codon-stats-001-evidence]] / [[codon-stats-001-report]]); this closes the
+   remaining *algorithm-spec* coverage gap. Inbound links added from [[relative-synonymous-codon-usage]]
+   and [[codon-usage-comparison]] (retargeted their "aggregation view" mentions from the evidence
+   source page to the concept). Moved the last pending Codon backlog row to Covered via concept;
+   updated counts (81→82 covered, 164→163 pending, 25→24 domains) and removed the Codon section from
+   [[backlog-pending]]. Added [[codon-usage-statistics]] to index Concepts. No contradictions.
+   graph: +1 node, +4 typed edges

@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **81** algorithm docs covered-via-concept, **164** pending across 25 domains.
+Status at generation: **82** algorithm docs covered-via-concept, **163** pending across 24 domains.
 
 ## Covered via concept (done)
 
@@ -60,6 +60,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/K-mer/K-mer_Statistics.md` | [[k-mer-statistics]] |
 | `docs/algorithms/K-mer/Unique_And_MinCount_Kmers.md` | [[unique-and-mincount-kmers]] |
 | `docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md` | [[telomere-analysis]] |
+| `docs/algorithms/Codon/Codon_Usage_Statistics.md` | [[codon-usage-statistics]] |
 | `docs/algorithms/Codon/Effective_Number_of_Codons.md` | [[effective-number-of-codons]] |
 | `docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
 | `docs/algorithms/Codon_Optimization/CAI_Calculation.md` | [[codon-adaptation-index]] |
@@ -111,7 +112,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (164 algorithm docs across 25 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (163 algorithm docs across 24 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
