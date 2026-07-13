@@ -13,9 +13,10 @@ sources:
   - docs/Validation/reports/CRISPR-OFF-001.md
   - docs/Validation/reports/CRISPR-PAM-001.md
   - docs/algorithms/MolTools/Guide_RNA_Design.md
-source_commit: 13507add3b861dc2ba03395b72f3913eda8ef054
+  - docs/algorithms/MolTools/Off_Target_Analysis.md
+source_commit: 36296b485470bd542776ce84842c463f37ca7db5
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -179,6 +180,35 @@ grounded against the CRISPOR reference and validated in [[crispr-off-001-report]
 71/71 off-target+CFD tests). The pre-existing honest-heuristic `FindOffTargets` /
 `CalculateSpecificityScore` / `CalculateOffTargetScore` are unchanged; the scored models below were added
 on top of them.
+
+**Honest position-weighted heuristic — `FindOffTargets` / `CalculateSpecificityScore`** (spec
+`docs/algorithms/MolTools/Off_Target_Analysis.md`, test unit CRISPR-OFF-001, status *Simplified*). This
+is the repository's own candidate-enumeration + ranking pass, deliberately **not** a base- or
+context-specific model. `FindOffTargets(guide, genome, maxMismatches = 3, systemType = SpCas9)` resolves
+the system, finds every PAM site on **both strands** (reusing the Layer-0 geometry), extracts the
+guide-length PAM-adjacent target, counts mismatches, and yields sites where `0 < mismatches ≤
+maxMismatches`. Contract: `ArgumentNullException` on null guide/genome; `ArgumentOutOfRangeException` when
+`maxMismatches` is outside `0–5`; `ArgumentException` when the guide length ≠ the selected system's guide
+length. Each hit carries `Position`, `Sequence`, `Mismatches`, `MismatchPositions` (0-based),
+`IsForwardStrand`, and an `OffTargetScore` = Σ position weights: **`5` per seed-region mismatch, `2` per
+non-seed mismatch**. Here the **seed is the 12 bp PAM-proximal window** — *last* 12 bp for
+PAM-after-target systems (SpCas9, SaCas9), *first* 12 bp for PAM-before-target (Cas12a) — which is a
+**third, distinct notion of "seed"** on this surface: the Layer-1 design heuristic uses a 10-nt seed, and
+the MIT/CFD models below use a full 20-position weight vector, whereas this heuristic uses 12 bp. The
+systems it documents (SpCas9 `NGG`/20/last-12, SaCas9 `NNGRRT`/21/last-12, Cas12a `TTTV`/23/first-12) are
+a subset of the seven in the Layer-0 table.
+
+`CalculateSpecificityScore(guide, genome, systemType)` aggregates this into a `0–100` guide score:
+it calls `FindOffTargets` with a **fixed mismatch cap of 4** (independent of the `FindOffTargets` default
+of 3), sums every hit's `OffTargetScore`, and returns `max(0, 100 − totalPenalty)`. Invariants
+(CRISPR-OFF-001): exact on-target matches are never returned (`mismatches > 0` filter, INV-01); returned
+mismatch counts are bounded by the request (INV-02); the specificity score is clamped to `[0, 100]`
+(INV-03) — so a guide with **no off-targets scores 100**. Documented scope limits: strict single-PAM
+matching (off-targets at alternate PAMs are missed unless that PAM is modeled as its own system, e.g.
+`SpCas9-NAG`); mismatches only — no bulge/gap alignments; no chromatin state. For published,
+experimentally-calibrated off-target scoring the spec explicitly redirects callers to the `CalculateCfdScore`
+(Doench 2016 CFD) and `CalculateMitHitScore` / `CalculateMitSpecificityScore` (MIT/Hsu 2013) models
+detailed next.
 
 **MIT / Hsu-Zhang 2013 specificity** — `CalculateMitHitScore(guide20, offTarget20)` returns a single-hit
 score in [0,100]; `CalculateMitSpecificityScore(...)` aggregates per-hit scores into a guide specificity
