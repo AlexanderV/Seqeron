@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **87** algorithm docs covered-via-concept, **158** pending across 23 domains.
+Status at generation: **88** algorithm docs covered-via-concept, **157** pending across 22 domains.
 
 ## Covered via concept (done)
 
@@ -90,6 +90,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_Assembly/Contig_Merging.md` | [[contig-merge-overlap-collapse]] |
 | `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
 | `docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md` | [[nucleotide-composition-skew]] |
+| `docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md` | [[windowed-gc-profile-and-variance]] |
 | `docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md` | [[antibiotic-resistance-gene-detection]] |
 | `docs/algorithms/Metagenomics/Alpha_Diversity.md` | [[alpha-diversity]] |
@@ -117,7 +118,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (158 algorithm docs across 23 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (157 algorithm docs across 22 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

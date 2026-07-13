@@ -8,13 +8,7 @@ updated: 2026-07-13
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (158 algorithm docs across 23 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
-
-### Extended_GC_Skew_Analysis (1)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md` | `comprehensive-gc-analysis` |
+The per-domain pending tables (157 algorithm docs across 22 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
 
 ### FileIO (7)
 

@@ -3,12 +3,13 @@ type: concept
 title: "Windowed GC profile & compositional variance"
 tags: [sequence-statistics, composition, chromosome]
 sources:
+  - docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
-source_commit: c094b65e4a89b3c3c146d655c12489e6d28e8564
+source_commit: 7b4fd24b1fba92ae7ca682644c90f8ca0bc4841b
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -116,6 +117,37 @@ doctests scaled ×100 — `ACTG` → 50.0, `ACTGN` (remove) → 50.0, `ACTGN` (i
 [[test-unit-registry]] tracks the unit. This is the composition analogue of the standalone
 [[windowed-sequence-complexity-profile|windowed Shannon-entropy profile]] (SEQ-ENTROPY-PROFILE-001)
 — a per-window scalar channel factored out of a richer composite scan.
+
+## Implementation
+
+The composite lives in `GcSkewCalculator` (`Seqeron.Genomics.Analysis`; primary spec
+`docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md`, test unit
+SEQ-GC-ANALYSIS-001, status *Production*). One entry point with two overloads over a shared
+core: **`AnalyzeGcContent(DnaSequence, windowSize = 1000, stepSize = 100)`** is canonical
+(validates non-null — a null `DnaSequence` throws `ArgumentNullException` — then delegates to
+the core), and **`AnalyzeGcContent(string, windowSize = 1000, stepSize = 100)`** is the
+string overload for API parity (null/empty ⇒ a **zero result** with empty windowed lists and
+`SequenceLength = 0`). The two window parameters default to **w = 1000 / step = 100** and are
+each constrained `≥ 1`.
+
+The return is a single **`GcAnalysisResult` record** carrying all eight outputs at once:
+the three overall scalars (`OverallGcContent`, `OverallGcSkew`, `OverallAtSkew`), the two
+window-variance scalars (`GcContentVariance`, `GcSkewVariance`), the two per-window lists
+(`WindowedGcContent : IReadOnlyList<GcContentPoint>`, `WindowedGcSkew :
+IReadOnlyList<GcSkewPoint>`), and `SequenceLength`. Window positions are **0-based** with
+`WindowStart`/`WindowEnd` **inclusive** and `Position` the window **midpoint**
+`start + windowSize/2`; the emitted window count is `⌊(n − w)/step⌋ + 1` when `n ≥ w`, else 0
+(INV-05).
+
+**Cost is `O(n + W·w)` time / `O(W)` space** (n = sequence length, W = number of windows,
+w = window size): each window is **recounted independently** — there is *no* incremental
+sliding accumulator — deliberately keeping the code identical to the per-window cores already
+used by `CalculateWindowedGcSkew`; the overall scalar metrics alone are `O(n)`. Because the
+unit does **counting/aggregation only** (no substring search or pattern matching), the
+repository suffix tree does **not** apply and was not used. The unit does *not* itself compute
+a cumulative GC-skew diagram or call the origin/terminus — those belong to
+`PredictReplicationOrigin` (SEQ-REPLICATION-001, [[replication-origin-cumulative-skew]]) and
+`CalculateCumulativeGcSkew`.
 
 ## Why it matters
 
