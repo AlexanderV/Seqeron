@@ -8,13 +8,12 @@ updated: 2026-07-13
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (147 algorithm docs across 19 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13.)
+The per-domain pending tables (146 algorithm docs across 19 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13.)
 
-### MolTools (16)
+### MolTools (15)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/MolTools/DNA_Dimer_Tm.md` | `dna-dimer-tm` |
 | `docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md` | `dna-hairpin-folding-tm` |
 | `docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md` | `dna-hairpin-special-loop-bonus` |
 | `docs/algorithms/MolTools/Hybridization_Probe_Design.md` | `hybridization-probe-design` |

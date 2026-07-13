@@ -7,15 +7,16 @@ mcp_tools:
   - primer_melting_temperature
   - primer_melting_temperature_salt
 sources:
+  - docs/algorithms/MolTools/DNA_Dimer_Tm.md
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
   - docs/Evidence/SEQ-THERMO-001-Evidence.md
   - docs/Evidence/SEQ-TM-001-Evidence.md
-source_commit: 52c02ee8f4642a46e7ab17988a729a45ffbe5268
+source_commit: d5b7080935936edfcd363a8c46c78788c9f97fd8
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -156,6 +157,24 @@ port of `thal.c` and models the **full, possibly non-contiguous** optimum:
 `(i,j)`; the best terminal pair over all `(i,j)` minimises ΔG, then N (stacks) from traceback
 feeds the Tm formula above. The C# port reproduces primer3-py 2.3.0's `calc_homodimer` /
 `calc_heterodimer` to machine precision on both contiguous and non-contiguous cases.
+
+**Two-tier dimer API (`docs/algorithms/MolTools/DNA_Dimer_Tm.md`).** The engine exposes two
+surfaces with deliberately different fidelity. The public `PrimerDesigner.FindMostStableDimer`
+record (`DimerResult` with `Strand1Start`/`Strand2Start` 0-based 5′ indices, `BasePairs`, and
+ΔH°/ΔS°/ΔG°37) keeps a **simpler gapless scorer**: it slides one strand against the other over
+every antiparallel offset — reading strand 2 in 3′→5′ order so indices pair base-for-base —
+splits each overlap into **maximal contiguous Watson-Crick runs**, scores every run of ≥ 2 bp
+(init + Σ stacks + terminal-A·T penalty + Eq. 5 salt term), and returns the single run with the
+highest Tm in **O(n·m)** time, O(1) extra space. That record therefore **underestimates**
+overhang/loop-stabilised dimers (ASM-02). The Tm methods (`CalculateDimerMeltingTemperature` /
+`CalculateSelfDimerMeltingTemperature`) do **not** — they delegate to the full
+`CalculateDimerThermodynamicsNtthal` DP above, modelling loops/bulges/overhangs at full ntthal
+parity. The dimer defaults are `sodiumMolar = 0.05` (50 mM Na⁺) and `strandConcentrationMolar =
+50 nM` (Primer3/ntthal `dna_conc`), which differs from the per-oligo primer Tm's 0.5 µM
+convention. A design note in the spec records that the repository **suffix tree was rejected**
+for dimer scoring: it is a score-based thermodynamic alignment over offsets, not exact-substring
+matching, so the suffix tree does not fit. Both dimer Tm surfaces are monovalent-salt only —
+divalent Mg²⁺ is not modelled in the dimer path (use the per-oligo Owczarzy-2008 divalent Tm).
 
 ## Intramolecular hairpin self-folding
 
