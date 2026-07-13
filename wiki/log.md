@@ -4539,3 +4539,17 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    `4b5d552f`. Moved the row from [[backlog-pending]] (Annotation 1→0, section removed) to [[backlog]]
    covered (79→80, pending 166→165, 27→26 domains). Per the established pattern, no dedicated
    `wiki/sources/` page for the algorithm spec. No new concept, no new graph edges, no contradictions.
+
+## [2026-07-13] ingest | docs/algorithms/CANONICAL_MAP.md → [[canonical-algorithm-map]] (source, meta/index)
+   Ingested the META/INDEX doc (not a per-algorithm spec) as ONE concise source page
+   `wiki/sources/canonical-algorithm-map.md` recording the project's algorithm-identity authority:
+   alias→canonical test-unit IDs (SEQ-COMPOSITION-001→SEQ-STATS-001, SEQ-TM-001→SEQ-THERMO-001,
+   GENOMIC-TANDEM-001→REP-TANDEM-001), folder-bucket normalization (MolTools / Population_Genetics /
+   K-mer / RnaStructure — four merges complete; Motif_Analysis/Sequence_Comparison/Genomic_Analysis/
+   Extended_Annotation/Extended_Assembly pending), one-canonical-doc-per-concept rules, and the
+   retained legacy/baseline methods (UPGMA, JC/K2P, chi-sq HWE, Nussinov, OLC). Cross-linked to the
+   coverage/registry infrastructure: [[backlog]] (identity-vs-coverage complement),
+   [[algorithms-checklist-v2]], [[algorithm-validation-evidence]], [[validation-ledger]]. Listed under
+   index Sources; updated the [[backlog]] Notes row (CANONICAL_MAP now points at the new page,
+   README.md remains index-only). Per the meta-doc rule: NO per-algorithm concept pages created. No
+   typed graph edges (source page). No contradictions.

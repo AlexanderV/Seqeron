@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1000 / 1181
+Progress: 1001 / 1181
 
 ## (top-level)  (6)
 
@@ -515,7 +515,7 @@ Progress: 1000 / 1181
 - [x] docs/algorithms/Assembly/Error_Correction.md  (done-via-concept)
 - [x] docs/algorithms/Assembly/Overlap_Layout_Consensus.md  (done-via-concept)
 - [x] docs/algorithms/Assembly/Quality_Trimming.md  (done-via-concept)
-- [ ] docs/algorithms/CANONICAL_MAP.md
+- [x] docs/algorithms/CANONICAL_MAP.md
 - [x] docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md  (done-via-concept)
 - [x] docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md  (done-via-concept)
 - [ ] docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md
