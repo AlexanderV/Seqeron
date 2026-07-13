@@ -10,13 +10,14 @@ sources:
   - docs/algorithms/MolTools/DNA_Dimer_Tm.md
   - docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md
   - docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md
+  - docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md
   - docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
   - docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-NN-Evidence.md
   - docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
   - docs/Evidence/SEQ-THERMO-001-Evidence.md
   - docs/Evidence/SEQ-TM-001-Evidence.md
-source_commit: f8bd7ad6d29a578a135da3b410ea97a07d036a68
+source_commit: 59c4c073ce6206a296988f5ec70c77ec0f882c78
 created: 2026-07-10
 updated: 2026-07-13
 graph:
@@ -139,6 +140,66 @@ looked up forward then character-reversed, dangling ends strip the outer column,
 terminal-A·T count uses the un-dotted top strand. A **non-ACGT** base has no NN parameter →
 thermodynamics not computable → **null / NaN**. Default C_T = 0.5 µM (caller-overridable) and
 Eq. 5's phosphate count N = 2·(length − 1) are the two documented assumptions.
+
+## LNA-adjusted per-oligo Tm (base-modified probes)
+
+An **opt-in** extension of the per-oligo NN path handles a DNA oligo carrying one or more **internal
+LNA (locked nucleic acid) substitutions** on one strand — an LNA monomer being a ribonucleotide
+whose 2′-O/4′-C are bridged by a methylene, locking the sugar C3′-endo and conferring "the largest
+known increase in thermal stability of any modified DNA duplex," strongly sequence-dependent
+(McTigue, Peterson & Kahn 2004; `docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md`, unit
+**PROBE-DESIGN-001**). It reuses the perfect-match NN engine above (`CalculateNearestNeighbor
+Thermodynamics`) for the base DNA duplex, then applies an **additive per-step increment** for each NN
+step that contains a locked base:
+
+```
+ΔH° = ΔH°(DNA NN) + Σ ΔΔH°(LNA step) ;  ΔS° = ΔS°(DNA NN) + Σ ΔΔS°(LNA step)
+```
+
+and feeds the result through the **same bimolecular Eq. 3 Tm** (`x = 4` non-self-comp / `1`
+self-comp) and salt corrections — no new thermodynamic machinery, exactly how MELTING combines the
+sets (`enthalpy += lockedAcidValue`). The **32 McTigue-2004 LNA-DNA increments** (16 with the 5′ base
+of the step locked — McTigue `X_L N` notation; 16 with the 3′ base locked, `M X_L`) are keyed by the
+DNA dinucleotide step and which base is locked, transcribed **verbatim** from MELTING 5
+`McTigue2004lockedmn.xml` (source data in cal/mol and cal/(mol·K); stored kcal/mol, ÷1000).
+
+Entry points (both on `PrimerDesigner`, alongside the all-DNA methods):
+
+- `CalculateNearestNeighborThermodynamicsLna(sequence, lnaPositions)` → LNA-adjusted ΔH°/ΔS° (nullable
+  tuple with self-complementarity);
+- `CalculateMeltingTemperatureNNLna(sequence, lnaPositions, strandConcentrationMolar = 0.5 µM,
+  sodiumMolar = 0.05, …, saltMode = Owczarzy2004Monovalent)` → LNA-adjusted Tm °C.
+
+`lnaPositions` are **0-based indices of internal monomers**, each strictly in `(0, length−1)`;
+order/duplicates are tolerated (set semantics). Invariants and contract:
+
+- **INV-01** — an **empty** LNA-position set reproduces the perfect-match NN Tm exactly (no increment
+  added).
+- **INV-02** — adding an internal LNA **raises** Tm vs the all-DNA duplex (stabilization).
+- **INV-03** — a **terminal** (index 0 or length−1) or out-of-range LNA position is **not computable**
+  → `null` / `NaN`: McTigue (2004) parameterised only *internal* LNA, never a terminal one (ASM-01).
+- **INV-04** — the applied increment equals the verbatim McTigue value for the `(step, locked-position)`
+  key.
+- Null `lnaPositions` → `ArgumentNullException`; empty / <2 nt / non-ACGT sequence → `null` / `NaN`.
+
+**Base-model offset (accepted).** The base DNA NN uses the library's SantaLucia unified set, **not
+McTigue's own reference DNA NN set** (ASM-02) — a ~**0.09 °C** offset vs the MELTING `mct04` Tm; the
+LNA increment contribution itself is exact. Worked oracle: `CCATTGCTACC` with an LNA at index 4 (the
+second T), C_T = 1e-4 M, [Na⁺] = 1 M, no salt correction — base ΔH° = −80.8 / ΔS° = −221.7, add
+`TTL/AA` (+2.326, +8.1) and `TLG/AC` (−1.540, −3.0) → ΔH° = −80.014, ΔS° = −216.6 → **Tm = 63.528 °C**
+(MELTING `mct04`: 63.614 °C); the all-DNA Tm is 59.692 °C, so the single internal LNA raises Tm by
+**+3.84 °C**. Out of scope: LNA **mismatch-discrimination** parameters and consecutive/terminal-LNA
+cooperative models (e.g. IDT 2012) — only single/independent additive internal increments are modelled.
+
+**MGB probe design-rule check (qualitative).** The same doc bundles a **3′-minor-groove-binder (MGB)**
+probe check, `ProbeDesigner.EvaluateMgbProbeDesign(sequence)` — an MGB conjugated at a probe's 3′ end
+likewise stabilizes the duplex, allowing shorter, more specific probes (Kutyavin et al. 2000). It
+reports only **length-window conformance (12–20 nt) and 3′-attachment guidance**; it does **not**
+compute a quantitative MGB ΔTm (Kutyavin gives no closed-form model — the empirical/proprietary
+MGB-Eclipse model is the honest residual). The MGB check throws `ArgumentNullException` on a null
+probe. This is the LNA/MGB base-modified sibling of the generic [[hybridization-probe-design]] designer
+(whose scope note flags LNA/MGB chemistry as not implemented in that path) and of the TaqMan hard rules
+[[taqman-probe-design-rules]].
 
 ## Dimer analysis via ntthal thermodynamic alignment
 
