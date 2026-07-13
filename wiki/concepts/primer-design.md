@@ -64,7 +64,8 @@ computed directly from the two chosen candidates.
 ## Per-primer heuristic score
 
 `EvaluatePrimer` screens a single candidate on GC content, Tm, homopolymers, dinucleotide
-repeats, hairpin potential, and 3′ stability, and `CalculatePrimerScore` collapses those into a
+repeats, hairpin potential, and 3′ stability — the boolean/scalar
+[[primer-structure-qc-screens]] (PRIMER-STRUCT-001) — and `CalculatePrimerScore` collapses those into a
 **fixed additive heuristic** (§2.2, **higher is better**, base 100):
 
 ```

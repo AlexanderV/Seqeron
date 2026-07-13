@@ -218,7 +218,10 @@ probe. This is the LNA/MGB base-modified sibling of the generic [[hybridization-
 ## Dimer analysis via ntthal thermodynamic alignment
 
 Primer-dimer QC asks: over **all** ways two oligos can anneal, which duplex is the most
-stable, and what is its Tm? Primer3 answers this with the `ntthal` **thermodynamic alignment**
+stable, and what is its Tm? (The fast **boolean** counterpart — a yes/no terminal-complementarity
+screen, plus the boolean hairpin screen and the 3′-end ΔG stability scalar — is the separate
+PRIMER-STRUCT-001 unit [[primer-structure-qc-screens]]; this section is the full-fidelity Tm path.)
+Primer3 answers this with the `ntthal` **thermodynamic alignment**
 (Untergasser et al. 2012) — a dynamic program over the SantaLucia NN model that finds the
 maximum-Tm structure, exposed as `calcHomodimer` / `calcHeterodimer`. The Seqeron port
 (`PrimerDesigner.CalculateDimerThermodynamicsNtthal`, delegated to by
