@@ -3,10 +3,11 @@ type: concept
 title: "Primer3 weighted per-primer penalty (objective function)"
 tags: [primer, algorithm, validation]
 sources:
+  - docs/algorithms/MolTools/Primer3_Penalty_Objective.md
   - docs/Evidence/PRIMER-TM-001-Evidence.md
-source_commit: 92f89a5d97d45d2bac16b2d94467d1ee038879f7
+source_commit: 540ba0d2f76748172d23905afb56af039fd7c75f
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -95,3 +96,28 @@ Default weights (`|Tm−60| + |len−20|`): (Tm 60, len 20) → **0.0**; (63, 20
 selfAny 4 with `SELF_ANY=0.1` → **0.4**; N=2 with `NUM_NS=1` → **2.0**; combined
 (Tm 62, len 22, GC 55, selfAny 2, N 1) with `TM_GT=SIZE_GT=NUM_NS=1, GC_GT=0.5, SELF_ANY=0.25`
 → `2 + 2 + 2.5 + 0.5 + 1` = **8.0**.
+
+## Scope: which Primer3 terms this reproduces
+
+The algorithm spec (`docs/algorithms/MolTools/Primer3_Penalty_Objective.md`,
+`PrimerDesigner.CalculatePrimer3Penalty`) implements the **left/right-primer branch** of
+`p_obj_fn` for the six core terms only (Tm, size, GC%, self_any, self_end, num_ns), as a
+**deterministic O(1) weighted sum** — exact, not heuristic or probabilistic. Everything else
+in Primer3's full objective is deliberately **out of scope**, and every omitted term carries a
+default weight of 0, so the default penalty is unaffected:
+
+- **Not implemented (per-primer):** the thermodynamic-alignment branch (`*_TH` terms with
+  `temp_cutoff`), `pos_penalty`, `end_stability`, `seq_quality`, `repeat_sim`,
+  `template_mispriming`. Rely on Primer3 itself if any of these weights are set non-zero.
+- **Not implemented (pair-level):** the whole `PRIMER_PAIR_*` objective — Tm difference,
+  product-size deviation, pair complementarity. This unit scores a single oligo; pair ranking
+  is a separate (future) concern.
+
+Because these all default to weight 0, the implementation still matches Primer3's *default*
+selection exactly; the gap only appears when a caller enables an unsupported weight.
+
+The unit also leaves the legacy convenience `Score` (`CalculatePrimerScore`, used by
+`EvaluatePrimer` / `DesignPrimers`) **unchanged** alongside the new method — the Primer3-anchored
+`CalculatePrimer3Penalty` is the validated objective, while `Score` remains for backward
+compatibility. The Tm term input comes from the SEQ-THERMO-001 routine described in
+[[melting-temperature]].

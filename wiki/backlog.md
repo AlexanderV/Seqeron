@@ -18,13 +18,14 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **108** algorithm docs covered-via-concept, **137** pending across 18 domains
+Status at generation: **109** algorithm docs covered-via-concept, **136** pending across 18 domains
 (K-mer and Metagenomics domains now fully covered; K-mer_Search and PanGenome_Core_Accessory
 resolved 2026-07-13; DNA_Dimer_Tm, DNA_Hairpin_Folding_Tm, DNA_Hairpin_Special_Loop_Bonus,
 LNA_Adjusted_Nearest_Neighbor_Tm and NearestNeighbor_Salt_Corrected_Tm →
 [[primer-dimer-thermodynamics-tm]] resolved 2026-07-13;
 Hybridization_Probe_Design → [[hybridization-probe-design]] resolved 2026-07-13;
-MolTools/Melting_Temperature → [[melting-temperature]] resolved 2026-07-13).
+MolTools/Melting_Temperature → [[melting-temperature]] resolved 2026-07-13;
+Primer3_Penalty_Objective → [[primer3-weighted-penalty-objective]] resolved 2026-07-13).
 
 ## Covered via concept (done)
 
@@ -141,6 +142,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md` | [[primer-dimer-thermodynamics-tm]] |
 | `docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md` | [[primer-dimer-thermodynamics-tm]] |
 | `docs/algorithms/MolTools/Melting_Temperature.md` | [[melting-temperature]] |
+| `docs/algorithms/MolTools/Primer3_Penalty_Objective.md` | [[primer3-weighted-penalty-objective]] |
 
 ## Pending (fold into the ingest campaign)
 
