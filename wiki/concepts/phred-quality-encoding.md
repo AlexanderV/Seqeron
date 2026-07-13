@@ -29,9 +29,9 @@ graph:
 A **Phred quality score** attaches a per-base error probability to a sequencing read. It is the
 numeric payload of the FASTQ quality line and the input to quality trimming, filtering, and QC
 statistics — so its ASCII encoding is a cross-cutting concern rather than a detail of any one
-format. This page is the shared reference for that encoding; it is first traced in the FASTQ
-parsing evidence [[parse-fastq-001-evidence]] and is the quality-decoding step reused by
-[[quality-trimming-running-sum]]. The dedicated **Phred score handling** unit
+format. This page is the shared reference for that encoding; it is the quality-decoding step consumed by
+the FASTQ parser concept [[fastq-parsing]], first traced in the FASTQ parsing evidence
+[[parse-fastq-001-evidence]], and reused by [[quality-trimming-running-sum]]. The dedicated **Phred score handling** unit
 [[quality-phred-001-evidence]] (parse / encode / cross-variant convert) is anchored on this page's
 formulae and pins them to the primary FASTQ specification, **Cock et al. (2010)**.
 [[test-unit-registry]] tracks the owning units.

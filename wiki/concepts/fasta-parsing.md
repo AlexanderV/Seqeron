@@ -29,7 +29,7 @@ wrapping. This concept is a member of the file-parsing **FileIO** (`PARSE-*`) fa
 Evidence source page [[parse-fasta-001-evidence]]. [[test-unit-registry]] tracks the unit,
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern, and [[fuzzing]] explains
 why parsers are the campaign's highest-priority malformed-input target. Its FASTQ sibling (4-line
-records with a per-base quality string) is [[parse-fastq-001-evidence]].
+records with a per-base quality string) is [[fastq-parsing]] (Evidence: [[parse-fastq-001-evidence]]).
 
 ## The format (what the parser consumes)
 
