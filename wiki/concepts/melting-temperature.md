@@ -139,5 +139,3 @@ other concept, not here.
 
 The RNA analogue (single-strand folding free energy) is the Turner-parameter model on
 [[rna-free-energy-turner-model]] — a different alphabet, parameters, and structural assumption.
-</content>
-</invoke>
