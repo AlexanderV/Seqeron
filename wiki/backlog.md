@@ -3,7 +3,7 @@ type: index
 title: "Ingestion backlog — docs/algorithms reconciliation + queued sources"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-11
+updated: 2026-07-13
 ---
 
 # Ingestion backlog
@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **78** algorithm docs covered-via-concept, **167** pending across 27 domains.
+Status at generation: **79** algorithm docs covered-via-concept, **166** pending across 27 domains.
 
 ## Covered via concept (done)
 
@@ -35,6 +35,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Analysis/Open_Reading_Frame_Detection.md` | [[open-reading-frame-detection]] |
 | `docs/algorithms/Analysis/Sequence_Similarity.md` | [[kmer-jaccard-similarity]] |
 | `docs/algorithms/Annotation/GFF3_IO.md` | [[gff3-io]] |
+| `docs/algorithms/Annotation/Gene_Prediction.md` | [[prokaryotic-gene-prediction-rbs]] |
 | `docs/algorithms/Annotation/Promoter_Detection.md` | [[promoter-detection]] |
 | `docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
 | `docs/algorithms/Annotation/Repetitive_Element_Detection.md` | [[repetitive-element-detection]] |
@@ -108,7 +109,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (168 algorithm docs across 27 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (166 algorithm docs across 27 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

@@ -4509,3 +4509,17 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    [[mcp-tool-catalog]] (mapped 209→210, unmapped 218→217, concepts 120→121). Moved GFF3_IO from
    [[backlog-pending]] (Annotation 3→2) to [[backlog]] covered (77→78). Updated index. No contradictions.
    graph: +1 node, +1 typed edge
+
+## [2026-07-13] ingest | docs/algorithms/Annotation/Gene_Prediction.md → prokaryotic-gene-prediction-rbs (concept, reconciliation)
+   Reconciliation ingest: the primary spec was already fully synthesized by the existing concept
+   [[prokaryotic-gene-prediction-rbs]] (created 2026-07-10, alongside the ANNOT-GENE-001 validation
+   ingest), which lists `docs/algorithms/Annotation/Gene_Prediction.md` in `sources:` and is
+   NOT stale (its `source_commit` == HEAD `ec9209f6`; the doc has no commits since). Verified the
+   concept faithfully covers the doc's contract, INV-01…04, declared simplifications (no overlap/
+   best-model resolution, promoter −10/−35 not integrated → [[promoter-detection]], forward-only
+   legacy RBS, length-only score), SD model, complexity, and edge cases — no enrichment needed.
+   Per the established project pattern, `docs/algorithms/**` primary specs are synthesized into
+   concepts and cited in `sources:` rather than given a dedicated `wiki/sources/` page (no algorithm
+   spec has one). Sole gap was the stale backlog (generated 2026-07-09, before the concept existed):
+   moved Gene_Prediction.md from [[backlog-pending]] (Annotation 2→1) to [[backlog]] covered (78→79,
+   pending 167→166). No new pages, no new graph edges, no contradictions.

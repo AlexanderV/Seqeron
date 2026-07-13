@@ -5,10 +5,11 @@ tags: [annotation, algorithm]
 mcp_tools:
   - predict_genes
 sources:
+  - docs/algorithms/Annotation/Gene_Prediction.md
   - docs/Validation/reports/ANNOT-GENE-001.md
-source_commit: fc49476951d4c26bf663220b231007d8327e59cf
+source_commit: ec9209f6a267e376a0cd93f5b2e02d3576035966
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-11
 graph:
   relationships:
     - predicate: relates_to
@@ -21,6 +22,12 @@ graph:
       object: concept:open-reading-frame-detection
       source: annot-gene-001-report
       evidence: "ANNOT-GENE-001 validates the annotation-layer GenomeAnnotator ORF/gene finder (prokaryotic starts, both strands, CDS labelling), which the open-reading-frame-detection page records as deliberately NOT contract-equivalent to the Analysis-layer GenomicAnalyzer.FindOpenReadingFrames — the two are alternative entry points for ORF finding."
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:promoter-detection
+      source: prokaryotic-gene-prediction-rbs
+      evidence: "Gene_Prediction.md §5.3 lists promoter −10/−35 scoring as Not implemented in PredictGenes and directs users to the separate Promoter_Detection.md helper: 'Promoter −10 / −35 scoring integrated into gene prediction … users should rely on: Promoter_Detection.md.'"
       confidence: high
       status: current
 ---
@@ -36,6 +43,8 @@ which locates the SD motif upstream of a start codon at a valid **aligned spacin
 under test unit **ANNOT-GENE-001** (Stage A PASS / Stage B PASS / State CLEAN, independently
 re-derived and mutation-checked); the validation record is [[annot-gene-001-report]],
 [[test-unit-registry]] tracks the unit, and [[validation-ledger]] is the live status board.
+The canonical **primary spec** is `docs/algorithms/Annotation/Gene_Prediction.md` (Implementation
+Status: *Simplified*); the artifact pattern is [[algorithm-validation-evidence]].
 
 ## Shine-Dalgarno RBS model
 
@@ -76,6 +85,45 @@ revPos 10 maps to `forwardPos = 327 − 10 − 6 = 311`, where `RC(S)[311..317] 
 complement on the forward strand) and the aligned spacing in revComp space is `24 − 10 − 6 = 8`. The
 validator's mutation (`forwardPosition = hit.position`) failed R1/R3/R4, confirming the mapping is
 locked.
+
+## PredictGenes contract and declared simplifications (primary spec)
+
+`GenomeAnnotator.PredictGenes(dna, minOrfLength = 100, prefix = "gene")` delegates to
+`FindOrfs(searchBothStrands: true, requireStartCodon: true)`, keeps ORFs whose translated
+length ≥ `minOrfLength` (**amino acids**, not nucleotides — a unit trap vs the Analysis-layer
+finder), orders them by genomic `Start`, and emits one `GeneAnnotation` per qualifying ORF:
+
+| Field | Value in current implementation |
+|---|---|
+| `GeneId` | sequential `{prefix}_{n:D4}` (e.g. `gene_0001`) |
+| `Start` / `End` | 0-based **inclusive** start / **exclusive** end (repo internal convention) |
+| `Strand` | `+` forward, `-` reverse (reverse coords remapped to forward system) |
+| `Type` | **always `CDS`** |
+| `Product` | **always `hypothetical protein`** |
+| `Attributes` | `frame` (1–3), `protein_length` (stop trimmed), `translation` (raw, keeps `*`) |
+
+**Key declared simplifications** (locked by TestSpec, not defects — this is *annotation
+scaffolding*, not a trained gene finder like GLIMMER/GeneMark):
+
+- **No overlap or best-model resolution.** Every qualifying ORF — including overlapping and
+  nested candidates that share a stop — is emitted as its own separate `CDS`. There is no
+  suppression, ranking, or reconciliation into one preferred model, and the gene list is **not**
+  filtered by promoter or RBS evidence (`PredictGenes` never calls the RBS helper). See the
+  gotcha [[predict-genes-emits-every-orf]].
+- **Promoter `−10`/`−35` scoring is not integrated** — the spec directs users to the separate
+  [[promoter-detection]] helper. Codon-bias / organism-specific training / comparative
+  gene-finding and eukaryotic intron-aware models are **not implemented** (no repo alternative).
+- **RBS helper is ORF-driven and forward-only.** `FindRibosomeBindingSites(dna, upstreamWindow =
+  20, minDistance = 4, maxDistance = 15)` internally runs `FindOrfs(minLength: 30 aa)` then filters
+  to forward-strand ORFs before scanning the upstream window, so a reverse-strand gene can be
+  predicted with no RBS record from this legacy method (the both-strands variant fixes this).
+- RBS `score = motif.Length / 6.0` is **length-only**, bounded `[4/6, 1.0]` for the fixed library
+  (INV-04) — it does not model the literature spacing optimum or initiation strength.
+
+Invariants (spec INV-01…04): every gene derives from an ORF starting `ATG/GTG/TTG` and ending
+`TAA/TAG/TGA` with a frame in `{1,2,3}`; every RBS hit lies within `[minDistance, maxDistance]`.
+Complexity: `PredictGenes` `O(n + m log m)`, `FindRibosomeBindingSites` `O(n + m·upstreamWindow)`
+(`m` = ORFs materialized). Both return empty for null/empty input; matching is case-insensitive.
 
 ## Scope and siblings
 

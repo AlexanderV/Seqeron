@@ -3,18 +3,17 @@ type: index
 title: "Ingestion backlog — pending algorithm docs (per-domain)"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-11
+updated: 2026-07-13
 ---
 
 # Ingestion backlog — pending algorithm docs
 
 The per-domain pending tables split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
 
-### Annotation (2)
+### Annotation (1)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Annotation/Gene_Prediction.md` | `gene-prediction` |
 | `docs/algorithms/Annotation/ORF_Detection.md` | `orf-detection` |
 
 ### Chromosome_Analysis (1)
