@@ -3,11 +3,12 @@ type: concept
 title: "BED format parsing (0-based half-open intervals)"
 tags: [file-io, algorithm]
 sources:
+  - docs/algorithms/FileIO/BED_Parsing.md
   - docs/Evidence/PARSE-BED-001-Evidence.md
   - docs/Validation/reports/ANNOT-GFF-001.md
-source_commit: ffe651dc64c6b2478550efc53671d6f5e2c1ccbe
+source_commit: 1edb4d1fcb74936366d343cafa919645c6555e45
 created: 2026-07-10
-updated: 2026-07-11
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -88,3 +89,32 @@ characters — the malformed inputs [[fuzzing]] exercises.
 Parsed BED intervals feed interval arithmetic (BEDTools-style merge / intersect / subtract /
 complement). The evidence artifact cites BEDTools (Quinlan & Hall 2010) for that usage context
 and for the round-trip parse→write→parse and zero-length-feature edge-case test practice.
+
+## Parser surface & behavioral notes (`BedParser`)
+
+The primary spec (`docs/algorithms/FileIO/BED_Parsing.md`) documents the concrete
+`BedParser` (`src/Seqeron/Algorithms/Seqeron.Genomics.IO/BedParser.cs`) beyond the coordinate
+rules above. `Parse` / `ParseFile` scan the input in **`O(n)` time, `O(1)` auxiliary** space,
+splitting each line on **tabs first and falling back to whitespace only when fewer than 3 tab
+fields are present**. Beyond `ParseLine`, the type ships an interval toolkit and BED12 helpers:
+
+| Operation | Time | Behavioral note (distinct from the pure spec) |
+|-----------|------|-----------------------------------------------|
+| `FilterByChrom` / `FilterByRegion` / `FilterByStrand` / `FilterByLength` / `FilterByScore` | `O(r)` | Record-level predicates over `r` parsed records. |
+| `MergeOverlapping` | `O(r log r)` | **Merges *touching* intervals** — treats `next.ChromStart <= current.ChromEnd` as mergeable (adjacent, not just overlapping). Dominated by the sort. |
+| `Intersect` | `O(a·b)` worst case | Grouped by chromosome but still quadratic in the worst case. |
+| `Subtract` | `O(a·b)` worst case | Per-record interval subtraction. |
+| `ExpandIntervals` | — | **Swaps upstream/downstream on negative-strand records** (strand-aware flanking). |
+| `CalculateCoverage` | — | Emits **depth change-points**, not one row per base position. |
+| `ExpandBlocks` / `GetTotalBlockLength` / `GetIntrons` | — | BED12 block helpers. Each exon expands as `exonStart = chromStart + blockStarts[i]`, `exonEnd = exonStart + blockSizes[i]`; `GetIntrons` derives the gaps between blocks. |
+
+## `Auto` vs. explicit format modes
+
+`BedFormat` defaults to **`Auto`**, which reads the first non-header **data** line to fix an
+expected field count and then **skips later data lines whose width differs** — so a mixed-width
+BED file is *partially* parsed, not reinterpreted per line. Explicit non-`Auto` values
+(`Bed3`/`Bed6`/`Bed12`/…) do **not** currently force their nominal field count: the parser still
+follows whatever field count each line actually presents. Optional display fields
+(`thickStart`, `thickEnd`, `itemRgb`) are parsed syntactically but not semantically validated,
+and **bigBed conversion / full UCSC-toolchain compatibility is out of scope** (implementation
+status: *Simplified*) — those workflows need external UCSC tooling.
