@@ -7,6 +7,7 @@ mcp_tools:
   - primer_melting_temperature
   - primer_melting_temperature_salt
 sources:
+  - docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md
   - docs/algorithms/MolTools/DNA_Dimer_Tm.md
   - docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md
   - docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md
@@ -17,7 +18,7 @@ sources:
   - docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
   - docs/Evidence/SEQ-THERMO-001-Evidence.md
   - docs/Evidence/SEQ-TM-001-Evidence.md
-source_commit: 59c4c073ce6206a296988f5ec70c77ec0f882c78
+source_commit: 11bded130be8a170317bb91cf8cfd3331c4e4fbf
 created: 2026-07-10
 updated: 2026-07-13
 graph:
@@ -140,6 +141,19 @@ looked up forward then character-reversed, dangling ends strip the outer column,
 terminal-A·T count uses the un-dotted top strand. A **non-ACGT** base has no NN parameter →
 thermodynamics not computable → **null / NaN**. Default C_T = 0.5 µM (caller-overridable) and
 Eq. 5's phosphate count N = 2·(length − 1) are the two documented assumptions.
+
+The primary spec `docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md` (§3.3) pins a
+three-outcome **parameter contract** worth recording distinctly from the sequence guard above.
+Whereas a non-computable *sequence* is a silent `null`/`NaN` sentinel, the numeric
+**concentration parameters** of `CalculateMeltingTemperatureNN` are domain-validated up front —
+because the Tm equation evaluates `R·ln(C_T/x)` and the corrections evaluate `ln[Na⁺]`/`ln[Mg²⁺]`,
+all undefined at a non-positive argument. A non-positive `strandConcentrationMolar` (≤ 0 or NaN), a
+non-positive `sodiumMolar` (≤ 0 or NaN — **including zero salt**, whose `ln(0) = −∞` would otherwise
+leak a non-physical ≈ −273.15 °C or a silent NaN), a **negative** `magnesiumMolar`, or a **negative**
+`dntpMolar` each throw `ArgumentOutOfRangeException`. So every call resolves to exactly one of three
+disciplined outcomes — a finite theory-correct Tm (valid sequence + in-domain parameters), a `NaN`
+sentinel (guarded non-computable sequence), or a documented `ArgumentOutOfRangeException`
+(out-of-domain parameter) — never an undisciplined NaN/Inf leak.
 
 ## LNA-adjusted per-oligo Tm (base-modified probes)
 

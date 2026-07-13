@@ -8,13 +8,12 @@ updated: 2026-07-13
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (142 algorithm docs across 19 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13.)
+The per-domain pending tables (139 algorithm docs across 18 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13.)
 
-### MolTools (10)
+### MolTools (9)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md` | `nearestneighbor-salt-corrected-tm` |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | `off-target-analysis` |
 | `docs/algorithms/MolTools/PAM_Site_Detection.md` | `pam-site-detection` |
 | `docs/algorithms/MolTools/Primer3_Penalty_Objective.md` | `primer3-penalty-objective` |

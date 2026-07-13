@@ -18,10 +18,11 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **105** algorithm docs covered-via-concept, **141** pending across 19 domains
+Status at generation: **106** algorithm docs covered-via-concept, **139** pending across 18 domains
 (K-mer and Metagenomics domains now fully covered; K-mer_Search and PanGenome_Core_Accessory
-resolved 2026-07-13; DNA_Dimer_Tm, DNA_Hairpin_Folding_Tm, DNA_Hairpin_Special_Loop_Bonus and
-LNA_Adjusted_Nearest_Neighbor_Tm → [[primer-dimer-thermodynamics-tm]] resolved 2026-07-13;
+resolved 2026-07-13; DNA_Dimer_Tm, DNA_Hairpin_Folding_Tm, DNA_Hairpin_Special_Loop_Bonus,
+LNA_Adjusted_Nearest_Neighbor_Tm and NearestNeighbor_Salt_Corrected_Tm →
+[[primer-dimer-thermodynamics-tm]] resolved 2026-07-13;
 Hybridization_Probe_Design → [[hybridization-probe-design]] resolved 2026-07-13;
 MolTools/Melting_Temperature → [[melting-temperature]] resolved 2026-07-13).
 
@@ -136,11 +137,12 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md` | [[primer-dimer-thermodynamics-tm]] |
 | `docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md` | [[primer-dimer-thermodynamics-tm]] |
 | `docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md` | [[primer-dimer-thermodynamics-tm]] |
+| `docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md` | [[primer-dimer-thermodynamics-tm]] |
 | `docs/algorithms/MolTools/Melting_Temperature.md` | [[melting-temperature]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (143 algorithm docs across 20 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (139 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
