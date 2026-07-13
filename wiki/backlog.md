@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **95** algorithm docs covered-via-concept, **150** pending across 21 domains.
+Status at generation: **96** algorithm docs covered-via-concept, **149** pending across 21 domains.
 
 ## Covered via concept (done)
 
@@ -58,6 +58,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md` | [[synteny-and-rearrangement-detection]] |
 | `docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md` | [[asynchronous-kmer-counting]] |
 | `docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md` | [[both-strand-kmer-counting]] |
+| `docs/algorithms/K-mer/K-mer_Counting.md` | [[k-mer-counting]] |
 | `docs/algorithms/K-mer/K-mer_Euclidean_Distance.md` | [[k-mer-euclidean-distance]] |
 | `docs/algorithms/K-mer/K-mer_Generation.md` | [[k-mer-generation]] |
 | `docs/algorithms/K-mer/K-mer_Positions.md` | [[k-mer-positions]] |

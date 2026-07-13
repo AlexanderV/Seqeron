@@ -123,7 +123,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _ApproximateMatcher_: `find_best_match`, `find_with_edits`, `frequent_kmers_with_mismatches`
   - _SequenceAssembler_: `sequence_identity`
 
-### Analysis — 91 tools (59 mapped, 32 unmapped)
+### Analysis — 91 tools (60 mapped, 31 unmapped)
 
 `Seqeron.Mcp.Analysis` — k-mer, motif, repeat, complexity, comparative & structural genomics.
 
@@ -131,6 +131,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
 - [[average-nucleotide-identity]] — `calculate_ani`
 - [[base-composition]] — `analyze_gc_content`
 - [[both-strand-kmer-counting]] — `count_kmers_both_strands`
+- [[k-mer-counting]] — `count_kmers`
 - [[codon-usage-comparison]] — `codon_frequencies`
 - [[coiled-coil-prediction]] — `predict_coiled_coils`
 - [[common-protein-motifs]] — `find_protein_motifs`
@@ -173,7 +174,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _DisorderPredictor_: `predict_morfs`
   - _GcSkewCalculator_: `gc_skew`, `windowed_gc_skew`
   - _GenomicAnalyzer_: `find_motif`
-  - _KmerAnalyzer_: `analyze_kmers`, `count_kmers`, `find_clumps`, `most_frequent_kmers`
+  - _KmerAnalyzer_: `analyze_kmers`, `find_clumps`, `most_frequent_kmers`
   - _MotifFinder_: `generate_consensus`
   - _ProteinMotifFinder_: `predict_transmembrane_helices`
   - _RepeatFinder_: `find_direct_repeats`, `find_inverted_repeats`, `find_microsatellites`, `find_palindromes`
