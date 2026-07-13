@@ -134,7 +134,8 @@ same reuse-policy note the sibling counting pages record).
 - **Foundation of the counting family.** [[asynchronous-kmer-counting]] wraps the cancellation-aware
   overload for non-blocking execution (identical numeric result); [[both-strand-kmer-counting]] calls
   it on `S` and `RC(S)`; [[k-mer-statistics]] reduces its multiset to a `KmerStatistics` summary
-  (including the Shannon k-entropy); [[unique-and-mincount-kmers]] filters it by per-k-mer count.
+  (including the Shannon k-entropy); [[unique-and-mincount-kmers]] and the most-frequent/clump filters of
+  [[k-mer-search]] filter it by per-k-mer count.
 - **Distinct siblings that do *not* build on this count.** [[k-mer-generation]] enumerates the full
   `n^k` **universe** (sequence-independent, produces the address space rather than counting observed
   windows); [[k-mer-positions]] indexes **where** one k-mer occurs (the inverse index) rather than

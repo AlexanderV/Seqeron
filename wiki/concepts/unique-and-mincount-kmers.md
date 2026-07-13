@@ -109,8 +109,10 @@ For `ACGTACGT` k=4 the 5 total 4-mers are ACGT, CGTA, GTAC, TACG, ACGT → count
   `KmerAnalyzer.CountKmers` sliding-window multiset that underlies the rest of the family
   ([[asynchronous-kmer-counting]], [[both-strand-kmer-counting]]), then filter it by `Count`.
 - **Opposite ends of the same distribution:** `FindUniqueKmers` selects the frequency-1 tail;
-  `FindKmersWithMinCount` selects the `Count ≥ t` head (recurrent k-mers) — the counterpart to a
-  "most-frequent k-mers" query.
+  `FindKmersWithMinCount` selects the `Count ≥ t` head (recurrent k-mers) — the counterpart to the
+  "most-frequent k-mers" query owned by [[k-mer-search]]. That same `FindUniqueKmers` singleton method
+  is also documented by the K-mer Search spec (KMER-FIND-001) alongside the most-frequent and `(L, t)`
+  clump operations synthesized on [[k-mer-search]].
 - Distinct from [[k-mer-statistics]] (summarises the whole count profile, and whose `UniqueKmers`
   field is the *distinct* count — see the gotcha above), [[k-mer-generation]] (enumerates the full
   `n^k` universe, sequence-independent), [[k-mer-positions]] (indexes **where** one k-mer occurs),

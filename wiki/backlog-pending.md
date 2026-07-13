@@ -8,13 +8,7 @@ updated: 2026-07-13
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (149 algorithm docs across 21 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
-
-### K-mer (1)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/K-mer/K-mer_Search.md` | `k-mer-search` |
+The per-domain pending tables (148 algorithm docs across 20 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13.)
 
 ### Metagenomics (1)
 
