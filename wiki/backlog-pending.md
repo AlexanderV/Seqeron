@@ -8,13 +8,12 @@ updated: 2026-07-13
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (153 algorithm docs across 22 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
+The per-domain pending tables (152 algorithm docs across 22 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
 
-### FileIO (2)
+### FileIO (1)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/FileIO/GenBank_Parsing.md` | `genbank-parsing` |
 | `docs/algorithms/FileIO/VCF_Parsing.md` | `vcf-parsing` |
 
 ### K-mer (3)

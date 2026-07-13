@@ -7,7 +7,8 @@ sources:
   - docs/Evidence/PARSE-EMBL-001-Evidence.md
   - docs/Validation/reports/PARSE-GENBANK-001.md
   - docs/algorithms/FileIO/EMBL_Parsing.md
-source_commit: 29ba2bb8cf7a7694b213a007619b5af9363477d6
+  - docs/algorithms/FileIO/GenBank_Parsing.md
+source_commit: 0a11c83c145d84b916029acb9bf18c179115ba0e
 created: 2026-07-10
 updated: 2026-07-13
 graph:
@@ -87,6 +88,48 @@ faithful to INSDC/NCBI), Stage B PASS-WITH-NOTES, State CLEAN**. The one code de
 location grammar — multi-line qualifier reconstruction inserted a spurious space in `/translation`
 and left an unstripped opening quote on wrapped values — fixed to the Biopython reference behaviour
 (wrap→single space; `/translation`→no space) and locked with two RED→GREEN tests. Full suite 18213/0.
+
+## The GenBank parser surface (`GenBankParser`)
+
+The GenBank dialect's parser is specified in `docs/algorithms/FileIO/GenBank_Parsing.md`
+(test unit **PARSE-GENBANK-001**, Implementation Status *Simplified*). Beyond the shared
+location grammar above, it handles the GenBank flat-file **keyword-section record shape**: sections
+begin with a keyword in **column 1** and the record terminates with `//` (INV-01). `GenBankParser.Parse(string)`
+/ `ParseFile(string)` split input on `\n//`, keep only trimmed blocks that begin with `LOCUS`, then
+parse each top-level section by its header keyword (`LOCUS`, `DEFINITION`, `ACCESSION`, `VERSION`,
+`KEYWORDS`, `SOURCE`+nested `ORGANISM`, `REFERENCE`, `FEATURES`, `ORIGIN`), merging continuation
+lines into one logical string per section. Non-core sections land in `AdditionalFields`.
+
+Unlike EMBL's single delimited `ID` line, the **`LOCUS` line is fixed-column positional** — parsed
+into locus name (cols 13–28), length + `bp`/`aa` (30–40), molecule type (45–47), topology
+`linear`/`circular` (56–63), GenBank division (three-letter, 65–67), and date `DD-MMM-YYYY` (69–79,
+also accepts `DD-MMM-YY`). The division vocabulary is GenBank's 18-code set (PRI, ROD, MAM, VRT, INV,
+PLN, BCT, VRL, PHG, SYN, UNA, EST, PAT, STS, GSS, HTG, HTC, ENV) — overlapping but **not** identical
+to EMBL's. `KEYWORDS` of just `.` normalizes to an empty list; the organism name comes from `SOURCE`
+and the taxonomy lineage from the indented `ORGANISM` subsection. The `ORIGIN` block stores the
+sequence as position-numbered 60-base lines; parsing strips digits/whitespace and **uppercases** the
+remaining letters.
+
+Key entry points (all `O(n)` in text length; `ParseLocation`/`ExtractSequence`/`TranslateCDS` linear
+in the location/subsequence length):
+
+- `ParseLocation(string)` — parses one INSDC location string (empty → zeroed `Location` with no parts).
+- `GetFeatures(...)` / `GetCDS(...)` / `GetGenes(...)` — feature selection helpers.
+- `ExtractSequence(...)` — 1-based-inclusive local-parts subsequence extraction (`realStart=partStart-1`,
+  `realEnd=partEnd`), join concatenation, and IUPAC-aware reverse-complement for `complement(...)`, via
+  the shared `FeatureLocationHelper`.
+- `GetQualifier(...)` — reads one qualifier from a parsed feature.
+- `TranslateCDS(...)` — **GenBank-specific** (no EMBL analog): returns an existing `/translation`
+  qualifier verbatim when present, otherwise extracts the CDS nucleotides for the location and
+  translates them with a **built-in standard codon table** (unknown codons → `X`). It therefore does
+  **not** vary by alternative genetic-code metadata.
+
+The location parser is the same `SequenceFormatHelper.ParseLocationParts(...)` reused by the EMBL
+path. **Simplified by design:** feature qualifiers are flattened to key/value strings assembled from
+continuation lines, so original quoting/formatting is not round-tripped; there is no validation that
+the declared `LOCUS` length matches the parsed `ORIGIN` sequence; sequence case is normalized to
+uppercase. GenBank-specific format/testing facts (18 division codes, U49845 canonical record,
+defensive contracts) live in the [[parse-genbank-001-evidence]] source page.
 
 ## The EMBL parser surface (`EmblParser`)
 
