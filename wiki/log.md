@@ -4523,3 +4523,19 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    spec has one). Sole gap was the stale backlog (generated 2026-07-09, before the concept existed):
    moved Gene_Prediction.md from [[backlog-pending]] (Annotation 2→1) to [[backlog]] covered (78→79,
    pending 167→166). No new pages, no new graph edges, no contradictions.
+
+## [2026-07-13] ingest | docs/algorithms/Annotation/ORF_Detection.md → [[open-reading-frame-detection]] (concept, enriched)
+   Reconciliation ingest of the annotation-layer ORF primary spec (test unit ANNOT-ORF-001,
+   `GenomeAnnotator.FindOrfs`). The existing concept [[open-reading-frame-detection]] already
+   synthesized the sibling annotation finder (ATG/GTG/TTG starts, amino-acid `minLength`,
+   `searchBothStrands`/`requireStartCodon` flags, `Translator.FindOrfs`, hard-coded standard code,
+   nested-start-per-stop semantics) and cited its validation report [[annot-orf-001-report]] — but
+   did NOT list the spec in `sources:` and lacked `FindLongestOrfsPerFrame`. Enriched the "sibling
+   annotation ORF finder" section with `FindLongestOrfsPerFrame` (calls `FindOrfs(minLength:1)`,
+   groups under signed frame keys 1..3 forward / -1..-3 reverse, longest-per-frame), default
+   minLength 100, 0-based half-open `[Start,End)` span with terminal `*` retained in `ProteinSequence`,
+   and pending-starts-per-frame; removed the now-false "not ingested here" note. Added
+   `docs/algorithms/Annotation/ORF_Detection.md` to `sources:`, bumped `source_commit` → HEAD
+   `4b5d552f`. Moved the row from [[backlog-pending]] (Annotation 1→0, section removed) to [[backlog]]
+   covered (79→80, pending 166→165, 27→26 domains). Per the established pattern, no dedicated
+   `wiki/sources/` page for the algorithm spec. No new concept, no new graph edges, no contradictions.

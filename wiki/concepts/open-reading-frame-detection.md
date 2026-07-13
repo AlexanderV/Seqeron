@@ -7,10 +7,11 @@ mcp_tools:
 sources:
   - docs/Evidence/GENOMIC-ORF-001-Evidence.md
   - docs/algorithms/Analysis/Open_Reading_Frame_Detection.md
+  - docs/algorithms/Annotation/ORF_Detection.md
   - docs/Validation/reports/ANNOT-ORF-001.md
-source_commit: 23decb5c5e895bf2baa626a971bfb7de3b02322b
+source_commit: 4b5d552f8c5b1c17259004d5ed2428dd2de237e8
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -82,10 +83,17 @@ selecting the strand. Complexity O(n²) worst case (many ATGs before a stop), O(
 ATG-only, standard-code only; models neither codon bias, ribosome-binding sites, nor
 splicing — ORF presence is not evidence of a real gene. It is deliberately **not
 contract-equivalent** to the annotation-layer `GenomeAnnotator.FindOrfs` (test unit
-ANNOT-ORF-001, `docs/algorithms/Annotation/ORF_Detection.md`, not ingested here), which
-recognizes the prokaryotic start set ATG/GTG/TTG, measures `minLength` in **amino acids**,
-and exposes `searchBothStrands`/`requireStartCodon` flags — plus `Translator.FindOrfs`
-for genetic-code-parameterized ORF finding. That annotation `FindOrfs` unit was independently
+ANNOT-ORF-001, primary spec `docs/algorithms/Annotation/ORF_Detection.md`), which
+recognizes the prokaryotic start set ATG/GTG/TTG, measures `minLength` in **amino acids**
+(default 100, excluding the terminal stop), exposes `searchBothStrands` (default true) /
+`requireStartCodon` (default true) flags, emits 0-based half-open `[Start, End)` spans
+whose `ProteinSequence` retains the terminal `*`, and accumulates **pending starts per
+frame** so multiple starts sharing one stop each yield an ORF. Its companion
+`GenomeAnnotator.FindLongestOrfsPerFrame` (internally calling `FindOrfs` with
+`minLength: 1`) groups results under **signed frame keys** — `1..3` forward, `-1..-3`
+reverse-complement — and keeps the longest translated ORF per frame. That annotation API
+hard-codes `GeneticCode.Standard`, so genetic-code-parameterized ORF finding uses
+`Translator.FindOrfs` instead. That annotation `FindOrfs` unit was independently
 validated as [[annot-orf-001-report]] (Stage A PASS / Stage B PASS-WITH-NOTES, End state CLEAN,
 35/35 tests, no defect — sole note is the non-canonical `requireStartCodon=false` run-off path). That annotation layer's ORF-based gene
 prediction + Shine-Dalgarno RBS finder is [[prokaryotic-gene-prediction-rbs]]
