@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1015 / 1181
+Progress: 1016 / 1181
 
 ## (top-level)  (6)
 
@@ -559,7 +559,7 @@ Progress: 1015 / 1181
 - [x] docs/algorithms/FileIO/FASTQ_Parsing.md
 - [x] docs/algorithms/FileIO/GFF_Parsing.md
 - [x] docs/algorithms/FileIO/GenBank_Parsing.md
-- [ ] docs/algorithms/FileIO/VCF_Parsing.md
+- [x] docs/algorithms/FileIO/VCF_Parsing.md
 - [x] docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
 - [x] docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md
 - [x] docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md

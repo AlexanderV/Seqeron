@@ -8,7 +8,7 @@ sources:
 source_commit: 7dbb2946c73ee25f13cab78aa33fee223dfa48e1
 ingested: 2026-07-10
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 ---
 
 # Evidence: PARSE-VCF-001
@@ -26,9 +26,11 @@ the family anchor [[bed-format-parsing]]; the **coordinate contrast** that matte
 `POS` is **1-based** whereas BED is 0-based half-open — is already spelled out on that anchor
 page (BED explicitly names GFF/GTF/VCF as its 1-based counterparts). See [[test-unit-registry]]
 for how units are tracked and [[fuzzing]] for why parsers are the family's hottest
-malformed-input target. No dedicated concept page is warranted: VCF's genotype/INFO model and
-classification rules are captured concisely below (economical per the ingest directive), and
-the coordinate model lives on the shared anchor.
+malformed-input target. The literature-traced format facts recorded here (columns, INFO/FORMAT
+fields, symbolic/breakend grammar, classification rules) are the format-side companion to the
+concept [[vcf-parsing]], which synthesizes the `VcfParser` **implementation surface** from the
+primary algorithm spec `docs/algorithms/FileIO/VCF_Parsing.md`; the coordinate model lives on the
+shared anchor [[bed-format-parsing]].
 
 ## What this file records
 
