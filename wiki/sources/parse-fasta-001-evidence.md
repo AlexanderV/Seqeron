@@ -24,8 +24,10 @@ anchor [[bed-format-parsing]] (the first ingested `PARSE-*` unit) and its EMBL s
 [[parse-embl-001-evidence]]; see [[test-unit-registry]] for how units are tracked and
 [[fuzzing]] for why parsers are the family's hottest malformed-input target. FASTA is the
 simplest and most ubiquitous of the sequence formats — a `>`-header + free-form residue lines,
-with no coordinate model (BED) or record grammar (EMBL) to summarize — so **no separate concept
-page is warranted**; the format description below lives with the evidence.
+with no coordinate model (BED) or record grammar (EMBL) to summarize. This Evidence page records the
+literature-traced **format facts and character-set tables**; the parser's **implementation surface**
+(state machine, invariants, contract, complexity, opt-in `SequenceAlphabet`/`FastaRecord` overloads),
+synthesized from the primary algorithm spec, lives in the concept [[fasta-parsing]].
 
 ## What this file records
 

@@ -10,11 +10,10 @@ updated: 2026-07-13
 
 The per-domain pending tables (155 algorithm docs across 22 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model.
 
-### FileIO (5)
+### FileIO (4)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/FileIO/FASTA_Parsing.md` | `fasta-parsing` |
 | `docs/algorithms/FileIO/FASTQ_Parsing.md` | `fastq-parsing` |
 | `docs/algorithms/FileIO/GFF_Parsing.md` | `gff-parsing` |
 | `docs/algorithms/FileIO/GenBank_Parsing.md` | `genbank-parsing` |

@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **90** algorithm docs covered-via-concept, **155** pending across 22 domains.
+Status at generation: **91** algorithm docs covered-via-concept, **154** pending across 22 domains.
 
 ## Covered via concept (done)
 
@@ -93,6 +93,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md` | [[windowed-gc-profile-and-variance]] |
 | `docs/algorithms/FileIO/BED_Parsing.md` | [[bed-format-parsing]] |
 | `docs/algorithms/FileIO/EMBL_Parsing.md` | [[insdc-feature-location]] |
+| `docs/algorithms/FileIO/FASTA_Parsing.md` | [[fasta-parsing]] |
 | `docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md` | [[antibiotic-resistance-gene-detection]] |
 | `docs/algorithms/Metagenomics/Alpha_Diversity.md` | [[alpha-diversity]] |
