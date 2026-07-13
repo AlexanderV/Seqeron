@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1023 / 1181
+Progress: 1024 / 1181
 
 ## (top-level)  (6)
 
@@ -589,7 +589,7 @@ Progress: 1023 / 1181
 - [x] docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md
 - [x] docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md
 - [x] docs/algorithms/MolTools/Guide_RNA_Design.md
-- [ ] docs/algorithms/MolTools/Hybridization_Probe_Design.md
+- [x] docs/algorithms/MolTools/Hybridization_Probe_Design.md
 - [ ] docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md
 - [ ] docs/algorithms/MolTools/Melting_Temperature.md
 - [ ] docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md

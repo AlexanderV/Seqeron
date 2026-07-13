@@ -52,9 +52,10 @@ opposed to checking these composition rules.
 
 ## Scope: an opt-in layer over the generic probe designer
 
-The **generic** hybridization-probe designer — length / Tm / GC windows, homopolymer cap,
-self-complementarity, hairpin, specificity — is the **unchanged default**, and its
-thermodynamic Tm was validated under PRIMER-TM-001 (see [[primer-dimer-thermodynamics-tm]]).
+The **generic** hybridization-probe designer ([[hybridization-probe-design]]) — length / Tm / GC
+windows, homopolymer cap, self-complementarity, hairpin, specificity — is the **unchanged
+default**, and its thermodynamic Tm was validated under PRIMER-TM-001 (see
+[[primer-dimer-thermodynamics-tm]]).
 PROBE-DESIGN-001 adds the **TaqMan-specific hard rules** as an opt-in mode. What makes it a
 distinct algorithm rather than a cross-link is that these constraints are peculiar to a
 **5'-nuclease hydrolysis (dual-labelled reporter/quencher) probe** and have no analogue in
