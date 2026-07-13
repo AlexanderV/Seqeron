@@ -8,13 +8,12 @@ updated: 2026-07-13
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (136 algorithm docs across 18 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13.)
+The per-domain pending tables (135 algorithm docs across 18 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13.)
 
-### MolTools (6)
+### MolTools (5)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/MolTools/Primer_Design.md` | `primer-design` |
 | `docs/algorithms/MolTools/Primer_Structure_Analysis.md` | `primer-structure-analysis` |
 | `docs/algorithms/MolTools/Probe_Validation.md` | `probe-validation` |
 | `docs/algorithms/MolTools/Restriction_Digest_Simulation.md` | `restriction-digest-simulation` |

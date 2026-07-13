@@ -111,7 +111,9 @@ default weight of 0, so the default penalty is unaffected:
   `template_mispriming`. Rely on Primer3 itself if any of these weights are set non-zero.
 - **Not implemented (pair-level):** the whole `PRIMER_PAIR_*` objective — Tm difference,
   product-size deviation, pair complementarity. This unit scores a single oligo; pair ranking
-  is a separate (future) concern.
+  is a separate (future) concern — currently handled by the greedy
+  [[primer-design]] pair-selection pipeline (PRIMER-DESIGN-001), which still ranks candidates
+  with the legacy additive `CalculatePrimerScore`, not this objective.
 
 Because these all default to weight 0, the implementation still matches Primer3's *default*
 selection exactly; the gap only appears when a caller enables an unsupported weight.

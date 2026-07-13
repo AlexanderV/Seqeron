@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1030 / 1181
+Progress: 1031 / 1181
 
 ## (top-level)  (6)
 
@@ -596,7 +596,7 @@ Progress: 1030 / 1181
 - [x] docs/algorithms/MolTools/Off_Target_Analysis.md
 - [x] docs/algorithms/MolTools/PAM_Site_Detection.md
 - [x] docs/algorithms/MolTools/Primer3_Penalty_Objective.md
-- [ ] docs/algorithms/MolTools/Primer_Design.md
+- [x] docs/algorithms/MolTools/Primer_Design.md
 - [ ] docs/algorithms/MolTools/Primer_Structure_Analysis.md
 - [ ] docs/algorithms/MolTools/Probe_Validation.md
 - [ ] docs/algorithms/MolTools/Restriction_Digest_Simulation.md
