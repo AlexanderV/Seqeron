@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1019 / 1181
+Progress: 1020 / 1181
 
 ## (top-level)  (6)
 
@@ -576,7 +576,7 @@ Progress: 1019 / 1181
 - [x] docs/algorithms/Metagenomics/Beta_Diversity.md
 - [x] docs/algorithms/Metagenomics/Functional_Prediction.md
 - [x] docs/algorithms/Metagenomics/Genome_Binning.md
-- [ ] docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md
+- [x] docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md
 - [x] docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md
 - [x] docs/algorithms/Metagenomics/Significant_Taxa_Detection.md
 - [x] docs/algorithms/Metagenomics/Taxonomic_Classification.md

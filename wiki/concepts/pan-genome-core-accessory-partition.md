@@ -3,11 +3,12 @@ type: concept
 title: "Pan-genome partition (core/accessory/unique + genomic fluidity + open/closed)"
 tags: [comparative-genomics, pan-genome, algorithm]
 sources:
+  - docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md
   - docs/Evidence/PANGEN-CORE-001-Evidence.md
   - docs/Validation/reports/PANGEN-CORE-001.md
-source_commit: 9957b475387e91865d553279d914fddef30ae85b
+source_commit: 24019eaadb5fff85491dc550811e8c5e8476a841
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -128,6 +129,35 @@ occupancy partition and fluidity.
    unambiguous.
 2. **Empty-pair fluidity convention (assumption).** Pairs with `M_k + M_l = 0` contribute 0 (the
    neutral element for the otherwise-undefined term); only arises for empty genomes.
+
+## Implementation (`PanGenomeAnalyzer`)
+
+Entry points live in `PanGenomeAnalyzer.cs` (`Seqeron.Genomics.Metagenomics`); the primary spec
+`docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md` marks the unit **Simplified**:
+
+- **`ConstructPanGenome(genomes, identityThreshold = 0.9, coreFraction = 0.99)`** — clusters genes,
+  partitions core/accessory/unique, and computes fluidity + open/closed `Type`. `null`/empty
+  `genomes` returns an all-empty `PanGenomeResult` (no exception). This is the method that applies the
+  **fractional** `occupancy/N ≥ coreFraction` rule described above.
+- **`GetCoreGeneClusters(clusters, totalGenomes, threshold)`** — the standalone core-gene referent
+  (the Registry `IdentifyCoreGenes` target). **Caveat:** it filters on the *floor* rule
+  `occupancy ≥ floor(threshold·totalGenomes)`, **not** the fractional test — so for small N it can
+  admit borderline clusters that `ConstructPanGenome`'s fractional rule rejects. Use
+  `ConstructPanGenome` when the strict Roary-style fractional semantics matter.
+- Fluidity (`CalculateGenomeFluidity`) and openness (`DeterminePanGenomeType` /
+  `EstimateHeapsDecayExponent`) are private helpers.
+
+Clustering is the in-repo **k=7 k-mer Jaccard** heuristic (not BLASTP). The repo **suffix tree was
+evaluated and deliberately not used** — this unit does set-occupancy counting and arithmetic over
+already-formed clusters, not substring/occurrence search. The Heaps α fit uses a **single
+dictionary-order** accumulation (zero-novelty steps floored to 1 to keep the log defined) rather than
+averaging over random permutations, so borderline open/closed calls are genome-order-dependent.
+Fluidity jackknife variance σ² is **not** returned.
+
+Complexity: `ConstructPanGenome` O(g²·s) time / O(g) space (all-vs-all clustering dominates; g =
+total genes, s = sequence length); fluidity O(N²·C); Heaps α fit O(N·C). Invariants INV-01..INV-07
+(disjoint partition, count conservation, φ ∈ [0,1], open ⟺ α<1) are covered by
+`PanGenomeAnalyzer_ConstructPanGenome_Tests.cs`.
 
 ## Reference tools
 

@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **98** algorithm docs covered-via-concept, **148** pending across 21 domains
-(K-mer domain now fully covered; K-mer_Search resolved 2026-07-13).
+Status at generation: **99** algorithm docs covered-via-concept, **147** pending across 20 domains
+(K-mer and Metagenomics domains now fully covered; K-mer_Search and PanGenome_Core_Accessory
+resolved 2026-07-13).
 
 ## Covered via concept (done)
 
@@ -104,6 +105,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/FileIO/VCF_Parsing.md` | [[vcf-parsing]] |
 | `docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md` | [[antibiotic-resistance-gene-detection]] |
+| `docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md` | [[pan-genome-core-accessory-partition]] |
 | `docs/algorithms/Metagenomics/Alpha_Diversity.md` | [[alpha-diversity]] |
 | `docs/algorithms/Metagenomics/Beta_Diversity.md` | [[beta-diversity]] |
 | `docs/algorithms/Metagenomics/Functional_Prediction.md` | [[functional-prediction]] |
