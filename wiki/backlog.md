@@ -18,11 +18,12 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **104** algorithm docs covered-via-concept, **142** pending across 19 domains
+Status at generation: **105** algorithm docs covered-via-concept, **141** pending across 19 domains
 (K-mer and Metagenomics domains now fully covered; K-mer_Search and PanGenome_Core_Accessory
 resolved 2026-07-13; DNA_Dimer_Tm, DNA_Hairpin_Folding_Tm, DNA_Hairpin_Special_Loop_Bonus and
 LNA_Adjusted_Nearest_Neighbor_Tm → [[primer-dimer-thermodynamics-tm]] resolved 2026-07-13;
-Hybridization_Probe_Design → [[hybridization-probe-design]] resolved 2026-07-13).
+Hybridization_Probe_Design → [[hybridization-probe-design]] resolved 2026-07-13;
+MolTools/Melting_Temperature → [[melting-temperature]] resolved 2026-07-13).
 
 ## Covered via concept (done)
 
@@ -135,6 +136,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md` | [[primer-dimer-thermodynamics-tm]] |
 | `docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md` | [[primer-dimer-thermodynamics-tm]] |
 | `docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md` | [[primer-dimer-thermodynamics-tm]] |
+| `docs/algorithms/MolTools/Melting_Temperature.md` | [[melting-temperature]] |
 
 ## Pending (fold into the ingest campaign)
 

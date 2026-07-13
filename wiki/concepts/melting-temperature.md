@@ -4,9 +4,10 @@ title: "Scalar melting temperature (Wallace rule / Marmur-Doty GC formula)"
 tags: [thermodynamics, sequence-statistics, primer, validation]
 sources:
   - docs/Evidence/SEQ-TM-001-Evidence.md
-source_commit: 52c02ee8f4642a46e7ab17988a729a45ffbe5268
+  - docs/algorithms/MolTools/Melting_Temperature.md
+source_commit: b506d99c74fa208e5aea88e1af88e86dada36363
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -76,6 +77,39 @@ primer engine's *default* per-oligo Tm both use.
 > repository uses the **64.9 / −672.4** constants, a different published Marmur-Doty variant. The
 > family and the `A + B·%GC − C/N` shape are the same; only the constants differ. The evidence
 > hand-derivations use the repo's 64.9 form.
+
+## The MolTools primer-side twin (PRIMER-TM-001) and simple salt correction
+
+The same two formulas have a **second, primer-oriented implementation** in the MolTools family —
+`PrimerDesigner.CalculateMeltingTemperature(string)` (test unit **PRIMER-TM-001**, implementation
+status *Simplified*; `docs/algorithms/MolTools/Melting_Temperature.md`), distinct from the
+`SequenceStatistics` scalar Tm on this page (SEQ-TM-001) but sharing the identical `ThermoConstants`
+formula constants (`WallaceMaxLength = 14`, A/T=2, G/C=4, Marmur-Doty `64.9 / 41.0 / 16.4`). It runs
+the same `length < 14 ⇒ Wallace, else Marmur-Doty` dispatch over a **counted** length, with two
+implementation facts worth recording:
+
+- **Marmur-Doty branch is clamped to ≥ 0** (`Math.Max(0, …)`, INV-04) — the primer twin never
+  returns a negative Tm on the longer-oligo branch, whereas the raw formula can go negative for very
+  short GC content.
+- **Only `A/C/G/T` contribute to the counted length** (case-insensitive, uppercased first); ambiguous
+  or non-DNA characters are **ignored, not rejected**, so a degenerate primer is scored on its
+  standard-DNA subset. Null/empty ⇒ `0`; zero counted bases ⇒ `0`.
+
+**Simple additive sodium correction.** Unlike this page's SEQ-TM-001 scalar (which carries *no* salt
+term) and unlike the nearest-neighbour salt models on [[primer-dimer-thermodynamics-tm]] (SantaLucia
+Eq. 5 / Owczarzy 1/Tm), the primer twin exposes an **opt-in simple correction**,
+`PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, naConcentration = 50 mM)` — the base
+scalar Tm **plus** a single additive log-space term (Owczarzy et al. 2004 simple form):
+
+```
+Tm_corrected = Tm_base + 16.6 · log10([Na⁺] / 1000)      ([Na⁺] in mM; ThermoConstants.SaltCoefficient = 16.6)
+```
+
+rounded to **one decimal place** (`ThermoConstants.CalculateSaltCorrection`). Worked oracle: the
+`ACGTACGTACGTACGTACGT` Marmur-Doty Tm 51.78 °C at 50 mM Na⁺ → `+16.6·log10(0.05) = −21.6 °C` →
+**30.2 °C**. The one documented **assumption** here is the same fixed 14-nt Wallace/Marmur-Doty switch
+(the spec notes some literature switches at ~17–20 bp); the correction is monovalent-Na⁺ only (no
+Mg²⁺/dNTP, no nearest-neighbour context).
 
 ## Failure modes and contract
 
