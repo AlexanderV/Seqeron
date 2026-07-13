@@ -7,11 +7,12 @@ mcp_tools:
   - linguistic_complexity
   - windowed_complexity
 sources:
+  - docs/algorithms/Complexity/Windowed_Complexity.md
   - docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md
   - docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md
-source_commit: 60364fa35e17472ed4b4847deceae1f24784348f
+source_commit: 579178ec5fcf7fb4a0d95f1a8866299cf78eb55c
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -102,6 +103,20 @@ Only windows with `i + w ≤ L` are emitted — a **trailing partial fragment is
 sequence shorter than one window yields an **empty profile**. Defaults `windowSize = 64`,
 `stepSize = 10` (ASSUMPTION — common windowing practice, caller-overridable; do not affect the value
 computed for an explicitly specified window).
+
+## Implementation surface
+
+The primary spec (`docs/algorithms/Complexity/Windowed_Complexity.md`) exposes the driver as
+`SequenceComplexity.CalculateWindowedComplexity(DnaSequence, int windowSize = 64, int stepSize = 10)`
+on `Seqeron.Genomics.Analysis` (`SequenceComplexity.cs`), returning a **lazily-evaluated**
+`IEnumerable<ComplexityPoint>`. It **delegates per-window metrics** to the same
+`CalculateShannonEntropyCore` / `CalculateLinguisticComplexityCore` helpers used by the standalone
+scalar units, so window values match those metrics exactly. Cost is `O((L/s)·w²)` time — one pass over
+≈`L/s` windows, each enumerating subwords of length `1…min(6,w)` — with per-window space bounded by
+the distinct-subword count. A **suffix tree was evaluated and rejected**: this is a scoring scan over
+each window rather than an exact-match occurrence search, and the small LC word-length cap (≤6) keeps
+direct enumeration cheap; the linear-time suffix-tree profile of Troyanskaya et al. (2002) is *not*
+implemented — the exact per-window enumeration is authoritative for the bounded word lengths used.
 
 ## Worked oracles
 

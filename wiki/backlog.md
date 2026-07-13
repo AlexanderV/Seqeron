@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **85** algorithm docs covered-via-concept, **160** pending across 24 domains.
+Status at generation: **86** algorithm docs covered-via-concept, **159** pending across 23 domains.
 
 ## Covered via concept (done)
 
@@ -50,6 +50,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Complexity/DUST_Score.md` | [[dust-low-complexity-score]] |
 | `docs/algorithms/Complexity/K-mer_Entropy.md` | [[k-mer-statistics]] |
 | `docs/algorithms/Complexity/Lempel_Ziv_Complexity.md` | [[sequence-complexity-compression-lempel-ziv]] |
+| `docs/algorithms/Complexity/Windowed_Complexity.md` | [[windowed-sequence-complexity-profile]] |
 | `docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md` | [[aneuploidy-detection]] |
 | `docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md` | [[centromere-analysis]] |
 | `docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md` | [[centromere-analysis]] |
@@ -115,7 +116,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (160 algorithm docs across 24 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (159 algorithm docs across 23 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
