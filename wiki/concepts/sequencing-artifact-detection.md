@@ -4,9 +4,10 @@ title: "Sequencing artifact detection (OxoG / FFPE deamination + strand bias)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-ARTIFACT-001-Evidence.md
-source_commit: d4ef2c36c5c292c694f25a2fba12074d63939467
+  - docs/algorithms/Oncology/Sequencing_Artifact_Detection.md
+source_commit: da317d1a39f631713bdec3bc9d34811cf8c29b2c
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -86,12 +87,35 @@ FS = -10 · log10( max(p, MIN_PVALUE) )            MIN_PVALUE = 1e-320
 - A table with a **zero margin** (e.g. no reverse reads at all) yields p = 1 (no evidence of bias) under
   the two-sided test.
 
+## Flag decision and entry points
+
+The three signals are combined by a **deterministic, rule-based** flag rule (not a probabilistic damage
+posterior) — the per-substitution-type GIV threshold and substitution class, **not** a tri-nucleotide
+context model:
+
+| ref→alt | Class | Flag rule |
+|---------|-------|-----------|
+| C>T, G>A | FfpeDeamination | **always** flagged (conservative pre-filter) |
+| G>T, C>A | OxoG | flagged **iff GIV > 1.5** |
+| other | None | never |
+
+Because FFPE is flagged by substitution class alone, a genuine somatic C>T at sufficient VAF would also be
+removed — the unit is a **conservative pre-filter, not a final caller**. Entry points on `OncologyAnalyzer`
+(`OncologyAnalyzer.cs`): `ClassifyArtifact(ArtifactObservation)` (one variant → `ArtifactCall` with `Type`,
+`GivScore`, `StrandBiasPhred`, `IsArtifact`), `CalculateGivScore(int r1, int r2)`,
+`CalculateStrandBias(int refFwd, int refRev, int altFwd, int altRev)`, `FilterArtifacts` (drops flagged,
+keeps the rest in input order — output ⊆ input), and `DetectOxoGArtifacts` (returns the flagged OxoG calls,
+i.e. GIV > 1.5). The two-sided Fisher p is computed by summing hypergeometric probabilities of all
+same-margin tables no more probable than the observed one, using a **Lanczos log-gamma** for numerically
+stable binomial coefficients — O(N) in the column sum N (no substring search / suffix tree). Constants:
+`DamagedGivThreshold = 1.5`, `UndamagedGivScore = 1.0`, `MinFisherPValue = 1e-320`.
+
 ## Worked oracles
 
 - **GIV:** R1 G>T = 200, R2 G>T = 100 → GIV = **2.0** (damaged, > 1.5); balanced R1 = R2 = 100 → GIV = **1.0**
   (undamaged).
 - **FisherStrand:** balanced table `[10,10,10,10]` → two-sided p = 1.0 → FS = **0.000**; segregated
-  `[20,0,0,20]` → exact hypergeometric two-sided p → FS **large (> 0)**.
+  `[20,0,0,20]` → two-sided Fisher p = 1.4508889×10⁻¹¹ → FS = −10·log10(p) = **108.384**.
 - **Substitution class:** C>T, G>A → FFPE deamination; G>T, C>A → OxoG oxidation; A>G → **neither**.
 
 ## Invariants and edge cases
@@ -113,6 +137,9 @@ but the repository has no BAM reader; the read-orientation and per-strand alt/re
 supply is passed **directly on the variant observation record** instead of parsed from a file. This is an
 API-shape decision — the classification rules (substitution class, GIV ratio, Fisher strand p) are
 unchanged. The GIV thresholds (neutral 1, damaged > 1.5) are documented operational cutoffs taken verbatim
-from the Nature Methods summary of Chen 2017, not invented. **Not for clinical or diagnostic use.** No
+from the Nature Methods summary of Chen 2017, not invented. It does **not** estimate a per-variant artifact
+probability — for a Bayesian read-orientation posterior use GATK Mutect2 `LearnReadOrientationModel` /
+`FilterMutectCalls` (F1R2 `OrientationBiasFilter`), which takes full F1R2/F2R1 read tensors rather than the
+per-strand and per-read-mate counts this unit consumes. **Not for clinical or diagnostic use.** No
 source contradictions — Chen 2017 / Damage-estimator (oxidation), Do & Dobrovic 2015 (FFPE deamination),
 and GATK FisherStrand (strand bias) each cover a disjoint signal and are mutually consistent.
