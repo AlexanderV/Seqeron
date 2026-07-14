@@ -4,9 +4,10 @@ title: "Chromothripsis inference (Korbel & Campbell hallmark criteria — oscill
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-SV-001-Evidence.md
-source_commit: 1d2674a92b8ed1d1afe16f362ae4457c56435ff8
+  - docs/algorithms/Oncology/Complex_Rearrangement_Classification.md
+source_commit: ff6a38af00d492c1ed6cbaa44bea95981a62f469
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -90,6 +91,29 @@ distances** (CV = 1). The unit exposes the distances and their mean and **flags 
 coefficient of variation exceeds 1** — over-dispersion toward many short gaps with a few large gaps
 gives CV > 1; regular spacing gives CV ≈ 0 (not flagged). A transparent summary, not a fixed
 goodness-of-fit test.
+
+## 4. Implementation (`OncologyAnalyzer`, test unit ONCO-SV-001)
+
+The unit is a **deterministic rule screen** in `src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`
+(three entry points), consuming *already-segmented* per-region CN plus a clustered SV count — it does **not**
+call SVs from raw reads (that is `StructuralVariantAnalyzer`'s role), and the repository suffix tree is not
+used (the work is numeric counting + a statistical summary, no substring matching).
+
+- `CountCopyNumberStateOscillations(...)` — adjacent CN-state transitions; **O(n)** time, **O(1)** space.
+- `TestBreakpointClustering(...)` — exponential-null CV summary → `BreakpointClusteringResult`
+  (`BreakpointCount`, `MeanGap`, `CoefficientOfVariation`, `IsClustered`); **O(m log m)** (sort-dominated).
+- `ClassifyComplexRearrangement(...)` — full call; **O(n)** time / **O(n)** space (distinct-state set).
+  Returns `Type` (`NotComplex` | `Chromothripsis`), `Confidence` (`None`/`Low`/`High`), `OscillationCount`,
+  `OscillatingSegmentCount` (**k transitions → k+1 segments**), `DistinctStateCount`, and the clustering record.
+
+**Named decision constants (source-traced):** `MinOscillatingCopyNumberChanges = 10` (Magrangeas 2011 [3]),
+`MaxChromothripsisCopyNumberStates = 3` (two-/three-state hallmark [1]), `MinChromothripsisSvBurden = 6`
+(Cortés-Ciriano 2020 focal <6 exclusion [2]), `HighConfidenceOscillatingSegments = 7`,
+`LowConfidenceOscillatingSegments = 4` [2], exponential-null CV `= 1.0` [1]. The Chromothripsis gate is the
+conjunction **distinct states ∈ [2,3] AND oscillations ≥ 10 AND SV burden ≥ 6** (invariant INV-02). The
+implemented gate uses only criteria **A and B** plus the SV-burden floor; C–F (LOH interspersion, haplotype
+prevalence, fragment-join randomness, derivative-chromosome walk) are **not evaluated**, and chromoplexy / BFB
+scoring are out of scope.
 
 ## Worked dataset (per-segment integer CN → oscillation count)
 

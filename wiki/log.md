@@ -4757,3 +4757,19 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub).
    No contradictions: the spec and the already-recorded Evidence synthesis agree on the model, both thresholds
    (0.95 CCF / 0.5 posterior), the grid, and the point-estimate variant.
+
+## [2026-07-14] ingest | docs/algorithms/Oncology/Complex_Rearrangement_Classification.md → enriched [[chromothripsis-inference]]
+   Oncology reconciliation (spec ≠ Evidence, so NO wiki/sources/ page). The concept synthesized earlier from
+   ONCO-SV-001-Evidence already covered the spec's model (six hallmark criteria, oscillation counting +
+   two-state hallmark, ≥10 first-pass screen, ≥6 SV floor, ≥7/4–6 confidence tiers, exponential-null CV>1
+   clustering). Added the spec to sources: and bumped source_commit → ff6a38af. Surgical str_replace added a
+   genuinely-distinct "Implementation (OncologyAnalyzer)" section: three entry points
+   (CountCopyNumberStateOscillations / TestBreakpointClustering / ClassifyComplexRearrangement), complexity
+   (O(n), O(m log m)), output-record fields, the six named decision constants, the k-transitions→k+1-segments
+   rule, and the criteria-A/B-only gate (C–F / chromoplexy / BFB out of scope; suffix tree N/A). No new page ⇒
+   index.md unchanged (concept already listed). Backlog: added Covered-via-concept row (covered 119→120,
+   pending 125→124); removed from [[backlog-pending]] (Oncology 31→30, total 124→123). No new graph
+   nodes/edges (implementation prose only; concept's existing typed edges relates_to test-unit-registry /
+   copy-number-alteration-classification unchanged; body wikilinks provide mentions edges) ⇒ graph
+   lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub).
+   No contradictions: spec and the recorded Evidence synthesis agree on the model, thresholds, and worked datasets.
