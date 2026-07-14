@@ -10,11 +10,10 @@ updated: 2026-07-14
 
 The per-domain pending tables (108 algorithm docs across 17 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14.)
 
-### Oncology (14)
+### Oncology (13)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Oncology/Mutational_Signature_Exposure_Bootstrap.md` | `mutational-signature-exposure-bootstrap` |
 | `docs/algorithms/Oncology/Mutational_Signature_Extraction_NMF.md` | `mutational-signature-extraction-nmf` |
 | `docs/algorithms/Oncology/Mutational_Signature_Fitting.md` | `mutational-signature-fitting` |
 | `docs/algorithms/Oncology/Neoantigen_Peptide_Generation.md` | `neoantigen-peptide-generation` |

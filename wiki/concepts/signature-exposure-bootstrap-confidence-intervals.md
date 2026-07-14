@@ -4,9 +4,10 @@ title: "Signature exposure bootstrap confidence intervals (resample-refit-percen
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-SIG-003-Evidence.md
-source_commit: 2c404cc9eb23b82d7b7e6aeb757a40051a8f84fd
+  - docs/algorithms/Oncology/Mutational_Signature_Exposure_Bootstrap.md
+source_commit: cabf04f17346b3bad02473738c5f328dd17fc81b
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -90,6 +91,28 @@ concentrated.
 - **Input validation** (mirrored from `FitSignatures`): null catalog/signatures → `ArgumentNullException`;
   ragged/empty signatures, catalog-length mismatch, negative count → `ArgumentException`; replicates < 1,
   confidence ∉ (0,1), or an undefined `resampling` enum → `ArgumentOutOfRangeException`.
+
+## Implementation (entry point and samplers)
+
+The spec fixes this to `OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates=1000,
+confidence=0.95, seed=42, resampling=Multinomial)` in `OncologyAnalyzer.cs`, returning one
+`ExposureConfidenceInterval` record per signature with fields `PointEstimate`, `Mean`, `Lower`, `Upper`,
+`Confidence`. The scheme is an `OncologyAnalyzer.BootstrapResampling` enum; the `resampling` argument defaults
+to `Multinomial` so pre-existing callers are byte-for-byte unaffected. Two sampler details distinguish this
+implementation from the R lineages it traces:
+
+- **Multinomial** is realised by the **sequential conditional-binomial construction** (channel `k` draws
+  `Binomial(remaining, pₖ / Σ_{i≥k} pᵢ)`, Binomial sampled as a sum of Bernoulli trials) — *not* R's
+  `sample`+`table`. Both yield an identical `Multinomial(N, p)` distribution; only the RNG stream differs.
+- **Poisson** draws each channel via **Knuth's multiplication-of-uniforms** deviate generator (`λ = 0` returns
+  0). These are exact definitional samplers rather than O(1) inversion/BTPE/PTRS, so per-replicate cost grows
+  with `N` / `Σλ` — fine for catalog magnitudes, slower for very large `N`.
+
+Cost is **O(R·(N + NNLS(n,k)))** overall (R replicates × one resample + one NNLS fit), plus an **O(R log R)**
+sort per signature for the percentile. **Not implemented:** the MSA Gaussian noise model (σ = 10 % of burden,
+MSA's default) — this unit provides only the two discrete count-resamplers (multinomial, Poisson); the Gaussian
+continuous-noise alternative is out of scope, as are Bayesian credible intervals and signature-presence
+p-values (use sigfit / signeR / sigminer `report_bootstrap_p_value`).
 
 ## Relation to the oncology family
 
