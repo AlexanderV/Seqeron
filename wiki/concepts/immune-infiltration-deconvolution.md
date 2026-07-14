@@ -4,9 +4,10 @@ title: "Immune infiltration estimation — expression deconvolution (ν-SVR / ES
 tags: [oncology, transcriptome, algorithm]
 sources:
   - docs/Evidence/ONCO-IMMUNE-001-Evidence.md
-source_commit: a197fb86ceeffb8de5c09005d269f020e46584f5
+  - docs/algorithms/Oncology/Immune_Infiltration_Estimation.md
+source_commit: e5e2f90841f7b38a1404efb3523f9dd1acea1abf
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -69,6 +70,18 @@ The engine was cross-validated two ways: **planted-truth recovery** (`m = S·f` 
 (Schölkopf Theorem 9): ν upper-bounds the fraction of errors and lower-bounds the fraction of
 support vectors.
 
+**Solver internals (linear-kernel ν-SVR dual, Schölkopf 2000 eqs 60–62).** The dual is solved by
+an **SMO-style pairwise coordinate ascent** on the reduced variables `β_i = α_i − α_i*`: each step
+moves a working pair `(β_p, β_q)` by `(+δ, −δ)`, which keeps the equality `Σβ_i = 0` **exactly**;
+the step `δ = (g_p − g_q)/(K_pp + K_qq − 2·K_pq)` is clipped against the box `|β_i| ≤ C` and the ν
+budget `Σ|β_i| ≤ Cνℓ`. The primal weight is recovered as `w = Σβ_i·x_i` and reported as the fraction
+vector `f = w`. The regularisation constant is `C = 1` (`NuSvrCost`, the libsvm default); the SMO
+loop runs at most `200·n` iterations for `n` overlapping genes. Invariant **INV-NUSVR-04**: the dual
+respects `Σ(α_i−α_i*) = 0`, `Σ(α_i+α_i*) ≤ Cνℓ`, `α_i,α_i* ∈ [0,C]` throughout. Complexity is
+`O(|ν|·(n² + n·t·m))` — the `n×n` kernel plus the SMO loop (`t` ≤ 200·n iterations, `m` cell types).
+Non-finite (NaN/±∞) mixture values are rejected up front with `ArgumentException` so no non-finite
+value leaks into the contracted-finite outputs.
+
 ### NNLS / LLSR baseline — `DeconvoluteImmuneCells`
 
 The default (non-ν-SVR) path retains the older non-negative-least-squares / linear-least-squares
@@ -98,10 +111,18 @@ pipeline). The permissively-licensed **ABIS-Seq** matrix (Monaco et al. 2019) *i
 
 ESTIMATE (Yoshihara et al. 2013) scores stromal / immune content with **single-sample GSEA
 (ssGSEA)** over two 141-gene signatures, producing an **immune score**, **stromal score**, and
-**ESTIMATE score = immune + stromal**. The library uses a **simplified ssGSEA** (rank-weighted mean
-of signature-gene expression) — an intentional deviation that keeps the ordering semantics but not
-the full Kolmogorov–Smirnov running-sum enrichment statistic. This is the same signature/pathway
-scoring layer as the combined-z score of [[expression-outlier-zscore-signature-score]].
+**ESTIMATE score = immune + stromal**. The library uses the **GSVA-style integral form of ssGSEA**
+(Barbie 2009; Hänzelmann 2013): genes are ranked in **descending** expression order, a signature
+**hit** contributes a positive weight **∝ `rank^τ` with `τ = 0.25`**, and each **miss** step
+subtracts a constant **`1/nMiss`** from the running sum, which is accumulated (integrated) over the
+full ranked list — the GSVA-style integral, *not* the classic maximum-deviation (Kolmogorov–Smirnov)
+GSEA statistic. An empty effective hit-set yields a **zero** contribution. This is the same
+signature/pathway scoring layer as the combined-z score of
+[[expression-outlier-zscore-signature-score]]. Complexity is `O(N log N)` per scoring pass
+(dominated by ranking `N` genes). Note the resulting single-sample integral is **un-normalised**, so
+the default `EstimateInfiltration.TumorPurity` is a **relative** indicator; the opt-in
+`EstimateTumorPurity(score)` applies the same cosine to a caller-supplied Affymetrix-scaled ESTIMATE
+score for an **absolute** purity.
 
 **Tumor purity** is derived from the ESTIMATE score by the verbatim cosine transform:
 
@@ -139,8 +160,13 @@ fractions and ESTIMATE scores.
 - **Collinear cell types** (e.g. resting vs activated NK, T-cell-heavy mixtures) recover the correct
   *support* but looser *proportions* — a documented property of the unmodified ν-SVR engine (Newman
   2015 corner case), so planted-truth tests use well-separated lineages + a one-hot case.
-- **Missing / non-overlapping signature genes** → unreliable or zero/undefined fractions; **empty
-  expression profile** → no scores. **Low signal-to-noise** degrades accuracy.
+- **Missing / non-overlapping signature genes** → unreliable or zero/undefined fractions (the
+  deconvolution no-overlap branch returns all-zero fractions, `Correlation = 0`, `Rmse = 0`, and for
+  ν-SVR `BestNu = 0`). **Empty expression profile** → zero immune/stromal/ESTIMATE scores, but tumor
+  purity is still evaluated at score 0 by the cosine formula, giving **`≈ 0.8225`** after clamping.
+  **Low signal-to-noise** degrades accuracy.
+- **NNLS solver** is Lawson-Hanson active-set with a default `maxIterations = 1000`; a malformed
+  LM22-format TSV (empty / ragged / non-numeric) throws `FormatException` from `LoadSignatureMatrix`.
 - **Non-hematopoietic content** is *not* estimated by deconvolution — it falls into the residual.
 - **ESTIMATE domain:** designed for **solid tumors**; hematological malignancies are inappropriate
   inputs, and the ESTIMATE score may exceed the valid purity range at extreme low-purity values.
