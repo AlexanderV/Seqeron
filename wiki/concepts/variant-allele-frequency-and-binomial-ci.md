@@ -4,9 +4,10 @@ title: "Variant allele frequency (empirical VAF + Wilson binomial CI + purity/pl
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-VAF-001-Evidence.md
-source_commit: 68661290101fe6f70f2c89ccf5f5076fff5940ce
+  - docs/algorithms/Oncology/Variant_Allele_Frequency.md
+source_commit: e2d991daa01b401227173236ce33ce0a265070d3
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -129,6 +130,27 @@ returns the copy-number-corrected mutant fraction directly. Oracles:
   (Wald would overshoot / collapse) — the reason Wilson is used, not Wald.
 - **Purity `π = 0`** — `AdjustVAFForPurity` divides by π; pure-normal `π = 0` makes the adjusted
   fraction undefined (`ArgumentOutOfRangeException`).
+
+## Implementation (per the algorithm spec)
+
+Three closed-form, deterministic `O(1)`/`O(1)` static methods on `OncologyAnalyzer`
+(`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`):
+
+- `CalculateVAF(int altReads, int totalReads)` — empirical VAF; returns `0` for `totalReads == 0`
+  (no coverage), reusing the private `CalculateVaf` validation shared with the somatic-calling path.
+- `CalculateVAFConfidenceInterval(int altReads, int totalReads, double confidence = 0.95)` — Wilson
+  center/margin. `z = 1.96` is a named constant `ZScore95`; only `confidence == 0.95` is supported
+  (any other level, or `confidence ∉ (0,1)`, throws — no other `z` was retrieved from an authoritative
+  source). The Wilson bounds are **clamped to [0,1]** only to absorb floating-point drift at the exact
+  `p̂ = 0 / 1` boundaries; the unclamped values are already in [0,1] mathematically.
+- `AdjustVAFForPurity(double vaf, double purity, double ploidy)` — purity/ploidy correction; normal
+  copy number is the named constant `NormalDiploidCopyNumber = 2`.
+
+The spec pins four invariants verified by tests (`OncologyAnalyzer_CalculateVAF_Tests.cs`): **INV-01**
+`0 ≤ VAF ≤ 1`, **INV-02** `lower ≤ center ≤ upper`, **INV-03** `0 ≤ lower ∧ upper ≤ 1`, **INV-04**
+`AdjustVAFForPurity(π/2, π, 2) = 1` (the diploid-heterozygous round-trip). Not implemented by design:
+a Mutect2-style Bayesian modelled `AF` — use an external caller (GATK Mutect2) for that; this unit
+computes the empirical ratio only.
 
 ## Scope and limitations
 
