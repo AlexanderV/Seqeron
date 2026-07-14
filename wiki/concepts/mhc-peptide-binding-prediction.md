@@ -4,9 +4,10 @@ title: "MHC-peptide binding prediction + binder classification (thresholds / BIM
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-MHC-001-Evidence.md
-source_commit: ad78834fc39b17b44fb5fb87ba380d83ef7a3eee
+  - docs/algorithms/Oncology/MHC_Peptide_Binding_Classification.md
+source_commit: f44fa40dc4665815aa6716d51f31e18c6215d8bd
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -93,9 +94,16 @@ scores 12/13/14-mers unchanged; callers may pass `maxLength` up to 15 to reach t
 ## 2. Matrix-based prediction
 
 Both variants take a peptide and a **position-specific scoring matrix** (one row per peptide position;
-`Predict…` throws `ArgumentException` if `peptide.Length ≠ matrix rows`). An **unlisted / ambiguous
+`Predict…` throws `ArgumentException` if the matrix has no rows or `peptide.Length ≠ matrix rows`, and
+`ArgumentNullException` for a null peptide — INV-07). An **unlisted / ambiguous
 residue** is neutral — coefficient **1.0** for BIMAS (no effect on a product), contribution **0.0** for
 SMM (no effect on a sum).
+
+The matrix can be built directly or parsed by `LoadScoringMatrix(IEnumerable<string>)` from a line-oriented
+text form — a `CONST=<value>` final-constant line plus one `RESIDUE=VALUE` row per position. The loader is
+strict: `ArgumentNullException` on null input, and `FormatException` on a malformed token, a non-numeric
+value, or a multi-character residue key. The record type is `PmhcScoringMatrix` and the convention is
+selected by the `PmhcScoringMethod` enum.
 
 - **BIMAS product rule** (Parker, Bednarek & Coligan 1994 / BIMAS docs): the score is a **half-time of
   dissociation** — running score starts 1.0 and is multiplied by each position's coefficient, then by a
