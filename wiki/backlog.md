@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **117** algorithm docs covered-via-concept, **127** pending across 18 domains
+Status at generation: **118** algorithm docs covered-via-concept, **126** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/Clonal_Hematopoiesis_Filtering → [[clonal-hematopoiesis-cfdna-filtering]] resolved 2026-07-14;
 Oncology/Clinical_Actionability_Assessment → [[clinical-actionability-oncokb-levels]] resolved 2026-07-14;
 Oncology/Cancer_Variant_Annotation → [[cancer-variant-tier-classification-amp-asco-cap]] resolved 2026-07-14;
 Oncology/Cancer_Cell_Fraction_Estimation → [[cancer-cell-fraction-clonal-clustering]] resolved 2026-07-14; MolTools/Restriction_Site_Detection →
@@ -160,10 +161,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md` | [[cancer-cell-fraction-clonal-clustering]] |
 | `docs/algorithms/Oncology/Cancer_Variant_Annotation.md` | [[cancer-variant-tier-classification-amp-asco-cap]] |
 | `docs/algorithms/Oncology/Clinical_Actionability_Assessment.md` | [[clinical-actionability-oncokb-levels]] |
+| `docs/algorithms/Oncology/Clonal_Hematopoiesis_Filtering.md` | [[clonal-hematopoiesis-cfdna-filtering]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (127 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (126 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

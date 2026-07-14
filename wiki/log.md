@@ -4714,3 +4714,23 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    provide mentions edges) ⇒ graph lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged
    (spec docs are not added to the hub). No contradictions: the spec and the already-recorded Evidence
    synthesis agree on the seven levels, the three ordering axes, and the NotActionable empty-level semantics.
+
+## [2026-07-14] ingest | docs/algorithms/Oncology/Clonal_Hematopoiesis_Filtering.md → [[clonal-hematopoiesis-cfdna-filtering]] (concept enrich)
+   Oncology reconciliation: the CHIP-filtering concept already existed (ONCO-CHIP-001, synthesized from
+   ONCO-CHIP-001-Evidence) and already covers the full primary spec — the three methods (IdentifyCHIPVariants,
+   FilterCHIP with matched-WBC rule a + gene+VAF fallback rule b, CallVariantOrigin strict Bolton rule), the
+   VAF≥0.02 threshold, the {DNMT3A,TET2,ASXL1,TP53,JAK2,SF3B1,SRSF2,PPM1D} panel, the φ=2.0/1.5 fold ratio,
+   and matching worked oracles. Added the primary spec (docs/algorithms/Oncology/Clonal_Hematopoiesis_Filtering.md)
+   as the FIRST entry in sources: (ahead of the Evidence doc), bumped source_commit 90f75a1→f0c2c13 and
+   updated 2026-07-09→2026-07-14. Surgical enrich: new "Entry points and implementation" block capturing the
+   spec's genuinely-distinct implementation content not previously on the page — all four static
+   OncologyAnalyzer methods incl. the fourth IsCanonicalChipGene predicate, ChipVariant/WbcObservation record
+   shapes, exact (chrom,1-based pos,ref,alt) locus key, the HashSet WBC-loci membership + Dictionary
+   locus→best-observation data structures, O(n·g) / O(n+w) linear complexity, the suffix-tree-not-used note,
+   and input-order preservation. No wiki/sources/ page (spec ≠ Evidence/Validation report). No new page ⇒
+   index.md unchanged (concept already listed). Backlog: added Covered-via-concept row (covered 117→118,
+   pending 127→126); removed from [[backlog-pending]] (Oncology 33→32, total 126→125). No new graph
+   nodes/edges (implementation prose only; the concept's existing typed edges are unchanged; body wikilinks
+   provide mentions edges) ⇒ graph lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged
+   (spec docs are not added to the hub). No contradictions: the spec and the already-recorded Evidence
+   synthesis agree on the three methods, all thresholds, the driver-gene panel, and the origin-call semantics.

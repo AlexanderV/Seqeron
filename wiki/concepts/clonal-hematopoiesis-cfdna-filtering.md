@@ -3,10 +3,11 @@ type: concept
 title: "Clonal hematopoiesis (CHIP) filtering for cfDNA liquid biopsy"
 tags: [oncology, algorithm]
 sources:
+  - docs/algorithms/Oncology/Clonal_Hematopoiesis_Filtering.md
   - docs/Evidence/ONCO-CHIP-001-Evidence.md
-source_commit: 90f75a142c015ef57f04ebf747b01f8b855634db
+source_commit: f0c2c13f5cd2228b98693ba0364be65f9d96e6bd
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -92,6 +93,20 @@ WBC VAF ≥ 0.02   AND   WBC supporting reads ≥ 10   AND   WBC VAF ≥ φ × t
   infiltration inflates tumour-fraction there). The fold ratio is a **sourced parameter** chosen via
   Bolton's leukocyte-contamination simulations — exposed as a caller knob, not invented.
 - **Absent from WBC ⇒ Tumor** (no blood evidence), even for a CH driver gene.
+
+### Entry points and implementation
+
+All four methods are static on `OncologyAnalyzer` (`OncologyAnalyzer.cs`, `Seqeron.Genomics.Oncology`,
+**Framework** status): `IdentifyCHIPVariants`, `FilterCHIP`, `CallVariantOrigin`, plus
+`IsCanonicalChipGene(gene)` — the case-insensitive panel-membership predicate. `ChipVariant =
+(chromosome, position, ref, alt, gene, VAF)`; `WbcObservation` carries the matched-WBC VAF + supporting
+alt reads consumed by `CallVariantOrigin`. Locus identity is **exact on (chromosome, 1-based position,
+ref, alt)**. Data structures: `FilterCHIP` hashes the WBC loci once into a `HashSet<(string,int,string,string)>`
+for O(1) membership; `CallVariantOrigin` indexes a `Dictionary` of locus → highest-VAF WBC observation.
+Complexity is linear — `IdentifyCHIPVariants` O(n·g) (g = small panel), `FilterCHIP` / `CallVariantOrigin`
+O(n+w) time. Because the work is set-membership + exact-key lookup (no substring/pattern search), the
+repo suffix-tree index is deliberately **not used**. Every method preserves input order; the
+gene+VAF fallback (rule b) is disabled by passing an empty `chipGenes` panel.
 
 ## 3. Worked oracles
 
