@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **147** algorithm docs covered-via-concept, **96** pending across 17 domains
+Status at generation: **148** algorithm docs covered-via-concept, **95** pending across 17 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/Tumor_Ploidy_Estimation → [[tumor-ploidy-estimation-and-whole-genome-doubling]] resolved 2026-07-15;
 Oncology/Tumor_Phylogeny_Reconstruction → [[tumor-phylogeny-clonal-tree-reconstruction]] resolved 2026-07-15;
 Oncology/Tumor_Mutational_Burden → [[tumor-mutational-burden]] resolved 2026-07-15;
 Oncology/Tumor_Heterogeneity_Analysis → [[intratumor-heterogeneity-metrics]] resolved 2026-07-15;
@@ -219,6 +220,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Tumor_Heterogeneity_Analysis.md` | [[intratumor-heterogeneity-metrics]] |
 | `docs/algorithms/Oncology/Tumor_Mutational_Burden.md` | [[tumor-mutational-burden]] |
 | `docs/algorithms/Oncology/Tumor_Phylogeny_Reconstruction.md` | [[tumor-phylogeny-clonal-tree-reconstruction]] |
+| `docs/algorithms/Oncology/Tumor_Ploidy_Estimation.md` | [[tumor-ploidy-estimation-and-whole-genome-doubling]] |
 
 ## Pending (fold into the ingest campaign)
 

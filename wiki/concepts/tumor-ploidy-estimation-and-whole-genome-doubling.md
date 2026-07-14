@@ -3,10 +3,11 @@ type: concept
 title: "Tumor ploidy estimation (length-weighted mean segment CN) + whole-genome-doubling detection"
 tags: [oncology, algorithm]
 sources:
+  - docs/algorithms/Oncology/Tumor_Ploidy_Estimation.md
   - docs/Evidence/ONCO-PLOIDY-001-Evidence.md
-source_commit: 57c2be1ccf184e08702ece85a7ad5a5d5618388c
+source_commit: b6006db043e6715dcae23877fd1ca066c4e1b436
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -107,6 +108,36 @@ kept for back-compatibility; the reference-genome denominator is the corrected d
   chromosomes excluded); "chr"-prefixed autosome names recognised.
 - **WGD empty input:** returns false (numerator 0 over a fixed reference denominator) — unlike the legacy
   overload, which throws on an empty supplied-length denominator.
+
+## Implementation surface (ONCO-PLOIDY-001 spec)
+
+Both computations are single-pass **O(n)** over the segments with **O(1)** auxiliary space (no
+sorting, no suffix tree — these are aggregations, not substring search). Four `OncologyAnalyzer`
+entry points:
+
+- `EstimatePloidy(IEnumerable<AlleleSpecificSegment>) → double` — the length-weighted mean ψ.
+- `DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>, ReferenceGenome = GRCh38) → bool` —
+  the facets-suite major-CN ≥ 2 / strict > 0.5 rule against the reference autosomal chromosome-size
+  table.
+- `DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>) → bool` — the
+  legacy overload whose denominator is Σ supplied segment length.
+- `GetAutosomeLengths(ReferenceGenome)` / `GetAutosomalGenomeLength(ReferenceGenome)` — the embedded
+  per-chromosome table and its chr1–22 sum (2,875,001,522 bp GRCh38 / 2,881,033,286 bp GRCh37).
+
+The `AlleleSpecificSegment` record (chr, Start, End, Major, Minor; total CN = Major + Minor,
+length = End − Start half-open) and the per-segment `ValidateSegment` helper are **shared** with the
+other copy-number-scar units [[loss-of-heterozygosity-detection]] (ONCO-LOH-001) and
+[[homologous-recombination-deficiency-score]] (ONCO-HRD-001). Validation contract: `segments` null →
+`ArgumentNullException`; any End ≤ Start or negative CN → `ArgumentException` (shared per-segment
+check); `EstimatePloidy` on an empty set → `ArgumentException` (ψ undefined for Σ L = 0), whereas
+`DetectWholeGenomeDoubling` on an empty set returns `false` (fixed reference denominator, numerator 0);
+an undefined `ReferenceGenome` enum value → `ArgumentOutOfRangeException`.
+
+Two further facts pin the behaviour: ψ is **bounded** by the segment CN range — `min_i CN_i ≤ ψ ≤
+max_i CN_i` (INV-03, a length-weighted mean lies within its value range) — and the algorithm registry
+lists a scalar `DetectWholeGenomeDoubling(ploidy)` stub, an **accepted deviation**: the cited WGD
+definition (major CN ≥ 2 over > 50% of the genome) needs per-segment data, so the canonical method
+takes segments, not a scalar ploidy.
 
 ## Scope and limitations
 
