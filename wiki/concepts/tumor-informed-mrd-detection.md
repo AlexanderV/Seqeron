@@ -3,10 +3,11 @@ type: concept
 title: "Tumor-informed MRD detection (Signatera ≥2/16 + INVAR GLRT)"
 tags: [oncology, algorithm]
 sources:
+  - docs/algorithms/Oncology/MRD_Detection.md
   - docs/Evidence/ONCO-MRD-001-Evidence.md
-source_commit: 13a9268a9bcc252ce0f9ce183815411f74f1ff5b
+source_commit: 5fcdcf5aa431a0af03b0e9bdd662200c451c22d2
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -148,6 +149,39 @@ equations are unchanged — the KDE only changes how `P0`/`P1` are estimated.
   `AF == 0` vacuously) — a single-strand-only signal is strand-biased and fails. Oracle: the pooled
   control allele fraction recovers the injected per-locus error (0.002); recurrent (5/20) or
   high-background (0.0125) loci fail.
+
+## Implementation surface (ONCO-MRD-001)
+
+Everything lives in `OncologyAnalyzer.cs` (`Seqeron.Genomics.Oncology`); status **Simplified**.
+Marker matching is **positional** (the caller supplies per-locus reads), so no sequence search is
+involved and the repository suffix tree is **not applicable**.
+
+- **Entry points:** `DetectMRD` (panel ≥2 call), `TrackVariantsOverTime` (longitudinal, first-positive
+  index), `IsVariantDetected` (per-locus alt ≥ `r_min`), `EstimateInvarSignal` (GLRT / IMAFv2 / p̂),
+  `IntegratedMutantAlleleFractionV2`, `EstimateInvarSignalWithSize` (with-RL, over `InvarMolecule` +
+  `FragmentSizeProfile`), `FragmentSizeProfile(...)` constructor (discrete default) /
+  `FragmentSizeProfile.FromKernelDensity(...)` (opt-in KDE), `SuppressOutlierLoci`,
+  `EstimateLocusBackground`, `PassesBothStrandsFilter`. Reuses `CtDnaDetectionProbability`
+  (ONCO-CTDNA-001) for the panel Poisson `p` — no duplicated formula.
+- **Types:** input `TumorMarker` / `InvarLocus` / `InvarMolecule`; output `MrdResult`
+  {`Status: MrdStatus`, `DetectedVariantCount` = D, `TrackedVariantCount` = m,
+  `IntegratedMutantAlleleFraction`, `DetectionProbability`} and `InvarSignalResult`
+  {`IntegratedMutantAlleleFractionV2`, `EstimatedTumorFraction` = p̂, `LikelihoodRatio` = LR,
+  `Detected` (LR ≥ threshold AND ≥1 mutant read), `LocusCount` = informative loci with AF > 0}.
+- **Parameters / defaults:** `positivityThreshold` τ = 2 (≥1), `minSupportingReads` r_min = 1 (≥1),
+  `genomeEquivalents` n = 0 (≥0), `detectionThreshold` = 0 (≥0).
+- **Validation contract:** null `tumorMarkers` → `ArgumentNullException`; empty → `ArgumentException`;
+  `positivityThreshold < 1`, `minSupportingReads < 1`, or `genomeEquivalents < 0` →
+  `ArgumentOutOfRangeException`. `TrackVariantsOverTime` re-validates each timepoint panel by delegating
+  to `DetectMRD`.
+- **Numerical detail:** negative read counts are **clamped to 0** when summing IMAF; in
+  `EstimateInvarSignal` a zero background rate is **floored to `1/R_i`** so the logs stay finite, and
+  only informative loci (`AF_i > 0`, `R_i > 0`) are kept. The binomial `lchoose` / gamma terms use the
+  Lanczos approximation (ref 7).
+- **Complexity:** `DetectMRD` O(m)/O(1); `TrackVariantsOverTime` O(T·m)/O(T) over T timepoints;
+  `EstimateInvarSignal` O(m·I) with I = 200 EM iterations /O(m); `IntegratedMutantAlleleFractionV2` O(m)/O(1).
+- **Not implemented (scope boundary):** CHIP/germline filtering of markers is **out of scope** — delegate
+  to ONCO-CHIP-001 [[clonal-hematopoiesis-cfdna-filtering]] (`FilterCHIP`) upstream of the panel call.
 
 ## 7. Corner cases and failure modes
 
