@@ -3,11 +3,12 @@ type: concept
 title: "HLA allele nomenclature parsing + allele-specific HLA LOH (LOHHLA)"
 tags: [oncology, algorithm]
 sources:
+  - docs/algorithms/Oncology/HLA_Nomenclature_And_Allele_Specific_LOH.md
   - docs/Evidence/ONCO-HLA-001-Evidence.md
   - docs/Evidence/ONCO-IMMUNE-001-Evidence.md
-source_commit: a197fb86ceeffb8de5c09005d269f020e46584f5
+source_commit: 305cb139d81c9c28f99fff9e938badb9a7989f69
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -125,6 +126,25 @@ segmenter does not build.
   source-exact thresholds (0.5, 0.01) are unchanged.
 - **Nomenclature:** the two-field minimum, four-field maximum, required `HLA-` prefix, numeric fields,
   and the fixed N/L/S/C/A/Q suffix set are the only validity constraints.
+
+## API surface (implementation)
+
+Three `OncologyAnalyzer` entry points (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`):
+
+- `ParseHlaAllele(string)` → `HlaAllele` record (`Gene` upper-cased, `Fields` = 2–4 digit strings with
+  leading zeros **preserved** verbatim, `Suffix`, and a normalized round-trip `Name`). Throws
+  `ArgumentNullException` (null), `ArgumentException` (empty/whitespace), or `FormatException` (any
+  grammar violation — missing `HLA-`/`*`, wrong field count, non-numeric field, invalid suffix). The
+  `HLA-` prefix and the single suffix letter are matched **case-insensitively**.
+- `TryParseHlaAllele(string?, out HlaAllele)` — non-throwing wrapper returning `false` on any
+  null/format/argument error.
+- `DetectHlaLoh(HlaAlleleCopyNumber)` → `HlaLohResult` (`IsLoh`, `LostAllele ∈ {None, Allele1, Allele2,
+  Both}`, `AllelicImbalanceSignificant`). Throws `ArgumentException` for negative copy number or a
+  p value outside `[0,1]`.
+
+Parsing is **O(n)** in name length; the LOH call is **O(1)** — a constant-time threshold rule. The
+suffix is only stripped when the field block's final character is a letter, so purely numeric names
+parse unchanged. No substring/pattern search is performed, so the repository suffix tree does not apply.
 
 ## Scope and limitations
 

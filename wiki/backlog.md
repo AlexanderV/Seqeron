@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **126** algorithm docs covered-via-concept, **118** pending across 18 domains
+Status at generation: **127** algorithm docs covered-via-concept, **117** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/HLA_Nomenclature_And_Allele_Specific_LOH → [[hla-nomenclature-and-allele-specific-loh]] resolved 2026-07-14;
 Oncology/Fusion_Gene_Detection → [[gene-fusion-detection-read-evidence]] resolved 2026-07-14;
 Oncology/Fusion_Breakpoint_Analysis → [[fusion-breakpoint-frame-and-protein-prediction]] resolved 2026-07-14;
 Oncology/Focal_Amplification_Detection → [[focal-amplification-detection]] resolved 2026-07-14;
@@ -178,10 +179,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Focal_Amplification_Detection.md` | [[focal-amplification-detection]] |
 | `docs/algorithms/Oncology/Fusion_Breakpoint_Analysis.md` | [[fusion-breakpoint-frame-and-protein-prediction]] |
 | `docs/algorithms/Oncology/Fusion_Gene_Detection.md` | [[gene-fusion-detection-read-evidence]] |
+| `docs/algorithms/Oncology/HLA_Nomenclature_And_Allele_Specific_LOH.md` | [[hla-nomenclature-and-allele-specific-loh]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (121 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (117 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
