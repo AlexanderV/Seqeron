@@ -4,9 +4,10 @@ title: "Microsatellite instability (MSI) detection — unstable-loci fraction + 
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-MSI-001-Evidence.md
-source_commit: ea6d7a9858e7a4c0541dacc8d3df2a8b227021d9
+  - docs/algorithms/Oncology/Microsatellite_Instability_Detection.md
+source_commit: 335bdb804782290bee44b9097ff7c028540bab92
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -103,6 +104,33 @@ No MSI-L band is invented for the continuous score.
   cutoff; the categorical MSS/MSI-L/MSI-H scheme is therefore applied to the **discrete
   marker-count** input (Boland 1998), and the continuous fraction is classified only as MSI-H
   (≥ 20%) vs not-High. No MSI-L band is fabricated for the fraction score.
+
+## Implementation surface (ONCO-MSI-001 spec)
+
+The unit is the **scoring-and-classification layer** only — the upstream per-locus instability
+call (chi-square tumor-vs-normal) is out of scope and accepted as boolean input. Entry points on
+`OncologyAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`):
+
+| Method | Signature | Behaviour |
+|--------|-----------|-----------|
+| `CalculateMSIScore` | `(int unstableLoci, int totalLoci) → double` | `unstable / total` in `[0,1]` |
+| `ClassifyMSIStatus` | `(double score) → MsiStatus` | binary: `MSI_High` iff `score ≥ 0.20`, else `MSS` |
+| `ClassifyBethesdaPanel` | `(int unstableMarkers, int totalMarkers) → MsiStatus` | three-way `MSS` / `MSI_Low` / `MSI_High` |
+| `DetectMSI` | `(IEnumerable<bool> locusUnstableFlags) → MsiResult` | end-to-end count → score → status (continuous cutoff) |
+
+`MsiResult` is a `record struct` carrying `UnstableLoci`, `TotalLoci`, `Score`, `Status`; `MsiStatus`
+is the enum `MSS` / `MSI_Low` / `MSI_High`. Note `ClassifyMSIStatus` never returns `MSI_Low` —
+that band comes **only** from `ClassifyBethesdaPanel`'s discrete marker count.
+
+**Validation.** `CalculateMSIScore` throws `ArgumentOutOfRangeException` on `totalLoci ≤ 0`,
+`unstableLoci < 0`, or `unstableLoci > totalLoci`; `ClassifyMSIStatus` throws on a non-finite or
+out-of-`[0,1]` score; `ClassifyBethesdaPanel` throws on the analogous marker-count violations;
+`DetectMSI` throws `ArgumentNullException` on null and `ArgumentOutOfRangeException` on an empty
+sequence (no valid loci). The 20% cutoff is inclusive.
+
+**Complexity.** `CalculateMSIScore` / `Classify*` are O(1); `DetectMSI` is a single O(n) pass over
+the locus flags, O(1) space. Not a search/matching unit — the repository suffix tree is **not
+applicable** (no substring search or occurrence enumeration).
 
 ## Relation to the oncology family
 
