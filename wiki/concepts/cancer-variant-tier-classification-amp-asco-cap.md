@@ -4,9 +4,10 @@ title: "Cancer variant tier classification (AMP/ASCO/CAP 2017 four-tier)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-ANNOT-001-Evidence.md
-source_commit: c38dde50786144e5976f703468375f68abe6fd1b
+  - docs/algorithms/Oncology/Cancer_Variant_Annotation.md
+source_commit: d9b428f5f8551b3dc6febb428409c7c40d5148ab
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -105,6 +106,25 @@ Tier I "Most likely present", Tier II "Likely present"), not by itself determini
 - **`GetCOSMICAnnotation`:** hit → catalog value; miss → **null** (external-catalog boundary).
 - Invalid MAF (negative, > 1, NaN) → `ArgumentOutOfRangeException`; null inputs → `ArgumentNullException`
   (API contract per sibling methods).
+
+## Implementation surface (ONCO-ANNOT-001 spec)
+
+`OncologyAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`), status
+**Framework** (the tiering rule is embedded; the curated databases it consumes are not). Three entry
+points over an input record `CancerVariantAnnotationInput(Gene, ProteinChange, EvidenceLevel,
+PopulationMaf, HasCancerAssociation)`:
+
+| Entry point | Signature | Time / Space |
+|-------------|-----------|--------------|
+| `ClassifyVariantTier` | `(CancerVariantAnnotationInput) → VariantTier` | O(1) / O(1) — constant-time cascade |
+| `AnnotateCancerVariants` | `(IEnumerable<CancerVariantAnnotationInput>) → IReadOnlyList<CancerVariantAnnotation>` | O(n) / O(n) — one pass, input order |
+| `GetCOSMICAnnotation` | `(input, IReadOnlyDictionary<(Gene, ProteinChange), string>) → string?` | O(1) avg / O(1) — hash lookup |
+
+The 1% benign cutoff is the named constant `BenignPopulationMafThreshold = 0.01`. The COSMIC lookup keys
+on **ordinal (exact)** `(Gene, ProteinChange)` equality and mirrors the class's existing
+`MatchCancerHotspots` caller-supplied-set pattern rather than embedding a database. **Search reuse:** the
+repository suffix tree was evaluated and found **not applicable** — this unit is constant-time enum/threshold
+decisions plus a hash-map lookup, not substring/occurrence search.
 
 ## Scope and limitations
 

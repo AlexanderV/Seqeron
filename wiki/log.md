@@ -4683,3 +4683,17 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    edges) ⇒ graph lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged (spec docs
    are not added to the hub, per prior spec-ingest precedent). No contradictions: the spec and the
    already-recorded Evidence synthesis agree stage-for-stage.
+
+## [2026-07-14] ingest | docs/algorithms/Oncology/Cancer_Variant_Annotation.md → [[cancer-variant-tier-classification-amp-asco-cap]] (concept enrich)
+   Oncology reconciliation: the AMP/ASCO/CAP four-tier concept already existed (synthesized from
+   ONCO-ANNOT-001-Evidence). Added the primary spec to its sources: and bumped source_commit to HEAD.
+   Surgical enrich: new "Implementation surface (ONCO-ANNOT-001 spec)" section — CancerVariantAnnotationInput
+   record fields, the three entry-point signatures with per-op complexity (O(1) classify / O(n) annotate /
+   O(1) COSMIC lookup), the BenignPopulationMafThreshold=0.01 constant, ordinal COSMIC key equality +
+   MatchCancerHotspots caller-supplied-set reuse, and the suffix-tree-not-applicable note. No wiki/sources/
+   page (spec ≠ Evidence/Validation report). No new page ⇒ index.md unchanged (concept already listed).
+   Backlog: added Covered-via-concept row (covered 115→116, pending 129→128); removed from
+   [[backlog-pending]] (Oncology 35→34). No new graph nodes/edges (implementation prose only; the concept's
+   existing typed edges are unchanged; body wikilinks provide mentions edges) ⇒ graph lint/extract skipped.
+   Hub [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub). No contradictions:
+   the spec and the already-recorded Evidence synthesis agree on tiers, the 1% cutoff, and III↔IV discrimination.

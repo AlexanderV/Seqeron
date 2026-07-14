@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **115** algorithm docs covered-via-concept, **129** pending across 17 domains
+Status at generation: **116** algorithm docs covered-via-concept, **128** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/Cancer_Variant_Annotation → [[cancer-variant-tier-classification-amp-asco-cap]] resolved 2026-07-14;
 Oncology/Cancer_Cell_Fraction_Estimation → [[cancer-cell-fraction-clonal-clustering]] resolved 2026-07-14; MolTools/Restriction_Site_Detection →
 [[restriction-site-detection]] resolved 2026-07-14, closing the MolTools domain; K-mer_Search and PanGenome_Core_Accessory
 resolved 2026-07-13; DNA_Dimer_Tm, DNA_Hairpin_Folding_Tm, DNA_Hairpin_Special_Loop_Bonus,
@@ -156,10 +157,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/MolTools/Restriction_Site_Detection.md` | [[restriction-site-detection]] |
 | `docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md` | [[allele-specific-copy-number-ascat]] |
 | `docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md` | [[cancer-cell-fraction-clonal-clustering]] |
+| `docs/algorithms/Oncology/Cancer_Variant_Annotation.md` | [[cancer-variant-tier-classification-amp-asco-cap]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (129 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (128 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
