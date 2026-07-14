@@ -4,9 +4,10 @@ title: "Copy-number alteration classification (log2 ratio → absolute CN → CN
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-CNA-001-Evidence.md
-source_commit: f794f2454365bdf09e3440ac95c4f59db1ff0553
+  - docs/algorithms/Oncology/Copy_Number_Alteration_Classification.md
+source_commit: 1555a13272537a9a4dad42dc8da28f2e27aa2180
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -119,6 +120,24 @@ Above the last threshold the CN is **not** fixed — high amplifications get pro
 - **Threshold source note:** the CNVkit docs page shows the germline-tuned variant (`−0.4 / 0.3`); the
   `call.py` source-code default the implementation follows is the **tumor-sample** heuristic
   (`−0.25 / 0.2`). Custom thresholds are exposable (CNVkit `-t/--thresholds`).
+
+## Implementation surface (ONCO-CNA-001)
+
+Four `OncologyAnalyzer` (`OncologyAnalyzer.cs`) entry points build the layer bottom-up:
+
+- `Log2RatioToCopyNumber(log2, ploidy=2)` → continuous `n = ploidy·2^log2`.
+- `CallCopyNumber(log2, thresholds, ploidy)` → the hard-threshold **integer** CN.
+- `ClassifyCopyNumber(log2, thresholds, ploidy)` → a full `CopyNumberCall`
+  (`Log2Ratio`, `AbsoluteCopyNumber`, `IntegerCopyNumber`, `State`).
+- `ClassifyCopyNumbers(log2Ratios, …)` → per-region batch, **order- and length-preserving**
+  (output element *i* ↔ input *i*).
+
+**Validation contract:** `thresholds` must be **exactly four strictly-ascending non-NaN** values
+(else `ArgumentException`); `ploidy > 0` (else `ArgumentOutOfRangeException`); a null batch enumerable
+throws `ArgumentNullException`. A `null` thresholds list falls back to the default `(−1.1, −0.25, 0.2, 0.7)`.
+Per-region classification is O(1) (fixed four-cutoff scan); the batch is O(m). This is total-CN
+**single-region** classification — no segmentation/joining (use `StructuralVariantAnalyzer.SegmentCopyNumber`)
+and no allele-specific major/minor decomposition (see ONCO-LOH-001).
 
 A [[scientific-rigor|research-grade]] correctness reference — **not for clinical or diagnostic use.**
 No source contradictions: CNVkit `call.py` + docs (thresholds, formula, binning) and GISTIC2 (Mermel
