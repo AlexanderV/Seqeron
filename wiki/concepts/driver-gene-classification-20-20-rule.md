@@ -4,9 +4,10 @@ title: "Driver-gene classification (20/20 rule)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-DRIVER-001-Evidence.md
-source_commit: f640eb404dd41ebb270208e6664505bba6c4cb8e
+  - docs/algorithms/Oncology/Driver_Mutation_Detection.md
+source_commit: a9f32c336d6fc962336ac7d9fc9ff490fd26bb30
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -93,6 +94,19 @@ else                                   → Ambiguous          # low recurrence /
   pathogenicity scores are **caller-supplied / not implemented** (documented, not fabricated).
 - **`IdentifyDriverMutations`** — returns a **subset** of the input somatic variants (invariant:
   driver ⊆ somatic).
+
+## Implementation (per the algorithm spec)
+
+`OncologyAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`) exposes
+`ClassifyGene`, `ScoreDriverPotential`, `MatchCancerHotspots`, and `IdentifyDriverMutations`
+(`IdentifyDriverMutations` groups by gene, classifies each, and returns drivers in **input order**).
+Recurrence is counted per **1-based** protein position in a dictionary; positions with **≥ 2** missense
+contribute their full count to the recurrent-missense numerator. Gene symbols match by **ordinal
+(case-sensitive)** comparison, and hotspot membership is an **O(1)** `(gene, position)` set lookup — the
+repository suffix tree was evaluated and is **not applicable** here (set membership on keys, not
+substring/sequence search). Null `mutations`/`knownHotspots` throw `ArgumentNullException`. Complexity
+is **O(N)** time for both `ClassifyGene` (space O(P) over P distinct missense positions) and
+`IdentifyDriverMutations` (space O(G + H) over G genes and H hotspots).
 
 ## Scope and limitations
 
