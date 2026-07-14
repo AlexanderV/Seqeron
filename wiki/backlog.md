@@ -18,12 +18,13 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **118** algorithm docs covered-via-concept, **126** pending across 18 domains
+Status at generation: **119** algorithm docs covered-via-concept, **125** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
 Oncology/Clonal_Hematopoiesis_Filtering → [[clonal-hematopoiesis-cfdna-filtering]] resolved 2026-07-14;
 Oncology/Clinical_Actionability_Assessment → [[clinical-actionability-oncokb-levels]] resolved 2026-07-14;
 Oncology/Cancer_Variant_Annotation → [[cancer-variant-tier-classification-amp-asco-cap]] resolved 2026-07-14;
-Oncology/Cancer_Cell_Fraction_Estimation → [[cancer-cell-fraction-clonal-clustering]] resolved 2026-07-14; MolTools/Restriction_Site_Detection →
+Oncology/Cancer_Cell_Fraction_Estimation → [[cancer-cell-fraction-clonal-clustering]] resolved 2026-07-14;
+Oncology/Clonal_Subclonal_Classification → [[clonal-subclonal-classification-ccf-posterior]] resolved 2026-07-14; MolTools/Restriction_Site_Detection →
 [[restriction-site-detection]] resolved 2026-07-14, closing the MolTools domain; K-mer_Search and PanGenome_Core_Accessory
 resolved 2026-07-13; DNA_Dimer_Tm, DNA_Hairpin_Folding_Tm, DNA_Hairpin_Special_Loop_Bonus,
 LNA_Adjusted_Nearest_Neighbor_Tm and NearestNeighbor_Salt_Corrected_Tm →
@@ -162,6 +163,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Cancer_Variant_Annotation.md` | [[cancer-variant-tier-classification-amp-asco-cap]] |
 | `docs/algorithms/Oncology/Clinical_Actionability_Assessment.md` | [[clinical-actionability-oncokb-levels]] |
 | `docs/algorithms/Oncology/Clonal_Hematopoiesis_Filtering.md` | [[clonal-hematopoiesis-cfdna-filtering]] |
+| `docs/algorithms/Oncology/Clonal_Subclonal_Classification.md` | [[clonal-subclonal-classification-ccf-posterior]] |
 
 ## Pending (fold into the ingest campaign)
 

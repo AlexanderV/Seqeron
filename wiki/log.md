@@ -4734,3 +4734,26 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    provide mentions edges) ⇒ graph lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged
    (spec docs are not added to the hub). No contradictions: the spec and the already-recorded Evidence
    synthesis agree on the three methods, all thresholds, the driver-gene panel, and the origin-call semantics.
+
+## [2026-07-14] ingest | docs/algorithms/Oncology/Clonal_Subclonal_Classification.md → [[clonal-subclonal-classification-ccf-posterior]] (concept enrich)
+   Oncology reconciliation: the CCF-posterior clonal/subclonal concept already existed (ONCO-CLONAL-001,
+   synthesized from ONCO-CLONAL-001-Evidence) and already covers the full primary spec — the expected-VAF
+   relation f(c)=αMc/(2(1−α)+αq) (Landau M=1 + Satas/DeCiFering multiplicity-general form), the uniform-prior
+   Binomial posterior on the 100-point grid c∈[0.01,1], the verbatim classification rule clonal iff
+   P(CCF>0.95)>0.5, the strict CCF>0.95 IdentifyClonalMutations threshold, the per-variant q-over-ploidy-scalar
+   assumption, and matching worked oracles (A1/B2/C1/D/E). Added the primary spec
+   (docs/algorithms/Oncology/Clonal_Subclonal_Classification.md) as the FIRST entry in sources: (ahead of the
+   Evidence doc), bumped source_commit 7309394→9a7b5ef and updated 2026-07-09→2026-07-14. Surgical enrich: new
+   "Implementation (ONCO-CLONAL-001 spec)" block capturing the spec's genuinely-distinct implementation content
+   not previously on the page — OncologyAnalyzer.cs entry points ClassifyClonality(variants,purity) /
+   IdentifyClonalMutations(ccfValues), the log-space Binomial with C(N,a) omitted (cancels under
+   normalisation), the degenerate all-zero-posterior → flat-posterior fallback (stays subclonal), the
+   suffix-tree-not-used note, and O(n·G)/O(n) + O(m) complexity. No wiki/sources/ page (spec ≠
+   Evidence/Validation report). No new page ⇒ index.md unchanged (concept already listed). Backlog: added
+   Covered-via-concept row (covered 118→119, pending 126→125); removed from [[backlog-pending]] (Oncology
+   32→31, total 125→124). No new graph nodes/edges (implementation prose only; the concept's existing typed
+   edges relates_to test-unit-registry / alternative_to cancer-cell-fraction-clonal-clustering / depends_on
+   allele-specific-copy-number-ascat are unchanged; body wikilinks provide mentions edges) ⇒ graph
+   lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub).
+   No contradictions: the spec and the already-recorded Evidence synthesis agree on the model, both thresholds
+   (0.95 CCF / 0.5 posterior), the grid, and the point-estimate variant.

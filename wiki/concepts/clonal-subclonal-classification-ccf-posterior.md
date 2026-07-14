@@ -3,10 +3,11 @@ type: concept
 title: "Clonal vs subclonal classification (CCF posterior, Landau/ABSOLUTE)"
 tags: [oncology, algorithm]
 sources:
+  - docs/algorithms/Oncology/Clonal_Subclonal_Classification.md
   - docs/Evidence/ONCO-CLONAL-001-Evidence.md
-source_commit: 730939482dd663a30a7dfb71f56e1f47e1bf1dd9
+source_commit: 9a7b5ef76a7b1587ce00068d78fadb60ab086bab
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -131,6 +132,23 @@ canonical method therefore carries `q` per variant (`ClonalityVariant.LocalCopyN
 `(variants, purity)`. This mirrors the prior ONCO-WGD decision (a registry scalar superseded by
 per-segment data to match the authoritative definition). **Non-correctness-affecting** — API shape
 only; the numerical rule and outputs are exactly Landau's.
+
+## Implementation (ONCO-CLONAL-001 spec)
+
+Entry points in `OncologyAnalyzer.cs`:
+
+- `OncologyAnalyzer.ClassifyClonality(variants, purity)` — posterior-grid clonal/subclonal
+  classification returning per-variant `ClonalityCall` (`Ccf`, `ProbabilityClonal`, `Status`) plus
+  `ClonalCount` / `SubclonalCount` / `ClonalFraction`.
+- `OncologyAnalyzer.IdentifyClonalMutations(ccfValues)` — point-estimate selection (returns 0-based
+  indices with CCF > 0.95).
+
+**Numerics:** the Binomial likelihood is evaluated in **log-space** and the constant binomial
+coefficient `C(N,a)` is **omitted** — it cancels under grid normalisation. For the degenerate
+all-zero posterior (e.g. `f ≈ 0` with `a > 0`), a **flat posterior** over the grid is substituted so
+the result stays well-defined (classified subclonal). Purely numerical (no string search / suffix
+tree). **Complexity:** `ClassifyClonality` is `O(n·G)` time, `O(n)` space (n variants, `G = 100`
+grid points, constant); `IdentifyClonalMutations` is `O(m)` over m CCF values.
 
 ## Scope and limitations
 
