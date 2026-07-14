@@ -4,9 +4,10 @@ title: "Tumor purity estimation from somatic SNV VAF (CNAqc expected-VAF inversi
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-PURITY-001-Evidence.md
-source_commit: fdf583e25989b1d2bcbc999fa056fb16119f8c31
+  - docs/algorithms/Oncology/Tumor_Purity_Estimation.md
+source_commit: c031ee7488125ea436cb889b64e82272c5955ce1
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -108,6 +109,25 @@ a 2:1 segment shows two clonal peaks at 33% and 66% because multiplicity m may b
 **Aggregation.** When several clonal heterozygous SNVs are supplied, per-variant estimates are combined
 by the **median** (robust to subclonal/outlier VAFs). This is a documented, non-correctness-affecting
 aggregation policy over the source-derived single-variant formula, recorded as an assumption.
+
+## Implementation surface (ONCO-PURITY-001 spec)
+
+Three overloads on `OncologyAnalyzer` (`OncologyAnalyzer.cs`) realise the two formulas:
+
+- `EstimatePurityFromVaf(double vaf)` — the single-scalar closed form `ρ = 2·VAF` for one clonal
+  het copy-neutral-diploid SNV; `O(1)`. Requires `vaf ∈ [0, 0.5]` (a diploid-model VAF > 0.5 implying
+  ρ > 1 is rejected).
+- `EstimatePurityFromVAF(IEnumerable<VariantObservation>)` — median of `ρ = 2·VAF` over a collection of
+  clonal het diploid SNVs (read counts fed through the ONCO-VAF-001 `CalculateVAF` primitive).
+- `EstimatePurity(IEnumerable<PurityVariant>)` — median of the allele-specific inversion
+  `ρ = 2v/[m + v(2 − n_tot)]` over `PurityVariant(vaf, Multiplicity m, TumorTotalCopyNumber n_tot)`
+  records, valid on amplified/LOH segments.
+
+The collection overloads are `O(n log n)` time / `O(n)` space (dominated by the median sort; `O(1)` per
+variant); the scalar overload is `O(1)`. **Validation maps to typed exceptions:** null collection →
+`ArgumentNullException`; empty collection → `ArgumentException` (purity undefined); VAF outside `[0,1]`,
+a diploid-model VAF > 0.5, `m < 1`, `n_tot < 1`, or any `(VAF, m, n_tot)` yielding ρ outside `[0,1]`
+(including a non-positive denominator) → `ArgumentOutOfRangeException`.
 
 ## Corner cases and failure modes
 
