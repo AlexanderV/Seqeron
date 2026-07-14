@@ -74,10 +74,11 @@ undivided library.
 ## Relation to the rest of MolTools
 
 Filtering selects candidate enzymes; the complementary operations — finding where an
-enzyme actually cuts a target and simulating a digest — are separate RESTR units (not yet
-ingested). End-type compatibility (blunt ends are always mutually compatible; matching
-overhangs anneal) is the downstream reason a user filters by cutter class when planning a
-ligation/cloning step.
+enzyme actually cuts a target and simulating a digest — are separate RESTR units.
+[[restriction-digest-simulation]] covers the digest surface (sequence → fragments,
+restriction map, and the `AreCompatible` end-compatibility test). End-type compatibility
+(blunt ends are always mutually compatible; matching overhangs anneal) is the downstream
+reason a user filters by cutter class when planning a ligation/cloning step.
 
 ## Sources
 

@@ -3,7 +3,7 @@ type: index
 title: "Ingestion backlog — docs/algorithms reconciliation + queued sources"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-13
+updated: 2026-07-14
 ---
 
 # Ingestion backlog
@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **111** algorithm docs covered-via-concept, **133** pending across 18 domains
+Status at generation: **112** algorithm docs covered-via-concept, **132** pending across 18 domains
 (K-mer and Metagenomics domains now fully covered; K-mer_Search and PanGenome_Core_Accessory
 resolved 2026-07-13; DNA_Dimer_Tm, DNA_Hairpin_Folding_Tm, DNA_Hairpin_Special_Loop_Bonus,
 LNA_Adjusted_Nearest_Neighbor_Tm and NearestNeighbor_Salt_Corrected_Tm →
@@ -149,10 +149,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/MolTools/Primer_Design.md` | [[primer-design]] |
 | `docs/algorithms/MolTools/Primer_Structure_Analysis.md` | [[primer-structure-qc-screens]] |
 | `docs/algorithms/MolTools/Probe_Validation.md` | [[probe-offtarget-specificity-scan]] |
+| `docs/algorithms/MolTools/Restriction_Digest_Simulation.md` | [[restriction-digest-simulation]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (133 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (132 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
