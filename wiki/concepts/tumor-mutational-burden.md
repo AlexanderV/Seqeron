@@ -3,10 +3,11 @@ type: concept
 title: "Tumor mutational burden (TMB) — mutations/Mb + TMB-high classification"
 tags: [oncology, algorithm]
 sources:
+  - docs/algorithms/Oncology/Tumor_Mutational_Burden.md
   - docs/Evidence/ONCO-TMB-001-Evidence.md
-source_commit: 701e1721ea2175070a8479c7d18e4e6f38be7076
+source_commit: eaf0bb760445cda0b165f4f52071970807ebd41a
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -104,6 +105,28 @@ implemented (they would be fabricated).
   computed (no exception) but is flagged as known-unstable.
 - **Monotonicity invariant.** For fixed region, TMB is non-decreasing in mutation count; for fixed
   count, non-increasing in region size (division property).
+
+## Implementation surface (Seqeron.Genomics.Oncology)
+
+Three static `OncologyAnalyzer` entry points realize the model:
+
+- `CalculateTMB(int mutationCount, double targetRegionMb) → double` — the core `count / Mb`
+  ratio, **O(1)** time and space (single division).
+- `CalculateTMB(IEnumerable<SomaticCall> calls, double targetRegionMb) → double` — an overload
+  that first **counts only `Somatic`-status calls** in one **O(n)** pass, then delegates to the
+  scalar form. This is the convenience path that consumes the somatic caller's classified output
+  directly (unclassified/germline calls are ignored, not filtered here).
+- `ClassifyTMB(double tmb) → TmbStatus` — **O(1)** single comparison returning `High` (tmb ≥ 10)
+  or `Low` (tmb < 10); `TmbStatus` is the two-value enum encoding the single-cutoff scheme above.
+
+**Validation / exception contract.** `CalculateTMB(int, double)` throws
+`ArgumentOutOfRangeException` when `mutationCount < 0` or when `targetRegionMb` is NaN, infinite,
+or ≤ 0 (region = 0 is the division-by-zero case above — TMB is undefined, not returned as ∞). The
+`SomaticCall` overload throws `ArgumentNullException` on a null collection, then delegates.
+`ClassifyTMB` throws `ArgumentOutOfRangeException` for a negative or non-finite `tmb`. This is an
+arithmetic ratio + count, so the repository suffix tree is **N/A** — there is no substring/occurrence
+search. Mutation filtering is not duplicated here; the count is assumed pre-filtered by the upstream
+somatic caller.
 
 ## Relation to the oncology family
 
