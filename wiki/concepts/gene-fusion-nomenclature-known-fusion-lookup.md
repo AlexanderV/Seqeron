@@ -4,9 +4,10 @@ title: "Gene-fusion HGNC designation + directional known-fusion lookup"
 tags: [oncology, nomenclature, algorithm]
 sources:
   - docs/Evidence/ONCO-FUSION-002-Evidence.md
-source_commit: ee968906158cef08ef55972fdafb4aad150e427a
+  - docs/algorithms/Oncology/Known_Fusion_Database_Lookup.md
+source_commit: 9bf7835213d30891d1d8898ffbe9531748af436f
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -61,6 +62,23 @@ keying** are evidence-defined (Bruford et al. 2021). The **set contents are the 
 responsibility** — the library does **not** bundle Mitelman, COSMIC, or ChimerDB content
 (licensing + curation are out of scope). Symbol matching is **case-insensitive**
 (ordinal-ignore-case) while preserving directionality.
+
+## Implementation (spec: ONCO-FUSION-002)
+
+Entry points live on `OncologyAnalyzer` (`Seqeron.Genomics.Oncology`): `GetFusionAnnotation(gene5p,
+gene3p)` builds the designation, `MatchKnownFusions(fusion, knownFusions)` runs the lookup, the
+`KnownFusionMatch` record carries the result (`Designation`, `IsKnown`, `Annotation?`), and
+`FusionDesignationSeparator` holds the `::` constant.
+
+Matching is **two-step**: it first probes the supplied `IReadOnlyDictionary<string,string>` with
+its own comparer — so an `OrdinalIgnoreCase` map resolves in **O(L)** (hash lookup, L = symbol
+length) — and only if that comparer is case-sensitive falls back to a **single O(k·L) linear
+case-insensitive scan** (k = set size), so callers are never silently case/order-trapped. The
+designation string itself is a verbatim concatenation that preserves input case.
+
+**Search-structure choice:** the repository suffix tree was evaluated and deliberately *not* used —
+this is an exact dictionary-key lookup over short symbol strings, not a substring/occurrence search
+over a long text, so a hash map is the correct structure.
 
 ## Invariants and corner cases
 

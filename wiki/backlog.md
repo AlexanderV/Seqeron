@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **130** algorithm docs covered-via-concept, **114** pending across 18 domains
+Status at generation: **131** algorithm docs covered-via-concept, **113** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/Known_Fusion_Database_Lookup → [[gene-fusion-nomenclature-known-fusion-lookup]] resolved 2026-07-14;
 Oncology/Immune_Infiltration_Estimation → [[immune-infiltration-deconvolution]] resolved 2026-07-14;
 Oncology/Homozygous_Deletion_Detection → [[homozygous-deletion-detection]] resolved 2026-07-14;
 Oncology/HRD_Score → [[homologous-recombination-deficiency-score]] resolved 2026-07-14;
@@ -186,6 +187,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/HRD_Score.md` | [[homologous-recombination-deficiency-score]] |
 | `docs/algorithms/Oncology/Homozygous_Deletion_Detection.md` | [[homozygous-deletion-detection]] |
 | `docs/algorithms/Oncology/Immune_Infiltration_Estimation.md` | [[immune-infiltration-deconvolution]] |
+| `docs/algorithms/Oncology/Known_Fusion_Database_Lookup.md` | [[gene-fusion-nomenclature-known-fusion-lookup]] |
 
 ## Pending (fold into the ingest campaign)
 
