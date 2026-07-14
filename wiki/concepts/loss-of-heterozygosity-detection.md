@@ -4,9 +4,10 @@ title: "Genome-wide LOH detection (HRD-LOH count + per-chromosome LOH fraction)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-LOH-001-Evidence.md
-source_commit: af81049fe33cf6b62fe3bf6864944552392fdeed
+  - docs/algorithms/Oncology/Loss_Of_Heterozygosity.md
+source_commit: d9c52e6d38299b6fe81faf75c6d762c803e30c89
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -33,8 +34,12 @@ graph:
 
 The Oncology family's standalone **loss-of-heterozygosity (LOH) caller** (**ONCO-LOH-001**):
 `DetectLOH` counts the **HRD-LOH genomic-scar regions** (intermediate-size LOH segments) over a
-set of allele-specific copy-number segments, and `CalculateLOHFraction` reports the length-weighted
-LOH fraction of a single chromosome. The literature-traced record is [[onco-loh-001-evidence]];
+set of allele-specific copy-number segments (returning both the qualifying `Regions` and the `Score`),
+`CalculateHrdLohScore` returns that HRD-LOH score directly, and `CalculateLOHFraction` reports the
+length-weighted LOH fraction of a single chromosome. All three live in
+`OncologyAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`);
+`DetectLOH` is O(n log n) time / O(n) space (per-chromosome sort for merging) and
+`CalculateLOHFraction` is a single O(n) pass. The literature-traced record is [[onco-loh-001-evidence]];
 [[test-unit-registry]] tracks the unit and [[algorithm-validation-evidence]] describes the
 evidence-artifact pattern.
 
@@ -110,8 +115,11 @@ all-LOH chr → **1.0**.
 - **Homozygous deletion ≠ LOH:** minor 0 **and** major 0 is not counted (both alleles lost).
 - **Strict 15 Mb boundary:** exactly 15 Mb → not counted (`>`, not `≥`).
 - **Whole-chromosome LOH excluded** (Abkevich: whole-chromosome LOH does not correlate with HRD).
-- **Empty / null input** → score 0, fraction 0. **Ordering invariance:** shuffling input segments
-  does not change the count.
+- **Empty input** → score 0, fraction 0; a chromosome absent from the input → fraction `0.0` (no
+  covered length). **Null input** (or null `chromosome`) → `ArgumentNullException`; a segment with
+  `End ≤ Start` or a negative copy number → `ArgumentException`. Chromosome identifiers are matched
+  with **ordinal (case-sensitive)** string comparison. **Ordering invariance:** shuffling input
+  segments does not change the count.
 - **ASSUMPTION — input shape:** `DetectLOH` consumes allele-specific CN **segments** (chr, start,
   end, major CN, minor CN — the scarHRD `seg`-table shape), not raw tumour/normal VCFs; the upstream
   segmentation / BAF model is out of scope (handled by [[allele-specific-copy-number-ascat]] /
