@@ -4,9 +4,10 @@ title: "Tumor phylogeny reconstruction (clonal tree from CCF clusters — sum + 
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-PHYLO-001-Evidence.md
-source_commit: ea992b89032ebee5bf103593a140cf59a8d032d8
+  - docs/algorithms/Oncology/Tumor_Phylogeny_Reconstruction.md
+source_commit: abca521a486fd8b7aec2566f4f42e5dc27a99769
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -124,6 +125,32 @@ Two invariants must hold on **every** reconstructed tree, and are the primary co
 
 Boundary cases: **empty input** → tree with only the root, no trunk/branch mutations; **single
 cluster** → child of root, and it is the trunk.
+
+## Implementation surface (ONCO-PHYLO-001 spec)
+
+Entry points on `OncologyAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`):
+
+- `ReconstructPhylogeny(IReadOnlyList<CcfCluster> clusters, double tolerance = 0.0)` → `ClonalPhylogeny`
+  with `RootId` (synthetic normal root, id below the minimum cluster id, CCF = 1 in every sample),
+  `Clusters` (input order), `Edges` (one `ClonalEdge` parent→child per non-root cluster), `SampleCount`.
+- `IdentifyTrunkMutations(ClonalPhylogeny)` → trunk (clonal) cluster ids from the root downward.
+- `IdentifyBranchMutations(ClonalPhylogeny)` → the remaining (subclonal) ids in input order; trunk and
+  branch **partition** the clusters (disjoint, union = all).
+
+**Construction order:** process clusters by descending total CCF (ties: ascending id) so ancestors
+precede descendants; initialise each node's per-sample sum-rule budget to its own CCF (root = 1); for
+each cluster pick the deepest valid ancestor and **debit** that parent's per-sample budget by the
+child's CCF.
+
+**Contract / validation:** each `CcfCluster.CcfPerSample` must be same non-zero length with values in
+[0,1] and unique ids; `tolerance` ≥ 0 and not NaN. Null `clusters`/CCF list → `ArgumentNullException`;
+empty/ragged CCF, NaN/out-of-[0,1], or duplicate id → `ArgumentException`; negative/NaN `tolerance` →
+`ArgumentOutOfRangeException`; empty cluster list → a root-only tree.
+
+**Complexity:** `ReconstructPhylogeny` is **O(n²·k)** time, **O(n·k)** space (n clusters, k samples —
+each cluster scans up to n placed candidates, each check O(k)). **Search reuse:** the repository suffix
+tree was evaluated and rejected as inapplicable — this is a numeric constraint-satisfaction build over
+CCF vectors, not substring/pattern search.
 
 ## Relationship to the neighbouring Oncology units
 

@@ -8,13 +8,12 @@ updated: 2026-07-15
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (97 algorithm docs across 17 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14.)
+The per-domain pending tables (96 algorithm docs across 17 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14.)
 
-### Oncology (4)
+### Oncology (3)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Oncology/Tumor_Phylogeny_Reconstruction.md` | `tumor-phylogeny-reconstruction` |
 | `docs/algorithms/Oncology/Tumor_Ploidy_Estimation.md` | `tumor-ploidy-estimation` |
 | `docs/algorithms/Oncology/Tumor_Purity_Estimation.md` | `tumor-purity-estimation` |
 | `docs/algorithms/Oncology/Variant_Allele_Frequency.md` | `variant-allele-frequency` |
