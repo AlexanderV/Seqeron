@@ -4,9 +4,10 @@ title: "Probe off-target specificity scan (gapped Smith–Waterman)"
 tags: [primer, alignment, algorithm, validation]
 sources:
   - docs/Evidence/PROBE-VALID-001-Evidence.md
-source_commit: 4de32c233ad726853dbae99f237ce61d34c3b01a
+  - docs/algorithms/MolTools/Probe_Validation.md
+source_commit: f54e82403f6b4c465967bf24771be22113f31606
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-13
 graph:
   relationships:
     - predicate: relates_to
@@ -40,13 +41,40 @@ MolTools reagent-design family, not a re-validation of the TaqMan rules. Literat
 [[probe-valid-001-evidence]]; [[test-unit-registry]] tracks the unit and
 [[algorithm-validation-evidence]] describes the artifact pattern.
 
+## The default validation record (`ValidateProbe`)
+
+The per-algorithm spec (`docs/algorithms/MolTools/Probe_Validation.md`, unit PROBE-VALID-001)
+documents the **default** `ValidateProbe(probe, references, maxMismatches=3,
+selfComplementarityThreshold=0.3)` path — the ungapped scan whose behaviour is **unchanged**; the
+gapped Smith–Waterman scan below is an **opt-in supplement**, not a rewrite of the default. The
+default builds a small validation record:
+
+- **Specificity score** from the total hit count `h` across all references:
+  `h == 0 → 0.0`, `h == 1 → 1.0`, `h > 1 → 1.0 / h` (a cross-hybridization multiplicity penalty).
+  Invariant `0 ≤ SpecificityScore ≤ 1`. Note this default `OffTargetHits` **pools** the intended
+  on-target with off-targets — the on/off separation only exists in `ScanOffTargetsGapped`.
+- **Self-complementarity** — fraction of aligned matches of the probe against its own reverse
+  complement (`0 ≤ value ≤ 1`); recorded as an issue when it exceeds `selfComplementarityThreshold`
+  (default 0.3).
+- **Secondary structure** — a sequence-level **hairpin-potential** screen (always run), reported
+  as the `HasSecondaryStructure` flag.
+- **`IsValid`** is true when **no issues** were recorded, *or* under the fallback rule
+  `OffTargetHits ≤ 1 && SelfComplementarity ≤ 0.4`.
+- **Empty probe** → a structured *invalid* result (`SpecificityScore = 0.0`, `OffTargetHits = 0`,
+  issue `"Empty probe sequence"`) rather than an exception; a **null** probe or reference
+  collection throws `ArgumentNullException`. Inputs are uppercased before analysis.
+
+A separate exact-hit helper, **`CheckSpecificity(probe, ISuffixTree)`**, counts exact occurrences
+of the probe in a pre-built suffix tree — `O(m)` in the probe length, exact hits only (no
+mismatch/indel tolerance), for uniqueness checks against an indexed genome.
+
 ## Why gapped local alignment (the core improvement)
 
-The prior probe validator used an **ungapped Hamming scan** (fixed-width windows,
+The default `ValidateProbe` uses an **ungapped Hamming scan** (fixed-width windows,
 `maxMismatches = 3`). Its limitation: an off-target reachable only through an **insertion or
 deletion** is invisible, because a single indel frame-shifts every downstream position so every
-fixed window mismatches heavily. Replacing it with a **Smith–Waterman** scan (Smith & Waterman
-1981) fixes this — the recurrence's gap-length maxima admit indels, and the **zero floor**
+fixed window mismatches heavily. The opt-in **Smith–Waterman** scan (Smith & Waterman
+1981) closes this gap — the recurrence's gap-length maxima admit indels, and the **zero floor**
 (negative cells reset to 0; traceback starts at the max score and stops at 0) makes it *local*,
 returning the best-scoring sub-alignment rather than an end-to-end one. This is exactly the
 **gapped-vs-ungapped BLAST** improvement (Altschul et al. 1990 → 1997): "gapped BLAST produces a
@@ -118,6 +146,7 @@ gapped local alignment plus BLAST/Karlin–Altschul statistics.
 
 ## Change history captured
 
-The gapped SW scan + on/off-target separation replaced the earlier ungapped-Hamming validation
-(2026-06-24); the Karlin–Altschul λ / bit-score / E-value statistics were added the same day as
-an opt-in extension.
+The gapped SW scan + on/off-target separation were added (2026-06-24) as an **opt-in supplement**
+to the default ungapped-Hamming `ValidateProbe` (whose behaviour is unchanged); the
+Karlin–Altschul λ / bit-score / E-value statistics were added the same day as a further opt-in
+extension.
