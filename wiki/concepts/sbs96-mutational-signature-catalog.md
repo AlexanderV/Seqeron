@@ -4,9 +4,10 @@ title: "SBS-96 trinucleotide context catalog — pyrimidine-strand folding"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-SIG-001-Evidence.md
-source_commit: 6fdbd84d46e8ac221dadd222b315412645d44051
+  - docs/algorithms/Oncology/SBS96_Trinucleotide_Context_Catalog.md
+source_commit: a0d6cd87d32f62d9edd0b9817fe031d8e892ad10
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -99,6 +100,23 @@ mutation-pattern biomarkers and is orthogonal to the copy-number-scar
 those interpretation layers ([[cancer-variant-tier-classification-amp-asco-cap]],
 [[clinical-actionability-oncokb-levels]]) can act on once exposures are fit by
 [[mutational-signature-fitting-and-extraction]].
+
+## Implementation surface (ONCO-SIG-001 spec)
+
+Three static entry points on `OncologyAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`):
+
+- `ClassifySbsContext(fivePrime, referenceBase, alternateBase, threePrime)` → `string` — folds one SBS to its
+  `5'[REF>ALT]3'` pyrimidine channel. **O(1)** fixed-size base ops.
+- `EnumerateSbs96Channels()` → `IReadOnlyList<string>` — the 96 canonical labels in deterministic order
+  (substitution-major, then 5′ `A,C,G,T`, then 3′ `A,C,G,T`). **O(96)**.
+- `Build96ContextCatalog(variants)` → `IReadOnlyDictionary<string,int>` — tallies the 96-channel spectrum,
+  **all 96 keys always present** (zero-count channels included, so the vector has fixed 96-dim shape for
+  downstream decomposition), keyed by `Ordinal` string comparison. **O(n)** over n variants.
+
+Bases are upper-cased on input (case-insensitive). Validation contract: a non-ACGT base or `ref == alt`
+raises `ArgumentException`; `Build96ContextCatalog(null)` raises `ArgumentNullException`. Classification is a
+constant-time base computation (no substring search — the repo suffix tree does not apply). The channel
+enumeration order is a presentation convention only; per-variant classification is independent of it.
 
 ## Scope and limitations
 
