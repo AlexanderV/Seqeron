@@ -4,9 +4,10 @@ title: "HRD composite genomic-scar score (LOH + TAI + LST)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-HRD-001-Evidence.md
-source_commit: ea6bdcb6f4ff447762681f38ff91dfacc4853d66
+  - docs/algorithms/Oncology/HRD_Score.md
+source_commit: 9ccd313ad3bcc32cf5994b173774d05e0cee860f
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -138,6 +139,25 @@ caller with no allelic contrast) — HRD counts *sub-chromosomal* allele-specifi
 centromere coordinates it embeds are the same biological landmarks that the sequence-level
 [[centromere-analysis]] unit detects de novo, but here they enter as a published coordinate
 lookup rather than a detection target.
+
+## Implementation surface (`OncologyAnalyzer`)
+
+The algorithm spec (`docs/algorithms/Oncology/HRD_Score.md`, ONCO-HRD-001) fixes the
+public entry points on `OncologyAnalyzer` and a **three-tier input model** for the score:
+
+- `CalculateHRDScore(int loh, int tai, int lst)` — the O(1) unweighted sum; `ClassifyHRDStatus(int score)` — the 42-cutoff status; `DetectHRD(HrdComponents)` — sum + classify from already-computed counts.
+- `DetectHRD(segments, int tai, int lst)` — a **caller-supplied-TAI/LST overload**: LOH is still derived from the segments via `DetectLOH`, but TAI and LST are accepted as externally computed counts (for pipelines that compute the telomeric/state-transition scars elsewhere).
+- `DetectHRD(segments, ReferenceGenome)` — the fully **all-derived** path (default `GRCh38`, `GRCh37` for hg19); `CalculateHrdTaiScore(segments, genome)` and `CalculateHrdLstScore(segments, genome)` expose the standalone TAI/LST derivations. Invariant: `DetectHRD(segments).Components == (DetectLOH(segments).Score, CalculateHrdTaiScore(segments), CalculateHrdLstScore(segments))`.
+
+The cutoff is the public constant `HrdHighScoreThreshold = 42`. TAI/LST derivation reuses
+the per-chromosome grouping, the same-allele-state merge (equal major AND minor), and the
+`ReferenceGenome` / `TryGetAutosomeNumber` helpers shared with the WGD/ploidy code.
+**Complexity:** the count-based paths are O(1); `CalculateHrdTaiScore` is O(n log n); LST
+(hence `DetectHRD(segments)`) is O(n²) worst case, dominated by the iterative `< 3 Mb`
+smoothing with re-merge — negligible at real segmentation sizes (a few thousand segments
+genome-wide). Negative components/score throw `ArgumentOutOfRangeException`; null segments
+throw `ArgumentNullException`; a non-positive-length or negative-CN segment throws
+`ArgumentException` (via `DetectLOH`).
 
 ## Scope and limitations
 
