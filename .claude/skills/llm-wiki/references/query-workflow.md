@@ -19,10 +19,18 @@ From the index, build a short list of pages that look relevant to the query. Be 
 If the index doesn't surface good candidates (the query uses fuzzy or domain-specific language that doesn't match the index summaries), fall back to the search script:
 
 ```bash
-python scripts/wiki_search.py "your query terms" --top 10
+python scripts/wiki_search.py "normalized query terms" --type concept --top 10
 ```
 
-This returns the top-N pages by BM25 score, with optional filters on frontmatter (`--type concept`, `--tag llms`, `--since 2026-01-01`). Use the search script *as a fallback*, not as the default — index-first is cheaper and produces more interpretable results when it works.
+Before BM25 search, rewrite the question as compact search terms in the wiki corpus's dominant language whenever the query wording and corpus language do not align. This rule is language-neutral: infer the corpus language rather than testing for a particular input language. Preserve identifiers, symbols, method names, and quoted strings verbatim.
+
+Search synthesized concept pages first. If they do not surface a good candidate, retry across all page types while collapsing source/concept variants that share primary provenance:
+
+```bash
+python scripts/wiki_search.py "normalized query terms" --top 10 --dedup-provenance --prefer-type concept
+```
+
+The script returns the top-N pages by BM25 score, with optional filters on frontmatter (`--type concept`, `--tag llms`, `--since 2026-01-01`). Use it *as a fallback*, not as the default — index-first is cheaper and produces more interpretable results when it works.
 
 ## Step 2b: Graph-assisted lookup (only if `wiki/graph/graph.sqlite` exists)
 

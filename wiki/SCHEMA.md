@@ -138,6 +138,26 @@ Ingests update the relevant shard rather than the top-level directory. If a shar
 `python .claude/skills/llm-wiki/scripts/wiki_search.py "<query>"` is the sanctioned
 fallback after index-first navigation.
 
+### Query retrieval policy
+
+When index summaries do not surface a good candidate, normalize the question into compact
+search terms in the dominant language of this wiki's corpus. Apply this based on mismatch
+with the corpus language, never by singling out a particular input language. Preserve stable
+identifiers, symbols, method names, and quoted strings.
+
+Search `concept` pages first. They are the synthesized retrieval surface for explanatory
+questions. If that pass is insufficient, search all page types with provenance deduplication
+and prefer a `concept` representative:
+
+```text
+python .claude/skills/llm-wiki/scripts/wiki_search.py "<normalized terms>" --type concept --top 10
+python .claude/skills/llm-wiki/scripts/wiki_search.py "<normalized terms>" --top 10 --dedup-provenance --prefer-type concept
+```
+
+Use `source` pages directly when the question asks for evidence, a validation report, or what
+a specific document says. Query the graph only for relational questions. If a filtered pass
+does not return a credible candidate, broaden the search rather than forcing an answer.
+
 ## Graph layer
 
 The wiki has an optional compiled graph layer under `wiki/graph/`:

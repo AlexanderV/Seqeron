@@ -12,6 +12,8 @@ Options:
     --wiki <dir>            Wiki directory (default: ./wiki)
     --top N                 Return top N results (default: 10)
     --type <type>           Filter by frontmatter type (source|entity|concept|synthesis|...)
+    --dedup-provenance      Collapse pages with the same primary source provenance
+    --prefer-type <type>    Prefer this page type within a provenance group
     --tag <tag>             Filter by tag (repeatable)
     --since YYYY-MM-DD      Only pages updated on or after this date
     --backlinks <slug>      Find pages that link to <slug>; ignores the query
@@ -21,6 +23,7 @@ Options:
 Examples:
     python wiki_search.py "diffusion training stability" --top 5
     python wiki_search.py "alignment" --type concept --tag safety
+    python wiki_search.py "alignment" --dedup-provenance --prefer-type concept
     python wiki_search.py "" --backlinks transformer
     python wiki_search.py "" --top-linked 10
 """
@@ -171,6 +174,40 @@ def passes_filters(page: dict, args) -> bool:
     return True
 
 
+def primary_provenance(page: dict) -> str:
+    """Return a stable key for source/concept variants derived from the same source."""
+    meta = page["meta"]
+    doc_path = meta.get("doc_path")
+    if isinstance(doc_path, str) and doc_path:
+        return doc_path.lower().replace("\\", "/")
+    sources = meta.get("sources", []) or []
+    if isinstance(sources, str):
+        sources = [sources]
+    if sources:
+        return str(sources[0]).lower().replace("\\", "/")
+    return f"page:{page['slug']}"
+
+
+def collapse_by_provenance(scored_pages: list[tuple[float, dict]], prefer_type: str | None) -> list[tuple[float, dict]]:
+    """Keep one result per primary source, optionally preferring a page type.
+
+    Group order is determined by the group's best BM25 score. This preserves search
+    relevance while allowing a synthesized concept page to represent its raw source.
+    """
+    groups = defaultdict(list)
+    for score, page in scored_pages:
+        groups[primary_provenance(page)].append((score, page))
+
+    collapsed = []
+    for candidates in groups.values():
+        group_score = max(score for score, _ in candidates)
+        preferred = [item for item in candidates if item[1]["meta"].get("type") == prefer_type]
+        representative = max(preferred or candidates, key=lambda item: item[0])[1]
+        collapsed.append((group_score, representative))
+    collapsed.sort(key=lambda item: -item[0])
+    return collapsed
+
+
 def cmd_search(args, pages: list[dict]) -> None:
     filtered = [p for p in pages if passes_filters(p, args)]
     if not filtered:
@@ -181,9 +218,12 @@ def cmd_search(args, pages: list[dict]) -> None:
     if not query_tokens:
         print("Empty query.", file=sys.stderr)
         return
-    scored = [(bm25_score(query_tokens, i, idx), i) for i in range(len(filtered))]
-    scored.sort(key=lambda x: -x[0])
-    top = [(s, filtered[i]) for s, i in scored[:args.top] if s > 0]
+    scored = [(bm25_score(query_tokens, i, idx), filtered[i]) for i in range(len(filtered))]
+    scored = [(score, page) for score, page in scored if score > 0]
+    scored.sort(key=lambda item: -item[0])
+    if args.dedup_provenance:
+        scored = collapse_by_provenance(scored, args.prefer_type)
+    top = scored[:args.top]
     if not top:
         print("No matches.", file=sys.stderr)
         return
@@ -235,6 +275,9 @@ def main():
     parser.add_argument("--wiki", type=Path, default=Path("wiki"), help="Wiki directory (default: ./wiki).")
     parser.add_argument("--top", type=int, default=10, help="Top N results (default: 10).")
     parser.add_argument("--type", help="Filter by frontmatter type.")
+    parser.add_argument("--dedup-provenance", action="store_true",
+                        help="Collapse results that share the same primary source provenance.")
+    parser.add_argument("--prefer-type", help="Prefer this page type within a provenance group.")
     parser.add_argument("--tag", action="append", default=[], help="Filter by tag (repeatable).")
     parser.add_argument("--since", help="Only pages updated on or after YYYY-MM-DD.")
     parser.add_argument("--backlinks", help="Find pages linking to this slug.")
