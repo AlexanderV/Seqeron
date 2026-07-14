@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **142** algorithm docs covered-via-concept, **102** pending across 18 domains
+Status at generation: **143** algorithm docs covered-via-concept, **101** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
 Oncology/Sequencing_Artifact_Detection → [[sequencing-artifact-detection]] resolved 2026-07-15;
 Oncology/SBS96_Trinucleotide_Context_Catalog → [[sbs96-mutational-signature-catalog]] resolved 2026-07-14;
@@ -210,10 +210,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Neoantigen_Peptide_Generation.md` | [[neoantigen-peptide-generation]] |
 | `docs/algorithms/Oncology/SBS96_Trinucleotide_Context_Catalog.md` | [[sbs96-mutational-signature-catalog]] |
 | `docs/algorithms/Oncology/Sequencing_Artifact_Detection.md` | [[sequencing-artifact-detection]] |
+| `docs/algorithms/Oncology/Somatic_Mutation_Calling.md` | [[somatic-variant-calling-tumor-normal]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (106 algorithm docs across 17 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (105 algorithm docs across 17 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

@@ -3,11 +3,12 @@ type: concept
 title: "Somatic variant calling (tumor vs matched-normal VAF classification)"
 tags: [oncology, algorithm]
 sources:
+  - docs/algorithms/Oncology/Somatic_Mutation_Calling.md
   - docs/Evidence/ONCO-SOMATIC-001-Evidence.md
   - docs/Evidence/VARIANT-CALL-001-Evidence.md
-source_commit: 5b4dd805db54d51bae30445a884e122fc4d97bd5
+source_commit: 77ba02823160a6580a9db64a5a86a1c49f733432
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -122,6 +123,16 @@ samples by **deviation from the diploid heterozygous fraction 1/2**.
 Boundary conventions: **f_t = 0.05 is detected** (inclusive `≥`); **f_n = 0.01 is absent** (inclusive
 `≤`). `FilterGermlineVariants` returns only the Somatic calls — its output is a **subset of the input**
 (the germline/not-detected calls are removed), the same subset contract as the downstream QC filters.
+
+The four entry points all live in `OncologyAnalyzer` (`Seqeron.Genomics.Oncology`):
+`CallSomaticMutations(variants, τ_t, τ_n)` classifies every variant in one **O(n)** pass returning an
+order-preserving list, `Classify` does a single variant, `FilterGermlineVariants` returns the somatic
+subset, and `CalculateSomaticScore` computes the `[0, 1]` separation. Classification is **pure
+in-memory** over `VariantObservation` records (tumor/normal alt+total read counts — no VCF parsing in
+this unit, and no suffix-tree/substring machinery). An uncovered site (`totalReads = 0`) yields
+`VAF = 0` (INV-05) — a tumor-only / uncovered-normal signal rather than an error — and thresholds
+outside `[0, 1]`, null input, or `alt > total` are contract failures (`ArgumentOutOfRangeException` /
+`ArgumentNullException`).
 
 ## 6. Relationship to the rest of the Oncology family
 
