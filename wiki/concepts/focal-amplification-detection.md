@@ -4,9 +4,10 @@ title: "Focal amplification detection (GISTIC2 length-based focal/broad split + 
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-CNA-002-Evidence.md
-source_commit: c4b1520f4036a9d9cc96f01c35e49380b4dfa873
+  - docs/algorithms/Oncology/Focal_Amplification_Detection.md
+source_commit: e8b2df0e8025da9158f1fd12db29d170e96ceeb3
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -89,6 +90,34 @@ A single arm can carry **multiple** oncogenes (12q → both MDM2 and CDK4). Only
 feed the mapper — a neutral/loss or a broad arm-level event never yields an oncogene amplification. The
 arm→oncogene panel is the algorithm's built-in registry (the arm+p/q prefix is what a segment is matched
 against), not a caller-supplied knowledgebase.
+
+## Implementation surface (ONCO-CNA-002)
+
+The spec (`docs/algorithms/Oncology/Focal_Amplification_Detection.md`) fixes the API on
+`OncologyAnalyzer` (`Seqeron.Genomics.Oncology`):
+
+- `DetectFocalAmplifications(segments, thresholds?)` → `IReadOnlyList<CopyNumberArmSegment>`: single-pass
+  **filter** returning the input segments that are focal amplifications, **in input order** (constructs no
+  new segments; INV-03). `thresholds` is a `FocalAmplificationThresholds?`; `null` ⇒ GISTIC2 defaults
+  (`t_amp = 0.1`, `broad_len_cutoff = 0.98`).
+- `IdentifyAmplifiedOncogenes(amplifications)` → `IReadOnlyList<string>`: distinct panel oncogene symbols
+  on amplified arms, **in panel order**.
+- `IsFocalAmplification(segment, thresholds)`: single-segment predicate (public helper for reuse).
+
+`CopyNumberArmSegment` carries the arm label, `Start`/`End`, `ArmLength`, and mean `Log2Ratio`; segment
+length is `End − Start` (base-pair counts). **Validation:** null `segments`/`amplifications` ⇒
+`ArgumentNullException`; a segment with `ArmLength ≤ 0` or `End ≤ Start` ⇒ `ArgumentException`. Arm labels
+match **case-insensitively (Ordinal-ignore-case)**; arms outside the six-gene panel map to no oncogene.
+
+**Complexity:** `DetectFocalAmplifications` is `O(n)` time / `O(k)` space (n segments, k focal);
+`IdentifyAmplifiedOncogenes` is `O(n + g)` with fixed panel size `g = 6`. No substring/pattern search is
+involved, so the repository suffix tree is **not applicable**. **Segmentation is upstream**, not performed
+here — `StructuralVariantAnalyzer.SegmentCopyNumber` (SV-CNV-001 / ONCO-CNA-001) produces the segments this
+filter consumes.
+
+**Invariants** (INV-01…04): every reported amplification satisfies `L/A < 0.98` (strict) and `r > t_amp`;
+the output is an in-order subset of the input; an oncogene is reported only for an arm carrying a focal
+amplification.
 
 ## Worked dataset (arm length 1,000,000 bp; t_amp 0.1; cutoff 0.98)
 
