@@ -4,9 +4,10 @@ title: "Clinical actionability assessment (OncoKB therapeutic levels of evidence
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-ACTION-001-Evidence.md
-source_commit: f43bbbd5379ef59f0f01dabd2d4a7378e8cb23da
+  - docs/algorithms/Oncology/Clinical_Actionability_Assessment.md
+source_commit: 2f6b97a8cd214bd6594def22831a5dd968eb1b58
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -85,6 +86,32 @@ axis-specific maxima are reported independently alongside the combined maximum.
   outcome (the name is the library's, "no level" is OncoKB's observable).
 - Null input → `ArgumentNullException`; per-variant outputs preserve input order (mirrors
   `AnnotateCancerVariants`).
+
+## Implementation surface (ONCO-ACTION-001 spec)
+
+The combined order **R1 > 1 > 2 > 3A > 3B > 4 > R2** is encoded **directly in the integer order of the
+`OncoKbLevel` enum** (`None` lowest … `R1` highest), so `CompareLevels` is a plain integer comparison of
+enum values — no lookup table. The sensitivity set `{1,2,3A,3B,4}` and resistance set `{R1,R2}` are
+membership filters for the two single-axis maxima; the standard-care set `{1,2,R1}` comes from the SOP
+grouping. All entry points live on `OncologyAnalyzer`
+(`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`):
+
+| Entry point | Role | Time | Space |
+|-------------|------|------|-------|
+| `AssessActionability(variants)` | batch per-variant assessment (combined + sensitive + resistance axes) | O(n·k) | O(n) |
+| `ClassifyActionabilityLevel(variant)` | single-variant highest **combined** level | O(k) | O(1) |
+| `GetTherapyRecommendations(variant)` | associations ordered most-actionable first (sort by level) | O(k log k) | O(k) |
+| `CompareLevels(a, b)` | combined-order comparator (integer enum compare) | O(1) | O(1) |
+| `IsStandardCare(level)` | standard-care grouping predicate `{1,2,R1}` | O(1) | O(1) |
+
+Inputs are `VariantActionabilityInput` records (gene, protein change, caller-supplied
+`TherapyAssociation` list); the record **rejects a null associations list at construction**, while an
+**empty** list is valid and yields `None`/`NotActionable`. `AssessActionability` returns
+`HighestSensitiveLevel`, `HighestResistanceLevel`, `HighestCombinedLevel`, and `IsActionable`
+(= `HighestCombinedLevel ≠ None`). The ranking is a **single linear scan per variant** — no
+substring/pattern search — so the repository suffix tree is **not applicable** (it serves sequence
+occurrence search, not enum ranking). Implementation status is **Framework**: the library ranks levels
+and performs no database lookup.
 
 ## Scope and limitations
 

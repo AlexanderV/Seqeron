@@ -4697,3 +4697,20 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    existing typed edges are unchanged; body wikilinks provide mentions edges) ⇒ graph lint/extract skipped.
    Hub [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub). No contradictions:
    the spec and the already-recorded Evidence synthesis agree on tiers, the 1% cutoff, and III↔IV discrimination.
+
+## [2026-07-14] ingest | docs/algorithms/Oncology/Clinical_Actionability_Assessment.md → [[clinical-actionability-oncokb-levels]] (concept enrich)
+   Oncology reconciliation: the OncoKB therapeutic-levels concept already existed (synthesized from
+   ONCO-ACTION-001-Evidence). Added the primary spec to its sources: and bumped source_commit to HEAD.
+   Surgical enrich: new "Implementation surface (ONCO-ACTION-001 spec)" section — the five OncologyAnalyzer
+   entry points (AssessActionability O(n·k) / ClassifyActionabilityLevel O(k) / GetTherapyRecommendations
+   O(k log k) / CompareLevels O(1) / IsStandardCare O(1)), the OncoKbLevel enum integer-order encoding of
+   the combined R1>1>2>3A>3B>4>R2 order (CompareLevels = integer compare, no lookup table), the
+   VariantActionabilityInput null-vs-empty associations contract, the four output fields
+   (Highest{Sensitive,Resistance,Combined}Level + IsActionable), and the suffix-tree-not-applicable /
+   Framework-status notes. No wiki/sources/ page (spec ≠ Evidence/Validation report). No new page ⇒
+   index.md unchanged (concept already listed). Backlog: added Covered-via-concept row (covered 116→117,
+   pending 128→127); removed from [[backlog-pending]] (Oncology 34→33, total 127→126). No new graph
+   nodes/edges (implementation prose only; the concept's existing typed edges are unchanged; body wikilinks
+   provide mentions edges) ⇒ graph lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged
+   (spec docs are not added to the hub). No contradictions: the spec and the already-recorded Evidence
+   synthesis agree on the seven levels, the three ordering axes, and the NotActionable empty-level semantics.
