@@ -7,10 +7,11 @@ mcp_tools:
   - find_restriction_sites
   - get_enzyme
 sources:
+  - docs/algorithms/MolTools/Restriction_Enzyme_Filtering.md
   - docs/Evidence/RESTR-FILTER-001-Evidence.md
-source_commit: 94748c8ca67c5c8b70dcdcf27a2c2d69087c0eaa
+source_commit: 6a7651515bbf8015d31e23697d8252f85ba10258
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -70,6 +71,33 @@ undivided library.
   palindrome `GGCCNNNN^NGGCC` (a 13-nt string with a degenerate `NNNNN` spacer), so it is
   a sticky cutter but is **correctly excluded** by the `[4, 8]` length filter — the 4–8 nt
   range is for **undivided** sites only.
+
+## Implementation surface
+
+The primary spec (`docs/algorithms/MolTools/Restriction_Enzyme_Filtering.md`, unit
+`RESTR-FILTER-001`, status *Production*) pins the four entry points on
+`RestrictionAnalyzer` (`Seqeron.Genomics.MolTools`, `RestrictionAnalyzer.cs`):
+`GetEnzymesByCutLength(int length)`, `GetEnzymesByCutLength(int minLength, int maxLength)`,
+`GetBluntCutters()`, and `GetStickyCutters()`. All four are **total** — they never throw and
+never return null; an empty/degenerate range (e.g. `min > max`, non-positive bounds) yields an
+empty sequence rather than an error. There is no sequence input, so no alphabet/normalization
+concerns apply.
+
+- **Data structure:** the library is a fixed static `Dictionary<string, RestrictionEnzyme>` of
+  Type II enzymes; each `RestrictionEnzyme` record stores its recognition string and per-strand
+  cut positions, from which `RecognitionLength` and the record-derived `IsBluntEnd`
+  (`CutPositionForward == CutPositionReverse`) are computed. Blunt/sticky uses only the
+  cut-position equality — the center-vs-staggered criterion — and does **not** re-derive
+  cleavage from sequence.
+- **Evaluation:** filters are lazy LINQ `Where` over the dictionary values, so the return is a
+  deferred `IEnumerable<RestrictionEnzyme>` (order follows dictionary insertion); callers
+  materialize with `ToList()` when a snapshot is needed.
+- **Complexity:** O(e) time (e = library size, single linear pass), O(1) extra space, for any
+  filter. This is a metadata selection, not a search — the repository suffix tree was evaluated
+  and found inapplicable (no text to search).
+- **Not implemented:** filtering by overhang direction (5' vs 3') or by overhang sequence — for
+  end-compatibility use `AreCompatible` / `FindCompatibleEnzymes` on
+  [[restriction-digest-simulation]].
 
 ## Relation to the rest of MolTools
 
