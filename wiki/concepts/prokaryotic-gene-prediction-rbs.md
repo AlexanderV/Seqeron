@@ -26,7 +26,7 @@ graph:
       status: current
     - predicate: relates_to
       object: concept:promoter-detection
-      source: prokaryotic-gene-prediction-rbs
+      source: annot-gene-001-report
       evidence: "Gene_Prediction.md §5.3 lists promoter −10/−35 scoring as Not implemented in PredictGenes and directs users to the separate Promoter_Detection.md helper: 'Promoter −10 / −35 scoring integrated into gene prediction … users should rely on: Promoter_Detection.md.'"
       confidence: high
       status: current

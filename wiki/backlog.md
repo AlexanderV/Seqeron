@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **125** algorithm docs covered-via-concept, **119** pending across 18 domains
+Status at generation: **126** algorithm docs covered-via-concept, **118** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/Fusion_Gene_Detection → [[gene-fusion-detection-read-evidence]] resolved 2026-07-14;
 Oncology/Fusion_Breakpoint_Analysis → [[fusion-breakpoint-frame-and-protein-prediction]] resolved 2026-07-14;
 Oncology/Focal_Amplification_Detection → [[focal-amplification-detection]] resolved 2026-07-14;
 Oncology/Driver_Mutation_Detection → [[driver-gene-classification-20-20-rule]] resolved 2026-07-14;
@@ -176,6 +177,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Driver_Mutation_Detection.md` | [[driver-gene-classification-20-20-rule]] |
 | `docs/algorithms/Oncology/Focal_Amplification_Detection.md` | [[focal-amplification-detection]] |
 | `docs/algorithms/Oncology/Fusion_Breakpoint_Analysis.md` | [[fusion-breakpoint-frame-and-protein-prediction]] |
+| `docs/algorithms/Oncology/Fusion_Gene_Detection.md` | [[gene-fusion-detection-read-evidence]] |
 
 ## Pending (fold into the ingest campaign)
 

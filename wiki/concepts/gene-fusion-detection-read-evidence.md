@@ -4,9 +4,10 @@ title: "Gene-fusion detection from split + spanning reads (with in-frame codon-p
 tags: [oncology, structural-variant, algorithm]
 sources:
   - docs/Evidence/ONCO-FUSION-001-Evidence.md
-source_commit: ea13dcc183c950560fe910068244e507f45a455f
+  - docs/algorithms/Oncology/Fusion_Gene_Detection.md
+source_commit: e7bce9e475ab9bcc92732d4c1bd22967e2800067
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -92,6 +93,21 @@ directional known-fusion matching — is the separate annotation unit
   partner is not translated — out of scope here (transcript reconstruction), handled by
   [[fusion-breakpoint-frame-and-protein-prediction]] (ONCO-FUSION-003).
 - **Input validation.** Null input → `ArgumentNullException`; negative counts → `ArgumentException`.
+  `IsInFrame` additionally throws `ArgumentOutOfRangeException` for a negative 5' base count or a 3'
+  phase outside {0,1,2}; when the phase fields are left unset (`-1`), `ReadingFrame` is reported as
+  `Unknown` rather than guessed.
+
+## API surface and cost
+
+The spec (`docs/algorithms/Oncology/Fusion_Gene_Detection.md`, ONCO-FUSION-001, *Simplified*) exposes three
+static entry points on `OncologyAnalyzer` (`OncologyAnalyzer.cs`): `DetectFusions(IEnumerable<FusionCandidate>,
+FusionDetectionThresholds?)` → `IReadOnlyList<FusionCall>` (each `FusionCall` carries `JunctionReads`,
+`TotalSupport`, and the `ReadingFrame` enum InFrame/OutOfFrame/Unknown), `IsInFrame(int fivePrimeCodingBases,
+int threePrimeStartPhase)`, and `ComputeTotalSupport(FusionCandidate)`. `DetectFusions` is **O(n log n)** time /
+**O(n)** space (one pass over n candidates plus the final descending-support sort, gene pair as tie-break);
+`IsInFrame` and `ComputeTotalSupport` are O(1). The three STAR-Fusion constants are `MIN_JUNCTION_READS=1`,
+`MIN_SUM_FRAGS=2`, `MIN_SPANNING_FRAGS_ONLY=5`; `CodonLength=3`. No suffix tree is involved — this is arithmetic
+count-thresholding plus a sort, not substring search.
 
 Worked oracles (from [[onco-fusion-001-evidence]], `split1,split2,discordant`): **EML4-ALK**
 (3,2,4) → DETECTED; **TMPRSS2-ERG** (1,0,1) → DETECTED; **CD74-ROS1** (0,0,5) → DETECTED;

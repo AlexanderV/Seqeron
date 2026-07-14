@@ -124,11 +124,19 @@ Required fields on every relationship: `predicate`, `object`, `source`, `evidenc
 
 ## Index structure
 
-(Update this section when sharding.)
+Sharded. The top-level `wiki/index.md` is a small directory that routes readers to:
 
-Currently flat: a single `wiki/index.md` listing all pages.
+- `wiki/indexes/sources-project.md` — project-level and governance source pages.
+- `wiki/indexes/sources-validation.md` — per-unit evidence artifacts and validation reports.
+- `wiki/indexes/concepts.md` — concept pages.
+- `wiki/indexes/gotchas.md` — gotcha pages.
+- `wiki/indexes/meta.md` — coverage and maintenance indexes.
+- `wiki/indexes/synthesis.md` — synthesis pages.
 
-When the wiki passes ~150 pages or `index.md` exceeds 300 lines, shard into `wiki/indexes/<type>.md` and update this section.
+Ingests update the relevant shard rather than the top-level directory. If a shard exceeds
+~300 lines, split it by a stable sub-category. For fuzzy discovery at this wiki's scale,
+`python .claude/skills/llm-wiki/scripts/wiki_search.py "<query>"` is the sanctioned
+fallback after index-first navigation.
 
 ## Graph layer
 

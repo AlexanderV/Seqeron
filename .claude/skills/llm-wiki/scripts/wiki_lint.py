@@ -34,8 +34,29 @@ from datetime import date, datetime
 from pathlib import Path
 
 
-WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+# Wikilink target, then an optional display alias. Inside markdown table cells the
+# alias pipe is escaped (`[[slug\|Alias]]`) so it doesn't terminate the cell, so the
+# target class excludes `\` and the separator tolerates an optional leading backslash.
+WIKILINK_RE = re.compile(r"\[\[([^\]|\\]+)(?:\\?\|[^\]]+)?\]\]")
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+# Fenced code blocks (``` or ~~~) and inline code spans (`...`). Wikilink-like
+# notation inside code (dot-bracket `[[[[....]]]]`, matrices `[[1.0]]`) is literal,
+# not a link, so it must be stripped before wikilink extraction.
+FENCED_CODE_RE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
+INLINE_CODE_RE = re.compile(r"`+[^`\n]*`+")
+
+
+def extract_wikilinks(body: str) -> list[str]:
+    """Wikilink targets in body, ignoring code spans and intra-page #anchors."""
+    stripped = FENCED_CODE_RE.sub("", body)
+    stripped = INLINE_CODE_RE.sub("", stripped)
+    links = []
+    for m in WIKILINK_RE.finditer(stripped):
+        target = m.group(1).strip()
+        if target.startswith("#"):  # intra-page section anchor, not a cross-page link
+            continue
+        links.append(target)
+    return links
 CAPITALIZED_PHRASE_RE = re.compile(r"\b([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+){0,3})\b")
 
 
@@ -93,7 +114,7 @@ def collect_pages(wiki_root: Path) -> list[dict]:
             continue
         meta, body, malformed = parse_frontmatter(text)
         line_count = text.count("\n") + 1
-        links = [m.group(1).strip() for m in WIKILINK_RE.finditer(body)]
+        links = extract_wikilinks(body)
         pages.append({
             "path": str(md_path),
             "rel_path": str(rel),
@@ -155,8 +176,9 @@ def lint(pages: list[dict], soft_cap: int, hard_cap: int, required_fm: list[str]
 
     # Orphans, broken links, oversize, frontmatter, staleness
     for p in pages:
-        # Orphans
-        if not inbound.get(p["slug"]):
+        # Orphans. Index/meta pages are navigational roots reached from index.md
+        # (which is excluded as a link source), so they are never true orphans.
+        if not inbound.get(p["slug"]) and p["meta"].get("type") != "index":
             findings["orphans"].append({"slug": p["slug"], "path": p["rel_path"]})
 
         # Broken links

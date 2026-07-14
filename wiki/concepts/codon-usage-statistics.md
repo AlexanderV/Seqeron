@@ -13,25 +13,25 @@ graph:
   relationships:
     - predicate: relates_to
       object: concept:relative-synonymous-codon-usage
-      source: codon-usage-statistics
+      source: codon-stats-001-evidence
       evidence: "GetStatistics bundles the RSCU table (RSCU_j = n·x_j/Σx_k, Sharp/Tuohy/Mosurski 1986) as one field of the aggregated CodonUsageStatistics record"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:effective-number-of-codons
-      source: codon-usage-statistics
+      source: codon-stats-001-evidence
       evidence: "GetStatistics reports Enc (Wright 1990, 20–61) alongside the codon counts and positional GC as one aggregated statistic"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:codon-adaptation-index
-      source: codon-usage-statistics
+      source: codon-stats-001-evidence
       evidence: "CodonUsageAnalyzer.CalculateCai(sequence, referenceRscu) is the same geometric-mean-of-w=f/max_synonym_f CAI, re-validated as one piece of CODON-STATS-001"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:test-unit-registry
-      source: codon-usage-statistics
+      source: codon-stats-001-evidence
       evidence: "Test Unit ID: CODON-STATS-001 — Codon Usage Statistics (CodonUsageAnalyzer.GetStatistics + CalculateCai)"
       confidence: high
       status: current
