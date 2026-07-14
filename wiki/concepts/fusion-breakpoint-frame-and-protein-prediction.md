@@ -4,9 +4,10 @@ title: "Fusion breakpoint reading-frame consequence + fusion protein prediction"
 tags: [oncology, structural-variant, algorithm]
 sources:
   - docs/Evidence/ONCO-FUSION-003-Evidence.md
-source_commit: 7b40b36e8b46c1f03926ea3cca120370653e3af0
+  - docs/algorithms/Oncology/Fusion_Breakpoint_Analysis.md
+source_commit: 5465dd6bff485c29023a0d3c5020b0dbb6a04c62
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -102,6 +103,29 @@ Worked oracles (from [[onco-fusion-003-evidence]], standard genetic code):
   ((4−0) mod 3 = 1 — the Arriba-vs-AGFusion divergence point).
 - `ATGA | AAGGT`, 3′ suffix at native phase 1 → **in-frame** ((4−1) mod 3 = 0).
 - `ATGAA | GATGGT` → out-of-frame (5%3=2, 6%3=0), trim to 9 → `MKM`.
+
+## Implementation surface
+
+The algorithm spec (`Fusion_Breakpoint_Analysis.md`, ONCO-FUSION-003) pins the two entry
+points on `OncologyAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`):
+
+- **`AnalyzeBreakpoint(FusionBreakpoint)`** → `BreakpointAnalysis { BreakpointInCoding, FrameStatus }`.
+  `BreakpointInCoding` is true iff **both** sites are `CDS`; the frame call is delegated to the shared
+  `IsInFrame(int, int)` (ONCO-FUSION-001) and is evaluated **only** when both breakpoints are coding,
+  else `NotPredicted`. `O(1)` — constant-time site/frame checks.
+- **`PredictFusionProtein(FusionBreakpoint, (string FivePrimeCds, string ThreePrimeCds))`** →
+  `FusionProteinPrediction { ChimericCds, Peptide, Effect, HasPrematureStop }`. The 5′ prefix length
+  is `FivePrimeCodingBases` and the 3′ suffix start is `ThreePrimeStartPhase`, both taken from the
+  `FusionBreakpoint`. `O(n)` in the chimeric CDS length — one pass over codons. Translation reuses
+  `Seqeron.Genomics.Core.GeneticCode.Standard.Translate` (NCBI table 1); the codon table is **not**
+  duplicated in the oncology layer. `HasPrematureStop` is true iff a stop is reached before the ORF end.
+
+**Validation / normalization.** Inputs are case-normalized to uppercase DNA. CDS strings must be
+non-null (`ArgumentNullException`); offsets must lie within their CDS and `ThreePrimeStartPhase ∈ {0,1,2}`
+for a protein prediction (`ArgumentOutOfRangeException`). Translation is 0-based, frame 0, read
+5′→3′ in triplets — a trailing partial codon is not translated. `Implementation Status: Framework`:
+the repo bundles no genome/GTF, so partner CDS and offsets are caller-supplied and no substring search
+(hence no suffix tree) is involved — the chimeric CDS is built purely by slice/concat.
 
 ## Scope and relation to the fusion trio
 
