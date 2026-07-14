@@ -3,10 +3,11 @@ type: concept
 title: "Pan-genome gene clustering (greedy incremental, CD-HIT model)"
 tags: [comparative-genomics, pan-genome, algorithm]
 sources:
+  - docs/algorithms/PanGenome/Gene_Clustering.md
   - docs/Evidence/PANGEN-CLUSTER-001-Evidence.md
-source_commit: cce387f34d67ce7348bec08c7cea53dfd1d5cb64
+source_commit: 2a6da8e11ecf5e15937b2a425ffa86a2530204cd
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -103,8 +104,15 @@ Worked identity values (CD-HIT shorter-length denominator):
   genomes give `GenomeCount` = number of distinct genomes).
 - **`AverageIdentity`** = mean member-vs-representative identity; a **singleton cluster's
   `AverageIdentity` = 1.0** (a sequence is 100% identical to itself).
+- **`ConsensusSequence`** = the **representative (longest) member** sequence — not a per-column
+  consensus, just the seed the members were matched against.
 - Empty/null genomes → **no clusters**; a null inner gene list is skipped (input-validation
   contract).
+
+Because each query is scored only against existing **representatives** (not all members), the cost is
+`O(g·c·s)` (g genes, c clusters, s length), bounded by `O(g²·s)` in the all-singletons worst case —
+below the naive all-pairs bound. The repo **suffix tree is deliberately not used**: this is
+identity-scored whole-sequence similarity, not exact-substring occurrence search.
 
 ## Documented oracle (greedy clustering)
 
