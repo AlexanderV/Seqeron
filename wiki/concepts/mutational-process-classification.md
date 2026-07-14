@@ -4,9 +4,10 @@ title: "Mutational process classification (SBS exposure → active aetiology pro
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-SIG-004-Evidence.md
-source_commit: 3c5a975fe365264937f55c3a66b25eeff9d0bb0f
+  - docs/algorithms/Oncology/Mutational_Process_Classification.md
+source_commit: 7783b8d65bc2a9ec09d6958e86147e92a7e07908
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -85,6 +86,29 @@ summation** — COSMIC defines per-signature aetiologies but no aggregation rule
 of additive relative contributions; (2) **the cutoff is applied per-signature, then grouped** — following
 deconstructSigs exactly (it operates per signature; processes are a downstream grouping), not to the per-process
 total.
+
+## Implementation contract (ONCO-SIG-004 API)
+
+The algorithm spec pins the concrete C# surface in
+`OncologyAnalyzer.cs`. Two entry points:
+
+- `OncologyAnalyzer.ClassifyMutationalProcess(exposures, contributionCutoff = 0.06)` — takes
+  `IReadOnlyList<(string Signature, double Exposure)>`, returns `ActiveProcesses`
+  (`IReadOnlyList<ProcessActivity>`, each a process + its summed contribution ∈ [0,1], ordered by
+  **descending contribution then process enum**) and `DominantProcess` (a `MutationalProcess` enum,
+  `Unknown` when no process is active).
+- `OncologyAnalyzer.GetMutationalProcess(signatureLabel)` — the O(1) dictionary lookup that maps a COSMIC
+  SBS label to its `MutationalProcess`. **Label matching is case-insensitive**; labels outside the map resolve
+  to `Unknown` and contribute to no named process.
+
+**Validation contract:** null `exposures` or a null label → `ArgumentNullException`; a negative or `NaN`
+exposure → `ArgumentException`; `contributionCutoff` that is `NaN` or outside `[0, 1)` →
+`ArgumentOutOfRangeException`. An empty list or a zero-total list yields an empty active set and `Unknown`
+dominant. **Complexity** is `O(k log k)` time / `O(k)` space for `k` signatures — the `log k` is only the final
+ordering of the ≤ 5 processes, so it is effectively `O(k)`. This is not a search/matching unit, so the
+repository suffix tree does not apply. Confidence-based presence (a bootstrap-CI lower bound above zero rather
+than a point cutoff) is **not implemented** here — pair this cutoff rule with
+[[signature-exposure-bootstrap-confidence-intervals]] (ONCO-SIG-003) for interval estimates.
 
 ## Relation to the oncology family
 
