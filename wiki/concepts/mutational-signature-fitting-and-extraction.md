@@ -4,8 +4,9 @@ title: "Mutational signature fitting (NNLS refit) and de-novo extraction (NMF)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-SIG-002-Evidence.md
+  - docs/algorithms/Oncology/Mutational_Signature_Fitting.md
   - docs/algorithms/Oncology/Mutational_Signature_Extraction_NMF.md
-source_commit: d69205e359b7d8abc6d94f7489f8d749100742f7
+source_commit: c559752e2d7524d5b9f60057aa6b5798d97e6835
 created: 2026-07-10
 updated: 2026-07-14
 graph:
@@ -134,7 +135,21 @@ absorb the removed scale into `H` — this fixes NMF's positive-rescaling ambigu
 
 ## API surface and implementation notes
 
-`OncologyAnalyzer` (`Seqeron.Genomics.Oncology`, `OncologyAnalyzer.cs`) exposes the extraction layer as:
+`OncologyAnalyzer` (`Seqeron.Genomics.Oncology`, `OncologyAnalyzer.cs`) exposes the **refit** layer as:
+
+- `CosineSimilarity(a, b)` → cosine similarity of two equal-length non-empty vectors (returns `0.0` when
+  either has zero norm).
+- `FitSignatures(catalog, signatures)` → `SignatureFitResult` (`Exposures` = the NNLS solution `x ≥ 0`,
+  `NormalizedExposures` = `x / Σx` summing to 1 when Σ>0 else all 0, `Reconstruction` = `S·x`,
+  `ReconstructionCosineSimilarity` = cosine of `d` vs `S·x`). Each active-set inner iteration solves the
+  passive-set normal equations `s_P = ((S_P)ᵀ S_P)⁻¹ (S_P)ᵀ d` by **Gaussian elimination with partial
+  pivoting** (dense — tuned for small signature counts, not thousands), gradient tolerance `ε = 1e-12`; a
+  **singular passive-set matrix** (collinear signatures) leaves the affected component at 0 rather than
+  throwing. Cost `O(k³ + k²·n)` per outer iteration over `≤ O(k)` outer iterations (`k` signatures, `n`
+  channels).
+- `ReconstructCatalog(signatures, exposures)` → `S·x`.
+
+and exposes the extraction layer as:
 
 - `ExtractSignatures(countMatrix, rank, [objective], maxIterations=10_000, tolerance=1e-10, seed=42)` →
   `SignatureExtractionResult` (`Signatures`, `Exposures`, `FinalResidual`, `Iterations`, `ObjectiveHistory`).

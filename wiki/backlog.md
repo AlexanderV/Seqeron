@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **138** algorithm docs covered-via-concept, **106** pending across 18 domains
+Status at generation: **139** algorithm docs covered-via-concept, **105** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/Mutational_Signature_Fitting → [[mutational-signature-fitting-and-extraction]] resolved 2026-07-14;
 Oncology/Mutational_Signature_Extraction_NMF → [[mutational-signature-fitting-and-extraction]] resolved 2026-07-14;
 Oncology/Mutational_Signature_Exposure_Bootstrap → [[signature-exposure-bootstrap-confidence-intervals]] resolved 2026-07-14;
 Oncology/Mutational_Process_Classification → [[mutational-process-classification]] resolved 2026-07-14;
@@ -202,6 +203,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Mutational_Process_Classification.md` | [[mutational-process-classification]] |
 | `docs/algorithms/Oncology/Mutational_Signature_Exposure_Bootstrap.md` | [[signature-exposure-bootstrap-confidence-intervals]] |
 | `docs/algorithms/Oncology/Mutational_Signature_Extraction_NMF.md` | [[mutational-signature-fitting-and-extraction]] |
+| `docs/algorithms/Oncology/Mutational_Signature_Fitting.md` | [[mutational-signature-fitting-and-extraction]] |
 
 ## Pending (fold into the ingest campaign)
 
