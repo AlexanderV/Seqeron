@@ -5,10 +5,11 @@ tags: [comparative-genomics, pan-genome, algorithm]
 mcp_tools:
   - fit_heaps_law
 sources:
+  - docs/algorithms/PanGenome/Pan_Genome_Growth_Model.md
   - docs/Evidence/PANGEN-HEAP-001-Evidence.md
-source_commit: 7ed06ad09b44f5c210d8477a3ffa537c7e9920f4
+source_commit: cc39f4dd59b853125c9eb4985774c4f4df018ad8
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -127,6 +128,34 @@ tg(θ) = **33 ± 3.5** is nonzero (p < 6×10⁻⁴ that it equals zero) → an *
    permutation-dependent except for permutation-invariant matrices. This implementation fixes the seed
    and uses natural input order for the first permutation, so single-permutation fixed-order fits are
    exactly reproducible; the pool-over-orderings averaging principle matches the source.
+
+## Contract and implementation (`PanGenomeAnalyzer`)
+
+The primary spec `docs/algorithms/PanGenome/Pan_Genome_Growth_Model.md` marks the unit
+**Production**. Entry points live in `PanGenomeAnalyzer.cs` (`Seqeron.Genomics.Metagenomics`):
+
+- **`FitHeapsLaw(IEnumerable<GenePresenceRow>, int permutations = 100)`** — the canonical fit over a
+  presence/absence matrix. Presence is read from `GenePresenceRow.GenePresence` (true = present) and
+  collapsed to binary; cluster columns are stabilized by first appearance so the matrix is
+  deterministic. `permutations` is clamped to ≥ 1.
+- **`FitHeapsLaw(IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>,
+  double identityThreshold = 0.9, int permutations = 100)`** — convenience overload that clusters the
+  genomes (CD-HIT-style at `identityThreshold`), builds the matrix, then delegates to the canonical fit.
+- **`CreatePresenceAbsenceMatrix(genomes, clusters)`** — builds the binary matrix the fit consumes.
+
+The return is `(Intercept = K, Alpha = α, IsOpen = α < 1, PredictNewGenes)`. **`PredictNewGenes`** is a
+`Func<int,double>` realizing the fitted predictor `N ↦ K·N^(−α)` — the expected number of new gene
+clusters at the N-th genome; it is **non-increasing in N** for α ≥ 0 (INV-06). Null/empty input or
+fewer than 2 genomes yields the degenerate fit `(0, 0, false, predictor→0)` rather than an exception.
+
+Invariants **INV-01..INV-06** (open ⇔ α<1; first-appearance new-gene rule; binary presence; fitted
+α∈[0,2] and K∈[0,10000]; exact-power-curve recovery; predictor monotonicity) are covered by
+`PanGenomeAnalyzer_FitHeapsLaw_Tests.cs`. The repo **suffix tree is deliberately not used** — this unit
+counts set first-appearances and fits a power curve, doing no substring/occurrence search.
+
+Complexity: new-gene curve over all permutations O(P·G·C), objective evaluation O(P·G) per point pool,
+bounded minimization O(I·P·G) with I deterministic coordinate-descent iterations (P permutations,
+G genomes, C clusters).
 
 ## Reference tools
 
