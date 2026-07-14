@@ -8,13 +8,12 @@ updated: 2026-07-14
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (130 algorithm docs across 17 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14.)
+The per-domain pending tables (129 algorithm docs across 17 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14.)
 
-### Oncology (37)
+### Oncology (36)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md` | `allele-specific-copy-number-derivation` |
 | `docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md` | `cancer-cell-fraction-estimation` |
 | `docs/algorithms/Oncology/Cancer_Variant_Annotation.md` | `cancer-variant-annotation` |
 | `docs/algorithms/Oncology/Clinical_Actionability_Assessment.md` | `clinical-actionability-assessment` |

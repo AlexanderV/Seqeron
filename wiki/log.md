@@ -4636,3 +4636,28 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    MolTools section from [[backlog-pending]] — this CLOSES the MolTools domain (113 covered / 131
    pending across 17 domains). No typed graph edges (spec cites no cross-unit relationship beyond
    the sibling mentions, which auto-derive). No contradictions.
+
+## [2026-07-14] ingest | docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md → allele-specific-copy-number-ascat (concept, enriched)
+   FIRST Oncology *algorithm-spec* reconciled (the domain's concept pages were all synthesized
+   from Evidence docs, so every Oncology spec row was still pending). CONTEXT check: the concept
+   [[allele-specific-copy-number-ascat]] (created 2026-07-09 from the ONCO-ASCAT-001 Evidence
+   artifact) already synthesizes this exact unit — ASCAT nA/nB inversion + grid GoF, ASPCF
+   penalised-LS segmentation, Battenberg two-state subclonal, and McGranahan/PICTograph/DeCiFering
+   multiplicity+CCF. Per brief, ENRICHED it rather than create a redundant page. Added the primary
+   spec's distinct surface not previously captured: (1) the reported minor-allele GoF vs the
+   *selection* objective (adds the major-allele integer distance and breaks exact ties toward the
+   lower ploidy ψ — the 2n-vs-4n parsimony convention); (2) the `OncologyAnalyzer` implementation
+   surface — the dual segmentation path (greedy `SegmentAlleleSpecific` O(L) retained as an accepted
+   deviation alongside global-optimum `SegmentAlleleSpecificAspcf` O(L²)/chrom), plus
+   `FitPurityPloidy`/`DeriveMultiplicity`/`FitSubclonalCopyNumber`, and the *Simplified* status
+   (fixed-grid fit, two-adjacent-state subclonal, no asmultipcf/WGD refit). Frontmatter: added the
+   spec to sources (now spec + Evidence), source_commit→77e902ee, updated→2026-07-14. NO wiki/sources/
+   page created (spec, not an Evidence/Validation report). No new page ⇒ no index.md change (concept
+   already listed). Backlog: added Covered-via-concept row → [[allele-specific-copy-number-ascat]]
+   (covered 113→114, pending 131→130); removed from [[backlog-pending]] (Oncology 37→36, total
+   130→129). No new graph nodes/edges (prose-only enrichment; the concept's test-unit-registry edge
+   already exists; body wikilinks provide mentions edges) ⇒ graph lint/extract skipped. Hub
+   [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub, per prior
+   spec-ingest precedent). No contradictions: the spec and the already-recorded Evidence synthesis
+   agree stage-for-stage (Van Loo 2010 + ascat.runAscat.R, Nilsen 2012 + Ross 2021, Nik-Zainal 2012 /
+   Battenberg, McGranahan 2016 / PICTograph / DeCiFering — each a disjoint stage).

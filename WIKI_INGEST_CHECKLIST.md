@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1036 / 1181
+Progress: 1037 / 1181
 
 ## (top-level)  (6)
 
@@ -606,7 +606,7 @@ Progress: 1036 / 1181
 - [x] docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md
 - [x] docs/algorithms/Motif_Discovery/Regulatory_Elements.md
 - [x] docs/algorithms/Motif_Discovery/Shared_Motifs.md
-- [ ] docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md
+- [x] docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md
 - [ ] docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md
 - [ ] docs/algorithms/Oncology/Cancer_Variant_Annotation.md
 - [ ] docs/algorithms/Oncology/Clinical_Actionability_Assessment.md

@@ -3,10 +3,11 @@ type: concept
 title: "Allele-specific copy number + tumor purity/ploidy fit (ASCAT / ASPCF / subclonal / multiplicity)"
 tags: [oncology, algorithm]
 sources:
+  - docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md
   - docs/Evidence/ONCO-ASCAT-001-Evidence.md
-source_commit: ee6df31c1d54006d2fcc189bb794df7d37c89cf0
+source_commit: 77e902ee40e6996e700e6d839b870e52b8990e9e
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -74,6 +75,11 @@ Integer assignment rounds and clamps: `nA = max(round(nAfull),0)`, `nB = max(rou
 **major allele is the larger** of the two. **BAF = 0.5 (balanced) segments are down-weighted ×0.05** —
 they carry little allele-specific information (cannot tell 1+1 from 2+2 except via logR).
 
+**Reported GoF vs selection objective differ.** The reported goodness-of-fit uses the *minor-allele*
+distance only (per `ascat.runAscat.R`), but *grid selection* adds the **major-allele** integer distance
+too, and **exact ties prefer the lower ploidy ψ** — the ASCAT parsimony convention that resolves the
+2n-vs-4n degeneracy (a doubled genome fits equally well, so the smaller ψ wins).
+
 **ψ scale:** ploidy = DNA amount relative to a haploid genome; pure diploid → ψ = 2, ">2.7n" marks
 aneuploidy. The *fitted* ψ here is the joint grid-search output; the **post-hoc** summary of ψ as a
 length-weighted mean over already-called segments — plus the whole-genome-doubling flag — is the
@@ -95,6 +101,17 @@ are **mirrored** (folded to their distance from 0.5) in regions of allelic imbal
 segmentation, so a copy-neutral-LOH segment separates from a balanced segment that share the same logR.
 Large γ collapses to one segment; small γ recovers every level. (copynumber default γ = 40; ASCAT
 later 70 — probe-scale-specific, so the repository exposes γ as a required caller parameter.)
+
+**Implementation surface (`OncologyAnalyzer`, `Seqeron.Genomics.Oncology`).** Segmentation is offered on
+**two paths**: the original **greedy mean-shift** `SegmentAlleleSpecific(...)` (O(L), splits on chromosome
+change or logR/mirrored-BAF mean-shift after `minLociPerSegment`) and the global-optimum
+`SegmentAlleleSpecificAspcf(...)` (PCF DP, O(L²) per chromosome). The greedy path is retained as an
+accepted deviation — ASPCF is the reference-faithful route. The fit/derive steps are
+`FitPurityPloidy(...)` (ASCAT grid → ρ, ψ, GoF, integer `AlleleSpecificSegment`s),
+`DeriveMultiplicity(...)` (rounded, clamped `int`), and `FitSubclonalCopyNumber(...)` (Battenberg
+two-state). The unit's `Implementation Status` is **Simplified**: fixed-grid fit (grid-resolution-limited,
+no iterative refit), two-adjacent-state subclonal only, and no multi-sample (`asmultipcf`) or
+whole-genome-doubling refit search — users needing those rely on ASCAT/Battenberg/FACETS.
 
 ## 3. Subclonal two-state extension (Battenberg / Nik-Zainal 2012)
 
