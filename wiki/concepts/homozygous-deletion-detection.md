@@ -4,9 +4,10 @@ title: "Homozygous / deep deletion detection (total-CN-0 call + tumour-suppresso
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-CNA-003-Evidence.md
-source_commit: 819918712f8e6a3fddb0f4a534fb6f69bc24cf5b
+  - docs/algorithms/Oncology/Homozygous_Deletion_Detection.md
+source_commit: 0472f265da46f4b908ed8ef2d8799c36f8bb9921
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -73,6 +74,17 @@ Source convergence on the CN-0 definition:
 hemizygous, one allele remaining, CN ≥ 1) is a *loss*, never a homozygous deletion. Neutral / gain /
 amplification segments are excluded a fortiori.
 
+**Entry points** (`OncologyAnalyzer`, `Seqeron.Genomics.Oncology`): `DetectHomozygousDeletions(segments,
+thresholds?, ploidy?)` is the order-preserving CN-0 filter; `IsHomozygousDeletion(segment, thresholds?,
+ploidy?)` is the single-segment predicate (integer CN == 0); `IdentifyDeletedTumorSuppressors(deletions)`
+does the arm→gene mapping. Both classification methods reuse ONCO-CNA-001's `CallCopyNumber`
+(`absolute_threshold`) and ONCO-CNA-002's `CopyNumberArmSegment` record + `ValidateArmSegment`, so the
+**same** segment input drives focal-amplification and homozygous-deletion detection. Optional parameters:
+`thresholds` (default four ascending cutoffs −1.1/−0.25/0.2/0.7; must be exactly four strictly ascending)
+and `ploidy` (default 2, reference germline ploidy, must be > 0). No new copy-number threshold is
+introduced — the homozygous call is defined solely as integer CN 0. Both time-linear: `O(n)` filter,
+`O(1)` per-segment classification.
+
 ## 2. Tumour-suppressor mapping (`IdentifyDeletedTumorSuppressors`)
 
 Each homozygous-deletion segment carries an **arm label** (chromosome + p/q arm, e.g. `17p`). The mapper
@@ -108,6 +120,11 @@ not a caller-supplied knowledgebase.
   only total CN 0 qualifies (segment C).
 - **Boundary at the deletion cutoff (log2 = −1.1):** inclusive `log2 <= thresh` → CN 0 → homozygous
   (mirrors CNA-001's boundary-inclusive lower-bin rule).
+- **NaN log2 is a no-call, not a deletion:** a `NaN` log2 ratio is a CNVkit no-call that returns the
+  neutral reference copy number (rounded `ploidy`), so it is **never** reported as a homozygous deletion.
+- **Validation errors from `CallCopyNumber`:** non-positive `ploidy` → `ArgumentOutOfRangeException`;
+  `thresholds` not four strictly ascending values → `ArgumentException` (on top of the arm-segment
+  validation below).
 - **Custom thresholds move the CN-0 boundary:** raising the deletion cutoff can reclassify a previously
   CN-1 segment as CN 0 (CNVkit `absolute_threshold` thresholds are parameters).
 - **Order-preserving filter:** each qualifying segment is reported once, input order preserved (mirror
