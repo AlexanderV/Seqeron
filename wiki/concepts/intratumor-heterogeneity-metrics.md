@@ -4,9 +4,10 @@ title: "Intratumor heterogeneity metrics (MATH score + Shannon clonal diversity)
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-HETERO-001-Evidence.md
-source_commit: 44c3fb9d26b8f3d5317135230f8320077e2d1322
+  - docs/algorithms/Oncology/Tumor_Heterogeneity_Analysis.md
+source_commit: e10eb245fc0d5411151c01e831ef81e4a4a0e1ca
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -95,6 +96,25 @@ log, in nats) but a different domain — clone fractions here vs taxon abundance
 - **Subclonal fraction** = **#(CCF < 0.95) / n** — the fraction of mutations whose cancer cell
   fraction falls below the **Landau 2013 clonal CCF threshold 0.95** (`ClonalCcfThreshold`, the same
   0.95 cut used by the posterior classifier [[clonal-subclonal-classification-ccf-posterior]]).
+
+## Implementation surface (Seqeron.Genomics.Oncology)
+
+Three static entry points on `OncologyAnalyzer` (`OncologyAnalyzer.cs`), spec ONCO-HETERO-001:
+
+- `CalculateITH(IReadOnlyList<double> vaf)` → `double` MATH — `O(n log n)` time, `O(n)` space (two
+  median sorts). The median helper **clones the input before sorting**, so callers' arrays are never
+  mutated.
+- `InferSubclones(CcfClustering)` → `int` occupied-cluster count (richness) — `O(n)` time, `O(k)`
+  space (hash set of labels).
+- `AnalyzeHeterogeneity(vaf, ccf, clusterCount)` → `HeterogeneityResult { MathScore, ShannonDiversity,
+  SubcloneCount, SubclonalFraction }` — `O(n log n)`; reuses `ClusterCcfValues` (ONCO-CCF-001) for
+  clustering and the shared `ClonalCcfThreshold` constant (ONCO-CLONAL-001) for the 0.95 subclonal cut.
+
+Validation throws `ArgumentNullException` (null lists), `ArgumentException` (empty / non-finite /
+out-of-[0,1] values, mismatched VAF/CCF lengths, zero median), and `ArgumentOutOfRangeException`
+(`clusterCount` outside `[1, count]`). No search/matching is involved, so the repository suffix tree
+does not apply. Probabilistic subclone inference (PyClone/SciClone-style posterior clustering) is
+**not implemented** — clustering here is the deterministic k-means of ONCO-CCF-001.
 
 ## Corner cases and failure modes
 

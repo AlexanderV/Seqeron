@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1067 / 1181
+Progress: 1068 / 1181
 
 ## (top-level)  (6)
 
@@ -637,7 +637,7 @@ Progress: 1067 / 1181
 - [x] docs/algorithms/Oncology/Sequencing_Artifact_Detection.md
 - [x] docs/algorithms/Oncology/Somatic_Mutation_Calling.md
 - [x] docs/algorithms/Oncology/Tumor_Gene_Expression_Outlier.md
-- [ ] docs/algorithms/Oncology/Tumor_Heterogeneity_Analysis.md
+- [x] docs/algorithms/Oncology/Tumor_Heterogeneity_Analysis.md
 - [ ] docs/algorithms/Oncology/Tumor_Mutational_Burden.md
 - [ ] docs/algorithms/Oncology/Tumor_Phylogeny_Reconstruction.md
 - [ ] docs/algorithms/Oncology/Tumor_Ploidy_Estimation.md
