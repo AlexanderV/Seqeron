@@ -4,9 +4,10 @@ title: "Mutational signature fitting (NNLS refit) and de-novo extraction (NMF)"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-SIG-002-Evidence.md
-source_commit: 8cb9903ebbef9fdde3b5e9acf7c72f013a66e74b
+  - docs/algorithms/Oncology/Mutational_Signature_Extraction_NMF.md
+source_commit: d69205e359b7d8abc6d94f7489f8d749100742f7
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -120,10 +121,38 @@ absorb the removed scale into `H` — this fixes NMF's positive-rescaling ambigu
     first rank where it **begins to fall**. Rank 1 is trivially 1.0 (all-ones consensus) and thus uninformative.
   - **Silhouette stability** (SigProfilerExtractor / Rousseeuw): per-signature stability = the average
     silhouette width (`s = (b−a)/max(a,b)`, cosine distance) of the replicate-factorization cluster; a solution
-    is stable if average stability > 0.80 and none < 0.20.
+    is stable if average stability ≥ 0.80 and none < 0.20.
+  - **Selection rule** (`SelectRank`): the chosen rank is the **largest candidate k** whose average stability
+    ≥ `stabilityThreshold` (0.80) with minimum per-signature stability ≥ `minStability` (0.20); if none
+    qualifies, the highest-average-stability k is returned. Cophenetic correlation and mean reconstruction
+    error are reported per rank as diagnostics but do not drive the choice. Cost is `O(runs × ranks)` full NMF
+    fits; a deterministic per-(rank, run) derived seed makes the whole sweep reproducible.
 - **Matching de-novo signatures to COSMIC:** label each extracted signature with its **closest reference by
   cosine similarity** (a greedy per-signature reduction of SigProfiler's global Hungarian assignment). A
-  scaled or channel-permuted copy of a reference matches it with cosine 1.0.
+  scaled or channel-permuted copy of a reference matches it with cosine 1.0. The library **does not embed
+  COSMIC profiles** — the reference set is caller-supplied (matching the `FitSignatures` convention).
+
+## API surface and implementation notes
+
+`OncologyAnalyzer` (`Seqeron.Genomics.Oncology`, `OncologyAnalyzer.cs`) exposes the extraction layer as:
+
+- `ExtractSignatures(countMatrix, rank, [objective], maxIterations=10_000, tolerance=1e-10, seed=42)` →
+  `SignatureExtractionResult` (`Signatures`, `Exposures`, `FinalResidual`, `Iterations`, `ObjectiveHistory`).
+  The 5-arg Frobenius overload is preserved and delegates to the objective overload; `NmfObjective` is
+  `Frobenius` (default here) or `KullbackLeibler`.
+- `SelectRank(countMatrix, minRank, maxRank, runs=20, stabilityThreshold=0.80, minStability=0.20, …)` →
+  `RankSelectionResult` (`SelectedRank`, per-rank `RankStability` = cophenetic, average/minimum stability,
+  mean error). Its objective defaults to **KL/Poisson** (the SigProfiler choice), unlike `ExtractSignatures`.
+- `MatchToReferenceSignatures(extracted, references)` → `IReadOnlyList<SignatureMatch>` (best reference index
+  + cosine per extracted signature).
+
+`countMatrix` is `V[channel][sample]` — row-per-channel, non-negative, rectangular, finite; channels are
+**opaque indices** (no DNA-alphabet notion, so any layout, SBS-96 or otherwise, is accepted). Numeric edges:
+the update denominators (`WᵀWH`, `WHHᵀ`) and the seeded random init are floored by `NmfEpsilon = 1e-12`; the
+convergence test is relative improvement `(prevObjective − objective) / max(prevObjective, 1) < tolerance`.
+With the default tolerance the solver may stop before full stationarity (fine for production fits); planted-
+recovery tests drive convergence with `tolerance = 0`. One iteration costs `O(m·k·n)` (dense `W·H`), a full
+extraction `O(I·m·k·n)`.
 
 ## Relation to the oncology family
 
