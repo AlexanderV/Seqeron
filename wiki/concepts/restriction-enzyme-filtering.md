@@ -102,7 +102,8 @@ concerns apply.
 ## Relation to the rest of MolTools
 
 Filtering selects candidate enzymes; the complementary operations — finding where an
-enzyme actually cuts a target and simulating a digest — are separate RESTR units.
+enzyme actually cuts a target ([[restriction-site-detection]]) and simulating a digest —
+are separate RESTR units.
 [[restriction-digest-simulation]] covers the digest surface (sequence → fragments,
 restriction map, and the `AreCompatible` end-compatibility test). End-type compatibility
 (blunt ends are always mutually compatible; matching overhangs anneal) is the downstream

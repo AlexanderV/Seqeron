@@ -17,8 +17,9 @@ updated: 2026-07-14
 
 The **RESTR** family member that models DNA fragmentation *after* cleavage — the
 downstream complement of [[restriction-enzyme-filtering]] (which selects enzymes by
-cut properties) and of restriction-site *detection* (which locates cut sites in a
-sequence). Where filtering operates on enzyme metadata, digest simulation operates
+cut properties) and of [[restriction-site-detection]] (which locates recognition sites
+and cut positions in a sequence). Where filtering operates on enzyme metadata, digest
+simulation operates
 on a **target sequence**: it partitions the sequence into fragments, builds a
 restriction map, and tests whether two enzymes leave ligatable ends. Implemented in
 `RestrictionAnalyzer` (`Digest`, `GetDigestSummary`, `CreateMap`, `AreCompatible`,

@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **112** algorithm docs covered-via-concept, **132** pending across 18 domains
-(K-mer and Metagenomics domains now fully covered; K-mer_Search and PanGenome_Core_Accessory
+Status at generation: **113** algorithm docs covered-via-concept, **131** pending across 17 domains
+(K-mer, Metagenomics and MolTools domains now fully covered; MolTools/Restriction_Site_Detection →
+[[restriction-site-detection]] resolved 2026-07-14, closing the MolTools domain; K-mer_Search and PanGenome_Core_Accessory
 resolved 2026-07-13; DNA_Dimer_Tm, DNA_Hairpin_Folding_Tm, DNA_Hairpin_Special_Loop_Bonus,
 LNA_Adjusted_Nearest_Neighbor_Tm and NearestNeighbor_Salt_Corrected_Tm →
 [[primer-dimer-thermodynamics-tm]] resolved 2026-07-13;
@@ -151,6 +152,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/MolTools/Probe_Validation.md` | [[probe-offtarget-specificity-scan]] |
 | `docs/algorithms/MolTools/Restriction_Digest_Simulation.md` | [[restriction-digest-simulation]] |
 | `docs/algorithms/MolTools/Restriction_Enzyme_Filtering.md` | [[restriction-enzyme-filtering]] |
+| `docs/algorithms/MolTools/Restriction_Site_Detection.md` | [[restriction-site-detection]] |
 
 ## Pending (fold into the ingest campaign)
 
