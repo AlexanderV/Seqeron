@@ -4,9 +4,10 @@ title: "Cancer cell fraction (CCF) estimation + 1D clonal/subclonal clustering"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-CCF-001-Evidence.md
-source_commit: 280c1e8efb03103002e158f47f67a1e48267d3b0
+  - docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md
+source_commit: a78f8c6008d3fe11a763517ae88d77fd372fc455
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -115,6 +116,26 @@ as its terminal §4; this unit **consumes** those to estimate + cap the per-muta
 ASCAT stops short of. The two are siblings under the clinical-interpretation ONCO units
 [[clinical-actionability-oncokb-levels]], [[cancer-variant-tier-classification-amp-asco-cap]], and
 the QC filter [[sequencing-artifact-detection]].
+
+## Implementation surface (ONCO-CCF-001 spec)
+
+The algorithm spec (`docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md`) pins the two
+entry points on `OncologyAnalyzer` and their return shapes:
+
+- **`EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity)`** → `CcfEstimate` with `Ccf` (the
+  min(1, raw) reported value) **and** `RawCcf` (uncapped, may exceed 1). Closed-form, **O(1)** time
+  and space. Throws `ArgumentOutOfRangeException` for vaf ∉ [0,1], purity ∉ (0,1], or
+  tumorCopyNumber < 1, and `ArgumentException` for multiplicity ∉ [1, tumorCopyNumber].
+- **`ClusterCcfValues(ccfValues, clusterCount)`** → `CcfClustering` with `Centroids` (ascending),
+  `Assignments` (per-value cluster index in **input order**), and `ClonalClusterIndex` (= k−1, the
+  highest-centroid cluster). **O(n·k·i)** time (i ≤ n+1 iterations, plus an O(n log n) sort),
+  **O(n+k)** space. Throws `ArgumentNullException` for null, `ArgumentException` for an empty list or
+  a NaN/infinite value, and `ArgumentOutOfRangeException` for clusterCount ∉ [1, count]. All indices
+  are 0-based.
+
+Determinism details the spec fixes: centroid j is seeded at the sorted value at quantile
+**(j + 0.5)/k**, and **ties in nearest-centroid resolve to the lower index**. No substring/pattern
+search is involved, so the repository suffix tree is not applicable.
 
 ## Corner cases and failure modes
 

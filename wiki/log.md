@@ -4661,3 +4661,25 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    spec-ingest precedent). No contradictions: the spec and the already-recorded Evidence synthesis
    agree stage-for-stage (Van Loo 2010 + ascat.runAscat.R, Nilsen 2012 + Ross 2021, Nik-Zainal 2012 /
    Battenberg, McGranahan 2016 / PICTograph / DeCiFering — each a disjoint stage).
+
+## [2026-07-14] ingest | docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md → cancer-cell-fraction-clonal-clustering (concept, enriched)
+   Second Oncology *algorithm-spec* reconciled. CONTEXT check: the concept
+   [[cancer-cell-fraction-clonal-clustering]] (created 2026-07-09 from the ONCO-CCF-001 Evidence
+   artifact) already synthesizes this exact unit — the McGranahan/Zheng/Tarabichi CCF closed form
+   `CCF = f·(ρ·N_T + 2(1−ρ))/(ρ·m)`, the [0,1] reported cap with exposed RawCcf, and the
+   deterministic Lloyd 1D k-means with quantile seeding + highest-centroid clonal rule. Per brief,
+   ENRICHED it rather than create a redundant page. Added the primary spec's distinct implementation
+   surface not previously captured: the two `OncologyAnalyzer` entry points with return shapes
+   (`CcfEstimate.Ccf`/`RawCcf`; `CcfClustering.Centroids`/`Assignments` in input order/
+   `ClonalClusterIndex`=k−1), their complexities (EstimateCcf O(1); ClusterCcfValues O(n·k·i) +
+   O(n log n) sort, O(n+k) space), the exact exception types on each precondition, the quantile
+   seed (j+0.5)/k and lower-index tie-break, and the suffix-tree-not-applicable note. Frontmatter:
+   added the spec to sources (now spec + Evidence), source_commit→a78f8c60, updated→2026-07-14. NO
+   wiki/sources/ page created (spec, not an Evidence/Validation report). No new page ⇒ no index.md
+   change (concept already listed). Backlog: added Covered-via-concept row →
+   [[cancer-cell-fraction-clonal-clustering]] (covered 114→115, pending 130→129); removed from
+   [[backlog-pending]] (Oncology 36→35, total 129→128). No new graph nodes/edges (prose-only
+   enrichment; the concept's existing typed edges are unchanged; body wikilinks provide mentions
+   edges) ⇒ graph lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged (spec docs
+   are not added to the hub, per prior spec-ingest precedent). No contradictions: the spec and the
+   already-recorded Evidence synthesis agree stage-for-stage.
