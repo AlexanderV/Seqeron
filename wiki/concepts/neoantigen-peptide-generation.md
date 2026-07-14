@@ -4,9 +4,10 @@ title: "Neoantigen candidate peptide window generation (somatic missense → mut
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-NEO-001-Evidence.md
-source_commit: 643a974d3e132ca5be1beedd823ade8c4e535528
+  - docs/algorithms/Oncology/Neoantigen_Peptide_Generation.md
+source_commit: ce89ed9dbabb6aab5d19f8c05bd6b602f7a50b7e
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -105,6 +106,32 @@ mutation offset.
 - [[hla-nomenclature-and-allele-specific-loh]] (ONCO-HLA-001) is the presentation-platform sibling: HLA LOH
   **removes** an allele, so any neoantigen restricted to a lost allele can no longer be presented — immune
   escape — even though this unit would still generate the peptide.
+
+## Implementation surface
+
+The algorithm spec (`Neoantigen_Peptide_Generation.md`, unit **ONCO-NEO-001**, status **Framework**)
+fixes the API contract in `OncologyAnalyzer.cs`:
+
+- Entry point `OncologyAnalyzer.GenerateNeoantigenPeptides(string wildTypeProtein, char mutantResidue,
+  int mutationPosition, int minLength = 8, int maxLength = 11)` → `IReadOnlyList<NeoantigenPeptide>`
+  ordered by **length ascending, then start ascending** (INV-06).
+- `NeoantigenPeptide` is a record struct with fields `Length`, `StartPosition` (1-based),
+  `MutantPeptide`, `WildTypePeptide` (the agretope at identical coordinates), and `MutationOffset`
+  (0-based offset of the substituted residue in the window). Constants `MhcClassIMinPeptideLength` /
+  `MhcClassIMaxPeptideLength` = 8 / 11 supply the class I defaults.
+- **Validation / exception contract:** null protein → `ArgumentNullException`; empty protein,
+  `mutantResidue` equal to the wild-type residue (not a real substitution), `minLength < 1`, or
+  `maxLength < minLength` → `ArgumentException`; `mutationPosition` outside `[1, L]` →
+  `ArgumentOutOfRangeException`. A requested `k > L` is silently skipped; sequences are opaque
+  one-letter strings (no alphabet validation, case preserved).
+- Six invariants `INV-01`…`INV-06` (length in band, every peptide spans the mutation, equal-length
+  mutant/WT pair differing only at the offset, mutant residue placed at the offset, interior-mutation
+  count = k, deterministic ordering) are covered by
+  `OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs`.
+- **Deviation:** no suffix tree — "find windows spanning a position" is a bounded arithmetic range over
+  one short protein, not a multi-query exact-match search, so the repository suffix tree does not apply
+  (correctness unaffected). The class is named `OncologyAnalyzer` (project layout), superseding the
+  checklist's `NeoantigenPredictor` placeholder.
 
 ## Sources and rigor
 
