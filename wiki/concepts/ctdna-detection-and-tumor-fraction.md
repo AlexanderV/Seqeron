@@ -4,9 +4,10 @@ title: "ctDNA detection (Poisson LoD) and tumor-fraction estimation"
 tags: [oncology, algorithm]
 sources:
   - docs/Evidence/ONCO-CTDNA-001-Evidence.md
-source_commit: d40f826d6627e4defc37d0248ca0911eec5bffdf
+  - docs/algorithms/Oncology/CtDNA_Analysis.md
+source_commit: 0ae8dfa5b2b2a872b45f1803c584fee830a4f130
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-14
 graph:
   relationships:
     - predicate: relates_to
@@ -110,6 +111,17 @@ Downstream detected variants feed the clinical-significance units
   moves only the boolean flag, never the returned probability.
 - **Scope** — copy-neutral diploid tumor-fraction (`TF = 2·VAF`); input validation covers negative n,
   d ∉ [0,1], k < 1, null variant set, and VAF > 0.5 for tumor fraction.
+- **Public surface (`OncologyAnalyzer`, ONCO-CTDNA-001 spec).** The unit exposes six entry points:
+  `CtDnaDetectionProbability(n,d,k)` (p), `ExpectedMutantMolecules(n,d,k)` (returns λ = n·d·k
+  directly), `IsCtDnaDetected(n,d,k,τ)` (λ≥1 ∧ p≥τ), `CalculateTumorFraction`, `CalculateMeanVaf`, and
+  `HaploidGenomeEquivalents(ng)`. Scalar calls are O(1); the two reporter aggregates are a single O(n)
+  pass reusing the shared private `CalculateVaf` helper (so alt≤total / non-negative read-count
+  validation is shared with the somatic-calling methods). `1 − e^(−λ)` is computed directly (.NET has
+  no `Math.Expm1`); well-conditioned for the tested λ ≥ 0.01 regime.
+- **Not implemented (out of ONCO-CTDNA-001 scope).** Fragmentomics — `AnalyzeFragmentSizeDistribution`
+  over a BAM — is absent (no BAM-parsing infrastructure in-repo; no in-repo alternative). CHIP-background
+  filtering and matched-tumour VCF cross-referencing are delegated to [[clonal-hematopoiesis-cfdna-filtering]]
+  (ONCO-CHIP-001), and multi-variant MRD *calling* to [[tumor-informed-mrd-detection]] (ONCO-MRD-001).
 
 Sources are mutually consistent — the Poisson LoD model (Patent/Avanzini), the mass→molecule
 conversion (Devonshire/Alcaide, both 3.3 pg ⇒ 303/ng), the detection range and across-reporter

@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **121** algorithm docs covered-via-concept, **123** pending across 18 domains
+Status at generation: **122** algorithm docs covered-via-concept, **122** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/CtDNA_Analysis → [[ctdna-detection-and-tumor-fraction]] resolved 2026-07-14;
 Oncology/Copy_Number_Alteration_Classification → [[copy-number-alteration-classification]] resolved 2026-07-14;
 Oncology/Complex_Rearrangement_Classification → [[chromothripsis-inference]] resolved 2026-07-14;
 Oncology/Clonal_Hematopoiesis_Filtering → [[clonal-hematopoiesis-cfdna-filtering]] resolved 2026-07-14;
@@ -168,10 +169,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Clonal_Subclonal_Classification.md` | [[clonal-subclonal-classification-ccf-posterior]] |
 | `docs/algorithms/Oncology/Complex_Rearrangement_Classification.md` | [[chromothripsis-inference]] |
 | `docs/algorithms/Oncology/Copy_Number_Alteration_Classification.md` | [[copy-number-alteration-classification]] |
+| `docs/algorithms/Oncology/CtDNA_Analysis.md` | [[ctdna-detection-and-tumor-fraction]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (124 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (123 algorithm docs across 18 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
