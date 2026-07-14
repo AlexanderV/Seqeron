@@ -5,9 +5,10 @@ tags: [oncology, transcriptome, algorithm]
 sources:
   - docs/Evidence/ONCO-EXPR-001-Evidence.md
   - docs/Evidence/ONCO-IMMUNE-001-Evidence.md
-source_commit: a197fb86ceeffb8de5c09005d269f020e46584f5
+  - docs/algorithms/Oncology/Tumor_Gene_Expression_Outlier.md
+source_commit: c95a2e6e368e80b6a8a366df6b79c4789a1f1a93
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -76,6 +77,26 @@ single-gene set (k = 1) reduces to `a = z₁`.
 Worked oracles (from [[onco-expr-001-evidence]]): reference `{2,2,4,6,6}` → μ = 4, σ = 2, so
 `x=10 → 3.0` (over), `x=8 → 2.0` (boundary, not outlier), `x=4 → 0.0`, `x=−1 → −2.5` (under);
 signature `z = {3,1,−1,1}` → `a = 4/2 = 2.0`, single-gene `{2.5}` → `a = 2.5`.
+
+## Implementation surface
+
+The algorithm spec (`docs/algorithms/Oncology/Tumor_Gene_Expression_Outlier.md`, unit
+**ONCO-EXPR-001**, *Framework* status) fixes three static entry points on
+`OncologyAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`):
+
+- `CalculateExpressionZScore(double value, IReadOnlyList<double> referenceCohort)` — `O(n)`
+  time, `O(1)` space (two passes: mean, then sample SD).
+- `IdentifyOutlierGenes(IReadOnlyDictionary<string,double> sample, IReadOnlyDictionary<string,IReadOnlyList<double>> referenceCohorts, double threshold = 2.0)` —
+  `O(g·n)` over `g` sampled genes; returns `ExpressionOutlier{Gene, ZScore, Direction}` in the
+  **iteration order of the sample dictionary**, with `Over` (z > +t) / `Under` (z < −t).
+- `CalculateSignatureScore(IReadOnlyList<double> memberZScores)` — `O(k)`.
+
+Validation contract: null cohorts/dictionaries → `ArgumentNullException`; reference `n < 2` or
+zero-spread (σ = 0) → `ArgumentException`; non-positive threshold →
+`ArgumentOutOfRangeException`; a sampled gene with no reference cohort or an empty signature
+(k = 0) → `ArgumentException`. Gene identifiers are **case-sensitive** dictionary keys; no
+alphabet/sequence input is involved, so the repository suffix tree is not applicable. The unit
+bundles no cohort, signature, or gene-set database (the *Framework* designation).
 
 ## Scope and limitations
 

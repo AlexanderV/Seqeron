@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **143** algorithm docs covered-via-concept, **101** pending across 18 domains
+Status at generation: **144** algorithm docs covered-via-concept, **100** pending across 18 domains
 (K-mer, Metagenomics and MolTools domains now fully covered;
+Oncology/Tumor_Gene_Expression_Outlier → [[expression-outlier-zscore-signature-score]] resolved 2026-07-15;
 Oncology/Sequencing_Artifact_Detection → [[sequencing-artifact-detection]] resolved 2026-07-15;
 Oncology/SBS96_Trinucleotide_Context_Catalog → [[sbs96-mutational-signature-catalog]] resolved 2026-07-14;
 Oncology/Neoantigen_Peptide_Generation → [[neoantigen-peptide-generation]] resolved 2026-07-14;
@@ -211,6 +212,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/SBS96_Trinucleotide_Context_Catalog.md` | [[sbs96-mutational-signature-catalog]] |
 | `docs/algorithms/Oncology/Sequencing_Artifact_Detection.md` | [[sequencing-artifact-detection]] |
 | `docs/algorithms/Oncology/Somatic_Mutation_Calling.md` | [[somatic-variant-calling-tumor-normal]] |
+| `docs/algorithms/Oncology/Tumor_Gene_Expression_Outlier.md` | [[expression-outlier-zscore-signature-score]] |
 
 ## Pending (fold into the ingest campaign)
 
