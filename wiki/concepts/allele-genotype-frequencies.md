@@ -7,9 +7,10 @@ mcp_tools:
   - filter_variants_by_maf
 sources:
   - docs/Evidence/POP-FREQ-001-Evidence.md
-source_commit: fec2c72b4f77c252586394fe43424909b13d98d6
+  - docs/algorithms/Population_Genetics/Allele_Frequency.md
+source_commit: 55ee9455342a6e3f0cff0e88061400e7f37e17bd
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -83,7 +84,10 @@ perfect 50/50 → **MAF = 0.5** (the maximum).
 Keep variant `v` iff `minMAF ≤ MAF(v) ≤ maxMAF`. The thresholds are conventional, not derived:
 the **HapMap** project targeted SNPs with MAF ≥ 0.05, and the **common vs rare** boundary is
 drawn at **MAF = 0.05** (rare variants, MAF < 0.05, are enriched in coding regions). A lower gate
-of MAF < 0.01 is a frequent QC filter for very rare / likely-genotyping-error variants.
+of MAF < 0.01 is a frequent QC filter for very rare / likely-genotyping-error variants. The
+repository `FilterByMAF` uses an **inclusive band** `[minMAF, maxMAF]` defaulting to `[0.01, 0.5]`,
+reads a **stored `Variant.AlleleFrequency` field** (`MAF = min(f, 1−f)`) rather than re-counting
+genotypes, and `yield return`s matches lazily so **input order is preserved**.
 
 ## Invariants and edge cases
 
