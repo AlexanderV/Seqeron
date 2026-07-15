@@ -4,7 +4,7 @@ title: "Exact pattern search (suffix-tree Contains / Count / FindAll primitives)
 tags: [pattern-matching, algorithm, sequence-comparison]
 sources:
   - docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md
-source_commit: c37254f8aec5dc7d726bdacffa11dd40809372b6
+source_commit: fdb2411237de02e2dfdb4ef7ed2c0d6a77cb52c6
 created: 2026-07-15
 updated: 2026-07-15
 ---
@@ -79,7 +79,7 @@ divergence:
 
 ## Implementation notes
 
-The repository `SuffixTree` optimizes the hot path: **hybrid SIMD** comparisons for edge
+The repository [[suffix-tree]] optimizes the hot path: **hybrid SIMD** comparisons for edge
 fragments ≥ 8 chars (scalar for shorter), **precomputed `LeafCount`** so
 `CountOccurrences` is `O(m)` with no leaf enumeration, and **thread-static buffers** to
 cut allocations during traversal and leaf collection. Entry points:

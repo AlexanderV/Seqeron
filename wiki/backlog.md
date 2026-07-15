@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **158** algorithm docs covered-via-concept, **84** pending across 15 domains
-(K-mer, Metagenomics, MolTools, Oncology and PanGenome domains now fully covered;
+Status at generation: **159** algorithm docs covered-via-concept, **83** pending across 14 domains
+(K-mer, Metagenomics, MolTools, Oncology, PanGenome and Pattern_Matching domains now fully covered;
+Pattern_Matching/Suffix_Tree → [[suffix-tree]] resolved 2026-07-15, closing the Pattern_Matching domain (last pending doc);
 PanGenome/Phylogenetic_Marker_Selection → [[phylogenetic-marker-selection]] resolved 2026-07-15, closing the PanGenome domain;
 Oncology/Variant_Allele_Frequency → [[variant-allele-frequency-and-binomial-ci]] resolved 2026-07-15, closing the Oncology domain;
 Oncology/Tumor_Purity_Estimation → [[tumor-purity-from-mutation-vaf]] resolved 2026-07-15;
@@ -178,6 +179,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md` | [[iupac-degenerate-consensus]] |
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md` | [[iupac-degenerate-matching]] |
 | `docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md` | [[position-weight-matrix]] |
+| `docs/algorithms/Pattern_Matching/Suffix_Tree.md` | [[suffix-tree]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
@@ -238,7 +240,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (90 algorithm docs across 15 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (83 algorithm docs across 14 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

@@ -10,7 +10,7 @@ mcp_tools:
 sources:
   - docs/Evidence/GENOMIC-REPEAT-001-Evidence.md
   - docs/algorithms/Repeat_Analysis/Repeat_Detection.md
-source_commit: c52b50ebde38808027f1f8c3dadf32592547a738
+source_commit: fdb2411237de02e2dfdb4ef7ed2c0d6a77cb52c6
 created: 2026-07-09
 updated: 2026-07-15
 graph:
@@ -87,7 +87,7 @@ shorter repeated prefixes like `ACG`/`TAC` was the FINDINGS_REGISTER correction.
 | API | `FindLongestRepeat` / `FindRepeats` | `FindLongestCommonRegion` / `FindCommonRegions` |
 
 Both are the exact-match deepest-internal-node family Seqeron builds on its repository
-`SuffixTree` — the same tree whose `Contains` / `CountOccurrences` / `FindAllOccurrences`
+[[suffix-tree]] — the same tree whose `Contains` / `CountOccurrences` / `FindAllOccurrences`
 exact-search primitives are the [[exact-pattern-search]] unit (PAT-EXACT-001), also reused
 by the [[dot-plot-word-match]] word engine.
 

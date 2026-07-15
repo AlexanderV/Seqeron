@@ -8,13 +8,7 @@ updated: 2026-07-15
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (84 algorithm docs across 15 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14. The Oncology domain is now fully covered — `Variant_Allele_Frequency.md` → [[variant-allele-frequency-and-binomial-ci]], resolved 2026-07-15. The PanGenome domain is now fully covered — `Phylogenetic_Marker_Selection.md` → [[phylogenetic-marker-selection]], resolved 2026-07-15.)
-
-### Pattern_Matching (1)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Pattern_Matching/Suffix_Tree.md` | `suffix-tree` |
+The per-domain pending tables (83 algorithm docs across 14 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14. The Oncology domain is now fully covered — `Variant_Allele_Frequency.md` → [[variant-allele-frequency-and-binomial-ci]], resolved 2026-07-15. The PanGenome domain is now fully covered — `Phylogenetic_Marker_Selection.md` → [[phylogenetic-marker-selection]], resolved 2026-07-15. The Pattern_Matching domain is now fully covered — `Suffix_Tree.md` → [[suffix-tree]], resolved 2026-07-15, ingesting the last pending Pattern_Matching doc.)
 
 ### Phylogenetics (6)
 
