@@ -8,7 +8,7 @@ mcp_tools:
 sources:
   - docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md
   - docs/algorithms/Motif_Analysis/Known_Motif_Search.md
-source_commit: fcc46a4331c8c0559ff14b1a7c01b9015ba5b51d
+source_commit: 19070d6ba2f6b3d30d50a67db9183a714db89787
 created: 2026-07-09
 updated: 2026-07-15
 graph:
@@ -76,7 +76,7 @@ is a defect for this problem. Biopython confirms the same distinction:
 ## Scope
 
 This is the **exact** DNA-motif finder. The degenerate/consensus family lives in
-separate units ([[iupac-degenerate-matching]], PROSITE patterns, position-weight-matrix
+separate units ([[iupac-degenerate-matching]], PROSITE patterns, [[position-weight-matrix]]
 scanning) that relax the exact-equality test; known-motif search is the exact-equality
 baseline. A worked biological instance of the position-weight-matrix branch is
 [[splice-acceptor-site-prediction]] (the AcceptorPwm 3' splice-site scorer). The

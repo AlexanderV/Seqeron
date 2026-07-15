@@ -4,7 +4,7 @@ title: "IUPAC-degenerate motif matching (scanning a sequence for an ambiguity-co
 tags: [motif, algorithm]
 sources:
   - docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md
-source_commit: fcc46a4331c8c0559ff14b1a7c01b9015ba5b51d
+source_commit: 19070d6ba2f6b3d30d50a67db9183a714db89787
 created: 2026-07-15
 updated: 2026-07-15
 graph:
@@ -122,7 +122,7 @@ This is degenerate **matching**, one branch of the motif family:
   produces the ambiguity code that this matcher consumes.
 
 Declared out of scope (deliberate simplifications): partial/probabilistic scoring,
-PWM-style weighting combined with ambiguity (position-weight-matrix scanning is a separate
+PWM-style weighting combined with ambiguity ([[position-weight-matrix]] scanning is a separate
 unit), and any index for faster repeated searches. **No source contradictions.**
 </content>
 </invoke>

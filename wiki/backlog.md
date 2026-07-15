@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **157** algorithm docs covered-via-concept, **85** pending across 15 domains
+Status at generation: **158** algorithm docs covered-via-concept, **84** pending across 15 domains
 (K-mer, Metagenomics, MolTools, Oncology and PanGenome domains now fully covered;
 PanGenome/Phylogenetic_Marker_Selection → [[phylogenetic-marker-selection]] resolved 2026-07-15, closing the PanGenome domain;
 Oncology/Variant_Allele_Frequency → [[variant-allele-frequency-and-binomial-ci]] resolved 2026-07-15, closing the Oncology domain;
@@ -177,6 +177,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Pattern_Matching/Edit_Distance.md` | [[edit-distance]] |
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md` | [[iupac-degenerate-consensus]] |
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md` | [[iupac-degenerate-matching]] |
+| `docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md` | [[position-weight-matrix]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
