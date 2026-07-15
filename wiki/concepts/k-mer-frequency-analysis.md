@@ -6,12 +6,12 @@ sources:
   - docs/algorithms/K-mer/K-mer_Frequency_Analysis.md
 source_commit: 6b60958bf165801aa5dd9c92ffed92970bac80ab
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
-      source: k-mer-frequency-analysis
+      source: kmer-freq-001-report
       evidence: "Test Unit ID: KMER-FREQ-001; Algorithm: K-mer Frequency Analysis (docs/algorithms/K-mer/K-mer_Frequency_Analysis.md), KmerAnalyzer.GetKmerFrequencies / GetKmerSpectrum / CalculateKmerEntropy"
       confidence: high
       status: current
@@ -24,7 +24,8 @@ count multiset produced by [[k-mer-counting]] (`CountKmers`) into the three stan
 *distribution* — the **normalized frequency vector**, the **k-mer spectrum** (count-of-counts
 histogram), and the **Shannon k-entropy** of the distribution. None of the three re-counts anything:
 all delegate to `CountKmers`, so the shared `L − k + 1` count definition and its contract are owned by
-[[k-mer-counting]]. Validated under test unit **KMER-FREQ-001**; [[test-unit-registry]] tracks the unit
+[[k-mer-counting]]. Validated under test unit
+[[kmer-freq-001-report|KMER-FREQ-001]]; [[test-unit-registry]] tracks the unit
 and [[algorithm-validation-evidence]] describes the evidence-artifact pattern.
 
 ## Core model

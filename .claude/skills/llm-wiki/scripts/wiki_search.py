@@ -12,8 +12,8 @@ Options:
     --wiki <dir>            Wiki directory (default: ./wiki)
     --top N                 Return top N results (default: 10)
     --type <type>           Filter by frontmatter type (source|entity|concept|synthesis|...)
-    --dedup-provenance      Collapse pages with the same primary source provenance
-    --prefer-type <type>    Prefer this page type within a provenance group
+    --dedup-provenance      Hide duplicate source pages; keep derived concepts
+    --prefer-type <type>    Prefer this page type as a provenance representative
     --tag <tag>             Filter by tag (repeatable)
     --since YYYY-MM-DD      Only pages updated on or after this date
     --backlinks <slug>      Find pages that link to <slug>; ignores the query
@@ -37,8 +37,12 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 from pathlib import Path
 
+from wiki_markdown import configure_utf8_streams, extract_wikilinks
 
-WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+
+configure_utf8_streams()
+
+
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -78,10 +82,6 @@ def tokenize(text: str) -> list[str]:
 
 def slug_from_path(path: Path, wiki_root: Path) -> str:
     return path.stem
-
-
-def extract_wikilinks(body: str) -> list[str]:
-    return [m.group(1).strip() for m in WIKILINK_RE.finditer(body)]
 
 
 def collect_pages(wiki_root: Path) -> list[dict]:
@@ -189,22 +189,44 @@ def primary_provenance(page: dict) -> str:
 
 
 def collapse_by_provenance(scored_pages: list[tuple[float, dict]], prefer_type: str | None) -> list[tuple[float, dict]]:
-    """Keep one result per primary source, optionally preferring a page type.
+    """Remove duplicate source pages without collapsing distinct derived pages.
 
-    Group order is determined by the group's best BM25 score. This preserves search
-    relevance while allowing a synthesized concept page to represent its raw source.
+    Multiple concept/synthesis pages may legitimately derive from the same primary
+    source, so each remains searchable. A source page is retained only when its
+    provenance group has no derived page. When a source page is hidden, only
+    that removed source's score may be transferred to one derived
+    representative. ``prefer_type`` selects that representative when possible;
+    the other distinct derived pages retain their own scores.
     """
     groups = defaultdict(list)
     for score, page in scored_pages:
         groups[primary_provenance(page)].append((score, page))
 
-    collapsed = []
+    collapsed: list[tuple[float, dict]] = []
     for candidates in groups.values():
-        group_score = max(score for score, _ in candidates)
-        preferred = [item for item in candidates if item[1]["meta"].get("type") == prefer_type]
-        representative = max(preferred or candidates, key=lambda item: item[0])[1]
-        collapsed.append((group_score, representative))
-    collapsed.sort(key=lambda item: -item[0])
+        derived = [item for item in candidates if item[1]["meta"].get("type") != "source"]
+        if derived:
+            representative = max(derived, key=lambda item: (
+                bool(prefer_type and item[1]["meta"].get("type") == prefer_type),
+                item[0],
+                item[1]["slug"],
+            ))
+            source_scores = [
+                score for score, page in candidates
+                if page["meta"].get("type") == "source"
+            ]
+            transferred_score = max(source_scores) if source_scores else None
+            for score, page in derived:
+                if page is representative[1] and transferred_score is not None:
+                    score = max(score, transferred_score)
+                collapsed.append((score, page))
+        else:
+            collapsed.append(max(candidates, key=lambda item: item[0]))
+    collapsed.sort(key=lambda item: (
+        -item[0],
+        0 if prefer_type and item[1]["meta"].get("type") == prefer_type else 1,
+        item[1]["slug"],
+    ))
     return collapsed
 
 
@@ -276,8 +298,9 @@ def main():
     parser.add_argument("--top", type=int, default=10, help="Top N results (default: 10).")
     parser.add_argument("--type", help="Filter by frontmatter type.")
     parser.add_argument("--dedup-provenance", action="store_true",
-                        help="Collapse results that share the same primary source provenance.")
-    parser.add_argument("--prefer-type", help="Prefer this page type within a provenance group.")
+                        help="Hide duplicate source pages without collapsing derived concepts.")
+    parser.add_argument("--prefer-type",
+                        help="Prefer this page type as the representative of a provenance group.")
     parser.add_argument("--tag", action="append", default=[], help="Filter by tag (repeatable).")
     parser.add_argument("--since", help="Only pages updated on or after YYYY-MM-DD.")
     parser.add_argument("--backlinks", help="Find pages linking to this slug.")

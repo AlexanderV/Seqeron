@@ -33,35 +33,19 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 from pathlib import Path
 
+from wiki_markdown import configure_utf8_streams, extract_wikilinks
 
-# Wikilink target, then an optional display alias. Inside markdown table cells the
-# alias pipe is escaped (`[[slug\|Alias]]`) so it doesn't terminate the cell, so the
-# target class excludes `\` and the separator tolerates an optional leading backslash.
-WIKILINK_RE = re.compile(r"\[\[([^\]|\\]+)(?:\\?\|[^\]]+)?\]\]")
+
+configure_utf8_streams()
+
+
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-# Fenced code blocks (``` or ~~~) and inline code spans (`...`). Wikilink-like
-# notation inside code (dot-bracket `[[[[....]]]]`, matrices `[[1.0]]`) is literal,
-# not a link, so it must be stripped before wikilink extraction.
-FENCED_CODE_RE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
-INLINE_CODE_RE = re.compile(r"`+[^`\n]*`+")
-
-
-def extract_wikilinks(body: str) -> list[str]:
-    """Wikilink targets in body, ignoring code spans and intra-page #anchors."""
-    stripped = FENCED_CODE_RE.sub("", body)
-    stripped = INLINE_CODE_RE.sub("", stripped)
-    links = []
-    for m in WIKILINK_RE.finditer(stripped):
-        target = m.group(1).strip()
-        if target.startswith("#"):  # intra-page section anchor, not a cross-page link
-            continue
-        links.append(target)
-    return links
 CAPITALIZED_PHRASE_RE = re.compile(r"\b([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+){0,3})\b")
 
 
 SKIP_TOP_LEVEL_FILES = {"SCHEMA.md", "index.md", "log.md", "README.md"}
 SKIP_TOP_LEVEL_DIRS = {"indexes", "graph"}
+INDEX_SHARD_LINE_CAP = 300  # SCHEMA.md: split shards that exceed ~300 lines
 
 
 def parse_frontmatter(text: str) -> tuple[dict, str, bool]:
@@ -137,12 +121,14 @@ def parse_date(s):
         return None
 
 
-def lint(pages: list[dict], soft_cap: int, hard_cap: int, required_fm: list[str], suggest_pages: bool, suggest_min: int) -> dict:
+def lint(pages: list[dict], soft_cap: int, hard_cap: int, required_fm: list[str], suggest_pages: bool, suggest_min: int,
+         wiki_root: Path | None = None) -> dict:
     findings = {
         "orphans": [],
         "broken_links": [],
         "oversized_hard": [],
         "oversized_soft": [],
+        "oversized_indexes": [],
         "missing_frontmatter": [],
         "malformed_frontmatter": [],
         "duplicate_slugs": [],
@@ -247,12 +233,37 @@ def lint(pages: list[dict], soft_cap: int, hard_cap: int, required_fm: list[str]
         candidates.sort(key=lambda x: -x["page_count"])
         findings["suggested_pages"] = candidates[:30]
 
+    # Index size check: the routing index is subject to the same scaling cap as
+    # every shard. Otherwise a repository can silently outgrow the very entry
+    # point that is supposed to keep discovery bounded.
+    if wiki_root:
+        index_paths = []
+        root_index = wiki_root / "index.md"
+        if root_index.is_file():
+            index_paths.append(root_index)
+        indexes_dir = wiki_root / "indexes"
+        if indexes_dir.is_dir():
+            index_paths.extend(sorted(indexes_dir.rglob("*.md")))
+        for idx_path in index_paths:
+            try:
+                idx_text = idx_path.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            idx_lines = len(idx_text.splitlines())
+            if idx_lines > INDEX_SHARD_LINE_CAP:
+                findings["oversized_indexes"].append({
+                    "path": str(idx_path.relative_to(wiki_root)),
+                    "lines": idx_lines,
+                    "cap": INDEX_SHARD_LINE_CAP,
+                })
+
     findings["summary"] = {
         "total_pages": len(pages),
         "orphans": len(findings["orphans"]),
         "broken_links": len(findings["broken_links"]),
         "oversized_hard": len(findings["oversized_hard"]),
         "oversized_soft": len(findings["oversized_soft"]),
+        "oversized_indexes": len(findings["oversized_indexes"]),
         "missing_frontmatter": len(findings["missing_frontmatter"]),
         "malformed_frontmatter": len(findings["malformed_frontmatter"]),
         "duplicate_slugs": len(findings["duplicate_slugs"]),
@@ -277,6 +288,7 @@ def render_text(findings: dict) -> str:
         ("broken_links", "Broken wikilinks", lambda f: f"  - [[{f['to']}]] referenced from {f['from_path']}"),
         ("oversized_hard", "OVERSIZE (over hard cap — must split)", lambda f: f"  - {f['path']}  ({f['lines']} lines)"),
         ("oversized_soft", "Oversize (over soft cap — consider splitting)", lambda f: f"  - {f['path']}  ({f['lines']} lines)"),
+        ("oversized_indexes", "Index over cap (split or shard by stable sub-category)", lambda f: f"  - {f['path']}  ({f['lines']} lines, cap {f['cap']})"),
         ("missing_frontmatter", "Missing frontmatter fields", lambda f: f"  - {f['path']}  missing: {', '.join(f['missing'])}"),
         ("malformed_frontmatter", "Malformed frontmatter", lambda f: f"  - {f['path']}"),
         ("duplicate_slugs", "Duplicate slugs", lambda f: f"  - {f['slug']}: {', '.join(f['paths'])}"),
@@ -325,12 +337,17 @@ def main():
 
     pages = collect_pages(args.wiki)
     required_fm = [f.strip() for f in args.required_fm.split(",") if f.strip()]
-    findings = lint(pages, args.soft_cap, args.hard_cap, required_fm, args.suggest_pages, args.suggest_min)
+    findings = lint(pages, args.soft_cap, args.hard_cap, required_fm, args.suggest_pages, args.suggest_min,
+                    wiki_root=args.wiki)
 
     if args.json:
         print(json.dumps(findings, indent=2, default=str))
     else:
         print(render_text(findings))
+
+    if any(value for key, value in findings.items()
+           if key not in {"summary", "suggested_pages"} and isinstance(value, list)):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

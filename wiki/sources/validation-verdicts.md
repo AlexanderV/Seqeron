@@ -5,7 +5,7 @@ tags: [validation, governance, registry]
 sources:
   - docs/Validation/reports/
 created: 2026-07-11
-updated: 2026-07-11
+updated: 2026-07-15
 ---
 
 # Validation verdict registry
@@ -27,10 +27,10 @@ One row per **CLEAN** per-unit validation report (no defect, no page needed). Re
 | IMMUNE-NUSVR-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 | 50 |
 | KMER-ASYNC-001 | [[asynchronous-kmer-counting]] | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-16 | 6607 |
 | KMER-BOTH-001 | [[both-strand-kmer-counting]] | CLEAN | PASS / PASS | 2026-06-16 | 6607 |
-| KMER-COUNT-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
+| KMER-COUNT-001 | [[k-mer-counting]] | CLEAN | PASS / PASS | 2026-06-24 |  |
 | KMER-DIST-001 | [[k-mer-euclidean-distance]] | CLEAN | PASS / PASS | 2026-06-15 | 6570 |
-| KMER-FIND-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
-| KMER-FREQ-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
+| KMER-FIND-001 | [[k-mer-search]] | CLEAN | PASS / PASS | 2026-06-24 |  |
+| KMER-FREQ-001 | [[k-mer-frequency-analysis]] | CLEAN | PASS / PASS | 2026-06-24 |  |
 | KMER-GENERATE-001 | [[k-mer-generation]] | CLEAN | PASS / PASS | 2026-06-16 | 6607 |
 | KMER-POSITIONS-001 | [[k-mer-positions]] | CLEAN | PASS / PASS | 2026-06-16 | 6607 |
 | KMER-STATS-001 | [[k-mer-statistics]] | CLEAN | PASS / PASS | 2026-06-16 | 6607 |
@@ -123,13 +123,13 @@ One row per **CLEAN** per-unit validation report (no defect, no page needed). Re
 | POP-LD-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
 | POP-ROH-001 | ? | CLEAN | PASS / PASS | 2026-06-15 | 6552 |
 | POP-SELECT-001 | ? | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-15 | 6548 |
-| PRIMER-DESIGN-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
+| PRIMER-DESIGN-001 | [[primer-design]] | CLEAN | PASS / PASS | 2026-06-24 |  |
 | PRIMER-DIMER-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 |  |
 | PRIMER-HAIRPIN-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 |  |
 | PRIMER-NNTM-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 |  |
-| PRIMER-STRUCT-001 | ? | CLEAN | PASS / PASS | 2026-06-24 | 86 |
+| PRIMER-STRUCT-001 | [[primer-structure-qc-screens]] | CLEAN | PASS / PASS | 2026-06-24 | 86 |
 | PRIMER-TM-001 | [[primer-dimer-thermodynamics-tm]] | CLEAN | PASS / PASS | 2026-06-24 |  |
-| PROBE-DESIGN-001 | [[taqman-probe-design-rules]] | CLEAN | PASS / PASS | 2026-06-24 |  |
+| PROBE-DESIGN-001 | [[hybridization-probe-design]] / [[taqman-probe-design-rules]] | CLEAN | PASS / PASS | 2026-06-24 |  |
 | PROBE-EVALUE-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 |  |
 | PROBE-LNATM-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 |  |
 | PROBE-VALID-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |

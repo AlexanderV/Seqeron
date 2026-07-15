@@ -4,7 +4,7 @@ Source pages for project-level documentation, governance, validation methodology
 
 Return to the [[index|Wiki Index]].
 
-- [[readme]] — the project's front-page `README.md`: what Seqeron is, its three entry points, and headline facts.
+- [[readme]] — the project's front-page `README.md`: Seqeron's three entry points, validation posture, repository layout, and the measured LLM Wiki retrieval workflow.
 - [[algorithms-checklist-v2]] — the test-unit validation registry: 364 units (255 done / 109 proposed), DoD, evidence, coverage.
 - [[canonical-algorithm-map]] — the `docs/algorithms/` canonical-identity map: alias→canonical test-unit IDs (SEQ-COMPOSITION→SEQ-STATS, SEQ-TM→SEQ-THERMO, GENOMIC-TANDEM→REP-TANDEM), folder-bucket normalization (MolTools/Population_Genetics/K-mer/RnaStructure, four merges complete), one-canonical-doc rules, and the kept legacy/baseline methods (UPGMA, JC/K2P, chi-sq HWE, Nussinov, OLC). Complements [[backlog]] (identity vs coverage).
 - [[advanced-testing-checklist]] — 2026-03-19 effectiveness/gap analysis rating the ten testing techniques by applicability, coverage, effort, and P0–P3 priority.

@@ -8,12 +8,12 @@ sources:
   - docs/algorithms/K-mer/K-mer_Counting.md
 source_commit: a0600dbbba62a14760fc3c8398e37ab9405ff37c
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
-      source: k-mer-counting
+      source: kmer-count-001-report
       evidence: "Test Unit ID: KMER-COUNT-001; Algorithm: K-mer Counting (docs/algorithms/K-mer/K-mer_Counting.md), KmerAnalyzer.CountKmers"
       confidence: high
       status: current
@@ -28,7 +28,8 @@ operation in the repository is a wrapper, variant surface, filter, or summary **
 the cancelable/progress [[asynchronous-kmer-counting]] delegates to it verbatim, the strand-aware
 [[both-strand-kmer-counting]] calls it once on `S` and once on `RC(S)`, [[k-mer-statistics]] aggregates
 its multiset, and [[unique-and-mincount-kmers]] filters it. This page owns the shared **`L − k + 1`
-count definition** those pages defer to. Validated under test unit **KMER-COUNT-001**;
+count definition** those pages defer to. Validated under test unit
+[[kmer-count-001-report|KMER-COUNT-001]];
 [[test-unit-registry]] tracks the unit and [[algorithm-validation-evidence]] describes the
 evidence-artifact pattern.
 

@@ -6,18 +6,18 @@ sources:
   - docs/algorithms/MolTools/Primer_Design.md
 source_commit: a51628fa98adbfe52e3789aa7a8fc13d0474ab9b
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
       object: concept:primer3-weighted-penalty-objective
-      source: primer-design
+      source: primer-design-001-report
       evidence: "docs/algorithms/MolTools/Primer_Design.md §5.3: pair selection is greedy and driven by the legacy additive Score (CalculatePrimerScore), explicitly 'rather than a full pairwise optimization' and 'Primer3-style pair penalties … are not represented' — the pipeline that the CalculatePrimer3Penalty objective is the future replacement for."
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:primer-dimer-thermodynamics-tm
-      source: primer-design
+      source: primer-design-001-report
       evidence: "docs/algorithms/MolTools/Primer_Design.md §2.4 INV-02 / §4.1 step 6 / §7.2: pair compatibility requires |Tm_f − Tm_r| ≤ 5 °C AND !HasPrimerDimer — consuming the PRIMER-TM-001 melting-temperature and dimer signals as prerequisites (PRIMER-TM-001, PRIMER-STRUCT-001)."
       confidence: high
       status: current
@@ -25,7 +25,8 @@ graph:
 
 # PCR primer-pair design pipeline (heuristic candidate selection + pair compatibility)
 
-The **end-to-end PCR primer-pair designer** (test unit **PRIMER-DESIGN-001**,
+The **end-to-end PCR primer-pair designer** (test unit
+[[primer-design-001-report|PRIMER-DESIGN-001]],
 `PrimerDesigner.DesignPrimers`): given a template and a target region, enumerate candidate
 oligos in the flanking regions, score each with a per-primer heuristic, **greedily** pick the
 best forward and best reverse candidate independently, then accept the pair only if the two

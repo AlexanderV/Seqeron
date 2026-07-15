@@ -23,10 +23,14 @@ This file is **co-evolved with the user**. When the LLM notices a recurring patt
    passages verbatim. Synthesize, link, and cite.
 3. Every page derived from a source records in frontmatter:
    - `sources:` — list of repo-relative paths (e.g. `docs/api/parsers.md`, `README.md`)
-   - `source_commit:` — the git commit hash of HEAD at synthesis time
-4. **Staleness rule:** a page is stale when any path in `sources:` has commits
-   after `source_commit` (`git log <source_commit>..HEAD -- <path>` is non-empty).
-   `/wiki:lint` runs `scripts/wiki_stale.py` to flag these deterministically.
+   - `source_commit:` — the git commit hash of HEAD used as the synthesis baseline
+4. **Staleness rule:** for each path in `sources:`, find its latest commit after
+   `source_commit`. The page is stale unless its own Markdown file was refreshed in
+   that same commit or a later descendant commit. This makes a source plus its
+   ingest page safe to commit atomically without hiding a later source-only change.
+   In the index, a staged source change likewise requires its affected page to be
+   staged, so the pre-commit check catches drift before it enters history.
+   `/wiki:lint` runs `scripts/wiki_stale.py` to apply the rule deterministically.
 5. Ingest is triggered per changed source: `/wiki:ingest <repo-relative-path>`
    (e.g. `/wiki:ingest docs/api/parsers.md` or `/wiki:ingest README.md`).
 
@@ -127,14 +131,16 @@ Required fields on every relationship: `predicate`, `object`, `source`, `evidenc
 Sharded. The top-level `wiki/index.md` is a small directory that routes readers to:
 
 - `wiki/indexes/sources-project.md` — project-level and governance source pages.
-- `wiki/indexes/sources-validation.md` — per-unit evidence artifacts and validation reports.
+- `wiki/indexes/sources-validation-a-m.md` — per-unit evidence artifacts and validation reports with slugs A–M.
+- `wiki/indexes/sources-validation-n-z.md` — per-unit evidence artifacts and validation reports with slugs N–Z.
 - `wiki/indexes/concepts.md` — concept pages.
 - `wiki/indexes/gotchas.md` — gotcha pages.
 - `wiki/indexes/meta.md` — coverage and maintenance indexes.
 - `wiki/indexes/synthesis.md` — synthesis pages.
 
-Ingests update the relevant shard rather than the top-level directory. If a shard exceeds
-~300 lines, split it by a stable sub-category. For fuzzy discovery at this wiki's scale,
+Ingests update the relevant shard rather than the top-level directory. The root routing index and
+every shard share a ~300-line cap; split any index that exceeds it by a stable sub-category. For
+fuzzy discovery at this wiki's scale,
 `python .claude/skills/llm-wiki/scripts/wiki_search.py "<query>"` is the sanctioned
 fallback after index-first navigation.
 

@@ -10,24 +10,24 @@ sources:
   - docs/algorithms/MolTools/Hybridization_Probe_Design.md
 source_commit: acf2ff3439b667439bd5b830c84edb1f946b9f4a
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
       object: concept:taqman-probe-design-rules
-      source: hybridization-probe-design
+      source: probe-design-001-report
       evidence: "docs/algorithms/MolTools/Hybridization_Probe_Design.md §2.2.1: the TaqMan (5'-nuclease hydrolysis probe) rules are an opt-in extension that 'is separate from and does not alter the generic designer, which remains the default'"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:probe-offtarget-specificity-scan
-      source: hybridization-probe-design
+      source: probe-design-001-report
       evidence: "The suffix-tree overload calls CheckSpecificity (docs §5.1/§4.2) to filter/rescale candidates for genome-wide uniqueness; the standalone gapped-SW off-target scan is the specificity-checking sibling"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:melting-temperature
-      source: hybridization-probe-design
+      source: probe-design-001-report
       evidence: "docs §2.2: Tm uses the Wallace rule for lengths < 14 and ThermoConstants.CalculateSaltAdjustedTm for longer probes"
       confidence: high
       status: current
@@ -35,7 +35,8 @@ graph:
 
 # Hybridization probe design (heuristic candidate generation + additive-penalty ranking)
 
-The **generic hybridization-probe designer** (test unit **PROBE-DESIGN-001**,
+The **generic hybridization-probe designer** (test unit
+[[probe-design-001-report|PROBE-DESIGN-001]],
 `ProbeDesigner.DesignProbes`): enumerate every oligonucleotide window in a target within an
 application-specific length range, score each with a **fixed additive-penalty heuristic**, keep
 the positive-scoring candidates, and return the top `maxProbes` by score. It supports FISH, DNA

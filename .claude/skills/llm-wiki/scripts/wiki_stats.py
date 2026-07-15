@@ -17,8 +17,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from wiki_markdown import configure_utf8_streams, extract_wikilinks
 
-WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+
+configure_utf8_streams()
+
+
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
@@ -65,7 +69,7 @@ def main():
             continue
 
         if rel.name == "index.md" and len(rel.parts) == 1:
-            index_lines = text.count("\n") + 1
+            index_lines = len(text.splitlines())
             continue
         if rel.parts[0] in SKIP_TOP_LEVEL_FILES:
             continue
@@ -75,13 +79,13 @@ def main():
             continue
 
         total_pages += 1
-        line_count = text.count("\n") + 1
+        line_count = len(text.splitlines())
         word_count = len(text.split())
         total_lines += line_count
         total_words += word_count
         # Strip frontmatter before counting wikilinks; frontmatter uses bare slugs.
         body = FRONTMATTER_RE.sub("", text, count=1) if text.startswith("---") else text
-        links = WIKILINK_RE.findall(body)
+        links = extract_wikilinks(body)
         total_links += len(links)
         for link in links:
             target = link.split("|")[0].strip()

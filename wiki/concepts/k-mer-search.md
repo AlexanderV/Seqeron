@@ -6,18 +6,18 @@ sources:
   - docs/algorithms/K-mer/K-mer_Search.md
 source_commit: 1a7f80318ba001f378cbe1931974115a95515c13
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
-      source: k-mer-search
+      source: kmer-find-001-report
       evidence: "Test Unit ID: KMER-FIND-001; Algorithm: K-mer Search (docs/algorithms/K-mer/K-mer_Search.md), KmerAnalyzer.FindMostFrequentKmers / FindUniqueKmers / FindClumps"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:k-mer-counting
-      source: k-mer-search
+      source: kmer-find-001-report
       evidence: "FindMostFrequentKmers/FindUniqueKmers are filters over the exact CountKmers count map (§2.2, §5.2); FindClumps maintains its own mutable per-window count dictionary (docs/algorithms/K-mer/K-mer_Search.md)"
       confidence: high
       status: current
@@ -31,7 +31,8 @@ return k-mers of **special interest** in a sequence rather than the full count m
 count == 1), and `FindClumps` (patterns forming an **`(L, t)` clump**, Rosalind BA1E). All three are
 built on the exact `L − k + 1` k-mer count; the frequent/unique searches are pure **filters** over the
 shared [[k-mer-counting]] `CountKmers` map, while `FindClumps` runs its own **sliding-window** count
-update with a deduplicating result set. Validated under test unit **KMER-FIND-001**;
+update with a deduplicating result set. Validated under test unit
+[[kmer-find-001-report|KMER-FIND-001]];
 [[test-unit-registry]] tracks the unit and [[algorithm-validation-evidence]] describes the
 evidence-artifact pattern.
 

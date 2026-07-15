@@ -6,18 +6,18 @@ sources:
   - docs/algorithms/MolTools/Primer_Structure_Analysis.md
 source_commit: 208c7e40e603985d2f569e45000b95b3201a934d
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: alternative_to
       object: concept:primer-dimer-thermodynamics-tm
-      source: primer-structure-qc-screens
+      source: primer-struct-001-report
       evidence: "docs/algorithms/MolTools/Primer_Structure_Analysis.md §1/§5.3: 'exposes discrete boolean or scalar quality signals rather than a full thermodynamic folding model'; hairpin/dimer are boolean structural screens, explicitly NOT the full free-energy folding / ntthal Tm of PRIMER-TM-001."
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:primer-design
-      source: primer-structure-qc-screens
+      source: primer-struct-001-report
       evidence: "docs/algorithms/MolTools/Primer_Structure_Analysis.md §5.1 methods (HasHairpinPotential, HasPrimerDimer, Calculate3PrimeStability, FindLongestHomopolymer, FindLongestDinucleotideRepeat) are the per-candidate screens consumed by EvaluatePrimer / DesignPrimers (PRIMER-DESIGN-001)."
       confidence: high
       status: current
@@ -26,7 +26,7 @@ graph:
 # Primer structure QC screens (hairpin / dimer / 3'-stability / run heuristics)
 
 The **boolean/scalar secondary-structure QC screens** a single PCR primer is checked against
-(test unit **PRIMER-STRUCT-001**, `Implementation Status: Simplified`): five fast heuristics on
+(test unit [[primer-struct-001-report|PRIMER-STRUCT-001]], `Implementation Status: Simplified`): five fast heuristics on
 `PrimerDesigner` — hairpin potential, self/hetero primer-dimer, 3′-end stability, longest
 homopolymer run, and longest dinucleotide repeat. The unit deliberately **exposes discrete
 boolean or scalar quality signals rather than a full thermodynamic folding model** — it is the
