@@ -124,5 +124,3 @@ This is degenerate **matching**, one branch of the motif family:
 Declared out of scope (deliberate simplifications): partial/probabilistic scoring,
 PWM-style weighting combined with ambiguity ([[position-weight-matrix]] scanning is a separate
 unit), and any index for faster repeated searches. **No source contradictions.**
-</content>
-</invoke>
