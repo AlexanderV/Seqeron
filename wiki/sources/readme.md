@@ -5,7 +5,7 @@ tags: [overview]
 doc_path: README.md
 sources:
   - README.md
-source_commit: c4df9b3a138915b4803ed7b97fdeab6658963d04
+source_commit: 488b2b61c982f0bfa630e15c75163e2ff505295d
 ingested: 2026-07-09
 created: 2026-07-09
 updated: 2026-07-15
@@ -23,9 +23,9 @@ The repository's front-page `README.md`: it frames Seqeron as a from-scratch bio
 - **Rigor by construction** — a runtime `LimitationPolicy` guards each algorithm's validated scope; results are tool-computed with provenance. See [[scientific-rigor]].
 - **A ten-methodology validation campaign** — 22,000+ executed test cases plus a per-unit validation ledger. See [[validation-and-testing]].
 - **Honest status** — beta, research-grade, not for clinical or diagnostic use, with many algorithms documented as simplified subsets. See [[research-grade-limitations]].
-- **An LLM Wiki retrieval layer** — repository documentation remains authoritative, while a provenance-tracked Markdown index, BM25 search, backlinks, and a typed graph give agents bounded discovery context and exact routes back to source files. Its maintenance commands enforce the parser's business rules and the configured branch-coverage floor.
+- **An LLM Wiki retrieval layer** — repository documentation remains authoritative, while a provenance-tracked Markdown index, BM25 search, backlinks, and a typed graph give agents bounded discovery context and exact routes back to source files. A static conceptual map presents the overlap of biological meaning, computational methods, and evidence/limits without treating pages as rigid categories. Its maintenance commands enforce the parser's business rules and the configured branch-coverage floor.
 
-Headline facts cited by the README: **427 MCP tools** across **11 MCP servers**, **~250 algorithms** over **258 algorithm units**, **47 projects**, and a Ukkonen suffix tree substrate. Its versioned LLM Wiki section records **532 curated pages**, **4,639 wikilinks**, and a compiled graph of **532 nodes / 4,251 edges**, while explicitly framing the numbers as a context-size comparison rather than a correctness benchmark. Detailed sub-topics (performance/NativeAOT, the worked triage example, repository layout) live in `README.md` directly and are referenced by path rather than copied here.
+Headline facts cited by the README: **427 MCP tools** across **11 MCP servers**, **~250 algorithms** over **258 algorithm units**, **47 projects**, and a Ukkonen suffix tree substrate. Its versioned LLM Wiki section records **532 curated pages**, **4,639 wikilinks**, and a compiled graph of **532 nodes / 4,251 edges**, while explicitly framing the volume numbers as a context-size comparison rather than a correctness benchmark. A separate fixed 30-intent bilingual benchmark compares BM25 retrieval `Hit@1/3/10` over the authoritative source corpus (gold = any local `sources:` document) against concept-page retrieval with the wiki, for direct English, direct Ukrainian, and manually reviewed Ukrainian-to-English normalization; it measures retrieval, not answer correctness. Detailed sub-topics (performance/NativeAOT, the worked triage example, repository layout) live in `README.md` directly and are referenced by path rather than copied here.
 
 ## Where this fits
 

@@ -384,6 +384,14 @@ This is retrieval, not a second source of truth. Every derived page carries prov
 `source_commit` enables deterministic staleness checks, and the compiled graph is disposable —
 Markdown remains canonical.
 
+### Conceptual map
+
+The wiki connects three overlapping concerns: biological meaning, computational methods, and the
+evidence and limits that make their use trustworthy. The map is intentionally qualitative and
+stable: it explains the knowledge model without turning individual pages into fixed categories.
+
+![Static Euler diagram of the LLM Wiki's conceptual aspects](wiki/aspect-map.svg)
+
 ### Measured context reduction
 
 These figures describe the repository state in the same Git revision as this README. Counts use
@@ -391,15 +399,41 @@ These figures describe the repository state in the same Git revision as this REA
 
 | | Without the LLM Wiki | With the LLM Wiki |
 |---|---:|---:|
-| Discovery surface | 1,184 source files · 170,297 lines · 1,376,174 words | 13-line index + a relevant shard (largest: 222 lines) |
-| One-page lookup context | Repository-wide search may expose up to 170,297 source lines | Worst-case indexed discovery: 235 lines; then a 102-line average curated page |
+| Discovery surface | 1,184 source files · 170,331 lines · 1,376,469 words | 13-line index + a relevant shard (largest: 222 lines) |
+| One-page lookup context | Repository-wide search may expose up to 170,331 source lines | Worst-case indexed discovery: 235 lines; then a 102-line average curated page |
 | Explicit knowledge structure | No normalized cross-document graph | 532 pages · 4,639 wikilinks · 532 graph nodes · 4,251 edges |
-| Curated knowledge volume | None | 54,696 lines · 446,659 words |
+| Curated knowledge volume | None | 54,696 lines · 446,723 words |
 | Provenance freshness | Manual source/history inspection | `source_commit` on every derived page; current stale count: 0 |
 
 For a representative one-page lookup, index + largest shard + average page is **337 lines versus
-170,297 source lines (~505× less discovery context)**. This is a context-size comparison, not a claim
+170,331 source lines (~505× less discovery context)**. This is a context-size comparison, not a claim
 that the wiki replaces reading the source or improves model correctness by a fixed percentage.
+
+#### Retrieval quality at fixed context cutoffs
+
+A fixed benchmark pairs 30 representative search intents with one expected concept page and equivalent
+English and Ukrainian questions. Without the wiki, any local document in that concept's `sources:` is
+gold; with the wiki, the concept page itself is gold. `Hit@K` means that a gold result appears within
+the first K BM25 results; it measures retrieval, not the factual correctness of a generated answer.
+
+Each cell shows **Without → With the LLM Wiki (absolute gain)**; all rows use the same 30 intents.
+
+| Query form | Hit@1 | Hit@3 | Hit@10 |
+|---|---:|---:|---:|
+| English (direct) | 46.7% → **66.7%** (+20.0 pp) | 76.7% → **93.3%** (+16.7 pp) | 93.3% → **100.0%** (+6.7 pp) |
+| Українська (direct) | 26.7% → **46.7%** (+20.0 pp) | 46.7% → **70.0%** (+23.3 pp) | 70.0% → **76.7%** (+6.7 pp) |
+| Українська → English normalization | 53.3% → **70.0%** (+16.7 pp) | 76.7% → **96.7%** (+20.0 pp) | 96.7% → **100.0%** (+3.3 pp) |
+
+The baseline indexes the contents and paths of `docs/**/*.md` and root `*.md`; the wiki surface indexes
+concept titles and bodies. Both use the same tokenizer and BM25 implementation. Direct queries are
+passed unchanged. The normalized row uses the fixed, manually reviewed English retrieval query stored
+beside each Ukrainian question; it measures BM25 after the prescribed normalization, not the reliability
+of an LLM translator. Reproduce the table from the versioned
+[query set](.claude/skills/llm-wiki/benchmarks/retrieval_queries.jsonl):
+
+```bash
+python .claude/skills/llm-wiki/scripts/wiki_search_benchmark.py wiki
+```
 
 ### Example questions
 

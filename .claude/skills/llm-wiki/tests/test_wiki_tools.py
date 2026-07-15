@@ -15,6 +15,7 @@ import wiki_graph_lint  # noqa: E402
 import wiki_lint  # noqa: E402
 import wiki_markdown  # noqa: E402
 import wiki_search  # noqa: E402
+import wiki_search_benchmark  # noqa: E402
 import wiki_stats  # noqa: E402
 
 
@@ -210,6 +211,98 @@ class ProvenanceDedupTests(unittest.TestCase):
             [(9.0, "api-page"), (2.0, "concept-page")],
             [(score, page["slug"]) for score, page in result],
         )
+
+
+class RetrievalBenchmarkTests(unittest.TestCase):
+    def write_concept(
+        self,
+        root: Path,
+        slug: str,
+        title: str,
+        body: str,
+        sources: tuple[str, ...] = (),
+    ) -> None:
+        source_lines = "sources:\n" + "".join(f"  - {source}\n" for source in sources) if sources else ""
+        (root / f"{slug}.md").write_text(
+            "---\n"
+            "type: concept\n"
+            f'title: "{title}"\n'
+            f"{source_lines}"
+            "---\n\n"
+            f"{body}\n",
+            encoding="utf-8",
+        )
+
+    def test_bilingual_ranks_measure_direct_and_normalized_queries_separately(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write_concept(root, "primer-design", "Primer design", "PCR primer pair constraints")
+            self.write_concept(root, "tree-build", "Tree construction", "phylogenetic distance tree")
+            cases = [{
+                "id": "primer",
+                "target": "primer-design",
+                "en": "design PCR primer pair",
+                "uk": "спроєктувати пару праймерів",
+                "uk_normalized": "design PCR primer pair",
+            }]
+
+            ranks = wiki_search_benchmark.rank_targets(root, cases)
+
+            self.assertEqual([1], ranks["en"])
+            self.assertEqual([None], ranks["uk"])
+            self.assertEqual([1], ranks["uk_normalized"])
+
+    def test_comparison_uses_concept_sources_as_without_wiki_gold(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            wiki = repo / "wiki"
+            docs = repo / "docs"
+            wiki.mkdir()
+            docs.mkdir()
+            (docs / "primer.md").write_text("PCR primer pair constraints\n", encoding="utf-8")
+            (docs / "trees.md").write_text("phylogenetic distance tree\n", encoding="utf-8")
+            self.write_concept(
+                wiki,
+                "primer-design",
+                "Primer design",
+                "PCR primer pair constraints",
+                ("docs/primer.md",),
+            )
+            cases = [{
+                "id": "primer",
+                "target": "primer-design",
+                "en": "PCR primer pair constraints",
+                "uk": "обмеження для пари праймерів",
+                "uk_normalized": "PCR primer pair constraints",
+            }]
+
+            comparison = wiki_search_benchmark.rank_comparison(repo, wiki, cases)
+
+            self.assertEqual([1], comparison["without_wiki"]["en"])
+            self.assertEqual([1], comparison["with_wiki"]["en"])
+            self.assertEqual([None], comparison["without_wiki"]["uk"])
+            self.assertEqual([None], comparison["with_wiki"]["uk"])
+
+    def test_summary_reports_binary_hit_at_each_cutoff(self):
+        ranks = {
+            "en": [1, 2, None],
+            "uk": [3, 10, 11],
+            "uk_normalized": [1, 1, 1],
+        }
+
+        rows = {row["field"]: row for row in wiki_search_benchmark.summarize(ranks)}
+
+        self.assertEqual((1, 2, 2), tuple(rows["en"][f"hits_at_{k}"] for k in (1, 3, 10)))
+        self.assertEqual((0, 1, 2), tuple(rows["uk"][f"hits_at_{k}"] for k in (1, 3, 10)))
+        self.assertEqual((3, 3, 3), tuple(rows["uk_normalized"][f"hits_at_{k}"] for k in (1, 3, 10)))
+
+    def test_fixed_benchmark_has_unique_complete_cases(self):
+        benchmark = Path(__file__).resolve().parents[1] / "benchmarks" / "retrieval_queries.jsonl"
+        cases = wiki_search_benchmark.load_cases(benchmark)
+
+        self.assertEqual(30, len(cases))
+        self.assertEqual(30, len({case["id"] for case in cases}))
+        self.assertEqual(30, len({case["target"] for case in cases}))
 
 
 class IndexLimitTests(unittest.TestCase):

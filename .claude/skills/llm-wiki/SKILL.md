@@ -141,6 +141,7 @@ The scripts are intentionally minimal — they exist so the LLM doesn't reinvent
 
 - `scripts/init_wiki.py` — bootstrap a new wiki structure in a project, seeding the templates
 - `scripts/wiki_search.py` — BM25 search over wiki pages with optional frontmatter filters; fallback when index navigation doesn't surface the right pages
+- `scripts/wiki_search_benchmark.py` — reproduce the fixed 30-intent English/Ukrainian BM25 Hit@1/3/10 benchmark
 - `scripts/wiki_lint.py` — structural health check (orphans, broken links, oversized pages, frontmatter validation, stale dates)
 - `scripts/wiki_stats.py` — quick summary of wiki size, page count by type, link density; useful for deciding when to shard the index
 - `scripts/wiki_graph_extract.py` — compile `graph:` metadata + body wikilinks into `nodes.jsonl`, `edges.jsonl`, `graph.sqlite`, `graph.graphml` (requires PyYAML)

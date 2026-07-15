@@ -4,7 +4,7 @@ title: "Strictly-layered library architecture"
 tags: [architecture]
 sources:
   - README.md
-source_commit: fc1c1454fa0b1bb8600eddb59af98471c2ff2ddc
+source_commit: 488b2b61c982f0bfa630e15c75163e2ff505295d
 created: 2026-07-09
 updated: 2026-07-15
 ---
