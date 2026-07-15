@@ -7,9 +7,10 @@ mcp_tools:
   - distance_matrix
 sources:
   - docs/Evidence/PHYLO-DIST-001-Evidence.md
-source_commit: 3a53115ec5fbdbc54448d69550c3b961c40a320a
+  - docs/algorithms/Phylogenetics/Distance_Matrix.md
+source_commit: bbcb0ba3e9d39d847bcc328393bcd65469228ff0
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -39,9 +40,14 @@ literature-traced record is [[phylo-dist-001-evidence]], [[test-unit-registry]] 
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern. Research-grade correctness
 reference ([[scientific-rigor|research-grade]]), not for clinical use.
 
-The public surface is two methods: `CalculatePairwiseDistance(s1, s2, method)` for a single pair and
+The public surface is two methods on `PhylogeneticAnalyzer`
+(`src/Seqeron/Algorithms/Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs`):
+`CalculatePairwiseDistance(s1, s2, method)` for a single pair and
 `CalculateDistanceMatrix(seqs, method)` for the whole *n×n* matrix, over four `method` values —
-**Hamming**, **PDistance**, **JukesCantor**, **Kimura2Parameter**.
+**Hamming**, **PDistance**, **JukesCantor**, **Kimura2Parameter** (the enum default is `JukesCantor`).
+The matrix builder simply invokes the pairwise routine for every pair, so a **single shared
+column scan** — `O(m)` time, `O(1)` extra space per pair (`m` = alignment length) — underlies all four
+methods, which differ only in how the per-site tallies convert to a distance value.
 
 ## The four distance methods
 
@@ -90,7 +96,8 @@ distance is **undefined / +∞** (biological *saturation*: too many substitution
 
 - **JC69 saturates at `p ≥ 3/4`** — `1 − 4p/3 ≤ 0` → `+∞`. (Two maximally divergent sequences over a
   4-letter alphabet share ~25% of sites by chance.)
-- **K2P saturates at `V ≥ 1/2`** — `1 − 2V ≤ 0` → `+∞`.
+- **K2P saturates when *either* log argument goes non-positive** — `1 − 2S − V ≤ 0` **or** `1 − 2V ≤ 0`
+  (the latter at `V ≥ 1/2`) → `+∞`. The implementation guards both factors, not just the transversion term.
 
 Other documented corner cases:
 
