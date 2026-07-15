@@ -7,7 +7,7 @@ mcp_tools:
 sources:
   - docs/Evidence/PAT-APPROX-003-Evidence.md
   - docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
-source_commit: cf1c5ac61f3f0609b61a12cec47fe9a4ce0bad18
+source_commit: 1ab8b7c126cdaca6ce7f9cf835a65ffbf4997441
 created: 2026-07-10
 updated: 2026-07-15
 graph:
@@ -33,8 +33,8 @@ graph:
 length-`k` pattern *"appears with at most d mismatches"* at a window of the text when the
 window and the pattern differ in at most `d` positions. This is the *k-mismatch* end of
 pattern matching, distinct from the exact matchers ([[k-mer-positions]],
-[[known-motif-search]]) and from the edit-distance / alignment family (which also allows
-insertions and deletions). It is the Compeau & Pevzner *Bioinformatics Algorithms* ch. 1
+[[known-motif-search]]) and from the [[edit-distance|edit-distance]] / alignment family
+(which also allows insertions and deletions). It is the Compeau & Pevzner *Bioinformatics Algorithms* ch. 1
 motif-hunting toolkit — the way biology finds a degenerate signal (e.g. the *DnaA* box)
 that never occurs as an exact literal. Validated under test unit **PAT-APPROX-003**;
 the validation record is [[pat-approx-003-evidence]], [[test-unit-registry]] tracks the
@@ -169,8 +169,10 @@ Implementation lives in `ApproximateMatcher.cs`
 ## Scope and relation to other units
 
 This is the **substitution-only (Hamming)** approximate matcher. It does **not** model
-insertions/deletions — for indel-tolerant matching use the edit-distance / alignment
-family ([[global-alignment-needleman-wunsch]], [[semi-global-alignment-fitting]]). It
+insertions/deletions — for indel-tolerant matching use the [[edit-distance|edit-distance]]
+(Levenshtein) matcher, its `alternative_to` in the same `ApproximateMatcher.cs`, or the
+full alignment family ([[global-alignment-needleman-wunsch]],
+[[semi-global-alignment-fitting]]). It
 builds directly on the `HammingDistance` primitive (**PAT-APPROX-001**, BA1H
 definition). It is the mismatch-tolerant `alternative_to` the exact single-pattern
 locator [[k-mer-positions]] and shares the "surface over-represented `k`-mers" goal with
