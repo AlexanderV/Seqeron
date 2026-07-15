@@ -6,8 +6,9 @@ mcp_tools:
   - find_with_mismatches
 sources:
   - docs/Evidence/PAT-APPROX-003-Evidence.md
+  - docs/algorithms/Pattern_Matching/Frequent_Words_With_Mismatches.md
   - docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
-source_commit: 1ab8b7c126cdaca6ce7f9cf835a65ffbf4997441
+source_commit: 8432fd38f3c393916fb43f2144b269a89cc0f135
 created: 2026-07-10
 updated: 2026-07-15
 graph:
@@ -87,7 +88,9 @@ tally. For a 4-letter alphabet the size is a sum of binomial terms; for `k=3, d=
 `1 + 3·(4−1) = 10` (e.g. `Neighbors(ACG, 1)` = {ACG, CCG, TCG, GCG, AAG, ATG, AGG, ACA,
 ACC, ACT}). This neighbor enumeration is why the approach is **practical only for small
 k and d** — the textbook bound is `k <= 12, d <= 3`; it grows combinatorially beyond
-that.
+that. Concretely, `FindFrequentKmersWithMismatches` runs in **O(n·k·|Σ|^d)** time
+(per-window neighborhood enumeration over the 4-letter alphabet) and O(distinct
+neighbors) space, versus the O(n·m) window scan of `Count_d` / `FindBestMatch`.
 
 ## d = 0 degenerates to exact matching
 
@@ -179,6 +182,30 @@ locator [[k-mer-positions]] and shares the "surface over-represented `k`-mers" g
 the exact de-novo discovery unit [[overrepresented-kmer-discovery]] — but frequent-words-
 with-mismatches ranks `k`-mers by their **Hamming-ball** count rather than exact
 occurrences, which is what lets it recover degenerate biological motifs.
+
+## Scope boundaries: reverse complements, alphabet, and the exact-index reuse decision
+
+Three explicit scope facts pin down where PAT-APPROX-003 stops:
+
+- **Reverse complements (BA1J) are out of scope — not implemented.** ROSALIND BA1J
+  ("Frequent Words with Mismatches and Reverse Complements") maximizes
+  `Count_d(Text, P) + Count_d(Text, ReverseComplement(P))`, which matters because a
+  regulatory box such as *DnaA* can occur on either strand. This unit does **not** fold
+  in the reverse-complement strand. The documented workaround is to run
+  `FindFrequentKmersWithMismatches` separately on the reverse complement of the text (or
+  await a dedicated BA1J unit); it is intentionally deferred, not a defect.
+- **Alphabet nuance for non-ACGT bases.** Neighbor enumeration is fixed to `{A,C,G,T}`.
+  A non-ACGT character in the input (e.g. `N`) is still **matched literally by the
+  Hamming scan** (it contributes a mismatch unless it equals the pattern character) but
+  is **never generated as a neighbor substitution**, so it cannot be the varied base in a
+  `Neighbors(...)` expansion. Frequent-words tallies therefore only ever range over the
+  four canonical bases.
+- **Exact-match indexes give no help here (reuse rejected).** The repository `SuffixTree`
+  (`Contains` / `FindAllOccurrences` / `CountOccurrences`) was evaluated and deliberately
+  **not** reused: it supports exact matching only and has no Hamming-ball search. Serving
+  BA1I through it would require `|Σ|^d` separate exact queries per window, which is
+  strictly worse than the direct O(n·m) Hamming scan plus neighbor enumeration that is
+  implemented. This is a recorded design decision, not an oversight.
 
 ## Reference sources
 
