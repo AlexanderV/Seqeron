@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1088 / 1181
+Progress: 1089 / 1181
 
 ## (top-level)  (6)
 
@@ -660,7 +660,7 @@ Progress: 1088 / 1181
 - [x] docs/algorithms/Phylogenetics/Newick_Format.md
 - [x] docs/algorithms/Phylogenetics/Tree_Comparison.md
 - [x] docs/algorithms/Phylogenetics/Tree_Construction.md
-- [ ] docs/algorithms/Phylogenetics/Tree_Statistics.md
+- [x] docs/algorithms/Phylogenetics/Tree_Statistics.md
 - [ ] docs/algorithms/Population_Genetics/Allele_Frequency.md
 - [ ] docs/algorithms/Population_Genetics/Ancestry_Estimation.md
 - [ ] docs/algorithms/Population_Genetics/Diversity_Statistics.md

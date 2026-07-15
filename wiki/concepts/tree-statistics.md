@@ -6,9 +6,10 @@ mcp_tools:
   - tree_depth
 sources:
   - docs/Evidence/PHYLO-STATS-001-Evidence.md
-source_commit: 956d8f52e81160361eaf4673e2b2dedcc906ea08
+  - docs/algorithms/Phylogenetics/Tree_Statistics.md
+source_commit: 603506c0f67dcb8aed205795177bfdb71ee73fcf
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -60,6 +61,25 @@ counts edges, not nodes: in a rooted tree the height of a vertex is "the length 
 path to a leaf," and the tree's height is the height of its root. This unit names the whole-tree quantity
 *depth*, but it is the graph-theory **height** value (they coincide at the deepest leaf: the depth of the
 deepest leaf equals the height of the root).
+
+## Implementation (`PhylogeneticAnalyzer`)
+
+All three are static methods on `PhylogeneticAnalyzer` taking a `PhyloNode root`, each a single
+**O(n)-time, O(h)-space** traversal (n = nodes, h = tree height = recursion-stack depth):
+
+- **`GetLeaves`** — iterator (`yield`) **pre-order recursion**; yields a node iff it `IsLeaf`, so
+  terminals come out in **left-to-right (pre-order) order**. `null` yields nothing.
+- **`CalculateTreeLength`** — `0` for `null`; otherwise the recurrence
+  `root.BranchLength + length(Left) + length(Right)`.
+- **`GetTreeDepth`** — `-1` for `null` (via the named constant `EmptyTreeHeight`), `0` for a leaf;
+  otherwise `1 + max(depth(Left), depth(Right))`.
+
+No exceptions are thrown for tree shape; the model is a strict binary tree (`Left`/`Right`), so
+multifurcations are not representable (enforced at parse time elsewhere). Being pure tree traversal,
+the repository suffix tree is **not applicable** (no substring/occurrence search). `GetTreeDepth` is
+**topological** (edge count) and deliberately does **not** implement Biopython's branch-length
+`depths()` — for branch-length quantities use `PatristicDistance` ([[tree-comparison-metrics]]) or
+`CalculateTreeLength`.
 
 ## Conventions, invariants, and test oracles
 

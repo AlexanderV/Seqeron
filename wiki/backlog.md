@@ -24,6 +24,7 @@ Phylogenetics/Tree_Construction → [[distance-based-tree-construction]] resolve
 Phylogenetics/Newick_Format → [[distance-based-tree-construction]] resolved 2026-07-15 (REUSE: the Newick I/O layer serializes this hinge concept's `PhyloNode` output — a format serializer, not a separate algorithm, so no dedicated concept, per [[phylo-newick-001-evidence]]);
 Phylogenetics/Distance_Matrix → [[evolutionary-distance-matrix]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept);
 Phylogenetics/Tree_Comparison → [[tree-comparison-metrics]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept; enriched with the O(n² log n) impl cost, helper methods, and test-pinned oracles);
+Phylogenetics/Tree_Statistics → [[tree-statistics]] resolved 2026-07-15, closing the Phylogenetics domain (REUSE: reconciled against the existing Evidence-derived concept; enriched with the `PhylogeneticAnalyzer` method set, the O(n)/O(h) recurrences, the `yield` pre-order leaf order, the `EmptyTreeHeight` constant, and the topological-vs-Biopython-`depths()` distinction);
 Pattern_Matching/Suffix_Tree → [[suffix-tree]] resolved 2026-07-15, closing the Pattern_Matching domain (last pending doc);
 PanGenome/Phylogenetic_Marker_Selection → [[phylogenetic-marker-selection]] resolved 2026-07-15, closing the PanGenome domain;
 Oncology/Variant_Allele_Frequency → [[variant-allele-frequency-and-binomial-ci]] resolved 2026-07-15, closing the Oncology domain;
@@ -246,10 +247,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Phylogenetics/Newick_Format.md` | [[distance-based-tree-construction]] |
 | `docs/algorithms/Phylogenetics/Tree_Comparison.md` | [[tree-comparison-metrics]] |
 | `docs/algorithms/Phylogenetics/Tree_Construction.md` | [[distance-based-tree-construction]] |
+| `docs/algorithms/Phylogenetics/Tree_Statistics.md` | [[tree-statistics]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (80 algorithm docs across 14 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (77 algorithm docs across 13 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
