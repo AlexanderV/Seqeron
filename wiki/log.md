@@ -4774,6 +4774,28 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub).
    No contradictions: spec and the recorded Evidence synthesis agree on the model, thresholds, and worked datasets.
 - 2026-07-14 — ingest docs/algorithms/Oncology/Copy_Number_Alteration_Classification.md (Copy-Number Alteration Classification SPEC — the primary per-algorithm spec for `OncologyAnalyzer.Log2RatioToCopyNumber`/`CallCopyNumber`/`ClassifyCopyNumber`/`ClassifyCopyNumbers`, unit ONCO-CNA-001, status Production; log2 copy ratio → absolute CN → five discrete CNA states via CNVkit hard thresholds). CONTEXT/decision per Oncology reconciliation brief: REUSED the existing concept [[copy-number-alteration-classification]] (created 2026-07-09 from the ONCO-CNA-001 Evidence artifact) rather than create a new page or a wiki/sources/ page (spec ≠ Evidence report). The concept already covered the model (n=2·2^log2, absolute_threshold binning, default cutoffs, GISTIC2 corroboration, NaN/boundary/purity corner cases, diploid-reference assumption, docs-vs-source threshold note); its sources: listed only the Evidence doc, keeping the spec row PENDING. Enriched with a genuinely-distinct "Implementation surface (ONCO-CNA-001)" section the Evidence page lacked: the four OncologyAnalyzer entry points (continuous / integer / full CopyNumberCall / order-and-length-preserving batch), the CopyNumberCall record fields, the validation contract (thresholds exactly-four strictly-ascending non-NaN → ArgumentException; ploidy>0 → ArgumentOutOfRangeException; null batch → ArgumentNullException; null thresholds → default fallback), and O(1)/O(m) complexity plus the single-region (no segmentation / no allele-specific) scope. Added the spec to sources: (now spec + Evidence), bumped source_commit→1555a132, updated→2026-07-14. Backlog: moved the row to [[backlog]] Covered-via-concept → [[copy-number-alteration-classification]] (covered 120→121, pending 124→123); removed from [[backlog-pending]] (Oncology 30→29, pending-total 123→122). No new page ⇒ index.md unchanged (concept already listed). No new graph nodes/edges (implementation prose only; concept's existing relates_to test-unit-registry edge and body wikilinks unchanged) ⇒ graph lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub). No contradictions: spec and the recorded Evidence synthesis agree on the model, thresholds, and state mapping.
+## [2026-07-15] ingest | docs/algorithms/PanGenome/Phylogenetic_Marker_Selection.md → enriched [[phylogenetic-marker-selection]] (closes PanGenome domain)
+   PanGenome reconciliation (spec ≠ Evidence, so NO wiki/sources/ page). The concept synthesized earlier from
+   PANGEN-MARKER-001-Evidence already covered the model (single-copy core marker rule per panX "all strains
+   represented exactly once" / Roary 99% core + paralog filtering; parsimony-informative-site criterion per
+   Zvelebil & Baum 2008 = ≥2 states each in ≥2 rows; descending-PIS ranking capped at maxMarkers; the 5-column
+   PIS=2 oracle; single-copy-core selection oracle; equal-length-members alignment assumption; recombination
+   caveat). Added the spec to sources: (now spec + Evidence), bumped source_commit→520d54c9, updated→2026-07-15.
+   Surgical Edit added a genuinely-distinct "Implementation (per the algorithm spec)" section the Evidence-derived
+   concept lacked: PanGenomeAnalyzer entry points CountParsimonyInformativeSites / SelectPhylogeneticMarkers
+   (defaults maxMarkers=100), the null/<2-rows/unequal-length→0 and case-sensitive no-T↔U-normalization contract,
+   the single-copy-core filter (GenomeCount==totalGenomes ∧ GeneIds.Count==totalGenomes) with ordinal-cluster-id
+   tie-break, INV-01…INV-07 formalization, O(r·L)/O(n·g) complexity with the suffix-tree-not-applicable note, and
+   the removed unsourced identity-band/consensus-length heuristic (Deviation/fix). No new page ⇒ index.md unchanged
+   (concept already listed). Backlog: added Covered-via-concept row (covered 151→152, pending 92→91, domains 16→15);
+   removed the PanGenome section from [[backlog-pending]] (pending-per-domain 91→90) and added a "PanGenome domain
+   now fully covered" closure note to both [[backlog]] and [[backlog-pending]], consistent with the K-mer /
+   Metagenomics / MolTools / Oncology closures. No new graph nodes/edges (implementation prose only; concept's
+   existing typed edges to test-unit-registry / pan-genome-gene-clustering / pan-genome-core-accessory-partition /
+   ortholog-detection-reciprocal-best-hits and body wikilinks unchanged) ⇒ graph lint/extract skipped. Hub
+   [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub). No contradictions: spec and the
+   recorded Evidence synthesis agree on the model, criterion, invariants, and worked datasets.
+
 ## [2026-07-14] ingest | docs/algorithms/Oncology/Driver_Mutation_Detection.md → enriched [[driver-gene-classification-20-20-rule]]
    Oncology reconciliation (spec ≠ Evidence, so NO wiki/sources/ page). The concept synthesized earlier from
    ONCO-DRIVER-001-Evidence already covered the 20/20-rule model (Vogelstein 2013 / Tokheim 2020; f_OG > 0.20

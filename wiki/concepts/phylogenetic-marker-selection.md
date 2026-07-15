@@ -6,9 +6,10 @@ mcp_tools:
   - select_phylogenetic_markers
 sources:
   - docs/Evidence/PANGEN-MARKER-001-Evidence.md
-source_commit: 955bde0590e52fa1c979f009a5965d15a3a44722
+  - docs/algorithms/PanGenome/Phylogenetic_Marker_Selection.md
+source_commit: 520d54c9b683866f1ee2d0cf530893794b42fdf1
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -130,6 +131,40 @@ convention the CD-HIT global identity of [[pan-genome-gene-clustering]] uses els
 0** (the cluster carries no usable column-wise signal). This affects only how the alignment is
 obtained, not the parsimony-informative criterion (copied verbatim from Zvelebil 2008) or the
 single-copy-core selection rule (both fully source-backed).
+
+## Implementation (per the algorithm spec)
+
+Two entry points on `PanGenomeAnalyzer` (`Seqeron.Genomics.Metagenomics`), unit
+**PANGEN-MARKER-001**, status *Reference*:
+
+- `CountParsimonyInformativeSites(alignedSequences)` — the column-wise primitive. Null, `< 2` rows,
+  empty rows, or rows of **unequal length** all return **0** (no countable common alignment).
+  Characters are compared **as-is**: case-sensitive, with **no T↔U normalization**, so `T` and `U`
+  are distinct states.
+- `SelectPhylogeneticMarkers(genomes, coreClusters, totalGenomes, maxMarkers = 100)` — indexes every
+  gene id → sequence, keeps only clusters with `GenomeCount == totalGenomes` **and**
+  `GeneIds.Count == totalGenomes` (single-copy core), recovers each cluster's member sequences, counts
+  PIS, drops clusters with `PIS < 1`, orders by **descending PIS** (ties broken by **ordinal cluster
+  id** for determinism), and takes `maxMarkers`. Null `genomes`/`coreClusters`, `totalGenomes ≤ 0`, or
+  `maxMarkers ≤ 0` → **empty sequence, no exception**.
+
+The seven invariants **INV-01…INV-07** in the spec formalize the properties above: `0 ≤ PIS ≤`
+alignment length (each column contributes 0 or 1); monomorphic/singleton columns contribute 0;
+the minimal informative pattern (≥ 2 states each in ≥ 2 rows) contributes exactly 1; every selected
+marker is single-copy core with ≥ 1 PIS; markers ordered by descending PIS with size ≤ `maxMarkers`;
+and PIS is invariant to row order and to bijective state relabeling.
+
+**Complexity.** `CountParsimonyInformativeSites` is **O(r · L)** time / **O(s)** space (r rows,
+L columns, s distinct states per column); `SelectPhylogeneticMarkers` is **O(n · g)** time / **O(g)**
+space (n clusters, g genomes = member alignment per cluster), matching the checklist's O(n × g). This
+is a column-wise statistic over equal-length rows plus a per-cluster filter — not a substring/
+occurrence search — so the repository suffix tree is **not applicable**.
+
+**Deviation (fix): the old identity-band / length heuristic was removed.** An earlier revision
+selected markers by an unsourced average-identity band and scored them by consensus-sequence length.
+Those thresholds had no source backing and were treated as defects; the API signature changed to the
+current single-copy-core + PIS rule, which conforms to panX, Roary, and Zvelebil. The only remaining
+deviation from the literature is the equal-length-members alignment assumption above.
 
 ## Caveat
 
