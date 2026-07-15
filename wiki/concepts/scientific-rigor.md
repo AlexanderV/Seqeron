@@ -5,9 +5,9 @@ tags: [rigor]
 sources:
   - README.md
   - docs/Validation/LIMITATIONS.md
-source_commit: 45545719fbdd7689c20bb680104862f6098adf32
+source_commit: d48405df40409c9f3fd6d5386f3b19c2bf2188df
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to

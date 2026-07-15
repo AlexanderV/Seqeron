@@ -5,9 +5,9 @@ tags: [architecture]
 sources:
   - README.md
   - docs/MCP-Methods-Audit.md
-source_commit: 6abaea7ca1fdd97060f8b0130b193f07c8ffaa0b
+source_commit: d48405df40409c9f3fd6d5386f3b19c2bf2188df
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -31,5 +31,7 @@ Seqeron exposes one algorithm engine through three interchangeable entry points 
 ## Why it matters
 
 The equivalence is a correctness guarantee, not just convenience: skill recipes are **dual-mode** (the MCP tool and the equivalent C# `Method ID` are identical), so a result never depends on the path taken to reach it. This underpins the project's [[scientific-rigor|rigor-by-construction]] stance.
+
+A separate knowledge layer — the repository's LLM Wiki (this wiki) — *complements* the three doors rather than adding a fourth: the doors compute biology results, while the wiki answers questions about how the repository is designed, validated, connected, and constrained. `README.md` frames the division as skills routing biology tasks, MCP executing algorithms, and the wiki as the repository-knowledge layer over the same engine.
 
 Concrete entry-point details (code snippets, MCP connection steps) live in `README.md`.

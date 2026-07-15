@@ -10,9 +10,9 @@ sources:
   - docs/Validation/FINDINGS_REGISTER.md
   - docs/Validation/LIMITATIONS.md
   - docs/Validation/VALIDATION_LEDGER.md
-source_commit: 255a8836226b75d0cded56b57ffdb14184737664
+source_commit: d48405df40409c9f3fd6d5386f3b19c2bf2188df
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
