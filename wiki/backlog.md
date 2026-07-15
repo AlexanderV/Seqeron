@@ -249,10 +249,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Phylogenetics/Tree_Construction.md` | [[distance-based-tree-construction]] |
 | `docs/algorithms/Phylogenetics/Tree_Statistics.md` | [[tree-statistics]] |
 | `docs/algorithms/Population_Genetics/Allele_Frequency.md` | [[allele-genotype-frequencies]] |
+| `docs/algorithms/Population_Genetics/Ancestry_Estimation.md` | [[ancestry-estimation-admixture]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (76 algorithm docs across 13 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (75 algorithm docs across 13 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

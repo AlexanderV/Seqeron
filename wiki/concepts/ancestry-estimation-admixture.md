@@ -6,9 +6,10 @@ mcp_tools:
   - estimate_ancestry
 sources:
   - docs/Evidence/POP-ANCESTRY-001-Evidence.md
-source_commit: 9e7930d3c6f0f119ea8d74d1a72b1581f0850ac4
+  - docs/algorithms/Population_Genetics/Ancestry_Estimation.md
+source_commit: c691bc46fb22a8ae15f49a0fcac5c96548a50b4e
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -71,7 +72,9 @@ b^n_ijk = q^n_ik (1 − f^n_kj) / (Σ_m q^n_im (1 − f^n_mj))   # posterior tha
 Each iteration is an **EM ascent step**: the log-likelihood is non-decreasing, and the estimate is
 automatically renormalized (the `1/2J` averaging over `2J` allele copies keeps `Σ_k q_ik = 1`).
 **Convergence (Eq. 5):** stop when `L(Q^{n+1}) − L(Q^n) < ε`; ADMIXTURE's default is `ε = 10⁻⁴`.
-Per-iteration complexity is **O(IJK²)**.
+The unstructured joint (Q+F) EM is **O(IJK²)** per iteration [Alexander et al. 2009]; here **F is fixed**,
+so there is no per-population panel-update term and the per-individual cost drops to **O(iterations·J·K)**
+(one pass over SNPs × populations, `O(K)` working space), giving **O(I·iterations·J·K)** for the full call.
 
 ## Worked oracles
 
@@ -94,8 +97,31 @@ Per-iteration complexity is **O(IJK²)**.
   of the Eq. 5 stopping rule); the diagnostic individual converges to its true source population.
 - **Uninformative fixed point:** identical reference panels leave a uniform individual uniform.
 - **Missing / malformed genotypes:** values outside {0,1,2} are treated as **missing** and skipped
-  for that SNP (no Eq. 2 term). An individual whose genotype vector length ≠ J is skipped.
+  for that SNP (no Eq. 2 term). An individual whose genotype vector length ≠ J is skipped. An
+  individual with **all** SNPs missing is returned at the **uniform prior** `q = (1/K, …)` (no
+  informative term ever updates q).
 - **Empty inputs:** empty individuals or empty reference panels → empty result.
+
+## Implementation (Seqeron)
+
+`PopulationGeneticsAnalyzer.EstimateAncestry(individuals, referencePops, maxIterations)`
+(`Seqeron.Genomics.Population`) is the public entry point; it iterates individuals and yields one
+`AncestryProportion { IndividualId, Proportions }`, where `Proportions` is a dictionary keyed by
+reference-population id that sums to 1 (INV-01). Per-individual work is delegated to the private
+`EstimateIndividualAncestry` (FRAPPE EM, Eq. 4, F fixed) with the Eq. 2 objective computed by
+`AncestryLogLikelihood` for the Eq. 5 stopping test.
+
+- **Inputs:** `individuals` as `(IndividualId, IReadOnlyList<int> Genotypes)` with each genotype in
+  `{0,1,2}` and length = panel SNP count; `referencePops` as `(PopulationId, IReadOnlyList<double>
+  AlleleFrequencies)` with each frequency in `[0,1]` and the **same SNP order** across all panels.
+- **`maxIterations` default 100** — an EM budget layered on top of the ε = 10⁻⁴ early stop; both
+  reach the same maximum. The convergence tolerance is the constant `AncestryLogLikelihoodTolerance`.
+- **Validation is total, not throwing:** empty inputs → empty result; length-mismatch individual
+  skipped; out-of-range genotype treated as missing. No exceptions for these documented input classes.
+- The dividing-by-`2J` step (J = *informative* SNP count for that individual) keeps `Σ_k q_ik = 1`
+  without a separate renormalization. Not a substring search, so the repository suffix tree is N/A.
+
+Related population-genetics unit: [[population-differentiation-fst]] (F_Statistics).
 
 ## Identifiability and scope
 
