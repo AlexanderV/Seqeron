@@ -4,9 +4,10 @@ title: "Distance-based phylogenetic tree construction (UPGMA & Neighbor-Joining 
 tags: [phylogenetics, algorithm]
 sources:
   - docs/Evidence/PHYLO-TREE-001-Evidence.md
-source_commit: 6e5907cbbe510e53e4afa483dd33991739bb93fa
+  - docs/algorithms/Phylogenetics/Newick_Format.md
+source_commit: f9b89f022474226460c4ed9124c6062cd89b4815
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -115,6 +116,50 @@ lengths** (INV-N02), no clock assumption (INV-N03).
 | Saturated distances (p > 0.75) | inherited from the JC distance step → **+∞** (see [[evolutionary-distance-matrix]] saturation) |
 | Single-nucleotide sequences | valid but trivial |
 | All-gap columns | zero comparable sites; gap-only columns skipped, identical non-gap sites → distance 0 |
+
+## Newick serialization I/O layer (PHYLO-NEWICK-001)
+
+The `PhyloNode` tree this unit emits is round-tripped to and from **Newick** (New Hampshire) text by the
+family's **I/O layer**, PHYLO-NEWICK-001 (`PhylogeneticAnalyzer.ToNewick(PhyloNode, bool)` /
+`ParseNewick(string)`, both in `PhylogeneticAnalyzer.cs`). Newick is **grammatical, not biological**: a
+tree is recursively nested subtrees with optional labels and branch lengths. This is a **format
+serializer, not a separate algorithm** — its literature-traced Evidence record is
+[[phylo-newick-001-evidence]]. The `docs/algorithms/Phylogenetics/Newick_Format.md` spec is
+reconciled here because the format serializes *this* concept's output rather than defining a new
+inference step.
+
+**Core grammar** (Olsen-style, the subset implemented): `Tree → Subtree ";"`,
+`Internal → "(" BranchSet ")" Name`, `Branch → Subtree Length`, `Length → empty | ":" number`. Parentheses
+delimit internal nodes, commas separate siblings, an optional label follows a subtree, and a branch length
+is introduced by `:`.
+
+**Contract.** `ToNewick(node, includeBranchLengths=true)` returns a string; a **`null` node → empty
+string**. `ParseNewick(newick)` returns a `PhyloNode`; **null/empty/whitespace-only input throws
+`ArgumentException`**. The parser trims the input, strips a trailing `;`, then recurses over `(`, `,`, `)`,
+labels, and numeric branch lengths. Both are **O(n)** time, **O(h)** space (h = recursion/parse depth).
+
+**Invariants.**
+
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `ToNewick` output ends with `;` | serializer appends `;` after the recursive traversal |
+| INV-02 | Branch lengths render with `.` as decimal separator | serializer formats via `ToString("F4", CultureInfo.InvariantCulture)` — locale-independent |
+| INV-03 | Internal-node names emitted only when they are **valid unquoted labels** | serializer suppresses names containing Newick metacharacters (blanks, `()`, `[]`, `'`, `:`, `;`, `,`) instead of quoting them |
+| INV-04 | `ParseNewick` accepts an optional **root branch length** after the main subtree | dedicated post-root `:` handling; parsed into `root.BranchLength` (the Olsen/TreeAlign `:0.0` convention) |
+
+**Serializer/parser asymmetry** (a deliberate limitation): serialization filters *internal* labels to the
+conservative unquoted subset above (metachar-bearing names are **omitted**, not quoted), while **leaf
+labels are emitted verbatim** (the unquoted check is applied only to internal names). Parsing is more
+**permissive** — it reads labels as raw character runs up to the next structural delimiter and does not
+enforce the unquoted restriction. The parser also accepts **scientific-notation** branch lengths
+(`e`/`E`/`+`/`-`) in addition to digits, decimal points, and signs.
+
+**Documented scope (out-of-scope, not bugs).** Only **binary** trees are supported (`PhyloNode` has just
+`Left`/`Right`, so the grammar's multifurcating `BranchSet` is out of scope); **no quoted `'…'` labels**,
+**no `[]` comments**, and **no underscore→blank** rewrite. Float precision is ±0.00005 (F4 — adequate for
+UPGMA/NJ output; the spec imposes no precision limit). Appropriate for the binary trees this unit's UPGMA
+and NJ builders produce, but not for general-purpose Newick interoperability across all phylogenetics
+tools. No source contradictions.
 
 ## Relationship to the rest of the PHYLO family
 
