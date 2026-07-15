@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **159** algorithm docs covered-via-concept, **83** pending across 14 domains
+Status at generation: **160** algorithm docs covered-via-concept, **82** pending across 14 domains
 (K-mer, Metagenomics, MolTools, Oncology, PanGenome and Pattern_Matching domains now fully covered;
 Pattern_Matching/Suffix_Tree → [[suffix-tree]] resolved 2026-07-15, closing the Pattern_Matching domain (last pending doc);
 PanGenome/Phylogenetic_Marker_Selection → [[phylogenetic-marker-selection]] resolved 2026-07-15, closing the PanGenome domain;
@@ -237,10 +237,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Tumor_Ploidy_Estimation.md` | [[tumor-ploidy-estimation-and-whole-genome-doubling]] |
 | `docs/algorithms/Oncology/Tumor_Purity_Estimation.md` | [[tumor-purity-from-mutation-vaf]] |
 | `docs/algorithms/Oncology/Variant_Allele_Frequency.md` | [[variant-allele-frequency-and-binomial-ci]] |
+| `docs/algorithms/Phylogenetics/Bootstrap_Analysis.md` | [[phylogenetic-bootstrap-support]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (83 algorithm docs across 14 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (82 algorithm docs across 14 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

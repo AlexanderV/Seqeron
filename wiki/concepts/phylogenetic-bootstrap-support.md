@@ -6,9 +6,10 @@ mcp_tools:
   - bootstrap_support
 sources:
   - docs/Evidence/PHYLO-BOOT-001-Evidence.md
-source_commit: fd10c2dd29b1edd788a25d3aed9b67cdab80685d
+  - docs/algorithms/Phylogenetics/Bootstrap_Analysis.md
+source_commit: c9a7fd983fa1cc3da6231edf3531528dd8a35a6f
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -120,6 +121,40 @@ Three sources agree on the same four steps:
 
 Thresholds such as 70% or 95% are **descriptive** interpretation conventions, **not parameters** of
 the computation.
+
+## Contract, complexity, and method boundary (from the algorithm spec)
+
+The `PhylogeneticAnalyzer.Bootstrap(sequences, replicates, distanceMethod, treeMethod, seed)` entry
+point (in `PhylogeneticAnalyzer.cs`) fixes the following defaults, which double as the reproducibility
+contract:
+
+| Parameter | Type | Default | Constraint |
+|-----------|------|---------|------------|
+| `sequences` | `IReadOnlyDictionary<string,string>` | required | non-null, ≥2 entries, equal length |
+| `replicates` (B) | `int` | 100 | ≥ 1 |
+| `distanceMethod` | `DistanceMethod` | `JukesCantor` | — |
+| `treeMethod` | `TreeMethod` | `UPGMA` | UPGMA or NeighborJoining |
+| `seed` | `int` | 42 | fixed ⇒ reproducible |
+
+The return is `IReadOnlyDictionary<string,double>` mapping each clade key (sorted, `|`-joined leaf
+names) to its support proportion in `[0,1]`. Distance computation uppercases bases and ignores
+gaps/ambiguous characters; clade comparison is case-sensitive on taxon names. The `seed` was a later
+deviation — added to a previously seed-hardcoded method to enable deterministic tests; the default 42
+preserves prior behavior for existing callers.
+
+**Complexity:** `O(B · (n·L + n³))` time, `O(n² + n·L)` space for B replicates, n taxa, L sites —
+each replicate resamples L columns (`n·L`) and rebuilds an `O(n³)` distance tree; clade matching is
+`O(n)` per internal node. This is fundamentally an `O(B·n³)` procedure (B independent tree builds).
+
+**Explicitly not implemented** (rely on external tooling): (1) **majority-rule consensus tree**
+construction from the replicates — this unit returns only the per-clade support map over the reference
+tree, with no in-repo consensus-tree builder; (2) **Transfer Bootstrap Expectation (TBE)** — the
+gradual transfer-distance support of Lemoine 2018 (use `booster`). The Felsenstein vs transfer contrast:
+FBP matches branches by **exact leaf-set identity (binary)** and its support drops with a single
+misplaced taxon on large trees, whereas TBE uses a **gradual transfer distance** and is more robust to
+rogue taxa. The repository suffix tree was evaluated and is **not used** here — bootstrap does RNG
+resampling, distance-matrix tree building, and leaf-set clade matching, with no substring/pattern
+search.
 
 ## Not the same as tumor-phylogeny reconstruction
 
