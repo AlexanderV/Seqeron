@@ -1,0 +1,14 @@
+#!/bin/sh
+# LLM Wiki deterministic gates. Enable once per clone:
+#   git config core.hooksPath .githooks
+# (and copy this file to .githooks/pre-commit, chmod +x)
+set -e
+CHANGED=$(git diff --cached --name-only)
+echo "$CHANGED" | grep -q "^wiki/" && {
+  python .claude/skills/llm-wiki/scripts/wiki_lint.py wiki/ || exit 1
+}
+echo "$CHANGED" | grep -qE "^(docs|wiki)/" && {
+  python .claude/skills/llm-wiki/scripts/wiki_stale.py wiki/ || {
+    echo "wiki is stale relative to docs — run /wiki:ingest for the files above"; exit 1; }
+}
+exit 0

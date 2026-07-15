@@ -263,6 +263,7 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+/.coverage
 /ignore/
 /docs/MCP-Server-Plan.md
 
@@ -282,3 +283,6 @@ persistent_*.txt
 /data/chr1.suffixtree.dat
 /*.ps1
 .skill-dev/
+
+# Obsidian editor workspace state (local, not content)
+wiki/.obsidian/

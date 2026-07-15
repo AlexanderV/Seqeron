@@ -1,0 +1,1218 @@
+# Wiki Ingest Checklist
+
+Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and other prose/spec files) to ingest into the LLM Wiki, one per `/wiki:ingest` run.
+Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
+Each processed file is marked `[x]` and committed. Do not stop until all are done.
+
+Progress: 1083 / 1181
+
+## (top-level)  (6)
+
+- [x] docs/ADVANCED_TESTING_CHECKLIST.md
+- [x] docs/MCP-Methods-Audit.md
+- [x] docs/mcp-checklist.md
+- [x] docs/mcp-plan.md
+- [x] docs/mcp-prompt.md
+- [x] docs/sonar-gate-plan.md
+
+## Evidence  (213)
+
+- [x] docs/Evidence/ALIGN-GLOBAL-001-Evidence.md
+- [x] docs/Evidence/ALIGN-MULTI-001-Evidence.md
+- [x] docs/Evidence/ALIGN-SEMI-001-Evidence.md
+- [x] docs/Evidence/ALIGN-STATS-001-Evidence.md
+- [x] docs/Evidence/ANNOT-CODING-001-Evidence.md
+- [x] docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md
+- [x] docs/Evidence/ANNOT-REPEAT-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-COVER-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-DBG-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-OLC-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-STATS-001-Evidence.md
+- [x] docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md
+- [x] docs/Evidence/CHROM-ANEU-001-Evidence.md
+- [x] docs/Evidence/CHROM-CENT-001-Evidence.md
+- [x] docs/Evidence/CHROM-KARYO-001-Evidence.md
+- [x] docs/Evidence/CHROM-SYNT-001-Evidence.md
+- [x] docs/Evidence/CHROM-TELO-001-Evidence.md
+- [x] docs/Evidence/CODON-CAI-001-Evidence.md
+- [x] docs/Evidence/CODON-ENC-001-Evidence.md
+- [x] docs/Evidence/CODON-OPT-001-Evidence.md
+- [x] docs/Evidence/CODON-RARE-001-Evidence.md
+- [x] docs/Evidence/CODON-RSCU-001-Evidence.md
+- [x] docs/Evidence/CODON-STATS-001-Evidence.md
+- [x] docs/Evidence/CODON-USAGE-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-ANI-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-COMPARE-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-ORTHO-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-RBH-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-REARR-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md
+- [x] docs/Evidence/COMPGEN-SYNTENY-001-Evidence.md
+- [x] docs/Evidence/DISORDER-LC-001-Evidence.md
+- [x] docs/Evidence/DISORDER-MORF-001-Evidence.md
+- [x] docs/Evidence/DISORDER-PRED-001-Evidence.md
+- [x] docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
+- [x] docs/Evidence/DISORDER-REGION-001-Evidence.md
+- [x] docs/Evidence/EPIGEN-AGE-001-Evidence.md
+- [x] docs/Evidence/EPIGEN-BISULF-001-Evidence.md
+- [x] docs/Evidence/EPIGEN-CHROM-001-Evidence.md
+- [x] docs/Evidence/EPIGEN-CPG-001-Evidence.md
+- [x] docs/Evidence/EPIGEN-DMR-001-Evidence.md
+- [x] docs/Evidence/EPIGEN-METHYL-001-Evidence.md
+- [x] docs/Evidence/GENOMIC-COMMON-001-Evidence.md
+- [x] docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md
+- [x] docs/Evidence/GENOMIC-ORF-001-Evidence.md
+- [x] docs/Evidence/GENOMIC-REPEAT-001-Evidence.md
+- [x] docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md
+- [x] docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
+- [x] docs/Evidence/KMER-ASYNC-001-Evidence.md
+- [x] docs/Evidence/KMER-BOTH-001-Evidence.md
+- [x] docs/Evidence/KMER-DIST-001-Evidence.md
+- [x] docs/Evidence/KMER-GENERATE-001-Evidence.md
+- [x] docs/Evidence/KMER-POSITIONS-001-Evidence.md
+- [x] docs/Evidence/KMER-STATS-001-Evidence.md
+- [x] docs/Evidence/KMER-UNIQUE-001-Evidence.md
+- [x] docs/Evidence/META-ALPHA-001-Evidence.md
+- [x] docs/Evidence/META-BETA-001-Evidence.md
+- [x] docs/Evidence/META-BIN-001-Evidence.md
+- [x] docs/Evidence/META-BIN-001-MarkerQC-Evidence.md
+- [x] docs/Evidence/META-CLASS-001-Evidence.md
+- [x] docs/Evidence/META-FUNC-001-Evidence.md
+- [x] docs/Evidence/META-PATHWAY-001-Evidence.md
+- [x] docs/Evidence/META-PROF-001-Evidence.md
+- [x] docs/Evidence/META-RESIST-001-Evidence.md
+- [x] docs/Evidence/META-TAXA-001-Evidence.md
+- [x] docs/Evidence/MIRNA-PAIR-001-Evidence.md
+- [x] docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md
+- [x] docs/Evidence/MIRNA-SEED-001-Evidence.md
+- [x] docs/Evidence/MIRNA-TARGET-001-Evidence.md
+- [x] docs/Evidence/MOTIF-CONS-001-Evidence.md
+- [x] docs/Evidence/MOTIF-DISCOVER-001-Evidence.md
+- [x] docs/Evidence/MOTIF-GENERATE-001-Evidence.md
+- [x] docs/Evidence/MOTIF-REGULATORY-001-Evidence.md
+- [x] docs/Evidence/MOTIF-SHARED-001-Evidence.md
+- [x] docs/Evidence/MUTATION-TESTING-ANALYSIS.md
+- [x] docs/Evidence/ONCO-ACTION-001-Evidence.md
+- [x] docs/Evidence/ONCO-ANNOT-001-Evidence.md
+- [x] docs/Evidence/ONCO-ARTIFACT-001-Evidence.md
+- [x] docs/Evidence/ONCO-ASCAT-001-Evidence.md
+- [x] docs/Evidence/ONCO-CCF-001-Evidence.md
+- [x] docs/Evidence/ONCO-CHIP-001-Evidence.md
+- [x] docs/Evidence/ONCO-CLONAL-001-Evidence.md
+- [x] docs/Evidence/ONCO-CNA-001-Evidence.md
+- [x] docs/Evidence/ONCO-CNA-002-Evidence.md
+- [x] docs/Evidence/ONCO-CNA-003-Evidence.md
+- [x] docs/Evidence/ONCO-CTDNA-001-Evidence.md
+- [x] docs/Evidence/ONCO-DRIVER-001-Evidence.md
+- [x] docs/Evidence/ONCO-EXPR-001-Evidence.md
+- [x] docs/Evidence/ONCO-FUSION-001-Evidence.md
+- [x] docs/Evidence/ONCO-FUSION-002-Evidence.md
+- [x] docs/Evidence/ONCO-FUSION-003-Evidence.md
+- [x] docs/Evidence/ONCO-HETERO-001-Evidence.md
+- [x] docs/Evidence/ONCO-HLA-001-Evidence.md
+- [x] docs/Evidence/ONCO-HRD-001-Evidence.md
+- [x] docs/Evidence/ONCO-IMMUNE-001-Evidence.md
+- [x] docs/Evidence/ONCO-LOH-001-Evidence.md
+- [x] docs/Evidence/ONCO-MHC-001-Evidence.md
+- [x] docs/Evidence/ONCO-MRD-001-Evidence.md
+- [x] docs/Evidence/ONCO-MSI-001-Evidence.md
+- [x] docs/Evidence/ONCO-NEO-001-Evidence.md
+- [x] docs/Evidence/ONCO-PHYLO-001-Evidence.md
+- [x] docs/Evidence/ONCO-PLOIDY-001-Evidence.md
+- [x] docs/Evidence/ONCO-PURITY-001-Evidence.md
+- [x] docs/Evidence/ONCO-SIG-001-Evidence.md
+- [x] docs/Evidence/ONCO-SIG-002-Evidence.md
+- [x] docs/Evidence/ONCO-SIG-003-Evidence.md
+- [x] docs/Evidence/ONCO-SIG-004-Evidence.md
+- [x] docs/Evidence/ONCO-SOMATIC-001-Evidence.md
+- [x] docs/Evidence/ONCO-SV-001-Evidence.md
+- [x] docs/Evidence/ONCO-TMB-001-Evidence.md
+- [x] docs/Evidence/ONCO-VAF-001-Evidence.md
+- [x] docs/Evidence/PANGEN-CLUSTER-001-Evidence.md
+- [x] docs/Evidence/PANGEN-CORE-001-Evidence.md
+- [x] docs/Evidence/PANGEN-HEAP-001-Evidence.md
+- [x] docs/Evidence/PANGEN-MARKER-001-Evidence.md
+- [x] docs/Evidence/PARSE-BED-001-Evidence.md
+- [x] docs/Evidence/PARSE-EMBL-001-Evidence.md
+- [x] docs/Evidence/PARSE-FASTA-001-Evidence.md
+- [x] docs/Evidence/PARSE-FASTQ-001-Evidence.md
+- [x] docs/Evidence/PARSE-GENBANK-001-Evidence.md
+- [x] docs/Evidence/PARSE-GFF-001-Evidence.md
+- [x] docs/Evidence/PARSE-VCF-001-Evidence.md
+- [x] docs/Evidence/PAT-APPROX-003-Evidence.md
+- [x] docs/Evidence/PHYLO-BOOT-001-Evidence.md
+- [x] docs/Evidence/PHYLO-COMP-001-Evidence.md
+- [x] docs/Evidence/PHYLO-DIST-001-Evidence.md
+- [x] docs/Evidence/PHYLO-NEWICK-001-Evidence.md
+- [x] docs/Evidence/PHYLO-STATS-001-Evidence.md
+- [x] docs/Evidence/PHYLO-TREE-001-Evidence.md
+- [x] docs/Evidence/POP-ANCESTRY-001-Evidence.md
+- [x] docs/Evidence/POP-DIV-001-Evidence.md
+- [x] docs/Evidence/POP-FREQ-001-Evidence.md
+- [x] docs/Evidence/POP-FST-001-Evidence.md
+- [x] docs/Evidence/POP-HW-001-Evidence.md
+- [x] docs/Evidence/POP-LD-001.md
+- [x] docs/Evidence/POP-ROH-001-Evidence.md
+- [x] docs/Evidence/POP-SELECT-001-Evidence.md
+- [x] docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md
+- [x] docs/Evidence/PRIMER-TM-001-Evidence.md
+- [x] docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md
+- [x] docs/Evidence/PRIMER-TM-001-NN-Evidence.md
+- [x] docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md
+- [x] docs/Evidence/PROBE-DESIGN-001-Evidence.md
+- [x] docs/Evidence/PROBE-DESIGN-001-LNA-Evidence.md
+- [x] docs/Evidence/PROBE-VALID-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-CC-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-FIND-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-LC-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-SP-001-Evidence.md
+- [x] docs/Evidence/PROTMOTIF-TM-001-Evidence.md
+- [x] docs/Evidence/QUALITY-PHRED-001-Evidence.md
+- [x] docs/Evidence/QUALITY-STATS-001-Evidence.md
+- [x] docs/Evidence/REP-STR-001-Evidence.md
+- [x] docs/Evidence/RESTR-FILTER-001-Evidence.md
+- [x] docs/Evidence/RNA-DOTBRACKET-001-Evidence.md
+- [x] docs/Evidence/RNA-ENERGY-001-Evidence.md
+- [x] docs/Evidence/RNA-HAIRPIN-001-Evidence.md
+- [x] docs/Evidence/RNA-INVERT-001-Evidence.md
+- [x] docs/Evidence/RNA-MFE-001-Evidence.md
+- [x] docs/Evidence/RNA-PAIR-001-Evidence.md
+- [x] docs/Evidence/RNA-PARTITION-001-Evidence.md
+- [x] docs/Evidence/RNA-PKPREDICT-001-Evidence.md
+- [x] docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md
+- [x] docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
+- [x] docs/Evidence/RNA-STEMLOOP-001-Evidence.md
+- [x] docs/Evidence/RNA-STRUCT-001-Evidence.md
+- [x] docs/Evidence/SEQ-ATSKEW-001-Evidence.md
+- [x] docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md
+- [x] docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md
+- [x] docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md
+- [x] docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md
+- [x] docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md
+- [x] docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
+- [x] docs/Evidence/SEQ-DINUC-001-Evidence.md
+- [x] docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md
+- [x] docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
+- [x] docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md
+- [x] docs/Evidence/SEQ-HYDRO-001-Evidence.md
+- [x] docs/Evidence/SEQ-MW-001-Evidence.md
+- [x] docs/Evidence/SEQ-PI-001-Evidence.md
+- [x] docs/Evidence/SEQ-REPLICATION-001-Evidence.md
+- [x] docs/Evidence/SEQ-RNACOMP-001-Evidence.md
+- [x] docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md
+- [x] docs/Evidence/SEQ-STATS-001-Evidence.md
+- [x] docs/Evidence/SEQ-SUMMARY-001-Evidence.md
+- [x] docs/Evidence/SEQ-THERMO-001-Evidence.md
+- [x] docs/Evidence/SEQ-TM-001-Evidence.md
+- [x] docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md
+- [x] docs/Evidence/SPLICE-DONOR-001-Evidence.md
+- [x] docs/Evidence/SPLICE-PREDICT-001-Evidence.md
+- [x] docs/Evidence/SV-BREAKPOINT-001-Evidence.md
+- [x] docs/Evidence/SV-CNV-001-Evidence.md
+- [x] docs/Evidence/SV-DETECT-001-Evidence.md
+- [x] docs/Evidence/TRANS-CODON-001-Evidence.md
+- [x] docs/Evidence/TRANS-DIFF-001-Evidence.md
+- [x] docs/Evidence/TRANS-EXPR-001-Evidence.md
+- [x] docs/Evidence/TRANS-PROT-001-Evidence.md
+- [x] docs/Evidence/TRANS-SIXFRAME-001-Evidence.md
+- [x] docs/Evidence/TRANS-SPLICE-001-Evidence.md
+- [x] docs/Evidence/VARIANT-ANNOT-001-Evidence.md
+- [x] docs/Evidence/VARIANT-CALL-001-Evidence.md
+- [x] docs/Evidence/VARIANT-INDEL-001-Evidence.md
+- [x] docs/Evidence/VARIANT-SNP-001-Evidence.md
+
+## Validation  (259)
+
+- [x] docs/Validation/FINDINGS_REGISTER.md
+- [x] docs/Validation/LIMITATIONS.md
+- [x] docs/Validation/VALIDATION_LEDGER.md
+- [x] docs/Validation/VALIDATION_PROTOCOL.md
+- [x] docs/Validation/reports/ALIGN-GLOBAL-001.md
+- [x] docs/Validation/reports/ALIGN-LOCAL-001.md
+- [x] docs/Validation/reports/ALIGN-MULTI-001.md
+- [x] docs/Validation/reports/ALIGN-SEMI-001.md
+- [x] docs/Validation/reports/ALIGN-STATS-001.md
+- [x] docs/Validation/reports/ANNOT-CODING-001.md
+- [x] docs/Validation/reports/ANNOT-CODONUSAGE-001.md
+- [x] docs/Validation/reports/ANNOT-GENE-001.md
+- [x] docs/Validation/reports/ANNOT-GFF-001.md
+- [x] docs/Validation/reports/ANNOT-ORF-001.md
+- [x] docs/Validation/reports/ANNOT-PROM-001.md
+- [x] docs/Validation/reports/ANNOT-REPEAT-001.md
+- [x] docs/Validation/reports/ASSEMBLY-CONSENSUS-001.md
+- [x] docs/Validation/reports/ASSEMBLY-CORRECT-001.md
+- [x] docs/Validation/reports/ASSEMBLY-COVER-001.md
+- [x] docs/Validation/reports/ASSEMBLY-DBG-001.md
+- [x] docs/Validation/reports/ASSEMBLY-MERGE-001.md
+- [x] docs/Validation/reports/ASSEMBLY-OLC-001.md
+- [x] docs/Validation/reports/ASSEMBLY-SCAFFOLD-001.md
+- [x] docs/Validation/reports/ASSEMBLY-STATS-001.md
+- [x] docs/Validation/reports/ASSEMBLY-TRIM-001.md
+- [x] docs/Validation/reports/CHROM-ALPHASAT-001.md
+- [x] docs/Validation/reports/CHROM-ANEU-001.md
+- [x] docs/Validation/reports/CHROM-CENT-001.md
+- [x] docs/Validation/reports/CHROM-HOR-001.md
+- [x] docs/Validation/reports/CHROM-KARYO-001.md
+- [x] docs/Validation/reports/CHROM-SYNT-001.md
+- [x] docs/Validation/reports/CHROM-TELO-001.md
+- [x] docs/Validation/reports/CODON-CAI-001.md
+- [x] docs/Validation/reports/CODON-ENC-001.md
+- [x] docs/Validation/reports/CODON-OPT-001.md
+- [x] docs/Validation/reports/CODON-RARE-001.md
+- [x] docs/Validation/reports/CODON-RSCU-001.md
+- [x] docs/Validation/reports/CODON-STATS-001.md
+- [x] docs/Validation/reports/CODON-USAGE-001.md
+- [x] docs/Validation/reports/COMPGEN-ANI-001.md
+- [x] docs/Validation/reports/COMPGEN-CLUSTER-001.md
+- [x] docs/Validation/reports/COMPGEN-COMPARE-001.md
+- [x] docs/Validation/reports/COMPGEN-DOTPLOT-001.md
+- [x] docs/Validation/reports/COMPGEN-ORTHO-001.md
+- [x] docs/Validation/reports/COMPGEN-RBH-001.md
+- [x] docs/Validation/reports/COMPGEN-REARR-001.md
+- [x] docs/Validation/reports/COMPGEN-REVERSAL-001.md
+- [x] docs/Validation/reports/COMPGEN-SYNTENY-001.md
+- [x] docs/Validation/reports/CRISPR-GUIDE-001.md
+- [x] docs/Validation/reports/CRISPR-OFF-001.md
+- [x] docs/Validation/reports/CRISPR-PAM-001.md
+- [x] docs/Validation/reports/DISORDER-LC-001.md
+- [x] docs/Validation/reports/DISORDER-MORF-001.md
+- [x] docs/Validation/reports/DISORDER-PRED-001.md
+- [x] docs/Validation/reports/DISORDER-PROPENSITY-001.md
+- [x] docs/Validation/reports/DISORDER-REGION-001.md
+- [x] docs/Validation/reports/EPIGEN-AGE-001.md
+- [x] docs/Validation/reports/EPIGEN-BISULF-001.md
+- [x] docs/Validation/reports/EPIGEN-CHROM-001.md
+- [x] docs/Validation/reports/EPIGEN-CPG-001.md
+- [x] docs/Validation/reports/EPIGEN-DMR-001.md
+- [x] docs/Validation/reports/EPIGEN-METHYL-001.md
+- [x] docs/Validation/reports/GENOMIC-COMMON-001.md
+- [x] docs/Validation/reports/GENOMIC-MOTIFS-001.md
+- [x] docs/Validation/reports/GENOMIC-ORF-001.md
+- [x] docs/Validation/reports/GENOMIC-REPEAT-001.md
+- [x] docs/Validation/reports/GENOMIC-SIMILARITY-001.md
+- [x] docs/Validation/reports/GENOMIC-TANDEM-001.md
+- [x] docs/Validation/reports/IMMUNE-NUSVR-001.md
+- [x] docs/Validation/reports/KMER-ASYNC-001.md
+- [x] docs/Validation/reports/KMER-BOTH-001.md
+- [x] docs/Validation/reports/KMER-COUNT-001.md
+- [x] docs/Validation/reports/KMER-DIST-001.md
+- [x] docs/Validation/reports/KMER-FIND-001.md
+- [x] docs/Validation/reports/KMER-FREQ-001.md
+- [x] docs/Validation/reports/KMER-GENERATE-001.md
+- [x] docs/Validation/reports/KMER-POSITIONS-001.md
+- [x] docs/Validation/reports/KMER-STATS-001.md
+- [x] docs/Validation/reports/KMER-UNIQUE-001.md
+- [x] docs/Validation/reports/META-ALPHA-001.md
+- [x] docs/Validation/reports/META-BETA-001.md
+- [x] docs/Validation/reports/META-BIN-001.md
+- [x] docs/Validation/reports/META-CHECKM-001.md
+- [x] docs/Validation/reports/META-CLASS-001.md
+- [x] docs/Validation/reports/META-FUNC-001.md
+- [x] docs/Validation/reports/META-PATHWAY-001.md
+- [x] docs/Validation/reports/META-PROF-001.md
+- [x] docs/Validation/reports/META-RESIST-001.md
+- [x] docs/Validation/reports/META-TAXA-001.md
+- [x] docs/Validation/reports/META-TETRA-001.md
+- [x] docs/Validation/reports/MHC-MATRIX-001.md
+- [x] docs/Validation/reports/MHC-NN-001.md
+- [x] docs/Validation/reports/MIRNA-CLASSIFY-001.md
+- [x] docs/Validation/reports/MIRNA-CLEAVAGE-001.md
+- [x] docs/Validation/reports/MIRNA-CONTEXT-001.md
+- [x] docs/Validation/reports/MIRNA-PAIR-001.md
+- [x] docs/Validation/reports/MIRNA-PCT-001.md
+- [x] docs/Validation/reports/MIRNA-PRECURSOR-001.md
+- [x] docs/Validation/reports/MIRNA-SEED-001.md
+- [x] docs/Validation/reports/MIRNA-TARGET-001.md
+- [x] docs/Validation/reports/MOTIF-CONS-001.md
+- [x] docs/Validation/reports/MOTIF-DISCOVER-001.md
+- [x] docs/Validation/reports/MOTIF-GENERATE-001.md
+- [x] docs/Validation/reports/MOTIF-REGULATORY-001.md
+- [x] docs/Validation/reports/MOTIF-SHARED-001.md
+- [x] docs/Validation/reports/ONCO-ACTION-001.md
+- [x] docs/Validation/reports/ONCO-ANNOT-001.md
+- [x] docs/Validation/reports/ONCO-ARTIFACT-001.md
+- [x] docs/Validation/reports/ONCO-ASCAT-001.md
+- [x] docs/Validation/reports/ONCO-CCF-001.md
+- [x] docs/Validation/reports/ONCO-CHIP-001.md
+- [x] docs/Validation/reports/ONCO-CLONAL-001.md
+- [x] docs/Validation/reports/ONCO-CNA-001.md
+- [x] docs/Validation/reports/ONCO-CNA-002.md
+- [x] docs/Validation/reports/ONCO-CNA-003.md
+- [x] docs/Validation/reports/ONCO-CTDNA-001.md
+- [x] docs/Validation/reports/ONCO-DRIVER-001.md
+- [x] docs/Validation/reports/ONCO-EXPR-001.md
+- [x] docs/Validation/reports/ONCO-FUSION-001.md
+- [x] docs/Validation/reports/ONCO-FUSION-002.md
+- [x] docs/Validation/reports/ONCO-FUSION-003.md
+- [x] docs/Validation/reports/ONCO-HETERO-001.md
+- [x] docs/Validation/reports/ONCO-HLA-001.md
+- [x] docs/Validation/reports/ONCO-HRD-001.md
+- [x] docs/Validation/reports/ONCO-IMMUNE-001.md
+- [x] docs/Validation/reports/ONCO-LOH-001.md
+- [x] docs/Validation/reports/ONCO-MHC-001.md
+- [x] docs/Validation/reports/ONCO-MRD-001.md
+- [x] docs/Validation/reports/ONCO-MSI-001.md
+- [x] docs/Validation/reports/ONCO-NEO-001.md
+- [x] docs/Validation/reports/ONCO-PHYLO-001.md
+- [x] docs/Validation/reports/ONCO-PLOIDY-001.md
+- [x] docs/Validation/reports/ONCO-PURITY-001.md
+- [x] docs/Validation/reports/ONCO-SIG-001.md
+- [x] docs/Validation/reports/ONCO-SIG-002.md
+- [x] docs/Validation/reports/ONCO-SIG-003.md
+- [x] docs/Validation/reports/ONCO-SIG-004.md
+- [x] docs/Validation/reports/ONCO-SOMATIC-001.md
+- [x] docs/Validation/reports/ONCO-SV-001.md
+- [x] docs/Validation/reports/ONCO-TMB-001.md
+- [x] docs/Validation/reports/ONCO-VAF-001.md
+- [x] docs/Validation/reports/PANGEN-CLUSTER-001.md
+- [x] docs/Validation/reports/PANGEN-CORE-001.md
+- [x] docs/Validation/reports/PANGEN-HEAP-001.md
+- [x] docs/Validation/reports/PANGEN-MARKER-001.md
+- [x] docs/Validation/reports/PARSE-BED-001.md
+- [x] docs/Validation/reports/PARSE-EMBL-001.md
+- [x] docs/Validation/reports/PARSE-FASTA-001.md
+- [x] docs/Validation/reports/PARSE-FASTQ-001.md
+- [x] docs/Validation/reports/PARSE-GENBANK-001.md
+- [x] docs/Validation/reports/PARSE-GFF-001.md
+- [x] docs/Validation/reports/PARSE-VCF-001.md
+- [x] docs/Validation/reports/PAT-APPROX-001.md
+- [x] docs/Validation/reports/PAT-APPROX-002.md
+- [x] docs/Validation/reports/PAT-APPROX-003.md
+- [x] docs/Validation/reports/PAT-EXACT-001.md
+- [x] docs/Validation/reports/PAT-IUPAC-001.md
+- [x] docs/Validation/reports/PAT-PWM-001.md
+- [x] docs/Validation/reports/PHYLO-BOOT-001.md
+- [x] docs/Validation/reports/PHYLO-COMP-001.md
+- [x] docs/Validation/reports/PHYLO-DIST-001.md
+- [x] docs/Validation/reports/PHYLO-NEWICK-001.md
+- [x] docs/Validation/reports/PHYLO-STATS-001.md
+- [x] docs/Validation/reports/PHYLO-TREE-001.md
+- [x] docs/Validation/reports/POP-ANCESTRY-001.md
+- [x] docs/Validation/reports/POP-DIV-001.md
+- [x] docs/Validation/reports/POP-FREQ-001.md
+- [x] docs/Validation/reports/POP-FST-001.md
+- [x] docs/Validation/reports/POP-HW-001.md
+- [x] docs/Validation/reports/POP-LD-001.md
+- [x] docs/Validation/reports/POP-ROH-001.md
+- [x] docs/Validation/reports/POP-SELECT-001.md
+- [x] docs/Validation/reports/PRIMER-DESIGN-001.md
+- [x] docs/Validation/reports/PRIMER-DIMER-001.md
+- [x] docs/Validation/reports/PRIMER-HAIRPIN-001.md
+- [x] docs/Validation/reports/PRIMER-NNTM-001.md
+- [x] docs/Validation/reports/PRIMER-STRUCT-001.md
+- [x] docs/Validation/reports/PRIMER-TM-001.md
+- [x] docs/Validation/reports/PROBE-DESIGN-001.md
+- [x] docs/Validation/reports/PROBE-EVALUE-001.md
+- [x] docs/Validation/reports/PROBE-LNATM-001.md
+- [x] docs/Validation/reports/PROBE-VALID-001.md
+- [x] docs/Validation/reports/PROTMOTIF-CC-001.md
+- [x] docs/Validation/reports/PROTMOTIF-COMMON-001.md
+- [x] docs/Validation/reports/PROTMOTIF-DOMAIN-001.md
+- [x] docs/Validation/reports/PROTMOTIF-FIND-001.md
+- [x] docs/Validation/reports/PROTMOTIF-HMM-001.md
+- [x] docs/Validation/reports/PROTMOTIF-LC-001.md
+- [x] docs/Validation/reports/PROTMOTIF-PATTERN-001.md
+- [x] docs/Validation/reports/PROTMOTIF-PROSITE-001.md
+- [x] docs/Validation/reports/PROTMOTIF-SP-001.md
+- [x] docs/Validation/reports/PROTMOTIF-TM-001.md
+- [x] docs/Validation/reports/QUALITY-PHRED-001.md
+- [x] docs/Validation/reports/QUALITY-STATS-001.md
+- [x] docs/Validation/reports/REP-APPROX-001.md
+- [x] docs/Validation/reports/REP-DIRECT-001.md
+- [x] docs/Validation/reports/REP-INV-001.md
+- [x] docs/Validation/reports/REP-PALIN-001.md
+- [x] docs/Validation/reports/REP-STR-001.md
+- [x] docs/Validation/reports/REP-TANDEM-001.md
+- [x] docs/Validation/reports/RESTR-DIGEST-001.md
+- [x] docs/Validation/reports/RESTR-FILTER-001.md
+- [x] docs/Validation/reports/RESTR-FIND-001.md
+- [x] docs/Validation/reports/RNA-ACCESS-001.md
+- [x] docs/Validation/reports/RNA-DOTBRACKET-001.md
+- [x] docs/Validation/reports/RNA-ENERGY-001.md
+- [x] docs/Validation/reports/RNA-HAIRPIN-001.md
+- [x] docs/Validation/reports/RNA-INVERT-001.md
+- [x] docs/Validation/reports/RNA-MFE-001.md
+- [x] docs/Validation/reports/RNA-PAIR-001.md
+- [x] docs/Validation/reports/RNA-PARTITION-001.md
+- [x] docs/Validation/reports/RNA-PSEUDOKNOT-001.md
+- [x] docs/Validation/reports/RNA-STEMLOOP-001.md
+- [x] docs/Validation/reports/RNA-STRUCT-001.md
+- [x] docs/Validation/reports/SEQ-ATSKEW-001.md
+- [x] docs/Validation/reports/SEQ-CODON-FREQ-001.md
+- [x] docs/Validation/reports/SEQ-COMP-001.md
+- [x] docs/Validation/reports/SEQ-COMPLEX-001.md
+- [x] docs/Validation/reports/SEQ-COMPLEX-COMPRESS-001.md
+- [x] docs/Validation/reports/SEQ-COMPLEX-DUST-001.md
+- [x] docs/Validation/reports/SEQ-COMPLEX-KMER-001.md
+- [x] docs/Validation/reports/SEQ-COMPLEX-WINDOW-001.md
+- [x] docs/Validation/reports/SEQ-DINUC-001.md
+- [x] docs/Validation/reports/SEQ-ENTROPY-001.md
+- [x] docs/Validation/reports/SEQ-ENTROPY-PROFILE-001.md
+- [x] docs/Validation/reports/SEQ-GC-001.md
+- [x] docs/Validation/reports/SEQ-GC-ANALYSIS-001.md
+- [x] docs/Validation/reports/SEQ-GC-PROFILE-001.md
+- [x] docs/Validation/reports/SEQ-GCSKEW-001.md
+- [x] docs/Validation/reports/SEQ-HYDRO-001.md
+- [x] docs/Validation/reports/SEQ-MW-001.md
+- [x] docs/Validation/reports/SEQ-PI-001.md
+- [x] docs/Validation/reports/SEQ-REPLICATION-001.md
+- [x] docs/Validation/reports/SEQ-REVCOMP-001.md
+- [x] docs/Validation/reports/SEQ-RNACOMP-001.md
+- [x] docs/Validation/reports/SEQ-SECSTRUCT-001.md
+- [x] docs/Validation/reports/SEQ-STATS-001.md
+- [x] docs/Validation/reports/SEQ-SUMMARY-001.md
+- [x] docs/Validation/reports/SEQ-THERMO-001.md
+- [x] docs/Validation/reports/SEQ-TM-001.md
+- [x] docs/Validation/reports/SEQ-VALID-001.md
+- [x] docs/Validation/reports/SPLICE-ACCEPTOR-001.md
+- [x] docs/Validation/reports/SPLICE-DONOR-001.md
+- [x] docs/Validation/reports/SPLICE-MAXENT3-001.md
+- [x] docs/Validation/reports/SPLICE-MAXENT5-001.md
+- [x] docs/Validation/reports/SPLICE-PREDICT-001.md
+- [x] docs/Validation/reports/SV-BREAKPOINT-001.md
+- [x] docs/Validation/reports/SV-CNV-001.md
+- [x] docs/Validation/reports/SV-DETECT-001.md
+- [x] docs/Validation/reports/TRANS-CODON-001.md
+- [x] docs/Validation/reports/TRANS-DIFF-001.md
+- [x] docs/Validation/reports/TRANS-EXPR-001.md
+- [x] docs/Validation/reports/TRANS-PROT-001.md
+- [x] docs/Validation/reports/TRANS-SIXFRAME-001.md
+- [x] docs/Validation/reports/TRANS-SPLICE-001.md
+- [x] docs/Validation/reports/VARIANT-ANNOT-001.md
+- [x] docs/Validation/reports/VARIANT-CALL-001.md
+- [x] docs/Validation/reports/VARIANT-INDEL-001.md
+- [x] docs/Validation/reports/VARIANT-SNP-001.md
+
+## algorithms  (247)
+
+- [x] docs/algorithms/Alignment/Alignment_Statistics.md  (done-via-concept)
+- [x] docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md  (done-via-concept)
+- [x] docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md
+- [x] docs/algorithms/Alignment/Multiple_Sequence_Alignment.md  (done-via-concept)
+- [x] docs/algorithms/Alignment/Semi_Global_Alignment.md  (done-via-concept)
+- [x] docs/algorithms/Analysis/Open_Reading_Frame_Detection.md
+- [x] docs/algorithms/Analysis/Sequence_Similarity.md
+- [x] docs/algorithms/Annotation/GFF3_IO.md
+- [x] docs/algorithms/Annotation/Gene_Prediction.md
+- [x] docs/algorithms/Annotation/ORF_Detection.md
+- [x] docs/algorithms/Annotation/Promoter_Detection.md
+- [x] docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md  (done-via-concept)
+- [x] docs/algorithms/Annotation/Repetitive_Element_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Assembly_Statistics.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Consensus_Computation.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Coverage_Calculation.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/De_Bruijn_Graph_Assembly.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Error_Correction.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Overlap_Layout_Consensus.md  (done-via-concept)
+- [x] docs/algorithms/Assembly/Quality_Trimming.md  (done-via-concept)
+- [x] docs/algorithms/CANONICAL_MAP.md
+- [x] docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md  (done-via-concept)
+- [x] docs/algorithms/Chromosome_Analysis/Higher_Order_Repeat_Detection.md
+- [x] docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md  (done-via-concept)
+- [x] docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md  (done-via-concept)
+- [x] docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md  (done-via-concept)
+- [x] docs/algorithms/Codon/Codon_Usage_Statistics.md
+- [x] docs/algorithms/Codon/Effective_Number_of_Codons.md  (done-via-concept)
+- [x] docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md  (done-via-concept)
+- [x] docs/algorithms/Codon_Optimization/CAI_Calculation.md  (done-via-concept)
+- [x] docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md  (done-via-concept)
+- [x] docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Codon_Optimization/Sequence_Optimization.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Conserved_Gene_Clusters.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Dot_Plot_Generation.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Genome_Comparison.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Genome_Rearrangement_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Ortholog_Identification.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Reciprocal_Best_Hits.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Reversal_Distance.md  (done-via-concept)
+- [x] docs/algorithms/Comparative_Genomics/Synteny_Block_Detection.md  (done-via-concept)
+- [x] docs/algorithms/Complexity/DUST_Score.md
+- [x] docs/algorithms/Complexity/K-mer_Entropy.md
+- [x] docs/algorithms/Complexity/Lempel_Ziv_Complexity.md
+- [x] docs/algorithms/Complexity/Windowed_Complexity.md
+- [x] docs/algorithms/Epigenetics/Bisulfite_Sequencing_Analysis.md
+- [x] docs/algorithms/Epigenetics/Chromatin_State_Prediction.md
+- [x] docs/algorithms/Epigenetics/CpG_Site_Detection.md
+- [x] docs/algorithms/Epigenetics/Differentially_Methylated_Regions.md
+- [x] docs/algorithms/Epigenetics/Epigenetic_Age_Estimation.md
+- [x] docs/algorithms/Epigenetics/Methylation_Analysis.md
+- [x] docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md  (done-via-concept)
+- [x] docs/algorithms/Extended_Assembly/Contig_Merging.md  (done-via-concept)
+- [x] docs/algorithms/Extended_Assembly/Scaffolding.md  (done-via-concept)
+- [x] docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md
+- [x] docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md
+- [x] docs/algorithms/FileIO/BED_Parsing.md
+- [x] docs/algorithms/FileIO/EMBL_Parsing.md
+- [x] docs/algorithms/FileIO/FASTA_Parsing.md
+- [x] docs/algorithms/FileIO/FASTQ_Parsing.md
+- [x] docs/algorithms/FileIO/GFF_Parsing.md
+- [x] docs/algorithms/FileIO/GenBank_Parsing.md
+- [x] docs/algorithms/FileIO/VCF_Parsing.md
+- [x] docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
+- [x] docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md
+- [x] docs/algorithms/K-mer/Both_Strand_Kmer_Counting.md
+- [x] docs/algorithms/K-mer/K-mer_Counting.md
+- [x] docs/algorithms/K-mer/K-mer_Euclidean_Distance.md
+- [x] docs/algorithms/K-mer/K-mer_Frequency_Analysis.md
+- [x] docs/algorithms/K-mer/K-mer_Generation.md
+- [x] docs/algorithms/K-mer/K-mer_Positions.md
+- [x] docs/algorithms/K-mer/K-mer_Search.md
+- [x] docs/algorithms/K-mer/K-mer_Statistics.md
+- [x] docs/algorithms/K-mer/Unique_And_MinCount_Kmers.md
+- [x] docs/algorithms/Metagenomics/Alpha_Diversity.md
+- [x] docs/algorithms/Metagenomics/Antibiotic_Resistance_Detection.md
+- [x] docs/algorithms/Metagenomics/Beta_Diversity.md
+- [x] docs/algorithms/Metagenomics/Functional_Prediction.md
+- [x] docs/algorithms/Metagenomics/Genome_Binning.md
+- [x] docs/algorithms/Metagenomics/PanGenome_Core_Accessory.md
+- [x] docs/algorithms/Metagenomics/Pathway_Enrichment_ORA.md
+- [x] docs/algorithms/Metagenomics/Significant_Taxa_Detection.md
+- [x] docs/algorithms/Metagenomics/Taxonomic_Classification.md
+- [x] docs/algorithms/Metagenomics/Taxonomic_Profile.md
+- [x] docs/algorithms/MiRNA/MiRNA_Target_Pairing.md
+- [x] docs/algorithms/MiRNA/Pre_miRNA_Detection.md
+- [x] docs/algorithms/MiRNA/Seed_Sequence_Analysis.md
+- [x] docs/algorithms/MiRNA/Target_Site_Prediction.md
+- [x] docs/algorithms/MolTools/DNA_Dimer_Tm.md
+- [x] docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md
+- [x] docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md
+- [x] docs/algorithms/MolTools/Guide_RNA_Design.md
+- [x] docs/algorithms/MolTools/Hybridization_Probe_Design.md
+- [x] docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md
+- [x] docs/algorithms/MolTools/Melting_Temperature.md
+- [x] docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md
+- [x] docs/algorithms/MolTools/Off_Target_Analysis.md
+- [x] docs/algorithms/MolTools/PAM_Site_Detection.md
+- [x] docs/algorithms/MolTools/Primer3_Penalty_Objective.md
+- [x] docs/algorithms/MolTools/Primer_Design.md
+- [x] docs/algorithms/MolTools/Primer_Structure_Analysis.md
+- [x] docs/algorithms/MolTools/Probe_Validation.md
+- [x] docs/algorithms/MolTools/Restriction_Digest_Simulation.md
+- [x] docs/algorithms/MolTools/Restriction_Enzyme_Filtering.md
+- [x] docs/algorithms/MolTools/Restriction_Site_Detection.md
+- [x] docs/algorithms/Motif_Analysis/Known_Motif_Search.md
+- [x] docs/algorithms/Motif_Discovery/Overrepresented_Kmer_Discovery.md
+- [x] docs/algorithms/Motif_Discovery/Regulatory_Elements.md
+- [x] docs/algorithms/Motif_Discovery/Shared_Motifs.md
+- [x] docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md
+- [x] docs/algorithms/Oncology/Cancer_Cell_Fraction_Estimation.md
+- [x] docs/algorithms/Oncology/Cancer_Variant_Annotation.md
+- [x] docs/algorithms/Oncology/Clinical_Actionability_Assessment.md
+- [x] docs/algorithms/Oncology/Clonal_Hematopoiesis_Filtering.md
+- [x] docs/algorithms/Oncology/Clonal_Subclonal_Classification.md
+- [x] docs/algorithms/Oncology/Complex_Rearrangement_Classification.md
+- [x] docs/algorithms/Oncology/Copy_Number_Alteration_Classification.md
+- [x] docs/algorithms/Oncology/CtDNA_Analysis.md
+- [x] docs/algorithms/Oncology/Driver_Mutation_Detection.md
+- [x] docs/algorithms/Oncology/Focal_Amplification_Detection.md
+- [x] docs/algorithms/Oncology/Fusion_Breakpoint_Analysis.md
+- [x] docs/algorithms/Oncology/Fusion_Gene_Detection.md
+- [x] docs/algorithms/Oncology/HLA_Nomenclature_And_Allele_Specific_LOH.md
+- [x] docs/algorithms/Oncology/HRD_Score.md
+- [x] docs/algorithms/Oncology/Homozygous_Deletion_Detection.md
+- [x] docs/algorithms/Oncology/Immune_Infiltration_Estimation.md
+- [x] docs/algorithms/Oncology/Known_Fusion_Database_Lookup.md
+- [x] docs/algorithms/Oncology/Loss_Of_Heterozygosity.md
+- [x] docs/algorithms/Oncology/MHC_Peptide_Binding_Classification.md
+- [x] docs/algorithms/Oncology/MRD_Detection.md
+- [x] docs/algorithms/Oncology/Microsatellite_Instability_Detection.md
+- [x] docs/algorithms/Oncology/Mutational_Process_Classification.md
+- [x] docs/algorithms/Oncology/Mutational_Signature_Exposure_Bootstrap.md
+- [x] docs/algorithms/Oncology/Mutational_Signature_Extraction_NMF.md
+- [x] docs/algorithms/Oncology/Mutational_Signature_Fitting.md
+- [x] docs/algorithms/Oncology/Neoantigen_Peptide_Generation.md
+- [x] docs/algorithms/Oncology/SBS96_Trinucleotide_Context_Catalog.md
+- [x] docs/algorithms/Oncology/Sequencing_Artifact_Detection.md
+- [x] docs/algorithms/Oncology/Somatic_Mutation_Calling.md
+- [x] docs/algorithms/Oncology/Tumor_Gene_Expression_Outlier.md
+- [x] docs/algorithms/Oncology/Tumor_Heterogeneity_Analysis.md
+- [x] docs/algorithms/Oncology/Tumor_Mutational_Burden.md
+- [x] docs/algorithms/Oncology/Tumor_Phylogeny_Reconstruction.md
+- [x] docs/algorithms/Oncology/Tumor_Ploidy_Estimation.md
+- [x] docs/algorithms/Oncology/Tumor_Purity_Estimation.md
+- [x] docs/algorithms/Oncology/Variant_Allele_Frequency.md
+- [x] docs/algorithms/PanGenome/Gene_Clustering.md
+- [x] docs/algorithms/PanGenome/Pan_Genome_Growth_Model.md
+- [x] docs/algorithms/PanGenome/Phylogenetic_Marker_Selection.md
+- [x] docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
+- [x] docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md
+- [x] docs/algorithms/Pattern_Matching/Edit_Distance.md
+- [x] docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md
+- [x] docs/algorithms/Pattern_Matching/Frequent_Words_With_Mismatches.md
+- [x] docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md
+- [x] docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md
+- [x] docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md
+- [x] docs/algorithms/Pattern_Matching/Suffix_Tree.md
+- [ ] docs/algorithms/Phylogenetics/Bootstrap_Analysis.md
+- [ ] docs/algorithms/Phylogenetics/Distance_Matrix.md
+- [ ] docs/algorithms/Phylogenetics/Newick_Format.md
+- [ ] docs/algorithms/Phylogenetics/Tree_Comparison.md
+- [ ] docs/algorithms/Phylogenetics/Tree_Construction.md
+- [ ] docs/algorithms/Phylogenetics/Tree_Statistics.md
+- [ ] docs/algorithms/Population_Genetics/Allele_Frequency.md
+- [ ] docs/algorithms/Population_Genetics/Ancestry_Estimation.md
+- [ ] docs/algorithms/Population_Genetics/Diversity_Statistics.md
+- [ ] docs/algorithms/Population_Genetics/F_Statistics.md
+- [ ] docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md
+- [ ] docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md
+- [ ] docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md
+- [ ] docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md
+- [ ] docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md
+- [ ] docs/algorithms/ProteinMotif/Common_Motif_Finding.md
+- [ ] docs/algorithms/ProteinMotif/Domain_Prediction.md
+- [ ] docs/algorithms/ProteinMotif/Low_Complexity_Region_Detection.md
+- [ ] docs/algorithms/ProteinMotif/Motif_Search.md
+- [ ] docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md
+- [ ] docs/algorithms/ProteinMotif/Pattern_Matching_Methods.md
+- [ ] docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md
+- [ ] docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md
+- [ ] docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md
+- [ ] docs/algorithms/ProteinPred/Disorder_Prediction.md
+- [ ] docs/algorithms/ProteinPred/Disorder_Propensity.md
+- [ ] docs/algorithms/ProteinPred/Disordered_Region_Detection.md
+- [x] docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md  (done-via-concept)
+- [ ] docs/algorithms/ProteinPred/MoRF_Prediction.md
+- [ ] docs/algorithms/Quality/Phred_Score_Handling.md
+- [ ] docs/algorithms/Quality/Quality_Statistics.md
+- [ ] docs/algorithms/README.md
+- [ ] docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md
+- [ ] docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md
+- [ ] docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
+- [ ] docs/algorithms/Repeat_Analysis/Palindrome_Detection.md
+- [x] docs/algorithms/Repeat_Analysis/Repeat_Detection.md
+- [ ] docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md
+- [ ] docs/algorithms/RnaStructure/Dot_Bracket_Notation.md
+- [ ] docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
+- [ ] docs/algorithms/RnaStructure/Inverted_Repeats.md
+- [ ] docs/algorithms/RnaStructure/Minimum_Free_Energy.md
+- [ ] docs/algorithms/RnaStructure/Pseudoknot_Detection.md
+- [ ] docs/algorithms/RnaStructure/Pseudoknot_Prediction.md
+- [ ] docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md
+- [ ] docs/algorithms/RnaStructure/RNA_Base_Pairing.md
+- [ ] docs/algorithms/RnaStructure/RNA_Free_Energy.md
+- [ ] docs/algorithms/RnaStructure/RNA_Partition_Function.md
+- [ ] docs/algorithms/RnaStructure/RNA_Secondary_Structure.md
+- [ ] docs/algorithms/RnaStructure/RNA_Stemloop.md
+- [ ] docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md
+- [x] docs/algorithms/Sequence_Comparison/Common_Region_Detection.md
+- [ ] docs/algorithms/Sequence_Composition/GC_Skew.md
+- [ ] docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
+- [ ] docs/algorithms/Sequence_Composition/RNA_Complement.md
+- [ ] docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md
+- [ ] docs/algorithms/Sequence_Composition/Sequence_Composition.md
+- [ ] docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md
+- [ ] docs/algorithms/Sequence_Composition/Sequence_Validation.md
+- [ ] docs/algorithms/Sequence_Composition/Shannon_Entropy.md
+- [ ] docs/algorithms/Splicing/Acceptor_Site_Detection.md
+- [ ] docs/algorithms/Splicing/Donor_Site_Detection.md
+- [ ] docs/algorithms/Splicing/Gene_Structure_Prediction.md
+- [ ] docs/algorithms/Statistics/Codon_Frequencies.md
+- [ ] docs/algorithms/Statistics/DNA_Thermodynamics.md
+- [ ] docs/algorithms/Statistics/Dinucleotide_Analysis.md
+- [ ] docs/algorithms/Statistics/Entropy_Profile.md
+- [ ] docs/algorithms/Statistics/GC_Content_Profile.md
+- [ ] docs/algorithms/Statistics/Hydrophobicity_Analysis.md
+- [ ] docs/algorithms/Statistics/Isoelectric_Point.md
+- [ ] docs/algorithms/Statistics/Melting_Temperature.md
+- [ ] docs/algorithms/Statistics/Molecular_Weight_Calculation.md
+- [ ] docs/algorithms/Statistics/Secondary_Structure_Prediction.md
+- [ ] docs/algorithms/Statistics/Sequence_Summary.md
+- [ ] docs/algorithms/StructuralVar/Breakpoint_Detection.md
+- [ ] docs/algorithms/StructuralVar/Copy_Number_Variation.md
+- [ ] docs/algorithms/StructuralVar/SV_Detection.md
+- [ ] docs/algorithms/Transcriptome/Alternative_Splicing.md
+- [ ] docs/algorithms/Transcriptome/Differential_Expression.md
+- [ ] docs/algorithms/Transcriptome/Expression_Quantification.md
+- [ ] docs/algorithms/Translation/Codon_Translation.md
+- [ ] docs/algorithms/Translation/Protein_Translation.md
+- [ ] docs/algorithms/Translation/Six_Frame_Translation.md
+- [ ] docs/algorithms/Variants/Indel_Detection.md
+- [ ] docs/algorithms/Variants/SNP_Detection.md
+- [ ] docs/algorithms/Variants/Variant_Annotation.md
+- [ ] docs/algorithms/Variants/Variant_Detection.md
+
+## checklists  (10)
+
+- [x] docs/checklists/01_PROPERTY_BASED_TESTING.md
+- [x] docs/checklists/02_METAMORPHIC_TESTING.md
+- [x] docs/checklists/03_FUZZING.md
+- [x] docs/checklists/04_MUTATION_TESTING.md
+- [x] docs/checklists/05_SNAPSHOT_TESTING.md
+- [x] docs/checklists/06_ALGEBRAIC_TESTING.md
+- [x] docs/checklists/07_ARCHITECTURE_TESTING.md
+- [x] docs/checklists/08_DIFFERENTIAL_TESTING.md
+- [x] docs/checklists/09_COMBINATORIAL_TESTING.md
+- [x] docs/checklists/10_CHARACTERIZATION_TESTING.md
+
+## external  (2)
+
+- [x] docs/external/VCFv4.3.pdf
+- [x] docs/external/gaps.pdf
+
+## mcp  (430)
+
+- [x] docs/mcp/MCP_STATUS.md  (SCHEMA-excluded status ledger; provenance for mcp-tool-catalog)
+- [x] docs/mcp/README.md  (ingested -> wiki/sources/mcp-readme.md)
+- [x] docs/mcp/tools/alignment/alignment_statistics.md
+- [x] docs/mcp/tools/alignment/assemble_de_bruijn.md
+- [x] docs/mcp/tools/alignment/assemble_olc.md
+- [x] docs/mcp/tools/alignment/assembly_stats.md
+- [x] docs/mcp/tools/alignment/calculate_coverage.md
+- [x] docs/mcp/tools/alignment/compute_consensus.md
+- [x] docs/mcp/tools/alignment/error_correct_reads.md
+- [x] docs/mcp/tools/alignment/find_all_overlaps.md
+- [x] docs/mcp/tools/alignment/find_best_match.md
+- [x] docs/mcp/tools/alignment/find_overlap.md
+- [x] docs/mcp/tools/alignment/find_with_edits.md
+- [x] docs/mcp/tools/alignment/find_with_mismatches.md
+- [x] docs/mcp/tools/alignment/format_alignment.md
+- [x] docs/mcp/tools/alignment/frequent_kmers_with_mismatches.md
+- [x] docs/mcp/tools/alignment/global_align.md
+- [x] docs/mcp/tools/alignment/local_align.md
+- [x] docs/mcp/tools/alignment/merge_contigs.md
+- [x] docs/mcp/tools/alignment/multiple_align.md
+- [x] docs/mcp/tools/alignment/quality_trim_reads.md
+- [x] docs/mcp/tools/alignment/scaffold_contigs.md
+- [x] docs/mcp/tools/alignment/semi_global_align.md
+- [x] docs/mcp/tools/alignment/sequence_identity.md
+- [x] docs/mcp/tools/analysis/analyze_gc_content.md
+- [x] docs/mcp/tools/analysis/analyze_kmers.md
+- [x] docs/mcp/tools/analysis/at_skew.md
+- [x] docs/mcp/tools/analysis/base_pair_type.md
+- [x] docs/mcp/tools/analysis/bulge_loop_energy.md
+- [x] docs/mcp/tools/analysis/calculate_ani.md
+- [x] docs/mcp/tools/analysis/can_pair.md
+- [x] docs/mcp/tools/analysis/codon_frequencies.md
+- [x] docs/mcp/tools/analysis/compare_genomes.md
+- [x] docs/mcp/tools/analysis/compression_ratio.md
+- [x] docs/mcp/tools/analysis/count_kmers.md
+- [x] docs/mcp/tools/analysis/count_kmers_both_strands.md
+- [x] docs/mcp/tools/analysis/create_pwm.md
+- [x] docs/mcp/tools/analysis/cumulative_gc_skew.md
+- [x] docs/mcp/tools/analysis/dangling_end_energy.md
+- [x] docs/mcp/tools/analysis/detect_pseudoknots.md
+- [x] docs/mcp/tools/analysis/detect_rearrangements.md
+- [x] docs/mcp/tools/analysis/dinucleotide_frequencies.md
+- [x] docs/mcp/tools/analysis/dinucleotide_ratios.md
+- [x] docs/mcp/tools/analysis/discover_motifs.md
+- [x] docs/mcp/tools/analysis/disorder_propensity.md
+- [x] docs/mcp/tools/analysis/dust_score.md
+- [x] docs/mcp/tools/analysis/entropy_profile.md
+- [x] docs/mcp/tools/analysis/find_clumps.md
+- [x] docs/mcp/tools/analysis/find_common_regions.md
+- [x] docs/mcp/tools/analysis/find_conserved_clusters.md
+- [x] docs/mcp/tools/analysis/find_degenerate_motif.md
+- [x] docs/mcp/tools/analysis/find_direct_repeats.md
+- [x] docs/mcp/tools/analysis/find_exact_motif.md
+- [x] docs/mcp/tools/analysis/find_inverted_repeats.md
+- [x] docs/mcp/tools/analysis/find_known_motifs.md
+- [x] docs/mcp/tools/analysis/find_low_complexity_regions.md
+- [x] docs/mcp/tools/analysis/find_microsatellites.md
+- [x] docs/mcp/tools/analysis/find_motif.md
+- [x] docs/mcp/tools/analysis/find_motif_by_pattern.md
+- [x] docs/mcp/tools/analysis/find_motif_by_prosite.md
+- [x] docs/mcp/tools/analysis/find_open_reading_frames.md
+- [x] docs/mcp/tools/analysis/find_orthologs.md
+- [x] docs/mcp/tools/analysis/find_palindromes.md
+- [x] docs/mcp/tools/analysis/find_protein_domains.md
+- [x] docs/mcp/tools/analysis/find_protein_low_complexity_regions.md
+- [x] docs/mcp/tools/analysis/find_protein_motifs.md
+- [x] docs/mcp/tools/analysis/find_reciprocal_best_hits.md
+- [x] docs/mcp/tools/analysis/find_regulatory_elements.md
+- [x] docs/mcp/tools/analysis/find_repeats.md
+- [x] docs/mcp/tools/analysis/find_rna_inverted_repeats.md
+- [x] docs/mcp/tools/analysis/find_shared_motifs.md
+- [x] docs/mcp/tools/analysis/find_stem_loops.md
+- [x] docs/mcp/tools/analysis/find_syntenic_blocks.md
+- [x] docs/mcp/tools/analysis/find_tandem_repeats.md
+- [x] docs/mcp/tools/analysis/flush_coaxial_stacking.md
+- [x] docs/mcp/tools/analysis/gc_content_profile.md
+- [x] docs/mcp/tools/analysis/gc_skew.md
+- [x] docs/mcp/tools/analysis/generate_all_kmers.md
+- [x] docs/mcp/tools/analysis/generate_consensus.md
+- [x] docs/mcp/tools/analysis/generate_dot_plot.md
+- [x] docs/mcp/tools/analysis/hairpin_loop_energy.md
+- [x] docs/mcp/tools/analysis/hydrophobicity_profile.md
+- [x] docs/mcp/tools/analysis/internal_loop_energy.md
+- [x] docs/mcp/tools/analysis/is_disorder_promoting.md
+- [x] docs/mcp/tools/analysis/kmer_distance.md
+- [x] docs/mcp/tools/analysis/kmer_frequencies.md
+- [x] docs/mcp/tools/analysis/kmer_positions.md
+- [x] docs/mcp/tools/analysis/kmer_spectrum.md
+- [x] docs/mcp/tools/analysis/kmers_with_min_count.md
+- [x] docs/mcp/tools/analysis/mask_low_complexity.md
+- [x] docs/mcp/tools/analysis/minimum_free_energy.md
+- [x] docs/mcp/tools/analysis/mismatch_coaxial_stacking.md
+- [x] docs/mcp/tools/analysis/most_frequent_kmers.md
+- [x] docs/mcp/tools/analysis/multibranch_loop_energy.md
+- [x] docs/mcp/tools/analysis/parse_dot_bracket.md
+- [x] docs/mcp/tools/analysis/predict_chou_fasman.md
+- [x] docs/mcp/tools/analysis/predict_coiled_coils.md
+- [x] docs/mcp/tools/analysis/predict_disorder.md
+- [x] docs/mcp/tools/analysis/predict_low_complexity_seg.md
+- [x] docs/mcp/tools/analysis/predict_morfs.md
+- [x] docs/mcp/tools/analysis/predict_replication_origin.md
+- [x] docs/mcp/tools/analysis/predict_rna_structure.md
+- [x] docs/mcp/tools/analysis/predict_signal_peptide.md
+- [x] docs/mcp/tools/analysis/predict_transmembrane_helices.md
+- [x] docs/mcp/tools/analysis/prosite_to_regex.md
+- [x] docs/mcp/tools/analysis/reversal_distance.md
+- [x] docs/mcp/tools/analysis/rna_complement_base.md
+- [x] docs/mcp/tools/analysis/scan_with_pwm.md
+- [x] docs/mcp/tools/analysis/stem_energy.md
+- [x] docs/mcp/tools/analysis/tandem_repeat_summary.md
+- [x] docs/mcp/tools/analysis/terminal_mismatch_energy.md
+- [x] docs/mcp/tools/analysis/unique_kmers.md
+- [x] docs/mcp/tools/analysis/validate_dot_bracket.md
+- [x] docs/mcp/tools/analysis/windowed_complexity.md
+- [x] docs/mcp/tools/analysis/windowed_gc_skew.md
+- [x] docs/mcp/tools/annotation/align_mirna_to_target.md
+- [x] docs/mcp/tools/annotation/analyze_target_context.md
+- [x] docs/mcp/tools/annotation/annotate_histone_modifications.md
+- [x] docs/mcp/tools/annotation/annotate_regulatory_elements.md
+- [x] docs/mcp/tools/annotation/annotate_svs.md
+- [x] docs/mcp/tools/annotation/annotate_variant_on_transcripts.md
+- [x] docs/mcp/tools/annotation/annotate_variants.md
+- [x] docs/mcp/tools/annotation/assemble_breakpoint_sequence.md
+- [x] docs/mcp/tools/annotation/build_coexpression_network.md
+- [x] docs/mcp/tools/annotation/calculate_conservation.md
+- [x] docs/mcp/tools/annotation/calculate_tpm.md
+- [x] docs/mcp/tools/annotation/call_variants.md
+- [x] docs/mcp/tools/annotation/call_variants_from_alignment.md
+- [x] docs/mcp/tools/annotation/can_pair.md
+- [x] docs/mcp/tools/annotation/classify_mutation.md
+- [x] docs/mcp/tools/annotation/classify_variant.md
+- [x] docs/mcp/tools/annotation/cluster_discordant_pairs.md
+- [x] docs/mcp/tools/annotation/cluster_genes_by_expression.md
+- [x] docs/mcp/tools/annotation/cluster_split_reads.md
+- [x] docs/mcp/tools/annotation/coding_potential.md
+- [x] docs/mcp/tools/annotation/codon_usage.md
+- [x] docs/mcp/tools/annotation/compare_seed_regions.md
+- [x] docs/mcp/tools/annotation/cpg_observed_expected.md
+- [x] docs/mcp/tools/annotation/create_mirna.md
+- [x] docs/mcp/tools/annotation/detect_alternative_splicing.md
+- [x] docs/mcp/tools/annotation/detect_differential_splicing.md
+- [x] docs/mcp/tools/annotation/detect_isoform_switching.md
+- [x] docs/mcp/tools/annotation/differential_expression.md
+- [x] docs/mcp/tools/annotation/enrichment_score.md
+- [x] docs/mcp/tools/annotation/epigenetic_age.md
+- [x] docs/mcp/tools/annotation/filter_svs.md
+- [x] docs/mcp/tools/annotation/find_acceptor_sites.md
+- [x] docs/mcp/tools/annotation/find_accessible_regions.md
+- [x] docs/mcp/tools/annotation/find_branch_points.md
+- [x] docs/mcp/tools/annotation/find_conserved_elements.md
+- [x] docs/mcp/tools/annotation/find_cpg_islands.md
+- [x] docs/mcp/tools/annotation/find_cpg_sites.md
+- [x] docs/mcp/tools/annotation/find_deletions.md
+- [x] docs/mcp/tools/annotation/find_discordant_pairs.md
+- [x] docs/mcp/tools/annotation/find_dmrs.md
+- [x] docs/mcp/tools/annotation/find_dominant_isoforms.md
+- [x] docs/mcp/tools/annotation/find_donor_sites.md
+- [x] docs/mcp/tools/annotation/find_indels.md
+- [x] docs/mcp/tools/annotation/find_insertions.md
+- [x] docs/mcp/tools/annotation/find_methylation_sites.md
+- [x] docs/mcp/tools/annotation/find_microhomology.md
+- [x] docs/mcp/tools/annotation/find_mirna_target_sites.md
+- [x] docs/mcp/tools/annotation/find_orfs.md
+- [x] docs/mcp/tools/annotation/find_pre_mirna_hairpins.md
+- [x] docs/mcp/tools/annotation/find_promoter_motifs.md
+- [x] docs/mcp/tools/annotation/find_repetitive_elements.md
+- [x] docs/mcp/tools/annotation/find_retained_intron_candidates.md
+- [x] docs/mcp/tools/annotation/find_ribosome_binding_sites.md
+- [x] docs/mcp/tools/annotation/find_similar_mirnas.md
+- [x] docs/mcp/tools/annotation/find_skipped_exon_events.md
+- [x] docs/mcp/tools/annotation/find_snps.md
+- [x] docs/mcp/tools/annotation/find_snps_direct.md
+- [x] docs/mcp/tools/annotation/find_split_reads.md
+- [x] docs/mcp/tools/annotation/format_vcf_info.md
+- [x] docs/mcp/tools/annotation/generate_seed_variants.md
+- [x] docs/mcp/tools/annotation/genotype_sv.md
+- [x] docs/mcp/tools/annotation/group_by_seed_family.md
+- [x] docs/mcp/tools/annotation/identify_cnvs.md
+- [x] docs/mcp/tools/annotation/impact_level.md
+- [x] docs/mcp/tools/annotation/is_within_coding_region.md
+- [x] docs/mcp/tools/annotation/is_wobble_pair.md
+- [x] docs/mcp/tools/annotation/log2_transform.md
+- [x] docs/mcp/tools/annotation/longest_orfs_per_frame.md
+- [x] docs/mcp/tools/annotation/maxent_score.md
+- [x] docs/mcp/tools/annotation/merge_overlapping_svs.md
+- [x] docs/mcp/tools/annotation/methylation_from_bisulfite.md
+- [x] docs/mcp/tools/annotation/methylation_profile.md
+- [x] docs/mcp/tools/annotation/mirna_seed_sequence.md
+- [x] docs/mcp/tools/annotation/normalize_variant.md
+- [x] docs/mcp/tools/annotation/over_representation_analysis.md
+- [x] docs/mcp/tools/annotation/parse_gff3.md
+- [x] docs/mcp/tools/annotation/parse_vcf_variant.md
+- [x] docs/mcp/tools/annotation/pearson_correlation.md
+- [x] docs/mcp/tools/annotation/perform_pca.md
+- [x] docs/mcp/tools/annotation/predict_chromatin_state.md
+- [x] docs/mcp/tools/annotation/predict_gene_structure.md
+- [x] docs/mcp/tools/annotation/predict_genes.md
+- [x] docs/mcp/tools/annotation/predict_imprinted_genes.md
+- [x] docs/mcp/tools/annotation/predict_introns.md
+- [x] docs/mcp/tools/annotation/predict_pathogenicity.md
+- [x] docs/mcp/tools/annotation/predict_tf_binding_change.md
+- [x] docs/mcp/tools/annotation/predict_variant_effect.md
+- [x] docs/mcp/tools/annotation/quantile_normalize.md
+- [x] docs/mcp/tools/annotation/rna_reverse_complement.md
+- [x] docs/mcp/tools/annotation/rnaseq_quality_metrics.md
+- [x] docs/mcp/tools/annotation/segment_copy_number.md
+- [x] docs/mcp/tools/annotation/simulate_bisulfite_conversion.md
+- [x] docs/mcp/tools/annotation/site_accessibility.md
+- [x] docs/mcp/tools/annotation/titv_ratio.md
+- [x] docs/mcp/tools/annotation/to_gff3.md
+- [x] docs/mcp/tools/annotation/variant_statistics.md
+- [x] docs/mcp/tools/annotation/variants_to_vcf.md
+- [x] docs/mcp/tools/chromosome/analyze_centromere.md
+- [x] docs/mcp/tools/chromosome/analyze_karyotype.md
+- [x] docs/mcp/tools/chromosome/analyze_scaffolds.md
+- [x] docs/mcp/tools/chromosome/analyze_telomeres.md
+- [x] docs/mcp/tools/chromosome/arm_ratio.md
+- [x] docs/mcp/tools/chromosome/assembly_statistics.md
+- [x] docs/mcp/tools/chromosome/assess_completeness.md
+- [x] docs/mcp/tools/chromosome/au_n.md
+- [x] docs/mcp/tools/chromosome/classify_chromosome_by_arm_ratio.md
+- [x] docs/mcp/tools/chromosome/compare_assemblies.md
+- [x] docs/mcp/tools/chromosome/detect_aneuploidy.md
+- [x] docs/mcp/tools/chromosome/detect_ploidy.md
+- [x] docs/mcp/tools/chromosome/detect_rearrangements.md
+- [x] docs/mcp/tools/chromosome/estimate_cell_divisions_from_telomere_length.md
+- [x] docs/mcp/tools/chromosome/estimate_completeness_from_kmers.md
+- [x] docs/mcp/tools/chromosome/estimate_telomere_length_from_ts_ratio.md
+- [x] docs/mcp/tools/chromosome/extract_contigs.md
+- [x] docs/mcp/tools/chromosome/find_gaps.md
+- [x] docs/mcp/tools/chromosome/find_heterochromatin_regions.md
+- [x] docs/mcp/tools/chromosome/find_repetitive_regions.md
+- [x] docs/mcp/tools/chromosome/find_suspicious_regions.md
+- [x] docs/mcp/tools/chromosome/find_syntenic_blocks_assemblies.md
+- [x] docs/mcp/tools/chromosome/find_synteny_blocks.md
+- [x] docs/mcp/tools/chromosome/find_tandem_repeats.md
+- [x] docs/mcp/tools/chromosome/gap_distribution.md
+- [x] docs/mcp/tools/chromosome/identify_whole_chromosome_aneuploidy.md
+- [x] docs/mcp/tools/chromosome/length_distribution.md
+- [x] docs/mcp/tools/chromosome/local_quality.md
+- [x] docs/mcp/tools/chromosome/nx_curve.md
+- [x] docs/mcp/tools/chromosome/nx_statistics.md
+- [x] docs/mcp/tools/chromosome/predict_g_bands.md
+- [x] docs/mcp/tools/chromosome/repeat_content.md
+- [x] docs/mcp/tools/core/calculate_similarity.md
+- [x] docs/mcp/tools/core/count_approximate_occurrences.md
+- [x] docs/mcp/tools/core/edit_distance.md
+- [x] docs/mcp/tools/core/find_longest_common_region.md
+- [x] docs/mcp/tools/core/find_longest_repeat.md
+- [x] docs/mcp/tools/core/hamming_distance.md
+- [x] docs/mcp/tools/core/suffix_tree_contains.md
+- [x] docs/mcp/tools/core/suffix_tree_count.md
+- [x] docs/mcp/tools/core/suffix_tree_find_all.md
+- [x] docs/mcp/tools/core/suffix_tree_lcs.md
+- [x] docs/mcp/tools/core/suffix_tree_lrs.md
+- [x] docs/mcp/tools/core/suffix_tree_stats.md
+- [x] docs/mcp/tools/metagenomics/accessory_genes.md
+- [x] docs/mcp/tools/metagenomics/alpha_diversity.md
+- [x] docs/mcp/tools/metagenomics/beta_diversity.md
+- [x] docs/mcp/tools/metagenomics/bin_contigs.md
+- [x] docs/mcp/tools/metagenomics/build_kmer_database.md
+- [x] docs/mcp/tools/metagenomics/classify_reads.md
+- [x] docs/mcp/tools/metagenomics/cluster_genes.md
+- [x] docs/mcp/tools/metagenomics/construct_pangenome.md
+- [x] docs/mcp/tools/metagenomics/core_gene_clusters.md
+- [x] docs/mcp/tools/metagenomics/core_genome_alignment.md
+- [x] docs/mcp/tools/metagenomics/differential_abundance.md
+- [x] docs/mcp/tools/metagenomics/find_genome_specific_genes.md
+- [x] docs/mcp/tools/metagenomics/find_resistance_genes.md
+- [x] docs/mcp/tools/metagenomics/fit_heaps_law.md
+- [x] docs/mcp/tools/metagenomics/functional_diversity.md
+- [x] docs/mcp/tools/metagenomics/gene_presence_absence_matrix.md
+- [x] docs/mcp/tools/metagenomics/predict_functions.md
+- [x] docs/mcp/tools/metagenomics/select_phylogenetic_markers.md
+- [x] docs/mcp/tools/metagenomics/taxonomic_profile.md
+- [x] docs/mcp/tools/moltools/analyze_oligo.md
+- [x] docs/mcp/tools/moltools/blunt_cutters.md
+- [x] docs/mcp/tools/moltools/build_codon_table.md
+- [x] docs/mcp/tools/moltools/cai_from_organism_table.md
+- [x] docs/mcp/tools/moltools/codon_adaptation_index.md
+- [x] docs/mcp/tools/moltools/codon_usage_statistics.md
+- [x] docs/mcp/tools/moltools/compare_codon_usage.md
+- [x] docs/mcp/tools/moltools/compatible_enzymes.md
+- [x] docs/mcp/tools/moltools/count_codons.md
+- [x] docs/mcp/tools/moltools/crispr_specificity_score.md
+- [x] docs/mcp/tools/moltools/crispr_system_info.md
+- [x] docs/mcp/tools/moltools/design_antisense_probes.md
+- [x] docs/mcp/tools/moltools/design_guide_rnas.md
+- [x] docs/mcp/tools/moltools/design_molecular_beacon.md
+- [x] docs/mcp/tools/moltools/design_primers.md
+- [x] docs/mcp/tools/moltools/design_probes.md
+- [x] docs/mcp/tools/moltools/design_tiling_probes.md
+- [x] docs/mcp/tools/moltools/digest_summary.md
+- [x] docs/mcp/tools/moltools/effective_number_of_codons.md
+- [x] docs/mcp/tools/moltools/enzymes_by_cut_length.md
+- [x] docs/mcp/tools/moltools/enzymes_compatible.md
+- [x] docs/mcp/tools/moltools/evaluate_guide_rna.md
+- [x] docs/mcp/tools/moltools/evaluate_primer.md
+- [x] docs/mcp/tools/moltools/find_all_restriction_sites.md
+- [x] docs/mcp/tools/moltools/find_off_targets.md
+- [x] docs/mcp/tools/moltools/find_pam_sites.md
+- [x] docs/mcp/tools/moltools/find_rare_codons.md
+- [x] docs/mcp/tools/moltools/find_restriction_sites.md
+- [x] docs/mcp/tools/moltools/generate_primer_candidates.md
+- [x] docs/mcp/tools/moltools/get_enzyme.md
+- [x] docs/mcp/tools/moltools/hairpin_potential.md
+- [x] docs/mcp/tools/moltools/longest_dinucleotide_repeat.md
+- [x] docs/mcp/tools/moltools/longest_homopolymer.md
+- [x] docs/mcp/tools/moltools/oligo_concentration_from_absorbance.md
+- [x] docs/mcp/tools/moltools/oligo_extinction_coefficient.md
+- [x] docs/mcp/tools/moltools/optimize_codons.md
+- [x] docs/mcp/tools/moltools/primer_dimer.md
+- [x] docs/mcp/tools/moltools/primer_melting_temperature.md
+- [x] docs/mcp/tools/moltools/primer_melting_temperature_salt.md
+- [x] docs/mcp/tools/moltools/reduce_secondary_structure.md
+- [x] docs/mcp/tools/moltools/remove_restriction_sites.md
+- [x] docs/mcp/tools/moltools/restriction_digest.md
+- [x] docs/mcp/tools/moltools/restriction_map.md
+- [x] docs/mcp/tools/moltools/rscu.md
+- [x] docs/mcp/tools/moltools/sticky_cutters.md
+- [x] docs/mcp/tools/moltools/three_prime_stability.md
+- [x] docs/mcp/tools/moltools/validate_probe.md
+- [x] docs/mcp/tools/parsers/bed_filter.md
+- [x] docs/mcp/tools/parsers/bed_intersect.md
+- [x] docs/mcp/tools/parsers/bed_merge.md
+- [x] docs/mcp/tools/parsers/bed_parse.md
+- [x] docs/mcp/tools/parsers/embl_features.md
+- [x] docs/mcp/tools/parsers/embl_parse.md
+- [x] docs/mcp/tools/parsers/embl_statistics.md
+- [x] docs/mcp/tools/parsers/fasta_format.md
+- [x] docs/mcp/tools/parsers/fasta_parse.md
+- [x] docs/mcp/tools/parsers/fasta_write.md
+- [x] docs/mcp/tools/parsers/fastq_detect_encoding.md
+- [x] docs/mcp/tools/parsers/fastq_encode_quality.md
+- [x] docs/mcp/tools/parsers/fastq_error_to_phred.md
+- [x] docs/mcp/tools/parsers/fastq_filter.md
+- [x] docs/mcp/tools/parsers/fastq_format.md
+- [x] docs/mcp/tools/parsers/fastq_parse.md
+- [x] docs/mcp/tools/parsers/fastq_phred_to_error.md
+- [x] docs/mcp/tools/parsers/fastq_statistics.md
+- [x] docs/mcp/tools/parsers/fastq_trim_adapter.md
+- [x] docs/mcp/tools/parsers/fastq_trim_quality.md
+- [x] docs/mcp/tools/parsers/fastq_write.md
+- [x] docs/mcp/tools/parsers/genbank_extract_sequence.md
+- [x] docs/mcp/tools/parsers/genbank_features.md
+- [x] docs/mcp/tools/parsers/genbank_parse.md
+- [x] docs/mcp/tools/parsers/genbank_parse_location.md
+- [x] docs/mcp/tools/parsers/genbank_statistics.md
+- [x] docs/mcp/tools/parsers/gff_filter.md
+- [x] docs/mcp/tools/parsers/gff_parse.md
+- [x] docs/mcp/tools/parsers/gff_statistics.md
+- [x] docs/mcp/tools/parsers/vcf_classify.md
+- [x] docs/mcp/tools/parsers/vcf_filter.md
+- [x] docs/mcp/tools/parsers/vcf_has_flag.md
+- [x] docs/mcp/tools/parsers/vcf_is_het.md
+- [x] docs/mcp/tools/parsers/vcf_is_hom_alt.md
+- [x] docs/mcp/tools/parsers/vcf_is_hom_ref.md
+- [x] docs/mcp/tools/parsers/vcf_is_indel.md
+- [x] docs/mcp/tools/parsers/vcf_is_snp.md
+- [x] docs/mcp/tools/parsers/vcf_parse.md
+- [x] docs/mcp/tools/parsers/vcf_statistics.md
+- [x] docs/mcp/tools/parsers/vcf_variant_length.md
+- [x] docs/mcp/tools/parsers/vcf_write.md
+- [x] docs/mcp/tools/phylogenetics/bootstrap_support.md
+- [x] docs/mcp/tools/phylogenetics/build_phylogenetic_tree.md
+- [x] docs/mcp/tools/phylogenetics/build_tree_from_matrix.md
+- [x] docs/mcp/tools/phylogenetics/distance_matrix.md
+- [x] docs/mcp/tools/phylogenetics/mrca.md
+- [x] docs/mcp/tools/phylogenetics/pairwise_distance.md
+- [x] docs/mcp/tools/phylogenetics/parse_newick.md
+- [x] docs/mcp/tools/phylogenetics/patristic_distance.md
+- [x] docs/mcp/tools/phylogenetics/robinson_foulds_distance.md
+- [x] docs/mcp/tools/phylogenetics/to_newick.md
+- [x] docs/mcp/tools/phylogenetics/tree_depth.md
+- [x] docs/mcp/tools/phylogenetics/tree_leaves.md
+- [x] docs/mcp/tools/phylogenetics/tree_length.md
+- [x] docs/mcp/tools/population/allele_frequencies.md
+- [x] docs/mcp/tools/population/diversity_statistics.md
+- [x] docs/mcp/tools/population/estimate_ancestry.md
+- [x] docs/mcp/tools/population/f_statistics.md
+- [x] docs/mcp/tools/population/filter_variants_by_maf.md
+- [x] docs/mcp/tools/population/fst.md
+- [x] docs/mcp/tools/population/haplotype_blocks.md
+- [x] docs/mcp/tools/population/hardy_weinberg_test.md
+- [x] docs/mcp/tools/population/inbreeding_from_roh.md
+- [x] docs/mcp/tools/population/integrated_haplotype_score.md
+- [x] docs/mcp/tools/population/linkage_disequilibrium.md
+- [x] docs/mcp/tools/population/minor_allele_frequency.md
+- [x] docs/mcp/tools/population/nucleotide_diversity.md
+- [x] docs/mcp/tools/population/pairwise_fst.md
+- [x] docs/mcp/tools/population/runs_of_homozygosity.md
+- [x] docs/mcp/tools/population/scan_selection_signals.md
+- [x] docs/mcp/tools/population/tajimas_d.md
+- [x] docs/mcp/tools/population/wattersons_theta.md
+- [x] docs/mcp/tools/sequence/amino_acid_composition.md
+- [x] docs/mcp/tools/sequence/complement_base.md
+- [x] docs/mcp/tools/sequence/complexity_compression_ratio.md
+- [x] docs/mcp/tools/sequence/complexity_dust_score.md
+- [x] docs/mcp/tools/sequence/complexity_kmer_entropy.md
+- [x] docs/mcp/tools/sequence/complexity_linguistic.md
+- [x] docs/mcp/tools/sequence/complexity_mask_low.md
+- [x] docs/mcp/tools/sequence/complexity_shannon.md
+- [x] docs/mcp/tools/sequence/dna_reverse_complement.md
+- [x] docs/mcp/tools/sequence/dna_validate.md
+- [x] docs/mcp/tools/sequence/gc_content.md
+- [x] docs/mcp/tools/sequence/hydrophobicity.md
+- [x] docs/mcp/tools/sequence/is_valid_dna.md
+- [x] docs/mcp/tools/sequence/is_valid_rna.md
+- [x] docs/mcp/tools/sequence/isoelectric_point.md
+- [x] docs/mcp/tools/sequence/iupac_code.md
+- [x] docs/mcp/tools/sequence/iupac_match.md
+- [x] docs/mcp/tools/sequence/iupac_matches.md
+- [x] docs/mcp/tools/sequence/kmer_analyze.md
+- [x] docs/mcp/tools/sequence/kmer_count.md
+- [x] docs/mcp/tools/sequence/kmer_distance.md
+- [x] docs/mcp/tools/sequence/kmer_entropy.md
+- [x] docs/mcp/tools/sequence/linguistic_complexity.md
+- [x] docs/mcp/tools/sequence/melting_temperature.md
+- [x] docs/mcp/tools/sequence/molecular_weight_nucleotide.md
+- [x] docs/mcp/tools/sequence/molecular_weight_protein.md
+- [x] docs/mcp/tools/sequence/nucleotide_composition.md
+- [x] docs/mcp/tools/sequence/protein_validate.md
+- [x] docs/mcp/tools/sequence/rna_from_dna.md
+- [x] docs/mcp/tools/sequence/rna_validate.md
+- [x] docs/mcp/tools/sequence/shannon_entropy.md
+- [x] docs/mcp/tools/sequence/summarize_sequence.md
+- [x] docs/mcp/tools/sequence/thermodynamics.md
+- [x] docs/mcp/tools/sequence/translate_dna.md
+- [x] docs/mcp/tools/sequence/translate_rna.md
+- [x] docs/mcp/traceability.md  (SCHEMA-excluded generated tool->test matrix)
+
+## refactoring  (7)
+
+- [ ] docs/refactoring/ALGORITHM_TAXONOMY_CLEANUP_MATRIX.md
+- [ ] docs/refactoring/suffix-tree-contract-freeze-cycle3.md
+- [ ] docs/refactoring/suffix-tree-contract-freeze.md
+- [ ] docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
+- [ ] docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
+- [ ] docs/refactoring/suffix-tree-controlled-refactoring-plan.md
+- [ ] docs/refactoring/suffix-tree-controlled-refactoring-verification.md
+
+## skills  (4)
+
+- [ ] docs/skills/STRATEGY.md
+- [ ] docs/skills/_generated/tool-catalog.md
+- [ ] docs/skills/golden/README.md
+- [ ] docs/skills/golden/tasks.md
+
+## templates  (3)
+
+- [ ] docs/templates/algorithm-doc-template.md
+- [ ] docs/templates/evidence-template.md
+- [ ] docs/templates/testspec-template.md

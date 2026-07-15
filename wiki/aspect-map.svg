@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="title description">
+  <title id="title">Conceptual map of the Seqeron LLM Wiki</title>
+  <desc id="description">A static Euler diagram showing the overlap between biological meaning, algorithms and computational models, and evidence, limits, and governance. Navigation and provenance surround all three areas.</desc>
+
+  <defs>
+    <style>
+      .title { font: 700 34px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #172033; }
+      .subtitle { font: 400 18px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #526079; }
+      .frame-label { font: 650 18px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #34425d; letter-spacing: .04em; }
+      .set-label { font: 700 25px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #172033; }
+      .intersection { font: 600 17px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #26344f; }
+      .center { font: 750 22px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #111827; }
+      .note { font: 400 16px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #526079; }
+    </style>
+    <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#1f2937" flood-opacity=".10"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="760" fill="#f8fafc"/>
+  <text class="title" x="600" y="52" text-anchor="middle">How meaning is organised in the LLM Wiki</text>
+  <text class="subtitle" x="600" y="82" text-anchor="middle">A qualitative orientation map — not a page taxonomy or quantitative clustering</text>
+
+  <rect x="55" y="112" width="1090" height="580" rx="30" fill="#ffffff" stroke="#94a3b8" stroke-width="2" filter="url(#soft-shadow)"/>
+  <rect x="390" y="100" width="420" height="34" rx="17" fill="#ffffff"/>
+  <text class="frame-label" x="600" y="123" text-anchor="middle">NAVIGATION · PROVENANCE · ACCESS</text>
+
+  <ellipse cx="405" cy="355" rx="280" ry="205" fill="#60a5fa" fill-opacity=".32" stroke="#2563eb" stroke-width="3"/>
+  <ellipse cx="795" cy="355" rx="280" ry="205" fill="#f59e0b" fill-opacity=".30" stroke="#d97706" stroke-width="3"/>
+  <ellipse cx="600" cy="475" rx="285" ry="185" fill="#34d399" fill-opacity=".30" stroke="#059669" stroke-width="3"/>
+
+  <text class="set-label" x="300" y="238" text-anchor="middle">
+    <tspan x="300" dy="0">Biological meaning</tspan>
+    <tspan class="note" x="300" dy="25">questions, entities, phenomena</tspan>
+  </text>
+
+  <text class="set-label" x="900" y="238" text-anchor="middle">
+    <tspan x="900" dy="0">Algorithms &amp; models</tspan>
+    <tspan class="note" x="900" dy="25">computation, contracts, alternatives</tspan>
+  </text>
+
+  <text class="set-label" x="600" y="600" text-anchor="middle">
+    <tspan x="600" dy="0">Evidence, limits &amp; governance</tspan>
+    <tspan class="note" x="600" dy="25">validation, provenance, operating envelope</tspan>
+  </text>
+
+  <text class="intersection" x="600" y="245" text-anchor="middle">Bioinformatics methods</text>
+  <text class="intersection" x="392" y="468" text-anchor="middle">
+    <tspan x="392" dy="0">Scientifically</tspan>
+    <tspan x="392" dy="22">bounded claims</tspan>
+  </text>
+  <text class="intersection" x="808" y="468" text-anchor="middle">
+    <tspan x="808" dy="0">Validated</tspan>
+    <tspan x="808" dy="22">behaviour</tspan>
+  </text>
+
+  <circle cx="600" cy="395" r="94" fill="#ffffff" fill-opacity=".86" stroke="#475569" stroke-width="2"/>
+  <text class="center" x="600" y="376" text-anchor="middle">
+    <tspan x="600" dy="0">Reliable project</tspan>
+    <tspan x="600" dy="27">knowledge</tspan>
+    <tspan class="note" x="600" dy="25">for agents and people</tspan>
+  </text>
+
+  <text class="note" x="600" y="724" text-anchor="middle">Repository documentation remains the source of truth; the wiki makes its relationships discoverable.</text>
+</svg>

@@ -37,6 +37,7 @@ Prefer code? The same algorithms are a normal C# API. Prefer your own agent? The
 - [What's inside](#whats-inside)
 - [Architecture](#architecture)
 - [Repository layout](#repository-layout)
+- [LLM Wiki: repository knowledge for agents](#llm-wiki-repository-knowledge-for-agents)
 - [Build & test](#build--test)
 - [Performance & NativeAOT](#performance--nativeaot)
 - [Project status & validation](#project-status--validation)
@@ -354,7 +355,140 @@ src/
 tests/                       # Per-module + per-server test suites (the bulk of the codebase)
 apps/                        # Benchmarks, stress/verification harness, genome demo
 docs/                        # Algorithms, MCP guide, skills strategy, validation ledger
+wiki/                        # LLM-curated navigation layer over the repository documentation
 ```
+
+## LLM Wiki: repository knowledge for agents
+
+Seqeron includes an [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
+a compact, linked knowledge layer that helps an agent find the right project fact before loading large
+parts of the repository. It complements the plain-language skills, C# API, and MCP tools: skills route
+biology tasks, MCP executes algorithms, and the wiki answers questions about **how this repository is
+designed, validated, connected, and constrained**.
+
+The source of truth remains the repository documentation — everything under `docs/**` plus root
+Markdown files such as `README.md`, `ALGORITHMS_CHECKLIST_V2.md`, and `ALGORITHMS_ROADMAP.md`.
+Curated pages under [`wiki/`](wiki) summarize and connect those sources; they record the source path and
+commit rather than replacing or editing the originals. There is intentionally no copied `raw/` tree.
+
+### How retrieval works
+
+1. Start at the 13-line [`wiki/index.md`](wiki/index.md) and open only the smallest relevant shard.
+2. Follow concise `[[wikilinks]]`, or use BM25 search when the index is not specific enough.
+3. Read the relevant concept/source page and traverse backlinks or typed graph edges when relationships
+   matter.
+4. Follow `sources:` / `doc_path:` to the authoritative repository document before making a
+   high-stakes claim; cite the answer with `[[wikilinks]]`.
+
+This is retrieval, not a second source of truth. Every derived page carries provenance,
+`source_commit` enables deterministic staleness checks, and the compiled graph is disposable —
+Markdown remains canonical.
+
+### Conceptual map
+
+The wiki connects three overlapping concerns: biological meaning, computational methods, and the
+evidence and limits that make their use trustworthy. The map is intentionally qualitative and
+stable: it explains the knowledge model without turning individual pages into fixed categories.
+
+![Static Euler diagram of the LLM Wiki's conceptual aspects](wiki/aspect-map.svg)
+
+### Measured context reduction
+
+These figures describe the repository state in the same Git revision as this README. Counts use
+`wiki_stats.py` plus `docs/**/*.md` and root `*.md`; both surfaces use whitespace-delimited words:
+
+| | Without the LLM Wiki | With the LLM Wiki |
+|---|---:|---:|
+| Discovery surface | 1,184 source files · 170,331 lines · 1,376,469 words | 13-line index + a relevant shard (largest: 222 lines) |
+| One-page lookup context | Repository-wide search may expose up to 170,331 source lines | Worst-case indexed discovery: 235 lines; then a 102-line average curated page |
+| Explicit knowledge structure | No normalized cross-document graph | 532 pages · 4,639 wikilinks · 532 graph nodes · 4,251 edges |
+| Curated knowledge volume | None | 54,696 lines · 446,723 words |
+| Provenance freshness | Manual source/history inspection | `source_commit` on every derived page; current stale count: 0 |
+
+For a representative one-page lookup, index + largest shard + average page is **337 lines versus
+170,331 source lines (~505× less discovery context)**. This is a context-size comparison, not a claim
+that the wiki replaces reading the source or improves model correctness by a fixed percentage.
+
+#### Retrieval quality at fixed context cutoffs
+
+A fixed benchmark pairs 30 representative search intents with one expected concept page and equivalent
+English and Ukrainian questions. Without the wiki, any local document in that concept's `sources:` is
+gold; with the wiki, the concept page itself is gold. `Hit@K` means that a gold result appears within
+the first K BM25 results; it measures retrieval, not the factual correctness of a generated answer.
+
+Each cell shows **Without → With the LLM Wiki (absolute gain)**; all rows use the same 30 intents.
+
+| Query form | Hit@1 | Hit@3 | Hit@10 |
+|---|---:|---:|---:|
+| English (direct) | 46.7% → **66.7%** (+20.0 pp) | 76.7% → **93.3%** (+16.7 pp) | 93.3% → **100.0%** (+6.7 pp) |
+| Українська (direct) | 26.7% → **46.7%** (+20.0 pp) | 46.7% → **70.0%** (+23.3 pp) | 70.0% → **76.7%** (+6.7 pp) |
+| Українська → English normalization | 53.3% → **70.0%** (+16.7 pp) | 76.7% → **96.7%** (+20.0 pp) | 96.7% → **100.0%** (+3.3 pp) |
+
+The baseline indexes the contents and paths of `docs/**/*.md` and root `*.md`; the wiki surface indexes
+concept titles and bodies. Both use the same tokenizer and BM25 implementation. Direct queries are
+passed unchanged. The normalized row uses the fixed, manually reviewed English retrieval query stored
+beside each Ukrainian question; it measures BM25 after the prescribed normalization, not the reliability
+of an LLM translator. Reproduce the table from the versioned
+[query set](.claude/skills/llm-wiki/benchmarks/retrieval_queries.jsonl):
+
+```bash
+python .claude/skills/llm-wiki/scripts/wiki_search_benchmark.py wiki
+```
+
+### Example questions
+
+Ask naturally when the `llm-wiki` skill is available:
+
+> `/wiki:query Which primer-design path uses full thermodynamic dimer Tm instead of the fast
+> structural screen? Cite the relevant wiki pages.`
+
+> `/wiki:query How does k-mer search depend on canonical k-mer counting, and which validation report
+> supports that relationship?`
+
+> `/wiki:query What are the validated limits of Seqeron's oncology algorithms, and where is each
+> limitation enforced?`
+
+Or query the local indexes directly:
+
+```bash
+# Ranked discovery without collapsing distinct derived concepts
+python .claude/skills/llm-wiki/scripts/wiki_search.py \
+  "primer dimer thermodynamics" --wiki wiki --top 5 \
+  --dedup-provenance --prefer-type concept
+
+# Every page that links to a concept
+python .claude/skills/llm-wiki/scripts/wiki_search.py \
+  --wiki wiki --backlinks primer-design
+
+# Typed facts and their exact source pages
+python .claude/skills/llm-wiki/scripts/wiki_graph_query.py \
+  wiki facts --about concept:k-mer-counting
+```
+
+### Keep it trustworthy
+
+```bash
+# One-time: enable the repository's pre-commit wiki guard
+git config core.hooksPath .githooks
+
+# Structural/link/index-limit health, provenance freshness, and typed-edge integrity
+python .claude/skills/llm-wiki/scripts/wiki_lint.py wiki
+python .claude/skills/llm-wiki/scripts/wiki_stale.py wiki
+python .claude/skills/llm-wiki/scripts/wiki_graph_lint.py wiki
+
+# Link-extraction and wiki-tool business rules, with the blocking coverage threshold
+python -m pip install coverage pyyaml  # one-time Python tooling dependencies
+python -m coverage run --rcfile=.claude/skills/llm-wiki/.coveragerc -m unittest discover -s .claude/skills/llm-wiki/tests
+python -m coverage report --rcfile=.claude/skills/llm-wiki/.coveragerc
+
+# Rebuild the disposable graph after Markdown graph metadata changes
+python .claude/skills/llm-wiki/scripts/wiki_graph_extract.py wiki
+```
+
+When a source changes, run `/wiki:ingest <repo-relative-path>` (for example,
+`/wiki:ingest README.md`), update only the affected pages and index entry, and append one line to
+[`wiki/log.md`](wiki/log.md). Page types, frontmatter, size limits, graph provenance, and the exact
+staleness rule are defined in [`wiki/SCHEMA.md`](wiki/SCHEMA.md).
 
 ## Build & test
 
@@ -511,6 +645,8 @@ full terms.
 - Validation: [docs/Validation](docs/Validation) ·
   [LIMITATIONS.md](docs/Validation/LIMITATIONS.md).
 - Algorithm test specifications: [tests/TestSpecs](tests/TestSpecs).
+- LLM Wiki: [knowledge layer, measured impact, queries, and maintenance](#llm-wiki-repository-knowledge-for-agents) ·
+  [schema](wiki/SCHEMA.md).
 
 ## Contributing
 
