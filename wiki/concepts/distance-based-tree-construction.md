@@ -4,8 +4,9 @@ title: "Distance-based phylogenetic tree construction (UPGMA & Neighbor-Joining 
 tags: [phylogenetics, algorithm]
 sources:
   - docs/Evidence/PHYLO-TREE-001-Evidence.md
+  - docs/algorithms/Phylogenetics/Tree_Construction.md
   - docs/algorithms/Phylogenetics/Newick_Format.md
-source_commit: f9b89f022474226460c4ed9124c6062cd89b4815
+source_commit: 0180b9c3abe4e43a623b13a74e6a6470ab5c8836
 created: 2026-07-10
 updated: 2026-07-15
 graph:
@@ -37,11 +38,16 @@ the trees it emits. Validated under test unit **PHYLO-TREE-001**; the literature
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern. Research-grade correctness
 reference ([[scientific-rigor|research-grade]]), not for clinical use.
 
-The public surface is two methods on `PhylogeneticAnalyzer`: **`BuildTree(sequences, method)`** — the
-canonical path that computes distances then builds — and **`BuildTreeFromMatrix(matrix, taxa, method)`**
-— which takes a **pre-computed** distance matrix directly (this is what lets the reference Wikipedia
-matrices below be tested exactly). Both return a `PhylogeneticTree` carrying `Root`, `Taxa`,
-`DistanceMatrix`, and `Method`.
+The public surface is two methods on `PhylogeneticAnalyzer`: **`BuildTree(sequences, distanceMethod,
+treeMethod)`** — the canonical path that computes distances then builds (the `distanceMethod` parameter
+**defaults to `JukesCantor`** and is passed straight to `CalculateDistanceMatrix`; `treeMethod` defaults
+to `UPGMA`) — and **`BuildTreeFromMatrix(taxa, distanceMatrix, treeMethod)`** — which takes a
+**pre-computed** symmetric matrix directly (this is what lets the reference Wikipedia matrices below be
+tested exactly). Both return a `PhylogeneticTree` carrying `Root` (a binary `PhyloNode`), `Taxa` (input
+order), `DistanceMatrix`, and `Method` (the builder name). **Validation** (§3.3): `BuildTree` throws
+`ArgumentException` on fewer than two sequences or on unequal aligned lengths; `BuildTreeFromMatrix`
+throws when fewer than two taxa are supplied, the matrix is missing, or its dimensions do not match the
+taxon count.
 
 ## UPGMA (Unweighted Pair Group Method with Arithmetic Mean)
 
@@ -53,8 +59,10 @@ A simple agglomerative hierarchical clustering method (Sokal & Michener 1958).
   (3) merge them, computing new distances as a **weighted (arithmetic-mean) average**; (4) repeat until
   one cluster remains.
 - **Branch length:** node **height = distance / 2** (the ultrametric property); the implementation
-  tracks cluster heights and emits **incremental** branch lengths (`height_new − height_child`).
-- **Complexity:** O(n³) naive, O(n²) optimized.
+  tracks cluster heights and emits **incremental** branch lengths, clamped non-negative as
+  `Math.Max(0, height_new − height_child)` (INV-05). Working distances are held in a **dictionary keyed
+  by cluster index**, alongside cluster-size and cluster-height maps used for the weighted average.
+- **Complexity:** this classical implementation is **O(n³) time, O(n²) space** (`n` = taxa).
 
 ## Neighbor-Joining (Saitou & Nei 1987)
 
@@ -72,7 +80,7 @@ The workhorse distance method that does **not** assume a clock.
   implementation **does not clamp** them — the algorithm specification is followed verbatim.
 - **Final join = midpoint rooting:** the last join splits the remaining distance **d/2 each**, which
   **preserves all patristic distances** (the additive-matrix guarantee).
-- **Complexity:** O(n³).
+- **Complexity:** **O(n³) time, O(n²) space**.
 
 ## Invariants (§3)
 
@@ -184,9 +192,18 @@ convention) and clock-free with the additive-topology guarantee.
 The implementation lives in `PhylogeneticAnalyzer.cs`: `BuildTree()` is canonical (from sequences),
 `BuildTreeFromMatrix()` accepts pre-computed matrices for reference-example testing. UPGMA tracks cluster
 heights and emits incremental branch lengths; NJ preserves negative branch lengths (no clamping) and
-midpoint-roots the final join to preserve patristic distances. The source records **no deviations and no
-assumptions** — the implementation strictly follows UPGMA (Sokal & Michener 1958) and NJ (Saitou & Nei
-1987) as described in the authoritative sources.
+midpoint-roots the final join to preserve patristic distances. The algorithm spec records exactly **one
+accepted deviation**: the NJ result is returned as a **rooted `PhyloNode`** even though NJ is
+theoretically unrooted — a representation choice made at the final-join step so the output fits the
+binary `PhyloNode` API, not a claim that NJ is rooted. Otherwise the implementation follows UPGMA (Sokal
+& Michener 1958) and NJ (Saitou & Nei 1987) as described in the authoritative sources, with no further
+simplifications.
+
+**Documented limitations (§6.2):** these are the **classical O(n³) builders** with a binary `PhyloNode`
+output model. They do **not** produce bootstrap support values (that is the separate
+[[phylogenetic-bootstrap-support]] wrapper), **multifurcations**, or any advanced tree-search
+optimization. Interpretation quality still depends on the chosen distance model and on the
+molecular-clock (UPGMA) / additivity (NJ) assumptions of the selected method.
 
 ## Reference tools
 

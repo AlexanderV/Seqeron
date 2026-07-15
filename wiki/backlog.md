@@ -18,8 +18,9 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **163** algorithm docs covered-via-concept, **79** pending across 14 domains
+Status at generation: **164** algorithm docs covered-via-concept, **78** pending across 14 domains
 (K-mer, Metagenomics, MolTools, Oncology, PanGenome and Pattern_Matching domains now fully covered;
+Phylogenetics/Tree_Construction → [[distance-based-tree-construction]] resolved 2026-07-15 (REUSE: the primary UPGMA/NJ spec is exactly this Evidence-derived hinge concept; enriched with the `distanceMethod=JukesCantor` default, O(n²) space, the cluster-index dictionary detail, and the §5.4 accepted-deviation / §6.2 builder limitations);
 Phylogenetics/Newick_Format → [[distance-based-tree-construction]] resolved 2026-07-15 (REUSE: the Newick I/O layer serializes this hinge concept's `PhyloNode` output — a format serializer, not a separate algorithm, so no dedicated concept, per [[phylo-newick-001-evidence]]);
 Phylogenetics/Distance_Matrix → [[evolutionary-distance-matrix]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept);
 Phylogenetics/Tree_Comparison → [[tree-comparison-metrics]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept; enriched with the O(n² log n) impl cost, helper methods, and test-pinned oracles);
@@ -244,6 +245,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Phylogenetics/Distance_Matrix.md` | [[evolutionary-distance-matrix]] |
 | `docs/algorithms/Phylogenetics/Newick_Format.md` | [[distance-based-tree-construction]] |
 | `docs/algorithms/Phylogenetics/Tree_Comparison.md` | [[tree-comparison-metrics]] |
+| `docs/algorithms/Phylogenetics/Tree_Construction.md` | [[distance-based-tree-construction]] |
 
 ## Pending (fold into the ingest campaign)
 
