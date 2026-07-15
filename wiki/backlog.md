@@ -250,6 +250,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Phylogenetics/Tree_Statistics.md` | [[tree-statistics]] |
 | `docs/algorithms/Population_Genetics/Allele_Frequency.md` | [[allele-genotype-frequencies]] |
 | `docs/algorithms/Population_Genetics/Ancestry_Estimation.md` | [[ancestry-estimation-admixture]] |
+| `docs/algorithms/Population_Genetics/Diversity_Statistics.md` | [[genetic-diversity-statistics]] |
 
 ## Pending (fold into the ingest campaign)
 
