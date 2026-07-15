@@ -8,7 +8,7 @@ mcp_tools:
 sources:
   - docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md
   - docs/algorithms/Motif_Analysis/Known_Motif_Search.md
-source_commit: 58f37bc5de666c59a60b8e7997c0894c16768c96
+source_commit: fcc46a4331c8c0559ff14b1a7c01b9015ba5b51d
 created: 2026-07-09
 updated: 2026-07-15
 graph:
@@ -26,8 +26,8 @@ graph:
 **Known motif search** locates a *set of already-known query motifs* in a subject
 sequence by **exact** substring matching, reporting **all** start positions of each
 motif. It is the "you know what you are looking for" end of motif analysis — distinct
-from *discovery* (finding over-represented / unknown motifs) and from *degenerate*
-matching (IUPAC / PROSITE / PWM). Its *inverse* is de novo
+from *discovery* (finding over-represented / unknown motifs) and from
+[[iupac-degenerate-matching|*degenerate* matching]] (IUPAC / PROSITE / PWM). Its *inverse* is de novo
 [[overrepresented-kmer-discovery|motif discovery]] — which searches for **unknown**
 over-represented motifs rather than matching a supplied set. Seqeron exposes it as `GenomicAnalyzer.FindMotif`,
 one of the two DNA wrappers over the shared [[exact-pattern-search]] suffix-tree engine
@@ -76,7 +76,7 @@ is a defect for this problem. Biopython confirms the same distinction:
 ## Scope
 
 This is the **exact** DNA-motif finder. The degenerate/consensus family lives in
-separate units (IUPAC-degenerate matching, PROSITE patterns, position-weight-matrix
+separate units ([[iupac-degenerate-matching]], PROSITE patterns, position-weight-matrix
 scanning) that relax the exact-equality test; known-motif search is the exact-equality
 baseline. A worked biological instance of the position-weight-matrix branch is
 [[splice-acceptor-site-prediction]] (the AcceptorPwm 3' splice-site scorer). The

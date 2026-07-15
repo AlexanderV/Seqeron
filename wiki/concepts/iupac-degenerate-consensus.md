@@ -7,9 +7,9 @@ mcp_tools:
 sources:
   - docs/Evidence/MOTIF-GENERATE-001-Evidence.md
   - docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md
-source_commit: d36905351108ae77101357e168b9823952ca6dec
+source_commit: fcc46a4331c8c0559ff14b1a7c01b9015ba5b51d
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -100,8 +100,9 @@ ambiguous `N`/`X` on ties rather than the specific IUPAC set-symbol this unit pr
 This is the **degenerate consensus** — it summarises an already-aligned instance set into an
 ambiguity-coded string. It sits between the plain plurality [[consensus-from-alignment]] and the
 richer position-weight-matrix model (`CreatePwm`, the input to motif *scanning*). It is
-**generation/encoding**, distinct from the matching direction (scanning a subject for a
-degenerate/IUPAC pattern) and from de novo [[overrepresented-kmer-discovery]] (finding
+**generation/encoding**, distinct from the [[iupac-degenerate-matching|matching direction]]
+(scanning a subject for a degenerate/IUPAC pattern) and from de novo
+[[overrepresented-kmer-discovery]] (finding
 **unknown** motifs in unaligned sequence). See [[known-motif-search]] for the exact-match end of
 the motif family, and [[regulatory-element-detection]] for the matching direction of an IUPAC
 pattern in practice (its E-box `CANNTG` uses the `N` = any-base ambiguity code from the table above). **No source contradictions**; the only assumptions are the 25 % threshold

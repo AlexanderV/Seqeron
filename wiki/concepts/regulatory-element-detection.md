@@ -11,9 +11,9 @@ mcp_tools:
 sources:
   - docs/Evidence/MOTIF-REGULATORY-001-Evidence.md
   - docs/algorithms/Motif_Discovery/Regulatory_Elements.md
-source_commit: 914ab57b7357e92a2f33c107af9b6fdabe63ac45
+source_commit: fcc46a4331c8c0559ff14b1a7c01b9015ba5b51d
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -51,7 +51,7 @@ correctness of its *consensus constants* — each string must equal the value th
 literature assigns — so the validation is as much about the catalog contents (and their
 citations) as about the scan. It also mixes two matching regimes: **exact** for most
 elements and **IUPAC-degenerate** for the E-box (`CANNTG`, where `N` matches any base —
-the [[iupac-degenerate-consensus|IUPAC ambiguity]] vocabulary applied to *matching*, not
+the [[iupac-degenerate-matching|IUPAC ambiguity vocabulary applied to *matching*]], not
 generation). See **Scope** for the exact/degenerate boundary.
 
 ## The catalog (12 canonical elements, each source-anchored)
