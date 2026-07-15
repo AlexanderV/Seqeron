@@ -18,10 +18,11 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **162** algorithm docs covered-via-concept, **80** pending across 14 domains
+Status at generation: **163** algorithm docs covered-via-concept, **79** pending across 14 domains
 (K-mer, Metagenomics, MolTools, Oncology, PanGenome and Pattern_Matching domains now fully covered;
 Phylogenetics/Newick_Format → [[distance-based-tree-construction]] resolved 2026-07-15 (REUSE: the Newick I/O layer serializes this hinge concept's `PhyloNode` output — a format serializer, not a separate algorithm, so no dedicated concept, per [[phylo-newick-001-evidence]]);
 Phylogenetics/Distance_Matrix → [[evolutionary-distance-matrix]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept);
+Phylogenetics/Tree_Comparison → [[tree-comparison-metrics]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept; enriched with the O(n² log n) impl cost, helper methods, and test-pinned oracles);
 Pattern_Matching/Suffix_Tree → [[suffix-tree]] resolved 2026-07-15, closing the Pattern_Matching domain (last pending doc);
 PanGenome/Phylogenetic_Marker_Selection → [[phylogenetic-marker-selection]] resolved 2026-07-15, closing the PanGenome domain;
 Oncology/Variant_Allele_Frequency → [[variant-allele-frequency-and-binomial-ci]] resolved 2026-07-15, closing the Oncology domain;
@@ -242,6 +243,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Phylogenetics/Bootstrap_Analysis.md` | [[phylogenetic-bootstrap-support]] |
 | `docs/algorithms/Phylogenetics/Distance_Matrix.md` | [[evolutionary-distance-matrix]] |
 | `docs/algorithms/Phylogenetics/Newick_Format.md` | [[distance-based-tree-construction]] |
+| `docs/algorithms/Phylogenetics/Tree_Comparison.md` | [[tree-comparison-metrics]] |
 
 ## Pending (fold into the ingest campaign)
 
