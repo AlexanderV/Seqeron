@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **154** algorithm docs covered-via-concept, **89** pending across 15 domains
+Status at generation: **155** algorithm docs covered-via-concept, **88** pending across 15 domains
 (K-mer, Metagenomics, MolTools, Oncology and PanGenome domains now fully covered;
 PanGenome/Phylogenetic_Marker_Selection → [[phylogenetic-marker-selection]] resolved 2026-07-15, closing the PanGenome domain;
 Oncology/Variant_Allele_Frequency → [[variant-allele-frequency-and-binomial-ci]] resolved 2026-07-15, closing the Oncology domain;
@@ -172,6 +172,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Motif_Discovery/Shared_Motifs.md` | [[shared-motifs]] |
 | `docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md` | [[approximate-pattern-matching-mismatches]] |
 | `docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md` | [[consensus-from-alignment]] |
+| `docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md` | [[exact-pattern-search]] |
 | `docs/algorithms/Pattern_Matching/Edit_Distance.md` | [[edit-distance]] |
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md` | [[iupac-degenerate-consensus]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |

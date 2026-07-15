@@ -4796,6 +4796,25 @@ Added `wiki/concepts/mcp-tool-catalog.md` (354 lines) — one durable reference 
    [[algorithm-validation-evidence]] unchanged (spec docs are not added to the hub). No contradictions: spec and the
    recorded Evidence synthesis agree on the model, criterion, invariants, and worked datasets.
 
+## [2026-07-15] ingest | docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md → new [[exact-pattern-search]]
+   Pattern_Matching reconciliation (spec ≠ Evidence, so NO wiki/sources/ page). Created a focused NEW concept for
+   PAT-EXACT-001 rather than reusing — the spec documents the suffix-tree exact-search *engine layer* (the three
+   `SuffixTree` primitives Contains/CountOccurrences/FindAllOccurrences + the MotifFinder.FindExactMotif /
+   GenomicAnalyzer.FindMotif DNA wrappers), genuinely distinct from the existing motif/repeat concepts that merely
+   *drive* that engine. Captured: the suffix-tree characterisation (P occurs at i iff P prefixes suffix at i), the
+   complexity table (Contains O(m), CountOccurrences O(m) via precomputed LeafCount, FindAllOccurrences O(m+z), build
+   O(n)), INV-01/02/03, the empty-pattern core-vs-wrapper split (core `""`→occurs-everywhere/`[0..n-1]`, null→
+   ArgumentNullException; wrappers guard null/empty→empty), the FindExactMotif-sorts-vs-FindMotif-unsorted ordering
+   divergence, the SIMD/thread-static/LeafCount impl notes, and the banana/mississippi/GATATAT oracles. ≥1 inbound
+   link satisfied: added links from [[known-motif-search]] (its GenomicAnalyzer.FindMotif is one of the two wrappers)
+   and [[longest-repeated-substring]] (same repository SuffixTree). New page ⇒ index.md concepts count 214→215 and a
+   concepts.md shard entry added. Backlog: added Covered-via-concept row (covered 154→155, pending 89→88); removed the
+   Exact_Pattern_Search row from [[backlog-pending]] Pattern_Matching (5→4) and header total (88→87). No typed graph
+   edges (the spec supports only exact-engine descriptions already carried as body wikilinks; no source-backed typed
+   predicate to add) ⇒ graph lint/extract skipped. Hub [[algorithm-validation-evidence]] unchanged (spec docs are not
+   added to the hub). No contradictions with [[known-motif-search]]/[[longest-repeated-substring]]: the wrappers and
+   suffix-tree semantics agree; this concept is the shared primitive beneath them.
+
 ## [2026-07-14] ingest | docs/algorithms/Oncology/Driver_Mutation_Detection.md → enriched [[driver-gene-classification-20-20-rule]]
    Oncology reconciliation (spec ≠ Evidence, so NO wiki/sources/ page). The concept synthesized earlier from
    ONCO-DRIVER-001-Evidence already covered the 20/20-rule model (Vogelstein 2013 / Tokheim 2020; f_OG > 0.20

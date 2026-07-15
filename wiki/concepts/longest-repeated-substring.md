@@ -12,7 +12,7 @@ sources:
   - docs/algorithms/Repeat_Analysis/Repeat_Detection.md
 source_commit: c52b50ebde38808027f1f8c3dadf32592547a738
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -87,7 +87,9 @@ shorter repeated prefixes like `ACG`/`TAC` was the FINDINGS_REGISTER correction.
 | API | `FindLongestRepeat` / `FindRepeats` | `FindLongestCommonRegion` / `FindCommonRegions` |
 
 Both are the exact-match deepest-internal-node family Seqeron builds on its repository
-`SuffixTree` (also reused by the [[dot-plot-word-match]] word engine).
+`SuffixTree` — the same tree whose `Contains` / `CountOccurrences` / `FindAllOccurrences`
+exact-search primitives are the [[exact-pattern-search]] unit (PAT-EXACT-001), also reused
+by the [[dot-plot-word-match]] word engine.
 
 ## API contract and invariants
 

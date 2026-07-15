@@ -10,7 +10,7 @@ sources:
   - docs/algorithms/Motif_Analysis/Known_Motif_Search.md
 source_commit: 58f37bc5de666c59a60b8e7997c0894c16768c96
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -29,7 +29,9 @@ motif. It is the "you know what you are looking for" end of motif analysis — d
 from *discovery* (finding over-represented / unknown motifs) and from *degenerate*
 matching (IUPAC / PROSITE / PWM). Its *inverse* is de novo
 [[overrepresented-kmer-discovery|motif discovery]] — which searches for **unknown**
-over-represented motifs rather than matching a supplied set. Seqeron exposes it as `GenomicAnalyzer.FindMotif`.
+over-represented motifs rather than matching a supplied set. Seqeron exposes it as `GenomicAnalyzer.FindMotif`,
+one of the two DNA wrappers over the shared [[exact-pattern-search]] suffix-tree engine
+(PAT-EXACT-001) — this concept is the multi-motif, biology-facing view of that engine.
 Validated under test unit **GENOMIC-MOTIFS-001**; the validation record is
 [[genomic-motifs-001-evidence]], [[test-unit-registry]] tracks the unit, and
 [[algorithm-validation-evidence]] describes the artifact pattern.

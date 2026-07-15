@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1078 / 1181
+Progress: 1079 / 1181
 
 ## (top-level)  (6)
 
@@ -649,7 +649,7 @@ Progress: 1078 / 1181
 - [x] docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
 - [x] docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md
 - [x] docs/algorithms/Pattern_Matching/Edit_Distance.md
-- [ ] docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md
+- [x] docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md
 - [ ] docs/algorithms/Pattern_Matching/Frequent_Words_With_Mismatches.md
 - [x] docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Consensus.md
 - [ ] docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md
