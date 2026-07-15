@@ -6,9 +6,10 @@ mcp_tools:
   - find_with_mismatches
 sources:
   - docs/Evidence/PAT-APPROX-003-Evidence.md
-source_commit: dd94a7819ba9764ca0165e710710b83844931da9
+  - docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
+source_commit: cf1c5ac61f3f0609b61a12cec47fe9a4ce0bad18
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -123,6 +124,47 @@ tolerances.
   *distance value* is fully evidence-defined by `HammingDistance`; only the leftmost
   tie-break among equal-minimum windows is a repository convention, not a
   correctness-affecting parameter.
+
+## The `HammingDistance` primitive and the result-carrying `FindWithMismatches` surface (PAT-APPROX-001)
+
+Beneath the ROSALIND-oriented family above, the repository's **PAT-APPROX-001** unit
+(`docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md`) pins down the
+`HammingDistance` primitive contract and a second, **result-carrying** approximate-match
+surface used by the `find_with_mismatches` MCP tool. These are implementation facts the
+BA1H/BA1I oracle layer above does not spell out:
+
+- **Case-insensitivity.** Both `ApproximateMatcher.HammingDistance(string, string)` and
+  the span helper `SequenceExtensions.HammingDistance(ReadOnlySpan<char>,
+  ReadOnlySpan<char>)` **uppercase both operands before comparing**, so
+  `HammingDistance("acgt", "ACGT") = 0`. `FindWithMismatches` likewise uppercases the
+  sequence and pattern first, so matching is case-insensitive end to end. (INV-02 —
+  `d_H = 0` iff identical — holds *under case-insensitive comparison*, not byte equality.)
+- **Primitive invariants.** `d_H >= 0` (it counts mismatching positions, INV-01) and
+  `d_H(s,t) = d_H(t,s)` (positionwise counting is symmetric, INV-03).
+- **`HammingDistance` preconditions.** Throws `ArgumentNullException` on a null operand
+  and `ArgumentException` on **unequal lengths** — the metric is only defined for
+  equal-length strings. `O(n)` time, `O(1)` space (single aligned pass).
+- **`FindWithMismatches(sequence, pattern, maxMismatches)`** is the brute-force
+  sliding-window matcher (`O(n·m)` time, `O(z)` space for `z` reported matches). Each hit
+  is an `ApproximateMatchResult` carrying `Position` (0-based start), `MatchedSequence`
+  (the window), `Distance` (observed mismatch count), `MismatchPositions`
+  (`IReadOnlyList<int>`, 0-based), and `MismatchType` — **always `Substitution`**, since
+  the Hamming model admits no indels. This is richer than the bare-start
+  `FindApproximateOccurrences` list above: it reports *where* each substitution fell.
+- **Threshold corner cases.** `maxMismatches < 0` throws `ArgumentOutOfRangeException`;
+  `maxMismatches = 0` degenerates to exact matching; `maxMismatches >= pattern.Length`
+  admits every equal-length window. A null/empty sequence or pattern, or a pattern longer
+  than the sequence, yields **no matches** (no equal-length window exists).
+- **Gotcha — `DnaSequence` overloads have no null guard.** The typed
+  `FindWithMismatches(DnaSequence, ...)` wrappers are thin shims over the string
+  implementation that dereference `sequence.Sequence`, so a **null `DnaSequence` throws
+  `NullReferenceException`** rather than returning no matches — unlike the string overload,
+  which tolerates null by returning empty.
+- **Oracle (ROSALIND HAMM).** `HammingDistance("GAGCCTACTAACGGGAT",
+  "CATCGTAATGACGGCCT") = 7`.
+
+Implementation lives in `ApproximateMatcher.cs`
+(`Seqeron.Genomics.Alignment`) and `SequenceExtensions.cs` (`Seqeron.Genomics.Core`).
 
 ## Scope and relation to other units
 

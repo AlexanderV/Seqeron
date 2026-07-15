@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1076 / 1181
+Progress: 1077 / 1181
 
 ## (top-level)  (6)
 
@@ -646,7 +646,7 @@ Progress: 1076 / 1181
 - [x] docs/algorithms/PanGenome/Gene_Clustering.md
 - [x] docs/algorithms/PanGenome/Pan_Genome_Growth_Model.md
 - [x] docs/algorithms/PanGenome/Phylogenetic_Marker_Selection.md
-- [ ] docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
+- [x] docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
 - [x] docs/algorithms/Pattern_Matching/Consensus_From_Alignment.md
 - [ ] docs/algorithms/Pattern_Matching/Edit_Distance.md
 - [ ] docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md
