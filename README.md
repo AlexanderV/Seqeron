@@ -391,14 +391,14 @@ These figures describe the repository state in the same Git revision as this REA
 
 | | Without the LLM Wiki | With the LLM Wiki |
 |---|---:|---:|
-| Discovery surface | 1,184 source files · 170,295 lines · 1,376,155 words | 13-line index + a relevant shard (largest: 219 lines) |
-| One-page lookup context | Repository-wide search may expose up to 170,295 source lines | Worst-case indexed discovery: 232 lines; then a 102-line average curated page |
-| Explicit knowledge structure | No normalized cross-document graph | 529 pages · 4,594 wikilinks · 529 graph nodes · 4,214 edges |
-| Curated knowledge volume | None | 54,196 lines · 442,772 words |
+| Discovery surface | 1,184 source files · 170,297 lines · 1,376,174 words | 13-line index + a relevant shard (largest: 222 lines) |
+| One-page lookup context | Repository-wide search may expose up to 170,297 source lines | Worst-case indexed discovery: 235 lines; then a 102-line average curated page |
+| Explicit knowledge structure | No normalized cross-document graph | 532 pages · 4,639 wikilinks · 532 graph nodes · 4,251 edges |
+| Curated knowledge volume | None | 54,696 lines · 446,659 words |
 | Provenance freshness | Manual source/history inspection | `source_commit` on every derived page; current stale count: 0 |
 
-For a representative one-page lookup, index + largest shard + average page is **334 lines versus
-170,295 source lines (~510× less discovery context)**. This is a context-size comparison, not a claim
+For a representative one-page lookup, index + largest shard + average page is **337 lines versus
+170,297 source lines (~505× less discovery context)**. This is a context-size comparison, not a claim
 that the wiki replaces reading the source or improves model correctness by a fixed percentage.
 
 ### Example questions
@@ -442,8 +442,10 @@ python .claude/skills/llm-wiki/scripts/wiki_lint.py wiki
 python .claude/skills/llm-wiki/scripts/wiki_stale.py wiki
 python .claude/skills/llm-wiki/scripts/wiki_graph_lint.py wiki
 
-# Link-extraction and wiki-tool business rules
-python -m unittest discover -s .claude/skills/llm-wiki/tests
+# Link-extraction and wiki-tool business rules, with the blocking coverage threshold
+python -m pip install coverage pyyaml  # one-time Python tooling dependencies
+python -m coverage run --rcfile=.claude/skills/llm-wiki/.coveragerc -m unittest discover -s .claude/skills/llm-wiki/tests
+python -m coverage report --rcfile=.claude/skills/llm-wiki/.coveragerc
 
 # Rebuild the disposable graph after Markdown graph metadata changes
 python .claude/skills/llm-wiki/scripts/wiki_graph_extract.py wiki

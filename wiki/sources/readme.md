@@ -23,9 +23,9 @@ The repository's front-page `README.md`: it frames Seqeron as a from-scratch bio
 - **Rigor by construction** — a runtime `LimitationPolicy` guards each algorithm's validated scope; results are tool-computed with provenance. See [[scientific-rigor]].
 - **A ten-methodology validation campaign** — 22,000+ executed test cases plus a per-unit validation ledger. See [[validation-and-testing]].
 - **Honest status** — beta, research-grade, not for clinical or diagnostic use, with many algorithms documented as simplified subsets. See [[research-grade-limitations]].
-- **An LLM Wiki retrieval layer** — repository documentation remains authoritative, while a provenance-tracked Markdown index, BM25 search, backlinks, and a typed graph give agents bounded discovery context and exact routes back to source files.
+- **An LLM Wiki retrieval layer** — repository documentation remains authoritative, while a provenance-tracked Markdown index, BM25 search, backlinks, and a typed graph give agents bounded discovery context and exact routes back to source files. Its maintenance commands enforce the parser's business rules and the configured branch-coverage floor.
 
-Headline facts cited by the README: **427 MCP tools** across **11 MCP servers**, **~250 algorithms** over **258 algorithm units**, **47 projects**, and a Ukkonen suffix tree substrate. Its versioned LLM Wiki section records **529 curated pages**, **4,594 wikilinks**, and a compiled graph of **529 nodes / 4,214 edges**, while explicitly framing the numbers as a context-size comparison rather than a correctness benchmark. Detailed sub-topics (performance/NativeAOT, the worked triage example, repository layout) live in `README.md` directly and are referenced by path rather than copied here.
+Headline facts cited by the README: **427 MCP tools** across **11 MCP servers**, **~250 algorithms** over **258 algorithm units**, **47 projects**, and a Ukkonen suffix tree substrate. Its versioned LLM Wiki section records **532 curated pages**, **4,639 wikilinks**, and a compiled graph of **532 nodes / 4,251 edges**, while explicitly framing the numbers as a context-size comparison rather than a correctness benchmark. Detailed sub-topics (performance/NativeAOT, the worked triage example, repository layout) live in `README.md` directly and are referenced by path rather than copied here.
 
 ## Where this fits
 

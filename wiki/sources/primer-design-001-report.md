@@ -27,4 +27,3 @@ It also verifies that pair compatibility requires a Tm difference of at most
 5 °C and no primer dimer, so [[primer-design]] consumes the signals represented
 by [[primer-dimer-thermodynamics-tm]] and the [[primer-structure-qc-screens]].
 The filtered design run recorded **250 passed / 0 failed**.
-

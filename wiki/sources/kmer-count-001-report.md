@@ -26,4 +26,3 @@ semantics, normalization, guards, and agreement across overloads. Its explicit
 test-unit identity supports the relationship from [[k-mer-counting]] to
 [[test-unit-registry]]. The filtered validation run recorded **120 passed / 0
 failed** and no implementation change.
-

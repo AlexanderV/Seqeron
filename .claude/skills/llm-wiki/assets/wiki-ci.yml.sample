@@ -2,13 +2,21 @@
 name: wiki-gates
 on:
   pull_request:
-    paths: ["docs/**", "wiki/**"]
+    paths:
+      - "docs/**"
+      - "wiki/**"
+      - "*.md"
+      - ".claude/skills/llm-wiki/**"
+      - ".githooks/pre-commit"
 jobs:
   gates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # full history: wiki_stale needs git log
+      - run: python -m pip install coverage pyyaml
+      - run: python -m coverage run --rcfile=.claude/skills/llm-wiki/.coveragerc -m unittest discover -s .claude/skills/llm-wiki/tests
+      - run: python -m coverage report --rcfile=.claude/skills/llm-wiki/.coveragerc
       - run: python .claude/skills/llm-wiki/scripts/wiki_lint.py wiki/
       - run: python .claude/skills/llm-wiki/scripts/wiki_stale.py wiki/
       - run: python .claude/skills/llm-wiki/scripts/wiki_coverage.py wiki/ --docs-dir docs

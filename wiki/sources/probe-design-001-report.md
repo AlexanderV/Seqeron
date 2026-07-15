@@ -27,4 +27,3 @@ the generic designer unchanged. It traces the suffix-tree overload through
 salt-adjusted formulas behind the relationship to [[melting-temperature]]. The
 generic `ProbeDesigner` validation recorded **91 passed / 0 failed** before the
 fresh TaqMan re-validation documented in the same source.
-

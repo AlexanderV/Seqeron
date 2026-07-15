@@ -3,8 +3,8 @@
 
 This is deliberately a link extractor, not a renderer. It implements the
 CommonMark block/inline rules that determine whether ``[[...]]`` is literal
-code: fenced and indented code blocks, common container prefixes, raw PRE-like
-HTML blocks, and backtick code spans scoped to one inline block.
+code: fenced and indented code blocks, common container prefixes, raw HTML
+blocks, and backtick code spans scoped to one inline block.
 """
 
 from __future__ import annotations
@@ -20,7 +20,27 @@ ATX_HEADING_RE = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+|$)")
 THEMATIC_BREAK_RE = re.compile(r"^ {0,3}(?:\*[ \t]*){3,}$|^ {0,3}(?:-[ \t]*){3,}$|^ {0,3}(?:_[ \t]*){3,}$")
 SETEXT_HEADING_RE = re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
 BACKTICK_RUN_RE = re.compile(r"`+")
-HTML_BLOCK_OPEN_RE = re.compile(r"^ {0,3}<(pre|script|style|textarea)(?:[ \t>]|$)", re.IGNORECASE)
+HTML_PRE_BLOCK_RE = re.compile(r"^ {0,3}<(pre|script|style|textarea)(?:[ \t>]|$)", re.IGNORECASE)
+HTML_BLOCK_TAGS = (
+    "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|"
+    "dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|"
+    "frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|"
+    "nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|"
+    "tfoot|th|thead|title|tr|track|ul"
+)
+HTML_BLOCK_TAG_RE = re.compile(
+    rf"^ {{0,3}}</?(?:{HTML_BLOCK_TAGS})(?:[ \t]|/?>|$)",
+    re.IGNORECASE,
+)
+HTML_ATTRIBUTE_NAME = r"[A-Za-z_:][A-Za-z0-9_.:-]*"
+HTML_ATTRIBUTE_VALUE = r'''(?:[^ \t\r\n"'=<>`]+|'[^']*'|"[^"]*")'''
+HTML_ATTRIBUTE = rf"(?:[ \t]+{HTML_ATTRIBUTE_NAME}(?:[ \t]*=[ \t]*{HTML_ATTRIBUTE_VALUE})?)"
+HTML_COMPLETE_TAG_RE = re.compile(
+    rf"^ {{0,3}}(?:"
+    rf"<[A-Za-z][A-Za-z0-9-]*{HTML_ATTRIBUTE}*[ \t]*/?>|"
+    rf"</[A-Za-z][A-Za-z0-9-]*[ \t]*>"
+    rf")[ \t]*$"
+)
 HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
@@ -125,6 +145,7 @@ def _logical_content(
     raw: str,
     containers: list[tuple[str, int]],
     paragraph_key: tuple[tuple[str, int], ...] | None,
+    allow_new_containers: bool = True,
 ) -> tuple[tuple[tuple[str, int], ...], str, bool]:
     """Return the active container signature and its relative line content.
 
@@ -151,6 +172,9 @@ def _logical_content(
     if matched != len(containers):
         del containers[matched:]
 
+    if not allow_new_containers:
+        return tuple(containers), content, False
+
     starts_list = False
     while True:
         quote = re.match(r"^ {0,3}>[ \t]?", content)
@@ -173,8 +197,45 @@ def _logical_content(
     return tuple(containers), content, starts_list
 
 
+def _html_block_opener(content: str, paragraph_active: bool) -> tuple[str, bool] | None:
+    """Return (termination mode, already closed) for a CommonMark HTML block."""
+    if re.match(r"^ {0,3}<!--", content):
+        return "comment", "-->" in content
+    if re.match(r"^ {0,3}<\?", content):
+        return "processing", "?>" in content
+    if re.match(r"^ {0,3}<![A-Z]", content):
+        return "declaration", ">" in content
+    if re.match(r"^ {0,3}<!\[CDATA\[", content):
+        return "cdata", "]]>" in content
+
+    pre_match = HTML_PRE_BLOCK_RE.match(content)
+    if pre_match:
+        tag = pre_match.group(1).lower()
+        return f"tag:{tag}", bool(re.search(rf"</{tag}[ \t]*>", content, re.IGNORECASE))
+    if HTML_BLOCK_TAG_RE.match(content):
+        return "blank", False
+    if not paragraph_active and HTML_COMPLETE_TAG_RE.match(content):
+        return "blank", False
+    return None
+
+
+def _html_block_closed(mode: str, content: str) -> bool:
+    if mode == "comment":
+        return "-->" in content
+    if mode == "processing":
+        return "?>" in content
+    if mode == "declaration":
+        return ">" in content
+    if mode == "cdata":
+        return "]]>" in content
+    if mode.startswith("tag:"):
+        tag = mode.partition(":")[2]
+        return bool(re.search(rf"</{tag}[ \t]*>", content, re.IGNORECASE))
+    return False
+
+
 def strip_block_code(text: str) -> str:
-    """Mask fenced, indented, and PRE-like HTML code blocks.
+    """Mask fenced, indented, and raw HTML blocks.
 
     Fences are container-aware for blockquotes and ordinary list items. An
     unclosed fence ends at the end of its container (or the document at root).
@@ -190,12 +251,19 @@ def strip_block_code(text: str) -> str:
     for line in lines:
         ending_length = len(line) - len(line.rstrip("\r\n"))
         raw = line[:-ending_length] if ending_length else line
-        key, content, starts_list = _logical_content(raw, containers, paragraph_key)
+        literal_block_active = fence is not None or html_block is not None
+        key, content, starts_list = _logical_content(
+            raw,
+            containers,
+            paragraph_key,
+            allow_new_containers=not literal_block_active,
+        )
 
         if fence is not None:
             fence_char, fence_length, fence_key = fence
             if key != fence_key and content.strip():
                 fence = None
+                key, content, starts_list = _logical_content(raw, containers, paragraph_key)
             else:
                 closing = re.fullmatch(
                     rf" {{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*",
@@ -213,13 +281,18 @@ def strip_block_code(text: str) -> str:
             indented = None
 
         if html_block is not None:
-            tag, html_key = html_block
+            mode, html_key = html_block
+            if mode == "blank" and not content.strip():
+                html_block = None
+                output.append(line)
+                paragraph_key = None
+                continue
             if key != html_key and content.strip():
                 html_block = None
+                key, content, starts_list = _logical_content(raw, containers, paragraph_key)
             else:
                 output.append(_blank_preserving_newlines(line))
-                if ((tag == "!--" and "-->" in content)
-                        or (tag != "!--" and re.search(rf"</{tag}[ \t]*>", content, re.IGNORECASE))):
+                if _html_block_closed(mode, content):
                     html_block = None
                 continue
 
@@ -238,18 +311,12 @@ def strip_block_code(text: str) -> str:
                 paragraph_key = None
                 continue
 
-        html_match = HTML_BLOCK_OPEN_RE.match(content)
-        if content.lstrip().startswith("<!--"):
+        html_open = _html_block_opener(content, paragraph_key == key)
+        if html_open:
+            mode, already_closed = html_open
             output.append(_blank_preserving_newlines(line))
-            if "-->" not in content:
-                html_block = ("!--", key)
-            paragraph_key = None
-            continue
-        if html_match:
-            tag = html_match.group(1)
-            output.append(_blank_preserving_newlines(line))
-            if not re.search(rf"</{tag}[ \t]*>", content, re.IGNORECASE):
-                html_block = (tag, key)
+            if mode == "blank" or not already_closed:
+                html_block = (mode, key)
             paragraph_key = None
             continue
 

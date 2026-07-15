@@ -6,38 +6,60 @@
 #   - everything under docs/
 #   - the root-level markdown files enumerated in SOURCES_RE below
 #
-# When any source OR any wiki page is staged, run the deterministic staleness
-# check (blocking) and a coverage report (soft) so drift surfaces at commit time.
+# When any source or wiki page is staged, run deterministic staleness and
+# parser business-rule/coverage checks (blocking), then report source coverage
+# in soft mode. A tooling or hook change also runs the parser checks, so the
+# gate cannot be bypassed by changing the code that implements it.
 #
 # To add a new root source, edit THREE places so they stay identical:
 #   1) the SOURCES_RE regexp here
 #   2) a matching --extra flag in the coverage call below
 #   3) wiki/SCHEMA.md
 
-SKILL=.claude/skills/llm-wiki/scripts
+SKILL_ROOT=.claude/skills/llm-wiki
+SKILL="$SKILL_ROOT/scripts"
 
 # A single regexp is the whole source list. Root files are anchored with $ so a
 # nested file like docs/README.md matches the docs/ arm, not the root arm.
 SOURCES_RE='^(docs/|wiki/|README\.md$|ALGORITHMS_CHECKLIST_V2\.md$|ALGORITHMS_ROADMAP\.md$)'
+TOOLING_RE='^\.claude/skills/llm-wiki/|^\.githooks/pre-commit$'
 
 staged=$(git diff --cached --name-only --diff-filter=ACMR)
-echo "$staged" | grep -Eq "$SOURCES_RE" || exit 0
+source_or_wiki_staged=0
+tooling_staged=0
+echo "$staged" | grep -Eq "$SOURCES_RE" && source_or_wiki_staged=1
+echo "$staged" | grep -Eq "$TOOLING_RE" && tooling_staged=1
+[ "$source_or_wiki_staged" -eq 0 ] && [ "$tooling_staged" -eq 0 ] && exit 0
 
-echo "[wiki] source or wiki change staged — checking staleness + coverage"
+if [ "$source_or_wiki_staged" -eq 1 ]; then
+  echo "[wiki] source or wiki change staged — checking staleness"
+  if ! python "$SKILL/wiki_stale.py" wiki; then
+    echo "[wiki] stale pages above: re-ingest the changed source(s), or run" >&2
+    echo "       'git commit --no-verify' if this is intentional." >&2
+    exit 1
+  fi
+fi
 
-python "$SKILL/wiki_stale.py" wiki
-if [ $? -ne 0 ]; then
-  echo "[wiki] stale pages above: re-ingest the changed source(s), or run" >&2
-  echo "       'git commit --no-verify' if this is intentional." >&2
+echo "[wiki] running parser business rules with branch coverage"
+if ! python -m coverage run --rcfile="$SKILL_ROOT/.coveragerc" \
+    -m unittest discover -s "$SKILL_ROOT/tests"; then
+  echo "[wiki] tests failed, or a Python test dependency is unavailable." >&2
+  echo "       Install dependencies with 'python -m pip install coverage pyyaml'." >&2
+  exit 1
+fi
+if ! python -m coverage report --rcfile="$SKILL_ROOT/.coveragerc"; then
+  echo "[wiki] parser coverage is below the configured threshold." >&2
   exit 1
 fi
 
-# Soft mode: report only (|| true). Once the initial ingest backlog is cleared,
-# add --strict here to make an unreferenced source block the commit.
-python "$SKILL/wiki_coverage.py" wiki \
-  --extra README.md \
-  --extra ALGORITHMS_CHECKLIST_V2.md \
-  --extra ALGORITHMS_ROADMAP.md \
-  || true
+if [ "$source_or_wiki_staged" -eq 1 ]; then
+  # Soft mode: report only (|| true). Once the initial ingest backlog is cleared,
+  # add --strict here to make an unreferenced source block the commit.
+  python "$SKILL/wiki_coverage.py" wiki \
+    --extra README.md \
+    --extra ALGORITHMS_CHECKLIST_V2.md \
+    --extra ALGORITHMS_ROADMAP.md \
+    || true
+fi
 
 exit 0

@@ -26,4 +26,3 @@ folding model, supporting the `alternative_to` relationship with
 `EvaluatePrimer` and `DesignPrimers`, supporting the relationship to
 [[primer-design]]. The SantaLucia nearest-neighbor values and Primer3 anchor
 cases are independently re-derived in the source report.
-

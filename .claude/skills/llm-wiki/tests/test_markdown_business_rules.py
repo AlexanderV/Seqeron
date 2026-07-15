@@ -62,6 +62,16 @@ class LiteralBlockContractTests(unittest.TestCase):
         )
         self.assertEqual(["visible"], wiki_markdown.extract_wikilinks(body))
 
+    def test_block_markers_inside_open_fences_are_literal_code(self):
+        bodies = (
+            "```\n- [[hidden-list]]\n> [[hidden-quote]]\n```\n[[visible]]",
+            "- ```\n  - [[hidden-list]]\n  > [[hidden-quote]]\n  ```\n[[visible]]",
+            "> ```\n> - [[hidden-list]]\n> > [[hidden-quote]]\n> ```\n[[visible]]",
+        )
+        for body in bodies:
+            with self.subTest(body=body):
+                self.assertEqual(["visible"], wiki_markdown.extract_wikilinks(body))
+
     def test_closing_fence_with_trailing_text_is_not_a_closer(self):
         body = "```\n[[hidden-a]]\n``` trailing\n[[hidden-b]]\n```\n[[visible]]"
         self.assertEqual(["visible"], wiki_markdown.extract_wikilinks(body))
@@ -100,6 +110,29 @@ class LiteralBlockContractTests(unittest.TestCase):
         for tag in ("pre", "script", "style", "textarea"):
             with self.subTest(tag=tag):
                 body = f"<{tag}>\n[[hidden]]\n</{tag.upper()}>\n[[visible]]"
+                self.assertEqual(["visible"], wiki_markdown.extract_wikilinks(body))
+
+    def test_block_markers_inside_pre_like_html_are_literal(self):
+        body = "<pre>\n- [[hidden-list]]\n> [[hidden-quote]]\n</pre>\n[[visible]]"
+        self.assertEqual(["visible"], wiki_markdown.extract_wikilinks(body))
+
+    def test_blank_terminated_commonmark_html_blocks_hide_wikilinks(self):
+        bodies = (
+            "<div>\n[[hidden]]\n</div>\n\n[[visible]]",
+            "<custom-element data-value='x'>\n[[hidden]]\n\n[[visible]]",
+        )
+        for body in bodies:
+            with self.subTest(body=body):
+                self.assertEqual(["visible"], wiki_markdown.extract_wikilinks(body))
+
+    def test_processing_instruction_declaration_and_cdata_blocks_are_literal(self):
+        bodies = (
+            "<?target\n[[hidden]]\n?>\n[[visible]]",
+            "<!DECLARATION\n[[hidden]]\n>\n[[visible]]",
+            "<![CDATA[\n[[hidden]]\n]]>\n[[visible]]",
+        )
+        for body in bodies:
+            with self.subTest(body=body):
                 self.assertEqual(["visible"], wiki_markdown.extract_wikilinks(body))
 
     def test_tab_padded_list_continuation_keeps_code_in_the_list(self):

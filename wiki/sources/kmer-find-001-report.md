@@ -27,4 +27,3 @@ for each sliding window. It therefore supports both the test-unit relationship
 and the dependency of [[k-mer-search]] on [[k-mer-counting]]. The canonical
 find-method suite recorded **24 passed / 0 failed**, with six additional
 position tests, and no implementation change.
-

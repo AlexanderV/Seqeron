@@ -26,4 +26,3 @@ frequencies sum to one, the spectrum is a count-of-counts map, and entropy is
 Shannon entropy in bits. Its explicit test-unit identity supports the
 relationship from [[k-mer-frequency-analysis]] to [[test-unit-registry]]. The
 filtered run recorded **32 passed / 0 failed** and no implementation change.
-
