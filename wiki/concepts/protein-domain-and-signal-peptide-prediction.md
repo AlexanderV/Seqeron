@@ -9,7 +9,8 @@ sources:
   - docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md
   - docs/Evidence/PROTMOTIF-SP-001-Evidence.md
   - docs/algorithms/ProteinMotif/Domain_Prediction.md
-source_commit: 28bd142db46164d299c3e7d56eb90f68b621072a
+  - docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md
+source_commit: ddd13d485c9d372f47037e62ae42c0fd878a70d4
 created: 2026-07-10
 updated: 2026-07-16
 graph:
@@ -99,6 +100,23 @@ and an independent from-scratch Python re-derivation of the retrieved HMMER recu
   fixed-seed Easel LCG seed 42) for **closely-overlapping** tandem domains — reproduces hmmsearch
   envelope **coordinates** exactly on truncated tandem-SH3 constructs; opt-in via
   `FindDomains(seq, clusterOverlapping:true)`.
+
+**HMMER3/f parser & DP shape** (per-algorithm spec `Profile_HMM_Domain_Detection.md`, same unit
+PROTMOTIF-DOMAIN-001). `Plan7ProfileHmm.Parse` reads the HMMER3/f ASCII profile: probability parameters
+are stored as **negative natural-log** values to 5 decimals (a `*` = zero probability → **−∞** in log
+space, forbidding that path — INV-HMM-04), alphabet K=20 `ACDEFGHIKLMNPQRSTVWY`, the `COMPO`
+mean-composition background, the mute BEGIN node, then per node the match/insert emissions and the
+**7 transitions** in the fixed order `Mk→Mk+1, Mk→Ik, Mk→Dk+1, Ik→Mk+1, Ik→Ik, Dk→Mk+1, Dk→Dk+1`. Both
+Viterbi and Forward run as a **two-row DP over nodes 1..M × residues 1..n → O(n·M) time, O(M) space**
+(Forward = Viterbi with `max` replaced by log-sum-exp). The **default** `ViterbiScore`/`ForwardScore` are
+**glocal** (B→1..M→E spanning the whole query), so `FindDomainsByHmm`/`ScoreDomainHmm` report a
+whole-sequence span (`minBitScore` default 10.0, non-amino characters → neutral zero log-odds); the
+HMMER **local-multihit** mode (`LocalForward*`, `HmmSearchBitScore`, envelope decomposition) is the opt-in
+parity path (Deviation #1 in the spec). The E-value variants `FindDomainHitsByHmm`/`ScoreDomainHmmEValue`
+(database size `Z` default 1.0) return bit score **and** Viterbi E-value; `FindDomainEnvelopes` returns
+per-domain envelope hits. Invariants: Forward ≥ Viterbi (Forward sums over all paths incl. the optimal —
+INV-HMM-01), scoring is deterministic (INV-HMM-03), and the E-value is monotone-decreasing in bit score
+and exactly linear in Z (`E = P·Z` — INV-HMM-05).
 
 **Honest residuals:** exact `hmmsearch`-reported E-value pipeline parity is **not** reproduced — the
 MSV/bias prefilters (which only gate which sequences reach Forward, not a hit's bit score) are not
