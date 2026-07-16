@@ -14,9 +14,9 @@ sources:
   - docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
   - docs/Evidence/DISORDER-REGION-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
-source_commit: 8bd6a5e1b48367a44632668b3e6d980ebe3e6d2c
+source_commit: a4b2a767ee59f24396132a44d9a08875ff44e70a
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -153,6 +153,17 @@ artifact with no correctness impact.
 `ResiduePredictions` (one per residue — 0-based `Position`, `Residue`, `DisorderScore`,
 `IsDisordered`); `DisorderedRegions` (contiguous runs ≥ `minRegionLength`); `OverallDisorderContent`
 (fraction of residues flagged disordered); and `MeanDisorderScore` (mean of all residue scores).
+
+**Implementation shape (DisorderPredictor.cs).** `PredictDisorder(sequence, windowSize=21,
+disorderThreshold=0.542, minRegionLength=5)` is the single public entry point; it short-circuits on
+`null`/empty, uppercases with `ToUpperInvariant()`, then delegates to two private helpers:
+`CalculatePerResidueScores(...)` builds the `ResiduePrediction` records (`isDisordered = score ≥
+threshold`, INV-03) and, per window, calls `CalculateDisorderScore(...)` — the normalized-TOP-IDP
+window average that skips residues absent from the lookup table and returns **`0.0`** for a window
+holding no recognized residue. `OverallDisorderContent = disorderedCount / sequence.Length` and
+`MeanDisorderScore` is the mean over the returned prediction list; region grouping and the cached
+disorder-/order-/ambiguous residue-class properties are computed on top. The public method performs
+**no explicit validation** of non-default `windowSize` / `disorderThreshold` / `minRegionLength`.
 
 ## Disordered-region detection (DISORDER-REGION-001)
 
