@@ -18,8 +18,16 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **173** algorithm docs covered-via-concept, **61** pending across 12 domains
-(ProteinMotif/Profile_HMM_Domain_Detection → [[protein-domain-and-signal-peptide-prediction]] resolved
+Status at generation: **174** algorithm docs covered-via-concept, **60** pending across 12 domains
+(ProteinMotif/Signal_Peptide_Prediction → [[protein-domain-and-signal-peptide-prediction]] resolved
+2026-07-16 (REUSE: the dedicated von Heijne 1986 signal-peptide spec, unit PROTMOTIF-SP-001, is already
+fully owned by this Evidence-derived concept — which documents the current EMBOSS `sigcleave` weight-matrix
+method with the P17644 oracle; the spec describes the SAME correct method (no superseded tripartite model —
+that was the sibling `Domain_Prediction.md`), so no contradiction; enriched only with the spec's
+genuinely-distinct implementation content: the `PredictSignalPeptide`/`BuildWeightMatrix` entry points with
+the log-odds matrix built once at static init, the O(n·15)=O(n) time / O(1) space cost, the fixed-width-PWM
+suffix-tree-not-applicable decision, and the min-15-residue-window accepted deviation);
+ProteinMotif/Profile_HMM_Domain_Detection → [[protein-domain-and-signal-peptide-prediction]] resolved
 2026-07-16 (REUSE: the per-algorithm profile-HMM spec is the SAME test unit — PROTMOTIF-DOMAIN-001 — as
 `Domain_Prediction`, already owned by this Evidence-derived concept, which had a dedicated `FindDomainsByHmm`
 Plan7 section covering Viterbi/Forward, hmmsearch-parity `pre_score`, null2, the Gumbel/exponential E-value
@@ -234,6 +242,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md` | [[protein-motif-pattern-search]] |
 | `docs/algorithms/ProteinMotif/Pattern_Matching_Methods.md` | [[protein-motif-pattern-search]] |
 | `docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md` | [[protein-domain-and-signal-peptide-prediction]] |
+| `docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md` | [[protein-domain-and-signal-peptide-prediction]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
@@ -308,7 +317,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (61 algorithm docs across 12 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (60 algorithm docs across 12 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

@@ -10,7 +10,8 @@ sources:
   - docs/Evidence/PROTMOTIF-SP-001-Evidence.md
   - docs/algorithms/ProteinMotif/Domain_Prediction.md
   - docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md
-source_commit: ddd13d485c9d372f47037e62ae42c0fd878a70d4
+  - docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md
+source_commit: 06d4796c7e5d5b7136ebd65de057a08c8fe2b50f
 created: 2026-07-10
 updated: 2026-07-16
 graph:
@@ -148,6 +149,19 @@ position-specific **weight matrix** rather than the tripartite heuristic:
 The record returns `CleavagePosition`, `Score`, `SignalSequence` (residues 1..`CleavagePosition−1`),
 `WindowSequence` (the 15-residue window), and `IsLikelySignalPeptide`. Inputs shorter than one full
 15-residue window return `null`; non-standard residues (X/B/Z/*) contribute 0; case-insensitive.
+
+**Implementation (per the per-algorithm spec `Signal_Peptide_Prediction.md`, same unit PROTMOTIF-SP-001).**
+`PredictSignalPeptide(string, bool prokaryote, double minWeight)` scores every candidate position and
+returns the argmax; the private `BuildWeightMatrix(int[][], double[])` applies the `ln(count/expect)`
+log-odds transform (with the `1.0e-10` penalty at columns −3/−1, `1.0` elsewhere) **once at static
+initialization** from the two EMBOSS count matrices, so scoring reuses the prebuilt matrix. The scan is a
+**fixed-width position-specific weight-matrix** pass over a 15-column window (`pval = −13`, 15 columns,
+exactly as EMBOSS `sigcleave.c`) — **not** substring/occurrence matching, so the repository suffix tree is
+**not applicable**. Cost is **O(n·15) = O(n)** time, **O(1)** space (n = sequence length); the one-time
+matrix build is O(20×15). **Accepted deviation:** the minimum input is one full 15-residue window (EMBOSS
+scores any length by skipping off-window columns), so sub-window inputs return `null` rather than a
+partial-window score. The method is a classical baseline (≈75–80% cleavage-site accuracy); the HMM/neural
+refinements of SignalP/Phobius are **not** reimplemented.
 
 **Worked oracle:** **ACH2_DROME (UniProt P17644**, 576 aa) → maximum `Score` **13.739**,
 `CleavagePosition` **42**, window `LLVLLLLCETVQA` (residues 29–41); reproduced exactly by an
