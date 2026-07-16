@@ -3,12 +3,13 @@ type: concept
 title: "Transmembrane helix prediction (Kyte-Doolittle hydropathy sliding window)"
 tags: [analysis, algorithm]
 sources:
+  - docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md
   - docs/Evidence/PROTMOTIF-TM-001-Evidence.md
   - docs/Evidence/SEQ-HYDRO-001-Evidence.md
   - docs/Validation/reports/PROTMOTIF-TM-001.md
-source_commit: 3e90ada29a32f385c5a7ffa5227e4471967a9915
+source_commit: 06b8431ed6821b821683bc177fe5a76e63e70f81
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -72,6 +73,13 @@ For an uppercased sequence `S` of length `n`, a window length `W` (default 19) a
 
 The 19-residue window and the minimum span equal to the window width are justified by the
 biophysics: a single α-helix needs ~18–21 residues (≈0.15 nm each) to cross the ~3–4 nm bilayer.
+
+The public entry point is `ProteinMotifFinder.PredictTransmembraneHelices(string, int, double)`,
+returning `(int Start, int End, double Score)` tuples; the sliding-window mean is the private
+`CalculateHydropathyProfile(...)`. Detection is a **profile build + single linear scan** — no
+text search over the sequence, so the repository suffix tree is not applicable. Cost is
+**O(n·w) time, O(n) space** (n = sequence length, w = window; the run-delimiting scan is O(n)
+over the `n − w + 1` profile points).
 
 ## Parameters and defaults
 
