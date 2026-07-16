@@ -388,7 +388,11 @@ Approved for ingestion in the 2026-07-09 lint triage; pending `/wiki:ingest`.
   docs, not algorithm units. `CANONICAL_MAP.md` is ingested as the source page
   [[canonical-algorithm-map]] (canonical-identity map: alias→canonical IDs, folder
   buckets, legacy baselines) — the identity counterpart to this coverage ledger.
-  `README.md` remains index-only; ingest if a navigational need arises.
+  `README.md` is **resolved index-only (2026-07-16)** — a coverage exclusion, not a
+  wiki page. It is purely navigational (section headers linking to the per-algorithm
+  folders, every one of which is already synthesized by a concept in the *Covered via
+  concept* table) plus a Canonicalization section whose content is already owned by
+  [[canonical-algorithm-map]]. No distinct synthesis to capture, so no dedicated page.
 - The `docs/Evidence/**` campaign (175 of 213 remaining) is the primary driver: each
   Evidence ingest typically creates or extends the concept that also covers the
   matching algorithm doc, clearing a pending row here as a side effect.
