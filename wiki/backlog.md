@@ -18,8 +18,12 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **169** algorithm docs covered-via-concept, **65** pending across 12 domains
-(ProteinMotif/Domain_Prediction → [[protein-domain-and-signal-peptide-prediction]] resolved 2026-07-16
+Status at generation: **170** algorithm docs covered-via-concept, **64** pending across 12 domains
+(ProteinMotif/Motif_Search → [[protein-motif-pattern-search]] resolved 2026-07-16 (REUSE: the primary
+per-algorithm spec is exactly this Evidence-derived concept, unit PROTMOTIF-FIND-001; enriched only with
+the `ParseRegexAllowedCounts` regex-walk helper that supplies the per-position allowed-residue count
+feeding the information-content score);
+ProteinMotif/Domain_Prediction → [[protein-domain-and-signal-peptide-prediction]] resolved 2026-07-16
 (REUSE: the primary per-algorithm spec reconciles against the existing Evidence-derived concept, which is
 already ahead of the spec — it documents the current von Heijne 1986 weight-matrix signal-peptide method
 and the Plan7 profile-HMM engine, whereas the spec still describes the superseded/fabricated tripartite
@@ -207,6 +211,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinMotif/Common_Motif_Finding.md` | [[common-protein-motifs]] |
 | `docs/algorithms/ProteinMotif/Domain_Prediction.md` | [[protein-domain-and-signal-peptide-prediction]] |
 | `docs/algorithms/ProteinMotif/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
+| `docs/algorithms/ProteinMotif/Motif_Search.md` | [[protein-motif-pattern-search]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |

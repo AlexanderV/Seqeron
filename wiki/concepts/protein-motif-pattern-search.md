@@ -10,9 +10,10 @@ sources:
   - docs/Evidence/PROTMOTIF-FIND-001-Evidence.md
   - docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md
   - docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md
-source_commit: 0908c5f04255fcb3d51c7706d74a689eee481faa
+  - docs/algorithms/ProteinMotif/Motif_Search.md
+source_commit: 8c6a2d341d315a689c793b91a1d60c0eb137c4a2
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -143,7 +144,11 @@ extreme-value fit):
 - **`CalculateMotifScore`** — information content `IC = Σ log₂(20 / allowed_count)` summed
   over each **constrained** position. An unconstrained `x` position contributes 0 bits; a
   fully fixed single-residue position contributes `log₂ 20 ≈ 4.32` bits; an `[ABC]`
-  three-residue set contributes `log₂(20/3)` bits.
+  three-residue set contributes `log₂(20/3)` bits. The per-position `allowed_count` is
+  derived not from the PROSITE string but from the **compiled regex** by the helper
+  `ParseRegexAllowedCounts` — it walks the regex and, for each atom, counts how many of the
+  20 residues that position admits (a literal → 1, `[…]` → set size, `.`/`x` → 20), so
+  scoring operates on the regex form the matcher actually runs.
 - **`CalculateEValue`** — `E = (N − L + 1) · 2^(−IC)`, where `N` = sequence length,
   `L` = motif length, `IC` = total information content. This is the expected number of random
   matches under a uniform amino-acid background.
