@@ -17,7 +17,7 @@ sources:
   - docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
   - docs/Validation/reports/GENOMIC-REPEAT-001.md
-source_commit: 22ec7d01f2cbf064f81819034e88d6c071e6debf
+source_commit: 96bfcfe823892dd86e97504488ef753c9b93dc01
 created: 2026-07-09
 updated: 2026-07-16
 graph:
@@ -175,7 +175,9 @@ Following IUPACpal (Hampson et al. 2021), an IR has the form **W W̄ᴿ** (perfe
 `k` mismatches: Hamming distance `δ_H(W, W̄ᴿ) ≤ k`.
 
 - **Zero gap ⇒ palindrome.** When `|G| = 0` the composite is an even-length reverse-complement
-  palindrome (e.g. `GAATTC` → arm `GAA`, revcomp arm `TTC`).
+  palindrome (e.g. `GAATTC` → arm `GAA`, revcomp arm `TTC`) — detected by the dedicated zero-loop
+  scanner [[palindrome-detection]] (`RepeatFinder.FindPalindromes`, REP-PALIN-001), distinct from
+  the loop-bearing `FindInvertedRepeats`.
 - Detection parameters: minimum arm length, maximum arm length, maximum gap, maximum mismatches.
 
 The **RNA** flavour of this exact `W G W̄ᴿ` model — antiparallel complementary arms that form a

@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **181** algorithm docs covered-via-concept, **51** pending across 9 domains
+Status at generation: **182** algorithm docs covered-via-concept, **50** pending across 9 domains
 (Repeat_Analysis/Microsatellite_Detection → [[repetitive-element-detection]] resolved 2026-07-16
 (REUSE: the REP-STR-001 spec reconciles against the existing repeats/tandem family anchor, which
 already synthesizes the REP-STR-001 Evidence — the Benson TRF approximate detector, the
@@ -42,6 +42,14 @@ REP-INV-001 — a *third*, genuinely-distinct DNA-only exact-arm implementation,
 imperfect IUPACpal `W·G·W̄ᴿ` annotation model and the RNA-INVERT-001 stem model both synthesized in the
 [[repetitive-element-detection]] anchor; adds the `CanFormHairpin` (loop ≥ 3) flag and the palindrome =
 zero-loop special case; created with inbound links from the family anchor and the direct-repeat sibling);
+Repeat_Analysis/Palindrome_Detection → [[palindrome-detection]] resolved 2026-07-16 (NEW concept:
+the biological DNA palindrome — even-length windows where `S = ReverseComplement(S)` — is exposed
+via a genuinely-distinct dedicated entry point `RepeatFinder.FindPalindromes` (+ the lighter
+`GenomicAnalyzer.FindPalindromes`), REP-PALIN-001, with its own `PalindromeResult`/`PalindromeInfo`
+return types and even-length step-by-2 scan, separate from the loop-bearing `FindInvertedRepeats`
+of [[inverted-repeat-detection]] which will not report the zero-loop case under default
+`minLoopLength=3`; created with inbound links from the family anchor [[repetitive-element-detection]]
+and the [[inverted-repeat-detection]] sibling, cross-links [[restriction-site-detection]]);
 Quality/Quality_Statistics → [[fastq-quality-statistics]] resolved 2026-07-16, closing the Quality
 domain (last pending doc) (REUSE: reconciled against the existing Evidence-derived concept, which
 already synthesized the mean/median/min/max, population variance/σ (÷N), inclusive Q20/Q30 thresholds,
@@ -301,6 +309,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md` | [[direct-repeat-detection]] |
 | `docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md` | [[inverted-repeat-detection]] |
 | `docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md` | [[repetitive-element-detection]] |
+| `docs/algorithms/Repeat_Analysis/Palindrome_Detection.md` | [[palindrome-detection]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |

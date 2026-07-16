@@ -4,7 +4,7 @@ title: "Inverted repeat detection (reverse-complement arms with a loop)"
 tags: [annotation, algorithm]
 sources:
   - docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md
-source_commit: 8767a4acf4f5df25167ee59d10e9e94725d5c0cf
+source_commit: 96bfcfe823892dd86e97504488ef753c9b93dc01
 created: 2026-07-16
 updated: 2026-07-16
 ---
@@ -54,8 +54,9 @@ LoopLength  = RightArmStart − (LeftArmStart + ArmLength)
 
 A **palindrome** is the special case with `LoopLength = 0` (even-length reverse-complement
 palindrome, e.g. self-complementary `GCGC`); it is not returned under default settings because
-the default `minLoopLength` is `3`. The right arm is derived by
-`DnaSequence.GetReverseComplementString()` on each candidate left arm.
+the default `minLoopLength` is `3`. That zero-loop case has its own dedicated even-length scanner,
+[[palindrome-detection]] (`RepeatFinder.FindPalindromes`, REP-PALIN-001). The right arm is derived
+by `DnaSequence.GetReverseComplementString()` on each candidate left arm.
 
 ## API contract
 
