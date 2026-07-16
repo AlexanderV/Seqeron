@@ -10,10 +10,11 @@ sources:
   - docs/Evidence/RNA-PAIR-001-Evidence.md
   - docs/Evidence/SEQ-RNACOMP-001-Evidence.md
   - docs/algorithms/MiRNA/MiRNA_Target_Pairing.md
+  - docs/algorithms/RnaStructure/RNA_Base_Pairing.md
   - docs/Validation/reports/MIRNA-PAIR-001.md
-source_commit: 51ed4d23872ce7c6646683d002e13e9388412d53
+source_commit: 6b38ddeea19535b81bbae11ee80cbcbd2676f6df
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -101,6 +102,28 @@ Both surfaces are **symmetric** (`f(x,y) == f(y,x)`) and both treat non-alphabet
 (false / null, no exception). This typed classifier is the pairing chemistry that
 [[rna-free-energy-turner-model]] assigns stacking energies to and that [[rna-dot-bracket-notation]]
 folds encode; no source contradictions between the miRNA and RNA-structure copies of the rule.
+
+**Implementation (per the RnaStructure spec `RNA_Base_Pairing.md`).** The two predicates live on
+`RnaSecondaryStructure` (`Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs`) and share a **single
+precomputed `byte[128*128]` lookup** (`PairLookup`) indexed by `(b1, b2)` after upper-casing —
+value `0` = no pair, `1` = WatsonCrick, `2` = Wobble. This makes classification **branch-free O(1)**
+(a fixed ~16 KB byte array) and guarantees the symmetry invariants (`INV-01`/`INV-02`:
+`f(x,y) == f(y,x)`) and `INV-03` (`CanPair(x,y) == (GetBasePairType(x,y) != null)`) **by construction**
+from one symmetrically-seeded table. The bounds check is the source of the "non-pair for junk input"
+behaviour: **any char outside the 0–127 ASCII range returns `false`/`null`** with no exception (the
+index is range-checked before the lookup). Note the RnaStructure surface treats a **DNA `T` in
+`CanPair`/`GetBasePairType` as a non-RNA base that does NOT pair** (returns `false`/`null`) — this is
+the deliberate divergence from the `MiRnaAnalyzer` predicates, which normalise `T`→`U` before pairing
+(see the MIRNA-PAIR-001 fix note below); only `GetComplement` on this surface treats `T` as `U`
+(complement `A`). `GetComplement(char)` is a thin **delegate to
+`SequenceExtensions.GetRnaComplementBase`** (Core), the IUPAC-complete complement cross-verified
+against Biopython `complement_rna` (the SEQ-RNACOMP-001 copy described above).
+
+**Not implemented (out of scope by spec).** Only the standard four-letter RNA alphabet is modelled:
+non-canonical pairs beyond G-U wobble — **Hoogsteen pairs, sheared G•A, and the inosine wobble pairs
+I•U / I•A / I•C** — are deliberately excluded, consistent with the nearest-neighbour folding model the
+sibling RNA-secondary-structure methods use. `GetBasePairType` has **no "intentionally simplified"
+terms** — the pairing classification is exact; only downstream ΔG magnitude (below) is approximate.
 
 ### The SEQ-family full-IUPAC RNA complement (SEQ-RNACOMP-001)
 
