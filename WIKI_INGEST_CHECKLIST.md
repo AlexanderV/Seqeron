@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1122 / 1181
+Progress: 1123 / 1181
 
 ## (top-level)  (6)
 
@@ -696,7 +696,7 @@ Progress: 1122 / 1181
 - [x] docs/algorithms/RnaStructure/Dot_Bracket_Notation.md
 - [x] docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
 - [x] docs/algorithms/RnaStructure/Inverted_Repeats.md
-- [ ] docs/algorithms/RnaStructure/Minimum_Free_Energy.md
+- [x] docs/algorithms/RnaStructure/Minimum_Free_Energy.md
 - [ ] docs/algorithms/RnaStructure/Pseudoknot_Detection.md
 - [ ] docs/algorithms/RnaStructure/Pseudoknot_Prediction.md
 - [ ] docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md

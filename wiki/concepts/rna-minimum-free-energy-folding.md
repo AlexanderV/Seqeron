@@ -8,9 +8,10 @@ sources:
   - docs/Evidence/RNA-MFE-001-Evidence.md
   - docs/Evidence/RNA-PARTITION-001-Evidence.md
   - docs/Evidence/RNA-STRUCT-001-Evidence.md
-source_commit: bb82b7ec80bbbf5750e53616ccc60df7b45c010c
+  - docs/algorithms/RnaStructure/Minimum_Free_Energy.md
+source_commit: 2a42d224e78fd25e3f3a57b67a817e628ba2e33c
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -59,8 +60,11 @@ deviation D5 added `CalculateMfeStructure`/`PredictStructureMfe`, the traceback 
 MFE folding is solved by **dynamic programming** — the **Zuker & Stiegler (1981)** decomposition, the
 same scheme ViennaRNA's MFE fold is derived from. Exposed on `RnaSecondaryStructure`:
 
-- `CalculateMinimumFreeEnergy(seq)` — the optimal ΔG°37 (kcal/mol).
-- `PredictStructure(seq)` — the optimal fold as a dot-bracket structure + its base pairs.
+- `CalculateMinimumFreeEnergy(seq)` — the **exact DP optimum** ΔG°37 (kcal/mol) of the implemented
+  energy model.
+- `PredictStructure(seq)` — a concrete fold as a dot-bracket structure + its base pairs, produced by a
+  **greedy stem-loop assembly** (NOT the DP traceback), so its reported energy can be **above** the true
+  MFE; for the optimal score use `CalculateMinimumFreeEnergy` (see §6).
 
 The structure is **decomposed into distinct loop types**, and the total free energy is the *sum* of
 their local contributions:
@@ -144,3 +148,54 @@ Two documented items (neither invents a source parameter):
 **No source contradictions** — Zuker & Stiegler 1981, Lorenz 2011 (ViennaRNA), Ward 2017, and NNDB
 Turner 2004 / Mathews 2004 agree on the DP decomposition, the O(n³)/O(n²) affine complexity, and the
 worked-example energies.
+
+## 6. Implementation surface (RNA-MFE-001 primary spec)
+
+The canonical algorithm spec is `docs/algorithms/RnaStructure/Minimum_Free_Energy.md`; the code lives in
+`RnaSecondaryStructure` in `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs`
+(Implementation Status **Simplified**). Three entry points — two public, one internal comparator:
+
+- **`CalculateMinimumFreeEnergy(string rnaSequence, int minLoopSize = 3)` → `double`** — the Zuker-style
+  O(n³) DP score (ΔG°37, kcal/mol, **rounded to 2 decimals**, ≤ 0). `minLoopSize` is **clamped up to 3**
+  if smaller. It fills `C(i,j)` / `WM(i,j)` by increasing span (hairpin, stacking, interior/bulge,
+  multibranch), accumulates the exterior optimum `W(j)` with AU/GU end penalties and dangling ends, and
+  returns `W(n−1)`. This is the **exact global optimum of the affine-multiloop / no-coaxial-stacking
+  energy model** — not a heuristic.
+- **`PredictStructure(string, int minLoopSize = 3, int minStemLength = 3, int maxLoopSize = 10)` →
+  `SecondaryStructure`** — a **greedy** heuristic that selects non-overlapping stem-loops by energy;
+  O(n²) per stem-loop scan, O(n) space. It may return a structure whose energy is **above** the true
+  MFE. The returned record carries `Sequence`, `DotBracket`, `BasePairs`, `StemLoops`, `Pseudoknots`,
+  and `MinimumFreeEnergy`.
+- **`CalculateMinimumFreeEnergyClassic(string, int)`** (internal) — an O(n³) baseline using a
+  **simplified per-pair (Nussinov-style) energy model**, retained only as the **timing comparator** in
+  the benchmark. It does **not** use the Turner model and is **not expected to match** the Turner-model
+  score (this is the "classic baseline" of INV-03; the doc-header flags the whole classic path as a
+  *baseline/reference* comparator, not full thermodynamic fidelity).
+
+Complexity / memory details the algorithm spec pins down:
+
+- The interior/bulge search is bounded by **`MAXLOOP = 30`** (sliding lower bounds) → a constant window,
+  so it is **O(1) per `(i,j)`**; the **multiloop split is the O(n³) term** (§4.3).
+- The `n×n` DP matrices are a **flat `double[]` buffer indexed `i*n + j`, rented from
+  `ArrayPool<double>`** → O(n²) space.
+- The **GGUC/CUGG special 3-stack context** (NNDB note b) is detected from the sequence and scored as a
+  single **−4.12** term (consistent with [[rna-free-energy-turner-model]] §2).
+- **Suffix-tree reuse was evaluated and is NOT used** — MFE is a thermodynamic-scoring DP, not an
+  exact-substring search, so the suffix tree offers no benefit for energy minimization (recorded per the
+  "reuse existing infrastructure" rule).
+
+**Preconditions / edge behaviour (no exceptions thrown):** `null`/empty → 0; a sequence shorter than
+`minLoopSize + 2` → 0 (cannot enclose a 3-nt hairpin); input is upper-cased and 0-based; only A/C/G/U
+pair (WC + G-U wobble) and unrecognized characters simply never pair.
+
+**Performance baseline** (full Turner model, `RnaSecondaryStructure_MFE_Benchmark`, median of 3, Release,
+Apple-silicon, 2026-06-14) — confirms the §2 cubic growth:
+
+| Length n | 100 | 200 | 300 | 500 | 1000 |
+|----------|-----|-----|-----|-----|------|
+| Time (ms) | ~25 | ~83 | ~214 | ~639 | ~3155 |
+
+**Deviations** the spec records (neither invents a source parameter): (1) multiloop per-unpaired cost
+`= 0` (ASM-04) — shifts only multiloop optima, single-hairpin/stack/interior optima unaffected; (2)
+**2-decimal rounding vs NNDB 1-decimal** — display precision only (tests assert `.Within(1e-2)` vs the
+NNDB total and `.Within(1e-9)` vs the exact two-decimal sum).
