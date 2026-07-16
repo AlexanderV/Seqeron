@@ -16,7 +16,7 @@ sources:
   - docs/Evidence/REP-STR-001-Evidence.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
   - docs/Validation/reports/GENOMIC-REPEAT-001.md
-source_commit: f11e8bc7feeba4d997051309d93f661db1f53382
+source_commit: 8767a4acf4f5df25167ee59d10e9e94725d5c0cf
 created: 2026-07-09
 updated: 2026-07-16
 graph:
@@ -61,7 +61,11 @@ The `RepeatFinder` sibling [[direct-repeat-detection]] handles the fourth,
 same-orientation **dispersed** case (`RepeatFinder.FindDirectRepeats`, REP-DIRECT-001):
 two identical copies in the same 5'→3' orientation separated by a configurable spacer —
 distinct from the head-to-tail *tandem* and reverse-complement *inverted* sub-problems
-defined below.
+defined below. The reverse-complement case has a *third* `RepeatFinder` implementation,
+[[inverted-repeat-detection]] (`RepeatFinder.FindInvertedRepeats`, REP-INV-001): DNA-only,
+**exact** left/right arm reverse-complement matching with an explicit `CanFormHairpin`
+(loop ≥ 3) flag — distinct from the imperfect IUPACpal `W·G·W̄ᴿ` annotation model (§2 below)
+and the RNA-INVERT-001 stem model.
 
 The general longest-repeated-substring + all-repeats enumerator
 (`GenomicAnalyzer.FindLongestRepeat` = deepest suffix-tree internal node;

@@ -25,6 +25,12 @@ REP-DIRECT-001 — and it is a genuinely-distinct same-orientation dispersed-pai
 head-to-tail tandem / reverse-complement inverted sub-problems of the [[repetitive-element-detection]]
 anchor nor the position-list [[longest-repeated-substring]] enumerator; created with an inbound link
 from the family anchor);
+Repeat_Analysis/Inverted_Repeat_Detection → [[inverted-repeat-detection]] resolved 2026-07-16 (NEW
+concept: the reverse-complement sibling of [[direct-repeat-detection]] — `RepeatFinder.FindInvertedRepeats`,
+REP-INV-001 — a *third*, genuinely-distinct DNA-only exact-arm implementation, separate from the
+imperfect IUPACpal `W·G·W̄ᴿ` annotation model and the RNA-INVERT-001 stem model both synthesized in the
+[[repetitive-element-detection]] anchor; adds the `CanFormHairpin` (loop ≥ 3) flag and the palindrome =
+zero-loop special case; created with inbound links from the family anchor and the direct-repeat sibling);
 Quality/Quality_Statistics → [[fastq-quality-statistics]] resolved 2026-07-16, closing the Quality
 domain (last pending doc) (REUSE: reconciled against the existing Evidence-derived concept, which
 already synthesized the mean/median/min/max, population variance/σ (÷N), inclusive Q20/Q30 thresholds,
@@ -282,6 +288,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/ProteinPred/MoRF_Prediction.md` | [[morf-prediction-dip-in-disorder]] |
 | `docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md` | [[direct-repeat-detection]] |
+| `docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md` | [[inverted-repeat-detection]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |

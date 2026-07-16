@@ -6,7 +6,7 @@ mcp_tools:
   - find_direct_repeats
 sources:
   - docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md
-source_commit: 6b489eae876ae047fe066f85843b56e5359e969f
+source_commit: 8767a4acf4f5df25167ee59d10e9e94725d5c0cf
 created: 2026-07-16
 updated: 2026-07-16
 ---
@@ -18,9 +18,9 @@ orientation** at different genomic positions — the *same-orientation* member o
 Seqeron `RepeatFinder` repeat family (test unit **REP-DIRECT-001**,
 `RepeatFinder.FindDirectRepeats` in
 `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs`). Unlike an
-inverted repeat, the downstream copy preserves the original sequence rather than its
-reverse complement; an intervening **spacer** may be zero or many bases long
-(`5' TTACG——TTACG 3'`).
+[[inverted-repeat-detection|inverted repeat]], the downstream copy preserves the original
+sequence rather than its reverse complement; an intervening **spacer** may be zero or many
+bases long (`5' TTACG——TTACG 3'`).
 
 This is a *distinct* operation from the two neighbouring repeat concepts and should be
 linked, not re-derived:
