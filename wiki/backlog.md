@@ -18,8 +18,17 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **177** algorithm docs covered-via-concept, **55** pending across 10 domains
-(ProteinPred/MoRF_Prediction → [[morf-prediction-dip-in-disorder]] resolved 2026-07-16, closing the
+Status at generation: **178** algorithm docs covered-via-concept, **54** pending across 10 domains
+(Quality/Phred_Score_Handling → [[phred-quality-encoding]] resolved 2026-07-16 (REUSE: reconciled
+against the existing Evidence-derived concept, which already synthesized the Q=−10log₁₀p definition,
+the Phred+33/Phred+64 offsets and ranges, auto-detection, the score-preserving ±31 re-offset and its
+overflow rules; enriched only with the spec's genuinely-distinct implementation content — the three
+`QualityScoreAnalyzer` canonical methods (`ParseQualityString`/`ToQualityString`/`ConvertEncoding`) in
+Seqeron.Genomics.IO, the O(n) single-pass cost, the `Auto`→`DetectEncoding` (parse) vs `Auto`→Phred+33
+(encode) resolution, the INV-03 round-trip invariant, the ArgumentNullException/ArgumentOutOfRangeException
+contract, the suffix-tree-not-applicable note, and the legacy `QualityStringToPhred`/`PhredToQualityString`
+helpers that lack range validation));
+ProteinPred/MoRF_Prediction → [[morf-prediction-dip-in-disorder]] resolved 2026-07-16, closing the
 ProteinPred domain (last pending doc) (REUSE: reconciled against the existing Evidence-derived
 concept, which already documents the dip-in-disorder criterion, the 10–70 Mohan band, the TOP-IDP
 disorder score, α/β/ι sub-types and the paywalled-flank assumption; enriched only with the spec's
@@ -328,10 +337,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md` | [[selection-scan-ihs-ehh]] |
 | `docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md` | [[linkage-disequilibrium]] |
 | `docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md` | [[runs-of-homozygosity-inbreeding]] |
+| `docs/algorithms/Quality/Phred_Score_Handling.md` | [[phred-quality-encoding]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (57 algorithm docs across 11 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (54 algorithm docs across 10 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
