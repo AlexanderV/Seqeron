@@ -18,8 +18,11 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **165** algorithm docs covered-via-concept, **69** pending across 12 domains
-(Population_Genetics/Runs_Of_Homozygosity → [[runs-of-homozygosity-inbreeding]] resolved 2026-07-16,
+Status at generation: **166** algorithm docs covered-via-concept, **68** pending across 12 domains
+(ProteinMotif/Coiled_Coil_Prediction → [[coiled-coil-prediction]] resolved 2026-07-16 (REUSE: the primary
+per-algorithm spec is exactly this Evidence-derived concept; enriched with the `BestHeptadOccupancy`/`BuildRegion`
+helper decomposition, the single-pass array precompute + lazy-yield shape, and the suffix-tree-not-applicable note);
+Population_Genetics/Runs_Of_Homozygosity → [[runs-of-homozygosity-inbreeding]] resolved 2026-07-16,
 closing the Population_Genetics domain (REUSE: reconciled against the existing Evidence-derived concept;
 enriched with the O(n log n)/O(n) `FindROH` cost, the O(m)/O(1) F_ROH cost, the inclusive-run vs
 half-open-segment coordinate distinction, and the eager argument-validation / `genomeLength ≤ 0 → 0`
@@ -190,6 +193,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md` | [[iupac-degenerate-matching]] |
 | `docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md` | [[position-weight-matrix]] |
 | `docs/algorithms/Pattern_Matching/Suffix_Tree.md` | [[suffix-tree]] |
+| `docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md` | [[coiled-coil-prediction]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
