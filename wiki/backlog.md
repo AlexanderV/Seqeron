@@ -18,8 +18,19 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **180** algorithm docs covered-via-concept, **52** pending across 9 domains
-(Repeat_Analysis/Direct_Repeat_Detection → [[direct-repeat-detection]] resolved 2026-07-16 (NEW
+Status at generation: **181** algorithm docs covered-via-concept, **51** pending across 9 domains
+(Repeat_Analysis/Microsatellite_Detection → [[repetitive-element-detection]] resolved 2026-07-16
+(REUSE: the REP-STR-001 spec reconciles against the existing repeats/tandem family anchor, which
+already synthesizes the REP-STR-001 Evidence — the Benson TRF approximate detector, the
+`ComputeBernoulliStatistics` PM/PI layer, and the 1–6 bp microsatellite class; enriched only with
+the spec's genuinely-distinct implementation surface for the *perfect* default detector: the four
+`RepeatFinder.FindMicrosatellites` overloads (DnaSequence/string × cancellable+progress), the
+`minUnitLength`/`maxUnitLength`/`minRepeats` = 1/6/3 defaults and validation floors, the
+`MicrosatelliteResult`/`RepeatType` mono–hexa output, the `IsRedundantUnit` primitive-unit filter
+and the contained-interval suppression that is narrower-than-non-overlap (§5.4 Deviation 1), the
+`SequenceAligner.GlobalAlign` reuse, and the `O(n·U·R)` perfect / `O(n²·P·L²)` approximate cost;
+no `wiki/sources/` page — a spec, not an Evidence/Validation report);
+Repeat_Analysis/Direct_Repeat_Detection → [[direct-repeat-detection]] resolved 2026-07-16 (NEW
 concept: no Evidence-derived concept existed for this unit — `RepeatFinder.FindDirectRepeats`,
 REP-DIRECT-001 — and it is a genuinely-distinct same-orientation dispersed-pair operation, not the
 head-to-tail tandem / reverse-complement inverted sub-problems of the [[repetitive-element-detection]]
@@ -289,6 +300,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinPred/MoRF_Prediction.md` | [[morf-prediction-dip-in-disorder]] |
 | `docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md` | [[direct-repeat-detection]] |
 | `docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md` | [[inverted-repeat-detection]] |
+| `docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |

@@ -14,9 +14,10 @@ sources:
   - docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
   - docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
   - docs/Evidence/REP-STR-001-Evidence.md
+  - docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
   - docs/Validation/reports/GENOMIC-REPEAT-001.md
-source_commit: 8767a4acf4f5df25167ee59d10e9e94725d5c0cf
+source_commit: 22ec7d01f2cbf064f81819034e88d6c071e6debf
 created: 2026-07-09
 updated: 2026-07-16
 graph:
@@ -107,6 +108,35 @@ Benson's Tandem Repeats Finder (1999) — interrupted / imperfect tracts — are
 separate **opt-in** detector; see *Approximate STR detection* below. The exact-only default
 was historically a Framework/Simplified [[research-grade-limitations|limitation]]; the opt-in
 approximate path closes that gap for the microsatellite/STR case.
+
+#### Perfect STR detection (`RepeatFinder.FindMicrosatellites`)
+
+The default microsatellite detector — the REP-STR-001 *spec's* primary entry point,
+`RepeatFinder.FindMicrosatellites` in
+`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs` — is a **third** exact-copy
+path (distinct from `GenomicAnalyzer.FindTandemRepeats` and the annotation `RepeatAnalyzer`),
+specialised to the 1–6 bp microsatellite window. Four overloads share one model: `DnaSequence`
+and raw-`string` inputs, each with a cancellable `(CancellationToken, IProgress<double>)` variant
+(progress `0.0→1.0` over processed candidate positions; the cancellable path polls the token).
+`DnaSequence` overloads throw `ArgumentNullException` on null; string overloads uppercase
+(`ToUpperInvariant`) and yield nothing for null/empty. `minUnitLength` (default `1`, rejected
+`< 1`), `maxUnitLength` (default `6`, rejected `< minUnitLength`), and `minRepeats` (default `3`,
+rejected `< 2`) are validated on every overload. Each hit is a `MicrosatelliteResult` — `Position`
+(0-based), `RepeatUnit`, `RepeatCount`, `TotalLength` (= unit length × count), and a `RepeatType`
+(mono/di/tri/tetra/penta/hexanucleotide) assigned by `ClassifyRepeatType` on the unit length.
+
+**Canonicalization, not exhaustive enumeration.** Two filters shape the output. `IsRedundantUnit`
+skips a candidate motif that is itself a repetition of a smaller subunit (`ATAT`, `CAGCAG` are
+never reported as their own units — the primitive-unit rule above, enforced at motif-extraction
+time). Contained-interval suppression drops a new hit only when its `(Start, End)` lies **fully
+inside** an already-reported interval; this is deliberately **narrower than a blanket non-overlap
+rule** (spec §5.4 Deviation 1), so two partially-overlapping repeats where neither contains the
+other can both be reported. The opt-in `FindApproximateTandemRepeats` reuses
+[[global-alignment-needleman-wunsch|`SequenceAligner.GlobalAlign`]] for its per-window alignment.
+Cost: perfect detection is `O(n · U · R)` (U = searched unit-length range, R = mean copies while
+extending, output `O(k)` intervals); the approximate TRF scan is `O(n² · P · L²)` worst case (one
+alignment per (start, period, window)) — deterministic, exhaustive, sized for short tracts, not
+whole genomes.
 
 #### Approximate STR detection (Benson TRF model)
 
