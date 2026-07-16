@@ -18,7 +18,7 @@ sources:
   - docs/Validation/reports/GENOMIC-REPEAT-001.md
 source_commit: f11e8bc7feeba4d997051309d93f661db1f53382
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -56,6 +56,12 @@ anchor for the whole **repeats / tandem family** — sibling units (GENOMIC-REPE
 GENOMIC-TANDEM, microsatellite/STR, low-complexity, etc.) should link here rather than
 re-deriving the same definitions. See [[test-unit-registry]] for how units are tracked and
 [[algorithm-validation-evidence]] for the evidence-artifact pattern.
+
+The `RepeatFinder` sibling [[direct-repeat-detection]] handles the fourth,
+same-orientation **dispersed** case (`RepeatFinder.FindDirectRepeats`, REP-DIRECT-001):
+two identical copies in the same 5'→3' orientation separated by a configurable spacer —
+distinct from the head-to-tail *tandem* and reverse-complement *inverted* sub-problems
+defined below.
 
 The general longest-repeated-substring + all-repeats enumerator
 (`GenomicAnalyzer.FindLongestRepeat` = deepest suffix-tree internal node;

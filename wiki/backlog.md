@@ -18,8 +18,14 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **179** algorithm docs covered-via-concept, **53** pending across 9 domains
-(Quality/Quality_Statistics → [[fastq-quality-statistics]] resolved 2026-07-16, closing the Quality
+Status at generation: **180** algorithm docs covered-via-concept, **52** pending across 9 domains
+(Repeat_Analysis/Direct_Repeat_Detection → [[direct-repeat-detection]] resolved 2026-07-16 (NEW
+concept: no Evidence-derived concept existed for this unit — `RepeatFinder.FindDirectRepeats`,
+REP-DIRECT-001 — and it is a genuinely-distinct same-orientation dispersed-pair operation, not the
+head-to-tail tandem / reverse-complement inverted sub-problems of the [[repetitive-element-detection]]
+anchor nor the position-list [[longest-repeated-substring]] enumerator; created with an inbound link
+from the family anchor);
+Quality/Quality_Statistics → [[fastq-quality-statistics]] resolved 2026-07-16, closing the Quality
 domain (last pending doc) (REUSE: reconciled against the existing Evidence-derived concept, which
 already synthesized the mean/median/min/max, population variance/σ (÷N), inclusive Q20/Q30 thresholds,
 the Q30 NGS benchmark, the arithmetic-vs-probability mean distinction, and the `5?I`/`5II?`/single-`I`
@@ -275,6 +281,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinPred/Disordered_Region_Detection.md` | [[intrinsic-disorder-prediction-top-idp]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/ProteinPred/MoRF_Prediction.md` | [[morf-prediction-dip-in-disorder]] |
+| `docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md` | [[direct-repeat-detection]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
