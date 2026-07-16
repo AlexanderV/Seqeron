@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **183** algorithm docs covered-via-concept, **49** pending across 8 domains
+Status at generation: **184** algorithm docs covered-via-concept, **48** pending across 8 domains
 (Repeat_Analysis/Tandem_Repeat_Detection → [[repetitive-element-detection]] resolved 2026-07-16,
 **closing the Repeat_Analysis domain** (last pending doc) (REUSE: the REP-TANDEM-001 spec reconciles
 against the existing repeats/tandem family anchor, which already synthesizes `GenomicAnalyzer.FindTandemRepeats`
@@ -324,6 +324,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Repeat_Analysis/Palindrome_Detection.md` | [[palindrome-detection]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md` | [[repetitive-element-detection]] |
+| `docs/algorithms/RnaStructure/Dot_Bracket_Notation.md` | [[rna-dot-bracket-notation]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | [[crispr-guide-rna-design]] |
