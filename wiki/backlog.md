@@ -18,8 +18,12 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **166** algorithm docs covered-via-concept, **68** pending across 12 domains
-(ProteinMotif/Coiled_Coil_Prediction → [[coiled-coil-prediction]] resolved 2026-07-16 (REUSE: the primary
+Status at generation: **167** algorithm docs covered-via-concept, **67** pending across 12 domains
+(ProteinMotif/Common_Motif_Finding → [[common-protein-motifs]] resolved 2026-07-16 (REUSE: the primary
+per-algorithm spec is exactly this Evidence-derived concept; enriched with the O(p·n) `FindCommonMotifs`
+complexity, the `FindMotifByPattern` delegation + entry-point decomposition, the suffix-tree-not-applicable
+design decision, and the `FindAllKnownMotifs` registry-naming deviation);
+ProteinMotif/Coiled_Coil_Prediction → [[coiled-coil-prediction]] resolved 2026-07-16 (REUSE: the primary
 per-algorithm spec is exactly this Evidence-derived concept; enriched with the `BestHeptadOccupancy`/`BuildRegion`
 helper decomposition, the single-pass array precompute + lazy-yield shape, and the suffix-tree-not-applicable note);
 Population_Genetics/Runs_Of_Homozygosity → [[runs-of-homozygosity-inbreeding]] resolved 2026-07-16,
@@ -194,6 +198,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md` | [[position-weight-matrix]] |
 | `docs/algorithms/Pattern_Matching/Suffix_Tree.md` | [[suffix-tree]] |
 | `docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md` | [[coiled-coil-prediction]] |
+| `docs/algorithms/ProteinMotif/Common_Motif_Finding.md` | [[common-protein-motifs]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
@@ -268,7 +273,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (69 algorithm docs across 12 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (68 algorithm docs across 12 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
