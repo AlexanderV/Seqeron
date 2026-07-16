@@ -11,7 +11,8 @@ sources:
   - docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md
   - docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md
   - docs/algorithms/ProteinMotif/Motif_Search.md
-source_commit: 8c6a2d341d315a689c793b91a1d60c0eb137c4a2
+  - docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md
+source_commit: 681bd842318f8381bd194c20430e512dbb302057
 created: 2026-07-10
 updated: 2026-07-16
 graph:
@@ -196,6 +197,16 @@ information-content scoring (Schneider & Stephens 1990), and overlapping-match d
 implemented via regex lookahead. The only standing API-shape convention is 0-based vs
 ScanProsite's 1-based coordinates (no correctness effect; shared with the sibling ProteinMotif
 units).
+
+**Scope boundary (PROSITE pattern matching only).** The dedicated PROSITE spec pins the
+`FindMotifByProsite`/`ConvertPrositeToRegex` path as a *syntax converter plus regex-search
+wrapper*: it implements only the PA-line **pattern** grammar and deliberately covers **no**
+PROSITE **profile/matrix** entries, performs **no** external-catalog (ScanProsite) lookup, and
+returns **no** ScanProsite-specific result metadata — the emitted `Score`/`EValue` are the
+repository's own information-content outputs, not ScanProsite statistics. Callers needing full
+PROSITE annotation (profiles, database entries) must use external ScanProsite tooling. A
+malformed converted regex yields **no** hits rather than throwing, because `FindMotifByPattern`
+catches regex-compilation failures.
 
 ## References
 
