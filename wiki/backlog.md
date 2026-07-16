@@ -18,8 +18,17 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **176** algorithm docs covered-via-concept, **58** pending across 11 domains
-(ProteinMotif/Signal_Peptide_Prediction → [[protein-domain-and-signal-peptide-prediction]] resolved
+Status at generation: **177** algorithm docs covered-via-concept, **55** pending across 10 domains
+(ProteinPred/MoRF_Prediction → [[morf-prediction-dip-in-disorder]] resolved 2026-07-16, closing the
+ProteinPred domain (last pending doc) (REUSE: reconciled against the existing Evidence-derived
+concept, which already documents the dip-in-disorder criterion, the 10–70 Mohan band, the TOP-IDP
+disorder score, α/β/ι sub-types and the paywalled-flank assumption; enriched only with the spec's
+genuinely-distinct implementation content: the `PredictMoRFs(string, int, int)` entry point in
+`DisorderPredictor.cs`, the O(n·w)/O(n) cost with the 21-residue window, the 0-based-inclusive /
+non-overlapping / start-ordered output contract, the explicit `(0.5 − mean d)/0.5` clamped score
+formula, the 0.5-MoRF-vs-0.542-TOP-IDP dual-threshold distinction, the suffix-tree-not-applicable
+decision and the P/L/I worked oracle (Start 29–End 50, Score ≈ 0.2759 → 0.3996));
+ProteinMotif/Signal_Peptide_Prediction → [[protein-domain-and-signal-peptide-prediction]] resolved
 2026-07-16 (REUSE: the dedicated von Heijne 1986 signal-peptide spec, unit PROTMOTIF-SP-001, is already
 fully owned by this Evidence-derived concept — which documents the current EMBOSS `sigcleave` weight-matrix
 method with the P17644 oracle; the spec describes the SAME correct method (no superseded tripartite model —
@@ -248,6 +257,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinPred/Disorder_Propensity.md` | [[intrinsic-disorder-prediction-top-idp]] |
 | `docs/algorithms/ProteinPred/Disordered_Region_Detection.md` | [[intrinsic-disorder-prediction-top-idp]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
+| `docs/algorithms/ProteinPred/MoRF_Prediction.md` | [[morf-prediction-dip-in-disorder]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
