@@ -5,10 +5,11 @@ tags: [rna, algorithm]
 mcp_tools:
   - terminal_mismatch_energy
 sources:
+  - docs/algorithms/RnaStructure/RNA_Free_Energy.md
+  - docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
   - docs/Evidence/RNA-ENERGY-001-Evidence.md
   - docs/Evidence/RNA-HAIRPIN-001-Evidence.md
-  - docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
-source_commit: 5be577000ca71f0aa907fb9bcd6826063fe61f09
+source_commit: b309203c6e496a1b1993645604441c45488bb0bf
 created: 2026-07-10
 updated: 2026-07-16
 graph:
@@ -141,6 +142,36 @@ their canonical algorithm spec is `docs/algorithms/RnaStructure/Hairpin_Energy_C
   component inside a folded structure). Coaxial stacking, stem dangling ends, and
   multibranch/exterior-loop terms are **not** included here; whole-structure energies come from the
   [[rna-minimum-free-energy-folding|RNA-MFE-001 MFE folder]] (`CalculateMinimumFreeEnergy`).
+
+## 6. Energy layer as a whole (RNA-ENERGY-001 aggregate spec)
+
+The canonical algorithm spec for the aggregate energy layer is
+`docs/algorithms/RnaStructure/RNA_Free_Energy.md` (test unit **RNA-ENERGY-001**) — the **top-level
+free-energy entry point** that presents all four methods as one layer whose total decomposes as
+`ΔG°total = Σ ΔG°stacking + Σ ΔG°loops + Σ ΔG°special`, and where the whole-sequence summation
+`CalculateMinimumFreeEnergy(string rnaSequence, int minLoopSize = 3)` is declared (its own DP contract —
+`minLoopSize` clamped up to 3, empty/too-short → 0 — is documented on the
+[[rna-minimum-free-energy-folding|RNA-MFE-001 MFE folder]]; **not duplicated here**).
+
+Unlike the hairpin/stem terms (`CalculateHairpinLoopEnergy` / `CalculateStemEnergy`, status
+**Production** — §5), the aggregate energy layer is status **Simplified**, because its Turner-table
+coverage is deliberately partial:
+
+- **Tables embedded** (NNDB Turner 2004): stacking, hairpin-loop initiation, terminal mismatch,
+  dangling ends, bulges, multibranch parameters, and *selected* internal-loop classes.
+- **Internal loops are exact only for 1×1**; 2×3 and all wider classes fall back to a **generic
+  mismatch-based model** — the dedicated **int21 and int22 tables are NOT implemented**, so those
+  energies do not fully reproduce NNDB.
+- **Multibranch free-base cost is fixed at `0.0`** in the current MFE routine (reduced multibranch
+  treatment vs a full Turner implementation).
+- Internal/bulge-loop enumeration is bounded by the constant **`MAXLOOP = 30`**.
+- A classic baseline `CalculateMinimumFreeEnergyClassic(string, int)` is retained internally (timing
+  comparator only, not the public path); the public MFE uses the more detailed Zuker-style routine.
+- **Pseudoknot thermodynamics are out of scope** for the MFE path.
+
+Complexity of the three public helpers (RNA-ENERGY-001 §4.3): `CalculateStemEnergy` **O(b)/O(1)**
+(`b` = base pairs), `CalculateHairpinLoopEnergy` **O(l)/O(1)** (`l` = loop length),
+`CalculateMinimumFreeEnergy` **O(n³)/O(n²)** (internal/bulge enumeration bounded by `MAXLOOP = 30`).
 
 ## Invariants and edge cases
 

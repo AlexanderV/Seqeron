@@ -18,8 +18,17 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **191** algorithm docs covered-via-concept, **41** pending across 8 domains
-(Repeat_Analysis/Tandem_Repeat_Detection → [[repetitive-element-detection]] resolved 2026-07-16,
+Status at generation: **192** algorithm docs covered-via-concept, **40** pending across 8 domains
+(RnaStructure/RNA_Free_Energy → [[rna-free-energy-turner-model]] resolved 2026-07-16 (REUSE: the
+RNA-ENERGY-001 aggregate free-energy spec reconciles onto the existing Turner-model energy-terms
+concept — titled for RNA-ENERGY-001 and already listing its Evidence in `sources:` — enriched only
+with the aggregate spec's genuinely-distinct implementation surface: the Simplified status of the
+whole energy layer, partial Turner-table coverage (1×1 internal loops exact; int21/int22 NOT
+implemented; 2×3+ generic mismatch fallback), the multibranch free-base cost fixed at 0.0, the
+`MAXLOOP = 30` bound, the retained internal `CalculateMinimumFreeEnergyClassic` baseline, and the
+three-helper O(b)/O(l)/O(n³) complexity table; the whole-structure `CalculateMinimumFreeEnergy`
+summation contract stays on [[rna-minimum-free-energy-folding]], not duplicated);
+Repeat_Analysis/Tandem_Repeat_Detection → [[repetitive-element-detection]] resolved 2026-07-16,
 **closing the Repeat_Analysis domain** (last pending doc) (REUSE: the REP-TANDEM-001 spec reconciles
 against the existing repeats/tandem family anchor, which already synthesizes `GenomicAnalyzer.FindTandemRepeats`
 as the consolidated GENOMIC-TANDEM-001 duplicate — the exact head-to-tail detector, its period-ambiguous
@@ -332,6 +341,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/RnaStructure/Pseudoknot_Prediction.md` | [[rna-pseudoknot-prediction]] |
 | `docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md` | [[rna-pseudoknot-prediction]] |
 | `docs/algorithms/RnaStructure/RNA_Base_Pairing.md` | [[rna-base-pairing]] |
+| `docs/algorithms/RnaStructure/RNA_Free_Energy.md` | [[rna-free-energy-turner-model]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | [[crispr-guide-rna-design]] |
