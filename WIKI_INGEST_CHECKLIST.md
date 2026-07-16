@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1108 / 1181
+Progress: 1109 / 1181
 
 ## (top-level)  (6)
 
@@ -680,7 +680,7 @@ Progress: 1108 / 1181
 - [x] docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md
 - [x] docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md
 - [x] docs/algorithms/ProteinPred/Disorder_Prediction.md
-- [ ] docs/algorithms/ProteinPred/Disorder_Propensity.md
+- [x] docs/algorithms/ProteinPred/Disorder_Propensity.md
 - [ ] docs/algorithms/ProteinPred/Disordered_Region_Detection.md
 - [x] docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md  (done-via-concept)
 - [ ] docs/algorithms/ProteinPred/MoRF_Prediction.md

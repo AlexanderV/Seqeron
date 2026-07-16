@@ -245,6 +245,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md` | [[protein-domain-and-signal-peptide-prediction]] |
 | `docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md` | [[transmembrane-helix-prediction]] |
 | `docs/algorithms/ProteinPred/Disorder_Prediction.md` | [[intrinsic-disorder-prediction-top-idp]] |
+| `docs/algorithms/ProteinPred/Disorder_Propensity.md` | [[intrinsic-disorder-prediction-top-idp]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
@@ -319,7 +320,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (58 algorithm docs across 11 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (57 algorithm docs across 11 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

@@ -14,7 +14,8 @@ sources:
   - docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
   - docs/Evidence/DISORDER-REGION-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
-source_commit: a4b2a767ee59f24396132a44d9a08875ff44e70a
+  - docs/algorithms/ProteinPred/Disorder_Propensity.md
+source_commit: e15131a9f83b86aa1b123a799af71ccea98b5615
 created: 2026-07-09
 updated: 2026-07-16
 graph:
@@ -138,6 +139,13 @@ zero code change** — is [[disorder-propensity-001-report]] (one row of the [[v
 - `DisorderPromotingAminoAcids` = `{A, E, G, K, P, Q, R, S}` and `OrderPromotingAminoAcids` =
   `{C, F, I, L, N, V, W, Y}` — the two public sets (8 members each); the two plus ambiguous
   `{D, H, M, T}` are pairwise disjoint and cover all 20 residues (8 + 8 + 4).
+
+All four primitives are **pure O(1) table lookups** — no windowing or statistics (that is the
+windowed `PredictDisorder` layer above). The algorithm spec
+(`docs/algorithms/ProteinPred/Disorder_Propensity.md`, DISORDER-PROPENSITY-001) fixes the
+implementation shape: the TOP-IDP scale lives in a `static Dictionary<char,double>` and the three
+Dunker classes in `HashSet<char>`, while the public list properties return `OrderBy`-sorted cached
+copies. Because no search/matching is performed, the repository suffix tree is **N/A** for this unit.
 
 **Do not conflate the two value spaces:** `GetDisorderPropensity` exposes the *raw* scale value,
 whereas `PredictDisorder`'s `Sᵢ` averages the *min-max-normalized* value `(p − (−0.884))/1.871`. Anchor
