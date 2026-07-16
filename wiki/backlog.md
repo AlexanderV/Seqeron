@@ -253,6 +253,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Population_Genetics/Diversity_Statistics.md` | [[genetic-diversity-statistics]] |
 | `docs/algorithms/Population_Genetics/F_Statistics.md` | [[population-differentiation-fst]] |
 | `docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md` | [[hardy-weinberg-equilibrium-test]] |
+| `docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md` | [[selection-scan-ihs-ehh]] |
 
 ## Pending (fold into the ingest campaign)
 

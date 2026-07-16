@@ -6,9 +6,10 @@ mcp_tools:
   - integrated_haplotype_score
 sources:
   - docs/Evidence/POP-SELECT-001-Evidence.md
-source_commit: 0d5c33fdcb6b264e682c9d593a37867121e26d99
+  - docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md
+source_commit: 954cc1e1b3751da20446ced26b4265a0c543dd91
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -123,6 +124,30 @@ difference, not a contradiction.
   haplotypes, invalid core allele, out-of-range `coreIndex`; SNPs lacking ancestral state or with
   MAF ≤ 5% get no iHS.
 - **Property:** `ln(iHH_A/iHH_D) = −ln(iHH_D/iHH_A)` (Voight ↔ selscan sign symmetry).
+
+## Implementation notes
+
+Implemented in `PopulationGeneticsAnalyzer` (`Seqeron.Genomics.Population`) as four entry points:
+`CalculateEhh(IReadOnlyList<string>)` (EHH of one core-allele subset), `CalculateIHS(haplotypes,
+positions, coreIndex)` → `IhsResult` (unstandardized Voight iHS plus `IhhAncestral`/`IhhDerived`/
+`DerivedAlleleFrequency`), `StandardizeIHS(scores, binCount=20)`, and `ScanForSelection(
+standardizedScores, windowSize=50)` → `SelectionScanWindow` records
+(`WindowIndex, SnpCount, ExtremeCount, ProportionExtreme`).
+
+- **EHH counts literal whole-window haplotypes by hashing substrings**, so any alphabet is accepted
+  for the flanking markers — only the *core* character is constrained to `'0'`/`'1'`. This is **not**
+  a substring-search problem (it counts exact whole-window multiplicities, not occurrences of a query
+  pattern in a text), so the repository suffix tree deliberately does **not** apply.
+- **Cost:** `CalculateEhh` is O(n·L) (n chromosomes, L window length); `CalculateIHS` is O(n·h)
+  (h markers) because EHH is **recomputed per outward marker** rather than incrementally — exact but
+  not tuned for genome-scale panels. `StandardizeIHS` and `ScanForSelection` are single passes, O(N).
+- A separate pre-existing overload `CalculateIHS(ehh0, ehh1, positions)` (EHH curves supplied
+  directly) and a region-threshold `ScanForSelection` variant back the MCP layer and are out of scope
+  for this unit.
+- **Versus site-frequency-spectrum scans:** iHS keys on haplotype-length *asymmetry* around one
+  allele within a single population (best for incomplete/ongoing sweeps at intermediate frequency),
+  whereas Tajima's D / Fay & Wu's H key on SFS distortion (completed sweeps / frequency skew) —
+  see [[genetic-diversity-statistics]].
 
 ## Scope
 
