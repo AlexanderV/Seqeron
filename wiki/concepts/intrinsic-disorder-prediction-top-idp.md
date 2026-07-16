@@ -15,7 +15,8 @@ sources:
   - docs/Evidence/DISORDER-REGION-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
   - docs/algorithms/ProteinPred/Disorder_Propensity.md
-source_commit: e15131a9f83b86aa1b123a799af71ccea98b5615
+  - docs/algorithms/ProteinPred/Disordered_Region_Detection.md
+source_commit: 18745e1d6646aac0fd48b15466c14b926ecf7eaf
 created: 2026-07-09
 updated: 2026-07-16
 graph:
@@ -186,6 +187,18 @@ anticipated. It introduces no new per-residue math; it re-uses *this* TOP-IDP pr
 window 21). Region grouping (`IdentifyDisorderedRegions`, `DisorderPredictor.cs:358`) is a single-pass
 scan with a documented, correctly-handled trailing-run branch (no off-by-one); the uncalibrated
 per-region `Confidence` is a `LimitationPolicy`-guarded branch (min access `Permissive`).
+
+**Implementation shape (spec §5.1/§5.2/§4.3).** `IdentifyDisorderedRegions(List<ResiduePrediction>,
+threshold, minLength)` delegates the default label to `ClassifyDisorderedRegion(...)` and the
+confidence to `CalculateConfidence(...)`. Note the `threshold` argument it is passed is **forwarded
+but unused inside the scan** — run membership reads the precomputed `ResiduePrediction.IsDisordered`
+flag rather than re-thresholding `MeanScore`. The confidence rescale is exactly
+`Confidence = clamp₀¹((MeanScore − 0.542) / (1.0 − 0.542))`, depending only on `MeanScore` (not
+region length); a homopolymeric run therefore has `MeanScore` equal to its single constant normalized
+TOP-IDP score (**INV-04**). Region extraction over an already-scored prediction list is **O(n)** time
+/ **O(r)** space (r = emitted regions); end-to-end detection via `PredictDisorder(...)` adds the
+upstream **O(n·w)** window scan. `ClassifyRegionFlavorMobiDbLite(string)` is the public opt-in sourced
+re-labeller (leaves boundaries and `Confidence` untouched).
 
 **Contiguous-run aggregation.** A region is a maximal run of residues with `IsDisordered == true` of
 length ≥ `minRegionLength` (default **5**). Each region carries `Start`/`End`, and a `MeanScore` =

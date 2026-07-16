@@ -10,11 +10,10 @@ updated: 2026-07-16
 
 The per-domain pending tables (57 algorithm docs across 11 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14. The Oncology domain is now fully covered — `Variant_Allele_Frequency.md` → [[variant-allele-frequency-and-binomial-ci]], resolved 2026-07-15. The PanGenome domain is now fully covered — `Phylogenetic_Marker_Selection.md` → [[phylogenetic-marker-selection]], resolved 2026-07-15. The Pattern_Matching domain is now fully covered — `Suffix_Tree.md` → [[suffix-tree]], resolved 2026-07-15, ingesting the last pending Pattern_Matching doc. The Phylogenetics domain is now fully covered — `Tree_Statistics.md` → [[tree-statistics]], resolved 2026-07-15, ingesting the last pending Phylogenetics doc. The Population_Genetics domain is now fully covered — `Runs_Of_Homozygosity.md` → [[runs-of-homozygosity-inbreeding]], resolved 2026-07-16, ingesting the last pending Population_Genetics doc. The ProteinMotif domain is now fully covered — `Transmembrane_Helix_Prediction.md` → [[transmembrane-helix-prediction]], resolved 2026-07-16, ingesting the last pending ProteinMotif doc.)
 
-### ProteinPred (2)
+### ProteinPred (1)
 
 | Algorithm doc | Expected slug |
 | --- | --- |
-| `docs/algorithms/ProteinPred/Disordered_Region_Detection.md` | `disordered-region-detection` |
 | `docs/algorithms/ProteinPred/MoRF_Prediction.md` | `morf-prediction` |
 
 ### Quality (2)

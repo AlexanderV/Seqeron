@@ -246,6 +246,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md` | [[transmembrane-helix-prediction]] |
 | `docs/algorithms/ProteinPred/Disorder_Prediction.md` | [[intrinsic-disorder-prediction-top-idp]] |
 | `docs/algorithms/ProteinPred/Disorder_Propensity.md` | [[intrinsic-disorder-prediction-top-idp]] |
+| `docs/algorithms/ProteinPred/Disordered_Region_Detection.md` | [[intrinsic-disorder-prediction-top-idp]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
