@@ -6,9 +6,10 @@ mcp_tools:
   - detect_pseudoknots
 sources:
   - docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
-source_commit: ae0dfc54b6b719a8fa68c2f120f3f4e3235cd02e
+  - docs/algorithms/RnaStructure/Pseudoknot_Detection.md
+source_commit: 00d01bb2b5fb40aab86b050800b710a1ce4382d3
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -93,3 +94,28 @@ condition `i < k < j < l` but differ completely in input (base-pair set vs seque
 which are definitionally blind to crossings. **No source contradictions** — Antczak 2018, Smit & Knight
 2008, biotite, and Wikipedia agree on the crossing definition, the nested/disjoint negatives, and the
 symmetry of the crossing relation.
+
+## 4. Implementation surface (RNA-PSEUDOKNOT-001 primary spec)
+
+The per-algorithm spec (`docs/algorithms/RnaStructure/Pseudoknot_Detection.md`, status **Production**)
+pins the single entry point in
+`Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs`:
+
+- **`RnaSecondaryStructure.DetectPseudoknots(IReadOnlyList<BasePair>)`** → one **`Pseudoknot` per
+  crossing pair-of-pairs**, evaluated **lazily** (`yield`). The result record normalizes to
+  `Start1 < End1`, `Start2 < End2`, `Start1 < Start2` (so `Start1 < Start2 < End1 < End2` is the
+  crossing form), and its `CrossingPairs` field carries the two original `BasePair`s unchanged.
+- **`null`-tolerant contract:** a `null` list or **fewer than two pairs returns an empty sequence with
+  no exception** — the `≥ 2 pairs` rule above is realized as a guard, not a throw. Positions are
+  **0-based**; each pair is min/max-normalized to `(open < close)` before comparison, so a pair stored
+  as `(close, open)` is treated identically (a degenerate `i = j` pair can never cross → silently never
+  pseudoknotted, ASM-01).
+- **Cost:** an all-pairs double loop — **O(n²) time, O(1) extra space** (plus O(p) output for p
+  reported crossings), n = number of base pairs. Deterministic and input-order-independent because each
+  pair-of-pairs is reordered opener-first before the single crossing test.
+- **Reuse decision:** the repository **suffix tree was evaluated and rejected** — the input is a
+  positional integer base-pair *set*, not a sequence to search, so no substring/pattern machinery
+  applies. No scoring tables or thermodynamic parameters are involved (contrast the nested
+  Nussinov/[[rna-minimum-free-energy-folding|MFE]] folders, which take a *sequence* and return a nested
+  base-pair set by construction). For pseudoknot **order/layer** assignment (the Not-Implemented scope
+  in §3), the spec points users to external tools such as biotite's `pseudoknots`.
