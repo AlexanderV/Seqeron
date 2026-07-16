@@ -8,9 +8,10 @@ mcp_tools:
 sources:
   - docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md
   - docs/Evidence/PROTMOTIF-SP-001-Evidence.md
-source_commit: 1513221ea012107594feec09dd5b4e850e3d5f37
+  - docs/algorithms/ProteinMotif/Domain_Prediction.md
+source_commit: 28bd142db46164d299c3e7d56eb90f68b621072a
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -48,7 +49,11 @@ units; see [[algorithm-validation-evidence]] for the artifact pattern.
 A **protein domain** is a self-stabilizing, independently folding region (~50–250 aa; Wetlaufer 1973).
 `FindDomains` detects domains that have an exact **PROSITE PATTERN** (a regex-like signature, not a
 profile/HMM), so the match is deterministic and reproducible. Each hit carries the domain name,
-PROSITE accession, Pfam cross-reference, and 0-based inclusive start/end.
+PROSITE accession, Pfam cross-reference, and 0-based inclusive start/end. Internally `FindDomains`
+delegates each signature to `FindMotifByPattern`, so `ProteinDomain.Score` is the **generic
+information-content motif score** (an internal match-strength indicator, not a calibrated domain
+probability) rather than a domain-specific confidence model. Cost is `O(n·d)` time, `O(1)`+output
+space, with `d = 3` fixed PROSITE patterns.
 
 | Domain | PROSITE | Pattern (verbatim) | Pfam |
 |--------|---------|--------------------|------|
