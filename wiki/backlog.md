@@ -18,8 +18,20 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **182** algorithm docs covered-via-concept, **50** pending across 9 domains
-(Repeat_Analysis/Microsatellite_Detection → [[repetitive-element-detection]] resolved 2026-07-16
+Status at generation: **183** algorithm docs covered-via-concept, **49** pending across 8 domains
+(Repeat_Analysis/Tandem_Repeat_Detection → [[repetitive-element-detection]] resolved 2026-07-16,
+**closing the Repeat_Analysis domain** (last pending doc) (REUSE: the REP-TANDEM-001 spec reconciles
+against the existing repeats/tandem family anchor, which already synthesizes `GenomicAnalyzer.FindTandemRepeats`
+as the consolidated GENOMIC-TANDEM-001 duplicate — the exact head-to-tail detector, its period-ambiguous
+non-canonicalizing behaviour, and the 1–6 bp microsatellite class; the spec adds no new detector, so no
+contradiction; enriched only with the spec's genuinely-distinct implementation surface: the `RepeatFinder.GetTandemRepeatSummary(DnaSequence, int minRepeats=3)`
+aggregation helper that returns a single `TandemRepeatSummary` record by delegating to `FindMicrosatellites(sequence, 1, 6, minRepeats)`
+(inheriting its null-throw and `minRepeats ≥ 2` floor), rolling 1–6 bp microsatellites into total count / total bases /
+percent coverage / longest repeat / most-frequent unit / per-class counts, and the two scope caveats — the summary
+sees only 1–6 bp units (minisatellite/macrosatellite tandems excluded) and its named per-class fields stop at
+tetranucleotide (penta/hexa feed totals but get no dedicated field); no `wiki/sources/` page — a spec, not an
+Evidence/Validation report);
+Repeat_Analysis/Microsatellite_Detection → [[repetitive-element-detection]] resolved 2026-07-16
 (REUSE: the REP-STR-001 spec reconciles against the existing repeats/tandem family anchor, which
 already synthesizes the REP-STR-001 Evidence — the Benson TRF approximate detector, the
 `ComputeBernoulliStatistics` PM/PI layer, and the 1–6 bp microsatellite class; enriched only with
@@ -311,6 +323,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Repeat_Analysis/Palindrome_Detection.md` | [[palindrome-detection]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
+| `docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | [[crispr-guide-rna-design]] |
@@ -385,7 +398,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (53 algorithm docs across 9 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (48 algorithm docs across 8 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

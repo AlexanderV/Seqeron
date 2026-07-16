@@ -13,11 +13,12 @@ sources:
   - docs/algorithms/Annotation/Repetitive_Element_Detection.md
   - docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
   - docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
+  - docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md
   - docs/Evidence/REP-STR-001-Evidence.md
   - docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
   - docs/Validation/reports/GENOMIC-REPEAT-001.md
-source_commit: 96bfcfe823892dd86e97504488ef753c9b93dc01
+source_commit: 8dd66eb33364ae8564f921a22a10518d52cfa6ed
 created: 2026-07-09
 updated: 2026-07-16
 graph:
@@ -108,6 +109,22 @@ Benson's Tandem Repeats Finder (1999) — interrupted / imperfect tracts — are
 separate **opt-in** detector; see *Approximate STR detection* below. The exact-only default
 was historically a Framework/Simplified [[research-grade-limitations|limitation]]; the opt-in
 approximate path closes that gap for the microsatellite/STR case.
+
+**Aggregation view (`RepeatFinder.GetTandemRepeatSummary`).** Alongside the per-hit
+detectors, the REP-TANDEM-001 spec exposes a *summary* helper —
+`RepeatFinder.GetTandemRepeatSummary(DnaSequence, int minRepeats = 3)` — that returns a single
+`TandemRepeatSummary` record rather than an enumerable. It validates `sequence`
+(`ArgumentNullException` on null) and delegates straight to `FindMicrosatellites(sequence, 1, 6,
+minRepeats)` (whose `minRepeats` floor of `2` it inherits), then rolls the resulting 1–6 bp
+microsatellites into aggregate totals: total repeat count, total repeat bases, percent of
+sequence covered, longest repeat, most-frequent repeat unit, plus dedicated per-class counts. An
+empty sequence yields zero totals and `0%` coverage. **Two scope caveats fall out of the
+delegation:** (a) the summary sees only 1–6 bp units, so the minisatellite/macrosatellite tandems
+that `GenomicAnalyzer.FindTandemRepeats` can still detect are excluded from it; (b) the named
+per-class count fields stop at **tetranucleotide**, so penta- and hexanucleotide repeats feed the
+totals and bases but receive no dedicated output field. It therefore inherits the
+`IsRedundantUnit` primitive-unit filtering and contained-interval suppression of
+`FindMicrosatellites`, not the period-ambiguous behaviour of `FindTandemRepeats`.
 
 #### Perfect STR detection (`RepeatFinder.FindMicrosatellites`)
 
