@@ -13,12 +13,14 @@ sources:
   - docs/algorithms/Annotation/Repetitive_Element_Detection.md
   - docs/Evidence/GENOMIC-TANDEM-001-Evidence.md
   - docs/algorithms/Genomic_Analysis/Tandem_Repeat_Detection.md
+  - docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md
   - docs/Evidence/REP-STR-001-Evidence.md
+  - docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
   - docs/Validation/reports/GENOMIC-REPEAT-001.md
-source_commit: f11e8bc7feeba4d997051309d93f661db1f53382
+source_commit: 8dd66eb33364ae8564f921a22a10518d52cfa6ed
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -56,6 +58,16 @@ anchor for the whole **repeats / tandem family** — sibling units (GENOMIC-REPE
 GENOMIC-TANDEM, microsatellite/STR, low-complexity, etc.) should link here rather than
 re-deriving the same definitions. See [[test-unit-registry]] for how units are tracked and
 [[algorithm-validation-evidence]] for the evidence-artifact pattern.
+
+The `RepeatFinder` sibling [[direct-repeat-detection]] handles the fourth,
+same-orientation **dispersed** case (`RepeatFinder.FindDirectRepeats`, REP-DIRECT-001):
+two identical copies in the same 5'→3' orientation separated by a configurable spacer —
+distinct from the head-to-tail *tandem* and reverse-complement *inverted* sub-problems
+defined below. The reverse-complement case has a *third* `RepeatFinder` implementation,
+[[inverted-repeat-detection]] (`RepeatFinder.FindInvertedRepeats`, REP-INV-001): DNA-only,
+**exact** left/right arm reverse-complement matching with an explicit `CanFormHairpin`
+(loop ≥ 3) flag — distinct from the imperfect IUPACpal `W·G·W̄ᴿ` annotation model (§2 below)
+and the RNA-INVERT-001 stem model.
 
 The general longest-repeated-substring + all-repeats enumerator
 (`GenomicAnalyzer.FindLongestRepeat` = deepest suffix-tree internal node;
@@ -98,6 +110,51 @@ separate **opt-in** detector; see *Approximate STR detection* below. The exact-o
 was historically a Framework/Simplified [[research-grade-limitations|limitation]]; the opt-in
 approximate path closes that gap for the microsatellite/STR case.
 
+**Aggregation view (`RepeatFinder.GetTandemRepeatSummary`).** Alongside the per-hit
+detectors, the REP-TANDEM-001 spec exposes a *summary* helper —
+`RepeatFinder.GetTandemRepeatSummary(DnaSequence, int minRepeats = 3)` — that returns a single
+`TandemRepeatSummary` record rather than an enumerable. It validates `sequence`
+(`ArgumentNullException` on null) and delegates straight to `FindMicrosatellites(sequence, 1, 6,
+minRepeats)` (whose `minRepeats` floor of `2` it inherits), then rolls the resulting 1–6 bp
+microsatellites into aggregate totals: total repeat count, total repeat bases, percent of
+sequence covered, longest repeat, most-frequent repeat unit, plus dedicated per-class counts. An
+empty sequence yields zero totals and `0%` coverage. **Two scope caveats fall out of the
+delegation:** (a) the summary sees only 1–6 bp units, so the minisatellite/macrosatellite tandems
+that `GenomicAnalyzer.FindTandemRepeats` can still detect are excluded from it; (b) the named
+per-class count fields stop at **tetranucleotide**, so penta- and hexanucleotide repeats feed the
+totals and bases but receive no dedicated output field. It therefore inherits the
+`IsRedundantUnit` primitive-unit filtering and contained-interval suppression of
+`FindMicrosatellites`, not the period-ambiguous behaviour of `FindTandemRepeats`.
+
+#### Perfect STR detection (`RepeatFinder.FindMicrosatellites`)
+
+The default microsatellite detector — the REP-STR-001 *spec's* primary entry point,
+`RepeatFinder.FindMicrosatellites` in
+`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs` — is a **third** exact-copy
+path (distinct from `GenomicAnalyzer.FindTandemRepeats` and the annotation `RepeatAnalyzer`),
+specialised to the 1–6 bp microsatellite window. Four overloads share one model: `DnaSequence`
+and raw-`string` inputs, each with a cancellable `(CancellationToken, IProgress<double>)` variant
+(progress `0.0→1.0` over processed candidate positions; the cancellable path polls the token).
+`DnaSequence` overloads throw `ArgumentNullException` on null; string overloads uppercase
+(`ToUpperInvariant`) and yield nothing for null/empty. `minUnitLength` (default `1`, rejected
+`< 1`), `maxUnitLength` (default `6`, rejected `< minUnitLength`), and `minRepeats` (default `3`,
+rejected `< 2`) are validated on every overload. Each hit is a `MicrosatelliteResult` — `Position`
+(0-based), `RepeatUnit`, `RepeatCount`, `TotalLength` (= unit length × count), and a `RepeatType`
+(mono/di/tri/tetra/penta/hexanucleotide) assigned by `ClassifyRepeatType` on the unit length.
+
+**Canonicalization, not exhaustive enumeration.** Two filters shape the output. `IsRedundantUnit`
+skips a candidate motif that is itself a repetition of a smaller subunit (`ATAT`, `CAGCAG` are
+never reported as their own units — the primitive-unit rule above, enforced at motif-extraction
+time). Contained-interval suppression drops a new hit only when its `(Start, End)` lies **fully
+inside** an already-reported interval; this is deliberately **narrower than a blanket non-overlap
+rule** (spec §5.4 Deviation 1), so two partially-overlapping repeats where neither contains the
+other can both be reported. The opt-in `FindApproximateTandemRepeats` reuses
+[[global-alignment-needleman-wunsch|`SequenceAligner.GlobalAlign`]] for its per-window alignment.
+Cost: perfect detection is `O(n · U · R)` (U = searched unit-length range, R = mean copies while
+extending, output `O(k)` intervals); the approximate TRF scan is `O(n² · P · L²)` worst case (one
+alignment per (start, period, window)) — deterministic, exhaustive, sized for short tracts, not
+whole genomes.
+
 #### Approximate STR detection (Benson TRF model)
 
 The opt-in `FindApproximateTandemRepeats` + `ComputeBernoulliStatistics`
@@ -135,7 +192,9 @@ Following IUPACpal (Hampson et al. 2021), an IR has the form **W W̄ᴿ** (perfe
 `k` mismatches: Hamming distance `δ_H(W, W̄ᴿ) ≤ k`.
 
 - **Zero gap ⇒ palindrome.** When `|G| = 0` the composite is an even-length reverse-complement
-  palindrome (e.g. `GAATTC` → arm `GAA`, revcomp arm `TTC`).
+  palindrome (e.g. `GAATTC` → arm `GAA`, revcomp arm `TTC`) — detected by the dedicated zero-loop
+  scanner [[palindrome-detection]] (`RepeatFinder.FindPalindromes`, REP-PALIN-001), distinct from
+  the loop-bearing `FindInvertedRepeats`.
 - Detection parameters: minimum arm length, maximum arm length, maximum gap, maximum mismatches.
 
 The **RNA** flavour of this exact `W G W̄ᴿ` model — antiparallel complementary arms that form a

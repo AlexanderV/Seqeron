@@ -5,9 +5,10 @@ tags: [analysis, algorithm]
 sources:
   - docs/Evidence/DISORDER-MORF-001-Evidence.md
   - docs/Validation/reports/DISORDER-MORF-001.md
-source_commit: dc13c70fe90b2fa15b75169c79a58a5cd060d39a
+  - docs/algorithms/ProteinPred/MoRF_Prediction.md
+source_commit: 384cf12d39a790299dd1ba7a83c1528c59e4def3
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -104,6 +105,33 @@ Each reported MoRF carries a **score in `[0,1]` that increases with dip depth** 
 run drops below the 0.5 threshold). The bounded normalization is a documented derivation (the
 algorithm doc), not a source-prescribed value; the 0.5 threshold it is measured against is
 source-backed (PMC2570644).
+
+## Implementation
+
+`DisorderPredictor.PredictMoRFs(string sequence, int minLength = 10, int maxLength = 70)` (in
+`DisorderPredictor.cs`) scans the profile that `PredictDisorder` **already produced** — it does not
+re-window — for maximal ordered runs, applies the length band and the both-sided flank test, and
+yields each survivor as `(Start, End, Score)` with **0-based inclusive** coordinates,
+**non-overlapping and ordered by `Start`**. Cost is **O(n·w)** time / **O(n)** space (`n` = length,
+`w` = 21-residue disorder window); the dip scan itself is O(n). No substring/pattern search is
+involved, so the repository suffix tree is **not applicable** to this unit. The score is the mean dip
+depth below the threshold, normalized by the maximum possible depth:
+
+```
+Score = clamp01( (0.5 − mean_{i∈[s,e]} d(i)) / 0.5 )
+```
+
+Because every `d(i) < 0.5` inside the dip, `Score ∈ (0, 1]` and rises monotonically with dip depth.
+
+**Two distinct thresholds — do not conflate.** The MoRF dip is defined against the **0.5**
+order/disorder threshold from the MoRF literature (PMC2570644), which is **independent of the 0.542
+TOP-IDP decision cutoff** that `PredictDisorder` uses for general IDR calling; the two serve
+different purposes.
+
+**Worked oracle.** `new string('P',25) + new string('L',30) + new string('P',25)` → exactly one MoRF
+at `Start 29, End 50` (length 22, in band); mean disorder over the dip ≈ 0.362033 → Score ≈ 0.2759.
+Replacing the ordered `L` core with the more order-promoting `I` (TOP-IDP raw −0.486) deepens the dip
+(mean ≈ 0.300196, Score ≈ 0.399608), pinning score monotonicity (INV-05).
 
 ## Canonical oracle and corner cases
 

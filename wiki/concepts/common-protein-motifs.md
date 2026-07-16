@@ -6,9 +6,10 @@ mcp_tools:
   - find_protein_motifs
 sources:
   - docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md
-source_commit: 12b13e4ecc31636e0c27a2c4b0098bf11d6cc054
+  - docs/algorithms/ProteinMotif/Common_Motif_Finding.md
+source_commit: 1d6ffb03e0c1fe5819fda7ed7876cd4a0c98b639
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -85,6 +86,27 @@ translation used by the implementation:
 | Overlaps | overlapping occurrences of a pattern are **all reported** (ScanProsite default "overlaps, no includes"); only a match fully contained within another is suppressed |
 | null / empty input | returns empty |
 
+## Implementation: delegation, complexity, and why not a suffix tree
+
+Entry points on `ProteinMotifFinder`: `FindCommonMotifs(string)` iterates `CommonMotifs.Values`
+and yields all matches per pattern; `CommonMotifs` is the curated PROSITE-style pattern library
+(each entry stores both the PROSITE string and its equivalent .NET regex). Per-pattern matching —
+including the overlapping-occurrence lookahead wrapper — is **delegated** to
+[[protein-motif-pattern-search|`FindMotifByPattern`]] (unit PROTMOTIF-PATTERN-001); this unit
+adds no matching logic of its own, only the fixed dictionary and the aggregation loop.
+
+**Complexity:** `FindCommonMotifs` is **O(p · n)** time, **O(occurrences)** space, where `p` =
+number of library patterns (a constant) and `n` = sequence length; each pattern is a
+bounded-width regex scan.
+
+**Why the repository `SuffixTree` is deliberately not used:** the suffix tree
+(`FindAllOccurrences` / `CountOccurrences`) performs *exact substring* matching only and cannot
+express PROSITE pattern elements — allowed sets `[ST]`, excluded sets `{P}`, wildcards `x`, or
+variable gaps `x(n,m)`. Common-motif finding is class-based pattern matching, not literal
+substring search, so matching is delegated to the regex engine instead. Driving it through the
+suffix tree would require enumerating every literal expansion of each pattern — exponential, and
+outright incorrect for variable-length elements.
+
 ## Worked oracles
 
 From synthetic windows constructed to satisfy/violate each pattern (0-based inclusive):
@@ -107,7 +129,9 @@ deviations. The catalog is a small curated subset of PROSITE, not the full datab
 engine that scans an **arbitrary caller-supplied** PROSITE pattern (with PROSITE→regex
 conversion, overlapping-match lookahead and information-content scoring) is
 [[protein-motif-pattern-search]] (`FindMotifByPattern`, unit PROTMOTIF-FIND-001), of which
-this fixed-dictionary scan is one application.
+this fixed-dictionary scan is one application. One naming-only deviation is recorded: the
+Registry method table lists `FindAllKnownMotifs`, which does not exist in code — the canonical
+method is `FindCommonMotifs` and no alias was invented.
 
 ## References
 

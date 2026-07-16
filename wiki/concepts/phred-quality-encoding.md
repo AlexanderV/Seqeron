@@ -5,9 +5,10 @@ tags: [file-io, algorithm]
 sources:
   - docs/Evidence/PARSE-FASTQ-001-Evidence.md
   - docs/Evidence/QUALITY-PHRED-001-Evidence.md
-source_commit: 25fe7f865ba8c3ce681652d15fc633919907a6e5
+  - docs/algorithms/Quality/Phred_Score_Handling.md
+source_commit: 0677fe25ab89d866e2e61ba7ad892fafa8708fec
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -110,3 +111,28 @@ corrupts all downstream Q20/Q30 stats, trimming cut-points, and quality filters 
 error, because both offsets produce printable ASCII. Auto-detection exists precisely to stop that
 class of silent error; when it cannot decide, defaulting to the modern Phred+33 is the
 lowest-risk choice for contemporary data.
+
+## Implementation (QualityScoreAnalyzer)
+
+The **Phred score handling** unit [[quality-phred-001-evidence]] (unit `QUALITY-PHRED-001`) exposes
+three canonical methods on `QualityScoreAnalyzer` in `Seqeron.Genomics.IO`
+(`src/Seqeron/Algorithms/Seqeron.Genomics.IO/QualityScoreAnalyzer.cs`), each a single **O(n) linear
+pass** over the n characters/scores (O(n) space):
+
+- `ParseQualityString(qualityString, encoding) → int[]` — decodes `Q = ord(char) − offset`, validating
+  each `Q` within the encoding's range; `Auto` is resolved through the existing `DetectEncoding`
+  heuristic before decoding.
+- `ToQualityString(scores, encoding) → string` — encodes `char = chr(Q + offset)` with the same
+  range validation; `Auto` here is treated as the modern **Phred+33** default (there is nothing to
+  detect on the encode path).
+- `ConvertEncoding(qualityString, fromEncoding, toEncoding) → string` — parse under the source offset,
+  re-encode under the target offset (the ±31 re-offset).
+
+The offsets (33/64) and valid ranges (`[0,93]` / `[0,62]`) are **named constants** citing Cock et al.
+(2010). Parse/encode form mutual inverses on the valid range — the round-trip invariant
+`ToQualityString(ParseQualityString(s, e), e) == s` (INV-03). Contract edges: **null input** raises
+`ArgumentNullException`; a character or score **outside the encoding's valid range** (including the
+Phred+33→Phred+64 overflow for `Q > 62`) raises `ArgumentOutOfRangeException`; empty input yields empty
+output. This is a specification-driven exact re-offset, not a search/matching unit, so the repository
+suffix tree does not apply. Pre-existing `QualityStringToPhred` / `PhredToQualityString` helpers remain
+for other callers; the canonical methods above add the explicit range validation those helpers lack.

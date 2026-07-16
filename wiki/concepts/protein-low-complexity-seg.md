@@ -10,9 +10,10 @@ sources:
   - docs/Evidence/PROTMOTIF-LC-001-Evidence.md
   - docs/Validation/reports/DISORDER-LC-001.md
   - docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md
-source_commit: c9ed6cf3055a7708deeca143f62df61bea0e7263
+  - docs/algorithms/ProteinMotif/Low_Complexity_Region_Detection.md
+source_commit: 83877d61d8258c772ee73a58d2ebdc68bdf617c7
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -138,6 +139,30 @@ cases:
 
 A `minLength` post-filter (drop segments shorter than a threshold) and case-insensitive input
 (uppercasing) are additional API-contract behaviours.
+
+## Two repository implementations of the SEG method
+
+The same SEG core is exposed by **two distinct implementations** in different algorithm families,
+sharing this concept but differing in output contract and extension bookkeeping:
+
+| Aspect | `DisorderPredictor.PredictLowComplexityRegions` (DISORDER-LC-001, ProteinPred) | `ProteinMotifFinder.FindLowComplexityRegions` (PROTMOTIF-LC-001, ProteinMotif) |
+|--------|------------------------------------------------|--------------------------------------------------|
+| Output | segment with `"X-rich"`/`"X/Y-rich"` composition label + `minLength` post-filter | `(Start, End, Complexity)` — 0-based inclusive span + **minimum window complexity** in the region |
+| Extension model | greedy single-residue growth while the *whole growing segment*'s entropy stays ≤ K2 | groups **maximal runs of windows** with K ≤ K2; emits a run only if ≥1 of its windows has K ≤ K1; span = `[runStart, runEnd + W − 1]` |
+| Per-window entropy | `s_Entropy`-equivalent | `CalculateSegComplexity(ReadOnlySpan<char>)`, `stackalloc` count array, allocation-light; regions via `yield return` ordered by Start |
+| Complexity | — | O(n·W) time, O(n) space |
+
+The `ProteinMotifFinder` variant reports the region's **minimum window complexity** (rather than a
+textual label) for relative ranking. A prior **invented** `ProteinMotifFinder` heuristic — flagging a
+region when a single dominant amino acid's frequency was ≥ 0.4, returning
+`(…, DominantAa, Frequency)` — was **removed** and replaced by the SEG complexity measure (return type
+changed to `(…, Complexity)`); this was a non-source-traceable threshold with no basis in Wootton &
+Federhen. Both implementations use the **Shannon bits/residue** form of equation (3) and therefore
+share the same **intentional simplification**: the optional exact pass-2 local optimization that
+minimizes the multinomial segment probability P0 (NCBI `s_LnPerm` / `lnfact[]` log-factorial /
+permutation form) is **not performed**, so boundaries follow the window run/span rather than a
+P0-minimized optimal sub-segment, and no P0 significance ranking is emitted. `windowSize ≤ 0` throws
+`ArgumentOutOfRangeException`; sequences shorter than `W` yield an empty result.
 
 ## References
 

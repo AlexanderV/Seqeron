@@ -8,9 +8,12 @@ mcp_tools:
 sources:
   - docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md
   - docs/Evidence/PROTMOTIF-SP-001-Evidence.md
-source_commit: 1513221ea012107594feec09dd5b4e850e3d5f37
+  - docs/algorithms/ProteinMotif/Domain_Prediction.md
+  - docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md
+  - docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md
+source_commit: 06d4796c7e5d5b7136ebd65de057a08c8fe2b50f
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -48,7 +51,11 @@ units; see [[algorithm-validation-evidence]] for the artifact pattern.
 A **protein domain** is a self-stabilizing, independently folding region (~50–250 aa; Wetlaufer 1973).
 `FindDomains` detects domains that have an exact **PROSITE PATTERN** (a regex-like signature, not a
 profile/HMM), so the match is deterministic and reproducible. Each hit carries the domain name,
-PROSITE accession, Pfam cross-reference, and 0-based inclusive start/end.
+PROSITE accession, Pfam cross-reference, and 0-based inclusive start/end. Internally `FindDomains`
+delegates each signature to `FindMotifByPattern`, so `ProteinDomain.Score` is the **generic
+information-content motif score** (an internal match-strength indicator, not a calibrated domain
+probability) rather than a domain-specific confidence model. Cost is `O(n·d)` time, `O(1)`+output
+space, with `d = 3` fixed PROSITE patterns.
 
 | Domain | PROSITE | Pattern (verbatim) | Pfam |
 |--------|---------|--------------------|------|
@@ -95,6 +102,23 @@ and an independent from-scratch Python re-derivation of the retrieved HMMER recu
   envelope **coordinates** exactly on truncated tandem-SH3 constructs; opt-in via
   `FindDomains(seq, clusterOverlapping:true)`.
 
+**HMMER3/f parser & DP shape** (per-algorithm spec `Profile_HMM_Domain_Detection.md`, same unit
+PROTMOTIF-DOMAIN-001). `Plan7ProfileHmm.Parse` reads the HMMER3/f ASCII profile: probability parameters
+are stored as **negative natural-log** values to 5 decimals (a `*` = zero probability → **−∞** in log
+space, forbidding that path — INV-HMM-04), alphabet K=20 `ACDEFGHIKLMNPQRSTVWY`, the `COMPO`
+mean-composition background, the mute BEGIN node, then per node the match/insert emissions and the
+**7 transitions** in the fixed order `Mk→Mk+1, Mk→Ik, Mk→Dk+1, Ik→Mk+1, Ik→Ik, Dk→Mk+1, Dk→Dk+1`. Both
+Viterbi and Forward run as a **two-row DP over nodes 1..M × residues 1..n → O(n·M) time, O(M) space**
+(Forward = Viterbi with `max` replaced by log-sum-exp). The **default** `ViterbiScore`/`ForwardScore` are
+**glocal** (B→1..M→E spanning the whole query), so `FindDomainsByHmm`/`ScoreDomainHmm` report a
+whole-sequence span (`minBitScore` default 10.0, non-amino characters → neutral zero log-odds); the
+HMMER **local-multihit** mode (`LocalForward*`, `HmmSearchBitScore`, envelope decomposition) is the opt-in
+parity path (Deviation #1 in the spec). The E-value variants `FindDomainHitsByHmm`/`ScoreDomainHmmEValue`
+(database size `Z` default 1.0) return bit score **and** Viterbi E-value; `FindDomainEnvelopes` returns
+per-domain envelope hits. Invariants: Forward ≥ Viterbi (Forward sums over all paths incl. the optimal —
+INV-HMM-01), scoring is deterministic (INV-HMM-03), and the E-value is monotone-decreasing in bit score
+and exactly linear in Z (`E = P·Z` — INV-HMM-05).
+
 **Honest residuals:** exact `hmmsearch`-reported E-value pipeline parity is **not** reproduced — the
 MSV/bias prefilters (which only gate which sequences reach Forward, not a hit's bit score) are not
 reimplemented; **bit-for-bit** trace-ensemble identity would need HMMER's float32 arithmetic; and only
@@ -125,6 +149,19 @@ position-specific **weight matrix** rather than the tripartite heuristic:
 The record returns `CleavagePosition`, `Score`, `SignalSequence` (residues 1..`CleavagePosition−1`),
 `WindowSequence` (the 15-residue window), and `IsLikelySignalPeptide`. Inputs shorter than one full
 15-residue window return `null`; non-standard residues (X/B/Z/*) contribute 0; case-insensitive.
+
+**Implementation (per the per-algorithm spec `Signal_Peptide_Prediction.md`, same unit PROTMOTIF-SP-001).**
+`PredictSignalPeptide(string, bool prokaryote, double minWeight)` scores every candidate position and
+returns the argmax; the private `BuildWeightMatrix(int[][], double[])` applies the `ln(count/expect)`
+log-odds transform (with the `1.0e-10` penalty at columns −3/−1, `1.0` elsewhere) **once at static
+initialization** from the two EMBOSS count matrices, so scoring reuses the prebuilt matrix. The scan is a
+**fixed-width position-specific weight-matrix** pass over a 15-column window (`pval = −13`, 15 columns,
+exactly as EMBOSS `sigcleave.c`) — **not** substring/occurrence matching, so the repository suffix tree is
+**not applicable**. Cost is **O(n·15) = O(n)** time, **O(1)** space (n = sequence length); the one-time
+matrix build is O(20×15). **Accepted deviation:** the minimum input is one full 15-residue window (EMBOSS
+scores any length by skipping off-window columns), so sub-window inputs return `null` rather than a
+partial-window score. The method is a classical baseline (≈75–80% cleavage-site accuracy); the HMM/neural
+refinements of SignalP/Phobius are **not** reimplemented.
 
 **Worked oracle:** **ACH2_DROME (UniProt P17644**, 576 aa) → maximum `Score` **13.739**,
 `CleavagePosition` **42**, window `LLVLLLLCETVQA` (residues 29–41); reproduced exactly by an

@@ -4,9 +4,11 @@ title: "Distance-based phylogenetic tree construction (UPGMA & Neighbor-Joining 
 tags: [phylogenetics, algorithm]
 sources:
   - docs/Evidence/PHYLO-TREE-001-Evidence.md
-source_commit: 6e5907cbbe510e53e4afa483dd33991739bb93fa
+  - docs/algorithms/Phylogenetics/Tree_Construction.md
+  - docs/algorithms/Phylogenetics/Newick_Format.md
+source_commit: 0180b9c3abe4e43a623b13a74e6a6470ab5c8836
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -36,11 +38,16 @@ the trees it emits. Validated under test unit **PHYLO-TREE-001**; the literature
 [[algorithm-validation-evidence]] describes the evidence-artifact pattern. Research-grade correctness
 reference ([[scientific-rigor|research-grade]]), not for clinical use.
 
-The public surface is two methods on `PhylogeneticAnalyzer`: **`BuildTree(sequences, method)`** — the
-canonical path that computes distances then builds — and **`BuildTreeFromMatrix(matrix, taxa, method)`**
-— which takes a **pre-computed** distance matrix directly (this is what lets the reference Wikipedia
-matrices below be tested exactly). Both return a `PhylogeneticTree` carrying `Root`, `Taxa`,
-`DistanceMatrix`, and `Method`.
+The public surface is two methods on `PhylogeneticAnalyzer`: **`BuildTree(sequences, distanceMethod,
+treeMethod)`** — the canonical path that computes distances then builds (the `distanceMethod` parameter
+**defaults to `JukesCantor`** and is passed straight to `CalculateDistanceMatrix`; `treeMethod` defaults
+to `UPGMA`) — and **`BuildTreeFromMatrix(taxa, distanceMatrix, treeMethod)`** — which takes a
+**pre-computed** symmetric matrix directly (this is what lets the reference Wikipedia matrices below be
+tested exactly). Both return a `PhylogeneticTree` carrying `Root` (a binary `PhyloNode`), `Taxa` (input
+order), `DistanceMatrix`, and `Method` (the builder name). **Validation** (§3.3): `BuildTree` throws
+`ArgumentException` on fewer than two sequences or on unequal aligned lengths; `BuildTreeFromMatrix`
+throws when fewer than two taxa are supplied, the matrix is missing, or its dimensions do not match the
+taxon count.
 
 ## UPGMA (Unweighted Pair Group Method with Arithmetic Mean)
 
@@ -52,8 +59,10 @@ A simple agglomerative hierarchical clustering method (Sokal & Michener 1958).
   (3) merge them, computing new distances as a **weighted (arithmetic-mean) average**; (4) repeat until
   one cluster remains.
 - **Branch length:** node **height = distance / 2** (the ultrametric property); the implementation
-  tracks cluster heights and emits **incremental** branch lengths (`height_new − height_child`).
-- **Complexity:** O(n³) naive, O(n²) optimized.
+  tracks cluster heights and emits **incremental** branch lengths, clamped non-negative as
+  `Math.Max(0, height_new − height_child)` (INV-05). Working distances are held in a **dictionary keyed
+  by cluster index**, alongside cluster-size and cluster-height maps used for the weighted average.
+- **Complexity:** this classical implementation is **O(n³) time, O(n²) space** (`n` = taxa).
 
 ## Neighbor-Joining (Saitou & Nei 1987)
 
@@ -71,7 +80,7 @@ The workhorse distance method that does **not** assume a clock.
   implementation **does not clamp** them — the algorithm specification is followed verbatim.
 - **Final join = midpoint rooting:** the last join splits the remaining distance **d/2 each**, which
   **preserves all patristic distances** (the additive-matrix guarantee).
-- **Complexity:** O(n³).
+- **Complexity:** **O(n³) time, O(n²) space**.
 
 ## Invariants (§3)
 
@@ -116,6 +125,50 @@ lengths** (INV-N02), no clock assumption (INV-N03).
 | Single-nucleotide sequences | valid but trivial |
 | All-gap columns | zero comparable sites; gap-only columns skipped, identical non-gap sites → distance 0 |
 
+## Newick serialization I/O layer (PHYLO-NEWICK-001)
+
+The `PhyloNode` tree this unit emits is round-tripped to and from **Newick** (New Hampshire) text by the
+family's **I/O layer**, PHYLO-NEWICK-001 (`PhylogeneticAnalyzer.ToNewick(PhyloNode, bool)` /
+`ParseNewick(string)`, both in `PhylogeneticAnalyzer.cs`). Newick is **grammatical, not biological**: a
+tree is recursively nested subtrees with optional labels and branch lengths. This is a **format
+serializer, not a separate algorithm** — its literature-traced Evidence record is
+[[phylo-newick-001-evidence]]. The `docs/algorithms/Phylogenetics/Newick_Format.md` spec is
+reconciled here because the format serializes *this* concept's output rather than defining a new
+inference step.
+
+**Core grammar** (Olsen-style, the subset implemented): `Tree → Subtree ";"`,
+`Internal → "(" BranchSet ")" Name`, `Branch → Subtree Length`, `Length → empty | ":" number`. Parentheses
+delimit internal nodes, commas separate siblings, an optional label follows a subtree, and a branch length
+is introduced by `:`.
+
+**Contract.** `ToNewick(node, includeBranchLengths=true)` returns a string; a **`null` node → empty
+string**. `ParseNewick(newick)` returns a `PhyloNode`; **null/empty/whitespace-only input throws
+`ArgumentException`**. The parser trims the input, strips a trailing `;`, then recurses over `(`, `,`, `)`,
+labels, and numeric branch lengths. Both are **O(n)** time, **O(h)** space (h = recursion/parse depth).
+
+**Invariants.**
+
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `ToNewick` output ends with `;` | serializer appends `;` after the recursive traversal |
+| INV-02 | Branch lengths render with `.` as decimal separator | serializer formats via `ToString("F4", CultureInfo.InvariantCulture)` — locale-independent |
+| INV-03 | Internal-node names emitted only when they are **valid unquoted labels** | serializer suppresses names containing Newick metacharacters (blanks, `()`, `[]`, `'`, `:`, `;`, `,`) instead of quoting them |
+| INV-04 | `ParseNewick` accepts an optional **root branch length** after the main subtree | dedicated post-root `:` handling; parsed into `root.BranchLength` (the Olsen/TreeAlign `:0.0` convention) |
+
+**Serializer/parser asymmetry** (a deliberate limitation): serialization filters *internal* labels to the
+conservative unquoted subset above (metachar-bearing names are **omitted**, not quoted), while **leaf
+labels are emitted verbatim** (the unquoted check is applied only to internal names). Parsing is more
+**permissive** — it reads labels as raw character runs up to the next structural delimiter and does not
+enforce the unquoted restriction. The parser also accepts **scientific-notation** branch lengths
+(`e`/`E`/`+`/`-`) in addition to digits, decimal points, and signs.
+
+**Documented scope (out-of-scope, not bugs).** Only **binary** trees are supported (`PhyloNode` has just
+`Left`/`Right`, so the grammar's multifurcating `BranchSet` is out of scope); **no quoted `'…'` labels**,
+**no `[]` comments**, and **no underscore→blank** rewrite. Float precision is ±0.00005 (F4 — adequate for
+UPGMA/NJ output; the spec imposes no precision limit). Appropriate for the binary trees this unit's UPGMA
+and NJ builders produce, but not for general-purpose Newick interoperability across all phylogenetics
+tools. No source contradictions.
+
 ## Relationship to the rest of the PHYLO family
 
 This unit is the **hinge** of the family. Upstream, it **consumes** the
@@ -139,9 +192,18 @@ convention) and clock-free with the additive-topology guarantee.
 The implementation lives in `PhylogeneticAnalyzer.cs`: `BuildTree()` is canonical (from sequences),
 `BuildTreeFromMatrix()` accepts pre-computed matrices for reference-example testing. UPGMA tracks cluster
 heights and emits incremental branch lengths; NJ preserves negative branch lengths (no clamping) and
-midpoint-roots the final join to preserve patristic distances. The source records **no deviations and no
-assumptions** — the implementation strictly follows UPGMA (Sokal & Michener 1958) and NJ (Saitou & Nei
-1987) as described in the authoritative sources.
+midpoint-roots the final join to preserve patristic distances. The algorithm spec records exactly **one
+accepted deviation**: the NJ result is returned as a **rooted `PhyloNode`** even though NJ is
+theoretically unrooted — a representation choice made at the final-join step so the output fits the
+binary `PhyloNode` API, not a claim that NJ is rooted. Otherwise the implementation follows UPGMA (Sokal
+& Michener 1958) and NJ (Saitou & Nei 1987) as described in the authoritative sources, with no further
+simplifications.
+
+**Documented limitations (§6.2):** these are the **classical O(n³) builders** with a binary `PhyloNode`
+output model. They do **not** produce bootstrap support values (that is the separate
+[[phylogenetic-bootstrap-support]] wrapper), **multifurcations**, or any advanced tree-search
+optimization. Interpretation quality still depends on the chosen distance model and on the
+molecular-clock (UPGMA) / additivity (NJ) assumptions of the selected method.
 
 ## Reference tools
 

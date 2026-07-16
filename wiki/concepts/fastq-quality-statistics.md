@@ -7,9 +7,10 @@ mcp_tools:
   - fastq_statistics
 sources:
   - docs/Evidence/QUALITY-STATS-001-Evidence.md
-source_commit: 8f4f606b371e3b0654cce99998263706c7d8c185
+  - docs/algorithms/Quality/Quality_Statistics.md
+source_commit: b0582a69a05e98839d57529bf7d538af4b125f29
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: depends_on
@@ -97,3 +98,30 @@ mean `32.5` (the even-count median averages the two central order statistics). S
 - **Empty / null input:** the cited sources do not define statistics over zero observations; the
   repository contract returns a **zeroed `QualityStatistics` (TotalBases = 0)** / 0.0 percentage
   rather than throwing. This is a documented API decision, not a sourced value.
+
+## Implementation surface
+
+`QualityScoreAnalyzer` (in `Seqeron.Genomics.IO`) exposes three entry points; the algorithm spec
+(QUALITY-STATS-001) pins these to the theory above:
+
+- `CalculateStatistics(string, QualityEncoding)` — full summary for one quality string, returning the
+  `QualityStatistics` record: `MeanQuality`/`MedianQuality`/`StandardDeviation` (double),
+  `MinQuality`/`MaxQuality`/`TotalBases`/`BasesAboveQ20`/`BasesAboveQ30` (int),
+  `PercentAboveQ20`/`PercentAboveQ30` (double 0–100), and `PerPositionMeanQuality`.
+- `CalculateStatistics(IEnumerable<string>, QualityEncoding)` — **delegate variant** that aggregates
+  scores across a *set* of reads and reports **`PerPositionMeanQuality`**: the mean decoded score at
+  each base position across reads (the FastQC "per-base sequence quality" surface). For a single
+  string this per-position vector is just that string's per-base scores.
+- `CalculateQ30Percentage(string, QualityEncoding)` — the canonical `% ≥ Q30` shortcut, guaranteed
+  equal to `CalculateStatistics(...).PercentAboveQ30` (INV-04).
+
+**Complexity:** `CalculateStatistics` is **O(n log n)** — the sort for the median dominates; mean, σ,
+and the Q20/Q30 counts are each O(n). `CalculateQ30Percentage` is a single O(n) pass. This unit does
+no substring/pattern search, so the repository suffix tree is **not applicable**.
+
+**Probability-averaged quality lives elsewhere.** Because `MeanQuality` is the arithmetic mean of
+log-scaled Q (the samtools/FastQC "average quality"), it *understates* a read's true error rate — one
+very-low-Q base dominates the error probability far more than the Q-mean suggests. The
+error-probability summaries (`P̄ = (1/N) Σ 10^(−Qᵢ/10)`, expected-error sum `Σ 10^(−Qᵢ/10)`) are
+provided by the separate `CalculateExpectedErrors` / `PhredToErrorProbability` methods, **not** by
+`MeanQuality`.

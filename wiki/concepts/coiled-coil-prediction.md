@@ -7,9 +7,9 @@ mcp_tools:
 sources:
   - docs/Evidence/PROTMOTIF-CC-001-Evidence.md
   - docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md
-source_commit: 0003535e3857fc7a8321c06da24972ffd5a14383
+source_commit: 335716dcdb5101ac27141e185a3e963cbc9fdb25
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -101,6 +101,13 @@ Other cases: sequence shorter than `windowSize` → empty; an **off-frame** coil
 via the 7-register max (INV-05); lowercase input recognised (uppercased first); null/empty → empty; a
 scoring run shorter than the 21-residue minimum is rejected (INV-02). Complexity is **O(n·W·7)** time
 (O(n) with the fixed constants W=28, 7 registers) / O(n) space.
+
+Implementation shape (`ProteinMotifFinder.cs`): `PredictCoiledCoils(sequence, windowSize, threshold)`
+computes the whole score profile once into an array, then scans it in a **single forward pass**, yielding
+regions **lazily**. The per-window register max is a private `BestHeptadOccupancy(...)` and the run→region
+map with the min-length filter is a private `BuildRegion(...)`. Because the algorithm is a per-position
+**numeric window scan** and performs no exact-substring search, the repository suffix tree is **not
+applicable** here — there is no occurrence enumeration, only windowed scoring.
 
 ## Deviations, assumptions, and scope
 

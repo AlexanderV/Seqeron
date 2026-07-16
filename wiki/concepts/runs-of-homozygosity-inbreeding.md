@@ -7,9 +7,10 @@ mcp_tools:
   - runs_of_homozygosity
 sources:
   - docs/Evidence/POP-ROH-001-Evidence.md
-source_commit: 0885cd52a7dfdf9158d2607127ceea1945c8dff2
+  - docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md
+source_commit: cd2c6b2b838648c1db0897589236431a27560ecb
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -95,6 +96,22 @@ different way.
 - **Unsorted input is ordered internally**; **genotype `2` counts as homozygous**; **leading
   heterozygotes are skipped** (a run cannot open on an opposite genotype).
 - **`F_ROH` bounded `[0, 1]`**; `0.20` and `1.0` are the traced oracle values.
+
+## Implementation contract
+
+Both methods live in `PopulationGeneticsAnalyzer` (`FindROH`, `CalculateInbreedingFromROH`).
+A run is reported on the **inclusive `[Start, End]`** SNP positions (first/last homozygous SNP —
+trailing tolerated heterozygotes are excluded); `FindROH` runs in **O(n log n)** time (dominated by
+the internal position sort) and **O(n)** space over `n` SNPs. `CalculateInbreedingFromROH` is
+**O(m)/O(1)** over `m` segments and computes each ROH length **half-open as `End − Start`** (so the
+F_ROH `rohSegments` are `[Start, End)` intervals, distinct from the inclusive runs `FindROH` emits).
+
+Argument validation is **eager** — the deferred `yield` iterator is wrapped so bad arguments throw
+before iteration begins: `FindROH` throws `ArgumentNullException` for null genotypes and
+`ArgumentOutOfRangeException` for `minSnps < 1` or negative `minLength` / `maxHeterozygotes` /
+`maxGap`; `CalculateInbreedingFromROH` throws `ArgumentNullException` for null segments and returns
+`0` when `genomeLength ≤ 0` (no defined denominator). ROH detection is a single linear positional
+pass — not a substring search — so the repository suffix tree does not apply.
 
 ## Scope
 

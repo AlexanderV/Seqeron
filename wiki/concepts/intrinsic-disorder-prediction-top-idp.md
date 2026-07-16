@@ -14,9 +14,11 @@ sources:
   - docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md
   - docs/Evidence/DISORDER-REGION-001-Evidence.md
   - docs/algorithms/ProteinPred/Disorder_Prediction.md
-source_commit: 8bd6a5e1b48367a44632668b3e6d980ebe3e6d2c
+  - docs/algorithms/ProteinPred/Disorder_Propensity.md
+  - docs/algorithms/ProteinPred/Disordered_Region_Detection.md
+source_commit: 18745e1d6646aac0fd48b15466c14b926ecf7eaf
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -139,6 +141,13 @@ zero code change** — is [[disorder-propensity-001-report]] (one row of the [[v
   `{C, F, I, L, N, V, W, Y}` — the two public sets (8 members each); the two plus ambiguous
   `{D, H, M, T}` are pairwise disjoint and cover all 20 residues (8 + 8 + 4).
 
+All four primitives are **pure O(1) table lookups** — no windowing or statistics (that is the
+windowed `PredictDisorder` layer above). The algorithm spec
+(`docs/algorithms/ProteinPred/Disorder_Propensity.md`, DISORDER-PROPENSITY-001) fixes the
+implementation shape: the TOP-IDP scale lives in a `static Dictionary<char,double>` and the three
+Dunker classes in `HashSet<char>`, while the public list properties return `OrderBy`-sorted cached
+copies. Because no search/matching is performed, the repository suffix tree is **N/A** for this unit.
+
 **Do not conflate the two value spaces:** `GetDisorderPropensity` exposes the *raw* scale value,
 whereas `PredictDisorder`'s `Sᵢ` averages the *min-max-normalized* value `(p − (−0.884))/1.871`. Anchor
 residues coincide (W = raw min / normalized 0, P = raw max / normalized 1), but interior values differ.
@@ -154,6 +163,17 @@ artifact with no correctness impact.
 `IsDisordered`); `DisorderedRegions` (contiguous runs ≥ `minRegionLength`); `OverallDisorderContent`
 (fraction of residues flagged disordered); and `MeanDisorderScore` (mean of all residue scores).
 
+**Implementation shape (DisorderPredictor.cs).** `PredictDisorder(sequence, windowSize=21,
+disorderThreshold=0.542, minRegionLength=5)` is the single public entry point; it short-circuits on
+`null`/empty, uppercases with `ToUpperInvariant()`, then delegates to two private helpers:
+`CalculatePerResidueScores(...)` builds the `ResiduePrediction` records (`isDisordered = score ≥
+threshold`, INV-03) and, per window, calls `CalculateDisorderScore(...)` — the normalized-TOP-IDP
+window average that skips residues absent from the lookup table and returns **`0.0`** for a window
+holding no recognized residue. `OverallDisorderContent = disorderedCount / sequence.Length` and
+`MeanDisorderScore` is the mean over the returned prediction list; region grouping and the cached
+disorder-/order-/ambiguous residue-class properties are computed on top. The public method performs
+**no explicit validation** of non-default `windowSize` / `disorderThreshold` / `minRegionLength`.
+
 ## Disordered-region detection (DISORDER-REGION-001)
 
 The **aggregation layer** over the per-residue profile: it collapses a scored `ResiduePredictions`
@@ -167,6 +187,18 @@ anticipated. It introduces no new per-residue math; it re-uses *this* TOP-IDP pr
 window 21). Region grouping (`IdentifyDisorderedRegions`, `DisorderPredictor.cs:358`) is a single-pass
 scan with a documented, correctly-handled trailing-run branch (no off-by-one); the uncalibrated
 per-region `Confidence` is a `LimitationPolicy`-guarded branch (min access `Permissive`).
+
+**Implementation shape (spec §5.1/§5.2/§4.3).** `IdentifyDisorderedRegions(List<ResiduePrediction>,
+threshold, minLength)` delegates the default label to `ClassifyDisorderedRegion(...)` and the
+confidence to `CalculateConfidence(...)`. Note the `threshold` argument it is passed is **forwarded
+but unused inside the scan** — run membership reads the precomputed `ResiduePrediction.IsDisordered`
+flag rather than re-thresholding `MeanScore`. The confidence rescale is exactly
+`Confidence = clamp₀¹((MeanScore − 0.542) / (1.0 − 0.542))`, depending only on `MeanScore` (not
+region length); a homopolymeric run therefore has `MeanScore` equal to its single constant normalized
+TOP-IDP score (**INV-04**). Region extraction over an already-scored prediction list is **O(n)** time
+/ **O(r)** space (r = emitted regions); end-to-end detection via `PredictDisorder(...)` adds the
+upstream **O(n·w)** window scan. `ClassifyRegionFlavorMobiDbLite(string)` is the public opt-in sourced
+re-labeller (leaves boundaries and `Confidence` untouched).
 
 **Contiguous-run aggregation.** A region is a maximal run of residues with `IsDisordered == true` of
 length ≥ `minRegionLength` (default **5**). Each region carries `Start`/`End`, and a `MeanScore` =

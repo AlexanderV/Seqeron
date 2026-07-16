@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1083 / 1181
+Progress: 1119 / 1181
 
 ## (top-level)  (6)
 
@@ -655,44 +655,44 @@ Progress: 1083 / 1181
 - [x] docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md
 - [x] docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md
 - [x] docs/algorithms/Pattern_Matching/Suffix_Tree.md
-- [ ] docs/algorithms/Phylogenetics/Bootstrap_Analysis.md
-- [ ] docs/algorithms/Phylogenetics/Distance_Matrix.md
-- [ ] docs/algorithms/Phylogenetics/Newick_Format.md
-- [ ] docs/algorithms/Phylogenetics/Tree_Comparison.md
-- [ ] docs/algorithms/Phylogenetics/Tree_Construction.md
-- [ ] docs/algorithms/Phylogenetics/Tree_Statistics.md
-- [ ] docs/algorithms/Population_Genetics/Allele_Frequency.md
-- [ ] docs/algorithms/Population_Genetics/Ancestry_Estimation.md
-- [ ] docs/algorithms/Population_Genetics/Diversity_Statistics.md
-- [ ] docs/algorithms/Population_Genetics/F_Statistics.md
-- [ ] docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md
-- [ ] docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md
-- [ ] docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md
-- [ ] docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md
-- [ ] docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md
-- [ ] docs/algorithms/ProteinMotif/Common_Motif_Finding.md
-- [ ] docs/algorithms/ProteinMotif/Domain_Prediction.md
-- [ ] docs/algorithms/ProteinMotif/Low_Complexity_Region_Detection.md
-- [ ] docs/algorithms/ProteinMotif/Motif_Search.md
-- [ ] docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md
-- [ ] docs/algorithms/ProteinMotif/Pattern_Matching_Methods.md
-- [ ] docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md
-- [ ] docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md
-- [ ] docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md
-- [ ] docs/algorithms/ProteinPred/Disorder_Prediction.md
-- [ ] docs/algorithms/ProteinPred/Disorder_Propensity.md
-- [ ] docs/algorithms/ProteinPred/Disordered_Region_Detection.md
+- [x] docs/algorithms/Phylogenetics/Bootstrap_Analysis.md
+- [x] docs/algorithms/Phylogenetics/Distance_Matrix.md
+- [x] docs/algorithms/Phylogenetics/Newick_Format.md
+- [x] docs/algorithms/Phylogenetics/Tree_Comparison.md
+- [x] docs/algorithms/Phylogenetics/Tree_Construction.md
+- [x] docs/algorithms/Phylogenetics/Tree_Statistics.md
+- [x] docs/algorithms/Population_Genetics/Allele_Frequency.md
+- [x] docs/algorithms/Population_Genetics/Ancestry_Estimation.md
+- [x] docs/algorithms/Population_Genetics/Diversity_Statistics.md
+- [x] docs/algorithms/Population_Genetics/F_Statistics.md
+- [x] docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md
+- [x] docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md
+- [x] docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md
+- [x] docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md
+- [x] docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md
+- [x] docs/algorithms/ProteinMotif/Common_Motif_Finding.md
+- [x] docs/algorithms/ProteinMotif/Domain_Prediction.md
+- [x] docs/algorithms/ProteinMotif/Low_Complexity_Region_Detection.md
+- [x] docs/algorithms/ProteinMotif/Motif_Search.md
+- [x] docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md
+- [x] docs/algorithms/ProteinMotif/Pattern_Matching_Methods.md
+- [x] docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md
+- [x] docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md
+- [x] docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md
+- [x] docs/algorithms/ProteinPred/Disorder_Prediction.md
+- [x] docs/algorithms/ProteinPred/Disorder_Propensity.md
+- [x] docs/algorithms/ProteinPred/Disordered_Region_Detection.md
 - [x] docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md  (done-via-concept)
-- [ ] docs/algorithms/ProteinPred/MoRF_Prediction.md
-- [ ] docs/algorithms/Quality/Phred_Score_Handling.md
-- [ ] docs/algorithms/Quality/Quality_Statistics.md
-- [ ] docs/algorithms/README.md
-- [ ] docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md
-- [ ] docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md
-- [ ] docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
-- [ ] docs/algorithms/Repeat_Analysis/Palindrome_Detection.md
+- [x] docs/algorithms/ProteinPred/MoRF_Prediction.md
+- [x] docs/algorithms/Quality/Phred_Score_Handling.md
+- [x] docs/algorithms/Quality/Quality_Statistics.md
+- [x] docs/algorithms/README.md
+- [x] docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md
+- [x] docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md
+- [x] docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
+- [x] docs/algorithms/Repeat_Analysis/Palindrome_Detection.md
 - [x] docs/algorithms/Repeat_Analysis/Repeat_Detection.md
-- [ ] docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md
+- [x] docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md
 - [ ] docs/algorithms/RnaStructure/Dot_Bracket_Notation.md
 - [ ] docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
 - [ ] docs/algorithms/RnaStructure/Inverted_Repeats.md

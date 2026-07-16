@@ -3,77 +3,12 @@ type: index
 title: "Ingestion backlog — pending algorithm docs (per-domain)"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-15
+updated: 2026-07-16
 ---
 
 # Ingestion backlog — pending algorithm docs
 
-The per-domain pending tables (83 algorithm docs across 14 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14. The Oncology domain is now fully covered — `Variant_Allele_Frequency.md` → [[variant-allele-frequency-and-binomial-ci]], resolved 2026-07-15. The PanGenome domain is now fully covered — `Phylogenetic_Marker_Selection.md` → [[phylogenetic-marker-selection]], resolved 2026-07-15. The Pattern_Matching domain is now fully covered — `Suffix_Tree.md` → [[suffix-tree]], resolved 2026-07-15, ingesting the last pending Pattern_Matching doc.)
-
-### Phylogenetics (6)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Phylogenetics/Bootstrap_Analysis.md` | `bootstrap-analysis` |
-| `docs/algorithms/Phylogenetics/Distance_Matrix.md` | `distance-matrix` |
-| `docs/algorithms/Phylogenetics/Newick_Format.md` | `newick-format` |
-| `docs/algorithms/Phylogenetics/Tree_Comparison.md` | `tree-comparison` |
-| `docs/algorithms/Phylogenetics/Tree_Construction.md` | `tree-construction` |
-| `docs/algorithms/Phylogenetics/Tree_Statistics.md` | `tree-statistics` |
-
-### Population_Genetics (8)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Population_Genetics/Allele_Frequency.md` | `allele-frequency` |
-| `docs/algorithms/Population_Genetics/Ancestry_Estimation.md` | `ancestry-estimation` |
-| `docs/algorithms/Population_Genetics/Diversity_Statistics.md` | `diversity-statistics` |
-| `docs/algorithms/Population_Genetics/F_Statistics.md` | `f-statistics` |
-| `docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md` | `hardy-weinberg-test` |
-| `docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md` | `integrated-haplotype-score` |
-| `docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md` | `linkage-disequilibrium` |
-| `docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md` | `runs-of-homozygosity` |
-
-### ProteinMotif (10)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md` | `coiled-coil-prediction` |
-| `docs/algorithms/ProteinMotif/Common_Motif_Finding.md` | `common-motif-finding` |
-| `docs/algorithms/ProteinMotif/Domain_Prediction.md` | `domain-prediction` |
-| `docs/algorithms/ProteinMotif/Low_Complexity_Region_Detection.md` | `low-complexity-region-detection` |
-| `docs/algorithms/ProteinMotif/Motif_Search.md` | `motif-search` |
-| `docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md` | `prosite-pattern-matching` |
-| `docs/algorithms/ProteinMotif/Pattern_Matching_Methods.md` | `pattern-matching-methods` |
-| `docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md` | `profile-hmm-domain-detection` |
-| `docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md` | `signal-peptide-prediction` |
-| `docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md` | `transmembrane-helix-prediction` |
-
-### ProteinPred (4)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/ProteinPred/Disorder_Prediction.md` | `disorder-prediction` |
-| `docs/algorithms/ProteinPred/Disorder_Propensity.md` | `disorder-propensity` |
-| `docs/algorithms/ProteinPred/Disordered_Region_Detection.md` | `disordered-region-detection` |
-| `docs/algorithms/ProteinPred/MoRF_Prediction.md` | `morf-prediction` |
-
-### Quality (2)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Quality/Phred_Score_Handling.md` | `phred-score-handling` |
-| `docs/algorithms/Quality/Quality_Statistics.md` | `quality-statistics` |
-
-### Repeat_Analysis (5)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md` | `direct-repeat-detection` |
-| `docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md` | `inverted-repeat-detection` |
-| `docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md` | `microsatellite-detection` |
-| `docs/algorithms/Repeat_Analysis/Palindrome_Detection.md` | `palindrome-detection` |
-| `docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md` | `tandem-repeat-detection` |
+The per-domain pending tables (48 algorithm docs across 8 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14. The Oncology domain is now fully covered — `Variant_Allele_Frequency.md` → [[variant-allele-frequency-and-binomial-ci]], resolved 2026-07-15. The PanGenome domain is now fully covered — `Phylogenetic_Marker_Selection.md` → [[phylogenetic-marker-selection]], resolved 2026-07-15. The Pattern_Matching domain is now fully covered — `Suffix_Tree.md` → [[suffix-tree]], resolved 2026-07-15, ingesting the last pending Pattern_Matching doc. The Phylogenetics domain is now fully covered — `Tree_Statistics.md` → [[tree-statistics]], resolved 2026-07-15, ingesting the last pending Phylogenetics doc. The Population_Genetics domain is now fully covered — `Runs_Of_Homozygosity.md` → [[runs-of-homozygosity-inbreeding]], resolved 2026-07-16, ingesting the last pending Population_Genetics doc. The ProteinMotif domain is now fully covered — `Transmembrane_Helix_Prediction.md` → [[transmembrane-helix-prediction]], resolved 2026-07-16, ingesting the last pending ProteinMotif doc. The ProteinPred domain is now fully covered — `MoRF_Prediction.md` → [[morf-prediction-dip-in-disorder]], resolved 2026-07-16, ingesting the last pending ProteinPred doc. The Quality domain is now fully covered — `Quality_Statistics.md` → [[fastq-quality-statistics]], resolved 2026-07-16 (REUSE: enriched the existing Evidence-derived concept with the `QualityScoreAnalyzer` entry points, the multi-read `PerPositionMeanQuality` delegate variant, and complexity), ingesting the last pending Quality doc. The Repeat_Analysis domain is now fully covered — `Tandem_Repeat_Detection.md` → [[repetitive-element-detection]], resolved 2026-07-16 (REUSE: enriched the existing repeats/tandem family anchor with the `RepeatFinder.GetTandemRepeatSummary` → `FindMicrosatellites(1,6,minRepeats)` aggregation helper and its `TandemRepeatSummary` totals plus the 1–6 bp-only / per-class-stops-at-tetranucleotide scope caveats), ingesting the last pending Repeat_Analysis doc.)
 
 ### RnaStructure (13)
 

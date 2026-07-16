@@ -6,9 +6,10 @@ mcp_tools:
   - hardy_weinberg_test
 sources:
   - docs/Evidence/POP-HW-001-Evidence.md
-source_commit: 0ddacceea3a398cc68e027111682aa4ce726fcb7
+  - docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md
+source_commit: 758c875b14f9b85d6a9290da5a0fb1c56f8d6478
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -108,6 +109,22 @@ f(AA) = p²        f(Aa) = 2pq        f(aa) = q²
 - **Deviation causes** (why a locus fails the test): non-random mating / inbreeding (excess
   homozygotes), selection, mutation, migration/gene flow, small-population drift — and, in real
   genotype data, **genotyping error** (a common bioinformatics QC use of the test).
+
+## Implementation shape (POP-HW-001)
+
+`PopulationGeneticsAnalyzer.TestHardyWeinberg(string variantId, int observedAA, int observedAa,
+int observedaa, double significanceLevel = 0.05)` is the single entry point. It returns a result
+record echoing the inputs (`VariantId`, `ObservedAA/Aa/aa`) alongside the derived
+`ExpectedAA/Aa/aa` (= `p²n`, `2pqn`, `q²n`), `ChiSquare`, `PValue`, and the boolean
+`InEquilibrium` (strictly `PValue ≥ significanceLevel`). The p-value is `1 − ChiSquareCDF(χ², 1)`,
+where the private `ChiSquareCDF(double, int)` routes through a `RegularizedGammaP(double, double)`
+regularized lower-incomplete-gamma helper (this is the "lower-incomplete-gamma approximation"
+named above). Cost is **O(1) time / O(1) space** — constant-time arithmetic on one genotype triple.
+
+**Accepted deviation (§5.4):** the method takes `int` counts directly and does **not** validate that
+genotype counts are non-negative, nor that `significanceLevel` lies in `[0, 1]`. Negative counts
+produce uninterpretable frequencies/expectations; the guard is left to the caller. This is a
+documented, accepted simplification, not a bug.
 
 ## Scope
 

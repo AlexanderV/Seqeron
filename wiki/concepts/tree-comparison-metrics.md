@@ -8,9 +8,10 @@ mcp_tools:
   - robinson_foulds_distance
 sources:
   - docs/Evidence/PHYLO-COMP-001-Evidence.md
-source_commit: 3f492b584e4bfe5aee958659ec2f15a8fabed25a
+  - docs/algorithms/Phylogenetics/Tree_Comparison.md
+source_commit: 7eb3b8b83e72b5100a29834a3ea0b49252a06824
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -62,6 +63,11 @@ partition of taxa induced by **removing one internal edge**; each tree's split s
   scaled to [0,1] (some software does both; the original definition does not).
 - **Properties:** a **proper metric** (identity, symmetry, triangle inequality); linear-time algorithm
   exists (Day 1985).
+- **Implementation cost (this repo):** `RobinsonFouldsDistance` builds the clade sets with `GetClades` /
+  `CollectClades`, materializing each clade as a **sorted taxon-name string**. Because it repeatedly
+  materializes and sorts subtree taxon lists while building clade keys, the current code is
+  **`O(n² log n)` time / `O(n²)` space** worst case — *not* the Day-1985 linear bound. Leaves and the
+  full-tree root are excluded from the key set.
 
 ### Max-RF formulas (rooted vs unrooted — a genuine difference)
 
@@ -75,9 +81,12 @@ partition of taxa induced by **removing one internal edge**; each tree's split s
 The deepest node that is an ancestor of **both** queried taxa (a.k.a. LCA / concestor). In a rooted tree
 every node is the MRCA of its descendant leaves.
 
-- **Implementation:** recursive tree traversal; returns the node when **both** taxa are found in its
-  subtrees; leaf nodes matched **by name**.
-- Complexity **O(n)** via one recursive pass.
+- **Implementation:** `FindMRCA` guards `root == null` (→ `null`), then recurses via `FindMRCAInternal`,
+  returning the node when **both** taxa are found in its subtrees; leaf nodes matched **by name**.
+  Complexity **O(n)** time / **O(h)** stack (tree height *h*).
+- **Missing-taxon post-check:** the recursive helper returns matching leaves upward, so for two *distinct*
+  taxa a leaf result means only **one** taxon was found; the public method converts that leaf result to
+  `null`, preventing a single found taxon from masquerading as a common ancestor. Returns `PhyloNode?`.
 - `MRCA(x, x)` = the taxon node itself; the root is the MRCA of all taxa.
 
 ## 3. Patristic distance (`PatristicDistance`)
@@ -86,8 +95,12 @@ The **sum of branch lengths** along the path connecting two taxa through their M
 `PD(x, y) = dist(x → MRCA) + dist(MRCA → y)`. It reflects evolutionary divergence along the tree and
 **requires meaningful branch lengths** (zero-length branches → distance 0 even between distinct taxa).
 
-- **Implementation:** uses `FindMRCA` to locate the common ancestor, then sums branch lengths from the
-  MRCA down to each taxon.
+- **Implementation:** uses `FindMRCA` to locate the common ancestor, then accumulates the traversed child
+  nodes' `BranchLength` values on each MRCA→taxon path via `DistanceToTaxon` (no non-negative-weight
+  enforcement). Returns `double`; **`double.NaN`** when `FindMRCA` cannot resolve an ancestor. Complexity
+  **O(n)** time / **O(h)** stack, dominated by the MRCA resolution.
+- **Test-pinned oracles** (four-taxa reference tree): `PD(A,B) = 1.0`, `PD(A,C) = 5.0`, `PD(C,D) = 2.0`;
+  RF pins `2` for differing three-taxa topologies and `4` for maximally different four-taxa examples.
 
 ## Invariants and test oracles
 

@@ -7,9 +7,10 @@ mcp_tools:
   - pairwise_fst
 sources:
   - docs/Evidence/POP-FST-001-Evidence.md
-source_commit: 6a9852103155b627075f1a105de26fac5b97f70a
+  - docs/algorithms/Population_Genetics/F_Statistics.md
+source_commit: df71513b8dd0d2ff0e60f05c0696b09cd430fb2a
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -115,6 +116,27 @@ Sub-Saharan Africa 0.153, Europe vs East Asia 0.111, within-continent `< 0.01`.
   populations) → **return 0** (design decision for the 0/0 case, not undefined behaviour).
 - **Unequal sample sizes** are handled by size-weighting `c_i = n_i/N` (Wright 1965), *not* by
   Weir–Cockerham correction.
+- **Locus alignment is positional, not by identifier (accepted deviation).** `CalculateFst`
+  iterates only the shared prefix — `for (int i = 0; i < Math.Min(pop1.Count, pop2.Count); i++)` —
+  so extra loci in the longer input are silently dropped and **misaligned locus lists compare
+  different loci without error**. Callers must align the two per-locus sequences by hand before
+  comparing; `CalculatePairwiseFst` inherits this. (F_Statistics.md §5.4, accepted.)
+
+## Implementation shape and cost
+
+`PopulationGeneticsAnalyzer` (`src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs`)
+exposes three entry points plus the `FStatistics` record (`Fst`, `Fis`, `Fit`, `Population1`,
+`Population2`, the last two copied verbatim from the `pop1Name`/`pop2Name` arguments):
+
+- `CalculateFst(pop1, pop2)` → scalar, **O(L)** time / **O(1)** extra space over `L` compared loci.
+- `CalculatePairwiseFst(populations)` → `double[,]`, **O(k²·L)** time / **O(k²)** space, one
+  `CalculateFst` per unordered pair; upper triangle computed, mirrored into the lower, diagonal left
+  at the array default `0`.
+- `CalculateFStatistics(pop1Name, pop2Name, variantData)` → `FStatistics`, **O(L)** single pass;
+  its `variantData` tuples carry observed heterozygote counts and sample sizes per population
+  (`HetObs1, N1, HetObs2, N2, AlleleFreq1, AlleleFreq2`), distinct from the `(AlleleFreq, SampleSize)`
+  tuples `CalculateFst` consumes. No method performs explicit range validation on frequencies or
+  sample sizes.
 
 ## Scope
 

@@ -10,9 +10,12 @@ sources:
   - docs/Evidence/PROTMOTIF-FIND-001-Evidence.md
   - docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md
   - docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md
-source_commit: 0908c5f04255fcb3d51c7706d74a689eee481faa
+  - docs/algorithms/ProteinMotif/Motif_Search.md
+  - docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md
+  - docs/algorithms/ProteinMotif/Pattern_Matching_Methods.md
+source_commit: fd259a3bcb848b720c2a48a800d7ebded2ec1de3
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -76,6 +79,7 @@ catalog [[regulatory-element-detection]]).
 | `FindMotifByPattern` | run the regex against a sequence and emit all `MotifMatch` hits (incl. overlaps) |
 | `FindMotifByProsite` | end-to-end convenience path: PROSITE string → `ConvertPrositeToRegex` → `FindMotifByPattern` (PROTMOTIF-PATTERN-001 pins it on PS00001 and PS00016) |
 | `CalculateMotifScore` / `CalculateEValue` | information-content score and expected random-match count for a motif |
+| `FindDomains` | scan a fixed built-in signature set (e.g. P-loop `[AG].{4}GK[ST]`) through the same lookahead+IC path, wrapping hits as `ProteinDomain` records (Name, Accession, Start, End, Score, Description). PROTMOTIF-PATTERN-001 groups it as the fourth pattern-matching primitive; the deterministic domain scan itself is covered by [[protein-domain-and-signal-peptide-prediction]] |
 
 ## PROSITE → regex conversion
 
@@ -123,6 +127,13 @@ the regex engine advances one position at a time and reports **all** matches —
 overlapping occurrences — mirroring ScanProsite's default behaviour (De Castro et al. 2006).
 Plain (non-lookahead) regex matching consumes each match and would miss overlaps.
 
+**Suffix tree evaluated, not used.** PROTMOTIF-PATTERN-001 records that the repository
+`SuffixTree` performs *exact-substring* search only — it cannot evaluate the character
+classes, negated classes, quantifiers, and anchors PROSITE patterns require — so the matcher
+stays on .NET `Regex` with `IgnoreCase` rather than a suffix-tree index (the same
+suffix-tree-not-applicable decision reached by the sibling [[common-protein-motifs]] and
+[[coiled-coil-prediction]] units).
+
 ## API contract and invariants
 
 | Aspect | Behaviour |
@@ -143,7 +154,11 @@ extreme-value fit):
 - **`CalculateMotifScore`** — information content `IC = Σ log₂(20 / allowed_count)` summed
   over each **constrained** position. An unconstrained `x` position contributes 0 bits; a
   fully fixed single-residue position contributes `log₂ 20 ≈ 4.32` bits; an `[ABC]`
-  three-residue set contributes `log₂(20/3)` bits.
+  three-residue set contributes `log₂(20/3)` bits. The per-position `allowed_count` is
+  derived not from the PROSITE string but from the **compiled regex** by the helper
+  `ParseRegexAllowedCounts` — it walks the regex and, for each atom, counts how many of the
+  20 residues that position admits (a literal → 1, `[…]` → set size, `.`/`x` → 20), so
+  scoring operates on the regex form the matcher actually runs.
 - **`CalculateEValue`** — `E = (N − L + 1) · 2^(−IC)`, where `N` = sequence length,
   `L` = motif length, `IC` = total information content. This is the expected number of random
   matches under a uniform amino-acid background.
@@ -191,6 +206,16 @@ information-content scoring (Schneider & Stephens 1990), and overlapping-match d
 implemented via regex lookahead. The only standing API-shape convention is 0-based vs
 ScanProsite's 1-based coordinates (no correctness effect; shared with the sibling ProteinMotif
 units).
+
+**Scope boundary (PROSITE pattern matching only).** The dedicated PROSITE spec pins the
+`FindMotifByProsite`/`ConvertPrositeToRegex` path as a *syntax converter plus regex-search
+wrapper*: it implements only the PA-line **pattern** grammar and deliberately covers **no**
+PROSITE **profile/matrix** entries, performs **no** external-catalog (ScanProsite) lookup, and
+returns **no** ScanProsite-specific result metadata — the emitted `Score`/`EValue` are the
+repository's own information-content outputs, not ScanProsite statistics. Callers needing full
+PROSITE annotation (profiles, database entries) must use external ScanProsite tooling. A
+malformed converted regex yields **no** hits rather than throwing, because `FindMotifByPattern`
+catches regex-compilation failures.
 
 ## References
 

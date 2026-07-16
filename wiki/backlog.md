@@ -3,7 +3,7 @@ type: index
 title: "Ingestion backlog — docs/algorithms reconciliation + queued sources"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-15
+updated: 2026-07-16
 ---
 
 # Ingestion backlog
@@ -18,8 +18,131 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **159** algorithm docs covered-via-concept, **83** pending across 14 domains
-(K-mer, Metagenomics, MolTools, Oncology, PanGenome and Pattern_Matching domains now fully covered;
+Status at generation: **183** algorithm docs covered-via-concept, **49** pending across 8 domains
+(Repeat_Analysis/Tandem_Repeat_Detection → [[repetitive-element-detection]] resolved 2026-07-16,
+**closing the Repeat_Analysis domain** (last pending doc) (REUSE: the REP-TANDEM-001 spec reconciles
+against the existing repeats/tandem family anchor, which already synthesizes `GenomicAnalyzer.FindTandemRepeats`
+as the consolidated GENOMIC-TANDEM-001 duplicate — the exact head-to-tail detector, its period-ambiguous
+non-canonicalizing behaviour, and the 1–6 bp microsatellite class; the spec adds no new detector, so no
+contradiction; enriched only with the spec's genuinely-distinct implementation surface: the `RepeatFinder.GetTandemRepeatSummary(DnaSequence, int minRepeats=3)`
+aggregation helper that returns a single `TandemRepeatSummary` record by delegating to `FindMicrosatellites(sequence, 1, 6, minRepeats)`
+(inheriting its null-throw and `minRepeats ≥ 2` floor), rolling 1–6 bp microsatellites into total count / total bases /
+percent coverage / longest repeat / most-frequent unit / per-class counts, and the two scope caveats — the summary
+sees only 1–6 bp units (minisatellite/macrosatellite tandems excluded) and its named per-class fields stop at
+tetranucleotide (penta/hexa feed totals but get no dedicated field); no `wiki/sources/` page — a spec, not an
+Evidence/Validation report);
+Repeat_Analysis/Microsatellite_Detection → [[repetitive-element-detection]] resolved 2026-07-16
+(REUSE: the REP-STR-001 spec reconciles against the existing repeats/tandem family anchor, which
+already synthesizes the REP-STR-001 Evidence — the Benson TRF approximate detector, the
+`ComputeBernoulliStatistics` PM/PI layer, and the 1–6 bp microsatellite class; enriched only with
+the spec's genuinely-distinct implementation surface for the *perfect* default detector: the four
+`RepeatFinder.FindMicrosatellites` overloads (DnaSequence/string × cancellable+progress), the
+`minUnitLength`/`maxUnitLength`/`minRepeats` = 1/6/3 defaults and validation floors, the
+`MicrosatelliteResult`/`RepeatType` mono–hexa output, the `IsRedundantUnit` primitive-unit filter
+and the contained-interval suppression that is narrower-than-non-overlap (§5.4 Deviation 1), the
+`SequenceAligner.GlobalAlign` reuse, and the `O(n·U·R)` perfect / `O(n²·P·L²)` approximate cost;
+no `wiki/sources/` page — a spec, not an Evidence/Validation report);
+Repeat_Analysis/Direct_Repeat_Detection → [[direct-repeat-detection]] resolved 2026-07-16 (NEW
+concept: no Evidence-derived concept existed for this unit — `RepeatFinder.FindDirectRepeats`,
+REP-DIRECT-001 — and it is a genuinely-distinct same-orientation dispersed-pair operation, not the
+head-to-tail tandem / reverse-complement inverted sub-problems of the [[repetitive-element-detection]]
+anchor nor the position-list [[longest-repeated-substring]] enumerator; created with an inbound link
+from the family anchor);
+Repeat_Analysis/Inverted_Repeat_Detection → [[inverted-repeat-detection]] resolved 2026-07-16 (NEW
+concept: the reverse-complement sibling of [[direct-repeat-detection]] — `RepeatFinder.FindInvertedRepeats`,
+REP-INV-001 — a *third*, genuinely-distinct DNA-only exact-arm implementation, separate from the
+imperfect IUPACpal `W·G·W̄ᴿ` annotation model and the RNA-INVERT-001 stem model both synthesized in the
+[[repetitive-element-detection]] anchor; adds the `CanFormHairpin` (loop ≥ 3) flag and the palindrome =
+zero-loop special case; created with inbound links from the family anchor and the direct-repeat sibling);
+Repeat_Analysis/Palindrome_Detection → [[palindrome-detection]] resolved 2026-07-16 (NEW concept:
+the biological DNA palindrome — even-length windows where `S = ReverseComplement(S)` — is exposed
+via a genuinely-distinct dedicated entry point `RepeatFinder.FindPalindromes` (+ the lighter
+`GenomicAnalyzer.FindPalindromes`), REP-PALIN-001, with its own `PalindromeResult`/`PalindromeInfo`
+return types and even-length step-by-2 scan, separate from the loop-bearing `FindInvertedRepeats`
+of [[inverted-repeat-detection]] which will not report the zero-loop case under default
+`minLoopLength=3`; created with inbound links from the family anchor [[repetitive-element-detection]]
+and the [[inverted-repeat-detection]] sibling, cross-links [[restriction-site-detection]]);
+Quality/Quality_Statistics → [[fastq-quality-statistics]] resolved 2026-07-16, closing the Quality
+domain (last pending doc) (REUSE: reconciled against the existing Evidence-derived concept, which
+already synthesized the mean/median/min/max, population variance/σ (÷N), inclusive Q20/Q30 thresholds,
+the Q30 NGS benchmark, the arithmetic-vs-probability mean distinction, and the `5?I`/`5II?`/single-`I`
+oracles; enriched only with the spec's genuinely-distinct implementation content: the three
+`QualityScoreAnalyzer` entry points, the multi-read `PerPositionMeanQuality` delegate variant, the
+O(n log n) sort-dominated / O(n) Q30 complexity, and the sibling `CalculateExpectedErrors` /
+`PhredToErrorProbability` error-probability summaries);
+Quality/Phred_Score_Handling → [[phred-quality-encoding]] resolved 2026-07-16 (REUSE: reconciled
+against the existing Evidence-derived concept, which already synthesized the Q=−10log₁₀p definition,
+the Phred+33/Phred+64 offsets and ranges, auto-detection, the score-preserving ±31 re-offset and its
+overflow rules; enriched only with the spec's genuinely-distinct implementation content — the three
+`QualityScoreAnalyzer` canonical methods (`ParseQualityString`/`ToQualityString`/`ConvertEncoding`) in
+Seqeron.Genomics.IO, the O(n) single-pass cost, the `Auto`→`DetectEncoding` (parse) vs `Auto`→Phred+33
+(encode) resolution, the INV-03 round-trip invariant, the ArgumentNullException/ArgumentOutOfRangeException
+contract, the suffix-tree-not-applicable note, and the legacy `QualityStringToPhred`/`PhredToQualityString`
+helpers that lack range validation));
+ProteinPred/MoRF_Prediction → [[morf-prediction-dip-in-disorder]] resolved 2026-07-16, closing the
+ProteinPred domain (last pending doc) (REUSE: reconciled against the existing Evidence-derived
+concept, which already documents the dip-in-disorder criterion, the 10–70 Mohan band, the TOP-IDP
+disorder score, α/β/ι sub-types and the paywalled-flank assumption; enriched only with the spec's
+genuinely-distinct implementation content: the `PredictMoRFs(string, int, int)` entry point in
+`DisorderPredictor.cs`, the O(n·w)/O(n) cost with the 21-residue window, the 0-based-inclusive /
+non-overlapping / start-ordered output contract, the explicit `(0.5 − mean d)/0.5` clamped score
+formula, the 0.5-MoRF-vs-0.542-TOP-IDP dual-threshold distinction, the suffix-tree-not-applicable
+decision and the P/L/I worked oracle (Start 29–End 50, Score ≈ 0.2759 → 0.3996));
+ProteinMotif/Signal_Peptide_Prediction → [[protein-domain-and-signal-peptide-prediction]] resolved
+2026-07-16 (REUSE: the dedicated von Heijne 1986 signal-peptide spec, unit PROTMOTIF-SP-001, is already
+fully owned by this Evidence-derived concept — which documents the current EMBOSS `sigcleave` weight-matrix
+method with the P17644 oracle; the spec describes the SAME correct method (no superseded tripartite model —
+that was the sibling `Domain_Prediction.md`), so no contradiction; enriched only with the spec's
+genuinely-distinct implementation content: the `PredictSignalPeptide`/`BuildWeightMatrix` entry points with
+the log-odds matrix built once at static init, the O(n·15)=O(n) time / O(1) space cost, the fixed-width-PWM
+suffix-tree-not-applicable decision, and the min-15-residue-window accepted deviation);
+ProteinMotif/Profile_HMM_Domain_Detection → [[protein-domain-and-signal-peptide-prediction]] resolved
+2026-07-16 (REUSE: the per-algorithm profile-HMM spec is the SAME test unit — PROTMOTIF-DOMAIN-001 — as
+`Domain_Prediction`, already owned by this Evidence-derived concept, which had a dedicated `FindDomainsByHmm`
+Plan7 section covering Viterbi/Forward, hmmsearch-parity `pre_score`, null2, the Gumbel/exponential E-value
+layer, multi-domain envelope decomposition and stochastic-traceback clustering; enriched only with the
+spec's genuinely-distinct implementation content: the HMMER3/f parser layout (−ln-to-5-decimals storage,
+`*`→−∞, COMPO/BEGIN, the 7-transition node order), the two-row O(n·M)/O(M) Viterbi/Forward DP shape, the
+glocal-default-vs-local-multihit-opt-in distinction (spec Deviation #1) with `minBitScore`/`Z` defaults and
+the `FindDomainHitsByHmm`/`ScoreDomainHmmEValue`/`FindDomainEnvelopes` method surface, and the INV-HMM-01/03/05 invariants);
+ProteinMotif/Pattern_Matching_Methods → [[protein-motif-pattern-search]] resolved 2026-07-16 (REUSE:
+this Evidence-derived concept already cites the PROTMOTIF-PATTERN-001 Evidence and is ahead of the spec;
+added the spec to `sources:` and enriched only its genuinely-distinct implementation content — `FindDomains`
+as the fourth pattern-matching primitive delegating to the same lookahead+IC engine and wrapping hits as
+`ProteinDomain`, plus the suffix-tree-evaluated-not-used matcher decision);
+ProteinMotif/PROSITE_Pattern_Matching → [[protein-motif-pattern-search]] resolved 2026-07-16 (REUSE:
+the dedicated PROSITE spec, unit PROTMOTIF-PROSITE-001, is already fully covered by this Evidence-derived
+concept — which is ahead of the spec; enriched only with the spec's explicit scope boundary: syntax
+converter + regex-search wrapper with no PROSITE profile/matrix scanning, no external-catalog lookup, no
+ScanProsite result metadata, and repository-defined `Score`/`EValue`);
+ProteinMotif/Motif_Search → [[protein-motif-pattern-search]] resolved 2026-07-16 (REUSE: the primary
+per-algorithm spec is exactly this Evidence-derived concept, unit PROTMOTIF-FIND-001; enriched only with
+the `ParseRegexAllowedCounts` regex-walk helper that supplies the per-position allowed-residue count
+feeding the information-content score);
+ProteinMotif/Domain_Prediction → [[protein-domain-and-signal-peptide-prediction]] resolved 2026-07-16
+(REUSE: the primary per-algorithm spec reconciles against the existing Evidence-derived concept, which is
+already ahead of the spec — it documents the current von Heijne 1986 weight-matrix signal-peptide method
+and the Plan7 profile-HMM engine, whereas the spec still describes the superseded/fabricated tripartite
+n/h/c model; enriched with the `FindMotifByPattern` score-delegation / information-content-score provenance
+and the O(n·d), d=3 domain-scan cost);
+ProteinMotif/Common_Motif_Finding → [[common-protein-motifs]] resolved 2026-07-16 (REUSE: the primary
+per-algorithm spec is exactly this Evidence-derived concept; enriched with the O(p·n) `FindCommonMotifs`
+complexity, the `FindMotifByPattern` delegation + entry-point decomposition, the suffix-tree-not-applicable
+design decision, and the `FindAllKnownMotifs` registry-naming deviation);
+ProteinMotif/Coiled_Coil_Prediction → [[coiled-coil-prediction]] resolved 2026-07-16 (REUSE: the primary
+per-algorithm spec is exactly this Evidence-derived concept; enriched with the `BestHeptadOccupancy`/`BuildRegion`
+helper decomposition, the single-pass array precompute + lazy-yield shape, and the suffix-tree-not-applicable note);
+Population_Genetics/Runs_Of_Homozygosity → [[runs-of-homozygosity-inbreeding]] resolved 2026-07-16,
+closing the Population_Genetics domain (REUSE: reconciled against the existing Evidence-derived concept;
+enriched with the O(n log n)/O(n) `FindROH` cost, the O(m)/O(1) F_ROH cost, the inclusive-run vs
+half-open-segment coordinate distinction, and the eager argument-validation / `genomeLength ≤ 0 → 0`
+contract);
+K-mer, Metagenomics, MolTools, Oncology, PanGenome and Pattern_Matching domains now fully covered;
+Phylogenetics/Tree_Construction → [[distance-based-tree-construction]] resolved 2026-07-15 (REUSE: the primary UPGMA/NJ spec is exactly this Evidence-derived hinge concept; enriched with the `distanceMethod=JukesCantor` default, O(n²) space, the cluster-index dictionary detail, and the §5.4 accepted-deviation / §6.2 builder limitations);
+Phylogenetics/Newick_Format → [[distance-based-tree-construction]] resolved 2026-07-15 (REUSE: the Newick I/O layer serializes this hinge concept's `PhyloNode` output — a format serializer, not a separate algorithm, so no dedicated concept, per [[phylo-newick-001-evidence]]);
+Phylogenetics/Distance_Matrix → [[evolutionary-distance-matrix]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept);
+Phylogenetics/Tree_Comparison → [[tree-comparison-metrics]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept; enriched with the O(n² log n) impl cost, helper methods, and test-pinned oracles);
+Phylogenetics/Tree_Statistics → [[tree-statistics]] resolved 2026-07-15, closing the Phylogenetics domain (REUSE: reconciled against the existing Evidence-derived concept; enriched with the `PhylogeneticAnalyzer` method set, the O(n)/O(h) recurrences, the `yield` pre-order leaf order, the `EmptyTreeHeight` constant, and the topological-vs-Biopython-`depths()` distinction);
 Pattern_Matching/Suffix_Tree → [[suffix-tree]] resolved 2026-07-15, closing the Pattern_Matching domain (last pending doc);
 PanGenome/Phylogenetic_Marker_Selection → [[phylogenetic-marker-selection]] resolved 2026-07-15, closing the PanGenome domain;
 Oncology/Variant_Allele_Frequency → [[variant-allele-frequency-and-binomial-ci]] resolved 2026-07-15, closing the Oncology domain;
@@ -180,8 +303,27 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md` | [[iupac-degenerate-matching]] |
 | `docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md` | [[position-weight-matrix]] |
 | `docs/algorithms/Pattern_Matching/Suffix_Tree.md` | [[suffix-tree]] |
+| `docs/algorithms/ProteinMotif/Coiled_Coil_Prediction.md` | [[coiled-coil-prediction]] |
+| `docs/algorithms/ProteinMotif/Common_Motif_Finding.md` | [[common-protein-motifs]] |
+| `docs/algorithms/ProteinMotif/Domain_Prediction.md` | [[protein-domain-and-signal-peptide-prediction]] |
+| `docs/algorithms/ProteinMotif/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
+| `docs/algorithms/ProteinMotif/Motif_Search.md` | [[protein-motif-pattern-search]] |
+| `docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md` | [[protein-motif-pattern-search]] |
+| `docs/algorithms/ProteinMotif/Pattern_Matching_Methods.md` | [[protein-motif-pattern-search]] |
+| `docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md` | [[protein-domain-and-signal-peptide-prediction]] |
+| `docs/algorithms/ProteinMotif/Signal_Peptide_Prediction.md` | [[protein-domain-and-signal-peptide-prediction]] |
+| `docs/algorithms/ProteinMotif/Transmembrane_Helix_Prediction.md` | [[transmembrane-helix-prediction]] |
+| `docs/algorithms/ProteinPred/Disorder_Prediction.md` | [[intrinsic-disorder-prediction-top-idp]] |
+| `docs/algorithms/ProteinPred/Disorder_Propensity.md` | [[intrinsic-disorder-prediction-top-idp]] |
+| `docs/algorithms/ProteinPred/Disordered_Region_Detection.md` | [[intrinsic-disorder-prediction-top-idp]] |
 | `docs/algorithms/ProteinPred/Low_Complexity_Region_Detection.md` | [[protein-low-complexity-seg]] |
+| `docs/algorithms/ProteinPred/MoRF_Prediction.md` | [[morf-prediction-dip-in-disorder]] |
+| `docs/algorithms/Repeat_Analysis/Direct_Repeat_Detection.md` | [[direct-repeat-detection]] |
+| `docs/algorithms/Repeat_Analysis/Inverted_Repeat_Detection.md` | [[inverted-repeat-detection]] |
+| `docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md` | [[repetitive-element-detection]] |
+| `docs/algorithms/Repeat_Analysis/Palindrome_Detection.md` | [[palindrome-detection]] |
 | `docs/algorithms/Repeat_Analysis/Repeat_Detection.md` | [[longest-repeated-substring]] |
+| `docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | [[crispr-guide-rna-design]] |
@@ -237,10 +379,26 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Oncology/Tumor_Ploidy_Estimation.md` | [[tumor-ploidy-estimation-and-whole-genome-doubling]] |
 | `docs/algorithms/Oncology/Tumor_Purity_Estimation.md` | [[tumor-purity-from-mutation-vaf]] |
 | `docs/algorithms/Oncology/Variant_Allele_Frequency.md` | [[variant-allele-frequency-and-binomial-ci]] |
+| `docs/algorithms/Phylogenetics/Bootstrap_Analysis.md` | [[phylogenetic-bootstrap-support]] |
+| `docs/algorithms/Phylogenetics/Distance_Matrix.md` | [[evolutionary-distance-matrix]] |
+| `docs/algorithms/Phylogenetics/Newick_Format.md` | [[distance-based-tree-construction]] |
+| `docs/algorithms/Phylogenetics/Tree_Comparison.md` | [[tree-comparison-metrics]] |
+| `docs/algorithms/Phylogenetics/Tree_Construction.md` | [[distance-based-tree-construction]] |
+| `docs/algorithms/Phylogenetics/Tree_Statistics.md` | [[tree-statistics]] |
+| `docs/algorithms/Population_Genetics/Allele_Frequency.md` | [[allele-genotype-frequencies]] |
+| `docs/algorithms/Population_Genetics/Ancestry_Estimation.md` | [[ancestry-estimation-admixture]] |
+| `docs/algorithms/Population_Genetics/Diversity_Statistics.md` | [[genetic-diversity-statistics]] |
+| `docs/algorithms/Population_Genetics/F_Statistics.md` | [[population-differentiation-fst]] |
+| `docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md` | [[hardy-weinberg-equilibrium-test]] |
+| `docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md` | [[selection-scan-ihs-ehh]] |
+| `docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md` | [[linkage-disequilibrium]] |
+| `docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md` | [[runs-of-homozygosity-inbreeding]] |
+| `docs/algorithms/Quality/Phred_Score_Handling.md` | [[phred-quality-encoding]] |
+| `docs/algorithms/Quality/Quality_Statistics.md` | [[fastq-quality-statistics]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (83 algorithm docs across 14 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (48 algorithm docs across 8 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
@@ -278,7 +436,11 @@ Approved for ingestion in the 2026-07-09 lint triage; pending `/wiki:ingest`.
   docs, not algorithm units. `CANONICAL_MAP.md` is ingested as the source page
   [[canonical-algorithm-map]] (canonical-identity map: alias→canonical IDs, folder
   buckets, legacy baselines) — the identity counterpart to this coverage ledger.
-  `README.md` remains index-only; ingest if a navigational need arises.
+  `README.md` is **resolved index-only (2026-07-16)** — a coverage exclusion, not a
+  wiki page. It is purely navigational (section headers linking to the per-algorithm
+  folders, every one of which is already synthesized by a concept in the *Covered via
+  concept* table) plus a Canonicalization section whose content is already owned by
+  [[canonical-algorithm-map]]. No distinct synthesis to capture, so no dedicated page.
 - The `docs/Evidence/**` campaign (175 of 213 remaining) is the primary driver: each
   Evidence ingest typically creates or extends the concept that also covers the
   matching algorithm doc, clearing a pending row here as a side effect.

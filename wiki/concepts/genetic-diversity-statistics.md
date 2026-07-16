@@ -7,9 +7,10 @@ mcp_tools:
   - tajimas_d
 sources:
   - docs/Evidence/POP-DIV-001-Evidence.md
-source_commit: 909848bd266e323a5133b9158dd0cd3bf668ef43
+  - docs/algorithms/Population_Genetics/Diversity_Statistics.md
+source_commit: e1e652ea6b5955cb98edcb4a870d0f0c4b24a90b
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-15
 graph:
   relationships:
     - predicate: relates_to
@@ -86,6 +87,32 @@ differences total 20 over 10 comparisons → **k̂ = 2.0**, π = 0.1, `S/a_1 ≈
 - **API-shape note:** `CalculateTajimasD(averagePairwiseDifferences, segregatingSites, sampleSize)`
   expects **k̂**, not per-site π; it derives `S/a_1` internally. Passing π (per-site) here would be a
   units error.
+
+## Implementation shape (POP-DIV-001)
+
+`PopulationGeneticsAnalyzer` exposes four public entry points plus two private helpers; the
+integrated `CalculateDiversityStatistics(IEnumerable<IReadOnlyList<char>>)` orchestrates the rest and
+returns the `DiversityStatistics` record.
+
+- **π** via `CalculateNucleotideDiversity` — explicit `O(n²·m)` pairwise mismatch counting (`n`
+  sequences, `m` sites), `O(n)` space. **θ_W** via `CalculateWattersonTheta(S, n, L)` — `O(n)`
+  harmonic-number loop. **Tajima's D** via `CalculateTajimasD(averagePairwiseDifferences, S, n)` —
+  `O(n)`.
+- **Segregating-site counting is anchored to the first sequence:** a site is called polymorphic when
+  any sequence's character at that position differs from the *first* sequence's character there (not
+  a full all-pairs distinctness test). Assumes equal-length aligned input.
+- **Integrated k̂ conversion:** `CalculateDiversityStatistics` computes per-site π first, then feeds
+  Tajima's D the unnormalized `k̂ = π · L` — deliberately reconciling the per-site-π vs count-k̂
+  confusion (INV/units note above).
+- **API-name gotcha:** the record field is spelled **`SegregratingSites`** (source-code typo) and
+  that spelling is part of the public API, preserved in source and tests for compatibility. The two
+  heterozygosity fields carry repository-specific names: `HeterozygosityExpected` = basic
+  `1 − Σ p_i²`, `HeterozygosityObserved` = Nei's `n/(n−1)` bias-corrected per-site gene diversity
+  (equals π for haploid data) — **not** a diploid observed-heterozygosity count.
+- **No explicit equal-length validation pass:** the implementation indexes every sequence at the
+  first sequence's positions, so callers must pre-align/pre-normalize; shorter sequences yield invalid
+  indexing or uninterpretable comparisons (accepted deviation). No p-value/significance layer for
+  Tajima's D is provided.
 
 ## Scope
 
