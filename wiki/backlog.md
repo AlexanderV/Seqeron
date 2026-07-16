@@ -18,8 +18,16 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **178** algorithm docs covered-via-concept, **54** pending across 10 domains
-(Quality/Phred_Score_Handling → [[phred-quality-encoding]] resolved 2026-07-16 (REUSE: reconciled
+Status at generation: **179** algorithm docs covered-via-concept, **53** pending across 9 domains
+(Quality/Quality_Statistics → [[fastq-quality-statistics]] resolved 2026-07-16, closing the Quality
+domain (last pending doc) (REUSE: reconciled against the existing Evidence-derived concept, which
+already synthesized the mean/median/min/max, population variance/σ (÷N), inclusive Q20/Q30 thresholds,
+the Q30 NGS benchmark, the arithmetic-vs-probability mean distinction, and the `5?I`/`5II?`/single-`I`
+oracles; enriched only with the spec's genuinely-distinct implementation content: the three
+`QualityScoreAnalyzer` entry points, the multi-read `PerPositionMeanQuality` delegate variant, the
+O(n log n) sort-dominated / O(n) Q30 complexity, and the sibling `CalculateExpectedErrors` /
+`PhredToErrorProbability` error-probability summaries);
+Quality/Phred_Score_Handling → [[phred-quality-encoding]] resolved 2026-07-16 (REUSE: reconciled
 against the existing Evidence-derived concept, which already synthesized the Q=−10log₁₀p definition,
 the Phred+33/Phred+64 offsets and ranges, auto-detection, the score-preserving ±31 re-offset and its
 overflow rules; enriched only with the spec's genuinely-distinct implementation content — the three
@@ -338,10 +346,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md` | [[linkage-disequilibrium]] |
 | `docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md` | [[runs-of-homozygosity-inbreeding]] |
 | `docs/algorithms/Quality/Phred_Score_Handling.md` | [[phred-quality-encoding]] |
+| `docs/algorithms/Quality/Quality_Statistics.md` | [[fastq-quality-statistics]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (54 algorithm docs across 10 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (53 algorithm docs across 9 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
