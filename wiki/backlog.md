@@ -18,8 +18,13 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **164** algorithm docs covered-via-concept, **78** pending across 14 domains
-(K-mer, Metagenomics, MolTools, Oncology, PanGenome and Pattern_Matching domains now fully covered;
+Status at generation: **165** algorithm docs covered-via-concept, **69** pending across 12 domains
+(Population_Genetics/Runs_Of_Homozygosity → [[runs-of-homozygosity-inbreeding]] resolved 2026-07-16,
+closing the Population_Genetics domain (REUSE: reconciled against the existing Evidence-derived concept;
+enriched with the O(n log n)/O(n) `FindROH` cost, the O(m)/O(1) F_ROH cost, the inclusive-run vs
+half-open-segment coordinate distinction, and the eager argument-validation / `genomeLength ≤ 0 → 0`
+contract);
+K-mer, Metagenomics, MolTools, Oncology, PanGenome and Pattern_Matching domains now fully covered;
 Phylogenetics/Tree_Construction → [[distance-based-tree-construction]] resolved 2026-07-15 (REUSE: the primary UPGMA/NJ spec is exactly this Evidence-derived hinge concept; enriched with the `distanceMethod=JukesCantor` default, O(n²) space, the cluster-index dictionary detail, and the §5.4 accepted-deviation / §6.2 builder limitations);
 Phylogenetics/Newick_Format → [[distance-based-tree-construction]] resolved 2026-07-15 (REUSE: the Newick I/O layer serializes this hinge concept's `PhyloNode` output — a format serializer, not a separate algorithm, so no dedicated concept, per [[phylo-newick-001-evidence]]);
 Phylogenetics/Distance_Matrix → [[evolutionary-distance-matrix]] resolved 2026-07-15 (reconciled against the existing Evidence-derived concept);
@@ -255,10 +260,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md` | [[hardy-weinberg-equilibrium-test]] |
 | `docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md` | [[selection-scan-ihs-ehh]] |
 | `docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md` | [[linkage-disequilibrium]] |
+| `docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md` | [[runs-of-homozygosity-inbreeding]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (73 algorithm docs across 13 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (69 algorithm docs across 12 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
