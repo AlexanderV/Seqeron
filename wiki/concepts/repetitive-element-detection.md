@@ -17,8 +17,9 @@ sources:
   - docs/Evidence/REP-STR-001-Evidence.md
   - docs/algorithms/Repeat_Analysis/Microsatellite_Detection.md
   - docs/Evidence/RNA-INVERT-001-Evidence.md
+  - docs/algorithms/RnaStructure/Inverted_Repeats.md
   - docs/Validation/reports/GENOMIC-REPEAT-001.md
-source_commit: 8dd66eb33364ae8564f921a22a10518d52cfa6ed
+source_commit: dcff97a15ba5042bb3f682fd1ac76aa760fae741
 created: 2026-07-09
 updated: 2026-07-16
 graph:
@@ -199,10 +200,46 @@ Following IUPACpal (Hampson et al. 2021), an IR has the form **W W̄ᴿ** (perfe
 
 The **RNA** flavour of this exact `W G W̄ᴿ` model — antiparallel complementary arms that form a
 potential **stem-loop** — lives in the RNA secondary-structure family as test unit
-RNA-INVERT-001 ([[rna-invert-001-evidence]]): same IUPACpal definition, but the arm complement is
-the RNA base-pairing rule {A-U, G-C} of [[rna-base-pairing]] and a non-zero loop is required (the
-object is then a stem-loop, cf. [[pre-mirna-hairpin-detection]] / [[rna-dot-bracket-notation]]).
-That unit reports the **perfect, ungapped `k = 0`** case only.
+RNA-INVERT-001 ([[rna-invert-001-evidence]]; primary spec
+`docs/algorithms/RnaStructure/Inverted_Repeats.md`, status *Simplified*): same IUPACpal definition,
+but the arm complement is the RNA base-pairing rule {A-U, G-C} of [[rna-base-pairing]] and a
+non-zero loop is required (the object is then a stem-loop, cf. [[pre-mirna-hairpin-detection]] /
+[[rna-dot-bracket-notation]]). That unit reports the **perfect, ungapped `k = 0`** case only.
+
+**Implementation surface (`RnaSecondaryStructure.FindInvertedRepeats`).** The entry point is
+`RnaSecondaryStructure.FindInvertedRepeats(string sequence, int minLength = 4, int minSpacing = 3,
+int maxSpacing = 100)` in `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs`,
+returning **lazily** as `IEnumerable<(int Start1, int End1, int Start2, int End2, int Length)>` —
+0-based **inclusive** left-arm bounds `[Start1, End1]`, right-arm bounds `[Start2, End2]`, and the
+common arm `Length`. This is the RNA counterpart to the DNA `RepeatFinder.FindInvertedRepeats`
+([[inverted-repeat-detection]], REP-INV-001) but with three distinguishing implementation choices:
+
+- **Complement rule.** Pairing uses `GetRnaComplementBase` — strict Watson-Crick + IUPAC (A→U,
+  U/T→A, G→C, C→G, degenerate codes mapped, non-IUPAC passed through), **no G-U wobble**. Input is
+  upper-cased internally (case-insensitive) and accepts DNA or RNA. The pairing invariant is
+  `complement(seq[Start2+Length-1-k]) == seq[Start1+k]` for every `k ∈ [0, Length)`.
+- **Outward extension, not a left-arm × arm-length scan.** Rather than the DNA sibling's brute-force
+  substring/reverse-complement comparison, this detector iterates each loop boundary `(p, q)` with
+  loop length `q − p − 1 ∈ [minSpacing, maxSpacing]` and **extends the stem outward** from the
+  innermost pair `(seq[p], seq[q])` while `complement(seq[q+k]) == seq[p−k]`, keeping the longest
+  arm `≥ minLength`. Cost is **O(n² · m)** time / O(1) extra space (loop-boundary pairs are
+  `O(n · maxSpacing)`, each extension `O(m)`).
+- **Greedy non-overlapping reporting.** One maximal stem is kept per loop boundary; candidates are
+  then sorted by arm length descending (ties by left start, then right start) and emitted
+  longest-first, **skipping any repeat overlapping an already-selected arm**. So nested/overlapping
+  shorter sub-arms inside a longer reported stem are not separately listed.
+
+No exceptions are thrown: null/empty input, out-of-range parameters (`minLength < 1`,
+`minSpacing < 0`, `maxSpacing < minSpacing`), a parallel direct repeat (right arm identical rather
+than reverse-complement), or a sequence shorter than `2·minLength + minSpacing` all yield an empty
+enumerable. Worked oracle: `FindInvertedRepeats("UUACGAAAAAACGUAA")` → `(0, 4, 11, 15, 5)` — left
+arm `UUACG`, 6-nt loop, right arm `CGUAA` = reverse complement of `UUACG`. A **corrected defect** is
+recorded in the spec (§5.2/§5.4 Deviation 1): the previous code computed the right-arm offset from
+`minLength` instead of the matched arm length, so it could not locate arms longer than `minLength`;
+the outward-extension rewrite fixes this. The repository `SuffixTree` was evaluated and deliberately
+**not** used — antiparallel reverse-complement extension over a bounded loop window does not map onto
+exact-substring occurrence enumeration; the established scored tool for imperfect/gapped IRs remains
+**EMBOSS `einverted`** (local DP), a Framework/Simplified [[research-grade-limitations|limitation]].
 
 ### 3. Repeat-class assignment
 
