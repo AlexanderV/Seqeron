@@ -4,10 +4,11 @@ title: "RNA pseudoknot prediction (canonical H-type, pknotsRG class)"
 tags: [rna, algorithm]
 sources:
   - docs/algorithms/RnaStructure/Pseudoknot_Prediction.md
+  - docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md
   - docs/Evidence/RNA-PKPREDICT-001-Evidence.md
   - docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md
   - docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
-source_commit: 1e1541d22113bc42d7731dc090a34849033cca02
+source_commit: 2e3d94efc474888aead65cbf5c5ed6ea92d8ca6b
 created: 2026-07-10
 updated: 2026-07-16
 graph:
@@ -205,3 +206,45 @@ clamps (else a cross-region nested helix is more stable — a property of the NN
 implementation realizes the recursive *class* without guaranteeing every yield of the reference O(n⁴)
 ADP parser. **Excluded** (verbatim): triple-crossing helices and kissing hairpins are not in the
 canonical simple-recursive class.
+
+### 6a. Implementation surface (RNA-PKRECURSIVE-001 primary spec)
+
+The recursive unit is `RnaSecondaryStructure.PredictStructurePseudoknotRecursive(string rnaSequence,
+int minLoopSize = 3)` in `Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs` (status **Simplified**;
+`minLoopSize` clamped up to the NNDB minimum of 3). It returns the **same `PseudoknotStructure`
+record** as the single-knot unit (§5a) — `Sequence` (upper-cased, T→U), the two-layer `DotBracket`
+(`()` nested/over-arching helices, `[]` crossing knot helices), `BasePairs` as 0-based `(5'<3')`
+tuples sorted by 5' position, `FreeEnergy` (ΔG°, kcal/mol), and `HasPseudoknot`. No new energy
+parameter is introduced relative to `PredictStructurePseudoknot` (same 9.0 / 0.3 / 0.0 penalties, same
+`CalculateStemEnergy` Turner 2004 stacking).
+
+The **recursion contract** is a memoised interval recurrence `RecursivePkFolder.Fold(i,j)` over the
+closed span `[0, n−1]`, memoised on `(i,j)` (so `HasPseudoknot`-per-interval competes with unknotted
+foldings — the 2007-paper mechanism). Each interval takes the minimum-energy of **four competing
+decompositions**:
+
+1. **Pseudoknot-free block** — the Zuker–Stiegler [[rna-minimum-free-energy-folding|MFE]] of the
+   sub-span (`CalculateMfeStructure`).
+2. **H-type knot left-anchored at `i`** (`TryKnotAnchoredAt` → `EvaluateHTypeRecursive`) — scan the
+   knot's 3' extent and inner boundaries by canonization rules 1–2 (maximal helices), score each loop
+   *u*/*v*/*w* by `Fold` itself (**recursive** — a loop may hold a further knot, via
+   `ScoreLoopRecursive`), then chain the remainder `Fold(r+1, j)`.
+3. **Over-arching helix** — pair `(i,k)` at maximal extension, fold the enclosed region
+   `Fold(i+L, k−L)` recursively (so it can be knotted) and chain `Fold(k+1, j)`; pursued **only when
+   the enclosed region is itself knotted** (purely nested enclosures are already covered by
+   Component 1, so no double-counting).
+4. **Leave `i` unpaired** — `Fold(i+1, j)`.
+
+The recursive fold is accepted only if strictly below the plain MFE by more than the DP-traceback
+tolerance; otherwise the plain MFE is returned with `HasPseudoknot = false` (INV — no spurious knot).
+The whole-sequence recurrence puts the **implementation** cost at **~O(n⁴)** (memoised intervals ×
+per-interval helix scan × sub-span MFE folds), **O(n²)** memo + O(n²) per MFE fold — the full pknotsRG
+O(n⁴)/O(n²) envelope, a step up from the single-knot unit's tighter O(n³) stem-scan (§5a) precisely
+because loops and enclosures re-enter the folder. Intended for short-to-medium sequences. As in §5a,
+no suffix tree is used (thermodynamic enumeration, not exact-match search). The single intentional
+gap vs the reference: helices are enumerated by an explicit maximal-extent start/end scan with a
+left-anchored knot component rather than the full 4-boundary ADP yield parser, so the recursive
+*class* (nested / multiple / over-arching knots) is produced faithfully but not every reference yield
+is reproduced bit-for-bit. Worked API oracle (spec §7.1): the over-arching-knot input
+`AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU` → `((((((((((((..[[[[..))))..]]]]))))))))`, ΔG **−14.37** <
+`PredictStructurePseudoknot`'s **−13.05**.
