@@ -7,9 +7,10 @@ mcp_tools:
   - linkage_disequilibrium
 sources:
   - docs/Evidence/POP-LD-001.md
-source_commit: fadbea3029500764efb2211347df8b83ad90d190
+  - docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md
+source_commit: 059f27c875852db25214099b44933a592ca7ed1c
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -88,6 +89,20 @@ Consequences: identical genotype vectors → `r² = 1` (perfect LD); balanced/in
 `FindHaplotypeBlocks` uses a **simplified adjacent-pair** version of Gabriel et al. (2002): scan
 consecutive variants, and where the pairwise `r²` between neighbours is `≥ threshold` (default
 **0.7**; strong-LD conventions use 0.7–0.8) they extend a block. A block requires **≥ 2 variants**.
+Variants are position-sorted first, so blocks are returned in genomic order. The returned
+`HaplotypeBlock.Haplotypes` list is a **placeholder that the current finder always leaves empty** —
+callers receive block membership (`Variants`) and boundaries (`Start`/`End`), not haplotype
+composition. Adjacent genotype vectors are compared with `Zip(...)`, so **vectors of unequal length
+are silently truncated to their shared prefix**.
+
+## Cost and encoding contract
+
+`CalculateLD` is **O(n)** time/space over the `n` paired genotypes (materialize once, then means,
+covariance, variances). `FindHaplotypeBlocks` is **O(v·log v + v·g)** (`v` = variants, `g` =
+genotype-vector length: one position sort plus one adjacent-pair `CalculateLD` per neighbour). The
+genotype dosage encoding is the diploid allele count **`0` = homozygous major, `1` = heterozygous,
+`2` = homozygous minor**; the implementation assumes this encoding and does not otherwise validate
+genotype values.
 
 ## Invariants and value ranges
 

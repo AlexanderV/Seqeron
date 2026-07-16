@@ -254,6 +254,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Population_Genetics/F_Statistics.md` | [[population-differentiation-fst]] |
 | `docs/algorithms/Population_Genetics/Hardy_Weinberg_Test.md` | [[hardy-weinberg-equilibrium-test]] |
 | `docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md` | [[selection-scan-ihs-ehh]] |
+| `docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md` | [[linkage-disequilibrium]] |
 
 ## Pending (fold into the ingest campaign)
 
