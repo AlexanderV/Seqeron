@@ -7,10 +7,11 @@ mcp_tools:
   - translate_rna
 sources:
   - docs/algorithms/Translation/Codon_Translation.md
+  - docs/algorithms/Translation/Protein_Translation.md
   - docs/Evidence/TRANS-CODON-001-Evidence.md
   - docs/Evidence/TRANS-PROT-001-Evidence.md
   - docs/Evidence/TRANS-SIXFRAME-001-Evidence.md
-source_commit: c71b42adc529c70fe0023a352e61f25cd2ca82f6
+source_commit: 8a4a4e6c2e6867a030ea5291517ea64ac0a9ff48
 created: 2026-07-10
 updated: 2026-07-17
 graph:
@@ -147,6 +148,36 @@ start/stop sets flow through unchanged.
 **Correctness oracle:** the human insulin **B chain** (UniProt P01308, positions 25–54) DNA
 `TTCGTG…AAGACC` (90 nt) → `FVNQHLCGSHLVEALYLVCGERGFFYTPKT` (30 aa). All four tables verified
 codon-by-codon against NCBI (2024-09-23); **no deviation** recorded for translation itself.
+
+### Method contract (algorithm spec)
+
+From the TRANS-PROT-001 algorithm spec (`Protein_Translation.md`), the `Translator` entry points
+(`Seqeron.Genomics.Core/Translator.cs`) — signatures, defaults, and I/O:
+
+| Method | Signature | Returns |
+|--------|-----------|---------|
+| `Translate` | `(DnaSequence \| RnaSequence \| string, GeneticCode? = Standard, int frame = 0, bool toFirstStop = false)` | `ProteinSequence` |
+| `TranslateSixFrames` | `(DnaSequence, GeneticCode? = Standard)` | `IReadOnlyDictionary<int, ProteinSequence>` (keys `±1…±3`) |
+| `FindOrfs` | `(DnaSequence, GeneticCode? = Standard, int minLength = 100, bool searchBothStrands = true)` | `IEnumerable<OrfResult>` (start, end, frame, protein) |
+
+- **Null / empty contract.** The `DnaSequence` and `RnaSequence` overloads **throw
+  `ArgumentNullException`** on null; the **string** overload returns an **empty `ProteinSequence`**
+  for null/empty input. An invalid `frame` (not `0/1/2`) throws **`ArgumentOutOfRangeException`**.
+  `TranslateSixFrames` **always returns all six keys**, even for an empty sequence.
+- **`FindOrfs` defaults.** `minLength = 100` (in **amino acids**), `searchBothStrands = true`;
+  reverse-strand ORFs are reported with **negative frame** values.
+- **Invariants (verified in `TranslatorTests.cs`).**
+  **INV-01** `Translate(seq, frame:0)` == `TranslateSixFrames(seq)[1]` (same helper, forward frame 0).
+  **INV-02** protein length ≤ `floor((sequenceLength − frame) / 3)` (only complete codons consumed).
+  **INV-03** `TranslateSixFrames` returns exactly the six keys `1,2,3,−1,−2,−3`.
+  **INV-04** `OrfResult.NucleotideLength == EndPosition − StartPosition + 1`.
+- **Accepted deviations / not-implemented (spec §5.3–§5.4).** An ORF that **runs off the end** of
+  the scanned sequence without hitting a stop is still emitted if it meets `minLength` (broader than
+  a strict stop-terminated definition). **Reverse-strand ORF coordinates are in the
+  reverse-complement scan's coordinate system** — callers needing original-strand genomic positions
+  must **remap externally**. **Nested ORFs** (opening a new ORF in the same frame before the current
+  one closes) are not reported. These are the practical-scanner limits: no gene-model scoring, splice
+  awareness, or regulatory context.
 
 ## Scope
 
