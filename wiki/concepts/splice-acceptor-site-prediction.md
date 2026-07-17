@@ -5,12 +5,13 @@ tags: [splicing, motif, algorithm]
 mcp_tools:
   - find_branch_points
 sources:
+  - docs/algorithms/Splicing/Acceptor_Site_Detection.md
   - docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md
   - docs/Evidence/SPLICE-DONOR-001-Evidence.md
   - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
-source_commit: ce6f817f61151956d1e97909c1ccf5d70f0c333c
+source_commit: 3ae2cfc56ff0d4e03325af1ce7f3fcfd1313ab69
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -70,7 +71,7 @@ intron and ending at the exon boundary:
 | Method | Model | Source |
 |--------|-------|--------|
 | `FindAcceptorSites` (default) | **AcceptorPwm** position-weight matrix + PPT-quality term, normalized to [0,1] via `(score/(count+1) + 2)/4` | Shapiro & Senapathy 1987 (PWM weights); normalization is a design-choice heuristic |
-| `FindAcceptorBranchPoint` (opt-in) | scans the **18–40 nt** window upstream of the AG for `yUnAy`; conservation-weighted score `matched/maxScore`, `maxScore = 0.790+0.746+0.923+0.751 = 3.210`; found iff ≥ 0.8 | Gao et al. 2008 + Mercer et al. 2015 |
+| `FindAcceptorBranchPoint` (opt-in) | scans the **18–40 nt** window upstream of the AG for `yUnAy`; conservation-weighted score `matched/maxScore`, `maxScore = 0.790+0.746+0.923+0.751 = 3.210` (perfect `yUnAy` = 1.0); reports the best candidate iff score ≥ `minScore` (**default 0.5**) | Gao et al. 2008 + Mercer et al. 2015 |
 | `ScoreAcceptorMaxEnt` (opt-in) | **MaxEntScan score3ss**: max-entropy model over a 23-nt window (20 intronic + 3 exonic; AG fixed at 0-based 18–19), captures position dependencies beyond a PWM; score = `log2(P_maxent/P_bgd)` | Yeo & Burge 2004 |
 
 The PWM+PPT default score does **not** include a branch-point term; branch-point
@@ -90,6 +91,42 @@ reference values (**8.19**, **−0.08**) reproduce exactly, so a wrong table or
 factorisation would fail the 2.89 check. **Licence flag:** the bundled table is the
 MIT port, not the original Burge-lab Perl models (which carry academic terms) —
 recorded in `Data/maxent_score3.LICENSE.md`.
+
+## Method contract (algorithm spec)
+
+Per `docs/algorithms/Splicing/Acceptor_Site_Detection.md` (SPLICE-ACCEPTOR-001), the
+`SpliceSitePredictor` public surface is:
+
+| Signature | Role |
+|-----------|------|
+| `FindAcceptorSites(string sequence, double minScore = 0.5, bool includeNonCanonical = false)` | default scan; emits `SpliceSite` records |
+| `FindAcceptorBranchPoint(string sequence, int agEnd, double minScore = 0.5)` | opt-in branch-point detection → `BranchPointResult` |
+| `ScoreAcceptorMaxEnt(string window)` | opt-in Yeo & Burge 2004 MaxEntScan `score3ss`, in bits |
+
+Private helpers: `ScoreAcceptorSite`, `ScoreU12AcceptorSite`, `ScoreBranchPointConsensus`.
+The scan uppercases the sequence and maps `T`→`U`; canonical `AG` scanning always runs,
+begins at index **15** (so the upstream PPT window exists), and `includeNonCanonical=true`
+additionally scans U12 `AC`. A site is emitted only when its normalized score ≥ `minScore`.
+
+**`SpliceSite` output record:** `Position` (for `AG`, the index `i+1` of the `G` — the
+terminal *intronic* base, **not** the first exonic base; for `AC`, the index of the `C`),
+`Type` (`Acceptor` for canonical `AG`, `U12Acceptor` for `AC`), `Motif`
+(`GetMotifContext(sequence, position-1, 15, 2)` local context), `Score` (normalized), and
+`Confidence` (clamped linear interpolation of the score).
+
+**Canonical scoring internals** (`ScoreAcceptorSite`): (1) a **PPT term** — count
+pyrimidines in the window `[position-15, position-3)`, divide by `12`, scale by `2`; plus
+(2) a **sparse `AcceptorPwm`** applied at offsets `-15, -10, -5, -4, -3, -2, -1, 0` (indexed
+as `position + 2 + offset`). The combined value is normalized by `(score/(count+1) + 2)/4`
+and clamped to `[0,1]`. **U12 scoring** (`ScoreU12AcceptorSite`): `C` at `-1` and `-2`, a
+pyrimidine at `-3`, plus an upstream PPT fraction, normalized by the maximum score **3.5**.
+
+**Invariants (INV-01…INV-07):** `Score` and `Confidence` are in `[0,1]` (both scorers clamp);
+canonical `AG` → `Type = Acceptor`, `AC` → `Type = U12Acceptor`; canonical `Position = i+1`
+(the `G`); branch-point `Score ∈ [0,1]` with a perfect `yUnAy` = 1.0, reported only when the
+branch A lies **18–40 nt inclusive** upstream of the `AG`; and branch-point detection is
+**additive** — `FindAcceptorSites` output is unchanged whether or not it is called (the
+default acceptor score carries no branch-point term).
 
 ## Non-canonical acceptors and corner cases
 

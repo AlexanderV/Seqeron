@@ -19,7 +19,18 @@ separate effort. A pending algorithm doc is resolved when a concept page lists i
 `sources:`; at that point it moves to the covered table.
 
 Status at generation: **202** algorithm docs covered-via-concept, **30** pending across 6 domains
-(Sequence_Composition/Shannon_Entropy → [[shannon-entropy]] resolved 2026-07-17, **closing the
+(Splicing/Acceptor_Site_Detection → [[splice-acceptor-site-prediction]] resolved 2026-07-17
+(REUSE: the algorithm spec describes exactly the already-synthesized SPLICE-ACCEPTOR-001 unit —
+reconciled onto the existing splicing-family anchor rather than creating the placeholder
+`acceptor-site-detection` slug; enriched with the `SpliceSitePredictor` method signatures +
+defaults, the `SpliceSite` output contract (`Position = i+1` = the `G`, `Type`
+`Acceptor`/`U12Acceptor`, `Motif`/`Score`/`Confidence`), the canonical PPT window
+`[position-15,position-3)`/12·2 + sparse `AcceptorPwm` offsets `-15,-10,-5,-4,-3,-2,-1,0`, the U12
+`3.5` normalizer, and invariants INV-01…INV-07; **corrected** the branch-point report threshold
+from `≥ 0.8` to `≥ minScore` **default 0.5** (spec §2.2 + `FindAcceptorBranchPoint` impl); no
+`wiki/sources/` page — a spec, not an Evidence/Validation report). Donor + Gene_Structure remain
+pending in Splicing);
+Sequence_Composition/Shannon_Entropy → [[shannon-entropy]] resolved 2026-07-17, **closing the
 Sequence_Composition domain** (last pending doc) (NEW concept: the base per-symbol Shannon entropy
 `H = −Σ p·log₂ p` bits — a genuinely-distinct scalar member of the `SEQ-COMPLEX-*` complexity/entropy
 family that had no home. Two entry points with deliberately different alphabets: canonical DNA
@@ -399,6 +410,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/RnaStructure/RNA_Free_Energy.md` | [[rna-free-energy-turner-model]] |
 | `docs/algorithms/RnaStructure/RNA_Secondary_Structure.md` | [[rna-secondary-structure-prediction]] |
 | `docs/algorithms/RnaStructure/RNA_Stemloop.md` | [[rna-stem-loop-enumeration]] |
+| `docs/algorithms/Splicing/Acceptor_Site_Detection.md` | [[splice-acceptor-site-prediction]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | [[crispr-guide-rna-design]] |
