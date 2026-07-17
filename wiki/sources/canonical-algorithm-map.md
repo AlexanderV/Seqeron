@@ -5,10 +5,11 @@ tags: [meta, coverage, governance]
 doc_path: docs/algorithms/CANONICAL_MAP.md
 sources:
   - docs/algorithms/CANONICAL_MAP.md
-source_commit: f776181cd75c204d4932cac5e47d04285d03052f
+  - docs/refactoring/ALGORITHM_TAXONOMY_CLEANUP_MATRIX.md
+source_commit: 50a3ecc1be89016a4874aff2abc9fcfab49df869
 ingested: 2026-07-13
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-07-17
 ---
 
 # Canonical Algorithm Map
@@ -20,7 +21,10 @@ methods that are kept on purpose. Its job is to prevent duplicate units and spli
 one concept has exactly one canonical home. It governs the same `docs/algorithms/**` tree that the
 wiki's coverage ledger — [[backlog]] — reconciles against concept pages, and its canonical IDs are
 the identities registered in the test-unit registry [[algorithms-checklist-v2]] and validated in
-the [[algorithm-validation-evidence]] artifacts. Reference doc: `docs/algorithms/CANONICAL_MAP.md`.
+the [[algorithm-validation-evidence]] artifacts. Reference docs: `docs/algorithms/CANONICAL_MAP.md`
+(the shipped map) and `docs/refactoring/ALGORITHM_TAXONOMY_CLEANUP_MATRIX.md` (the 2026-06-16
+planning matrix, sourced from `ALGORITHMS_CHECKLIST_V2.md` + `docs/algorithms/*`, from which the map
+and its execution plan were derived).
 
 ## What it governs
 
@@ -49,6 +53,36 @@ Folder normalization for the four canonical buckets above is **complete** — th
 been merged and every inbound reference repointed. Remaining consolidation candidates named but not
 yet done: `Motif_Analysis`, `Sequence_Comparison`, `Genomic_Analysis`, `Extended_Annotation`,
 `Extended_Assembly`.
+
+## Concept-level document duplicates (planning matrix)
+
+Beyond duplicate *IDs* and *folders*, the cleanup matrix also flags the same **concept written
+twice as separate docs** — the target of the "one canonical behavior document per concept" rule:
+
+- **Relative synonymous codon usage** — `Annotation/Relative_Synonymous_Codon_Usage.md` vs
+  `Codon/Relative_Synonymous_Codon_Usage.md`; canonical = the `Codon/` copy.
+- **Tandem repeat detection** — `Repeat_Analysis/Tandem_Repeat_Detection.md` vs
+  `Genomic_Analysis/Tandem_Repeat_Detection.md`; canonical = the `Repeat_Analysis/` copy
+  (matches the `GENOMIC-TANDEM-001` → `REP-TANDEM-001` ID consolidation above).
+- **Melting temperature** — `Molecular_Tools/Melting_Temperature.md` vs
+  `Statistics/Melting_Temperature.md`; pick one owner (`MolTools` or `Statistics`) and cross-link.
+- **Low-complexity region detection (protein)** — `ProteinMotif/Low_Complexity_Region_Detection.md`
+  vs `ProteinPred/Low_Complexity_Region_Detection.md`; keep one canonical behavior doc + one
+  domain-specific usage note.
+
+Resolution pattern: keep one canonical doc; replace the other file with a short redirect stub that
+links to it (domain pages link, never copy content).
+
+## Per-doc metadata tags and execution order
+
+The matrix prescribes the frontmatter tags each algorithm doc should carry so identity is
+machine-checkable: `status: canonical|alias|legacy-baseline`, `canonical_id: <ID>`, and
+`owned_by: <domain>`. Its suggested execution order was: (1) add `docs/algorithms/CANONICAL_MAP.md`
+with the ID alias map; (2) normalize folder taxonomy with no content rewrite; (3) merge duplicate
+concept docs into the canonical doc and leave redirect stubs; (4) update `docs/algorithms/README.md`
+to reference only canonical sections; (5) add `legacy-baseline` badges to the UPGMA, JC/K2P,
+chi-square HWE, Nussinov-classic, and OLC docs. Folder convention: one style only (PascalCase or
+snake_case, not mixed).
 
 ## Relation to the wiki's coverage infrastructure
 
