@@ -5,10 +5,11 @@ tags: [transcriptome, algorithm]
 mcp_tools:
   - calculate_tpm
 sources:
+  - docs/algorithms/Transcriptome/Expression_Quantification.md
   - docs/Evidence/TRANS-EXPR-001-Evidence.md
-source_commit: deb32560df90dfd97221f5218e71f6fd6cf3b2fd
+source_commit: a6c1fb6eec93a97474ade58430d30f5b57a63223
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -41,6 +42,39 @@ Impl `TranscriptomeAnalyzer` (`Seqeron.Genomics.Annotation`, the Annotation serv
 `CalculateTPM(...)` → per-gene `GeneExpression`, `CalculateFPKM(rawCount, length, totalReads)` →
 `double`, and `QuantileNormalize(...)` → the normalized matrix. MCP tools `CalculateTpm` /
 `QuantileNormalize`.
+
+## Method contract (algorithm spec)
+
+Genuinely-distinct implementation detail from the canonical PRIMARY spec
+(`docs/algorithms/Transcriptome/Expression_Quantification.md`, TRANS-EXPR-001, *Production*), in
+`Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs`:
+
+| Method | Signature | Returns |
+| --- | --- | --- |
+| `CalculateTPM` | `(IEnumerable<(string GeneId, double RawCount, int Length)> geneCounts)` | `IEnumerable<GeneExpression>` — per-gene record; TPM sums to 10⁶ |
+| `CalculateFPKM` | `(double rawCount, int length, double totalReads)` | `double` — single-gene FPKM |
+| `QuantileNormalize` | `(IEnumerable<IEnumerable<double>> samples)` | `IEnumerable<IReadOnlyList<double>>` — one normalized vector per sample, original positions preserved |
+
+- **`CalculateTPM` also fills the `FPKM` field** of each `GeneExpression`, using the **sample's total
+  raw count as N** (the FPKM depth normalizer) — so a single `CalculateTPM` pass returns both the TPM
+  and its matching FPKM per gene.
+- **`QuantileNormalize` uses the first sample's length as the gene count** (all samples must be equal
+  length); inputs are materialized to lists and each sample is re-sorted twice (once to build the rank
+  means, once to place them back) for clarity rather than caching.
+- **Input constraints:** `RawCount ≥ 0`, `Length > 0` for a meaningful rate; FPKM's `length > 0` and
+  `totalReads > 0` (else returns 0). No exceptions on degenerate input — empty `geneCounts` / empty
+  `samples` / zero genes yield an empty sequence.
+- **INV-04 / INV-05 (QN, explicit):** quantile normalization **preserves within-column rank order**
+  (rank → rank-mean is non-decreasing), and an untied column maps to a **permutation of the same
+  rank-mean multiset** (each rank is assigned exactly one rank mean).
+- **Deviation (fixed):** a pre-fix QN implementation ignored tied ranks (tied values got the wrong
+  rank means); corrected to the Bolstad tie-average rule.
+- **Complexity:** `CalculateTPM` **O(n)** time / **O(n)** space (n genes, one pass for rates, one for
+  output); `CalculateFPKM` **O(1)** / **O(1)**; `QuantileNormalize` **O(s·n log n)** / **O(s·n)** for
+  s samples of n values (the per-sample sort dominates). No substring/pattern search — the repository
+  suffix tree is N/A.
+- **Not implemented (defer to DE tooling):** library-size scaling factors (edgeR TMM, DESeq2
+  median-of-ratios) — out of scope for this within-sample/distribution-matching unit.
 
 ## 1. TPM — transcripts per million
 

@@ -18,8 +18,17 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **219** algorithm docs covered-via-concept, **8** pending across 3 domains
-(Transcriptome/Differential_Expression → [[differential-expression]] resolved 2026-07-17 (RECONCILE/REUSE:
+Status at generation: **220** algorithm docs covered-via-concept, **7** pending across 2 domains
+(Transcriptome/Expression_Quantification → [[expression-quantification]] resolved 2026-07-17, **closing the
+Transcriptome domain** (last pending doc) (RECONCILE/REUSE: the TPM/FPKM/RPKM + quantile-normalization
+quantification spec TRANS-EXPR-001 — `CalculateTPM` / `CalculateFPKM` / `QuantileNormalize` — is the concept
+already synthesized on this Evidence-derived page; treated the spec as the canonical PRIMARY spec and enriched
+a "Method contract (algorithm spec)" section with the three entry-point signatures + tuple/matrix I/O types,
+the TPM-also-fills-FPKM-field (N = sample total raw count) and QN-uses-first-sample-length behaviors, the
+explicit INV-04/INV-05 rank-order/permutation invariants, the tied-rank deviation fix, per-method complexity
+(TPM O(n), FPKM O(1), QN O(s·n log n)), and the not-implemented TMM/median-of-ratios scope, kept distinct from
+the downstream consumer [[differential-expression]], rather than creating a redundant page).
+Transcriptome/Differential_Expression → [[differential-expression]] resolved 2026-07-17 (RECONCILE/REUSE:
 the algorithm spec TRANS-DIFF-001 — `CalculateFoldChange` / `FindDifferentiallyExpressed` — is the
 concept already synthesized on this Evidence-derived page; treated the spec as the canonical PRIMARY
 spec and enriched a "Method contract (algorithm spec)" section with the two entry-point signatures +
@@ -688,6 +697,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/StructuralVar/SV_Detection.md` | [[discordant-pair-sv-detection]] |
 | `docs/algorithms/Transcriptome/Alternative_Splicing.md` | [[alternative-splicing-psi]] |
 | `docs/algorithms/Transcriptome/Differential_Expression.md` | [[differential-expression]] |
+| `docs/algorithms/Transcriptome/Expression_Quantification.md` | [[expression-quantification]] |
 
 ## Pending (fold into the ingest campaign)
 
