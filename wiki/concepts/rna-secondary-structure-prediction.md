@@ -3,10 +3,11 @@ type: concept
 title: "RNA secondary-structure prediction (Nussinov base-pair maximization + constraints)"
 tags: [rna, algorithm]
 sources:
+  - docs/algorithms/RnaStructure/RNA_Secondary_Structure.md
   - docs/Evidence/RNA-STRUCT-001-Evidence.md
-source_commit: bb82b7ec80bbbf5750e53616ccc60df7b45c010c
+source_commit: 2b24a61c3662673c9571cc841469c9df3de7d30f
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -139,4 +140,58 @@ shares its crossing-detection test with [[rna-pseudoknot-detection]]. **No sourc
 Nussinov & Jacobson 1980, Zuker & Stiegler 1981, MIT 6.047, Turner 2004 / NNDB, and Mathews 2004 are
 mutually consistent; the only reconciliation is the RNA-STRUCT-001 ≠ RNA-MFE-001 distinction (§1),
 superseding the earlier alias assumption now that this artifact is ingested.
-</content>
+
+## 7. Implementation surface (RNA-STRUCT-001 primary spec)
+
+The canonical algorithm spec is `docs/algorithms/RnaStructure/RNA_Secondary_Structure.md`; the code lives
+in `RnaSecondaryStructure` in `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs`
+(Implementation Status **Production**). The spec pins the concrete method surface behind the Evidence-level
+`Predict` / `PredictWithConstraints` / `ToDotBracket` / `FromDotBracket` naming as **two prediction paths
+over the same Turner 2004 model** plus the greedy candidate generator:
+
+- **`CalculateMfeStructure(string rnaSequence, int minLoopSize = 3)` → `MfeStructure`** — the
+  **MFE-optimal** fold. Fills the V/W/WM matrices via the shared `FillDp` routine (identical to
+  [[rna-minimum-free-energy-folding|`CalculateMinimumFreeEnergy`]], but into non-pooled arrays that
+  survive the fill) then runs the **Zuker–Stiegler (1981) traceback**, recording a base pair whenever a
+  `V(i,j)` cell is entered. Returns `sequence`, dot-bracket, base-pair tuples, and energy `W(0,n−1)`.
+- **`PredictStructureMfe(string, int minLoopSize = 3)` → `SecondaryStructure`** — the same MFE-optimal
+  fold wrapped in the `SecondaryStructure` record shape (the optimal counterpart of `PredictStructure`);
+  because the optimum is pseudoknot-free (INV-06), its `Pseudoknots` field is empty.
+- **`PredictStructure(string, int minLoopSize = 3, int minStemLength = 3, int maxLoopSize = 10)` →
+  `SecondaryStructure`** — the **greedy** fast path (unchanged by the D5 traceback): enumerate candidate
+  stem-loops with `FindStemLoops`, sort by `TotalFreeEnergy`, greedily select non-overlapping candidates
+  (a chosen stem-loop marks every position in its `Start..End` span as used → **position-based** overlap
+  rejection), emit dot-bracket, sum energies, and run a residual `DetectPseudoknots` over the surviving
+  set. Its reported energy is a **stem-loop sum, not the DP optimum** (INV-03), so it can be above the true
+  MFE — use the MFE path when optimality matters.
+- **`FindStemLoops(string, int, int, int, bool allowWobble)`** — the greedy candidate generator;
+  `PredictStructure` does not override `allowWobble`, which **defaults `true`**, so the default predictor
+  admits G-U wobble stems (ASM-02).
+
+**Parameters** (greedy path): `minStemLength = 3` (min paired positions retained), `minLoopSize = 3`
+(min hairpin loop, **clamped up to 3** if smaller), `maxLoopSize = 10` (max scanned hairpin loop).
+Empty input short-circuits to an empty `SecondaryStructure` (empty strings/collections, energy 0) with no
+separate alphabet validation.
+
+**`SecondaryStructure` record contract** — `Sequence` (uppercased input, INV-01), `DotBracket`
+(`(`/`)`/`.` only, **length == `Sequence.Length`**, INV-02), `BasePairs` (`IReadOnlyList<BasePair>`
+ordered by **ascending 5′ position**, INV-04), `StemLoops` (selected non-overlapping), `Pseudoknots`
+(crossing groups detected *after* selection — residual only, since greedy overlap-marking usually
+eliminates crossings first), `MinimumFreeEnergy` (`Σ selected StemLoop.TotalFreeEnergy`, INV-03).
+
+**Invariants** the spec asserts: **INV-05** — `CalculateMfeStructure(s).FreeEnergy ==
+CalculateMinimumFreeEnergy(s)` (the traceback mirrors the fill exactly, so the reconstructed structure's
+energy equals the scalar MFE); **INV-06** — the traceback structure is **pseudoknot-free** (the Zuker
+recurrences only nest or juxtapose helices).
+
+**Complexity** — greedy `PredictStructure` is `O(C + h log h)` plus the `FindStemLoops` candidate search
+(`h` candidates, `b` selected pairs) in `O(h + b)` space; the MFE `CalculateMfeStructure` /
+`PredictStructureMfe` is the `O(n³)` fill + an `O(n²)`-order traceback pass over the already-filled
+matrices in `O(n²)` space (same asymptotic class as `CalculateMinimumFreeEnergy`; baseline in
+`RnaSecondaryStructure_MFE_Benchmark`).
+
+**Not implemented** (accepted scope, not bugs): pseudoknotted optima (the `O(n³)` recurrences are
+pseudoknot-free by construction → dedicated pseudoknot folders [[rna-pseudoknot-prediction]]); comparative
+/ consensus secondary-structure prediction (no in-class alternative). These refine — they do not
+contradict — the Evidence material; the spec and Evidence agree on the base-pairing rule, the Zuker
+traceback (D5), the dot-bracket output, and the pseudoknot-detection-only boundary.
