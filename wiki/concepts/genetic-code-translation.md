@@ -8,10 +8,11 @@ mcp_tools:
 sources:
   - docs/algorithms/Translation/Codon_Translation.md
   - docs/algorithms/Translation/Protein_Translation.md
+  - docs/algorithms/Translation/Six_Frame_Translation.md
   - docs/Evidence/TRANS-CODON-001-Evidence.md
   - docs/Evidence/TRANS-PROT-001-Evidence.md
   - docs/Evidence/TRANS-SIXFRAME-001-Evidence.md
-source_commit: 8a4a4e6c2e6867a030ea5291517ea64ac0a9ff48
+source_commit: c9d9954b23845153e6f530e3ebb74f54dfdc8753
 created: 2026-07-10
 updated: 2026-07-17
 graph:
@@ -178,6 +179,36 @@ From the TRANS-PROT-001 algorithm spec (`Protein_Translation.md`), the `Translat
   must **remap externally**. **Nested ORFs** (opening a new ORF in the same frame before the current
   one closes) are not reported. These are the practical-scanner limits: no gene-model scoring, splice
   awareness, or regulatory context.
+
+### Six-frame translation contract (TRANS-SIXFRAME-001 algorithm spec)
+
+`Six_Frame_Translation.md` (TRANS-SIXFRAME-001) is the **canonical primary spec** for the
+six-frame surface and its START→STOP ORF scanner, cross-anchored to Biopython
+`six_frame_translations`, EMBOSS `transeq`, and EMBOSS `getorf`. Beyond the shared
+`Translator` contract above, it pins:
+
+- **Frame construction & offsets.** Forward frame `+f` = translation of the input at offset
+  `f−1`; reverse frame `−f` = translation of the **reverse complement** at offset `f−1` (the
+  Biopython `frames[-(i+1)] = translate(anti[i:])` convention — `−1` = RC offset 0). Each frame
+  consumes only **complete** codons, so its length is exactly **⌊(len−offset)/3⌋** and any
+  trailing 1–2 nt are dropped (spec INV-04).
+- **Never early-terminates.** `TranslateSixFrames` renders internal stop codons as `*` and reads
+  to the end of every frame — it does **not** honour `toFirstStop` (contrast the single-frame
+  `Translate(..., toFirstStop: true)`). It computes the reverse complement **once** and fills all
+  six frames in one shared offset loop. Empty input → six empty frames and no ORFs;
+  IUPAC-ambiguous codons → `X` (inherited from `GeneticCode.Translate`).
+- **`OrfResult` fields.** `StartPosition` = 0-based first base of the START codon (in the scanned
+  strand's coordinates); `EndPosition` = 0-based **last** base of the STOP codon, **inclusive**;
+  `Frame` = ±1…±3; `Protein` = residues with START included, STOP excluded; derived
+  `NucleotideLength = EndPosition − StartPosition + 1` and `AminoAcidLength = Protein.Length`
+  (spec INV-05/INV-06).
+- **Complexity.** Both `TranslateSixFrames` and `FindOrfs` are **O(n) time / O(n) space** — one
+  reverse complement plus six linear codon passes; the repository suffix tree is not applicable
+  (sequential triplet decoding, not substring search).
+- **Worked oracle.** `TranslateSixFrames("ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG")` →
+  `frames[+1] = "MAIVMGR*KGAR*"`, `frames[−1] = "LSGTLSAAHYNGH"`;
+  `FindOrfs("GGGATGAAACCCTAAGGG", minLength: 1, searchBothStrands: false)` → one ORF Start=3,
+  End=14 (inclusive), Frame=+1, `MKP`.
 
 ## Scope
 

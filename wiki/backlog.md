@@ -18,8 +18,22 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **222** algorithm docs covered-via-concept, **5** pending across 2 domains
-(Translation/Codon_Translation → [[genetic-code-translation]] resolved 2026-07-17 (RECONCILE/REUSE: the
+Status at generation: **223** algorithm docs covered-via-concept, **4** pending across 1 domain
+(Translation/Six_Frame_Translation → [[genetic-code-translation]] resolved 2026-07-17, **closing the
+Translation domain** (last pending doc) (RECONCILE/REUSE: the six-frame translation + START→STOP ORF spec
+TRANS-SIXFRAME-001 — `Translator.TranslateSixFrames` (six frames keyed ±1…±3) / `FindOrfs` — is the
+six-frame surface already synthesized on this page's `Translator` layer; treated the spec as the canonical
+PRIMARY spec rather than creating a redundant `six-frame-translation` page, joining its already-reconciled
+`Codon_Translation.md` / `Protein_Translation.md` siblings. Enriched a "Six-frame translation contract"
+subsection: forward `+f` = offset `f−1` / reverse `−f` = reverse complement at offset `f−1` (Biopython
+independent-offset convention), per-frame length ⌊(len−offset)/3⌋, the never-early-terminates `*`-rendering
+behavior (does not honour `toFirstStop`) with one shared reverse complement, the full `OrfResult` field set
+(0-based `StartPosition`, 0-based **inclusive** `EndPosition`, `Frame` ±1…±3, START-included/STOP-excluded
+`Protein`, derived `NucleotideLength = End−Start+1` and `AminoAcidLength = Protein.Length`, INV-05/INV-06),
+O(n) time / O(n) space (suffix tree N/A), and the `MAIVMGR*KGAR*` / `LSGTLSAAHYNGH` + `MKP` oracles).
+Contradictions: none — spec, Evidence artifact, and impl agree on the ±1…±3 six-frame + START→STOP ORF
+contract.)
+Translation/Codon_Translation → [[genetic-code-translation]] resolved 2026-07-17 (RECONCILE/REUSE: the
 single-codon lookup spec TRANS-CODON-001 — `GeneticCode.Translate` / `IsStartCodon` / `IsStopCodon` /
 `GetCodonsForAminoAcid` / `GetByTableNumber` — is exactly the concept already synthesized on this
 Evidence-derived page (four NCBI tables 1/2/3/11, T→U + case normalization, exactly-3-char contract);
@@ -723,10 +737,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Transcriptome/Expression_Quantification.md` | [[expression-quantification]] |
 | `docs/algorithms/Translation/Codon_Translation.md` | [[genetic-code-translation]] |
 | `docs/algorithms/Translation/Protein_Translation.md` | [[genetic-code-translation]] |
+| `docs/algorithms/Translation/Six_Frame_Translation.md` | [[genetic-code-translation]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (6 algorithm docs across 2 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (4 algorithm docs across 1 domain, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
