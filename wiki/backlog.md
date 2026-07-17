@@ -18,8 +18,21 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **205** algorithm docs covered-via-concept, **23** pending across 5 domains
-(Splicing/Gene_Structure_Prediction → [[gene-structure-prediction-intron-exon]] resolved 2026-07-17,
+Status at generation: **206** algorithm docs covered-via-concept, **22** pending across 5 domains
+(Statistics/DNA_Thermodynamics → [[dna-duplex-nearest-neighbor-thermodynamics]] resolved 2026-07-17
+(RECONCILE/REUSE: the nearest-neighbour DNA-duplex thermodynamics spec, unit SEQ-THERMO-001, describes
+exactly the already-synthesized full-tuple ΔH°/ΔS°/ΔG°/Tm engine — reconciled onto the existing
+Evidence-derived concept as its canonical PRIMARY spec rather than creating the placeholder
+`dna-thermodynamics` slug; added a "Method contract (algorithm spec)" section carrying the
+genuinely-distinct implementation detail — the `CalculateThermodynamics(seq, naConcentration=0.05,
+primerConcentration=2.5e-7)` signature + defaults (C_T ÷ F = 4), the 4-tuple output rounding
+(ΔH/ΔS/ΔG 2 dp, Tm 1 dp), `O(n)`/`O(1)` tabulation with both WC complements stored (suffix tree N/A),
+the length-<2 ⇒ `(0,0,0,0)` / case-insensitive / non-ACGT-⇒0 guards, the fixed-F=4 simplification and
+not-implemented mismatch/dangling-end/Mg²⁺ corrections, and the one-terminus→two-terminus initiation
+fix; kept distinct from the `%GC` scalar Tm on [[melting-temperature]] and the 2004-parameter primer
+engine [[primer-dimer-thermodynamics-tm]]; no `wiki/sources/` page — a spec, not an Evidence report;
+hub unchanged);
+Splicing/Gene_Structure_Prediction → [[gene-structure-prediction-intron-exon]] resolved 2026-07-17,
 **closing the Splicing domain** (last pending doc) (REUSE: the composite intron/exon gene-structure
 predictor spec reconciled onto the existing splicing-family composite page rather than creating the
 placeholder `gene-structure-prediction` slug; enriched with a "Method contract (algorithm spec)"
@@ -340,6 +353,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Codon_Optimization/CAI_Calculation.md` | [[codon-adaptation-index]] |
 | `docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md` | [[codon-usage-comparison]] |
 | `docs/algorithms/Statistics/Codon_Frequencies.md` | [[codon-usage-comparison]] |
+| `docs/algorithms/Statistics/DNA_Thermodynamics.md` | [[dna-duplex-nearest-neighbor-thermodynamics]] |
 | `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
 | `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
 | `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
@@ -519,7 +533,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (23 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (22 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

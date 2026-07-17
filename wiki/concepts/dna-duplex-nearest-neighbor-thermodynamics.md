@@ -3,11 +3,12 @@ type: concept
 title: "DNA duplex nearest-neighbor thermodynamics (ΔH°/ΔS°/ΔG°/Tm)"
 tags: [thermodynamics, sequence-statistics, validation]
 sources:
+  - docs/algorithms/Statistics/DNA_Thermodynamics.md
   - docs/Evidence/SEQ-THERMO-001-Evidence.md
   - docs/Evidence/SEQ-TM-001-Evidence.md
-source_commit: 52c02ee8f4642a46e7ab17988a729a45ffbe5268
+source_commit: 9b1031a9aa9d02c69b3ee675b924aa53c7d5adba
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -76,6 +77,36 @@ Lower salt lowers ΔS° magnitude, so Tm is **monotonic in [Na⁺]** — more sa
   thermodynamic value); it alters nothing for valid length ≥ 2 input.
 - **Case-insensitive** — input is `ToUpperInvariant`-folded before table lookup.
 - **Non-self-complementary only** — the unit fixes the default **F = 4** case.
+
+## Method contract (algorithm spec)
+
+The canonical spec (`docs/algorithms/Statistics/DNA_Thermodynamics.md`, unit SEQ-THERMO-001,
+status *Production*) pins the entry point and its numeric contract:
+
+- **Signature:** `SequenceStatistics.CalculateThermodynamics(string dnaSequence,
+  double naConcentration = 0.05, double primerConcentration = 2.5e-7)` in
+  `Seqeron.Genomics.Analysis/SequenceStatistics.cs`. `naConcentration` is **mol/L** (0.05 = 50 mM);
+  `primerConcentration` is the **total strand concentration C_T** in mol/L (2.5e-7 = 250 nM), divided
+  by **F = 4** inside the Tm equation. The simpler `%GC` sibling
+  `CalculateMeltingTemperature(string, bool)` (Wallace / Marmur-Doty, unit SEQ-TM-001) delegates to
+  `ThermoConstants` in `Seqeron.Genomics.Infrastructure` — that scalar surface lives on
+  [[melting-temperature]].
+- **Returns** a 4-tuple, each field pre-rounded: `DeltaH` (kcal/mol, **2 dp**), `DeltaS`
+  (cal/(mol·K), salt-corrected, **2 dp**), `DeltaG` (ΔG°₃₇ kcal/mol, **2 dp**),
+  `MeltingTemperature` (°C, **1 dp**).
+- **Complexity** `O(n)` time / `O(1)` space — a single pass over the `n − 1` overlapping
+  dinucleotides against a fixed 16-entry NN dictionary (**both** Watson-Crick complements are stored,
+  so a step resolves without computing its reverse complement — INV-04). This is **tabulation, not
+  string search**, so the repository suffix tree is *not applicable* to the unit.
+- **Guards / edge cases:** null/empty or **length < 2 ⇒ `(0, 0, 0, 0)`** (no dinucleotide ⇒ NN model
+  undefined); input `ToUpperInvariant`-folded (case-insensitive); a **non-ACGT dinucleotide
+  contributes 0** to ΔH°/ΔS° (no exception thrown for valid-typed input).
+- **Intentionally simplified:** F is fixed at 4 (non-self-complementary equimolar) — a truly
+  self-complementary duplex (F = 1) is **under-estimated** by the `R·ln(4)` denominator difference.
+- **Not implemented:** mismatch, dangling-end, and Mg²⁺/mixed-cation corrections — for those,
+  defer to dedicated tools (MELTING 5, IDT OligoAnalyzer).
+- **Deviation history:** a prior revision applied initiation at only **one** terminus, under-counting
+  one init term (wrong ΔH°/ΔS°/Tm); SEQ-THERMO-001 fixed this to **two-terminus** initiation (INV-01).
 
 ## Relationship to the other Tm surfaces
 
