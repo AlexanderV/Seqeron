@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **204** algorithm docs covered-via-concept, **28** pending across 5 domains
+Status at generation: **205** algorithm docs covered-via-concept, **23** pending across 5 domains
 (Splicing/Gene_Structure_Prediction → [[gene-structure-prediction-intron-exon]] resolved 2026-07-17,
 **closing the Splicing domain** (last pending doc) (REUSE: the composite intron/exon gene-structure
 predictor spec reconciled onto the existing splicing-family composite page rather than creating the
@@ -339,6 +339,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Codon/Relative_Synonymous_Codon_Usage.md` | [[relative-synonymous-codon-usage]] |
 | `docs/algorithms/Codon_Optimization/CAI_Calculation.md` | [[codon-adaptation-index]] |
 | `docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md` | [[codon-usage-comparison]] |
+| `docs/algorithms/Statistics/Codon_Frequencies.md` | [[codon-usage-comparison]] |
 | `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
 | `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
 | `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
@@ -518,7 +519,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (26 algorithm docs across 6 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (23 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

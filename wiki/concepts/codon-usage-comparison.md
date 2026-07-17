@@ -8,11 +8,12 @@ mcp_tools:
 sources:
   - docs/Evidence/CODON-USAGE-001-Evidence.md
   - docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md
+  - docs/algorithms/Statistics/Codon_Frequencies.md
   - docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md
   - docs/Validation/reports/CODON-USAGE-001.md
-source_commit: b0db43a8692338b09003a14ca3e87a130a9b5a63
+source_commit: 796e9f5b6546e790c010886578d64076c118abeb
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -62,6 +63,23 @@ codons (no `T→U` rewrite), **excludes non-ACGT/ambiguous triplets** (Kazusa CU
 adds a **reading-frame offset** (0/1/2) so the same sequence yields a different codon multiset per
 frame. Use the raw-count table here when you need integer counts or the TVD comparison; use the
 frequency method when you want normalized fractions or a non-zero frame.
+
+**Contract (canonical spec `docs/algorithms/Statistics/Codon_Frequencies.md`).** Signature
+`CalculateCodonFrequencies(string dnaSequence, int readingFrame = 0)` in
+`Seqeron.Genomics.Analysis/SequenceStatistics.cs`, returning
+`IReadOnlyDictionary<string, double>` (codon → count/total). Single O(n)-time / O(k)-space linear
+scan (`k` = distinct observed codons, ≤ 64; one hash-map pass, no suffix tree — it is a tabulation,
+not a search). It steps `i` from `readingFrame` to `length − 3` in increments of 3, so only complete
+non-overlapping triplets count and a trailing 1–2-nt remainder is dropped. Guards: `null`/empty/
+`length < 3`, **or** every triplet ambiguous (`total = 0`), returns an **empty** dictionary — the
+only count/total-consistent value and the reason there is no division by zero. Invariants: each
+frequency ∈ **(0, 1]** and only *observed* codons are keys (INV-01); Σ freq = 1 when `total ≥ 1`
+(INV-02); case-independent (INV-04, upper-cased internally); and freq(x) = the **Kazusa CUTG
+per-thousand value ÷ 1000** (INV-05, e.g. EMBOSS `cusp` CGC 22/386 = 56.995‰). RNA `U` is **not**
+converted — it is treated as a non-ACGT base and its triplet excluded, so callers must convert
+`U → T` first; per-thousand scaling, the per-amino-acid `cusp` **Fraction** column (denominator = the
+synonymous-codon group, i.e. RSCU-style, not all codons), and derived indices (CAI, Fop, Nc) are all
+out of scope for this method.
 
 ## TVD-based comparison
 
