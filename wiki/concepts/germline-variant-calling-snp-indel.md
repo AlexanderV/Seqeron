@@ -8,10 +8,11 @@ mcp_tools:
   - titv_ratio
 sources:
   - docs/algorithms/Variants/Indel_Detection.md
+  - docs/algorithms/Variants/SNP_Detection.md
   - docs/Evidence/VARIANT-CALL-001-Evidence.md
   - docs/Evidence/VARIANT-INDEL-001-Evidence.md
   - docs/Evidence/VARIANT-SNP-001-Evidence.md
-source_commit: 74d73794e831960f6cb47c127475581b1dca5e78
+source_commit: 5eeabea8527194a4ebba4698a893ab9d15248a8b
 created: 2026-07-10
 updated: 2026-07-17
 graph:
@@ -99,6 +100,28 @@ and Ti/Tv classification are **case-insensitive** (VCFv4.3 REF alphabet A,C,G,T,
 null inputs to `FindSnps` throw `ArgumentNullException`, empty inputs to `FindSnpsDirect` yield empty.
 Oracles: `ATGC`→`ATTC` = {2} (G→T); `AAAA`→`TGTA` = {0,1,2} (A→T, A→G, A→T); VCFv4.3 §1.1 simple SNP
 `G→A` @POS 14370.
+
+**Method contract (SNP_Detection.md, VARIANT-SNP-001 algorithm spec).** The two entry points live on
+`VariantCaller` (`Seqeron.Genomics.Annotation`, `VariantCaller.cs`) and differ in **input type** as well
+as strategy:
+
+- **`FindSnpsDirect(string reference, string query) → IEnumerable<Variant>`** — the **canonical**
+  positional Hamming-mismatch enumerator, operating on raw **`string`** bases (not `DnaSequence`). Single
+  forward scan over `n = min(reference.Length, query.Length)`; emits one `Variant` per mismatched index.
+- **`FindSnps(DnaSequence reference, DnaSequence query) → IEnumerable<Variant>`** — the **delegate**:
+  `CallVariants` filtered to `VariantType.SNP` (drops insertion/deletion columns), so it inherits the
+  Needleman–Wunsch global alignment.
+
+Each emitted `Variant` carries a **0-based** reference `Position == i` (VCF POS is 1-based — the 1-based
+form is produced only by `ToVcfLines`), single-base `ReferenceAllele = reference[i]` and
+`AlternateAllele = query[i]` (INV-04), `Type == SNP` (INV-02), and a **0-based `QueryPosition`** (`== i`
+for `FindSnpsDirect`). Contract edges: `FindSnps` throws `ArgumentNullException` on a null reference/query
+(validated in `CallVariants`); `FindSnpsDirect` returns **empty** when either input is null or empty and
+otherwise scans only the common prefix (INV-06). Cost: `FindSnpsDirect` is **O(n) time / O(1)** lazy
+(O(k) materialized for `k` SNPs), a single equality-test scan; `FindSnps` is **O(n × m)** dominated by the
+alignment DP, with an O(n) filter. The repository **suffix tree does not apply** — SNP detection is a
+positional equality test between corresponding strings, not an occurrence/substring search. No scoring
+tables or tunable constants: the only decision rule is `reference[i] != query[i]`.
 
 ## Indel detection: FindInsertions / FindDeletions and the directional length invariant
 

@@ -18,8 +18,20 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **224** algorithm docs covered-via-concept, **3** pending across 1 domain
-(Variants/Indel_Detection → [[germline-variant-calling-snp-indel]] resolved 2026-07-17 (RECONCILE/REUSE:
+Status at generation: **225** algorithm docs covered-via-concept, **2** pending across 1 domain
+(Variants/SNP_Detection → [[germline-variant-calling-snp-indel]] resolved 2026-07-17 (RECONCILE/REUSE:
+the SNP-detection spec VARIANT-SNP-001 — `VariantCaller.FindSnpsDirect` (canonical positional Hamming
+enumerator over `string` inputs) / `FindSnps` (`DnaSequence` delegate = `CallVariants` filtered to
+`VariantType.SNP`) — is the SNP facet already synthesized on this SNP/indel page (its VARIANT-SNP-001
+Evidence was already in `sources:`, and the page carried a dedicated "SNP detection: FindSnps /
+FindSnpsDirect and the Hamming-mismatch invariant" section); treated the spec as the canonical PRIMARY
+spec, kept distinct from the sibling indel `Indel_Detection.md` (already reconciled) and the still-pending
+umbrella `Variant_Detection.md` / `Variant_Annotation.md`; enriched the SNP section with a "Method
+contract" paragraph (the two entry points incl. the `string`-input `FindSnpsDirect` vs `DnaSequence`
+`FindSnps`, 0-based `Position`/`QueryPosition` + single-base REF/ALT INV-02/04, null/empty vs
+ArgumentNullException contract, O(n)/O(1) vs O(n×m) complexity, suffix-tree-N/A). See `log.md` for full
+detail. Contradictions: none.)
+Variants/Indel_Detection → [[germline-variant-calling-snp-indel]] resolved 2026-07-17 (RECONCILE/REUSE:
 the indel-detection spec VARIANT-INDEL-001 — `VariantCaller.FindInsertions` / `FindDeletions` /
 `FindIndels` (union) filters over the aligned-column caller — is the indel facet already synthesized on
 this SNP/indel page (its VARIANT-INDEL-001 Evidence was already in `sources:`); treated the spec as the
@@ -748,10 +760,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Translation/Protein_Translation.md` | [[genetic-code-translation]] |
 | `docs/algorithms/Translation/Six_Frame_Translation.md` | [[genetic-code-translation]] |
 | `docs/algorithms/Variants/Indel_Detection.md` | [[germline-variant-calling-snp-indel]] |
+| `docs/algorithms/Variants/SNP_Detection.md` | [[germline-variant-calling-snp-indel]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (4 algorithm docs across 1 domain, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (2 algorithm docs across 1 domain, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
