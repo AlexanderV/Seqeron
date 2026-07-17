@@ -3,11 +3,12 @@ type: concept
 title: "Scalar melting temperature (Wallace rule / Marmur-Doty GC formula)"
 tags: [thermodynamics, sequence-statistics, primer, validation]
 sources:
+  - docs/algorithms/Statistics/Melting_Temperature.md
   - docs/Evidence/SEQ-TM-001-Evidence.md
   - docs/algorithms/MolTools/Melting_Temperature.md
-source_commit: b506d99c74fa208e5aea88e1af88e86dada36363
+source_commit: 69ed1cae8b2fd13096e7057ddb4783cfa9b262f5
 created: 2026-07-10
-updated: 2026-07-13
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -77,6 +78,35 @@ primer engine's *default* per-oligo Tm both use.
 > repository uses the **64.9 / −672.4** constants, a different published Marmur-Doty variant. The
 > family and the `A + B·%GC − C/N` shape are the same; only the constants differ. The evidence
 > hand-derivations use the repo's 64.9 form.
+
+## SequenceStatistics method contract (SEQ-TM-001 spec)
+
+The canonical SEQ-TM-001 entry point is
+`SequenceStatistics.CalculateMeltingTemperature(string dnaSequence, bool useWallaceRule = true)`
+in `Seqeron.Genomics.Analysis/SequenceStatistics.cs` (status *Production*). Base counting delegates
+to `CalculateNucleotideComposition`; cost is **O(n) time / O(1) space** (no substring search — the
+repository suffix tree is **not applicable**).
+
+- **`useWallaceRule` flag.** Wallace applies **only** when `useWallaceRule && dnaSequence.Length <
+  ThermoConstants.WallaceMaxLength (14)`; otherwise Marmur-Doty. Passing `useWallaceRule: false`
+  therefore **forces the Marmur-Doty GC formula at any length**, including short oligos.
+- **Two different lengths in play.** The Wallace-vs-Marmur boundary tests the **raw
+  `dnaSequence.Length`** (all characters), whereas Marmur-Doty's `N` is the **counted A/T/G/C total**
+  (`CountA+CountT+CountG+CountC`). For input containing non-ACGT characters the two diverge — the
+  dispatch can pick Marmur-Doty on raw length while the formula normalizes by the smaller counted
+  total. If the counted total is `0` the method returns `0` (in addition to the null/empty ⇒ `0`
+  guard). This `SequenceStatistics` branch does **not** clamp Marmur-Doty to ≥ 0 (unlike the primer
+  twin below), so a very-low-GC long oligo can return a negative Tm here.
+- **Consumer.** `SummarizeNucleotideSequence` calls this with `useWallaceRule: seq.Length < 14`,
+  explicitly hard-passing the same 14-nt boundary (see [[seq-summary-001-evidence]]).
+
+The **same Statistics spec doc** (`docs/algorithms/Statistics/Melting_Temperature.md`) also
+documents the NN twin `SequenceStatistics.CalculateThermodynamics(string, double
+naConcentration = 0.05, double primerConcentration = 2.5e-7)` — its full-tuple ΔH°/ΔS°/ΔG°/Tm output
+is the SEQ-THERMO-001 material of [[dna-duplex-nearest-neighbor-thermodynamics]], not this scalar
+page. Worth recording from the shared spec: the repository default total strand concentration is
+**C_T = 250 nM** (vs Biopython's 50 nM); the NN formula is identical and the offset vanishes when
+`primerConcentration` is set explicitly (`5e-8` reproduces Biopython's 60.32 reference).
 
 ## The MolTools primer-side twin (PRIMER-TM-001) and simple salt correction
 
