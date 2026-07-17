@@ -3,10 +3,11 @@ type: concept
 title: "Breakpoint detection from split (soft-clipped) reads"
 tags: [structural-variant, algorithm]
 sources:
+  - docs/algorithms/StructuralVar/Breakpoint_Detection.md
   - docs/Evidence/SV-BREAKPOINT-001-Evidence.md
-source_commit: e0ce1587e134c086efac45f05e5c8d110933190e
+source_commit: 6f83d6398cb5439b522fc05e7f3fc5ccf86a9934
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -73,6 +74,57 @@ reads inside it.
 Worked oracles (from [[sv-breakpoint-001-evidence]]): **3 reads @ 5000 ± ≤ 5 b, same chr, support
 ≥ 2** → one breakpoint at ~5000; **1 isolated read** (min support 2) → none; **2 reads @ 5000 vs
 5100** (gap > tolerance) → two below-support groups → none.
+
+## Method contract (algorithm spec)
+
+The canonical **`Breakpoint_Detection.md`** spec (SV-BREAKPOINT-001, status *Simplified*) binds the
+unit to two entry points in `StructuralVariantAnalyzer.cs`
+(`Seqeron.Genomics.Annotation`):
+
+- **`FindBreakpoints(splitReads, clusterTolerance = 5, minSupport = 2)`** — the canonical clusterer.
+  It takes **exactly these three parameters** (no min-clip-length filter at this entry point) and
+  emits one `Breakpoint` per supported cluster. Steps: take each read's junction
+  (`SupplementaryPosition`) as the single-base estimate → **sort by chromosome, then junction
+  position** → linear scan, **starting a new cluster whenever the chromosome changes or the gap to
+  the previous junction exceeds `clusterTolerance`** → emit clusters with `≥ minSupport` members.
+  Validation is **eager** (`ArgumentNullException` before iteration) while clustering is **deferred**
+  via an iterator, mirroring the sibling `DetectSVs`. Cost **O(n log n)** time / **O(n)** space,
+  sort-dominated (the scan itself is O(n)).
+- **`RefineBreakpoint(chromosome, regionStart, regionEnd, splitReads)` → `int?`** — among reads whose
+  junction falls in the **inclusive** `[regionStart, regionEnd]` on `chromosome`, returns the
+  **modal** junction (**tie → rounded mean**), or `null` if the region has no member. Cost **O(n)**.
+
+**Clustering key.** `FindBreakpoints` groups on the **junction coordinate**
+(`SupplementaryPosition`), *not* the anchored `PrimaryPosition` that the sibling `ClusterSplitReads`
+uses — the junction is the breakpoint (ClipCrop), so it is the correct key for single-base
+localization. The output `Breakpoint` carries `Position1`/`Position2` (both = the cluster's
+**rounded-mean** junction), `Chromosome1`/`Chromosome2` (the same contig — clustering is
+intra-contig), and `SupportingReads` = the cluster size.
+
+**Two summary statistics, deliberately.** `FindBreakpoints` reports the **rounded mean** of member
+junctions (ASM-01), whereas `RefineBreakpoint` reports the **mode** (tie → mean) — the two entry
+points differ by design; both stay within `clusterTolerance` of every member.
+
+**Clip side is not a clustering key.** The implemented clustering combines reads on **chromosome +
+junction gap only** (INV-02); it does **not** partition by left/right clip side, and the output
+strands are a **fixed convention** (`Strand1 = '+'`, `Strand2 = '−'`) rather than derived from the
+L/R clip orientation that ClipCrop uses to distinguish breakpoint sides — an *intentional*
+simplification, so a `Breakpoint`'s strands do not encode which side the clip fell on.
+
+Named invariants carried by the spec (mirrored in the tests):
+
+| ID | Invariant |
+|----|-----------|
+| INV-01 | Every reported breakpoint has `SupportingReads ≥ minSupport` (below-support clusters dropped before emission). |
+| INV-02 | Two reads share a breakpoint only if **same chromosome AND junction gap ≤ `clusterTolerance`**. |
+| INV-03 | The reported position lies within `[min, max]` member junction (rounded mean, all inside one tolerance window). |
+| INV-04 | `SupportingReads` equals the cluster size. |
+| INV-05 | Number of breakpoints ≤ number of input split reads (each read joins exactly one cluster — a partition). |
+
+**Not this unit** (spec §5.3, defer to siblings in the same class): junction-sequence assembly and
+breakpoint microhomology → `AssembleBreakpointSequence` / `FindMicrohomology`; pairing two
+breakpoints into a **typed** SV (del/dup/inv/translocation) → `DetectSVs` / `ClassifySV`
+(SV-DETECT-001, [[discordant-pair-sv-detection]]).
 
 ## Scope, assumptions, and relation to other units
 
