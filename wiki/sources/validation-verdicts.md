@@ -177,7 +177,7 @@ One row per **CLEAN** per-unit validation report (no defect, no page needed). Re
 | SEQ-GC-ANALYSIS-001 | ? | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-GC-PROFILE-001 | ? | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-16 | 6617 |
 | SEQ-GCSKEW-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
-| SEQ-HYDRO-001 | ? | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-15 |  |
+| SEQ-HYDRO-001 | [[hydrophobicity-gravy-and-profile]] | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-15 |  |
 | SEQ-MW-001 | [[molecular-weight]] | CLEAN | PASS / PASS | 2026-06-15 | 6516 |
 | SEQ-PI-001 | ? | CLEAN | PASS / PASS | 2026-06-15 | 6517 |
 | SEQ-REPLICATION-001 | ? | CLEAN | PASS / PASS | 2026-06-16 | 6607 |

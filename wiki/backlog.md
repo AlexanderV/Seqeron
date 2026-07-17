@@ -18,7 +18,18 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **209** algorithm docs covered-via-concept, **19** pending across 5 domains
+Status at generation: **210** algorithm docs covered-via-concept, **18** pending across 5 domains
+(Statistics/Hydrophobicity_Analysis → [[hydrophobicity-gravy-and-profile]] resolved 2026-07-17
+(RECONCILE/REUSE: the Hydrophobicity Analysis spec, unit SEQ-HYDRO-001, describes the
+Kyte-Doolittle GRAVY scalar + sliding-window hydropathy profile already synthesized on this
+Evidence-derived concept — reconciled the algorithm spec onto that page as its canonical PRIMARY
+spec rather than creating a new `hydrophobicity-analysis` page, and enriched it with the
+genuinely-distinct `SequenceStatistics.CalculateHydrophobicity(string)` /
+`CalculateHydrophobicityProfile(string, windowSize=9)` entry points + Analysis-assembly location,
+the **default windowSize=9** (surface; 19 for TM), the lazy `IEnumerable<double>` O(n·W)/O(1)
+profile contract, and the named invariants INV-01…INV-05. No new page; spec added to `sources:`,
+`source_commit`→1163a158. No `wiki/sources/` page — a spec, not an Evidence/Validation report;
+hub [[algorithm-validation-evidence]] and graph edges unchanged, all already cover SEQ-HYDRO-001);
 (Statistics/GC_Content_Profile → [[windowed-gc-profile-and-variance]] resolved 2026-07-17
 (RECONCILE/REUSE: the GC Content Profile spec, unit SEQ-GC-PROFILE-001, describes the standalone
 sliding-window GC%-content channel already synthesized as the composite page's standalone entry
@@ -398,6 +409,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Statistics/DNA_Thermodynamics.md` | [[dna-duplex-nearest-neighbor-thermodynamics]] |
 | `docs/algorithms/Statistics/Entropy_Profile.md` | [[entropy-profile]] |
 | `docs/algorithms/Statistics/GC_Content_Profile.md` | [[windowed-gc-profile-and-variance]] |
+| `docs/algorithms/Statistics/Hydrophobicity_Analysis.md` | [[hydrophobicity-gravy-and-profile]] |
 | `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
 | `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
 | `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
@@ -577,7 +589,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (19 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (18 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
