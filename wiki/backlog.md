@@ -18,8 +18,15 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **217** algorithm docs covered-via-concept, **10** pending across 3 domains
-(StructuralVar/SV_Detection → [[discordant-pair-sv-detection]] resolved 2026-07-17, **closing the
+Status at generation: **218** algorithm docs covered-via-concept, **9** pending across 3 domains
+(Transcriptome/Alternative_Splicing → [[alternative-splicing-psi]] resolved 2026-07-17 (RECONCILE/REUSE:
+the algorithm spec TRANS-SPLICE-001 — `CalculatePSI` / `DetectAlternativeSplicing` — is the concept
+already synthesized on this Evidence-derived page; treated the spec as the canonical PRIMARY spec and
+enriched a "Method contract" section with the entry-point signatures + effective-length defaults, the
+negative-read `ArgumentOutOfRangeException`, the decoupled `InclusionLevel = NaN` on detected events,
+the multi-difference→SkippedExon fallback, the tolerant null/<2-isoform/identical-pair contract, and
+O(g·k²·e) complexity, rather than creating a redundant `alternative-splicing` page).
+StructuralVar/SV_Detection → [[discordant-pair-sv-detection]] resolved 2026-07-17, **closing the
 StructuralVar domain** (last pending doc) (RECONCILE/REUSE: the paired-end-mapping (PEM) discordant-pair
 SV caller, unit SV-DETECT-001, recognises SV-type signatures from read-pair span + orientation
 (DEL=larger span, INS=smaller span, INV=same-strand FF/RR, DUP=everted RF, CTX=interchromosomal) and is
@@ -671,6 +678,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/StructuralVar/Breakpoint_Detection.md` | [[breakpoint-detection-split-reads]] |
 | `docs/algorithms/StructuralVar/Copy_Number_Variation.md` | [[read-depth-cnv-segmentation]] |
 | `docs/algorithms/StructuralVar/SV_Detection.md` | [[discordant-pair-sv-detection]] |
+| `docs/algorithms/Transcriptome/Alternative_Splicing.md` | [[alternative-splicing-psi]] |
 
 ## Pending (fold into the ingest campaign)
 

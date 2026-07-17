@@ -5,11 +5,12 @@ tags: [transcriptome, splicing, algorithm]
 mcp_tools:
   - detect_alternative_splicing
 sources:
+  - docs/algorithms/Transcriptome/Alternative_Splicing.md
   - docs/Evidence/TRANS-SPLICE-001-Evidence.md
   - docs/Validation/reports/TRANS-SPLICE-001.md
-source_commit: 82e3e03992f6e370559efdde3124a4b870a57893
+source_commit: d232a18f715055deec2070f09069b6f5f09cab29
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -104,6 +105,36 @@ The A5SS/A3SS distinction hinges on **which boundary moves** (rMATS-turbo coordi
 alternative **donor** = downstream (3′/END) boundary of the upstream exon; alternative **acceptor** =
 upstream (5′/START) boundary of the downstream exon. AS is pervasive — 92–94% of multi-exon human
 genes (Wang 2008).
+
+## Method contract (algorithm spec)
+
+The canonical PRIMARY spec `docs/algorithms/Transcriptome/Alternative_Splicing.md` (status
+**Production**) fixes the two entry-point signatures on `TranscriptomeAnalyzer`
+(`Seqeron.Genomics.Annotation`):
+
+- `CalculatePSI(inclusionReads, exclusionReads, inclusionEffectiveLength = 0, exclusionEffectiveLength = 0)` →
+  `double` Ψ. Read counts are `double`, both **≥ 0**; a **negative** read count throws
+  `ArgumentOutOfRangeException`. The two effective-length params **default to 0**, keeping the
+  unnormalized `I/(I+S)` ratio; the rMATS length-normalized form activates **only when both are
+  strictly > 0** (`lᵢ > 0 ∧ lₛ > 0`). Denominator 0 (both read counts 0, or the length-weighted
+  denominator 0) returns **NaN** — no pseudo-count is added. O(1) time/space.
+- `DetectAlternativeSplicing(isoforms)` → `IEnumerable<SplicingEvent>`, one event per detected
+  isoform-pair structural difference; each carries `EventType` = one of the five class names.
+  `isoforms` is `IEnumerable<TranscriptIsoform>` with a gene id and an **ordered exon coordinate
+  list** — exons are inclusive `[Start, End]`, 5′→3′ **ascending**, on **one strand**.
+  Complexity **O(g·k²·e)** (g genes, k isoforms/gene, e exons/isoform), O(e) space — it compares exon
+  coordinate sets, so the repository suffix tree is **not** applicable (no substring search).
+
+Output/behavior details the read-count and taxonomy sections above do not carry:
+
+- **Detected events report `InclusionLevel = NaN`.** Classification is purely structural (coordinate
+  comparison); the inclusion level requires read counts and is obtained **separately** via
+  `CalculatePSI`. Detection and quantification are decoupled operations.
+- **Single-difference assumption for a clean class.** Unambiguous class assignment expects **one**
+  structural difference per isoform pair; a complex **multi-difference** pair falls back to
+  **SkippedExon**.
+- **Tolerant input contract:** `null` isoforms → **empty** result; a gene with **< 2 isoforms** is
+  skipped; a structurally **identical** isoform pair emits **no event**.
 
 ## Invariants and edge cases
 

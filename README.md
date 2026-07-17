@@ -47,18 +47,24 @@ Prefer code? The same algorithms are a normal C# API. Prefer your own agent? The
 
 ## Why Seqeron
 
-Most bioinformatics lives in Python and R. Seqeron brings a broad, **cohesive** toolkit to the .NET
-ecosystem — one strictly-layered library, one build, warnings-as-errors, no glue scripts — and pairs
-it with an AI-native workflow that the classic stacks don't have.
+Bioinformatics is entering the agentic era, but most scientific libraries still stop at functions.
+**Seqeron is built for the next interface: intent.** Describe the biological outcome; an LLM can
+discover, compose, and execute the right algorithms as a grounded workflow — without becoming the
+calculator or drowning in schemas.
 
-| | |
+| What you gain | Why it matters |
 |---|---|
-| 🧬 **Broad & cohesive** | 250+ algorithms across alignment, annotation, variant calling, phylogenetics, population & comparative genomics, metagenomics, transcriptomics, epigenetics, RNA structure, oncology, and molecular design — all under one namespace. |
-| 🗣️ **Plain-language first** | Describe the task; the matching skills load themselves, pick the right tools, and chain a correct multi-step pipeline. No schema wrangling. |
-| 🔒 **Honest by construction** | A runtime `LimitationPolicy` guards each algorithm's validated scope, and results are tool-computed with provenance — the assistant never makes up a number. |
-| ⚡ **Fast** | A Ukkonen suffix tree for substring queries, plus aggressive NativeAOT builds for the MCP servers. |
-| ✅ **Heavily tested** | 22,000+ executed test cases across ten testing methodologies, warnings-as-errors, CI-gated on .NET 10. |
-| 🔌 **Three front doors** | The same validated algorithm answers whether you go through a skill, a C# call, or an MCP tool. |
+| 🤖 **LLM-native and context-smart** | 21 skills discover and chain **427 strict-schema tools** on demand, without loading the whole catalog into context. You state the biology; Seqeron handles tools, order, parameters, units, coordinates, and provenance. |
+| ⚙️ **Executable answers, not plausible prose** | The LLM orchestrates; Seqeron computes. Alignments, variants, trees, structures, scores, and primer properties come from tested code — never model arithmetic. |
+| 🧭 **One question, an end-to-end workflow** | Move from parsing and QC through alignment, assembly, annotation, RNA, oncology, or assay design. More than 250 algorithms share models and conventions instead of behaving like unrelated utilities. |
+| 🔁 **Conversation today, production code tomorrow** | Skills, MCP tools, and C# reach the same implementations. Explore interactively, then embed the pipeline without rewriting the biology. |
+| 🔬 **Modern rigor, visible limits** | Completed units carry literature-traced parameters, tests, and validation evidence. Boundaries are documented, guarded where detectable, and agent workflows expose how each result was produced. |
+| 🏠 **Local-first and agent-portable** | MCP runs locally over stdio, so data need not leave the machine. Use Claude Code, Copilot, Codex, another MCP client, or no LLM at all. |
+| ⚡ **A modern engine underneath** | .NET 10, NativeAOT-ready executables, Ukkonen search, reusable on-disk indexes, structured results, and 22,000+ tests across ten methodologies. |
+
+Seqeron is not a genomics library with an AI wrapper. It is a **bioinformatics engine for people and
+agents**: broad enough for real workflows, structured enough to automate, transparent enough to
+audit, and direct enough to use in one prompt.
 
 ## Quick start
 
@@ -80,10 +86,24 @@ Setup is a one-time step per clone and is idempotent — re-run it any time a bu
 ## See it work: a resistance-mutation triage
 
 You hand the assistant two versions of a short gene fragment — a drug-susceptible wild type and a
-clinical isolate you suspect carries a resistance mutation — and ask, in plain English:
+clinical isolate you suspect carries a resistance mutation. Copy-paste this complete example; the
+third sequence is the isolate with 7 bp of upstream genomic context, which gives the primer designer
+enough sequence on both sides of the changed base:
+
+```fasta
+>wild_type_cds
+ATGACCGAAGCTCGTTGGGATCTGAAAAGAAGCGGTCGACTTGTCTTCAGTAGGGAA
+>resistance_isolate_cds
+ATGACCGAAGCTCGTGGGGATCTGAAAAGAAGCGGTCGACTTGTCTTCAGTAGGGAA
+>isolate_primer_context
+GCCCCAAATGACCGAAGCTCGTGGGGATCTGAAAAGAAGCGGTCGACTTGTCTTCAGTAGGGAA
+```
+
+Then ask, in plain English (the coordinates make this exact example reproducible):
 
 > *"Confirm both are clean DNA, tell me exactly what changed and whether it alters the protein, and
-> if it does, design me a PCR primer pair to amplify the region for a diagnostic."*
+> if it does, use `isolate_primer_context` to design me a PCR primer pair around target `[22,23)`
+> (0-based) for a diagnostic. Report mutation coordinates relative to the 57 bp CDS."*
 
 The assistant routes the task through a chain of skills. **Every number below is computed by the
 library — none is guessed:**
@@ -93,7 +113,7 @@ library — none is guessed:**
 | 1 | [`bio-qc`](.claude/skills/bio-qc) | Both are valid DNA, 57 bp; GC 49.12 % vs 50.88 %. |
 | 2 | [`bio-alignment`](.claude/skills/bio-alignment) | **98.25 % identical** — a single substitution, no indels: **T→G at position 15** (0-based). |
 | 3 | [`bio-annotation`](.claude/skills/bio-annotation) | Translating the frame, `…MTEAR·`**`W`**`·DLK…` → `…MTEAR·`**`G`**`·DLK…`: a **missense mutation, `p.Trp6Gly`** — it really does change the protein. |
-| 4 | [`bio-moldesign`](.claude/skills/bio-moldesign) | A validated PCR pair around the site (61 bp amplicon): both primers **Tm ≈ 58.7 °C** (ΔTm 0.2 °C), no hairpin — ready for the bench. |
+| 4 | [`bio-moldesign`](.claude/skills/bio-moldesign) | A validated PCR pair around the site (61 bp amplicon): `GCCCCAAATGACCGAAGCTCGT` (**58.6 °C**) and `CCTACTGAAGACAAGTCGACCGC` (**58.8 °C**), ΔTm **0.2 °C**, no primer-dimer or hairpins — ready for the bench. |
 
 [`bio-rigor`](.claude/skills/bio-rigor) runs throughout — tool-only computation, 0-based coordinates,
 and provenance on every result. More worked end-to-end tasks live in
