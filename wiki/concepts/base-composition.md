@@ -6,13 +6,14 @@ mcp_tools:
   - analyze_gc_content
 sources:
   - docs/algorithms/Sequence_Composition/Sequence_Composition.md
+  - docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md
   - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
   - docs/Evidence/SEQ-SUMMARY-001-Evidence.md
-source_commit: a8d335a96ff93cf23c9f88811b39186cb98b3d0e
+source_commit: 4c518fcb9b8c05b81911917f37026096b0e7583f
 created: 2026-07-10
 updated: 2026-07-17
 graph:
@@ -62,7 +63,12 @@ the already-validated per-metric methods). The skew members of that umbrella liv
    degenerate IUPAC codes, gaps, `X`, …). The seven counts sum to Length.
 2. **GC content** = `(G + C) / (A + T + G + C + U)`, a fraction in **[0, 1]** (Biopython
    `Bio.SeqUtils.gc_fraction`). **Empty sequence ⇒ 0** (the zero-length denominator is handled,
-   not an exception).
+   not an exception). Its complement **AT content** = `(A + T + U) / (A + T + G + C + U)` — note
+   uracil is folded into the AT-fraction *numerator* (RNA `U` pairs with `A` like `T`), so for a
+   pure-RNA input AtContent counts U. This is a deliberate DNA/RNA asymmetry from the SEQ-STATS-001
+   primary spec (`Sequence_Composition_Statistics.md`): the **AT skew** on the sibling
+   [[nucleotide-composition-skew]] uses the DNA-specific `(A − T)/(A + T)` — U is *not* in the skew,
+   matching the Lobry/Wikipedia definition, whereas the AT *content* fraction does include it.
 3. **Amino-acid composition** — the analogous exact per-residue count over the **20** standard
    IUPAC single-letter codes (A C D E F G H I K L M N P Q R S T V W Y) plus Length.
 

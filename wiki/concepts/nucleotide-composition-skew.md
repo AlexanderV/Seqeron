@@ -7,11 +7,12 @@ mcp_tools:
   - nucleotide_composition
 sources:
   - docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md
+  - docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md
   - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-ATSKEW-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
-source_commit: 4beb586f662e59a317383820445c2dc5b176a08e
+source_commit: 4c518fcb9b8c05b81911917f37026096b0e7583f
 created: 2026-07-10
 updated: 2026-07-17
 ---
@@ -97,6 +98,13 @@ has two overloads over a shared private core: `CalculateAtSkew(string)` is the c
 `ArgumentNullException`). Cost is **O(n) time / O(1) space** — two linear symbol counts. The
 repository suffix tree does **not** apply: AT skew is a two-symbol count, not a substring-search
 or occurrence-enumeration problem.
+
+The umbrella's own copy of the two skews is *not* this class: the SEQ-STATS-001 primary spec
+(`Sequence_Composition_Statistics.md`) computes `GcSkew`/`AtSkew` inline as fields of the
+`NucleotideComposition` record inside `SequenceStatistics.CalculateNucleotideComposition`
+(the same single upper-cased pass that yields the [[base-composition]] counts), using the identical
+`(G−C)/(G+C)` / `(A−T)/(A+T)` formulas and the same zero-denominator ⇒ `0.0` guard (spec INV-02/INV-04).
+`GcSkewCalculator` (below) is the later standalone-scalar restatement validated as SEQ-ATSKEW-001.
 
 This unit returns only the **single global scalar** — windowed/cumulative *AT*-skew profiles
 and AT-skew-based origin location are deliberately *not* implemented. For localization along a
