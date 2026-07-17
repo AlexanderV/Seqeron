@@ -18,8 +18,24 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **215** algorithm docs covered-via-concept, **13** pending across 4 domains
-(Statistics/Sequence_Summary → [[base-composition]] resolved 2026-07-17, **closing the Statistics
+Status at generation: **216** algorithm docs covered-via-concept, **11** pending across 4 domains
+(StructuralVar/Copy_Number_Variation → [[read-depth-cnv-segmentation]] resolved 2026-07-17
+(RECONCILE/REUSE: the Copy Number Variation spec, unit SV-CNV-001, describes the read-depth →
+windowed-mean → log2 ratio → integer copy-number pipeline already synthesized on this Evidence-derived
+concept — reconciled the algorithm spec onto that page as its canonical PRIMARY spec rather than
+creating a redundant `copy-number-variation` page. Added a "Method contract (algorithm spec)" section
+carrying the genuinely-distinct implementation surface: the `StructuralVariantAnalyzer.DetectCNV(depthData,
+windowSize=100, referenceDepth=null, chromosome="chr1")` + `SegmentCopyNumber(logRatios, chromosome="chr1")`
+entry points + `LogRatioToCopyNumber`/`OverallMedianNonZero` privates, the `CopyNumberSegment` output
+contract (Start/End, LogRatio, CopyNumber=round(2·2^log2)≥0, BAlleleFrequency=NaN, ProbeCount), invariants
+INV-01…INV-06, the exception/edge-case contract (null⇒ArgumentNullException, windowSize≤0⇒ArgumentOutOfRangeException,
+trailing partial window dropped, zero-depth/NaN⇒no-call, ref≤0⇒no segments), O(n)/O(n·windowSize⁻¹) cost,
+and the 100/50/150-depth CN 2/1/3 oracle. Verified the log2/CN arithmetic and window default against the
+spec. Kept CNV distinct from the sibling SV_Detection (still pending) and the SV anchor
+[[breakpoint-detection-split-reads]]. No new page; spec added to `sources:` ahead of the Evidence doc,
+`source_commit`→941abc5b, `updated`→2026-07-17. No `wiki/sources/` page — a spec, not an Evidence/Validation
+report; hub [[algorithm-validation-evidence]] and graph edges unchanged, all already cover SV-CNV-001);
+Statistics/Sequence_Summary → [[base-composition]] resolved 2026-07-17, **closing the Statistics
 domain** (last pending doc) (RECONCILE/REUSE: the top-level `SummarizeNucleotideSequence`
 summary-record aggregator, unit SEQ-SUMMARY-001, bundles a sequence's length, composition, GC
 content, Shannon entropy, linguistic complexity and melting temperature into one `SequenceSummary`
@@ -638,10 +654,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Quality/Phred_Score_Handling.md` | [[phred-quality-encoding]] |
 | `docs/algorithms/Quality/Quality_Statistics.md` | [[fastq-quality-statistics]] |
 | `docs/algorithms/StructuralVar/Breakpoint_Detection.md` | [[breakpoint-detection-split-reads]] |
+| `docs/algorithms/StructuralVar/Copy_Number_Variation.md` | [[read-depth-cnv-segmentation]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (12 algorithm docs across 4 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (11 algorithm docs across 4 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
