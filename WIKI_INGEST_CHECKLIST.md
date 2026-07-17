@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1133 / 1181
+Progress: 1134 / 1181
 
 ## (top-level)  (6)
 
@@ -708,7 +708,7 @@ Progress: 1133 / 1181
 - [x] docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md
 - [x] docs/algorithms/Sequence_Comparison/Common_Region_Detection.md
 - [x] docs/algorithms/Sequence_Composition/GC_Skew.md
-- [ ] docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
+- [x] docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
 - [ ] docs/algorithms/Sequence_Composition/RNA_Complement.md
 - [ ] docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md
 - [ ] docs/algorithms/Sequence_Composition/Sequence_Composition.md

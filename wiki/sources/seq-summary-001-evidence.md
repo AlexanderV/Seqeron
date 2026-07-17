@@ -24,7 +24,7 @@ statistics computed by already-validated sibling methods:
 | `Composition` | A/T/G/C/U/N counts | `CalculateNucleotideComposition` → [[base-composition]] |
 | `GcContent` | `(G+C)/(A+T+G+C+U)` ∈ [0,1] | `CalculateGcContent` → [[base-composition]] |
 | `Entropy` | Shannon `H = −Σ pᵢ log₂ pᵢ` (bits) | [[seq-entropy-profile-001-evidence]] / [[windowed-sequence-complexity-profile]] |
-| `Complexity` | linguistic complexity (vocabulary-usage) | `CalculateLinguisticComplexity` → [[windowed-sequence-complexity-profile]] |
+| `Complexity` | linguistic complexity (vocabulary-usage) | `CalculateLinguisticComplexity` → [[linguistic-complexity]] |
 | `MeltingTemperature` | Wallace (len<14) / GC-Marmur-Doty (len≥14) | `CalculateMeltingTemperature` → [[melting-temperature]] (SEQ-TM-001, the scalar Wallace/Marmur Tm) |
 
 It is one instance of the templated per-algorithm [[algorithm-validation-evidence|evidence

@@ -3,16 +3,15 @@ type: concept
 title: "Windowed sequence complexity profile (sliding-window Shannon + linguistic complexity)"
 tags: [analysis, algorithm]
 mcp_tools:
-  - complexity_linguistic
-  - linguistic_complexity
   - windowed_complexity
 sources:
   - docs/algorithms/Complexity/Windowed_Complexity.md
   - docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md
   - docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md
-source_commit: 579178ec5fcf7fb4a0d95f1a8866299cf78eb55c
+  - docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
+source_commit: e961cd9f4ee3fb5796e5ae9593ec6d74c99df8b2
 created: 2026-07-10
-updated: 2026-07-13
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -85,9 +84,9 @@ where `Vᵢ` = number of **distinct** length-`i` subwords observed in the window
 `4^i` = the DNA-alphabet theoretical maximum vocabulary, and `N−i+1` = the positional maximum
 (Gabrielian & Bolshoy 1999; Troyanskaya 2002). `maxWordLength = min(6, windowSize)` (the cap of 6 is
 a repository efficiency parameter, ASSUMPTION). Range `0 < LC ≤ 1`; a **repetitive** window has few
-distinct subwords relative to the maximum ⇒ low LC. This is the same LC as the standalone unit
-SEQ-COMPLEX-001 (its docs `Linguistic_Complexity.md §2.2`; not yet separately ingested), applied
-per window.
+distinct subwords relative to the maximum ⇒ low LC. This is the same LC as the standalone scalar unit
+SEQ-COMPLEX-001 — [[linguistic-complexity]] (`SequenceComplexity.CalculateLinguisticComplexity`) —
+applied per window via the shared `CalculateLinguisticComplexityCore`.
 
 ## Window geometry and the `ComplexityPoint` contract
 

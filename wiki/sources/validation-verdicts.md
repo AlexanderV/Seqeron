@@ -166,7 +166,7 @@ One row per **CLEAN** per-unit validation report (no defect, no page needed). Re
 | SEQ-ATSKEW-001 | ? | CLEAN | PASS / PASS | 2026-06-16 | 6607 |
 | SEQ-CODON-FREQ-001 | [[codon-usage-comparison]] | CLEAN | PASS / PASS | 2026-06-16 | 6618 |
 | SEQ-COMP-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
-| SEQ-COMPLEX-001 | [[windowed-sequence-complexity-profile]] | CLEAN | PASS / PASS | 2026-06-24 |  |
+| SEQ-COMPLEX-001 | [[linguistic-complexity]] | CLEAN | PASS / PASS | 2026-06-24 |  |
 | SEQ-COMPLEX-DUST-001 | [[dust-low-complexity-score]] | CLEAN | PASS / PASS | 2026-06-16 | 6598 |
 | SEQ-COMPLEX-KMER-001 | [[k-mer-statistics]] | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-COMPLEX-WINDOW-001 | [[windowed-sequence-complexity-profile]] | CLEAN | PASS / PASS | 2026-06-16 |  |

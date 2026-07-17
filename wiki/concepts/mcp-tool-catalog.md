@@ -45,10 +45,12 @@ standards are [[mcp-plan]] and [[mcp-checklist]]; the reference operating prompt
 
 Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **212 / 427**
 tools to an existing concept (via authoritative method-ID / algorithm-doc / literal bridges, or
-high-confidence name overlap), touching **122 distinct concepts** (the `parse_gff3` / `to_gff3`
+high-confidence name overlap), touching **123 distinct concepts** (the `parse_gff3` / `to_gff3`
 pair was re-homed from [[bed-format-parsing]] onto the dedicated [[gff3-io]] concept; the
 `GcSkewCalculator` pair `gc_skew` / `windowed_gc_skew` was mapped onto the new [[gc-skew]]
-concept). The remaining **215** are listed per server as *unmapped* — a tool with no confidently
+concept; the scalar linguistic-complexity pair `complexity_linguistic` / `linguistic_complexity`
+was re-homed from [[windowed-sequence-complexity-profile]] onto the new [[linguistic-complexity]]
+concept, leaving the windowed profile with just `windowed_complexity`). The remaining **215** are listed per server as *unmapped* — a tool with no confidently
 matched existing concept, not necessarily a missing algorithm. No new concept page was created; the
 unmapped tools are recorded as gaps (see the closing section) so a future ingest can decide whether a
 cluster deserves its own concept.
@@ -73,7 +75,7 @@ class so algorithm families that lack a concept are visible.
 - [[molecular-weight]] — `molecular_weight_nucleotide`, `molecular_weight_protein`
 - [[nucleotide-composition-skew]] — `nucleotide_composition`
 - [[sequence-complexity-compression-lempel-ziv]] — `complexity_compression_ratio`
-- [[windowed-sequence-complexity-profile]] — `complexity_linguistic`, `linguistic_complexity`
+- [[linguistic-complexity]] — `complexity_linguistic`, `linguistic_complexity`
 
 Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _DnaSequence_: `dna_reverse_complement`, `dna_validate`
