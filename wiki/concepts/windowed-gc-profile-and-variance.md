@@ -4,12 +4,13 @@ title: "Windowed GC profile & compositional variance"
 tags: [sequence-statistics, composition, chromosome]
 sources:
   - docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md
+  - docs/algorithms/Statistics/GC_Content_Profile.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
-source_commit: 7b4fd24b1fba92ae7ca682644c90f8ca0bc4841b
+source_commit: 2beeab21b835d9cf1635490c8e6202efaae9bad6
 created: 2026-07-10
-updated: 2026-07-13
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -117,6 +118,36 @@ doctests scaled ×100 — `ACTG` → 50.0, `ACTGN` (remove) → 50.0, `ACTGN` (i
 [[test-unit-registry]] tracks the unit. This is the composition analogue of the standalone
 [[windowed-sequence-complexity-profile|windowed Shannon-entropy profile]] (SEQ-ENTROPY-PROFILE-001)
 — a per-window scalar channel factored out of a richer composite scan.
+
+### Standalone method — `CalculateGcContentProfile` (distinct from the composite)
+
+Unlike the composite `GcSkewCalculator.AnalyzeGcContent` (which returns a rich
+`GcAnalysisResult` of positioned `GcContentPoint`s at defaults **w = 1000 / step = 100**), the
+standalone unit is a **separate method in a separate class** — **`SequenceStatistics
+.CalculateGcContentProfile(string sequence, int windowSize = 100, int stepSize = 1, bool
+fraction = false)`** (`Seqeron.Genomics.Analysis`, primary spec
+`docs/algorithms/Statistics/GC_Content_Profile.md`, test unit SEQ-GC-PROFILE-001, status
+*Production*). Its contract differs from the composite in four load-bearing ways:
+
+- **Output is a bare `IEnumerable<double>`** — just the per-window GC% in offset order (0, step,
+  2·step, …), with **no** `WindowStart`/`WindowEnd`/`Position` coordinates and **no** paired skew
+  or variance. Values are produced **lazily via deferred `yield return`**, so callers materialise
+  with `ToList()`/`ToArray()`.
+- **Distinct defaults: w = 100, step = 1** (the composite defaults 1000 / 100). Both window
+  parameters are meant `≥ 1`; a null/empty sequence *or* `windowSize > length` ⇒ **empty profile**
+  (`yield break`), and `windowSize == length` ⇒ exactly one window = the whole-sequence GC%.
+- **An opt-in `fraction` flag** (default `false`): the default emits the percentage in `[0, 100]`
+  (`×100`); `fraction: true` emits the Biopython `gc_fraction` value in `[0, 1]` (`×1`) from the
+  same counts — the *only* API knob the standalone adds over the composite's channel.
+- **Cost `O(W · windowSize)` time / `O(1)` streaming space** (W = window count
+  `⌊(n − windowSize)/step⌋ + 1`): each window is recounted independently with no incremental
+  sliding sum, so for **step ≥ windowSize** windows are disjoint and total work collapses to
+  `O(n)`. Counting-only (no substring search), so the repository suffix tree does not apply.
+
+Worked overlap-aware oracle: **`CalculateGcContentProfile("GGGAAATGCC", windowSize: 4,
+stepSize: 3)` → `[75.0, 0.0, 75.0]`** (windows `GGGA` = 3/4·100, `AAAT` = 0, `TGCC` = 3/4·100 at
+offsets 0, 3, 6). Same per-window GC% formula, denominator, N-exclusion, RNA-U, and empty-window
+conventions as listed above.
 
 ## Implementation
 
