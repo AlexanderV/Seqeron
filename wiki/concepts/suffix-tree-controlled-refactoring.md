@@ -5,9 +5,10 @@ tags: [refactoring, methodology, testing, architecture]
 sources:
   - docs/refactoring/suffix-tree-contract-freeze-cycle3.md
   - docs/refactoring/suffix-tree-contract-freeze.md
-source_commit: c8af090404e38f4567fe9a24aa912242cc1f0500
+  - docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
+source_commit: 57070506e37d0e144eba6f3c084d6ab745afe53b
 created: 2026-07-17
-updated: 2026-07-17
+updated: 2026-07-18
 graph:
   relationships:
     - predicate: relates_to
@@ -93,6 +94,34 @@ This is the freeze method used in its harder mode: freezing a contract does not 
 contract to already be self-consistent — a known divergence is written down alongside the
 frozen surface and scheduled for reconciliation within the cycle, under the same gates.
 
+## Cycle 2 verification outcome
+
+The **Cycle 2 verification report**
+(`suffix-tree-controlled-refactoring-cycle2-verification.md`) is the closing record for the
+cycle the base freeze opened — it shows the frozen contract held and the scheduled `MaxDepth`
+divergence was resolved under the gates.
+
+- **All mandatory gates green (final run):** the three SuffixTree test projects passed in
+  full — `SuffixTree.Tests` **353/353**, `SuffixTree.Persistent.Tests` **499/499**,
+  `SuffixTree.Mcp.Core.Tests` **62/62** (all `-c Release`). No frozen invariant regressed.
+- **The `MaxDepth` divergence was resolved in-cycle:** phase 3,
+  `5eefd67 fix(contract): align persistent max-depth semantics`, unifies the in-memory-vs-
+  persistent `MaxDepth` disagreement flagged by the base freeze — exactly the work item the
+  freeze scheduled — with the persistent parity tests kept green as proof neither backend
+  broke.
+- **Eight-phase commit trace, one commit per phase.** After freezing the invariants
+  (`c25422e`) and adding **cross-implementation contract guards** (`64c1535`), the cycle
+  resolved `MaxDepth` (`5eefd67`) and then did structural-only architecture work: split the
+  persistent tree into **partials** (`6fe102d`), and decomposed `PersistentSuffixTreeBuilder`
+  in four steps — extract build state + finalize pipeline (`5550be3`), split sequential
+  finalize (`6f74b2d`), decompose finalize-pipeline methods (`f219acc`), and isolate pass-1
+  node processing (`4535fb5`). Every phase was decomposition/extraction, with parity protected
+  by the contract guards and the mandatory test gates run after each phase.
+- **One environment-level flake, not a code regression:**
+  `ComplexityGuardTests.Build_RepetitiveInput_StillLinear` showed timing variance on some
+  first runs and passed on immediate rerun with no code change — a note about the performance
+  gate's sensitivity, not a broken invariant.
+
 ## Guardrails (per-phase gates)
 
 The freeze is only enforceable if every phase is checked against it. Cycle 3's guardrails:
@@ -127,9 +156,10 @@ documents under `docs/refactoring/`:
   `MaxDepth` divergence work item).
 - `suffix-tree-contract-freeze-cycle3.md` — the Cycle 3 freeze (ingested here).
 - `suffix-tree-controlled-refactoring-verification.md`,
-  `...-cycle2-verification.md`, `...-cycle3-verification.md` — the per-cycle verification
-  reports.
+  `...-cycle3-verification.md` — the remaining per-cycle verification reports.
+- `suffix-tree-controlled-refactoring-cycle2-verification.md` — the Cycle 2 verification
+  report (ingested here; records the all-green gate run and the `MaxDepth` resolution).
 
-As the remaining four are ingested, add each to this page's `sources:`, bump `source_commit`
+As the remaining three are ingested, add each to this page's `sources:`, bump `source_commit`
 to HEAD, and enrich only genuinely distinct content (plan rationale, earlier frozen
 contracts, and the verification outcomes per cycle).
