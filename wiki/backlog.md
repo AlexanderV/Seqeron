@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **198** algorithm docs covered-via-concept, **34** pending across 7 domains
+Status at generation: **199** algorithm docs covered-via-concept, **33** pending across 7 domains
 (Sequence_Composition/Replication_Origin_Prediction → [[replication-origin-cumulative-skew]] resolved
 2026-07-17 (REUSE: the SEQ-REPLICATION-001 primary spec reconciles onto the existing cumulative-GC-skew
 origin/terminus concept — enriched with the `PredictReplicationOrigin(DnaSequence|string)` entry points,
@@ -299,6 +299,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
 | `docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md` | [[nucleotide-composition-skew]] |
 | `docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md` | [[windowed-gc-profile-and-variance]] |
+| `docs/algorithms/Sequence_Composition/Sequence_Composition.md` | [[base-composition]] |
 | `docs/algorithms/Sequence_Composition/GC_Skew.md` | [[gc-skew]] |
 | `docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md` | [[replication-origin-cumulative-skew]] |
 | `docs/algorithms/Sequence_Composition/Linguistic_Complexity.md` | [[linguistic-complexity]] |
@@ -449,7 +450,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (31 algorithm docs across 7 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (30 algorithm docs across 7 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

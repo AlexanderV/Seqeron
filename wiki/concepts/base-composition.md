@@ -5,15 +5,16 @@ tags: [sequence-statistics, composition]
 mcp_tools:
   - analyze_gc_content
 sources:
+  - docs/algorithms/Sequence_Composition/Sequence_Composition.md
   - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
   - docs/Evidence/SEQ-SUMMARY-001-Evidence.md
-source_commit: 37c18482dfb0ee53a0be1fc073c2b4c6694012cc
+source_commit: a8d335a96ff93cf23c9f88811b39186cb98b3d0e
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -109,3 +110,35 @@ Composition is the base layer that several other wiki concepts build on:
 GC content is also a design/QC constraint elsewhere in the library (e.g. the 30–80% probe GC
 window in [[taqman-probe-design-rules]] and the 40–60% balanced-GC codon-optimization
 strategy in [[codon-optimization]]) — all reading the same underlying composition.
+
+## Implementation surface (SEQ-COMPOSITION-001 primary spec)
+
+The canonical primary spec (`docs/algorithms/Sequence_Composition/Sequence_Composition.md`)
+adds method-level detail to the Evidence view. Two entry points live in
+`Seqeron.Genomics.Analysis/SequenceStatistics.cs`:
+
+- `SequenceStatistics.CalculateNucleotideComposition(string)` → the `NucleotideComposition`
+  record struct (`Length`, per-base `A/T/G/C/U` counts, `CountN`, `CountOther`, `GcContent`,
+  `AtContent`, `GcSkew`, `AtSkew`). A single upper-casing linear pass classifies each character
+  into exactly one bucket, then closed-form ratios with zero-denominator guards. **O(n)** time,
+  **O(1)** space (fixed-size counters).
+- `SequenceStatistics.CalculateAminoAcidComposition(string)` → the `AminoAcidComposition`
+  record struct (`Length`, per-residue `Counts` over the 20 standard codes, plus derived
+  physico-chemical fields owned by the SEQ-MW/PI/HYDRO units). **O(n)** time, **O(σ)** space
+  (σ = distinct residues ≤ 26).
+
+**Consolidation, not re-implementation.** The spec's own note records that SEQ-COMPOSITION-001 is
+a *duplicate Registry entry* over the two methods first delivered under **SEQ-STATS-001**
+([[seq-stats-001-evidence]]); it is resolved by consolidation, and the full GC-content/skew
+treatment lives on that SEQ-STATS-001 umbrella (its skew members on [[nucleotide-composition-skew]]). No
+search/matching is involved (a pure counter scan), so the repository suffix tree does not apply.
+
+**Invariants** (spec §2.4): `0 ≤ GcContent, AtContent ≤ 1` (INV-01, subset-count over
+canonical-base total); `−1 ≤ GcSkew, AtSkew ≤ 1` (INV-02, difference over sum of non-negative
+counts); `CountA+T+G+C+U+N+Other = Length` (INV-03, each char in exactly one bucket); amino-acid
+`Length = Σ Counts` (INV-04). Zero-denominator skew ⇒ `0.0`, matching Biopython's
+`ZeroDivisionError` handling.
+
+**Not implemented.** Weighted ambiguous-base GC (Biopython `gc_fraction(ambiguous="weighted")`)
+is out of scope; degenerate-heavy sequences should use Biopython `gc_fraction` directly. Over the
+canonical {A,T,G,C,U} alphabet the two agree exactly.
