@@ -5,10 +5,11 @@ tags: [transcriptome, algorithm]
 mcp_tools:
   - differential_expression
 sources:
+  - docs/algorithms/Transcriptome/Differential_Expression.md
   - docs/Evidence/TRANS-DIFF-001-Evidence.md
-source_commit: e00919fd4a7a3e5c624a134af281d66dfe6d4831
+source_commit: aba976debe8dc3f316f6eb6d0cb3eb337f648314
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -98,6 +99,39 @@ A gene is significant **only when BOTH**:
 
 Failing **either** criterion → **not significant** (Science Park lesson; DESeq2). The alpha is the
 **adjusted-p (FDR)** threshold, strict `<`.
+
+## Method contract (algorithm spec)
+
+Two static entry points on `TranscriptomeAnalyzer` (`Seqeron.Genomics.Annotation`, the Annotation
+server), per the TRANS-DIFF-001 spec:
+
+- `CalculateFoldChange(expression1, expression2)` → `double` log2FC (see §1). `null`/empty list ⇒
+  treated as mean 0. **O(s)** time / O(1) space (two mean passes).
+- `FindDifferentiallyExpressed(genes, alpha=0.05, log2FoldChangeThreshold=1.0)` →
+  per-gene `DifferentialExpression` records. `genes` is
+  `IEnumerable<(string GeneId, IReadOnlyList<double> Condition1, IReadOnlyList<double> Condition2)>`
+  where **Condition1 = control / reference** and **Condition2 = treatment / numerator**;
+  `null` enumerable ⇒ empty result. Constraints: `0 < alpha ≤ 1`, `log2FoldChangeThreshold ≥ 0`.
+  **O(g·s + g·log g)** time / O(g) space — the `g·log g` term is the BH sort.
+
+**Inputs are treated as already-normalized** expression — no internal library-size / TPM normalization
+is applied (that is the upstream job of [[expression-quantification]]'s `CalculateTPM` /
+`QuantileNormalize`). No exceptions are thrown for degenerate input; degenerate cases resolve to the
+conventions in *Invariants and edge cases* below.
+
+**Output record fields** (one per gene):
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `GeneId` | string | gene identifier |
+| `Log2FoldChange` | double | `log2((m2+c)/(m1+c))`; positive = up in condition 2 |
+| `PValue` | double | raw two-sided Welch t-test p-value |
+| `AdjustedPValue` | double | Benjamini-Hochberg FDR-adjusted p-value |
+| `IsSignificant` | bool | `|log2FC| ≥ threshold` AND `adjusted p < alpha` |
+| `Regulation` | string | `"Upregulated"` / `"Downregulated"` / `"Unchanged"` by the sign of log2FC |
+
+This unit is **purely numeric over expression vectors** — no substring search or pattern matching, so
+the repository suffix tree does not apply.
 
 ## Invariants and edge cases
 

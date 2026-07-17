@@ -18,8 +18,16 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **218** algorithm docs covered-via-concept, **9** pending across 3 domains
-(Transcriptome/Alternative_Splicing → [[alternative-splicing-psi]] resolved 2026-07-17 (RECONCILE/REUSE:
+Status at generation: **219** algorithm docs covered-via-concept, **8** pending across 3 domains
+(Transcriptome/Differential_Expression → [[differential-expression]] resolved 2026-07-17 (RECONCILE/REUSE:
+the algorithm spec TRANS-DIFF-001 — `CalculateFoldChange` / `FindDifferentiallyExpressed` — is the
+concept already synthesized on this Evidence-derived page; treated the spec as the canonical PRIMARY
+spec and enriched a "Method contract (algorithm spec)" section with the two entry-point signatures +
+defaults (alpha=0.05, log2FoldChangeThreshold=1.0), the control=Condition1 / treatment=Condition2
+input contract, the already-normalized-input assumption, the six-field `DifferentialExpression` output
+(incl. the `Regulation` Upregulated/Downregulated/Unchanged label), O(g·s + g·log g) complexity, and
+the suffix-tree-N/A note, rather than creating a redundant page).
+Transcriptome/Alternative_Splicing → [[alternative-splicing-psi]] resolved 2026-07-17 (RECONCILE/REUSE:
 the algorithm spec TRANS-SPLICE-001 — `CalculatePSI` / `DetectAlternativeSplicing` — is the concept
 already synthesized on this Evidence-derived page; treated the spec as the canonical PRIMARY spec and
 enriched a "Method contract" section with the entry-point signatures + effective-length defaults, the
@@ -679,10 +687,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/StructuralVar/Copy_Number_Variation.md` | [[read-depth-cnv-segmentation]] |
 | `docs/algorithms/StructuralVar/SV_Detection.md` | [[discordant-pair-sv-detection]] |
 | `docs/algorithms/Transcriptome/Alternative_Splicing.md` | [[alternative-splicing-psi]] |
+| `docs/algorithms/Transcriptome/Differential_Expression.md` | [[differential-expression]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (11 algorithm docs across 4 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (8 algorithm docs across 3 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
