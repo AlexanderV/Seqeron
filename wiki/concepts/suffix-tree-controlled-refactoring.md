@@ -6,7 +6,8 @@ sources:
   - docs/refactoring/suffix-tree-contract-freeze-cycle3.md
   - docs/refactoring/suffix-tree-contract-freeze.md
   - docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
-source_commit: 57070506e37d0e144eba6f3c084d6ab745afe53b
+  - docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
+source_commit: cab355bfbe0b01435ded426ab7576edbdde358c8
 created: 2026-07-17
 updated: 2026-07-18
 graph:
@@ -122,6 +123,37 @@ divergence was resolved under the gates.
   first runs and passed on immediate rerun with no code change — a note about the performance
   gate's sensitivity, not a broken invariant.
 
+## Cycle 3 verification outcome
+
+The **Cycle 3 verification report**
+(`suffix-tree-controlled-refactoring-cycle3-verification.md`, 2026-02-25) is the closing
+record for the cycle the Cycle 3 freeze opened — it confirms the frozen contract held across
+the internal-only architecture work described above.
+
+- **All mandatory gates green (final run):** the three SuffixTree test projects passed in
+  full — `SuffixTree.Tests` **353/353**, `SuffixTree.Persistent.Tests` **503/503**,
+  `SuffixTree.Mcp.Core.Tests` **62/62** (all `-c Release`). The persistent count is **up from
+  Cycle 2's 499/499** (four added tests), and no frozen invariant regressed.
+- **Both targeted gates green with concrete counts:** `Category=Parity` in the persistent
+  tests (in-memory vs persistent equivalence) passed **112/112** and `Category=Performance` in
+  the in-memory tests passed **12/12** — Cycle 3 is the first verification to record explicit
+  parity/perf counts, proving the persistent-builder and traversal refactors kept the two
+  backends behaviourally identical and within the complexity guards.
+- **Nine-phase commit trace, one commit per phase**, realizing the "what Cycle 3 was allowed
+  to change" plan: freeze invariants (`b5fa00e`) → stabilize the complexity/perf guards
+  (`e4bfbb9`) → then structural-only refactors — extract explicit runtime state containers
+  (`2f32767`), split the sequential finalize-pass orchestration (`b61a192`), introduce child
+  and depth **storage adapters** (`aa66e3a`) in `PersistentSuffixTreeBuilder`; unify the null
+  and empty-pattern contracts in search (`08cad7d`); de-duplicate streaming traversal steps
+  (`9d85e3f`); add ergonomic persistent-lifecycle factory APIs (`838f05d`); and isolate the
+  MCP genomics tool handlers (`780604a`). Every phase was decomposition/extraction, gated per
+  phase.
+- **One environment-level flake, not a code regression:** during an intermediate finalization
+  run `Build_ScalesLinearly` transiently failed on timing variance and passed on immediate
+  rerun with no code change — a different perf-guard test than Cycle 2's
+  `Build_RepetitiveInput_StillLinear`, but the same class of environment-sensitivity note
+  rather than a broken invariant.
+
 ## Guardrails (per-phase gates)
 
 The freeze is only enforceable if every phase is checked against it. Cycle 3's guardrails:
@@ -155,11 +187,14 @@ documents under `docs/refactoring/`:
 - `suffix-tree-contract-freeze.md` — the initial contract freeze (ingested here; adds the
   `MaxDepth` divergence work item).
 - `suffix-tree-contract-freeze-cycle3.md` — the Cycle 3 freeze (ingested here).
-- `suffix-tree-controlled-refactoring-verification.md`,
-  `...-cycle3-verification.md` — the remaining per-cycle verification reports.
+- `suffix-tree-controlled-refactoring-verification.md` — the remaining per-cycle
+  verification report (not yet ingested).
+- `suffix-tree-controlled-refactoring-cycle3-verification.md` — the Cycle 3 verification
+  report (ingested here; records the all-green gate run with explicit parity **112/112** /
+  performance **12/12** counts, persistent **503/503**, and the nine-phase trace).
 - `suffix-tree-controlled-refactoring-cycle2-verification.md` — the Cycle 2 verification
   report (ingested here; records the all-green gate run and the `MaxDepth` resolution).
 
-As the remaining three are ingested, add each to this page's `sources:`, bump `source_commit`
+As the remaining one is ingested, add it to this page's `sources:`, bump `source_commit`
 to HEAD, and enrich only genuinely distinct content (plan rationale, earlier frozen
 contracts, and the verification outcomes per cycle).
