@@ -18,7 +18,19 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **210** algorithm docs covered-via-concept, **18** pending across 5 domains
+Status at generation: **211** algorithm docs covered-via-concept, **17** pending across 5 domains
+(Statistics/Isoelectric_Point → [[isoelectric-point]] resolved 2026-07-17
+(RECONCILE/REUSE: the Isoelectric Point spec, unit SEQ-PI-001, describes the pI = net-charge-zero
+pH found by bisecting the Henderson–Hasselbalch net-charge function over [0,14] already synthesized
+on this Evidence-derived concept — reconciled the algorithm spec onto that page as its canonical
+PRIMARY spec rather than creating a new `isoelectric-point` page (the slug already existed), and
+enriched it with the genuinely-distinct `SequenceStatistics.CalculateIsoelectricPoint(string)`
+public entry point + private `NetCharge` helper + Analysis-assembly location, the O(n)-time/O(1)-space
+cost with ≈11 fixed bisection iterations, the named invariants INV-01…INV-04, the not-implemented
+PTM/non-standard-residue pKa scope (defer to IPC/pIChemiSt), and the 2-D gel/IEF + ion-exchange
+applications. No new page; spec added to `sources:`, `source_commit`→5088660a. No `wiki/sources/`
+page — a spec, not an Evidence/Validation report; hub [[algorithm-validation-evidence]] and graph
+edges unchanged, all already cover SEQ-PI-001);
 (Statistics/Hydrophobicity_Analysis → [[hydrophobicity-gravy-and-profile]] resolved 2026-07-17
 (RECONCILE/REUSE: the Hydrophobicity Analysis spec, unit SEQ-HYDRO-001, describes the
 Kyte-Doolittle GRAVY scalar + sliding-window hydropathy profile already synthesized on this
@@ -410,6 +422,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Statistics/Entropy_Profile.md` | [[entropy-profile]] |
 | `docs/algorithms/Statistics/GC_Content_Profile.md` | [[windowed-gc-profile-and-variance]] |
 | `docs/algorithms/Statistics/Hydrophobicity_Analysis.md` | [[hydrophobicity-gravy-and-profile]] |
+| `docs/algorithms/Statistics/Isoelectric_Point.md` | [[isoelectric-point]] |
 | `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
 | `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
 | `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
