@@ -6,7 +6,7 @@ sources:
   - docs/algorithms/RnaStructure/RNA_Partition_Function.md
   - docs/Evidence/RNA-PARTITION-001-Evidence.md
   - docs/Validation/reports/RNA-PARTITION-001.md
-source_commit: 64768f24d260baf794d5de25a3ba2d6841914019
+source_commit: 18007bb74684cbe34dac3ee21116ec1f15bf37fb
 created: 2026-07-10
 updated: 2026-07-17
 graph:
@@ -156,8 +156,11 @@ admissible.
 **Reuse / non-use decisions.** The implementation deliberately does **not** use the repository suffix
 tree — this is a numerical DP over base-pairing Boltzmann weights, not a substring search, so the suffix
 tree is **N/A**. Not implemented: pseudoknotted ensembles (out of scope, see [[rna-pseudoknot-prediction]])
-and a full Turner-parameter partition function (users needing production thermodynamic ensembles should
-rely on ViennaRNA `RNAfold -p`).
+and — on *this* concept — a full Turner-parameter partition function. The full-Turner engine **is**
+implemented as the distinct sibling unit [[turner-mccaskill-partition-function]] (same McCaskill
+formalism over the Turner-2004 nearest-neighbour model, adding per-base unpaired probabilities,
+ensemble free energy, and RNAplfold-style region accessibility); users needing production
+thermodynamic ensembles beyond that should rely on ViennaRNA `RNAfold -p`.
 
 **Performance baseline (Phase 8).** `CalculatePartitionFunction` on a random length-300 RNA
 (single-threaded, .NET, Release) completes well under 1 second; the O(n³) growth dominates.

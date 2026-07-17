@@ -18,8 +18,20 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **193** algorithm docs covered-via-concept, **39** pending across 8 domains
-(RnaStructure/RNA_Free_Energy → [[rna-free-energy-turner-model]] resolved 2026-07-16 (REUSE: the
+Status at generation: **194** algorithm docs covered-via-concept, **38** pending across 7 domains
+(RnaStructure/Turner_McCaskill_Partition_Function → [[turner-mccaskill-partition-function]] resolved
+2026-07-17, **closing the RnaStructure domain** (last pending doc) (NEW concept: the full Turner-2004
+nearest-neighbour McCaskill partition function is a genuinely-distinct engine — not the base-pair-counting
+teaching model of [[rna-partition-function-mccaskill]] (RNA-PARTITION-001), which explicitly listed a
+*full Turner-parameter partition function* as **not implemented**. This unit reuses the MFE folder's
+Turner-2004 loop energies under Boltzmann-weighted inside recurrences (`Vexp`/`WMexp`/`Wexp`, `Z=Wexp(0,n−1)`),
+exposes distinct entry points `CalculateUnpairedProbabilities`/`CalculateRegionUnpairedProbability` and
+distinct outputs (`p_unpaired(i)=1−Σ_jP(i,j)`, `ΔG_ensemble=−RT·ln Z`, RNAplfold-style region accessibility
+`Z_open/Z`), computes marginals by **constrained re-folds** (`Z_forbid(i)/Z`, `Z_require(i,j)/Z` — no outside
+recursion, `O(n⁵)` bpp / `O(n³)` Z), and drives the TargetScan context++ **SA** feature consumed by
+[[mirna-target-site-prediction]]; the simplified page was cross-linked to it and its `source_commit` bumped;
+no `wiki/sources/` page — a spec, not an Evidence/Validation report);
+RnaStructure/RNA_Free_Energy → [[rna-free-energy-turner-model]] resolved 2026-07-16 (REUSE: the
 RNA-ENERGY-001 aggregate free-energy spec reconciles onto the existing Turner-model energy-terms
 concept — titled for RNA-ENERGY-001 and already listing its Evidence in `sources:` — enriched only
 with the aggregate spec's genuinely-distinct implementation surface: the Simplified status of the
@@ -337,6 +349,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md` | [[rna-free-energy-turner-model]] |
 | `docs/algorithms/RnaStructure/Minimum_Free_Energy.md` | [[rna-minimum-free-energy-folding]] |
 | `docs/algorithms/RnaStructure/RNA_Partition_Function.md` | [[rna-partition-function-mccaskill]] |
+| `docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md` | [[turner-mccaskill-partition-function]] |
 | `docs/algorithms/RnaStructure/Inverted_Repeats.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/RnaStructure/Pseudoknot_Detection.md` | [[rna-pseudoknot-detection]] |
 | `docs/algorithms/RnaStructure/Pseudoknot_Prediction.md` | [[rna-pseudoknot-prediction]] |
