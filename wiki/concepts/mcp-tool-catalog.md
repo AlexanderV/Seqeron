@@ -5,9 +5,10 @@ tags: [mcp, reference]
 sources:
   - docs/mcp/README.md
   - docs/mcp/MCP_STATUS.md
-source_commit: b3f950caf701615bb8a0296df6c5368d26dde7ec
+  - docs/skills/_generated/tool-catalog.md
+source_commit: aa50668d71d2a17ac383bf4e32023b933d614ffb
 created: 2026-07-10
-updated: 2026-07-17
+updated: 2026-07-18
 graph:
   relationships:
     - predicate: relates_to
@@ -35,6 +36,18 @@ algorithm belongs to** — it replaces per-tool ingestion. It does not restate s
 behaviour; each tool ships its own reference doc at `docs/mcp/tools/<server>/<tool>.md`, and every
 tool has a gold-standard binding + Schema+Binding test per [[mcp-checklist]] / [[mcp-plan]] (campaign
 COMPLETE 2026-07-01, see `docs/mcp/MCP_STATUS.md`).
+
+The authoritative machine-readable tool→Method-ID inventory is the generated catalog
+`docs/skills/_generated/tool-catalog.md` — the single anti-drift source the skills [[skills-strategy]]
+references. It is emitted by `scripts/skills/gen-catalog.py` from `docs/mcp/tools/**` (never edited by
+hand, between `<!-- BEGIN/END generated -->` markers), and its freshness is enforced in CI by
+`scripts/skills/check-catalog-fresh.sh` so the count and the per-tool bindings below cannot silently
+drift from the actual tool docs. Its per-server totals are authoritative and this page's section
+headings match them exactly: Sequence 35, Parsers 41, Alignment 22, Analysis 91, Annotation 97,
+Phylogenetics 13, Population 18, Metagenomics 19, Chromosome 32, MolTools 47, Core 12 = **427**. Note
+the generated catalog carries the full flat tool→Method-ID table for all 427 tools; the mapped/unmapped
+concept counts below (**216 / 427**, 125 concepts) come from this page's own curated mapping tool
+(`mcp_map.py`), not from the catalog.
 
 This surface is one of the [[three-front-doors]] (skills, C# API, MCP over one engine) and sits
 beneath the [[skill-layer]], which attaches the right server on demand so the 427

@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1175 / 1181
+Progress: 1176 / 1181
 
 ## (top-level)  (6)
 
@@ -1207,7 +1207,7 @@ Progress: 1175 / 1181
 ## skills  (4)
 
 - [x] docs/skills/STRATEGY.md
-- [ ] docs/skills/_generated/tool-catalog.md
+- [x] docs/skills/_generated/tool-catalog.md
 - [ ] docs/skills/golden/README.md
 - [ ] docs/skills/golden/tasks.md
 
