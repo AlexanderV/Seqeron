@@ -6,10 +6,11 @@ mcp_tools:
   - molecular_weight_nucleotide
   - molecular_weight_protein
 sources:
+  - docs/algorithms/Statistics/Molecular_Weight_Calculation.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
-source_commit: e058738ff312bb90e5022081cf85e0b9da5b67cb
+source_commit: d4ae46adf7c4db0cc4bcbd0c1fc8b88d8f97f957
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -97,6 +98,33 @@ Closed-form over the tables (average, water = 18.0153) — Biopython docstring w
   (cf. GRAVY skipping unknown residues on [[hydrophobicity-gravy-and-profile]], and `CountOther`
   routing on [[base-composition]]); it is an API-shape/robustness choice, not a mass-constant change —
   every value produced for in-alphabet monomers is **exactly source-conformant**.
+
+## Method contract (algorithm spec)
+
+The **SEQ-MW-001** unit exposes two static entry points in
+`Seqeron.Genomics.Analysis/SequenceStatistics.cs` (status *Production*):
+
+- `SequenceStatistics.CalculateMolecularWeight(string proteinSequence)` — average-isotopic
+  **protein** Mw (Da).
+- `SequenceStatistics.CalculateNucleotideMolecularWeight(string sequence, bool isDna = true)` —
+  average-isotopic **DNA/RNA** Mw (Da); the `isDna` flag selects the DNA vs RNA mass table.
+
+Both are a **single O(n) forward pass, O(1) space** — one table lookup per character over
+fixed-size tables, with the `(n−1)·water` correction applied once after accumulation (not a
+search/matching unit, so the repository suffix tree does not apply). The mass constants are the
+named tables `AverageWaterMass`, `AminoAcidWeights`, `DnaNucleotideWeights`, `RnaNucleotideWeights`,
+source-cited inline.
+
+Named invariants: **INV-01** MW(empty) = MW(null) = 0 (no monomers); **INV-02** MW > 0 for any
+non-empty recognized sequence (every monomer mass exceeds water); **INV-03** exactly one water
+removed per bond — MW(2 monomers) = m₁ + m₂ − W; **INV-04** case-insensitive (input
+`ToUpperInvariant`-folded before lookup).
+
+**Scope — single-stranded average only.** This unit implements the **average-isotopic,
+single-stranded** variant. **Monoisotopic** masses (water 18.010565 Da) and the
+**double-stranded** / **circular** corrections sketched in the shared formula above are
+**Biopython-only** — *not implemented in this repository*; callers needing them should use
+`Bio.SeqUtils.molecular_weight`'s `monoisotopic` / `double_stranded` / `circular` flags.
 
 ## Scope
 

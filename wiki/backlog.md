@@ -18,7 +18,22 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **212** algorithm docs covered-via-concept, **16** pending across 5 domains
+Status at generation: **213** algorithm docs covered-via-concept, **15** pending across 5 domains
+(Statistics/Molecular_Weight_Calculation → [[molecular-weight]] resolved 2026-07-17
+(RECONCILE/REUSE: the Molecular Weight Calculation spec, unit SEQ-MW-001, describes the
+average-isotopic protein/DNA/RNA mass scalar `MW = Σ monomer masses − (n−1)·water` already
+synthesized on this Evidence-derived concept — reconciled the algorithm spec onto that page as its
+canonical PRIMARY spec rather than creating a new `molecular-weight-calculation` page (the
+`molecular-weight` slug already existed, paired with [[isoelectric-point]] as the ExPASy Compute
+pI/Mw partner), and enriched it with a "Method contract (algorithm spec)" section carrying the
+genuinely-distinct `SequenceStatistics.CalculateMolecularWeight(string)` (protein) /
+`CalculateNucleotideMolecularWeight(string, isDna=true)` (DNA/RNA) entry points + Analysis-assembly
+location, the named mass-table constants, the O(n)-time/O(1)-space single-pass cost, the named
+invariants INV-01…INV-04, and the single-stranded-average-only scope note (monoisotopic /
+double_stranded / circular are Biopython-only, not implemented here). Verified the average mass
+tables + water 18.0153 Da against the spec. No new page; spec added to `sources:` ahead of the
+Evidence doc, `source_commit`→d4ae46ad. No `wiki/sources/` page — a spec, not an Evidence/Validation
+report; hub [[algorithm-validation-evidence]] and graph edges unchanged, all already cover SEQ-MW-001);
 (Statistics/Isoelectric_Point → [[isoelectric-point]] resolved 2026-07-17
 (RECONCILE/REUSE: the Isoelectric Point spec, unit SEQ-PI-001, describes the pI = net-charge-zero
 pH found by bisecting the Henderson–Hasselbalch net-charge function over [0,14] already synthesized
@@ -424,6 +439,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Statistics/Hydrophobicity_Analysis.md` | [[hydrophobicity-gravy-and-profile]] |
 | `docs/algorithms/Statistics/Isoelectric_Point.md` | [[isoelectric-point]] |
 | `docs/algorithms/Statistics/Melting_Temperature.md` | [[melting-temperature]] |
+| `docs/algorithms/Statistics/Molecular_Weight_Calculation.md` | [[molecular-weight]] |
 | `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
 | `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
 | `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
@@ -603,7 +619,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (16 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (15 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
