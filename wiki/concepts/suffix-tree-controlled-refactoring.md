@@ -3,11 +3,12 @@ type: concept
 title: "Suffix-tree controlled refactoring — contract freeze + per-cycle verification gates"
 tags: [refactoring, methodology, testing, architecture]
 sources:
+  - docs/refactoring/suffix-tree-controlled-refactoring-plan.md
   - docs/refactoring/suffix-tree-contract-freeze-cycle3.md
   - docs/refactoring/suffix-tree-contract-freeze.md
   - docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
   - docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
-source_commit: cab355bfbe0b01435ded426ab7576edbdde358c8
+source_commit: fefef95cb569ab87fecbcba3e04d25f9d7c3dec8
 created: 2026-07-17
 updated: 2026-07-18
 graph:
@@ -35,7 +36,55 @@ surfaces that the refactor must NOT change — and then reshapes internal archit
 that frozen contract, proving each phase behaviour-preserving with **mandatory test gates**.
 This is [[characterization-testing]] applied at campaign scale: the freeze is the pinned
 "as-is", the gates are the invariance check. This page is the **shared campaign record**;
-the individual cycle plans, freeze docs, and verification reports reconcile onto it.
+the individual cycle plans, freeze docs, and verification reports reconcile onto it. The
+methodology below originates in the campaign **plan**
+(`suffix-tree-controlled-refactoring-plan.md`), which sets the no-regression goal, the
+ordered phase roadmap, and the merge/rollback rules the freeze and verification docs execute.
+
+## The originating plan (goal, phase roadmap, merge rules)
+
+The campaign's founding document is the **plan**
+(`suffix-tree-controlled-refactoring-plan.md`) — the methodology the per-cycle freeze and
+verification docs execute. It fixes three things the cycle docs then carry out.
+
+**The goal — a no-regression refactor along three axes.** Reshape the suffix-tree modules
+(`SuffixTree`, `SuffixTree.Persistent`, `SuffixTree.Mcp.Core`) **without regressions in
+(1) correctness, (2) performance profile, or (3) storage-format behaviour**. These three
+axes are exactly why the gates below split into a mandatory behavioural set plus targeted
+parity/performance categories — each axis gets its own guard.
+
+**The ordered phase roadmap.** The plan lays out **eight sequential phases**, each a small,
+bounded piece of architecture work behind the frozen contract:
+
+1. **Baseline and guardrail artifacts** — establish the gates before touching code.
+2. **Decompose persistent load** — extract header read/validation out of the loader.
+3. **Normalize the text-matching contract** — remove concrete-type checks so matching binds
+   to the interface, not a backend type.
+4. **Split mapped-storage responsibilities** into dedicated partials/helpers.
+5. **De-recursify the in-memory diagnostics traversal** (eliminate recursion in the
+   diagnostics walk).
+6. **Split the MCP tools by bounded context** while preserving external API behaviour.
+7. **Align target-framework and nullable policy** across the suffix-tree modules and tests.
+8. **Final cleanup and invariant verification.**
+
+The per-cycle commit traces recorded elsewhere on this page (Cycle 2's eight-phase trace,
+Cycle 3's nine-phase trace) are the *executions* of this roadmap — the plan is the template
+each cycle instantiates and adapts.
+
+**The merge/rollback rules — the discipline that makes the gates enforceable.** Four rules
+govern how phases land:
+
+1. **Keep each phase small and reviewable.**
+2. **Commit only changes related to the current phase** (no unrelated edits in a phase
+   commit — so any gate failure bisects to one step).
+3. **Do not merge phase N+1 until phase N's gates are green** — a hard stop-the-line rule;
+   a red gate blocks progression rather than being carried forward.
+4. **Preserve binary format v6 compatibility and the parity contracts** as a standing
+   constraint across every phase, not just format-touching ones.
+
+Rule 3 is the campaign's rollback discipline: because each phase is an isolated, gated
+commit, a regression is contained to and reverted from a single reviewable step instead of
+unwinding a large merged change.
 
 ## The contract-freeze method
 
@@ -183,7 +232,10 @@ risks into explicit, testable assertions and makes each cycle's diff safe to bis
 This concept is the reconciliation target for the six suffix-tree controlled-refactoring
 documents under `docs/refactoring/`:
 
-- `suffix-tree-controlled-refactoring-plan.md` — the overall plan.
+- `suffix-tree-controlled-refactoring-plan.md` — the overall plan (ingested here; the
+  originating methodology — no-regression goal across correctness/performance/storage-format,
+  the eight-phase roadmap, and the small-phase / one-commit / gate-before-merge / preserve-v6
+  rules).
 - `suffix-tree-contract-freeze.md` — the initial contract freeze (ingested here; adds the
   `MaxDepth` divergence work item).
 - `suffix-tree-contract-freeze-cycle3.md` — the Cycle 3 freeze (ingested here).
