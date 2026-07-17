@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1173 / 1181
+Progress: 1174 / 1181
 
 ## (top-level)  (6)
 
@@ -1202,7 +1202,7 @@ Progress: 1173 / 1181
 - [x] docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
 - [x] docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
 - [x] docs/refactoring/suffix-tree-controlled-refactoring-plan.md
-- [ ] docs/refactoring/suffix-tree-controlled-refactoring-verification.md
+- [x] docs/refactoring/suffix-tree-controlled-refactoring-verification.md
 
 ## skills  (4)
 

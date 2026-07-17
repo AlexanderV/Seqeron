@@ -8,7 +8,8 @@ sources:
   - docs/refactoring/suffix-tree-contract-freeze.md
   - docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
   - docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
-source_commit: fefef95cb569ab87fecbcba3e04d25f9d7c3dec8
+  - docs/refactoring/suffix-tree-controlled-refactoring-verification.md
+source_commit: e0497a2b043083492d9c20ce409df1ba26cbff9b
 created: 2026-07-17
 updated: 2026-07-18
 graph:
@@ -144,6 +145,46 @@ This is the freeze method used in its harder mode: freezing a contract does not 
 contract to already be self-consistent — a known divergence is written down alongside the
 frozen surface and scheduled for reconciliation within the cycle, under the same gates.
 
+## Base (Cycle 1) verification outcome
+
+The **base verification report**
+(`suffix-tree-controlled-refactoring-verification.md`) is the closing record for the
+campaign's **first pass** — the run whose phase trace directly instantiates the plan's
+eight-phase roadmap, pairing with the base contract-freeze. It is the earliest of the three
+verifications, and its test counts are the baseline the later cycles grow from.
+
+- **All mandatory gates green, at the campaign's baseline counts:** `SuffixTree.Tests`
+  **353/353**, `SuffixTree.Persistent.Tests` **475/475**, `SuffixTree.Mcp.Core.Tests`
+  **59/59** (all `-c Release`). These are the **lowest counts of the three verifications** —
+  the persistent project later grows to Cycle 2's **499/499** and Cycle 3's **503/503**, and
+  the MCP project from **59** here to **62** in both later cycles — so this run marks the
+  pre-growth baseline before the later cycles added tests.
+- **Both targeted gates green:** `Category=Parity` in the persistent tests (in-memory vs
+  persistent equivalence) passed **112/112** and `Category=Performance` in the in-memory tests
+  passed **12/12** — the same parity/perf counts Cycle 3 later records, confirming the two
+  backends were already behaviourally identical and within the complexity guards from the base
+  pass.
+- **Seven-commit phase trace realizing the plan's eight-phase roadmap directly.** Unlike the
+  later cycles' persistent-builder decomposition traces, this base trace walks the plan's
+  roadmap step-for-step: `dc7a656` add the controlled-refactor gates (baseline/guardrail
+  phase) → `1498f5b` extract persistent-load header read + validation → `88a3c96` introduce
+  the text-source pattern-matcher contract (bind matching to the interface, not a backend
+  type) → `357be7a` split the mapped-storage provider responsibilities → `5e8513c` de-recursify
+  the diagnostics traversal to an iterative in-memory walk → `080de33` split the MCP suffix-tree
+  tools by bounded context → `318c846` align the suffix-tree target framework and nullable
+  policy. This is the plan's phases 1–7 as landed commits, with phase 8 (final cleanup +
+  invariant verification) being this report itself.
+- **Two framework/config invariants beyond the freeze docs' five classes.** Alongside the
+  familiar v6-format / `ISuffixTree`-contract / MCP-tool-name invariants, the base verification
+  locks two build-config invariants the freeze docs do not enumerate, both settled by the final
+  phase (`318c846`): **net8 stays the baseline for the non-persistent suffix-tree projects
+  while the persistent modules stay on net9 where required**, and the **nullable policy is
+  unified as `enabled` across the suffix-tree modules and tests** (with explicit per-project
+  overrides only where needed).
+- **No environment flake recorded** — this base run reports a clean all-green pass with no
+  timing-variance note, distinct from Cycle 2's `Build_RepetitiveInput_StillLinear` and
+  Cycle 3's `Build_ScalesLinearly` perf-guard flakes.
+
 ## Cycle 2 verification outcome
 
 The **Cycle 2 verification report**
@@ -230,7 +271,8 @@ risks into explicit, testable assertions and makes each cycle's diff safe to bis
 ## Campaign cluster
 
 This concept is the reconciliation target for the six suffix-tree controlled-refactoring
-documents under `docs/refactoring/`:
+documents under `docs/refactoring/` — **all six are now ingested here (remaining: 0); the
+campaign cluster is fully ingested**:
 
 - `suffix-tree-controlled-refactoring-plan.md` — the overall plan (ingested here; the
   originating methodology — no-regression goal across correctness/performance/storage-format,
@@ -239,14 +281,18 @@ documents under `docs/refactoring/`:
 - `suffix-tree-contract-freeze.md` — the initial contract freeze (ingested here; adds the
   `MaxDepth` divergence work item).
 - `suffix-tree-contract-freeze-cycle3.md` — the Cycle 3 freeze (ingested here).
-- `suffix-tree-controlled-refactoring-verification.md` — the remaining per-cycle
-  verification report (not yet ingested).
+- `suffix-tree-controlled-refactoring-verification.md` — the base/Cycle 1 verification
+  report (ingested here; records the campaign's baseline all-green gate run — `SuffixTree.Tests`
+  **353/353**, persistent **475/475**, MCP **59/59**, parity **112/112**, performance
+  **12/12** — the seven-commit trace that walks the plan's eight-phase roadmap step-for-step,
+  and the net8/net9 target-framework + unified-nullable build invariants).
 - `suffix-tree-controlled-refactoring-cycle3-verification.md` — the Cycle 3 verification
   report (ingested here; records the all-green gate run with explicit parity **112/112** /
   performance **12/12** counts, persistent **503/503**, and the nine-phase trace).
 - `suffix-tree-controlled-refactoring-cycle2-verification.md` — the Cycle 2 verification
   report (ingested here; records the all-green gate run and the `MaxDepth` resolution).
 
-As the remaining one is ingested, add it to this page's `sources:`, bump `source_commit`
-to HEAD, and enrich only genuinely distinct content (plan rationale, earlier frozen
-contracts, and the verification outcomes per cycle).
+All six documents are now reconciled onto this page — the plan's rationale, both frozen
+contracts, and the base/Cycle 2/Cycle 3 verification outcomes each contributed only their
+genuinely distinct content. The campaign cluster is fully ingested; no `docs/refactoring/`
+suffix-tree docs remain.
