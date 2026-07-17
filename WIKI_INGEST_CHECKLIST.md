@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1139 / 1181
+Progress: 1140 / 1181
 
 ## (top-level)  (6)
 
@@ -714,7 +714,7 @@ Progress: 1139 / 1181
 - [x] docs/algorithms/Sequence_Composition/Sequence_Composition.md
 - [x] docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md
 - [x] docs/algorithms/Sequence_Composition/Sequence_Validation.md
-- [ ] docs/algorithms/Sequence_Composition/Shannon_Entropy.md
+- [x] docs/algorithms/Sequence_Composition/Shannon_Entropy.md
 - [ ] docs/algorithms/Splicing/Acceptor_Site_Detection.md
 - [ ] docs/algorithms/Splicing/Donor_Site_Detection.md
 - [ ] docs/algorithms/Splicing/Gene_Structure_Prediction.md

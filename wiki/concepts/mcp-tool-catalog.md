@@ -43,16 +43,17 @@ standards are [[mcp-plan]] and [[mcp-checklist]]; the reference operating prompt
 
 ## Coverage
 
-Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **214 / 427**
+Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **216 / 427**
 tools to an existing concept (via authoritative method-ID / algorithm-doc / literal bridges, or
-high-confidence name overlap), touching **124 distinct concepts** (the `parse_gff3` / `to_gff3`
+high-confidence name overlap), touching **125 distinct concepts** (the `parse_gff3` / `to_gff3`
 pair was re-homed from [[bed-format-parsing]] onto the dedicated [[gff3-io]] concept; the
 `GcSkewCalculator` pair `gc_skew` / `windowed_gc_skew` was mapped onto the new [[gc-skew]]
 concept; the scalar linguistic-complexity pair `complexity_linguistic` / `linguistic_complexity`
 was re-homed from [[windowed-sequence-complexity-profile]] onto the new [[linguistic-complexity]]
 concept, leaving the windowed profile with just `windowed_complexity`; the `SequenceExtensions`
 predicate pair `is_valid_dna` / `is_valid_rna` was mapped onto the new [[sequence-validation]]
-concept). The remaining **213** are listed per server as *unmapped* — a tool with no confidently
+concept; the `CalculateShannonEntropy` pair `complexity_shannon` / `shannon_entropy` was mapped onto
+the new [[shannon-entropy]] concept). The remaining **211** are listed per server as *unmapped* — a tool with no confidently
 matched existing concept, not necessarily a missing algorithm. No new concept page was created; the
 unmapped tools are recorded as gaps (see the closing section) so a future ingest can decide whether a
 cluster deserves its own concept.
@@ -63,7 +64,7 @@ class so algorithm families that lack a concept are visible.
 
 ## Tool surface by server
 
-### Sequence — 35 tools (17 mapped, 18 unmapped)
+### Sequence — 35 tools (19 mapped, 16 unmapped)
 
 `Seqeron.Mcp.Sequence` — DNA/RNA/Protein models, composition, complexity, k-mers, Tm.
 
@@ -79,6 +80,7 @@ class so algorithm families that lack a concept are visible.
 - [[sequence-complexity-compression-lempel-ziv]] — `complexity_compression_ratio`
 - [[linguistic-complexity]] — `complexity_linguistic`, `linguistic_complexity`
 - [[sequence-validation]] — `is_valid_dna`, `is_valid_rna`
+- [[shannon-entropy]] — `complexity_shannon`, `shannon_entropy`
 
 Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _DnaSequence_: `dna_reverse_complement`, `dna_validate`
@@ -86,9 +88,9 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _KmerAnalyzer_: `kmer_analyze`, `kmer_count`
   - _ProteinSequence_: `protein_validate`
   - _RnaSequence_: `rna_from_dna`, `rna_validate`
-  - _SequenceComplexity_: `complexity_kmer_entropy`, `complexity_shannon`
+  - _SequenceComplexity_: `complexity_kmer_entropy`
   - _SequenceExtensions_: `complement_base`, `gc_content`
-  - _SequenceStatistics_: `amino_acid_composition`, `hydrophobicity`, `melting_temperature`, `shannon_entropy`, `summarize_sequence`, `thermodynamics`
+  - _SequenceStatistics_: `amino_acid_composition`, `hydrophobicity`, `melting_temperature`, `summarize_sequence`, `thermodynamics`
 
 ### Parsers — 41 tools (2 mapped, 39 unmapped)
 

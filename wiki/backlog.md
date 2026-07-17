@@ -18,8 +18,20 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **201** algorithm docs covered-via-concept, **31** pending across 7 domains
-(Sequence_Composition/Sequence_Validation → [[sequence-validation]] resolved 2026-07-17 (NEW concept:
+Status at generation: **202** algorithm docs covered-via-concept, **30** pending across 6 domains
+(Sequence_Composition/Shannon_Entropy → [[shannon-entropy]] resolved 2026-07-17, **closing the
+Sequence_Composition domain** (last pending doc) (NEW concept: the base per-symbol Shannon entropy
+`H = −Σ p·log₂ p` bits — a genuinely-distinct scalar member of the `SEQ-COMPLEX-*` complexity/entropy
+family that had no home. Two entry points with deliberately different alphabets: canonical DNA
+`SequenceComplexity.CalculateShannonEntropy` (only A/T/G/C, range [0,2]) and general-alphabet
+`SequenceStatistics.CalculateShannonEntropy` (all letters, the field bundled by `SummarizeNucleotideSequence`);
+kept DISTINCT from the higher-order k-mer k-entropy of [[k-mer-statistics]] (`CalculateKmerEntropy`,
+SEQ-COMPLEX-KMER-001 — per-base entropy is its k=1 composition-only case) and from the per-window
+Shannon channel of [[windowed-sequence-complexity-profile]] / the still-pending Statistics-domain
+`entropy-profile` consumer; mapped the MCP pair `complexity_shannon`/`shannon_entropy` onto it and
+repointed the SEQ-ENTROPY-001 verdict row in [[validation-verdicts]] (was `?`); no `wiki/sources/`
+page — a spec, not an Evidence/Validation report);
+Sequence_Composition/Sequence_Validation → [[sequence-validation]] resolved 2026-07-17 (NEW concept:
 the standalone SEQ-VALID-001 strict DNA/RNA alphabet-membership unit — `SequenceExtensions.IsValidDna`/`IsValidRna(ReadOnlySpan<char>)`
 + `DnaSequence.TryCreate(string, out DnaSequence?)` — had no home; it is genuinely distinct from
 [[fasta-parsing]]'s opt-in multi-alphabet `SequenceAlphabet` parse-time validator (StrictDna/IupacNucleotide/Rna/Protein)
@@ -314,6 +326,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Sequence_Composition/Linguistic_Complexity.md` | [[linguistic-complexity]] |
 | `docs/algorithms/Sequence_Composition/RNA_Complement.md` | [[rna-base-pairing]] |
 | `docs/algorithms/Sequence_Composition/Sequence_Validation.md` | [[sequence-validation]] |
+| `docs/algorithms/Sequence_Composition/Shannon_Entropy.md` | [[shannon-entropy]] |
 | `docs/algorithms/FileIO/BED_Parsing.md` | [[bed-format-parsing]] |
 | `docs/algorithms/FileIO/EMBL_Parsing.md` | [[insdc-feature-location]] |
 | `docs/algorithms/FileIO/FASTA_Parsing.md` | [[fasta-parsing]] |
@@ -460,7 +473,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (28 algorithm docs across 7 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (27 algorithm docs across 6 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
