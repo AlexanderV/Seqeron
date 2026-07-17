@@ -18,8 +18,19 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **220** algorithm docs covered-via-concept, **7** pending across 2 domains
-(Transcriptome/Expression_Quantification → [[expression-quantification]] resolved 2026-07-17, **closing the
+Status at generation: **221** algorithm docs covered-via-concept, **6** pending across 2 domains
+(Translation/Codon_Translation → [[genetic-code-translation]] resolved 2026-07-17 (RECONCILE/REUSE: the
+single-codon lookup spec TRANS-CODON-001 — `GeneticCode.Translate` / `IsStartCodon` / `IsStopCodon` /
+`GetCodonsForAminoAcid` / `GetByTableNumber` — is exactly the concept already synthesized on this
+Evidence-derived page (four NCBI tables 1/2/3/11, T→U + case normalization, exactly-3-char contract);
+treated the spec as the canonical PRIMARY spec rather than creating a redundant `codon-translation` page.
+Key enrichment: the spec doc documents the IUPAC-ambiguity → `'X'` return as an **intentional
+simplification** (§5.2/§5.3/§6.1), which **resolves** the source-vs-implementation discrepancy the page had
+flagged against the older Evidence corner-case table (which expected an `ArgumentException` for `NNN`);
+also added the full family-size degeneracy distribution (1/2/3/4/6-fold) and the O(1) per-codon complexity.
+Kept distinct from the still-pending whole-CDS `Protein_Translation.md` / `Six_Frame_Translation.md` siblings,
+both already described on this page's `Translator` layer).
+Transcriptome/Expression_Quantification → [[expression-quantification]] resolved 2026-07-17, **closing the
 Transcriptome domain** (last pending doc) (RECONCILE/REUSE: the TPM/FPKM/RPKM + quantile-normalization
 quantification spec TRANS-EXPR-001 — `CalculateTPM` / `CalculateFPKM` / `QuantileNormalize` — is the concept
 already synthesized on this Evidence-derived page; treated the spec as the canonical PRIMARY spec and enriched
@@ -698,10 +709,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Transcriptome/Alternative_Splicing.md` | [[alternative-splicing-psi]] |
 | `docs/algorithms/Transcriptome/Differential_Expression.md` | [[differential-expression]] |
 | `docs/algorithms/Transcriptome/Expression_Quantification.md` | [[expression-quantification]] |
+| `docs/algorithms/Translation/Codon_Translation.md` | [[genetic-code-translation]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (8 algorithm docs across 3 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (6 algorithm docs across 2 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 

@@ -6,12 +6,13 @@ mcp_tools:
   - translate_dna
   - translate_rna
 sources:
+  - docs/algorithms/Translation/Codon_Translation.md
   - docs/Evidence/TRANS-CODON-001-Evidence.md
   - docs/Evidence/TRANS-PROT-001-Evidence.md
   - docs/Evidence/TRANS-SIXFRAME-001-Evidence.md
-source_commit: 950ce49428fde05020ff3c08e70ac1231947fc59
+source_commit: c71b42adc529c70fe0023a352e61f25cd2ca82f6
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -74,8 +75,13 @@ records **no deviation** in the mappings themselves. Stop codons translate to `'
 The code is degenerate: most amino acids have several synonymous codons. Only **Met (AUG)** and
 **Trp (UGG)** are single-codon families — the same fact that makes them fixed points under
 [[codon-optimization]] and gives them relative adaptiveness `w ≡ 1` in [[codon-adaptation-index|CAI]].
-Six-fold families (Leu, Ser, Arg) sit at the other extreme. `GetCodonsForAminoAcid(aa)` is the
-reverse lookup used to verify degeneracy.
+Six-fold families (Leu, Ser, Arg) sit at the other extreme. The full family-size distribution in
+the Standard table: **1-fold** Met, Trp; **2-fold** Phe, Tyr, His, Gln, Asn, Lys, Asp, Glu, Cys;
+**3-fold** Ile; **4-fold** Val, Pro, Thr, Ala, Gly; **6-fold** Leu, Ser, Arg.
+`GetCodonsForAminoAcid(aa)` is the reverse lookup used to verify degeneracy.
+
+`Translate`, `IsStartCodon`, and `IsStopCodon` are all **O(1)** — a fixed `T→U`/upper-case
+normalization followed by a single dictionary or set lookup per codon.
 
 ## Input contract and normalization
 
@@ -87,17 +93,21 @@ reverse lookup used to verify degeneracy.
   used mid-sequence still translates to its amino acid (**M**, not fMet — the code does not model
   formyl-methionine).
 
-## IUPAC ambiguity → 'X' (a deviation from the Evidence doc's corner-case table)
+## IUPAC ambiguity → 'X' (documented as an intentional simplification)
 
 The implementation treats **valid IUPAC ambiguity codons** (any triplet over
-`ACGURYMKSWBDHVN`, e.g. `NNN`, `RAY`) as **untranslatable but not invalid**: `Translate`
+`ACGURYMKSWBDHVN`, e.g. `NNN`, `ANN`, `RAY`) as **untranslatable but not invalid**: `Translate`
 returns `'X'` (unknown amino acid) rather than throwing. Only a triplet containing a
-**non-IUPAC** character (e.g. `Z`) raises `ArgumentException`. This **contradicts** the
-Evidence doc's *Documented Corner Cases* / *Known Failure Modes* tables, which state that an
-"Unknown codon (e.g., NNN)" and "Invalid nucleotide (X, Z)" should both yield an
-`ArgumentException`. The mapping tables match NCBI exactly; this divergence is in the
-**API-contract layer** (ambiguity handling), not in the code tables. Flagged as a
-source-vs-implementation discrepancy for reconciliation. (`GeneticCode.cs`, `Translate`.)
+**non-IUPAC** character (e.g. `Z`, or `XYZ`, `12G`) raises `ArgumentException`. The
+**algorithm spec** (`Codon_Translation.md`, TRANS-CODON-001, §5.2/§5.3/§6.1) documents this
+`'X'` return as the **intended, "intentionally simplified"**
+behaviour — ambiguity is *collapsed* to unknown rather than resolved probabilistically or
+expanded across concrete codons — so the implementation **matches its algorithm spec**. This
+only ever **contradicted** the older *Evidence* doc's *Documented Corner Cases* / *Known Failure
+Modes* tables, which had stated that an "Unknown codon (e.g., NNN)" should yield an
+`ArgumentException`; the spec doc supersedes that corner-case expectation. The NCBI mapping
+tables match exactly; the whole distinction lives in the **API-contract layer** (ambiguity
+handling), not in the code tables. (`GeneticCode.cs`, `Translate`.)
 
 ## Whole-sequence framed translation (the `Translator` layer)
 
