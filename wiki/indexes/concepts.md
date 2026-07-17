@@ -23,6 +23,7 @@ Return to the [[index|Wiki Index]].
 - [[combinatorial-testing]] — P3 methodology: minimal pairwise parameter-interaction coverage; 193/255 + 65 not-applicable.
 - [[characterization-testing]] — P3 methodology: golden-master pinning of behaviour before refactors (invariance, not correctness); on-demand.
 - [[build-quality-gate]] — the build-time static-analysis gate: SonarAnalyzer ratcheted to blocking under `TreatWarningsAsErrors`, fix-or-silence, review-not-blind-fix.
+- [[suffix-tree-controlled-refactoring]] — the multi-cycle contract-freeze + per-phase verification-gate campaign on the Ukkonen [[suffix-tree]] engine: freeze the externally observable contract (v6 binary format, `ISuffixTree` surface, empty-pattern semantics, traversal branch-balance, the six `suffix_tree_*` MCP tool names), refactor internals behind it, gate each phase on the SuffixTree test projects (+ Parity/Performance); shared record the six `docs/refactoring/` cluster docs reconcile onto.
 - [[test-unit-registry]] — the area-prefixed Test Unit ID scheme and per-unit record behind the validation effort.
 - [[definition-of-done]] — the six-criterion acceptance bar (TestSpec, tests, ≥80% coverage, edge cases, CI, evidence) each unit must clear.
 - [[algorithm-validation-evidence]] — the templated per-unit `docs/Evidence/` artifact pattern (sources, worked-example dataset, deviations) behind the "Evidence documented" DoD criterion.
