@@ -7,7 +7,8 @@ mcp_tools:
   - shannon_entropy
 sources:
   - docs/algorithms/Sequence_Composition/Shannon_Entropy.md
-source_commit: a444b72a7bdf4b704592af25b5fc00838a9f36cc
+  - docs/algorithms/Statistics/Entropy_Profile.md
+source_commit: dd6f9c3fb21684add3c59107cae5ea989bbd3315
 created: 2026-07-17
 updated: 2026-07-17
 graph:
@@ -35,6 +36,12 @@ graph:
       source: shannon-entropy-spec
       evidence: "The windowed complexity profile emits a per-window Shannon entropy of base composition (uniform ⇒ 2.0, homopolymer ⇒ 0); this scalar unit is the whole-distribution counterpart of that per-window channel."
       confidence: medium
+      status: current
+    - predicate: relates_to
+      object: concept:entropy-profile
+      source: entropy-profile-spec
+      evidence: "entropy-profile (SEQ-ENTROPY-PROFILE-001, SequenceStatistics.CalculateEntropyProfile) is the sliding-window consumer of this page's general-alphabet scalar kernel SequenceStatistics.CalculateShannonEntropy, emitting one H = −Σ pᵢ log₂ pᵢ per window."
+      confidence: high
       status: current
 ---
 
@@ -135,8 +142,10 @@ wrappers over the two methods (see [[mcp-tool-catalog]]).
   distribution, max `log₂(4ᵏ)`); per-base Shannon entropy here is its `k = 1` composition-only case.
 - **Windowed profile** — [[windowed-sequence-complexity-profile]] emits a per-window Shannon entropy of
   base composition along the sequence (a *profile*); this unit is the whole-distribution scalar. Keep it
-  distinct from the Statistics-domain windowed **entropy profile** consumer (`entropy-profile`, still
-  pending) that scans this same measure across sliding windows.
+  distinct from the Statistics-domain windowed [[entropy-profile]] consumer
+  (`SequenceStatistics.CalculateEntropyProfile`, SEQ-ENTROPY-PROFILE-001) that scans **this page's
+  general-alphabet kernel** (`SequenceStatistics.CalculateShannonEntropy`) across sliding windows and
+  emits the per-window entropy series.
 - **Other complexity-family scalars** — the compression [[sequence-complexity-compression-lempel-ziv]]
   (variable-length LZ76 phrases, order-sensitive), the fixed-`k=3` [[dust-low-complexity-score]] masker
   (high score ⇒ low complexity — opposite numeric direction), and the vocabulary-usage

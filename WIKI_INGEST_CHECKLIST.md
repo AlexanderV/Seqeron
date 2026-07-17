@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1146 / 1181
+Progress: 1147 / 1181
 
 ## (top-level)  (6)
 
@@ -721,7 +721,7 @@ Progress: 1146 / 1181
 - [x] docs/algorithms/Statistics/Codon_Frequencies.md
 - [x] docs/algorithms/Statistics/DNA_Thermodynamics.md
 - [x] docs/algorithms/Statistics/Dinucleotide_Analysis.md
-- [ ] docs/algorithms/Statistics/Entropy_Profile.md
+- [x] docs/algorithms/Statistics/Entropy_Profile.md
 - [ ] docs/algorithms/Statistics/GC_Content_Profile.md
 - [ ] docs/algorithms/Statistics/Hydrophobicity_Analysis.md
 - [ ] docs/algorithms/Statistics/Isoelectric_Point.md

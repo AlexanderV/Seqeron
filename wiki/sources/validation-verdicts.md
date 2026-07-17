@@ -172,7 +172,7 @@ One row per **CLEAN** per-unit validation report (no defect, no page needed). Re
 | SEQ-COMPLEX-WINDOW-001 | [[windowed-sequence-complexity-profile]] | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-DINUC-001 | ? | CLEAN | PASS / PASS | 2026-06-15 | 6523 |
 | SEQ-ENTROPY-001 | [[shannon-entropy]] | CLEAN | PASS / PASS | 2026-06-24 |  |
-| SEQ-ENTROPY-PROFILE-001 | ? | CLEAN | PASS / PASS | 2026-06-16 | 6617 |
+| SEQ-ENTROPY-PROFILE-001 | [[entropy-profile]] | CLEAN | PASS / PASS | 2026-06-16 | 6617 |
 | SEQ-GC-001 | [[base-composition]] | CLEAN | PASS / ✅ PASS | 2026-06-24 |  |
 | SEQ-GC-ANALYSIS-001 | ? | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-GC-PROFILE-001 | ? | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-16 | 6617 |

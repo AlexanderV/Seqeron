@@ -18,8 +18,24 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **207** algorithm docs covered-via-concept, **21** pending across 5 domains
-(Statistics/Dinucleotide_Analysis → [[dinucleotide-relative-abundance]] resolved 2026-07-17
+Status at generation: **208** algorithm docs covered-via-concept, **20** pending across 5 domains
+(Statistics/Entropy_Profile → [[entropy-profile]] resolved 2026-07-17
+(NEW concept: the sliding-window **Shannon entropy profile** SEQ-ENTROPY-PROFILE-001 —
+`SequenceStatistics.CalculateEntropyProfile(seq, windowSize=50, stepSize=1)` yields one
+`H = −Σ pᵢ log₂ pᵢ` (bits) per window as a lazy `IEnumerable<double>`, the windowed consumer of the
+scalar [[shannon-entropy]]'s **general-alphabet** kernel `SequenceStatistics.CalculateShannonEntropy`
+(counts ALL letters, so `N`/degenerate count as themselves, protein windows exceed 2 bits, no T↔U
+normalization). Created its own page rather than reconciling because it is a **genuinely-distinct
+method** from the DNA-canonical [[windowed-sequence-complexity-profile]]
+(`SequenceComplexity.CalculateWindowedComplexity`, `ComplexityPoint` = A/T/G/C Shannon **+** linguistic
+complexity, W=64/step=10) — the Statistics-domain slug `entropy-profile` was already reserved as
+pending on [[shannon-entropy]]. Moved SEQ-ENTROPY-PROFILE-001's home off the windowed page's
+"second entry point" section (now a sibling pointer) onto the new page; added reciprocal typed edges
+[[entropy-profile]]↔[[shannon-entropy]] / ↔[[windowed-sequence-complexity-profile]] / →[[k-mer-statistics]]
+/ →[[test-unit-registry]]; repointed the SEQ-ENTROPY-PROFILE-001 verdict row in [[validation-verdicts]]
+(was `?`); added the spec to `sources:` on the windowed + shannon-entropy pages (both now describe the
+method). No `wiki/sources/` page — a spec, not an Evidence/Validation report; hub unchanged);
+Statistics/Dinucleotide_Analysis → [[dinucleotide-relative-abundance]] resolved 2026-07-17
 (RECONCILE/REUSE: the Dinucleotide Analysis spec, unit SEQ-DINUC-001, describes exactly the
 already-synthesized dinucleotide-frequency / Karlin odds-ratio / codon-frequency engine — reconciled
 onto the existing Evidence-derived concept as its canonical PRIMARY spec rather than creating the
@@ -368,6 +384,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Statistics/Codon_Frequencies.md` | [[codon-usage-comparison]] |
 | `docs/algorithms/Statistics/Dinucleotide_Analysis.md` | [[dinucleotide-relative-abundance]] |
 | `docs/algorithms/Statistics/DNA_Thermodynamics.md` | [[dna-duplex-nearest-neighbor-thermodynamics]] |
+| `docs/algorithms/Statistics/Entropy_Profile.md` | [[entropy-profile]] |
 | `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
 | `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
 | `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
@@ -547,7 +564,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (21 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (20 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
