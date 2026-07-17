@@ -43,11 +43,12 @@ standards are [[mcp-plan]] and [[mcp-checklist]]; the reference operating prompt
 
 ## Coverage
 
-Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **210 / 427**
+Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **212 / 427**
 tools to an existing concept (via authoritative method-ID / algorithm-doc / literal bridges, or
-high-confidence name overlap), touching **121 distinct concepts** (the `parse_gff3` / `to_gff3`
-pair was re-homed from [[bed-format-parsing]] onto the dedicated [[gff3-io]] concept). The
-remaining **217** are listed per server as *unmapped* — a tool with no confidently
+high-confidence name overlap), touching **122 distinct concepts** (the `parse_gff3` / `to_gff3`
+pair was re-homed from [[bed-format-parsing]] onto the dedicated [[gff3-io]] concept; the
+`GcSkewCalculator` pair `gc_skew` / `windowed_gc_skew` was mapped onto the new [[gc-skew]]
+concept). The remaining **215** are listed per server as *unmapped* — a tool with no confidently
 matched existing concept, not necessarily a missing algorithm. No new concept page was created; the
 unmapped tools are recorded as gaps (see the closing section) so a future ingest can decide whether a
 cluster deserves its own concept.
@@ -123,7 +124,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _ApproximateMatcher_: `find_best_match`, `find_with_edits`, `frequent_kmers_with_mismatches`
   - _SequenceAssembler_: `sequence_identity`
 
-### Analysis — 91 tools (60 mapped, 31 unmapped)
+### Analysis — 91 tools (62 mapped, 29 unmapped)
 
 `Seqeron.Mcp.Analysis` — k-mer, motif, repeat, complexity, comparative & structural genomics.
 
@@ -159,6 +160,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
 - [[protein-secondary-structure-chou-fasman]] — `predict_chou_fasman`
 - [[regulatory-element-detection]] — `create_pwm`, `find_degenerate_motif`, `find_regulatory_elements`, `scan_with_pwm`
 - [[repetitive-element-detection]] — `find_tandem_repeats`, `tandem_repeat_summary`
+- [[gc-skew]] — `gc_skew`, `windowed_gc_skew`
 - [[replication-origin-cumulative-skew]] — `cumulative_gc_skew`, `predict_replication_origin`
 - [[rna-dot-bracket-notation]] — `validate_dot_bracket`
 - [[rna-free-energy-turner-model]] — `terminal_mismatch_energy`
@@ -172,7 +174,6 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
 
 Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _DisorderPredictor_: `predict_morfs`
-  - _GcSkewCalculator_: `gc_skew`, `windowed_gc_skew`
   - _GenomicAnalyzer_: `find_motif`
   - _KmerAnalyzer_: `analyze_kmers`, `find_clumps`, `most_frequent_kmers`
   - _MotifFinder_: `generate_consensus`

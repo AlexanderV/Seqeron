@@ -13,7 +13,7 @@ sources:
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
 source_commit: 4beb586f662e59a317383820445c2dc5b176a08e
 created: 2026-07-10
-updated: 2026-07-13
+updated: 2026-07-17
 ---
 
 # Nucleotide composition skew (AT skew / GC skew)
@@ -34,8 +34,9 @@ test unit ([[seq-atskew-001-evidence]]) later validates the AT-skew member as it
 entry; GC skew is the sibling member. Both skews are also computed together (as
 `OverallGcSkew`/`OverallAtSkew`, plus a **windowed** GC-skew profile and its population variance)
 by the composite **SEQ-GC-ANALYSIS-001** GC-analysis unit — see
-[[windowed-gc-profile-and-variance]] and [[seq-gc-analysis-001-evidence]]; a standalone `gc-skew`
-unit is separately flagged, not yet ingested. [[test-unit-registry]] tracks the units and
+[[windowed-gc-profile-and-variance]] and [[seq-gc-analysis-001-evidence]]; the standalone `gc-skew`
+unit (SEQ-GCSKEW-001, the `GcSkewCalculator` class-level anchor) is synthesized on [[gc-skew]].
+[[test-unit-registry]] tracks the units and
 [[algorithm-validation-evidence]] describes the artifact pattern.
 
 ## Definition and range

@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **194** algorithm docs covered-via-concept, **38** pending across 7 domains
+Status at generation: **195** algorithm docs covered-via-concept, **37** pending across 7 domains
 (RnaStructure/Turner_McCaskill_Partition_Function → [[turner-mccaskill-partition-function]] resolved
 2026-07-17, **closing the RnaStructure domain** (last pending doc) (NEW concept: the full Turner-2004
 nearest-neighbour McCaskill partition function is a genuinely-distinct engine — not the base-pair-counting
@@ -286,6 +286,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_Assembly/Scaffolding.md` | [[scaffolding]] |
 | `docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md` | [[nucleotide-composition-skew]] |
 | `docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md` | [[windowed-gc-profile-and-variance]] |
+| `docs/algorithms/Sequence_Composition/GC_Skew.md` | [[gc-skew]] |
 | `docs/algorithms/FileIO/BED_Parsing.md` | [[bed-format-parsing]] |
 | `docs/algorithms/FileIO/EMBL_Parsing.md` | [[insdc-feature-location]] |
 | `docs/algorithms/FileIO/FASTA_Parsing.md` | [[fasta-parsing]] |
@@ -432,7 +433,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (36 algorithm docs across 8 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (34 algorithm docs across 7 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
