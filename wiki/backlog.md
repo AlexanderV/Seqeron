@@ -18,8 +18,25 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **203** algorithm docs covered-via-concept, **29** pending across 6 domains
-(Splicing/Donor_Site_Detection → [[splice-donor-site-prediction]] resolved 2026-07-17
+Status at generation: **204** algorithm docs covered-via-concept, **28** pending across 5 domains
+(Splicing/Gene_Structure_Prediction → [[gene-structure-prediction-intron-exon]] resolved 2026-07-17,
+**closing the Splicing domain** (last pending doc) (REUSE: the composite intron/exon gene-structure
+predictor spec reconciled onto the existing splicing-family composite page rather than creating the
+placeholder `gene-structure-prediction` slug; enriched with a "Method contract (algorithm spec)"
+section carrying the genuinely-distinct implementation content — the `PredictGeneStructure(seq,
+minExonLength=30, minIntronLength=60, minScore=0.5)` + `PredictIntrons(seq, minIntronLength=60,
+maxIntronLength=100000, minScore=0.5)` signatures (the latter's `maxIntronLength` **fixed to 100000**
+inside `PredictGeneStructure`), the `FindDonorSites`/`FindAcceptorSites` **`minScore*0.8`** site
+threshold + `includeNonCanonical=true` for both, intron length `acceptor.Position-donor.Position+1`,
+the branch-point search window **`[acceptor.Position-50, acceptor.Position-18]`** at min branch score
+**0.4**, combined score `(donor+acceptor+branch)/3` with branch else `(donor+acceptor)/2`, greedy
+descending-score non-overlap selection, the `GeneStructure`/`Exon`/`Intron` output records, invariants
+INV-01…INV-04, and the **SplicedSequence-vs-exon-record coordinate caveat** (spliced sequence is
+defined by intron removal, `minExonLength` filters only the `Exons` list, so a short gap can be
+dropped from `Exons` yet remain spliced-in); no `wiki/sources/` page — a spec, not an
+Evidence/Validation report; hub unchanged). This closes Splicing (Donor + Acceptor + Gene_Structure
+all resolved 2026-07-17);
+Splicing/Donor_Site_Detection → [[splice-donor-site-prediction]] resolved 2026-07-17
 (REUSE: the algorithm spec describes exactly the already-synthesized SPLICE-DONOR-001 5' donor
 unit — reconciled onto the existing splicing-family donor page rather than creating the
 placeholder `donor-site-detection` slug; enriched with a "Method contract (algorithm spec)"
@@ -426,6 +443,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/RnaStructure/RNA_Stemloop.md` | [[rna-stem-loop-enumeration]] |
 | `docs/algorithms/Splicing/Acceptor_Site_Detection.md` | [[splice-acceptor-site-prediction]] |
 | `docs/algorithms/Splicing/Donor_Site_Detection.md` | [[splice-donor-site-prediction]] |
+| `docs/algorithms/Splicing/Gene_Structure_Prediction.md` | [[gene-structure-prediction-intron-exon]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | [[crispr-guide-rna-design]] |
