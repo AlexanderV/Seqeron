@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **213** algorithm docs covered-via-concept, **15** pending across 5 domains
+Status at generation: **214** algorithm docs covered-via-concept, **14** pending across 5 domains
 (Statistics/Molecular_Weight_Calculation → [[molecular-weight]] resolved 2026-07-17
 (RECONCILE/REUSE: the Molecular Weight Calculation spec, unit SEQ-MW-001, describes the
 average-isotopic protein/DNA/RNA mass scalar `MW = Σ monomer masses − (n−1)·water` already
@@ -440,6 +440,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Statistics/Isoelectric_Point.md` | [[isoelectric-point]] |
 | `docs/algorithms/Statistics/Melting_Temperature.md` | [[melting-temperature]] |
 | `docs/algorithms/Statistics/Molecular_Weight_Calculation.md` | [[molecular-weight]] |
+| `docs/algorithms/Statistics/Secondary_Structure_Prediction.md` | [[protein-secondary-structure-chou-fasman]] |
 | `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
 | `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
 | `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
@@ -619,7 +620,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (15 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (14 algorithm docs across 5 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
