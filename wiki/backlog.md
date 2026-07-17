@@ -18,8 +18,26 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **225** algorithm docs covered-via-concept, **2** pending across 1 domain
-(Variants/SNP_Detection → [[germline-variant-calling-snp-indel]] resolved 2026-07-17 (RECONCILE/REUSE:
+Status at generation: **226** algorithm docs covered-via-concept, **1** pending across 1 domain
+(Variants/Variant_Annotation → [[variant-effect-annotation-vep]] resolved 2026-07-17 (RECONCILE/REUSE:
+the variant-annotation spec VARIANT-ANNOT-001 — `VariantAnnotator.PredictFunctionalImpact` (per-variant
+codon-translation consequence engine) / `Annotate` (batch, most-severe `VariantAnnotation` per variant) /
+`GetImpactLevel` / `GetConsequenceRank` — is the VEP-style consequence concept **already synthesized** on
+this Evidence-derived page (its VARIANT-ANNOT-001 Evidence was already in `sources:`, and the page already
+carried the `OverlapConsequence` IMPACT/rank table, the codon-translation predicate set, and the worked
+oracles); treated the spec as the canonical PRIMARY spec (added ahead of the two Evidence docs in
+`sources:`) rather than creating a redundant `variant-annotation` page — kept distinct from the upstream
+germline caller [[germline-variant-calling-snp-indel]] (VARIANT-CALL/SNP/INDEL) and the still-pending
+umbrella `Variant_Detection.md` sibling. Enriched a "Method contract (VARIANT-ANNOT-001 algorithm spec)"
+section: the four `VariantAnnotator` entry points + `PredictFunctionalImpact(variant, transcript,
+referenceSequence, sequenceStart=1)` / `Annotate(variants, annotations, referenceSequence?, sequenceStart)`
+signatures, the `FunctionalImpact` (`Consequence`/`Impact`/`CodonChange` `c.`/`AminoAcidChange` `p.`) output
++ most-severe `VariantAnnotation` INV-04, the input contract (1-based `Position`, forward-strand alleles,
+`sequenceStart` window origin), the ArgumentException/ArgumentNullException + ambiguous-codon→X→
+`coding_sequence_variant` + no-window→coarse-coding-term edges, O(E) / O(v×g) complexity + suffix-tree-N/A,
+and the ASM-02 forward-strand-only (minus-strand + intron-split codons unhandled) + out-of-scope
+SIFT/PolyPhen-invented-constants limitations. See `log.md` for full detail. Contradictions: none.)
+Variants/SNP_Detection → [[germline-variant-calling-snp-indel]] resolved 2026-07-17 (RECONCILE/REUSE:
 the SNP-detection spec VARIANT-SNP-001 — `VariantCaller.FindSnpsDirect` (canonical positional Hamming
 enumerator over `string` inputs) / `FindSnps` (`DnaSequence` delegate = `CallVariants` filtered to
 `VariantType.SNP`) — is the SNP facet already synthesized on this SNP/indel page (its VARIANT-SNP-001
@@ -761,10 +779,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Translation/Six_Frame_Translation.md` | [[genetic-code-translation]] |
 | `docs/algorithms/Variants/Indel_Detection.md` | [[germline-variant-calling-snp-indel]] |
 | `docs/algorithms/Variants/SNP_Detection.md` | [[germline-variant-calling-snp-indel]] |
+| `docs/algorithms/Variants/Variant_Annotation.md` | [[variant-effect-annotation-vep]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (2 algorithm docs across 1 domain, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (1 algorithm doc across 1 domain, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
