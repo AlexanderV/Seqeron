@@ -18,8 +18,22 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **202** algorithm docs covered-via-concept, **30** pending across 6 domains
-(Splicing/Acceptor_Site_Detection → [[splice-acceptor-site-prediction]] resolved 2026-07-17
+Status at generation: **203** algorithm docs covered-via-concept, **29** pending across 6 domains
+(Splicing/Donor_Site_Detection → [[splice-donor-site-prediction]] resolved 2026-07-17
+(REUSE: the algorithm spec describes exactly the already-synthesized SPLICE-DONOR-001 5' donor
+unit — reconciled onto the existing splicing-family donor page rather than creating the
+placeholder `donor-site-detection` slug; enriched with a "Method contract (algorithm spec)"
+section — `FindDonorSites(seq, minScore=0.5, includeNonCanonical=false)` + opt-in
+`ScoreDonorMaxEnt`, the scan starting at **index 0** (vs the acceptor's 15), the `SpliceSite`
+output contract (`Position = i` = the donor dinucleotide **start**, `Type` `Donor` for GU **and**
+GC / `U12Donor` for AU, `Motif` via `GetMotifContext(seq,i,3,6)`, `Confidence`=clamp((score−0.5)/0.5)),
+the `ScoreDonorSite` binary `DonorPwm` −3..+5 match-fraction internals + `ScoreU12DonorSite`
+`AUAUCC`/6 scorer, and invariants INV-01…INV-04; **corrected** the guard claim from "shorter than
+the 9-nt window → empty" to the actual **length < 6** guard (the default scorer normalizes over
+in-bounds positions and does not need a full 9-nt window; only opt-in `ScoreDonorMaxEnt` requires
+exactly 9 nt); no `wiki/sources/` page — a spec, not an Evidence/Validation report). Gene_Structure
+is the last doc pending in Splicing);
+Splicing/Acceptor_Site_Detection → [[splice-acceptor-site-prediction]] resolved 2026-07-17
 (REUSE: the algorithm spec describes exactly the already-synthesized SPLICE-ACCEPTOR-001 unit —
 reconciled onto the existing splicing-family anchor rather than creating the placeholder
 `acceptor-site-detection` slug; enriched with the `SpliceSitePredictor` method signatures +
@@ -28,7 +42,7 @@ defaults, the `SpliceSite` output contract (`Position = i+1` = the `G`, `Type`
 `[position-15,position-3)`/12·2 + sparse `AcceptorPwm` offsets `-15,-10,-5,-4,-3,-2,-1,0`, the U12
 `3.5` normalizer, and invariants INV-01…INV-07; **corrected** the branch-point report threshold
 from `≥ 0.8` to `≥ minScore` **default 0.5** (spec §2.2 + `FindAcceptorBranchPoint` impl); no
-`wiki/sources/` page — a spec, not an Evidence/Validation report). Donor + Gene_Structure remain
+`wiki/sources/` page — a spec, not an Evidence/Validation report). Gene_Structure remains
 pending in Splicing);
 Sequence_Composition/Shannon_Entropy → [[shannon-entropy]] resolved 2026-07-17, **closing the
 Sequence_Composition domain** (last pending doc) (NEW concept: the base per-symbol Shannon entropy
@@ -411,6 +425,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/RnaStructure/RNA_Secondary_Structure.md` | [[rna-secondary-structure-prediction]] |
 | `docs/algorithms/RnaStructure/RNA_Stemloop.md` | [[rna-stem-loop-enumeration]] |
 | `docs/algorithms/Splicing/Acceptor_Site_Detection.md` | [[splice-acceptor-site-prediction]] |
+| `docs/algorithms/Splicing/Donor_Site_Detection.md` | [[splice-donor-site-prediction]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | [[crispr-guide-rna-design]] |
@@ -485,7 +500,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (27 algorithm docs across 6 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (26 algorithm docs across 6 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
