@@ -3,7 +3,7 @@ type: index
 title: "Ingestion backlog — docs/algorithms reconciliation + queued sources"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-16
+updated: 2026-07-17
 ---
 
 # Ingestion backlog
@@ -18,7 +18,7 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **192** algorithm docs covered-via-concept, **40** pending across 8 domains
+Status at generation: **193** algorithm docs covered-via-concept, **39** pending across 8 domains
 (RnaStructure/RNA_Free_Energy → [[rna-free-energy-turner-model]] resolved 2026-07-16 (REUSE: the
 RNA-ENERGY-001 aggregate free-energy spec reconciles onto the existing Turner-model energy-terms
 concept — titled for RNA-ENERGY-001 and already listing its Evidence in `sources:` — enriched only
@@ -336,6 +336,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/RnaStructure/Dot_Bracket_Notation.md` | [[rna-dot-bracket-notation]] |
 | `docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md` | [[rna-free-energy-turner-model]] |
 | `docs/algorithms/RnaStructure/Minimum_Free_Energy.md` | [[rna-minimum-free-energy-folding]] |
+| `docs/algorithms/RnaStructure/RNA_Partition_Function.md` | [[rna-partition-function-mccaskill]] |
 | `docs/algorithms/RnaStructure/Inverted_Repeats.md` | [[repetitive-element-detection]] |
 | `docs/algorithms/RnaStructure/Pseudoknot_Detection.md` | [[rna-pseudoknot-detection]] |
 | `docs/algorithms/RnaStructure/Pseudoknot_Prediction.md` | [[rna-pseudoknot-prediction]] |
