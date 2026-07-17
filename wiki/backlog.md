@@ -344,6 +344,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/RnaStructure/RNA_Base_Pairing.md` | [[rna-base-pairing]] |
 | `docs/algorithms/RnaStructure/RNA_Free_Energy.md` | [[rna-free-energy-turner-model]] |
 | `docs/algorithms/RnaStructure/RNA_Secondary_Structure.md` | [[rna-secondary-structure-prediction]] |
+| `docs/algorithms/RnaStructure/RNA_Stemloop.md` | [[rna-stem-loop-enumeration]] |
 | `docs/algorithms/Sequence_Comparison/Common_Region_Detection.md` | [[longest-common-substring]] |
 | `docs/algorithms/MolTools/Guide_RNA_Design.md` | [[crispr-guide-rna-design]] |
 | `docs/algorithms/MolTools/Off_Target_Analysis.md` | [[crispr-guide-rna-design]] |
@@ -418,7 +419,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (37 algorithm docs across 8 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (36 algorithm docs across 8 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
