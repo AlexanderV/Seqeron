@@ -188,7 +188,7 @@ One row per **CLEAN** per-unit validation report (no defect, no page needed). Re
 | SEQ-SUMMARY-001 | ? | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-THERMO-001 | ? | CLEAN | PASS / PASS | 2026-06-15 |  |
 | SEQ-TM-001 | ? | CLEAN | PASS / PASS | 2026-06-16 |  |
-| SEQ-VALID-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
+| SEQ-VALID-001 | [[sequence-validation]] | CLEAN | PASS / PASS | 2026-06-24 |  |
 | SPLICE-ACCEPTOR-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 (fresh re-validation) | 18 |
 | SPLICE-DONOR-001 | ? | CLEAN | PASS / PASS | 2026-06-25 (fresh re-validation; supersedes 2026-06-24) |  |
 | SPLICE-MAXENT3-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 |  |

@@ -18,8 +18,16 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **200** algorithm docs covered-via-concept, **32** pending across 7 domains
-(Sequence_Composition/Replication_Origin_Prediction → [[replication-origin-cumulative-skew]] resolved
+Status at generation: **201** algorithm docs covered-via-concept, **31** pending across 7 domains
+(Sequence_Composition/Sequence_Validation → [[sequence-validation]] resolved 2026-07-17 (NEW concept:
+the standalone SEQ-VALID-001 strict DNA/RNA alphabet-membership unit — `SequenceExtensions.IsValidDna`/`IsValidRna(ReadOnlySpan<char>)`
++ `DnaSequence.TryCreate(string, out DnaSequence?)` — had no home; it is genuinely distinct from
+[[fasta-parsing]]'s opt-in multi-alphabet `SequenceAlphabet` parse-time validator (StrictDna/IupacNucleotide/Rna/Protein)
+and from the ambiguity-*interpreting* [[iupac-degenerate-matching]]; created as the strict go/no-go
+character-membership primitive whose tally counterpart is [[base-composition]]; mapped the MCP predicate
+pair `is_valid_dna`/`is_valid_rna` onto it and repointed the SEQ-VALID-001 verdict row in [[validation-verdicts]]
+(was `?`); no `wiki/sources/` page — a spec, not an Evidence/Validation report);
+Sequence_Composition/Replication_Origin_Prediction → [[replication-origin-cumulative-skew]] resolved
 2026-07-17 (REUSE: the SEQ-REPLICATION-001 primary spec reconciles onto the existing cumulative-GC-skew
 origin/terminus concept — enriched with the `PredictReplicationOrigin(DnaSequence|string)` entry points,
 the `ReplicationOriginPrediction` record-struct output contract, INV-01…06, O(n)/O(1) single-pass
@@ -305,6 +313,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md` | [[replication-origin-cumulative-skew]] |
 | `docs/algorithms/Sequence_Composition/Linguistic_Complexity.md` | [[linguistic-complexity]] |
 | `docs/algorithms/Sequence_Composition/RNA_Complement.md` | [[rna-base-pairing]] |
+| `docs/algorithms/Sequence_Composition/Sequence_Validation.md` | [[sequence-validation]] |
 | `docs/algorithms/FileIO/BED_Parsing.md` | [[bed-format-parsing]] |
 | `docs/algorithms/FileIO/EMBL_Parsing.md` | [[insdc-feature-location]] |
 | `docs/algorithms/FileIO/FASTA_Parsing.md` | [[fasta-parsing]] |
@@ -451,7 +460,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (29 algorithm docs across 7 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (28 algorithm docs across 7 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
