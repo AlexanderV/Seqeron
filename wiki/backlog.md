@@ -18,8 +18,21 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **226** algorithm docs covered-via-concept, **1** pending across 1 domain
-(Variants/Variant_Annotation → [[variant-effect-annotation-vep]] resolved 2026-07-17 (RECONCILE/REUSE:
+Status at generation: **227** algorithm docs covered-via-concept, **0** pending — the per-domain
+algorithm-doc pending backlog is now fully closed.
+(Variants/Variant_Detection → [[germline-variant-calling-snp-indel]] resolved 2026-07-17, **closing the
+Variants domain AND the entire per-domain algorithm-doc pending backlog** (RECONCILE/REUSE: the umbrella
+`CallVariants` caller VARIANT-CALL-001 is the parent of the already-reconciled SNP (`SNP_Detection.md`)
+and indel (`Indel_Detection.md`) facets and the core of this page; treated the spec as the canonical
+PRIMARY spec (added first in `sources:`, ahead of the SNP/indel specs and the three Evidence docs) rather
+than creating a redundant `variant-detection` page. Enriched a "The umbrella `CallVariants` caller" section:
+the `CallVariants` / `CallVariantsFromAlignment` / `CalculateStatistics` entry points, the shared
+Needleman–Wunsch `SequenceAligner.GlobalAlign` engine + `CallVariantsFromAlignment` pre-aligned string
+entry point (`ArgumentException` on unequal lengths), the full five-member `VariantType` enum (only
+SNP/Insertion/Deletion emitted; MNP/Complex reserved), the `VariantStatistics` record + per-kilobase
+`VariantDensity` formula, and the `VcfPosition = Position+1` opt-in accessor. See `log.md` for full detail.
+Contradictions: none.)
+Variants/Variant_Annotation → [[variant-effect-annotation-vep]] resolved 2026-07-17 (RECONCILE/REUSE:
 the variant-annotation spec VARIANT-ANNOT-001 — `VariantAnnotator.PredictFunctionalImpact` (per-variant
 codon-translation consequence engine) / `Annotate` (batch, most-severe `VariantAnnotation` per variant) /
 `GetImpactLevel` / `GetConsequenceRank` — is the VEP-style consequence concept **already synthesized** on
@@ -780,10 +793,11 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Variants/Indel_Detection.md` | [[germline-variant-calling-snp-indel]] |
 | `docs/algorithms/Variants/SNP_Detection.md` | [[germline-variant-calling-snp-indel]] |
 | `docs/algorithms/Variants/Variant_Annotation.md` | [[variant-effect-annotation-vep]] |
+| `docs/algorithms/Variants/Variant_Detection.md` | [[germline-variant-calling-snp-indel]] |
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (1 algorithm doc across 1 domain, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above. **The per-domain algorithm-doc pending backlog is now fully closed — all domain tables in [[backlog-pending]] are empty.**
 
 ## Queued source batches (approved 2026-07-09)
 

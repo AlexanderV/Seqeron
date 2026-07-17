@@ -7,12 +7,13 @@ mcp_tools:
   - find_snps
   - titv_ratio
 sources:
+  - docs/algorithms/Variants/Variant_Detection.md
   - docs/algorithms/Variants/Indel_Detection.md
   - docs/algorithms/Variants/SNP_Detection.md
   - docs/Evidence/VARIANT-CALL-001-Evidence.md
   - docs/Evidence/VARIANT-INDEL-001-Evidence.md
   - docs/Evidence/VARIANT-SNP-001-Evidence.md
-source_commit: 5eeabea8527194a4ebba4698a893ab9d15248a8b
+source_commit: 34caa3137ac3d5e8e3e9f380abb130154edf3da0
 created: 2026-07-10
 updated: 2026-07-17
 graph:
@@ -77,6 +78,44 @@ Walking the reference/query alignment column by column yields exactly three diff
 
 Identical sequences yield **zero variants**. Mismatched aligned lengths throw `ArgumentException`; empty
 input yields an empty call set.
+
+## The umbrella `CallVariants` caller (Variant_Detection.md, VARIANT-CALL-001 spec)
+
+`CallVariants` is the **parent** of the SNP and indel facets: it is the single alignment-based caller that
+emits **all three classes at once**, and both the SNP filters (`FindSnps`) and the indel filters
+(`FindInsertions` / `FindDeletions` / `FindIndels`) are just `.Where(v => v.Type == …)` projections over
+its output. All entry points are static methods on `VariantCaller` (`Seqeron.Genomics.Annotation`,
+`VariantCaller.cs`):
+
+- **`CallVariants(DnaSequence reference, DnaSequence query) → IEnumerable<Variant>`** — the umbrella caller.
+  Null `reference`/`query` throws `ArgumentNullException`; it runs `SequenceAligner.GlobalAlign` (the shared
+  **Needleman–Wunsch** engine in `Seqeron.Genomics.Alignment`, `SimpleDna` matrix, match +1 / mismatch −1 /
+  linear gap −1, uppercase-normalizing) and delegates to the aligned-column scan.
+- **`CallVariantsFromAlignment(string alignedReference, string alignedQuery) → IEnumerable<Variant>`** — the
+  **pre-aligned entry point**: it takes two already-gapped, equal-length strings and does *only* the column
+  walk, bypassing the O(n×m) DP. Null/empty input → empty; **unequal aligned lengths → `ArgumentException`**.
+  Use it when the alignment is supplied by an external aligner.
+- **`CalculateStatistics(DnaSequence reference, DnaSequence query) → VariantStatistics`** — the summary
+  aggregator: calls `CallVariants`, then counts by class and computes the Ti/Tv and variant density in one
+  pass. Null input → `ArgumentNullException`.
+
+**`VariantType` enumeration.** The enum declares **five** members — `SNP`, `Insertion`, `Deletion`, `MNP`
+(multi-nucleotide polymorphism), `Complex` — but the column walk emits **only the first three**; `MNP` and
+`Complex` are reserved and never produced (multi-base events surface as *adjacent* per-base SNP/indel
+columns, not a combined record). The parallel `MutationType` enum (`Transition` / `Transversion` / `Other`)
+is the Ti/Tv classification axis, orthogonal to `VariantType`.
+
+**`VariantStatistics` record** (returned by `CalculateStatistics`) bundles the call-set summary:
+`TotalVariants`, `Snps`, `Insertions`, `Deletions`, `TiTvRatio` (from `CalculateTiTvRatio`), plus
+**`VariantDensity`** = `variants.Count / reference.Length × 1000` (**variants per kilobase**, `0` when the
+reference is empty), `ReferenceLength`, and `QueryLength`. This is the only place the per-kb density is
+defined.
+
+**`VcfPosition` opt-in accessor.** Every `Variant` stores a **0-based** `Position` (array convention); the
+record also exposes `VcfPosition => Position + 1` so a caller consuming the record directly gets the VCF
+**1-based POS** (VCFv4.3 §1.4.1) without re-deriving the offset — the same +1 shift `ToVcfLines` applies
+when serializing. The sibling `AnnotatedVariant` record (`Variant` + `VariantEffect` + `MutationType`) is
+the hand-off shape into [[variant-effect-annotation-vep]].
 
 ## SNP detection: FindSnps / FindSnpsDirect and the Hamming-mismatch invariant
 
