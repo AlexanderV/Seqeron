@@ -5,11 +5,12 @@ tags: [structural-variant, algorithm]
 mcp_tools:
   - find_discordant_pairs
 sources:
+  - docs/algorithms/StructuralVar/SV_Detection.md
   - docs/Evidence/SV-DETECT-001-Evidence.md
   - docs/Validation/reports/SV-DETECT-001.md
-source_commit: e525e3116b0a1c220283ce93c3fa751af524a7ae
+source_commit: a408154d453bce5f8aa5336dd28c48ed6642fc5d
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -101,6 +102,45 @@ is reported as an SV only when it has **≥ min supporting read pairs** (BreakDa
 A [[research-grade-limitations|research-grade]] method, **not for clinical use.** It consumes
 **already-mapped read-pair records** (span + orientation + chromosome per mate), not raw BAM
 parsing.
+
+## Method contract (algorithm spec)
+
+The **primary spec** for this unit is `docs/algorithms/StructuralVar/SV_Detection.md`; the algorithm
+lives in `StructuralVariantAnalyzer` (Seqeron.Genomics.Annotation, `StructuralVariantAnalyzer.cs`),
+status **Simplified**. Three static entry points form the pipeline:
+
+- **`FindDiscordantPairs(readPairs, expectedInsertSize=400, insertSizeStdDev=50, cutoffSd=3.0)`** →
+  `IEnumerable<ReadPairSignature>` — streams the pairs flagged anomalous (interchromosomal, span
+  outside `μ ± c·σ`, or non-FR orientation). O(n) time, O(1) streaming space.
+- **`ClassifySV(signature)`** → `SVType` — maps one pair's PEM signature to a type. O(1).
+- **`DetectSVs(readPairs, expectedInsertSize=400, insertSizeStdDev=50, cutoffSd=3.0, clusterDistance=500, minSupport=2)`**
+  → `IEnumerable<StructuralVariant>` — the canonical entry point: find discordant → cluster → support
+  gate → classify. O(n log n) time / O(n) space (dominated by the sort of discordant pairs; the
+  internal `ClusterDiscordantPairs` is a linear adjacency sweep, not a windowing/CBS model).
+
+**Input record.** `readPairs` is an `IEnumerable<(string ReadId, string Chr1, int Pos1, char Strand1,
+string Chr2, int Pos2, char Strand2, int InsertSize)>` — positions **0-based**, strands `'+'`/`'−'`.
+Chromosome names are compared by **raw string equality** (no normalization). Defaults: μ=400, σ=50,
+c=3.0, clusterDistance=500, minSupport=2 (constraints: μ>0, σ≥0, c≥0, clusterDistance≥0, minSupport≥1).
+
+**Output record.** `StructuralVariant` carries `Type, Start, End, Length, SupportingReads, Quality`
+— one per qualifying cluster. `SVType` is `Deletion | Insertion | Inversion | Duplication |
+Translocation | ComplexRearrangement`.
+
+**Classification order (first match wins).** `ClassifySV` applies §2.2 in order: (1) `Chr1 ≠ Chr2` →
+Translocation; (2) `Strand1 == Strand2` → Inversion; (3) RF (`Strand1=='−', Strand2=='+'`) →
+Duplication; (4) FR and `span > μ+c·σ` → Deletion; (5) FR and `span < μ−c·σ` → Insertion; (6)
+otherwise → **`ComplexRearrangement`** (the "everything else" bucket). `FindDiscordantPairs` also
+flags any pair above a hard **`maxInsertSize` guard (default 10000)**; such a pair with no matching
+basic signature falls through to `ComplexRearrangement`.
+
+**Preconditions.** Null `readPairs` / `discordantPairs` → `ArgumentNullException`; empty input →
+empty result. A span **exactly** at `μ ± c·σ` is concordant (bound inclusive; discordant iff strictly
+outside). `ClassifySV` assumes its input pair is already anomalous — a concordant pair passed directly
+is classified by the same rules but would not normally be produced by `FindDiscordantPairs`. Invariants
+`INV-01`…`INV-06` (translocation precedence, same-strand⇒inversion, larger/smaller-span DEL/INS, span
+cutoff, min-support gate) are covered by `StructuralVariantAnalyzer_DetectSVs_Tests.cs`. This unit runs
+no substring/pattern search over a sequence, so the repository suffix tree is not applicable.
 
 ## Relation to the other germline-SV units
 

@@ -18,8 +18,23 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **216** algorithm docs covered-via-concept, **11** pending across 4 domains
-(StructuralVar/Copy_Number_Variation → [[read-depth-cnv-segmentation]] resolved 2026-07-17
+Status at generation: **217** algorithm docs covered-via-concept, **10** pending across 3 domains
+(StructuralVar/SV_Detection → [[discordant-pair-sv-detection]] resolved 2026-07-17, **closing the
+StructuralVar domain** (last pending doc) (RECONCILE/REUSE: the paired-end-mapping (PEM) discordant-pair
+SV caller, unit SV-DETECT-001, recognises SV-type signatures from read-pair span + orientation
+(DEL=larger span, INS=smaller span, INV=same-strand FF/RR, DUP=everted RF, CTX=interchromosomal) and is
+the concept already synthesized on this Evidence-derived page — reconciled the algorithm spec onto it as
+its canonical PRIMARY spec rather than creating a redundant `sv-detection` page, kept distinct from the
+sibling split-read [[breakpoint-detection-split-reads]] and read-depth [[read-depth-cnv-segmentation]]
+units; enriched with a "Method contract (algorithm spec)" section carrying the `FindDiscordantPairs` /
+`ClassifySV` / `DetectSVs` entry points + defaults (μ=400/σ=50/c=3.0σ/clusterDistance=500/minSupport=2),
+the 8-tuple read-pair input + `StructuralVariant`(Type/Start/End/Length/SupportingReads/Quality) /
+`SVType` output, the first-match classification order with the `ComplexRearrangement` fallback +
+`maxInsertSize=10000` guard, the O(n log n) sort-dominated cost, and the ArgumentNullException /
+inclusive-`μ±c·σ`-boundary contract. No new page; spec added to `sources:` ahead of the Evidence doc,
+`source_commit`→a408154d, `updated`→2026-07-17. No `wiki/sources/` page — a spec, not an Evidence/Validation
+report; hub [[algorithm-validation-evidence]] and graph edges unchanged, all already cover SV-DETECT-001);
+StructuralVar/Copy_Number_Variation → [[read-depth-cnv-segmentation]] resolved 2026-07-17
 (RECONCILE/REUSE: the Copy Number Variation spec, unit SV-CNV-001, describes the read-depth →
 windowed-mean → log2 ratio → integer copy-number pipeline already synthesized on this Evidence-derived
 concept — reconciled the algorithm spec onto that page as its canonical PRIMARY spec rather than
@@ -655,6 +670,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Quality/Quality_Statistics.md` | [[fastq-quality-statistics]] |
 | `docs/algorithms/StructuralVar/Breakpoint_Detection.md` | [[breakpoint-detection-split-reads]] |
 | `docs/algorithms/StructuralVar/Copy_Number_Variation.md` | [[read-depth-cnv-segmentation]] |
+| `docs/algorithms/StructuralVar/SV_Detection.md` | [[discordant-pair-sv-detection]] |
 
 ## Pending (fold into the ingest campaign)
 
