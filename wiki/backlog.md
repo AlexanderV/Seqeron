@@ -18,8 +18,17 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **223** algorithm docs covered-via-concept, **4** pending across 1 domain
-(Translation/Six_Frame_Translation → [[genetic-code-translation]] resolved 2026-07-17, **closing the
+Status at generation: **224** algorithm docs covered-via-concept, **3** pending across 1 domain
+(Variants/Indel_Detection → [[germline-variant-calling-snp-indel]] resolved 2026-07-17 (RECONCILE/REUSE:
+the indel-detection spec VARIANT-INDEL-001 — `VariantCaller.FindInsertions` / `FindDeletions` /
+`FindIndels` (union) filters over the aligned-column caller — is the indel facet already synthesized on
+this SNP/indel page (its VARIANT-INDEL-001 Evidence was already in `sources:`); treated the spec as the
+canonical PRIMARY spec, kept distinct from the still-pending SNP `SNP_Detection.md` and umbrella
+`Variant_Detection.md` / `Variant_Annotation.md` siblings; enriched the "Indel detection" section with a
+"Method contract" paragraph (the three entry points incl. the `FindIndels` union behind `find_indels`,
+0-based `Position` INV-06 + `QueryPosition`, case-norm / null / empty contract, `ATGCAT→ATGTCAT` oracle,
+O(n×m) NW cost, suffix-tree-N/A). See `log.md` for full detail. Contradictions: none.)
+Translation/Six_Frame_Translation → [[genetic-code-translation]] resolved 2026-07-17, **closing the
 Translation domain** (last pending doc) (RECONCILE/REUSE: the six-frame translation + START→STOP ORF spec
 TRANS-SIXFRAME-001 — `Translator.TranslateSixFrames` (six frames keyed ±1…±3) / `FindOrfs` — is the
 six-frame surface already synthesized on this page's `Translator` layer; treated the spec as the canonical
@@ -738,6 +747,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Translation/Codon_Translation.md` | [[genetic-code-translation]] |
 | `docs/algorithms/Translation/Protein_Translation.md` | [[genetic-code-translation]] |
 | `docs/algorithms/Translation/Six_Frame_Translation.md` | [[genetic-code-translation]] |
+| `docs/algorithms/Variants/Indel_Detection.md` | [[germline-variant-calling-snp-indel]] |
 
 ## Pending (fold into the ingest campaign)
 

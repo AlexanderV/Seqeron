@@ -7,12 +7,13 @@ mcp_tools:
   - find_snps
   - titv_ratio
 sources:
+  - docs/algorithms/Variants/Indel_Detection.md
   - docs/Evidence/VARIANT-CALL-001-Evidence.md
   - docs/Evidence/VARIANT-INDEL-001-Evidence.md
   - docs/Evidence/VARIANT-SNP-001-Evidence.md
-source_commit: b0f0fbc85f38f574f0ce5c1ffef41c0bbd45dddb
+source_commit: 74d73794e831960f6cb47c127475581b1dca5e78
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -117,6 +118,28 @@ The VCFv4.3 §1.1 microsatellite record `GTC → G,GTCT` shows both at once (one
 minimal_representation (Minikel) worked cases CFTR p.F508del `(7,117199646,CTT,-) → (7,117199644,ATCT,A)`
 and BRCA2 `(13,32914438,T,-) → (13,32914437,GT,G)` — independently confirm the same length direction and
 the left-anchor padding of empty alleles.
+
+**Method contract (Indel_Detection.md, VARIANT-INDEL-001 algorithm spec).** All three indel entry points
+live on `VariantCaller` (`Seqeron.Genomics.Annotation`) and take `(DnaSequence reference, DnaSequence
+query)`, returning `IEnumerable<Variant>`:
+
+- **`FindInsertions`** / **`FindDeletions`** — `CallVariants` filtered to `VariantType.Insertion` /
+  `VariantType.Deletion` respectively (INV-02: every returned variant carries the matching `Type`).
+- **`FindIndels`** — the **union** delegate (insertions ∪ deletions), the surface behind the `find_indels`
+  MCP tool.
+
+Each `Variant` carries a **0-based** reference `Position` (INV-06: `Position ∈ [0, reference.Length]`,
+because `refPos` advances only on reference-consuming columns) plus a **`QueryPosition`** (0-based query
+coordinate of the event) — the query-side coordinate is retained alongside the reference-side one. Bases
+are **case-normalized to uppercase** by `SequenceAligner.GlobalAlign` (match +1 / mismatch −1 / linear gap
+−1 `SimpleDna` matrix); a null `reference` or `query` throws `ArgumentNullException` (propagated from
+`CallVariants`), empty sequences yield no variants. Worked oracle: `ATGCAT` → `ATGTCAT` (a `T` inserted
+after index 2) gives one insertion `Type=Insertion, ReferenceAllele="-", AlternateAllele="T", Position=3`.
+
+Cost is dominated by the Needleman–Wunsch DP: **O(n × m) time and space** over reference length `n` and
+query length `m`; the column walk + class filter are only O(n + m). The repository **suffix tree
+(exact-occurrence enumeration) does not apply** — indel detection is scoring-based optimal alignment with
+gaps, not exact substring matching, so the shared `SequenceAligner` is reused instead.
 
 ## Transition / transversion classification
 
