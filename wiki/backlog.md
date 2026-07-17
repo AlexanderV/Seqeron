@@ -18,8 +18,13 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **196** algorithm docs covered-via-concept, **36** pending across 7 domains
-(Sequence_Composition/Linguistic_Complexity → [[linguistic-complexity]] resolved 2026-07-17 (NEW
+Status at generation: **197** algorithm docs covered-via-concept, **35** pending across 7 domains
+(Sequence_Composition/RNA_Complement → [[rna-base-pairing]] resolved 2026-07-17 (REUSE: the
+SEQ-RNACOMP-001 per-base IUPAC-complete RNA complement `GetRnaComplementBase` is already synthesized
+in the RNA-base-pairing concept's "SEQ-family full-IUPAC RNA complement" section — enriched with the
+spec's entry-point signature/location, O(1) `switch` complexity, X pass-through correction, and the
+`"ACGTUacgtuXYZxyz"` worked oracle);
+Sequence_Composition/Linguistic_Complexity → [[linguistic-complexity]] resolved 2026-07-17 (NEW
 concept: the standalone scalar linguistic-complexity unit SEQ-COMPLEX-001 = vocabulary-usage ratio
 `Σ Vᵢ / Σ Vmax,i`, previously only surfaced per-window inside [[windowed-sequence-complexity-profile]]);
 RnaStructure/Turner_McCaskill_Partition_Function → [[turner-mccaskill-partition-function]] resolved
@@ -291,6 +296,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md` | [[windowed-gc-profile-and-variance]] |
 | `docs/algorithms/Sequence_Composition/GC_Skew.md` | [[gc-skew]] |
 | `docs/algorithms/Sequence_Composition/Linguistic_Complexity.md` | [[linguistic-complexity]] |
+| `docs/algorithms/Sequence_Composition/RNA_Complement.md` | [[rna-base-pairing]] |
 | `docs/algorithms/FileIO/BED_Parsing.md` | [[bed-format-parsing]] |
 | `docs/algorithms/FileIO/EMBL_Parsing.md` | [[insdc-feature-location]] |
 | `docs/algorithms/FileIO/FASTA_Parsing.md` | [[fasta-parsing]] |
@@ -437,7 +443,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 
 ## Pending (fold into the ingest campaign)
 
-The per-domain pending tables (33 algorithm docs across 7 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
+The per-domain pending tables (32 algorithm docs across 7 domains, no concept page yet) live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above.
 
 ## Queued source batches (approved 2026-07-09)
 
