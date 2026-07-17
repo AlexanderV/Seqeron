@@ -7,13 +7,14 @@ mcp_tools:
 sources:
   - docs/algorithms/Sequence_Composition/Sequence_Composition.md
   - docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md
+  - docs/algorithms/Statistics/Sequence_Summary.md
   - docs/Evidence/SEQ-STATS-001-Evidence.md
   - docs/Evidence/SEQ-COMPOSITION-001-Evidence.md
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
   - docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
   - docs/Evidence/SEQ-SUMMARY-001-Evidence.md
-source_commit: 4c518fcb9b8c05b81911917f37026096b0e7583f
+source_commit: f3f84d5b4393c99d3e3cb25ee1cae338be09e293
 created: 2026-07-10
 updated: 2026-07-17
 graph:
@@ -148,3 +149,45 @@ counts); `CountA+T+G+C+U+N+Other = Length` (INV-03, each char in exactly one buc
 **Not implemented.** Weighted ambiguous-base GC (Biopython `gc_fraction(ambiguous="weighted")`)
 is out of scope; degenerate-heavy sequences should use Biopython `gc_fraction` directly. Over the
 canonical {A,T,G,C,U} alphabet the two agree exactly.
+
+## The `SummarizeNucleotideSequence` aggregator (SEQ-SUMMARY-001 primary spec)
+
+`SummarizeNucleotideSequence` is the top-level per-sequence **summary record** that bundles the
+headline descriptors of a DNA/RNA sequence into one object so a caller gets them in a single call.
+Its primary spec (`docs/algorithms/Statistics/Sequence_Summary.md`, unit SEQ-SUMMARY-001) is
+reconciled here — it is a **pure field-by-field aggregation** that introduces no new computation:
+every field reproduces, bit-for-bit, the value its canonical per-metric method returns on the same
+input. Its correctness contract is exactly that field-wise equality, so the summary owns no new
+concept — each aggregated method already has its home (this page, plus [[shannon-entropy]],
+[[linguistic-complexity]], [[melting-temperature]]). The Evidence view is [[seq-summary-001-evidence]].
+
+**Entry point** — `SequenceStatistics.SummarizeNucleotideSequence(string sequence)` in
+`Seqeron.Genomics.Analysis/SequenceStatistics.cs`, returning the `readonly record struct`
+`SequenceStatistics.SequenceSummary`. **Field → sub-analyzer** map (each row is an invariant,
+INV-01…INV-06):
+
+| Summary field | Type | Delegated to | Source of value |
+|---------------|------|--------------|-----------------|
+| `Length` | `int` | `CalculateNucleotideComposition(S).Length` | raw character count |
+| `GcContent` | `double` | `CalculateNucleotideComposition(S).GcContent` | `(G+C)/(A+T+G+C+U)` ∈ [0,1] (this page) |
+| `Entropy` | `double` | `CalculateShannonEntropy(S)` | Shannon `H = −Σ p·log₂ p` (bits); the **general-alphabet** `SequenceStatistics` kernel of [[shannon-entropy]] |
+| `Complexity` | `double` | `CalculateLinguisticComplexity(S)` | linguistic vocabulary-usage in (0,1) — the **mean**-based [[linguistic-complexity]], *not* the strict Trifonov product |
+| `MeltingTemperature` | `double` | `CalculateMeltingTemperature(S, useWallaceRule: S.Length < 14)` | Wallace `2(A+T)+4(G+C)` for len<14 else GC/Marmur-Doty `64.9 + 41·(GC−16.4)/N` ([[melting-temperature]]) |
+| `Composition` | `IReadOnlyDictionary<char,int>` | counts from `CalculateNucleotideComposition(S)` | a **6-entry** dict keyed A,T,G,C,U,N |
+
+**The Tm length-dispatch is the summary's only branching decision:** it passes
+`useWallaceRule: sequence.Length < 14` — the strict `<` boundary means length exactly **14** takes
+the GC/Marmur-Doty branch. The 14-nt threshold is the sibling SEQ-TM-001 convention
+(`ThermoConstants.WallaceMaxLength`); the summary is tested only for **equality** with
+`CalculateMeltingTemperature`, so the threshold's correctness belongs to that unit, not the
+aggregation.
+
+**Cost** — **O(n)** time / **O(n)** space, dominated by the linguistic-complexity term (k-mer sets
+up to k=6); the other metrics are O(n) single passes. No string searching/matching is performed, so
+the repository suffix tree does not apply (a counting-and-arithmetic aggregation).
+
+**Edge cases** — null/empty input returns the **degenerate zero summary** (Length 0, GcContent 0,
+Entropy 0, Complexity 0, MeltingTemperature 0, all composition counts 0) with no exception, matching
+each per-metric method's empty handling; input is **case-insensitive** (each delegate uppercases
+internally); RNA `U` and `N` are counted (distinct from T). Worked oracle: `"ATGCATGC"` → Length 8,
+GcContent 0.5, Entropy 2.0 (= log₂4), MeltingTemperature 24.0 (len<14 → Wallace `2·4 + 4·4`).

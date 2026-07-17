@@ -18,8 +18,27 @@ ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — n
 separate effort. A pending algorithm doc is resolved when a concept page lists it in
 `sources:`; at that point it moves to the covered table.
 
-Status at generation: **214** algorithm docs covered-via-concept, **14** pending across 5 domains
-(Statistics/Molecular_Weight_Calculation → [[molecular-weight]] resolved 2026-07-17
+Status at generation: **215** algorithm docs covered-via-concept, **13** pending across 4 domains
+(Statistics/Sequence_Summary → [[base-composition]] resolved 2026-07-17, **closing the Statistics
+domain** (last pending doc) (RECONCILE/REUSE: the top-level `SummarizeNucleotideSequence`
+summary-record aggregator, unit SEQ-SUMMARY-001, bundles a sequence's length, composition, GC
+content, Shannon entropy, linguistic complexity and melting temperature into one `SequenceSummary`
+record by pure field-by-field delegation to already-validated per-metric methods — per its own
+Evidence [[seq-summary-001-evidence]] it "adds no new concept," and every aggregated field already
+has a home ([[base-composition]] itself for composition/GC, [[shannon-entropy]], [[linguistic-complexity]],
+[[melting-temperature]]); reconciled the spec onto the composition page that already carried the
+SEQ-SUMMARY-001 Evidence in `sources:` and described it as the SEQ-STATS-001 umbrella's aggregation
+wrapper, rather than creating a redundant `sequence-summary` page. Added a "`SummarizeNucleotideSequence`
+aggregator (SEQ-SUMMARY-001 primary spec)" section carrying the genuinely-distinct implementation
+surface — the `SequenceStatistics.SummarizeNucleotideSequence(string)` entry point + `SequenceSummary`
+record, the six field→sub-analyzer map (INV-01…INV-06), the summary's only branch
+`useWallaceRule: S.Length < 14` (strict `<`, 14→GC/Marmur-Doty branch), the O(n)/O(n) cost dominated
+by linguistic complexity (k≤6), suffix-tree-N/A, the degenerate zero summary / case-insensitive /
+U+N-counted edge cases, and the `ATGCATGC` oracle. Verified the field list against the spec. No new
+page; spec added to `sources:`, `source_commit`→f3f84d5b. No `wiki/sources/` page — a spec, not an
+Evidence/Validation report; hub [[algorithm-validation-evidence]] and graph edges unchanged, all
+already cover SEQ-SUMMARY-001);
+Statistics/Molecular_Weight_Calculation → [[molecular-weight]] resolved 2026-07-17
 (RECONCILE/REUSE: the Molecular Weight Calculation spec, unit SEQ-MW-001, describes the
 average-isotopic protein/DNA/RNA mass scalar `MW = Σ monomer masses − (n−1)·water` already
 synthesized on this Evidence-derived concept — reconciled the algorithm spec onto that page as its
@@ -441,6 +460,7 @@ Each algorithm doc below is already synthesized by a concept page that lists it 
 | `docs/algorithms/Statistics/Melting_Temperature.md` | [[melting-temperature]] |
 | `docs/algorithms/Statistics/Molecular_Weight_Calculation.md` | [[molecular-weight]] |
 | `docs/algorithms/Statistics/Secondary_Structure_Prediction.md` | [[protein-secondary-structure-chou-fasman]] |
+| `docs/algorithms/Statistics/Sequence_Summary.md` | [[base-composition]] |
 | `docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md` | [[rare-codon-analysis]] |
 | `docs/algorithms/Codon_Optimization/Sequence_Optimization.md` | [[codon-optimization]] |
 | `docs/algorithms/Comparative_Genomics/Average_Nucleotide_Identity.md` | [[average-nucleotide-identity]] |
