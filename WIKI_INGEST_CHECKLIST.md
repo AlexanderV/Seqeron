@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1169 / 1181
+Progress: 1170 / 1181
 
 ## (top-level)  (6)
 
@@ -1198,7 +1198,7 @@ Progress: 1169 / 1181
 
 - [x] docs/refactoring/ALGORITHM_TAXONOMY_CLEANUP_MATRIX.md
 - [x] docs/refactoring/suffix-tree-contract-freeze-cycle3.md
-- [ ] docs/refactoring/suffix-tree-contract-freeze.md
+- [x] docs/refactoring/suffix-tree-contract-freeze.md
 - [ ] docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
 - [ ] docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
 - [ ] docs/refactoring/suffix-tree-controlled-refactoring-plan.md

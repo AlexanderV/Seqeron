@@ -4,7 +4,8 @@ title: "Suffix-tree controlled refactoring — contract freeze + per-cycle verif
 tags: [refactoring, methodology, testing, architecture]
 sources:
   - docs/refactoring/suffix-tree-contract-freeze-cycle3.md
-source_commit: 48e1e033aa769c9a8e4815d306d970ec33720d76
+  - docs/refactoring/suffix-tree-contract-freeze.md
+source_commit: c8af090404e38f4567fe9a24aa912242cc1f0500
 created: 2026-07-17
 updated: 2026-07-17
 graph:
@@ -70,6 +71,28 @@ None of these touch a frozen invariant — they refactor the persistent builder 
 traversal code while leaving format, interface, empty-pattern semantics, branch-balance, and
 tool names byte-for-byte identical.
 
+## The base contract-freeze doc and its `MaxDepth` divergence
+
+The original freeze (`suffix-tree-contract-freeze.md`, dated 2026-02-25, self-titled
+"Contract Freeze (Cycle 2)") locks the **same five invariant classes** as the Cycle 3 freeze
+above — v6 binary format, the `ISuffixTree` public contract, empty-pattern behaviour,
+traversal branch-balance, and the six `suffix_tree_*` MCP tool names — and enforces the same
+per-phase gates. What it adds that Cycle 3 does not is an explicit **"known contract
+divergence to resolve in this cycle"**: a documented spot where the frozen contract is *not
+yet* internally consistent, made a first-class work item rather than an accident to trip over
+mid-refactor.
+
+- **The divergence:** `MaxDepth` semantics **differ between the in-memory and persistent
+  implementations** — the two backends behind the one `ISuffixTree` do not agree on what
+  `MaxDepth` means.
+- **The cycle target:** **unify `MaxDepth` under a single `ISuffixTree` contract** while
+  **keeping the parity tests green** (the persistent `Category=Parity` in-memory-vs-persistent
+  equivalence gate below is exactly what proves the unification did not break either backend).
+
+This is the freeze method used in its harder mode: freezing a contract does not require the
+contract to already be self-consistent — a known divergence is written down alongside the
+frozen surface and scheduled for reconciliation within the cycle, under the same gates.
+
 ## Guardrails (per-phase gates)
 
 The freeze is only enforceable if every phase is checked against it. Cycle 3's guardrails:
@@ -100,12 +123,13 @@ This concept is the reconciliation target for the six suffix-tree controlled-ref
 documents under `docs/refactoring/`:
 
 - `suffix-tree-controlled-refactoring-plan.md` — the overall plan.
-- `suffix-tree-contract-freeze.md` — the initial contract freeze.
+- `suffix-tree-contract-freeze.md` — the initial contract freeze (ingested here; adds the
+  `MaxDepth` divergence work item).
 - `suffix-tree-contract-freeze-cycle3.md` — the Cycle 3 freeze (ingested here).
 - `suffix-tree-controlled-refactoring-verification.md`,
   `...-cycle2-verification.md`, `...-cycle3-verification.md` — the per-cycle verification
   reports.
 
-As the remaining five are ingested, add each to this page's `sources:`, bump `source_commit`
+As the remaining four are ingested, add each to this page's `sources:`, bump `source_commit`
 to HEAD, and enrich only genuinely distinct content (plan rationale, earlier frozen
 contracts, and the verification outcomes per cycle).
