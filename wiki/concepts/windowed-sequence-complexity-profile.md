@@ -29,7 +29,7 @@ graph:
       status: current
     - predicate: relates_to
       object: concept:entropy-profile
-      source: seq-entropy-profile-001-spec
+      source: seq-entropy-profile-001-evidence
       evidence: "The standalone Shannon entropy profile SEQ-ENTROPY-PROFILE-001 is homed on entropy-profile: SequenceStatistics.CalculateEntropyProfile (general-alphabet, all letters, W=50/step=1, IEnumerable<double>) — same per-window Shannon statistic, distinct method from this page's DNA-canonical CalculateWindowedComplexity ComplexityPoint Shannon channel (A/T/G/C, W=64/step=10)."
       confidence: high
       status: current

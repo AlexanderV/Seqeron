@@ -51,6 +51,7 @@ these `--exclude` globs when running the coverage check:
 --exclude 'docs/mcp/MCP_STATUS.md'     # live campaign/status ledger, not a knowledge source
 --exclude 'docs/mcp/traceability.md'   # generated tool→test traceability matrix
 --exclude 'docs/skills/golden/tasks.md' # golden regression task list, reference-only
+--exclude 'docs/algorithms/README.md'   # algorithms-folder index/README, navigational only (resolved index-only 2026-07-16)
 ```
 
 Everything else under `docs/**` remains in scope. `docs/algorithms/**` is

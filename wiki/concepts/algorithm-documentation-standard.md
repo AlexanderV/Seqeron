@@ -13,19 +13,19 @@ graph:
   relationships:
     - predicate: relates_to
       object: concept:algorithm-validation-evidence
-      source: algorithm-doc-template
+      source: algorithm-documentation-standard
       evidence: "7.3 Related Tests, Evidence, or Documents ... Evidence: [<TEST-UNIT-ID>-Evidence.md](../../../docs/Evidence/<TEST-UNIT-ID>-Evidence.md); the spec doc's Test Unit ID header field and INV/ASM IDs are referenced from the Evidence artifact"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:definition-of-done
-      source: algorithm-doc-template
+      source: algorithm-documentation-standard
       evidence: "Definition of Done requires a TestSpec and Evidence per unit; the algorithm-doc template is the third leg (the spec) whose Test Unit ID header field ties the three together"
       confidence: medium
       status: current
     - predicate: relates_to
       object: concept:validation-and-testing
-      source: algorithm-doc-template
+      source: algorithm-documentation-standard
       evidence: "5.3 Conformance to Theory / Spec ... structurally enforced ... Implemented / Intentionally simplified / Not implemented — the doc records how the implementation was validated against the cited theory"
       confidence: medium
       status: current

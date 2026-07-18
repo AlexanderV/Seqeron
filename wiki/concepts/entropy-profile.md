@@ -12,25 +12,25 @@ graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
-      source: entropy-profile-spec
+      source: seq-entropy-profile-001-evidence
       evidence: "Test Unit ID: SEQ-ENTROPY-PROFILE-001; Algorithm Group: Statistics; Algorithm: Shannon Entropy Profile (sliding-window per-symbol Shannon entropy); Implementation Status: Production"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:shannon-entropy
-      source: entropy-profile-spec
+      source: seq-entropy-profile-001-evidence
       evidence: "The profile is the windowed consumer of the scalar per-symbol Shannon entropy: each window is delegated to SequenceStatistics.CalculateShannonEntropy (the general-alphabet, all-letters entry point on shannon-entropy), yielding H = −Σ pᵢ log₂ pᵢ bits per window."
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:windowed-sequence-complexity-profile
-      source: entropy-profile-spec
+      source: seq-entropy-profile-001-evidence
       evidence: "Sibling sliding-window profiler in the same complexity/entropy family, but a distinct method: SequenceStatistics.CalculateEntropyProfile emits entropy-only over ALL letters (default W=50, step=1, IEnumerable<double>), whereas SequenceComplexity.CalculateWindowedComplexity emits a ComplexityPoint (DNA-canonical A/T/G/C Shannon + linguistic complexity, default W=64, step=10)."
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:k-mer-statistics
-      source: entropy-profile-spec
+      source: seq-entropy-profile-001-evidence
       evidence: "Per-window entropy is over the single-symbol (k=1) composition of the window; the k-mer/block Shannon k-entropy H_k = −Σ p(kmer) log₂ p(kmer) owned by k-mer-statistics (CalculateKmerEntropy, SEQ-COMPLEX-KMER-001) is the correlation-aware higher-order form the spec directs callers to for order-sensitive analysis."
       confidence: medium
       status: current

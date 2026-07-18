@@ -14,13 +14,13 @@ graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
-      source: linguistic-complexity-spec
+      source: linguistic-complexity
       evidence: "Test Unit ID: SEQ-COMPLEX-001; Algorithm: Linguistic Complexity (summation-variant vocabulary-usage ratio)"
       confidence: high
       status: current
-    - predicate: part_of
+    - predicate: relates_to
       object: concept:windowed-sequence-complexity-profile
-      source: linguistic-complexity-spec
+      source: linguistic-complexity
       evidence: "CalculateWindowedComplexity delegates per-window LC to the same CalculateLinguisticComplexityCore; the windowed profile emits this LC per window"
       confidence: high
       status: current

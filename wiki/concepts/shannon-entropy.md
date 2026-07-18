@@ -15,31 +15,31 @@ graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
-      source: shannon-entropy-spec
+      source: shannon-entropy
       evidence: "Test Unit ID: SEQ-ENTROPY-001; Algorithm Group: Sequence Composition; Algorithm: Shannon Entropy for Biological Sequences"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:k-mer-statistics
-      source: shannon-entropy-spec
+      source: shannon-entropy
       evidence: "K-mer entropy H_k = −Σ p(kmer) log₂ p(kmer) is the higher-order extension of per-base Shannon entropy; the per-base version is effectively k=1 over the 4-nucleotide alphabet. SequenceComplexity.CalculateKmerEntropy is the k-mer member (SEQ-COMPLEX-KMER-001, home k-mer-statistics)."
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:base-composition
-      source: shannon-entropy-spec
+      source: shannon-entropy
       evidence: "Shannon entropy is computed over the base-frequency (composition) distribution; base composition is its input distribution."
       confidence: medium
       status: current
     - predicate: relates_to
       object: concept:windowed-sequence-complexity-profile
-      source: shannon-entropy-spec
+      source: shannon-entropy
       evidence: "The windowed complexity profile emits a per-window Shannon entropy of base composition (uniform ⇒ 2.0, homopolymer ⇒ 0); this scalar unit is the whole-distribution counterpart of that per-window channel."
       confidence: medium
       status: current
     - predicate: relates_to
       object: concept:entropy-profile
-      source: entropy-profile-spec
+      source: seq-entropy-profile-001-evidence
       evidence: "entropy-profile (SEQ-ENTROPY-PROFILE-001, SequenceStatistics.CalculateEntropyProfile) is the sliding-window consumer of this page's general-alphabet scalar kernel SequenceStatistics.CalculateShannonEntropy, emitting one H = −Σ pᵢ log₂ pᵢ per window."
       confidence: high
       status: current

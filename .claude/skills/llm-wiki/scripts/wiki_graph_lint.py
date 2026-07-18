@@ -266,9 +266,12 @@ def lint(pages: list[dict], ontology: dict) -> dict:
                 if not rel.get("source"):
                     findings["missing_source_field"].append({**here})
 
-            # source field must reference an existing source page slug
+            # source field must reference an existing source page slug, or the
+            # subject page's own slug (SCHEMA documents it as a
+            # "source/derived page slug" — a derived/concept page may cite
+            # itself as the provenance of an edge it declares).
             src = rel.get("source")
-            if src and str(src) not in source_slugs:
+            if src and str(src) not in source_slugs and str(src) != p["slug"]:
                 findings["broken_source_refs"].append({**here, "source": src})
 
             confidence = rel.get("confidence")

@@ -14,13 +14,13 @@ graph:
   relationships:
     - predicate: relates_to
       object: concept:test-unit-registry
-      source: sequence-validation-spec
+      source: sequence-validation
       evidence: "Test Unit ID: SEQ-VALID-001; Algorithm Group: Sequence Composition; Algorithm: Sequence Validation (strict DNA/RNA alphabet membership)"
       confidence: high
       status: current
     - predicate: relates_to
       object: concept:fasta-parsing
-      source: sequence-validation-spec
+      source: sequence-validation
       evidence: "The FASTA parser's opt-in SequenceAlphabet overloads (StrictDna/IupacNucleotide/Rna/Protein) are the parse-time consumer of alphabet validation; this unit is the standalone character-membership primitive."
       confidence: medium
       status: current
