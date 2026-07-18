@@ -5,7 +5,8 @@ tags: [documentation, validation, methodology]
 sources:
   - docs/templates/algorithm-doc-template.md
   - docs/templates/evidence-template.md
-source_commit: 04a67f5461148694bf04098d3902c1a2ee4aa6a6
+  - docs/templates/testspec-template.md
+source_commit: f6d643e426d704f1898703b290b6ac2fd0e46060
 created: 2026-07-18
 updated: 2026-07-18
 graph:
@@ -101,6 +102,26 @@ Required sections, in order:
 - **Authority ranking** — each source is rank-scored 1–5, so downstream tests can weight evidence by source authority.
 - **Test-coverage tiering** — MUST/SHOULD/COULD is the Evidence artifact's own vocabulary for prioritising which behaviours the unit's tests must exercise, each tied back to a source or rationale, feeding the [[validation-and-testing]] campaign and the [[definition-of-done]]'s "Evidence documented" gate.
 
+## TestSpec template
+
+The **testspec** leg — `docs/templates/testspec-template.md` — defines the shape of the per-unit TestSpec stored at `TestSpecs/<TestUnitID>.md`, the first of the [[definition-of-done]]'s six required criteria ("TestSpec created"). Its header carries the same `Test Unit ID` (plus **Area**, **Algorithm**, a **Status** checkbox — `☐ In Progress` → `☑ Complete`, a fixed **Owner** of *Algorithm QA Architect*, and **Last Updated**), so spec ↔ evidence ↔ testspec share one identifier. Where the spec doc states the contract and the Evidence artifact traces the literature, the TestSpec is the **executable-test plan and audit trail**: it turns the Evidence artifact's tiered recommendations into concrete, ID'd test cases and proves that existing tests actually cover them.
+
+Seven required sections, in order:
+
+1. **Evidence Summary** — a condensed carry-over from the Evidence artifact: `1.1 Authoritative Sources` (a table of `# / Source / Authority Rank / DOI or URL / Accessed`, every source requiring a verifiable link, DOI preferred over PubMed/PMC), `1.2 Key Evidence Points` (each cited to a source), `1.3 Documented Corner Cases` (from evidence only; if none, the explicit sentence "No authoritative sources explicitly specify corner cases for <X>." rather than invention), and `1.4 Known Failure Modes / Pitfalls` (each source-cited).
+2. **Canonical Methods Under Test** — a `Method / Class / Type / Notes` table where **Type** is one of three fixed values setting test depth: **Canonical** (deep evidence-based testing), **Delegate** (smoke verification only — 1–2 tests proving delegation), **Internal** (tested indirectly via canonical methods).
+3. **Invariants** — `INV-N` rows, each with a statement, a **Verifiable** Yes/No flag, and an **Evidence** cell that is either a source or the literal **ASSUMPTION**; the same `INV-NN` identifiers the spec doc's §2.4 declares, now made checkable.
+4. **Test Cases** — the tiered case list, mapped one-to-one onto the Evidence artifact's **MUST / SHOULD / COULD** coverage tiers: `4.1 MUST Tests (Required — every row needs Evidence)` with columns `ID / Test Case / Description / Expected Outcome / Evidence` and `M1…` IDs whose Evidence cell is a source or **ASSUMPTION**; `4.2 SHOULD Tests (Important edge cases)` and `4.3 COULD Tests (Nice to have)`, both replacing the Evidence column with **Notes**. Complex inputs (sequences, matrices) are described briefly here with the full data kept in the test code or a referenced data file.
+5. **Audit of Existing Tests** — the traceability and consolidation record, the section that distinguishes a TestSpec from a plain plan: `5.1 Discovery Summary` (where tests were found, file paths); `5.2 Coverage Classification` (a `Area/Test Case ID / Status / Notes` table with a fixed status vocabulary — **✅ Covered, ⚠ Weak, ❌ Missing, 🔁 Duplicate**); `5.3 Consolidation Plan` (the **Canonical file** that tests converge into, plus what to **Remove** and why); `5.4 Final State After Consolidation` (`File / Role / Test Count`); `5.5 Phase 7 Work Queue` (every ❌ and ⚠ from §5.2 listed and implemented, each marked **✅ Done** or **⛔ Blocked**, with a tally whose **Remaining must be 0**); and `5.6 Post-Implementation Coverage` (a re-audit where **ALL** rows must be **✅** — if any remain ❌ or ⚠, the Test Unit **cannot** be marked ☑ Complete).
+6. **Assumption Register** — a total count plus a table of every **ASSUMPTION** referenced anywhere in the spec and where it is used; zero assumptions is the stated goal and each one is treated as a risk.
+7. **Open Questions / Decisions** — unresolved items, with "None" permitted only if genuinely nothing is open.
+
+### Conventions distinct from the two sibling templates
+
+- **Pass/fail is structural, not prose** — the unit's completion gate is mechanical: §5.5 Remaining = 0 and §5.6 all-✅. This is the concrete enforcement behind the [[definition-of-done]]'s "Edge cases covered" and "Tests pass" criteria — the TestSpec cannot honestly close while an ❌/⚠ survives.
+- **Evidence → test-case traceability** — every MUST test carries an Evidence cell (source or ASSUMPTION) and the tiers mirror the Evidence artifact's MUST/SHOULD/COULD recommendations, so each test traces up to a sourced behaviour and any unsourced test is visibly flagged. The Assumption Register (§6) aggregates those flags for review.
+- **Existing-test audit and consolidation** — unlike the spec and evidence templates (which describe intended behaviour), the TestSpec inventories and rationalises the *actual* test files (discovery → classify → consolidate → work-queue → re-audit), making it the artifact that ties written tests back to the specified contract.
+
 ## Relationship to the rest of the methodology
 
-This page is the shared home for the project's **documentation standard**, covering two of the three sibling templates in `docs/templates/`: the spec-doc template (above) and the `evidence-template.md` (the per-unit source record, folded in under "Evidence-artifact template"; its runtime artifact pattern lives on [[algorithm-validation-evidence]]). The third companion — `testspec-template.md` (the TestSpec required by the [[definition-of-done]]) — is expected to reconcile onto this page as it is ingested. Together they operationalize [[scientific-rigor]] at documentation time and feed the [[validation-and-testing]] campaign.
+This page is the shared home for the project's **documentation standard**, and it now captures all **three** sibling templates in `docs/templates/`: the spec-doc template (`algorithm-doc-template.md`, above), the `evidence-template.md` (the per-unit source record, under "Evidence-artifact template"; its runtime artifact pattern lives on [[algorithm-validation-evidence]]), and the `testspec-template.md` (the per-unit executable-test plan and audit trail, under "TestSpec template"). The documentation standard is complete: **spec → evidence → testspec**, keyed end-to-end by a single `Test Unit ID` and gated by the [[definition-of-done]]. Together they operationalize [[scientific-rigor]] at documentation time and feed the [[validation-and-testing]] campaign.
