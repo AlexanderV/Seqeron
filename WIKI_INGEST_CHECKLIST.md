@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1179 / 1181
+Progress: 1180 / 1181
 
 ## (top-level)  (6)
 
@@ -1214,5 +1214,5 @@ Progress: 1179 / 1181
 ## templates  (3)
 
 - [x] docs/templates/algorithm-doc-template.md
-- [ ] docs/templates/evidence-template.md
+- [x] docs/templates/evidence-template.md
 - [ ] docs/templates/testspec-template.md

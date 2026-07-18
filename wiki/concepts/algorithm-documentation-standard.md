@@ -4,7 +4,8 @@ title: "Algorithm documentation standard (spec-doc template)"
 tags: [documentation, validation, methodology]
 sources:
   - docs/templates/algorithm-doc-template.md
-source_commit: fee738e3f9d25fb455df96903ed5c5e8e2080cc2
+  - docs/templates/evidence-template.md
+source_commit: 04a67f5461148694bf04098d3902c1a2ee4aa6a6
 created: 2026-07-18
 updated: 2026-07-18
 graph:
@@ -80,6 +81,26 @@ Eight top-level (`##`) sections, kept in order; optional subsections that do not
 
 For files documenting peer methods together (UPGMA + NJ, Bray-Curtis + Jaccard, ESTIMATE + CIBERSORT, or triples), the hierarchy is fixed: Sections 2 and 4 stay single `##` umbrellas with per-algorithm `###` children (`2.A`, `2.B`, `2.C` …) using H4 **named, unnumbered** subsections (Domain Context, Core Model, Modeling Assumptions, Properties and Invariants); Section `5.3` stays a single `###` with `####` per-algorithm children each carrying the three required blocks. The letter→algorithm mapping is declared once as a quoted line under the Section 2 heading (e.g. `> A = UPGMA, B = Neighbor-Joining`). ID prefixes in combined files use the **algorithm token**, not the letter, so identifiers stay unique and readable from tests/evidence: `INV-UPGMA-01`, `ASM-NJ-02`. Sections 1, 3, 5.1, 5.2, 5.4, 6, 7, 8 are shared; a shared-table row is split only when genuinely algorithm-specific, prefixed with the algorithm token in brackets (e.g. `[UPGMA] negative branch lengths impossible`).
 
+## Evidence-artifact template
+
+The **evidence** leg — `docs/templates/evidence-template.md` — defines the shape of the per-unit Evidence artifact stored at `docs/Evidence/<TEST_UNIT_ID>-Evidence.md`. It is the literature-traced source record behind a unit's tests; the [[algorithm-validation-evidence]] hub owns the artifact pattern and the per-file index, while this page records the template's mandated structure alongside its spec-doc sibling. The file is keyed by the same `Test Unit ID` as the spec doc's header (plus the algorithm name and a **Date Collected**), so spec ↔ evidence ↔ testspec share one identifier.
+
+Required sections, in order:
+
+1. **Online Sources** — one `###` subsection per source, each carrying `URL`, `Accessed` date, and an **Authority rank (1–5, per the Authoritative sources policy)**, followed by **numbered** Key Extracted Points (definitions, recurrences, complexity, worked examples).
+2. **Documented Corner Cases and Failure Modes** — grouped by source; only cases actually documented in authoritative sources are admitted (no invented edge cases).
+3. **Test Datasets** — one table per dataset, each with its own `Source:` citation; the canonical worked example(s) with exact parameters and expected outputs serve as the oracle / differential-test fixture. Large inputs (sequences, matrices) are stored in a separate file and referenced, not inlined.
+4. **Assumptions** — behaviour **not** confirmed by authoritative sources; every entry MUST carry a bold `ASSUMPTION:` prefix with its justification, keeping unverified claims visibly separated from sourced facts.
+5. **Recommendations for Test Coverage** — tiered as **MUST / SHOULD / COULD Test**; each MUST item cites its backing `Evidence: <source>`, each SHOULD/COULD item gives a `Rationale`.
+6. **References** — every reference MUST include a verifiable link (DOI or stable URL); a reference without a link is treated as incomplete.
+7. **Change History** — dated entries, the first being `Initial documentation.`
+
+### Conventions distinct from the spec-doc template
+
+- **Sourced-vs-assumed split** — the Evidence artifact structurally separates what authoritative sources confirm (Online Sources, Corner Cases, References) from what they do not (the `ASSUMPTION:`-prefixed Assumptions), a discipline the spec doc does not itself impose.
+- **Authority ranking** — each source is rank-scored 1–5, so downstream tests can weight evidence by source authority.
+- **Test-coverage tiering** — MUST/SHOULD/COULD is the Evidence artifact's own vocabulary for prioritising which behaviours the unit's tests must exercise, each tied back to a source or rationale, feeding the [[validation-and-testing]] campaign and the [[definition-of-done]]'s "Evidence documented" gate.
+
 ## Relationship to the rest of the methodology
 
-This spec-doc template is one of three sibling documentation templates in `docs/templates/`. Its companions — `evidence-template.md` (the per-unit source record, whose shape [[algorithm-validation-evidence]] already describes) and `testspec-template.md` (the TestSpec required by the [[definition-of-done]]) — are expected to reconcile onto this page as they are ingested, so it becomes the shared home for the project's **documentation standard**. Together they operationalize [[scientific-rigor]] at documentation time and feed the [[validation-and-testing]] campaign.
+This page is the shared home for the project's **documentation standard**, covering two of the three sibling templates in `docs/templates/`: the spec-doc template (above) and the `evidence-template.md` (the per-unit source record, folded in under "Evidence-artifact template"; its runtime artifact pattern lives on [[algorithm-validation-evidence]]). The third companion — `testspec-template.md` (the TestSpec required by the [[definition-of-done]]) — is expected to reconcile onto this page as it is ingested. Together they operationalize [[scientific-rigor]] at documentation time and feed the [[validation-and-testing]] campaign.
