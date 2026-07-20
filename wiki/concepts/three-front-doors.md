@@ -5,9 +5,9 @@ tags: [architecture]
 sources:
   - README.md
   - docs/MCP-Methods-Audit.md
-source_commit: 260735c56cf01fd76968956e28281f7678fff716
+source_commit: 585e15dfe3a54881f74e86e74b5015b7cd4ec14f
 created: 2026-07-09
-updated: 2026-07-17
+updated: 2026-07-20
 graph:
   relationships:
     - predicate: relates_to

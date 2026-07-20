@@ -68,6 +68,10 @@ audit, and direct enough to use in one prompt.
 
 ## Quick start
 
+**Prerequisites:** the [.NET 10 SDK](https://dotnet.microsoft.com/download) and Python 3.8+ (used by
+the wiki and validation tooling). NativeAOT publishing additionally needs the C++ build tools — see
+[Performance & NativeAOT](#performance--nativeaot).
+
 Clone the repo, open it in **Claude Code** (or GitHub Copilot / VS Code), and just ask:
 
 > **install and configure**
@@ -80,8 +84,10 @@ test. Or do the same directly:
 scripts/setup.sh          # build everything + verify the on-demand tool path
 ```
 
-Setup is a one-time step per clone and is idempotent — re-run it any time a build looks stale. Then
-**describe a biology task in plain language** and let the skills do the rest.
+`scripts/setup.sh` is a Bash script — on Windows run it from **Git Bash** or **WSL**, or just use the
+`install and configure` skill, which works from any shell. Setup is a one-time step per clone and is
+idempotent — re-run it any time a build looks stale. Then **describe a biology task in plain language**
+and let the skills do the rest.
 
 ## See it work: a resistance-mutation triage
 
@@ -113,7 +119,7 @@ library — none is guessed:**
 | 1 | [`bio-qc`](.claude/skills/bio-qc) | Both are valid DNA, 57 bp; GC 49.12 % vs 50.88 %. |
 | 2 | [`bio-alignment`](.claude/skills/bio-alignment) | **98.25 % identical** — a single substitution, no indels: **T→G at position 15** (0-based). |
 | 3 | [`bio-annotation`](.claude/skills/bio-annotation) | Translating the frame, `…MTEAR·`**`W`**`·DLK…` → `…MTEAR·`**`G`**`·DLK…`: a **missense mutation, `p.Trp6Gly`** — it really does change the protein. |
-| 4 | [`bio-moldesign`](.claude/skills/bio-moldesign) | A validated PCR pair around the site (61 bp amplicon): `GCCCCAAATGACCGAAGCTCGT` (**58.6 °C**) and `CCTACTGAAGACAAGTCGACCGC` (**58.8 °C**), ΔTm **0.2 °C**, no primer-dimer or hairpins — ready for the bench. |
+| 4 | [`bio-moldesign`](.claude/skills/bio-moldesign) | A validated PCR pair around the site (61 bp amplicon): `GCCCCAAATGACCGAAGCTCGT` (**58.56 °C**) and `CCTACTGAAGACAAGTCGACCGC` (**58.84 °C**), ΔTm **0.28 °C**, no primer-dimer or hairpins — ready for the bench. |
 
 [`bio-rigor`](.claude/skills/bio-rigor) runs throughout — tool-only computation, 0-based coordinates,
 and provenance on every result. More worked end-to-end tasks live in
@@ -170,10 +176,12 @@ Console.WriteLine($"EcoRI site: {hasEcoRI}");
 Prefer to validate input instead of throwing? Every sequence type has a `TryCreate`:
 
 ```csharp
-if (!DnaSequence.TryCreate("ACGTNN", out var seq))
-    Console.WriteLine("Invalid DNA sequence");
+// 'N' is not one of A/C/G/T, so this input is rejected.
+// TryCreate is annotated [NotNullWhen(true)], so seq is non-null in the success branch.
+if (DnaSequence.TryCreate("ACGTNN", out var seq))
+    Console.WriteLine($"GC%: {seq.GcContent():F2}");
 else
-    Console.WriteLine(seq.GcContent());
+    Console.WriteLine("Invalid DNA sequence");
 ```
 
 ### 3. MCP integration
@@ -285,7 +293,8 @@ Tool schemas and examples: [Core](docs/mcp/tools/core) · [Sequence](docs/mcp/to
 - **A high-performance suffix tree** (Ukkonen) for fast substring queries, plus a persistent
   on-disk variant.
 - **11 MCP servers** exposing the toolsets to LLM/agent workflows — one per domain, plus the core
-  suffix-tree server.
+  suffix-tree server. (Oncology ships as a C# module only — it has no MCP server; reach it through the
+  C# API or the [`seqeron-oncology`](.claude/skills/seqeron-oncology) skill.)
 - **Evidence-based validation** — algorithm parameters and coefficients reproduced from primary
   literature and reference implementations, tracked per unit under [docs/Validation](docs/Validation).
 
@@ -310,19 +319,19 @@ graph TD
     subgraph "Level 2"
         IO[IO]
         ALN[Alignment]
-        ANA[Analysis]
+        POP[Population]
+        REP[Reports]
     end
     subgraph "Level 3"
-        ANN[Annotation]
+        ANA[Analysis]
         PHY[Phylogenetics]
-        POP[Population]
+    end
+    subgraph "Level 4"
+        ANN[Annotation]
         META[Metagenomics]
         MOL[MolTools]
         CHR[Chromosome]
         ONC[Oncology]
-    end
-    subgraph "Level 4"
-        REP[Reports]
     end
     subgraph "Meta-package"
         GEN[Seqeron.Genomics<br/>aggregates all modules]
@@ -332,10 +341,12 @@ graph TD
     INF --> CORE
     CORE --> IO
     CORE --> ALN
-    CORE --> ANA
-    ALN --> ANA
+    CORE --> POP
+    CORE --> REP
 
+    ALN --> ANA
     ALN --> PHY
+
     ANA --> META
     ANA --> MOL
     ANA --> ONC
@@ -347,12 +358,11 @@ graph TD
     PHY --> ANN
 
     ANN --> GEN
-    PHY --> GEN
-    POP --> GEN
     META --> GEN
     MOL --> GEN
     CHR --> GEN
     ONC --> GEN
+    POP --> GEN
     REP --> GEN
 ```
 
@@ -419,15 +429,24 @@ These figures describe the repository state in the same Git revision as this REA
 
 | | Without the LLM Wiki | With the LLM Wiki |
 |---|---:|---:|
-| Discovery surface | 1,184 source files · 170,331 lines · 1,376,469 words | 13-line index + a relevant shard (largest: 222 lines) |
-| One-page lookup context | Repository-wide search may expose up to 170,331 source lines | Worst-case indexed discovery: 235 lines; then a 102-line average curated page |
-| Explicit knowledge structure | No normalized cross-document graph | 532 pages · 4,639 wikilinks · 532 graph nodes · 4,251 edges |
-| Curated knowledge volume | None | 54,696 lines · 446,723 words |
+| Discovery surface | 1,184 source files · 170,370 lines · 1,339,139 words | 13-line index + a relevant shard (largest: 235 lines) |
+| One-page lookup context | Repository-wide search may expose up to 170,370 source lines | Worst-case indexed discovery: 235 lines; then a 108-line average curated page |
+| Explicit knowledge structure | No normalized cross-document graph | 546 pages · 5,059 wikilinks · 546 graph nodes · 4,489 edges |
+| Curated knowledge volume | None | 59,198 lines · 487,476 words |
 | Provenance freshness | Manual source/history inspection | `source_commit` on every derived page; current stale count: 0 |
 
-For a representative one-page lookup, index + largest shard + average page is **337 lines versus
-170,331 source lines (~505× less discovery context)**. This is a context-size comparison, not a claim
+For a representative one-page lookup, index + largest shard + average page is **356 lines versus
+170,370 source lines (~479× less discovery context)**. This is a context-size comparison, not a claim
 that the wiki replaces reading the source or improves model correctness by a fixed percentage.
+Reproduce both sides from this revision:
+
+```bash
+# Baseline (source docs): file count + total lines, then total words
+git ls-files '*.md' | grep -E '^(docs/|[^/]+\.md$)' | xargs wc -l | tail -1
+git ls-files '*.md' | grep -E '^(docs/|[^/]+\.md$)' | xargs cat | wc -w
+# Wiki side: pages, lines, words, links, largest page, index size
+python .claude/skills/llm-wiki/scripts/wiki_stats.py wiki
+```
 
 #### Retrieval quality at fixed context cutoffs
 
@@ -440,9 +459,9 @@ Each cell shows **Without → With the LLM Wiki (absolute gain)**; all rows use 
 
 | Query form | Hit@1 | Hit@3 | Hit@10 |
 |---|---:|---:|---:|
-| English (direct) | 46.7% → **66.7%** (+20.0 pp) | 76.7% → **93.3%** (+16.7 pp) | 93.3% → **100.0%** (+6.7 pp) |
-| Українська (direct) | 26.7% → **46.7%** (+20.0 pp) | 46.7% → **70.0%** (+23.3 pp) | 70.0% → **76.7%** (+6.7 pp) |
-| Українська → English normalization | 53.3% → **70.0%** (+16.7 pp) | 76.7% → **96.7%** (+20.0 pp) | 96.7% → **100.0%** (+3.3 pp) |
+| English (direct) | 50.0% → **63.3%** (+13.3 pp) | 90.0% → **93.3%** (+3.3 pp) | 93.3% → **100.0%** (+6.7 pp) |
+| Українська (direct) | 30.0% → **46.7%** (+16.7 pp) | 46.7% → **63.3%** (+16.7 pp) | 70.0% → **76.7%** (+6.7 pp) |
+| Українська → English normalization | 56.7% → **66.7%** (+10.0 pp) | 90.0% → **96.7%** (+6.7 pp) | 96.7% → **100.0%** (+3.3 pp) |
 
 The baseline indexes the contents and paths of `docs/**/*.md` and root `*.md`; the wiki surface indexes
 concept titles and bodies. Both use the same tokenizer and BM25 implementation. Direct queries are
@@ -546,7 +565,7 @@ and the `SuffixTree.Console` harness) enable full `PublishAot`:
 ```xml
 <PublishAot>true</PublishAot>
 <OptimizationPreference>Speed</OptimizationPreference>       <!-- aggressive inlining, loop unrolling -->
-<IlcInstructionSet>native</IlcInstructionSet>               <!-- AVX2/SSE4.2/BMI2/POPCNT for this CPU -->
+<IlcInstructionSet>native</IlcInstructionSet>               <!-- target the build CPU's full ISA (AVX2/AVX-512/BMI2/POPCNT, as available) -->
 <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
 <StripSymbols>true</StripSymbols>
 <InvariantGlobalization>true</InvariantGlobalization>       <!-- drop ICU (~30 MB); genomics needs no culture -->
@@ -603,8 +622,10 @@ APIs may still change between releases. Here is exactly where it stands — the 
 **What has been done** (verifiable in this repo):
 
 - **Extensive automated testing** — 22,000+ executed test cases (`[Test]` methods plus parametrized
-  `[TestCase]` / combinatorial expansions) across 258 algorithm units, with roughly 3.8× more test
-  code than product code. The full suite is green on .NET 10, warnings-as-errors, CI-gated.
+  `[TestCase]` / combinatorial expansions; `dotnet test` prints the exact executed count) across 258
+  algorithm units (the "250+ algorithms" tracked individually for validation), with roughly 3.9× more
+  test code than product code (≈367k test vs ≈94k product lines). The full suite is green on .NET 10,
+  warnings-as-errors, CI-gated.
 - **Ten complementary test methodologies** — each catches a different class of defect, and each has
   a per-algorithm checklist under [docs/checklists](docs/checklists):
 

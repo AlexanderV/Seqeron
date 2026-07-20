@@ -10,9 +10,9 @@ sources:
   - docs/Validation/FINDINGS_REGISTER.md
   - docs/Validation/LIMITATIONS.md
   - docs/Validation/VALIDATION_LEDGER.md
-source_commit: 260735c56cf01fd76968956e28281f7678fff716
+source_commit: 585e15dfe3a54881f74e86e74b5015b7cd4ec14f
 created: 2026-07-09
-updated: 2026-07-17
+updated: 2026-07-20
 graph:
   relationships:
     - predicate: relates_to
@@ -25,7 +25,7 @@ graph:
 
 # Validation and testing strategy
 
-Seqeron's development-time correctness story: 22,000+ executed test cases across 258 algorithm units (roughly 3.8× more test code than product code), green on .NET 10 with warnings-as-errors and CI-gated, plus a documented per-unit validation campaign. The "warnings-as-errors" half of that gate is its own discipline — see the [[build-quality-gate]] (SonarAnalyzer ratcheted to blocking under `TreatWarningsAsErrors`).
+Seqeron's development-time correctness story: 22,000+ executed test cases across 258 algorithm units (roughly 3.9× more test code than product code), green on .NET 10 with warnings-as-errors and CI-gated, plus a documented per-unit validation campaign. The "warnings-as-errors" half of that gate is its own discipline — see the [[build-quality-gate]] (SonarAnalyzer ratcheted to blocking under `TreatWarningsAsErrors`).
 
 ## Ten complementary methodologies
 

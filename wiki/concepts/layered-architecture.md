@@ -4,9 +4,9 @@ title: "Strictly-layered library architecture"
 tags: [architecture]
 sources:
   - README.md
-source_commit: 260735c56cf01fd76968956e28281f7678fff716
+source_commit: 585e15dfe3a54881f74e86e74b5015b7cd4ec14f
 created: 2026-07-09
-updated: 2026-07-17
+updated: 2026-07-20
 ---
 
 # Strictly-layered library architecture
@@ -18,9 +18,9 @@ Seqeron is organized as a strictly-layered set of packages where dependencies on
 - **Substrate** — `SuffixTree` (Ukkonen + persistent), the fast substring-query engine.
 - **Level 0** — `Infrastructure`.
 - **Level 1** — `Core`.
-- **Level 2** — `IO`, `Alignment`, `Analysis`.
-- **Level 3** — `Annotation`, `Phylogenetics`, `Population`, `Metagenomics`, `MolTools`, `Chromosome`, `Oncology`.
-- **Level 4** — `Reports`.
+- **Level 2** — `IO`, `Alignment`, `Population`, `Reports` (each depends only on `Core` / `Infrastructure`).
+- **Level 3** — `Analysis`, `Phylogenetics` (both build on `Alignment`).
+- **Level 4** — `Annotation`, `Metagenomics`, `MolTools`, `Chromosome`, `Oncology` (build on `Analysis`; `Annotation` also on `IO` + `Phylogenetics`).
 - **Meta-package** — `Seqeron.Genomics`, which aggregates all modules and is the single `using` namespace.
 
 Every module also references `Core` + `Infrastructure`; those universal edges are elided in the README graph for readability.
