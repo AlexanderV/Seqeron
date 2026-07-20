@@ -270,3 +270,5 @@ Campen A. et al. (2008) *Protein Pept Lett* 15(9):956–963 (PMC2676888, PMID 18
 sets); Kyte J. & Doolittle R.F. (1982) *J Mol Biol* 157(1):105–132 (hydropathy); Uversky V.N. et al.
 (2000) *Proteins* 41(3):415–427 (charge–hydropathy). Full citations in [[disorder-pred-001-evidence]]
 (do not duplicate here).
+
+**Sharp edge:** [[disorder-prediction-is-top-idp-propensity-not-trained]] — `predict_disorder` is a **TOP-IDP propensity window**, not a trained IUPred/DISOPRED predictor.

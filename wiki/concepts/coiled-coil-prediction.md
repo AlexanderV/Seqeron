@@ -129,3 +129,5 @@ requirement); Lupas A., Van Dyke M. & Stock J. (1991) *Science* 252(5009):1162�
 registers, 28-residue window); Chambers P. et al. (1990) *J Gen Virol* 71(12):3075–3080 (heptad
 `HPPHCPC`); Wikipedia "Coiled coil" / "Heptad repeat" ({I,L,V} core set, leucine-zipper L at d). Full
 citations in [[protmotif-cc-001-evidence]] (do not duplicate here).
+
+**Sharp edge:** [[coiled-coil-score-is-heptad-occupancy-heuristic]] — the score is a **heptad a/d-occupancy heuristic**, not a COILS/Marcoil probability.

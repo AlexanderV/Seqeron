@@ -258,3 +258,5 @@ SNP-detection facet (`FindSnps`/`FindSnpsDirect`, Hamming-mismatch enumeration, 
 precondition) in [[variant-snp-001-evidence]]; the indel-detection facet (`FindInsertions`/`FindDeletions`,
 directional length invariant, normalization theory) in [[variant-indel-001-evidence]]. No source
 contradictions.
+
+**Sharp edge:** [[variant-calling-is-alignment-not-pileup]] — these are **alignment-based**, not a pileup genotype caller, and indels are **not left-normalized**.

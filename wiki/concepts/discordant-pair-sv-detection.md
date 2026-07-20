@@ -154,3 +154,5 @@ no substring/pattern search over a sequence, so the repository suffix tree is no
 - Distinct from the oncology read-evidence rearrangement units — the fusion caller
   [[gene-fusion-detection-read-evidence]] and the copy-number-pattern [[chromothripsis-inference]] —
   and from the gene-order [[genome-rearrangement-breakpoint-distance]]. No source contradictions.
+
+**Sharp edge:** [[discordant-pairs-are-signatures-not-breakpoints]] — discordant pairs are SV **signatures / intervals**, not base-pair breakpoints.

@@ -141,3 +141,5 @@ outside the source formula: the default `k = 6` / `minSequences = 2` (in-range b
 prescribed by any source — treated as caller-supplied), and expressing the RSAT raw
 matching-sequence count as a `Prevalence` fraction of total sequences (a value in (0, 1],
 consistent with the definition but not itself a source formula).
+
+**Sharp edge:** [[shared-motifs-counts-sequences-not-occurrences]] — `find_shared_motifs` counts **sequences containing** a motif (first occurrence only), not total occurrences.

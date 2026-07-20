@@ -155,3 +155,5 @@ Research-grade, not for clinical use. Reference sources — **McLaren 2016** (VE
 Ensembl **`Constants.pm`** (consequence/IMPACT/rank table) + **`VariationEffect.pm`** (predicates), NCBI
 **`gc.prt`** (Standard code), and the **Sequence Ontology** (Eilbeck 2005) — full record in
 [[variant-annot-001-evidence]]. No source contradictions.
+
+**Sharp edge:** [[vep-needs-reference-window-for-coding-consequences]] — without a **reference window** `annotate_variants` returns only the coarse coding term (no missense/synonymous/stop).

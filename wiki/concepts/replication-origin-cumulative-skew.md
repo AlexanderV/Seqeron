@@ -130,3 +130,5 @@ min = origin / max = terminus locating rule are **fully sourced** (Rosalind BA1F
 (`max > min`) is a documented assumption — chosen precisely because no source defines a
 significance threshold; it is the evidence-neutral floor, not an invented constant. See
 [[seq-replication-001-evidence]].
+
+**Sharp edge:** [[replication-origin-assumes-single-circular-chromosome]] — `predict_replication_origin` (min-skew = origin) is valid **only for a single circular chromosome**.

@@ -286,3 +286,5 @@ use.
 No source contradictions: the Doench 2014 model, the MIT/Hsu `W` vector, and the CFD matrices all match
 the CRISPOR reference exactly (CFD additionally 240/240 + 16/16 identical across CRISPOR and iGWOS), and
 the Azimuth provenance is consistent with the prior multi-session report.
+
+**Sharp edge:** [[crispr-guide-and-offtarget-scores-are-heuristic]] — guide and off-target scores are **heuristics**, not calibrated efficacy/risk estimates.

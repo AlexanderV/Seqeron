@@ -162,3 +162,5 @@ conformation, the 1978 propensity table); Chou P.Y. & Fasman G.D. (1974) *Bioche
 (Chou–Fasman method), the Kelley bioinfo lecture, CSB|SJU (Jakubowski), the Przytycka NCBI
 lecture, the ravihansa3000/ChouFasman reference implementation, and BMC Bioinformatics PMC1780123.
 Full citations in [[seq-secstruct-001-evidence]] (not duplicated here).
+
+**Sharp edge:** [[chou-fasman-returns-propensity-profile-not-state-calls]] — returns **Pa/Pb/Pt propensity profiles**, not H/E/C secondary-structure calls.

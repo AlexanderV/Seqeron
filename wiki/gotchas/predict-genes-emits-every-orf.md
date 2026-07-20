@@ -2,11 +2,13 @@
 type: gotcha
 title: "PredictGenes emits every ORF as a CDS — no overlap resolution, no gene ranking"
 tags: [annotation, gotcha]
+mcp_tools:
+  - predict_genes
 sources:
   - docs/algorithms/Annotation/Gene_Prediction.md
 source_commit: ec9209f6a267e376a0cd93f5b2e02d3576035966
 created: 2026-07-11
-updated: 2026-07-11
+updated: 2026-07-20
 ---
 
 # PredictGenes emits every ORF as a CDS — no overlap resolution, no gene ranking

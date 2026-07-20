@@ -131,3 +131,5 @@ Smith-Waterman is full dynamic programming — more sensitive than BLAST's heuri
 not less — and identity/coverage use the identical recalculated-over-fragment definition;
 numeric ANI on real genomes may differ slightly from NCBI-BLASTN pipelines because the
 alignment engine differs, but the indel-handling behaviour is correct.
+
+**Sharp edge:** [[ani-is-directional-use-reciprocal]] — `calculate_ani` is **directional** (ANI(A,B) != ANI(B,A)); use reciprocal ANI for a symmetric value.

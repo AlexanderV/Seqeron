@@ -155,3 +155,5 @@ transition/transversion model), **Felsenstein (2004)** *Inferring Phylogenies* (
 Wikipedia articles **Models of DNA evolution**, **Substitution model**, and **Distance matrices in
 phylogeny** (symmetric zero-diagonal matrix, time-reversibility, gaps ignored or counted as mismatches
 by implementation choice). No source contradictions.
+
+**Sharp edge:** [[p-distance-is-uncorrected-and-jc-k2p-saturate]] — **p-distance is uncorrected** (underestimates divergence); JC69/K2P return +inf at saturation.

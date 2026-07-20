@@ -186,3 +186,5 @@ identity; R `p.adjust` BH) — no source contradictions. **Not for clinical use.
 upstream normalized input, and [[alternative-splicing-psi]] (PSI / ΔPSI, TRANS-SPLICE-001) is the
 splicing-level counterpart — a gene can be differentially *spliced* without changing its total
 expression; further siblings (PCA/clustering) would enrich this family anchor.
+
+**Sharp edge:** [[differential-expression-is-welch-t-not-deseq2]] — `differential_expression` is a two-group Welch-t + BH screen, **not** the DESeq2/edgeR NB-GLM.

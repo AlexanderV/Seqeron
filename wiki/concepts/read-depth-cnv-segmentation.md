@@ -146,3 +146,5 @@ Worked oracle (`referenceDepth = 100`, `windowSize = 4`, depths `100×4, 50×4, 
   unit stops at the integer CN and del/dup call.
 - The allele-specific tumor layer [[allele-specific-copy-number-ascat]] adds BAF and a purity/ploidy fit;
   this germline unit is **total-CN only** from depth, no allelic contrast.
+
+**Sharp edge:** [[read-depth-cnv-misses-copy-neutral-and-nan-to-cn2]] — read-depth-only: **blind to copy-neutral** events; NaN windows silently become **neutral CN2**.

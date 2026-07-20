@@ -114,3 +114,5 @@ Chao1 count-vs-proportion gate and the `S ≤ 1 → J = 0` convention. It comput
 between-sample turnover metrics ([[beta-diversity]], Bray-Curtis / Jaccard), are separate units in the
 metagenomics family. No rarefaction, no confidence intervals, no Hill-number series beyond order 2. No
 source contradictions.
+
+**Sharp edge:** [[chao1-degrades-to-observed-richness-on-proportions]] — Chao1 **silently returns observed richness** for non-integer / proportional abundances.

@@ -179,3 +179,5 @@ yet still present in `SplicedSequence`**; the spec lists coordinate reconciliati
 two as *not implemented* (caller-side interpretation required). This is a heuristic
 splice-site-driven predictor: greedy (not globally optimal) selection, arithmetic-mean
 (not probabilistic) scoring, and no HMM/GHMM gene model (no GenScan/Augustus-style DP).
+
+**Sharp edge:** [[gene-structure-is-splice-motif-not-coding-aware]] — `predict_gene_structure` pairs **GT-AG splice motifs** only — not coding/frame-aware.

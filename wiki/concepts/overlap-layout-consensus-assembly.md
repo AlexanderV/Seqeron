@@ -120,3 +120,5 @@ No contradictions among the sources — Compeau, Pevzner & Tesler (2011) and bot
 notes give the identical overlap-graph / Hamiltonian-path / three-stage account; the teaching
 notes reflect the same primaries. The `GTACGTACGAT` edge weights and greedy traces were
 re-derived from the suffix-prefix definition and match the source slides.
+
+**Sharp edge:** [[olc-assembly-is-greedy-not-optimal]] — `assemble_olc` is **greedy** (order-dependent, error-free reads), not an exact SCS.
