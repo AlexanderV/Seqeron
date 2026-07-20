@@ -11,7 +11,7 @@ sources:
   - docs/algorithms/Complexity/K-mer_Entropy.md
 source_commit: 116678377644ae769df023b35b507b9c9cc2c0be
 created: 2026-07-09
-updated: 2026-07-13
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -152,7 +152,7 @@ tree would add construction overhead without lowering the linear cost (the same 
 sibling [[dust-low-complexity-score]] records).
 
 **vs. per-base Shannon entropy (`CalculateShannonEntropy`).** K-mer entropy generalizes the family's
-character-level per-base Shannon entropy (`shannon-entropy`, pending ingest): the per-base version is effectively `k = 1` over just the
+character-level per-base Shannon entropy ([[shannon-entropy]]): the per-base version is effectively `k = 1` over just the
 4 nucleotides (max `log₂4 = 2` bits, composition-only, blind to order), whereas k-mer entropy with
 `k ≥ 2` captures di-/tri-nucleotide **local order** and saturates at `log₂(L − k + 1)`.
 
@@ -175,7 +175,7 @@ sequences of **different lengths are not directly comparable**, and it models k-
   [[k-mer-euclidean-distance]] / [[kmer-jaccard-similarity]] compare the frequency/presence profiles of
   **two** sequences — whereas this unit summarizes the profile of **one**.
 - The **k-entropy** here is the k-mer specialization of Shannon sequence entropy; a general
-  `shannon-entropy` unit (pending ingest) would relate to it as the character-level counterpart.
+  [[shannon-entropy]] unit relates to it as the character-level counterpart.
   It is the **entropy member of the `SEQ-COMPLEX-*` complexity family** (validated standalone as
   SEQ-COMPLEX-KMER-001, above). Its family siblings are **distinct scalar measures** over the same
   sequence: the compression-based [[sequence-complexity-compression-lempel-ziv]] (Lempel–Ziv LZ76

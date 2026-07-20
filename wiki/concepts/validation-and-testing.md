@@ -10,9 +10,9 @@ sources:
   - docs/Validation/FINDINGS_REGISTER.md
   - docs/Validation/LIMITATIONS.md
   - docs/Validation/VALIDATION_LEDGER.md
-source_commit: 488b2b61c982f0bfa630e15c75163e2ff505295d
+source_commit: 32523eb3576cde5f7a1713f1b168e5808435e3ec
 created: 2026-07-09
-updated: 2026-07-15
+updated: 2026-07-20
 graph:
   relationships:
     - predicate: relates_to
@@ -25,7 +25,7 @@ graph:
 
 # Validation and testing strategy
 
-Seqeron's development-time correctness story: 22,000+ executed test cases across 258 algorithm units (roughly 3.8× more test code than product code), green on .NET 10 with warnings-as-errors and CI-gated, plus a documented per-unit validation campaign. The "warnings-as-errors" half of that gate is its own discipline — see the [[build-quality-gate]] (SonarAnalyzer ratcheted to blocking under `TreatWarningsAsErrors`).
+Seqeron's development-time correctness story: 22,000+ executed test cases across 258 algorithm units (roughly 3.9× more test code than product code), green on .NET 10 with warnings-as-errors and CI-gated, plus a documented per-unit validation campaign. The "warnings-as-errors" half of that gate is its own discipline — see the [[build-quality-gate]] (SonarAnalyzer ratcheted to blocking under `TreatWarningsAsErrors`).
 
 ## Ten complementary methodologies
 
@@ -51,3 +51,5 @@ Beyond tests, the README describes a per-unit internal validation campaign: a fi
 The [[findings-register]] is that register made concrete: it triages **every** note across all 86 per-unit reports into one of four dispositions (fixed-now / feasible / not-possible / by-design) via the [[validation-findings-disposition]] process. Its most striking output is **green-washing detection** — a large share of "green" tests were found to assert a defective spec (tautologies, code-echo oracles), and were re-anchored to independently sourced literals and mutation-checked. Note the register is a 2026-06-12 snapshot **superseded by a full re-validation reset on 2026-06-24**, so read it as historical reasoning, not live status — the live per-unit status board is the [[validation-ledger]] (three phases: 86 implemented + 24 new campaign units, 148 Phase-2, 12 enhanced), which every governance page treats as ground truth for *where things stand*.
 
 The campaign is tracked unit-by-unit in the [[test-unit-registry]] (364 units, 255 complete at the ingested revision), where each unit must clear the [[definition-of-done]]. Note the "258 algorithm units" figure from the README and the "364 test units" figure from [[algorithms-checklist-v2]] count different things — algorithm implementations versus tracked test units (255 done + 109 proposed) — and are not in conflict.
+
+The three-part documentation shape each unit produces — a spec doc, an Evidence artifact, and a TestSpec, tied together by the Test Unit ID — is codified in [[algorithm-documentation-standard]].

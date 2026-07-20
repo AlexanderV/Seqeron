@@ -5,11 +5,12 @@ tags: [sequence-statistics, protein, algorithm]
 mcp_tools:
   - hydrophobicity_profile
 sources:
+  - docs/algorithms/Statistics/Hydrophobicity_Analysis.md
   - docs/Evidence/SEQ-HYDRO-001-Evidence.md
   - docs/Evidence/SEQ-MW-001-Evidence.md
-source_commit: e058738ff312bb90e5022081cf85e0b9da5b67cb
+source_commit: 1163a158ee7cb840a458244bfbfd6a83775745f9
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -93,6 +94,25 @@ Window = 3 profile: `FLIV` → 2 windows **[3.7, 4.1666666667]**; `AG` (W > N) �
   for the 20 standard residues and are silent on ambiguity codes/gaps, so **neither rule is
   mandated**. It is an API-shape/robustness choice, not a scoring-constant change: every value
   produced for in-alphabet residues stays **exactly source-conformant** (algorithm doc §5.4).
+
+## Entry points and cost
+
+Both outputs live on `SequenceStatistics` in `Seqeron.Genomics.Analysis`
+(`SequenceStatistics.cs`):
+
+- `SequenceStatistics.CalculateHydrophobicity(string)` → `double` GRAVY over recognized
+  residues (single O(n) pass, O(1) space; constant scale lookup).
+- `SequenceStatistics.CalculateHydrophobicityProfile(string, int windowSize = 9)` →
+  `IEnumerable<double>`, the lazy sliding-window profile. **The default window is `9`** (the
+  surface-region setting; pass `19` for transmembrane). It recomputes each window's sum
+  directly and yields via `yield return`, so cost is **O(n·W) time, O(1) space** and the series
+  is deferred. This is not a search/matching unit — the repository suffix tree does not apply.
+
+The validated contract is fixed by invariants **INV-01…INV-05** (algorithm spec §2.4):
+INV-01 GRAVY of a single recognized residue equals that residue's `kd`; INV-02 profile yields
+exactly `n − W + 1` values for `W ≤ n` (else none); INV-03 each value is the unweighted window
+mean (`edge=1.0`); INV-04 GRAVY is case-insensitive; INV-05 empty/null ⇒ GRAVY 0 and empty
+profile.
 
 ## Scope
 

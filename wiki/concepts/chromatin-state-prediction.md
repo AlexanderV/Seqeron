@@ -114,3 +114,5 @@ model — an assumption; tests choose mark magnitudes unambiguously above/below 
 depend on the exact default. For production chromatin-state segmentation use ChromHMM or Segway. No
 source contradictions — ChromHMM (Ernst & Kellis 2012), the ChromHMM manual, Roadmap Epigenomics, and
 the per-mark primaries are mutually consistent.
+
+**Sharp edge:** [[chromatin-state-is-mark-presence-rules-not-chromhmm]] — state = **presence/absence** mark-combination rules, not ChromHMM on read counts (magnitudes ignored).

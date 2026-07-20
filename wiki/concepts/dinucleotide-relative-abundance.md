@@ -3,10 +3,11 @@ type: concept
 title: "Dinucleotide composition & relative abundance (Karlin genomic signature)"
 tags: [sequence-statistics, composition, algorithm]
 sources:
+  - docs/algorithms/Statistics/Dinucleotide_Analysis.md
   - docs/Evidence/SEQ-DINUC-001-Evidence.md
-source_commit: 4a7f3b50df393c2ccf0fe505da489d087d4f22f4
+source_commit: 42acb6214cd322fa4b68345a3d0292cdac427fd7
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -86,6 +87,39 @@ bases ignored). Oracles: `ATGATGAAA` frame 0 → ATG=2/3, AAA=1/3; frame 1 → T
 **same metric** as `SequenceStatistics.CalculateCodonFrequencies`
 ([[seq-codon-freq-001-evidence|SEQ-CODON-FREQ-001]], concept [[codon-usage-comparison]]) — see
 those pages for the full write-up; it is not re-derived here.
+
+## Method contract (algorithm spec)
+
+The three outputs are three public methods on `SequenceStatistics`
+(`Seqeron.Genomics.Analysis/SequenceStatistics.cs`), each returning
+`IReadOnlyDictionary<string,double>`:
+
+- `CalculateDinucleotideFrequencies(string)` — normalized dinucleotide frequencies `count / (N − 1)`.
+- `CalculateDinucleotideRatios(string)` — the odds ratio `ρ_XY = f_XY / (f_X · f_Y)`; it derives the
+  single-base frequencies `f_X` from [[base-composition|`CalculateNucleotideComposition`]] over
+  `{A,T,G,C,U}` and the dinucleotide frequencies from `CalculateDinucleotideFrequencies`, so RNA (`U`)
+  is supported.
+- `CalculateCodonFrequencies(string, int readingFrame = 0)` — non-overlapping triplet frequencies for
+  `readingFrame ∈ {0, 1, 2}`.
+
+**Alphabet filters:** dinucleotides are counted only over `{A,T,G,C,U}`; codons only over `{A,T,G,C}`
+(ambiguous / non-alphabet units are excluded from both the numerator and the total).
+
+**Complexity:** each method is a single linear counting pass — `O(n)` time, `O(k)` space
+(`k` = distinct units observed, `≤ 25` dinucleotides, `≤ 64` codons). These are **tabulation, not
+substring search** (no occurrence enumeration), so the repository suffix tree does not apply.
+
+**Frequency invariants (beyond the per-pair `ρ` invariant below):** INV-01 — dinucleotide frequencies
+sum to `1.0` (given ≥ 1 valid dinucleotide); INV-02 — codon frequencies sum to `1.0` (given ≥ 1 valid
+codon); all returned values are finite and `≥ 0`.
+
+**Single-strand vs strand-symmetrized ρ\* (deviation).** `CalculateDinucleotideRatios` uses
+**single-strand** base and dinucleotide frequencies — it is *not* the strand-symmetrized `ρ*` that
+Karlin computes by concatenating the sequence with its reverse complement for a true genomic
+signature. Consequence: the returned values are single-strand relative abundances, exactly right for
+per-sequence O/E (e.g. CpG) but not the double-strand genomic signature. The over-/under-representation
+classification (the `0.78` / `1.23` thresholds) is likewise **not implemented** — the caller compares
+the raw `ρ` against them.
 
 ## Invariants and edge cases
 

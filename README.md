@@ -29,7 +29,7 @@ Prefer code? The same algorithms are a normal C# API. Prefer your own agent? The
 
 - [Why Seqeron](#why-seqeron)
 - [Quick start](#quick-start)
-- [See it work: a resistance-mutation triage](#see-it-work-a-resistance-mutation-triage)
+- [See it work: an rpoB rifampicin-resistance variant triage](#see-it-work-an-rpob-rifampicin-resistance-variant-triage)
 - [Three ways to use it](#three-ways-to-use-it)
   - [1. Plain-language skills](#1-plain-language-skills)
   - [2. The C# library](#2-the-c-library)
@@ -47,20 +47,30 @@ Prefer code? The same algorithms are a normal C# API. Prefer your own agent? The
 
 ## Why Seqeron
 
-Most bioinformatics lives in Python and R. Seqeron brings a broad, **cohesive** toolkit to the .NET
-ecosystem — one strictly-layered library, one build, warnings-as-errors, no glue scripts — and pairs
-it with an AI-native workflow that the classic stacks don't have.
+Bioinformatics is entering the agentic era, but most scientific libraries still stop at functions.
+**Seqeron is built for the next interface: intent.** Describe the biological outcome; an LLM can
+discover, compose, and execute the right algorithms as a grounded workflow — without becoming the
+calculator or drowning in schemas.
 
-| | |
+| What you gain | Why it matters |
 |---|---|
-| 🧬 **Broad & cohesive** | 250+ algorithms across alignment, annotation, variant calling, phylogenetics, population & comparative genomics, metagenomics, transcriptomics, epigenetics, RNA structure, oncology, and molecular design — all under one namespace. |
-| 🗣️ **Plain-language first** | Describe the task; the matching skills load themselves, pick the right tools, and chain a correct multi-step pipeline. No schema wrangling. |
-| 🔒 **Honest by construction** | A runtime `LimitationPolicy` guards each algorithm's validated scope, and results are tool-computed with provenance — the assistant never makes up a number. |
-| ⚡ **Fast** | A Ukkonen suffix tree for substring queries, plus aggressive NativeAOT builds for the MCP servers. |
-| ✅ **Heavily tested** | 22,000+ executed test cases across ten testing methodologies, warnings-as-errors, CI-gated on .NET 10. |
-| 🔌 **Three front doors** | The same validated algorithm answers whether you go through a skill, a C# call, or an MCP tool. |
+| 🤖 **LLM-native and context-smart** | 21 skills discover and chain **427 strict-schema tools** on demand, without loading the whole catalog into context. You state the biology; Seqeron handles tools, order, parameters, units, coordinates, and provenance. |
+| ⚙️ **Executable answers, not plausible prose** | The LLM orchestrates; Seqeron computes. Alignments, variants, trees, structures, scores, and primer properties come from tested code — never model arithmetic. |
+| 🧭 **One question, an end-to-end workflow** | Move from parsing and QC through alignment, assembly, annotation, RNA, oncology, or assay design. More than 250 algorithms share models and conventions instead of behaving like unrelated utilities. |
+| 🔁 **Conversation today, production code tomorrow** | Skills, MCP tools, and C# reach the same implementations. Explore interactively, then embed the pipeline without rewriting the biology. |
+| 🔬 **Modern rigor, visible limits** | Completed units carry literature-traced parameters, tests, and validation evidence. Boundaries are documented, guarded where detectable, and agent workflows expose how each result was produced. |
+| 🏠 **Local-first and agent-portable** | MCP runs locally over stdio, so data need not leave the machine. Use Claude Code, Copilot, Codex, another MCP client, or no LLM at all. |
+| ⚡ **A modern engine underneath** | .NET 10, NativeAOT-ready executables, Ukkonen search, reusable on-disk indexes, structured results, and 22,000+ tests across ten methodologies. |
+
+Seqeron is not a genomics library with an AI wrapper. It is a **bioinformatics engine for people and
+agents**: broad enough for real workflows, structured enough to automate, transparent enough to
+audit, and direct enough to use in one prompt.
 
 ## Quick start
+
+**Prerequisites:** the [.NET 10 SDK](https://dotnet.microsoft.com/download) and Python 3.8+ (used by
+the wiki and validation tooling). NativeAOT publishing additionally needs the C++ build tools — see
+[Performance & NativeAOT](#performance--nativeaot).
 
 Clone the repo, open it in **Claude Code** (or GitHub Copilot / VS Code), and just ask:
 
@@ -74,30 +84,117 @@ test. Or do the same directly:
 scripts/setup.sh          # build everything + verify the on-demand tool path
 ```
 
-Setup is a one-time step per clone and is idempotent — re-run it any time a build looks stale. Then
-**describe a biology task in plain language** and let the skills do the rest.
+`scripts/setup.sh` is a Bash script — on Windows run it from **Git Bash** or **WSL**, or just use the
+`install and configure` skill, which works from any shell. Setup is a one-time step per clone and is
+idempotent — re-run it any time a build looks stale. Then **describe a biology task in plain language**
+and let the skills do the rest.
 
-## See it work: a resistance-mutation triage
+## See it work: an *rpoB* rifampicin-resistance variant triage
 
-You hand the assistant two versions of a short gene fragment — a drug-susceptible wild type and a
-clinical isolate you suspect carries a resistance mutation — and ask, in plain English:
+You hand the assistant two **753 bp** fragments of the *Mycobacterium tuberculosis* **`rpoB`** gene,
+which encodes the RNA polymerase β subunit — the molecular target of rifampicin. The reference
+fragment is taken **verbatim from NCBI RefSeq**: the *M. tuberculosis* H37Rv genome
+[`NC_000962.3`](https://www.ncbi.nlm.nih.gov/nuccore/NC_000962.3), positions 760,854–761,606
+(**1-based inclusive**) — i.e. `rpoB` (locus `Rv0667`) codons 350–600. That fully spans the 81 bp
+**rifampicin resistance-determining region (RRDR)**, codons 426–452, with hundreds of base pairs of
+flanking sequence on either side. The second record is an **in-silico isolate derived from that fragment** by introducing a
+single **Ser450Leu** (`TCG`→`TTG`) substitution, which WHO classifies as **"1) Associated with
+resistance"** — its highest-confidence mutation category — and which is the most frequently observed
+resistance-associated `rpoB` variant in the
+[WHO 2023 catalogue, 2nd ed.](https://www.who.int/publications/i/item/9789240082410) dataset (in the
+older *E. coli* numbering, the well-known **Ser531Leu**). The changed base is at **0-based offset 301**
+(1-based position 302), leaving 301 bp upstream and 451 bp downstream — ample real genomic context on
+both sides for primer design, with no synthetic padding.
 
-> *"Confirm both are clean DNA, tell me exactly what changed and whether it alters the protein, and
-> if it does, design me a PCR primer pair to amplify the region for a diagnostic."*
+<details>
+<summary><b>The two FASTA records — 753 bp each</b> (click to expand / copy-paste)</summary>
 
-The assistant routes the task through a chain of skills. **Every number below is computed by the
-library — none is guessed:**
+**Source.** The **nucleotide sequence** in the reference record below is the exact subsequence
+returned by NCBI E-utilities, with **no nucleotide edits**; only the FASTA header has been rewritten to
+make the example self-describing. Re-fetch and diff the sequence:
+
+```bash
+curl "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_000962.3&rettype=fasta&retmode=text&seq_start=760854&seq_stop=761606"
+```
+
+```fasta
+>rpoB_350_600_reference   NC_000962.3:760854-761606 (1-based incl.)  M. tuberculosis H37Rv, rpoB codons 350-600
+ACCGTTCCGGGCGGCGTCGAGGTGCCGGTGGAAACCGACGACATCGACCACTTCGGCAACCGCCGCCTGC
+GTACGGTCGGCGAGCTGATCCAAAACCAGATCCGGGTCGGCATGTCGCGGATGGAGCGGGTGGTCCGGGA
+GCGGATGACCACCCAGGACGTGGAGGCGATCACACCGCAGACGTTGATCAACATCCGGCCGGTGGTCGCC
+GCGATCAAGGAGTTCTTCGGCACCAGCCAGCTGAGCCAATTCATGGACCAGAACAACCCGCTGTCGGGGT
+TGACCCACAAGCGCCGACTGTCGGCGCTGGGGCCCGGCGGTCTGTCACGTGAGCGTGCCGGGCTGGAGGT
+CCGCGACGTGCACCCGTCGCACTACGGCCGGATGTGCCCGATCGAAACCCCTGAGGGGCCCAACATCGGT
+CTGATCGGCTCGCTGTCGGTGTACGCGCGGGTCAACCCGTTCGGGTTCATCGAAACGCCGTACCGCAAGG
+TGGTCGACGGCGTGGTTAGCGACGAGATCGTGTACCTGACCGCCGACGAGGAGGACCGCCACGTGGTGGC
+ACAGGCCAATTCGCCGATCGATGCGGACGGTCGCTTCGTCGAGCCGCGCGTGCTGGTCCGCCGCAAGGCG
+GGCGAGGTGGAGTACGTGCCCTCGTCTGAGGTGGACTACATGGACGTCTCGCCCCGCCAGATGGTGTCGG
+TGGCCACCGCGATGATTCCCTTCCTGGAGCACGACGACGCCAACCGTGCCCTC
+>rpoB_350_600_isolate     same fragment carrying the S450L (rpoB c.1349C>T) rifampicin-resistance substitution
+ACCGTTCCGGGCGGCGTCGAGGTGCCGGTGGAAACCGACGACATCGACCACTTCGGCAACCGCCGCCTGC
+GTACGGTCGGCGAGCTGATCCAAAACCAGATCCGGGTCGGCATGTCGCGGATGGAGCGGGTGGTCCGGGA
+GCGGATGACCACCCAGGACGTGGAGGCGATCACACCGCAGACGTTGATCAACATCCGGCCGGTGGTCGCC
+GCGATCAAGGAGTTCTTCGGCACCAGCCAGCTGAGCCAATTCATGGACCAGAACAACCCGCTGTCGGGGT
+TGACCCACAAGCGCCGACTGTTGGCGCTGGGGCCCGGCGGTCTGTCACGTGAGCGTGCCGGGCTGGAGGT
+CCGCGACGTGCACCCGTCGCACTACGGCCGGATGTGCCCGATCGAAACCCCTGAGGGGCCCAACATCGGT
+CTGATCGGCTCGCTGTCGGTGTACGCGCGGGTCAACCCGTTCGGGTTCATCGAAACGCCGTACCGCAAGG
+TGGTCGACGGCGTGGTTAGCGACGAGATCGTGTACCTGACCGCCGACGAGGAGGACCGCCACGTGGTGGC
+ACAGGCCAATTCGCCGATCGATGCGGACGGTCGCTTCGTCGAGCCGCGCGTGCTGGTCCGCCGCAAGGCG
+GGCGAGGTGGAGTACGTGCCCTCGTCTGAGGTGGACTACATGGACGTCTCGCCCCGCCAGATGGTGTCGG
+TGGCCACCGCGATGATTCCCTTCCTGGAGCACGACGACGCCAACCGTGCCCTC
+```
+
+</details>
+
+Then ask — in the kind of plain language the skill layer is built for. You don't spell out coordinate
+systems, output formats or primer parameters; the assistant picks sensible ones and shows its working:
+
+> *"Compare these two* rpoB *fragments — the first is the* M. tuberculosis *H37Rv reference
+> (`NC_000962.3`), the second an in-silico isolate — and characterize the isolate's mutation at the DNA
+> and protein levels, using `NC_000962.3` and the H37Rv `rpoB` annotation for coordinates. Check
+> whether it is an established rifampicin-resistance-associated variant, and cite the source.*
+>
+> *Then design a suitable PCR amplicon for confirming the mutation by bidirectional Sanger sequencing.
+> Report the selected primers, their main design metrics, the expected product and any specificity
+> limitations.*
+>
+> *The second sequence was generated in silico, so don't imply its resistance phenotype was
+> experimentally measured."*
+
+Even from that short ask, the assistant routes through a chain of skills and volunteers the full,
+auditable answer below. **Every metric is computed by the library — none is guessed** (the g./c./p.
+notations then map those computed results onto the cited RefSeq annotation):
 
 | Step | Skill | Result |
 |---|---|---|
-| 1 | [`bio-qc`](.claude/skills/bio-qc) | Both are valid DNA, 57 bp; GC 49.12 % vs 50.88 %. |
-| 2 | [`bio-alignment`](.claude/skills/bio-alignment) | **98.25 % identical** — a single substitution, no indels: **T→G at position 15** (0-based). |
-| 3 | [`bio-annotation`](.claude/skills/bio-annotation) | Translating the frame, `…MTEAR·`**`W`**`·DLK…` → `…MTEAR·`**`G`**`·DLK…`: a **missense mutation, `p.Trp6Gly`** — it really does change the protein. |
-| 4 | [`bio-moldesign`](.claude/skills/bio-moldesign) | A validated PCR pair around the site (61 bp amplicon): both primers **Tm ≈ 58.7 °C** (ΔTm 0.2 °C), no hairpin — ready for the bench. |
+| 1 | [`bio-qc`](.claude/skills/bio-qc) | Both records are well-formed, unambiguous DNA (A/C/G/T only), **753 bp**, divisible by 3 and in frame; GC **66.80 %** (reference) vs **66.67 %** (isolate) — the high GC of *M. tuberculosis*. |
+| 2 | [`bio-alignment`](.claude/skills/bio-alignment) | **99.87 % identical** (752/753) — a single substitution, no indels: **C→T** at 0-based `[301,302)` / 1-based position 302 of the fragment. Mapped onto the reference annotation: `NC_000962.3:g.761155C>T` = `rpoB` **`c.1349C>T`**. |
+| 3 | [`bio-annotation`](.claude/skills/bio-annotation) | Frame-0 translation (first fragment codon = `rpoB` codon 350) `…KRRL·`**`S`**`·ALGP…` → `…KRRL·`**`L`**`·ALGP…`: fragment residue 100 = **`rpoB` codon 450**, a **missense** change, predicted **`NP_215181.1:p.(Ser450Leu)`** — the catalogued **S450L**. |
+| 4 | [`bio-moldesign`](.claude/skills/bio-moldesign) | With **Seqeron v1.0.0** default parameters (length 18–25, Tm 57–63 °C, GC 40–60 %, Wallace/Marmur–Doty Tm), a valid pair with both binding sites clear of the variant — 0-based half-open on the forward-strand fragment, fwd `[179,201)`, rev `[409,431)`: `GACGTTGATCAACATCCGGCCG` and `GAGCCGATCAGACCGATGTTGG` (5′→3′), each **22 nt**, both **58.6 °C** (ΔTm **0.0 °C**), GC 59.1 %, no primer-dimer or hairpins; nearest-neighbour Tm **61.7 / 60.8 °C**. **252 bp** amplicon; the variant sits at 0-based offset 122 / 1-based position 123 within it — 122 bp and 130 bp from the two ends, clearing the ≥50 bp Sanger read margin. |
+
+> **What this establishes — and deliberately does not.** `Ser450Leu` is graded **"Associated with
+> resistance"** in the **WHO 2023 mutation catalogue (2nd ed., cited above)** and experimentally
+> confirmed to cause rifampicin resistance in isogenic mutants, so the assistant **reports that
+> established association together with its source** — this is not a nameless SNP hedged into vagueness. What it must *not* do is imply a measured phenotype: the "isolate" is the H37Rv reference
+> with the change introduced *in silico*, so it has **no experimentally measured MIC / drug-susceptibility
+> result** — a catalogued genotype *predicts* the phenotype, it does not by itself *confirm* it for a
+> given specimen. Two more scoping notes. The primer pair only **flanks** the codon: it yields template
+> for Sanger/NGS but does **not** genotype the allele on its own (that is allele-specific/ARMS-PCR, a
+> TaqMan/molecular-beacon probe per allele, or HRM). And the exact pair is reproducible only once the
+> design parameters are pinned: it is deterministic given the target site `[301,302)` and the library's
+> default parameters above, but a different thermodynamic parameter set (amplicon range, Tm/length
+> bounds, salt/Mg²⁺) would yield a different — equally valid — pair. Local design over one 753 bp
+> template also checks the primers *against that template only* — full specificity needs a genome-wide
+> check (Primer-BLAST against the whole `NC_000962.3` genome and, ideally, an *M. tuberculosis* complex
+> database), which the assistant flags as a limitation rather than asserting.
+> Provenance travels with every number: reference `NC_000962.3` positions 760,854–761,606 (1-based
+> inclusive) = `rpoB` codons 350–600; the g./c./p. notations are mapped onto that RefSeq annotation
+> (`NC_000962.3` / `NP_215181.1`), while the fragment-relative coordinates are computed from the
+> alignment.
 
 [`bio-rigor`](.claude/skills/bio-rigor) runs throughout — tool-only computation, 0-based coordinates,
-and provenance on every result. More worked end-to-end tasks live in
-[`docs/skills/golden/`](docs/skills/golden).
+provenance on every result, and the discipline to say what the data cannot support. More worked
+end-to-end tasks live in [`docs/skills/golden/`](docs/skills/golden).
 
 ## Three ways to use it
 
@@ -150,10 +247,12 @@ Console.WriteLine($"EcoRI site: {hasEcoRI}");
 Prefer to validate input instead of throwing? Every sequence type has a `TryCreate`:
 
 ```csharp
-if (!DnaSequence.TryCreate("ACGTNN", out var seq))
-    Console.WriteLine("Invalid DNA sequence");
+// 'N' is not one of A/C/G/T, so this input is rejected.
+// TryCreate is annotated [NotNullWhen(true)], so seq is non-null in the success branch.
+if (DnaSequence.TryCreate("ACGTNN", out var seq))
+    Console.WriteLine($"GC%: {seq.GcContent():F2}");
 else
-    Console.WriteLine(seq.GcContent());
+    Console.WriteLine("Invalid DNA sequence");
 ```
 
 ### 3. MCP integration
@@ -265,7 +364,8 @@ Tool schemas and examples: [Core](docs/mcp/tools/core) · [Sequence](docs/mcp/to
 - **A high-performance suffix tree** (Ukkonen) for fast substring queries, plus a persistent
   on-disk variant.
 - **11 MCP servers** exposing the toolsets to LLM/agent workflows — one per domain, plus the core
-  suffix-tree server.
+  suffix-tree server. (Oncology ships as a C# module only — it has no MCP server; reach it through the
+  C# API or the [`seqeron-oncology`](.claude/skills/seqeron-oncology) skill.)
 - **Evidence-based validation** — algorithm parameters and coefficients reproduced from primary
   literature and reference implementations, tracked per unit under [docs/Validation](docs/Validation).
 
@@ -290,19 +390,19 @@ graph TD
     subgraph "Level 2"
         IO[IO]
         ALN[Alignment]
-        ANA[Analysis]
+        POP[Population]
+        REP[Reports]
     end
     subgraph "Level 3"
-        ANN[Annotation]
+        ANA[Analysis]
         PHY[Phylogenetics]
-        POP[Population]
+    end
+    subgraph "Level 4"
+        ANN[Annotation]
         META[Metagenomics]
         MOL[MolTools]
         CHR[Chromosome]
         ONC[Oncology]
-    end
-    subgraph "Level 4"
-        REP[Reports]
     end
     subgraph "Meta-package"
         GEN[Seqeron.Genomics<br/>aggregates all modules]
@@ -312,10 +412,12 @@ graph TD
     INF --> CORE
     CORE --> IO
     CORE --> ALN
-    CORE --> ANA
-    ALN --> ANA
+    CORE --> POP
+    CORE --> REP
 
+    ALN --> ANA
     ALN --> PHY
+
     ANA --> META
     ANA --> MOL
     ANA --> ONC
@@ -327,12 +429,11 @@ graph TD
     PHY --> ANN
 
     ANN --> GEN
-    PHY --> GEN
-    POP --> GEN
     META --> GEN
     MOL --> GEN
     CHR --> GEN
     ONC --> GEN
+    POP --> GEN
     REP --> GEN
 ```
 
@@ -380,6 +481,12 @@ commit rather than replacing or editing the originals. There is intentionally no
 4. Follow `sources:` / `doc_path:` to the authoritative repository document before making a
    high-stakes claim; cite the answer with `[[wikilinks]]`.
 
+At the point of tool selection, `seqeron-discovery`'s `find-tool.py` also surfaces the wiki concept —
+or a `(!)` **sharp-edge** (`wiki/gotchas/`) page — bound to each tool, so an agent sees the science and
+the known traps before it runs anything. New algorithm ingests keep this current automatically: the
+`wiki-ingest-doc` skill's `gotcha_candidate.py` extracts a doc's sharp edges and wires the resulting
+gotcha back to its concept and tools.
+
 This is retrieval, not a second source of truth. Every derived page carries provenance,
 `source_commit` enables deterministic staleness checks, and the compiled graph is disposable —
 Markdown remains canonical.
@@ -399,15 +506,24 @@ These figures describe the repository state in the same Git revision as this REA
 
 | | Without the LLM Wiki | With the LLM Wiki |
 |---|---:|---:|
-| Discovery surface | 1,184 source files · 170,331 lines · 1,376,469 words | 13-line index + a relevant shard (largest: 222 lines) |
-| One-page lookup context | Repository-wide search may expose up to 170,331 source lines | Worst-case indexed discovery: 235 lines; then a 102-line average curated page |
-| Explicit knowledge structure | No normalized cross-document graph | 532 pages · 4,639 wikilinks · 532 graph nodes · 4,251 edges |
-| Curated knowledge volume | None | 54,696 lines · 446,723 words |
+| Discovery surface | 1,184 source files · 170,370 lines · 1,339,139 words | 13-line index + a relevant shard (largest: 235 lines) |
+| One-page lookup context | Repository-wide search may expose up to 170,370 source lines | Worst-case indexed discovery: 235 lines; then a 105-line average curated page |
+| Explicit knowledge structure | No normalized cross-document graph | 569 pages · 5,155 wikilinks · 569 graph nodes · 4,678 edges |
+| Curated knowledge volume | None | 59,976 lines · 492,845 words |
 | Provenance freshness | Manual source/history inspection | `source_commit` on every derived page; current stale count: 0 |
 
-For a representative one-page lookup, index + largest shard + average page is **337 lines versus
-170,331 source lines (~505× less discovery context)**. This is a context-size comparison, not a claim
+For a representative one-page lookup, index + largest shard + average page is **353 lines versus
+170,370 source lines (~483× less discovery context)**. This is a context-size comparison, not a claim
 that the wiki replaces reading the source or improves model correctness by a fixed percentage.
+Reproduce both sides from this revision:
+
+```bash
+# Baseline (source docs): file count + total lines, then total words
+git ls-files '*.md' | grep -E '^(docs/|[^/]+\.md$)' | xargs wc -l | tail -1
+git ls-files '*.md' | grep -E '^(docs/|[^/]+\.md$)' | xargs cat | wc -w
+# Wiki side: pages, lines, words, links, largest page, index size
+python .claude/skills/llm-wiki/scripts/wiki_stats.py wiki
+```
 
 #### Retrieval quality at fixed context cutoffs
 
@@ -420,9 +536,9 @@ Each cell shows **Without → With the LLM Wiki (absolute gain)**; all rows use 
 
 | Query form | Hit@1 | Hit@3 | Hit@10 |
 |---|---:|---:|---:|
-| English (direct) | 46.7% → **66.7%** (+20.0 pp) | 76.7% → **93.3%** (+16.7 pp) | 93.3% → **100.0%** (+6.7 pp) |
-| Українська (direct) | 26.7% → **46.7%** (+20.0 pp) | 46.7% → **70.0%** (+23.3 pp) | 70.0% → **76.7%** (+6.7 pp) |
-| Українська → English normalization | 53.3% → **70.0%** (+16.7 pp) | 76.7% → **96.7%** (+20.0 pp) | 96.7% → **100.0%** (+3.3 pp) |
+| English (direct) | 50.0% → **63.3%** (+13.3 pp) | 90.0% → **93.3%** (+3.3 pp) | 93.3% → **100.0%** (+6.7 pp) |
+| Українська (direct) | 30.0% → **46.7%** (+16.7 pp) | 46.7% → **66.7%** (+20.0 pp) | 70.0% → **76.7%** (+6.7 pp) |
+| Українська → English normalization | 56.7% → **66.7%** (+10.0 pp) | 90.0% → **96.7%** (+6.7 pp) | 96.7% → **100.0%** (+3.3 pp) |
 
 The baseline indexes the contents and paths of `docs/**/*.md` and root `*.md`; the wiki surface indexes
 concept titles and bodies. Both use the same tokenizer and BM25 implementation. Direct queries are
@@ -526,7 +642,7 @@ and the `SuffixTree.Console` harness) enable full `PublishAot`:
 ```xml
 <PublishAot>true</PublishAot>
 <OptimizationPreference>Speed</OptimizationPreference>       <!-- aggressive inlining, loop unrolling -->
-<IlcInstructionSet>native</IlcInstructionSet>               <!-- AVX2/SSE4.2/BMI2/POPCNT for this CPU -->
+<IlcInstructionSet>native</IlcInstructionSet>               <!-- target the build CPU's full ISA (AVX2/AVX-512/BMI2/POPCNT, as available) -->
 <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
 <StripSymbols>true</StripSymbols>
 <InvariantGlobalization>true</InvariantGlobalization>       <!-- drop ICU (~30 MB); genomics needs no culture -->
@@ -583,8 +699,10 @@ APIs may still change between releases. Here is exactly where it stands — the 
 **What has been done** (verifiable in this repo):
 
 - **Extensive automated testing** — 22,000+ executed test cases (`[Test]` methods plus parametrized
-  `[TestCase]` / combinatorial expansions) across 258 algorithm units, with roughly 3.8× more test
-  code than product code. The full suite is green on .NET 10, warnings-as-errors, CI-gated.
+  `[TestCase]` / combinatorial expansions; `dotnet test` prints the exact executed count) across 258
+  algorithm units (the "250+ algorithms" tracked individually for validation), with roughly 3.9× more
+  test code than product code (≈367k test vs ≈94k product lines). The full suite is green on .NET 10,
+  warnings-as-errors, CI-gated.
 - **Ten complementary test methodologies** — each catches a different class of defect, and each has
   a per-algorithm checklist under [docs/checklists](docs/checklists):
 

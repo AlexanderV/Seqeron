@@ -3,16 +3,16 @@ type: concept
 title: "Windowed sequence complexity profile (sliding-window Shannon + linguistic complexity)"
 tags: [analysis, algorithm]
 mcp_tools:
-  - complexity_linguistic
-  - linguistic_complexity
   - windowed_complexity
 sources:
   - docs/algorithms/Complexity/Windowed_Complexity.md
   - docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md
   - docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md
-source_commit: 579178ec5fcf7fb4a0d95f1a8866299cf78eb55c
+  - docs/algorithms/Statistics/Entropy_Profile.md
+  - docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
+source_commit: dd6f9c3fb21684add3c59107cae5ea989bbd3315
 created: 2026-07-10
-updated: 2026-07-13
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -25,6 +25,12 @@ graph:
       object: concept:test-unit-registry
       source: seq-entropy-profile-001-evidence
       evidence: "Test Unit ID: SEQ-ENTROPY-PROFILE-001; Algorithm: Shannon Entropy Profile (sliding-window per-symbol Shannon entropy) — the same per-window Shannon H=−Σpᵢlog₂pᵢ over single-base composition, emitted as a standalone entropy profile (second entry point)"
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:entropy-profile
+      source: seq-entropy-profile-001-evidence
+      evidence: "The standalone Shannon entropy profile SEQ-ENTROPY-PROFILE-001 is homed on entropy-profile: SequenceStatistics.CalculateEntropyProfile (general-alphabet, all letters, W=50/step=1, IEnumerable<double>) — same per-window Shannon statistic, distinct method from this page's DNA-canonical CalculateWindowedComplexity ComplexityPoint Shannon channel (A/T/G/C, W=64/step=10)."
       confidence: high
       status: current
 ---
@@ -85,9 +91,9 @@ where `Vᵢ` = number of **distinct** length-`i` subwords observed in the window
 `4^i` = the DNA-alphabet theoretical maximum vocabulary, and `N−i+1` = the positional maximum
 (Gabrielian & Bolshoy 1999; Troyanskaya 2002). `maxWordLength = min(6, windowSize)` (the cap of 6 is
 a repository efficiency parameter, ASSUMPTION). Range `0 < LC ≤ 1`; a **repetitive** window has few
-distinct subwords relative to the maximum ⇒ low LC. This is the same LC as the standalone unit
-SEQ-COMPLEX-001 (its docs `Linguistic_Complexity.md §2.2`; not yet separately ingested), applied
-per window.
+distinct subwords relative to the maximum ⇒ low LC. This is the same LC as the standalone scalar unit
+SEQ-COMPLEX-001 — [[linguistic-complexity]] (`SequenceComplexity.CalculateLinguisticComplexity`) —
+applied per window via the shared `CalculateLinguisticComplexityCore`.
 
 ## Window geometry and the `ComplexityPoint` contract
 
@@ -127,17 +133,20 @@ implemented — the exact per-window enumeration is authoritative for the bounde
 - **Geometry** `L = 24, w = 8, s = 8` ⇒ **3** windows: [0,7] center 4, [8,15] center 12, [16,23]
   center 20.
 
-## Second entry point: the standalone Shannon entropy profile (SEQ-ENTROPY-PROFILE-001)
+## Sibling: the standalone Shannon entropy profile (SEQ-ENTROPY-PROFILE-001 → [[entropy-profile]])
 
-The per-window Shannon scan above has a **second, standalone entry point** validated as test unit
-**SEQ-ENTROPY-PROFILE-001** — a **sliding-window Shannon entropy profile** that emits, per window,
-the **entropy value alone** (`H = −Σ pᵢ log₂ pᵢ` in **bits** over the window's **single-base,
-k = 1** composition), *without* the paired linguistic complexity. It is the **same measure and the
-same window geometry** as the Shannon component of the `ComplexityPoint` profile — not a different
-statistic — just the entropy channel exposed on its own (a `List<double>` rather than a list of
-`ComplexityPoint`s). Convention `0·log 0 = 0`; DNA bounds `0 ≤ H ≤ log₂k ≤ 2` (uniform 4-base window
-⇒ `2.0`, homopolymer ⇒ `0`). The source trace and worked oracles are in
-[[seq-entropy-profile-001-evidence]]; [[test-unit-registry]] tracks the unit.
+A **sibling sliding-window profiler** validated as test unit **SEQ-ENTROPY-PROFILE-001** emits, per
+window, the **entropy value alone** (`H = −Σ pᵢ log₂ pᵢ` in **bits**), *without* the paired
+linguistic complexity — now homed on its own page [[entropy-profile]]. It is the **same statistic**
+(per-window Shannon `H` over single-symbol, `k = 1` composition), but a **distinct method**: it is
+`SequenceStatistics.CalculateEntropyProfile` (defaults `W = 50`, `step = 1`, returning
+`IEnumerable<double>`) over the **general alphabet** — counting **all letters**, so `N`/degenerate
+symbols count as themselves and protein windows can exceed `2` bits — whereas this page's
+`ComplexityPoint` Shannon channel is the **DNA-canonical** `SequenceComplexity` path (A/T/G/C only,
+defaults `W = 64`, `step = 10`). Convention `0·log 0 = 0`; DNA bounds `0 ≤ H ≤ log₂k ≤ 2` (uniform
+4-base window ⇒ `2.0`, homopolymer ⇒ `0`). Full contract, invariants, and worked oracles on
+[[entropy-profile]]; source trace in [[seq-entropy-profile-001-evidence]]; [[test-unit-registry]]
+tracks the unit.
 
 This is the **character-level (k = 1) counterpart** of the k-mer/block Shannon **k-entropy**
 ([[k-mer-statistics]] `AnalyzeKmers.Entropy` / SEQ-COMPLEX-KMER-001 `CalculateKmerEntropy`), which is

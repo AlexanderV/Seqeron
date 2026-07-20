@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace Seqeron.Genomics.Core
@@ -174,7 +175,7 @@ namespace Seqeron.Genomics.Core
         /// <summary>
         /// Tries to create an RNA sequence, returning false if invalid.
         /// </summary>
-        public static bool TryCreate(string sequence, out RnaSequence? result)
+        public static bool TryCreate(string sequence, [NotNullWhen(true)] out RnaSequence? result)
         {
             try
             {

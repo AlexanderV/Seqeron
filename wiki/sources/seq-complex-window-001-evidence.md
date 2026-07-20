@@ -36,7 +36,7 @@ source trace and worked oracles. See [[test-unit-registry]] for how units are tr
     maximal possible vocabulary; **maximum possible vocabulary at level i** `Vmax,i = min(4^i, N−i+1)`
     (`4^i` = DNA-alphabet theoretical max, `N−i+1` = positional max for length `N`); value range
     `0 < C < 1`. The repo's per-window LC uses the **summation variant**
-    `LC = (Σ Vᵢ) / (Σ Vmax,i)` (its standalone unit SEQ-COMPLEX-001; not yet separately ingested).
+    `LC = (Σ Vᵢ) / (Σ Vmax,i)` (its standalone unit SEQ-COMPLEX-001 → [[linguistic-complexity]]).
   - **Shannon entropy** (Wikipedia, citing Shannon 1948; rank 4) — `H(X) = −Σ p(x) log_b p(x)`,
     base 2 ⇒ **bits**; maximum `log_b(n)` for a uniform distribution over `n` outcomes (DNA n=4 ⇒
     max **log₂4 = 2**); deterministic ⇒ **0**; convention `0·log 0 = 0`. Primary: Shannon 1948,

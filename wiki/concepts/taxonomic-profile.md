@@ -105,3 +105,5 @@ accuracy of whatever [[taxonomic-classification]] produced upstream. The richer 
 set (inverse-Simpson, Pielou evenness, Chao1) lives in [[alpha-diversity]]; between-sample turnover
 in [[beta-diversity]]; and the between-**group** differential-abundance test that consumes these
 per-sample abundance vectors is [[significant-taxa-detection]] (Mann–Whitney U / Wilcoxon rank-sum).
+
+**Sharp edge:** [[taxonomic-profile-is-read-tally-not-marker-abundance]] — **read-tally** relative abundance over **classified** reads, not MetaPhlAn marker abundance.

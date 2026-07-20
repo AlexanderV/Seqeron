@@ -103,6 +103,13 @@ predicates:
     description: |
       General semantic relation between concepts/code when no sharper predicate
       applies. Prefer a specific predicate when one fits.
+  specializes:
+    subject_types: [concept, api]
+    object_types: [concept, api]
+    requires_evidence: true
+    description: |
+      The subject is a more specific case ("is-a-kind-of") of the object
+      (e.g. GC skew specializes the general nucleotide-composition skew family).
 
   # Evolution, alternatives, and sharp edges.
   supersedes:

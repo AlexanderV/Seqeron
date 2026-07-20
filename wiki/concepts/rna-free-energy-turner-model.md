@@ -5,11 +5,13 @@ tags: [rna, algorithm]
 mcp_tools:
   - terminal_mismatch_energy
 sources:
+  - docs/algorithms/RnaStructure/RNA_Free_Energy.md
+  - docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
   - docs/Evidence/RNA-ENERGY-001-Evidence.md
   - docs/Evidence/RNA-HAIRPIN-001-Evidence.md
-source_commit: 8346ce2d97d95f5b806caf203fd3d1dc19271cf5
+source_commit: b309203c6e496a1b1993645604441c45488bb0bf
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -110,6 +112,66 @@ destabilizing (positive)**: `UG/GU` **+0.30** and `GU/UG` **+1.29**. Two NNDB ex
 - **NNDB hairpin example 2** (closing A-U, 5-nt loop G…G): loop +4.1 (init(5) 5.7 − 0.8 tm − 0.8 GG
   first-mismatch bonus) + helix −6.01 = total **−1.9**. **3-nt loops get no first-mismatch term**;
   loops < 3 nt are prohibited; a stem of P pairs has P−1 stacks (P ≤ 1 ⇒ 0) (RNA-HAIRPIN-001).
+
+## 5. Implementation surface (RNA-HAIRPIN-001 primary spec)
+
+The hairpin-loop + stem terms are `RnaSecondaryStructure.CalculateHairpinLoopEnergy` /
+`CalculateStemEnergy` in
+`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs` (status **Production**);
+their canonical algorithm spec is `docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md`.
+
+- **`CalculateHairpinLoopEnergy(string loopSequence, char closingBase5, char closingBase3, bool specialGUClosure = false)` → `double`** (ΔG°37, kcal/mol, 2-dp): uppercases the loop, builds the
+  special-loop key `closing5' + loop + closing3'` and, if the tri/tetra/hexaloop table has it,
+  **returns its tabulated total** (overriding the additive model). Otherwise it sums
+  `initiation(n)` + (for **n ≥ 4** only) `terminal mismatch` + the first-mismatch bonuses
+  (**UU or GA −0.9**, **GG −0.8**) + the **special-GU closure −2.2** + the all-C penalty. **T is
+  not auto-converted to U** (RNA expected); unknown terminal-mismatch keys contribute **0**.
+  Cost **O(n)**, O(1) space.
+- **`CalculateStemEnergy(string sequence, IReadOnlyList<BasePair> basePairs)` → `double`** (2-dp):
+  sums nearest-neighbor stacking over the `P−1` consecutive-pair steps (`BasePair` = Base1 5' /
+  Base2 3' / Type, indexed outer helix-end → inner loop-end), applies the **GGUC/CUGG special
+  three-stack context (−4.12)** where present, then adds **+0.45 per helix terminus** closing with
+  an AU/UA or GU/UG pair. Empty `basePairs` → **0**; unknown stacking keys → **0**. The `sequence`
+  arg is kept for API parity (unused for the energy). Cost **O(P)**.
+- **Loops < 3 nt return a deliberately prohibitive `100.0`** (not a normal low value) — a sentinel
+  so a downstream optimizer never selects them (the NN model gives no value for such loops).
+- **Special-GU closure is G(5')-U(3') only, preceded by two Gs.** The `specialGUClosure` flag is
+  **ignored for a U-G closing pair** — the −2.2 bonus never applies there.
+- **Stem energy is the *unimolecular* helix contribution only** — the intermolecular initiation and
+  the self-complementary symmetry correction of the full duplex equation are excluded (correct
+  component inside a folded structure). Coaxial stacking, stem dangling ends, and
+  multibranch/exterior-loop terms are **not** included here; whole-structure energies come from the
+  [[rna-minimum-free-energy-folding|RNA-MFE-001 MFE folder]] (`CalculateMinimumFreeEnergy`).
+
+## 6. Energy layer as a whole (RNA-ENERGY-001 aggregate spec)
+
+The canonical algorithm spec for the aggregate energy layer is
+`docs/algorithms/RnaStructure/RNA_Free_Energy.md` (test unit **RNA-ENERGY-001**) — the **top-level
+free-energy entry point** that presents all four methods as one layer whose total decomposes as
+`ΔG°total = Σ ΔG°stacking + Σ ΔG°loops + Σ ΔG°special`, and where the whole-sequence summation
+`CalculateMinimumFreeEnergy(string rnaSequence, int minLoopSize = 3)` is declared (its own DP contract —
+`minLoopSize` clamped up to 3, empty/too-short → 0 — is documented on the
+[[rna-minimum-free-energy-folding|RNA-MFE-001 MFE folder]]; **not duplicated here**).
+
+Unlike the hairpin/stem terms (`CalculateHairpinLoopEnergy` / `CalculateStemEnergy`, status
+**Production** — §5), the aggregate energy layer is status **Simplified**, because its Turner-table
+coverage is deliberately partial:
+
+- **Tables embedded** (NNDB Turner 2004): stacking, hairpin-loop initiation, terminal mismatch,
+  dangling ends, bulges, multibranch parameters, and *selected* internal-loop classes.
+- **Internal loops are exact only for 1×1**; 2×3 and all wider classes fall back to a **generic
+  mismatch-based model** — the dedicated **int21 and int22 tables are NOT implemented**, so those
+  energies do not fully reproduce NNDB.
+- **Multibranch free-base cost is fixed at `0.0`** in the current MFE routine (reduced multibranch
+  treatment vs a full Turner implementation).
+- Internal/bulge-loop enumeration is bounded by the constant **`MAXLOOP = 30`**.
+- A classic baseline `CalculateMinimumFreeEnergyClassic(string, int)` is retained internally (timing
+  comparator only, not the public path); the public MFE uses the more detailed Zuker-style routine.
+- **Pseudoknot thermodynamics are out of scope** for the MFE path.
+
+Complexity of the three public helpers (RNA-ENERGY-001 §4.3): `CalculateStemEnergy` **O(b)/O(1)**
+(`b` = base pairs), `CalculateHairpinLoopEnergy` **O(l)/O(1)** (`l` = loop length),
+`CalculateMinimumFreeEnergy` **O(n³)/O(n²)** (internal/bulge enumeration bounded by `MAXLOOP = 30`).
 
 ## Invariants and edge cases
 

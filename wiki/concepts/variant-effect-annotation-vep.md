@@ -6,11 +6,12 @@ mcp_tools:
   - annotate_variants
   - predict_variant_effect
 sources:
+  - docs/algorithms/Variants/Variant_Annotation.md
   - docs/Evidence/VARIANT-ANNOT-001-Evidence.md
   - docs/Evidence/VARIANT-CALL-001-Evidence.md
-source_commit: 5b4dd805db54d51bae30445a884e122fc4d97bd5
+source_commit: 460134f8329a87e61a2dd59a370b2610f2670ba6
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -88,6 +89,49 @@ codon (TAA/TAG/TGA) that yields a sense codon is `stop_lost`.
 → start_lost/HIGH · `AC→A` (Δ−1) → frameshift/HIGH · `A→ATTT` (Δ+3) → inframe_insertion/MODERATE ·
 `ATTT→A` (Δ−3) → inframe_deletion/MODERATE.
 
+## Method contract (Variant_Annotation.md, VARIANT-ANNOT-001 algorithm spec)
+
+The primary algorithm spec pins the surface to **`VariantAnnotator`** (`Seqeron.Genomics.Annotation`,
+`VariantAnnotator.cs`), status *Simplified*, with four entry points:
+
+- **`PredictFunctionalImpact(Variant variant, Transcript transcript, string referenceSequence, int sequenceStart = 1)`**
+  — the per-variant/per-transcript codon-translation engine. It locates the variant relative to the
+  transcript (upstream/downstream/intron/UTR/splice/coding) and, for a **coding substitution**, computes the
+  CDS position, extracts the affected reference codon from the forward-strand `referenceSequence` window,
+  builds the alternate codon, translates both with the Standard code, and applies the peptide predicates.
+  Returns a **`FunctionalImpact`** with `Consequence` (`ConsequenceType` SO term), `Impact` (`ImpactLevel`
+  HIGH/MODERATE/LOW/MODIFIER), and HGVS-style `CodonChange` (`c.`) / `AminoAcidChange` (`p.`) strings for
+  coding substitutions.
+- **`Annotate(IEnumerable<Variant> variants, IEnumerable<Transcript> annotations, string? referenceSequence, int sequenceStart)`**
+  — batch annotator; for each variant it walks all overlapping transcripts and returns **one most-severe
+  (lowest-rank) `VariantAnnotation` record** per variant (INV-04).
+- **`GetImpactLevel(ConsequenceType)`** — term → IMPACT lookup (verbatim `Constants.pm`, INV-01).
+- **`GetConsequenceRank(ConsequenceType)`** — term → severity rank (verbatim `Constants.pm`).
+
+**Input contract.** `Variant` carries a 1-based genomic `Position` with forward-strand
+`Reference`/`Alternate` alleles (non-empty); `Transcript` supplies exons, coding exons and CDS bounds
+(required for coding calls); `sequenceStart` (default `1`) is the 1-based genomic coordinate of
+`referenceSequence[0]`. Alleles are upper-cased and T/U is handled by the translator.
+
+**Preconditions / edges.** `PredictFunctionalImpact` throws **`ArgumentException`** on null/empty
+`referenceSequence`; `Annotate` throws **`ArgumentNullException`** on null `variants`/`annotations`. A codon
+containing IUPAC ambiguity translates to `X`, is excluded from `synonymous_variant`, and is reported as
+`coding_sequence_variant`. **Without a reference window**, `Annotate`'s coordinate-only routing returns only
+the coarse coding term (no synonymous/missense/stop refinement).
+
+**Complexity.** `PredictFunctionalImpact` is **O(E)** time / O(1) space (E = exons, for the CDS-position
+scan; codon translation is O(1)); `Annotate` is **O(v × g)** time / O(g) space (v variants, g transcripts).
+Consequence determination is coordinate/codon arithmetic, not substring search, so the repository **suffix
+tree does not apply**.
+
+**Forward-strand-only refinement (ASM-02).** Codon extraction assumes the affected codon is contiguous on
+the forward-strand reference window, so **minus-strand coding SNVs are not codon-refined by translation** in
+this unit, and **codons split across an intron boundary are not handled** (they would yield an incorrect
+codon). A pre-existing `PredictPathogenicity` / SIFT / PolyPhen / conservation surface on the same class
+carries **invented (non-source-traceable) constants** and is explicitly **out of scope** for
+VARIANT-ANNOT-001 (flagged for a future Test Unit). Transcript-level effects (NMD, downstream
+re-initiation, `splice_donor_5th_base`, polypyrimidine sub-terms) are not modelled — rely on Ensembl VEP.
+
 ## Where it sits in the variant-analysis family
 
 Annotation is **downstream of variant calling** and orthogonal to pathogenicity/tier classification.
@@ -111,3 +155,5 @@ Research-grade, not for clinical use. Reference sources — **McLaren 2016** (VE
 Ensembl **`Constants.pm`** (consequence/IMPACT/rank table) + **`VariationEffect.pm`** (predicates), NCBI
 **`gc.prt`** (Standard code), and the **Sequence Ontology** (Eilbeck 2005) — full record in
 [[variant-annot-001-evidence]]. No source contradictions.
+
+**Sharp edge:** [[vep-needs-reference-window-for-coding-consequences]] — without a **reference window** `annotate_variants` returns only the coarse coding term (no missense/synonymous/stop).

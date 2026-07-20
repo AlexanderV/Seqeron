@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Seqeron.Genomics.Core
 {
     /// <summary>
@@ -121,7 +123,7 @@ namespace Seqeron.Genomics.Core
         /// <summary>
         /// Tries to create a DNA sequence, returning false if invalid.
         /// </summary>
-        public static bool TryCreate(string sequence, out DnaSequence? result)
+        public static bool TryCreate(string sequence, [NotNullWhen(true)] out DnaSequence? result)
         {
             try
             {

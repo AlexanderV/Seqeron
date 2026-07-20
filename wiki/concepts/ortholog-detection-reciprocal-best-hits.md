@@ -143,3 +143,5 @@ Definitions trace to **Fitch 1970** (orthology/paralogy, *Systematic Zoology* 19
 rule, *J. Mol. Biol.* 314:1041–1052) with OrthoMCL corroboration (Li et al. 2003), and **Ondov et
 al. 2016** (Mash, the alignment-free k-mer-similarity basis). No source contradictions — the four
 orthology sources are mutually consistent, each governing a distinct part of the rule.
+
+**Sharp edge:** [[rbh-orthologs-use-kmer-jaccard-not-blast]] — best hits ranked by **5-mer Jaccard**, not BLAST bit-score — RBH won't match a BLAST pipeline.

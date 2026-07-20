@@ -110,3 +110,5 @@ supplied — sequence-only input yields zero-level placeholder sites. **Biologic
 essentially absent in differentiated somatic cells (IMR90 = 99.98% CpG). For read-derived non-CpG
 calling or full-genome WGBS, use dedicated pipelines (Bismark). No source contradictions —
 Cornish-Bowden 1985, Krueger & Andrews 2011, Lister 2009, and Schultz 2012 are mutually consistent.
+
+**Sharp edge:** [[methylation-context-classifies-not-calls-methylation]] — classifies cytosine **context** (CpG/CHG/CHH) from sequence; it does **not** call methylation status.

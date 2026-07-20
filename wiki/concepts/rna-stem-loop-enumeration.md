@@ -6,10 +6,11 @@ mcp_tools:
   - find_stem_loops
   - hairpin_loop_energy
 sources:
+  - docs/algorithms/RnaStructure/RNA_Stemloop.md
   - docs/Evidence/RNA-STEMLOOP-001-Evidence.md
-source_commit: 05292f4bc746f5b7f5f6637a2953864d096833cc
+source_commit: 8945f802f509d383569c666345edbecea758083e
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -141,4 +142,49 @@ hairpin loops only); **single structure** (does not enumerate suboptimal folds).
 and the miRNA-specific [[pre-mirna-hairpin-detection|precursor detector]]. **No source
 contradictions** — Wikipedia, Woese 1990, Antao 1991, Heus & Pardi 1991, Rivas & Eddy 1999, and NNDB
 Turner 2004 are mutually consistent.
+
+## 8. Implementation surface (RNA-STEMLOOP-001 primary spec)
+
+The canonical algorithm spec is `docs/algorithms/RnaStructure/RNA_Stemloop.md`; the code lives in
+`RnaSecondaryStructure` in `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs`
+(Implementation Status **Simplified** — a local motif detector, *not* a global structure optimizer). The
+spec pins the concrete surface behind the Evidence-level enumeration description:
+
+- **`FindStemLoops(string rnaSequence, int minStemLength = 3, int minLoopSize = 3, int maxLoopSize = 10,
+  bool allowWobble = true)`** — the greedy candidate generator. Enumerates loop-start positions, then loop
+  sizes in `[minLoopSize, maxLoopSize]`, then **extends the stem outward** from the loop boundaries while
+  `GetBasePairType` returns a valid pair (Watson-Crick always; G-U wobble only if `allowWobble`, otherwise a
+  wobble pair *stops* extension — ASM-02). Accepted pairs are **reversed to 5′→3′ order** before the result
+  is built. Candidates below `minStemLength` are discarded.
+- **`DetectPseudoknots(IReadOnlyList<BasePair>)`** — the same post-hoc crossing-pair detector (`i<k<j<l`)
+  described in §5; it consumes an *already-assembled* base-pair set, and does **not** predict pseudoknots
+  from sequence.
+
+**`StemLoop` output contract** — `Start` / `End` (inclusive 5′/3′ bounds of the detected span), `Stem`
+(coordinates, base pairs, stem free energy), `Loop` (coordinates, `Size`, sequence), `TotalFreeEnergy`, and
+`DotBracketNotation` — a **local** dot-bracket covering *only the detected span* (INV-04 below), not the
+whole input sequence.
+
+**Scoring** — `TotalFreeEnergy = ΔG_stem + ΔG_hairpin`, where `ΔG_stem` comes from `CalculateStemEnergy`
+(stacked base pairs) and `ΔG_hairpin` from `CalculateHairpinLoopEnergy` (including the special `G-U`
+closure-detection path), both drawing on the [[rna-free-energy-turner-model|Turner 2004]] terms.
+
+**Preconditions** — the sequence is **uppercased internally**; `minLoopSize < 3` is **clamped up to 3**; a
+sequence that is empty or shorter than `minStemLength * 2 + minLoopSize` yields **no candidates**.
+
+**Spec invariants** — **INV-01** `Loop.Size >= 3` (min-loop clamp); **INV-02** `Stem.Length >=
+minStemLength`; **INV-03** the returned loop type is **always `Hairpin`** (this API constructs only apical
+hairpins); **INV-04** `DotBracketNotation.Length == End - Start + 1` (the helper allocates exactly the
+detected span).
+
+**Overlap policy — reconciliation.** `FindStemLoops` performs **no overlap suppression**: it yields **every**
+qualifying candidate, overlapping or not (spec §6.1). The non-overlap property in §6 (INV-01 there) is *not*
+a property of this raw enumerator — it is enforced downstream by
+[[rna-secondary-structure-prediction|`PredictStructure`]]'s greedy position-based selection, which sorts
+candidates by `TotalFreeEnergy` and marks each chosen span's positions used. So `FindStemLoops` is the
+**unfiltered candidate source**; the single non-overlapping *structure* is assembled one layer up. This
+refines — does not contradict — the Evidence view, which described the assembled simple-structure output.
+
+**Complexity** — `O(n² · L)` time (`n` = length, `L` = scanned loop-size range), `O(k)` space (`k` =
+returned stem-loops), matching §2.
 </content>

@@ -5,10 +5,11 @@ tags: [sequence-statistics, protein, algorithm]
 mcp_tools:
   - predict_chou_fasman
 sources:
+  - docs/algorithms/Statistics/Secondary_Structure_Prediction.md
   - docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md
-source_commit: 60297de1f42b4812ee249dc1773b8d88d89aa0d5
+source_commit: 016f1502327c2e78f7769d623de5278dbb2f8c40
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -113,6 +114,37 @@ Unknown residues excluded: `AXE` window 3 averages **only A and E**. Sliding ste
 - **No scoring-constant deviation** — every value produced for in-alphabet residues is exactly the
   published 1978 propensity (Lys resolved to the two-source 1.14).
 
+## Implementation binding
+
+The canonical **Statistics-domain spec** (`docs/algorithms/Statistics/Secondary_Structure_Prediction.md`,
+unit SEQ-SECSTRUCT-001) is realised by a single static method in the **Analysis assembly**:
+
+- **File:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs`
+- **Signature:** `IEnumerable<(double Helix, double Sheet, double Turn)> PredictSecondaryStructure(string proteinSequence, int windowSize = 7)`
+- **Default window:** `DefaultWindowSize = 7` (helix hexapeptide + 1 residue of context; a caller
+  parameter, **not** a Chou-Fasman constant — see Scope above).
+- **Output contract:** a **lazy `yield return` iterator** streaming **one `(Helix, Sheet, Turn)`
+  `double`-tuple per window position**, N-terminus → C-terminus; empty enumerable (no exception)
+  when the sequence is null/empty, `windowSize < 1`, or `windowSize > length`. The propensity table
+  is a private `Dictionary<char,(double Helix,double Sheet,double Turn)>` keyed on the 20 uppercase
+  standard residues; lookup miss ⇒ residue skipped and excluded from the window `count`.
+
+**Named invariants** (validated by
+`tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_PredictSecondaryStructure_Tests.cs`):
+
+| ID | Invariant |
+|----|-----------|
+| INV-01 | A single-residue window returns that residue's `(Pα, Pβ, Pt)` tuple (mean of one value). |
+| INV-02 | Each emitted tuple is the per-component arithmetic mean of its window's known residues. |
+| INV-03 | For an all-known length-`n` sequence, `max(0, n − w + 1)` windows are emitted. |
+| INV-04 | Case-insensitive (input upper-cased before lookup). |
+| INV-05 | Unknown residues excluded from the window `count`/mean; an all-unknown window emits nothing. |
+| INV-06 | Null/empty input, `w > n`, or `w < 1` ⇒ empty result, no exception. |
+
+**Complexity:** `O(n·w)` time (`≤ O(n²)`), `O(1)` extra space (streamed, one tuple per position);
+table lookup is `O(1)`. No substring search is performed, so the repository suffix tree is not
+applicable.
+
 ## Scope and reliability
 
 A **sequence-only propensity profile**, not a structure caller — it reports windowed Pα/Pβ/Pt, it
@@ -130,3 +162,5 @@ conformation, the 1978 propensity table); Chou P.Y. & Fasman G.D. (1974) *Bioche
 (Chou–Fasman method), the Kelley bioinfo lecture, CSB|SJU (Jakubowski), the Przytycka NCBI
 lecture, the ravihansa3000/ChouFasman reference implementation, and BMC Bioinformatics PMC1780123.
 Full citations in [[seq-secstruct-001-evidence]] (not duplicated here).
+
+**Sharp edge:** [[chou-fasman-returns-propensity-profile-not-state-calls]] — returns **Pa/Pb/Pt propensity profiles**, not H/E/C secondary-structure calls.

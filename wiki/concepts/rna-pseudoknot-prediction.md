@@ -3,12 +3,14 @@ type: concept
 title: "RNA pseudoknot prediction (canonical H-type, pknotsRG class)"
 tags: [rna, algorithm]
 sources:
+  - docs/algorithms/RnaStructure/Pseudoknot_Prediction.md
+  - docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md
   - docs/Evidence/RNA-PKPREDICT-001-Evidence.md
   - docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md
   - docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md
-source_commit: ae0dfc54b6b719a8fa68c2f120f3f4e3235cd02e
+source_commit: 2e3d94efc474888aead65cbf5c5ed6ea92d8ca6b
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -145,6 +147,37 @@ complement of the nested [[rna-minimum-free-energy-folding|MFE folder]] and
 Giegerich 2004/2007, the pknotsRG `Energy.lhs` source, the Wikipedia/Rivas & Eddy H-type geometry, the
 BWYV structural record, and Antczak 2018's crossing condition are mutually consistent.
 
+## 5a. Implementation surface (RNA-PKPREDICT-001 primary spec)
+
+The **single**-knot unit is `RnaSecondaryStructure.PredictStructurePseudoknot(string rnaSequence,
+int minLoopSize = 3)` in `Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs` (status **Simplified**);
+`minLoopSize` is clamped up to the NNDB minimum of 3. It returns a **`PseudoknotStructure`** record
+— `Sequence` (upper-cased, T→U), the two-layer `DotBracket`, `BasePairs` as 0-based `(5'<3')` tuples
+sorted by 5' position, `FreeEnergy` (ΔG°, kcal/mol), and the `HasPseudoknot` flag. Internal helpers
+`MaxHelixLength`, `EvaluateHType`, `ScoreLoop`, and `GeneratePseudoknotDotBracket` do maximal helix
+extension, candidate scoring, loop folding, and two-layer rendering respectively.
+
+The **enumeration** (spec §4.1) is not the reference ADP parser: it computes the plain
+[[rna-minimum-free-energy-folding|MFE]] as baseline, then for each stem-1 start `i`/end maximal-extends
+helix *a·a'* (canonization rules 1–2), and for each stem 1 enumerates stem-2 whose 5' strand starts
+**inside loop 1** (between the two strands of *a*) and whose 3' strand ends **after** *a'* — so *b*
+crosses *a* by construction (INV-PK-02). Each candidate is scored `stacking(a) + stacking(b) + 9.0 +
+ΔG(u) + ΔG(v) + ΔG(w) + 0.3·(unpaired loop nt)`, where both stems reuse the module's
+`CalculateStemEnergy` (Turner 2004 stacking + terminal AU/GU) and each loop span folds with
+`CalculateMinimumFreeEnergy`/`CalculateMfeStructure`. The lowest-energy candidate is accepted only if
+strictly below the plain MFE by more than the DP traceback tolerance. This makes the **implementation**
+cost **O(n³) stem-start scan × loop-MFE, O(n²) space** — within, but tighter than, the pknotsRG
+O(n⁴)/O(n²) envelope for the canonical class. No search data structure (a suffix tree was considered
+and **not** used — this is thermodynamic enumeration, not exact-match search).
+
+Two **intentional simplifications** distinguish the single-knot code from the reference: loops *u*/*v*/*w*
+fold with the pseudoknot-free MFE rather than re-entering the full grammar (so a second knot nested
+inside a loop is not predicted here — that is exactly what the **recursive** unit in §6 lifts), and
+dangling/coaxial refinements at helix–loop junctions are not added separately (a predicted knot's ΔG may
+differ slightly from pknotsRG's, but the knot/no-knot **decision** uses the same penalties and stacking
+model). The shortest possible canonical knot is **11 nt** (2·2 stem pairs + 3 loop nt); shorter or
+null/empty input returns the empty pseudoknot-free structure.
+
 ## 6. Recursive extension — nested / multiple / over-arching knots (RNA-PKRECURSIVE-001)
 
 The **recursive** unit ([[rna-pkrecursive-001-evidence]]) realizes the part of the pknotsRG grammar the
@@ -173,3 +206,45 @@ clamps (else a cross-region nested helix is more stable — a property of the NN
 implementation realizes the recursive *class* without guaranteeing every yield of the reference O(n⁴)
 ADP parser. **Excluded** (verbatim): triple-crossing helices and kissing hairpins are not in the
 canonical simple-recursive class.
+
+### 6a. Implementation surface (RNA-PKRECURSIVE-001 primary spec)
+
+The recursive unit is `RnaSecondaryStructure.PredictStructurePseudoknotRecursive(string rnaSequence,
+int minLoopSize = 3)` in `Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs` (status **Simplified**;
+`minLoopSize` clamped up to the NNDB minimum of 3). It returns the **same `PseudoknotStructure`
+record** as the single-knot unit (§5a) — `Sequence` (upper-cased, T→U), the two-layer `DotBracket`
+(`()` nested/over-arching helices, `[]` crossing knot helices), `BasePairs` as 0-based `(5'<3')`
+tuples sorted by 5' position, `FreeEnergy` (ΔG°, kcal/mol), and `HasPseudoknot`. No new energy
+parameter is introduced relative to `PredictStructurePseudoknot` (same 9.0 / 0.3 / 0.0 penalties, same
+`CalculateStemEnergy` Turner 2004 stacking).
+
+The **recursion contract** is a memoised interval recurrence `RecursivePkFolder.Fold(i,j)` over the
+closed span `[0, n−1]`, memoised on `(i,j)` (so `HasPseudoknot`-per-interval competes with unknotted
+foldings — the 2007-paper mechanism). Each interval takes the minimum-energy of **four competing
+decompositions**:
+
+1. **Pseudoknot-free block** — the Zuker–Stiegler [[rna-minimum-free-energy-folding|MFE]] of the
+   sub-span (`CalculateMfeStructure`).
+2. **H-type knot left-anchored at `i`** (`TryKnotAnchoredAt` → `EvaluateHTypeRecursive`) — scan the
+   knot's 3' extent and inner boundaries by canonization rules 1–2 (maximal helices), score each loop
+   *u*/*v*/*w* by `Fold` itself (**recursive** — a loop may hold a further knot, via
+   `ScoreLoopRecursive`), then chain the remainder `Fold(r+1, j)`.
+3. **Over-arching helix** — pair `(i,k)` at maximal extension, fold the enclosed region
+   `Fold(i+L, k−L)` recursively (so it can be knotted) and chain `Fold(k+1, j)`; pursued **only when
+   the enclosed region is itself knotted** (purely nested enclosures are already covered by
+   Component 1, so no double-counting).
+4. **Leave `i` unpaired** — `Fold(i+1, j)`.
+
+The recursive fold is accepted only if strictly below the plain MFE by more than the DP-traceback
+tolerance; otherwise the plain MFE is returned with `HasPseudoknot = false` (INV — no spurious knot).
+The whole-sequence recurrence puts the **implementation** cost at **~O(n⁴)** (memoised intervals ×
+per-interval helix scan × sub-span MFE folds), **O(n²)** memo + O(n²) per MFE fold — the full pknotsRG
+O(n⁴)/O(n²) envelope, a step up from the single-knot unit's tighter O(n³) stem-scan (§5a) precisely
+because loops and enclosures re-enter the folder. Intended for short-to-medium sequences. As in §5a,
+no suffix tree is used (thermodynamic enumeration, not exact-match search). The single intentional
+gap vs the reference: helices are enumerated by an explicit maximal-extent start/end scan with a
+left-anchored knot component rather than the full 4-boundary ADP yield parser, so the recursive
+*class* (nested / multiple / over-arching knots) is produced faithfully but not every reference yield
+is reproduced bit-for-bit. Worked API oracle (spec §7.1): the over-arching-knot input
+`AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU` → `((((((((((((..[[[[..))))..]]]]))))))))`, ΔG **−14.37** <
+`PredictStructurePseudoknot`'s **−13.05**.

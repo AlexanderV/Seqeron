@@ -5,10 +5,11 @@ tags: [rna, algorithm]
 mcp_tools:
   - validate_dot_bracket
 sources:
+  - docs/algorithms/RnaStructure/Dot_Bracket_Notation.md
   - docs/Evidence/RNA-DOTBRACKET-001-Evidence.md
-source_commit: 4c6115f113e0ef75414b050883a31e2594d48d35
+source_commit: d768aaa30ef74e3ca367d16dc25124f5fd1a1d56
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-16
 graph:
   relationships:
     - predicate: relates_to
@@ -97,6 +98,26 @@ same family — `(]` is malformed even though one open and one close are present
   `ValidateDotBracket("") == true`, `ParseDotBracket("")` empty (the empty string is unambiguously
   balanced; ViennaRNA does not define it).
 
+## Implementation (`RnaSecondaryStructure`)
+
+Both operations live in `Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs` (test unit
+**RNA-DOTBRACKET-001**, status *Production*) as `RnaSecondaryStructure.ParseDotBracket(string)` →
+`IEnumerable<(int Position1, int Position2)>` and `RnaSecondaryStructure.ValidateDotBracket(string)`
+→ `bool`. Both are **exact, deterministic, single-pass** string scans running in **O(n) time / O(n)
+space** (the stacks hold at most `n` open positions).
+
+- **Data structure:** a single `Dictionary<char, Stack<int>>` keyed by *opening* symbol — each
+  bracket family and each uppercase letter gets its own LIFO stack, which is exactly what realizes
+  the "one independent pairing system per family" model above. A closer only ever pops its own
+  family's stack.
+- **Letter recognition** uses `char.IsLetter` / case under the **invariant culture**; uppercase is
+  the 5' opener, lowercase the 3' closer. Any character that is neither a recognized bracket nor a
+  letter (`.`, `-`, `,`, `:`, and anything else) is treated as unpaired and skipped — never an error.
+- **`())` best-effort oracle:** `ParseDotBracket("())")` yields `{(0,1)}` only — the stray `)` finds
+  an empty `(` stack and is silently dropped (Assumption 1); `ValidateDotBracket("())")` is `false`.
+- **Not a search task:** the repository suffix tree does **not** apply — this is a linear stack scan,
+  not substring occurrence enumeration.
+
 ## Scope and limitations
 
 A [[scientific-rigor|research-grade]] correctness reference for the **notation** only — it does not
@@ -107,4 +128,6 @@ Infernal `vrna_db_from_WUSS()` flattening convention. **No source contradictions
 (readthedocs + tbi.univie.ac.at), the WUSS/`vrna_db_from_WUSS()` docs, Infernal (Nawrocki & Eddy
 2013), and the Rfam glossary agree on the four bracket families, letter-pair pseudoknots, and the
 single-stranded non-bracket symbols; the only recorded items are the two API-contract assumptions
-(malformed best-effort parse; empty/null valid).
+(malformed best-effort parse; empty/null valid). One implementation-level caveat: because letters are
+recognized by `char.IsLetter`, a **non-ASCII** letter would be treated as a pairing symbol, outside
+the WUSS A–Z convention — inputs should stay within ASCII bracket/letter alphabets.

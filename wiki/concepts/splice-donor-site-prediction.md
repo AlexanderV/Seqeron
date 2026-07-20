@@ -3,11 +3,12 @@ type: concept
 title: "Splice donor site prediction (5' splice site: GU/GT dinucleotide, MAG|GURAGU consensus, MaxEntScan score5ss)"
 tags: [splicing, motif, algorithm]
 sources:
+  - docs/algorithms/Splicing/Donor_Site_Detection.md
   - docs/Evidence/SPLICE-DONOR-001-Evidence.md
   - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
-source_commit: ce6f817f61151956d1e97909c1ccf5d70f0c333c
+source_commit: 3cad94055a016af83c3c5582ff3780863189e9c2
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -91,6 +92,44 @@ precomputed table is embedded as `Data/maxent_score5.txt` (16,384 records) from 
 **Licence flag:** the bundled table is the MIT port, not the original Burge-lab Perl models
 (academic terms) — recorded in `Data/maxent_score5.LICENSE.md`.
 
+## Method contract (algorithm spec)
+
+Per `docs/algorithms/Splicing/Donor_Site_Detection.md` (SPLICE-DONOR-001), the
+`SpliceSitePredictor` public surface is:
+
+| Signature | Role |
+|-----------|------|
+| `FindDonorSites(string sequence, double minScore = 0.5, bool includeNonCanonical = false)` | default scan; emits `SpliceSite` records |
+| `ScoreDonorMaxEnt(string window)` | opt-in Yeo & Burge 2004 MaxEntScan `score5ss`, in bits (exactly 9-nt window) |
+
+Private helpers: `ScoreDonorSite`, `ScoreU12DonorSite`. The scan uppercases the sequence and
+maps `T`→`U`; canonical `GU` scanning **always runs** and — unlike the acceptor, which starts
+at index **15** — the donor scan **starts at index 0** (loop `i = 0 … length−6`).
+`includeNonCanonical=true` additionally recognizes `GC` donors (a `G` at `i`, `C` at `i+1`,
+scored with the **same** `ScoreDonorSite` as canonical) and U12 `AU`/`AT` donors. A site is
+emitted only when its normalized score ≥ `minScore`.
+
+**`SpliceSite` output record:** `Position` is the index `i` of the **donor dinucleotide
+start** (the exon-side base of the `GU`/`GC`/`AU`) — contrast the acceptor, which reports
+`i+1`; `Type` is `Donor` for both canonical `GU` and non-canonical `GC` (the U2-vs-GC-AG
+distinction is deferred to `DetermineIntronType`), and `U12Donor` for `AU`; `Motif` is
+`GetMotifContext(sequence, i, 3, 6)` (3 nt upstream + 6 nt downstream); `Score` is the
+normalized donor score; `Confidence` is `CalculateConfidence(score, 0.5, 1.0)` =
+clamp((score−0.5)/0.5) to `[0,1]`.
+
+**Canonical scoring internals** (`ScoreDonorSite`): apply the binary-weight `DonorPwm`
+(`MAG|GURAGU`, 1.0 = consensus match / 0.0 = mismatch) at offsets **−3..+5** relative to `i`
+(9 positions), summing weights over only the in-bounds positions and dividing by that count —
+a plain match fraction in `[0,1]`, **no** log-odds and **no** explicit GC penalty (GC self-
+penalizes because `+1 C` mismatches the invariant `U`). **U12 scoring** (`ScoreU12DonorSite`):
+take the 6-nt substring `[i, i+6)`, count position-wise matches against the fixed consensus
+**`AUAUCC`**, score = matches / 6; if `i+6 > length` the substring is empty → score 0.
+
+**Invariants (INV-01…INV-04):** `Score` and `Confidence` are in `[0,1]` (both scorers
+normalize / clamp); canonical `GU` and `GC` → `Type = Donor` while U12 `AU` → `Type =
+U12Donor`; a higher `minScore` returns a subset of a lower-threshold run (filter is
+`score >= minScore`); each candidate start is scored independently in a single O(n) pass.
+
 ## Non-canonical donors and corner cases
 
 - **GC-AG introns:** ~0.5–1% of U2-type introns use **GC** instead of GT at the 5'ss,
@@ -101,9 +140,13 @@ precomputed table is embedded as `Data/maxent_score5.txt` (16,384 records) from 
   `includeNonCanonical=true`.
 - **Cryptic donors:** intronic/exonic `GT` decoys resemble the consensus but are not used;
   point mutations can activate them.
-- **Guards:** sequences **shorter than the 9-nt window** cannot be scored → empty; no
-  `GT/GU` in the sequence → empty; empty/null → empty (never throws). DNA `T`↔RNA `U`
-  equivalence and case-insensitivity (`ToUpperInvariant`) are honoured.
+- **Guards:** the default `FindDonorSites` returns empty for `null`/empty input or length
+  **< 6** (the scan loop runs `i = 0 … length−6`); no `GT/GU` in the sequence → empty; it
+  never throws. It does **not** require a full 9-nt window — `ScoreDonorSite` normalizes over
+  only the in-bounds positions, so donor windows truncated at a sequence end still score by
+  their available positions. Only the opt-in `ScoreDonorMaxEnt` requires an **exactly 9-nt**
+  window (it throws `ArgumentException` otherwise). DNA `T`↔RNA `U` equivalence and
+  case-insensitivity (`ToUpperInvariant`) are honoured throughout.
 
 ## Relation to other units
 

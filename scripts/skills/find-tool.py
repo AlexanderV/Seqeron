@@ -32,6 +32,10 @@ REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
 TOOLS_DIR = os.path.join(REPO_ROOT, "docs", "mcp", "tools")
 ALGOS_DIR = os.path.join(REPO_ROOT, "docs", "algorithms")
 CATALOG = os.path.join(REPO_ROOT, "docs", "skills", "_generated", "catalog.json")
+# LLM Wiki: concept/gotcha pages that curate the science + sharp edges behind a
+# tool. The mapping is the wiki's own `mcp_tools:` frontmatter — read live so the
+# WIKI column never drifts and lights up automatically as ingests add tools.
+WIKI_DIR = os.path.join(REPO_ROOT, "wiki")
 
 SERVERS = [
     "core", "sequence", "parsers", "alignment", "analysis", "annotation",
@@ -206,21 +210,75 @@ def load_catalog():
     return index
 
 
-def print_tool_table(results, catalog):
+def build_tool_wiki_map():
+    """tool name -> (wiki concept/gotcha slug, is_gotcha).
+
+    Inverts the `mcp_tools:` frontmatter list of every wiki/concepts and
+    wiki/gotchas page. This is the wiki's own curated tool->page binding, so the
+    map stays in sync with the wiki with no generated artifact to refresh. A
+    gotcha binding is flagged so the caller can surface it as a known-trap hint.
+    """
+    mapping = {}
+    for sub, is_gotcha in (("gotchas", True), ("concepts", False)):
+        d = os.path.join(WIKI_DIR, sub)
+        if not os.path.isdir(d):
+            continue
+        for fname in sorted(os.listdir(d)):
+            if not fname.endswith(".md"):
+                continue
+            slug = fname[:-3]
+            try:
+                with open(os.path.join(d, fname), "r", encoding="utf-8") as fh:
+                    text = fh.read()
+            except (OSError, UnicodeDecodeError):
+                continue
+            if not text.startswith("---"):
+                continue
+            end = text.find("\n---", 3)
+            fm = text[: end if end != -1 else len(text)]
+            tools = []
+            inline = re.search(r"(?m)^mcp_tools:\s*\[([^\]]*)\]", fm)
+            if inline:
+                tools = re.findall(r"[A-Za-z0-9_]+", inline.group(1))
+            else:
+                block = re.search(r"(?m)^mcp_tools:\s*$", fm)
+                if block:
+                    for line in fm[block.end():].splitlines():
+                        item = re.match(r"\s+-\s*(\S+)", line)
+                        if item:
+                            tools.append(item.group(1).strip())
+                        elif line.strip() and not line[0].isspace():
+                            break
+            for t in tools:
+                # Gotchas take precedence (traps matter more than the concept);
+                # otherwise first page wins deterministically (gotchas scanned first).
+                if t not in mapping or (is_gotcha and not mapping[t][1]):
+                    mapping[t] = (slug, is_gotcha)
+    return mapping
+
+
+def print_tool_table(results, catalog, wiki_map):
     if not results:
         print("No matching tools.")
         return
-    print("TOOL                              SERVER        METHOD ID                                        DOC")
-    print("-" * 120)
+    print("{:<33} {:<13} {:<40} {:<36} {}".format(
+        "TOOL", "SERVER", "METHOD ID", "WIKI (concept / (!) gotcha)", "DOC"))
+    print("-" * 140)
     for doc in results:
         extra = ""
         cat = catalog.get(doc["method_id"]) or catalog.get(doc["name"])
         if cat and cat.get("stability"):
             extra = "  [{}]".format(cat["stability"])
-        print("{:<33} {:<13} {:<48} {}{}".format(
+        wk = wiki_map.get(doc["name"])
+        if wk:
+            wiki_cell = ("(!) " if wk[1] else "") + wk[0]
+        else:
+            wiki_cell = "-"
+        print("{:<33} {:<13} {:<40} {:<36} {}{}".format(
             doc["name"][:33],
             doc["server"][:13],
-            (doc["method_id"] or "-")[:48],
+            (doc["method_id"] or "-")[:40],
+            wiki_cell[:36],
             doc["path"],
             extra,
         ))
@@ -265,6 +323,7 @@ def main(argv=None):
         parser.error("unknown --server '{}'. Choose from: {}".format(server_filter, ", ".join(SERVERS)))
 
     catalog = load_catalog()
+    wiki_map = build_tool_wiki_map()
 
     tool_hits = []
     for path in iter_tool_docs(server_filter):
@@ -278,7 +337,7 @@ def main(argv=None):
     tool_hits.sort(key=lambda t: (-t[0], t[1]["name"], t[1]["path"]))
     tool_results = [d for _s, d in tool_hits[:args.limit]]
 
-    print_tool_table(tool_results, catalog)
+    print_tool_table(tool_results, catalog, wiki_map)
     if len(tool_hits) > args.limit:
         print("... {} more tool hits (use --limit to see more).".format(len(tool_hits) - args.limit))
 

@@ -124,3 +124,5 @@ suffix tree adds `O(n)` construction with no benefit.
   and [[k-mer-positions]] indexes *where* one k-mer occurs (an ordered position list) rather than
   tallying *how many* — the inverse index to this counting operation, sharing the same
   case-insensitive upper-casing convention.
+
+**Sharp edge:** [[kmer-counts-are-not-canonical-collapsed]] — `count_kmers_both_strands` is the **additive** kPAL convention, **not** canonical collapsing.

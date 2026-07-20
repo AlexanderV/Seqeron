@@ -5,10 +5,11 @@ tags: [sequence-statistics, protein, algorithm]
 mcp_tools:
   - isoelectric_point
 sources:
+  - docs/algorithms/Statistics/Isoelectric_Point.md
   - docs/Evidence/SEQ-PI-001-Evidence.md
-source_commit: 8a4f33ace0d47f5ad2116aa8e775cab5608ccfc2
+source_commit: 5088660abe3799e9a197267efce2b868153dd873
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -95,6 +96,27 @@ pKa table). Derived pI (EMBOSS, bisection ±0.01):
 | `KKKK` | **11.27** | basic-dominated (high pI) |
 | `FLPVLAGLTPSIVPKLVCLLTKKC` | **9.67** | basic (charge still +0.72 at pH 9) |
 | `ACDEFGHIKLMNPQRSTVWY` | **7.36** | one of each residue |
+
+## Method contract (algorithm spec)
+
+The canonical spec (`docs/algorithms/Statistics/Isoelectric_Point.md`, SEQ-PI-001) fixes the entry
+points and cost in `Seqeron.Genomics.Analysis/SequenceStatistics.cs`:
+
+- **`SequenceStatistics.CalculateIsoelectricPoint(string)`** — public entry point: one O(n) pass
+  counts the ionizable side chains (D, E, C, Y, H, K, R), then bisects for the zero-charge pH and
+  **rounds the result to 2 decimals** (the resolution at which the pKa scale is meaningful).
+- **`SequenceStatistics.NetCharge(...)`** (private) — the Henderson–Hasselbalch net charge at a
+  given pH, summed over the two termini plus the counted side chains.
+- **Cost:** **O(n) time, O(1) space** — one residue-counting pass; the bisection is a *fixed*
+  number of iterations (≈ log₂(14/0.01) ≈ 11), each over a constant-size alphabet. This is not a
+  search/matching unit, so the repository suffix tree is N/A.
+- **Named invariants:** **INV-01** 0 ≤ pI ≤ 14 (bisection interval); **INV-02** composition-only
+  (permuting residues leaves pI unchanged); **INV-03** net charge monotonically non-increasing in
+  pH; **INV-04** termini-only ⇒ pI = (8.6 + 3.6)/2 = 6.10.
+- **Not implemented:** phosphorylation / PTM charges and non-standard-residue pKa — for modified
+  peptides defer to specialized tools (IPC, pIChemiSt).
+- **Applications:** predicting the focusing position in 2-D gel electrophoresis / IEF along an
+  immobilized pH gradient; choosing buffer pH for ion-exchange chromatography in protein purification.
 
 ## Contract and assumptions
 

@@ -5,9 +5,10 @@ tags: [mcp, reference]
 sources:
   - docs/mcp/README.md
   - docs/mcp/MCP_STATUS.md
-source_commit: b3f950caf701615bb8a0296df6c5368d26dde7ec
+  - docs/skills/_generated/tool-catalog.md
+source_commit: aa50668d71d2a17ac383bf4e32023b933d614ffb
 created: 2026-07-10
-updated: 2026-07-11
+updated: 2026-07-18
 graph:
   relationships:
     - predicate: relates_to
@@ -36,6 +37,18 @@ behaviour; each tool ships its own reference doc at `docs/mcp/tools/<server>/<to
 tool has a gold-standard binding + Schema+Binding test per [[mcp-checklist]] / [[mcp-plan]] (campaign
 COMPLETE 2026-07-01, see `docs/mcp/MCP_STATUS.md`).
 
+The authoritative machine-readable tool→Method-ID inventory is the generated catalog
+`docs/skills/_generated/tool-catalog.md` — the single anti-drift source the skills [[skills-strategy]]
+references. It is emitted by `scripts/skills/gen-catalog.py` from `docs/mcp/tools/**` (never edited by
+hand, between `<!-- BEGIN/END generated -->` markers), and its freshness is enforced in CI by
+`scripts/skills/check-catalog-fresh.sh` so the count and the per-tool bindings below cannot silently
+drift from the actual tool docs. Its per-server totals are authoritative and this page's section
+headings match them exactly: Sequence 35, Parsers 41, Alignment 22, Analysis 91, Annotation 97,
+Phylogenetics 13, Population 18, Metagenomics 19, Chromosome 32, MolTools 47, Core 12 = **427**. Note
+the generated catalog carries the full flat tool→Method-ID table for all 427 tools; the mapped/unmapped
+concept counts below (**216 / 427**, 125 concepts) come from this page's own curated mapping tool
+(`mcp_map.py`), not from the catalog.
+
 This surface is one of the [[three-front-doors]] (skills, C# API, MCP over one engine) and sits
 beneath the [[skill-layer]], which attaches the right server on demand so the 427
 schemas stay out of the model's context. The front-door overview is [[mcp-readme]]; the design
@@ -43,11 +56,17 @@ standards are [[mcp-plan]] and [[mcp-checklist]]; the reference operating prompt
 
 ## Coverage
 
-Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **210 / 427**
+Deterministic mapping (`.claude/skills/wiki-ingest-doc/scripts/mcp_map.py --all --catalog`) binds **216 / 427**
 tools to an existing concept (via authoritative method-ID / algorithm-doc / literal bridges, or
-high-confidence name overlap), touching **121 distinct concepts** (the `parse_gff3` / `to_gff3`
-pair was re-homed from [[bed-format-parsing]] onto the dedicated [[gff3-io]] concept). The
-remaining **217** are listed per server as *unmapped* — a tool with no confidently
+high-confidence name overlap), touching **125 distinct concepts** (the `parse_gff3` / `to_gff3`
+pair was re-homed from [[bed-format-parsing]] onto the dedicated [[gff3-io]] concept; the
+`GcSkewCalculator` pair `gc_skew` / `windowed_gc_skew` was mapped onto the new [[gc-skew]]
+concept; the scalar linguistic-complexity pair `complexity_linguistic` / `linguistic_complexity`
+was re-homed from [[windowed-sequence-complexity-profile]] onto the new [[linguistic-complexity]]
+concept, leaving the windowed profile with just `windowed_complexity`; the `SequenceExtensions`
+predicate pair `is_valid_dna` / `is_valid_rna` was mapped onto the new [[sequence-validation]]
+concept; the `CalculateShannonEntropy` pair `complexity_shannon` / `shannon_entropy` was mapped onto
+the new [[shannon-entropy]] concept). The remaining **211** are listed per server as *unmapped* — a tool with no confidently
 matched existing concept, not necessarily a missing algorithm. No new concept page was created; the
 unmapped tools are recorded as gaps (see the closing section) so a future ingest can decide whether a
 cluster deserves its own concept.
@@ -58,7 +77,7 @@ class so algorithm families that lack a concept are visible.
 
 ## Tool surface by server
 
-### Sequence — 35 tools (15 mapped, 20 unmapped)
+### Sequence — 35 tools (19 mapped, 16 unmapped)
 
 `Seqeron.Mcp.Sequence` — DNA/RNA/Protein models, composition, complexity, k-mers, Tm.
 
@@ -72,7 +91,9 @@ class so algorithm families that lack a concept are visible.
 - [[molecular-weight]] — `molecular_weight_nucleotide`, `molecular_weight_protein`
 - [[nucleotide-composition-skew]] — `nucleotide_composition`
 - [[sequence-complexity-compression-lempel-ziv]] — `complexity_compression_ratio`
-- [[windowed-sequence-complexity-profile]] — `complexity_linguistic`, `linguistic_complexity`
+- [[linguistic-complexity]] — `complexity_linguistic`, `linguistic_complexity`
+- [[sequence-validation]] — `is_valid_dna`, `is_valid_rna`
+- [[shannon-entropy]] — `complexity_shannon`, `shannon_entropy`
 
 Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _DnaSequence_: `dna_reverse_complement`, `dna_validate`
@@ -80,9 +101,9 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _KmerAnalyzer_: `kmer_analyze`, `kmer_count`
   - _ProteinSequence_: `protein_validate`
   - _RnaSequence_: `rna_from_dna`, `rna_validate`
-  - _SequenceComplexity_: `complexity_kmer_entropy`, `complexity_shannon`
-  - _SequenceExtensions_: `complement_base`, `gc_content`, `is_valid_dna`, `is_valid_rna`
-  - _SequenceStatistics_: `amino_acid_composition`, `hydrophobicity`, `melting_temperature`, `shannon_entropy`, `summarize_sequence`, `thermodynamics`
+  - _SequenceComplexity_: `complexity_kmer_entropy`
+  - _SequenceExtensions_: `complement_base`, `gc_content`
+  - _SequenceStatistics_: `amino_acid_composition`, `hydrophobicity`, `melting_temperature`, `summarize_sequence`, `thermodynamics`
 
 ### Parsers — 41 tools (2 mapped, 39 unmapped)
 
@@ -123,7 +144,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _ApproximateMatcher_: `find_best_match`, `find_with_edits`, `frequent_kmers_with_mismatches`
   - _SequenceAssembler_: `sequence_identity`
 
-### Analysis — 91 tools (60 mapped, 31 unmapped)
+### Analysis — 91 tools (62 mapped, 29 unmapped)
 
 `Seqeron.Mcp.Analysis` — k-mer, motif, repeat, complexity, comparative & structural genomics.
 
@@ -159,6 +180,7 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
 - [[protein-secondary-structure-chou-fasman]] — `predict_chou_fasman`
 - [[regulatory-element-detection]] — `create_pwm`, `find_degenerate_motif`, `find_regulatory_elements`, `scan_with_pwm`
 - [[repetitive-element-detection]] — `find_tandem_repeats`, `tandem_repeat_summary`
+- [[gc-skew]] — `gc_skew`, `windowed_gc_skew`
 - [[replication-origin-cumulative-skew]] — `cumulative_gc_skew`, `predict_replication_origin`
 - [[rna-dot-bracket-notation]] — `validate_dot_bracket`
 - [[rna-free-energy-turner-model]] — `terminal_mismatch_energy`
@@ -172,7 +194,6 @@ Unmapped (no confidently-matched concept), grouped by wrapped class:
 
 Unmapped (no confidently-matched concept), grouped by wrapped class:
   - _DisorderPredictor_: `predict_morfs`
-  - _GcSkewCalculator_: `gc_skew`, `windowed_gc_skew`
   - _GenomicAnalyzer_: `find_motif`
   - _KmerAnalyzer_: `analyze_kmers`, `find_clumps`, `most_frequent_kmers`
   - _MotifFinder_: `generate_consensus`

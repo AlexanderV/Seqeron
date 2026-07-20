@@ -6,12 +6,15 @@ mcp_tools:
   - translate_dna
   - translate_rna
 sources:
+  - docs/algorithms/Translation/Codon_Translation.md
+  - docs/algorithms/Translation/Protein_Translation.md
+  - docs/algorithms/Translation/Six_Frame_Translation.md
   - docs/Evidence/TRANS-CODON-001-Evidence.md
   - docs/Evidence/TRANS-PROT-001-Evidence.md
   - docs/Evidence/TRANS-SIXFRAME-001-Evidence.md
-source_commit: 950ce49428fde05020ff3c08e70ac1231947fc59
+source_commit: c9d9954b23845153e6f530e3ebb74f54dfdc8753
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -74,8 +77,13 @@ records **no deviation** in the mappings themselves. Stop codons translate to `'
 The code is degenerate: most amino acids have several synonymous codons. Only **Met (AUG)** and
 **Trp (UGG)** are single-codon families — the same fact that makes them fixed points under
 [[codon-optimization]] and gives them relative adaptiveness `w ≡ 1` in [[codon-adaptation-index|CAI]].
-Six-fold families (Leu, Ser, Arg) sit at the other extreme. `GetCodonsForAminoAcid(aa)` is the
-reverse lookup used to verify degeneracy.
+Six-fold families (Leu, Ser, Arg) sit at the other extreme. The full family-size distribution in
+the Standard table: **1-fold** Met, Trp; **2-fold** Phe, Tyr, His, Gln, Asn, Lys, Asp, Glu, Cys;
+**3-fold** Ile; **4-fold** Val, Pro, Thr, Ala, Gly; **6-fold** Leu, Ser, Arg.
+`GetCodonsForAminoAcid(aa)` is the reverse lookup used to verify degeneracy.
+
+`Translate`, `IsStartCodon`, and `IsStopCodon` are all **O(1)** — a fixed `T→U`/upper-case
+normalization followed by a single dictionary or set lookup per codon.
 
 ## Input contract and normalization
 
@@ -87,17 +95,21 @@ reverse lookup used to verify degeneracy.
   used mid-sequence still translates to its amino acid (**M**, not fMet — the code does not model
   formyl-methionine).
 
-## IUPAC ambiguity → 'X' (a deviation from the Evidence doc's corner-case table)
+## IUPAC ambiguity → 'X' (documented as an intentional simplification)
 
 The implementation treats **valid IUPAC ambiguity codons** (any triplet over
-`ACGURYMKSWBDHVN`, e.g. `NNN`, `RAY`) as **untranslatable but not invalid**: `Translate`
+`ACGURYMKSWBDHVN`, e.g. `NNN`, `ANN`, `RAY`) as **untranslatable but not invalid**: `Translate`
 returns `'X'` (unknown amino acid) rather than throwing. Only a triplet containing a
-**non-IUPAC** character (e.g. `Z`) raises `ArgumentException`. This **contradicts** the
-Evidence doc's *Documented Corner Cases* / *Known Failure Modes* tables, which state that an
-"Unknown codon (e.g., NNN)" and "Invalid nucleotide (X, Z)" should both yield an
-`ArgumentException`. The mapping tables match NCBI exactly; this divergence is in the
-**API-contract layer** (ambiguity handling), not in the code tables. Flagged as a
-source-vs-implementation discrepancy for reconciliation. (`GeneticCode.cs`, `Translate`.)
+**non-IUPAC** character (e.g. `Z`, or `XYZ`, `12G`) raises `ArgumentException`. The
+**algorithm spec** (`Codon_Translation.md`, TRANS-CODON-001, §5.2/§5.3/§6.1) documents this
+`'X'` return as the **intended, "intentionally simplified"**
+behaviour — ambiguity is *collapsed* to unknown rather than resolved probabilistically or
+expanded across concrete codons — so the implementation **matches its algorithm spec**. This
+only ever **contradicted** the older *Evidence* doc's *Documented Corner Cases* / *Known Failure
+Modes* tables, which had stated that an "Unknown codon (e.g., NNN)" should yield an
+`ArgumentException`; the spec doc supersedes that corner-case expectation. The NCBI mapping
+tables match exactly; the whole distinction lives in the **API-contract layer** (ambiguity
+handling), not in the code tables. (`GeneticCode.cs`, `Translate`.)
 
 ## Whole-sequence framed translation (the `Translator` layer)
 
@@ -137,6 +149,66 @@ start/stop sets flow through unchanged.
 **Correctness oracle:** the human insulin **B chain** (UniProt P01308, positions 25–54) DNA
 `TTCGTG…AAGACC` (90 nt) → `FVNQHLCGSHLVEALYLVCGERGFFYTPKT` (30 aa). All four tables verified
 codon-by-codon against NCBI (2024-09-23); **no deviation** recorded for translation itself.
+
+### Method contract (algorithm spec)
+
+From the TRANS-PROT-001 algorithm spec (`Protein_Translation.md`), the `Translator` entry points
+(`Seqeron.Genomics.Core/Translator.cs`) — signatures, defaults, and I/O:
+
+| Method | Signature | Returns |
+|--------|-----------|---------|
+| `Translate` | `(DnaSequence \| RnaSequence \| string, GeneticCode? = Standard, int frame = 0, bool toFirstStop = false)` | `ProteinSequence` |
+| `TranslateSixFrames` | `(DnaSequence, GeneticCode? = Standard)` | `IReadOnlyDictionary<int, ProteinSequence>` (keys `±1…±3`) |
+| `FindOrfs` | `(DnaSequence, GeneticCode? = Standard, int minLength = 100, bool searchBothStrands = true)` | `IEnumerable<OrfResult>` (start, end, frame, protein) |
+
+- **Null / empty contract.** The `DnaSequence` and `RnaSequence` overloads **throw
+  `ArgumentNullException`** on null; the **string** overload returns an **empty `ProteinSequence`**
+  for null/empty input. An invalid `frame` (not `0/1/2`) throws **`ArgumentOutOfRangeException`**.
+  `TranslateSixFrames` **always returns all six keys**, even for an empty sequence.
+- **`FindOrfs` defaults.** `minLength = 100` (in **amino acids**), `searchBothStrands = true`;
+  reverse-strand ORFs are reported with **negative frame** values.
+- **Invariants (verified in `TranslatorTests.cs`).**
+  **INV-01** `Translate(seq, frame:0)` == `TranslateSixFrames(seq)[1]` (same helper, forward frame 0).
+  **INV-02** protein length ≤ `floor((sequenceLength − frame) / 3)` (only complete codons consumed).
+  **INV-03** `TranslateSixFrames` returns exactly the six keys `1,2,3,−1,−2,−3`.
+  **INV-04** `OrfResult.NucleotideLength == EndPosition − StartPosition + 1`.
+- **Accepted deviations / not-implemented (spec §5.3–§5.4).** An ORF that **runs off the end** of
+  the scanned sequence without hitting a stop is still emitted if it meets `minLength` (broader than
+  a strict stop-terminated definition). **Reverse-strand ORF coordinates are in the
+  reverse-complement scan's coordinate system** — callers needing original-strand genomic positions
+  must **remap externally**. **Nested ORFs** (opening a new ORF in the same frame before the current
+  one closes) are not reported. These are the practical-scanner limits: no gene-model scoring, splice
+  awareness, or regulatory context.
+
+### Six-frame translation contract (TRANS-SIXFRAME-001 algorithm spec)
+
+`Six_Frame_Translation.md` (TRANS-SIXFRAME-001) is the **canonical primary spec** for the
+six-frame surface and its START→STOP ORF scanner, cross-anchored to Biopython
+`six_frame_translations`, EMBOSS `transeq`, and EMBOSS `getorf`. Beyond the shared
+`Translator` contract above, it pins:
+
+- **Frame construction & offsets.** Forward frame `+f` = translation of the input at offset
+  `f−1`; reverse frame `−f` = translation of the **reverse complement** at offset `f−1` (the
+  Biopython `frames[-(i+1)] = translate(anti[i:])` convention — `−1` = RC offset 0). Each frame
+  consumes only **complete** codons, so its length is exactly **⌊(len−offset)/3⌋** and any
+  trailing 1–2 nt are dropped (spec INV-04).
+- **Never early-terminates.** `TranslateSixFrames` renders internal stop codons as `*` and reads
+  to the end of every frame — it does **not** honour `toFirstStop` (contrast the single-frame
+  `Translate(..., toFirstStop: true)`). It computes the reverse complement **once** and fills all
+  six frames in one shared offset loop. Empty input → six empty frames and no ORFs;
+  IUPAC-ambiguous codons → `X` (inherited from `GeneticCode.Translate`).
+- **`OrfResult` fields.** `StartPosition` = 0-based first base of the START codon (in the scanned
+  strand's coordinates); `EndPosition` = 0-based **last** base of the STOP codon, **inclusive**;
+  `Frame` = ±1…±3; `Protein` = residues with START included, STOP excluded; derived
+  `NucleotideLength = EndPosition − StartPosition + 1` and `AminoAcidLength = Protein.Length`
+  (spec INV-05/INV-06).
+- **Complexity.** Both `TranslateSixFrames` and `FindOrfs` are **O(n) time / O(n) space** — one
+  reverse complement plus six linear codon passes; the repository suffix tree is not applicable
+  (sequential triplet decoding, not substring search).
+- **Worked oracle.** `TranslateSixFrames("ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG")` →
+  `frames[+1] = "MAIVMGR*KGAR*"`, `frames[−1] = "LSGTLSAAHYNGH"`;
+  `FindOrfs("GGGATGAAACCCTAAGGG", minLength: 1, searchBothStrands: false)` → one ORF Start=3,
+  End=14 (inclusive), Frame=+1, `MKP`.
 
 ## Scope
 

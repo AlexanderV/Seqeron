@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace Seqeron.Genomics.Core
@@ -351,7 +352,7 @@ namespace Seqeron.Genomics.Core
         /// <summary>
         /// Tries to create a protein sequence, returning false if invalid.
         /// </summary>
-        public static bool TryCreate(string sequence, out ProteinSequence? result)
+        public static bool TryCreate(string sequence, [NotNullWhen(true)] out ProteinSequence? result)
         {
             try
             {

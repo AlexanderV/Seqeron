@@ -186,5 +186,8 @@ deviations**; the design choices are engineering ones — the dual heap/MMF back
 one interface, the `struct`-constrained navigator for JIT specialization, the hybrid
 inline/`Dictionary` child storage, the SIMD edge comparison, and the v6 compact→large
 node transition — none of which change the classical construction or query semantics.
-</content>
-</invoke>
+
+The engine was later hardened by a contract-freeze refactoring campaign — see
+[[suffix-tree-controlled-refactoring]] for the frozen invariants (the persistent v6 binary
+format, the `ISuffixTree` public surface, and the six `suffix_tree_*` MCP tool names) and the
+per-cycle characterization gates that keep each refactor phase behaviour-preserving.

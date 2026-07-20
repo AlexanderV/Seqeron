@@ -10,10 +10,12 @@ sources:
   - docs/Evidence/RNA-PAIR-001-Evidence.md
   - docs/Evidence/SEQ-RNACOMP-001-Evidence.md
   - docs/algorithms/MiRNA/MiRNA_Target_Pairing.md
+  - docs/algorithms/RnaStructure/RNA_Base_Pairing.md
+  - docs/algorithms/Sequence_Composition/RNA_Complement.md
   - docs/Validation/reports/MIRNA-PAIR-001.md
-source_commit: 51ed4d23872ce7c6646683d002e13e9388412d53
+source_commit: 19b199ec6f2ace46231d61652fbd7b01e44caa6d
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -102,28 +104,60 @@ Both surfaces are **symmetric** (`f(x,y) == f(y,x)`) and both treat non-alphabet
 [[rna-free-energy-turner-model]] assigns stacking energies to and that [[rna-dot-bracket-notation]]
 folds encode; no source contradictions between the miRNA and RNA-structure copies of the rule.
 
+**Implementation (per the RnaStructure spec `RNA_Base_Pairing.md`).** The two predicates live on
+`RnaSecondaryStructure` (`Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs`) and share a **single
+precomputed `byte[128*128]` lookup** (`PairLookup`) indexed by `(b1, b2)` after upper-casing —
+value `0` = no pair, `1` = WatsonCrick, `2` = Wobble. This makes classification **branch-free O(1)**
+(a fixed ~16 KB byte array) and guarantees the symmetry invariants (`INV-01`/`INV-02`:
+`f(x,y) == f(y,x)`) and `INV-03` (`CanPair(x,y) == (GetBasePairType(x,y) != null)`) **by construction**
+from one symmetrically-seeded table. The bounds check is the source of the "non-pair for junk input"
+behaviour: **any char outside the 0–127 ASCII range returns `false`/`null`** with no exception (the
+index is range-checked before the lookup). Note the RnaStructure surface treats a **DNA `T` in
+`CanPair`/`GetBasePairType` as a non-RNA base that does NOT pair** (returns `false`/`null`) — this is
+the deliberate divergence from the `MiRnaAnalyzer` predicates, which normalise `T`→`U` before pairing
+(see the MIRNA-PAIR-001 fix note below); only `GetComplement` on this surface treats `T` as `U`
+(complement `A`). `GetComplement(char)` is a thin **delegate to
+`SequenceExtensions.GetRnaComplementBase`** (Core), the IUPAC-complete complement cross-verified
+against Biopython `complement_rna` (the SEQ-RNACOMP-001 copy described above).
+
+**Not implemented (out of scope by spec).** Only the standard four-letter RNA alphabet is modelled:
+non-canonical pairs beyond G-U wobble — **Hoogsteen pairs, sheared G•A, and the inosine wobble pairs
+I•U / I•A / I•C** — are deliberately excluded, consistent with the nearest-neighbour folding model the
+sibling RNA-secondary-structure methods use. `GetBasePairType` has **no "intentionally simplified"
+terms** — the pairing classification is exact; only downstream ΔG magnitude (below) is approximate.
+
 ### The SEQ-family full-IUPAC RNA complement (SEQ-RNACOMP-001)
 
 A **third** copy of the RNA base complement lives on the SEQ-\* sequence-utility surface as
-`GetRnaComplementBase` (test unit **SEQ-RNACOMP-001**, [[seq-rnacomp-001-evidence]]) — the RNA sibling
-of the DNA per-base `GetComplementBase` (SEQ-COMP-001, not yet ingested). It is the same base chemistry
-(A→U, U→A, G→C, C→G, **T→A** with DNA T treated as U) but **IUPAC-complete**: it maps *every*
-ambiguity code, not just the canonical bases and the handful (N/R/Y) the `RnaSecondaryStructure`
-`GetComplement` above documents. The complement table is Biopython's `ambiguous_rna_complement`, which
-is **identical to `ambiguous_dna_complement` except the alphabet swaps T→U**:
+`SequenceExtensions.GetRnaComplementBase(char)` (test unit **SEQ-RNACOMP-001**,
+[[seq-rnacomp-001-evidence]]; primary spec `docs/algorithms/Sequence_Composition/RNA_Complement.md`) —
+the RNA sibling of the DNA per-base `GetComplementBase` (SEQ-COMP-001, not yet ingested). It is a
+single-`char` → single-`char` operation, implemented in
+`Seqeron.Genomics.Core/SequenceExtensions.cs` as an `[AggressiveInlining]` `switch` expression over a
+fixed alphabet — **O(1) time / O(1) space**, no lookup table, no search (the repository suffix tree is
+N/A). It is the same base chemistry (A→U, U→A, G→C, C→G, **T→A** with DNA T treated as U) but
+**IUPAC-complete**: it maps *every* ambiguity code, not just the canonical bases and the handful
+(N/R/Y) the `RnaSecondaryStructure` `GetComplement` above documents. The complement table is
+Biopython's `ambiguous_rna_complement`, which is **identical to `ambiguous_dna_complement` except the
+alphabet swaps T→U**:
 
 - **Reciprocal codes:** A↔U, C↔G, R↔Y, M↔K, D↔H, B↔V.
-- **Self-complementary:** W→W, S→S, X→X, N→N.
-- **Pass-through:** non-IUPAC characters (gaps `-`/`.`, digits, `Z`) return unchanged, never an error.
-- **Casing (only divergence from Biopython):** recognized bases return **uppercase** (repo
-  normalize-to-uppercase convention); Biopython preserves input case. Casing-only — the complement
-  identity is unchanged.
+- **Self-complementary:** W→W, S→S, N→N.
+- **Pass-through:** any character outside the IUPAC nucleotide set (gaps `-`/`.`, digits, `Z`,
+  whitespace, and `X`) is returned **unchanged, including its original case** — never an exception for
+  any `char` input.
+- **Casing (only divergence from Biopython):** recognized bases/codes return **uppercase** (repo
+  normalize-to-uppercase convention, mirroring SEQ-COMP-001 MUST-02); Biopython preserves input case.
+  Casing-only — the complement identity is unchanged; non-IUPAC pass-through characters keep their case.
 
 Complement is an **involution** on the canonical bases and ambiguity codes (within the U-alphabet;
 `T` is absorbed into U, so `complement(complement(T)) = U`, not T). It is distinct from the DNA path:
-`GetRnaComplementBase('A') = 'U'` vs `GetComplementBase('A') = 'T'`. Sources: Biopython
-`IUPACData.py` / `Seq.py` / API docs, bioinformatics.org SMS, and the NC-IUB 1984 standard
-(Cornish-Bowden 1985) — all mutually consistent.
+`GetRnaComplementBase('A') = 'U'` vs `GetComplementBase('A') = 'T'`. Worked oracle — Biopython's
+`"ACGTUacgtuXYZxyz"` forward-complements per base to `"UGCAAugcaaXRZxrz"` in Biopython (case
+preserved); under the repo uppercase convention recognized bases uppercase while non-IUPAC `X`/`Z`/`x`/`z`
+pass through verbatim, giving `"UGCAAUGCAAXRZxRz"`. Sources: Biopython `IUPACData.py` / `Seq.py` / API
+docs, bioinformatics.org SMS, and the NC-IUB 1984 standard (Cornish-Bowden 1985) — all mutually
+consistent.
 
 ## 2. Reverse complement for seed → target matching
 

@@ -3,97 +3,12 @@ type: index
 title: "Ingestion backlog — pending algorithm docs (per-domain)"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-16
+updated: 2026-07-20
 ---
 
-# Ingestion backlog — pending algorithm docs
+# Ingestion backlog — pending algorithm docs (CLOSED)
 
-The per-domain pending tables (48 algorithm docs across 8 domains) split out of **[[backlog]]** (which keeps the *Covered via concept* table, queued source batches, and notes). No concept page synthesizes these algorithm docs yet; each resolves when a concept lists it in `sources:`. See [[backlog]] for the full reconciliation model. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14. The Oncology domain is now fully covered — `Variant_Allele_Frequency.md` → [[variant-allele-frequency-and-binomial-ci]], resolved 2026-07-15. The PanGenome domain is now fully covered — `Phylogenetic_Marker_Selection.md` → [[phylogenetic-marker-selection]], resolved 2026-07-15. The Pattern_Matching domain is now fully covered — `Suffix_Tree.md` → [[suffix-tree]], resolved 2026-07-15, ingesting the last pending Pattern_Matching doc. The Phylogenetics domain is now fully covered — `Tree_Statistics.md` → [[tree-statistics]], resolved 2026-07-15, ingesting the last pending Phylogenetics doc. The Population_Genetics domain is now fully covered — `Runs_Of_Homozygosity.md` → [[runs-of-homozygosity-inbreeding]], resolved 2026-07-16, ingesting the last pending Population_Genetics doc. The ProteinMotif domain is now fully covered — `Transmembrane_Helix_Prediction.md` → [[transmembrane-helix-prediction]], resolved 2026-07-16, ingesting the last pending ProteinMotif doc. The ProteinPred domain is now fully covered — `MoRF_Prediction.md` → [[morf-prediction-dip-in-disorder]], resolved 2026-07-16, ingesting the last pending ProteinPred doc. The Quality domain is now fully covered — `Quality_Statistics.md` → [[fastq-quality-statistics]], resolved 2026-07-16 (REUSE: enriched the existing Evidence-derived concept with the `QualityScoreAnalyzer` entry points, the multi-read `PerPositionMeanQuality` delegate variant, and complexity), ingesting the last pending Quality doc. The Repeat_Analysis domain is now fully covered — `Tandem_Repeat_Detection.md` → [[repetitive-element-detection]], resolved 2026-07-16 (REUSE: enriched the existing repeats/tandem family anchor with the `RepeatFinder.GetTandemRepeatSummary` → `FindMicrosatellites(1,6,minRepeats)` aggregation helper and its `TandemRepeatSummary` totals plus the 1–6 bp-only / per-class-stops-at-tetranucleotide scope caveats), ingesting the last pending Repeat_Analysis doc.)
-
-### RnaStructure (13)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/RnaStructure/Dot_Bracket_Notation.md` | `dot-bracket-notation` |
-| `docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md` | `hairpin-energy-calculation` |
-| `docs/algorithms/RnaStructure/Inverted_Repeats.md` | `inverted-repeats` |
-| `docs/algorithms/RnaStructure/Minimum_Free_Energy.md` | `minimum-free-energy` |
-| `docs/algorithms/RnaStructure/Pseudoknot_Detection.md` | `pseudoknot-detection` |
-| `docs/algorithms/RnaStructure/Pseudoknot_Prediction.md` | `pseudoknot-prediction` |
-| `docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md` | `pseudoknot-prediction-recursive` |
-| `docs/algorithms/RnaStructure/RNA_Base_Pairing.md` | `rna-base-pairing` |
-| `docs/algorithms/RnaStructure/RNA_Free_Energy.md` | `rna-free-energy` |
-| `docs/algorithms/RnaStructure/RNA_Partition_Function.md` | `rna-partition-function` |
-| `docs/algorithms/RnaStructure/RNA_Secondary_Structure.md` | `rna-secondary-structure` |
-| `docs/algorithms/RnaStructure/RNA_Stemloop.md` | `rna-stemloop` |
-| `docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md` | `turner-mccaskill-partition-function` |
-
-### Sequence_Composition (8)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Sequence_Composition/GC_Skew.md` | `gc-skew` |
-| `docs/algorithms/Sequence_Composition/Linguistic_Complexity.md` | `linguistic-complexity` |
-| `docs/algorithms/Sequence_Composition/RNA_Complement.md` | `rna-complement` |
-| `docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md` | `replication-origin-prediction` |
-| `docs/algorithms/Sequence_Composition/Sequence_Composition.md` | `sequence-composition` |
-| `docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md` | `sequence-composition-statistics` |
-| `docs/algorithms/Sequence_Composition/Sequence_Validation.md` | `sequence-validation` |
-| `docs/algorithms/Sequence_Composition/Shannon_Entropy.md` | `shannon-entropy` |
-
-### Splicing (3)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Splicing/Acceptor_Site_Detection.md` | `acceptor-site-detection` |
-| `docs/algorithms/Splicing/Donor_Site_Detection.md` | `donor-site-detection` |
-| `docs/algorithms/Splicing/Gene_Structure_Prediction.md` | `gene-structure-prediction` |
-
-### Statistics (11)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Statistics/Codon_Frequencies.md` | `codon-frequencies` |
-| `docs/algorithms/Statistics/DNA_Thermodynamics.md` | `dna-thermodynamics` |
-| `docs/algorithms/Statistics/Dinucleotide_Analysis.md` | `dinucleotide-analysis` |
-| `docs/algorithms/Statistics/Entropy_Profile.md` | `entropy-profile` |
-| `docs/algorithms/Statistics/GC_Content_Profile.md` | `gc-content-profile` |
-| `docs/algorithms/Statistics/Hydrophobicity_Analysis.md` | `hydrophobicity-analysis` |
-| `docs/algorithms/Statistics/Isoelectric_Point.md` | `isoelectric-point` |
-| `docs/algorithms/Statistics/Melting_Temperature.md` | `melting-temperature` |
-| `docs/algorithms/Statistics/Molecular_Weight_Calculation.md` | `molecular-weight-calculation` |
-| `docs/algorithms/Statistics/Secondary_Structure_Prediction.md` | `secondary-structure-prediction` |
-| `docs/algorithms/Statistics/Sequence_Summary.md` | `sequence-summary` |
-
-### StructuralVar (3)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/StructuralVar/Breakpoint_Detection.md` | `breakpoint-detection` |
-| `docs/algorithms/StructuralVar/Copy_Number_Variation.md` | `copy-number-variation` |
-| `docs/algorithms/StructuralVar/SV_Detection.md` | `sv-detection` |
-
-### Transcriptome (3)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Transcriptome/Alternative_Splicing.md` | `alternative-splicing` |
-| `docs/algorithms/Transcriptome/Differential_Expression.md` | `differential-expression` |
-| `docs/algorithms/Transcriptome/Expression_Quantification.md` | `expression-quantification` |
-
-### Translation (3)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Translation/Codon_Translation.md` | `codon-translation` |
-| `docs/algorithms/Translation/Protein_Translation.md` | `protein-translation` |
-| `docs/algorithms/Translation/Six_Frame_Translation.md` | `six-frame-translation` |
-
-### Variants (4)
-
-| Algorithm doc | Expected slug |
-| --- | --- |
-| `docs/algorithms/Variants/Indel_Detection.md` | `indel-detection` |
-| `docs/algorithms/Variants/SNP_Detection.md` | `snp-detection` |
-| `docs/algorithms/Variants/Variant_Annotation.md` | `variant-annotation` |
-| `docs/algorithms/Variants/Variant_Detection.md` | `variant-detection` |
+**Status (2026-07-20 lint): the per-domain algorithm-doc pending backlog is fully
+closed — 0 pending across all 27 domains.** This page is retained only for the
+chronological domain-closure notes below. The covered set lives in
+[[backlog-covered-table]]; the active hub is [[backlog]]. (The K-mer domain is now fully covered — `K-mer_Search.md` → [[k-mer-search]], resolved 2026-07-13. The Metagenomics domain is now fully covered — `PanGenome_Core_Accessory.md` → [[pan-genome-core-accessory-partition]], resolved 2026-07-13. The MolTools domain is now fully covered — `Restriction_Site_Detection.md` → [[restriction-site-detection]], resolved 2026-07-14. The Oncology domain is now fully covered — `Variant_Allele_Frequency.md` → [[variant-allele-frequency-and-binomial-ci]], resolved 2026-07-15. The PanGenome domain is now fully covered — `Phylogenetic_Marker_Selection.md` → [[phylogenetic-marker-selection]], resolved 2026-07-15. The Pattern_Matching domain is now fully covered — `Suffix_Tree.md` → [[suffix-tree]], resolved 2026-07-15, ingesting the last pending Pattern_Matching doc. The Phylogenetics domain is now fully covered — `Tree_Statistics.md` → [[tree-statistics]], resolved 2026-07-15, ingesting the last pending Phylogenetics doc. The Population_Genetics domain is now fully covered — `Runs_Of_Homozygosity.md` → [[runs-of-homozygosity-inbreeding]], resolved 2026-07-16, ingesting the last pending Population_Genetics doc. The ProteinMotif domain is now fully covered — `Transmembrane_Helix_Prediction.md` → [[transmembrane-helix-prediction]], resolved 2026-07-16, ingesting the last pending ProteinMotif doc. The ProteinPred domain is now fully covered — `MoRF_Prediction.md` → [[morf-prediction-dip-in-disorder]], resolved 2026-07-16, ingesting the last pending ProteinPred doc. The Quality domain is now fully covered — `Quality_Statistics.md` → [[fastq-quality-statistics]], resolved 2026-07-16 (REUSE: enriched the existing Evidence-derived concept with the `QualityScoreAnalyzer` entry points, the multi-read `PerPositionMeanQuality` delegate variant, and complexity), ingesting the last pending Quality doc. The Repeat_Analysis domain is now fully covered — `Tandem_Repeat_Detection.md` → [[repetitive-element-detection]], resolved 2026-07-16 (REUSE: enriched the existing repeats/tandem family anchor with the `RepeatFinder.GetTandemRepeatSummary` → `FindMicrosatellites(1,6,minRepeats)` aggregation helper and its `TandemRepeatSummary` totals plus the 1–6 bp-only / per-class-stops-at-tetranucleotide scope caveats), ingesting the last pending Repeat_Analysis doc. The RnaStructure domain is now fully covered — `Turner_McCaskill_Partition_Function.md` → [[turner-mccaskill-partition-function]], resolved 2026-07-17 (NEW concept: the full Turner-2004 nearest-neighbour McCaskill partition function is a genuinely-distinct engine from the base-pair-counting [[rna-partition-function-mccaskill]] — different entry points `CalculateUnpairedProbabilities`/`CalculateRegionUnpairedProbability`, distinct outputs (`p_unpaired`, ensemble ΔG, region accessibility), and the TargetScan SA feature; it fills the "full Turner-parameter partition function" the simplified page listed as not implemented), ingesting the last pending RnaStructure doc. The Sequence_Composition domain is now fully covered — `Shannon_Entropy.md` → [[shannon-entropy]], resolved 2026-07-17 (NEW concept: the base per-symbol Shannon entropy `H = −Σ p·log₂ p` — a genuinely-distinct scalar member of the `SEQ-COMPLEX-*` complexity/entropy family with two entry points, `SequenceComplexity.CalculateShannonEntropy` (canonical DNA, only A/T/G/C) and `SequenceStatistics.CalculateShannonEntropy` (general-alphabet), kept distinct from the k-mer k-entropy of [[k-mer-statistics]] and the windowed profile), ingesting the last pending Sequence_Composition doc. The Splicing domain is now fully covered — `Gene_Structure_Prediction.md` → [[gene-structure-prediction-intron-exon]], resolved 2026-07-17 (REUSE: the composite intron/exon predictor spec reconciled onto the existing splicing-family composite page — enriched with the `PredictGeneStructure`/`PredictIntrons` signatures + defaults, the `minScore*0.8` site threshold + non-canonical opt-in, the `[acceptor-50, acceptor-18]` branch-point window at min score `0.4`, the `(donor+acceptor+branch)/3` vs `/2` scoring, greedy non-overlap selection, the `GeneStructure`/`Exon`/`Intron` output records, invariants INV-01…INV-04, and the SplicedSequence-vs-exon-record coordinate caveat), ingesting the last pending Splicing doc and closing the domain. The Statistics domain is now fully covered — `Sequence_Summary.md` → [[base-composition]], resolved 2026-07-17 (RECONCILE/REUSE: the top-level `SummarizeNucleotideSequence` summary-record aggregator SEQ-SUMMARY-001 is a pure field-by-field bundling of already-synthesized per-metric methods and, per its own Evidence, adds no new concept — reconciled onto the composition page that already carried its Evidence and described it as the umbrella's aggregation wrapper), ingesting the last pending Statistics doc and closing the domain. The StructuralVar domain is now fully covered — `SV_Detection.md` → [[discordant-pair-sv-detection]], resolved 2026-07-17 (RECONCILE/REUSE: the paired-end-mapping (PEM) discordant-pair SV caller SV-DETECT-001 is the concept already synthesized on this Evidence-derived page — reconciled the algorithm spec onto it as its canonical PRIMARY spec rather than creating a redundant `sv-detection` page, kept distinct from the sibling split-read [[breakpoint-detection-split-reads]] and read-depth [[read-depth-cnv-segmentation]] units; enriched with a "Method contract" section carrying the `FindDiscordantPairs`/`ClassifySV`/`DetectSVs` entry points + defaults (μ=400/σ=50/c=3.0/clusterDistance=500/minSupport=2), the 8-tuple read-pair input + `StructuralVariant`/`SVType` output, the first-match classification order with the `ComplexRearrangement` fallback + `maxInsertSize=10000` guard, complexity, and the ArgumentNullException/inclusive-cutoff-boundary contract), ingesting the last pending StructuralVar doc and closing the domain. The Transcriptome domain is now fully covered — `Expression_Quantification.md` → [[expression-quantification]], resolved 2026-07-17 (RECONCILE/REUSE: the TPM/FPKM/RPKM + quantile-normalization quantification spec TRANS-EXPR-001 is the concept already synthesized on this Evidence-derived page — reconciled the algorithm spec onto it as its canonical PRIMARY spec, kept distinct from the downstream consumer [[differential-expression]]; enriched a "Method contract (algorithm spec)" section with the `CalculateTPM`/`CalculateFPKM`/`QuantileNormalize` signatures + tuple/matrix I/O types, the TPM-also-fills-FPKM-field and QN-uses-first-sample-length behaviors, explicit INV-04/INV-05 rank invariants, the tied-rank deviation fix, per-method complexity, and the not-implemented TMM/median-of-ratios scope), ingesting the last pending Transcriptome doc and closing the domain. The Translation domain is now fully covered — `Six_Frame_Translation.md` → [[genetic-code-translation]], resolved 2026-07-17 (RECONCILE/REUSE: the six-frame translation + START→STOP ORF spec TRANS-SIXFRAME-001 is the six-frame surface already synthesized on the `Translator` layer of this Evidence-derived page — reconciled the algorithm spec onto it as its canonical PRIMARY spec rather than creating a redundant `six-frame-translation` page, joining the already-reconciled `Codon_Translation.md`/`Protein_Translation.md` siblings; enriched a "Six-frame translation contract" subsection with the forward/reverse-complement offset construction (⌊(len−offset)/3⌋ per-frame length), the never-early-terminates `*`-rendering behavior + single shared reverse complement, the full `OrfResult` field set (0-based inclusive Start/End, `NucleotideLength`/`AminoAcidLength` INV-05/INV-06), O(n)/O(n) complexity, and the `MAIVMGR*KGAR*`/`LSGTLSAAHYNGH` + `MKP` oracles), ingesting the last pending Translation doc and closing the domain. The Variants domain is now fully covered — `Variant_Detection.md` → [[germline-variant-calling-snp-indel]], resolved 2026-07-17 (RECONCILE/REUSE: the umbrella `CallVariants` caller VARIANT-CALL-001 is the parent of the already-reconciled SNP (`SNP_Detection.md`) and indel (`Indel_Detection.md`) facets and is the core of this page — reconciled the algorithm spec onto it as its canonical PRIMARY spec rather than creating a redundant `variant-detection` page; enriched with an "umbrella `CallVariants` caller" section carrying the `CallVariants`/`CallVariantsFromAlignment`/`CalculateStatistics` entry points + the shared Needleman–Wunsch `SequenceAligner.GlobalAlign` engine, the pre-aligned string entry point + its `ArgumentException` on unequal lengths, the full five-member `VariantType` enum (only SNP/Insertion/Deletion emitted; MNP/Complex reserved), the `VariantStatistics` record + the per-kilobase `VariantDensity` formula, and the `VcfPosition = Position+1` opt-in accessor), ingesting the last pending Variants doc and closing the domain. **All per-domain pending algorithm-doc tables are now empty — the entire per-domain algorithm-doc pending backlog is closed.**)

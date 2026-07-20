@@ -166,20 +166,20 @@ One row per **CLEAN** per-unit validation report (no defect, no page needed). Re
 | SEQ-ATSKEW-001 | ? | CLEAN | PASS / PASS | 2026-06-16 | 6607 |
 | SEQ-CODON-FREQ-001 | [[codon-usage-comparison]] | CLEAN | PASS / PASS | 2026-06-16 | 6618 |
 | SEQ-COMP-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
-| SEQ-COMPLEX-001 | [[windowed-sequence-complexity-profile]] | CLEAN | PASS / PASS | 2026-06-24 |  |
+| SEQ-COMPLEX-001 | [[linguistic-complexity]] | CLEAN | PASS / PASS | 2026-06-24 |  |
 | SEQ-COMPLEX-DUST-001 | [[dust-low-complexity-score]] | CLEAN | PASS / PASS | 2026-06-16 | 6598 |
 | SEQ-COMPLEX-KMER-001 | [[k-mer-statistics]] | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-COMPLEX-WINDOW-001 | [[windowed-sequence-complexity-profile]] | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-DINUC-001 | ? | CLEAN | PASS / PASS | 2026-06-15 | 6523 |
-| SEQ-ENTROPY-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
-| SEQ-ENTROPY-PROFILE-001 | ? | CLEAN | PASS / PASS | 2026-06-16 | 6617 |
+| SEQ-ENTROPY-001 | [[shannon-entropy]] | CLEAN | PASS / PASS | 2026-06-24 |  |
+| SEQ-ENTROPY-PROFILE-001 | [[entropy-profile]] | CLEAN | PASS / PASS | 2026-06-16 | 6617 |
 | SEQ-GC-001 | [[base-composition]] | CLEAN | PASS / ✅ PASS | 2026-06-24 |  |
 | SEQ-GC-ANALYSIS-001 | ? | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-GC-PROFILE-001 | ? | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-16 | 6617 |
 | SEQ-GCSKEW-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
-| SEQ-HYDRO-001 | ? | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-15 |  |
+| SEQ-HYDRO-001 | [[hydrophobicity-gravy-and-profile]] | CLEAN | PASS / PASS-WITH-NOTES | 2026-06-15 |  |
 | SEQ-MW-001 | [[molecular-weight]] | CLEAN | PASS / PASS | 2026-06-15 | 6516 |
-| SEQ-PI-001 | ? | CLEAN | PASS / PASS | 2026-06-15 | 6517 |
+| SEQ-PI-001 | [[isoelectric-point]] | CLEAN | PASS / PASS | 2026-06-15 | 6517 |
 | SEQ-REPLICATION-001 | ? | CLEAN | PASS / PASS | 2026-06-16 | 6607 |
 | SEQ-REVCOMP-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
 | SEQ-RNACOMP-001 | ? | CLEAN | PASS / PASS | 2026-06-16 | 6573 |
@@ -188,7 +188,7 @@ One row per **CLEAN** per-unit validation report (no defect, no page needed). Re
 | SEQ-SUMMARY-001 | ? | CLEAN | PASS / PASS | 2026-06-16 |  |
 | SEQ-THERMO-001 | ? | CLEAN | PASS / PASS | 2026-06-15 |  |
 | SEQ-TM-001 | ? | CLEAN | PASS / PASS | 2026-06-16 |  |
-| SEQ-VALID-001 | ? | CLEAN | PASS / PASS | 2026-06-24 |  |
+| SEQ-VALID-001 | [[sequence-validation]] | CLEAN | PASS / PASS | 2026-06-24 |  |
 | SPLICE-ACCEPTOR-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 (fresh re-validation) | 18 |
 | SPLICE-DONOR-001 | ? | CLEAN | PASS / PASS | 2026-06-25 (fresh re-validation; supersedes 2026-06-24) |  |
 | SPLICE-MAXENT3-001 | ? | CLEAN | PASS / ✅ PASS | 2026-06-25 |  |

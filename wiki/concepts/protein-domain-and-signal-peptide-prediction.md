@@ -209,3 +209,5 @@ HMMER/Easel source (`generic_fwdback.c`, `generic_null2.c`, `p7_domaindef.c`, `p
 `esl_gumbel.c`), pyhmmer 0.12.1. Signal-peptide method: von Heijne 1986 (Nucleic Acids Res 14:4683–4690)
 via EMBOSS 6.6.0 `sigcleave` (`sigcleave.c`, `data/Esig.euk`/`Esig.pro`; Rice 2000) + UniProt P17644.
 Full citations in [[protmotif-domain-001-evidence]] and [[protmotif-sp-001-evidence]] (do not duplicate).
+
+**Sharp edge:** [[find-protein-domains-is-prosite-pattern-not-pfam]] — `find_protein_domains` matches **exact PROSITE patterns + 3 bundled profiles**, not a full Pfam/HMMER scan.

@@ -4,7 +4,7 @@ Checklist of all 1181 human-readable documents under `docs/` (`.md`, `.pdf`, and
 Machine-readable artifacts (MCP `.json` tool schemas, configs, metadata, sources) are intentionally excluded — they are not human-information sources.
 Each processed file is marked `[x]` and committed. Do not stop until all are done.
 
-Progress: 1119 / 1181
+Progress: 1181 / 1181
 
 ## (top-level)  (6)
 
@@ -693,55 +693,55 @@ Progress: 1119 / 1181
 - [x] docs/algorithms/Repeat_Analysis/Palindrome_Detection.md
 - [x] docs/algorithms/Repeat_Analysis/Repeat_Detection.md
 - [x] docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md
-- [ ] docs/algorithms/RnaStructure/Dot_Bracket_Notation.md
-- [ ] docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
-- [ ] docs/algorithms/RnaStructure/Inverted_Repeats.md
-- [ ] docs/algorithms/RnaStructure/Minimum_Free_Energy.md
-- [ ] docs/algorithms/RnaStructure/Pseudoknot_Detection.md
-- [ ] docs/algorithms/RnaStructure/Pseudoknot_Prediction.md
-- [ ] docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md
-- [ ] docs/algorithms/RnaStructure/RNA_Base_Pairing.md
-- [ ] docs/algorithms/RnaStructure/RNA_Free_Energy.md
-- [ ] docs/algorithms/RnaStructure/RNA_Partition_Function.md
-- [ ] docs/algorithms/RnaStructure/RNA_Secondary_Structure.md
-- [ ] docs/algorithms/RnaStructure/RNA_Stemloop.md
-- [ ] docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md
+- [x] docs/algorithms/RnaStructure/Dot_Bracket_Notation.md
+- [x] docs/algorithms/RnaStructure/Hairpin_Energy_Calculation.md
+- [x] docs/algorithms/RnaStructure/Inverted_Repeats.md
+- [x] docs/algorithms/RnaStructure/Minimum_Free_Energy.md
+- [x] docs/algorithms/RnaStructure/Pseudoknot_Detection.md
+- [x] docs/algorithms/RnaStructure/Pseudoknot_Prediction.md
+- [x] docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md
+- [x] docs/algorithms/RnaStructure/RNA_Base_Pairing.md
+- [x] docs/algorithms/RnaStructure/RNA_Free_Energy.md
+- [x] docs/algorithms/RnaStructure/RNA_Partition_Function.md
+- [x] docs/algorithms/RnaStructure/RNA_Secondary_Structure.md
+- [x] docs/algorithms/RnaStructure/RNA_Stemloop.md
+- [x] docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md
 - [x] docs/algorithms/Sequence_Comparison/Common_Region_Detection.md
-- [ ] docs/algorithms/Sequence_Composition/GC_Skew.md
-- [ ] docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
-- [ ] docs/algorithms/Sequence_Composition/RNA_Complement.md
-- [ ] docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md
-- [ ] docs/algorithms/Sequence_Composition/Sequence_Composition.md
-- [ ] docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md
-- [ ] docs/algorithms/Sequence_Composition/Sequence_Validation.md
-- [ ] docs/algorithms/Sequence_Composition/Shannon_Entropy.md
-- [ ] docs/algorithms/Splicing/Acceptor_Site_Detection.md
-- [ ] docs/algorithms/Splicing/Donor_Site_Detection.md
-- [ ] docs/algorithms/Splicing/Gene_Structure_Prediction.md
-- [ ] docs/algorithms/Statistics/Codon_Frequencies.md
-- [ ] docs/algorithms/Statistics/DNA_Thermodynamics.md
-- [ ] docs/algorithms/Statistics/Dinucleotide_Analysis.md
-- [ ] docs/algorithms/Statistics/Entropy_Profile.md
-- [ ] docs/algorithms/Statistics/GC_Content_Profile.md
-- [ ] docs/algorithms/Statistics/Hydrophobicity_Analysis.md
-- [ ] docs/algorithms/Statistics/Isoelectric_Point.md
-- [ ] docs/algorithms/Statistics/Melting_Temperature.md
-- [ ] docs/algorithms/Statistics/Molecular_Weight_Calculation.md
-- [ ] docs/algorithms/Statistics/Secondary_Structure_Prediction.md
-- [ ] docs/algorithms/Statistics/Sequence_Summary.md
-- [ ] docs/algorithms/StructuralVar/Breakpoint_Detection.md
-- [ ] docs/algorithms/StructuralVar/Copy_Number_Variation.md
-- [ ] docs/algorithms/StructuralVar/SV_Detection.md
-- [ ] docs/algorithms/Transcriptome/Alternative_Splicing.md
-- [ ] docs/algorithms/Transcriptome/Differential_Expression.md
-- [ ] docs/algorithms/Transcriptome/Expression_Quantification.md
-- [ ] docs/algorithms/Translation/Codon_Translation.md
-- [ ] docs/algorithms/Translation/Protein_Translation.md
-- [ ] docs/algorithms/Translation/Six_Frame_Translation.md
-- [ ] docs/algorithms/Variants/Indel_Detection.md
-- [ ] docs/algorithms/Variants/SNP_Detection.md
-- [ ] docs/algorithms/Variants/Variant_Annotation.md
-- [ ] docs/algorithms/Variants/Variant_Detection.md
+- [x] docs/algorithms/Sequence_Composition/GC_Skew.md
+- [x] docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
+- [x] docs/algorithms/Sequence_Composition/RNA_Complement.md
+- [x] docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md
+- [x] docs/algorithms/Sequence_Composition/Sequence_Composition.md
+- [x] docs/algorithms/Sequence_Composition/Sequence_Composition_Statistics.md
+- [x] docs/algorithms/Sequence_Composition/Sequence_Validation.md
+- [x] docs/algorithms/Sequence_Composition/Shannon_Entropy.md
+- [x] docs/algorithms/Splicing/Acceptor_Site_Detection.md
+- [x] docs/algorithms/Splicing/Donor_Site_Detection.md
+- [x] docs/algorithms/Splicing/Gene_Structure_Prediction.md
+- [x] docs/algorithms/Statistics/Codon_Frequencies.md
+- [x] docs/algorithms/Statistics/DNA_Thermodynamics.md
+- [x] docs/algorithms/Statistics/Dinucleotide_Analysis.md
+- [x] docs/algorithms/Statistics/Entropy_Profile.md
+- [x] docs/algorithms/Statistics/GC_Content_Profile.md
+- [x] docs/algorithms/Statistics/Hydrophobicity_Analysis.md
+- [x] docs/algorithms/Statistics/Isoelectric_Point.md
+- [x] docs/algorithms/Statistics/Melting_Temperature.md
+- [x] docs/algorithms/Statistics/Molecular_Weight_Calculation.md
+- [x] docs/algorithms/Statistics/Secondary_Structure_Prediction.md
+- [x] docs/algorithms/Statistics/Sequence_Summary.md
+- [x] docs/algorithms/StructuralVar/Breakpoint_Detection.md
+- [x] docs/algorithms/StructuralVar/Copy_Number_Variation.md
+- [x] docs/algorithms/StructuralVar/SV_Detection.md
+- [x] docs/algorithms/Transcriptome/Alternative_Splicing.md
+- [x] docs/algorithms/Transcriptome/Differential_Expression.md
+- [x] docs/algorithms/Transcriptome/Expression_Quantification.md
+- [x] docs/algorithms/Translation/Codon_Translation.md
+- [x] docs/algorithms/Translation/Protein_Translation.md
+- [x] docs/algorithms/Translation/Six_Frame_Translation.md
+- [x] docs/algorithms/Variants/Indel_Detection.md
+- [x] docs/algorithms/Variants/SNP_Detection.md
+- [x] docs/algorithms/Variants/Variant_Annotation.md
+- [x] docs/algorithms/Variants/Variant_Detection.md
 
 ## checklists  (10)
 
@@ -1196,23 +1196,23 @@ Progress: 1119 / 1181
 
 ## refactoring  (7)
 
-- [ ] docs/refactoring/ALGORITHM_TAXONOMY_CLEANUP_MATRIX.md
-- [ ] docs/refactoring/suffix-tree-contract-freeze-cycle3.md
-- [ ] docs/refactoring/suffix-tree-contract-freeze.md
-- [ ] docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
-- [ ] docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
-- [ ] docs/refactoring/suffix-tree-controlled-refactoring-plan.md
-- [ ] docs/refactoring/suffix-tree-controlled-refactoring-verification.md
+- [x] docs/refactoring/ALGORITHM_TAXONOMY_CLEANUP_MATRIX.md
+- [x] docs/refactoring/suffix-tree-contract-freeze-cycle3.md
+- [x] docs/refactoring/suffix-tree-contract-freeze.md
+- [x] docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
+- [x] docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
+- [x] docs/refactoring/suffix-tree-controlled-refactoring-plan.md
+- [x] docs/refactoring/suffix-tree-controlled-refactoring-verification.md
 
 ## skills  (4)
 
-- [ ] docs/skills/STRATEGY.md
-- [ ] docs/skills/_generated/tool-catalog.md
-- [ ] docs/skills/golden/README.md
-- [ ] docs/skills/golden/tasks.md
+- [x] docs/skills/STRATEGY.md
+- [x] docs/skills/_generated/tool-catalog.md
+- [x] docs/skills/golden/README.md
+- [x] docs/skills/golden/tasks.md
 
 ## templates  (3)
 
-- [ ] docs/templates/algorithm-doc-template.md
-- [ ] docs/templates/evidence-template.md
-- [ ] docs/templates/testspec-template.md
+- [x] docs/templates/algorithm-doc-template.md
+- [x] docs/templates/evidence-template.md
+- [x] docs/templates/testspec-template.md

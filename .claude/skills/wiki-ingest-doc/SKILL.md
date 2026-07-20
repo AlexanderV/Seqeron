@@ -59,15 +59,29 @@ Be economical: prefer REUSING/cross-linking existing pages over new ones. Create
    - For a CLEAN report: fold a one-line verdict into the concept + add the report to `sources:`; no page.
    - For a governance doc (LIMITATIONS/FINDINGS_REGISTER/VALIDATION_LEDGER/VALIDATION_PROTOCOL): create or ENRICH its canonical governance concept per the routing; do not just make a bare source page.
    - For an MCP tool doc: add the tool to the concept's `mcp_tools:` frontmatter + a catalog line; if `wiki/concepts/mcp-tool-catalog.md` does not exist, create it minimally (title + this tool's server section + MCP-hub links) seeded with this tool; no per-tool page.
-5. GOTCHA (do NOT skip — this is why `wiki/gotchas/` is nearly empty). Scan the source against this trigger checklist; write a short `wiki/gotchas/<slug>.md` (title + the trap + why, linking back to the concept) for EACH that applies:
+5. GOTCHA (do NOT skip — this is why `wiki/gotchas/` was nearly empty). **First run the bundled extractor** on an algorithm/spec doc — it resolves the concept + its `mcp_tools:`, surfaces the trap-bearing sections, and tells you whether a gotcha already covers those tools:
+   ```
+   python .claude/skills/wiki-ingest-doc/scripts/gotcha_candidate.py --wiki wiki --doc {FILE}
+   ```
+   - **VERDICT `COVERED`** → an existing gotcha already binds these tools; do nothing (or enrich it).
+   - **VERDICT `NO_SIGNAL`** → no deterministic sharp edge; still eyeball the trigger checklist, then record **"no gotcha"** in your report — don't silently omit.
+   - **VERDICT `LIKELY_GOTCHA`** → read the `*`-marked sections it surfaced and write the gotcha with the **full wiring** below (all four steps — a gotcha without `mcp_tools:` will NOT light up the `(!)` marker in `seqeron-discovery`, which is the whole point).
+
+   **Trigger checklist** (write one gotcha per distinct trap that applies):
+   - **Heuristic / profile / *Simplified*, not the trained/calibrated/full method the name implies** — the dominant trap here: a composition/propensity/rule heuristic (disorder, coiled-coil, Chou-Fasman, chromatin-state) or a *Simplified*-status subset (CNV depth-only, VEP-without-reference-window, PROSITE-not-Pfam), sold by a name that sounds like the trained/complete tool. Say what it is NOT and what to use for decision-grade work.
    - **Inverted / counter-intuitive direction** — high score = *low* quality/complexity (e.g. DUST), lower = better.
-   - **Silent edge case** — a value/branch that returns a plausible-but-wrong default instead of erroring (empty input → 0, missing key → skipped).
-   - **Divergence from a reference tool** — result differs from cutadapt / EMBOSS / Biopython / codonW / the cited paper under some input.
+   - **Silent edge case** — a value/branch that returns a plausible-but-wrong default instead of erroring (empty → 0, NaN window → neutral CN2, non-integer input → observed richness).
+   - **Divergence from a reference tool** — result differs from Jellyfish `-C` / BLAST-RBH / DESeq2 / cutadapt / EMBOSS / Biopython / the cited paper under some input.
    - **Clamped / bounded range** — output pinned to `[min,max]` (ENC 20–61); values outside are silently clipped.
-   - **"Not the exact published variant"** — a lower bound or simplification, not the full algorithm (⌈b/2⌉ vs exact reversal distance; linear gap not affine).
+   - **"Not the exact published variant"** — a lower bound or simplification (⌈b/2⌉ vs exact reversal distance; linear gap not affine; greedy-SCS not optimal).
    - **Cross-domain name collision** — same term means different things (SV `genotype` vs popgen `genotype`; tumor-`normal` vs `normalize`).
-   - **Unit / coordinate trap** — 0- vs 1-based, ×100 vs fraction, which Tm formula, inclusive vs exclusive ends.
-   If none apply, say so explicitly in your report ("no gotcha") — don't silently omit.
+   - **Unit / coordinate trap** — 0- vs 1-based, ×100 vs fraction, amino-acids vs nucleotides, which Tm formula, inclusive vs exclusive ends.
+
+   **Full wiring for each gotcha you write** (match the ~24 existing pages exactly):
+   1. Create `wiki/gotchas/<slug>.md` with frontmatter: `type: gotcha`, `title`, `tags: [<area>, gotcha]`, **`mcp_tools:`** (the concept's tool list from the extractor — REQUIRED for the discovery `(!)` marker), `sources:` (the algorithm doc), `source_commit:` (`git rev-parse HEAD`), `created`/`updated`. Body = **The trap.** / **Why it bites.** / **What to rely on instead.**, ending with `Full model: [[<concept>]].`
+   2. Backlink from the concept: append `\n**Sharp edge:** [[<gotcha-slug>]] — <one-liner>.\n` to `wiki/concepts/<concept>.md` (this is what stops the gotcha being an orphan — `indexes/` links do NOT count as inbound).
+   3. Add one line to `wiki/indexes/gotchas.md`: `- [[<slug>]] — <one-liner>.`
+   4. Bump the count in `wiki/index.md` (`- [Gotchas](indexes/gotchas.md) - N ...`).
 6. Update `wiki/index.md`; append ONE line to `wiki/log.md`. If you covered a `wiki/backlog.md` slug, move it pending -> covered. Add typed concept-to-concept edges only if the source supports them (edges on concept pages, never on source pages). Run `python .claude/skills/llm-wiki/scripts/wiki_graph_lint.py wiki/` and `python .claude/skills/llm-wiki/scripts/wiki_graph_extract.py wiki/`; append `   graph: +N nodes, +M typed edges` to the log (harmless cp1252 print may appear on Windows AFTER writing — ignore; do not redirect its output).
 7. In every wiki page you create/update set `sources:` to {FILE} and `source_commit:` to `git rev-parse HEAD`. Reference docs by path; do not copy long passages.
 
@@ -93,7 +107,7 @@ After the subagent reports (main agent):
 - **Route first, then ingest.** The aspect decides the treatment — never process an Evidence file, a CLEAN report, and an MCP tool the same way.
 - **Reuse over create.** New concept page only when genuinely distinct and unrepresented; enrichment is the default — and `find_concept.py` must report NONE before you create one.
 - **Verify after write.** Any change under `wiki/` is followed by `wiki_graph_lint.py`; a non-clean lint is reverted, not committed.
-- **Gotcha is not optional.** Run step 5's trigger checklist on every ingest; report "no gotcha" explicitly when none applies.
+- **Gotcha is not optional.** Start step 5 with `gotcha_candidate.py --doc {FILE}`; on `LIKELY_GOTCHA` write the page with all four wiring steps (`mcp_tools:` frontmatter included, or the discovery `(!)` marker won't fire); on `NO_SIGNAL` report "no gotcha" explicitly.
 - **CLEAN reports and single MCP tools get NO standalone page** — a one-line verdict / an `mcp_tools:` frontmatter entry respectively.
 - **Never edit files under `docs/`** — the wiki is derived; source docs are read-only.
 - **Provenance mandatory:** every touched wiki page carries `sources:` (real doc paths) and `source_commit:` (`git rev-parse HEAD`).
@@ -114,6 +128,8 @@ After the subagent reports (main agent):
 - Modes mirror `mcp_map.py`: `--reports <path…>` / `--all` / `--pending <CHECKLIST>`. On the full set today: **239 clean / 16 defect** (so ~94% skip the subagent entirely). Registry rows carry a `[[concept]]` link resolved via `mcp_map`'s matcher.
 
 `scripts/find_concept.py` — the **duplicate-concept guard**. Before creating any new concept, ask "does one already exist?": `--method <Class.Method>` / `--name "<title>"` / `--slug <slug>`. Exit 0 = EXISTS (enrich it), 2 = NONE (create OK), 1 = ambiguous (pick by hand). Read-only. Prevents the single worst incremental-wiki failure — forked duplicate concepts.
+
+`scripts/gotcha_candidate.py` — the **sharp-edge extractor** behind step 5 (makes "gotcha is not optional" mechanical instead of a manual prose scan). For one algorithm doc it resolves the concept + its `mcp_tools:` (reusing `mcp_map`'s provenance bridges), extracts the doc's trap-bearing sections (Deviations / Assumptions / Scope / Limitations / *Simplified* — `*`-marked when they set the verdict; weak Edge-case tables surfaced but only counting when they hit a trap phrase), lists trap phrases, checks whether an existing gotcha already binds those tools, and prints a verdict: **COVERED** / **LIKELY_GOTCHA** / **NO_SIGNAL**. Read-only, stdlib, UTF-8-safe, `--json`, and a `--check` CI gate (exit 1 when a doc shows uncovered gotcha signal). It surfaces candidates high-recall; the subagent still judges keep-vs-skip and writes the prose + the four wiring steps.
 
 `scripts/batch.py` — one-time backlog driver (`reports` | `mcp`). Runs the mapper over `--all`, marks the safely-done rows in the checklist, and **prints** (never runs) the git commit line. `reports --apply` registers the 239 CLEAN verdicts + marks them done; `mcp --apply` marks the 211 CONFIRMED tools done. The risky tails (proposed / ambiguous / unmatched / defect) are left pending for a subagent.
 

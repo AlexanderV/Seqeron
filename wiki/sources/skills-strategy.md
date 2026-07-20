@@ -5,10 +5,10 @@ tags: [architecture, skills]
 doc_path: docs/skills/STRATEGY.md
 sources:
   - docs/skills/STRATEGY.md
-source_commit: b3f950caf701615bb8a0296df6c5368d26dde7ec
+source_commit: 49ed0b8edc4aa4ff06947cb653f91afa0cca7324
 ingested: 2026-07-10
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-18
 ---
 
 # Claude Code skills strategy

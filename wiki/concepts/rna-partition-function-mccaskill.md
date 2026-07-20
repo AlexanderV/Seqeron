@@ -3,11 +3,12 @@ type: concept
 title: "RNA partition function (McCaskill algorithm — base-pair probabilities & ensemble free energy)"
 tags: [rna, algorithm]
 sources:
+  - docs/algorithms/RnaStructure/RNA_Partition_Function.md
   - docs/Evidence/RNA-PARTITION-001-Evidence.md
   - docs/Validation/reports/RNA-PARTITION-001.md
-source_commit: c74e2076b6e891a02c917198a54544896c4dbafa
+source_commit: 18007bb74684cbe34dac3ee21116ec1f15bf37fb
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -124,7 +125,47 @@ kcal/mol): `p = 1` when structure energy = ensemble energy; `E_struct = −5`, `
 - **Minimum loop** — pairs with `j − k ≤ m` are forbidden (`Q^b = 0`), preventing sterically
   impossible hairpins; only Watson-Crick (A-U, G-C) and GU pairs contribute, all others `Q^b = 0`.
 
-## 6. Scope, relationships, and assumptions
+## 6. Implementation surface (RNA-PARTITION-001 primary spec)
+
+The canonical per-algorithm spec (`docs/algorithms/RnaStructure/RNA_Partition_Function.md`,
+Implementation Status **Simplified**) pins the entry points in
+`Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs`:
+
+- **`CalculatePartitionFunction(string sequence, double basePairEnergy = -1.0, double temperature = 310.15)`** —
+  McCaskill inside+outside DP; returns a record with `PartitionFunction` (`double`, `Z ≥ 1`) and
+  `BasePairProbabilities` (`IReadOnlyDictionary<(int I,int J),double>`, **0-based**, keys satisfy `i < j`,
+  one orientation stored, only pairs that can form). `basePairEnergy` is the fixed per-pair `E_bp`
+  (any real value); `temperature` is absolute K (**must be > 0**), with `R = 1.987 cal/(mol·K)`.
+- **`CalculateStructureProbability(double structureEnergy, double ensembleEnergy, double temperature)`** —
+  scalar Boltzmann probability `exp(−βE_S)/exp(−βE_ens)` in **O(1)** (two exponentials).
+- **`GenerateRandomRna(int, double)` / `GenerateRandomRna(int, Random, double)`** — random RNA
+  generation; the seeded `Random` overload is deterministic (test/oracle support).
+
+**DP mechanics.** Matrices are filled by **increasing interval length** so every dependency precedes
+its cell; `Z = Q[0,n-1]` in 0-based indexing. Base-pair probabilities use the **full outside recursion**
+(processed **outermost-first** so each enclosing `O[k,l]` is ready before it is consumed). The
+**external-only** term was an earlier bug that under-reported nestable-pair probabilities — **corrected
+2026-06-16** to the outside recursion (see §3, [[rna-partition-001-report]]).
+
+**Preconditions / edge behaviour (no silent failure).** `null sequence` → `ArgumentNullException`;
+`temperature ≤ 0` → `ArgumentOutOfRangeException`; **empty sequence → `Z = 1`** with an empty probability
+map (only the empty structure); `"AAAA"` (no admissible pair) → `Z = 1`; `"GC"` (span ≤ m only) → `Z = 1`.
+The sequence is upper-cased internally, `T` is treated as `U`, and only A-U, G-C, and G-U pairs are
+admissible.
+
+**Reuse / non-use decisions.** The implementation deliberately does **not** use the repository suffix
+tree — this is a numerical DP over base-pairing Boltzmann weights, not a substring search, so the suffix
+tree is **N/A**. Not implemented: pseudoknotted ensembles (out of scope, see [[rna-pseudoknot-prediction]])
+and — on *this* concept — a full Turner-parameter partition function. The full-Turner engine **is**
+implemented as the distinct sibling unit [[turner-mccaskill-partition-function]] (same McCaskill
+formalism over the Turner-2004 nearest-neighbour model, adding per-base unpaired probabilities,
+ensemble free energy, and RNAplfold-style region accessibility); users needing production
+thermodynamic ensembles beyond that should rely on ViennaRNA `RNAfold -p`.
+
+**Performance baseline (Phase 8).** `CalculatePartitionFunction` on a random length-300 RNA
+(single-threaded, .NET, Release) completes well under 1 second; the O(n³) growth dominates.
+
+## 7. Scope, relationships, and assumptions
 
 A [[scientific-rigor|research-grade]] ensemble method. It is the **Boltzmann-weighted counterpart** of
 [[rna-minimum-free-energy-folding]] — same pseudoknot-free structure space, but a *probability

@@ -6,10 +6,11 @@ mcp_tools:
   - predict_gene_structure
   - predict_introns
 sources:
+  - docs/algorithms/Splicing/Gene_Structure_Prediction.md
   - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
-source_commit: ef8542055a460fa508da5902be1ed2256c1c6f83
+source_commit: 2659a0374ef4d725033e34bd75a63dfb05662201
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: depends_on
@@ -115,3 +116,68 @@ the boundary units answer "is *this* site a real splice site?"; this unit answer
 the whole gene's exon-intron architecture?". The GT-AG worked model here is the same
 canonical splicing model the two boundary pages document, so there are **no source
 contradictions** across the three splicing units.
+
+## Method contract (algorithm spec)
+
+The canonical primary spec for this unit is
+`docs/algorithms/Splicing/Gene_Structure_Prediction.md` (Test Unit **SPLICE-PREDICT-001**,
+status *Simplified*). Two **public** entry points on
+`SpliceSitePredictor` (`Seqeron.Genomics.Annotation`, `SpliceSitePredictor.cs`), plus three
+private helpers:
+
+- **`PredictGeneStructure(string sequence, int minExonLength = 30, int minIntronLength = 60, double minScore = 0.5)` → `GeneStructure`** — the orchestrator.
+- **`PredictIntrons(string sequence, int minIntronLength = 60, int maxIntronLength = 100000, double minScore = 0.5)` → intron candidates** — the reusable pairing step. `maxIntronLength` is *public* here but **fixed to `100000`** when `PredictGeneStructure` calls it (callers can only widen the span via `PredictIntrons` directly).
+- Private helpers: `SelectNonOverlappingIntrons(...)`, `DeriveExons(...)`, `GenerateSplicedSequence(...)`.
+
+Both entry points first normalize the input to **uppercase RNA** (`T`→`U`); `null`/empty
+returns an empty `GeneStructure` (0 introns, 0 exons, empty spliced sequence, score `0`).
+
+### Pairing → scoring → selection pipeline
+
+1. **Site detection.** `PredictIntrons` calls `FindDonorSites` and `FindAcceptorSites` with an
+   **individual-site threshold of `minScore * 0.8`** and **`includeNonCanonical = true`** for
+   both — i.e. the composite intentionally admits weaker and non-canonical (`GC-AG`, `AT-AC`
+   U12) boundaries than a standalone boundary scan, and lets the *combined* score gate them.
+2. **Pairing.** Every donor is paired with every downstream acceptor whose span satisfies the
+   length window; **intron length = `acceptor.Position - donor.Position + 1`** (inclusive
+   boundaries). `O(D · A)` pairwise.
+3. **Branch-point contribution.** For each pair a branch point is searched in
+   **`[acceptor.Position - 50, acceptor.Position - 18]`** with a **minimum branch-point score
+   of `0.4`**. Combined intron score is **`(donor + acceptor + branch) / 3`** when a branch
+   point is found, else **`(donor + acceptor) / 2`** (the old default-`0.3` third term is
+   gone — see scoring section above).
+4. **Candidate acceptance.** Keep introns with length in `[minIntronLength, maxIntronLength]`
+   **and** combined score `≥ minScore`.
+5. **Greedy non-overlap selection.** Sort candidates by **descending combined score** and take
+   each intron only if it uses no already-occupied position (position-level overlap check).
+6. **Exon derivation.** Exons are the gaps between selected introns; exons shorter than
+   `minExonLength` are **omitted from the `Exons` list**. No introns selected ⇒ one `Single`
+   exon over the whole sequence.
+7. **Spliced sequence.** `GenerateSplicedSequence` removes the **selected intron intervals**
+   directly from the normalized sequence.
+
+### Output records and invariants
+
+`GeneStructure { IReadOnlyList<Exon> Exons; IReadOnlyList<Intron> Introns; string
+SplicedSequence; double OverallScore; }`; `Intron { int Start; int End; IntronType Type; }`
+(inclusive boundaries from donor/acceptor positions); `Exon { ExonType Type; int? Phase; }`.
+
+- **INV-01** — selected introns never overlap (`SelectNonOverlappingIntrons`).
+- **INV-02** — `OverallScore` is the **mean of selected-intron scores**, or `0` when none are
+  selected.
+- **INV-03** — first exon phase `0`; later phases `(cumulative preceding exon length) mod 3`
+  (`CalculatePhase`).
+- **INV-04** — a sequence with no selected introns returns a single `Single`-typed exon
+  covering the whole sequence.
+
+### Spliced-sequence vs exon-record caveat
+
+`GenerateSplicedSequence` is defined by **intron removal**, *not* by concatenating only the
+retained `Exon` records — and the `minExonLength` filter is applied to the `Exons` list but
+**not** to the spliced sequence. So a short inter-intron gap can be **dropped from `Exons`
+yet still present in `SplicedSequence`**; the spec lists coordinate reconciliation between the
+two as *not implemented* (caller-side interpretation required). This is a heuristic
+splice-site-driven predictor: greedy (not globally optimal) selection, arithmetic-mean
+(not probabilistic) scoring, and no HMM/GHMM gene model (no GenScan/Augustus-style DP).
+
+**Sharp edge:** [[gene-structure-is-splice-motif-not-coding-aware]] — `predict_gene_structure` pairs **GT-AG splice motifs** only — not coding/frame-aware.

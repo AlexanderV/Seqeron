@@ -144,3 +144,5 @@ same reuse-policy note the sibling counting pages record).
   frequency/presence profiles of **two** sequences.
 - **Downstream consumers.** The count profile feeds [[de-bruijn-graph-assembly]] and
   [[kmer-spectrum-error-correction]].
+
+**Sharp edge:** [[kmer-counts-are-not-canonical-collapsed]] — `count_kmers` is **forward-strand only** and is **not** canonical (Jellyfish `-C`) collapsing.

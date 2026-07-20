@@ -7,9 +7,10 @@ mcp_tools:
   - predict_replication_origin
 sources:
   - docs/Evidence/SEQ-REPLICATION-001-Evidence.md
-source_commit: c094b65e4a89b3c3c146d655c12489e6d28e8564
+  - docs/algorithms/Sequence_Composition/Replication_Origin_Prediction.md
+source_commit: 52fb606581c4d8e490ad414659bcccf9e72c9d9a
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-07-17
 graph:
   relationships:
     - predicate: relates_to
@@ -77,6 +78,41 @@ untraceable. `IsSignificant` is redefined as the weakest non-invented predicate 
 origin = terminus = 0 and `IsSignificant = false`. Callers wanting a quantitative confidence
 should inspect the skew **amplitude** (`max − min`) directly.
 
+## Implementation contract — entry points, output, invariants
+
+The primary spec (SEQ-REPLICATION-001) fixes the surface in
+`Seqeron.Genomics.Analysis/GcSkewCalculator.cs` (status **Production**):
+
+- **`GcSkewCalculator.PredictReplicationOrigin(DnaSequence)`** — canonical method; throws
+  `ArgumentNullException` on null.
+- **`GcSkewCalculator.PredictReplicationOrigin(string)`** — thin overload; upper-cases and
+  delegates to the same core, returning a **zero prediction** (`PredictedOrigin =
+  PredictedTerminus = 0`, skews `0`, `IsSignificant = false`) for null/empty input.
+
+There is **no window or threshold parameter** — the only constants are the per-base increments
+G:+1 / C:−1 / A,T/other:0. The output is the record struct **`ReplicationOriginPrediction`**:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `PredictedOrigin` | `int` | first prefix index minimizing the cumulative skew (*ori*) |
+| `PredictedTerminus` | `int` | first prefix index maximizing the cumulative skew (*ter*) |
+| `OriginSkew` | `double` | skew value at the minimum (≤ 0) |
+| `TerminusSkew` | `double` | skew value at the maximum (≥ 0) |
+| `IsSignificant` | `bool` | `true` ⇔ `max > min` (non-zero amplitude) |
+
+**Invariants** (INV-01…06): origin = first argmin, terminus = first argmax (strict `<`/`>` keep
+the smallest tied index); `OriginSkew ≤ 0 ≤ TerminusSkew` because `Skew_0 = 0` is always a prefix
+value; `0 ≤ PredictedOrigin, PredictedTerminus ≤ n`; `IsSignificant ⇔ max > min`; A/T never move
+the diagram. Computation is a **single O(n)-time, O(1)-space pass** — the diagram is never
+materialized (min/max tracked in scalars), and the repository suffix tree is not applicable
+(this is a scalar fold, not substring search).
+
+**Edge cases** (spec §6.1): no G/C (`AAAATTTT`) → origin = terminus = 0, not significant; single
+`G` → origin 0 (skew 0), terminus 1 (skew +1); tied extremum → first index; null `DnaSequence` →
+`ArgumentNullException`; null/empty `string` → zero prediction. The API deliberately returns a
+**single** origin/terminus even when several positions tie for the extremum, whereas Rosalind
+BA1F enumerates *all* minimizers.
+
 ## Why it matters
 
 This is the first wiki entry where the skew family's headline application — *finding the
@@ -94,3 +130,5 @@ min = origin / max = terminus locating rule are **fully sourced** (Rosalind BA1F
 (`max > min`) is a documented assumption — chosen precisely because no source defines a
 significance threshold; it is the evidence-neutral floor, not an invented constant. See
 [[seq-replication-001-evidence]].
+
+**Sharp edge:** [[replication-origin-assumes-single-circular-chromosome]] — `predict_replication_origin` (min-skew = origin) is valid **only for a single circular chromosome**.

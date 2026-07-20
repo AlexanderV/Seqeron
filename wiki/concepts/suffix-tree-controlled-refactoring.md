@@ -1,0 +1,298 @@
+---
+type: concept
+title: "Suffix-tree controlled refactoring — contract freeze + per-cycle verification gates"
+tags: [refactoring, methodology, testing, architecture]
+sources:
+  - docs/refactoring/suffix-tree-controlled-refactoring-plan.md
+  - docs/refactoring/suffix-tree-contract-freeze-cycle3.md
+  - docs/refactoring/suffix-tree-contract-freeze.md
+  - docs/refactoring/suffix-tree-controlled-refactoring-cycle2-verification.md
+  - docs/refactoring/suffix-tree-controlled-refactoring-cycle3-verification.md
+  - docs/refactoring/suffix-tree-controlled-refactoring-verification.md
+source_commit: e0497a2b043083492d9c20ce409df1ba26cbff9b
+created: 2026-07-17
+updated: 2026-07-18
+graph:
+  relationships:
+    - predicate: relates_to
+      object: concept:suffix-tree
+      source: suffix-tree-controlled-refactoring
+      evidence: "suffix-tree-contract-freeze-cycle3.md — the campaign freezes and then refactors the Ukkonen suffix-tree engine ([[suffix-tree]]): the frozen invariants are its persistent v6 binary format, the ISuffixTree public contract (Contains/FindAllOccurrences/CountOccurrences/LongestRepeatedSubstring/LongestCommonSubstring/Traverse/FindExactMatchAnchors), empty-pattern behaviour, traversal branch-balance, and the six suffix_tree_* MCP tool names."
+      confidence: high
+      status: current
+    - predicate: relates_to
+      object: concept:characterization-testing
+      source: suffix-tree-controlled-refactoring
+      evidence: "suffix-tree-contract-freeze-cycle3.md 'Frozen invariants' + 'Guardrails' — freezing behaviour/format/contract and running the SuffixTree test projects (incl. Category=Parity / Category=Performance) as mandatory per-phase gates is the applied form of [[characterization-testing]]: prove each refactor phase behaviour-preserving against a pinned contract."
+      confidence: medium
+      status: current
+---
+
+# Suffix-tree controlled refactoring
+
+A disciplined, multi-cycle refactoring campaign on the Ukkonen [[suffix-tree]] engine
+(`SuffixTree`, `SuffixTree.Persistent`, `SuffixTree.Mcp.Core`). Each cycle opens by
+**freezing a contract** — an explicit, written list of the behaviours, formats, and public
+surfaces that the refactor must NOT change — and then reshapes internal architecture behind
+that frozen contract, proving each phase behaviour-preserving with **mandatory test gates**.
+This is [[characterization-testing]] applied at campaign scale: the freeze is the pinned
+"as-is", the gates are the invariance check. This page is the **shared campaign record**;
+the individual cycle plans, freeze docs, and verification reports reconcile onto it. The
+methodology below originates in the campaign **plan**
+(`suffix-tree-controlled-refactoring-plan.md`), which sets the no-regression goal, the
+ordered phase roadmap, and the merge/rollback rules the freeze and verification docs execute.
+
+## The originating plan (goal, phase roadmap, merge rules)
+
+The campaign's founding document is the **plan**
+(`suffix-tree-controlled-refactoring-plan.md`) — the methodology the per-cycle freeze and
+verification docs execute. It fixes three things the cycle docs then carry out.
+
+**The goal — a no-regression refactor along three axes.** Reshape the suffix-tree modules
+(`SuffixTree`, `SuffixTree.Persistent`, `SuffixTree.Mcp.Core`) **without regressions in
+(1) correctness, (2) performance profile, or (3) storage-format behaviour**. These three
+axes are exactly why the gates below split into a mandatory behavioural set plus targeted
+parity/performance categories — each axis gets its own guard.
+
+**The ordered phase roadmap.** The plan lays out **eight sequential phases**, each a small,
+bounded piece of architecture work behind the frozen contract:
+
+1. **Baseline and guardrail artifacts** — establish the gates before touching code.
+2. **Decompose persistent load** — extract header read/validation out of the loader.
+3. **Normalize the text-matching contract** — remove concrete-type checks so matching binds
+   to the interface, not a backend type.
+4. **Split mapped-storage responsibilities** into dedicated partials/helpers.
+5. **De-recursify the in-memory diagnostics traversal** (eliminate recursion in the
+   diagnostics walk).
+6. **Split the MCP tools by bounded context** while preserving external API behaviour.
+7. **Align target-framework and nullable policy** across the suffix-tree modules and tests.
+8. **Final cleanup and invariant verification.**
+
+The per-cycle commit traces recorded elsewhere on this page (Cycle 2's eight-phase trace,
+Cycle 3's nine-phase trace) are the *executions* of this roadmap — the plan is the template
+each cycle instantiates and adapts.
+
+**The merge/rollback rules — the discipline that makes the gates enforceable.** Four rules
+govern how phases land:
+
+1. **Keep each phase small and reviewable.**
+2. **Commit only changes related to the current phase** (no unrelated edits in a phase
+   commit — so any gate failure bisects to one step).
+3. **Do not merge phase N+1 until phase N's gates are green** — a hard stop-the-line rule;
+   a red gate blocks progression rather than being carried forward.
+4. **Preserve binary format v6 compatibility and the parity contracts** as a standing
+   constraint across every phase, not just format-touching ones.
+
+Rule 3 is the campaign's rollback discipline: because each phase is an isolated, gated
+commit, a regression is contained to and reverted from a single reviewable step instead of
+unwinding a large merged change.
+
+## The contract-freeze method
+
+Before touching code in a cycle, write down what stays fixed. The **Cycle 3** freeze
+(`suffix-tree-contract-freeze-cycle3.md`, 2026-02-25) locks five classes of invariant:
+
+1. **Persistent binary format** stays **v6-compatible** — `MAGIC`, header layout, the hybrid
+   compact/large zones, and jump-table semantics (see the v6 header in [[suffix-tree]]).
+2. **`ISuffixTree` public contract** stays stable for `Contains`, `FindAllOccurrences`,
+   `CountOccurrences`, `LongestRepeatedSubstring`, `LongestCommonSubstring`, `Traverse`, and
+   `FindExactMatchAnchors`.
+3. **Empty-pattern behaviour** stays stable: `Contains("") == true`,
+   `CountOccurrences("") == Text.Length`, and `FindAllOccurrences("")` returns every valid
+   start index.
+4. **Traversal branch-balance** stays stable: every `EnterBranch` has a matching `ExitBranch`
+   (the invariant the serializer's structural-hash visitor depends on).
+5. **MCP suffix-tree tool names** stay stable: `suffix_tree_contains`, `suffix_tree_count`,
+   `suffix_tree_find_all`, `suffix_tree_lrs`, `suffix_tree_lcs`, `suffix_tree_stats`.
+
+The frozen surface is deliberately the *externally observable* one — file format, public
+interface, empty-input edge cases, and the tool names other systems bind to. Everything
+below it is fair game for the cycle.
+
+## What Cycle 3 was allowed to change
+
+With the contract frozen, Cycle 3's architecture focus was internal-only:
+
+1. Reduce `PersistentSuffixTreeBuilder` coupling by **extracting explicit state** and passing
+   components in.
+2. **De-duplicate** streaming traversal logic into shared algorithms.
+3. Improve lifecycle ergonomics for the persistent factory APIs.
+4. Keep the MCP external contracts stable while **clarifying bounded contexts** internally.
+
+None of these touch a frozen invariant — they refactor the persistent builder and shared
+traversal code while leaving format, interface, empty-pattern semantics, branch-balance, and
+tool names byte-for-byte identical.
+
+## The base contract-freeze doc and its `MaxDepth` divergence
+
+The original freeze (`suffix-tree-contract-freeze.md`, dated 2026-02-25, self-titled
+"Contract Freeze (Cycle 2)") locks the **same five invariant classes** as the Cycle 3 freeze
+above — v6 binary format, the `ISuffixTree` public contract, empty-pattern behaviour,
+traversal branch-balance, and the six `suffix_tree_*` MCP tool names — and enforces the same
+per-phase gates. What it adds that Cycle 3 does not is an explicit **"known contract
+divergence to resolve in this cycle"**: a documented spot where the frozen contract is *not
+yet* internally consistent, made a first-class work item rather than an accident to trip over
+mid-refactor.
+
+- **The divergence:** `MaxDepth` semantics **differ between the in-memory and persistent
+  implementations** — the two backends behind the one `ISuffixTree` do not agree on what
+  `MaxDepth` means.
+- **The cycle target:** **unify `MaxDepth` under a single `ISuffixTree` contract** while
+  **keeping the parity tests green** (the persistent `Category=Parity` in-memory-vs-persistent
+  equivalence gate below is exactly what proves the unification did not break either backend).
+
+This is the freeze method used in its harder mode: freezing a contract does not require the
+contract to already be self-consistent — a known divergence is written down alongside the
+frozen surface and scheduled for reconciliation within the cycle, under the same gates.
+
+## Base (Cycle 1) verification outcome
+
+The **base verification report**
+(`suffix-tree-controlled-refactoring-verification.md`) is the closing record for the
+campaign's **first pass** — the run whose phase trace directly instantiates the plan's
+eight-phase roadmap, pairing with the base contract-freeze. It is the earliest of the three
+verifications, and its test counts are the baseline the later cycles grow from.
+
+- **All mandatory gates green, at the campaign's baseline counts:** `SuffixTree.Tests`
+  **353/353**, `SuffixTree.Persistent.Tests` **475/475**, `SuffixTree.Mcp.Core.Tests`
+  **59/59** (all `-c Release`). These are the **lowest counts of the three verifications** —
+  the persistent project later grows to Cycle 2's **499/499** and Cycle 3's **503/503**, and
+  the MCP project from **59** here to **62** in both later cycles — so this run marks the
+  pre-growth baseline before the later cycles added tests.
+- **Both targeted gates green:** `Category=Parity` in the persistent tests (in-memory vs
+  persistent equivalence) passed **112/112** and `Category=Performance` in the in-memory tests
+  passed **12/12** — the same parity/perf counts Cycle 3 later records, confirming the two
+  backends were already behaviourally identical and within the complexity guards from the base
+  pass.
+- **Seven-commit phase trace realizing the plan's eight-phase roadmap directly.** Unlike the
+  later cycles' persistent-builder decomposition traces, this base trace walks the plan's
+  roadmap step-for-step: `dc7a656` add the controlled-refactor gates (baseline/guardrail
+  phase) → `1498f5b` extract persistent-load header read + validation → `88a3c96` introduce
+  the text-source pattern-matcher contract (bind matching to the interface, not a backend
+  type) → `357be7a` split the mapped-storage provider responsibilities → `5e8513c` de-recursify
+  the diagnostics traversal to an iterative in-memory walk → `080de33` split the MCP suffix-tree
+  tools by bounded context → `318c846` align the suffix-tree target framework and nullable
+  policy. This is the plan's phases 1–7 as landed commits, with phase 8 (final cleanup +
+  invariant verification) being this report itself.
+- **Two framework/config invariants beyond the freeze docs' five classes.** Alongside the
+  familiar v6-format / `ISuffixTree`-contract / MCP-tool-name invariants, the base verification
+  locks two build-config invariants the freeze docs do not enumerate, both settled by the final
+  phase (`318c846`): **net8 stays the baseline for the non-persistent suffix-tree projects
+  while the persistent modules stay on net9 where required**, and the **nullable policy is
+  unified as `enabled` across the suffix-tree modules and tests** (with explicit per-project
+  overrides only where needed).
+- **No environment flake recorded** — this base run reports a clean all-green pass with no
+  timing-variance note, distinct from Cycle 2's `Build_RepetitiveInput_StillLinear` and
+  Cycle 3's `Build_ScalesLinearly` perf-guard flakes.
+
+## Cycle 2 verification outcome
+
+The **Cycle 2 verification report**
+(`suffix-tree-controlled-refactoring-cycle2-verification.md`) is the closing record for the
+cycle the base freeze opened — it shows the frozen contract held and the scheduled `MaxDepth`
+divergence was resolved under the gates.
+
+- **All mandatory gates green (final run):** the three SuffixTree test projects passed in
+  full — `SuffixTree.Tests` **353/353**, `SuffixTree.Persistent.Tests` **499/499**,
+  `SuffixTree.Mcp.Core.Tests` **62/62** (all `-c Release`). No frozen invariant regressed.
+- **The `MaxDepth` divergence was resolved in-cycle:** phase 3,
+  `5eefd67 fix(contract): align persistent max-depth semantics`, unifies the in-memory-vs-
+  persistent `MaxDepth` disagreement flagged by the base freeze — exactly the work item the
+  freeze scheduled — with the persistent parity tests kept green as proof neither backend
+  broke.
+- **Eight-phase commit trace, one commit per phase.** After freezing the invariants
+  (`c25422e`) and adding **cross-implementation contract guards** (`64c1535`), the cycle
+  resolved `MaxDepth` (`5eefd67`) and then did structural-only architecture work: split the
+  persistent tree into **partials** (`6fe102d`), and decomposed `PersistentSuffixTreeBuilder`
+  in four steps — extract build state + finalize pipeline (`5550be3`), split sequential
+  finalize (`6f74b2d`), decompose finalize-pipeline methods (`f219acc`), and isolate pass-1
+  node processing (`4535fb5`). Every phase was decomposition/extraction, with parity protected
+  by the contract guards and the mandatory test gates run after each phase.
+- **One environment-level flake, not a code regression:**
+  `ComplexityGuardTests.Build_RepetitiveInput_StillLinear` showed timing variance on some
+  first runs and passed on immediate rerun with no code change — a note about the performance
+  gate's sensitivity, not a broken invariant.
+
+## Cycle 3 verification outcome
+
+The **Cycle 3 verification report**
+(`suffix-tree-controlled-refactoring-cycle3-verification.md`, 2026-02-25) is the closing
+record for the cycle the Cycle 3 freeze opened — it confirms the frozen contract held across
+the internal-only architecture work described above.
+
+- **All mandatory gates green (final run):** the three SuffixTree test projects passed in
+  full — `SuffixTree.Tests` **353/353**, `SuffixTree.Persistent.Tests` **503/503**,
+  `SuffixTree.Mcp.Core.Tests` **62/62** (all `-c Release`). The persistent count is **up from
+  Cycle 2's 499/499** (four added tests), and no frozen invariant regressed.
+- **Both targeted gates green with concrete counts:** `Category=Parity` in the persistent
+  tests (in-memory vs persistent equivalence) passed **112/112** and `Category=Performance` in
+  the in-memory tests passed **12/12** — Cycle 3 is the first verification to record explicit
+  parity/perf counts, proving the persistent-builder and traversal refactors kept the two
+  backends behaviourally identical and within the complexity guards.
+- **Nine-phase commit trace, one commit per phase**, realizing the "what Cycle 3 was allowed
+  to change" plan: freeze invariants (`b5fa00e`) → stabilize the complexity/perf guards
+  (`e4bfbb9`) → then structural-only refactors — extract explicit runtime state containers
+  (`2f32767`), split the sequential finalize-pass orchestration (`b61a192`), introduce child
+  and depth **storage adapters** (`aa66e3a`) in `PersistentSuffixTreeBuilder`; unify the null
+  and empty-pattern contracts in search (`08cad7d`); de-duplicate streaming traversal steps
+  (`9d85e3f`); add ergonomic persistent-lifecycle factory APIs (`838f05d`); and isolate the
+  MCP genomics tool handlers (`780604a`). Every phase was decomposition/extraction, gated per
+  phase.
+- **One environment-level flake, not a code regression:** during an intermediate finalization
+  run `Build_ScalesLinearly` transiently failed on timing variance and passed on immediate
+  rerun with no code change — a different perf-guard test than Cycle 2's
+  `Build_RepetitiveInput_StillLinear`, but the same class of environment-sensitivity note
+  rather than a broken invariant.
+
+## Guardrails (per-phase gates)
+
+The freeze is only enforceable if every phase is checked against it. Cycle 3's guardrails:
+
+- **Mandatory gates after each phase** — the three SuffixTree test projects must pass:
+  `tests/SuffixTree/SuffixTree.Tests`, `tests/SuffixTree/SuffixTree.Persistent.Tests`,
+  `tests/SuffixTree/SuffixTree.Mcp.Core.Tests`.
+- **Format/perf-sensitive phases** additionally run the targeted categories:
+  `Category=Parity` in the persistent tests (in-memory vs persistent equivalence) and
+  `Category=Performance` in the in-memory tests.
+- **One commit per phase; no unrelated changes** in a phase commit — so any regression the
+  gates catch bisects to a single, reviewable step.
+
+This mirrors the [[build-quality-gate]] philosophy (a gate that must be green to proceed) but
+scoped to behavioural equivalence rather than static analysis.
+
+## Why this matters
+
+The suffix-tree engine has two backends behind one interface and a persistent on-disk format
+that other artifacts already depend on ([[suffix-tree]]). A naive refactor risks silently
+changing the binary format, an empty-input edge case, or an MCP tool name — breakage that
+unit correctness tests would not necessarily surface. Freezing the contract turns those
+risks into explicit, testable assertions and makes each cycle's diff safe to bisect.
+
+## Campaign cluster
+
+This concept is the reconciliation target for the six suffix-tree controlled-refactoring
+documents under `docs/refactoring/` — **all six are now ingested here (remaining: 0); the
+campaign cluster is fully ingested**:
+
+- `suffix-tree-controlled-refactoring-plan.md` — the overall plan (ingested here; the
+  originating methodology — no-regression goal across correctness/performance/storage-format,
+  the eight-phase roadmap, and the small-phase / one-commit / gate-before-merge / preserve-v6
+  rules).
+- `suffix-tree-contract-freeze.md` — the initial contract freeze (ingested here; adds the
+  `MaxDepth` divergence work item).
+- `suffix-tree-contract-freeze-cycle3.md` — the Cycle 3 freeze (ingested here).
+- `suffix-tree-controlled-refactoring-verification.md` — the base/Cycle 1 verification
+  report (ingested here; records the campaign's baseline all-green gate run — `SuffixTree.Tests`
+  **353/353**, persistent **475/475**, MCP **59/59**, parity **112/112**, performance
+  **12/12** — the seven-commit trace that walks the plan's eight-phase roadmap step-for-step,
+  and the net8/net9 target-framework + unified-nullable build invariants).
+- `suffix-tree-controlled-refactoring-cycle3-verification.md` — the Cycle 3 verification
+  report (ingested here; records the all-green gate run with explicit parity **112/112** /
+  performance **12/12** counts, persistent **503/503**, and the nine-phase trace).
+- `suffix-tree-controlled-refactoring-cycle2-verification.md` — the Cycle 2 verification
+  report (ingested here; records the all-green gate run and the `MaxDepth` resolution).
+
+All six documents are now reconciled onto this page — the plan's rationale, both frozen
+contracts, and the base/Cycle 2/Cycle 3 verification outcomes each contributed only their
+genuinely distinct content. The campaign cluster is fully ingested; no `docs/refactoring/`
+suffix-tree docs remain.
