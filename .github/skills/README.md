@@ -43,14 +43,16 @@ call, and the numbers come from the real library.
 **In Claude Code — just describe the task.** No tool picking, no code. The matching skill triggers on
 your wording and runs the pipeline:
 
-> *"Here are two versions of a short gene — a wild type and a suspected resistance isolate. Confirm
-> both are clean DNA, tell me exactly what changed and whether it alters the protein, and if it does,
-> design me a PCR primer pair for a diagnostic."*
+> *"Here are two versions of a coding fragment from a drug-target gene — a wild type and a suspected
+> resistance isolate. Validate that both are well-formed, unambiguous DNA (A/C/G/T only), tell me
+> exactly what changed and whether it alters the protein, and — independently — design a PCR primer
+> pair that flanks the site to amplify it for downstream sequencing. Treat any resistance call as a
+> candidate, not confirmed."*
 
 That one prompt routes through [`bio-qc`](bio-qc/SKILL.md) → [`bio-alignment`](bio-alignment/SKILL.md)
 → [`bio-annotation`](bio-annotation/SKILL.md) → [`bio-moldesign`](bio-moldesign/SKILL.md), guarded
 throughout by [`bio-rigor`](bio-rigor/SKILL.md). (Full worked version:
-[root README → "See it work"](../../README.md#see-it-work-a-resistance-mutation-triage).)
+[root README → "See it work"](../../README.md#see-it-work-an-rpob-rifampicin-resistance-variant-triage).)
 
 **In Copilot / VS Code —** the mirror under [`.github/skills/`](../../.github/skills) is loaded via the
 repo's `.vscode/settings.json`; describe the task the same way.

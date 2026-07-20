@@ -4,7 +4,7 @@ title: "Skill routing + discipline layer"
 tags: [architecture, skills]
 sources:
   - README.md
-source_commit: 585e15dfe3a54881f74e86e74b5015b7cd4ec14f
+source_commit: 32523eb3576cde5f7a1713f1b168e5808435e3ec
 created: 2026-07-09
 updated: 2026-07-20
 graph:
