@@ -46,34 +46,48 @@ Prefer specific keywords (`melting temperature`, `off target`) over broad ones
 
 ## Examples (verified output)
 
+The **WIKI** column names the LLM-Wiki concept (or `(!) gotcha`) that curates the
+science and sharp edges behind each tool — open it for meaning, caveats, and the
+validated envelope after you have the tool name. It is read live from the wiki's
+own `mcp_tools:` frontmatter, so it stays in sync as ingests add tools.
+
 **Melting temperature → Tm tools in sequence + moltools:**
 
 ```
 $ python3 scripts/skills/find-tool.py melting temperature
-TOOL                              SERVER        METHOD ID                                        DOC
-melting_temperature               Sequence      SequenceStatistics.CalculateMeltingTemperature   docs/mcp/tools/sequence/melting_temperature.md
-primer_melting_temperature        MolTools      PrimerDesigner.CalculateMeltingTemperature       docs/mcp/tools/moltools/primer_melting_temperature.md
-primer_melting_temperature_salt   MolTools      PrimerDesigner.CalculateMeltingTemperatureWithSa docs/mcp/tools/moltools/primer_melting_temperature_salt.md
+TOOL                              SERVER        METHOD ID                                WIKI (concept / (!) gotcha)          DOC
+melting_temperature               Sequence      SequenceStatistics.CalculateMeltingTempe -                                    docs/mcp/tools/sequence/melting_temperature.md
+primer_melting_temperature        MolTools      PrimerDesigner.CalculateMeltingTemperatu primer-dimer-thermodynamics-tm       docs/mcp/tools/moltools/primer_melting_temperature.md
+primer_melting_temperature_salt   MolTools      PrimerDesigner.CalculateMeltingTemperatu primer-dimer-thermodynamics-tm       docs/mcp/tools/moltools/primer_melting_temperature_salt.md
+```
+
+**A tool with a known trap flags its gotcha inline:**
+
+```
+$ python3 scripts/skills/find-tool.py predict genes --limit 1
+TOOL                              SERVER        METHOD ID                                WIKI (concept / (!) gotcha)          DOC
+predict_genes                     Annotation    GenomeAnnotator.PredictGenes             (!) predict-genes-emits-every-orf    docs/mcp/tools/annotation/predict_genes.md
 ```
 
 **CRISPR → the MolTools guide-design family:**
 
 ```
 $ python3 scripts/skills/find-tool.py crispr --server moltools --limit 4
-TOOL                              SERVER        METHOD ID                                        DOC
-crispr_specificity_score          MolTools      CrisprDesigner.CalculateSpecificityScore         docs/mcp/tools/moltools/crispr_specificity_score.md
-crispr_system_info                MolTools      CrisprDesigner.GetSystem                         docs/mcp/tools/moltools/crispr_system_info.md
-design_guide_rnas                 MolTools      CrisprDesigner.DesignGuideRnas                   docs/mcp/tools/moltools/design_guide_rnas.md
-evaluate_guide_rna                MolTools      CrisprDesigner.EvaluateGuideRna                  docs/mcp/tools/moltools/evaluate_guide_rna.md
+TOOL                              SERVER        METHOD ID                                WIKI (concept / (!) gotcha)          DOC
+crispr_specificity_score          MolTools      CrisprDesigner.CalculateSpecificityScore -                                    docs/mcp/tools/moltools/crispr_specificity_score.md
+crispr_system_info                MolTools      CrisprDesigner.GetSystem                 crispr-guide-rna-design              docs/mcp/tools/moltools/crispr_system_info.md
+design_guide_rnas                 MolTools      CrisprDesigner.DesignGuideRnas           crispr-guide-rna-design              docs/mcp/tools/moltools/design_guide_rnas.md
+evaluate_guide_rna                MolTools      CrisprDesigner.EvaluateGuideRna          crispr-guide-rna-design              docs/mcp/tools/moltools/evaluate_guide_rna.md
+... 2 more tool hits (use --limit to see more).
 ```
 
 **Alignment, including algorithm docs:**
 
 ```
 $ python3 scripts/skills/find-tool.py alignment --algorithms --limit 4
-TOOL                              SERVER        METHOD ID                                        DOC
-alignment_statistics              Alignment     SequenceAligner.CalculateStatistics              docs/mcp/tools/alignment/alignment_statistics.md
-format_alignment                  Alignment     SequenceAligner.FormatAlignment                  docs/mcp/tools/alignment/format_alignment.md
+TOOL                              SERVER        METHOD ID                                WIKI (concept / (!) gotcha)          DOC
+alignment_statistics              Alignment     SequenceAligner.CalculateStatistics      alignment-statistics                 docs/mcp/tools/alignment/alignment_statistics.md
+format_alignment                  Alignment     SequenceAligner.FormatAlignment          alignment-statistics                 docs/mcp/tools/alignment/format_alignment.md
 ...
 ALGORITHMS
 TITLE                                              TEST UNIT ID          DOC
@@ -88,6 +102,9 @@ Multiple Sequence Alignment (MSA)                  ALIGN-MULTI-001       docs/al
   errors, and examples. Do not guess the schema; read the doc.
 - **Method ID** → the direct `Seqeron.Genomics` C# entry point for the API path.
 - **Server** → which MCP server to attach when using the MCP path.
+- **WIKI** → the LLM-Wiki concept behind the tool (`wiki/concepts/<slug>.md`) for
+  the science, parameters, and corner cases; `(!) <slug>` points at a
+  `wiki/gotchas/` page recording a known trap — read it before relying on the tool.
 - **Test Unit ID** (algorithms) → cross-reference into `docs/Validation` /
   `LIMITATIONS.md` for the validated operating envelope.
 
