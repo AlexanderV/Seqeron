@@ -10,4 +10,4 @@ Directory of the sharded wiki indexes. Read the smallest relevant shard first; u
 - [Concepts](indexes/concepts.md) - 229 algorithm, architecture, validation, and scientific-method concepts.
 - [Gotchas](indexes/gotchas.md) - 24 limitation and sharp-edge pages.
 - [Meta indexes](indexes/meta.md) - 2 coverage and maintenance indexes.
-- [Synthesis](indexes/synthesis.md) - 1 cross-cutting synthesis pages.
+- [Synthesis](indexes/synthesis.md) - 2 cross-cutting synthesis pages.
