@@ -3,15 +3,16 @@ type: index
 title: "Ingestion backlog — docs/algorithms reconciliation + queued sources"
 tags: [meta, coverage]
 created: 2026-07-09
-updated: 2026-07-17
+updated: 2026-07-20
 ---
 
 # Ingestion backlog
 
 Coverage reconciliation for `docs/algorithms/**` (kept **in scope** by the
-[coverage exclude policy](SCHEMA.md#coverage-exclude-policy)) plus source batches
-queued for ingestion. Generated during the 2026-07-09 lint pass; regenerate when
-concept pages are added or algorithm docs change.
+[coverage exclude policy](SCHEMA.md#coverage-exclude-policy)). Generated during the
+2026-07-09 lint pass; regenerate when concept pages are added or algorithm docs
+change. As of the 2026-07-20 lint, both the per-domain algorithm-doc backlog and
+the queued source batches are **fully closed** — see the sections below.
 
 The **pending** rows are a real coverage gap that folds into the main per-algorithm
 ingest campaign (the same campaign advancing the `docs/Evidence/**` files) — not a
@@ -22,44 +23,31 @@ Status at generation: **227** algorithm docs covered-via-concept, **0** pending 
 
 ## Covered via concept (done) — moved
 
-The **Covered via concept (done)** table and the full chronological resolution-note
-history now live in **[[backlog-covered]]** (split out 2026-07-18 to keep this hub
-under the page-size cap). Status at that split: **227** algorithm docs covered-via-concept,
-**0** pending.
+The full chronological resolution-note history lives in **[[backlog-covered]]**, and
+the **Covered via concept (done)** table (227 algorithm docs → concept pages) lives
+in **[[backlog-covered-table]]** (history split out 2026-07-18, table further split
+out 2026-07-20, to keep pages under the size cap). Status: **227** algorithm docs
+covered-via-concept, **0** pending.
 
 ## Pending (fold into the ingest campaign)
 
 The per-domain pending tables live in **[[backlog-pending]]** to keep this hub under the page-size cap. A pending row is resolved when a concept page lists the algorithm doc in `sources:`, at which point it moves to the *Covered via concept* table above. **The per-domain algorithm-doc pending backlog is now fully closed — all domain tables in [[backlog-pending]] are empty.**
 
-## Queued source batches (approved 2026-07-09)
+## Queued source batches (approved 2026-07-09) — CLOSED
 
-Approved for ingestion in the 2026-07-09 lint triage; pending `/wiki:ingest`.
+The batches approved in the 2026-07-09 lint triage are all resolved (verified by the
+2026-07-20 coverage check — every doc below is referenced by a wiki page):
 
-### Testing methodology checklists (10) — `docs/checklists/`
-
-- `docs/checklists/01_PROPERTY_BASED_TESTING.md`
-- `docs/checklists/02_METAMORPHIC_TESTING.md`
-- `docs/checklists/03_FUZZING.md`
-- `docs/checklists/04_MUTATION_TESTING.md`
-- `docs/checklists/05_SNAPSHOT_TESTING.md`
-- `docs/checklists/06_ALGEBRAIC_TESTING.md`
-- `docs/checklists/07_ARCHITECTURE_TESTING.md`
-- `docs/checklists/08_DIFFERENTIAL_TESTING.md`
-- `docs/checklists/09_COMBINATORIAL_TESTING.md`
-- `docs/checklists/10_CHARACTERIZATION_TESTING.md`
-
-### Validation governance ledgers (4) — `docs/Validation/`
-
-- `docs/Validation/FINDINGS_REGISTER.md`
-- `docs/Validation/LIMITATIONS.md`
-- `docs/Validation/VALIDATION_LEDGER.md`
-- `docs/Validation/VALIDATION_PROTOCOL.md`
-
-### MCP top-level docs (3) — `docs/mcp/`
-
-- `docs/mcp/MCP_STATUS.md`
-- `docs/mcp/README.md`
-- `docs/mcp/traceability.md`
+- **Testing methodology checklists (10)** — `docs/checklists/01…10_*.md` ingested;
+  each has a concept page (e.g. [[property-based-testing]]) plus a `wiki/sources/` summary.
+- **Validation governance ledgers (4)** — `docs/Validation/FINDINGS_REGISTER.md`,
+  `LIMITATIONS.md`, `VALIDATION_LEDGER.md`, `VALIDATION_PROTOCOL.md` ingested (covered by
+  [[validation-and-testing]], [[test-unit-registry]], [[validation-ledger]],
+  [[validation-protocol]], [[validation-findings-disposition]]).
+- **MCP top-level docs** — `docs/mcp/README.md` ingested as [[mcp-tool-catalog]].
+  `docs/mcp/MCP_STATUS.md` and `docs/mcp/traceability.md` are **coverage exclusions**
+  per [SCHEMA](SCHEMA.md#coverage-exclude-policy) (live status ledger / generated
+  traceability matrix), not ingestion targets.
 
 ## Notes
 
