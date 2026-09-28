@@ -5,7 +5,7 @@
 **Algorithm:** Dot-Bracket (extended WUSS) Notation — parsing and validation
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -20,6 +20,7 @@
 | 3 | ViennaRNA — WUSS notation | 3 | https://www.tbi.univie.ac.at/RNA/ViennaRNA/doc/html/utils/struct/wuss.html | 2026-06-14 |
 | 4 | Nawrocki & Eddy (2013), Infernal 1.1 (WUSS) | 1 | https://doi.org/10.1093/bioinformatics/btt509 | 2026-06-14 |
 | 5 | Rfam Documentation — Glossary (WUSS) | 5 | https://docs.rfam.org/en/latest/glossary.html | 2026-06-14 |
+| 6 | ViennaRNA 2.7.2 source `structures/structure_pairtable.c` (`vrna_ptable_from_string`, `extract_pairs`) + Python `RNA.ptable(s, RNA.BRACKETS_ANY)` | 3 | PyPI sdist viennarna-2.7.2 | 2026-09-28 |
 
 ### 1.2 Key Evidence Points
 
@@ -28,6 +29,7 @@
 3. Equivalent crossing examples `<<<<[[[[....>>>>]]]]`, `((((AAAA....))))aaaa`, `AAAA{{{{....aaaa}}}}`; uppercase letter = 5' opener, lowercase = 3' closer — Source 1, 2.
 4. A closing symbol must match an opening of the SAME family ("partners must match up") — Source 3, 4.
 5. Non-bracket WUSS symbols `-`, `,`, `:`, `.` are all single-stranded (unpaired) — Source 5.
+6. Letter families are ASCII `A`–`Z` (open) / `a`–`z` (close) only; every other character (incl. non-ASCII letters) is unpaired; validity ⇔ `vrna_ptable_from_string(s, VRNA_BRACKETS_ANY) != NULL` — Source 6.
 
 ### 1.3 Documented Corner Cases
 
@@ -74,6 +76,7 @@
 | M4 | Validate balanced/nested | `(((...)))`, `(([[]]))`, `([)]`, `....`, `""` | all true | Source 1 (balanced) + Source 3 (crossing families) |
 | M5 | Validate malformed | `(((...)`, `...)`, `)(`, `(]` | all false | Source 1 (balanced) + Source 3/4 (matching partners) |
 | M6 | Parse count == openers (INV-3) | `(([[]]))` → 4 pairs | exactly 4 pairs | Source 1 balanced |
+| M7 | Validate letter families vs ViennaRNA | `aaaa....AAAA` false; `A.a`, `(A)a`, `É...` true | as listed | Source 6 (RNA.ptable) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -82,6 +85,9 @@
 | S1 | Letter pair direction | `AAAA....aaaa` | pairs {(0,11),(1,10),(2,9),(3,8)} (uppercase opens) | Source 1/2 `AAAA...aaaa` |
 | S2 | Non-bracket WUSS symbols unpaired | `<<<-->>>` and `((,,))` | `<<<-->>>`→3 pairs (0,7),(1,6),(2,5); `((,,))`→2 pairs | Source 5 single-stranded symbols |
 | S3 | Best-effort parse of stray closer | `())` | yields only (0,1) | Evidence Assumption (contract) |
+| S4 | Letters mixed with brackets | `(A)a`→{(0,2),(1,3)}; `AB.ba`→{(0,4),(1,3)}; `((..#..))`→{(0,8),(1,7)} | as listed | Source 6 (RNA.ptable) |
+| S5 | Non-ASCII letters unpaired | `ÉÉ..éé`→∅; `Σ((..))σ`→{(1,6),(2,5)} | as listed | Source 6 (A–Z loop 65..90) |
+| S6 | MFE dot-bracket round trip | parse(CalculateMfeStructure(s).DotBracket) == BasePairs | equal | Source 6 (db_from_ptable ∘ ptable = id) |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -122,7 +128,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| RnaSecondaryStructure_ParseDotBracket_Tests.cs | canonical | 11 |
+| RnaSecondaryStructure_ParseDotBracket_Tests.cs | canonical | 17 (incl. 3 S6 cases; review 2026-09 added M7, S4–S6) |
 | RnaSecondaryStructureTests.cs | other RNA units; dot-bracket tests removed | n/a |
 
 ### 5.5 Phase 7 Work Queue
@@ -175,4 +181,5 @@ In-scope cases: 10. ✅ = 10.
 
 ## 7. Open Questions / Decisions
 
-1. Decision: each bracket family and each letter case-pair is matched on its own stack (independent pairing systems) per ViennaRNA/WUSS — resolved from evidence, no open questions.
+1. Review 2026-09 (B12): letter recognition restricted from `char.IsLetter` to ASCII A–Z/a–z per ViennaRNA source (Source 6); cross-checked 6 713 strings (random + RNA.fold MFE + non-ASCII) vs `RNA.ptable(s, BRACKETS_ANY)`: validity and pairs 100 % identical.
+2. Decision: each bracket family and each letter case-pair is matched on its own stack (independent pairing systems) per ViennaRNA/WUSS — resolved from evidence, no open questions.

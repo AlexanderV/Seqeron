@@ -6,7 +6,7 @@
 | Test Unit ID | RNA-DOTBRACKET-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -52,7 +52,7 @@ An RNA secondary structure is a set of base pairs over sequence positions `0..n-
 
 ### 3.3 Preconditions and Validation
 
-Positions are 0-based indices into the notation string. Null or empty input is treated as a valid, pair-free structure: `ValidateDotBracket(null) == ValidateDotBracket("") == true` and `ParseDotBracket(null)`/`("")` yield no pairs (see §5.4). Letter recognition uses `char.IsLetter`/case via the invariant culture. Any character that is neither a recognized bracket nor a letter (dots, `-`, `,`, `:`, and others) is treated as unpaired and skipped [5]. `ParseDotBracket` is best-effort on malformed input: an unmatched closing symbol is dropped without throwing — callers should test `ValidateDotBracket` first.
+Positions are 0-based indices into the notation string. Null or empty input is treated as a valid, pair-free structure: `ValidateDotBracket(null) == ValidateDotBracket("") == true` and `ParseDotBracket(null)`/`("")` yield no pairs (see §5.4). Letter families are the ASCII alphabet only: `A`–`Z` open, the matching `a`–`z` close (ViennaRNA 2.7.2 `vrna_ptable_from_string`, `VRNA_BRACKETS_ALPHA`, loops over codes 65–90 and pairs `(char)i` with `(char)(i+32)`) [6]. Any character that is neither a recognized bracket nor an ASCII letter (dots, `-`, `,`, `:`, non-ASCII letters such as `É`, and others) is treated as unpaired and skipped [5][6]. `ParseDotBracket` is best-effort on malformed input: an unmatched closing symbol is dropped without throwing — callers should test `ValidateDotBracket` first.
 
 ## 4. Algorithm
 
@@ -75,7 +75,7 @@ Bracket family map (opening ↔ closing), from ViennaRNA / WUSS [2][3]:
 | `{` | `}` |
 | `<` | `>` |
 
-Letter pairs: uppercase `X` opens, matching lowercase `x` closes [1][2]. Data structure: a `Dictionary<char, Stack<int>>` keyed by opening symbol, giving each independent pairing system its own LIFO stack.
+Letter pairs: ASCII uppercase `X` (`A`–`Z`) opens, matching lowercase `x` closes [1][2][6]. Data structure: a `Dictionary<char, Stack<int>>` keyed by opening symbol, giving each independent pairing system its own LIFO stack.
 
 ### 4.3 Complexity
 
@@ -95,7 +95,7 @@ Letter pairs: uppercase `X` opens, matching lowercase `x` closes [1][2]. Data st
 
 ### 5.2 Current Behavior
 
-Each opening bracket family and each uppercase letter gets its own stack; closers pop only their own family's stack. This is what distinguishes the implementation from a single-counter / single-stack approach and is required to (a) correctly parse crossing families such as `([)]` and (b) reject mismatched families such as `(]` during validation. Letters are matched with uppercase as the opener. Non-bracket, non-letter characters are treated as unpaired and ignored.
+`ParseDotBracket` and `ValidateDotBracket` share one private scanner (`ScanDotBracket`), which mirrors ViennaRNA `extract_pairs` run once per bracket type: each opening bracket family and each uppercase ASCII letter gets its own stack; closers pop only their own family's stack. Validation equals `vrna_ptable_from_string(s, VRNA_BRACKETS_ANY) != NULL` for non-empty input. The reverse direction (pairs → string, cf. `vrna_db_from_ptable`) is the single private renderer `BuildDotBracket`, used by stem-loop, MFE, heuristic-structure and pseudoknot (`[]` second family) outputs. This is what distinguishes the implementation from a single-counter / single-stack approach and is required to (a) correctly parse crossing families such as `([)]` and (b) reject mismatched families such as `(]` during validation. Letters are matched with uppercase as the opener. Non-bracket, non-letter characters are treated as unpaired and ignored.
 
 **Search reuse (suffix tree):** N/A. This is a single linear scan with a stack, not a substring-search / occurrence-enumeration task, so the repository suffix tree does not apply.
 
@@ -135,11 +135,12 @@ Each opening bracket family and each uppercase letter gets its own stack; closer
 | `".....".` (all unpaired) | valid; no pairs | dots are unpaired [1] |
 | `([)]` | parse {(0,2),(1,3)}; valid | crossing families matched independently [1][3] |
 | `(]` | invalid | mismatched families; partners must match up [3][4] |
+| `ÉÉ..éé` / `É...` | valid; no pairs | non-ASCII letters are unpaired (ViennaRNA A–Z only) [6] |
 | `())` | parse yields {(0,1)} only | best-effort; stray closer dropped (§5.4) |
 
 ### 6.2 Limitations
 
-Does not classify loop types or convert to energy models; only decodes pairing. Letter recognition relies on `char.IsLetter`; non-ASCII letters would be treated as pairing symbols, which is outside the WUSS A–Z convention.
+Does not classify loop types or convert to energy models; only decodes pairing. Only ASCII `A`–`Z`/`a`–`z` are letter families (as in ViennaRNA); non-ASCII letters are unpaired.
 
 ## 7. Examples and Related Material
 
@@ -168,3 +169,4 @@ bool bad = RnaSecondaryStructure.ValidateDotBracket("(]");  // false (mismatched
 3. ViennaRNA Package. Washington University Secondary Structure (WUSS) notation. https://www.tbi.univie.ac.at/RNA/ViennaRNA/doc/html/utils/struct/wuss.html
 4. Nawrocki EP, Eddy SR. 2013. Infernal 1.1: 100-fold faster RNA homology searches. Bioinformatics 29(22):2933-2935. https://doi.org/10.1093/bioinformatics/btt509
 5. Rfam Documentation. Glossary (WUSS format). https://docs.rfam.org/en/latest/glossary.html
+6. ViennaRNA Package 2.7.2 source, `src/ViennaRNA/structures/structure_pairtable.c` (`vrna_ptable_from_string`, `extract_pairs`), PyPI sdist `viennarna-2.7.2.tar.gz`.
