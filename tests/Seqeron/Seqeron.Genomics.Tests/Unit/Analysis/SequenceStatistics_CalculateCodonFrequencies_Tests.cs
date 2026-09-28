@@ -224,4 +224,110 @@ public class SequenceStatistics_CalculateCodonFrequencies_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 (B03 F15/F16) — RNA U, EMBOSS cusp/compseq, canonical codon counter
+
+    // F15 — RNA U is read as T and reported in DNA spelling. Reference: EMBOSS 6.6.0 cusp executed,
+    // "/1000" column ÷ 1000 (cusp reads U as T); CodonW ident_codon (T/t/U/u identical).
+    [TestCase("AUGAUGAAAUUUCGC", new[] { "ATG", "AAA", "TTT", "CGC" }, new[] { 0.4, 0.2, 0.2, 0.2 })]
+    [TestCase("augAAAuuuTTT", new[] { "ATG", "AAA", "TTT" }, new[] { 0.25, 0.25, 0.5 })]
+    [TestCase("ATGGCUGCAUAAgc", new[] { "ATG", "GCT", "GCA", "TAA" }, new[] { 0.25, 0.25, 0.25, 0.25 })]
+    public void CalculateCodonFrequencies_RnaAndMixedCase_MatchEmbossCusp(
+        string sequence, string[] codons, double[] expected)
+    {
+        var freq = SequenceStatistics.CalculateCodonFrequencies(sequence);
+
+        Assert.That(freq.Keys, Is.EquivalentTo(codons), "DNA-spelled keys, U read as T (cusp)");
+        for (int i = 0; i < codons.Length; i++)
+            Assert.That(freq[codons[i]], Is.EqualTo(expected[i]).Within(Tolerance), codons[i]);
+    }
+
+    // F15 — DNA and RNA spellings of the same CDS give identical tables.
+    [Test]
+    public void CalculateCodonFrequencies_RnaSpelling_EqualsDnaSpelling()
+    {
+        const string dna = "ATGTTTCTTTGGTAAGTTTATTGA";
+        var fromDna = SequenceStatistics.CalculateCodonFrequencies(dna, 1);
+        var fromRna = SequenceStatistics.CalculateCodonFrequencies(dna.Replace('T', 'U').ToLowerInvariant(), 1);
+
+        Assert.That(fromRna, Is.EquivalentTo(fromDna));
+    }
+
+    // Reading frame = offset, identical to EMBOSS 6.6.0 compseq -word 3 -frame f (executed; compseq
+    // starts at pos = frame and steps by the word size, compseq.c l.210). "ATGCCCGGGT":
+    // -frame 1 → TGC, CCG, GGT (1/3 each); -frame 2 → GCC, CGG (1/2); -frame 3 → CCC, GGG (1/2).
+    [TestCase(1, new[] { "TGC", "CCG", "GGT" }, 1.0 / 3.0)]
+    [TestCase(2, new[] { "GCC", "CGG" }, 0.5)]
+    [TestCase(3, new[] { "CCC", "GGG" }, 0.5)]
+    public void CalculateCodonFrequencies_ReadingFrameOffset_MatchesEmbossCompseqFrame(
+        int frame, string[] codons, double expected)
+    {
+        var freq = SequenceStatistics.CalculateCodonFrequencies("ATGCCCGGGT", frame);
+
+        Assert.That(freq.Keys, Is.EquivalentTo(codons));
+        Assert.That(freq.Values, Is.All.EqualTo(expected).Within(Tolerance));
+    }
+
+    // Frame is preserved across a skipped ambiguous triplet (EMBOSS ajCodSetTripletsS): "ATGNNNaaaRYTTAG"
+    // → ATG, (NNN), AAA, (RYT), TAG → 1/3 each; gaps/X likewise.
+    [TestCase("ATGNNNaaaRYTTAG", new[] { "ATG", "AAA", "TAG" })]
+    [TestCase("ATG-GCAAAX-TTTT", new[] { "ATG", "AAA", "TTT" })]
+    public void CalculateCodonFrequencies_AmbiguousTriplet_SkippedWithoutFrameShift(string sequence, string[] codons)
+    {
+        var freq = SequenceStatistics.CalculateCodonFrequencies(sequence);
+
+        Assert.That(freq.Keys, Is.EquivalentTo(codons));
+        Assert.That(freq.Values, Is.All.EqualTo(1.0 / codons.Length).Within(Tolerance));
+    }
+
+    // Biopython 1.88 CodonAdaptationIndex counting loop (frame 0, upper-case, 64 ACGT codons):
+    // "atgGCCgccTAA" → ATG 1, GCC 2, TAA 1 of 4.
+    [Test]
+    public void CalculateCodonFrequencies_CleanCds_MatchesBiopythonCaiCounts()
+    {
+        var freq = SequenceStatistics.CalculateCodonFrequencies("atgGCCgccTAA");
+
+        Assert.That(freq["ATG"], Is.EqualTo(0.25).Within(Tolerance));
+        Assert.That(freq["GCC"], Is.EqualTo(0.5).Within(Tolerance));
+        Assert.That(freq["TAA"], Is.EqualTo(0.25).Within(Tolerance));
+        Assert.That(freq, Has.Count.EqualTo(3));
+    }
+
+    // F16 — negative reading frame is rejected explicitly (was a raw Substring exception for length ≥ 3
+    // and a silent empty table for length < 3).
+    [TestCase("ATGAAA", -1)]
+    [TestCase("AT", -1)]
+    [TestCase("", -3)]
+    public void CalculateCodonFrequencies_NegativeFrame_Throws(string sequence, int frame)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateCodonFrequencies(sequence, frame));
+    }
+
+    // Semantics identical to the canonical codon counter (MolTools CodonUsageAnalyzer.CountCodons, B02):
+    // frequency = count / Σcount over frame-f triplets, for random DNA/RNA/IUPAC/gap/lower-case input.
+    [Test]
+    public void CalculateCodonFrequencies_EqualsCanonicalCountCodonsNormalised()
+    {
+        var rng = new Random(20260928);
+        const string alphabet = "ACGTUacgtuNRY-X ";
+        for (int iteration = 0; iteration < 2000; iteration++)
+        {
+            int len = rng.Next(0, 90);
+            int frame = rng.Next(0, 4);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++)
+                chars[i] = alphabet[rng.Next(alphabet.Length)];
+            string seq = new(chars);
+
+            var actual = SequenceStatistics.CalculateCodonFrequencies(seq, frame);
+            var counts = CodonUsageAnalyzer.CountCodons(frame < seq.Length ? seq[frame..] : string.Empty);
+            int total = counts.Values.Sum();
+
+            Assert.That(actual, Has.Count.EqualTo(counts.Count), seq);
+            foreach (var (codon, count) in counts)
+                Assert.That(actual[codon], Is.EqualTo((double)count / total).Within(Tolerance), $"{seq} f{frame} {codon}");
+        }
+    }
+
+    #endregion
 }

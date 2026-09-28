@@ -1059,21 +1059,30 @@ public static class SequenceStatistics
 
     /// <summary>
     /// Calculates codon usage frequencies by reading consecutive, non-overlapping triplets from the
-    /// given reading frame: frequency = count(codon) / total counted codons. Triplets containing any
-    /// non-ACGT base are excluded and trailing 1-2 leftover bases are ignored. This is the count/total
-    /// fraction used by the Kazusa Codon Usage Database (CUTG); it equals the CUTG per-thousand
-    /// frequency divided by 1000, and is distinct from the per-amino-acid "fraction" reported by
-    /// EMBOSS cusp. Input shorter than 3 bases, or with no valid codon (total = 0), yields an empty
-    /// table. Sources: Nakamura, Gojobori, Ikemura (2000), Nucleic Acids Res 28(1):292,
-    /// DOI 10.1093/nar/28.1.292; Kazusa CUTG README, https://www.kazusa.or.jp/codon/readme_codon.html.
+    /// given reading frame: frequency = count(codon) / total counted codons. Input is case-insensitive
+    /// and may be DNA (T) or RNA (U): U is read as T and codons are reported in DNA spelling (EMBOSS
+    /// cusp, CodonW <c>ident_codon</c>; same contract as the canonical
+    /// <c>CodonUsageAnalyzer.CountCodons(string)</c> in MolTools). Triplets containing any other symbol
+    /// (N, IUPAC ambiguity codes, gaps, …) are excluded from both count and total without shifting the
+    /// frame, and trailing 1-2 leftover bases are ignored (EMBOSS <c>ajCodSetTripletsS</c>). This is the
+    /// count/total fraction used by the Kazusa Codon Usage Database (CUTG) and the EMBOSS cusp
+    /// "/1000" column divided by 1000; it is distinct from the per-amino-acid "Fraction" column of cusp.
+    /// Input shorter than 3 bases, or with no valid codon (total = 0), yields an empty table.
+    /// Sources: Nakamura, Gojobori, Ikemura (2000), Nucleic Acids Res 28(1):292,
+    /// DOI 10.1093/nar/28.1.292; Kazusa CUTG README, https://www.kazusa.or.jp/codon/readme_codon.html;
+    /// EMBOSS 6.6.0 cusp / ajcod.c.
     /// </summary>
-    /// <param name="dnaSequence">DNA coding sequence; case-insensitive, non-ACGT bases excluded.</param>
-    /// <param name="readingFrame">0-based offset of the first codon (0, 1, or 2 in practice).</param>
-    /// <returns>Map of codon to its frequency (count / total counted codons); empty if no valid codon.</returns>
+    /// <param name="dnaSequence">DNA or RNA coding sequence; case-insensitive, U read as T, triplets with other symbols excluded.</param>
+    /// <param name="readingFrame">0-based offset of the first codon (0, 1, or 2 in practice; larger values are
+    /// plain offsets, as EMBOSS compseq <c>-frame</c>). Must be non-negative.</param>
+    /// <returns>Map of codon (DNA spelling) to its frequency (count / total counted codons); empty if no valid codon.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="readingFrame"/> is negative.</exception>
     public static IReadOnlyDictionary<string, double> CalculateCodonFrequencies(
         string dnaSequence,
         int readingFrame = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(readingFrame);
+
         // Codon length is fixed by the genetic code (non-overlapping triplets), per Kazusa CUTG.
         const int CodonLength = 3;
 
@@ -1083,14 +1092,18 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(dnaSequence) || dnaSequence.Length < CodonLength)
             return freq;
 
-        string upper = dnaSequence.ToUpperInvariant();
+        // Case-fold and read RNA U as T (EMBOSS ajBaseAlphaToBin maps U to the T bit; CodonW
+        // ident_codon treats T/t/U/u identically) — the normalisation of the canonical
+        // CodonUsageAnalyzer.CountCodons, which Analysis cannot call (MolTools references Analysis).
+        string normalized = dnaSequence.ToUpperInvariant().Replace('U', 'T');
         int total = 0;
 
-        for (int i = readingFrame; i <= upper.Length - CodonLength; i += CodonLength)
+        for (int i = readingFrame; i <= normalized.Length - CodonLength; i += CodonLength)
         {
-            string codon = upper.Substring(i, CodonLength);
-            // Kazusa CUTG: codons containing an ambiguous (non-ACGT) base are excluded from the count.
-            if (codon.All(c => "ATGC".Contains(c)))
+            string codon = normalized.Substring(i, CodonLength);
+            // Codons containing an ambiguous / non-nucleotide symbol are skipped (Kazusa CUTG;
+            // EMBOSS ajCodSetTripletsS "Skips triplets with ambiguity codes"); the frame is kept.
+            if (codon.All(c => c is 'A' or 'C' or 'G' or 'T'))
             {
                 counts[codon] = counts.GetValueOrDefault(codon) + 1;
                 total++;

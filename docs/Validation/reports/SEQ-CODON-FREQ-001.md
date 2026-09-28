@@ -70,7 +70,7 @@ source retrieved this session.
 ### Formula realised correctly?
 Yes. Guard: null/empty/length<3 → empty. Upper-cases input (INV-04). Loops `i` from `readingFrame` to
 `length-3` in steps of 3 (non-overlapping). Each triplet of only `ATGC` increments count and total;
-others (ambiguous, including RNA `U`) excluded (INV-03). Final pass divides each count by total;
+others (ambiguous) excluded (INV-03). *Superseded by review 2026-09 (B03 F15/F16): RNA `U` is now read as `T` (EMBOSS cusp executed, CodonW, canonical `CodonUsageAnalyzer.CountCodons`); negative frames throw.* Final pass divides each count by total;
 total=0 leaves the map empty (no div-by-zero). Exactly the validated count/total definition.
 
 ### Cross-verification table recomputed vs code

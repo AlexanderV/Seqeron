@@ -1039,6 +1039,26 @@ public class SequenceStatisticsProperties
         });
     }
 
+    /// <summary>
+    /// INV-3 (review 2026-09 B03 F15): RNA U is read as T (EMBOSS cusp, CodonW), so the lower-case RNA
+    /// spelling of a CDS gives exactly the DNA table in every frame.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonFrequencies_RnaSpelling_EqualsDnaSpelling()
+    {
+        return Prop.ForAll(CodonDnaArbitrary(), seq =>
+        {
+            string rna = seq.Replace('T', 'U').ToLowerInvariant();
+            bool ok = Enumerable.Range(0, 3).All(f =>
+            {
+                var dna = SequenceStatistics.CalculateCodonFrequencies(seq, f);
+                var r = SequenceStatistics.CalculateCodonFrequencies(rna, f);
+                return dna.Count == r.Count && dna.All(kv => r.TryGetValue(kv.Key, out double v) && v == kv.Value);
+            });
+            return ok.Label("RNA spelling must equal DNA spelling");
+        });
+    }
+
     #endregion
 
     #region SEQ-ENTROPY-PROFILE-001: R: each entropy ≥ 0; P: profile length = len−w+1; D: deterministic

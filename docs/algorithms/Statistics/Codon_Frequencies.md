@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-CODON-FREQ-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 (review 2026-09, B03 F15/F16) |
 
 ## 1. Overview
 
@@ -20,7 +20,7 @@ The genetic code reads coding DNA in non-overlapping triplets (codons) within a 
 
 ### 2.2 Core Model
 
-For a sequence read from frame offset `f`, let the non-overlapping triplets be `c_1, c_2, …` where `c_k` covers bases `[f + 3(k-1), f + 3k)`. Let `V` be the set of triplets composed only of A, C, G, T (ambiguous codons are excluded [2]). Then for codon `x`:
+For a sequence read from frame offset `f`, let the non-overlapping triplets be `c_1, c_2, …` where `c_k` covers bases `[f + 3(k-1), f + 3k)`. After upper-casing and reading RNA `U` as `T` [3][5], let `V` be the set of triplets composed only of A, C, G, T (ambiguous codons are excluded [2]; EMBOSS `ajCodSetTripletsS` "Skips triplets with ambiguity codes" without shifting the frame). Then for codon `x`:
 
 - count(x) = number of `c_k ∈ V` equal to `x`
 - total = |{ c_k : c_k ∈ V }|
@@ -36,14 +36,19 @@ Kazusa CUTG reports this scaled per thousand: "the frequency (per thousand) of c
 | INV-02 | Σ frequency(x) = 1 over all keys (when total ≥ 1) | Σ count(x) = total by definition [2] |
 | INV-03 | Codons with any non-ACGT base never appear and never change total | ambiguous codons excluded from count [2] |
 | INV-04 | Output is independent of input letter case | input is upper-cased before counting |
+| INV-06 | RNA spelling (U) gives the same table as DNA spelling (T); keys are DNA-spelled | U read as T (EMBOSS cusp executed; CodonW `ident_codon`) [3][5] |
 | INV-05 | frequency(x) = CUTG per-thousand value ÷ 1000 | cusp dataset: 22/386×1000 = 56.995 [3] |
 
 ### 2.5 Comparison with Related Methods
 
-| Aspect | This method (count / total) | EMBOSS cusp "Fraction" | `CodonOptimizer.CalculateCodonUsage` |
-|--------|-----------------------------|------------------------|--------------------------------------|
-| Denominator | all counted codons | synonymous-codon group of the amino acid [3] | n/a (returns raw counts) |
-| Output | frequencies summing to 1 | per-amino-acid proportions | integer counts |
+| Aspect | This method (count / total) | EMBOSS cusp "Fraction" | EMBOSS compseq `-word 3 -frame f` | `CodonUsageAnalyzer.CountCodons` (MolTools, canonical counter) |
+|--------|-----------------------------|------------------------|-----------------------------------|--------------------------------|
+| Denominator | all counted (unambiguous) codons | synonymous-codon group of the amino acid [3] | all words **including** "Other" (ambiguous) words | n/a (raw counts) |
+| RNA `U` | read as `T` | read as `T` (cusp /1000 column = this ×1000) | counted as "Other" | read as `T` |
+| Frame | 0-based offset | frame 0 only | offset `f` (1..3; `-frame 0` = overlapping) | frame 0 |
+| Output | frequencies summing to 1 | per-amino-acid proportions | word frequencies | integer counts |
+
+For unambiguous DNA the values equal compseq `-frame f` exactly (executed, 300 random cases); for DNA/RNA without ambiguity codes they equal cusp `/1000 ÷ 1000` (150 cases). Counts equal the canonical `CodonUsageAnalyzer.CountCodons(seq[f..])` normalised by their sum (locked by a 2000-case differential test). cusp maps ambiguous bases to their lowest constituent (N→A, R→A) instead of skipping — an artefact that contradicts its own `ajCodSetTripletsS` documentation and is not reproduced (same decision as B02 F9).
 
 ## 3. Contract
 
@@ -51,8 +56,8 @@ Kazusa CUTG reports this scaled per thousand: "the frequency (per thousand) of c
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| dnaSequence | string | required | DNA coding sequence | case-insensitive; non-ACGT bases excluded from counting |
-| readingFrame | int | 0 | 0-based offset of the first codon | typically 0, 1, or 2 |
+| dnaSequence | string | required | DNA or RNA coding sequence | case-insensitive; U read as T; triplets with any other symbol excluded |
+| readingFrame | int | 0 | 0-based offset of the first codon | ≥ 0 (negative → `ArgumentOutOfRangeException`); typically 0, 1, or 2, larger values are plain offsets |
 
 ### 3.2 Output / Return Value
 
@@ -62,14 +67,14 @@ Kazusa CUTG reports this scaled per thousand: "the frequency (per thousand) of c
 
 ### 3.3 Preconditions and Validation
 
-`null`, empty, or length &lt; 3 returns an empty dictionary. Input is upper-cased (T↔U is not performed; RNA `U` is treated as a non-ACGT base and excluded). Counting is 0-based starting at `readingFrame`; only complete non-overlapping triplets are read, so trailing 1–2 bases are ignored. If no triplet is composed solely of ACGT (`total = 0`), the result is empty — there is no division by zero.
+A negative `readingFrame` throws `ArgumentOutOfRangeException`. `null`, empty, or length &lt; 3 returns an empty dictionary. Input is upper-cased and RNA `U` is read as `T`; keys are reported in DNA spelling (EMBOSS cusp, CodonW; same normalisation as the canonical `CodonUsageAnalyzer.CountCodons`). Counting is 0-based starting at `readingFrame`; only complete non-overlapping triplets are read, so trailing 1–2 bases are ignored. If no triplet is composed solely of ACGT (`total = 0`), the result is empty — there is no division by zero.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Guard: null / empty / length &lt; 3 → empty table.
-2. Upper-case the sequence.
+1. Guard: negative frame → throw; null / empty / length &lt; 3 → empty table.
+2. Upper-case the sequence and replace U by T.
 3. Step `i` from `readingFrame` to `length − 3` in increments of 3; take the triplet at `i`.
 4. If the triplet is all ACGT, increment its count and the running total.
 5. Divide each codon count by the total to produce frequencies.
@@ -77,7 +82,7 @@ Kazusa CUTG reports this scaled per thousand: "the frequency (per thousand) of c
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 - Codon length = 3 (fixed by the genetic code; non-overlapping reading) [2].
-- Valid-base alphabet = {A, C, G, T}; any other character makes the whole triplet ineligible [2].
+- Valid-base alphabet = {A, C, G, T} after U→T; any other character makes the whole triplet ineligible [2].
 
 ### 4.3 Complexity
 
@@ -109,9 +114,9 @@ Single linear pass over the sequence. The method is a frequency tabulation, not 
 
 - Per-thousand scaling and the per-amino-acid Fraction column reported by Kazusa/cusp are not produced here; **consequence:** callers needing per-thousand multiply by 1000, and per-amino-acid proportions are out of scope for this method.
 
-**Not implemented:**
+**Not implemented:** none. (RNA `U` handling, previously listed here, is implemented — review 2026-09 B03 F15.)
 
-- RNA `U`-aware counting; **users should rely on:** converting U→T before calling, since CUTG tabulates DNA CDS [2].
+**Duplication note:** Analysis cannot reference MolTools (MolTools references Analysis), so the loop cannot call `CodonUsageAnalyzer.CountCodons`; semantics are kept identical and a move of the codon-splitting core to Core is requested (B03 R16).
 
 ## 6. Edge Cases and Limitations
 
@@ -124,10 +129,12 @@ Single linear pass over the sequence. The method is a frequency tabulation, not 
 | triplet with non-ACGT base | excluded from count and total | ambiguous codons excluded [2] |
 | all triplets ambiguous (total = 0) | empty dictionary | only well-defined count/total result; no division by zero |
 | lowercase input | same as uppercase | input upper-cased (INV-04) |
+| RNA input (U) | same as DNA spelling, DNA-spelled keys | U read as T (INV-06) |
+| negative readingFrame | `ArgumentOutOfRangeException` | frame is an offset (compseq `-frame` is "Integer 0 or more") |
 
 ### 6.2 Limitations
 
-Computes raw codon usage only; does not derive codon-usage indices (CAI, Fop, Nc) [4], does not interpret reading frames biologically (no ORF detection), and treats RNA `U` as ambiguous unless converted to `T` first.
+Computes raw codon usage only; does not derive codon-usage indices (CAI, Fop, Nc) [4], and does not interpret reading frames biologically (no ORF detection).
 
 ## 7. Examples and Related Material
 
@@ -154,3 +161,4 @@ var freq = SequenceStatistics.CalculateCodonFrequencies("ATGATGAAA", readingFram
 2. Kazusa DNA Research Institute. Codon Usage Database (CUTG) — README. https://www.kazusa.or.jp/codon/readme_codon.html
 3. Rice P, Longden I, Bleasby A. 2000. EMBOSS — `cusp` application documentation. https://emboss.sourceforge.net/apps/cvs/emboss/apps/cusp.html
 4. Wikipedia. Codon usage bias. https://en.wikipedia.org/wiki/Codon_usage_bias
+5. Peden JF. 1999. CodonW 1.4.4, `codon_us.c` `ident_codon` (T/t/U/u identical). EMBOSS 6.6.0 `compseq.c`, `ajcod.c` (`ajCodSetTripletsS`), executed `cusp`/`compseq` binaries (review 2026-09).
