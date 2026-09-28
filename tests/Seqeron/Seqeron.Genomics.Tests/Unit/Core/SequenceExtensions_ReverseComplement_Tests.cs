@@ -448,4 +448,45 @@ public class SequenceExtensions_ReverseComplement_Tests
     }
 
     #endregion
+
+    #region Variant consistency (all delegates agree with the canonical; Biopython 1.88 values)
+
+    [TestCase("ACGTRYSWKMBDHVN", "NBDHVKMWSRYACGT", Description = "Biopython 1.88 reverse_complement, all 15 IUPAC codes")]
+    [TestCase("acgtrYswkmbdhvn", "NBDHVKMWSRYACGT", Description = "Biopython gives 'nbdhvkmwsRyacgt' (case-preserving); Seqeron uppercases (TestSpec D1)")]
+    [TestCase("ACTG-NH", "DN-CAGT", Description = "Biopython 1.88 reverse_complement with gap")]
+    [TestCase("ACGU", "ACGT", Description = "Biopython 1.88 reverse_complement: U -> A on the DNA path")]
+    public void GetReverseComplementString_MatchesCanonicalAndBiopython(string input, string expected)
+    {
+        var canonical = new char[input.Length];
+        Assert.That(((ReadOnlySpan<char>)input).TryGetReverseComplement(canonical), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new string(canonical), Is.EqualTo(expected));
+            Assert.That(DnaSequence.GetReverseComplementString(input), Is.EqualTo(expected));
+        });
+    }
+
+    [Test]
+    [Description("DnaSequence instance/span/static variants all equal Biopython reverse_complement('GATTACA') = 'TGTAATC'")]
+    public void DnaSequence_AllReverseComplementVariants_AgreeWithBiopython()
+    {
+        var dna = new DnaSequence("gattaca");
+        var written = new char[dna.Length];
+        var staticBuf = new char[dna.Length];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dna.ReverseComplement().Sequence, Is.EqualTo("TGTAATC"));
+            Assert.That(dna.TryWriteReverseComplement(written), Is.True);
+            Assert.That(new string(written), Is.EqualTo("TGTAATC"));
+            Assert.That(DnaSequence.TryGetReverseComplement("GATTACA", staticBuf), Is.True);
+            Assert.That(new string(staticBuf), Is.EqualTo("TGTAATC"));
+            Assert.That(dna.Complement().Sequence, Is.EqualTo("CTAATGT")); // Biopython complement('GATTACA')
+            Assert.That(new DnaSequence("").ReverseComplement().Sequence, Is.Empty);
+            Assert.That(new DnaSequence("").Complement().Sequence, Is.Empty);
+        });
+    }
+
+    #endregion
 }

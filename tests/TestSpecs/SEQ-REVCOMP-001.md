@@ -118,6 +118,7 @@ All examples verified against Biopython 1.84 `Bio.Seq`:
 | SHOULD-05 | `TryGetReverseComplement_WithGap_PreservesAndReverses` |
 | Cross-verify | `TryGetReverseComplement_BiopythonExample_CCCCCGATAGNR`, `TryGetReverseComplement_BiopythonExample_ACTG_NH`, `TryGetComplement_BiopythonExample_ACTG_NH` |
 | Static API | `GetReverseComplementString_BasicSequence_ReturnsCorrectResult`, `GetReverseComplementString_EmptyString_ReturnsEmpty`, `GetReverseComplementString_Null_ReturnsNull`, `GetReverseComplementString_Palindrome_ReturnsSame` |
+| Variant consistency (2026-09 review) | `GetReverseComplementString_MatchesCanonicalAndBiopython` ×4 (Biopython 1.88: `ACGTRYSWKMBDHVN`→`NBDHVKMWSRYACGT`, `ACTG-NH`→`DN-CAGT`, `ACGU`→`ACGT`), `DnaSequence_AllReverseComplementVariants_AgreeWithBiopython` (`GATTACA`→`TGTAATC`, complement `CTAATGT`) |
 
 ---
 
