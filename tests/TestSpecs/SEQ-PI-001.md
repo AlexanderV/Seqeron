@@ -5,7 +5,7 @@
 **Algorithm:** Isoelectric Point (pI) Calculation
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -178,3 +178,14 @@
 ## 7. Open Questions / Decisions
 
 1. Decision: target the EMBOSS pKa scale (matches the repository's single-pKa-per-residue model), not Bjellqvist; recorded in Evidence Assumption 2. No open questions remain.
+
+---
+
+## 8. Review 2026-09 update (supersedes §3–§4 expected values)
+
+- EMBOSS scale now uses the real EMBOSS 6.6.0 `Epk.dat` (N-terminus **7.5**, not 8.6) and the B/Z Dayhoff split; INV-4 becomes (7.5+3.6)/2 = **5.55**.
+- Expected values are `iep` binary outputs rounded to 2 dp (see Evidence 2026-09 section): A/AG 5.55, D 3.75, E 3.85, K 9.15, R 10.00, H 7.00, C 5.53, Y 5.55, DDDD 3.23, KKKK 11.28, DDDDDDDD 2.95, RRRRRRRR 13.345±0.01, all-20 6.97, FLPV… 9.57, DKDK 5.90, PETER 4.26, MAEGEITTFT 3.61, LACI_ECOLI 6.84 (EMBOSS doc example), B 3.75, Z 3.85, BBBB 3.49, ZZZZ 3.61.
+- New: `CalculateIsoelectricPoint(seq, PkaScale.Bjellqvist)` vs Biopython (all-20 6.78, INGAR 9.75, PETER 4.53, FLPV… 9.39, A 5.57, D 4.30, K 8.75, E 4.60, AKD 6.13, SKE 5.94, PKD 6.51, KKKK 10.48, LACI 6.39; outside Biopython's [4.05,12] window: MAEGEITTFT 3.79, DDDD 3.52, RRRRRRRR 12.85 = exact roots of Biopython `charge_at_pH`).
+- New: `CalculateNetCharge` vs `iep` charge table (±0.005) and Biopython `charge_at_pH` (±5e-7).
+- Assertions are exact (1e-9) on the correctly rounded 2-dp pI (bisection to 1e-9).
+- INV-2 (composition-only) holds for the EMBOSS scale only; Bjellqvist depends on the terminal residues.

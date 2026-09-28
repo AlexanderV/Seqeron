@@ -1,188 +1,240 @@
 // SEQ-PI-001 — Isoelectric Point (pI) Calculation
 // Evidence: docs/Evidence/SEQ-PI-001-Evidence.md
 // TestSpec: tests/TestSpecs/SEQ-PI-001.md
-// Source: EMBOSS iep (Epk.dat pKa scale), https://emboss.sourceforge.net/emboss/apps/iep.html;
-//         Peptides charge_pI.cpp (Osorio et al. 2015) Henderson-Hasselbalch net-charge model.
+// Sources (reference implementations run in the 2026-09 review):
+//   • EMBOSS 6.6.0 `iep` binary (nucleus/embiep.c + data/Epk.dat, Amino 7.5 / Carboxyl 3.6),
+//     https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/data/Epk.dat — every
+//     EMBOSS expected value below is the `iep -auto` "Isoelectric Point" output (4 dp) rounded to 2 dp.
+//   • Biopython 1.88 Bio.SeqUtils.IsoelectricPoint (Bjellqvist 1993/1994 pK set with N/C-terminal
+//     residue-specific pKs); Bjellqvist expected values are the exact root of Biopython's
+//     charge_at_pH (scipy brentq over [0,14]), which equals IsoelectricPoint.pi() whenever the root
+//     lies inside Biopython's [4.05, 12] bisection window.
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]
 public class SequenceStatistics_CalculateIsoelectricPoint_Tests
 {
-    // pI is returned rounded to 2 decimals (bisection precision 0.01); expected values are
-    // derived from the EMBOSS pKa scale, whose charge function was confirmed against the
-    // Peptides EMBOSS worked example (charge 3.037398/2.914112/0.7184524 at pH 5/7/9).
-    private const double Tolerance = 0.01;
+    // The method returns the correctly rounded 2-dp pI (root located to 1e-9 pH).
+    private const double Exact = 1e-9;
 
-    #region CalculateIsoelectricPoint
+    // Swiss-Prot LACI_ECOLI (P03023), 360 aa — the EMBOSS iep documentation usage example 1
+    // (taken from the EMBOSS test database test/swiss/seq.dat).
+    private const string LacIEcoli =
+        "MKPVTLYDVAEYAGVSYQTVSRVVNQASHVSAKTREKVEAAMAELNYIPNRVAQQLAGKQSLLIGVATSSLALHAPSQIVAAIKSRADQLG" +
+        "ASVVVSMVERSGVEACKAAVHNLLAQRVSGLIINYPLDDQDAIAVEAACTNVPALFLDVSDQTPINSIIFSHEDGTRLGVEHLVALGHQQIA" +
+        "LLAGPLSSVSARLRLAGWHKYLTRNQIQPIAEREGDWSAMSGFQQTMQMLNEGIVPTAMLVANDQMALGAMRAITESGLRVGADISVVGYDD" +
+        "TEDSSCYIPPLTTIKQDFRLLGQTSVDRLLQLSQGQAVKGNQLLPVSLVKRKTTLAPNTQTASPRALADSLMQLARQVSRLESGQ";
 
-    // M1 — basic reference peptide "FLPVLAGLTPSIVPKLVCLLTKKC".
-    // Evidence: Peptides EMBOSS net charge is +0.7184524 at pH 9, so the zero-charge pH lies
-    // above pH 9; bisection on the EMBOSS scale yields pI = 9.67.
+    #region EMBOSS scale (default overload)
+
+    // EMBOSS iep documentation usage example 1: LACI_ECOLI pI = 6.8385 (reproduced by the
+    // EMBOSS 6.6.0 binary; with the stale Amino 8.6 listing it would be 6.8820).
     [Test]
-    public void CalculateIsoelectricPoint_BasicReferencePeptide_Returns967()
+    public void CalculateIsoelectricPoint_LacIEcoli_MatchesEmbossDocExample()
     {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint("FLPVLAGLTPSIVPKLVCLLTKKC");
-
-        Assert.That(pi, Is.EqualTo(9.67).Within(Tolerance),
-            "EMBOSS-scale net charge is still +0.72 at pH 9, so pI is basic (9.67); validates the charge formula + pKa set");
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(LacIEcoli), Is.EqualTo(6.84).Within(Exact),
+            "EMBOSS iep LACI_ECOLI Isoelectric Point = 6.8385");
     }
 
-    // M2 / INV-01 — pI bounds 0..14 for any input, anchored to exact sourced values.
-    // Evidence: bisection is confined to [0, 14] (EMBOSS iep). The exact pI values
-    // (DDDDDDDD = 2.96, RRRRRRRR = 13.35) were reproduced by an independent reference
-    // implementation built from the EMBOSS Epk.dat pKa scale + Henderson-Hasselbalch
-    // charge formula (the same formula that reproduces the Peptides worked example).
-    // Asserting the exact values — not just the bounds — means this test fails against a
-    // deliberately-wrong implementation that merely returns something inside [0,14].
-    [Test]
-    public void CalculateIsoelectricPoint_AnySequence_StaysWithinPhBoundsWithExactValues()
+    // Termini-only: pI = (Amino 7.5 + Carboxyl 3.6)/2 = 5.55; EMBOSS iep "A" and "AG" = 5.5500.
+    [TestCase("A")]
+    [TestCase("AG")]
+    public void CalculateIsoelectricPoint_TerminiOnly_ReturnsEmbossMidpoint555(string seq)
     {
-        double acidic = SequenceStatistics.CalculateIsoelectricPoint("DDDDDDDD");
-        double basic = SequenceStatistics.CalculateIsoelectricPoint("RRRRRRRR");
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(seq), Is.EqualTo(5.55).Within(Exact),
+            "INV-04: termini-only pI = (7.5 + 3.6)/2 = 5.55 (EMBOSS iep 5.5500)");
+    }
 
+    // EMBOSS 6.6.0 iep outputs (4 dp) → correctly rounded 2 dp.
+    [TestCase("D", 3.75)]                         // iep 3.7498
+    [TestCase("E", 3.85)]                         // iep 3.8497
+    [TestCase("K", 9.15)]                         // iep 9.1500
+    [TestCase("R", 10.00)]                        // iep 10.0000
+    [TestCase("H", 7.00)]                         // iep 7.0004
+    [TestCase("C", 5.53)]                         // iep 5.5289
+    [TestCase("Y", 5.55)]                         // iep 5.5494
+    [TestCase("DDDD", 3.23)]                      // iep 3.2279
+    [TestCase("KKKK", 11.28)]                     // iep 11.2772
+    [TestCase("DDDDDDDD", 2.95)]                  // iep 2.9549
+    [TestCase("ACDEFGHIKLMNPQRSTVWY", 6.97)]      // iep 6.9681
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", 9.57)]  // iep 9.5678
+    [TestCase("DKDK", 5.90)]                      // iep 5.9023
+    [TestCase("PETER", 4.26)]                     // iep 4.2577
+    [TestCase("MAEGEITTFT", 3.61)]                // iep 3.6135
+    public void CalculateIsoelectricPoint_Emboss_MatchesIepBinary(string seq, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(seq), Is.EqualTo(expected).Within(Exact),
+            $"EMBOSS 6.6.0 iep pI of {seq}");
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(seq, SequenceStatistics.PkaScale.Emboss),
+            Is.EqualTo(expected).Within(Exact), "explicit Emboss scale equals the default overload");
+    }
+
+    // RRRRRRRR: iep 13.3450 sits on a rounding boundary at 4 dp, so check within 0.01; INV-01 bounds.
+    [Test]
+    public void CalculateIsoelectricPoint_PolyArginine_WithinBoundsAndMatchesIep()
+    {
+        double pi = SequenceStatistics.CalculateIsoelectricPoint("RRRRRRRR");
         Assert.Multiple(() =>
         {
-            Assert.That(acidic, Is.EqualTo(2.96).Within(Tolerance),
-                "EMBOSS-scale pI of an 8-Asp peptide is 2.96 (acidic-dominated, within [0,14])");
-            Assert.That(basic, Is.EqualTo(13.35).Within(Tolerance),
-                "EMBOSS-scale pI of an 8-Arg peptide is 13.35 (highly basic, within [0,14])");
-            Assert.That(acidic, Is.GreaterThanOrEqualTo(0.0).And.LessThanOrEqualTo(14.0),
-                "INV-01: pI must lie in [0,14] for an acidic peptide");
-            Assert.That(basic, Is.GreaterThanOrEqualTo(0.0).And.LessThanOrEqualTo(14.0),
-                "INV-01: pI must lie in [0,14] for a basic peptide");
+            Assert.That(pi, Is.EqualTo(13.345).Within(0.01), "EMBOSS iep 13.3450");
+            Assert.That(pi, Is.InRange(0.0, 14.0), "INV-01");
         });
     }
 
-    // M3 / INV-04 — termini-only "A": pI = midpoint of N-term (8.6) and C-term (3.6) pKa = 6.10.
-    // Evidence: EMBOSS pKa; with no ionizable side chains the two terminal terms cancel at the midpoint.
-    [Test]
-    public void CalculateIsoelectricPoint_TerminiOnlyAlanine_ReturnsPkaMidpoint610()
+    // EMBOSS embIepCompC splits B → D/N (5.5:4.3) and Z → E/Q (6.0:3.9) by Dayhoff frequency,
+    // (int)(0.5 + n·f). iep: B 3.7498, Z 3.8497, BBBB 3.4918 (2 D), ZZZZ 3.6135 (2 E).
+    [TestCase("B", 3.75)]
+    [TestCase("Z", 3.85)]
+    [TestCase("BBBB", 3.49)]
+    [TestCase("ZZZZ", 3.61)]
+    [TestCase("AB", 3.75)]
+    [TestCase("AZ", 3.85)]
+    public void CalculateIsoelectricPoint_Emboss_AmbiguityCodesSplitByDayhoff(string seq, double expected)
     {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint("A");
-
-        Assert.That(pi, Is.EqualTo(6.10).Within(Tolerance),
-            "INV-04: no side chains, so pI = (N-term 8.6 + C-term 3.6)/2 = 6.10");
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(seq), Is.EqualTo(expected).Within(Exact),
+            $"EMBOSS iep pI of {seq} (B/Z Dayhoff split)");
     }
 
-    // M4 — acidic-only "DDDD": four Asp pull pI down to 3.23 (EMBOSS scale).
-    // Evidence: derived from EMBOSS pKa (Asp 3.9, C-term 3.6).
+    // Non-ionizable characters (whitespace, punctuation, X) are ignored and never throw.
+    // "A B!G" ≡ "AB" (iep 3.7498); "XZ" ≡ "AZ" (iep 3.8497); "X-X" ≡ termini only (5.55).
     [Test]
-    public void CalculateIsoelectricPoint_AcidicTetraAspartate_Returns323()
+    public void CalculateIsoelectricPoint_NonIonizableCharacters_Ignored()
     {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint("DDDD");
-
-        Assert.That(pi, Is.EqualTo(3.23).Within(Tolerance),
-            "Four acidic Asp residues drive pI into the acidic range (3.23) on the EMBOSS scale");
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint("A B!G"), Is.EqualTo(3.75).Within(Exact));
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint("XZ"), Is.EqualTo(3.85).Within(Exact));
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint("X-X"), Is.EqualTo(5.55).Within(Exact));
+        });
     }
 
-    // M5 — basic-only "KKKK": four Lys push pI up to 11.27 (EMBOSS scale).
-    // Evidence: derived from EMBOSS pKa (Lys 10.8, N-term 8.6).
-    [Test]
-    public void CalculateIsoelectricPoint_BasicTetraLysine_Returns1127()
+    // Net charge vs the EMBOSS iep charge table (printed to 2 dp).
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", 5.0, 3.03)]
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", 7.0, 2.70)]
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", 9.0, 0.46)]
+    public void CalculateNetCharge_Emboss_MatchesIepChargeTable(string seq, double pH, double expected)
     {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint("KKKK");
-
-        Assert.That(pi, Is.EqualTo(11.27).Within(Tolerance),
-            "Four basic Lys residues drive pI into the basic range (11.27) on the EMBOSS scale");
+        Assert.That(SequenceStatistics.CalculateNetCharge(seq, pH), Is.EqualTo(expected).Within(0.005),
+            $"EMBOSS iep charge of {seq} at pH {pH}");
     }
 
-    // M6 — all-20 residues "ACDEFGHIKLMNPQRSTVWY": EMBOSS-scale pI = 7.36.
-    // Evidence: derived from EMBOSS pKa (note: the Bjellqvist/seqinr value 6.78454 is a different scale).
     [Test]
-    public void CalculateIsoelectricPoint_AllTwentyResidues_Returns736OnEmbossScale()
+    public void CalculateNetCharge_LacIEcoli_MatchesEmbossDocTable()
     {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint("ACDEFGHIKLMNPQRSTVWY");
-
-        Assert.That(pi, Is.EqualTo(7.36).Within(Tolerance),
-            "One of each residue gives pI = 7.36 on the EMBOSS scale (distinct from Bjellqvist 6.78454)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateNetCharge(LacIEcoli, 5.0), Is.EqualTo(7.75).Within(0.005));
+            Assert.That(SequenceStatistics.CalculateNetCharge(LacIEcoli, 7.0), Is.EqualTo(-0.63).Within(0.005));
+            Assert.That(SequenceStatistics.CalculateNetCharge(LacIEcoli, 9.0), Is.EqualTo(-5.99).Within(0.005));
+        });
     }
 
-    // M7 — empty string → neutral sentinel 7.0 (pI undefined for zero-length protein).
-    // Evidence: ASSUMPTION input-guard convention.
     [Test]
     public void CalculateIsoelectricPoint_EmptyString_ReturnsNeutralSeven()
     {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint("");
-
-        Assert.That(pi, Is.EqualTo(7.0),
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(""), Is.EqualTo(7.0),
             "Empty input has no defined pI; the documented input-guard sentinel is 7.0");
     }
 
-    // M8 — null → neutral sentinel 7.0.
-    // Evidence: ASSUMPTION input-guard convention.
     [Test]
     public void CalculateIsoelectricPoint_Null_ReturnsNeutralSeven()
     {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint(null!);
-
-        Assert.That(pi, Is.EqualTo(7.0),
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(null!), Is.EqualTo(7.0),
             "Null input has no defined pI; the documented input-guard sentinel is 7.0");
     }
 
-    // S1 — single Asp "D": pI = 3.75 (one acidic side chain + termini).
-    // Evidence: derived from EMBOSS pKa.
-    [Test]
-    public void CalculateIsoelectricPoint_SingleAspartate_Returns375()
-    {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint("D");
-
-        Assert.That(pi, Is.EqualTo(3.75).Within(Tolerance),
-            "One acidic Asp plus termini gives pI = 3.75 on the EMBOSS scale");
-    }
-
-    // S2 — single Lys "K": pI = 9.70 (one basic side chain + termini).
-    // Evidence: derived from EMBOSS pKa.
-    [Test]
-    public void CalculateIsoelectricPoint_SingleLysine_Returns970()
-    {
-        double pi = SequenceStatistics.CalculateIsoelectricPoint("K");
-
-        Assert.That(pi, Is.EqualTo(9.70).Within(Tolerance),
-            "One basic Lys plus termini gives pI = 9.70 on the EMBOSS scale");
-    }
-
-    // S3 — case-insensitivity: lowercase input yields the same pI as uppercase.
-    // Evidence: input is normalized via ToUpperInvariant.
     [Test]
     public void CalculateIsoelectricPoint_LowercaseInput_MatchesUppercase()
     {
-        double lower = SequenceStatistics.CalculateIsoelectricPoint("dddd");
-        double upper = SequenceStatistics.CalculateIsoelectricPoint("DDDD");
-
-        Assert.That(lower, Is.EqualTo(upper).Within(Tolerance),
-            "pI is case-insensitive: lowercase 'dddd' must equal uppercase 'DDDD'");
-    }
-
-    // C1 / INV-02 — order-independence: pI is composition-only, so permutations are equal.
-    // Evidence: EMBOSS "no electrostatic interactions" — charge summed over counts, not positions.
-    [Test]
-    public void CalculateIsoelectricPoint_PermutedSequence_HasIdenticalPi()
-    {
-        double dk = SequenceStatistics.CalculateIsoelectricPoint("DKDK");
-        double kd = SequenceStatistics.CalculateIsoelectricPoint("KDDK");
-
-        Assert.That(dk, Is.EqualTo(kd).Within(Tolerance),
-            "INV-02: pI depends only on composition, so reordering the same residues gives the same pI");
-    }
-
-    // Coverage — non-ionizable characters (gaps, whitespace, punctuation, non-standard
-    // residues) are ignored, never throw, and leave the result equal to the termini-only pI.
-    // Evidence: doc §3.3 "non-standard residues, gaps, or whitespace do not throw"; the
-    // composition model counts only the nine ionizable groups, so a string with no ionizable
-    // side chains yields the termini-only midpoint 6.10 (verified by the independent reference).
-    [Test]
-    public void CalculateIsoelectricPoint_NonIonizableCharacters_IgnoredEqualsTerminiOnly()
-    {
-        double withNoise = SequenceStatistics.CalculateIsoelectricPoint("A B!G");
-        double nonStandard = SequenceStatistics.CalculateIsoelectricPoint("XZ");
-
         Assert.Multiple(() =>
         {
-            Assert.That(withNoise, Is.EqualTo(6.10).Within(Tolerance),
-                "Whitespace/punctuation are ignored, so 'A B!G' has only termini → pI 6.10");
-            Assert.That(nonStandard, Is.EqualTo(6.10).Within(Tolerance),
-                "Non-ionizable residues X/Z contribute no charge → termini-only pI 6.10");
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint("dddd"),
+                Is.EqualTo(SequenceStatistics.CalculateIsoelectricPoint("DDDD")));
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint("peter", SequenceStatistics.PkaScale.Bjellqvist),
+                Is.EqualTo(SequenceStatistics.CalculateIsoelectricPoint("PETER", SequenceStatistics.PkaScale.Bjellqvist)));
+        });
+    }
+
+    // INV-02 (EMBOSS only): composition-only model — permutations are equal (iep DKDK = KDDK = 5.9023).
+    [Test]
+    public void CalculateIsoelectricPoint_Emboss_PermutedSequence_HasIdenticalPi()
+    {
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint("KDDK"),
+            Is.EqualTo(SequenceStatistics.CalculateIsoelectricPoint("DKDK")),
+            "INV-02: EMBOSS pI depends only on composition");
+    }
+
+    #endregion
+
+    #region Bjellqvist scale (ExPASy / Biopython)
+
+    // Biopython IsoelectricPoint(seq).pi() (Bjellqvist, terminal-residue-specific pKs).
+    [TestCase("ACDEFGHIKLMNPQRSTVWY", 6.78)]      // Biopython 6.784552; seqinr computePI doc 6.78454
+    [TestCase("INGAR", 9.75)]                     // Biopython doctest 9.75
+    [TestCase("PETER", 4.53)]                     // Biopython doctest 4.53 (N-term P 8.36, C-term R)
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", 9.39)]  // Biopython 9.3902
+    [TestCase("A", 5.57)]                         // (N-term A 7.59 + C-term 3.55)/2 = 5.57
+    [TestCase("D", 4.30)]                         // Biopython 4.2994 (C-term D 4.55)
+    [TestCase("K", 8.75)]                         // Biopython 8.7501
+    [TestCase("E", 4.60)]                         // Biopython 4.5993 (N-term E 7.7, C-term E 4.75)
+    [TestCase("AKD", 6.13)]                       // Biopython 6.1315
+    [TestCase("SKE", 5.94)]                       // Biopython 5.9377
+    [TestCase("PKD", 6.51)]                       // Biopython 6.5108
+    [TestCase("KKKK", 10.48)]                     // Biopython 10.4777
+    public void CalculateIsoelectricPoint_Bjellqvist_MatchesBiopython(string seq, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(seq, SequenceStatistics.PkaScale.Bjellqvist),
+            Is.EqualTo(expected).Within(Exact), $"Biopython Bjellqvist pI of {seq}");
+    }
+
+    [Test]
+    public void CalculateIsoelectricPoint_Bjellqvist_LacIEcoli_MatchesBiopython()
+    {
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(LacIEcoli, SequenceStatistics.PkaScale.Bjellqvist),
+            Is.EqualTo(6.39).Within(Exact), "Biopython IsoelectricPoint(LACI_ECOLI).pi() = 6.3901");
+    }
+
+    // Roots outside Biopython's [4.05, 12] bisection window: Biopython returns the window edge
+    // (4.05 / 12.0); the true root of Biopython's own charge_at_pH (brentq) is asserted instead.
+    [TestCase("MAEGEITTFT", 3.79)]  // brentq 3.794634 (Biopython pi() clamps to 4.05)
+    [TestCase("DDDD", 3.52)]        // brentq 3.521692
+    [TestCase("RRRRRRRR", 12.85)]   // brentq 12.845100 (Biopython pi() clamps to 12.0)
+    public void CalculateIsoelectricPoint_Bjellqvist_ExtremeRoots_AreExact(string seq, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateIsoelectricPoint(seq, SequenceStatistics.PkaScale.Bjellqvist),
+            Is.EqualTo(expected).Within(Exact), $"root of Biopython charge_at_pH for {seq}");
+    }
+
+    // Terminal-residue-specific pKs make the Bjellqvist pI order-dependent: AKD ≠ PKD ≠ DKA.
+    [Test]
+    public void CalculateIsoelectricPoint_Bjellqvist_DependsOnTerminalResidues()
+    {
+        double akd = SequenceStatistics.CalculateIsoelectricPoint("AKD", SequenceStatistics.PkaScale.Bjellqvist);
+        double pkd = SequenceStatistics.CalculateIsoelectricPoint("PKD", SequenceStatistics.PkaScale.Bjellqvist);
+        Assert.That(pkd, Is.Not.EqualTo(akd), "N-terminal P (8.36) vs A (7.59) shifts pI (6.51 vs 6.13)");
+    }
+
+    // Net charge vs Biopython IsoelectricPoint.charge_at_pH (6 dp).
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", 5.0, 3.030883)]
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", 7.0, 2.737303)]
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", 9.0, 0.757930)]
+    [TestCase("INGAR", 7.0, 0.760092)]
+    [TestCase("PETER", 7.0, -1.035860)]
+    public void CalculateNetCharge_Bjellqvist_MatchesBiopython(string seq, double pH, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateNetCharge(seq, pH, SequenceStatistics.PkaScale.Bjellqvist),
+            Is.EqualTo(expected).Within(5e-7), $"Biopython charge_at_pH({pH}) of {seq}");
+    }
+
+    [Test]
+    public void CalculateIsoelectricPoint_Bjellqvist_EmptyOrNull_ReturnsNeutralSeven()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint("", SequenceStatistics.PkaScale.Bjellqvist), Is.EqualTo(7.0));
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint(null!, SequenceStatistics.PkaScale.Bjellqvist), Is.EqualTo(7.0));
+            Assert.That(SequenceStatistics.CalculateNetCharge("", 7.0, SequenceStatistics.PkaScale.Bjellqvist), Is.EqualTo(0.0));
         });
     }
 

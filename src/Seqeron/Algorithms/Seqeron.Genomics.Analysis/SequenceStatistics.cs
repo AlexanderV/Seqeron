@@ -323,28 +323,71 @@ public static class SequenceStatistics
 
     #region Isoelectric Point
 
-    // pKa values for ionizable side chains — EMBOSS Epk.dat scale (EMBOSS iep documentation).
-    // charge: +1 = basic group (protonated, positive at low pH); -1 = acidic group (deprotonated, negative at high pH).
-    // Source: EMBOSS iep, https://emboss.sourceforge.net/emboss/apps/iep.html (accessed 2026-06-13).
-    private static readonly Dictionary<char, (double pKa, int charge)> IonizableGroups = new()
+    /// <summary>
+    /// pK set used by <see cref="CalculateIsoelectricPoint(string, PkaScale)"/> and
+    /// <see cref="CalculateNetCharge(string, double, PkaScale)"/>.
+    /// </summary>
+    public enum PkaScale
     {
-        { 'D', (3.9, -1) },  // Aspartic acid — EMBOSS pKa 3.9
-        { 'E', (4.1, -1) },  // Glutamic acid — EMBOSS pKa 4.1
-        { 'C', (8.5, -1) },  // Cysteine — EMBOSS pKa 8.5
-        { 'Y', (10.1, -1) }, // Tyrosine — EMBOSS pKa 10.1
-        { 'H', (6.5, 1) },   // Histidine — EMBOSS pKa 6.5
-        { 'K', (10.8, 1) },  // Lysine — EMBOSS pKa 10.8
-        { 'R', (12.5, 1) }   // Arginine — EMBOSS pKa 12.5
+        /// <summary>
+        /// EMBOSS <c>iep</c> default <c>Epk.dat</c> (EMBOSS 6.6.0): N-terminus 7.5, C-terminus 3.6,
+        /// C 8.5, D 3.9, E 4.1, H 6.5, K 10.8, R 12.5, Y 10.1; ambiguity codes B/Z are split into
+        /// D/N and E/Q by Dayhoff frequencies exactly as <c>embIepCompC</c> does.
+        /// </summary>
+        Emboss,
+
+        /// <summary>
+        /// Bjellqvist et al. 1993/1994 (ExPASy Compute pI/Mw; Biopython
+        /// <c>Bio.SeqUtils.IsoelectricPoint</c>): side chains C 9.0, D 4.05, E 4.45, H 5.98,
+        /// K 10.0, R 12.0, Y 10.0; N-terminus 7.5 unless the N-terminal residue is
+        /// A 7.59 / M 7.0 / S 6.93 / P 8.36 / T 6.82 / V 7.44 / E 7.7; C-terminus 3.55 unless the
+        /// C-terminal residue is D 4.55 / E 4.75.
+        /// </summary>
+        Bjellqvist
+    }
+
+    // EMBOSS 6.6.0 emboss/data/Epk.dat (the file shipped with and read by `iep`; embiep.c
+    // embIepPkReadFile also defaults amino = 7.50 when the file has no "Amino" line).
+    // NOTE: the Epk.dat listing printed on the EMBOSS iep web page (Amino 8.6) is stale — the
+    // page's own worked outputs (LACI_ECOLI pI 6.8385, IFNA2_HUMAN pI 5.7240) are only reproduced
+    // with Amino 7.5 (verified against the EMBOSS 6.6.0 `iep` binary).
+    private const double EmbossNTerminusPka = 7.5;
+    private const double EmbossCTerminusPka = 3.6;
+
+    // Ionizable side chains: pKa and sign (+1 basic, -1 acidic).
+    private static readonly Dictionary<char, (double pKa, int charge)> EmbossSideChains = new()
+    {
+        { 'C', (8.5, -1) }, { 'D', (3.9, -1) }, { 'E', (4.1, -1) }, { 'Y', (10.1, -1) },
+        { 'H', (6.5, 1) },  { 'K', (10.8, 1) }, { 'R', (12.5, 1) }
     };
 
-    // Terminal-group pKa values — EMBOSS Epk.dat scale (EMBOSS iep documentation).
-    private const double NTerminusPka = 8.6; // EMBOSS "Amino" (N-terminus) pKa
-    private const double CTerminusPka = 3.6; // EMBOSS "Carboxyl" (C-terminus) pKa
+    // Bjellqvist et al. 1993 (Electrophoresis 14:1023) / 1994 (Electrophoresis 15:529) pK set,
+    // as implemented by Biopython Bio/SeqUtils/IsoelectricPoint.py (positive_pKs, negative_pKs,
+    // pKnterminal, pKcterminal) and ExPASy Compute pI/Mw.
+    private static readonly Dictionary<char, (double pKa, int charge)> BjellqvistSideChains = new()
+    {
+        { 'C', (9.0, -1) }, { 'D', (4.05, -1) }, { 'E', (4.45, -1) }, { 'Y', (10.0, -1) },
+        { 'H', (5.98, 1) }, { 'K', (10.0, 1) },  { 'R', (12.0, 1) }
+    };
 
-    // Bisection search bounds and convergence — pI lies in the standard pH window [0, 14].
+    private const double BjellqvistNTerminusPka = 7.5;
+    private const double BjellqvistCTerminusPka = 3.55;
+
+    private static readonly Dictionary<char, double> BjellqvistNTerminalResiduePka = new()
+    {
+        { 'A', 7.59 }, { 'M', 7.0 }, { 'S', 6.93 }, { 'P', 8.36 }, { 'T', 6.82 }, { 'V', 7.44 }, { 'E', 7.7 }
+    };
+
+    private static readonly Dictionary<char, double> BjellqvistCTerminalResiduePka = new()
+    {
+        { 'D', 4.55 }, { 'E', 4.75 }
+    };
+
+    // Bisection window and convergence. The root is located to 1e-9 pH and then rounded, so the
+    // returned value is the correctly rounded pI (a 0.01-wide final bracket could round wrongly).
     private const double MinPh = 0.0;
     private const double MaxPh = 14.0;
-    private const double PiBisectionPrecision = 0.01; // pH resolution of the returned pI
+    private const double PiBisectionPrecision = 1e-9;
 
     // pI returned for empty/null input: pI is undefined for a zero-length protein (a real
     // protein always has both termini); neutral 7.0 is used as a documented input-guard sentinel.
@@ -353,73 +396,139 @@ public static class SequenceStatistics
     private const int PiDecimalPlaces = 2;
 
     /// <summary>
-    /// Calculates the theoretical isoelectric point (pI) of a protein: the pH at which the net
-    /// charge is zero. Uses the EMBOSS Epk.dat pKa scale and the Henderson–Hasselbalch net-charge
-    /// model, with charge contributions summed over ionizable side chains and both termini.
-    /// The pH where net charge crosses zero is located by bisection over [0, 14].
+    /// Calculates the theoretical isoelectric point (pI) of a protein on the EMBOSS <c>iep</c>
+    /// pK scale. Equivalent to <see cref="CalculateIsoelectricPoint(string, PkaScale)"/> with
+    /// <see cref="PkaScale.Emboss"/>.
     /// </summary>
-    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive). Non-ionizable
-    /// residues are ignored. Null or empty returns the neutral sentinel 7.0.</param>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive).</param>
+    /// <returns>The isoelectric point in [0, 14], rounded to two decimal places; 7.0 for null/empty.</returns>
+    public static double CalculateIsoelectricPoint(string proteinSequence) =>
+        CalculateIsoelectricPoint(proteinSequence, PkaScale.Emboss);
+
+    /// <summary>
+    /// Calculates the theoretical isoelectric point (pI) of a protein: the pH at which the
+    /// Henderson–Hasselbalch net charge (<see cref="CalculateNetCharge"/>) is zero.
+    /// The root is located by bisection over [0, 14] to 1e-9 pH and rounded to two decimals.
+    /// </summary>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive). Residues
+    /// without an ionizable side chain in the chosen scale are ignored. Null or empty returns the
+    /// neutral sentinel 7.0.</param>
+    /// <param name="scale">pK set: <see cref="PkaScale.Emboss"/> (EMBOSS iep, default) or
+    /// <see cref="PkaScale.Bjellqvist"/> (ExPASy Compute pI/Mw, Biopython).</param>
     /// <returns>The isoelectric point in [0, 14], rounded to two decimal places.</returns>
     /// <remarks>
-    /// pKa values and charge formula: EMBOSS iep (https://emboss.sourceforge.net/emboss/apps/iep.html)
-    /// and Peptides charge model (Osorio et al. 2015, Henderson–Hasselbalch per Moore 1985).
+    /// <para>EMBOSS: reproduces EMBOSS 6.6.0 <c>iep</c> (nucleus/embiep.c, data/Epk.dat) with default
+    /// options (both termini charged, no disulphides, no modified lysines). EMBOSS searches pH [1, 14]
+    /// and reports "none" when the charge does not change sign there; this method searches [0, 14].</para>
+    /// <para>Bjellqvist: reproduces Biopython <c>IsoelectricPoint.pi()</c> / ExPASy Compute pI; Biopython
+    /// clamps its bisection to [4.05, 12], so for extremely acidic/basic peptides whose true root lies
+    /// outside that window Biopython returns the window edge while this method returns the true root.</para>
     /// </remarks>
-    public static double CalculateIsoelectricPoint(string proteinSequence)
+    public static double CalculateIsoelectricPoint(string proteinSequence, PkaScale scale)
     {
         if (string.IsNullOrEmpty(proteinSequence))
             return NeutralPhDefault;
 
-        // Count ionizable residues (composition-only model; sequence order does not affect pI).
-        var counts = new Dictionary<char, int>();
-        foreach (char aa in proteinSequence.ToUpperInvariant())
-        {
-            if (IonizableGroups.ContainsKey(aa))
-                counts[aa] = counts.GetValueOrDefault(aa) + 1;
-        }
+        var model = BuildChargeModel(proteinSequence, scale);
 
-        // Bisection for the pH where net charge = 0.
         double pHLow = MinPh;
         double pHHigh = MaxPh;
-        double pH = NeutralPhDefault;
 
         while (pHHigh - pHLow > PiBisectionPrecision)
         {
-            pH = (pHLow + pHHigh) / 2.0;
-            double charge = NetCharge(counts, pH);
+            double pH = (pHLow + pHHigh) / 2.0;
 
             // Net charge is monotonically non-increasing in pH: positive ⇒ pI is higher.
-            if (charge > 0)
+            if (model.NetCharge(pH) > 0)
                 pHLow = pH;
             else
                 pHHigh = pH;
         }
 
-        return Math.Round(pH, PiDecimalPlaces);
+        return Math.Round((pHLow + pHHigh) / 2.0, PiDecimalPlaces);
     }
 
     /// <summary>
-    /// Net charge of a protein at a given pH from its ionizable-residue counts, using the
-    /// Henderson–Hasselbalch model: basic groups contribute +1/(1+10^(pH−pKa)), acidic groups
-    /// contribute −1/(1+10^(pKa−pH)). Both termini are counted once.
-    /// Source: Peptides charge_pI.cpp (Osorio et al. 2015); EMBOSS iep pKa scale.
+    /// Net charge of a protein at a given pH (Henderson–Hasselbalch): basic groups (N-terminus,
+    /// K, R, H) contribute +1/(1+10^(pH−pKa)), acidic groups (C-terminus, D, E, C, Y) contribute
+    /// −1/(1+10^(pKa−pH)); each terminus is counted once.
+    /// Equivalent to EMBOSS <c>embIepGetCharge</c> and Biopython <c>IsoelectricPoint.charge_at_pH</c>.
     /// </summary>
-    private static double NetCharge(Dictionary<char, int> counts, double pH)
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive).</param>
+    /// <param name="pH">pH at which to evaluate the charge.</param>
+    /// <param name="scale">pK set (default EMBOSS).</param>
+    /// <returns>Net charge (elementary charges); 0 for null/empty input.</returns>
+    public static double CalculateNetCharge(string proteinSequence, double pH, PkaScale scale = PkaScale.Emboss)
     {
-        // N-terminus (basic) and C-terminus (acidic).
-        double charge = 1.0 / (1.0 + Math.Pow(10, pH - NTerminusPka));
-        charge -= 1.0 / (1.0 + Math.Pow(10, CTerminusPka - pH));
+        if (string.IsNullOrEmpty(proteinSequence))
+            return 0.0;
 
-        foreach (var (aa, count) in counts)
+        return BuildChargeModel(proteinSequence, scale).NetCharge(pH);
+    }
+
+    private readonly record struct ChargeModel(
+        double NTerminusPka,
+        double CTerminusPka,
+        Dictionary<char, (double pKa, int charge)> SideChains,
+        Dictionary<char, int> Counts)
+    {
+        public double NetCharge(double pH)
         {
-            var (pKa, baseCharge) = IonizableGroups[aa];
-            if (baseCharge > 0)
-                charge += count / (1.0 + Math.Pow(10, pH - pKa));   // basic group
-            else
-                charge -= count / (1.0 + Math.Pow(10, pKa - pH));   // acidic group
+            double charge = 1.0 / (1.0 + Math.Pow(10, pH - NTerminusPka));
+            charge -= 1.0 / (1.0 + Math.Pow(10, CTerminusPka - pH));
+
+            foreach (var (aa, count) in Counts)
+            {
+                var (pKa, sign) = SideChains[aa];
+                if (sign > 0)
+                    charge += count / (1.0 + Math.Pow(10, pH - pKa));   // basic group
+                else
+                    charge -= count / (1.0 + Math.Pow(10, pKa - pH));   // acidic group
+            }
+
+            return charge;
+        }
+    }
+
+    private static ChargeModel BuildChargeModel(string proteinSequence, PkaScale scale)
+    {
+        string upper = proteinSequence.ToUpperInvariant();
+        var sideChains = scale == PkaScale.Bjellqvist ? BjellqvistSideChains : EmbossSideChains;
+
+        var counts = new Dictionary<char, int>();
+        int countB = 0, countZ = 0;
+        foreach (char aa in upper)
+        {
+            if (sideChains.ContainsKey(aa))
+                counts[aa] = counts.GetValueOrDefault(aa) + 1;
+            else if (aa == 'B')
+                countB++;
+            else if (aa == 'Z')
+                countZ++;
         }
 
-        return charge;
+        if (scale == PkaScale.Bjellqvist)
+        {
+            // Terminal-residue-specific pKs (Bjellqvist 1994; Biopython _update_pKs_tables).
+            double nPka = BjellqvistNTerminalResiduePka.GetValueOrDefault(upper[0], BjellqvistNTerminusPka);
+            double cPka = BjellqvistCTerminalResiduePka.GetValueOrDefault(upper[^1], BjellqvistCTerminusPka);
+            return new ChargeModel(nPka, cPka, sideChains, counts);
+        }
+
+        // EMBOSS embIepCompC: B = D or N, Z = E or Q, split by Dayhoff frequencies
+        // (D 5.5 / N 4.3; E 6.0 / Q 3.9), rounding half up via (int)(0.5 + x).
+        if (countB > 0)
+        {
+            int asp = (int)(0.5 + countB * 5.5 / 9.8);
+            if (asp > 0) counts['D'] = counts.GetValueOrDefault('D') + asp;
+        }
+        if (countZ > 0)
+        {
+            int glu = (int)(0.5 + countZ * 6.0 / 9.9);
+            if (glu > 0) counts['E'] = counts.GetValueOrDefault('E') + glu;
+        }
+
+        return new ChargeModel(EmbossNTerminusPka, EmbossCTerminusPka, sideChains, counts);
     }
 
     #endregion

@@ -488,7 +488,7 @@ public class SequenceStatisticsProperties
         ['H'] = (6.5, 1), ['K'] = (10.8, 1), ['R'] = (12.5, 1),
     };
 
-    private const double NTerminusPkaOracle = 8.6;
+    private const double NTerminusPkaOracle = 7.5; // EMBOSS 6.6.0 Epk.dat "Amino" (the value iep actually uses)
     private const double CTerminusPkaOracle = 3.6;
 
     private static (double charge, int groups) OracleNetCharge(string seq, double pH)
