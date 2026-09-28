@@ -17,6 +17,23 @@ public static class VariantCaller
     /// <summary>
     /// Detects all variants between a query and reference sequence.
     /// </summary>
+    /// <remarks>
+    /// <para>The sequences are globally aligned with <c>SequenceAligner.GlobalAlign</c>
+    /// (Needleman-Wunsch, default <see cref="SequenceAligner.SimpleDna"/> scoring: match +1, mismatch -1,
+    /// linear gap -1 per base) and the gapped columns are scanned by
+    /// <see cref="CallVariantsFromAlignment"/>.</para>
+    /// <para><b>Indel representation.</b> The aligner's traceback prefers the diagonal move, which
+    /// places every gap run at its leftmost equivalent column, so each reported indel is
+    /// <i>left-aligned</i> in the sense of Tan, Abecasis &amp; Kang (2015, Bioinformatics 31:2202,
+    /// doi:10.1093/bioinformatics/btv112). Cross-checked against <c>bcftools norm -f</c> (htslib/bcftools
+    /// via pysam 0.24.1): 1000/1000 single-indel cases in repeat-rich sequences were already normalized.
+    /// Multi-base indels are reported one event per gap column (per-column model).</para>
+    /// <para><b>Limitation (scoring).</b> With the default linear scoring a gap costs the same as a
+    /// mismatch, so an adjacent two-base swap such as <c>AC→CA</c> in equal-length sequences is reported as
+    /// an insertion + deletion rather than two substitutions. Read-mapping aligners penalise gaps above
+    /// mismatches with affine costs (e.g. BWA-MEM defaults mismatch 4, gap open 6, extend 1); the library
+    /// has no public affine (Gotoh) pairwise aligner yet, so this is a declared limitation.</para>
+    /// </remarks>
     /// <param name="reference">Reference DNA sequence.</param>
     /// <param name="query">Query DNA sequence to compare.</param>
     /// <returns>Collection of detected variants.</returns>
@@ -31,6 +48,15 @@ public static class VariantCaller
     /// <summary>
     /// Detects variants from aligned sequences.
     /// </summary>
+    /// <remarks>
+    /// Each column is classified literally: reference gap → insertion, query gap → deletion,
+    /// differing bases → SNP. Bases are compared case-insensitively (VCF v4.3 §1.6.1: REF/ALT bases
+    /// "must be one of A,C,G,T,N (case insensitive)"), so a soft-masked lowercase base aligned to the
+    /// same uppercase base is a match, not a SNP; alleles are reported as they appear in the input.
+    /// The alignment supplied by the caller is reported as-is — indels are <i>not</i> re-positioned, so
+    /// a gap placed right of its leftmost equivalent column is reported at that column
+    /// (use <see cref="CallVariants"/> for left-aligned indels).
+    /// </remarks>
     /// <param name="alignedReference">Aligned reference sequence (may contain gaps).</param>
     /// <param name="alignedQuery">Aligned query sequence (may contain gaps).</param>
     /// <returns>Collection of detected variants.</returns>
@@ -79,7 +105,8 @@ public static class VariantCaller
                     QueryPosition: queryPos);
                 refPos++;
             }
-            else if (refBase != GapChar && queryBase != GapChar && refBase != queryBase)
+            else if (refBase != GapChar && queryBase != GapChar &&
+                     char.ToUpperInvariant(refBase) != char.ToUpperInvariant(queryBase))
             {
                 // SNP
                 yield return new Variant(

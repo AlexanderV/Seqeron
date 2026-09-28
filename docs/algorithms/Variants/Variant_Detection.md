@@ -5,12 +5,12 @@
 | Algorithm Group | Variants |
 | Test Unit ID | VARIANT-CALL-001 |
 | Related Projects | Seqeron.Genomics.Annotation, Seqeron.Genomics.Alignment |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-13 |
+| Implementation Status | Simplified (linear-gap default scoring; see §5.3) |
+| Last Reviewed | 2026-09-28 (B21 review) |
 
 ## 1. Overview
 
-Variant detection identifies the differences (SNPs, insertions, deletions) of a query DNA sequence relative to a reference. The library performs a pairwise global alignment of reference and query, then scans the resulting gapped alignment column by column: a substituted column is a single-nucleotide polymorphism (SNP), a reference-side gap is an insertion in the query, and a query-side gap is a deletion. SNPs are further classified as transitions or transversions. The procedure is deterministic and specification-driven (the variant classes follow the Variant Call Format [1]); it is *simplified* because detected indels are not normalized to the canonical left-aligned, parsimonious representation [4].
+Variant detection identifies the differences (SNPs, insertions, deletions) of a query DNA sequence relative to a reference. The library performs a pairwise global alignment of reference and query, then scans the resulting gapped alignment column by column: a substituted column is a single-nucleotide polymorphism (SNP), a reference-side gap is an insertion in the query, and a query-side gap is a deletion. SNPs are further classified as transitions or transversions. The procedure is deterministic and specification-driven (the variant classes follow the Variant Call Format [1]); Indels found by `CallVariants` are left-aligned in the sense of Tan et al. [4] (verified against `bcftools norm`, see §5.3); multi-base indels are reported one event per gap column.
 
 ## 2. Scientific / Formal Basis
 
@@ -44,6 +44,8 @@ Reference and query coordinates `refPos`, `queryPos` advance by one for each non
 | INV-04 | Ref-gap → Insertion; query-gap → Deletion; mismatch → SNP. | Column-classification rule of §2.2 [1]. |
 | INV-05 | `ClassifyMutation` = Transition iff {ref,alt}⊆{A,G} or ⊆{C,T}; else Transversion (SNP); Other otherwise. | Definitions of transition/transversion [5][6]. |
 | INV-06 | `CalculateTiTvRatio` = #Ti / #Tv over SNPs, or 0 when #Tv = 0. | Ratio definition; undefined denominator mapped to 0 (see 5.4). |
+| INV-07 | `CallVariants` reports every indel at its leftmost equivalent column (left-aligned [4]). | NW traceback prefers the diagonal move, pushing gap runs left; cross-checked vs `bcftools norm` (§5.3). |
+| INV-08 | Base comparison in the column scan is case-insensitive (a case-only difference is not a variant). | VCF REF/ALT bases are case insensitive [2]; `bcftools norm` rejects REF=G/ALT=g as duplicate alleles. |
 
 ### 2.5 Comparison with Related Methods
 
@@ -51,7 +53,7 @@ Reference and query coordinates `refPos`, `queryPos` advance by one for each non
 |--------|------------------------------|--------------------------------------------|
 | Indels detected | Yes (via gaps) | No (length-equal comparison only) |
 | Cost | O(n×m) alignment + O(L) scan | O(min(n,m)) |
-| Indel normalization | Not applied [4] | N/A |
+| Indel normalization | Left-aligned via aligner traceback (`CallVariants`); literal columns (`CallVariantsFromAlignment`) [4] | N/A |
 
 ## 3. Contract
 
@@ -124,7 +126,7 @@ Transition/transversion lookup [5][6]:
 
 ### 5.2 Current Behavior
 
-The in-memory `Variant` uses a `"-"` gap sentinel for the absent allele of an indel and a 0-based `Position` — this is the internal model, distinct from serialized VCF (which requires a padding base and 1-based POS [2]). Indel positions reflect the column produced by the aligner and are **not** left-aligned or parsimony-normalized [4]; in repeated regions the reported position is therefore alignment-dependent.
+The in-memory `Variant` uses a `"-"` gap sentinel for the absent allele of an indel and a 0-based `Position` — this is the internal model, distinct from serialized VCF (which requires a padding base and 1-based POS [2]). `CallVariants` indel positions are the columns produced by `SequenceAligner.GlobalAlign`; its traceback prefers the diagonal move, so every gap run sits at its leftmost equivalent column, i.e. the indel is left-aligned [4]. `CallVariantsFromAlignment` reports a caller-supplied alignment literally (no re-positioning). Column comparison is case-insensitive [2].
 
 **Search reuse (suffix tree):** Not applicable. Variant detection is a scoring-based pairwise *alignment* (edit-distance / Needleman-Wunsch), not exact substring search; the repository suffix tree (`Contains`/`FindAllOccurrences`) addresses exact-match occurrence enumeration and does not fit edit-distance variant calling. No suffix-tree usage.
 
@@ -135,24 +137,27 @@ The in-memory `Variant` uses a `"-"` gap sentinel for the absent allele of an in
 - The three small-variant classes SNP / insertion / deletion [1][2].
 - Transition = A↔G / C↔T; transversion = purine↔pyrimidine [5][6].
 - Ti/Tv ratio = #transitions / #transversions [3].
-- Case-insensitive base handling for classification [2].
+- Case-insensitive base handling for classification and for the column scan [2] (B21 fix, 2026-09: `CallVariantsFromAlignment` previously reported `a`/`A` columns as SNPs).
+- Left-alignment [4] of `CallVariants` indels. Reference cross-check: `bcftools norm -f` (htslib/bcftools via pysam 0.24.1) left 1000/1000 randomly generated single-indel records (repeat-rich AC/ACGT sequences, indel length 1–3) unchanged; worked cases `ACGTTTTACG→ACGTTTACG` (norm POS 3 GT>G → Position 3), `CAGAGAGT→CAGAGT` (POS 1 CAG>C → Positions 1,2), `GCACAT→GCACACAT` (POS 1 G>GCA → Position 1 ×2), `ATTG→ATTTG` (POS 1 A>AT → Position 1).
 
 **Intentionally simplified:**
 
-- Indel representation: detected indels are reported at the aligner's column without left-alignment or parsimony normalization [4]; **consequence:** in repeated/low-complexity regions the reported indel position may differ from the canonical normalized position, though the variant type and content are correct.
+- Indel representation: a multi-base indel is reported as one event per gap column rather than one VCF record; `CallVariantsFromAlignment` does not re-position gaps of a caller-supplied alignment.
+- Default scoring: `SequenceAligner.SimpleDna` (linear gap −1 = mismatch −1); **consequence:** an adjacent two-base swap in equal-length sequences (`GGACGG→GGCAGG`) is reported as insertion + deletion instead of two substitutions. Read aligners penalise gaps above mismatches with affine costs (BWA-MEM defaults: mismatch 4, gap open 6, extend 1 — `bwa.1`); the library has no public affine (Gotoh) pairwise aligner yet (cross-batch request, B21 2026-09).
 - In-memory allele model uses a `"-"` sentinel rather than the VCF padded-allele representation; **consequence:** users serializing to VCF must add the padding base (handled by `ToVcfLines`, a separate unit).
 
 **Not implemented:**
 
 - MNP / complex-substitution detection; **users should rely on:** no current alternative in this class (out of scope for VARIANT-CALL-001).
-- Left-alignment / parsimony normalization [4]; **users should rely on:** external tools (e.g. `vt normalize`, `bcftools norm`) until a normalization unit exists.
+- Normalization of caller-supplied alignments (`CallVariantsFromAlignment`) and merging of per-column events into single VCF records; **users should rely on:** `CallVariants` or external tools (e.g. `bcftools norm`).
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Ti/Tv with #Tv = 0 returns 0 | Assumption | undefined ratio mapped to a sentinel rather than +∞/throw | accepted | INV-06; no source mandates a sentinel |
-| 2 | Indels not normalized | Deviation | position may differ in repeats | accepted | [4]; see 5.3 "Intentionally simplified" |
+| 2 | `CallVariantsFromAlignment` reports gaps literally | Design | a non-left-aligned input alignment yields non-left-aligned positions | accepted | `CallVariants` output is left-aligned (INV-07) |
+| 3 | Linear gap cost = mismatch cost (SimpleDna) | Limitation | adjacent swaps become ins+del | declared | needs affine global aligner (cross-batch) |
 
 ## 6. Edge Cases and Limitations
 
@@ -166,10 +171,11 @@ The in-memory `Variant` uses a `"-"` gap sentinel for the absent allele of an in
 | Null reference/query | `ArgumentNullException` | input validation |
 | Non-SNP passed to `ClassifyMutation` | `Other` | classification defined only for SNPs |
 | Lowercase SNP bases | classified identically | case-insensitive [2] |
+| Case-only column difference (`a`/`A`) | no variant | case-insensitive [2] |
 
 ### 6.2 Limitations
 
-Detection quality is bounded by the upstream alignment; ambiguous indel placement in repeats is not resolved (no normalization [4]). Multi-nucleotide and complex variants are reported as adjacent SNPs/indels rather than a single combined event. The aligner is O(n×m) in time and space, limiting practical sequence length.
+Detection quality is bounded by the upstream alignment and its linear scoring (gap = mismatch cost, §5.3). Indel placement from `CallVariants` is left-aligned [4]; caller-supplied alignments are not re-positioned. Multi-nucleotide and complex variants are reported as adjacent SNPs/indels rather than a single combined event. The aligner is O(n×m) in time and space, limiting practical sequence length.
 
 ## 7. Examples and Related Material
 

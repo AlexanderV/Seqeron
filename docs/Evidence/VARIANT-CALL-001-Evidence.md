@@ -93,6 +93,26 @@
 1. **Citation confirmed:** Danecek P, Auton A, Abecasis G, et al. (2011). "The variant call format and VCFtools." *Bioinformatics* 27(15):2156–2158. DOI 10.1093/bioinformatics/btr330. PMID 21653522.
 2. **Scope:** "VCF is a generic format for storing DNA polymorphism data such as SNPs, insertions, deletions and structural variants" — confirms the three variant classes this unit must distinguish (SNP / insertion / deletion).
 
+### B21 review (2026-09-28) — sources actually opened
+
+- **VCFv4.3.tex** (https://raw.githubusercontent.com/samtools/hts-specs/master/VCFv4.3.tex; the PDF host was blocked by the proxy): line 339 "REF --- reference base(s): Each base must be one of A,C,G,T,N (case insensitive)"; line 350 same for ALT.
+- **bcftools manual** (https://raw.githubusercontent.com/samtools/bcftools/develop/doc/bcftools.txt): `norm` — "Left-align and normalize indels, check if REF alleles match the reference".
+- **BWA manual** (https://raw.githubusercontent.com/lh3/bwa/master/bwa.1): `mem` defaults mismatch `-B 4`, gap open `-O 6`, gap extension `-E 1` (a gap of length k costs O + k*E) — read aligners penalise gaps above mismatches.
+- Tan et al. 2015 (Oxford Academic) was not reachable this session; definitions above (2026-06-13) retained.
+
+### Reference cross-check: bcftools norm (htslib/bcftools bundled in pysam 0.24.1)
+
+1. **Case insensitivity:** `bcftools norm -c e` accepted VCF REF `C` against FASTA base `c`, and rejected a record REF=`G`, ALT=`g` with "Duplicate alleles" — a case-only difference is the same allele.
+2. **Left-alignment of `CallVariants` indels:** 1000 random single-indel cases (reference 6–19 nt over {A,C} or {A,C,G,T}, indel length 1–3, half of insertions duplicating the preceding bases) were called with `CallVariants`, each gap run converted to a VCF record (anchor base before, or after at POS 1), and passed through `bcftools norm -f`: **0/1000 records changed** (all already left-aligned).
+3. **Worked cases** (right-shifted input → norm output → 0-based per-column model):
+
+| Reference → Query | Right-shifted input | bcftools norm | Expected `CallVariants` |
+|---|---|---|---|
+| ACGTTTTACG → ACGTTTACG | POS 6 TT>T | POS 3 GT>G | Deletion @3 (T) |
+| CAGAGAGT → CAGAGT | POS 5 GAG>G | POS 1 CAG>C | Deletions @1 (A), @2 (G) |
+| GCACAT → GCACACAT | POS 5 A>ACA | POS 1 G>GCA | Insertions @1 (C), @1 (A) |
+| ATTG → ATTTG | POS 3 T>TT | POS 1 A>AT | Insertion @1 (T) |
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -151,7 +171,7 @@
 ## Assumptions
 
 1. **ASSUMPTION: Internal gap-sentinel representation for indels.** The repository's `CallVariantsFromAlignment` reports a per-column indel using the `"-"` gap character for the absent allele and a 0-based `Position`, rather than the VCF padded-allele, 1-based representation. The VCF spec (field 4) mandates a padding base and 1-based POS only for the *serialized VCF* (which `ToVcfLines` produces, out of scope here). The in-memory `Variant` model is an implementation choice not governed by a source; it is internally consistent and is the existing contract of sibling methods. — Not changed; documented.
-2. **ASSUMPTION: Indels are not left-aligned / parsimony-normalized.** Per Tan et al. (2015) the canonical representation requires left-alignment and parsimony; the alignment-based caller reports the indel at the column produced by `SequenceAligner.GlobalAlign` without a normalization pass. This is correctness-affecting only for *position* in repeated regions, not for *variant counts/types*. Tests therefore assert counts/types/alleles on unambiguous inputs and assert position only where the alignment is unique. — Documented as a limitation, not a defect of the detection logic.
+2. **(Superseded 2026-09-28 for `CallVariants`: output is left-aligned, see cross-check above; still applies to caller-supplied alignments in `CallVariantsFromAlignment`.) ASSUMPTION: Indels are not left-aligned / parsimony-normalized.** Per Tan et al. (2015) the canonical representation requires left-alignment and parsimony; the alignment-based caller reports the indel at the column produced by `SequenceAligner.GlobalAlign` without a normalization pass. This is correctness-affecting only for *position* in repeated regions, not for *variant counts/types*. Tests therefore assert counts/types/alleles on unambiguous inputs and assert position only where the alignment is unique. — Documented as a limitation, not a defect of the detection logic.
 3. **ASSUMPTION: Ti/Tv with zero transversions returns 0.** The mathematically-undefined case (#Tv = 0) is mapped to 0 by the existing contract rather than throwing or returning +∞. No source mandates a specific sentinel; tested as the documented contract.
 
 ---
@@ -184,3 +204,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-28**: B21 review — case-insensitive column scan fix; bcftools norm left-alignment cross-check; scoring limitation.
