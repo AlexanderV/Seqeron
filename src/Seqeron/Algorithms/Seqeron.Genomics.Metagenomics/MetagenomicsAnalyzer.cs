@@ -56,8 +56,18 @@ public static class MetagenomicsAnalyzer
         string Species);
 
     /// <summary>
-    /// Represents a taxonomic profile of a metagenomic sample.
+    /// Represents a taxonomic profile of a metagenomic sample
+    /// (see <see cref="GenerateTaxonomicProfile"/>).
     /// </summary>
+    /// <param name="KingdomAbundance">Reads per kingdom / <paramref name="ClassifiedReads"/>.</param>
+    /// <param name="PhylumAbundance">Reads per phylum / <paramref name="ClassifiedReads"/> (sums to &lt; 1 when some classified reads lack a phylum).</param>
+    /// <param name="GenusAbundance">Reads per genus / <paramref name="ClassifiedReads"/> (sums to &lt; 1 when some classified reads lack a genus).</param>
+    /// <param name="SpeciesAbundance">Reads per species / <paramref name="ClassifiedReads"/> (sums to &lt; 1 when some classified reads lack a species).</param>
+    /// <param name="ShannonDiversity">Shannon index H = −Σ pᵢ ln pᵢ (nats) over the species-resolved reads (Shannon 1948).</param>
+    /// <param name="SimpsonDiversity">Simpson's concentration index λ = Σ pᵢ² over the species-resolved reads (Simpson 1949;
+    /// = scikit-bio <c>dominance</c>) — <em>not</em> Gini–Simpson 1 − λ.</param>
+    /// <param name="TotalReads">Number of input classification records.</param>
+    /// <param name="ClassifiedReads">Records whose <c>Kingdom</c> is neither empty nor <c>"Unclassified"</c>.</param>
     public readonly record struct TaxonomicProfile(
         IReadOnlyDictionary<string, double> KingdomAbundance,
         IReadOnlyDictionary<string, double> PhylumAbundance,
@@ -315,6 +325,10 @@ public static class MetagenomicsAnalyzer
     /// <summary>
     /// Reads the seven standard ranks off the assigned taxon's lineage (root path), keyed by the
     /// lowercased rank label on each node, for compatibility with the downstream profile.
+    /// The <c>Kingdom</c> slot holds the top-level (Kraken report code "D") taxon: NCBI
+    /// <c>superkingdom</c> and its 2025 rename <c>domain</c> (kraken2 <c>src/reports.cc</c> maps both to
+    /// "D"); a <c>kingdom</c>-ranked node is used only when the lineage has no D-level node. The walk
+    /// is leaf→root and later (root-ward) writes win, so a D-level node always overrides a kingdom node.
     /// </summary>
     private static Dictionary<string, string> ExtractRankLineage(int taxonId, TaxonomyTree taxonomy)
     {
@@ -327,6 +341,7 @@ public static class MetagenomicsAnalyzer
             {
                 case "kingdom":
                 case "domain":
+                case "superkingdom":
                     result["kingdom"] = n.Name; break;
                 case "phylum":
                 case "class":
@@ -413,6 +428,21 @@ public static class MetagenomicsAnalyzer
     /// <summary>
     /// Generates a taxonomic profile from classified reads.
     /// </summary>
+    /// <remarks>
+    /// <para>Relative abundance of taxon <i>t</i> at a rank = reads whose lineage names <i>t</i> at that
+    /// rank ÷ <c>ClassifiedReads</c> (reads with an empty or <c>"Unclassified"</c> kingdom are excluded
+    /// from the denominator, as in MetaPhlAn / Bracken relative abundances). Reads resolved only to a
+    /// higher rank (empty value at a lower rank) are not redistributed, so lower-rank maps may sum to
+    /// less than 1 — the same clade-rooted semantics as a Kraken report, but normalised by classified
+    /// rather than total reads.</para>
+    /// <para>Diversity is computed on the species-level count table only (reads with a species), by the
+    /// same helpers as <see cref="CalculateAlphaDiversity"/>; the helpers renormalise, so
+    /// pᵢ = cᵢ / Σ<sub>species</sub> c. Values match scikit-bio <c>shannon</c> (natural log) and
+    /// <c>dominance</c> on those counts.</para>
+    /// <para>Limitation: taxa are keyed by name within each rank, so homonymous taxa at the same rank
+    /// (e.g. the genus name <i>Bacillus</i>, used for both a bacterial and a stick-insect genus) are merged. The
+    /// class / order / family ranks carried by <see cref="TaxonomicClassification"/> are not profiled.</para>
+    /// </remarks>
     public static TaxonomicProfile GenerateTaxonomicProfile(
         IEnumerable<TaxonomicClassification> classifications)
     {

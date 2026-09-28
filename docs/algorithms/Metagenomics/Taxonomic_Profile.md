@@ -6,7 +6,7 @@
 | Test Unit ID | META-PROF-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -40,7 +40,9 @@ $$
 D = \sum_{i=1}^{S} p_i^2
 $$
 
-from the species-abundance map.
+from the species-abundance map. Because the diversity helpers renormalise by the map's sum, $p_i = c_i / \sum_{species} c$ — i.e. diversity is computed on the species-level count table (reads that carry a species), exactly as scikit-bio `alpha.shannon` (natural log) and `alpha.dominance` on those counts (cross-checked 2026-09-28, scikit-bio 0.7.4: counts [5,3,2] → H = 1.0296530140645737, λ = 0.38). The value reported as `SimpsonDiversity` is Simpson's concentration λ, not Gini–Simpson 1 − λ.
+
+**Denominator convention.** Relative abundances divide by classified reads (MetaPhlAn/Bracken-style relative abundance), not by total reads as in a Kraken report (`100·clade_count/total_seqs`, kraken2 `src/reports.cc`). Reads resolved only to a higher rank are not redistributed downward (no Bracken re-estimation), so lower-rank maps have clade-rooted (Kraken-report-like) semantics and may sum to less than 1.
 
 ### 2.4 Properties and Invariants
 
@@ -139,7 +141,7 @@ The current implementation filters reads on the `Kingdom` field only and then ag
 
 ### 6.2 Limitations
 
-The profile is only as informative as the upstream classifications and the stored rank set. Because the current output record omits class, order, and family abundance maps, this API is not a full rank-by-rank profile container. It also computes diversity only from species-level abundances rather than exposing diversity summaries for every rank.
+The profile is only as informative as the upstream classifications and the stored rank set. Because the current output record omits class, order, and family abundance maps, this API is not a full rank-by-rank profile container. It also computes diversity only from species-level abundances rather than exposing diversity summaries for every rank. Taxa are keyed by name within each rank, so homonymous taxa at the same rank (e.g. the genus name *Bacillus*, used for both a bacterial and a stick-insect genus) are merged. The profile's classified/unclassified split depends on the `Kingdom` field produced upstream by `ClassifyReads`.
 
 ## 7. Examples and Related Material
 
@@ -153,4 +155,6 @@ The profile is only as informative as the upstream classifications and the store
 1. Shannon, C. E. 1948. A Mathematical Theory of Communication. Bell System Technical Journal.
 2. Simpson, E. H. 1949. Measurement of Diversity. Nature.
 3. Segata, N., et al. 2012. Metagenomic microbial community profiling using unique clade-specific marker genes. Nature Methods. doi:10.1038/nmeth.2066.
-4. Wikipedia contributors. Metagenomics. Wikipedia. https://en.wikipedia.org/wiki/Metagenomics
+4. Wood, D. E., Lu, J., Langmead, B. kraken2 `src/reports.cc` (report percentage = clade reads / total sequences; rank codes D = superkingdom/domain, K = kingdom). https://raw.githubusercontent.com/DerrickWood/kraken2/master/src/reports.cc
+5. scikit-bio 0.7.4 `skbio/diversity/alpha/_base.py` (`shannon`, `dominance`). https://raw.githubusercontent.com/scikit-bio/scikit-bio/main/skbio/diversity/alpha/_base.py
+6. Wikipedia contributors. Metagenomics. Wikipedia. https://en.wikipedia.org/wiki/Metagenomics

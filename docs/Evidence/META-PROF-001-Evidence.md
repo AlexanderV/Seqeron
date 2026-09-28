@@ -134,11 +134,11 @@ From `MetagenomicsAnalyzer.cs` (lines 229-280):
 
 | Invariant | Description |
 |-----------|-------------|
-| Sum invariant | Σ(abundance values) ≈ 1.0 at each rank (for classified reads) |
+| Sum invariant | Σ(kingdom abundances) = 1.0 when ClassifiedReads > 0; lower ranks sum ≤ 1.0 (= 1.0 only when every classified read carries that rank) — corrected 2026-09-28 |
 | Count invariant | ClassifiedReads ≤ TotalReads |
 | Shannon bounds | Shannon ≥ 0 |
 | Simpson bounds | 0 ≤ Simpson ≤ 1.0 |
-| Consistency | ClassifiedReads = Σ(counts at any rank) |
+| Consistency | ClassifiedReads = Σ(kingdom counts) ≥ Σ(counts at any lower rank) — corrected 2026-09-28 |
 
 ---
 
@@ -185,3 +185,12 @@ Applied systematic coverage classification to all tests:
 3. Segata N et al. (2012). "Metagenomic microbial community profiling..." Nature Methods.
 4. Wikipedia contributors. "Metagenomics." Wikipedia, The Free Encyclopedia.
 5. Wikipedia contributors. "Relative abundance distribution." Wikipedia, The Free Encyclopedia.
+
+---
+
+## Review 2026-09 (campaign B17) — reference cross-check
+
+- Opened: scikit-bio `skbio/diversity/alpha/_base.py` (raw.githubusercontent.com; `shannon`, `dominance` = Σ(c/N)²), kraken2 `src/reports.cc` (percent = 100·clade/total_seqs; rank codes).
+- scikit-bio 0.7.4 (local): `shannon([5,3,2]) = 1.0296530140645737`, `dominance([5,3,2]) = 0.38`; `[2,1,1]` → 1.0397207708399179 / 0.375; `[9,1]` → 0.3250829733914482 / 0.82; `[1,1,1,1]` → ln 4 / 0.25. Seqeron matches to 1e-12 (tests `SpeciesCounts532_MatchesScikitBio`, `GenusOnlyReads_DiversityOnSpeciesCountsOnly`).
+- Diversity is computed on the species-level count table only (renormalised), via the same helpers as `CalculateAlphaDiversity` (test `DiversityEqualsAlphaDiversityOfSpeciesAbundance`).
+

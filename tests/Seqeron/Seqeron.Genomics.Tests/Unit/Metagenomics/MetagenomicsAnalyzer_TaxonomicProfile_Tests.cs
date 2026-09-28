@@ -525,4 +525,87 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
     }
 
     #endregion
+
+    #region Reference cross-check (scikit-bio 0.7.4)
+
+    /// <summary>
+    /// R1: species counts [5,3,2] — Shannon and Simpson λ match scikit-bio 0.7.4
+    /// <c>alpha.shannon([5,3,2]) = 1.0296530140645737</c> (natural log) and
+    /// <c>alpha.dominance([5,3,2]) = 0.38</c> (Σpᵢ², Simpson 1949).
+    /// </summary>
+    [Test]
+    public void GenerateTaxonomicProfile_SpeciesCounts532_MatchesScikitBio()
+    {
+        var reads = new List<MetagenomicsAnalyzer.TaxonomicClassification>();
+        int n = 0;
+        foreach (var (sp, count) in new[] { ("spA", 5), ("spB", 3), ("spC", 2) })
+            for (int i = 0; i < count; i++)
+                reads.Add(CreateClassification($"r{n++}", "Bacteria", "P1", "G1", sp));
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.ShannonDiversity, Is.EqualTo(1.0296530140645737).Within(1e-12));
+            Assert.That(profile.SimpsonDiversity, Is.EqualTo(0.38).Within(1e-12));
+            Assert.That(profile.SpeciesAbundance["spA"], Is.EqualTo(0.5).Within(1e-12));
+        });
+    }
+
+    /// <summary>
+    /// R2: 4 extra reads resolved only to genus. Species abundances use the classified-read
+    /// denominator (5/14, 3/14, 2/14; sum 10/14 &lt; 1), while diversity is computed on the
+    /// species-level count table [5,3,2] only, so it still equals scikit-bio's values for [5,3,2].
+    /// </summary>
+    [Test]
+    public void GenerateTaxonomicProfile_GenusOnlyReads_DiversityOnSpeciesCountsOnly()
+    {
+        var reads = new List<MetagenomicsAnalyzer.TaxonomicClassification>();
+        int n = 0;
+        foreach (var (sp, count) in new[] { ("spA", 5), ("spB", 3), ("spC", 2) })
+            for (int i = 0; i < count; i++)
+                reads.Add(CreateClassification($"r{n++}", "Bacteria", "P1", "G1", sp));
+        for (int i = 0; i < 4; i++)
+            reads.Add(CreateClassification($"r{n++}", "Bacteria", "P1", "G1", ""));
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.ClassifiedReads, Is.EqualTo(14));
+            Assert.That(profile.GenusAbundance["G1"], Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(profile.SpeciesAbundance["spA"], Is.EqualTo(5.0 / 14).Within(1e-12));
+            Assert.That(profile.SpeciesAbundance["spB"], Is.EqualTo(3.0 / 14).Within(1e-12));
+            Assert.That(profile.SpeciesAbundance["spC"], Is.EqualTo(2.0 / 14).Within(1e-12));
+            Assert.That(profile.SpeciesAbundance.Values.Sum(), Is.EqualTo(10.0 / 14).Within(1e-12));
+            Assert.That(profile.ShannonDiversity, Is.EqualTo(1.0296530140645737).Within(1e-12));
+            Assert.That(profile.SimpsonDiversity, Is.EqualTo(0.38).Within(1e-12));
+        });
+    }
+
+    /// <summary>
+    /// R3: profile diversity is the same computation as <see cref="MetagenomicsAnalyzer.CalculateAlphaDiversity"/>
+    /// applied to the species abundances (no duplicated formula).
+    /// </summary>
+    [Test]
+    public void GenerateTaxonomicProfile_DiversityEqualsAlphaDiversityOfSpeciesAbundance()
+    {
+        var reads = new List<MetagenomicsAnalyzer.TaxonomicClassification>();
+        int n = 0;
+        foreach (var (sp, count) in new[] { ("spA", 7), ("spB", 2), ("spC", 1), ("spD", 1) })
+            for (int i = 0; i < count; i++)
+                reads.Add(CreateClassification($"r{n++}", "Bacteria", "P1", "G1", sp));
+        reads.Add(CreateClassification($"r{n}", "Bacteria", "P1", "G2", ""));
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+        var alpha = MetagenomicsAnalyzer.CalculateAlphaDiversity(profile.SpeciesAbundance);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.ShannonDiversity, Is.EqualTo(alpha.ShannonIndex).Within(1e-15));
+            Assert.That(profile.SimpsonDiversity, Is.EqualTo(alpha.SimpsonIndex).Within(1e-15));
+        });
+    }
+
+    #endregion
 }

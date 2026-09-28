@@ -592,5 +592,52 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
         }
     }
 
+    [Test]
+    [Description("NCBI 'superkingdom'/'domain' fill Kingdom (kraken2 reports.cc rank code D); D-level wins over 'kingdom'")]
+    public void ClassifyReads_SuperkingdomAndDomainRanks_FillKingdom()
+    {
+        // kraken2 src/reports.cc maps both "superkingdom" and "domain" to report code "D"
+        // and "kingdom" to "K". Lineage Kingdom slot = D-level taxon; K only when no D exists.
+        var bacteria = new TaxonomyTree(new[]
+        {
+            new TaxonNode(1, "root", "no rank", 1),
+            new TaxonNode(2, "Bacteria", "superkingdom", 1),
+            new TaxonNode(3, "Pseudomonadota", "phylum", 2),
+            new TaxonNode(4, "Escherichia", "genus", 3),
+            new TaxonNode(5, "Escherichia coli", "species", 4),
+        });
+        var euk = new TaxonomyTree(new[]
+        {
+            new TaxonNode(1, "root", "no rank", 1),
+            new TaxonNode(2, "Eukaryota", "domain", 1),
+            new TaxonNode(3, "Fungi", "kingdom", 2),
+            new TaxonNode(4, "Saccharomyces cerevisiae", "species", 3),
+        });
+        var kOnly = new TaxonomyTree(new[]
+        {
+            new TaxonNode(1, "root", "no rank", 1),
+            new TaxonNode(3, "Fungi", "kingdom", 1),
+            new TaxonNode(4, "Saccharomyces cerevisiae", "species", 3),
+        });
+        const string read = "ACGTAC";
+        var db5 = MetagenomicsAnalyzer.BuildKmerDatabase(new[] { (5, read) }, bacteria, 4);
+        var db4 = MetagenomicsAnalyzer.BuildKmerDatabase(new[] { (4, read) }, euk, 4);
+        var db4k = MetagenomicsAnalyzer.BuildKmerDatabase(new[] { (4, read) }, kOnly, 4);
+
+        var rb = ClassifyOne(read, db5, bacteria);
+        var re = ClassifyOne(read, db4, euk);
+        var rk = ClassifyOne(read, db4k, kOnly);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rb.Kingdom, Is.EqualTo("Bacteria"), "superkingdom → Kingdom");
+            Assert.That(rb.Phylum, Is.EqualTo("Pseudomonadota"));
+            Assert.That(re.Kingdom, Is.EqualTo("Eukaryota"), "domain (D) wins over kingdom (K)");
+            Assert.That(rk.Kingdom, Is.EqualTo("Fungi"), "kingdom used when no D-level node");
+        });
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(new[] { rb });
+        Assert.That(profile.ClassifiedReads, Is.EqualTo(1), "superkingdom-ranked read counts as classified");
+    }
+
     #endregion
 }
