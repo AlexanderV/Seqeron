@@ -40,10 +40,10 @@ public class CodonOptimizerMutationTests
     [Test]
     public void CalculateCAI_IsGeometricMeanOfRelativeAdaptiveness()
     {
-        // AUG: w = 1/1 = 1; CUG: w = 0.5/0.5 = 1; CUU: w = 0.1/0.5 = 0.2; stop skipped.
-        // CAI = (1 · 1 · 0.2)^(1/3) = 0.2^(1/3).
+        // AUG (Met) not scored (Sharp & Li / CodonW); CUG: w = 0.5/0.5 = 1; CUU: w = 0.1/0.5 = 0.2; stop skipped.
+        // CAI = (1 · 0.2)^(1/2) = 0.2^(1/2). (Corrected 2026-09 from 0.2^(1/3), which scored AUG.)
         double cai = CodonOptimizer.CalculateCAI("ATGCTGCTTTAA", TestTable());
-        cai.Should().BeApproximately(System.Math.Pow(0.2, 1.0 / 3.0), 1e-9);
+        cai.Should().BeApproximately(System.Math.Sqrt(0.2), 1e-9);
     }
 
     [Test]

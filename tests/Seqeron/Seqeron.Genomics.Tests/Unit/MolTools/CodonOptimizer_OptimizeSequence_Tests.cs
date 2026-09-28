@@ -209,8 +209,8 @@ public class CodonOptimizer_OptimizeSequence_Tests
         {
             Assert.That(result.OptimizedSequence, Is.EqualTo("AUG"));
             Assert.That(result.ProteinSequence, Is.EqualTo("M"));
-            Assert.That(result.OptimizedCAI, Is.EqualTo(1.0),
-                "AUG is the only Met codon, so CAI = 1.0");
+            Assert.That(result.OptimizedCAI, Is.EqualTo(0),
+                "AUG (Met) is not scored in CAI (Sharp & Li 1987 / CodonW): no scored codon → 0");
         });
     }
 
@@ -364,10 +364,10 @@ public class CodonOptimizer_OptimizeSequence_Tests
             Assert.That(result.OptimizedSequence, Is.EqualTo("AUGGCGUAA"),
                 "GCU→GCG (best Ala codon above 0.15 threshold)");
             Assert.That(result.ProteinSequence, Is.EqualTo("MA*"));
-            Assert.That(result.OriginalCAI, Is.EqualTo(0.667).Within(0.01),
-                "wi(AUG)=1.0, wi(GCU)=0.16/0.36=0.444 → CAI=exp(ln(0.444)/2)");
+            Assert.That(result.OriginalCAI, Is.EqualTo(0.16 / 0.36).Within(1e-12),
+                "AUG not scored (Sharp & Li / CodonW); wi(GCU)=0.16/0.36 → CAI=0.444 (corrected 2026-09 from 0.667)");
             Assert.That(result.OptimizedCAI, Is.EqualTo(1.0).Within(0.001),
-                "wi(AUG)=1.0, wi(GCG)=0.36/0.36=1.0 → CAI=1.0");
+                "wi(GCG)=0.36/0.36=1.0 → CAI=1.0");
             Assert.That(result.GcContentOriginal, Is.EqualTo(3.0 / 9.0).Within(0.001));
             Assert.That(result.GcContentOptimized, Is.EqualTo(4.0 / 9.0).Within(0.001));
             Assert.That(result.ChangedCodons, Is.EqualTo(1));

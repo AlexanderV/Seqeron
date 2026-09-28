@@ -496,9 +496,10 @@ public class CodonFuzzTests
     /// <summary>
     /// Positive sanity: the suboptimal worked example AUG·CUA·CCA·ACU from
     /// CAI_Calculation.md §7.1. Pins the geometric-mean computation against the
-    /// documented formula exp((1/L)·Σ ln w_i) with the EColiK12 frequencies:
-    ///   w = {1.00, 0.04/0.50, 0.19/0.53, 0.16/0.44} → CAI ≈ 0.3196 (doc rounds to
-    /// ≈0.31). Confirms the value lies strictly inside (0, 1) — INV-01 at an
+    /// documented formula exp((1/L)·Σ ln w_i) with the EColiK12 frequencies; AUG (Met)
+    /// is not scored (Sharp &amp; Li 1987 / CodonW cai_out), so L = 3:
+    ///   w = {0.04/0.50, 0.19/0.53, 0.16/0.44} → CAI = 0.21848 (corrected 2026-09 from
+    /// 0.3196, which scored AUG with w = 1). Confirms the value lies strictly inside (0, 1) — INV-01 at an
     /// interior point, not just the endpoints.
     /// </summary>
     [Test]
@@ -508,7 +509,7 @@ public class CodonFuzzTests
 
         // Reference value computed directly from w_i = f_i / max(f_j) and the
         // geometric mean exp((1/L)·Σ ln w_i) over the EColiK12 table.
-        double[] w = { 1.00, 0.04 / 0.50, 0.19 / 0.53, 0.16 / 0.44 };
+        double[] w = { 0.04 / 0.50, 0.19 / 0.53, 0.16 / 0.44 };
         double expected = Math.Exp(w.Select(x => Math.Log(x)).Sum() / w.Length);
 
         double cai = CodonOptimizer.CalculateCAI(suboptimalRna, Target);
@@ -516,7 +517,7 @@ public class CodonFuzzTests
         cai.Should().BeApproximately(expected, 1e-12,
             "CAI = exp((1/L)·Σ ln w_i) over the EColiK12 frequencies (CAI_Calculation.md §2.2, §7.1)");
         cai.Should().BeInRange(0.0, 1.0, "CAI is bounded by [0, 1] (INV-01)");
-        cai.Should().BeApproximately(0.3196, 1e-3, "matches the §7.1 worked example (≈0.31)");
+        cai.Should().BeApproximately(0.2184799938153881, 1e-12, "matches the §7.1 worked example (CodonW cai_out port)");
     }
 
     #endregion
@@ -637,8 +638,8 @@ public class CodonFuzzTests
     /// </summary>
     [TestCase("A", 0.0, TestName = "CalculateCAI_Len1_NoCompleteCodon_IsZero")]
     [TestCase("AU", 0.0, TestName = "CalculateCAI_Len2_NoCompleteCodon_IsZero")]
-    [TestCase("AUGA", 1.0, TestName = "CalculateCAI_Len4_OneCodonAUG_IsOne")]    // AUG (M, w=1) + 'A'
-    [TestCase("AUGAU", 1.0, TestName = "CalculateCAI_Len5_OneCodonAUG_IsOne")]   // AUG (M, w=1) + 'AU'
+    [TestCase("CUGA", 1.0, TestName = "CalculateCAI_Len4_OneCodonCUG_IsOne")]    // CUG (L, w=1) + 'A'
+    [TestCase("CUGAU", 1.0, TestName = "CalculateCAI_Len5_OneCodonCUG_IsOne")]   // CUG (L, w=1) + 'AU'
     public void CalculateCAI_TinyPartialInputs_TrimAtCodonEdge(string input, double expected)
     {
         double cai = double.NaN;
@@ -646,7 +647,7 @@ public class CodonFuzzTests
 
         act.Should().NotThrow("sub-codon trailing bases are trimmed, never indexed out of range");
         cai.Should().BeApproximately(expected, 1e-12,
-            "zero complete codons → defined 0; one optimal codon (AUG, Met) → w=1 → CAI 1");
+            "zero complete codons → defined 0; one optimal codon (CUG, Leu) → w=1 → CAI 1 (Met is not scored)");
         double.IsNaN(cai).Should().BeFalse("no boundary input may yield NaN");
     }
 

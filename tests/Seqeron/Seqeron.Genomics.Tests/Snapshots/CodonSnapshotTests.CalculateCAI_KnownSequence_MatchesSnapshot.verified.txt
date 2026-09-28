@@ -1,5 +1,5 @@
 ﻿{
-  CAI_EColi: 0.7319,
-  CAI_Human: 0.592,
-  CAI_Yeast: 0.5771
+  CAI_EColi: 0.6999,
+  CAI_Human: 0.5493,
+  CAI_Yeast: 0.5335
 }

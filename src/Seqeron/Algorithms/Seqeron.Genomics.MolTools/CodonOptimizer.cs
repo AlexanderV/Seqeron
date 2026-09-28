@@ -118,18 +118,6 @@ public static class CodonOptimizer
         .GroupBy(kv => kv.Value)
         .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToList());
 
-    /// <summary>
-    /// Amino acids encoded by a single codon in the standard genetic code
-    /// (Methionine/AUG and Tryptophan/UGG). Their relative adaptiveness w is always 1
-    /// regardless of codon usage bias, so Sharp &amp; Li (1987) / Jansen et al. (2003)
-    /// exclude them from CAI to avoid skewing the geometric mean.
-    /// Derived from <see cref="AminoAcidToCodons"/> (groups of size 1), not hard-coded.
-    /// </summary>
-    private static readonly HashSet<string> SingleCodonAminoAcids = AminoAcidToCodons
-        .Where(kv => kv.Key != "*" && kv.Value.Count == 1)
-        .Select(kv => kv.Key)
-        .ToHashSet();
-
     #endregion
 
     #region Predefined Codon Usage Tables
@@ -442,69 +430,44 @@ public static class CodonOptimizer
     #region CAI Calculation
 
     /// <summary>
-    /// Calculates the Codon Adaptation Index (CAI) for a sequence
-    /// (Sharp &amp; Li 1987, <c>CAI = (∏ w_i)^(1/L)</c>, the geometric mean of the relative
-    /// adaptiveness <c>w_i = f_i / max(f_j)</c> over the gene's codons; stop codons excluded).
+    /// Calculates the Codon Adaptation Index (CAI) of Sharp &amp; Li (1987) against a codon-usage
+    /// frequency table: <c>CAI = exp((1/L) Σ ln w_k)</c> with <c>w_ij = f_ij / max_j f_ij</c> over the
+    /// synonymous codons of amino acid i. Delegates to the canonical
+    /// <see cref="CodonUsageAnalyzer.CalculateCai(string, IReadOnlyDictionary{string, double}, GeneticCode)"/>
+    /// core (CodonW <c>cai_out</c> conventions), under the Standard genetic code.
     /// </summary>
+    /// <remarks>
+    /// Stop codons are never scored. A relative adaptiveness below 0.0001 (codon absent from the
+    /// table while a synonym is present) is replaced by 0.01 (CodonW; Bulmer 1988). An amino acid
+    /// with no frequency data in <paramref name="table"/> is not scored. Triplets with symbols other
+    /// than A/C/G/T/U (any case) are skipped without shifting the frame; a trailing partial codon is
+    /// ignored. Returns 0 when no codon is scored.
+    /// </remarks>
     /// <param name="codingSequence">Coding sequence (DNA or RNA; case-insensitive).</param>
-    /// <param name="table">Reference codon usage table.</param>
+    /// <param name="table">Reference codon usage table (frequencies keyed by RNA or DNA codon).</param>
     /// <param name="excludeSingleCodonAminoAcids">
-    /// When <see langword="true"/>, codons of amino acids that have a single codon in the
-    /// standard genetic code (Met/AUG, Trp/UGG) are excluded from the geometric mean, as the
-    /// original Sharp &amp; Li (1987) definition prescribes and Jansen et al. (2003) reiterate:
-    /// "codon families containing a single codon (e.g. AUG and UGG …) should be excluded in
-    /// computing CAI" because their w is always 1 regardless of bias. Default <see langword="false"/>
-    /// preserves the historical inclusive behaviour (these codons counted with w = 1.0).
+    /// <see langword="true"/> (default): codons of single-codon amino acids (Met/AUG, Trp/UGG) are
+    /// excluded, as Sharp &amp; Li (1987) prescribe ("codon families containing a single codon … should
+    /// be excluded", quoted by Xia 2007, Evol. Bioinform. 3:53-58) and CodonW, seqinr and Biopython
+    /// implement. <see langword="false"/>: they are scored with w = 1 (EMBOSS <c>cai</c> convention),
+    /// which inflates CAI of Met/Trp-rich genes.
     /// </param>
-    public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = false)
+    /// <exception cref="ArgumentException"><paramref name="table"/> has no frequency dictionary.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A frequency is negative or not finite.</exception>
+    public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = true)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return 0;
+        if (table.CodonFrequencies is null)
+            throw new ArgumentException("Codon usage table has no frequencies.", nameof(table));
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
+        // The canonical core keys codons in DNA spelling.
+        var reference = new Dictionary<string, double>(table.CodonFrequencies.Count);
+        foreach (var (codon, frequency) in table.CodonFrequencies)
+            reference[codon.ToUpperInvariant().Replace('U', 'T')] = frequency;
 
-        if (codons.Count == 0)
-            return 0;
-
-        double logSum = 0;
-        int count = 0;
-
-        foreach (var codon in codons)
-        {
-            string aminoAcid = TranslateCodon(codon);
-            if (aminoAcid == "*") continue;
-
-            // Per Sharp & Li (1987): single-codon amino acids (Met/AUG, Trp/UGG) are excluded
-            // from CAI when requested, since their w is always 1 and would skew the geometric mean.
-            if (excludeSingleCodonAminoAcids && SingleCodonAminoAcids.Contains(aminoAcid)) continue;
-
-            double w = CalculateRelativeAdaptiveness(codon, aminoAcid, table);
-            if (double.IsNaN(w)) continue; // No frequency data for this AA in table
-
-            logSum += Math.Log(w);
-            count++;
-        }
-
-        return count > 0 ? Math.Exp(logSum / count) : 0;
-    }
-
-    private static double CalculateRelativeAdaptiveness(string codon, string aminoAcid, CodonUsageTable table)
-    {
-        if (!AminoAcidToCodons.TryGetValue(aminoAcid, out var synonymousCodons))
-            return double.NaN; // Not a standard amino acid — no adaptiveness data
-
-        double codonFreq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
-        double maxFreq = synonymousCodons.Max(c => table.CodonFrequencies.GetValueOrDefault(c, 0));
-
-        if (maxFreq <= 0)
-            return double.NaN; // No frequency data for this amino acid in the table
-
-        // Clamp to 1e-6 to avoid ln(0) when codon is absent from an incomplete custom table
-        // but other synonymous codons are present (maxFreq > 0, codonFreq = 0).
-        // Sharp & Li (1987) did not encounter this case (complete reference sets),
-        // but real-world partial tables may have gaps.
-        return Math.Max(codonFreq / maxFreq, 1e-6);
+        return CodonUsageAnalyzer.CalculateCai(
+            codingSequence, reference, GeneticCode.Standard, excludeSingleCodonFamilies: excludeSingleCodonAminoAcids);
     }
 
     #endregion

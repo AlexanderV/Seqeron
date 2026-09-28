@@ -38,4 +38,14 @@ public class CaiFromOrganismTableTests
             Assert.That(pair.Cai, Is.EqualTo(0.5).Within(1e-9));
         });
     }
+
+    [Test]
+    public void CaiFromOrganismTable_SharpLiConventions_DelegateToCanonicalCore()
+    {
+        // Leu table {CUG:1.0} (CUA absent) + Met. Met is not scored; CUA w = 0 → 0.01 (CodonW):
+        // ATG·CTG·CTA → sqrt(1 × 0.01) = 0.1 (CodonW 1.4.4 with the same w file: 0.100).
+        var table = new CodonUsageTableInput(CodonFrequencies: new Dictionary<string, double> { ["CUG"] = 1.0, ["AUG"] = 1.0 });
+
+        Assert.That(MolToolsTools.cai_from_organism_table("ATGCTGCTA", table).Cai, Is.EqualTo(0.1).Within(1e-12));
+    }
 }

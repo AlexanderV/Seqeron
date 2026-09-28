@@ -41,7 +41,7 @@
 
 1. Treating GC3s as GC at *all* third positions (including Met/Trp/stop) — contradicts Peden §1.8.2.1.3.
 2. Including Met/Trp/stop codons in CAI — contradicts Sharp & Li 1987 / CodonW.
-3. `ln(0)` when a codon's w is 0 — handled by skipping zero-w codons (deviation from the 0.01 floor of seqinr/Bulmer).
+3. `ln(0)` when a codon's w is 0 — w < 0.0001 is scored as 0.01 (CodonW `cai_out`, seqinr `cai`, Bulmer 1988). *(Review 2026-09, CODON-CAI-001 F13: zero-w codons used to be skipped, which raised CAI.)*
 
 ---
 
@@ -215,7 +215,7 @@ All in-scope cases ✅. Count of ✅ = 20 = total in-scope cases.
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | GC3s reported as a percentage (×100) for consistency with GC1/GC2/GC3 (CodonW uses a fraction). | M5, M6 expected values |
-| 2 | Zero-w codons are skipped (not floored to 0.01 per Bulmer 1988). | CAI of codons absent from reference |
+| 2 | ~~Zero-w codons are skipped~~ — resolved 2026-09 (CODON-CAI-001 F13): w < 0.0001 → 0.01 as CodonW/seqinr. | — |
 
 ---
 

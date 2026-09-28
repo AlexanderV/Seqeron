@@ -125,7 +125,7 @@
 - Trims to complete codons
 - GC content balancing in BalancedOptimization strategy (40-60% target)
 - BalancedOptimization rebuilds Changes list after GC balancing to reflect all modifications
-- Zero-frequency codons clamped to 1e-6 in CAI calculation (per Sharp & Li prescription)
+- CAI via the canonical CodonUsageAnalyzer core: Met/Trp and stops not scored, w < 0.0001 → 0.01 (CodonW `cai_out`) — review 2026-09, CODON-CAI-001 F12/F13
 - MinimizeSecondary strategy delegates to BalancedOptimization in codon selection; dedicated `ReduceSecondaryStructure` method handles secondary structure reduction separately
 
 ## Date

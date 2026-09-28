@@ -100,6 +100,76 @@ public class CodonUsageAnalyzer_GetStatistics_Tests
             "A null reference table must raise ArgumentNullException.");
     }
 
+    // CODON-CAI-001 review 2026-09 (F13): a codon whose relative adaptiveness is below 0.0001
+    // (absent from the reference) is scored with w = 0.01 — CodonW 1.4.4 cai_out, seqinr cai
+    // (Bulmer 1988). It used to be silently dropped from L, which RAISED CAI (CTGCTA → 1.0).
+    // CodonW binary, w file = E. coli with CTA = 0: CTGCTA → 0.100, CTA → 0.010, CTGCTGCTGCTA → 0.316.
+    [TestCase("CTGCTA", 0.1)]
+    [TestCase("CTA", 0.01)]
+    [TestCase("CTGCTGCTGCTA", 0.31622776601683794)]
+    public void CalculateCai_ZeroWeightCodon_ScoredAsCodonW001(string gene, double expected)
+    {
+        var reference = CodonUsageAnalyzer.EColiOptimalCodons;
+        reference["CTA"] = 0.0;
+
+        Assert.That(CodonUsageAnalyzer.CalculateCai(gene, reference), Is.EqualTo(expected).Within(Tol));
+    }
+
+    // Sharp & Li E. coli index (EColiOptimalCodons = Biopython SharpEcoliIndex = CodonW built-in
+    // E. coli w values). Expected = Biopython 1.88 CodonAdaptationIndex.calculate with that index
+    // (full precision); CodonW 1.4.4 -cai (3 dp) in comments.
+    [TestCase("CTCACTCACACGAACTTGTTTGCACTACTC", 0.1413150224627173)] // CodonW 0.141
+    [TestCase("GGGCGGGCAATTAACTACAACGCGATAGTTAAGTTGGTCACGCCCTTCGCGCGGAGAGATAGAGAGCAGGTGCGA", 0.09161925188005218)] // CodonW 0.092
+    [TestCase("GGTGATTCCTATCTTGGCCGCAACCCCATCCAACATACAACAGAAAGTGAGGCGGGGAAGTACGCGGGCGAAACCAGATGGGCCACCCCTTTGGCGGGGTCCGTGCGTTACCCTGTCGAT", 0.2247707082314871)] // CodonW 0.225
+    [TestCase("TTAAATTTAAGACCGGATGGAATCGGGCCCTCTACGTTCTGGCAGAATTACTTAGCGCCAGGCGACCAACGGATAAAAACGACCAATGGTATCCGCAGACTCCCCGGAATAACTTTTCGTACATTCAATAACTTGAACCGGAGTCATAGAGTTTTCTTGAGTGGCCTACGAACGCCACAC", 0.10515756183651383)] // CodonW 0.105
+    [TestCase("ATGAAAGCGTTCAAGCGTACTGCG", 0.6398147105301307)] // CodonW 0.640
+    [TestCase("ATGCGACGGAGAAGGATATGG", 0.0032875036590344488)] // CodonW 0.003
+    [TestCase("CTGCTGCTGCTGATA", 0.3129134644531898)] // CodonW 0.313
+    public void CalculateCai_SharpLiEColiIndex_MatchesBiopythonAndCodonW(string gene, double expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonUsageAnalyzer.CalculateCai(gene, CodonUsageAnalyzer.EColiOptimalCodons),
+                Is.EqualTo(expected).Within(1e-12));
+            Assert.That(CodonUsageAnalyzer.CalculateCai(gene.ToLowerInvariant().Replace('T', 'U'), CodonUsageAnalyzer.EColiOptimalCodons),
+                Is.EqualTo(expected).Within(1e-12), "lower-case RNA spelling");
+        });
+    }
+
+    // Genetic-code-aware exclusion (CodonW -code): with the Sharp & Li E. coli w values,
+    // CodonW 1.4.4 gives under NCBI table 2 (vertebrate mito): ATAATG 0.055 (Met = {ATA, ATG}),
+    // TGATGG 0.100 (Trp = {TGA, TGG}, w_TGA = 0 → 0.01), AGAAGGCTG 1.000 (AGA/AGG are stops),
+    // ATGTGG 1.000; under table 1: 0.003, 0.000, 0.020, 0.000.
+    [TestCase("ATAATG", 2, 0.0547722557505166)]
+    [TestCase("TGATGG", 2, 0.1)]
+    [TestCase("AGAAGGCTG", 2, 1.0)]
+    [TestCase("ATAATG", 1, 0.003)]
+    [TestCase("TGATGG", 1, 0.0)]
+    [TestCase("AGAAGGCTG", 1, 0.02)]
+    public void CalculateCai_GeneticCode_MatchesCodonW(string gene, int table, double expected)
+    {
+        double cai = CodonUsageAnalyzer.CalculateCai(gene, CodonUsageAnalyzer.EColiOptimalCodons,
+            GeneticCode.GetByTableNumber(table));
+
+        Assert.That(cai, Is.EqualTo(expected).Within(Tol));
+    }
+
+    [Test]
+    public void CalculateCai_NegativeOrNaNReference_Throws()
+    {
+        var negative = CodonUsageAnalyzer.EColiOptimalCodons;
+        negative["CTA"] = -0.5;
+        var nan = CodonUsageAnalyzer.EColiOptimalCodons;
+        nan["CTA"] = double.NaN;
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => CodonUsageAnalyzer.CalculateCai("CTG", negative));
+            Assert.Throws<ArgumentOutOfRangeException>(() => CodonUsageAnalyzer.CalculateCai("CTG", nan));
+            Assert.Throws<ArgumentNullException>(() => CodonUsageAnalyzer.CalculateCai("CTG", CodonUsageAnalyzer.EColiOptimalCodons, null!));
+        });
+    }
+
     #endregion
 
     #region GetStatistics — GC positions and GC3s

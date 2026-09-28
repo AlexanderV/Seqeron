@@ -169,74 +169,161 @@ public static class CodonUsageAnalyzer
 
     #region CAI (Codon Adaptation Index)
 
+    // CodonW 1.4.4 cai_out (Peden 1999, codon_us.c): "these codons have fitness of zero
+    // (<.0001) are adjusted to 0.01" — the Bulmer (1988) substitution also used by seqinr
+    // cai(zero.threshold = 0.0001, zero.to = 0.01).
+    private const double EffectivelyZeroAdaptiveness = 0.0001;
+    private const double ZeroAdaptivenessSubstitute = 0.01;
+
     /// <summary>
-    /// Calculates Codon Adaptation Index (CAI) using a reference codon table.
-    /// CAI measures how well codon usage matches highly expressed genes.
-    /// Range: 0-1, where 1 means optimal codon usage.
+    /// Calculates the Codon Adaptation Index (CAI) under the Standard genetic code (NCBI table 1).
+    /// See <see cref="CalculateCai(string, IReadOnlyDictionary{string, double}, GeneticCode)"/>.
     /// </summary>
     /// <param name="sequence">Coding sequence to analyze.</param>
-    /// <param name="referenceRscu">RSCU values from reference set (e.g., highly expressed genes).</param>
-    public static double CalculateCai(DnaSequence sequence, Dictionary<string, double> referenceRscu)
+    /// <param name="referenceRscu">Reference RSCU or w values (e.g. from highly expressed genes).</param>
+    public static double CalculateCai(DnaSequence sequence, Dictionary<string, double> referenceRscu) =>
+        CalculateCai(sequence, referenceRscu, GeneticCode.Standard);
+
+    /// <summary>
+    /// Calculates the CAI of a coding sequence under the given genetic code.
+    /// See <see cref="CalculateCai(string, IReadOnlyDictionary{string, double}, GeneticCode)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static double CalculateCai(
+        DnaSequence sequence, IReadOnlyDictionary<string, double> referenceRscu, GeneticCode code)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(referenceRscu);
+        ArgumentNullException.ThrowIfNull(code);
 
-        return CalculateCaiCore(sequence.Sequence, referenceRscu);
+        return CalculateCaiCore(sequence.Sequence, referenceRscu, code, excludeSingleCodonFamilies: true);
     }
 
     /// <summary>
-    /// Calculates CAI from a raw sequence string.
+    /// Calculates CAI from a raw sequence string under the Standard genetic code (NCBI table 1).
+    /// See <see cref="CalculateCai(string, IReadOnlyDictionary{string, double}, GeneticCode)"/>.
     /// </summary>
-    public static double CalculateCai(string sequence, Dictionary<string, double> referenceRscu)
+    public static double CalculateCai(string sequence, Dictionary<string, double> referenceRscu) =>
+        CalculateCai(sequence, referenceRscu, GeneticCode.Standard);
+
+    /// <summary>
+    /// Calculates the Codon Adaptation Index of Sharp &amp; Li (1987, Nucleic Acids Res.
+    /// 15(3):1281-1295): <c>CAI = exp((1/L) Σ ln w_k)</c>, the geometric mean of the relative
+    /// adaptiveness <c>w_ij = RSCU_ij / RSCU_imax = X_ij / X_imax</c> of the gene's L scored codons.
+    /// </summary>
+    /// <remarks>
+    /// Follows the CodonW reference implementation (Peden 1999, codon_us.c <c>cai_out</c>; seqinr
+    /// <c>cai</c> reproduces it):
+    /// <list type="bullet">
+    /// <item>Termination codons and single-codon ("non-synonymous") families — Met and Trp in
+    /// table 1 — are excluded; both are genetic-code dependent (<paramref name="code"/>). Sharp &amp; Li
+    /// (1987) state single-codon families should be excluded (quoted by Xia 2007, Evol. Bioinform.
+    /// 3:53-58), since their w is always 1.</item>
+    /// <item>A relative adaptiveness below 0.0001 (a codon absent from the reference) is replaced by
+    /// 0.01 (CodonW; Bulmer 1988), so such a codon lowers CAI instead of forcing it to 0 or being
+    /// silently dropped.</item>
+    /// <item>Input is case-insensitive DNA or RNA (U read as T); triplets containing any other
+    /// symbol are skipped without shifting the frame; a trailing partial triplet is ignored.</item>
+    /// </list>
+    /// <paramref name="referenceRscu"/> may hold RSCU values or w values (uppercase DNA keys):
+    /// each value is divided by the maximum of its synonymous family, so a w table (family
+    /// maximum 1) is used unchanged. A missing key counts as 0. A family whose values are all 0
+    /// carries no reference information and its codons are not scored. Codons that are
+    /// context-dependent stops in NCBI tables 27/28/31 are scored in the family of the amino acid
+    /// they encode (<see cref="GeneticCode.CodonTable"/>, as for RSCU).
+    /// Returns 0 when no codon is scored (empty input, only stops/Met/Trp).
+    /// </remarks>
+    /// <param name="sequence">Coding sequence (frame 0); null/empty returns 0.</param>
+    /// <param name="referenceRscu">Reference RSCU or w values keyed by DNA codon.</param>
+    /// <param name="code">Genetic code defining stops and synonymous families.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="referenceRscu"/> or <paramref name="code"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A reference value used is negative or not finite.</exception>
+    public static double CalculateCai(
+        string sequence, IReadOnlyDictionary<string, double> referenceRscu, GeneticCode code)
     {
+        ArgumentNullException.ThrowIfNull(referenceRscu);
+        ArgumentNullException.ThrowIfNull(code);
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        return CalculateCaiCore(NormalizeCodingSequence(sequence), referenceRscu);
+        return CalculateCaiCore(NormalizeCodingSequence(sequence), referenceRscu, code, excludeSingleCodonFamilies: true);
     }
 
-    private static double CalculateCaiCore(string seq, Dictionary<string, double> referenceRscu)
+    /// <summary>
+    /// Canonical CAI core shared with <c>CodonOptimizer.CalculateCAI</c>.
+    /// <paramref name="excludeSingleCodonFamilies"/> = false scores single-codon families with
+    /// w = 1 (EMBOSS <c>ajCodCalcCaiSeq</c> convention), a non-Sharp &amp; Li opt-in.
+    /// </summary>
+    internal static double CalculateCai(
+        string sequence, IReadOnlyDictionary<string, double> reference, GeneticCode code,
+        bool excludeSingleCodonFamilies)
     {
-        // Relative adaptiveness w_i = f_i / max(f_j) over the synonymous family of the
-        // codon's amino acid (Sharp & Li 1987, Nucleic Acids Res. 15:1281-1295).
-        // Non-synonymous codons (single-codon amino acids Met/Trp) and termination codons
-        // are excluded from CAI (Sharp & Li 1987; CodonW codon-usage indices; EMBOSS cai).
-        var relativeAdaptiveness = new Dictionary<string, double>();
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(code);
+        if (string.IsNullOrEmpty(sequence))
+            return 0;
 
-        foreach (var aaGroup in CodonToAminoAcid.GroupBy(kv => kv.Value))
-        {
-            // Exclude termination codons ('*') and single-codon amino acids (Met, Trp):
-            // they carry no synonymous bias and are not counted in CAI.
-            if (aaGroup.Key == '*') continue;
+        return CalculateCaiCore(NormalizeCodingSequence(sequence), reference, code, excludeSingleCodonFamilies);
+    }
 
-            var synonymousCodons = aaGroup.Select(kv => kv.Key).ToList();
-            if (synonymousCodons.Count == 1) continue;
-
-            double maxRscu = synonymousCodons.Max(c => referenceRscu.GetValueOrDefault(c, 0));
-
-            foreach (var codon in synonymousCodons)
-            {
-                double rscu = referenceRscu.GetValueOrDefault(codon, 0);
-                relativeAdaptiveness[codon] = maxRscu > 0 ? rscu / maxRscu : 0;
-            }
-        }
+    private static double CalculateCaiCore(
+        string seq, IReadOnlyDictionary<string, double> reference, GeneticCode code,
+        bool excludeSingleCodonFamilies)
+    {
+        var w = RelativeAdaptiveness(reference, code, excludeSingleCodonFamilies);
 
         // CAI = geometric mean of w over the L scored codons, computed as
-        // exp((1/L) Σ ln w_i) for numerical stability (Sharp & Li 1987, Eq. 2).
+        // exp((1/L) Σ ln w_k) (Sharp & Li 1987; CodonW natural-log summation).
         double logSum = 0;
-        int codonCount = 0;
+        long scored = 0;
 
         for (int i = 0; i + 3 <= seq.Length; i += 3)
         {
-            string codon = seq.Substring(i, 3);
-            if (IsValidCodon(codon) && relativeAdaptiveness.TryGetValue(codon, out double w) && w > 0)
+            if (w.TryGetValue(seq.Substring(i, 3), out double wk))
             {
-                logSum += Math.Log(w);
-                codonCount++;
+                logSum += Math.Log(wk);
+                scored++;
             }
         }
 
-        return codonCount > 0 ? Math.Exp(logSum / codonCount) : 0;
+        return scored > 0 ? Math.Exp(logSum / scored) : 0;
+    }
+
+    // w_ij = X_ij / X_imax per synonymous family of the code (Sharp & Li 1987), with the CodonW
+    // 0.0001 → 0.01 substitution. Only scored codons are keys (DNA spelling).
+    private static Dictionary<string, double> RelativeAdaptiveness(
+        IReadOnlyDictionary<string, double> reference, GeneticCode code, bool excludeSingleCodonFamilies)
+    {
+        var w = new Dictionary<string, double>(64);
+
+        foreach (var family in code.CodonTable.GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T')))
+        {
+            if (family.Key == '*') continue;
+            var codons = family.ToList();
+            if (excludeSingleCodonFamilies && codons.Count == 1) continue;
+
+            double max = 0;
+            foreach (var codon in codons)
+                max = Math.Max(max, ReferenceValue(reference, codon));
+            if (max <= 0) continue; // no reference information for this amino acid
+
+            foreach (var codon in codons)
+            {
+                double value = ReferenceValue(reference, codon) / max;
+                w[codon] = value < EffectivelyZeroAdaptiveness ? ZeroAdaptivenessSubstitute : value;
+            }
+        }
+
+        return w;
+    }
+
+    private static double ReferenceValue(IReadOnlyDictionary<string, double> reference, string codon)
+    {
+        double value = reference.GetValueOrDefault(codon, 0);
+        if (value < 0 || !double.IsFinite(value))
+            throw new ArgumentOutOfRangeException(nameof(reference), value,
+                $"Reference value for codon {codon} must be a finite non-negative number.");
+        return value;
     }
 
     /// <summary>

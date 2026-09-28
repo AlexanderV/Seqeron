@@ -69,7 +69,7 @@ The genetic code is degenerate: most amino acids are encoded by several synonymo
 
 ### 3.3 Preconditions and Validation
 
-Input is read 0-based in steps of 3 (frame 1); a trailing partial codon (< 3 nt) is ignored. Sequences are upper-cased; codons containing any non-ACGT character are skipped (not errors). A `null` `DnaSequence` or a `null` reference table throws `ArgumentNullException`; a `null`/empty `string` returns a zeroed `CodonUsageStatistics` (CAI 0). DNA alphabet only (no IUPAC degeneracy, no T↔U conversion).
+Input is read 0-based in steps of 3 (frame 1); a trailing partial codon (< 3 nt) is ignored. Sequences are upper-cased; codons containing any non-ACGT character are skipped (not errors). A `null` `DnaSequence` or a `null` reference table throws `ArgumentNullException`; a `null`/empty `string` returns a zeroed `CodonUsageStatistics` (CAI 0). RNA `U` is read as `T` (review 2026-09, CODON-RSCU-001 F10); no IUPAC degeneracy.
 
 ## 4. Algorithm
 
@@ -79,7 +79,7 @@ Input is read 0-based in steps of 3 (frame 1); a trailing partial codon (< 3 nt)
 2. Compute RSCU per synonymous family and ENC (Wright 1990).
 3. For each codon, accumulate G/C at positions 1/2/3; for synonymous codons (degeneracy > 1) also accumulate the GC3s numerator/denominator.
 4. Convert counts to percentages; `OverallGc` = mean of GC1/GC2/GC3.
-5. CAI: build w = referenceRscu / family-max over synonymous families (skipping single-codon families and stops), then geometric mean over scorable codons via log-sum.
+5. CAI: build w = referenceRscu / family-max over the synonymous families of the genetic code (skipping single-codon families and stops; w < 0.0001 → 0.01 as CodonW `cai_out`), then geometric mean over scorable codons via log-sum. Canonical core shared with `CodonOptimizer.CalculateCAI` (see [CAI_Calculation.md](../Codon_Optimization/CAI_Calculation.md)).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables
 
@@ -108,7 +108,7 @@ No substring search / pattern matching is involved, so the repository suffix tre
 
 ### 5.2 Current Behavior
 
-GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codons whose amino acid is degenerate (degeneracy > 1), excluding ATG, TGG and the stop codons, per [2]. CAI skips single-codon families, stop codons, and any codon whose relative adaptiveness is 0 (avoiding `ln 0`); when no codon is scorable it returns 0. The suffix tree was not used (no search; single linear scan).
+GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codons whose amino acid is degenerate (degeneracy > 1), excluding ATG, TGG and the stop codons, per [2]. CAI skips single-codon families and stop codons; a codon whose relative adaptiveness is below 0.0001 is scored as 0.01 (CodonW, Bulmer 1988); when no codon is scorable it returns 0. The suffix tree was not used (no search; single linear scan).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -122,7 +122,6 @@ GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codon
 
 **Intentionally simplified:**
 
-- Zero-frequency codons: skipped rather than floored to 0.01 (Bulmer 1988); **consequence:** a gene using a codon entirely absent from the reference yields a slightly higher CAI than EMBOSS/seqinr would report. No effect with the bundled reference tables (no synonymous w is 0).
 - GC3s reported as a percentage; **consequence:** value is 100× the CodonW fraction; the synonymous subset is identical.
 
 **Not implemented:**
@@ -134,7 +133,7 @@ GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codon
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | GC3s as percentage | Assumption | display units only | accepted | ASM in TestSpec §6 |
-| 2 | zero-w codon skipped | Deviation | edge-case CAI on absent codons | accepted | vs. Bulmer 1988 0.01 floor |
+| 2 | zero-w codon skipped | Deviation | edge-case CAI on absent codons | resolved 2026-09 | now w < 0.0001 → 0.01 (CodonW/seqinr/Bulmer 1988), CODON-CAI-001 F13 |
 | 3 | reference tables replaced | Deviation (fix) | prior values untraceable | fixed | now Sharp&Li 1987 / Kazusa |
 
 ## 6. Edge Cases and Limitations

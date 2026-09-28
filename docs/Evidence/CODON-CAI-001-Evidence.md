@@ -23,8 +23,9 @@
    - PMC: 340524, PMID: 3547335
    - DOI: 10.1093/nar/15.3.1281
 
-3. **Jansen, R., Bauer, P. & Stadler, P.F. (2003)** — "An Improved Implementation of the Codon Adaptation Index"
-   - Retrieved 2026-06-24 from PMC: https://pmc.ncbi.nlm.nih.gov/articles/PMC2684136/
+3. **Xia, X. (2007)** — "An Improved Implementation of Codon Adaptation Index", Evolutionary Bioinformatics 3:53-58
+   (PMC2684136; this entry was previously mis-attributed to "Jansen, Bauer & Stadler 2003", which is a different NAR paper)
+   - Retrieved 2026-06-24 from PMC: https://pmc.ncbi.nlm.nih.gov/articles/PMC2684136/; statement re-confirmed 2026-09-28 via search snippet of journals.sagepub.com/doi/full/10.1177/117693430700300028
    - Quotes the original Sharp & Li (1987) rule **verbatim** and gives the reason:
      > "The original paper proposing CAI (Sharp and Li, 1987) specifically stated that codon
      > families containing a single codon (e.g. AUG and UGG in the standard genetic code)
@@ -34,7 +35,7 @@
      > gene happens to use a high proportion of methionine and tryptophan, then it will have a
      > high CAI value even if its codon usage is not at all biased."
    - This is the authoritative basis for the **single-codon amino-acid exclusion** implemented as
-     the opt-in `excludeSingleCodonAminoAcids` mode of `CalculateCAI`.
+     the `excludeSingleCodonAminoAcids` mode of `CalculateCAI` (default `true` since review 2026-09).
 
 ### Mathematical Definition (from Wikipedia)
 
@@ -71,12 +72,11 @@ Where L = number of codons (excluding stop codons per implementation)
 
 3. **Single-Codon Amino Acids:** Methionine (AUG) and Tryptophan (UGG) have w=1.0 always
    - Only one codon exists, so it's always the "most frequent"
-   - **Canonical rule (Sharp & Li 1987; Jansen et al. 2003):** such single-codon families
+   - **Canonical rule (Sharp & Li 1987; Xia 2007):** such single-codon families
      **should be EXCLUDED** from the CAI geometric mean, because w≡1 regardless of bias and
      including them inflates CAI for Met/Trp-rich genes (see Source 3, retrieved verbatim).
-   - The library exposes both conventions: the default `CalculateCAI(seq, table)` *includes*
-     Met/Trp (w=1.0, historical behaviour); `CalculateCAI(seq, table, excludeSingleCodonAminoAcids: true)`
-     *excludes* them per the canonical definition.
+   - Default `CalculateCAI(seq, table)` *excludes* Met/Trp (review 2026-09, F12);
+     `excludeSingleCodonAminoAcids: false` scores them with w=1.0 (EMBOSS-style opt-in).
 
 4. **Stop Codons:** Excluded from CAI calculation
    - Source: Sharp & Li (1987) — stop codons do not encode amino acids
@@ -88,8 +88,7 @@ Where L = number of codons (excluding stop codons per implementation)
    - Source: Implementation convention
 
 2. **Sequence with only Met/Trp:**
-   - All codons have w=1.0 → CAI = 1.0
-   - Source: Mathematical definition
+   - No scored codon → CAI = 0 (CodonW 1.4.4 binary: `ATGTGG` → 0.000); opt-in inclusion → 1.0
 
 3. **All Optimal Codons:**
    - Every codon is the most frequent for its amino acid → CAI = 1.0
@@ -103,19 +102,40 @@ Where L = number of codons (excluding stop codons per implementation)
    - Same sequence has different CAI values for different organisms
    - Source: Codon usage varies by organism
 
-### Implementation Notes (from source code analysis)
+### Implementation Notes (review 2026-09)
 
-The implementation follows Sharp & Li (1987) with one deviation:
-1. Converts T→U and handles case-insensitively
-2. Splits sequence into codons
-3. For each non-stop codon:
-   - Finds the amino acid
-   - Calculates relative adaptiveness: w = codon_freq / max_synonym_freq
-   - If amino acid unknown or maxFreq = 0: returns NaN (skipped by caller)
-   - If codon_freq = 0 but maxFreq > 0: clamps w to 1e-6 (incomplete table protection)
-   - Accumulates ln(w) sum
-4. Returns exp(sum / count)
-5. **Deviation:** 1e-6 clamp for zero-frequency codons when amino acid has other codons in table (see CODON-CAI-001.md Deviations section for rationale)
+`CodonOptimizer.CalculateCAI` delegates to the canonical `CodonUsageAnalyzer.CalculateCai` core:
+stop codons and single-codon families (genetic-code dependent) not scored; `w = value / family max`;
+`w < 0.0001 → 0.01` (CodonW `cai_out`); family without data not scored; non-nucleotide triplets skipped
+frame-preservingly; DNA/RNA any case. The former `1e-6` clamp and the former silent drop of w=0 codons
+(CodonUsageAnalyzer) were unsourced and are removed (F13).
+
+### Reference implementations opened (2026-09-28)
+
+- **CodonW 1.4.4** (original tarball, compiled): `codon_us.c` `cai_out` — "Non-synonymous codons and
+  termination codons (genetic code dependent) are excluded … these codons have fitness of zero (<.0001)
+  are adjusted to 0.01"; w-building: "if a codon is absent then adjust its frequecy to 0.5";
+  `codonW.h` `cai[]` E. coli w = Biopython `SharpEcoliIndex` (identical 61 values).
+- **seqinr** `R/cai.R`, `man/cai.Rd` (raw.githubusercontent.com/cran/seqinr): excludes stops and
+  singulets, `zero.threshold = 0.0001, zero.to = 0.01` ("default is from Bulmer (1988)"), "intended to
+  work exactly as in the program codonW".
+- **Biopython 1.88** `Bio/SeqUtils/__init__.py` `CodonAdaptationIndex`: 0.5 for codons absent from the
+  reference ("Following the description in the original paper"); `calculate` skips ATG/TGG; scores stop
+  codons present in the index (quirk, not followed). **Biopython 1.79** `CodonUsage.py` `cai_for_gene`
+  divides by `cai_length - 1.0` (bug, not followed); `CodonUsageIndices.SharpEcoliIndex`.
+- **EMBOSS** `ajcod.c` `ajCodCalcCaiSeq`: L = all codons (Met/Trp and stops included), w = 0 codons
+  contribute nothing to the sum but count in L — basis of the `false` opt-in only.
+- Sharp & Li 1987 full text: not reachable (academic.oup.com / PMC blocked); rules taken from the above
+  and the Xia 2007 snippet.
+
+### Numerical cross-check (2026-09-28)
+
+- Python port of CodonW `cai_out` vs CodonW binary: 208 genes × 8 codes (NCBI 1,2,3,4,5,6,9,10) × 4 w
+  tables (E. coli built-in + 3 random with ~15 % zeros) = 6 656 cases, 0 mismatches (3-dp rounding).
+- C# vs port: 832 inputs (random DNA/RNA/lower/IUPAC) × 27 NCBI tables, max |Δ| 5.6e-16; CodonOptimizer
+  (Standard): 832/832. Before the fix: CodonUsageAnalyzer 556/832 and CodonOptimizer 556/832
+  (zero-w tables) mismatching; default CodonOptimizer mode 698/832.
+- C# vs Biopython 1.88 `CodonAdaptationIndex` (40 indices from small reference sets, 400 genes): max |Δ| 0.
 
 ## Test Datasets
 
@@ -144,8 +164,7 @@ The implementation follows Sharp & Li (1987) with one deviation:
 ### Hand-Calculated Test Cases
 
 **Test Case 1: Single Met (AUG)**
-- w_AUG = 1.0 / 1.0 = 1.0
-- CAI = 1.0^(1/1) = 1.0
+- Not scored (single-codon family) → CAI = 0; opt-in inclusion: w = 1 → 1.0
 
 **Test Case 2: CUG-CCG-ACC (E. coli)**
 - CUG: w = 0.50/0.50 = 1.0 (Leu optimal)
@@ -159,7 +178,7 @@ The implementation follows Sharp & Li (1987) with one deviation:
 - ACA: w = 0.13/0.44 = 0.2955 (Thr suboptimal)
 - CAI = (0.08 × 0.3585 × 0.2955)^(1/3) = 0.1980
 
-### Hand-Calculated Test Cases — Exclusion Mode (`excludeSingleCodonAminoAcids: true`)
+### Hand-Calculated Test Cases — Exclusion Mode (`excludeSingleCodonAminoAcids: true`, the default; "Inclusive" = opt-in `false`)
 
 All values E. coli K12 (Kazusa species=316407); CUA(Leu) w = 0.04/0.50 = 0.08; AUG(Met) and UGG(Trp) excluded.
 
@@ -179,14 +198,14 @@ All values E. coli K12 (Kazusa species=316407); CUA(Leu) w = 0.04/0.50 = 0.08; A
 
 ## Assumptions
 
-One documented deviation from strict Sharp & Li (1987):
-- **1e-6 clamp:** When codon_freq = 0 but max_synonym_freq > 0, w is clamped to 1e-6 instead of 0. This protects against incomplete codon usage tables. See CODON-CAI-001.md Deviations section.
-- Empty sequence returns 0 by convention (no codons to evaluate)
-- All codon frequency tables verified against Kazusa database (March 2026)
+- Empty sequence / no scored codon returns 0 (CodonW prints 0.000).
+- A family with no reference data is not scored.
+- All codon frequency tables verified against Kazusa database (March 2026).
 
 ## References
 
 - Sharp, P.M. & Li, W.H. (1987). Nucleic Acids Res. 15(3):1281-1295
-- Jansen, R. et al. (2003). Nucleic Acids Res. 31(8):2242-2251 (CAI refinements)
+- Xia, X. (2007). Evol. Bioinform. 3:53-58 (PMC2684136)
+- Peden, J.F. (1999). CodonW 1.4.4; Bulmer, M. (1988). J. Evol. Biol. 1:15-26
 - Wikipedia: Codon Adaptation Index
 - Kazusa Codon Usage Database: https://www.kazusa.or.jp/codon/

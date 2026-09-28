@@ -115,7 +115,7 @@
 ### From seqinr / CodonW
 
 1. **Single-codon amino acids and stop codons:** excluded from CAI (and from GC3s). A sequence containing only Met/Trp/stop codons has no scorable codons → CAI is undefined (this implementation returns 0).
-2. **Zero-frequency codons:** seqinr/EMBOSS substitute a small value (0.01, Bulmer 1988) to avoid `ln(0)`. This implementation instead skips codons whose relative adaptiveness is 0 (so an entirely-zero gene yields CAI 0). Documented as a deviation in the algorithm doc.
+2. **Zero-frequency codons:** seqinr/EMBOSS substitute a small value (0.01, Bulmer 1988) to avoid `ln(0)`. *(Resolved 2026-09, CODON-CAI-001 F13: the implementation now does the same — w < 0.0001 → 0.01, CodonW `cai_out` — instead of skipping such codons.)*
 
 ### From Peden thesis
 
@@ -171,7 +171,7 @@
 ## Assumptions
 
 1. **ASSUMPTION: GC3s reported as a percentage.** CodonW reports GC3s as a fraction in [0,1]; this implementation reports it as a percentage (×100) for consistency with the existing GC1/GC2/GC3 fields (which follow EMBOSS cusp percentage style). Non-correctness-affecting unit/labeling choice; documented in the algorithm doc. The synonymous-codon *subset* used in the numerator/denominator is exactly per Peden.
-2. **ASSUMPTION: zero-w codons are skipped rather than floored to 0.01.** Sharp & Li / Bulmer floor missing codons to 0.01; this implementation skips codons whose relative adaptiveness is 0. For the supplied reference tables no synonymous codon has w=0, so CAI on real CDS is unaffected; only a gene using a codon entirely absent from the reference differs. Documented as a deviation.
+2. **~~ASSUMPTION~~ (resolved 2026-09, CODON-CAI-001 F13 — now floored to 0.01 as CodonW): zero-w codons were skipped rather than floored to 0.01.** Sharp & Li / Bulmer floor missing codons to 0.01; this implementation skips codons whose relative adaptiveness is 0. For the supplied reference tables no synonymous codon has w=0, so CAI on real CDS is unaffected; only a gene using a codon entirely absent from the reference differs. Documented as a deviation.
 
 ---
 

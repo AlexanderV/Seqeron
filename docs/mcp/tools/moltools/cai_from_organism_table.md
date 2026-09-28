@@ -14,13 +14,13 @@ Codon Adaptation Index against an organism codon-usage frequency table.
 
 ## Description
 
-Computes CAI (Sharp & Li 1987) for a coding sequence relative to an organism codon-usage **frequency** table. For each sense codon the relative adaptiveness is `w = f(codon) / max f(synonymous codons)`; CAI is the geometric mean of `w` over all scored codons. Stop codons are skipped, codons whose amino-acid group has no frequency data are skipped, and `w` is clamped at `1e-6` to avoid `ln(0)` on incomplete tables. Empty sequence → 0.
+Computes CAI (Sharp & Li 1987) for a coding sequence relative to an organism codon-usage **frequency** table. For each sense codon the relative adaptiveness is `w = f(codon) / max f(synonymous codons)`; CAI is the geometric mean of `w` over all scored codons. Stop codons and single-codon amino acids (Met `AUG`, Trp `UGG`) are not scored (Sharp & Li 1987; CodonW `cai_out`), codons whose amino-acid group has no frequency data are skipped, a codon with `w < 0.0001` (absent from the table while a synonym is present) is scored with `w = 0.01` (CodonW; Bulmer 1988), and triplets with non-nucleotide symbols are skipped without shifting the frame. Delegates to the same core as `codon_adaptation_index`. Empty sequence or no scored codon → 0.
 
 This is distinct from [codon_adaptation_index](codon_adaptation_index.md), which takes a reference **RSCU** dictionary.
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L473](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L473)
+- Source: [CodonOptimizer.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs) `CalculateCAI` → `CodonUsageAnalyzer.CalculateCai` core
 
 ## Input Schema
 

@@ -139,7 +139,7 @@ File: `CodonOptimizer_OptimizeSequence_Tests.cs`
 
 - **BalancedOptimization Changes rebuild (fixed 2026-03-10)**: Previously, `Changes` list only reflected the initial optimization pass, missing GC content balancing modifications. Fixed to rebuild changes by comparing original vs final codons.
 - **Codon usage tables**: All three tables (E. coli, Yeast, Human) verified against Kazusa Codon Usage Database raw data (per-thousand frequencies → relative fractions per amino acid).
-- **CAI formula**: Matches Sharp & Li (1987) definition: w_i = f_i / max(f_j), CAI = exp((1/L)·Σ ln(w_i)). Zero-frequency codons clamped to 1e-6 per original prescription.
+- **CAI formula**: Matches Sharp & Li (1987) definition: w_i = f_i / max(f_j), CAI = exp((1/L)·Σ ln(w_i)). Met/Trp and stops are not scored; w < 0.0001 → 0.01 (CodonW `cai_out`) — review 2026-09, CODON-CAI-001 F12/F13 (formerly Met/Trp scored with w = 1 and a 1e-6 clamp).
 - **Standard genetic code**: All 64 codons verified correct.
 - **Optimization strategies**: All thresholds exposed as configurable parameters (`rareCodonThreshold`, `gcTargetMin`, `gcTargetMax`); no hardcoded assumptions.
 - **MinimizeSecondary**: Falls through to BalancedOptimization in `SelectOptimalCodon`; separate `ReduceSecondaryStructure` method exists for dedicated secondary structure reduction.
