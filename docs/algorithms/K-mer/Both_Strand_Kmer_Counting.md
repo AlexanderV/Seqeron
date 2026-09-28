@@ -6,7 +6,7 @@
 | Test Unit ID | KMER-BOTH-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -100,6 +100,8 @@ Counts forward k-mers via `CountKmers`, counts k-mers of `DnaSequence.GetReverse
 
 - count[w] = forward[w] + forward[RC(w)] — kPAL "balance" (sum of each k-mer and its reverse complement) [1][2], grounded by inversion symmetry [3].
 - Grand total 2·(L − k + 1) [4]; strand-symmetric profile [1]; palindrome doubling [3].
+- Reference-confirmed (review 2026-09): kPAL's own `Profile.balance()` (`kpal/klib.py`, LUMC/kPAL master: `if i < i_rc: counts[i] += counts[i_rc]; counts[i_rc] += temp` / `elif i == i_rc: counts[i] += counts[i]`) was run on `ATGGC`/k=2, `ACGT`/k=2, `AAA`/k=2, `ATGC`/k=4 and `GAATTCACGTTGCAGGATCCATGC`/k=3,4,6; every balanced profile equals this method's output (and `Counter(S) + Counter(Bio.Seq.reverse_complement(S))`). Palindromes are doubled by kPAL exactly as here.
+- Relation to canonical counting (Jellyfish `-C`) [4]: for a non-palindromic canonical k-mer c, count[c] = count[RC(c)] = canonical_count[c]; for a reverse-complement palindrome, count[w] = 2·canonical_count[w] (e.g. k=4 on the reference sequence above: AATT, ACGT, CATG, GATC, TGCA → 2 here, 1 under `-C`). Palindromes exist only for even k.
 
 **Intentionally simplified:**
 
@@ -123,7 +125,7 @@ Counts forward k-mers via `CountKmers`, counts k-mers of `DnaSequence.GetReverse
 
 ### 6.2 Limitations
 
-Additive counting double-counts every k-mer's information relative to a single canonical key; it is not interchangeable with canonical k-mer sets used by sketching tools. Non-IUPAC characters pass through the reverse-complement helper unchanged.
+Additive counting double-counts every k-mer's information relative to a single canonical key; it is not interchangeable with canonical k-mer sets used by sketching tools. Ambiguity codes (N, R, Y, …) are kept as literal k-mer keys (inherited from `CountKmers`, KMER-COUNT-001) and complemented by the canonical IUPAC `SequenceExtensions.GetComplementBase` (N↔N, R↔Y, …), so e.g. `AAN`/k=2 → {AA, AN, NT, TT}; kPAL and Jellyfish instead skip every k-mer containing a non-ACGT base. Non-IUPAC characters (gaps etc.) pass through the reverse-complement helper unchanged. `U` is not DNA: the forward strand keeps `U` while its complement is `A`, so strand symmetry (INV-03) does not hold for U-containing input (the MCP tool rejects non-DNA input via `RequireDna`).
 
 ## 7. Examples and Related Material
 

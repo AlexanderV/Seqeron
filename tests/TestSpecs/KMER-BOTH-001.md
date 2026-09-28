@@ -5,7 +5,7 @@
 **Algorithm:** K-mer counting over both strands (forward + reverse-complement) of double-stranded DNA
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -83,6 +83,16 @@
 | S1 | Case-insensitivity | lowercase "atggc" == uppercase | equal dictionaries | sibling CountKmers upper-cases |
 | S2 | k = L | "ATGC", k=4 | {ATGC:1, GCAT:1} (RC(ATGC)=GCAT) | one window per strand |
 | S3 | DnaSequence overload delegates | DnaSequence("ATGGC") == string overload | equal dictionaries | delegate smoke |
+
+| S4 | IUPAC codes | "AAN"/2, "arc"/2 | {AA,AN,NT,TT}:1; {AR,RC,GY,YT}:1 | repository convention (literal keys + IUPAC complement); kPAL skips such k-mers |
+
+### 4.2a Reference cross-check (review 2026-09-28 — kPAL `Profile.balance()` executed from LUMC/kPAL source)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | `GAATTCACGTTGCAGGATCCATGC`, k=3 (odd, no palindromes) | exact 28-key kPAL dictionary, Σ = 44 | kPAL klib.py balance; Biopython RC |
+| R2 | same, k=4 (5 palindromes) | exact 33-key kPAL dictionary, Σ = 42; AATT/ACGT/CATG/GATC/TGCA = 2 (Jellyfish -C: 1) | kPAL klib.py balance |
+| R3 | same, k=6 | GAATTC = GGATCC = 2, others 1, 36 keys, Σ = 38 | kPAL klib.py balance |
 
 ### 4.3 COULD Tests (Nice to have)
 

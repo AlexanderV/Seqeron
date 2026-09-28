@@ -19,6 +19,19 @@
 1. **Both-strand balancing (verbatim):** "kPAL can forcefully balance the k-mer profiles (if desired) by adding the values of each k-mer to its reverse complement." This is the additive both-strand operation: the both-strand count of a k-mer is the sum of its own count and the count of its reverse complement.
 2. **Purpose:** balancing "enforce[s] balance between sequence information from the minus or plus strand" — i.e. it makes the profile strand-symmetric, which is the both-strand view of double-stranded DNA.
 
+### kPAL reference implementation — `Profile.balance()` source (review 2026-09-28)
+
+**URL:** https://raw.githubusercontent.com/LUMC/kPAL/master/kpal/klib.py (+ `kpal/metrics.py`)
+**Accessed:** 2026-09-28 (downloaded and executed with Python 3 + numpy + Biopython + `future`; `pip install kPAL` fails to build, so the module was run from source)
+**Authority rank:** 2 (reference implementation of the peer-reviewed method, Anvar et al. 2014)
+
+**Key Extracted Points:**
+
+1. **Verbatim code:** `for i in range(self.number): i_rc = self.reverse_complement(i); if i < i_rc: temp = self.counts[i]; self.counts[i] += self.counts[i_rc]; self.counts[i_rc] += temp; elif i == i_rc: self.counts[i] += self.counts[i]` — count[w] = forward[w] + forward[RC(w)], palindromes doubled.
+2. **Counting:** `from_sequences` splits the input on non-ACGT characters (`re.split('[^ACGT]')`), i.e. k-mers containing ambiguity codes are not counted (this library keeps them — see algorithm doc §6.2).
+3. **Outputs (Profile.from_sequences + balance):** ATGGC/2 → {AT:2,CA:1,CC:1,GC:2,GG:1,TG:1}; ACGT/2 → {AC:2,CG:2,GT:2}; AAA/2 → {AA:2,TT:2}; ATGC/4 → {ATGC:1,GCAT:1}; `GAATTCACGTTGCAGGATCCATGC` k=3 → 28 keys Σ44 (GCA:3, TGC:3, …); k=4 → 33 keys Σ42 with palindromes AATT/ACGT/CATG/GATC/TGCA = 2; k=6 → 36 keys Σ38 with GAATTC = GGATCC = 2. All identical to `Counter(S) + Counter(Bio.Seq.Seq(S).reverse_complement())` and to `KmerAnalyzer.CountKmersBothStrands`.
+4. **Canonical contrast (Jellyfish `-C` semantics reproduced with Biopython):** on the same k=4 input the palindromes count 1 each; non-palindromic canonical keys have the same count as here.
+
 ### Anvar et al. (2014) — Determining the quality and complexity of NGS data (kPAL paper)
 
 **URL:** https://link.springer.com/article/10.1186/s13059-014-0555-3 (search-result summary; full text behind Springer IDP redirect, summary retrieved via WebSearch)
@@ -158,3 +171,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Review 2026-09 (B06) — kPAL `balance()` source executed as reference; datasets R1–R3 and IUPAC note added.
