@@ -9,22 +9,39 @@ public static class SequenceComplexity
     #region Linguistic Complexity
 
     /// <summary>
-    /// Calculates linguistic complexity (LC) as the ratio of observed to possible subwords.
+    /// Calculates linguistic complexity (LC), the summation form
+    /// LC = Σ_{i=1..m} V_i / Σ_{i=1..m} V_max,i with V_max,i = min(4^i, N − i + 1),
+    /// where V_i is the number of distinct subwords of length i (Orlov &amp; Potapov 2004, NAR 32:W628,
+    /// word length limited by m ≤ N). With m ≥ N this is exactly the Troyanskaya et al. (2002,
+    /// Bioinformatics 18:679) definition LC = A(s)/M(s) over all lengths 1..N (Rosalind LING).
+    /// This is not Trifonov's (1990) product form C = Π U_i.
     /// LC = 1.0 for maximum complexity, lower values indicate repeats/low complexity.
     /// </summary>
+    /// <remarks>
+    /// Small m uses direct hash enumeration; larger m counts V_i from the sequence's suffix tree
+    /// (Troyanskaya et al. 2002): V_i equals the number of suffix-tree edges spanning depth i, so
+    /// the full-length LC is computed in linear time. Both paths return identical values.
+    /// </remarks>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="maxWordLength">Maximum word length to consider.</param>
+    /// <param name="maxWordLength">Maximum word length m to consider (values ≥ N give Troyanskaya's all-length LC).</param>
     /// <returns>Linguistic complexity (0 to 1).</returns>
     public static double CalculateLinguisticComplexity(DnaSequence sequence, int maxWordLength = 10)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxWordLength, 1);
 
-        return CalculateLinguisticComplexityCore(sequence.Sequence, maxWordLength);
+        string seq = sequence.Sequence;
+        if (seq.Length == 0) return 0;
+        int m = Math.Min(maxWordLength, seq.Length);
+        return m > LcHashEnumerationMaxWordLength
+            ? LinguisticComplexityFromCounts(DistinctSubwordCountsFromSuffixTree(sequence.SuffixTree, seq.Length, m), seq.Length)
+            : CalculateLinguisticComplexityCore(seq, maxWordLength);
     }
 
     /// <summary>
-    /// Calculates linguistic complexity from a raw sequence string.
+    /// Calculates linguistic complexity from a raw sequence string (same definition as the
+    /// <see cref="CalculateLinguisticComplexity(DnaSequence, int)"/> overload; input is upper-cased;
+    /// null/empty input or <paramref name="maxWordLength"/> &lt; 1 returns 0).
     /// </summary>
     public static double CalculateLinguisticComplexity(string sequence, int maxWordLength = 10)
     {
@@ -32,14 +49,22 @@ public static class SequenceComplexity
         return CalculateLinguisticComplexityCore(sequence.ToUpperInvariant(), maxWordLength);
     }
 
+    /// <summary>Largest word length for which direct hash enumeration is used instead of the suffix tree.</summary>
+    private const int LcHashEnumerationMaxWordLength = 12;
+
     private static double CalculateLinguisticComplexityCore(string seq, int maxWordLength)
     {
         if (seq.Length == 0) return 0;
 
-        long observedTotal = 0;
-        long possibleTotal = 0;
+        int m = Math.Min(maxWordLength, seq.Length);
+        if (m < 1) return 0;
 
-        for (int wordLen = 1; wordLen <= Math.Min(maxWordLength, seq.Length); wordLen++)
+        if (m > LcHashEnumerationMaxWordLength)
+            return LinguisticComplexityFromCounts(
+                DistinctSubwordCountsFromSuffixTree(global::SuffixTree.SuffixTree.Build(seq), seq.Length, m), seq.Length);
+
+        var counts = new long[m + 1];
+        for (int wordLen = 1; wordLen <= m; wordLen++)
         {
             var observedWords = new HashSet<string>();
 
@@ -48,17 +73,93 @@ public static class SequenceComplexity
                 observedWords.Add(seq.Substring(i, wordLen));
             }
 
-            observedTotal += observedWords.Count;
+            counts[wordLen] = observedWords.Count;
+        }
 
-            // Maximum possible words of length wordLen
-            long maxPossible = Math.Min(
-                (long)Math.Pow(4, wordLen),       // 4^wordLen possible DNA words
-                seq.Length - wordLen + 1);         // Can't observe more than available positions
+        return LinguisticComplexityFromCounts(counts, seq.Length);
+    }
 
+    /// <summary>
+    /// LC = Σ V_i / Σ min(4^i, N − i + 1) for i = 1..counts.Length−1.
+    /// </summary>
+    private static double LinguisticComplexityFromCounts(long[] counts, int n)
+    {
+        long observedTotal = 0;
+        long possibleTotal = 0;
+
+        for (int wordLen = 1; wordLen < counts.Length; wordLen++)
+        {
+            observedTotal += counts[wordLen];
+
+            // V_max,i = min(4^i, N − i + 1); 4^i > N for i ≥ 16 (N ≤ int.MaxValue), so avoid overflow.
+            long positions = n - wordLen + 1;
+            long maxPossible = wordLen < 16 ? Math.Min(1L << (2 * wordLen), positions) : positions;
             possibleTotal += maxPossible;
         }
 
         return possibleTotal > 0 ? (double)observedTotal / possibleTotal : 0;
+    }
+
+    /// <summary>
+    /// Distinct-subword counts V_1..V_m from a suffix tree (Troyanskaya et al. 2002): each substring
+    /// of length i is a unique point at depth i on exactly one edge, so V_i = number of edges whose
+    /// depth range covers i. Leaf edges end with the terminator, which is excluded.
+    /// </summary>
+    private static long[] DistinctSubwordCountsFromSuffixTree(global::SuffixTree.ISuffixTree tree, int n, int m)
+    {
+        var visitor = new SubwordDepthVisitor(n, m);
+        tree.Traverse(visitor);
+
+        var counts = new long[m + 1];
+        long running = 0;
+        for (int i = 1; i <= m; i++)
+        {
+            running += visitor.Diff[i];
+            counts[i] = running;
+        }
+        return counts;
+    }
+
+    private sealed class SubwordDepthVisitor : global::SuffixTree.ISuffixTreeVisitor
+    {
+        private readonly int _n;
+        private readonly int _m;
+        private bool _rootSeen;
+
+        public SubwordDepthVisitor(int n, int m)
+        {
+            _n = n;
+            _m = m;
+            Diff = new long[m + 2];
+        }
+
+        public long[] Diff { get; }
+
+        public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
+        {
+            if (!_rootSeen)
+            {
+                _rootSeen = true; // root: no edge
+                return;
+            }
+
+            // Edge covers text[startIndex, endIndex); a leaf edge (endIndex < 0) runs to the text end
+            // (the terminator position _n is not a character of the sequence).
+            int end = endIndex < 0 || endIndex > _n ? _n : endIndex;
+            int edgeLength = end - startIndex;
+            if (edgeLength <= 0) return;
+
+            int from = depth + 1;
+            if (from > _m) return;
+            int to = Math.Min(depth + edgeLength, _m);
+
+            Diff[from]++;
+            Diff[to + 1]--;
+        }
+
+        public void EnterBranch(int key) { }
+
+        public void ExitBranch() { }
     }
 
     #endregion

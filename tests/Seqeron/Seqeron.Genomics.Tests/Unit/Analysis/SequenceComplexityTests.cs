@@ -184,6 +184,100 @@ public class SequenceComplexityTests
         });
     }
 
+    [TestCase(9)]
+    [TestCase(int.MaxValue)]
+    public void CalculateLinguisticComplexity_RosalindLingSample_AllWordLengths_Returns0875(int maxWordLength)
+    {
+        // Rosalind LING sample: lc("ATTTGGATT") = 0.875 = sub(s)/m(4,9) = 35/40,
+        // i.e. Troyanskaya et al. (2002) LC = A(s)/M(s) summed over ALL lengths 1..N.
+        // With maxWordLength ≥ N the Orlov & Potapov (2004) truncated sum equals it.
+        // Reference: 2026-09 review Python recomputation (fractions) = 7/8.
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence("ATTTGGATT"), maxWordLength);
+
+        Assert.That(lc, Is.EqualTo(0.875).Within(1e-12));
+    }
+
+    [TestCase("ATGCTAGCATGCAATG", 28.0 / 31.0)]
+    [TestCase("AAAAAAAAAAAAAAAA", 4.0 / 31.0)]
+    [TestCase("ACACACACACACACACA", 33.0 / 140.0)]
+    [TestCase("ACGGGAAGCTGATTCCA", 69.0 / 70.0)]
+    public void CalculateLinguisticComplexity_TroyanskayaFullLength_MatchesReference(string sequence, double expected)
+    {
+        // Troyanskaya et al. (2002): LC = Σ_{l=1..N} A_l / Σ_{l=1..N} min(4^l, N−l+1).
+        // Expected values from the 2026-09 review Python reference (exact fractions).
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: sequence.Length);
+
+        Assert.That(lc, Is.EqualTo(expected).Within(1e-12));
+    }
+
+    [TestCase("AAACCCGGGTTT", 51.0 / 55.0)]
+    [TestCase("AACCGGTTACGT", 52.0 / 55.0)]
+    [TestCase("ACGTACGTACGT", 28.0 / 55.0)]
+    [TestCase("AAAACCCCGGGG", 9.0 / 11.0)]
+    [TestCase("AAAAAACCCCCC", 3.0 / 5.0)]
+    [TestCase("AAAAAAAAAACC", 4.0 / 11.0)]
+    public void CalculateLinguisticComplexity_OrlovSumForm_UniversalmotifSequences_MatchesReference(string sequence, double expected)
+    {
+        // Orlov & Potapov (2004) CL = Σ_{i=1..m} V_i / Σ_{i=1..m} min(4^i, N−i+1), m = 7.
+        // The per-length (V_i, V_max,i) used by the Python reference reproduce the product form
+        // of universalmotif::calc_complexity(method = "Trifonov", max word size 7) to 4 dp
+        // (0.6364, 0.7273, 0.01231, 0.2386, 0.0227, 0.0011), independently confirming V_max,i.
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: 7);
+
+        Assert.That(lc, Is.EqualTo(expected).Within(1e-12));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_WordLengthsBeyond4Pow31_NoOverflow()
+    {
+        // m ≥ 32 makes 4^i exceed long.MaxValue; V_max,i must still be N−i+1.
+        // Python reference (exact): m = N = 40 → 749/761.
+        const string sequence = "ACGTTGCAAGGCTTACCGATGCATCGGATCCTAGGCTAAC";
+
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(sequence), maxWordLength: 40);
+
+        Assert.That(lc, Is.EqualTo(749.0 / 761.0).Within(1e-12));
+    }
+
+    [TestCase(13, 782.0 / 1209.0)]
+    [TestCase(20, 1405.0 / 1937.0)]
+    [TestCase(50, 1971.0 / 2251.0)]
+    [TestCase(120, 6427.0 / 6987.0)]
+    public void CalculateLinguisticComplexity_SuffixTreePath_RepeatRichSequence_MatchesReference(int maxWordLength, double expected)
+    {
+        // m > 12 counts V_i from the suffix tree (Troyanskaya et al. 2002). Sequence contains an
+        // exact 20-nt repeat, a (CAG)10 microsatellite and an A/C-only tail so internal nodes,
+        // multi-length edges and leaf edges are all exercised. Expected: Python reference (exact).
+        const string sequence =
+            "GCTAAAGACAATTACATAACATACACGTCACAGCAGCAGCAGCAGCAGCAGCAGCAGCAGGCTAAAGACAATTACATAACC" +
+            "AAACAAAACCCCCCCAAAACCCCCAACACACCAACCCCC";
+
+        double lcDna = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(sequence), maxWordLength);
+        double lcString = SequenceComplexity.CalculateLinguisticComplexity(sequence.ToLowerInvariant(), maxWordLength);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lcDna, Is.EqualTo(expected).Within(1e-12));
+            Assert.That(lcString, Is.EqualTo(expected).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_FullLengthLongHomopolymer_ExactAndLinearTime()
+    {
+        // Troyanskaya all-length LC of A^N: V_i = 1 for every i, so LC = N / Σ_i min(4^i, N−i+1).
+        // N = 200,000 would need ~2·10^10 substring characters by direct enumeration; the suffix-tree
+        // path is linear. Expected denominator computed in closed form below.
+        const int n = 200_000;
+        long possible = 0;
+        for (int i = 1; i <= n; i++)
+            possible += i < 16 ? Math.Min(1L << (2 * i), n - i + 1) : n - i + 1;
+
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(new string('A', n)), int.MaxValue);
+
+        Assert.That(lc, Is.EqualTo((double)n / possible).Within(1e-15));
+    }
+
     #endregion
 
     #region Shannon Entropy Tests

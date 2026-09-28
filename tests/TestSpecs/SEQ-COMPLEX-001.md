@@ -11,7 +11,7 @@ This TestSpec covers all sequence complexity metrics in `SequenceComplexity`:
 
 | Method | Purpose |
 |--------|---------|
-| `CalculateLinguisticComplexity` | Vocabulary richness (Troyanskaya summation) |
+| `CalculateLinguisticComplexity` | Vocabulary richness (Orlov & Potapov 2004 summation, word length ≤ m; = Troyanskaya 2002 when m ≥ N) |
 | `CalculateShannonEntropy` | Information content per base |
 | `CalculateKmerEntropy` | Entropy of k-mer frequency distribution |
 | `CalculateWindowedComplexity` | Sliding-window complexity profile |
@@ -26,18 +26,24 @@ This TestSpec covers all sequence complexity metrics in `SequenceComplexity`:
 |--------|------|-----------------|
 | Wikipedia "Linguistic sequence complexity" | Encyclopedia | LC formula, vocabulary usage, examples |
 | Troyanskaya et al. (2002) Bioinformatics 18(5):679–88 | Peer-reviewed | Summation formula: LC = Σ(observed) / Σ(possible) |
-| Orlov & Potapov (2004) NAR 32:W628–W633 | Peer-reviewed | V_max = min(4^i, N−i+1), complexity profiles |
+| Orlov & Potapov (2004) NAR 32:W628–W633 | Peer-reviewed | V_max = min(4^i, N−i+1); CL = ΣV_i/ΣV_max,i with word length limited by m ≤ N |
+| Rosalind LING "Linguistic Complexity of a Genome" | Problem set | lc(s) = sub(s)/m(a,n) over all lengths; sample `ATTTGGATT` → 0.875 |
+| universalmotif `sequence_complexity` (R, bjmt/universalmotif, `R/sequence_complexity.R`) | Reference implementation | Trifonov (1990) **product** form C = ΠU_i; doc examples reproduce our V_i / V_max,i to 4 dp |
 | Wikipedia "Entropy (information theory)" | Encyclopedia | Shannon formula H = −Σ p_i log₂ p_i |
 | Shannon (1948) Bell System Technical Journal | Original paper | Information entropy definition |
 | Morgulis et al. (2006) J Comput Biol 13(5):1028–40 | Peer-reviewed | Symmetric DUST originator: S = Σc_t(c_t−1)/2 / (w−1). **Implemented variant** follows Li (2025) SDUST: divisor = ℓ = number of triplets (N−2), not (w−1) — see §Formulas and the DUST test rows. |
 
 ## 3. Formulas
 
-### 3.1 Linguistic Complexity (Troyanskaya 2002)
+### 3.1 Linguistic Complexity (Orlov & Potapov 2004; Troyanskaya 2002)
 
 $$LC = \frac{\sum_{i=1}^{m} V_{obs}(i)}{\sum_{i=1}^{m} V_{max}(i)}$$
 
-Where $V_{max}(i) = \min(4^i, N - i + 1)$. Range: $0 \le LC \le 1$.
+Where $V_{max}(i) = \min(4^i, N - i + 1)$ and $m$ = `maxWordLength` (clamped to N). Range: $0 \le LC \le 1$.
+With $m \ge N$ this is exactly Troyanskaya et al. (2002) $LC = A(s)/M(s)$ over all lengths (Rosalind LING);
+the default $m = 10$ is the Orlov & Potapov (2004) word-length-limited variant. This is **not** Trifonov's
+(1990) product $C = \prod_i U_i$ (universalmotif "Trifonov"). For $m > 12$ the $V_i$ are counted from the
+suffix tree (Troyanskaya 2002: $V_i$ = number of edges spanning depth $i$), linear in N; identical values.
 
 ### 3.2 Shannon Entropy (Shannon 1948)
 
@@ -78,6 +84,12 @@ divided by $\ell(x) - 1 = N - 3$; that divisor is superseded — see SEQ-COMPLEX
 | LC-10 | `CalculateLinguisticComplexity_WikipediaDinucleotideRepeat_MatchesHandCalculation` | Exact: 5/28 | Wikipedia |
 | LC-11 | `CalculateLinguisticComplexity_MaximalComplexity_ReturnsOne` | Exact: 1.0 | Troyanskaya (2002) |
 | LC-12 | `CalculateLinguisticComplexity_LowercaseInput_HandledCorrectly` | Case-insensitive | Robustness |
+| LC-13 | `CalculateLinguisticComplexity_RosalindLingSample_AllWordLengths_Returns0875` | Exact: 0.875 (m=9, m=int.MaxValue) | Rosalind LING; Troyanskaya (2002) |
+| LC-14 | `CalculateLinguisticComplexity_TroyanskayaFullLength_MatchesReference` | Exact: 28/31, 4/31, 33/140, 69/70 (m=N) | Troyanskaya (2002); Python reference |
+| LC-15 | `CalculateLinguisticComplexity_OrlovSumForm_UniversalmotifSequences_MatchesReference` | Exact: 51/55, 52/55, 28/55, 9/11, 3/5, 4/11 (m=7) | Orlov & Potapov (2004); V_i cross-checked vs universalmotif |
+| LC-16 | `CalculateLinguisticComplexity_WordLengthsBeyond4Pow31_NoOverflow` | Exact: 749/761 (N=m=40) | Formula; no 4^i overflow |
+| LC-17 | `CalculateLinguisticComplexity_SuffixTreePath_RepeatRichSequence_MatchesReference` | Exact: 782/1209, 1405/1937, 1971/2251, 6427/6987 (N=120) | Troyanskaya suffix-tree counting; Python reference |
+| LC-18 | `CalculateLinguisticComplexity_FullLengthLongHomopolymer_ExactAndLinearTime` | Exact closed form, N=200,000 | Troyanskaya (2002) linear-time claim |
 
 ### 4.2 Shannon Entropy Tests (8 tests)
 
@@ -171,7 +183,7 @@ are the empty→0 and null→throw guards.
 
 ## 5. Hand-Calculated Cross-Verification Table
 
-### 5.1 Linguistic Complexity (Troyanskaya formula)
+### 5.1 Linguistic Complexity (summation formula; m = maxWord)
 
 | Input | N | maxWord | obs | max | LC | Match |
 |-------|---|---------|-----|-----|----|-------|
@@ -182,6 +194,9 @@ are the empty→0 and null→throw guards.
 | `"ATGCTAGCATGCAATG"` | 16 | 10 | 91 | 103 | 91/103 | ✓ |
 | `"ACGGGAAGCTGATTCCA"` | 17 | 4 | 47 | 49 | 47/49 | ✓ |
 | `"ACACACACACACACACA"` | 17 | 10 | 20 | 112 | 5/28 | ✓ |
+| `"ATTTGGATT"` (Rosalind) | 9 | ≥9 | 35 | 40 | 0.875 | ✓ |
+| `"ATGCTAGCATGCAATG"` | 16 | 16 | 112 | 124 | 28/31 | ✓ |
+| `"AAAAAAAAAAAAAAAA"` | 16 | 16 | 16 | 124 | 4/31 | ✓ |
 
 ### 5.2 Shannon Entropy
 
