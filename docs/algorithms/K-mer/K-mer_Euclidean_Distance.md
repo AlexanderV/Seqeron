@@ -6,7 +6,7 @@
 | Test Unit ID | KMER-DIST-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -49,6 +49,16 @@ d(x, y) = sqrt( Σ_{w ∈ W} ( f_x(w) − f_y(w) )² )
 where a word absent from a sequence contributes a 0 component [1]. The difference between the
 two word vectors "is very commonly computed by the Euclidean distance" [1], applied to the
 relative-frequency vectors [4].
+
+**Variant note (2026-09 review).** The classical word-count distance of Blaisdell (1986), as
+reviewed by Vinga & Almeida (2003) [3], is the *squared* Euclidean distance on raw counts,
+d_E = Σ (c_x(w) − c_y(w))²; for the Fig. 1 example this is 3 (√3 ≈ 1.7320508 unsquared). This
+method implements the **non-squared Euclidean on relative frequencies** [2][4], giving √0.11.
+The Lau et al. [2] parenthetical "(i.e. the sequence length minus the k-mer length)" is loose
+wording: the total number of overlapping k-mers is L − k + 1 (scikit-bio
+`Sequence.kmer_frequencies(relative=True, overlap=True)` uses `len(self) - k + 1`), which is
+what the implementation uses. MUSCLE's k-mer distance (Edgar 2004) is a different measure
+(fractional common k-mer count) and is not what this method computes.
 
 ### 2.4 Properties and Invariants
 
@@ -146,7 +156,7 @@ relative-frequency vectors [4].
 
 **Not implemented:**
 
-- Count-based (un-normalized) Euclidean and other metrics (Manhattan, Canberra, Chebyshev, cosine, D2); **users should rely on:** no current alternative in this class — only the frequency Euclidean variant is provided.
+- Count-based (un-normalized, Blaisdell 1986 / Vinga & Almeida 2003 squared d_E) Euclidean and other metrics (Manhattan, Canberra, Chebyshev, cosine, D2); **users should rely on:** no current alternative in this class — only the frequency Euclidean variant is provided.
 - Spaced k-mers / spaced-word frequencies [4]; **users should rely on:** contiguous k-mers only.
 
 ### 5.4 Deviations and Assumptions

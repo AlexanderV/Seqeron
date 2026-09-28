@@ -124,6 +124,37 @@ public class KmerAnalyzer_KmerDistance_Tests
             "Inputs are upper-cased before counting, so lower-case x must reproduce the Fig.1 distance sqrt(0.11) (A1).");
     }
 
+    // S4 — Independent reference cross-check (2026-09 review): values computed with
+    // scikit-bio Sequence.kmer_frequencies(k, overlap=True, relative=True) (denominator L − k + 1)
+    // over the union of k-mers, then scipy.spatial.distance.euclidean.
+    [TestCase("ACGTTGCAACGGT", "ACGTAGCATCGGTA", 2, 0.26600633232367216)]
+    [TestCase("GATTACAGATTACA", "GATTACCGATTTCA", 3, 0.31180478223116176)]
+    [TestCase("ATGTGTG", "CATGTG", 3, 0.33166247903554)]
+    public void KmerDistance_MatchesSkbioScipyReference(string seq1, string seq2, int k, double expected)
+    {
+        double distance = KmerAnalyzer.KmerDistance(seq1, seq2, k);
+
+        Assert.That(distance, Is.EqualTo(expected).Within(1e-12),
+            "Must equal scipy euclidean over scikit-bio relative k-mer frequency vectors (count / (L − k + 1)).");
+    }
+
+    // S5 — Frequency (not raw-count) variant: the Fig.1 raw count vectors (1,0,2,2) vs (1,1,1,1)
+    // would give the Blaisdell/Vinga–Almeida count Euclidean √3 (squared form 3); the documented
+    // frequency variant must NOT return either value.
+    [Test]
+    public void KmerDistance_Fig1_IsFrequencyVariantNotCountVariant()
+    {
+        double distance = KmerAnalyzer.KmerDistance("ATGTGTG", "CATGTG", 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(distance, Is.Not.EqualTo(Math.Sqrt(3.0)).Within(1e-6),
+                "Raw-count Euclidean (√3) must not be returned; the method normalises by L − k + 1.");
+            Assert.That(distance, Is.Not.EqualTo(3.0).Within(1e-6),
+                "Squared raw-count Euclidean (Blaisdell d_E = 3) must not be returned.");
+        });
+    }
+
     #endregion
 
     #region KmerDistance — COULD (validation / boundary)

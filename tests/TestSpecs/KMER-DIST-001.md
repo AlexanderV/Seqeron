@@ -80,6 +80,8 @@
 | S1 | Disjoint single-kmer sequences | "AAAA" vs "TTTT", k=2 | √2 = 1.4142135623730951 | INV-4; both vectors are single 1.0 components |
 | S2 | One sequence too short for k | "ACGT" (k=5 ⇒ empty) vs "AAAAAA" (k=5 ⇒ "AAAAA"=1.0) | 1.0 | ASSUMPTION A2 (empty vector = zero vector) |
 | S3 | Case-insensitivity | "atgtgtg" vs "CATGTG", k=3 | 0.33166247903553997 | ASSUMPTION A1 (upper-casing); equals M1 |
+| S4 | skbio/scipy reference cross-check | ACGTTGCAACGGT/ACGTAGCATCGGTA k=2; GATTACAGATTACA/GATTACCGATTTCA k=3; Fig.1 | 0.26600633232367216; 0.31180478223116176; 0.33166247903554 | scikit-bio kmer_frequencies(relative) + scipy euclidean (2026-09 review) |
+| S5 | Frequency, not count, variant | Fig.1 inputs | ≠ √3 and ≠ 3 (count Euclidean / Blaisdell squared d_E) | Source 1 count vectors; Vinga & Almeida 2003 d_E |
 
 ### 4.3 COULD Tests (Nice to have)
 

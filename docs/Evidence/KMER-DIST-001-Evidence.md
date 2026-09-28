@@ -138,6 +138,32 @@ Euclidean distance = √((1.0−0.75)² + (0−0.25)²) = √(0.0625 + 0.0625) =
 
 ---
 
+## Independent Cross-check (2026-09 review)
+
+Reference: scikit-bio `Sequence.kmer_frequencies(k, overlap=True, relative=True)` (source
+inspected: denominator `len(self) - k + 1`) over the union of k-mers, then
+`scipy.spatial.distance.euclidean`.
+
+| seq1 | seq2 | k | reference distance |
+|------|------|---|--------------------|
+| ATGTGTG | CATGTG | 3 | 0.33166247903554 (√0.11) |
+| AAAA | AAAT | 1 | 0.3535533905932738 |
+| AAAA | TTTT | 2 | 1.4142135623730951 |
+| ACGT | AAAAAA | 5 | 1.0 |
+| ACGTTGCAACGGT | ACGTAGCATCGGTA | 2 | 0.26600633232367216 |
+| GATTACAGATTACA | GATTACCGATTTCA | 3 | 0.31180478223116176 |
+
+Raw-count Counter vectors for Fig. 1 reproduce the source exactly: x = {ATG:1, GTG:2, TGT:2},
+y = {ATG:1, CAT:1, GTG:1, TGT:1}; count Euclidean = √3 = 1.7320508075688772. Blaisdell (1986) /
+Vinga & Almeida (2003) d_E is the squared count form (= 3) — a different variant from the
+implemented frequency form (confirmed via search snippets of Höhl, Rigoutsos & Ragan 2006, which
+quote d_E = Σ(c_i^X − c_i^Y)² and attribute it to Blaisdell 1986).
+
+Note: Lau et al. (2022) write "(i.e. the sequence length minus the k-mer length)"; the number of
+overlapping k-mers is L − k + 1, which is what both scikit-bio and the implementation use.
+
 ## Change History
+
+- **2026-09-28**: 2026-09 review — added scikit-bio/scipy cross-check table and variant note.
 
 - **2026-06-13**: Initial documentation.
