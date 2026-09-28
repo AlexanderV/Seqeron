@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 
 namespace Seqeron.Genomics.Core
 {
@@ -47,43 +46,30 @@ namespace Seqeron.Genomics.Core
 
         /// <summary>
         /// Gets the complement of this RNA sequence.
-        /// A ↔ U, C ↔ G
+        /// A ↔ U, C ↔ G. Delegates to the canonical <see cref="SequenceExtensions.GetRnaComplementBase(char)"/>.
         /// </summary>
         public RnaSequence Complement()
         {
-            var sb = new StringBuilder(_sequence.Length);
-            foreach (char c in _sequence)
+            var result = new char[_sequence.Length];
+            for (int i = 0; i < _sequence.Length; i++)
             {
-                sb.Append(c switch
-                {
-                    'A' => 'U',
-                    'U' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    _ => c
-                });
+                result[i] = SequenceExtensions.GetRnaComplementBase(_sequence[i]);
             }
-            return new RnaSequence(sb.ToString());
+            return new RnaSequence(new string(result));
         }
 
         /// <summary>
         /// Gets the reverse complement of this RNA sequence.
+        /// Delegates per base to the canonical <see cref="SequenceExtensions.GetRnaComplementBase(char)"/>.
         /// </summary>
         public RnaSequence ReverseComplement()
         {
-            var sb = new StringBuilder(_sequence.Length);
-            for (int i = _sequence.Length - 1; i >= 0; i--)
+            var result = new char[_sequence.Length];
+            for (int i = 0; i < _sequence.Length; i++)
             {
-                sb.Append(_sequence[i] switch
-                {
-                    'A' => 'U',
-                    'U' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    _ => _sequence[i]
-                });
+                result[i] = SequenceExtensions.GetRnaComplementBase(_sequence[_sequence.Length - 1 - i]);
             }
-            return new RnaSequence(sb.ToString());
+            return new RnaSequence(new string(result));
         }
 
         /// <summary>

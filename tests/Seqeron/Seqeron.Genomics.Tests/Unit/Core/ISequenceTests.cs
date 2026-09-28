@@ -37,6 +37,22 @@ public class ISequenceTests
     }
 
     [Test]
+    [Description("SEQ-COMP-001: IupacDnaSequence delegates to canonical GetComplementBase — Biopython reverse_complement('ACGTRYWSKMBDHVN') = 'NBDHVKMSWRYACGT'; complement('AC-.G') = 'TG-.C'")]
+    public void IupacDnaSequence_Complement_MatchesBiopythonIncludingGaps()
+    {
+        var rc = new IupacDnaSequence("ACGTRYWSKMBDHVN").GetReverseComplement() as IupacDnaSequence;
+        var gaps = new IupacDnaSequence("AC-.G").GetComplement() as IupacDnaSequence;
+        var nonIupac = new IupacDnaSequence("AXG").GetComplement() as IupacDnaSequence;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rc!.Sequence, Is.EqualTo("NBDHVKMSWRYACGT"));
+            Assert.That(gaps!.Sequence, Is.EqualTo("TG-.C"), "gaps are self-complementary");
+            Assert.That(nonIupac!.Sequence, Is.EqualTo("TNC"), "non-alphabet symbol becomes N");
+        });
+    }
+
+    [Test]
     public void IupacDnaSequence_GetReverseComplement_Works()
     {
         var seq = new IupacDnaSequence("ACGT");
@@ -268,6 +284,24 @@ public class ISequenceTests
         Assert.That(comp, Is.Not.Null);
         Assert.That(comp!.Sequence, Is.EqualTo("TGCA"));
         Assert.That(comp.Qualities, Is.EquivalentTo(new byte[] { 10, 20, 30, 40 }));
+    }
+
+    [Test]
+    [Description("SEQ-COMP-001: self-complementary IUPAC codes S/W/N are not 'unknown' — Biopython complement('ASWRN') = 'TSWYN', reverse_complement = 'NYWST'")]
+    public void QualitySequence_Complement_SelfComplementaryIupacCodesPreserved()
+    {
+        var seq = new QualitySequence("aswrn", new byte[] { 10, 20, 30, 40, 50 });
+        var comp = seq.GetComplement() as QualitySequence;
+        var rc = seq.GetReverseComplement() as QualitySequence;
+        var withGap = new QualitySequence("A-G", new byte[] { 1, 2, 3 }).GetComplement() as QualitySequence;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comp!.Sequence, Is.EqualTo("TSWYN"));
+            Assert.That(rc!.Sequence, Is.EqualTo("NYWST"));
+            Assert.That(rc.Qualities, Is.EqualTo(new byte[] { 50, 40, 30, 20, 10 }));
+            Assert.That(withGap!.Sequence, Is.EqualTo("TNC"), "non-IUPAC characters become N");
+        });
     }
 
     [Test]

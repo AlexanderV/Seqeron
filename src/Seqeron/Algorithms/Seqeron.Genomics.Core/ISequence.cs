@@ -127,27 +127,13 @@ public class IupacDnaSequence : SequenceBase
         '-', '.'                  // Gaps
     };
 
-    private static readonly Dictionary<char, char> _complements = new()
-    {
-        ['A'] = 'T',
-        ['T'] = 'A',
-        ['G'] = 'C',
-        ['C'] = 'G',
-        ['U'] = 'A',
-        ['N'] = 'N',
-        ['R'] = 'Y',
-        ['Y'] = 'R',  // Purine <-> Pyrimidine
-        ['W'] = 'W',
-        ['S'] = 'S',  // Weak and Strong are self-complementary
-        ['K'] = 'M',
-        ['M'] = 'K',  // Keto <-> Amino
-        ['B'] = 'V',
-        ['V'] = 'B',  // B(CGT) <-> V(ACG)
-        ['D'] = 'H',
-        ['H'] = 'D',  // D(AGT) <-> H(ACT)
-        ['-'] = '-',
-        ['.'] = '.'
-    };
+    /// <summary>
+    /// Complement of one IUPAC symbol: symbols in <see cref="_alphabet"/> are complemented by the
+    /// canonical <see cref="SequenceExtensions.GetComplementBase(char)"/> (IUPAC NC-IUB 1984 table;
+    /// gaps '-'/'.' map to themselves); any other character becomes 'N'.
+    /// </summary>
+    private static char ComplementSymbol(char c)
+        => _alphabet.Contains(c) ? SequenceExtensions.GetComplementBase(c) : 'N';
 
     private static readonly Dictionary<char, char[]> _expansions = new()
     {
@@ -182,10 +168,7 @@ public class IupacDnaSequence : SequenceBase
         var complement = new char[Length];
         for (int i = 0; i < Length; i++)
         {
-            if (_complements.TryGetValue(_sequence[i], out char comp))
-                complement[i] = comp;
-            else
-                complement[i] = 'N';
+            complement[i] = ComplementSymbol(_sequence[i]);
         }
         return new IupacDnaSequence(new string(complement));
     }
@@ -203,8 +186,7 @@ public class IupacDnaSequence : SequenceBase
         var result = new char[Length];
         for (int i = 0; i < Length; i++)
         {
-            char c = _sequence[Length - 1 - i];
-            result[i] = _complements.TryGetValue(c, out char comp) ? comp : 'N';
+            result[i] = ComplementSymbol(_sequence[Length - 1 - i]);
         }
         return new IupacDnaSequence(new string(result));
     }
@@ -401,13 +383,24 @@ public class QualitySequence : SequenceBase
         return new QualitySequence(_sequence.Substring(start, length), subQual);
     }
 
+    /// <summary>
+    /// Complement of one read base via the canonical <see cref="SequenceExtensions.GetComplementBase(char)"/>
+    /// (IUPAC NC-IUB 1984 table). Characters that are not IUPAC nucleotide symbols become 'N'.
+    /// The self-complementary IUPAC codes S, W and N are genuine complements (Biopython
+    /// <c>complement("ASWRN")</c> = "TSWYN"), so "unchanged" is not by itself treated as unknown.
+    /// </summary>
+    private static char ComplementReadBase(char c)
+    {
+        char comp = SequenceExtensions.GetComplementBase(c);
+        return comp == c && c is not ('S' or 'W' or 'N') ? 'N' : comp;
+    }
+
     public override ISequence? GetComplement()
     {
         var complement = new char[Length];
         for (int i = 0; i < Length; i++)
         {
-            char comp = SequenceExtensions.GetComplementBase(_sequence[i]);
-            complement[i] = comp == _sequence[i] ? 'N' : comp; // Unknown bases become N
+            complement[i] = ComplementReadBase(_sequence[i]);
         }
         return new QualitySequence(new string(complement), _qualities);
     }
@@ -431,8 +424,7 @@ public class QualitySequence : SequenceBase
         for (int i = 0; i < Length; i++)
         {
             char c = _sequence[Length - 1 - i];
-            char comp = SequenceExtensions.GetComplementBase(c);
-            result[i] = comp == c ? 'N' : comp; // Unknown bases become N
+            result[i] = ComplementReadBase(c);
             revQual[i] = _qualities[Length - 1 - i];
         }
         return new QualitySequence(new string(result), revQual);
