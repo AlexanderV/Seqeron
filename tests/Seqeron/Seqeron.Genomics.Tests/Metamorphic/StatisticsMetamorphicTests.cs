@@ -762,4 +762,115 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Review 2026-09 batch B03 — relations for the behaviour the batch introduced
+    // (docs/Validation/review-2026-09/B03.md F2, F6, F8, F10).
+    //
+    //   • INV  (F6, Bjellqvist pI): side-chain charges depend only on residue counts and the terminal
+    //          pKs only on the first/last residue, so permuting the interior with fixed termini leaves
+    //          the Bjellqvist pI and net charge unchanged (while the EMBOSS pI ignores termini entirely).
+    //   • INV  (F8, edge-weighted hydropathy): the ProtScale weights are symmetric about the window
+    //          centre, so reversing the sequence reverses the profile.
+    //   • INV  (F2, ds nucleotide MW): a duplex is the same molecule read from either strand, so
+    //          ds MW(seq) = ds MW(revcomp(seq)), linear and circular.
+    //   • INV  (F10, self-complementary NN): the symmetry correction is sequence-independent and the NN
+    //          table is revcomp-symmetric, so the self-complementary result is revcomp-invariant.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region B03 F6 INV — Bjellqvist pI is invariant under interior permutation with fixed termini
+
+    [Test]
+    [Description("INV: Bjellqvist side-chain charges depend on counts, terminal pKs on the end residues only, so shuffling the interior keeps pI and net charge.")]
+    public void IsoelectricPoint_Bjellqvist_InteriorPermutation_Invariant()
+    {
+        var rng = new System.Random(20260928);
+        const string alphabet = "ARNDCEQGHILKMFPSTWYV";
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int n = rng.Next(3, 40);
+            char[] a = Enumerable.Range(0, n).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray();
+            string seq = new(a);
+            char[] interior = a[1..^1].OrderBy(_ => rng.Next()).ToArray();
+            string shuffled = a[0] + new string(interior) + a[^1];
+
+            SequenceStatistics.CalculateIsoelectricPoint(shuffled, SequenceStatistics.PkaScale.Bjellqvist)
+                .Should().Be(SequenceStatistics.CalculateIsoelectricPoint(seq, SequenceStatistics.PkaScale.Bjellqvist),
+                    because: $"'{seq}' and '{shuffled}' share composition and termini");
+            SequenceStatistics.CalculateNetCharge(shuffled, 7.4, SequenceStatistics.PkaScale.Bjellqvist)
+                .Should().BeApproximately(SequenceStatistics.CalculateNetCharge(seq, 7.4, SequenceStatistics.PkaScale.Bjellqvist), 1e-12);
+            SequenceStatistics.CalculateIsoelectricPoint(new string(a.Reverse().ToArray()))
+                .Should().Be(SequenceStatistics.CalculateIsoelectricPoint(seq),
+                    because: "the EMBOSS scale has no terminal-residue pKs, so any permutation (here reversal) keeps its pI");
+        }
+    }
+
+    #endregion
+
+    #region B03 F8 INV — reversing the sequence reverses the edge-weighted hydropathy profile
+
+    [Test]
+    [Description("INV: ProtScale linear edge weights are symmetric about the window centre, so profile(reverse(seq)) = reverse(profile(seq)).")]
+    public void HydrophobicityProfile_EdgeWeighted_Reversal_ReversesProfile()
+    {
+        var rng = new System.Random(8);
+        const string alphabet = "ARNDCEQGHILKMFPSTWYVXBZ";
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int w = 2 * rng.Next(0, 8) + 1;
+            double edge = rng.Next(0, 11) / 10.0;
+            string seq = new(Enumerable.Range(0, rng.Next(w, w + 40)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            var forward = SequenceStatistics.CalculateHydrophobicityProfile(seq, w, edge).ToList();
+            var backward = SequenceStatistics.CalculateHydrophobicityProfile(new string(seq.Reverse().ToArray()), w, edge).Reverse().ToList();
+
+            backward.Should().HaveCount(forward.Count);
+            for (int i = 0; i < forward.Count; i++)
+                backward[i].Should().BeApproximately(forward[i], 1e-12, because: $"W={w}, edge={edge}, '{seq}', window {i}");
+        }
+    }
+
+    #endregion
+
+    #region B03 F2 INV — double-stranded nucleotide MW is strand-independent
+
+    [Test]
+    [Description("INV: a duplex is the same molecule read from either strand, so ds MW(seq) = ds MW(revcomp(seq)) for linear and circular DNA.")]
+    public void NucleotideMolecularWeight_DoubleStranded_ReverseComplement_Invariant()
+    {
+        var rng = new System.Random(2);
+        for (int trial = 0; trial < 200; trial++)
+        {
+            string seq = new(Enumerable.Range(0, rng.Next(1, 60)).Select(_ => "ACGT"[rng.Next(4)]).ToArray());
+            foreach (bool circular in new[] { false, true })
+            {
+                SequenceStatistics.CalculateNucleotideMolecularWeight(RevComp(seq), true, true, circular)
+                    .Should().BeApproximately(SequenceStatistics.CalculateNucleotideMolecularWeight(seq, true, true, circular), 1e-7,
+                        because: $"'{seq}' (circular {circular}) and its reverse complement describe the same duplex");
+            }
+        }
+    }
+
+    #endregion
+
+    #region B03 F10 INV — the self-complementary NN result is reverse-complement invariant
+
+    [Test]
+    [Description("INV: with selfComplementary=true the symmetry term is constant and NN parameters are revcomp-symmetric, so reverse-complementing the strand leaves ΔH/ΔS/ΔG/Tm unchanged (up to output rounding).")]
+    public void Thermodynamics_SelfComplementary_ReverseComplement_Invariant()
+    {
+        var rng = new System.Random(10);
+        foreach (var seq in new[] { "GCGC", "AATT", "CGCGAATTCGCG", "GCGCGCGCGCGC" }
+                     .Concat(Enumerable.Range(0, 200).Select(_ =>
+                         new string(Enumerable.Range(0, rng.Next(2, 40)).Select(_ => "ACGT"[rng.Next(4)]).ToArray()))))
+        {
+            var a = SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, selfComplementary: true);
+            var b = SequenceStatistics.CalculateThermodynamics(RevComp(seq), 0.05, 2.5e-7, selfComplementary: true);
+            b.DeltaH.Should().BeApproximately(a.DeltaH, 0.0100001, because: seq);
+            b.DeltaS.Should().BeApproximately(a.DeltaS, 0.0100001, because: seq);
+            b.DeltaG.Should().BeApproximately(a.DeltaG, 0.0100001, because: seq);
+            b.MeltingTemperature.Should().BeApproximately(a.MeltingTemperature, 0.100001, because: seq);
+        }
+    }
+
+    #endregion
 }
