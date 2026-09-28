@@ -385,4 +385,61 @@ public class CodonOptimizer_FindRareCodons_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 (B02) — sourced contract locks
+
+    /// <summary>
+    /// Ambiguous triplets (IUPAC N, R, Y, …) have no codon-usage frequency and are skipped
+    /// without shifting the frame — the codon set of the canonical counter
+    /// CodonUsageAnalyzer.CountCodons (EMBOSS ajCodSetTripletsS: "Skips triplets with ambiguity
+    /// codes"). Previously NNN and RYU were reported as "rare" codons with frequency 0 and AA 'X'
+    /// (false positives). Expected values: Python reference over the Kazusa 316407 table.
+    /// </summary>
+    [Test]
+    public void FindRareCodons_AmbiguousTriplets_SkippedFramePreserved()
+    {
+        var rare = CodonOptimizer.FindRareCodons("AUGNNNAGAcgaRYU", CodonOptimizer.EColiK12).ToList();
+
+        Assert.That(rare, Is.EqualTo(new[]
+        {
+            (6, "AGA", "R", 0.04),
+            (9, "CGA", "R", 0.06),
+        }));
+    }
+
+    /// <summary>
+    /// Kane (1995, Curr Opin Biotechnol 6:494) lists AGG, AGA, CUA, AUA, CGA and CCC as the
+    /// rarest E. coli codons. With the Kazusa species=316407 relative frequencies
+    /// (AGG 0.02, AGA 0.04, CUA 0.04, AUA 0.07, CGA 0.06, CCC 0.12; identical to the
+    /// python-codon-tables e_coli_316407 table) all six fall below the 0.15 default.
+    /// </summary>
+    [Test]
+    public void FindRareCodons_Kane1995EColiRareCodons_AllFlaggedAtDefault()
+    {
+        var rare = CodonOptimizer.FindRareCodons("AGGAGACUAAUACGACCC", CodonOptimizer.EColiK12).ToList();
+
+        Assert.That(rare, Is.EqualTo(new[]
+        {
+            (0, "AGG", "R", 0.02),
+            (3, "AGA", "R", 0.04),
+            (6, "CUA", "L", 0.04),
+            (9, "AUA", "I", 0.07),
+            (12, "CGA", "R", 0.06),
+            (15, "CCC", "P", 0.12),
+        }));
+    }
+
+    /// <summary>
+    /// Stop codons are rows of the Kazusa table and are screened like any codon: UAG (0.07 in
+    /// E. coli 316407) is reported with amino acid '*' (NCBI table 1); UAA (0.64) is not.
+    /// </summary>
+    [Test]
+    public void FindRareCodons_RareStopCodon_ReportedAsStop()
+    {
+        var rare = CodonOptimizer.FindRareCodons("UAGUAA", CodonOptimizer.EColiK12, 0.10).ToList();
+
+        Assert.That(rare, Is.EqualTo(new[] { (0, "UAG", "*", 0.07) }));
+    }
+
+    #endregion
 }

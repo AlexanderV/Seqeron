@@ -607,27 +607,40 @@ public static class CodonOptimizer
     #region Analysis Functions
 
     /// <summary>
-    /// Analyzes rare codon usage in a sequence.
+    /// Reports every in-frame codon whose usage frequency in <paramref name="table"/> is strictly
+    /// below <paramref name="threshold"/> (a "rare" codon for the target organism).
     /// </summary>
+    /// <remarks>
+    /// The sequence is read in frame 0 (case-insensitive, DNA T or RNA U). Only the 64 unambiguous
+    /// codons over {A,C,G,U} are screened: a triplet containing an IUPAC ambiguity code (N, R, Y, …)
+    /// or any other symbol has no codon-usage frequency and is skipped without shifting the frame,
+    /// and a trailing partial triplet is ignored — the same codon set as the canonical counter
+    /// <see cref="CodonUsageAnalyzer.CountCodons(string)"/> (EMBOSS <c>ajCodSetTripletsS</c>).
+    /// A valid codon that is absent from <paramref name="table"/> (never observed in the reference
+    /// genes) has frequency 0 and is reported whenever <paramref name="threshold"/> &gt; 0.
+    /// Stop codons are screened like any other row of the table. The amino acid is the NCBI
+    /// Standard-code translation (<see cref="GeneticCode.Standard"/>).
+    /// </remarks>
+    /// <returns>
+    /// (0-based nucleotide position of the codon, RNA codon, one-letter amino acid or <c>*</c>,
+    /// table frequency) in sequence order.
+    /// </returns>
     public static IEnumerable<(int Position, string Codon, string AminoAcid, double Frequency)> FindRareCodons(
         string codingSequence,
         CodonUsageTable table,
         double threshold = 0.15)
     {
-        if (string.IsNullOrEmpty(codingSequence))
-            yield break;
+        var codons = SplitIntoScreenedCodons(codingSequence);
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
-
-        for (int i = 0; i < codons.Count; i++)
+        for (int i = 0; i < codons.Length; i++)
         {
-            double freq = table.CodonFrequencies.GetValueOrDefault(codons[i], 0);
+            string? codon = codons[i];
+            if (codon is null)
+                continue;
+
+            double freq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
             if (freq < threshold)
-            {
-                string aa = TranslateCodon(codons[i]);
-                yield return (i * 3, codons[i], aa, freq);
-            }
+                yield return (i * 3, codon, GeneticCode.Standard.Translate(codon).ToString(), freq);
         }
     }
 
@@ -653,12 +666,28 @@ public static class CodonOptimizer
     /// synonymous codon frequencies. Over a window of <paramref name="windowSize"/> codons:
     /// if Σ Xij &gt; Σ Xavg,i the window yields %Max = Σ(Xij − Xavg,i) / Σ(Xmax,i − Xavg,i) × 100
     /// (returned as a positive value); if Σ Xij &lt; Σ Xavg,i it yields %Min =
-    /// Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100 (returned as a negative value). Codons of
-    /// single-codon amino acids and unknown / stop codons (no synonymous spread) contribute 0 to
-    /// both numerator and denominator. Source: Clarke &amp; Clark (2008), PLoS ONE 3(10):e3412.
+    /// Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100 (returned as a negative value). Source:
+    /// Clarke &amp; Clark (2008), PLoS ONE 3(10):e3412; reproduced term-for-term from the Clark
+    /// lab reference code (<c>calculateMinMax</c> in CHARMING.py, Wright et&#160;al. 2022), whose
+    /// synonymous families are those of the Standard code including the stop family
+    /// {UAA, UAG, UGA}. Families here come from <see cref="GeneticCode.Standard"/>; codons of
+    /// single-codon amino acids (Met, Trp) contribute 0 to both numerator and denominator, and an
+    /// ambiguous triplet (non-ACGU symbol) occupies its window position but contributes nothing.
+    /// <para>
+    /// <b>Frequency scale.</b> The reference implementation takes a codon usage table in
+    /// frequency per thousand codons (Kazusa "/1000" column), so the window sums weight each
+    /// residue by its overall usage. Passing a <see cref="CodonUsageTable"/> whose
+    /// <c>CodonFrequencies</c> hold per-thousand values reproduces the reference exactly. The
+    /// built-in presets (<see cref="EColiK12"/>, <see cref="Yeast"/>, <see cref="Human"/>) hold
+    /// per-amino-acid relative fractions; with them every residue has equal weight, which gives
+    /// the reference value only for windows of a single amino acid.
+    /// </para>
     /// </remarks>
     /// <param name="codingSequence">DNA or RNA coding sequence (T is normalised to U).</param>
-    /// <param name="table">Reference codon-usage table (per-amino-acid relative fractions).</param>
+    /// <param name="table">
+    /// Reference codon-usage table: per-thousand usage for reference-identical values, or
+    /// per-amino-acid relative fractions (see remarks).
+    /// </param>
     /// <param name="windowSize">Sliding-window width in codons (default 18, per Clarke &amp; Clark 2008).</param>
     /// <returns>
     /// One <see cref="MinMaxWindow"/> per window position (codon indices
@@ -675,49 +704,44 @@ public static class CodonOptimizer
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
 
         var profile = new List<MinMaxWindow>();
-        if (string.IsNullOrEmpty(codingSequence))
-            return profile;
-
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
-        if (codons.Count < windowSize)
+        var codons = SplitIntoScreenedCodons(codingSequence);
+        if (codons.Length < windowSize)
             return profile;
 
         // Per-codon (Xij), per-family average (Xavg), max (Xmax) and min (Xmin) frequencies.
-        var xij = new double[codons.Count];
-        var xavg = new double[codons.Count];
-        var xmax = new double[codons.Count];
-        var xmin = new double[codons.Count];
-        for (int i = 0; i < codons.Count; i++)
+        var xij = new double[codons.Length];
+        var xavg = new double[codons.Length];
+        var xmax = new double[codons.Length];
+        var xmin = new double[codons.Length];
+        var familyStats = new Dictionary<char, (double Avg, double Max, double Min)>();
+        for (int i = 0; i < codons.Length; i++)
         {
-            string codon = codons[i];
-            xij[i] = table.CodonFrequencies.GetValueOrDefault(codon, 0);
-            string aa = TranslateCodon(codon);
+            string? codon = codons[i];
+            if (codon is null)
+                continue; // ambiguous triplet: all four terms stay 0 (no contribution).
 
-            if (AminoAcidToCodons.TryGetValue(aa, out var synonyms) && synonyms.Count > 0)
+            xij[i] = table.CodonFrequencies.GetValueOrDefault(codon, 0);
+            char aa = GeneticCode.Standard.Translate(codon);
+            if (!familyStats.TryGetValue(aa, out var stats))
             {
                 double sum = 0, max = double.MinValue, min = double.MaxValue;
-                foreach (var syn in synonyms)
+                int n = 0;
+                foreach (string syn in GeneticCode.Standard.GetCodonsForAminoAcid(aa))
                 {
                     double f = table.CodonFrequencies.GetValueOrDefault(syn, 0);
                     sum += f;
+                    n++;
                     if (f > max) max = f;
                     if (f < min) min = f;
                 }
-                xavg[i] = sum / synonyms.Count;
-                xmax[i] = max;
-                xmin[i] = min;
+                stats = (sum / n, max, min);
+                familyStats[aa] = stats;
             }
-            else
-            {
-                // Unknown codon: no synonymous family — contributes nothing to either side.
-                xavg[i] = xij[i];
-                xmax[i] = xij[i];
-                xmin[i] = xij[i];
-            }
+
+            (xavg[i], xmax[i], xmin[i]) = stats;
         }
 
-        for (int start = 0; start + windowSize <= codons.Count; start++)
+        for (int start = 0; start + windowSize <= codons.Length; start++)
         {
             double sumXij = 0, sumXavg = 0, sumMaxDelta = 0, sumMinDelta = 0;
             for (int k = start; k < start + windowSize; k++)
@@ -757,7 +781,8 @@ public static class CodonOptimizer
     /// </summary>
     /// <remarks>
     /// A codon is "rare"/"pause" when its usage frequency in <paramref name="table"/> is strictly
-    /// below <paramref name="rareThreshold"/> — the same per-codon criterion as
+    /// below <paramref name="rareThreshold"/> — the same per-codon criterion (and the same
+    /// unambiguous-codon screen: an ambiguous triplet is never a pause) as
     /// <see cref="FindRareCodons"/>. Overlapping windows are merged into maximal clusters so a long
     /// rare run is reported once. This is opt-in; <see cref="FindRareCodons"/> (per-codon) is
     /// unchanged. Defaults reproduce the published Sherlocc rule "a seven position-wide window …
@@ -784,23 +809,21 @@ public static class CodonOptimizer
             throw new ArgumentOutOfRangeException(nameof(minRareCodons), minRareCodons, "Minimum rare codons must be at least 1.");
 
         var clusters = new List<RareCodonCluster>();
-        if (string.IsNullOrEmpty(codingSequence))
-            return clusters;
-
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
-        if (codons.Count < windowSize)
+        var codons = SplitIntoScreenedCodons(codingSequence);
+        if (codons.Length < windowSize)
             return clusters;
 
         // Mark each codon as rare (pause) when its table frequency is strictly below the threshold.
-        var isRare = new bool[codons.Count];
-        for (int i = 0; i < codons.Count; i++)
-            isRare[i] = table.CodonFrequencies.GetValueOrDefault(codons[i], 0) < rareThreshold;
+        // An ambiguous triplet has no usage frequency and is never a pause position.
+        var isRare = new bool[codons.Length];
+        for (int i = 0; i < codons.Length; i++)
+            isRare[i] = codons[i] is { } codon
+                && table.CodonFrequencies.GetValueOrDefault(codon, 0) < rareThreshold;
 
         int? mergedStart = null;
         int mergedEnd = -1;
         int windowRare = 0;
-        for (int start = 0; start + windowSize <= codons.Count; start++)
+        for (int start = 0; start + windowSize <= codons.Length; start++)
         {
             if (start == 0)
             {
@@ -918,6 +941,17 @@ public static class CodonOptimizer
     #endregion
 
     #region Utility Methods
+
+    // Frame-0 RNA-spelled codons for the per-position screens (rare codons, %MinMax, clusters):
+    // index k = codon k; an ambiguous triplet is null (skipped, frame preserved). Delegates the
+    // splitting and ACGT screen to the canonical CodonUsageAnalyzer core.
+    private static string?[] SplitIntoScreenedCodons(string? codingSequence)
+    {
+        var codons = CodonUsageAnalyzer.SplitInFrameCodons(codingSequence);
+        for (int k = 0; k < codons.Length; k++)
+            codons[k] = codons[k]?.Replace('T', 'U');
+        return codons;
+    }
 
     private static List<string> SplitIntoCodons(string sequence)
     {

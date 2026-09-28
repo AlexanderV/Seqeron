@@ -46,17 +46,41 @@ public static class CodonUsageAnalyzer
     {
         var counts = new Dictionary<string, int>();
 
-        for (int i = 0; i + 3 <= seq.Length; i += 3)
+        foreach (string? codon in SplitInFrameCodonsCore(seq))
         {
-            string codon = seq.Substring(i, 3);
-            if (IsValidCodon(codon))
-            {
-                counts.TryGetValue(codon, out int count);
-                counts[codon] = count + 1;
-            }
+            if (codon is null)
+                continue;
+            counts.TryGetValue(codon, out int count);
+            counts[codon] = count + 1;
         }
 
         return counts;
+    }
+
+    /// <summary>
+    /// Splits a coding sequence into its frame-0 complete triplets (DNA spelling, upper case;
+    /// RNA U read as T). Element <c>k</c> is codon index <c>k</c> (nucleotide position <c>3k</c>);
+    /// a triplet containing any symbol other than A/C/G/T is returned as <c>null</c> so callers
+    /// can skip it without shifting the frame (EMBOSS <c>ajCodSetTripletsS</c>: "Skips triplets
+    /// with ambiguity codes and any incomplete triplet at the end"). A trailing partial triplet
+    /// is dropped. This is the single codon-splitting core shared by <see cref="CountCodons(string)"/>
+    /// and the per-position codon screens of <see cref="CodonOptimizer"/>.
+    /// </summary>
+    internal static string?[] SplitInFrameCodons(string? sequence) =>
+        string.IsNullOrEmpty(sequence)
+            ? Array.Empty<string?>()
+            : SplitInFrameCodonsCore(NormalizeCodingSequence(sequence));
+
+    private static string?[] SplitInFrameCodonsCore(string seq)
+    {
+        var codons = new string?[seq.Length / 3];
+        for (int k = 0; k < codons.Length; k++)
+        {
+            string codon = seq.Substring(3 * k, 3);
+            codons[k] = IsValidCodon(codon) ? codon : null;
+        }
+
+        return codons;
     }
 
     private static bool IsValidCodon(string codon)

@@ -32,7 +32,7 @@ Key findings:
 | ID | Test Name | Description | Evidence |
 |----|-----------|-------------|----------|
 | M01 | Empty sequence returns empty | `FindRareCodons("", table)` → empty enumerable | Implementation contract |
-| M02 | Single rare codon detection | Sequence with one AGA (0.04) detected below threshold 0.10 | Shu et al., Kazusa MG1655 |
+| M02 | Single rare codon detection | Sequence with one AGA (0.04) detected below threshold 0.10 | Shu et al., Kazusa W3110 (316407) |
 | M03 | Multiple rare codons detection | Sequence with AGA, AGG, CGA all detected | Kazusa frequencies |
 | M04 | Position is nucleotide index | AGA at codon index 1 reports position 3 | Implementation spec |
 | M05 | Threshold boundary - below | Codon at freq 0.07 detected with threshold 0.10 | Math invariant |
@@ -59,13 +59,13 @@ Key findings:
 | C01 | Threshold zero | All codons with freq > 0 NOT reported as rare | Math edge |
 | C02 | Threshold one | All codons reported as rare | Math edge |
 | C03 | Different organism tables | Yeast table has different rare codons than E. coli | Kazusa data |
-| C04 | Unknown codon handling | Non-standard codon gets freq 0 | Implementation behavior |
+| C04 | Ambiguous / unknown triplet handling | Ambiguous triplet (NNN, RYU) skipped, frame preserved (review 2026-09; was: reported with freq 0 / `X`); valid codon absent from table → freq 0 | EMBOSS ajCodSetTripletsS; CodonUsageAnalyzer.CountCodons |
 
 ---
 
 ## Test Data
 
-### E. coli K12 Rare Codons (freq < 0.10) — Kazusa MG1655 (species=316407)
+### E. coli K12 Rare Codons (freq < 0.10) — Kazusa K-12 W3110 (species=316407)
 - AGA: 0.04 (Arginine)
 - AGG: 0.02 (Arginine)  
 - CGA: 0.06 (Arginine)
@@ -132,7 +132,7 @@ Key findings:
    **A**: Implementation uses `<` (strict less than). Documented.
 
 2. **Q**: What happens with non-standard codons?  
-   **A**: `GetValueOrDefault` returns 0, so they're always flagged as rare. Documented.
+   **A** (revised 2026-09): an ambiguous / non-ACGU triplet has no usage frequency and is skipped without shifting the frame; a valid codon absent from the table has frequency 0 and is flagged whenever threshold > 0.
 
 ---
 
@@ -199,3 +199,28 @@ Remaining: 0.
 
 Per the validation protocol, the ROOT `ALGORITHMS_CHECKLIST_V2.md` Status for CODON-RARE-001
 is reset to ☐ pending independent re-validation of this new capability.
+
+---
+
+# Review 2026-09 (campaign B02) — contract changes and new locks
+
+Sources opened: python-codon-tables 0.1.18 (PyPI wheel; Kazusa-derived `e_coli_316407`,
+`s_cerevisiae_4932`, `h_sapiens_9606` relative frequencies — all 192 preset values identical);
+Clark-lab CHARMING repository (raw.githubusercontent.com/wrightgs/CHARMING: `CHARMING.py`
+`calculateMinMax`, `README.md`, `ScerCUB.txt`, `EcolCUB.txt`); Kane (1995) rare-codon list via
+WebSearch snippet (AGG, AGA, CUA, AUA, CGA, CCC).
+
+| ID | Case | Expected (reference) | Test |
+|----|------|----------------------|------|
+| R1 | `AUGNNNAGAcgaRYU`, E. coli, 0.15 | (6,AGA,R,0.04), (9,CGA,R,0.06); NNN/RYU skipped | `FindRareCodons_AmbiguousTriplets_SkippedFramePreserved` |
+| R2 | Kane 1995 codons `AGGAGACUAAUACGACCC`, default | all six flagged (0.02, 0.04, 0.04, 0.07, 0.06, 0.12) | `FindRareCodons_Kane1995EColiRareCodons_AllFlaggedAtDefault` |
+| R3 | `UAGUAA`, E. coli, 0.10 | (0,UAG,*,0.07) | `FindRareCodons_RareStopCodon_ReportedAsStop` |
+| R4 | %MinMax, yeast per-thousand, `CUGAGA`, w=2 | 33.99209486166008 (CHARMING: 33.99) | `CalculateMinMaxProfile_PerThousandTable_MatchesClarkLabReference` |
+| R5 | %MinMax, yeast per-thousand, 20-codon gene, w=18 | 12.6879134095, 17.0285714286, 15.9910628790 (CHARMING: 12.69, 17.03, 15.99) | same |
+| R6 | %MinMax, yeast relative preset, `CUGAGA`, w=2 | 58.620689655172406 (equal residue weighting) | `CalculateMinMaxProfile_RelativeFractionPreset_WeightsResiduesEqually` |
+| R7 | %MinMax, E. coli, `UAGUAG`, w=2 | −100 (stop family is synonymous) | `CalculateMinMaxProfile_StopFamily_IsSynonymousFamily` |
+| R8 | Clusters, `NNN`×7 / `AGA`×4+`NNN`×3 | none / (0,6,4) | `FindRareCodonClusters_AmbiguousTriplets_AreNotPausePositions` |
+
+Randomised cross-check (400 sequences incl. lower case, RNA/DNA, IUPAC N/R/Y, partial codons;
+4 tables incl. per-thousand yeast; thresholds 0–1; windows 1–12): 830 rare hits, 3989 %MinMax
+windows, 101 clusters — all identical to the Python reference (1e-9).

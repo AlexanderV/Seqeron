@@ -6,7 +6,7 @@
 | Test Unit ID | CODON-RARE-001 |
 | Related Projects | N/A |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-24 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -44,7 +44,7 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
   if Σ Xij < Σ Xavg,i :  %Min = Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100   (negative)
   ```
 
-  A window of predominantly rare codons appears as a negative %Min value; −100 is encoded with only the rarest synonymous codons, +100 with only the most common.[6] The default window is 18 codons.[6]
+  A window of predominantly rare codons appears as a negative %Min value; −100 is encoded with only the rarest synonymous codons, +100 with only the most common.[6] The default window is 18 codons.[6] The formula is reproduced term-for-term from the Clark-lab reference code (`calculateMinMax` in CHARMING.py[9]), whose synonymous families are those of the Standard code including the stop family {UAA, UAG, UGA}; families here come from `GeneticCode.Standard`. The reference takes codon usage **per thousand codons** (Kazusa "/1000" column), so window sums weight each residue by its overall usage; a `CodonUsageTable` with per-thousand values reproduces it exactly, while the per-amino-acid relative fractions of the built-in presets weight residues equally (identical only for single-residue windows).
 
 - **Sherlocc rare-codon cluster (RCC) rule (Chartier et al. 2012).**[8] A "seven position-wide window … containing at least four pause positions out of seven" is a rare-codon cluster, where a "pause"/"slow" position is a codon whose usage frequency is below the rare threshold.[8] Defaults: window 7 codons, ≥ 4 rare codons, threshold 0.15 (the same per-codon cutoff as `FindRareCodons`).
 
@@ -65,7 +65,7 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
 | INV-04 | Re-running the method with the same inputs yields the same output. | The method is a deterministic single pass over normalized codons. |
 | INV-05 | Every `CalculateMinMaxProfile` value lies in `[-100, 100]`. | The %MinMax numerator never exceeds the denominator (actual deviation ≤ max/min deviation).[6] |
 | INV-06 | `CalculateMinMaxProfile` produces `codonCount − w + 1` windows when `codonCount ≥ w`, else none. | The window slides one codon at a time.[6] |
-| INV-07 | A single-codon amino acid (Met/Trp) contributes `0` to a %MinMax window (no NaN). | `Xmax = Xmin = Xavg = Xij`, so its numerator and denominator terms are both `0`.[6] |
+| INV-07 | A single-codon amino acid (Met/Trp) or an ambiguous triplet contributes `0` to a %MinMax window (no NaN). | `Xmax = Xmin = Xavg = Xij`, so its numerator and denominator terms are both `0`.[6] |
 | INV-08 | Every `FindRareCodonClusters` cluster contains `≥ minRareCodons` rare codons. | A cluster originates from a qualifying window; merged regions only add codons.[8] |
 
 ## 3. Contract
@@ -75,7 +75,7 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `codingSequence` | `string` | required | DNA or RNA coding sequence to inspect. | Empty or `null` input yields no results. |
-| `table` | `CodonUsageTable` | required | Reference codon-usage table used for frequency lookups. | Unknown codons default to frequency `0`. |
+| `table` | `CodonUsageTable` | required | Reference codon-usage table used for frequency lookups. | A valid codon absent from the table has frequency `0`. |
 | `threshold` | `double` | `0.15` | Frequency cutoff for reporting a codon as rare. | Comparison is strict: only frequencies `< threshold` are reported. |
 
 ### 3.2 Output / Return Value
@@ -84,12 +84,12 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
 |------|------|-------------|
 | `Position` | `int` | Nucleotide index of the codon start. |
 | `Codon` | `string` | Normalized RNA codon. |
-| `AminoAcid` | `string` | Single-letter amino-acid translation, or `X` for an unknown codon. |
+| `AminoAcid` | `string` | Single-letter NCBI Standard-code (table 1) translation; `*` for a stop codon. |
 | `Frequency` | `double` | Frequency retrieved from the supplied codon-usage table. |
 
 ### 3.3 Preconditions and Validation
 
-The sequence is uppercased and normalized from DNA to RNA. Codons are extracted in complete triplets only; trailing bases are ignored. Frequencies are looked up with `GetValueOrDefault`, so a codon absent from the table is assigned `0` and therefore reported whenever `threshold > 0`.[5]
+The sequence is read in frame 0, case-insensitively, with DNA `T` normalized to RNA `U`. Codons are extracted in complete triplets only; trailing bases are ignored. Only the 64 unambiguous codons over {A,C,G,U} are screened: a triplet containing an IUPAC ambiguity code (N, R, Y, …) or any other symbol has no codon-usage frequency and is skipped without shifting the frame (the codon set of `CodonUsageAnalyzer.CountCodons`, per EMBOSS `ajCodSetTripletsS`: "Skips triplets with ambiguity codes and any incomplete triplet at the end"). A valid codon absent from the table (never observed in the reference genes) has frequency `0` and is reported whenever `threshold > 0`.[5]
 
 ## 4. Algorithm
 
@@ -97,9 +97,9 @@ The sequence is uppercased and normalized from DNA to RNA. Codons are extracted 
 
 1. Return an empty sequence for `null` or empty input.
 2. Normalize the sequence to uppercase RNA notation.
-3. Split the sequence into complete codons.
+3. Split the sequence into complete frame-0 codons (shared core `CodonUsageAnalyzer.SplitInFrameCodons`); skip ambiguous triplets without shifting the frame.
 4. For each codon, read its table frequency.
-5. If the frequency is strictly less than `threshold`, translate the codon and yield `(position, codon, aminoAcid, frequency)`.
+5. If the frequency is strictly less than `threshold`, translate the codon with `GeneticCode.Standard` and yield `(position, codon, aminoAcid, frequency)`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -129,7 +129,7 @@ The original document recorded the following threshold-selection guidance:
 
 ### 5.2 Current Behavior
 
-The method converts `T` to `U`, ignores trailing incomplete codons, and reports nucleotide positions as `i * 3`. Frequency lookup uses `GetValueOrDefault`, so unknown codons are treated as frequency `0`. The threshold comparison is strict `<`, which means a codon exactly at the threshold is not reported.[5]
+The method converts `T` to `U`, ignores trailing incomplete codons, skips ambiguous triplets (frame preserved), and reports nucleotide positions as `i * 3`. A valid codon absent from the table is treated as frequency `0`. Stop codons are screened like any other table row (E. coli `UAG` 0.07 is rare at 0.10). The threshold comparison is strict `<`, which means a codon exactly at the threshold is not reported.[5]
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -143,7 +143,7 @@ The method converts `T` to `U`, ignores trailing incomplete codons, and reports 
 **Intentionally simplified:**
 
 - Per-codon detection is table-threshold-based and does not model ribosome dynamics or local codon context; **consequence:** the per-codon output is a screening list rather than a direct translation-efficiency prediction. (Cluster context is now available via the opt-in methods.)
-- Unknown codons default to frequency `0`; **consequence:** malformed codons are surfaced as rare rather than rejected.
+- The %MinMax reference implementation takes codon usage per thousand codons, whereas the built-in presets store per-amino-acid relative fractions; **consequence:** with a preset, mixed-residue windows weight every amino acid equally and differ from the reference (e.g. yeast CUG·AGA, window 2: 58.62 with the preset vs 33.99 with the Kazusa per-thousand table). Supplying a table whose `CodonFrequencies` are per-thousand values reproduces the reference exactly.
 - `FindRareCodonClusters` merges overlapping qualifying windows into maximal cluster regions and does not compute the simulation-based cluster P-values of the full Sherlocc pipeline; **consequence:** clusters are reported by the window/count rule only, without per-cluster statistical significance.
 
 **Not implemented:**
@@ -160,7 +160,9 @@ The method converts `T` to `U`, ignores trailing incomplete codons, and reports 
 | Empty sequence | Returns no results. | Explicit early exit. |
 | Default-threshold call | Uses `0.15`. | Default parameter value in the public API. |
 | Frequency exactly equal to threshold | Not reported. | The comparison is `<`, not `<=`. |
-| Unknown codon | Reported with frequency `0` and amino acid `X` when `threshold > 0`. | Frequency lookup defaults to `0` and translation defaults to `X`. |
+| Ambiguous triplet (`NNN`, `RYU`, …) | Skipped (not reported, not a cluster pause position, no %MinMax contribution); later positions keep their frame. | No codon-usage frequency exists for it (EMBOSS `ajCodSetTripletsS`). |
+| Valid codon absent from the table | Reported with frequency `0` when `threshold > 0`. | Never observed in the reference genes. |
+| Stop codon | Screened like any table row; amino acid `*`. | Stops are rows of the Kazusa/cusp table. |
 | Incomplete trailing codon | Ignored. | Codon splitting only emits complete triplets. |
 
 ### 6.2 Limitations
@@ -202,3 +204,4 @@ var profile = CodonOptimizer.CalculateMinMaxProfile("AGAAGAAGA", CodonOptimizer.
 6. Clarke TF, Clark PL. 2008. Rare Codons Cluster. PLoS ONE 3(10):e3412. https://doi.org/10.1371/journal.pone.0003412
 7. Rodriguez A, Wright G, Emrich S, Clark PL. 2018. %MinMax: A versatile tool for calculating and comparing synonymous codon usage and its impact on protein folding. Protein Science. https://pmc.ncbi.nlm.nih.gov/articles/PMC5734269/
 8. Chartier M, Gaudreault F, Najmanovich R. 2012. Large-scale analysis of conserved rare codon clusters suggests an involvement in co-translational molecular recognition events. Bioinformatics 28(11):1438–1445. https://doi.org/10.1093/bioinformatics/bts149
+9. Wright G, Rodriguez A, Li J, Milenković T, Emrich SJ, Clark PL. 2022. CHARMING: Harmonizing synonymous codon usage to replicate a desired codon usage pattern. Protein Science 31(1), doi:10.1002/pro.4223 (PMID 34738275). Reference code https://github.com/wrightgs/CHARMING (`CHARMING.py` `calculateMinMax`, `ScerCUB.txt`).
