@@ -83,9 +83,9 @@
 |-------------|-------------------|--------|
 | Identical sequences | Distance = 0 | Mathematical definition: d(x,x) = 0 |
 | Single different base | Small positive distance | Formula calculation |
-| All gaps in alignment | Distance = 0 (no comparable sites, 0 differences) | Mathematical limit: 0/n → 0 as n→0 with 0 diffs |
+| All gaps in alignment | Hamming = 0; p / JC69 / K2P = NaN (p = 0/0 undefined) | ape dist_dna.c pairwise deletion (p = Nd/L, L = 0 → NaN); scikit-bio 0.7.4 pdist/jc69/k2p → nan (2026-09 review; the earlier "0/n → 0 limit" rationale was incorrect) |
 | Unequal length sequences | Throw ArgumentException | Pre-condition (aligned sequences required) |
-| Empty sequences | Distance = 0 (no comparable sites, 0 differences) | Same as all-gaps: no evidence of divergence |
+| Empty sequences | Hamming = 0; p / JC69 / K2P = NaN | Same as all-gaps: no evidence either way, distance not computable |
 | Case-insensitive | Upper/lowercase treated same | Standard bioinformatics practice |
 | High divergence (p ≥ 3/4) | JC69 returns +∞ | JC69 formula: 1-4p/3 ≤ 0, ln undefined |
 | High transversion (V ≥ 0.5) | K2P returns +∞ | K2P formula: 1-2V ≤ 0, ln undefined |

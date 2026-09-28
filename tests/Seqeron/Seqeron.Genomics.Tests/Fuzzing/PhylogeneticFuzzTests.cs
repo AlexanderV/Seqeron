@@ -62,12 +62,11 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     comparable sequences → distance 0 for all methods"). Pinned as the metric's
 ///     defining property, and as the zero diagonal of the matrix.
 ///   • Empty seqs (BE — div-by-zero hazard): two empty (or all-gap / all-ambiguous)
-///     sequences have comparableSites = 0. The implementation GUARDS this with an explicit
-///     `if (comparableSites == 0) return 0;` (PhylogeneticAnalyzer.cs line 256) BEFORE the
-///     p = differences/comparableSites division (line 258), so the denominator is never
-///     zero — the theory-correct boundary is a finite 0, NOT a DivideByZeroException, NaN,
-///     or Infinity (Distance_Matrix.md §3.3, §6.1 "no comparable sites → 0"). This is the
-///     central BE probe.
+///     sequences have comparableSites = 0. The implementation GUARDS this explicitly BEFORE
+///     the p = differences/comparableSites division, so no DivideByZeroException occurs:
+///     Hamming (a difference count) returns 0, while PDistance/JC/K2P return NaN because
+///     p = 0/0 is undefined — matching ape dist.dna (pairwise deletion) and scikit-bio
+///     pdist/jc69/k2p (Distance_Matrix.md §3.3, §6.1). This is the central BE probe.
 ///   • Single seq (BE — degenerate matrix): a 1-element sequence list yields a 1×1 matrix.
 ///     The fill loop `for j = i+1` never runs, so only the default-0.0 diagonal remains —
 ///     a well-formed 1×1 matrix whose single entry [0,0] is 0, no throw, no out-of-range
@@ -76,8 +75,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • Non-DNA chars (MC — pairwise deletion): gaps ('-') and any non-A/C/G/T symbol are
 ///     SKIPPED at a site rather than crashing or being miscounted (lines 242–243,
 ///     IsStandardBase). Junk therefore lowers the comparable-site count but never throws,
-///     never invents a difference, and never produces a NaN; an all-junk pair collapses to
-///     the comparableSites = 0 → 0 boundary above (Distance_Matrix.md §3.3, §5.2). Case is
+///     never invents a difference, and never produces a NaN while a comparable site remains;
+///     an all-junk pair collapses to the comparableSites = 0 boundary above (Distance_Matrix.md §3.3, §5.2). Case is
 ///     irrelevant: each site is upper-cased before inspection (line 238–239).
 ///
 /// THE SATURATION BOUNDARY (BE — log of non-positive): for a CORRECTED model the hazard is
@@ -609,28 +608,35 @@ public class PhylogeneticFuzzTests
 
     /// <summary>
     /// Two empty sequences (and the all-gap / all-ambiguous degenerate that also leaves zero
-    /// comparable sites) hit the `comparableSites == 0` guard and return a finite 0 for every
-    /// method — NEVER a DivideByZeroException, NaN, or Infinity from the p = differences/0 step
-    /// (Distance_Matrix.md §3.3, §6.1). This is the central boundary probe.
+    /// comparable sites) hit the `comparableSites == 0` guard: no DivideByZeroException is thrown.
+    /// The difference count (Hamming) is a well-defined 0, but p = 0/0 is undefined, so PDistance,
+    /// JukesCantor and Kimura2Parameter return NaN — exactly what ape dist.dna (pairwise deletion,
+    /// dist_dna.c: p = Nd/L with L = 0) and scikit-bio 0.7.4 pdist/jc69/k2p return
+    /// (Distance_Matrix.md §3.3, §6.1). A spurious 0 would claim identity on zero evidence.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void EmptySequences_NoComparableSites_ReturnZeroNeverNaN_ForAllMethods()
+    public void EmptySequences_NoComparableSites_HammingZero_ProportionsNaN()
     {
         foreach (var method in AllMethods)
         {
-            // Both empty: length 0 ⇒ no sites ⇒ comparableSites == 0 ⇒ guarded 0.
             Action act = () => PhylogeneticAnalyzer.CalculatePairwiseDistance(string.Empty, string.Empty, method);
             act.Should().NotThrow("zero comparable sites are guarded before the division ({0})", method);
 
             double empty = PhylogeneticAnalyzer.CalculatePairwiseDistance(string.Empty, string.Empty, method);
-            empty.Should().Be(0.0, "no comparable sites → distance 0 (no division by zero)");
-            double.IsNaN(empty).Should().BeFalse("the zero-site boundary must not produce NaN");
+            double allGap = PhylogeneticAnalyzer.CalculatePairwiseDistance("----", "----", method);
             double.IsInfinity(empty).Should().BeFalse("the zero-site boundary must not produce Infinity");
 
-            // All-gap pair: every site is skipped by pairwise deletion ⇒ also zero comparable sites.
-            double allGap = PhylogeneticAnalyzer.CalculatePairwiseDistance("----", "----", method);
-            allGap.Should().Be(0.0, "an all-gap pair leaves no comparable site → guarded 0");
+            if (method == PhylogeneticAnalyzer.DistanceMethod.Hamming)
+            {
+                empty.Should().Be(0.0, "no comparable site ⇒ no counted difference");
+                allGap.Should().Be(0.0, "an all-gap pair counts no difference");
+            }
+            else
+            {
+                double.IsNaN(empty).Should().BeTrue("p = 0/0 is undefined (ape, scikit-bio → NaN) ({0})", method);
+                double.IsNaN(allGap).Should().BeTrue("an all-gap pair leaves L = 0 ⇒ NaN ({0})", method);
+            }
         }
     }
 
@@ -703,9 +709,9 @@ public class PhylogeneticFuzzTests
         PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.PDistance)
             .Should().BeApproximately(1.0 / 3.0, 1e-12, "p = 1 difference / 3 comparable sites");
 
-        // An all-junk pair collapses to the zero-comparable-sites boundary → 0, not a crash.
-        PhylogeneticAnalyzer.CalculatePairwiseDistance("****", "----", PhylogeneticAnalyzer.DistanceMethod.JukesCantor)
-            .Should().Be(0.0, "no comparable site survives pairwise deletion → guarded 0");
+        // An all-junk pair collapses to the zero-comparable-sites boundary → NaN (0/0; ape, scikit-bio), not a crash.
+        double.IsNaN(PhylogeneticAnalyzer.CalculatePairwiseDistance("****", "----", PhylogeneticAnalyzer.DistanceMethod.JukesCantor))
+            .Should().BeTrue("no comparable site survives pairwise deletion → p undefined → NaN");
 
         // Case-insensitive: lower-case bases compare equal to their upper-case counterparts.
         PhylogeneticAnalyzer.CalculatePairwiseDistance("acgt", "ACGT", PhylogeneticAnalyzer.DistanceMethod.Hamming)

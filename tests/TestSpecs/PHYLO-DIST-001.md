@@ -40,7 +40,9 @@
 | S01 | MatrixDimensions_MatchSequenceCount | n×n matrix for n sequences | API contract |
 | S02 | ThreeSequences_CorrectMatrix | Verify complete 3×3 matrix | Integration test |
 | S03 | Kimura_GreaterThanPDistance | K2P also increases distance | Correction property |
-| S04 | AllGaps_ReturnsZero | No comparable sites → 0 distance | Edge case |
+| S04 | AllGaps_ReturnsZero | No comparable sites → Hamming 0 | Edge case |
+| R01 | NoComparableSites_ProportionsNaN_HammingZero | No comparable sites → p/JC/K2P = NaN, Hamming = 0; matrix entry NaN | ape dist_dna.c pairdel; scikit-bio 0.7.4 |
+| R02 | MatchesScikitBio | Gapped/ambiguous pairs: Hamming, p, JC69, K80 equal scikit-bio 0.7.4 to 1e-12 | scikit-bio pdist/jc69/k2p |
 | S05 | SingleDifference_CalculatesCorrectly | 1 mismatch in 8 → p = 0.125 | Boundary case |
 | S06 | Kimura2P_MixedChanges_MatchesFormula | K2P with S=1/8, V=1/8 | Formula verification (Kimura 1980) |
 | S07 | Kimura2P_HighDivergence_ReturnsInfinity | K2P saturation: V≥0.5 → +∞ | K2P formula domain (Wikipedia) |
@@ -82,6 +84,8 @@
 | S02 | CalculateDistanceMatrix_ThreeSequences_CorrectValues | ✅ Covered |
 | S03 | CalculatePairwiseDistance_Kimura2P_GreaterThanOrEqualToPDistance | ✅ Covered |
 | S04 | CalculatePairwiseDistance_AllGaps_ReturnsZero | ✅ Covered |
+| R01 | CalculatePairwiseDistance_NoComparableSites_ProportionsNaN_HammingZero | ✅ Covered (2026-09) |
+| R02 | CalculatePairwiseDistance_MatchesScikitBio | ✅ Covered (2026-09) |
 | S05 | CalculatePairwiseDistance_SingleDifference_CorrectPDistance | ✅ Covered |
 | S06 | CalculatePairwiseDistance_Kimura2P_MixedChanges_MatchesFormula | ✅ Covered |
 | S07 | CalculatePairwiseDistance_Kimura2P_HighDivergence_ReturnsInfinity | ✅ Covered |
@@ -123,7 +127,7 @@ None. All formulas, behaviors, and edge cases are sourced from external referenc
 - **Transition classification:** A↔G (purine↔purine), C↔T (pyrimidine↔pyrimidine) — Wikipedia (Transition genetics)
 - **Saturation:** JC69 at $p \geq 3/4$, K2P when $1-2p-q \leq 0$ or $1-2V \leq 0$ — formula domain constraints
 - **Gap handling:** Gaps and ambiguous IUPAC bases excluded from comparison — Wikipedia (Distance matrices in phylogeny); only standard bases (A, C, G, T) are compared
-- **Zero-site edge case:** Returns 0 when comparableSites = 0 — mathematical limit (0 differences / any denominator → 0)
+- **Zero-site edge case:** comparableSites = 0 → Hamming 0, p/JC/K2P NaN (0/0 undefined; ape and scikit-bio agree)
 - **Case insensitivity:** Standard bioinformatics practice
 
 ---

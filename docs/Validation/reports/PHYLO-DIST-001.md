@@ -75,3 +75,13 @@ None. The implementation faithfully realises the validated formulas with correct
 ## Verdict & follow-ups
 - **Stage A: PASS. Stage B: PASS. State: CLEAN.**
 - No code changes. `DistanceMatrix` filter → 32 passed / 0 failed. Build succeeded, 0 warnings.
+
+---
+
+## Re-review 2026-09-28 (campaign review-2026-09, batch B16)
+
+- **Stage A:** PASS-with-notes — JC69/K80 formulas, constants, natural log and Ts/Tv classes re-confirmed against ape `src/dist_dna.c` (raw.githubusercontent.com/cran/ape/master) and scikit-bio 0.7.4 `skbio.sequence.distance.{pdist,jc69,k2p}` docstrings/code. One description defect: the spec/evidence claimed "no comparable sites → 0 (mathematical limit)"; p = 0/0 is undefined and both references return NaN.
+- **Stage B:** FIXED — 406 random gapped/ambiguous/lower-case pairs (seeded) compared against scikit-bio and an independent ape-logic reimplementation: every finite Hamming/p/JC/K2P value identical (max |Δ| = 0). Divergences were only (a) L = 0: code 0 vs reference NaN (12 cases) → **fixed** (p/JC/K2P now NaN, Hamming 0); (b) beyond saturation: code +∞ vs scikit-bio NaN / ape NaN (+Inf only at the exact boundary) → **kept** as a documented convention (+∞ = saturated, undefined by formula; no reference consensus).
+- **Tests:** R01 `CalculatePairwiseDistance_NoComparableSites_ProportionsNaN_HammingZero`, R02 `CalculatePairwiseDistance_MatchesScikitBio` (2 cases); fuzz test renamed to `EmptySequences_NoComparableSites_HammingZero_ProportionsNaN` and the all-junk JC pin changed to NaN. Phylogenetic tests 502/502.
+- **Duplication:** the `Hamming` model is a pairwise-deletion difference count (ape model "N") inside the fused Ts/Tv scan, a different quantity from `SequenceExtensions.HammingDistance` / `ApproximateMatcher.HammingDistance` (raw char mismatches) — not a duplicate. MCP `distance_matrix` / `pairwise_distance` delegate to the analyzer (only input validation + enum parsing).
+- **Follow-up (PHYLO-TREE-001):** `BuildTree`/`BuildTreeFromMatrix` do not reject NaN entries: with a non-overlapping pair UPGMA returns a zero-length tree and NJ returns NaN branch lengths (before this fix, the pair was silently joined as identical at distance 0). ape `nj()` rejects missing values.
