@@ -5,12 +5,12 @@
 | Algorithm Group | Translation |
 | Test Unit ID | TRANS-CODON-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Codon translation maps a nucleotide triplet to a single-letter amino-acid code according to a selected genetic code table.[1][4] In this repository, the `GeneticCode` class provides codon translation, start/stop-codon classification, reverse lookup from amino acid to codons, and factory access to the supported NCBI tables. The implementation accepts DNA or RNA codons, is case-insensitive, and distinguishes between ambiguous IUPAC codons, which return `X`, and invalid non-IUPAC codons, which throw. Supported tables are Standard (1), Vertebrate Mitochondrial (2), Yeast Mitochondrial (3), and Bacterial/Plastid (11).[4][5]
+Codon translation maps a nucleotide triplet to a single-letter amino-acid code according to a selected genetic code table.[1][4] In this repository, the `GeneticCode` class provides codon translation, start/stop-codon classification, reverse lookup from amino acid to codons, and factory access to the supported NCBI tables. The implementation accepts DNA or RNA codons, is case-insensitive, resolves IUPAC-ambiguous codons exactly as Biopython's ambiguous codon tables do, and throws on non-IUPAC symbols. All 27 NCBI translation tables of `gc.prt` Version 4.6 (1–6, 9–16, 21–33) are supported, built verbatim from the NCBI `ncbieaa`/`sncbieaa` strings; `Standard` (1), `VertebrateMitochondrial` (2), `YeastMitochondrial` (3) and `BacterialPlastid` (11) are also exposed as properties.[4][7][8]
 
 ## 2. Scientific / Formal Basis
 
@@ -25,7 +25,7 @@ The genetic code is the rule set that translates codons into amino acids. The or
 | Degenerate | 64 codons encode 20 amino acids plus stop signals. |
 | Nearly universal | Most organisms use the standard code with limited alternative tables. |
 
-The original file also recorded the supported alternative tables:[4]
+Representative tables (all 27 NCBI tables are supported; the full data is `gc.prt` v4.6):[4][7]
 
 | Table | Name | Key AA Differences | Start Codons |
 |-------|------|--------------------|--------------|
@@ -36,7 +36,16 @@ The original file also recorded the supported alternative tables:[4]
 
 ### 2.2 Core Model
 
-Codon translation is a constant-time dictionary lookup after normalization of the input codon to uppercase RNA notation. Stop codons return `'*'`. The repository also exposes start-codon and stop-codon membership checks through explicit sets.
+Each table is built from the NCBI `gc.prt` strings: codon *i* (bases ordered T, C, A, G at each position) maps to `ncbieaa[i]`; it is a stop codon if `ncbieaa[i]` or `sncbieaa[i]` is `*`, and a start codon if `sncbieaa[i]` is `M`.[7] In tables 27, 28 and 31 some codons are *dual-coding* (amino acid in `ncbieaa`, `*` in `sncbieaa`): `Translate` returns the amino acid and `IsStopCodon` reports a stop, as in Biopython.[8]
+
+Codon translation is a constant-time dictionary lookup after normalization of the input codon to uppercase RNA notation. An IUPAC-ambiguous codon (R, Y, S, W, K, M, B, D, H, V, N) is expanded into all concrete codons it stands for (Biopython `AmbiguousForwardTable` / `Seq._translate_str`):[8]
+
+1. all expansions are stops → `*`;
+2. stops mixed with amino acids ("possible stop", e.g. `TAN`) → `X`;
+3. one amino acid (e.g. `GCN`) → that amino acid;
+4. several amino acids → the most specific IUPAC ambiguous residue covering them: `B` (D/N, e.g. `RAY`), `Z` (E/Q, e.g. `SAR`), `J` (I/L, e.g. `MTH`), else `X`.
+
+`IsStartCodon` / `IsStopCodon` accept an ambiguous codon only when every expansion is a start / stop (Biopython `list_ambiguous_codons`), e.g. `YTG` is a start and `TAR`, `TRA` are stops in table 1.
 
 ### 2.3 Modeling Assumptions
 
@@ -50,7 +59,7 @@ Codon translation is a constant-time dictionary lookup after normalization of th
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | Every codon present in a table maps to exactly one amino acid character. | Each `GeneticCode` stores a dictionary from codon to amino acid. |
-| INV-02 | Standard, Vertebrate Mitochondrial, Yeast Mitochondrial, and Bacterial/Plastid each define 64 codons. | The built-in tables are created from the standard base table with table-specific overrides. |
+| INV-02 | Every supported table defines all 64 codons. | Each table is built from a 64-character NCBI `ncbieaa` string. |
 | INV-03 | Stop codons translate to `'*'`. | The built-in codon tables store `'*'` for stop codons. |
 | INV-04 | `ATG` and `AUG` translate identically. | `Translate` normalizes `T` to `U` before lookup. |
 
@@ -64,13 +73,13 @@ Codon translation is a constant-time dictionary lookup after normalization of th
 | `[IsStartCodon] codon` | `string` | required | Codon to classify as a start codon. | Invalid length or `null` returns `false`. |
 | `[IsStopCodon] codon` | `string` | required | Codon to classify as a stop codon. | Invalid length or `null` returns `false`. |
 | `[GetCodonsForAminoAcid] aminoAcid` | `char` | required | Amino-acid code for reverse lookup. | Lookup is case-insensitive. |
-| `[GetByTableNumber] tableNumber` | `int` | required | NCBI table number for a supported code. | Only `1`, `2`, `3`, and `11` are supported. |
+| `[GetByTableNumber] tableNumber` | `int` | required | NCBI table number. | One of `SupportedTableNumbers` (1–6, 9–16, 21–33); otherwise `ArgumentException`. |
 
 ### 3.2 Output / Return Value
 
 | Name | Type | Description |
 |------|------|-------------|
-| `Translate` result | `char` | Single-letter amino acid, `'*'` for stop, or `X` for ambiguous IUPAC codons. |
+| `Translate` result | `char` | Single-letter amino acid, `'*'` for stop, or for an ambiguous IUPAC codon the resolved residue / `B` / `Z` / `J` / `X` / `*` (Section 2.2). |
 | `IsStartCodon` result | `bool` | Whether the normalized codon is in the table's start-codon set. |
 | `IsStopCodon` result | `bool` | Whether the normalized codon is in the table's stop-codon set. |
 | `GetCodonsForAminoAcid` result | `IEnumerable<string>` | All codons in the table that encode the supplied amino acid. |
@@ -78,7 +87,7 @@ Codon translation is a constant-time dictionary lookup after normalization of th
 
 ### 3.3 Preconditions and Validation
 
-`Translate` throws `ArgumentException` when the input is `null`, empty, or not exactly three characters long. After normalization, a codon found in the table is translated directly. If the codon is not present in the table but consists only of valid IUPAC nucleotide symbols, the method returns `X`. Non-IUPAC codons throw `ArgumentException`.[5]
+`Translate` throws `ArgumentException` when the input is `null`, empty, or not exactly three characters long. After normalization, a codon found in the table is translated directly. If the codon is not present in the table but consists only of valid IUPAC nucleotide symbols, it is resolved by the ambiguity rule of Section 2.2. Non-IUPAC codons (including `X`) throw `ArgumentException`.[5]
 
 ## 4. Algorithm
 
@@ -87,12 +96,12 @@ Codon translation is a constant-time dictionary lookup after normalization of th
 1. Validate that the input codon is non-empty and exactly three characters.
 2. Normalize the codon to uppercase RNA notation by replacing `T` with `U`.
 3. If the normalized codon exists in the active table, return its amino acid.
-4. Otherwise, if all characters are valid IUPAC nucleotide symbols, return `X`.
+4. Otherwise, if all characters are valid IUPAC nucleotide symbols, expand and resolve (Section 2.2; cached per table).
 5. Otherwise, throw `ArgumentException`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The built-in table support is fixed to the four NCBI tables listed in Section 2.1. Degeneracy observed in the original document is preserved below:[4]
+Degeneracy of the standard code (table 1):[4]
 
 | Number of codons | Amino acids |
 |------------------|-------------|
@@ -123,24 +132,22 @@ The built-in table support is fixed to the four NCBI tables listed in Section 2.
 
 ### 5.2 Current Behavior
 
-The repository supports tables `1`, `2`, `3`, and `11` only. `Translate` normalizes `T` to `U`, looks up the codon in the active table, and returns `X` for ambiguous IUPAC codons such as `ANN` or `NNN`. Inputs containing non-IUPAC symbols such as `XYZ` or `12G` throw `ArgumentException`.[5] `IsStartCodon` and `IsStopCodon` return `false` rather than throwing when the input is `null`, empty, or not exactly three characters long.
+The repository supports all NCBI `gc.prt` v4.6 tables. `Translate` normalizes `T` to `U`, looks up the codon in the active table, and resolves ambiguous IUPAC codons as Biopython does (`GCN`→`A`, `TAR`→`*`, `RAY`→`B`, `ANN`/`NNN`/`TAN`→`X`). Inputs containing non-IUPAC symbols such as `XYZ` or `12G` throw `ArgumentException`.[5] `IsStartCodon` and `IsStopCodon` return `false` rather than throwing when the input is `null`, empty, or not exactly three characters long.
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- The built-in tables match NCBI Tables `1`, `2`, `3`, and `11` for codon translations and documented start/stop sets.[4][5]
+- All 27 NCBI translation tables, codon assignments and start/stop sets, from `gc.prt` Version 4.6.[7]
+- IUPAC ambiguity resolution identical to Biopython's ambiguous codon tables.[8]
 - Stop codons are represented as `'*'` and DNA codons are treated equivalently to RNA codons through `T -> U` normalization.[3][5]
 
-**Intentionally simplified:**
+Cross-check: every one of the 15³ IUPAC codons × 27 tables (translation, start and stop classification) equals Biopython 1.88 (`tests/.../TestData/GeneticCode/biopython_ambiguous_codons.tsv`); gc.prt v4.6 and Biopython's tables were verified identical.
 
-- Ambiguous IUPAC codons are collapsed to `X` rather than expanded across all possible concrete codons; **consequence:** ambiguity is preserved as unknown amino acid instead of resolved probabilistically.
-- Table support is limited to four built-in genetic codes; **consequence:** callers needing other NCBI tables must extend the implementation or select another tool.
+**Documented divergences:**
 
-**Not implemented:**
-
-- Built-in support for NCBI genetic-code tables outside `1`, `2`, `3`, and `11`; **users should rely on:** no current alternative.
-- Ambiguity-aware resolution that enumerates all amino acids implied by an IUPAC codon; **users should rely on:** no current alternative.
+- `X` as a *nucleotide* symbol is rejected (it is not an IUPAC nucleotide code); Biopython inconsistently treats it as `N` inside some codons (`GCX`→`A`) but rejects `XXX`.
+- Dual-coding stop codons (tables 27, 28, 31) translate to their amino acid; context-dependent termination is not modelled (same as Biopython).
 
 ## 6. Edge Cases and Limitations
 
@@ -152,12 +159,13 @@ The repository supports tables `1`, `2`, `3`, and `11` only. `Translate` normali
 | `UAA`, `UAG`, `UGA` | Return `*` in the standard table. | Standard stop codons. |
 | `ATG` | Returns `M`. | DNA is normalized to RNA. |
 | Lowercase or mixed case input | Same result as uppercase. | Input is uppercased before lookup. |
-| `ANN`, `NNN` | Return `X`. | Valid IUPAC ambiguity codons are treated as unknown amino acid. |
+| `ANN`, `NNN`, `TAN` | Return `X`. | Expansions mix stops and/or unrelated amino acids (Biopython). |
+| `GCN`, `TAR`, `RAY`, `SAR`, `MTH` | Return `A`, `*`, `B`, `Z`, `J`. | Biopython ambiguous codon tables. |
 | `XYZ`, `12G` | Throw `ArgumentException`. | They contain invalid non-IUPAC symbols. |
 
 ### 6.2 Limitations
 
-The repository exposes a fixed set of built-in genetic-code tables and returns only a single amino-acid character per codon. It does not represent ambiguity sets, probabilities, or broader codon-context effects.
+`Translate` returns a single character per codon; ambiguity beyond B/Z/J is collapsed to `X`. Codon-context effects (selenocysteine/pyrrolysine recoding, context-dependent stops of tables 27/28/31) are not modelled.
 
 ## 7. Examples and Related Material
 
@@ -175,3 +183,5 @@ The repository exposes a fixed set of built-in genetic-code tables and returns o
 4. NCBI. 2026. The Genetic Codes. https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi
 5. Test specification: [TRANS-CODON-001.md](../../../tests/TestSpecs/TRANS-CODON-001.md)
 6. Crick FH. 1968. The origin of the genetic code. Journal of Molecular Biology. N/A
+7. NCBI. Genetic code table `gc.prt`, Version 4.6 (Elzanowski A, Ostell J). NCBI C++ Toolkit, `src/objects/seqfeat/gc.prt`. https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/objects/seqfeat/gc.prt
+8. Biopython 1.88. `Bio/Data/CodonTable.py` (AmbiguousForwardTable, list_possible_proteins, list_ambiguous_codons) and `Bio/Seq.py` (`_translate_str`). https://raw.githubusercontent.com/biopython/biopython/master/Bio/Data/CodonTable.py

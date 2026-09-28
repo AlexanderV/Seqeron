@@ -373,20 +373,18 @@ public class TranslatorTests
     }
 
     [Test]
-    public void Translate_AmbiguousIupacCodon_ProducesX()
+    public void Translate_AmbiguousIupacCodon_ResolvedAsBiopython()
     {
-        // Biopython Seq.translate: a codon containing IUPAC ambiguity codes
-        // (e.g. "NNN", "GCN") that could resolve to more than one amino acid /
-        // stop is translated to 'X' (the unknown amino acid), not an error.
-        // Source: Bio.Seq docs — "Ambiguous codons like 'TAN' or 'NNN' ... are
-        // translated as 'X'."
-        // AUG (M) · NNN (X) · GCN (X, all GCx = Ala but N keeps it ambiguous) · UAA (*)
+        // Biopython Seq.translate (ambiguous codon tables): an IUPAC-ambiguous codon is
+        // expanded; if every expansion gives the same amino acid that residue is emitted
+        // (GCN -> A, since GCA/GCC/GCG/GCU are all Ala); a codon that may be a stop or
+        // several unrelated residues (NNN) is emitted as 'X'.
+        // Oracle (Biopython 1.88): Seq("AUGNNNGCNUAA").translate() == "MXA*".
+        // (Review 2026-09 TRANS-CODON-001: previous expectation "MXX*" contradicted Biopython.)
         // NOTE: the typed DnaSequence/RnaSequence overloads reject IUPAC ambiguity
-        // codes at construction (only A/C/G/U[/T] are valid bases), so the 'X'
-        // (unknown amino acid) path is reachable only via the string overload,
-        // which does not pre-validate the alphabet.
+        // codes at construction, so this path is reachable only via the string overload.
         var protein = Translator.Translate("AUGNNNGCNUAA");
-        Assert.That(protein.Sequence, Is.EqualTo("MXX*"));
+        Assert.That(protein.Sequence, Is.EqualTo("MXA*"));
     }
 
     [Test]

@@ -22,6 +22,9 @@
          weights) used to exercise the densenet skip-connection forward-pass wiring that the feedforward
          single_net pack does not cover. Golden raw output computed by an independent NumPy reference. -->
     <EmbeddedResource Include="TestData\Mhcflurry\mhcflurry_skip_net.bin" />
+    <!-- TRANS-CODON-001: Biopython 1.88 Bio.Seq.translate / Bio.Data.CodonTable.ambiguous_dna_by_id over all
+         15^3 IUPAC codons for every NCBI translation table (gc.prt v4.6 == Biopython tables). -->
+    <EmbeddedResource Include="TestData\GeneticCode\biopython_ambiguous_codons.tsv" />
   </ItemGroup>
 
   <ItemGroup>

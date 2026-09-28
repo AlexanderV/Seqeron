@@ -136,7 +136,9 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 public class TranslationFuzzTests
 {
     /// <summary>The four NCBI table numbers this repository supports.</summary>
-    private static readonly int[] SupportedTables = { 1, 2, 3, 11 };
+    // NCBI gc.prt Version 4.6 translation tables (TRANS-CODON-001, review 2026-09).
+    private static readonly int[] SupportedTables =
+        { 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33 };
 
     // ═══════════════════════════════════════════════════════════════════
     //  TRANS-CODON-001 — codon table / genetic code : fuzz targets
@@ -280,7 +282,7 @@ public class TranslationFuzzTests
     {
         int[] invalidIds =
         {
-            0, -1, -42, 4, 5, 6, 7, 8, 9, 10, 12, 13, 25, 9999,
+            0, -1, -42, 7, 8, 17, 18, 19, 20, 34, 9999,
             int.MaxValue, int.MinValue,
         };
 
@@ -296,7 +298,7 @@ public class TranslationFuzzTests
     /// <summary>
     /// Fuzz target "invalid table ID" — randomized sweep (MC): a local fixed-seed
     /// Random generates many integers; each one must either be a supported table
-    /// (1/2/3/11, returning a non-null GeneticCode with the matching TableNumber) or
+    /// (an NCBI gc.prt table, returning a non-null GeneticCode with the matching TableNumber) or
     /// throw ArgumentException. No other exception type may ever escape, and no input
     /// may return null — proving the lookup is total over the entire int domain.
     /// </summary>

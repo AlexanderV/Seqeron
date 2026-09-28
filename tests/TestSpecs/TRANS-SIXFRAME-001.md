@@ -183,7 +183,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Reverse-frame numbering follows the Biopython independent-offset convention (frame −k = revcomp offset k−1) | M3, M5, INV-3 |
-| 2 | Stop = `*`, ambiguous IUPAC codon = `X` (inherited from `GeneticCode.Translate`) | C2 |
+| 2 | Stop = `*`, ambiguous IUPAC codon resolved per Biopython (e.g. `GCN`→`A`, `NNN`→`X`; inherited from `GeneticCode.Translate`) | C2 |
 | 3 | `FindOrfs.minLength` counts amino acids (not nucleotides as in getorf) | M11 |
 
 ---

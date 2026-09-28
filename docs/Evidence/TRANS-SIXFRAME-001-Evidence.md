@@ -146,7 +146,7 @@ Input DNA: `GGGATGAAACCCTAAGGG`. ATG begins at index 3; stop `TAA` occupies indi
 ## Assumptions
 
 1. **ASSUMPTION: Reverse-frame numbering convention.** Two documented conventions exist (EMBOSS phase-locked vs. Biopython independent-offset). The repository follows the **Biopython** convention (frame -k = reverse-complement offset k−1), which is the dominant reference-implementation behaviour and is explicitly listed as an accepted alternative in the EMBOSS transeq documentation. This is a convention choice, not an invented value; both produce correct biology, only the −1/−2/−3 labels differ.
-2. **ASSUMPTION: Stop codons rendered as `*`; ambiguous IUPAC codons rendered as `X`.** The `*` for stop is universal (NCBI). Rendering ambiguous codons as `X` (unknown amino acid) follows the IUPAC single-letter "any amino acid" code; it is the established behaviour of the existing `GeneticCode.Translate` and is not exercised as a six-frame-specific MUST.
+2. **ASSUMPTION: Stop codons rendered as `*`; ambiguous IUPAC codons resolved as in Biopython (all-same → that residue, all-stop → `*`, D/N → `B`, E/Q → `Z`, I/L → `J`, otherwise `X`; TRANS-CODON-001 review 2026-09).** The `*` for stop is universal (NCBI). The ambiguity resolution is Biopython's `Bio.Data.CodonTable` ambiguous-table rule, implemented and oracle-tested in `GeneticCode.Translate` (TRANS-CODON-001); it is not exercised as a six-frame-specific MUST.
 3. **ASSUMPTION: ORF length filter is in amino acids.** getorf's `-minsize` is in nucleotides; the repository's `FindOrfs(minLength)` parameter counts amino acids (protein length). This is an API-shape choice documented in the contract; behaviour is well-defined for any value.
 
 ---

@@ -16,6 +16,8 @@
 | [Wikipedia: Start codon](https://en.wikipedia.org/wiki/Start_codon) | Encyclopedia | AUG as universal start codon, alternative starts (GUG, UUG) in bacteria |
 | [Wikipedia: Stop codon](https://en.wikipedia.org/wiki/Stop_codon) | Encyclopedia | Three stop codons (UAA/ochre, UAG/amber, UGA/opal), nomenclature |
 | [NCBI Genetic Codes](https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi) | Official Reference | Complete translation tables 1-33, organism-specific variations |
+| [NCBI gc.prt v4.6](https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/objects/seqfeat/gc.prt) | Official data file (opened 2026-09-28) | Machine-readable `ncbieaa`/`sncbieaa` strings of all 27 tables; the data `GeneticCode` is built from |
+| [Biopython Bio/Data/CodonTable.py](https://raw.githubusercontent.com/biopython/biopython/master/Bio/Data/CodonTable.py) | Reference implementation (opened; identical to installed 1.88) | Same 27 tables (verified identical to gc.prt v4.6); ambiguous codon resolution (`AmbiguousForwardTable`, `list_ambiguous_codons`) |
 
 ### Reference Datasets from NCBI Translation Tables
 
@@ -71,7 +73,10 @@ NCBI: GUG/UUG documented in Archaea/Bacteria; CUG for RepA in E. coli;
 | Corner Case | Expected Behavior | Source |
 |-------------|-------------------|--------|
 | Codon length ≠ 3 | Error/Exception | Definition of codon (NCBI) |
-| Unknown codon (e.g., NNN) | Error/Exception | Standard genetic code definition |
+| Ambiguous IUPAC codon (e.g., NNN, TAN) | 'X' (possible stop / unrelated residues) | Biopython Seq.translate |
+| Ambiguous codon, one residue (GCN) / all stops (TAR, TRA) | 'A' / '*' | Biopython ambiguous codon tables |
+| Ambiguous codon D/N, E/Q, I/L (RAY, SAR, MTH) | 'B', 'Z', 'J' | Biopython (IUPAC ambiguous amino acids) |
+| Non-IUPAC symbol (e.g., XYZ, 12G) | Error/Exception | IUPAC nucleotide nomenclature |
 | DNA vs RNA input | Both should work (T↔U conversion) | Implementation decision |
 | Case sensitivity | Case-insensitive (AUG = aug = AuG) | Common convention |
 | Stop codon → '*' | Standard representation | NCBI format |
@@ -167,7 +172,8 @@ NCBI: GUG/UUG documented in Archaea/Bacteria; CUG for RepA in E. coli;
 ## Implementation Notes
 
 ### Current Implementation (GeneticCode.cs)
-- Supports 4 genetic codes: Standard (1), Vertebrate Mitochondrial (2), Yeast Mitochondrial (3), Bacterial/Plastid (11)
+- Supports all 27 NCBI gc.prt v4.6 tables (1–6, 9–16, 21–33), built verbatim from the `ncbieaa`/`sncbieaa` strings
+- Resolves IUPAC-ambiguous codons as Biopython (review 2026-09; previously every ambiguous codon returned 'X', e.g. GCN → X instead of A)
 - Normalizes DNA to RNA (T→U) internally
 - Returns '*' for stop codons
 - Throws ArgumentException for invalid codons
@@ -176,11 +182,13 @@ NCBI: GUG/UUG documented in Archaea/Bacteria; CUG for RepA in E. coli;
 
 ## Deviations and Assumptions
 
-**None.** Implementation matches NCBI translation tables exactly.
+Implementation matches NCBI translation tables exactly (all 27 tables × 15³ IUPAC codons cross-checked against Biopython 1.88, see `TestData/GeneticCode/biopython_ambiguous_codons.tsv`).
+
+- 'X' as a nucleotide symbol is rejected (not IUPAC); Biopython accepts it inside some codons.
+- Dual-coding stops (tables 27/28/31) translate to their amino acid (as Biopython); `IsStopCodon` reports them as stops.
 
 All codon→amino acid mappings and start/stop codon sets are derived directly
-from the NCBI `AAs` and `Starts` strings for Tables 1, 2, 3, and 11
-(last updated Sep. 23, 2024 at NCBI).
+from the NCBI `AAs` and `Starts` strings (gc.prt Version 4.6).
 
 ---
 

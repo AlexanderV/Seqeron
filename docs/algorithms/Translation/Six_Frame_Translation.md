@@ -82,8 +82,8 @@ stop codons TAA, TAG, TGA [3].
 
 Null `dna` throws `ArgumentNullException`. Input is upper-cased and T→U normalised
 before codon lookup; indexing is 0-based; ORF EndPosition is inclusive. An empty
-sequence yields six empty frames and no ORFs. IUPAC-ambiguous codons translate to `X`
-(inherited from `GeneticCode.Translate`).
+sequence yields six empty frames and no ORFs. IUPAC-ambiguous codons are resolved as in
+Biopython (inherited from `GeneticCode.Translate`: e.g. `GCN`→`A`, `TAR`→`*`, `RAY`→`B`, `NNN`/`TAN`→`X`).
 
 ## 4. Algorithm
 

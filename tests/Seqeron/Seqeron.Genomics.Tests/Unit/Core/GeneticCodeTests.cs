@@ -278,8 +278,8 @@ public class GeneticCodeTests
     }
 
     /// <summary>
-    /// Codons with IUPAC ambiguity codes (N, R, Y, etc.) return 'X' (unknown amino acid).
-    /// Source: BioPython, EMBOSS — standard handling of ambiguous codons.
+    /// Ambiguous codons whose expansions mix amino acids and stops, or span unrelated amino acids,
+    /// return 'X'. Source: Biopython 1.88 Seq.translate (ANN, NNN, NAA, NCC → X).
     /// </summary>
     [Test]
     public void Translate_AmbiguousCodon_ReturnsX()
@@ -826,6 +826,156 @@ public class GeneticCodeTests
             Assert.That(code, Is.Not.Null, $"Table {tableNum} should return a valid code");
             Assert.That(code.TableNumber, Is.EqualTo(tableNum), $"Table number should match");
         }
+    }
+
+    #endregion
+
+    #region NCBI gc.prt v4.6 tables and IUPAC ambiguity (Biopython oracle)
+
+    private const string OracleAlphabet = "ACGTRYSWKMBDHVN";
+
+    private sealed record OracleRow(int TableId, string Translation, HashSet<string> Starts, HashSet<string> Stops);
+
+    private static List<OracleRow> LoadOracle()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.GeneticCode.biopython_ambiguous_codons.tsv";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var reader = new StreamReader(stream);
+        var rows = new List<OracleRow>();
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0 || line.StartsWith('#')) continue;
+            var f = line.Split('\t');
+            rows.Add(new OracleRow(int.Parse(f[0]), f[1],
+                f[2].Split(',').ToHashSet(), f[3].Split(',').ToHashSet()));
+        }
+        return rows;
+    }
+
+    private static IEnumerable<string> AllIupacCodons()
+    {
+        foreach (char a in OracleAlphabet)
+            foreach (char b in OracleAlphabet)
+                foreach (char c in OracleAlphabet)
+                    yield return new string(new[] { a, b, c });
+    }
+
+    /// <summary>
+    /// The set of supported tables is exactly the NCBI gc.prt v4.6 set (1-6, 9-16, 21-33),
+    /// which Biopython's CodonTable reproduces.
+    /// Source: NCBI C++ Toolkit src/objects/seqfeat/gc.prt (Version 4.6); Biopython 1.88.
+    /// </summary>
+    [Test]
+    public void SupportedTableNumbers_MatchNcbiGcPrt_V46()
+    {
+        int[] ncbi = { 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33 };
+        Assert.That(GeneticCode.SupportedTableNumbers, Is.EqualTo(ncbi));
+        Assert.That(LoadOracle().Select(r => r.TableId), Is.EqualTo(ncbi));
+        foreach (int id in new[] { 7, 8, 17, 18, 19, 20, 34 })
+            Assert.Throws<ArgumentException>(() => GeneticCode.GetByTableNumber(id));
+    }
+
+    /// <summary>
+    /// Every one of the 15^3 IUPAC codons, for every NCBI table, translates exactly as Biopython
+    /// (unambiguous codons = gc.prt ncbieaa; ambiguous codons resolved to aa / B / Z / J / X / '*').
+    /// Source: Biopython 1.88 Bio.Seq.translate (embedded oracle TSV).
+    /// </summary>
+    [Test]
+    public void Translate_AllIupacCodons_AllTables_MatchBiopython()
+    {
+        var codons = AllIupacCodons().ToArray();
+        foreach (var row in LoadOracle())
+        {
+            var code = GeneticCode.GetByTableNumber(row.TableId);
+            var actual = new string(codons.Select(code.Translate).ToArray());
+            Assert.That(actual, Is.EqualTo(row.Translation), $"Table {row.TableId}");
+        }
+    }
+
+    /// <summary>
+    /// Start/stop classification of every IUPAC codon matches Biopython's ambiguous codon tables
+    /// (a codon qualifies only when every concrete expansion is a start / stop), which for
+    /// unambiguous codons equals the gc.prt sncbieaa 'M' / '*' marks.
+    /// Source: Biopython 1.88 CodonTable.ambiguous_dna_by_id[*].start_codons / stop_codons.
+    /// </summary>
+    [Test]
+    public void IsStartStopCodon_AllIupacCodons_AllTables_MatchBiopython()
+    {
+        var codons = AllIupacCodons().ToArray();
+        foreach (var row in LoadOracle())
+        {
+            var code = GeneticCode.GetByTableNumber(row.TableId);
+            foreach (var c in codons)
+            {
+                Assert.That(code.IsStartCodon(c), Is.EqualTo(row.Starts.Contains(c)), $"Table {row.TableId} start {c}");
+                Assert.That(code.IsStopCodon(c), Is.EqualTo(row.Stops.Contains(c)), $"Table {row.TableId} stop {c}");
+            }
+            var concreteStarts = row.Starts.Where(s => s.All("ACGT".Contains)).Select(s => s.Replace('T', 'U'));
+            var concreteStops = row.Stops.Where(s => s.All("ACGT".Contains)).Select(s => s.Replace('T', 'U'));
+            Assert.That(code.StartCodons, Is.EquivalentTo(concreteStarts), $"Table {row.TableId} StartCodons");
+            Assert.That(code.StopCodons, Is.EquivalentTo(concreteStops), $"Table {row.TableId} StopCodons");
+        }
+    }
+
+    /// <summary>
+    /// Spot values of ambiguous-codon translation (Biopython 1.88 Seq.translate):
+    /// GCN→A, TAR→*, TRA→*, RAY→B (D/N), SAR→Z (Q/E), MTH→J (I/L), YTR→L, TAN→X (possible stop),
+    /// YTN→X (F/L), and table 2: AGR→*, TGR→W, MTH→X (I/M/L).
+    /// </summary>
+    [Test]
+    public void Translate_AmbiguousCodons_ResolvedAsBiopython()
+    {
+        var std = GeneticCode.Standard;
+        var vmt = GeneticCode.VertebrateMitochondrial;
+        Assert.Multiple(() =>
+        {
+            Assert.That(std.Translate("GCN"), Is.EqualTo('A'));
+            Assert.That(std.Translate("gcn"), Is.EqualTo('A'));
+            Assert.That(std.Translate("TAR"), Is.EqualTo('*'));
+            Assert.That(std.Translate("UAR"), Is.EqualTo('*'));
+            Assert.That(std.Translate("TRA"), Is.EqualTo('*'));
+            Assert.That(std.Translate("RAY"), Is.EqualTo('B'));
+            Assert.That(std.Translate("SAR"), Is.EqualTo('Z'));
+            Assert.That(std.Translate("MTH"), Is.EqualTo('J'));
+            Assert.That(std.Translate("YTR"), Is.EqualTo('L'));
+            Assert.That(std.Translate("TAN"), Is.EqualTo('X'));
+            Assert.That(std.Translate("YTN"), Is.EqualTo('X'));
+            Assert.That(vmt.Translate("AGR"), Is.EqualTo('*'));
+            Assert.That(vmt.Translate("TGR"), Is.EqualTo('W'));
+            Assert.That(vmt.Translate("MTH"), Is.EqualTo('X'));
+            Assert.That(std.IsStopCodon("TAR"), Is.True);
+            Assert.That(std.IsStopCodon("TAN"), Is.False);
+            Assert.That(std.IsStartCodon("YTG"), Is.True);
+            Assert.That(std.IsStartCodon("NTG"), Is.False, "GTG is not a start in table 1");
+            Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("NTG"), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// Dual-coding codons (gc.prt: amino acid in ncbieaa, '*' in sncbieaa) in tables 27, 28, 31:
+    /// Translate returns the amino acid and IsStopCodon reports a stop, as in Biopython.
+    /// Source: gc.prt v4.6 tables 27/28/31; Biopython forward_table / stop_codons.
+    /// </summary>
+    [Test]
+    public void DualCodingStops_Tables27_28_31_TranslateToAminoAcidAndAreStops()
+    {
+        var t27 = GeneticCode.GetByTableNumber(27);
+        var t28 = GeneticCode.GetByTableNumber(28);
+        var t31 = GeneticCode.GetByTableNumber(31);
+        Assert.Multiple(() =>
+        {
+            Assert.That(t27.Translate("TGA"), Is.EqualTo('W'));
+            Assert.That(t27.IsStopCodon("TGA"), Is.True);
+            Assert.That(t28.Translate("TAA"), Is.EqualTo('Q'));
+            Assert.That(t28.Translate("TAG"), Is.EqualTo('Q'));
+            Assert.That(t28.Translate("TGA"), Is.EqualTo('W'));
+            Assert.That(t28.StopCodons, Is.EquivalentTo(new[] { "UAA", "UAG", "UGA" }));
+            Assert.That(t31.Translate("TAA"), Is.EqualTo('E'));
+            Assert.That(t31.GetCodonsForAminoAcid('*'), Is.EquivalentTo(new[] { "UAA", "UAG" }));
+            Assert.That(GeneticCode.GetByTableNumber(24).Name, Is.EqualTo("Rhabdopleuridae Mitochondrial"));
+        });
     }
 
     #endregion
