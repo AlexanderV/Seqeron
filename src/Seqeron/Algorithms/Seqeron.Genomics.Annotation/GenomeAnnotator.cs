@@ -291,12 +291,17 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Consensus Shine-Dalgarno motifs (purine-rich, complementary to the anti-SD
-    /// 3' tail of 16S rRNA 5'-...PyACCUCCUUA-3'). Longest first so the highest score wins.
-    /// Source: Shine &amp; Dalgarno (1975) Nature 254:34-38; full consensus AGGAGG.
+    /// Exact Shine-Dalgarno motifs: every contiguous substring of length ≥ 4 of the consensus
+    /// AGGAGG (Shine &amp; Dalgarno 1975, Nature 254:34-38), which pairs with the anti-SD
+    /// 3' tail of 16S rRNA (…CCUCCU…). This is the exact-match motif set of Prodigal's
+    /// <c>shine_dalgarno_exact()</c> (Hyatt et al. 2010, BMC Bioinformatics 11:119;
+    /// <c>sequence.c</c>), which compares a window to AGGAGG and accepts any contiguous
+    /// matching sub-motif — its 4-base class is "AGGA/GGAG/GAGG" (<c>gene.c</c> bins 11/12),
+    /// so GGAG is included. Prodigal's 3-base class (GGA/GAG/AGG) is not scanned here.
+    /// Longest first.
     /// </summary>
     private static readonly string[] ShineDalgarnoMotifs =
-        { "AGGAGG", "GGAGG", "AGGAG", "GAGG", "AGGA" };
+        { "AGGAGG", "GGAGG", "AGGAG", "GGAG", "GAGG", "AGGA" };
 
     /// <summary>
     /// Finds potential Shine-Dalgarno (ribosome binding site) sequences on the FORWARD
@@ -391,6 +396,21 @@ public static class GenomeAnnotator
     /// Scans a single strand sequence for Shine-Dalgarno motifs upstream of the supplied ORFs'
     /// start codons. Positions are reported in the coordinate space of <paramref name="sequence"/>.
     /// </summary>
+    /// <remarks>
+    /// Only maximal motifs are reported: for one start codon, an in-range hit whose span lies
+    /// inside another in-range hit (e.g. GGAGG inside AGGAGG) describes the same SD site and is
+    /// suppressed, as Prodigal's <c>shine_dalgarno_exact()</c> reports a single maximal
+    /// sub-motif of AGGAGG per window (it iterates motif lengths from the longest down). A motif
+    /// found upstream of several start codons (nested ORFs) is reported once.
+    /// <para>
+    /// <b>Score is a heuristic.</b> <c>score = motif.Length / 6</c> ranks motifs by their
+    /// complementarity length to the anti-SD only. The published RBS scores are not
+    /// reproducible without a genome-specific model: Prodigal scores each (motif, spacer) bin
+    /// with log-likelihood weights trained iteratively on the input genome's own gene set
+    /// (<c>train_starts_sd()</c>, <c>node.c</c>), and the RBS Calculator (Salis et al. 2009)
+    /// sums mRNA/16S rRNA folding free energies with empirically fitted spacing terms.
+    /// </para>
+    /// </remarks>
     private static IEnumerable<(int position, string sequence, double score)> ScanStrandForShineDalgarno(
         string sequence,
         IReadOnlyList<OpenReadingFrame> orfs,
@@ -398,6 +418,8 @@ public static class GenomeAnnotator
         int minDistance,
         int maxDistance)
     {
+        var reported = new HashSet<(int position, string motif)>();
+
         foreach (var orf in orfs)
         {
             int searchStart = Math.Max(0, orf.Start - upstreamWindow);
@@ -406,6 +428,7 @@ public static class GenomeAnnotator
             if (searchEnd <= searchStart) continue;
 
             string upstream = sequence.Substring(searchStart, searchEnd - searchStart).ToUpperInvariant();
+            var hitsForStart = new List<(int position, string motif)>();
 
             foreach (string motif in ShineDalgarnoMotifs)
             {
@@ -415,28 +438,48 @@ public static class GenomeAnnotator
                     int genomicPos = searchStart + pos;
                     int distanceToStart = orf.Start - genomicPos - motif.Length;
 
-                    if (distanceToStart >= minDistance && distanceToStart <= maxDistance)
+                    if (distanceToStart >= minDistance && distanceToStart <= maxDistance
+                        && !hitsForStart.Any(h => h.position <= genomicPos
+                                                  && genomicPos + motif.Length <= h.position + h.motif.Length))
                     {
-                        double score = (double)motif.Length / 6.0; // Normalize to consensus length
-                        yield return (genomicPos, motif, score);
+                        hitsForStart.Add((genomicPos, motif));
                     }
 
                     pos = upstream.IndexOf(motif, pos + 1, StringComparison.Ordinal);
                 }
             }
+
+            foreach (var hit in hitsForStart)
+            {
+                if (reported.Add(hit))
+                    yield return (hit.position, hit.motif, hit.motif.Length / 6.0);
+            }
         }
     }
 
     /// <summary>
-    /// Predicts genes using a simple ORF-based approach.
+    /// Predicts genes using a simple ORF-based approach: one CDS per stop codon on each strand,
+    /// started at the most upstream in-frame ATG/GTG/TTG (the longest ORF for that stop).
     /// </summary>
+    /// <remarks>
+    /// <see cref="FindOrfs"/> reports every start paired with its stop (nested ORFs sharing a
+    /// stop), but a gene is one start–stop pair: Prodigal (Hyatt et al. 2010) builds its gene
+    /// set from start/stop nodes and selects a single start per stop, and EMBOSS getorf
+    /// <c>-find 1</c> reports one region per stop beginning at the first START codon after the
+    /// preceding in-frame STOP. Start choice here follows the longest-ORF (first start) rule;
+    /// no RBS- or coding-score-based start refinement is performed.
+    /// </remarks>
     public static IEnumerable<GeneAnnotation> PredictGenes(
         string dnaSequence,
         int minOrfLength = 100,
         string prefix = "gene")
     {
         var orfs = FindOrfs(dnaSequence, minOrfLength, searchBothStrands: true, requireStartCodon: true)
+            // Stop codon identity: forward stop ends at End; reverse stop sits at forward Start.
+            .GroupBy(o => (o.IsReverseComplement, stop: o.IsReverseComplement ? o.Start : o.End))
+            .Select(g => g.MaxBy(o => o.End - o.Start))
             .OrderBy(o => o.Start)
+            .ThenBy(o => o.IsReverseComplement)
             .ToList();
 
         int geneCount = 0;

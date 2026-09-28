@@ -34,6 +34,7 @@
 - All genes have Start < End
 - Gene IDs follow pattern "{prefix}_{number:D4}"
 - Protein length in attributes matches (End-Start)/3 - 1 (excludes stop codon)
+- At most one gene per (strand, stop codon), started at the first in-frame start after the previous stop (EMBOSS getorf -find 1; Prodigal one start per stop) — review 2026-09
 
 ### 2. FindRibosomeBindingSites(dna, upstreamWindow, minDistance, maxDistance)
 
@@ -41,9 +42,10 @@
 
 **Invariants:**
 - Position is within upstream window of a valid ORF
-- Sequence matches one of: AGGAGG, GGAGG, AGGAG, GAGG, AGGA
+- Sequence matches one of: AGGAGG, GGAGG, AGGAG, GGAG, GAGG, AGGA (all contiguous ≥4-nt substrings of AGGAGG; Prodigal shine_dalgarno_exact)
+- Only maximal motifs per start (no hit contained in another in-range hit); each (position, motif) reported once
 - Distance to start codon (aligned spacing) is within [minDistance, maxDistance]
-- Score is normalized (motif.Length / 6.0)
+- Score is normalized (motif.Length / 6.0) — declared heuristic: published RBS scores need genome-trained weights (Prodigal) or a thermodynamic model (RBS Calculator)
 
 ## Test Cases
 
@@ -189,12 +191,13 @@ None. All design parameters are grounded in external sources:
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | SD consensus | AGGAGG | Shine & Dalgarno (1975) |
-| SD motifs | AGGAGG, GGAGG, AGGAG, GAGG, AGGA | Substrings of consensus; Wikipedia: Shine-Dalgarno sequence |
+| SD motifs | AGGAGG, GGAGG, AGGAG, GGAG, GAGG, AGGA | All contiguous ≥4-nt substrings of consensus; Prodigal sequence.c shine_dalgarno_exact / gene.c class "AGGA/GGAG/GAGG" |
 | Functional range | 4-15 bp | Wikipedia: Shine-Dalgarno sequence |
 | Optimal aligned spacing | 5 nt | Chen et al. (1994) |
 | Start codons | ATG, GTG, TTG | Wikipedia: Gene prediction (prokaryotic) |
 | Stop codons | TAA, TAG, TGA | Standard genetic code |
-| Score normalization | motif.Length / 6.0 | Implementation (consensus length = 6) |
+| Score normalization | motif.Length / 6.0 | Heuristic (declared; see Gene_Prediction.md §5.3) |
+| One gene per stop | first start (longest ORF) | EMBOSS getorf -find 1 (numeric cross-check); Prodigal |
 | Prokaryotic model | No introns, ORF-based | Wikipedia: Gene prediction |
 
 ## Validation Checklist
@@ -210,3 +213,15 @@ None. All design parameters are grounded in external sources:
 - [x] No duplicates — each test serves a distinct purpose
 - [x] Coverage classification complete: 0 missing, 0 weak, 0 duplicate
 - [x] Tests passing (32/32)
+
+## Review 2026-09 (B11) additions
+
+| Test | Reference |
+|------|-----------|
+| `FindRibosomeBindingSites_GgagSubMotif_Detected` | Prodigal shine_dalgarno_exact: GGAG cur_ctr = 9 (= GAGG), class AGGA/GGAG/GAGG |
+| `FindRibosomeBindingSites_SingleSite_ReportedOnceAsMaximalMotif` | Prodigal returns one maximal sub-motif per window; AGGAGG@10 → single hit (10, AGGAGG, 1.0) |
+| `FindRibosomeBindingSites_TooCloseConsensus_OnlyInRangeSubMotifReported` | AGGAGG at spacer 2 → only AGGA [10,14), spacer 4 (Prodigal limit=4 → AGGA, rdis 4, bin 11) |
+| `FindRibosomeBindingSites_NestedStartsSharingSd_ReportedOnce` | One site, two nested starts → one hit |
+| `PredictGenes_NestedStartsSharingStop_OneGenePerStop_MatchesGetorf` | EMBOSS getorf 6.6.0 -find 1 -table 11: [3-176], [324-190] REVERSE → +[2,179), −[186,324) |
+| `AnnotationFuzzTests.PredictGenes_OverlappingGenes_AllReportedWithValidCoordinates` | updated: nested ORF sharing a stop → single gene [0, len) |
+

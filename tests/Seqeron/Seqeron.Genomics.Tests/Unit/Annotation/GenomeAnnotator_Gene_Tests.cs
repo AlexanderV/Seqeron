@@ -47,16 +47,9 @@ public class GenomeAnnotator_Gene_Tests
     }
 
     /// <summary>
-    /// Reverse-complement of a nucleotide string (A↔T, C↔G, reversed).
+    /// Reverse-complement via the canonical implementation.
     /// </summary>
-    private static string ReverseComplement(string s)
-    {
-        var map = new Dictionary<char, char> { ['A'] = 'T', ['T'] = 'A', ['C'] = 'G', ['G'] = 'C' };
-        var chars = new char[s.Length];
-        for (int i = 0; i < s.Length; i++)
-            chars[i] = map[s[s.Length - 1 - i]];
-        return new string(chars);
-    }
+    private static string ReverseComplement(string s) => DnaSequence.GetReverseComplementString(s);
 
     /// <summary>
     /// Builds a forward-strand genomic sequence that harbours a single REVERSE-strand gene
@@ -765,6 +758,105 @@ public class GenomeAnnotator_Gene_Tests
             "Should detect AGGAGG at position 10 (aligned spacing 13)");
         Assert.That(sites.Any(s => s.sequence == "GAGG" && s.position == 20), Is.True,
             "Should detect standalone GAGG at position 20 (aligned spacing 5)");
+    }
+
+    #endregion
+
+    #region ANNOT-GENE-001 review 2026-09 (B11)
+
+    /// <summary>
+    /// GGAG is a contiguous 4-base sub-motif of AGGAGG. Prodigal's shine_dalgarno_exact()
+    /// (sequence.c) accepts any contiguous exact sub-motif of AGGAGG and labels the 4-base class
+    /// "AGGA/GGAG/GAGG" (gene.c bins 11/12; cur_ctr GGAG = −2+3+3+2+3 = 9 = GAGG).
+    /// Before the fix GGAG was missing from the motif library and was not detected.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_GgagSubMotif_Detected()
+    {
+        string sequence = CreateSequenceWithSd("GGAG", distanceToStart: 8, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 25, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites, Is.EqualTo(new[] { (10, "GGAG", 4.0 / 6.0) }));
+    }
+
+    /// <summary>
+    /// One SD site is reported once, as its maximal motif: AGGAGG must not also yield its
+    /// contained sub-motifs GGAGG/AGGAG/GGAG/GAGG/AGGA (Prodigal shine_dalgarno_exact() returns
+    /// a single maximal sub-motif per window, iterating motif length from 6 down).
+    /// Before the fix 5 hits were returned for this single site.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_SingleSite_ReportedOnceAsMaximalMotif()
+    {
+        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 8, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites, Is.EqualTo(new[] { (10, "AGGAGG", 1.0) }));
+    }
+
+    /// <summary>
+    /// AGGAGG at aligned spacing 2 (start codon at 18): AGGAGG/GGAGG/GAGG (spacer 2) and
+    /// AGGAG/GGAG (spacer 3) are below minDistance 4; the only in-range sub-motif is AGGA at
+    /// [10,14), spacer 18 − 14 = 4 — the same motif Prodigal's shine_dalgarno_exact() finds
+    /// (limit = min(6, 18 − 4 − 10) = 4 → AGGA, rdis 4, bin 11 "AGGA/GGAG/GAGG", "3-4bp").
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_TooCloseConsensus_OnlyInRangeSubMotifReported()
+    {
+        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 2, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites, Is.EqualTo(new[] { (10, "AGGA", 4.0 / 6.0) }));
+    }
+
+    /// <summary>
+    /// Nested ORFs (in-frame ATG ATG) share the same upstream SD; it is one site and must be
+    /// reported once (spacer 5 to the first ATG, 8 to the second — both in range).
+    /// Before the fix the identical tuple (10, AGGAGG, 1.0) was returned twice.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_NestedStartsSharingSd_ReportedOnce()
+    {
+        string sequence = new string('C', 10) + "AGGAGG" + new string('C', 5)
+            + "ATGATG" + new string('A', 297) + "TAA";
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites, Is.EqualTo(new[] { (10, "AGGAGG", 1.0) }));
+    }
+
+    /// <summary>
+    /// One gene per stop codon, started at the first (most upstream) start codon.
+    /// Reference: EMBOSS getorf 6.6.0 <c>-find 1 -table 11 -minsize 90</c> on this exact
+    /// 326-nt sequence reports forward <c>[3 - 176]</c> and reverse <c>[324 - 190]</c>
+    /// (1-based, stop excluded) — i.e. 0-based half-open with stop: + [2,179) and − [186,324).
+    /// The nested in-frame starts (forward ATG@35, GTG@158; reverse TTG) are not separate genes
+    /// (Prodigal likewise selects one start per stop). Before the fix 5 genes were returned.
+    /// </summary>
+    [Test]
+    public void PredictGenes_NestedStartsSharingStop_OneGenePerStop_MatchesGetorf()
+    {
+        string forwardGene = "CC" + "ATG" + string.Concat(Enumerable.Repeat("AAA", 10)) + "ATG"
+            + string.Concat(Enumerable.Repeat("AAA", 40)) + "GTG" + string.Concat(Enumerable.Repeat("AAA", 5))
+            + "TAA" + "CC";
+        string reverseGeneMrna = "ATG" + string.Concat(Enumerable.Repeat("GAA", 8)) + "TTG"
+            + string.Concat(Enumerable.Repeat("GAA", 35)) + "TAG";
+        string sequence = forwardGene + "CCCCC" + DnaSequence.GetReverseComplementString(reverseGeneMrna) + "CC";
+        Assert.That(sequence.Length, Is.EqualTo(326));
+
+        var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 30).ToList();
+
+        Assert.That(genes.Select(g => (g.Start, g.End, g.Strand)).ToList(),
+            Is.EqualTo(new[] { (2, 179, '+'), (186, 324, '-') }));
+        Assert.That(genes.Select(g => g.Attributes["protein_length"]).ToList(),
+            Is.EqualTo(new[] { "58", "45" }));
     }
 
     #endregion
