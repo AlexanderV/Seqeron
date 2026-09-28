@@ -47,14 +47,17 @@ public class PanGenomeAnalyzer_MutationKillers2_Tests
     }
 
     [Test]
-    public void ConstructPanGenome_DecayingNoveltyCurve_IsClosed()
+    public void ConstructPanGenome_SaturatingAccessory_IsClosed()
     {
-        // 3 genomes; novelty per added genome decays 3 → 1, giving a steep negative log-log slope
-        // (alpha ≈ 2.7 > 1.0) ⇒ Closed. A broken regression-slope mutant would flip this to Open.
+        // 3 genomes, clusters {core, x, y, z}; genome i lacks exactly one accessory cluster.
+        // Under every ordering the 2nd genome adds 1 new cluster and the 3rd adds 0 (curve 1,0).
+        // micropan heaps() objective, Python reference (exhaustive 3! orderings): K = 3.3402,
+        // alpha = 2.0 (upper bound) > 1 => Closed (Tettelin 2008). A mutant that ignores the
+        // fit (or inverts the alpha < 1 test) flips this to Open.
         var g = Genomes(
-            ("g1", new[] { ("g1a", "AAAAAAAAAA"), ("g1b", "CCCCCCCCCC") }),
-            ("g2", new[] { ("g2a", "AAAAAAAAAA"), ("g2c", "GGGGGGGGGG"), ("g2d", "TTTTTTTTTT"), ("g2e", "ACACACACAC") }),
-            ("g3", new[] { ("g3a", "AAAAAAAAAA"), ("g3f", "GTGTGTGTGT") }));
+            ("g1", new[] { ("g1a", "AAAAAAAAAA"), ("g1y", "GGGGGGGGGG"), ("g1z", "TTTTTTTTTT") }),
+            ("g2", new[] { ("g2a", "AAAAAAAAAA"), ("g2x", "CCCCCCCCCC"), ("g2z", "TTTTTTTTTT") }),
+            ("g3", new[] { ("g3a", "AAAAAAAAAA"), ("g3x", "CCCCCCCCCC"), ("g3y", "GGGGGGGGGG") }));
         var r = ConstructPanGenome(g, identityThreshold: 0.9, coreFraction: 0.99);
         Assert.That(r.Statistics.Type, Is.EqualTo(PanGenomeType.Closed));
     }
@@ -62,9 +65,10 @@ public class PanGenomeAnalyzer_MutationKillers2_Tests
     [Test]
     public void ConstructPanGenome_SustainedNovelty_IsOpen()
     {
-        // Each added genome contributes the same large number of new clusters (4, 4) ⇒ flat
-        // log-log curve, alpha ≈ 0 < 1.0 ⇒ Open. Requires BOTH curve points (k = 2 and k = 3):
-        // a 'k > 2' or 'logK.Count <= 2' mutant drops to one point and falls back to Closed.
+        // g2 and g3 each carry 4 strain-specific clusters: under random orderings the expected
+        // new-gene curve is flat, n(2) = n(3) = 8/3 (Python, exhaustive 3! orderings) ⇒ micropan
+        // heaps() global optimum alpha = 0 < 1.0 ⇒ Open. N = 3 is the minimum for the fit: a
+        // mutant raising the minimum genome count falls back to Closed.
         var g = Genomes(
             ("g1", new[] { ("a", "AAAAAAAAAA") }),
             ("g2", new[] { ("a", "AAAAAAAAAA"), ("b", "CCCCCCCCCC"), ("c", "GGGGGGGGGG"), ("d", "TTTTTTTTTT"), ("e", "ACACACACAC") }),

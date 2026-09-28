@@ -219,7 +219,7 @@ public class MetagenomicsTools
     /// + open vs closed classification, Tettelin et al. 2005) from a set of genomes.
     /// </summary>
     [McpServerTool(Name = "construct_pangenome", Title = "Pan-genome — Construct", ReadOnly = true)]
-    [Description("Construct a pan-genome (core/accessory/unique partition, genome fluidity, open-vs-closed classification per Tettelin 2005) from a set of genomes.")]
+    [Description("Construct a pan-genome (core/accessory/unique partition, genome fluidity, open-vs-closed classification from the permutation-averaged Heaps' law fit, Tettelin 2008 / micropan heaps(): open when alpha < 1, needs >= 3 genomes) from a set of genomes.")]
     public static PanGenomeResultDto ConstructPanGenome(
         [Description("Genomes (id + ordered list of genes).")] IReadOnlyList<GenomeInput> genomes,
         [Description("Sequence-identity threshold for ortholog clustering (default 0.9).")] double identityThreshold = 0.9,
@@ -303,11 +303,12 @@ public class MetagenomicsTools
     }
 
     /// <summary>
-    /// Filter clusters down to those present in at least <paramref name="threshold"/>·
-    /// <paramref name="totalGenomes"/> genomes (the "core" set).
+    /// Filter clusters down to the "core" set: those whose occupancy fraction
+    /// genomeCount / <paramref name="totalGenomes"/> is at least <paramref name="threshold"/>
+    /// (Roary: present in at least 99% of samples; Page et al. 2015).
     /// </summary>
     [McpServerTool(Name = "core_gene_clusters", Title = "Pan-genome — Core Gene Clusters", ReadOnly = true)]
-    [Description("Filter gene clusters down to the core set: those present in at least floor(threshold * totalGenomes) genomes.")]
+    [Description("Filter gene clusters down to the core set: those with genomeCount / totalGenomes >= threshold (Roary: present in at least 99% of samples).")]
     public static CoreGeneClustersResult CoreGeneClusters(
         [Description("All gene clusters.")]
         IReadOnlyList<PanGenomeAnalyzer.GeneCluster> clusters,

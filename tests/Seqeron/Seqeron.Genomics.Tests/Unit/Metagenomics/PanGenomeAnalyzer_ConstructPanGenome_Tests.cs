@@ -18,8 +18,8 @@ public class PanGenomeAnalyzer_ConstructPanGenome_Tests
         return dict;
     }
 
-    // Distinct 30-bp sequences (>= k=7) so identical strings cluster together and
-    // different strings form separate clusters under the k-mer Jaccard clusterer.
+    // Distinct 30-bp sequences: identical strings cluster together and different strings
+    // (pairwise ungapped identity < 0.9) form separate clusters under the CD-HIT clusterer.
     private const string SeqCore = "ATGCGATCGATCGATCGATCGATCGATCGA"; // shared "core" gene
     private const string SeqShared2 = "TTACGGCATTACGGCATTACGGCATTACGG"; // shared by two genomes
     private const string SeqU1 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -228,40 +228,69 @@ public class PanGenomeAnalyzer_ConstructPanGenome_Tests
             "Constant per-genome novelty -> Heaps decay exponent alpha < 1 -> Open (Tettelin 2008; micropan).");
     }
 
-    // M8 — Closed: novelty decays steeply (4, 2, 1 new clusters at k=2,3,4 -> alpha ~ 2 > 1)
-    // => Closed (Tettelin 2008; micropan).
+    // M8 — Closed: every genome lacks exactly one distinct accessory cluster (4 genomes,
+    // clusters {core, a, b, cc, d}, genome i lacks the i-th accessory). Under random genome
+    // orderings (micropan heaps(); Tettelin 2008) the 2nd genome always adds exactly 1 new
+    // cluster (the one the 1st genome lacks) and genomes 3..4 add 0: mean new-gene curve
+    // n(2)=1, n(3)=0, n(4)=0. Python reference (exhaustive 4! orderings, micropan objective
+    // J = sqrt(sum (y - K x^-a)^2)/|x|, global grid min and scipy L-BFGS-B from micropan
+    // p0 = (mean y|x=2, 1)): K = 3.1745, alpha = 2.0 (upper bound) > 1 => Closed.
     [Test]
-    public void ConstructPanGenome_DecayingNovelty_ClassifiedClosed()
+    public void ConstructPanGenome_SaturatingAccessory_ClassifiedClosed()
     {
-        // g1 establishes the shared baseline; each later genome shares it and adds a
-        // decaying number of new clusters: g2:+4, g3:+2, g4:+1.
-        var baseGenes = new[]
-        {
-            ("c1", SeqCore), ("c2", SeqShared2), ("c3", SeqU1), ("c4", SeqU2), ("c5", SeqU3),
-        };
+        const string A = "ACACACACACACACACACACACACACACAC";
+        const string B = "AGAGAGAGAGAGAGAGAGAGAGAGAGAGAG";
+        const string C = "CTCTCTCTCTCTCTCTCTCTCTCTCTCTCT";
+        const string D = "GTGTGTGTGTGTGTGTGTGTGTGTGTGTGT";
         var genomes = Genomes(
-            ("g1", baseGenes),
-            ("g2", baseGenes.Concat(new[]
-            {
-                ("n1", "ACACACACACACACACACACACACACACAC"),
-                ("n2", "AGAGAGAGAGAGAGAGAGAGAGAGAGAGAG"),
-                ("n3", "ATATATATATATATATATATATATATATAT"),
-                ("n4", "CTCTCTCTCTCTCTCTCTCTCTCTCTCTCT"),
-            }).ToArray()),
-            ("g3", baseGenes.Concat(new[]
-            {
-                ("m1", "GAGAGAGAGAGAGAGAGAGAGAGAGAGAGA"),
-                ("m2", "GTGTGTGTGTGTGTGTGTGTGTGTGTGTGT"),
-            }).ToArray()),
-            ("g4", baseGenes.Concat(new[]
-            {
-                ("p1", "TCTCTCTCTCTCTCTCTCTCTCTCTCTCTC"),
-            }).ToArray()));
+            ("g1", new[] { ("c1", SeqCore), ("b1", B), ("cc1", C), ("d1", D) }),
+            ("g2", new[] { ("c2", SeqCore), ("a2", A), ("cc2", C), ("d2", D) }),
+            ("g3", new[] { ("c3", SeqCore), ("a3", A), ("b3", B), ("d3", D) }),
+            ("g4", new[] { ("c4", SeqCore), ("a4", A), ("b4", B), ("cc4", C) }));
 
         var s = PanGenomeAnalyzer.ConstructPanGenome(genomes, coreFraction: 1.0).Statistics;
 
         Assert.That(s.Type, Is.EqualTo(PanGenomeAnalyzer.PanGenomeType.Closed),
-            "Steeply decaying novelty (4,2,1) -> Heaps decay exponent alpha > 1 -> Closed (Tettelin 2008; micropan).");
+            "Permutation-averaged new-gene curve (1,0,0) -> Heaps alpha = 2.0 > 1 -> Closed (Tettelin 2008; micropan heaps()).");
+    }
+
+    // M8b — Order invariance / singleton novelty (regression for the former single-order fit).
+    // Genomes share a 5-cluster base and add 4, 2, 1 and 0 strain-specific clusters. Every
+    // non-core cluster is a singleton, so under random orderings each appears first at any
+    // position with probability 1/G: the expected new-gene curve is flat,
+    // n(2)=n(3)=n(4)=7/4=1.75 (exhaustive 4! orderings, Python). Global least-squares optimum
+    // of the micropan objective: K = 1.75, alpha = 0.0 < 1 => Open, in EVERY input order.
+    // The former fixed dictionary-order log-log fit returned Closed for (4,2,1) and Open for
+    // the reversed order (1,2,4) — a population property must not depend on input order.
+    [Test]
+    public void ConstructPanGenome_SingletonNoveltyAnyInputOrder_ClassifiedOpen()
+    {
+        var baseGenes = new[]
+        {
+            ("c1", SeqCore), ("c2", SeqShared2), ("c3", SeqU1), ("c4", SeqU2), ("c5", SeqU3),
+        };
+        var g1 = ("g1", baseGenes);
+        var g2 = ("g2", baseGenes.Concat(new[]
+        {
+            ("n1", "ACACACACACACACACACACACACACACAC"), ("n2", "AGAGAGAGAGAGAGAGAGAGAGAGAGAGAG"),
+            ("n3", "ATATATATATATATATATATATATATATAT"), ("n4", "CTCTCTCTCTCTCTCTCTCTCTCTCTCTCT"),
+        }).ToArray());
+        var g3 = ("g3", baseGenes.Concat(new[]
+        {
+            ("m1", "GAGAGAGAGAGAGAGAGAGAGAGAGAGAGA"), ("m2", "GTGTGTGTGTGTGTGTGTGTGTGTGTGTGT"),
+        }).ToArray());
+        var g4 = ("g4", baseGenes.Concat(new[] { ("p1", "TCTCTCTCTCTCTCTCTCTCTCTCTCTCTC") }).ToArray());
+
+        var forward = PanGenomeAnalyzer.ConstructPanGenome(Genomes(g1, g2, g3, g4), coreFraction: 1.0).Statistics;
+        var reversed = PanGenomeAnalyzer.ConstructPanGenome(Genomes(g4, g3, g2, g1), coreFraction: 1.0).Statistics;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward.Type, Is.EqualTo(PanGenomeAnalyzer.PanGenomeType.Open),
+                "Flat expected new-gene curve 1.75/genome -> alpha = 0 < 1 -> Open (micropan heaps(); Tettelin 2008).");
+            Assert.That(reversed.Type, Is.EqualTo(forward.Type),
+                "Open/closed is a population property: independent of genome input order.");
+        });
     }
 
     #endregion
@@ -299,6 +328,64 @@ public class PanGenomeAnalyzer_ConstructPanGenome_Tests
             new List<PanGenomeAnalyzer.GeneCluster>(), totalGenomes: 5, threshold: 0.99).ToList();
 
         Assert.That(core, Is.Empty, "No clusters -> no core genes.");
+    }
+
+    #endregion
+
+    #region Presence/absence matrix — membership by genome (micropan panMatrix; Roary)
+
+    // Gene identifiers need not be unique across genomes (e.g. the same gene name "x" in two
+    // genomes). micropan panMatrix(): cell [i,j] = number of members genome i has in cluster
+    // j — keyed by the genome each member sequence came from, not by its name. Here g1's "x"
+    // (poly-A) and g2's "x" (poly-C) have ungapped identity 0 -> two singleton clusters, each
+    // present in exactly one genome: expected rows g1 = [1,0], g2 = [0,1], PresentGenes 1 each
+    // (Python reference: binarised panMatrix of clustering {g1_x:1, g2_x:2}).
+    [Test]
+    public void CreatePresenceAbsenceMatrix_SameGeneIdInDifferentClusters_PresentOnlyInOwnGenome()
+    {
+        var genomes = Genomes(
+            ("g1", new[] { ("x", SeqU1) }),
+            ("g2", new[] { ("x", SeqU2) }));
+        var clusters = PanGenomeAnalyzer.ClusterGenes(genomes).ToList();
+
+        var rows = PanGenomeAnalyzer.CreatePresenceAbsenceMatrix(genomes, clusters).ToList();
+
+        var polyA = clusters.Single(c => c.ConsensusSequence == SeqU1).ClusterId;
+        var polyC = clusters.Single(c => c.ConsensusSequence == SeqU2).ClusterId;
+        var r1 = rows.Single(r => r.GenomeId == "g1");
+        var r2 = rows.Single(r => r.GenomeId == "g2");
+        Assert.Multiple(() =>
+        {
+            Assert.That(clusters, Has.Count.EqualTo(2), "poly-A vs poly-C: identity 0 -> two clusters.");
+            Assert.That(r1.GenePresence[polyA], Is.True, "g1 contributes the poly-A member.");
+            Assert.That(r1.GenePresence[polyC], Is.False, "g1 contributes no member to the poly-C cluster despite the shared name 'x'.");
+            Assert.That(r2.GenePresence[polyA], Is.False, "g2 contributes no member to the poly-A cluster despite the shared name 'x'.");
+            Assert.That(r2.GenePresence[polyC], Is.True, "g2 contributes the poly-C member.");
+            Assert.That(r1.PresentGenes, Is.EqualTo(1), "g1 has exactly one cluster.");
+            Assert.That(r2.PresentGenes, Is.EqualTo(1), "g2 has exactly one cluster.");
+        });
+    }
+
+    // Consistency of the partition with the matrix: with shared gene names across genomes
+    // the fluidity (Kislyuk 2011) must still see disjoint content -> phi = 1, and the
+    // occupancy-based partition gives 2 unique clusters.
+    [Test]
+    public void ConstructPanGenome_SameGeneIdsDisjointContent_FluidityOneAllUnique()
+    {
+        var genomes = Genomes(
+            ("g1", new[] { ("x", SeqU1) }),
+            ("g2", new[] { ("x", SeqU2) }),
+            ("g3", new[] { ("x", SeqU3) }));
+
+        var s = PanGenomeAnalyzer.ConstructPanGenome(genomes, coreFraction: 1.0).Statistics;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.UniqueGeneCount, Is.EqualTo(3), "three singleton clusters -> 3 unique.");
+            Assert.That(s.GenomeFluidity, Is.EqualTo(1.0).Within(1e-12), "disjoint cluster content -> phi = 1.");
+            Assert.That(s.Type, Is.EqualTo(PanGenomeAnalyzer.PanGenomeType.Open),
+                "every genome adds exactly one new cluster: flat curve n(2)=n(3)=1 -> alpha = 0 < 1 -> Open.");
+        });
     }
 
     #endregion
