@@ -12,7 +12,12 @@ namespace Seqeron.Genomics.Alignment
 
         /// <summary>
         /// Finds all approximate matches of a pattern in a sequence with at most k mismatches.
-        /// Uses Hamming distance (substitutions only).
+        /// Uses Hamming distance (substitutions only, no indels): every 0-based start
+        /// i ∈ [0, n − m] whose length-m window has Hamming distance ≤ k from the pattern is
+        /// reported, overlapping occurrences included (Navarro 2001 "k mismatches";
+        /// Compeau &amp; Pevzner ch.1, ROSALIND BA1H). Comparison is case-insensitive and
+        /// MatchedSequence is returned upper-cased; MismatchPositions are pattern-relative.
+        /// A null/empty sequence or pattern, or a pattern longer than the sequence, yields no matches.
         /// </summary>
         /// <param name="sequence">The sequence to search in.</param>
         /// <param name="pattern">The pattern to find.</param>
@@ -172,8 +177,12 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
-        /// Calculates the Hamming distance between two strings of equal length.
+        /// Calculates the Hamming distance between two strings of equal length
+        /// (number of positions whose symbols differ; Hamming 1950; ROSALIND HAMM).
+        /// Comparison is case-insensitive (ordinal, invariant upper-casing).
         /// </summary>
+        /// <exception cref="ArgumentNullException">Either string is null.</exception>
+        /// <exception cref="ArgumentException">The strings differ in length (the distance is undefined).</exception>
         /// <param name="s1">First string.</param>
         /// <param name="s2">Second string.</param>
         /// <returns>Number of positions with different characters.</returns>
@@ -185,13 +194,9 @@ namespace Seqeron.Genomics.Alignment
             if (s1.Length != s2.Length)
                 throw new ArgumentException("Strings must have equal length for Hamming distance.");
 
-            int distance = 0;
-            for (int i = 0; i < s1.Length; i++)
-            {
-                if (char.ToUpperInvariant(s1[i]) != char.ToUpperInvariant(s2[i]))
-                    distance++;
-            }
-            return distance;
+            // Delegate to the canonical case-insensitive span implementation
+            // (SequenceExtensions.HammingDistance) rather than duplicating the count.
+            return s1.AsSpan().HammingDistance(s2.AsSpan());
         }
 
         /// <summary>

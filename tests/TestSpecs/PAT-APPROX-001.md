@@ -5,7 +5,7 @@
 **Algorithm:** Approximate Matching (Hamming Distance)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -149,6 +149,7 @@ This is a canonical bioinformatics test case for Hamming distance between DNA se
 | M20 | maxMismatches = pattern length | "XXXX", "ACGT", 4 | [0] | All mismatches allowed |
 | M21 | Invariant: result distance ≤ max | Any valid input | All r.Distance ≤ max | INV-7 |
 | M22 | Invariant: result positions valid | Any valid input | All r.Position valid | INV-9 |
+| M23 | ROSALIND BA1H sample | Pattern ATTCTGGA, sample Text, d=3 | [6, 7, 26, 27, 78]; distances [3,3,3,2,3] | Rosalind BA1H (Compeau & Pevzner ch.1) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -238,12 +239,13 @@ From `ApproximateMatcherTests.cs`:
 | DnaSequence overload | ✅ Covered | `FindWithMismatches_DnaSequence_Works` |
 | MismatchPositions correct | ✅ Covered | Explicit verification added |
 | Result invariants | ✅ Covered | Invariant tests added |
+| Rosalind BA1H dataset | ✅ Covered | `FindWithMismatches_RosalindBa1h_SampleDataset` (review 2026-09) |
 | Span API | ✅ Covered | In PerformanceExtensionsTests.cs (smoke) |
 
 ### Weak/Redundant Tests
 
-- `FindWithMismatches_MultipleMismatches_AllReturned` - Weak assertion, tests for exact match existence only
-- Real-world tests (`SNP_Detection`, `PrimerBinding`) - Good but could use more precise assertions
+- Real-world tests (`SnpDetection`, `PrimerBinding`) - tightened (review 2026-09) to exact position sets
+  confirmed by a brute-force Hamming reference.
 
 ### Duplicates Found
 
