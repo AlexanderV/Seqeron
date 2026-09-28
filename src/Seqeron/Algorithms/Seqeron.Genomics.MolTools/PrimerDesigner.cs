@@ -184,21 +184,20 @@ public static class PrimerDesigner
     }
 
     /// <summary>
-    /// Calculates the melting temperature for DNA primers.
-    /// Uses Wallace rule for short primers (&lt; 14 valid bases)
-    /// and Marmur-Doty formula for longer primers (≥ 14 valid bases).
-    /// Only standard DNA bases (A, C, G, T) are recognized;
-    /// all other characters are ignored.
+    /// Calculates the "basic" melting temperature for DNA primers (OligoCalc basic Tm,
+    /// Kibbe 2007, NAR 35:W43): Wallace rule Tm = 2(A+T) + 4(G+C) (Thein &amp; Wallace 1986) for
+    /// &lt; 14 valid bases, and Tm = 64.9 + 41·(G+C − 16.4)/N (customarily attributed to
+    /// Marmur &amp; Doty 1962) for ≥ 14 valid bases. Both formulas assume fixed standard conditions
+    /// (50 nM primer, 50 mM Na+, pH 7.0); use <see cref="CalculateMeltingTemperatureWithSalt"/>
+    /// for another [Na+], or <see cref="CalculateMeltingTemperatureNN"/> for a nearest-neighbor Tm.
+    /// Only standard DNA bases (A, C, G, T) are recognized; all other characters are ignored.
     /// </summary>
     public static double CalculateMeltingTemperature(string primer)
     {
         if (string.IsNullOrEmpty(primer))
             return 0;
 
-        var seq = primer.ToUpperInvariant();
-
-        int at = seq.Count(c => c == 'A' || c == 'T');
-        int gc = seq.Count(c => c == 'G' || c == 'C');
+        var (at, gc) = CountAtGc(primer);
         int validLength = at + gc;
 
         if (validLength == 0)
@@ -215,19 +214,51 @@ public static class PrimerDesigner
     }
 
     /// <summary>
-    /// Calculates the melting temperature with salt correction.
+    /// Calculates the OligoCalc "salt adjusted" melting temperature (Kibbe 2007, NAR 35:W43),
+    /// the [Na+]-aware counterpart of <see cref="CalculateMeltingTemperature(string)"/>:
+    /// <list type="bullet">
+    /// <item>&lt; 14 valid bases: Tm = 2(A+T) + 4(G+C) − 16.6·log10(0.050) + 16.6·log10([Na+]) —
+    /// the Wallace rule (defined at 50 mM Na+) shifted by the Schildkraut–Lifson relative correction;</item>
+    /// <item>≥ 14 valid bases: Tm = 100.5 + 41·(G+C)/N − 820/N + 16.6·log10([Na+]).</item>
+    /// </list>
+    /// [Na+] enters in mol/L (converted from the mM argument). The basic formulas already assume
+    /// 50 mM Na+, so the salt term is never added on top of them. Result rounded to one decimal.
+    /// Only A/C/G/T are counted; returns 0 for null/empty input or no counted bases.
     /// </summary>
     /// <param name="primer">Primer sequence.</param>
-    /// <param name="naConcentration">Na+ concentration in mM (default: 50).</param>
-    /// <returns>Corrected melting temperature in °C.</returns>
+    /// <param name="naConcentration">Na+ concentration in mM (default: 50). Must be &gt; 0.</param>
+    /// <returns>Salt-adjusted melting temperature in °C.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">When <paramref name="naConcentration"/> is not a positive finite number.</exception>
     public static double CalculateMeltingTemperatureWithSalt(string primer, double naConcentration = 50)
     {
+        if (!(naConcentration > 0) || double.IsInfinity(naConcentration))
+            throw new ArgumentOutOfRangeException(nameof(naConcentration), naConcentration,
+                "Na+ concentration must be a positive finite value in mM.");
+
         if (string.IsNullOrEmpty(primer))
             return 0;
 
-        double baseTm = CalculateMeltingTemperature(primer);
-        double saltCorrection = ThermoConstants.CalculateSaltCorrection(naConcentration);
-        return Math.Round(baseTm + saltCorrection, 1);
+        var (at, gc) = CountAtGc(primer);
+        if (at + gc == 0)
+            return 0;
+
+        return Math.Round(
+            ThermoConstants.CalculateOligoCalcSaltAdjustedTm(at, gc, naConcentration / 1000.0), 1);
+    }
+
+    // Counts A/T and G/C (case-insensitive); every other character is ignored.
+    private static (int At, int Gc) CountAtGc(string sequence)
+    {
+        int at = 0, gc = 0;
+        foreach (char ch in sequence)
+        {
+            switch (char.ToUpperInvariant(ch))
+            {
+                case 'A': case 'T': at++; break;
+                case 'G': case 'C': gc++; break;
+            }
+        }
+        return (at, gc);
     }
 
     /// <summary>
@@ -1885,8 +1916,20 @@ public static class PrimerDesigner
         GcLt: 0.0,           // PRIMER_WT_GC_PERCENT_LT (weights.gc_content_lt = 0)
         SelfAny: 0.0,        // PRIMER_WT_SELF_ANY (weights.compl_any = 0)
         SelfEnd: 0.0,        // PRIMER_WT_SELF_END (weights.compl_end = 0)
-        NumNs: 0.0           // PRIMER_WT_NUM_NS  (weights.num_ns = 0)
+        NumNs: 0.0,          // PRIMER_WT_NUM_NS  (weights.num_ns = 0)
+        SelfAnyTh: 0.0,      // PRIMER_WT_SELF_ANY_TH (weights.compl_any_th = 0)
+        SelfEndTh: 0.0,      // PRIMER_WT_SELF_END_TH (weights.compl_end_th = 0)
+        HairpinTh: 0.0,      // PRIMER_WT_HAIRPIN_TH  (weights.hairpin_th = 0)
+        EndStability: 0.0,   // PRIMER_WT_END_STABILITY (weights.end_stability = 0)
+        ThermodynamicOligoAlignment: true // PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 1 (pr_set_default_global_args_2)
     );
+
+    /// <summary>
+    /// Primer3's fixed <c>weights.temp_cutoff</c> (= 5 °C, <c>pr_set_default_global_args_1</c>; not a
+    /// user-settable tag). In thermodynamic mode a secondary-structure Tm within this many degrees of
+    /// the primer Tm is penalised linearly, otherwise by a reciprocal term.
+    /// </summary>
+    public const double Primer3TempCutoff = 5.0;
 
     /// <summary>
     /// Primer3 default per-primer optima. OPT_TM = 60 °C and OPT_SIZE = 20 bases are
@@ -1903,10 +1946,19 @@ public static class PrimerDesigner
     /// Computes the Primer3 per-primer penalty (objective function value) for a single
     /// primer, faithfully reproducing the left/right-primer branch of Primer3's
     /// <c>p_obj_fn</c>. The penalty is the weighted sum of one-sided deviations of Tm,
-    /// length and GC% from their optima, plus the weighted self-/3'-complementarity and
-    /// number-of-Ns terms. Each term is added only when its weight is non-zero and the
-    /// deviation has the matching sign, so the result is always ≥ 0; <b>lower is better</b>,
-    /// exactly as Primer3 sorts candidates.
+    /// length and GC% from their optima, plus the weighted secondary-structure terms
+    /// (alignment-score mode: <c>compl_any</c>/<c>compl_end</c>; thermodynamic mode, Primer3's
+    /// default: <c>compl_any_th</c>/<c>compl_end_th</c>/<c>hairpin_th</c> with the fixed 5 °C
+    /// <c>temp_cutoff</c>), the number-of-Ns term and the 3'-end-stability term. Each term is
+    /// added only when its weight is non-zero (and, for Tm/GC/size, the deviation has the
+    /// matching sign), so the result is always ≥ 0; <b>lower is better</b>, exactly as Primer3
+    /// sorts candidates. Cross-checked against primer3-py 2.3.1 <c>design_primers</c>
+    /// PRIMER_LEFT/RIGHT_n_PENALTY in both alignment modes.
+    /// <para>Not modelled (all zero under Primer3 defaults): the annealing-temperature
+    /// <c>bound</c> term (only when PRIMER_ANNEALING_TEMP &gt; 0), <c>failure_rate</c>,
+    /// <c>repeat_sim</c> (needs a mispriming library), <c>pos_penalty</c> (needs
+    /// PRIMER_INSIDE/OUTSIDE_PENALTY), <c>seq_quality</c> (needs base qualities) and
+    /// <c>template_mispriming</c>; callers needing them add weight·value themselves.</para>
     /// </summary>
     /// <param name="inputs">Measured primer properties (Tm in °C, length in bases, GC in
     /// percent 0–100, self/3' local-alignment scores, count of N bases).</param>
@@ -1941,17 +1993,46 @@ public static class PrimerDesigner
         if (w.SizeGt != 0 && inputs.Length > o.OptSize)
             sum += w.SizeGt * (inputs.Length - o.OptSize);
 
-        // Self-complementarity terms (non-thermodynamic branch: compl_any, compl_end).
-        if (w.SelfAny != 0)
-            sum += w.SelfAny * inputs.SelfAny;
-        if (w.SelfEnd != 0)
-            sum += w.SelfEnd * inputs.SelfEnd;
+        // Secondary-structure terms: p_obj_fn switches on thermodynamic_oligo_alignment.
+        if (!w.ThermodynamicOligoAlignment)
+        {
+            // Mode 0: local-alignment scores, linear weights (compl_any, compl_end).
+            if (w.SelfAny != 0)
+                sum += w.SelfAny * inputs.SelfAny;
+            if (w.SelfEnd != 0)
+                sum += w.SelfEnd * inputs.SelfEnd;
+        }
+        else
+        {
+            // Mode 1 (Primer3 default): SelfAny / SelfEnd / HairpinTh are structure Tm values (°C)
+            // (compl_any_th, compl_end_th, hairpin_th).
+            sum += ThermodynamicStructurePenalty(w.SelfAnyTh, inputs.Tm, inputs.SelfAny);
+            sum += ThermodynamicStructurePenalty(w.SelfEndTh, inputs.Tm, inputs.SelfEnd);
+            sum += ThermodynamicStructurePenalty(w.HairpinTh, inputs.Tm, inputs.HairpinTh);
+        }
 
         // Number-of-Ns term (num_ns).
         if (w.NumNs != 0)
             sum += w.NumNs * inputs.NumNs;
 
+        // 3'-end stability term (end_stability): weight · ΔG magnitude (kcal/mol, as Primer3 reports it).
+        if (w.EndStability != 0)
+            sum += w.EndStability * inputs.EndStability;
+
         return sum;
+    }
+
+    // p_obj_fn thermodynamic secondary-structure term (libprimer3.cc):
+    //   if (Tm − temp_cutoff) ≤ s : w · (s − (Tm − temp_cutoff − 1))
+    //   else                       : w · 1 / (Tm − temp_cutoff + 1 − s)
+    private static double ThermodynamicStructurePenalty(double weight, double primerTm, double structureTm)
+    {
+        if (weight == 0)
+            return 0;
+        double threshold = primerTm - Primer3TempCutoff;
+        return threshold <= structureTm
+            ? weight * (structureTm - (threshold - 1.0))
+            : weight * (1.0 / (threshold + 1.0 - structureTm));
     }
 
     private static double CalculatePrimerScore(string seq, double gc, double tm, int homopolymer, PrimerParameters param)
@@ -2047,16 +2128,23 @@ public sealed record PrimerCandidate(
 /// <param name="Tm">Primer melting temperature in °C.</param>
 /// <param name="Length">Primer length in bases.</param>
 /// <param name="GcPercent">GC content as a percentage in [0, 100].</param>
-/// <param name="SelfAny">Self-complementarity local-alignment score (PRIMER_SELF_ANY); 0 if unused.</param>
-/// <param name="SelfEnd">3'-self-complementarity local-alignment score (PRIMER_SELF_END); 0 if unused.</param>
+/// <param name="SelfAny">Self-complementarity: the local-alignment score PRIMER_SELF_ANY when
+/// <see cref="Primer3PenaltyWeights.ThermodynamicOligoAlignment"/> is false, or the self-dimer Tm in °C
+/// (PRIMER_SELF_ANY_TH) when it is true — Primer3 stores both in the same field.</param>
+/// <param name="SelfEnd">3'-self-complementarity: PRIMER_SELF_END score (alignment mode) or
+/// PRIMER_SELF_END_TH Tm in °C (thermodynamic mode).</param>
 /// <param name="NumNs">Number of ambiguous N bases in the primer.</param>
+/// <param name="HairpinTh">Hairpin Tm in °C (PRIMER_HAIRPIN_TH); used only in thermodynamic mode.</param>
+/// <param name="EndStability">3'-end stability ΔG magnitude in kcal/mol (PRIMER_END_STABILITY).</param>
 public readonly record struct Primer3PenaltyInputs(
     double Tm,
     int Length,
     double GcPercent,
     double SelfAny = 0.0,
     double SelfEnd = 0.0,
-    int NumNs = 0);
+    int NumNs = 0,
+    double HairpinTh = 0.0,
+    double EndStability = 0.0);
 
 /// <summary>
 /// Weights for the Primer3 per-primer penalty objective (the <c>PRIMER_WT_*</c>
@@ -2064,6 +2152,23 @@ public readonly record struct Primer3PenaltyInputs(
 /// "less-than" (_lt) weights, applied one-sidedly relative to the optimum.
 /// Defaults are <see cref="PrimerDesigner.DefaultPrimer3Weights"/>.
 /// </summary>
+/// <param name="TmGt">PRIMER_WT_TM_GT.</param>
+/// <param name="TmLt">PRIMER_WT_TM_LT.</param>
+/// <param name="SizeGt">PRIMER_WT_SIZE_GT.</param>
+/// <param name="SizeLt">PRIMER_WT_SIZE_LT.</param>
+/// <param name="GcGt">PRIMER_WT_GC_PERCENT_GT.</param>
+/// <param name="GcLt">PRIMER_WT_GC_PERCENT_LT.</param>
+/// <param name="SelfAny">PRIMER_WT_SELF_ANY (alignment mode only).</param>
+/// <param name="SelfEnd">PRIMER_WT_SELF_END (alignment mode only).</param>
+/// <param name="NumNs">PRIMER_WT_NUM_NS.</param>
+/// <param name="SelfAnyTh">PRIMER_WT_SELF_ANY_TH (thermodynamic mode only).</param>
+/// <param name="SelfEndTh">PRIMER_WT_SELF_END_TH (thermodynamic mode only).</param>
+/// <param name="HairpinTh">PRIMER_WT_HAIRPIN_TH (thermodynamic mode only).</param>
+/// <param name="EndStability">PRIMER_WT_END_STABILITY.</param>
+/// <param name="ThermodynamicOligoAlignment">PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT: false = alignment-score
+/// secondary-structure terms (SelfAny/SelfEnd weights), true = thermodynamic terms (…Th weights). Defaults to
+/// false for an explicitly constructed weight set; <see cref="PrimerDesigner.DefaultPrimer3Weights"/> uses
+/// Primer3's default (true).</param>
 public readonly record struct Primer3PenaltyWeights(
     double TmGt,
     double TmLt,
@@ -2073,7 +2178,12 @@ public readonly record struct Primer3PenaltyWeights(
     double GcLt,
     double SelfAny,
     double SelfEnd,
-    double NumNs);
+    double NumNs,
+    double SelfAnyTh = 0.0,
+    double SelfEndTh = 0.0,
+    double HairpinTh = 0.0,
+    double EndStability = 0.0,
+    bool ThermodynamicOligoAlignment = false);
 
 /// <summary>
 /// Optimal parameter values for the Primer3 penalty objective

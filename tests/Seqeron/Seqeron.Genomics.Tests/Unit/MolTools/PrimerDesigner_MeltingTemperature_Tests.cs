@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Unit.MolTools;
 /// Evidence Sources:
 /// - Wallace Rule: Thein & Wallace (1986)
 /// - Marmur-Doty: Marmur & Doty (1962) J Mol Biol 5:109-118
-/// - Salt Correction: Owczarzy et al. (2004) Biochemistry 43:3537-3554
+/// - Salt-adjusted Tm: OligoCalc (Kibbe 2007, NAR 35:W43); Schildkraut & Lifson (1965)
 /// - Wikipedia: Nucleic acid thermodynamics
 /// </summary>
 [TestFixture]
@@ -249,58 +249,92 @@ public class PrimerDesigner_MeltingTemperature_Tests
 
     #region Salt Correction
 
+    // Salt-adjusted Tm = OligoCalc "Salt Adjusted" Tm (Kibbe 2007, NAR 35:W43):
+    //   N < 14 : 2(A+T) + 4(G+C) − 16.6·log10(0.050) + 16.6·log10([Na+] M)
+    //   N ≥ 14 : 100.5 + 41·(G+C)/N − 820/N + 16.6·log10([Na+] M)
+    // The basic Wallace / 64.9 formulas already assume 50 mM Na+; the old implementation added
+    // 16.6·log10([Na+]/1000) on top of them (double-counting salt: 20-mer 50 %GC @ 50 mM → 30.2 °C,
+    // vs OligoCalc 58.4, Biopython Tm_GC valueset 7 50.4, primer3 calc_tm 54.0).
+
     /// <summary>
-    /// Salt correction at standard 50mM Na+.
-    /// Correction = 16.6 × log10(50/1000) ≈ -21.6°C
-    /// Evidence: Owczarzy et al. (2004).
+    /// OligoCalc worked output: the 39-mer GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC at 50 mM Na+
+    /// is reported as basic Tm 67.6 °C and salt-adjusted Tm 78 °C (tmBox / WAKtmBox).
     /// </summary>
     [Test]
-    public void CalculateMeltingTemperatureWithSalt_50mM_AppliesCorrection()
+    public void CalculateMeltingTemperatureWithSalt_OligoCalcWorkedExample_39mer()
     {
-        string primer = "ACGTACGTACGTACGTACGT";
-        double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
-        double saltTm = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
-
-        double expectedCorrection = 16.6 * Math.Log10(50.0 / 1000.0); // ≈ -21.6
-        double expectedTm = baseTm + expectedCorrection;
-
-        Assert.That(saltTm, Is.EqualTo(expectedTm).Within(Tolerance));
+        const string oligo = "GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculateMeltingTemperature(oligo), Is.EqualTo(67.6333).Within(1e-3));
+            Assert.That(PrimerDesigner.CalculateMeltingTemperatureWithSalt(oligo, 50), Is.EqualTo(77.9).Within(1e-9));
+            Assert.That(Math.Round(PrimerDesigner.CalculateMeltingTemperatureWithSalt(oligo, 50)), Is.EqualTo(78.0));
+        });
     }
 
     /// <summary>
-    /// Salt correction at low 10mM Na+.
-    /// Correction = 16.6 × log10(10/1000) = 16.6 × (-2) = -33.2°C
-    /// Evidence: Owczarzy et al. (2004). Lower salt destabilizes duplex.
+    /// ≥14 nt, 20-mer 50 % GC: 100.5 + 41·10/20 − 820/20 + 16.6·log10(Na) =
+    /// 50 mM → 58.403; 10 mM → 46.800; 200 mM → 68.397 (rounded to 1 dp).
     /// </summary>
-    [Test]
-    public void CalculateMeltingTemperatureWithSalt_10mM_AppliesCorrection()
+    [TestCase(50.0, 58.4)]
+    [TestCase(10.0, 46.8)]
+    [TestCase(200.0, 68.4)]
+    [TestCase(1000.0, 80.0)]
+    public void CalculateMeltingTemperatureWithSalt_Long_OligoCalcSaltAdjusted(double naMm, double expected)
     {
-        string primer = "ACGTACGTACGTACGTACGT";
-        double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
-        double saltTm = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 10);
-
-        double expectedCorrection = 16.6 * Math.Log10(10.0 / 1000.0); // = 16.6 × -2 = -33.2
-        double expectedTm = baseTm + expectedCorrection;
-
-        Assert.That(saltTm, Is.EqualTo(expectedTm).Within(Tolerance));
+        double tm = PrimerDesigner.CalculateMeltingTemperatureWithSalt("ACGTACGTACGTACGTACGT", naMm);
+        Assert.That(tm, Is.EqualTo(expected).Within(1e-9));
     }
 
     /// <summary>
-    /// Salt correction at high 200mM Na+.
-    /// Correction = 16.6 × log10(200/1000) ≈ -11.6°C
-    /// Evidence: Owczarzy et al. (2004). Higher salt stabilizes duplex.
+    /// &lt;14 nt: Wallace rule shifted by 16.6·log10([Na+]/0.050). At 50 mM it equals the basic Wallace Tm.
+    /// ACGTACGT (Wallace 24): 50 mM → 24.0; 10 mM → 12.397; 200 mM → 33.994. ACGT (12) @ 1 M → 33.597.
+    /// </summary>
+    [TestCase("ACGTACGT", 50.0, 24.0)]
+    [TestCase("ACGTACGT", 10.0, 12.4)]
+    [TestCase("ACGTACGT", 200.0, 34.0)]
+    [TestCase("ACGT", 1000.0, 33.6)]
+    [TestCase("ACGTACGTACGTA", 50.0, 38.0)]
+    public void CalculateMeltingTemperatureWithSalt_Short_WallaceRelativeCorrection(string primer, double naMm, double expected)
+    {
+        double tm = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, naMm);
+        Assert.That(tm, Is.EqualTo(expected).Within(1e-9));
+    }
+
+    /// <summary>
+    /// The salt term is relative to the 50 mM reference for short oligos: no double counting.
     /// </summary>
     [Test]
-    public void CalculateMeltingTemperatureWithSalt_200mM_AppliesCorrection()
+    public void CalculateMeltingTemperatureWithSalt_Short_At50mM_EqualsBasicWallace()
     {
-        string primer = "ACGTACGTACGTACGTACGT";
-        double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
-        double saltTm = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 200);
+        foreach (var p in new[] { "A", "GCGCGCGC", "ACGTACGTACGTA", "atgcatgc" })
+            Assert.That(PrimerDesigner.CalculateMeltingTemperatureWithSalt(p, 50),
+                Is.EqualTo(Math.Round(PrimerDesigner.CalculateMeltingTemperature(p), 1)).Within(1e-9), p);
+    }
 
-        double expectedCorrection = 16.6 * Math.Log10(200.0 / 1000.0); // ≈ -11.6
-        double expectedTm = baseTm + expectedCorrection;
+    /// <summary>
+    /// Higher [Na+] stabilises the duplex: salt-adjusted Tm is strictly increasing in [Na+]
+    /// (+16.6 °C per decade).
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperatureWithSalt_IncreasesBy16_6PerDecade()
+    {
+        double t10 = PrimerDesigner.CalculateMeltingTemperatureWithSalt("GCGCGCGCGCGCGCGCGCGC", 10);
+        double t100 = PrimerDesigner.CalculateMeltingTemperatureWithSalt("GCGCGCGCGCGCGCGCGCGC", 100);
+        Assert.That(t100 - t10, Is.EqualTo(16.6).Within(0.1));
+    }
 
-        Assert.That(saltTm, Is.EqualTo(expectedTm).Within(Tolerance));
+    /// <summary>
+    /// Non-positive / non-finite [Na+] is rejected (log10 undefined), as Biopython salt_correction does.
+    /// </summary>
+    [TestCase(0.0)]
+    [TestCase(-5.0)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    public void CalculateMeltingTemperatureWithSalt_InvalidSodium_Throws(double naMm)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => PrimerDesigner.CalculateMeltingTemperatureWithSalt("ACGTACGT", naMm));
     }
 
     /// <summary>
@@ -488,16 +522,36 @@ public class PrimerDesigner_MeltingTemperature_Tests
     }
 
     /// <summary>
-    /// Verify salt correction calculation helper.
-    /// Evidence: Formula verification.
+    /// Absolute Schildkraut–Lifson term: Biopython salt_correction(Na=50, method=1) = −21.597 °C.
     /// </summary>
     [Test]
-    public void ThermoConstants_CalculateSaltCorrection_IsCorrect()
+    public void ThermoConstants_CalculateSaltCorrection_MatchesBiopythonMethod1()
     {
-        // 50mM -> 16.6 × log10(50/1000) = 16.6 × log10(0.05) ≈ -21.58
-        double correction = ThermoConstants.CalculateSaltCorrection(50);
-        double expected = 16.6 * Math.Log10(50.0 / 1000.0);
-        Assert.That(correction, Is.EqualTo(expected).Within(Tolerance));
+        Assert.That(ThermoConstants.CalculateSaltCorrection(50), Is.EqualTo(-21.59709792802209).Within(1e-9));
+    }
+
+    /// <summary>
+    /// 81.5 + 16.6·log10[Na+] + 0.41·%GC − 600/N equals Biopython Tm_GC(valueset=7, Na=50):
+    /// ACGTACGTACGTACGTACGT → 50.40290207197791.
+    /// </summary>
+    [Test]
+    public void ThermoConstants_CalculateSaltAdjustedTm_MatchesBiopythonTmGcValueset7()
+    {
+        Assert.That(ThermoConstants.CalculateSaltAdjustedTm(0.5, 20, 0.05), Is.EqualTo(50.40290207197791).Within(1e-9));
+    }
+
+    /// <summary>
+    /// OligoCalc salt-adjusted helper: both branches and the empty case.
+    /// </summary>
+    [Test]
+    public void ThermoConstants_CalculateOligoCalcSaltAdjustedTm_IsCorrect()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ThermoConstants.CalculateOligoCalcSaltAdjustedTm(20, 19, 0.05), Is.EqualTo(77.85162002069586).Within(1e-9));
+            Assert.That(ThermoConstants.CalculateOligoCalcSaltAdjustedTm(4, 4, 0.05), Is.EqualTo(24.0).Within(1e-9));
+            Assert.That(ThermoConstants.CalculateOligoCalcSaltAdjustedTm(0, 0, 0.05), Is.EqualTo(0.0));
+        });
     }
 
     #endregion

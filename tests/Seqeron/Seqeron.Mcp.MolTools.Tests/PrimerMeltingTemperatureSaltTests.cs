@@ -19,15 +19,12 @@ public class PrimerMeltingTemperatureSaltTests
     [Test]
     public void PrimerMeltingTemperatureSalt_Binding_InvokesSuccessfully()
     {
-        // base Tm(ACGT) = 12. Salt correction at 50 mM = 16.6*log10(0.05) = -21.597...
-        // 12 + (-21.597) = -9.597 -> round(1) = -9.6.
-        var expected50 = Math.Round(12.0 + 16.6 * Math.Log10(50.0 / 1000.0), 1);
-        Assert.That(MolToolsTools.primer_melting_temperature_salt("ACGT", 50).Tm,
-            Is.EqualTo(expected50).Within(1e-9));
-        Assert.That(expected50, Is.EqualTo(-9.6).Within(1e-9));
+        // OligoCalc salt-adjusted Tm (< 14 nt): Wallace(ACGT) = 12 at the 50 mM reference, shifted by
+        // 16.6*log10([Na+]/0.050). 50 mM -> 12.0; 1000 mM -> 12 + 16.6*log10(20) = 33.597 -> 33.6.
+        Assert.That(MolToolsTools.primer_melting_temperature_salt("ACGT", 50).Tm, Is.EqualTo(12.0).Within(1e-9));
+        Assert.That(MolToolsTools.primer_melting_temperature_salt("ACGT", 1000).Tm, Is.EqualTo(33.6).Within(1e-9));
 
-        // At [Na+] = 1000 mM the correction is 16.6*log10(1) = 0, so salt Tm = round(baseTm) = 12.0.
-        Assert.That(MolToolsTools.primer_melting_temperature_salt("ACGT", 1000).Tm,
-            Is.EqualTo(12.0).Within(1e-9));
+        // >= 14 nt: 100.5 + 41*GC/N - 820/N + 16.6*log10([Na+]); 20-mer 50 %GC @ 50 mM = 58.403 -> 58.4.
+        Assert.That(MolToolsTools.primer_melting_temperature_salt("ACGTACGTACGTACGTACGT", 50).Tm, Is.EqualTo(58.4).Within(1e-9));
     }
 }

@@ -352,18 +352,23 @@ public class PrimerProbeProperties
     #region PRIMER-TM-001 — Salt Correction Invariants
 
     /// <summary>
-    /// INV-7 (P): Salt-corrected Tm equals the base Tm plus the published salt term
-    /// 16.6 × log₁₀([Na⁺]/1000), rounded to one decimal. The correction is computed here
-    /// directly from the Owczarzy (2004) formula — independent of production code.
+    /// INV-7 (P): Salt-adjusted Tm equals the OligoCalc "Salt Adjusted" formula (Kibbe 2007),
+    /// written here independently of production code: N &lt; 14 → 2(A+T)+4(G+C)+16.6·log10([Na+]/0.050 M);
+    /// N ≥ 14 → 100.5 + 41·GC/N − 820/N + 16.6·log10([Na+] M); rounded to one decimal.
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property MeltingTemperatureWithSalt_IsAdditiveCorrection()
+    public Property MeltingTemperatureWithSalt_MatchesOligoCalcSaltAdjusted()
     {
         return Prop.ForAll(PrimerSaltPairArbitrary(), t =>
         {
             var (primer, na, _) = t;
-            double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
-            double expected = Math.Round(baseTm + 16.6 * Math.Log10(na / 1000.0), 1);
+            string u = primer.ToUpperInvariant();
+            int at = u.Count(c => c is 'A' or 'T'), gc = u.Count(c => c is 'G' or 'C'), n = at + gc;
+            double m = na / 1000.0;
+            double oracle = n < 14
+                ? 2 * at + 4 * gc + 16.6 * Math.Log10(m / 0.050)
+                : 100.5 + 41.0 * gc / n - 820.0 / n + 16.6 * Math.Log10(m);
+            double expected = Math.Round(oracle, 1);
             double actual = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, na);
             return (Math.Abs(actual - expected) < 1e-9)
                 .Label($"salt Tm mismatch for '{primer}' @ {na}mM: {actual} vs {expected}");
@@ -390,35 +395,35 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
-    /// INV-9 (P): At the 1 M (1000 mM) reference concentration the salt term is exactly 0
-    /// (log₁₀(1) = 0), so the corrected Tm collapses to the base Tm (rounded). This pins the
-    /// zero-crossing of the correction curve.
+    /// INV-9 (P): The basic Wallace rule is defined at 50 mM Na+ (OligoCalc), so for short oligos
+    /// (&lt; 14 valid bases) the salt-adjusted Tm at 50 mM equals the basic Tm — the salt term is not
+    /// counted twice.
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property MeltingTemperatureWithSalt_ReferenceConcentration_EqualsBaseTm()
+    public Property MeltingTemperatureWithSalt_ShortOligoAt50mM_EqualsBaseTm()
     {
-        return Prop.ForAll(ValidPrimerArbitrary(8, 30), primer =>
+        return Prop.ForAll(ValidPrimerArbitrary(1, 13), primer =>
         {
             double expected = Math.Round(PrimerDesigner.CalculateMeltingTemperature(primer), 1);
-            double actual = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 1000);
+            double actual = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
             return (Math.Abs(actual - expected) < 1e-9)
-                .Label($"@1000mM '{primer}': {actual} vs base {expected}");
+                .Label($"@50mM '{primer}': {actual} vs base {expected}");
         });
     }
 
     /// <summary>
-    /// INV-10 (M): Standard PCR salt (50 mM) is below the 1 M reference, so it destabilizes the
-    /// duplex and yields a Tm strictly lower than the uncorrected base Tm for any real primer.
+    /// INV-10 (M): Raising [Na+] from 50 mM to 1 M raises the salt-adjusted Tm by
+    /// 16.6·log10(20) ≈ 21.6 °C for every primer (Schildkraut–Lifson slope), within rounding.
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property MeltingTemperatureWithSalt_StandardPcrSalt_LowersTm()
+    public Property MeltingTemperatureWithSalt_50mMTo1M_Adds16_6LogTwenty()
     {
         return Prop.ForAll(ValidPrimerArbitrary(8, 30), primer =>
         {
-            double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
-            double salted = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
-            return (salted < baseTm)
-                .Label($"50mM did not lower Tm for '{primer}': base={baseTm}, salted={salted}");
+            double d = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 1000)
+                       - PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
+            return (Math.Abs(d - 16.6 * Math.Log10(20.0)) <= 0.1 + 1e-9)
+                .Label($"'{primer}': ΔTm(50mM→1M) = {d}");
         });
     }
 

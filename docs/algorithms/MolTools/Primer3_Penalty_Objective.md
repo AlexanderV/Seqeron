@@ -76,9 +76,11 @@ percentage in [0, 100] (`gc_content = 100·num_gc/num_gcat` in Primer3 source) [
 | `inputs.Tm` | double | required | Primer melting temperature | °C |
 | `inputs.Length` | int | required | Primer length | bases |
 | `inputs.GcPercent` | double | required | GC content | percent, [0, 100] |
-| `inputs.SelfAny` | double | 0 | Self-complementarity local-alignment score (PRIMER_SELF_ANY) | ≥ 0 |
-| `inputs.SelfEnd` | double | 0 | 3'-self-complementarity score (PRIMER_SELF_END) | ≥ 0 |
+| `inputs.SelfAny` | double | 0 | PRIMER_SELF_ANY alignment score (alignment mode) or PRIMER_SELF_ANY_TH Tm °C (thermodynamic mode) — Primer3 uses one field for both | ≥ 0 |
+| `inputs.SelfEnd` | double | 0 | PRIMER_SELF_END score / PRIMER_SELF_END_TH Tm °C | ≥ 0 |
 | `inputs.NumNs` | int | 0 | Number of N bases | ≥ 0 |
+| `inputs.HairpinTh` | double | 0 | PRIMER_HAIRPIN_TH Tm °C (thermodynamic mode only) | |
+| `inputs.EndStability` | double | 0 | PRIMER_END_STABILITY (ΔG magnitude, kcal/mol) | ≥ 0 |
 | `weights` | Primer3PenaltyWeights? | `DefaultPrimer3Weights` | `PRIMER_WT_*` weights | one-sided _gt/_lt |
 | `optima` | Primer3Optima? | `DefaultPrimer3Optima` | `PRIMER_OPT_*` optima | OPT_TM/SIZE/GC |
 
@@ -104,8 +106,12 @@ SEQ-THERMO-001-validated routines and GC via `CalculateGcContent`).
 2. Add the Tm term: `WT_TM_GT·(Tm−OPT_TM)` if `Tm>OPT_TM`, else `WT_TM_LT·(OPT_TM−Tm)` if `Tm<OPT_TM`.
 3. Add the GC% term symmetrically using `WT_GC_GT` / `WT_GC_LT` about `OPT_GC`.
 4. Add the size term symmetrically using `WT_SIZE_GT` / `WT_SIZE_LT` about `OPT_SIZE`.
-5. Add `WT_SELF_ANY·SELF_ANY`, `WT_SELF_END·SELF_END`, `WT_NUM_NS·N`.
-6. Return the sum.
+5. Secondary structure — alignment mode (`ThermodynamicOligoAlignment = false`): add `WT_SELF_ANY·SELF_ANY`,
+   `WT_SELF_END·SELF_END`. Thermodynamic mode (Primer3 default): for each of SELF_ANY_TH, SELF_END_TH, HAIRPIN_TH
+   with weight w and structure Tm s: if `Tm − 5 ≤ s` add `w·(s − (Tm − 5 − 1))`, else add `w/(Tm − 5 + 1 − s)`
+   (`temp_cutoff` = 5, fixed in `libprimer3.cc`).
+6. Add `WT_NUM_NS·N` and `WT_END_STABILITY·END_STABILITY`.
+7. Return the sum.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables
 
@@ -118,6 +124,10 @@ Default weights and optima (Primer3 source / manual) [3][4]:
 | WT_GC_PERCENT_GT, WT_GC_PERCENT_LT | 0.0 | `weights.gc_content_gt`, `weights.gc_content_lt` |
 | WT_SELF_ANY, WT_SELF_END | 0.0 | `weights.compl_any`, `weights.compl_end` |
 | WT_NUM_NS | 0.0 | `weights.num_ns` |
+| WT_SELF_ANY_TH, WT_SELF_END_TH, WT_HAIRPIN_TH | 0.0 | `weights.compl_any_th`, `compl_end_th`, `hairpin_th` |
+| WT_END_STABILITY | 0.0 | `weights.end_stability` |
+| THERMODYNAMIC_OLIGO_ALIGNMENT | 1 | `pr_set_default_global_args_2` |
+| temp_cutoff | 5 °C | `weights.temp_cutoff` (not a user tag) |
 | OPT_TM | 60.0 °C | `opt_tm` |
 | OPT_SIZE | 20 bases | `opt_size` |
 | OPT_GC_PERCENT | 50.0 % | manual `PRIMER_OPT_GC_PERCENT` |
@@ -153,7 +163,10 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
 - One-sided Tm term with separate `WT_TM_GT` / `WT_TM_LT` weights about `OPT_TM` [3][4].
 - One-sided GC% term (`WT_GC_PERCENT_GT/LT` about `OPT_GC_PERCENT`), GC as percent [3][4].
 - One-sided size term (`WT_SIZE_GT/LT` about `OPT_SIZE`) [3][4].
-- Linear self_any, self_end and num_ns terms [3][4].
+- Linear self_any, self_end (alignment mode) and num_ns terms [3][4].
+- Thermodynamic-mode `compl_any_th` / `compl_end_th` / `hairpin_th` terms with `temp_cutoff` = 5, and the
+  `end_stability` term [3]. Cross-checked against primer3-py 2.3.1 `design_primers` `PRIMER_LEFT/RIGHT_n_PENALTY`
+  (random-template designs + four `check_primers` runs in both modes; agreement < 1e-9).
 - Default weights and optima taken verbatim from Primer3 source / manual [3][4].
 
 **Intentionally simplified:**
@@ -165,9 +178,10 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
 
 **Not implemented:**
 
-- The thermodynamic-alignment penalty branch (`*_TH` terms, `temp_cutoff`), `pos_penalty`,
-  `end_stability`, `seq_quality`, `repeat_sim`, `template_mispriming`; **users should rely on:**
-  Primer3 itself for those terms (all default to weight 0, so they do not affect the default objective).
+- `bound` (only with PRIMER_ANNEALING_TEMP > 0), `failure_rate`, `pos_penalty` (needs
+  PRIMER_INSIDE/OUTSIDE_PENALTY), `seq_quality`, `repeat_sim`, `template_mispriming`; these need data the
+  method does not receive (annealing model, mispriming library, base qualities, target geometry) and are
+  0 under Primer3 defaults; **users should rely on:** adding `weight·value` themselves or Primer3.
 - The pair-level objective (`PRIMER_PAIR_*`, Tm-difference, product size); **users should rely on:**
   a future pair-penalty unit or Primer3.
 
@@ -190,9 +204,9 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
 
 ### 6.2 Limitations
 
-Per-primer only (no pair penalty); the `*_TH` thermodynamic-alignment, position, end-stability,
-sequence-quality, repeat and template-mispriming terms are not implemented (they default to
-weight 0 in Primer3, so the default objective is unaffected). self_any/self_end alignment scores
+Per-primer only (no pair penalty); the bound, failure-rate, position, sequence-quality, repeat and
+template-mispriming terms are not implemented (they are 0 under Primer3 defaults, so the default objective
+is unaffected). self_any/self_end alignment scores
 are caller-supplied (§5.3).
 
 ## 7. Examples and Related Material

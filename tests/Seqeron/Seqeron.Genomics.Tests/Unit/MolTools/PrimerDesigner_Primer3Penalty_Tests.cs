@@ -89,7 +89,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     [Test]
     public void CalculatePrimer3Penalty_SelfAny_AddsLinearTerm()
     {
-        var w = PrimerDesigner.DefaultPrimer3Weights with { SelfAny = 0.1 };
+        var w = PrimerDesigner.DefaultPrimer3Weights with { SelfAny = 0.1, ThermodynamicOligoAlignment = false };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
             new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 50.0, SelfAny: 4.0), w);
         Assert.That(p, Is.EqualTo(0.4).Within(Tol),
@@ -100,7 +100,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     [Test]
     public void CalculatePrimer3Penalty_SelfEnd_AddsLinearTerm()
     {
-        var w = PrimerDesigner.DefaultPrimer3Weights with { SelfEnd = 0.2 };
+        var w = PrimerDesigner.DefaultPrimer3Weights with { SelfEnd = 0.2, ThermodynamicOligoAlignment = false };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
             new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 50.0, SelfEnd: 3.0), w);
         Assert.That(p, Is.EqualTo(0.6).Within(Tol),
@@ -123,7 +123,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     [Test]
     public void CalculatePrimer3Penalty_CombinedTerms_SumsAllContributions()
     {
-        var w = PrimerDesigner.DefaultPrimer3Weights with { GcGt = 0.5, SelfAny = 0.25, NumNs = 1.0 };
+        var w = PrimerDesigner.DefaultPrimer3Weights with { GcGt = 0.5, SelfAny = 0.25, NumNs = 1.0, ThermodynamicOligoAlignment = false };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
             new Primer3PenaltyInputs(Tm: 62.0, Length: 22, GcPercent: 55.0, SelfAny: 2.0, NumNs: 1), w);
         Assert.That(p, Is.EqualTo(8.0).Within(Tol),
@@ -188,8 +188,8 @@ public class PrimerDesigner_Primer3Penalty_Tests
     public void CalculatePrimer3Penalty_DoublingWeight_DoublesTerm()
     {
         var inputs = new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 50.0, SelfAny: 4.0);
-        var p1 = PrimerDesigner.CalculatePrimer3Penalty(inputs, PrimerDesigner.DefaultPrimer3Weights with { SelfAny = 0.1 });
-        var p2 = PrimerDesigner.CalculatePrimer3Penalty(inputs, PrimerDesigner.DefaultPrimer3Weights with { SelfAny = 0.2 });
+        var p1 = PrimerDesigner.CalculatePrimer3Penalty(inputs, PrimerDesigner.DefaultPrimer3Weights with { SelfAny = 0.1, ThermodynamicOligoAlignment = false });
+        var p2 = PrimerDesigner.CalculatePrimer3Penalty(inputs, PrimerDesigner.DefaultPrimer3Weights with { SelfAny = 0.2, ThermodynamicOligoAlignment = false });
         Assert.Multiple(() =>
         {
             Assert.That(p1, Is.EqualTo(0.4).Within(Tol), "0.1*4 = 0.4.");
@@ -290,6 +290,71 @@ public class PrimerDesigner_Primer3Penalty_Tests
 
         Assert.That(p, Is.EqualTo(0.0).Within(Tol),
             "GC_LT only penalises GC BELOW optimum; GC=60 > 50 leaves the GC term at 0 (p_obj_fn gc_content_lt).");
+    }
+
+    #endregion
+    #region primer3-py reference cross-check (both secondary-structure modes)
+
+    // Reference weights used for the primer3-py 2.3.1 check_primers runs
+    // (PRIMER_WT_GC_PERCENT_GT=0.5, _LT=0.3, END_STABILITY=0.7, SELF_ANY_TH=1, SELF_END_TH=0.5,
+    //  HAIRPIN_TH=2, SELF_ANY=0.1, SELF_END=0.2, NUM_NS=1; OPT_TM=60, OPT_SIZE=20, OPT_GC=50).
+    private static Primer3PenaltyWeights ReferenceWeights(bool thermodynamic) =>
+        PrimerDesigner.DefaultPrimer3Weights with
+        {
+            GcGt = 0.5, GcLt = 0.3, EndStability = 0.7,
+            SelfAnyTh = 1.0, SelfEndTh = 0.5, HairpinTh = 2.0,
+            SelfAny = 0.1, SelfEnd = 0.2, NumNs = 1.0,
+            ThermodynamicOligoAlignment = thermodynamic,
+        };
+
+    // primer3-py: primer3.design_primers({'SEQUENCE_PRIMER': seq}, {PRIMER_TASK: check_primers,
+    // PRIMER_PICK_ANYWAY: 1, PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT: 1, ...weights above}) →
+    // PRIMER_LEFT_0_TM/_GC_PERCENT/_SELF_ANY_TH/_SELF_END_TH/_HAIRPIN_TH/_END_STABILITY and _PENALTY.
+    // Covers both branches of the p_obj_fn *_th term (structure Tm ≥ Tm−5 → linear; below → reciprocal).
+    [TestCase("GCGCGGCCGCGCATGCGC", 74.02247518370598, 88.88888888888889, 64.16651999649662, 46.79817714481686, 71.43780712157621, 6.09, 46.7528790139973)]
+    [TestCase("GAATTCGCGGCCGCGAATTC", 64.20329932884817, 60.0, 65.09245626620782, 65.09245626620782, 70.3701437893908, 2.17, 45.38972365597288)]
+    [TestCase("CCGGGCCCGGAAAACCGGGCCCGG", 77.67522266183073, 83.33333333333333, 66.71491623257725, 66.71491623257725, 89.38843045144137, 5.73, 77.99481266089683)]
+    [TestCase("ACGTTGCAAGCTAGCTTGCAACGT", 67.09492085658354, 50.0, 67.87284511816648, 67.87284511816648, 76.54584979168476, 3.99, 54.956665119160384)]
+    [TestCase("ACTTGTTGGCCCAGTGTGAA", 60.03360068726653, 50.0, 0.0, 0.0, 0.0, 3.18, 2.322063208986917)]
+    public void CalculatePrimer3Penalty_ThermodynamicMode_MatchesPrimer3Py(
+        string seq, double tm, double gc, double selfAnyTh, double selfEndTh, double hairpinTh, double endStab, double expected)
+    {
+        var inputs = new Primer3PenaltyInputs(tm, seq.Length, gc, SelfAny: selfAnyTh, SelfEnd: selfEndTh,
+            HairpinTh: hairpinTh, EndStability: endStab);
+        Assert.That(PrimerDesigner.CalculatePrimer3Penalty(inputs, ReferenceWeights(true)),
+            Is.EqualTo(expected).Within(1e-9), $"primer3-py PRIMER_LEFT_0_PENALTY for {seq}");
+    }
+
+    // Same primers with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0: SELF_ANY / SELF_END are dpal
+    // alignment scores and the *_TH weights are ignored.
+    [TestCase("GCGCGGCCGCGCATGCGC", 74.02247518370598, 88.88888888888889, 12.0, 10.0, 6.09, 42.92991962815042)]
+    [TestCase("GAATTCGCGGCCGCGAATTC", 64.20329932884817, 60.0, 20.0, 20.0, 2.17, 16.722299328848173)]
+    [TestCase("CCGGGCCCGGAAAACCGGGCCCGG", 77.67522266183073, 83.33333333333333, 16.0, 16.0, 5.73, 47.1528893284974)]
+    [TestCase("ACGTTGCAAGCTAGCTTGCAACGT", 67.09492085658354, 50.0, 24.0, 24.0, 3.99, 21.087920856583544)]
+    public void CalculatePrimer3Penalty_AlignmentMode_MatchesPrimer3Py(
+        string seq, double tm, double gc, double selfAny, double selfEnd, double endStab, double expected)
+    {
+        var inputs = new Primer3PenaltyInputs(tm, seq.Length, gc, SelfAny: selfAny, SelfEnd: selfEnd,
+            HairpinTh: 999.0, EndStability: endStab); // hairpin must be ignored in alignment mode
+        Assert.That(PrimerDesigner.CalculatePrimer3Penalty(inputs, ReferenceWeights(false)),
+            Is.EqualTo(expected).Within(1e-9), $"primer3-py PRIMER_LEFT_0_PENALTY for {seq}");
+    }
+
+    // Primer3 default (default_values=2) is thermodynamic mode; the *_TH / end-stability weights are 0,
+    // so the default objective is still |Tm−60| + |len−20| even with non-zero structure Tm inputs.
+    [Test]
+    public void DefaultPrimer3Weights_ThermodynamicModeWithZeroStructureWeights()
+    {
+        var w = PrimerDesigner.DefaultPrimer3Weights;
+        var p = PrimerDesigner.CalculatePrimer3Penalty(
+            new Primer3PenaltyInputs(62.0, 21, 50.0, SelfAny: 55.0, SelfEnd: 40.0, HairpinTh: 60.0, EndStability: 9.0), w);
+        Assert.Multiple(() =>
+        {
+            Assert.That(w.ThermodynamicOligoAlignment, Is.True, "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT default = 1.");
+            Assert.That(w.SelfAnyTh + w.SelfEndTh + w.HairpinTh + w.EndStability, Is.EqualTo(0.0));
+            Assert.That(PrimerDesigner.Primer3TempCutoff, Is.EqualTo(5.0), "weights.temp_cutoff = 5.");
+            Assert.That(p, Is.EqualTo(3.0).Within(Tol), "(62-60) + (21-20) = 3.");
+        });
     }
 
     #endregion

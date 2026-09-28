@@ -327,14 +327,15 @@ public class MolToolsCombinatorialTests
     // axis "basic/SantaLucia", but the implemented Tm models are (a) a salt-free
     // base Tm whose FORMULA is itself length-selected — Wallace's rule 2·(A+T)+4·(G+C)
     // for short oligos (<14 valid nt) and the Marmur-Doty GC% formula
-    // 64.9 + 41·(#GC − 16.4)/N for ≥14 nt — and (b) that base Tm plus a
-    // Schildkraut-Lifson salt correction 16.6·log10([Na⁺]). (A SantaLucia
+    // 64.9 + 41·(#GC − 16.4)/N for ≥14 nt (both assume 50 mM Na⁺) — and (b) the
+    // OligoCalc salt-adjusted Tm (Kibbe 2007): Wallace + 16.6·log10([Na⁺]/0.050 M) for
+    // <14 nt, 100.5 + 41·GC/N − 820/N + 16.6·log10([Na⁺] M) for ≥14 nt. (A SantaLucia
     // nearest-neighbour model exists only as the ΔG-based 3′-stability metric, not a
     // Tm.) So method = {Basic, SaltCorrected}, and primerLen straddles the
     // Wallace↔Marmur-Doty switch (10 nt → Wallace; 14, 24 nt → Marmur-Doty).
     //
     // The combinatorial point: method and saltConc INTERACT. Under SaltCorrected the
-    // salt axis shifts Tm by +16.6·log10([Na⁺]/1000) and is monotone increasing in
+    // salt axis shifts Tm by +16.6 °C per decade of [Na⁺] and is monotone increasing in
     // [Na⁺]; under Basic the salt axis is INERT (identical Tm at every saltConc).
     // primerLen interacts with method by selecting which base formula applies.
     // — Wallace 1979 NAR 6:3543; Marmur & Doty 1962 JMB 5:109; Schildkraut & Lifson
@@ -345,6 +346,17 @@ public class MolToolsCombinatorialTests
 
     /// <summary>Deterministic 50%-GC primer of length n ("ACGT…").</summary>
     private static string PrimerOfLen(int n) => string.Concat(Enumerable.Range(0, n).Select(i => "ACGT"[i % 4]));
+
+    /// <summary>Independent re-derivation of the OligoCalc salt-adjusted Tm.</summary>
+    private static double ExpectedSaltTm(string seq, double saltMm)
+    {
+        int at = seq.Count(c => c is 'A' or 'T'), gc = seq.Count(c => c is 'G' or 'C');
+        int n = at + gc;
+        double m = saltMm / 1000.0;
+        return n < 14
+            ? 2 * at + 4 * gc + 16.6 * Math.Log10(m / 0.050)
+            : 100.5 + 41.0 * gc / n - 820.0 / n + 16.6 * Math.Log10(m);
+    }
 
     /// <summary>Independent re-derivation of the documented base Tm (no salt).</summary>
     private static double ExpectedBaseTm(string seq)
@@ -370,13 +382,12 @@ public class MolToolsCombinatorialTests
 
         double expected = method == TmMethod.Basic
             ? baseTm                                                       // salt axis inert
-            : Math.Round(baseTm + 16.6 * Math.Log10(saltMm / 1000.0), 1);  // Schildkraut-Lifson
+            : Math.Round(ExpectedSaltTm(seq, saltMm), 1);                  // OligoCalc salt adjusted
 
         actual.Should().BeApproximately(expected, 1e-9,
             $"{method} Tm of a {primerLen}-mer at {saltMm} mM follows the documented formula");
 
-        // Only the base Tm is clamped at 0; the additive salt correction may legitimately
-        // drive a low-Tm short primer below 0 at very low [Na⁺] (e.g. 10-mer at 10 mM → −3.2 °C).
+        // Only the base Tm is clamped at 0 (the salt-adjusted formula is reported as computed).
         if (method == TmMethod.Basic)
             actual.Should().BeGreaterThanOrEqualTo(0.0, "the base melting temperature is clamped non-negative");
     }
@@ -400,9 +411,10 @@ public class MolToolsCombinatorialTests
         s10.Should().BeLessThan(s50);
         s50.Should().BeLessThan(s200, "Tm rises with [Na⁺] via +16.6·log10([Na⁺])");
 
-        // At 1 M Na⁺ the correction vanishes, so salt-corrected ≡ base Tm.
-        PrimerDesigner.CalculateMeltingTemperatureWithSalt(seq, 1000.0)
-            .Should().BeApproximately(b10, 0.05);
+        // Short oligo: the Wallace rule is defined at 50 mM, so salt-adjusted(50 mM) ≡ base Tm.
+        string shortSeq = PrimerOfLen(10);
+        PrimerDesigner.CalculateMeltingTemperatureWithSalt(shortSeq, 50.0)
+            .Should().BeApproximately(PrimerDesigner.CalculateMeltingTemperature(shortSeq), 1e-9);
     }
 
     /// <summary>

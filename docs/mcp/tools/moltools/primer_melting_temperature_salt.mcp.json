@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "PrimerDesigner.CalculateMeltingTemperatureWithSalt",
   "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L227",
-  "description": "Salt-corrected primer Tm: Wallace/Marmur-Doty Tm + 16.6*log10([Na+]/1000), rounded to 1 decimal.",
+  "description": "Salt-adjusted primer Tm (OligoCalc, Kibbe 2007): N<14: 2(A+T)+4(G+C)+16.6*log10([Na+]/0.050 M); N>=14: 100.5+41*(G+C)/N-820/N+16.6*log10([Na+] M); rounded to 1 decimal.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -30,12 +30,12 @@
     {
       "name": "50 mM Na+",
       "input": { "primer": "ACGT", "na_concentration": 50 },
-      "output": { "tm": -9.6 }
+      "output": { "tm": 12.0 }
     },
     {
-      "name": "1 M Na+ (zero correction)",
+      "name": "1 M Na+",
       "input": { "primer": "ACGT", "na_concentration": 1000 },
-      "output": { "tm": 12.0 }
+      "output": { "tm": 33.6 }
     }
   ]
 }

@@ -57,7 +57,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `optimize_codons` | Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default)… |
 | `primer_dimer` | Heuristic 3'-end primer-dimer check between two primers: reverse-complements primer2 and counts complementary positions in an up-to-8-bp… |
 | `primer_melting_temperature` | Computes a primer's melting temperature (Tm, °C): Wallace rule Tm = 2·(A+T) + 4·(G+C) for < 14 valid bases, or Marmur–Doty Tm = 64.9 + 41… |
-| `primer_melting_temperature_salt` | Primer Tm with a Schildkraut–Lifson salt correction: adds 16.6·log10([Na+]/1000) to the Wallace/Marmur–Doty Tm, rounded to one decimal. |
+| `primer_melting_temperature_salt` | Salt-adjusted primer Tm (OligoCalc): N<14: 2(A+T)+4(G+C)+16.6·log10([Na+]/0.050 M); N≥14: 100.5+41·(G+C)/N−820/N+16.6·log10([Na+] M); rounded to one decimal. |
 | `reduce_secondary_structure` | Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window, reducing mRNA secondary st… |
 | `remove_restriction_sites` | Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encode… |
 | `restriction_digest` | Simulates a restriction digest of a linear DNA molecule with one or more named enzymes and yields the resulting fragments in 5'→3' order… |

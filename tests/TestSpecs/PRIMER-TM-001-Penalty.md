@@ -94,6 +94,17 @@
 | S3 | Linearity in weight | selfAny=4 at WT 0.1 vs 0.2 | 0.4 vs 0.8 | INV-4 |
 | S4 | Non-negativity battery | several deviating inputs | all ≥ 0 | INV-1 |
 
+### 4.2b Reference cross-check (review-2026-09)
+
+| ID | Test Case | Expected | Evidence |
+|----|-----------|----------|----------|
+| R1 | Thermodynamic mode (Primer3 default) `*_TH` + end-stability + GC terms, 5 primers (both linear and reciprocal `temp_cutoff` branches) | primer3-py 2.3.1 `PRIMER_LEFT_0_PENALTY`, 1e-9 | `CalculatePrimer3Penalty_ThermodynamicMode_MatchesPrimer3Py` |
+| R2 | Alignment mode (`PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0`), 4 primers; hairpin ignored | primer3-py penalties, 1e-9 | `CalculatePrimer3Penalty_AlignmentMode_MatchesPrimer3Py` |
+| R3 | Defaults = thermodynamic mode with zero structure weights; temp_cutoff = 5 | penalty (62,21) = 3.0 | `DefaultPrimer3Weights_ThermodynamicModeWithZeroStructureWeights` |
+
+Note: `WT_SELF_ANY`/`WT_SELF_END` (M7, M8, M10, S3) apply only in alignment mode (`p_obj_fn`:
+`thermodynamic_oligo_alignment==0`), so those tests set `ThermodynamicOligoAlignment = false`.
+
 ### 4.3 COULD Tests (Nice to have)
 
 | ID | Test Case | Description | Expected Outcome | Notes |
