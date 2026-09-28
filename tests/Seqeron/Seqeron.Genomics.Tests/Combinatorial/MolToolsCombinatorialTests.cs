@@ -445,17 +445,18 @@ public class MolToolsCombinatorialTests
     // violation of any single window must surface its own diagnostic.
     //
     // The combinatorial point: the four windows interact multiplicatively. The probe
-    // primer (20 nt, 50% GC, Tm 51.78 °C) is placed so each axis straddles its three
+    // primer (20 nt, 50% GC, Primer3-default Tm 56.43 °C) is placed so each axis straddles its three
     // windows — minLen {15,20,22} and maxLen {18,20,25} bracket length 20 on both
-    // sides, the GC windows straddle 50%, the Tm windows straddle 51.78 °C — so every
+    // sides, the GC windows straddle 50%, the Tm windows straddle 56.43 °C — so every
     // axis genuinely flips acceptance and the AND is exercised across the grid.
     // ═══════════════════════════════════════════════════════════════════════
 
-    // 20-mer, 50% GC, Tm 51.78 °C, hairpin-free, max homopolymer 2 (verified independently).
+    // 20-mer, 50% GC, Primer3-default Tm 56.4298 °C (primer3-py 2.3.1 calc_tm), hairpin-free,
+    // max homopolymer 2 (verified independently).
     private const string CleanPrimer20 = "GACGCTGTCTGAGACTAGAA";
 
     private static readonly (double Lo, double Hi)[] GcWindows = { (30, 45), (45, 55), (55, 70) };
-    private static readonly (double Lo, double Hi)[] TmWindows = { (40, 50), (50, 60), (52, 62) };
+    private static readonly (double Lo, double Hi)[] TmWindows = { (45, 55), (55, 65), (57, 67) };
 
     /// <summary>Permissive structural filters so only the length/GC/Tm windows can gate acceptance.</summary>
     private static PrimerParameters WithWindows(int minLen, int maxLen, double gcLo, double gcHi, double tmLo, double tmHi) =>
@@ -487,7 +488,7 @@ public class MolToolsCombinatorialTests
             WithWindows(minLen, maxLen, gcLo, gcHi, tmLo, tmHi));
 
         double gc = PrimerDesigner.CalculateGcContent(CleanPrimer20);
-        double tm = PrimerDesigner.CalculateMeltingTemperature(CleanPrimer20);
+        double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(CleanPrimer20);
         int len = CleanPrimer20.Length;
 
         bool lenOk = len >= minLen && len <= maxLen;
@@ -516,7 +517,7 @@ public class MolToolsCombinatorialTests
             .Should().BeTrue("a clean primer is accepted under an all-permissive config");
 
         double gc = PrimerDesigner.CalculateGcContent(CleanPrimer20);
-        double tm = PrimerDesigner.CalculateMeltingTemperature(CleanPrimer20);
+        double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(CleanPrimer20);
 
         PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide with { MinGcContent = gc + 5 })
             .IsValid.Should().BeFalse("a GC floor above the primer's GC excludes it");
@@ -535,7 +536,7 @@ public class MolToolsCombinatorialTests
     public void PrimerDesign_DesignedPair_HonoursEveryWindow()
     {
         var template = new DnaSequence(DiverseDna(600));
-        // Tm window chosen to match the Marmur-Doty scale for 18–25-mers.
+        // Wide Tm window on the Primer3-default (SantaLucia NN) scale for 18–25-mers.
         var param = PrimerDesigner.DefaultParameters with
         {
             MinLength = 18, MaxLength = 25, MinGcContent = 35, MaxGcContent = 65, MinTm = 45, MaxTm = 65,

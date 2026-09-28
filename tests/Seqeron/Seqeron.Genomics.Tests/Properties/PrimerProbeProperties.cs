@@ -907,8 +907,10 @@ public class PrimerProbeProperties
     /// doc contract rather than reused production code: a pair is valid iff |Tm_f − Tm_r| ≤ 5
     /// AND the two primers do not form a primer-dimer.
     /// </summary>
+    // Primer3 compares unrounded Tm values (PrimerCandidate.MeltingTemperature is rounded to 0.1 °C).
     private static bool ExpectedPairValid(PrimerCandidate fwd, PrimerCandidate rev) =>
-        Math.Abs(fwd.MeltingTemperature - rev.MeltingTemperature) <= 5.0
+        Math.Abs(PrimerDesigner.CalculateMeltingTemperaturePrimer3(fwd.Sequence)
+                 - PrimerDesigner.CalculateMeltingTemperaturePrimer3(rev.Sequence)) <= 5.0
         && !PrimerDesigner.HasPrimerDimer(fwd.Sequence, rev.Sequence);
 
     #endregion
@@ -1187,11 +1189,10 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
-    /// Evidence anchor (GcContent + Tm): a hand-constructed 22-mer with a known composition.
-    /// "CGGTTCACTACGTCCGTTCTGG" has 13 G/C of 22 bases ⇒ GC% = 1300/22 = 59.09 → 59.1 (rounded),
-    /// and (≥14 bases) Marmur-Doty Tm = 64.9 + 41×(13 − 16.4)/22 = 58.56 → 58.6 (rounded).
-    /// Both fall inside the default windows (GC 40-60, Tm 57-63), pinning EvaluatePrimer's
-    /// per-primer metrics to literally computed values independent of production constants.
+    /// Evidence anchor (GcContent + Tm): "CGGTTCACTACGTCCGTTCTGG" has 13 G/C of 22 bases ⇒
+    /// GC% = 1300/22 = 59.09 → 59.1 (rounded). EvaluatePrimer's Tm is the Primer3-default Tm
+    /// (SantaLucia 1998 NN, 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM): primer3-py 2.3.1
+    /// calc_tm = 63.1228 °C → 63.1, just above PRIMER_MAX_TM = 63 ⇒ the primer is rejected.
     /// </summary>
     [Test]
     [Category("Property")]
@@ -1203,31 +1204,33 @@ public class PrimerProbeProperties
             Assert.That(c.Length, Is.EqualTo(22));
             Assert.That(c.GcContent, Is.EqualTo(59.1).Within(0.05),
                 "GC% = 100×13/22 = 59.09 → 59.1");
-            Assert.That(c.MeltingTemperature, Is.EqualTo(58.6).Within(0.05),
-                "Marmur-Doty Tm = 64.9 + 41×(13−16.4)/22 = 58.56 → 58.6");
+            Assert.That(c.MeltingTemperature, Is.EqualTo(63.1).Within(0.05),
+                "primer3.calc_tm = 63.1228 → 63.1");
+            Assert.That(c.IsValid, Is.False, "Tm 63.12 > PRIMER_MAX_TM 63");
+            Assert.That(c.Issues, Has.Some.StartsWith("Tm"));
         });
     }
 
     /// <summary>
-    /// Evidence anchor (valid pair + product size): a hand-constructed 48 bp template engineered so
-    /// the design produces a known-valid pair. The forward flank is the verified valid 22-mer
-    /// "CGGTTCACTACGTCCGTTCTGG" (positions 0-21); a 4 bp target ("AAAA") occupies 22-25; the reverse
-    /// flank (positions 26-47) is the reverse complement of the verified valid 22-mer
-    /// "CAAGCCGGGGCTAATCCGTCAT", so reverse-complementing it back recovers that primer. Both Tm = 58.6
-    /// (|ΔTm| = 0 ≤ 5) and they are not a dimer ⇒ a valid pair. ProductSize = reverse.Position(26) +
-    /// reverse.Length(22) − forward.Position(0) = 48. This pins INV-03 and INV-02 to literal values.
+    /// Evidence anchor (valid pair + product size): 44 bp template = forward 20-mer
+    /// "GATTCGAAGGGGATAGCGCA" (0-19) + target "AAAA" (20-23) + reverse complement of the reverse
+    /// 20-mer "ATGGGCGTGGGCATAATACC" (24-43). primer3-py 2.3.1 design_primers (sizes 18/20/25,
+    /// Tm 57/60/63, GC 40-60, poly-X 4, pair ΔTm ≤ 5, SEQUENCE_TARGET 20,4) returns
+    /// PRIMER_LEFT_0 = [0,20] (Tm 59.9665, penalty 0.033504), PRIMER_RIGHT_0 = [43,20]
+    /// (Tm 60.2512, penalty 0.251165), PRIMER_PAIR_0_PENALTY = 0.284669, product 44.
+    /// ProductSize = reverse.Position(24) + reverse.Length(20) − forward.Position(0) = 44.
     /// </summary>
     [Test]
     [Category("Property")]
     public void DesignPrimers_KnownTemplate_ProductSizeEqualsSpan()
     {
-        const string forwardPrimer = "CGGTTCACTACGTCCGTTCTGG";
-        const string reversePrimer = "CAAGCCGGGGCTAATCCGTCAT";
-        string reverseFlank = new DnaSequence(reversePrimer).ReverseComplement().Sequence;
-        string template = forwardPrimer + "AAAA" + reverseFlank; // length 48
+        const string forwardPrimer = "GATTCGAAGGGGATAGCGCA";
+        const string reversePrimer = "ATGGGCGTGGGCATAATACC";
+        string reverseFlank = DnaSequence.GetReverseComplementString(reversePrimer);
+        string template = forwardPrimer + "AAAA" + reverseFlank; // length 44
 
         var dna = new DnaSequence(template);
-        var result = PrimerDesigner.DesignPrimers(dna, targetStart: 22, targetEnd: 26);
+        var result = PrimerDesigner.DesignPrimers(dna, targetStart: 20, targetEnd: 24);
 
         Assert.That(result.Forward, Is.Not.Null, "expected a forward primer on this template");
         Assert.That(result.Reverse, Is.Not.Null, "expected a reverse primer on this template");
@@ -1238,9 +1241,12 @@ public class PrimerProbeProperties
             Assert.That(result.IsValid, Is.True, "engineered pair must be compatible");
             Assert.That(result.Forward!.Sequence, Is.EqualTo(forwardPrimer));
             Assert.That(result.Reverse!.Sequence, Is.EqualTo(reversePrimer));
+            Assert.That(result.Reverse.Position, Is.EqualTo(24));
+            Assert.That(result.Forward.Penalty, Is.EqualTo(0.033504).Within(1e-6));
+            Assert.That(result.Reverse.Penalty, Is.EqualTo(0.251165).Within(1e-6));
+            Assert.That(result.Forward.Penalty + result.Reverse.Penalty, Is.EqualTo(0.284669).Within(1e-6));
             Assert.That(result.ProductSize, Is.EqualTo(expected));
-            Assert.That(result.ProductSize, Is.EqualTo(48),
-                "ProductSize = 26 + 22 − 0 = 48");
+            Assert.That(result.ProductSize, Is.EqualTo(44), "ProductSize = 24 + 20 − 0 = 44");
         });
     }
 

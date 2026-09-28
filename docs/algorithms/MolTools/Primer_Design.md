@@ -5,12 +5,12 @@
 | Algorithm Group | MolTools |
 | Test Unit ID | PRIMER-DESIGN-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Implemented (Primer3 pair selection; heuristic structure screens) |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Primer pair design selects forward and reverse oligonucleotides that can amplify a target DNA region by PCR. In this repository, primer design combines candidate enumeration in flanking regions with per-primer quality evaluation and a simple pair-compatibility check based on melting-temperature agreement and primer-dimer avoidance. The current implementation is a heuristic selector rather than a full Primer3-style combinatorial optimizer.
+Primer pair design selects forward and reverse oligonucleotides that can amplify a target DNA region by PCR. In this repository, primer design enumerates every candidate in the flanking regions, filters each by per-primer constraints, and then — exactly as Primer3 (`libprimer3.cc` `choose_pair_or_triple`) — returns the pair with the lowest Primer3 pair penalty among all pairs meeting the pair constraints (Tm agreement, primer-dimer avoidance). The Tm used everywhere in design is Primer3's default primer Tm, the scale on which the Primer3 Tm window 57–63 °C is defined.
 
 ## 2. Scientific / Formal Basis
 
@@ -20,20 +20,31 @@ PCR primer design balances primer length, GC content, melting temperature, repet
 
 ### 2.2 Core Model
 
-The repository designs primers in four stages: search-region definition, candidate generation, greedy best-candidate selection, and pair compatibility checking. Candidate scoring uses:
+1. **Tm (per primer).** Primer3 `seqtm`/`oligotm` with PRIMER_TM_FORMULA = SantaLucia 1998 and
+   PRIMER_SALT_CORRECTIONS = SantaLucia 1998 (`CalculateMeltingTemperaturePrimer3`):
+   $[Mon]_{eq} = [Mon] + 120\sqrt{[Mg^{2+}] - [dNTP]}$ (mM; von Ahsen 2001),
+   $\Delta S = \Delta S^\circ_{1M} + 0.368(N-1)\ln([Mon]_{eq}/1000)$,
+   $T_m = \Delta H / (\Delta S + R\ln(C/4)) - 273.15$ ($C/1$ if self-complementary, $R = 1.987$),
+   with the SantaLucia (1998) Table 2 NN and terminal-initiation terms as tabulated in `oligotm.c`;
+   for $N > 36$ the `long_seq_tm` formula $81.5 + 16.6\log_{10}([Mon]_{eq}/1000) + 41\,GC/N - 600/N$.
+   Defaults 50 nM oligo, 50 mM monovalent, 1.5 mM Mg²⁺, 0.6 mM dNTP.
+2. **Per-primer penalty** (Primer3 `p_obj_fn`, default weights):
+   $penalty = |T_m - OptimalTm| + |length - OptimalLength|$ (`CalculatePrimer3Penalty`).
+3. **Pair selection:** minimise $penalty_f + penalty_r$ (PRIMER_PAIR_WT_PR_PENALTY = 1, other pair
+   weights 0) over all pairs with $|T_{m,f} - T_{m,r}| \le 5$ °C and no primer-dimer; ties within
+   $10^{-6}$ broken as `compare_primer_pair` (left primer further 3′, right primer 5′ end further
+   left, shorter left, shorter right).
 
-$$
-score = 100 - 2\lvert length - optimalLength \rvert - 2\lvert T_m - optimalT_m \rvert - 0.5\lvert GC\% - 50 \rvert - 5 \times homopolymerLength + bonus_{GC clamp}
-$$
-
-where the GC-clamp bonus is `+5` when the final base is `G` or `C` in the current source. Pair compatibility requires a Tm difference of at most `5°C` and no primer-dimer signal.
+`PrimerCandidate.Score` (100 − 2|len − opt| − 2|Tm − opt| − 0.5|GC − 50| − 5·homopolymer + 5 GC-clamp
+bonus) is reported for information only and does not drive selection.
 
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | `DesignPrimers(...)` returns `IsValid = false` when either side has no valid candidates | The source returns an invalid `PrimerPairResult` when either best candidate is missing |
-| INV-02 | Pair validity requires both `|Tm_f - Tm_r| <= 5` and `!HasPrimerDimer(...)` | That conjunction is explicit in source |
+| INV-02 | Pair validity requires both `|Tm_f - Tm_r| <= 5` (unrounded Tm) and `!HasPrimerDimer(...)`; if any such pair exists among the valid candidates, `IsValid = true` | Exhaustive pair search |
+| INV-04 | The returned valid pair minimises `Forward.Penalty + Reverse.Penalty` over all compatible pairs | Primer3 `choose_pair_or_triple` |
 | INV-03 | `ProductSize = reverse.Position + reverse.Sequence.Length - forward.Position` | The source computes product size directly from the chosen candidates |
 
 ## 3. Contract
@@ -44,7 +55,7 @@ where the GC-clamp bonus is `+5` when the final base is `G` or `C` in the curren
 |------|------|---------|-------------|-------------|
 | `template` | `DnaSequence` | required | Template DNA sequence |
 | `targetStart` | `int` | required | Start of the target region | Must satisfy `targetStart >= 0` |
-| `targetEnd` | `int` | required | End of the target region | Must satisfy `targetEnd < template.Length` and `targetStart < targetEnd` |
+| `targetEnd` | `int` | required | Exclusive end of the target region (target = `[targetStart, targetEnd)`, Primer3 SEQUENCE_TARGET) | Must satisfy `targetEnd < template.Length` and `targetStart < targetEnd` |
 | `parameters` | `PrimerParameters?` | `PrimerDesigner.DefaultParameters` | Primer design thresholds | Defaults are `18-25` bp length, `40-60%` GC, `57-63°C` Tm, `OptimalLength = 20`, `OptimalTm = 60`, `MaxHomopolymer = 4`, `MaxDinucleotideRepeats = 4`, `Avoid3PrimeGC = false`, and `Check3PrimeStability = true` |
 
 ### 3.2 Output / Return Value
@@ -69,8 +80,8 @@ where the GC-clamp bonus is `+5` when the final base is `G` or `C` in the curren
 2. Define a reverse search region up to 200 bp downstream of the target end.
 3. Enumerate all candidate primers within the configured length range.
 4. Evaluate each candidate for GC content, Tm, homopolymers, dinucleotide repeats, hairpin potential, and 3' stability.
-5. Select the highest-scoring forward and reverse candidates independently.
-6. Accept the pair only if the Tm difference is at most `5°C` and no primer-dimer is detected.
+5. Sort each side by Primer3 penalty; scan reverse × forward candidates with Primer3's pruning (stop a row once `penalty_f + penalty_r` exceeds the best pair found).
+6. Keep the lowest-penalty pair with Tm difference ≤ `5°C` and no primer-dimer; if none exists, return the individually best primers with `IsValid = false` and a message naming the violated constraint.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -101,35 +112,24 @@ Parameter ranges documented in the original file and current source:
 
 - `PrimerDesigner.DesignPrimers(DnaSequence, int, int, PrimerParameters?)`: Designs and validates a primer pair around a target region.
 - `PrimerDesigner.EvaluatePrimer(string, int, bool, PrimerParameters?)`: Scores a single primer candidate.
-- `PrimerDesigner.CalculatePrimerScore(...)`: Applies the heuristic candidate score.
+- `PrimerDesigner.CalculateMeltingTemperaturePrimer3(string, ...)`: Primer3-default primer Tm used by design.
+- `PrimerDesigner.CalculatePrimer3Penalty(...)`: Primer3 per-primer penalty used for ranking.
+- `PrimerDesigner.CalculatePrimerScore(...)` (private): informational heuristic score.
 
 ### 5.2 Current Behavior
 
-Forward primers are taken directly from the template in the forward orientation. Reverse primers are extracted from the downstream region and reverse-complemented before evaluation so they represent the sequence that binds the reverse strand. The source uses `57-63°C` as the default acceptable Tm range, `40-60%` GC, and `18-25` bp length. The evaluator also computes 3' stability and can emit a threshold-based issue for it when `Check3PrimeStability` is enabled. `Avoid3PrimeGC` is disabled by default; when callers enable it, the current implementation applies a GC-clamp-style check on the last two bases by flagging primers whose final dinucleotide contains no `G` or `C`. Pair selection itself is driven by the aggregate heuristic score plus the later compatibility checks. Pair selection is greedy: the highest-scoring forward and highest-scoring reverse candidates are chosen independently and then checked for compatibility.
+Forward primers are taken directly from the template; reverse primers are reverse-complemented before evaluation, and their `Position` is the leftmost template coordinate of the binding site. Per-primer hard constraints: length, GC%, Primer3-default Tm window, homopolymer, dinucleotide repeat, heuristic hairpin (`HasHairpinPotential`), 3′ ΔG (`< −9` kcal/mol flagged; note that the SantaLucia 5-mer ΔG never goes below −6.86, so this gate never fires — consistent with Primer3's default PRIMER_MAX_END_STABILITY = 100), optional GC clamp, and no non-ACGT base (Primer3 PRIMER_MAX_NS_ACCEPTED = 0). Pair selection is the exhaustive Primer3 pair search described in §2.2.
 
 ### 5.3 Conformance to Theory / Spec
 
-**Implemented (verbatim from the cited theory/spec):**
+**Implemented (verified against primer3-py 2.3.1):**
 
-- Candidate screening by length, GC content, melting temperature, repetitive sequence content, and hairpin risk, with 3' stability calculated and exposed as an additional heuristic diagnostic.
-- A pair-compatibility rule based on Tm agreement and primer-dimer avoidance.
-- Reverse-primer evaluation in reverse-complement orientation.
+- Primer3 default Tm: bit-identical to `primer3.calc_tm` (max |Δ| = 0 over 3 000 random 2–45-mers, incl. self-complementary and > 36 nt).
+- Primer3 per-primer penalty and pair search: `DesignPrimers` returned exactly Primer3's `PRIMER_LEFT_0`/`PRIMER_RIGHT_0` in 553/553 random templates (3 seeds × 300) where Primer3's best pair also passes this library's extra screens (settings mirroring `DefaultParameters`, thermodynamic structure limits disabled).
 
-**Intentionally simplified:**
+**Deviations from Primer3 defaults (documented):** length 18–25 (Primer3 18–27), GC 40–60 % (20–80 %), poly-X 4 (5), pair ΔTm ≤ 5 °C (100), dinucleotide-repeat limit (no Primer3 equivalent), heuristic hairpin / primer-dimer screens instead of ntthal PRIMER_MAX_HAIRPIN_TH / PRIMER_PAIR_MAX_COMPL_*_TH (owned by PRIMER-STRUCT-001), no PRIMER_PRODUCT_SIZE_RANGE (the ±200 bp flanks bound the product). In ~30 % of random templates Primer3's best pair is rejected by the heuristic hairpin screen, so the returned pair differs from Primer3's.
 
-- Pair selection is greedy rather than a full pairwise optimization; **consequence:** the highest-scoring individual primers are not guaranteed to be the globally best pair.
-- The scoring model is a fixed additive heuristic; **consequence:** Primer3-style pair penalties and more detailed thermodynamic interactions are not represented.
-- 3' stability is reported through a simple issue flag rather than a richer thermodynamic pair model; **consequence:** callers can inspect the value, but final ranking is still dominated by the additive heuristic score and compatibility checks.
-
-**Not implemented:**
-
-- Full Primer3-style combinatorial primer-pair optimization and richer laboratory constraints; **users should rely on:** external primer-design tools when those features are required.
-
-### 5.4 Deviations and Assumptions (Optional)
-
-| # | Item | Type | Impact | Status | Notes |
-|---|------|------|--------|--------|-------|
-| 1 | Current source defaults use `57-63°C` rather than the broader `55-65°C` summary in the original document | Deviation | Default filtering is slightly narrower than the narrative summary | accepted | Confirmed from `PrimerDesigner.DefaultParameters` |
+**Not implemented:** mispriming libraries, internal oligos, multiple returned pairs, genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
 
@@ -139,12 +139,13 @@ Forward primers are taken directly from the template in the forward orientation.
 |------|-------------------|-----------|
 | Invalid target region | Throws `ArgumentException` | Explicit source guard |
 | No valid forward or reverse candidates | Returns an invalid `PrimerPairResult` with null candidates | Explicit fallback in source |
-| Large Tm difference | Returns `IsValid = false` | Pair compatibility requires `<= 5°C` |
-| Primer-dimer detected | Returns `IsValid = false` | Pair compatibility requires no dimer signal |
+| No pair within 5 °C | Returns the individually best primers with `IsValid = false` | Pair compatibility requires `<= 5°C` |
+| Primer-dimer detected for every pair | Returns `IsValid = false` | Pair compatibility requires no dimer signal |
+| Non-ACGT base in a candidate | Candidate invalid (Tm 0, issue "Tm not computable") | Primer3 PRIMER_MAX_NS_ACCEPTED = 0 |
 
 ### 6.2 Limitations
 
-The current design surface is a fast heuristic filter. It does not implement exhaustive pair optimization, full Primer3 thermodynamics, or genome-wide specificity analysis, and it inherits the simplified melting-temperature and structure screens defined elsewhere in the repository.
+Structure screens (hairpin, primer-dimer) are the heuristic ones of PRIMER-STRUCT-001 rather than Primer3's ntthal Tm limits, and there is no product-size range or mispriming check.
 
 ## 7. Examples and Related Material
 
@@ -161,3 +162,6 @@ Related material called out in the original document:
 2. [How to Design a Primer](https://www.addgene.org/protocols/primer-design/) - Addgene protocol guidance.
 3. [primer3.org/manual.html](https://primer3.org/manual.html) - Primer3 manual.
 4. SantaLucia JR (1998). "A unified view of polymer, dumbbell and oligonucleotide DNA nearest-neighbor thermodynamics", PNAS 95:1460-65.
+5. Untergasser A et al. (2012). "Primer3 — new capabilities and interfaces", NAR 40(15):e115.
+6. Primer3 source (primer3-org/primer3, `src/oligotm.c`: `oligotm`, `seqtm`, `long_seq_tm`, `divalent_to_monovalent`; `src/libprimer3.cc`: `choose_pair_or_triple`, `primer_rec_comp`, `compare_primer_pair`, `p_obj_fn`).
+7. von Ahsen N, Wittwer CT, Schütz E (2001). Clin Chem 47:1956-61 (divalent→monovalent equivalence).

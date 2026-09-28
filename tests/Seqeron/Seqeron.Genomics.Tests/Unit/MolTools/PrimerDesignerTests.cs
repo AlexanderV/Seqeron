@@ -150,9 +150,9 @@ public class PrimerDesignerTests
     [Test]
     public void EvaluatePrimer_TmOnlyBelowMin_FlagsTmIssue()
     {
-        // 20bp, 50% GC → Tm ≈ 51.8°C (Marmur-Doty formula)
-        // Primer3 MinTm=57: tm(51.8) < 57 is TRUE, tm(51.8) > 63 is FALSE
-        string primer = "ATGCGATCGATCGATCGATC"; // 20bp, 10 GC
+        // 20bp, 50% GC → Primer3-default Tm = 56.817°C (primer3-py 2.3.1 calc_tm)
+        // Primer3 MinTm=57: tm(56.8) < 57 is TRUE, tm(56.8) > 63 is FALSE
+        string primer = "GAACTCGTGAACTCGTGAAC"; // 20bp, 10 GC
         var param = new PrimerParameters(
             MinLength: 18, MaxLength: 25, OptimalLength: 20,
             MinGcContent: 0, MaxGcContent: 100,
@@ -173,8 +173,8 @@ public class PrimerDesignerTests
     [Test]
     public void EvaluatePrimer_TmOnlyAboveMax_FlagsTmIssue()
     {
-        // 20bp, 90% GC → Tm ≈ 68.2°C (Marmur-Doty)
-        // Primer3 MaxTm=63: tm(68.2) > 63 is TRUE, tm(68.2) < 57 is FALSE
+        // 20bp, 90% GC → Primer3-default Tm = 79.82°C (primer3-py 2.3.1 calc_tm)
+        // Primer3 MaxTm=63: tm(79.8) > 63 is TRUE, tm(79.8) < 57 is FALSE
         string primer = "GCGCGCGCGCGCGCGCGCAT"; // 20bp, 18 GC
         var param = new PrimerParameters(
             MinLength: 18, MaxLength: 25, OptimalLength: 20,
@@ -198,7 +198,7 @@ public class PrimerDesignerTests
     public void EvaluatePrimer_TmExactlyAtMinTm_NoTmIssue()
     {
         string primer = "ATGCGATCGATCGATCGATC"; // 20bp
-        double exactTm = PrimerDesigner.CalculateMeltingTemperature(primer);
+        double exactTm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(primer);
 
         var param = new PrimerParameters(
             MinLength: 18, MaxLength: 25, OptimalLength: 20,
@@ -222,7 +222,7 @@ public class PrimerDesignerTests
     public void EvaluatePrimer_TmExactlyAtMaxTm_NoTmIssue()
     {
         string primer = "ATGCGATCGATCGATCGATC"; // 20bp
-        double exactTm = PrimerDesigner.CalculateMeltingTemperature(primer);
+        double exactTm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(primer);
 
         var param = new PrimerParameters(
             MinLength: 18, MaxLength: 25, OptimalLength: 20,

@@ -6,13 +6,13 @@
   "stability": "stable",
   "methodId": "PrimerDesigner.DesignPrimers",
   "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L40",
-  "description": "Design forward and reverse PCR primers flanking a target region in a DNA template; returns the highest-scoring valid candidates, product size, and pair compatibility.",
+  "description": "Design forward and reverse PCR primers flanking a target region in a DNA template (Primer3 semantics); returns the lowest-penalty pair satisfying the pair constraints, product size, and pair compatibility.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "template": { "type": "string", "description": "DNA template (A/C/G/T).", "minLength": 1 },
       "target_start": { "type": "integer", "description": "0-based inclusive start of the target region.", "minimum": 0 },
-      "target_end": { "type": "integer", "description": "0-based inclusive end of the target region (target_start < target_end < template.Length)." },
+      "target_end": { "type": "integer", "description": "0-based exclusive end of the target region (target_start < target_end < template.Length)." },
       "parameters": { "type": ["object", "null"], "description": "Optional primer-design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks)." }
     },
     "required": ["template", "target_start", "target_end"]
@@ -40,9 +40,9 @@
       "input": { "target_start": 100, "target_end": 150 },
       "output": {
         "isValid": true,
-        "productSize": 180,
-        "forward": { "position": 0, "length": 25, "gcContent": 52.0, "meltingTemperature": 59.3 },
-        "reverse": { "position": 155, "length": 25, "gcContent": 52.0, "meltingTemperature": 59.3 }
+        "productSize": 98,
+        "forward": { "position": 76, "length": 20, "gcContent": 50.0, "meltingTemperature": 59.3 },
+        "reverse": { "position": 154, "length": 20, "gcContent": 55.0, "meltingTemperature": 60.0 }
       }
     },
     {

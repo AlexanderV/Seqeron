@@ -14,11 +14,11 @@ public class MolToolsTools
 
     #region PrimerDesigner
 
-    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward and reverse PCR primers flanking a target region in a DNA template; picks the highest-scoring valid candidates from a 200 bp flanking window on each side and reports product size and pair compatibility. target_start/target_end are 0-based; the region must satisfy 0 <= target_start < target_end < template.Length.")]
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward and reverse PCR primers flanking a target region in a DNA template (Primer3 semantics): evaluates every candidate in a 200 bp flanking window on each side (Primer3-default SantaLucia Tm, 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM) and returns the pair with the lowest Primer3 pair penalty that satisfies |Tm_f - Tm_r| <= 5 C and no primer-dimer; reports product size. The target is the half-open 0-based interval [target_start, target_end); the region must satisfy 0 <= target_start < target_end < template.Length.")]
     public static PrimerPairResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
-        [Description("0-based inclusive end of target region.")] int target_end,
+        [Description("0-based exclusive end of target region (primers never overlap [target_start, target_end)).")] int target_end,
         [Description("Optional primer design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks). Defaults are used if null.")] PrimerParameters? parameters = null)
     {
         if (string.IsNullOrEmpty(template))
@@ -33,7 +33,7 @@ public class MolToolsTools
         return PrimerDesigner.DesignPrimers(new DnaSequence(template), target_start, target_end, parameters);
     }
 
-    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm, longest homopolymer, hairpin potential, 3'-end stability, an issues list, validity flag and a numeric score. Call to QC one primer (position/strand are informational).")]
+    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, hairpin potential, 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. Call to QC one primer (position/strand are informational).")]
     public static PrimerCandidate evaluate_primer(
         [Description("Primer sequence to evaluate.")] string sequence,
         [Description("0-based location of the primer in the template (informational).")] int position,

@@ -30,8 +30,10 @@ public class EvaluatePrimerTests
             Assert.That(c.Length, Is.EqualTo(20));
             // GC = 50% (deterministic).
             Assert.That(c.GcContent, Is.EqualTo(50.0).Within(1e-9));
-            // Marmur-Doty Tm rounded to 1 dp.
-            Assert.That(c.MeltingTemperature, Is.EqualTo(Math.Round(64.9 + 41.0 * (10 - 16.4) / 20.0, 1)).Within(1e-9));
+            // Primer3-default Tm (primer3-py 2.3.1 calc_tm = 57.363116…) rounded to 1 dp.
+            Assert.That(c.MeltingTemperature, Is.EqualTo(57.4).Within(1e-9));
+            // Primer3 per-primer penalty = |Tm − 60| + |20 − 20| = 2.636883760360035.
+            Assert.That(c.Penalty, Is.EqualTo(60.0 - 57.363116239639965).Within(1e-9));
             // No homopolymer run beyond 1 in this alternating primer.
             Assert.That(c.HomopolymerLength, Is.EqualTo(1));
             // 3' stability must equal the standalone three_prime_stability of the primer (rounded 1 dp).

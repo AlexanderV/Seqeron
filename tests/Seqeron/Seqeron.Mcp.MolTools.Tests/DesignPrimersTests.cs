@@ -9,7 +9,7 @@ public class DesignPrimersTests
 {
     // Standard template from Seqeron.Genomics.Tests PrimerDesigner_PrimerDesign_Tests:
     // 100 bp GAACTCGT-unit forward region + 50 bp poly-T target + 100 bp TCCGAAGT-unit
-    // reverse region = 258 bp. Documented to yield a valid primer pair for target [100,150).
+    // reverse region = 258 bp. Yields a valid primer pair for target [100,150) (half-open).
     private static string StandardTemplate()
     {
         var sb = new StringBuilder();
@@ -56,14 +56,21 @@ public class DesignPrimersTests
             // Reverse is downstream of target end.
             Assert.That(r.Reverse!.Position, Is.GreaterThanOrEqualTo(150));
 
-            // Exact selected pair (highest-scoring valid candidates).
-            Assert.That(r.Forward.Position, Is.EqualTo(0));
-            Assert.That(r.Forward.Length, Is.EqualTo(25));
-            Assert.That(r.Reverse.Position, Is.EqualTo(155));
-            Assert.That(r.Reverse.Length, Is.EqualTo(25));
+            // Exact selected pair = primer3-py 2.3.1 design_primers on this template (sizes 18/20/25,
+            // Tm 57/60/63, GC 40-60, poly-X 4, pair ΔTm ≤ 5, SEQUENCE_TARGET 100,50):
+            // PRIMER_LEFT_0 = [76,20] TCGTGAACTCGTGAACTCGT, PRIMER_RIGHT_0 = [173,20]
+            // CGGAACTTCGGAACTTCGGA, PRIMER_PAIR_0_PENALTY = 0.6983187292252637.
+            Assert.That(r.Forward.Position, Is.EqualTo(76));
+            Assert.That(r.Forward.Length, Is.EqualTo(20));
+            Assert.That(r.Forward.Sequence, Is.EqualTo("TCGTGAACTCGTGAACTCGT"));
+            Assert.That(r.Reverse.Position, Is.EqualTo(154));
+            Assert.That(r.Reverse.Length, Is.EqualTo(20));
+            Assert.That(r.Reverse.Sequence, Is.EqualTo("CGGAACTTCGGAACTTCGGA"));
+            Assert.That(r.Forward.Penalty + r.Reverse.Penalty, Is.EqualTo(0.6983187292252637).Within(1e-9));
 
-            // Product size = reverse.Position + reverse.Length - forward.Position = 155 + 25 - 0.
-            Assert.That(r.ProductSize, Is.EqualTo(180));
+            // Product size = reverse.Position + reverse.Length - forward.Position = 154 + 20 - 76
+            // (= Primer3 PRIMER_PAIR_0_PRODUCT_SIZE 173 - 76 + 1).
+            Assert.That(r.ProductSize, Is.EqualTo(98));
             Assert.That(r.ProductSize,
                 Is.EqualTo(r.Reverse.Position + r.Reverse.Length - r.Forward.Position));
 

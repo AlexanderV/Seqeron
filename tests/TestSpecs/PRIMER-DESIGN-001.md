@@ -5,7 +5,7 @@
 **Test Unit ID:** PRIMER-DESIGN-001
 **Area:** MolTools
 **Status:** ☑ Complete
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-09-28
 **Total Tests:** 149 (canonical + smoke + mutation-killing)
 
 ---
@@ -19,7 +19,9 @@
 | [Wikipedia: Primer (molecular biology)](https://en.wikipedia.org/wiki/Primer_(molecular_biology)) | Encyclopedia | 18-24 bp length, 40-60% GC, Tm 50-60°C, primer pairs within 5°C |
 | [Addgene: How to Design a Primer](https://www.addgene.org/protocols/primer-design/) | Protocol Guide | Length 18-24, GC 40-60%, Tm 50-60°C, pairs within 5°C, avoid complementary regions |
 | [Primer3 Manual (v2.6.1)](https://primer3.org/manual.html) | Software Documentation | PRIMER_MIN_SIZE=18, PRIMER_MAX_SIZE=27, PRIMER_OPT_SIZE=20, PRIMER_MIN_TM=57, PRIMER_OPT_TM=60, PRIMER_MAX_TM=63, PRIMER_MIN_GC=20, PRIMER_MAX_GC=80, PRIMER_MAX_POLY_X=5, PRIMER_PAIR_MAX_DIFF_TM=100.0 |
-| SantaLucia (1998) PNAS 95:1460-65 | Research Paper | Nearest-neighbor ΔG thermodynamics — used for 3'-end stability (see PRIMER-TM-001 / PRIMER-STRUCT-001); primer-design Tm here uses the Wallace / Marmur-Doty formulas |
+| SantaLucia (1998) PNAS 95:1460-65 | Research Paper | Table 2 NN + terminal-initiation parameters — the Primer3-default primer Tm used by EvaluatePrimer/DesignPrimers (the scale of the Primer3 57–63 °C window) |
+| Primer3 source `oligotm.c`, `libprimer3.cc` (primer3-org/primer3 main) | Reference implementation | `seqtm`/`oligotm` (SantaLucia Tm + salt correction, `divalent_to_monovalent` 120·√(Mg−dNTP), `long_seq_tm` > 36 nt); `p_obj_fn` penalty; `choose_pair_or_triple` pair search; `primer_rec_comp` / `compare_primer_pair` ordering |
+| primer3-py 2.3.1 (`calc_tm`, `design_primers`) | Reference implementation | Numeric oracle for Tm, penalties and selected pairs (values locked in the tests below) |
 
 ### Implementation Parameters vs Sources
 
@@ -33,7 +35,9 @@
 | Tm (Min) | 57°C | Primer3: 57°C | Exact match |
 | Tm (Max) | 63°C | Primer3: 63°C | Exact match |
 | Tm (Optimal) | 60°C | Primer3: 60°C | Exact match |
-| Pair Tm Difference | ≤ 5°C | Wikipedia, Addgene | Exact match (Primer3 default PRIMER_PAIR_MAX_DIFF_TM=100.0 is unlimited; 5°C is the standard lab guideline) |
+| Pair Tm Difference | ≤ 5°C (unrounded Tm) | Wikipedia, Addgene | Exact match (Primer3 default PRIMER_PAIR_MAX_DIFF_TM=100.0 is unlimited; 5°C is the standard lab guideline) |
+| Tm model | Primer3 default (SantaLucia 1998 NN, SantaLucia salt, 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM) | Primer3 PRIMER_TM_FORMULA=1, PRIMER_SALT_CORRECTIONS=1 | Bit-identical to primer3.calc_tm |
+| Ranking / pair selection | Lowest pair penalty (Σ Primer3 per-primer penalty) over all compatible pairs; Primer3 tie-break | Primer3 `choose_pair_or_triple`, `compare_primer_pair` | 553/553 agreement with primer3-py design_primers where Primer3's best passes our extra screens |
 | Homopolymer Max | 4 | Primer3: 5 | Stricter than Primer3; conservative choice |
 
 ### Key Design Principles
@@ -67,6 +71,8 @@
 | M4 | Forward primer position is upstream of target | Algorithm invariant | Primer3 |
 | M5 | Reverse primer position is downstream of target | Algorithm invariant | Primer3 |
 | M6 | Primer pair Tm difference ≤ 5°C when valid | Standard requirement | Wikipedia, Addgene |
+| M14 | Primer3-default Tm equals primer3.calc_tm (default + non-default conditions, symmetric, > 36 nt) | Tm scale of the Primer3 window | Primer3 oligotm.c, primer3-py |
+| M15 | DesignPrimers returns the lowest-penalty compatible pair (primer3-py design_primers), incl. when the individually best primers are Tm-incompatible | Pair selection | Primer3 libprimer3.cc |
 | M7 | EvaluatePrimer validates length constraints (18-25 bp) | Primer3 defaults | Primer3: 18-27 |
 | M8 | EvaluatePrimer validates GC content constraints (40-60%) | Addgene standard | Addgene: 40-60% |
 | M9 | EvaluatePrimer validates Tm constraints (57-63°C) | Primer3 defaults | Primer3: 57-63°C |
@@ -131,7 +137,9 @@ Applied systematic coverage classification (2026-03-04):
 | S1 | ✅ | `DesignPrimers_PrimerPair_NoPrimerDimerFormation`, `HasPrimerDimer_ComplementaryPrimers_ReturnsTrue` | Positive (no dimer in valid pair) + negative (engineered dimer) |
 | S2 | ✅ | `DesignPrimers_ValidResult_ProductSizeCorrect` | Exact formula: Reverse.Position + Reverse.Length - Forward.Position |
 | S3 | ✅ | `DesignPrimers_CustomParameters_AppliesLengthRange`, `GeneratePrimerCandidates_CustomParameters_AppliesLengthRange` | Custom length range (22-28) + (20-22) |
-| S4 | ✅ | `EvaluatePrimer_OptimalPrimer_HasHighScore`, `_SuboptimalLength_ScoreVaries` | Score > 50 for optimal; optimal >= shorter |
+| S4 | ✅ | `EvaluatePrimer_OptimalPrimer_HasHighScore`, `_SuboptimalLength_ScoreVaries`, `EvaluatePrimer_Penalty_IsPrimer3PerPrimerPenalty` | Informational Score; Primer3 penalty locked to primer3-py |
+| M14 | ✅ | `CalculateMeltingTemperaturePrimer3_DefaultConditions_MatchesPrimer3CalcTm` (7 cases), `_NonDefaultConditions_…`, `_InvalidInput_NaNOrThrows`, `EvaluatePrimer_NonAcgtBase_TmNotComputableAndInvalid` | primer3-py 2.3.1 values, 1e-9 |
+| M15 | ✅ | `DesignPrimers_RandomTemplate_MatchesPrimer3DesignPrimers`, `DesignPrimers_IndividuallyBestPrimersTmIncompatible_SearchesPairs`, `DesignPrimers_NoPairWithinTmLimit_ReturnsInvalidWithTmMessage`, `DesignPrimers_MatchesBruteForcePrimer3PairSearch` (Differential), `DesignPrimers_KnownTemplate_ProductSizeEqualsSpan` (Properties) | primer3-py design_primers pairs + penalties |
 | S5 | ✅ | `DesignPrimers_HomopolymerRichTemplate_MayReturnInvalid`, `_VeryShortTemplate_ThrowsArgumentException` | Failure message + exception |
 
 ### COULD Tests
@@ -173,3 +181,5 @@ Applied systematic coverage classification (2026-03-04):
 - **Homopolymer Max**: 4 — stricter than Primer3 default (5); conservative choice.
 - **GC Content**: 40-60% — follows Addgene guideline; stricter than Primer3 (20-80%).
 - **Pair Tm Difference**: ≤ 5°C — follows Addgene/Wikipedia; Primer3 default (100.0°C) is unlimited.
+- **Structure screens**: heuristic hairpin / primer-dimer / dinucleotide checks (PRIMER-STRUCT-001) instead of Primer3's ntthal Tm limits; no product-size range. In ~30% of random templates Primer3's best pair fails the heuristic hairpin screen, so the chosen pair differs from Primer3's there.
+- **Target coordinates**: `targetEnd` is exclusive (target = `[targetStart, targetEnd)`, Primer3 SEQUENCE_TARGET start,length).

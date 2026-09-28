@@ -14,7 +14,7 @@ Evaluate a single primer against quality criteria.
 
 ## Description
 
-Scores a single primer and returns a candidate record: length, GC%, Tm (Wallace/Marmur–Doty), longest homopolymer, hairpin potential, 3′-end ΔG°37 stability, a list of quality issues (against the supplied or default `PrimerParameters`), an overall validity flag, and a numeric score. `position` and `is_forward` are informational and echoed back.
+Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm: 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM), longest homopolymer, hairpin potential, 3′-end ΔG°37 stability, a list of quality issues (against the supplied or default `PrimerParameters`), an overall validity flag, an informational numeric score and the Primer3 per-primer `penalty` (|Tm − OptimalTm| + |length − OptimalLength|; lower is better). `position` and `is_forward` are informational and echoed back.
 
 ## Core Documentation Reference
 
@@ -35,7 +35,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Wallace/
 |-------|------|-------------|
 | `length` / `gcContent` / `meltingTemperature` | number | Basic metrics. |
 | `homopolymerLength` / `hasHairpin` / `stability3Prime` | mixed | Structural metrics. |
-| `isValid` / `issues` / `score` | mixed | QC verdict. |
+| `isValid` / `issues` / `score` / `penalty` | mixed | QC verdict; `penalty` is the Primer3 ranking penalty. |
 
 ## Errors
 
@@ -47,7 +47,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Wallace/
 
 ### Example 1: `ATCGATCGATCGATCGATCG`
 
-20-mer, 50% GC, Marmur–Doty Tm = `64.9 + 41·(10−16.4)/20 = 51.8` °C, homopolymer length 1.
+20-mer, 50% GC, Primer3-default Tm = 57.36 °C (primer3-py `calc_tm`) → `57.4`, penalty 2.637, homopolymer length 1.
 
 ## See Also
 

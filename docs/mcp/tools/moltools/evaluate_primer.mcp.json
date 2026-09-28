@@ -31,7 +31,8 @@
       "stability3Prime": { "type": "number" },
       "isValid": { "type": "boolean" },
       "issues": { "type": "array", "items": { "type": "string" } },
-      "score": { "type": "number" }
+      "score": { "type": "number" },
+      "penalty": { "type": "number" }
     },
     "required": ["sequence", "position", "isForward", "length", "gcContent", "meltingTemperature", "homopolymerLength", "hasHairpin", "stability3Prime", "isValid", "issues", "score"]
   },
