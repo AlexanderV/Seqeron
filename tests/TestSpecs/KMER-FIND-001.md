@@ -127,6 +127,18 @@ k=5, L=75, t=4
 
 ---
 
+### C3: FindClumps - Window boundary (2026-09 review)
+**Source:** Rosalind BA1E statement example (TGCA forms a (25,3)-clump in `gatcagcataagggtcccTGCAATGCATGACAAGCCTGCAgttgttttac`)
+**Test:** TGCA at 18, 23, 36 → three occurrences span 22 bp: L=25 → {TGCA}; L=22 → {TGCA}; L=21 → ∅ (occurrence must lie wholly inside the window). Lowercase input gives the same result.
+
+### C4: FindClumps - Last window, overlaps, t=1
+**Tests:** `CGTACGTTTTT` k=3 L=5 t=3 → {TTT} (only the final window); `AAAAA` k=3 L=5 t=3 → exactly {AAA}; `ACGTAC` k=2 L=4 t=1 → {AC, CG, GT, TA}, each once.
+
+### Out-of-suite cross-check (not a unit test — 4.6 MB input)
+E. coli genome (Compeau & Pevzner textbook dataset), k=9, L=500, t=3 → 1904 distinct 9-mers; Seqeron result set-equal to an independent Python reference.
+
+---
+
 ## Test Audit
 
 ### Existing Tests (KmerAnalyzerTests.cs)

@@ -139,11 +139,22 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Finds the most frequent k-mers in a sequence.
+    /// Finds all most frequent k-mers in a sequence (Frequent Words Problem).
     /// </summary>
-    /// <param name="sequence">The sequence to analyze.</param>
-    /// <param name="k">The k-mer length.</param>
-    /// <returns>List of most frequent k-mers.</returns>
+    /// <remarks>
+    /// Returns every k-mer Pattern maximizing Count(Text, Pattern) over all k-mers of Text, where
+    /// Count uses overlapping occurrences (Rosalind BA1B; Compeau &amp; Pevzner, <i>Bioinformatics
+    /// Algorithms</i>, ch. 1 — the "better" frequent-words algorithm built on a single frequency map,
+    /// here the canonical <see cref="CountKmers(string,int)"/>). O(|Text|·k) time.
+    /// Example (BA1B sample): ACGTTGCATGTCGCATGATGCATGAGAGCT, k=4 → {CATG, GCAT} (3 occurrences each).
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <returns>
+    /// All k-mers tied at the maximum count, in order of first occurrence (order is not part of the
+    /// contract). Empty when the sequence is null/empty or k exceeds its length.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static IEnumerable<string> FindMostFrequentKmers(string sequence, int k)
     {
         var counts = CountKmers(sequence, k);
@@ -353,64 +364,61 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Finds clumps of k-mers: regions where a k-mer appears at least t times within a window of size L.
+    /// Finds all distinct k-mers forming (L, t)-clumps: a k-mer forms an (L, t)-clump if some
+    /// window (substring) of length L of the sequence contains at least t occurrences of it.
     /// </summary>
-    /// <param name="sequence">The sequence to analyze.</param>
+    /// <remarks>
+    /// Clump Finding Problem (Rosalind BA1E; Compeau &amp; Pevzner, <i>Bioinformatics Algorithms</i>,
+    /// ch. 1): windows are the substrings <c>Genome[i..i+L−1]</c> for i in [0, |Genome| − L], and an
+    /// occurrence counts only if it lies entirely inside the window (start p with i ≤ p ≤ i + L − k),
+    /// so each window holds L − k + 1 k-mer starts; overlapping occurrences are counted.
+    /// Implements the textbook's <c>BetterClumpFinding</c>: the first window is counted with the
+    /// canonical <see cref="CountKmers(string,int)"/>, then each slide decrements the k-mer leaving
+    /// the window and increments the entering one. Only the entering k-mer's count can grow, so only
+    /// it needs to be tested against t — O(|Genome|·k) time instead of rescanning the whole window.
+    /// Matching is case-insensitive (upper-cased), mirroring <see cref="CountKmers(string,int)"/>.
+    /// Cross-check: E. coli genome (textbook dataset), k=9, L=500, t=3 → 1904 distinct 9-mers.
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (Genome).</param>
     /// <param name="k">K-mer length.</param>
-    /// <param name="windowSize">Size of the sliding window (L).</param>
-    /// <param name="minOccurrences">Minimum occurrences within window (t).</param>
-    /// <returns>Set of k-mers that form clumps.</returns>
+    /// <param name="windowSize">Window length L.</param>
+    /// <param name="minOccurrences">Minimum occurrences t within one window (inclusive).</param>
+    /// <returns>
+    /// Each clump-forming k-mer exactly once, in order of first detection (order is not part of
+    /// the contract). Empty when the sequence is null/empty, k ≤ 0, L &lt; k, L &gt; |sequence|
+    /// (no window of length L exists) or t ≤ 0.
+    /// </returns>
     public static IEnumerable<string> FindClumps(string sequence, int k, int windowSize, int minOccurrences)
     {
-        if (string.IsNullOrEmpty(sequence) || k <= 0 || windowSize < k || minOccurrences <= 0)
+        if (string.IsNullOrEmpty(sequence) || k <= 0 || windowSize < k || minOccurrences <= 0
+            || windowSize > sequence.Length)
             yield break;
 
         var seq = sequence.ToUpperInvariant();
         var clumps = new HashSet<string>();
 
-        if (windowSize > seq.Length)
-            yield break;
-
-        // Initialize window
-        var windowCounts = new Dictionary<string, int>();
-        for (int i = 0; i < windowSize - k + 1; i++)
-        {
-            string kmer = seq.Substring(i, k);
-            if (!windowCounts.TryAdd(kmer, 1))
-                windowCounts[kmer]++;
-        }
-
-        // Check initial window
+        // First window Genome[0..L−1]: canonical k-mer counting.
+        var windowCounts = CountKmers(seq.Substring(0, windowSize), k);
         foreach (var kvp in windowCounts)
         {
-            if (kvp.Value >= minOccurrences)
-                clumps.Add(kvp.Key);
+            if (kvp.Value >= minOccurrences && clumps.Add(kvp.Key))
+                yield return kvp.Key;
         }
 
-        // Slide window
+        // Slide: window i covers k-mer starts i..i+L−k.
         for (int i = 1; i <= seq.Length - windowSize; i++)
         {
-            // Remove k-mer leaving window
             string leaving = seq.Substring(i - 1, k);
-            windowCounts[leaving]--;
-            if (windowCounts[leaving] == 0)
+            if (--windowCounts[leaving] == 0)
                 windowCounts.Remove(leaving);
 
-            // Add k-mer entering window
             string entering = seq.Substring(i + windowSize - k, k);
-            if (!windowCounts.TryAdd(entering, 1))
-                windowCounts[entering]++;
+            int count = windowCounts.TryGetValue(entering, out int c) ? c + 1 : 1;
+            windowCounts[entering] = count;
 
-            // Check for clumps
-            foreach (var kvp in windowCounts)
-            {
-                if (kvp.Value >= minOccurrences)
-                    clumps.Add(kvp.Key);
-            }
+            if (count >= minOccurrences && clumps.Add(entering))
+                yield return entering;
         }
-
-        foreach (var kmer in clumps)
-            yield return kmer;
     }
 
     /// <summary>

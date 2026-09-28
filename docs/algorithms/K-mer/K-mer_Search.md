@@ -6,7 +6,7 @@
 | Test Unit ID | KMER-FIND-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -30,7 +30,7 @@ $$
 Unique = \{kmer : Count(kmer) = 1\}
 $$
 
-For clumps, the algorithm maintains a mutable count map over a sliding window of length `L` and adds any k-mer whose count reaches or exceeds `t` in any visited window.
+For clumps, the windows are the substrings `Genome[i..i+L-1]` for `i ∈ [0, |Genome| − L]`; an occurrence counts only when it lies entirely inside the window (start `p` with `i ≤ p ≤ i + L − k`), so each window holds `L − k + 1` k-mer starts and overlapping occurrences count (Rosalind BA1E; Compeau & Pevzner ch. 1). The implementation is the textbook's `BetterClumpFinding`: count the first window with `CountKmers(...)`, then per slide decrement the leaving k-mer and increment the entering one; since only the entering k-mer's count can grow, only it is tested against `t`.
 
 ### 2.4 Properties and Invariants
 
@@ -70,15 +70,15 @@ For clumps, the algorithm maintains a mutable count map over a sliding window of
 1. Normalize the input sequence to uppercase.
 2. For most-frequent and unique searches, compute the full k-mer count map.
 3. Return either the keys tied at the maximum count or the keys with count `1`.
-4. For clumps, initialize counts in the first window, record k-mers meeting the threshold, then slide the window by one position while updating counts incrementally.
+4. For clumps, count the first window with the canonical `CountKmers(...)`, record k-mers meeting the threshold, then slide the window by one position, updating the leaving/entering k-mer counts and testing only the entering k-mer against `t`.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `FindMostFrequentKmers` | `O(n)` | `O(u)` | Builds exact counts and filters maxima |
+| `FindMostFrequentKmers` | `O(n·k)` | `O(u)` | Builds exact counts and filters maxima (k for substring hashing) |
 | `FindUniqueKmers` | `O(n)` | `O(u)` | Builds exact counts and filters singletons |
-| `FindClumps` | `O(n × (L - k + 1))` worst case | `O(u)` | The original document describes this bound and notes that it is typically near-linear with efficient data structures |
+| `FindClumps` | `O(n·k)` | `O(min(L, u))` | BetterClumpFinding: one decrement + one increment + one threshold test per slide (before 2026-09 every slide rescanned the whole window map, `O(n·(L−k+1))`; E. coli k=9,L=500,t=3 went from ~5.7 s to ~0.75 s) |
 
 ## 5. Implementation Notes
 
@@ -92,7 +92,7 @@ For clumps, the algorithm maintains a mutable count map over a sliding window of
 
 ### 5.2 Current Behavior
 
-All three methods uppercase the input sequence. `FindMostFrequentKmers(...)` and `FindUniqueKmers(...)` reuse the exact counting surface, while `FindClumps(...)` manages a mutable per-window count dictionary and a `HashSet<string>` of discovered clumps. `FindClumps(...)` returns empty rather than throwing on invalid window or threshold parameters.
+All three methods uppercase the input sequence. All three reuse the canonical `CountKmers(...)` (`FindClumps(...)` for its first window) and then `FindClumps(...)` maintains the per-window count dictionary incrementally and a `HashSet<string>` of discovered clumps, streaming each clump k-mer once in order of first detection. Result order of every method is not part of the contract (most-frequent: first-occurrence order). `FindClumps(...)` returns empty rather than throwing on invalid window or threshold parameters.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -144,8 +144,19 @@ gatcagcataagggtcccTGCAATGCATGACAAGCCTGCAgttgttttac
 - Unique k-mers for marker discovery and genomic fingerprinting.
 - Clump finding for motif-rich regions such as origins of replication.
 
+### 7.3 Reference cross-check (2026-09 review)
+
+| Dataset | Parameters | Expected (source) | Seqeron |
+|---|---|---|---|
+| BA1B sample `ACGTTGCATGTCGCATGATGCATGAGAGCT` | k=4 | `CATG GCAT` (Rosalind BA1B) | identical |
+| BA1E sample | k=5, L=75, t=4 | `CGACA GAAGA AATGT` (Rosalind BA1E) | identical |
+| BA1E statement example | k=4, t=3, L=25/22/21 | `TGCA` / `TGCA` / none (3 occurrences span 22 bp) | identical |
+| E. coli genome (textbook dataset, 4,639,675 bp) | k=9, L=500, t=3 | 1904 distinct 9-mers (textbook exercise answer) | 1904, set-equal to an independent Python implementation |
+| 3000 random strings (alphabets 1–4, n ≤ 40) | random k, L, t | Python brute force over all windows | 0 mismatches |
+
 ## 8. References
 
 1. Rosalind BA1B - Find the Most Frequent Words in a String. https://rosalind.info/problems/ba1b/
 2. Rosalind BA1E - Find Patterns Forming Clumps in a String. https://rosalind.info/problems/ba1e/
 3. Wikipedia (K-mer). https://en.wikipedia.org/wiki/K-mer
+4. Compeau P., Pevzner P. *Bioinformatics Algorithms: An Active Learning Approach*, ch. 1 (FrequentWords / BetterFrequentWords, ClumpFinding / BetterClumpFinding).
