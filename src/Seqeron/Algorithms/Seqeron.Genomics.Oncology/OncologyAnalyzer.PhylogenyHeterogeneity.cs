@@ -932,7 +932,7 @@ public static partial class OncologyAnalyzer
     /// <param name="ShannonDiversity">Shannon diversity index H = −Σ pᵢ·ln(pᵢ) over the clone fractions pᵢ
     /// (fraction of mutations assigned to each CCF cluster), using the natural logarithm (Shannon 1948).</param>
     /// <param name="SubcloneCount">Number of distinct clones/subclones = number of non-empty CCF clusters.</param>
-    /// <param name="SubclonalFraction">Fraction of mutations whose CCF is below the clonal threshold (CCF &lt; 0.95,
+    /// <param name="SubclonalFraction">Fraction of mutations whose CCF does not exceed the clonal threshold (CCF ≤ 0.95, i.e. not clonal under
     /// Landau et al. 2013) and are therefore subclonal.</param>
     public readonly record struct HeterogeneityResult(
         double MathScore,
@@ -978,7 +978,7 @@ public static partial class OncologyAnalyzer
             values[i] = v;
         }
 
-        double median = Median(values);
+        double median = StatisticsHelper.Median(values);
         if (median == 0.0)
         {
             throw new ArgumentException(
@@ -993,9 +993,11 @@ public static partial class OncologyAnalyzer
             absDeviations[i] = Math.Abs(values[i] - median);
         }
 
-        double rawMad = Median(absDeviations);
-        double scaledMad = MadConsistencyConstant * rawMad;
-        return MathPercentScale * scaledMad / median;
+        // Same operation order as maftools mathScore.R (pat.mad = median(abs.med.dev) * 100;
+        // pat.math = pat.mad * 1.4826 / median(vaf)) so the result is bit-identical to the reference.
+        double rawMad = StatisticsHelper.Median(absDeviations);
+        double percentMad = rawMad * MathPercentScale;
+        return percentMad * MadConsistencyConstant / median;
     }
 
     /// <summary>
@@ -1008,7 +1010,8 @@ public static partial class OncologyAnalyzer
     /// <param name="ccfClusters">A CCF clustering (its <see cref="CcfClustering.Assignments"/> determine which
     /// clusters actually contain at least one mutation).</param>
     /// <returns>The number of clusters that contain at least one assigned mutation (≥ 1).</returns>
-    /// <exception cref="ArgumentException"><paramref name="ccfClusters"/> has no centroids or no assignments.</exception>
+    /// <exception cref="ArgumentException"><paramref name="ccfClusters"/> has no centroids or no assignments, or an
+    /// assignment label lies outside [0, centroid count).</exception>
     public static int InferSubclones(CcfClustering ccfClusters)
     {
         IReadOnlyList<int> assignments = ccfClusters.Assignments;
@@ -1017,9 +1020,18 @@ public static partial class OncologyAnalyzer
             throw new ArgumentException("The CCF clustering must contain at least one cluster and one assignment.", nameof(ccfClusters));
         }
 
+        int clusterCount = ccfClusters.Centroids.Count;
         var occupied = new HashSet<int>();
-        foreach (int label in assignments)
+        for (int i = 0; i < assignments.Count; i++)
         {
+            int label = assignments[i];
+            if (label < 0 || label >= clusterCount)
+            {
+                throw new ArgumentException(
+                    $"Assignment {i} refers to cluster {label}, outside the {clusterCount} centroid(s) [0, {clusterCount - 1}].",
+                    nameof(ccfClusters));
+            }
+
             occupied.Add(label);
         }
 
@@ -1030,7 +1042,7 @@ public static partial class OncologyAnalyzer
     /// Performs a tumour intratumour-heterogeneity (ITH) analysis from per-mutation variant allele fractions and
     /// cancer cell fractions, returning four standard ITH metrics: the MATH score over the VAFs (Mroz &amp; Rocco
     /// 2013), the Shannon diversity index H = −Σ pᵢ·ln(pᵢ) over the clone fractions (Shannon 1948), the number of
-    /// subclones (CCF clusters), and the fraction of subclonal mutations (CCF &lt; 0.95, Landau et al. 2013). CCF
+    /// subclones (CCF clusters), and the fraction of subclonal mutations (CCF ≤ 0.95 — Landau et al. 2013: clonal if CCF &gt; 0.95, "subclonal otherwise"). CCF
     /// values are clustered with <see cref="ClusterCcfValues"/> (ONCO-CCF-001) into <paramref name="clusterCount"/>
     /// clones; the clone fractions pᵢ are the proportions of mutations assigned to each cluster.
     /// </summary>
@@ -1068,47 +1080,23 @@ public static partial class OncologyAnalyzer
         CcfClustering clustering = ClusterCcfValues(ccfValues, clusterCount);
         int subcloneCount = InferSubclones(clustering);
 
-        // Clone fractions pᵢ = proportion of mutations in each occupied cluster; Shannon H = −Σ pᵢ·ln pᵢ.
+        // Clone fractions pᵢ = proportion of mutations in each occupied cluster; Shannon H = −Σ pᵢ·ln pᵢ
+        // (canonical StatisticsHelper.ShannonIndex; empty clusters contribute 0).
         int n = ccfValues.Count;
-        var clusterSizes = new Dictionary<int, int>();
+        var clusterSizes = new int[clustering.Centroids.Count];
         foreach (int label in clustering.Assignments)
         {
-            clusterSizes[label] = clusterSizes.TryGetValue(label, out int existing) ? existing + 1 : 1;
+            clusterSizes[label]++;
         }
 
-        double shannon = 0.0;
-        foreach (int size in clusterSizes.Values)
-        {
-            double p = (double)size / n;
-            shannon -= p * Math.Log(p);
-        }
+        double shannon = StatisticsHelper.ShannonIndex(clusterSizes);
 
-        // Subclonal mutations: CCF strictly below the clonal threshold (Landau et al. 2013, reused from ONCO-CLONAL-001).
-        int subclonal = 0;
-        for (int i = 0; i < n; i++)
-        {
-            if (ccfValues[i] < ClonalCcfThreshold)
-            {
-                subclonal++;
-            }
-        }
+        // Subclonal mutations = those not clonal under the canonical Landau et al. (2013) rule
+        // (IdentifyClonalMutations: clonal ⇔ CCF > 0.95, "subclonal otherwise"), so CCF = 0.95 is subclonal.
+        int subclonal = n - IdentifyClonalMutations(ccfValues).Count;
 
         double subclonalFraction = (double)subclonal / n;
         return new HeterogeneityResult(math, shannon, subcloneCount, subclonalFraction);
-    }
-
-    /// <summary>
-    /// Returns the median of the supplied values. For an even count the median is the arithmetic mean of the two
-    /// central order statistics; for an odd count it is the central value (standard definition; matches R's
-    /// <c>median</c> used by maftools <c>mathScore.R</c>). Does not mutate the input.
-    /// </summary>
-    private static double Median(double[] values)
-    {
-        double[] sorted = (double[])values.Clone();
-        Array.Sort(sorted);
-        int n = sorted.Length;
-        int mid = n / 2;
-        return (n % 2 == 1) ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2.0;
     }
 
     #endregion

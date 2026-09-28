@@ -78,7 +78,7 @@
 
 **Key Extracted Points:**
 
-1. **Subclonal definition:** a mutation is subclonal when its CCF is below 0.95 (the clonal CCF threshold). Used here to compute the fraction of subclonal mutations.
+1. **Subclonal definition (corrected 2026-09-28, B24 F20):** WebSearch snippet of Landau et al. (2013) (cell.com / sciencedirect): "A mutation was classified as clonal if the CCF harboring it was >0.95 with probability >0.5 and subclonal otherwise." For a CCF point estimate: clonal ⇔ CCF > 0.95, subclonal ⇔ CCF ≤ 0.95 (exactly 0.95 is subclonal) — the rule of canonical `IdentifyClonalMutations`. The earlier reading "CCF < 0.95" was wrong at the boundary.
 
 ---
 
@@ -167,6 +167,15 @@
 
 ---
 
+## Review 2026-09 (B24) cross-checks
+
+- maftools `R/mathScore.R` (raw.githubusercontent.com/PoisonAlien/maftools/master) re-opened: `pat.mad = median(abs.med.dev) * 100; pat.math = pat.mad * 1.4826 / median(vaf)`; also pre-filters `t_vaf < vafCutOff` (0.075) and skips samples with < 5 VAFs (caller-side, not part of MATH).
+- Mroz et al. (2015) 1.4826 wording re-confirmed by WebSearch snippet (dash.harvard.edu copy): "The median difference is then multiplied by a factor of 1.4826, so that the expected MAD of a normally distributed variable is equal to its SD."
+- R 4.x maftools arithmetic on 19 999 random VAF vectors (n 1–40; uniform, 2-decimal, 0.05-grid): implementation with maftools operation order 0 mismatches (bit-exact); former order `100·(1.4826·MAD)/median` 6 912 1-ulp mismatches (max rel 4.2e-16). Locked: {0.16, 0.87} → 102.19864077669901; {0.12, 0.31, 0.07, 0.45, 0.26, 0.39} → 70.22842105263156.
+- Shannon: `scipy.stats.entropy([3,1])` = `skbio.diversity.alpha.shannon([3,1], base=e)` = 0.5623351446188083; `[1,2,3,4]` → 1.2798542258336676.
+
 ## Change History
+
+- **2026-09-28**: B24 review — subclonal boundary corrected (CCF ≤ 0.95 subclonal, Landau), maftools bit-exact order, canonical `StatisticsHelper.Median`/`ShannonIndex`.
 
 - **2026-06-15**: Initial documentation.

@@ -62,7 +62,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • null list ⇒ ArgumentNullException                                            (§3.3)
 ///   • Worked example: CalculateITH({0.10,0.20,0.30,0.40,0.50}) == 49.42            (§7.1)
 ///   • AnalyzeHeterogeneity: ShannonDiversity ≥ 0; SubcloneCount ∈ [1, k];
-///     SubclonalFraction ∈ [0, 1] (CCF < 0.95)                                      (§2.4 INV-03..05, §3.2)
+///     SubclonalFraction ∈ [0, 1] (CCF ≤ 0.95, i.e. not > 0.95)                                      (§2.4 INV-03..05, §3.2)
 ///   • Inputs are not mutated (median helper clones before sorting)                 (§5.2)
 ///
 /// No source bug was found; no test was weakened. The median-of-zero guard already throws ArgumentException.
@@ -383,7 +383,7 @@ public sealed class OncologyHeterogeneityFuzzTests
         r.MathScore.Should().Be(0.0, "singleton VAF ⇒ MATH = 0 (§6.1)");
         r.ShannonDiversity.Should().BeApproximately(0.0, Tolerance, "one occupied clone ⇒ H = 0 (INV-03)");
         r.SubcloneCount.Should().Be(1, "a single mutation occupies one cluster (INV-05)");
-        r.SubclonalFraction.Should().Be(0.0, "CCF = 1.0 ≥ 0.95 ⇒ clonal ⇒ subclonal fraction 0");
+        r.SubclonalFraction.Should().Be(0.0, "CCF = 1.0 > 0.95 ⇒ clonal ⇒ subclonal fraction 0");
         AssertWellFormedResult(r, n: 1, clusterCount: 1);
     }
 

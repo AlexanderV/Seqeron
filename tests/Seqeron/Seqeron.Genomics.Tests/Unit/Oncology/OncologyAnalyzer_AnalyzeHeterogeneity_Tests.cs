@@ -5,7 +5,7 @@
 //         Mroz EA et al. (2015). PLOS Medicine 12(2):e1001786. https://doi.org/10.1371/journal.pmed.1001786
 //         maftools mathScore.R: pat.math = (median(abs(vaf-median(vaf)))*100)*1.4826/median(vaf)
 //         Liu Z, Zhang S (2017). BMC Genomics 18:457 (PMC5468233) — Shannon H = -sum p_i ln(p_i)
-//         Landau DA et al. (2013). Cell 152(4):714-726 — subclonal iff CCF < 0.95
+//         Landau DA et al. (2013). Cell 152(4):714-726 — clonal iff CCF > 0.95, "subclonal otherwise" (CCF <= 0.95)
 //
 // Expected MATH values are derived independently from MATH = 100*1.4826*median(|f-median(f)|)/median(f),
 // and Shannon values from H = -sum p_i ln(p_i) (natural log) over clone fractions — NOT from the implementation.
@@ -228,10 +228,11 @@ public class OncologyAnalyzer_AnalyzeHeterogeneity_Tests
             "Exactly 2 of 4 CCFs are < 0.95 (0.40, 0.50) => fraction 0.5 (Landau 2013).");
     }
 
-    // M9b — subclonal threshold boundary: CCF exactly 0.95 is clonal (strict CCF < 0.95, Landau 2013).
-    //       CCFs {0.94, 0.95, 0.96, 0.97}: only 0.94 is strictly below 0.95 => fraction 1/4 = 0.25.
+    // M9b — subclonal threshold boundary (F20): Landau et al. (2013) "classified a mutation as clonal if the CCF
+    //       harboring it was >0.95 ... and subclonal otherwise", so CCF exactly 0.95 is SUBCLONAL (same rule as the
+    //       canonical IdentifyClonalMutations). CCFs {0.94, 0.95, 0.96, 0.97}: 0.94 and 0.95 => 2/4 = 0.5.
     [Test]
-    public void AnalyzeHeterogeneity_SubclonalThresholdBoundary_ExcludesExactly0Point95()
+    public void AnalyzeHeterogeneity_SubclonalThresholdBoundary_Exactly0Point95IsSubclonal()
     {
         var vafs = new[] { 0.47, 0.475, 0.48, 0.485 };
         var ccf = new[] { 0.94, 0.95, 0.96, 0.97 };
@@ -239,8 +240,37 @@ public class OncologyAnalyzer_AnalyzeHeterogeneity_Tests
         OncologyAnalyzer.HeterogeneityResult result =
             OncologyAnalyzer.AnalyzeHeterogeneity(vafs, ccf, clusterCount: 2);
 
-        Assert.That(result.SubclonalFraction, Is.EqualTo(0.25).Within(Tolerance),
-            "Subclonal iff CCF < 0.95 (strict); CCF=0.95 is clonal, so only 0.94 counts => 1/4 = 0.25 (Landau 2013).");
+        Assert.That(result.SubclonalFraction, Is.EqualTo(0.5).Within(Tolerance),
+            "Clonal iff CCF > 0.95 (Landau 2013); 0.94 and 0.95 are subclonal => 2/4 = 0.5.");
+    }
+
+    // F20 — single mutation at CCF 0.95: not clonal (Landau 2013) => subclonal fraction 1; old code reported 0.
+    [Test]
+    public void AnalyzeHeterogeneity_SingleCcfAtThreshold_AgreesWithIdentifyClonalMutations()
+    {
+        OncologyAnalyzer.HeterogeneityResult result =
+            OncologyAnalyzer.AnalyzeHeterogeneity(new[] { 0.475 }, new[] { 0.95 }, clusterCount: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IdentifyClonalMutations(new[] { 0.95 }), Is.Empty);
+            Assert.That(result.SubclonalFraction, Is.EqualTo(1.0));
+        });
+    }
+
+    // Shannon for unequal clones: CCFs {0.20, 0.21, 0.22, 0.90}, k = 2 => cluster sizes {3, 1};
+    // scipy.stats.entropy([3, 1]) = skbio shannon([3, 1], base=e) = 0.5623351446188083.
+    [Test]
+    public void AnalyzeHeterogeneity_UnequalClones_ShannonMatchesScipy()
+    {
+        OncologyAnalyzer.HeterogeneityResult result = OncologyAnalyzer.AnalyzeHeterogeneity(
+            new[] { 0.10, 0.11, 0.12, 0.45 }, new[] { 0.20, 0.21, 0.22, 0.90 }, clusterCount: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.SubcloneCount, Is.EqualTo(2));
+            Assert.That(result.ShannonDiversity, Is.EqualTo(0.5623351446188083).Within(1e-15));
+        });
     }
 
     // M10 — aggregate consistency: MATH component equals CalculateITH on the same VAFs
@@ -276,6 +306,56 @@ public class OncologyAnalyzer_AnalyzeHeterogeneity_Tests
                 () => OncologyAnalyzer.AnalyzeHeterogeneity(null!, new[] { 0.5 }, 1), "Null VAFs invalid.");
             Assert.Throws<ArgumentNullException>(
                 () => OncologyAnalyzer.AnalyzeHeterogeneity(new[] { 0.5 }, null!, 1), "Null CCFs invalid.");
+        });
+    }
+
+    #endregion
+
+    #region F21 — bit-exact maftools conformance, F22 — InferSubclones label validation, canonical helpers
+
+    // F21: R 4.x, maftools mathScore.R arithmetic (median(abs.med.dev)*100)*1.4826/median(vaf), printed %.17g.
+    //      {0.16, 0.87} is a case where the former 100*(1.4826*MAD)/median order differed by 1 ulp (…902).
+    [TestCase(new[] { 0.16, 0.87 }, 102.19864077669901)]
+    [TestCase(new[] { 0.12, 0.31, 0.07, 0.45, 0.26, 0.39 }, 70.22842105263156)]
+    public void CalculateITH_MatchesMaftoolsBitExact(double[] vafs, double expected)
+    {
+        Assert.That(OncologyAnalyzer.CalculateITH(vafs), Is.EqualTo(expected));
+    }
+
+    // F22: an assignment label with no centroid is not a valid clustering (count would exceed k).
+    [TestCase(1)]
+    [TestCase(-1)]
+    public void InferSubclones_LabelOutsideCentroids_Throws(int badLabel)
+    {
+        var clustering = new OncologyAnalyzer.CcfClustering(new[] { 0.3 }, new[] { 0, badLabel }, 0);
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.InferSubclones(clustering));
+    }
+
+    // Canonical helpers introduced for this unit (StatisticsHelper) — numpy.median / scipy.stats.entropy values.
+    [Test]
+    public void StatisticsHelper_Median_MatchesNumpy()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(StatisticsHelper.Median(new[] { 0.2, 0.4, 0.6, 0.8 }), Is.EqualTo(0.5));
+            Assert.That(StatisticsHelper.Median(new[] { 3.0, 1.0, 2.0 }), Is.EqualTo(2.0));
+            Assert.That(StatisticsHelper.Median(new[] { 1.0, double.NaN }), Is.NaN);
+            Assert.That(StatisticsHelper.Median(new[] { 1e308, 1.7e308 }), Is.EqualTo(1.35e308)); // R median
+            Assert.Throws<ArgumentException>(() => StatisticsHelper.Median(Array.Empty<double>()));
+        });
+    }
+
+    [Test]
+    public void StatisticsHelper_ShannonIndex_MatchesScipyEntropy()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(StatisticsHelper.ShannonIndex(new[] { 2, 2 }), Is.EqualTo(0.6931471805599453).Within(1e-15));
+            Assert.That(StatisticsHelper.ShannonIndex(new[] { 3, 1, 0 }), Is.EqualTo(0.5623351446188083).Within(1e-15));
+            Assert.That(StatisticsHelper.ShannonIndex(new[] { 1, 2, 3, 4 }), Is.EqualTo(1.2798542258336676).Within(1e-15));
+            Assert.That(StatisticsHelper.ShannonIndex(new[] { 5 }), Is.EqualTo(0.0));
+            Assert.Throws<ArgumentException>(() => StatisticsHelper.ShannonIndex(new[] { 0, 0 }));
+            Assert.Throws<ArgumentException>(() => StatisticsHelper.ShannonIndex(new[] { 1, -1 }));
         });
     }
 

@@ -2423,17 +2423,17 @@ public static partial class OncologyAnalyzer
         return win;
     }
 
-    /// <summary>R <c>mad(x)</c> = 1.4826 · median(|x − median(x)|) (canonical <see cref="Median"/>).</summary>
+    /// <summary>R <c>mad(x)</c> = 1.4826 · median(|x − median(x)|) (canonical <see cref="StatisticsHelper.Median"/>).</summary>
     private static double RMad(double[] x)
     {
-        double center = Median(x);
+        double center = StatisticsHelper.Median(x);
         var dev = new double[x.Length];
         for (int i = 0; i < x.Length; i++)
         {
             dev[i] = Math.Abs(x[i] - center);
         }
 
-        return RMadConstant * Median(dev);
+        return RMadConstant * StatisticsHelper.Median(dev);
     }
 
     /// <summary>
@@ -2477,7 +2477,7 @@ public static partial class OncologyAnalyzer
         for (int i = half; i < n - half; i++)
         {
             Array.Copy(x, i - half, window, 0, k);
-            res[i] = Median(window);
+            res[i] = StatisticsHelper.Median(window);
         }
 
         return SmoothEnds(res, k);
@@ -2517,7 +2517,7 @@ public static partial class OncologyAnalyzer
     {
         var tmp = new double[count];
         Array.Copy(y, start, tmp, 0, count);
-        return Median(tmp);
+        return StatisticsHelper.Median(tmp);
     }
 
     /// <summary>R <c>smoothEnds</c> helper <c>med3(a, b, c)</c>, verbatim.</summary>

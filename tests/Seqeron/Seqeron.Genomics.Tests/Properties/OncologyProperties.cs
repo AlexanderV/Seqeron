@@ -8999,6 +8999,27 @@ public class OncologyProperties
     }
 
     /// <summary>
+    /// <c>AnalyzeHeterogeneity.SubclonalFraction</c> = 1 − |IdentifyClonalMutations|/n: the same Landau et al. (2013)
+    /// rule (clonal ⇔ CCF &gt; 0.95, "subclonal otherwise"), including grid values exactly at 0.95 (B24 F20).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeHeterogeneity_SubclonalFraction_AgreesWithIdentifyClonalMutations()
+    {
+        var arb = (from n in Gen.Choose(1, 12)
+                   from values in Gen.Choose(80, 100).Select(v => v / 100.0).ArrayOf(n)
+                   select values).ToArbitrary();
+
+        return Prop.ForAll(arb, ccf =>
+        {
+            var vafs = ccf.Select(c => c / 2.0).ToArray();
+            var r = OncologyAnalyzer.AnalyzeHeterogeneity(vafs, ccf, 1);
+            double oracle = (double)(ccf.Length - OncologyAnalyzer.IdentifyClonalMutations(ccf).Count) / ccf.Length;
+            return (r.SubclonalFraction == oracle)
+                .Label($"subclonal fraction {r.SubclonalFraction} ≠ 1 − clonal/n {oracle}");
+        });
+    }
+
+    /// <summary>
     /// Anchors: a wider distribution has a higher MATH ({0.3,0.5,0.7} ⇒ 59.304 &gt; {0.4,0.5,0.6} ⇒ 29.652);
     /// identical VAFs ⇒ MATH 0; a zero median and an empty set are rejected. (Mroz 2013)
     /// </summary>
