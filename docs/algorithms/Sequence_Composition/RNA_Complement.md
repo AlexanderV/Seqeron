@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-RNACOMP-001 |
 | Related Projects | Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -89,6 +89,8 @@ RNA complement reference table (origin: Biopython `ambiguous_rna_complement` [2]
 **Implementation location:** [SequenceExtensions.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs)
 
 - `SequenceExtensions.GetRnaComplementBase(char)`: returns the IUPAC-complete RNA complement of a single nucleotide.
+- `RnaSequence.Complement()` / `RnaSequence.ReverseComplement()`: whole-sequence forms; delegate per base to `GetRnaComplementBase` (the `RnaSequence` alphabet is A/C/G/U only).
+- MCP `rna_complement_base` (Analysis server) → `RnaSecondaryStructure.GetComplement` → `GetRnaComplementBase`.
 
 ### 5.2 Current Behavior
 
@@ -129,7 +131,7 @@ Implemented as a `switch` expression with `[MethodImpl(AggressiveInlining)]`. Re
 
 ### 6.2 Limitations
 
-Operates on a single character only; whole-sequence RNA complement/reverse-complement is composed by the caller (or via the DNA span helpers for the DNA alphabet). It does not validate that the surrounding sequence is RNA; a stray `T` is silently mapped to `A`.
+Operates on a single character only; whole-sequence RNA complement/reverse-complement is provided by `RnaSequence.Complement()`/`ReverseComplement()` (A/C/G/U sequences) or composed by the caller per base. Non-ASCII characters pass through unchanged (Biopython raises `UnicodeEncodeError` for them). It does not validate that the surrounding sequence is RNA; a stray `T` is silently mapped to `A`.
 
 ## 7. Examples and Related Material
 

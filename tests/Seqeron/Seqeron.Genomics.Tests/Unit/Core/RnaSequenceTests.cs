@@ -98,6 +98,25 @@ public class RnaSequenceTests
         Assert.That(revComp.Sequence, Is.EqualTo("CGUU"));
     }
 
+    // SEQ-RNACOMP-001 (review 2026-09): values computed with Biopython 1.88
+    // Bio.Seq.complement_rna / reverse_complement_rna; lowercase input is normalized to
+    // uppercase by the constructor (Biopython would return "ugca"/"acgu").
+    [TestCase("AUGC", "UACG", "GCAU")]
+    [TestCase("AUGGCUAG", "UACCGAUC", "CUAGCCAU")]
+    [TestCase("GGGAAAUCCC", "CCCUUUAGGG", "GGGAUUUCCC")]
+    [TestCase("AAGGCCUUA", "UUCCGGAAU", "UAAGGCCUU")]
+    [TestCase("acgu", "UGCA", "ACGU")]
+    [TestCase("", "", "")]
+    public void ComplementAndReverseComplement_MatchBiopython(string input, string complement, string reverseComplement)
+    {
+        var rna = new RnaSequence(input);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rna.Complement().Sequence, Is.EqualTo(complement), "complement_rna");
+            Assert.That(rna.ReverseComplement().Sequence, Is.EqualTo(reverseComplement), "reverse_complement_rna");
+        });
+    }
+
     #endregion
 
     // Note: GC Content detailed tests are in SequenceExtensions_CalculateGcContent_Tests.cs
