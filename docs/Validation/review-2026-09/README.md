@@ -59,8 +59,17 @@ Batches run concurrently in separate sessions and push to the same branch.
 - **Do not edit** `VALIDATION_LEDGER.md` / `FINDINGS_REGISTER.md` / `ALGORITHMS_CHECKLIST_V2.md`
   (the orchestrator consolidates). Write your results only to `docs/Validation/review-2026-09/<BATCH>.md`.
 - Commit per unit (or per fix), then `git fetch origin claude/stoic-maxwell-0olr2z && git rebase origin/claude/stoic-maxwell-0olr2z && git push -u origin claude/stoic-maxwell-0olr2z`; on rejection repeat the fetch/rebase/push (network errors: retry with backoff 2/4/8/16 s).
-- Before every push: `dotnet build Seqeron.sln` 0 errors and the tests of every class you touched green.
-  Before the final push: full `Seqeron.Genomics.Tests` + the MCP test project of your server green.
+- **Two test tiers** (measured 2026-09-28: `Fuzzing` 50 %, `Properties` 29 %, `Metamorphic` 8 % of test CPU time):
+  - **Fast tier — before every per-unit push:** `dotnet build Seqeron.sln` 0 errors, then
+    `dotnet test tests/Seqeron/Seqeron.Genomics.Tests/Seqeron.Genomics.Tests.csproj -c Debug --no-build --filter "FullyQualifiedName!~.Fuzzing.&FullyQualifiedName!~.Properties.&FullyQualifiedName!~.Metamorphic."`
+    must be green (all Unit/Combinatorial/Algebraic/Snapshot/Mutation/Differential/Architecture tests, not only your class).
+    Never disable, skip or `[Ignore]` a test — the slow tiers are deferred by the filter only.
+  - **Heavy tier — once, when the whole batch is done (mandatory, before the final push):**
+    1. Find every test in `Fuzzing/`, `Properties/`, `Metamorphic/` that exercises your owned classes/methods.
+    2. **Update** those whose expectations the batch's fixes legitimately changed (with the sourced justification in the report) — never weaken an invariant to make it pass.
+    3. **Add** new fuzz/property/metamorphic tests for new behaviour/invariants introduced by the batch (e.g. new algorithm paths, new edge-case contracts).
+    4. Run the **full** `Seqeron.Genomics.Tests` (no filter) + the MCP test project of your server; all green.
+    5. Record in the report a *Heavy-tier* section: tests updated / added / run counts.
 
 ## Session management inside a batch
 
