@@ -128,5 +128,35 @@
 - CAI via the canonical CodonUsageAnalyzer core: Met/Trp and stops not scored, w < 0.0001 → 0.01 (CodonW `cai_out`) — review 2026-09, CODON-CAI-001 F12/F13
 - MinimizeSecondary strategy delegates to BalancedOptimization in codon selection; dedicated `ReduceSecondaryStructure` method handles secondary structure reduction separately
 
+## Review 2026-09 (campaign review-2026-09, batch B02)
+
+### Sources actually opened
+
+| Source | What was opened | What it establishes |
+|---|---|---|
+| DNA Chisel 3.2.16 (PyPI, installed and executed) | `dnachisel.builtin_specifications.codon_optimization.MaximizeCAI` / `MatchTargetCodonUsage` source, `CodonOptimize` docs page | `use_best_codon` = most frequent synonymous codon; `match_codon_usage` objective = −Σ_aa n_aa·Σ_codon |f_seq − f_table|; `harmonize_rca` needs a *source* host table |
+| Biopython 1.88 (installed) | `Bio.SeqUtils.CodonAdaptationIndex.__init__` / `.calculate` / `.optimize` source | "we use a value of 0.5 for codons that do not appear in the reference sequences"; w = count/max(count in family); Met/Trp/stops excluded from CAI |
+| python_codon_tables 0.1.18 | `e_coli_316407` table | Preset EColiK12 values (Leu CTG 0.50, Arg CGC 0.40 …) confirmed identical |
+| Edinburgh Genome Foundry DnaChisel documentation (web) | `CodonOptimize` method descriptions | Wording of the three published methods |
+
+### Numeric cross-checks (2026-09-28)
+
+| Case | Reference | Reference value | Seqeron |
+|---|---|---|---|
+| `ATGAGCAAAGGTGAAGAACTGTTCACCGGTGTTGTTCCGATTCTGGTTGAACTGGATGGTGATGTTAAC`, E. coli 316407, `use_best_codon` | DNA Chisel 3.2.16 | `ATGAGCAAAGGCGAAGAACTGTTTACCGGCGTGGTGCCGATTCTGGTGGAACTGGATGGCGATGTGAAC` | identical (U spelling), CAI 1.0000 |
+| same gene, `match_codon_usage` objective score | DNA Chisel optimizer output | −11.77 (original −23.25, best-codon −21.67) | HarmonizeExpression output scores −11.77 |
+| reference set `ATGAAAGCGTTCAAGCGTACTGCGATGCCCAAAGGGTTTTAA` → relative adaptiveness | Biopython `CodonAdaptationIndex` | AAA 1.0, AAG 0.5, GCG 1.0, GCT 0.25, TTT 1.0, TTC 1.0, CGT 1.0, AGA 0.5, TAA 1.0, TAG 0.5 | identical (w = f / max f from the built table) |
+| 43-nt window MFE cost (why the structure pass stays a heuristic) | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | ≈6.0 ms/window (Release) | — |
+
+### Behaviour changes locked by tests
+
+- `MaximizeCAI` ties broken by NCBI codon order (deterministic; Biopython only warns on ties).
+- `HarmonizeExpression` deterministic (largest-remainder allocation) — was `new Random()` weighted sampling.
+- `AvoidRareCodeons` / `BalancedOptimization` fall back to the best synonymous codon when no synonym reaches the threshold.
+- GC pass: no neutral swaps, no overshoot-without-alternative, stops on entering the window, frequency floor = `rareCodonThreshold`.
+- `RemoveRestrictionSites`: one codon per occurrence, highest-frequency substitution, IUPAC sites, both strands.
+- `ReduceSecondaryStructure`: canonical `RnaSecondaryStructure.CanPair` (G·U wobble), re-evaluated baseline, normalised RNA output.
+- `CreateCodonTableFromSequence`: Sharp & Li / Biopython 0.5 pseudo-count, all 64 codons, Standard-code `CodonToAminoAcid`.
+
 ## Date
-2026-03-10
+2026-03-10 (reviewed 2026-09-28)

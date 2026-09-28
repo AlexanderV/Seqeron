@@ -14,7 +14,7 @@ Derive a per-organism codon-usage table from a reference coding sequence.
 
 ## Description
 
-Splits the reference into frame-0 codons, converts `T`→`U`, groups codons by the amino acid they encode (standard genetic code), and computes each codon's relative frequency **within its amino-acid group** (a codon that is the only one used for its amino acid gets frequency 1.0). The resulting table can be fed to the codon-optimizer tools as a custom organism.
+Splits the reference into frame-0 codons, converts `T`→`U`, groups codons by the amino acid they encode (standard genetic code), and computes each codon's relative frequency **within its amino-acid family**. A codon that does not occur in the reference set is counted as **0.5** (Sharp & Li 1987, as implemented by Biopython `CodonAdaptationIndex`), so all 64 codons are present and the relative adaptiveness derived from the table matches Biopython exactly. The resulting table can be fed to the codon-optimizer tools as a custom organism.
 
 ## Core Documentation Reference
 

@@ -14,7 +14,7 @@ Reduce mRNA secondary structure by synonymous codon swaps.
 
 ## Description
 
-Greedily swaps codons for synonymous alternatives that lower a heuristic local self-complementarity score within a sliding window (default 40 nt), reducing mRNA secondary structure while preserving the protein. Sequences shorter than `window_size` are returned unchanged.
+Greedily swaps codons for synonymous alternatives that lower a heuristic local self-complementarity score within a sliding window (default 40 nt), reducing mRNA secondary structure while preserving the protein. Pairing uses the canonical `RnaSecondaryStructure.CanPair` rule (Watson-Crick plus the G·U wobble, ViennaRNA pair set). Output is upper-case RNA trimmed to whole codons; a sequence shorter than `window_size` keeps all its codons. This is a self-complementarity heuristic, not a folding model — use `rna_minimum_free_energy` for thermodynamics.
 
 ## Core Documentation Reference
 
@@ -43,7 +43,7 @@ Greedily swaps codons for synonymous alternatives that lower a heuristic local s
 
 ## Examples
 
-### Example 1: Below window → `ATGATG` returned unchanged.
+### Example 1: Below window → `ATGATG` → `AUGAUG` (codons unchanged, RNA-normalised).
 
 ### Example 2: A 45-nt sequence (> 40-nt window) is processed with synonymous swaps that preserve its length and protein.
 

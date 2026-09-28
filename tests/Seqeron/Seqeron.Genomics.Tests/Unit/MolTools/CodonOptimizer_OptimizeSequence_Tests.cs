@@ -631,46 +631,129 @@ public class CodonOptimizer_OptimizeSequence_Tests
 
     #endregion
 
+    #region Reference cross-checks (review 2026-09)
+
+    [Test]
+    [Description("MaximizeCAI reproduces DNA Chisel CodonOptimize(method='use_best_codon') codon for codon")]
+    public void OptimizeSequence_MaximizeCAI_MatchesDnaChiselUseBestCodon()
+    {
+        // DNA Chisel 3.2.16, DnaOptimizationProblem(constraints=[EnforceTranslation()],
+        // objectives=[CodonOptimize(method="use_best_codon",
+        //   codon_usage_table=python_codon_tables.get_codons_table('e_coli_316407'))]).optimize()
+        // → ATGAGCAAAGGCGAAGAACTGTTTACCGGCGTGGTGCCGATTCTGGTGGAACTGGATGGCGATGTGAAC
+        const string sequence = "ATGAGCAAAGGTGAAGAACTGTTCACCGGTGTTGTTCCGATTCTGGTTGAACTGGATGGTGATGTTAAC";
+        const string dnaChisel = "ATGAGCAAAGGCGAAGAACTGTTTACCGGCGTGGTGCCGATTCTGGTGGAACTGGATGGCGATGTGAAC";
+
+        var result = CodonOptimizer.OptimizeSequence(
+            sequence, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.MaximizeCAI);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OptimizedSequence, Is.EqualTo(dnaChisel.Replace('T', 'U')));
+            Assert.That(result.OptimizedCAI, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(TranslateSequence(result.OptimizedSequence),
+                Is.EqualTo(TranslateSequence(result.OriginalSequence)));
+        });
+    }
+
+    [Test]
+    [Description("HarmonizeExpression is deterministic and allocates codons by largest remainder (DNA Chisel match_codon_usage optimum)")]
+    public void OptimizeSequence_HarmonizeExpression_MatchesTargetUsageDeterministically()
+    {
+        // 10 Leu codons, E. coli Leu frequencies UUA .13 UUG .13 CUU .10 CUC .10 CUA .04 CUG .50.
+        // Largest-remainder rounding of 10×f: floors 1,1,1,1,0,5 (sum 9); the single remaining
+        // seat goes to the largest fraction (CUA, 0.4) → UUA1 UUG1 CUU1 CUC1 CUA1 CUG5.
+        // The five positions that already hold CUG keep it, the rest take the other codons in
+        // NCBI order. DNA Chisel's own match_codon_usage score for this allocation on the
+        // 69-nt test gene equals the score its randomised optimizer reaches (−11.77).
+        const string sequence = "CUGCUGCUGCUGCUGCUGCUGCUGCUGCUG";
+
+        var first = CodonOptimizer.OptimizeSequence(
+            sequence, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.HarmonizeExpression);
+        var second = CodonOptimizer.OptimizeSequence(
+            sequence, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.HarmonizeExpression);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.OptimizedSequence, Is.EqualTo("CUGCUGCUGCUGCUGUUAUUGCUUCUCCUA"));
+            Assert.That(second.OptimizedSequence, Is.EqualTo(first.OptimizedSequence),
+                "the harmonization must be deterministic (it used weighted-random sampling before 2026-09)");
+            Assert.That(TranslateSequence(first.OptimizedSequence), Is.EqualTo("LLLLLLLLLL"));
+        });
+    }
+
+    [Test]
+    [Description("BalancedOptimization only makes swaps that move GC toward the target window")]
+    public void OptimizeSequence_BalancedOptimization_MakesNoNeutralSwaps()
+    {
+        // AUGGCCGCC → phase 1 AUGGCGGCG (GC 7/9 = 0.778 > 0.60). Ala codons below GCG: GCU and
+        // GCA both have 2 GC, GCC has 3. One swap gives 6/9 (still high), the second 5/9 = 0.556
+        // (inside [0.40, 0.60]) and the pass stops — GCA before GCU because it is the more
+        // frequent E. coli codon (0.21 vs 0.16).
+        var result = CodonOptimizer.OptimizeSequence(
+            "AUGGCCGCC", CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.BalancedOptimization);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OptimizedSequence, Is.EqualTo("AUGGCAGCA"));
+            Assert.That(result.GcContentOptimized, Is.EqualTo(5.0 / 9.0).Within(1e-12));
+            Assert.That(result.ChangedCodons, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    [Description("AvoidRareCodeons falls back to the best synonymous codon when no synonym reaches the threshold")]
+    public void OptimizeSequence_AvoidRareCodons_NoSynonymAboveThreshold_UsesBestCodon()
+    {
+        // Threshold 0.9: every Leu codon is "rare" (max is CUG at 0.50). The rare codon must
+        // still be replaced by the most frequent synonym (DNA Chisel use_best_codon), not left
+        // in place as before 2026-09.
+        var result = CodonOptimizer.OptimizeSequence(
+            "CUA", CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.AvoidRareCodeons,
+            rareCodonThreshold: 0.9);
+
+        Assert.That(result.OptimizedSequence, Is.EqualTo("CUG"));
+    }
+
+    [Test]
+    [Description("Ambiguous and invalid triplets: IUPAC codons resolve through GeneticCode, unusable triplets are preserved")]
+    [TestCase("AUGGCNUAA", "AUGGCGUAA", "MA*")]   // GCN is unambiguously Ala → best Ala codon
+    [TestCase("AUGNNNGCU", "AUGNNNGCG", "MXA")]   // NNN has no unique amino acid → untouched
+    [TestCase("AUG#!?GCU", "AUG#!?GCG", "MXA")]   // not a codon at all → untouched, frame kept
+    public void OptimizeSequence_AmbiguousCodons_HandledPerGeneticCode(
+        string sequence, string expected, string expectedProtein)
+    {
+        var result = CodonOptimizer.OptimizeSequence(
+            sequence, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.MaximizeCAI);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OptimizedSequence, Is.EqualTo(expected));
+            Assert.That(result.ProteinSequence, Is.EqualTo(expectedProtein));
+        });
+    }
+
+    [Test]
+    [Description("Frequency ties are broken deterministically by NCBI codon order")]
+    public void OptimizeSequence_TiedBestCodons_PicksFirstInNcbiOrder()
+    {
+        // Human Arg (Kazusa 9606) is the only tie in the three presets: AGA and AGG both 0.21.
+        // NCBI table-1 codon order for Arg is CGU CGC CGA CGG AGA AGG, so AGA wins — the same
+        // situation where Biopython CodonAdaptationIndex.optimize only warns and picks one.
+        var result = CodonOptimizer.OptimizeSequence(
+            "CGA", CodonOptimizer.Human, CodonOptimizer.OptimizationStrategy.MaximizeCAI);
+
+        Assert.That(result.OptimizedSequence, Is.EqualTo("AGA"));
+    }
+
+    #endregion
+
     #region Helper Methods
 
-    private static string TranslateSequence(string rnaSequence)
-    {
-        var geneticCode = new Dictionary<string, char>
-        {
-            { "UUU", 'F' }, { "UUC", 'F' },
-            { "UUA", 'L' }, { "UUG", 'L' }, { "CUU", 'L' }, { "CUC", 'L' }, { "CUA", 'L' }, { "CUG", 'L' },
-            { "AUU", 'I' }, { "AUC", 'I' }, { "AUA", 'I' },
-            { "AUG", 'M' },
-            { "GUU", 'V' }, { "GUC", 'V' }, { "GUA", 'V' }, { "GUG", 'V' },
-            { "UCU", 'S' }, { "UCC", 'S' }, { "UCA", 'S' }, { "UCG", 'S' }, { "AGU", 'S' }, { "AGC", 'S' },
-            { "CCU", 'P' }, { "CCC", 'P' }, { "CCA", 'P' }, { "CCG", 'P' },
-            { "ACU", 'T' }, { "ACC", 'T' }, { "ACA", 'T' }, { "ACG", 'T' },
-            { "GCU", 'A' }, { "GCC", 'A' }, { "GCA", 'A' }, { "GCG", 'A' },
-            { "UAU", 'Y' }, { "UAC", 'Y' },
-            { "UAA", '*' }, { "UAG", '*' }, { "UGA", '*' },
-            { "CAU", 'H' }, { "CAC", 'H' },
-            { "CAA", 'Q' }, { "CAG", 'Q' },
-            { "AAU", 'N' }, { "AAC", 'N' },
-            { "AAA", 'K' }, { "AAG", 'K' },
-            { "GAU", 'D' }, { "GAC", 'D' },
-            { "GAA", 'E' }, { "GAG", 'E' },
-            { "UGU", 'C' }, { "UGC", 'C' },
-            { "UGG", 'W' },
-            { "CGU", 'R' }, { "CGC", 'R' }, { "CGA", 'R' }, { "CGG", 'R' }, { "AGA", 'R' }, { "AGG", 'R' },
-            { "GGU", 'G' }, { "GGC", 'G' }, { "GGA", 'G' }, { "GGG", 'G' }
-        };
-
-        var protein = new System.Text.StringBuilder();
-        for (int i = 0; i + 2 < rnaSequence.Length; i += 3)
-        {
-            var codon = rnaSequence.Substring(i, 3);
-            if (geneticCode.TryGetValue(codon, out char aa))
-                protein.Append(aa);
-            else
-                protein.Append('X');
-        }
-        return protein.ToString();
-    }
+    // Canonical translation (no private genetic-code copy in the test either).
+    private static string TranslateSequence(string rnaSequence) =>
+        string.Concat(Enumerable.Range(0, rnaSequence.Length / 3)
+            .Select(i => GeneticCode.Standard.Translate(rnaSequence.Substring(i * 3, 3))));
 
     #endregion
 }

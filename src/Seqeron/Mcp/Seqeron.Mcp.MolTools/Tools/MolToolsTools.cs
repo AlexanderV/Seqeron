@@ -355,7 +355,7 @@ public class MolToolsTools
 
     #region CodonOptimizer
 
-    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. Note: HarmonizeExpression is non-deterministic (weighted-random).")]
+    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. HarmonizeExpression matches the target codon-usage profile as closely as integer codon counts allow (DNA Chisel match_codon_usage) and is deterministic.")]
     public static OptimizationResultDto optimize_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: a preset id (EColiK12 | Yeast | Human) or an inline custom table (organismName + codonFrequencies in RNA alphabet).")] CodonUsageTableInput target_organism,
@@ -399,7 +399,7 @@ public class MolToolsTools
         return new CaiResult(CodonOptimizer.CalculateCAI(coding_sequence, table));
     }
 
-    [McpServerTool(Name = "remove_restriction_sites", Title = "MolTools — Remove Restriction Sites", ReadOnly = true), Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encoded protein (RNA-alphabet output). Site strings may be DNA or RNA; sites with no synonymous alternative are left in place. Call to make a gene compatible with a cloning strategy.")]
+    [McpServerTool(Name = "remove_restriction_sites", Title = "MolTools — Remove Restriction Sites", ReadOnly = true), Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encoded protein (RNA-alphabet output). Site strings may be DNA or RNA and may contain IUPAC ambiguity codes; both strands are cleared (a non-palindromic site such as BsaI GGTCTC is also removed where its reverse complement occurs); each removal changes exactly one codon, choosing the highest-frequency synonymous codon in the supplied table; sites with no synonymous alternative are left in place. Call to make a gene compatible with a cloning strategy.")]
     public static OptimizedSequenceResult remove_restriction_sites(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Restriction recognition sequences to eliminate.")] string[] restriction_sites,
@@ -414,7 +414,7 @@ public class MolToolsTools
         return new OptimizedSequenceResult(CodonOptimizer.RemoveRestrictionSites(coding_sequence, restriction_sites, table));
     }
 
-    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window, reducing mRNA secondary structure while preserving the protein. Sequences shorter than window_size are returned unchanged. Call to relax strong secondary structure in a coding sequence.")]
+    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score (canonical pairs incl. G\u00b7U wobble) within a sliding window, reducing mRNA secondary structure while preserving the protein. Output is upper-case RNA trimmed to whole codons; sequences shorter than window_size are returned unchanged apart from that normalisation. Heuristic only \u2014 not a thermodynamic folding model (see rna_minimum_free_energy for that). Call to relax strong secondary structure in a coding sequence.")]
     public static OptimizedSequenceResult reduce_secondary_structure(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
@@ -458,7 +458,7 @@ public class MolToolsTools
         return new SimilarityResult(CodonOptimizer.CompareCodonUsage(sequence1, sequence2));
     }
 
-    [McpServerTool(Name = "build_codon_table", Title = "MolTools — Build Codon-Usage Table", ReadOnly = true), Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet, U not T). Call when the user wants a custom codon-usage table built from their own reference gene(s).")]
+    [McpServerTool(Name = "build_codon_table", Title = "MolTools — Build Codon-Usage Table", ReadOnly = true), Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet, U not T). All 64 codons are returned: a codon absent from the reference set is counted as 0.5 (Sharp & Li 1987, as in Biopython CodonAdaptationIndex), so the relative adaptiveness derived from the table matches Biopython exactly. Call when the user wants a custom codon-usage table built from their own reference gene(s).")]
     public static CodonUsageTableDto build_codon_table(
         [Description("Reference coding sequence (DNA or RNA).")] string reference_sequence,
         [Description("Organism name to attach to the resulting table.")] string organism_name)
@@ -477,9 +477,9 @@ public class MolToolsTools
 
     /// <summary>
     /// Resolves a <see cref="CodonUsageTableInput"/> (preset id or inline custom
-    /// table) to a <see cref="CodonOptimizer.CodonUsageTable"/>. For inline tables,
-    /// supplies an empty <c>CodonToAminoAcid</c> dictionary because the underlying
-    /// optimizer never reads that field (translation uses its private genetic-code map).
+    /// table) to a <see cref="CodonOptimizer.CodonUsageTable"/>. Inline tables are built with
+    /// <see cref="CodonOptimizer.CreateCodonUsageTable"/>, so they carry the canonical Standard
+    /// genetic-code mapping in <c>CodonToAminoAcid</c> just like the presets.
     /// </summary>
     private static CodonOptimizer.CodonUsageTable ResolveCodonUsageTable(CodonUsageTableInput input)
     {
@@ -503,10 +503,9 @@ public class MolToolsTools
                 "CodonUsageTableInput must provide either a preset or a custom codonFrequencies table.",
                 nameof(input));
 
-        return new CodonOptimizer.CodonUsageTable(
+        return CodonOptimizer.CreateCodonUsageTable(
             input.OrganismName ?? "Custom",
-            new Dictionary<string, double>(input.CodonFrequencies),
-            new Dictionary<string, string>());
+            input.CodonFrequencies);
     }
 
     #endregion

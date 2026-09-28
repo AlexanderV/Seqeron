@@ -136,12 +136,14 @@ public class CodonOptimizerMutationTests
     // ── ReduceSecondaryStructure: deterministic, protein-preserving synonymous changes ──
 
     [Test]
-    public void ReduceSecondaryStructure_ShortSequence_ReturnedUnchanged()
+    public void ReduceSecondaryStructure_ShortSequence_ReturnedNormalisedOnly()
     {
-        // Shorter than the window → returned as-is (no T→U either, exact passthrough).
+        // Shorter than the window → no codon is rewritten, but the output is still the
+        // normalised upper-case RNA form of the input (review 2026-09, CODON-OPT-001 F24:
+        // the method used to return DNA unchanged for short input and RNA for long input).
         const string seq = "ATGCTG";
         CodonOptimizer.ReduceSecondaryStructure(seq, CodonOptimizer.EColiK12, windowSize: 40)
-            .Should().Be(seq);
+            .Should().Be("AUGCUG");
     }
 
     [Test]
@@ -149,13 +151,14 @@ public class CodonOptimizerMutationTests
     {
         // A G-block/C-block sequence is highly self-complementary (many G·C pairs) ⇒ the reducer
         // engages and swaps codons to lower the folding propensity. The transformation is fully
-        // deterministic; this exact output pins the whole CalculateLocalStructure/AreComplementary
-        // path (any mutation there changes which codons are chosen). Protein is preserved:
-        // 8×Gly then 8×Pro both before and after.
+        // deterministic; this exact output pins the whole CalculateLocalStructure path (any
+        // mutation there changes which codons are chosen). Protein is preserved: 8×Gly then
+        // 8×Pro both before and after. Output updated 2026-09 (CODON-OPT-001 F24): pairing now
+        // comes from the canonical RnaSecondaryStructure.CanPair, so the G·U wobble counts.
         string seq = string.Concat(Enumerable.Repeat("GGG", 8)) + string.Concat(Enumerable.Repeat("CCC", 8));
         string outSeq = CodonOptimizer.ReduceSecondaryStructure(seq, CodonOptimizer.EColiK12);
 
-        outSeq.Should().Be("GGUGGUGGUGGUGGUGGUGGUGGUCCUCCUCCUCCUCCUCCCCCCCCC");
+        outSeq.Should().Be("GGAGGAGGAGGAGGAGGAGGAGGACCACCACCACCACCACCACCCCCC");
 
         // Theory checks alongside the characterization: same length, RNA, protein preserved.
         outSeq.Length.Should().Be(seq.Length);
@@ -170,12 +173,13 @@ public class CodonOptimizerMutationTests
     [Test]
     public void ReduceSecondaryStructure_AtRichSelfComplementaryInput_ReducesDeterministically()
     {
-        // A-block/T-block → A·U self-complementary (exercises the A-U / U-A AreComplementary arms).
-        // Deterministic reduction; protein preserved: 8×Lys then 8×Phe.
+        // A-block/T-block → A·U self-complementary (exercises the A-U / U-A pairing arms).
+        // Deterministic reduction; protein preserved: 8×Lys then 8×Phe (output updated 2026-09,
+        // CODON-OPT-001 F24: G·U wobble now counts, so AAA→AAG no longer lowers the score).
         string seq = string.Concat(Enumerable.Repeat("AAA", 8)) + string.Concat(Enumerable.Repeat("TTT", 8));
         string outSeq = CodonOptimizer.ReduceSecondaryStructure(seq, CodonOptimizer.EColiK12);
 
-        outSeq.Should().Be("AAGAAGAAGAAGAAGAAGAAGAAGUUCUUCUUCUUCUUCUUUUUUUUU");
+        outSeq.Should().Be("AAAAAAAAAAAAAAAAAAAAAAAAUUCUUCUUCUUCUUCUUCUUUUUU");
         var aas = Enumerable.Range(0, outSeq.Length / 3)
             .Select(i => outSeq.Substring(i * 3, 3))
             .Select(c => c.StartsWith("AA") ? 'K' : 'F').ToList();
@@ -186,11 +190,11 @@ public class CodonOptimizerMutationTests
     public void ReduceSecondaryStructure_UBlockThenABlock_ExercisesUaComplementarityArm()
     {
         // U-block then A-block puts U at position i and A at j > i+4 → exercises the (U,A) arm of
-        // AreComplementary (the A-block/U-block test only hits the (A,U) arm). Protein: 8×Phe, 8×Lys.
+        // the pairing rule (the A-block/U-block test only hits the (A,U) arm). Protein: 8×Phe, 8×Lys.
         string seq = string.Concat(Enumerable.Repeat("TTT", 8)) + string.Concat(Enumerable.Repeat("AAA", 8));
         string outSeq = CodonOptimizer.ReduceSecondaryStructure(seq, CodonOptimizer.EColiK12);
 
-        outSeq.Should().Be("UUCUUCUUCUUCUUCUUCUUCUUCAAGAAGAAGAAGAAGAAAAAAAAA");
+        outSeq.Should().Be("UUCUUCUUCUUCUUCUUCUUCUUCAAAAAAAAAAAAAAAAAAAAAAAA");
     }
 
     // ── RemoveRestrictionSites: eliminate the recognition site, preserve the protein ─
@@ -198,11 +202,14 @@ public class CodonOptimizerMutationTests
     [Test]
     public void RemoveRestrictionSites_EliminatesSite_PreservesProtein()
     {
-        // EcoRI GAATTC inside a coding sequence (Glu-Phe-Gly) is removed via synonymous edits.
+        // EcoRI GAATTC inside a coding sequence (Glu-Phe-Gly) is removed via ONE synonymous edit.
+        // Updated 2026-09 (CODON-OPT-001 F22): the old code kept rewriting the codons after the
+        // site had already gone (GAA→GAG, UUC→UUU, GGG→GGU); now exactly one codon changes, and
+        // it is the substitution with the highest E. coli usage frequency (UUC→UUU, f = 0.57).
         string result = CodonOptimizer.RemoveRestrictionSites("GAATTCGGG", new[] { "GAATTC" }, CodonOptimizer.EColiK12);
 
         result.Should().NotContain("GAAUUC", "the recognition site must be eliminated");
-        result.Should().Be("GAGUUUGGU"); // Glu(GAG) Phe(UUU) Gly(GGU) — same protein
+        result.Should().Be("GAAUUUGGG"); // Glu(GAA) Phe(UUU) Gly(GGG) — same protein
     }
 
     // ── CreateCodonTableFromSequence: per-amino-acid relative frequencies ─────────────
@@ -210,11 +217,16 @@ public class CodonOptimizerMutationTests
     [Test]
     public void CreateCodonTableFromSequence_ComputesRelativeFrequenciesPerAminoAcid()
     {
-        // Leucine: CUG×2, CUU×1 → frequencies 2/3 and 1/3 within the Leu synonymous family.
+        // Leucine: CUG×2, CUU×1, and the four unobserved Leu codons carry the Sharp & Li (1987)
+        // 0.5 pseudo-count (Biopython CodonAdaptationIndex), so the family total is
+        // 2 + 1 + 4×0.5 = 5 → CUG 0.4, CUU 0.2, each absent codon 0.1
+        // (review 2026-09, CODON-OPT-001 F25).
         var table = CodonOptimizer.CreateCodonTableFromSequence("CTGCTGCTT", "test");
 
-        table.CodonFrequencies["CUG"].Should().BeApproximately(2.0 / 3.0, 1e-9);
-        table.CodonFrequencies["CUU"].Should().BeApproximately(1.0 / 3.0, 1e-9);
+        table.CodonFrequencies["CUG"].Should().BeApproximately(0.4, 1e-9);
+        table.CodonFrequencies["CUU"].Should().BeApproximately(0.2, 1e-9);
+        table.CodonFrequencies["UUA"].Should().BeApproximately(0.1, 1e-9);
+        table.CodonFrequencies.Should().HaveCount(64, "every codon is present once absent codons are pseudo-counted");
     }
 
     // ── OptimizeSequence (AvoidRareCodeons): only rare codons are replaced ────────────

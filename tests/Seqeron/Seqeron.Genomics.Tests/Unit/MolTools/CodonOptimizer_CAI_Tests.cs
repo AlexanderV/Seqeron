@@ -589,7 +589,11 @@ public class CodonOptimizer_CAI_Tests
     {
         // Table from reference "CUG": Leu = {CUG: 1.0}. w_CUA = 0 → 0.01; w_CUG = 1.
         // CAI = sqrt(0.01 × 1) = 0.1 (CodonW: 0.100).
-        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+        // A reference table that contains ONLY CUG, so CUA is genuinely absent. (Built inline:
+        // CreateCodonTableFromSequence now applies the Sharp & Li 1987 / Biopython 0.5
+        // pseudo-count to unobserved codons — review 2026-09, CODON-OPT-001 F25.)
+        var partial = CodonOptimizer.CreateCodonUsageTable(
+            "partial-Leu", new Dictionary<string, double> { ["CUG"] = 1.0 });
 
         Assert.That(CodonOptimizer.CalculateCAI("CUACUG", partial), Is.EqualTo(0.1).Within(1e-12));
     }
@@ -598,7 +602,11 @@ public class CodonOptimizer_CAI_Tests
     public void CalculateCAI_LoneAbsentCodon_UsesCodonWZeroSubstitute()
     {
         // Only CUA (absent, synonym CUG present) → w = 0.01 → CAI = 0.01 (CodonW: 0.010).
-        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+        // A reference table that contains ONLY CUG, so CUA is genuinely absent. (Built inline:
+        // CreateCodonTableFromSequence now applies the Sharp & Li 1987 / Biopython 0.5
+        // pseudo-count to unobserved codons — review 2026-09, CODON-OPT-001 F25.)
+        var partial = CodonOptimizer.CreateCodonUsageTable(
+            "partial-Leu", new Dictionary<string, double> { ["CUG"] = 1.0 });
 
         Assert.That(CodonOptimizer.CalculateCAI("CUA", partial), Is.EqualTo(0.01).Within(1e-12));
     }
@@ -625,7 +633,11 @@ public class CodonOptimizer_CAI_Tests
         // Arrange - table built from only "CUG" (Leu) has NO Phe data. Score "UUUCUG":
         // UUU (Phe) has maxFreq = 0 in this table -> w = NaN -> skipped (not counted in L).
         // Only CUG (w = 1.0) remains -> CAI = 1.0.
-        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+        // A reference table that contains ONLY CUG, so CUA is genuinely absent. (Built inline:
+        // CreateCodonTableFromSequence now applies the Sharp & Li 1987 / Biopython 0.5
+        // pseudo-count to unobserved codons — review 2026-09, CODON-OPT-001 F25.)
+        var partial = CodonOptimizer.CreateCodonUsageTable(
+            "partial-Leu", new Dictionary<string, double> { ["CUG"] = 1.0 });
 
         // Act
         double cai = CodonOptimizer.CalculateCAI("UUUCUG", partial);
@@ -640,7 +652,11 @@ public class CodonOptimizer_CAI_Tests
     {
         // Arrange - table built from only "CUG" (Leu); sequence is all Phe (UUU), which has
         // no data in this table -> every codon NaN-skipped -> count=0 -> returns 0.
-        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+        // A reference table that contains ONLY CUG, so CUA is genuinely absent. (Built inline:
+        // CreateCodonTableFromSequence now applies the Sharp & Li 1987 / Biopython 0.5
+        // pseudo-count to unobserved codons — review 2026-09, CODON-OPT-001 F25.)
+        var partial = CodonOptimizer.CreateCodonUsageTable(
+            "partial-Leu", new Dictionary<string, double> { ["CUG"] = 1.0 });
 
         // Act
         double cai = CodonOptimizer.CalculateCAI("UUUUUU", partial);

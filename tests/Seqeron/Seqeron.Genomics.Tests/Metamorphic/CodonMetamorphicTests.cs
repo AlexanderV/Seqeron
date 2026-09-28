@@ -407,18 +407,26 @@ public class CodonMetamorphicTests
     #region CODON-USAGE-001 INV — usage ratios are invariant to duplication and codon order
 
     [Test]
-    [Description("INV: duplicating the reference sequence scales every codon count by 2; the count/Σcount normalisation cancels the factor, so the per-codon usage ratios are identical.")]
-    public void CreateCodonTable_DuplicatedSequence_PreservesRatios()
+    [Description("INV: duplicating the reference sequence doubles every observed codon count, so the ratio between two observed codons of a family is unchanged (the 0.5 pseudo-count of absent codons does not scale, so the absolute fractions do change).")]
+    public void CreateCodonTable_DuplicatedSequence_PreservesObservedCodonRatios()
     {
         var single = CodonOptimizer.CreateCodonTableFromSequence(UsageReference, "single");
         var doubled = CodonOptimizer.CreateCodonTableFromSequence(UsageReference + UsageReference, "doubled");
 
         doubled.CodonFrequencies.Keys.Should().BeEquivalentTo(single.CodonFrequencies.Keys,
-            because: "duplication adds no new codons, only doubles existing counts");
+            because: "the table always covers all 64 codons");
 
-        foreach (var (codon, freq) in single.CodonFrequencies)
-            doubled.CodonFrequencies[codon].Should().BeApproximately(freq, 1e-12,
-                because: $"the within-family fraction of {codon} is unchanged when all counts double");
+        // Observed codons: CUG/CUA = 2 and GCC/GCA = 2 before and after duplication.
+        foreach (var (a, b) in new[] { ("CUG", "CUA"), ("GCC", "GCA") })
+        {
+            (doubled.CodonFrequencies[a] / doubled.CodonFrequencies[b])
+                .Should().BeApproximately(single.CodonFrequencies[a] / single.CodonFrequencies[b], 1e-12,
+                    because: $"the observed counts of {a} and {b} scale by the same factor");
+        }
+
+        // The pseudo-counted codons carry proportionally less weight in the doubled set.
+        doubled.CodonFrequencies["CUU"].Should().BeLessThan(single.CodonFrequencies["CUU"],
+            because: "the fixed 0.5 pseudo-count of an unobserved codon does not scale with the reference set");
     }
 
     [Test]
@@ -452,7 +460,7 @@ public class CodonMetamorphicTests
         var table = CodonOptimizer.CreateCodonTableFromSequence(UsageReference, "ref");
 
         var sums = FamilySums(table);
-        sums.Should().NotBeEmpty(because: "the reference sequence contains several amino-acid families");
+        sums.Should().NotBeEmpty(because: "the table covers every amino-acid family");
 
         foreach (var (aa, sum) in sums)
             sum.Should().BeApproximately(1.0, 1e-12,
@@ -460,10 +468,13 @@ public class CodonMetamorphicTests
 
         // Spot-check the engineered 2:1 splits to prove the fractions are the real ratios,
         // not an accidental 1.0 from single-codon families.
-        table.CodonFrequencies["CUG"].Should().BeApproximately(2.0 / 3.0, 1e-12, because: "Leucine is CTG×2 vs CTA×1");
-        table.CodonFrequencies["CUA"].Should().BeApproximately(1.0 / 3.0, 1e-12, because: "Leucine is CTG×2 vs CTA×1");
-        table.CodonFrequencies["GCC"].Should().BeApproximately(2.0 / 3.0, 1e-12, because: "Alanine is GCC×2 vs GCA×1");
-        table.CodonFrequencies["GCA"].Should().BeApproximately(1.0 / 3.0, 1e-12, because: "Alanine is GCC×2 vs GCA×1");
+        // Leucine: CTG×2, CTA×1 and four unobserved codons at 0.5 → total 5.
+        table.CodonFrequencies["CUG"].Should().BeApproximately(2.0 / 5.0, 1e-12, because: "Leucine is CTG×2 of a family total of 5");
+        table.CodonFrequencies["CUA"].Should().BeApproximately(1.0 / 5.0, 1e-12, because: "Leucine is CTA×1 of a family total of 5");
+        table.CodonFrequencies["CUU"].Should().BeApproximately(0.5 / 5.0, 1e-12, because: "an unobserved Leu codon carries the 0.5 pseudo-count");
+        // Alanine: GCC×2, GCA×1 and two unobserved codons at 0.5 → total 4.
+        table.CodonFrequencies["GCC"].Should().BeApproximately(2.0 / 4.0, 1e-12, because: "Alanine is GCC×2 of a family total of 4");
+        table.CodonFrequencies["GCA"].Should().BeApproximately(1.0 / 4.0, 1e-12, because: "Alanine is GCA×1 of a family total of 4");
     }
 
     #endregion

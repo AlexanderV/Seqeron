@@ -83,12 +83,10 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     trimmed, normalized RNA input).
 /// — Sequence_Optimization.md §2.4 (INV-02, INV-03), §3.2.
 ///
-/// Determinism note: every test uses a FIXED input (no shared static Rng) and
-/// avoids the `HarmonizeExpression` strategy, which performs weighted RANDOM
-/// codon selection (CodonOptimizer.cs lines 361–376, documented non-deterministic
-/// in Sequence_Optimization.md §5.3). The deterministic strategies
-/// (MaximizeCAI, BalancedOptimization, AvoidRareCodeons) are used throughout, so
-/// every assertion is reproducible.
+/// Determinism note: every test uses a FIXED input (no shared static Rng). All five
+/// strategies are deterministic since review 2026-09 (CODON-OPT-001 F23: the former
+/// weighted-random `HarmonizeExpression` is now the largest-remainder match of the
+/// target codon-usage profile), so every assertion is reproducible.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -133,13 +131,18 @@ public class CodonFuzzTests
     /// <summary>The deterministic target organism table used by every test.</summary>
     private static readonly CodonOptimizer.CodonUsageTable Target = CodonOptimizer.EColiK12;
 
-    /// <summary>The deterministic strategies (HarmonizeExpression is RANDOM → excluded).</summary>
+    /// <summary>
+    /// Every strategy: all five are deterministic since review 2026-09 (CODON-OPT-001 F23 —
+    /// HarmonizeExpression no longer samples codons at random, it matches the target codon-usage
+    /// profile by largest-remainder allocation).
+    /// </summary>
     private static readonly CodonOptimizer.OptimizationStrategy[] DeterministicStrategies =
     {
         CodonOptimizer.OptimizationStrategy.MaximizeCAI,
         CodonOptimizer.OptimizationStrategy.BalancedOptimization,
         CodonOptimizer.OptimizationStrategy.AvoidRareCodeons,
         CodonOptimizer.OptimizationStrategy.MinimizeSecondary,
+        CodonOptimizer.OptimizationStrategy.HarmonizeExpression,
     };
 
     /// <summary>
