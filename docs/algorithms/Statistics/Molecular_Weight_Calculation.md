@@ -79,9 +79,11 @@ Only the average-isotopic variant is implemented; monoisotopic is not in scope (
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| proteinSequence | string | required | Protein, one-letter codes | Case-insensitive; standard 20 AAs recognized |
+| proteinSequence | string | required | Protein, one-letter codes | Case-insensitive; 20 standard AAs + U (Sec) + O (Pyl) recognized (Biopython `protein_weights`) |
 | sequence | string | required | DNA or RNA sequence | Case-insensitive; A/C/G/T (DNA) or A/C/G/U (RNA) |
 | isDna | bool | true | Selects DNA vs RNA mass table | — |
+| doubleStranded | bool | false (4-arg overload) | Add the Watson–Crick complementary strand | Nucleic acids only |
+| circular | bool | false (4-arg overload) | Circular molecule: one extra water lost per strand | Nucleic acids only |
 
 ### 3.2 Output / Return Value
 
@@ -104,7 +106,10 @@ skipped (no mass, no bond) — this deviates from Biopython, which rejects unkno
 2. Upper-case the sequence; for each character, if it is in the relevant mass table, add its
    mass and increment the monomer count.
 3. If no recognized monomers, return 0.
-4. Return `accumulatedMass − (monomerCount − 1) · 18.0153`.
+4. Return `accumulatedMass − (monomerCount − 1) · 18.0153` (linear single strand).
+5. Nucleic-acid overload: `circular` ⇒ bonds per strand = n instead of n − 1; `doubleStranded` ⇒
+   add the complementary strand (canonical `SequenceExtensions.GetComplementBase` /
+   `GetRnaComplementBase`) with the same rule — exactly Biopython `molecular_weight(..., double_stranded, circular)`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -128,7 +133,8 @@ enumeration or pattern lookup is performed).
 **Implementation location:** [SequenceStatistics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs)
 
 - `SequenceStatistics.CalculateMolecularWeight(string)`: average-isotopic protein Mw (Da).
-- `SequenceStatistics.CalculateNucleotideMolecularWeight(string, bool)`: average-isotopic DNA/RNA Mw (Da).
+- `SequenceStatistics.CalculateNucleotideMolecularWeight(string, bool)`: average-isotopic DNA/RNA Mw (Da), single-stranded linear.
+- `SequenceStatistics.CalculateNucleotideMolecularWeight(string, bool isDna, bool doubleStranded, bool circular = false)`: double-stranded and/or circular DNA/RNA Mw (added in review 2026-09).
 
 ### 5.2 Current Behavior
 
@@ -152,8 +158,9 @@ reported mass derives only from cited monomer masses.
 
 **Not implemented:**
 
-- Monoisotopic masses; double-stranded and circular nucleic-acid corrections; **users should
-  rely on:** Biopython `Bio.SeqUtils.molecular_weight` (monoisotopic/double_stranded/circular flags) — no current in-repo alternative.
+- Monoisotopic masses (Biopython `monoisotopic=True`); circular peptides. **Users should rely on:**
+  Biopython `Bio.SeqUtils.molecular_weight(..., monoisotopic=True)` for monoisotopic mass.
+  (Double-stranded and circular nucleic-acid corrections ARE implemented — 4-arg overload.)
 
 ### 5.4 Deviations and Assumptions
 
@@ -175,8 +182,9 @@ reported mass derives only from cited monomer masses.
 
 ### 6.2 Limitations
 
-Average masses only (not monoisotopic); single-stranded only (no double_stranded/circular
-handling); ambiguous/modified residues and non-standard nucleotides are ignored, not modeled.
+Average masses only (not monoisotopic); ambiguous (B/Z/X/J) and modified residues and
+non-standard nucleotides are ignored, not modeled. Selenocysteine (U) and pyrrolysine (O) are
+weighed (Biopython `protein_weights`). Double-stranded/circular nucleic acids: 4-arg overload.
 
 ## 7. Examples and Related Material
 
@@ -187,7 +195,7 @@ handling); ambiguous/modified residues and non-standard nucleotides are ignored,
 ```csharp
 double protein = SequenceStatistics.CalculateMolecularWeight("AGC");          // 249.2874 Da
 double dna     = SequenceStatistics.CalculateNucleotideMolecularWeight("AGC", isDna: true);  // 949.6095 Da
-double rna     = SequenceStatistics.CalculateNucleotideMolecularWeight("AGC", isDna: false); // 997.6177 Da
+double rna     = SequenceStatistics.CalculateNucleotideMolecularWeight("AGC", isDna: false); // 997.6077 Da
 ```
 
 **Numerical walk-through (DNA "AGC"):**

@@ -231,4 +231,59 @@ public class SequenceStatistics_CalculateMolecularWeight_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 — Sec/Pyl residues, double-stranded & circular nucleic acids
+
+    // Selenocysteine (U) and pyrrolysine (O) carry masses in Biopython IUPACData.protein_weights
+    // (U 168.0532, O 255.3134); Expasy ProtParam also accepts U/O. Reference values computed with
+    // Biopython 1.88 Bio.SeqUtils.molecular_weight(seq, "protein").
+    [TestCase("U", 168.0532)]
+    [TestCase("O", 255.3134)]
+    [TestCase("MUA", 370.3271)]
+    [TestCase("OK", 383.4857)]
+    [TestCase("GUO", 462.4026)]
+    public void CalculateMolecularWeight_SelenocysteinePyrrolysine_MatchBiopython(string seq, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateMolecularWeight(seq), Is.EqualTo(expected).Within(Tolerance));
+    }
+
+    // Biopython 1.88 molecular_weight(seq, seq_type, double_stranded=..., circular=...):
+    // each strand Σmass − (n−1)·W; circular removes one more W per strand; ds adds the complement strand.
+    [TestCase("AGC", true, true, false, 1890.2057)]
+    [TestCase("AGC", true, false, true, 931.5942)]
+    [TestCase("AGC", true, true, true, 1854.1751)]
+    [TestCase("AGC", false, true, false, 1972.1755)]
+    [TestCase("AGC", false, true, true, 1936.1449)]
+    [TestCase("ACGT", true, true, false, 2507.6054)]
+    [TestCase("A", true, true, false, 653.4303)]
+    [TestCase("A", true, false, true, 313.2065)]
+    [TestCase("GGGAAAUUUCCC", false, true, false, 7750.5810)]
+    public void CalculateNucleotideMolecularWeight_DoubleStrandedCircular_MatchBiopython(
+        string seq, bool isDna, bool ds, bool circular, double expected)
+    {
+        double mw = SequenceStatistics.CalculateNucleotideMolecularWeight(seq, isDna, ds, circular);
+        Assert.That(mw, Is.EqualTo(expected).Within(Tolerance));
+    }
+
+    // The 4-argument overload with ds=false, circular=false is the 2-argument single-strand result.
+    [Test]
+    public void CalculateNucleotideMolecularWeight_OverloadSingleLinear_EqualsDefault()
+    {
+        Assert.That(SequenceStatistics.CalculateNucleotideMolecularWeight("ACGTACGTTTGGCCAAT", true, false, false),
+            Is.EqualTo(SequenceStatistics.CalculateNucleotideMolecularWeight("ACGTACGTTTGGCCAAT", isDna: true)));
+        Assert.That(SequenceStatistics.CalculateNucleotideMolecularWeight("ACGTACGTTTGGCCAAT", isDna: true),
+            Is.EqualTo(5265.3581).Within(Tolerance)); // Biopython 1.88
+    }
+
+    // Unknown symbols are skipped on both strands; all-unknown/empty input returns 0 even for ds/circular.
+    [Test]
+    public void CalculateNucleotideMolecularWeight_DoubleStranded_UnknownSkippedAndEmptyZero()
+    {
+        Assert.That(SequenceStatistics.CalculateNucleotideMolecularWeight("AG*C", true, true, false),
+            Is.EqualTo(1890.2057).Within(Tolerance));
+        Assert.That(SequenceStatistics.CalculateNucleotideMolecularWeight("***", true, true, true), Is.EqualTo(0));
+        Assert.That(SequenceStatistics.CalculateNucleotideMolecularWeight("", false, true, true), Is.EqualTo(0));
+    }
+
+    #endregion
 }

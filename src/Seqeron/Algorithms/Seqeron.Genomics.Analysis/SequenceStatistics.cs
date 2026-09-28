@@ -176,16 +176,19 @@ public static class SequenceStatistics
     //         Biopython Bio/SeqUtils/__init__.py (molecular_weight).
     private const double AverageWaterMass = 18.0153;
 
-    // Average molecular masses of the 20 standard free amino acids (Da).
-    // Source: Biopython Bio/Data/IUPACData.py `protein_weights` (master), "Mass data taken from PubChem";
-    // consistent with Expasy FindMod average residue masses + AverageWaterMass.
+    // Average molecular masses of the 20 standard free amino acids plus the two
+    // genetically encoded non-standard ones, selenocysteine (U) and pyrrolysine (O) (Da).
+    // Source: Biopython Bio/Data/IUPACData.py `protein_weights` (master, 22 entries incl. O/U),
+    // "Mass data taken from PubChem"; consistent with Expasy FindMod average residue masses +
+    // AverageWaterMass. Expasy ProtParam / Compute pI/Mw likewise accept U and O.
     private static readonly Dictionary<char, double> AminoAcidWeights = new()
     {
         { 'A', 89.0932 },  { 'C', 121.1582 }, { 'D', 133.1027 }, { 'E', 147.1293 },
         { 'F', 165.1891 }, { 'G', 75.0666 },  { 'H', 155.1546 }, { 'I', 131.1729 },
         { 'K', 146.1876 }, { 'L', 131.1729 }, { 'M', 149.2113 }, { 'N', 132.1179 },
-        { 'P', 115.1305 }, { 'Q', 146.1445 }, { 'R', 174.201 },  { 'S', 105.0926 },
-        { 'T', 119.1192 }, { 'V', 117.1463 }, { 'W', 204.2252 }, { 'Y', 181.1885 }
+        { 'O', 255.3134 }, { 'P', 115.1305 }, { 'Q', 146.1445 }, { 'R', 174.201 },
+        { 'S', 105.0926 }, { 'T', 119.1192 }, { 'U', 168.0532 }, { 'V', 117.1463 },
+        { 'W', 204.2252 }, { 'Y', 181.1885 }
     };
 
     // Average molecular masses of DNA mononucleotides (5'-monophosphate, Da).
@@ -209,7 +212,10 @@ public static class SequenceStatistics
     /// Implements the Expasy Compute pI/Mw definition: the sum of the average isotopic
     /// masses of the amino acids plus the average isotopic mass of one water molecule.
     /// Equivalently (Biopython): sum(free amino-acid masses) − (n − 1) × water, removing
-    /// one water per peptide bond. Unknown symbols are skipped (contribute no mass and no bond).
+    /// one water per peptide bond. Recognized alphabet: the 20 standard amino acids plus
+    /// selenocysteine (U) and pyrrolysine (O), as in Biopython <c>protein_weights</c>.
+    /// Unknown/ambiguous symbols (B, Z, X, J, '*', gaps, …) are skipped (contribute no mass and
+    /// no bond) — Biopython instead raises <c>ValueError</c>. Linear chain, average masses only.
     /// </remarks>
     /// <param name="proteinSequence">Protein sequence (case-insensitive, one-letter codes).</param>
     /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
@@ -243,12 +249,36 @@ public static class SequenceStatistics
     /// <remarks>
     /// Uses average monophosphate (5'-phosphate) mononucleotide masses and removes one
     /// water per phosphodiester bond: sum(monophosphate masses) − (n − 1) × water
-    /// (Biopython Bio.SeqUtils.molecular_weight). Unknown symbols are skipped.
+    /// (Biopython Bio.SeqUtils.molecular_weight). Single-stranded, linear molecule; for the
+    /// double-stranded and/or circular molecule use
+    /// <see cref="CalculateNucleotideMolecularWeight(string, bool, bool, bool)"/>.
+    /// Unknown symbols are skipped (Biopython raises <c>ValueError</c> instead).
     /// </remarks>
     /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
     /// <param name="isDna">True for DNA (uses A/C/G/T table); false for RNA (A/C/G/U table).</param>
     /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
     public static double CalculateNucleotideMolecularWeight(string sequence, bool isDna = true)
+        => CalculateNucleotideMolecularWeight(sequence, isDna, doubleStranded: false, circular: false);
+
+    /// <summary>
+    /// Calculates the average-isotopic molecular weight of a DNA or RNA molecule (Da),
+    /// optionally double-stranded and/or circular.
+    /// </summary>
+    /// <remarks>
+    /// Realises Biopython <c>Bio.SeqUtils.molecular_weight(seq, seq_type, double_stranded, circular)</c>:
+    /// each strand weighs sum(monophosphate masses) − (n − 1) × water; a circular strand loses one
+    /// further water (the ring-closing phosphodiester bond); when <paramref name="doubleStranded"/> is
+    /// true the complementary strand (canonical <see cref="Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase"/> /
+    /// <see cref="Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase"/>) is added with the
+    /// same rule. Unknown symbols are skipped on both strands (Biopython raises <c>ValueError</c>).
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence of one strand (case-insensitive).</param>
+    /// <param name="isDna">True for DNA (A/C/G/T table); false for RNA (A/C/G/U table).</param>
+    /// <param name="doubleStranded">True to add the Watson–Crick complementary strand.</param>
+    /// <param name="circular">True for a circular molecule (one extra water lost per strand).</param>
+    /// <returns>Molecular weight in daltons; 0 when no recognized nucleotide is present.</returns>
+    public static double CalculateNucleotideMolecularWeight(
+        string sequence, bool isDna, bool doubleStranded, bool circular = false)
     {
         if (string.IsNullOrEmpty(sequence))
             return 0;
@@ -256,6 +286,7 @@ public static class SequenceStatistics
         Dictionary<char, double> table = isDna ? DnaNucleotideWeights : RnaNucleotideWeights;
 
         double weight = 0;
+        double complementWeight = 0;
         int monomers = 0;
 
         foreach (char ch in sequence.ToUpperInvariant())
@@ -264,14 +295,28 @@ public static class SequenceStatistics
             {
                 weight += ntWeight;
                 monomers++;
+                if (doubleStranded)
+                {
+                    char complement = isDna
+                        ? Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(ch)
+                        : Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase(ch);
+                    complementWeight += table[complement];
+                }
             }
         }
 
         if (monomers == 0)
             return 0;
 
-        // One water is lost per phosphodiester bond; n monomers form (n − 1) bonds.
-        return weight - (monomers - 1) * AverageWaterMass;
+        // One water is lost per phosphodiester bond: n monomers form (n − 1) bonds in a linear
+        // strand and n bonds in a circular one.
+        int bondsPerStrand = circular ? monomers : monomers - 1;
+        double result = weight - bondsPerStrand * AverageWaterMass;
+
+        if (doubleStranded)
+            result += complementWeight - bondsPerStrand * AverageWaterMass;
+
+        return result;
     }
 
     #endregion

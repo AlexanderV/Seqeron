@@ -126,7 +126,7 @@ Derivation (average tables, water = 18.0153), re-computed in this session:
 
 1. **MUST Test:** Protein MW of "AGC" = 249.29 Da. — Evidence: Biopython docstring + Expasy formula.
 2. **MUST Test:** DNA MW of "AGC" = 949.6095 Da. — Evidence: Biopython docstring/tables.
-3. **MUST Test:** RNA MW of "AGC" = 997.6177 Da. — Evidence: Biopython docstring/tables.
+3. **MUST Test:** RNA MW of "AGC" = 997.6077 Da. — Evidence: Biopython docstring/tables.
 4. **MUST Test:** Single amino acid "G" = 75.0666 Da (zero peptide bonds ⇒ free amino-acid mass). — Evidence: Expasy formula + IUPACData.
 5. **MUST Test:** Single nucleotide "A" (DNA) = 331.2218 Da and (RNA) = 347.2212 Da (zero bonds). — Evidence: IUPACData tables.
 6. **MUST Test:** Empty / null input → 0 (degenerate, no monomers). — Evidence: implementation contract; sources define ≥1 monomer only.
@@ -145,6 +145,28 @@ Derivation (average tables, water = 18.0153), re-computed in this session:
 
 ---
 
+## Review 2026-09 addendum (campaign B03)
+
+**Sources re-opened 2026-09-28:** `raw.githubusercontent.com/biopython/biopython/master/Bio/Data/IUPACData.py`
+(curl) — `protein_weights` has **22** entries incl. `O` 255.3134 (pyrrolysine) and `U` 168.0532
+(selenocysteine); local Biopython 1.88 `Bio.SeqUtils.molecular_weight` source (inspect) —
+`double_stranded` adds the complement strand's `Σ − (n−1)·W`, `circular` subtracts one more water
+per strand. WebSearch snippet for Expasy ProtParam (web.expasy.org is egress-blocked): ProtParam accepts
+the 20 standard AAs plus U and O.
+
+| Input | Mode | Biopython 1.88 (Da) |
+|-------|------|---------------------|
+| U / O / MUA / OK / GUO | protein | 168.0532 / 255.3134 / 370.3271 / 383.4857 / 462.4026 |
+| AGC | DNA ds | 1890.2057 |
+| AGC | DNA circular | 931.5942 |
+| AGC | DNA ds+circular | 1854.1751 |
+| AGC | RNA ds / ds+circular | 1972.1755 / 1936.1449 |
+| ACGT | DNA ds | 2507.6054 |
+| A | DNA ds / circular | 653.4303 / 313.2065 |
+| GGGAAAUUUCCC | RNA ds | 7750.5810 |
+
 ## Change History
+
+- **2026-09-28**: Review 2026-09 — U/O masses added; ds/circular overload; RNA AGC typo 997.6177→997.6077 fixed in Recommendations.
 
 - **2026-06-13**: Initial documentation (SEQ-MW-001).

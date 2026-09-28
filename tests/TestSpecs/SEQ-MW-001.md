@@ -95,6 +95,8 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Bond-count invariant (protein) | MW("AG") = m_A + m_G − water | 89.0932+75.0666−18.0153 = 146.1445 Da | INV-3 |
 | C2 | Bond-count invariant (DNA) | MW("AG", DNA) = m_A + m_G − water | 331.2218+347.2212−18.0153 = 660.4277 Da | INV-4 |
+| R1 | Sec/Pyl weighed (review 2026-09) | MW("U"), MW("O"), MW("MUA"), MW("OK"), MW("GUO") | 168.0532 / 255.3134 / 370.3271 / 383.4857 / 462.4026 Da | Biopython 1.88 |
+| R2 | Double-stranded / circular (review 2026-09) | 4-arg overload, 9 cases (e.g. AGC DNA ds = 1890.2057, circular = 931.5942) | see Evidence addendum | Biopython 1.88 `double_stranded`/`circular` |
 
 ---
 

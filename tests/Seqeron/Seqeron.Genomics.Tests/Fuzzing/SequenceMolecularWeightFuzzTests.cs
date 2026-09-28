@@ -63,17 +63,20 @@ public class SequenceMolecularWeightFuzzTests
     /// <summary>Average isotopic mass of water (Da) — the per-bond loss term (§2.2).</summary>
     private const double Water = 18.0153;
 
-    /// <summary>The 20 standard one-letter residues — the ONLY characters with a protein mass entry.</summary>
-    private const string StandardResidues = "ARNDCEQGHILKMFPSTWYV";
+    /// <summary>The 22 one-letter residues with a protein mass entry: the 20 standard amino acids plus
+    /// selenocysteine (U) and pyrrolysine (O) — Biopython IUPACData.protein_weights.</summary>
+    private const string StandardResidues = "ARNDCEQGHILKMFPSTWYVUO";
 
-    /// <summary>Average free-amino-acid masses (Da) — oracle copy of §2.2.</summary>
+    /// <summary>Average free-amino-acid masses (Da) — oracle copy of Biopython IUPACData.protein_weights
+    /// (22 entries incl. O 255.3134 / U 168.0532).</summary>
     private static readonly IReadOnlyDictionary<char, double> Aa = new Dictionary<char, double>
     {
         { 'A', 89.0932 },  { 'C', 121.1582 }, { 'D', 133.1027 }, { 'E', 147.1293 },
         { 'F', 165.1891 }, { 'G', 75.0666 },  { 'H', 155.1546 }, { 'I', 131.1729 },
         { 'K', 146.1876 }, { 'L', 131.1729 }, { 'M', 149.2113 }, { 'N', 132.1179 },
-        { 'P', 115.1305 }, { 'Q', 146.1445 }, { 'R', 174.201 },  { 'S', 105.0926 },
-        { 'T', 119.1192 }, { 'V', 117.1463 }, { 'W', 204.2252 }, { 'Y', 181.1885 }
+        { 'O', 255.3134 }, { 'P', 115.1305 }, { 'Q', 146.1445 }, { 'R', 174.201 },
+        { 'S', 105.0926 }, { 'T', 119.1192 }, { 'U', 168.0532 }, { 'V', 117.1463 },
+        { 'W', 204.2252 }, { 'Y', 181.1885 }
     };
 
     /// <summary>Average DNA 5'-monophosphate masses (Da) — oracle copy of §2.2.</summary>

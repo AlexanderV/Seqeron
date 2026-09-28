@@ -323,7 +323,8 @@ public class SequenceStatisticsAggregateFuzzTests
     [TestCase('Z')]
     [TestCase('B')]
     [TestCase('J')]
-    [TestCase('O')]
+    // 'O' (pyrrolysine) is NOT unknown: it has a mass in Biopython IUPACData.protein_weights
+    // (255.3134 Da) — see AminoAcidComposition_Pyrrolysine_IsWeighted below (review 2026-09, SEQ-MW-001).
     public void AminoAcidComposition_AllUnknownLetter_CountedButUnweighted(char letter)
     {
         string seq = new string(letter, 10);
@@ -335,6 +336,21 @@ public class SequenceStatisticsAggregateFuzzTests
         c.MolecularWeight.Should().Be(0.0, $"'{letter}' is not a standard residue");
         c.ChargedResidueRatio.Should().Be(0.0);
         c.AromaticResidueRatio.Should().Be(0.0);
+        AssertWellFormed(c);
+    }
+
+    /// <summary>
+    /// Pyrrolysine (O) is a genetically encoded residue with an average mass of 255.3134 Da
+    /// (Biopython IUPACData.protein_weights). Biopython 1.88 molecular_weight("O"*10, "protein")
+    /// = 10·255.3134 − 9·18.0153 = 2390.9963 Da.
+    /// </summary>
+    [Test]
+    public void AminoAcidComposition_Pyrrolysine_IsWeighted()
+    {
+        var c = SequenceStatistics.CalculateAminoAcidComposition(new string('O', 10));
+
+        c.Length.Should().Be(10);
+        c.MolecularWeight.Should().BeApproximately(2390.9963, 1e-4);
         AssertWellFormed(c);
     }
 

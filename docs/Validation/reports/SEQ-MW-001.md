@@ -140,3 +140,27 @@ alphabets, DNA & RNA) covered; full unfiltered suite green; changed file builds 
 dotnet build … Seqeron.Genomics.Tests.csproj -c Debug  → 0 Error(s)
 dotnet test  … (full, unfiltered, --no-build)          → Failed: 0, Passed: 6516, Skipped: 1
 ```
+
+---
+
+## Review 2026-09 (campaign B03) — re-validation
+
+- **Stage A: PASS-WITH-NOTES** — formula `Σ free-monomer mass − (n−1)·18.0153` re-confirmed against
+  Biopython master `IUPACData.py` (curl, raw.githubusercontent.com) and Biopython 1.88 `molecular_weight`
+  source; Expasy pages egress-blocked (WebSearch snippet only). Note: the reference table has 22 protein
+  entries (adds U = selenocysteine 168.0532, O = pyrrolysine 255.3134), which the spec previously omitted.
+- **Stage B: FAIL → FIXED.**
+  - *Defect:* U and O were silently skipped. Repro: `CalculateMolecularWeight("MUA")` = 220.2892
+    (M+A−W) vs Biopython `molecular_weight("MUA","protein")` = **370.3271**; `"OK"` 146.1876 vs **383.4857**.
+    Fix: added `O`/`U` to `AminoAcidWeights` (Biopython values). Now matches to 1e-4.
+  - *Gap:* double-stranded / circular nucleic-acid Mw (Biopython flags) not available. Added overload
+    `CalculateNucleotideMolecularWeight(string, bool isDna, bool doubleStranded, bool circular = false)`
+    using canonical `SequenceExtensions.GetComplementBase/GetRnaComplementBase`; 9 Biopython-confirmed cases
+    (e.g. AGC DNA ds 1890.2057, circular 931.5942, ds+circular 1854.1751). The 2-arg method delegates to it.
+  - Evidence Recommendation #3 and spec §7.1 still carried the 997.6177 typo — corrected to 997.6077.
+- **Tests:** `SequenceStatistics_CalculateMolecularWeight_Tests` (+16 cases); fuzz oracle
+  `SequenceMolecularWeightFuzzTests.Aa` extended to 22 residues; `SequenceStatisticsAggregateFuzzTests`
+  'O' removed from the unknown-letter cases and `AminoAcidComposition_Pyrrolysine_IsWeighted` (2390.9963) added.
+- **Remaining scope (not a simplification of the average-mass algorithm):** monoisotopic masses and
+  circular peptides not offered; unknown symbols skipped instead of rejected (documented deviation).
+- **End-state: ✅ CLEAN.**
