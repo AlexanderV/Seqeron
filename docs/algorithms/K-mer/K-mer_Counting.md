@@ -6,7 +6,7 @@
 | Test Unit ID | KMER-COUNT-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -98,7 +98,7 @@ Entry points documented in the original file and confirmed in source:
 
 ### 5.2 Current Behavior
 
-All string-based entry points uppercase the input before counting. The synchronous `CountKmers(...)` methods are stateless, and the cancellation-aware overload checks cancellation periodically while optionally reporting progress. `CountKmersSpan(...)` delegates to the span-based helper in `SequenceExtensions`, and `CountKmersBothStrands(...)` counts forward and reverse-complement sequences independently before summing counts. The implementation materializes string keys for observed windows, so runtime includes per-window length-`k` string allocation and hashing work in addition to the sliding-window scan. The raw-string and span-based paths do not restrict the alphabet, so ambiguous or non-ACGT symbols are preserved as literal k-mer keys.
+All string-based entry points uppercase the input before counting. The synchronous `CountKmers(string, int)` delegates to the cancellation-aware overload with `CancellationToken.None`, so there is a single counting loop in `KmerAnalyzer`. The synchronous `CountKmers(...)` methods are stateless, and the cancellation-aware overload checks cancellation periodically while optionally reporting progress. `CountKmersSpan(...)` delegates to the span-based helper in `SequenceExtensions`, and `CountKmersBothStrands(...)` counts forward and reverse-complement sequences independently before summing counts. The implementation materializes string keys for observed windows, so runtime includes per-window length-`k` string allocation and hashing work in addition to the sliding-window scan. The raw-string and span-based paths do not restrict the alphabet, so ambiguous or non-ACGT symbols are preserved as literal k-mer keys.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -111,7 +111,7 @@ All string-based entry points uppercase the input before counting. The synchrono
 **Intentionally simplified:**
 
 - Both-strand counting sums forward and reverse-complement counts rather than canonicalizing each k-mer to a single representative key; **consequence:** forward and reverse-complement words remain separate dictionary entries unless they are identical strings.
-- Raw-string and span-based counting do not enforce a DNA alphabet; **consequence:** the usual `4^k` combinatorial bound applies only when the input is restricted to DNA symbols.
+- Raw-string and span-based counting do not enforce a DNA alphabet; **consequence:** the usual `4^k` combinatorial bound applies only when the input is restricted to DNA symbols. Jellyfish (Marçais & Kingsford 2011; `include/jellyfish/mer_iterator.hpp`) resets the window on any non-ACGT base, i.e. k-mers containing `N` are not counted; this library keeps them as literal keys.
 
 **Not implemented:**
 

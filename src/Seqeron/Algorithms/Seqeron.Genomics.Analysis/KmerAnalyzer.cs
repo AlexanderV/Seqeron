@@ -6,34 +6,22 @@ namespace Seqeron.Genomics.Analysis;
 public static class KmerAnalyzer
 {
     /// <summary>
-    /// Counts all k-mers in a sequence.
+    /// Counts all overlapping k-mers in a sequence (sliding window of length k, step 1).
     /// </summary>
-    /// <param name="sequence">The sequence to analyze.</param>
-    /// <param name="k">The k-mer length.</param>
-    /// <returns>Dictionary mapping k-mers to their counts.</returns>
+    /// <remarks>
+    /// Count(w) = number of start positions i in [0, L − k] with sequence[i..i+k−1] = w, so the
+    /// counts sum to L − k + 1 (Wikipedia — K-mer; Rosalind KMER k-mer composition). Input is
+    /// upper-cased (case-insensitive); every symbol, including IUPAC ambiguity codes such as N,
+    /// is counted literally (no alphabet filtering — unlike Jellyfish, which drops windows
+    /// containing a non-ACGT base). Only observed k-mers are keys (zero counts are absent).
+    /// Single canonical loop: delegates to the cancellation-aware overload.
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze. Null/empty returns an empty dictionary.</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <returns>Dictionary mapping k-mers to their counts; empty when k exceeds the length.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static Dictionary<string, int> CountKmers(string sequence, int k)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return new Dictionary<string, int>();
-
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
-
-        if (k > sequence.Length)
-            return new Dictionary<string, int>();
-
-        var seq = sequence.ToUpperInvariant();
-        var counts = new Dictionary<string, int>();
-
-        for (int i = 0; i <= seq.Length - k; i++)
-        {
-            string kmer = seq.Substring(i, k);
-            if (!counts.TryAdd(kmer, 1))
-                counts[kmer]++;
-        }
-
-        return counts;
-    }
+        => CountKmers(sequence, k, CancellationToken.None);
 
     /// <summary>
     /// Counts all k-mers in a sequence with cancellation support.

@@ -111,7 +111,14 @@ All tests use exact values derived from theory (Wikipedia/Rosalind), not from im
 | CountKmersSpan_LowercaseInput_NormalizesToUppercase | ✅ Covered | M7/M10 regression |
 | CountKmersSpan_MixedCase_MatchesCountKmers | ✅ Covered | M10 case regression |
 | CountKmers_CancellationOverload_NormalizesCase | ✅ Covered | M15 |
+| CountKmers_RosalindKmerSample_FullCompositionArray_AllOverloads | ✅ Covered | M14/M10/M7: full 256-value Rosalind array locked for string, cancellation, async, DnaSequence, Span and lower-case input (review 2026-09) |
 
 ## Deviations and Assumptions
 
-None — all behavior verified against external evidence sources.
+- Non-ACGT symbols (e.g. `N`) are counted literally (generic string k-mer definition, Wikipedia). Jellyfish (`mer_iterator.hpp`) instead drops every window containing a non-ACGT base; callers needing that convention must filter.
+- `CountKmers(string,…)` returns empty for null/empty input *before* validating `k`; `CountKmersSpan` validates `k` first (empty span with `k ≤ 0` throws). Documented overload asymmetry.
+- `CountKmers(DnaSequence null, k)` throws `NullReferenceException` (no explicit null guard).
+
+## Review 2026-09 (batch B06)
+
+Stage A PASS-with-notes, Stage B PASS-with-notes. Rosalind KMER sample output (256 values) reproduced exactly by Python `collections.Counter` and Biopython `Seq.count_overlap` (sum 412, 209 non-zero, max CAGT = 8) and by every C# overload. The synchronous `CountKmers(string,int)` now delegates to the cancellation-aware overload (single counting loop).
