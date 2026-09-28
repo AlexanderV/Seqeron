@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Text;
 
 namespace Seqeron.Genomics.Alignment;
@@ -21,7 +20,12 @@ public static class SequenceAligner
         GapExtend: -1);
 
     /// <summary>
-    /// BLAST default DNA scoring: +2 match, -3 mismatch.
+    /// NCBI BLAST+ <c>blastn</c>-task default DNA scoring: reward +2, penalty -3, gap existence 5,
+    /// gap extension 2 (BLAST+ User Manual, blastn application options). BLAST charges a gap of
+    /// length k as existence + k·extension, which is exactly the <see cref="ScoringMatrix"/> convention
+    /// used by <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>
+    /// (GapOpen + k·GapExtend). The linear-gap aligners (<c>GlobalAlign</c>, <c>LocalAlign</c>,
+    /// <c>SemiGlobalAlign</c>) use only <see cref="ScoringMatrix.GapExtend"/> (-2 per gap position).
     /// </summary>
     public static readonly ScoringMatrix BlastDna = new(
         Match: 2,
@@ -46,6 +50,12 @@ public static class SequenceAligner
     /// Performs global alignment using the Needleman-Wunsch algorithm.
     /// Aligns entire sequences end-to-end.
     /// </summary>
+    /// <remarks>
+    /// Linear gap model (Needleman &amp; Wunsch 1970): every gap position scores
+    /// <see cref="ScoringMatrix.GapExtend"/>; <see cref="ScoringMatrix.GapOpen"/> is ignored.
+    /// For affine gap costs (GapOpen + k·GapExtend) use
+    /// <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>.
+    /// </remarks>
     /// <param name="sequence1">First DNA sequence.</param>
     /// <param name="sequence2">Second DNA sequence.</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
@@ -88,6 +98,9 @@ public static class SequenceAligner
     /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
     /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
     /// <returns>Alignment result with aligned sequences and score.</returns>
+    /// <remarks>Same linear-gap Needleman-Wunsch dynamic program as
+    /// <see cref="GlobalAlign(string, string, ScoringMatrix?)"/> (shared core), with periodic
+    /// cancellation checks and progress reports.</remarks>
     public static AlignmentResult GlobalAlign(
         string sequence1,
         string sequence2,
@@ -98,102 +111,12 @@ public static class SequenceAligner
         if (string.IsNullOrEmpty(sequence1) || string.IsNullOrEmpty(sequence2))
             return AlignmentResult.Empty;
 
-        var seq1 = sequence1.ToUpperInvariant();
-        var seq2 = sequence2.ToUpperInvariant();
-        var score = scoring ?? SimpleDna;
-
-        int m = seq1.Length;
-        int n = seq2.Length;
-
-        // Initialize scoring matrix
-        var matrix = new int[m + 1, n + 1];
-
-        // Initialize first row and column with linear gap penalty d = GapExtend.
-        // Standard Needleman-Wunsch: F(i,0) = d*i, F(0,j) = d*j
-        // Source: https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
-        for (int i = 0; i <= m; i++)
-            matrix[i, 0] = i * score.GapExtend;
-        for (int j = 0; j <= n; j++)
-            matrix[0, j] = j * score.GapExtend;
-
-        // Fill the matrix with cancellation checks
-        for (int i = 1; i <= m; i++)
-        {
-            if (i % 100 == 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                progress?.Report((double)i / m * 0.5); // First half is matrix fill
-            }
-
-            for (int j = 1; j <= n; j++)
-            {
-                int matchScore = seq1[i - 1] == seq2[j - 1] ? score.Match : score.Mismatch;
-
-                int diag = matrix[i - 1, j - 1] + matchScore;
-                int up = matrix[i - 1, j] + score.GapExtend;
-                int left = matrix[i, j - 1] + score.GapExtend;
-
-                matrix[i, j] = Math.Max(diag, Math.Max(up, left));
-            }
-        }
-
-        // Traceback
-        cancellationToken.ThrowIfCancellationRequested();
-        progress?.Report(0.75);
-
-        var chars1 = new List<char>();
-        var chars2 = new List<char>();
-        int ii = m, jj = n;
-
-        while (ii > 0 || jj > 0)
-        {
-            if ((ii + jj) % 200 == 0)
-                cancellationToken.ThrowIfCancellationRequested();
-
-            if (ii > 0 && jj > 0)
-            {
-                int matchScore = seq1[ii - 1] == seq2[jj - 1] ? score.Match : score.Mismatch;
-                if (matrix[ii, jj] == matrix[ii - 1, jj - 1] + matchScore)
-                {
-                    chars1.Add(seq1[ii - 1]);
-                    chars2.Add(seq2[jj - 1]);
-                    ii--; jj--;
-                    continue;
-                }
-            }
-
-            if (ii > 0 && (jj == 0 || matrix[ii, jj] == matrix[ii - 1, jj] + score.GapExtend))
-            {
-                chars1.Add(seq1[ii - 1]);
-                chars2.Add('-');
-                ii--;
-            }
-            else if (jj > 0)
-            {
-                chars1.Add('-');
-                chars2.Add(seq2[jj - 1]);
-                jj--;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        chars1.Reverse();
-        chars2.Reverse();
-
-        progress?.Report(1.0);
-
-        return new AlignmentResult(
-            AlignedSequence1: new string(chars1.ToArray()),
-            AlignedSequence2: new string(chars2.ToArray()),
-            Score: matrix[m, n],
-            AlignmentType: AlignmentType.Global,
-            StartPosition1: 0,
-            StartPosition2: 0,
-            EndPosition1: seq1.Length - 1,
-            EndPosition2: seq2.Length - 1);
+        return GlobalAlignCore(
+            sequence1.ToUpperInvariant(),
+            sequence2.ToUpperInvariant(),
+            scoring ?? SimpleDna,
+            cancellationToken,
+            progress);
     }
 
     /// <summary>
@@ -209,62 +132,257 @@ public static class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
 
-        return GlobalAlign(sequence1.Sequence, sequence2.Sequence, scoring, cancellationToken, progress);
+        return GlobalAlignCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, cancellationToken, progress);
     }
 
-    private static AlignmentResult GlobalAlignCore(string seq1, string seq2, ScoringMatrix scoring)
+    /// <summary>
+    /// Linear-gap Needleman-Wunsch core shared by every <c>GlobalAlign</c> overload.
+    /// Gap penalty d = <see cref="ScoringMatrix.GapExtend"/> per gap position;
+    /// <see cref="ScoringMatrix.GapOpen"/> is not used (see <see cref="GlobalAlignAffine(string, string, ScoringMatrix?)"/>).
+    /// </summary>
+    private static AlignmentResult GlobalAlignCore(
+        string seq1,
+        string seq2,
+        ScoringMatrix scoring,
+        CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null)
     {
         int m = seq1.Length;
         int n = seq2.Length;
 
-        // Use pooled flat array instead of 2D array to reduce GC pressure.
-        // For anchor-based MSA, this method is called 100+ times per alignment
-        // with small gap segments (typically <100bp), so pooling is effective.
-        int rows = m + 1;
-        int cols = n + 1;
-        int totalCells = rows * cols;
-        var pool = ArrayPool<int>.Shared;
-        int[] buf = pool.Rent(totalCells);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        try
+        var score = new int[m + 1, n + 1];
+
+        // Initialize first row and column with linear gap penalty d = GapExtend.
+        // Standard Needleman-Wunsch: F(i,0) = d*i, F(0,j) = d*j
+        // Source: https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
+        for (int i = 0; i <= m; i++)
+            score[i, 0] = i * scoring.GapExtend;
+        for (int j = 0; j <= n; j++)
+            score[0, j] = j * scoring.GapExtend;
+
+        // F(i,j) = max(F(i-1,j-1)+S(a_i,b_j), F(i-1,j)+d, F(i,j-1)+d)
+        for (int i = 1; i <= m; i++)
         {
-            // Initialize first row and column with linear gap penalty d = GapExtend.
-            // Standard Needleman-Wunsch: F(i,0) = d*i, F(0,j) = d*j
-            // Source: https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
-            for (int i = 0; i <= m; i++)
-                buf[i * cols] = i * scoring.GapExtend;
-            for (int j = 0; j <= n; j++)
-                buf[j] = j * scoring.GapExtend;
-
-            // Fill the matrix
-            for (int i = 1; i <= m; i++)
+            if (i % 100 == 0)
             {
-                int rowOff = i * cols;
-                int prevRowOff = (i - 1) * cols;
-                char c1 = seq1[i - 1];
-
-                for (int j = 1; j <= n; j++)
-                {
-                    int matchScore = c1 == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
-
-                    int diag = buf[prevRowOff + (j - 1)] + matchScore;
-                    int up = buf[prevRowOff + j] + scoring.GapExtend;
-                    int left = buf[rowOff + (j - 1)] + scoring.GapExtend;
-
-                    buf[rowOff + j] = Math.Max(diag, Math.Max(up, left));
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report((double)i / m * 0.5); // First half is matrix fill
             }
 
-            // Copy to 2D for Traceback (Traceback uses int[,])
-            var score = new int[rows, cols];
-            Buffer.BlockCopy(buf, 0, score, 0, totalCells * sizeof(int));
+            char c1 = seq1[i - 1];
+            for (int j = 1; j <= n; j++)
+            {
+                int matchScore = c1 == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
 
-            return Traceback(seq1, seq2, score, m, n, scoring, AlignmentType.Global);
+                int diag = score[i - 1, j - 1] + matchScore;
+                int up = score[i - 1, j] + scoring.GapExtend;
+                int left = score[i, j - 1] + scoring.GapExtend;
+
+                score[i, j] = Math.Max(diag, Math.Max(up, left));
+            }
         }
-        finally
+
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report(0.75);
+
+        var result = Traceback(seq1, seq2, score, m, n, scoring, AlignmentType.Global);
+
+        progress?.Report(1.0);
+        return result;
+    }
+
+    #endregion
+
+    #region Global Alignment with affine gaps (Gotoh)
+
+    // Sentinel for "state unreachable" (-infinity). Kept far from int.MinValue so that adding a
+    // bounded number of penalties can never overflow (the classic "±inf header overflows on the
+    // first iteration" implementation error).
+    private const int AffineNegInf = int.MinValue / 4;
+
+    private const byte StateMatch = 0; // M: a_i aligned to b_j
+    private const byte StateGapInSeq2 = 1; // X: a_i aligned to '-' (vertical move)
+    private const byte StateGapInSeq1 = 2; // Y: '-' aligned to b_j (horizontal move)
+
+    /// <summary>
+    /// Performs optimal global alignment with <b>affine gap costs</b> (Gotoh 1982, three-state
+    /// dynamic program with the corrected initialization of Flouri et al. 2015).
+    /// </summary>
+    /// <param name="sequence1">First DNA sequence.</param>
+    /// <param name="sequence2">Second DNA sequence.</param>
+    /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
+    /// <remarks>
+    /// <para>
+    /// Gap-cost convention (Gotoh 1982 w(k) = v + u·k; NCBI BLAST "existence + extension"):
+    /// a gap of length k scores <c>GapOpen + k·GapExtend</c>, i.e. <see cref="ScoringMatrix.GapOpen"/>
+    /// does <b>not</b> include the first extension. Equivalent settings in other tools:
+    /// Biopython <c>PairwiseAligner(open_gap_score = GapOpen + GapExtend, extend_gap_score = GapExtend)</c>;
+    /// parasail <c>nw(open = -(GapOpen + GapExtend), extend = -GapExtend)</c>; BLAST+
+    /// <c>-gapopen -GapOpen -gapextend -GapExtend</c>. With <c>GapOpen = 0</c> the result equals the
+    /// linear-gap <see cref="GlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>.
+    /// </para>
+    /// <para>
+    /// Recurrences (M = ends in a substitution, X = ends in a gap in sequence 2, Y = ends in a gap in
+    /// sequence 1; o = GapOpen, e = GapExtend):
+    /// M(i,j) = max(M,X,Y)(i-1,j-1) + s(a_i,b_j);
+    /// X(i,j) = max(M(i-1,j) + o + e, X(i-1,j) + e, Y(i-1,j) + o + e);
+    /// Y(i,j) = max(M(i,j-1) + o + e, Y(i,j-1) + e, X(i,j-1) + o + e).
+    /// Initialization: M(0,0) = 0; X(i,0) = o + i·e, Y(0,j) = o + j·e; all other border cells −∞
+    /// — a leading/trailing end gap is charged exactly one opening (Flouri et al. 2015 correction of
+    /// Gotoh's border initialization). The traceback follows the state that produced each value
+    /// (switching matrices explicitly), so it always reproduces an alignment with the optimal score.
+    /// Ties are broken M &gt; X &gt; Y.
+    /// </para>
+    /// <para>Sources: Gotoh O (1982) J Mol Biol 162:705-708; Flouri T, Kobert K, Rognes T, Stamatakis A
+    /// (2015) bioRxiv 10.1101/031500; cross-checked against Biopython 1.88 PairwiseAligner and
+    /// parasail 1.3.4 nw.</para>
+    /// </remarks>
+    public static AlignmentResult GlobalAlignAffine(
+        DnaSequence sequence1,
+        DnaSequence sequence2,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+
+        return GlobalAlignAffineCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna);
+    }
+
+    /// <summary>
+    /// Affine-gap global alignment (Gotoh) on raw sequence strings (uppercased internally).
+    /// See <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> for the model.
+    /// </summary>
+    public static AlignmentResult GlobalAlignAffine(
+        string sequence1,
+        string sequence2,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+
+        return GlobalAlignAffineCore(
+            sequence1.ToUpperInvariant(),
+            sequence2.ToUpperInvariant(),
+            scoring ?? SimpleDna);
+    }
+
+    private static AlignmentResult GlobalAlignAffineCore(string seq1, string seq2, ScoringMatrix scoring)
+    {
+        int m = seq1.Length;
+        int n = seq2.Length;
+        if (m == 0 && n == 0)
+            return AlignmentResult.Empty;
+
+        int o = scoring.GapOpen;
+        int e = scoring.GapExtend;
+        int oe = o + e;
+
+        var mm = new int[m + 1, n + 1];
+        var xx = new int[m + 1, n + 1];
+        var yy = new int[m + 1, n + 1];
+
+        mm[0, 0] = 0;
+        xx[0, 0] = AffineNegInf;
+        yy[0, 0] = AffineNegInf;
+        for (int i = 1; i <= m; i++)
         {
-            pool.Return(buf);
+            mm[i, 0] = AffineNegInf;
+            xx[i, 0] = o + i * e;
+            yy[i, 0] = AffineNegInf;
         }
+        for (int j = 1; j <= n; j++)
+        {
+            mm[0, j] = AffineNegInf;
+            xx[0, j] = AffineNegInf;
+            yy[0, j] = o + j * e;
+        }
+
+        for (int i = 1; i <= m; i++)
+        {
+            char c1 = seq1[i - 1];
+            for (int j = 1; j <= n; j++)
+            {
+                int s = c1 == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
+
+                mm[i, j] = Max3(mm[i - 1, j - 1], xx[i - 1, j - 1], yy[i - 1, j - 1]) + s;
+                xx[i, j] = Max3(mm[i - 1, j] + oe, xx[i - 1, j] + e, yy[i - 1, j] + oe);
+                yy[i, j] = Max3(mm[i, j - 1] + oe, yy[i, j - 1] + e, xx[i, j - 1] + oe);
+
+                // Clamp unreachable states so repeated penalties never drift towards overflow.
+                if (xx[i, j] < AffineNegInf) xx[i, j] = AffineNegInf;
+                if (yy[i, j] < AffineNegInf) yy[i, j] = AffineNegInf;
+                if (mm[i, j] < AffineNegInf) mm[i, j] = AffineNegInf;
+            }
+        }
+
+        // Optimal end state (ties: M > X > Y).
+        int best = Max3(mm[m, n], xx[m, n], yy[m, n]);
+        byte state = PickState(best, mm[m, n], StateMatch, xx[m, n], StateGapInSeq2, StateGapInSeq1);
+
+        var chars1 = new List<char>(m + n);
+        var chars2 = new List<char>(m + n);
+        int ci = m, cj = n;
+        while (ci > 0 || cj > 0)
+        {
+            switch (state)
+            {
+                case StateMatch:
+                {
+                    int prev = mm[ci, cj] - (seq1[ci - 1] == seq2[cj - 1] ? scoring.Match : scoring.Mismatch);
+                    chars1.Add(seq1[ci - 1]);
+                    chars2.Add(seq2[cj - 1]);
+                    ci--; cj--;
+                    state = PickState(prev, mm[ci, cj], StateMatch, xx[ci, cj], StateGapInSeq2, StateGapInSeq1);
+                    break;
+                }
+                case StateGapInSeq2:
+                {
+                    int cur = xx[ci, cj];
+                    chars1.Add(seq1[ci - 1]);
+                    chars2.Add('-');
+                    ci--;
+                    if (ci == 0 && cj == 0) break; // leading gap reached the origin
+                    state = PickState(cur, mm[ci, cj] + oe, StateMatch, xx[ci, cj] + e, StateGapInSeq2, StateGapInSeq1);
+                    break;
+                }
+                default: // StateGapInSeq1
+                {
+                    int cur = yy[ci, cj];
+                    chars1.Add('-');
+                    chars2.Add(seq2[cj - 1]);
+                    cj--;
+                    if (ci == 0 && cj == 0) break;
+                    state = PickState(cur, mm[ci, cj] + oe, StateMatch, yy[ci, cj] + e, StateGapInSeq1, StateGapInSeq2);
+                    break;
+                }
+            }
+        }
+
+        chars1.Reverse();
+        chars2.Reverse();
+
+        return new AlignmentResult(
+            AlignedSequence1: new string(chars1.ToArray()),
+            AlignedSequence2: new string(chars2.ToArray()),
+            Score: best,
+            AlignmentType: AlignmentType.Global,
+            StartPosition1: 0,
+            StartPosition2: 0,
+            EndPosition1: m - 1,
+            EndPosition2: n - 1);
+    }
+
+    private static int Max3(int a, int b, int c) => Math.Max(a, Math.Max(b, c));
+
+    /// <summary>Returns the first predecessor state whose candidate value produced <paramref name="target"/>
+    /// (first, then second, otherwise the remaining state) — the fixed traceback tie order.</summary>
+    private static byte PickState(int target, int firstValue, byte firstState, int secondValue, byte secondState, byte otherState)
+    {
+        if (firstValue == target) return firstState;
+        if (secondValue == target) return secondState;
+        return otherState;
     }
 
     #endregion

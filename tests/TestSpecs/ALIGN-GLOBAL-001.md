@@ -41,7 +41,9 @@
 |--------|-------|------|-------|
 | `GlobalAlign(seq1, seq2, scoring)` | SequenceAligner | **Canonical** | Needleman–Wunsch with linear gap penalty |
 | `GlobalAlign(string, string, scoring)` | SequenceAligner | Delegate | Wrapper: normalizes to uppercase, returns `AlignmentResult.Empty` for empty input |
-| `GlobalAlign(string, string, scoring, CancellationToken, IProgress?)` | SequenceAligner | Delegate | Cancellation wrapper (tested as smoke elsewhere) |
+| `GlobalAlign(string, string, scoring, CancellationToken, IProgress?)` | SequenceAligner | Delegate | Cancellation wrapper; shares the same linear NW core (2026-09 review) |
+| `GlobalAlign(DnaSequence, DnaSequence, scoring, CancellationToken, IProgress?)` | SequenceAligner | Delegate | Same core as the typed overload (empty typed input → all-gap NW border alignment, like the non-cancellation typed overload) |
+| `GlobalAlignAffine(seq1, seq2, scoring)` / `(string, string, scoring)` | SequenceAligner | **Canonical (affine)** | Gotoh (1982) three-state DP, Flouri et al. (2015) border initialization; gap of length k = GapOpen + k·GapExtend |
 
 ---
 
@@ -72,6 +74,20 @@
 | M9 | String overload matches DnaSequence overload | same as M1 | Same score and alignment | API contract |
 | M10 | Single deletion: statistics exact values | seq1=ACGT, seq2=AGT, match=+1, gap=−1 | Matches=3, Mismatches=0, Gaps=1, Identity=75.0%, GapPercent=25.0% | Deterministic traceback: ACGT/A-GT |
 | M11 | Score symmetry: reversed inputs produce same score | seq1=GCATGCG, seq2=GATTACA | score(A,B) = score(B,A) | NW recurrence symmetry (S is symmetric, d is uniform) |
+
+### 4.1b Affine-gap (Gotoh) Tests — added 2026-09 review
+
+Reference values: Biopython 1.88 `PairwiseAligner(mode='global', open_gap_score=GapOpen+GapExtend, extend_gap_score=GapExtend)` and parasail 1.3.4 `nw_trace(open=-(GapOpen+GapExtend), extend=-GapExtend)` — identical on 2008 random + edge cases.
+
+| ID | Test Case | Input | Expected | Evidence |
+|----|-----------|-------|----------|----------|
+| G1 | BlastDna preset = NCBI blastn defaults | — | (2, −3, −5, −2) | BLAST+ User Manual (NBK279684), blastn options |
+| G2 | One long internal gap charged one opening | ACGTTTTACGT / ACGTACGT, BlastDna | 5 | Biopython = parasail |
+| G3 | Reference scores | TTTTTTTTTTACGT/ACGT BlastDna → −17; GCATGCG/GATTACA BlastDna → −6; ACGTAAAAAAAAACGT/ACGTCGT (5,−4,−10,−1) → 16; AC/GC (1,−10,−1,−1) → −3 | as listed | Biopython = parasail |
+| G4 | Flouri initialization trap | A / CAC, (1,−10,−5,−1) | −11, `-A-`/`CAC` (Gotoh's original border gives −9) | Flouri et al. 2015; Biopython = parasail |
+| G5 | GapOpen = 0 reduces to linear NW | Wikipedia example | 0 | w(k) = k·e |
+| G6 | Empty side | "" / ACGT, BlastDna | −13 (o + n·e); both empty → Empty | Gotoh border |
+| G7 | Overload agreement | DnaSequence vs lower-case string | equal | API contract |
 
 ### 4.2 API Contract Tests
 
@@ -109,7 +125,7 @@
 **None.** All tests and implementation are grounded in the authoritative sources listed in §1.1.
 
 - The implementation uses the standard Needleman–Wunsch linear gap penalty model exactly as described in the Wikipedia pseudocode.
-- `ScoringMatrix.GapExtend` serves as the linear gap penalty `d`. `ScoringMatrix.GapOpen` is not used by `GlobalAlign` (it exists in the record for other alignment types).
+- `ScoringMatrix.GapExtend` serves as the linear gap penalty `d`. `ScoringMatrix.GapOpen` is not used by `GlobalAlign`; the affine model (gap of length k = GapOpen + k·GapExtend, Gotoh 1982 / BLAST convention — GapOpen excludes the first extension) is `GlobalAlignAffine`.
 - When multiple optimal alignments exist, the implementation returns one deterministically; this is explicitly supported by Wikipedia ("more than one choice may have the same value, leading to alternative optimal alignments").
 - Empty-input handling and null-argument validation are API contract behaviors, not algorithm-level specifications.
 

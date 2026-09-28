@@ -376,6 +376,128 @@ public class SequenceAligner_GlobalAlign_Tests
 
     #endregion
 
+    #region Affine gaps (Gotoh 1982, Flouri et al. 2015 initialization)
+
+    // Convention: a gap of length k scores GapOpen + k·GapExtend (Gotoh w(k) = v + u·k; BLAST
+    // existence + extension). Reference values computed with Biopython 1.88
+    // PairwiseAligner(mode="global", open_gap_score = GapOpen + GapExtend, extend_gap_score = GapExtend)
+    // and parasail 1.3.4 nw_trace(open = -(GapOpen + GapExtend), extend = -GapExtend); both agree.
+
+    /// <summary>
+    /// NCBI BLAST+ blastn-task defaults: reward 2, penalty −3, gap existence 5, extension 2.
+    /// Source: BLAST Command Line Applications User Manual (NBK279684), blastn options table.
+    /// </summary>
+    [Test]
+    public void BlastDnaPreset_MatchesNcbiBlastnDefaults()
+    {
+        Assert.That(SequenceAligner.BlastDna, Is.EqualTo(new ScoringMatrix(2, -3, -5, -2)));
+    }
+
+    /// <summary>
+    /// One 3-residue gap charged once as an opening: 8 matches·2 + (−5 + 3·−2) = 5.
+    /// Biopython = parasail = 5.
+    /// </summary>
+    [Test]
+    public void Affine_SingleLongGap_ChargedOneOpening_BlastDna()
+    {
+        var r = SequenceAligner.GlobalAlignAffine("ACGTTTTACGT", "ACGTACGT", SequenceAligner.BlastDna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(5));
+            Assert.That(RecalculateAffineScore(r.AlignedSequence1, r.AlignedSequence2, SequenceAligner.BlastDna), Is.EqualTo(5));
+            Assert.That(RemoveGaps(r.AlignedSequence1), Is.EqualTo("ACGTTTTACGT"));
+            Assert.That(RemoveGaps(r.AlignedSequence2), Is.EqualTo("ACGTACGT"));
+            Assert.That(r.AlignmentType, Is.EqualTo(AlignmentType.Global));
+        });
+    }
+
+    /// <summary>
+    /// Leading end gap of length 10 is one gap: 4·2 + (−5 + 10·−2) = −17 (Biopython = parasail = −17).
+    /// Also checks that GCATGCG/GATTACA under BlastDna scores −6 and the 5/−4/−10/−1 case scores 16.
+    /// </summary>
+    [TestCase("TTTTTTTTTTACGT", "ACGT", 2, -3, -5, -2, -17)]
+    [TestCase("GCATGCG", "GATTACA", 2, -3, -5, -2, -6)]
+    [TestCase("ACGTAAAAAAAAACGT", "ACGTCGT", 5, -4, -10, -1, 16)]
+    [TestCase("AC", "GC", 1, -10, -1, -1, -3)] // adjacent deletion + insertion beats a −10 mismatch
+    public void Affine_ReferenceScores_MatchBiopythonAndParasail(
+        string s1, string s2, int match, int mismatch, int open, int extend, int expected)
+    {
+        var scoring = new ScoringMatrix(match, mismatch, open, extend);
+        var r = SequenceAligner.GlobalAlignAffine(s1, s2, scoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(expected));
+            Assert.That(RecalculateAffineScore(r.AlignedSequence1, r.AlignedSequence2, scoring), Is.EqualTo(expected));
+            Assert.That(r.AlignedSequence1.Length, Is.EqualTo(r.AlignedSequence2.Length));
+            Assert.That(RemoveGaps(r.AlignedSequence1), Is.EqualTo(s1));
+            Assert.That(RemoveGaps(r.AlignedSequence2), Is.EqualTo(s2));
+        });
+    }
+
+    /// <summary>
+    /// Flouri et al. (2015) initialization trap: with Gotoh's original border (P(0,j) = D(0,j)) the
+    /// two separate end gaps of A vs CAC (−A− / CAC) are charged a single opening, giving −9.
+    /// The correct optimum charges two openings: +1 + 2·(−5 − 1) = −11 (Biopython = parasail = −11).
+    /// </summary>
+    [Test]
+    public void Affine_TwoSeparateEndGaps_EachChargedAnOpening_FlouriInitialization()
+    {
+        var scoring = new ScoringMatrix(1, -10, -5, -1);
+        var r = SequenceAligner.GlobalAlignAffine("A", "CAC", scoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(-11));
+            Assert.That(r.AlignedSequence1, Is.EqualTo("-A-"));
+            Assert.That(r.AlignedSequence2, Is.EqualTo("CAC"));
+        });
+    }
+
+    /// <summary>With GapOpen = 0 the affine model reduces to the linear NW model (Wikipedia example → 0).</summary>
+    [Test]
+    public void Affine_ZeroGapOpen_EqualsLinearNeedlemanWunsch()
+    {
+        var affine = SequenceAligner.GlobalAlignAffine("GCATGCG", "GATTACA", WikipediaScoring);
+        var linear = SequenceAligner.GlobalAlign("GCATGCG", "GATTACA", WikipediaScoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(affine.Score, Is.EqualTo(0));
+            Assert.That(linear.Score, Is.EqualTo(0));
+        });
+    }
+
+    /// <summary>An empty side is one end gap: −5 + 4·−2 = −13 (F(0,n) = o + n·e); both empty → Empty.</summary>
+    [Test]
+    public void Affine_EmptyInputs_BorderValues()
+    {
+        var oneEmpty = SequenceAligner.GlobalAlignAffine("", "ACGT", SequenceAligner.BlastDna);
+        var bothEmpty = SequenceAligner.GlobalAlignAffine("", "", SequenceAligner.BlastDna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(oneEmpty.Score, Is.EqualTo(-13));
+            Assert.That(oneEmpty.AlignedSequence1, Is.EqualTo("----"));
+            Assert.That(oneEmpty.AlignedSequence2, Is.EqualTo("ACGT"));
+            Assert.That(bothEmpty, Is.EqualTo(AlignmentResult.Empty));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlignAffine((DnaSequence)null!, new DnaSequence("A")));
+        });
+    }
+
+    /// <summary>DnaSequence and (lower-case) string overloads agree.</summary>
+    [Test]
+    public void Affine_DnaSequenceAndStringOverloads_Agree()
+    {
+        var a = SequenceAligner.GlobalAlignAffine(new DnaSequence("ACGTTTTACGT"), new DnaSequence("ACGTACGT"), SequenceAligner.BlastDna);
+        var b = SequenceAligner.GlobalAlignAffine("acgttttacgt", "acgtacgt", SequenceAligner.BlastDna);
+
+        Assert.That(b, Is.EqualTo(a));
+    }
+
+    #endregion
+
     #region Helpers
 
     private static string RemoveGaps(string alignedSequence)
@@ -406,6 +528,29 @@ public class SequenceAligner_GlobalAlign_Tests
                 score += scoring.Match;
             else
                 score += scoring.Mismatch;
+        }
+
+        return score;
+    }
+
+    /// <summary>Affine re-score: each maximal gap run in one sequence scores GapOpen + length·GapExtend.</summary>
+    private static int RecalculateAffineScore(string aligned1, string aligned2, ScoringMatrix scoring)
+    {
+        int score = 0;
+        int gapState = 0; // 0 none, 1 gap in aligned1, 2 gap in aligned2
+
+        for (int i = 0; i < aligned1.Length; i++)
+        {
+            char a = aligned1[i];
+            char b = aligned2[i];
+            int state = a == '-' ? 1 : b == '-' ? 2 : 0;
+
+            if (state == 0)
+                score += a == b ? scoring.Match : scoring.Mismatch;
+            else
+                score += (state == gapState ? 0 : scoring.GapOpen) + scoring.GapExtend;
+
+            gapState = state;
         }
 
         return score;
