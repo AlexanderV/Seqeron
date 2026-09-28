@@ -12,7 +12,7 @@ public class IsoelectricPointTests
         Assert.DoesNotThrow(() => SequenceTools.IsoelectricPoint("MAEGEITTFT"));
         Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint(""));
         Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint(null!));
-        Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint("MAEGJ")); // J is invalid
+        Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint("MAEG1")); // '1' is not an amino-acid code (J = Xle is a valid IUPAC code)
     }
 
     [Test]

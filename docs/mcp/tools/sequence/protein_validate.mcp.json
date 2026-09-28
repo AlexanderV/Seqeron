@@ -47,8 +47,8 @@
     },
     {
       "name": "Invalid protein",
-      "input": { "sequence": "MAEGEITTFJ" },
-      "output": { "valid": false, "length": 10, "error": "Invalid amino acid 'J' at position 9" }
+      "input": { "sequence": "MAEGEITTF1" },
+      "output": { "valid": false, "length": 10, "error": "Invalid amino acid '1' at position 9" }
     }
   ]
 }

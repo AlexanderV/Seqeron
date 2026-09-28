@@ -12,7 +12,7 @@ public class HydrophobicityTests
         Assert.DoesNotThrow(() => SequenceTools.Hydrophobicity("MAEGEITTFT"));
         Assert.Throws<ArgumentException>(() => SequenceTools.Hydrophobicity(""));
         Assert.Throws<ArgumentException>(() => SequenceTools.Hydrophobicity(null!));
-        Assert.Throws<ArgumentException>(() => SequenceTools.Hydrophobicity("MAEGJ")); // J is invalid
+        Assert.Throws<ArgumentException>(() => SequenceTools.Hydrophobicity("MAEG1")); // '1' is not an amino-acid code (J = Xle is a valid IUPAC code)
     }
 
     [Test]

@@ -6,7 +6,7 @@
 | Test Unit ID | TRANS-PROT-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -54,10 +54,10 @@ Translation proceeds by normalizing DNA to RNA, skipping the configured frame of
 |------|------|---------|-------------|-------------|
 | `[Translate] dna` | `DnaSequence` | required | DNA sequence wrapper. | `null` throws `ArgumentNullException`. |
 | `[Translate] rna` | `RnaSequence` | required | RNA sequence wrapper. | `null` throws `ArgumentNullException`. |
-| `[Translate] sequence` | `string` | required | DNA or RNA sequence string. | `null` or empty returns an empty protein. |
+| `[Translate] sequence` | `string` | required | DNA or RNA sequence string (IUPAC ambiguity codes allowed, case-insensitive). | `null` or empty returns an empty protein (after `frame` / `toFirstStop` validation). |
 | `[Translate*] geneticCode` | `GeneticCode` | `GeneticCode.Standard` | Translation table. | Supported built-ins are documented in [Codon_Translation.md](Codon_Translation.md). |
 | `[Translate*] frame` | `int` | `0` | Reading-frame offset. | Must be `0`, `1`, or `2`; otherwise `ArgumentOutOfRangeException`. |
-| `[Translate*] toFirstStop` | `bool` | `false` | Whether to stop before appending the first translated stop codon. | Applied during codon iteration. |
+| `[Translate*] toFirstStop` | `bool` | `false` | Whether to stop before appending the first translated stop codon. | Applied during codon iteration. Throws `ArgumentException` for tables with dual-coding stop codons (27, 28, 31), as Biopython raises `ValueError`.[7] |
 | `[FindOrfs] minLength` | `int` | `100` | Minimum ORF length in amino acids. | ORFs shorter than this are filtered out. |
 | `[FindOrfs] searchBothStrands` | `bool` | `true` | Whether to scan the reverse complement in addition to the forward strand. | Reverse-strand ORFs are reported with negative frame values. |
 
@@ -124,7 +124,7 @@ ORF detection starts on any `geneticCode.IsStartCodon(codon)` result, not only o
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Translation reads complete codons in the requested frame and maps them through the selected genetic code.[1][2]
+- Translation reads complete codons in the requested frame and maps them through the selected genetic code.[1][2] Output is identical to Biopython 1.88 `translate(seq[frame:], table, to_stop)` for all 27 NCBI tables, DNA/RNA, lower case and IUPAC-ambiguous input (review 2026-09: 5,200+ randomized cases).[7]
 - Six-frame translation covers the three forward and three reverse-complement frames.[2]
 - ORF detection uses start codons, stop codons, and a minimum length threshold.[3]
 
@@ -155,6 +155,9 @@ ORF detection starts on any `geneticCode.IsStartCodon(codon)` result, not only o
 | Sequence shorter than 3 nt | Returns an empty protein. | No complete codon is available. |
 | Invalid frame | Throws `ArgumentOutOfRangeException`. | Frame must be `0`, `1`, or `2`. |
 | `toFirstStop = true` | Translation stops before appending the stop codon. | The loop breaks on `*`. |
+| `toFirstStop = true` with table 27, 28 or 31 | `ArgumentException`. | These tables have stop codons that are also translated as an amino acid (e.g. table 27 UGA = W or STOP), so "first stop" is undefined; Biopython 1.88 `_translate_str` raises `ValueError`.[7] |
+| Ambiguous codon resolving to Asx/Glx/Xle (RAY, SAR, MTH in table 1) | Protein contains `B`, `Z`, `J`. | Biopython 1.88 translates these as B/Z/J; `ProteinSequence` accepts the IUPAC ambiguity codes B, Z, J.[7] |
+| Non-IUPAC nucleotide symbol (e.g. `-`, `X`) | `ArgumentException`. | Biopython raises `TranslationError` (it additionally treats the non-IUPAC `X` as `N`; Seqeron rejects it). |
 | No start codon in `FindOrfs` | Returns no ORFs. | ORF accumulation begins only at a start codon. |
 
 ### 6.2 Limitations
@@ -177,3 +180,4 @@ The repository translation utilities are sequence scanners. They do not include 
 4. NCBI. 2026. The Genetic Codes. https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi
 5. Lodish H et al. 2007. Molecular Cell Biology. N/A
 6. Test specification: [TRANS-PROT-001.md](../../../tests/TestSpecs/TRANS-PROT-001.md)
+7. Biopython 1.88 `Bio/Seq.py` `_translate_str` and `Bio/Data/IUPACData.py` (`extended_protein_letters`, `protein_letters_1to3_extended`). https://raw.githubusercontent.com/biopython/biopython/master/Bio/Seq.py

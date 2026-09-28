@@ -21,6 +21,8 @@ namespace Seqeron.Genomics.Core
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
+        /// <exception cref="ArgumentException"><paramref name="toFirstStop"/> is true and the genetic code has
+        /// dual-coding stop codons (tables 27, 28, 31), or the sequence contains a non-IUPAC codon.</exception>
         public static ProteinSequence Translate(DnaSequence dna, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
@@ -37,6 +39,8 @@ namespace Seqeron.Genomics.Core
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
+        /// <exception cref="ArgumentException"><paramref name="toFirstStop"/> is true and the genetic code has
+        /// dual-coding stop codons (tables 27, 28, 31), or the sequence contains a non-IUPAC codon.</exception>
         public static ProteinSequence Translate(RnaSequence rna, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
@@ -53,13 +57,15 @@ namespace Seqeron.Genomics.Core
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
+        /// <exception cref="ArgumentException"><paramref name="toFirstStop"/> is true and the genetic code has
+        /// dual-coding stop codons (tables 27, 28, 31), or the sequence contains a non-IUPAC codon.</exception>
         public static ProteinSequence Translate(string sequence, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
-            if (string.IsNullOrEmpty(sequence))
-                return new ProteinSequence("");
-
-            return TranslateSequence(sequence.ToUpperInvariant(), geneticCode ?? GeneticCode.Standard, frame, toFirstStop);
+            // null/empty yield an empty protein, but the frame / toFirstStop arguments are still
+            // validated exactly as for the DnaSequence / RnaSequence overloads.
+            return TranslateSequence((sequence ?? string.Empty).ToUpperInvariant(),
+                geneticCode ?? GeneticCode.Standard, frame, toFirstStop);
         }
 
         /// <summary>
@@ -139,6 +145,16 @@ namespace Seqeron.Genomics.Core
             if (frame < 0 || frame > 2)
                 throw new ArgumentOutOfRangeException(nameof(frame), "Frame must be 0, 1, or 2.");
 
+            // "Translate to the first stop" is undefined when the table has dual-coding
+            // (context-dependent) stop codons, e.g. NCBI tables 27, 28, 31: such codons are
+            // translated as their amino acid, so a genuine terminator would be read through.
+            // Biopython Bio.Seq._translate_str raises ValueError for to_stop=True here.
+            if (toFirstStop && HasDualCodingStopCodons(geneticCode))
+                throw new ArgumentException(
+                    $"toFirstStop cannot be used with genetic code table {geneticCode.TableNumber} " +
+                    "because it contains codons that code for both STOP and an amino acid.",
+                    nameof(toFirstStop));
+
             // Convert T to U for translation
             var rnaSequence = sequence.Replace('T', 'U');
             var sb = new StringBuilder();
@@ -157,6 +173,18 @@ namespace Seqeron.Genomics.Core
             }
 
             return new ProteinSequence(sb.ToString());
+        }
+
+        // A stop codon that the table also translates as an amino acid (NCBI gc.prt tables
+        // 27, 28, 31; Biopython "dual_coding" check in Bio.Seq._translate_str).
+        private static bool HasDualCodingStopCodons(GeneticCode geneticCode)
+        {
+            foreach (var stop in geneticCode.StopCodons)
+            {
+                if (geneticCode.CodonTable.TryGetValue(stop, out char aa) && aa != '*')
+                    return true;
+            }
+            return false;
         }
 
         private static IEnumerable<OrfResult> FindOrfsInSequence(string sequence, GeneticCode geneticCode,

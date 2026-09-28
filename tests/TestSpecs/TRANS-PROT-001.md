@@ -158,3 +158,22 @@ Yeast Mitochondrial (Table 3):
 - [x] All genetic code tables verified against NCBI (March 2026)
 - [x] No duplicates — each test covers a unique scenario
 - [x] Weak tests strengthened: M11 (T→U equivalence verified), M15 (all 3 negative frames verified)
+
+---
+
+## Review 2026-09 (campaign B02) — additions
+
+| ID | Test Name | Rationale | Source |
+|----|-----------|-----------|--------|
+| R01 | Translate_String_AllTables_MatchBiopython (54 cases) | Differential oracle: 2 sequences × 27 NCBI tables, frames 0–2, to_stop, IUPAC/RNA/lower case | Biopython 1.88 `translate` |
+| R02 | Translate_AmbiguousCodonsToAsxGlxXle_MatchBiopython | RAY→B, SAR→Z, MTH→J must be representable (previously threw: ProteinSequence rejected B/Z/J) | Biopython 1.88 `_translate_str`, `IUPACData.extended_protein_letters` |
+| R03 | Translate_ToFirstStop_DualCodingStopTable_ThrowsArgumentException | Tables 27/28/31: to_stop undefined; Biopython raises ValueError (previously read through the terminator) | Biopython 1.88 `_translate_str` |
+| R04 | Translate_DualCodingStopTable_WithoutToFirstStop_TranslatesAsAminoAcid | 27 → MQGW, 28 → MQGW, 31 → MEGW | Biopython 1.88 |
+| R05 | Translate_ToFirstStop_AllTablesWithoutDualCodingStops_DoNotThrow | Only 27/28/31 are dual-coding | Biopython 1.88 CodonTable |
+| R06 | Translate_EmptyOrNullString_InvalidFrame_ThrowsLikeTypedOverloads | String overload validates `frame` like the typed overloads | Contract consistency |
+| R07 | ProteinSequenceTests.Constructor_IupacAmbiguousAminoAcids_Accepted_ThreeLetterCodesAsBiopython | B/Z/J accepted; Asx/Glx/Xle three-letter codes | Biopython `protein_letters_1to3_extended` |
+
+Corrected tests (were asserting that IUPAC codes Z/J are invalid amino acids): `ProteinSequenceTests.Constructor_InvalidAminoAcid_ThrowsArgumentException`, `TryCreate_InvalidSequence_ReturnsFalse`, `ValidCharacters_Contains22Characters` → `…Contains25Characters`, `CompositionCombinatorialTests.ForeignSymbol(Protein, non-strict)`, MCP `ProteinValidate/AminoAcidComposition/Hydrophobicity/IsoelectricPoint/MolecularWeightProtein` tests — the invalid symbol is now `1`.
+
+Known divergence kept: Biopython accepts the non-IUPAC nucleotide `X` as `N`; Seqeron rejects it (NC-IUB 1984 defines `N` only).
+

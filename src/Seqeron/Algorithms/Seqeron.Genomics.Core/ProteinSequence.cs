@@ -6,7 +6,9 @@ namespace Seqeron.Genomics.Core
     /// <summary>
     /// Represents a protein (amino acid) sequence with validation and common operations.
     /// Valid amino acids: A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y (20 standard amino acids).
-    /// Also supports: * (stop codon), X (unknown amino acid).
+    /// Also supports: * (stop codon), X (unknown amino acid) and the IUPAC-IUBMB ambiguity codes
+    /// B (Asx = D/N), Z (Glx = E/Q) and J (Xle = I/L), which <see cref="GeneticCode.Translate(string)"/>
+    /// emits for ambiguous codons (Biopython <c>Bio.Seq._translate_str</c> / <c>IUPACData.extended_protein_letters</c>).
     /// </summary>
     public sealed class ProteinSequence
     {
@@ -38,10 +40,23 @@ namespace Seqeron.Genomics.Core
         };
 
         /// <summary>
-        /// All valid characters (standard amino acids + stop + unknown).
+        /// IUPAC-IUBMB ambiguous amino-acid codes with their three-letter symbols
+        /// (Biopython <c>IUPACData.protein_letters_1to3_extended</c>): B = Asx (D or N),
+        /// Z = Glx (E or Q), J = Xle (I or L). Produced by translating ambiguous codons
+        /// such as RAY, SAR and MTH (see <see cref="GeneticCode.Translate(string)"/>).
+        /// </summary>
+        public static readonly IReadOnlyDictionary<char, string> AmbiguousAminoAcids = new Dictionary<char, string>
+        {
+            ['B'] = "Asx",
+            ['Z'] = "Glx",
+            ['J'] = "Xle",
+        };
+
+        /// <summary>
+        /// All valid characters (standard amino acids + stop + unknown + ambiguous B/Z/J).
         /// </summary>
         public static readonly IReadOnlySet<char> ValidCharacters = new HashSet<char>(
-            StandardAminoAcids.Concat(new[] { '*', 'X' })
+            StandardAminoAcids.Concat(new[] { '*', 'X' }).Concat(AmbiguousAminoAcids.Keys)
         );
 
         /// <summary>
@@ -307,6 +322,11 @@ namespace Seqeron.Genomics.Core
                     if (sb.Length > 0) sb.Append('-');
                     sb.Append("Xaa");
                 }
+                else if (AmbiguousAminoAcids.TryGetValue(aa, out var ambiguous))
+                {
+                    if (sb.Length > 0) sb.Append('-');
+                    sb.Append(ambiguous);
+                }
             }
             return sb.ToString();
         }
@@ -343,7 +363,7 @@ namespace Seqeron.Genomics.Core
                 if (!ValidCharacters.Contains(c))
                 {
                     throw new ArgumentException(
-                        $"Invalid amino acid '{c}' at position {i}. Valid amino acids: A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y (and *, X).",
+                        $"Invalid amino acid '{c}' at position {i}. Valid amino acids: A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y (and *, X, B, Z, J).",
                         nameof(sequence));
                 }
             }
