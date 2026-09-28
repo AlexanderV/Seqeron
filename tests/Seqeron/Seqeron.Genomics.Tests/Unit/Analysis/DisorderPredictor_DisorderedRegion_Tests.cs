@@ -586,4 +586,36 @@ public class DisorderPredictor_DisorderedRegion_Tests
     }
 
     #endregion
+
+    #region PredictDisorderRegions — boundaries without confidence (real protein)
+
+    /// <summary>
+    /// α-synuclein (UniProt P37840). Region boundaries and mean scores recomputed by an independent
+    /// Python implementation of Campen et al. (2008) (Table 2 scale normalised by (x+0.884)/1.871,
+    /// centred window 21 truncated at termini, cutoff ≥ 0.542, runs ≥ 5). Region labels follow the
+    /// declared internal rule (spec D1/D2): 10–43 has no group &gt; 0.25 and 34 &gt; 30 residues → Long IDR;
+    /// 47–66 → Standard IDR; 94–139 has E+D = 15/46 = 0.326 &gt; 0.25 → Acidic.
+    /// </summary>
+    [Test]
+    public void PredictDisorderRegions_AlphaSynuclein_MatchesIndependentReference()
+    {
+        const string aSyn =
+            "MDVFMKGLSKAKEGVVAAAEKTKQGVAEAAGKTKEGVLYVGSKTKEGVVHGVATVAEKTKEQVTNVGGAVVTGVTAVAQKTVEGAGSIAAATGFVKKDQLGKNEEGAPQEGILEDMPVDPDNEAYEMPSEEGYQDYEPEA";
+        var regions = DisorderPredictor.PredictDisorderRegions(aSyn).DisorderedRegions;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions.Select(r => (r.Start, r.End, r.RegionType)), Is.EqualTo(new[]
+            {
+                (10, 43, "Long IDR"), (47, 66, "Standard IDR"), (94, 139, "Acidic")
+            }));
+            Assert.That(regions[0].MeanScore, Is.EqualTo(0.5851639426481442).Within(1e-12));
+            Assert.That(regions[1].MeanScore, Is.EqualTo(0.5699485887353337).Within(1e-12));
+            Assert.That(regions[2].MeanScore, Is.EqualTo(0.6185213382503114).Within(1e-12));
+            Assert.That(regions.All(r => double.IsNaN(r.Confidence)), Is.True,
+                "PredictDisorderRegions withholds the uncalibrated confidence");
+        });
+    }
+
+    #endregion
 }
