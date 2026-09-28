@@ -29,5 +29,31 @@ namespace Seqeron.Genomics.Infrastructure
 
             return sign * y;
         }
+
+        /// <summary>
+        /// Population variance σ² = Σ(xᵢ − μ)² / N (division by N, not the Bessel-corrected N − 1),
+        /// for data that form the complete population. Returns 0 for an empty list.
+        /// Matches <c>numpy.var(x)</c> (default <c>ddof=0</c>); e.g. {12, 13, 12, 14, 19} → 6.8.
+        /// </summary>
+        /// <param name="values">The complete population of values.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        public static double PopulationVariance(IReadOnlyList<double> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            if (values.Count == 0) return 0;
+
+            double sum = 0;
+            for (int i = 0; i < values.Count; i++) sum += values[i];
+            double mean = sum / values.Count;
+
+            double sumSq = 0;
+            for (int i = 0; i < values.Count; i++)
+            {
+                double d = values[i] - mean;
+                sumSq += d * d;
+            }
+
+            return sumSq / values.Count;
+        }
     }
 }

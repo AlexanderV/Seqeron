@@ -327,11 +327,20 @@ public static class GcSkewCalculator
     /// population-variance definition Σ(x−μ)²/N). When the sequence is shorter than the window no full
     /// window exists, so the windowed lists are empty and both window-derived variances are 0; the
     /// overall scalar metrics are still computed over the whole sequence.
+    /// GC content (overall and windowed) is computed by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char})"/>: G+C over A+C+G+T+U
+    /// (U is the RNA counterpart of T — "adenine and uracil in RNA", Wikipedia "GC-content"; Biopython
+    /// <c>gc_fraction(seq, "remove")</c> likewise counts U), all other symbols excluded from both counts.
     /// </remarks>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="windowSize">Sliding-window length for the profiles (default: 1000).</param>
-    /// <param name="stepSize">Step between window starts (default: 100).</param>
+    /// <param name="windowSize">Sliding-window length for the profiles (default: 1000); must be ≥ 1.</param>
+    /// <param name="stepSize">Step between window starts (default: 100); must be ≥ 1.</param>
+    /// <param name="fraction">When true, GC content is reported in [0,1] (Biopython <c>gc_fraction</c>);
+    /// default false reports a percentage in [0,100].</param>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (a zero step would otherwise never terminate;
+    /// Biopython <c>GC_skew</c> likewise rejects window 0).</exception>
     public static GcAnalysisResult AnalyzeGcContent(
         DnaSequence sequence,
         int windowSize = 1000,
@@ -339,21 +348,29 @@ public static class GcSkewCalculator
         bool fraction = false)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
         return AnalyzeGcContentCore(sequence.Sequence, windowSize, stepSize, fraction);
     }
 
     /// <summary>
-    /// Gets comprehensive GC analysis from a raw sequence string. Counting is case-insensitive; only
-    /// A/T/G/C contribute to the metrics, other symbols are ignored. Returns a zero result with empty
-    /// windowed profiles for null/empty input.
+    /// Gets comprehensive GC analysis from a raw sequence string. Counting is case-insensitive.
+    /// GC content counts G+C over A+C+G+T+U (RNA U included in the denominator, as in Biopython
+    /// <c>gc_fraction</c>); the GC skew counts only G/C and the AT skew only A/T; every other symbol
+    /// is ignored. Returns a zero result with empty windowed profiles for null/empty input.
     /// </summary>
-    /// <remarks>See <see cref="AnalyzeGcContent(DnaSequence,int,int)"/> for the formulas and conventions.</remarks>
+    /// <remarks>See <see cref="AnalyzeGcContent(DnaSequence,int,int,bool)"/> for the formulas and conventions.</remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly, before the null/empty check).</exception>
     public static GcAnalysisResult AnalyzeGcContent(
         string sequence,
         int windowSize = 1000,
         int stepSize = 100,
         bool fraction = false)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
+
         if (string.IsNullOrEmpty(sequence))
             return new GcAnalysisResult(0, 0, 0, 0, 0, Array.Empty<GcSkewPoint>(), Array.Empty<GcContentPoint>(), 0);
 
@@ -371,13 +388,11 @@ public static class GcSkewCalculator
         double overallGcSkew = CalculateGcSkewCore(seq);
         double overallAtSkew = CalculateAtSkewCore(seq);
 
-        double gcContentVariance = windowedContent.Count > 0
-            ? CalculateVariance(windowedContent.Select(w => w.GcContent).ToList())
-            : 0;
-
-        double gcSkewVariance = windowedSkew.Count > 0
-            ? CalculateVariance(windowedSkew.Select(w => w.GcSkew).ToList())
-            : 0;
+        // Population variance Σ(xᵢ−μ)²/N via the canonical StatisticsHelper (0 when no windows).
+        double gcContentVariance = StatisticsHelper.PopulationVariance(
+            windowedContent.Select(w => w.GcContent).ToList());
+        double gcSkewVariance = StatisticsHelper.PopulationVariance(
+            windowedSkew.Select(w => w.GcSkew).ToList());
 
         return new GcAnalysisResult(
             OverallGcContent: overallGcContent,
@@ -398,8 +413,7 @@ public static class GcSkewCalculator
     {
         for (int i = 0; i + windowSize <= seq.Length; i += stepSize)
         {
-            string window = seq.Substring(i, windowSize);
-            double gcContent = CalculateGcContent(window, fraction);
+            double gcContent = CalculateGcContent(seq.AsSpan(i, windowSize), fraction);
 
             yield return new GcContentPoint(
                 Position: i + windowSize / 2,
@@ -413,42 +427,15 @@ public static class GcSkewCalculator
     // per Madigan & Martinko, Brock Biology of Microorganisms (via Wikipedia "GC-content").
     private const double PercentScale = 100.0;
 
-    private static double CalculateGcContent(string seq, bool fraction = false)
+    // Delegates to the canonical SequenceExtensions.CalculateGcFraction (case-insensitive;
+    // G/C over A/C/G/T/U — U is the RNA counterpart of T, as in Biopython gc_fraction
+    // "remove", whose denominator counts ATWU; every other symbol is excluded from both counts).
+    private static double CalculateGcContent(ReadOnlySpan<char> seq, bool fraction = false)
     {
-        if (string.IsNullOrEmpty(seq)) return 0;
-        // Only A/C/G/T are counted; ambiguous/other symbols are ignored in BOTH the
-        // numerator and the denominator (Biopython gc_fraction "remove" / Comprehensive
-        // GC Analysis §2.2/§3.3). The denominator is A+T+G+C, NOT the raw seq length.
-        int gcCount = 0;
-        int atgcCount = 0;
-        foreach (char c in seq)
-        {
-            switch (c)
-            {
-                case 'G' or 'C':
-                    gcCount++;
-                    atgcCount++;
-                    break;
-                case 'A' or 'T':
-                    atgcCount++;
-                    break;
-            }
-        }
-
         // Opt-in Biopython convention: fraction == true reports [0,1] (Bio.SeqUtils.gc_fraction);
-        // default (false) keeps the percentage GC% = (G+C)/(A+T+G+C)·100.
-        double scale = fraction ? 1.0 : PercentScale;
-        return atgcCount > 0 ? (double)gcCount / atgcCount * scale : 0;
-    }
-
-    // Population variance σ² = Σ(xᵢ−μ)²/N (division by N, not Bessel-corrected N−1):
-    // the windows are the complete population for this sequence. Population-variance definition
-    // Σ(x−μ)²/N (Cuemath "Population Variance"; worked example {12,13,12,14,19} -> 6.8).
-    private static double CalculateVariance(IList<double> values)
-    {
-        if (values.Count == 0) return 0;
-        double mean = values.Average();
-        return values.Sum(v => (v - mean) * (v - mean)) / values.Count;
+        // default (false) keeps the percentage GC% = fraction·100.
+        double gcFraction = seq.CalculateGcFraction();
+        return fraction ? gcFraction : gcFraction * PercentScale;
     }
 
     #endregion
