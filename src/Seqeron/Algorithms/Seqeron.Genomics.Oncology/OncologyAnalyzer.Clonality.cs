@@ -176,29 +176,40 @@ public static partial class OncologyAnalyzer
         double denominator = NormalDiploidCopyNumber * (1.0 - purity) + purity * variant.LocalCopyNumber;
         double alleleFractionPerUnitCcf = purity * variant.Multiplicity / denominator;
 
-        // Posterior P(c) ∝ Binomial(a | N, f(c)) on a uniform grid c ∈ [0.01, 1], uniform prior; normalise by sum.
-        // The binomial coefficient C(N, a) is constant in c, so it cancels in normalisation and is omitted.
-        double step = (CcfGridUpperBound - CcfGridLowerBound) / (CcfGridPointCount - 1);
-        Span<double> weights = stackalloc double[CcfGridPointCount];
+        // Posterior P(c) ∝ Binomial(a | N, f(c)) on Landau's regular grid of 100 values c = 0.01, 0.02, …, 1.00,
+        // uniform prior, normalised by the sum. The binomial coefficient C(N, a) is constant in c, so it cancels in
+        // normalisation and is omitted. The kernel is kept in log space and shifted by its maximum before
+        // exponentiation (log-sum-exp): without the C(N, a) factor the raw kernel p^a(1−p)^(N−a) underflows to 0 at
+        // every grid point once N ≳ 1100 (e.g. a = 1000, N = 2000), which previously collapsed the posterior to a
+        // flat grid (CCF 0.505, subclonal) instead of R dbinom's normalised posterior (CCF 0.985, clonal).
+        Span<double> weights = stackalloc double[CcfGridPointCount]; // log weights, then max-shifted weights
+        double maxLogWeight = double.NegativeInfinity;
+        for (int i = 0; i < CcfGridPointCount; i++)
+        {
+            double f = Math.Min(1.0, alleleFractionPerUnitCcf * CcfGridPoint(i));
+            double logLikelihood = BinomialLogLikelihoodKernel(variant.AltReads, variant.TotalReads, f);
+            weights[i] = logLikelihood;
+            maxLogWeight = Math.Max(maxLogWeight, logLikelihood);
+        }
+
+        // f(c) ∈ (0, 1) for every grid point except possibly f(1) = 1 (ρ = 1, M = q), so at least one log weight is
+        // finite and the shifted weights sum to ≥ 1: the posterior is always well defined.
         double weightSum = 0.0;
         for (int i = 0; i < CcfGridPointCount; i++)
         {
-            double c = CcfGridLowerBound + step * i;
-            double f = Math.Min(1.0, alleleFractionPerUnitCcf * c);
-            double likelihood = BinomialLikelihoodKernel(variant.AltReads, variant.TotalReads, f);
-            weights[i] = likelihood;
-            weightSum += likelihood;
+            double weight = Math.Exp(weights[i] - maxLogWeight);
+            weights[i] = weight;
+            weightSum += weight;
         }
 
         double ccfMean = 0.0;
         double probabilityClonal = 0.0;
-        // Guard against an all-zero posterior (e.g. f≈0 with a>0): fall back to a flat posterior over the grid.
-        bool degenerate = weightSum <= 0.0 || double.IsNaN(weightSum);
         for (int i = 0; i < CcfGridPointCount; i++)
         {
-            double c = CcfGridLowerBound + step * i;
-            double posterior = degenerate ? 1.0 / CcfGridPointCount : weights[i] / weightSum;
+            double c = CcfGridPoint(i);
+            double posterior = weights[i] / weightSum;
             ccfMean += c * posterior;
+            // Strict "CCF > 0.95" (Landau 2013). Grid points are exact decimals, so c = 0.95 is excluded.
             if (c > ClonalCcfThreshold)
             {
                 probabilityClonal += posterior;
@@ -220,26 +231,35 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Binomial likelihood kernel L(a | N, p) = p^a · (1−p)^(N−a), without the constant C(N, a) factor (it cancels
-    /// under grid normalisation). Computed via log-space to avoid underflow for large N.
+    /// The i-th point (0-based) of Landau's regular CCF grid of <see cref="CcfGridPointCount"/> values over
+    /// [<see cref="CcfGridLowerBound"/>, <see cref="CcfGridUpperBound"/>]: c_i = (i + 1) / 100, i.e. 0.01, 0.02, …, 1.00.
+    /// Computed as a single correctly-rounded division so every grid point is the double nearest its decimal value;
+    /// the accumulated form 0.01 + i·(0.99/99) yields 0.9500000000000001 at i = 94, which made the strict
+    /// "CCF &gt; 0.95" test count the c = 0.95 grid point as clonal.
     /// </summary>
-    private static double BinomialLikelihoodKernel(int altReads, int totalReads, double p)
+    private static double CcfGridPoint(int index) => (double)(index + 1) / CcfGridPointCount;
+
+    /// <summary>
+    /// Binomial log-likelihood kernel ln L(a | N, p) = a·ln p + (N−a)·ln(1−p), without the constant ln C(N, a)
+    /// (it cancels under grid normalisation). Returns −∞ where the likelihood is exactly zero (p = 0 with a &gt; 0,
+    /// p = 1 with a &lt; N).
+    /// </summary>
+    private static double BinomialLogLikelihoodKernel(int altReads, int totalReads, double p)
     {
         int refReads = totalReads - altReads;
         if (p <= 0.0)
         {
             // p = 0 explains zero alternate reads exactly, nothing else.
-            return altReads == 0 ? 1.0 : 0.0;
+            return altReads == 0 ? 0.0 : double.NegativeInfinity;
         }
 
         if (p >= 1.0)
         {
             // p = 1 explains all-alternate reads exactly, nothing else.
-            return refReads == 0 ? 1.0 : 0.0;
+            return refReads == 0 ? 0.0 : double.NegativeInfinity;
         }
 
-        double logLikelihood = altReads * Math.Log(p) + refReads * Math.Log(1.0 - p);
-        return Math.Exp(logLikelihood);
+        return (altReads * Math.Log(p)) + (refReads * Math.Log(1.0 - p));
     }
 
     /// <summary>Validates read counts, local copy number, and multiplicity of a clonality variant.</summary>

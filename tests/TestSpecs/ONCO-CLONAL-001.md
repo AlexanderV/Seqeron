@@ -5,7 +5,7 @@
 **Algorithm:** Clonal vs Subclonal Mutation Classification (cancer cell fraction posterior)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -68,13 +68,16 @@
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
 | M1 | Clonal pure het deep | a=300, N=300, q=2, M=1, ρ=1.0 | Clonal; CCF≈0.999486; P=1.0 | Landau (2013) |
-| M2 | Clonal het impure deep | a=400, N=1000, q=2, M=1, ρ=0.8 | Clonal; CCF≈0.972455; P≈0.864167 | Landau (2013) |
+| M2 | Clonal het impure deep | a=400, N=1000, q=2, M=1, ρ=0.8 | Clonal; CCF≈0.972455; P≈0.783253 | Landau (2013) |
 | M3 | Subclonal CCF~0.6 | a=240, N=1000, q=2, M=1, ρ=0.8 | Subclonal; CCF≈0.601297; P≈0.0 | Landau (2013) |
 | M4 | Subclonal CCF~0.4 | a=200, N=1000, q=2, M=1, ρ=1.0 | Subclonal; CCF≈0.401198; P≈0 | Landau (2013) |
-| M5 | Multiplicity M=2 raises CCF | a=100, N=100, q=2, M=2, ρ=1.0 | Clonal; CCF≈0.994330; P≈0.998016 | Satas (2021) Eq. 1 |
+| M5 | Multiplicity M=2 raises CCF | a=100, N=100, q=2, M=2, ρ=1.0 | Clonal; CCF≈0.994330; P≈0.994250 | Satas (2021) Eq. 1 |
 | M6 | Counts partition (INV-1) | mix of M1+M3 variants | ClonalCount=1, SubclonalCount=1, total=2 | Registry invariant |
 | M7 | ClonalFraction (INV-2) | 3 clonal + 1 subclonal | ClonalFraction = 0.75 | Definition |
 | M8 | IdentifyClonalMutations strict >0.95 | {0.96,0.95,1.0,0.5,0.951} | indices {0,2,4} | Landau (2013) |
+| M9 | Grid point c=0.95 excluded (strict) | a=52, N=100, q=2, M=1, ρ=1.0 | Subclonal; CCF 0.93730748909543438; P 0.45841754388728939 | Landau (2013); R dbinom (review 2026-09 F16) |
+| M10 | Deep coverage, no underflow | (1000,2000,ρ1), (5000,10000,ρ1), (800,2000,ρ0.8), (480,2000,ρ0.8), (50000,100000,ρ1) | Evidence rows H1–H5 (1e-9) | Landau (2013); R dbinom (review 2026-09 F15) |
+| M11 | Impure multi-copy shallow | a=3, N=4, q=3, M=2, ρ=0.7 | Subclonal; CCF 0.78003009367131881; P 0.15564285879902454 | R dbinom |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
