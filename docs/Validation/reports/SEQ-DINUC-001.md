@@ -112,3 +112,14 @@ for single-base frequencies. No `*Fast`/instance variants for these methods.
   suite is green.
 - **Note:** the `expected = 0 ⇒ ρ = 0` guard is unreachable defensive code (kept; harmless); documented so
   no future session mistakes it for testable behaviour.
+
+## Review 2026-09 (B03)
+- **Stage A:** PASS-with-notes — formula confirmed; denominator wording corrected (counted in-alphabet
+  dinucleotides, = N−1 only for pure-alphabet input); strand-symmetrized ρ* was declared a simplification
+  although implementable → implemented (F13).
+- **Stage B:** PASS (single-strand ρ and f identical to seqinr `rho`/`count` ported from source and to
+  EMBOSS 6.6.0 `compseq -word 2 -calcfreq` for pure-ACGT input) + F13 (`CalculateDinucleotideRatios(string, bool strandSymmetric)`,
+  Karlin ρ*, matched to exact rationals).
+- **Dedup (D3):** dinucleotide counting now delegates to `KmerAnalyzer.CountKmers(seq, 2)`; the unreachable
+  expected = 0 guard was removed.
+- Details: `docs/Validation/review-2026-09/B03.md` (F13, D3, R12–R13).

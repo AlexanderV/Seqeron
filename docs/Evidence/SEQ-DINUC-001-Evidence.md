@@ -115,6 +115,14 @@
 
 ---
 
+## Review 2026-09 (B03) — reference implementations executed
+
+- **seqinr** `R/rho.R`, `R/count.R` (raw.githubusercontent.com/cran/seqinr, opened): `rho = wordcount / (sum(wordcount) · f_X f_Y)`, `f_X = count(seq,1,freq=TRUE)`; words/bases outside the alphabet are dropped from counts **and** denominators. Ported literally to Python (R not installed) and executed.
+- **EMBOSS 6.6.0 `compseq -word 2 -calcfreq`** (executed): for pure-ACGT input Obs/Exp equals seqinr/ours (`GATCCTTAAAGGCGCATTTAGGCCCATG`: 32/27, 16/9, 16/27); with N/IUPAC compseq keeps "Other" in the totals (different convention; ours follows seqinr).
+- **Karlin ρ\*** (WebSearch snippet restating Karlin, PMC1829274): "a symmetrized version {ρ*XY} is calculated from frequencies of the sequence concatenated with its inverted complementary sequence … fA* = fT* = (fA + fT)/2 … fGT* = (fGT + fAC)/2 … ρGT* = fGT*/fG*fT*". Reference values = seqinr rho of `seq + "n" + revcomp(seq)` (separator avoids a junction dinucleotide; identical to the formula form): `ATGCGCGT` AT 256/63, CG=GC 512/175, AC=CA=GT=TG 128/105; `ATGCGCGTNNacgtRAT` CG 48/11, AT=GC 32/11, AC=GT 24/11, CA=TG 8/11.
+- **Gardiner-Garden & Frommer (1987)** CpG O/E = (#CpG/N)/((#C/N)(#G/N)) (WebSearch snippet) — implemented separately by `EpigeneticsAnalyzer.CalculateCpGObservedExpected` (window-length N); not the same quantity as ρ_CG.
+- Previous claim that the expected = 0 guard returns 0 was unreachable: an observed dinucleotide always has both bases present.
+
 ## Recommendations for Test Coverage
 
 1. **MUST Test:** ρ_XY = f_XY/(f_X f_Y) for a multi-base DNA sequence with exact rational values (GC, CG, AT, TG, GT). — Evidence: Karlin PMC126251; MBE 19(6):964.
@@ -139,3 +147,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-28**: Review 2026-09 (B03): seqinr/compseq reference values, Karlin ρ* implemented (`strandSymmetric`), denominator wording corrected.

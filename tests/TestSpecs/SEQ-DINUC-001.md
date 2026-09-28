@@ -80,6 +80,12 @@
 | M5 | Codon frame 1 | `ATGATGAAA` frame 1 | TGA=1.0; only key TGA | Kazusa CUTG |
 | M6 | Codon sum to 1 | INV-2 on `ATGATGAAA` frame 0 | Σ freq = 1.0 | Kazusa CUTG |
 | M7 | No-bias baseline ρ=1 | Homopolymer `AAAA`: f_AA=1, f_A=1 ⇒ ρ_AA=1/(1·1) | ρ_AA = 1.0 exactly | Karlin (r=1 no bias), PMC126251 |
+| M8 | Reference ρ (review 2026-09) | `GATCCTTAAAGGCGCATTTAGGCCCATG` all 14 ratios | 32/27, 16/9, 16/27 (EMBOSS compseq -calcfreq Obs/Exp = seqinr rho) | compseq 6.6.0 executed; seqinr R/rho.R |
+| M9 | Ambiguity / lowercase ρ and f | `ATGCGCGTNNacgtRAT` | ρ_CG=49/11, f_CG=3/11 (non-alphabet excluded from all denominators) | seqinr rho/count |
+| M10 | Karlin ρ* (F13) | `strandSymmetric: true` on `ATGCGCGT`, 28-mer, `ATGCGCGTNNacgtRAT` | ρ*_AT=256/63, ρ*_GC=512/175, …; 14 values for 28-mer | Karlin PMC126251 / PMC1829274; seqinr rho(seq+sep+revcomp) |
+| M11 | ρ* strand invariance | ρ*(S) = ρ*(revcomp S); ρ*_GT = ρ*_AC | equal within 1e-10 | definition |
+| M12 | ρ* excludes U | `AUGC` | only GC, ρ*_GC = 9 | dsDNA alphabet |
+| M13 | Delegation (D3) | 200 random mixed-alphabet inputs | frequencies = KmerAnalyzer.CountKmers(k=2) filtered to {A,C,G,T,U} / total | canonical counter |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -88,7 +94,7 @@
 | S1 | Ratios null/empty/<2 | null, "", "A" | empty dictionary | input guard |
 | S2 | Freqs null/empty/<2 | null, "", "A" | empty dictionary | input guard |
 | S3 | Codons null/empty/<3 | null, "", "AT" | empty dictionary | input guard |
-| S4 | Division-by-zero guard | sequence missing a base so expected=0 | ratio = 0 for that dinucleotide | expected=0 guard |
+| S4 | Division-by-zero guard | sequence missing a base so expected=0 | such a dinucleotide cannot occur and is not a key; all returned ratios finite > 0 | expected=0 unreachable for observed pairs |
 | S5 | Codon non-ACGT excluded | `ATGNNNAAA` frame 0 | only ATG, AAA counted; NNN excluded; ATG=AAA=0.5 | Kazusa CUTG |
 | S6 | Codon trailing bases ignored | `ATGAA` frame 0 | only ATG; ATG=1.0 | Kazusa CUTG |
 

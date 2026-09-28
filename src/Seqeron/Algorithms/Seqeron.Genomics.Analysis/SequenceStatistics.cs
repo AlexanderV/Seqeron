@@ -905,40 +905,53 @@ public static class SequenceStatistics
     #region Sequence Patterns
 
     /// <summary>
-    /// Calculates normalized dinucleotide frequencies f_XY = count(XY) / (number of dinucleotide
-    /// positions, i.e. N-1) over the alphabet {A,T,G,C,U}. Non-alphabet dinucleotides are excluded.
+    /// Calculates normalized dinucleotide frequencies f_XY = count(XY) / (number of counted
+    /// overlapping dinucleotides) over the alphabet {A,T,G,C,U}. Pairs containing any other symbol
+    /// (N, IUPAC ambiguity, gap) are excluded from both the count and the denominator, so the
+    /// denominator equals N−1 only when every base is in the alphabet. This is seqinr
+    /// <c>count(seq, 2, freq = TRUE)</c> (denominator = sum of in-alphabet word counts) and, for
+    /// pure-alphabet input, EMBOSS <c>compseq -word 2</c> (Obs Frequency over N−1 words).
     /// Frequency normalization follows the Karlin genomic-signature convention
     /// (Karlin S., "Pervasive properties of the genomic signature", PMC126251).
+    /// Case-insensitive; only observed dinucleotides are keys (absent key ⇒ count 0).
+    /// Counting delegates to the canonical overlapping k-mer counter
+    /// <see cref="KmerAnalyzer.CountKmers(string, int)"/> with k = 2.
     /// </summary>
     public static IReadOnlyDictionary<string, double> CalculateDinucleotideFrequencies(string sequence)
     {
-        var counts = new Dictionary<string, int>();
         var freq = new Dictionary<string, double>();
 
         if (string.IsNullOrEmpty(sequence) || sequence.Length < 2)
             return freq;
 
-        string upper = sequence.ToUpperInvariant();
+        var counts = CountAlphabetDinucleotides(sequence, DinucleotideAlphabet);
+        int total = counts.Values.Sum();
 
-        // Count all dinucleotides
-        int total = 0;
-        for (int i = 0; i < upper.Length - 1; i++)
-        {
-            string dinuc = upper.Substring(i, 2);
-            if (dinuc.All(c => "ATGCU".Contains(c)))
-            {
-                counts[dinuc] = counts.GetValueOrDefault(dinuc) + 1;
-                total++;
-            }
-        }
-
-        // Convert to frequencies
         foreach (var (dinuc, count) in counts)
-        {
             freq[dinuc] = (double)count / total;
-        }
 
         return freq;
+    }
+
+    // Single-strand dinucleotide alphabet (DNA + RNA) and the double-stranded DNA alphabet used for
+    // the strand-symmetrized ρ* (Karlin; seqinr default alphabet "acgt").
+    private const string DinucleotideAlphabet = "ACGTU";
+    private const string DoubleStrandedDinucleotideAlphabet = "ACGT";
+
+    /// <summary>
+    /// Overlapping dinucleotide counts restricted to pairs whose two symbols are in
+    /// <paramref name="alphabet"/> (upper case). Delegates to the canonical k-mer counter.
+    /// </summary>
+    private static Dictionary<string, int> CountAlphabetDinucleotides(string sequence, string alphabet)
+    {
+        var counts = new Dictionary<string, int>();
+        foreach (var (kmer, count) in KmerAnalyzer.CountKmers(sequence, 2))
+        {
+            if (alphabet.Contains(kmer[0]) && alphabet.Contains(kmer[1]))
+                counts[kmer] = count;
+        }
+
+        return counts;
     }
 
     /// <summary>
@@ -947,9 +960,41 @@ public static class SequenceStatistics
     /// ρ = 1 indicates no bias (observed equals the product of base frequencies); ρ &gt; 1
     /// over-representation and ρ &lt; 1 under-representation
     /// (Karlin S., PMC126251; Karlin &amp; Burge 1995, Trends Genet 11(7):283-290).
-    /// When a constituent base is absent the expected frequency is 0 and the ratio is reported as 0.
+    /// Single-strand form; equivalent to <see cref="CalculateDinucleotideRatios(string, bool)"/>
+    /// with <c>strandSymmetric: false</c>.
     /// </summary>
     public static IReadOnlyDictionary<string, double> CalculateDinucleotideRatios(string sequence)
+        => CalculateDinucleotideRatios(sequence, strandSymmetric: false);
+
+    /// <summary>
+    /// Calculates dinucleotide relative abundances (odds ratios), either single-strand
+    /// ρ_XY = f_XY / (f_X · f_Y) or Karlin's strand-symmetrized genomic-signature form ρ*_XY.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Single strand</b> (<paramref name="strandSymmetric"/> = false): alphabet {A,C,G,T,U};
+    /// f_XY = count(XY) / (counted in-alphabet dinucleotides) and f_X = count(X) / (count of
+    /// in-alphabet bases); other symbols (N, ambiguity codes, gaps) are excluded from counts and
+    /// denominators. Identical to seqinr <c>rho(seq)</c> (wordcount / (Σwordcount · f_X f_Y)) and,
+    /// for pure-ACGT input, to EMBOSS <c>compseq -word 2 -calcfreq</c> Obs/Exp.</para>
+    /// <para><b>Strand-symmetrized</b> (true): Karlin's ρ*_XY for double-stranded DNA, computed from
+    /// the sequence together with its inverted complement: f*_A = f*_T = (f_A + f_T)/2,
+    /// f*_C = f*_G = (f_C + f_G)/2, f*_XY = (f_XY + f_{X̄'Ȳ'})/2 where X̄'Ȳ' is the reverse complement of
+    /// XY (e.g. f*_GT = (f_GT + f_AC)/2), and ρ*_XY = f*_XY / (f*_X f*_Y) (Karlin &amp; Mrázek 1997;
+    /// Karlin 1998, PMC126251). No junction dinucleotide is created (equals seqinr <c>rho</c> of the
+    /// sequence, a separator and its reverse complement). Alphabet {A,C,G,T}; U is not a
+    /// double-stranded DNA base and is excluded like N.</para>
+    /// <para>Only dinucleotides that occur (on either strand, for ρ*) are keys. A dinucleotide that
+    /// occurs always has both constituent bases present, so every returned ratio is finite and &gt; 0;
+    /// an absent key means ρ = 0 when both bases occur (seqinr/compseq report 0) and undefined
+    /// (0/0) otherwise. This odds ratio normalizes the dinucleotide count by the counted
+    /// dinucleotides (≈ N−1); the Gardiner-Garden &amp; Frommer CpG O/E used for CpG-island
+    /// calling normalizes by the window length N — see
+    /// <c>EpigeneticsAnalyzer.CalculateCpGObservedExpected</c>.</para>
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="strandSymmetric">true for Karlin's strand-symmetrized ρ*; false for single-strand ρ.</param>
+    /// <returns>Map dinucleotide → odds ratio; empty for null/empty/length &lt; 2 or no counted dinucleotide.</returns>
+    public static IReadOnlyDictionary<string, double> CalculateDinucleotideRatios(string sequence, bool strandSymmetric)
     {
         var ratios = new Dictionary<string, double>();
 
@@ -957,27 +1002,56 @@ public static class SequenceStatistics
             return ratios;
 
         var comp = CalculateNucleotideComposition(sequence);
-        var dinucFreq = CalculateDinucleotideFrequencies(sequence);
 
-        int total = comp.CountA + comp.CountT + comp.CountG + comp.CountC + comp.CountU;
-        if (total == 0) return ratios;
-
-        // Single nucleotide frequencies
-        var singleFreq = new Dictionary<char, double>
+        if (!strandSymmetric)
         {
-            { 'A', (double)comp.CountA / total },
-            { 'T', (double)comp.CountT / total },
-            { 'G', (double)comp.CountG / total },
-            { 'C', (double)comp.CountC / total },
-            { 'U', (double)comp.CountU / total }
-        };
+            int total = comp.CountA + comp.CountT + comp.CountG + comp.CountC + comp.CountU;
+            if (total == 0) return ratios;
 
-        // Calculate observed/expected ratios
-        foreach (var (dinuc, observed) in dinucFreq)
+            var singleFreq = new Dictionary<char, double>
+            {
+                { 'A', (double)comp.CountA / total },
+                { 'T', (double)comp.CountT / total },
+                { 'G', (double)comp.CountG / total },
+                { 'C', (double)comp.CountC / total },
+                { 'U', (double)comp.CountU / total }
+            };
+
+            foreach (var (dinuc, observed) in CalculateDinucleotideFrequencies(sequence))
+            {
+                double expected = singleFreq[dinuc[0]] * singleFreq[dinuc[1]];
+                ratios[dinuc] = observed / expected;
+            }
+
+            return ratios;
+        }
+
+        // Karlin ρ*: counts of the sequence plus its inverted complement.
+        var counts = CountAlphabetDinucleotides(sequence, DoubleStrandedDinucleotideAlphabet);
+        int dinucTotal = counts.Values.Sum();
+        int baseTotal = comp.CountA + comp.CountT + comp.CountG + comp.CountC;
+        if (dinucTotal == 0 || baseTotal == 0) return ratios;
+
+        double fAT = (double)(comp.CountA + comp.CountT) / (2.0 * baseTotal);
+        double fCG = (double)(comp.CountC + comp.CountG) / (2.0 * baseTotal);
+        double SymmetricBaseFrequency(char b) => b is 'A' or 'T' ? fAT : fCG;
+
+        var symmetricCounts = new Dictionary<string, int>();
+        foreach (var (dinuc, count) in counts)
         {
-            double expected = singleFreq.GetValueOrDefault(dinuc[0]) *
-                             singleFreq.GetValueOrDefault(dinuc[1]);
-            ratios[dinuc] = expected > 0 ? observed / expected : 0;
+            string reverseComplement = new(new[]
+            {
+                Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(dinuc[1]),
+                Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(dinuc[0])
+            });
+            symmetricCounts[dinuc] = symmetricCounts.GetValueOrDefault(dinuc) + count;
+            symmetricCounts[reverseComplement] = symmetricCounts.GetValueOrDefault(reverseComplement) + count;
+        }
+
+        foreach (var (dinuc, count) in symmetricCounts)
+        {
+            double observed = count / (2.0 * dinucTotal);
+            ratios[dinuc] = observed / (SymmetricBaseFrequency(dinuc[0]) * SymmetricBaseFrequency(dinuc[1]));
         }
 
         return ratios;
