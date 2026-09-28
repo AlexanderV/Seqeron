@@ -49,7 +49,7 @@ The summary selects the Wallace branch when `|S| < 14` and the GC branch otherwi
 | INV-02 | `summary.GcContent == CalculateNucleotideComposition(S).GcContent` | field is read directly from the composition record [1] |
 | INV-03 | `summary.Entropy == CalculateShannonEntropy(S)` | field is the return of that method [2] |
 | INV-04 | `summary.Complexity == CalculateLinguisticComplexity(S)` | field is the return of that method [3] |
-| INV-05 | `summary.MeltingTemperature == CalculateMeltingTemperature(S, S.Length < 14)` | field is the return of that method with that flag [4][5] |
+| INV-05 | `summary.MeltingTemperature == CalculateMeltingTemperature(S, useWallaceRule: true)` (the method switches on the A+C+G+T count < 14; 2026-09 B03 F12) | field is the return of that method with that flag [4][5] |
 | INV-06 | Composition dict A,T,G,C,U,N counts equal `CalculateNucleotideComposition(S)` counts | dict is built directly from those counts [1] |
 | INV-07 | 0 ≤ GcContent ≤ 1 and 0 ≤ Complexity < 1 (DNA fragments) | fraction and vocabulary-usage bounds [1][3] |
 
@@ -88,7 +88,7 @@ by the per-metric methods.
 1. Compute `comp = CalculateNucleotideComposition(sequence)`.
 2. Compute `entropy = CalculateShannonEntropy(sequence)`.
 3. Compute `complexity = CalculateLinguisticComplexity(sequence)`.
-4. Compute `tm = CalculateMeltingTemperature(sequence, useWallaceRule: sequence.Length < 14)`.
+4. Compute `tm = CalculateMeltingTemperature(sequence, useWallaceRule: true)` (Wallace when A+C+G+T < 14, else GC formula).
 5. Build the composition dictionary from the composition counts and assemble the record.
 
 ### 4.3 Complexity

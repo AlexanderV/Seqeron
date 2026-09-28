@@ -124,4 +124,5 @@
 
 ## Change History
 
+- **2026-09-28**: Review B03 F12: the Wallace/GC switch now uses N = A+T+G+C, the OligoCalc GC-formula denominator (Kibbe 2007, OligoCalc page text via WebSearch snippet: "For sequences less than 14 nucleotides … Tm = (wA+xT)*2 + (yG+zC)*4 … longer than 13 … 64.9 + 41*(yG+zC−16.4)/(wA+xT+yG+zC)"); Biopython 1.88 `Tm_Wallace('ACGT ACGT ACGT A')` = 38.0 (whitespace stripped). Now identical to `PrimerDesigner.CalculateMeltingTemperature`.
 - **2026-06-14**: Initial documentation. Records that SEQ-TM-001 is a duplicate Registry entry for the two melting-temperature methods already delivered under SEQ-THERMO-001 (`CalculateMeltingTemperature`, `CalculateThermodynamics`); evidence independently re-retrieved this session, the implementation verified conformant, and the unit consolidated rather than re-implemented (see TestSpec §7).

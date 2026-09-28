@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-THERMO-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Infrastructure |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -49,14 +49,15 @@ Melting temperature [3][4]:
 - Tm = (1000 · ΔH°) / (ΔS° + R · ln(C_T / F)) − 273.15,  R = 1.987 cal/(mol·K).
 
 F = 4 for two non-self-complementary strands in equimolar amount (the default);
-F = 1 for self-complementary duplexes [4].
+F = 1 for self-complementary duplexes, which also receive the symmetry correction
+ΔS° += −1.4 cal/(mol·K) [2][3] (`selfComplementary: true`; Biopython `Tm_NN(selfcomp=True)`).
 
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
 | ASM-01 | Two-state (all-or-none) helix-coil transition. | Tm prediction degrades for sequences forming partial/hairpin structures. |
-| ASM-02 | Duplex is non-self-complementary, equimolar strands (F = 4). | Self-complementary duplexes need F = 1; Tm would be off by R·ln(4) in the denominator. |
+| ASM-02 | Stoichiometry is stated by the caller: non-self-complementary equimolar strands (F = 4, default) or `selfComplementary: true` (F = 1 + symmetry ΔS −1.4). Not inferred from the sequence (Biopython convention). | A self-complementary duplex computed with the default is off by R·ln(4) and the −1.4 symmetry term. |
 | ASM-03 | Fixed monovalent-cation buffer; only [Na⁺] entropy correction applied. | Mg²⁺ and other ions are not modeled; Tm under PCR-like Mg²⁺ conditions is approximate. |
 
 ### 2.4 Properties and Invariants
@@ -68,7 +69,8 @@ F = 1 for self-complementary duplexes [4].
 | INV-03 | Tm = (1000·ΔH°)/(ΔS° + R·ln(C_T/4)) − 273.15, R = 1.987. | NN Tm equation [3][4]. |
 | INV-04 | NN table is Watson-Crick symmetric (AA=TT, CA=TG, GT=AC, CT=AG, GA=TC, GG=CC). | DNA_NN3 parameter symmetry [1][3]. |
 | INV-05 | Deterministic and case-insensitive. | Input upper-cased; no randomness [3]. |
-| INV-06 | Empty or length-1 input returns (0,0,0,0). | NN model undefined for length < 2 (no dinucleotide). |
+| INV-06 | Fewer than 2 A/C/G/T bases after normalisation returns (0,0,0,0). | NN model undefined for length < 2 (no dinucleotide). |
+| INV-07 | Input is normalised like Biopython `_check(seq, "Tm_NN")`: whitespace removed, U→T, all non-A/C/G/T characters removed; the result equals that of the cleaned sequence. | Biopython `MeltingTemp._check` [3]. |
 
 ## 3. Contract
 
@@ -76,9 +78,10 @@ F = 1 for self-complementary duplexes [4].
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `dnaSequence` | `string` | required | DNA sequence 5′→3′. | length ≥ 2 for a non-zero result; A/C/G/T; case-insensitive; non-ACGT dinucleotides contribute 0. |
-| `naConcentration` | `double` | 0.05 | Na⁺ concentration. | mol/L (0.05 = 50 mM); > 0. |
-| `primerConcentration` | `double` | 2.5e-7 | Total strand concentration C_T. | mol/L (2.5e-7 = 250 nM); divided by F = 4. |
+| `dnaSequence` | `string` | required | DNA sequence 5′→3′. | ≥ 2 A/C/G/T(U) bases for a non-zero result; case-insensitive; U read as T; every other character removed before scoring (INV-07). |
+| `naConcentration` | `double` | 0.05 | Na⁺ concentration. | mol/L (0.05 = 50 mM); positive finite, else `ArgumentOutOfRangeException`. |
+| `primerConcentration` | `double` | 2.5e-7 | Strand concentration C_T. | mol/L (2.5e-7 = 250 nM); positive finite; divided by F = 4 (total of two strands) or F = 1 (self-complementary strand). |
+| `selfComplementary` | `bool` | false (4-arg overload) | Self-complementary homoduplex. | adds sym ΔS −1.4, F = 1. |
 
 ### 3.2 Output / Return Value
 
@@ -91,22 +94,24 @@ F = 1 for self-complementary duplexes [4].
 
 ### 3.3 Preconditions and Validation
 
-Input is upper-cased via `ToUpperInvariant` (case-insensitive). Empty or length-1 input
-returns `(0,0,0,0)`. Indexing is 0-based; dinucleotides are overlapping windows of length 2.
-Only A/C/G/T are recognized; an unrecognized dinucleotide adds 0 (no exception). No exceptions
-are thrown for valid-typed input.
+Input is normalised as Biopython `Tm_NN` does (`_check`): upper-cased, U→T, and every
+character other than A/C/G/T removed (N, IUPAC codes, gaps, whitespace, junk). Fewer than two
+remaining bases returns `(0,0,0,0)`. Dinucleotides are overlapping windows of the cleaned
+sequence; N in the salt term is the cleaned length. A non-positive / NaN / infinite
+concentration throws `ArgumentOutOfRangeException` (Biopython raises `ValueError` for [Na⁺] = 0).
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Return `(0,0,0,0)` if input is null/empty or length < 2.
-2. Upper-case the sequence.
+1. Validate concentrations (> 0, finite).
+2. Normalise (upper-case, U→T, keep A/C/G/T); return `(0,0,0,0)` if fewer than 2 bases remain.
 3. Add initiation (ΔH, ΔS) for the first base and for the last base by G·C vs A·T.
 4. For each overlapping dinucleotide, add its NN (ΔH, ΔS) from the parameter table.
-5. Apply the Na⁺ salt entropy correction: ΔS += 0.368·(N−1)·ln[Na⁺].
-6. Compute ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000.
-7. Compute Tm = (1000·ΔH°)/(ΔS° + R·ln(C_T/4)) − 273.15.
+5. If self-complementary, add the symmetry ΔS −1.4 and use F = 1.
+6. Apply the Na⁺ salt entropy correction: ΔS += 0.368·(N−1)·ln[Na⁺].
+7. Compute ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000.
+8. Compute Tm = (1000·ΔH°)/(ΔS° + R·ln(C_T/F)) − 273.15.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -126,6 +131,7 @@ NN parameter table (1 M NaCl; ΔH kcal/mol, ΔS cal/(mol·K)) [1][3]:
 | GG / CC | −8.0 | −19.9 |
 | init. w/ term. G·C | +0.1 | −2.8 |
 | init. w/ term. A·T | +2.3 | +4.1 |
+| symmetry (self-complementary only) | 0 | −1.4 |
 
 ### 4.3 Complexity
 
@@ -139,7 +145,8 @@ NN parameter table (1 M NaCl; ΔH kcal/mol, ΔS cal/(mol·K)) [1][3]:
 
 **Implementation location:** [SequenceStatistics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs)
 
-- `SequenceStatistics.CalculateThermodynamics(string, double, double)`: NN ΔH°/ΔS°/ΔG°/Tm.
+- `SequenceStatistics.CalculateThermodynamics(string, double, double)`: NN ΔH°/ΔS°/ΔG°/Tm (non-self-complementary).
+- `SequenceStatistics.CalculateThermodynamics(string, double, double, bool selfComplementary)`: same, with explicit stoichiometry.
 - `SequenceStatistics.CalculateMeltingTemperature(string, bool)`: simple Wallace / Marmur-Doty Tm (delegates to [ThermoConstants](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ThermoConstants.cs)).
 
 ### 5.2 Current Behavior
@@ -161,9 +168,10 @@ applicable** to this unit.
 - Tm = (1000·ΔH°)/(ΔS° + R·ln(C_T/4)) − 273.15, R = 1.987, F = 4 [3][4].
 - ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000 [2].
 
-**Intentionally simplified:**
+- Self-complementary duplexes: symmetry ΔS −1.4 and F = 1 via `selfComplementary: true` [2][3] (added 2026-09 review, B03 F10).
+- Biopython `_check` input normalisation (B03 F9).
 
-- Self-complementarity: fixed F = 4 (non-self-complementary equimolar); **consequence:** Tm for a self-complementary duplex (true F = 1) is under-estimated by the R·ln(4) denominator difference.
+**Relation to other NN implementations:** `PrimerDesigner.CalculateMeltingTemperatureNN` (MolTools) is a different published model (SantaLucia & Hicks 2004 / DNA_NN4: single initiation + terminal A·T penalty, Owczarzy salt); it cannot be called from this assembly (MolTools references Analysis). Sharing one NN core with a parameter-set switch is a cross-batch request (B03 R9).
 
 **Not implemented:**
 
@@ -175,6 +183,10 @@ applicable** to this unit.
 |---|------|------|--------|--------|-------|
 | 1 | Empty/length-1 returns (0,0,0,0) | Assumption | API edge convention; no thermodynamic value affected | accepted | ASM/INV-06 |
 | 2 | Single-terminus initiation in prior code | Deviation | Under-counted one init term (ΔH/ΔS/Tm wrong) | fixed | Corrected to two-end init in SEQ-THERMO-001 |
+| 3 | Non-ACGT characters counted in salt N / terminal init; U not read as T | Deviation | Tm differed from Biopython (e.g. `ACGUACGUACGU` 9.0 vs 38.2) | fixed | 2026-09 B03 F9 |
+| 4 | Self-complementary model missing | Simplification | Tm off by R·ln4 + sym term | fixed | 2026-09 B03 F10 |
+| 5 | Non-positive concentrations returned NaN/−273.2 °C | Deviation | silent non-physical output | fixed (throws) | 2026-09 B03 F11 |
+| 6 | Rounded output (ΔH/ΔS/ΔG 2 dp, Tm 1 dp) | Convention | Biopython returns unrounded Tm | accepted | |
 
 ## 6. Edge Cases and Limitations
 
@@ -184,13 +196,15 @@ applicable** to this unit.
 |------|-------------------|-----------|
 | Empty / length-1 | (0,0,0,0) | No dinucleotide; NN undefined [3]. |
 | Lowercase / mixed case | Same as upper-case | Input upper-cased [3]. |
-| Non-ACGT dinucleotide | Contributes 0 to ΔH/ΔS | Not in NN table; no exception. |
+| Non-ACGT characters | Removed before scoring (U read as T) | Biopython `_check` [3]. |
+| Concentration ≤ 0 / NaN / ∞ | `ArgumentOutOfRangeException` | Biopython raises [3]. |
 
 ### 6.2 Limitations
 
 Two-state model only; not valid for sequences dominated by hairpins or partial duplexes.
-No Mg²⁺/mixed-cation correction. Self-complementary duplexes use the non-self-complementary
-factor. Predictions are most accurate for short oligonucleotides under standard buffer.
+No Mg²⁺/mixed-cation correction (method 5 is monovalent-only). Self-complementarity is not
+inferred from the sequence; pass `selfComplementary: true`. Inosine (not in DNA_NN3) is removed
+rather than rejected. Predictions are most accurate for short oligonucleotides under standard buffer.
 
 ## 7. Examples and Related Material
 

@@ -698,10 +698,16 @@ public static class SequenceStatistics
     // Kelvin-to-Celsius offset.
     private const double KelvinToCelsiusOffset = 273.15;
 
-    // Total-strand-concentration divisor F for the Tm equation.
-    // For two non-self-complementary strands in equal amount, F = 4 (default);
-    // Source: SantaLucia (1998); MELTING 5 user guide §4.2 ("F is 4 ... by default").
+    // Total-strand-concentration divisor F (x) for the Tm equation Tm = ΔH°/(ΔS° + R·ln(C_T/x)).
+    // x = 4 for two non-self-complementary strands in equal amount, x = 1 for a
+    // self-complementary (homo)duplex. Source: SantaLucia (1998) PNAS 95:1460 Eq. 3;
+    // Biopython Tm_NN: k = dnac1 − dnac2/2 (non-self-complementary), k = dnac1 (selfcomp).
     private const double NonSelfComplementaryFactor = 4.0;
+    private const double SelfComplementaryFactor = 1.0;
+
+    // Symmetry correction for a self-complementary duplex (ΔH° = 0, ΔS° = −1.4 cal/(mol·K)).
+    // Source: SantaLucia (1998) Table 2 "symmetry correction"; Biopython DNA_NN3 key "sym" (0, −1.4).
+    private const double SymmetryCorrectionDeltaS = -1.4;
 
     /// <summary>
     /// DNA thermodynamic properties.
@@ -713,29 +719,71 @@ public static class SequenceStatistics
         double MeltingTemperature);
 
     /// <summary>
-    /// Calculates thermodynamic properties (ΔH°, ΔS°, ΔG°₃₇ and Tm) of a DNA duplex
-    /// using the unified nearest-neighbor model of Allawi &amp; SantaLucia (1997) /
-    /// SantaLucia (1998), with the SantaLucia (1998) "method 5" Na+ salt correction.
+    /// Calculates thermodynamic properties (ΔH°, ΔS°, ΔG°₃₇ and Tm) of a DNA duplex formed by
+    /// two non-self-complementary strands in equal amount, using the nearest-neighbor model of
+    /// Allawi &amp; SantaLucia (1997) (Biopython <c>DNA_NN3</c>) with the SantaLucia (1998)
+    /// "method 5" Na+ entropy correction. Reproduces Biopython
+    /// <c>MeltingTemp.Tm_NN(seq, nn_table=DNA_NN3, Na=1000·[Na+], dnac1=dnac2=C_T/2, saltcorr=5)</c>.
+    /// Equivalent to <see cref="CalculateThermodynamics(string, double, double, bool)"/> with
+    /// <c>selfComplementary: false</c>.
     /// </summary>
-    /// <param name="dnaSequence">DNA sequence (5'→3'); requires length ≥ 2.</param>
-    /// <param name="naConcentration">Na+ concentration in mol/L (default 0.05 = 50 mM).</param>
+    /// <param name="dnaSequence">DNA sequence (5'→3'). Normalised like Biopython <c>Tm_NN</c>
+    /// (<c>_check</c>): case-insensitive, whitespace removed, RNA U read as T, and every character
+    /// other than A/C/G/T removed before the model is applied. Fewer than 2 remaining bases → all zero.</param>
+    /// <param name="naConcentration">Na+ concentration in mol/L (default 0.05 = 50 mM); must be &gt; 0.</param>
     /// <param name="primerConcentration">
-    /// Total strand concentration C_T in mol/L (default 2.5e-7 = 250 nM); the Tm equation
-    /// divides this by F = 4 for two non-self-complementary strands in equal amount.
+    /// Total strand concentration C_T in mol/L (default 2.5e-7 = 250 nM; must be &gt; 0); the Tm
+    /// equation divides this by F = 4 for two non-self-complementary strands in equal amount.
     /// </param>
     /// <returns>
-    /// ΔH° (kcal/mol), ΔS° (cal/(mol·K)), ΔG°₃₇ (kcal/mol) and Tm (°C). For an empty or
-    /// length-1 input all four fields are 0.
+    /// ΔH° (kcal/mol), ΔS° (cal/(mol·K), salt-corrected), ΔG°₃₇ (kcal/mol) rounded to 2 decimals
+    /// and Tm (°C) rounded to 1 decimal. For null input or fewer than 2 A/C/G/T(U) bases all four
+    /// fields are 0.
     /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">A concentration is not a positive finite number.</exception>
     public static ThermodynamicProperties CalculateThermodynamics(
         string dnaSequence,
         double naConcentration = 0.05, // 50 mM
         double primerConcentration = 0.00000025) // 250 nM
-    {
-        if (string.IsNullOrEmpty(dnaSequence) || dnaSequence.Length < 2)
-            return new ThermodynamicProperties(0, 0, 0, 0);
+        => CalculateThermodynamics(dnaSequence, naConcentration, primerConcentration, selfComplementary: false);
 
-        string upper = dnaSequence.ToUpperInvariant();
+    /// <summary>
+    /// Calculates ΔH°, ΔS°, ΔG°₃₇ and Tm of a DNA duplex with the Allawi &amp; SantaLucia (1997)
+    /// nearest-neighbor model (Biopython <c>DNA_NN3</c>), SantaLucia (1998) method-5 salt
+    /// correction, and an explicit choice of the duplex stoichiometry.
+    /// </summary>
+    /// <param name="dnaSequence">DNA sequence (5'→3'); normalised as in
+    /// <see cref="CalculateThermodynamics(string, double, double)"/>.</param>
+    /// <param name="naConcentration">Na+ concentration in mol/L; must be &gt; 0.</param>
+    /// <param name="primerConcentration">Strand concentration C_T in mol/L; must be &gt; 0.
+    /// Non-self-complementary: total of two equimolar strands (Tm uses C_T/4).
+    /// Self-complementary: concentration of the single strand (Tm uses C_T/1).</param>
+    /// <param name="selfComplementary">
+    /// <c>true</c> for a self-complementary (homo)duplex: adds the symmetry correction
+    /// ΔS° −1.4 cal/(mol·K) and uses x = 1 in the Tm equation (SantaLucia 1998; Biopython
+    /// <c>Tm_NN(selfcomp=True)</c>, which takes <c>k = dnac1</c>). Like Biopython, the flag is the
+    /// caller's statement of the experiment and is not inferred from the sequence.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">A concentration is not a positive finite number.</exception>
+    public static ThermodynamicProperties CalculateThermodynamics(
+        string dnaSequence,
+        double naConcentration,
+        double primerConcentration,
+        bool selfComplementary)
+    {
+        // Biopython salt_correction raises for a zero ion concentration and math.log for a
+        // negative one; C_T enters ln(C_T/x). Reject non-physical inputs instead of returning
+        // NaN / ±∞ / −273.15 °C.
+        if (!(naConcentration > 0) || double.IsInfinity(naConcentration))
+            throw new ArgumentOutOfRangeException(nameof(naConcentration), naConcentration,
+                "Na+ concentration must be a positive finite value in mol/L.");
+        if (!(primerConcentration > 0) || double.IsInfinity(primerConcentration))
+            throw new ArgumentOutOfRangeException(nameof(primerConcentration), primerConcentration,
+                "Strand concentration must be a positive finite value in mol/L.");
+
+        string seq = NormalizeForNearestNeighbor(dnaSequence);
+        if (seq.Length < 2)
+            return new ThermodynamicProperties(0, 0, 0, 0);
 
         // Calculate ΔH and ΔS using the nearest-neighbor method.
         double dH = 0;
@@ -743,30 +791,34 @@ public static class SequenceStatistics
 
         // Helix-initiation parameters are applied at BOTH duplex termini
         // (first and last base pair) per Allawi & SantaLucia (1997), Table 1.
-        AddTerminalInitiation(upper[0], ref dH, ref dS);
-        AddTerminalInitiation(upper[^1], ref dH, ref dS);
+        AddTerminalInitiation(seq[0], ref dH, ref dS);
+        AddTerminalInitiation(seq[^1], ref dH, ref dS);
 
-        // Sum nearest-neighbor contributions over each overlapping dinucleotide.
-        for (int i = 0; i < upper.Length - 1; i++)
+        // Sum nearest-neighbor contributions over each overlapping dinucleotide
+        // (the normalised sequence is pure A/C/G/T, so every step is in the table).
+        for (int i = 0; i < seq.Length - 1; i++)
         {
-            string dinuc = upper.Substring(i, 2);
-            if (NearestNeighborParams.TryGetValue(dinuc, out var param))
-            {
-                dH += param.dH;
-                dS += param.dS;
-            }
+            var param = NearestNeighborParams[seq.Substring(i, 2)];
+            dH += param.dH;
+            dS += param.dS;
         }
 
-        // Salt correction for ΔS (SantaLucia 1998, method 5).
-        double saltCorrection = SaltEntropyCoefficient * (upper.Length - 1) * Math.Log(naConcentration);
-        dS += saltCorrection;
+        double strandFactor = NonSelfComplementaryFactor;
+        if (selfComplementary)
+        {
+            dS += SymmetryCorrectionDeltaS;
+            strandFactor = SelfComplementaryFactor;
+        }
+
+        // Salt correction for ΔS (SantaLucia 1998, method 5); N = number of bases.
+        dS += SaltEntropyCoefficient * (seq.Length - 1) * Math.Log(naConcentration);
 
         // ΔG° at 37 °C: ΔG° = ΔH° - T·ΔS° (ΔS° converted from cal to kcal).
         double dG = dH - (ReferenceTemperatureKelvin * dS / 1000.0);
 
-        // Tm = ΔH° / (ΔS° + R · ln(C_T / F)) - 273.15, with ΔH° converted to cal.
+        // Tm = ΔH° / (ΔS° + R · ln(C_T / x)) - 273.15, with ΔH° converted to cal.
         double tm = (dH * 1000) /
-                    (dS + GasConstantCalPerMolK * Math.Log(primerConcentration / NonSelfComplementaryFactor))
+                    (dS + GasConstantCalPerMolK * Math.Log(primerConcentration / strandFactor))
                     - KelvinToCelsiusOffset;
 
         return new ThermodynamicProperties(
@@ -776,7 +828,26 @@ public static class SequenceStatistics
             MeltingTemperature: Math.Round(tm, 1));
     }
 
-    // Adds the helix-initiation contribution for one terminal base.
+    // Biopython MeltingTemp._check(seq, "Tm_NN"): upper-case, drop whitespace, back-transcribe
+    // (U → T), keep only bases the NN table can score. DNA_NN3 has no inosine (I) parameters
+    // (Biopython raises on I), so only A/C/G/T are kept.
+    private static string NormalizeForNearestNeighbor(string? sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return string.Empty;
+
+        var sb = new System.Text.StringBuilder(sequence.Length);
+        foreach (char ch in sequence)
+        {
+            char b = char.ToUpperInvariant(ch);
+            if (b == 'U') b = 'T';
+            if (b is 'A' or 'C' or 'G' or 'T')
+                sb.Append(b);
+        }
+        return sb.ToString();
+    }
+
+    // Adds the helix-initiation contribution for one terminal base (A/C/G/T).
     private static void AddTerminalInitiation(char terminalBase, ref double dH, ref double dS)
     {
         if (terminalBase is 'G' or 'C')
@@ -792,29 +863,41 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates simple melting temperature using Wallace rule or GC formula.
+    /// Calculates the "basic" melting temperature of an oligonucleotide (OligoCalc, Kibbe 2007,
+    /// NAR 35:W43): Wallace rule Tm = 2(A+T) + 4(G+C) (Thein &amp; Wallace 1986) for fewer than 14
+    /// bases, otherwise Tm = 64.9 + 41·(G+C − 16.4)/N (customarily attributed to Marmur &amp; Doty 1962),
+    /// both at OligoCalc's fixed standard conditions (50 nM primer, 50 mM Na+, pH 7.0).
     /// </summary>
+    /// <remarks>
+    /// Only A, C, G, T are counted (case-insensitive); every other character (N, IUPAC codes, U,
+    /// gaps, whitespace) is ignored. As in OligoCalc — whose GC formula divides by
+    /// N = wA+xT+yG+zC — the length that selects the formula is the number of counted bases, so the
+    /// result with <paramref name="useWallaceRule"/> = true equals the canonical
+    /// <c>PrimerDesigner.CalculateMeltingTemperature</c> (MolTools; not callable from this assembly).
+    /// With <paramref name="useWallaceRule"/> = false the GC formula is applied at any length; below
+    /// 14 bases this is outside its published domain and can be negative. Returns 0 for null/empty
+    /// input or when no A/C/G/T base is present.
+    /// </remarks>
     public static double CalculateMeltingTemperature(string dnaSequence, bool useWallaceRule = true)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             return 0;
 
         var comp = CalculateNucleotideComposition(dnaSequence);
+        int at = comp.CountA + comp.CountT;
+        int gc = comp.CountG + comp.CountC;
+        int validLength = at + gc;
+        if (validLength == 0)
+            return 0;
 
-        if (useWallaceRule && dnaSequence.Length < ThermoConstants.WallaceMaxLength)
+        if (useWallaceRule && validLength < ThermoConstants.WallaceMaxLength)
         {
             // Wallace rule for short oligos: Tm = 2(A+T) + 4(G+C)
-            return ThermoConstants.CalculateWallaceTm(
-                comp.CountA + comp.CountT,
-                comp.CountG + comp.CountC);
+            return ThermoConstants.CalculateWallaceTm(at, gc);
         }
-        else
-        {
-            // GC formula (Marmur-Doty)
-            int total = comp.CountA + comp.CountT + comp.CountG + comp.CountC;
-            if (total == 0) return 0;
-            return ThermoConstants.CalculateMarmurDotyTm(comp.CountG + comp.CountC, total);
-        }
+
+        // GC formula (Marmur-Doty / OligoCalc basic Tm)
+        return ThermoConstants.CalculateMarmurDotyTm(gc, validLength);
     }
 
     #endregion
@@ -1230,9 +1313,11 @@ public static class SequenceStatistics
         var comp = CalculateNucleotideComposition(seq);
         double entropy = CalculateShannonEntropy(seq);
         double complexity = CalculateLinguisticComplexity(seq);
-        // Wallace rule applies to short oligos (length < WallaceMaxLength); the GC/Marmur-Doty
-        // formula applies otherwise. Boundary per SEQ-TM-001 (ThermoConstants.WallaceMaxLength = 14).
-        double tm = CalculateMeltingTemperature(seq, useWallaceRule: seq.Length < ThermoConstants.WallaceMaxLength);
+        // Wallace rule applies to short oligos (< WallaceMaxLength = 14 A/C/G/T bases); the GC/Marmur-Doty
+        // formula applies otherwise (SEQ-TM-001).
+        // CalculateMeltingTemperature(useWallaceRule: true) itself selects the formula from the
+        // number of A/C/G/T bases (OligoCalc), so N/gaps cannot push a short oligo into the GC formula.
+        double tm = CalculateMeltingTemperature(seq, useWallaceRule: true);
 
         var composition = new Dictionary<char, int>
         {

@@ -73,3 +73,9 @@ Delegate `CalculateMeltingTemperature` switches Wallace (len < 14) vs Marmur-Dot
 ## Verdict & follow-ups
 - **Stage A: PASS. Stage B: PASS. End-state: CLEAN.**
 - No correctness defect. Two test-completeness gaps (M6 partial, missing null cases) were fixed in-session by adding/strengthening assertions to sourced edge behavior. One BY-DESIGN note recorded (silent non-ACGT skip).
+
+## Review 2026-09-28 (campaign B03)
+- Stage A PASS-with-notes → doc fixed: self-complementary case was declared a simplification although published (SantaLucia 1998 sym −1.4, F = 1; Biopython `selfcomp`) → implemented (F10).
+- Stage B FAIL→FIXED: (F9) non-ACGT handling diverged from Biopython `_check` (e.g. `ACGUACGUACGU` Tm 9.0 vs Biopython 38.2; `acgt acgt` 9.5 vs 17.1); (F11) non-positive concentrations returned NaN / −273.2 °C (Biopython raises). All-ACGT results unchanged: 14 cases identical to Biopython 1.88 `Tm_NN(nn_table=DNA_NN3, saltcorr=5)` before rounding.
+- The 2026-06 Stage-B "BY-DESIGN" note (silent non-ACGT skip) is superseded by F9.
+- Delegation to `PrimerDesigner` NN core impossible (MolTools → Analysis dependency; different parameter set DNA_NN4) → cross-batch request B03 R9. See `docs/Validation/review-2026-09/B03.md`.

@@ -254,4 +254,126 @@ public class SequenceStatistics_CalculateThermodynamics_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 (B03 F9–F12) — Biopython Tm_NN(DNA_NN3) / OligoCalc parity
+
+    // F9–F11 reference: Biopython 1.88, executed:
+    //   mt.Tm_NN(seq, nn_table=mt.DNA_NN3, Na=1000*na, dnac1=C_T/2, dnac2=C_T/2, saltcorr=5)
+    //   (selfcomp=True: dnac1=C_T, dnac2=0). ΔH/ΔS are the DNA_NN3 sums (NN + init_A/T|G/C
+    //   per terminus [+ sym]) + 0.368(N−1)ln[Na+]; each tuple reproduces the Biopython Tm.
+    [TestCase("CGTTCCAAAGATGTGGGCATGAGCTTAC", 0.05, 2.5e-7, -222.9, -632.27, -26.80, 61.9)] // bio 61.924020
+    [TestCase("ACGTACGGTACCAGTTAGCA", 0.05, 2.5e-7, -154.9, -439.25, -18.67, 54.9)]         // bio 54.884303
+    [TestCase("ACGTACGGTACCAGTTAGCA", 1.0, 1e-6, -154.9, -418.30, -25.16, 72.2)]            // bio 72.218857
+    [TestCase("GGGGGGCCCCCCAAATTT", 0.1, 5e-7, -134.7, -368.40, -20.44, 63.6)]              // bio 63.609899
+    [TestCase("GCGCGCGCGCGC", 0.05, 2.5e-7, -111.6, -300.13, -18.52, 61.9)]                // bio 61.897321
+    public void CalculateThermodynamics_MatchesBiopythonTmNnDnaNn3(
+        string seq, double na, double ct, double dH, double dS, double dG, double tm)
+    {
+        var r = SequenceStatistics.CalculateThermodynamics(seq, na, ct);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.DeltaH, Is.EqualTo(dH).Within(1e-9));
+            Assert.That(r.DeltaS, Is.EqualTo(dS).Within(1e-9));
+            Assert.That(r.DeltaG, Is.EqualTo(dG).Within(1e-9));
+            Assert.That(r.MeltingTemperature, Is.EqualTo(tm).Within(1e-9));
+        });
+    }
+
+    // F9 — Biopython MeltingTemp._check(seq, "Tm_NN"): whitespace removed, U back-transcribed
+    //      to T, every non-A/C/G/T character dropped. Pre-fix: "ACGUACGUACGU" Tm 9.0,
+    //      "acgt acgt" 9.5, "NACGTACGTN" 13.9 (U/N/space counted in salt N and termini).
+    [TestCase("ACGUACGUACGU", "ACGTACGTACGT", 38.2)]  // bio 38.200122
+    [TestCase("ACGTNACGTACGT", "ACGTACGTACGT", 38.2)] // bio 38.200122
+    [TestCase("acgt acgt", "ACGTACGT", 17.1)]         // bio 17.075039
+    [TestCase("NACGTACGTN", "ACGTACGT", 17.1)]        // bio 17.075039
+    public void CalculateThermodynamics_NonAcgtNormalisedLikeBiopython(string seq, string cleaned, double tm)
+    {
+        var r = SequenceStatistics.CalculateThermodynamics(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.MeltingTemperature, Is.EqualTo(tm).Within(1e-9));
+            Assert.That(r, Is.EqualTo(SequenceStatistics.CalculateThermodynamics(cleaned)));
+        });
+    }
+
+    [TestCase("NN")]
+    [TestCase("A-")]
+    [TestCase("N A N")]
+    public void CalculateThermodynamics_FewerThanTwoRealBases_ReturnsAllZero(string seq)
+    {
+        Assert.That(SequenceStatistics.CalculateThermodynamics(seq),
+            Is.EqualTo(new SequenceStatistics.ThermodynamicProperties(0, 0, 0, 0)));
+    }
+
+    // F10 — self-complementary duplex: symmetry ΔS −1.4 and x = 1 (SantaLucia 1998;
+    //       Biopython Tm_NN(selfcomp=True) → k = dnac1).
+    [TestCase("GCGC", 0.05, 2.5e-7, -30.0, -86.31, -3.23, -15.7)]          // bio -15.668610
+    [TestCase("AATT", 0.05, 2.5e-7, -18.4, -61.31, 0.61, -72.1)]           // bio -72.086274
+    [TestCase("GCGCGCGCGCGC", 0.05, 2.5e-7, -111.6, -301.53, -18.08, 63.3)] // bio 63.265423
+    [TestCase("CGCGAATTCGCG", 0.05, 2.5e-7, -101.2, -285.93, -12.52, 47.0)] // bio 46.968724
+    [TestCase("CGCGAATTCGCG", 1.0, 1e-4, -101.2, -273.80, -16.28, 73.3)]    // bio 73.305570
+    public void CalculateThermodynamics_SelfComplementary_MatchesBiopythonSelfcomp(
+        string seq, double na, double ct, double dH, double dS, double dG, double tm)
+    {
+        var r = SequenceStatistics.CalculateThermodynamics(seq, na, ct, selfComplementary: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.DeltaH, Is.EqualTo(dH).Within(1e-9));
+            Assert.That(r.DeltaS, Is.EqualTo(dS).Within(1e-9));
+            Assert.That(r.DeltaG, Is.EqualTo(dG).Within(1e-9));
+            Assert.That(r.MeltingTemperature, Is.EqualTo(tm).Within(1e-9));
+        });
+    }
+
+    [Test]
+    public void CalculateThermodynamics_SelfComplementaryFalse_EqualsThreeArgumentOverload()
+    {
+        Assert.That(SequenceStatistics.CalculateThermodynamics("GCGC", 0.05, 2.5e-7, selfComplementary: false),
+            Is.EqualTo(SequenceStatistics.CalculateThermodynamics("GCGC")));
+    }
+
+    // F11 — Biopython salt_correction raises for [Na+] = 0 ("Total ion concentration of zero
+    //       is not allowed") and math.log for < 0; pre-fix returned Tm −273.2 / ΔG +∞ silently.
+    [TestCase(0.0, 2.5e-7)]
+    [TestCase(-0.05, 2.5e-7)]
+    [TestCase(double.NaN, 2.5e-7)]
+    [TestCase(double.PositiveInfinity, 2.5e-7)]
+    [TestCase(0.05, 0.0)]
+    [TestCase(0.05, -1e-7)]
+    [TestCase(0.05, double.NaN)]
+    public void CalculateThermodynamics_NonPositiveConcentration_Throws(double na, double ct)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateThermodynamics("ACGTACGT", na, ct));
+    }
+
+    // F12 — the Wallace/GC switch uses the A+C+G+T count, the same N as OligoCalc's GC-formula
+    //       denominator (Kibbe 2007: Tm = 64.9 + 41(yG+zC−16.4)/(wA+xT+yG+zC)). Pre-fix the raw
+    //       string length selected the formula: "ACGTNNNNNNNNNNNN" → 64.9+41(2−16.4)/4 = −82.7.
+    //       Biopython Tm_Wallace("ACGT ACGT ACGT A") = 38.0 (whitespace stripped).
+    [TestCase("ACGTNNNNNNNNNNNN", 12.0)]
+    [TestCase("ACGT ACGT ACGT A", 38.0)]
+    [TestCase("ACGT-ACGT-ACGT-A", 38.0)]
+    public void CalculateMeltingTemperature_ThresholdUsesAcgtCount(string seq, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq), Is.EqualTo(expected).Within(1e-9));
+    }
+
+    // F12 — with useWallaceRule = true the result equals the canonical
+    //       PrimerDesigner.CalculateMeltingTemperature (OligoCalc basic Tm) on any input.
+    [Test]
+    public void CalculateMeltingTemperature_Wallace_EqualsCanonicalPrimerDesigner()
+    {
+        var rng = new Random(20260928);
+        const string alphabet = "ACGTacgtNU- RY";
+        for (int i = 0; i < 2000; i++)
+        {
+            var chars = new char[rng.Next(0, 40)];
+            for (int j = 0; j < chars.Length; j++) chars[j] = alphabet[rng.Next(alphabet.Length)];
+            string seq = new string(chars);
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq),
+                Is.EqualTo(Seqeron.Genomics.MolTools.PrimerDesigner.CalculateMeltingTemperature(seq)).Within(1e-12), seq);
+        }
+    }
+
+    #endregion
 }

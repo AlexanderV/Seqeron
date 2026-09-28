@@ -56,7 +56,7 @@
 | INV-2 | `summary.GcContent == CalculateNucleotideComposition(seq).GcContent` | Yes | Source 1; aggregation-consistency |
 | INV-3 | `summary.Entropy == CalculateShannonEntropy(seq)` | Yes | Source 3; aggregation-consistency |
 | INV-4 | `summary.Complexity == CalculateLinguisticComplexity(seq)` | Yes | Source 4; aggregation-consistency |
-| INV-5 | `summary.MeltingTemperature == CalculateMeltingTemperature(seq, seq.Length < 14)` | Yes | Source 2; aggregation-consistency |
+| INV-5 | `summary.MeltingTemperature == CalculateMeltingTemperature(seq, useWallaceRule: true)` (switch on A+C+G+T < 14, 2026-09 B03 F12) | Yes | Source 2; aggregation-consistency |
 | INV-6 | Composition dict counts A,T,G,C,U,N equal `CalculateNucleotideComposition` counts | Yes | Source 1; aggregation-consistency |
 | INV-7 | 0 ≤ GcContent ≤ 1 and 0 ≤ Complexity < 1 (DNA fragments) | Yes | Source 1, Source 4 |
 

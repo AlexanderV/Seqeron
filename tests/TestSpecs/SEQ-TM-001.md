@@ -32,6 +32,7 @@
 ### 1.3 Documented Corner Cases
 
 - Wallace rule documented only for 14–20 nt primers (source 5).
+- OligoCalc: Wallace below 14 nucleotides, GC formula with N = wA+xT+yG+zC otherwise; the switch uses the same A/C/G/T count (2026-09 review F12; `ACGTNNNNNNNNNNNN` → 12, not −82.7).
 - NN model is undefined for length < 2 (no dinucleotide step) (source 5).
 - NN Tm depends on C_T and self-complementarity factor x (sources 1, 5).
 
@@ -156,3 +157,4 @@
 ## 7. Open Questions / Decisions
 
 1. **DECISION — duplicate Registry entry.** The Processing Registry contains two entries for the identical pair of melting-temperature methods on the same class: **SEQ-THERMO-001** ("Thermodynamic Properties", ☑ Complete) and **SEQ-TM-001** ("Melting Temperature"). Both list `SequenceStatistics.CalculateThermodynamics(...)` as canonical and add `CalculateMeltingTemperature(...)`. SEQ-THERMO-001 already ships the implementation, the canonical test fixture, Evidence, and an algorithm doc. Per the prompt's duplicate-elimination rule ("one canonical test file per unit; no duplicate tests remain") and the workflow-control rule ("note the conflict in the TestSpec and update the checklist entry"), SEQ-TM-001 is **resolved by consolidation**: no new production code and no duplicate test file are created; this unit reuses the existing implementation and canonical fixture. Evidence was independently re-retrieved this session (Biopython `Tm_Wallace`/`Tm_GC`/`Tm_NN`, SantaLucia 1998, Allawi & SantaLucia 1997) to confirm the behavior is correct and source-backed. This mirrors the prior SEQ-COMPOSITION-001 ↔ SEQ-STATS-001 consolidation.
+2. **Review 2026-09-28 (B03 F12):** threshold on A+C+G+T count; tests `CalculateMeltingTemperature_ThresholdUsesAcgtCount` (3) and `CalculateMeltingTemperature_Wallace_EqualsCanonicalPrimerDesigner` (2000 random inputs) in the SEQ-THERMO-001 fixture; Tm/summary fuzz oracles updated.

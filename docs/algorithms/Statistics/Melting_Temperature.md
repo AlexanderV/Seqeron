@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-TM-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Infrastructure |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -37,7 +37,11 @@ and converts ΔH°/ΔS° to Tm at a given strand and salt concentration [3][4].
 
 **Marmur-Doty GC formula** (longer oligos) [2]:
 
-> Tm = 64.9 + 41·(G + C − 16.4) / N,  with N = sequence length
+> Tm = 64.9 + 41·(G + C − 16.4) / N,  with N = A + T + G + C (OligoCalc: `(wA+xT+yG+zC)`, Kibbe 2007)
+
+The Wallace/GC switch (< 14 vs ≥ 14) uses the same N — the count of A/C/G/T bases, not the raw
+string length (2026-09 review, B03 F12); `useWallaceRule: true` therefore equals the canonical
+`PrimerDesigner.CalculateMeltingTemperature` (OligoCalc basic Tm) on every input.
 
 **Nearest-neighbor Tm** [3][4]:
 
@@ -74,7 +78,7 @@ derivation is documented in [DNA_Thermodynamics.md](DNA_Thermodynamics.md).)
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | dnaSequence | string | required | DNA sequence (5'→3') | case-insensitive; A/C/G/T |
-| useWallaceRule | bool | true | Wallace if length < 14, else Marmur-Doty | — (CalculateMeltingTemperature) |
+| useWallaceRule | bool | true | Wallace if A+C+G+T count < 14, else Marmur-Doty | — (CalculateMeltingTemperature) |
 | naConcentration | double | 0.05 | Na+ concentration, mol/L | > 0 (CalculateThermodynamics) |
 | primerConcentration | double | 2.5e-7 | Total strand conc. C_T, mol/L (divided by F = 4) | > 0 (CalculateThermodynamics) |
 
@@ -97,9 +101,10 @@ for these guarded inputs.
 
 ### 4.1 High-Level Steps
 
-1. Count A/T/G/C (and length N).
+1. Count A/T/G/C (case-insensitive; U, N, IUPAC codes, gaps ignored); N = A+T+G+C (0 → Tm 0).
 2. **CalculateMeltingTemperature:** if `useWallaceRule` and N < 14, apply the Wallace
-   rule; otherwise apply Marmur-Doty.
+   rule; otherwise apply Marmur-Doty (with `useWallaceRule: false` also below 14, outside
+   its published domain — may be negative; no clamp).
 3. **CalculateThermodynamics:** add helix-initiation terms at both termini, sum NN
    ΔH°/ΔS° over each dinucleotide, apply the salt correction to ΔS°, then evaluate the
    NN Tm equation and ΔG°37.
@@ -162,6 +167,8 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 |---|------|------|--------|--------|-------|
 | 1 | Default C_T = 250 nM vs Biopython 50 nM | Assumption | NN Tm offset under defaults | accepted | Explicit `primerConcentration` parameter; formula identical (ASM-02) |
 | 2 | SEQ-TM-001 ↔ SEQ-THERMO-001 same methods | Deviation (duplicate Registry entry) | Avoid duplicate code/tests | accepted | Consolidated; see §7.3 and TestSpec §7 |
+| 3 | Wallace/GC switch used raw string length (N/gaps counted) | Deviation | `ACGTNNNNNNNNNNNN` → −82.7 instead of 12 | fixed | 2026-09 B03 F12 (OligoCalc N = A+T+G+C) |
+| 4 | Basic-Tm counting duplicated in `PrimerDesigner` (MolTools) | Duplication | none (identical results, locked by a differential test) | open | Analysis cannot reference MolTools; cross-batch request B03 R10 |
 
 ## 6. Edge Cases and Limitations
 
@@ -171,6 +178,8 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 |------|-------------------|-----------|
 | Empty / length-1 | NN returns all-zero; Wallace/GC returns 0 | NN undefined for < 2 nt [3] |
 | Lowercase input | Same as uppercase | Case-insensitive (upper-cased internally) |
+| N / gaps / IUPAC / U in basic Tm | Not counted, and not counted towards the 14-base threshold | OligoCalc N = A+T+G+C |
+| Non-ACGT in NN Tm | Removed first (U → T) | Biopython `_check` |
 | All-A·T duplex | Low (possibly negative) Tm | A·T pairs least stable [4] |
 
 ### 6.2 Limitations

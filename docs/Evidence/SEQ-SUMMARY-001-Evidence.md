@@ -112,7 +112,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: Tm formula-selection threshold (length < 14).** The summary passes `useWallaceRule: sequence.Length < 14` to the melting-temperature method. The 14 nt boundary is the sibling SEQ-TM-001 convention (`ThermoConstants.WallaceMaxLength`); Biopython documents Wallace as a rule of thumb for ~14–20 nt without fixing an exact switch point. This is a non-correctness-affecting choice *for the summary*, because the summary's contract is "MeltingTemperature equals `CalculateMeltingTemperature` with this flag" — the threshold belongs to the already-validated SEQ-TM-001 unit, and the summary is tested for equality with that canonical method on the same input.
+1. **ASSUMPTION: Tm formula-selection threshold (length < 14).** The summary passes `useWallaceRule: sequence.Length < 14` to the melting-temperature method. **Superseded 2026-09-28 (B03 F12):** the summary now passes `useWallaceRule: true` and `CalculateMeltingTemperature` switches on the A+C+G+T count (OligoCalc), so N/gaps no longer select the GC formula for a short oligo. The 14 nt boundary is the sibling SEQ-TM-001 convention (`ThermoConstants.WallaceMaxLength`); Biopython documents Wallace as a rule of thumb for ~14–20 nt without fixing an exact switch point. This is a non-correctness-affecting choice *for the summary*, because the summary's contract is "MeltingTemperature equals `CalculateMeltingTemperature` with this flag" — the threshold belongs to the already-validated SEQ-TM-001 unit, and the summary is tested for equality with that canonical method on the same input.
 
 ---
 

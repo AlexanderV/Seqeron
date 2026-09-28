@@ -63,7 +63,7 @@ public class SequenceStatistics_SummarizeNucleotideSequence_Tests
                 Is.EqualTo(SequenceStatistics.CalculateLinguisticComplexity(seq)).Within(Tolerance),
                 "INV-04: Complexity equals CalculateLinguisticComplexity");
             Assert.That(summary.MeltingTemperature,
-                Is.EqualTo(SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: seq.Length < 14)).Within(Tolerance),
+                Is.EqualTo(SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: true)).Within(Tolerance),
                 "INV-05: MeltingTemperature equals CalculateMeltingTemperature with the len<14 flag");
         });
     }

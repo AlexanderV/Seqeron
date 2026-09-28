@@ -55,7 +55,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///               0 for empty input. Maximum is log₂k for k equiprobable symbols.
 ///   • Complexity = linguistic complexity (mean of vocabulary-usage ratios across
 ///               word sizes k=1..6), in [0,1]; 0 for empty input.
-///   • MeltingTemperature = Wallace 2(A+T)+4(G+C) when |S| < 14, else GC/Marmur-Doty
+///   • MeltingTemperature = Wallace 2(A+T)+4(G+C) when A+C+G+T < 14, else GC/Marmur-Doty
 ///               64.9 + 41·(GC−16.4)/N; 0 for empty input
 ///               (ThermoConstants.WallaceMaxLength = 14, strict <).
 ///   • Composition = a 6-entry map {A,T,G,C,U,N} of the composition counts.
@@ -177,8 +177,9 @@ public class SequenceSummaryFuzzTests
         var comp = SequenceStatistics.CalculateNucleotideComposition(seq);
         double entropy = SequenceStatistics.CalculateShannonEntropy(seq);
         double complexity = SequenceStatistics.CalculateLinguisticComplexity(seq);
-        double tm = SequenceStatistics.CalculateMeltingTemperature(
-            seq, useWallaceRule: seq.Length < WallaceMaxLength);
+        // SEQ-TM-001 F12: the summary lets CalculateMeltingTemperature pick the formula from the
+        // A/C/G/T count (OligoCalc), rather than pre-selecting it from the raw length.
+        double tm = SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: true);
 
         var s = SequenceStatistics.SummarizeNucleotideSequence(input);
 
@@ -186,7 +187,7 @@ public class SequenceSummaryFuzzTests
         s.GcContent.Should().Be(comp.GcContent, "INV-02: GcContent copies composition GcContent");
         s.Entropy.Should().Be(entropy, "INV-03: Entropy = CalculateShannonEntropy");
         s.Complexity.Should().Be(complexity, "INV-04: Complexity = CalculateLinguisticComplexity");
-        s.MeltingTemperature.Should().Be(tm, "INV-05: Tm = CalculateMeltingTemperature(len<14)");
+        s.MeltingTemperature.Should().Be(tm, "INV-05: Tm = CalculateMeltingTemperature(seq, useWallaceRule: true)");
 
         // INV-06: composition map equals the composition record's counts.
         s.Composition['A'].Should().Be(comp.CountA);

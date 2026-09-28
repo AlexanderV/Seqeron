@@ -47,10 +47,11 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///                                Tm = 64.9 + 41·(GC − 16.4) / N
 ///         where N is the recognized base count (A+T+G+C); Marmur-Doty returns 0
 ///         when that count is 0.
-///   • §4.1 step 2: the formula switch is `useWallaceRule && N_length &lt; 14`,
-///         where N_length is `dnaSequence.Length` (the threshold constant is
-///         ThermoConstants.WallaceMaxLength = 14 — Wallace for length &lt; 14,
-///         Marmur-Doty for length ≥ 14).
+///   • §4.1 step 2: the formula switch is `useWallaceRule && N &lt; 14`, where N is
+///         the A+C+G+T count — the same N as the OligoCalc GC-formula denominator
+///         (SEQ-TM-001 F12; previously the raw string length, so N/gaps could push a
+///         4-base oligo into the GC formula). Threshold constant
+///         ThermoConstants.WallaceMaxLength = 14.
 ///   • §3.3 / §6.1: null/empty ⇒ 0; no exception for guarded input.
 ///   • §6.1: input is upper-cased internally (case-insensitive); unrecognized
 ///         characters are simply not counted as A/C/G/T (so they contribute 0 to
@@ -97,19 +98,19 @@ public class SequenceMeltingTemperatureFuzzTests
     }
 
     /// <summary>Independent oracle mirroring CalculateMeltingTemperature exactly:
-    /// 0 for null/empty; Wallace when useWallaceRule and length &lt; 14; otherwise
+    /// 0 for null/empty or no A/C/G/T; Wallace when useWallaceRule and A+C+G+T &lt; 14; otherwise
     /// Marmur-Doty over the recognized base count (0 when no A/C/G/T present).</summary>
     private static double Oracle(string seq, bool useWallaceRule = true)
     {
         if (string.IsNullOrEmpty(seq)) return 0;
 
         var (at, gc) = CountAcgt(seq);
-
-        if (useWallaceRule && seq.Length < WallaceMaxLength)
-            return WallaceAt * at + WallaceGc * gc;
-
         int total = at + gc;
         if (total == 0) return 0;
+
+        if (useWallaceRule && total < WallaceMaxLength)
+            return WallaceAt * at + WallaceGc * gc;
+
         return MarmurBase + MarmurGcCoeff * (gc - MarmurGcOffset) / total;
     }
 
