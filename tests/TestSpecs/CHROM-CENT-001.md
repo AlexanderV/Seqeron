@@ -247,3 +247,18 @@ pattern) and SF3 arrays whose period is not a multiple of 5 (e.g. dodecameric DX
 resolved from the CC0 reference — they need the SF-resolved consensus monomer library
 (J1/J2/D1/D2/W1–W5/M1/R1/R2), which is not CC0/redistributable (only in unlicensed third-party HMM
 repos). Callers may pass their own `reference`.
+
+## Review 2026-09 additions (campaign B19)
+
+Locked against an independent Python/numpy reference of the documented heuristic (§4 of the algorithm doc).
+
+| ID | Test Case | Expected (exact) | Source |
+|----|-----------|------------------|--------|
+| R-CENT-1 | L == windowSize is analysed (window ending at L scanned) | (0, 2400, 1.0, Metacentric) | Python reference |
+| R-CENT-2 | GC variability uses ALL full 1-kb sub-windows (population SD) | score 0.49647532729103727 = 1972/1986 × 0.5 | numpy.std |
+| R-CENT-3 | Lower-SD window wins ((AT)500(GC)750, W 2000) | (500, 2500, 0.744712990936556) | numpy.std |
+| R-CENT-4 | Left extension can reach position 0 | (0, 2800, 1.0, Subtelocentric) | Python reference |
+| R-CENT-5 | Embedded array exact boundaries | (3000, 5400, 1.0, Metacentric) | Python reference |
+| R-CENT-6 | windowSize 3 terminates (step clamped ≥ 1); windowSize ≤ 0 throws `ArgumentOutOfRangeException` | Unknown / throws | — |
+| R-SF-1 | Period-2 A·A dimer is not SF1/SF2 | Family = Unknown | McNulty & Sullivan 2018 (J1=A·J2=B, D1=B·D2=A) |
+| R-SF-2 | Monomeric B-only array | Family = Unknown | SF4 = A-type M1; SF5 = R1/R2 mix |

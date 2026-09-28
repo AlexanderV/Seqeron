@@ -6,7 +6,7 @@
 | Test Unit ID | CHROM-CENT-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -27,7 +27,7 @@ The existing repository documentation also records the following centromere-asso
 | Chromatin state | Constitutive heterochromatin |
 | GC variability | Lower variability than many gene-rich regions |
 
-Centromere-position nomenclature follows Levan et al. (1964) and is based on the arm-length ratio `q/p`.[2]
+Centromere-position nomenclature follows Levan et al. (1964) and is based on the arm-length ratio `q/p`.[2] Levan derive the regions by dividing the distance from the chromosome midpoint (M) to a tip (T) into four equal lengths (m, sm, st, t), i.e. centromeric-index cut-points 37.5 / 25 / 12.5; the tabulated arm-ratio cut-points are the rounded 1.7 / 3.0 / 7.0 (exact 1.667 / 3 / 7), and the implementation uses the published tabulated values.
 
 | Classification | Arm Ratio (`q/p`) | Description |
 |----------------|-------------------|-------------|
@@ -65,8 +65,8 @@ The biological classification model is the centromere-arm-ratio system of Levan 
 |------|------|---------|-------------|-------------|
 | `chromosomeName` | `string` | required | Identifier copied into the result. | Preserved exactly in `CentromereResult.Chromosome`. |
 | `sequence` | `string` | required | DNA sequence to scan for a centromere-like interval. | `null` or empty input returns `Unknown` with null boundaries. Sequences shorter than the scan window also return `Unknown`. |
-| `windowSize` | `int` | `100000` | Sliding-window size used during the scan. | Windows are advanced by `windowSize / 4` during the initial scan. |
-| `minAlphaSatelliteContent` | `double` | `0.3` | Minimum score threshold required before a candidate region is accepted. | Boundary extension uses `70%` of this threshold. |
+| `windowSize` | `int` | `100000` | Sliding-window size used during the scan. | Must be `> 0` (else `ArgumentOutOfRangeException`). Windows are advanced by `max(1, windowSize / 4)`; boundary extension uses half-windows of `max(1, windowSize / 2)`. |
+| `minAlphaSatelliteContent` | `double` | `0.3` | Minimum **repeat content** (not composite score) a window must strictly exceed to be accepted as a candidate. | Boundary extension uses `70%` of this threshold. |
 
 ### 3.2 Output / Return Value
 
@@ -82,17 +82,17 @@ The biological classification model is the centromere-arm-ratio system of Levan 
 
 ### 3.3 Preconditions and Validation
 
-`AnalyzeCentromere` returns `Unknown` with null boundaries when the input sequence is `null`, empty, or effectively too short for the initial scan loop to execute. The method uppercases the sequence before analysis. It does not require a reference genome or alpha-satellite database; instead it derives the result entirely from the supplied sequence with a repeat-content and GC-variability heuristic.
+`AnalyzeCentromere` throws `ArgumentOutOfRangeException` when `windowSize <= 0`, and returns `Unknown` with null boundaries when the input sequence is `null`, empty, or shorter than `windowSize` (a sequence of exactly `windowSize` bp is analysed as one window). The method uppercases the sequence before analysis. It does not require a reference genome or alpha-satellite database; instead it derives the result entirely from the supplied sequence with a repeat-content and GC-variability heuristic.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
 1. Return `Unknown` immediately when the input sequence is `null` or empty.
-2. Uppercase the sequence and scan overlapping windows of size `windowSize` with a step of `windowSize / 4`.
+2. Uppercase the sequence and scan every overlapping window of size `windowSize` that lies fully inside the sequence (`i + windowSize <= L`, including the window ending exactly at `L`) with a step of `max(1, windowSize / 4)`.
 3. For each window, estimate repeat content with 15-mer counting and GC variability with 1 kb sub-windows.
-4. Compute the candidate score as `repeatContent * (1 - gcVariability)` and retain the highest-scoring window above `minAlphaSatelliteContent`.
-5. Extend the chosen region left and right while neighboring half-windows maintain at least `0.7 * minAlphaSatelliteContent` repeat content.
+4. Compute the candidate score as `repeatContent * (1 - gcVariability)` and retain the highest-scoring window whose `repeatContent > minAlphaSatelliteContent` (first window wins ties).
+5. Extend the chosen region left and right while the adjacent full half-window (which may end exactly at position `0` / `L`) maintains at least `0.7 * minAlphaSatelliteContent` repeat content.
 6. Compute the centromere midpoint, derive the `q/p` arm ratio, classify the chromosome, and return a `CentromereResult`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
@@ -103,7 +103,7 @@ The repository-specific scoring rule for the candidate centromeric region is:
 score = repeatContent * (1 - gcVariability)
 ```
 
-Repeat content is estimated from repeated 15-mers, and GC variability is the standard deviation of GC fractions over 1 kb sub-windows. Classification then follows the Levan arm-ratio system shown in Section 2.1.[2]
+Repeat content is the fraction of 15-mer positions whose N-free 15-mer occurs more than once in the window (k-mers counted with the canonical `KmerAnalyzer.CountKmers`); GC variability is the population standard deviation of GC fractions over **all** consecutive, non-overlapping full 1 kb sub-windows (0 when fewer than two). Classification then follows the Levan arm-ratio system shown in Section 2.1.[2]
 
 ### 4.3 Complexity
 
@@ -150,6 +150,7 @@ The initial scan uses overlapping windows and a 15-mer repeat heuristic, while G
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | `AlphaSatelliteContent` stores the best composite score, not a direct alpha-satellite fraction. | Deviation | Users should interpret the field as a heuristic centromere score rather than a literal repeat fraction. | accepted | Directly confirmed from the source: the returned value is `maxScore = repeatContent * (1 - gcVariability)`. |
+| 3 | SF rule: period 2 → `Sf1OrSf2Dimeric` only for an A+B unit; period 1 → `Sf4` (all A), `Sf5` (A/B mix), `Unknown` (B-only). | Rule | A·A dimers and B-only arrays are no longer mislabelled. | accepted | McNulty & Sullivan 2018 A/B assignment (review 2026-09). |
 | 2 | `Telocentric` is supported in the classifier but effectively unreachable through `AnalyzeCentromere` for ordinary detected windows. | Assumption | The public method will ordinarily report a non-zero centromere midpoint when it finds a candidate region. | accepted | Documented in [CHROM-CENT-001.md](../../../tests/TestSpecs/CHROM-CENT-001.md). |
 
 ## 6. Edge Cases and Limitations

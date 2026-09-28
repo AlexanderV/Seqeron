@@ -1,8 +1,8 @@
 ﻿{
   Chromosome: chr1,
   Start: 0,
-  End: 15500,
-  Length: 15500,
+  End: 16000,
+  Length: 16000,
   CentromereType: Metacentric,
   AlphaSatellite: 1.0,
   IsAcrocentric: false

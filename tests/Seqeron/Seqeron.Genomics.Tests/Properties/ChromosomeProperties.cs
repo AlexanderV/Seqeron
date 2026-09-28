@@ -49,10 +49,10 @@ public class ChromosomeProperties
     /// <summary>
     /// Generates a 5'-telomeric sequence: exactly <c>k</c> pure CCCTAA units at the start,
     /// followed by a non-telomeric A-suffix. No hexamer overlapping the suffix ("CTAAAA", …) is a
-    /// rotation of CCCTAA, so the seqtk-telo tract is not extended. Yields (sequence, k).
+    /// rotation of CCCTAA, so the seqtk-telo tract is not extended. k ≥ 2: seqtk scores 5' positions only from i ≥ k, so a single 5' unit scores 0 (see SingleUnit_SeqtkScoringOffsets). Yields (sequence, k).
     /// </summary>
     private static Arbitrary<(string seq, int k)> Telomeric5PrimeArbitrary() =>
-        (from k in Gen.Choose(1, 400)
+        (from k in Gen.Choose(2, 400)
          from suffixLen in Gen.Choose(0, 120)
          let tract = string.Concat(Enumerable.Repeat(Vertebrate5Prime, k))
          select (tract + new string('A', suffixLen), k)).ToArbitrary();
@@ -265,8 +265,8 @@ public class ChromosomeProperties
             var (k, minLen) = t;
             string seq = string.Concat(Enumerable.Repeat(Vertebrate3Prime, k));
             var r = ChromosomeAnalyzer.AnalyzeTelomeres("chr", seq, minTelomereLength: minLen);
-            bool expected3 = r.TelomereLength3Prime >= minLen;
-            bool expected5 = r.TelomereLength5Prime >= minLen;
+            bool expected3 = r.TelomereLength3Prime >= minLen && r.TelomereLength3Prime > 0;
+            bool expected5 = r.TelomereLength5Prime >= minLen && r.TelomereLength5Prime > 0; // empty tract is never "present"
             return (r.Has3PrimeTelomere == expected3 && r.Has5PrimeTelomere == expected5)
                 .Label($"k={k}, min={minLen}: has3'={r.Has3PrimeTelomere} (len {r.TelomereLength3Prime}), " +
                        $"has5'={r.Has5PrimeTelomere} (len {r.TelomereLength5Prime})");

@@ -33,8 +33,11 @@ public class AnalyzeCentromereTests
     public void AnalyzeCentromere_Binding_InvokesSuccessfully()
     {
         // Uniform 300 kb 'A' run is maximally repetitive: the algorithm anchors the first
-        // window (start=0), extends right by windowSize/2 until end-5000, and classifies by
-        // arm ratio. These exact values are deterministic for this input.
+        // window (start=0) and extends right by full half-windows (5000 bp) up to the sequence
+        // end, since every adjacent half-window — including the last one ending at 300000 — is
+        // repetitive. Independent Python reference of the documented heuristic (review 2026-09,
+        // CHROM-CENT-001): (Start 0, End 300000, score 1.0, Metacentric). The earlier 295000 was
+        // an off-by-one that never tested the final half-window.
         var result = ChromosomeTools.AnalyzeCentromere(
             "chr1", new string('A', 300000), windowSize: 10000, minAlphaSatelliteContent: 0.3);
 
@@ -42,8 +45,8 @@ public class AnalyzeCentromereTests
         {
             Assert.That(result.Chromosome, Is.EqualTo("chr1"));
             Assert.That(result.Start, Is.EqualTo(0));
-            Assert.That(result.End, Is.EqualTo(295000));
-            Assert.That(result.Length, Is.EqualTo(295000));
+            Assert.That(result.End, Is.EqualTo(300000));
+            Assert.That(result.Length, Is.EqualTo(300000));
             Assert.That(result.Length, Is.EqualTo(result.End!.Value - result.Start!.Value));
             Assert.That(result.CentromereType, Is.EqualTo("Metacentric"));
             Assert.That(result.AlphaSatelliteContent, Is.EqualTo(1.0).Within(1e-9));

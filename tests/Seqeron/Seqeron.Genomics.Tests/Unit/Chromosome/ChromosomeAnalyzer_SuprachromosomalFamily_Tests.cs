@@ -140,6 +140,44 @@ public class ChromosomeAnalyzer_SuprachromosomalFamily_Tests
         });
     }
 
+    // Review 2026-09 — the dimeric SF1/SF2 signature is ONE A-type + ONE B-type monomer per unit
+    // (J1=A·J2=B, D1=B·D2=A; McNulty & Sullivan 2018, PMC6121732). A period-2 unit of two A-type
+    // monomers (ALR·ALRa, 83.7% identical so period 2 is resolved) is not SF1/SF2 -> Unknown.
+    [Test]
+    public void AssignSuprachromosomalFamily_DimericAAArray_IsNotSf1OrSf2()
+    {
+        var result = ChromosomeAnalyzer.AssignSuprachromosomalFamily(Rep(A171() + A(), 6));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsAlphaSatellite, Is.True);
+            Assert.That(result.MonomersPerUnit, Is.EqualTo(2), "Two distinct A-type monomers alternate -> period 2.");
+            Assert.That(result.BoxTypePattern, Is.EqualTo(new[]
+                {
+                    ChromosomeAnalyzer.AlphaSatelliteBoxType.A,
+                    ChromosomeAnalyzer.AlphaSatelliteBoxType.A
+                }));
+            Assert.That(result.Family, Is.EqualTo(ChromosomeAnalyzer.SuprachromosomalFamily.Unknown),
+                "A·A dimer lacks the B-type (CENP-B box) member of every SF1/SF2 unit.");
+        });
+    }
+
+    // Review 2026-09 — a homogeneous B-type-only monomeric array matches no SF: SF4 (M1) is A-type and
+    // SF5 is an irregular MIX of R1 (B) and R2 (A) (McNulty & Sullivan 2018; Shepelev 2009) -> Unknown.
+    [Test]
+    public void AssignSuprachromosomalFamily_MonomericBOnlyArray_IsUnknown()
+    {
+        var result = ChromosomeAnalyzer.AssignSuprachromosomalFamily(Rep(B(), 8));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsAlphaSatellite, Is.True);
+            Assert.That(result.MonomersPerUnit, Is.EqualTo(1));
+            Assert.That(result.Family, Is.EqualTo(ChromosomeAnalyzer.SuprachromosomalFamily.Unknown),
+                "B-only monomeric array is neither SF4 (A-type M1) nor SF5 (irregular R1/R2 mix).");
+        });
+    }
+
     // M-SF-5 — pentameric 3 B-type + 2 A-type unit (W1-W3 = B, W4-W5 = A) -> SF3.
     [Test]
     public void AssignSuprachromosomalFamily_PentamericThreeBTwoA_ReturnsSf3()

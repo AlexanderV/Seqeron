@@ -537,14 +537,37 @@ public static class ChromosomeAnalyzer
     #region Centromere Analysis
 
     /// <summary>
-    /// Analyzes centromere region.
+    /// Locates a single candidate centromeric region with a repeat-density heuristic and classifies
+    /// the chromosome by the Levan, Fredga &amp; Sandberg (1964) arm-ratio nomenclature.
     /// </summary>
+    /// <remarks>
+    /// <para><b>Heuristic (declared limitation, CHROM-CENT-001):</b> the localisation step is NOT a
+    /// published centromere finder. Windows of <paramref name="windowSize"/> bp (step
+    /// <c>windowSize/4</c>, windows fully inside the sequence) are scored as
+    /// <c>repeatContent × (1 − gcVariability)</c>, where <c>repeatContent</c> is the fraction of 15-mer
+    /// positions whose (N-free) 15-mer occurs more than once in the window and <c>gcVariability</c> is the
+    /// population standard deviation of GC fractions over consecutive, non-overlapping 1-kb sub-windows.
+    /// The best-scoring window whose <c>repeatContent</c> exceeds <paramref name="minAlphaSatelliteContent"/>
+    /// is extended by adjacent half-windows while their repeat content is ≥ 0.7 × the threshold.
+    /// Functional centromere identity is epigenetic (CENP-A chromatin) and cannot be derived from
+    /// sequence alone (Mehta, Agarwal &amp; Ghosh 2010); for human alpha-satellite-specific signals use
+    /// <see cref="DetectAlphaSatellite"/>, <see cref="DetectHigherOrderRepeat"/> and
+    /// <see cref="AssignSuprachromosomalFamily"/>. <see cref="CentromereResult.AlphaSatelliteContent"/>
+    /// is the composite heuristic score, not an alpha-satellite fraction.</para>
+    /// <para>Classification uses r = long arm / short arm about the region midpoint:
+    /// r ≤ 1.7 metacentric, ≤ 3.0 submetacentric, &lt; 7.0 subtelocentric, otherwise acrocentric;
+    /// telocentric when the short arm is 0.</para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> ≤ 0.</exception>
     public static CentromereResult AnalyzeCentromere(
         string chromosomeName,
         string sequence,
         int windowSize = 100000,
         double minAlphaSatelliteContent = 0.3)
     {
+        if (windowSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be positive.");
+
         if (string.IsNullOrEmpty(sequence))
         {
             return new CentromereResult(chromosomeName, null, null, 0, "Unknown", 0, false);
@@ -552,12 +575,19 @@ public static class ChromosomeAnalyzer
 
         sequence = sequence.ToUpperInvariant();
 
+        // Scan step (windowSize/4) and boundary-extension step (windowSize/2). Clamped to >= 1 so a
+        // window smaller than 4 bp cannot produce a zero step (previously an infinite loop).
+        int scanStep = Math.Max(1, windowSize / 4);
+        int extendStep = Math.Max(1, windowSize / 2);
+
         // Scan for regions with high repetitive content and low GC variability
         int? centStart = null;
         int? centEnd = null;
         double maxScore = 0;
 
-        for (int i = 0; i < sequence.Length - windowSize; i += windowSize / 4)
+        // Every window fully inside the sequence, including the one ending exactly at its end
+        // (i == Length - windowSize); a sequence exactly windowSize long is therefore analysed.
+        for (int i = 0; i <= sequence.Length - windowSize; i += scanStep)
         {
             int end = Math.Min(i + windowSize, sequence.Length);
             string window = sequence[i..end];
@@ -581,21 +611,22 @@ public static class ChromosomeAnalyzer
         if (centStart.HasValue && centEnd.HasValue)
         {
             // Extend left
-            while (centStart > windowSize / 2)
+            // (a full adjacent half-window must fit: centStart >= extendStep, so the region can reach 0)
+            while (centStart >= extendStep)
             {
-                string window = sequence[(centStart.Value - windowSize / 2)..centStart.Value];
+                string window = sequence[(centStart.Value - extendStep)..centStart.Value];
                 if (EstimateRepeatContent(window) >= minAlphaSatelliteContent * 0.7)
-                    centStart -= windowSize / 2;
+                    centStart -= extendStep;
                 else
                     break;
             }
 
-            // Extend right
-            while (centEnd < sequence.Length - windowSize / 2)
+            // Extend right (can reach sequence.Length)
+            while (centEnd <= sequence.Length - extendStep)
             {
-                string window = sequence[centEnd.Value..(centEnd.Value + windowSize / 2)];
+                string window = sequence[centEnd.Value..(centEnd.Value + extendStep)];
                 if (EstimateRepeatContent(window) >= minAlphaSatelliteContent * 0.7)
-                    centEnd += windowSize / 2;
+                    centEnd += extendStep;
                 else
                     break;
             }
@@ -625,22 +656,13 @@ public static class ChromosomeAnalyzer
         if (sequence.Length < kmerSize * 2)
             return 0;
 
-        var kmerCounts = new Dictionary<string, int>();
+        // Canonical k-mer counting (KMER-COUNT-001); k-mers spanning an N are not evidence of repetition.
+        var kmerCounts = KmerAnalyzer.CountKmers(sequence, kmerSize);
 
-        for (int i = 0; i <= sequence.Length - kmerSize; i++)
-        {
-            string kmer = sequence.Substring(i, kmerSize);
-            if (!kmer.Contains('N'))
-            {
-                kmerCounts[kmer] = kmerCounts.GetValueOrDefault(kmer) + 1;
-            }
-        }
-
-        if (kmerCounts.Count == 0)
-            return 0;
-
-        // Count k-mers appearing more than once
-        int totalRepeatInstances = kmerCounts.Values.Where(c => c > 1).Sum();
+        // Count positions whose (N-free) k-mer occurs more than once
+        int totalRepeatInstances = kmerCounts
+            .Where(kv => kv.Value > 1 && !kv.Key.Contains('N'))
+            .Sum(kv => kv.Value);
 
         return totalRepeatInstances / (double)(sequence.Length - kmerSize + 1);
     }
@@ -652,7 +674,8 @@ public static class ChromosomeAnalyzer
     {
         var gcValues = new List<double>();
 
-        for (int i = 0; i < sequence.Length - windowSize; i += windowSize)
+        // All consecutive full sub-windows, including the last one ending exactly at the end.
+        for (int i = 0; i <= sequence.Length - windowSize; i += windowSize)
         {
             string window = sequence.Substring(i, windowSize);
             gcValues.Add(window.CalculateGcFractionFast());
@@ -1241,14 +1264,34 @@ public static class ChromosomeAnalyzer
             return SuprachromosomalFamily.Sf3;
 
         // SF4 — monomeric, A-type only (M1 is A-type). Require the array to be all A-type.
+        // A monomeric array mixing A and B monomers without a regular period is the SF5-like
+        // irregular R1/R2 pattern. A homogeneous B-only array matches no published SF
+        // (every SF contains A-type monomers: J1, D2, W4/W5, M1, R2 — McNulty & Sullivan 2018)
+        // → Unknown.
         if (period == 1)
-            return bCount == 0 && aCount > 0
-                ? SuprachromosomalFamily.Sf4
-                : SuprachromosomalFamily.Sf5; // monomeric but with B-type monomers → irregular/SF5-like
+        {
+            if (bCount == 0 && aCount > 0)
+                return SuprachromosomalFamily.Sf4;
+            return aCount > 0 && bCount > 0
+                ? SuprachromosomalFamily.Sf5
+                : SuprachromosomalFamily.Unknown;
+        }
 
-        // SF1/SF2 — dimeric (J1·J2 or D1·D2). Both are an A-type + a B-type per unit.
+        // SF1/SF2 — dimeric (J1·J2 or D1·D2). Both are exactly one A-type + one B-type monomer per
+        // unit (J1=A, J2=B; D1=B, D2=A — McNulty & Sullivan 2018). A period-2 array whose unit is
+        // not A+B (e.g. two A-type monomers) is not an SF1/SF2 dimer → Unknown.
         if (period == 2)
-            return SuprachromosomalFamily.Sf1OrSf2Dimeric;
+        {
+            int unitA = 0, unitB = 0;
+            for (int i = 0; i < Math.Min(2, boxTypes.Length); i++)
+            {
+                if (boxTypes[i] == AlphaSatelliteBoxType.A) unitA++;
+                else if (boxTypes[i] == AlphaSatelliteBoxType.B) unitB++;
+            }
+            return unitA == 1 && unitB == 1
+                ? SuprachromosomalFamily.Sf1OrSf2Dimeric
+                : SuprachromosomalFamily.Unknown;
+        }
 
         // SF5 — irregular A/B alternation with no regular HOR period but both box types present.
         if (aCount > 0 && bCount > 0)
