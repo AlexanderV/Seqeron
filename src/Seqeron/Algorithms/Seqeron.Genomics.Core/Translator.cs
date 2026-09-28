@@ -13,6 +13,10 @@ namespace Seqeron.Genomics.Core
         // A double-stranded sequence has three forward reading frames at
         // offsets 0, 1, 2 (Biopython six_frame_translations; EMBOSS transeq).
         private const int ReadingFramesPerStrand = 3;
+
+        // The initiator residue of an ORF (NCBI The Genetic Codes: the initiator codon is by
+        // default translated as methionine).
+        private const char InitiatorMethionine = 'M';
         /// <summary>
         /// Translates a DNA sequence to protein using the specified genetic code.
         /// </summary>
@@ -72,21 +76,61 @@ namespace Seqeron.Genomics.Core
         /// Finds all Open Reading Frames (ORFs) in a DNA sequence.
         /// An ORF starts with a start codon and ends with a stop codon.
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Model: EMBOSS getorf <c>-find 1</c> (START→STOP, linear sequence): in each of the three
+        /// frames of a strand, scanning opens an ORF at the first START codon (only when no ORF is
+        /// open, so nested in-frame starts are not reported separately) and closes it at the next
+        /// in-frame STOP codon. An ORF that reaches the end of the strand without a STOP is reported
+        /// as an open (3'-incomplete) ORF.
+        /// </para>
+        /// <para>
+        /// The initiator residue is always reported as Met ('M'), whatever the start codon
+        /// (e.g. TTG, CTG, GTG) — EMBOSS getorf <c>-methionine</c> (default Y: "Change initial
+        /// START codons to Methionine"); Biopython <c>translate(cds=True)</c>; NCBI The Genetic
+        /// Codes ("The initiator codon ... is by default translated as methionine").
+        /// </para>
+        /// <para>
+        /// Coordinates are 0-based and inclusive, in the scanned strand's coordinates (reverse-strand
+        /// ORFs: coordinates of the reverse complement, frames −1..−3). For a terminated ORF,
+        /// <see cref="OrfResult.EndPosition"/> is the last base of the STOP codon — the INSDC
+        /// feature-table CDS convention ("location includes stop codon"; also what Biopython
+        /// <c>translate(cds=True)</c> expects); getorf itself prints the range without the STOP,
+        /// i.e. its end = <c>EndPosition − 3</c> (+1 for 1-based). For an open ORF, EndPosition is the
+        /// last base of the last complete codon (getorf <c>WriteORF(start, pos+2)</c>), so
+        /// <see cref="OrfResult.NucleotideLength"/> is always a multiple of three.
+        /// </para>
+        /// <para>
+        /// Stop codons are the codons the table translates as '*'. Tables with dual-coding
+        /// (context-dependent) stop codons — NCBI 27, 28, 31 — are rejected: in each of them every
+        /// stop codon also codes for an amino acid, so no codon unambiguously ends an ORF. This
+        /// mirrors Biopython, which refuses "translate to the first stop" (<c>to_stop=True</c>) for
+        /// such tables, and <see cref="Translate(DnaSequence, GeneticCode?, int, bool)"/> with
+        /// <c>toFirstStop</c>.
+        /// </para>
+        /// </remarks>
         /// <param name="dna">The DNA sequence to search.</param>
         /// <param name="geneticCode">The genetic code to use (default: Standard).</param>
         /// <param name="minLength">Minimum ORF length in amino acids (default: 100).</param>
         /// <param name="searchBothStrands">Search both forward and reverse complement strands.</param>
         /// <returns>Enumerable of ORF results.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="dna"/> is null.</exception>
+        /// <exception cref="ArgumentException">The genetic code has dual-coding stop codons (tables 27, 28, 31).</exception>
         public static IEnumerable<OrfResult> FindOrfs(DnaSequence dna, GeneticCode? geneticCode = null,
             int minLength = 100, bool searchBothStrands = true)
         {
             ArgumentNullException.ThrowIfNull(dna);
-            return FindOrfsCore(dna, geneticCode, minLength, searchBothStrands);
+            var code = geneticCode ?? GeneticCode.Standard;
+            if (HasDualCodingStopCodons(code))
+                throw new ArgumentException(
+                    $"ORF finding cannot be used with genetic code table {code.TableNumber} " +
+                    "because its stop codons also code for an amino acid (context-dependent termination).",
+                    nameof(geneticCode));
+            return FindOrfsCore(dna, code, minLength, searchBothStrands);
         }
 
-        private static IEnumerable<OrfResult> FindOrfsCore(DnaSequence dna, GeneticCode? geneticCode, int minLength, bool searchBothStrands)
+        private static IEnumerable<OrfResult> FindOrfsCore(DnaSequence dna, GeneticCode code, int minLength, bool searchBothStrands)
         {
-            var code = geneticCode ?? GeneticCode.Standard;
 
             // Search forward strand in all three frames
             foreach (var orf in FindOrfsInSequence(dna.Sequence, code, minLength, false))
@@ -212,7 +256,9 @@ namespace Seqeron.Genomics.Core
                         {
                             currentOrfStart = i;
                             currentProtein.Clear();
-                            currentProtein.Append(aa);
+                            // Initiator is read as Met whatever the start codon (EMBOSS getorf
+                            // -methionine default Y; Biopython translate(cds=True); NCBI gc).
+                            currentProtein.Append(InitiatorMethionine);
                         }
                     }
                     else
@@ -225,8 +271,9 @@ namespace Seqeron.Genomics.Core
                             {
                                 yield return new OrfResult(
                                     currentOrfStart.Value,
-                                    // Inclusive end = last base of the stop codon
-                                    // (EMBOSS getorf positions include the STOP).
+                                    // Inclusive end = last base of the stop codon (INSDC
+                                    // feature table: CDS "location includes stop codon").
+                                    // getorf prints the range without the STOP (WriteORF(start, pos-1)).
                                     i + (CodonLength - 1),
                                     isReverseComplement ? -(frame + 1) : frame + 1,
                                     new ProteinSequence(currentProtein.ToString())
@@ -241,12 +288,14 @@ namespace Seqeron.Genomics.Core
                     }
                 }
 
-                // Handle ORF that extends to end of sequence
+                // ORF that runs off the end of the strand: it ends at the last base of the last
+                // complete codon (EMBOSS getorf WriteORF(start, pos+2)); trailing partial-codon
+                // bases are not part of the ORF.
                 if (currentOrfStart != null && currentProtein.Length >= minLength)
                 {
                     yield return new OrfResult(
                         currentOrfStart.Value,
-                        rnaSequence.Length - 1,
+                        currentOrfStart.Value + currentProtein.Length * CodonLength - 1,
                         isReverseComplement ? -(frame + 1) : frame + 1,
                         new ProteinSequence(currentProtein.ToString())
                     );
