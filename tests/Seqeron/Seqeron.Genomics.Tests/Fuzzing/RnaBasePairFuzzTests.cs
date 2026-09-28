@@ -30,8 +30,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • INV-04 — G·U and U·G are Wobble, NEVER WatsonCrick (§2.4).
 ///   • Case-insensitive: inputs are upper-cased before lookup, so lowercase a/c/g/u behave
 ///       identically to uppercase (§3.3, §6.1).
-///   • DNA T is NOT an RNA base for pairing: it does NOT pair (CanPair false / type null) — even
-///       T·A, despite GetComplement treating T as U (§3.3, §6.1 "DNA T in CanPair").
+///   • DNA T is read as U for pairing (T·A Watson-Crick, G·T wobble), matching GetComplement and
+///       the ViennaRNA default model (§3.3, §6.1 "DNA T in CanPair").
 ///   • Out-of-domain chars (non-RNA letters N/X, digits, punctuation, gap '-'/'.'/' ', control,
 ///       Unicode, surrogate, char 127, the full 0–65535 range) return false/null with NO exception:
 ///       the lookup is bounds-checked ((b1|b2) < 128) so no KeyNotFound / IndexOutOfRange (§3.3,
@@ -51,7 +51,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// — docs/checklists/03_FUZZING.md §Description (BE, MC), row 153.
 ///
-///   • non-RNA base (MC) — a char not in {A,C,G,U}: DNA T, ambiguity N/X, digits, junk letters →
+///   • non-RNA base (MC) — a char not in {A,C,G,U,T}: ambiguity N/X, digits, junk letters →
 ///       does NOT pair with anything, returns false / null, no crash.
 ///   • lowercase (MC) — a/c/g/u → case-insensitive, pairs identically to uppercase.
 ///   • gap char (BE) — alignment gap/spacer '-', '.', ' ' → does NOT pair, false / null, no crash.
@@ -60,7 +60,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///
 /// Watched failure modes: KeyNotFound / IndexOutOfRange on a non-RNA or gap char; case-sensitivity
 /// bug (lowercase not pairing); asymmetry; G·U returned as WatsonCrick rather than Wobble; T
-/// wrongly accepted as an RNA base in CanPair.
+/// not read as U in CanPair.
 /// </summary>
 [TestFixture]
 [Category("Fuzzing")]
@@ -101,8 +101,11 @@ public class RnaBasePairFuzzTests
     /// </summary>
     private static BasePairType? Expected(char b1, char b2)
     {
+        // T is read as U (ViennaRNA vrna_nucleotide_encode: "make T and U equivalent").
         char u1 = char.ToUpperInvariant(b1);
         char u2 = char.ToUpperInvariant(b2);
+        if (u1 == 'T') u1 = 'U';
+        if (u2 == 'T') u2 = 'U';
         bool Pair(char a, char b) => (u1 == a && u2 == b) || (u1 == b && u2 == a);
         if (Pair('A', 'U') || Pair('G', 'C')) return BasePairType.WatsonCrick;
         if (Pair('G', 'U')) return BasePairType.Wobble;
@@ -179,12 +182,11 @@ public class RnaBasePairFuzzTests
 
     // ───────────────────────────────────────────────────────────────────────
     // MC = Malformed Content — non-RNA bases.
-    // A char not in {A,C,G,U} never pairs and never throws (RNA_Base_Pairing.md
-    // §3.3, §6.1). T in particular is a DNA base and does NOT pair, even with A.
+    // A char not in {A,C,G,U,T} never pairs and never throws (RNA_Base_Pairing.md
+    // §3.3, §6.1). T is read as U (ViennaRNA vrna_nucleotide_encode: T and U equivalent).
     // ───────────────────────────────────────────────────────────────────────
     #region MC — non-RNA base
 
-    [TestCase('T')]   // DNA thymine — NOT an RNA base for pairing
     [TestCase('N')]   // IUPAC any
     [TestCase('X')]   // unknown
     [TestCase('R')]   // IUPAC degenerate (purine)
@@ -210,15 +212,18 @@ public class RnaBasePairFuzzTests
     }
 
     [Test]
-    public void CanPair_DnaT_DoesNotPairEvenWithA_DespiteComplementTreatingTasU()
+    public void CanPair_DnaT_PairsAsU_ConsistentWithComplement()
     {
-        // §6.1: T is NOT an RNA base in CanPair — distinct from GetComplement, where T → A.
-        CanPair('T', 'A').Should().BeFalse();
-        CanPair('A', 'T').Should().BeFalse();
-        CanPair('t', 'a').Should().BeFalse("case-folding must not resurrect T as a pairing base");
-        GetBasePairType('T', 'A').Should().BeNull();
-        // Sanity: GetComplement DOES treat T as U (separate contract).
-        GetComplement('T').Should().Be('A');
+        // §6.1: T is read as U (ViennaRNA default model encodes T and U identically).
+        CanPair('T', 'A').Should().BeTrue();
+        CanPair('A', 'T').Should().BeTrue();
+        CanPair('t', 'a').Should().BeTrue("case-folding applies to T as to U");
+        GetBasePairType('T', 'A').Should().Be(BasePairType.WatsonCrick);
+        GetBasePairType('G', 'T').Should().Be(BasePairType.Wobble);
+        CanPair('T', 'U').Should().BeFalse("T and U are the same base; U-U does not pair");
+        // Consistency with the complement: every base pairs with its RNA complement.
+        foreach (char b in "ACGUT")
+            CanPair(b, GetComplement(b)).Should().BeTrue($"{b} must pair with its complement {GetComplement(b)}");
     }
 
     #endregion
@@ -310,7 +315,7 @@ public class RnaBasePairFuzzTests
     public void CanPair_EntireCharRange_NeverThrowsAndOnlyDocumentedPairsHold()
     {
         // Exhaustive boundary sweep of all 65536 chars against each RNA base: the ONLY chars that
-        // pair are the documented A/C/G/U (upper and lower), and nothing ever throws.
+        // pair are the documented A/C/G/U/T (upper and lower; T read as U), and nothing ever throws.
         foreach (char rna in RnaBases)
         {
             for (int code = 0; code <= char.MaxValue; code++)
@@ -355,7 +360,7 @@ public class RnaBasePairFuzzTests
     public void CanPair_RandomDegenerateAlphabet_NeverPairsOutsideDocumentedSet()
     {
         // Bias the alphabet toward the malformed/boundary targets so most probes are junk:
-        // lowercase, T, N, gaps, digits — none of which (except a/c/g/u) may pair.
+        // lowercase, T, N, gaps, digits — none of which (except a/c/g/u and T/t read as U) may pair.
         const string alphabet = "acguACGU TtNn-._@5RYxX";
         var rng = Rng(777);
         for (int i = 0; i < 10_000; i++)

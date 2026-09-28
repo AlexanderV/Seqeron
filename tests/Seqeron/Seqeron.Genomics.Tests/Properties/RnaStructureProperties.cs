@@ -677,7 +677,8 @@ public class RnaStructureProperties
 
     /// <summary>
     /// INV-1 (P): Over {A,C,G,U}, CanPair is true exactly for the six canonical pairs (A-U, U-A,
-    /// G-C, C-G, G-U, U-G) and false for everything else (e.g. A-A, G-A); DNA 'T' does not pair.
+    /// G-C, C-G, G-U, U-G) and false for everything else (e.g. A-A, G-A); DNA 'T' is read as U
+    /// (ViennaRNA default model encodes T and U identically), so A-T pairs and C-T does not.
     /// </summary>
     [Test]
     [Category("Property")]
@@ -692,7 +693,8 @@ public class RnaStructureProperties
                 Assert.That(RnaSecondaryStructure.CanPair(a, b), Is.EqualTo(canonical.Contains((a, b))),
                     $"CanPair({a},{b}) mismatch");
 
-        Assert.That(RnaSecondaryStructure.CanPair('A', 'T'), Is.False, "RNA pairing does not accept DNA T");
+        Assert.That(RnaSecondaryStructure.CanPair('A', 'T'), Is.True, "DNA T is read as U (ViennaRNA): A-T pairs like A-U");
+        Assert.That(RnaSecondaryStructure.CanPair('C', 'T'), Is.False, "C-T does not pair (C-U does not)");
     }
 
     /// <summary>
@@ -733,6 +735,8 @@ public class RnaStructureProperties
             var type = RnaSecondaryStructure.GetBasePairType(a, b);
             bool can = RnaSecondaryStructure.CanPair(a, b);
             char ua = char.ToUpperInvariant(a), ub = char.ToUpperInvariant(b);
+            if (ua == 'T') ua = 'U'; // T is read as U (ViennaRNA default model)
+            if (ub == 'T') ub = 'U';
             bool isWobble = (ua == 'G' && ub == 'U') || (ua == 'U' && ub == 'G');
             bool expectedWc = can && !isWobble;
 

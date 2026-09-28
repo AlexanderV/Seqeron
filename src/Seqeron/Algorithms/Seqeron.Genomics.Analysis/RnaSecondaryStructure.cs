@@ -396,15 +396,22 @@ public static class RnaSecondaryStructure
     private const double CoaxialMismatch_GU_Bonus = -0.2;
 
     // Fast pair-type lookup: 0 = no pair, 1 = Watson-Crick, 2 = Wobble.
-    // Indexed by [base1 * 128 + base2]. 16 KB — fits L1 cache.
+    // Indexed by [base1 * 128 + base2] over UPPERCASE ASCII. 16 KB — fits L1 cache.
+    // Canonical pair set of the ViennaRNA default model (md.pair / BP_ENCODING_DEFAULT in
+    // src/ViennaRNA/model.c): CG, GC, GU, UG, AU, UA. DNA thymine is the same base as uracil for
+    // pairing (ViennaRNA vrna_nucleotide_encode: "make T and U equivalent"), so A·T/T·A are
+    // Watson-Crick and G·T/T·G wobble; every other character (IUPAC codes, N, gaps) does not pair.
     private static readonly byte[] PairLookup = BuildPairLookup();
 
     private static byte[] BuildPairLookup()
     {
         var t = new byte[128 * 128];
-        t['A' * 128 + 'U'] = 1; t['U' * 128 + 'A'] = 1;
+        foreach (char u in "UT")
+        {
+            t['A' * 128 + u] = 1; t[u * 128 + 'A'] = 1;
+            t['G' * 128 + u] = 2; t[u * 128 + 'G'] = 2;
+        }
         t['G' * 128 + 'C'] = 1; t['C' * 128 + 'G'] = 1;
-        t['G' * 128 + 'U'] = 2; t['U' * 128 + 'G'] = 2;
         return t;
     }
 
@@ -413,7 +420,9 @@ public static class RnaSecondaryStructure
     #region Base Pairing
 
     /// <summary>
-    /// Determines if two bases can form a pair.
+    /// Determines if two bases can form a canonical pair: Watson-Crick A·U / G·C or the G·U wobble
+    /// (the ViennaRNA default pair set). Case-insensitive; DNA T is treated as U (A·T, G·T pair).
+    /// Any other character (IUPAC ambiguity codes, N, gaps, non-ASCII) never pairs.
     /// </summary>
     public static bool CanPair(char base1, char base2)
     {
@@ -423,7 +432,9 @@ public static class RnaSecondaryStructure
     }
 
     /// <summary>
-    /// Gets the type of base pair, or null if bases cannot pair.
+    /// Gets the type of base pair (<see cref="BasePairType.WatsonCrick"/> for A·U / G·C,
+    /// <see cref="BasePairType.Wobble"/> for G·U), or null if the bases cannot pair.
+    /// Same pairing rules as <see cref="CanPair"/> (case-insensitive, T treated as U).
     /// </summary>
     public static BasePairType? GetBasePairType(char base1, char base2)
     {
@@ -449,6 +460,7 @@ public static class RnaSecondaryStructure
 
     /// <summary>
     /// Finds all potential stem-loop structures in an RNA sequence.
+    /// Case-insensitive; DNA T is read as U (reported bases and loop sequences use U).
     /// </summary>
     public static IEnumerable<StemLoop> FindStemLoops(
         string rnaSequence,
@@ -466,7 +478,9 @@ public static class RnaSecondaryStructure
         if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minStemLength * 2 + minLoopSize)
             yield break;
 
-        string upper = rnaSequence.ToUpperInvariant();
+        // Read DNA thymine as uracil (as the MFE engines do): the Turner stacking / loop tables are
+        // A/C/G/U-keyed, so T-containing pairs must be scored as their U equivalents.
+        string upper = rnaSequence.ToUpperInvariant().Replace('T', 'U');
 
         // Scan for potential hairpin loops
         for (int loopStart = minStemLength; loopStart <= upper.Length - minStemLength - minLoopSize; loopStart++)
@@ -1759,16 +1773,11 @@ public static class RnaSecondaryStructure
         return pairs;
     }
 
+    // Hot-path pair classification for already-normalised (uppercase) sequences: reads the same
+    // canonical PairLookup table as CanPair/GetBasePairType (0 = none, 1 = WC, 2 = wobble).
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte PairType(char b1, char b2)
-    {
-        return (b1, b2) switch
-        {
-            ('A', 'U') or ('U', 'A') or ('G', 'C') or ('C', 'G') => 1,
-            ('G', 'U') or ('U', 'G') => 2,
-            _ => 0,
-        };
-    }
+        => (b1 | b2) < 128 ? PairLookup[b1 * 128 + b2] : (byte)0;
 
     /// <summary>
     /// Original O(L\u00b3) MFE — retained as benchmark baseline.
@@ -1833,6 +1842,7 @@ public static class RnaSecondaryStructure
 
     /// <summary>
     /// Predicts the secondary structure of an RNA sequence.
+    /// Case-insensitive; DNA T is read as U (the returned sequence is the normalised A/C/G/U string).
     /// </summary>
     public static SecondaryStructure PredictStructure(
         string rnaSequence,
@@ -1847,7 +1857,7 @@ public static class RnaSecondaryStructure
                 new List<Pseudoknot>(), 0);
         }
 
-        string seq = rnaSequence.ToUpperInvariant();
+        string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
 
         // Find stem-loops
         var stemLoops = FindStemLoops(seq, minStemLength, minLoopSize, maxLoopSize)

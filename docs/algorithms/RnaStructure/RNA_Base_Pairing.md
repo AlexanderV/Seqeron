@@ -6,7 +6,7 @@
 | Test Unit ID | RNA-PAIR-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -58,19 +58,19 @@ The RNA complement of a single base maps A→U, U→A, G→C, C→G, with T trea
 
 ### 3.3 Preconditions and Validation
 
-Inputs are upper-cased before lookup (case-insensitive). `CanPair`/`GetBasePairType` operate over the RNA alphabet {A, C, G, U}; the DNA base T is not an RNA base and does not pair (returns `false`/`null`). For `GetComplement`, T is treated as U and complements to A [5]. Characters outside the 0–127 ASCII range return `false`/`null` from `CanPair`/`GetBasePairType` (bounds-checked lookup, no exception). `GetComplement` passes unrecognized non-IUPAC characters through unchanged.
+Inputs are upper-cased before lookup (case-insensitive). `CanPair`/`GetBasePairType` operate over the RNA alphabet {A, C, G, U}; the DNA base T is read as U, exactly as the ViennaRNA default model encodes it (`vrna_nucleotide_encode`: "make T and U equivalent") [6], so A•T is Watson-Crick and G•T is wobble. For `GetComplement`, T is likewise treated as U and complements to A [5]. Every other character (IUPAC ambiguity codes, N, inosine, gaps) never pairs, as in ViennaRNA where such characters encode to 0 [6]. Characters outside the 0–127 ASCII range return `false`/`null` from `CanPair`/`GetBasePairType` (bounds-checked lookup, no exception). `GetComplement` passes unrecognized non-IUPAC characters through unchanged.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
 1. Upper-case both inputs.
-2. For `CanPair`/`GetBasePairType`: index a precomputed 128×128 lookup table by `(b1, b2)`; value 0 = no pair, 1 = Watson-Crick, 2 = Wobble.
+2. For `CanPair`/`GetBasePairType`: index a precomputed 128×128 lookup table by `(b1, b2)`; value 0 = no pair, 1 = Watson-Crick, 2 = Wobble (T rows/columns mirror U).
 3. For `GetComplement`: switch over the IUPAC code to its RNA complement.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The pair lookup table is seeded with the six ordered pairs A→U, U→A, G→C, C→G (Watson-Crick) and G→U, U→G (wobble) [1][2][3]. The complement table follows the IUPAC-IUB nucleotide notation, RNA variant [4][5].
+The pair lookup table is seeded with the six ordered pairs A→U, U→A, G→C, C→G (Watson-Crick) and G→U, U→G (wobble) [1][2][3] — the ViennaRNA default `md.pair` set (CG, GC, GU, UG, AU, UA; `BP_ENCODING_DEFAULT` in `model.c`) [6] — plus the T-for-U mirrors A→T, T→A (Watson-Crick) and G→T, T→G (wobble). The same table backs the folding engines' internal pair classifier, so there is a single pairing rule in the class. The complement table follows the IUPAC-IUB nucleotide notation, RNA variant [4][5].
 
 ### 4.3 Complexity
 
@@ -118,7 +118,7 @@ The pair lookup table is seeded with the six ordered pairs A→U, U→A, G→C, 
 |------|-------------------|-----------|
 | G•U / U•G | Wobble (not WatsonCrick) | Wobble pairs do not follow WC rules [1][3] |
 | Lowercase input | same as uppercase | case-insensitive normalization |
-| DNA T in CanPair | does not pair (T is not an RNA base) | RNA pairing defined over {A,C,G,U} [1][2] |
+| DNA T in CanPair | read as U: A•T Watson-Crick, G•T wobble; C•T, T•T, T•U do not pair | ViennaRNA default model encodes T as U [6] |
 | DNA T in GetComplement | treated as U; complement is A | Biopython complement_rna [5] |
 | Out-of-ASCII char in CanPair | false / null, no exception | bounds-checked table lookup |
 | Non-IUPAC char in GetComplement | passed through unchanged | Core helper contract |
@@ -153,3 +153,4 @@ RnaSecondaryStructure.GetComplement('A');         // 'U'
 3. Wikipedia. Wobble base pair. https://en.wikipedia.org/wiki/Wobble_base_pair
 4. IUPAC-IUB Commission on Biochemical Nomenclature (1970). Abbreviations and symbols for nucleic acids, polynucleotides, and their constituents. *Biochemistry* 9(20):4022–4027. https://en.wikipedia.org/wiki/Nucleic_acid_notation
 5. Biopython. Bio.Seq.complement_rna. https://biopython.org/docs/latest/api/Bio.Seq.html
+6. Lorenz R. et al. (2011). ViennaRNA Package 2.0. *Algorithms Mol Biol* 6:26. https://doi.org/10.1186/1748-7188-6-26 — source files `src/ViennaRNA/model.c` (`BP_ENCODING_DEFAULT`) and `src/ViennaRNA/sequences/alphabet.c` (`vrna_nucleotide_encode`), https://github.com/ViennaRNA/ViennaRNA

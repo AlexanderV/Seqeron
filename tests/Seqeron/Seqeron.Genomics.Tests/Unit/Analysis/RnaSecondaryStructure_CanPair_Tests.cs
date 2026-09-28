@@ -3,7 +3,8 @@
 // TestSpec: tests/TestSpecs/RNA-PAIR-001.md
 // Source: Crick FHC (1966) J Mol Biol 19(2):548-555 (G-U wobble); Wikipedia Base pair (A-U/G-C
 //         canonical Watson-Crick); IUPAC-IUB (1970) Biochemistry 9(20):4022-4027 + Biopython
-//         complement_rna (RNA complement A->U, U->A, G->C, C->G, T->A).
+//         complement_rna (RNA complement A->U, U->A, G->C, C->G, T->A); ViennaRNA 2.7 default pair
+//         matrix (model.c BP_ENCODING_DEFAULT) with T encoded as U (alphabet.c vrna_nucleotide_encode).
 
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
@@ -66,17 +67,80 @@ public class RnaSecondaryStructure_CanPair_Tests
         });
     }
 
-    // S2 — RNA alphabet only: T is not an RNA base, so CanPair does not pair it.
-    // Evidence: Crick (1966)/Watson-Crick define pairing over the RNA alphabet {A,C,G,U}; the
-    // sources do not define a DNA base T in RNA pairing, so CanPair returns false for T inputs.
+    // S2 — DNA thymine is read as uracil. Evidence: ViennaRNA 2.7 src/ViennaRNA/sequences/alphabet.c
+    //      vrna_nucleotide_encode ("make T and U equivalent") + model.c BP_ENCODING_DEFAULT; confirmed
+    //      numerically with the RNA Python package: md.pair[enc('A')][enc('T')] = 5 (AU),
+    //      [enc('G')][enc('T')] = 3 (GU), [enc('T')][enc('A')] = 6 (UA), [enc('T')][enc('G')] = 4 (UG).
+    //      Consistent with GetComplement('T') = 'A' (Biopython complement_rna) and the MFE engine.
     [Test]
-    public void CanPair_DnaT_NotAnRnaBase_ReturnsFalse()
+    public void CanPair_DnaT_TreatedAsU()
     {
         Assert.Multiple(() =>
         {
-            Assert.That(CanPair('T', 'A'), Is.False, "T is not an RNA base; RNA pairing is defined over {A,C,G,U}");
-            Assert.That(CanPair('A', 'T'), Is.False, "A pairs with U (RNA), not T");
-            Assert.That(CanPair('G', 'T'), Is.False, "G wobble-pairs with U (RNA), not T");
+            Assert.That(CanPair('A', 'T'), Is.True, "A-T pairs as A-U (ViennaRNA pair type 5)");
+            Assert.That(CanPair('T', 'A'), Is.True, "T-A pairs as U-A (ViennaRNA pair type 6)");
+            Assert.That(CanPair('G', 'T'), Is.True, "G-T pairs as the G-U wobble (ViennaRNA pair type 3)");
+            Assert.That(CanPair('t', 'g'), Is.True, "t-g pairs as the U-G wobble (case-insensitive)");
+            Assert.That(CanPair('C', 'T'), Is.False, "C-T is not a pair (C-U is not a pair)");
+            Assert.That(CanPair('T', 'T'), Is.False, "T-T is not a pair (U-U is not a pair)");
+            Assert.That(CanPair('T', 'U'), Is.False, "T-U is not a pair (both encode uracil)");
+            Assert.That(GetBasePairType('A', 'T'), Is.EqualTo(BasePairType.WatsonCrick), "A-T is Watson-Crick");
+            Assert.That(GetBasePairType('T', 'G'), Is.EqualTo(BasePairType.Wobble), "T-G is the U-G wobble");
+        });
+    }
+
+    // S2b — Full truth table vs the ViennaRNA default model (reference implementation).
+    //      Oracle: RNA 2.7.2 Python, md = RNA.md(); pairs = {(a,b) | md.pair[enc(a)][enc(b)] != 0} over
+    //      the alphabet "ACGUTacgutNnXxRYI-." → exactly 40 ordered pairs, all combinations of
+    //      {A,a}×{U,u,T,t}, {G,g}×{C,c}, {G,g}×{U,u,T,t} and their reverses; IUPAC codes, N, X, I (inosine),
+    //      gap and dot never pair (encoded 0). Types: CG/GC/AU/UA → WatsonCrick, GU/UG → Wobble.
+    [Test]
+    public void CanPair_TruthTable_MatchesViennaRnaDefaultModel()
+    {
+        const string alphabet = "ACGUTacgutNnXxRYI-.";
+        static char Norm(char c) { c = char.ToUpperInvariant(c); return c == 'T' ? 'U' : c; }
+        var wc = new HashSet<string> { "AU", "UA", "GC", "CG" };
+        var wobble = new HashSet<string> { "GU", "UG" };
+        int pairing = 0;
+        Assert.Multiple(() =>
+        {
+            foreach (char x in alphabet)
+            {
+                foreach (char y in alphabet)
+                {
+                    string key = $"{Norm(x)}{Norm(y)}";
+                    BasePairType? expected = wc.Contains(key) ? BasePairType.WatsonCrick
+                        : wobble.Contains(key) ? BasePairType.Wobble : null;
+                    Assert.That(GetBasePairType(x, y), Is.EqualTo(expected), $"type({x},{y})");
+                    Assert.That(CanPair(x, y), Is.EqualTo(expected != null), $"CanPair({x},{y})");
+                    if (CanPair(x, y)) pairing++;
+                }
+            }
+        });
+        Assert.That(pairing, Is.EqualTo(40), "ViennaRNA md.pair yields exactly 40 pairing ordered pairs over this alphabet");
+    }
+
+    // S2c — Downstream contract: callers that pair via CanPair treat T exactly as U.
+    //      ViennaRNA RNA.fold gives identical results for the U and T forms
+    //      (GGGAUAAAAAUAUCCC / GGGATAAAAATATCCC → ((((((....)))))), dangles=0 −6.10 both;
+    //      GGGAAAUCCC / GGGAAATCCC → (((....))) −2.50 both). Before the fix the simplified partition
+    //      function gave Z = 1044.12 (U) vs 407.70 (T), and FindStemLoops/PredictStructure found
+    //      "(((..........)))" −0.02 for the T form instead of the U form's "((((((....))))))" −6.05.
+    [Test]
+    public void DownstreamPairing_DnaT_SameAsRnaU()
+    {
+        var zU = CalculatePartitionFunction("GGGAAAUCCC").PartitionFunction;
+        var zT = CalculatePartitionFunction("GGGAAATCCC").PartitionFunction;
+        var slU = FindStemLoops("GGGAUAAAAAUAUCCC").OrderBy(x => x.TotalFreeEnergy).First();
+        var slT = FindStemLoops("GGGATAAAAATATCCC").OrderBy(x => x.TotalFreeEnergy).First();
+        var psT = PredictStructure("GGGATAAAAATATCCC");
+        Assert.Multiple(() =>
+        {
+            Assert.That(zT, Is.EqualTo(zU).Within(1e-9), "partition function: T must be read as U");
+            Assert.That(slT.DotBracketNotation, Is.EqualTo("((((((....))))))"), "stem-loop must include A-T pairs");
+            Assert.That(slT.TotalFreeEnergy, Is.EqualTo(slU.TotalFreeEnergy).Within(1e-9), "same Turner energy as the U form");
+            Assert.That(psT.DotBracket, Is.EqualTo("((((((....))))))"));
+            Assert.That(psT.Sequence, Is.EqualTo("GGGAUAAAAAUAUCCC"), "PredictStructure returns the normalised RNA sequence");
         });
     }
 
@@ -207,7 +271,7 @@ public class RnaSecondaryStructure_CanPair_Tests
     [Test]
     public void CanPair_And_Type_AreSymmetric()
     {
-        const string alphabet = "ACGU";
+        const string alphabet = "ACGUTacgutNR-";
         Assert.Multiple(() =>
         {
             foreach (char x in alphabet)
@@ -228,7 +292,7 @@ public class RnaSecondaryStructure_CanPair_Tests
     [Test]
     public void CanPair_AgreesWith_GetBasePairType()
     {
-        const string alphabet = "ACGU";
+        const string alphabet = "ACGUTacgutNR-";
         Assert.Multiple(() =>
         {
             foreach (char x in alphabet)

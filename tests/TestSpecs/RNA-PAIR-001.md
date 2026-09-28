@@ -5,7 +5,7 @@
 **Algorithm:** RNA Base Pairing (CanPair / GetBasePairType / GetComplement)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -20,6 +20,7 @@
 | 3 | Wikipedia — Wobble base pair (G–U wobble; cites Crick 1966) | 4 | https://en.wikipedia.org/wiki/Wobble_base_pair | 2026-06-14 |
 | 4 | IUPAC-IUB (1970) Biochemistry 9(20):4022–4027, via Nucleic acid notation | 2 | https://en.wikipedia.org/wiki/Nucleic_acid_notation | 2026-06-14 |
 | 5 | Biopython — Bio.Seq.complement_rna | 3 | https://biopython.org/docs/latest/api/Bio.Seq.html | 2026-06-14 |
+| 6 | ViennaRNA 2.7 source — model.c `BP_ENCODING_DEFAULT`, sequences/alphabet.c `vrna_nucleotide_encode`; RNA Python 2.7.2 | 3 | https://github.com/ViennaRNA/ViennaRNA | 2026-09-28 |
 
 ### 1.2 Key Evidence Points
 
@@ -27,18 +28,19 @@
 2. G–U is the standard RNA wobble pair, distinct from Watson-Crick; over the standard alphabet G pairs with C and U, U pairs with A and G — Sources 1, 3.
 3. Base pairing is reciprocal/symmetric: A•U ≡ U•A, G•C ≡ C•G — Source 2.
 4. RNA complement: A→U, U→A, G→C, C→G, T→A (T treated as U), N→N, with IUPAC degenerate complements — Sources 4, 5.
+5. Reference pair set (ViennaRNA default model): CG, GC, GU, UG, AU, UA; T is encoded identically to U; case-insensitive; any other character encodes to 0 and never pairs — Source 6 (confirmed numerically: 40 pairing ordered pairs over "ACGUTacgutNnXxRYI-.").
 
 ### 1.3 Documented Corner Cases
 
 - Order independence: `CanPair`/`GetBasePairType` are symmetric in their two arguments (Source 2).
 - G–U must be reported as Wobble, never WatsonCrick (Source 3).
-- `CanPair`/`GetBasePairType` are defined over the RNA alphabet {A,C,G,U}; T does not pair. For `GetComplement`, T is treated as U → A (Sources 4, 5).
+- `CanPair`/`GetBasePairType` are defined over the RNA alphabet {A,C,G,U} with DNA T read as U (A-T Watson-Crick, G-T wobble), as in ViennaRNA (Source 6). For `GetComplement`, T is treated as U → A (Sources 4, 5).
 
 ### 1.4 Known Failure Modes / Pitfalls
 
 1. Misclassifying G–U as Watson-Crick — Source 3 (wobble does not follow WC rules).
 2. Returning a complement of A as T instead of U in RNA context — Source 5 (complement_rna).
-3. Treating the DNA base T as a pairing partner in RNA pairing — not defined by Sources 1–3; `CanPair` returns false for T.
+3. Rejecting DNA T in pairing while the folding engines and `GetComplement` read T as U — fixed 2026-09 (Source 6): `CanPair('A','T')` was false, so `CalculatePartitionFunction`, `FindStemLoops` and `PredictStructure` silently broke A-T/G-T pairs.
 
 ---
 
@@ -84,7 +86,9 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | S1 | Case-insensitivity | lowercase a,u,g,c,t | same as uppercase | normalization contract |
-| S2 | DNA T in CanPair | T-A, A-T, G-T | false (T not an RNA base) | Sources 1, 2 |
+| S2 | DNA T in CanPair | T-A, A-T, G-T; C-T, T-T, T-U | true (WC, WC, wobble); false | Source 6 (T ≡ U) |
+| S2b | Truth table vs ViennaRNA | 19-char alphabet incl. T, lowercase, IUPAC, gaps | exactly 40 pairing ordered pairs, types per md.pair | Source 6 |
+| S2c | Downstream T ≡ U | partition function / FindStemLoops / PredictStructure on T vs U forms | identical results | Source 6 (RNA.fold identical) |
 | S3 | GetComplement IUPAC degenerate | N→N, R→Y, Y→R | per IUPAC | Source 4 |
 
 ### 4.3 COULD Tests (Nice to have)
@@ -167,7 +171,9 @@
 | M8 | ✅ Covered | CanPair_And_Type_AreSymmetric (property) |
 | M9 | ✅ Covered | CanPair_AgreesWith_GetBasePairType (property) |
 | S1 | ✅ Covered | CanPair_LowercaseInput_SameAsUppercase |
-| S2 | ✅ Covered | CanPair_DnaT_NotAnRnaBase_ReturnsFalse |
+| S2 | ✅ Covered | CanPair_DnaT_TreatedAsU (rewritten 2026-09) |
+| S2b | ✅ Covered | CanPair_TruthTable_MatchesViennaRnaDefaultModel |
+| S2c | ✅ Covered | DownstreamPairing_DnaT_SameAsRnaU |
 | S3 | ✅ Covered | GetComplement_IupacDegenerate_ReturnsExpected |
 | C1 | ✅ Covered | CanPair_OutOfRangeChar_ReturnsFalse |
 
