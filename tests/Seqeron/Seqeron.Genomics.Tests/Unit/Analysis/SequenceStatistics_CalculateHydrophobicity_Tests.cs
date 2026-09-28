@@ -198,4 +198,94 @@ public class SequenceStatistics_CalculateHydrophobicity_Tests
     }
 
     #endregion
+    #region Biopython 1.88 cross-check, edge weighting, argument validation (review 2026-09)
+
+    private const string Ubiquitin =
+        "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG";
+
+    // Reference: Biopython 1.88 ProteinAnalysis(Ubiquitin).gravy() = -0.48947368421052634.
+    [Test]
+    public void CalculateHydrophobicity_Ubiquitin_MatchesBiopythonGravy()
+    {
+        Assert.That(SequenceStatistics.CalculateHydrophobicity(Ubiquitin),
+            Is.EqualTo(-0.48947368421052634).Within(Tolerance));
+    }
+
+    // Reference: Biopython 1.88 ProteinAnalysis(Ubiquitin).protein_scale(kd, 9, 1.0):
+    // 68 values, first six [0.93333.., 0.67777.., 0.63333.., 0.05555.., 0.24444.., -0.3].
+    [Test]
+    public void CalculateHydrophobicityProfile_UbiquitinWindow9_MatchesBiopythonProteinScale()
+    {
+        var profile = SequenceStatistics.CalculateHydrophobicityProfile(Ubiquitin, 9).ToList();
+        double[] expected = { 0.9333333333333331, 0.6777777777777777, 0.6333333333333333,
+            0.05555555555555555, 0.24444444444444446, -0.3 };
+
+        Assert.That(profile, Has.Count.EqualTo(68));
+        for (int i = 0; i < expected.Length; i++)
+            Assert.That(profile[i], Is.EqualTo(expected[i]).Within(Tolerance), $"window {i}");
+    }
+
+    // ExPASy ProtScale / Biopython linear weight-variation model (centre weight 1, ends = edge).
+    // Reference: Biopython 1.88 protein_scale(kd, W, edge) — values copied from its output.
+    [TestCase("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG", 5, 0.4, 72,
+        new[] { 2.015625, 1.853125, 1.546875, 0.37187499999999996, 0.19687499999999997, 0.3437499999999999 })]
+    [TestCase("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG", 9, 0.4, 68,
+        new[] { 1.095, 0.7041666666666663, 0.5375, 0.1008333333333334, -0.013333333333333234, -0.315 })]
+    [TestCase("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG", 19, 0.1, 58,
+        new[] { 0.27999999999999997, 0.17799999999999994, 0.13799999999999998, 0.06999999999999992,
+                0.0019999999999999792, -0.058999999999999886 })]
+    [TestCase("MKWVTFISLLLLFSSAYS", 9, 0.4, 10,
+        new[] { 1.2441666666666664, 1.6608333333333334, 2.3216666666666668, 2.6299999999999994,
+                2.7716666666666665, 2.8625000000000003 })]
+    [TestCase("FLIVAG", 5, 0.4, 2, new[] { 3.7312499999999997, 3.1156249999999996 })]
+    // edge 0, W=3 => only the centre residue counts: profile = kd of residues 2..N-1.
+    [TestCase("FLIVAG", 3, 0.0, 4, new[] { 3.8, 4.5, 4.2, 1.8 })]
+    public void CalculateHydrophobicityProfile_EdgeWeighted_MatchesBiopythonProteinScale(
+        string sequence, int window, double edge, int expectedCount, double[] expectedPrefix)
+    {
+        var profile = SequenceStatistics.CalculateHydrophobicityProfile(sequence, window, edge).ToList();
+
+        Assert.That(profile, Has.Count.EqualTo(expectedCount));
+        for (int i = 0; i < expectedPrefix.Length; i++)
+            Assert.That(profile[i], Is.EqualTo(expectedPrefix[i]).Within(Tolerance), $"window {i}");
+    }
+
+    // An unknown residue at the window centre contributes 0 and keeps its weight in the divisor.
+    // Reference: Biopython 1.88 protein_scale(kd, 3) on "FXIVA" -> first value 2.433333333333333.
+    [Test]
+    public void CalculateHydrophobicityProfile_UnknownCentreResidue_MatchesBiopython()
+    {
+        var profile = SequenceStatistics.CalculateHydrophobicityProfile("FXIVA", 3).ToList();
+
+        Assert.That(profile[0], Is.EqualTo(2.433333333333333).Within(Tolerance));
+    }
+
+    // Window < 1 is meaningless (previously W=0 yielded NaN = 0/0); rejected eagerly.
+    // Biopython protein_scale(kd, 0) raises IndexError; ProtScale accepts windows 3..21 only.
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void CalculateHydrophobicityProfile_WindowBelowOne_Throws(int window)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => SequenceStatistics.CalculateHydrophobicityProfile("FLIV", window));
+    }
+
+    [TestCase(-0.1)]
+    [TestCase(1.1)]
+    [TestCase(double.NaN)]
+    public void CalculateHydrophobicityProfile_EdgeWeightOutsideUnitInterval_Throws(double edge)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => SequenceStatistics.CalculateHydrophobicityProfile("FLIVAG", 3, edge));
+    }
+
+    // A weighted window needs a central residue (ProtScale: odd windows only).
+    [Test]
+    public void CalculateHydrophobicityProfile_EdgeWeightedEvenWindow_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => SequenceStatistics.CalculateHydrophobicityProfile("FLIVAG", 4, 0.5));
+    }
+
+    #endregion
 }

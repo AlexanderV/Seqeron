@@ -578,19 +578,65 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates the sliding-window hydropathy profile: the unweighted mean Kyte-Doolittle
-    /// value over each window of <paramref name="windowSize"/> residues. Yields exactly
-    /// N - windowSize + 1 values; yields nothing when the window exceeds the sequence length
-    /// or the input is null/empty. Non-standard residues contribute 0 to a window's sum.
+    /// Calculates the sliding-window Kyte-Doolittle hydropathy profile (Kyte &amp; Doolittle 1982;
+    /// ExPASy ProtScale / Biopython <c>ProteinAnalysis.protein_scale(kd, window, edge)</c>).
     /// </summary>
+    /// <remarks>
+    /// <para>Yields exactly N − W + 1 values; value <c>k</c> (0-based) belongs to the window
+    /// <c>[k, k + W − 1]</c> and, for odd W, is the score of its central residue <c>k + (W − 1)/2</c>
+    /// (ProtScale convention). Yields nothing when W exceeds the sequence length or the input is
+    /// null/empty.</para>
+    /// <para>Weighting (ProtScale "linear" weight-variation model, as implemented by Biopython
+    /// <c>_weight_list</c>): the central residue has weight 1, the two window ends have weight
+    /// <paramref name="edgeWeight"/>, and weights vary linearly in between
+    /// (<c>w_j = edge + j·2(1 − edge)/(W − 1)</c> for the j-th position from either end); each value is
+    /// Σ w·kd / Σ w. With the default <paramref name="edgeWeight"/> = 1 this is the unweighted window
+    /// mean of the original Kyte-Doolittle method. A weighted window needs a central residue, so
+    /// <paramref name="edgeWeight"/> &lt; 1 requires an odd window (ProtScale accepts odd windows only).
+    /// For an even window with edge 1 the plain mean over the W residues is returned (Biopython instead
+    /// counts residue W/2 twice and divides by W + 1 — an artefact of its odd-window loop).</para>
+    /// <para>Non-standard residues (B, Z, X, gaps, stop) have no scale value and contribute 0 to the
+    /// weighted sum while keeping their weight in the divisor — identical to Biopython for such a
+    /// residue at the window centre (Biopython also drops the symmetric partner of an off-centre
+    /// unknown residue; this library does not).</para>
+    /// </remarks>
+    /// <param name="proteinSequence">One-letter amino-acid sequence (case-insensitive).</param>
+    /// <param name="windowSize">Window length W (≥ 1; default 9).</param>
+    /// <param name="edgeWeight">Relative weight of the window edges, in [0, 1] (default 1 = unweighted).</param>
+    /// <exception cref="ArgumentOutOfRangeException">W &lt; 1, or <paramref name="edgeWeight"/> outside [0, 1].</exception>
+    /// <exception cref="ArgumentException"><paramref name="edgeWeight"/> &lt; 1 with an even W.</exception>
     public static IEnumerable<double> CalculateHydrophobicityProfile(
         string proteinSequence,
-        int windowSize = DefaultHydropathyWindow)
+        int windowSize = DefaultHydropathyWindow,
+        double edgeWeight = 1.0)
     {
-        if (string.IsNullOrEmpty(proteinSequence) || windowSize > proteinSequence.Length)
-            yield break;
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1.");
+        if (double.IsNaN(edgeWeight) || edgeWeight < 0.0 || edgeWeight > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(edgeWeight), edgeWeight, "Edge weight must be in [0, 1].");
+        if (edgeWeight < 1.0 && windowSize % 2 == 0)
+            throw new ArgumentException("An edge-weighted window must have an odd size (a central residue).", nameof(windowSize));
 
-        string upper = proteinSequence.ToUpperInvariant();
+        if (string.IsNullOrEmpty(proteinSequence) || windowSize > proteinSequence.Length)
+            return Array.Empty<double>();
+
+        return HydrophobicityProfileIterator(proteinSequence.ToUpperInvariant(), windowSize, edgeWeight);
+    }
+
+    private static IEnumerable<double> HydrophobicityProfileIterator(string upper, int windowSize, double edgeWeight)
+    {
+        // Position weights (all 1 for the unweighted Kyte-Doolittle mean).
+        var weights = new double[windowSize];
+        double weightSum = 0;
+        int half = windowSize / 2;
+        for (int j = 0; j < windowSize; j++)
+        {
+            int fromEdge = Math.Min(j, windowSize - 1 - j);
+            weights[j] = edgeWeight >= 1.0 || fromEdge >= half
+                ? 1.0
+                : edgeWeight + fromEdge * 2.0 * (1.0 - edgeWeight) / (windowSize - 1);
+            weightSum += weights[j];
+        }
 
         for (int i = 0; i <= upper.Length - windowSize; i++)
         {
@@ -598,9 +644,9 @@ public static class SequenceStatistics
             for (int j = 0; j < windowSize; j++)
             {
                 if (HydrophobicityScale.TryGetValue(upper[i + j], out double value))
-                    sum += value;
+                    sum += weights[j] * value;
             }
-            yield return sum / windowSize;
+            yield return sum / weightSum;
         }
     }
 

@@ -112,6 +112,22 @@ Retrieved via WebFetch, prompting for default scale and citation.
 | `FLIV` | 3 | 2 | [(2.8+3.8+4.5)/3, (3.8+4.5+4.2)/3] = [3.7, 4.1666666667] |
 | `AG` | 3 | 0 (W > N) | empty |
 
+### Dataset: Biopython 1.88 `ProteinAnalysis` reference values (review 2026-09, computed locally)
+
+| Sequence | Call | Biopython 1.88 output |
+|----------|------|-----------------------|
+| ubiquitin (76 aa, `MQIFVKTLTG…RLRGG`) | `gravy()` | −0.48947368421052634 |
+| ubiquitin | `protein_scale(kd, 9, 1.0)` | 68 values; [0.93333…, 0.67777…, 0.63333…, 0.05555…, 0.24444…, −0.3, …] |
+| ubiquitin | `protein_scale(kd, 5, 0.4)` | 72 values; [2.015625, 1.853125, 1.546875, 0.371875, 0.196875, 0.34375, …] |
+| ubiquitin | `protein_scale(kd, 9, 0.4)` | [1.095, 0.70416…, 0.5375, 0.10083…, −0.01333…, −0.315, …] |
+| ubiquitin | `protein_scale(kd, 19, 0.1)` | 58 values; [0.28, 0.178, 0.138, 0.07, 0.002, −0.059, …] |
+| `MKWVTFISLLLLFSSAYS` | `protein_scale(kd, 9, 0.4)` | [1.24417, 1.66083, 2.32167, 2.63, 2.77167, 2.8625, …] |
+| `FLIVAG` | `protein_scale(kd, 5, 0.4)` / `(kd, 3, 0.0)` | [3.73125, 3.115625] / [3.8, 4.5, 4.2, 1.8] |
+| `FXIVA` | `protein_scale(kd, 3)` | first value 2.43333 (unknown centre → 0, divisor 3) |
+| `AV` | `protein_scale(kd, 2)` | 3.4 (even-window artefact: V counted twice, /3) — library returns 3.0 by design |
+
+All reproduced by the library to ≤ 1e-10.
+
 ---
 
 ## Assumptions
@@ -145,3 +161,4 @@ Retrieved via WebFetch, prompting for default scale and citation.
 ## Change History
 
 - **2026-06-13**: Initial documentation (SEQ-HYDRO-001).
+- **2026-09-28**: Review 2026-09 — added Biopython 1.88 reference dataset incl. edge-weighted profiles (linear ProtScale model now implemented), window < 1 rejection.

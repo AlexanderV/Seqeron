@@ -46,7 +46,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CalculateHydrophobicity(string)` | SequenceStatistics | **Canonical** | GRAVY = sum(kd)/count |
-| `CalculateHydrophobicityProfile(string, int windowSize=9)` | SequenceStatistics | **Canonical** | N−W+1 unweighted window means |
+| `CalculateHydrophobicityProfile(string, int windowSize=9, double edgeWeight=1.0)` | SequenceStatistics | **Canonical** | N−W+1 window means (linear edge weighting optional) |
 
 ---
 
@@ -90,6 +90,11 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Transmembrane-style window | hydrophobic 19-mer "I"×19, W=19 → peak | 4.5 (> 1.6) | GCAT threshold (src 5) |
+| R1 | Biopython GRAVY ubiquitin | `gravy()` 1.88 | −0.48947368421052634 | review 2026-09 |
+| R2 | Biopython profile ubiquitin W=9 | `protein_scale(kd,9)` | 68 values, prefix locked | review 2026-09 |
+| R3 | Edge-weighted profile (linear model) | `protein_scale(kd,W,edge)` for (5,0.4),(9,0.4),(19,0.1),(3,0.0) | Biopython values | review 2026-09 |
+| R4 | Unknown centre residue | "FXIVA" W=3 | 2.433333… (Biopython) | review 2026-09 |
+| R5 | Invalid arguments | W<1; edge ∉ [0,1]; edge<1 with even W | throws | review 2026-09 (W=0 previously NaN) |
 
 ---
 

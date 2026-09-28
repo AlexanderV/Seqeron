@@ -98,3 +98,16 @@ Description is biologically and mathematically correct and fully sourced. **PASS
 - **Stage B: PASS-WITH-NOTES** — code faithfully realises GRAVY and the odd-window profile; two minor documented divergences (even-window divisor; non-standard residue handling) do not affect any canonical value. Test coverage was strengthened (+2 tests) to lock the previously-untested `count==0` and profile-unknown branches.
 - **End-state: CLEAN** — no correctness defect; coverage gaps fully fixed in-session; full suite green.
 - No FINDINGS_REGISTER defect logged (no behavioural defect; only test-coverage strengthening).
+
+---
+
+## Re-review 2026-09 (campaign review-2026-09, batch B03)
+
+- **Stage A:** PASS-WITH-NOTES — GRAVY and the KD scale re-confirmed against Biopython 1.88 (installed `Bio.SeqUtils.ProtParam` source inspected: `gravy`, `protein_scale`, `_weight_list`). The ExPASy ProtScale page itself is egress-blocked; its window/edge conventions (odd window centred on residue i, centre weight 100 %, edges set 0–100 %, linear or exponential variation) were taken from the Biopython docstring ("Similar to expasy's ProtScale") and WebSearch snippets of the ProtScale documentation.
+- **Stage B:** FAIL → FIXED.
+  1. `CalculateHydrophobicityProfile(seq, 0)` returned `NaN` for every position (0/0); negative windows returned garbage (N+|W|+1 values of −0). Now `ArgumentOutOfRangeException` for W < 1, validated eagerly (the method was a lazy iterator). Biopython raises `IndexError` for W = 0.
+  2. Simplification removed: the profile had no edge weighting although ProtScale/Biopython `protein_scale(window, edge)` define it. Added `edgeWeight` (default 1.0 → bit-identical to the previous unweighted mean) implementing the linear weight model; confirmed against Biopython 1.88 on ubiquitin (W = 5/9/19, edge 0.4/0.4/0.1), a signal peptide, FLIVAG (edge 0 and 0.4) — all ≤ 1e-10. Edge < 1 with an even window is rejected (no centre residue).
+  3. Notes (by design, documented): even window with edge 1 = plain mean (Biopython double-counts residue W/2 and divides by W+1: "AV" W=2 → 3.4 vs 3.0); off-centre unknown residue contributes 0 without dropping its symmetric partner (Biopython drops both).
+- **Duplication:** `SequenceStatistics` holds the canonical KD table/GRAVY (DisorderPredictor already delegates). Remaining copies: `ProteinSequence.Gravy()` (Core, rounds to 3 dp, cannot reference Analysis) and `ProteinMotifFinder.HydropathyScale`/`CalculateHydropathyProfile` (divides by recognised-residue count — not Biopython behaviour) — cross-batch requests (B02, B14).
+- **Tests:** +13 cases in `SequenceStatistics_CalculateHydrophobicity_Tests.cs` (Biopython-sourced).
+- **End-state:** CLEAN.
