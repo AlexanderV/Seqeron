@@ -73,15 +73,20 @@ namespace Seqeron.Genomics.IO
         /// <summary>
         /// Parses a FASTA string into DNA sequences.
         /// </summary>
+        /// <remarks>
+        /// Lines whose first character is ';' are comment lines and are ignored (original Pearson
+        /// FASTA convention: <c>agetlib</c> in fasta36 <c>src/nmgetlib.c</c> skips them; Biopython
+        /// <c>SeqIO</c> "fasta-pearson" likewise). Text before the first '>' is ignored.
+        /// </remarks>
         public static IEnumerable<FastaEntry> Parse(string fastaContent)
         {
             if (string.IsNullOrWhiteSpace(fastaContent))
                 yield break;
 
             using var reader = new StringReader(fastaContent);
-            foreach (var entry in ParseReader(reader))
+            foreach (var (header, sequence) in ReadRawRecords(reader))
             {
-                yield return entry;
+                yield return CreateEntry(header, sequence);
             }
         }
 
@@ -91,9 +96,9 @@ namespace Seqeron.Genomics.IO
         public static IEnumerable<FastaEntry> ParseFile(string filePath)
         {
             using var reader = new StreamReader(filePath);
-            foreach (var entry in ParseReader(reader))
+            foreach (var (header, sequence) in ReadRawRecords(reader))
             {
-                yield return entry;
+                yield return CreateEntry(header, sequence);
             }
         }
 
@@ -103,35 +108,9 @@ namespace Seqeron.Genomics.IO
         public static async IAsyncEnumerable<FastaEntry> ParseFileAsync(string filePath)
         {
             using var reader = new StreamReader(filePath);
-            string? header = null;
-            var sequenceBuilder = new StringBuilder();
-
-            string? line;
-            while ((line = await reader.ReadLineAsync()) != null)
+            await foreach (var (header, sequence) in ReadRawRecordsAsync(reader))
             {
-                if (line.StartsWith('>'))
-                {
-                    if (header != null && sequenceBuilder.Length > 0)
-                    {
-                        yield return CreateEntry(header, sequenceBuilder.ToString());
-                    }
-
-                    header = line.Substring(1).Trim();
-                    sequenceBuilder.Clear();
-                }
-                else
-                {
-                    foreach (char c in line)
-                    {
-                        if (!char.IsWhiteSpace(c))
-                            sequenceBuilder.Append(c);
-                    }
-                }
-            }
-
-            if (header != null && sequenceBuilder.Length > 0)
-            {
-                yield return CreateEntry(header, sequenceBuilder.ToString());
+                yield return CreateEntry(header, sequence);
             }
         }
 
@@ -152,9 +131,9 @@ namespace Seqeron.Genomics.IO
                 yield break;
 
             using var reader = new StringReader(fastaContent);
-            foreach (var record in ParseReaderTyped(reader, alphabet))
+            foreach (var (header, sequence) in ReadRawRecords(reader))
             {
-                yield return record;
+                yield return CreateRecord(header, sequence, alphabet);
             }
         }
 
@@ -164,9 +143,9 @@ namespace Seqeron.Genomics.IO
         public static IEnumerable<FastaRecord> ParseFile(string filePath, SequenceAlphabet alphabet)
         {
             using var reader = new StreamReader(filePath);
-            foreach (var record in ParseReaderTyped(reader, alphabet))
+            foreach (var (header, sequence) in ReadRawRecords(reader))
             {
-                yield return record;
+                yield return CreateRecord(header, sequence, alphabet);
             }
         }
 
@@ -176,57 +155,43 @@ namespace Seqeron.Genomics.IO
         public static async IAsyncEnumerable<FastaRecord> ParseFileAsync(string filePath, SequenceAlphabet alphabet)
         {
             using var reader = new StreamReader(filePath);
-            string? header = null;
-            var sequenceBuilder = new StringBuilder();
-
-            string? line;
-            while ((line = await reader.ReadLineAsync()) != null)
+            await foreach (var (header, sequence) in ReadRawRecordsAsync(reader))
             {
-                if (line.StartsWith('>'))
-                {
-                    if (header != null && sequenceBuilder.Length > 0)
-                    {
-                        yield return CreateRecord(header, sequenceBuilder.ToString(), alphabet);
-                    }
-
-                    header = line.Substring(1).Trim();
-                    sequenceBuilder.Clear();
-                }
-                else
-                {
-                    foreach (char c in line)
-                    {
-                        if (!char.IsWhiteSpace(c))
-                            sequenceBuilder.Append(c);
-                    }
-                }
-            }
-
-            if (header != null && sequenceBuilder.Length > 0)
-            {
-                yield return CreateRecord(header, sequenceBuilder.ToString(), alphabet);
+                yield return CreateRecord(header, sequence, alphabet);
             }
         }
 
         /// <summary>
         /// Writes sequences to FASTA format.
         /// </summary>
+        /// <param name="entries">Entries to serialize.</param>
+        /// <param name="lineWidth">
+        /// Maximum sequence characters per line (default 80). <c>0</c> disables wrapping and writes each
+        /// sequence on a single line (Biopython <c>FastaWriter(wrap=0)</c> convention). Negative values
+        /// throw <see cref="ArgumentOutOfRangeException"/>.
+        /// </param>
         public static string ToFasta(IEnumerable<FastaEntry> entries, int lineWidth = 80)
         {
+            ArgumentNullException.ThrowIfNull(entries);
+            ValidateLineWidth(lineWidth);
             var sb = new StringBuilder();
             foreach (var entry in entries)
-            {
-                // Emit '\n' explicitly (not AppendLine/Environment.NewLine) so FASTA output is
-                // byte-identical across platforms — sequence files must not carry OS-dependent CRLF.
-                sb.Append('>').Append(entry.Header).Append('\n');
+                AppendRecord(sb, entry.Header, entry.Sequence.Sequence, lineWidth);
+            return sb.ToString();
+        }
 
-                string seq = entry.Sequence.Sequence;
-                for (int i = 0; i < seq.Length; i += lineWidth)
-                {
-                    int len = Math.Min(lineWidth, seq.Length - i);
-                    sb.Append(seq.AsSpan(i, len)).Append('\n');
-                }
-            }
+        /// <summary>
+        /// Writes alphabet-typed <see cref="FastaRecord"/>s (RNA, protein, IUPAC nucleotide, …) to FASTA
+        /// format. Same layout and <paramref name="lineWidth"/> semantics as
+        /// <see cref="ToFasta(IEnumerable{FastaEntry}, int)"/>.
+        /// </summary>
+        public static string ToFasta(IEnumerable<FastaRecord> records, int lineWidth = 80)
+        {
+            ArgumentNullException.ThrowIfNull(records);
+            ValidateLineWidth(lineWidth);
+            var sb = new StringBuilder();
+            foreach (var record in records)
+                AppendRecord(sb, record.Header, record.Sequence, lineWidth);
             return sb.ToString();
         }
 
@@ -238,81 +203,128 @@ namespace Seqeron.Genomics.IO
             File.WriteAllText(filePath, ToFasta(entries, lineWidth));
         }
 
-        private static IEnumerable<FastaEntry> ParseReader(TextReader reader)
+        /// <summary>
+        /// Writes alphabet-typed <see cref="FastaRecord"/>s to a FASTA file.
+        /// </summary>
+        public static void WriteFile(string filePath, IEnumerable<FastaRecord> records, int lineWidth = 80)
         {
-            string? header = null;
-            var sequenceBuilder = new StringBuilder();
+            File.WriteAllText(filePath, ToFasta(records, lineWidth));
+        }
 
-            string? line;
-            while ((line = reader.ReadLine()) != null)
+        private static void ValidateLineWidth(int lineWidth)
+        {
+            // A zero step would never advance the wrap loop; Biopython treats wrap=0 as "no wrapping"
+            // and rejects negative widths.
+            if (lineWidth < 0)
+                throw new ArgumentOutOfRangeException(nameof(lineWidth), lineWidth,
+                    "Line width must be non-negative (0 = no wrapping).");
+        }
+
+        private static void AppendRecord(StringBuilder sb, string header, string seq, int lineWidth)
+        {
+            // Emit '\n' explicitly (not AppendLine/Environment.NewLine) so FASTA output is
+            // byte-identical across platforms — sequence files must not carry OS-dependent CRLF.
+            sb.Append('>').Append(header).Append('\n');
+
+            if (lineWidth == 0)
             {
-                if (line.StartsWith('>'))
-                {
-                    if (header != null && sequenceBuilder.Length > 0)
-                    {
-                        yield return CreateEntry(header, sequenceBuilder.ToString());
-                    }
-
-                    header = line.Substring(1).Trim();
-                    sequenceBuilder.Clear();
-                }
-                else
-                {
-                    foreach (char c in line)
-                    {
-                        if (!char.IsWhiteSpace(c))
-                            sequenceBuilder.Append(c);
-                    }
-                }
+                sb.Append(seq).Append('\n');
+                return;
             }
 
-            if (header != null && sequenceBuilder.Length > 0)
+            for (int i = 0; i < seq.Length; i += lineWidth)
             {
-                yield return CreateEntry(header, sequenceBuilder.ToString());
+                int len = Math.Min(lineWidth, seq.Length - i);
+                sb.Append(seq.AsSpan(i, len)).Append('\n');
             }
         }
 
-        private static IEnumerable<FastaRecord> ParseReaderTyped(TextReader reader, SequenceAlphabet alphabet)
-        {
-            string? header = null;
-            var sequenceBuilder = new StringBuilder();
+        // --- Shared line-oriented record reader (single state machine for sync + async paths) ---
 
+        private static IEnumerable<(string Header, string Sequence)> ReadRawRecords(TextReader reader)
+        {
+            var state = new RecordAccumulator();
             string? line;
             while ((line = reader.ReadLine()) != null)
             {
-                if (line.StartsWith('>'))
-                {
-                    if (header != null && sequenceBuilder.Length > 0)
-                    {
-                        yield return CreateRecord(header, sequenceBuilder.ToString(), alphabet);
-                    }
-
-                    header = line.Substring(1).Trim();
-                    sequenceBuilder.Clear();
-                }
-                else
-                {
-                    foreach (char c in line)
-                    {
-                        if (!char.IsWhiteSpace(c))
-                            sequenceBuilder.Append(c);
-                    }
-                }
+                if (state.Accept(line, out var completed))
+                    yield return completed;
             }
 
-            if (header != null && sequenceBuilder.Length > 0)
+            if (state.TryFlush(out var last))
+                yield return last;
+        }
+
+        private static async IAsyncEnumerable<(string Header, string Sequence)> ReadRawRecordsAsync(TextReader reader)
+        {
+            var state = new RecordAccumulator();
+            string? line;
+            while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
             {
-                yield return CreateRecord(header, sequenceBuilder.ToString(), alphabet);
+                if (state.Accept(line, out var completed))
+                    yield return completed;
+            }
+
+            if (state.TryFlush(out var last))
+                yield return last;
+        }
+
+        /// <summary>
+        /// Line-oriented FASTA state machine: a '>' line starts a record (header = rest of line,
+        /// trimmed); ';' lines are comments; any other line contributes its non-whitespace characters
+        /// to the current sequence. A record is emitted only when it has a header and at least one
+        /// sequence character; text before the first header is ignored.
+        /// </summary>
+        private sealed class RecordAccumulator
+        {
+            private string? _header;
+            private readonly StringBuilder _sequence = new();
+
+            public bool Accept(string line, out (string Header, string Sequence) completed)
+            {
+                if (line.StartsWith('>'))
+                {
+                    bool ready = TryFlush(out completed);
+                    _header = line.Substring(1).Trim();
+                    _sequence.Clear();
+                    return ready;
+                }
+
+                completed = default;
+                if (line.StartsWith(';'))
+                    return false; // Pearson FASTA comment line.
+
+                foreach (char c in line)
+                {
+                    if (!char.IsWhiteSpace(c))
+                        _sequence.Append(c);
+                }
+                return false;
+            }
+
+            public bool TryFlush(out (string Header, string Sequence) completed)
+            {
+                if (_header != null && _sequence.Length > 0)
+                {
+                    completed = (_header, _sequence.ToString());
+                    return true;
+                }
+
+                completed = default;
+                return false;
             }
         }
 
         private static (string Id, string? Description) SplitHeader(string header)
         {
-            // Parse header: typically "ID description". Split on the first space or tab.
-            var parts = header.Split(new[] { ' ', '\t' }, 2);
-            string id = parts[0];
-            string? description = parts.Length > 1 ? parts[1] : null;
-            return (id, description);
+            // id = first whitespace-delimited word; description = the remainder of the title
+            // (Biopython: title.split(None, 1)[0] — any whitespace, not only space/tab).
+            for (int i = 0; i < header.Length; i++)
+            {
+                if (char.IsWhiteSpace(header[i]))
+                    return (header.Substring(0, i), header.Substring(i + 1));
+            }
+            return (header, null);
         }
 
         private static FastaEntry CreateEntry(string header, string sequence)

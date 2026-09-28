@@ -6,7 +6,7 @@
 | Test Unit ID | PARSE-FASTA-001 |
 | Related Projects | Seqeron.Genomics; Seqeron.Mcp.Parsers |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-06-24 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -33,10 +33,11 @@ Multiple FASTA entries are formed by concatenating records, each starting with `
 The parser is a line-oriented state machine with two states: current header and current sequence buffer. For each input line:
 
 - If the line starts with `>`, the previous buffered record is emitted when both a header and at least one sequence character have been collected, then the new header is stored.
+- If the line starts with `;`, it is a comment line and is ignored (original Pearson FASTA convention: fasta36 `src/nmgetlib.c` `agetlib`; Biopython `SeqIO` "fasta-pearson").
 - Otherwise, non-whitespace characters from the line are appended to the current sequence buffer.
 - At end of input, the final buffered record is emitted when it has both header and sequence content.
 
-Header parsing follows the common FASTA convention already documented in the repository evidence and tests: the first space- or tab-delimited token is the sequence identifier and the remainder of the defline is the optional description.
+Header parsing follows the common FASTA convention already documented in the repository evidence and tests: the first whitespace-delimited token (any whitespace, as Biopython `title.split(None, 1)[0]`) is the sequence identifier and the remainder of the defline is the optional description.
 
 ### 2.4 Properties and Invariants
 
@@ -55,7 +56,7 @@ Header parsing follows the common FASTA convention already documented in the rep
 | `fastaContent` | `string` | required | FASTA text to parse with `Parse` | Null, empty, or whitespace-only content yields no entries |
 | `filePath` | `string` | required | Path to a FASTA file for `ParseFile` or `ParseFileAsync` | Must identify a readable file when parsing or writable path when writing |
 | `entries` | `IEnumerable<FastaEntry>` | required | Entries to serialize with `ToFasta` or `WriteFile` | Each entry must already contain a valid `DnaSequence` |
-| `lineWidth` | `int` | `80` | Maximum sequence characters written per output line | Must be positive for meaningful wrapping; formatter loops in increments of this value |
+| `lineWidth` | `int` | `80` | Maximum sequence characters written per output line | `0` = no wrapping (one line per sequence, Biopython `FastaWriter(wrap=0)`); negative → `ArgumentOutOfRangeException` |
 
 ### 3.2 Output / Return Value
 
@@ -80,13 +81,13 @@ Header parsing follows the common FASTA convention already documented in the rep
 
 1. Read FASTA content line by line.
 2. When a line starts with `>`, emit the previous buffered entry if both header and sequence are present, then store the new header and clear the sequence buffer.
-3. For non-header lines, append every non-whitespace character to the current sequence buffer.
+3. Skip `;` comment lines; for other non-header lines, append every non-whitespace character to the current sequence buffer.
 4. After the scan completes, emit the final buffered entry when it has both a header and at least one sequence character.
-5. For formatting, write `>` plus the entry header, then emit the sequence in chunks of `lineWidth` characters.
+5. For formatting, write `>` plus the entry header, then emit the sequence in chunks of `lineWidth` characters (or on one line when `lineWidth == 0`).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The implementation uses a `StringBuilder` as the sequence buffer for both synchronous and asynchronous parsing. Header parsing splits on the first space or tab into at most two parts, preserving the first token as `Id` and the remainder as `Description`. Formatting uses `Substring` over the normalized DNA string in fixed-width chunks.
+A single private state machine (`RecordAccumulator`) with a `StringBuilder` sequence buffer is shared by all six parse entry points (sync/async × `FastaEntry`/`FastaRecord`). Header parsing splits at the first whitespace character into at most two parts, preserving the first token as `Id` and the remainder as `Description`. Formatting uses `Substring` over the normalized DNA string in fixed-width chunks.
 
 ### 4.3 Complexity
 
@@ -107,6 +108,7 @@ The implementation uses a `StringBuilder` as the sequence buffer for both synchr
 - `FastaParser.ParseFileAsync(string)`: Asynchronously reads a FASTA file and yields entries.
 - `FastaParser.ToFasta(IEnumerable<FastaEntry>, int)`: Formats entries as FASTA with configurable line wrapping.
 - `FastaParser.WriteFile(string, IEnumerable<FastaEntry>, int)`: Writes serialized FASTA text to disk.
+- `FastaParser.ToFasta(IEnumerable<FastaRecord>, int)` / `WriteFile(string, IEnumerable<FastaRecord>, int)`: Serialize alphabet-typed records (RNA / protein / IUPAC) with the same layout.
 - `FastaEntry.Header`: Reconstructs the header line from `Id` and `Description`.
 - `DnaSequence.DnaSequence(string)`: Normalizes parsed sequence data to uppercase and rejects characters outside `A/C/G/T`.
 - `FastaParser.Parse(string, SequenceAlphabet)` / `ParseFile(string, SequenceAlphabet)` / `ParseFileAsync(string, SequenceAlphabet)`: **Opt-in** overloads that validate the uppercased sequence against a selectable alphabet and yield `FastaRecord` (raw sequence string preserved). Alphabets: `StrictDna` (A/C/G/T — same as default), `IupacNucleotide` (A C G T U R Y S W K M B D H V N + `-`, per NC-IUB 1985), `Rna` (A C G U), `Protein` (20 IUPAC residues + B Z J X U O + `*`).
@@ -119,7 +121,8 @@ Repository-specific behavior confirmed by source and tests:
 - Blank lines are effectively skipped because they contribute no characters to the sequence buffer.
 - Header-only entries are dropped because entries are yielded only when `sequenceBuilder.Length > 0`.
 - Lowercase nucleotide input is accepted because `DnaSequence` uppercases before validation.
-- `ToFasta` uses a default output width of 80 characters per line.
+- `ToFasta` uses a default output width of 80 characters per line; `lineWidth: 0` writes unwrapped sequences.
+- Lines beginning with `;` (Pearson comments) and any text before the first `>` are ignored.
 - Parsed entries preserve the identifier and description split used by the defline parser, and round-trip tests verify `Parse -> ToFasta -> Parse` consistency for that split.
 - The default `Parse`/`ParseFile`/`ParseFileAsync` (no alphabet argument) remain strict DNA-only and byte-for-byte unchanged. The opt-in `SequenceAlphabet` overloads additionally accept RNA (`U`), protein residues (incl. `*` and ambiguity codes), and IUPAC nucleotide ambiguity/gap codes, validating against the selected alphabet and throwing `ArgumentException` on the first out-of-alphabet character.
 
@@ -139,7 +142,7 @@ Repository-specific behavior confirmed by source and tests:
 
 **Not implemented:**
 
-- `ToFasta`/`WriteFile` serialization for the non-DNA `FastaRecord` type; **users should rely on:** the `FastaEntry`/`DnaSequence` formatter for serialization, or assemble output strings directly from `FastaRecord.Sequence`.
+- Pearson/PIR legacy use of a `;` line as a *title* line (fasta36 `agetlib` accepts `;` as a record start before the first `>`); `;` lines are always treated as comments here, as in Biopython "fasta-pearson".
 
 ### 5.4 Deviations and Assumptions
 
@@ -160,6 +163,9 @@ Repository-specific behavior confirmed by source and tests:
 | Whitespace inside sequence lines | Whitespace is ignored | Parser appends only characters for which `!char.IsWhiteSpace(c)` |
 | Lowercase DNA sequence | Output `DnaSequence` is uppercase | `DnaSequence` normalizes with `ToUpperInvariant()` |
 | Long output sequence | Wrapped at `lineWidth` characters per line | `ToFasta` writes fixed-width chunks |
+| `lineWidth == 0` | Sequence written on one line | Biopython `FastaWriter(wrap=0)` |
+| `lineWidth < 0` | `ArgumentOutOfRangeException` | Biopython raises `ValueError` |
+| `;` comment line (anywhere) | Ignored | Pearson fasta36 `agetlib`; Biopython "fasta-pearson" |
 
 ### 6.2 Limitations
 

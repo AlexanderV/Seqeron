@@ -159,3 +159,22 @@ Current implementation (`FastaParser.cs`):
 - Line width configurable (default 80, per Wikipedia/NCBI/LOC convention)
 - Returns `FastaEntry` with Id, Description, and DnaSequence
 - Header without sequence is not yielded (per NCBI: "The line after the FASTA definition line begins the nucleotide sequence")
+
+## Review 2026-09 (campaign B20) — reference cross-checks
+
+Sources opened: Biopython 1.88 `Bio.SeqIO.FastaIO` source (`SimpleFastaParser`, `FastaIterator`,
+`FastaPearsonIterator`, `FastaWriter.write_record`); William Pearson's fasta36
+`src/nmgetlib.c` (https://raw.githubusercontent.com/wrpearson/fasta36/master/src/nmgetlib.c —
+`agetlib`: `if (*seqb==';') { ... continue; }`, i.e. `;` lines inside a record are comments).
+
+| Case | Reference output (Biopython 1.88) | Seqeron |
+|------|-----------------------------------|---------|
+| `FastaWriter(wrap=0)` on `s1 demo` / `ACGTACGTAC` | `>s1 demo\nACGTACGTAC\n` | `ToFasta(lineWidth: 0)` identical (was an infinite loop) |
+| `FastaWriter(wrap=-1)` | `ValueError` | `ArgumentOutOfRangeException` |
+| "fasta-pearson" `>s1 desc\n;comment line\nACGT\n;another\nGGCC\n>s2\n;c\nTTAA\n` | `[("s1","ACGTGGCC"),("s2","TTAA")]` | identical (was `ArgumentException` on `;`) |
+| "fasta-pearson" `;leading comment\n;more\n>s1 d\nAC\n` | `[("s1","s1 d","AC")]` | identical |
+| id of `>s1\x0bdesc` / `>s1\xa0desc x` | `s1` / `s1` | `s1` / `s1` (was only space/tab split) |
+| `FastaWriter(wrap=4)` on `>p1 prot\nmwyx\nBZJUO*` | `>p1 prot\nmwyx\nBZJU\nO*\n` | `ToFasta(FastaRecord, 4)` → same layout, uppercased (NCBI rule) |
+
+Documented divergences kept: header-only records are not yielded (Biopython yields empty
+records); lowercase is uppercased (Biopython preserves case); the default path is strict DNA.
