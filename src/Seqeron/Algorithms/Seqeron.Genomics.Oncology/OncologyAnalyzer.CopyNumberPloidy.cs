@@ -1391,8 +1391,8 @@ public static partial class OncologyAnalyzer
         }
 
         // n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] — McGranahan 2016 observed mutation copy number (CCF=1 ⇒ m = n_mut).
-        double totalDnaPerCell = purity * totalCopyNumber + NormalDiploidCopyNumber * (1.0 - purity);
-        double rawMultiplicity = vaf * totalDnaPerCell / purity;
+        // This is exactly the canonical CNAqc purity/copy-number VAF correction (AdjustVAFForPurity, ONCO-VAF-001).
+        double rawMultiplicity = AdjustVAFForPurity(vaf, purity, totalCopyNumber);
         int rounded = (int)Math.Round(rawMultiplicity, MidpointRounding.AwayFromZero);
         // Clamp to [1, major CN]: an observed variant sits on ≥ 1 copy and ≤ the major-allele copy number.
         return Math.Clamp(rounded, 1, majorCopyNumber);

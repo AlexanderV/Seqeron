@@ -275,13 +275,6 @@ public static partial class OncologyAnalyzer
 
     #region EstimateCcf
 
-    /// <summary>
-    /// Normal locus copy number (diploid) contributing the 2(1−ρ) term in the CCF denominator.
-    /// Source: McGranahan et al. (2016), <i>Science</i> 351(6280):1463–1469 — n_mut = VAF·(1/p)·[p·CN_t + CN_n·(1−p)]
-    /// with CN_n = 2; Tarabichi et al. (2021), <i>Nat. Methods</i> 18:144–155 (Box 1).
-    /// </summary>
-    private const double NormalLocusCopyNumber = 2.0;
-
     /// <summary>Upper bound on a reported cancer cell fraction (a mutation in all cancer cells has CCF = 1).</summary>
     private const double MaxCancerCellFraction = 1.0;
 
@@ -353,8 +346,9 @@ public static partial class OncologyAnalyzer
 
         // CCF = VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m): total DNA per cell = tumour ρ·N_T + normal 2(1−ρ); dividing the
         // observed mutant fraction by ρ·m / totalDna recovers the fraction of cancer cells carrying the mutation.
-        double totalDnaPerCell = purity * tumorCopyNumber + NormalLocusCopyNumber * (1.0 - purity);
-        double rawCcf = vaf * totalDnaPerCell / (purity * multiplicity);
+        // The observed mutation copy number n_mut = VAF·(ρ·N_T + 2(1−ρ))/ρ is the canonical CNAqc purity/copy-number
+        // VAF correction (AdjustVAFForPurity, ONCO-VAF-001); CCF = n_mut / m (McGranahan 2016).
+        double rawCcf = AdjustVAFForPurity(vaf, purity, tumorCopyNumber) / multiplicity;
         double cappedCcf = Math.Min(MaxCancerCellFraction, rawCcf);
         return new CcfEstimate(cappedCcf, rawCcf);
     }

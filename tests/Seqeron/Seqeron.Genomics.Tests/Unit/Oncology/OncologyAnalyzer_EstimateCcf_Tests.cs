@@ -330,4 +330,22 @@ public class OncologyAnalyzer_EstimateCcf_Tests
     }
 
     #endregion
+
+    // B24 review 2026-09 (ONCO-PURITY-001 dedup): EstimateCcf routes through the canonical CNAqc
+    // purity/copy-number correction AdjustVAFForPurity (n_mut = VAF·(ρ·N_T + 2(1−ρ))/ρ, McGranahan 2016),
+    // so RawCcf = n_mut / m exactly. Reference (Python, McGranahan 2016 formula):
+    // VAF 0.3, ρ 0.7, N_T 3, m 2 ⇒ n_mut = 0.3·2.7/0.7 = 1.157142857…, CCF = 0.578571428…
+    [Test]
+    public void EstimateCcf_RawCcf_EqualsCanonicalPurityCorrectionOverMultiplicity()
+    {
+        OncologyAnalyzer.CcfEstimate estimate = OncologyAnalyzer.EstimateCcf(0.3, 0.7, 3, 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(estimate.RawCcf, Is.EqualTo(OncologyAnalyzer.AdjustVAFForPurity(0.3, 0.7, 3) / 2));
+            Assert.That(estimate.RawCcf, Is.EqualTo(0.3 * 2.7 / 0.7 / 2.0).Within(1e-12));
+            Assert.That(OncologyAnalyzer.DeriveMultiplicity(0.3, 0.7, 3, 2), Is.EqualTo(1),
+                "n_mut = 1.157… rounds to multiplicity 1 (McGranahan 2016)");
+        });
+    }
 }
