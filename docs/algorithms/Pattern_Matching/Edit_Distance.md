@@ -5,8 +5,8 @@
 | Algorithm Group | Pattern Matching |
 | Test Unit ID | PAT-APPROX-002 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -35,7 +35,7 @@ lev(tail(a), tail(b))
 \end{cases}
 $$
 
-The implemented search routine `FindWithEdits(...)` compares the pattern against windows whose lengths range from `pattern.Length - maxEdits` to `pattern.Length + maxEdits`.
+Approximate search (the *k differences* problem, Sellers 1980; Navarro 2001 §5.1) uses the same recurrence with a free start in the text: `C[0, j] = 0`, `C[i, 0] = i`, and a match ends at text position `j` whenever `C[m, j] ≤ k`, where `C[m, j] = min_i ed(P, T[i..j])`. `FindEditEndPositions(...)` returns exactly these `(j, C[m, j])` pairs. `FindWithEdits(...)` reports every window `T[i..i+len)` (len ∈ `[max(1, m − k), m + k]`) with `ed(P, window) ≤ k`; the set of its window end positions (with the minimum distance per end) equals the Sellers set.
 
 ### 2.4 Properties and Invariants
 
@@ -75,19 +75,19 @@ The implemented search routine `FindWithEdits(...)` compares the pattern against
 
 ### 4.1 High-Level Steps
 
-1. For direct distance, initialize a two-row dynamic-programming table.
-2. Fill the current row from the previous row using insertion, deletion, and substitution costs.
-3. Return the final value in the last DP row as the Levenshtein distance.
-4. For approximate search, uppercase the sequence and pattern.
-5. Compare the pattern against every window whose length is between `pattern.Length - maxEdits` and `pattern.Length + maxEdits`.
-6. Yield windows whose edit distance is at most `maxEdits`.
+All three entry points share one column kernel (`AdvanceColumn`) of the unit-cost Wagner–Fischer DP; they differ only in the top cell of each column.
+
+1. `EditDistance`: two columns over the pattern rows, top cell = column index `j` (global distance); return `C[m, n]`.
+2. `FindEditEndPositions` (Sellers): uppercase inputs; top cell = 0 (free text start); yield `(j, C[m, j])` when `C[m, j] ≤ k`.
+3. `FindWithEdits`: uppercase inputs; for each start `i`, run the start-anchored DP (top cell = window length) over `T[i..i+m+k)` — one pass gives `ed(P, T[i..i+len))` for every length; yield windows with `len ≥ max(1, m − k)` and distance `≤ k`; stop early once the column minimum exceeds `k` (Ukkonen 1985 cut-off; column minima never decrease).
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | `EditDistance` | `O(m × n)` | `O(n)` | Two-row Wagner-Fischer dynamic program for strings of lengths `m` and `n` |
-| `FindWithEdits` | `O(s × (2e + 1) × p × (p + e))` | `O(p + e)` | `s` = sequence length, `p` = pattern length, `e` = `maxEdits`; each candidate window invokes `EditDistance(...)` on a window whose length ranges from `p - e` to `p + e` |
+| `FindEditEndPositions` | `O(s × p)` | `O(p)` | Sellers (1980) semi-global DP |
+| `FindWithEdits` | `O(s × p × (p + e))` worst case | `O(p)` | `s` = sequence length, `p` = pattern length, `e` = `maxEdits`; one start-anchored DP per start with Ukkonen cut-off |
 
 ## 5. Implementation Notes
 
@@ -96,12 +96,13 @@ The implemented search routine `FindWithEdits(...)` compares the pattern against
 **Implementation location:** [ApproximateMatcher.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs)
 
 - `ApproximateMatcher.EditDistance(string, string)`: Two-row Levenshtein distance.
-- `ApproximateMatcher.FindWithEdits(string, string, int)`: Approximate search by variable-length windows.
+- `ApproximateMatcher.FindWithEdits(string, string, int)`: All windows within `maxEdits` (start-anchored DP per start).
+- `ApproximateMatcher.FindEditEndPositions(string, string, int)`: Sellers (1980) end positions with minimum distance.
 - `ApproximateMatcher.FindWithEdits(DnaSequence, string, int)`: Typed wrapper over the string implementation.
 
 ### 5.2 Current Behavior
 
-The core `EditDistance(...)` method is case-sensitive because it compares characters directly. `FindWithEdits(...)` uppercases both the sequence and pattern before scanning and distinguishes substitution-only matches from general edits by comparing the edit distance to a helper Hamming-like distance on equal-length windows. For edit matches that involve insertions or deletions, `MismatchPositions` is returned as an empty list. The `DnaSequence` overload is a thin wrapper over the string implementation and does not add its own null guard.
+The core `EditDistance(...)` method is case-sensitive because it compares characters directly. `FindWithEdits(...)` uppercases both the sequence and pattern before scanning and distinguishes substitution-only matches from general edits by comparing the edit distance to the canonical `SequenceExtensions.HammingDistance` on equal-length windows. For edit matches that involve insertions or deletions, `MismatchPositions` is returned as an empty list. The `DnaSequence` overload is a thin wrapper over the string implementation and does not add its own null guard.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -110,10 +111,10 @@ The core `EditDistance(...)` method is case-sensitive because it compares charac
 - Levenshtein distance with insertion, deletion, and substitution costs of one.
 - Space-optimized Wagner-Fischer dynamic programming.
 - Approximate search by accepting windows with edit distance at most `maxEdits`.
+- Sellers (1980) k-differences search (`FindEditEndPositions`), cross-checked against edlib infix (HW) mode and Navarro's `survey`/`surgery` example.
 
 **Intentionally simplified:**
 
-- `FindWithEdits(...)` uses a brute-force variable-window scan; **consequence:** it is easy to reason about but not optimized for very large texts or very permissive edit thresholds.
 - Edit-match results do not reconstruct insertion or deletion coordinates; **consequence:** callers receive the edit distance and matched window, but not a full alignment trace.
 
 **Not implemented:**
@@ -134,7 +135,7 @@ The core `EditDistance(...)` method is case-sensitive because it compares charac
 
 ### 6.2 Limitations
 
-The current search routine is a brute-force approximation layer over the core distance function and does not expose a full alignment traceback. The core distance method is also case-sensitive, so callers who need normalized comparisons must uppercase or otherwise normalize inputs before calling it directly.
+The search routines do not expose a full alignment traceback, and no bit-parallel (Myers 1999) acceleration is used. The core distance method is also case-sensitive, so callers who need normalized comparisons must uppercase or otherwise normalize inputs before calling it directly.
 
 ## 7. Examples and Related Material
 
@@ -152,8 +153,10 @@ The current search routine is a brute-force approximation layer over the core di
 
 1. Levenshtein, V.I. (1966). "Binary codes capable of correcting deletions, insertions, and reversals." Soviet Physics Doklady, 10(8): 707–710.
 2. Wagner, R.A.; Fischer, M.J. (1974). "The String-to-String Correction Problem." Journal of the ACM, 21(1): 168–173.
-3. Navarro, G. (2001). "A guided tour to approximate string matching." ACM Computing Surveys, 33(1): 31–88.
-4. Berger, B.; Waterman, M.S.; Yu, Y.W. (2021). "Levenshtein Distance, Sequence Comparison and Biological Database Search." IEEE Transactions on Information Theory, 67(6): 3287–3294.
-5. Rosetta Code - Levenshtein Distance: https://rosettacode.org/wiki/Levenshtein_distance
-6. Wikipedia - Levenshtein Distance: https://en.wikipedia.org/wiki/Levenshtein_distance
-7. Wikipedia - Edit Distance: https://en.wikipedia.org/wiki/Edit_distance
+3. Sellers, P.H. (1980). "The theory and computation of evolutionary distances: Pattern recognition." Journal of Algorithms, 1(4): 359–373.
+4. Ukkonen, E. (1985). "Finding approximate patterns in strings." Journal of Algorithms, 6(1): 132–137.
+5. Navarro, G. (2001). "A guided tour to approximate string matching." ACM Computing Surveys, 33(1): 31–88.
+6. Berger, B.; Waterman, M.S.; Yu, Y.W. (2021). "Levenshtein Distance, Sequence Comparison and Biological Database Search." IEEE Transactions on Information Theory, 67(6): 3287–3294.
+7. Rosetta Code - Levenshtein Distance: https://rosettacode.org/wiki/Levenshtein_distance
+8. Wikipedia - Levenshtein Distance: https://en.wikipedia.org/wiki/Levenshtein_distance
+9. Wikipedia - Edit Distance: https://en.wikipedia.org/wiki/Edit_distance

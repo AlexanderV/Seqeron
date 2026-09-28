@@ -346,4 +346,82 @@ public class ApproximateMatcher_EditDistance_Tests
     }
 
     #endregion
+
+    #region FindEditEndPositions - Sellers (1980) k-differences search
+
+    [Test]
+    [Description("Navarro (2001) §5.1 worked example: 'survey' in 'surgery' with k=2 ends at 4,5,6 (distance 2); values reproduced with edlib 1.3 (infix/HW mode) and an independent Python Sellers DP")]
+    public void FindEditEndPositions_NavarroSurveySurgery_ReturnsSellersEnds()
+    {
+        var ends = ApproximateMatcher.FindEditEndPositions("surgery", "survey", 2).ToList();
+
+        Assert.That(ends, Is.EqualTo(new[] { (4, 2), (5, 2), (6, 2) }));
+    }
+
+    [Test]
+    [Description("Sellers end positions for TTAC in GATTACAGATTTACA, k=1 (edlib HW best locations end at 5 and 13 with distance 0)")]
+    public void FindEditEndPositions_TtacInGattaca_MatchesEdlib()
+    {
+        var ends = ApproximateMatcher.FindEditEndPositions("GATTACAGATTTACA", "TTAC", 1).ToList();
+
+        Assert.That(ends, Is.EqualTo(new[] { (4, 1), (5, 0), (6, 1), (12, 1), (13, 0), (14, 1) }));
+    }
+
+    [Test]
+    [Description("Sellers end positions for ACGA in ACGTTGCAACGT, k=2 (edlib HW: best distance 1 at ends 2,3,10,11)")]
+    public void FindEditEndPositions_AcgaK2_MatchesEdlib()
+    {
+        var ends = ApproximateMatcher.FindEditEndPositions("acgttgcaacgt", "ACGA", 2).ToList();
+
+        Assert.That(ends, Is.EqualTo(new[]
+        {
+            (1, 2), (2, 1), (3, 1), (4, 2), (7, 2), (8, 2), (9, 2), (10, 1), (11, 1)
+        }));
+    }
+
+    [Test]
+    [Description("Guards: negative k throws eagerly; empty text/pattern yields nothing")]
+    public void FindEditEndPositions_Guards()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ApproximateMatcher.FindEditEndPositions("ACGT", "AC", -1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ApproximateMatcher.FindEditEndPositions("", "AC", 1), Is.Empty);
+            Assert.That(ApproximateMatcher.FindEditEndPositions("ACGT", "", 1), Is.Empty);
+        });
+    }
+
+    [Test]
+    [Description("Navarro (2001) §5.1 example through FindWithEdits: windows SURGE/SURGER/SURGERY at start 0, distance 2")]
+    public void FindWithEdits_NavarroSurveySurgery_ReturnsAllWindows()
+    {
+        var matches = ApproximateMatcher.FindWithEdits("surgery", "survey", 2)
+            .Select(m => (m.Position, m.MatchedSequence, m.Distance)).ToList();
+
+        Assert.That(matches, Is.EqualTo(new[] { (0, "SURGE", 2), (0, "SURGER", 2), (0, "SURGERY", 2) }));
+    }
+
+    [Test]
+    [Description("The end positions of FindWithEdits windows (min distance per end) equal the Sellers end-position set")]
+    public void FindWithEdits_EndPositionSet_EqualsSellers()
+    {
+        var rng = new Random(20260928);
+        for (int trial = 0; trial < 300; trial++)
+        {
+            string text = new string(Enumerable.Range(0, rng.Next(1, 30)).Select(_ => "ACGT"[rng.Next(4)]).ToArray());
+            string pattern = new string(Enumerable.Range(0, rng.Next(1, 9)).Select(_ => "ACGT"[rng.Next(4)]).ToArray());
+            int k = rng.Next(0, 5);
+
+            var fromWindows = ApproximateMatcher.FindWithEdits(text, pattern, k)
+                .GroupBy(m => m.Position + m.MatchedSequence.Length - 1)
+                .Select(g => (EndPosition: g.Key, Distance: g.Min(m => m.Distance)))
+                .OrderBy(e => e.EndPosition)
+                .ToList();
+            var sellers = ApproximateMatcher.FindEditEndPositions(text, pattern, k).ToList();
+
+            Assert.That(fromWindows, Is.EqualTo(sellers), $"text={text} pattern={pattern} k={k}");
+        }
+    }
+
+    #endregion
 }

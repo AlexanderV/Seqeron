@@ -9,7 +9,7 @@
 | **Area** | Pattern Matching |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-03-01 |
+| **Last Updated** | 2026-09-28 |
 
 ---
 
@@ -18,7 +18,8 @@
 | Method | Class | Type | Complexity |
 |--------|-------|------|------------|
 | `EditDistance(string s1, string s2)` | ApproximateMatcher | Canonical | O(m × n) |
-| `FindWithEdits(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical | O(n × m²) |
+| `FindWithEdits(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical | O(n × m × (m+k)) |
+| `FindEditEndPositions(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical (Sellers 1980) | O(n × m) |
 | `FindWithEdits(DnaSequence sequence, string pattern, int maxEdits)` | ApproximateMatcher | Wrapper | Delegates to string version |
 
 ---
@@ -29,7 +30,8 @@
 1. **Wikipedia - Levenshtein Distance**: Definition, mathematical formula, canonical examples
 2. **Wikipedia - Edit Distance**: Properties, metric axioms, algorithm types
 3. **Rosetta Code - Levenshtein Distance**: Test vectors, cross-language validation
-4. **Navarro (2001)**: "A Guided Tour to Approximate String Matching" - theoretical foundation
+4. **Navarro (2001)**: "A Guided Tour to Approximate String Matching" - theoretical foundation; §5.1 Sellers DP and `survey`/`surgery` example
+5. **edlib 1.3 (infix/HW mode)**, rapidfuzz 3.14 Levenshtein: reference implementations used for the review-2026-09 cross-check
 
 ### Canonical Test Vectors (from Sources)
 
@@ -93,6 +95,12 @@
 | ID | Test Name | Rationale | Source |
 |----|-----------|-----------|--------|
 | C01 | FindWithEdits_DnaSequenceOverload_DelegatesToStringVersion | Wrapper verification | Implementation |
+| C02 | FindEditEndPositions_NavarroSurveySurgery_ReturnsSellersEnds | Sellers worked example (ends 4,5,6 at d=2) | Navarro 2001 §5.1; edlib |
+| C03 | FindEditEndPositions_TtacInGattaca_MatchesEdlib | Sellers end positions | edlib HW |
+| C04 | FindEditEndPositions_AcgaK2_MatchesEdlib | Sellers end positions, case-insensitive text | edlib HW |
+| C05 | FindEditEndPositions_Guards | Negative k / empty input | Contract |
+| C06 | FindWithEdits_NavarroSurveySurgery_ReturnsAllWindows | Window enumeration | Navarro 2001 §5.1; rapidfuzz |
+| C07 | FindWithEdits_EndPositionSet_EqualsSellers | Window ends ≡ Sellers ends (300 seeded cases) | Sellers 1980 |
 
 ---
 
@@ -124,6 +132,12 @@
 | S09 | FindWithEdits_WithDeletion_Found | ✅ Covered |
 | S10 | EditDistance_SleepFleeting_ReturnsFive | ✅ Covered |
 | C01 | FindWithEdits_DnaSequenceOverload_DelegatesToStringVersion | ✅ Covered |
+| C02 | FindEditEndPositions_NavarroSurveySurgery_ReturnsSellersEnds | ✅ Covered |
+| C03 | FindEditEndPositions_TtacInGattaca_MatchesEdlib | ✅ Covered |
+| C04 | FindEditEndPositions_AcgaK2_MatchesEdlib | ✅ Covered |
+| C05 | FindEditEndPositions_Guards | ✅ Covered |
+| C06 | FindWithEdits_NavarroSurveySurgery_ReturnsAllWindows | ✅ Covered |
+| C07 | FindWithEdits_EndPositionSet_EqualsSellers | ✅ Covered |
 
 ---
 

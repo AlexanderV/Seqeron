@@ -116,8 +116,18 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
-        /// Finds all approximate matches using edit distance (Levenshtein distance).
-        /// Allows substitutions, insertions, and deletions.
+        /// Finds all approximate matches using edit distance (Levenshtein distance; unit-cost
+        /// substitutions, insertions and deletions). Every substring T[i..i+len) of the
+        /// upper-cased sequence with ed(pattern, T[i..i+len)) ≤ <paramref name="maxEdits"/> is
+        /// reported, ordered by start position then window length (len ∈ [max(1, m − k), m + k];
+        /// empty windows are excluded). The set of window end positions i+len−1 equals the
+        /// Sellers (1980) end-position set returned by <see cref="FindEditEndPositions(string, string, int)"/>.
+        /// Implementation: for each start i one start-anchored Wagner–Fischer/Sellers column DP
+        /// (Navarro 2001 §5.1) yields the distance to every window length in a single pass,
+        /// with Ukkonen's (1985) cut-off once the column minimum exceeds k (column minima never
+        /// decrease), i.e. O(n·m·(m+k)) instead of re-running a full DP per window.
+        /// MismatchType is Substitution when the window has the pattern's length and the edit
+        /// distance equals the Hamming distance, otherwise Edit; MismatchPositions is empty.
         /// </summary>
         /// <param name="sequence">The sequence to search in.</param>
         /// <param name="pattern">The pattern to find.</param>
@@ -139,32 +149,123 @@ namespace Seqeron.Genomics.Alignment
 
             var seq = sequence.ToUpperInvariant();
             var pat = pattern.ToUpperInvariant();
+            int m = pat.Length;
 
-            // Use sliding window with variable length (pattern ± maxEdits)
-            int minLen = Math.Max(1, pat.Length - maxEdits);
-            int maxLen = pat.Length + maxEdits;
+            // Window lengths considered: pattern ± maxEdits (no longer/shorter window can be
+            // within maxEdits, since ed ≥ |length difference|); empty windows excluded.
+            int minLen = Math.Max(1, m - maxEdits);
+            int maxLen = m + maxEdits;
+
+            var prev = new int[m + 1];
+            var curr = new int[m + 1];
 
             for (int i = 0; i <= seq.Length - minLen; i++)
             {
-                for (int len = minLen; len <= maxLen && i + len <= seq.Length; len++)
-                {
-                    string window = seq.Substring(i, len);
-                    int distance = EditDistance(pat, window);
+                // Column 0 of the DP anchored at start i: ed(pat[0..r), "") = r.
+                for (int r = 0; r <= m; r++)
+                    prev[r] = r;
 
-                    if (distance <= maxEdits)
+                for (int len = 1; len <= maxLen && i + len <= seq.Length; len++)
+                {
+                    int columnMin = AdvanceColumn(pat, seq[i + len - 1], prev, curr, len);
+                    (prev, curr) = (curr, prev);
+
+                    int distance = prev[m]; // = ed(pat, seq[i..i+len))
+                    if (len >= minLen && distance <= maxEdits)
                     {
+                        string window = seq.Substring(i, len);
                         yield return new ApproximateMatchResult(
                             i,
                             window,
                             distance,
-                            Array.Empty<int>().ToList().AsReadOnly(),
-                            (window.Length == pat.Length && distance == HammingDistanceFast(pat, window))
+                            Array.Empty<int>(),
+                            (len == m && distance == pat.AsSpan().HammingDistance(window.AsSpan()))
                                 ? MismatchType.Substitution
                                 : MismatchType.Edit
                         );
                     }
+
+                    // Ukkonen cut-off: column minima are non-decreasing, so no longer window
+                    // from this start can come back within maxEdits.
+                    if (columnMin > maxEdits)
+                        break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Sellers (1980) approximate string matching ("k differences" problem; Navarro 2001 §5.1):
+        /// reports every 0-based end position j of the (upper-cased) sequence at which some
+        /// substring ending at j is within edit distance <paramref name="maxEdits"/> of the
+        /// pattern, together with that minimum distance C[m, j] = min_i ed(pattern, T[i..j]).
+        /// The DP is the Wagner–Fischer recurrence with a free start in the text (C[0, j] = 0).
+        /// A null/empty sequence or pattern yields no matches. O(n·m) time, O(m) space.
+        /// </summary>
+        /// <param name="sequence">The text to search in.</param>
+        /// <param name="pattern">The pattern to find.</param>
+        /// <param name="maxEdits">Maximum edit distance allowed (k ≥ 0).</param>
+        /// <returns>(EndPosition, Distance) pairs in increasing end position.</returns>
+        public static IEnumerable<(int EndPosition, int Distance)> FindEditEndPositions(
+            string sequence, string pattern, int maxEdits)
+        {
+            if (maxEdits < 0)
+                throw new ArgumentOutOfRangeException(nameof(maxEdits), "Cannot be negative.");
+            return FindEditEndPositionsCore(sequence, pattern, maxEdits);
+        }
+
+        private static IEnumerable<(int EndPosition, int Distance)> FindEditEndPositionsCore(
+            string sequence, string pattern, int maxEdits)
+        {
+            if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
+                yield break;
+
+            var seq = sequence.ToUpperInvariant();
+            var pat = pattern.ToUpperInvariant();
+            int m = pat.Length;
+
+            var prev = new int[m + 1];
+            var curr = new int[m + 1];
+            for (int r = 0; r <= m; r++)
+                prev[r] = r;
+
+            for (int j = 0; j < seq.Length; j++)
+            {
+                // Free start in the text: C[0, j] = 0 (Sellers 1980).
+                AdvanceColumn(pat, seq[j], prev, curr, 0);
+                (prev, curr) = (curr, prev);
+
+                if (prev[m] <= maxEdits)
+                    yield return (j, prev[m]);
+            }
+        }
+
+        /// <summary>
+        /// One column step of the unit-cost edit-distance DP (Wagner &amp; Fischer 1974):
+        /// given column <paramref name="prev"/> (pattern prefixes vs text up to the previous
+        /// character) computes column <paramref name="curr"/> for text character
+        /// <paramref name="c"/> with top cell <paramref name="top"/>
+        /// (= column index for global distance, 0 for Sellers' free text start).
+        /// Returns the column minimum.
+        /// </summary>
+        private static int AdvanceColumn(string pat, char c, int[] prev, int[] curr, int top)
+        {
+            curr[0] = top;
+            int min = top;
+            for (int r = 1; r <= pat.Length; r++)
+            {
+                int cost = pat[r - 1] == c ? 0 : 1;
+                int v = Math.Min(
+                    Math.Min(
+                        prev[r] + 1,      // text character unmatched (insertion into pattern)
+                        curr[r - 1] + 1   // pattern character unmatched (deletion from pattern)
+                    ),
+                    prev[r - 1] + cost    // match / substitution
+                );
+                curr[r] = v;
+                if (v < min)
+                    min = v;
+            }
+            return min;
         }
 
         /// <summary>
@@ -217,35 +318,20 @@ namespace Seqeron.Genomics.Alignment
             if (m == 0) return n;
             if (n == 0) return m;
 
-            // Use two rows instead of full matrix for memory efficiency
-            var prev = new int[n + 1];
-            var curr = new int[n + 1];
+            // Two-column Wagner–Fischer DP (s1 = rows, s2 = columns) sharing the
+            // column kernel used by FindWithEdits / FindEditEndPositions.
+            var prev = new int[m + 1];
+            var curr = new int[m + 1];
+            for (int r = 0; r <= m; r++)
+                prev[r] = r;
 
-            // Initialize first row
-            for (int j = 0; j <= n; j++)
-                prev[j] = j;
-
-            for (int i = 1; i <= m; i++)
+            for (int j = 1; j <= n; j++)
             {
-                curr[0] = i;
-
-                for (int j = 1; j <= n; j++)
-                {
-                    int cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
-                    curr[j] = Math.Min(
-                        Math.Min(
-                            prev[j] + 1,      // deletion
-                            curr[j - 1] + 1   // insertion
-                        ),
-                        prev[j - 1] + cost    // substitution
-                    );
-                }
-
-                // Swap rows
+                AdvanceColumn(s1, s2[j - 1], prev, curr, j);
                 (prev, curr) = (curr, prev);
             }
 
-            return prev[n];
+            return prev[m];
         }
 
         /// <summary>
@@ -393,7 +479,7 @@ namespace Seqeron.Genomics.Alignment
 
             foreach (string neighborSuffix in GenerateNeighbors(suffix, d))
             {
-                if (HammingDistanceFast(suffix, neighborSuffix) < d)
+                if (suffix.AsSpan().HammingDistance(neighborSuffix.AsSpan()) < d)
                 {
                     // Can change first character
                     foreach (char c in DnaAlphabet)
@@ -405,18 +491,6 @@ namespace Seqeron.Genomics.Alignment
                     yield return first + neighborSuffix;
                 }
             }
-        }
-
-        private static int HammingDistanceFast(string s1, string s2)
-        {
-            int distance = 0;
-            int minLen = Math.Min(s1.Length, s2.Length);
-            for (int i = 0; i < minLen; i++)
-            {
-                if (s1[i] != s2[i])
-                    distance++;
-            }
-            return distance + Math.Abs(s1.Length - s2.Length);
         }
     }
 
