@@ -470,4 +470,115 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
     }
 
     #endregion
+
+    #region B24 review 2026-09 — facets-suite get_sample_genome denominator, mcn = tcn − lcn, Int64 sums
+
+    // Reference: facets-suite R/copy-number-scores.R (master) — calculate_fraction_cna passes
+    // get_sample_genome(segs) (size = max(end) − min(start) per chromosome) to is_genome_doubled:
+    // autosomal_genome = Σ size[chr ∈ 1:22]; frac = Σ length[mcn ≥ 2 & chrom ∈ 1:22] / autosomal_genome; wgd = frac > 0.5.
+    // Expected fractions from a line-by-line Python port of parse_segs/get_sample_genome/is_genome_doubled.
+
+    // F9 — a gap inside a chromosome counts toward the interrogated span: 60 Mb / (140 Mb span) = 0.428571 → false.
+    [Test]
+    public void DetectWholeGenomeDoublingFromSuppliedLength_GapWithinChromosome_UsesInterrogatedSpan()
+    {
+        var segments = new List<Segment>
+        {
+            new("1", 0, 60_000_000, 2, 2),             // elevated 60 Mb
+            new("1", 100_000_000, 140_000_000, 1, 1), // not elevated; span of chr1 = 140 Mb
+        };
+
+        Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments), Is.False,
+            "facets-suite: 60e6 / (140e6 − 0) = 0.4286 ≤ 0.5 (the 40 Mb gap is in get_sample_genome's size).");
+    }
+
+    // F9 — sex chromosomes are excluded from numerator AND denominator: 40 Mb / 100 Mb = 0.4 → false.
+    [Test]
+    public void DetectWholeGenomeDoublingFromSuppliedLength_SexChromosome_ExcludedFromBothTerms()
+    {
+        var segments = new List<Segment>
+        {
+            new("1", 0, 40_000_000, 2, 2),              // elevated autosomal 40 Mb
+            new("1", 40_000_000, 100_000_000, 1, 1),    // not elevated
+            new("X", 0, 100_000_000, 2, 2),             // elevated, but chrom ∉ 1:22
+        };
+
+        Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments), Is.False,
+            "facets-suite: chrX is not in 1:22 → frac = 40e6 / 100e6 = 0.4 (old supplied-length rule gave 140/200 = 0.7).");
+    }
+
+    // F9 — span starts at the first segment's start, not at 0: 60 Mb / (110 − 10) Mb = 0.6 → true.
+    [Test]
+    public void DetectWholeGenomeDoublingFromSuppliedLength_SpanStartsAtFirstSegment()
+    {
+        var segments = new List<Segment>
+        {
+            new("chr1", 10_000_000, 70_000_000, 2, 2),
+            new("chr1", 70_000_000, 110_000_000, 1, 1),
+        };
+
+        Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments), Is.True,
+            "facets-suite: size = max(end) − min(start) = 100e6 → 60e6 / 100e6 = 0.6 > 0.5.");
+    }
+
+    // F9 — no autosomal segment: facets-suite computes 0/0 = NaN → NA; the fraction is undefined → reject.
+    [Test]
+    public void DetectWholeGenomeDoublingFromSuppliedLength_OnlyNonAutosomalSegments_Throws()
+    {
+        var segments = new List<Segment> { new("X", 0, 1_000, 2, 2), new("chrY", 0, 1_000, 2, 0) };
+
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments),
+            "autosomal_genome = 0 → frac is NaN (NA in R); undefined input must be rejected.");
+    }
+
+    // F10 — mcn = tcn − lcn with lcn the lesser allele: allele labels (1, 2) still give mcn = 2 → elevated.
+    [Test]
+    public void DetectWholeGenomeDoubling_SwappedAlleleLabels_UseLargerAlleleAsMajor()
+    {
+        long half = OncologyAnalyzer.GetAutosomalGenomeLength(OncologyAnalyzer.ReferenceGenome.GRCh38) / 2; // 1,437,500,761
+        var reference = new List<Segment> { new("1", 0, half + 1, 1, 2) };
+        var supplied = new List<Segment>
+        {
+            new("1", 0, 60_000_000, 1, 2), // tcn 3, lcn 1 → mcn 2 (elevated)
+            new("2", 0, 40_000_000, 1, 1),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(reference), Is.True,
+                "tcn 3 − lcn 1 = mcn 2 over (G/2)+1 bp → doubled.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(supplied), Is.True,
+                "facets-suite port: 60e6 / 100e6 = 0.6 with mcn = 2.");
+        });
+    }
+
+    // F11 — Σ L must not wrap Int64 (facets-suite / ASCAT sum as.numeric): two 5e18-bp 1:1 segments → ψ = 2 exactly.
+    [Test]
+    public void EstimatePloidy_TotalLengthBeyondInt64_DoesNotOverflow()
+    {
+        const long L = 5_000_000_000_000_000_000;
+        var segments = new List<Segment> { new("1", 0, L, 1, 1), new("2", 0, L, 1, 1) };
+
+        Assert.That(OncologyAnalyzer.EstimatePloidy(segments), Is.EqualTo(2.0),
+            "Σ(CN·L)/ΣL = 2e19/1e19 = 2 (a long accumulator wraps to −8.4e18 and returned ψ ≈ −2.37).");
+    }
+
+    // F11 — elevated-length sum must not wrap Int64 either.
+    [Test]
+    public void DetectWholeGenomeDoubling_ElevatedLengthBeyondInt64_DoesNotOverflow()
+    {
+        const long L = 5_000_000_000_000_000_000;
+        var segments = new List<Segment> { new("1", 0, L, 2, 2), new("2", 0, L, 2, 2) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(segments), Is.True,
+                "1e19 bp elevated ≫ G/2 (a long accumulator wraps negative → false).");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments), Is.True,
+                "frac = 1e19 / 1e19 = 1 > 0.5.");
+        });
+    }
+
+    #endregion
 }

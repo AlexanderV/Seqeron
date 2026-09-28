@@ -1667,7 +1667,7 @@ public class OncologyCombinatorialTests
     // ADVANCED_TESTING_CHECKLIST.md §10.
     //
     // Sources: Patchwork (ψ = Σ(CN·L)/ΣL, length-weighted mean total CN); facets-suite is_genome_doubled
-    // (WGD ⟺ Σlength[major CN ≥ 2] / Σlength > 0.5, strict; uses MAJOR allele CN, not total).
+    // (WGD ⟺ Σlength[major CN ≥ 2] / Σ_autosomes(max end − min start) > 0.5, strict; uses MAJOR allele CN).
     //
     // Checklist axes nSegments(3) × cnDist(3) map onto the real knobs:
     //   • nSegments → number of equal-length segments ∈ {1, 3, 5}.
@@ -1723,7 +1723,10 @@ public class OncologyCombinatorialTests
             maxCn = Math.Max(maxCn, cn);
         }
         double expectedPloidy = weighted / totalLength;
-        bool expectedWgd = (double)elevatedLength / totalLength > 0.5;
+        // facets-suite get_sample_genome: all segments are on chr1 → denominator = max(End) − min(Start)
+        // (the unsegmented gaps between the spaced segments count toward the interrogated genome).
+        long span = segments.Max(s => s.End) - segments.Min(s => s.Start);
+        bool expectedWgd = (double)elevatedLength / span > 0.5;
 
         double ploidy = OncologyAnalyzer.EstimatePloidy(segments);
         bool wgd = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments);
@@ -1744,7 +1747,7 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(BuildPloidySegments(1, PloidyCnDist.MinorityGain))
             .Should().BeTrue("the lone gained segment is 100% of the genome");
         OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(BuildPloidySegments(3, PloidyCnDist.MinorityGain))
-            .Should().BeFalse("one gained segment of three is a 1/3 minority (≤ 0.5)");
+            .Should().BeFalse("one gained 1 Mb segment over a 5 Mb interrogated chr1 span is 0.2 (≤ 0.5)");
     }
 
     /// <summary>

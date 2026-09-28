@@ -670,11 +670,12 @@ public static partial class OncologyAnalyzer
     private const double WholeGenomeDoublingFractionThreshold = 0.5;
 
     /// <summary>
-    /// Reference human genome assembly whose chromosome-size table is used as the denominator of the
-    /// whole-genome-doubling genome fraction. Source: facets-suite <c>is_genome_doubled(segs, chrom_info, ...)</c>
-    /// is parameterised by a <c>genome</c> build (<c>'hg19' | 'hg18' | 'hg38'</c>), each supplying its own
-    /// chromosome-size object; the denominator <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c> is the
-    /// reference assembly's autosomal length, NOT the interrogated-segment length.
+    /// Reference human genome assembly (coordinate system of the input segments). Its autosomal chromosome-size
+    /// table is the denominator of the reference-genome WGD fraction
+    /// (<see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment}, ReferenceGenome)"/>). Note: in
+    /// facets-suite the <c>genome</c> build (<c>'hg19' | 'hg18' | 'hg38'</c>) supplies centromere positions only;
+    /// its WGD denominator comes from <c>get_sample_genome</c> (interrogated span), see
+    /// <see cref="DetectWholeGenomeDoublingFromSuppliedLength"/>.
     /// </summary>
     public enum ReferenceGenome
     {
@@ -773,8 +774,9 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// Total autosomal genome length (Σ of chromosome-1–22 lengths, base pairs) of a reference assembly — the
-    /// denominator of the whole-genome-doubling genome fraction. Source: facets-suite
-    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c>; sizes from UCSC <c>*.chrom.sizes</c>.
+    /// denominator of the reference-genome WGD fraction (facets-suite's
+    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c> evaluated on the reference chromosome sizes
+    /// instead of the sample's interrogated spans); sizes from UCSC <c>*.chrom.sizes</c>.
     /// GRCh38 = 2,875,001,522 bp; GRCh37 = 2,881,033,286 bp.
     /// </summary>
     /// <param name="genome">The reference assembly.</param>
@@ -842,7 +844,8 @@ public static partial class OncologyAnalyzer
         ArgumentNullException.ThrowIfNull(segments);
 
         double weightedCopyNumberSum = 0.0;
-        long totalLength = 0L;
+        double totalLength = 0.0; // double (as ASCAT/facets-suite sum numerics): Σ L must not overflow Int64
+        int segmentCount = 0;
         foreach (AlleleSpecificSegment segment in segments)
         {
             ValidateSegment(segment);
@@ -850,9 +853,10 @@ public static partial class OncologyAnalyzer
             int totalCopyNumber = segment.MajorCopyNumber + segment.MinorCopyNumber;
             weightedCopyNumberSum += (double)totalCopyNumber * length;
             totalLength += length;
+            segmentCount++;
         }
 
-        if (totalLength == 0L)
+        if (segmentCount == 0)
         {
             throw new ArgumentException(
                 "Cannot estimate ploidy from an empty segment set (the length-weighted mean is undefined).",
@@ -864,19 +868,22 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD), computing the genome
-    /// fraction against a <b>reference chromosome-size table</b> (the authoritative autosomal genome length),
-    /// exactly as facets-suite does. WGD is called when the fraction of the <i>reference autosomal genome</i>
-    /// (chromosomes 1–22) covered by segments with major-allele copy number ≥ 2 is strictly greater than 0.5.
-    /// Source: facets-suite <c>is_genome_doubled(segs, chrom_info, treshold = 0.5)</c> (PMID 30013179, Bielski
-    /// et al. 2018, Nat Genet 50:1189–1195):
-    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c>;
+    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD) by the Bielski et al. rule —
+    /// more than half of the <i>autosomal genome</i> (chromosomes 1–22) has major-allele copy number ≥ 2
+    /// (Bielski et al. 2018, Nat Genet 50:1189–1195, PMID 30013179) — taking "autosomal genome" to be the
+    /// <b>reference assembly's</b> autosomal length (Σ chr1–22 of the UCSC <c>*.chrom.sizes</c> table).
+    /// Numerator, threshold and major-CN rule follow facets-suite <c>is_genome_doubled</c>:
     /// <c>frac_elevated_mcn = sum(length where mcn ≥ 2 &amp; chrom %in% 1:22) / autosomal_genome</c>;
-    /// <c>wgd = frac_elevated_mcn &gt; treshold</c>, with <c>mcn = tcn − lcn</c> (major-allele copy number).
-    /// Because the denominator is the true genome length (not the sum of supplied segments), segments that do not
-    /// tile the genome no longer bias the fraction; only autosomal (chr1–22) segments contribute to the numerator
-    /// (sex chromosomes / contigs are ignored). The test uses the major (not total) copy number, so a balanced
-    /// diploid genome (all 1:1, total CN 2, major CN 1) is NOT doubled, whereas a 2:0 LOH or 2:2 genome IS.
+    /// <c>wgd = frac_elevated_mcn &gt; 0.5</c>, <c>mcn = tcn − lcn</c> = max(Major, Minor).
+    /// <para><b>Denominator deviation from the facets-suite code:</b> facets-suite passes
+    /// <c>get_sample_genome(segs, genome)</c> as <c>chrom_info</c>, whose per-chromosome <c>size</c> is the
+    /// interrogated span <c>max(end) − min(start)</c> of the sample's own segments — not the reference chromosome
+    /// length. That exact rule is <see cref="DetectWholeGenomeDoublingFromSuppliedLength"/>. This overload instead
+    /// divides by the fixed reference autosomal length, so partial-genome inputs (a few chromosomes, or segments
+    /// that do not reach the telomeres) are judged against the whole autosomal genome; for a segmentation spanning
+    /// every autosome end-to-end the two agree.</para>
+    /// The test uses the major (not total) copy number, so a balanced diploid genome (all 1:1, total CN 2,
+    /// major CN 1) is NOT doubled, whereas a 2:0 LOH or 2:2 genome IS.
     /// </summary>
     /// <param name="segments">
     /// Allele-specific copy-number segments (<see cref="AlleleSpecificSegment"/>). Only segments on autosomes
@@ -899,7 +906,8 @@ public static partial class OncologyAnalyzer
 
         long autosomalGenomeLength = GetAutosomalGenomeLength(genome);
 
-        long elevatedLength = 0L;
+        // as.numeric(...) sums in facets-suite: accumulate in double so Σ length cannot overflow Int64.
+        double elevatedLength = 0.0;
         foreach (AlleleSpecificSegment segment in segments)
         {
             ValidateSegment(segment);
@@ -910,67 +918,110 @@ public static partial class OncologyAnalyzer
                 continue;
             }
 
-            // mcn = major-allele copy number; elevated when major CN ≥ 2 (facets-suite segs$mcn >= 2).
-            if (segment.MajorCopyNumber >= WholeGenomeDoublingMajorCopyNumber)
+            // mcn = tcn − lcn = max(Major, Minor); elevated when mcn ≥ 2 (facets-suite segs$mcn >= 2).
+            if (IsElevatedMajorCopyNumber(segment))
             {
                 elevatedLength += segment.Length;
             }
         }
 
         // wgd = frac_elevated_mcn > 0.5 (strict), denominator = reference autosomal genome length.
-        double fractionElevatedMajorCn = (double)elevatedLength / autosomalGenomeLength;
+        double fractionElevatedMajorCn = elevatedLength / autosomalGenomeLength;
         return fractionElevatedMajorCn > WholeGenomeDoublingFractionThreshold;
     }
 
     /// <summary>
-    /// Determines whole-genome doubling using the <b>supplied segments' total length</b> as the genome-fraction
-    /// denominator (the legacy behaviour), rather than a reference chromosome-size table. This is correct only
-    /// when the supplied segments tile the interrogated (autosomal) genome; otherwise prefer the reference-table
-    /// overload <see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment}, ReferenceGenome)"/>.
-    /// WGD is called when Σ(length where major CN ≥ 2) ÷ Σ(all supplied segment length) is strictly greater than
-    /// 0.5. Source: facets-suite <c>is_genome_doubled</c> rule (PMID 30013179) applied with the interrogated
-    /// segments as the denominator; <c>mcn = tcn − lcn</c>.
+    /// Determines whole-genome doubling exactly as the facets-suite reference implementation does, with the
+    /// genome-fraction denominator taken from the <b>supplied (interrogated) segments</b> rather than a reference
+    /// chromosome-size table. Source: facets-suite <c>R/copy-number-scores.R</c> (master; PMID 30013179, Bielski
+    /// et al. 2018): <c>calculate_fraction_cna</c> passes <c>sample_chrom_info = get_sample_genome(segs, genome)</c>
+    /// — per chromosome <c>size = max(end) − min(start)</c> of that chromosome's segments — to
+    /// <c>is_genome_doubled</c>, which computes
+    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c>,
+    /// <c>frac_elevated_mcn = sum(length[mcn ≥ 2 &amp; chrom %in% 1:22]) / autosomal_genome</c> and
+    /// <c>wgd = frac_elevated_mcn &gt; 0.5</c>, with <c>length = end − start</c> and <c>mcn = tcn − lcn</c>
+    /// (<c>parse_segs</c>). Hence: (i) only autosomal (chr1–22) segments enter the numerator and the denominator;
+    /// (ii) the denominator is the sum of each autosome's interrogated span, so unsegmented gaps between the first
+    /// and last segment of a chromosome count toward the genome but not toward the elevated length.
     /// </summary>
     /// <param name="segments">
-    /// Allele-specific copy-number segments. The fraction denominator is the total length of <b>all</b> supplied
-    /// segments (the interrogated genome), regardless of chromosome. Must not be null, must be non-empty, and
-    /// every segment must have End &gt; Start and non-negative copy numbers.
+    /// Allele-specific copy-number segments. Must not be null, must contain at least one autosomal (chr1–22,
+    /// bare or "chr"-prefixed) segment, and every segment must have End &gt; Start and non-negative copy numbers.
+    /// The major copy number is <c>tcn − lcn</c> with <c>lcn</c> the lesser allele copy number, i.e.
+    /// max(Major, Minor), so the call does not depend on the allele labelling.
     /// </param>
-    /// <returns><c>true</c> when more than half the supplied genome (by length) has major copy number ≥ 2.</returns>
+    /// <returns><c>true</c> when more than half of the interrogated autosomal genome has major copy number ≥ 2.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
     /// <exception cref="ArgumentException">
-    /// <paramref name="segments"/> is empty (the fraction is undefined), or a segment has End ≤ Start or a
-    /// negative copy number.
+    /// <paramref name="segments"/> contains no autosomal segment (facets-suite divides 0 by 0 and returns
+    /// <c>NA</c>: the fraction is undefined), or a segment has End ≤ Start or a negative copy number.
     /// </exception>
     public static bool DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment> segments)
     {
         ArgumentNullException.ThrowIfNull(segments);
 
-        long elevatedLength = 0L;
-        long totalLength = 0L;
+        // get_sample_genome: per-autosome interrogated span [min(start), max(end)).
+        var spanStart = new long[AutosomeCount];
+        var spanEnd = new long[AutosomeCount];
+        var seen = new bool[AutosomeCount];
+
+        // as.numeric(...) sums in facets-suite: accumulate in double so Σ length cannot overflow Int64.
+        double elevatedLength = 0.0;
         foreach (AlleleSpecificSegment segment in segments)
         {
             ValidateSegment(segment);
-            long length = segment.Length;
-            totalLength += length;
-            // mcn = major-allele copy number; elevated when major CN ≥ 2 (facets-suite segs$mcn >= 2).
-            if (segment.MajorCopyNumber >= WholeGenomeDoublingMajorCopyNumber)
+            if (!TryGetAutosomeNumber(segment.Chromosome, out int autosome))
             {
-                elevatedLength += length;
+                continue; // chrom %in% 1:22 — sex chromosomes / contigs excluded from numerator and denominator
+            }
+
+            int k = autosome - 1;
+            if (!seen[k])
+            {
+                seen[k] = true;
+                spanStart[k] = segment.Start;
+                spanEnd[k] = segment.End;
+            }
+            else
+            {
+                spanStart[k] = Math.Min(spanStart[k], segment.Start);
+                spanEnd[k] = Math.Max(spanEnd[k], segment.End);
+            }
+
+            if (IsElevatedMajorCopyNumber(segment))
+            {
+                elevatedLength += segment.Length;
             }
         }
 
-        if (totalLength == 0L)
+        double interrogatedAutosomalGenome = 0.0;
+        for (int k = 0; k < AutosomeCount; k++)
+        {
+            if (seen[k])
+            {
+                interrogatedAutosomalGenome += (double)spanEnd[k] - spanStart[k];
+            }
+        }
+
+        if (interrogatedAutosomalGenome <= 0.0)
         {
             throw new ArgumentException(
-                "Cannot assess whole-genome doubling from an empty segment set (the genome fraction is undefined).",
+                "Cannot assess whole-genome doubling without autosomal (chr1–22) segments " +
+                "(the interrogated autosomal genome is empty, so the fraction is undefined).",
                 nameof(segments));
         }
 
-        // wgd = frac_elevated_mcn > 0.5 (strict) — facets-suite is_genome_doubled, supplied-length denominator.
-        double fractionElevatedMajorCn = (double)elevatedLength / totalLength;
-        return fractionElevatedMajorCn > WholeGenomeDoublingFractionThreshold;
+        // wgd = frac_elevated_mcn > 0.5 (strict) — facets-suite is_genome_doubled with get_sample_genome sizes.
+        return elevatedLength / interrogatedAutosomalGenome > WholeGenomeDoublingFractionThreshold;
     }
+
+    /// <summary>
+    /// facets-suite elevated-major-CN test: <c>mcn = tcn − lcn ≥ 2</c> (<c>parse_segs</c>, <c>is_genome_doubled</c>),
+    /// where <c>lcn</c> is the lesser (minor) allele copy number, so <c>mcn = max(Major, Minor)</c> irrespective of
+    /// how the two allele copy numbers are labelled in the input record.
+    /// </summary>
+    private static bool IsElevatedMajorCopyNumber(in AlleleSpecificSegment segment)
+        => Math.Max(segment.MajorCopyNumber, segment.MinorCopyNumber) >= WholeGenomeDoublingMajorCopyNumber;
 
     #endregion
 

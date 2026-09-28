@@ -7318,8 +7318,11 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// WGD oracle: <c>DetectWholeGenomeDoubling</c> equals the independent test "fraction of genome length
-    /// with major-allele CN ≥ 2 is strictly &gt; 0.5". (facets-suite is_genome_doubled)
+    /// WGD oracle: <c>DetectWholeGenomeDoublingFromSuppliedLength</c> equals an independent re-implementation of
+    /// facets-suite <c>is_genome_doubled(segs, get_sample_genome(segs))</c>: Σ length[mcn ≥ 2, autosome] /
+    /// Σ_autosomes (max end − min start) strictly &gt; 0.5, mcn = tcn − lcn = max(Major, Minor).
+    /// (facets-suite R/copy-number-scores.R; the generator places every segment on chr1 at start 0, so the span is
+    /// the longest segment — segments overlap and the fraction may exceed 1, exactly as in the R code.)
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property DetectWholeGenomeDoubling_MatchesElevatedMajorCnFractionOracle()
@@ -7328,8 +7331,9 @@ public class OncologyProperties
         {
             bool actual = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segs);
 
-            double elevated = segs.Where(s => s.MajorCopyNumber >= 2).Sum(s => (double)s.Length);
-            double total = segs.Sum(s => (double)s.Length);
+            double elevated = segs.Where(s => Math.Max(s.MajorCopyNumber, s.MinorCopyNumber) >= 2).Sum(s => (double)s.Length);
+            double total = segs.GroupBy(s => s.Chromosome)
+                .Sum(g => (double)g.Max(s => s.End) - g.Min(s => s.Start));
             bool oracle = elevated / total > 0.5;
 
             return (actual == oracle).Label($"WGD={actual} ≠ oracle {oracle} (elevated frac {elevated / total})");

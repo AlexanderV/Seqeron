@@ -68,7 +68,7 @@
 
 1. **GRCh38 / hg38 autosome lengths (bp), chr1…chr22:** 248,956,422; 242,193,529; 198,295,559; 190,214,555; 181,538,259; 170,805,979; 159,345,973; 145,138,636; 138,394,717; 133,797,422; 135,086,622; 133,275,309; 114,364,328; 107,043,718; 101,991,189; 90,338,345; 83,257,441; 80,373,285; 58,617,616; 64,444,167; 46,709,983; 50,818,468. **Σ(chr1–22) = 2,875,001,522 bp** (the WGD denominator).
 2. **GRCh37 / hg19 autosome lengths (bp), chr1…chr22:** 249,250,621; 243,199,373; 198,022,430; 191,154,276; 180,915,260; 171,115,067; 159,138,663; 146,364,022; 141,213,431; 135,534,747; 135,006,516; 133,851,895; 115,169,878; 107,349,540; 102,531,392; 90,354,753; 81,195,210; 78,077,248; 59,128,983; 63,025,520; 48,129,895; 51,304,566. **Σ(chr1–22) = 2,881,033,286 bp**.
-3. **facets-suite denominator:** `autosomal_genome = sum(chrom_info$size[chrom_info$chr %in% 1:22])` — exactly the autosomal sum above, taken from a reference chromosome-size table (parameterised by genome build hg19/hg18/hg38), NOT from the interrogated segments.
+3. **facets-suite denominator (CORRECTED 2026-09-28):** `autosomal_genome = sum(chrom_info$size[chrom_info$chr %in% 1:22])` where `chrom_info` is `sample_chrom_info = get_sample_genome(segs, genome)` (`calculate_fraction_cna`), i.e. per chromosome `size = max(end) − min(start)` of the **sample's own segments** — the interrogated genome. The `genome` build object only supplies `centromere`. The earlier reading ("reference chromosome-size table, NOT the interrogated segments") was wrong. The UCSC autosomal sums above are used only by the reference-assembly variant `DetectWholeGenomeDoubling`. Tables re-verified 2026-09-28 against bedtools2 `genomes/human.hg38.genome` / `human.hg19.genome` (raw.githubusercontent.com; UCSC/Ensembl hosts blocked): all 22 values identical, Σ = 2,875,001,522 / 2,881,033,286.
 
 ### Bielski et al. — Genome doubling shapes the evolution and prognosis of advanced cancers (Nature Genetics 2018; PMID 30013179)
 
@@ -137,8 +137,19 @@ PMID 30013179; UCSC hg38.chrom.sizes. **GRCh38 autosomal genome = 2,875,001,522 
 | all 1:1 autosomal segments (major = 1) | 0.0 | **false** |
 | chrX/chrY amplified, no autosomal elevation | 0.0 (sex chromosomes excluded) | **false** |
 
-**Legacy supplied-segment-length variant** (`DetectWholeGenomeDoublingFromSuppliedLength`, denominator = Σ supplied
-segment length): retains the pre-fix semantics — 60% of supplied length at major CN ≥ 2 → true; exactly 50% → false.
+**facets-suite exact variant** (`DetectWholeGenomeDoublingFromSuppliedLength`, denominator = Σ over autosomes of
+max(end) − min(start), `get_sample_genome`). Expected values from a line-by-line Python port of `parse_segs` /
+`get_sample_genome` / `is_genome_doubled` (review 2026-09-28):
+
+| Segments (chrom, start, end, A:B) | frac | WGD |
+|---|---|---|
+| (1, 0, 60M, 2:0), (2, 0, 40M, 1:1) | 0.6 | true |
+| (1, 0, 50M, 2:1), (2, 0, 50M, 1:1) | 0.5 | false (strict) |
+| (1, 0, 60M, 2:2), (1, 100M, 140M, 1:1) | 0.428571 | false (gap counted in span; old supplied-length rule 0.6 → true) |
+| (1, 0, 40M, 2:2), (1, 40M, 100M, 1:1), (X, 0, 100M, 2:2) | 0.4 | false (old rule 0.7 → true) |
+| (1, 10M, 70M, 2:2), (1, 70M, 110M, 1:1) | 0.6 | true |
+| (1, 0, 60M, 1:2), (2, 0, 40M, 1:1) | 0.6 | true (mcn = tcn − lcn = 3 − 1) |
+| (X, 0, 1000, 2:2) only | NaN (R `NA`) | ArgumentException |
 
 ---
 
@@ -178,6 +189,7 @@ segment length): retains the pre-fix semantics — 60% of supplied length at maj
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Review 2026-09 (B24): facets-suite denominator re-read — `chrom_info = get_sample_genome(segs)` (interrogated span), not a reference table. `DetectWholeGenomeDoublingFromSuppliedLength` made facets-exact (autosome-only numerator and span denominator); mcn = max(Major, Minor); length sums in double. `DetectWholeGenomeDoubling` (reference-table denominator) kept and documented as a deviation.
 - **2026-06-22**: Limitation fix (ONCO-PLOIDY-001) — WGD genome fraction now uses a reference chromosome-size table (UCSC hg38/hg19, Ensembl-cross-verified) as the denominator per facets-suite `autosomal_genome`, replacing the supplied-segment-length denominator. Added `ReferenceGenome` selector; resolved Assumption #2; legacy supplied-length behaviour kept as `DetectWholeGenomeDoublingFromSuppliedLength`.
 </content>
 </invoke>
