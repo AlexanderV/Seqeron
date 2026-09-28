@@ -70,7 +70,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • ragged / empty / NaN / out-of-[0,1] CCF, duplicate id ⇒ ArgumentException (§3.3)
 ///   • negative / NaN tolerance ⇒ ArgumentOutOfRangeException         (§3.3)
 ///
-/// No source bug was found; no test was weakened.
+/// B24 F18 (2026-09): the reconstruction is now the LICHeE search, which never returns a sum-rule-violating
+/// tree; the former root exemption in INV-02 was removed (the check is now stricter, not weaker).
 /// All randomness is LOCALLY seeded (new Random(seed)); no shared static Rng.
 /// All tree-building tests carry [CancelAfter] so a non-terminating build fails loudly.
 /// </summary>
@@ -179,14 +180,10 @@ public sealed class OncologyClonalPhylogenyFuzzTests
             }
         }
 
-        // INV-02: per node, per sample, children CCF sum ≤ parent CCF + ε.
-        // Scope: REAL cluster parents only. The synthetic root is the documented
-        // spanning-tree backstop — when a noisy clone fits no admissible cluster parent
-        // it is attached to the root even if that breaches the root's artificial budget
-        // of 1.0, because every clone must have a parent (source §5.2, ReconstructPhylogeny
-        // fallback comment; Popic 2015 spanning tree). The root is therefore exempt here.
+        // INV-02: per node (root included), per sample, children CCF sum ≤ parent CCF + ε. Since B24 F18 the
+        // LICHeE search only returns trees satisfying Eq. 5 everywhere (no root fallback; LICHeE
+        // PHYTree.checkConstraint); when none exists ReconstructPhylogeny throws InvalidOperationException.
         var childrenByParent = tree.Edges
-            .Where(e => e.ParentId != tree.RootId)
             .GroupBy(e => e.ParentId)
             .ToDictionary(g => g.Key, g => g.Select(e => e.ChildId).ToList());
         foreach (KeyValuePair<int, List<int>> kv in childrenByParent)
@@ -235,8 +232,10 @@ public sealed class OncologyClonalPhylogenyFuzzTests
         AssertWellFormedTree(tree, clusters, DefaultPhylogenyTolerance);
         tree.ParentOf(7).Should().Be(tree.RootId, "the only clone attaches directly to the synthetic root (§6.1)");
         tree.ChildrenOf(7).Should().BeEmpty("a single clone has no descendants");
-        IdentifyTrunkMutations(tree).Should().Equal(new[] { 7 }, "the single clone is the whole trunk (§6.1)");
-        IdentifyBranchMutations(tree).Should().BeEmpty("a single clone yields no subclonal branches (§6.1)");
+        // CCF 0.6 < 1: the clone is not present in every tumour cell, so it is not truncal (Werner et al. 2017,
+        // Sci Rep 7:44991: trunk alterations are present in all cells of the tumour; B24 F19).
+        IdentifyTrunkMutations(tree).Should().BeEmpty("a CCF-0.6 clone is subclonal, not truncal (§6.1)");
+        IdentifyBranchMutations(tree).Should().Equal(new[] { 7 }, "the subclonal clone is a branch (§6.1)");
     }
 
     [Test]
@@ -281,8 +280,10 @@ public sealed class OncologyClonalPhylogenyFuzzTests
 
         AssertWellFormedTree(tree, clusters, DefaultPhylogenyTolerance);
         // 0.6 + 0.6 = 1.2 > 1.0 ⇒ the two equal subclones cannot both sit under the founder.
-        tree.ParentOf(2).Should().Be(1, "the first 0.6 subclone nests under the founder");
-        tree.ParentOf(3).Should().Be(2, "the second equal subclone chains below the first (sum rule, §6.1)");
+        // LICHeE orients the equal-CCF pair later→earlier (checkAndAddEdge: err12 < err21 false), so the only valid
+        // tree is root→1→3→2 (lichee.jar).
+        tree.ParentOf(3).Should().Be(1, "one 0.6 subclone nests under the founder");
+        tree.ParentOf(2).Should().Be(3, "the other equal subclone chains below it (sum rule, §6.1)");
         tree.ChildrenOf(1).Should().HaveCount(1, "the founder admits only one of two equal-CCF children (INV-02)");
     }
 
@@ -542,11 +543,11 @@ public sealed class OncologyClonalPhylogenyFuzzTests
     #region ONCO-PHYLO-001 — positive sanity (nesting & branching reconstruct correctly)
     // ═════════════════════════════════════════════════════════════════════════
 
-    // A clear nested clonal structure (founder ⊃ subclone1 ⊃ subclone2 by CCF) must
-    // reconstruct the correct linear parent/child chain.
+    // A nested clonal structure (founder 1.0, subclones 0.6 and 0.3, one sample) admits two valid trees; the
+    // LICHeE top tree (lichee.jar) is founder→{0.6, 0.3}. Only the founder is truncal (CCF 1, Werner 2017).
     [Test]
     [CancelAfter(HangGuardMs)]
-    public void Positive_NestedClonalStructure_ReconstructsLinearChain()
+    public void Positive_NestedClonalStructure_MatchesLicheeTopTree()
     {
         var clusters = new[] { Cluster(1, 1.0), Cluster(2, 0.6), Cluster(3, 0.3) };
 
@@ -554,10 +555,10 @@ public sealed class OncologyClonalPhylogenyFuzzTests
 
         AssertWellFormedTree(tree, clusters, DefaultPhylogenyTolerance);
         tree.ParentOf(1).Should().Be(tree.RootId, "founder (1.0) attaches to the normal root");
-        tree.ParentOf(2).Should().Be(1, "subclone1 (0.6) nests under the founder (deepest valid ancestor)");
-        tree.ParentOf(3).Should().Be(2, "subclone2 (0.3) nests under subclone1 (deepest valid ancestor)");
-        IdentifyTrunkMutations(tree).Should().Equal(new[] { 1, 2, 3 }, "a pure chain is all trunk, no branch point");
-        IdentifyBranchMutations(tree).Should().BeEmpty("no divergence ⇒ no branch clusters");
+        tree.ParentOf(2).Should().Be(1, "subclone1 (0.6) can only nest under the founder (root: 1.6 > 1)");
+        tree.ParentOf(3).Should().Be(1, "LICHeE top tree places subclone2 (0.3) under the founder (0.6 + 0.3 ≤ 1)");
+        IdentifyTrunkMutations(tree).Should().Equal(new[] { 1 }, "only the CCF-1 founder is truncal");
+        IdentifyBranchMutations(tree).Should().Equal(new[] { 2, 3 }, "the subclones are branches");
     }
 
     // A branching structure (founder with two divergent, sample-private subclones)
@@ -598,10 +599,12 @@ public sealed class OncologyClonalPhylogenyFuzzTests
         lenient.ParentOf(2).Should().Be(1,
             "with ε = 0.1 the 0.05 overshoot is within margin ⇒ clone 2 nests under clone 1");
 
-        ClonalPhylogeny strict = ReconstructPhylogeny(clusters, tolerance: 0.0);
-        AssertWellFormedTree(strict, clusters, 0.0);
-        strict.ParentOf(2).Should().Be(strict.RootId,
-            "with ε = 0 the 0.05 overshoot violates lineage precedence ⇒ clone 2 attaches to the root, not clone 1");
+        // With ε = 0 clone 2 cannot nest under clone 1 (Eq. 2) and the root cannot hold both (0.50 + 0.55 > 1,
+        // Eq. 5): no valid tree exists (LICHeE reports none) — documented fault, not an invalid tree (B24 F18).
+        TryReconstructPhylogeny(clusters, out _, tolerance: 0.0).Should().BeFalse(
+            "with ε = 0 no spanning tree satisfies both lineage precedence and the sum rule");
+        FluentActions.Invoking(() => ReconstructPhylogeny(clusters, tolerance: 0.0))
+            .Should().Throw<InvalidOperationException>("the absence of a valid tree is reported, not papered over");
     }
 
     #endregion

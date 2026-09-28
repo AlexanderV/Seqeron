@@ -2402,11 +2402,12 @@ public class OncologyCombinatorialTests
     }
 
     /// <summary>
-    /// Interaction witness (worked example, linear chain): a single sample with nested CCFs 1.0, 0.6, 0.3
-    /// reconstructs to the linear lineage Normal→A→B→C. Source: Popic et al. (2015) Eq.2.
+    /// Interaction witness (worked example): a single sample with CCFs 1.0, 0.6, 0.3 admits two valid trees
+    /// (C under A or under B); LICHeE's top-ranked tree (lichee.jar, -cp) is Normal→A→{B, C}.
+    /// Source: Popic et al. (2015) Eq.2/Eq.5; LICHeE PHYNetwork.getLineageTrees.
     /// </summary>
     [Test]
-    public void ReconstructPhylogeny_NestedSingleSample_FormsLinearChain()
+    public void ReconstructPhylogeny_NestedSingleSample_MatchesLicheeTopTree()
     {
         var clusters = new[]
         {
@@ -2419,7 +2420,8 @@ public class OncologyCombinatorialTests
 
         phylo.ParentOf(1).Should().Be(phylo.RootId, "the clonal cluster attaches to the normal root");
         phylo.ParentOf(2).Should().Be(1, "0.6 descends from 1.0");
-        phylo.ParentOf(3).Should().Be(2, "0.3 descends from 0.6");
+        phylo.ParentOf(3).Should().Be(1, "LICHeE top tree: 0.3 is A's second child (0.6 + 0.3 ≤ 1.0)");
+        phylo.ValidTreeCount.Should().Be(2, "C fits under A or B — two valid trees");
     }
 
     /// <summary>
@@ -2446,7 +2448,7 @@ public class OncologyCombinatorialTests
 
     /// <summary>
     /// Interaction witness (determinism, INV-5): the same clusters reconstruct to the identical edge set on
-    /// repeated calls. Source: deterministic deepest-valid-ancestor tie-break.
+    /// repeated calls. Source: deterministic LICHeE enumeration order (profiles in first-appearance order).
     /// </summary>
     [Test]
     public void ReconstructPhylogeny_SameInput_IsDeterministic()

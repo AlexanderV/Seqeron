@@ -8437,10 +8437,10 @@ public class OncologyProperties
     //   • Trunk = chain of single-child nodes from the root (mutations shared by all clones);
     //     branches = the remaining (subclonal) clusters; the two partition the clusters.
     //
-    // The tree invariants are checked structurally; lineage precedence is recomputed
-    // from the cluster CCFs (NOT routed through production). The sum rule is NOT asserted
-    // universally because the spanning-tree root fallback may attach a cluster to the
-    // root even when its budget is exhausted (documented degenerate path).
+    // The tree invariants are checked structurally; lineage precedence and the sum rule are
+    // recomputed from the cluster CCFs (NOT routed through production). Random CCFs may admit
+    // no valid tree (LICHeE finds none); properties use TryReconstructPhylogeny and check the
+    // tree whenever one exists (B24 F18: no invalid root fallback any more).
     // -------------------------------------------------------------------------
 
     private static Gen<OncologyAnalyzer.CcfCluster[]> CcfClustersGen() =>
@@ -8464,7 +8464,11 @@ public class OncologyProperties
     {
         return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
         {
-            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            if (!OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var phylo, p.tolerance))
+            {
+                return true.Label("no valid tree (LICHeE: none found)");
+            }
+
             var clusterIds = p.clusters.Select(c => c.Id).ToHashSet();
 
             bool clustersPreserved = phylo.Clusters.SequenceEqual(p.clusters);
@@ -8505,7 +8509,11 @@ public class OncologyProperties
     {
         return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
         {
-            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            if (!OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var phylo, p.tolerance))
+            {
+                return true.Label("no valid tree (LICHeE: none found)");
+            }
+
             var ccfById = p.clusters.ToDictionary(c => c.Id, c => c.CcfPerSample);
             double[] rootCcf = Enumerable.Repeat(1.0, phylo.SampleCount).ToArray();
 
@@ -8536,7 +8544,11 @@ public class OncologyProperties
     {
         return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
         {
-            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            if (!OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var phylo, p.tolerance))
+            {
+                return true.Label("no valid tree (LICHeE: none found)");
+            }
+
             var trunk = OncologyAnalyzer.IdentifyTrunkMutations(phylo);
             var branches = OncologyAnalyzer.IdentifyBranchMutations(phylo);
 
@@ -8562,8 +8574,13 @@ public class OncologyProperties
     {
         return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
         {
-            var a = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
-            var b = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            bool okA = OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var a, p.tolerance);
+            bool okB = OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var b, p.tolerance);
+            if (!okA || !okB)
+            {
+                return (okA == okB).Label("feasibility must be deterministic");
+            }
+
             return (a.RootId == b.RootId && a.SampleCount == b.SampleCount
                     && a.Clusters.SequenceEqual(b.Clusters) && a.Edges.SequenceEqual(b.Edges))
                 .Label("ReconstructPhylogeny is not deterministic for identical arguments");
@@ -8571,7 +8588,75 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// Anchors: a single-sample descending chain (CCF 1.0 → 0.5 → 0.25) is an all-trunk lineage; a two-sample
+    /// P (sum rule, Eq. 5): whenever a tree is returned, at every node (root included) and in every sample the
+    /// children's CCFs sum to at most the node's CCF + ε (LICHeE PHYTree.checkConstraint). (Popic 2015 Eq. 5)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_ReturnedTree_SatisfiesSumRuleEverywhere()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            if (!OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var phylo, p.tolerance))
+            {
+                return true.Label("no valid tree (LICHeE: none found)");
+            }
+
+            var ccfById = p.clusters.ToDictionary(c => c.Id, c => c.CcfPerSample);
+            foreach (int node in p.clusters.Select(c => c.Id).Append(phylo.RootId))
+            {
+                var children = phylo.ChildrenOf(node);
+                for (int i = 0; i < phylo.SampleCount; i++)
+                {
+                    double parent = node == phylo.RootId ? 1.0 : ccfById[node][i];
+                    double sum = 0.0;
+                    foreach (int c in children)
+                    {
+                        sum += ccfById[c][i];
+                    }
+
+                    if (sum > parent + p.tolerance + 1e-12)
+                    {
+                        return false.Label($"node {node} sample {i}: Σchildren {sum} > {parent} + ε");
+                    }
+                }
+            }
+
+            return true.Label("ok");
+        });
+    }
+
+    /// <summary>
+    /// P (star feasibility): if the clusters' CCFs sum to ≤ 1 in every sample, the star under the root is valid, so a
+    /// tree always exists (LICHeE's default or complete network contains every root→cluster edge it needs).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_SubUnitColumnSums_AlwaysFeasible()
+    {
+        var gen = from k in Gen.Choose(1, 3)
+                  from n in Gen.Choose(1, 6)
+                  from raw in Gen.Choose(0, 1000).ArrayOf(k).ArrayOf(n)
+                  select (k, n, raw);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var clusters = new OncologyAnalyzer.CcfCluster[t.n];
+            for (int c = 0; c < t.n; c++)
+            {
+                var v = new double[t.k];
+                for (int s = 0; s < t.k; s++)
+                {
+                    v[s] = t.raw[c][s] / 1000.0 / t.n; // column sums ≤ 1
+                }
+
+                clusters[c] = new OncologyAnalyzer.CcfCluster(c + 1, v);
+            }
+
+            return OncologyAnalyzer.TryReconstructPhylogeny(clusters, out _).Label("a feasible input must yield a tree");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a single-sample descending chain (CCF 1.0 → 0.5 → 0.25) has only the clonal CCF-1 cluster on the trunk
+    /// (Werner et al. 2017: trunk alterations are present in all tumour cells; B24 F19); a two-sample
     /// divergent cohort (A=[1,1], B=[1,0], C=[0,1]) branches at A so trunk=[A], branches=[B,C]. (Popic 2015)
     /// </summary>
     [Test]
@@ -8594,9 +8679,10 @@ public class OncologyProperties
 
         Assert.Multiple(() =>
         {
-            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(chain), Is.EqualTo(new[] { 1, 2, 3 }),
-                "A descending single-sample chain is entirely trunk.");
-            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(chain), Is.Empty, "No subclonal branches in a pure chain.");
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(chain), Is.EqualTo(new[] { 1 }),
+                "Only the CCF-1 cluster is present in every tumour cell.");
+            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(chain), Is.EqualTo(new[] { 2, 3 }),
+                "CCF 0.5 / 0.25 clusters are subclonal branches.");
             Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(branch), Is.EqualTo(new[] { 1 }),
                 "Divergent samples branch at the clonal ancestor A ⇒ trunk = [A].");
             Assert.That(OncologyAnalyzer.IdentifyBranchMutations(branch), Is.EqualTo(new[] { 2, 3 }),
