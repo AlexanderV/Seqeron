@@ -5,12 +5,12 @@
 | Algorithm Group | FileIO |
 | Test Unit ID | PARSE-FASTQ-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete (documented limitations) |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-FASTQ parsing reads nucleotide sequences together with per-base quality scores.[1][2][3] In this repository, `FastqParser` parses FASTQ content from strings, files, and readers; decodes Phred quality encodings; filters and trims reads; computes summary statistics; and provides paired-end and writing helpers. The implementation supports both Phred+33 and Phred+64 encodings and can auto-detect between them using a character-range heuristic, but that auto mode is not reliable across the full Phred+33 printable range. It is simplified relative to the broader FASTQ ecosystem because it favors tolerant parsing and utility helpers over strict malformed-record rejection.[1][2]
+FASTQ parsing reads nucleotide sequences together with per-base quality scores.[1][2][3] In this repository, `FastqParser` parses FASTQ content from strings, files, and readers; decodes Phred quality encodings; filters and trims reads; computes summary statistics; and provides paired-end and writing helpers. The implementation supports both Phred+33 and Phred+64 encodings; in auto mode the offset is detected once per file (FastQC-style, from the whole file's quality characters) by the canonical `QualityScoreAnalyzer.DetectEncoding(IEnumerable<string>)`. Record parsing follows Biopython's `FastqGeneralIterator` and rejects malformed records with `FormatException`.[1][2]
 
 ## 2. Scientific / Formal Basis
 
@@ -97,28 +97,30 @@ Example Phred values from the current document are:[1][2]
 
 ### 3.3 Preconditions and Validation
 
-The parser skips blank lines and only starts a record when a line begins with `@`. Sequence lines are accumulated until a line beginning with `+` is encountered. Quality lines are then accumulated until the quality string length reaches the sequence length. Null or empty input returns no records. `DecodeQualityScores(...)` returns an empty array for null or empty quality strings. `EncodeQualityScores(...)` clamps scores to the representable range of the selected encoding. `ErrorProbabilityToPhred(...)` returns `93` when the probability is zero or negative.
+Blank lines between records are skipped; any other line where a record is expected must begin with `@`. Sequence lines are accumulated (right-trimmed) until the `+` line; whitespace inside the sequence is rejected. If the `+` line repeats a title it must equal the `@` title. Quality lines are accumulated by length — a line beginning with `@` only starts the next record once the quality is complete — and the quality length must equal the sequence length. Every violation, and truncation at end of file, throws `FormatException` (the same cases Biopython 1.88 `FastqGeneralIterator` rejects with `ValueError`). Null or empty input returns no records. `DecodeQualityScores(...)` returns an empty array for null or empty quality strings and throws `ArgumentOutOfRangeException` for a symbol outside the encoding's range (Biopython `InvalidCharError`); inside `Parse` this surfaces as `FormatException`. `EncodeQualityScores(...)` clamps scores to the representable range of the selected encoding (Biopython truncates at 93 / 62 likewise). `ErrorProbabilityToPhred(...)` returns `93` for p = 0, caps every result at `93`, and throws for p outside [0, 1] or NaN.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Read input until a header line beginning with `@` is found.
-2. Split the header into `Id` and optional `Description` at the first space.
-3. Accumulate sequence lines until the `+` separator line.
-4. Accumulate quality lines until their total length reaches the sequence length.
-5. Detect or apply the selected quality encoding.
-6. Decode the quality string to Phred scores and yield a `FastqRecord`.
+1. Skip blank lines; the next line must begin with `@` (else `FormatException`).
+2. Split the title into `Id` and `Description` at the first whitespace character (Biopython `title.split(None, 1)`; shared `SequenceFormatHelper.SplitTitle`, also used by `FastaParser`).
+3. Accumulate sequence lines until the `+` separator line; validate the optional `+` caption and the absence of whitespace.
+4. Accumulate quality lines by length (an `@` line ends the record only once the quality is complete); require quality length = sequence length.
+5. In Auto mode, determine the encoding once for the whole input (`ParseFile` / `Parse(string)`: a lightweight first pass; `Parse(TextReader)`: records are buffered because a reader cannot be rewound).
+6. Decode the quality string to Phred scores (canonical `QualityScoreAnalyzer.ParseQualityString`) and yield a `FastqRecord`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The repository's auto-detection heuristic is:
+The auto-detection rule (canonical `QualityScoreAnalyzer.DetectEncoding`, applied to the whole file in `Parse`/`ParseFile` and to one string in `DetectEncoding(string)`):
 
 ```text
-If any quality character is below '@', choose Phred+33.
-Else if any quality character is above 'I', choose Phred+64.
-Else default to Phred+33.
+If the lowest quality character is below ASCII 64 ('@'), choose Phred+33 (proven: outside Phred+64).
+Else if the highest character is above ASCII 74 ('J' = Q41, Illumina 1.8+ Phred+33 ceiling), choose Phred+64 (inferred).
+Else (all characters in ASCII 64-74) default to Phred+33 (ambiguous; LimitationPolicy "PARSE-FASTQ-001").
 ```
+
+`TrimAdapter` implements cutadapt's regular 3' adapter removal with exact matching (`-a ADAPTER -e 0 -O minOverlap`): the read is cut at the leftmost position from which the read matches the adapter (a full occurrence anywhere, including position 0, or an adapter prefix of at least `minOverlap` bases running off the 3' end). `TrimByQuality` is Trimmomatic-style LEADING/TRAILING threshold trimming, sharing `QualityScoreAnalyzer.FindQualityTrimBounds` with `QualityScoreAnalyzer.QualityTrim`.
 
 Paired-end support is modeled in two forms from the current document:[1]
 
@@ -155,7 +157,7 @@ Paired-end support is modeled in two forms from the current document:[1]
 
 ### 5.2 Current Behavior
 
-`Parse(...)` is tolerant: it skips non-header lines, accepts multi-line sequences until `+`, and then reads quality lines until the accumulated quality length reaches the sequence length. It does not perform a strict malformed-record rejection pass beyond those rules. Auto-detection defaults ambiguous `@`-through-`I` ranges to Phred+33 and switches to Phred+64 whenever any quality character is above `I`, which means high-quality Phred+33 strings containing `J` through `~` are not distinguishable from Phred+64 by this heuristic alone. `DecodeQualityScores(...)` subtracts the selected ASCII offset and clamps negative values to `0`. `TrimByQuality(...)` trims only low-quality ends, not internal low-quality segments. `TrimAdapter(...)` first looks for an adapter overlap at the sequence end, then for a full adapter match that starts after position `0`; a full adapter already at the first base is left unchanged unless the end-overlap path trims it. `CalculateStatistics(...)` reports `Q20Percentage` and `Q30Percentage` as percentages, but `GcContent` as a `0..1` fraction.
+`Parse(...)` is strict in the Biopython sense (see §3.3) and accepts multi-line sequence/quality, `@`/`+` symbols inside quality strings, a repeated `+` caption, zero-length records and blank lines between records. Auto mode detects the encoding once per input, so a read confined to the overlap range (e.g. an Illumina 1.5 `BBBB` tail read) is decoded with the file's encoding. `WriteToFile` writes UTF-8 without a byte-order mark. `TrimByQuality(...)` trims only low-quality ends, not internal low-quality segments. `CalculateStatistics(...)` reports `Q20Percentage` and `Q30Percentage` as percentages, but `GcContent` as a `0..1` fraction.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -167,8 +169,9 @@ Paired-end support is modeled in two forms from the current document:[1]
 
 **Intentionally simplified:**
 
-- Auto encoding detection uses a character-range heuristic; **consequence:** ambiguous `@`-through-`I` ranges default to Phred+33, and high-quality Phred+33 strings containing `J` through `~` can be misclassified as Phred+64 unless callers specify the encoding explicitly.
-- Parsing favors tolerant record assembly over strict format validation; **consequence:** malformed records can be skipped or partially assembled rather than rejected with an error.
+- Auto encoding detection cannot resolve an input whose every quality character lies in ASCII 64–74 (irreducible; LIMITATIONS.md PARSE-FASTQ-001); it defaults to Phred+33 under `Permissive` and throws otherwise.
+- `TrimAdapter` uses exact matching only; cutadapt's default 10 % error-tolerant alignment is not modelled.
+- `Parse(TextReader)` in Auto mode buffers the records of that reader (a reader cannot be rewound); `ParseFile` and `Parse(string)` stay streaming.
 
 **Not implemented:**
 
@@ -181,14 +184,17 @@ Paired-end support is modeled in two forms from the current document:[1]
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
 | Empty or null input | Returns no records | Explicit early-return guards |
+| Malformed record (no `@`, no `+`, caption mismatch, whitespace in sequence, seq/qual length mismatch, truncated) | `FormatException` | Biopython 1.88 `FastqGeneralIterator` rejects the same inputs |
+| Quality symbol outside the encoding range | `FormatException` from `Parse`; `ArgumentOutOfRangeException` from `DecodeQualityScores` | Biopython `InvalidCharError` |
 | Empty quality string | Detects as Phred+33 and decodes to an empty score list | Quality helpers guard empty input |
 | All qualities below trim threshold | `TrimByQuality(...)` returns an empty-sequence record | End trimming can remove the full record |
 | No adapter match | `TrimAdapter(...)` returns the original record | Adapter trimming is conditional |
+| Adapter at position 0 | `TrimAdapter(...)` returns an empty read | cutadapt 5.2 removes the adapter and everything after it |
 | Interleaved input with odd record count | Final unmatched record stays on the alternating side reached by the splitter | `SplitInterleavedReads(...)` alternates records without pair validation |
 
 ### 6.2 Limitations
 
-The repository provides practical FASTQ parsing and quality utilities, but it does not implement a strict FASTQ validator. Encoding detection is heuristic and cannot reliably disambiguate the full overlap between Phred+33 and Phred+64 printable ranges, and `GcContent` in summary statistics is a fraction rather than a percentage.
+Encoding detection cannot disambiguate an input confined to the Phred+33/Phred+64 overlap (ASCII 64–74), Solexa (negative-Q) FASTQ is not supported, adapter trimming is exact-match only, and `GcContent` in summary statistics is a fraction rather than a percentage.
 
 ## 7. Examples and Related Material
 
@@ -203,3 +209,6 @@ The repository provides practical FASTQ parsing and quality utilities, but it do
 1. Wikipedia contributors. FASTQ format. Wikipedia. https://en.wikipedia.org/wiki/FASTQ_format
 2. Cock, P.J.A., et al. 2009. The Sanger FASTQ file format for sequences with quality scores, and the Solexa/Illumina FASTQ variants. Nucleic Acids Research. https://doi.org/10.1093/nar/gkp1137
 3. NCBI Sequence Read Archive. FASTQ and related submit formats. https://www.ncbi.nlm.nih.gov/sra/docs/submitformats/
+4. Biopython 1.88, `Bio.SeqIO.QualityIO` (`FastqGeneralIterator`, `_get_sanger_quality_str`) — reference implementation for record validation, id splitting and write truncation.
+5. FastQC, `PhredEncoding.getFastQEncodingOffset` / `PerBaseQualityScores.calculateOffsets` (https://github.com/s-andrews/FastQC) — encoding from the lowest quality character over the whole file.
+6. cutadapt 5.2 (Martin 2011, EMBnet.journal 17:10) — regular 3' adapter semantics used by `TrimAdapter`.

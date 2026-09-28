@@ -9,6 +9,25 @@ namespace Seqeron.Genomics.IO;
 internal static partial class SequenceFormatHelper
 {
     /// <summary>
+    /// Splits a FASTA/FASTQ title line (the text after the leading '&gt;' or '@') into the record id and
+    /// the free-text description. The id is the first whitespace-delimited word and the description is the
+    /// remainder after that single whitespace character — Biopython <c>SeqIO</c> semantics
+    /// (<c>title.split(None, 1)[0]</c>; any whitespace, not only a space). Shared by
+    /// <see cref="FastaParser"/> and <see cref="FastqParser"/> so both formats derive ids identically.
+    /// </summary>
+    /// <param name="title">The title line without its leading marker; expected to be already trimmed.</param>
+    /// <returns>The id and the description, or <c>null</c> description when the title has no whitespace.</returns>
+    internal static (string Id, string? Description) SplitTitle(string title)
+    {
+        for (int i = 0; i < title.Length; i++)
+        {
+            if (char.IsWhiteSpace(title[i]))
+                return (title.Substring(0, i), title.Substring(i + 1));
+        }
+        return (title, null);
+    }
+
+    /// <summary>
     /// Parses feature location parts from a location string.
     /// </summary>
     /// <param name="locationStr">Raw location string (e.g., "complement(join(1..100,200..300))").</param>

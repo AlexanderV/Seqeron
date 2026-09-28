@@ -48,174 +48,268 @@ public static class FastqParser
     /// <summary>
     /// Parses FASTQ records from a file.
     /// </summary>
+    /// <remarks>
+    /// With <see cref="QualityEncoding.Auto"/> the Phred offset is detected once for the whole file
+    /// (two streaming passes; see <see cref="Parse(TextReader, QualityEncoding)"/>).
+    /// </remarks>
+    /// <exception cref="FormatException">Thrown (during enumeration) when a record is malformed.</exception>
     public static IEnumerable<FastqRecord> ParseFile(string filePath, QualityEncoding encoding = QualityEncoding.Auto)
     {
         if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
             yield break;
 
-        using var reader = new StreamReader(filePath);
-        foreach (var record in Parse(reader, encoding))
+        var actualEncoding = encoding;
+        if (encoding == QualityEncoding.Auto)
         {
-            yield return record;
+            using var detectReader = new StreamReader(filePath);
+            actualEncoding = DetectFileEncoding(ReadRawRecords(detectReader));
         }
+
+        using var reader = new StreamReader(filePath);
+        foreach (var raw in ReadRawRecords(reader))
+            yield return CreateRecord(raw, actualEncoding);
     }
 
     /// <summary>
     /// Parses FASTQ records from text content.
     /// </summary>
+    /// <remarks>
+    /// With <see cref="QualityEncoding.Auto"/> the Phred offset is detected once for the whole content
+    /// (see <see cref="Parse(TextReader, QualityEncoding)"/>).
+    /// </remarks>
+    /// <exception cref="FormatException">Thrown (during enumeration) when a record is malformed.</exception>
     public static IEnumerable<FastqRecord> Parse(string content, QualityEncoding encoding = QualityEncoding.Auto)
     {
         if (string.IsNullOrEmpty(content))
             yield break;
 
-        using var reader = new StringReader(content);
-        foreach (var record in Parse(reader, encoding))
-        {
-            yield return record;
-        }
+        var actualEncoding = encoding == QualityEncoding.Auto
+            ? DetectFileEncoding(ReadRawRecords(new StringReader(content)))
+            : encoding;
+
+        foreach (var raw in ReadRawRecords(new StringReader(content)))
+            yield return CreateRecord(raw, actualEncoding);
     }
 
     /// <summary>
-    /// Parses FASTQ records from a TextReader.
+    /// Parses FASTQ records from a TextReader, following the Sanger FASTQ definition (Cock et al., 2010,
+    /// NAR 38:1767) as realised by Biopython's <c>FastqGeneralIterator</c>:
+    /// <list type="bullet">
+    /// <item>each record starts with an '@' title line (blank lines between records are skipped);</item>
+    /// <item>sequence lines are read up to the '+' line; whitespace inside the sequence is rejected;</item>
+    /// <item>the '+' line may repeat the title, and if it does it must be identical;</item>
+    /// <item>quality lines are read by length (a quality line may itself begin with '@') and the quality
+    /// string must have exactly as many symbols as the sequence has letters.</item>
+    /// </list>
+    /// With <see cref="QualityEncoding.Auto"/> the Phred offset is a property of the whole file (FastQC
+    /// derives it from the lowest quality character over all reads): it is determined once with
+    /// <see cref="QualityScoreAnalyzer.DetectEncoding(IEnumerable{string})"/> and applied to every record.
+    /// Because a <see cref="TextReader"/> cannot be rewound, Auto mode buffers the raw records of this
+    /// reader before yielding; pass an explicit encoding (or use <see cref="ParseFile"/>) to stream.
     /// </summary>
+    /// <exception cref="FormatException">Thrown (during enumeration) when a record is malformed or a quality
+    /// character is outside the range of the encoding.</exception>
     public static IEnumerable<FastqRecord> Parse(TextReader reader, QualityEncoding encoding = QualityEncoding.Auto)
     {
-        string? line;
-        while ((line = reader.ReadLine()) != null)
+        ArgumentNullException.ThrowIfNull(reader);
+        return ParseReader(reader, encoding);
+    }
+
+    private static IEnumerable<FastqRecord> ParseReader(TextReader reader, QualityEncoding encoding)
+    {
+        if (encoding != QualityEncoding.Auto)
         {
-            // Skip empty lines
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
+            foreach (var raw in ReadRawRecords(reader))
+                yield return CreateRecord(raw, encoding);
+            yield break;
+        }
 
-            // Header line (starts with @)
-            if (!line.StartsWith('@'))
-                continue;
+        var buffered = ReadRawRecords(reader).ToList();
+        var detected = DetectFileEncoding(buffered);
+        foreach (var raw in buffered)
+            yield return CreateRecord(raw, detected);
+    }
 
-            var header = line[1..];
-            var (id, description) = ParseHeader(header);
+    private readonly record struct RawFastqRecord(string Title, string Sequence, string Quality);
 
-            // Sequence line(s)
+    /// <summary>
+    /// Line-oriented FASTQ state machine (port of Biopython <c>FastqGeneralIterator</c>, 1.88). Yields
+    /// (title, sequence, quality) with line breaks removed; throws <see cref="FormatException"/> on the
+    /// same malformations Biopython rejects.
+    /// </summary>
+    private static IEnumerable<RawFastqRecord> ReadRawRecords(TextReader reader)
+    {
+        string? line = reader.ReadLine();
+        while (true)
+        {
+            while (line != null && string.IsNullOrWhiteSpace(line))
+                line = reader.ReadLine();
+            if (line == null)
+                yield break;
+
+            if (line[0] != '@')
+                throw new FormatException(
+                    $"Records in FASTQ files must start with the '@' character (found line: '{Abbreviate(line)}').");
+            string title = line.Substring(1).Trim();
+
             var sequenceBuilder = new StringBuilder();
-            while ((line = reader.ReadLine()) != null && !line.StartsWith('+'))
+            while (true)
             {
-                sequenceBuilder.Append(line.Trim());
+                line = reader.ReadLine();
+                if (line == null)
+                    throw new FormatException(sequenceBuilder.Length > 0
+                        ? $"End of file without quality information for FASTQ record '{title}'."
+                        : $"Unexpected end of file in FASTQ record '{title}'.");
+                if (line.Length > 0 && line[0] == '+')
+                    break;
+                sequenceBuilder.Append(line.TrimEnd());
             }
-            var sequence = sequenceBuilder.ToString();
 
-            // Quality header line (starts with +)
-            // Already consumed by the while loop above
+            string plusTitle = line.Substring(1).Trim();
+            if (plusTitle.Length > 0 && plusTitle != title)
+                throw new FormatException(
+                    $"FASTQ sequence and quality captions differ ('@{title}' vs '+{plusTitle}').");
 
-            // Quality line(s) - must be same length as sequence
-            var qualityBuilder = new StringBuilder();
-            while (qualityBuilder.Length < sequence.Length && (line = reader.ReadLine()) != null)
+            string sequence = sequenceBuilder.ToString();
+            foreach (char c in sequence)
             {
-                qualityBuilder.Append(line.Trim());
+                if (char.IsWhiteSpace(c))
+                    throw new FormatException($"Whitespace is not allowed in the sequence of FASTQ record '{title}'.");
             }
-            var qualityString = qualityBuilder.ToString();
 
-            // Decode quality scores
-            var actualEncoding = encoding == QualityEncoding.Auto
-                ? DetectEncoding(qualityString)
-                : encoding;
-            var qualityScores = DecodeQualityScores(qualityString, actualEncoding);
+            // At least one line of quality data must follow the '+' line.
+            line = reader.ReadLine();
+            if (line == null)
+                throw new FormatException($"Unexpected end of file in FASTQ record '{title}' (no quality line).");
 
-            yield return new FastqRecord(id, description, sequence, qualityString, qualityScores);
+            var qualityBuilder = new StringBuilder(sequence.Length);
+            while (line != null)
+            {
+                // A line starting with '@' only begins the next record once the quality is complete;
+                // before that it is quality data whose first symbol is '@' (Phred+33 Q31 / Phred+64 Q0).
+                if (line.Length > 0 && line[0] == '@' && qualityBuilder.Length >= sequence.Length)
+                    break;
+                qualityBuilder.Append(line.TrimEnd());
+                line = reader.ReadLine();
+            }
+
+            string quality = qualityBuilder.ToString();
+            if (quality.Length != sequence.Length)
+                throw new FormatException(
+                    $"Lengths of sequence and quality values differ for FASTQ record '{title}' " +
+                    $"({sequence.Length} and {quality.Length}).");
+
+            yield return new RawFastqRecord(title, sequence, quality);
         }
     }
 
-    private static (string Id, string Description) ParseHeader(string header)
+    private static string Abbreviate(string line) => line.Length <= 40 ? line : line[..40] + "...";
+
+    private static QualityEncoding DetectFileEncoding(IEnumerable<RawFastqRecord> records)
+        => FromCanonical(QualityScoreAnalyzer.DetectEncoding(records.Select(r => r.Quality)).Encoding);
+
+    private static FastqRecord CreateRecord(RawFastqRecord raw, QualityEncoding encoding)
     {
-        var spaceIndex = header.IndexOf(' ');
-        if (spaceIndex > 0)
+        var (id, description) = SequenceFormatHelper.SplitTitle(raw.Title);
+        IReadOnlyList<int> scores;
+        try
         {
-            return (header[..spaceIndex], header[(spaceIndex + 1)..]);
+            scores = DecodeQualityScores(raw.Quality, encoding);
         }
-        return (header, "");
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new FormatException($"Invalid quality string in FASTQ record '{id}': {ex.Message}", ex);
+        }
+        return new FastqRecord(id, description ?? "", raw.Sequence, raw.Quality, scores);
     }
 
     #endregion
 
     #region Quality Encoding
 
+    private static QualityScoreAnalyzer.QualityEncoding ToCanonical(QualityEncoding encoding) => encoding switch
+    {
+        QualityEncoding.Phred64 => QualityScoreAnalyzer.QualityEncoding.Phred64,
+        QualityEncoding.Auto => QualityScoreAnalyzer.QualityEncoding.Auto,
+        _ => QualityScoreAnalyzer.QualityEncoding.Phred33,
+    };
+
+    private static QualityEncoding FromCanonical(QualityScoreAnalyzer.QualityEncoding encoding)
+        => encoding == QualityScoreAnalyzer.QualityEncoding.Phred64 ? QualityEncoding.Phred64 : QualityEncoding.Phred33;
+
     /// <summary>
-    /// Detects quality encoding from quality string.
+    /// Detects the quality encoding of a single quality string. Delegates to the canonical
+    /// <see cref="QualityScoreAnalyzer.DetectEncoding(string)"/>: a character below ASCII 64 proves
+    /// Phred+33 regardless of its position; otherwise a character above ASCII 74 ('J' = Q41, the
+    /// Illumina 1.8+ Phred+33 ceiling) infers Phred+64; a string confined to ASCII 64-74 is ambiguous
+    /// and defaults to Phred+33 (guarded by <c>LimitationPolicy</c> "PARSE-FASTQ-001").
+    /// For a whole file use <see cref="QualityScoreAnalyzer.DetectEncoding(IEnumerable{string})"/>,
+    /// which is what <see cref="Parse(string, QualityEncoding)"/> does in Auto mode.
     /// </summary>
     public static QualityEncoding DetectEncoding(string qualityString)
     {
         if (string.IsNullOrEmpty(qualityString))
             return QualityEncoding.Phred33;
 
-        foreach (char c in qualityString)
-        {
-            // Characters below '@' (64) indicate Phred+33
-            if (c < '@')
-                return QualityEncoding.Phred33;
-            // Characters above 'I' (73) indicate Phred+64
-            if (c > 'I')
-                return QualityEncoding.Phred64;
-        }
-
-        // Every character lay in the Phred+33/Phred+64 overlap range (ASCII 64-73): the encoding is
-        // genuinely ambiguous. In Strict mode this throws rather than silently defaulting to Phred+33.
-        LimitationPolicy.Enforce("PARSE-FASTQ-001");
-
-        // Default to Phred+33 (most common modern format)
-        return QualityEncoding.Phred33;
+        return FromCanonical(QualityScoreAnalyzer.DetectEncoding(qualityString));
     }
 
     /// <summary>
-    /// Decodes quality string to Phred scores.
+    /// Decodes a quality string to Phred scores (Q = ASCII - offset; offset 33 or 64). Delegates to the
+    /// canonical <see cref="QualityScoreAnalyzer.ParseQualityString"/>. A null or empty string yields no
+    /// scores. <see cref="QualityEncoding.Auto"/> is resolved per string.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when a character decodes outside the valid
+    /// Phred range of the encoding (0-93 for Phred+33, 0-62 for Phred+64; Cock et al., 2010) — the same
+    /// characters Biopython rejects with <c>InvalidCharError</c>.</exception>
     public static IReadOnlyList<int> DecodeQualityScores(string qualityString, QualityEncoding encoding = QualityEncoding.Phred33)
     {
         if (string.IsNullOrEmpty(qualityString))
             return Array.Empty<int>();
 
-        int offset = encoding == QualityEncoding.Phred64 ? 64 : 33;
-        var scores = new int[qualityString.Length];
-
-        for (int i = 0; i < qualityString.Length; i++)
-        {
-            scores[i] = Math.Max(0, qualityString[i] - offset);
-        }
-
-        return scores;
+        return QualityScoreAnalyzer.ParseQualityString(qualityString, ToCanonical(encoding));
     }
 
     /// <summary>
-    /// Encodes Phred scores to quality string.
+    /// Encodes Phred scores to a quality string (char = Q + offset). Scores are first clamped to the
+    /// representable range of the encoding (0-93 Phred+33, 0-62 Phred+64) — Biopython likewise truncates
+    /// at 93 / 62 when writing — and then encoded by the canonical
+    /// <see cref="QualityScoreAnalyzer.ToQualityString"/>. Auto encodes as Phred+33.
     /// </summary>
     public static string EncodeQualityScores(IEnumerable<int> scores, QualityEncoding encoding = QualityEncoding.Phred33)
     {
-        int offset = encoding == QualityEncoding.Phred64 ? 64 : 33;
-        int maxScore = encoding == QualityEncoding.Phred64 ? 62 : 93;
-        var sb = new StringBuilder();
-
-        foreach (var score in scores)
-        {
-            var clampedScore = Math.Clamp(score, 0, maxScore);
-            sb.Append((char)(clampedScore + offset));
-        }
-
-        return sb.ToString();
+        ArgumentNullException.ThrowIfNull(scores);
+        int maxScore = encoding == QualityEncoding.Phred64 ? MaxPhred64Score : MaxPhred33Score;
+        var clamped = scores.Select(score => Math.Clamp(score, 0, maxScore)).ToArray();
+        return QualityScoreAnalyzer.ToQualityString(clamped, ToCanonical(encoding));
     }
 
+    // Highest Phred score representable in each encoding (ASCII 126 '~' minus the offset; Cock et al., 2010).
+    private const int MaxPhred33Score = 93;
+    private const int MaxPhred64Score = 62;
+
     /// <summary>
-    /// Converts Phred score to error probability.
+    /// Converts a Phred score to an error probability, p = 10^(-Q/10). Delegates to the canonical
+    /// <see cref="QualityScoreAnalyzer.PhredToErrorProbability"/>.
     /// </summary>
     public static double PhredToErrorProbability(int phredScore)
-    {
-        return Math.Pow(10, -phredScore / 10.0);
-    }
+        => QualityScoreAnalyzer.PhredToErrorProbability(phredScore);
 
     /// <summary>
-    /// Converts error probability to Phred score.
+    /// Converts an error probability to a Phred score, Q = round(-10·log10(p)), capped at Q93 — the
+    /// highest score representable in Sanger/Phred+33 FASTQ (ASCII 126 − 33). p = 0 maps to Q93, and any
+    /// p small enough to exceed Q93 is capped there too, so the mapping stays monotone.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="errorProbability"/> is
+    /// NaN or outside [0, 1].</exception>
     public static int ErrorProbabilityToPhred(double errorProbability)
     {
-        if (errorProbability <= 0)
-            return 93; // Max representable in Sanger/Phred+33 (ASCII 126 - 33)
-        return (int)Math.Round(-10 * Math.Log10(errorProbability));
+        if (double.IsNaN(errorProbability) || errorProbability < 0 || errorProbability > 1)
+            throw new ArgumentOutOfRangeException(nameof(errorProbability), errorProbability,
+                "Error probability must be in [0, 1].");
+        if (errorProbability == 0)
+            return MaxPhred33Score;
+        return (int)Math.Min(MaxPhred33Score, Math.Round(-10 * Math.Log10(errorProbability)));
     }
 
     #endregion
@@ -266,17 +360,8 @@ public static class FastqParser
         if (record.QualityScores.Count == 0)
             return record;
 
-        // Find trim positions
-        int start = 0;
-        int end = record.Sequence.Length;
-
-        // Trim from start
-        while (start < end && record.QualityScores[start] < minQuality)
-            start++;
-
-        // Trim from end
-        while (end > start && record.QualityScores[end - 1] < minQuality)
-            end--;
+        var (start, end) = QualityScoreAnalyzer.FindQualityTrimBounds(
+            record.QualityScores, record.Sequence.Length, minQuality);
 
         if (start >= end)
         {
@@ -284,51 +369,36 @@ public static class FastqParser
             return new FastqRecord(record.Id, record.Description, "", "", Array.Empty<int>());
         }
 
-        var newSequence = record.Sequence[start..end];
-        var newQualityString = record.QualityString[start..end];
-        var newScores = record.QualityScores.Skip(start).Take(end - start).ToList();
-
-        return new FastqRecord(record.Id, record.Description, newSequence, newQualityString, newScores);
+        return Slice(record, start, end);
     }
 
+    private static FastqRecord Slice(FastqRecord record, int start, int end) => new(
+        record.Id,
+        record.Description,
+        record.Sequence[start..end],
+        record.QualityString[start..end],
+        record.QualityScores.Skip(start).Take(end - start).ToList());
+
     /// <summary>
-    /// Trims adapters from sequences.
+    /// Removes a 3' adapter and everything after it (cutadapt regular 3' adapter, <c>-a ADAPTER -e 0
+    /// -O minOverlap</c>): the read is cut at the leftmost position i where the read from i onward matches
+    /// the adapter exactly (case-insensitive) — either a full adapter occurrence anywhere, including at
+    /// position 0 (the whole read is removed), or an adapter prefix of at least
+    /// <paramref name="minOverlap"/> bases running off the 3' end.
     /// </summary>
+    /// <remarks>Exact matching only (cutadapt's default error rate 0.1 is not modelled).</remarks>
     public static FastqRecord TrimAdapter(FastqRecord record, string adapter, int minOverlap = 5)
     {
         if (string.IsNullOrEmpty(adapter) || adapter.Length < minOverlap)
             return record;
 
-        adapter = adapter.ToUpperInvariant();
-        var sequence = record.Sequence.ToUpperInvariant();
-
-        // Search for adapter at the end
-        for (int overlapLen = adapter.Length; overlapLen >= minOverlap; overlapLen--)
+        var sequence = record.Sequence;
+        int minLength = Math.Max(1, minOverlap);
+        for (int i = 0; i <= sequence.Length - minLength; i++)
         {
-            var adapterPrefix = adapter[..overlapLen];
-            var searchStart = record.Sequence.Length - overlapLen;
-
-            if (searchStart >= 0 && sequence.EndsWith(adapterPrefix, StringComparison.Ordinal))
-            {
-                return new FastqRecord(
-                    record.Id,
-                    record.Description,
-                    record.Sequence[..searchStart],
-                    record.QualityString[..searchStart],
-                    record.QualityScores.Take(searchStart).ToList());
-            }
-        }
-
-        // Search for full adapter within sequence
-        int adapterPos = sequence.IndexOf(adapter, StringComparison.Ordinal);
-        if (adapterPos > 0)
-        {
-            return new FastqRecord(
-                record.Id,
-                record.Description,
-                record.Sequence[..adapterPos],
-                record.QualityString[..adapterPos],
-                record.QualityScores.Take(adapterPos).ToList());
+            int overlap = Math.Min(adapter.Length, sequence.Length - i);
+            if (string.Compare(sequence, i, adapter, 0, overlap, StringComparison.OrdinalIgnoreCase) == 0)
+                return Slice(record, 0, i);
         }
 
         return record;
@@ -436,7 +506,8 @@ public static class FastqParser
     /// </summary>
     public static void WriteToFile(string filePath, IEnumerable<FastqRecord> records)
     {
-        using var writer = new StreamWriter(filePath, false, Encoding.UTF8);
+        // UTF-8 without a byte-order mark: a BOM before the first '@' makes Biopython and cutadapt reject the file.
+        using var writer = new StreamWriter(filePath, false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         WriteToStream(writer, records);
     }
 

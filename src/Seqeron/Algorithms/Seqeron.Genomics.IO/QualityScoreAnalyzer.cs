@@ -505,6 +505,28 @@ public static class QualityScoreAnalyzer
     }
 
     /// <summary>
+    /// Leading/trailing threshold trim bounds (Trimmomatic LEADING:q + TRAILING:q): skips bases with
+    /// Phred &lt; <paramref name="minQuality"/> from the 5' end, then from the 3' end. Shared by
+    /// <see cref="QualityTrim"/> and <see cref="FastqParser.TrimByQuality"/>.
+    /// </summary>
+    /// <param name="phred">Decoded Phred scores.</param>
+    /// <param name="length">Number of leading scores to consider.</param>
+    /// <param name="minQuality">Minimum Phred score a retained end base must reach.</param>
+    /// <returns>Half-open kept interval [Start, End); <c>Start &gt;= End</c> when every base is trimmed.</returns>
+    internal static (int Start, int End) FindQualityTrimBounds(IReadOnlyList<int> phred, int length, int minQuality)
+    {
+        int start = 0;
+        while (start < length && phred[start] < minQuality)
+            start++;
+
+        int end = length;
+        while (end > start && phred[end - 1] < minQuality)
+            end--;
+
+        return (start, end);
+    }
+
+    /// <summary>
     /// Trims low-quality bases from both ends of a read.
     /// </summary>
     public static TrimResult QualityTrim(
@@ -527,15 +549,8 @@ public static class QualityScoreAnalyzer
         var phred = QualityStringToPhred(qualityString, encoding);
         int len = Math.Min(sequence.Length, phred.Length);
 
-        // Find first position >= minQuality
-        int start = 0;
-        while (start < len && phred[start] < minQuality)
-            start++;
-
-        // Find last position >= minQuality
-        int end = len - 1;
-        while (end >= start && phred[end] < minQuality)
-            end--;
+        var (start, endExclusive) = FindQualityTrimBounds(phred, len, minQuality);
+        int end = endExclusive - 1;
 
         if (start > end)
         {

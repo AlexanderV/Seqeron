@@ -315,27 +315,15 @@ namespace Seqeron.Genomics.IO
             }
         }
 
-        private static (string Id, string? Description) SplitHeader(string header)
-        {
-            // id = first whitespace-delimited word; description = the remainder of the title
-            // (Biopython: title.split(None, 1)[0] — any whitespace, not only space/tab).
-            for (int i = 0; i < header.Length; i++)
-            {
-                if (char.IsWhiteSpace(header[i]))
-                    return (header.Substring(0, i), header.Substring(i + 1));
-            }
-            return (header, null);
-        }
-
         private static FastaEntry CreateEntry(string header, string sequence)
         {
-            var (id, description) = SplitHeader(header);
+            var (id, description) = SequenceFormatHelper.SplitTitle(header);
             return new FastaEntry(id, description, new DnaSequence(sequence));
         }
 
         private static FastaRecord CreateRecord(string header, string sequence, SequenceAlphabet alphabet)
         {
-            var (id, description) = SplitHeader(header);
+            var (id, description) = SequenceFormatHelper.SplitTitle(header);
             // Lower-case letters are accepted and mapped to upper-case (NCBI/Wikipedia FASTA),
             // matching the DnaSequence/RnaSequence/ProteinSequence constructors.
             string normalized = sequence.ToUpperInvariant();

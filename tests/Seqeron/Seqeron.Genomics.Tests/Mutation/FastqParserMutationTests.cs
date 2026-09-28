@@ -22,11 +22,20 @@ public class FastqParserMutationTests
     }
 
     [Test]
-    public void DetectEncoding_AtThenAboveI_IsPhred64()
+    public void DetectEncoding_AtThenAboveJ_IsPhred64()
     {
-        // '@'(64) is in the ambiguous overlap so parsing continues; 'J'(74) > 'I'(73) ⇒ Phred64.
-        // Kills `c < '@'` → `c <= '@'` (which would early-return Phred33 on the leading '@').
-        DetectEncoding("@J").Should().Be(QualityEncoding.Phred64);
+        // '@'(64) is in the overlap; 'K'(75) is above 'J'(74) = Q41, the Illumina 1.8+ Phred+33 ceiling
+        // (Cock et al. 2010) ⇒ inferred Phred+64 (canonical QualityScoreAnalyzer.DetectEncoding).
+        DetectEncoding("@K").Should().Be(QualityEncoding.Phred64);
+    }
+
+    [Test]
+    public void DetectEncoding_AtThenJ_IsAmbiguousDefaultsPhred33()
+    {
+        // 'J'(74) = Phred+33 Q41 is a legitimate Illumina 1.8+ symbol, so "@J" stays in the overlap
+        // band ASCII 64-74 ⇒ ambiguous ⇒ Phred+33 default (tests run Permissive). Previously the
+        // `c > 'I'` rule mis-called it Phred+64.
+        DetectEncoding("@J").Should().Be(QualityEncoding.Phred33);
     }
 
     [Test]
@@ -66,12 +75,11 @@ public class FastqParserMutationTests
     }
 
     [Test]
-    public void Parse_HeaderWithLeadingSpace_KeepsWholeHeaderAsId()
+    public void Parse_HeaderWithLeadingSpace_IdIsFirstWord()
     {
-        // spaceIndex == 0 ⇒ guard `spaceIndex > 0` is false ⇒ no split (kills `> 0` → `>= 0`,
-        // which would yield an empty Id and shift the description).
+        // Biopython 1.88 SeqIO 'fastq': "@ odd" ⇒ id 'odd' (title.split(None, 1)[0]).
         var rec = Parse("@ odd\nAC\n+\nII\n").Single();
-        rec.Id.Should().Be(" odd");
+        rec.Id.Should().Be("odd");
         rec.Description.Should().Be("");
     }
 
