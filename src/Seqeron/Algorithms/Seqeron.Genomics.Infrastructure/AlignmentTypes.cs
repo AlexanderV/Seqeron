@@ -22,6 +22,16 @@ public enum AlignmentType
 /// <summary>
 /// Result of pairwise sequence alignment.
 /// </summary>
+/// <param name="AlignedSequence1">Aligned (gapped, '-') segment of sequence 1.</param>
+/// <param name="AlignedSequence2">Aligned (gapped, '-') segment of sequence 2.</param>
+/// <param name="Score">Alignment score under the scoring model used.</param>
+/// <param name="AlignmentType">Kind of alignment that produced the result.</param>
+/// <param name="StartPosition1">0-based inclusive start of the aligned segment in sequence 1
+/// (0 for global/semi-global; −1 for a local result with no positive-scoring region).</param>
+/// <param name="StartPosition2">0-based inclusive start of the aligned segment in sequence 2 (see <paramref name="StartPosition1"/>).</param>
+/// <param name="EndPosition1">0-based inclusive end of the aligned segment in sequence 1
+/// (length − 1 for global/semi-global; −1 for an empty local result).</param>
+/// <param name="EndPosition2">0-based inclusive end of the aligned segment in sequence 2 (see <paramref name="EndPosition1"/>).</param>
 public sealed record AlignmentResult(
     string AlignedSequence1,
     string AlignedSequence2,

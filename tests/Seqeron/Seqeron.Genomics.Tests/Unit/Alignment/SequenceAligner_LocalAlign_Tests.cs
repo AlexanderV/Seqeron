@@ -299,11 +299,204 @@ public class SequenceAligner_LocalAlign_Tests
 
     #endregion
 
+    #region Linear SW: tie-breaking and traceback stop (Biopython 1.88 / parasail 1.3.4)
+
+    /// <summary>
+    /// Two equal-scoring occurrences (ACGT at seq1[0..3] and seq1[8..11]): the reported alignment
+    /// ends at the first maximal cell in row-major order, i.e. the first occurrence.
+    /// Biopython local PairwiseAligner lists [0,4) first; parasail sw_trace end_query=3, end_ref=3.
+    /// </summary>
+    [Test]
+    public void LocalAlign_TiedOptima_ReportsFirstRowMajorEnd()
+    {
+        var r = SequenceAligner.LocalAlign("ACGTTTTTACGT", "ACGT", SequenceAligner.SimpleDna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(4));
+            Assert.That((r.AlignedSequence1, r.AlignedSequence2), Is.EqualTo(("ACGT", "ACGT")));
+            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2), Is.EqualTo((0, 3, 0, 3)));
+        });
+    }
+
+    /// <summary>
+    /// Traceback stops at the first zero cell: for ACGTTTTACGT / ACGTACGT under BlastDna (linear
+    /// gap −2) the gapped ACGT---ACGT (8·2 − 3·2 = 10) and the ungapped TACGT (5·2 = 10) tie at the
+    /// same end cell; the path through H = 0 ends there, giving TACGT (seq1[6..10], seq2[3..7]) —
+    /// identical to parasail sw_trace (score 10, end 10/7) and one of Biopython's 4 co-optimal alignments.
+    /// </summary>
+    [Test]
+    public void LocalAlign_TracebackStopsAtFirstZeroCell()
+    {
+        var r = SequenceAligner.LocalAlign("ACGTTTTACGT", "ACGTACGT", SequenceAligner.BlastDna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(10));
+            Assert.That((r.AlignedSequence1, r.AlignedSequence2), Is.EqualTo(("TACGT", "TACGT")));
+            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2), Is.EqualTo((6, 10, 3, 7)));
+        });
+    }
+
+    #endregion
+
+    #region Affine gaps (Smith-Waterman-Gotoh)
+
+    // Convention (same as GlobalAlignAffine): a gap of length k scores GapOpen + k·GapExtend.
+    // Reference values: Biopython 1.88 PairwiseAligner(mode="local", open_gap_score = GapOpen + GapExtend,
+    // extend_gap_score = GapExtend) and parasail 1.3.4 sw_trace(open = -(GapOpen + GapExtend),
+    // extend = -GapExtend); both agree on every value below (and on 3192 random/edge cases).
+
+    /// <summary>
+    /// One 6-residue gap between two 8-mers, HighIdentityDna (5, −4, −10, −1):
+    /// affine 16·5 + (−10 − 6) = 64 (Biopython = parasail = 64), whereas the linear
+    /// LocalAlign charges only 6·(−1) → 74 (Biopython/parasail linear = 74).
+    /// </summary>
+    [Test]
+    public void LocalAlignAffine_LongGap_ChargedOneOpening()
+    {
+        const string s1 = "ACGTACGTAAAAAAACGTACGT";
+        const string s2 = "ACGTACGTACGTACGT";
+
+        var affine = SequenceAligner.LocalAlignAffine(s1, s2, SequenceAligner.HighIdentityDna);
+        var linear = SequenceAligner.LocalAlign(s1, s2, SequenceAligner.HighIdentityDna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(affine.Score, Is.EqualTo(64));
+            Assert.That(affine.AlignmentType, Is.EqualTo(AlignmentType.Local));
+            Assert.That(RecalculateAffineScore(affine.AlignedSequence1, affine.AlignedSequence2, SequenceAligner.HighIdentityDna),
+                Is.EqualTo(64));
+            Assert.That(RemoveGaps(affine.AlignedSequence1), Is.EqualTo(s1.Substring(affine.StartPosition1, affine.EndPosition1 - affine.StartPosition1 + 1)));
+            Assert.That(RemoveGaps(affine.AlignedSequence2), Is.EqualTo(s2.Substring(affine.StartPosition2, affine.EndPosition2 - affine.StartPosition2 + 1)));
+            Assert.That((affine.EndPosition1, affine.EndPosition2), Is.EqualTo((21, 15)), "parasail end_query/end_ref");
+            Assert.That(linear.Score, Is.EqualTo(74));
+        });
+    }
+
+    /// <summary>
+    /// Opening cost makes bridging a gap unprofitable: ACGTACGTTTTTTACGT / ACGTACGTACGT with
+    /// (1, −1, −5, −1) → the ungapped ACGTACGT, score 8, seq1[0..7]/seq2[0..7] (Biopython = parasail).
+    /// </summary>
+    [Test]
+    public void LocalAlignAffine_OpeningCostPreventsBridging()
+    {
+        var r = SequenceAligner.LocalAlignAffine("ACGTACGTTTTTTACGT", "ACGTACGTACGT", new ScoringMatrix(1, -1, -5, -1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(8));
+            Assert.That((r.AlignedSequence1, r.AlignedSequence2), Is.EqualTo(("ACGTACGT", "ACGTACGT")));
+            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2), Is.EqualTo((0, 7, 0, 7)));
+        });
+    }
+
+    /// <summary>
+    /// Reference scores (Biopython = parasail) incl. the local window inside flanking junk:
+    /// GGGACGTTTACGTCCC / TTACGTACGTAA, BlastDna → 12 (TTACGT, seq1[7..12], seq2[0..5]).
+    /// </summary>
+    [TestCase("GGGACGTTTACGTCCC", "TTACGTACGTAA", 2, -3, -5, -2, 12, 7, 12, 0, 5)]
+    [TestCase("ACGTTTTACGT", "ACGTACGT", 2, -3, -5, -2, 10, 6, 10, 3, 7)]
+    public void LocalAlignAffine_ReferenceValues_MatchBiopythonAndParasail(
+        string s1, string s2, int match, int mismatch, int open, int extend,
+        int expectedScore, int start1, int end1, int start2, int end2)
+    {
+        var scoring = new ScoringMatrix(match, mismatch, open, extend);
+        var r = SequenceAligner.LocalAlignAffine(s1, s2, scoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(expectedScore));
+            Assert.That(RecalculateAffineScore(r.AlignedSequence1, r.AlignedSequence2, scoring), Is.EqualTo(expectedScore));
+            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2),
+                Is.EqualTo((start1, end1, start2, end2)));
+        });
+    }
+
+    /// <summary>With GapOpen = 0 the affine model reduces to linear SW: Wikipedia example → 13, GTT-AC / GTTGAC.</summary>
+    [Test]
+    public void LocalAlignAffine_ZeroGapOpen_EqualsLinearSmithWaterman()
+    {
+        var r = SequenceAligner.LocalAlignAffine("TGTTACGG", "GGTTGACTA", WikipediaScoring with { GapOpen = 0 });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(13));
+            Assert.That((r.AlignedSequence1, r.AlignedSequence2), Is.EqualTo(("GTT-AC", "GTTGAC")));
+            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2), Is.EqualTo((1, 5, 1, 6)));
+        });
+    }
+
+    /// <summary>No positive-scoring pair → Score 0, empty strings, all coordinates −1 (same as linear LocalAlign).</summary>
+    [TestCase("AAAA", "TTTT")]
+    [TestCase("", "ACGT")]
+    [TestCase("", "")]
+    public void LocalAlignAffine_NoPositiveRegion_EmptyLocalResult(string s1, string s2)
+    {
+        var r = SequenceAligner.LocalAlignAffine(s1, s2, WikipediaScoring);
+
+        Assert.That(r, Is.EqualTo(new AlignmentResult("", "", 0, AlignmentType.Local, -1, -1, -1, -1)));
+    }
+
+    /// <summary>Tie-breaking: AC / CA (two single-base optima) → first row-major end (seq1[0], seq2[1]), as linear.</summary>
+    [Test]
+    public void LocalAlignAffine_TiedOptima_SameConventionAsLinear()
+    {
+        var affine = SequenceAligner.LocalAlignAffine("AC", "CA", SequenceAligner.SimpleDna);
+        var linear = SequenceAligner.LocalAlign("AC", "CA", SequenceAligner.SimpleDna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(affine, Is.EqualTo(new AlignmentResult("A", "A", 1, AlignmentType.Local, 0, 1, 0, 1)));
+            Assert.That(linear, Is.EqualTo(affine));
+        });
+    }
+
+    [Test]
+    public void LocalAlignAffine_DnaSequenceAndStringOverloads_Agree()
+    {
+        var typed = SequenceAligner.LocalAlignAffine(new DnaSequence("GGGACGTTTACGTCCC"), new DnaSequence("TTACGTACGTAA"), SequenceAligner.BlastDna);
+        var raw = SequenceAligner.LocalAlignAffine("gggacgtttacgtccc", "ttacgtacgtaa", SequenceAligner.BlastDna);
+
+        Assert.That(raw, Is.EqualTo(typed));
+    }
+
+    [Test]
+    public void LocalAlignAffine_NullArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.LocalAlignAffine((DnaSequence)null!, new DnaSequence("ACGT")));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.LocalAlignAffine("ACGT", (string)null!));
+        });
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static string RemoveGaps(string alignedSequence)
     {
         return new string(alignedSequence.Where(c => c != '-').ToArray());
+    }
+
+    /// <summary>Scores an alignment under the affine model (gap run of length k = GapOpen + k·GapExtend).</summary>
+    private static int RecalculateAffineScore(string aligned1, string aligned2, ScoringMatrix scoring)
+    {
+        int score = 0;
+        int gapState = 0; // 0 none, 1 gap in aligned1, 2 gap in aligned2
+        for (int i = 0; i < aligned1.Length; i++)
+        {
+            char a = aligned1[i];
+            char b = aligned2[i];
+            int state = a == '-' ? 1 : b == '-' ? 2 : 0;
+            if (state == 0)
+                score += a == b ? scoring.Match : scoring.Mismatch;
+            else
+                score += (state == gapState ? 0 : scoring.GapOpen) + scoring.GapExtend;
+            gapState = state;
+        }
+        return score;
     }
 
     #endregion

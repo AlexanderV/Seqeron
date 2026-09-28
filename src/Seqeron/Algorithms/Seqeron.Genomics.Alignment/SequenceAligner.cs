@@ -23,8 +23,8 @@ public static class SequenceAligner
     /// NCBI BLAST+ <c>blastn</c>-task default DNA scoring: reward +2, penalty -3, gap existence 5,
     /// gap extension 2 (BLAST+ User Manual, blastn application options). BLAST charges a gap of
     /// length k as existence + k·extension, which is exactly the <see cref="ScoringMatrix"/> convention
-    /// used by <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>
-    /// (GapOpen + k·GapExtend). The linear-gap aligners (<c>GlobalAlign</c>, <c>LocalAlign</c>,
+    /// used by <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> and
+    /// <see cref="LocalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> (GapOpen + k·GapExtend). The linear-gap aligners (<c>GlobalAlign</c>, <c>LocalAlign</c>,
     /// <c>SemiGlobalAlign</c>) use only <see cref="ScoringMatrix.GapExtend"/> (-2 per gap position).
     /// </summary>
     public static readonly ScoringMatrix BlastDna = new(
@@ -270,35 +270,57 @@ public static class SequenceAligner
 
     private static AlignmentResult GlobalAlignAffineCore(string seq1, string seq2, ScoringMatrix scoring)
     {
+        if (seq1.Length == 0 && seq2.Length == 0)
+            return AlignmentResult.Empty;
+
+        return AffineAlignCore(seq1, seq2, scoring, local: false);
+    }
+
+    /// <summary>
+    /// Three-state (Gotoh) affine-gap dynamic program shared by <c>GlobalAlignAffine</c> and
+    /// <c>LocalAlignAffine</c>. o = GapOpen, e = GapExtend; a gap of length k scores o + k·e.
+    /// <list type="bullet">
+    /// <item><b>Global</b>: Flouri et al. (2015) border initialization, traceback from the best of
+    /// M/X/Y at (m, n) to the origin.</item>
+    /// <item><b>Local</b> (Smith-Waterman-Gotoh): every border cell is −∞ and the substitution state
+    /// may start a new alignment from score 0, M(i,j) = max(0, M, X, Y)(i-1,j-1) + s(a_i,b_j) — the
+    /// zero floor of Smith &amp; Waterman (1981) applied to Gotoh's (1982) recurrences. The optimal
+    /// local alignment ends at the first (row-major) cell holding the maximum of M, and the traceback
+    /// stops as soon as the predecessor value is 0.</item>
+    /// </list>
+    /// Traceback ties are broken M &gt; X &gt; Y.
+    /// </summary>
+    private static AlignmentResult AffineAlignCore(string seq1, string seq2, ScoringMatrix scoring, bool local)
+    {
         int m = seq1.Length;
         int n = seq2.Length;
-        if (m == 0 && n == 0)
-            return AlignmentResult.Empty;
 
         int o = scoring.GapOpen;
         int e = scoring.GapExtend;
         int oe = o + e;
+        int startFloor = local ? 0 : AffineNegInf;
 
         var mm = new int[m + 1, n + 1];
         var xx = new int[m + 1, n + 1];
         var yy = new int[m + 1, n + 1];
 
-        mm[0, 0] = 0;
+        mm[0, 0] = local ? AffineNegInf : 0;
         xx[0, 0] = AffineNegInf;
         yy[0, 0] = AffineNegInf;
         for (int i = 1; i <= m; i++)
         {
             mm[i, 0] = AffineNegInf;
-            xx[i, 0] = o + i * e;
+            xx[i, 0] = local ? AffineNegInf : o + i * e;
             yy[i, 0] = AffineNegInf;
         }
         for (int j = 1; j <= n; j++)
         {
             mm[0, j] = AffineNegInf;
             xx[0, j] = AffineNegInf;
-            yy[0, j] = o + j * e;
+            yy[0, j] = local ? AffineNegInf : o + j * e;
         }
 
+        int bestLocal = 0, bestI = 0, bestJ = 0;
         for (int i = 1; i <= m; i++)
         {
             char c1 = seq1[i - 1];
@@ -306,7 +328,7 @@ public static class SequenceAligner
             {
                 int s = c1 == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
 
-                mm[i, j] = Max3(mm[i - 1, j - 1], xx[i - 1, j - 1], yy[i - 1, j - 1]) + s;
+                mm[i, j] = Math.Max(startFloor, Max3(mm[i - 1, j - 1], xx[i - 1, j - 1], yy[i - 1, j - 1])) + s;
                 xx[i, j] = Max3(mm[i - 1, j] + oe, xx[i - 1, j] + e, yy[i - 1, j] + oe);
                 yy[i, j] = Max3(mm[i, j - 1] + oe, yy[i, j - 1] + e, xx[i, j - 1] + oe);
 
@@ -314,64 +336,91 @@ public static class SequenceAligner
                 if (xx[i, j] < AffineNegInf) xx[i, j] = AffineNegInf;
                 if (yy[i, j] < AffineNegInf) yy[i, j] = AffineNegInf;
                 if (mm[i, j] < AffineNegInf) mm[i, j] = AffineNegInf;
+
+                if (local && mm[i, j] > bestLocal)
+                {
+                    bestLocal = mm[i, j];
+                    bestI = i;
+                    bestJ = j;
+                }
             }
         }
 
-        // Optimal end state (ties: M > X > Y).
-        int best = Max3(mm[m, n], xx[m, n], yy[m, n]);
-        byte state = PickState(best, mm[m, n], StateMatch, xx[m, n], StateGapInSeq2, StateGapInSeq1);
+        int best, ci, cj;
+        byte state;
+        if (local)
+        {
+            if (bestLocal == 0)
+                return EmptyLocalResult();
+            best = bestLocal;
+            ci = bestI;
+            cj = bestJ;
+            state = StateMatch;
+        }
+        else
+        {
+            // Optimal end state (ties: M > X > Y).
+            best = Max3(mm[m, n], xx[m, n], yy[m, n]);
+            ci = m;
+            cj = n;
+            state = PickState(best, mm[m, n], StateMatch, xx[m, n], StateGapInSeq2, StateGapInSeq1);
+        }
 
         var chars1 = new List<char>(m + n);
         var chars2 = new List<char>(m + n);
-        int ci = m, cj = n;
         while (ci > 0 || cj > 0)
         {
-            switch (state)
+            if (state == StateMatch)
             {
-                case StateMatch:
-                {
-                    int prev = mm[ci, cj] - (seq1[ci - 1] == seq2[cj - 1] ? scoring.Match : scoring.Mismatch);
-                    chars1.Add(seq1[ci - 1]);
-                    chars2.Add(seq2[cj - 1]);
-                    ci--; cj--;
-                    state = PickState(prev, mm[ci, cj], StateMatch, xx[ci, cj], StateGapInSeq2, StateGapInSeq1);
-                    break;
-                }
-                case StateGapInSeq2:
-                {
-                    int cur = xx[ci, cj];
-                    chars1.Add(seq1[ci - 1]);
-                    chars2.Add('-');
-                    ci--;
-                    if (ci == 0 && cj == 0) break; // leading gap reached the origin
-                    state = PickState(cur, mm[ci, cj] + oe, StateMatch, xx[ci, cj] + e, StateGapInSeq2, StateGapInSeq1);
-                    break;
-                }
-                default: // StateGapInSeq1
-                {
-                    int cur = yy[ci, cj];
-                    chars1.Add('-');
-                    chars2.Add(seq2[cj - 1]);
-                    cj--;
-                    if (ci == 0 && cj == 0) break;
-                    state = PickState(cur, mm[ci, cj] + oe, StateMatch, yy[ci, cj] + e, StateGapInSeq1, StateGapInSeq2);
-                    break;
-                }
+                int prev = mm[ci, cj] - (seq1[ci - 1] == seq2[cj - 1] ? scoring.Match : scoring.Mismatch);
+                chars1.Add(seq1[ci - 1]);
+                chars2.Add(seq2[cj - 1]);
+                ci--; cj--;
+                if (local && prev == 0) break; // Smith-Waterman: the local alignment starts here
+                state = PickState(prev, mm[ci, cj], StateMatch, xx[ci, cj], StateGapInSeq2, StateGapInSeq1);
+            }
+            else if (state == StateGapInSeq2)
+            {
+                int cur = xx[ci, cj];
+                chars1.Add(seq1[ci - 1]);
+                chars2.Add('-');
+                ci--;
+                if (ci == 0 && cj == 0) break; // leading gap reached the origin
+                state = PickState(cur, mm[ci, cj] + oe, StateMatch, xx[ci, cj] + e, StateGapInSeq2, StateGapInSeq1);
+            }
+            else // StateGapInSeq1
+            {
+                int cur = yy[ci, cj];
+                chars1.Add('-');
+                chars2.Add(seq2[cj - 1]);
+                cj--;
+                if (ci == 0 && cj == 0) break;
+                state = PickState(cur, mm[ci, cj] + oe, StateMatch, yy[ci, cj] + e, StateGapInSeq1, StateGapInSeq2);
             }
         }
 
         chars1.Reverse();
         chars2.Reverse();
 
-        return new AlignmentResult(
-            AlignedSequence1: new string(chars1.ToArray()),
-            AlignedSequence2: new string(chars2.ToArray()),
-            Score: best,
-            AlignmentType: AlignmentType.Global,
-            StartPosition1: 0,
-            StartPosition2: 0,
-            EndPosition1: m - 1,
-            EndPosition2: n - 1);
+        return local
+            ? new AlignmentResult(
+                AlignedSequence1: new string(chars1.ToArray()),
+                AlignedSequence2: new string(chars2.ToArray()),
+                Score: best,
+                AlignmentType: AlignmentType.Local,
+                StartPosition1: ci,
+                StartPosition2: cj,
+                EndPosition1: bestI - 1,
+                EndPosition2: bestJ - 1)
+            : new AlignmentResult(
+                AlignedSequence1: new string(chars1.ToArray()),
+                AlignedSequence2: new string(chars2.ToArray()),
+                Score: best,
+                AlignmentType: AlignmentType.Global,
+                StartPosition1: 0,
+                StartPosition2: 0,
+                EndPosition1: m - 1,
+                EndPosition2: n - 1);
     }
 
     private static int Max3(int a, int b, int c) => Math.Max(a, Math.Max(b, c));
@@ -393,6 +442,18 @@ public static class SequenceAligner
     /// Performs local alignment using the Smith-Waterman algorithm.
     /// Finds the best local alignment between subsequences.
     /// </summary>
+    /// <remarks>
+    /// Linear gap model (Smith &amp; Waterman 1981 with W_k = k·d): every gap position scores
+    /// <see cref="ScoringMatrix.GapExtend"/>; <see cref="ScoringMatrix.GapOpen"/> is ignored. For affine
+    /// gap costs (GapOpen + k·GapExtend) use <see cref="LocalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>.
+    /// H(i,j) = max(0, H(i-1,j-1) + s(a_i,b_j), H(i-1,j) + d, H(i,j-1) + d), zero first row/column.
+    /// The reported alignment ends at the first maximal cell in row-major order (smallest end in
+    /// sequence 1, then in sequence 2; parasail instead prefers the smallest end in sequence 2) and the
+    /// traceback (ties: diagonal &gt; up &gt; left) stops at the first zero cell; the result is always one
+    /// of the co-optimal alignments Biopython's local PairwiseAligner enumerates. Start/End positions
+    /// are 0-based inclusive indices of the aligned substrings; with no positive-scoring pair the result
+    /// has Score 0, empty strings and all positions −1.
+    /// </remarks>
     /// <param name="sequence1">First DNA sequence.</param>
     /// <param name="sequence2">Second DNA sequence.</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
@@ -509,6 +570,81 @@ public static class SequenceAligner
             EndPosition1: endI - 1,
             EndPosition2: endJ - 1);
     }
+
+    #endregion
+
+    #region Local Alignment with affine gaps (Smith-Waterman-Gotoh)
+
+    /// <summary>
+    /// Performs optimal local alignment with <b>affine gap costs</b> (Smith-Waterman-Gotoh: the
+    /// Smith &amp; Waterman 1981 zero floor on Gotoh's 1982 three-state recurrences).
+    /// </summary>
+    /// <param name="sequence1">First DNA sequence.</param>
+    /// <param name="sequence2">Second DNA sequence.</param>
+    /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
+    /// <remarks>
+    /// <para>
+    /// Gap-cost convention identical to <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>:
+    /// a gap of length k scores <c>GapOpen + k·GapExtend</c>. Equivalent settings: Biopython
+    /// <c>PairwiseAligner(mode='local', open_gap_score = GapOpen + GapExtend, extend_gap_score = GapExtend)</c>;
+    /// parasail <c>sw(open = -(GapOpen + GapExtend), extend = -GapExtend)</c>; BLAST+
+    /// <c>-gapopen -GapOpen -gapextend -GapExtend</c>. With <c>GapOpen = 0</c> the score equals the
+    /// linear-gap <see cref="LocalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>. Gap scores are
+    /// expected to be non-positive (GapOpen ≤ 0, GapExtend ≤ 0), as in every standard scheme.
+    /// </para>
+    /// <para>
+    /// Recurrences (o = GapOpen, e = GapExtend):
+    /// M(i,j) = max(0, M(i-1,j-1), X(i-1,j-1), Y(i-1,j-1)) + s(a_i,b_j);
+    /// X(i,j) = max(M(i-1,j) + o + e, X(i-1,j) + e, Y(i-1,j) + o + e);
+    /// Y(i,j) = max(M(i,j-1) + o + e, Y(i,j-1) + e, X(i,j-1) + o + e);
+    /// all border cells −∞. Score = max M(i,j). The reported alignment ends at the first maximal cell
+    /// in row-major order (smallest end in sequence 1, then in sequence 2; parasail instead prefers the
+    /// smallest end in sequence 2) and the traceback stops as soon as the predecessor value is 0;
+    /// traceback ties are broken M &gt; X &gt; Y. The result is always one of the co-optimal alignments
+    /// Biopython's local PairwiseAligner enumerates.
+    /// </para>
+    /// <para>
+    /// Coordinates are 0-based inclusive indices into the inputs. When no positive-scoring pair exists,
+    /// the result has <c>Score = 0</c>, empty aligned strings and all coordinates −1 (same as
+    /// <see cref="LocalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>).
+    /// </para>
+    /// <para>Sources: Smith TF, Waterman MS (1981) J Mol Biol 147:195-197; Gotoh O (1982) J Mol Biol
+    /// 162:705-708; cross-checked against Biopython 1.88 PairwiseAligner (local) and parasail 1.3.4 sw_trace.</para>
+    /// </remarks>
+    public static AlignmentResult LocalAlignAffine(
+        DnaSequence sequence1,
+        DnaSequence sequence2,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+
+        return AffineAlignCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, local: true);
+    }
+
+    /// <summary>
+    /// Affine-gap local alignment (Smith-Waterman-Gotoh) on raw sequence strings (uppercased internally).
+    /// See <see cref="LocalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> for the model.
+    /// </summary>
+    public static AlignmentResult LocalAlignAffine(
+        string sequence1,
+        string sequence2,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+
+        return AffineAlignCore(
+            sequence1.ToUpperInvariant(),
+            sequence2.ToUpperInvariant(),
+            scoring ?? SimpleDna,
+            local: true);
+    }
+
+    /// <summary>Local result with no positive-scoring region: empty strings, score 0, coordinates −1
+    /// (the zero-size traceback endpoints, as returned by the linear <c>LocalAlign</c>).</summary>
+    private static AlignmentResult EmptyLocalResult() =>
+        new("", "", 0, AlignmentType.Local, -1, -1, -1, -1);
 
     #endregion
 
