@@ -130,6 +130,26 @@ public class GcSkewCalculator_CalculateAtSkew_Tests
         });
     }
 
+    // R1 — Reference cross-check (Biopython 1.88 Bio.SeqUtils.GC_skew, single window, on the
+    // sequence mapped A→G, T→C, G/C→N, case preserved): a mixed-case 97-mer with N and G/C noise.
+    // Upper-cased counts A=26, T=18 ⇒ (26−18)/(26+18) = 8/44 = 0.18181818181818182 (Biopython output).
+    // Also locks the single-pass shared skew kernel (SEQ-ATSKEW-001 review 2026-09).
+    [Test]
+    public void CalculateAtSkew_MixedCaseWithNoise_MatchesBiopythonReference()
+    {
+        const string seq =
+            "NtgNaTNgAaacgAAcAgAGcacaNgANaCgcTaAgcaCtCtaTcGgGTaTGNgAaGAGGctctGNcCgTaatNCaNgGtcTgcGtaNCaagTTGTC";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(GcSkewCalculator.CalculateAtSkew(seq), Is.EqualTo(8.0 / 44.0).Within(1e-12),
+                "A=26, T=18 (case-insensitive; G/C/N ignored) => 8/44 (Biopython-mapped GC_skew = 0.18181818181818182)");
+            Assert.That(GcSkewCalculator.CalculateAtSkew(new DnaSequence(seq.Replace("N", "").Replace("n", ""))),
+                Is.EqualTo(8.0 / 44.0).Within(1e-12),
+                "DnaSequence overload on the same bases (N removed) gives the same value");
+        });
+    }
+
     #endregion
 
     #region CalculateAtSkew(DnaSequence)

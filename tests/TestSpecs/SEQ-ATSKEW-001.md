@@ -117,7 +117,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `GcSkewCalculator_CalculateAtSkew_Tests.cs` | Canonical (this unit) | 13 |
+| `GcSkewCalculator_CalculateAtSkew_Tests.cs` | Canonical (this unit) | 13 (+R1 Biopython reference cross-check, 2026-09 review) |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -157,6 +157,7 @@
 | S4 | ✅ Covered | `CalculateAtSkew_NullDnaSequence_Throws` |
 | S5 | ✅ Covered | `CalculateAtSkew_AnyInput_StaysWithinBounds` |
 | C1 | ✅ Covered | `CalculateAtSkew_DnaSequenceOverload_MatchesStringOverload` |
+| R1 (2026-09 review) | ✅ Covered | `CalculateAtSkew_MixedCaseWithNoise_MatchesBiopythonReference` — Biopython 1.88 `GC_skew` on A→G/T→C-mapped 97-mer = 0.18181818181818182 (A=26, T=18) |
 
 ---
 

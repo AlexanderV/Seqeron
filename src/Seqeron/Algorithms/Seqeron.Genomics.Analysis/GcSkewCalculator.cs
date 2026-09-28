@@ -31,13 +31,26 @@ public static class GcSkewCalculator
         return CalculateGcSkewCore(sequence.ToUpperInvariant());
     }
 
-    private static double CalculateGcSkewCore(string seq)
-    {
-        int gCount = seq.Count(c => c == 'G');
-        int cCount = seq.Count(c => c == 'C');
-        int total = gCount + cCount;
+    private static double CalculateGcSkewCore(string seq) => CalculateSkewCore(seq, 'G', 'C');
 
-        return total > 0 ? (double)(gCount - cCount) / total : 0;
+    /// <summary>
+    /// Canonical single-pass nucleotide-skew kernel shared by GC skew and AT skew:
+    /// (X − Y) / (X + Y) over the (already upper-cased) sequence, counting only
+    /// <paramref name="plus"/> (X) and <paramref name="minus"/> (Y); every other symbol is ignored.
+    /// Zero denominator (no X and no Y) ⇒ 0, per Biopython <c>GC_skew</c>'s ZeroDivisionError → 0.0.
+    /// GC skew = (G−C)/(G+C), AT skew = (A−T)/(A+T) (Lobry 1996; Charneski et al. 2011).
+    /// </summary>
+    private static double CalculateSkewCore(string seq, char plus, char minus)
+    {
+        int plusCount = 0, minusCount = 0;
+        foreach (char c in seq)
+        {
+            if (c == plus) plusCount++;
+            else if (c == minus) minusCount++;
+        }
+
+        int total = plusCount + minusCount;
+        return total > 0 ? (double)(plusCount - minusCount) / total : 0;
     }
 
     #endregion
@@ -213,16 +226,9 @@ public static class GcSkewCalculator
         return CalculateAtSkewCore(sequence.ToUpperInvariant());
     }
 
-    private static double CalculateAtSkewCore(string seq)
-    {
-        int aCount = seq.Count(c => c == 'A');
-        int tCount = seq.Count(c => c == 'T');
-        int total = aCount + tCount;
-
-        // (A - T) / (A + T); zero denominator (no A and no T) -> 0
-        // per Biopython GC_skew ZeroDivisionError -> 0.0 convention.
-        return total > 0 ? (double)(aCount - tCount) / total : 0;
-    }
+    // (A - T) / (A + T) via the shared skew kernel; zero denominator (no A and no T) -> 0
+    // per Biopython GC_skew ZeroDivisionError -> 0.0 convention.
+    private static double CalculateAtSkewCore(string seq) => CalculateSkewCore(seq, 'A', 'T');
 
     #endregion
 
