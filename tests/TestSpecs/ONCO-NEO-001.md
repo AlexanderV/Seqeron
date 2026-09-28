@@ -5,7 +5,7 @@
 **Algorithm:** Neoantigen Candidate Peptide Window Generation (somatic missense mutation)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -56,7 +56,7 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-1 | Every returned peptide has `Length` in `[minLength, maxLength]` and 8–11 by default | Yes | Hundal (2020) |
+| INV-1 | Every returned peptide has `Length` in `[minLength, maxLength]` and 8–14 by default | Yes | Hundal (2020) |
 | INV-2 | Every peptide spans the mutation: `0 ≤ MutationOffset < Length` and `StartPosition + MutationOffset == mutationPosition` | Yes | Li (2020) |
 | INV-3 | `MutantPeptide` and `WildTypePeptide` have equal length and differ at exactly one index — the `MutationOffset` | Yes | Wells (2020); Hundal (2020) |
 | INV-4 | `MutantPeptide[MutationOffset]` == mutant residue; `WildTypePeptide[MutationOffset]` == original wild-type residue | Yes | Wells (2020) |
@@ -74,12 +74,16 @@ Protein `MKTAYIAKQRSTVWLNDEFGH` (L=21), missense `Y5C` unless stated.
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
 | M1 | Interior k=9 window count | One length, interior mutation | exactly 9 windows? No — p=5 is < k−1 from start, so 5 windows; start positions 1..5; each spans position 5 | Li (2020) windowing |
-| M2 | Default range total | k=8..11, Y5C | 20 peptides total (5 per length) | Hundal (2020) 8–11; Li (2020) |
+| M2 | Default range total | k=8..14 (default), Y5C | 35 peptides total (5 per length) | NetMHCpan-4.1 8–14; Li (2020) |
 | M3 | Mutant/WT pairing | First 8-mer window | mutant `MKTACIAK`, WT `MKTAYIAK`, offset 4, differ only at index 4 (C vs Y) | Wells (2020); Hundal (2020) |
 | M4 | All windows span mutation | every peptide in default result | `StartPosition + MutationOffset == 5`; `MutantPeptide[offset]=='C'`, `WildTypePeptide[offset]=='Y'` | Li (2020); Wells (2020) |
 | M5 | Fully interior k=9 count | mutation `V10A` (p=10) so ≥ k−1 from both ends, k=9 | exactly 9 windows of length 9 | Li (2020); INV-5 |
 | M6 | Terminal mutation truncation | `M1V` (p=1), k=9 | exactly 1 window: mutant `VKTAYIAKQ`, WT `MKTAYIAKQ`, start 1, offset 0 | ProGeo-neo "if possible" |
 | M7 | C-terminal mutation | `H21R` (p=21), k=8 | exactly 1 window ending at 21: start 14, mutant ends `…NDEFGR`, offset 7 | ProGeo-neo "if possible" |
+
+| R1 | pVACseq cross-check, C-terminal clamp | `E18K`, k=9 | starts 10–13; MT `RSTVWLNDK`,`STVWLNDKF`,`TVWLNDKFG`,`VWLNDKFGH`; WT with E | pVACtools source (fasta_generator/output_parser) |
+| R2 | pVACseq default lengths | `Y5C`, maxLength 11 | 20 peptides | pVACtools `--class-i-epitope-length 8,9,10,11` |
+| R3 | Stop-gain | `Y5*`, `V13*` (k=9), `H21*` (k=8) | empty result | pVACtools fasta_generator stop truncation |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -165,7 +169,7 @@ Protein `MKTAYIAKQRSTVWLNDEFGH` (L=21), missense `Y5C` unless stated.
 | Area / Test Case ID | Status | Resolution |
 |---------------------|--------|------------|
 | M1 | ✅ | window count + start positions asserted |
-| M2 | ✅ | total = 20 asserted |
+| M2 | ✅ | total = 35 asserted (default 8–14) |
 | M3 | ✅ | exact mutant/WT strings + offset |
 | M4 | ✅ | property over all peptides |
 | M5 | ✅ | interior k=9 → 9 windows |

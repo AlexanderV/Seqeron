@@ -58,17 +58,32 @@ public static partial class OncologyAnalyzer
     /// <para>
     /// Binding affinity / IC50 is NOT computed here — that requires a trained MHC-binding model. The bundled
     /// <see cref="MhcflurryAffinityPredictor"/> port scores any window of length 8–15 (with caller-supplied
-    /// weights); the default upper bound here is 14, matching the NetMHCpan-4.1 class I peptide window.
+    /// weights); the default upper bound here is 14, matching the NetMHCpan-4.1 class I peptide window
+    /// (pVACseq's own default <c>--class-i-epitope-length</c> is 8,9,10,11 — pass <c>maxLength: 11</c> to
+    /// reproduce it).
+    /// </para>
+    /// <para>
+    /// Cross-checked against pVACseq (griffithlab/pVACtools <c>fasta_generator.py</c> + <c>output_parser.py</c>):
+    /// for each length k pVACseq builds a (2k−1)-residue window with k−1 flanks around the substitution
+    /// (clamped to the protein ends), tiles every k-mer, and reports only the k-mers whose mutant sequence
+    /// differs from the wild-type k-mer at the same position — exactly the spanning windows emitted here.
+    /// Not reproduced: pVACseq's variant-level drop when <i>every</i> mutant k-mer of its local window already
+    /// occurs in the local wild-type window (possible only in low-complexity repeats); self-similarity
+    /// filtering is left to downstream steps.
     /// </para>
     /// </summary>
     /// <param name="wildTypeProtein">The wild-type (reference) protein sequence (one-letter amino-acid codes).</param>
-    /// <param name="mutantResidue">The substituted (mutant) amino acid (one-letter code).</param>
+    /// <param name="mutantResidue">The substituted (mutant) amino acid (one-letter code); <c>'*'</c> denotes a
+    /// stop-gain and yields no peptides.</param>
     /// <param name="mutationPosition">1-based position of the substituted residue within the protein.</param>
     /// <param name="minLength">Minimum peptide length (default <see cref="MhcClassIMinPeptideLength"/>).</param>
     /// <param name="maxLength">Maximum peptide length (default <see cref="MhcClassIMaxPeptideLength"/>).</param>
     /// <returns>
-    /// All candidate peptides, ordered by length ascending then by start position ascending. Empty only if no
-    /// window of any requested length fits within the protein bounds while spanning the mutation.
+    /// All candidate peptides, ordered by length ascending then by start position ascending. Empty if no
+    /// window of any requested length fits within the protein bounds while spanning the mutation, or if
+    /// <paramref name="mutantResidue"/> is the stop symbol <c>'*'</c> (a stop-gain/nonsense substitution
+    /// truncates the protein before the mutated position, so no novel peptide spans it — pVACseq
+    /// <c>fasta_generator.py</c> truncates the mutant sequence at the stop and skips the variant).
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="wildTypeProtein"/> is null.</exception>
     /// <exception cref="ArgumentException">
@@ -119,6 +134,18 @@ public static partial class OncologyAnalyzer
             throw new ArgumentException(
                 $"Mutant residue '{mutantResidue}' equals the wild-type residue at position {mutationPosition}; " +
                 "a missense mutation requires a different amino acid.", nameof(mutantResidue));
+        }
+
+        // Stop-gain (nonsense) substitution: translation terminates AT the mutated codon, so the mutant
+        // protein is the wild-type prefix P[1..p-1] and no residue exists at the mutation position — no window
+        // can span it and every mutant k-mer is already a wild-type (self) k-mer. pVACseq reproduces exactly
+        // this: its FastaGenerator truncates the mutant subsequence at the '*' ("stop_codon_added": mutant =
+        // wildtype[:mutation_start] + mutant_aa.split('*')[0]) and then skips the variant because
+        // "This variant does not result in any novel epitopes" (griffithlab/pVACtools,
+        // pvactools/lib/fasta_generator.py). Result: zero candidate peptides — never windows carrying '*'.
+        if (mutantResidue == StopCodonSymbol)
+        {
+            return Array.Empty<NeoantigenPeptide>();
         }
 
         // The mutant protein differs from the wild type only at the substituted residue.

@@ -25,9 +25,9 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     s ∈ [max(0, p0−k+1), min(p0, L−k)] must clip to the protein bounds so NO window starts before 0 or
 ///     runs past L. The hazard is a negative start or a start+k > L feeding Substring → crash. The contract
 ///     is a TRUNCATED count of fully-valid windows (§2.2, §6.1).
-///   • STOP-GAIN: a nonsense substitution to the stop sentinel '*'. The unit treats sequences as opaque
-///     one-letter codes (no alphabet validation, §3.3) → '*' is a normal substituted residue; the windows
-///     still tile correctly and carry '*' at the mutation offset. No crash, no special-casing collapse.
+///   • STOP-GAIN: a nonsense substitution to the stop symbol '*'. Translation ends at the mutated codon, so
+///     no window can span the substitution → EMPTY result (pVACseq fasta_generator.py truncates at '*' and
+///     skips the variant). No crash, and never a window carrying '*'.
 ///   • NON-CODING / no-protein-consequence context: a mutation that yields NO full window — e.g. a protein
 ///     shorter than every requested length, or a single-residue range that fits no k-mer. The documented
 ///     result is an EMPTY list (§3.3 "if no length yields a window the result is empty"), never a throw,
@@ -44,7 +44,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     Targets (checklist row 109): "mutation at protein terminus, stop-gain, non-coding, length&lt;8".
 /// — docs/checklists/03_FUZZING.md §Description (strategy codes).
 /// Target mapping: "mutation at protein terminus" = mutationPosition 1 or L (clip the start range);
-/// "stop-gain" = substitution to '*' (premature stop, opaque-code handling, no crash on truncation);
+/// "stop-gain" = substitution to '*' (premature stop ⇒ empty result, no crash on truncation);
 /// "non-coding" = a mutation with no full-length peptide consequence ⇒ empty result; "length&lt;8" =
 /// a peptide/protein context shorter than the requested length k ⇒ that length skipped (k &gt; L guard),
 /// no negative-length Substring.
@@ -310,16 +310,17 @@ public sealed class OncologyNeoantigenFuzzTests
 
     #endregion
 
-    #region ONCO-NEO-001 — MC: stop-gain (substitution to '*', opaque one-letter code, no special collapse)
+    #region ONCO-NEO-001 — MC: stop-gain (substitution to '*' ⇒ empty result, pVACseq truncation)
 
     [Test]
     [CancelAfter(30_000)]
-    public void GenerateNeoantigenPeptides_StopGainSubstitution_TilesNormally_NoCrash()
+    public void GenerateNeoantigenPeptides_StopGainSubstitution_YieldsNoPeptides_NoCrash()
     {
-        // Stop-gain: the mutant residue is the stop sentinel '*'. §3.3: sequences are opaque one-letter codes
-        // with NO alphabet validation; '*' is treated as any other substituted residue. The windows must
-        // still tile correctly and carry '*' at the mutation offset — no crash on the "truncation", no
-        // silent collapse to an empty set.
+        // Stop-gain: the mutant residue is the stop symbol '*'. Translation terminates at the mutated codon,
+        // so the mutant protein is the WT prefix and no window can carry the substitution. pVACseq
+        // (pvactools/lib/fasta_generator.py) truncates the mutant subsequence at '*' and skips the variant
+        // ("does not result in any novel epitopes") → the documented result is an EMPTY list at every
+        // position (terminal or interior), never a throw and never a window containing '*'.
         var rng = new Random(109_003);
         for (int trial = 0; trial < 200; trial++)
         {
@@ -331,17 +332,11 @@ public sealed class OncologyNeoantigenFuzzTests
             }
             string wt = new(chars);
             int pos = rng.Next(1, proteinLength + 1);
-            // WT residue is from AminoAcids (never '*'), so '*' is always a genuine substitution.
+            // WT residue is from AminoAcids (never '*'), so '*' is always a genuine (nonsense) substitution.
 
             var act = () => GenerateNeoantigenPeptides(wt, '*', pos);
-            act.Should().NotThrow("stop-gain '*' is an opaque substitution, no crash (§3.3)");
-            var peptides = act();
-
-            AssertWellFormedPeptides(peptides, wt, '*', pos, 8, 14);
-            foreach (var p in peptides)
-            {
-                p.MutantPeptide[p.MutationOffset].Should().Be('*', "stop-gain residue carried at the offset");
-            }
+            act.Should().NotThrow("stop-gain is a valid variant with no spanning peptide");
+            act().Should().BeEmpty("stop-gain truncates the protein before the mutation (pVACseq: 0 epitopes)");
         }
     }
 
