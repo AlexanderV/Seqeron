@@ -57,16 +57,17 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     final partial codon must be ignored, NEVER an IndexOutOfRangeException.
 ///     Sequence_Optimization.md §6.1 ("Incomplete final codon → Trimmed away").
 ///   • a sequence shorter than one codon (length &lt; 3) → SplitIntoCodons yields
-///     ZERO codons (the loop guard is `i + 2 < length`, CodonOptimizer.cs lines
-///     687–695) → an empty optimized sequence and empty protein; no codon is ever
-///     indexed out of range.
-///   • a codon that is NOT in the standard genetic code (because it contains a
-///     non-DNA character, or any symbol other than A/C/G/U) → TranslateCodon
-///     returns the sentinel "X" (GetValueOrDefault default, CodonOptimizer.cs
-///     line 699), NOT a KeyNotFoundException. SelectOptimalCodon then finds no
-///     synonymous set for "X" and returns the codon UNCHANGED (lines 323–324).
-///     So non-DNA input is carried through verbatim — never a crash, never a
-///     KeyNotFound, and never a wrong-length result.
+///     ZERO codons (the loop guard is `i + 2 < length`) → an empty optimized
+///     sequence and empty protein; no codon is ever indexed out of range.
+///   • codons are translated with the canonical GeneticCode.Standard (review
+///     2026-09, CODON-OPT-001 F21 — the private table / TranslateCodon are gone):
+///     an IUPAC-ambiguous codon is resolved per Biopython (GCN → A, UAR → *,
+///     NNN → X) and, when it resolves to a unique amino acid, may be replaced by
+///     a synonymous codon; a triplet containing a non-IUPAC symbol (digit, gap,
+///     unicode, …) cannot be translated (TryTranslateCodon → false, reported as
+///     'X') and is carried through UNCHANGED, as is any codon whose residue has no
+///     unique synonymous family (X, B, Z, J). So malformed input never crashes,
+///     never throws KeyNotFound, and never yields a wrong-length result.
 ///
 /// KEY INVARIANT (INV-01, Sequence_Optimization.md §2.4): the optimized sequence
 /// encodes the SAME protein as the (normalized, trimmed) input — replacement
@@ -97,11 +98,13 @@ public class CodonFuzzTests
 
     /// <summary>
     /// The standard genetic code (RNA codon → one-letter amino acid, '*' = stop),
-    /// mirroring CodonOptimizer's internal table. Used to INDEPENDENTLY translate
-    /// a sequence so the protein-preservation invariant (INV-01) can be checked
-    /// against the optimizer's output without relying on the optimizer itself.
-    /// Unknown / malformed codons map to the sentinel "X" (matching
-    /// CodonOptimizer.TranslateCodon's GetValueOrDefault default).
+    /// NCBI table 1 written out independently of the library. Used to INDEPENDENTLY
+    /// translate a sequence so the protein-preservation invariant (INV-01) can be
+    /// checked against the optimizer's output without relying on the optimizer itself.
+    /// Any triplet that is not one of the 64 ACGU codons (malformed symbols, and here
+    /// also the fully ambiguous NNN) maps to "X"; the inputs of this suite never carry a
+    /// partially ambiguous codon that Biopython would resolve (e.g. GCN → A) — those are
+    /// covered by CodonProperties.Optimizer_AllStrategies_PreserveProteinIncludingIupac_AndAreDeterministic.
     /// </summary>
     private static readonly Dictionary<string, string> StandardGeneticCode = new()
     {
@@ -311,11 +314,11 @@ public class CodonFuzzTests
 
     /// <summary>
     /// MC: non-DNA characters embedded in a length-multiple-of-3 sequence form
-    /// codons that are NOT in the standard genetic code. The optimizer must map
-    /// each such codon to the sentinel "X" (TranslateCodon's GetValueOrDefault
-    /// default, CodonOptimizer.cs line 699) — NEVER a KeyNotFoundException — and,
-    /// finding no synonymous set for "X", leave that codon UNCHANGED
-    /// (SelectOptimalCodon lines 323–324). So the malformed codons pass through
+    /// codons that are NOT in the standard genetic code. The optimizer must report
+    /// each such codon as 'X' (non-IUPAC triplet: TryTranslateCodon fails; NNN:
+    /// GeneticCode.Standard resolves it to 'X' per Biopython) — NEVER a
+    /// KeyNotFoundException — and, finding no synonymous family for 'X', leave that
+    /// codon UNCHANGED. So the malformed codons pass through
     /// verbatim, the recognizable codons may be optimized, and the protein over
     /// the WHOLE sequence is still preserved (INV-01). Covers digits, gap, an
     /// embedded null byte, the ambiguity code N, and unicode (Greek, astral
@@ -706,8 +709,10 @@ public class CodonFuzzTests
     ///   • input length NOT divisible by 3 → SplitIntoCodons drops the trailing
     ///     partial codon (loop guard `i + 2 &lt; length`, lines 687–695); a leftover
     ///     1–2 bases must be IGNORED, never cause an IndexOutOfRangeException.
-    ///   • an unknown / non-standard codon → frequency defaults to 0 (flagged when
-    ///     threshold &gt; 0) and translates to the sentinel `X`; never a
+    ///   • a triplet containing an ambiguity code or a non-nucleotide symbol is
+    ///     SKIPPED without shifting the frame (review 2026-09, CODON-RARE-001 F19;
+    ///     EMBOSS ajCodSetTripletsS) — it is never reported as rare; a valid ACGU
+    ///     codon absent from the table still has frequency 0. Never a
     ///     KeyNotFoundException. Rare_Codon_Detection.md §6.1.
     ///
     /// KEY THEORY INVARIANTS this suite pins directly (Rare_Codon_Detection.md §2.4):
@@ -720,8 +725,9 @@ public class CodonFuzzTests
     ///     EColiK12 table and asserts set-equality, not just count.
     ///
     /// THRESHOLD EXTREMES (verified against the EColiK12 table):
-    ///   • threshold = 0 → no frequency can be &lt; 0 (frequencies are ≥ 0, and even
-    ///     unknown codons default to exactly 0, which is NOT &lt; 0) → NONE flagged.
+    ///   • threshold = 0 → no frequency can be &lt; 0 (frequencies are ≥ 0; codons
+    ///     absent from the table have exactly 0, which is NOT &lt; 0, and malformed
+    ///     triplets are skipped altogether) → NONE flagged.
     ///   • threshold = 1 → every codon with frequency &lt; 1 is flagged. In EColiK12
     ///     only AUG (Met) and UGG (Trp) have frequency EXACTLY 1.00, so by the strict
     ///     `<` they are NEVER flagged even at threshold 1; every other codon IS
@@ -884,12 +890,10 @@ public class CodonFuzzTests
 
     /// <summary>
     /// BE (threshold = 0): the lower extreme of the [0,1] cutoff. No frequency can
-    /// be strictly &lt; 0 — frequencies are non-negative, and even an unknown codon
-    /// defaults to EXACTLY 0, which is not &lt; 0 — so NONE is flagged, regardless of
-    /// how rare the input is. This pins the documented strict-comparison boundary
-    /// (Rare_Codon_Detection.md §3.3, §6.1: unknown codons are flagged only when
-    /// threshold &gt; 0). Exercised on the all-rare sequence AND a non-coding (unknown,
-    /// freq-0) sequence to prove even freq-0 codons escape at threshold 0.
+    /// be strictly &lt; 0 — frequencies are non-negative — so NONE is flagged,
+    /// regardless of how rare the input is (Rare_Codon_Detection.md §3.3, §6.1).
+    /// Exercised on the all-rare sequence AND a non-coding sequence (its non-nucleotide
+    /// triplets are skipped since review 2026-09 F19, so it can never be flagged).
     /// </summary>
     [TestCase("AGGAGACGA", TestName = "FindRareCodons_Threshold0_AllRareSeq_FlagsNothing")]
     [TestCase("ZZZQQQJJJ", TestName = "FindRareCodons_Threshold0_UnknownFreq0Codons_FlagsNothing")]
