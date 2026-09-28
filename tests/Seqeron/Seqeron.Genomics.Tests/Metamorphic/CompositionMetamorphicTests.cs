@@ -570,12 +570,13 @@ public class CompositionMetamorphicTests
     //                      ONLY A/C/G/T (SequenceExtensions.cs).
     //   • IUPAC validity: IupacDnaSequence.IsValid() (inherited SequenceBase.IsValid,
     //                    ISequence.cs) — tests each char against IupacDnaSequence.Alphabet,
-    //                    the IUPAC superset {A,C,G,T,U,N,R,Y,W,S,K,M,B,D,H,V,-,.}.
-    //   ADAPTATION (documented): there is no separate case-insensitive IsValidIupac
-    //   helper, and IupacDnaSequence.Alphabet is UPPERCASE-only, so IupacDnaSequence
-    //   .IsValid() is case-SENSITIVE. The COMP subset relation is therefore evaluated
-    //   on canonical UPPERCASE spellings (the relation "valid DNA ⊂ valid IUPAC" is a
-    //   statement over the alphabets, independent of casing). The case-INVARIANCE
+    //                    the IUPAC superset {A,C,G,T,U,N,R,Y,W,S,K,M,B,D,H,V,-,.}; and
+    //                    (since review B01 F2) SequenceExtensions.IsValidIupacDna — the 15
+    //                    NC-IUB codes, ASCII case-insensitive.
+    //   Note (B01 F3): the SequenceBase ctor upper-cases ASCII letters only, so
+    //   IupacDnaSequence.IsValid() is ASCII-case-insensitive (non-ASCII such as 'ſ' is
+    //   rejected). The COMP subset relation is evaluated on canonical UPPERCASE spellings
+    //   and additionally on the original spelling via IsValidIupacDna. The case-INVARIANCE
     //   relation is tested separately against the case-insensitive IsValidDna API.
 
     #region SEQ-VALID-001 — sequence validation
@@ -617,9 +618,9 @@ public class CompositionMetamorphicTests
     /// MR15: every DNA-valid string is also IUPAC-valid (subset direction).
     /// The IUPAC alphabet is a superset of {A,C,G,T}, so a string that validates as
     /// DNA must validate as IUPAC. Verified across many fixed and fixed-seed-random
-    /// DNA strings. Validity is evaluated on canonical UPPERCASE spellings because
-    /// IupacDnaSequence.IsValid() is case-sensitive (see file note); the subset
-    /// relation is a statement over alphabets and holds regardless of casing.
+    /// DNA strings. Validity is evaluated on canonical UPPERCASE spellings (see file
+    /// note) and on the original spelling via IsValidIupacDna; the subset relation is
+    /// a statement over alphabets and holds regardless of casing.
     /// </summary>
     [Test]
     public void Validity_EveryDnaValidString_IsAlsoIupacValid_Subset()
@@ -638,6 +639,8 @@ public class CompositionMetamorphicTests
 
             new IupacDnaSequence(canonical).IsValid().Should().BeTrue(
                 because: $"the IUPAC alphabet is a superset of {{A,C,G,T}}, so DNA-valid '{s}' must also be IUPAC-valid");
+            s.AsSpan().IsValidIupacDna().Should().BeTrue(
+                because: $"IsValidIupacDna accepts {{A,C,G,T}} in any ASCII case, so DNA-valid '{s}' must be IUPAC-valid");
         }
     }
 
