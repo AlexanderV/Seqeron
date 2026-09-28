@@ -296,16 +296,19 @@ public class OncologyAnalyzer_CopyNumberClassification_Tests
     }
 
     // E6 — the integer copy number ceil(2*2^log2) exceeds Int32 for log2 >= 30 (CNVkit: 2^31 = 2147483648)
-    // and is infinite for log2 = +Infinity (CNVkit int(np.ceil(inf)) raises OverflowError). The call must
-    // not silently wrap to a negative copy number (which would violate INV-3 and be mislabelled Gain).
-    [TestCase(30.0, TestName = "CallCopyNumber_Log2Thirty_ExceedsInt32_Throws")]
-    [TestCase(double.PositiveInfinity, TestName = "CallCopyNumber_PositiveInfinityLog2_Throws")]
-    public void CallCopyNumber_UnrepresentableCopyNumber_Throws(double log2)
+    // and is infinite for log2 = +Infinity (CNVkit int(np.ceil(inf)) raises OverflowError). The int-valued call
+    // saturates at Int32.MaxValue: CN >= 0 (INV-3) and state Amplification — never a wrapped negative value.
+    [TestCase(30.0, TestName = "CallCopyNumber_Log2Thirty_ExceedsInt32_Saturates")]
+    [TestCase(1024.0, TestName = "CallCopyNumber_Log2OverflowsDouble_Saturates")]
+    [TestCase(double.PositiveInfinity, TestName = "CallCopyNumber_PositiveInfinityLog2_Saturates")]
+    public void CallCopyNumber_UnrepresentableCopyNumber_SaturatesAtInt32Max(double log2)
     {
+        var call = OncologyAnalyzer.ClassifyCopyNumber(log2);
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CallCopyNumber(log2));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyCopyNumber(log2));
+            Assert.That(OncologyAnalyzer.CallCopyNumber(log2), Is.EqualTo(int.MaxValue));
+            Assert.That(call.IntegerCopyNumber, Is.EqualTo(int.MaxValue));
+            Assert.That(call.State, Is.EqualTo(CopyNumberState.Amplification));
         });
     }
 

@@ -71,7 +71,7 @@ The integer copy number maps to a CNA state: `CN 0 → DeepDeletion`, `CN 1 → 
 
 ### 3.3 Preconditions and Validation
 
-`thresholds` must be exactly four strictly ascending non-NaN values (else `ArgumentException`); `ploidy` must be finite and positive (else `ArgumentOutOfRangeException`); the batch enumerable must not be null (else `ArgumentNullException`). A NaN log2 ratio is a no-call and returns the neutral reference copy number (ploidy rounded half-to-even, as numpy `round` in CNVkit `do_call`; diploid → 2 → Neutral) [2]. If `⌈ploidy·2^v⌉` exceeds `Int32.MaxValue` (diploid v ≥ 30, or v = +∞) an `ArgumentOutOfRangeException` is thrown rather than wrapping to a negative copy number (CNVkit raises `OverflowError` for +∞) [2]. Threshold comparison is inclusive (`v ≤ tᵢ`), so a value exactly on a cutoff is assigned the lower state of the bin.
+`thresholds` must be exactly four strictly ascending non-NaN values (else `ArgumentException`); `ploidy` must be finite and positive (else `ArgumentOutOfRangeException`); the batch enumerable must not be null (else `ArgumentNullException`). A NaN log2 ratio is a no-call and returns the neutral reference copy number (ploidy rounded half-to-even, as numpy `round` in CNVkit `do_call`; diploid → 2 → Neutral) [2]. If `⌈ploidy·2^v⌉` exceeds `Int32.MaxValue` (diploid v ≥ 30, or v = +∞) the result saturates at `Int32.MaxValue` (Amplification) rather than wrapping to a negative copy number (CNVkit raises `OverflowError` for +∞) [2]. Threshold comparison is inclusive (`v ≤ tᵢ`), so a value exactly on a cutoff is assigned the lower state of the bin.
 
 ## 4. Algorithm
 
@@ -80,7 +80,7 @@ The integer copy number maps to a CNA state: `CN 0 → DeepDeletion`, `CN 1 → 
 1. Validate thresholds (four ascending) and ploidy (> 0).
 2. If log2 ratio is NaN, return neutral (ploidy rounded half-to-even).
 3. Otherwise scan cutoffs ascending; return the index of the first cutoff with `log2 ≤ cutoff`.
-4. If no cutoff matched, return `⌈ploidy · 2^log2⌉` (throw if it exceeds Int32).
+4. If no cutoff matched, return `⌈ploidy · 2^log2⌉` (saturated at Int32.MaxValue).
 5. Map the integer copy number to a CNA state.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables
@@ -153,7 +153,7 @@ This unit is the oncology classification layer. SV-CNV-001 (`StructuralVariantAn
 | thresholds null | default (−1.1, −0.25, 0.2, 0.7) | documented default [2] |
 | empty batch | empty result | per-element map |
 | log2 = −∞ | DeepDeletion, CN 0, absolute 0 | below every cutoff [2] |
-| log2 ≥ 30 (diploid) or +∞ | `ArgumentOutOfRangeException` | CN exceeds Int32; CNVkit `OverflowError` for +∞ [2] |
+| log2 ≥ 30 (diploid) or +∞ | `Int32.MaxValue`, Amplification | CN exceeds Int32; CNVkit `OverflowError` for +∞ [2] |
 | NaN log2, ploidy 2.5 | CN 2 | numpy round-half-to-even in `do_call` [2] |
 
 ### 6.2 Limitations

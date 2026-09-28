@@ -84,7 +84,7 @@
 ### From CNVkit `cnvlib/call.py`
 
 1. **NaN log2 ratio:** treated as a no-call and replaced with the neutral reference copy number (diploid → CN 2, Neutral); a non-integer ploidy is rounded half-to-even by `do_call` (2.5 → 2).
-4. **Integer overflow:** for log2 ≥ 30 (diploid) `ceil(2·2^log2)` exceeds Int32; CNVkit uses unbounded Python ints and raises `OverflowError` only for +∞. Seqeron's int-valued API throws `ArgumentOutOfRangeException` instead of wrapping to a negative CN.
+4. **Integer overflow:** for log2 ≥ 30 (diploid) `ceil(2·2^log2)` exceeds Int32; CNVkit uses unbounded Python ints and raises `OverflowError` only for +∞. Seqeron's int-valued API saturates explicitly at `Int32.MaxValue` (Amplification) instead of wrapping to a negative CN.
 2. **Boundary inclusivity:** the comparison is `log2 <= thresh`, so a value exactly on a threshold is assigned the LOWER copy-number state of the bin (e.g. log2 = −1.1 → CN 0; log2 = 0.7 → CN 3).
 3. **Above the last threshold:** copy number is `ceil(2 · 2^log2)`, NOT a fixed value, so high amplifications get progressively larger integer CN (the AMP class).
 

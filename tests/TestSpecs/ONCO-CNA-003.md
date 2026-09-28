@@ -5,7 +5,7 @@
 **Algorithm:** Homozygous (Deep) Deletion Detection
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -99,6 +99,9 @@
 | C3 | Invalid segment | ArmLength ≤ 0 or End ≤ Start | ArgumentException | mirror ValidateArmSegment |
 | C4 | Null deletions to mapper | null | ArgumentNullException | mirror IdentifyAmplifiedOncogenes |
 | C5 | NaN log2 no-call | log2 = NaN | NOT reported (neutral no-call, CN = ploidy) | CNVkit NaN → neutral |
+| C8 | Extreme amplification log2 | log2 = 40 (CNVkit CN 2199023255552), +∞, double.MaxValue | NOT homozygous, no exception (while `CallCopyNumber` saturates at Int32.MaxValue) | CNVkit `absolute_threshold` ceil branch (CN ≥ 4) |
+| C9 | Stream with ±∞ / huge log2 | [+∞, −2, 40, −∞] | only the −2 and −∞ segments, in order | CNVkit (−∞ ≤ every cutoff ⇒ CN 0) |
+| C10 | Eager parameter validation | empty segments with 3 thresholds / NaN ploidy | ArgumentException / ArgumentOutOfRangeException | sibling DetectFocalAmplifications |
 
 ---
 
@@ -182,6 +185,9 @@
 | C3 | ✅ Covered | DetectHomozygousDeletions_InvalidSegment_Throws |
 | C4 | ✅ Covered | IdentifyDeletedTumorSuppressors_NullInput_Throws |
 | C5 | ✅ Covered | DetectHomozygousDeletions_NaNLog2_NotReported |
+| C8 | ✅ Covered | IsHomozygousDeletion_Log2BeyondInt32CopyNumber_IsFalse_WhileCallCopyNumberSaturates |
+| C9 | ✅ Covered | DetectHomozygousDeletions_StreamWithExtremeAmplifications_ReportsOnlyCn0 |
+| C10 | ✅ Covered | DetectHomozygousDeletions_EmptyInputWithInvalidParameters_Throws |
 
 ---
 

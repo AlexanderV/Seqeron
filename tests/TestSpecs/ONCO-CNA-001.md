@@ -36,7 +36,7 @@
 - NaN log2 ratio: no-call → neutral reference copy number (CN 2) (CNVkit `absolute_threshold`).
 - Above last threshold: CN grows as `ceil(2·2^log2)`, not a fixed value (CNVkit `absolute_threshold`).
 - NaN log2 with non-integer ploidy: CN = ploidy rounded half-to-even (numpy `round` in `do_call`).
-- Unrepresentable CN: `ceil(ploidy·2^log2) > Int32.MaxValue` (diploid log2 ≥ 30) or log2 = +∞ → `ArgumentOutOfRangeException` (CNVkit: `OverflowError` for +∞); never a wrapped negative CN.
+- Unrepresentable CN: `ceil(ploidy·2^log2) > Int32.MaxValue` (diploid log2 ≥ 30) or log2 = +∞ → saturates at `Int32.MaxValue`, state Amplification (CNVkit: `OverflowError` for +∞); never a wrapped negative CN.
 - log2 = −∞ (zero depth): below every cutoff → CN 0, DeepDeletion, absolute 0.
 
 ### 1.4 Known Failure Modes / Pitfalls
@@ -116,7 +116,7 @@
 | E3 | Non-ascending thresholds | thresholds not strictly ascending | ArgumentException | bins must be ordered |
 | E4 | Non-positive ploidy | ploidy ≤ 0 | ArgumentOutOfRangeException | n = ploidy·2^log2 needs ploidy > 0 |
 | E5 | Null batch | ClassifyCopyNumbers(null) | ArgumentNullException | input validation |
-| E6 | CN overflow | log2 = 30 (2·2^30 = 2^31) and log2 = +∞ | ArgumentOutOfRangeException (not a wrapped negative CN) | CNVkit `int(np.ceil(inf))` → OverflowError; Int32 range |
+| E6 | CN overflow | log2 = 30 (2·2^30 = 2^31), 1024 and log2 = +∞ | CN = Int32.MaxValue, Amplification (not a wrapped negative CN) | CNVkit `int(np.ceil(inf))` → OverflowError; Int32 range |
 | E7 | Non-finite ploidy | ploidy = NaN / +∞ | ArgumentOutOfRangeException | n = ploidy·2^log2 needs finite ploidy |
 
 ---
@@ -188,7 +188,7 @@
 
 Total in-scope cases: 22. ✅: 22.
 
-**2026-09 review (campaign 2026-09, B24):** added S4–S7, E6, E7 (tests `CallCopyNumber_TriploidReference_MatchesCnvkit`, `CallCopyNumber_NaNNonIntegerPloidy_RoundsHalfToEven`, `CallCopyNumber_VeryHighLog2WithinInt32_MatchesReference`, `CallCopyNumber_UnrepresentableCopyNumber_Throws`, `ClassifyCopyNumber_NegativeInfinityLog2_IsDeepDeletion`, `Log2RatioToCopyNumber_NonFinitePloidy_Throws`); fixes: Int32 overflow guard, half-to-even NaN no-call rounding, finite-ploidy validation.
+**2026-09 review (campaign 2026-09, B24):** added S4–S7, E6, E7 (tests `CallCopyNumber_TriploidReference_MatchesCnvkit`, `CallCopyNumber_NaNNonIntegerPloidy_RoundsHalfToEven`, `CallCopyNumber_VeryHighLog2WithinInt32_MatchesReference`, `CallCopyNumber_UnrepresentableCopyNumber_SaturatesAtInt32Max`, `ClassifyCopyNumber_NegativeInfinityLog2_IsDeepDeletion`, `Log2RatioToCopyNumber_NonFinitePloidy_Throws`); fixes: explicit Int32 saturation (contract made explicit; .NET 9+ casts already saturate, so no wrap was observable), half-to-even NaN no-call rounding, finite-ploidy validation.
 
 ---
 
