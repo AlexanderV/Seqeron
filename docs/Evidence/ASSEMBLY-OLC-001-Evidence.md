@@ -151,6 +151,34 @@ Each adjacent pair shares a length-5 suffix-prefix overlap; merging along the ch
 
 ---
 
+## 2026-09 review
+
+**Sources actually opened / consulted:** Langmead `overlap`/`pick_maximal_overlap`/`greedy_scs`
+Python (Coursera "Algorithms for DNA Sequencing"), opened at
+`https://raw.githubusercontent.com/kywertheim/Greedy_shortest_common_superstring/main/main.py`;
+Biopython 1.79 `dumb_consensus` source
+(`https://raw.githubusercontent.com/biopython/biopython/biopython-179/Bio/Align/AlignInfo.py`);
+WebSearch snippets for Blum et al. 1994 (J ACM 41:630, GREEDY merges max-overlap pairs), for
+the overlap-graph form of GREEDY ("order edges non-increasingly … pick e if it shares no head or
+tail with a previously picked edge and is not cycle-closing", arXiv 2111.03968 / 1707.07727),
+and Myers 2005 (Bioinformatics 21 Suppl 2:ii79: contained reads deleted from the graph).
+Primary PDFs (jhu.edu, oup.com, arxiv.org, cwi.nl) were blocked by the egress proxy.
+
+**Reference values** (scratch `ref_olc.py`: Langmead greedy_scs list-of-contigs variant + an
+independent edge-GREEDY/containment/dumb_consensus(0.5, 'N') implementation; both agree):
+
+| Reads | l | id | Reference contigs | Pre-fix code |
+|---|---|---|---|---|
+| 6-mers of GTACGTACGAT | 4 | 1.0 | `GTACGTACGAT` | 5 contigs (cycle → 4 unmerged singletons + `GTACGAT`) |
+| AAAAACCCCC ×2, CCCCCGGGGG | 5 | 1.0 | `AAAAACCCCCGGGGG` | 2-cycle → reads left unmerged |
+| TTTTCATGCA, GGGGGATGCA, CATGCAAAAA, TGCACCCCCC | 4 | 1.0 | `TTTTCATGCAAAAA`, `GGGGGATGCACCCCCC` | 3 contigs |
+| AAAAACCCCC, CCCCCGGGGG, GGGGGTTTTT, CCCGG | 3 | 1.0 | `AAAAACCCCCGGGGGTTTTT` | + spurious `CCCGG` |
+| ACGTTGCTAC, TGCAACGGAT, GCAACGGATT | 5 | 0.8 | `ACGTTGCAACGGATT` (majority A) | `ACGTTGCTACGGATT` |
+| ACGTTGCTAC, TGCAACGGAT | 5 | 0.8 | `ACGTTGCNACGGAT` (tie → N) | `ACGTTGCTACGGAT` |
+
 ## Change History
+
+- **2026-09-28**: 2026-09 review — GREEDY layout (degree + no-cycle), containment removal,
+  majority-vote consensus, threshold validation, documented default parameters.
 
 - **2026-06-13**: Initial documentation.

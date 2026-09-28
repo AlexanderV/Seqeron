@@ -328,4 +328,144 @@ public class SequenceAssembler_AssembleOLC_Tests
     }
 
     #endregion
+
+    #region 2026-09 review — GREEDY layout, containment, consensus, threshold validation
+
+    // Reference values below were produced by the Langmead greedy_scs code (Coursera
+    // "Algorithms for DNA Sequencing", mirrored in kywertheim/Greedy_shortest_common_superstring
+    // main.py; list-of-contigs variant) and an independent edge-GREEDY + Biopython 1.79
+    // dumb_consensus re-implementation (scratch ref_olc.py); both agree on every exact case.
+
+    private static SequenceAssembler.AssemblyParameters Exact(int minOverlap) =>
+        new(MinOverlap: minOverlap, MinIdentity: 1.0, MinContigLength: 1);
+
+    // F1 — GREEDY must not close a cycle. The GTACGTACGAT 6-mers' best successors form the cycle
+    // GTACGT→TACGTA→ACGTAC→CGTACG→GTACGT; GREEDY (Blum et al. 1994) rejects the cycle-closing
+    // edge and takes CGTACG→GTACGA instead, spelling the whole genome. greedy_scs(k=4) → ["GTACGTACGAT"].
+    [Test]
+    public void AssembleOLC_GtacgtacgatSixMers_GreedyRejectsCycle_ReconstructsGenome()
+    {
+        var result = SequenceAssembler.AssembleOLC(GtacgtacgatSixMers.ToList(), Exact(4));
+
+        Assert.That(result.Contigs, Is.EqualTo(new[] { "GTACGTACGAT" }),
+            "GREEDY layout of the 6-mers (l = 4) reconstructs GTACGTACGAT (Langmead greedy_scs reference).");
+    }
+
+    // F1 — An edge whose head already has a predecessor is skipped, so the tail can take its
+    // next-best successor: TTTTCATGCA→CATGCAAAAA (6) wins; GGGGGATGCA→CATGCAAAAA (5) is rejected and
+    // GGGGGATGCA→TGCACCCCCC (4) is taken. greedy_scs(k=4) → 2 contigs.
+    [Test]
+    public void AssembleOLC_TakenHead_TailUsesNextBestSuccessor()
+    {
+        var reads = new List<string> { "TTTTCATGCA", "GGGGGATGCA", "CATGCAAAAA", "TGCACCCCCC" };
+
+        var result = SequenceAssembler.AssembleOLC(reads, Exact(4));
+
+        Assert.That(result.Contigs.OrderBy(c => c, StringComparer.Ordinal),
+            Is.EqualTo(new[] { "GGGGGATGCACCCCCC", "TTTTCATGCAAAAA" }),
+            "GREEDY takes the 4-overlap GGGGGATGCA→TGCACCCCCC once CATGCAAAAA already has a predecessor.");
+    }
+
+    // F1/F2 — Duplicate reads (mutual full-length overlaps) must not create a 2-cycle that drops them
+    // out of the layout. greedy_scs(k=5) → ["AAAAACCCCCGGGGG"].
+    [Test]
+    public void AssembleOLC_DuplicateReads_AssembleIntoOneContig()
+    {
+        var reads = new List<string> { "AAAAACCCCC", "AAAAACCCCC", "CCCCCGGGGG" };
+
+        var result = SequenceAssembler.AssembleOLC(reads, Exact(5));
+
+        Assert.That(result.Contigs, Is.EqualTo(new[] { "AAAAACCCCCGGGGG" }),
+            "An identical copy is contained in its twin and is removed before layout.");
+    }
+
+    // F2 — A read contained in another read is removed from the overlap graph (Myers 2005) and does
+    // not become a spurious extra contig. greedy_scs on the substring-free set (k=3) → 1 contig.
+    [Test]
+    public void AssembleOLC_ContainedRead_DoesNotProduceExtraContig()
+    {
+        var reads = new List<string> { "AAAAACCCCC", "CCCCCGGGGG", "GGGGGTTTTT", "CCCGG" };
+
+        var result = SequenceAssembler.AssembleOLC(reads, Exact(3));
+
+        Assert.That(result.Contigs, Is.EqualTo(new[] { "AAAAACCCCCGGGGGTTTTT" }),
+            "CCCGG is a substring of CCCCCGGGGG; it is placed inside it, not emitted separately.");
+    }
+
+    // F3 — Consensus is the per-column majority vote over the layout (Langmead OLC p.28), not the
+    // first read's bases. ACGTTGCTAC has an error (T) at column 7; the two other reads covering that
+    // column carry A. Edges at l=5, identity 0.8: TGCAACGGAT→GCAACGGATT 9, ACGTTGCTAC→TGCAACGGAT 6
+    // (5/6). Reference (edge-GREEDY + dumb_consensus 0.5): ACGTTGCAACGGATT.
+    [Test]
+    public void AssembleOLC_MismatchInOverlap_ResolvedByMajorityVote()
+    {
+        var reads = new List<string> { "ACGTTGCTAC", "TGCAACGGAT", "GCAACGGATT" };
+
+        var result = SequenceAssembler.AssembleOLC(reads,
+            new SequenceAssembler.AssemblyParameters(MinOverlap: 5, MinIdentity: 0.8, MinContigLength: 1));
+
+        Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGTTGCAACGGATT" }),
+            "Column 7 is T,A,A → majority A.");
+    }
+
+    // F3 — A 1:1 disagreement has no majority: dumb_consensus emits the ambiguity symbol ('N').
+    [Test]
+    public void AssembleOLC_TwoReadTieInOverlap_EmitsAmbiguitySymbol()
+    {
+        var reads = new List<string> { "ACGTTGCTAC", "TGCAACGGAT" };
+
+        var result = SequenceAssembler.AssembleOLC(reads,
+            new SequenceAssembler.AssemblyParameters(MinOverlap: 5, MinIdentity: 0.8, MinContigLength: 1));
+
+        Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGTTGCNACGGAT" }),
+            "Column 7 is T vs A (tie) → 'N' (Biopython dumb_consensus rule).");
+    }
+
+    // F4 — A zero-length "overlap" is no overlap (overlap graph edges need length ≥ l ≥ 1);
+    // identity is a fraction in [0, 1].
+    [TestCase(0, 0.9)]
+    [TestCase(-1, 0.9)]
+    [TestCase(5, -0.1)]
+    [TestCase(5, 1.1)]
+    [TestCase(5, double.NaN)]
+    public void OverlapThresholds_OutOfRange_Throw(int minOverlap, double minIdentity)
+    {
+        var reads = new List<string> { "AAAAACCCCC", "CCCCCGGGGG" };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => SequenceAssembler.FindOverlap(reads[0], reads[1], minOverlap, minIdentity),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceAssembler.FindAllOverlaps(reads, minOverlap, minIdentity),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceAssembler.FindAllOverlaps(reads, minOverlap, minIdentity, CancellationToken.None),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceAssembler.AssembleOLC(reads,
+                    new SequenceAssembler.AssemblyParameters(MinOverlap: minOverlap, MinIdentity: minIdentity)),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    // F5 — Omitting parameters must apply the documented defaults (MinOverlap 20, MinIdentity 0.9,
+    // MinContigLength 100). Previously `new AssemblyParameters()` zero-initialised the record struct
+    // (MinOverlap 0) and every pair was chained by a 0-length "overlap". Two 120-base reads sharing
+    // only a 10-base suffix-prefix overlap (< 20) must therefore stay separate.
+    [Test]
+    public void AssembleOLC_NoParameters_UsesDocumentedDefaults()
+    {
+        string a = new string('A', 110) + "CGTCGTCGTC";
+        string b = "CGTCGTCGTC" + new string('T', 110);
+
+        var result = SequenceAssembler.AssembleOLC(new List<string> { a, b });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.DefaultParameters,
+                Is.EqualTo(new SequenceAssembler.AssemblyParameters(20, 0.9, 31, 100)));
+            Assert.That(result.Contigs.OrderBy(c => c, StringComparer.Ordinal), Is.EqualTo(new[] { a, b }),
+                "A 10-base overlap is below the default MinOverlap 20: no merge.");
+        });
+    }
+
+    #endregion
 }

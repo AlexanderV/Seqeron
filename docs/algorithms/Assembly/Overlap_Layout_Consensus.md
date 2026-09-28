@@ -7,8 +7,8 @@
 | Algorithm Group | Assembly |
 | Test Unit ID | ASSEMBLY-OLC-001 |
 | Related Projects | Seqeron.Genomics.Alignment |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-13 |
+| Implementation Status | Heuristic (GREEDY layout; exact layout is NP-complete) |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -111,19 +111,36 @@ is accepted only if identity ≥ `minIdentity`.
 1. **Overlap:** for every ordered pair (i, j), i ≠ j, find the longest suffix-of-read[i] /
    prefix-of-read[j] match of length ≥ `MinOverlap` and identity ≥ `MinIdentity`; record it
    as a weighted edge (`FindAllOverlaps` / `FindOverlap`).
-2. **Layout:** sort edges by descending overlap length; assign each read its best (longest)
-   successor; reads with no incoming best-edge are chain starts. Walk each chain, merging
-   `successor[overlap:]` onto the growing contig (greedy chaining; `BuildContigsFromOverlaps`).
-3. **Consensus / emit:** the merged superstring of each chain is the contig; unused reads
-   become singleton contigs. Discard contigs shorter than `MinContigLength`, then compute
-   statistics (N50, total length, longest).
+0. **Containment:** a read `j` is *contained* in read `i` when `i` dominates it (longer, or
+   equal length and lower index — identical copies keep the first) and some length-|j| window
+   of `i` has identity ≥ `MinIdentity` (and |j| ≥ `MinOverlap`). Contained reads are removed
+   from the overlap graph (Myers 2005) and later placed at their offset inside the container.
+1. (Overlap step above, on the substring-free reads.)
+2. **Layout — GREEDY** (Blum, Jiang, Li, Tromp & Yannakakis 1994): scan edges in
+   non-increasing overlap order (ties: lower `ReadIndex1`, then lower `ReadIndex2`); take
+   edge i → j iff i has no successor yet, j has no predecessor yet, and the edge does not
+   close a cycle (union-find). Each resulting path, from a read with no predecessor, is one
+   contig. This equals Langmead's `greedy_scs` (repeatedly merge the pair with maximal
+   overlap) on a substring-free read set.
+3. **Consensus:** reads are placed at ungapped column offsets
+   (`offset(next) = offset(cur) + |cur| − overlap`; contained reads at container offset +
+   window position). A one-read contig is the read verbatim; otherwise each column is resolved
+   by majority vote via `SequenceAssembler.ComputeConsensus` (Biopython `dumb_consensus`
+   rule, threshold 0.5; a column without a strict majority → `N`; residues upper-cased)
+   [2 (p.28)]. Discard contigs shorter than `MinContigLength`, then compute statistics.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 - Edge weight = overlap length (no scoring matrix; no penalties). The only thresholds are
   the caller-supplied `MinOverlap` (`l`) and `MinIdentity` [2 (p.5, p.10)].
-- Layout tie-break: edges processed in descending overlap length; the first best successor
-  recorded per read wins (greedy).
+- Layout tie-break: edges processed in descending overlap length, then ascending
+  (`ReadIndex1`, `ReadIndex2`); an edge is taken only if it keeps the layout a set of
+  vertex-disjoint paths (out-degree ≤ 1, in-degree ≤ 1, acyclic).
+- Identity over a window = `(L − Hamming)/L`, Hamming from the canonical
+  `SequenceExtensions.HammingDistance` (PAT-APPROX-001), case-insensitive.
+- `MinOverlap < 1` or `MinIdentity ∉ [0, 1]` → `ArgumentOutOfRangeException` (a 0-length
+  "overlap" is no overlap). Omitted parameters → `SequenceAssembler.DefaultParameters`
+  (20 / 0.9 / 31 / 100).
 - No biological constants are involved; there are no fixed numeric tables in the OLC path.
 
 ### 4.3 Complexity
@@ -154,10 +171,12 @@ is accepted only if identity ≥ `minIdentity`.
   exact suffix-tree method is faster but the all-pairs scan "is more flexible, allowing
   mismatches" [2 (p.16)]. The all-pairs O(N²) scan is therefore used. A future exact-match
   fast path could front the suffix tree for the `MinIdentity == 1.0` case.
-- The layout is a **greedy best-successor chaining** rather than full transitive reduction
-  + Hamiltonian search; this resolves unambiguous chains exactly but does not optimally
-  resolve repeats (see 5.3).
-- Overlap matching is case-insensitive; `Position2` is always 0.
+- The layout is the **GREEDY** superstring heuristic (degree + no-cycle constraints) rather
+  than transitive reduction + Hamiltonian search; it resolves unambiguous chains exactly but
+  does not optimally resolve repeats (see 5.3).
+- Contained reads (incl. duplicate reads) are removed before layout and used only for consensus.
+- Overlap matching is case-insensitive; `Position2` is always 0. Multi-read contigs are
+  upper-case consensus strings; single-read contigs are the read verbatim.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -169,8 +188,8 @@ is accepted only if identity ≥ `minIdentity`.
 
 **Intentionally simplified:**
 
-- Layout uses greedy best-successor chaining instead of full transitive-edge reduction + Hamiltonian-path search; **consequence:** repeat-containing inputs may be split or mis-resolved rather than optimally laid out (exact layout is NP-complete) [1][2 (p.21–25)].
-- Consensus is realized as concatenation along the chain (the merged superstring), not a per-column majority vote over a multiple read pile-up; **consequence:** for exact-overlap chains the result is identical to the majority-vote consensus, but mismatch resolution within an accepted overlap is not performed [2 (p.28)].
+- Layout uses the GREEDY heuristic instead of an exact Hamiltonian-path search (NP-complete [1]); **consequence:** repeat-containing inputs may be split or mis-resolved rather than optimally laid out; GREEDY is a 4-approximation of the shortest superstring (Blum et al. 1994) [3 (p.57)].
+- Consensus is an ungapped per-column majority vote (overlaps are Hamming/ungapped, so indels inside an overlap are not modelled).
 
 **Not implemented:**
 
@@ -244,8 +263,23 @@ and the practical limit noted in §6.2 (not suited to datasets of hundreds of mi
 - Tests: [SequenceAssembler_AssembleOLC_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_AssembleOLC_Tests.cs) — covers `INV-01`–`INV-05`, `ASM-02`.
 - Evidence: [ASSEMBLY-OLC-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-OLC-001-Evidence.md)
 
+### 7.4 2026-09 review
+
+Defects fixed (ASSEMBLY-OLC-001, campaign 2026-09): (F1) the layout picked each read's single
+best successor with no in-degree or cycle check — reads whose best successors formed a cycle
+(e.g. the GTACGTACGAT 6-mers, or duplicate reads) fell out of the layout as unmerged
+singletons, and a read whose best head was taken never used its next-best successor;
+(F2) contained reads produced spurious extra contigs; (F3) consensus kept the first read's
+bases instead of the majority; (F4) `MinOverlap ≤ 0` created 0-length edges chaining every
+read; (F5) `AssembleOLC(reads)` without parameters ran with zero-initialised parameters
+(MinOverlap 0, MinIdentity 0, MinContigLength 0) instead of 20/0.9/100. Reference: Langmead
+`greedy_scs` (Coursera code, mirrored in kywertheim/Greedy_shortest_common_superstring) →
+GTACGTACGAT 6-mers at k=4 → `GTACGTACGAT`.
+
 ## 8. References
 
 1. Compeau PEC, Pevzner PA, Tesler G. 2011. How to apply de Bruijn graphs to genome assembly. *Nature Biotechnology* 29(11):987–991. https://doi.org/10.1038/nbt.2023
 2. Langmead B. Overlap Layout Consensus assembly (lecture notes, Johns Hopkins University). https://www.cs.jhu.edu/~langmea/resources/lecture_notes/assembly_olc.pdf
 3. Langmead B. Assembly & Shortest Common Superstring (lecture notes, Johns Hopkins University). https://www.cs.jhu.edu/~langmea/resources/lecture_notes/16_assembly_scs_v2.pdf
+4. Blum A, Jiang T, Li M, Tromp J, Yannakakis M. 1994. Linear approximation of shortest superstrings. *J ACM* 41(4):630–647. https://doi.org/10.1145/179812.179818
+5. Myers EW. 2005. The fragment assembly string graph. *Bioinformatics* 21(Suppl 2):ii79–ii85. https://doi.org/10.1093/bioinformatics/bti1114
