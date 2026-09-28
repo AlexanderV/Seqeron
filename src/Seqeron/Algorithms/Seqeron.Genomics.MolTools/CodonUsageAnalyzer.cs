@@ -525,104 +525,112 @@ public static class CodonUsageAnalyzer
     #region Codon Usage Statistics
 
     /// <summary>
-    /// Gets comprehensive codon usage statistics.
+    /// Gets codon usage statistics under the Standard genetic code (NCBI table 1).
+    /// See <see cref="GetStatistics(string, GeneticCode)"/>.
     /// </summary>
-    public static CodonUsageStatistics GetStatistics(DnaSequence sequence)
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static CodonUsageStatistics GetStatistics(DnaSequence sequence) =>
+        GetStatistics(sequence, GeneticCode.Standard);
+
+    /// <summary>
+    /// Gets codon usage statistics under the given genetic code.
+    /// See <see cref="GetStatistics(string, GeneticCode)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static CodonUsageStatistics GetStatistics(DnaSequence sequence, GeneticCode code)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return GetStatisticsCore(sequence.Sequence);
+        ArgumentNullException.ThrowIfNull(code);
+        return GetStatisticsCore(CountCodonsCore(sequence.Sequence), code);
     }
 
     /// <summary>
-    /// Gets codon usage statistics from a raw sequence string.
+    /// Gets codon usage statistics under the Standard genetic code (NCBI table 1).
+    /// See <see cref="GetStatistics(string, GeneticCode)"/>.
     /// </summary>
-    public static CodonUsageStatistics GetStatistics(string sequence)
+    public static CodonUsageStatistics GetStatistics(string sequence) =>
+        GetStatistics(sequence, GeneticCode.Standard);
+
+    /// <summary>
+    /// Gets codon usage statistics of a coding sequence (frame 0): codon counts, RSCU, ENC,
+    /// total codons, GC at codon positions 1/2/3 and GC3s.
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><c>TotalCodons</c>, <c>Gc1</c>/<c>Gc2</c>/<c>Gc3</c> (percent) are taken over every
+    /// valid in-frame codon, termination codons included — EMBOSS <c>cusp</c>
+    /// (ajcod.c <c>ajCodWrite</c>: "1st/2nd/3rd letter GC" over all 64 codons / CodonCount);
+    /// <c>OverallGc</c> = (GC1+GC2+GC3)/3 is cusp's "Coding GC". (CodonW <c>-gc</c>/GC1-3
+    /// exclude stop codons, so they differ from these values exactly when the gene contains
+    /// stop codons.)</item>
+    /// <item><c>Gc3s</c> (percent) = G+C at the third position of synonymous codons, i.e. codons
+    /// whose amino acid has more than one codon in <paramref name="code"/>, termination codons
+    /// excluded ("excluding Met, Trp and termination codons" in the Standard code; Peden 1999
+    /// §1.8.2.1.3; CodonW 1.4.4 <c>gc_out</c>, genetic-code dependent via <c>how_synon</c>).
+    /// CodonW reports the same quantity as a fraction. 0 when there is no synonymous codon.</item>
+    /// <item><c>Rscu</c> and <c>Enc</c> use <paramref name="code"/>; see
+    /// <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode)"/> and
+    /// <see cref="CalculateEnc(string, GeneticCode)"/>.</item>
+    /// <item>Input is case-insensitive DNA or RNA (U read as T); triplets containing any other
+    /// symbol are skipped without shifting the frame; a trailing partial triplet is ignored.
+    /// Null/empty input returns all-zero statistics with empty tables.</item>
+    /// </list>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
+    public static CodonUsageStatistics GetStatistics(string sequence, GeneticCode code)
     {
+        ArgumentNullException.ThrowIfNull(code);
         if (string.IsNullOrEmpty(sequence))
             return new CodonUsageStatistics(
                 new Dictionary<string, int>(),
                 new Dictionary<string, double>(),
                 0, 0, 0, 0, 0, 0);
 
-        return GetStatisticsCore(NormalizeCodingSequence(sequence));
+        return GetStatisticsCore(CountCodonsCore(NormalizeCodingSequence(sequence)), code);
     }
 
-    private static CodonUsageStatistics GetStatisticsCore(string seq)
+    private static CodonUsageStatistics GetStatisticsCore(Dictionary<string, int> counts, GeneticCode code)
     {
-        var counts = CountCodonsCore(seq);
-        var rscu = CalculateRscu(counts, GeneticCode.Standard);
-        double enc = CalculateEncCore(counts, GeneticCode.Standard);
+        var rscu = CalculateRscu(counts, code);
+        double enc = CalculateEncCore(counts, code);
 
-        int totalCodons = counts.Values.Sum();
+        // Synonymous codons of this code: members of a sense family with more than one codon
+        // (CodonW how_synon: ds[codon] > 1 and not a stop).
+        var synonymous = new HashSet<string>(
+            code.CodonTable
+                .GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T'))
+                .Where(family => family.Key != '*' && family.Count() > 1)
+                .SelectMany(family => family));
 
-        // GC content at codon positions 1/2/3 over all valid codons (EMBOSS cusp:
-        // "1st/2nd/3rd letter GC"). Reported as a percentage of valid codons.
-        int gc1 = 0, gc2 = 0, gc3 = 0;
-        int positionCount = 0;
-
-        // GC3s: frequency of G/C at the THIRD position of *synonymous* codons, i.e.
-        // excluding Met, Trp and termination codons (Peden 1999, CodonW thesis §1.8.2.1.3:
-        // "the frequency of G or C nucleotides present at the third position of synonymous
-        // codons (i.e. excluding Met, Trp and termination codons)").
-        int gc3sCount = 0;          // numerator: synonymous codons with G/C at position 3
-        int synonymousCodonCount = 0; // denominator: codons at synonymous third positions
-
-        for (int i = 0; i + 3 <= seq.Length; i += 3)
+        long totalCodons = 0, gc1 = 0, gc2 = 0, gc3 = 0, synonymousCodons = 0, gc3s = 0;
+        foreach (var (codon, n) in counts)
         {
-            string codon = seq.Substring(i, 3);
-            if (IsValidCodon(codon))
-            {
-                gc1 += IsGC(codon[0]) ? 1 : 0;
-                gc2 += IsGC(codon[1]) ? 1 : 0;
-                gc3 += IsGC(codon[2]) ? 1 : 0;
-                positionCount++;
+            totalCodons += n;
+            if (IsGC(codon[0])) gc1 += n;
+            if (IsGC(codon[1])) gc2 += n;
+            if (IsGC(codon[2])) gc3 += n;
 
-                if (IsSynonymousAtThirdPosition(codon))
-                {
-                    synonymousCodonCount++;
-                    gc3sCount += IsGC(codon[2]) ? 1 : 0;
-                }
+            if (synonymous.Contains(codon))
+            {
+                synonymousCodons += n;
+                if (IsGC(codon[2])) gc3s += n;
             }
         }
 
-        double gc1Percent = positionCount > 0 ? (double)gc1 / positionCount * 100 : 0;
-        double gc2Percent = positionCount > 0 ? (double)gc2 / positionCount * 100 : 0;
-        double gc3Percent = positionCount > 0 ? (double)gc3 / positionCount * 100 : 0;
-        // GC3s expressed as a percentage for consistency with GC1/GC2/GC3 above
-        // (CodonW reports it as a fraction in [0,1]).
-        double gc3s = synonymousCodonCount > 0 ? (double)gc3sCount / synonymousCodonCount * 100 : 0;
+        static double Percent(long part, long whole) => whole > 0 ? 100.0 * part / whole : 0;
 
         return new CodonUsageStatistics(
             CodonCounts: counts,
             Rscu: rscu,
             Enc: enc,
-            TotalCodons: totalCodons,
-            Gc1: gc1Percent,
-            Gc2: gc2Percent,
-            Gc3: gc3Percent,
-            Gc3s: gc3s);
+            TotalCodons: (int)totalCodons,
+            Gc1: Percent(gc1, totalCodons),
+            Gc2: Percent(gc2, totalCodons),
+            Gc3: Percent(gc3, totalCodons),
+            Gc3s: Percent(gc3s, synonymousCodons));
     }
 
     private static bool IsGC(char c) => c is 'G' or 'C';
-
-    // A codon is "synonymous at the third position" iff its amino acid has more than one
-    // codon (degeneracy > 1). This excludes Met (ATG), Trp (TGG) and the three stop codons,
-    // exactly the set CodonW omits from GC3s (Peden 1999, §1.8.2.1.3).
-    private static bool IsSynonymousAtThirdPosition(string codon)
-    {
-        if (!CodonToAminoAcid.TryGetValue(codon, out char aa) || aa == '*')
-            return false;
-        return CodonToAminoAcid.Count(kv => kv.Value == aa) > 1;
-    }
-
-    #endregion
-
-    #region Codon Table
-
-    // Standard genetic code (NCBI table 1) in DNA spelling, derived from the canonical
-    // GeneticCode (no private copy of the code).
-    private static readonly IReadOnlyDictionary<string, char> CodonToAminoAcid =
-        GeneticCode.Standard.CodonTable.ToDictionary(kv => kv.Key.Replace('U', 'T'), kv => kv.Value);
 
     #endregion
 }

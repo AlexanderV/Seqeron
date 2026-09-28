@@ -6,7 +6,7 @@
 | Test Unit ID | CODON-STATS-001 |
 | Related Projects | Seqeron.Genomics.MolTools |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -23,8 +23,8 @@ The genetic code is degenerate: most amino acids are encoded by several synonymo
 - **Codon counts:** the number of occurrences of each in-frame ACGT codon.
 - **RSCU** (Sharp, Tuohy & Mosurski 1986): for codon j of an amino acid with n synonymous codons, `RSCU_j = x_j / ((1/n) Σ_k x_k) = n·x_j / Σ_k x_k` [8].
 - **ENC** (Wright 1990): the effective number of codons, 20 ≤ ENC ≤ 61 [9] (see the dedicated [Effective_Number_of_Codons](Effective_Number_of_Codons.md) doc).
-- **GC1/GC2/GC3:** the fraction (here ×100) of in-frame codons with G or C at codon position 1, 2, 3 respectively ("1st/2nd/3rd letter GC") [5].
-- **GC3s:** "the frequency of G or C nucleotides present at the third position of synonymous codons (i.e. excluding Met, Trp and termination codons)" — it counts only codons whose amino acid has more than one codon [2].
+- **GC1/GC2/GC3:** the fraction (here ×100) of in-frame codons with G or C at codon position 1, 2, 3 respectively ("1st/2nd/3rd letter GC"), over all valid codons including termination codons, as EMBOSS `cusp` (`ajcod.c`) [5]. CodonW's GC/GC1-3 exclude stop codons, so the two differ only for genes containing stops.
+- **GC3s:** "the frequency of G or C nucleotides present at the third position of synonymous codons (i.e. excluding Met, Trp and termination codons)" — it counts only codons whose amino acid has more than one codon **in the selected genetic code** (CodonW 1.4.4 `gc_out`/`how_synon`, `-code`) [2].
 - **CAI** (Sharp & Li 1987): relative adaptiveness `w_i = f_i / max(f_j)` over a codon's synonymous family in a reference set; `CAI = (∏_{i=1}^{L} w_i)^{1/L} = exp[(1/L) Σ ln w_i]`. Non-synonymous (single-codon Met, Trp) and termination codons are excluded [1][3][4].
 
 ### 2.3 Modeling Assumptions
@@ -40,7 +40,7 @@ The genetic code is degenerate: most amino acids are encoded by several synonymo
 |----|-----------|---------------|
 | INV-01 | `0 ≤ CAI ≤ 1` | geometric mean of `w_i ∈ [0,1]` [1] |
 | INV-02 | CAI of an all-optimal sequence = 1 | every codon equals its family's w-max (w=1) [1] |
-| INV-03 | GC3s excludes Met (ATG), Trp (TGG) and stop codons | definition in Peden §1.8.2.1.3 [2] |
+| INV-03 | GC3s excludes stop codons and single-codon amino acids of the genetic code (Met ATG, Trp TGG in table 1) | definition in Peden §1.8.2.1.3 [2]; CodonW `gc_out` |
 | INV-04 | `0 ≤ GC1, GC2, GC3, GC3s ≤ 100` | each is a count/positions ratio ×100 |
 | INV-05 | `TotalCodons` = number of valid ACGT codons in frame | codons with non-ACGT characters are skipped [5] |
 | INV-06 | `OverallGc = (GC1+GC2+GC3)/3` | record-derived property |
@@ -53,6 +53,7 @@ The genetic code is degenerate: most amino acids are encoded by several synonymo
 |------|------|---------|-------------|-------------|
 | sequence | `string` / `DnaSequence` | required | coding DNA sequence | case-insensitive; non-ACGT codons skipped; read in frame 1, step 3 |
 | referenceRscu | `Dictionary<string,double>` | required (CAI) | reference codon weights (RSCU or w) | keyed by upper-case DNA codon |
+| code | `GeneticCode` | `GeneticCode.Standard` | genetic code for RSCU, ENC, GC3s (and CAI) | non-null |
 
 ### 3.2 Output / Return Value
 
@@ -69,7 +70,7 @@ The genetic code is degenerate: most amino acids are encoded by several synonymo
 
 ### 3.3 Preconditions and Validation
 
-Input is read 0-based in steps of 3 (frame 1); a trailing partial codon (< 3 nt) is ignored. Sequences are upper-cased; codons containing any non-ACGT character are skipped (not errors). A `null` `DnaSequence` or a `null` reference table throws `ArgumentNullException`; a `null`/empty `string` returns a zeroed `CodonUsageStatistics` (CAI 0). RNA `U` is read as `T` (review 2026-09, CODON-RSCU-001 F10); no IUPAC degeneracy.
+Input is read 0-based in steps of 3 (frame 1); a trailing partial codon (< 3 nt) is ignored. Sequences are upper-cased; codons containing any non-ACGT character are skipped (not errors) without shifting the frame. A `null` `DnaSequence`, `null` `GeneticCode` or a `null` reference table throws `ArgumentNullException`; a `null`/empty `string` returns a zeroed `CodonUsageStatistics` (CAI 0). RNA `U` is read as `T` (review 2026-09, CODON-RSCU-001 F10); no IUPAC degeneracy.
 
 ## 4. Algorithm
 
@@ -77,7 +78,7 @@ Input is read 0-based in steps of 3 (frame 1); a trailing partial codon (< 3 nt)
 
 1. Count in-frame ACGT codons.
 2. Compute RSCU per synonymous family and ENC (Wright 1990).
-3. For each codon, accumulate G/C at positions 1/2/3; for synonymous codons (degeneracy > 1) also accumulate the GC3s numerator/denominator.
+3. From the codon counts, accumulate G/C at positions 1/2/3 (all codons); for synonymous codons (sense codons whose amino acid has degeneracy > 1 in the genetic code) also accumulate the GC3s numerator/denominator.
 4. Convert counts to percentages; `OverallGc` = mean of GC1/GC2/GC3.
 5. CAI: build w = referenceRscu / family-max over the synonymous families of the genetic code (skipping single-codon families and stops; w < 0.0001 → 0.01 as CodonW `cai_out`), then geometric mean over scorable codons via log-sum. Canonical core shared with `CodonOptimizer.CalculateCAI` (see [CAI_Calculation.md](../Codon_Optimization/CAI_Calculation.md)).
 
@@ -102,13 +103,13 @@ No substring search / pattern matching is involved, so the repository suffix tre
 
 **Implementation location:** [CodonUsageAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs)
 
-- `CodonUsageAnalyzer.GetStatistics(string|DnaSequence)`: returns the `CodonUsageStatistics` record.
+- `CodonUsageAnalyzer.GetStatistics(string|DnaSequence[, GeneticCode])`: returns the `CodonUsageStatistics` record (default code: NCBI table 1).
 - `CodonUsageAnalyzer.CalculateCai(string|DnaSequence, Dictionary<string,double>)`: returns CAI in [0,1].
 - `CodonUsageAnalyzer.EColiOptimalCodons` / `HumanOptimalCodons`: reference tables.
 
 ### 5.2 Current Behavior
 
-GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codons whose amino acid is degenerate (degeneracy > 1), excluding ATG, TGG and the stop codons, per [2]. CAI skips single-codon families and stop codons; a codon whose relative adaptiveness is below 0.0001 is scored as 0.01 (CodonW, Bulmer 1988); when no codon is scorable it returns 0. The suffix tree was not used (no search; single linear scan).
+GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codons whose amino acid is degenerate (degeneracy > 1) in the chosen genetic code, excluding the stop codons (table 1: ATG, TGG and TAA/TAG/TGA excluded), per [2] and CodonW `gc_out`. Cross-check (review 2026-09): 5664 gene × code comparisons against CodonW 1.4.4 (GC3s, L_sym, L_aa, GC1-3) and Biopython `GC123` — 0 mismatches (see Evidence). CAI skips single-codon families and stop codons; a codon whose relative adaptiveness is below 0.0001 is scored as 0.01 (CodonW, Bulmer 1988); when no codon is scorable it returns 0. The suffix tree was not used (no search; single linear scan).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -133,6 +134,8 @@ GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codon
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | GC3s as percentage | Assumption | display units only | accepted | ASM in TestSpec §6 |
+| 1a | GC1/GC2/GC3/OverallGc include stop codons | Convention | differs from CodonW GC/GC1-3 for genes with stops | accepted | EMBOSS cusp definition [5] |
+| 1b | GC3s ignored `GeneticCode` (table 1 only) | Defect | wrong GC3s/RSCU/ENC for non-standard codes | fixed 2026-09 | `GetStatistics(…, GeneticCode)`, CODON-STATS-001 F18 |
 | 2 | zero-w codon skipped | Deviation | edge-case CAI on absent codons | resolved 2026-09 | now w < 0.0001 → 0.01 (CodonW/seqinr/Bulmer 1988), CODON-CAI-001 F13 |
 | 3 | reference tables replaced | Deviation (fix) | prior values untraceable | fixed | now Sharp&Li 1987 / Kazusa |
 
@@ -146,11 +149,12 @@ GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codon
 | `null` / empty string | zeroed statistics; CAI 0 | input contract |
 | trailing partial codon (< 3 nt) | ignored | in-frame parsing |
 | only Met/Trp/stop codons | CAI 0; GC3s 0 | no scorable / synonymous codon [1][2] |
-| non-ACGT codon | skipped | [5] |
+| non-ACGT codon | skipped, frame kept | [5] |
+| RNA / lower case | U read as T, case-insensitive | CodonW `ident_codon` |
 
 ### 6.2 Limitations
 
-DNA alphabet only (no IUPAC ambiguity, no RNA). Frame 1 only. CAI quality depends on the supplied reference set (ASM-01); the bundled human table is whole-genome RSCU (Kazusa), not a curated highly-expressed set, so its absolute CAI values are descriptive rather than expression-predictive.
+DNA or RNA alphabet (no IUPAC ambiguity resolution: ambiguous triplets are skipped). Frame 1 only. CAI quality depends on the supplied reference set (ASM-01); the bundled human table is whole-genome RSCU (Kazusa), not a curated highly-expressed set, so its absolute CAI values are descriptive rather than expression-predictive.
 
 ## 7. Examples and Related Material
 

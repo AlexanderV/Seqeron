@@ -5,7 +5,7 @@
 **Algorithm:** Codon Usage Statistics (GetStatistics, CalculateCai, EColiOptimalCodons, HumanOptimalCodons)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -22,6 +22,8 @@
 | 5 | EMBOSS `cusp` (GC1/GC2/GC3) | 3 | https://www.bioinformatics.nl/cgi-bin/emboss/help/cusp | 2026-06-13 |
 | 6 | Biopython v1.79 `SharpEcoliIndex` | 3 | https://raw.githubusercontent.com/biopython/biopython/biopython-179/Bio/SeqUtils/CodonUsageIndices.py | 2026-06-13 |
 | 7 | Kazusa H. sapiens [gbpri] codon usage | 5 | https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606 | 2026-06-13 |
+| 8 | CodonW 1.4.4 source (`codon_us.c` `gc_out`, `how_synon`) + compiled binary | 3 | https://codonw.sourceforge.net | 2026-09-28 |
+| 9 | EMBOSS 6.6 `ajcod.c` (`ajCodSetTripletsS`, `ajCodWrite`) | 3 | EMBOSS source | 2026-09-28 |
 
 ### 1.2 Key Evidence Points
 
@@ -49,7 +51,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `GetStatistics(string)` / `GetStatistics(DnaSequence)` | CodonUsageAnalyzer | Canonical | Aggregates counts, RSCU, ENC, GC1/2/3, GC3s, total codons |
+| `GetStatistics(string / DnaSequence [, GeneticCode])` | CodonUsageAnalyzer | Canonical | Aggregates counts, RSCU, ENC, GC1/2/3, GC3s, total codons; code default NCBI 1 |
 | `CalculateCai(string, refRscu)` / `CalculateCai(DnaSequence, refRscu)` | CodonUsageAnalyzer | Canonical | Sharp & Li 1987 CAI |
 | `EColiOptimalCodons` (property) | CodonUsageAnalyzer | Reference | Sharp & Li 1987 w table |
 | `HumanOptimalCodons` (property) | CodonUsageAnalyzer | Reference | Kazusa-derived human RSCU |
@@ -63,7 +65,7 @@
 |----|-----------|------------|----------|
 | INV-1 | `0 ≤ CalculateCai ≤ 1` for any sequence and reference | Yes | Sharp & Li 1987 (geometric mean of w∈[0,1]) |
 | INV-2 | CAI of an all-optimal sequence (each codon = family's w-max) = 1.0 | Yes | Sharp & Li 1987 |
-| INV-3 | GC3s ignores Met (ATG), Trp (TGG) and stop codons; denominator counts only synonymous codons | Yes | Peden §1.8.2.1.3 |
+| INV-3 | GC3s ignores stop codons and single-codon amino acids of the genetic code (Met ATG, Trp TGG in table 1); denominator counts only synonymous codons | Yes | Peden §1.8.2.1.3; CodonW `gc_out` |
 | INV-4 | `0 ≤ GC1, GC2, GC3, GC3s ≤ 100` | Yes | counts/positions ratio ×100 |
 | INV-5 | `TotalCodons` = number of valid (ACGT-only) codons in frame | Yes | EMBOSS cusp "Number" |
 | INV-6 | `OverallGc` = (GC1+GC2+GC3)/3 | Yes | record definition |
@@ -106,6 +108,10 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | OverallGc average | `GetStatistics("CTGGTTAAA").OverallGc` | (66.6667+0+33.3333)/3 = 33.3333 | INV-6 |
 | C2 | Lowercase normalized | `GetStatistics("ctg")` | same as "CTG" | case-insensitive |
+| R1 | GC3s genetic-code aware (review 2026-09 F18) | `ATAATG`, `TGATGGGCC`, `AGAAGGCTG`, `augcccuuaugg` × NCBI 1/2 | CodonW -gc3s ×100: 0/50, 100/66.67, 66.67/100, 50/75 | CodonW 1.4.4 binary |
+| R2 | RSCU/ENC in stats use the same code | NCBI 2 | = `CalculateRscu/CalculateEnc(…, code)` | consistency |
+| R3 | Stops + ambiguous triplet | `ATGGCAGCCTAAtggNNNgcg` | Total 6, GC1 50, GC2/GC3 66.67 (cusp, stops included), GC3s 66.67 (CodonW 0.667) | EMBOSS ajcod.c; CodonW |
+| R4 | DnaSequence overload / null code | NCBI 2 | same as string; `ArgumentNullException` | input contract |
 
 ---
 
