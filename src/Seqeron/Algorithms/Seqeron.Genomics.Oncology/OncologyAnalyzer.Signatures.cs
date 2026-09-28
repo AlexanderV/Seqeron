@@ -62,13 +62,15 @@ public static partial class OncologyAnalyzer
 
         // Fold purine-reference substitutions onto the pyrimidine strand by reverse-complementing the
         // trinucleotide context AND the substitution (SigProfiler / COSMIC). For a pyrimidine reference
-        // (C or T) the mutation is already on the pyrimidine strand and is kept as-is.
+        // (C or T) the mutation is already on the pyrimidine strand and is kept as-is. Complementation
+        // delegates to the canonical Core SequenceExtensions.GetComplementBase (A<->T, C<->G); all four
+        // bases were validated as A/C/G/T above, so only the Watson-Crick branch of that map is reached.
         if (reference is 'A' or 'G')
         {
-            char foldedFive = Complement(three);   // 3' neighbour becomes the 5' neighbour after reversal
-            char foldedThree = Complement(five);   // 5' neighbour becomes the 3' neighbour after reversal
-            reference = Complement(reference);
-            alternate = Complement(alternate);
+            char foldedFive = SequenceExtensions.GetComplementBase(three);   // 3' neighbour becomes the 5' neighbour after reversal
+            char foldedThree = SequenceExtensions.GetComplementBase(five);   // 5' neighbour becomes the 3' neighbour after reversal
+            reference = SequenceExtensions.GetComplementBase(reference);
+            alternate = SequenceExtensions.GetComplementBase(alternate);
             five = foldedFive;
             three = foldedThree;
         }
@@ -81,6 +83,14 @@ public static partial class OncologyAnalyzer
     /// substitution-major order: the six pyrimidine substitutions (C&gt;A, C&gt;G, C&gt;T, T&gt;A, T&gt;C,
     /// T&gt;G), then 5' base (A,C,G,T), then 3' base (A,C,G,T). Source: COSMIC SBS96; Alexandrov et al. (2013)
     /// — 6 × 4 × 4 = 96. The ordering is a presentation convention and does not affect per-variant classification.
+    /// <para>
+    /// Order note: this substitution-major order is the COSMIC SBS96 <i>plot</i> order (SigProfilerPlotting
+    /// <c>plotSBS</c> groups C&gt;A, C&gt;G, C&gt;T, T&gt;A, T&gt;C, T&gt;G, each with 16 contexts 5'-major). The
+    /// SigProfilerMatrixGenerator <c>.SBS96</c> matrix rows and the COSMIC v3.x reference-signature files
+    /// (e.g. <c>COSMIC_v3.4_SBS_GRCh37.txt</c>) are instead in ordinal (lexicographic) label order —
+    /// <c>A[C&gt;A]A, A[C&gt;A]C, …, A[C&gt;G]A, …, T[T&gt;G]T</c> — i.e. exactly this list sorted with
+    /// <see cref="StringComparer.Ordinal"/>. Always align vectors by channel label, never by position.
+    /// </para>
     /// </summary>
     /// <returns>The 96 distinct channel labels.</returns>
     public static IReadOnlyList<string> EnumerateSbs96Channels()
@@ -138,19 +148,6 @@ public static partial class OncologyAnalyzer
 
         return catalog;
     }
-
-    /// <summary>
-    /// Returns the Watson-Crick complement of a DNA base (A↔T, C↔G). Source: complementary base pairing,
-    /// adenine pairs with thymine and cytosine pairs with guanine.
-    /// </summary>
-    private static char Complement(char baseChar) => baseChar switch
-    {
-        'A' => 'T',
-        'T' => 'A',
-        'C' => 'G',
-        'G' => 'C',
-        _ => throw new ArgumentException($"'{baseChar}' is not a DNA base (A/C/G/T).", nameof(baseChar))
-    };
 
     /// <summary>
     /// Validates and upper-cases a single DNA base, rejecting anything that is not A/C/G/T.

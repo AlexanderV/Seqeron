@@ -5,7 +5,7 @@
 **Algorithm:** SBS-96 Single-Base-Substitution Trinucleotide Context Catalog (pyrimidine-strand folding)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -82,6 +82,7 @@
 | M8 | Enumerate 96 channels | EnumerateSbs96Channels() | 96 distinct labels, all pyrimidine-ref, covering all 6 subs × 16 contexts | COSMIC (6×4×4); INV-2 |
 | M9 | Catalog counts | tally a known multiset incl. a folded purine variant | per-channel counts match hand tally; Σ=#SBS | INV-3; folding rule |
 | M10 | Catalog folds purine into same channel as its pyrimidine form | T[G>T]A and T[C>A]A co-counted | both increment "T[C>A]A" | INV-4 |
+| M11 | Channel order | EnumerateSbs96Channels() order; ordinal sort | substitution-major (A[C>A]A…C[C>A]A…; [16]=A[C>G]A; [95]=T[T>G]T); ordinal sort = COSMIC v3.4 / SigProfilerMatrixGenerator row order (A[C>A]A…A[C>G]T; [23]=A[T>G]T; [24]=C[C>A]A) | COSMIC_v3.4_SBS_GRCh37.txt; SigProfilerPlotting plotSBS; SPMG groupby |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -193,4 +194,6 @@
 1. Channel vector ordering (the order of the 96 labels in a vector) is a presentation detail and not
    correctness-affecting for per-variant classification; the catalog is keyed by explicit label, so order does
    not change which variant falls in which channel. `EnumerateSbs96Channels()` returns them in
-   substitution-major (C>A,C>G,C>T,T>A,T>C,T>G) then 5'(A,C,G,T) then 3'(A,C,G,T) order for determinism.
+   substitution-major (C>A,C>G,C>T,T>A,T>C,T>G) then 5'(A,C,G,T) then 3'(A,C,G,T) order for determinism
+   (COSMIC plot order). SigProfilerMatrixGenerator `.SBS96` / COSMIC v3.x reference files use ordinal label order,
+   which equals this list sorted ordinally (M11, 2026-09-28). Align by label, never by position.

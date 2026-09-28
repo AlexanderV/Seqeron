@@ -182,3 +182,14 @@ Watson-Crick pairing. Each row is computed independently of any implementation.
 ## Change History
 
 - **2026-06-14**: Initial documentation (ONCO-SIG-001 SBS-96 trinucleotide context catalog).
+- **2026-09-28** (review campaign 2026-09, B23): reference-implementation cross-check.
+  Opened `SigProfilerMatrixGenerator/scripts/MutationMatrixGenerator.py` (raw.githubusercontent.com,
+  AlexandrovLab master): SBS fold = `if ref == "A" or ref == "G": ref=revcompl(ref); mut=revcompl(mut);
+  sequence=revcompl(sequence)` with `revcompl` = complement map then reverse; 96 index built by
+  `groupby(index.str[1:8])` (sorted keys). A Python port of that fold over all 192 (5',REF,ALT,3') inputs
+  matched `ClassifySbsContext` 192/192. Opened `COSMIC_v3.4_SBS_GRCh37.txt` (SigProfilerAssignment
+  Reference_Signatures): its 96 row labels equal the set of `EnumerateSbs96Channels()`, and their order equals
+  that list sorted ordinally (`A[C>A]A, A[C>A]C, A[C>A]G, A[C>A]T, A[C>G]A, …, T[T>G]T`). Opened
+  SigProfilerPlotting `plotSBS`: plot order is substitution-major (C>A…T>G) — the order `EnumerateSbs96Channels()`
+  uses. Order note added to XML doc/algorithm doc; test M11 locks both orders. Private `Complement` helper
+  removed in favour of canonical Core `SequenceExtensions.GetComplementBase`.
