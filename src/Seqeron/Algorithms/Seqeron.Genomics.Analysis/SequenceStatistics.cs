@@ -1183,24 +1183,48 @@ public static class SequenceStatistics
 
     #region Protein Secondary Structure
 
-    // Chou-Fasman conformational parameters (Pa = helix, Pb = sheet, Pt = turn),
-    // expressed as propensities (the published integer parameters / 100).
-    // Values verbatim from Chou PY, Fasman GD (1978) "Empirical predictions of protein
-    // conformation" Annu Rev Biochem 47:251-276, as reproduced in the cited academic
-    // tables and reference implementation. See docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md.
-    private static readonly Dictionary<char, (double Helix, double Sheet, double Turn)> SecondaryStructurePropensity = new()
+    // Chou-Fasman (1978) conformational parameters and β-turn bend frequencies.
+    // Pa/Pb/Pt are the published integer parameters (propensity × 100); f(i)..f(i+3) are the
+    // positional bend frequencies of residues at the four positions of a β-turn tetrapeptide.
+    // Values from Chou PY, Fasman GD (1978) "Empirical predictions of protein conformation"
+    // Annu Rev Biochem 47:251-276 / Adv Enzymol 47:45-148, as reproduced in the
+    // prowl.rockefeller.edu Chou-Fasman table (copied by residue NAME in
+    // ravihansa3000/ChouFasman and by one-letter code in hassan11196/Chou-Fasman; both agree).
+    // See docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md.
+    private readonly record struct ChouFasmanParameters(
+        int Pa, int Pb, int Pt, double F0, double F1, double F2, double F3);
+
+    private static readonly Dictionary<char, ChouFasmanParameters> ChouFasmanTable = new()
     {
-        { 'A', (1.42, 0.83, 0.66) }, { 'R', (0.98, 0.93, 0.95) },
-        { 'N', (0.67, 0.89, 1.56) }, { 'D', (1.01, 0.54, 1.46) },
-        { 'C', (0.70, 1.19, 1.19) }, { 'E', (1.51, 0.37, 0.74) },
-        { 'Q', (1.11, 1.10, 0.98) }, { 'G', (0.57, 0.75, 1.56) },
-        { 'H', (1.00, 0.87, 0.95) }, { 'I', (1.08, 1.60, 0.47) },
-        { 'L', (1.21, 1.30, 0.59) }, { 'K', (1.14, 0.74, 1.01) },
-        { 'M', (1.45, 1.05, 0.60) }, { 'F', (1.13, 1.38, 0.60) },
-        { 'P', (0.57, 0.55, 1.52) }, { 'S', (0.77, 0.75, 1.43) },
-        { 'T', (0.83, 1.19, 0.96) }, { 'W', (1.08, 1.37, 0.96) },
-        { 'Y', (0.69, 1.47, 1.14) }, { 'V', (1.06, 1.70, 0.50) }
+        ['A'] = new(142, 83, 66, 0.060, 0.076, 0.035, 0.058),
+        ['R'] = new(98, 93, 95, 0.070, 0.106, 0.099, 0.085),
+        ['N'] = new(67, 89, 156, 0.161, 0.083, 0.191, 0.091),
+        ['D'] = new(101, 54, 146, 0.147, 0.110, 0.179, 0.081),
+        ['C'] = new(70, 119, 119, 0.149, 0.050, 0.117, 0.128),
+        ['E'] = new(151, 37, 74, 0.056, 0.060, 0.077, 0.064),
+        ['Q'] = new(111, 110, 98, 0.074, 0.098, 0.037, 0.098),
+        ['G'] = new(57, 75, 156, 0.102, 0.085, 0.190, 0.152),
+        ['H'] = new(100, 87, 95, 0.140, 0.047, 0.093, 0.054),
+        ['I'] = new(108, 160, 47, 0.043, 0.034, 0.013, 0.056),
+        ['L'] = new(121, 130, 59, 0.061, 0.025, 0.036, 0.070),
+        ['K'] = new(114, 74, 101, 0.055, 0.115, 0.072, 0.095),
+        ['M'] = new(145, 105, 60, 0.068, 0.082, 0.014, 0.055),
+        ['F'] = new(113, 138, 60, 0.059, 0.041, 0.065, 0.065),
+        ['P'] = new(57, 55, 152, 0.102, 0.301, 0.034, 0.068),
+        ['S'] = new(77, 75, 143, 0.120, 0.139, 0.125, 0.106),
+        ['T'] = new(83, 119, 96, 0.086, 0.108, 0.065, 0.079),
+        ['W'] = new(108, 137, 96, 0.077, 0.013, 0.064, 0.167),
+        ['Y'] = new(69, 147, 114, 0.082, 0.065, 0.114, 0.125),
+        ['V'] = new(106, 170, 50, 0.062, 0.048, 0.028, 0.053),
     };
+
+    // Integer parameters are propensity × 100; 142 / 100.0 is bit-identical to the literal 1.42.
+    private const double ChouFasmanScale = 100.0;
+
+    private static readonly Dictionary<char, (double Helix, double Sheet, double Turn)> SecondaryStructurePropensity =
+        ChouFasmanTable.ToDictionary(
+            kv => kv.Key,
+            kv => (kv.Value.Pa / ChouFasmanScale, kv.Value.Pb / ChouFasmanScale, kv.Value.Pt / ChouFasmanScale));
 
     // Default sliding-window length. Chou & Fasman (1978) scan a hexapeptide window for
     // helix nucleation (4 of 6) and a pentapeptide window for sheet nucleation (3 of 5);
@@ -1252,6 +1276,204 @@ public static class SequenceStatistics
                 yield return (helixSum / count, sheetSum / count, turnSum / count);
             }
         }
+    }
+
+    // Chou & Fasman (1978) assignment rules, as stated by Chen, Gu & Huang (2006) BMC
+    // Bioinformatics 7(Suppl 4):S14 "Methods" rules 1-3, and the β-turn rule (p(t) > 7.5e-5,
+    // <Pt> > 1.00, <Pa> < <Pt> > <Pb>) of the 1978 method.
+    private const int HelixNucleationWindow = 6;    // 4 of 6 helix formers
+    private const int HelixNucleationFormers = 4;
+    private const int SheetNucleationWindow = 5;    // 3 of 5 sheet formers
+    private const int SheetNucleationFormers = 3;
+    private const int FormerThreshold = 100;        // former: P > 1.00
+    private const int ExtensionTetrapeptide = 4;    // extend until tetrapeptide <P> < 1.00
+    private const int ExtensionMinimumSum = 400;    // 4 × 1.00 (integer units)
+    private const int HelixAcceptThreshold = 103;   // segment <Pa> > 1.03
+    private const int SheetAcceptThreshold = 105;   // segment <Pb> > 1.05
+    private const int TurnLength = 4;
+    private const int TurnMinimumPtSum = 400;       // tetrapeptide <Pt> > 1.00
+    private const double TurnBendProbabilityThreshold = 7.5e-5; // p(t) = f(i)f(i+1)f(i+2)f(i+3)
+
+    /// <summary>Per-residue state code: α-helix.</summary>
+    public const char ChouFasmanHelix = 'H';
+    /// <summary>Per-residue state code: β-strand (sheet).</summary>
+    public const char ChouFasmanSheet = 'E';
+    /// <summary>Per-residue state code: β-turn.</summary>
+    public const char ChouFasmanTurn = 'T';
+    /// <summary>Per-residue state code: coil (no assignment).</summary>
+    public const char ChouFasmanCoil = 'C';
+
+    /// <summary>
+    /// Assigns a discrete secondary-structure state to every residue with the Chou &amp; Fasman
+    /// (1978) prediction rules, using the 1978 conformational parameters (Pα, Pβ, Pt) and
+    /// β-turn bend frequencies f(i)..f(i+3):
+    /// <list type="number">
+    /// <item><description>Helix nucleation: any 6-residue window with ≥ 4 helix formers (Pα &gt; 1.00).
+    /// Sheet nucleation: any 5-residue window with ≥ 3 sheet formers (Pβ &gt; 1.00).</description></item>
+    /// <item><description>Extension: each nucleus is extended residue by residue in both directions
+    /// while the tetrapeptide formed by the new residue and the three adjacent segment residues has
+    /// mean propensity ≥ 1.00 (extension stops when it drops below 1.00).</description></item>
+    /// <item><description>Acceptance: an extended helix is kept if ⟨Pα⟩ &gt; 1.03 and ⟨Pα⟩ &gt; ⟨Pβ⟩
+    /// over the segment; an extended strand if ⟨Pβ⟩ &gt; 1.05 and ⟨Pβ⟩ &gt; ⟨Pα⟩.</description></item>
+    /// <item><description>Overlap: each maximal run of residues covered by both a helix and a strand
+    /// is assigned helix if ⟨Pα⟩ &gt; ⟨Pβ⟩ over the run, otherwise strand.</description></item>
+    /// <item><description>β-turn: a tetrapeptide i..i+3 is a turn if
+    /// p(t) = f(i)·f(i+1)·f(i+2)·f(i+3) &gt; 7.5×10⁻⁵, ⟨Pt⟩ &gt; 1.00 and ⟨Pα⟩ &lt; ⟨Pt⟩ &gt; ⟨Pβ⟩;
+    /// all four residues are marked turn and take precedence over helix/strand.</description></item>
+    /// </list>
+    /// Residues other than the 20 standard amino acids have no parameters: they are never
+    /// formers, windows/tetrapeptides containing them are ineligible, and they stay coil.
+    /// Unlike <see cref="PredictSecondaryStructure(string, int)"/> (a windowed mean-propensity
+    /// profile), this is the discrete Chou-Fasman assignment. Q3 accuracy is ~50-60%.
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <returns>A string of the same length as the input with one state code per residue:
+    /// <see cref="ChouFasmanHelix"/> ('H'), <see cref="ChouFasmanSheet"/> ('E'),
+    /// <see cref="ChouFasmanTurn"/> ('T') or <see cref="ChouFasmanCoil"/> ('C').
+    /// Empty for null/empty input.</returns>
+    public static string PredictSecondaryStructureChouFasman(string proteinSequence)
+    {
+        if (string.IsNullOrEmpty(proteinSequence))
+            return string.Empty;
+
+        int n = proteinSequence.Length;
+        var parameters = new ChouFasmanParameters?[n];
+        for (int i = 0; i < n; i++)
+        {
+            if (ChouFasmanTable.TryGetValue(char.ToUpperInvariant(proteinSequence[i]), out var p))
+                parameters[i] = p;
+        }
+
+        bool[] helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
+            HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold);
+        bool[] sheet = FindChouFasmanSegments(parameters, static p => p.Pb, static p => p.Pa,
+            SheetNucleationWindow, SheetNucleationFormers, SheetAcceptThreshold);
+
+        var states = new char[n];
+        Array.Fill(states, ChouFasmanCoil);
+
+        for (int i = 0; i < n;)
+        {
+            if (helix[i] && sheet[i])
+            {
+                int j = i;
+                while (j + 1 < n && helix[j + 1] && sheet[j + 1])
+                    j++;
+
+                long sumPa = 0, sumPb = 0;
+                for (int k = i; k <= j; k++)
+                {
+                    sumPa += parameters[k]!.Value.Pa;
+                    sumPb += parameters[k]!.Value.Pb;
+                }
+
+                char winner = sumPa > sumPb ? ChouFasmanHelix : ChouFasmanSheet;
+                for (int k = i; k <= j; k++)
+                    states[k] = winner;
+                i = j + 1;
+            }
+            else
+            {
+                if (helix[i])
+                    states[i] = ChouFasmanHelix;
+                else if (sheet[i])
+                    states[i] = ChouFasmanSheet;
+                i++;
+            }
+        }
+
+        for (int i = 0; i + TurnLength <= n; i++)
+        {
+            if (IsChouFasmanTurn(parameters, i))
+            {
+                for (int k = i; k < i + TurnLength; k++)
+                    states[k] = ChouFasmanTurn;
+            }
+        }
+
+        return new string(states);
+    }
+
+    private static bool[] FindChouFasmanSegments(
+        ChouFasmanParameters?[] parameters,
+        Func<ChouFasmanParameters, int> own,
+        Func<ChouFasmanParameters, int> competitor,
+        int window,
+        int minimumFormers,
+        int acceptThreshold)
+    {
+        int n = parameters.Length;
+        var covered = new bool[n];
+
+        for (int start = 0; start + window <= n; start++)
+        {
+            int formers = 0;
+            bool allKnown = true;
+            for (int k = start; k < start + window; k++)
+            {
+                if (parameters[k] is not { } p) { allKnown = false; break; }
+                if (own(p) > FormerThreshold) formers++;
+            }
+            if (!allKnown || formers < minimumFormers)
+                continue;
+
+            int first = start, last = start + window - 1;
+
+            // C-terminal extension: tetrapeptide = last three segment residues + the new residue.
+            while (last + 1 < n && TetrapeptideSum(parameters, last - 2, own) >= ExtensionMinimumSum)
+                last++;
+            // N-terminal extension: tetrapeptide = the new residue + first three segment residues.
+            while (first - 1 >= 0 && TetrapeptideSum(parameters, first - 1, own) >= ExtensionMinimumSum)
+                first--;
+
+            long sumOwn = 0, sumCompetitor = 0;
+            for (int k = first; k <= last; k++)
+            {
+                sumOwn += own(parameters[k]!.Value);
+                sumCompetitor += competitor(parameters[k]!.Value);
+            }
+
+            int length = last - first + 1;
+            if (sumOwn > (long)acceptThreshold * length && sumOwn > sumCompetitor)
+            {
+                for (int k = first; k <= last; k++)
+                    covered[k] = true;
+            }
+        }
+
+        return covered;
+    }
+
+    // Sum of a parameter over the tetrapeptide starting at 'from'; int.MinValue if any residue
+    // lacks parameters (so it can never satisfy an extension threshold).
+    private static int TetrapeptideSum(
+        ChouFasmanParameters?[] parameters, int from, Func<ChouFasmanParameters, int> selector)
+    {
+        int sum = 0;
+        for (int k = from; k < from + ExtensionTetrapeptide; k++)
+        {
+            if (parameters[k] is not { } p)
+                return int.MinValue;
+            sum += selector(p);
+        }
+        return sum;
+    }
+
+    private static bool IsChouFasmanTurn(ChouFasmanParameters?[] parameters, int i)
+    {
+        if (parameters[i] is not { } a || parameters[i + 1] is not { } b ||
+            parameters[i + 2] is not { } c || parameters[i + 3] is not { } d)
+            return false;
+
+        double bendProbability = a.F0 * b.F1 * c.F2 * d.F3;
+        int sumPt = a.Pt + b.Pt + c.Pt + d.Pt;
+        int sumPa = a.Pa + b.Pa + c.Pa + d.Pa;
+        int sumPb = a.Pb + b.Pb + c.Pb + d.Pb;
+
+        return bendProbability > TurnBendProbabilityThreshold
+            && sumPt > TurnMinimumPtSum
+            && sumPt > sumPa
+            && sumPt > sumPb;
     }
 
     #endregion

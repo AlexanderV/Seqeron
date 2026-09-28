@@ -594,4 +594,37 @@ public class SequenceSecondaryStructureFuzzTests
     }
 
     #endregion
+
+    #region PredictSecondaryStructureChouFasman — discrete assignment (BE + MC)
+
+    // Contract (Secondary_Structure_Prediction.md §3.4): output has the input's length, uses only
+    // H/E/T/C, is case-insensitive, and every non-standard residue is coil ('C').
+    [Test]
+    public void ChouFasman_RandomPollutedInput_WellFormedAndCaseInsensitive()
+    {
+        const string junk = "XBZJUO*-.0123 \t\u00e9";
+        var rng = new Random(20260928);
+        for (int iter = 0; iter < 500; iter++)
+        {
+            int len = rng.Next(1, 160);
+            var sb = new System.Text.StringBuilder(len);
+            for (int i = 0; i < len; i++)
+                sb.Append(rng.NextDouble() < 0.85
+                    ? StandardResidues[rng.Next(StandardResidues.Length)]
+                    : junk[rng.Next(junk.Length)]);
+            string seq = sb.ToString();
+
+            string states = null!;
+            var act = () => states = SequenceStatistics.PredictSecondaryStructureChouFasman(seq);
+            act.Should().NotThrow();
+            states.Length.Should().Be(seq.Length);
+            states.Should().MatchRegex("^[HETC]*$");
+            SequenceStatistics.PredictSecondaryStructureChouFasman(seq.ToLowerInvariant()).Should().Be(states);
+            for (int i = 0; i < seq.Length; i++)
+                if (!StandardResidues.Contains(char.ToUpperInvariant(seq[i])))
+                    states[i].Should().Be('C', $"non-standard residue '{seq[i]}' at {i} has no parameters");
+        }
+    }
+
+    #endregion
 }
