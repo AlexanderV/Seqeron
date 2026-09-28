@@ -101,3 +101,25 @@
 - **End-state:** ✅ CLEAN — algorithm fully functional; full unfiltered suite green (Failed: 0, Passed: 6667).
 - **Test-quality gate:** PASS (exact sourced values, no green-washing, all public methods + all branches/error
   cases now exercised, honest green on the FULL suite).
+
+---
+
+## Review 2026-09 (campaign `review-2026-09`, batch B25) — 2026-09-28
+
+- **Stage A:** PASS-WITH-NOTES (unchanged N1: 3.3 pg/haploid genome convention). **Stage B:** FAIL → FIXED. **State:** ✅ FIXED.
+- **Code now at:** `OncologyAnalyzer.CtdnaMrdChip.cs` (ctDNA region, lines ~1–240); constants remain in `OncologyAnalyzer.cs`.
+
+### Stage A — sources opened this session
+1. **WebSearch** (Avanzini 2020 / US 11,085,084): snippet returns verbatim "x = 1 − e^(−nd)" and "p = 1 − (1 − x)^k … p = 1 − e^(−ndk)", n = sequenced genome equivalents, d = detection limit. Confirms the formula.
+2. **raw.githubusercontent.com/reiterlab/ctdna** (the Avanzini et al. 2020 reference code; `ctdna/settings.py`, `ctdna/detection.py`): `DIPLOID_GE_WEIGHT_ng = 0.0066` ("average yield of a nucleated cell is 6.6 pg") ⇒ 3.3 pg per haploid genome equivalent — independently confirms the 3.3 pg / ≈303 GE·ng⁻¹ conversion used by `HaploidGenomeEquivalents`. The reference code's full detection model (binomial/NB sampling of mutant fragments against a sequencing-error background with a p-value threshold) is a different, richer model than the closed-form Poisson p = 1 − e^(−ndk) the unit exposes; the unit documents the closed form only (§5.3), which is exactly the patent formula — no mis-attribution.
+3. **WebSearch** (CAPP-Seq mean VAF): "VAFs … are averaged at each time point to yield the mean VAF" — confirms the arithmetic mean-of-reporters summarisation of `CalculateMeanVaf`.
+
+### Stage B — findings
+- **F1 (numerical robustness, fixed).** `CtDnaDetectionProbability` / `IsCtDnaDetected` evaluated `1.0 − Math.Exp(−λ)`, which cancels catastrophically as λ → 0. Repro (reference = `-numpy.expm1(-λ)` = 60-digit `Decimal` evaluation): λ = 1e-12 → old 9.999778782798785e-13 vs ref 9.999999999995e-13 (2.2e-5 rel. err.); λ = 1e-9 → old 9.999999717180685e-10 vs 9.999999995e-10 (2.8e-8); λ = 1e-300 → old **0** (violates INV-03 strict monotonicity) vs 1e-300. Fix: private `PoissonProbabilityAtLeastOne(λ)` — for λ ≤ ln 2 Kahan's expm1 identity (1 − u)·λ/(−ln u), u = e^(−λ) (Goldberg 1991, ACM Comput. Surv. 23(1)); for λ > ln 2 the direct 1 − u (no cancellation). The split matters: a pure Kahan quotient returned 0.99981 at λ = 744.3 and 1.00034 at λ = 744 (ln of a subnormal u) — caught by the FsCheck property `DetectMRD_MatchesIndependentPanelOracle` during this review, and locked by `DetectionProbability_LambdaWithSubnormalExp_ReturnsOne`. New values match the reference to ≤ 1 ulp on λ ∈ {1e-12, 1e-9, 1e-6, 1e-4, 0.01, 1, 3, 10, 15, 720, 744}. Values for λ ≥ 0.01 unchanged (≤ 1 ulp).
+- **Internal duplication removed.** `CtDnaDetectionProbability` re-implemented the three argument guards of `ExpectedMutantMolecules` and `IsCtDnaDetected` re-implemented `1 − e^(−λ)`: both now call `ExpectedMutantMolecules` / `PoissonProbabilityAtLeastOne`. `CalculateTumorFraction` and `CalculateMeanVaf` duplicated the mean-of-VAF loop: both now call private `MeanReporterVaf` (per-variant VAF ≤ 0.5 check enabled for tumour fraction). The unreachable `Math.Min(TF, 1)` clamp was removed (every VAF ≤ 0.5 ⇒ TF ≤ 1); behaviour unchanged.
+- **StatisticsHelper:** contains only `NormalCDF`/`Erf`; no canonical mean/Poisson helper to delegate to. No MCP wrapper exposes these methods (grep of `src/Seqeron/Mcp/**`).
+- **Note:** a reporter with zero coverage contributes VAF 0 to the mean (convention of shared `CalculateVaf`); documented in the algorithm doc.
+- **Cross-batch:** `CalculateTumorFraction`'s 2·v step duplicates `EstimatePurityFromVaf` (SomaticCalling.cs, B22). Delegating would leave `TumorFractionFromVafFactor` (OncologyAnalyzer.cs) unused, which fails the build (S1144/CA1823) and removing it is not an additive change — deferred to the Phase-2 dedup pass.
+
+### Tests added
+`DetectionProbability_SmallLambda_FullRelativePrecision` (5 cases), `DetectionProbability_SubnormalLambda_ReturnsLambdaNotZero`, `IsCtDnaDetected_ThresholdEqualToReturnedProbability_IsDetected` (λ = 3 ⇒ 0.950212931632136), `DetectionProbability_LambdaWithSubnormalExp_ReturnsOne` (λ = 720, 744 ⇒ 1.0). Fixed the stale comment value in `DetectionProbability_WorkedExample_15Molecules` (1 − e^(−15) = 0.9999996940976795).

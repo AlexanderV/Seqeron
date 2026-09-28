@@ -163,3 +163,4 @@
 ## Change History
 
 - **2026-06-15**: Initial documentation (ONCO-CTDNA-001).
+- **2026-09-28**: Review 2026-09 — added reference code reiterlab/ctdna (Avanzini 2020; `settings.py` `DIPLOID_GE_WEIGHT_ng = 0.0066` ⇒ 3.3 pg/haploid GE) and small-λ reference values −numpy.expm1(−λ) (λ = 1e-12 ⇒ 9.999999999995e-13; λ = 1e-9 ⇒ 9.999999995e-10; λ = 3 ⇒ 0.950212931632136) for the cancellation-free evaluation of 1 − e^(−λ).

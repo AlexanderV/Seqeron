@@ -101,6 +101,10 @@
 | S7 | IsCtDnaDetected threshold ∉ (0,1] | thr=0.0, 1.1, NaN | ArgumentOutOfRangeException | documented contract bound |
 | S8 | ExpectedMutantMolecules k scaling | n=15000, d=0.001, k=10 | λ = 150 | λ = n·d·k (Patent US11085084) |
 | S9 | ExpectedMutantMolecules invalid args | n=−1; d=1.1; d=NaN; k=0 | ArgumentOutOfRangeException | domain guards mirror CtDnaDetectionProbability |
+| S10 | DetectionProbability small-λ precision (review 2026-09) | λ = 1e-12, 1e-9, 1e-6, 1e-4, 0.01 | = −expm1(−λ) within ~1 ulp relative (e.g. 9.999999999995e-13 at λ=1e-12) | numpy.expm1 / 60-digit Decimal reference |
+| S11 | DetectionProbability sub-resolution λ (review 2026-09) | n=1, d=1e-300 | p = 1e-300 (not 0) | 1 − e^(−λ) = λ + O(λ²) |
+| S12 | IsCtDnaDetected uses the same p (review 2026-09) | n=1000, d=0.003 ⇒ λ=3, thr = returned p | p = 0.950212931632136; detected | Poisson P(X≥1) |
+| S13 | DetectionProbability λ with subnormal e^(−λ) (review 2026-09) | n=720, 744; d=1 | p = 1.0 | −numpy.expm1(−λ) = 1.0 |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -186,6 +190,10 @@
 | S3 | ✅ | CalculateMeanVaf_NullAndEmpty_Throws |
 | S4 | ✅ | CalculateTumorFraction_VafAboveHalf_Throws |
 | S5 | ✅ | HaploidGenomeEquivalents_Negative_Throws |
+| S10 | ✅ | DetectionProbability_SmallLambda_FullRelativePrecision |
+| S11 | ✅ | DetectionProbability_SubnormalLambda_ReturnsLambdaNotZero |
+| S12 | ✅ | IsCtDnaDetected_ThresholdEqualToReturnedProbability_IsDetected |
+| S13 | ✅ | DetectionProbability_LambdaWithSubnormalExp_ReturnsOne |
 | C1 | ✅ | DetectionProbability_IncreasingAlleleFraction_IsMonotone |
 | C2 | ✅ | DetectionProbability_LargeLambda_BoundedByOne |
 

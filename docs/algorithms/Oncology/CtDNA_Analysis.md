@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-CTDNA-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-15 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -49,7 +49,7 @@ In the low-burden regime (λ < 3) detection is Poisson-limited: small changes in
 | INV-01 | Detection probability p = 1 − e^(−n·d·k) ∈ [0, 1] | exponential of a non-positive exponent ∈ (0,1]; 1 minus it ∈ [0,1) [2] |
 | INV-02 | p = 0 ⇔ λ = n·d·k = 0 (n = 0 or d = 0) | 1 − e⁰ = 0 [2] |
 | INV-03 | p is non-decreasing in n, d, k (strictly increasing while n>0, d>0) | λ is monotone in each factor; 1 − e^(−λ) is increasing in λ [2] |
-| INV-04 | tumour fraction = 2 · mean VAF, clamped to [0, 1] | v = π/2 ⇒ TF = 2v [4]; a fraction cannot exceed 1 |
+| INV-04 | tumour fraction = 2 · mean VAF ∈ [0, 1] | v = π/2 ⇒ TF = 2v [4]; every per-variant VAF ≤ 0.5 ⇒ mean ≤ 0.5 ⇒ TF ≤ 1 |
 | INV-05 | genome equivalents are linear in mass: GE(x ng) = x·1000/3.3, GE(0) = 0 | constant pg/genome conversion [5] |
 
 ## 3. Contract
@@ -87,7 +87,7 @@ In the low-burden regime (λ < 3) detection is Poisson-limited: small changes in
 1. Compute λ = n·d·k.
 2. Detection probability: p = 1 − e^(−λ).
 3. Detection decision: detected ⇔ λ ≥ 1 AND p ≥ threshold.
-4. Tumour fraction: mean of per-variant VAFs (each ≤ 0.5), multiply by 2, clamp to [0,1].
+4. Tumour fraction: mean of per-variant VAFs (each ≤ 0.5), multiply by 2 (result ∈ [0,1] by construction).
 5. Mean VAF: arithmetic mean of per-variant VAFs.
 6. Genome equivalents: ng · 1000 / 3.3.
 
@@ -112,18 +112,18 @@ In the low-burden regime (λ < 3) detection is Poisson-limited: small changes in
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.CtdnaMrdChip.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CtdnaMrdChip.cs) (constants in `OncologyAnalyzer.cs`)
 
 - `OncologyAnalyzer.CtDnaDetectionProbability(int, double, int)`: p = 1 − e^(−n·d·k).
 - `OncologyAnalyzer.ExpectedMutantMolecules(int, double, int)`: λ = n·d·k.
 - `OncologyAnalyzer.IsCtDnaDetected(int, double, int, double)`: λ ≥ 1 AND p ≥ threshold.
-- `OncologyAnalyzer.CalculateTumorFraction(IEnumerable<VariantObservation>)`: 2 · mean clonal het VAF, clamped.
+- `OncologyAnalyzer.CalculateTumorFraction(IEnumerable<VariantObservation>)`: 2 · mean clonal het VAF.
 - `OncologyAnalyzer.CalculateMeanVaf(IEnumerable<VariantObservation>)`: mean of alt/total.
 - `OncologyAnalyzer.HaploidGenomeEquivalents(double)`: ng → GE.
 
 ### 5.2 Current Behavior
 
-`CtDnaDetectionProbability` computes `1.0 - Math.Exp(-lambda)` (.NET lacks `Math.Expm1`); for the tested λ ≥ 0.01 regime this is well-conditioned. `CalculateTumorFraction` and `CalculateMeanVaf` reuse the existing private `CalculateVaf` helper (so read-count validation is shared with the somatic-calling methods). Tumour fraction is clamped to 1.0 because a fraction cannot exceed unity; per-variant VAF > 0.5 is rejected before averaging. This unit involves no substring search/matching, so the repository suffix tree is not applicable.
+`CtDnaDetectionProbability` obtains λ from `ExpectedMutantMolecules` (single validation path) and evaluates 1 − e^(−λ) through the private `PoissonProbabilityAtLeastOne` helper, which uses Kahan's cancellation-free expm1 identity (1 − u)·λ/(−ln u), u = e^(−λ), for λ ≤ ln 2 and the direct 1 − u for λ > ln 2; it matches `-numpy.expm1(-λ)` to the last bit, whereas the naive `1 − Math.Exp(−λ)` lost relative precision for small λ (2.2·10⁻⁵ relative error at λ = 10⁻¹²; exactly 0 for λ < 1.1·10⁻¹⁶). `IsCtDnaDetected` uses the same helper (review 2026-09). `CalculateTumorFraction` and `CalculateMeanVaf` share one private mean helper (`MeanReporterVaf`) over the existing `CalculateVaf` (so read-count validation is shared with the somatic-calling methods); a reporter with zero coverage contributes VAF 0 (convention of `CalculateVaf`). Per-variant VAF > 0.5 is rejected before averaging, so TF = 2·mean ≤ 1 without a clamp. This unit involves no substring search/matching, so the repository suffix tree is not applicable.
 
 ### 5.3 Conformance to Theory / Spec
 
