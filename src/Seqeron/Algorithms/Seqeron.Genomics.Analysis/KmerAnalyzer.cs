@@ -321,14 +321,25 @@ public static class KmerAnalyzer
     /// product of the alphabet. The number of k-mers produced is
     /// <c>alphabet.Length^k</c> (4^k for the default DNA alphabet), per the k-mer
     /// universe size n^k (Wikipedia — K-mer; Clavijo 2018, BioInfoLogics).
-    /// When the alphabet is supplied in sorted order the k-mers are emitted in
-    /// lexicographic order, with the rightmost position advancing fastest
-    /// (odometer ordering, cf. Python itertools.product). The default alphabet
-    /// "ACGT" is already sorted, so DNA k-mers are produced AAA, AAC, ..., TTT.
+    /// The k-mers are emitted in lexicographic order <em>with respect to the order in
+    /// which the symbols appear in <paramref name="alphabet"/></em> (Rosalind LEXF,
+    /// "Enumerating k-mers Lexicographically": the alphabet is an ordered permutation
+    /// a1 &lt; a2 &lt; … and s &lt;Lex t iff the first mismatching symbol of s precedes
+    /// that of t in the alphabet), with the rightmost position advancing fastest
+    /// (odometer ordering, identical to Python <c>itertools.product(alphabet, repeat=k)</c>).
+    /// The default alphabet "ACGT" is already sorted, so DNA k-mers are produced
+    /// AAA, AAC, ..., TTT; e.g. alphabet "TAGC", k=2 gives TT, TA, TG, TC, AT, ..., CC.
     /// </summary>
+    /// <remarks>
+    /// Enumeration is lazy and uses an index odometer over a single k-character buffer,
+    /// so the working space is O(k) and each k-mer costs O(k) (one string allocation).
+    /// The alphabet is used verbatim (case-sensitive, not sorted, not de-duplicated): as with
+    /// <c>itertools.product</c>, a repeated symbol yields repeated k-mers, so the output is
+    /// duplicate-free exactly when the alphabet symbols are distinct.
+    /// </remarks>
     /// <param name="k">The k-mer length. Must be positive.</param>
-    /// <param name="alphabet">The alphabet to use (default: DNA = "ACGT"). Must be non-empty.</param>
-    /// <returns>All <c>alphabet.Length^k</c> distinct k-mers.</returns>
+    /// <param name="alphabet">The ordered alphabet to use (default: DNA = "ACGT"). Must be non-empty.</param>
+    /// <returns>All <c>alphabet.Length^k</c> k-mers (distinct when the alphabet symbols are distinct).</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="alphabet"/> is null or empty.</exception>
     public static IEnumerable<string> GenerateAllKmers(int k, string alphabet = "ACGT")
@@ -339,23 +350,38 @@ public static class KmerAnalyzer
         if (string.IsNullOrEmpty(alphabet))
             throw new ArgumentException("Alphabet cannot be empty.", nameof(alphabet));
 
-        return GenerateKmersRecursive("", k, alphabet);
+        return EnumerateCartesianProduct(k, alphabet);
     }
 
-    private static IEnumerable<string> GenerateKmersRecursive(string prefix, int k, string alphabet)
+    /// <summary>
+    /// Odometer enumeration of alphabet^k (the algorithm of CPython itertools.product):
+    /// indices[i] is the alphabet position at k-mer position i; the rightmost index is
+    /// advanced on every step and carries leftwards on wrap-around.
+    /// </summary>
+    private static IEnumerable<string> EnumerateCartesianProduct(int k, string alphabet)
     {
-        if (prefix.Length == k)
-        {
-            yield return prefix;
-            yield break;
-        }
+        int n = alphabet.Length;
+        var indices = new int[k];
+        var buffer = new char[k];
+        Array.Fill(buffer, alphabet[0]);
 
-        foreach (char c in alphabet)
+        while (true)
         {
-            foreach (var kmer in GenerateKmersRecursive(prefix + c, k, alphabet))
+            yield return new string(buffer);
+
+            int pos = k - 1;
+            while (pos >= 0 && indices[pos] == n - 1)
             {
-                yield return kmer;
+                indices[pos] = 0;
+                buffer[pos] = alphabet[0];
+                pos--;
             }
+
+            if (pos < 0)
+                yield break;
+
+            indices[pos]++;
+            buffer[pos] = alphabet[indices[pos]];
         }
     }
 

@@ -4,7 +4,8 @@
 // Source: Wikipedia — K-mer (https://en.wikipedia.org/wiki/K-mer);
 //         Clavijo BJ (2018), BioInfoLogics — k-mer counting, part I
 //         (https://bioinfologics.github.io/post/2018/09/17/k-mer-counting-part-i-introduction/);
-//         Python Std Library — itertools.product (https://docs.python.org/3/library/itertools.html)
+//         Python Std Library — itertools.product (https://docs.python.org/3/library/itertools.html);
+//         Rosalind LEXF — Enumerating k-mers Lexicographically (https://rosalind.info/problems/lexf/)
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
@@ -205,6 +206,91 @@ public class KmerAnalyzer_GenerateAllKmers_Tests
 
         Assert.That(result, Is.EqualTo(new[] { "T", "G", "C", "A" }),
             "Output order follows the alphabet's own order; lexicographic order holds only for a sorted alphabet.");
+    }
+
+    #endregion
+
+    #region GenerateAllKmers — Rosalind LEXF / itertools.product cross-checks (review 2026-09)
+
+    // C2 — Rosalind LEXF sample dataset: ordered alphabet "T A G C", n=2. Lexicographic order is
+    // defined by the alphabet's own order (T < A < G < C). Sample output (Rosalind LEXF, as archived
+    // in github.com/mtarbit/Rosalind-Problems e015-lexf.py); identical to
+    // [''.join(p) for p in itertools.product("TAGC", repeat=2)].
+    [Test]
+    public void GenerateAllKmers_RosalindLexfSample_TagcN2_MatchesSampleOutput()
+    {
+        var result = KmerAnalyzer.GenerateAllKmers(2, "TAGC").ToList();
+
+        var expected = new[]
+        {
+            "TT", "TA", "TG", "TC", "AT", "AA", "AG", "AC",
+            "GT", "GA", "GG", "GC", "CT", "CA", "CG", "CC",
+        };
+        Assert.That(result, Is.EqualTo(expected),
+            "Rosalind LEXF sample (T A G C, n=2) must be reproduced exactly, in the alphabet's order.");
+    }
+
+    // C3 — LEXF order definition for an unsorted alphabet at k=3: s <Lex t iff the first mismatching
+    // symbol of s precedes that of t in the ALPHABET order. Checked pairwise against that definition.
+    [Test]
+    public void GenerateAllKmers_UnsortedAlphabetK3_IsLexicographicInAlphabetOrder()
+    {
+        const string alphabet = "GTCA";
+        var rank = alphabet.Select((c, i) => (c, i)).ToDictionary(t => t.c, t => t.i);
+        var result = KmerAnalyzer.GenerateAllKmers(3, alphabet).ToList();
+
+        bool LexLess(string s, string t)
+        {
+            for (int j = 0; j < s.Length; j++)
+                if (s[j] != t[j])
+                    return rank[s[j]] < rank[t[j]];
+            return false;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Count, Is.EqualTo(64), "4^3 = 64.");
+            Assert.That(result[0], Is.EqualTo("GGG"));
+            Assert.That(result[1], Is.EqualTo("GGT"));
+            Assert.That(result[^1], Is.EqualTo("AAA"));
+            for (int i = 1; i < result.Count; i++)
+                Assert.That(LexLess(result[i - 1], result[i]), Is.True,
+                    $"{result[i - 1]} must precede {result[i]} in LEXF order over (G,T,C,A).");
+        });
+    }
+
+    // C4 — itertools.product semantics for a repeated symbol: product("AAC", repeat=2) =
+    // AA AA AC AA AA AC CA CA CC (Python 3 reference output). Count stays |alphabet|^k = 9;
+    // output is duplicate-free only when the alphabet symbols are distinct.
+    [Test]
+    public void GenerateAllKmers_RepeatedSymbolAlphabet_MatchesItertoolsProduct()
+    {
+        var result = KmerAnalyzer.GenerateAllKmers(2, "AAC").ToList();
+
+        Assert.That(result, Is.EqualTo(new[] { "AA", "AA", "AC", "AA", "AA", "AC", "CA", "CA", "CC" }));
+    }
+
+    // C5 — O(k) working space (doc §4.3): a very long homopolymer k-mer is produced directly.
+    // The former recursive prefix-extension kept all k prefixes alive (O(k^2) chars, ~20 GB here).
+    [Test]
+    public void GenerateAllKmers_SingleLetterHugeK_ProducesHomopolymerInLinearSpace()
+    {
+        const int k = 100_000;
+        var result = KmerAnalyzer.GenerateAllKmers(k, "A").ToList();
+
+        Assert.That(result, Has.Count.EqualTo(1));
+        Assert.That(result[0], Is.EqualTo(new string('A', k)));
+    }
+
+    // C6 — validation is eager (not deferred to enumeration).
+    [Test]
+    public void GenerateAllKmers_InvalidArguments_ThrowEagerlyWithoutEnumeration()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.GenerateAllKmers(0));
+            Assert.Throws<ArgumentException>(() => KmerAnalyzer.GenerateAllKmers(2, ""));
+        });
     }
 
     #endregion

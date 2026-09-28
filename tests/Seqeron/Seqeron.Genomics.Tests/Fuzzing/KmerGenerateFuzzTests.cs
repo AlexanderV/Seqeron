@@ -35,9 +35,9 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// product Σ^k (K-mer_Generation.md §2.2; Wikipedia "K-mer"; itertools.product).
 /// The API entry under test is
 ///   KmerAnalyzer.GenerateAllKmers(int k, string alphabet = "ACGT")
-///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs lines
-///   299–325), backed by the private recursive prefix-extension
-///   GenerateKmersRecursive (lines 310–325) which realises the Cartesian product.
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs), backed by
+///   the private index odometer EnumerateCartesianProduct (the itertools.product
+///   algorithm) which realises the Cartesian product in O(k) working space.
 ///
 /// The DOCUMENTED invariants (K-mer_Generation.md §2.4):
 ///   • INV-01  output COUNT = n^k  (4^k for the default DNA alphabet).

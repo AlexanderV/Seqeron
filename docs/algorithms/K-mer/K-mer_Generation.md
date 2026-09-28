@@ -6,7 +6,7 @@
 | Test Unit ID | KMER-GENERATE-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -29,7 +29,7 @@ The set of all possible k-mers over alphabet `Σ` (|Σ| = n) is the k-fold Carte
 | INV-01 | Output count = `n^k` (4^k for default DNA alphabet) | Cardinality of the k-fold Cartesian product `Σ^k` [1][2] |
 | INV-02 | All emitted k-mers are distinct (output is a set of size `n^k`) | Each k-mer is a unique length-k tuple over Σ [3] |
 | INV-03 | Every k-mer has length exactly `k` and contains only alphabet characters | Direct from the definition of a k-mer over Σ [1] |
-| INV-04 | For a sorted alphabet, emission order is lexicographic (rightmost position advances fastest) | Odometer ordering of the Cartesian product: "if the input's iterables are sorted, the product tuples are emitted in sorted order" [3] |
+| INV-04 | Emission order is lexicographic with respect to the alphabet's own symbol order (rightmost position advances fastest); for a sorted alphabet this is ordinary sorted order | Rosalind LEXF: the alphabet is an ordered permutation a1<a2<…, s <Lex t iff the first mismatching symbol of s precedes that of t [4]; odometer ordering of the Cartesian product: "if the input's iterables are sorted, the product tuples are emitted in sorted order" [3] |
 
 ## 3. Contract
 
@@ -44,7 +44,7 @@ The set of all possible k-mers over alphabet `Σ` (|Σ| = n) is the k-fold Carte
 
 | Field | Type | Description |
 |-------|------|-------------|
-| return | `IEnumerable<string>` | All `alphabet.Length^k` distinct k-mers; lexicographic when the alphabet is sorted |
+| return | `IEnumerable<string>` | All `alphabet.Length^k` k-mers (distinct when the alphabet symbols are distinct); lexicographic in the alphabet's order (Rosalind LEXF) |
 
 ### 3.3 Preconditions and Validation
 
@@ -55,7 +55,7 @@ The set of all possible k-mers over alphabet `Σ` (|Σ| = n) is the k-fold Carte
 ### 4.1 High-Level Steps
 
 1. Validate `k > 0` and a non-empty `alphabet`.
-2. Build k-mers by extending a prefix one character at a time, iterating the alphabet in order at each of the `k` positions (recursive k-fold Cartesian product).
+2. Enumerate the k-fold Cartesian product with an index odometer (the CPython `itertools.product` algorithm): keep one alphabet index per position and a k-character buffer; after each emission advance the rightmost index, carrying leftwards on wrap-around.
 3. Emit each completed length-`k` string.
 
 ### 4.3 Complexity
@@ -71,11 +71,11 @@ The set of all possible k-mers over alphabet `Σ` (|Σ| = n) is the k-fold Carte
 **Implementation location:** [KmerAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs)
 
 - `KmerAnalyzer.GenerateAllKmers(int k, string alphabet = "ACGT")`: returns all `n^k` k-mers.
-- `KmerAnalyzer.GenerateKmersRecursive(...)` (private): recursive prefix extension realising the Cartesian product.
+- `KmerAnalyzer.EnumerateCartesianProduct(...)` (private): index odometer realising the Cartesian product in O(k) working space (replaced the recursive prefix extension in review 2026-09, which kept all k prefixes alive — O(k²) chars — and passed each k-mer through k nested iterators).
 
 ### 5.2 Current Behavior
 
-The recursion appends each alphabet character to a growing prefix, leftmost position outermost; this makes the rightmost position vary fastest, i.e. odometer ordering. Enumeration is lazy (`yield return`), so callers can stream the universe without materialising all `n^k` strings. The alphabet is taken verbatim — no sorting or de-duplication is applied, so a caller passing an unsorted alphabet receives all k-mers in that alphabet's positional order (INV-04 applies only to sorted alphabets).
+The odometer advances the rightmost position fastest, i.e. odometer ordering; output is byte-identical to `itertools.product(alphabet, repeat=k)` (cross-checked 2026-09-28 for ACGT k=1,5; TAGC k=4; 20-letter protein k=3; AB k=10; AAC k=3; acgT k=3; A k=7). Enumeration is lazy (`yield return`), so callers can stream the universe without materialising all `n^k` strings. The alphabet is taken verbatim — no sorting or de-duplication is applied, so a caller passing an unsorted alphabet receives all k-mers in that alphabet's positional order (INV-04 applies only to sorted alphabets).
 
 **Search-reuse decision:** N/A — this unit *generates* the k-mer universe; it performs no substring search against a text, so the repository suffix tree does not apply.
 
@@ -102,9 +102,10 @@ The recursion appends each alphabet character to a growing prefix, leftmost posi
 |------|-------------------|-----------|
 | `k = 1` | one k-mer per alphabet symbol (DNA → A,C,G,T) | n^1 = n [1] |
 | single-letter alphabet, any k | exactly one k-mer (homopolymer) | 1^k = 1 [3] |
-| `k <= 0` | `ArgumentOutOfRangeException` | k-mer length must be positive [1] |
+| `k <= 0` | `ArgumentOutOfRangeException` | k-mer length must be positive [1]; Rosalind LEXF takes a *positive* integer n [4]. Note: `itertools.product(Σ, repeat=0)` yields one empty tuple (|Σ|^0 = 1); the library deliberately rejects k = 0 as it is not a k-mer length |
 | null/empty alphabet | `ArgumentException` | no symbols ⇒ no k-mers |
-| unsorted alphabet | all n^k k-mers, in alphabet's positional order | ordering follows input order [3] |
+| unsorted alphabet | all n^k k-mers, lexicographic in the alphabet's order (e.g. "TAGC", k=2 → TT, TA, TG, TC, AT, …, CC) | Rosalind LEXF sample [4]; itertools.product [3] |
+| repeated symbol in alphabet | n^k strings including repeats ("AAC", k=2 → AA, AA, AC, AA, AA, AC, CA, CA, CC) | itertools.product semantics [3] |
 
 ### 6.2 Limitations
 
@@ -132,3 +133,4 @@ IEnumerable<string> twoMers = KmerAnalyzer.GenerateAllKmers(2);
 1. Wikipedia contributors. 2026. *K-mer*. Wikipedia. https://en.wikipedia.org/wiki/K-mer
 2. Clavijo BJ. 2018. *k-mer counting, part I: Introduction*. BioInfoLogics. https://bioinfologics.github.io/post/2018/09/17/k-mer-counting-part-i-introduction/
 3. Python Software Foundation. 2026. *itertools — Functions creating iterators for efficient looping* (itertools.product). Python 3 Standard Library documentation. https://docs.python.org/3/library/itertools.html
+4. Rosalind. *LEXF — Enumerating k-mers Lexicographically*. https://rosalind.info/problems/lexf/ (sample dataset "T A G C", n=2 and its output, read via the archived statement in github.com/mtarbit/Rosalind-Problems `e015-lexf.py`).
