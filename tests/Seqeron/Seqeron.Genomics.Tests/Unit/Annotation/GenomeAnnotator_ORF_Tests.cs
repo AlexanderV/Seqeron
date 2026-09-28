@@ -674,4 +674,86 @@ public class GenomeAnnotator_ORF_Tests
     }
 
     #endregion
+
+    #region Review 2026-09: initiator Met, stop-to-stop mode, exact reference sets
+
+    private static List<string> Describe(IEnumerable<GenomeAnnotator.OpenReadingFrame> orfs) =>
+        orfs.Select(o => $"{o.Start},{o.End},{(o.IsReverseComplement ? -o.Frame : o.Frame)},{o.ProteinSequence}")
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>
+    /// An alternative initiation codon is decoded by initiator tRNA-fMet, so the first residue
+    /// is Met. Sources: EMBOSS getorf ACD <c>-methionine</c> (default Y: "START codons at the
+    /// beginning of protein products will usually code for Methionine"); Biopython 1.88
+    /// <c>Seq("GTGAAAAAAAAATAA").translate(table=11, cds=True)</c> = "MKKK" (plus our terminal '*').
+    /// Previously the canonical finder returned "VKKK*" / "LKKK*".
+    /// </summary>
+    [TestCase("GTG")]
+    [TestCase("TTG")]
+    [TestCase("gtg")]
+    public void FindOrfs_AlternativeStartCodon_TranslatedAsInitiatorMethionine(string startCodon)
+    {
+        var orfs = GenomeAnnotator.FindOrfs(startCodon + "AAAAAAAAATAA", minLength: 1, searchBothStrands: false).ToList();
+
+        Assert.That(orfs, Has.Count.EqualTo(1));
+        Assert.That(orfs[0].ProteinSequence, Is.EqualTo("MKKK*"));
+    }
+
+    /// <summary>
+    /// Rosalind ORF sample, full six-frame ORF set with coordinates (half-open, forward-strand
+    /// coordinates; negative frame = reverse strand). Recomputed with an independent Biopython
+    /// reference (all ATG/GTG/TTG starts paired with the nearest in-frame stop on both strands,
+    /// initiator translated as M via translate(cds=True)); the four ATG proteins are the
+    /// Rosalind sample answer, the TTG ones are the alternative-start additions.
+    /// </summary>
+    [Test]
+    public void FindOrfs_RosalindDataset_ExactSixFrameSetMatchesBiopythonReference()
+    {
+        const string seq = "AGCCATGTAGCTAACTCAGGTTACATGGGGATGACCCCGCGACTTGGATTAGAGTCTCTTTTGGAATAAGCCTGAATGATCCGAGTAGCATCTCAG";
+
+        var actual = Describe(GenomeAnnotator.FindOrfs(seq, minLength: 1, searchBothStrands: true));
+
+        Assert.That(actual, Is.EqualTo(new[]
+        {
+            "10,91,-3,MLLGSFRLIPKETLIQVAGSSPCNLS*",
+            "20,26,-2,M*",
+            "24,69,1,MGMTPRLGLESLLE*",
+            "30,69,1,MTPRLGLESLLE*",
+            "4,10,2,M*",
+            "43,52,2,MD*",
+            "60,69,1,ME*",
+        }));
+    }
+
+    /// <summary>
+    /// requireStartCodon = false follows EMBOSS getorf <c>-find 0</c> ("Translation of regions
+    /// between STOP codons") on a linear sequence: each frame starts open at its offset
+    /// (getorf.c: "assume already in a ORF so we get ORFs at the start of the sequence"),
+    /// and the region still open at the end is reported to the last complete codon.
+    /// Previously the leading region [0,9) "PK*" and both stop-less frames were lost.
+    /// </summary>
+    [Test]
+    public void FindOrfs_NoStartRequired_ReportsLeadingAndTrailingStopToStopRegions()
+    {
+        var actual = Describe(GenomeAnnotator.FindOrfs("CCCAAATAAGGG", minLength: 1, searchBothStrands: false, requireStartCodon: false));
+
+        Assert.That(actual, Is.EqualTo(new[] { "0,9,1,PK*", "1,10,2,PNK", "2,11,3,QIR", "9,12,1,G" }));
+    }
+
+    /// <summary>
+    /// getorf <c>-find 0</c> reports exactly one region per stop-delimited segment; a start
+    /// codon inside the segment does not create an extra sub-ORF. Previously "TAAATGAAATAA"
+    /// emitted [3,12) "MK*" twice (once from the post-stop position, once from the ATG).
+    /// A segment with no sense codon (the leading TAA in frame 1) is not an ORF.
+    /// </summary>
+    [Test]
+    public void FindOrfs_NoStartRequired_OneRegionPerStopDelimitedSegment()
+    {
+        var actual = Describe(GenomeAnnotator.FindOrfs("TAAATGAAATAA", minLength: 1, searchBothStrands: false, requireStartCodon: false));
+
+        Assert.That(actual, Is.EqualTo(new[] { "1,7,2,K*", "2,11,3,NEI", "3,12,1,MK*", "7,10,2,N" }));
+    }
+
+    #endregion
 }
