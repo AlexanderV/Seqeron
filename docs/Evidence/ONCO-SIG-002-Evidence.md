@@ -467,6 +467,53 @@ intra-cluster distance and b(i) the lowest mean distance to any other cluster; s
 
 ---
 
+## Online Sources — NNLS reference re-validation (campaign 2026-09, batch B23)
+
+### Lawson & Hanson Algorithm NNLS — reference Fortran (`NNLS`, `H12`, `G1`) and SciPy C translation
+
+**URLs (opened 2026-09-28):** https://raw.githubusercontent.com/scipy/scipy/v1.5.0/scipy/optimize/__nnls/nnls.f ;
+https://raw.githubusercontent.com/scipy/scipy/v1.17.1/scipy/optimize/__nnls.c ; installed
+`scipy/optimize/_nnls.py` (SciPy 1.17.1). (netlib.org/lawson-hanson is blocked by the proxy.)
+**Authority rank:** 1 (the authors' published code, SIAM 1995 reprint) / 2 (SciPy reference implementation)
+
+**Key Extracted Points:**
+
+1. The dual vector w = Aᵀ(b − Ax) is tested with a **sign test** — `IF (WMAX .le. ZERO) go to 350` — there is no
+   absolute tolerance; the solution is therefore positively homogeneous in b.
+2. A candidate column j is admitted only if it is numerically independent of the passive columns
+   (`DIFF(UNORM+ABS(A(NPP1,J))*FACTOR, UNORM) > 0`, FACTOR = 0.01) **and** its proposed coefficient
+   `ZTEST = ZZ(NPP1)/A(NPP1,J) > 0`; otherwise `W(J)=0` and the next candidate is tried.
+3. Passive-set LS subproblems use an updated Householder QR (H12) with Givens (G1/G2) down-dates when an
+   index leaves P — never the normal equations. The main loop stops when |P| = m or Z = ∅.
+4. Iteration limit ITMAX = 3·N (secondary loop); on overflow MODE = 3. `scipy.optimize.nnls` raises
+   `RuntimeError("Maximum number of iterations reached.")` and rejects non-finite A/b via `np.asarray_chkfinite`.
+5. Docstring worked examples: A=[[1,0],[1,0],[0,1]], b=[2,1,1] → x=[1.5, 1], rnorm=0.7071067811865476;
+   b=[−1,−1,−1] → x=[0,0], rnorm=1.7320508075688772.
+
+### MutationalPatterns / SigProfilerAssignment reference code
+
+**URLs (opened 2026-09-28):** https://raw.githubusercontent.com/UMCUGenetics/MutationalPatterns/master/R/fit_to_signatures.R ,
+`.../R/cos_sim.R`; https://raw.githubusercontent.com/AlexandrovLab/SigProfilerAssignment/main/SigProfilerAssignment/decompose_subroutines.py ;
+COSMIC reference `SigProfilerAssignment/data/Reference_Signatures/GRCh37/COSMIC_v3.4_SBS_GRCh37.txt` (86 × 96, md5 67be571dc89d8e173843396fb20b2218).
+
+1. `fit_to_signatures` solves each sample with `pracma::lsqnonneg(signatures, y)` over **all** supplied signatures
+   and reconstructs `signatures %*% x` (confirms NNLS model + reconstruction).
+2. `cos_sim(x, y) = x·y / (√(x·x)·√(y·y))` (MutationalPatterns; NaN for a zero vector).
+   SigProfilerAssignment `cos_sim` returns **0.0** when either vector sums to 0 — the convention adopted here.
+
+### Independent cross-check (numbers, 2026-09-28)
+
+| Case | scipy.optimize.nnls | FitSignatures (after fix) | Former solver |
+|------|---------------------|---------------------------|---------------|
+| docstring A,b=[2,1,1] | x=[1.5,1], rnorm 0.70710678 | identical | identical |
+| I₂, d=[3e-13,5e-13] | x=[3e-13,5e-13] | identical | **x=[0,0]** (absolute 1e-12 dual tolerance) |
+| COSMIC v3.4 (86 sigs), d = Poisson(300·SBS1+800·SBS5+200·SBS32; numpy default_rng(7)), total 1345 | 38 non-zero exposures, rnorm 21.901597834456467, cos 0.9953491259911486 | max rel. diff 1e-14 | agrees |
+| same d × 1e6 | exposures × 1e6, rnorm 21901597.83445645 | agrees, < 0.1 s | **did not terminate in 90 s** (add/drop cycling) |
+| same d × 1e-12 | exposures × 1e-12 | agrees | wrong support (SBS3/SBS5 dropped) |
+| 500 random COSMIC-subset refits, totals 10…10⁷ | — | max rel. exposure diff 8.0e-15, max rel. rnorm excess 7.8e-14 | — |
+| duplicate column [s0,s0,s1], b=[2,1,1] | x=[1.5,0,1] | identical | — |
+
+---
 ## Change History
 
 - **2026-06-14**: Initial documentation (NNLS refitting).
@@ -475,3 +522,6 @@ intra-cluster distance and b(i) the lowest mean distance to any other cluster; s
 - **2026-06-23**: Added ONCO-SIG-002 enhancement evidence — Lee & Seung KL/Poisson Theorem 2 updates, Brunet
   (2004) consensus/cophenetic rank selection, Alexandrov 2013 / SigProfiler silhouette stability + cosine
   reference matching (closing all three LIMITATIONS clauses).
+- **2026-09-28 (campaign 2026-09, B23)**: NNLS solver replaced by a faithful port of the Lawson-Hanson reference
+  Fortran (sign test, independence + ztest safeguards, Householder/Givens QR, ITMAX = 3k); non-finite input
+  rejected. Cross-checked against scipy.optimize.nnls (docstring examples, full COSMIC v3.4 refit, 500 random refits).

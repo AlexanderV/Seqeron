@@ -25,6 +25,10 @@
     <!-- TRANS-CODON-001: Biopython 1.88 Bio.Seq.translate / Bio.Data.CodonTable.ambiguous_dna_by_id over all
          15^3 IUPAC codons for every NCBI translation table (gc.prt v4.6 == Biopython tables). -->
     <EmbeddedResource Include="TestData\GeneticCode\biopython_ambiguous_codons.tsv" />
+    <!-- ONCO-SIG-002: COSMIC v3.4 SBS96 reference signatures (86 × 96), verbatim from SigProfilerAssignment
+         (SigProfilerAssignment/data/Reference_Signatures/GRCh37/COSMIC_v3.4_SBS_GRCh37.txt). Used to cross-check
+         FitSignatures (NNLS refit to the full COSMIC set) against scipy.optimize.nnls. -->
+    <EmbeddedResource Include="TestData\Cosmic\COSMIC_v3.4_SBS_GRCh37.txt" />
   </ItemGroup>
 
   <ItemGroup>

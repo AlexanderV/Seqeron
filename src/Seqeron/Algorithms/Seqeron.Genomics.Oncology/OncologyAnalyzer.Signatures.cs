@@ -169,23 +169,6 @@ public static partial class OncologyAnalyzer
     #region Signature Fitting / Refitting (ONCO-SIG-002)
 
     /// <summary>
-    /// Convergence tolerance ε for the Lawson-Hanson active-set NNLS main loop: the iteration stops when the
-    /// largest gradient component over the inactive set R is ≤ ε. Source: Lawson C.L. &amp; Hanson R.J. (1974),
-    /// <i>Solving Least Squares Problems</i>, Ch. 23 — the active-set algorithm terminates when
-    /// max(w_R) ≤ ε (https://en.wikipedia.org/wiki/Non-negative_least_squares). A small positive value
-    /// (1e-12) makes the stop effectively exact for the well-conditioned signature matrices used here.
-    /// </summary>
-    private const double NnlsTolerance = 1e-12;
-
-    /// <summary>
-    /// Maximum number of outer (active-set growth) iterations for the NNLS solver. The Lawson-Hanson method
-    /// adds at most one index per outer iteration and is guaranteed to terminate in a finite number of steps;
-    /// this cap (a small multiple of the number of signatures) is a safety bound against floating-point
-    /// non-termination. Source: Lawson &amp; Hanson (1974), Ch. 23 (finite termination of the active-set method).
-    /// </summary>
-    private const int NnlsMaxOuterIterationsPerSignature = 30;
-
-    /// <summary>
     /// The result of fitting (refitting) an observed mutational catalog to a set of reference signatures.
     /// </summary>
     /// <param name="Exposures">
@@ -215,7 +198,8 @@ public static partial class OncologyAnalyzer
     /// 1 = identical direction) and is invariant to positive scaling of either vector. Source: Blokzijl et al.
     /// (2018), <i>Genome Medicine</i> 10:33 (§ "Mutational profile similarity"); Pan &amp; Wang (2020), iMutSig.
     /// When either vector has zero Euclidean norm the cosine is undefined (division by zero); this method
-    /// returns 0.0 for that degenerate case (no shared direction).
+    /// returns 0.0 for that degenerate case (no shared direction) — the convention of SigProfilerAssignment
+    /// <c>cos_sim</c> (<c>decompose_subroutines.py</c>: returns 0.0 when either vector sums to 0).
     /// </summary>
     /// <param name="a">First vector (e.g. a mutational profile / 96-channel catalog).</param>
     /// <param name="b">Second vector of the same length as <paramref name="a"/>.</param>
@@ -307,7 +291,8 @@ public static partial class OncologyAnalyzer
     /// model: the catalog is projected onto the non-negative cone spanned by the reference signatures
     /// (Blokzijl et al. 2018). Reference signature profiles are <b>not</b> hardcoded — they are supplied by the
     /// caller (e.g. COSMIC SBS profiles); this method only performs the fit. The NNLS problem is solved with
-    /// the Lawson-Hanson active-set algorithm (Lawson &amp; Hanson 1974). The result also exposes the
+    /// the Lawson-Hanson active-set algorithm (Lawson &amp; Hanson 1974; faithful port of the reference NNLS
+    /// Fortran used by <c>scipy.optimize.nnls</c>, see <see cref="SolveNonNegativeLeastSquares(double[,], double[], int)"/>). The result also exposes the
     /// proportion-normalised exposures (Rosenthal et al. 2016), the reconstruction S·x, and the cosine
     /// similarity between d and S·x as a reconstruction-quality measure (Blokzijl et al. 2018).
     /// </summary>
@@ -316,7 +301,8 @@ public static partial class OncologyAnalyzer
     /// <returns>The fit result: exposures, normalised exposures, reconstruction, and reconstruction cosine.</returns>
     /// <exception cref="ArgumentNullException">Any argument (or a signature vector) is null.</exception>
     /// <exception cref="ArgumentException">
-    /// No signatures, ragged signatures, or the catalog length differs from the signature channel count.
+    /// No signatures, ragged signatures, the catalog length differs from the signature channel count, or any
+    /// catalog / signature value is NaN or infinite (the reference NNLS rejects non-finite input).
     /// </exception>
     public static SignatureFitResult FitSignatures(
         IReadOnlyList<double> catalog,
@@ -330,6 +316,28 @@ public static partial class OncologyAnalyzer
             throw new ArgumentException(
                 $"Catalog length ({catalog.Count}) must equal the signature channel count ({channelCount}).",
                 nameof(catalog));
+        }
+
+        // Reference NNLS rejects non-finite input (scipy.optimize.nnls: np.asarray_chkfinite); a NaN would
+        // otherwise poison every dual coefficient and silently yield the all-zero fit.
+        for (int k = 0; k < channelCount; k++)
+        {
+            if (!double.IsFinite(catalog[k]))
+            {
+                throw new ArgumentException($"Catalog value at channel {k} is not finite.", nameof(catalog));
+            }
+        }
+
+        for (int j = 0; j < signatures.Count; j++)
+        {
+            for (int k = 0; k < channelCount; k++)
+            {
+                if (!double.IsFinite(signatures[j][k]))
+                {
+                    throw new ArgumentException(
+                        $"Signature {j} value at channel {k} is not finite.", nameof(signatures));
+                }
+            }
         }
 
         double[] exposures = SolveNonNegativeLeastSquares(signatures, catalog, channelCount);
@@ -366,317 +374,431 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Solves minₓ ‖ S·x − d ‖₂² subject to x ≥ 0 with the Lawson-Hanson active-set algorithm.
-    /// Source: Lawson C.L. &amp; Hanson R.J. (1974), <i>Solving Least Squares Problems</i>, Ch. 23
-    /// (https://en.wikipedia.org/wiki/Non-negative_least_squares). Index set P holds the passive (free,
-    /// possibly non-zero) variables; R holds the active (clamped-to-zero) variables; the gradient
-    /// w = Sᵀ(d − S·x) selects the next variable to free.
+    /// Adapts the signature list (column j = signatures[j]) and the catalog to the dense matrix form used by the
+    /// canonical Lawson-Hanson solver <see cref="SolveNonNegativeLeastSquares(double[,], double[], int)"/>.
     /// </summary>
-    /// <param name="signatures">Signature matrix S (column j = signatures[j]).</param>
-    /// <param name="catalog">Observed vector d.</param>
-    /// <param name="channelCount">Number of channels (rows of S, length of d).</param>
-    /// <returns>The NNLS solution x (length = number of signatures).</returns>
     private static double[] SolveNonNegativeLeastSquares(
         IReadOnlyList<IReadOnlyList<double>> signatures,
         IReadOnlyList<double> catalog,
         int channelCount)
     {
         int n = signatures.Count;
-        var x = new double[n];
-        bool[] passive = new bool[n]; // true => index in P, false => in R
-
-        int maxOuter = n * NnlsMaxOuterIterationsPerSignature;
-        int outer = 0;
-
-        while (outer++ < maxOuter)
+        var a = new double[channelCount, n];
+        for (int j = 0; j < n; j++)
         {
-            // w = Sᵀ(d − S·x); only inactive (R) components matter for selection.
-            double[] residual = ComputeResidual(signatures, x, catalog, channelCount);
-            double[] gradient = ComputeGradient(signatures, residual);
-
-            int j = -1;
-            double maxGradient = NnlsTolerance;
-            for (int i = 0; i < n; i++)
+            IReadOnlyList<double> signature = signatures[j];
+            for (int k = 0; k < channelCount; k++)
             {
-                if (!passive[i] && gradient[i] > maxGradient)
+                a[k, j] = signature[k];
+            }
+        }
+
+        var b = new double[channelCount];
+        for (int k = 0; k < channelCount; k++)
+        {
+            b[k] = catalog[k];
+        }
+
+        return SolveNonNegativeLeastSquares(a, b);
+    }
+
+    /// <summary>
+    /// Canonical non-negative least-squares solver: returns x minimising ‖A·x − b‖₂ subject to x ≥ 0.
+    /// <para>
+    /// Faithful port of Algorithm NNLS of Lawson &amp; Hanson, <i>Solving Least Squares Problems</i>
+    /// (Prentice-Hall 1974, Ch. 23; SIAM reprint 1995, doi:10.1137/1.9781611971217) — the published Fortran
+    /// subroutines <c>NNLS</c>, <c>H12</c> (Householder) and <c>G1</c>/<c>G2</c> (Givens) as distributed with SciPy
+    /// (<c>scipy/optimize/__nnls/nnls.f</c>) and re-implemented in C by <c>scipy.optimize.nnls</c>
+    /// (<c>scipy/optimize/__nnls.c</c>). The passive-set least-squares subproblems are solved by an updated
+    /// Householder QR factorisation (not the normal equations), and the reference safeguards are kept:
+    /// a candidate column is admitted only if it is numerically linearly independent of the passive columns
+    /// (FACTOR = 0.01 test) and its proposed coefficient <c>ztest</c> is positive; the main loop stops when
+    /// every dual coefficient w = Aᵀ(b − A·x) over the zero set is ≤ 0 (Kuhn-Tucker conditions) or when
+    /// min(m, n) columns have been triangularised.
+    /// </para>
+    /// </summary>
+    /// <param name="matrix">The m×n matrix A (not modified).</param>
+    /// <param name="rhs">The m-vector b (not modified).</param>
+    /// <param name="maxIterations">
+    /// Maximum number of inner (secondary-loop) iterations; ≤ 0 selects the reference default 3·n.
+    /// </param>
+    /// <returns>The NNLS solution x (length n), every element ≥ 0.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// The iteration limit was reached (reference MODE = 3; <c>scipy.optimize.nnls</c> raises
+    /// "Maximum number of iterations reached").
+    /// </exception>
+    internal static double[] SolveNonNegativeLeastSquares(double[,] matrix, double[] rhs, int maxIterations = 0)
+    {
+        ArgumentNullException.ThrowIfNull(matrix);
+        ArgumentNullException.ThrowIfNull(rhs);
+
+        int m = matrix.GetLength(0);
+        int n = matrix.GetLength(1);
+        if (m == 0 || n == 0 || rhs.Length != m)
+        {
+            throw new ArgumentException("NNLS requires a non-empty m×n matrix and an m-vector.", nameof(rhs));
+        }
+
+        var a = (double[,])matrix.Clone();
+        var b = (double[])rhs.Clone();
+        var x = new double[n];
+        var w = new double[n];
+        var zz = new double[m];
+        var index = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            index[i] = i;
+        }
+
+        int iterationLimit = maxIterations > 0 ? maxIterations : 3 * n;
+        int iteration = 0;
+        int iz1 = 0;          // INDEX[0..iz1-1] = set P, INDEX[iz1..n-1] = set Z
+        int nsetp = 0;        // |P|; also the 0-based row of the next Householder pivot (NPP1 − 1)
+
+        while (iz1 < n && nsetp < m)
+        {
+            // Dual (negative-gradient) vector over Z, in the rotated frame: w_j = Σ_{l ≥ nsetp} a[l,j]·b[l].
+            for (int iz = iz1; iz < n; iz++)
+            {
+                int col = index[iz];
+                double sm = 0.0;
+                for (int l = nsetp; l < m; l++)
                 {
-                    maxGradient = gradient[i];
-                    j = i;
+                    sm += a[l, col] * b[l];
                 }
+
+                w[col] = sm;
             }
 
-            if (j < 0)
+            // Select the next column to move from Z to P (largest positive w, independent, ztest > 0).
+            int j;
+            int izSelected;
+            double up;
+            while (true)
             {
-                // R empty or max(w_R) ≤ ε — KKT conditions satisfied.
-                break;
-            }
-
-            passive[j] = true;
-
-            // Inner loop: solve the unconstrained LS on P; if any becomes ≤ 0, take the bounded step.
-            int innerGuard = 0;
-            while (innerGuard++ <= n)
-            {
-                double[] s = SolveLeastSquaresOnPassiveSet(signatures, catalog, passive, channelCount, n);
-
-                double minPassive = double.PositiveInfinity;
-                for (int i = 0; i < n; i++)
+                double wmax = 0.0;
+                int izmax = -1;
+                for (int iz = iz1; iz < n; iz++)
                 {
-                    if (passive[i] && s[i] < minPassive)
+                    int col = index[iz];
+                    if (w[col] > wmax)
                     {
-                        minPassive = s[i];
+                        wmax = w[col];
+                        izmax = iz;
                     }
                 }
 
-                if (minPassive > 0.0)
+                if (izmax < 0)
                 {
-                    x = s;
-                    break;
+                    // wmax ≤ 0: Kuhn-Tucker conditions satisfied.
+                    return x;
                 }
 
-                // α = min over i in P with s_i ≤ 0 of x_i / (x_i − s_i).
-                double alpha = double.PositiveInfinity;
-                for (int i = 0; i < n; i++)
+                izSelected = izmax;
+                j = index[izSelected];
+                double asave = a[nsetp, j];
+                up = HouseholderConstruct(a, j, nsetp, m);
+
+                double unorm = 0.0;
+                for (int l = 0; l < nsetp; l++)
                 {
-                    if (passive[i] && s[i] <= 0.0)
+                    unorm += a[l, j] * a[l, j];
+                }
+
+                unorm = Math.Sqrt(unorm);
+                if ((unorm + Math.Abs(a[nsetp, j]) * NnlsIndependenceFactor) - unorm > 0.0)
+                {
+                    // Column j is sufficiently independent: ztest = proposed new value of x_j.
+                    Array.Copy(b, zz, m);
+                    HouseholderApplyToVector(a, j, nsetp, m, up, zz);
+                    double ztest = zz[nsetp] / a[nsetp, j];
+                    if (ztest > 0.0)
                     {
-                        double denom = x[i] - s[i];
-                        if (denom != 0.0)
+                        break;
+                    }
+                }
+
+                // Reject j as a candidate; restore the pivot and test the remaining dual coefficients.
+                a[nsetp, j] = asave;
+                w[j] = 0.0;
+            }
+
+            // Move j from Z to P; apply the Householder transformation to the remaining Z columns.
+            Array.Copy(zz, b, m);
+            index[izSelected] = index[iz1];
+            index[iz1] = j;
+            iz1++;
+            int pivotRow = nsetp;
+            nsetp++;
+            for (int jz = iz1; jz < n; jz++)
+            {
+                HouseholderApplyToColumn(a, j, pivotRow, m, up, index[jz]);
+            }
+
+            for (int l = nsetp; l < m; l++)
+            {
+                a[l, j] = 0.0;
+            }
+
+            w[j] = 0.0;
+            SolveTriangular(a, index, nsetp, zz);
+
+            // Secondary loop: step back towards feasibility while any passive coefficient is ≤ 0.
+            while (true)
+            {
+                iteration++;
+                if (iteration > iterationLimit)
+                {
+                    throw new InvalidOperationException(
+                        $"NNLS did not converge within {iterationLimit} iterations (Lawson-Hanson MODE = 3).");
+                }
+
+                double alpha = 2.0;
+                int jj = -1;
+                for (int ip = 0; ip < nsetp; ip++)
+                {
+                    int l = index[ip];
+                    if (zz[ip] <= 0.0)
+                    {
+                        double t = -x[l] / (zz[ip] - x[l]);
+                        if (alpha > t)
                         {
-                            double candidate = x[i] / denom;
-                            if (candidate < alpha)
-                            {
-                                alpha = candidate;
-                            }
+                            alpha = t;
+                            jj = ip;
                         }
                     }
                 }
 
-                if (double.IsPositiveInfinity(alpha))
+                if (alpha == 2.0)
                 {
-                    // Numerical safeguard: no feasible step (should not occur for valid inputs).
-                    x = s;
                     break;
                 }
 
-                for (int i = 0; i < n; i++)
+                for (int ip = 0; ip < nsetp; ip++)
                 {
-                    x[i] += alpha * (s[i] - x[i]);
+                    int l = index[ip];
+                    x[l] += alpha * (zz[ip] - x[l]);
                 }
 
-                // Move indices with x_i ≤ 0 from P back to R.
-                for (int i = 0; i < n; i++)
+                // Move coefficient index[jj] (and any other non-positive ones) from P back to Z.
+                while (true)
                 {
-                    if (passive[i] && x[i] <= 0.0)
+                    int i = index[jj];
+                    x[i] = 0.0;
+                    for (int jp = jj + 1; jp < nsetp; jp++)
                     {
-                        x[i] = 0.0;
-                        passive[i] = false;
+                        int ii = index[jp];
+                        index[jp - 1] = ii;
+                        (double cc, double ss, double sig) = GivensRotation(a[jp - 1, ii], a[jp, ii]);
+                        a[jp - 1, ii] = sig;
+                        a[jp, ii] = 0.0;
+                        for (int l = 0; l < n; l++)
+                        {
+                            if (l != ii)
+                            {
+                                double temp = a[jp - 1, l];
+                                a[jp - 1, l] = cc * temp + ss * a[jp, l];
+                                a[jp, l] = -ss * temp + cc * a[jp, l];
+                            }
+                        }
+
+                        double tb = b[jp - 1];
+                        b[jp - 1] = cc * tb + ss * b[jp];
+                        b[jp] = -ss * tb + cc * b[jp];
+                    }
+
+                    nsetp--;
+                    iz1--;
+                    index[iz1] = i;
+
+                    // Remaining passive coefficients should be feasible; any ≤ 0 is round-off → move it too.
+                    jj = -1;
+                    for (int ip = 0; ip < nsetp; ip++)
+                    {
+                        if (x[index[ip]] <= 0.0)
+                        {
+                            jj = ip;
+                            break;
+                        }
+                    }
+
+                    if (jj < 0)
+                    {
+                        break;
                     }
                 }
+
+                Array.Copy(b, zz, m);
+                SolveTriangular(a, index, nsetp, zz);
+            }
+
+            for (int ip = 0; ip < nsetp; ip++)
+            {
+                x[index[ip]] = zz[ip];
             }
         }
 
         return x;
     }
 
-    /// <summary>Computes the residual d − S·x.</summary>
-    private static double[] ComputeResidual(
-        IReadOnlyList<IReadOnlyList<double>> signatures,
-        double[] x,
-        IReadOnlyList<double> catalog,
-        int channelCount)
+    /// <summary>
+    /// Lawson-Hanson NNLS linear-independence factor (Fortran <c>PARAMETER (FACTOR = 0.01d0)</c>): a candidate
+    /// column is admitted only if <c>(unorm + |a_pivot|·FACTOR) − unorm &gt; 0</c> in floating point.
+    /// </summary>
+    private const double NnlsIndependenceFactor = 0.01;
+
+    /// <summary>
+    /// Lawson-Hanson H12, MODE 1: constructs the Householder transformation that zeroes a[l, col] for
+    /// l = pivot+1 … m−1, storing the new pivot in a[pivot, col] and returning UP. Identity when pivot+1 ≥ m.
+    /// </summary>
+    private static double HouseholderConstruct(double[,] a, int col, int pivot, int m)
     {
-        var residual = new double[channelCount];
-        for (int k = 0; k < channelCount; k++)
+        if (pivot + 1 >= m)
         {
-            residual[k] = catalog[k];
+            return 0.0;
         }
 
-        for (int j = 0; j < signatures.Count; j++)
+        double cl = Math.Abs(a[pivot, col]);
+        for (int l = pivot + 1; l < m; l++)
         {
-            double weight = x[j];
-            if (weight == 0.0)
-            {
-                continue;
-            }
-
-            IReadOnlyList<double> signature = signatures[j];
-            for (int k = 0; k < channelCount; k++)
-            {
-                residual[k] -= signature[k] * weight;
-            }
+            cl = Math.Max(Math.Abs(a[l, col]), cl);
         }
 
-        return residual;
+        if (cl <= 0.0)
+        {
+            return 0.0;
+        }
+
+        double clinv = 1.0 / cl;
+        double sm = (a[pivot, col] * clinv) * (a[pivot, col] * clinv);
+        for (int l = pivot + 1; l < m; l++)
+        {
+            double scaled = a[l, col] * clinv;
+            sm += scaled * scaled;
+        }
+
+        cl *= Math.Sqrt(sm);
+        if (a[pivot, col] > 0.0)
+        {
+            cl = -cl;
+        }
+
+        double up = a[pivot, col] - cl;
+        a[pivot, col] = cl;
+        return up;
     }
 
-    /// <summary>Computes the gradient w = Sᵀ·residual.</summary>
-    private static double[] ComputeGradient(
-        IReadOnlyList<IReadOnlyList<double>> signatures,
-        double[] residual)
+    /// <summary>Lawson-Hanson H12, MODE 2, applied to a vector c (in place).</summary>
+    private static void HouseholderApplyToVector(double[,] a, int col, int pivot, int m, double up, double[] c)
     {
-        var gradient = new double[signatures.Count];
-        for (int j = 0; j < signatures.Count; j++)
+        if (pivot + 1 >= m || Math.Abs(a[pivot, col]) <= 0.0)
         {
-            IReadOnlyList<double> signature = signatures[j];
-            double sum = 0.0;
-            for (int k = 0; k < residual.Length; k++)
-            {
-                sum += signature[k] * residual[k];
-            }
-
-            gradient[j] = sum;
+            return;
         }
 
-        return gradient;
+        double bb = up * a[pivot, col];
+        if (bb >= 0.0)
+        {
+            return;
+        }
+
+        double sm = c[pivot] * up;
+        for (int l = pivot + 1; l < m; l++)
+        {
+            sm += c[l] * a[l, col];
+        }
+
+        if (sm == 0.0)
+        {
+            return;
+        }
+
+        sm /= bb;
+        c[pivot] += sm * up;
+        for (int l = pivot + 1; l < m; l++)
+        {
+            c[l] += sm * a[l, col];
+        }
+    }
+
+    /// <summary>Lawson-Hanson H12, MODE 2, applied to column <paramref name="target"/> of a (in place).</summary>
+    private static void HouseholderApplyToColumn(double[,] a, int col, int pivot, int m, double up, int target)
+    {
+        if (pivot + 1 >= m || Math.Abs(a[pivot, col]) <= 0.0)
+        {
+            return;
+        }
+
+        double bb = up * a[pivot, col];
+        if (bb >= 0.0)
+        {
+            return;
+        }
+
+        double sm = a[pivot, target] * up;
+        for (int l = pivot + 1; l < m; l++)
+        {
+            sm += a[l, target] * a[l, col];
+        }
+
+        if (sm == 0.0)
+        {
+            return;
+        }
+
+        sm /= bb;
+        a[pivot, target] += sm * up;
+        for (int l = pivot + 1; l < m; l++)
+        {
+            a[l, target] += sm * a[l, col];
+        }
     }
 
     /// <summary>
-    /// Solves the unconstrained least-squares problem restricted to the passive set P:
-    /// s_P = ((S_P)ᵀ S_P)⁻¹ (S_P)ᵀ d, with s_R = 0, via the normal equations solved by Gaussian elimination.
-    /// Source: Lawson &amp; Hanson (1974), Ch. 23.
+    /// Lawson-Hanson G1: the rotation (c, s) with (c, s; −s, c)·(x, y)ᵀ = (√(x²+y²), 0)ᵀ, and σ = √(x²+y²).
     /// </summary>
-    private static double[] SolveLeastSquaresOnPassiveSet(
-        IReadOnlyList<IReadOnlyList<double>> signatures,
-        IReadOnlyList<double> catalog,
-        bool[] passive,
-        int channelCount,
-        int n)
+    private static (double C, double S, double Sigma) GivensRotation(double x, double y)
     {
-        var passiveIndices = new List<int>();
-        for (int i = 0; i < n; i++)
+        if (Math.Abs(x) > Math.Abs(y))
         {
-            if (passive[i])
-            {
-                passiveIndices.Add(i);
-            }
+            double xr = y / x;
+            double yr = Math.Sqrt(1.0 + xr * xr);
+            double c = Math.CopySign(1.0 / yr, x);
+            return (c, c * xr, Math.Abs(x) * yr);
         }
 
-        int p = passiveIndices.Count;
-        var s = new double[n];
-        if (p == 0)
+        if (y != 0.0)
         {
-            return s;
+            double xr = x / y;
+            double yr = Math.Sqrt(1.0 + xr * xr);
+            double s = Math.CopySign(1.0 / yr, y);
+            return (s * xr, s, Math.Abs(y) * yr);
         }
 
-        // Normal equations: (S_Pᵀ S_P) z = S_Pᵀ d.
-        var ata = new double[p, p];
-        var atb = new double[p];
-        for (int a = 0; a < p; a++)
-        {
-            IReadOnlyList<double> sigA = signatures[passiveIndices[a]];
-            double rhs = 0.0;
-            for (int k = 0; k < channelCount; k++)
-            {
-                rhs += sigA[k] * catalog[k];
-            }
-
-            atb[a] = rhs;
-
-            for (int b = 0; b < p; b++)
-            {
-                IReadOnlyList<double> sigB = signatures[passiveIndices[b]];
-                double dot = 0.0;
-                for (int k = 0; k < channelCount; k++)
-                {
-                    dot += sigA[k] * sigB[k];
-                }
-
-                ata[a, b] = dot;
-            }
-        }
-
-        double[] z = SolveLinearSystem(ata, atb, p);
-        for (int a = 0; a < p; a++)
-        {
-            s[passiveIndices[a]] = z[a];
-        }
-
-        return s;
+        return (0.0, 1.0, 0.0);
     }
 
     /// <summary>
-    /// Solves the dense linear system M·z = rhs (M is p×p, symmetric positive semi-definite here) by Gaussian
-    /// elimination with partial pivoting. Standard direct method (CLRS, §28; Numerical Recipes §2.1).
+    /// Lawson-Hanson NNLS internal block 400: back-substitution of the upper-triangular passive system,
+    /// overwriting zz[0..nsetp−1] with the passive-set least-squares solution.
     /// </summary>
-    private static double[] SolveLinearSystem(double[,] matrix, double[] rhs, int p)
+    private static void SolveTriangular(double[,] a, int[] index, int nsetp, double[] zz)
     {
-        // Work on copies so the inputs are not mutated.
-        var m = new double[p, p];
-        var b = new double[p];
-        for (int i = 0; i < p; i++)
+        int previousColumn = -1;
+        for (int step = 0; step < nsetp; step++)
         {
-            b[i] = rhs[i];
-            for (int k = 0; k < p; k++)
+            int ip = nsetp - 1 - step;
+            if (step != 0)
             {
-                m[i, k] = matrix[i, k];
+                for (int ii = 0; ii <= ip; ii++)
+                {
+                    zz[ii] -= a[ii, previousColumn] * zz[ip + 1];
+                }
             }
+
+            previousColumn = index[ip];
+            zz[ip] /= a[ip, previousColumn];
         }
-
-        for (int col = 0; col < p; col++)
-        {
-            // Partial pivot: largest magnitude in this column at or below the diagonal.
-            int pivot = col;
-            double best = Math.Abs(m[col, col]);
-            for (int row = col + 1; row < p; row++)
-            {
-                double magnitude = Math.Abs(m[row, col]);
-                if (magnitude > best)
-                {
-                    best = magnitude;
-                    pivot = row;
-                }
-            }
-
-            if (pivot != col)
-            {
-                for (int k = 0; k < p; k++)
-                {
-                    (m[col, k], m[pivot, k]) = (m[pivot, k], m[col, k]);
-                }
-
-                (b[col], b[pivot]) = (b[pivot], b[col]);
-            }
-
-            double diagonal = m[col, col];
-            if (diagonal == 0.0)
-            {
-                // Singular column (collinear signatures); leave this component at 0.
-                continue;
-            }
-
-            for (int row = col + 1; row < p; row++)
-            {
-                double factor = m[row, col] / diagonal;
-                if (factor == 0.0)
-                {
-                    continue;
-                }
-
-                for (int k = col; k < p; k++)
-                {
-                    m[row, k] -= factor * m[col, k];
-                }
-
-                b[row] -= factor * b[col];
-            }
-        }
-
-        // Back-substitution.
-        var z = new double[p];
-        for (int row = p - 1; row >= 0; row--)
-        {
-            double sum = b[row];
-            for (int k = row + 1; k < p; k++)
-            {
-                sum -= m[row, k] * z[k];
-            }
-
-            double diagonal = m[row, row];
-            z[row] = diagonal == 0.0 ? 0.0 : sum / diagonal;
-        }
-
-        return z;
     }
 
     /// <summary>
