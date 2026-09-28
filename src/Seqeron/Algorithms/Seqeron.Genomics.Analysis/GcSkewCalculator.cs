@@ -31,7 +31,7 @@ public static class GcSkewCalculator
         return CalculateGcSkewCore(sequence.ToUpperInvariant());
     }
 
-    private static double CalculateGcSkewCore(string seq) => CalculateSkewCore(seq, 'G', 'C');
+    private static double CalculateGcSkewCore(ReadOnlySpan<char> seq) => CalculateSkewCore(seq, 'G', 'C');
 
     /// <summary>
     /// Canonical single-pass nucleotide-skew kernel shared by GC skew and AT skew:
@@ -40,7 +40,7 @@ public static class GcSkewCalculator
     /// Zero denominator (no X and no Y) ⇒ 0, per Biopython <c>GC_skew</c>'s ZeroDivisionError → 0.0.
     /// GC skew = (G−C)/(G+C), AT skew = (A−T)/(A+T) (Lobry 1996; Charneski et al. 2011).
     /// </summary>
-    private static double CalculateSkewCore(string seq, char plus, char minus)
+    private static double CalculateSkewCore(ReadOnlySpan<char> seq, char plus, char minus)
     {
         int plusCount = 0, minusCount = 0;
         foreach (char c in seq)
@@ -111,8 +111,7 @@ public static class GcSkewCalculator
     {
         for (int i = 0; i + windowSize <= seq.Length; i += stepSize)
         {
-            string window = seq.Substring(i, windowSize);
-            double skew = CalculateGcSkewCore(window);
+            double skew = CalculateGcSkewCore(seq.AsSpan(i, windowSize));
 
             yield return new GcSkewPoint(
                 Position: i + windowSize / 2,
@@ -177,8 +176,7 @@ public static class GcSkewCalculator
 
         for (int i = 0; i + windowSize <= seq.Length; i += stepSize)
         {
-            string window = seq.Substring(i, windowSize);
-            double skew = CalculateGcSkewCore(window);
+            double skew = CalculateGcSkewCore(seq.AsSpan(i, windowSize));
             cumulative += skew;
 
             yield return new CumulativeGcSkewPoint(
@@ -228,17 +226,17 @@ public static class GcSkewCalculator
 
     // (A - T) / (A + T) via the shared skew kernel; zero denominator (no A and no T) -> 0
     // per Biopython GC_skew ZeroDivisionError -> 0.0 convention.
-    private static double CalculateAtSkewCore(string seq) => CalculateSkewCore(seq, 'A', 'T');
+    private static double CalculateAtSkewCore(ReadOnlySpan<char> seq) => CalculateSkewCore(seq, 'A', 'T');
 
     #endregion
 
     #region Origin/Terminus Prediction
 
-    // Per-nucleotide skew increments for the cumulative skew diagram:
-    // G contributes +1, C contributes -1, A/T contribute 0.
-    // Grigoriev A (1998) Nucleic Acids Res 26(10):2286-2290; Rosalind BA1F "Minimum Skew Problem".
-    private const int GuanineSkewIncrement = +1;
-    private const int CytosineSkewIncrement = -1;
+    // Grigoriev (1998) cumulative skew = running sum of (G−C)/(G+C) over adjacent windows. With a
+    // one-base window each window's skew is +1 (G), −1 (C) or 0 (A/T/other), so the diagram is the
+    // per-nucleotide running #G − #C of Rosalind BA1F ("Minimum Skew Problem"). The prediction
+    // therefore folds over the canonical CalculateCumulativeGcSkewCore with this window size.
+    private const int PerNucleotideWindow = 1;
 
     /// <summary>
     /// Predicts the origin and terminus of replication from the cumulative GC-skew diagram.
@@ -246,12 +244,17 @@ public static class GcSkewCalculator
     /// <remarks>
     /// The cumulative skew Skew_i is the running difference (#G − #C) over the prefix
     /// Genome[0..i): Skew_0 = 0 and each base updates the running total by +1 for G, −1 for C,
-    /// and 0 for A/T (Grigoriev 1998; Rosalind BA1F). The global <b>minimum</b> of this
+    /// and 0 for A/T (Rosalind BA1F). This is Grigoriev's (1998) cumulative skew — the running sum
+    /// of (G−C)/(G+C) over adjacent windows — at a one-base window, and is computed by
+    /// <see cref="CalculateCumulativeGcSkew(string,int)"/>'s canonical kernel with windowSize = 1
+    /// (the per-base resolution needed to reproduce BA1F). The global <b>minimum</b> of this
     /// diagram marks the replication <b>origin</b> and the global <b>maximum</b> marks the
     /// <b>terminus</b> (Lobry 1996; Grigoriev 1998; GC-skew Wikipedia citing both). Positions
     /// are 0-based prefix indices i ∈ [0, n], so position i refers to the boundary <i>before</i>
     /// base i, matching the Rosalind BA1F convention (its sample returns 53 and 97). When
     /// several positions tie for the extreme value, the first (smallest index) is reported.
+    /// The input is treated as a linear string read from index 0 (Grigoriev's "arbitrary start");
+    /// for a circular chromosome prefix index n denotes the same junction as index 0.
     /// </remarks>
     /// <param name="sequence">DNA sequence (typically a complete bacterial chromosome).</param>
     /// <returns>Predicted origin and terminus positions and their cumulative skew values.
@@ -282,19 +285,17 @@ public static class GcSkewCalculator
         if (seq.Length == 0)
             return new ReplicationOriginPrediction(0, 0, 0, 0, false);
 
-        // Build the cumulative skew diagram and track its first global min/max prefix index.
-        int cumulative = 0;          // Skew_0 = 0
-        int minSkew = 0, maxSkew = 0;
+        // Skew_0 = 0 (empty prefix) is part of the diagram; the canonical cumulative point for the
+        // one-base window starting at i carries Skew_{i+1}. Strict comparisons keep the first
+        // (smallest prefix index) extremum on ties.
+        double minSkew = 0, maxSkew = 0;
         int minPos = 0, maxPos = 0;
+        int prefixIndex = 0;
 
-        for (int i = 0; i < seq.Length; i++)
+        foreach (var point in CalculateCumulativeGcSkewCore(seq, PerNucleotideWindow))
         {
-            char c = seq[i];
-            if (c == 'G') cumulative += GuanineSkewIncrement;
-            else if (c == 'C') cumulative += CytosineSkewIncrement;
-            // A, T and any other symbol leave the cumulative skew unchanged.
-
-            int prefixIndex = i + 1; // Skew_{i+1} is defined after consuming base i.
+            prefixIndex++;
+            double cumulative = point.CumulativeGcSkew;
             if (cumulative < minSkew) { minSkew = cumulative; minPos = prefixIndex; }
             if (cumulative > maxSkew) { maxSkew = cumulative; maxPos = prefixIndex; }
         }

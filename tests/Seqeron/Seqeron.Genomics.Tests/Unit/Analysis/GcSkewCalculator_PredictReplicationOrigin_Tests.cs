@@ -246,4 +246,98 @@ public class GcSkewCalculator_PredictReplicationOrigin_Tests
     }
 
     #endregion
+
+    #region Reference cross-check (Biopython / python BA1F re-implementation)
+
+    // Synthetic circular genome with known ori/ter (100 kb): C-rich lagging-strand blocks
+    // [0,30000) and [80000,100000) ("ACGTC": net −1 per unit), G-rich leading strand [30000,80000)
+    // ("AGGTC": net +1 per unit). Leading strand G-rich => cumulative minimum at ori, maximum at ter
+    // (Grigoriev 1998; Lobry 1996).
+    private static string SyntheticGenome() =>
+        string.Concat(Enumerable.Repeat("ACGTC", 6000))
+        + string.Concat(Enumerable.Repeat("AGGTC", 10000))
+        + string.Concat(Enumerable.Repeat("ACGTC", 4000));
+
+    // R1 — Python BA1F re-implementation (per-nucleotide #G−#C, all minimizers enumerated) gives
+    // minimizers [29997, 30000, 30001, ...] with value −6000 and maximizers [79998, 79999] with
+    // value +4001; the first of each is reported.
+    [Test]
+    public void PredictReplicationOrigin_SyntheticGenome_MatchesPythonReference()
+    {
+        var prediction = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(SyntheticGenome()));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prediction.PredictedOrigin, Is.EqualTo(29997));
+            Assert.That(prediction.OriginSkew, Is.EqualTo(-6000.0));
+            Assert.That(prediction.PredictedTerminus, Is.EqualTo(79998));
+            Assert.That(prediction.TerminusSkew, Is.EqualTo(4001.0));
+            Assert.That(prediction.IsSignificant, Is.True);
+        });
+    }
+
+    // R2 — Circular genome: rotating the start to 50000 (Grigoriev's "arbitrary start") moves the
+    // extrema to prefix 79997 (−4000) and 29998 (+6001); mapped back ((p + 50000) mod 100000) they
+    // are the same ori 29997 / ter 79998 (python reference). This genome is G/C-balanced (Skew_n = 0),
+    // so rotation introduces no wrap-around step.
+    [Test]
+    public void PredictReplicationOrigin_RotatedCircularGenome_SameLociAfterMappingBack()
+    {
+        string g = SyntheticGenome();
+        string rotated = g[50000..] + g[..50000];
+
+        var prediction = GcSkewCalculator.PredictReplicationOrigin(rotated);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prediction.PredictedOrigin, Is.EqualTo(79997));
+            Assert.That(prediction.OriginSkew, Is.EqualTo(-4000.0));
+            Assert.That(prediction.PredictedTerminus, Is.EqualTo(29998));
+            Assert.That(prediction.TerminusSkew, Is.EqualTo(6001.0));
+            Assert.That((prediction.PredictedOrigin + 50000) % g.Length, Is.EqualTo(29997));
+            Assert.That((prediction.PredictedTerminus + 50000) % g.Length, Is.EqualTo(79998));
+        });
+    }
+
+    // R3 — Grigoriev's windowed cumulative skew (numpy.cumsum of Biopython GC_skew, window 1000)
+    // on the same genome has its minimum −10 in the window ending at 30000 and its maximum 20/3 in
+    // the window ending at 80000: the per-base prediction lies within one window of both.
+    [Test]
+    public void PredictReplicationOrigin_SyntheticGenome_AgreesWithWindowedGrigorievDiagram()
+    {
+        string g = SyntheticGenome();
+        var cumulative = GcSkewCalculator.CalculateCumulativeGcSkew(g, 1000).ToList();
+        var min = cumulative.MinBy(p => p.CumulativeGcSkew);
+        var max = cumulative.MaxBy(p => p.CumulativeGcSkew);
+        var prediction = GcSkewCalculator.PredictReplicationOrigin(g);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(min.CumulativeGcSkew, Is.EqualTo(-10.0).Within(1e-9));
+            Assert.That(min.Position, Is.EqualTo(29500), "window [29000,30000) centre");
+            Assert.That(max.CumulativeGcSkew, Is.EqualTo(20.0 / 3.0).Within(1e-9));
+            Assert.That(max.Position, Is.EqualTo(79500), "window [79000,80000) centre");
+            Assert.That(Math.Abs(prediction.PredictedOrigin - 30000), Is.LessThanOrEqualTo(1000));
+            Assert.That(Math.Abs(prediction.PredictedTerminus - 80000), Is.LessThanOrEqualTo(1000));
+        });
+    }
+
+    // R4 — The prediction is the extremum of the canonical cumulative skew at a one-base window
+    // (Biopython GC_skew(seq, 1) cumsum on BA1F: min −4 first at prefix 53, max +2 first at 16).
+    [Test]
+    public void PredictReplicationOrigin_Ba1fSample_EqualsCanonicalCumulativeSkewAtWindowOne()
+    {
+        var cumulative = GcSkewCalculator.CalculateCumulativeGcSkew(Ba1fSample, 1).ToList();
+        var prediction = GcSkewCalculator.PredictReplicationOrigin(Ba1fSample);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cumulative.Min(p => p.CumulativeGcSkew), Is.EqualTo(prediction.OriginSkew));
+            Assert.That(cumulative.Max(p => p.CumulativeGcSkew), Is.EqualTo(prediction.TerminusSkew));
+            Assert.That(prediction.PredictedTerminus, Is.EqualTo(16));
+            Assert.That(prediction.TerminusSkew, Is.EqualTo(2.0));
+        });
+    }
+
+    #endregion
 }

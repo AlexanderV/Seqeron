@@ -27,7 +27,7 @@ Skew_0 = 0
 Skew_{i+1} = Skew_i + s(Genome[i]),   where s(G) = +1, s(C) = -1, s(A) = s(T) = 0
 ```
 
-There are *n*+1 prefix values Skew_0 … Skew_n. The **Minimum Skew Problem** (Rosalind BA1F) asks for all positions *i* ∈ [0, n] minimizing Skew_i [2]; the minimizing position(s) predict the replication origin, and (symmetrically) the maximizing position(s) predict the terminus [1][4].
+This is Grigoriev's cumulative skew — the running sum of (G−C)/(G+C) over adjacent windows [1] — at a one-base window (each window's skew is +1, −1 or 0); the implementation computes it with the canonical `CalculateCumulativeGcSkew` kernel at window 1. There are *n*+1 prefix values Skew_0 … Skew_n. The **Minimum Skew Problem** (Rosalind BA1F) asks for all positions *i* ∈ [0, n] minimizing Skew_i [2]; the minimizing position(s) predict the replication origin, and (symmetrically) the maximizing position(s) predict the terminus [1][4].
 
 ### 2.3 Modeling Assumptions
 
@@ -101,7 +101,7 @@ Per-base skew increment table [2]: G → +1, C → −1, A/T (and any non-G/C sy
 
 ### 5.2 Current Behavior
 
-A single O(1)-space pass computes the diagram without materializing it. Ties for the extreme value resolve to the smallest (first) prefix index via strict `<` / `>` comparisons. This is not a substring-search/pattern-matching task (it is a running scalar fold over the sequence), so the repository suffix tree is **not** applicable and is not used.
+A single O(1)-space pass folds over the canonical cumulative-skew iterator (`CalculateCumulativeGcSkewCore`, window 1) without materializing the diagram. The sequence is read linearly from index 0; for a circular chromosome prefix index *n* is the same junction as 0, and when the chromosome's total #G−#C is 0 (Skew_n = 0) rotating the start only shifts the extrema by the rotation offset (verified on a synthetic genome, test R2); when Skew_n ≠ 0 the wrap-around step of size Skew_n can move the reported extremum, so supply the sequence starting at its annotated position (ASM-02). Ties for the extreme value resolve to the smallest (first) prefix index via strict `<` / `>` comparisons. This is not a substring-search/pattern-matching task (it is a running scalar fold over the sequence), so the repository suffix tree is **not** applicable and is not used.
 
 ### 5.3 Conformance to Theory / Spec
 
