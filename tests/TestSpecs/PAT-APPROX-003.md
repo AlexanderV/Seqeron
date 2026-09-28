@@ -5,7 +5,7 @@
 **Algorithm:** Best Match and Frequency Analysis (Approximate Pattern Matching / Frequent Words with Mismatches)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -79,6 +79,8 @@
 | M6 | Count_0 = exact | Text=ACGTACGT, Pattern=ACGT, d=0 | Count == 2 | Source 1 (INV-1) |
 | M7 | FindBestMatch exact | seq=ACGTACGT, pat=ACGT | Distance 0, IsExact true, Position 0 | Source 2 (INV-4) |
 | M8 | FindBestMatch no exact | seq=TTTTTTTT, pat=ACGT | Distance 3, leftmost Position 0, MatchedSequence TTTT | Source 2 (INV-4, INV-5) |
+| M9 | BA1N neighborhood via FrequentKmers | seq=ACG, k=3, d=1 (single window) | exactly {CCG TCG GCG AAG ATG AGG ACA ACC ACT ACG}, each count 1 | Source 3 sample |
+| M10 | Non-ACGT windows → DNA k-mers only | ANGANG k=3 d=1; NNNN k=2 d=1; BA1I sample with two N | {AAG,ACG,AGG,ATG}×2; empty; {ATGA,ATGT,CATG}×4 | Source 3 (k-mers over {A,C,G,T}); brute-force BA1I (all 4^k k-mers) in Python; Source 4 rejects non-DNA input |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -179,6 +181,8 @@
 | C2 | ✅ | FrequentKmers_InvalidKOrD_Throws |
 | C3 | ✅ | FrequentKmers_EmptySequence_ReturnsEmpty |
 | C4 | ✅ | CountApproximateOccurrences_EmptyOrTooLongPattern_ReturnsZero |
+| M9 | ✅ | FrequentKmers_SingleWindow_ReturnsBa1nNeighborhood (review 2026-09) |
+| M10 | ✅ | FrequentKmers_NonAcgtWindows_ReturnOnlyDnaKmers_MatchesBruteForce (review 2026-09; failed before fix: returned ANA/ANC/ANT and NA/NC/NG/NT) |
 
 ---
 

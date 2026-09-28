@@ -166,3 +166,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation (PAT-APPROX-003).
+- **2026-09-28** (review campaign B05): re-opened `rosalind_ba1.go` (raw.githubusercontent.com) — `KmerHistogramMismatches` rejects non-DNA input (`CheckIsDNA`) and tallies `VisitHammingNeighbors` per window. Independent Python brute force (all 4^k DNA k-mers, Count_d by Hamming) reproduces BA1I {ATGC,ATGT,GATG}:5, BA1H [6,7,26,27,78], Count_1=4, BA1N 10 neighbors. Defect fixed: the textbook Neighbors recursion (assumes ACGT input) emitted non-DNA k-mers for windows with N (ANGANG,3,1 → ANA/ANC/ANT; NNNN,2,1 → NA/NC/NG/NT:3); brute force gives {AAG,ACG,AGG,ATG}:2 and empty. Neighbors are now generated position-wise over {A,C,G,T} (same set for ACGT input); windows are counted with the canonical `SequenceExtensions.CountKmersSpan` and each distinct window's neighborhood weighted by multiplicity.

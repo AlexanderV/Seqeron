@@ -355,35 +355,32 @@ namespace Seqeron.Genomics.Alignment
             if (pat.Length > seq.Length)
                 return null;
 
-            ApproximateMatchResult? best = null;
+            int m = pat.Length;
+            int bestPosition = -1;
             int bestDistance = int.MaxValue;
 
-            // Check exact length windows
-            for (int i = 0; i <= seq.Length - pat.Length; i++)
+            // Leftmost window with the strictly smallest Hamming distance (canonical span
+            // Hamming, no per-window allocation); an exact match cannot be beaten.
+            for (int i = 0; i <= seq.Length - m && bestDistance > 0; i++)
             {
-                string window = seq.Substring(i, pat.Length);
-                int distance = HammingDistance(pat, window);
-
+                int distance = seq.AsSpan(i, m).HammingDistance(pat.AsSpan());
                 if (distance < bestDistance)
                 {
                     bestDistance = distance;
-                    var positions = new List<int>();
-                    for (int j = 0; j < pat.Length; j++)
-                    {
-                        if (window[j] != pat[j])
-                            positions.Add(j);
-                    }
-
-                    best = new ApproximateMatchResult(
-                        i, window, distance, positions.AsReadOnly(), MismatchType.Substitution
-                    );
-
-                    if (distance == 0)
-                        return best; // Perfect match found
+                    bestPosition = i;
                 }
             }
 
-            return best;
+            string window = seq.Substring(bestPosition, m);
+            var positions = new List<int>(bestDistance);
+            for (int j = 0; j < m; j++)
+            {
+                if (window[j] != pat[j])
+                    positions.Add(j);
+            }
+
+            return new ApproximateMatchResult(
+                bestPosition, window, bestDistance, positions.AsReadOnly(), MismatchType.Substitution);
         }
 
         /// <summary>
@@ -402,7 +399,12 @@ namespace Seqeron.Genomics.Alignment
         /// Mismatches Problem; Compeau &amp; Pevzner, Bioinformatics Algorithms ch.1, ROSALIND BA1I).
         /// Each window's full d-neighborhood (Hamming ball, which includes the window itself) is
         /// tallied; ALL k-mers achieving the maximum Count_d are returned. The result may include
-        /// k-mers that do not occur exactly in the sequence.
+        /// k-mers that do not occur exactly in the sequence. Input is case-insensitive; reported
+        /// k-mers are DNA k-mers over {A, C, G, T} only (BA1N), so a window's non-ACGT symbol always
+        /// costs one mismatch. Windows are first counted with the canonical k-mer counter
+        /// (SequenceExtensions.CountKmersSpan) and each distinct window's neighborhood is weighted
+        /// by its multiplicity. Returns nothing when no DNA k-mer has a positive Count_d.
+        /// Result order is unspecified.
         /// </summary>
         /// <param name="sequence">The sequence to analyze.</param>
         /// <param name="k">K-mer length.</param>
@@ -424,29 +426,27 @@ namespace Seqeron.Genomics.Alignment
             if (string.IsNullOrEmpty(sequence))
                 yield break;
 
-            var seq = sequence.ToUpperInvariant();
+            // Distinct windows with multiplicities from the canonical (case-insensitive) k-mer
+            // counter, so each distinct window's d-neighborhood is generated once and weighted by
+            // its multiplicity: Count_d(P) = Σ_w mult(w)·[HD(P, w) ≤ d] (BA1I tally).
+            var windowCounts = sequence.AsSpan().CountKmersSpan(k);
             var counts = new Dictionary<string, int>();
+            var buffer = new char[k];
 
-            // For each k-mer in sequence, count all patterns that match it with ≤d mismatches
-            for (int i = 0; i <= seq.Length - k; i++)
+            foreach (var (window, multiplicity) in windowCounts)
             {
-                string kmer = seq.Substring(i, k);
-
-                // Generate all patterns within d mismatches
-                foreach (string neighbor in GenerateNeighbors(kmer, d))
+                foreach (string neighbor in GenerateNeighbors(window, d, buffer))
                 {
-                    if (!counts.TryAdd(neighbor, 1))
-                        counts[neighbor]++;
+                    counts[neighbor] = counts.TryGetValue(neighbor, out int c) ? c + multiplicity : multiplicity;
                 }
             }
 
-            // No length-k window could be cut (e.g. k > sequence length), so the tally is
-            // empty. Per the contract (a pattern/k longer than the sequence yields an empty
-            // result), return nothing rather than letting Max() throw on the empty tally.
+            // No length-k window could be cut (e.g. k > sequence length), or no DNA k-mer lies
+            // within d of any window (all windows carry ≥ d+1 non-ACGT symbols): every Count_d is
+            // 0, so there is no most-frequent k-mer and the result is empty.
             if (counts.Count == 0)
                 yield break;
 
-            // Find maximum count
             int maxCount = counts.Values.Max();
 
             // Return all k-mers with maximum count
@@ -457,39 +457,37 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
-        /// Generates all DNA neighbors within d mismatches.
+        /// Neighbors(Pattern, d) — the d-neighborhood of Pattern: every k-mer over {A, C, G, T}
+        /// whose Hamming distance from Pattern does not exceed d (Compeau &amp; Pevzner ch.1,
+        /// ROSALIND BA1N), each exactly once. Positions are filled left to right, spending one
+        /// unit of the mismatch budget per substituted base. For an ACGT pattern this is the same
+        /// set as the textbook recursive Neighbors (identity included); unlike that recursion,
+        /// which assumes an ACGT pattern and would emit non-DNA strings such as ANA for ANG, a
+        /// non-ACGT symbol can never be kept and always costs one mismatch.
         /// </summary>
-        private static IEnumerable<string> GenerateNeighbors(string pattern, int d)
+        private static IEnumerable<string> GenerateNeighbors(string pattern, int d, char[] buffer)
         {
-            if (d == 0)
+            var result = new List<string>();
+            CollectNeighbors(pattern, 0, d, buffer, result);
+            return result;
+        }
+
+        private static void CollectNeighbors(string pattern, int position, int budget, char[] buffer, List<string> result)
+        {
+            if (position == pattern.Length)
             {
-                yield return pattern;
-                yield break;
+                result.Add(new string(buffer, 0, pattern.Length));
+                return;
             }
 
-            if (pattern.Length == 1)
+            char original = pattern[position];
+            foreach (char c in DnaAlphabet)
             {
-                foreach (char c in DnaAlphabet)
-                    yield return c.ToString();
-                yield break;
-            }
-
-            char first = pattern[0];
-            string suffix = pattern.Substring(1);
-
-            foreach (string neighborSuffix in GenerateNeighbors(suffix, d))
-            {
-                if (suffix.AsSpan().HammingDistance(neighborSuffix.AsSpan()) < d)
-                {
-                    // Can change first character
-                    foreach (char c in DnaAlphabet)
-                        yield return c + neighborSuffix;
-                }
-                else
-                {
-                    // Must keep first character
-                    yield return first + neighborSuffix;
-                }
+                int cost = c == original ? 0 : 1;
+                if (cost > budget)
+                    continue;
+                buffer[position] = c;
+                CollectNeighbors(pattern, position + 1, budget - cost, buffer, result);
             }
         }
     }
