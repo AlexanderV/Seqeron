@@ -111,7 +111,7 @@ Where:
 - f₁ = number of singletons (species observed exactly once)
 - f₂ = number of doubletons (species observed exactly twice)
 
-When f₂ = 0, the bias-corrected form is used:
+When f₂ = 0, the bias-corrected form (Chao 1987; EstimateS; scikit-bio `chao1`: S_obs + f₁(f₁−1)/(2(f₂+1))) is used:
 
 $$\hat{S}_{Chao1} = S_{obs} + \frac{f_1(f_1 - 1)}{2}$$
 
@@ -170,3 +170,11 @@ The implementation matches all source formulas:
 ## Deviations and Assumptions
 
 None. All formulas match external sources exactly.
+
+## Review 2026-09 (campaign B17)
+
+- Sources opened: scikit-bio `skbio/diversity/alpha/_chao1.py` (raw.githubusercontent.com, main) and installed scikit-bio 0.7.4 source; WebSearch snippets (mothur wiki `chao`, EstimateS / Chao 1987 bias-corrected Eq. 2).
+- Chao1 branch logic equals scikit-bio `chao1(bias_corrected=False)`: uncorrected F₁²/(2F₂) only when F₁>0 and F₂>0, else bias-corrected F₁(F₁−1)/(2(F₂+1)). Attribution of the f₂=0 form corrected from Chao (1984) to Chao (1987).
+- Defect fixed: `f1 * f1` / `f1 * (f1 − 1)` were evaluated in Int32 and overflowed for f₁ > 46340 (e.g. 50 000 singletons + 3 doubletons → negative Chao1). scikit-bio: 416716670.6666667 (f₂=3) and 1250025001 (f₂=0); now locked by test M23.
+- Full metric vector cross-checked vs scikit-bio 0.7.4 on counts {5,3,2,1,1,1,4} (shannon 1.7582428597165525, dominance 0.19723183391003463, inv_simpson 5.070175438596491, pielou_e 0.9035580910917864, sobs 7, chao1 11.5) — test M24.
+- Naming note: `SimpsonIndex` is scikit-bio `dominance` (λ = Σp²), not scikit-bio `simpson` (1 − λ). Pielou J returns 0 for S ≤ 1 (scikit-bio: NaN).

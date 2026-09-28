@@ -503,6 +503,18 @@ public static class MetagenomicsAnalyzer
     /// <summary>
     /// Calculates alpha diversity metrics for a sample.
     /// </summary>
+    /// <remarks>
+    /// <para>Non-positive (and NaN) abundances are ignored; the rest are renormalised, so counts or
+    /// proportions give the same Shannon (natural log), Simpson concentration λ = Σpᵢ² (scikit-bio
+    /// <c>dominance</c>, not <c>simpson</c> = 1 − λ), inverse Simpson 1/λ and Pielou J = H/ln S
+    /// (0 by convention when S ≤ 1; scikit-bio returns NaN).</para>
+    /// <para>Chao1 is the classic estimator of Chao (1984) Eq. 6, S_obs + F₁²/(2F₂), switching to the
+    /// bias-corrected S_obs + F₁(F₁−1)/(2(F₂+1)) (Chao 1987; EstimateS) when F₁ = 0 or F₂ = 0 —
+    /// identical to scikit-bio <c>chao1(counts, bias_corrected=False)</c> (scikit-bio's default is
+    /// <c>bias_corrected=True</c>). F₁/F₂ require integer counts: when any positive abundance is
+    /// non-integer (e.g. relative abundances), singletons/doubletons are undefined and
+    /// <see cref="AlphaDiversity.Chao1Estimate"/> is reported as S_obs (no unseen-richness correction).</para>
+    /// </remarks>
     public static AlphaDiversity CalculateAlphaDiversity(IReadOnlyDictionary<string, double> abundances)
     {
         if (abundances == null || abundances.Count == 0)
@@ -562,9 +574,11 @@ public static class MetagenomicsAnalyzer
     }
 
     /// <summary>
-    /// Chao1 richness estimator — Chao (1984).
-    /// S_Chao1 = S_obs + f1²/(2·f2) when f2 > 0;
-    /// S_Chao1 = S_obs + f1·(f1−1)/2 when f2 = 0 (bias-corrected).
+    /// Chao1 richness estimator — Chao (1984) Eq. 6 (scikit-bio <c>chao1(bias_corrected=False)</c>).
+    /// S_Chao1 = S_obs + f1²/(2·f2) when f1 > 0 and f2 > 0;
+    /// S_Chao1 = S_obs + f1·(f1−1)/(2·(f2+1)) otherwise (bias-corrected, Chao 1987), i.e.
+    /// S_obs + f1·(f1−1)/2 when f2 = 0 and S_obs when f1 = 0.
+    /// Arithmetic is done in double: f1² overflows Int32 for f1 &gt; 46340.
     /// f1 = singletons (species with count = 1), f2 = doubletons (count = 2).
     /// Requires integer count data; for proportional data, returns S_obs.
     /// </summary>
@@ -582,10 +596,10 @@ public static class MetagenomicsAnalyzer
             return observedSpecies;
 
         if (f2 > 0)
-            return observedSpecies + (double)(f1 * f1) / (2 * f2);
+            return observedSpecies + (double)f1 * f1 / (2.0 * f2);
 
         // Bias-corrected form when f2 = 0
-        return observedSpecies + (double)(f1 * (f1 - 1)) / 2;
+        return observedSpecies + (double)f1 * (f1 - 1) / 2.0;
     }
 
     #endregion
@@ -1391,19 +1405,9 @@ public static class MetagenomicsAnalyzer
             .ToDictionary(g => g.Key, g => g.Count());
 
         double richness = functionCounts.Count;
-        double total = functionCounts.Values.Sum();
 
-        // Shannon diversity of functions
-        double diversity = 0;
-        if (total > 0)
-        {
-            foreach (var count in functionCounts.Values)
-            {
-                double p = count / total;
-                if (p > 0)
-                    diversity -= p * Math.Log(p);
-            }
-        }
+        // Shannon diversity of functions — canonical helper shared with alpha diversity.
+        double diversity = CalculateShannonIndex(functionCounts.Values.Select(c => (double)c).ToList());
 
         return (richness, diversity, pathwayCounts);
     }

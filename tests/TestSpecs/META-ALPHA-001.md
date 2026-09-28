@@ -56,6 +56,8 @@
 | M20 | Chao1 with count data: singletons + doubletons | Chao (1984) | f₁=2, f₂=1, S_obs=5 → 7 |
 | M21 | Chao1 bias-corrected when f₂=0 | Chao (1984) | S_obs + f₁·(f₁−1)/2 |
 | M22 | Chao1 = S_obs for proportional data | Chao (1984) | No integer counts → no singletons |
+| M23 | Chao1 with f₁ = 50000 does not overflow | scikit-bio chao1(bias_corrected=False) | 416716670.6666667 (f₂=3); 1250025001 (f₂=0) |
+| M24 | All six metrics on counts {5,3,2,1,1,1,4} match scikit-bio 0.7.4 | scikit-bio shannon/dominance/inv_simpson/pielou_e/sobs/chao1 | exact to 1e-12 |
 
 ### SHOULD Tests
 
@@ -102,6 +104,8 @@
 | `CountDataNoDoubletons_Chao1BiasCorrected` | M21 | ✅ Covered — Chao1 = 7 (bias-corrected) |
 | `CountDataNoSingletons_Chao1EqualsObserved` | M22 | ✅ Covered — Chao1 = S_obs when f₁=0 |
 | `ProportionalData_Chao1EqualsObserved` | M22 | ✅ Covered — Chao1 = S_obs for fractional data |
+| `ManySingletons_Chao1DoesNotOverflow` | M23 | ✅ Covered — Int32-overflow regression (review 2026-09) |
+| `CountVector_MatchesScikitBio` | M24 | ✅ Covered — scikit-bio cross-check |
 | `VariousDistributions_SatisfyTheoreticalBounds` | M16-M19 | ✅ Covered — 6 distributions × bounds |
 | `ShannonIncreasesWithRichness` | S2 | ✅ Covered — monotonic for S=1..16 |
 | `SimpsonDecreasesWithRichness` | S3 | ✅ Covered — monotonic for S=1..16 |

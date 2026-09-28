@@ -427,7 +427,7 @@ public class MetagenomicsAnalyzer_AlphaDiversity_Tests
 
     /// <summary>
     /// M19: Chao1 bias-corrected form when f2 = 0.
-    /// Evidence: Chao (1984) — S_Chao1 = S_obs + f1·(f1−1)/2 when f2=0.
+    /// Evidence: bias-corrected Chao1 (Chao 1987; EstimateS; scikit-bio chao1) — S_obs + f1·(f1−1)/(2(f2+1)) = S_obs + f1·(f1−1)/2 when f2=0.
     /// Data: {100, 1, 1, 1} → S_obs=4, f1=3, f2=0 → Chao1 = 4 + 3·2/2 = 7.
     /// </summary>
     [Test]
@@ -494,6 +494,59 @@ public class MetagenomicsAnalyzer_AlphaDiversity_Tests
 
         Assert.That(diversity.Chao1Estimate, Is.EqualTo(3.0).Within(1e-10),
             "Chao1 = S_obs for proportional data");
+    }
+
+    /// <summary>
+    /// M23: Chao1 with f1 &gt; 46340 singletons must not overflow Int32 (f1² &gt; 2³¹−1).
+    /// Reference: scikit-bio 0.7.4 <c>chao1([1]*50000 + [2]*3 + [10], bias_corrected=False)</c>
+    /// = 50004 + 50000²/(2·3) = 416716670.6666667; and with f2 = 0,
+    /// <c>chao1([1]*50000 + [10], bias_corrected=False)</c> = 50001 + 50000·49999/2 = 1250025001.
+    /// </summary>
+    [Test]
+    public void CalculateAlphaDiversity_ManySingletons_Chao1DoesNotOverflow()
+    {
+        var withDoubletons = new Dictionary<string, double>();
+        for (int i = 0; i < 50000; i++) withDoubletons[$"s{i}"] = 1;
+        for (int i = 0; i < 3; i++) withDoubletons[$"d{i}"] = 2;
+        withDoubletons["big"] = 10;
+
+        var noDoubletons = new Dictionary<string, double>();
+        for (int i = 0; i < 50000; i++) noDoubletons[$"s{i}"] = 1;
+        noDoubletons["big"] = 10;
+
+        var a = MetagenomicsAnalyzer.CalculateAlphaDiversity(withDoubletons);
+        var b = MetagenomicsAnalyzer.CalculateAlphaDiversity(noDoubletons);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.Chao1Estimate, Is.EqualTo(416716670.6666667).Within(1e-6), "f2 > 0 branch");
+            Assert.That(b.Chao1Estimate, Is.EqualTo(1250025001.0).Within(1e-6), "f2 = 0 branch");
+        });
+    }
+
+    /// <summary>
+    /// M24: full metric vector cross-checked against scikit-bio 0.7.4 on counts {5,3,2,1,1,1,4}:
+    /// shannon (base e) = 1.7582428597165525, dominance = 0.19723183391003463,
+    /// inv_simpson = 5.070175438596491, pielou_e = 0.9035580910917864, sobs = 7,
+    /// chao1(bias_corrected=False) = 7 + 3²/(2·1) = 11.5.
+    /// </summary>
+    [Test]
+    public void CalculateAlphaDiversity_CountVector_MatchesScikitBio()
+    {
+        var counts = new[] { 5.0, 3, 2, 1, 1, 1, 4 };
+        var abundances = counts.Select((c, i) => (c, i)).ToDictionary(t => $"t{t.i}", t => t.c);
+
+        var d = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(d.ShannonIndex, Is.EqualTo(1.7582428597165525).Within(1e-12));
+            Assert.That(d.SimpsonIndex, Is.EqualTo(0.19723183391003463).Within(1e-12));
+            Assert.That(d.InverseSimpson, Is.EqualTo(5.070175438596491).Within(1e-12));
+            Assert.That(d.PielouEvenness, Is.EqualTo(0.9035580910917864).Within(1e-12));
+            Assert.That(d.ObservedSpecies, Is.EqualTo(7));
+            Assert.That(d.Chao1Estimate, Is.EqualTo(11.5).Within(1e-12));
+        });
     }
 
     #endregion
