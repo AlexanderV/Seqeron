@@ -26,10 +26,18 @@ public static class KmerAnalyzer
     /// <summary>
     /// Counts all k-mers in a sequence with cancellation support.
     /// </summary>
+    /// <remarks>
+    /// Cooperative cancellation (Microsoft Learn — "Cancellation in managed threads"): the token is
+    /// polled with <see cref="CancellationToken.ThrowIfCancellationRequested"/> every 1000 windows,
+    /// so the thrown <see cref="OperationCanceledException"/> carries this token. Progress is
+    /// reported synchronously to <paramref name="progress"/> (TAP guidance) as the fraction of
+    /// windows scanned, i/(L − k + 1) at each checkpoint (strictly increasing, in [0, 1)), and
+    /// exactly one final 1.0 on every successful completion — including the trivial empty results.
+    /// </remarks>
     /// <param name="sequence">The sequence to analyze.</param>
     /// <param name="k">The k-mer length.</param>
     /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
-    /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
+    /// <param name="progress">Optional progress reporter (0.0 to 1.0); null reports nothing.</param>
     /// <returns>Dictionary mapping k-mers to their counts.</returns>
     public static Dictionary<string, int> CountKmers(
         string sequence,
@@ -37,14 +45,13 @@ public static class KmerAnalyzer
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            return new Dictionary<string, int>();
+        ValidateKmerLength(sequence, k);
 
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
-
-        if (k > sequence.Length)
+        if (string.IsNullOrEmpty(sequence) || k > sequence.Length)
+        {
+            progress?.Report(1.0);
             return new Dictionary<string, int>();
+        }
 
         sequence = sequence.ToUpperInvariant();
         var seq = sequence.AsSpan();
@@ -70,15 +77,35 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Counts all k-mers in a sequence asynchronously.
+    /// Counts all k-mers in a sequence asynchronously (thread-pool offload of
+    /// <see cref="CountKmers(string, int, CancellationToken, IProgress{double}?)"/>).
     /// </summary>
+    /// <remarks>
+    /// Task-based Asynchronous Pattern (Microsoft Learn — "Task-based asynchronous pattern (TAP)"
+    /// and "Implementing the TAP"): the usage error k ≤ 0 (non-empty input) is validated
+    /// synchronously and thrown directly from this call; every other outcome is carried by the
+    /// returned task. A token already signaled at call time yields a <see cref="TaskStatus.Canceled"/>
+    /// task (Task.Run does not start the delegate); a token signaled during the scan is observed at
+    /// the next checkpoint and the task ends Canceled with an <see cref="OperationCanceledException"/>
+    /// carrying the same token. Note: TAP advises exposing purely compute-bound work only
+    /// synchronously; this wrapper is kept for API compatibility and adds no parallelism.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown synchronously when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static Task<Dictionary<string, int>> CountKmersAsync(
         string sequence,
         int k,
         CancellationToken cancellationToken = default,
         IProgress<double>? progress = null)
     {
+        ValidateKmerLength(sequence, k);
         return Task.Run(() => CountKmers(sequence, k, cancellationToken, progress), cancellationToken);
+    }
+
+    /// <summary>k must be positive for non-empty input (null/empty input yields an empty count for any k).</summary>
+    private static void ValidateKmerLength(string sequence, int k)
+    {
+        if (!string.IsNullOrEmpty(sequence) && k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
     }
 
     /// <summary>

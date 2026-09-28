@@ -80,6 +80,34 @@ combinatorial L − k + 1 definition, which is the canonical k-mer count formula
    "The task has been canceled. This exception is stored into the returned task." —
    i.e. awaiting the task surfaces an `OperationCanceledException`.
 
+### Microsoft Learn — Task-based asynchronous pattern (TAP) / Implementing the TAP
+
+**URL:** https://learn.microsoft.com/en-us/dotnet/standard/asynchronous-programming-patterns/task-based-asynchronous-pattern-tap
+and .../implementing-the-task-based-asynchronous-pattern
+**Accessed:** 2026-09-28 (learn.microsoft.com is egress-blocked here; the identical source Markdown was
+opened from `raw.githubusercontent.com/dotnet/docs/main/docs/standard/asynchronous-programming-patterns/`)
+**Authority rank:** 2 (official .NET design guidance)
+
+**Key Extracted Points (verbatim):**
+
+1. "An asynchronous method should throw an exception directly from the asynchronous method call only
+   in response to a usage error. ... For all other errors, assign exceptions that occur when an
+   asynchronous method is running to the returned task" and "can do a small amount of work
+   synchronously, such as validating arguments". Implementing-TAP (hybrid approach): "verify
+   arguments outside ... so that exceptions can escape to the method's direct caller rather than
+   being exposed through the Task object". ⇒ k ≤ 0 is validated synchronously.
+2. "If a cancellation token requests cancellation before the TAP method that accepts that token is
+   called, the TAP method should return a Canceled task. However, if cancellation is requested while
+   the asynchronous operation is running, the asynchronous operation need not accept the
+   cancellation request."
+3. Compute-bound tasks end Canceled if the token passed to Run is signaled before Running, or if
+   "An OperationCanceledException ... goes unhandled within the body ... That exception contains the
+   same CancellationToken that is passed to the task".
+4. "TAP implementations should report the progress to the Progress<T> object synchronously"; a null
+   `progress` must be allowed; parameter order `(…, CancellationToken cancellationToken, IProgress<T> progress)`.
+5. "If a method is purely compute-bound, expose it only as a synchronous implementation." — noted;
+   the `Task.Run` wrapper is retained for public-API compatibility (no behaviour depends on it).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -174,3 +202,5 @@ combinatorial L − k + 1 definition, which is the canonical k-mer count formula
 ## Change History
 
 - **2026-06-14**: Initial documentation for KMER-ASYNC-001.
+- **2026-09-28**: Review 2026-09 (B06): added TAP source; k ≤ 0 now thrown synchronously from the
+  call; final progress 1.0 also on trivial (empty) completion.

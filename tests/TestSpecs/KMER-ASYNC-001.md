@@ -5,7 +5,7 @@
 **Algorithm:** Asynchronous K-mer Counting
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -79,7 +79,7 @@
 | M5 | Empty sequence | Async on "" | Empty dictionary | Wikipedia (L=0); INV-4 |
 | M6 | Null sequence | Async on null | Empty dictionary | Synchronous contract; INV-4 |
 | M7 | k > length | Async on "ACG", k=4 | Empty dictionary | Wikipedia (L−k+1≤0); INV-4 |
-| M8 | k ≤ 0 | Async on valid seq, k=0 | Awaited task throws `ArgumentOutOfRangeException` | Synchronous contract (KMER-COUNT-001) |
+| M8 | k ≤ 0 | Async on valid seq, k=0 | `ArgumentOutOfRangeException` thrown synchronously from the call (observed by an awaiting caller too) | TAP usage-error rule (Microsoft Learn TAP) |
 | M9 | Pre-signaled token | Token already canceled before call | Awaiting throws `OperationCanceledException` | Task.Run "cancelled if not yet started"; INV-3 |
 | M10 | Cancellation on large input | Token canceled; large (> check interval) sequence | Awaiting throws `OperationCanceledException` | Task Cancellation ThrowIfCancellationRequested; INV-3 |
 
@@ -182,6 +182,18 @@
 | S3 | ✅ Covered | CountKmersAsync_DefaultToken_CompletesAndEqualsSync |
 | C1 | ✅ Covered | CountKmersAsync_WithProgress_ReportsCompletion |
 | C2 | ✅ Covered | CountKmersSpan_DelegatesToSpanCount_EqualsCountKmers |
+
+### 5.7 Review 2026-09 additions (TAP contract)
+
+| ID | Test | Expected (source: Microsoft Learn TAP / Implementing TAP) |
+|----|------|----------|
+| T1 | CountKmersAsync_InvalidK_ThrowsSynchronouslyFromCall | k ≤ 0 (non-empty) throws `ArgumentOutOfRangeException(k)` from the call, not via the task |
+| T2 | CountKmersAsync_InvalidKWithCanceledToken_ThrowsUsageErrorNotCanceledTask | usage error precedes a pre-canceled token |
+| T3 | CountKmersAsync_EmptySequenceWithNonPositiveK_ReturnsEmptyWithoutThrowing | null/empty is not a usage error |
+| T4 | CountKmersAsync_PreCanceledToken_ReturnsCanceledTaskWithToken_AndDoesNotRun | Status Canceled, OCE.CancellationToken = caller token, no progress |
+| T5 | CountKmersAsync_CanceledDuringRun_EndsCanceledWithSameToken_NoCompletionReport | Canceled at next checkpoint; progress [0.0] only |
+| T6 | CountKmersAsync_Progress_CheckpointFractionsThenSingleFinalOne | 2500 windows ⇒ [0, 0.4, 0.8, 1.0] |
+| T7 | CountKmersAsync_TrivialCompletion_ReportsFinalOneOnce | empty / k > L ⇒ [1.0] |
 
 ---
 
