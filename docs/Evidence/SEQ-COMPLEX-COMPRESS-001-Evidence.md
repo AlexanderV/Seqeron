@@ -2,7 +2,54 @@
 
 **Test Unit ID:** SEQ-COMPLEX-COMPRESS-001
 **Algorithm:** Lempel–Ziv complexity (compression-based sequence complexity)
-**Date Collected:** 2026-06-14
+**Date Collected:** 2026-06-14 (corrected 2026-09-28, review-2026-09 B04)
+
+---
+
+## ⚠ Correction 2026-09-28 — LZ78 parse mislabelled as LZ76
+
+The 2026-06 version of this artifact took the Naereen `lempel_ziv_complexity` set-based parse
+(values 8/7/9/10, homopolymer 5) as the Lempel–Ziv (1976) measure. That parse is the Ziv–Lempel
+**1978** incremental parsing (each phrase = a previously seen phrase + one symbol), not the LZ76
+exhaustive history. Sources actually opened on 2026-09-28:
+
+- **antropy 0.2.2** (PyPI wheel, `antropy/entropy.py`, `_lz_complexity` + `lziv_complexity`): the
+  Kaspar–Schuster (1987) scan, citing Lempel & Ziv 1976 and Zhang 2009. Doctests: `1001111011000010`
+  → **6** (`1 / 0 / 01 / 1110 / 1100 / 0010`), normalized **1.5**; `HELLO WORLD! ×4` → 11 /
+  0.38596001132145313; `A..Z` → 26 / 1.0. Normalization `c/(n/log(n, base))`, `base = 2 if base < 2`.
+- **lempel_ziv_complexity 0.2.2** (Naereen, PyPI wheel): set-based parse, `1001111011000010` → 8 — LZ78-style.
+- **NeuroKit2** `complexity_lempelziv.py` (raw.githubusercontent.com): same Kaspar–Schuster scan,
+  citing Lempel & Ziv 1976 and Kaspar & Schuster 1987.
+- **WebSearch snippets**: Lempel & Ziv 1976 classic example `0001101001000101` has complexity 6
+  (`0·001·10·100·1000·101`); Estévez-Rams et al. arXiv:1311.0546: "an exhaustive history of the
+  sequence is one where any factor is not a substring of the string preceding it, while the factor
+  with the last symbol removed is … E(u)=0.1.00.11.101.101100, C(u)=6" for u = 010011101101100.
+  Wikipedia (snippet) gives `1001111011000010` = 1/0/01/1110/1100/0010, complexity 6.
+- **Numerical cross-check:** a brute-force Python implementation of the exhaustive-history
+  definition agreed with antropy `_lz_complexity` on 20 000 random strings (n = 1–60, alphabets
+  {A}, {A,T}, {A,C,G}, {A,C,G,T}): 0 mismatches.
+
+Corrected reference values (antropy 0.2.2 = brute-force definition):
+
+| Input | c (LZ76) | normalized | (old LZ78 value) |
+|---|---|---|---|
+| `1001111011000010` | 6 | 1.5 | 8 / 2.0 |
+| `0001101001000101` | 6 | 1.5 | — |
+| `010011101101100` | 6 | 1.5627562382434075 | — |
+| `1010101010101010` | 3 | 0.75 | 7 |
+| `1001111011000010000010` | 7 | 1.4189100604755036 | 9 |
+| `100111101100001000001010` | 8 | 1.5283208335737188 | 10 |
+| `0`×16 | 2 | 0.5 | 5 / 1.25 |
+| `AAAA` | 2 | 1.0 | 2 |
+| `ACGT` | 4 | 1.0 | 4 |
+| `ACGTACGTACGTACGT` | 5 | 0.625 | 9 / 1.125 |
+| `ATGCGATCGATTAGCCGATAGCTAGGCTAACGTTAGCATG` | 16 | 1.0643856189774725 | — |
+| `CAG`×20 | 4 | 0.2484555351907228 | — |
+| 20 000-base LCG DNA (see test R2) | 2756 | 0.984423382950957 | — |
+
+For n = 1 antropy raises ZeroDivisionError (`log(1, b) = 0`); this library returns the raw count 1.
+Everything below this section is the original 2026-06 record; where it conflicts with this
+section (Naereen values, "set-based contract", homopolymer 5, ASSUMPTION 1), this section wins.
 
 ---
 
@@ -170,3 +217,4 @@ Additional traced raw values (reference parser, retrieved 2026-06-14): `"AAAA"` 
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Correction — LZ78 set parse replaced by LZ76 exhaustive history (antropy / Kaspar–Schuster); reference values recomputed (see top section).

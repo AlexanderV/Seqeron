@@ -443,20 +443,29 @@ public static class SequenceComplexity
 
     #region Lempel-Ziv Complexity (compression-based)
 
-    // Lempel-Ziv (1976) complexity: the number of distinct components (substrings)
-    // produced by an exhaustive-history left-to-right parse of the sequence.
+    // Lempel-Ziv (1976) complexity c(S): the number of components of the exhaustive
+    // history of S. A component (factor) starting at position p is extended while it is
+    // still reproducible from the text preceding its last symbol (i.e. it occurs starting
+    // at some position < p, overlap allowed); the first non-reproducible extension closes
+    // the component (a trailing reproducible remainder is also a component).
     // Ref: Lempel A, Ziv J (1976) "On the Complexity of Finite Sequences",
-    // IEEE Trans. Inf. Theory 22(1):75-81, doi:10.1109/TIT.1976.1055501.
-    // Parsing rule and worked values cross-checked against the reference
-    // implementation Naereen/Lempel-Ziv_Complexity (lempel_ziv_complexity.py).
+    //      IEEE Trans. Inf. Theory 22(1):75-81, doi:10.1109/TIT.1976.1055501
+    //      (example 0001101001000101 = 0.001.10.100.1000.101, c = 6).
+    // Reference scan: Kaspar F, Schuster HG (1987) Phys. Rev. A 36(2):842-848, as implemented
+    //      in antropy.entropy._lz_complexity; computed here via the Longest-Previous-Factor
+    //      array (Crochemore & Ilie 2008) in O(n log² n), value-identical to the scan.
+    // NOTE: this is NOT the LZ78 incremental ("set of seen phrases") parse, which gives
+    //      8 for 1001111011000010 instead of the LZ76 value 6.
 
     /// <summary>
-    /// Calculates the raw Lempel–Ziv (1976) complexity of a DNA sequence: the number
-    /// of distinct components produced by an exhaustive-history left-to-right parse.
-    /// Higher values indicate more complex (less compressible) sequences.
+    /// Calculates the raw Lempel–Ziv (1976) complexity c(S) of a DNA sequence: the number
+    /// of components in the exhaustive history of S (Lempel &amp; Ziv 1976); values are identical
+    /// to the Kaspar–Schuster (1987) scan (antropy), computed via the longest-previous-factor
+    /// array in O(n log² n). Higher values indicate more complex (less compressible)
+    /// sequences; a homopolymer of length ≥ 2 has c = 2.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <returns>Number of Lempel–Ziv components (≥ 0).</returns>
+    /// <returns>Number of Lempel–Ziv (LZ76) components (≥ 0).</returns>
     public static int CalculateLempelZivComplexity(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
@@ -464,7 +473,8 @@ public static class SequenceComplexity
     }
 
     /// <summary>
-    /// Calculates the raw Lempel–Ziv (1976) complexity from a raw sequence string.
+    /// Calculates the raw Lempel–Ziv (1976) complexity from a raw sequence string
+    /// (upper-cased; any symbol alphabet). Null/empty → 0.
     /// </summary>
     public static int CalculateLempelZivComplexity(string sequence)
     {
@@ -473,14 +483,14 @@ public static class SequenceComplexity
     }
 
     /// <summary>
-    /// Calculates the normalized Lempel–Ziv complexity: c / (n / log_b(n)), where
-    /// c is the raw complexity, n the sequence length and b the alphabet size
-    /// (number of distinct symbols present). Normalization removes the length
-    /// dependence of the raw count (Zhang et al. 2009).
-    /// Following the reference implementation (entropy/antropy <c>lziv_complexity</c>),
-    /// when fewer than two distinct symbols are present the base is clamped to 2 so
-    /// log_b(n) stays defined (b := max(b, 2)). For the degenerate single-symbol
-    /// length-1 input (log_b(1) = 0) the raw complexity is returned.
+    /// Calculates the normalized Lempel–Ziv complexity (Zhang et al. 2009):
+    /// c / (n / log_b(n)), where c is the raw LZ76 complexity, n the sequence length and
+    /// b the alphabet size (number of distinct symbols present). Random sequences give
+    /// values near 1; repetitive sequences give smaller values.
+    /// Following the reference implementation (antropy <c>lziv_complexity</c>), when fewer
+    /// than two distinct symbols are present the base is clamped to 2 (b := max(b, 2)).
+    /// For a length-1 input log_b(1) = 0 makes the formula undefined (the reference raises
+    /// a division-by-zero); this implementation returns the raw count (1) instead.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
     /// <returns>Normalized Lempel–Ziv complexity.</returns>
@@ -501,8 +511,8 @@ public static class SequenceComplexity
 
     /// <summary>
     /// Estimates sequence complexity using a compression-based measure.
-    /// Returns the normalized Lempel–Ziv complexity (c / (n / log_b(n))); lower
-    /// values indicate more repetitive/less complex sequences.
+    /// Returns the normalized Lempel–Ziv (1976) complexity c / (n / log_b(n)) (Zhang et al.
+    /// 2009); lower values indicate more repetitive/compressible sequences, ≈ 1 for random.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
     /// <returns>Normalized Lempel–Ziv complexity.</returns>
@@ -521,31 +531,147 @@ public static class SequenceComplexity
         return CalculateNormalizedLempelZivComplexity(sequence);
     }
 
-    private static int CalculateLempelZivComplexityCore(string seq)
+    private static int CalculateLempelZivComplexityCore(string s)
     {
-        // Exhaustive-history parse: grow the running substring while it is already
-        // a seen component; otherwise add it as a new component and restart.
-        var components = new HashSet<string>();
-        int ind = 0;
-        int inc = 1;
+        // LZ76 exhaustive history from the Longest-Previous-Factor array:
+        // LPF[q] = max_{j<q} lcp(S[q..], S[j..]) (overlap allowed). The component starting
+        // at q is S[q .. q+LPF[q]] (the longest copyable prefix plus one new symbol); if the
+        // copy reaches the end of S, the reproducible remainder is the last component.
+        // Equivalent to the Kaspar–Schuster (1987) scan (antropy _lz_complexity) but
+        // O(n log n) instead of O(n²/log n) on random input.
+        int n = s.Length;
+        if (n == 0) return 0;
 
-        while (ind + inc <= seq.Length)
+        int[] lpf = ComputeLongestPreviousFactor(s);
+
+        int complexity = 0;
+        int q = 0;
+        while (q < n)
         {
-            string sub = seq.Substring(ind, inc);
-            if (!components.Add(sub))
+            complexity++;
+            q += lpf[q] + 1; // q + lpf[q] >= n ⇒ remainder reproducible ⇒ last component
+        }
+
+        return complexity;
+    }
+
+    /// <summary>
+    /// Longest Previous Factor array (Crochemore &amp; Ilie 2008): for every position q, the
+    /// length of the longest prefix of S[q..] that also starts at some j &lt; q.
+    /// Built from the suffix array (prefix doubling) and the Kasai et al. (2001) LCP array;
+    /// the best earlier suffix is the nearest suffix with a smaller text position on either
+    /// side in suffix-array order.
+    /// </summary>
+    private static int[] ComputeLongestPreviousFactor(string s)
+    {
+        int n = s.Length;
+        int[] sa = BuildSuffixArray(s);
+
+        var rank = new int[n];
+        for (int r = 0; r < n; r++) rank[sa[r]] = r;
+
+        // Kasai LCP: lcp[r] = lcp(S[sa[r-1]..], S[sa[r]..]), lcp[0] = 0.
+        var lcp = new int[n];
+        int h = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (rank[i] > 0)
             {
-                // sub already present (Add returned false) → grow the window
-                inc++;
+                int j = sa[rank[i] - 1];
+                while (i + h < n && j + h < n && s[i + h] == s[j + h]) h++;
+                lcp[rank[i]] = h;
+                if (h > 0) h--;
             }
             else
             {
-                // sub was new and just added by the Add above
-                ind += inc;
-                inc = 1;
+                h = 0;
             }
         }
 
-        return components.Count;
+        var lpf = new int[n];
+        var stackPos = new int[n];
+        var stackMin = new int[n];
+
+        // Forward pass: nearest previous rank with a smaller text position.
+        int top = -1;
+        for (int r = 0; r < n; r++)
+        {
+            int running = r > 0 ? lcp[r] : 0;
+            while (top >= 0 && stackPos[top] > sa[r])
+            {
+                top--;
+                if (top >= 0) running = Math.Min(running, stackMin[top]);
+            }
+            if (top >= 0)
+            {
+                lpf[sa[r]] = running;
+                stackMin[top] = running; // min LCP over ranks (top, r]
+            }
+            stackPos[++top] = sa[r];
+            stackMin[top] = int.MaxValue;
+        }
+
+        // Backward pass: nearest following rank with a smaller text position.
+        top = -1;
+        for (int r = n - 1; r >= 0; r--)
+        {
+            int running = r + 1 < n ? lcp[r + 1] : 0;
+            while (top >= 0 && stackPos[top] > sa[r])
+            {
+                top--;
+                if (top >= 0) running = Math.Min(running, stackMin[top]);
+            }
+            if (top >= 0)
+            {
+                if (running > lpf[sa[r]]) lpf[sa[r]] = running;
+                stackMin[top] = running;
+            }
+            stackPos[++top] = sa[r];
+            stackMin[top] = int.MaxValue;
+        }
+
+        return lpf;
+    }
+
+    /// <summary>
+    /// Suffix array by prefix doubling (Manber &amp; Myers 1993), O(n log² n) with a comparison
+    /// sort on (rank[i], rank[i+k]) keys.
+    /// </summary>
+    private static int[] BuildSuffixArray(string s)
+    {
+        int n = s.Length;
+        var sa = new int[n];
+        var rank = new int[n];
+        var tmp = new int[n];
+        var keys = new long[n];
+
+        for (int i = 0; i < n; i++)
+        {
+            sa[i] = i;
+            rank[i] = s[i];
+        }
+
+        int k = 1;
+        while (true)
+        {
+            for (int r = 0; r < n; r++)
+            {
+                int i = sa[r];
+                long second = i + k < n ? rank[i + k] + 1L : 0L;
+                keys[r] = rank[i] * (long)(Math.Max(n, char.MaxValue) + 2) + second;
+            }
+            Array.Sort(keys, sa);
+
+            tmp[sa[0]] = 0;
+            for (int r = 1; r < n; r++)
+                tmp[sa[r]] = tmp[sa[r - 1]] + (keys[r] != keys[r - 1] ? 1 : 0);
+            Array.Copy(tmp, rank, n);
+
+            if (rank[sa[n - 1]] == n - 1 || k >= n) break;
+            k <<= 1;
+        }
+
+        return sa;
     }
 
     private static double CalculateNormalizedLempelZivComplexityCore(string seq)
@@ -560,21 +686,20 @@ public static class SequenceComplexity
         foreach (char ch in seq) alphabet.Add(ch);
         int b = alphabet.Count;
 
-        // entropy/antropy reference: `base = 2 if base < 2 else base`. The log base
-        // is clamped to 2 (never returns the raw count for a single-symbol input).
+        // antropy reference: `base = 2 if base < 2 else base`.
         if (b < MinAlphabetForNormalization) b = MinAlphabetForNormalization;
 
         // b(n) = n / log_b(n); normalized complexity = c / b(n).
         double logBaseN = Math.Log(n) / Math.Log(b);
-        if (logBaseN <= 0) return c; // n == 1 ⇒ log_b(1) = 0 (degenerate guard)
+        if (logBaseN <= 0) return c; // n == 1 ⇒ log_b(1) = 0: undefined, return raw count (1)
 
         double upperBound = n / logBaseN;
         return c / upperBound;
     }
 
-    // Reference (entropy/antropy lziv_complexity) clamps the log base to 2 when fewer
-    // than 2 distinct symbols are present, so log_b(n) stays defined.
-    // Ref: Zhang et al. (2009) normalized LZ; entropy/antropy lziv_complexity.
+    // Reference (antropy lziv_complexity) clamps the log base to 2 when fewer than 2
+    // distinct symbols are present, so log_b(n) stays defined.
+    // Ref: Zhang et al. (2009) normalized LZ; antropy lziv_complexity.
     private const int MinAlphabetForNormalization = 2;
 
     #endregion

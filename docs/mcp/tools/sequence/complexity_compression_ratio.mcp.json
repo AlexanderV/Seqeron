@@ -21,7 +21,7 @@
   "outputSchema": {
     "type": "object",
     "properties": {
-      "compressionRatio": { "type": "number", "description": "Estimated compression ratio (0 to 1)" }
+      "compressionRatio": { "type": "number", "description": "Normalized Lempel-Ziv complexity (>= 0; ~1 for random sequences, may exceed 1)" }
     },
     "required": ["compressionRatio"]
   },
@@ -32,12 +32,12 @@
     {
       "name": "Complex sequence",
       "input": { "sequence": "ATGCGATCGATCG" },
-      "output": { "compressionRatio": 0.85 }
+      "output": { "compressionRatio": 0.9962722318072171 }
     },
     {
       "name": "Repetitive sequence",
       "input": { "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
-      "output": { "compressionRatio": 0.15 }
+      "output": { "compressionRatio": 0.26609640474436813 }
     }
   ]
 }

@@ -5,7 +5,7 @@
 **Algorithm:** Lempel–Ziv complexity (compression-based sequence complexity)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28 (review-2026-09: LZ78 parse replaced by true LZ76)
 
 ---
 
@@ -17,28 +17,31 @@
 |---|--------|---------------|------------|----------|
 | 1 | Lempel & Ziv (1976), On the Complexity of Finite Sequences, IEEE TIT 22(1):75–81 | 1 | https://doi.org/10.1109/TIT.1976.1055501 | 2026-06-14 |
 | 2 | Wikipedia, Lempel–Ziv complexity (cites #1) | 4 | https://en.wikipedia.org/wiki/Lempel%E2%80%93Ziv_complexity | 2026-06-14 |
-| 3 | Naereen/Lempel-Ziv_Complexity (Python reference, MIT) | 3 | https://github.com/Naereen/Lempel-Ziv_Complexity/blob/master/src/lempel_ziv_complexity.py | 2026-06-14 |
-| 4 | entropy/antropy `lziv_complexity` (cites #1, #5) | 3 | https://raphaelvallat.com/entropy/build/html/generated/entropy.lziv_complexity.html | 2026-06-14 |
+| 3 | Kaspar & Schuster (1987), Easily calculable measure for the complexity of spatiotemporal patterns, Phys Rev A 36:842 (LZ76 scan algorithm) | 1 | https://doi.org/10.1103/PhysRevA.36.842 | 2026-09-28 (cited; algorithm read from antropy source) |
+| 4 | antropy 0.2.2 `lziv_complexity` / `_lz_complexity` (cites #1, #5; PyPI wheel source opened) | 3 | https://pypi.org/project/antropy/ | 2026-09-28 |
+| 6 | Estévez-Rams et al. (2013) arXiv:1311.0546 — exhaustive-history definition + example (WebSearch snippet) | 2 | https://arxiv.org/abs/1311.0546 | 2026-09-28 |
+| 7 | Naereen/Lempel-Ziv_Complexity 0.2.2 — **counter-reference**: implements LZ78 incremental parsing, not LZ76 | 3 | https://pypi.org/project/lempel_ziv_complexity/ | 2026-09-28 |
 | 5 | Zhang et al. (2009), Normalized LZ complexity, J Math Chem 46(4):1203–1212 | 1 | https://doi.org/10.1007/s10910-008-9512-2 | 2026-06-14 |
 
 ### 1.2 Key Evidence Points
 
-1. LZ complexity = number of distinct substrings (components) produced parsing the sequence left-to-right; a new component starts where the running substring is no longer a previously-encountered word — source #1/#2/#3.
-2. Reference parser (set-based exhaustive history): grow the running substring while it is already in the seen-set; otherwise add it and restart — source #3.
-3. Worked exact values: `1001111011000010`→8, `1010101010101010`→7, `1001111011000010000010`→9, `100111101100001000001010`→10 — source #3 doctests.
+1. LZ76 complexity c(S) = number of components of the exhaustive history: a component starting at p is extended while it is still a substring of the text preceding its last symbol (copy start < p, overlap allowed); the first non-reproducible extension closes it; a reproducible remainder at the end is the last component — source #1/#2/#6.
+2. Reference algorithm: Kaspar–Schuster scan (source #3) = antropy `_lz_complexity` (source #4) = Wikipedia pseudocode (source #2).
+3. Worked exact values: `0001101001000101`→6 (0·001·10·100·1000·101, source #1 via #6 snippet); `010011101101100`→6 (source #6); `1001111011000010`→6 (1/0/01/1110/1100/0010) and normalized 1.5, `HELLO WORLD! ×4`→11 / 0.38596001132145313, `A..Z`→26 / 1.0 — antropy doctests (source #4).
 4. Normalization: `LZn = c / (n / log_b n)` with `b` = alphabet size (distinct symbols) — source #4 (citing #5).
 5. Asymptotic upper bound `b(n) = n/log_α(n)`; normalized value → 1 for random sequences — source #6 (WebSearch synthesis of primary-citing papers).
 
 ### 1.3 Documented Corner Cases
 
 - Empty sequence → complexity 0 (no components) — traced reference parser.
-- Homopolymer `"0"×16` → components `0/00/000/0000/00000` → c=5 (`c = ⌊(√(8n+1)−1)/2⌋`) — traced reference parser.
-- Single distinct symbol (b<2) → the reference (entropy/antropy `lziv_complexity`) clamps the log base to 2 (`base = 2 if base < 2 else base`) and returns the normalized value `c/(n/log_2 n)`, NOT the raw count — verified against antropy `entropy.py` source (2026-06-16). For `"0"×16` this is `5/(16/log_2 16) = 5/4 = 1.25`.
+- Homopolymer `"0"×n` (n ≥ 2) → components `0 / 0…0` (self-overlapping copy) → c=2 — definition (#1) + antropy (#4).
+- Single distinct symbol (b<2) → antropy clamps the log base to 2 (`base = 2 if base < 2 else base`) and returns `c/(n/log_2 n)`. For `"0"×16` this is `2/(16/log_2 16) = 0.5`.
+- n = 1 → normalized formula undefined (`log_b 1 = 0`; antropy raises ZeroDivisionError); this library returns the raw count 1 (documented convention).
 
 ### 1.4 Known Failure Modes / Pitfalls
 
-1. Wrong parsing convention: the older `entropy` doc parses `1001111011000010` into 6 components; the LZ76 exhaustive-history convention (this unit) yields 8 — sources #3 vs #4. We follow the exhaustive-history convention (sources #1/#2/#3).
-2. Trailing-partial-component counting differs by ±1 between the Wikipedia pseudocode and the set-based reference; we adopt the set-based contract (source #3) — see ASSUMPTION A1.
+1. **LZ78 vs LZ76 confusion (the defect fixed 2026-09):** the "set of seen phrases" parse (Naereen, source #7) is Ziv–Lempel 1978 incremental parsing: `1001111011000010`→8 (1/0/01/11/10/110/00/010), `"0"×16`→5. The LZ76 exhaustive history gives 6 and 2. The pre-2026-09 TestSpec had these reversed.
+2. The trailing reproducible remainder IS counted (Kaspar–Schuster `if len ≠ 1 then c += 1`; e.g. `010011101101100` ends with factor `101100`).
 3. `log` base must be alphabet size, not 2 nor e, for normalization — source #4.
 
 ---
@@ -74,15 +77,18 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | Doctest 1 | `CalculateLempelZivComplexity("1001111011000010")` | 8 | source #3 doctest |
-| M2 | Doctest 2 | `CalculateLempelZivComplexity("1010101010101010")` | 7 | source #3 doctest |
-| M3 | Doctest 3 | `CalculateLempelZivComplexity("1001111011000010000010")` | 9 | source #3 doctest |
-| M4 | Doctest 4 | `CalculateLempelZivComplexity("100111101100001000001010")` | 10 | source #3 doctest |
-| M5 | Homopolymer | `CalculateLempelZivComplexity("0000000000000000")` | 5 | traced parser (source #3 rule) |
-| M6 | All-distinct | `CalculateLempelZivComplexity("ACGT")` | 4 | parsing rule (source #3) |
-| M7 | Normalized | `CalculateNormalizedLempelZivComplexity("1001111011000010")` | 2.0 (8/(16/log₂16)) | source #4 formula + derivation |
-| M8 | b<2 clamp | `CalculateNormalizedLempelZivComplexity("0000000000000000")` | 1.25 (`5/(16/log₂16)`) | source #4 code: `base = 2 if base < 2 else base` |
-| M9 | Delegation | `EstimateCompressionRatio("1001111011000010")` equals normalized (2.0) | 2.0 | INV-5 (design) |
+| M1 | antropy doctest | `CalculateLempelZivComplexity("1001111011000010")` | 6 | source #4 doctest; #2 |
+| M2 | LZ 1976 example | `CalculateLempelZivComplexity("0001101001000101")` | 6 | source #1 (via #6 snippet) |
+| M3 | Estévez-Rams example | `CalculateLempelZivComplexity("010011101101100")` | 6 | source #6 |
+| M4 | Period 2 | `CalculateLempelZivComplexity("1010101010101010")` | 3 (1/0/10…) | antropy (#4) |
+| M5 | Homopolymer | `CalculateLempelZivComplexity("0000000000000000")` | 2 | definition #1; antropy #4 |
+| M5b | Text doctests | `HELLO WORLD! ×4` → 11 / 0.38596001132145313; `A..Z` → 26 / 1.0 | exact | antropy doctests (#4) |
+| M6 | All-distinct | `CalculateLempelZivComplexity("ACGT")` | 4 | definition |
+| M7 | Normalized | `CalculateNormalizedLempelZivComplexity("1001111011000010")` | 1.5 (6/(16/log₂16)) | antropy doctest (#4) |
+| M8 | b<2 clamp | `CalculateNormalizedLempelZivComplexity("0000000000000000")` | 0.5 (`2/(16/log₂16)`) | source #4 code: `base = 2 if base < 2 else base` |
+| M9 | Delegation | `EstimateCompressionRatio("1001111011000010")` equals normalized (1.5) | 1.5 | INV-5 (design) |
+| R1 | DNA reference dataset | 6 DNA strings (random seed 2026, n = 20–200; CAG×20) | raw + normalized = antropy 0.2.2 | antropy (#4) |
+| R2 | Long DNA | 20 000-base LCG string | c = 2756, norm = 0.984423382950957 | antropy (#4) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -98,7 +104,7 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | INV-4 property | homopolymer < all-distinct of same length | true | invariant |
-| C2 | DNA normalization (b=4) | normalized uses log base 4 | matches `c/(n/log₄ n)` | Zhang 2009 application |
+| C2 | DNA normalization (b=4) | `ACGT×4` = A/C/G/T/ACGTACGTACGT, c = 5 → 5/(16/log₄16) = 0.625 | 0.625 | antropy (#4) |
 
 ---
 
@@ -193,12 +199,12 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| A1 | Trailing-partial-component convention follows the set-based reference (source #3), not the +1 of the Wikipedia pseudocode | parsing contract, M1–M6 |
-| A2 | Normalization log base = number of distinct symbols actually present (b); b<2 is clamped to 2 (per entropy/antropy `base = 2 if base < 2 else base`), not a raw-count fallback | M7, M8, C2 |
+| A1 | (retired 2026-09) Trailing reproducible component is counted, per LZ76 definition and Kaspar–Schuster/antropy — no longer an assumption | M1–M6 |
+| A2 | Normalization log base = number of distinct symbols actually present (b); b<2 is clamped to 2 (per antropy `base = 2 if base < 2 else base`); n = 1 returns the raw count 1 (formula undefined) | M7, M8, C2 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. Decision: `EstimateCompressionRatio` (the registry-canonical name) is retained as a thin delegate returning the normalized LZ complexity, replacing the prior non-source-backed heuristic. Raw and normalized LZ are exposed as new canonical methods.
-2. Decision: exhaustive-history (LZ76) parsing convention adopted over the alternative `entropy` convention because it matches the primary description and has reproducible worked values.
+2. Decision (corrected 2026-09-28): true LZ76 exhaustive history (Lempel & Ziv 1976; Kaspar–Schuster 1987; antropy), replacing the LZ78-style set parse (Naereen) that had been mislabelled as LZ76. Computed via the Longest-Previous-Factor array (Crochemore & Ilie 2008) in O(n log² n), value-identical to the Kaspar–Schuster scan.

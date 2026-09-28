@@ -25,12 +25,12 @@ public class CompressionRatioTests
     {
         Assert.Multiple(() =>
         {
-            // Classic LZ76 doctest string -> normalized LZ = 2.0.
+            // Classic LZ76 string (antropy doctest): c = 6 -> normalized LZ = 6/(16/log2 16) = 1.5.
             Assert.That(AnalysisTools.CompressionRatio("1001111011000010").Ratio,
-                Is.EqualTo(2.0).Within(1e-10));
-            // ACGT x4 (repetitive) -> normalized LZ = 1.125.
+                Is.EqualTo(1.5).Within(1e-10));
+            // ACGT x4 (repetitive): A/C/G/T/ACGTACGTACGT, c = 5 -> 5/(16/log4 16) = 0.625 (antropy).
             Assert.That(AnalysisTools.CompressionRatio("ACGTACGTACGTACGT").Ratio,
-                Is.EqualTo(1.125).Within(1e-10));
+                Is.EqualTo(0.625).Within(1e-10));
         });
     }
 }

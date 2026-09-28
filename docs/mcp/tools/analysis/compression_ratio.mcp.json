@@ -28,12 +28,12 @@
     {
       "name": "LZ doctest",
       "input": { "sequence": "1001111011000010" },
-      "output": { "ratio": 2.0 }
+      "output": { "ratio": 1.5 }
     },
     {
       "name": "Tandem repeat ACGT x4",
       "input": { "sequence": "ACGTACGTACGTACGT" },
-      "output": { "ratio": 1.125 }
+      "output": { "ratio": 0.625 }
     }
   ]
 }

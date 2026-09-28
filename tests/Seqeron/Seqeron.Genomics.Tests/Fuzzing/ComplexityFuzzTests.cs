@@ -39,15 +39,15 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   — docs/algorithms/Complexity/Lempel_Ziv_Complexity.md
 ///     §2.2 (core model + normalization), §2.4 (invariants INV-01..INV-05),
 ///     §3 (contract), §6.1 (edge cases), §7.1 (worked example).
-///     Sources: Lempel & Ziv (1976) [1]; Naereen reference parse [3];
+///     Sources: Lempel & Ziv (1976) [1]; Kaspar & Schuster (1987) scan [3];
 ///     entropy/antropy lziv_complexity normalization [4]; Zhang et al. (2009) [5].
 ///
 /// Every expected value below is derived INDEPENDENTLY from the doc and the
 /// primary-source parse rule (Lempel_Ziv_Complexity.md §2.2 / §7.1), NOT read off
 /// the code's arrays. The raw-count walk-throughs were reproduced by hand:
-///   • "1001111011000010" → 1 / 0 / 01 / 11 / 10 / 110 / 00 / 010 → c = 8;
-///     n=16, b=2, log₂16=4, b(n)=4, LZ_norm = 8/4 = 2.0 (§7.1).
-///   • homopolymer "0"×16 → 0 / 00 / 000 / 0000 / 00000 → c = 5 (§6.1).
+///   • "1001111011000010" → 1 / 0 / 01 / 1110 / 1100 / 0010 → c = 6;
+///     n=16, b=2, log₂16=4, b(n)=4, LZ_norm = 6/4 = 1.5 (§7.1; antropy doctest).
+///   • homopolymer "0"×16 → 0 / 000000000000000 → c = 2 (§6.1).
 ///   • single base "A" → c = 1 (INV-02).
 /// A test that would still pass against an implementation that, say, dropped the
 /// normalization or mis-counted the trailing partial component is invalid.
@@ -80,8 +80,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • single-symbol input (alphabet b<2): the log base is undefined, so the
 ///     normalizer clamps b := max(b, 2); for the length-1 degenerate case
 ///     (log_b(1)=0) it returns the RAW count. So a homopolymer's normalized value
-///     is c / (n / log₂ n) and is NOT bounded by 1 (it can exceed 1 — e.g. "AAAA"
-///     gives 2 / (4/2) = 1.0, and "0"×16 gives 5 / (16/4) = 1.25). This is a
+///     is c / (n / log₂ n) and is NOT bounded by 1 (e.g. "AAAA" gives
+///     2 / (4/2) = 1.0, while "0"×16 gives 2 / (16/4) = 0.5). This is a
 ///     *defined* consequence of the b<2 clamp, NOT a bug — we pin it explicitly so
 ///     the homopolymer-vs-random ORDERING is asserted via the RAW count (which is
 ///     monotone and model-clean), reserving the exact normalized homopolymer value
@@ -121,30 +121,26 @@ public class ComplexityFuzzTests
     }
 
     /// <summary>
-    /// Independent reference parse of the raw Lempel–Ziv (1976) complexity, written
-    /// straight from Lempel_Ziv_Complexity.md §2.2 (exhaustive-history rule) and the
-    /// Naereen reference [3] — deliberately NOT calling the production code, so it
-    /// can cross-check the implementation rather than echo it.
+    /// Independent brute-force reference of the raw Lempel–Ziv (1976) complexity, written
+    /// straight from the exhaustive-history DEFINITION (Lempel_Ziv_Complexity.md §2.2) —
+    /// NOT the Kaspar–Schuster scan used in production, so it cross-checks rather than
+    /// echoes it: the component starting at p is extended while S[p..p+L) still occurs in
+    /// S[0..p+L−1) (i.e. starting before p, overlap allowed); the first non-reproducible
+    /// extension (or the end of S) closes it. Cubic, only for test-sized inputs.
     /// </summary>
     private static int ReferenceLempelZiv(string seq)
     {
-        var components = new HashSet<string>();
-        int ind = 0, inc = 1;
-        while (ind + inc <= seq.Length)
+        int n = seq.Length, p = 0, c = 0;
+        while (p < n)
         {
-            string sub = seq.Substring(ind, inc);
-            if (components.Contains(sub))
-            {
-                inc++;
-            }
-            else
-            {
-                components.Add(sub);
-                ind += inc;
-                inc = 1;
-            }
+            int len = 1;
+            while (p + len <= n &&
+                   seq.Substring(0, p + len - 1).Contains(seq.Substring(p, len), StringComparison.Ordinal))
+                len++;
+            c++;
+            p += len;
         }
-        return components.Count;
+        return c;
     }
 
     /// <summary>
@@ -219,10 +215,10 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// The §7.1 worked example, derived independently: "1001111011000010" parses as
-    /// 1 / 0 / 01 / 11 / 10 / 110 / 00 / 010 → c = 8, and normalized with n=16,
-    /// b=2, log₂16=4, b(n)=4 gives LZ_norm = 8/4 = 2.0. EstimateCompressionRatio is
+    /// 1 / 0 / 01 / 1110 / 1100 / 0010 → c = 6, and normalized with n=16,
+    /// b=2, log₂16=4, b(n)=4 gives LZ_norm = 6/4 = 1.5 (antropy doctests). EstimateCompressionRatio is
     /// a thin delegate to the normalized value (INV-05), so it must return the same
-    /// 2.0. This is the alphabet-agnostic binary example; it runs on the lenient
+    /// 1.5. This is the alphabet-agnostic binary example; it runs on the lenient
     /// string surface because it is not DNA.
     /// </summary>
     [Test]
@@ -231,27 +227,27 @@ public class ComplexityFuzzTests
         const string s = "1001111011000010";
 
         int raw = SequenceComplexity.CalculateLempelZivComplexity(s);
-        raw.Should().Be(8, "the §7.1 walk-through 1/0/01/11/10/110/00/010 produces 8 components");
+        raw.Should().Be(6, "the §7.1 walk-through 1/0/01/1110/1100/0010 produces 6 components");
 
         double norm = SequenceComplexity.CalculateNormalizedLempelZivComplexity(s);
-        norm.Should().BeApproximately(2.0, Tolerance,
-            "n=16, b=2, b(n)=16/log₂16=4 ⇒ LZ_norm = 8/4 = 2.0 (§7.1)");
+        norm.Should().BeApproximately(1.5, Tolerance,
+            "n=16, b=2, b(n)=16/log₂16=4 ⇒ LZ_norm = 6/4 = 1.5 (§7.1)");
 
-        SequenceComplexity.EstimateCompressionRatio(s).Should().BeApproximately(2.0, Tolerance,
+        SequenceComplexity.EstimateCompressionRatio(s).Should().BeApproximately(1.5, Tolerance,
             "EstimateCompressionRatio delegates to the normalized value (INV-05)");
     }
 
     /// <summary>
     /// The homopolymer edge case from §6.1, derived independently: "0"×16 parses as
-    /// 0 / 00 / 000 / 0000 / 00000 → c = 5. Pinned exactly to guard the
-    /// productivity-buildup behaviour (INV-04) at the raw-count level.
+    /// 0 / 000000000000000 (self-overlapping copy) → c = 2. Pinned exactly to guard
+    /// the LZ76 copy-with-overlap behaviour (INV-04) at the raw-count level.
     /// </summary>
     [Test]
-    public void LempelZiv_Homopolymer16_RawIsFive()
+    public void LempelZiv_Homopolymer16_RawIsTwo()
     {
         int raw = SequenceComplexity.CalculateLempelZivComplexity(new string('0', 16));
 
-        raw.Should().Be(5, "0/00/000/0000/00000 is the exhaustive-history parse of \"0\"×16 (§6.1)");
+        raw.Should().Be(2, "0/0…0 is the exhaustive-history parse of \"0\"×16 (§6.1)");
     }
 
     /// <summary>
@@ -441,37 +437,34 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// BE: a homopolymer is maximally compressible ⇒ minimal complexity. For "X"×n
-    /// the exhaustive-history parse yields components X / XX / XXX / … whose total
-    /// length is 1+2+…+m = m(m+1)/2 ≤ n, so c(S) is the largest m with m(m+1)/2 ≤ n
-    /// (a triangular bound) — independently of WHICH symbol repeats. We assert this
-    /// closed form against the implementation across a range of lengths and several
-    /// symbols (DNA and non-DNA), and confirm c grows only ~√(2n), far below n. This
-    /// pins INV-03 (c ≤ n) and INV-04 (homopolymer minimal) at the extreme.
+    /// the exhaustive history is X / X…X (the second component copies the first with
+    /// overlap), so c(S) = min(n, 2) — independently of WHICH symbol repeats and of n.
+    /// We assert this closed form against the implementation across a range of lengths
+    /// and several symbols (DNA and non-DNA). This pins INV-03 (c ≤ n) and INV-04
+    /// (homopolymer minimal) at the extreme.
     /// </summary>
     [Test]
-    public void Homopolymer_RawComplexity_IsTriangularBound()
+    public void Homopolymer_RawComplexity_IsMinNTwo()
     {
         foreach (char sym in new[] { 'A', 'G', '0', 'Z' })
         {
             foreach (int n in new[] { 1, 2, 3, 4, 9, 10, 16, 17, 100, 1000 })
             {
-                // Largest m with m(m+1)/2 <= n: this is exactly the number of
-                // components 1/2/.../m the homopolymer parse emits (derived from §6.1).
-                int expected = 0;
-                while ((long)(expected + 1) * (expected + 2) / 2 <= n) expected++;
+                // X / X…X: one component for n = 1, two for n ≥ 2 (§6.1).
+                int expected = Math.Min(n, 2);
 
                 string s = new string(sym, n);
                 int raw = SequenceComplexity.CalculateLempelZivComplexity(s);
 
                 raw.Should().Be(expected,
-                    $"\"{sym}\"×{n} parses into the triangular number of distinct runs (§6.1)");
+                    $"\"{sym}\"×{n} parses as X / X…X (§6.1)");
                 raw.Should().BeLessThanOrEqualTo(n, "c(S) ≤ n (INV-03)");
             }
         }
     }
 
     /// <summary>
-    /// BE: the §6.1 anchor "0"×16 → c=5 must equal the triangular closed form, and a
+    /// BE: the §6.1 anchor "0"×16 → c=2 must equal the closed form, and a
     /// same-length all-distinct-ish DNA sequence must be strictly more complex —
     /// pinning the homopolymer as the minimal-complexity extreme (INV-04) at a
     /// hand-checked length.
@@ -480,7 +473,7 @@ public class ComplexityFuzzTests
     public void Homopolymer_IsMinimalComplexity_VersusDiverseSameLength()
     {
         int homopolymer = SequenceComplexity.CalculateLempelZivComplexity(new string('0', 16));
-        homopolymer.Should().Be(5, "0/00/000/0000/00000 (§6.1)");
+        homopolymer.Should().Be(2, "0/0…0 (§6.1)");
 
         int diverse = SequenceComplexity.CalculateLempelZivComplexity("ACGTACGTACGTACGT");
         diverse.Should().BeGreaterThan(homopolymer, "a more diverse string of equal length is more complex (INV-04)");
