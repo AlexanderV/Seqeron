@@ -8687,8 +8687,9 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// <c>ClusterCcfValues</c> produces ascending centroids, one valid assignment per input value (in [0,k)),
-    /// and reports the highest-centroid cluster (last index) as clonal. (Tarabichi 2021 highest-CP-clonal)
+    /// <c>ClusterCcfValues</c> produces min(k, distinct) ascending centroids, every cluster non-empty, one valid
+    /// assignment per input value, and reports the highest-centroid cluster (last index) as clonal.
+    /// (Tarabichi 2021 highest-CP-clonal; Ckmeans.1d.dp Kmax = min(k, unique))
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property ClusterCcfValues_AscendingCentroids_ValidAssignments_HighestIsClonal()
@@ -8702,7 +8703,9 @@ public class OncologyProperties
         {
             var clustering = OncologyAnalyzer.ClusterCcfValues(t.values, t.k);
 
-            bool centroidCount = clustering.Centroids.Count == t.k;
+            // Ckmeans.1d.dp (Wang & Song 2011): Kmax = min(k, number of distinct values); no empty clusters.
+            int expectedCount = Math.Min(t.k, t.values.Distinct().Count());
+            bool centroidCount = clustering.Centroids.Count == expectedCount;
             bool ascending = true;
             for (int i = 1; i < clustering.Centroids.Count; i++)
             {
@@ -8710,12 +8713,73 @@ public class OncologyProperties
             }
 
             bool assignmentsOk = clustering.Assignments.Count == t.values.Length
-                && clustering.Assignments.All(a => a >= 0 && a < t.k);
-            bool clonalIsHighest = clustering.ClonalClusterIndex == t.k - 1;
+                && clustering.Assignments.All(a => a >= 0 && a < expectedCount)
+                && clustering.Assignments.Distinct().Count() == expectedCount;
+            bool clonalIsHighest = clustering.ClonalClusterIndex == expectedCount - 1;
 
             return (centroidCount && ascending && assignmentsOk && clonalIsHighest)
                 .Label($"k={t.k}, centroids=[{string.Join(",", clustering.Centroids)}], clonalIndex={clustering.ClonalClusterIndex}");
         });
+    }
+
+    /// <summary>
+    /// O (optimality, Wang &amp; Song 2011): <c>ClusterCcfValues</c> attains the minimum within-cluster sum of
+    /// squares over <i>all</i> partitions of the sorted values into min(k, distinct) contiguous non-empty blocks
+    /// (an optimal 1-D k-means partition is contiguous). The oracle enumerates every partition by brute force,
+    /// independently of production.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClusterCcfValues_AttainsBruteForceMinimumWcss()
+    {
+        var arb = (from n in Gen.Choose(1, 9)
+                   from values in Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   from k in Gen.Choose(1, n)
+                   select (values, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var clustering = OncologyAnalyzer.ClusterCcfValues(t.values, t.k);
+            double wcss = t.values.Select((v, i) => Math.Pow(v - clustering.Centroids[clustering.Assignments[i]], 2)).Sum();
+
+            double[] sorted = t.values.OrderBy(v => v).ToArray();
+            int kEff = Math.Min(t.k, sorted.Distinct().Count());
+            double best = BruteForceMinWcss(sorted, 0, kEff);
+            return (wcss <= best + 1e-12).Label($"WCSS {wcss} > brute-force optimum {best} (k={kEff})");
+        });
+    }
+
+    private static double BruteForceMinWcss(double[] sorted, int start, int blocks)
+    {
+        if (blocks == 1)
+        {
+            return BlockSsq(sorted, start, sorted.Length - 1);
+        }
+
+        double best = double.PositiveInfinity;
+        for (int end = start; end <= sorted.Length - blocks; end++)
+        {
+            best = Math.Min(best, BlockSsq(sorted, start, end) + BruteForceMinWcss(sorted, end + 1, blocks - 1));
+        }
+
+        return best;
+    }
+
+    private static double BlockSsq(double[] sorted, int from, int to)
+    {
+        double mean = 0.0;
+        for (int i = from; i <= to; i++)
+        {
+            mean += sorted[i];
+        }
+
+        mean /= to - from + 1;
+        double ssq = 0.0;
+        for (int i = from; i <= to; i++)
+        {
+            ssq += (sorted[i] - mean) * (sorted[i] - mean);
+        }
+
+        return ssq;
     }
 
     /// <summary>
