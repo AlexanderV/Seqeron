@@ -6,11 +6,11 @@
 | Test Unit ID | CHROM-TELO-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Telomere analysis detects telomeric repeat tracts at chromosome ends and provides a separate helper for converting qPCR T/S ratios into approximate telomere length. In this repository, `AnalyzeTelomeres` scans the 5' and 3' ends of a supplied sequence for tandem repeat matches, reports end-specific lengths and repeat purities, and flags critically short telomeres based on configurable thresholds. `EstimateTelomereLengthFromTSRatio` applies the proportional T/S-ratio relationship described in the cited qPCR literature.[3] The sequence-based detection is heuristic and end-focused, so it is appropriate for approximate repeat-end assessment rather than complete telomere biology inference.[1][2]
+Telomere analysis detects telomeric repeat tracts at chromosome ends and provides a separate helper for converting qPCR T/S ratios into approximate telomere length. In this repository, `AnalyzeTelomeres` is a port of Heng Li's `seqtk telo` maximal-scoring-segment scan:[6] it scans the 5' and 3' ends of a supplied sequence for motif-rotation hits, reports end-specific tract lengths and repeat purities, and flags critically short telomeres based on configurable thresholds. `EstimateTelomereLengthFromTSRatio` applies the proportional T/S-ratio relationship described in the cited qPCR literature.[3] The sequence-based detection is heuristic and end-focused, so it is appropriate for approximate repeat-end assessment rather than complete telomere biology inference.[1][2]
 
 ## 2. Scientific / Formal Basis
 
@@ -45,7 +45,7 @@ The existing repository documentation further states a normal human range of 5,0
 
 ### 2.2 Core Model
 
-The sequence-based model is that telomeric repeats occur at chromosome ends and can be measured by scanning repeat-sized windows against the expected repeat unit on each end. For qPCR data, the repository uses the proportional T/S-ratio model described by Cawthon (2002):
+The sequence-based model is that telomeric repeats occur at chromosome ends. Following `seqtk telo`,[6] every k-mer (k = motif length) equal to any rotation of the expected end motif is a hit; scanning inward from each terminus, each scored position adds `+1` for a hit and `-penalty` otherwise, the tract ends at the position of maximal cumulative score, and the scan stops once the score falls more than `maxDrop` below the maximum (X-drop). Using rotations makes detection independent of the repeat phase at the terminus. For qPCR data, the repository uses the proportional T/S-ratio model described by Cawthon (2002):
 
 ```text
 estimatedLength = referenceLength * (tsRatio / referenceRatio)
@@ -63,8 +63,8 @@ estimatedLength = referenceLength * (tsRatio / referenceRatio)
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | `TelomereLength5Prime >= 0` and `TelomereLength3Prime >= 0`. | The implementation accumulates only complete repeat units and never decrements length. |
-| INV-02 | `0 <= RepeatPurity5Prime <= 1` and `0 <= RepeatPurity3Prime <= 1`. | Purity is computed as `matchingBases / totalBases` when any bases were counted, otherwise `0`. |
+| INV-01 | `0 <= TelomereLength5Prime, TelomereLength3Prime <= min(searchLength, n)`. | Lengths are `maxPos + 1` (5') / `n - maxPos` (3') inside the scanned window, `0` when the maximal score is `<= 0`. |
+| INV-02 | `0 <= RepeatPurity <= 1`; for a non-empty tract `RepeatPurity > 1/(1+penalty)`. | Purity = hits / scored positions in the tract; the tract's score `hits - penalty*misses` is `> 0`. |
 | INV-03 | `Has5PrimeTelomere` and `Has3PrimeTelomere` are derived from the measured lengths and `minTelomereLength`. | The public method compares each measured length to the threshold after scanning. |
 | INV-04 | For non-negative `tsRatio`, the T/S helper returns a non-negative result and follows `referenceLength * tsRatio / referenceRatio`. | The implementation is a direct proportional calculation. |
 
@@ -76,10 +76,12 @@ estimatedLength = referenceLength * (tsRatio / referenceRatio)
 |------|------|---------|-------------|-------------|
 | `[AnalyzeTelomeres] chromosomeName` | `string` | required | Chromosome identifier copied into the result. | Preserved verbatim in `TelomereResult.Chromosome`. |
 | `[AnalyzeTelomeres] sequence` | `string` | required | DNA sequence whose ends are scanned for telomeric repeats. | Empty or `null` input returns no telomeres and `IsCriticallyShort = true`. |
-| `[AnalyzeTelomeres] telomereRepeat` | `string` | `"TTAGGG"` | Repeat unit used for the 3' scan. | The 5' scan uses its reverse complement. |
+| `[AnalyzeTelomeres] telomereRepeat` | `string` | `"TTAGGG"` | Repeat unit used for the 3' scan. | The 5' scan uses its reverse complement; must be non-empty A/C/G/T (case-insensitive), else `ArgumentException`. |
 | `[AnalyzeTelomeres] searchLength` | `int` | `10000` | Maximum distance from each chromosome end to inspect. | Effective scan length is `min(searchLength, sequence.Length)` on each end. |
 | `[AnalyzeTelomeres] minTelomereLength` | `int` | `500` | Minimum measured repeat length required for `Has*Telomere` to be true. | Applied independently to the 5' and 3' ends. |
 | `[AnalyzeTelomeres] criticalLength` | `int` | `3000` | Threshold used for the `IsCriticallyShort` flag when a telomere is detected. | Applied only after end-specific presence/absence is determined. |
+| `[AnalyzeTelomeres] penalty` | `int` | `1` | Score for a non-hit position is `-penalty` (seqtk `-p`). | Sign ignored, as in seqtk. |
+| `[AnalyzeTelomeres] maxDrop` | `int` | `2000` | X-drop: stop scanning when the score falls more than this below the maximum (seqtk `-d`). | |
 | `[EstimateTelomereLengthFromTSRatio] tsRatio` | `double` | required | Observed T/S ratio. | Interpreted as proportional to average telomere length. |
 | `[EstimateTelomereLengthFromTSRatio] referenceRatio` | `double` | `1.0` | Reference-sample T/S ratio. | Used as the denominator in the proportional formula. |
 | `[EstimateTelomereLengthFromTSRatio] referenceLength` | `double` | `7000` | Reference-sample telomere length in base pairs. | Used as the scale factor in the proportional formula. |
@@ -100,7 +102,7 @@ estimatedLength = referenceLength * (tsRatio / referenceRatio)
 
 ### 3.3 Preconditions and Validation
 
-`AnalyzeTelomeres` uppercases the input sequence and repeat motif, computes the reverse complement of the repeat for the 5' end, and scans only the configured end windows. When the sequence is shorter than the repeat length, both end lengths remain zero. The internal repeat matcher counts only complete repeat-sized windows and stops when similarity drops below `70%`. `EstimateTelomereLengthFromTSRatio` performs a direct proportional calculation and does not impose additional validation beyond the numeric inputs supplied by the caller.
+`AnalyzeTelomeres` uppercases the input sequence and repeat motif, computes the reverse complement of the repeat for the 5' end, and scans only the configured end windows. Any base other than A/C/G/T resets the rolling k-mer (no hit for the next k−1 positions) without stopping the scan. When the sequence is shorter than the repeat length, both end lengths remain zero. `EstimateTelomereLengthFromTSRatio` performs a direct proportional calculation and does not impose additional validation beyond the numeric inputs supplied by the caller.
 
 ## 4. Algorithm
 
@@ -108,11 +110,12 @@ estimatedLength = referenceLength * (tsRatio / referenceRatio)
 
 1. Return a no-telomere result with `IsCriticallyShort = true` for empty or `null` input.
 2. Uppercase the sequence and repeat unit and compute the reverse complement of the repeat.
-3. Scan the 5' end window against the reverse-complement motif and the 3' end window against the forward motif.
-4. For each end, advance in repeat-sized steps while window similarity is at least `70%`, accumulating length and matching-base counts.
-5. Compute repeat purity as `matchingBases / totalBases` for each end and set the `Has*Telomere` flags from `minTelomereLength`.
-6. Mark the result as critically short when a detected telomere is shorter than `criticalLength`.
-7. For qPCR data, compute `referenceLength * tsRatio / referenceRatio`.
+3. Build the hit sets: all rotations of the reverse-complement motif (5') and of the motif (3').
+4. 5' end: for i = 0.. within the window, the k-mer ending at i is a hit if it is in the 5' set; from i ≥ k add `+1`/`-penalty`; track the maximum score and its position; stop when `max − score > maxDrop`. Length = `maxPos + 1` if the maximum is > 0.
+5. 3' end: the same from i = n−1 downward (k-mer starting at i, scoring from n − i ≥ k), never entering an accepted 5' tract; length = `n − maxPos`.
+6. Purity = hits / scored positions within each tract; `Has*Telomere` = length ≥ `minTelomereLength` (and > 0).
+7. Mark the result as critically short when a detected telomere is shorter than `criticalLength`.
+8. For qPCR data, compute `referenceLength * tsRatio / referenceRatio`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -143,7 +146,7 @@ The qPCR helper uses the proportional T/S-ratio formula from Section 2.2.[3]
 
 ### 5.2 Current Behavior
 
-The implementation uses a `70%` similarity threshold while scanning repeat-sized windows. The 5' scan operates on the prefix of the sequence using the reverse-complement repeat, while the 3' scan operates on the suffix using the forward repeat. Only complete repeat units are counted. For non-empty input, `IsCriticallyShort` becomes true only when a detected telomere is present and its measured length is below `criticalLength`; a non-empty sequence with no detected telomere yields `IsCriticallyShort = false`.
+The implementation is a line-by-line port of `stk_telo` (seqtk 1.5-r133), including its scoring offsets (5' positions scored from i ≥ k, so a single 5' unit yields no tract, while one 3' unit yields 6). Lengths are base-resolution and may include a terminal partial unit. Seqeron extensions: the `searchLength` window, presence gated by tract length (`minTelomereLength`) instead of seqtk's min score (default 300), and the purity statistic. For non-empty input, `IsCriticallyShort` becomes true only when a detected telomere is present and its measured length is below `criticalLength`; a non-empty sequence with no detected telomere yields `IsCriticallyShort = false`.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -154,7 +157,7 @@ The implementation uses a `70%` similarity threshold while scanning repeat-sized
 
 **Intentionally simplified:**
 
-- End detection is based on repeat-window similarity rather than a full telomere sequence model; **consequence:** the result is an approximate tract length and purity, not a complete telomere annotation.
+- End detection uses exact motif-rotation k-mer hits (seqtk telo); variant repeats (e.g. TCAGGG, TGAGGG) count as misses; **consequence:** tracts rich in variant repeats score lower or may be truncated.
 - Only the first and last `searchLength` bases are examined; **consequence:** end-distal or truncated sequence context can hide telomeric sequence outside the scanned windows.
 - The default repeat and threshold values are configurable but not species-specific; **consequence:** non-vertebrate use cases require callers to supply an appropriate repeat motif and interpretability remains heuristic.
 
@@ -172,7 +175,8 @@ The implementation uses a `70%` similarity threshold while scanning repeat-sized
 | Empty sequence | Returns no telomeres and `IsCriticallyShort = true`. | The public method special-cases empty input. |
 | Sequence shorter than the repeat unit | Returns zero-length telomeres. | The internal repeat matcher exits immediately when the region is shorter than the repeat. |
 | No telomeric repeats | Returns zero lengths and `Has*Telomere = false`. | No scanned window meets the similarity threshold. |
-| Divergent repeats | Produces lower purity than perfect repeats. | Purity is based on matching-base counts inside the accepted windows. |
+| Divergent repeats | Sporadic non-motif units lower purity (e.g. every 10th unit TTAGGA over 200 units: length 1194, purity 1075/1189); a tract made only of a non-motif hexamer (TTAGGA×200) is not detected. | Values from `seqtk telo`. |
+| Terminal partial repeat | Detected with base-resolution length (A×1000+(TTAGGG)×200+`TTAG` → 1204). | Motif rotations are phase-independent. |
 | Custom repeat motif | Uses the supplied motif and its reverse complement. | The repeat string is a public parameter. |
 
 ### 6.2 Limitations
@@ -194,3 +198,4 @@ The repository implementation is an end-focused repeat scanner. It does not mode
 3. Cawthon RM. 2002. Telomere measurement by quantitative PCR. Nucleic Acids Research. doi:10.1093/nar/30.10.e47
 4. Blackburn EH, Gall JG. 1978. A tandemly repeated sequence at the termini of the extrachromosomal ribosomal RNA genes in Tetrahymena. Journal of Molecular Biology. N/A
 5. Rossiello et al. 2022. N/A. Nature Cell Biology. N/A
+6. Li H. seqtk 1.5-r133, `stk_telo` (seqtk.c). https://github.com/lh3/seqtk (source: https://raw.githubusercontent.com/lh3/seqtk/master/seqtk.c)

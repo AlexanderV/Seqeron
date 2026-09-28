@@ -382,37 +382,123 @@ public static class ChromosomeAnalyzer
     #region Telomere Analysis
 
     /// <summary>
-    /// Analyzes telomeres at chromosome ends.
+    /// Analyzes telomeric repeat tracts at both chromosome ends using the maximal-scoring-segment
+    /// scan of <c>seqtk telo</c> (H. Li, seqtk 1.5-r133, <c>stk_telo</c>; github.com/lh3/seqtk).
     /// </summary>
+    /// <remarks>
+    /// <para>Algorithm (faithful port of <c>stk_telo</c>): every rotation of the motif is a hit k-mer
+    /// (rotations make the scan phase-independent, so a tract ending in a partial repeat unit is still
+    /// found). Scanning from the 5' terminus inward, the k-mer ending at position i is compared with the
+    /// rotations of reverse-complement(<paramref name="telomereRepeat"/>) (CCCTAA for TTAGGG); from the
+    /// 3' terminus inward, the k-mer starting at i is compared with the rotations of
+    /// <paramref name="telomereRepeat"/>. Each scored position adds +1 for a hit and −<paramref name="penalty"/>
+    /// otherwise (5' scoring starts at i ≥ k, 3' scoring at n − i ≥ k, exactly as in seqtk); a base other
+    /// than A/C/G/T (case-insensitive) resets the k-mer. The tract ends at the position of maximal
+    /// cumulative score; the scan stops (X-drop) once the score falls more than <paramref name="maxDrop"/>
+    /// below the maximum. Tract length = maxPos + 1 (5') or n − maxPos (3'); 0 when the maximum score is ≤ 0.
+    /// The 3' scan does not enter an accepted 5' tract (seqtk's <c>st</c>).</para>
+    /// <para>Seqeron extensions (not in seqtk): the scan is additionally confined to
+    /// <paramref name="searchLength"/> bases from each end; presence is gated by the tract length
+    /// (<paramref name="minTelomereLength"/>) instead of seqtk's min score (default 300);
+    /// <c>RepeatPurity</c> = motif hits / scored positions inside the reported tract (derived from the
+    /// same score profile: purity = (maxScore + p·scored) / ((1 + p)·scored)).</para>
+    /// </remarks>
+    /// <param name="chromosomeName">Name copied to the result.</param>
+    /// <param name="sequence">Chromosome sequence (5'→3', top strand). Null/empty → no telomeres, critically short.</param>
+    /// <param name="telomereRepeat">3'-end (G-rich) repeat unit, A/C/G/T only (default TTAGGG).</param>
+    /// <param name="searchLength">Maximum distance from each end that is scanned.</param>
+    /// <param name="minTelomereLength">Minimum tract length for <c>Has*Telomere</c>.</param>
+    /// <param name="criticalLength">A detected tract shorter than this sets <c>IsCriticallyShort</c>.</param>
+    /// <param name="penalty">Score penalty for a non-motif position (seqtk <c>-p</c>, default 1; sign ignored).</param>
+    /// <param name="maxDrop">X-drop: stop when the score falls this far below the maximum (seqtk <c>-d</c>, default 2000).</param>
     public static TelomereResult AnalyzeTelomeres(
         string chromosomeName,
         string sequence,
         string telomereRepeat = "TTAGGG",
         int searchLength = 10000,
         int minTelomereLength = 500,
-        int criticalLength = 3000)
+        int criticalLength = 3000,
+        int penalty = 1,
+        int maxDrop = 2000)
     {
         if (string.IsNullOrEmpty(sequence))
         {
             return new TelomereResult(chromosomeName, false, 0, false, 0, 0, 0, true);
         }
 
-        sequence = sequence.ToUpperInvariant();
+        if (string.IsNullOrEmpty(telomereRepeat))
+            throw new ArgumentException("Telomere repeat cannot be null or empty.", nameof(telomereRepeat));
+
         telomereRepeat = telomereRepeat.ToUpperInvariant();
-        string telomereRepeatRC = DnaSequence.GetReverseComplementString(telomereRepeat);
+        foreach (char c in telomereRepeat)
+        {
+            if (c is not ('A' or 'C' or 'G' or 'T'))
+                throw new ArgumentException(
+                    "Telomere repeat must contain only A/C/G/T (seqtk telo asserts an unambiguous motif).",
+                    nameof(telomereRepeat));
+        }
 
-        // Analyze 5' end (should have CCCTAA repeats = reverse complement)
-        int search5End = Math.Min(searchLength, sequence.Length);
-        var (length5, purity5) = MeasureTelomereLength(
-            sequence[..search5End], telomereRepeatRC, fromEnd: false);
+        if (penalty < 0) penalty = -penalty; // seqtk: if (penalty < 0) penalty = -penalty
+        sequence = sequence.ToUpperInvariant();
+        int n = sequence.Length;
+        int k = telomereRepeat.Length;
+        int window = Math.Min(Math.Max(searchLength, 0), n);
 
-        // Analyze 3' end (should have TTAGGG repeats)
-        int search3Start = Math.Max(0, sequence.Length - searchLength);
-        var (length3, purity3) = MeasureTelomereLength(
-            sequence[search3Start..], telomereRepeat, fromEnd: true);
+        var rotations3 = Rotations(telomereRepeat);
+        var rotations5 = Rotations(DnaSequence.GetReverseComplementString(telomereRepeat));
 
-        bool has5Prime = length5 >= minTelomereLength;
-        bool has3Prime = length3 >= minTelomereLength;
+        // 5' end: k-mer ending at i vs rotations of RC(motif) (CCCTAA for TTAGGG).
+        long score = 0, max = 0;
+        int maxI = -1, run = 0, hits = 0, hitsAtMax = 0;
+        for (int i = 0; i < window; i++)
+        {
+            bool hit = false;
+            if (IsAcgt(sequence[i]))
+            {
+                if (++run >= k && rotations5.Contains(sequence.Substring(i - k + 1, k)))
+                    hit = true;
+            }
+            else run = 0;
+
+            if (i >= k)
+            {
+                score += hit ? 1 : -penalty;
+                if (hit) hits++;
+            }
+            if (score > max) { max = score; maxI = i; hitsAtMax = hits; }
+            else if (max - score > maxDrop) break;
+        }
+        int length5 = max > 0 ? maxI + 1 : 0;
+        int scored5 = max > 0 ? maxI - k + 1 : 0;
+        double purity5 = scored5 > 0 ? hitsAtMax / (double)scored5 : 0;
+        bool has5Prime = length5 >= minTelomereLength && length5 > 0;
+
+        // 3' end: k-mer starting at i vs rotations of the motif; do not enter an accepted 5' tract.
+        int stop = Math.Max(has5Prime ? length5 : 0, n - window);
+        score = 0; max = 0; maxI = -1; run = 0; hits = 0; hitsAtMax = 0;
+        for (int i = n - 1; i >= stop; i--)
+        {
+            bool hit = false;
+            if (IsAcgt(sequence[i]))
+            {
+                if (++run >= k && rotations3.Contains(sequence.Substring(i, k)))
+                    hit = true;
+            }
+            else run = 0;
+
+            if (n - i >= k)
+            {
+                score += hit ? 1 : -penalty;
+                if (hit) hits++;
+            }
+            if (score > max) { max = score; maxI = i; hitsAtMax = hits; }
+            else if (max - score > maxDrop) break;
+        }
+        int length3 = max > 0 ? n - maxI : 0;
+        int scored3 = max > 0 ? n - maxI - k + 1 : 0;
+        double purity3 = scored3 > 0 ? hitsAtMax / (double)scored3 : 0;
+        bool has3Prime = length3 >= minTelomereLength && length3 > 0;
+
         bool isCritical = (has5Prime && length5 < criticalLength) ||
                           (has3Prime && length3 < criticalLength);
 
@@ -422,58 +508,16 @@ public static class ChromosomeAnalyzer
             has3Prime, length3,
             purity5, purity3,
             isCritical);
-    }
 
-    /// <summary>
-    /// Measures telomere length and repeat purity.
-    /// </summary>
-    private static (int Length, double Purity) MeasureTelomereLength(
-        string region,
-        string repeatUnit,
-        bool fromEnd)
-    {
-        int repeatLen = repeatUnit.Length;
-        if (region.Length < repeatLen)
-            return (0, 0);
+        static bool IsAcgt(char c) => c is 'A' or 'C' or 'G' or 'T';
 
-        int telomereLength = 0;
-        int matchingBases = 0;
-        int totalBases = 0;
-
-        int start = fromEnd ? region.Length - repeatLen : 0;
-        int step = fromEnd ? -repeatLen : repeatLen;
-
-        while (true)
+        static HashSet<string> Rotations(string motif)
         {
-            if (start < 0 || start + repeatLen > region.Length)
-                break;
-
-            string window = region.Substring(start, repeatLen);
-            int matches = 0;
-
-            for (int i = 0; i < repeatLen; i++)
-            {
-                if (window[i] == repeatUnit[i])
-                    matches++;
-            }
-
-            double similarity = matches / (double)repeatLen;
-
-            if (similarity >= 0.7) // Allow some divergence
-            {
-                telomereLength += repeatLen;
-                matchingBases += matches;
-                totalBases += repeatLen;
-                start += step;
-            }
-            else
-            {
-                break;
-            }
+            var set = new HashSet<string>(StringComparer.Ordinal);
+            for (int r = 0; r < motif.Length; r++)
+                set.Add(motif[r..] + motif[..r]);
+            return set;
         }
-
-        double purity = totalBases > 0 ? matchingBases / (double)totalBases : 0;
-        return (telomereLength, purity);
     }
 
     /// <summary>
