@@ -758,11 +758,14 @@ public class CodonProperties
 
     #region CODON-ENC-001: R: ENC ∈ [20,61]; M: more biased usage → lower ENC; D: deterministic
 
-    // CalculateEnc is Wright's (1990) effective number of codons, clamped to [20,61]. A more biased
-    // codon usage (higher within-family homozygosity) lowers ENC toward 20.
+    // CalculateEnc is Wright's (1990) effective number of codons (CodonW enc_out): in [20,61] when it
+    // can be calculated, 0 when a synonymous class has no estimable amino acid (CodonW "*****").
+    // A more biased codon usage (higher within-family homozygosity) lowers ENC toward 20.
 
     /// <summary>
-    /// INV-1 (R): ENC always lies in [20,61] for any coding sequence.
+    /// INV-1 (R): ENC is either 0 (not calculable) or lies in [20,61] for any coding sequence.
+    /// (Validation 2026-09, F15: previously "always in [20,61]" — true only because empty classes
+    /// were given a non-sourced full-count contribution.)
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property Enc_InRange()
@@ -770,7 +773,25 @@ public class CodonProperties
         return Prop.ForAll(CodingDnaArbitrary(), seq =>
         {
             double enc = CodonUsageAnalyzer.CalculateEnc(seq);
-            return (enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9).Label($"ENC={enc} outside [20,61]");
+            return (enc == 0.0 || enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9).Label($"ENC={enc} neither 0 nor in [20,61]");
+        });
+    }
+
+    /// <summary>
+    /// INV-1b (R, genetic-code aware): under every NCBI table ENC is 0 or lies in
+    /// [20, number of sense codons of the table] (Wright 1990 re-adjustment).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Enc_AnyGeneticCode_InRange()
+    {
+        var tables = GeneticCode.SupportedTableNumbers.ToArray();
+        return Prop.ForAll(CodingDnaArbitrary(), Gen.Elements(tables).ToArbitrary(), (seq, table) =>
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            int sense = code.CodonTable.Count(kv => kv.Value != '*');
+            double enc = CodonUsageAnalyzer.CalculateEnc(seq, code);
+            return (enc == 0.0 || enc is >= 20.0 - 1e-9 && enc <= sense + 1e-9)
+                .Label($"table {table}: ENC={enc} neither 0 nor in [20,{sense}]");
         });
     }
 
@@ -782,9 +803,11 @@ public class CodonProperties
     [Category("Property")]
     public void Enc_MoreBiased_LowerEnc()
     {
-        // AAA/AAG are the two synonymous Lys codons; the rest of the families are unobserved.
-        string lessBiased = string.Concat(Enumerable.Repeat("AAA", 3)) + "AAG"; // 3:1
-        string moreBiased = string.Concat(Enumerable.Repeat("AAA", 9)) + "AAG"; // 9:1
+        // Background gene with every synonymous class estimable (Phe, Ile, Val, Leu), so Nc is
+        // calculable (CodonW enc_out); only the Lys (AAA/AAG) ratio differs between the two.
+        string background = "TTTTTTTTC" + "ATTATTATC" + "GTGGTGGTC" + "CTGCTGCTC";
+        string lessBiased = background + string.Concat(Enumerable.Repeat("AAA", 3)) + "AAG"; // 3:1
+        string moreBiased = background + string.Concat(Enumerable.Repeat("AAA", 9)) + "AAG"; // 9:1
 
         double encLess = CodonUsageAnalyzer.CalculateEnc(lessBiased);
         double encMore = CodonUsageAnalyzer.CalculateEnc(moreBiased);
@@ -860,7 +883,7 @@ public class CodonProperties
 
     /// <summary>
     /// INV-1 (R + P): codon counts are non-negative and sum to TotalCodons, which equals the number of
-    /// valid codons; ENC ∈ [20,61] and the positional GC fractions are in [0,1].
+    /// valid codons; ENC is 0 (not calculable) or ∈ [20,61]; the positional GC values are in [0,100].
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property CodonStatistics_AreConsistent()
@@ -871,7 +894,7 @@ public class CodonProperties
             int sum = stats.CodonCounts.Values.Sum();
             bool ok = stats.CodonCounts.Values.All(c => c >= 0)
                       && sum == stats.TotalCodons
-                      && stats.Enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9
+                      && (stats.Enc == 0.0 || stats.Enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9)
                       // Positional GC values are reported as percentages in [0,100] (EMBOSS cusp).
                       && stats.Gc1 is >= 0.0 and <= 100.0 && stats.Gc2 is >= 0.0 and <= 100.0
                       && stats.Gc3 is >= 0.0 and <= 100.0;

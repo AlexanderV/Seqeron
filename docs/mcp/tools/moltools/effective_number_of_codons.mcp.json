@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonUsageAnalyzer.CalculateEnc",
-  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L283",
-  "description": "Effective Number of Codons (Wright's Nc) for a coding sequence, clamped to 20..61.",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L420",
+  "description": "Effective Number of Codons (Wright 1990 Nc, CodonW enc_out conventions) for a coding sequence under the standard genetic code: 20..61, or 0 when Nc cannot be calculated (a synonymous class other than the single 3-fold Ile class has no estimable amino acid).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -17,7 +17,7 @@
   "outputSchema": {
     "type": "object",
     "properties": {
-      "enc": { "type": "number", "description": "Effective Number of Codons, 20..61 (20 = extreme bias, 61 = no bias)." }
+      "enc": { "type": "number", "description": "Effective Number of Codons, 20..61 (20 = extreme bias, 61 = no bias); 0 = not calculable (CodonW *****)." }
     },
     "required": ["enc"]
   },
@@ -31,9 +31,9 @@
       "output": { "enc": 41.288461538461526 }
     },
     {
-      "name": "Mixed short gene stays in range",
+      "name": "Short gene with empty synonymous classes (CodonW: *****)",
       "input": { "sequence": "ATGAAAGAGCTGTTCGCCAAA" },
-      "output": { "enc": "value within [20, 61]" }
+      "output": { "enc": 0 }
     }
   ]
 }

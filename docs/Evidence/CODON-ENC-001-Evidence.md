@@ -48,6 +48,27 @@
 
 1. **Degeneracy partition of the 20 amino acids + stop:** "5 quartets (4 codons each), 9 doublets (2 codons each), 3 sextets (6 codons each), 1 triplet (3 codons) and 2 singlets (1 codon each)." The two singlets are Met (ATG) and Trp (TGG); the single triplet is isoleucine (ATT/ATC/ATA). This is exactly the partition assumed by Eq. (3): the constant `2` = the two single-codon amino acids (Met + Trp), and `9, 1, 5, 3` count the two-, three-, four- and six-fold amino acids. Stop codons are excluded from Nc.
 
+### CodonW 1.4.4 (Peden 1999) — reference implementation (review 2026-09)
+
+**Opened:** original source `codonw_1.4.4.orig.tar.gz` (compiled locally): `codon_us.c` `enc_out`, `codonW.h` genetic-code tables, `README_indices.txt`. Also downloaded https://codonw.sourceforge.net/JohnPedenThesisPressOpt_water.pdf (13-page excerpt; text extraction unavailable in the sandbox, not used).
+**Authority rank:** 1 (the de-facto reference implementation of Wright's Nc; cites Wright 1990)
+
+**Key Extracted Points:**
+
+1. `README_indices.txt`: "If amino acids are rare or missing, adjustments must be made. When there are no amino acids in a synonymous family, Nc is not calculated as the gene is either too short or has extremely skewed amino acid usage (Wright 1990). An exception to this is made for genetic codes where isoleucine is the only 3-fold synonymous amino acid, and is not used in the protein gene. The reported value of Nc is always between 20 … and 61 … If the calculated Nc is greater than 61 … it is adjusted to 61."
+2. `enc_out`: per amino acid (stops skipped) `bb = (n·Σp² − 1)/(n − 1)` (0 when n ≤ 1); the amino acid enters its class sum/count only `if (bb > 0.0000001)` — F̂ = 0 is **not** an estimate; `fold[z]` counts every amino acid of the code with z codons; `enc = fold[1] + Σ_z fold[z]/mean_z`; missing class z: `z==3 && numaa[2] && numaa[4] && fold[3]==1` → mean₃ = (mean₂ + mean₄)/2, else print `*****` (not calculated); print `61.00` when enc > 61.
+3. Classes come from the selected genetic code (`-code`); CodonW supports 8 codes (NCBI 1, 2, 3, 4, 5, 6, 10, 9).
+
+### codonbias 0.5.0 (PyPI `codon-bias`) — secondary reference
+
+`codonbias/scores.py` `EffectiveNumberOfCodons(robust=False, pseudocount=0, mean='unweighted', genetic_code=t)` reduces to Wright's F̂ (Novembre's F with uniform expectation), drops F ≤ 1e-6 and n ≤ 1, averages per degeneracy class of NCBI table t and caps at `len(P)` = number of sense codons. It imputes F = 1/deg for an empty class (differs from CodonW; not followed). Defaults are the Sun, Yang & Xia (2013) variant, which Seqeron does not claim.
+
+### Numerical cross-check (2026-09-28)
+
+- C# vs CodonW 1.4.4 binary (`-enc -nomenu -silent -machine -code c`, c = 0..7): 807 genes (random composition, codon-sampled with skewed weights, missing-family/short genes, RNA, lower case, N) × 8 codes = 6456 cases: 3136 "*****" ⇔ C# 0 (all), all others equal at CodonW's 2-dp precision; the only 5 differences are CodonW's fixed 61 cap under codes with 62/63 sense codons.
+- C# vs Python port of `enc_out` over all 27 NCBI tables: 21789 cases, max |Δ| < 1e-9.
+- C# vs codonbias 0.5.0 (Wright mode) over all 27 tables, 4050 fully-populated genes (1237 at/above 61): 0 mismatches (> 1e-6).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -100,6 +121,7 @@ Perfectly even Phe, TTT × 2 and TTC × 2 (n = 4): Σp² = 0.5, F̂ = (4·0.5 �
 
 ## Assumptions
 
+0. **SUPERSEDED (2026-09):** an empty synonymous class no longer contributes its full codon count; per CodonW / Wright 1990 Nc is not calculated (return 0).
 1. **ASSUMPTION: Lower clamp at 20.** Wright/Fuglsang state Nc *approaches* 20 in extreme bias and explicitly prescribe re-adjusting **down to 61** at the top. They do not prescribe a hard clamp at 20; 20 is the structural minimum (every degeneracy class collapses to one codon ⇒ Nc(aa)=1). Retaining `Math.Max(20, …)` is consistent with the stated range and cannot raise a legitimately-computed value, but it is not an explicit Wright instruction. Treated as a defensive bound, not an algorithmic parameter.
 
 ---
@@ -128,3 +150,4 @@ Perfectly even Phe, TTT × 2 and TTC × 2 (n = 4): Σp² = 0.5, F̂ = (4·0.5 �
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-28**: Review 2026-09 (B02 F15–F17): CodonW 1.4.4 source/binary and codonbias 0.5.0 added; not-calculated rule, F̂ = 0 exclusion, genetic-code-aware classes.

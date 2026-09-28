@@ -388,119 +388,137 @@ public static class CodonUsageAnalyzer
 
     #region Effective Number of Codons (ENC)
 
-    // --- Constants per Wright F. (1990) Gene 87(1):23–29, as reproduced verbatim in
-    //     Fuglsang A. (2004) BBRC 317:957–964 (Eqs. 1–5a). ---
-
-    // Number of synonymous-codon amino acids in each degeneracy class of the
-    // standard (NCBI table 1) genetic code, used as the numerators of Wright Eq. (3).
-    private const int TwoFoldAminoAcidCount = 9;   // 9 doublets (His, Gln, …)
-    private const int ThreeFoldAminoAcidCount = 1; // 1 triplet  (Ile)
-    private const int FourFoldAminoAcidCount = 5;  // 5 quartets (Ala, Gly, Pro, Thr, Val)
-    private const int SixFoldAminoAcidCount = 3;   // 3 sextets  (Leu, Ser, Arg)
-
-    // The two single-codon amino acids Met (ATG) and Trp (TGG) each contribute exactly
-    // one effective codon; this is the constant "2" in Wright Eq. (3).
-    private const double SingleCodonAminoAcidContribution = 2.0;
-
-    // Wright Eq. (3): if Nc exceeds 61 it is re-adjusted down to 61 (the maximum number
-    // of sense codons in the standard genetic code).
-    private const double MaxEffectiveCodons = 61.0;
-
-    // Structural lower bound: every degeneracy class collapsed to one codon gives Nc = 20
-    // (the extreme-bias limit stated by Wright/Fuglsang).
-    private const double MinEffectiveCodons = 20.0;
+    // CodonW 1.4.4 enc_out (Peden 1999, codon_us.c): an amino acid enters its class average
+    // only when its homozygosity estimate exceeds this threshold ("if (bb > 0.0000001)"), i.e.
+    // F̂ = 0 (every observed codon used once) is treated as not estimable, like n ≤ 1.
+    private const double MinEstimableHomozygosity = 0.0000001;
 
     /// <summary>
-    /// Calculates the Effective Number of Codons (ENC / Nc) per Wright (1990).
-    /// Nc ranges from 20 (extreme bias — one codon per amino acid) to 61 (no bias).
+    /// Calculates the Effective Number of Codons (ENC / Nc) under the Standard genetic code
+    /// (NCBI table 1). See <see cref="CalculateEnc(string, GeneticCode)"/>.
     /// </summary>
-    public static double CalculateEnc(DnaSequence sequence)
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static double CalculateEnc(DnaSequence sequence) =>
+        CalculateEnc(sequence, GeneticCode.Standard);
+
+    /// <summary>
+    /// Calculates the Effective Number of Codons under the given genetic code.
+    /// See <see cref="CalculateEnc(string, GeneticCode)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static double CalculateEnc(DnaSequence sequence, GeneticCode code)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return CalculateEncCore(sequence.Sequence);
+        ArgumentNullException.ThrowIfNull(code);
+        return CalculateEncCore(CountCodonsCore(sequence.Sequence), code);
     }
 
     /// <summary>
-    /// Calculates ENC from a raw sequence string. Null/empty returns 0.
+    /// Calculates ENC from a raw sequence string under the Standard genetic code (NCBI table 1).
+    /// See <see cref="CalculateEnc(string, GeneticCode)"/>.
     /// </summary>
-    public static double CalculateEnc(string sequence)
+    public static double CalculateEnc(string sequence) =>
+        CalculateEnc(sequence, GeneticCode.Standard);
+
+    /// <summary>
+    /// Calculates the Effective Number of Codons of Wright (1990, Gene 87:23-29):
+    /// <c>Nc = K₁ + Σ_z K_z / F̄_z</c>, where K_z is the number of amino acids with z
+    /// synonymous codons in <paramref name="code"/> (table 1: Nc = 2 + 9/F̄₂ + 1/F̄₃ + 5/F̄₄ + 3/F̄₆),
+    /// F̄_z is the mean over the class of the codon homozygosity
+    /// <c>F̂ = (n·Σ p_i² − 1)/(n − 1)</c> (p_i = n_i/n, n codons of that amino acid).
+    /// Nc ranges from 20 (one codon per amino acid) to the number of sense codons (61 in table 1).
+    /// </summary>
+    /// <remarks>
+    /// Follows the CodonW reference implementation (Peden 1999, codon_us.c <c>enc_out</c>):
+    /// <list type="bullet">
+    /// <item>Synonymous classes are taken from <paramref name="code"/> (CodonW <c>-enc</c> honours
+    /// <c>-code</c>); stop codons are excluded. Codons that are context-dependent stops in NCBI
+    /// tables 27/28/31 belong to the amino acid they encode (<see cref="GeneticCode.CodonTable"/>,
+    /// as for RSCU/CAI).</item>
+    /// <item>An amino acid with n ≤ 1, or with F̂ = 0 (every observed codon used once), is not
+    /// estimable and is left out of its class average (Wright 1990 Eq. 4).</item>
+    /// <item>If the single 3-fold amino acid (Ile) is not estimable, F̄₃ = (F̄₂ + F̄₄)/2
+    /// (Wright 1990).</item>
+    /// <item>If any other synonymous class has no estimable amino acid, Nc is not calculated
+    /// ("the gene is either too short or has extremely skewed amino acid usage", Wright 1990 /
+    /// CodonW) and this method returns 0 — never a value in the valid range.</item>
+    /// <item>Values above the number of sense codons of the code (61 for table 1, CodonW's cap)
+    /// are re-adjusted down to it (Wright 1990).</item>
+    /// <item>Input is case-insensitive DNA or RNA (U read as T); triplets containing any other
+    /// symbol are skipped without shifting the frame; a trailing partial triplet is ignored.</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="sequence">Coding sequence (frame 0); null/empty returns 0.</param>
+    /// <param name="code">Genetic code defining the synonymous classes.</param>
+    /// <returns>Nc, or 0 when Nc cannot be calculated.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
+    public static double CalculateEnc(string sequence, GeneticCode code)
     {
+        ArgumentNullException.ThrowIfNull(code);
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        return CalculateEncCore(NormalizeCodingSequence(sequence));
+        return CalculateEncCore(CountCodonsCore(NormalizeCodingSequence(sequence)), code);
     }
 
-    private static double CalculateEncCore(string seq)
+    private static double CalculateEncCore(IReadOnlyDictionary<string, int> counts, GeneticCode code)
     {
-        var counts = CountCodonsCore(seq);
+        // Per degeneracy class z: K_z (amino acids in the class) and Σ F̂ / number of estimable
+        // amino acids (CodonW fold[z], totb[z], numaa[z]).
+        var aminoAcidsInClass = new SortedDictionary<int, int>();
+        var sumF = new Dictionary<int, double>();
+        var estimable = new Dictionary<int, int>();
+        int senseCodons = 0;
 
-        // Wright Eq. (1): per-amino-acid codon homozygosity, grouped by degeneracy class.
-        var fByDegeneracy = new Dictionary<int, List<double>>();
-
-        foreach (var aaGroup in CodonToAminoAcid.GroupBy(kv => kv.Value))
+        foreach (var family in code.CodonTable.GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T')))
         {
-            // Exclude stop codons ('*'); they are not amino acids and not counted in Nc.
-            if (aaGroup.Key == '*') continue;
+            if (family.Key == '*') continue; // termination codons are not amino acids
 
-            var synonymousCodons = aaGroup.Select(kv => kv.Key).ToList();
-            int degeneracy = synonymousCodons.Count;
+            int z = family.Count();
+            senseCodons += z;
+            aminoAcidsInClass[z] = aminoAcidsInClass.GetValueOrDefault(z) + 1;
 
-            if (degeneracy == 1) continue; // Met / Trp handled by SingleCodonAminoAcidContribution.
+            long n = 0;
+            foreach (var codon in family)
+                n += counts.GetValueOrDefault(codon, 0);
+            if (n <= 1) continue; // F̂ undefined (denominator n − 1)
 
-            int n = synonymousCodons.Sum(c => counts.GetValueOrDefault(c, 0));
-            if (n <= 1) continue; // F̂ undefined for n ≤ 1 (denominator n − 1); Fuglsang 2004.
-
-            // Wright Eq. (1): F̂ = (n·Σ p_i² − 1)/(n − 1), p_i = n_i/n.
+            // Wright Eq. (1): F̂ = (n·Σ p_i² − 1)/(n − 1).
             double sumPSquared = 0;
-            foreach (var codon in synonymousCodons)
+            foreach (var codon in family)
             {
                 double p = (double)counts.GetValueOrDefault(codon, 0) / n;
                 sumPSquared += p * p;
             }
             double f = (n * sumPSquared - 1) / (n - 1);
+            if (f <= MinEstimableHomozygosity) continue;
 
-            if (!fByDegeneracy.TryGetValue(degeneracy, out var list))
-            {
-                list = new List<double>();
-                fByDegeneracy[degeneracy] = list;
-            }
-            list.Add(f);
+            sumF[z] = sumF.GetValueOrDefault(z) + f;
+            estimable[z] = estimable.GetValueOrDefault(z) + 1;
         }
 
-        // Wright Eq. (4): the class average F̂ substitutes for any amino acid that cannot
-        // be estimated within the same degeneracy class.
-        double? f2 = AverageOrNull(fByDegeneracy, 2);
-        double? f3 = AverageOrNull(fByDegeneracy, 3);
-        double? f4 = AverageOrNull(fByDegeneracy, 4);
-        double? f6 = AverageOrNull(fByDegeneracy, 6);
+        double ClassMean(int z) => sumF[z] / estimable[z];
 
-        // Wright Eq. (5a): when isoleucine (the only 3-fold amino acid) cannot be
-        // estimated, F̂₃ = (F̂₂ + F̂₄)/2.
-        if (f3 is null && f2 is not null && f4 is not null)
-            f3 = (f2.Value + f4.Value) / 2.0;
+        double enc = aminoAcidsInClass.GetValueOrDefault(1); // single-codon amino acids (F = 1)
+        foreach (var (z, aminoAcids) in aminoAcidsInClass)
+        {
+            if (z == 1) continue;
 
-        // Wright Eq. (3): Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆.
-        // A class with no estimable F̂ (and, for Ile, no Eq. 5a fallback) contributes its
-        // full codon count, i.e. all its codons are assumed effectively present.
-        double enc = SingleCodonAminoAcidContribution
-            + ClassContribution(TwoFoldAminoAcidCount, f2)
-            + ClassContribution(ThreeFoldAminoAcidCount, f3)
-            + ClassContribution(FourFoldAminoAcidCount, f4)
-            + ClassContribution(SixFoldAminoAcidCount, f6);
+            double meanF;
+            if (estimable.ContainsKey(z))
+                meanF = ClassMean(z);
+            else if (z == 3 && aminoAcids == 1 && estimable.ContainsKey(2) && estimable.ContainsKey(4))
+                meanF = (ClassMean(2) + ClassMean(4)) / 2.0; // Ile absent: F̄₃ = (F̄₂ + F̄₄)/2
+            else
+                return 0; // empty synonymous class: Nc not calculated (CodonW "*****")
 
-        return Math.Min(MaxEffectiveCodons, Math.Max(MinEffectiveCodons, enc));
+            enc += aminoAcids / meanF;
+        }
+
+        // F̂ ≤ 1 bounds Nc below by the number of amino acids; clamp only guards rounding.
+        int aminoAcidCount = aminoAcidsInClass.Values.Sum();
+        return Math.Min(senseCodons, Math.Max(aminoAcidCount, enc));
     }
-
-    private static double? AverageOrNull(Dictionary<int, List<double>> fByDegeneracy, int degeneracy)
-        => fByDegeneracy.TryGetValue(degeneracy, out var list) && list.Count > 0
-            ? list.Average()
-            : null;
-
-    private static double ClassContribution(int aminoAcidCount, double? averageF)
-        // No estimable homozygosity for the class ⇒ assume all codons of every amino acid
-        // in the class are effectively in use (contribution equals the codon count).
-        => averageF is double f && f > 0 ? aminoAcidCount / f : aminoAcidCount;
 
     #endregion
 
@@ -533,7 +551,7 @@ public static class CodonUsageAnalyzer
     {
         var counts = CountCodonsCore(seq);
         var rscu = CalculateRscu(counts, GeneticCode.Standard);
-        double enc = CalculateEncCore(seq);
+        double enc = CalculateEncCore(counts, GeneticCode.Standard);
 
         int totalCodons = counts.Values.Sum();
 

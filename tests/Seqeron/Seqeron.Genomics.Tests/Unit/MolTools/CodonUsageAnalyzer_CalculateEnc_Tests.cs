@@ -50,6 +50,32 @@ public class CodonUsageAnalyzer_CalculateEnc_Tests
         "GGT"  // Gly (4-fold)
     };
 
+    // Gene M3 (see CalculateEnc_FullyPopulatedBiasedGene_MatchesIndependentReference).
+    private static readonly string M3Gene =
+        Repeat("TTT", 4) + "TTC" +
+        Repeat("CTG", 3) + Repeat("CTC", 2) + "TTA" +
+        Repeat("ATT", 3) + Repeat("ATC", 2) + "ATA" +
+        Repeat("GTG", 4) + "GTC" +
+        Repeat("AGC", 3) + Repeat("TCT", 2) + "TCA" +
+        Repeat("CGC", 4) + Repeat("CGT", 2) +
+        Repeat("GGC", 3) + Repeat("GGT", 2) + "GGA";
+
+    // gene = concat over the 64 codons in TCAG order (index i) of codon × ((multiplier·i mod modulus) + 1).
+    private static string DeterministicGene(int modulus, int multiplier)
+    {
+        const string bases = "TCAG";
+        var sb = new StringBuilder();
+        int i = 0;
+        foreach (char b1 in bases)
+            foreach (char b2 in bases)
+                foreach (char b3 in bases)
+                {
+                    sb.Append(Repeat(new string(new[] { b1, b2, b3 }), (multiplier * i % modulus) + 1));
+                    i++;
+                }
+        return sb.ToString();
+    }
+
     private static string Repeat(string codon, int times)
     {
         var sb = new StringBuilder(codon.Length * times);
@@ -118,14 +144,20 @@ public class CodonUsageAnalyzer_CalculateEnc_Tests
             + "Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆ = 41.288461538461526 (independent reference).");
     }
 
-    // M4 — Invariant INV-01: 20 ≤ Nc ≤ 61 for any non-empty coding sequence (property test).
-    [TestCase("ATGAAAGAGCTGTTCGCCAAA")]
-    [TestCase("ATGGCTGCAGCTGCAGGTGGCGGAGGG")]
-    [TestCase("TTTTTCTTATTGCTTCTCCTACTG")]
-    [TestCase("ATGTGGATGTGGATGTGG")]
-    [TestCase("AAAAAAAAAAAAAAAAAA")]
-    public void CalculateEnc_AnyValidSequence_StaysWithinRange(string seq)
+    // M4 — Invariant INV-01: 20 ≤ Nc ≤ 61 whenever Nc is calculable (property test on
+    // deterministic genes in which every synonymous class is estimable).
+    // (Validation 2026-09: the former cases were genes with empty synonymous classes, e.g.
+    // Lys-only "AAA…", for which CodonW enc_out does not calculate Nc — they now return 0,
+    // see CalculateEnc_EmptySynonymousClass_NotCalculated.)
+    [TestCase(7, 3)]
+    [TestCase(5, 7)]
+    [TestCase(11, 3)]
+    [TestCase(13, 5)]
+    [TestCase(9, 2)]
+    public void CalculateEnc_AnyValidSequence_StaysWithinRange(int modulus, int multiplier)
     {
+        string seq = DeterministicGene(modulus, multiplier);
+
         double enc = CodonUsageAnalyzer.CalculateEnc(seq);
 
         Assert.Multiple(() =>
@@ -163,28 +195,139 @@ public class CodonUsageAnalyzer_CalculateEnc_Tests
             + "Nc = 2 + 9/0.6 + 1/0.5166… + 5/0.4333… + 3/0.3333… = 39.47394540942927 (independent reference).");
     }
 
-    // M5b — Whole-degeneracy-class-absent behaviour (documented LIBRARY-SPECIFIC convention,
-    // NOT a Wright/codonW rule). Source check: Peden (codonW thesis) states that when a
-    // synonymous family is empty (F̂ₙ = 0) "Nc is not calculated, as the gene is assumed to be
-    // either too short or to have extremely skewed amino-acid usage", except for the isoleucine
-    // 3-fold exception. This implementation instead lets an entirely-absent class contribute its
-    // full codon count (ClassContribution returns the codon count when no F̂ is estimable). That
-    // is an undocumented divergence; this test pins the CURRENT behaviour and flags it so the
-    // value is never mistaken for a sourced Wright result. See validation report CODON-ENC-001.
-    [Test]
-    public void CalculateEnc_WholeClassAbsent_LibrarySpecificFullCountFallback()
+    // M5b — Whole synonymous class absent ⇒ Nc NOT calculated (returns 0).
+    // Source: CodonW README_indices.txt (Peden 1999): "When there are no amino acids in a
+    // synonymous family, Nc is not calculated as the gene is either too short or has extremely
+    // skewed amino acid usage (Wright 1990). An exception to this is made for genetic codes where
+    // isoleucine is the only 3-fold synonymous amino acid". Confirmed with the compiled CodonW
+    // 1.4.4 binary (`-enc`), which prints "*****" for every case below.
+    // Validation 2026-09 (finding F15): this test previously pinned a library-specific 29.0 for
+    // the Phe-only gene (absent classes contributing their full codon count) — corrected to the
+    // sourced behaviour.
+    [TestCase("TTTTTTTTTTTC", TestName = "CalculateEnc_EmptySynonymousClass_PheOnly_NotCalculated")]
+    [TestCase("TTTTTTTTTTTCCTGCTGCTGCTCCTC", TestName = "CalculateEnc_EmptySynonymousClass_IleAnd4FoldAbsent_NotCalculated")]
+    [TestCase("AAAAAAAAAAAAAAAAAA", TestName = "CalculateEnc_EmptySynonymousClass_LysOnly_NotCalculated")]
+    [TestCase("ATGAAAGAGCTGTTCGCCAAA", TestName = "CalculateEnc_EmptySynonymousClass_ShortGene_NotCalculated")]
+    [TestCase("ATGTGGATGTGG", TestName = "CalculateEnc_EmptySynonymousClass_MetTrpOnly_NotCalculated")]
+    [TestCase("A", TestName = "CalculateEnc_EmptySynonymousClass_NoCompleteCodon_NotCalculated")]
+    public void CalculateEnc_EmptySynonymousClass_NotCalculated(string seq)
     {
-        // Only Phe present: 3-, 4- and 6-fold classes entirely empty; codonW would not compute Nc.
-        string seq = Repeat("TTT", 3) + "TTC"; // F̂₂ = 0.5
-
-        double enc = CodonUsageAnalyzer.CalculateEnc(seq);
-
-        // 2 (Met+Trp) + 9/0.5 (Phe) + 1 + 5 + 3 (absent classes at full count) = 29.0.
-        // DIVERGENCE from codonW ("Nc not calculated"); recorded as a library convention only.
-        Assert.That(enc, Is.EqualTo(29.0).Within(1e-9),
-            "LIBRARY-SPECIFIC (not Wright): absent 3/4/6-fold classes contribute their full codon "
-            + "counts; codonW would decline to compute Nc here. Behaviour pinned by validation, not sourced.");
+        Assert.That(CodonUsageAnalyzer.CalculateEnc(seq), Is.EqualTo(0.0),
+            "CodonW enc_out: a synonymous class with no estimable amino acid (other than the "
+            + "single 3-fold Ile class) ⇒ Nc not calculated (\"*****\"); the library returns 0.");
     }
+
+    // F̂ = 0 (every observed codon of the amino acid used exactly once) is not an estimate:
+    // CodonW enc_out adds an amino acid to its class average only "if (bb > 0.0000001)".
+    // Gene M3 plus His as CAT+CAC (n=2, Σp²=0.5 ⇒ F̂ = 0): His is left out, so Nc equals M3's
+    // 41.288461538461526 (CodonW 1.4.4 binary: 41.29 for both genes). Before the 2026-09 fix His
+    // lowered F̄₂ to (0.6+0)/2 = 0.3 and gave 9/0.3 = 30 for the 2-fold class (Nc = 56.29).
+    [Test]
+    public void CalculateEnc_ZeroHomozygosityAminoAcid_ExcludedFromClassAverage()
+    {
+        double enc = CodonUsageAnalyzer.CalculateEnc(M3Gene + "CATCAC");
+
+        Assert.That(enc, Is.EqualTo(41.288461538461526).Within(1e-9));
+    }
+
+    // Every sense codon exactly once: every F̂ = 0, so no class is estimable and CodonW prints
+    // "*****". (The pre-2026-09 code returned 20 — "extreme bias" — for this maximally even gene.)
+    [Test]
+    public void CalculateEnc_AllSenseCodonsOnce_NotCalculated()
+    {
+        Assert.That(CodonUsageAnalyzer.CalculateEnc(string.Concat(AllSenseCodons)), Is.EqualTo(0.0));
+    }
+
+    // Standard-code gene with every class estimable: gene(i) = codon_i × ((3·i mod 7) + 1) over the
+    // 64 codons in TCAG order. CodonW 1.4.4 `-enc -code 0` prints 57.56; the Python port of
+    // enc_out and codonbias 0.5.0 EffectiveNumberOfCodons(robust=False, pseudocount=0,
+    // mean='unweighted') give 57.5614857446809.
+    [Test]
+    public void CalculateEnc_DeterministicGene_MatchesCodonW()
+    {
+        Assert.That(CodonUsageAnalyzer.CalculateEnc(DeterministicGene(7, 3)),
+            Is.EqualTo(57.5614857446809).Within(1e-9));
+    }
+
+    #region CalculateEnc(string, GeneticCode) — genetic-code-aware classes
+
+    // Synonymous classes come from the genetic code (CodonW `-enc` honours `-code`).
+    // References: CodonW 1.4.4 binary (2 dp) / enc_out port and codonbias 0.5.0 (Wright mode):
+    //   table 2 (CodonW code 1, vertebrate mito: 12 two-fold, 6 four-fold, 2 six-fold, no 1/3-fold)
+    //   table 3 (CodonW code 2, yeast mito: 8-fold Thr = ACN + CTN), table 9 (CodonW code 7,
+    //   echinoderm mito: Ile and Asn both 3-fold).
+    [TestCase(1, 57.5614857446809, TestName = "CalculateEnc_Table1_DeterministicGene_CodonW_57_56")]
+    [TestCase(2, 55.38187053526956, TestName = "CalculateEnc_Table2_DeterministicGene_CodonW_55_38")]
+    [TestCase(3, 57.4784046236798, TestName = "CalculateEnc_Table3_DeterministicGene_CodonW_57_48")]
+    [TestCase(9, 58.152584900842236, TestName = "CalculateEnc_Table9_DeterministicGene_CodonW_58_15")]
+    public void CalculateEnc_AlternativeGeneticCode_MatchesCodonW(int table, double expected)
+    {
+        double enc = CodonUsageAnalyzer.CalculateEnc(DeterministicGene(7, 3), GeneticCode.GetByTableNumber(table));
+
+        Assert.That(enc, Is.EqualTo(expected).Within(1e-9));
+    }
+
+    // Gene M3 under other codes (CodonW 1.4.4: table 2 → 45.00, table 3 → 43.19, table 9 → 43.83).
+    [TestCase(2, 45.0)]
+    [TestCase(3, 43.18531468531467)]
+    [TestCase(9, 43.83333333333333)]
+    public void CalculateEnc_M3Gene_AlternativeGeneticCode_MatchesCodonW(int table, double expected)
+    {
+        Assert.That(CodonUsageAnalyzer.CalculateEnc(M3Gene, GeneticCode.GetByTableNumber(table)),
+            Is.EqualTo(expected).Within(1e-9));
+    }
+
+    // Overshoot is re-adjusted down to the number of sense codons of the code (Wright 1990:
+    // uniform usage gives Nc = Σ_z K_z·z = number of sense codons; 61 in table 1, CodonW's cap).
+    // codonbias 0.5.0 caps at the same value: gene(i) = codon_i × ((7·i mod 5) + 1) → 61 (table 1),
+    // 60 (table 2), 62 (tables 3, 9). CodonW 1.4.4 hard-codes 61 for every code (documented divergence
+    // for codes whose sense-codon count is not 61).
+    [TestCase(1, 61.0)]
+    [TestCase(2, 60.0)]
+    [TestCase(3, 62.0)]
+    [TestCase(9, 62.0)]
+    public void CalculateEnc_Overshoot_CappedAtSenseCodonCount(int table, double expected)
+    {
+        Assert.That(CodonUsageAnalyzer.CalculateEnc(DeterministicGene(5, 7), GeneticCode.GetByTableNumber(table)),
+            Is.EqualTo(expected));
+    }
+
+    // RNA spelling and lower case give the same Nc (CodonW ident_codon reads U as T).
+    [Test]
+    public void CalculateEnc_RnaAndLowerCase_EqualDna()
+    {
+        string dna = DeterministicGene(7, 3);
+        double expected = CodonUsageAnalyzer.CalculateEnc(dna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonUsageAnalyzer.CalculateEnc(dna.Replace('T', 'U')), Is.EqualTo(expected));
+            Assert.That(CodonUsageAnalyzer.CalculateEnc(dna.ToLowerInvariant().Replace('t', 'u')), Is.EqualTo(expected));
+        });
+    }
+
+    [Test]
+    public void CalculateEnc_GeneticCodeOverloads_NullArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => CodonUsageAnalyzer.CalculateEnc("ATG", null!));
+            Assert.Throws<ArgumentNullException>(() => CodonUsageAnalyzer.CalculateEnc(new DnaSequence("ATG"), null!));
+            Assert.Throws<ArgumentNullException>(() => CodonUsageAnalyzer.CalculateEnc((DnaSequence)null!, GeneticCode.Standard));
+        });
+    }
+
+    [Test]
+    public void CalculateEnc_DnaSequenceWithCode_EqualsStringOverload()
+    {
+        string seq = DeterministicGene(7, 3);
+        var code = GeneticCode.GetByTableNumber(2);
+
+        Assert.That(CodonUsageAnalyzer.CalculateEnc(new DnaSequence(seq), code),
+            Is.EqualTo(CodonUsageAnalyzer.CalculateEnc(seq, code)));
+    }
+
+    #endregion
 
     // M7 — Empty / null string returns 0 (degenerate input contract).
     [Test]

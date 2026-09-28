@@ -331,7 +331,7 @@ public class MolToolsTools
         return new CaiResult(CodonUsageAnalyzer.CalculateCai(sequence, reference_rscu));
     }
 
-    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright's Nc), measuring how far a gene departs from uniform synonymous-codon usage. Result is clamped to 20..61 (20 = extreme bias, 61 = no bias). Call to summarise a gene's overall codon bias with a single number.")]
+    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright 1990 Nc; CodonW enc_out conventions), measuring how far a gene departs from uniform synonymous-codon usage under the standard genetic code. Range 20..61 (20 = extreme bias, 61 = no bias; overshoot re-adjusted to 61). Amino acids seen once, or with every observed codon used once, are not estimable; a missing isoleucine class is replaced by the mean of the 2- and 4-fold classes. Returns 0 when Nc cannot be calculated (some other synonymous class has no estimable amino acid - gene too short or amino-acid usage too skewed; CodonW prints *****). DNA or RNA, case-insensitive; non-ACGT(U) triplets are skipped. Call to summarise a gene's overall codon bias with a single number.")]
     public static EncResult effective_number_of_codons(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
@@ -341,7 +341,7 @@ public class MolToolsTools
         return new EncResult(CodonUsageAnalyzer.CalculateEnc(sequence));
     }
 
-    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. Call for a one-shot codon-usage summary of a gene.")]
+    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC; 0 when not calculable, see effective_number_of_codons), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. Call for a one-shot codon-usage summary of a gene.")]
     public static CodonUsageStatistics codon_usage_statistics(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {

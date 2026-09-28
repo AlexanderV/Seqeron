@@ -6,11 +6,11 @@
 | Test Unit ID | CODON-ENC-001 |
 | Related Projects | Seqeron.Genomics.MolTools |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-The effective number of codons (Nc, also ENC) measures synonymous codon-usage bias in a single coding sequence. It answers: "how many codons are effectively in use in this gene?" Nc ranges from 20 (extreme bias — exactly one codon used per amino acid) to 61 (no bias — every synonymous codon used equally) [1][2]. It is a deterministic, count-based statistic computed from one gene, requiring no reference set (unlike CAI). The implementation follows Wright's original 1990 estimator exactly as reproduced in Fuglsang (2004) [2].
+The effective number of codons (Nc, also ENC) measures synonymous codon-usage bias in a single coding sequence. It answers: "how many codons are effectively in use in this gene?" Nc ranges from 20 (extreme bias — exactly one codon used per amino acid) to 61 (no bias — every synonymous codon used equally) [1][2]. It is a deterministic, count-based statistic computed from one gene, requiring no reference set (unlike CAI). The implementation follows Wright's original 1990 estimator as reproduced in Fuglsang (2004) [2] and as implemented by the de-facto reference tool CodonW 1.4.4 (`enc_out`) [4], including its "Nc not calculated" rule, and is genetic-code aware.
 
 ## 2. Scientific / Formal Basis
 
@@ -32,20 +32,20 @@ The effective number of codons for that amino acid is `N̂c(aa) = 1 / F̂` (Eq. 
 N̂c = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆
 ```
 
-The constant `2` is the contribution of the two single-codon amino acids Met (ATG) and Trp (TGG); `9, 1, 5, 3` are the numbers of two-, three-, four- and six-fold degenerate amino acids in the standard (NCBI table 1) genetic code [3]. Stop codons are excluded.
+The constant `2` is the contribution of the two single-codon amino acids Met (ATG) and Trp (TGG); `9, 1, 5, 3` are the numbers of two-, three-, four- and six-fold degenerate amino acids in the standard (NCBI table 1) genetic code [3]. Stop codons are excluded. For another genetic code the same formula is applied to that code's classes, `Nc = K₁ + Σ_z K_z / F̂_z` (K_z = number of amino acids with z codons; CodonW derives them from the selected code, `-enc -code`) [4]; e.g. table 2 has 12 two-fold, 6 four-fold and 2 six-fold amino acids, table 3 an 8-fold Thr.
 
 ### 2.3 Modeling Assumptions (Optional)
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
-| ASM-01 | Codons within an amino acid follow the standard genetic code degeneracy classes (9 two-fold, 1 three-fold, 5 four-fold, 3 six-fold, 2 single) | A non-standard code changes the class numerators/constant and the result is no longer Wright's Nc [3] |
-| ASM-02 | Each represented amino acid has n ≥ 2 codons so F̂ is defined | For n ≤ 1 the amino acid is skipped (denominator n−1) and its class falls back to the within-class average (Eq. 4) [2] |
+| ASM-01 | Synonymous classes are those of the selected genetic code (default NCBI table 1: 9 two-fold, 1 three-fold, 5 four-fold, 3 six-fold, 2 single) | Using the wrong code mis-assigns codons to families [4] |
+| ASM-02 | An amino acid is estimable when n ≥ 2 and F̂ > 0 | For n ≤ 1 (denominator n−1) or F̂ = 0 (every observed codon used once; CodonW `bb > 0.0000001`) the amino acid is left out and its class uses the within-class average (Eq. 4) [2][4] |
 
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | 20 ≤ Nc ≤ 61 | Extreme-bias / no-bias limits of Wright's estimator; upper value re-adjusted to 61 per Eq. 3 [2] |
+| INV-01 | 20 ≤ Nc ≤ 61 (table 1) whenever Nc is calculable; otherwise 0 | Extreme-bias / no-bias limits; upper value re-adjusted to 61 [2][4]. For other codes the upper limit is that code's sense-codon count |
 | INV-02 | One codon per amino acid (each used ≥2×) ⇒ Nc = 20 | F̂ = 1 for every class ⇒ each N̂c(aa) = 1, sum = 9+1+5+3+2 = 20 [1][2] |
 | INV-03 | Near-uniform usage ⇒ Nc re-adjusted to exactly 61 | Wright's overshoot rule caps Nc at 61 [2] |
 | INV-04 | Deterministic | Pure function of codon counts |
@@ -64,32 +64,35 @@ The constant `2` is the contribution of the two single-codon amino acids Met (AT
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| sequence | `string` or `DnaSequence` | required | Coding DNA sequence | Read in frame as consecutive non-overlapping triplets from index 0; non-ACGT codons skipped; case-insensitive |
+| sequence | `string` or `DnaSequence` | required | Coding DNA or RNA sequence | Read in frame as consecutive non-overlapping triplets from index 0; U read as T; triplets with other symbols skipped without shifting the frame; case-insensitive |
+| code | `GeneticCode` | `GeneticCode.Standard` | Genetic code defining the synonymous classes | non-null; any of the 27 NCBI tables |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
-| (return) | `double` | Effective number of codons, in [20, 61]; 0 for null/empty string |
+| (return) | `double` | Effective number of codons, in [20, 61] (table 1); **0 when Nc cannot be calculated** (null/empty input, or a synonymous class with no estimable amino acid — CodonW prints `*****`) |
 
 ### 3.3 Preconditions and Validation
 
-`CalculateEnc(DnaSequence)` throws `ArgumentNullException` for null. `CalculateEnc(string)` returns 0 for null/empty. Input is upper-cased; codons are read 0-based in non-overlapping triplets; a trailing partial codon (length < 3) is ignored; codons containing any non-ACGT character are skipped (consistent with `CountCodons`). Amino acids with total count ≤ 1 are skipped (F̂ undefined).
+`CalculateEnc(DnaSequence[, GeneticCode])` throws `ArgumentNullException` for a null sequence; every overload throws it for a null code. `CalculateEnc(string[, GeneticCode])` returns 0 for null/empty. Input is upper-cased and U is read as T; codons are read 0-based in non-overlapping triplets; a trailing partial codon (length < 3) is ignored; codons containing any other character are skipped (consistent with `CountCodons`). Amino acids with total count ≤ 1 or F̂ = 0 are not estimable.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Count valid ACGT codons in frame (reuse `CountCodons`).
-2. For each amino acid with degeneracy > 1 and n ≥ 2, compute F̂ by Wright Eq. (1).
-3. Average F̂ within each degeneracy class (2, 3, 4, 6) — Eq. (4).
-4. If the 3-fold class (isoleucine) is unestimable, use `F̂₃ = (F̂₂ + F̂₄)/2` — Eq. (5a).
-5. Aggregate via Eq. (3): `Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆`; a class with no estimable F̂ contributes its full codon count.
-6. Clamp to [20, 61] (upper re-adjustment per Wright; lower bound structural).
+1. Count valid codons in frame (the canonical `CountCodons` core).
+2. Group the sense codons of the genetic code into synonymous families; K_z = number of amino acids with z codons.
+3. For each amino acid with z > 1 and n ≥ 2, compute F̂ by Wright Eq. (1); keep it only if F̂ > 0.0000001 (CodonW).
+4. Average F̂ within each degeneracy class z — Eq. (4).
+5. If the class z = 3 has a single amino acid (Ile) and it is unestimable, use `F̂₃ = (F̂₂ + F̂₄)/2` — Eq. (5a).
+6. If any other class z > 1 has no estimable amino acid, return 0 (Nc not calculated; CodonW `*****`).
+7. Aggregate `Nc = K₁ + Σ_z K_z / F̂_z` (table 1: `2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆`).
+8. Re-adjust values above the number of sense codons of the code (61 for table 1) down to it; the lower bound 20 (= number of amino acids) only guards floating-point rounding.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures (Optional)
 
-Degeneracy-class numerators (standard genetic code [3]): two-fold = 9, three-fold = 1 (Ile), four-fold = 5, six-fold = 3, single = 2 (Met, Trp). These are named constants in the implementation, each cited to Wright/Fuglsang.
+Degeneracy-class numerators are derived from `GeneticCode.CodonTable` (standard code [3]: two-fold = 9, three-fold = 1 (Ile), four-fold = 5, six-fold = 3, single = 2 (Met, Trp)). Codons that are context-dependent stops in tables 27/28/31 belong to the amino acid they encode (as for RSCU/CAI).
 
 ### 4.3 Complexity
 
@@ -103,12 +106,13 @@ Degeneracy-class numerators (standard genetic code [3]): two-fold = 9, three-fol
 
 **Implementation location:** [CodonUsageAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs)
 
-- `CodonUsageAnalyzer.CalculateEnc(string)`: canonical Wright 1990 computation on a raw sequence.
-- `CodonUsageAnalyzer.CalculateEnc(DnaSequence)`: delegates to the string overload via `.Sequence`.
+- `CodonUsageAnalyzer.CalculateEnc(string, GeneticCode)`: canonical Wright 1990 / CodonW computation on a raw sequence.
+- `CodonUsageAnalyzer.CalculateEnc(string)`, `CalculateEnc(DnaSequence)`, `CalculateEnc(DnaSequence, GeneticCode)`: same core (standard code by default).
+- `CodonUsageAnalyzer.GetStatistics(...)`.`Enc` and MCP `effective_number_of_codons` / `codon_usage_statistics` delegate to this core (standard code).
 
 ### 5.2 Current Behavior
 
-F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Class averages substitute for absent amino acids (Eq. 4); the isoleucine 3-fold fallback (Eq. 5a) applies when no isoleucine is present but the 2- and 4-fold classes are estimable. A degeneracy class with no estimable F̂ at all contributes its full codon count. The result is re-adjusted to ≤ 61 (Wright) and floored at 20. This unit does not perform substring search, so the repository suffix tree is **not** applicable.
+F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Class averages substitute for absent amino acids (Eq. 4); F̂ = 0 is not an estimate (CodonW). The isoleucine 3-fold fallback (Eq. 5a) applies when the single 3-fold amino acid is unestimable but the 2- and 4-fold classes are estimable. Any other empty class ⇒ 0 (not calculated). The result is re-adjusted to ≤ the code's sense-codon count (61 for table 1). Cross-checked against the compiled CodonW 1.4.4 binary on 6456 gene × code cases (codes 1,2,3,4,5,6,9,10; 3136 "not calculated" cases all 0; all others equal to 2 dp) and against a Python port of `enc_out` on all 27 tables (21789 cases, exact). This unit does not perform substring search, so the repository suffix tree is **not** applicable.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -118,11 +122,11 @@ F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Cla
 - Eq. (3) aggregation `Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆` with standard-code class counts [2][3].
 - Eq. (4) within-class averaging for absent amino acids [2].
 - Eq. (5a) isoleucine fallback `F̂₃ = (F̂₂ + F̂₄)/2` [2].
-- Upper re-adjustment of Nc to 61 [2].
+- Upper re-adjustment of Nc to 61 [2][4]; "Nc not calculated" when a synonymous class is empty (except Ile) [4].
 
-**Intentionally simplified:**
+**Documented divergence:**
 
-- Lower clamp at 20: Wright/Fuglsang only prescribe the upper re-adjustment; **consequence:** a structurally-floored value of 20 is returned for degenerate inputs, consistent with the published range but not an explicit Wright instruction.
+- For genetic codes whose sense-codon count is not 61, the upper re-adjustment uses that count (uniform usage gives Nc = Σ K_z·z), as codonbias 0.5.0 does (`min(len(P), ENC)`); CodonW hard-codes 61 for every code. Identical for tables 1 and 11.
 
 **Not implemented:**
 
@@ -135,15 +139,17 @@ F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Cla
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
 | null `DnaSequence` | `ArgumentNullException` | Contract |
-| empty / null string | 0 | Degenerate input; no Wright rule for empty gene |
-| amino acid with n ≤ 1 | skipped; class uses Eq. 4 average | F̂ undefined (n−1) [2] |
+| empty / null string | 0 | Nc not calculated |
+| amino acid with n ≤ 1, or F̂ = 0 | left out; class uses Eq. 4 average | F̂ undefined (n−1) [2]; CodonW `bb > 0.0000001` [4] |
+| a synonymous class (other than a lone Ile) with no estimable amino acid | 0 | Nc not calculated (CodonW `*****`, Wright 1990) [4] |
 | isoleucine absent | F̂₃ = (F̂₂ + F̂₄)/2 | Eq. 5a [2] |
 | near-uniform short gene | re-adjusted to 61 | Eq. 3 overshoot rule [2] |
-| non-ACGT codon | skipped | consistent with `CountCodons` |
+| non-ACGT(U) codon | skipped, frame kept | consistent with `CountCodons` |
+| RNA / lower case | same as DNA upper case | CodonW reads U as T |
 
 ### 6.2 Limitations
 
-Standard genetic code only (ASM-01). Nc overestimates for very short genes [2]. The result is undefined-but-clamped when no degeneracy class is estimable (returns 20–61 by the full-count fallback).
+Nc overestimates for very short genes [2]; the Novembre (2002) background-corrected Nc′ and the Sun, Yang & Xia (2013) variant are not implemented (not claimed). A return value of 0 means "not calculated" and must not be averaged with real Nc values.
 
 ## 7. Examples and Related Material (Optional)
 
@@ -152,12 +158,13 @@ Standard genetic code only (ASM-01). Nc overestimates for very short genes [2]. 
 **API usage example:**
 
 ```csharp
-double nc = CodonUsageAnalyzer.CalculateEnc("ATGGCTGCAGCTGCA"); // in [20, 61]
+double nc = CodonUsageAnalyzer.CalculateEnc(gene);                               // 20..61, or 0 if not calculable
+double mt = CodonUsageAnalyzer.CalculateEnc(gene, GeneticCode.GetByTableNumber(2)); // vertebrate mitochondrial classes
 ```
 
 **Numerical / biological walk-through:**
 
-Gene with only Phe (TTT×3, TTC×1): n=4, p=(0.75,0.25), Σp²=0.625, F̂=(4·0.625−1)/3=0.5, N̂c(Phe)=2. No other classes estimable ⇒ they contribute their full counts: Nc = 2 + 9/0.5 + 1 + 5 + 3 = 29.0.
+Gene M3 (TTT×4 TTC; CTG×3 CTC×2 TTA; ATT×3 ATC×2 ATA; GTG×4 GTC; AGC×3 TCT×2 TCA; CGC×4 CGT×2; GGC×3 GGT×2 GGA): F̂₂ = 0.6, F̂₃ = 0.2667, F̂₄ = 0.4333, F̂₆ = 0.3333 ⇒ Nc = 2 + 15 + 3.75 + 11.538 + 9 = 41.288461538461526 (CodonW 1.4.4: 41.29). Adding His as CAT+CAC (F̂ = 0) leaves Nc unchanged. A gene with only Phe (TTT×3, TTC×1) has empty 3/4/6-fold classes ⇒ not calculated (0; CodonW `*****`).
 
 ### 7.3 Related Tests, Evidence, or Documents
 
@@ -169,3 +176,4 @@ Gene with only Phe (TTT×3, TTC×1): n=4, p=(0.75,0.25), Σp²=0.625, F̂=(4·0.
 1. Wright, F. 1990. The 'effective number of codons' used in a gene. *Gene* 87(1):23–29. https://doi.org/10.1016/0378-1119(90)90491-9
 2. Fuglsang, A. 2004. The 'effective number of codons' revisited. *Biochemical and Biophysical Research Communications* 317(3):957–964. https://doi.org/10.1016/j.bbrc.2004.03.138
 3. Fuglsang, A. 2006. Estimating the 'effective number of codons': the Wright way of determining codon homozygosity leads to superior estimates. *Genetics* 172(2):1301–1307. https://academic.oup.com/genetics/article/172/2/1301/5923091
+4. Peden, J.F. 1999. *Analysis of codon usage* (PhD thesis, Univ. Nottingham) and CodonW 1.4.4 source, `codon_us.c` `enc_out`; `README_indices.txt` ("When there are no amino acids in a synonymous family, Nc is not calculated …"). https://codonw.sourceforge.net/
