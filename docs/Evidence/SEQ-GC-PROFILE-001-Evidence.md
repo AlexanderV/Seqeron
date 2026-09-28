@@ -102,6 +102,18 @@ source file https://raw.githubusercontent.com/biopython/biopython/master/Bio/Seq
 
 ---
 
+### Dataset: executed reference implementations (B03 review 2026-09-28)
+
+| Input | W | step | Reference | Values (%) |
+|-------|---|------|-----------|------------|
+| `GGGAAATGCC` | 4 | 1 | EMBOSS 6.6.0 `isochore` (fraction ×100) = Biopython 1.88 `gc_fraction` remove | 75, 50, 25, 0, 25, 50, 75 |
+| `ggnnAAUGCCnnnn` | 4 | 2 | Biopython `gc_fraction` remove | 100, 0, 25, 75, 100, 0 |
+| `ACGTSSWWNNRYacgusw` | 6 | 3 | Biopython remove / ignore / weighted | 66.67, 40, 0, 66.67, 50 / 66.67, 33.33, 0, 33.33, 50 / 66.67, 41.67, 33.33, 58.33, 50 |
+
+EMBOSS `isochore` reports only complete windows at the 1-based window centre and uses the whole window
+as denominator (N = non-GC). Biopython `GC_skew` appends a trailing partial window and raises
+`ValueError` for window 0.
+
 ## Assumptions
 
 1. **ASSUMPTION: Empty-window convention (window with no standard base)** — Wikipedia

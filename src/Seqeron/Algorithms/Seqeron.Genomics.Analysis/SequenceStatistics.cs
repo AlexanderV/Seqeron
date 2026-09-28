@@ -1125,39 +1125,39 @@ public static class SequenceStatistics
     #region Entropy and Complexity
 
     /// <summary>
-    /// Calculates Shannon entropy of a sequence.
+    /// Calculates the Shannon entropy H = −Σ pᵢ·log₂ pᵢ (bits per symbol; Shannon 1948) of the
+    /// per-letter composition of a sequence.
     /// </summary>
+    /// <remarks>
+    /// Alphabet: every letter (<see cref="char.IsLetter(char)"/>) after upper-casing is its own symbol, so
+    /// the method serves DNA, RNA and protein alike; non-letters (gaps, digits, '*', whitespace) are
+    /// excluded from numerator and denominator. N and IUPAC codes are counted as distinct symbols and
+    /// T and U are not merged — use <c>SequenceComplexity.CalculateShannonEntropy</c> for the
+    /// nucleotide-only {A, C, G, T/U} alphabet (max 2 bits).
+    /// The kernel is the canonical <see cref="StatisticsHelper.ShannonIndex"/> (natural log) converted to
+    /// bits by dividing by ln 2 — the same computation as <c>scipy.stats.entropy(counts, base=2)</c>
+    /// and scikit-bio <c>shannon(counts, base=2)</c>. Null, empty or letter-free input returns 0.
+    /// </remarks>
     public static double CalculateShannonEntropy(string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
         var counts = new Dictionary<char, int>();
-        int total = 0;
-
         foreach (char ch in sequence.ToUpperInvariant())
         {
             if (char.IsLetter(ch))
-            {
                 counts[ch] = counts.GetValueOrDefault(ch) + 1;
-                total++;
-            }
         }
 
-        if (total == 0) return 0;
+        if (counts.Count == 0)
+            return 0;
 
-        double entropy = 0;
-        foreach (int count in counts.Values)
-        {
-            double freq = (double)count / total;
-            if (freq > 0)
-            {
-                entropy -= freq * Math.Log2(freq);
-            }
-        }
-
-        return entropy;
+        return StatisticsHelper.ShannonIndex(counts.Values.ToArray()) / Ln2;
     }
+
+    // Base conversion ln → log₂ (bits): H₂ = H_e / ln 2 (scipy.stats.entropy divides by log(base)).
+    private static readonly double Ln2 = Math.Log(2.0);
 
     /// <summary>
     /// Calculates linguistic complexity of a sequence.
@@ -1506,8 +1506,9 @@ public static class SequenceStatistics
     /// expressed as a percentage GC% = (G + C) / (A + T + G + C) × 100.
     /// </summary>
     /// <param name="sequence">Input nucleotide sequence (DNA or RNA; case-insensitive).</param>
-    /// <param name="windowSize">Window width W in bases (default 100). Must be ≤ sequence length for any window to be produced.</param>
-    /// <param name="stepSize">Window advance in bases (default 1).</param>
+    /// <param name="windowSize">Window width W in bases (≥ 1; default 100). Must be ≤ sequence length for any window to be produced.</param>
+    /// <param name="stepSize">Window advance in bases (≥ 1; default 1).</param>
+    /// <param name="fraction">true → report a fraction in [0, 1] (Biopython <c>gc_fraction</c>); false (default) → percentage.</param>
     /// <returns>
     /// One GC% value per window position, in order, for offsets 0, stepSize, 2·stepSize, …
     /// up to (length − windowSize); empty when the sequence is null/empty or
@@ -1520,45 +1521,78 @@ public static class SequenceStatistics
     /// GC-content definition: (G + C) / (A + T + G + C) × 100 — Wikipedia, GC-content
     /// (citing primary literature); Biopython <c>Bio.SeqUtils.gc_fraction</c> returns the
     /// same quantity as a fraction in [0, 1] (×100 here). U is treated as a non-GC base
-    /// equivalent to T.
+    /// equivalent to T. Per-window value = canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char})"/> (S/W excluded like
+    /// other ambiguity codes). Only complete windows are reported (as EMBOSS <c>isochore</c> and
+    /// <see cref="GcSkewCalculator.CalculateWindowedGcSkew(string,int,int)"/>; Biopython
+    /// <c>GC_skew</c> instead appends a trailing partial window). Values carry no positions: window
+    /// k starts at 0-based offset k·stepSize.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly).</exception>
     public static IEnumerable<double> CalculateGcContentProfile(
         string sequence,
         int windowSize = DefaultGcProfileWindow,
         int stepSize = 1,
         bool fraction = false)
     {
+        ValidateWindowAndStep(windowSize, stepSize);
+
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
-            yield break;
+            return Array.Empty<double>();
 
-        string upper = sequence.ToUpperInvariant();
+        return GcContentProfileIterator(sequence, windowSize, stepSize, fraction ? 1.0 : PercentScale);
+    }
 
-        // Opt-in Biopython convention: when fraction == true, emit GC in [0,1] (matching
-        // Bio.SeqUtils.gc_fraction) instead of the default percentage [0,100]. The default
-        // (false) is unchanged.
-        double scale = fraction ? 1.0 : PercentScale;
+    /// <summary>
+    /// GC-content profile with Biopython <c>gc_fraction(window, ambiguous=…)</c> IUPAC-ambiguity handling:
+    /// each complete window is scored by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char},SequenceExtensions.GcAmbiguityMode)"/>
+    /// (<c>Remove</c>: S counts as GC, S/W in the denominator, other codes excluded; <c>Ignore</c>:
+    /// denominator = window length; <c>Weighted</c>: ambiguity codes add their mean GC, e.g. N = 0.5).
+    /// Window/step semantics are those of <see cref="CalculateGcContentProfile(string,int,int,bool)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1.</exception>
+    public static IEnumerable<double> CalculateGcContentProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        SequenceExtensions.GcAmbiguityMode ambiguityMode)
+    {
+        ValidateWindowAndStep(windowSize, stepSize);
 
-        for (int i = 0; i <= upper.Length - windowSize; i += stepSize)
-        {
-            int gc = 0;
-            int total = 0;
+        if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
+            return Array.Empty<double>();
 
-            for (int j = 0; j < windowSize; j++)
-            {
-                char ch = upper[i + j];
-                if (ch == 'G' || ch == 'C')
-                {
-                    gc++;
-                    total++;
-                }
-                else if (ch == 'A' || ch == 'T' || ch == 'U')
-                {
-                    total++;
-                }
-            }
+        return GcContentProfileIterator(sequence, windowSize, stepSize, fraction ? 1.0 : PercentScale, ambiguityMode);
+    }
 
-            yield return total > 0 ? (double)gc / total * scale : 0;
-        }
+    private static IEnumerable<double> GcContentProfileIterator(
+        string sequence, int windowSize, int stepSize, double scale, SequenceExtensions.GcAmbiguityMode mode)
+    {
+        for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
+            yield return sequence.AsSpan(i, windowSize).CalculateGcFraction(mode) * scale;
+    }
+
+    private static IEnumerable<double> GcContentProfileIterator(string sequence, int windowSize, int stepSize, double scale)
+    {
+        // Per-window GC delegates to the canonical SequenceExtensions.CalculateGcFraction
+        // (case-insensitive; G+C over A+C+G+T+U; every other symbol excluded; 0 when no valid base).
+        // Opt-in fraction == true reports [0,1] (Bio.SeqUtils.gc_fraction); default is GC% = fraction·100.
+        for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
+            yield return sequence.AsSpan(i, windowSize).CalculateGcFraction() * scale;
+    }
+
+    // Shared eager validation for the sliding-window profiles (as GcSkewCalculator.CalculateWindowedGcSkew):
+    // a window below 1 has no content and a step below 1 never advances (infinite loop).
+    private static void ValidateWindowAndStep(int windowSize, int stepSize)
+    {
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1.");
+        if (stepSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(stepSize), stepSize, "Step size must be at least 1.");
     }
 
     /// <summary>
@@ -1568,8 +1602,8 @@ public static class SequenceStatistics
     /// Per-window entropy is delegated to <see cref="CalculateShannonEntropy"/>.
     /// </summary>
     /// <param name="sequence">Input sequence; symbol frequencies are taken over its letters (case-folded).</param>
-    /// <param name="windowSize">Window width W in symbols (default 50). Must be ≤ sequence length for any window to be produced.</param>
-    /// <param name="stepSize">Window advance in symbols (default 1).</param>
+    /// <param name="windowSize">Window width W in symbols (≥ 1; default 50). Must be ≤ sequence length for any window to be produced.</param>
+    /// <param name="stepSize">Window advance in symbols (≥ 1; default 1).</param>
     /// <returns>
     /// One entropy value (bits) per window position, in order, for offsets
     /// 0, stepSize, 2·stepSize, … up to (length − windowSize); empty when the
@@ -1578,21 +1612,28 @@ public static class SequenceStatistics
     /// <remarks>
     /// Shannon C. E. (1948), A Mathematical Theory of Communication, Bell Syst. Tech. J.
     /// 27(3):379–423. Base-2 logarithm yields bits; maximum is log₂k for k distinct symbols
-    /// (2 bits for the 4-letter DNA alphabet).
+    /// (2 bits for the 4-letter DNA alphabet). Windows are taken over raw characters; only
+    /// complete windows are reported; window k starts at 0-based offset k·stepSize.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly).</exception>
     public static IEnumerable<double> CalculateEntropyProfile(
         string sequence,
         int windowSize = 50,
         int stepSize = 1)
     {
-        if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
-            yield break;
+        ValidateWindowAndStep(windowSize, stepSize);
 
+        if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
+            return Array.Empty<double>();
+
+        return EntropyProfileIterator(sequence, windowSize, stepSize);
+    }
+
+    private static IEnumerable<double> EntropyProfileIterator(string sequence, int windowSize, int stepSize)
+    {
         for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
-        {
-            string window = sequence.Substring(i, windowSize);
-            yield return CalculateShannonEntropy(window);
-        }
+            yield return CalculateShannonEntropy(sequence.Substring(i, windowSize));
     }
 
     #endregion

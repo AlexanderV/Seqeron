@@ -78,6 +78,12 @@
 | S2 | windowSize == length | `GGCC` w=4 | [100.0] (single window) | INV-03 |
 | S3 | null / empty | null, "" | empty profile | guarded input |
 | S4 | all-N window | `NNNN` w=4 | [0.0] | INV-05 / Assumption A1 |
+| S5 | window/step < 1 (B03 F17) | W ∈ {0, −5}, step ∈ {0, −1} | `ArgumentOutOfRangeException` at call time | Biopython `GC_skew(seq,0)` ValueError; step 0 previously hung |
+| S6 | EMBOSS isochore parity (B03) | `GGGAAATGCC` w=4 s=1 | [75, 50, 25, 0, 25, 50, 75] | isochore 6.6.0 executed |
+| S7 | Biopython remove, RNA+N, step 2 (B03) | `ggnnAAUGCCnnnn` w=4 s=2 | [100, 0, 25, 75, 100, 0] | `gc_fraction(...,"remove")` executed |
+| S8 | Polluted 60-mer (B03) | w=10 s=7, % and fraction | 8 values locked | Biopython executed |
+| S9 | Ambiguity modes (B03 F19) | `ACGTSSWWNNRYacgusw` w=6 s=3 Remove/Ignore/Weighted | Biopython `gc_fraction` values | 5-arg overload |
+| S10 | Canonical delegation (B03 D6) | all 65 536 UTF-16 units + 2000 random inputs | equal to former inline kernel and `CalculateGcContent` | behaviour preservation |
 
 ### 4.3 COULD Tests (Nice to have)
 
