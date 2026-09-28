@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-COMPLEX-KMER-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -16,13 +16,13 @@ K-mer entropy measures the sequence complexity of a DNA string as the Shannon en
 
 ### 2.1 Domain Context
 
-Detecting low-complexity DNA regions is a standard pre-processing step for sequence alignment and search. Modelling complexity through the entropy of k-mer (length-k substring) counts is the basis of tools such as `longdust` [1]; the entropy saturates at its maximum for random uniform sequences and drops toward zero for repetitive ones [2].
+Detecting low-complexity DNA regions is a standard pre-processing step for sequence alignment and search. The Shannon entropy of overlapping n-word (k-mer) frequencies — the *block entropy* H_n — is the standard information-theoretic complexity measure of DNA [4][5]; read filters such as BBDuk compute exactly this quantity (then divide by ln N) [6]. Note that `longdust` [1] uses a different, Poisson composite-likelihood score (Σ log c(t)! − f(ℓ/4^k)), not Shannon entropy; it is cited here only for the overlapping-k-mer count ℓ = L − k + 1. The entropy saturates at its maximum for random uniform sequences and drops toward zero for repetitive ones [2].
 
 ### 2.2 Core Model
 
-Decompose a sequence of length L into its overlapping k-mers using a sliding window of step 1, giving N = L − k + 1 k-mers [1]. Let n_i be the count of the i-th distinct k-mer and p_i = n_i / N its relative frequency, so Σ p_i = 1. The Shannon entropy is
+Decompose a sequence of length L into its overlapping k-mers using a sliding window of step 1, giving N = L − k + 1 k-mers [1][6]. Let n_i be the count of the i-th distinct k-mer and p_i = n_i / N its relative frequency, so Σ p_i = 1. The Shannon entropy is
 
-> H = − Σ_i p_i · log₂(p_i)   (bits) [1][3]
+> H = − Σ_i p_i · log₂(p_i)   (bits) [3][4]
 
 The base-2 logarithm yields entropy in bits [2]. This is the Shannon entropy H(X) = −Σ p(x) log p(x) of the k-mer distribution [3].
 
@@ -86,18 +86,19 @@ Indexing is 0-based over positions 0..L−k (inclusive). The accepted alphabet i
 
 - `SequenceComplexity.CalculateKmerEntropy(DnaSequence, int)`: canonical entry; validates and delegates to the core.
 - `SequenceComplexity.CalculateKmerEntropy(string, int)`: string overload; upper-cases then delegates to the same core.
-- `SequenceComplexity.CalculateKmerEntropyCore(string, int)` (private): counts overlapping k-mers in a dictionary and applies the entropy formula.
+- `SequenceComplexity.CalculateKmerEntropyCore(string, int)` (private): counts overlapping k-mers with `KmerAnalyzer.CountKmers` and applies the shared entropy kernel `ShannonEntropyBits`.
 
 ### 5.2 Current Behavior
 
-K-mers are enumerated with a single linear scan and a `Dictionary<string,int>` of counts; entropy is then computed over the dictionary values. The repository suffix tree was evaluated and **not** used: this is a single linear pass building a full frequency table (every position visited once), not a repeated occurrence-query workload, so a suffix tree adds construction overhead without changing the linear cost or the required output.
+K-mers are enumerated by the canonical `KmerAnalyzer.CountKmers` (single linear scan, `Dictionary<string,int>`); entropy is then computed over the count values by the private `ShannonEntropyBits` kernel. The repository suffix tree was evaluated and **not** used: this is a single linear pass building a full frequency table (every position visited once), not a repeated occurrence-query workload, so a suffix tree adds construction overhead without changing the linear cost or the required output.
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
 - Overlapping k-mer decomposition with N = L − k + 1 [1].
-- H = −Σ p_i log₂(p_i), p_i = n_i / N, in bits [1][2][3].
+- H = −Σ p_i log₂(p_i), p_i = n_i / N, in bits [3][4][6] — the plug-in (maximum-likelihood) estimate.
+- K-mer counts come from the canonical counter `KmerAnalyzer.CountKmers` (KMER-COUNT-001); the entropy kernel is shared with `CalculateShannonEntropy`.
 
 **Intentionally simplified:**
 
@@ -105,6 +106,7 @@ K-mers are enumerated with a single linear scan and a `Dictionary<string,int>` o
 
 **Not implemented:**
 
+- Finite-sample bias correction of block entropies [5] (the method returns the raw plug-in value, which underestimates the source entropy when N ≪ 4^k).
 - Normalised entropy (H / log₂ N) and the entropy-rank ratio of [2]; users should rely on the raw bits value and normalise externally if needed.
 
 ## 6. Edge Cases and Limitations
@@ -147,3 +149,6 @@ double h = SequenceComplexity.CalculateKmerEntropy(new DnaSequence("ATATAT"), k:
 1. Li, H. 2025. Finding low-complexity DNA sequences with longdust. arXiv:2509.07357. https://arxiv.org/pdf/2509.07357
 2. Çakır, et al. 2025. Entropy–Rank Ratio: A Novel Entropy-Based Perspective for DNA Complexity and Classification. arXiv:2511.05300. https://arxiv.org/html/2511.05300
 3. Shannon, C. E. 1948. A Mathematical Theory of Communication. Bell System Technical Journal 27. https://en.wikipedia.org/wiki/Entropy_(information_theory)
+4. Herzel, H., Ebeling, W., Schmitt, A. O. 1994. Entropies of biosequences: the role of repeats. Phys. Rev. E 50:5061–5071. https://doi.org/10.1103/PhysRevE.50.5061
+5. Schmitt, A. O., Herzel, H. 1997. Estimating the entropy of DNA sequences. J. Theor. Biol. 188:369–377. https://doi.org/10.1006/jtbi.1997.0493
+6. Bushnell, B. BBMap/BBDuk `EntropyTracker.java` (reference implementation; pk = count/(window − k + 1)). https://github.com/BioInfoTools/BBMap/blob/master/current/structures/EntropyTracker.java

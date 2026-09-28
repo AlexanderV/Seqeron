@@ -41,7 +41,7 @@
     {
       "name": "Dinucleotide entropy",
       "input": { "sequence": "ATGCATGCAT", "k": 2 },
-      "output": { "entropy": 3.17, "k": 2 }
+      "output": { "entropy": 1.974937501201927, "k": 2 }
     },
     {
       "name": "Low complexity",

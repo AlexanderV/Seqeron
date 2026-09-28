@@ -98,12 +98,24 @@ public static class SequenceComplexity
                 frequencies[c] = ++value;
         }
 
-        double entropy = 0;
-        int total = frequencies.Values.Sum();
+        return ShannonEntropyBits(frequencies.Values);
+    }
+
+    /// <summary>
+    /// Shannon entropy H = −Σ p_i·log₂(p_i), p_i = n_i / Σ n, of a frequency table (Shannon 1948), in bits.
+    /// Zero counts contribute nothing (0·log 0 := 0); an empty or all-zero table has entropy 0.
+    /// Single entropy kernel shared by the per-base and k-mer entropy methods of this class.
+    /// </summary>
+    private static double ShannonEntropyBits(IEnumerable<int> counts)
+    {
+        long total = 0;
+        foreach (int count in counts)
+            total += count;
 
         if (total == 0) return 0;
 
-        foreach (int count in frequencies.Values)
+        double entropy = 0;
+        foreach (int count in counts)
         {
             if (count > 0)
             {
@@ -123,10 +135,14 @@ public static class SequenceComplexity
     /// The sequence is decomposed into its L-k+1 overlapping k-mers (sliding window,
     /// one base step). With n_i the count of distinct k-mer i and N = L-k+1 the total
     /// number of k-mers, p_i = n_i / N and the entropy is H = -Σ p_i · log₂(p_i)
-    /// (Shannon 1948). Entropy is reported in bits (log base 2): it is 0 when a single
-    /// k-mer dominates (deterministic distribution) and reaches log₂(N) when every k-mer
-    /// is distinct (uniform distribution). See longdust (Li 2025) for the k-mer-frequency
-    /// formulation used to detect low-complexity DNA.
+    /// (Shannon 1948). Entropy is reported in bits (log base 2): it is 0 when only one
+    /// distinct k-mer occurs (deterministic distribution) and reaches log₂(N) when every k-mer
+    /// is distinct (uniform distribution). This is the order-k "block entropy" H_k of the overlapping k-word distribution used in DNA
+    /// entropy analysis (Herzel, Ebeling &amp; Schmitt 1994, Phys. Rev. E 50:5061; Schmitt &amp; Herzel 1997,
+    /// J. Theor. Biol. 188:369), the same raw quantity BBDuk's EntropyTracker computes before its
+    /// 1/ln(N) normalisation. It is the plug-in (maximum-likelihood) estimate: no finite-sample bias
+    /// correction is applied, so it underestimates the true block entropy when N ≪ 4^k (Schmitt &amp;
+    /// Herzel 1997). Every length-k substring is a symbol (no IUPAC/N filtering).
     /// </remarks>
     /// <param name="sequence">DNA sequence.</param>
     /// <param name="k">K-mer size (default: 2 for dinucleotides). Must be ≥ 1.</param>
@@ -161,27 +177,10 @@ public static class SequenceComplexity
     {
         if (seq.Length < k) return 0;
 
-        var kmerCounts = new Dictionary<string, int>();
-        int total = 0;
-
-        for (int i = 0; i <= seq.Length - k; i++)
-        {
-            string kmer = seq.Substring(i, k);
-            if (kmerCounts.TryGetValue(kmer, out int value))
-                kmerCounts[kmer] = ++value;
-            else
-                kmerCounts[kmer] = 1;
-            total++;
-        }
-
-        double entropy = 0;
-        foreach (int count in kmerCounts.Values)
-        {
-            double p = (double)count / total;
-            entropy -= p * Math.Log2(p);
-        }
-
-        return entropy;
+        // Overlapping k-mer tally (N = L − k + 1 windows) via the canonical counter (KMER-COUNT-001);
+        // p_i = n_i / N because Σ n_i = N.
+        var kmerCounts = KmerAnalyzer.CountKmers(seq, k);
+        return ShannonEntropyBits(kmerCounts.Values);
     }
 
     #endregion

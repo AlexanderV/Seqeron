@@ -18,7 +18,10 @@ Calculates Shannon entropy using k-mer frequencies in a DNA sequence. This provi
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L128](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L128)
+- Source: [SequenceComplexity.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs) — `CalculateKmerEntropy`
+- Algorithm doc: [K-mer_Entropy.md](../../../algorithms/Complexity/K-mer_Entropy.md) (SEQ-COMPLEX-KMER-001)
+
+H = −Σ p_i·log₂ p_i over the N = L − k + 1 overlapping k-mers, p_i = n_i/N (bits). Example 1: ATGCATGCAT, k=2 → AT=3, TG=2, GC=2, CA=2 of N=9 → 1.9749375 bits (scipy.stats.entropy cross-check).
 
 ## Input Schema
 
@@ -63,7 +66,7 @@ Calculates Shannon entropy using k-mer frequencies in a DNA sequence. This provi
 **Response:**
 ```json
 {
-  "entropy": 3.17,
+  "entropy": 1.974937501201927,
   "k": 2
 }
 ```
@@ -94,7 +97,7 @@ Calculates Shannon entropy using k-mer frequencies in a DNA sequence. This provi
 ## Performance
 
 - **Time Complexity:** O(n) where n is sequence length
-- **Space Complexity:** O(4^k) for k-mer storage
+- **Space Complexity:** O(min(4^k, L − k + 1)) distinct k-mers stored
 
 ## See Also
 

@@ -6,6 +6,27 @@
 
 ---
 
+## Review 2026-09 correction (B04)
+
+The original collection attributed the k-mer Shannon-entropy formula to Li (2025, longdust). Re-opening
+the longdust primary material shows this is **wrong**: the longdust README ("The longdust algorithm",
+raw.githubusercontent.com/lh3/longdust/master/README.md) and its math notes
+(raw.githubusercontent.com/lh3/longdust/master/tex/notes.tex) define the score
+S_L(x) = Σ_{t∈κ(x)} log c_x(t)! − f(ℓ(x)/4^k), a Poisson composite-likelihood score, **not**
+H = −Σ p_i log₂ p_i. Li (2025) is kept only for the notation ℓ(x) = |x| − k + 1 (number of overlapping
+k-mers), which the README does state. The "quoted" Li 2025 points 2–4 below were WebFetch summariser
+output, not text of the paper, and must not be cited. Replacement sources actually opened / used:
+
+| Source | What was opened | What it confirms |
+|---|---|---|
+| Shannon (1948) | via textbook formula (primary PDF not reachable) | H = −Σ p log p; 0 ≤ H ≤ log n; H = 0 iff deterministic |
+| Herzel, Ebeling & Schmitt (1994) Phys. Rev. E 50:5061; Schmitt & Herzel (1997) J. Theor. Biol. 188:369 | WebSearch snippets only (publisher/arXiv blocked) | block entropy H_n = −Σ p⁽ⁿ⁾(A₁…A_n) log p⁽ⁿ⁾(A₁…A_n) of n-mers of DNA; finite-sample underestimation when N is small vs 4ⁿ |
+| BBMap/BBDuk `EntropyTracker.java` (raw.githubusercontent.com/BioInfoTools/BBMap/master/current/structures/EntropyTracker.java) | source code opened | reference implementation: windowKmers = windowBases − k + 1 (overlapping), pk = count/windowKmers, eSum = Σ −pk·log(pk); BBDuk then multiplies by 1/ln(windowKmers) to get a 0–1 score |
+| scipy.stats.entropy(counts, base=2) | executed (python3) | numerical cross-check of every dataset below plus a seeded random 200-mer, k ∈ {1,2,3,5,8} (see tests R1) |
+
+Çakır et al. (2025) could not be re-opened (arXiv blocked); its log-base-2 convention is standard and
+not load-bearing.
+
 ## Online Sources
 
 ### Li, H. (2025). Finding low-complexity DNA sequences with longdust (arXiv:2509.07357)
@@ -131,3 +152,8 @@ Derivation of `AAACGT`,k=2 (N=5; p=2/5,1/5,1/5,1/5): H = −[0.4·log₂0.4 + 3�
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Review 2026-09 (B04): corrected the Li 2025 misattribution (see top); added BBDuk
+  EntropyTracker reference implementation and scipy cross-check values (ATGCATGCAT k=2 → 1.974937501201927;
+  ATGCGATCGATCG k=2 → 2.4591479170272446, k=3 → 2.7321588913645702; seeded random 200-mer
+  k=1/2/3/5/8 → 1.9964735194730474 / 3.937571048725419 / 5.6801547658649625 / 7.382517114501296 /
+  7.582094342967564).

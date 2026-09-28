@@ -1,7 +1,9 @@
 // SEQ-COMPLEX-KMER-001 — K-mer Entropy
 // Evidence: docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md
 // TestSpec: tests/TestSpecs/SEQ-COMPLEX-KMER-001.md
-// Source: Li H (2025) longdust, arXiv:2509.07357; Shannon CE (1948) A Mathematical Theory of Communication.
+// Source: Shannon CE (1948) A Mathematical Theory of Communication; block (k-word) entropy of DNA:
+// Herzel, Ebeling & Schmitt (1994) Phys Rev E 50:5061; reference implementation: BBMap/BBDuk
+// EntropyTracker (pk = count / (window − k + 1)). Cross-check: scipy.stats.entropy(counts, base=2).
 //
 // Spec: H = -Σ p_i·log₂(p_i) over the N = L-k+1 overlapping k-mers, p_i = count_i / N (bits).
 // Expected values are derived independently from the formula, NOT from the implementation.
@@ -42,7 +44,7 @@ public class SequenceComplexity_CalculateKmerEntropy_Tests
             "ACGT,k=2 yields N=3 distinct dimers, each p=1/3; uniform entropy = log₂(3).");
     }
 
-    // M3 — ATATAT,k=2: AT=3,TA=2 over N=5 ⇒ binary entropy of 0.6 = 0.97095... (Li 2025 formula).
+    // M3 — ATATAT,k=2: AT=3,TA=2 over N=5 ⇒ binary entropy of 0.6 = 0.97095... (Shannon formula over overlapping k-mers).
     [Test]
     public void CalculateKmerEntropy_NonUniformDimers_ReturnsExact()
     {
@@ -66,7 +68,7 @@ public class SequenceComplexity_CalculateKmerEntropy_Tests
             "AAAA,k=2 has a single dimer AA (p=1); a deterministic distribution has entropy 0.");
     }
 
-    // M5 — AAACGT,k=2: AA=2,AC=1,CG=1,GT=1 over N=5 ⇒ 1.92192... = log₂5 - 0.4 (Li 2025 formula).
+    // M5 — AAACGT,k=2: AA=2,AC=1,CG=1,GT=1 over N=5 ⇒ 1.92192... = log₂5 - 0.4 (Shannon formula over overlapping k-mers).
     [Test]
     public void CalculateKmerEntropy_MixedCounts_ReturnsExact()
     {
@@ -199,6 +201,65 @@ public class SequenceComplexity_CalculateKmerEntropy_Tests
             Assert.That(entropy, Is.LessThanOrEqualTo(maxEntropy + 1e-10),
                 $"Entropy cannot exceed log₂(N)=log₂({n}) for N={n} k-mers.");
         });
+    }
+
+    #endregion
+    #region Reference cross-check (scipy.stats.entropy) and canonical-counter consistency
+
+    // R1 — scipy.stats.entropy(Counter(overlapping k-mers).values(), base=2) (scipy 1.x), computed
+    // independently in Python over the same overlapping k-mer multiset. The 200-bp sequence was drawn
+    // with random.seed(20260928); random.choice("ACGT").
+    private const string Random200 =
+        "GACATGCGATAGTAACGACTGGCCCCACCGGTAAGACCATTTAAGGCCAAGGAACAGCATACGACACGACGGGGCCACTGATACCTATTGAG" +
+        "GACTTTTTATATCTGAGTGCAAGGAATCTGGCCGATATTCTGGATCACTCTATGCCAGTTTGCCTTATTGCCCGCATACCGGATAAAGTGAAAT" +
+        "TAGGCCACTGTTAT";
+
+    [TestCase("ATGCATGCAT", 2, 1.974937501201927)]
+    [TestCase("ATGCGATCGATCG", 2, 2.4591479170272446)]
+    [TestCase("ATGCGATCGATCG", 3, 2.7321588913645702)]
+    [TestCase(Random200, 1, 1.9964735194730474)]
+    [TestCase(Random200, 2, 3.937571048725419)]
+    [TestCase(Random200, 3, 5.6801547658649625)]
+    [TestCase(Random200, 5, 7.382517114501296)]
+    [TestCase(Random200, 8, 7.582094342967564)]
+    public void CalculateKmerEntropy_MatchesScipyReference(string sequence, int k, double expected)
+    {
+        Assert.That(Random200, Has.Length.EqualTo(200));
+
+        double entropy = SequenceComplexity.CalculateKmerEntropy(new DnaSequence(sequence), k);
+
+        Assert.That(entropy, Is.EqualTo(expected).Within(1e-12),
+            $"scipy.stats.entropy over the overlapping {k}-mer counts of the sequence gives {expected}.");
+    }
+
+    // R2 — no duplicated counting: H computed from the canonical KmerAnalyzer.CountKmers table
+    // (KMER-COUNT-001) with p_i = n_i / (L − k + 1) equals the method's result.
+    [TestCase(Random200, 3)]
+    [TestCase("AAACGT", 2)]
+    public void CalculateKmerEntropy_AgreesWithCanonicalKmerCounts(string sequence, int k)
+    {
+        var counts = KmerAnalyzer.CountKmers(sequence, k);
+        int n = sequence.Length - k + 1;
+        double expected = 0;
+        foreach (int c in counts.Values)
+        {
+            double p = (double)c / n;
+            expected -= p * Math.Log2(p);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(counts.Values.Sum(), Is.EqualTo(n), "Σ n_i must equal N = L − k + 1 (overlapping).");
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(sequence, k), Is.EqualTo(expected).Within(1e-12));
+        });
+    }
+
+    // R3 — for k = 1 on an A/C/G/T-only sequence, k-mer entropy is the per-base Shannon entropy.
+    [Test]
+    public void CalculateKmerEntropy_K1_EqualsPerBaseShannonEntropy()
+    {
+        Assert.That(SequenceComplexity.CalculateKmerEntropy(Random200, 1),
+            Is.EqualTo(SequenceComplexity.CalculateShannonEntropy(Random200)).Within(1e-12));
     }
 
     #endregion

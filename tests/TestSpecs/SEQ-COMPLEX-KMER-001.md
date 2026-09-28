@@ -19,6 +19,14 @@
 | 2 | Çakır et al. (2025). Entropy–Rank Ratio. arXiv:2511.05300 | 1 | https://arxiv.org/html/2511.05300 | 2026-06-14 |
 | 3 | Shannon, C.E. (1948) A Mathematical Theory of Communication (via citing secondaries) | 4 | https://en.wikipedia.org/wiki/Entropy_(information_theory) ; https://tcosmo.github.io/2019/04/21/shannon-entropy.html | 2026-06-14 |
 
+> **Review 2026-09 (B04):** source #1 does **not** define Shannon k-mer entropy — longdust's score is
+> S_L = Σ log c(t)! − f(ℓ/4^k) (README + tex/notes.tex, opened). It is retained only for ℓ = L − k + 1.
+> The formula is sourced to Shannon (1948) and the DNA block-entropy literature (Herzel, Ebeling & Schmitt
+> 1994, Phys. Rev. E 50:5061; Schmitt & Herzel 1997, J. Theor. Biol. 188:369), with BBMap/BBDuk
+> `EntropyTracker` (pk = count/(window − k + 1)) as reference implementation and `scipy.stats.entropy`
+> as numerical cross-check. See Evidence "Review 2026-09 correction". Added tests R1 (scipy values),
+> R2 (agreement with canonical `KmerAnalyzer.CountKmers`), R3 (k=1 ≡ per-base Shannon entropy on ACGT).
+
 ### 1.2 Key Evidence Points
 
 1. H = −Σ p_i log₂(p_i) where p_i is the frequency of the i-th k-mer — Li 2025.
