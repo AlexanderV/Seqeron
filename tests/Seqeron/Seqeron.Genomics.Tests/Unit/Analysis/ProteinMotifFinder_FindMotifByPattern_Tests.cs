@@ -232,13 +232,13 @@ public class ProteinMotifFinder_FindMotifByPattern_Tests
             "E = (N-L+1)*2^(-Score) under uniform background (INV-07)");
     }
 
-    // S3 — unsupported '*' (ScanProsite query extension) must be rejected, not silently dropped.
+    // S3 — ScanProsite extended-syntax Kleene star '*' is translated as the reference scanner
+    // ps_scan.pl prositeToRegexp does ("support e.g. \"<{C}*>\""): element followed by regex '*'.
     [Test]
-    public void ConvertPrositeToRegex_KleeneStar_ThrowsFormatException()
+    public void ConvertPrositeToRegex_KleeneStar_TranslatedAsPsScan()
     {
-        var ex = Assert.Throws<FormatException>(() => ConvertPrositeToRegex("<{C}*>"),
-            "Kleene star '*' is not part of the PA-line grammar and must be rejected (INV-06)");
-        Assert.That(ex!.Message, Does.Contain("*"), "Exception names the offending '*' construct");
+        Assert.That(ConvertPrositeToRegex("<{C}*>"), Is.EqualTo("^[^C]*$"),
+            "ps_scan.pl prositeToRegexp: '<{C}*>' -> ^([^C]*)$ (capture groups omitted)");
     }
 
     // S3b — '?' and '+' are likewise not PA-line atoms; reject-don't-drop (INV-06).

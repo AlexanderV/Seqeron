@@ -30,7 +30,7 @@
 2. Worked patterns: PS00001 `N-{P}-[ST]-{P}`→`N[^P][ST][^P]`; PS00005 `[ST]-x-[RK]`→`[ST].[RK]`; PS00016 `R-G-D`→`RGD`; PS00017 `[AG]-x(4)-G-K-[ST]`→`[AG].{4}GK[ST]`; PS00029 `L-x(6)-L-x(6)-L-x(6)-L`→`L.{6}L.{6}L.{6}L`. — Sources 4–8.
 3. PROSITE patterns are realized as regular expressions. — Source 2.
 4. Per-position information content IC = log2(N) − Σ p·log2(p); for k uniformly-allowed protein residues, IC = log2(20/k) bits; max log2(20) ≈ 4.321928094887363 bits. — Source 3.
-5. The `*` Kleene star (`<{C}*>`) is a ScanProsite *query* extension, not part of the PA-line grammar. — Source 1.
+5. The `*` Kleene star (`<{C}*>`) is ScanProsite extended syntax (not used in PA lines); it is supported as in the reference scanner ps_scan.pl `prositeToRegexp` (see PROTMOTIF-PROSITE-001). — Source 1; ps_scan.pl.
 
 ### 1.3 Documented Corner Cases
 
@@ -64,7 +64,7 @@
 | INV-03 | `Score` = Σ over pattern positions of log2(20/k_i) where k_i = allowed residues (1 for fixed, class size for `[..]`, 20 for `x`). | Yes | Schneider & Stephens (1990) |
 | INV-04 | `ConvertPrositeToRegex` maps each PROSITE atom to its regex per Source 1 (deterministic, exact). | Yes | Source 1 + PS00001/05/16/17/29 |
 | INV-05 | Matching is case-insensitive; positions are 0-based. | Yes | Repository contract |
-| INV-06 | Unsupported PA-line metacharacters (`*`,`?`,`+`) raise `FormatException` (reject, don't silently drop). | Yes | Source 1 |
+| INV-06 | Unsupported metacharacters (`?`,`+`, …) raise `FormatException` (reject, don't silently drop); `*` after an element is the ps_scan Kleene star. | Yes | Source 1; ps_scan.pl |
 | INV-07 | E-value ≥ 0 and equals (N−L+1)·2^(−Score). | Yes | Schneider & Stephens (1990); model def. |
 
 ---
@@ -92,7 +92,7 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | Overlapping enumeration | `FindMotifByPattern("AAAA","A.A")` | matches at starts 0 and 1 | lookahead contract |
 | S2 | E-value formula | E-value of RGD match | (9−3+1)·2^(−Score)=7·2^(−12.96578...) | INV-07 |
-| S3 | Reject Kleene star | `ConvertPrositeToRegex("<{C}*>")` | throws FormatException | Source 1 |
+| S3 | Kleene star (ps_scan extended syntax) | `ConvertPrositeToRegex("<{C}*>")` | `^[^C]*$` | ps_scan.pl `prositeToRegexp` |
 | S4 | Case-insensitive | lower/mixed case same matches as upper | identical Start | INV-05 |
 
 ### 4.3 COULD Tests (Nice to have)

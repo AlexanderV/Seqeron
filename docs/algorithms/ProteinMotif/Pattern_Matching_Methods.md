@@ -36,7 +36,7 @@ PROSITE describes short, biologically significant protein motifs as *patterns* �
 | `>` | C-terminus anchor | `$` |
 | trailing `.` | terminates the pattern | (ends parsing) |
 
-Ranges `(n,m)` are valid only on `x`; a range on a residue letter (`A(2,4)`) is not a valid PROSITE element [1]. The Kleene star `*` (`<{C}*>`) belongs to the ScanProsite *query* extension, not the PA-line grammar [1].
+Ranges `(n,m)` are valid only on `x`; a range on a residue letter (`A(2,4)`) is not a valid PROSITE element [1]. The Kleene star `*` (`<{C}*>`, "sequences without Cys") is ScanProsite extended syntax, not used in PA lines; the converter supports it as the reference scanner `ps_scan.pl` does (`prositeToRegexp`: an element may be followed by `*`), emitting regex `*` (PROTMOTIF-PROSITE-001, 2026-09 review).
 
 **Information-content score** [3]. For an aligned position, Schneider & Stephens define the sequence conservation Rseq = log2 N − Σ pₙ log2 pₙ (bits), where N is the number of distinct symbols. For a pattern position that admits k of the 20 protein residues with uniform probability, this reduces to log2(20) − log2(k) = log2(20/k) bits. A whole-pattern score is the sum over positions:
 
@@ -55,7 +55,7 @@ A fixed residue (k=1) contributes log2(20) ≈ 4.3219 bits; a wildcard `x` (k=20
 | INV-03 | Score = Σ log2(20/kᵢ) over pattern positions. | IC per position, Schneider & Stephens (1990) [3]. |
 | INV-04 | `ConvertPrositeToRegex` maps each PA-line atom to its regex deterministically. | Direct grammar translation [1]. |
 | INV-05 | Matching is case-insensitive; positions are 0-based. | Inputs upper-cased; `RegexOptions.IgnoreCase`. |
-| INV-06 | Unsupported metacharacters (`*`,`?`,`+`) raise `FormatException`. | Reject-don't-drop policy [1]. |
+| INV-06 | Unsupported metacharacters (`?`,`+`, …) raise `FormatException`; `*` after an element is the supported ScanProsite Kleene star. | Reject-don't-drop policy [1]; ps_scan `prositeToRegexp`. |
 | INV-07 | E-value ≥ 0 and equals (N−L+1)·2^(−Score). | Definition above [3]. |
 
 ## 3. Contract
@@ -127,7 +127,6 @@ Matching uses .NET `Regex` with `IgnoreCase` and a lookahead wrapper to recover 
 **Not implemented:**
 
 - PROSITE generalized *profiles* (weight matrices) [2]; **users should rely on:** dedicated profile tools (no in-repo alternative).
-- ScanProsite extended query syntax (`*` Kleene star); **users should rely on:** rewriting the query as a PA-line pattern.
 
 ### 5.4 Deviations and Assumptions
 
@@ -144,7 +143,8 @@ Matching uses .NET `Regex` with `IgnoreCase` and a lookahead wrapper to recover 
 |------|-------------------|-----------|
 | Null/empty sequence or pattern | empty enumeration | INV-01 |
 | Invalid .NET regex | empty enumeration | guarded `try/catch` |
-| Unsupported PROSITE `*`/`?`/`+` | `FormatException` | INV-06, reject-don't-drop [1] |
+| Unsupported PROSITE `?`/`+` | `FormatException` | INV-06, reject-don't-drop [1] |
+| Kleene star `<{C}*>` | `^[^C]*$` | ps_scan `prositeToRegexp` |
 | Overlapping matches | all start positions listed | lookahead [5.2] |
 | Mixed/lower case input | same matches as upper case | INV-05 |
 
