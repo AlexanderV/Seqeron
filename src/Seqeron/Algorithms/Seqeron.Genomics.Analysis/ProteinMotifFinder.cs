@@ -188,10 +188,22 @@ public static class ProteinMotifFinder
     private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(2);
 
     /// <summary>
-    /// Finds all occurrences of a specific pattern in a protein sequence.
-    /// Uses lookahead-based matching to discover overlapping occurrences,
-    /// consistent with PROSITE ScanProsite behavior (De Castro et al. 2006).
+    /// Finds all occurrences of a specific pattern in a protein sequence, reproducing the
+    /// default match semantics of the PROSITE reference scanner <c>ps_scan</c> / ScanProsite
+    /// (De Castro et al. 2006; Gattiker et al. 2002): <b>greedy</b> (variable-length elements
+    /// extend as far as possible), <b>overlaps allowed</b> (the scan restarts one residue after
+    /// the start of each hit), and <b>included matches suppressed</b> (a hit whose end does not
+    /// extend beyond the end of the previously reported hit lies entirely inside it and is not
+    /// reported). Source: <c>ps_scan.pl</c> <c>scanPattern</c> (behaviour flags greedy=1,
+    /// overlap=1, include=0; options <c>-g</c>/<c>-v</c>/<c>-i</c>).
     /// </summary>
+    /// <remarks>
+    /// For fixed-length patterns no hit can be included in another, so every overlapping
+    /// occurrence is reported. <c>Score</c>/<c>EValue</c> are repository information-content
+    /// heuristics under a uniform 20-residue background (Schneider &amp; Stephens 1990), not
+    /// ScanProsite values; for arbitrary regex constructs (alternation, <c>*</c>, <c>+</c>, <c>?</c>,
+    /// ranges inside classes) the per-position allowed-count parse is approximate.
+    /// </remarks>
     public static IEnumerable<MotifMatch> FindMotifByPattern(
         string proteinSequence,
         string regexPattern,
@@ -231,6 +243,10 @@ public static class ProteinMotifFinder
             yield break;
         }
 
+        // ps_scan scanPattern: a hit is reported only if its end lies beyond the end of the
+        // previously reported hit ("$stop > $prevstop"); otherwise it is included in it.
+        int previousEnd = -1;
+
         foreach (Match match in matches)
         {
             var captured = match.Groups[1];
@@ -243,11 +259,16 @@ public static class ProteinMotifFinder
             if (captured.Length == 0)
                 continue;
 
+            int end = match.Index + captured.Length - 1;
+            if (end <= previousEnd)
+                continue; // included in the previous hit (ScanProsite default include=0)
+            previousEnd = end;
+
             double score = CalculateMotifScore(captured.Value, regexPattern);
 
             yield return new MotifMatch(
                 Start: match.Index,
-                End: match.Index + captured.Length - 1,
+                End: end,
                 Sequence: captured.Value,
                 MotifName: motifName,
                 Pattern: patternId,

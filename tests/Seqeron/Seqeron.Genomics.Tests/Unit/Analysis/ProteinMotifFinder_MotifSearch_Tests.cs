@@ -631,6 +631,47 @@ public class ProteinMotifFinder_MotifSearch_Tests
             "Non-overlapping RGD matches should still find all 3 occurrences");
     }
 
+    // S6 — ScanProsite default "greedy, overlaps, NO includes" (ps_scan.pl scanPattern:
+    // a hit is kept only if $stop > $prevstop). Reference values produced by running the
+    // original ps_scan.pl scanPattern/prositeToRegexp (ebi-pf-team/interproscan copy) on
+    // "L-x(2,3)-L" over LLALLAL: hits 1-5 and 4-7 (1-based). The lookahead candidate
+    // at 0-based 1..4 ("LALL") lies inside 0..4 and must NOT be reported.
+    [Test]
+    public void FindMotifByPattern_IncludedMatch_IsSuppressed_AsScanProsite()
+    {
+        var matches = FindMotifByPattern("LLALLAL", @"L.{2,3}L").ToList();
+
+        Assert.That(matches.Select(m => (m.Start, m.End, m.Sequence)),
+            Is.EqualTo(new[] { (0, 4, "LLALL"), (3, 6, "LLAL") }),
+            "ps_scan reference: 1-5 LLALL, 4-7 LLAL; included 2-5 LALL suppressed");
+    }
+
+    // S7 — same rule through the catalog: NES1 [LIVFM]-x(2,3)-[LIVFM]-x(2,3)-[LIVFM]-x-[LIVFM]
+    // over LLAALAALAL. ps_scan reference: a single hit 1-10 (1-based); the greedy candidate at
+    // 0-based 1..9 is included in 0..9 and suppressed.
+    [Test]
+    public void FindCommonMotifs_Nes1_IncludedMatch_IsSuppressed_AsScanProsite()
+    {
+        var nes = FindCommonMotifs("LLAALAALAL").Where(m => m.Pattern == "NES1").ToList();
+
+        Assert.That(nes.Select(m => (m.Start, m.End)), Is.EqualTo(new[] { (0, 9) }),
+            "ps_scan reference: exactly one NES1 hit 1-10");
+    }
+
+    // S8 — partially overlapping variable-length hits whose end extends beyond the previous
+    // hit are still reported (overlap=1). ps_scan reference on the snapshot protein
+    // MKTLLLTLVVVTLVLSSQ… for NES1: 1-11, 4-13, 5-15 (1-based); 6-15 (included in 5-15) dropped.
+    [Test]
+    public void FindCommonMotifs_Nes1_PartialOverlapsKept_IncludedDropped()
+    {
+        const string protein = "MKTLLLTLVVVTLVLSSQPVLSRELRECPRGSGKSCQACPAG";
+        var nes = FindCommonMotifs(protein).Where(m => m.Pattern == "NES1").ToList();
+
+        Assert.That(nes.Select(m => (m.Start, m.End)),
+            Is.EqualTo(new[] { (0, 10), (3, 12), (4, 14) }),
+            "ps_scan reference NES1 hits 1-11, 4-13, 5-15");
+    }
+
     #endregion
 
     #region S5: Non-PROSITE Patterns — Literature verification

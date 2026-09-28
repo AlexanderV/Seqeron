@@ -6,11 +6,11 @@
 | Test Unit ID | PROTMOTIF-FIND-001 |
 | Related Projects | Seqeron.Genomics |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Protein motif search in this repository finds short sequence patterns in protein strings by applying regular expressions to the input sequence. The repository exposes a direct single-pattern entry point and a multi-pattern helper that scans a fixed `CommonMotifs` dictionary containing both PROSITE-sourced motifs and several literature-based non-PROSITE motifs. The search is deterministic and case-insensitive, and the current implementation reports overlapping occurrences when a pattern can match at adjacent offsets. Match scores and E-values are repository-defined helpers rather than PROSITE or ScanProsite significance values.
+Protein motif search in this repository finds short sequence patterns in protein strings by applying regular expressions to the input sequence. The repository exposes a direct single-pattern entry point and a multi-pattern helper that scans a fixed `CommonMotifs` dictionary containing both PROSITE-sourced motifs and several literature-based non-PROSITE motifs. The search is deterministic and case-insensitive, and the current implementation reports overlapping occurrences when a pattern can match at adjacent offsets. Hit reporting reproduces the default PROSITE `ps_scan`/ScanProsite behaviour (greedy, overlaps allowed, matches included in a previous hit suppressed). Match scores and E-values are repository-defined helpers rather than PROSITE or ScanProsite significance values.
 
 ## 2. Scientific / Formal Basis
 
@@ -78,15 +78,17 @@ The formal model for this document is exact pattern occurrence search: given a p
 
 1. Uppercase the input protein sequence.
 2. Compile the supplied regex pattern inside a lookahead wrapper so the scan can start at every position.
-3. Enumerate every captured match span in the sequence.
-4. For each hit, compute the repository score and E-value, then return a `MotifMatch`.
-5. For `FindCommonMotifs(...)`, repeat the same scan for each stored motif entry in `CommonMotifs`.
+3. Enumerate every captured match span in the sequence, in increasing start order.
+4. Suppress a hit whose end does not extend beyond the end of the previously reported hit (it is included in that hit) — `ps_scan.pl` `scanPattern`, `$stop > $prevstop`.
+5. For each hit, compute the repository score and E-value, then return a `MotifMatch`.
+6. For `FindCommonMotifs(...)`, repeat the same scan for each stored motif entry in `CommonMotifs`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 | Item | Rule |
 |------|------|
-| Regex wrapper | `(?=(pattern))` so overlapping occurrences can be discovered |
+| Regex wrapper | `(?=(pattern))` so overlapping occurrences can be discovered (greedy quantifiers, leftmost match per start = Perl semantics used by `ps_scan`) |
+| Included-match filter | Hit kept only if `End > previous reported End` (ScanProsite default `include=0`; `ps_scan -i` would keep them) |
 | Score | Sum of per-position information content terms from the regex allowed-count model |
 | E-value | `(N - L + 1) x 2^(-Score)` with `N` = sequence length and `L` = match length |
 | Pattern library | `CommonMotifs` maps each accession or mnemonic ID to `Accession`, `Name`, `Pattern`, `RegexPattern`, and `Description` |
@@ -113,7 +115,7 @@ The formal model for this document is exact pattern occurrence search: given a p
 
 Repository-specific behavior confirmed by source and tests:
 
-- `FindMotifByPattern(...)` wraps the supplied regex in a lookahead, so overlapping occurrences are returned when the pattern allows them.
+- `FindMotifByPattern(...)` wraps the supplied regex in a lookahead, so overlapping occurrences are returned when the pattern allows them; a hit lying entirely inside the previously reported hit (possible only for variable-length patterns such as `x(2,3)`) is suppressed, as in ScanProsite's default. Cross-checked (2026-09) hit-for-hit against the original `ps_scan.pl` `scanPattern` on 350 random proteins × all 17 catalog patterns (5593 hits, identical with `-x 0`).
 - Returned coordinates are inclusive 0-based indexes, and `Sequence` is the exact uppercased substring at `[Start..End]`.
 - Invalid regex input is swallowed and yields no matches instead of throwing.
 - `FindCommonMotifs(...)` scans the repository's fixed in-source `CommonMotifs` dictionary, which includes both PROSITE entries and the non-PROSITE entries `NLS1`, `NES1`, `SIM1`, `WW1`, and `SH3_1`.
@@ -154,7 +156,7 @@ Repository-specific behavior confirmed by source and tests:
 |------|-------------------|-----------|
 | Null or empty `proteinSequence` | Returns no matches | Both public search methods guard against null or empty sequence input |
 | Null, empty, or invalid `regexPattern` | `FindMotifByPattern(...)` returns no matches | The method short-circuits or swallows regex compilation failure |
-| Overlapping motif occurrences | All overlapping hits are reported when the pattern allows them | The regex wrapper is lookahead-based |
+| Overlapping motif occurrences | All overlapping hits are reported when the pattern allows them, except hits included in the previous hit | Lookahead wrapper + ScanProsite `include=0` rule |
 | No motif occurrence in the sequence | Returns an empty collection | Only explicit regex hits are emitted |
 | Lowercase or mixed-case sequence | Same result as uppercase input | Matching is case-insensitive after uppercasing |
 
@@ -169,3 +171,4 @@ This helper is a pattern scanner, not a family classifier. It cannot infer struc
 3. Hulo N, Bairoch A, Bulliard V, et al. The 20 years of PROSITE. Nucleic Acids Research. https://doi.org/10.1093/nar/gkm977
 4. De Castro E, Sigrist CJA, Gattiker A, et al. ScanProsite. Nucleic Acids Research. https://doi.org/10.1093/nar/gkl124
 5. Schneider TD, Stephens RM. Sequence logos: a new way to display consensus sequences. Nucleic Acids Research. https://doi.org/10.1093/nar/18.20.6097
+6. `ps_scan.pl` (PROSITE reference scanner; `scanPattern`, `prositeToRegexp`; options `-g` greediness off, `-v` overlaps off, `-i` allow included matches). Copy opened: https://raw.githubusercontent.com/ebi-pf-team/interproscan/master/core/jms-implementation/support-mini-x86-32/bin/prosite/ps_scan.pl
