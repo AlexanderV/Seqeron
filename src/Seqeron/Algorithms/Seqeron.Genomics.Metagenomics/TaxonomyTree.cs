@@ -36,12 +36,13 @@ public sealed class TaxonomyTree
 
     /// <summary>
     /// Builds a taxonomy tree from a set of nodes. Exactly one node must be the root
-    /// (a node that is its own parent); every other node's parent must be present.
+    /// (a node that is its own parent); every other node's parent must be present, and every
+    /// parent chain must terminate at the root (no cycles).
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="nodes"/> is null.</exception>
     /// <exception cref="ArgumentException">
-    /// A duplicate id is supplied, there is not exactly one self-parented root, or a non-root
-    /// node references a parent that is not in the set.
+    /// A duplicate id is supplied, there is not exactly one self-parented root, a non-root
+    /// node references a parent that is not in the set, or a parent cycle does not reach the root.
     /// </exception>
     public TaxonomyTree(IEnumerable<TaxonNode> nodes)
     {
@@ -78,6 +79,39 @@ public sealed class TaxonomyTree
                 $"A taxonomy tree must have exactly one self-parented root; found {rootCount}.", nameof(nodes));
 
         Root = rootId;
+        EnsureEveryNodeReachesRoot(nameof(nodes));
+    }
+
+    /// <summary>
+    /// A rooted tree is acyclic: every node's parent chain must terminate at the root. Kraken's
+    /// parent-chain walks (<c>lca</c> / <c>resolve_tree</c> in <c>krakenutil.cpp</c>) and this
+    /// class's <see cref="GetPathToRoot"/> / <see cref="IsAncestorOf"/> / <see cref="Lca(int,int)"/>
+    /// rely on that; without this check a parent cycle not containing the root (e.g. 2→3→2)
+    /// passes the root/parent-presence checks and makes those walks loop forever. O(n) overall:
+    /// each node is walked at most once thanks to the <c>reachesRoot</c> memo.
+    /// </summary>
+    private void EnsureEveryNodeReachesRoot(string paramName)
+    {
+        var reachesRoot = new HashSet<int> { Root };
+        var onWalk = new HashSet<int>();
+        var walk = new List<int>();
+
+        foreach (int start in _nodes.Keys)
+        {
+            int current = start;
+            walk.Clear();
+            onWalk.Clear();
+            while (!reachesRoot.Contains(current))
+            {
+                if (!onWalk.Add(current))
+                    throw new ArgumentException(
+                        $"Taxon {current} lies on a parent cycle that does not reach the root.", paramName);
+                walk.Add(current);
+                current = _nodes[current].ParentId;
+            }
+            foreach (int node in walk)
+                reachesRoot.Add(node);
+        }
     }
 
     /// <summary>The id of this tree's root taxon.</summary>

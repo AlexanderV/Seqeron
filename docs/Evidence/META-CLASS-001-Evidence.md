@@ -187,6 +187,11 @@ From `MetagenomicsAnalyzer.cs`:
 8. **DB-build LCA**: a canonical k-mer owned by several taxa is stored as their LCA
 9. **RTL assignment**: assigned taxon = leaf of the maximum-scoring root-to-leaf path; ties → LCA of tied leaves
 10. **LCA correctness**: siblings → parent; ancestor/descendant → ancestor; self → self; disjoint → root
+11. **Rooted-tree shape**: every parent chain terminates at the root; a parent cycle is rejected by the `TaxonomyTree` constructor (Kraken's `krakenutil.cpp` `lca`/`resolve_tree` walk `while (node > 0)` and assume this)
+
+### Review 2026-09 reference cross-check
+
+Opened: `raw.githubusercontent.com/DerrickWood/kraken/master/src/{classify.cpp,krakenutil.cpp,krakendb.cpp,set_lcas.cpp}`, `raw.githubusercontent.com/DerrickWood/kraken2/master/src/classify.cc` (`ResolveTree`) and `.../kraken2/master/docs/MANUAL.markdown` (Confidence Scoring). A literal Python port of Kraken 1 `lca`/`resolve_tree`/`set_lcas` + the manual's C/Q matched the C# output on 400 random taxonomies/DBs and 2000 reads (taxon, RTL score, C, Q identical). Manual example `562:13 561:4 A:31 0:1 562:3` → 16/21 locked as a test.
 
 ---
 
