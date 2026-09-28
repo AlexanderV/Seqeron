@@ -479,4 +479,75 @@ public class KmerAnalyzer_Frequency_Tests
     }
 
     #endregion
+
+    #region Reference cross-check (review 2026-09)
+
+    // Reference values generated independently (2026-09-28) with:
+    //   frequencies: scikit-bio Sequence.kmer_frequencies(k, overlap=True, relative=True)
+    //                (count / (len − k + 1)); identical to collections.Counter / N
+    //   spectrum:    Counter(counts.values()) — Jellyfish `histo` semantics
+    //                (++histo[count] per distinct k-mer, sparse output of non-zero bins)
+    //   entropy:     scipy.stats.entropy(counts, base=2)
+    private const double RefTolerance = 1e-12;
+
+    [TestCase("GATTACAGATTACA", 2, 2.7773627950641693)]
+    [TestCase("GATTACAGATTACA", 3, 2.7516291673878226)]
+    [TestCase("CAATCCAAC", 5, 2.3219280948873626)]
+    [TestCase("AACAACAACAACGT", 3, 2.1258145836939115)]
+    [TestCase("ATATAT", 2, 0.9709505944546688)]
+    public void CalculateKmerEntropy_MatchesScipyEntropyBase2(string sequence, int k, double expected)
+    {
+        Assert.That(KmerAnalyzer.CalculateKmerEntropy(sequence, k), Is.EqualTo(expected).Within(RefTolerance));
+    }
+
+    [Test]
+    public void GetKmerFrequencies_MatchesScikitBioRelativeFrequencies()
+    {
+        // skbio: Sequence("AACAACAACAACGT").kmer_frequencies(3, relative=True), N = 12
+        var f = KmerAnalyzer.GetKmerFrequencies("AACAACAACAACGT", 3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(f, Has.Count.EqualTo(5));
+            Assert.That(f["AAC"], Is.EqualTo(4.0 / 12).Within(RefTolerance));
+            Assert.That(f["ACA"], Is.EqualTo(3.0 / 12).Within(RefTolerance));
+            Assert.That(f["CAA"], Is.EqualTo(3.0 / 12).Within(RefTolerance));
+            Assert.That(f["ACG"], Is.EqualTo(1.0 / 12).Within(RefTolerance));
+            Assert.That(f["CGT"], Is.EqualTo(1.0 / 12).Within(RefTolerance));
+        });
+    }
+
+    [Test]
+    public void GetKmerSpectrum_MatchesJellyfishHistoSemantics()
+    {
+        // Counter(counts.values()) for AACAACAACAACGT, k = 3: AAC=4, ACA=3, CAA=3, ACG=1, CGT=1
+        var s = KmerAnalyzer.GetKmerSpectrum("AACAACAACAACGT", 3);
+        Assert.That(s, Is.EquivalentTo(new Dictionary<int, int> { [1] = 2, [3] = 2, [4] = 1 }));
+
+        // GATTACAGATTACA, k = 3 → {1: 2, 2: 5}; no zero bins are emitted (Jellyfish default, no --full)
+        var s2 = KmerAnalyzer.GetKmerSpectrum("GATTACAGATTACA", 3);
+        Assert.That(s2, Is.EquivalentTo(new Dictionary<int, int> { [1] = 2, [2] = 5 }));
+    }
+
+    [TestCase("GATTACAGATTACA", 2)]
+    [TestCase("gattacaNNgattaca", 3)]
+    [TestCase("ATATAT", 2)]
+    public void CalculateKmerEntropy_AgreesWithSequenceComplexityKmerEntropy(string sequence, int k)
+    {
+        // Same quantity (SEQ-COMPLEX-KMER-001): both must agree exactly on the shared domain.
+        Assert.That(KmerAnalyzer.CalculateKmerEntropy(sequence, k),
+            Is.EqualTo(SequenceComplexity.CalculateKmerEntropy(sequence, k)).Within(RefTolerance));
+    }
+
+    [Test]
+    public void FrequencyMethods_NonPositiveK_NonEmptySequence_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.GetKmerFrequencies("ACGT", 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.GetKmerSpectrum("ACGT", -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.CalculateKmerEntropy("ACGT", 0));
+        });
+    }
+
+    #endregion
 }

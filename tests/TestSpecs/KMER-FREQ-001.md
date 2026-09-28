@@ -26,6 +26,9 @@
 | Wikipedia (Entropy) | Primary | Shannon entropy formula H = -Σ p log₂(p), max entropy = log₂(n) |
 | Shannon (1948) | Primary | Original entropy definition, maximum when equiprobable |
 | Rosalind KMER | Primary | K-mer composition problem with sample dataset |
+| Chor et al. (2009) Genome Biol 10:R108 | Primary | k-mer spectrum = number of distinct k-mers per abundance |
+| Jellyfish `histo_main.cc` | Reference impl. | `++histo[count]` per distinct k-mer; sparse output |
+| scikit-bio `Sequence.kmer_frequencies`, `scipy.stats.entropy` | Reference impl. | relative freq = count/(L−k+1); H in bits with base=2 |
 
 ---
 
@@ -150,6 +153,23 @@ None. All behavior is well-defined by mathematical definitions and sources.
 - **S3**: range check `0 < H < max` → exact `H = log₂(5) − 0.4` (cross-verifies S1 frequencies)
 - **S4**: count-only comparison → full key-value pair matching across all three methods
 - **C2**: permissive `> 0` checks → three source-backed invariants (M1 + M5 + M9) per k value
+
+---
+
+#### Review 2026-09 (campaign B06)
+
+Stage A PASS-with-notes, Stage B PASS. Added reference cross-check tests (region
+"Reference cross-check (review 2026-09)"):
+- `CalculateKmerEntropy_MatchesScipyEntropyBase2` (×5) — `scipy.stats.entropy(counts, base=2)`
+- `GetKmerFrequencies_MatchesScikitBioRelativeFrequencies` — skbio `kmer_frequencies(k, relative=True)`, denominator L−k+1
+- `GetKmerSpectrum_MatchesJellyfishHistoSemantics` — count-of-counts, sparse (Jellyfish `histo` without `--full`; Chor et al. 2009)
+- `CalculateKmerEntropy_AgreesWithSequenceComplexityKmerEntropy` (×3) — same quantity as SEQ-COMPLEX-KMER-001
+- `FrequencyMethods_NonPositiveK_NonEmptySequence_Throws`
+
+Notes: k ≤ 0 throws only for non-empty input (empty/null short-circuits to empty/0 in `CountKmers`);
+spectrum has no upper cap bin (Jellyfish `-h` default 10000 bins higher counts together) and is
+single-strand (Jellyfish `-C` counts canonical k-mers); per-window cost is O(k) (substring hashing),
+so total is O(n·k), not O(n).
 
 ---
 

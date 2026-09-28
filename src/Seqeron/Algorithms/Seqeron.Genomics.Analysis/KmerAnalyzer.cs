@@ -112,9 +112,18 @@ public static class KmerAnalyzer
     /// <summary>
     /// Gets the k-mer spectrum (frequency distribution) of a sequence.
     /// </summary>
-    /// <param name="sequence">The sequence to analyze.</param>
+    /// <remarks>
+    /// The spectrum is the count-of-counts histogram: for each multiplicity m it gives the number
+    /// of distinct k-mers occurring exactly m times (Chor et al., 2009, Genome Biol. 10:R108;
+    /// same semantics as Jellyfish <c>histo</c>, which increments <c>histo[count]</c> once per
+    /// distinct k-mer). Only non-zero bins are returned (Jellyfish default, no <c>--full</c>), and
+    /// there is no upper cap bin. Σ m·spectrum[m] = L − k + 1. Counts come from
+    /// <see cref="CountKmers(string, int)"/> (single strand, case-insensitive, no alphabet filtering).
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze. Null/empty returns an empty dictionary.</param>
     /// <param name="k">The k-mer length.</param>
-    /// <returns>Dictionary mapping frequency to count of k-mers with that frequency.</returns>
+    /// <returns>Dictionary mapping multiplicity to the number of distinct k-mers with that multiplicity.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static Dictionary<int, int> GetKmerSpectrum(string sequence, int k)
     {
         var counts = CountKmers(sequence, k);
@@ -153,9 +162,15 @@ public static class KmerAnalyzer
     /// <summary>
     /// Gets the k-mer frequency (normalized count).
     /// </summary>
-    /// <param name="sequence">The sequence to analyze.</param>
+    /// <remarks>
+    /// f(w) = count(w) / (L − k + 1): the denominator is the number of overlapping windows, which
+    /// equals the sum of all counts (scikit-bio <c>Sequence.kmer_frequencies(k, overlap=True,
+    /// relative=True)</c>). Only observed k-mers are keys; values sum to 1.
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze. Null/empty returns an empty dictionary.</param>
     /// <param name="k">The k-mer length.</param>
     /// <returns>Dictionary mapping k-mers to their frequencies (0.0 to 1.0).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static Dictionary<string, double> GetKmerFrequencies(string sequence, int k)
     {
         var counts = CountKmers(sequence, k);
@@ -310,6 +325,16 @@ public static class KmerAnalyzer
     /// Calculates k-mer entropy (Shannon entropy) of the sequence.
     /// Higher entropy = more diverse k-mer composition.
     /// </summary>
+    /// <remarks>
+    /// H = −Σ p(w) log₂ p(w) with p(w) = count(w) / (L − k + 1) (Shannon, 1948), in bits;
+    /// 0 ≤ H ≤ log₂(number of distinct k-mers). Not normalized. Returns 0 when no k-mer exists
+    /// (null/empty sequence or k &gt; L). Same quantity as
+    /// <see cref="SequenceComplexity.CalculateKmerEntropy(string, int)"/>.
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (case-insensitive).</param>
+    /// <param name="k">The k-mer length.</param>
+    /// <returns>Shannon entropy in bits of the overlapping k-mer frequency distribution.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static double CalculateKmerEntropy(string sequence, int k)
     {
         var frequencies = GetKmerFrequencies(sequence, k);

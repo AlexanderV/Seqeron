@@ -6,7 +6,7 @@
 | Test Unit ID | KMER-FREQ-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -26,7 +26,7 @@ $$
 f_i = \frac{c_i}{\sum_j c_j}
 $$
 
-where `c_i` is the observed count of k-mer `i`. The k-mer spectrum is the histogram mapping `count -> number of k-mers with that count`. Shannon k-mer entropy is:
+where `c_i` is the observed count of k-mer `i`; since every one of the `L - k + 1` overlapping windows is counted, `Σ c_j = L - k + 1` (same denominator as scikit-bio `kmer_frequencies(k, overlap=True, relative=True)`). The k-mer spectrum is the histogram mapping `count -> number of distinct k-mers with that count` [6] (Jellyfish `histo` semantics; only non-zero bins are returned, no upper cap bin, single strand). Shannon k-mer entropy is:
 
 $$
 H = -\sum_i f_i \log_2(f_i)
@@ -49,7 +49,7 @@ with the convention that terms with `f_i = 0` contribute `0`.
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `string` | required | Sequence whose k-mer distribution is analyzed | Null or empty string yields empty outputs or zero entropy |
-| `k` | `int` | required | K-mer length | `k <= 0` throws through the underlying count routine |
+| `k` | `int` | required | K-mer length | `k <= 0` throws through the underlying count routine for non-empty input (null/empty input short-circuits to empty/0) |
 
 ### 3.2 Output / Return Value
 
@@ -61,7 +61,7 @@ with the convention that terms with `f_i = 0` contribute `0`.
 
 ### 3.3 Preconditions and Validation
 
-All three metrics delegate to `CountKmers(...)` for input handling. Null or empty sequences yield empty dictionaries and entropy `0.0`. If `k` exceeds sequence length, the count dictionary is empty and entropy is `0.0`. If `k <= 0`, the underlying counting routine throws `ArgumentOutOfRangeException`.
+All three metrics delegate to `CountKmers(...)` for input handling. Null or empty sequences yield empty dictionaries and entropy `0.0`. If `k` exceeds sequence length, the count dictionary is empty and entropy is `0.0`. If `k <= 0` and the sequence is non-empty, the underlying counting routine throws `ArgumentOutOfRangeException`.
 
 ## 4. Algorithm
 
@@ -76,9 +76,9 @@ All three metrics delegate to `CountKmers(...)` for input handling. Null or empt
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `GetKmerFrequencies` | `O(n)` | `O(u)` | Derived from exact counts |
-| `GetKmerSpectrum` | `O(n)` | `O(u)` | Iterates over the count values |
-| `CalculateKmerEntropy` | `O(n)` | `O(u)` | Builds on normalized frequencies |
+| `GetKmerFrequencies` | `O(n·k)` | `O(u·k)` | Derived from exact counts; each window builds/hashes a k-length string |
+| `GetKmerSpectrum` | `O(n·k)` | `O(u·k)` | Iterates over the count values |
+| `CalculateKmerEntropy` | `O(n·k)` | `O(u·k)` | Builds on normalized frequencies. Same quantity as `SequenceComplexity.CalculateKmerEntropy` (SEQ-COMPLEX-KMER-001); cross-checked equal in tests |
 
 ## 5. Implementation Notes
 
@@ -114,7 +114,7 @@ The current implementation always computes these metrics from exact k-mer counts
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | The original document described 4-decimal entropy rounding for numerical stability, but the current source returns the raw double sum without an explicit rounding step | Deviation | Reported entropy may include full floating-point precision | accepted | Confirmed from `CalculateKmerEntropy(...)` |
+| 1 | The original document described 4-decimal entropy rounding for numerical stability, but the current source returns the raw double sum without an explicit rounding step | Deviation | Reported entropy may include full floating-point precision | accepted | Confirmed from `CalculateKmerEntropy(...)`; matches `scipy.stats.entropy(counts, base=2)` to 1e-12 (review 2026-09) |
 
 ## 6. Edge Cases and Limitations
 
@@ -148,3 +148,5 @@ The current implementation analyzes only observed k-mers and does not smooth the
 4. Rosalind. "K-mer Composition." https://rosalind.info/problems/kmer/
 5. Teeling, H. et al. (2004). "TETRA: a web-service and a stand-alone program for the analysis and comparison of tetranucleotide usage patterns in DNA sequences." BMC Bioinformatics, 5:163.
 6. Chor, B. et al. (2009). "Genomic DNA k-mer spectra: models and modalities." Genome Biology, 10(10): R108.
+7. Marçais, G., Kingsford, C. (2011). Jellyfish — `sub_commands/histo_main.cc`. https://github.com/gmarcais/Jellyfish
+8. scikit-bio `Sequence.kmer_frequencies`; SciPy `scipy.stats.entropy` (reference implementations used for cross-check).
