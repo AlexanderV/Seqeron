@@ -4,7 +4,7 @@
 **Area:** Composition
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -88,9 +88,11 @@ No extractable k-mers (length < k) → $H = 0.0$ (empty sum = 0)
 | M05 | Range invariant | Any DNA sequence | $0 \leq H \leq 2$ | $H_{\max} = \log_2(4) = 2$ (Wikipedia) |
 | M06 | K-mer: length < k | `DnaSequence("AT")`, k=5 | $0.0$ | No k-mers extractable → empty sum |
 | M07 | K-mer: homopolymer | `DnaSequence("AAAAAAAAAA")`, k=2 | $0.0$ exact | Only "AA" → $p = 1$, $H = 0$ |
-| M08 | Non-ATGC chars ignored | `"ATGCNN"`, `"NNNNNN"` | $2.0$, $0.0$ | Alphabet = {A,T,G,C}; non-DNA excluded from numerator and denominator |
+| M08 | Non-ACGT/U chars ignored | `"ATGCNN"`, `"NNNNNN"` | $2.0$, $0.0$ | Alphabet = {A,C,G,T/U}; other symbols excluded from numerator and denominator |
 | M09 | Null DnaSequence | `null` | `ArgumentNullException` | Guard clause (.NET convention) |
 | M10 | Invalid k | k < 1 | `ArgumentOutOfRangeException` | Guard clause (.NET convention) |
+| M11 | RNA uracil (string overload) | `"ACGU"`, `"AAUU"`, `"acgu"`, `"ACGUN"`, `"GGGGCCCAU"` | $2.0$, $1.0$, $2.0$, $2.0$, $1.7527152789797047$ | U = T/U nucleotide (IUPAC-IUB 1970); scipy.stats.entropy(base=2) with U→T |
+| M12 | scipy reference | `"AAAAAAAAAAAAACGT"`, `"AACGTTTGCA"`, `"ACGTNNRYacgt"` | $0.9933927290103627$, $1.970950594454669$, $2.0$ | scipy.stats.entropy(counts, base=2) |
 
 ### SHOULD Tests (Good Practice)
 
@@ -152,6 +154,8 @@ No extractable k-mers (length < k) → $H = 0.0$ (empty sum = 0)
 | 15 | `CalculateKmerEntropy_NullSequence_ThrowsException` | M09 | ✅ |
 | 16 | `CalculateKmerEntropy_RangeIsNonNegativeAndBounded_ForDnaSequences` | INV-004 | ✅ |
 | 17 | `CalculateKmerEntropy_UniformDinucleotides_ReturnsLog2Of3` | S05 | ✅ |
+| 18 | `CalculateShannonEntropy_RnaUracil_CountedAsFourthNucleotide` | M11 | ✅ |
+| 19 | `CalculateShannonEntropy_MatchesScipyReference` | M12 | ✅ |
 
 ### Wrapper smoke (`SequenceStatisticsTests.cs`) — 3 tests
 Delegation verification only (uniform → 2.0, homopolymer → 0.0, empty → 0.0).

@@ -419,6 +419,41 @@ public class SequenceComplexityTests
         });
     }
 
+    [Test]
+    public void CalculateShannonEntropy_RnaUracil_CountedAsFourthNucleotide()
+    {
+        // RNA U is the same nucleotide class as DNA T (IUPAC-IUB 1970), alphabet {A,C,G,T/U}.
+        // Reference: scipy.stats.entropy(counts, base=2) with U→T:
+        //   "ACGU" → [1,1,1,1] → 2.0; "AAUU" → [2,0,0,2] → 1.0; "acgu" → 2.0;
+        //   "ACGUN" → 2.0 (N excluded); "GGGGCCCAU" → [1,3,4,1] → 1.7527152789797047.
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("ACGU"), Is.EqualTo(2.0));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("AAUU"), Is.EqualTo(1.0));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("acgu"), Is.EqualTo(2.0));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("ACGUN"), Is.EqualTo(2.0));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("GGGGCCCAU"),
+                Is.EqualTo(1.7527152789797047).Within(1e-12));
+            // RNA and its DNA equivalent give the same entropy.
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("GGGGCCCAU"),
+                Is.EqualTo(SequenceComplexity.CalculateShannonEntropy("GGGGCCCAT")));
+        });
+    }
+
+    [Test]
+    public void CalculateShannonEntropy_MatchesScipyReference()
+    {
+        // Reference: scipy.stats.entropy([nA,nC,nG,nT], base=2), non-ACGT/U excluded.
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("AAAAAAAAAAAAACGT"),
+                Is.EqualTo(0.9933927290103627).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("AACGTTTGCA"),
+                Is.EqualTo(1.970950594454669).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("ACGTNNRYacgt"), Is.EqualTo(2.0));
+        });
+    }
+
     #endregion
 
     #region K-mer Entropy Tests

@@ -179,7 +179,13 @@ public static class SequenceComplexity
     }
 
     /// <summary>
-    /// Calculates Shannon entropy from a raw sequence string.
+    /// Calculates Shannon entropy H = −Σ p_i·log₂(p_i) (bits per base, Shannon 1948) from a raw
+    /// nucleotide string over the 4-letter nucleotide alphabet {A, C, G, T/U}.
+    /// Case-insensitive; RNA uracil (U) is counted as the fourth nucleotide, the same class as
+    /// DNA thymine (IUPAC-IUB 1970 nucleotide notation; consistent with the canonical GC counter
+    /// <c>SequenceExtensions.CountGcAndValidNucleotides</c>), so the maximum stays log₂4 = 2 bits.
+    /// Other symbols (N, IUPAC ambiguity codes, gaps) are excluded from numerator and denominator.
+    /// Null, empty, or input with no A/C/G/T/U returns 0 (empty-sum convention).
     /// </summary>
     public static double CalculateShannonEntropy(string sequence)
     {
@@ -191,15 +197,21 @@ public static class SequenceComplexity
     {
         if (seq.Length == 0) return 0;
 
-        var frequencies = new Dictionary<char, int> { ['A'] = 0, ['T'] = 0, ['G'] = 0, ['C'] = 0 };
-
-        foreach (char c in seq)
+        // Counts over {A, C, G, T/U}: RNA U is the same nucleotide class as DNA T (IUPAC-IUB 1970).
+        int a = 0, c = 0, g = 0, t = 0;
+        foreach (char ch in seq)
         {
-            if (frequencies.TryGetValue(c, out int value))
-                frequencies[c] = ++value;
+            switch (ch)
+            {
+                case 'A': a++; break;
+                case 'C': c++; break;
+                case 'G': g++; break;
+                case 'T':
+                case 'U': t++; break;
+            }
         }
 
-        return ShannonEntropyBits(frequencies.Values);
+        return ShannonEntropyBits([a, c, g, t]);
     }
 
     /// <summary>

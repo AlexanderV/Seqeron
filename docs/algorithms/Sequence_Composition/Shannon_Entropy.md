@@ -6,11 +6,11 @@
 | Test Unit ID | SEQ-ENTROPY-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Shannon entropy measures information content or uncertainty in a sequence. For DNA, it quantifies nucleotide diversity and is commonly used to identify low-complexity regions, repetitive sequence, and conservation patterns. In this repository, the canonical DNA-focused implementation counts only `A/T/G/C`, while a separate general-purpose implementation counts all letters.
+Shannon entropy measures information content or uncertainty in a sequence. For DNA, it quantifies nucleotide diversity and is commonly used to identify low-complexity regions, repetitive sequence, and conservation patterns. In this repository, the canonical nucleotide implementation counts only `A/C/G/T` (RNA `U` counted as the `T/U` nucleotide), while a separate general-purpose implementation counts all letters.
 
 ## 2. Scientific / Formal Basis
 
@@ -59,14 +59,14 @@ where the maximum possible value over a full DNA k-mer alphabet is `log2(4^k) = 
 
 ### 3.3 Preconditions and Validation
 
-`SequenceComplexity.CalculateShannonEntropy(DnaSequence)` throws `ArgumentNullException` for null input. The raw-string overload returns `0.0` for null or empty strings and uppercases the sequence before analysis. `SequenceComplexity.CalculateKmerEntropy(DnaSequence, int)` throws `ArgumentOutOfRangeException` for `k < 1` and returns `0.0` when sequence length is shorter than `k`.
+`SequenceComplexity.CalculateShannonEntropy(DnaSequence)` throws `ArgumentNullException` for null input. The raw-string overload returns `0.0` for null or empty strings, uppercases the sequence before analysis, and counts RNA `U` as the `T/U` nucleotide. `SequenceComplexity.CalculateKmerEntropy(DnaSequence, int)` throws `ArgumentOutOfRangeException` for `k < 1` and returns `0.0` when sequence length is shorter than `k`.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
 1. Normalize the sequence to uppercase.
-2. Count base frequencies over the canonical DNA alphabet `A/T/G/C`.
+2. Count base frequencies over the canonical nucleotide alphabet `A/C/G/T` (`U` is counted with `T`, IUPAC-IUB 1970; same convention as the canonical GC counter `SequenceExtensions.CountGcAndValidNucleotides`).
 3. Convert counts to probabilities over the counted total.
 4. Sum `-p * log2(p)` over non-zero probabilities.
 5. For k-mer entropy, count overlapping k-mers and apply the same entropy formula to their frequency distribution.
@@ -100,7 +100,7 @@ DNA-specific entropy values preserved from the original document:
 
 ### 5.2 Current Behavior
 
-The canonical `SequenceComplexity` implementation counts only `A/T/G/C` and ignores non-standard bases such as `N` or other ambiguity codes. It uses base-2 logarithms and returns `0.0` if no counted DNA bases are present after filtering. The alternative `SequenceStatistics.CalculateShannonEntropy(...)` counts all letters and is therefore more appropriate for non-DNA alphabets or general text.
+The canonical `SequenceComplexity` implementation counts only `A/C/G/T` (RNA `U` counted as `T/U`, so an RNA string and its DNA equivalent have identical entropy) and ignores non-standard bases such as `N` or other ambiguity codes. It uses base-2 logarithms and returns `0.0` if no counted DNA bases are present after filtering. The alternative `SequenceStatistics.CalculateShannonEntropy(...)` counts all letters and is therefore more appropriate for non-DNA alphabets or general text.
 
 ### 5.3 Conformance to Theory / Spec
 

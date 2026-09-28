@@ -2263,16 +2263,16 @@ public class CompositionFuzzTests
     }
 
     /// <summary>
-    /// INJ: the lenient raw-string overload ignores every non-A/T/G/C symbol
-    /// (Shannon_Entropy.md §5.2, §5.3: "counts only A/T/G/C and ignores
-    /// non-standard bases such as N or other ambiguity codes"). So injected garbage
-    /// — ambiguity code N, the RNA base U, digits, gaps, whitespace, an embedded
+    /// INJ: the lenient raw-string overload ignores every symbol outside {A, C, G, T/U}
+    /// (Shannon_Entropy.md §5.2, §5.3: ignores non-standard bases such as N or other
+    /// ambiguity codes; RNA U counts as the T/U nucleotide). So injected garbage
+    /// — ambiguity codes N/R, digits, gaps, whitespace, an embedded
     /// null byte, unicode letters — does NOT change the entropy of the A/T/G/C bases
     /// that ARE present, and never throws. Each case interleaves garbage into a
     /// uniform ACGT core, which must therefore still read as exactly 2.0 bits.
     /// </summary>
     [TestCase("ACGTN", TestName = "ShannonEntropy_RawString_AmbiguityN_Ignored_Is2Bits")]
-    [TestCase("ACGTU", TestName = "ShannonEntropy_RawString_RnaBaseU_Ignored_Is2Bits")]
+    [TestCase("ACGTR", TestName = "ShannonEntropy_RawString_AmbiguityR_Ignored_Is2Bits")]
     [TestCase("A1C2G3T4", TestName = "ShannonEntropy_RawString_Digits_Ignored_Is2Bits")]
     [TestCase("A-C-G-T", TestName = "ShannonEntropy_RawString_Gaps_Ignored_Is2Bits")]
     [TestCase("A C G T", TestName = "ShannonEntropy_RawString_Whitespace_Ignored_Is2Bits")]
