@@ -24,7 +24,8 @@ namespace SuffixTree.Tests.Search
         [Test]
         public void FindAll_EmptyPattern_ReturnsAllPositions()
         {
-            // The empty string ε is a substring of every string at every position (formal language theory).
+            // Library convention: empty pattern -> every suffix start [0..n-1] (see TestSpec PAT-EXACT-001 §1.3;
+            // note Python re/str.count would also count the end position n).
             var st = SuffixTree.Build("abc");
 
             var result = st.FindAllOccurrences("").OrderBy(x => x).ToList();

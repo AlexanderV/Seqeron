@@ -1,6 +1,6 @@
 # suffix_tree_find_all
 
-Find all positions where a pattern occurs in text using suffix tree.
+Find all 0-based start positions (including overlapping occurrences) where a pattern occurs in text using suffix tree, in ascending order.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Find all positions where a pattern occurs in text using suffix tree.
 
 ## Description
 
-Finds all positions where a pattern occurs in text using a suffix tree. Returns an array of starting positions (0-indexed) for each occurrence. Overlapping occurrences are reported separately.
+Finds all positions where a pattern occurs in text using a suffix tree. Returns an array of starting positions (0-indexed) for each occurrence, sorted ascending. Overlapping occurrences are reported separately (e.g. "ATAT" in "GATATATGCATATACTT" → `[1, 3, 9]`, Rosalind SUBS). An empty pattern returns `[0 .. n-1]` (the library's suffix-start convention).
 
 ## Core Documentation Reference
 
@@ -32,7 +32,7 @@ Finds all positions where a pattern occurs in text using a suffix tree. Returns 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `positions` | integer[] | Array of starting positions (0-indexed) |
+| `positions` | integer[] | Array of starting positions (0-indexed, ascending) |
 
 ## Errors
 

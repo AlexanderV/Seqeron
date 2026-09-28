@@ -27,7 +27,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `hamming_distance` | Calculate Hamming distance between two sequences of equal length. |
 | `suffix_tree_contains` | Check if a pattern exists in text using suffix tree. |
 | `suffix_tree_count` | Count the number of occurrences of a pattern in text using suffix tree. |
-| `suffix_tree_find_all` | Find all positions where a pattern occurs in text using suffix tree. |
+| `suffix_tree_find_all` | Find all 0-based start positions (including overlapping occurrences) where a pattern occurs in text using suffix tree, in ascending order. |
 | `suffix_tree_lcs` | Find the longest common substring between two texts using suffix tree. |
 | `suffix_tree_lrs` | Find the longest repeated substring in text using suffix tree. |
 | `suffix_tree_stats` | Get statistics about a suffix tree: node count, leaf count, max depth, and text length. |

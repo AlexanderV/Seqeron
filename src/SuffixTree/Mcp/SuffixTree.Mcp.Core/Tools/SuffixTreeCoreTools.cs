@@ -54,7 +54,7 @@ public class SuffixTreeCoreTools
     /// Find all positions where a pattern occurs in text.
     /// </summary>
     [McpServerTool(Name = "suffix_tree_find_all", Title = "Suffix Tree — Find All Positions", ReadOnly = true)]
-    [Description("Find all positions where a pattern occurs in text using suffix tree.")]
+    [Description("Find all 0-based start positions (including overlapping occurrences) where a pattern occurs in text using suffix tree, in ascending order.")]
     public static SuffixTreeFindAllResult SuffixTreeFindAll(
         [Description("The text to search in")] string text,
         [Description("The pattern to find")] string pattern)
@@ -65,8 +65,11 @@ public class SuffixTreeCoreTools
             throw new ArgumentException("Pattern cannot be null", nameof(pattern));
 
         var tree = global::SuffixTree.SuffixTree.Build(text);
-        var positions = tree.FindAllOccurrences(pattern);
-        return new SuffixTreeFindAllResult(positions.ToArray());
+        // The tree reports leaves in traversal order; sort so the tool output is deterministic
+        // and ascending (Rosalind SUBS convention).
+        var positions = tree.FindAllOccurrences(pattern).ToArray();
+        Array.Sort(positions);
+        return new SuffixTreeFindAllResult(positions);
     }
 
     /// <summary>

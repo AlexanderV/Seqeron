@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SuffixTree.FindAllOccurrences",
   "docRef": "SuffixTree/SuffixTree.Search.cs#L115",
-  "description": "Find all positions where a pattern occurs in text using suffix tree.",
+  "description": "Find all 0-based start positions (including overlapping occurrences) where a pattern occurs in text using suffix tree, in ascending order.",
   "inputSchema": {
     "type": "object",
     "properties": {

@@ -55,7 +55,7 @@ The search logic is:
 
 ### 3.3 Preconditions and Validation
 
-Core suffix-tree string APIs throw `ArgumentNullException` on null pattern input. Empty-string patterns return all valid start positions `[0..n-1]` from the core tree and a count equal to text length. `MotifFinder.FindExactMotif(...)` and `GenomicAnalyzer.FindMotif(...)` both return empty for null or empty motifs and uppercase the motif before calling the suffix tree.
+Core suffix-tree string APIs throw `ArgumentNullException` on null pattern input. Empty-string patterns return every suffix start `[0..n-1]` from the core tree (a library convention: the end position `n`, which Python `re`/`str.count` also count, is excluded) and a count equal to text length. `MotifFinder.FindExactMotif(...)` and `GenomicAnalyzer.FindMotif(...)` both return empty for null or empty motifs and uppercase the motif before calling the suffix tree.
 
 ## 4. Algorithm
 
@@ -99,7 +99,7 @@ The core suffix-tree implementation uses:
 
 ### 5.2 Current Behavior
 
-The core suffix-tree API returns all valid start positions for an empty pattern, returns `true` from `Contains(...)` on an empty pattern, and returns the text length from `CountOccurrences(...)` on an empty pattern. `MotifFinder.FindExactMotif(...)` sorts the positions before yielding them, while `GenomicAnalyzer.FindMotif(...)` returns the underlying suffix-tree list directly. Both wrappers normalize motifs to uppercase for case-insensitive DNA matching.
+The core suffix-tree API returns all valid start positions for an empty pattern, returns `true` from `Contains(...)` on an empty pattern, and returns the text length from `CountOccurrences(...)` on an empty pattern. `MotifFinder.FindExactMotif(...)` sorts the positions before yielding them, while `GenomicAnalyzer.FindMotif(...)` returns the underlying suffix-tree list directly. The core `FindAllOccurrences(...)` returns positions in leaf-traversal order (unspecified); the MCP tool `suffix_tree_find_all` sorts them ascending before returning. Both wrappers normalize motifs to uppercase for case-insensitive DNA matching.
 
 ### 5.3 Conformance to Theory / Spec
 

@@ -11,9 +11,7 @@ public class MotifFinderTests
         var sequence = new DnaSequence("ATGCATGCATGC");
         var positions = MotifFinder.FindExactMotif(sequence, "TGCA").ToList();
 
-        Assert.That(positions.Count, Is.EqualTo(2));
-        Assert.That(positions, Does.Contain(1));
-        Assert.That(positions, Does.Contain(5));
+        Assert.That(positions, Is.EqualTo(new[] { 1, 5 }));
     }
 
     [Test]
@@ -31,7 +29,19 @@ public class MotifFinderTests
         var sequence = new DnaSequence("AAAA");
         var positions = MotifFinder.FindExactMotif(sequence, "AA").ToList();
 
-        Assert.That(positions.Count, Is.EqualTo(3));
+        Assert.That(positions, Is.EqualTo(new[] { 0, 1, 2 }));
+    }
+
+    [Test]
+    public void FindExactMotif_RosalindSubs_ReturnsOverlappingPositionsAscending()
+    {
+        // Rosalind SUBS sample (https://rosalind.info/problems/subs/): s = GATATATGCATATACTT,
+        // t = ATAT -> "2 4 10" (1-based, ascending, overlapping) = {1, 3, 9} 0-based.
+        // Cross-checked: Python re.finditer("(?=ATAT)") -> [1, 3, 9]; Bio.Seq.count_overlap -> 3.
+        var sequence = new DnaSequence("GATATATGCATATACTT");
+        var positions = MotifFinder.FindExactMotif(sequence, "ATAT").ToList();
+
+        Assert.That(positions, Is.EqualTo(new[] { 1, 3, 9 }));
     }
 
     [Test]
@@ -49,7 +59,7 @@ public class MotifFinderTests
         var sequence = new DnaSequence("ATGCATGC");
         var positions = MotifFinder.FindExactMotif(sequence, "atgc").ToList();
 
-        Assert.That(positions.Count, Is.EqualTo(2));
+        Assert.That(positions, Is.EqualTo(new[] { 0, 4 }));
     }
 
     #endregion

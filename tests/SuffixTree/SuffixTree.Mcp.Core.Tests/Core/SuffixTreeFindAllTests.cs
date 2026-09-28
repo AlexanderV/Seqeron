@@ -26,5 +26,20 @@ public class SuffixTreeFindAllTests
             Is.EqualTo(new[] { 0, 1, 2 }));
         Assert.That(SuffixTreeCoreTools.SuffixTreeFindAll("abc", "xyz").Positions, Is.Empty);
     }
+
+    // Tool output is reported in ascending position order (deterministic), as in the
+    // Rosalind SUBS problem (https://rosalind.info/problems/subs/): s = GATATATGCATATACTT,
+    // t = ATAT -> "2 4 10" (1-based) = {1, 3, 9} 0-based. Cross-checked with Python
+    // re.finditer("(?=ATAT)") -> [1, 3, 9] and "mississippi"/"i" -> [1, 4, 7, 10].
+    [Test]
+    public void SuffixTreeFindAll_ReturnsPositionsInAscendingOrder()
+    {
+        Assert.That(SuffixTreeCoreTools.SuffixTreeFindAll("GATATATGCATATACTT", "ATAT").Positions,
+            Is.EqualTo(new[] { 1, 3, 9 }));
+        Assert.That(SuffixTreeCoreTools.SuffixTreeFindAll("mississippi", "i").Positions,
+            Is.EqualTo(new[] { 1, 4, 7, 10 }));
+        Assert.That(SuffixTreeCoreTools.SuffixTreeFindAll("abracadabra", "a").Positions,
+            Is.EqualTo(new[] { 0, 3, 5, 7, 10 }));
+    }
 }
 
