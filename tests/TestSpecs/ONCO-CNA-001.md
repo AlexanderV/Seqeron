@@ -5,7 +5,7 @@
 **Algorithm:** Copy-Number Alteration Classification (log2 copy ratio → absolute copy number → CNA state)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -25,7 +25,9 @@
 1. Absolute copy number from a log2 ratio (pure, diploid): `n = ploidy · 2^log2 = 2 · 2^log2` — CNVkit `_log2_ratio_to_absolute_pure`.
 2. Hard-threshold integer calling: CN = index of the first threshold the log2 value is `<=`; above the last threshold CN = `ceil(2 · 2^log2)` — CNVkit `absolute_threshold`.
 3. Default thresholds `(-1.1, -0.25, 0.2, 0.7)` → states `[0, 1, 2, 3, 4+]` — CNVkit `do_call`.
-4. Verbatim cutoffs: `DEL(0) < -1.1`, `LOSS(1) < -0.25`, `GAIN(3) >= +0.2`, `AMP(4) >= +0.7` — CNVkit `absolute_threshold` docstring.
+4. Verbatim cutoffs (current CNVkit master docstring): `DEL(0) <= -1.1`, `LOSS(1) <= -0.25`, `GAIN(3) > +0.2`, `AMP(4) > +0.7` — CNVkit `absolute_threshold` docstring (older revisions wrote `<` / `>=`; the code has always used `log2 <= thresh`).
+6. Final integer CN in `do_call` is `absolutes.round().astype(int)` — numpy round-half-to-even; affects only the NaN no-call with a non-integer ploidy (ref_copies = ploidy, e.g. 2.5 → 2, 3.5 → 4).
+7. Above the last cutoff `int(np.ceil(ref_copies·2^log2))`; for log2 = +∞ Python raises `OverflowError`.
 5. GISTIC2 ±0.1 noise band and high-amplitude amp/del thresholds (0.848 / −0.737) corroborate a neutral band bounded by amplification (high positive) and deletion (high negative) — Mermel et al. (2011).
 
 ### 1.3 Documented Corner Cases
@@ -33,6 +35,9 @@
 - Boundary inclusivity: `log2 <= thresh`, so a value exactly on a threshold gets the LOWER CN state of that bin (CNVkit binning loop).
 - NaN log2 ratio: no-call → neutral reference copy number (CN 2) (CNVkit `absolute_threshold`).
 - Above last threshold: CN grows as `ceil(2·2^log2)`, not a fixed value (CNVkit `absolute_threshold`).
+- NaN log2 with non-integer ploidy: CN = ploidy rounded half-to-even (numpy `round` in `do_call`).
+- Unrepresentable CN: `ceil(ploidy·2^log2) > Int32.MaxValue` (diploid log2 ≥ 30) or log2 = +∞ → `ArgumentOutOfRangeException` (CNVkit: `OverflowError` for +∞); never a wrapped negative CN.
+- log2 = −∞ (zero depth): below every cutoff → CN 0, DeepDeletion, absolute 0.
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -91,6 +96,10 @@
 | S1 | Custom thresholds | thresholds (−0.4,−0.1,0.1,0.4), log2 = −0.3 | CN 1, Loss | CNVkit germline-tuned alt |
 | S2 | Monotonicity (INV-2) | ascending log2 sequence | CN non-decreasing | property check |
 | S3 | Amplification ceil | log2 = 0.8 | CN ceil(2·2^0.8)=4, Amplification | `ceil` not `round` |
+| S4 | Triploid reference | ploidy 3; log2 0 / 0.8 / 1.0 | CN 2 / 6 / 6 | CNVkit `absolute_threshold` (Python port) |
+| S5 | NaN, non-integer ploidy | ploidy 2.5 / 3.5 | CN 2 / 4 | numpy round-half-to-even in `do_call` |
+| S6 | Largest Int32 amplification | log2 29.9 | CN 2003673093, Amplification | numpy `ceil(2·2^29.9)` |
+| S7 | −∞ log2 | log2 = −∞ | CN 0, DeepDeletion, absolute 0 | below every cutoff |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -107,6 +116,8 @@
 | E3 | Non-ascending thresholds | thresholds not strictly ascending | ArgumentException | bins must be ordered |
 | E4 | Non-positive ploidy | ploidy ≤ 0 | ArgumentOutOfRangeException | n = ploidy·2^log2 needs ploidy > 0 |
 | E5 | Null batch | ClassifyCopyNumbers(null) | ArgumentNullException | input validation |
+| E6 | CN overflow | log2 = 30 (2·2^30 = 2^31) and log2 = +∞ | ArgumentOutOfRangeException (not a wrapped negative CN) | CNVkit `int(np.ceil(inf))` → OverflowError; Int32 range |
+| E7 | Non-finite ploidy | ploidy = NaN / +∞ | ArgumentOutOfRangeException | n = ploidy·2^log2 needs finite ploidy |
 
 ---
 
@@ -176,6 +187,8 @@
 | E1–E5 | ✅ Covered | validation throws |
 
 Total in-scope cases: 22. ✅: 22.
+
+**2026-09 review (campaign 2026-09, B24):** added S4–S7, E6, E7 (tests `CallCopyNumber_TriploidReference_MatchesCnvkit`, `CallCopyNumber_NaNNonIntegerPloidy_RoundsHalfToEven`, `CallCopyNumber_VeryHighLog2WithinInt32_MatchesReference`, `CallCopyNumber_UnrepresentableCopyNumber_Throws`, `ClassifyCopyNumber_NegativeInfinityLog2_IsDeepDeletion`, `Log2RatioToCopyNumber_NonFinitePloidy_Throws`); fixes: Int32 overflow guard, half-to-even NaN no-call rounding, finite-ploidy validation.
 
 ---
 

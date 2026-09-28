@@ -16,7 +16,7 @@ public static partial class OncologyAnalyzer
     /// ascending order. The four cutoffs partition the log2 axis into the five copy-number states
     /// 0 / 1 / 2 / 3 / 4+. Source: CNVkit <c>cnvlib/call.py</c> <c>do_call</c> default
     /// <c>thresholds = (-1.1, -0.25, 0.2, 0.7)</c>; the <c>absolute_threshold</c> docstring states the
-    /// cutoffs verbatim as DEL(0) &lt; −1.1, LOSS(1) &lt; −0.25, GAIN(3) ≥ +0.2, AMP(4) ≥ +0.7
+    /// cutoffs verbatim as DEL(0) ≤ −1.1, LOSS(1) ≤ −0.25, GAIN(3) &gt; +0.2, AMP(4) &gt; +0.7
     /// (tumor-sample heuristic, safe for purity ≥ 30%).
     /// </summary>
     public static readonly IReadOnlyList<double> DefaultCopyNumberThresholds =
@@ -83,25 +83,35 @@ public static partial class OncologyAnalyzer
     /// <param name="log2Ratio">log2 copy ratio (may be any finite value; NaN propagates to NaN).</param>
     /// <param name="ploidy">Reference (germline) ploidy; 2 for an autosomal diploid genome.</param>
     /// <returns>Continuous absolute copy number n = ploidy·2^log2 (≥ 0 for finite input).</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not a finite positive number.</exception>
     public static double Log2RatioToCopyNumber(double log2Ratio, double ploidy = DiploidReferencePloidy)
     {
-        if (double.IsNaN(ploidy) || ploidy <= 0.0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be positive.");
-        }
-
+        ValidatePloidy(ploidy);
         return ploidy * Math.Pow(2.0, log2Ratio);
+    }
+
+    /// <summary>
+    /// Validates the reference ploidy: it must be a finite positive number, because
+    /// <c>n = ploidy · 2^log2</c> (CNVkit <c>_log2_ratio_to_absolute_pure</c>) is meaningless otherwise.
+    /// </summary>
+    private static void ValidatePloidy(double ploidy)
+    {
+        if (!double.IsFinite(ploidy) || ploidy <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be a finite positive number.");
+        }
     }
 
     /// <summary>
     /// Calls an integer copy number from a log2 ratio using CNVkit's hard-threshold method. The copy number
     /// is the index of the first ascending threshold the log2 value is less than or equal to (counting up
     /// from 0); if the log2 value exceeds every threshold, the copy number is <c>ceil(ploidy · 2^log2)</c>.
-    /// A NaN log2 ratio is a no-call and returns the neutral reference copy number (rounded ploidy).
+    /// A NaN log2 ratio is a no-call and returns the neutral reference copy number (ploidy rounded half to
+    /// even, as numpy <c>ndarray.round()</c> in CNVkit <c>do_call</c>).
     /// Source: CNVkit <c>cnvlib/call.py</c> <c>absolute_threshold</c> — "Integer values are assigned for
-    /// log2 ratio values less than each given threshold value in sequence, counting up from zero. Above the
-    /// last threshold value, integer copy numbers are called assuming full purity, diploidy, and rounding up."
+    /// log2 ratio values up to each given threshold value in sequence, counting up from zero. Above the
+    /// last threshold value, integer copy numbers are called assuming full purity, rounding up from the
+    /// reference copy number."
     /// </summary>
     /// <param name="log2Ratio">log2 copy ratio; NaN is a no-call (neutral).</param>
     /// <param name="thresholds">
@@ -111,22 +121,24 @@ public static partial class OncologyAnalyzer
     /// <param name="ploidy">Reference ploidy used both for the neutral no-call and the amplification ceiling.</param>
     /// <returns>The integer copy number (≥ 0).</returns>
     /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="ploidy"/> is not a finite positive number, or <paramref name="log2Ratio"/> is so large
+    /// (≥ ~30 for diploid, or +∞) that <c>ceil(ploidy·2^log2)</c> exceeds <see cref="int.MaxValue"/>
+    /// (CNVkit raises <c>OverflowError</c> for +∞).
+    /// </exception>
     public static int CallCopyNumber(
         double log2Ratio,
         IReadOnlyList<double>? thresholds = null,
         double ploidy = DiploidReferencePloidy)
     {
         var cutoffs = ValidateThresholds(thresholds);
-        if (double.IsNaN(ploidy) || ploidy <= 0.0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be positive.");
-        }
+        ValidatePloidy(ploidy);
 
         if (double.IsNaN(log2Ratio))
         {
-            // No-call: CNVkit replaces a NaN log2 with the neutral reference copy number.
-            return (int)Math.Round(ploidy, MidpointRounding.AwayFromZero);
+            // No-call: CNVkit absolute_threshold stores the neutral reference copy number (ref_copies = ploidy);
+            // do_call then takes cn = absolutes.round(), and numpy rounds half to even (round(2.5) = 2).
+            return (int)Math.Round(ploidy, MidpointRounding.ToEven);
         }
 
         // CN = index of the first cutoff the log2 value is <= (inclusive boundary), counting from 0.
@@ -139,7 +151,18 @@ public static partial class OncologyAnalyzer
         }
 
         // Above the last cutoff: round up the absolute copy number (CNVkit ceil), yielding CN ≥ 4.
-        return (int)Math.Ceiling(Log2RatioToCopyNumber(log2Ratio, ploidy));
+        double ceiling = Math.Ceiling(Log2RatioToCopyNumber(log2Ratio, ploidy));
+        if (ceiling > int.MaxValue)
+        {
+            // CNVkit: int(np.ceil(inf)) raises OverflowError; a finite ceil beyond Int32 cannot be represented
+            // by this int-valued API, and an unchecked cast would wrap to a negative copy number.
+            throw new ArgumentOutOfRangeException(
+                nameof(log2Ratio),
+                log2Ratio,
+                $"The integer copy number ceil(ploidy·2^log2) = {ceiling} exceeds the representable range (Int32).");
+        }
+
+        return (int)ceiling;
     }
 
     /// <summary>
@@ -149,12 +172,12 @@ public static partial class OncologyAnalyzer
     /// 1 → Loss, 2 → Neutral, 3 → Gain, ≥4 → Amplification. Source: CNVkit <c>absolute_threshold</c>
     /// (DEL(0)/LOSS(1)/neutral(2)/GAIN(3)/AMP(4)); GISTIC2.0 amplitude semantics (Mermel et al. 2011).
     /// </summary>
-    /// <param name="log2Ratio">log2 copy ratio; NaN is a no-call (Neutral, CN = rounded ploidy).</param>
+    /// <param name="log2Ratio">log2 copy ratio; NaN is a no-call (Neutral, CN = ploidy rounded half to even).</param>
     /// <param name="thresholds">Four ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
     /// <param name="ploidy">Reference ploidy (default diploid).</param>
     /// <returns>The copy-number call with absolute CN, integer CN, and CNA state.</returns>
     /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not a finite positive number, or the integer copy number overflows Int32 (see <see cref="CallCopyNumber"/>).</exception>
     public static CopyNumberCall ClassifyCopyNumber(
         double log2Ratio,
         IReadOnlyList<double>? thresholds = null,
@@ -178,7 +201,7 @@ public static partial class OncologyAnalyzer
     /// <returns>One call per input log2 ratio, in input order.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="log2Ratios"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not a finite positive number, or an integer copy number overflows Int32 (see <see cref="CallCopyNumber"/>).</exception>
     public static IReadOnlyList<CopyNumberCall> ClassifyCopyNumbers(
         IEnumerable<double> log2Ratios,
         IReadOnlyList<double>? thresholds = null,

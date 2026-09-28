@@ -6527,7 +6527,7 @@ public class OncologyProperties
     {
         if (double.IsNaN(log2Ratio))
         {
-            return (int)Math.Round(ploidy, MidpointRounding.AwayFromZero);
+            return (int)Math.Round(ploidy, MidpointRounding.ToEven /* CNVkit do_call: numpy round half-to-even */);
         }
 
         for (int cn = 0; cn < cutoffs.Count; cn++)
