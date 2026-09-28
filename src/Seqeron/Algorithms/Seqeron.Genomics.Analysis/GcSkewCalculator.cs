@@ -50,7 +50,12 @@ public static class GcSkewCalculator
     /// <param name="sequence">DNA sequence.</param>
     /// <param name="windowSize">Size of the sliding window (default: 1000).</param>
     /// <param name="stepSize">Step size for window movement (default: 100).</param>
-    /// <returns>Collection of GC skew values with positions.</returns>
+    /// <returns>Collection of GC skew values with positions. Only complete windows are emitted
+    /// (window starts 0, step, 2·step, … while start + windowSize ≤ length); <c>Position</c> is the
+    /// 0-based window centre <c>WindowStart + windowSize / 2</c> (integer division).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1.</exception>
     public static IEnumerable<GcSkewPoint> CalculateWindowedGcSkew(
         DnaSequence sequence,
         int windowSize = 1000,
@@ -64,18 +69,26 @@ public static class GcSkewCalculator
     }
 
     /// <summary>
-    /// Calculates windowed GC skew from a raw sequence string.
+    /// Calculates windowed GC skew from a raw sequence string (case-insensitive; only G and C are
+    /// counted). Only complete windows are emitted: a trailing partial window is not reported
+    /// (cf. SkewIT gcskew.py, which also skips it; Biopython <c>GC_skew</c> instead appends it).
+    /// Returns an empty sequence for null/empty input.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly, as in the
+    /// <see cref="DnaSequence"/> overload; a zero step would otherwise never terminate).</exception>
     public static IEnumerable<GcSkewPoint> CalculateWindowedGcSkew(
         string sequence,
         int windowSize = 1000,
         int stepSize = 100)
     {
-        if (string.IsNullOrEmpty(sequence))
-            yield break;
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
 
-        foreach (var point in CalculateWindowedGcSkewCore(sequence.ToUpperInvariant(), windowSize, stepSize))
-            yield return point;
+        if (string.IsNullOrEmpty(sequence))
+            return Enumerable.Empty<GcSkewPoint>();
+
+        return CalculateWindowedGcSkewCore(sequence.ToUpperInvariant(), windowSize, stepSize);
     }
 
     private static IEnumerable<GcSkewPoint> CalculateWindowedGcSkewCore(
@@ -101,10 +114,14 @@ public static class GcSkewCalculator
     #region Cumulative GC Skew
 
     /// <summary>
-    /// Calculates cumulative GC skew across the sequence.
+    /// Calculates cumulative GC skew across the sequence: the running sum of (G−C)/(G+C) over
+    /// adjacent, non-overlapping windows from the sequence start (Grigoriev 1998, NAR 26:2286).
     /// Useful for identifying origin and terminus of replication.
-    /// Minimum = origin of replication, Maximum = terminus.
+    /// Minimum = origin of replication, Maximum = terminus. Only complete windows are used;
+    /// a trailing partial window is not reported (Biopython <c>GC_skew</c> would append it).
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> is less than 1.</exception>
     /// <param name="sequence">DNA sequence.</param>
     /// <param name="windowSize">Size of the window for cumulative calculation (default: 1000).</param>
     /// <returns>Collection of cumulative GC skew values.</returns>
@@ -119,17 +136,23 @@ public static class GcSkewCalculator
     }
 
     /// <summary>
-    /// Calculates cumulative GC skew from a raw sequence string.
+    /// Calculates cumulative GC skew from a raw sequence string (case-insensitive): the running sum
+    /// of (G−C)/(G+C) over adjacent, non-overlapping windows (Grigoriev 1998). Only complete windows
+    /// are used; a trailing partial window is not reported. Returns an empty sequence for null/empty input.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> is less than 1
+    /// (validated eagerly, as in the <see cref="DnaSequence"/> overload; a zero window would
+    /// otherwise never terminate).</exception>
     public static IEnumerable<CumulativeGcSkewPoint> CalculateCumulativeGcSkew(
         string sequence,
         int windowSize = 1000)
     {
-        if (string.IsNullOrEmpty(sequence))
-            yield break;
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
 
-        foreach (var point in CalculateCumulativeGcSkewCore(sequence.ToUpperInvariant(), windowSize))
-            yield return point;
+        if (string.IsNullOrEmpty(sequence))
+            return Enumerable.Empty<CumulativeGcSkewPoint>();
+
+        return CalculateCumulativeGcSkewCore(sequence.ToUpperInvariant(), windowSize);
     }
 
     private static IEnumerable<CumulativeGcSkewPoint> CalculateCumulativeGcSkewCore(
