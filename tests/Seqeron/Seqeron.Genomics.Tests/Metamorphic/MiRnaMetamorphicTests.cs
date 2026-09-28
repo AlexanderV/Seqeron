@@ -338,7 +338,10 @@ public class MiRnaMetamorphicTests
     {
         var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
         string seedRc = MiRnaAnalyzer.GetReverseComplement(mirna.SeedSequence);
-        string mrna = "GGGG" + seedRc + "GGGGGGGG";
+        // ≥ |miRNA| nt upstream of the seed match: the duplex window (which extends 5' of the site —
+        // the miRNA 3' end pairs upstream; Bartel 2009, TargetScan extractSubseqForAlignment) is then
+        // entirely inside the original mRNA, so a 5' flank cannot change score/alignment.
+        string mrna = new string('G', 24) + seedRc + "GGGGGGGG";
 
         var baseline = MiRnaAnalyzer.FindTargetSites(mrna, mirna, minScore: 0.0).ToList();
         baseline.Should().NotBeEmpty();

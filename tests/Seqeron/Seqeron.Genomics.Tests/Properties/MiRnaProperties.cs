@@ -638,12 +638,23 @@ public class MiRnaProperties
         return Math.Max(0.0, Math.Min(1.0, s));
     }
 
-    /// <summary>The extended target window the finder scores: from <paramref name="pos"/>, min(|miRNA|, tail).</summary>
-    private static string ExtendedWindow(string mrna, int pos, int mirnaLen)
+    /// <summary>
+    /// The duplex target window the finder scores. miRNA nt 1 faces the mRNA base just 3' of the
+    /// 6mer core; nt 2..L pair antiparallel toward the mRNA 5' end, so the miRNA 3' end lies
+    /// UPSTREAM of the seed match (Bartel 2009 Fig. 1; TargetScan extractSubseqForAlignment takes
+    /// utrStart − 16 .. utrEnd). Window = mrna[max(0, nt1 − L + 1) .. nt1]; a nt1 slot past the
+    /// mRNA end is padded with 'N' (unpaired). nt1 = Start + 7 for 8mer / 7mer-m8 / offset 6mer
+    /// (site starts opposite nt 8), Start + 6 for 7mer-A1 / 6mer (site starts opposite nt 7).
+    /// </summary>
+    private static string ExtendedWindow(string mrna, MiRnaAnalyzer.TargetSite site, int mirnaLen)
     {
         string normalized = mrna.ToUpperInvariant().Replace('T', 'U');
-        int len = Math.Min(mirnaLen, normalized.Length - pos);
-        return normalized.Substring(pos, len);
+        int nt1 = site.Type is MiRnaAnalyzer.TargetSiteType.Seed7merA1 or MiRnaAnalyzer.TargetSiteType.Seed6mer
+            ? site.Start + 6
+            : site.Start + 7;
+        int from = Math.Max(0, nt1 - mirnaLen + 1);
+        int to = Math.Min(nt1, normalized.Length - 1);
+        return string.Concat(normalized.AsSpan(from, to - from + 1), new string('N', nt1 - to));
     }
 
     /// <summary>Generates random pure-RNA strings of length in [minLen,maxLen].</summary>
@@ -660,18 +671,18 @@ public class MiRnaProperties
 
     /// <summary>
     /// Builds an mRNA that embeds a PERFECT canonical 8mer for a miRNA that begins with 'U'.
-    /// The target's 8-nt site window is exactly revcomp(miRNA[0..7]) placed at the mRNA tail, so
-    /// the antiparallel duplex over those 8 positions is fully Watson-Crick paired: the
+    /// The mRNA tail is revcomp(full miRNA), so the antiparallel duplex over the whole miRNA is
+    /// fully Watson-Crick paired: the
     /// position-8 base = comp(miRNA[7]) (= seedRC[0]) sits at the site start, the 6mer core
-    /// follows, and the A1 slot = comp(miRNA[0]) = 'A' (since miRNA[0]=='U'). With the window
-    /// length pinned to 8 (no tail beyond), there are zero duplex mismatches and no &gt;10-match
-    /// bonus, so §5.2 gives an exact score of 1.0. The site starts at <c>leftPad.Length</c>.
+    /// follows, and the A1 slot = comp(miRNA[0]) = 'A' (since miRNA[0]=='U'). Zero duplex
+    /// mismatches ⇒ §5.2 gives base 1.0 (+ bonus) clamped to exactly 1.0. The 8mer is the last 8 nt (starts at leftPad.Length + |miRNA| − 8).
     /// </summary>
     private static (string mrna, int siteStart) BuildClean8mer(string mirnaSeq, string leftPad)
     {
-        // Window must equal revcomp(miRNA[0..7]) and be the whole tail (extended length == 8).
-        string window = OracleRevComp(mirnaSeq.Substring(0, 8));
-        return (leftPad + window, leftPad.Length);
+        // The duplex window ends at the A1 slot and extends |miRNA| − 1 nt upstream, so the
+        // mRNA must end with revcomp(full miRNA) for a fully paired duplex (8mer = last 8 nt).
+        string window = OracleRevComp(mirnaSeq);
+        return (leftPad + window, leftPad.Length + mirnaSeq.Length - 8);
     }
 
     /// <summary>
@@ -813,7 +824,7 @@ public class MiRnaProperties
             var sites = MiRnaAnalyzer.FindTargetSites(mrna, miRna, minScore: 0.0).ToList();
             foreach (var s in sites)
             {
-                string window = ExtendedWindow(mrna, s.Start, miRna.Sequence.Length);
+                string window = ExtendedWindow(mrna, s, miRna.Sequence.Length);
                 double expected = OracleScore(s.Type, miRna.Sequence, window);
                 if (Math.Abs(s.Score - expected) > 1e-9)
                     return false.Label($"score: {s.Type}@{s.Start} got={s.Score} expected={expected} window='{window}'");
@@ -1001,7 +1012,7 @@ public class MiRnaProperties
         Assert.That(sites[0].Start, Is.EqualTo(5));   // §2.2 worked offsets: core at 6 ⇒ 8mer start 5
         Assert.That(sites[0].End, Is.EqualTo(12));     // End = Start + 8 - 1
 
-        string window = ExtendedWindow("GGGGGCUACCUCAGGGGG", 5, let7a.Sequence.Length);
+        string window = ExtendedWindow("GGGGGCUACCUCAGGGGG", sites[0], let7a.Sequence.Length);
         double expected = OracleScore(MiRnaAnalyzer.TargetSiteType.Seed8mer, let7a.Sequence, window);
         Assert.That(sites[0].Score, Is.EqualTo(expected).Within(1e-9));
     }
@@ -1037,7 +1048,7 @@ public class MiRnaProperties
         var site = MiRnaAnalyzer.FindTargetSites(mrna, miRna, 0.0)
             .Single(s => s.Type == MiRnaAnalyzer.TargetSiteType.Seed6mer);
 
-        string window = ExtendedWindow(mrna, site.Start, miRna.Sequence.Length);
+        string window = ExtendedWindow(mrna, site, miRna.Sequence.Length);
         double expected = OracleScore(MiRnaAnalyzer.TargetSiteType.Seed6mer, miRna.Sequence, window);
 
         Assert.That(expected, Is.LessThanOrEqualTo(0.15)); // base 0.15, no >10-match bonus possible

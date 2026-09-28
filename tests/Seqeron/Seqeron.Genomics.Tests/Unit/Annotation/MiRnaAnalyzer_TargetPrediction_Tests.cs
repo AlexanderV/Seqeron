@@ -1466,4 +1466,67 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     }
 
     #endregion
+
+    #region Duplex register — miRNA 3' end pairs UPSTREAM of the seed match (Bartel 2009; TargetScan)
+
+    // Bartel (2009) Cell 136:215 Fig. 1 / Lewis (2005): miRNA nt 1 faces the mRNA base just 3' of
+    // the seed match; nt 2–8 pair antiparallel with the seed match; nt 9..L pair with mRNA 5' of
+    // the seed match. TargetScan targetscan_70_context_scores.pl extractSubseqForAlignment takes the
+    // pairing subsequence from utrStart − 16 up to the site end. So the duplex target window is
+    // mrna[nt1Index − L + 1 .. nt1Index], and the alignment string (indexed by miRNA position)
+    // must show '|' at the seed positions of every canonical site.
+    // Before the fix the window was taken DOWNSTREAM from Start, which misregistered the seed
+    // (e.g. the 8mer below aligned nt 1 to the last G and reported the seed as unpaired).
+
+    [Test]
+    public void FindTargetSites_8mer_DuplexRegisteredOnSeed()
+    {
+        // let-7a 8mer: nt1 opposite mrna[12] (A); window = mrna[max(0,12−21)..12] = mrna[0..12].
+        var site = FindTargetSites("GGGGG" + Let7aSeedRC + "A" + "GGGGG", Let7a, 0.0).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.TargetSequence, Is.EqualTo("GGGGGCUACCUCA"));
+            // nt1 U:A, nt2–8 Watson–Crick, nt9 U:G wobble, nt10–12 A/G/G vs G unpaired, nt13 U:G.
+            Assert.That(site.Alignment, Is.EqualTo("||||||||:   :"));
+            // Score = 1.0 (8mer) − 3 mismatches × 0.01.
+            Assert.That(site.Score, Is.EqualTo(0.97).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void FindTargetSites_7merM8_Nt1Unpaired_SeedPaired()
+    {
+        var site = FindTargetSites("GGGGG" + Let7aSeedRC + "GGGGG", Let7a, 0.0).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed7merM8));
+            Assert.That(site.TargetSequence, Is.EqualTo("GGGGGCUACCUCG"));
+            Assert.That(site.Alignment.Substring(1, 7), Is.EqualTo("|||||||"));
+            Assert.That(site.Alignment[0], Is.EqualTo(':')); // nt1 U opposite G = G:U wobble (not an A1 site)
+        });
+    }
+
+    [Test]
+    public void FindTargetSites_6merFlushWithMrnaEnd_Nt1PaddedUnpaired()
+    {
+        // 6mer core UACCUC ends the mRNA: the base opposite nt 1 does not exist.
+        var site = FindTargetSites("GGGGGUACCUC", Let7a, 0.0).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed6mer));
+            Assert.That(site.TargetSequence, Is.EqualTo("GGGGGUACCUC"));
+            Assert.That(site.Alignment, Is.EqualTo(" |||||| :   "));
+        });
+    }
+
+    [Test]
+    public void FindTargetSites_OffsetSixmer_Nt3To8Paired()
+    {
+        // Offset 6mer = RC of nt 3–8 (CUACCU) with nt 2 mismatched (G instead of C).
+        var site = FindTargetSites("AAAAAAAAAA" + "CUACCU" + "GA" + "AAAA", Let7a, 0.0)
+            .Single(s => s.Type == TargetSiteType.Offset6mer);
+        Assert.That(site.Alignment.Substring(2, 6), Is.EqualTo("||||||"));
+    }
+
+    #endregion
 }

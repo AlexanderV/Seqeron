@@ -254,3 +254,22 @@ PCT with the simple sigmoid `b0=0, b1=1, b2=1, b3=0` (so PCT = 1/(1+e^(−Bls)))
 context++ PCT contribution (verbatim PCT row of `Agarwal_2015_parameters.txt`, min 0):
 - 8mer (coeff -0.103, max 0.816), PCT(3.0): `-0.103 × (0.952574126822433/0.816) = -0.120239136106263`.
 - 7mer-m8 (coeff -0.048, max 0.364), PCT(7.0): `-0.048 × (0.999088948805599/0.364) = -0.131747993249090`.
+
+## Review 2026-09 (B13) — duplex register, site context, site accessibility
+
+Sources actually opened this session:
+- `targetscan_70.pl` (raw.githubusercontent.com/nsoranzo/targetscan): `get_seeds` (7mer-m8 = revcomp(seed 2–8); 6mer = 7mer-m8 minus first position; 7mer-1a/8mer-1a = + A), `findRemoveMatchSubsets` (8mer subsumes 7mer-m8/7mer-1a/6mer) — FindTargetSites classification and subsumption agree.
+- `targetscan_70_context_scores.pl`: `extractSubseqForAlignment` (pairing subsequence = `utrStart − 16 .. utrEnd`, i.e. UPSTREAM of the seed match), `getLocalAU_contribution` (30 nt per flank, weight `1/(i+1)` or `1/(i+2)` outward, site excluded), `$MIN_DIST_TO_CDS = 15` with `if ($utrStart < $MIN_DIST_TO_CDS)` ⇒ "too_close", no context score.
+- Grimson et al. 2007 (WebSearch snippets of the abstract/text; publisher PDF blocked): five context features — AU-rich flanks, cooperative spacing, 3' pairing to nt 13–16, **≥ 15 nt downstream of the stop codon**, **away from the centre of long UTRs** (positional least-squares model assumes equal effects from both ends).
+- ViennaRNA 2.x (`import RNA`): `fold_compound.pf()` with `hc_add_up` over the site ⇒ Z_c/Z, dangles 0 and 2.
+
+Defects & reference numbers:
+1. **Duplex register** (FindTargetSites/CreateTargetSite): window was `mrna[Start .. Start+L−1]` (downstream), so miRNA nt 1 was aligned to the last base of that window. let-7a vs `GGGGGCUACCUCAGGGGG`: old window `CUACCUCAGGGGG`, seed reported unpaired; fixed window `GGGGGCUACCUCA`, alignment `||||||||:   :` (nt 1–8 paired), Score 0.97 (1.0 − 3×0.01), FreeEnergy −17.96.
+2. **AnalyzeTargetContext**: +0.3 bonus for mid-sequence sites (inverse of Grimson), unweighted AU count including the site, 15 %-of-length start threshold. Fixed to TargetScan weighted local AU, 15-nt stop-codon rule, end-proximity positional term (weights declared unfitted).
+3. **CalculateSiteAccessibility**: Watson-Crick pair-density heuristic returned 0 for every test sequence (incl. sites ViennaRNA puts at 97–99 % unpaired). Now McCaskill Z_open/Z via `RnaSecondaryStructure.CalculateRegionUnpairedProbability` (W = 80 local context):
+
+| Sequence | Site | Vienna d0 | Vienna d2 | Seqeron | Old heuristic |
+|---|---|---|---|---|---|
+| GGGGGCUACCUCAGGGGG | 5..12 | 1.872e-3 | 1.28e-4 | 3.225e-4 | 0 |
+| GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA | 23..30 | 0.993777 | 0.976954 | 0.972098 | 0 |
+| AUGCUACCUCAAAAAAAAAAAAAAAAA | 3..10 | 0.993008 | 0.970119 | 0.963046 | 0 |

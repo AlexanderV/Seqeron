@@ -160,6 +160,21 @@
 
 ---
 
+### REG-001..004 / CTXA-001..007 / ACC-001..007: B13 review 2026-09 (duplex register, context, accessibility)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| REG-001 | `FindTargetSites_8mer_DuplexRegisteredOnSeed` — TargetSequence `GGGGGCUACCUCA`, Alignment `||||||||:   :`, Score 0.97 | Bartel 2009 Fig 1; TargetScan `extractSubseqForAlignment` (utrStart−16..utrEnd) |
+| REG-002 | `FindTargetSites_7merM8_Nt1Unpaired_SeedPaired` | same |
+| REG-003 | `FindTargetSites_6merFlushWithMrnaEnd_Nt1PaddedUnpaired` | same |
+| REG-004 | `FindTargetSites_OffsetSixmer_Nt3To8Paired` | same |
+| CTXA-001..007 | `MiRnaAnalyzerMutationTests.AnalyzeTargetContext_*` — weighted local AU `(H10−1)/H10`, 15-nt stop-codon boundary (0-based 13 vs 14), end > middle, invalid coords | Grimson 2007; `getLocalAU_contribution`; `$MIN_DIST_TO_CDS` |
+| ACC-001..007 | `MiRnaAnalyzerMutationTests.CalculateSiteAccessibility_*` — ViennaRNA within 0.01 (0.976954, 0.970119), helix-locked < 0.002, exact delegation to `RnaSecondaryStructure.CalculateRegionUnpairedProbability` incl. 80-nt local context | McCaskill 1990; RNAplfold -W 80 (Bernhart 2006); ViennaRNA 2.x |
+
+Property/metamorphic oracles (`MiRnaProperties.ExtendedWindow`, `BuildClean8mer`, `MiRnaMetamorphicTests.Pairing_PrependFlank_ShiftsSites`) were corrected to the upstream duplex window; they previously encoded the downstream-window bug.
+
+---
+
 ## Could Tests
 
 ### C-001: Context (AU-rich) may influence scoring indirectly via supplementary pairing bonuses
