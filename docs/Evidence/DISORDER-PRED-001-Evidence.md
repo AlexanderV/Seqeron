@@ -237,4 +237,5 @@ None. All parameters traceable to published peer-reviewed sources:
 
 ## Change History
 
+- **2026-09-28** (review-2026-09 B15): Re-confirmed via WebSearch snippets of PMC2676888 that ⟨TOP-IDP⟩ (global and window-by-window) is computed on the scale normalized to min 0 / max 1 and compared with the ML cutoff 0.542 (I = −(⟨TOP-IDP⟩ − 0.542)); localCIDER 0.1.21 (`backend/sequence.py: fraction_disorder_promoting`) independently reproduces the TOP-IDP ranking split (order: W,F,Y,I,M,L,V,N,C). Independent Python recomputation on α-synuclein (P37840): content 102/140, mean 0.5766836603, regions [10–43],[47–66],[94–139]. Hydropathy cross-checked vs Biopython 1.88 `ProtParamData.kd` / `gravy()` (α-syn −0.402857). `CalculateHydropathy` now delegates to `SequenceStatistics.CalculateHydrophobicity`; `windowSize < 1` rejected.
 - **2026-02-12**: Current state: pure TOP-IDP averaging with published cutoff 0.542. All parameters from Campen et al. (2008), Dunker et al. (2001), Kyte & Doolittle (1982).

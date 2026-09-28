@@ -48,31 +48,6 @@ public static class DisorderPredictor
 {
     #region Constants
 
-    // Kyte-Doolittle hydropathy scale
-    private static readonly Dictionary<char, double> Hydropathy = new()
-    {
-        ['A'] = 1.8,
-        ['R'] = -4.5,
-        ['N'] = -3.5,
-        ['D'] = -3.5,
-        ['C'] = 2.5,
-        ['Q'] = -3.5,
-        ['E'] = -3.5,
-        ['G'] = -0.4,
-        ['H'] = -3.2,
-        ['I'] = 4.5,
-        ['L'] = 3.8,
-        ['K'] = -3.9,
-        ['M'] = 1.9,
-        ['F'] = 2.8,
-        ['P'] = -1.6,
-        ['S'] = -0.8,
-        ['T'] = -0.7,
-        ['W'] = -0.9,
-        ['Y'] = -1.3,
-        ['V'] = 4.2
-    };
-
     // TOP-IDP disorder propensity scale
     // Source: Campen et al. (2008) "TOP-IDP-Scale: A New Amino Acid Scale Measuring
     //   Propensity for Intrinsic Disorder" Protein Pept Lett 15(9):956-963.
@@ -231,12 +206,25 @@ public static class DisorderPredictor
     /// <summary>
     /// Predicts intrinsically disordered regions in a protein sequence.
     /// </summary>
+    /// <remarks>
+    /// Per-residue score = mean of the normalized TOP-IDP scale
+    /// S(aa) = (TOP-IDP(aa) − (−0.884)) / 1.871 ∈ [0,1] over a window of
+    /// <paramref name="windowSize"/> residues centered on the residue (⌊w/2⌋ residues on each
+    /// side, truncated at the termini; residues outside the 20 standard amino acids are skipped).
+    /// A residue is disordered when its score ≥ <paramref name="disorderThreshold"/>
+    /// (default 0.542, the maximum-likelihood cutoff of Campen et al. 2008, applied to the
+    /// averaged normalized scale; the paper's index I = −(⟨TOP-IDP⟩ − 0.542) &lt; 0 ⟹ disordered).
+    /// The paper uses an odd window (21); an even <paramref name="windowSize"/> w is centered
+    /// with w/2 residues on each side and therefore spans w + 1 residues.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> &lt; 1.</exception>
     public static DisorderPredictionResult PredictDisorder(
         string sequence,
         int windowSize = 21,
         double disorderThreshold = TopIdpCutoff,
         int minRegionLength = 5)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
         if (string.IsNullOrEmpty(sequence))
         {
             return new DisorderPredictionResult(
@@ -267,6 +255,7 @@ public static class DisorderPredictor
         double disorderThreshold = TopIdpCutoff,
         int minRegionLength = 5)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
         if (string.IsNullOrEmpty(sequence))
         {
             return new DisorderPredictionResult(
@@ -902,24 +891,15 @@ public static class DisorderPredictor
     /// Calculates mean Kyte-Doolittle hydropathy for a sequence.
     /// Source: Kyte &amp; Doolittle (1982) J Mol Biol 157:105-132.
     /// </summary>
-    public static double CalculateHydropathy(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return 0;
-
-        sequence = sequence.ToUpperInvariant();
-        double sum = 0;
-        int count = 0;
-        foreach (char c in sequence)
-        {
-            if (Hydropathy.TryGetValue(c, out double value))
-            {
-                sum += value;
-                count++;
-            }
-        }
-        return count > 0 ? sum / count : 0;
-    }
+    /// <remarks>
+    /// Delegates to the canonical GRAVY implementation
+    /// <see cref="SequenceStatistics.CalculateHydrophobicity(string)"/> (same Kyte-Doolittle
+    /// table as Biopython <c>Bio.SeqUtils.ProtParamData.kd</c>): case-insensitive, residues
+    /// outside the 20 standard amino acids are skipped, and 0 is returned for null/empty input
+    /// or when no standard residue is present.
+    /// </remarks>
+    public static double CalculateHydropathy(string sequence) =>
+        SequenceStatistics.CalculateHydrophobicity(sequence);
 
     #endregion
 }

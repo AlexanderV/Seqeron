@@ -5,7 +5,7 @@
 **Algorithm:** Disorder Prediction
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-03-17
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -56,7 +56,7 @@
 | `DisorderPromotingAminoAcids` | DisorderPredictor | **Moved** | Owned by DISORDER-PROPENSITY-001 |
 | `OrderPromotingAminoAcids` | DisorderPredictor | **Moved** | Owned by DISORDER-PROPENSITY-001 |
 | `AmbiguousAminoAcids` | DisorderPredictor | **Moved** | Owned by DISORDER-PROPENSITY-001 |
-| `CalculateHydropathy(string)` | DisorderPredictor | **Canonical** | Mean Kyte-Doolittle hydropathy |
+| `CalculateHydropathy(string)` | DisorderPredictor | **Delegate** | Mean Kyte-Doolittle hydropathy (GRAVY); delegates to canonical `SequenceStatistics.CalculateHydrophobicity` (2026-09 dedup) |
 
 > **2026-06-14 (DISORDER-PROPENSITY-001):** the five amino-acid propensity/classification
 > methods above were over-claimed by this spec; per the Method Index in `ALGORITHMS_CHECKLIST_V2.md`
@@ -127,6 +127,11 @@
 | C3 | AmbiguousAminoAcids_ContainsExpected | Contains {D, H, M, T} | 4 AA — Dunker (2001) | Classification completeness |
 | C4 | CalculateHydropathy_ReturnsCorrectValues | Mean Kyte-Doolittle hydropathy | Verified against known values | Kyte & Doolittle (1982) |
 | C5 | ClassificationSets_AreDisjointAndCoverAll20 | 8+8+4=20, pairwise disjoint | Verified | Dunker et al. (2001) |
+| R1 | PredictDisorder_AlphaSynuclein_MatchesIndependentTopIdpReference | α-synuclein (P37840, 140 aa), defaults | score[0]=0.472134, [10]=0.542236 (dis.), [69]=0.540684 (ord.), [70]=0.527271, [120]=0.613830, [139]=0.649677; content 102/140; mean 0.576684; regions [10–43],[47–66],[94–139] | Independent Python re-implementation of Campen (2008) |
+| R2 | PredictDisorder_Window7_OrderDisorderTransition_MatchesReference | I10P10E5, w=7 | 25 exact window means (0.21272 … 0.865847); first disordered index 9 | Same reference |
+| R3 | PredictDisorder_NonPositiveWindow_Throws | windowSize 0/−1/−21 | ArgumentOutOfRangeException (PredictDisorder + PredictDisorderRegions) | Input contract |
+| R4 | CalculateHydropathy_MatchesBiopythonGravy | α-syn / 20-AA / MKWVTFISLLLLFSSAYS | −0.402857, −0.49, 1.288889 | Biopython 1.88 ProteinAnalysis.gravy() |
+| R5 | CalculateHydropathy_NonStandardResiduesSkipped_DelegatesToCanonicalGravy | "AXI"/"XXX"/null | 3.15 / 0 / 0; equals SequenceStatistics.CalculateHydrophobicity | Dedup lock |
 
 ---
 
