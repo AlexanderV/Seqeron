@@ -6,7 +6,7 @@
 | Test Unit ID | CRISPR-PAM-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -32,7 +32,18 @@ $$
 targetStart = PAM_{pos} + PAM_{length}, \quad targetEnd = targetStart + guideLength - 1
 $$
 
-The same search is repeated on the reverse complement to identify reverse-strand sites.
+The same search is repeated on the reverse complement to identify reverse-strand sites. Reverse-strand hits are
+reported in the convention used by the CRISPOR reference implementation (`crispor.py`, `findAllPams` +
+`flankSeqIter`): **coordinates are always forward-strand and 0-based**, while **sequences are always read 5'→3' on
+the protospacer strand** (the strand carrying the PAM match). For a reverse-strand hit whose PAM starts at forward
+coordinate $p$:
+
+$$
+targetStart = \begin{cases} p + PAM_{length} & \text{PAM 3' of the guide (Cas9)} \\ p - guideLength & \text{PAM 5' of the guide (Cas12a, CasX)} \end{cases}
+$$
+
+and $PamSequence = \operatorname{revcomp}(seq[p \ldots p + PAM_{length}))$, so the reported PAM always satisfies
+the system's IUPAC motif.
 
 ### 2.4 Properties and Invariants
 
@@ -41,6 +52,9 @@ The same search is repeated on the reverse complement to identify reverse-strand
 | INV-01 | A returned PAM site always satisfies the system's PAM pattern under IUPAC matching | `FindPamSitesCore(...)` yields only after `MatchesPam(...)` succeeds |
 | INV-02 | A returned target sequence always fits within the scanned sequence bounds | The source checks `targetStart >= 0` and `targetEnd < seq.Length` before yielding |
 | INV-03 | Both forward and reverse strands are searched | The implementation scans `seq` and `revComp` |
+| INV-04 | `Position` and `TargetStart` are forward-strand 0-based coordinates on both strands | Reverse-strand hits convert the reverse-complement index back with `forwardPos = len - i - pamLen` and derive `TargetStart` from it |
+| INV-05 | `PamSequence` satisfies the system's PAM motif under IUPAC matching on both strands | It is the matched window read on the protospacer strand (reverse-complemented for reverse hits) |
+| INV-06 | `TargetSequence` equals the forward window `[TargetStart, TargetStart + guideLength)`, reverse-complemented for reverse-strand hits | Both are sliced from the same scanned strand |
 
 ## 3. Contract
 
@@ -55,10 +69,10 @@ The same search is repeated on the reverse complement to identify reverse-strand
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `Position` | `int` | Start position of the PAM |
-| `PamSequence` | `string` | Actual matched PAM sequence |
-| `TargetSequence` | `string` | Guide-length target extracted from the scanned strand |
-| `TargetStart` | `int` | Start coordinate recorded for the target sequence |
+| `Position` | `int` | Forward-strand, 0-based start position of the PAM (both strands) |
+| `PamSequence` | `string` | The matched PAM read 5'→3' on the protospacer strand (reverse complement of the forward bases for reverse-strand hits) |
+| `TargetSequence` | `string` | Guide-length protospacer read 5'→3' on the protospacer strand |
+| `TargetStart` | `int` | Forward-strand, 0-based start coordinate of the protospacer (both strands) |
 | `IsForwardStrand` | `bool` | `true` for forward-strand matches, `false` for reverse-strand matches |
 | `System` | `CrisprSystem` | System metadata including name, PAM pattern, guide length, PAM orientation, and description |
 
@@ -117,7 +131,7 @@ IUPAC codes used by the PAM matcher in the original document:
 
 ### 5.2 Current Behavior
 
-The current implementation searches both forward and reverse strands, uses `IupacHelper.MatchesIupac(...)` for ambiguity-code evaluation, and returns `PamSite` records carrying the matched PAM, target sequence, strand, and system metadata. For reverse-strand matches, `Position` is converted back to a forward-strand coordinate and `PamSequence` is reverse-complemented back to the forward-oriented PAM string. `TargetSequence` is extracted from the reverse-complement scan path, and `TargetStart` is recorded from that same reverse-strand traversal.
+The current implementation searches both forward and reverse strands, uses `IupacHelper.MatchesIupac(...)` for ambiguity-code evaluation, and returns `PamSite` records carrying the matched PAM, target sequence, strand, and system metadata. For reverse-strand matches, `Position` is converted back to a forward-strand coordinate (`len - i - pamLen`) and `TargetStart` is derived from it (`Position + pamLen` for PAM-after systems, `Position - guideLength` for PAM-before systems), so both coordinates are forward-strand on both strands. `PamSequence` and `TargetSequence` are the windows read on the protospacer strand, matching CRISPOR's `pamSeq` / `flankSeq`; a reverse-strand SpCas9 hit therefore reports `TGG` (not the forward-strand `CCA`).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -152,7 +166,7 @@ The current implementation searches both forward and reverse strands, uses `Iupa
 
 ### 6.2 Limitations
 
-The current implementation is a sequence-pattern detector rather than a full CRISPR activity model. It does not score cleavage efficiency, off-target risk, chromatin accessibility, or non-listed PAM systems, and reverse-strand target metadata follows the current scan-path representation used in source.
+The current implementation is a sequence-pattern detector rather than a full CRISPR activity model. It does not score cleavage efficiency, off-target risk, chromatin accessibility, or non-listed PAM systems. `LbCas12a` is configured with a 24-nt guide while CRISPOR uses 23 nt for every Cpf1 PAM; both lie inside the published 20-24 nt functional range (Zetsche et al. 2015).
 
 ## 8. References
 
@@ -161,3 +175,6 @@ The current implementation is a sequence-pattern detector rather than a full CRI
 3. Jinek M, et al. (2012). "A programmable dual-RNA-guided DNA endonuclease in adaptive bacterial immunity". Science 337(6096):816-821.
 4. Zetsche B, et al. (2015). "Cpf1 is a single RNA-guided endonuclease of a class 2 CRISPR-Cas system". Cell 163(3):759-771.
 5. Anders C, et al. (2014). "Structural basis of PAM-dependent target DNA recognition by the Cas9 endonuclease". Nature 513(7519):569-573.
+6. Ran FA, et al. (2015). "In vivo genome editing using Staphylococcus aureus Cas9". Nature 520(7546):186-191.
+7. Liu J-J, et al. (2019). "CasX enzymes comprise a distinct family of RNA-guided genome editors". Nature 566(7743):218-223.
+8. Concordet J-P, Haeussler M (2018). "CRISPOR: intuitive guide selection for CRISPR/Cas9 genome editing experiments and screens". Nucleic Acids Research 46(W1):W242-W245. Reference implementation: https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py (`findAllPams`, `flankSeqIter`, `setupPamInfo`) — coordinate/orientation convention and guide lengths cross-checked 2026-09-28; see `docs/Evidence/CRISPR-PAM-001-Evidence.md`.

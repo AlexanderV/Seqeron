@@ -23,6 +23,7 @@
 
 | Source | Type | Used For |
 |--------|------|----------|
+| CRISPOR `crispor.py` (maximilianh/crisporWebsite, master, fetched 2026-09-28) | Reference implementation | Coordinate/orientation convention (`findAllPams`, `flankSeqIter`), PAM + guide-length table (`setupPamInfo`), IUPAC matcher (`patMatch`); 136-site numerical cross-check — see `docs/Evidence/CRISPR-PAM-001-Evidence.md` |
 | Wikipedia: Protospacer adjacent motif | Reference | PAM definitions, canonical NGG, PAM position (3'/5') |
 | Wikipedia: CRISPR | Reference | System types overview |
 | Wikipedia: Cas9 | Reference | SpCas9 NGG 20 nt spacer, NAG as tolerated secondary PAM |
@@ -45,7 +46,7 @@
 | M5 | GetSystem indicates PAM position (before/after target) for all 7 systems | Cas9=3' after, Cas12a/CasX=5' before | Wikipedia PAM, Zetsche 2015, Liu 2019 |
 | M6 | FindPamSites finds NGG on forward strand with correct position and target start | Core detection with position verification | Wikipedia PAM |
 | M7 | FindPamSites matches all NGG variants (AGG, CGG, TGG, GGG) with position | N = any nucleotide per IUPAC; position verified | IUPAC nomenclature |
-| M8 | FindPamSites searches reverse strand with exact PAM, position, and count | Both strands searched; PAM reverse-complemented; exact coordinates | Biology: guide RNA targets both strands |
+| M8 | FindPamSites searches reverse strand with exact PAM, position, target start and count | Both strands searched; PAM read on the protospacer strand; forward-strand coordinates | CRISPOR `flankSeqIter`; biology: guide RNA targets both strands |
 | M9 | FindPamSites returns no sites on either strand for PAM-free sequence | No false positives on forward or reverse | Core functionality |
 | M10 | FindPamSites returns empty for empty sequence | Edge case | Core functionality |
 | M11 | FindPamSites handles case-insensitive input | Usability requirement | Implementation spec |
@@ -62,6 +63,9 @@
 |----|-----------|-----------|--------|
 | S1 | FindPamSites excludes sites where target would be out of bounds (Cas9 and Cas12a) | Boundary safety for both PAM-before and PAM-after systems | Implementation spec |
 | S2 | FindPamSites returns correct forward-strand coordinates for reverse strand hits | Coordinate conversion: revcomp position → forward position | Implementation spec |
+| S2b | Reverse-strand SpCas9 sites match CRISPOR field-by-field (pamStart, guideStart, pamSeq, guideSeq) | Locks the reference convention: forward-strand coordinates, protospacer-strand sequences | CRISPOR `findAllPams` + `flankSeqIter` |
+| S2c | Reverse-strand Cas12a site matches CRISPOR (`guideStart = Position - guideLength`) | PAM-before systems mirror the guide side on the reverse strand | CRISPOR `flankSeqIter`, `pamIsFirst` branch |
+| S2d | For every site (either strand, 4 systems) `TargetSequence` = forward window `[TargetStart, +guideLength)` (revcomp on reverse) and `PamSequence` matches the motif | Invariants INV-04/05/06 hold jointly | CRISPOR convention, IUPAC |
 | S3 | FindPamSites handles overlapping PAM sites — exact count and positions verified | Each PAM position defines a unique guide RNA | Wikipedia PAM, Hsu 2013 |
 | S4 | GetSystem throws ArgumentException for unknown system type | Input validation | .NET conventions |
 | S5 | FindPamSites with null DnaSequence throws ArgumentNullException | Input validation | .NET conventions |
@@ -78,12 +82,12 @@
 
 1. **PAM pattern matching**: A site is returned if and only if the PAM pattern matches using IUPAC rules
 2. **Target extraction**: Target sequence length equals the system's guide length; content matches the genomic region
-3. **Strand correctness**: Forward strand sites have PAM at reported position; reverse strand positions are converted to forward-strand coordinates
+3. **Strand correctness / coordinate convention** (CRISPOR `findAllPams` + `flankSeqIter`): `Position` and `TargetStart` are forward-strand 0-based coordinates on **both** strands; `PamSequence` and `TargetSequence` are read 5'→3' on the protospacer strand, so `PamSequence` always satisfies the system's PAM motif and, for reverse-strand hits, `TargetSequence == revcomp(seq[TargetStart, TargetStart+guideLength))`
 4. **No self-targeting**: Empty input returns empty output (no crashes, no false positives)
 
 ## Coverage Classification
 
-**Total: 58 tests in canonical file (was 56 before classification — 7 duplicates removed, 2 missing tests added, 7 parametric cases added)**
+**Total: 64 tests in canonical file (58 + 6 added 2026-09-28 by the review campaign: S2b, S2c and S2d with 4 parametric cases)**
 
 ### Summary
 
@@ -137,6 +141,9 @@
 | 6 | `FindPamSites_SpCas9_MatchesAllNGG_Variants` (4 cases) | M7 | ✅ |
 | 7 | `FindPamSites_SpCas9_SearchesReverseStrand` | M8 | ✅ |
 | 8 | `FindPamSites_SpCas9_ReverseStrand_PositionConversion` | S2 | ✅ |
+| 8b | `FindPamSites_SpCas9_ReverseStrand_MatchesCrisporConvention` | S2b | ✅ |
+| 8c | `FindPamSites_Cas12a_ReverseStrand_MatchesCrisporConvention` | S2c | ✅ |
+| 8d | `FindPamSites_AllSites_AreConsistentInForwardCoordinates` (4 cases) | S2d | ✅ |
 | 9 | `FindPamSites_SpCas9_CaseInsensitive` | M11 | ✅ |
 | 10 | `FindPamSites_SpCas9_ReturnsTargetSequence_WithCorrectContent` | M12 | ✅ |
 | 11 | `FindPamSites_NoPamPresent_ReturnsEmpty` | M9 | ✅ |
@@ -163,14 +170,16 @@
 
 ### Classification Summary
 
-- ✅ Covered: 58 tests (31 methods, 26 parametric cases)
+- ✅ Covered: 64 tests (34 methods, 30 parametric cases)
 - ❌ Missing: 0
 - ⚠ Weak: 0
 - 🔁 Duplicate: 0
 
 ## Open Questions
 
-None — all PAM sequences, guide lengths, and PAM positions are verified against peer-reviewed literature.
+- `LbCas12a` is configured with a 24-nt guide; CRISPOR uses 23 nt for every Cpf1 PAM and Zetsche et al. (2015) treat
+  23 nt as canonical (20-24 functional). Left unchanged in the 2026-09 review because no opened source supports
+  either value over the other for LbCas12a specifically — recorded for the ledger.
 
 ## ASSUMPTIONS
 
@@ -188,4 +197,5 @@ None — all behaviors are grounded in external sources.
 - [x] No assumptions — all design decisions backed by external sources
 - [x] No duplicates — each test serves a distinct purpose
 - [x] Coverage classification complete: 0 missing, 0 weak, 0 duplicate
-- [x] Tests passing (58/58)
+- [x] Tests passing (64/64, 2026-09-28)
+- [x] Reverse-strand coordinate/orientation convention cross-checked numerically against CRISPOR (136 sites, 0 mismatches)

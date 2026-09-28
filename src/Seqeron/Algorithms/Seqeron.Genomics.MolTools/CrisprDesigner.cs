@@ -114,15 +114,26 @@ public static class CrisprDesigner
 
                 if (revTargetStart >= 0 && revTargetEnd < revComp.Length)
                 {
-                    // Convert position back to forward strand coordinates
+                    // Convert position back to forward strand coordinates.
+                    // Convention (CRISPOR crispor.py findAllPams/flankSeqIter): coordinates are
+                    // always forward-strand, sequences are always read on the protospacer strand.
                     int forwardPos = seq.Length - i - pamPattern.Length;
+
+                    // Forward-strand start of the protospacer. On the reverse strand the guide
+                    // lies on the opposite side of the PAM in forward coordinates:
+                    //   Cas9 (PAM 3' of guide)   -> guide starts just after the PAM;
+                    //   Cas12a (PAM 5' of guide) -> guide starts guideLength bases before it.
+                    int forwardTargetStart = pamAfterTarget
+                        ? forwardPos + pamPattern.Length
+                        : forwardPos - guideLength;
+
                     string target = revComp.Substring(revTargetStart, guideLength);
 
                     yield return new PamSite(
                         Position: forwardPos,
-                        PamSequence: DnaSequence.GetReverseComplementString(revComp.Substring(i, pamPattern.Length)),
+                        PamSequence: revComp.Substring(i, pamPattern.Length),
                         TargetSequence: target,
-                        TargetStart: revTargetStart,
+                        TargetStart: forwardTargetStart,
                         IsForwardStrand: false,
                         System: system);
                 }
@@ -1036,15 +1047,26 @@ public sealed record CrisprSystem(
 /// <summary>
 /// Represents a PAM site in a sequence.
 /// </summary>
-/// <param name="Position">PAM start coordinate, always expressed on the forward strand.</param>
-/// <param name="PamSequence">The matched PAM sequence (forward-strand orientation).</param>
-/// <param name="TargetSequence">The guide/protospacer sequence sliced from the strand on which the PAM was found.</param>
+/// <remarks>
+/// Coordinate/orientation convention (matches the CRISPOR reference implementation,
+/// <c>crispor.py</c> <c>findAllPams</c> + <c>flankSeqIter</c>): <b>coordinates are always
+/// forward-strand, 0-based</b>; <b>sequences are always read on the protospacer strand</b>
+/// (the strand the PAM was matched on), so <see cref="PamSequence"/> always satisfies the
+/// system's PAM motif under IUPAC matching and <see cref="TargetSequence"/> is the guide as
+/// it would be ordered.
+/// </remarks>
+/// <param name="Position">PAM start coordinate, always expressed on the forward strand (0-based).</param>
+/// <param name="PamSequence">
+/// The matched PAM, read 5'→3' on the strand it was found on. For reverse-strand hits this is
+/// the reverse complement of the forward-strand bases at <see cref="Position"/> (e.g. an SpCas9
+/// hit reported as <c>TGG</c> reads <c>CCA</c> on the forward strand).
+/// </param>
+/// <param name="TargetSequence">The guide/protospacer sequence read 5'→3' on the strand the PAM was found on.</param>
 /// <param name="TargetStart">
-/// Start index of <see cref="TargetSequence"/> on the strand the hit was found on.
-/// For forward-strand hits (<see cref="IsForwardStrand"/> == true) this is a forward-strand
-/// index. For reverse-strand hits it is an index into the reverse-complement string (used to
-/// slice <see cref="TargetSequence"/>), NOT a forward-strand coordinate — unlike
-/// <see cref="Position"/>, which is always forward-strand.
+/// Forward-strand, 0-based start coordinate of the protospacer (the leftmost of the
+/// <see cref="CrisprSystem.GuideLength"/> bases covered by <see cref="TargetSequence"/>), for
+/// both strands. For reverse-strand hits <see cref="TargetSequence"/> is therefore the reverse
+/// complement of the forward bases <c>[TargetStart, TargetStart + GuideLength)</c>.
 /// </param>
 /// <param name="IsForwardStrand">True if the PAM was found on the forward strand; false for the reverse strand.</param>
 /// <param name="System">The CRISPR system whose PAM/guide-length parameters produced this site.</param>

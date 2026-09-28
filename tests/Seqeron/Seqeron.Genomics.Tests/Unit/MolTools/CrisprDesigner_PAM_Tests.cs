@@ -122,7 +122,9 @@ public class CrisprDesigner_PAM_Tests
         // Forward: CCA at start, no GG anywhere → no forward hits
         // RevComp ends in ...TGG → NGG match on reverse strand
         // ForwardPos = len - revIdx - pamLen = 0
-        // PamSequence stored as revcomp of TGG = CCA
+        // Reference (CRISPOR crispor.py findAllPams + flankSeqIter, guide 20 / PAM NGG):
+        //   {'pamStart': 0, 'strand': '-', 'guideStart': 3, 'pamSeq': 'TGG',
+        //    'guideSeq': 'ACGTACGTACGTACGTACGT'}
         var sequence = new DnaSequence("CCAACGTACGTACGTACGTACGTACGTACGT");
         var sites = CrisprDesigner.FindPamSites(sequence, CrisprSystemType.SpCas9).ToList();
 
@@ -134,12 +136,105 @@ public class CrisprDesigner_PAM_Tests
         Assert.Multiple(() =>
         {
             Assert.That(site.Position, Is.EqualTo(0),
-                "CCA at forward pos 0 → reverse strand PAM maps to forward position 0");
-            Assert.That(site.PamSequence, Is.EqualTo("CCA"),
-                "PamSequence is reverse complement of TGG back to forward strand");
-            Assert.That(site.TargetSequence.Length, Is.EqualTo(20),
-                "Reverse strand target should be 20bp");
+                "CCA at forward pos 0 → reverse strand PAM maps to forward position 0 (CRISPOR pamStart)");
+            Assert.That(site.PamSequence, Is.EqualTo("TGG"),
+                "PamSequence is read on the protospacer strand and satisfies NGG (CRISPOR pamSeq)");
+            Assert.That(site.TargetStart, Is.EqualTo(3),
+                "TargetStart is a forward-strand coordinate for reverse hits too (CRISPOR guideStart)");
+            Assert.That(site.TargetSequence, Is.EqualTo("ACGTACGTACGTACGTACGT"),
+                "Reverse strand protospacer read 5'→3' on its own strand (CRISPOR guideSeq)");
         });
+    }
+
+    [Test]
+    [Description("S2b: reverse-strand sites use forward-strand coordinates and protospacer-strand sequences " +
+                 "(values locked to CRISPOR crispor.py findAllPams + flankSeqIter)")]
+    public void FindPamSites_SpCas9_ReverseStrand_MatchesCrisporConvention()
+    {
+        // CRISPOR reference output for this sequence (pam=NGG, GUIDELEN=20), reverse strand only:
+        //   {'pamStart': 23, 'guideStart': 26, 'pamSeq': 'TGG', 'guideSeq': 'ATCCGACTGCAACTGGTCAA'}
+        //   {'pamStart': 30, 'guideStart': 33, 'pamSeq': 'TGG', 'guideSeq': 'CTTACGGATCCGACTGCAAC'}
+        //   {'pamStart': 46, 'guideStart': 49, 'pamSeq': 'CGG', 'guideSeq': 'AGCTAGCTAGGCCAAGCTTA'}
+        //   {'pamStart': 58, 'guideStart': 61, 'pamSeq': 'AGG', 'guideSeq': 'GATCCGGTACCTAGCTAGCT'}
+        const string seq = "ACGTACGTACGTACGTACGTAGGCCATTGACCAGTTGCAGTCGGATCCGTAAGCTTGGCCTAGCTAGCTAGGTACCGGATCCAAGCTT";
+        var expected = new (int Position, int TargetStart, string Pam, string Target)[]
+        {
+            (23, 26, "TGG", "ATCCGACTGCAACTGGTCAA"),
+            (30, 33, "TGG", "CTTACGGATCCGACTGCAAC"),
+            (46, 49, "CGG", "AGCTAGCTAGGCCAAGCTTA"),
+            (58, 61, "AGG", "GATCCGGTACCTAGCTAGCT"),
+        };
+
+        var reverse = CrisprDesigner.FindPamSites(new DnaSequence(seq), CrisprSystemType.SpCas9)
+            .Where(s => !s.IsForwardStrand)
+            .OrderBy(s => s.Position)
+            .ToList();
+
+        Assert.That(reverse, Has.Count.EqualTo(expected.Length), "reverse-strand site count (CRISPOR)");
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < expected.Length; i++)
+            {
+                Assert.That(reverse[i].Position, Is.EqualTo(expected[i].Position), $"site {i} pamStart");
+                Assert.That(reverse[i].TargetStart, Is.EqualTo(expected[i].TargetStart), $"site {i} guideStart");
+                Assert.That(reverse[i].PamSequence, Is.EqualTo(expected[i].Pam), $"site {i} pamSeq");
+                Assert.That(reverse[i].TargetSequence, Is.EqualTo(expected[i].Target), $"site {i} guideSeq");
+            }
+        });
+    }
+
+    [Test]
+    [Description("S2c: Cas12a (PAM 5' of the protospacer) reverse-strand site — forward-strand guideStart " +
+                 "= Position - guideLength (CRISPOR crispor.py flankSeqIter, pamIsFirst branch)")]
+    public void FindPamSites_Cas12a_ReverseStrand_MatchesCrisporConvention()
+    {
+        // CRISPOR reference output (pam=TTTV, GUIDELEN=23, pamIsFirst=True):
+        //   {'pamStart': 0,  'strand': '+', 'guideStart': 4,  'pamSeq': 'TTTA', 'guideSeq': 'ACGTACGTACGTACGTACGTACG'}
+        //   {'pamStart': 35, 'strand': '-', 'guideStart': 12, 'pamSeq': 'TTTA', 'guideSeq': 'CGTACGTACGTACGTACGTACGT'}
+        const string seq = "TTTAACGTACGTACGTACGTACGTACGTACGTACGTAAACCATTGACCAGTTGCAGTCGGATCCGTAAGCTTGG";
+
+        var sites = CrisprDesigner.FindPamSites(new DnaSequence(seq), CrisprSystemType.Cas12a).ToList();
+        var reverse = sites.Where(s => !s.IsForwardStrand).ToList();
+
+        Assert.That(reverse, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(reverse[0].Position, Is.EqualTo(35), "pamStart (forward coordinates)");
+            Assert.That(reverse[0].TargetStart, Is.EqualTo(12), "guideStart = pamStart - guideLength on the reverse strand");
+            Assert.That(reverse[0].PamSequence, Is.EqualTo("TTTA"), "PAM read on the protospacer strand satisfies TTTV");
+            Assert.That(reverse[0].TargetSequence, Is.EqualTo("CGTACGTACGTACGTACGTACGT"));
+        });
+    }
+
+    [Test]
+    [Description("INV: for every site (either strand) TargetSequence is the forward window " +
+                 "[TargetStart, TargetStart+GuideLength) read on the protospacer strand, and PamSequence matches the motif")]
+    [TestCase(CrisprSystemType.SpCas9)]
+    [TestCase(CrisprSystemType.SaCas9)]
+    [TestCase(CrisprSystemType.Cas12a)]
+    [TestCase(CrisprSystemType.CasX)]
+    public void FindPamSites_AllSites_AreConsistentInForwardCoordinates(CrisprSystemType systemType)
+    {
+        const string seq = "ACGTACGTACGTACGTACGTAGGCCATTGACCAGTTGCAGTCGGATCCGTAAGCTTGGCCTAGCTAGCTAGGTACCGGATCCAAGCTT" +
+                           "TTTATTTCGGTCAGTCAGTCAGGAATACCATTGACCAGTTGCAGTCGGATCCAAACCCTTTGTCA";
+        var system = CrisprDesigner.GetSystem(systemType);
+        var sites = CrisprDesigner.FindPamSites(new DnaSequence(seq), systemType).ToList();
+
+        Assert.That(sites, Is.Not.Empty, "the template contains hits for every tested system");
+        foreach (var site in sites)
+        {
+            string window = seq.Substring(site.TargetStart, system.GuideLength);
+            string expectedTarget = site.IsForwardStrand ? window : DnaSequence.GetReverseComplementString(window);
+            Assert.That(site.TargetSequence, Is.EqualTo(expectedTarget),
+                $"protospacer at forward [{site.TargetStart}, {site.TargetStart + system.GuideLength})");
+
+            string pamWindow = seq.Substring(site.Position, system.PamSequence.Length);
+            string expectedPam = site.IsForwardStrand ? pamWindow : DnaSequence.GetReverseComplementString(pamWindow);
+            Assert.That(site.PamSequence, Is.EqualTo(expectedPam), "PAM read on the protospacer strand");
+            for (int i = 0; i < system.PamSequence.Length; i++)
+                Assert.That(IupacHelper.MatchesIupac(site.PamSequence[i], system.PamSequence[i]), Is.True,
+                    $"PAM base {i} of {site.PamSequence} must match motif {system.PamSequence}");
+        }
     }
 
     [Test]

@@ -103,8 +103,8 @@ public class MolToolsCombinatorialTests
             site.TargetSequence.Length.Should().Be(system.GuideLength, "the protospacer is guide-length");
             site.System.PamSequence.Should().Be(system.PamSequence);
 
-            // The PAM, read on the strand it was found on, satisfies the IUPAC motif.
-            string pamOnStrand = site.IsForwardStrand ? site.PamSequence : RevComp(site.PamSequence);
+            // PamSequence is always read on the strand it was found on, so it satisfies the IUPAC motif directly.
+            string pamOnStrand = site.PamSequence;
             for (int j = 0; j < system.PamSequence.Length; j++)
                 IupacHelper.MatchesIupac(pamOnStrand[j], system.PamSequence[j]).Should().BeTrue(
                     $"PAM char {j} of \"{pamOnStrand}\" must match motif {system.PamSequence}");

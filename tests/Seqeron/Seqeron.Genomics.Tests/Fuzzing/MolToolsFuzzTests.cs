@@ -977,17 +977,14 @@ public class MolToolsFuzzTests
         var sites = CrisprDesigner.FindPamSites(seq, CrisprSystemType.SpCas9).ToList();
 
         sites.Should().NotBeEmpty("a 2000-nt random sequence is overwhelmingly likely to contain NGG sites with room for a guide");
-        // INV-01 is strand-aware: a forward site's PamSequence matches NGG (pos1=G, pos2=G);
-        // a reverse site's PamSequence is reverse-complemented back to forward orientation, so it
-        // reads as CCN (pos0=C, pos1=C) — the reverse complement of an NGG read on the other strand.
+        // INV-01 is strand-independent: PamSequence is always read on the protospacer strand
+        // (CRISPOR convention), so every site — forward or reverse — reads NGG.
         sites.Should().OnlyContain(s =>
                 s.PamSequence.Length == 3 &&
-                (s.IsForwardStrand
-                    ? (s.PamSequence[1] == 'G' && s.PamSequence[2] == 'G')
-                    : (s.PamSequence[0] == 'C' && s.PamSequence[1] == 'C')) &&  // INV-01
+                s.PamSequence[1] == 'G' && s.PamSequence[2] == 'G' &&           // INV-01
                 s.TargetSequence.Length == 20 &&                                // guide length
-                s.TargetStart >= 0,                                             // INV-02
-            "every site on random input is well-formed: an NGG PAM (forward) or its CCN reverse-complement (reverse) with a 20-nt in-bounds target");
+                s.TargetStart >= 0 && s.TargetStart + 20 <= seq.Length,         // INV-02
+            "every site on random input is well-formed: an NGG PAM read on its own strand with a 20-nt in-bounds target");
     }
 
     #endregion
