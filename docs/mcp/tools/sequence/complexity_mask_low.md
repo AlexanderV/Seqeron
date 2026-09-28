@@ -14,7 +14,7 @@ Mask low-complexity regions using DUST algorithm.
 
 ## Description
 
-Masks low-complexity regions in a DNA sequence using the DUST algorithm. This is commonly used as a preprocessing step before BLAST searches or other sequence analyses to prevent spurious matches caused by simple/repetitive sequences. Low-complexity regions are replaced with a mask character (typically 'N').
+Masks low-complexity regions in a DNA sequence using the symmetric DUST (SDUST) algorithm of Morgulis et al. (2006) — output identical to lh3/sdust and NCBI dustmasker: every perfect interval of at most `windowSize` bases whose DUST score `Σ c(c−1)/2 / (ℓ−1)` exceeds `threshold` is masked. This is commonly used as a preprocessing step before BLAST searches or other sequence analyses to prevent spurious matches caused by simple/repetitive sequences. Low-complexity regions are replaced with a mask character (typically 'N').
 
 ## Core Documentation Reference
 
@@ -25,7 +25,7 @@ Masks low-complexity regions in a DNA sequence using the DUST algorithm. This is
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The DNA sequence to mask (must be valid DNA) |
-| `windowSize` | integer | No | Window size for analysis (default: 64, minimum: 1) |
+| `windowSize` | integer | No | Window size for analysis (default: 64; values 1–2 are rejected by the core, which requires ≥ 3) |
 | `threshold` | number | No | DUST threshold above which to mask (default: 2.0) |
 | `maskChar` | string | No | Character to use for masking (default: 'N') |
 
@@ -92,7 +92,7 @@ Masks low-complexity regions in a DNA sequence using the DUST algorithm. This is
 
 ## Performance
 
-- **Time Complexity:** O(n × w) where n is sequence length and w is window size
+- **Time Complexity:** O(n × w) typical; O(n × w³) worst case (SDUST perfect-interval search), w = window size
 - **Space Complexity:** O(n) for the masked sequence
 
 ## See Also

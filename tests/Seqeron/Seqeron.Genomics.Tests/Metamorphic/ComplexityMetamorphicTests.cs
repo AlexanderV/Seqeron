@@ -73,7 +73,7 @@ public class ComplexityMetamorphicTests
     // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 229.
     //
     // API under test (SequenceComplexity.CalculateDustScore):
-    //   Σ_t c_t·(c_t−1)/2 over overlapping triplets, divided by the word count; HIGHER ⇒ LOWER
+    //   Σ_t c_t·(c_t−1)/2 over overlapping triplets, divided by (word count − 1); HIGHER ⇒ LOWER
     //   complexity (Morgulis et al. 2006).
     //
     // Relations (derived from the triplet-count sum, NOT from output):

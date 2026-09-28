@@ -475,25 +475,25 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateDustScore_LowComplexity_ReturnsHigh()
     {
-        // "AAAAAAAAAAAAAAAAAA" (L=18): 16 AAA triplets
-        // score = 16×15/2 = 120, DUST = 120/(L-2) = 120/16 = 7.5
-        // Source: Li (2025) longdust restatement S = Σ c(c-1)/2 / (L-2); Morgulis et al. (2006)
+        // "AAAAAAAAAAAAAAAAAA" (L=18): ℓ = 16 AAA triplets
+        // Σ = 16×15/2 = 120, DUST = 120/(ℓ-1) = 120/15 = 8.0
+        // Source: Morgulis et al. (2006); NCBI symdust / lh3/sdust normalise by ℓ-1
         var sequence = new DnaSequence("AAAAAAAAAAAAAAAAAA");
         double dust = SequenceComplexity.CalculateDustScore(sequence);
 
-        Assert.That(dust, Is.EqualTo(7.5).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(8.0).Within(1e-10));
     }
 
     [Test]
     public void CalculateDustScore_HighComplexity_ReturnsLow()
     {
         // "ATGCTAGCATGCTAGC" (L=16): 14 triplets, ATG,TGC,GCT,CTA,TAG,AGC each ×2 (GCA,CAT ×1)
-        // Σ = 6×(2·1/2) = 6, DUST = 6/(L-2) = 6/14 = 3/7
-        // Source: Li (2025) longdust S = Σ c(c-1)/2 / (L-2)
+        // Σ = 6×(2·1/2) = 6, DUST = 6/(ℓ-1) = 6/13
+        // Source: Morgulis et al. (2006); lh3/sdust (ℓ-1 normaliser)
         var sequence = new DnaSequence("ATGCTAGCATGCTAGC");
         double dust = SequenceComplexity.CalculateDustScore(sequence);
 
-        Assert.That(dust, Is.EqualTo(6.0 / 14.0).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(6.0 / 13.0).Within(1e-10));
     }
 
     [Test]
@@ -515,10 +515,10 @@ public class SequenceComplexityTests
     public void CalculateDustScore_StringOverload_ReturnsExact()
     {
         // "AAAAAAA" (L=7): 5 triplets, all AAA
-        // score = 5×4/2 = 10, DUST = 10/(L-2) = 10/5 = 2.0
-        // Source: Li (2025) longdust S = Σ c(c-1)/2 / (L-2)
+        // Σ = 5×4/2 = 10, DUST = 10/(ℓ-1) = 10/4 = 2.5 (sdust -t 20 masks a 7-A run)
+        // Source: Morgulis et al. (2006); lh3/sdust (ℓ-1 normaliser)
         double dust = SequenceComplexity.CalculateDustScore("AAAAAAA");
-        Assert.That(dust, Is.EqualTo(2.0).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(2.5).Within(1e-10));
     }
 
     #endregion
@@ -529,8 +529,7 @@ public class SequenceComplexityTests
     public void MaskLowComplexity_MasksLowComplexityWindows()
     {
         // ATGC×16 (64bp) + A×64 + ATGC×16 (64bp) = 192bp total, window=64, threshold=2.0
-        // ATGC×16 window DUST ≈ 7.4 (4 recurring triplets), A×64 DUST = 31.0
-        // All windows exceed threshold=2.0, so entire sequence is masked
+        // Reference: lh3/sdust -w 64 -t 20 reports the single interval [0,192) ⇒ all masked
         var sequence = new DnaSequence(string.Concat(Enumerable.Repeat("ATGC", 16)) + new string('A', 64) + string.Concat(Enumerable.Repeat("ATGC", 16)));
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 2.0);
 
@@ -541,7 +540,7 @@ public class SequenceComplexityTests
     [Test]
     public void MaskLowComplexity_PreservesHighComplexity()
     {
-        // Use a longer and more varied sequence to avoid false positives
+        // Reference: lh3/sdust -w 64 -t 100 reports no interval for this 78-bp sequence
         var sequence = new DnaSequence("ATGCTAGCATGCAATGCTAGCATGCAATGCTAGCATGCAATGCTAGCATGCAATGCTAGCATGCAATGCTAGCATGCA");
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 10.0);
 
@@ -551,8 +550,7 @@ public class SequenceComplexityTests
     [Test]
     public void MaskLowComplexity_CustomMaskChar()
     {
-        // 100A, window=64, threshold=1.0: DUST(A×64) = 31.0 >> 1.0
-        // All positions covered by at least one window are masked with 'X'
+        // 100A, window=64, threshold=1.0: reference lh3/sdust -w 64 -t 10 ⇒ [0,100) masked with 'X'
         var sequence = new DnaSequence(new string('A', 100));
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 1.0, maskChar: 'X');
 
@@ -659,7 +657,7 @@ public class SequenceComplexityTests
     [Test]
     public void MaskLowComplexity_ShortSequence_PreservesOriginal()
     {
-        // When sequence length < windowSize, no windows are processed → original returned
+        // ATGC: two distinct triplets, raw score 0 is not > 0.0 ⇒ nothing masked (sdust -t 0: no output)
         var sequence = new DnaSequence("ATGC");
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 0.0);
 

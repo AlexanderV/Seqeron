@@ -14,7 +14,7 @@ Calculate DUST score for low-complexity filtering.
 
 ## Description
 
-Calculates the DUST score for a DNA sequence, which is used for low-complexity filtering in BLAST and other sequence analysis tools. The DUST algorithm identifies simple/repetitive regions by counting triplet word frequencies. Higher scores indicate lower complexity (more repetitive sequences).
+Calculates the DUST score for a DNA sequence, which is used for low-complexity filtering in BLAST and other sequence analysis tools. The DUST algorithm identifies simple/repetitive regions by counting triplet word frequencies: score = Σ_t c_t·(c_t − 1)/2 / (ℓ − 1), where ℓ = L − wordSize + 1 is the number of overlapping words (Morgulis et al. 2006; the normaliser used by NCBI dustmasker and lh3/sdust). Higher scores indicate lower complexity (more repetitive sequences); fewer than two words yield 0.
 
 ## Core Documentation Reference
 
@@ -62,7 +62,7 @@ Calculates the DUST score for a DNA sequence, which is used for low-complexity f
 **Response:**
 ```json
 {
-  "dustScore": 0.45,
+  "dustScore": 0.4,
   "wordSize": 3
 }
 ```
@@ -85,7 +85,7 @@ Calculates the DUST score for a DNA sequence, which is used for low-complexity f
 **Response:**
 ```json
 {
-  "dustScore": 4.5,
+  "dustScore": 5.0,
   "wordSize": 3
 }
 ```

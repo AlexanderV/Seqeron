@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceComplexity.MaskLowComplexity",
   "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L411",
-  "description": "Mask low-complexity windows of a DNA sequence with a chosen character. A window is masked when its DUST score exceeds the threshold. Returns a same-length masked string.",
+  "description": "Mask low-complexity regions of a DNA sequence with symmetric DUST (SDUST, Morgulis 2006; same output as lh3/sdust / dustmasker): every perfect interval of at most windowSize bases whose DUST score exceeds the threshold is masked. Returns a same-length masked string.",
   "inputSchema": {
     "type": "object",
     "properties": {

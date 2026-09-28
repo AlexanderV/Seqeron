@@ -15,10 +15,10 @@ DUST low-complexity score of a DNA sequence.
 ## Description
 
 Computes the DUST low-complexity score (Morgulis et al. 2006) as
-`Σ_t c_t·(c_t − 1)/2` over all overlapping words `t`, divided by the number of words
-`L − wordSize + 1`. A **higher** score indicates **lower** complexity (more repeated words);
-fully distinct words give 0. Counting is case-insensitive; a sequence shorter than one word
-yields 0.
+`Σ_t c_t·(c_t − 1)/2` over all overlapping words `t`, divided by `ℓ − 1`, where
+`ℓ = L − wordSize + 1` is the number of words (the normaliser of NCBI dustmasker and lh3/sdust). A **higher** score indicates **lower** complexity (more repeated words);
+fully distinct words give 0. Counting is case-insensitive; fewer than two words
+yield 0.
 
 ## Core Documentation Reference
 
@@ -49,7 +49,7 @@ yields 0.
 ### Example 1: Homopolymer (low complexity)
 
 **Input:** `{ "sequence": "AAAAA", "wordSize": 3 }`
-→ AAA occurs 3× over 3 words → `3·2/2 / 3 = 1.0` → **Response:** `{ "score": 1.0 }`
+→ AAA occurs 3× over ℓ = 3 words → `3·2/2 / (3 − 1) = 1.5` → **Response:** `{ "score": 1.5 }`
 
 ### Example 2: All-distinct words
 

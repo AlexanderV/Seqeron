@@ -29,27 +29,27 @@ public class ComplexityCombinatorialTests
     // Spec: tests/TestSpecs/SEQ-COMPLEX-DUST-001.md (canonical CalculateDustScore). ADVANCED §10.
     // Dimensions: seqType(3) × window(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
     //
-    // Model (Morgulis 2006 DUST; Li 2025): the DUST score is Σ_t c_t(c_t−1)/2 / (L−w+1) over the
+    // Model (Morgulis 2006 DUST; NCBI symdust; lh3/sdust): the DUST score is Σ_t c_t(c_t−1)/2 / (ℓ−1), ℓ = L−w+1, over the
     // counts c_t of the overlapping w-mers — high for repetitive/low-complexity sequence, low for
     // diverse sequence.
     //
     // Axis mapping (documented): seqType → composition (homopolymer/repetitive/diverse); window → the
-    // DUST word size. The combinatorial point: the score equals an independent Σ c(c−1)/2/(L−w+1)
+    // DUST word size. The combinatorial point: the score equals an independent Σ c(c−1)/2/(L−w)
     // recomputation at every (seqType, word size) cell, and is non-negative.
     // ═══════════════════════════════════════════════════════════════════════
 
     private static double DustGroundTruth(string seq, int wordSize)
     {
-        if (seq.Length < wordSize) return 0;
-        var counts = new Dictionary<string, int>();
         int wordCount = seq.Length - wordSize + 1;
+        if (wordCount < 2) return 0;
+        var counts = new Dictionary<string, int>();
         for (int i = 0; i < wordCount; i++)
         {
             string w = seq.Substring(i, wordSize);
             counts[w] = counts.GetValueOrDefault(w) + 1;
         }
         double sum = counts.Values.Sum(c => (double)c * (c - 1) / 2.0);
-        return sum / wordCount;
+        return sum / (wordCount - 1);
     }
 
     [Test, Combinatorial]
@@ -60,7 +60,7 @@ public class ComplexityCombinatorialTests
         string seq = MakeSeq(seqType, 60);
 
         double dust = SequenceComplexity.CalculateDustScore(seq, wordSize);
-        dust.Should().BeApproximately(DustGroundTruth(seq, wordSize), 1e-9, "DUST = Σ c(c−1)/2 / (L−w+1)");
+        dust.Should().BeApproximately(DustGroundTruth(seq, wordSize), 1e-9, "DUST = Σ c(c−1)/2 / (ℓ−1), ℓ = L−w+1");
         dust.Should().BeGreaterThanOrEqualTo(0, "the DUST score is non-negative");
     }
 

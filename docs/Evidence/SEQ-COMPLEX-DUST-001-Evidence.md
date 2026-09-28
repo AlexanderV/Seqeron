@@ -2,9 +2,42 @@
 
 **Test Unit ID:** SEQ-COMPLEX-DUST-001
 **Algorithm:** DUST Score (triplet-frequency low-complexity score of Morgulis et al. 2006 SDUST/DUST)
-**Date Collected:** 2026-06-14
+**Date Collected:** 2026-06-14 (revised 2026-09-28, review campaign B04)
 
 ---
+
+## 2026-09-28 Revision (review campaign B04) — normaliser corrected to ℓ − 1; SDUST masking
+
+The 2026-06 reading below of the longdust restatement (`/(L−2)`, i.e. divide by the number of
+triplets ℓ) is **superseded**. Both reference implementations normalise by **ℓ − 1**:
+
+- **lh3/sdust `sdust.c`** (opened: https://raw.githubusercontent.com/lh3/sdust/master/sdust.c, 2026-09-28),
+  `find_perfect`: `new_r = r, new_l = kdq_size(w) - i - 1; if (new_r * 10 > T * new_l)` — the interval
+  from triplet i to the window end contains `kdq_size(w) − i` = ℓ triplets, so `new_l = ℓ − 1`.
+  (`rw * 10 > L * T` in `sdust_core` is only a pre-filter deciding whether to search.)
+- **NCBI C++ Toolkit dustmasker** (opened: `src/algo/dustmask/symdust.cpp`,
+  `include/algo/dustmask/symdust.hpp` on raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public, 2026-09-28):
+  `thresholds_[0] = 1; thresholds_[i] = i*level_`, test `score*10 > thresholds_[count]` — the
+  threshold scales with ℓ − 1.
+- **Morgulis et al. 2006** (WebSearch snippet of the JCB PDF, 2026-09-28): "ℓ = n − 2 is the number of
+  triplets"; score normalised by (ℓ − 1). Full text not openable (publisher/mirror blocked).
+- **Numerical confirmation** — sdust compiled with gcc (`make`, sources above), default `-w 64 -t 20`:
+
+| Input | ℓ | Σ c(c−1)/2 | Σ/(ℓ−1) | Σ/ℓ | sdust output |
+|---|---|---|---|---|---|
+| `ACGTTGCAGTCATGCGATC`+A×7+`TGCATCGGATCCTAGGCTAA` (A-run 7) | 5 | 10 | 2.5 | 2.0 | masked [19,26) |
+| same with A-run 6 | 4 | 6 | 2.0 | 1.5 | none |
+| `GGTTCATGGCTT`+(AC)×6+`GGTTCATGGCTT` | 10 | 20 | 2.22 | 2.0 | masked [12,24) |
+| `GGTTCATGGCTT`+`ACACACACACA`+`GGTTCATGGCTT` | 9 | 16 | 2.0 | 1.78 | none |
+| `AAAAAAA` (standalone) | 5 | 10 | 2.5 | 2.0 | masked [0,7) |
+
+Only the ℓ − 1 normaliser reproduces the reference (score > 2.0 ⇔ masked). The longdust README
+(opened: https://raw.githubusercontent.com/lh3/longdust/master/README.md) writes `S_D(x) = Σ c(c−1)/2 / ℓ(x)`;
+this informal restatement does not match the SDUST code and is not used for SDUST.
+
+**SDUST masking cross-check:** the C# port of `sdust_core` (`MaskLowComplexity`) was compared with the
+compiled binary on 3,000 random repeat-rich sequences (3–400 bp; W ∈ {3,5,8,16,30,64,100};
+T ∈ {10,12,15,20,25,30}) and one 1-Mb sequence: 0 mismatches.
 
 ## Online Sources
 
@@ -59,6 +92,10 @@
 
 ## Test Datasets
 
+> **Note (2026-09-28):** the hand-derived table below used the superseded ℓ divisor. Correct values
+> (divisor ℓ − 1): `ATGC` 0; `ACGTACGT` 2/5 = 0.4; `AAAAAA` 6/3 = 2.0; `ACACACAC` 6/5 = 1.2;
+> `AAAAAAAAAA` 28/7 = 4.0; `AATAATAA` 3/5 = 0.6; `AAAAAAA` 10/4 = 2.5; (AC)×6 20/9; `AAA` (ℓ = 1) ⇒ 0.
+
 ### Dataset: Hand-derived worked examples (k = 3, divisor = number of triplets = L−2)
 
 **Source:** Derived directly from the Li (2025) formula `∑_t c_t(c_t−1)/2 / (L−2)` and the lh3/sdust accumulation.
@@ -85,8 +122,8 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: General word size `wordSize`** — The paper and reference implementation hardcode k = 3 (triplets). The repository method exposes a `wordSize` parameter; for `wordSize = w` the normalization generalizes to the number of words `L − w + 1` (= `L − 2` when w = 3). This generalization is consistent with the formula but only k = 3 is source-backed; tests assert exact source-derived values only for k = 3.
-2. **ASSUMPTION: Input shorter than one word (L < wordSize)** — Neither source defines a score when no word exists. The implementation returns 0 (no repeats ⇒ minimal complexity); this is a defined-output convention, not a source value.
+1. **ASSUMPTION: General word size `wordSize`** — The paper and reference implementation hardcode k = 3 (triplets). The repository method exposes a `wordSize` parameter; for `wordSize = w` the normalization generalizes to (number of words − 1) = `L − w` (= ℓ − 1 = `L − 3` when w = 3). This generalization is consistent with the formula but only k = 3 is source-backed; tests assert exact source-derived values only for k = 3.
+2. **ASSUMPTION: Fewer than two words (ℓ ≤ 1)** — The normaliser ℓ − 1 is 0 and no word pair exists; the implementation returns 0; this is a defined-output convention, not a source value.
 
 ---
 
@@ -109,9 +146,11 @@
 1. Morgulis A, Gertz EM, Schäffer AA, Agarwala R. (2006). A fast and symmetric DUST implementation to mask low-complexity DNA sequences. Journal of Computational Biology 13(5):1028–1040. https://doi.org/10.1089/cmb.2006.13.1028 (abstract retrieved via https://pubmed.ncbi.nlm.nih.gov/16796549/)
 2. Li H. (2025). Finding low-complexity DNA sequences with longdust. arXiv:2509.07357. https://arxiv.org/pdf/2509.07357
 3. Li H. sdust — Symmetric DUST for finding low-complexity regions in DNA sequences (reference C implementation). https://raw.githubusercontent.com/lh3/sdust/master/sdust.c (accessed 2026-06-14)
+4. NCBI C++ Toolkit dustmasker `symdust.cpp`/`symdust.hpp` — https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/algo/dustmask/symdust.cpp (accessed 2026-09-28)
 
 ---
 
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Normaliser corrected to ℓ − 1 (sdust/dustmasker source + binary); SDUST masking evidence added.

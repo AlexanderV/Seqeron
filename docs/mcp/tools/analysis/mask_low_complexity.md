@@ -1,6 +1,6 @@
 # mask_low_complexity
 
-Mask low-complexity windows of a DNA sequence.
+Mask low-complexity regions of a DNA sequence with symmetric DUST (SDUST).
 
 ## Overview
 
@@ -14,10 +14,12 @@ Mask low-complexity windows of a DNA sequence.
 
 ## Description
 
-Masks **low-complexity windows** of a DNA sequence with a chosen character. Each
-sliding window whose DUST score exceeds `threshold` has all of its positions replaced
-with `maskChar`. The result is the same length as the input. Sequences shorter than
-`windowSize` are returned unchanged.
+Masks low-complexity regions with the **symmetric DUST** algorithm (Morgulis et al. 2006;
+identical output to lh3/sdust and NCBI dustmasker). Every *perfect interval* — a subsequence of
+at most `windowSize` bases whose DUST score `Σ c(c−1)/2 / (ℓ−1)` exceeds `threshold` and is not
+exceeded by any of its sub-intervals — is replaced with `maskChar`; overlapping/adjacent intervals
+are merged. The result is the same length as the input. `windowSize` must be ≥ 3 and `threshold`
+finite and ≥ 0 (default 2.0 = dustmasker level 20).
 
 ## Core Documentation Reference
 
@@ -64,7 +66,7 @@ with `maskChar`. The result is the same length as the input. Sequences shorter t
 ```json
 { "masked": "XXXX…(100×)" }
 ```
-The poly-A DUST score (31.0) exceeds the threshold, so every position is masked.
+lh3/sdust (`-w 64 -t 10`) reports the interval [0,100), so every position is masked.
 
 ### Example 2: High complexity preserved
 
@@ -86,7 +88,7 @@ The poly-A DUST score (31.0) exceeds the threshold, so every position is masked.
 
 ## Performance
 
-- **Time Complexity:** O(n · windowSize).
+- **Time Complexity:** O(n · windowSize) typical; O(n · windowSize³) worst case (SDUST perfect-interval search).
 - **Space Complexity:** O(n).
 
 ## See Also

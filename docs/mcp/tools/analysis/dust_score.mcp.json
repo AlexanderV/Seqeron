@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateDustScore",
   "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L361",
-  "description": "DUST low-complexity score (Morgulis 2006): sum_t c_t*(c_t-1)/2 / (L - wordSize + 1). Higher score = lower complexity.",
+  "description": "DUST low-complexity score (Morgulis 2006): sum_t c_t*(c_t-1)/2 / (l - 1), l = L - wordSize + 1 words. Higher score = lower complexity.",
   "inputSchema": {
     "type": "object",
     "properties": {

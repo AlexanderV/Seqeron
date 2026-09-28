@@ -5,9 +5,9 @@ namespace Seqeron.Mcp.Analysis.Tests;
 
 /// <summary>
 /// Tests for the <c>mask_low_complexity</c> MCP tool.
-/// Expected values from SequenceComplexity's own unit test
-/// (SequenceComplexityTests.MaskLowComplexity: A*100 window 64 -> fully masked;
-/// high-complexity sequence at threshold 10.0 -> unmasked), NOT the wrapper output.
+/// Expected values are the output of the lh3/sdust reference binary (symmetric DUST):
+/// A*100 with -w 64 -t 10 -> [0,100) fully masked; the 78-bp sequence with -t 100 -> no
+/// interval. NOT the wrapper output.
 /// </summary>
 [TestFixture]
 public class MaskLowComplexityTests

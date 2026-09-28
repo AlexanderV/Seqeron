@@ -319,24 +319,35 @@ public static class SequenceComplexity
 
     #region Dust Score
 
-    // DUST/SDUST uses overlapping nucleotide triplets (3-mers) as the default word.
-    // k = 3 is hardcoded in the reference implementation; Morgulis et al. (2006),
-    // J Comput Biol 13(5):1028-1040, doi:10.1089/cmb.2006.13.1028, and lh3/sdust.
+    // DUST/SDUST uses overlapping nucleotide triplets (3-mers) as the word.
+    // k = 3 is hardcoded in the reference implementations; Morgulis et al. (2006),
+    // J Comput Biol 13(5):1028-1040, doi:10.1089/cmb.2006.13.1028; NCBI dustmasker
+    // (symdust.cpp); lh3/sdust (SD_WLEN = 3).
     private const int DustWordSize = 3;
 
-    // Mask/low-complexity threshold for the DUST score: 2.0, corresponding to the
-    // reference default level T = 20 (lh3/sdust: "rw*10 > L*T" ⇔ score > T/10 = 2.0).
+    // Mask threshold for the DUST score: 2.0, i.e. the reference default level T = 20
+    // (score(x) > T/10). NCBI symdust.hpp DEFAULT_LEVEL = 20; lh3/sdust "int T = 20".
     private const double DustMaskThreshold = 2.0;
+
+    // Default SDUST window length (bases): NCBI symdust DEFAULT_WINDOW = 64; lh3/sdust "int W = 64".
+    private const int DustWindowSize = 64;
+
+    // Number of distinct triplet codes (4^3) and the 2-bit rolling mask (lh3/sdust SD_WTOT / SD_WMSK).
+    private const int DustTripletCodes = 1 << (DustWordSize << 1);
+    private const int DustTripletMask = DustTripletCodes - 1;
 
     /// <summary>
     /// Calculates the DUST low-complexity score of a sequence (Morgulis et al. 2006).
-    /// The score is Σ_t c_t·(c_t−1)/2 over all overlapping words t, divided by the number
-    /// of words (L − wordSize + 1, equal to L − 2 for triplets). A HIGHER score indicates
-    /// LOWER complexity (more repeated words); fully distinct words give 0.
+    /// For a sequence with ℓ overlapping triplets, where triplet t occurs c_t times,
+    /// score = Σ_t c_t·(c_t−1)/2 / (ℓ − 1). This is the score thresholded by NCBI
+    /// <c>dustmasker</c> (symdust: <c>10·r &gt; level·(ℓ−1)</c>) and by lh3/sdust
+    /// (<c>new_r·10 &gt; T·new_l</c> with <c>new_l</c> = ℓ − 1). A HIGHER score indicates
+    /// LOWER complexity; all-distinct words give 0; a homopolymer of length L scores (L−2)/2.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST).</param>
-    /// <returns>DUST score (≥ 0); 0 when the sequence is shorter than one word.</returns>
+    /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST). Values other
+    /// than 3 are an extrapolation (divisor = number of words − 1); only k = 3 is source-defined.</param>
+    /// <returns>DUST score (≥ 0); 0 when fewer than two words exist (ℓ − 1 ≤ 0).</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
     public static double CalculateDustScore(DnaSequence sequence, int wordSize = DustWordSize)
@@ -347,12 +358,13 @@ public static class SequenceComplexity
     }
 
     /// <summary>
-    /// Calculates the DUST low-complexity score from a raw sequence string. The string is
-    /// upper-cased to match the normalization applied by <see cref="DnaSequence"/>.
+    /// Calculates the DUST low-complexity score from a raw sequence string
+    /// (score = Σ_t c_t·(c_t−1)/2 / (ℓ − 1), see <see cref="CalculateDustScore(DnaSequence, int)"/>).
+    /// The string is upper-cased to match the normalization applied by <see cref="DnaSequence"/>.
     /// </summary>
     /// <param name="sequence">Raw sequence string; null or empty yields 0.</param>
     /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST).</param>
-    /// <returns>DUST score (≥ 0); 0 when null/empty or shorter than one word.</returns>
+    /// <returns>DUST score (≥ 0); 0 when null/empty or fewer than two words exist.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
     public static double CalculateDustScore(string sequence, int wordSize = DustWordSize)
     {
@@ -363,80 +375,247 @@ public static class SequenceComplexity
 
     private static double CalculateDustScoreCore(string seq, int wordSize)
     {
-        if (seq.Length < wordSize) return 0;
-
-        var wordCounts = new Dictionary<string, int>();
-
-        // Number of overlapping words; equals L − 2 for the default triplet word.
+        // ℓ = number of overlapping words (L − 2 for triplets). The DUST normalisation is
+        // ℓ − 1 (Morgulis et al. 2006; NCBI symdust thresholds_[ℓ−1] = (ℓ−1)·level;
+        // lh3/sdust new_l = kdq_size − i − 1). With ℓ ≤ 1 no pair of words exists: score 0.
         int wordCount = seq.Length - wordSize + 1;
+        if (wordCount < 2) return 0;
 
-        for (int i = 0; i < wordCount; i++)
-        {
-            string word = seq.Substring(i, wordSize);
-            if (wordCounts.TryGetValue(word, out int value))
-                wordCounts[word] = ++value;
-            else
-                wordCounts[word] = 1;
-        }
+        // Word tally via the canonical k-mer counter (KMER-COUNT-001).
+        var wordCounts = KmerAnalyzer.CountKmers(seq, wordSize);
 
-        // DUST score numerator: Σ_t c_t·(c_t−1)/2 over all distinct words
-        // (Morgulis et al. 2006; longdust restatement S = Σ c(c−1)/2 / (L−2), Li 2025).
+        // Numerator Σ_t c_t·(c_t−1)/2 (= lh3/sdust's running "rw += cw[t]++").
+        // Promote to double before multiplying: count·(count−1) overflows Int32 for L ≳ 4.6·10⁴.
         double sum = 0;
         foreach (int count in wordCounts.Values)
-        {
-            // Promote to double before multiplying: for a highly repetitive sequence a
-            // single word's count can approach L, and count·(count−1) would overflow a
-            // 32-bit int (e.g. L ≈ 2·10⁵ ⇒ count·(count−1) ≈ 4·10¹⁰ > int.MaxValue),
-            // silently corrupting the Σ c(c−1)/2 numerator (Morgulis 2006; Li 2025).
             sum += (double)count * (count - 1) / 2.0;
-        }
 
-        // Normalize by the number of words (L − wordSize + 1 = L − 2 for triplets), per
-        // the 1/(L−2) factor in Li (2025) and lh3/sdust's per-triplet running length.
-        return sum / wordCount;
+        return sum / (wordCount - 1);
     }
 
     /// <summary>
-    /// Masks low-complexity regions using DUST algorithm.
+    /// Masks low-complexity regions with the symmetric DUST (SDUST) algorithm of
+    /// Morgulis et al. (2006), as implemented by NCBI <c>dustmasker</c> and lh3/sdust.
+    /// Every <em>perfect interval</em> — a subsequence x of at most <paramref name="windowSize"/>
+    /// bases whose DUST score exceeds <paramref name="threshold"/> and is not exceeded by the
+    /// score of any of its sub-intervals — found inside any window is masked; overlapping or
+    /// adjacent masked intervals are merged. The result is symmetric and context-insensitive.
+    /// This is a line-by-line port of lh3/sdust <c>sdust_core</c> (which reproduces dustmasker
+    /// output); non-ACGT characters break the input into independently scanned pieces.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="windowSize">Window size for masking (default: 64).</param>
-    /// <param name="threshold">DUST threshold above which to mask (default: 2.0).</param>
+    /// <param name="windowSize">SDUST window length W in bases (default: 64; must be ≥ 3).</param>
+    /// <param name="threshold">DUST score threshold (default: 2.0 = level 20); an interval is
+    /// low-complexity when its score is strictly greater than this value. Must be ≥ 0.</param>
     /// <param name="maskChar">Character to use for masking (default: 'N').</param>
-    /// <returns>Masked sequence.</returns>
+    /// <returns>Masked sequence (same length as the input).</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="windowSize"/> &lt; 3
+    /// or <paramref name="threshold"/> is negative, NaN or infinite.</exception>
     public static string MaskLowComplexity(
         DnaSequence sequence,
-        int windowSize = 64,
+        int windowSize = DustWindowSize,
         double threshold = DustMaskThreshold,
         char maskChar = 'N')
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, DustWordSize);
+        if (double.IsNaN(threshold) || double.IsInfinity(threshold) || threshold < 0)
+            throw new ArgumentOutOfRangeException(nameof(threshold), threshold, "Threshold must be a finite value ≥ 0.");
 
         return MaskLowComplexityCore(sequence.Sequence, windowSize, threshold, maskChar);
     }
 
     private static string MaskLowComplexityCore(string seq, int windowSize, double threshold, char maskChar)
     {
-        if (seq.Length < windowSize) return seq;
+        var intervals = FindSdustIntervals(seq, windowSize, threshold);
+        if (intervals.Count == 0) return seq;
 
-        var masked = new char[seq.Length];
-        seq.CopyTo(0, masked, 0, seq.Length);
+        var masked = seq.ToCharArray();
+        foreach (var (start, end) in intervals)
+            Array.Fill(masked, maskChar, start, end - start);
 
-        for (int i = 0; i + windowSize <= seq.Length; i++)
+        return new string(masked);
+    }
+
+    // Perfect interval [Start, Finish) with raw score R = Σ c(c−1)/2 and normaliser L = ℓ − 1.
+    private struct SdustPerfectInterval
+    {
+        public int Start, Finish, R, L;
+    }
+
+    /// <summary>
+    /// SDUST core: returns the merged, 0-based half-open masked intervals [start, end).
+    /// Port of lh3/sdust <c>sdust_core</c>/<c>shift_window</c>/<c>find_perfect</c>/
+    /// <c>save_masked_regions</c>; integer tests <c>x·10 &gt; T·y</c> become <c>x &gt; threshold·y</c>.
+    /// </summary>
+    private static List<(int Start, int End)> FindSdustIntervals(string seq, int windowSize, double threshold)
+    {
+        var res = new List<(int Start, int End)>();
+        var perfect = new List<SdustPerfectInterval>(); // descending start, then ascending finish
+        var window = new SdustWindow(windowSize - DustWordSize + 1);
+        var cw = new int[DustTripletCodes];
+        var cv = new int[DustTripletCodes];
+        var scratch = new int[DustTripletCodes];
+        int rw = 0, rv = 0, suffixLen = 0;
+        int l = 0, t = 0; // l = length of the current contiguous ACGT run; t = current triplet code
+
+        for (int i = 0; i <= seq.Length; i++)
         {
-            string window = seq.Substring(i, windowSize);
-            double dustScore = CalculateDustScoreCore(window, DustWordSize);
-
-            if (dustScore > threshold)
+            int b = i < seq.Length ? NucleotideCode(seq[i]) : 4;
+            if (b < 4)
             {
-                for (int j = i; j < i + windowSize; j++)
+                ++l;
+                t = ((t << 2) | b) & DustTripletMask;
+                if (l >= DustWordSize)
                 {
-                    masked[j] = maskChar;
+                    int start = Math.Max(l - windowSize, 0) + (i + 1 - l);
+                    SdustSaveMaskedRegions(res, perfect, start);
+                    SdustShiftWindow(t, window, threshold, ref suffixLen, ref rw, ref rv, cw, cv);
+                    if (rw > threshold * suffixLen)
+                        SdustFindPerfect(perfect, window, threshold, start, suffixLen, rv, cv, scratch);
                 }
+            }
+            else
+            {
+                // Non-ACGT or end of input: flush all pending perfect intervals.
+                int start = Math.Max(l - windowSize + 1, 0) + (i + 1 - l);
+                while (perfect.Count > 0) SdustSaveMaskedRegions(res, perfect, start++);
+                l = t = 0;
             }
         }
 
-        return new string(masked);
+        return res;
+    }
+
+    private static int NucleotideCode(char c) => c switch
+    {
+        'A' or 'a' => 0,
+        'C' or 'c' => 1,
+        'G' or 'g' => 2,
+        'T' or 't' => 3,
+        _ => 4,
+    };
+
+    private static void SdustShiftWindow(
+        int t, SdustWindow w, double threshold, ref int suffixLen, ref int rw, ref int rv, int[] cw, int[] cv)
+    {
+        if (w.Count >= w.Capacity)
+        {
+            int s = w.Shift();
+            rw -= --cw[s];
+            if (suffixLen > w.Count)
+            {
+                --suffixLen;
+                rv -= --cv[s];
+            }
+        }
+
+        w.Push(t);
+        ++suffixLen;
+        rw += cw[t]++;
+        rv += cv[t]++;
+        if (cv[t] > 2 * threshold)
+        {
+            int s;
+            do
+            {
+                s = w[w.Count - suffixLen];
+                rv -= --cv[s];
+                --suffixLen;
+            } while (s != t);
+        }
+    }
+
+    private static void SdustSaveMaskedRegions(List<(int Start, int End)> res, List<SdustPerfectInterval> perfect, int start)
+    {
+        if (perfect.Count == 0 || perfect[^1].Start >= start) return;
+
+        var p = perfect[^1];
+        bool saved = false;
+        if (res.Count > 0)
+        {
+            var (s, f) = res[^1];
+            if (p.Start <= f) // overlapping with or adjacent to the previous interval
+            {
+                saved = true;
+                res[^1] = (s, Math.Max(f, p.Finish));
+            }
+        }
+        if (!saved) res.Add((p.Start, p.Finish));
+
+        int k = perfect.Count - 1;
+        while (k >= 0 && perfect[k].Start < start) --k; // drop intervals that fell out of the window
+        perfect.RemoveRange(k + 1, perfect.Count - (k + 1));
+    }
+
+    private static void SdustFindPerfect(
+        List<SdustPerfectInterval> perfect, SdustWindow w, double threshold, int start, int suffixLen, int rv, int[] cv, int[] c)
+    {
+        Array.Copy(cv, c, cv.Length);
+        int r = rv, maxR = 0, maxL = 0;
+        for (int i = w.Count - suffixLen - 1; i >= 0; --i)
+        {
+            int t = w[i];
+            r += c[t]++;
+            int newR = r, newL = w.Count - i - 1; // newL = ℓ − 1 for the interval's ℓ triplets
+            if (newR > threshold * newL)
+            {
+                int j;
+                for (j = 0; j < perfect.Count && perfect[j].Start >= i + start; ++j)
+                {
+                    var p = perfect[j];
+                    if (maxR == 0 || (long)p.R * maxL > (long)maxR * p.L)
+                    {
+                        maxR = p.R;
+                        maxL = p.L;
+                    }
+                }
+                if (maxR == 0 || (long)newR * maxL >= (long)maxR * newL)
+                {
+                    maxR = newR;
+                    maxL = newL;
+                    perfect.Insert(j, new SdustPerfectInterval
+                    {
+                        Start = i + start,
+                        Finish = w.Count + (DustWordSize - 1) + start,
+                        R = newR,
+                        L = newL,
+                    });
+                }
+            }
+        }
+    }
+
+    /// <summary>Fixed-capacity FIFO of triplet codes with random access (lh3 kdq_t(int)).</summary>
+    private sealed class SdustWindow
+    {
+        private readonly int[] _buf;
+        private int _front;
+
+        public SdustWindow(int capacity)
+        {
+            _buf = new int[capacity];
+        }
+
+        public int Capacity => _buf.Length;
+        public int Count { get; private set; }
+
+        public int this[int index] => _buf[(_front + index) % _buf.Length];
+
+        public void Push(int value)
+        {
+            _buf[(_front + Count) % _buf.Length] = value;
+            Count++;
+        }
+
+        public int Shift()
+        {
+            int value = _buf[_front];
+            _front = (_front + 1) % _buf.Length;
+            Count--;
+            return value;
+        }
     }
 
     #endregion
