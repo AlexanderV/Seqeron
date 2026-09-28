@@ -140,35 +140,42 @@ public static class VariantCaller
     #region SNP Detection
 
     /// <summary>
-    /// Detects only SNPs (Single Nucleotide Polymorphisms).
+    /// Detects only SNPs (Single Nucleotide Polymorphisms): globally aligns the inputs
+    /// (<see cref="CallVariants"/>) and keeps the <see cref="VariantType.SNP"/> columns.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="reference"/> or <paramref name="query"/> is null.</exception>
     public static IEnumerable<Variant> FindSnps(DnaSequence reference, DnaSequence query)
     {
         return CallVariants(reference, query).Where(v => v.Type == VariantType.SNP);
     }
 
     /// <summary>
-    /// Detects SNPs from aligned sequences (faster, no alignment needed).
+    /// Detects SNPs from already-aligned (positionally corresponding) sequences, without running an
+    /// alignment.
     /// </summary>
+    /// <remarks>
+    /// <para>Delegates to <see cref="CallVariantsFromAlignment"/> and keeps only
+    /// <see cref="VariantType.SNP"/> columns, so the positional comparison has a single implementation.
+    /// For gap-free inputs every differing index <c>i</c> yields one SNP with <c>Position == QueryPosition == i</c>
+    /// (the Hamming mismatch set). Consequences of the shared contract:</para>
+    /// <list type="bullet">
+    /// <item>Bases are compared case-insensitively (VCF v4.3 §1.6.1: REF/ALT bases "A,C,G,T,N (case
+    /// insensitive)"), so a soft-masked <c>a</c> against <c>A</c> is a match; alleles are reported as given.</item>
+    /// <item>Gap columns (<c>'-'</c>) are indels, not substitutions, and are never reported as SNPs; positions
+    /// are ungapped reference/query coordinates.</item>
+    /// <item>The inputs must have equal length: the Hamming mismatch set is defined only for sequences of the
+    /// same length, so unequal lengths throw <see cref="ArgumentException"/> (as SciPy
+    /// <c>spatial.distance.hamming</c> and scikit-bio <c>Sequence.mismatches</c> do) instead of silently
+    /// ignoring the unmatched tail. Use <see cref="FindSnps"/> for un-aligned inputs.</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="reference">Aligned reference sequence.</param>
+    /// <param name="query">Aligned query sequence (same length as <paramref name="reference"/>).</param>
+    /// <returns>SNPs only; empty when either input is null or empty.</returns>
+    /// <exception cref="ArgumentException">Both inputs are non-empty and their lengths differ.</exception>
     public static IEnumerable<Variant> FindSnpsDirect(string reference, string query)
     {
-        if (string.IsNullOrEmpty(reference) || string.IsNullOrEmpty(query))
-            yield break;
-
-        int minLen = Math.Min(reference.Length, query.Length);
-
-        for (int i = 0; i < minLen; i++)
-        {
-            if (reference[i] != query[i])
-            {
-                yield return new Variant(
-                    Position: i,
-                    ReferenceAllele: reference[i].ToString(),
-                    AlternateAllele: query[i].ToString(),
-                    Type: VariantType.SNP,
-                    QueryPosition: i);
-            }
-        }
+        return CallVariantsFromAlignment(reference, query).Where(v => v.Type == VariantType.SNP);
     }
 
     #endregion
@@ -205,7 +212,8 @@ public static class VariantCaller
     #region Mutation Classification
 
     /// <summary>
-    /// Classifies a SNP as transition or transversion.
+    /// Classifies a SNP as transition or transversion (case-insensitive); non-SNPs and SNPs involving a
+    /// base other than A/C/G/T (e.g. N) are <see cref="MutationType.Other"/>.
     /// </summary>
     /// <param name="variant">The SNP variant to classify.</param>
     /// <returns>Mutation type classification.</returns>
@@ -217,6 +225,12 @@ public static class VariantCaller
         char refBase = char.ToUpperInvariant(variant.ReferenceAllele[0]);
         char altBase = char.ToUpperInvariant(variant.AlternateAllele[0]);
 
+        // Transition/transversion is defined only between the purines A,G and pyrimidines C,T.
+        // An ambiguous base (N, IUPAC codes) is neither, so the change is Other — as bcftools stats,
+        // which counts REF=A ALT=N as a SNP but neither a transition nor a transversion.
+        if (!IsUnambiguousBase(refBase) || !IsUnambiguousBase(altBase))
+            return MutationType.Other;
+
         bool refPurine = refBase is 'A' or 'G';
         bool altPurine = altBase is 'A' or 'G';
 
@@ -224,6 +238,8 @@ public static class VariantCaller
         // Transversion: purine <-> pyrimidine
         return refPurine == altPurine ? MutationType.Transition : MutationType.Transversion;
     }
+
+    private static bool IsUnambiguousBase(char upperBase) => upperBase is 'A' or 'C' or 'G' or 'T';
 
     /// <summary>
     /// Calculates the transition/transversion ratio (Ti/Tv).

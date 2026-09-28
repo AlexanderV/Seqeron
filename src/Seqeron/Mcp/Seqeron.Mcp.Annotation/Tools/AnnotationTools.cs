@@ -262,7 +262,7 @@ public class AnnotationTools
 
     /// <summary>Detect SNPs by direct positional comparison.</summary>
     [McpServerTool(Name = "find_snps_direct", Title = "Variant — Find SNPs (Direct)", ReadOnly = true)]
-    [Description("Detect SNPs by direct positional comparison without alignment.")]
+    [Description("Detect SNPs by direct positional comparison without alignment. Inputs must be pre-aligned and of equal length (unequal lengths are rejected); bases compare case-insensitively and gap columns are not SNPs.")]
     public static CallVariantsResult FindSnpsDirect(
         [Description("Reference DNA sequence")] string reference,
         [Description("Query DNA sequence")] string query)

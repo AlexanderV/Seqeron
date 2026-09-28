@@ -6,7 +6,7 @@
 | Test Unit ID | VARIANT-SNP-001 |
 | Related Projects | Seqeron.Genomics.Annotation, Seqeron.Genomics.Core, Seqeron.Genomics.Alignment |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -22,7 +22,7 @@ A variant is a difference between a query sequence and a reference. The Variant 
 
 For two strings `r` (reference) and `q` (query):
 
-- **Positional model (`FindSnpsDirect`):** for each index `i` in `[0, min(|r|, |q|))`, if `r[i] != q[i]` then position `i` is a SNP with reference allele `r[i]` and alternate allele `q[i]`. The number of such positions over two equal-length strings is the Hamming distance, defined as "the number of positions that two codewords of the same length differ" [3].
+- **Positional model (`FindSnpsDirect`):** the inputs are pre-aligned and of equal length `n`; for each column `i` in `[0, n)` where neither side is a gap and `upper(r[i]) != upper(q[i])` (VCF REF/ALT bases are case-insensitive [1]), a SNP is emitted with reference allele `r[i]` and alternate allele `q[i]` at the ungapped reference/query coordinates. For gap-free inputs the positions are the column indices and their number is the Hamming distance, defined as "the number of positions that two codewords of the same length differ" [3]. Unequal lengths are rejected (`ArgumentException`), because the Hamming mismatch set is undefined for them [3]. Implemented by delegating to `CallVariantsFromAlignment` and keeping SNP columns.
 - **Alignment model (`FindSnps`):** the inputs are globally aligned; in each alignment column where both sides hold a non-gap base and the bases differ, a SNP is emitted; insertion and deletion columns are excluded by filtering on `VariantType.SNP` [1].
 
 A position where `r[i] == q[i]` is a match, not a variant: a SNP is by definition a substitution [1].
@@ -37,12 +37,12 @@ A position where `r[i] == q[i]` is a match, not a variant: a SNP is by definitio
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | Identical equal-length sequences yield zero SNPs. | Hamming distance of equal strings is 0 [3]. |
+| INV-01 | Identical (case-insensitively) equal-length sequences yield zero SNPs. | Hamming distance of equal strings is 0 [3]. |
 | INV-02 | Every emitted variant has `Type == VariantType.SNP`. | `FindSnpsDirect` only constructs `SNP` variants; `FindSnps` filters to `SNP` [1]. |
 | INV-03 | Every emitted SNP has `ReferenceAllele != AlternateAllele`. | A SNP is a substitution; equal bases are skipped [1]. |
-| INV-04 | `FindSnpsDirect` reports a SNP at each 0-based mismatch index `i` with `Position == i`, `ReferenceAllele == r[i]`, `AlternateAllele == q[i]`. | Direct positional comparison [1][3]. |
+| INV-04 | For gap-free inputs `FindSnpsDirect` reports a SNP at each 0-based case-insensitive mismatch index `i` with `Position == QueryPosition == i`, `ReferenceAllele == r[i]`, `AlternateAllele == q[i]`; gap columns are never SNPs. | Direct positional comparison [1][3]. |
 | INV-05 | For two equal-length sequences, the SNP count from `FindSnpsDirect` equals their Hamming distance. | The mismatch set is the Hamming mismatch set [3]. |
-| INV-06 | `FindSnpsDirect` compares only the common prefix `min(|r|, |q|)`. | Hamming distance is defined for equal-length strings only; the trailing region is not a substitution [3]. |
+| INV-06 | `FindSnpsDirect` throws `ArgumentException` when both inputs are non-empty and their lengths differ. | Hamming distance is defined for equal-length strings only [3]; SciPy `hamming` and scikit-bio `mismatches` also reject unequal lengths. |
 
 ## 3. Contract
 
@@ -52,8 +52,8 @@ A position where `r[i] == q[i]` is a match, not a variant: a SNP is by definitio
 |------|------|---------|-------------|-------------|
 | reference (`FindSnps`) | `DnaSequence` | required | Reference sequence. | Non-null. |
 | query (`FindSnps`) | `DnaSequence` | required | Query sequence to compare. | Non-null. |
-| reference (`FindSnpsDirect`) | `string` | required | Reference bases. | A,C,G,T,N (case-insensitive for classification) [1]; positionally aligned to `query`. |
-| query (`FindSnpsDirect`) | `string` | required | Query bases. | Same indexing as `reference`. |
+| reference (`FindSnpsDirect`) | `string` | required | Aligned reference bases (may contain `-`). | A,C,G,T,N case-insensitive [1]; same length as `query`. |
+| query (`FindSnpsDirect`) | `string` | required | Aligned query bases (may contain `-`). | Same length as `reference`. |
 
 ### 3.2 Output / Return Value
 
@@ -69,17 +69,17 @@ A position where `r[i] == q[i]` is a match, not a variant: a SNP is by definitio
 ### 3.3 Preconditions and Validation
 
 - `FindSnps`: throws `ArgumentNullException` for a null reference or null query (validated in `CallVariants`).
-- `FindSnpsDirect`: returns an empty sequence when either input is null or empty. For unequal lengths it compares only the common prefix `min(|reference|, |query|)` (INV-06).
-- Indexing is 0-based for the in-memory `Variant`. Inputs are treated as DNA over A,C,G,T(,N); base comparison for classification is case-insensitive per VCF [1].
+- `FindSnpsDirect`: returns an empty sequence when either input is null or empty; throws `ArgumentException` when both are non-empty and their lengths differ (INV-06).
+- Indexing is 0-based for the in-memory `Variant`. Inputs are treated as DNA over A,C,G,T(,N); base comparison is case-insensitive per VCF [1] and alleles are reported as given.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
 `FindSnpsDirect`:
-1. If either input is null/empty → return empty.
-2. Let `n = min(|reference|, |query|)`.
-3. For `i = 0 .. n-1`: if `reference[i] != query[i]`, emit `Variant(Position=i, REF=reference[i], ALT=query[i], Type=SNP, QueryPosition=i)`.
+1. If either input is null/empty → return empty; if lengths differ → `ArgumentException`.
+2. Scan columns via `CallVariantsFromAlignment` (tracks ungapped reference/query coordinates).
+3. Keep columns with two non-gap bases that differ case-insensitively → `Variant(Position=refPos, REF=reference[i], ALT=query[i], Type=SNP, QueryPosition=queryPos)`.
 
 `FindSnps`:
 1. Globally align reference and query (`CallVariants` → `SequenceAligner.GlobalAlign`).
@@ -88,13 +88,13 @@ A position where `r[i] == q[i]` is a match, not a variant: a SNP is by definitio
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures (Optional)
 
-No scoring tables or thresholds. The only decision rule is the per-position equality test `reference[i] != query[i]`; there are no tunable numeric constants in either method.
+No scoring tables or thresholds. The only decision rule is the per-column case-insensitive equality test `upper(reference[i]) != upper(query[i])` on non-gap columns; there are no tunable numeric constants in either method.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `FindSnpsDirect` | O(n) | O(1) lazy / O(k) materialized | `n = min` length; `k` = number of SNPs. |
+| `FindSnpsDirect` | O(n) | O(1) lazy / O(k) materialized | `n` = aligned length; `k` = number of SNPs. |
 | `FindSnps` | O(n·m) | O(n·m) | Dominated by the global alignment (`CallVariants`); the SNP filter is O(n). |
 
 ## 5. Implementation Notes
@@ -103,23 +103,20 @@ No scoring tables or thresholds. The only decision rule is the per-position equa
 
 **Implementation location:** [VariantCaller.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/VariantCaller.cs)
 
-- `VariantCaller.FindSnpsDirect(string reference, string query)`: positional Hamming-mismatch SNP enumeration over the common prefix. Canonical.
+- `VariantCaller.FindSnpsDirect(string reference, string query)`: positional Hamming-mismatch SNP enumeration over equal-length aligned inputs; delegates to `CallVariantsFromAlignment` (single implementation of the column scan) and keeps SNP columns. Canonical entry point for this unit.
 - `VariantCaller.FindSnps(DnaSequence reference, DnaSequence query)`: aligns then filters `CallVariants` to `VariantType.SNP`. Delegate.
 
 ### 5.2 Current Behavior
 
-`FindSnpsDirect` is a single forward scan and does not use the repository suffix tree (see §7 below): SNP detection is a positional equality test between two corresponding strings, not an occurrence/substring search, so a suffix tree is not applicable. `FindSnps` delegates to `CallVariants`, which performs a Needleman–Wunsch-style global alignment and then a LINQ `Where` filter; because alignment of an arbitrary pair is not unique in repeated regions, the *positions* of SNPs adjacent to indels follow the chosen alignment (substitution-only inputs are unaffected).
+`FindSnpsDirect` is a single forward scan (the shared `CallVariantsFromAlignment` column scan) and does not use the repository suffix tree (see §7 below): SNP detection is a positional equality test between two corresponding strings, not an occurrence/substring search, so a suffix tree is not applicable. `FindSnps` delegates to `CallVariants`, which performs a Needleman–Wunsch-style global alignment and then a LINQ `Where` filter; because alignment of an arbitrary pair is not unique in repeated regions, the *positions* of SNPs adjacent to indels follow the chosen alignment (substitution-only inputs are unaffected).
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
 - SNP = single-base substitution (REF≠ALT at one position); equal columns are not variants [1].
-- Positional substitution set = Hamming mismatch set over equal-length inputs [3].
-
-**Intentionally simplified:**
-
-- `FindSnpsDirect` over unequal-length inputs: compares the common prefix only; **consequence:** bases past `min(|r|,|q|)` are not examined (they are indel territory handled by VARIANT-INDEL-001), so a length difference alone produces no SNP.
+- Positional substitution set = Hamming mismatch set over equal-length inputs [3]; unequal lengths rejected [3].
+- REF/ALT bases compared case-insensitively; a gap is not a base, so gap columns are not SNPs [1].
 
 **Not implemented:**
 
@@ -130,7 +127,7 @@ No scoring tables or thresholds. The only decision rule is the per-position equa
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | 0-based in-memory `Variant.Position` vs 1-based VCF POS | Assumption | Position interpretation for downstream consumers | accepted | ASM consistent with sibling VARIANT-CALL-001; VCF 1-based POS emitted only by `ToVcfLines`. |
-| 2 | Unequal-length `FindSnpsDirect` compares common prefix only | Assumption | Trailing bases not scanned | accepted | ASM-01; Hamming defined for equal length [3]. |
+| 2 | Unequal-length `FindSnpsDirect` input | Contract | `ArgumentException` | fixed 2026-09-28 | Previously silently compared the common prefix (hid the tail); Hamming defined for equal length only [3]. |
 
 ## 6. Edge Cases and Limitations
 
@@ -139,10 +136,11 @@ No scoring tables or thresholds. The only decision rule is the per-position equa
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
 | Identical equal-length inputs | empty | Hamming distance 0 [3] (INV-01). |
+| Gap column in `FindSnpsDirect` input | not a SNP; positions ungapped | a gap is not a base [1]. |
 | `FindSnpsDirect` empty / null input | empty | nothing to compare (documented contract). |
-| `FindSnpsDirect` unequal lengths | SNPs over common prefix only | Hamming defined for equal length [3] (INV-06). |
+| `FindSnpsDirect` unequal lengths | `ArgumentException` | Hamming defined for equal length only [3] (INV-06). |
 | `FindSnps` null reference/query | `ArgumentNullException` | input validation in `CallVariants`. |
-| Lowercase bases | classified case-insensitively | VCF REF/ALT are case-insensitive [1]. |
+| Lowercase bases | compared and classified case-insensitively (`acgt` vs `ACGT` → empty) | VCF REF/ALT are case-insensitive [1]. |
 
 ### 6.2 Limitations
 

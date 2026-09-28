@@ -66,7 +66,7 @@
 | INV-02 | Every emitted SNP has `ReferenceAllele != AlternateAllele` (single base each). | Yes | Source 2 (a SNP is a single-base substitution) |
 | INV-03 | Every emitted variant's 0-based `Position` lies in `[0, reference.Length]`. | Yes | Structural (position is a reference coordinate) |
 | INV-04 | A column with ref-gap is an Insertion; a column with query-gap is a Deletion; a mismatched pair is a SNP. | Yes | Source 1 (the three variant classes) |
-| INV-05 | `ClassifyMutation` returns Transition iff {ref,alt}⊆{A,G} or ⊆{C,T}; Transversion for any other SNP pair; Other for non-SNP. | Yes | Sources 5, 6 |
+| INV-05 | `ClassifyMutation` returns Transition iff {ref,alt}⊆{A,G} or ⊆{C,T}; Transversion for a purine↔pyrimidine SNP over A/C/G/T; Other for non-SNP or a SNP with a non-ACGT base such as N (bcftools stats: A>N is neither ts nor tv; amended 2026-09-28, VARIANT-SNP-001 review). | Yes | Sources 5, 6 |
 | INV-06 | `CalculateTiTvRatio` = (#transitions)/(#transversions) over SNPs, or 0 when #transversions = 0. | Yes | Definition + source 3 (ASM-03) |
 
 ---

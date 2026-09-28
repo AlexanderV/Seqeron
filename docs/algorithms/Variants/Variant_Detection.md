@@ -42,7 +42,7 @@ Reference and query coordinates `refPos`, `queryPos` advance by one for each non
 | INV-02 | Every emitted SNP has distinct single-base REF and ALT. | A SNP column is, by definition, a mismatch of two bases [2]. |
 | INV-03 | Every emitted variant's 0-based `Position` lies in `[0, reference.Length]`. | `Position` is the reference coordinate advanced only by consumed reference bases. |
 | INV-04 | Ref-gap → Insertion; query-gap → Deletion; mismatch → SNP. | Column-classification rule of §2.2 [1]. |
-| INV-05 | `ClassifyMutation` = Transition iff {ref,alt}⊆{A,G} or ⊆{C,T}; else Transversion (SNP); Other otherwise. | Definitions of transition/transversion [5][6]. |
+| INV-05 | `ClassifyMutation` = Transition iff {ref,alt}⊆{A,G} or ⊆{C,T}; Transversion for purine↔pyrimidine over A/C/G/T; Other for non-SNPs and for SNPs involving a non-ACGT base such as N (bcftools stats counts A>N as neither ts nor tv). | Definitions of transition/transversion [5][6]. |
 | INV-06 | `CalculateTiTvRatio` = #Ti / #Tv over SNPs, or 0 when #Tv = 0. | Ratio definition; undefined denominator mapped to 0 (see 5.4). |
 | INV-07 | `CallVariants` reports every indel at its leftmost equivalent column (left-aligned [4]). | NW traceback prefers the diagonal move, pushing gap runs left; cross-checked vs `bcftools norm` (§5.3). |
 | INV-08 | Base comparison in the column scan is case-insensitive (a case-only difference is not a variant). | VCF REF/ALT bases are case insensitive [2]; `bcftools norm` rejects REF=G/ALT=g as duplicate alleles. |

@@ -48,17 +48,17 @@ public class FindSnpsDirectTests
     }
 
     [Test]
-    public void FindSnpsDirect_UnequalLengths_ComparesCommonPrefixOnly()
+    public void FindSnpsDirect_UnequalLengths_Throws()
     {
-        // Mirrors FindSnpsDirect_UnequalLengths_ComparesCommonPrefixOnly: ATGCAA vs ATTC -> 1 SNP at pos 2.
-        var result = AnnotationTools.FindSnpsDirect("ATGCAA", "ATTC");
+        // Mirrors VariantCaller_FindSnps_Tests.FindSnpsDirect_UnequalLengths_ThrowsArgumentException:
+        // positional (Hamming) comparison is undefined for unequal lengths (scipy/scikit-bio raise ValueError).
+        Assert.Throws<ArgumentException>(() => AnnotationTools.FindSnpsDirect("ATGCAA", "ATTC"));
+    }
 
-        Assert.That(result.Variants, Has.Count.EqualTo(1));
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Variants[0].Position, Is.EqualTo(2));
-            Assert.That(result.Variants[0].ReferenceAllele, Is.EqualTo("G"));
-            Assert.That(result.Variants[0].AlternateAllele, Is.EqualTo("T"));
-        });
+    [Test]
+    public void FindSnpsDirect_CaseOnlyDifference_NoSnp()
+    {
+        // VCFv4.3: REF/ALT bases are case insensitive.
+        Assert.That(AnnotationTools.FindSnpsDirect("acgt", "ACGT").Variants, Is.Empty);
     }
 }

@@ -345,16 +345,17 @@ public sealed class VariantCallFuzzTests
 
         foreach (var v in variants)
         {
-            // N is non-purine ⇒ treated as the pyrimidine branch; A/G (purine) ⇒
-            // Transversion, C/T (non-purine) ⇒ Transition. Must NOT crash / NaN.
+            // N is neither purine nor pyrimidine ⇒ neither transition nor transversion (Other);
+            // bcftools stats counts REF=A ALT=N as a SNP with ts=0, tv=0. Must NOT crash / NaN.
             var act = () => VariantCaller.ClassifyMutation(v);
             act.Should().NotThrow("classification reads only the first base; N must not crash it");
-            act().Should().BeOneOf(MutationType.Transition, MutationType.Transversion);
+            act().Should().Be(MutationType.Other);
         }
 
         double ratio = VariantCaller.CalculateTiTvRatio(variants);
         double.IsNaN(ratio).Should().BeFalse("Ti/Tv over N-bearing SNPs must never be NaN");
         double.IsInfinity(ratio).Should().BeFalse("Ti/Tv over N-bearing SNPs must never be ±∞");
+        ratio.Should().Be(0, "no transition or transversion among N-bearing SNPs (bcftools stats ts/tv 0.00)");
     }
 
     // Fuzz: aligned strings drawn from an N-heavy / arbitrary alphabet (incl. gap,

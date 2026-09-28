@@ -4,7 +4,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// Fuzz tests for the Variants area — VARIANT-SNP-001 (SNP Detection).
 /// The unit under test is the single-nucleotide substitution detector:
 /// <see cref="VariantCaller.FindSnpsDirect"/> (positional Hamming-mismatch
-/// enumeration over the common prefix — the canonical entry point) and
+/// enumeration over equal-length aligned inputs — the canonical entry point) and
 /// <see cref="VariantCaller.FindSnps"/> (align-then-filter-to-SNP delegate over
 /// <c>CallVariants</c>), together with the SNP classifiers
 /// <see cref="VariantCaller.ClassifyMutation"/> (transition / transversion) and
@@ -61,7 +61,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • Every emitted variant has Type==VariantType.SNP.                  (INV-02)
 ///   • Identical equal-length inputs ⇒ zero SNPs (Hamming distance 0).   (INV-01)
 ///   • SNP count over equal-length inputs == Hamming distance.           (INV-05)
-///   • FindSnpsDirect compares only the common prefix min(|r|,|q|).      (INV-06)
+///   • FindSnpsDirect rejects unequal non-empty lengths (ArgumentException). (INV-06)
 ///   • FindSnps: null reference/query ⇒ ArgumentNullException; empty ⇒ empty.
 ///       FindSnpsDirect: null/empty input ⇒ empty.                       (§3.3, §6.1)
 ///   • Ti/Tv classification: purine↔purine or pyrimidine↔pyrimidine ⇒ Transition;
@@ -279,7 +279,7 @@ public sealed class VariantSnpFuzzTests
         for (int t = 0; t < 40; t++)
         {
             string r = RandomDna(rng, bases, 0, 28);
-            string q = RandomDna(rng, bases, 0, 28);
+            string q = RandomDna(rng, bases, r.Length, r.Length); // aligned ⇒ equal length (INV-06)
 
             List<Variant> snps = null!;
             var act = () => snps = VariantCaller.FindSnpsDirect(r, q).ToList();
@@ -288,7 +288,7 @@ public sealed class VariantSnpFuzzTests
             int n = Math.Min(r.Length, q.Length);
             // Independent oracle: the SNP set is exactly the mismatch set over the prefix.
             var expected = Enumerable.Range(0, n).Where(i => r[i] != q[i]).ToList();
-            snps.Select(s => s.Position).Should().Equal(expected, "SNP set == Hamming mismatch set over the common prefix (INV-04/05/06)");
+            snps.Select(s => s.Position).Should().Equal(expected, "SNP set == Hamming mismatch set (INV-04/05)");
             snps.Should().OnlyContain(v => v.ReferenceAllele != v.AlternateAllele,
                 "no SNP has REF==ALT (INV-03)");
         }
@@ -461,7 +461,7 @@ public sealed class VariantSnpFuzzTests
         for (int t = 0; t < 40; t++)
         {
             string r = RandomDna(rng, bases, 0, 24);
-            string q = RandomDna(rng, bases, 0, 24);
+            string q = RandomDna(rng, bases, r.Length, r.Length); // aligned ⇒ equal length (INV-06)
             var snps = VariantCaller.FindSnpsDirect(r, q).ToList();
 
             double ratio = 0;
@@ -483,28 +483,25 @@ public sealed class VariantSnpFuzzTests
     #endregion
 
     // ═════════════════════════════════════════════════════════════════════════
-    #region VARIANT-SNP-001 — BE: unequal-length / common-prefix boundary
+    #region VARIANT-SNP-001 — BE: unequal-length boundary
     // ═════════════════════════════════════════════════════════════════════════
 
-    // FindSnpsDirect compares only the common prefix min(|r|,|q|); the trailing
-    // region is NOT examined (it is indel territory, VARIANT-INDEL-001). A length
-    // difference alone produces no SNP, and no IndexOutOfRange on the shorter side.
+    // FindSnpsDirect requires equal-length (aligned) inputs: the Hamming mismatch set is defined
+    // only for equal lengths (PMC5410656; scipy/scikit-bio raise ValueError). Unequal non-empty
+    // inputs throw ArgumentException — never IndexOutOfRange, never a silently truncated result.
     [Test]
-    public void FindSnpsDirect_UnequalLengths_ComparesCommonPrefixOnly()
+    public void FindSnpsDirect_UnequalLengths_ThrowsArgumentException()
     {
-        // Common prefix "ATG" matches; query is shorter ⇒ no SNP, no crash.
-        VariantCaller.FindSnpsDirect("ATGCATGC", "ATG").Should().BeEmpty(
-            "matching common prefix ⇒ no SNP; trailing bases not scanned (INV-06)");
+        var act1 = () => VariantCaller.FindSnpsDirect("ATGCATGC", "ATG").ToList();
+        act1.Should().Throw<ArgumentException>("unequal lengths are undefined for positional comparison (INV-06)");
 
-        // One mismatch inside the common prefix, with a length difference after it.
-        var snps = VariantCaller.FindSnpsDirect("ATTCATGC", "ATG").ToList();
-        snps.Should().ContainSingle("only the in-prefix mismatch at index 2 is a SNP (INV-06)");
-        snps[0].Position.Should().Be(2);
+        var act2 = () => VariantCaller.FindSnpsDirect("ATTCATGC", "ATG").ToList();
+        act2.Should().Throw<ArgumentException>("an in-prefix mismatch does not make unequal lengths valid (INV-06)");
     }
 
     [Test]
     [CancelAfter(30_000)]
-    public void FindSnpsDirect_RandomUnequalLengths_NeverIndexError([Random(1, 1_000_000, 25)] int seed)
+    public void FindSnpsDirect_RandomUnequalLengths_ArgumentExceptionOnly([Random(1, 1_000_000, 25)] int seed)
     {
         var rng = new Random(seed);
         const string bases = "ACGTN";
@@ -514,13 +511,11 @@ public sealed class VariantSnpFuzzTests
             string r = RandomDna(rng, bases, 0, 30);
             string q = RandomDna(rng, bases, 0, 30);
 
-            List<Variant> snps = null!;
-            var act = () => snps = VariantCaller.FindSnpsDirect(r, q).ToList();
-            act.Should().NotThrow("unequal-length inputs must never throw IndexOutOfRange (INV-06)");
-
-            int n = Math.Min(r.Length, q.Length);
-            snps.Should().OnlyContain(v => v.Position < Math.Max(n, 1),
-                "no SNP is reported past the common prefix (INV-06)");
+            var act = () => VariantCaller.FindSnpsDirect(r, q).ToList();
+            if (r.Length == 0 || q.Length == 0 || r.Length == q.Length)
+                act.Should().NotThrow("empty or equal-length inputs are valid (§3.3)");
+            else
+                act.Should().Throw<ArgumentException>("unequal non-empty lengths are rejected (INV-06)");
         }
     }
 
