@@ -173,7 +173,7 @@ public static partial class OncologyAnalyzer
 
         // Expected alt-allele fraction f(c) = ρ·M·c / (2(1−ρ) + ρ·q): mutant copies M·c per cell scaled by
         // purity over the total DNA (normal 2(1−ρ) + tumour ρ·q). Landau 2013 (M=1) generalised by DeCiFering Eq.1.
-        double denominator = NormalDiploidCopyNumber * (1.0 - purity) + purity * variant.LocalCopyNumber;
+        double denominator = MixtureCopiesPerCell(purity, variant.LocalCopyNumber);
         double alleleFractionPerUnitCcf = purity * variant.Multiplicity / denominator;
 
         // Posterior P(c) ∝ Binomial(a | N, f(c)) on Landau's regular grid of 100 values c = 0.01, 0.02, …, 1.00,

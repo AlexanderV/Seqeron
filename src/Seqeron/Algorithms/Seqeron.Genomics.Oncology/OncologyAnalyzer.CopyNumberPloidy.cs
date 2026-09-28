@@ -431,20 +431,32 @@ public static partial class OncologyAnalyzer
         IEnumerable<CopyNumberArmSegment> amplifications)
     {
         ArgumentNullException.ThrowIfNull(amplifications);
+        return GenesOnAffectedArms(amplifications, OncogeneArms);
+    }
 
-        var amplifiedArms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (CopyNumberArmSegment segment in amplifications)
+    /// <summary>
+    /// Shared arm → gene-panel mapping of <see cref="IdentifyAmplifiedOncogenes"/> (ONCO-CNA-002) and
+    /// <see cref="IdentifyDeletedTumorSuppressors"/> (ONCO-CNA-003): collects the distinct (case-insensitive,
+    /// non-empty) arm labels of the affected segments and returns, in panel order, every panel gene resident on one
+    /// of them (each gene at most once).
+    /// </summary>
+    private static List<string> GenesOnAffectedArms(
+        IEnumerable<CopyNumberArmSegment> affectedSegments,
+        IReadOnlyList<(string Gene, string Arm)> panel)
+    {
+        var affectedArms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (CopyNumberArmSegment segment in affectedSegments)
         {
             if (!string.IsNullOrEmpty(segment.Arm))
             {
-                amplifiedArms.Add(segment.Arm);
+                affectedArms.Add(segment.Arm);
             }
         }
 
         var genes = new List<string>();
-        foreach ((string gene, string arm) in OncogeneArms)
+        foreach ((string gene, string arm) in panel)
         {
-            if (amplifiedArms.Contains(arm))
+            if (affectedArms.Contains(arm))
             {
                 genes.Add(gene);
             }
@@ -612,26 +624,7 @@ public static partial class OncologyAnalyzer
         IEnumerable<CopyNumberArmSegment> deletions)
     {
         ArgumentNullException.ThrowIfNull(deletions);
-
-        var deletedArms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (CopyNumberArmSegment segment in deletions)
-        {
-            if (!string.IsNullOrEmpty(segment.Arm))
-            {
-                deletedArms.Add(segment.Arm);
-            }
-        }
-
-        var genes = new List<string>();
-        foreach ((string gene, string arm) in TumorSuppressorArms)
-        {
-            if (deletedArms.Contains(arm))
-            {
-                genes.Add(gene);
-            }
-        }
-
-        return genes;
+        return GenesOnAffectedArms(deletions, TumorSuppressorArms);
     }
 
     /// <summary>
@@ -810,15 +803,16 @@ public static partial class OncologyAnalyzer
             return false;
         }
 
-        ReadOnlySpan<char> name = chromosome.AsSpan();
-        if (name.Length > 3 &&
-            (name[0] is 'c' or 'C') && (name[1] is 'h' or 'H') && (name[2] is 'r' or 'R'))
-        {
-            name = name[3..];
-        }
-
-        return int.TryParse(name, out number) && number is >= 1 and <= AutosomeCount;
+        return int.TryParse(StripChrPrefix(chromosome.AsSpan()), out number) && number is >= 1 and <= AutosomeCount;
     }
+
+    /// <summary>
+    /// Removes a leading case-insensitive "chr" from a chromosome label ("chr7" → "7", "ChrX" → "X"); a label that is
+    /// exactly "chr" (or shorter) is returned unchanged. Shared by the WGD autosome filter
+    /// (<see cref="TryGetAutosomeNumber"/>) and the ASCAT sex-chromosome filter (<see cref="IsAscatSexChromosome"/>).
+    /// </summary>
+    private static ReadOnlySpan<char> StripChrPrefix(ReadOnlySpan<char> name) =>
+        name.Length > 3 && name.StartsWith("chr", StringComparison.OrdinalIgnoreCase) ? name[3..] : name;
 
     /// <summary>
     /// Estimates the average tumour ploidy ψ as the segment-length-weighted mean of per-segment total copy
@@ -1113,9 +1107,12 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// Segments per-locus allele-specific signal (logR, BAF) into contiguous regions, producing one
-    /// (mean logR, mean BAF) summary per segment. Implements a deterministic <b>joint</b> mean-shift changepoint
-    /// scan on both the logR and the (mirrored) BAF tracks — the allele-specific segmentation step that precedes
-    /// the ASCAT model (ASPCF; Nilsen et al. 2012, <i>BMC Genomics</i> 13:591; CBS, Olshen et al. 2004): a new
+    /// (mean logR, mean BAF) summary per segment, with a deterministic <b>greedy joint mean-shift heuristic</b> on the
+    /// logR and the (mirrored) BAF tracks. <b>This is not ASPCF or CBS</b> and has no published reference
+    /// implementation: it is a single left-to-right pass with caller-chosen absolute thresholds, no noise
+    /// standardisation and no global (penalised least-squares) optimisation, so its breakpoints differ from ASCAT's.
+    /// For the published allele-specific segmentation (ASCAT <c>ascat.aspcf</c>; Nilsen et al. 2012, <i>BMC Genomics</i>
+    /// 13:591; Ross et al. 2021) use <see cref="SegmentAlleleSpecificAspcf"/>. Rule: a new
     /// segment starts when the next locus's logR deviates from the running segment mean by more than
     /// <paramref name="logRChangeThreshold"/>, OR its mirrored BAF deviates by more than
     /// <paramref name="bafChangeThreshold"/>, or when the chromosome changes. Segmenting on BAF as well as logR is
@@ -1123,6 +1120,8 @@ public static partial class OncologyAnalyzer
     /// different BAF, so a logR-only scan would wrongly merge them. The BAF is "folded" to its distance from 0.5
     /// and re-centred (b' = 0.5 + |b − 0.5|) before averaging so that the two symmetric heterozygous BAF clusters
     /// (b and 1 − b) do not cancel — the standard mirrored-BAF summary used by allele-specific callers.
+    /// Unlike <see cref="SegmentAlleleSpecificAspcf"/>, locus values are not validated (a BAF outside [0, 1] yields a
+    /// folded mean above 1, which <see cref="FitPurityPloidy"/> then rejects).
     /// </summary>
     /// <param name="loci">Per-locus measurements; processed in input order within each chromosome.</param>
     /// <param name="logRChangeThreshold">logR mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
@@ -1169,7 +1168,7 @@ public static partial class OncologyAnalyzer
                 throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
             }
 
-            double foldedBaf = BalancedBaf + Math.Abs(locus.BAF - BalancedBaf);
+            double foldedBaf = FoldBafAboutHalf(locus.BAF);
             bool chromosomeChanged = current.Count > 0 && current[^1].Chromosome != locus.Chromosome;
             bool meanShift = false;
             if (!chromosomeChanged && current.Count >= minLociPerSegment)
@@ -1183,7 +1182,7 @@ public static partial class OncologyAnalyzer
 
             if ((chromosomeChanged || meanShift) && current.Count > 0)
             {
-                result.Add(BuildSegmentSummary(current));
+                result.Add(BuildSegmentSummary(current, runningLogRSum, runningFoldedBafSum));
                 current = new List<AlleleSpecificLocus>();
                 runningLogRSum = 0.0;
                 runningFoldedBafSum = 0.0;
@@ -1196,24 +1195,23 @@ public static partial class OncologyAnalyzer
 
         if (current.Count > 0)
         {
-            result.Add(BuildSegmentSummary(current));
+            result.Add(BuildSegmentSummary(current, runningLogRSum, runningFoldedBafSum));
         }
 
         return result;
     }
 
-    /// <summary>Builds a (mean logR, mirrored-mean BAF) summary from a non-empty run of same-chromosome loci.</summary>
-    private static AlleleSpecificSegmentSummary BuildSegmentSummary(List<AlleleSpecificLocus> loci)
-    {
-        double logRSum = 0.0;
-        double foldedBafSum = 0.0;
-        foreach (AlleleSpecificLocus locus in loci)
-        {
-            logRSum += locus.LogR;
-            // Mirror BAF about 0.5 so the two symmetric het clusters (b, 1−b) reinforce instead of cancel.
-            foldedBafSum += BalancedBaf + Math.Abs(locus.BAF - BalancedBaf);
-        }
+    /// <summary>Greedy-segmenter BAF fold: b' = 0.5 + |b − 0.5|, so the two symmetric het clusters (b, 1−b) reinforce
+    /// instead of cancel when averaged.</summary>
+    private static double FoldBafAboutHalf(double baf) => BalancedBaf + Math.Abs(baf - BalancedBaf);
 
+    /// <summary>
+    /// Builds a (mean logR, mirrored-mean BAF) summary from a non-empty run of same-chromosome loci, given the run's
+    /// logR sum and folded-BAF sum (accumulated in locus order by the caller).
+    /// </summary>
+    private static AlleleSpecificSegmentSummary BuildSegmentSummary(
+        List<AlleleSpecificLocus> loci, double logRSum, double foldedBafSum)
+    {
         return new AlleleSpecificSegmentSummary(
             Chromosome: loci[0].Chromosome,
             Start: loci[0].Position,
@@ -1235,11 +1233,22 @@ public static partial class OncologyAnalyzer
     /// </summary>
     private static (double NA, double NB) AscatRawCopyNumbers(double r, double b, double rho, double psi, double gamma)
     {
-        double scaledTotal = Math.Pow(2.0, r / gamma) * ((1.0 - rho) * NormalDiploidCopyNumber + rho * psi);
+        double scaledTotal = Math.Pow(2.0, r / gamma) * MixtureCopiesPerCell(rho, psi);
         double nA = (rho - 1.0 - (b - 1.0) * scaledTotal) / rho;
         double nB = (rho - 1.0 + b * scaledTotal) / rho;
         return (nA, nB);
     }
+
+    /// <summary>
+    /// Average number of copies of a locus per cell in a tumour sample of purity ρ whose tumour cells carry
+    /// <paramref name="tumorCopies"/> copies and whose normal cells are diploid: <c>2(1 − ρ) + ρ·n</c>. This mixture
+    /// denominator is shared by the ASCAT logR model (<c>(1 − rho)·2 + rho·psi</c>, ascat.runAscat.R), Battenberg
+    /// (<c>psi = rho·psit + 2(1 − rho)</c>) and the Landau/CNAqc expected-VAF model (<c>f = ρ·M·c / (2(1 − ρ) + ρ·q)</c>,
+    /// <see cref="ClassifyClonality"/>). IEEE addition and multiplication are commutative, so every caller is
+    /// bit-identical to its former inline form.
+    /// </summary>
+    private static double MixtureCopiesPerCell(double purity, double tumorCopies) =>
+        NormalDiploidCopyNumber * (1.0 - purity) + purity * tumorCopies;
 
     // ---- ASCAT runASCAT solution-selection constants (ascat.runAscat.R, verbatim) ----
 
@@ -1292,14 +1301,19 @@ public static partial class OncologyAnalyzer
     /// </summary>
     private static bool IsAscatSexChromosome(string chromosome)
     {
-        ReadOnlySpan<char> name = chromosome.AsSpan().Trim();
-        if (name.StartsWith("chr", StringComparison.OrdinalIgnoreCase))
-        {
-            name = name[3..];
-        }
-
+        ReadOnlySpan<char> name = StripChrPrefix(chromosome.AsSpan().Trim());
         return name.Equals("X", StringComparison.OrdinalIgnoreCase) || name.Equals("Y", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// Input contract of the ASCAT / ASPCF / Battenberg ports for one (logR, BAF) pair — per locus or per segment
+    /// summary: a finite logR and a BAF in [0, 1].
+    /// </summary>
+    private static bool IsValidAlleleSignal(double logR, double baf) =>
+        double.IsFinite(logR) && !double.IsNaN(baf) && baf >= 0.0 && baf <= 1.0;
+
+    /// <summary>Mirrored BAF max(b, 1 − b) ∈ [0.5, 1] (ascat.aspcf <c>ifelse(b &gt; 0.5, b, 1 − b)</c>; Battenberg <c>l</c>).</summary>
+    private static double MirrorBaf(double baf) => baf > BalancedBaf ? baf : 1.0 - baf;
 
     /// <summary>ASCAT segmented-BAF orientation: <c>Tumor_BAF_segmented = 1 − mirroredBAF</c> ∈ [0, 0.5].</summary>
     private static double ToAscatBaf(double baf) => baf > BalancedBaf ? 1.0 - baf : baf;
@@ -1516,7 +1530,7 @@ public static partial class OncologyAnalyzer
                 throw new ArgumentException("A segment has a null chromosome label.", nameof(segments));
             }
 
-            if (!double.IsFinite(s.MeanLogR) || double.IsNaN(s.MeanBAF) || s.MeanBAF < 0.0 || s.MeanBAF > 1.0)
+            if (!IsValidAlleleSignal(s.MeanLogR, s.MeanBAF))
             {
                 throw new ArgumentException(
                     "Every segment needs a finite mean logR and a mean BAF in [0, 1].", nameof(segments));
@@ -1635,22 +1649,7 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        double theoreticalMaxDistance = 0.0, totalLength = 0.0, aberrantLength = 0.0, maxAberrantSegment = 0.0;
-        foreach (AscatFitSegment seg in s)
-        {
-            bool balanced = seg.B == BalancedBaf;
-            theoreticalMaxDistance += AscatWorstCaseIntegerDistance * seg.Length * (balanced ? AscatBalancedSegmentWeight : 1.0);
-            totalLength += seg.Length;
-            if (!balanced)
-            {
-                aberrantLength += seg.Length;
-                maxAberrantSegment = Math.Max(maxAberrantSegment, seg.Length);
-            }
-        }
-
-        // Flag the sample as non-aberrant (MINABB / MINABBREGION).
-        bool nonAberrant = aberrantLength / totalLength <= AscatMinAberrantFraction
-                           && maxAberrantSegment / totalLength <= AscatMinAberrantRegionFraction;
+        (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
 
         var candidates = new List<(double M, int I, int J, double GoodnessOfFit)>();
         bool strictPloidyWindowReachable = ploidyMin < AscatMaxPloidyStrict && ploidyMax > AscatMinPloidyStrict;
@@ -1723,6 +1722,32 @@ public static partial class OncologyAnalyzer
         double rhoOpt = Math.Min(1.0, RDimnameValue(rhoPos[best.J])); // if (rho_opt1 > 1) rho_opt1 = 1
         fit = BuildAscatFit(segments, rhoOpt, psiOpt, gamma, best.GoodnessOfFit, nonAberrant);
         return true;
+    }
+
+    /// <summary>
+    /// Sample-level ASCAT quantities shared by the grid fit (<see cref="TryFitPurityPloidy"/>) and the manual fit
+    /// (<see cref="EvaluatePurityPloidy"/>), ascat.runAscat.R: <c>TheoretMaxdist = sum(rep(0.25, n) · length ·
+    /// ifelse(b == 0.5, 0.05, 1))</c> (the GoF normaliser) and the <c>nonaberrant</c> flag (MINABB: aberrant probes ≤ 3 %,
+    /// MINABBREGION: no aberrant segment above 0.5 % of the probes).
+    /// </summary>
+    private static (double TheoreticalMaxDistance, bool NonAberrant) AscatSampleSummary(AscatFitSegment[] s)
+    {
+        double theoreticalMaxDistance = 0.0, totalLength = 0.0, aberrantLength = 0.0, maxAberrantSegment = 0.0;
+        foreach (AscatFitSegment seg in s)
+        {
+            bool balanced = seg.B == BalancedBaf;
+            theoreticalMaxDistance += AscatWorstCaseIntegerDistance * seg.Length * (balanced ? AscatBalancedSegmentWeight : 1.0);
+            totalLength += seg.Length;
+            if (!balanced)
+            {
+                aberrantLength += seg.Length;
+                maxAberrantSegment = Math.Max(maxAberrantSegment, seg.Length);
+            }
+        }
+
+        bool nonAberrant = aberrantLength / totalLength <= AscatMinAberrantFraction
+                           && maxAberrantSegment / totalLength <= AscatMinAberrantRegionFraction;
+        return (theoreticalMaxDistance, nonAberrant);
     }
 
     /// <summary>Statistics of one ASCAT local-minimum candidate, as tested by the runASCAT filter passes.</summary>
@@ -1806,6 +1831,21 @@ public static partial class OncologyAnalyzer
         double gamma = AscatSequencingGamma)
     {
         AscatFitSegment[] s = PrepareAscatSegments(segments);
+        ValidateAscatModelParameters(purity, ploidy, gamma);
+
+        (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
+        double m = AscatDistance(s, purity, ploidy, gamma);
+        double goodnessOfFit = (1.0 - m / theoreticalMaxDistance) * 100.0;
+        return BuildAscatFit(segments, purity, ploidy, gamma, goodnessOfFit, nonAberrant);
+    }
+
+    /// <summary>
+    /// Validates a fixed ASCAT/Battenberg model point (ρ, ψ, γ) — shared by <see cref="EvaluatePurityPloidy"/> and
+    /// <see cref="FitSubclonalCopyNumber"/>: ρ ∈ (0, 1], ψ &gt; 0 and γ &gt; 0, all finite (the ASCAT equations divide by ρ
+    /// and by γ).
+    /// </summary>
+    private static void ValidateAscatModelParameters(double purity, double ploidy, double gamma)
+    {
         if (!double.IsFinite(purity) || purity <= 0.0 || purity > 1.0)
         {
             throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity ρ must be in (0, 1].");
@@ -1820,25 +1860,6 @@ public static partial class OncologyAnalyzer
         {
             throw new ArgumentOutOfRangeException(nameof(gamma), gamma, "gamma must be positive and finite.");
         }
-
-        double theoreticalMaxDistance = 0.0, totalLength = 0.0, aberrantLength = 0.0, maxAberrantSegment = 0.0;
-        foreach (AscatFitSegment seg in s)
-        {
-            bool balanced = seg.B == BalancedBaf;
-            theoreticalMaxDistance += AscatWorstCaseIntegerDistance * seg.Length * (balanced ? AscatBalancedSegmentWeight : 1.0);
-            totalLength += seg.Length;
-            if (!balanced)
-            {
-                aberrantLength += seg.Length;
-                maxAberrantSegment = Math.Max(maxAberrantSegment, seg.Length);
-            }
-        }
-
-        bool nonAberrant = aberrantLength / totalLength <= AscatMinAberrantFraction
-                           && maxAberrantSegment / totalLength <= AscatMinAberrantRegionFraction;
-        double m = AscatDistance(s, purity, ploidy, gamma);
-        double goodnessOfFit = (1.0 - m / theoreticalMaxDistance) * 100.0;
-        return BuildAscatFit(segments, purity, ploidy, gamma, goodnessOfFit, nonAberrant);
     }
 
     private static void ValidateGrid(
@@ -1962,9 +1983,6 @@ public static partial class OncologyAnalyzer
     /// <summary>ASCAT <c>fastAspcf</c> window overlap <c>d = 100</c>.</summary>
     private const int AspcfWindowOverlap = 100;
 
-    /// <summary>R <c>mad()</c> consistency constant 1.4826.</summary>
-    private const double RMadConstant = 1.4826;
-
     /// <summary>ASCAT: re-run segmentation with the next larger penalty while ≥ 800 distinct logR levels remain.</summary>
     private const int AspcfMaxSegmentLevels = 800;
 
@@ -2019,7 +2037,7 @@ public static partial class OncologyAnalyzer
                 throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
             }
 
-            if (!double.IsFinite(locus.LogR) || double.IsNaN(locus.BAF) || locus.BAF < 0.0 || locus.BAF > 1.0)
+            if (!IsValidAlleleSignal(locus.LogR, locus.BAF))
             {
                 throw new ArgumentException("Every locus needs a finite logR and a BAF in [0, 1].", nameof(loci));
             }
@@ -2092,7 +2110,7 @@ public static partial class OncologyAnalyzer
         {
             lr[i] = loci[lo + i].LogR;
             baf[i] = loci[lo + i].BAF;
-            mirrored[i] = baf[i] > BalancedBaf ? baf[i] : 1.0 - baf[i]; // ifelse(bafsel > 0.5, bafsel, 1 - bafsel)
+            mirrored[i] = MirrorBaf(baf[i]); // ifelse(bafsel > 0.5, bafsel, 1 - bafsel)
         }
 
         double[] lrWins = MadWinsorize(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
@@ -2165,7 +2183,7 @@ public static partial class OncologyAnalyzer
             {
                 logRPart[i] = logR[from - 1 + i];
                 double b = allB[from - 1 + i];
-                allBFlip[i] = b > BalancedBaf ? 1.0 - b : b;
+                allBFlip[i] = ToAscatBaf(b); // min(b, 1 − b)
             }
 
             double sd1 = GetMad(logRPart, AspcfMedianHalfWindow);
@@ -2423,17 +2441,27 @@ public static partial class OncologyAnalyzer
         return win;
     }
 
-    /// <summary>R <c>mad(x)</c> = 1.4826 · median(|x − median(x)|) (canonical <see cref="StatisticsHelper.Median"/>).</summary>
-    private static double RMad(double[] x)
+    /// <summary>
+    /// R <c>mad(x)</c> = 1.4826 · median(|x − median(x)|) (constant <see cref="MadConsistencyConstant"/>, raw MAD from
+    /// <see cref="RawMedianAbsoluteDeviation"/>, both shared with the MATH score).
+    /// </summary>
+    private static double RMad(double[] x) =>
+        MadConsistencyConstant * RawMedianAbsoluteDeviation(x, StatisticsHelper.Median(x));
+
+    /// <summary>
+    /// Unscaled median absolute deviation about <paramref name="center"/>: median(|xᵢ − center|) (canonical
+    /// <see cref="StatisticsHelper.Median"/>). Shared by R <c>mad</c> (<see cref="RMad"/>, ASCAT ASPCF) and the maftools
+    /// MATH score (<see cref="CalculateITH"/>), which apply the 1.4826 factor in different operation orders.
+    /// </summary>
+    private static double RawMedianAbsoluteDeviation(double[] x, double center)
     {
-        double center = StatisticsHelper.Median(x);
         var dev = new double[x.Length];
         for (int i = 0; i < x.Length; i++)
         {
             dev[i] = Math.Abs(x[i] - center);
         }
 
-        return RMadConstant * StatisticsHelper.Median(dev);
+        return StatisticsHelper.Median(dev);
     }
 
     /// <summary>
@@ -2632,32 +2660,19 @@ public static partial class OncologyAnalyzer
         double gamma = AscatSequencingGamma)
     {
         ArgumentNullException.ThrowIfNull(segments);
-        if (!double.IsFinite(purity) || purity <= 0.0 || purity > 1.0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity ρ must be in (0, 1].");
-        }
-
-        if (!double.IsFinite(ploidy) || ploidy <= 0.0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy ψ must be positive.");
-        }
-
-        if (!double.IsFinite(gamma) || gamma <= 0.0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(gamma), gamma, "gamma must be positive.");
-        }
+        ValidateAscatModelParameters(purity, ploidy, gamma);
 
         double rho = purity;
-        double psiAll = rho * ploidy + NormalDiploidCopyNumber * (1.0 - rho); // psi = rho*psit + 2*(1-rho)
+        double psiAll = MixtureCopiesPerCell(rho, ploidy); // psi = rho*psit + 2*(1-rho)
         var fits = new List<SubclonalSegmentFit>(segments.Count);
         foreach (AlleleSpecificSegmentSummary s in segments)
         {
-            if (!double.IsFinite(s.MeanLogR) || double.IsNaN(s.MeanBAF) || s.MeanBAF < 0.0 || s.MeanBAF > 1.0)
+            if (!IsValidAlleleSignal(s.MeanLogR, s.MeanBAF))
             {
                 throw new ArgumentException("Every segment needs a finite mean logR and a mean BAF in [0, 1].", nameof(segments));
             }
 
-            double l = Math.Max(s.MeanBAF, 1.0 - s.MeanBAF);
+            double l = MirrorBaf(s.MeanBAF); // max(BAF, 1 − BAF)
             double scaled = psiAll * Math.Pow(2.0, s.MeanLogR / gamma);
             double nMajor = (rho - 1.0 + l * scaled) / rho;
             double nMinor = (rho - 1.0 + (1.0 - l) * scaled) / rho;
@@ -2689,8 +2704,8 @@ public static partial class OncologyAnalyzer
             if (closestDistance < BattenbergMaxBafDistance)
             {
                 var clonal = firstClosest
-                    ? new SubclonalCopyNumberState(ToStateCopyNumber(maj1), ToStateCopyNumber(min1), 1.0)
-                    : new SubclonalCopyNumberState(ToStateCopyNumber(maj2), ToStateCopyNumber(min2), 1.0);
+                    ? new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), 1.0)
+                    : new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0);
                 fits.Add(new SubclonalSegmentFit(s, clonal, SecondaryState: null, IsSubclonal: false));
                 continue;
             }
@@ -2699,8 +2714,8 @@ public static partial class OncologyAnalyzer
                          / (l * rho * (min1 + maj1) - l * rho * (min2 + maj2) - rho * maj1 + rho * maj2);
             fits.Add(new SubclonalSegmentFit(
                 s,
-                new SubclonalCopyNumberState(ToStateCopyNumber(maj1), ToStateCopyNumber(min1), tau),
-                new SubclonalCopyNumberState(ToStateCopyNumber(maj2), ToStateCopyNumber(min2), 1.0 - tau),
+                new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), tau),
+                new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0 - tau),
                 IsSubclonal: true));
         }
 
@@ -2745,9 +2760,6 @@ public static partial class OncologyAnalyzer
         // case 2b
         return lowerTotal ? (y, x, y, x + 1.0) : (y, x + 1.0, y + 1.0, x + 1.0);
     }
-
-    /// <summary>Integer copy number of a Battenberg state (≥ 0 by construction), saturating at Int32.MaxValue.</summary>
-    private static int ToStateCopyNumber(double value) => AscatCopyNumberToInt(value);
 
     #endregion
 

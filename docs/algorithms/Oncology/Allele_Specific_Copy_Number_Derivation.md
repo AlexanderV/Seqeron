@@ -211,7 +211,7 @@ about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het 
 
 **Implementation location:** [OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)
 
-- `OncologyAnalyzer.SegmentAlleleSpecific(...)`: greedy mean-shift segmentation of per-locus logR/BAF.
+- `OncologyAnalyzer.SegmentAlleleSpecific(...)`: greedy mean-shift segmentation of per-locus logR/BAF — a heuristic with no published reference (not ASPCF/CBS; one left-to-right pass, absolute thresholds, locus values not validated); use `SegmentAlleleSpecificAspcf` for the ASCAT path.
 - `OncologyAnalyzer.SegmentAlleleSpecificAspcf(...)`: ASCAT ASPCF (`ascat.aspcf` port).
 - `OncologyAnalyzer.FitPurityPloidy(...)` / `TryFitPurityPloidy(...)`: ASCAT `runASCAT` fit → ρ, ψ, ploidy, GoF, integer segments.
 - `OncologyAnalyzer.EvaluatePurityPloidy(...)`: ASCAT rho_manual/psi_manual path.

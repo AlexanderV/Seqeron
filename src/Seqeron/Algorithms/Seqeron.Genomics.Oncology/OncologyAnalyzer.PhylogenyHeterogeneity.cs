@@ -986,16 +986,10 @@ public static partial class OncologyAnalyzer
                 nameof(ccfDistribution));
         }
 
-        // Raw MAD = median of absolute deviations from the median; scale by 1.4826 for normal consistency.
-        double[] absDeviations = new double[n];
-        for (int i = 0; i < n; i++)
-        {
-            absDeviations[i] = Math.Abs(values[i] - median);
-        }
-
+        // Raw MAD = median of absolute deviations from the median (shared helper, also behind R mad in ASPCF).
         // Same operation order as maftools mathScore.R (pat.mad = median(abs.med.dev) * 100;
         // pat.math = pat.mad * 1.4826 / median(vaf)) so the result is bit-identical to the reference.
-        double rawMad = StatisticsHelper.Median(absDeviations);
+        double rawMad = RawMedianAbsoluteDeviation(values, median);
         double percentMad = rawMad * MathPercentScale;
         return percentMad * MadConsistencyConstant / median;
     }
