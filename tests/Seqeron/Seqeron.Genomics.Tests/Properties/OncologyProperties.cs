@@ -6747,7 +6747,7 @@ public class OncologyProperties
     private static Arbitrary<(OncologyAnalyzer.CopyNumberArmSegment[] segments, OncologyAnalyzer.FocalAmplificationThresholds thresholds)>
         FocalProblemArbitrary() =>
         (from segments in ArmSegmentGen().ArrayOf()
-         from tampMilli in Gen.Choose(-200, 500)
+         from tampMilli in Gen.Choose(0, 500) // GISTIC2 -ta range [0, Inf] (gp_gistic2_from_seg.m)
          from cutoffMilli in Gen.Choose(500, 990)
          select (segments, new OncologyAnalyzer.FocalAmplificationThresholds(tampMilli / 1000.0, cutoffMilli / 1000.0)))
         .ToArbitrary();

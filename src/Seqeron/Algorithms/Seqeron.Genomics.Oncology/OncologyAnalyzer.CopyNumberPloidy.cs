@@ -343,10 +343,13 @@ public static partial class OncologyAnalyzer
     /// <param name="thresholds">Amplitude and length cutoffs.</param>
     /// <returns><c>true</c> when the segment is an amplified, focal-length event.</returns>
     /// <exception cref="ArgumentException"><paramref name="segment"/> has non-positive arm length or End ≤ Start.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="thresholds"/> is NaN or outside the GISTIC2 ranges
+    /// (<c>t_amp</c> ∈ [0, ∞), <c>broad_len_cutoff</c> ∈ [0, 2]).</exception>
     public static bool IsFocalAmplification(
         in CopyNumberArmSegment segment,
         FocalAmplificationThresholds thresholds)
     {
+        ValidateFocalThresholds(thresholds);
         ValidateArmSegment(segment);
 
         bool amplified = segment.Log2Ratio > thresholds.AmplificationLog2Threshold;
@@ -360,17 +363,35 @@ public static partial class OncologyAnalyzer
     /// The result is a subset of the input in input order (length- and order-preserving filter). Source:
     /// Mermel et al. (2011) GISTIC2.0 length-based focal/arm-level split; GISTIC2 <c>t_amp</c>/<c>broad_len_cutoff</c>.
     /// </summary>
+    /// <remarks>
+    /// This is the per-event focal filter of the GISTIC2 reference implementation
+    /// (<c>snputil/reconstruct_genomes.m</c>, <c>broad_or_focal = 'focal'</c>: event arm-fraction &lt;
+    /// <c>broad_len_cutoff</c> AND amplitude vs <c>t_amp</c>). The amplitude test is strict (&gt; <c>t_amp</c>), following
+    /// the GISTIC2 documentation ("gain above this positive value") and GISTIC2 <c>gene_calls.m</c>;
+    /// <c>reconstruct_genomes.m</c> uses &gt;=, which differs only at exact equality.
+    /// <para><b>Not implemented — ziggurat deconstruction.</b> GISTIC2 applies this filter to SCNA <i>events</i>
+    /// produced by its ziggurat deconstruction (amplitude measured relative to the underlying level; broad levels
+    /// estimated from the whole cohort). Here each input segment is treated as one event with amplitude = its
+    /// <see cref="CopyNumberArmSegment.Log2Ratio"/>. Consequence: when raw segments are supplied, an arm-level gain
+    /// interrupted by a focal peak (e.g. 0.5 | 1.5 | 0.5) yields flank segments that are individually &lt; 98% of the arm
+    /// and are reported as focal, whereas GISTIC2 would call one broad event (0.5) plus one focal event (+1.0).
+    /// Supply deconstructed events (or whole-arm-merged segments) to match GISTIC2.</para>
+    /// Segment coordinates are half-open (<c>Length = End − Start</c>).
+    /// </remarks>
     /// <param name="segments">Arm-anchored copy-number segments. Must not be null.</param>
     /// <param name="thresholds">Amplitude and length cutoffs; null uses <see cref="FocalAmplificationThresholds.Default"/> (GISTIC2 defaults).</param>
     /// <returns>The focal amplifications, in input order.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
     /// <exception cref="ArgumentException">A segment has non-positive arm length or End ≤ Start.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="thresholds"/> is NaN or outside the GISTIC2 ranges
+    /// (<c>t_amp</c> ∈ [0, ∞), <c>broad_len_cutoff</c> ∈ [0, 2]).</exception>
     public static IReadOnlyList<CopyNumberArmSegment> DetectFocalAmplifications(
         IEnumerable<CopyNumberArmSegment> segments,
         FocalAmplificationThresholds? thresholds = null)
     {
         ArgumentNullException.ThrowIfNull(segments);
         FocalAmplificationThresholds cutoffs = thresholds ?? FocalAmplificationThresholds.Default;
+        ValidateFocalThresholds(cutoffs);
 
         var result = new List<CopyNumberArmSegment>();
         foreach (CopyNumberArmSegment segment in segments)
@@ -434,6 +455,31 @@ public static partial class OncologyAnalyzer
         ("MDM2", "12q"),
         ("CDK4", "12q"),
     };
+
+    /// <summary>
+    /// Validates focal-amplification thresholds against the ranges enforced by the GISTIC2 reference
+    /// implementation (<c>gp_gistic2_from_seg.m</c>: <c>-ta</c> ∈ [0, Inf], <c>-brlen</c> ∈ [0, 2], non-numeric
+    /// values rejected). A NaN threshold would otherwise make every comparison false and silently report nothing;
+    /// a negative <c>t_amp</c> would call copy-number losses "amplified".
+    /// </summary>
+    private static void ValidateFocalThresholds(FocalAmplificationThresholds thresholds)
+    {
+        double tAmp = thresholds.AmplificationLog2Threshold;
+        if (double.IsNaN(tAmp) || tAmp < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(thresholds), tAmp,
+                "AmplificationLog2Threshold (GISTIC2 t_amp) must be a number in [0, +Infinity).");
+        }
+
+        double cutoff = thresholds.BroadLengthCutoff;
+        if (double.IsNaN(cutoff) || cutoff < 0 || cutoff > 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(thresholds), cutoff,
+                "BroadLengthCutoff (GISTIC2 broad_len_cutoff) must be a fraction of chromosome arm in [0, 2].");
+        }
+    }
 
     /// <summary>Validates an arm segment: positive arm length and End &gt; Start.</summary>
     private static void ValidateArmSegment(in CopyNumberArmSegment segment)

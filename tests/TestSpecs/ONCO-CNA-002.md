@@ -5,7 +5,7 @@
 **Algorithm:** Focal Amplification Detection
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -18,6 +18,7 @@
 | 1 | Mermel et al. (2011) GISTIC2.0, Genome Biology 12:R41 | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC3218867/ | 2026-06-14 |
 | 2 | Broad Institute GISTIC2 docs (`broad_len_cutoff`, `t_amp`) | 3 | https://broadinstitute.github.io/gistic2/ | 2026-06-14 |
 | 3 | CNVkit — Calling copy number gains and losses | 3 | https://cnvkit.readthedocs.io/en/stable/calling.html | 2026-06-14 |
+| 5 | GISTIC2 MATLAB source (`gp_gistic2_from_seg.m`, `reconstruct_genomes.m`, `score_genome.m`, `gene_calls.m`) | 2 | https://github.com/broadinstitute/gistic2 | 2026-09-28 |
 | 4 | NCBI Gene (ERBB2 2064, MYC 4609, EGFR 1956, CCND1 595, MDM2 4193, CDK4 1019) | 5 | https://www.ncbi.nlm.nih.gov/gene/ | 2026-06-14 |
 
 ### 1.2 Key Evidence Points
@@ -95,6 +96,10 @@
 | C2 | Empty segments | DetectFocalAmplifications([]) | empty list | Guard |
 | C3 | Null amplifications | IdentifyAmplifiedOncogenes(null) | ArgumentNullException | Guard |
 | C4 | Invalid arm length | armLength ≤ 0 | ArgumentException | Validation |
+| C5 | Out-of-range thresholds | t_amp −0.1 / NaN; broad_len_cutoff NaN / −0.01 / 2.01 | ArgumentOutOfRangeException (Detect, IsFocal, empty input) | GISTIC2 `gp_gistic2_from_seg.m` ranges [0,Inf], [0 2] |
+| C5b | Range endpoints | t_amp 0, cutoff 2; seg 0.99, log2 0.05 | Reported | Inclusive GISTIC2 ranges |
+| C6 | NaN log2 | log2 NaN | Not reported (no-call) | NaN not above t_amp |
+| C7 | Duplicate/mixed-case arms | 11q, 17Q, 17q | ["ERBB2","CCND1"] (distinct, panel order) | INV-4 |
 
 ---
 
@@ -169,16 +174,21 @@
 | C2 | ✅ Covered | DetectFocalAmplifications_Empty_ReturnsEmpty |
 | C3 | ✅ Covered | IdentifyAmplifiedOncogenes_Null_Throws |
 | C4 | ✅ Covered | DetectFocalAmplifications_NonPositiveArmLength_Throws |
+| C5 | ✅ Covered | DetectFocalAmplifications_ThresholdsOutsideGistic2Range_Throw (5 cases) |
+| C5b | ✅ Covered | DetectFocalAmplifications_Gistic2RangeEndpoints_Accepted |
+| C6 | ✅ Covered | DetectFocalAmplifications_NaNLog2_NotReported |
+| C7 | ✅ Covered | IdentifyAmplifiedOncogenes_DuplicateAndMixedCaseArms_DistinctInPanelOrder |
 
 ---
 
 ## 6. Assumption Register
 
-**Total assumptions:** 2
+**Total assumptions:** 3
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Amplitude "amplified" test uses GISTIC2 `t_amp` = 0.1 combined with the paper's length rule | DetectFocalAmplifications predicate |
+| 1 | Amplitude "amplified" test uses GISTIC2 `t_amp` = 0.1 combined with the paper's length rule — confirmed as GISTIC2's own focal filter (`reconstruct_genomes.m`, 2026-09 review) | DetectFocalAmplifications predicate |
+| 3 | Each input segment is one SCNA event (no ziggurat deconstruction); raw flanks of a broad gain interrupted by a focal peak are reported as focal | Input contract (documented limitation) |
 | 2 | Arm label + arm length supplied by caller (no bundled cytoband table) | Segment input contract |
 
 ---
