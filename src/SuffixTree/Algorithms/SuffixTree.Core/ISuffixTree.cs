@@ -40,6 +40,18 @@ namespace SuffixTree;
 /// </remarks>
 public interface ISuffixTree : ISuffixTreeSearch, ISuffixTreeAnalysis, ISuffixTreeDiagnostics
 {
+    /// <summary>
+    /// Counts distinct substrings by length: element <c>i</c> is the number of distinct
+    /// substrings of length <c>i</c> (<c>i = 1..min(maxLength, n)</c>); element 0 is 1.
+    /// The default implementation traverses the tree; implementations may override.
+    /// </summary>
+    long[] CountDistinctSubstringsByLength(int maxLength)
+        => SuffixTreeAlgorithms.CountDistinctSubstringsByLength(this, maxLength);
+
+    /// <summary>
+    /// Total number of distinct non-empty substrings of the text.
+    /// </summary>
+    long CountDistinctSubstrings() => SuffixTreeAlgorithms.CountDistinctSubstrings(this);
 }
 
 /// <summary>

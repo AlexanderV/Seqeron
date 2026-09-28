@@ -69,7 +69,7 @@ This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with 
 
 1. Normalize the input sequence to uppercase.
 2. Let `m = min(maxWordLength, sequence.Length)`. If `m ≤ 12`, enumerate all overlapping subwords of each length and count distinct ones with a `HashSet<string>`.
-3. Otherwise build (or reuse the cached `DnaSequence.SuffixTree`) suffix tree and, for every edge spanning depths `d+1..d+len` (leaf edges excluding the terminator), add 1 to `V_i` for each covered `i ≤ m` (difference array).
+3. Otherwise build (or reuse the cached `DnaSequence.SuffixTree`) suffix tree and call the shared `ISuffixTree.CountDistinctSubstringsByLength(m)` (SuffixTree project): for every edge spanning depths `d+1..d+len` (leaf edges excluding the terminator), add 1 to `V_i` for each covered `i ≤ m` (difference array).
 4. Compute the maximum possible count for that length using `min(4^i, N - i + 1)`.
 5. Sum observed and possible counts across all lengths and return their ratio.
 

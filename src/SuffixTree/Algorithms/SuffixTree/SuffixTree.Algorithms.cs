@@ -40,6 +40,58 @@ public partial class SuffixTree
         return LongestRepeatedSubstring().AsMemory();
     }
 
+    /// <inheritdoc cref="ISuffixTree.CountDistinctSubstringsByLength(int)"/>
+    /// <remarks>
+    /// Direct node walk (no key sorting) that stops descending once the string depth reaches
+    /// <paramref name="maxLength"/>: O(nodes above depth maxLength + maxLength).
+    /// See <see cref="SuffixTreeAlgorithms.CountDistinctSubstringsByLength"/> for the method.
+    /// </remarks>
+    public long[] CountDistinctSubstringsByLength(int maxLength)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, 1);
+        int m = Math.Min(maxLength, _text.Length);
+        var counter = new SuffixTreeAlgorithms.DistinctSubstringCounter(_text.Length, m);
+        AccumulateEdges(counter, m);
+        return counter.ToCounts();
+    }
+
+    /// <inheritdoc cref="ISuffixTree.CountDistinctSubstrings"/>
+    public long CountDistinctSubstrings()
+    {
+        var counter = new SuffixTreeAlgorithms.DistinctSubstringCounter(_text.Length, 0);
+        AccumulateEdges(counter, int.MaxValue);
+        return counter.TotalEdgeLength;
+    }
+
+    /// <summary>
+    /// Feeds every edge whose label starts above string depth <paramref name="pruneDepth"/>
+    /// into <paramref name="counter"/>.
+    /// </summary>
+    private void AccumulateEdges(SuffixTreeAlgorithms.DistinctSubstringCounter counter, int pruneDepth)
+    {
+        if (_text.Length == 0) return;
+
+        var stack = new Stack<(SuffixTreeNode Node, int Depth)>();
+        var children = new List<SuffixTreeNode>();
+        _root.GetChildren(children);
+        foreach (var child in children)
+            stack.Push((child, 0));
+
+        while (stack.Count > 0)
+        {
+            var (node, depth) = stack.Pop();
+            counter.AddEdge(node.Start, node.End, depth);
+            if (node.IsLeaf) continue;
+
+            int childDepth = depth + LengthOf(node);
+            if (childDepth >= pruneDepth) continue;
+
+            node.GetChildren(children);
+            foreach (var child in children)
+                stack.Push((child, childDepth));
+        }
+    }
+
     /// <summary>
     /// Finds the longest common substring between this tree's text and another string.
     /// If multiple substrings have the same maximum length, the first one found in 'other' is returned.

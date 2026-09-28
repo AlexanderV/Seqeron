@@ -324,4 +324,118 @@ public static class SuffixTreeAlgorithms
         if (write < values.Count)
             values.RemoveRange(write, values.Count - write);
     }
+
+    /// <summary>
+    /// Counts distinct substrings of the tree's text by length: element <c>i</c> of the result is
+    /// the number of distinct substrings of length <c>i</c> for <c>i = 1..min(maxLength, n)</c>;
+    /// element 0 is 1 (the empty substring). The terminator is not part of any substring.
+    /// </summary>
+    /// <remarks>
+    /// Every distinct substring of length <c>i</c> ends at exactly one point at string depth
+    /// <c>i</c> on exactly one edge, so the count equals the number of edges whose depth range
+    /// covers <c>i</c> (Gusfield 1997 §7; Troyanskaya et al. 2002, Bioinformatics 18:679).
+    /// Each edge adds +1 over its depth range in a difference array: O(nodes + maxLength).
+    /// </remarks>
+    /// <param name="tree">Any suffix tree implementation (traversed via <see cref="ISuffixTreeDiagnostics.Traverse"/>).</param>
+    /// <param name="maxLength">Largest substring length to count (≥ 1).</param>
+    public static long[] CountDistinctSubstringsByLength(ISuffixTree tree, int maxLength)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, 1);
+
+        int n = tree.Text.Length;
+        int m = Math.Min(maxLength, n);
+        var visitor = new DistinctSubstringCounter(n, m);
+        tree.Traverse(visitor);
+        return visitor.ToCounts();
+    }
+
+    /// <summary>
+    /// Total number of distinct non-empty substrings of the tree's text
+    /// (sum of edge label lengths, terminator excluded). O(nodes).
+    /// </summary>
+    public static long CountDistinctSubstrings(ISuffixTree tree)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+        var visitor = new DistinctSubstringCounter(tree.Text.Length, 0);
+        tree.Traverse(visitor);
+        return visitor.TotalEdgeLength;
+    }
+
+    /// <summary>
+    /// Shared per-edge accumulator for distinct-substring counting. As a visitor it works with any
+    /// tree via <see cref="ISuffixTreeDiagnostics.Traverse"/>; implementations with a cheaper node
+    /// walk call <see cref="AddEdge"/> directly.
+    /// </summary>
+    public sealed class DistinctSubstringCounter : ISuffixTreeVisitor
+    {
+        private readonly int _n;
+        private readonly int _m;
+        private readonly long[] _diff;
+        private bool _rootSeen;
+
+        /// <param name="n">Text length (terminator excluded).</param>
+        /// <param name="m">Largest substring length to count per length (0 = totals only).</param>
+        public DistinctSubstringCounter(int n, int m)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(n);
+            ArgumentOutOfRangeException.ThrowIfNegative(m);
+            _n = n;
+            _m = m;
+            _diff = new long[m + 2];
+        }
+
+        /// <summary>Total number of distinct non-empty substrings seen so far.</summary>
+        public long TotalEdgeLength { get; private set; }
+
+        /// <summary>
+        /// Adds one edge covering text[start, end) whose label begins at string depth
+        /// <paramref name="depth"/>. A leaf edge (end &lt; 0 or past the text) stops at the text end.
+        /// </summary>
+        public void AddEdge(int start, int end, int depth)
+        {
+            int realEnd = end < 0 || end > _n ? _n : end;
+            int length = realEnd - start;
+            if (length <= 0) return;
+
+            TotalEdgeLength += length;
+
+            int from = depth + 1;
+            if (from > _m) return;
+            int to = Math.Min(depth + length, _m);
+            _diff[from]++;
+            _diff[to + 1]--;
+        }
+
+        /// <summary>Per-length counts; element 0 is 1 (the empty substring).</summary>
+        public long[] ToCounts()
+        {
+            var counts = new long[_m + 1];
+            counts[0] = 1;
+            long running = 0;
+            for (int i = 1; i <= _m; i++)
+            {
+                running += _diff[i];
+                counts[i] = running;
+            }
+            return counts;
+        }
+
+        /// <inheritdoc />
+        public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
+        {
+            if (!_rootSeen)
+            {
+                _rootSeen = true; // the root has no incoming edge
+                return;
+            }
+            AddEdge(startIndex, endIndex, depth);
+        }
+
+        /// <inheritdoc />
+        public void EnterBranch(int key) { }
+
+        /// <inheritdoc />
+        public void ExitBranch() { }
+    }
 }

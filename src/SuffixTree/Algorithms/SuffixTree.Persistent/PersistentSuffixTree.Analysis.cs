@@ -25,6 +25,20 @@ public sealed partial class PersistentSuffixTree
     }
 
     /// <inheritdoc />
+    public long[] CountDistinctSubstringsByLength(int maxLength)
+    {
+        ThrowIfDisposed();
+        return SuffixTreeAlgorithms.CountDistinctSubstringsByLength(this, maxLength);
+    }
+
+    /// <inheritdoc />
+    public long CountDistinctSubstrings()
+    {
+        ThrowIfDisposed();
+        return SuffixTreeAlgorithms.CountDistinctSubstrings(this);
+    }
+
+    /// <inheritdoc />
     public IReadOnlyList<string> GetAllSuffixes()
     {
         ThrowIfDisposed();

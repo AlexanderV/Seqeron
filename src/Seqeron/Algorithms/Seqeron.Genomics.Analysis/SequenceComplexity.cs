@@ -19,8 +19,8 @@ public static class SequenceComplexity
     /// </summary>
     /// <remarks>
     /// Small m uses direct hash enumeration; larger m counts V_i from the sequence's suffix tree
-    /// (Troyanskaya et al. 2002): V_i equals the number of suffix-tree edges spanning depth i, so
-    /// the full-length LC is computed in linear time. Both paths return identical values.
+    /// (Troyanskaya et al. 2002) via the shared <c>ISuffixTree.CountDistinctSubstringsByLength</c>
+    /// (V_i = number of suffix-tree edges spanning depth i), so the full-length LC is linear-time. Both paths return identical values.
     /// </remarks>
     /// <param name="sequence">DNA sequence.</param>
     /// <param name="maxWordLength">Maximum word length m to consider (values ≥ N give Troyanskaya's all-length LC).</param>
@@ -34,7 +34,7 @@ public static class SequenceComplexity
         if (seq.Length == 0) return 0;
         int m = Math.Min(maxWordLength, seq.Length);
         return m > LcHashEnumerationMaxWordLength
-            ? LinguisticComplexityFromCounts(DistinctSubwordCountsFromSuffixTree(sequence.SuffixTree, seq.Length, m), seq.Length)
+            ? LinguisticComplexityFromCounts(sequence.SuffixTree.CountDistinctSubstringsByLength(m), seq.Length)
             : CalculateLinguisticComplexityCore(seq, maxWordLength);
     }
 
@@ -61,7 +61,7 @@ public static class SequenceComplexity
 
         if (m > LcHashEnumerationMaxWordLength)
             return LinguisticComplexityFromCounts(
-                DistinctSubwordCountsFromSuffixTree(global::SuffixTree.SuffixTree.Build(seq), seq.Length, m), seq.Length);
+                global::SuffixTree.SuffixTree.Build(seq).CountDistinctSubstringsByLength(m), seq.Length);
 
         var counts = new long[m + 1];
         for (int wordLen = 1; wordLen <= m; wordLen++)
@@ -98,68 +98,6 @@ public static class SequenceComplexity
         }
 
         return possibleTotal > 0 ? (double)observedTotal / possibleTotal : 0;
-    }
-
-    /// <summary>
-    /// Distinct-subword counts V_1..V_m from a suffix tree (Troyanskaya et al. 2002): each substring
-    /// of length i is a unique point at depth i on exactly one edge, so V_i = number of edges whose
-    /// depth range covers i. Leaf edges end with the terminator, which is excluded.
-    /// </summary>
-    private static long[] DistinctSubwordCountsFromSuffixTree(global::SuffixTree.ISuffixTree tree, int n, int m)
-    {
-        var visitor = new SubwordDepthVisitor(n, m);
-        tree.Traverse(visitor);
-
-        var counts = new long[m + 1];
-        long running = 0;
-        for (int i = 1; i <= m; i++)
-        {
-            running += visitor.Diff[i];
-            counts[i] = running;
-        }
-        return counts;
-    }
-
-    private sealed class SubwordDepthVisitor : global::SuffixTree.ISuffixTreeVisitor
-    {
-        private readonly int _n;
-        private readonly int _m;
-        private bool _rootSeen;
-
-        public SubwordDepthVisitor(int n, int m)
-        {
-            _n = n;
-            _m = m;
-            Diff = new long[m + 2];
-        }
-
-        public long[] Diff { get; }
-
-        public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
-        {
-            if (!_rootSeen)
-            {
-                _rootSeen = true; // root: no edge
-                return;
-            }
-
-            // Edge covers text[startIndex, endIndex); a leaf edge (endIndex < 0) runs to the text end
-            // (the terminator position _n is not a character of the sequence).
-            int end = endIndex < 0 || endIndex > _n ? _n : endIndex;
-            int edgeLength = end - startIndex;
-            if (edgeLength <= 0) return;
-
-            int from = depth + 1;
-            if (from > _m) return;
-            int to = Math.Min(depth + edgeLength, _m);
-
-            Diff[from]++;
-            Diff[to + 1]--;
-        }
-
-        public void EnterBranch(int key) { }
-
-        public void ExitBranch() { }
     }
 
     #endregion
