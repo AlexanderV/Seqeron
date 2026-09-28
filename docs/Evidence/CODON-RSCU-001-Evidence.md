@@ -170,6 +170,24 @@
 
 ---
 
+## Reference-implementation evidence (review 2026-09)
+
+- **CodonW 1.4.4** (Peden 1999; source `codonw_1.4.4.orig.tar.gz` from archive.ubuntu.com, opened and built with `make`):
+  `codon_us.c` `rscu_usage_out` prints, for all 64 codons, `ncod[x]/naa[aa]*ds[x]` (= n_i·x/Σx) or `0.000` when the
+  codon's amino acid (including TER, the stop family) is absent; "RSCU values are genetic code dependent" (`-code 0..7`).
+  `ident_codon` maps T/t/U/u to the same base; codons with any other symbol are index 0 (not counted, frame kept).
+- **Numerical cross-check:** CodonW binary on 155 genes (random DNA/RNA/lower-case/N-salted, 3–400 nt) × 8 CodonW codes
+  (NCBI 1, 2, 3, 4, 5, 6, 10, 9) = 79,360 values vs `CalculateRscu(string, GeneticCode)`: 0 mismatches, max |Δ| = 5e-4
+  (CodonW's `%5.3f`). Python port of `rscu_usage_out` with Biopython 1.88 `CodonTable` families, all 27 NCBI tables,
+  472 inputs: max |Δ| = 8.9e-16.
+- CodonW `-code 0`, `AGAAGGTAAATAATGTGATGG`: AGA 3.000, AGG 3.000, ATA 3.000, ATG 1.000, TAA 1.500, TGA 1.500, TGG 1.000.
+  `-code 1` (vertebrate mito): AGA/AGG/TAA 1.333, ATA/ATG 1.000, TGA/TGG 1.000.
+- Other tools: CodonU 1.1.2 (`internal_comp.rscu`) and codon-bias 0.5.0 take an NCBI genetic-code id and report the 61
+  sense codons (pseudocount 0.5 / 1 for zeros); GenomeAnnotator (ANNOT-CODONUSAGE-001) also excludes stops. This unit keeps
+  the CodonW convention (64 codons, stop family, 0 for absent families).
+
+---
+
 ## References
 
 1. Sharp P.M., Tuohy T.M.F., Mosurski K.R. (1986). Codon usage in yeast: cluster analysis clearly differentiates highly and lowly expressed genes. *Nucleic Acids Research* 14(13):5125-5143. https://doi.org/10.1093/nar/14.13.5125 (PMC: https://pmc.ncbi.nlm.nih.gov/articles/PMC311530/)
@@ -184,3 +202,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-28**: Campaign review B02 — CodonW source/binary evidence; RNA (U) input; genetic-code-aware families.

@@ -22,13 +22,25 @@ public static class CodonUsageAnalyzer
     /// <summary>
     /// Counts codon occurrences in a raw sequence string.
     /// </summary>
+    /// <remarks>
+    /// Input is case-insensitive and may be DNA (T) or RNA (U): U is read as T, as in
+    /// CodonW <c>ident_codon</c> (Peden 1999, codon_us.c: 'T','t','U','u' → the same base).
+    /// Codons are reported in DNA spelling. Triplets containing any other symbol are
+    /// skipped without shifting the frame; a trailing partial triplet is ignored.
+    /// </remarks>
     public static Dictionary<string, int> CountCodons(string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             return new Dictionary<string, int>();
 
-        return CountCodonsCore(sequence.ToUpperInvariant());
+        return CountCodonsCore(NormalizeCodingSequence(sequence));
     }
+
+    // Upper-cases and reads RNA U as T (CodonW ident_codon treats T/t/U/u identically;
+    // EMBOSS ajBaseAlphaToBin maps U to the T bit), so DNA and RNA spellings of the same
+    // coding sequence give identical codon counts and indices.
+    private static string NormalizeCodingSequence(string sequence) =>
+        sequence.ToUpperInvariant().Replace('U', 'T');
 
     private static Dictionary<string, int> CountCodonsCore(string seq)
     {
@@ -57,53 +69,101 @@ public static class CodonUsageAnalyzer
     #region RSCU (Relative Synonymous Codon Usage)
 
     /// <summary>
-    /// Calculates Relative Synonymous Codon Usage (RSCU).
-    /// For codon j of an amino acid with n synonymous codons and observed counts x,
-    /// RSCU = x_j / ((1/n) * sum_k x_k) = (n * x_j) / sum_k x_k.
-    /// RSCU = 1 means no bias, &gt; 1 means over-represented, &lt; 1 means under-represented.
-    /// Definition per Sharp, Tuohy &amp; Mosurski (1986), Nucleic Acids Res. 14(13):5125-5143.
-    /// Single-codon families (Met, Trp) always yield RSCU = 1 when present.
+    /// Calculates Relative Synonymous Codon Usage (RSCU) under the Standard genetic code
+    /// (NCBI table 1). See <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode)"/>.
     /// </summary>
-    public static Dictionary<string, double> CalculateRscu(DnaSequence sequence)
+    public static Dictionary<string, double> CalculateRscu(DnaSequence sequence) =>
+        CalculateRscu(sequence, GeneticCode.Standard);
+
+    /// <summary>
+    /// Calculates RSCU of a coding sequence under the given genetic code.
+    /// See <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="code"/> is null.</exception>
+    public static Dictionary<string, double> CalculateRscu(DnaSequence sequence, GeneticCode code)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return CalculateRscuCore(sequence.Sequence);
+        ArgumentNullException.ThrowIfNull(code);
+        return CalculateRscu(CountCodonsCore(sequence.Sequence), code);
     }
 
     /// <summary>
-    /// Calculates RSCU from a raw sequence string.
+    /// Calculates RSCU from a raw sequence string (DNA or RNA, case-insensitive) under the
+    /// Standard genetic code (NCBI table 1). Null/empty returns an empty dictionary.
     /// </summary>
-    public static Dictionary<string, double> CalculateRscu(string sequence)
+    public static Dictionary<string, double> CalculateRscu(string sequence) =>
+        CalculateRscu(sequence, GeneticCode.Standard);
+
+    /// <summary>
+    /// Calculates RSCU from a raw sequence string (DNA or RNA, case-insensitive; counted as
+    /// by <see cref="CountCodons(string)"/>) under the given genetic code.
+    /// Null/empty returns an empty dictionary.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
+    public static Dictionary<string, double> CalculateRscu(string sequence, GeneticCode code)
     {
+        ArgumentNullException.ThrowIfNull(code);
         if (string.IsNullOrEmpty(sequence))
             return new Dictionary<string, double>();
 
-        return CalculateRscuCore(sequence.ToUpperInvariant());
+        return CalculateRscu(CountCodonsCore(NormalizeCodingSequence(sequence)), code);
     }
 
-    private static Dictionary<string, double> CalculateRscuCore(string seq)
+    /// <summary>
+    /// Calculates Relative Synonymous Codon Usage (RSCU) from codon counts.
+    /// For codon j of an amino acid with n synonymous codons and observed counts x,
+    /// RSCU = x_j / ((1/n) * sum_k x_k) = (n * x_j) / sum_k x_k
+    /// (Sharp, Tuohy &amp; Mosurski 1986, Nucleic Acids Res. 14(13):5125-5143;
+    /// Sharp &amp; Li 1987, Nucleic Acids Res. 15(3):1281-1295).
+    /// RSCU = 1 means no bias, &gt; 1 over-represented, &lt; 1 under-represented.
+    /// </summary>
+    /// <remarks>
+    /// Follows the CodonW reference implementation (Peden 1999, codon_us.c
+    /// <c>rscu_usage_out</c>): synonymous families are taken from <paramref name="code"/>
+    /// ("RSCU values are genetic code dependent"); all 64 codons are reported, including the
+    /// termination codons, which form one synonymous family ('*'); single-codon families
+    /// (e.g. Met, Trp in table 1) are 1 when present; every codon of a family that does not
+    /// occur (0/0) is reported as 0. Codons that are context-dependent stops in NCBI tables
+    /// 27/28/31 belong to the family of the amino acid they encode
+    /// (<see cref="GeneticCode.CodonTable"/>; Biopython <c>forward_table</c>).
+    /// </remarks>
+    /// <param name="codonCounts">Codon counts keyed by uppercase DNA codon (as returned by
+    /// <see cref="CountCodons(string)"/>); other keys are ignored.</param>
+    /// <param name="code">Genetic code defining the synonymous families.</param>
+    /// <returns>RSCU for each of the 64 codons (uppercase DNA spelling).</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static Dictionary<string, double> CalculateRscu(
+        IReadOnlyDictionary<string, int> codonCounts, GeneticCode code)
     {
-        var counts = CountCodonsCore(seq);
-        var rscu = new Dictionary<string, double>();
+        ArgumentNullException.ThrowIfNull(codonCounts);
+        ArgumentNullException.ThrowIfNull(code);
 
-        // Group codons by amino acid
-        foreach (var aaGroup in CodonToAminoAcid.GroupBy(kv => kv.Value))
+        var rscu = new Dictionary<string, double>(64);
+
+        foreach (var family in SynonymousFamilies(code))
         {
-            var synonymousCodons = aaGroup.Select(kv => kv.Key).ToList();
-            int totalCount = synonymousCodons.Sum(c => counts.GetValueOrDefault(c, 0));
-            int numSynonymous = synonymousCodons.Count;
+            long familyTotal = 0;
+            foreach (var codon in family)
+                familyTotal += codonCounts.GetValueOrDefault(codon, 0);
 
-            foreach (var codon in synonymousCodons)
+            foreach (var codon in family)
             {
-                int observed = counts.GetValueOrDefault(codon, 0);
-                double expected = (double)totalCount / numSynonymous;
-
-                rscu[codon] = expected > 0 ? observed / expected : 0;
+                // RSCU = n·x / Σx; an absent family (Σx = 0) is 0 for every member (CodonW).
+                rscu[codon] = familyTotal > 0
+                    ? (double)family.Count * codonCounts.GetValueOrDefault(codon, 0) / familyTotal
+                    : 0.0;
             }
         }
 
         return rscu;
     }
+
+    // Synonymous codon families (DNA spelling) of a genetic code, keyed by the encoded
+    // amino acid ('*' = termination), in NCBI codon order.
+    private static IEnumerable<List<string>> SynonymousFamilies(GeneticCode code) =>
+        code.CodonTable
+            .GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T'))
+            .Select(g => g.ToList());
 
     #endregion
 
@@ -132,7 +192,7 @@ public static class CodonUsageAnalyzer
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        return CalculateCaiCore(sequence.ToUpperInvariant(), referenceRscu);
+        return CalculateCaiCore(NormalizeCodingSequence(sequence), referenceRscu);
     }
 
     private static double CalculateCaiCore(string seq, Dictionary<string, double> referenceRscu)
@@ -281,7 +341,7 @@ public static class CodonUsageAnalyzer
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        return CalculateEncCore(sequence.ToUpperInvariant());
+        return CalculateEncCore(NormalizeCodingSequence(sequence));
     }
 
     private static double CalculateEncCore(string seq)
@@ -379,13 +439,13 @@ public static class CodonUsageAnalyzer
                 new Dictionary<string, double>(),
                 0, 0, 0, 0, 0, 0);
 
-        return GetStatisticsCore(sequence.ToUpperInvariant());
+        return GetStatisticsCore(NormalizeCodingSequence(sequence));
     }
 
     private static CodonUsageStatistics GetStatisticsCore(string seq)
     {
         var counts = CountCodonsCore(seq);
-        var rscu = CalculateRscuCore(seq);
+        var rscu = CalculateRscu(counts, GeneticCode.Standard);
         double enc = CalculateEncCore(seq);
 
         int totalCodons = counts.Values.Sum();
@@ -454,73 +514,10 @@ public static class CodonUsageAnalyzer
 
     #region Codon Table
 
-    private static readonly Dictionary<string, char> CodonToAminoAcid = new()
-    {
-        ["TTT"] = 'F',
-        ["TTC"] = 'F',
-        ["TTA"] = 'L',
-        ["TTG"] = 'L',
-        ["CTT"] = 'L',
-        ["CTC"] = 'L',
-        ["CTA"] = 'L',
-        ["CTG"] = 'L',
-        ["ATT"] = 'I',
-        ["ATC"] = 'I',
-        ["ATA"] = 'I',
-        ["ATG"] = 'M',
-        ["GTT"] = 'V',
-        ["GTC"] = 'V',
-        ["GTA"] = 'V',
-        ["GTG"] = 'V',
-        ["TCT"] = 'S',
-        ["TCC"] = 'S',
-        ["TCA"] = 'S',
-        ["TCG"] = 'S',
-        ["CCT"] = 'P',
-        ["CCC"] = 'P',
-        ["CCA"] = 'P',
-        ["CCG"] = 'P',
-        ["ACT"] = 'T',
-        ["ACC"] = 'T',
-        ["ACA"] = 'T',
-        ["ACG"] = 'T',
-        ["GCT"] = 'A',
-        ["GCC"] = 'A',
-        ["GCA"] = 'A',
-        ["GCG"] = 'A',
-        ["TAT"] = 'Y',
-        ["TAC"] = 'Y',
-        ["TAA"] = '*',
-        ["TAG"] = '*',
-        ["CAT"] = 'H',
-        ["CAC"] = 'H',
-        ["CAA"] = 'Q',
-        ["CAG"] = 'Q',
-        ["AAT"] = 'N',
-        ["AAC"] = 'N',
-        ["AAA"] = 'K',
-        ["AAG"] = 'K',
-        ["GAT"] = 'D',
-        ["GAC"] = 'D',
-        ["GAA"] = 'E',
-        ["GAG"] = 'E',
-        ["TGT"] = 'C',
-        ["TGC"] = 'C',
-        ["TGA"] = '*',
-        ["TGG"] = 'W',
-        ["CGT"] = 'R',
-        ["CGC"] = 'R',
-        ["CGA"] = 'R',
-        ["CGG"] = 'R',
-        ["AGT"] = 'S',
-        ["AGC"] = 'S',
-        ["AGA"] = 'R',
-        ["AGG"] = 'R',
-        ["GGT"] = 'G',
-        ["GGC"] = 'G',
-        ["GGA"] = 'G',
-        ["GGG"] = 'G'
-    };
+    // Standard genetic code (NCBI table 1) in DNA spelling, derived from the canonical
+    // GeneticCode (no private copy of the code).
+    private static readonly IReadOnlyDictionary<string, char> CodonToAminoAcid =
+        GeneticCode.Standard.CodonTable.ToDictionary(kv => kv.Key.Replace('U', 'T'), kv => kv.Value);
 
     #endregion
 }

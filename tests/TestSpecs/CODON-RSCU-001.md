@@ -5,7 +5,7 @@
 **Algorithm:** Relative Synonymous Codon Usage (RSCU) and codon counting
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -21,6 +21,8 @@
 | 4 | seqinr `uco` — definition + no-bias value 1.00 | 3 | https://search.r-project.org/CRAN/refmans/seqinr/html/uco.html | 2026-06-13 |
 | 5 | cubar `est_rscu` — pseudocount / zero-count handling | 3 | https://rdrr.io/cran/cubar/man/est_rscu.html | 2026-06-13 |
 | 6 | Begomovirus codon usage (PMC2528880) — definition restatement | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC2528880/ | 2026-06-13 |
+| 7 | CodonW 1.4.4 (Peden 1999) source — `codon_us.c` `rscu_usage_out` (64 codons, stop family, absent → 0.000, genetic-code dependent), `ident_codon` (U ≡ T); binary built from source and run (`-rscu -machine -code 0..7`) | 1 (reference implementation) | http://archive.ubuntu.com/ubuntu/pool/universe/c/codonw/codonw_1.4.4.orig.tar.gz | 2026-09-28 |
+| 8 | Biopython 1.88 `Bio.Data.CodonTable` (families per NCBI table); CodonU 1.1.2 `internal_comp.rscu`, codon-bias 0.5.0 `RelativeSynonymousCodonUsage` (genetic_code parameter, 61 sense codons) | 2 | PyPI | 2026-09-28 |
 
 ### 1.2 Key Evidence Points
 
@@ -29,7 +31,9 @@
 3. RSCU ∈ [0, n_i]; max n_i when only one synonymous codon used — source 3.
 4. Definition: observed frequency / expected frequency under equal synonymous usage — sources 4, 6; introduced by source 1.
 5. Single-codon families (Met=ATG, Trp=TGG): n_i=1 ⇒ RSCU=1 when present — source 3 (bounds), source 5.
-6. Absent family (0/0) is implementation-defined; cubar uses a pseudocount default 1; repository returns 0 — source 5.
+6. Absent family (0/0) is implementation-defined; cubar uses a pseudocount default 1; CodonW (source 7) and the repository return 0.
+7. Synonymous families depend on the genetic code (CodonW: "RSCU values are genetic code dependent"; CodonU/codon-bias take an NCBI table id) — sources 7, 8.
+8. RNA input: CodonW `ident_codon` reads U/u exactly as T/t — source 7.
 
 ### 1.3 Documented Corner Cases
 
@@ -51,7 +55,9 @@
 | `CalculateRscu(DnaSequence)` | CodonUsageAnalyzer | Canonical | core RSCU; deep evidence-based tests |
 | `CalculateRscu(string)` | CodonUsageAnalyzer | Delegate | string overload (uppercases, empty→empty); smoke |
 | `CountCodons(DnaSequence)` | CodonUsageAnalyzer | Canonical | non-overlapping triplet counting |
-| `CountCodons(string)` | CodonUsageAnalyzer | Delegate | string overload (uppercases, excludes non-ACGT); smoke |
+| `CountCodons(string)` | CodonUsageAnalyzer | Delegate | string overload (uppercases, U→T, excludes other non-ACGT); smoke |
+| `CalculateRscu(DnaSequence\|string, GeneticCode)` | CodonUsageAnalyzer | Canonical (code-aware) | families from `GeneticCode` |
+| `CalculateRscu(IReadOnlyDictionary<string,int>, GeneticCode)` | CodonUsageAnalyzer | Canonical core | RSCU from counts |
 
 ---
 
@@ -82,6 +88,14 @@
 | M7 | CountCodons repeated | `ATGATGATG` | ATG=3 | Triplet counting |
 | M8 | CountCodons trailing ignored | `ATGAA` | ATG=1; count=1 (`AA` ignored) | Non-overlapping triplets |
 | M9 | CountCodons non-ACGT excluded | `ATGNNNAAA` (string) | ATG=1, AAA=1; `NNN` not counted | IsValidCodon contract |
+| M10 | RSCU RNA input | `uuuUUCUUU` | TTT=4/3, TTC=2/3 (DNA keys) | Source 7 (`ident_codon`) |
+| M11 | CountCodons RNA input | `AUGAAAUGA` | ATG=1, AAA=1, TGA=1; equals DNA spelling | Source 7 |
+| M12 | Standard code vs CodonW | `AGAAGGTAAATAATGTGATGG` | 64 keys; AGA=AGG=ATA=3, ATG=1, TAA=TGA=1.5, TAG=0, TGG=1 | CodonW `-code 0` output |
+| M13 | Vertebrate mito (table 2) | same input | AGA=AGG=TAA=4/3, TAG=0, ATA=ATG=1, TGA=TGG=1, CGT=0 | CodonW `-code 1` output |
+| M14 | Table 27 dual-coding | `TAATAGTGA` | TAA=TAG=2 (Gln family), CAA=0, TGA=2 (Trp) | Source 8 (Biopython forward_table) |
+| M15 | Counts overload | {CTG:3, CTA:1, NNN:5} | CTG=4.5, CTA=1.5; equals sequence overload | Source 3 formula |
+| M16 | RNA spelling across string entry points | 15-codon gene, RNA lower-case vs DNA | ENC, CAI, GetStatistics (counts, RSCU, GC3s) identical | Source 7 |
+| S7 | Null code / null counts | — | ArgumentNullException | input guard |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -197,10 +211,19 @@ Total in-scope cases: 16. ✅ count: 16.
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Absent synonymous family (0/0) returns 0 (no pseudocount) | not exercised by MUST tests (only present families tested); documented |
-| 2 | Stop codons grouped as a 3-fold family | does not affect any amino-acid RSCU; documented |
+| 2 | Stop codons grouped as one family (3-fold in table 1) | CodonW convention (source 7); does not affect any amino-acid RSCU; CodonU/codon-bias report sense codons only |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. Pseudocount smoothing (cubar default 1) is intentionally not applied; only affects absent families, which the repository returns as 0. Decision: keep the classic Sharp et al. ratio for present families; document the absent-family convention. No open correctness question for present families.
+
+---
+
+## 8. Review 2026-09 (campaign B02)
+
+- F10: `CountCodons(string)`/`CalculateRscu(string)` (and the CAI/ENC/GetStatistics string overloads that share the counter) returned empty/all-zero results for RNA input; now U is read as T (CodonW `ident_codon`). Tests M10, M11, M16.
+- F11: RSCU families were taken from a private copy of table 1 only; now from the canonical `GeneticCode` with overloads for any NCBI table (CodonW `-code`, Biopython tables). Tests M12–M15, S7.
+- Cross-check: CodonW 1.4.4 binary, 155 genes × 8 codes = 79,360 values, max |Δ| 5e-4 (3-decimal output); Python port of CodonW with Biopython tables, 472 inputs over all 27 NCBI tables, max |Δ| 9e-16.
+
