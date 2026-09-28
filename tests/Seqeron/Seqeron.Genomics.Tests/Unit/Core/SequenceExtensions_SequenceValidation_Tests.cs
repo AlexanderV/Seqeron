@@ -309,4 +309,106 @@ public class SequenceExtensions_SequenceValidation_Tests
     }
 
     #endregion
+
+    #region IndexOfInvalid / constructor consistency (review 2026-09)
+
+    [TestCase("", -1)]
+    [TestCase("ACGTacgt", -1)]
+    [TestCase("XACGT", 0)]
+    [TestCase("ACGTX", 4)]
+    [TestCase("ACGU", 3)]
+    [TestCase("ACGN", 3)]
+    [TestCase("AC GT", 2)]
+    [Description("Canonical first-invalid index for DNA (unambiguous alphabet GATC, Biopython IUPACData)")]
+    public void IndexOfInvalidDna_ReturnsFirstInvalidPosition(string sequence, int expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(sequence.AsSpan().IndexOfInvalidDna(), Is.EqualTo(expected));
+            Assert.That(sequence.AsSpan().IsValidDna(), Is.EqualTo(expected < 0));
+            Assert.That(DnaSequence.TryCreate(sequence, out _), Is.EqualTo(expected < 0), "INV-5: TryCreate ⇔ IsValidDna");
+        });
+    }
+
+    [TestCase("", -1)]
+    [TestCase("ACGUacgu", -1)]
+    [TestCase("ACGT", 3)]
+    [TestCase("ACGN", 3)]
+    [TestCase("-ACG", 0)]
+    [Description("Canonical first-invalid index for RNA (unambiguous alphabet GAUC, Biopython IUPACData)")]
+    public void IndexOfInvalidRna_ReturnsFirstInvalidPosition(string sequence, int expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(sequence.AsSpan().IndexOfInvalidRna(), Is.EqualTo(expected));
+            Assert.That(sequence.AsSpan().IsValidRna(), Is.EqualTo(expected < 0));
+            Assert.That(RnaSequence.TryCreate(sequence, out _), Is.EqualTo(expected < 0));
+        });
+    }
+
+    [Test]
+    [Description("U+017F 'ſ' upper-cases (invariant) to 'S'; never a DNA/RNA base, and ctor error names the position")]
+    public void IsValidDna_LongSNonAscii_ReturnsFalse()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That("ACGſ".AsSpan().IndexOfInvalidDna(), Is.EqualTo(3));
+            Assert.That("ACGſ".AsSpan().IsValidRna(), Is.False);
+            var ex = Assert.Throws<ArgumentException>(() => new DnaSequence("ACGX"));
+            Assert.That(ex!.Message, Does.Contain("position 3"));
+        });
+    }
+
+    #endregion
+
+    #region IsValidIupacDna / IsValidIupacRna (NC-IUB 1984; Biopython ambiguous_*_letters; scikit-bio)
+
+    // Expected values computed with Biopython 1.88 IUPACData.ambiguous_dna_letters ("GATCRYWSMKHBVDN") /
+    // ambiguous_rna_letters ("GAUCRYWSMKHBVDN") and confirmed with scikit-bio 0.7.4 DNA/RNA(lowercase=True)
+    // (definite ∪ degenerate chars; gaps excluded).
+    [TestCase("", true, true)]
+    [TestCase("ACGTNRYSWKMBDHV", true, false)]
+    [TestCase("acgtnryswkmbdhv", true, false)]
+    [TestCase("ACGT", true, false)]
+    [TestCase("ACGU", false, true)]
+    [TestCase("ACGUNRYSWKMBDHV", false, true)]
+    [TestCase("AC-GT", false, false)]
+    [TestCase("AC.GT", false, false)]
+    [TestCase("ACGX", false, false)]
+    [TestCase("ACG N", false, false)]
+    [TestCase("ACGTE", false, false)]
+    [TestCase("ACGTI", false, false)]
+    [TestCase("ſ", false, false)]
+    [TestCase("ACGTſ", false, false)]
+    public void IsValidIupac_MatchesBiopythonAndScikitBio(string sequence, bool expectedDna, bool expectedRna)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(sequence.AsSpan().IsValidIupacDna(), Is.EqualTo(expectedDna), "DNA");
+            Assert.That(sequence.AsSpan().IsValidIupacRna(), Is.EqualTo(expectedRna), "RNA");
+        });
+    }
+
+    [Test]
+    [Description("IupacHelper.IsNucleotideCode accepts exactly the 15 codes of Biopython ambiguous_dna_letters")]
+    public void IupacHelper_IsNucleotideCode_ExactlyFifteenCodes()
+    {
+        var accepted = Enumerable.Range(0, 128).Select(i => (char)i).Where(IupacHelper.IsNucleotideCode);
+        Assert.That(string.Concat(accepted.OrderBy(c => c)), Is.EqualTo("ABCDGHKMNRSTVWY"));
+    }
+
+    [Test]
+    [Description("IupacDnaSequence: U+017F 'ſ' must not be folded into IUPAC 'S' (scikit-bio DNA('ſ', lowercase=True) raises)")]
+    public void IupacDnaSequence_LongSNonAscii_IsInvalid()
+    {
+        var seq = new IupacDnaSequence("ACſ");
+        Assert.Multiple(() =>
+        {
+            Assert.That(seq.IsValid(), Is.False);
+            Assert.That(seq.Sequence, Is.EqualTo("ACſ"));
+            Assert.That(new IupacDnaSequence("acgtnry").Sequence, Is.EqualTo("ACGTNRY"));
+        });
+    }
+
+    #endregion
 }

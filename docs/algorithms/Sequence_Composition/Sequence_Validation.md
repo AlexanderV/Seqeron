@@ -5,9 +5,9 @@
 | Algorithm Group | Sequence Composition |
 | Test Unit ID | SEQ-VALID-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
+| Implementation Status | Complete (strict + IUPAC modes) |
 | Document Version | 1.0 |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -118,6 +118,9 @@ Validation is case-insensitive because characters are normalized with uppercase 
 - `SequenceExtensions.IsValidDna(ReadOnlySpan<char>)`: Validates DNA characters against `A/C/G/T` using uppercase comparison.
 - `SequenceExtensions.IsValidRna(ReadOnlySpan<char>)`: Validates RNA characters against `A/C/G/U` using uppercase comparison.
 - `DnaSequence.TryCreate(string, out DnaSequence?)`: Factory-style DNA validation and creation that returns `false` when `DnaSequence` construction throws `ArgumentException`.
+- `SequenceExtensions.IndexOfInvalidDna/IndexOfInvalidRna(ReadOnlySpan<char>)`: canonical predicate (first invalid index or -1) shared by `IsValidDna/IsValidRna`, the `DnaSequence`/`RnaSequence` constructors and the MCP `dna_validate`/`rna_validate` tools.
+- `SequenceExtensions.IsValidIupacDna/IsValidIupacRna(ReadOnlySpan<char>)`: IUPAC mode — the 4 bases plus the 11 NC-IUB 1984 codes R, Y, S, W, K, M, B, D, H, V, N (= Biopython `ambiguous_dna_letters` "GATCRYWSMKHBVDN" / `ambiguous_rna_letters` "GAUCRYWSMKHBVDN"); gaps rejected. Code set = `IupacHelper.IsNucleotideCode`.
+- Case folding is ASCII-only (U+017F 'ſ' is never folded to 'S'; scikit-bio rejects it too). `IupacDnaSequence` (container) additionally tolerates `U`, `-`, `.` in `IsValid()`.
 
 ### 5.2 Current Behavior
 
@@ -125,7 +128,7 @@ This library implements strict validation:
 
 - DNA: Only `{A, C, G, T}` are valid.
 - RNA: Only `{A, C, G, U}` are valid.
-- IUPAC ambiguity codes are not accepted in strict mode.
+- IUPAC ambiguity codes are not accepted in strict mode; use `IsValidIupacDna`/`IsValidIupacRna` for IUPAC mode.
 
 Behavior examples documented for the current implementation:
 
@@ -146,14 +149,12 @@ Behavior examples documented for the current implementation:
 - Standard RNA nucleotide validation for `A/C/G/U`.
 - Character-wise validation as a set-membership test over the selected alphabet.
 
-**Intentionally simplified:**
+- IUPAC mode (`IsValidIupacDna`/`IsValidIupacRna`): 15-symbol NC-IUB 1984 alphabet, verified against Biopython 1.88 and scikit-bio 0.7.4.
 
-- Ambiguity codes defined by IUPAC are not accepted; **consequence:** sequences containing symbols such as `N`, `R`, or `Y` are rejected in strict mode.
-- The gap character `-` is not accepted; **consequence:** aligned sequences containing gap symbols are rejected in strict mode.
+**Design choices (not simplifications):**
 
-**Not implemented:**
-
-- Full IUPAC ambiguity-code validation mode; **users should rely on:** no current alternative documented in this test unit.
+- Strict mode rejects ambiguity codes and gaps by definition (unambiguous alphabet).
+- IUPAC mode rejects gap symbols: NC-IUB 1984 defines none (Biopython `ambiguous_*_letters` exclude them; scikit-bio lists `-`/`.` separately as gap chars).
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -182,7 +183,7 @@ Deviation aspects documented for the current implementation:
 
 ### 6.2 Limitations
 
-The implementation is limited to strict validation. It does not accept IUPAC ambiguity codes or the gap character, even though both are defined by the standard. This is appropriate for the documented strict-mode behavior but not for workflows that must preserve or validate incompletely specified sequences.
+Strict mode rejects ambiguity codes; IUPAC mode (`IsValidIupacDna/Rna`) accepts them. Neither span validator accepts gap symbols — aligned sequences must be validated with `IupacDnaSequence.IsValid()` (accepts `-`/`.`) or de-gapped first.
 
 ## 8. References
 
@@ -190,3 +191,5 @@ The implementation is limited to strict validation. It does not accept IUPAC amb
 2. NC-IUB. 1984. Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences. Nucleic Acids Research 13(9). doi:10.1093/nar/13.9.3021
 3. Wikipedia contributors. 2026. Nucleic acid notation. Wikipedia. https://en.wikipedia.org/wiki/Nucleic_acid_notation
 4. Bioinformatics.org. 2026. IUPAC codes. Bioinformatics.org. https://www.bioinformatics.org/sms/iupac.html
+5. Biopython `Bio/Data/IUPACData.py` (v1.88; raw.githubusercontent.com master). `unambiguous_dna_letters`, `ambiguous_dna_letters`, `ambiguous_rna_letters`.
+6. scikit-bio 0.7.4 `skbio.DNA` / `skbio.RNA` (`definite_chars`, `degenerate_chars`, `gap_chars`).

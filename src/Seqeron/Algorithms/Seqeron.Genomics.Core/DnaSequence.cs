@@ -97,15 +97,13 @@ namespace Seqeron.Genomics.Core
 
         private static void ValidateSequence(string sequence)
         {
-            for (int i = 0; i < sequence.Length; i++)
+            // Canonical predicate: SequenceExtensions.IndexOfInvalidDna (SEQ-VALID-001).
+            int i = sequence.AsSpan().IndexOfInvalidDna();
+            if (i >= 0)
             {
-                char c = sequence[i];
-                if (c != 'A' && c != 'C' && c != 'G' && c != 'T')
-                {
-                    throw new ArgumentException(
-                        $"Invalid nucleotide '{c}' at position {i}. Valid nucleotides: A, C, G, T.",
-                        nameof(sequence));
-                }
+                throw new ArgumentException(
+                    $"Invalid nucleotide '{sequence[i]}' at position {i}. Valid nucleotides: A, C, G, T.",
+                    nameof(sequence));
             }
         }
 

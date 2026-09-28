@@ -23,26 +23,11 @@ public class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var isValid = global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out _);
-
-        if (isValid)
-        {
-            return new DnaValidateResult(true, sequence.Length, null);
-        }
-        else
-        {
-            // Find the invalid character for error message
-            var upperSeq = sequence.ToUpperInvariant();
-            for (int i = 0; i < upperSeq.Length; i++)
-            {
-                char c = upperSeq[i];
-                if (c != 'A' && c != 'C' && c != 'G' && c != 'T')
-                {
-                    return new DnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[i]}' at position {i}");
-                }
-            }
-            return new DnaValidateResult(false, sequence.Length, "Invalid sequence");
-        }
+        // Delegates to the canonical SEQ-VALID-001 predicate (same check as DnaSequence construction).
+        int invalidAt = global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidDna(sequence.AsSpan());
+        return invalidAt < 0
+            ? new DnaValidateResult(true, sequence.Length, null)
+            : new DnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[invalidAt]}' at position {invalidAt}");
     }
 
     /// <summary>
@@ -75,26 +60,11 @@ public class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var isValid = global::Seqeron.Genomics.Core.RnaSequence.TryCreate(sequence, out _);
-
-        if (isValid)
-        {
-            return new RnaValidateResult(true, sequence.Length, null);
-        }
-        else
-        {
-            // Find the invalid character for error message
-            var upperSeq = sequence.ToUpperInvariant();
-            for (int i = 0; i < upperSeq.Length; i++)
-            {
-                char c = upperSeq[i];
-                if (c != 'A' && c != 'C' && c != 'G' && c != 'U')
-                {
-                    return new RnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[i]}' at position {i}");
-                }
-            }
-            return new RnaValidateResult(false, sequence.Length, "Invalid sequence");
-        }
+        // Delegates to the canonical SEQ-VALID-001 predicate (same check as RnaSequence construction).
+        int invalidAt = global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidRna(sequence.AsSpan());
+        return invalidAt < 0
+            ? new RnaValidateResult(true, sequence.Length, null)
+            : new RnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[invalidAt]}' at position {invalidAt}");
     }
 
     /// <summary>

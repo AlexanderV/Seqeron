@@ -76,9 +76,19 @@ public abstract class SequenceBase : ISequence
 {
     protected readonly string _sequence;
 
+    /// <remarks>
+    /// Only ASCII letters are upper-cased: culture-invariant Unicode case mapping would turn the
+    /// non-IUPAC character U+017F 'ſ' into 'S' and let it pass <see cref="IsValid"/>
+    /// (scikit-bio <c>DNA("ſ", lowercase=True)</c> rejects it).
+    /// </remarks>
     protected SequenceBase(string sequence)
     {
-        _sequence = sequence?.ToUpperInvariant() ?? throw new ArgumentNullException(nameof(sequence));
+        ArgumentNullException.ThrowIfNull(sequence);
+        _sequence = string.Create(sequence.Length, sequence, static (dest, src) =>
+        {
+            for (int i = 0; i < src.Length; i++)
+                dest[i] = SequenceExtensions.ToUpperAscii(src[i]);
+        });
     }
 
     public string Sequence => _sequence;

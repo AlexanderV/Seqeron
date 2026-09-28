@@ -8,6 +8,14 @@ namespace Seqeron.Genomics.Core
     public static class IupacHelper
     {
         /// <summary>
+        /// Determines whether <paramref name="code"/> is one of the 15 IUPAC DNA nucleotide codes
+        /// A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V (upper case only) — exactly the set accepted by
+        /// <see cref="MatchesIupac"/> and Biopython <c>IUPACData.ambiguous_dna_letters</c>.
+        /// </summary>
+        public static bool IsNucleotideCode(char code) => code is
+            'A' or 'C' or 'G' or 'T' or 'N' or 'R' or 'Y' or 'S' or 'W' or 'K' or 'M' or 'B' or 'D' or 'H' or 'V';
+
+        /// <summary>
         /// Determines if a nucleotide matches an IUPAC ambiguity code.
         /// </summary>
         /// <param name="nucleotide">The nucleotide to check (A, C, G, T).</param>
