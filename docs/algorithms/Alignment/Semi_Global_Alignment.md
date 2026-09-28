@@ -6,11 +6,11 @@
 | Test Unit ID | ALIGN-SEMI-001 |
 | Related Projects | Seqeron.Genomics |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Semi-global alignment is the family of dynamic-programming alignments that leave one or more sequence ends unpenalized. The repository implementation is the fitting, or query-in-reference, variant: it aligns the entire query sequence against the best-scoring placement inside the reference while leaving leading and trailing reference context free. `SequenceAligner.SemiGlobalAlign(...)` therefore behaves like a modified Needleman-Wunsch algorithm rather than like local alignment with a zero floor. The implementation is exact for its linear-gap recurrence, but it does not expose the broader overlap or all-ends-free semi-global variants.
+Semi-global alignment is the family of dynamic-programming alignments that leave one or more sequence ends unpenalized. The repository implementation is the fitting, or query-in-reference, variant: it aligns the entire query sequence against the best-scoring placement inside the reference while leaving leading and trailing reference context free. `SequenceAligner.SemiGlobalAlign(...)` therefore behaves like a modified Needleman-Wunsch algorithm rather than like local alignment with a zero floor. The implementation is exact for its linear-gap recurrence; `SequenceAligner.SemiGlobalAlignAffine(...)` provides the same fitting variant with affine (Gotoh) gap costs. The broader overlap or all-ends-free semi-global variants are not exposed.
 
 ## 2. Scientific / Formal Basis
 
@@ -31,6 +31,8 @@ but changes the initialization and traceback start:
 $$
 F_{0,j} = 0, \qquad F_{i,0} = d \cdot i, \qquad \text{score} = \max_j F_{m,j}
 $$
+
+Only end gaps *in the query* (overhanging reference residues) are free; a query overhang is charged like any other gap. Reference-implementation equivalents: Biopython `PairwiseAligner(mode="global", end_insertion_score=0)` with target = query, and parasail `sg_dx` (s1 = query) — both confirmed on 2428 random/edge cases in the 2026-09 review.
 
 The zero first row leaves leading reference gaps unpenalized, the first column still penalizes gaps needed to align the full query, and the final score is taken from the maximum cell in the last row rather than from the bottom-right corner. Unlike Smith-Waterman, this recurrence has no zero floor, so the optimal fitting score may be negative. (Sequence alignment; Needleman-Wunsch algorithm; Rosalind SIMS; Rosalind SMGB)
 
@@ -90,7 +92,9 @@ The zero first row leaves leading reference gaps unpenalized, the first column s
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The repository implementation uses `scoring.GapExtend` as the linear gap penalty and ignores `GapOpen` inside the semi-global dynamic program. `Traceback` is shared with the global-alignment path, but for semi-global results it first appends the unmatched trailing reference suffix as characters in `AlignedSequence2` against gaps in `AlignedSequence1`. During predecessor selection, ties are resolved by the same deterministic order used for global alignment: diagonal, then up, then left.
+The repository implementation uses `scoring.GapExtend` as the linear gap penalty and ignores `GapOpen` inside the semi-global dynamic program. `Traceback` is shared with the global-alignment path, but for semi-global results it first appends the unmatched trailing reference suffix as characters in `AlignedSequence2` against gaps in `AlignedSequence1`. During predecessor selection, ties are resolved by the same deterministic order used for global alignment: diagonal, then up, then left. Among tied last-row maxima the smallest column j wins, including j = 0 (the query aligned entirely against gaps, e.g. AAAA / CCCC with 1/−1/−1 → `AAAA----` / `----CCCC`, score −4).
+
+**Affine variant (`SemiGlobalAlignAffine`).** Gotoh three-state recurrences shared with `GlobalAlignAffine`/`LocalAlignAffine` (`AffineAlignCore`); a gap of length k scores `GapOpen + k·GapExtend` (Biopython open_gap_score = GapOpen + GapExtend; parasail open = −(GapOpen + GapExtend)). Borders: M(0,j) = 0 for all j, X(i,0) = GapOpen + i·GapExtend, other border cells −∞; score = max_j max(M, X, Y)(m, j), first maximal column wins, state ties M > X > Y.
 
 ### 4.3 Complexity
 
@@ -105,7 +109,8 @@ The repository implementation uses `scoring.GapExtend` as the linear gap penalty
 **Implementation location:** [SequenceAligner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs)
 
 - `SequenceAligner.SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)`: public semi-global fitting entry point.
-- `SequenceAligner.SemiGlobalAlignCore(string, string, ScoringMatrix)`: constructs the fitting-alignment score matrix and finds the last-row maximum.
+- `SequenceAligner.SemiGlobalAlignAffine(DnaSequence|string, …, ScoringMatrix?)`: affine-gap fitting alignment (via the shared Gotoh `AffineAlignCore`).
+- `SequenceAligner.LinearAlignCore(string, string, ScoringMatrix, bool fitting, …)`: linear-gap DP shared with `GlobalAlign`; with `fitting: true` it zeroes the first row and ends at the last-row maximum.
 - `SequenceAligner.Traceback(...)`: shared traceback routine used for both global and semi-global alignment.
 
 **Supporting types:** [AlignmentTypes.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/AlignmentTypes.cs), [DnaSequence.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs)
@@ -131,6 +136,8 @@ The implementation is specifically query-in-reference fitting alignment. The fir
 
 - Overlap alignment and fully ends-free semi-global alignment; **users should rely on:** no current alternative in the repository's public pairwise alignment API.
 
+**Affine gaps:** available through `SemiGlobalAlignAffine` (Gotoh 1982; cross-checked against Biopython 1.88 and parasail 1.3.4 `sg_dx`).
+
 ## 6. Edge Cases and Limitations
 
 ### 6.1 Edge Cases
@@ -145,7 +152,7 @@ The implementation is specifically query-in-reference fitting alignment. The fir
 
 ### 6.2 Limitations
 
-The repository implements only one member of the broader semi-global family. The coordinate fields in `AlignmentResult` do not expose the fitted interval directly. Like the global path, the method uses a full `O(mn)` matrix and a linear gap model based on `GapExtend`. The public API does not offer a raw-string overload for semi-global alignment.
+The repository implements only one member of the broader semi-global family. The coordinate fields in `AlignmentResult` do not expose the fitted interval directly. Like the global path, the method uses a full `O(mn)` matrix and a linear gap model based on `GapExtend` (use `SemiGlobalAlignAffine` for affine costs). The public API does not offer a raw-string overload for semi-global alignment.
 
 ## 8. References
 
@@ -153,4 +160,5 @@ The repository implements only one member of the broader semi-global family. The
 2. [Needleman-Wunsch algorithm](https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm)
 3. [Rosalind: Finding a Motif with Modifications (SIMS)](https://rosalind.info/problems/sims/)
 4. [Rosalind: Semiglobal Alignment (SMGB)](https://rosalind.info/problems/smgb/)
-5. Brudno, M. et al. (2003). "Glocal alignment: finding rearrangements during alignment." Bioinformatics 19 Suppl 1: i54-i62.
+5. Gotoh, O. (1982). "An improved algorithm for matching biological sequences." J Mol Biol 162: 705-708.
+6. Brudno, M. et al. (2003). "Glocal alignment: finding rearrangements during alignment." Bioinformatics 19 Suppl 1: i54-i62.

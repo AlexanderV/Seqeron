@@ -145,6 +145,26 @@ public static class SequenceAligner
         string seq2,
         ScoringMatrix scoring,
         CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null) =>
+        LinearAlignCore(seq1, seq2, scoring, fitting: false, cancellationToken, progress);
+
+    /// <summary>
+    /// Linear-gap Needleman-Wunsch dynamic program shared by <c>GlobalAlign</c> and
+    /// <c>SemiGlobalAlign</c>. d = <see cref="ScoringMatrix.GapExtend"/> per gap position.
+    /// <list type="bullet">
+    /// <item><b>Global</b>: F(i,0) = d·i, F(0,j) = d·j; traceback from (m, n).</item>
+    /// <item><b>Fitting</b> (semi-global, sequence 1 fitted into sequence 2): F(0,j) = 0 (leading
+    /// sequence-2 residues free), F(i,0) = d·i; traceback from the first (smallest j) maximum of the
+    /// last row, max_j F(m,j) (trailing sequence-2 residues free).</item>
+    /// </list>
+    /// Traceback ties are broken diagonal &gt; up &gt; left.
+    /// </summary>
+    private static AlignmentResult LinearAlignCore(
+        string seq1,
+        string seq2,
+        ScoringMatrix scoring,
+        bool fitting,
+        CancellationToken cancellationToken = default,
         IProgress<double>? progress = null)
     {
         int m = seq1.Length;
@@ -157,10 +177,11 @@ public static class SequenceAligner
         // Initialize first row and column with linear gap penalty d = GapExtend.
         // Standard Needleman-Wunsch: F(i,0) = d*i, F(0,j) = d*j
         // Source: https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
+        // Fitting alignment: F(0,j) = 0 — a free prefix of seq2 may precede the alignment.
         for (int i = 0; i <= m; i++)
             score[i, 0] = i * scoring.GapExtend;
         for (int j = 0; j <= n; j++)
-            score[0, j] = j * scoring.GapExtend;
+            score[0, j] = fitting ? 0 : j * scoring.GapExtend;
 
         // F(i,j) = max(F(i-1,j-1)+S(a_i,b_j), F(i-1,j)+d, F(i,j-1)+d)
         for (int i = 1; i <= m; i++)
@@ -187,7 +208,18 @@ public static class SequenceAligner
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(0.75);
 
-        var result = Traceback(seq1, seq2, score, m, n, scoring, AlignmentType.Global);
+        int endJ = n;
+        if (fitting)
+        {
+            // Free trailing seq2 residues: end in the first column holding max_j F(m,j).
+            endJ = 0;
+            for (int j = 1; j <= n; j++)
+                if (score[m, j] > score[m, endJ])
+                    endJ = j;
+        }
+
+        var result = Traceback(seq1, seq2, score, m, endJ, scoring,
+            fitting ? AlignmentType.SemiGlobal : AlignmentType.Global);
 
         progress?.Report(1.0);
         return result;
@@ -273,12 +305,13 @@ public static class SequenceAligner
         if (seq1.Length == 0 && seq2.Length == 0)
             return AlignmentResult.Empty;
 
-        return AffineAlignCore(seq1, seq2, scoring, local: false);
+        return AffineAlignCore(seq1, seq2, scoring, AlignmentType.Global);
     }
 
     /// <summary>
-    /// Three-state (Gotoh) affine-gap dynamic program shared by <c>GlobalAlignAffine</c> and
-    /// <c>LocalAlignAffine</c>. o = GapOpen, e = GapExtend; a gap of length k scores o + k·e.
+    /// Three-state (Gotoh) affine-gap dynamic program shared by <c>GlobalAlignAffine</c>,
+    /// <c>LocalAlignAffine</c> and <c>SemiGlobalAlignAffine</c>. o = GapOpen, e = GapExtend; a gap of
+    /// length k scores o + k·e.
     /// <list type="bullet">
     /// <item><b>Global</b>: Flouri et al. (2015) border initialization, traceback from the best of
     /// M/X/Y at (m, n) to the origin.</item>
@@ -287,11 +320,18 @@ public static class SequenceAligner
     /// zero floor of Smith &amp; Waterman (1981) applied to Gotoh's (1982) recurrences. The optimal
     /// local alignment ends at the first (row-major) cell holding the maximum of M, and the traceback
     /// stops as soon as the predecessor value is 0.</item>
+    /// <item><b>SemiGlobal</b> (fitting, sequence 1 fitted into sequence 2): M(0,j) = 0 for every j
+    /// (a free prefix of sequence 2 may precede the alignment), X(i,0) = o + i·e, all other border
+    /// cells −∞; the alignment ends in the first (smallest j) column of the last row holding
+    /// max(M, X, Y)(m, j) (free sequence-2 suffix). The traceback stops on reaching row 0 and the
+    /// skipped sequence-2 prefix/suffix is emitted against gaps.</item>
     /// </list>
     /// Traceback ties are broken M &gt; X &gt; Y.
     /// </summary>
-    private static AlignmentResult AffineAlignCore(string seq1, string seq2, ScoringMatrix scoring, bool local)
+    private static AlignmentResult AffineAlignCore(string seq1, string seq2, ScoringMatrix scoring, AlignmentType type)
     {
+        bool local = type == AlignmentType.Local;
+        bool fitting = type == AlignmentType.SemiGlobal;
         int m = seq1.Length;
         int n = seq2.Length;
 
@@ -315,9 +355,9 @@ public static class SequenceAligner
         }
         for (int j = 1; j <= n; j++)
         {
-            mm[0, j] = AffineNegInf;
+            mm[0, j] = fitting ? 0 : AffineNegInf;
             xx[0, j] = AffineNegInf;
-            yy[0, j] = local ? AffineNegInf : o + j * e;
+            yy[0, j] = local || fitting ? AffineNegInf : o + j * e;
         }
 
         int bestLocal = 0, bestI = 0, bestJ = 0;
@@ -359,16 +399,35 @@ public static class SequenceAligner
         }
         else
         {
-            // Optimal end state (ties: M > X > Y).
-            best = Max3(mm[m, n], xx[m, n], yy[m, n]);
+            // Global: end at (m, n). Fitting: end in the first column of the last row holding the
+            // maximum (free trailing seq2 residues). Optimal end state ties: M > X > Y.
             ci = m;
             cj = n;
-            state = PickState(best, mm[m, n], StateMatch, xx[m, n], StateGapInSeq2, StateGapInSeq1);
+            if (fitting)
+            {
+                cj = 0;
+                for (int j = 1; j <= n; j++)
+                    if (Max3(mm[m, j], xx[m, j], yy[m, j]) > Max3(mm[m, cj], xx[m, cj], yy[m, cj]))
+                        cj = j;
+            }
+            best = Max3(mm[ci, cj], xx[ci, cj], yy[ci, cj]);
+            state = PickState(best, mm[ci, cj], StateMatch, xx[ci, cj], StateGapInSeq2, StateGapInSeq1);
         }
 
+        int endJ = cj;
         var chars1 = new List<char>(m + n);
         var chars2 = new List<char>(m + n);
-        while (ci > 0 || cj > 0)
+        if (fitting)
+        {
+            // Free trailing seq2 suffix (emitted reversed; the whole buffer is reversed below).
+            for (int k = n; k > endJ; k--)
+            {
+                chars1.Add('-');
+                chars2.Add(seq2[k - 1]);
+            }
+        }
+
+        while (fitting ? ci > 0 : ci > 0 || cj > 0)
         {
             if (state == StateMatch)
             {
@@ -399,8 +458,29 @@ public static class SequenceAligner
             }
         }
 
+        if (fitting)
+        {
+            // Free leading seq2 prefix: the alignment started at M(0, cj) = 0.
+            for (int k = cj; k > 0; k--)
+            {
+                chars1.Add('-');
+                chars2.Add(seq2[k - 1]);
+            }
+        }
+
         chars1.Reverse();
         chars2.Reverse();
+
+        if (fitting)
+            return new AlignmentResult(
+                AlignedSequence1: new string(chars1.ToArray()),
+                AlignedSequence2: new string(chars2.ToArray()),
+                Score: best,
+                AlignmentType: AlignmentType.SemiGlobal,
+                StartPosition1: 0,
+                StartPosition2: 0,
+                EndPosition1: m - 1,
+                EndPosition2: n - 1);
 
         return local
             ? new AlignmentResult(
@@ -619,7 +699,7 @@ public static class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
 
-        return AffineAlignCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, local: true);
+        return AffineAlignCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, AlignmentType.Local);
     }
 
     /// <summary>
@@ -638,7 +718,7 @@ public static class SequenceAligner
             sequence1.ToUpperInvariant(),
             sequence2.ToUpperInvariant(),
             scoring ?? SimpleDna,
-            local: true);
+            AlignmentType.Local);
     }
 
     /// <summary>Local result with no positive-scoring region: empty strings, score 0, coordinates −1
@@ -651,13 +731,32 @@ public static class SequenceAligner
     #region Semi-Global Alignment
 
     /// <summary>
-    /// Performs semi-global alignment (free end gaps).
-    /// Useful for aligning a shorter sequence to a longer one.
+    /// Performs semi-global alignment of the <b>fitting</b> (query-in-reference, "glocal") kind:
+    /// <paramref name="sequence1"/> is aligned end-to-end against the best-scoring substring of
+    /// <paramref name="sequence2"/>; unaligned leading/trailing residues of sequence 2 are free.
     /// </summary>
-    /// <param name="sequence1">First DNA sequence (typically shorter/query).</param>
-    /// <param name="sequence2">Second DNA sequence (typically longer/reference).</param>
+    /// <param name="sequence1">Query (aligned in full; typically the shorter sequence).</param>
+    /// <param name="sequence2">Reference (its unaligned prefix/suffix cost nothing).</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
     /// <returns>Alignment result.</returns>
+    /// <remarks>
+    /// <para>
+    /// Only end gaps <i>in sequence 1</i> (i.e. overhanging sequence-2 residues) are free; end gaps in
+    /// sequence 2 (overhanging query residues) are charged like any other gap. This is Rosalind's
+    /// "fitting alignment" (SIMS), Biopython <c>PairwiseAligner(mode='global')</c> with
+    /// <c>end_insertion_score = 0</c> (formerly <c>target_end_gap_score</c>; target = sequence 1), and
+    /// parasail <c>sg_dx</c> (s1 = sequence 1, s2 = sequence 2). Linear gap model: every gap position
+    /// scores <see cref="ScoringMatrix.GapExtend"/>; <see cref="ScoringMatrix.GapOpen"/> is ignored —
+    /// use <see cref="SemiGlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> for affine costs.
+    /// </para>
+    /// <para>
+    /// F(0,j) = 0, F(i,0) = d·i, F(i,j) = max(F(i-1,j-1) + s(a_i,b_j), F(i-1,j) + d, F(i,j-1) + d);
+    /// Score = max_j F(m,j). Among tied end columns the smallest j wins (with all-negative scores this
+    /// can be j = 0, i.e. the query aligned entirely against gaps); traceback ties are broken
+    /// diagonal &gt; up &gt; left. The aligned strings span both full inputs (the free sequence-2
+    /// prefix/suffix is shown against '-'), so Start/End positions are 0 and length − 1.
+    /// </para>
+    /// </remarks>
     public static AlignmentResult SemiGlobalAlign(
         DnaSequence sequence1,
         DnaSequence sequence2,
@@ -666,48 +765,63 @@ public static class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
 
-        return SemiGlobalAlignCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna);
+        return LinearAlignCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, fitting: true);
     }
 
-    private static AlignmentResult SemiGlobalAlignCore(string seq1, string seq2, ScoringMatrix scoring)
+    /// <summary>
+    /// Performs semi-global (fitting) alignment with <b>affine gap costs</b>: Gotoh's (1982) three-state
+    /// recurrences with free leading/trailing sequence-2 residues.
+    /// </summary>
+    /// <param name="sequence1">Query (aligned in full).</param>
+    /// <param name="sequence2">Reference (its unaligned prefix/suffix cost nothing).</param>
+    /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
+    /// <remarks>
+    /// <para>
+    /// Same fitting variant as <see cref="SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/> and
+    /// the same gap-cost convention as <see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/>:
+    /// an internal gap (or a gap in sequence 2 at an end) of length k scores <c>GapOpen + k·GapExtend</c>.
+    /// Equivalent settings: Biopython <c>PairwiseAligner(mode='global', open_gap_score = GapOpen + GapExtend,
+    /// extend_gap_score = GapExtend, end_insertion_score = 0)</c>; parasail
+    /// <c>sg_dx(open = -(GapOpen + GapExtend), extend = -GapExtend)</c>. With <c>GapOpen = 0</c> the score
+    /// equals the linear <see cref="SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)"/>.
+    /// </para>
+    /// <para>
+    /// Initialization: M(0,j) = 0 for all j, X(i,0) = GapOpen + i·GapExtend, other border cells −∞;
+    /// Score = max_j max(M, X, Y)(m, j) (first maximal column wins; end-state ties M &gt; X &gt; Y;
+    /// traceback ties M &gt; X &gt; Y). The aligned strings span both full inputs, so Start/End positions
+    /// are 0 and length − 1.
+    /// </para>
+    /// <para>Sources: Gotoh O (1982) J Mol Biol 162:705-708; Flouri et al. (2015) bioRxiv 10.1101/031500;
+    /// cross-checked against Biopython 1.88 PairwiseAligner and parasail 1.3.4 sg_dx_trace.</para>
+    /// </remarks>
+    public static AlignmentResult SemiGlobalAlignAffine(
+        DnaSequence sequence1,
+        DnaSequence sequence2,
+        ScoringMatrix? scoring = null)
     {
-        int m = seq1.Length;
-        int n = seq2.Length;
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
 
-        var score = new int[m + 1, n + 1];
+        return AffineAlignCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, AlignmentType.SemiGlobal);
+    }
 
-        // Free gaps at start of seq2 (first row is 0)
-        for (int i = 1; i <= m; i++)
-            score[i, 0] = i * scoring.GapExtend;
+    /// <summary>
+    /// Affine-gap semi-global (fitting) alignment on raw sequence strings (uppercased internally).
+    /// See <see cref="SemiGlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> for the model.
+    /// </summary>
+    public static AlignmentResult SemiGlobalAlignAffine(
+        string sequence1,
+        string sequence2,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
 
-        // Fill the matrix
-        for (int i = 1; i <= m; i++)
-        {
-            for (int j = 1; j <= n; j++)
-            {
-                int matchScore = seq1[i - 1] == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
-
-                int diag = score[i - 1, j - 1] + matchScore;
-                int up = score[i - 1, j] + scoring.GapExtend;
-                int left = score[i, j - 1] + scoring.GapExtend;
-
-                score[i, j] = Math.Max(diag, Math.Max(up, left));
-            }
-        }
-
-        // Find max in last row (free gaps at end of seq2)
-        int maxScore = score[m, 0];
-        int maxJ = 0;
-        for (int j = 1; j <= n; j++)
-        {
-            if (score[m, j] > maxScore)
-            {
-                maxScore = score[m, j];
-                maxJ = j;
-            }
-        }
-
-        return Traceback(seq1, seq2, score, m, maxJ, scoring, AlignmentType.SemiGlobal);
+        return AffineAlignCore(
+            sequence1.ToUpperInvariant(),
+            sequence2.ToUpperInvariant(),
+            scoring ?? SimpleDna,
+            AlignmentType.SemiGlobal);
     }
 
     #endregion
