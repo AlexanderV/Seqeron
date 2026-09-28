@@ -80,8 +80,9 @@ public class SequenceMeltingTemperatureFuzzTests
     private const double MarmurGcCoeff = 41.0;
     private const double MarmurGcOffset = 16.4;
 
-    /// <summary>Counts only the recognized A/C/G/T bases (case-insensitive); everything
-    /// else (N, U, gaps, unicode, …) is excluded, mirroring CalculateNucleotideComposition.</summary>
+    /// <summary>Counts only the recognized A/C/G/T/U bases (case-insensitive; U read as T — Biopython
+    /// MeltingTemp._check back-transcription, 2026-09 B03 F20); everything else (N, gaps, unicode, …)
+    /// is excluded.</summary>
     private static (int at, int gc) CountAcgt(string seq)
     {
         int at = 0, gc = 0;
@@ -89,16 +90,16 @@ public class SequenceMeltingTemperatureFuzzTests
         {
             switch (char.ToUpperInvariant(raw))
             {
-                case 'A': case 'T': at++; break;
+                case 'A': case 'T': case 'U': at++; break;
                 case 'G': case 'C': gc++; break;
-                default: break; // U, N, gaps, junk — not recognized, contributes 0
+                default: break; // N, gaps, junk — not recognized, contributes 0
             }
         }
         return (at, gc);
     }
 
     /// <summary>Independent oracle mirroring CalculateMeltingTemperature exactly:
-    /// 0 for null/empty or no A/C/G/T; Wallace when useWallaceRule and A+C+G+T &lt; 14; otherwise
+    /// 0 for null/empty or no A/C/G/T/U; Wallace when useWallaceRule and A+C+G+T+U &lt; 14; otherwise
     /// Marmur-Doty over the recognized base count (0 when no A/C/G/T present).</summary>
     private static double Oracle(string seq, bool useWallaceRule = true)
     {
@@ -322,7 +323,6 @@ public class SequenceMeltingTemperatureFuzzTests
     /// no crash. — Melting_Temperature.md §6.1.
     /// </summary>
     [TestCase("N")]
-    [TestCase("U")]
     [TestCase("-")]
     [TestCase("*")]
     [TestCase("7")]
@@ -437,7 +437,6 @@ public class SequenceMeltingTemperatureFuzzTests
     /// </summary>
     [TestCase("NNNNNNNNNNNNNN")]   // 14 × N
     [TestCase("--------------------")] // 20 × gap
-    [TestCase("UUUUUUUUUUUUUUUU")] // 16 × U (RNA base, not recognized as DNA)
     public void Tm_AllJunkLong_MarmurDoty_NoDivideByZero(string seq)
     {
         seq.Length.Should().BeGreaterThanOrEqualTo(WallaceMaxLength, "long enough for the Marmur branch");
@@ -446,6 +445,21 @@ public class SequenceMeltingTemperatureFuzzTests
         act.Should().NotThrow($"all-junk '{seq}': recognized count 0 ⇒ guarded, no DivideByZero");
         act().Should().Be(0.0, "Marmur-Doty total == 0 ⇒ documented 0 (INV-02 guard)");
         AssertFinite(act());
+    }
+
+    /// <summary>
+    /// RNA uracil is read as T (Biopython 1.88 <c>MeltingTemp._check</c> back-transcribes for
+    /// Tm_Wallace/Tm_GC; 2026-09 B03 F20). Replaces the former "U unrecognized ⇒ 0" cases, which
+    /// contradicted Biopython: Tm_Wallace("U") = 2.0; Tm_GC("U"×16, userset=(64.9, 0.41, 672.4, 0),
+    /// saltcorr=0) = 22.875.
+    /// </summary>
+    [TestCase("U", 2.0)]
+    [TestCase("u", 2.0)]
+    [TestCase("UUUUUUUUUUUUUUUU", 22.875)]
+    public void Tm_Uracil_ReadAsThymine_MatchesBiopython(string seq, double expected)
+    {
+        SequenceStatistics.CalculateMeltingTemperature(seq).Should().BeApproximately(expected, Tolerance);
+        ShouldMatchOracle(SequenceStatistics.CalculateMeltingTemperature(seq), seq);
     }
 
     #endregion

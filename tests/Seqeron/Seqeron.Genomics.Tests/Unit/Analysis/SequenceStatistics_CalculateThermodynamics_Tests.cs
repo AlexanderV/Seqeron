@@ -370,8 +370,11 @@ public class SequenceStatistics_CalculateThermodynamics_Tests
             var chars = new char[rng.Next(0, 40)];
             for (int j = 0; j < chars.Length; j++) chars[j] = alphabet[rng.Next(alphabet.Length)];
             string seq = new string(chars);
+            // PrimerDesigner is a DNA-primer method that ignores U; SequenceStatistics reads U as T
+            // (Biopython back-transcription, B03 F20), so compare on the back-transcribed input.
+            string dna = seq.Replace('U', 'T').Replace('u', 't');
             Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq),
-                Is.EqualTo(Seqeron.Genomics.MolTools.PrimerDesigner.CalculateMeltingTemperature(seq)).Within(1e-12), seq);
+                Is.EqualTo(Seqeron.Genomics.MolTools.PrimerDesigner.CalculateMeltingTemperature(dna)).Within(1e-12), seq);
         }
     }
 

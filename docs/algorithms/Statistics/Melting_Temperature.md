@@ -101,7 +101,7 @@ for these guarded inputs.
 
 ### 4.1 High-Level Steps
 
-1. Count A/T/G/C (case-insensitive; U, N, IUPAC codes, gaps ignored); N = A+T+G+C (0 → Tm 0).
+1. Count A/T/G/C/U (case-insensitive; U read as T — Biopython `_check` back-transcription, 2026-09 B03 F20; N, IUPAC codes, gaps ignored); N = A+T+G+C+U (0 → Tm 0).
 2. **CalculateMeltingTemperature:** if `useWallaceRule` and N < 14, apply the Wallace
    rule; otherwise apply Marmur-Doty (with `useWallaceRule: false` also below 14, outside
    its published domain — may be negative; no clamp).
@@ -178,7 +178,8 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 |------|-------------------|-----------|
 | Empty / length-1 | NN returns all-zero; Wallace/GC returns 0 | NN undefined for < 2 nt [3] |
 | Lowercase input | Same as uppercase | Case-insensitive (upper-cased internally) |
-| N / gaps / IUPAC / U in basic Tm | Not counted, and not counted towards the 14-base threshold | OligoCalc N = A+T+G+C |
+| N / gaps / IUPAC in basic Tm | Not counted, and not counted towards the 14-base threshold | OligoCalc N = A+T+G+C |
+| U in basic Tm | Read as T (counts as A·T and towards the threshold): `AUGCAUGC` 24.0 = Biopython `Tm_Wallace`; `GGGAAAUUUCCCAAAUGC` 45.7667 = `Tm_GC(userset=(64.9,0.41,672.4,0), saltcorr=0)` (B03 F20) | Biopython `_check` back_transcribe; OligoCalc accepts RNA |
 | Non-ACGT in NN Tm | Removed first (U → T) | Biopython `_check` |
 | All-A·T duplex | Low (possibly negative) Tm | A·T pairs least stable [4] |
 

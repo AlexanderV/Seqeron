@@ -56,9 +56,9 @@
 | INV-2 | `summary.GcContent == CalculateNucleotideComposition(seq).GcContent` | Yes | Source 1; aggregation-consistency |
 | INV-3 | `summary.Entropy == CalculateShannonEntropy(seq)` | Yes | Source 3; aggregation-consistency |
 | INV-4 | `summary.Complexity == CalculateLinguisticComplexity(seq)` | Yes | Source 4; aggregation-consistency |
-| INV-5 | `summary.MeltingTemperature == CalculateMeltingTemperature(seq, useWallaceRule: true)` (switch on A+C+G+T < 14, 2026-09 B03 F12) | Yes | Source 2; aggregation-consistency |
+| INV-5 | `summary.MeltingTemperature == CalculateMeltingTemperature(seq, useWallaceRule: true)` (switch on A+C+G+T+U < 14, U read as T; 2026-09 B03 F12/F20) | Yes | Source 2; aggregation-consistency |
 | INV-6 | Composition dict counts A,T,G,C,U,N equal `CalculateNucleotideComposition` counts | Yes | Source 1; aggregation-consistency |
-| INV-7 | 0 ≤ GcContent ≤ 1 and 0 ≤ Complexity < 1 (DNA fragments) | Yes | Source 1, Source 4 |
+| INV-7 | 0 ≤ GcContent ≤ 1 and 0 ≤ Complexity ≤ 1 over ≤ 4 distinct symbols (ACGTN → 21/20) | Yes | Source 1, Source 4 |
 
 ---
 
@@ -81,6 +81,14 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | Null input | `null` argument | same degenerate summary as empty (no throw) | per-metric methods guard `IsNullOrEmpty` |
 | S2 | Case-insensitivity | "atgcatgc" == "ATGCATGC" summary | identical fields | per-metric methods uppercase internally |
+
+### 4.2b Review additions (2026-09 B03)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | `SummarizeNucleotideSequence_MatchesPythonReferences` (5) | every field = Biopython `gc_fraction` / scipy entropy / Biopython `Tm_Wallace`/`Tm_GC` / exact-fraction mean U_k | executed Python references |
+| R2 | `SummarizeNucleotideSequence_RnaSpelling_EqualsDnaSpelling` (3) | RNA == DNA spelling for GC, entropy, complexity, Tm | Biopython `_check` back-transcription (F20) |
+| R3 | `CalculateLinguisticComplexity_IsMeanVocabularyUsage_DiffersFromCanonicalSumForm` | 293/336 vs canonical 29/34; ACGTN 21/20 | characterisation lock (LINGUISTIC row) |
 
 ### 4.3 COULD Tests (Nice to have)
 

@@ -358,14 +358,13 @@ public class SequenceSummaryFuzzTests
     }
 
     /// <summary>
-    /// BE: a single 'U' (RNA) is counted (Length 1, CountU 1) with GcContent 0.0, but
-    /// the Wallace Tm is 0.0 — Wallace sums only A+T and G+C (SequenceStatistics.cs
-    /// line 580: `comp.CountA + comp.CountT`), so a lone U contributes nothing to Tm.
-    /// This is the documented per-metric behaviour the summary faithfully copies, and a
-    /// distinct boundary from A/T whose Wallace Tm is 2.0.
+    /// BE: a single 'U' (RNA) is counted (Length 1, CountU 1) with GcContent 0.0 and
+    /// Wallace Tm 2.0 — U is read as T (Biopython MeltingTemp._check back-transcription:
+    /// Tm_Wallace("U") = 2.0; 2026-09 B03 F20, formerly asserted 0.0 from our own doc only),
+    /// the same boundary as a lone A/T.
     /// </summary>
     [Test]
-    public void Summary_SingleU_GcZero_WallaceZero()
+    public void Summary_SingleU_GcZero_WallaceTwo()
     {
         var s = SequenceStatistics.SummarizeNucleotideSequence("U");
 
@@ -373,7 +372,7 @@ public class SequenceSummaryFuzzTests
         s.Composition['U'].Should().Be(1);
         s.GcContent.Should().BeApproximately(0.0, Tolerance, "U is not GC");
         s.Entropy.Should().BeApproximately(0.0, Tolerance);
-        s.MeltingTemperature.Should().Be(0.0, "Wallace counts only A/T (not U) → lone U gives Tm 0");
+        s.MeltingTemperature.Should().Be(2.0, "U is read as T (Biopython Tm_Wallace(\"U\") = 2.0)");
         AssertWellFormed(s);
         AssertMatchesComponentMetrics("U");
     }

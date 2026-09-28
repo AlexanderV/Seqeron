@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-SUMMARY-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 (B03 review) |
 
 ## 1. Overview
 
@@ -35,11 +35,11 @@ For an input sequence `S`, the summary fields are defined as:
 - **Length** = `|S|` (raw character count).
 - **GcContent** = GC fraction = (#G + #C) / (#counted bases), case-insensitive, 0 for empty input [1].
 - **Entropy** = Shannon entropy `H = − Σ p·log₂ p` over the per-symbol frequencies, in bits [2].
-- **Complexity** = linguistic complexity, a vocabulary-usage measure (observed vs possible words) combined across word sizes, in the range (0,1) [3].
-- **MeltingTemperature** = Wallace rule `2(A+T) + 4(G+C)` for short oligos, otherwise the GC/Marmur-Doty formula `64.9 + 41·(GC − 16.4)/N` [4][5].
+- **Complexity** = `CalculateLinguisticComplexity(S)` (maxK = 6): the unweighted **mean** of Trifonov vocabulary usages U_k = V_k / min(4^k, N−k+1), k = 1..min(6,N) [3]. Not a published combination (Trifonov / Gabrielian & Bolshoy: product; Orlov & Potapov / Troyanskaya, canonical `SequenceComplexity`: Σ V_k / Σ V_max,k); every character is a symbol, so > 4 distinct symbols can push it above 1 (see B03 LINGUISTIC row).
+- **MeltingTemperature** = Wallace rule `2(A+T) + 4(G+C)` for short oligos, otherwise the GC/Marmur-Doty formula `64.9 + 41·(GC − 16.4)/N` [4][5]; U is read as T (Biopython `_check` back-transcription, B03 F20).
 - **Composition** = the counts of A, T, G, C, U, N [1].
 
-The summary selects the Wallace branch when `|S| < 14` and the GC branch otherwise [4].
+The Wallace branch is selected when the number of A/C/G/T/U bases is < 14 (not `|S|`; B03 F12/F20), the GC branch otherwise [4].
 
 ### 2.4 Properties and Invariants
 
@@ -51,7 +51,7 @@ The summary selects the Wallace branch when `|S| < 14` and the GC branch otherwi
 | INV-04 | `summary.Complexity == CalculateLinguisticComplexity(S)` | field is the return of that method [3] |
 | INV-05 | `summary.MeltingTemperature == CalculateMeltingTemperature(S, useWallaceRule: true)` (the method switches on the A+C+G+T count < 14; 2026-09 B03 F12) | field is the return of that method with that flag [4][5] |
 | INV-06 | Composition dict A,T,G,C,U,N counts equal `CalculateNucleotideComposition(S)` counts | dict is built directly from those counts [1] |
-| INV-07 | 0 ≤ GcContent ≤ 1 and 0 ≤ Complexity < 1 (DNA fragments) | fraction and vocabulary-usage bounds [1][3] |
+| INV-07 | 0 ≤ GcContent ≤ 1; 0 < Complexity ≤ 1 for input over ≤ 4 distinct symbols (can exceed 1 otherwise, e.g. `ACGTN` = 21/20) | fraction and vocabulary-usage bounds [1][3] |
 
 ## 3. Contract
 
@@ -77,9 +77,11 @@ The summary selects the Wallace branch when `|S| < 14` and the GC branch otherwi
 Null or empty input returns a degenerate summary (Length 0, GcContent 0, Entropy 0,
 Complexity 0, MeltingTemperature 0, all composition counts 0); no exception is thrown,
 matching the empty-sequence handling of each per-metric method [1]. Input is
-case-insensitive (each per-metric method uppercases internally). T and U are counted as
-distinct symbols; N is counted; other characters are excluded from GC/entropy as defined
-by the per-metric methods.
+case-insensitive (each per-metric method uppercases internally). U is read as T for GC and Tm;
+T and U are distinct symbols for entropy and complexity (an RNA and its DNA spelling still give
+identical values because the symbol count is unchanged); N is counted in Length/Composition and is a
+symbol for entropy/complexity; S/W are not GC (use `CalculateGcFraction(GcAmbiguityMode)` for Biopython
+parity); other characters count only towards Length.
 
 ## 4. Algorithm
 
@@ -88,7 +90,7 @@ by the per-metric methods.
 1. Compute `comp = CalculateNucleotideComposition(sequence)`.
 2. Compute `entropy = CalculateShannonEntropy(sequence)`.
 3. Compute `complexity = CalculateLinguisticComplexity(sequence)`.
-4. Compute `tm = CalculateMeltingTemperature(sequence, useWallaceRule: true)` (Wallace when A+C+G+T < 14, else GC formula).
+4. Compute `tm = CalculateMeltingTemperature(sequence, useWallaceRule: true)` (Wallace when A+C+G+T+U < 14, else GC formula).
 5. Build the composition dictionary from the composition counts and assemble the record.
 
 ### 4.3 Complexity
@@ -135,8 +137,9 @@ suffix tree, and the summary does not change that.
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Tm threshold length<14 | Assumption | selects Wallace vs GC formula | accepted | sibling SEQ-TM-001 convention (`ThermoConstants.WallaceMaxLength`); summary tested for equality with `CalculateMeltingTemperature` |
-| 2 | Complexity = mean (not Trifonov product) | Deviation | Complexity value differs from strict Trifonov | accepted | belongs to the linguistic-complexity method; out of scope for the aggregation |
+| 1 | Tm threshold A+C+G+T+U < 14 (B03 F12/F20) | Assumption | selects Wallace vs GC formula | accepted | sibling SEQ-TM-001 convention (`ThermoConstants.WallaceMaxLength`); summary tested for equality with `CalculateMeltingTemperature` |
+| 2 | Complexity = mean of U_k (neither Trifonov product nor canonical Σ-form) | Deviation (unsourced) | e.g. ATTTGGATT: 0.87202 vs canonical 0.85294 | recorded, not changed (2026-09 B03 LINGUISTIC row; delegation to `SequenceComplexity` proposed) | belongs to the linguistic-complexity method |
+| 3 | No MW / Biopython `molecular_weight` field | Scope | summary exposes Length, GC, entropy, complexity, Tm, composition only | accepted | use `CalculateNucleotideMolecularWeight` |
 
 ## 6. Edge Cases and Limitations
 
@@ -146,8 +149,8 @@ suffix tree, and the summary does not change that.
 |------|-------------------|-----------|
 | empty / null sequence | degenerate summary (all zero counts/metrics) | per-metric empty handling [1] |
 | lowercase input | identical summary to uppercase | per-metric methods uppercase internally |
-| RNA input (U) | U counted; GC/entropy include U as a symbol | composition counts U [1] |
-| length exactly 14 | GC/Marmur-Doty branch (14 is not < 14) | threshold is strict `<` |
+| RNA input (U) | U counted; GC and Tm read U as T; RNA and DNA spellings give identical GC/entropy/complexity/Tm | Biopython `gc_fraction` / `_check` [1][4] |
+| exactly 14 A/C/G/T/U bases | GC/Marmur-Doty branch (14 is not < 14) | threshold is strict `<` |
 
 ### 6.2 Limitations
 
@@ -173,6 +176,7 @@ GcContent = 4/8 = 0.5; four equally frequent symbols → H = log₂ 4 = 2.0 bits
 
 ### 7.3 Related Tests, Evidence, or Documents
 
+- Python cross-check (2026-09 B03): `SummarizeNucleotideSequence_MatchesPythonReferences` locks GC (Biopython `gc_fraction`), entropy (scipy), Tm (Biopython `Tm_Wallace`/`Tm_GC`), complexity (exact-fraction mean) on 5 DNA/RNA inputs.
 - Tests: [SequenceStatistics_SummarizeNucleotideSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_SummarizeNucleotideSequence_Tests.cs) — covers `INV-01`..`INV-07`
 - Evidence: [SEQ-SUMMARY-001-Evidence.md](../../../docs/Evidence/SEQ-SUMMARY-001-Evidence.md)
 - Related algorithms: [Entropy_Profile](../Statistics/Entropy_Profile.md), [Melting_Temperature](../Statistics/Melting_Temperature.md)

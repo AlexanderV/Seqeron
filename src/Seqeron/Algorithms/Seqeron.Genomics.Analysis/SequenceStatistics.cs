@@ -869,11 +869,14 @@ public static class SequenceStatistics
     /// both at OligoCalc's fixed standard conditions (50 nM primer, 50 mM Na+, pH 7.0).
     /// </summary>
     /// <remarks>
-    /// Only A, C, G, T are counted (case-insensitive); every other character (N, IUPAC codes, U,
-    /// gaps, whitespace) is ignored. As in OligoCalc — whose GC formula divides by
-    /// N = wA+xT+yG+zC — the length that selects the formula is the number of counted bases, so the
-    /// result with <paramref name="useWallaceRule"/> = true equals the canonical
-    /// <c>PrimerDesigner.CalculateMeltingTemperature</c> (MolTools; not callable from this assembly).
+    /// Only A, C, G, T and U are counted (case-insensitive); RNA uracil is read as T, as Biopython
+    /// <c>MeltingTemp._check</c> back-transcribes RNA for <c>Tm_Wallace</c>/<c>Tm_GC</c> (and as
+    /// <see cref="CalculateThermodynamics(string, double, double)"/> does). Every other character
+    /// (N, IUPAC codes, gaps, whitespace) is ignored. As in OligoCalc — whose GC formula divides by
+    /// N = wA+xT+yG+zC — the length that selects the formula is the number of counted bases, so for
+    /// U-free input the result with <paramref name="useWallaceRule"/> = true equals the canonical
+    /// <c>PrimerDesigner.CalculateMeltingTemperature</c> (MolTools; not callable from this assembly;
+    /// that DNA-primer method ignores U).
     /// With <paramref name="useWallaceRule"/> = false the GC formula is applied at any length; below
     /// 14 bases this is outside its published domain and can be negative. Returns 0 for null/empty
     /// input or when no A/C/G/T base is present.
@@ -884,7 +887,8 @@ public static class SequenceStatistics
             return 0;
 
         var comp = CalculateNucleotideComposition(dnaSequence);
-        int at = comp.CountA + comp.CountT;
+        // U is read as T (Biopython MeltingTemp._check back-transcription; 2026-09 B03 F20).
+        int at = comp.CountA + comp.CountT + comp.CountU;
         int gc = comp.CountG + comp.CountC;
         int validLength = at + gc;
         if (validLength == 0)
@@ -1160,8 +1164,19 @@ public static class SequenceStatistics
     private static readonly double Ln2 = Math.Log(2.0);
 
     /// <summary>
-    /// Calculates linguistic complexity of a sequence.
+    /// Calculates the unweighted mean vocabulary usage (1/m)·Σ_{k=1..m} U_k, with
+    /// U_k = V_k / min(4^k, N − k + 1) (V_k = distinct k-words, m = min(maxK, N)).
     /// </summary>
+    /// <remarks>
+    /// U_k is Trifonov's (1990) vocabulary usage, but the arithmetic mean over k is not a published
+    /// combination: Trifonov / Gabrielian &amp; Bolshoy (1999) use the product Π U_k, and Orlov &amp;
+    /// Potapov (2004) / Troyanskaya et al. (2002) the ratio Σ V_k / Σ V_max,k implemented by the
+    /// canonical <c>SequenceComplexity.CalculateLinguisticComplexity</c>. Values therefore differ from
+    /// both (e.g. ATTTGGATT, m = 6: mean 0.87202, sum-form 0.85294, product 0.40179). Every upper-cased
+    /// character is a word symbol (N, IUPAC codes, gaps and U vs T are distinct), so with more than four
+    /// distinct symbols U_1 &gt; 1 and the result can exceed 1. Null/empty input returns 0.
+    /// Kept for API compatibility; see docs/Validation/review-2026-09/B03.md (LINGUISTIC row).
+    /// </remarks>
     public static double CalculateLinguisticComplexity(string sequence, int maxK = 6)
     {
         if (string.IsNullOrEmpty(sequence))
@@ -1654,6 +1669,16 @@ public static class SequenceStatistics
     /// <summary>
     /// Generates comprehensive summary statistics for a DNA/RNA sequence.
     /// </summary>
+    /// <remarks>
+    /// Pure aggregation — every field is the return value of its component method on the same input:
+    /// <c>Length</c>/<c>GcContent</c>/<c>Composition</c> from <see cref="CalculateNucleotideComposition"/>
+    /// (GC over A+C+G+T+U, Biopython <c>gc_fraction</c> "remove" mode without S/W),
+    /// <c>Entropy</c> from <see cref="CalculateShannonEntropy"/> (bits, every letter a symbol),
+    /// <c>Complexity</c> from <see cref="CalculateLinguisticComplexity"/> (maxK = 6) and
+    /// <c>MeltingTemperature</c> from <see cref="CalculateMeltingTemperature"/> with the Wallace rule
+    /// enabled (U read as T). <c>Composition</c> holds A, T, G, C, U, N only; other symbols are counted
+    /// in <c>Length</c> but not listed. Null is treated as empty (all-zero summary).
+    /// </remarks>
     public static SequenceSummary SummarizeNucleotideSequence(string? sequence)
     {
         // Treat null and empty identically (each per-metric method guards IsNullOrEmpty);
@@ -1663,10 +1688,10 @@ public static class SequenceStatistics
         var comp = CalculateNucleotideComposition(seq);
         double entropy = CalculateShannonEntropy(seq);
         double complexity = CalculateLinguisticComplexity(seq);
-        // Wallace rule applies to short oligos (< WallaceMaxLength = 14 A/C/G/T bases); the GC/Marmur-Doty
+        // Wallace rule applies to short oligos (< WallaceMaxLength = 14 A/C/G/T/U bases); the GC/Marmur-Doty
         // formula applies otherwise (SEQ-TM-001).
         // CalculateMeltingTemperature(useWallaceRule: true) itself selects the formula from the
-        // number of A/C/G/T bases (OligoCalc), so N/gaps cannot push a short oligo into the GC formula.
+        // number of A/C/G/T/U bases (OligoCalc), so N/gaps cannot push a short oligo into the GC formula.
         double tm = CalculateMeltingTemperature(seq, useWallaceRule: true);
 
         var composition = new Dictionary<char, int>

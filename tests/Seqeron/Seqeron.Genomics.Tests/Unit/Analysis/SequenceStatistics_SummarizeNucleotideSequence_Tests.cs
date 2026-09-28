@@ -170,6 +170,68 @@ public class SequenceStatistics_SummarizeNucleotideSequence_Tests
         });
     }
 
+    // 2026-09 B03 review (SEQ-SUMMARY-001): every field locked to an executed Python reference —
+    // GcContent = Biopython 1.88 gc_fraction(seq, "remove"); Entropy = scipy.stats.entropy(counts, base=2);
+    // Tm = Biopython Tm_Wallace (< 14 A/C/G/T/U) or Tm_GC(userset=(64.9, 0.41, 672.4, 0), saltcorr=0)
+    // (= 64.9 + 41·(G+C − 16.4)/N; both back-transcribe U, F20); Complexity = exact-fraction mean of
+    // Trifonov vocabulary usages U_k = V_k / min(4^k, N − k + 1), k = 1..6 (documented convention).
+    [TestCase("ATGCATGC", 0.5, 2.0, 24.0, 529.0 / 630.0)]
+    [TestCase("ACGTACGGTACCAGTTAGCA", 0.5, 1.9854752972273346, 51.78000000000001, 0.8999183006535948)]
+    [TestCase("AUGCAUGC", 0.5, 2.0, 24.0, 529.0 / 630.0)]
+    [TestCase("GGGAAAUUUCCCAAAUGC", 0.4444444444444444, 1.974937501201927, 45.76666666666668, 163.0 / 180.0)]
+    [TestCase("ATTTGGATT", 0.2222222222222222, 1.4355205042826666, 22.0, 293.0 / 336.0)]
+    public void SummarizeNucleotideSequence_MatchesPythonReferences(
+        string seq, double gc, double entropy, double tm, double complexity)
+    {
+        var s = SequenceStatistics.SummarizeNucleotideSequence(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.Length, Is.EqualTo(seq.Length));
+            Assert.That(s.GcContent, Is.EqualTo(gc).Within(1e-12), "Biopython gc_fraction");
+            Assert.That(s.Entropy, Is.EqualTo(entropy).Within(1e-12), "scipy entropy base 2");
+            Assert.That(s.MeltingTemperature, Is.EqualTo(tm).Within(1e-9), "Biopython Tm_Wallace / Tm_GC");
+            Assert.That(s.Complexity, Is.EqualTo(complexity).Within(1e-12), "mean vocabulary usage k=1..6");
+        });
+    }
+
+    // RNA spelling: U is read as T by every Tm/GC component (Biopython back-transcription, F20), so an
+    // RNA and its DNA spelling have identical GC, entropy, complexity and Tm; only the T/U counts move.
+    [TestCase("AUGCAUGC", "ATGCATGC")]
+    [TestCase("GGGAAAUUUCCCAAAUGC", "GGGAAATTTCCCAAATGC")]
+    [TestCase("acguacgu", "ACGTACGT")]
+    public void SummarizeNucleotideSequence_RnaSpelling_EqualsDnaSpelling(string rna, string dna)
+    {
+        var r = SequenceStatistics.SummarizeNucleotideSequence(rna);
+        var d = SequenceStatistics.SummarizeNucleotideSequence(dna);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.GcContent, Is.EqualTo(d.GcContent));
+            Assert.That(r.Entropy, Is.EqualTo(d.Entropy).Within(1e-12));
+            Assert.That(r.Complexity, Is.EqualTo(d.Complexity).Within(1e-12));
+            Assert.That(r.MeltingTemperature, Is.EqualTo(d.MeltingTemperature), "Tm reads U as T");
+            Assert.That(r.Composition['U'], Is.EqualTo(d.Composition['T']));
+            Assert.That(r.Composition['T'], Is.EqualTo(0));
+        });
+    }
+
+    // LINGUISTIC (uncovered public method): SequenceStatistics.CalculateLinguisticComplexity is the
+    // unweighted mean of U_k — neither Trifonov/Gabrielian–Bolshoy's product nor the Orlov–Potapov /
+    // Troyanskaya sum form of the canonical SequenceComplexity (Rosalind LING). Characterisation lock
+    // (exact fractions from a Python reference) so any future delegation is a visible, reviewed change.
+    [Test]
+    public void CalculateLinguisticComplexity_IsMeanVocabularyUsage_DiffersFromCanonicalSumForm()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateLinguisticComplexity("ATTTGGATT"),
+                Is.EqualTo(293.0 / 336.0).Within(1e-12), "mean U_k, k=1..6");
+            Assert.That(SequenceComplexity.CalculateLinguisticComplexity("ATTTGGATT", 6),
+                Is.EqualTo(29.0 / 34.0).Within(1e-12), "canonical Σ V_k / Σ V_max,k, m=6");
+            Assert.That(SequenceStatistics.CalculateLinguisticComplexity("ACGTN"),
+                Is.EqualTo(21.0 / 20.0).Within(1e-12), "N is a fifth symbol: U_1 = 5/4, result > 1");
+        });
+    }
+
     // C1 — Bounds invariant (INV-07): 0 <= GcContent <= 1 and 0 <= Complexity < 1 for a DNA fragment.
     [Test]
     public void SummarizeNucleotideSequence_DnaFragment_RespectsBounds()

@@ -140,3 +140,12 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+
+---
+
+## 2026-09 B03 review additions
+
+- Biopython 1.88 `MeltingTemp._check` (installed source, executed): "RNA sequences are backtranscribed to DNA" for Tm_Wallace/Tm_GC/Tm_NN. `Tm_Wallace("AUGCAUGC")` = 24.0 (ours was 20.0 before F20); `Tm_GC("GGGAAAUUUCCCAAAUGC", userset=(64.9,0.41,672.4,0), saltcorr=0)` = 45.766666666666680 (ours 40.3 before F20).
+- Executed reference values (Biopython `gc_fraction` remove / scipy `entropy(base=2)` / Tm / exact-fraction mean U_k, k=1..6):
+  ATGCATGC 0.5 / 2.0 / 24.0 / 529/630; ACGTACGGTACCAGTTAGCA 0.5 / 1.9854752972273346 / 51.78 / 0.8999183006535948; AUGCAUGC 0.5 / 2.0 / 24.0 / 529/630; GGGAAAUUUCCCAAAUGC 0.4444444444444444 / 1.974937501201927 / 45.766666666666680 / 163/180; ATTTGGATT 0.2222222222222222 / 1.4355205042826666 / 22.0 / 293/336.
+- Linguistic complexity forms on ATTTGGATT, m = 6: mean U_k 293/336 = 0.87202 (SequenceStatistics), Σ-form 29/34 = 0.85294 (canonical SequenceComplexity; Orlov & Potapov 2004 / Troyanskaya 2002; Rosalind LING m = N gives 0.875), product Π U_k 0.40179 (Trifonov 1990 / Gabrielian & Bolshoy 1999, WebSearch snippet of the Wikipedia article). With > 4 symbols U_1 > 1 (ACGTN mean 21/20, Σ-form 15/14).
