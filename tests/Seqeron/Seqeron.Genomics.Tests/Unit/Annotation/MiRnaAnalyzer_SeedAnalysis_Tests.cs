@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Core;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
@@ -378,6 +379,132 @@ public class MiRnaAnalyzer_SeedAnalysis_Tests
             Assert.That(result2, Is.EqualTo(result1));
             Assert.That(result3, Is.EqualTo(result1));
         });
+    }
+
+    #endregion
+
+    #region Review 2026-09 — seed-family operations (GroupBySeedFamily, FindSimilarMiRnas, GenerateSeedVariants)
+
+    // hsa-miR-590-5p (RNAcentral URS00005CACA0): GAGCUUAUUCAUAAAAGUGCAG
+    // nt 2-8 = AGCUUAU = miR-21-5p seed ⇒ same TargetScan family (miR-21-5p/590-5p).
+    private const string MiR590_5p_Sequence = "GAGCUUAUUCAUAAAAGUGCAG";
+
+    [Test]
+    public void GroupBySeedFamily_RealFamilies_GroupsByNt2To8()
+    {
+        // Bartel (2009): family = same sequence at nt 2-8; TargetScan miR_Family_Info "Seed+m8".
+        var mirnas = new[]
+        {
+            CreateMiRna("let-7a", Let7a_Sequence),
+            CreateMiRna("let-7b", Let7b_Sequence),
+            CreateMiRna("let-7c", Let7c_Sequence),
+            CreateMiRna("miR-21-5p", MiR21_Sequence),
+            CreateMiRna("miR-590-5p", MiR590_5p_Sequence),
+        };
+
+        var families = GroupBySeedFamily(mirnas).ToDictionary(f => f.SeedFamily, f => f.Members.Select(m => m.Name).ToArray());
+
+        Assert.That(families.Keys, Is.EquivalentTo(new[] { "GAGGUAG", "AGCUUAU" }));
+        Assert.That(families["GAGGUAG"], Is.EquivalentTo(new[] { "let-7a", "let-7b", "let-7c" }));
+        Assert.That(families["AGCUUAU"], Is.EquivalentTo(new[] { "miR-21-5p", "miR-590-5p" }));
+    }
+
+    [Test]
+    public void GroupBySeedFamily_SeedlessMiRna_BelongsToNoFamily()
+    {
+        // A <8-nt sequence has no nt 2-8 seed ⇒ no family (was grouped under an "" family).
+        var mirnas = new[] { CreateMiRna("short1", "UGA"), CreateMiRna("short2", "UAG"), CreateMiRna("let-7a", Let7a_Sequence) };
+
+        var families = GroupBySeedFamily(mirnas).ToList();
+
+        Assert.That(families, Has.Count.EqualTo(1));
+        Assert.That(families[0].SeedFamily, Is.EqualTo("GAGGUAG"));
+    }
+
+    [Test]
+    public void SeedFamily_DnaAndLowercaseSeedEncoding_IsSameFamily()
+    {
+        // TargetScan targetscan_70.pl normalises seeds with s/T/U/gi; uc() before use,
+        // so "gaggtag" and "GAGGUAG" are the same let-7 seed.
+        var rna = CreateMiRna("let-7a", Let7a_Sequence);
+        var dnaRecord = new MiRna("let-7a-dna", "tgaggtagtaggttgtatagtt", "gaggtag", 1, 7);
+
+        var cmp = CompareSeedRegions(rna, dnaRecord);
+        var families = GroupBySeedFamily(new[] { rna, dnaRecord }).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cmp.Matches, Is.EqualTo(7));
+            Assert.That(cmp.Mismatches, Is.EqualTo(0));
+            Assert.That(cmp.IsSameFamily, Is.True);
+            Assert.That(families, Has.Count.EqualTo(1));
+            Assert.That(families[0].SeedFamily, Is.EqualTo("GAGGUAG"));
+        });
+    }
+
+    [Test]
+    public void FindSimilarMiRnas_RealSeeds_UsesSeedHammingDistance()
+    {
+        // miR-590-5p seed AGCUUAU = miR-21 seed (0 mm); let-7a GAGGUAG vs AGCUUAU = 5 mm (M-010).
+        var query = CreateMiRna("miR-21-5p", MiR21_Sequence);
+        var db = new[] { CreateMiRna("miR-590-5p", MiR590_5p_Sequence), CreateMiRna("let-7a", Let7a_Sequence) };
+
+        Assert.That(FindSimilarMiRnas(query, db, 0).Select(m => m.Name), Is.EqualTo(new[] { "miR-590-5p" }));
+        Assert.That(FindSimilarMiRnas(query, db, 4).Select(m => m.Name), Is.EqualTo(new[] { "miR-590-5p" }));
+        Assert.That(FindSimilarMiRnas(query, db, 5).Select(m => m.Name), Is.EqualTo(new[] { "miR-590-5p", "let-7a" }));
+    }
+
+    [Test]
+    public void FindSimilarMiRnas_SeedlessEntries_NeverSimilar()
+    {
+        // Defect repro (pre-fix): an entry with an empty seed scored 0 mismatches (loop over
+        // min length = 0) and was returned as an exact seed match to any query; an empty query
+        // seed matched the whole database.
+        var let7a = CreateMiRna("let-7a", Let7a_Sequence);
+        var shortEntry = CreateMiRna("short", "UGA");
+
+        Assert.That(FindSimilarMiRnas(let7a, new[] { shortEntry }, 0), Is.Empty);
+        Assert.That(FindSimilarMiRnas(shortEntry, new[] { let7a }, 0), Is.Empty);
+    }
+
+    [Test]
+    public void GenerateSeedVariants_LowercaseDnaSeed_NormalisedWithoutDuplicates()
+    {
+        // 1 + 3·7 = 22 distinct sequences for a 7-nt seed; T→U / upper-case as in TargetScan.
+        var variants = GenerateSeedVariants("gaggtag").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(variants, Has.Count.EqualTo(22));
+            Assert.That(variants.Distinct().Count(), Is.EqualTo(22));
+            Assert.That(variants[0], Is.EqualTo("GAGGUAG"));
+            Assert.That(variants.All(v => v.All(c => "ACGU".Contains(c))), Is.True);
+        });
+    }
+
+    [Test]
+    public void GenerateSeedVariants_IncludeWobbleFlag_HasNoEffect()
+    {
+        Assert.That(GenerateSeedVariants("GAGGUAG", includeWobble: false),
+            Is.EqualTo(GenerateSeedVariants("GAGGUAG", includeWobble: true)));
+    }
+
+    [Test]
+    public void NullInputs_ThrowArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => CreateMiRna("x", null!));
+        Assert.Throws<ArgumentNullException>(() => GenerateSeedVariants(null!));
+        Assert.Throws<ArgumentNullException>(() => GroupBySeedFamily(null!));
+        Assert.Throws<ArgumentNullException>(() => FindSimilarMiRnas(CreateMiRna("a", Let7a_Sequence), null!));
+    }
+
+    [Test]
+    public void CalculateGcContent_DelegatesToCanonicalGcFraction()
+    {
+        // let-7a UGAGGUAGUAGGUUGUAUAGUU: G+C = 8 of 22 nt; Biopython gc_fraction = 0.36363636...
+        Assert.That(CalculateGcContent(Let7a_Sequence), Is.EqualTo(8.0 / 22).Within(1e-12));
+        Assert.That(CalculateGcContent(Let7a_Sequence), Is.EqualTo(Let7a_Sequence.CalculateGcFractionFast()));
+        Assert.That(CalculateGcContent("GCNN"), Is.EqualTo(1.0)); // N excluded from denominator (Biopython "remove")
     }
 
     #endregion

@@ -87,7 +87,11 @@ public static class MiRnaAnalyzer
     #region Seed Matching
 
     /// <summary>
-    /// Extracts the seed region from a miRNA sequence (positions 2-8).
+    /// Extracts the seed region from a miRNA sequence: nucleotides 2–8 of the mature miRNA
+    /// (7 nt, the TargetScan "Seed+m8" family-defining region; Bartel 2009), upper-cased.
+    /// Returns "" for null or sequences shorter than 8 nt. The alphabet is preserved (a DNA
+    /// input keeps T); <see cref="CreateMiRna"/> performs the T→U normalisation, and
+    /// <see cref="CompareSeedRegions"/> / <see cref="GroupBySeedFamily"/> treat T ≡ U.
     /// </summary>
     public static string GetSeedSequence(string miRnaSequence)
     {
@@ -98,10 +102,14 @@ public static class MiRnaAnalyzer
     }
 
     /// <summary>
-    /// Creates a MiRna record from a sequence.
+    /// Creates a MiRna record from a sequence. The sequence is upper-cased and DNA T is
+    /// converted to RNA U (the same normalisation TargetScan applies to its seed input:
+    /// <c>targetscan_70.pl</c> <c>s/T/U/gi; uc()</c>) before the nt 2–8 seed is extracted.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static MiRna CreateMiRna(string name, string sequence)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
         string seed = GetSeedSequence(upper);
 
@@ -117,33 +125,41 @@ public static class MiRnaAnalyzer
     /// Compares the seed regions of two miRNAs, returning the number of matches,
     /// mismatches (Hamming distance), and whether they belong to the same seed family.
     /// </summary>
+    /// <remarks>
+    /// A miRNA family is the set of miRNAs sharing the same sequence at nucleotides 2–8
+    /// (Bartel 2009, Cell 136:215; TargetScan <c>miR_Family_Info</c> "Seed+m8"). Seeds are
+    /// compared after the TargetScan normalisation (upper-case, T→U; <c>targetscan_70.pl</c>
+    /// lines 229–232), so a DNA- or lower-case-encoded seed is the same seed as its RNA form.
+    /// Mismatches = Hamming distance over the common prefix (canonical
+    /// <see cref="SequenceExtensions.HammingDistance"/>) plus the length difference. An empty
+    /// (undefined) seed on either side yields a zeroed, non-family comparison.
+    /// </remarks>
     public static SeedComparison CompareSeedRegions(MiRna mirna1, MiRna mirna2)
     {
-        string seed1 = mirna1.SeedSequence;
-        string seed2 = mirna2.SeedSequence;
+        string seed1 = NormalizeSeed(mirna1.SeedSequence);
+        string seed2 = NormalizeSeed(mirna2.SeedSequence);
 
-        if (string.IsNullOrEmpty(seed1) || string.IsNullOrEmpty(seed2))
+        if (seed1.Length == 0 || seed2.Length == 0)
             return new SeedComparison(Matches: 0, Mismatches: 0, IsSameFamily: false);
 
         int length = Math.Min(seed1.Length, seed2.Length);
-        int matches = 0;
-        int mismatches = 0;
-
-        for (int i = 0; i < length; i++)
-        {
-            if (seed1[i] == seed2[i])
-                matches++;
-            else
-                mismatches++;
-        }
+        int hamming = seed1.AsSpan(0, length).HammingDistance(seed2.AsSpan(0, length));
+        int matches = length - hamming;
 
         // Account for length differences (if seeds have different lengths)
-        mismatches += Math.Abs(seed1.Length - seed2.Length);
+        int mismatches = hamming + Math.Abs(seed1.Length - seed2.Length);
 
-        bool isSameFamily = seed1 == seed2;
+        bool isSameFamily = mismatches == 0;
 
         return new SeedComparison(Matches: matches, Mismatches: mismatches, IsSameFamily: isSameFamily);
     }
+
+    /// <summary>
+    /// TargetScan seed normalisation (<c>targetscan_70.pl</c>: <c>s/T/U/gi; uc()</c>):
+    /// upper-case, DNA T → RNA U. Null → empty.
+    /// </summary>
+    private static string NormalizeSeed(string? seed) =>
+        string.IsNullOrEmpty(seed) ? "" : seed.ToUpperInvariant().Replace('T', 'U');
 
     /// <summary>
     /// Finds all potential target sites for a miRNA in an mRNA sequence.
@@ -2666,36 +2682,54 @@ public static class MiRnaAnalyzer
     /// <summary>
     /// Groups miRNAs by their seed sequence family.
     /// </summary>
+    /// <remarks>
+    /// Family = identical sequence at nucleotides 2–8 (Bartel 2009; TargetScan
+    /// <c>miR_Family_Info</c> "Seed+m8"). The family key is the TargetScan-normalised seed
+    /// (upper-case, T→U), so the grouping agrees with <see cref="CompareSeedRegions"/>.
+    /// miRNAs without a defined seed (sequence shorter than 8 nt ⇒ empty seed) belong to no
+    /// family and are omitted.
+    /// </remarks>
     public static IEnumerable<(string SeedFamily, IReadOnlyList<MiRna> Members)> GroupBySeedFamily(IEnumerable<MiRna> miRnas)
     {
+        ArgumentNullException.ThrowIfNull(miRnas);
+
         return miRnas
-            .GroupBy(m => m.SeedSequence)
+            .Select(m => (Key: NormalizeSeed(m.SeedSequence), MiRna: m))
+            .Where(x => x.Key.Length > 0)
+            .GroupBy(x => x.Key, x => x.MiRna)
             .Select(g => (g.Key, (IReadOnlyList<MiRna>)g.ToList()));
     }
 
     /// <summary>
-    /// Finds miRNAs with similar seed sequences.
+    /// Finds miRNAs whose seed (nt 2–8) is within <paramref name="maxMismatches"/> of the query seed.
     /// </summary>
+    /// <remarks>
+    /// Distance is the seed mismatch count of <see cref="CompareSeedRegions"/> (Hamming distance
+    /// plus length difference, after TargetScan normalisation). Entries with the same
+    /// <see cref="MiRna.Name"/> as the query are skipped. A miRNA with an undefined (empty) seed
+    /// is never similar to anything: if the query seed is empty, nothing is returned.
+    /// </remarks>
     public static IEnumerable<MiRna> FindSimilarMiRnas(MiRna query, IEnumerable<MiRna> database, int maxMismatches = 1)
     {
-        string querySeed = query.SeedSequence;
+        ArgumentNullException.ThrowIfNull(database);
+        return FindSimilarMiRnasIterator(query, database, maxMismatches);
+    }
+
+    private static IEnumerable<MiRna> FindSimilarMiRnasIterator(MiRna query, IEnumerable<MiRna> database, int maxMismatches)
+    {
+        if (NormalizeSeed(query.SeedSequence).Length == 0)
+            yield break;
 
         foreach (var mirna in database)
         {
             if (mirna.Name == query.Name)
                 continue;
 
-            int mismatches = 0;
-            for (int i = 0; i < Math.Min(querySeed.Length, mirna.SeedSequence.Length); i++)
-            {
-                if (querySeed[i] != mirna.SeedSequence[i])
-                    mismatches++;
-            }
+            if (NormalizeSeed(mirna.SeedSequence).Length == 0)
+                continue;
 
-            if (mismatches <= maxMismatches)
-            {
+            if (CompareSeedRegions(query, mirna).Mismatches <= maxMismatches)
                 yield return mirna;
-            }
         }
     }
 
@@ -2704,15 +2738,31 @@ public static class MiRnaAnalyzer
     #region Utility Methods
 
     /// <summary>
-    /// Calculates the GC content of a sequence.
+    /// Calculates the GC content of a sequence as a fraction in [0, 1].
+    /// Delegates to the canonical <see cref="SequenceExtensions.CalculateGcFractionFast"/>
+    /// ((G+C)/(A+C+G+T+U); other characters excluded from both counts).
     /// </summary>
     public static double CalculateGcContent(string sequence) =>
         string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcFractionFast();
 
     /// <summary>
-    /// Generates all possible seed sequences for a given miRNA.
+    /// Enumerates the seed itself followed by every single-nucleotide substitution over
+    /// A/C/G/U (1 + 3·L sequences for a length-L seed, in position-then-ACGU order).
     /// </summary>
+    /// <remarks>
+    /// The input is TargetScan-normalised first (upper-case, T→U) so that no variant duplicates
+    /// the original. <paramref name="includeWobble"/> has no effect: every single substitution,
+    /// including those whose target-site pairing would be a G:U wobble, is always enumerated.
+    /// It is retained only for API compatibility.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="seedSequence"/> is null.</exception>
     public static IEnumerable<string> GenerateSeedVariants(string seedSequence, bool includeWobble = true)
+    {
+        ArgumentNullException.ThrowIfNull(seedSequence);
+        return GenerateSeedVariantsIterator(NormalizeSeed(seedSequence));
+    }
+
+    private static IEnumerable<string> GenerateSeedVariantsIterator(string seedSequence)
     {
         yield return seedSequence;
 
