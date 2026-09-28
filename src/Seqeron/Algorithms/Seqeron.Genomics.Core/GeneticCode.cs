@@ -36,13 +36,31 @@ namespace Seqeron.Genomics.Core
         private const string NcbiBaseOrder = "UCAG";
 
         // IUPAC nucleotide codes (RNA alphabet; T is normalised to U before lookup) and the
-        // concrete bases each one stands for (IUPAC-IUB 1984, Cornish-Bowden 1985 NAR 13:3021).
-        private static readonly IReadOnlyDictionary<char, string> IupacExpansion = new Dictionary<char, string>
+        // concrete bases each one stands for (IUPAC-IUB 1984, Cornish-Bowden 1985 NAR 13:3021),
+        // derived from the canonical IupacHelper code set and matcher (no private copy of the
+        // ambiguity table), with T spelled U.
+        private static readonly IReadOnlyDictionary<char, string> IupacExpansion = BuildIupacExpansion();
+
+        private static Dictionary<char, string> BuildIupacExpansion()
         {
-            ['A'] = "A", ['C'] = "C", ['G'] = "G", ['U'] = "U",
-            ['R'] = "AG", ['Y'] = "CU", ['S'] = "CG", ['W'] = "AU", ['K'] = "GU", ['M'] = "AC",
-            ['B'] = "CGU", ['D'] = "AGU", ['H'] = "ACU", ['V'] = "ACG", ['N'] = "ACGU",
-        };
+            const string concreteDnaBases = "ACGT";
+            var expansion = new Dictionary<char, string>();
+            for (char code = 'A'; code <= 'Z'; code++)
+            {
+                if (!IupacHelper.IsNucleotideCode(code))
+                    continue;
+
+                var bases = concreteDnaBases
+                    .Where(b => IupacHelper.MatchesIupac(b, code))
+                    .Select(ToRnaBase)
+                    .ToArray();
+                expansion[ToRnaBase(code)] = new string(bases);
+            }
+
+            return expansion;
+
+            static char ToRnaBase(char c) => c == 'T' ? 'U' : c;
+        }
 
         // IUPAC ambiguous amino-acid codes with two meanings (IUPAC-IUB JCBN 1984; J added for I/L),
         // tried before the catch-all 'X' (Biopython IUPACData.extended_protein_values).

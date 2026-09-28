@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Core
 {
@@ -60,31 +61,35 @@ namespace Seqeron.Genomics.Core
         );
 
         /// <summary>
-        /// Amino acid properties.
+        /// Amino acid properties. <see cref="AminoAcidProperties.MolecularWeight"/> is the average mass of
+        /// the free amino acid from the canonical table <see cref="ProteinPhysicochemistry.AverageAminoAcidMasses"/>
+        /// (Biopython <c>IUPACData.protein_weights</c>).
         /// </summary>
         public static readonly IReadOnlyDictionary<char, AminoAcidProperties> Properties = new Dictionary<char, AminoAcidProperties>
         {
-            ['A'] = new("Alanine", "Ala", 89.09, AminoAcidType.Nonpolar),
-            ['C'] = new("Cysteine", "Cys", 121.16, AminoAcidType.Polar),
-            ['D'] = new("Aspartic acid", "Asp", 133.10, AminoAcidType.Acidic),
-            ['E'] = new("Glutamic acid", "Glu", 147.13, AminoAcidType.Acidic),
-            ['F'] = new("Phenylalanine", "Phe", 165.19, AminoAcidType.Nonpolar),
-            ['G'] = new("Glycine", "Gly", 75.07, AminoAcidType.Nonpolar),
-            ['H'] = new("Histidine", "His", 155.16, AminoAcidType.Basic),
-            ['I'] = new("Isoleucine", "Ile", 131.17, AminoAcidType.Nonpolar),
-            ['K'] = new("Lysine", "Lys", 146.19, AminoAcidType.Basic),
-            ['L'] = new("Leucine", "Leu", 131.17, AminoAcidType.Nonpolar),
-            ['M'] = new("Methionine", "Met", 149.21, AminoAcidType.Nonpolar),
-            ['N'] = new("Asparagine", "Asn", 132.12, AminoAcidType.Polar),
-            ['P'] = new("Proline", "Pro", 115.13, AminoAcidType.Nonpolar),
-            ['Q'] = new("Glutamine", "Gln", 146.15, AminoAcidType.Polar),
-            ['R'] = new("Arginine", "Arg", 174.20, AminoAcidType.Basic),
-            ['S'] = new("Serine", "Ser", 105.09, AminoAcidType.Polar),
-            ['T'] = new("Threonine", "Thr", 119.12, AminoAcidType.Polar),
-            ['V'] = new("Valine", "Val", 117.15, AminoAcidType.Nonpolar),
-            ['W'] = new("Tryptophan", "Trp", 204.23, AminoAcidType.Nonpolar),
-            ['Y'] = new("Tyrosine", "Tyr", 181.19, AminoAcidType.Polar)
+            ['A'] = new("Alanine", "Ala", Mass('A'), AminoAcidType.Nonpolar),
+            ['C'] = new("Cysteine", "Cys", Mass('C'), AminoAcidType.Polar),
+            ['D'] = new("Aspartic acid", "Asp", Mass('D'), AminoAcidType.Acidic),
+            ['E'] = new("Glutamic acid", "Glu", Mass('E'), AminoAcidType.Acidic),
+            ['F'] = new("Phenylalanine", "Phe", Mass('F'), AminoAcidType.Nonpolar),
+            ['G'] = new("Glycine", "Gly", Mass('G'), AminoAcidType.Nonpolar),
+            ['H'] = new("Histidine", "His", Mass('H'), AminoAcidType.Basic),
+            ['I'] = new("Isoleucine", "Ile", Mass('I'), AminoAcidType.Nonpolar),
+            ['K'] = new("Lysine", "Lys", Mass('K'), AminoAcidType.Basic),
+            ['L'] = new("Leucine", "Leu", Mass('L'), AminoAcidType.Nonpolar),
+            ['M'] = new("Methionine", "Met", Mass('M'), AminoAcidType.Nonpolar),
+            ['N'] = new("Asparagine", "Asn", Mass('N'), AminoAcidType.Polar),
+            ['P'] = new("Proline", "Pro", Mass('P'), AminoAcidType.Nonpolar),
+            ['Q'] = new("Glutamine", "Gln", Mass('Q'), AminoAcidType.Polar),
+            ['R'] = new("Arginine", "Arg", Mass('R'), AminoAcidType.Basic),
+            ['S'] = new("Serine", "Ser", Mass('S'), AminoAcidType.Polar),
+            ['T'] = new("Threonine", "Thr", Mass('T'), AminoAcidType.Polar),
+            ['V'] = new("Valine", "Val", Mass('V'), AminoAcidType.Nonpolar),
+            ['W'] = new("Tryptophan", "Trp", Mass('W'), AminoAcidType.Nonpolar),
+            ['Y'] = new("Tyrosine", "Tyr", Mass('Y'), AminoAcidType.Polar)
         };
+
+        private static double Mass(char aminoAcid) => ProteinPhysicochemistry.AverageAminoAcidMasses[aminoAcid];
 
         private readonly string _sequence;
         private SuffixTree.SuffixTree? _suffixTree;
@@ -136,93 +141,24 @@ namespace Seqeron.Genomics.Core
         }
 
         /// <summary>
-        /// Calculates the molecular weight of the protein in Daltons.
-        /// Uses average isotopic masses.
+        /// Calculates the average-isotopic molecular weight of the protein in daltons: sum of the
+        /// free amino-acid masses minus one water per peptide bond (Biopython
+        /// <c>molecular_weight(seq, "protein")</c>; Expasy Compute pI/Mw), unrounded. Delegates to the
+        /// canonical <see cref="ProteinPhysicochemistry.MolecularWeight"/> (the implementation shared with
+        /// <c>SequenceStatistics.CalculateMolecularWeight</c>). Ambiguous residues (B, Z, J, X) and '*'
+        /// carry no mass and are skipped. Returns 0 for an empty sequence.
         /// </summary>
-        public double MolecularWeight()
-        {
-            if (_sequence.Length == 0) return 0;
-
-            // Sum of amino acid weights minus water (18.015 Da) for each peptide bond
-            double weight = 0;
-            int peptideBonds = 0;
-
-            foreach (char aa in _sequence)
-            {
-                if (Properties.TryGetValue(aa, out var props))
-                {
-                    weight += props.MolecularWeight;
-                    peptideBonds++;
-                }
-            }
-
-            // Subtract water for peptide bond formation (n-1 peptide bonds for n amino acids)
-            if (peptideBonds > 1)
-            {
-                weight -= (peptideBonds - 1) * 18.015;
-            }
-
-            return Math.Round(weight, 2);
-        }
+        public double MolecularWeight() => ProteinPhysicochemistry.MolecularWeight(_sequence);
 
         /// <summary>
-        /// Calculates the theoretical isoelectric point (pI) using pKa values.
-        /// Simplified calculation using Henderson-Hasselbalch approximation.
+        /// Calculates the theoretical isoelectric point (pI) on the EMBOSS <c>iep</c> pK scale
+        /// (Epk.dat: N-terminus 7.5, C-terminus 3.6, C 8.5, D 3.9, E 4.1, H 6.5, K 10.8, R 12.5, Y 10.1),
+        /// located by bisection to 1e-9 pH and rounded to two decimals. Delegates to the canonical
+        /// <see cref="ProteinPhysicochemistry.IsoelectricPoint"/> (shared with
+        /// <c>SequenceStatistics.CalculateIsoelectricPoint</c>). Returns 0 for an empty sequence.
         /// </summary>
-        public double IsoelectricPoint()
-        {
-            if (_sequence.Length == 0) return 0;
-
-            // Count charged amino acids
-            int nTerm = 1; // N-terminus (pKa ~9.69)
-            int cTerm = 1; // C-terminus (pKa ~2.34)
-            int asp = _sequence.Count(c => c == 'D');  // pKa 3.9
-            int glu = _sequence.Count(c => c == 'E');  // pKa 4.1
-            int cys = _sequence.Count(c => c == 'C');  // pKa 8.3
-            int tyr = _sequence.Count(c => c == 'Y');  // pKa 10.1
-            int his = _sequence.Count(c => c == 'H');  // pKa 6.0
-            int lys = _sequence.Count(c => c == 'K');  // pKa 10.5
-            int arg = _sequence.Count(c => c == 'R');  // pKa 12.5
-
-            // Binary search for pI
-            double pHLow = 0;
-            double pHHigh = 14;
-            double pI = 7;
-
-            while (pHHigh - pHLow > 0.01)
-            {
-                pI = (pHLow + pHHigh) / 2;
-                double charge = CalculateCharge(pI, nTerm, cTerm, asp, glu, cys, tyr, his, lys, arg);
-
-                if (charge > 0)
-                    pHLow = pI;
-                else
-                    pHHigh = pI;
-            }
-
-            return Math.Round(pI, 2);
-        }
-
-        private static double CalculateCharge(double pH, int nTerm, int cTerm,
-            int asp, int glu, int cys, int tyr, int his, int lys, int arg)
-        {
-            // Positive charges
-            double positive =
-                nTerm * (1 / (1 + Math.Pow(10, pH - 9.69))) +
-                his * (1 / (1 + Math.Pow(10, pH - 6.0))) +
-                lys * (1 / (1 + Math.Pow(10, pH - 10.5))) +
-                arg * (1 / (1 + Math.Pow(10, pH - 12.5)));
-
-            // Negative charges
-            double negative =
-                cTerm * (1 / (1 + Math.Pow(10, 2.34 - pH))) +
-                asp * (1 / (1 + Math.Pow(10, 3.9 - pH))) +
-                glu * (1 / (1 + Math.Pow(10, 4.1 - pH))) +
-                cys * (1 / (1 + Math.Pow(10, 8.3 - pH))) +
-                tyr * (1 / (1 + Math.Pow(10, 10.1 - pH)));
-
-            return positive - negative;
-        }
+        public double IsoelectricPoint() =>
+            _sequence.Length == 0 ? 0 : ProteinPhysicochemistry.IsoelectricPoint(_sequence);
 
         /// <summary>
         /// Counts the occurrences of each amino acid.
@@ -239,52 +175,13 @@ namespace Seqeron.Genomics.Core
         }
 
         /// <summary>
-        /// Calculates hydropathicity index (GRAVY - Grand Average of Hydropathy).
-        /// Positive = hydrophobic, negative = hydrophilic.
-        /// Uses Kyte-Doolittle scale.
+        /// Calculates the grand average of hydropathy (GRAVY): the mean Kyte–Doolittle (1982) value
+        /// over the standard residues, unrounded (Biopython <c>ProteinAnalysis.gravy()</c>).
+        /// Positive = hydrophobic, negative = hydrophilic. Delegates to the canonical
+        /// <see cref="ProteinPhysicochemistry.Gravy"/> (shared with
+        /// <c>SequenceStatistics.CalculateHydrophobicity</c>); B, Z, J, X and '*' are skipped.
         /// </summary>
-        public double Gravy()
-        {
-            if (_sequence.Length == 0) return 0;
-
-            var hydropathy = new Dictionary<char, double>
-            {
-                ['A'] = 1.8,
-                ['C'] = 2.5,
-                ['D'] = -3.5,
-                ['E'] = -3.5,
-                ['F'] = 2.8,
-                ['G'] = -0.4,
-                ['H'] = -3.2,
-                ['I'] = 4.5,
-                ['K'] = -3.9,
-                ['L'] = 3.8,
-                ['M'] = 1.9,
-                ['N'] = -3.5,
-                ['P'] = -1.6,
-                ['Q'] = -3.5,
-                ['R'] = -4.5,
-                ['S'] = -0.8,
-                ['T'] = -0.7,
-                ['V'] = 4.2,
-                ['W'] = -0.9,
-                ['Y'] = -1.3
-            };
-
-            double sum = 0;
-            int count = 0;
-
-            foreach (char aa in _sequence)
-            {
-                if (hydropathy.TryGetValue(aa, out double value))
-                {
-                    sum += value;
-                    count++;
-                }
-            }
-
-            return count > 0 ? Math.Round(sum / count, 3) : 0;
-        }
+        public double Gravy() => ProteinPhysicochemistry.Gravy(_sequence);
 
         /// <summary>
         /// Calculates the percentage of a specific amino acid type.
@@ -332,20 +229,16 @@ namespace Seqeron.Genomics.Core
         }
 
         /// <summary>
-        /// Finds all occurrences of a motif pattern in the protein sequence.
+        /// Finds all (overlapping) occurrences of an exact motif in the protein sequence, in ascending
+        /// position order (case-insensitive). Uses the sequence's <see cref="SuffixTree"/>, the same
+        /// exact-matching engine as <c>MotifFinder.FindExactMotif</c> (PAT-EXACT-001).
         /// </summary>
         public IEnumerable<int> FindMotif(string pattern)
         {
-            if (string.IsNullOrEmpty(pattern))
-                yield break;
+            if (string.IsNullOrEmpty(pattern) || pattern.Length > _sequence.Length)
+                return Array.Empty<int>();
 
-            var normalizedPattern = pattern.ToUpperInvariant();
-
-            for (int i = 0; i <= _sequence.Length - normalizedPattern.Length; i++)
-            {
-                if (_sequence.Substring(i, normalizedPattern.Length) == normalizedPattern)
-                    yield return i;
-            }
+            return SuffixTree.FindAllOccurrences(pattern.ToUpperInvariant()).OrderBy(p => p);
         }
 
         public override string ToString() => _sequence;

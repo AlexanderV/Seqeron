@@ -27,66 +27,24 @@ public static class CodonUsageAnalyzer
     /// CodonW <c>ident_codon</c> (Peden 1999, codon_us.c: 'T','t','U','u' → the same base).
     /// Codons are reported in DNA spelling. Triplets containing any other symbol are
     /// skipped without shifting the frame; a trailing partial triplet is ignored.
+    /// Delegates to the canonical Core counter <see cref="Translator.CountCodons(string?, int)"/>.
     /// </remarks>
-    public static Dictionary<string, int> CountCodons(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return new Dictionary<string, int>();
+    public static Dictionary<string, int> CountCodons(string sequence) => CountCodonsCore(sequence);
 
-        return CountCodonsCore(NormalizeCodingSequence(sequence));
-    }
-
-    // Upper-cases and reads RNA U as T (CodonW ident_codon treats T/t/U/u identically;
-    // EMBOSS ajBaseAlphaToBin maps U to the T bit), so DNA and RNA spellings of the same
-    // coding sequence give identical codon counts and indices.
-    private static string NormalizeCodingSequence(string sequence) =>
-        sequence.ToUpperInvariant().Replace('U', 'T');
-
-    private static Dictionary<string, int> CountCodonsCore(string seq)
-    {
-        var counts = new Dictionary<string, int>();
-
-        foreach (string? codon in SplitInFrameCodonsCore(seq))
-        {
-            if (codon is null)
-                continue;
-            counts.TryGetValue(codon, out int count);
-            counts[codon] = count + 1;
-        }
-
-        return counts;
-    }
+    // Frame-0 codon counts (canonical Core counter: upper-case, U read as T, ambiguous triplets
+    // skipped frame-preservingly, trailing partial triplet dropped).
+    private static Dictionary<string, int> CountCodonsCore(string? sequence) =>
+        Translator.CountCodons(sequence);
 
     /// <summary>
-    /// Splits a coding sequence into its frame-0 complete triplets (DNA spelling, upper case;
-    /// RNA U read as T). Element <c>k</c> is codon index <c>k</c> (nucleotide position <c>3k</c>);
-    /// a triplet containing any symbol other than A/C/G/T is returned as <c>null</c> so callers
-    /// can skip it without shifting the frame (EMBOSS <c>ajCodSetTripletsS</c>: "Skips triplets
-    /// with ambiguity codes and any incomplete triplet at the end"). A trailing partial triplet
-    /// is dropped. This is the single codon-splitting core shared by <see cref="CountCodons(string)"/>
-    /// and the per-position codon screens of <see cref="CodonOptimizer"/>.
+    /// Frame-0 complete triplets of a coding sequence (DNA spelling, upper case; RNA U read as T);
+    /// an ambiguous triplet is <c>null</c> (skipped by callers without shifting the frame).
+    /// Delegates to the canonical Core splitter <see cref="Translator.SplitInFrameCodons(string?, int)"/>;
+    /// shared by <see cref="CountCodons(string)"/>, CAI and the per-position codon screens of
+    /// <see cref="CodonOptimizer"/>.
     /// </summary>
     internal static string?[] SplitInFrameCodons(string? sequence) =>
-        string.IsNullOrEmpty(sequence)
-            ? Array.Empty<string?>()
-            : SplitInFrameCodonsCore(NormalizeCodingSequence(sequence));
-
-    private static string?[] SplitInFrameCodonsCore(string seq)
-    {
-        var codons = new string?[seq.Length / 3];
-        for (int k = 0; k < codons.Length; k++)
-        {
-            string codon = seq.Substring(3 * k, 3);
-            codons[k] = IsValidCodon(codon) ? codon : null;
-        }
-
-        return codons;
-    }
-
-    private static bool IsValidCodon(string codon)
-    {
-        return codon.Length == 3 && codon.All(c => c is 'A' or 'C' or 'G' or 'T');
-    }
+        Translator.SplitInFrameCodons(sequence);
 
     #endregion
 
@@ -130,7 +88,7 @@ public static class CodonUsageAnalyzer
         if (string.IsNullOrEmpty(sequence))
             return new Dictionary<string, double>();
 
-        return CalculateRscu(CountCodonsCore(NormalizeCodingSequence(sequence)), code);
+        return CalculateRscu(CountCodonsCore(sequence), code);
     }
 
     /// <summary>
@@ -166,6 +124,7 @@ public static class CodonUsageAnalyzer
 
         foreach (var family in SynonymousFamilies(code))
         {
+            int familySize = family.Count();
             long familyTotal = 0;
             foreach (var codon in family)
                 familyTotal += codonCounts.GetValueOrDefault(codon, 0);
@@ -174,7 +133,7 @@ public static class CodonUsageAnalyzer
             {
                 // RSCU = n·x / Σx; an absent family (Σx = 0) is 0 for every member (CodonW).
                 rscu[codon] = familyTotal > 0
-                    ? (double)family.Count * codonCounts.GetValueOrDefault(codon, 0) / familyTotal
+                    ? (double)familySize * codonCounts.GetValueOrDefault(codon, 0) / familyTotal
                     : 0.0;
             }
         }
@@ -183,11 +142,10 @@ public static class CodonUsageAnalyzer
     }
 
     // Synonymous codon families (DNA spelling) of a genetic code, keyed by the encoded
-    // amino acid ('*' = termination), in NCBI codon order.
-    private static IEnumerable<List<string>> SynonymousFamilies(GeneticCode code) =>
-        code.CodonTable
-            .GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T'))
-            .Select(g => g.ToList());
+    // amino acid ('*' = termination), in NCBI codon order. Single grouping used by RSCU, CAI,
+    // ENC and GC3s. Context-dependent stops of tables 27/28/31 fall in their amino-acid family.
+    private static IEnumerable<IGrouping<char, string>> SynonymousFamilies(GeneticCode code) =>
+        code.CodonTable.GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T'));
 
     #endregion
 
@@ -265,12 +223,7 @@ public static class CodonUsageAnalyzer
     public static double CalculateCai(
         string sequence, IReadOnlyDictionary<string, double> referenceRscu, GeneticCode code)
     {
-        ArgumentNullException.ThrowIfNull(referenceRscu);
-        ArgumentNullException.ThrowIfNull(code);
-        if (string.IsNullOrEmpty(sequence))
-            return 0;
-
-        return CalculateCaiCore(NormalizeCodingSequence(sequence), referenceRscu, code, excludeSingleCodonFamilies: true);
+        return CalculateCai(sequence, referenceRscu, code, excludeSingleCodonFamilies: true);
     }
 
     /// <summary>
@@ -287,7 +240,7 @@ public static class CodonUsageAnalyzer
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        return CalculateCaiCore(NormalizeCodingSequence(sequence), reference, code, excludeSingleCodonFamilies);
+        return CalculateCaiCore(sequence, reference, code, excludeSingleCodonFamilies);
     }
 
     private static double CalculateCaiCore(
@@ -301,9 +254,10 @@ public static class CodonUsageAnalyzer
         double logSum = 0;
         long scored = 0;
 
-        for (int i = 0; i + 3 <= seq.Length; i += 3)
+        // Canonical in-frame codons (ambiguous triplets are null → not scored, frame kept).
+        foreach (string? codon in SplitInFrameCodons(seq))
         {
-            if (w.TryGetValue(seq.Substring(i, 3), out double wk))
+            if (codon is not null && w.TryGetValue(codon, out double wk))
             {
                 logSum += Math.Log(wk);
                 scored++;
@@ -320,7 +274,7 @@ public static class CodonUsageAnalyzer
     {
         var w = new Dictionary<string, double>(64);
 
-        foreach (var family in code.CodonTable.GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T')))
+        foreach (var family in SynonymousFamilies(code))
         {
             if (family.Key == '*') continue;
             var codons = family.ToList();
@@ -482,7 +436,7 @@ public static class CodonUsageAnalyzer
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        return CalculateEncCore(CountCodonsCore(NormalizeCodingSequence(sequence)), code);
+        return CalculateEncCore(CountCodonsCore(sequence), code);
     }
 
     private static double CalculateEncCore(IReadOnlyDictionary<string, int> counts, GeneticCode code)
@@ -494,7 +448,7 @@ public static class CodonUsageAnalyzer
         var estimable = new Dictionary<int, int>();
         int senseCodons = 0;
 
-        foreach (var family in code.CodonTable.GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T')))
+        foreach (var family in SynonymousFamilies(code))
         {
             if (family.Key == '*') continue; // termination codons are not amino acids
 
@@ -610,7 +564,7 @@ public static class CodonUsageAnalyzer
                 new Dictionary<string, double>(),
                 0, 0, 0, 0, 0, 0);
 
-        return GetStatisticsCore(CountCodonsCore(NormalizeCodingSequence(sequence)), code);
+        return GetStatisticsCore(CountCodonsCore(sequence), code);
     }
 
     private static CodonUsageStatistics GetStatisticsCore(Dictionary<string, int> counts, GeneticCode code)
@@ -621,8 +575,7 @@ public static class CodonUsageAnalyzer
         // Synonymous codons of this code: members of a sense family with more than one codon
         // (CodonW how_synon: ds[codon] > 1 and not a stop).
         var synonymous = new HashSet<string>(
-            code.CodonTable
-                .GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T'))
+            SynonymousFamilies(code)
                 .Where(family => family.Key != '*' && family.Count() > 1)
                 .SelectMany(family => family));
 

@@ -298,7 +298,7 @@ public static class CodonOptimizer
             return new OptimizationResult("", "", "", 0, 0, 0, 0, 0, new List<(int, string, string)>());
         }
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
+        string rna = ToUpperRna(codingSequence);
 
         if (rna.Length % 3 != 0)
         {
@@ -537,13 +537,8 @@ public static class CodonOptimizer
         bool IsWithin(int gcCount) => gcCount >= minGc * length && gcCount <= maxGc * length;
     }
 
-    private static int CountGc(string codon)
-    {
-        int gc = 0;
-        foreach (char c in codon)
-            if (c is 'G' or 'C') gc++;
-        return gc;
-    }
+    // G+C count of a codon via the canonical counting primitive (SequenceExtensions).
+    private static int CountGc(string codon) => codon.AsSpan().CountGcAndValidNucleotides().GcCount;
 
     #endregion
 
@@ -623,7 +618,7 @@ public static class CodonOptimizer
 
         ArgumentNullException.ThrowIfNull(restrictionSites);
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
+        string rna = ToUpperRna(codingSequence);
         var codons = SplitIntoCodons(rna);
 
         // Match on DNA spelling: 'U' is not an IUPAC DNA code.
@@ -768,7 +763,7 @@ public static class CodonOptimizer
         if (string.IsNullOrEmpty(codingSequence))
             return codingSequence;
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
+        string rna = ToUpperRna(codingSequence);
         if (rna.Length < windowSize)
             return rna;
 
@@ -1123,9 +1118,9 @@ public static class CodonOptimizer
         if (string.IsNullOrEmpty(codingSequence))
             return usage;
 
-        // Canonical counter works on DNA spelling; report RNA spelling for this API.
-        string dna = codingSequence.ToUpperInvariant().Replace('U', 'T');
-        foreach (var (codon, count) in CodonUsageAnalyzer.CountCodons(dna))
+        // The canonical counter normalises case and U/T itself and reports DNA spelling;
+        // this API reports RNA spelling.
+        foreach (var (codon, count) in CodonUsageAnalyzer.CountCodons(codingSequence))
             usage[codon.Replace('T', 'U')] = count;
 
         return usage;
@@ -1179,6 +1174,9 @@ public static class CodonOptimizer
         return codons;
     }
 
+    // Upper-case RNA spelling (T read as U) used by every rewriting API of this class.
+    private static string ToUpperRna(string sequence) => sequence.ToUpperInvariant().Replace('T', 'U');
+
     // Every complete frame-0 triplet, including ambiguous ones (the rewriting APIs must keep
     // them in place to preserve the reading frame and the sequence length); a trailing partial
     // triplet is dropped.
@@ -1223,7 +1221,7 @@ public static class CodonOptimizer
 
         var frequencies = new Dictionary<string, double>(codonFrequencies.Count);
         foreach (var (codon, frequency) in codonFrequencies)
-            frequencies[codon.ToUpperInvariant().Replace('T', 'U')] = frequency;
+            frequencies[ToUpperRna(codon)] = frequency;
 
         return new CodonUsageTable(organismName, frequencies, StandardCodonToAminoAcid);
     }

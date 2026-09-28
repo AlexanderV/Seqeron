@@ -73,8 +73,8 @@ public class ProteinSequenceTests
     public void MolecularWeight_SingleAminoAcid_ReturnsWeight()
     {
         var protein = new ProteinSequence("M");
-        // Methionine weight: 149.21
-        Assert.That(protein.MolecularWeight(), Is.EqualTo(149.21));
+        // Biopython 1.88 molecular_weight("M", "protein") = 149.2113 (IUPACData.protein_weights)
+        Assert.That(protein.MolecularWeight(), Is.EqualTo(149.2113).Within(1e-9));
     }
 
     [Test]

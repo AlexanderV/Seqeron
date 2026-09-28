@@ -183,6 +183,74 @@ namespace Seqeron.Genomics.Core
             return result;
         }
 
+        /// <summary>
+        /// Splits a coding sequence into its complete, non-overlapping in-frame triplets, starting at
+        /// offset <paramref name="frame"/>: element <c>k</c> is the triplet at nucleotide position
+        /// <c>frame + 3k</c>, in upper-case DNA spelling. Input is case-insensitive DNA or RNA (U is
+        /// read as T; CodonW <c>ident_codon</c>, EMBOSS <c>ajBaseAlphaToBin</c>). A triplet containing
+        /// any symbol other than A/C/G/T (IUPAC ambiguity codes, N, gaps, …) is returned as
+        /// <see langword="null"/> so that callers skip it without shifting the frame (EMBOSS
+        /// <c>ajCodSetTripletsS</c>: "Skips triplets with ambiguity codes and any incomplete triplet
+        /// at the end"); a trailing partial triplet is dropped.
+        /// </summary>
+        /// <remarks>
+        /// This is the single codon-splitting core of the library, placed in Core so that every layer
+        /// can call it (<c>CodonUsageAnalyzer</c>, <c>CodonOptimizer</c>, and — cross-batch —
+        /// <c>SequenceStatistics.CalculateCodonFrequencies</c>, <c>GenomeAnnotator.GetCodonUsage</c>).
+        /// </remarks>
+        /// <param name="sequence">Coding sequence; null/empty yields an empty array.</param>
+        /// <param name="frame">0-based offset of the first codon (0, 1, 2; larger values are plain
+        /// offsets, as EMBOSS compseq <c>-frame</c>).</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is negative.</exception>
+        public static string?[] SplitInFrameCodons(string? sequence, int frame = 0)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(frame);
+            if (string.IsNullOrEmpty(sequence) || sequence.Length - frame < CodonLength)
+                return Array.Empty<string?>();
+
+            string normalized = sequence.ToUpperInvariant().Replace('U', 'T');
+            var codons = new string?[(normalized.Length - frame) / CodonLength];
+            for (int k = 0; k < codons.Length; k++)
+            {
+                string codon = normalized.Substring(frame + CodonLength * k, CodonLength);
+                codons[k] = IsUnambiguousDnaCodon(codon) ? codon : null;
+            }
+
+            return codons;
+        }
+
+        /// <summary>
+        /// Counts the complete, unambiguous in-frame codons of a coding sequence (upper-case DNA keys;
+        /// codons that do not occur are absent). Same codon set as <see cref="SplitInFrameCodons"/>:
+        /// case-insensitive DNA or RNA, triplets with other symbols skipped without shifting the frame,
+        /// trailing partial triplet ignored (EMBOSS <c>cusp</c> / <c>ajCodSetTripletsS</c>).
+        /// </summary>
+        /// <param name="sequence">Coding sequence; null/empty yields an empty dictionary.</param>
+        /// <param name="frame">0-based offset of the first codon (see <see cref="SplitInFrameCodons"/>).</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is negative.</exception>
+        public static Dictionary<string, int> CountCodons(string? sequence, int frame = 0)
+        {
+            var counts = new Dictionary<string, int>();
+            foreach (string? codon in SplitInFrameCodons(sequence, frame))
+            {
+                if (codon is null)
+                    continue;
+                counts[codon] = counts.GetValueOrDefault(codon) + 1;
+            }
+
+            return counts;
+        }
+
+        private static bool IsUnambiguousDnaCodon(string codon)
+        {
+            foreach (char c in codon)
+            {
+                if (c is not ('A' or 'C' or 'G' or 'T'))
+                    return false;
+            }
+            return true;
+        }
+
         private static ProteinSequence TranslateSequence(string sequence, GeneticCode geneticCode,
             int frame, bool toFirstStop)
         {
@@ -199,15 +267,14 @@ namespace Seqeron.Genomics.Core
                     "because it contains codons that code for both STOP and an amino acid.",
                     nameof(toFirstStop));
 
-            // Convert T to U for translation
-            var rnaSequence = sequence.Replace('T', 'U');
+            // GeneticCode.Translate normalises case and T/U itself (single normalisation point).
             var sb = new StringBuilder();
 
             // Trailing nucleotides that cannot form a full codon are ignored
             // (Biopython six_frame_translations: fragment_length = 3*((len-i)//3)).
-            for (int i = frame; i + CodonLength <= rnaSequence.Length; i += CodonLength)
+            for (int i = frame; i + CodonLength <= sequence.Length; i += CodonLength)
             {
-                string codon = rnaSequence.Substring(i, CodonLength);
+                string codon = sequence.Substring(i, CodonLength);
                 char aa = geneticCode.Translate(codon);
 
                 if (toFirstStop && aa == '*')
@@ -234,8 +301,7 @@ namespace Seqeron.Genomics.Core
         private static IEnumerable<OrfResult> FindOrfsInSequence(string sequence, GeneticCode geneticCode,
             int minLength, bool isReverseComplement)
         {
-            var rnaSequence = sequence.Replace('T', 'U');
-
+            // GeneticCode.Translate / IsStartCodon normalise T/U themselves.
             // ORF = region from a START codon to a STOP codon
             // (EMBOSS getorf -find 1: "a region that begins with a START codon
             // and ends with a STOP codon"). Scanned in all three frames.
@@ -244,9 +310,9 @@ namespace Seqeron.Genomics.Core
                 int? currentOrfStart = null;
                 var currentProtein = new StringBuilder();
 
-                for (int i = frame; i + CodonLength <= rnaSequence.Length; i += CodonLength)
+                for (int i = frame; i + CodonLength <= sequence.Length; i += CodonLength)
                 {
-                    string codon = rnaSequence.Substring(i, CodonLength);
+                    string codon = sequence.Substring(i, CodonLength);
                     char aa = geneticCode.Translate(codon);
 
                     if (currentOrfStart == null)
