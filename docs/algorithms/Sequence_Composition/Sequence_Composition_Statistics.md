@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-STATS-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -84,6 +84,10 @@ Null or empty input returns an all-zero `NucleotideComposition`. Input is upper-
 - `SequenceStatistics.SummarizeNucleotideSequence(string)`: delegates to the above plus entropy/complexity/Tm.
 - `SequenceStatistics.CalculateAminoAcidComposition(string)`: protein residue counts/ratios (MW/pI/hydrophobicity belong to SEQ-MW/PI/HYDRO units).
 
+**Delegation (no duplication, review 2026-09):** `GcContent` is computed by the canonical `SequenceExtensions.CalculateGcFraction(ReadOnlySpan<char>)`; `GcSkew`/`AtSkew` by the canonical `GcSkewCalculator.CalculateGcSkew(string)` / `CalculateAtSkew(string)`. Only the counts and `AtContent` are computed locally.
+
+**Amino-acid composition conventions:** `Counts` holds every letter (case-insensitive, incl. B/Z/X/U/O/J); `Length` = number of letters — non-letter symbols (`*`, `-`, digits) are not residues and are excluded from counts, length and ratio denominators (Biopython `ProteinAnalysis` divides by `len(seq)`; identical for letter-only input). `AromaticResidueRatio` = (F+W+Y)/Length = Biopython `ProteinAnalysis.aromaticity()` (Lobry & Gautier 1994); EMBOSS pepstats' "Aromatic" class also includes H. `ChargedResidueRatio` = (D+E+H+K+R)/Length = EMBOSS pepstats "Charged" class (B+D+E+H+K+R+Z) restricted to unambiguous residues.
+
 ### 5.2 Current Behavior
 
 This is not a search/matching operation, so the repository suffix tree is not applicable — composition is a single linear scan. T and U are tracked as separate counts so both DNA and RNA inputs are handled. AT content includes U in the numerator (A+T+U), but AT skew uses the DNA-specific (A−T)/(A+T) formula without U, matching the Lobry/Wikipedia definition [1][3].
@@ -141,3 +145,5 @@ var c = SequenceStatistics.CalculateNucleotideComposition("GGGC");
 1. Lobry, J. R. 1996. Asymmetric substitution patterns in the two DNA strands of bacteria. Molecular Biology and Evolution 13(5):660–665. https://doi.org/10.1093/oxfordjournals.molbev.a025626
 2. Cock, P. J. A. et al. Biopython, Bio.SeqUtils (gc_fraction, GC_skew). https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/__init__.py
 3. Wikipedia contributors. GC skew. https://en.wikipedia.org/wiki/GC_skew
+4. Biopython 1.88 `Bio.SeqUtils.ProtParam.ProteinAnalysis` (`count_amino_acids`, `amino_acids_percent`, `aromaticity`) — installed package source.
+5. EMBOSS `pepstats.c` and `data/Eamino.dat` (property classes). https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/pepstats.c

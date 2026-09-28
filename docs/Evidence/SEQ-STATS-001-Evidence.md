@@ -104,3 +104,7 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-28** (review campaign B03): added Biopython 1.88 cross-check (`gc_fraction`, `GC_skew`,
+  `ProteinAnalysis.aromaticity`/`count_amino_acids`) and EMBOSS pepstats/Eamino.dat class definitions
+  (Aromatic F+H+W+Y, Charged B+D+E+H+K+R+Z) for the amino-acid composition ratios; see
+  docs/Validation/reports/SEQ-STATS-001.md "Review 2026-09".

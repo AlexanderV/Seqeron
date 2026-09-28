@@ -115,3 +115,5 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation. Records that SEQ-COMPOSITION-001 is a duplicate Registry entry for the two composition methods already delivered under SEQ-STATS-001; consolidated rather than re-implemented (see TestSpec §7).
+- **2026-09-28**: Reviewed together with SEQ-STATS-001 (campaign B03); see
+  docs/Validation/reports/SEQ-STATS-001.md "Review 2026-09".

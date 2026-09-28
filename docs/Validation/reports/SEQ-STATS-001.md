@@ -133,3 +133,58 @@ None. The opt-in surfaces reproduce Biopython `gc_fraction` exactly; defaults ar
   + the default-unchanged guards.
 - **End-state:** CLEAN — fully functional; no defect found; no code changed this session.
 - Build: 0 errors / 0 warnings. Filtered SEQ-STATS-001 + ConventionCompatibility tests: 31/0.
+
+---
+
+## Review 2026-09 (campaign B03) — SEQ-STATS-001 + SEQ-COMPOSITION-001
+
+- **Reviewed:** 2026-09-28. Scope: `CalculateNucleotideComposition`, `CalculateAminoAcidComposition`
+  and the `NucleotideComposition` / `AminoAcidComposition` result types (SEQ-COMPOSITION-001 is the
+  consolidated duplicate of this unit).
+- **Stage A:** PASS-WITH-NOTES — formulas match Biopython `gc_fraction`/`GC_skew` (remove mode over
+  the unambiguous alphabet), Lobry 1996 AT skew, Biopython `ProteinAnalysis.aromaticity()` (F+W+Y) and
+  the EMBOSS pepstats "Charged" class (D+E+H+K+R, ambiguity codes B/Z excluded). Notes N1/N2 carried.
+- **Stage B:** PASS — no numerical defect.
+
+### Sources opened
+- Biopython 1.88 installed `Bio.SeqUtils` (`gc_fraction`, `GC_skew`) and `Bio.SeqUtils.ProtParam`
+  (`ProteinAnalysis.__init__` length = `len(seq)`, `count_amino_acids`, `amino_acids_percent`,
+  `aromaticity` = Y+W+F).
+- EMBOSS `emboss/pepstats.c` and `emboss/data/Eamino.dat` (raw.githubusercontent.com, kimrutherford/EMBOSS
+  mirror): classes Aromatic (F+H+W+Y), Charged (B+D+E+H+K+R+Z); mole% denominator = sequence length.
+
+### Cross-check (ours vs Biopython 1.88, executed)
+| Input | Quantity | Ours | Biopython |
+|---|---|---|---|
+| `ATGC` | gc / GC skew | 0.5 / 0 | 0.5 / [0.0] |
+| `GGGCATTTAN` | gc / GC skew | 0.4444444444444444 / 0.5 | 0.4444444444444444 / [0.5] |
+| `acgtRYSWN` | gc | 0.5 | 0.5 |
+| `AAUUGGCC` | gc | 0.5 | 0.5 |
+| `ATGCGCGCTTAAGGCCnn--` | gc | 0.625 | 0.625 |
+| `GCGCGCSW` | gc | 1.0 | 0.875 (N1: S/W; use `CalculateGcFraction(GcAmbiguityMode.Remove)` for parity) |
+| `MKVLWA` | aromaticity / charged | 1/6 / 1/6 | 0.16666666666666669 / 1/6 |
+| `mkvlwaDEFYH` | aromaticity / charged | 3/11 / 4/11 | 3/11 / 4/11 |
+| HSA P02768 (609 aa) | counts, aromaticity, charged | identical; 0.09195402298850575; 0.33004926108374383 | identical |
+| `MKV*` | length / charged | 3 / 1/3 | 4 / 0.25 (N3) |
+
+### Changes
+- **Duplication removed:** `CalculateNucleotideComposition` now delegates `GcContent` to
+  `SequenceExtensions.CalculateGcFraction(ReadOnlySpan<char>)` and `GcSkew`/`AtSkew` to
+  `GcSkewCalculator.CalculateGcSkew/CalculateAtSkew(string)` (behaviour-preserving; locked by
+  `CalculateNucleotideComposition_EqualsCanonicalGcFractionAndSkews`).
+- Empty-protein pI literal `7.0` replaced by the class constant `NeutralPhDefault` (same value, same as
+  `CalculateIsoelectricPoint("")`).
+- Honest XML remarks on both methods (alphabet, ambiguity handling, denominators, class definitions).
+- Tests added (Biopython-confirmed): `..._WithN_MatchesBiopythonGcFractionAndGcSkew`,
+  `..._LowercaseNAndGaps_MatchesBiopythonGcFraction`, `..._EqualsCanonicalGcFractionAndSkews` (5 cases),
+  `CalculateAminoAcidComposition_MixedCase_MatchesBiopythonAromaticityAndChargedFraction`,
+  `CalculateAminoAcidComposition_Albumin_MatchesBiopython`, `CalculateAminoAcidComposition_StopSymbol_ExcludedFromLength`.
+
+### Notes
+- **N3 (documented convention):** amino-acid `Length`/ratio denominators count letters only; Biopython
+  and EMBOSS divide by the full sequence length (incl. `*`/`-`). Identical for letter-only input.
+- **N4 (MCP, not in ownership):** `nucleotide_composition` MCP result has no `N` field and maps only
+  `CountOther` to `Other`, so N counts are silently dropped (e.g. `ATGCNN` → Length 6, A+T+G+C+U+Other = 4).
+  Reported to the batch lead (additive fix: an `N` property on `NucleotideCompositionResult`).
+
+**End-state:** CLEAN (no numerical defect; duplication removed; conventions documented).

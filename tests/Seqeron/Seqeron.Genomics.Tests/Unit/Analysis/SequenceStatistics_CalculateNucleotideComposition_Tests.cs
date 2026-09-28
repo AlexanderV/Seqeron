@@ -268,4 +268,112 @@ public class SequenceStatistics_CalculateNucleotideComposition_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 — Biopython 1.88 cross-check and canonical delegation
+
+    // R1 — GC content on a sequence with N: Biopython 1.88 gc_fraction("GGGCATTTAN") (remove mode)
+    //      = 4/9 = 0.4444444444444444; GC_skew("GGGCATTTAN", window=10) = [0.5];
+    //      AT skew (A-T)/(A+T) = (2-3)/5 = -0.2 (Lobry 1996 formula, hand-computed).
+    [Test]
+    public void CalculateNucleotideComposition_WithN_MatchesBiopythonGcFractionAndGcSkew()
+    {
+        var comp = SequenceStatistics.CalculateNucleotideComposition("GGGCATTTAN");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comp.GcContent, Is.EqualTo(4.0 / 9.0).Within(Tolerance), "Biopython gc_fraction = 0.4444444444444444");
+            Assert.That(comp.AtContent, Is.EqualTo(5.0 / 9.0).Within(Tolerance), "(A+T+U)/total = 5/9");
+            Assert.That(comp.GcSkew, Is.EqualTo(0.5).Within(Tolerance), "Biopython GC_skew = 0.5");
+            Assert.That(comp.AtSkew, Is.EqualTo(-0.2).Within(Tolerance), "(2-3)/5 = -0.2");
+            Assert.That(comp.CountN, Is.EqualTo(1));
+        });
+    }
+
+    // R2 — lowercase N and gap symbols excluded from the GC denominator:
+    //      Biopython 1.88 gc_fraction("ATGCGCGCTTAAGGCCnn--") = 0.625 (10/16).
+    [Test]
+    public void CalculateNucleotideComposition_LowercaseNAndGaps_MatchesBiopythonGcFraction()
+    {
+        var comp = SequenceStatistics.CalculateNucleotideComposition("ATGCGCGCTTAAGGCCnn--");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comp.GcContent, Is.EqualTo(0.625).Within(Tolerance), "Biopython gc_fraction = 0.625");
+            Assert.That(comp.CountN, Is.EqualTo(2), "lowercase n counted as N");
+            Assert.That(comp.CountOther, Is.EqualTo(2), "gaps counted as Other");
+        });
+    }
+
+    // R3 — composition values are delegated to the canonical implementations (no duplication):
+    //      GcContent == SequenceExtensions.CalculateGcFraction, GcSkew/AtSkew == GcSkewCalculator.
+    [TestCase("ATGC")]
+    [TestCase("GGGCATTTAN")]
+    [TestCase("acgtRYSWN")]
+    [TestCase("AAUUGGCC")]
+    [TestCase("NNNN")]
+    public void CalculateNucleotideComposition_EqualsCanonicalGcFractionAndSkews(string seq)
+    {
+        var comp = SequenceStatistics.CalculateNucleotideComposition(seq);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comp.GcContent, Is.EqualTo(seq.CalculateGcFractionFast()));
+            Assert.That(comp.GcSkew, Is.EqualTo(GcSkewCalculator.CalculateGcSkew(seq)));
+            Assert.That(comp.AtSkew, Is.EqualTo(GcSkewCalculator.CalculateAtSkew(seq)));
+        });
+    }
+
+    // R4 — aromaticity = (F+W+Y)/length, Lobry & Gautier 1994 as implemented by Biopython 1.88
+    //      ProteinAnalysis("MKVLWADEFYH").aromaticity() = 0.2727272727272727 (3/11);
+    //      charged (D+E+H+K+R)/length from Biopython count_amino_acids = 4/11 = 0.36363636363636365
+    //      (EMBOSS pepstats "Charged" class restricted to unambiguous residues). Lowercase input.
+    [Test]
+    public void CalculateAminoAcidComposition_MixedCase_MatchesBiopythonAromaticityAndChargedFraction()
+    {
+        var comp = SequenceStatistics.CalculateAminoAcidComposition("mkvlwaDEFYH");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comp.Length, Is.EqualTo(11));
+            Assert.That(comp.AromaticResidueRatio, Is.EqualTo(3.0 / 11.0).Within(Tolerance), "Biopython aromaticity 0.2727...");
+            Assert.That(comp.ChargedResidueRatio, Is.EqualTo(4.0 / 11.0).Within(Tolerance), "D,E,H,K / 11");
+            Assert.That(comp.Counts['M'], Is.EqualTo(1), "lowercase counted as uppercase");
+        });
+    }
+
+    // R5 — Human serum albumin precursor (UniProt P02768, 609 aa): Biopython 1.88
+    //      aromaticity() = 0.09195402298850575 (56/609); charged (D+E+H+K+R) = 201/609 = 0.33004926108374383.
+    [Test]
+    public void CalculateAminoAcidComposition_Albumin_MatchesBiopython()
+    {
+        const string albumin = "MKWVTFISLLFLFSSAYSRGVFRRDTHKSEIAHRFKDLGEENFKALVLIAFAQYLQQCPFEDHVKLVNEVTEFAKTCVADESAENCDKSLHTLFGDKLCTVATLRETYGEMADCCAKQEPERNECFLQHKDDNPNLPRLVRPEVDVMCTAFHDNEETFLKKYLYEIARRHPYFYAPELLFFAKRYKAAFTECCQAADKAACLLPKLDELRDEGKASSAKQRLKCASLQKFGERAFKAWAVARLSQRFPKAEFAEVSKLVTDLTKVHTECCHGDLLECADDRADLAKYICENQDSISSKLKECCEKPLLEKSHCIAEVENDEMPADLPSLAADFVESKDVCKNYAEAKDVFLGMFLYEYARRHPDYSVVLLLRLAKTYETTLEKCCAAADPHECYAKVFDEFKPLVEEPQNLIKQNCELFEQLGEYKFQNALLVRYTKKVPQVSTPTLVEVSRNLGKVGSKCCKHPEAKRMPCAEDYLSVVLNQLCVLHEKTPVSDRVTKCCTESLVNRRPCFSALEVDETYVPKEFNAETFTFHADICTLSEKERQIKKQTALVELVKHKPKATKEQLKAVMDDFAAFVEKCCKADDKETCFAEEGKKLVAASQAALGL";
+        var comp = SequenceStatistics.CalculateAminoAcidComposition(albumin);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comp.Length, Is.EqualTo(609));
+            Assert.That(comp.Counts['L'], Is.EqualTo(64), "Biopython count_amino_acids L = 64");
+            Assert.That(comp.Counts['W'], Is.EqualTo(2), "Biopython count_amino_acids W = 2");
+            Assert.That(comp.AromaticResidueRatio, Is.EqualTo(0.09195402298850575).Within(Tolerance));
+            Assert.That(comp.ChargedResidueRatio, Is.EqualTo(0.33004926108374383).Within(Tolerance));
+        });
+    }
+
+    // R6 — documented convention: non-letter symbols (stop '*') are not residues and are excluded
+    //      from Length and ratio denominators. (Biopython ProteinAnalysis uses len(seq)=4 → 0.25;
+    //      the library deliberately uses 3 residues → 1/3; see the method's XML remarks.)
+    [Test]
+    public void CalculateAminoAcidComposition_StopSymbol_ExcludedFromLength()
+    {
+        var comp = SequenceStatistics.CalculateAminoAcidComposition("MKV*");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comp.Length, Is.EqualTo(3));
+            Assert.That(comp.Counts.ContainsKey('*'), Is.False);
+            Assert.That(comp.ChargedResidueRatio, Is.EqualTo(1.0 / 3.0).Within(Tolerance));
+        });
+    }
+
+    #endregion
 }

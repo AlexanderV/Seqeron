@@ -38,8 +38,25 @@ public static class SequenceStatistics
         double AromaticResidueRatio);
 
     /// <summary>
-    /// Calculates nucleotide composition of a DNA/RNA sequence.
+    /// Calculates nucleotide composition of a DNA/RNA sequence: per-symbol counts, GC/AT content
+    /// and GC/AT skew.
     /// </summary>
+    /// <remarks>
+    /// <para>Counting is case-insensitive. A, T, G, C, U and N are counted individually; every other
+    /// character (IUPAC ambiguity codes R/Y/S/W/K/M/B/D/H/V, gaps, digits, ...) is counted as
+    /// <c>CountOther</c>, so the counts partition <c>Length</c>.</para>
+    /// <para><c>GcContent</c> = (G+C)/(A+T+G+C+U), delegated to the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char})"/> (Biopython
+    /// <c>gc_fraction</c> "remove" mode restricted to the unambiguous alphabet; S/W are not counted —
+    /// use <see cref="SequenceExtensions.CalculateGcFraction(string, GcAmbiguityMode)"/> for exact
+    /// Biopython parity on ambiguity codes). <c>AtContent</c> = (A+T+U)/(A+T+G+C+U).</para>
+    /// <para><c>GcSkew</c> = (G−C)/(G+C) and <c>AtSkew</c> = (A−T)/(A+T) (Lobry 1996; Biopython
+    /// <c>GC_skew</c>), delegated to the canonical <see cref="GcSkewCalculator.CalculateGcSkew(string)"/>
+    /// and <see cref="GcSkewCalculator.CalculateAtSkew(string)"/>; each is 0 when its denominator is 0.
+    /// AT skew is the DNA definition: U is not paired with A (an all-RNA sequence therefore has
+    /// AtSkew = +1 whenever it contains A).</para>
+    /// <para>Null or empty input returns an all-zero composition.</para>
+    /// </remarks>
     public static NucleotideComposition CalculateNucleotideComposition(string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
@@ -64,13 +81,14 @@ public static class SequenceStatistics
         }
 
         int total = a + t + g + c + u;
-        int gc = g + c;
         int at = a + t + u;
 
-        double gcContent = total > 0 ? (double)gc / total : 0;
+        // Canonical implementations (no re-implementation): GC fraction lives in
+        // Core/SequenceExtensions, GC/AT skew in Analysis/GcSkewCalculator.
+        double gcContent = sequence.AsSpan().CalculateGcFraction();
         double atContent = total > 0 ? (double)at / total : 0;
-        double gcSkew = (g + c) > 0 ? (double)(g - c) / (g + c) : 0;
-        double atSkew = (a + t) > 0 ? (double)(a - t) / (a + t) : 0;
+        double gcSkew = GcSkewCalculator.CalculateGcSkew(sequence);
+        double atSkew = GcSkewCalculator.CalculateAtSkew(sequence);
 
         return new NucleotideComposition(
             Length: sequence.Length,
@@ -90,11 +108,27 @@ public static class SequenceStatistics
     /// <summary>
     /// Calculates amino acid composition of a protein sequence.
     /// </summary>
+    /// <remarks>
+    /// <para><c>Counts</c> holds the case-insensitive count of every letter (the 20 standard residues
+    /// plus any ambiguity/extended codes such as B, Z, X, U, O, J). <c>Length</c> is the number of
+    /// letters; non-letter symbols (stop <c>*</c>, gap <c>-</c>, digits, whitespace) are not residues
+    /// and are excluded from <c>Counts</c>, <c>Length</c> and the ratio denominators. This differs from
+    /// Biopython <c>ProteinAnalysis</c>, whose denominator is <c>len(seq)</c> including such symbols;
+    /// for letter-only input the two agree exactly.</para>
+    /// <para><c>AromaticResidueRatio</c> = (F+W+Y)/Length — the aromaticity of Lobry &amp; Gautier
+    /// (1994) as implemented by Biopython <c>ProteinAnalysis.aromaticity()</c> (EMBOSS pepstats'
+    /// "Aromatic" class additionally includes H). <c>ChargedResidueRatio</c> = (D+E+H+K+R)/Length —
+    /// the EMBOSS pepstats "Charged" class (B+D+E+H+K+R+Z) restricted to unambiguous residues.</para>
+    /// <para><c>MolecularWeight</c>, <c>IsoelectricPoint</c> and <c>Hydrophobicity</c> delegate to
+    /// <see cref="CalculateMolecularWeight"/>, <see cref="CalculateIsoelectricPoint"/> and
+    /// <see cref="CalculateHydrophobicity"/>. Null/empty input returns Length 0, empty counts,
+    /// ratios 0 and the neutral-pH pI default of those methods.</para>
+    /// </remarks>
     public static AminoAcidComposition CalculateAminoAcidComposition(string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
         {
-            return new AminoAcidComposition(0, new Dictionary<char, int>(), 0, 7.0, 0, 0, 0);
+            return new AminoAcidComposition(0, new Dictionary<char, int>(), 0, NeutralPhDefault, 0, 0, 0);
         }
 
         var counts = new Dictionary<char, int>();
