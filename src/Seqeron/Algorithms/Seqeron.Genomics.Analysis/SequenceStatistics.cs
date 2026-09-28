@@ -1164,48 +1164,22 @@ public static class SequenceStatistics
     private static readonly double Ln2 = Math.Log(2.0);
 
     /// <summary>
-    /// Calculates the unweighted mean vocabulary usage (1/m)·Σ_{k=1..m} U_k, with
-    /// U_k = V_k / min(4^k, N − k + 1) (V_k = distinct k-words, m = min(maxK, N)).
+    /// Calculates linguistic complexity LC = Σ_{k=1..m} V_k / Σ_{k=1..m} min(4^k, N − k + 1)
+    /// (V_k = distinct k-words, m = min(maxK, N)) — Orlov &amp; Potapov (2004) summation form, equal to
+    /// Troyanskaya et al. (2002) / Rosalind LING when m ≥ N. Delegates to the canonical
+    /// <see cref="SequenceComplexity.CalculateLinguisticComplexity(string, int)"/>.
     /// </summary>
     /// <remarks>
-    /// U_k is Trifonov's (1990) vocabulary usage, but the arithmetic mean over k is not a published
-    /// combination: Trifonov / Gabrielian &amp; Bolshoy (1999) use the product Π U_k, and Orlov &amp;
-    /// Potapov (2004) / Troyanskaya et al. (2002) the ratio Σ V_k / Σ V_max,k implemented by the
-    /// canonical <c>SequenceComplexity.CalculateLinguisticComplexity</c>. Values therefore differ from
-    /// both (e.g. ATTTGGATT, m = 6: mean 0.87202, sum-form 0.85294, product 0.40179). Every upper-cased
-    /// character is a word symbol (N, IUPAC codes, gaps and U vs T are distinct), so with more than four
-    /// distinct symbols U_1 &gt; 1 and the result can exceed 1. Null/empty input returns 0.
-    /// Kept for API compatibility; see docs/Validation/review-2026-09/B03.md (LINGUISTIC row).
+    /// <paramref name="maxK"/> is the canonical maximum word length m (same meaning: word lengths
+    /// 1..min(maxK, N)); only the default differs (6 here, 10 in <c>SequenceComplexity</c>).
+    /// Before the 2026-09 review (B03 F21) this method returned the unsourced arithmetic mean of the
+    /// per-k usages U_k (e.g. ATTTGGATT, m = 6: 293/336 instead of 29/34). Input is upper-cased and
+    /// every character is a word symbol (N, IUPAC codes, gaps and U vs T are distinct), so with more
+    /// than four distinct symbols the result can exceed 1 (canonical behaviour, cross-batch R23).
+    /// Null/empty input or <paramref name="maxK"/> &lt; 1 returns 0.
     /// </remarks>
-    public static double CalculateLinguisticComplexity(string sequence, int maxK = 6)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return 0;
-
-        string upper = sequence.ToUpperInvariant();
-        int n = upper.Length;
-        double totalRatio = 0;
-        int kCount = 0;
-
-        for (int k = 1; k <= Math.Min(maxK, n); k++)
-        {
-            var observedKmers = new HashSet<string>();
-            for (int i = 0; i <= n - k; i++)
-            {
-                observedKmers.Add(upper.Substring(i, k));
-            }
-
-            // Maximum possible k-mers
-            int maxPossible = Math.Min((int)Math.Pow(4, k), n - k + 1);
-            if (maxPossible > 0)
-            {
-                totalRatio += (double)observedKmers.Count / maxPossible;
-                kCount++;
-            }
-        }
-
-        return kCount > 0 ? totalRatio / kCount : 0;
-    }
+    public static double CalculateLinguisticComplexity(string sequence, int maxK = 6) =>
+        SequenceComplexity.CalculateLinguisticComplexity(sequence, maxK);
 
     #endregion
 
@@ -1674,7 +1648,7 @@ public static class SequenceStatistics
     /// <c>Length</c>/<c>GcContent</c>/<c>Composition</c> from <see cref="CalculateNucleotideComposition"/>
     /// (GC over A+C+G+T+U, Biopython <c>gc_fraction</c> "remove" mode without S/W),
     /// <c>Entropy</c> from <see cref="CalculateShannonEntropy"/> (bits, every letter a symbol),
-    /// <c>Complexity</c> from <see cref="CalculateLinguisticComplexity"/> (maxK = 6) and
+    /// <c>Complexity</c> from <see cref="CalculateLinguisticComplexity"/> (maxK = 6; Σ V_k / Σ V_max,k, canonical <c>SequenceComplexity</c>) and
     /// <c>MeltingTemperature</c> from <see cref="CalculateMeltingTemperature"/> with the Wallace rule
     /// enabled (U read as T). <c>Composition</c> holds A, T, G, C, U, N only; other symbols are counted
     /// in <c>Length</c> but not listed. Null is treated as empty (all-zero summary).

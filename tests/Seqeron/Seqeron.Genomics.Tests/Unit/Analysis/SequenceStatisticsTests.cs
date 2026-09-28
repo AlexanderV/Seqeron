@@ -305,7 +305,10 @@ public class SequenceStatisticsTests
     {
         double complexity = SequenceStatistics.CalculateLinguisticComplexity("ATGCGATCGATCGATCGATCGATC");
 
-        Assert.That(complexity, Is.GreaterThan(0.4)); // Complex sequences have reasonable complexity
+        // B03 F21: sum form Σ V_k / Σ V_max,k (k=1..6). The input is a GATC tandem repeat, so its LC is
+        // low: V = 4,6,7,7,7,7 (38) of V_max = 4,16,22,21,20,19 (102) → 19/51 (Python reference). The old
+        // "> 0.4" bound held only for the unsourced mean of U_k (0.4575).
+        Assert.That(complexity, Is.EqualTo(19.0 / 51.0).Within(1e-12));
     }
 
     [Test]
@@ -313,7 +316,8 @@ public class SequenceStatisticsTests
     {
         double complexity = SequenceStatistics.CalculateLinguisticComplexity("ATATATAT");
 
-        Assert.That(complexity, Is.LessThan(0.5));
+        // Σ V_k / Σ V_max,k = 12/29 (Python reference, B03 F21).
+        Assert.That(complexity, Is.EqualTo(12.0 / 29.0).Within(1e-12));
     }
 
     [Test]

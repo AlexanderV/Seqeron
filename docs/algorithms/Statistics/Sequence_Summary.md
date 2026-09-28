@@ -25,7 +25,7 @@ method returns on the same input.
 Sequence "summary" / "stats" records are a standard convenience in sequence-analysis
 toolkits: rather than calling several functions, a caller gets one struct with the
 headline descriptors. Each descriptor has its own formal basis (composition counting,
-Shannon information entropy, Trifonov linguistic complexity, oligo melting temperature);
+Shannon information entropy, linguistic complexity (Orlov & Potapov 2004 / Troyanskaya 2002 sum form), oligo melting temperature);
 the summary's only formal obligation is field-wise consistency with those metrics.
 
 ### 2.2 Core Model
@@ -35,7 +35,7 @@ For an input sequence `S`, the summary fields are defined as:
 - **Length** = `|S|` (raw character count).
 - **GcContent** = GC fraction = (#G + #C) / (#counted bases), case-insensitive, 0 for empty input [1].
 - **Entropy** = Shannon entropy `H = − Σ p·log₂ p` over the per-symbol frequencies, in bits [2].
-- **Complexity** = `CalculateLinguisticComplexity(S)` (maxK = 6): the unweighted **mean** of Trifonov vocabulary usages U_k = V_k / min(4^k, N−k+1), k = 1..min(6,N) [3]. Not a published combination (Trifonov / Gabrielian & Bolshoy: product; Orlov & Potapov / Troyanskaya, canonical `SequenceComplexity`: Σ V_k / Σ V_max,k); every character is a symbol, so > 4 distinct symbols can push it above 1 (see B03 LINGUISTIC row).
+- **Complexity** = `CalculateLinguisticComplexity(S)` (maxK = 6), which delegates to the canonical `SequenceComplexity.CalculateLinguisticComplexity`: LC = Σ_{k=1..m} V_k / Σ_{k=1..m} min(4^k, N−k+1), m = min(6, N) (Orlov & Potapov 2004 summation form; = Troyanskaya 2002 / Rosalind LING when m ≥ N) [3]. Before 2026-09 (B03 F21) it was the unsourced mean of U_k. Every character is a symbol, so > 4 distinct symbols can push it above 1 (`ACGTN` = 15/14; cross-batch R23).
 - **MeltingTemperature** = Wallace rule `2(A+T) + 4(G+C)` for short oligos, otherwise the GC/Marmur-Doty formula `64.9 + 41·(GC − 16.4)/N` [4][5]; U is read as T (Biopython `_check` back-transcription, B03 F20).
 - **Composition** = the counts of A, T, G, C, U, N [1].
 
@@ -51,7 +51,7 @@ The Wallace branch is selected when the number of A/C/G/T/U bases is < 14 (not `
 | INV-04 | `summary.Complexity == CalculateLinguisticComplexity(S)` | field is the return of that method [3] |
 | INV-05 | `summary.MeltingTemperature == CalculateMeltingTemperature(S, useWallaceRule: true)` (the method switches on the A+C+G+T count < 14; 2026-09 B03 F12) | field is the return of that method with that flag [4][5] |
 | INV-06 | Composition dict A,T,G,C,U,N counts equal `CalculateNucleotideComposition(S)` counts | dict is built directly from those counts [1] |
-| INV-07 | 0 ≤ GcContent ≤ 1; 0 < Complexity ≤ 1 for input over ≤ 4 distinct symbols (can exceed 1 otherwise, e.g. `ACGTN` = 21/20) | fraction and vocabulary-usage bounds [1][3] |
+| INV-07 | 0 ≤ GcContent ≤ 1; 0 < Complexity ≤ 1 for input over ≤ 4 distinct symbols (can exceed 1 otherwise, e.g. `ACGTN` = 15/14) | fraction and vocabulary-usage bounds [1][3] |
 
 ## 3. Contract
 
@@ -115,8 +115,8 @@ their results into the record, plus a 6-entry composition dictionary (A,T,G,C,U,
 from the composition counts. No string searching/matching is performed by the summary
 itself, so the repository suffix tree is **not** applicable here (N/A — this is a counting
 and arithmetic aggregation, not occurrence enumeration). The underlying
-`CalculateLinguisticComplexity` builds short k-mer sets directly; it does not query the
-suffix tree, and the summary does not change that.
+`CalculateLinguisticComplexity` (canonical `SequenceComplexity`) builds k-mer sets directly for
+m ≤ 12 (the summary uses m = 6) and switches to suffix-tree counting only for larger m.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -127,7 +127,7 @@ suffix tree, and the summary does not change that.
 
 **Intentionally simplified:**
 
-- Complexity: the aggregated `CalculateLinguisticComplexity` computes the **mean** of per-word-size vocabulary-usage ratios rather than the **product** `C = U₁U₂…Uw` defined by Trifonov [3]; **consequence:** the Complexity value differs from a strict Trifonov product. This is a property of the linguistic-complexity method (its own unit), not of the aggregation; the summary faithfully reports that method's value.
+- (none). Complexity is the sourced Orlov & Potapov / Troyanskaya sum form (not Trifonov's product Π U_k, a different published measure) [3].
 
 **Not implemented:**
 
@@ -138,7 +138,7 @@ suffix tree, and the summary does not change that.
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Tm threshold A+C+G+T+U < 14 (B03 F12/F20) | Assumption | selects Wallace vs GC formula | accepted | sibling SEQ-TM-001 convention (`ThermoConstants.WallaceMaxLength`); summary tested for equality with `CalculateMeltingTemperature` |
-| 2 | Complexity = mean of U_k (neither Trifonov product nor canonical Σ-form) | Deviation (unsourced) | e.g. ATTTGGATT: 0.87202 vs canonical 0.85294 | recorded, not changed (2026-09 B03 LINGUISTIC row; delegation to `SequenceComplexity` proposed) | belongs to the linguistic-complexity method |
+| 2 | Complexity was the unsourced mean of U_k | Deviation (fixed) | ATTTGGATT, m = 6: 293/336 → 29/34 | fixed 2026-09 (B03 F21): delegates to canonical `SequenceComplexity` Σ-form | Rosalind LING sample 0.875 at m = N |
 | 3 | No MW / Biopython `molecular_weight` field | Scope | summary exposes Length, GC, entropy, complexity, Tm, composition only | accepted | use `CalculateNucleotideMolecularWeight` |
 
 ## 6. Edge Cases and Limitations
@@ -176,7 +176,7 @@ GcContent = 4/8 = 0.5; four equally frequent symbols → H = log₂ 4 = 2.0 bits
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Python cross-check (2026-09 B03): `SummarizeNucleotideSequence_MatchesPythonReferences` locks GC (Biopython `gc_fraction`), entropy (scipy), Tm (Biopython `Tm_Wallace`/`Tm_GC`), complexity (exact-fraction mean) on 5 DNA/RNA inputs.
+- Python cross-check (2026-09 B03): `SummarizeNucleotideSequence_MatchesPythonReferences` locks GC (Biopython `gc_fraction`), entropy (scipy), Tm (Biopython `Tm_Wallace`/`Tm_GC`), complexity (exact-fraction Σ V_k / Σ V_max,k) on 5 DNA/RNA inputs; `CalculateLinguisticComplexity_MatchesSumFormReference` (Rosalind LING 0.875) and `..._EqualsCanonicalSequenceComplexity` (1000 random inputs).
 - Tests: [SequenceStatistics_SummarizeNucleotideSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_SummarizeNucleotideSequence_Tests.cs) — covers `INV-01`..`INV-07`
 - Evidence: [SEQ-SUMMARY-001-Evidence.md](../../../docs/Evidence/SEQ-SUMMARY-001-Evidence.md)
 - Related algorithms: [Entropy_Profile](../Statistics/Entropy_Profile.md), [Melting_Temperature](../Statistics/Melting_Temperature.md)
@@ -185,6 +185,6 @@ GcContent = 4/8 = 0.5; four equally frequent symbols → H = log₂ 4 = 2.0 bits
 
 1. Cock, P. J. A. et al. 2009. Biopython (`Bio.SeqUtils.gc_fraction`). Bioinformatics 25(11):1422–1423. https://doi.org/10.1093/bioinformatics/btp163 (source: https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/__init__.py).
 2. Shannon, C. E. 1948. A Mathematical Theory of Communication. Bell System Technical Journal 27(3):379–423. https://doi.org/10.1002/j.1538-7305.1948.tb01338.x (formula/units: https://en.wikipedia.org/wiki/Entropy_(information_theory)).
-3. Trifonov, E. N. 1990. Linguistic sequence complexity (vocabulary usage). https://en.wikipedia.org/wiki/Linguistic_sequence_complexity.
+3. Orlov, Y. L., Potapov, V. N. 2004. Complexity: an internet resource for analysis of DNA sequence complexity. Nucleic Acids Res 32:W628–W633; Troyanskaya, O. G. et al. 2002. Sequence complexity profiles of prokaryotic genomic sequences. Bioinformatics 18:679–688; Rosalind LING (https://rosalind.info/problems/ling/). Vocabulary usage: Trifonov, E. N. 1990 (https://en.wikipedia.org/wiki/Linguistic_sequence_complexity).
 4. Biopython `Bio.SeqUtils.MeltingTemp` (`Tm_Wallace`, `Tm_GC`). https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/MeltingTemp.py.
 5. Marmur, J., Doty, P. 1962. Determination of the base composition of DNA from its thermal denaturation temperature. J Mol Biol 5:109–118.

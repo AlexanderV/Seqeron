@@ -58,7 +58,7 @@
 | INV-4 | `summary.Complexity == CalculateLinguisticComplexity(seq)` | Yes | Source 4; aggregation-consistency |
 | INV-5 | `summary.MeltingTemperature == CalculateMeltingTemperature(seq, useWallaceRule: true)` (switch on A+C+G+T+U < 14, U read as T; 2026-09 B03 F12/F20) | Yes | Source 2; aggregation-consistency |
 | INV-6 | Composition dict counts A,T,G,C,U,N equal `CalculateNucleotideComposition` counts | Yes | Source 1; aggregation-consistency |
-| INV-7 | 0 ≤ GcContent ≤ 1 and 0 ≤ Complexity ≤ 1 over ≤ 4 distinct symbols (ACGTN → 21/20) | Yes | Source 1, Source 4 |
+| INV-7 | 0 ≤ GcContent ≤ 1 and 0 ≤ Complexity ≤ 1 over ≤ 4 distinct symbols (ACGTN → 15/14) | Yes | Source 1, Source 4 |
 
 ---
 
@@ -88,7 +88,8 @@
 |----|-----------|------------------|----------|
 | R1 | `SummarizeNucleotideSequence_MatchesPythonReferences` (5) | every field = Biopython `gc_fraction` / scipy entropy / Biopython `Tm_Wallace`/`Tm_GC` / exact-fraction mean U_k | executed Python references |
 | R2 | `SummarizeNucleotideSequence_RnaSpelling_EqualsDnaSpelling` (3) | RNA == DNA spelling for GC, entropy, complexity, Tm | Biopython `_check` back-transcription (F20) |
-| R3 | `CalculateLinguisticComplexity_IsMeanVocabularyUsage_DiffersFromCanonicalSumForm` | 293/336 vs canonical 29/34; ACGTN 21/20 | characterisation lock (LINGUISTIC row) |
+| R3 | `CalculateLinguisticComplexity_MatchesSumFormReference` (10) | Σ V_k / Σ V_max,k: ATTTGGATT m=9 → 7/8 (Rosalind LING 0.875), m=6 → 29/34; ACGTN 15/14 | Orlov & Potapov 2004 / Troyanskaya 2002; executed Python reference (B03 F21) |
+| R4 | `CalculateLinguisticComplexity_EqualsCanonicalSequenceComplexity` | 1000 random inputs, m ∈ [−1,19]: identical to `SequenceComplexity.CalculateLinguisticComplexity` | delegation lock (B03 F21) |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -176,4 +177,4 @@ In-scope cases: 9; ✅ = 9.
 
 ## 7. Open Questions / Decisions
 
-1. The `Complexity` field equals the implementation's `CalculateLinguisticComplexity`, which computes the **mean** of per-k vocabulary-usage ratios; the canonical Trifonov definition (Source 4) uses the **product** of usages. This is a property of the SEQ-ENTROPY/complexity sibling method, not of the aggregation; SEQ-SUMMARY-001 only asserts the summary field equals that method on the same input. Recorded so the divergence is visible; resolving the LC method itself is out of scope for this aggregation unit.
+1. ~~The `Complexity` field was the unsourced mean of per-k vocabulary usages.~~ Resolved 2026-09 (B03 F21): `CalculateLinguisticComplexity` delegates to the canonical `SequenceComplexity` sum form Σ V_k / Σ min(4^k, N−k+1) (Orlov & Potapov 2004; Troyanskaya 2002 / Rosalind LING at m ≥ N). Trifonov's product Π U_k (Source 4) is a different published measure and is not used.

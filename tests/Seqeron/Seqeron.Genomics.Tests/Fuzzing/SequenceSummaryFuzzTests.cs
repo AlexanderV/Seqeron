@@ -53,8 +53,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///               bases, case-insensitive; 0 for empty input.
 ///   • Entropy = Shannon entropy H = −Σ p·log₂p over per-symbol frequencies (bits);
 ///               0 for empty input. Maximum is log₂k for k equiprobable symbols.
-///   • Complexity = linguistic complexity (mean of vocabulary-usage ratios across
-///               word sizes k=1..6), in [0,1]; 0 for empty input.
+///   • Complexity = linguistic complexity Σ V_k / Σ min(4^k, n−k+1) (Orlov & Potapov 2004,
+///               canonical SequenceComplexity; k=1..6), in [0,1] for ACGT; 0 for empty input.
 ///   • MeltingTemperature = Wallace 2(A+T)+4(G+C) when A+C+G+T < 14, else GC/Marmur-Doty
 ///               64.9 + 41·(GC−16.4)/N; 0 for empty input
 ///               (ThermoConstants.WallaceMaxLength = 14, strict <).
@@ -211,8 +211,8 @@ public class SequenceSummaryFuzzTests
     /// must reproduce EXACTLY. "ATGCATGC" → A=2,T=2,G=2,C=2:
     ///   Length 8; GcContent = 4/8 = 0.5; four equiprobable symbols → Entropy log₂4 = 2.0;
     ///   length 8 &lt; 14 → Wallace Tm = 2·(2+2) + 4·(2+2) = 8 + 16 = 24.0 °C;
-    ///   Complexity = mean vocabulary-usage ratio = 0.8396825396825397 (hand-derived,
-    ///   externally re-grounded — docs/Validation/FINDINGS_REGISTER.md A39).
+    ///   Complexity = Σ V_k / Σ min(4^k, n−k+1), k=1..6 = 23/29 (V = 4,4,4,4,4,3; V_max = 4,7,6,5,4,3;
+    ///   Orlov &amp; Potapov 2004 — B03 F21 replaced the unsourced mean-of-U_k lock 529/630 of A39).
     /// Confirms the suite asserts the BUSINESS contract, not just non-throwing.
     /// — Sequence_Summary.md §7.1; SequenceStatistics.cs lines 990–1020.
     /// </summary>
@@ -226,8 +226,8 @@ public class SequenceSummaryFuzzTests
         s.Entropy.Should().BeApproximately(2.0, Tolerance, "four equiprobable symbols → log2 4");
         s.MeltingTemperature.Should().BeApproximately(24.0, Tolerance,
             "len 8 < 14 → Wallace 2*(A+T)+4*(G+C) = 2*4 + 4*4");
-        s.Complexity.Should().BeApproximately(0.8396825396825397, 1e-10,
-            "externally-derived vocabulary-usage-mean lock (FINDINGS_REGISTER A39)");
+        s.Complexity.Should().BeApproximately(23.0 / 29.0, 1e-10,
+            "Σ V_k / Σ V_max,k sum form (Orlov & Potapov 2004; Python reference, B03 F21)");
 
         s.Composition['A'].Should().Be(2);
         s.Composition['T'].Should().Be(2);

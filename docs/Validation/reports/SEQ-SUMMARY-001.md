@@ -140,3 +140,11 @@ PASS. One test-strengthening (A39, no code defect): added the missing exact Comp
   externally-sourced Complexity value; full suite green.
 - **Follow-ups:** none for this unit. The two notes are tracked by the SEQ-TM-001 and
   linguistic-complexity sibling units, not defects of the aggregation.
+
+## 2026-09 B03 review addendum (F21)
+
+- The Complexity follow-up above is resolved: `CalculateLinguisticComplexity` (and so the summary's
+  `Complexity`) now delegates to the canonical `SequenceComplexity` sum form Σ V_k / Σ V_max,k
+  (Orlov & Potapov 2004; Troyanskaya 2002 / Rosalind LING). The A39 lock 0.8396825396825397 (mean of
+  U_k, unsourced) is replaced by 23/29 for ATGCATGC, from an executed Python reference of the sourced
+  definition. See docs/Validation/review-2026-09/B03.md F21.
