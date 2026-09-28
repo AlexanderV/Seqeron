@@ -5,8 +5,8 @@
 | Algorithm Group | Oncology |
 | Test Unit ID | ONCO-SOMATIC-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-14 |
+| Implementation Status | Implemented (VAF-threshold rule + Mutect2 somatic likelihoods model, count-based pileup form) |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -96,12 +96,14 @@ The rule-based realization: a variant is **Somatic** when `f_t ≥ τ_t` (presen
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.SomaticCalling.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.SomaticCalling.cs)
 
 - `OncologyAnalyzer.CallSomaticMutations(variants, τ_t, τ_n)`: classifies every variant.
 - `OncologyAnalyzer.Classify(variant, τ_t, τ_n)`: single-variant classification.
 - `OncologyAnalyzer.FilterGermlineVariants(variants, τ_t, τ_n)`: returns the somatic subset.
 - `OncologyAnalyzer.CalculateSomaticScore(variant)`: separation score in [0, 1].
+- `OncologyAnalyzer.CallSomaticMutationsMutect2(variants, baseQuality, hasMatchedNormal, τ_TLOD = 3.0, τ_NLOD = 2.2)`: Mutect2 somatic likelihoods model (§5.5).
+- `OncologyAnalyzer.CalculateMutect2TumorLog10Odds(ref, alt, Q)` / `CalculateMutect2NormalLog10Odds(ref, alt, Q)`: TLOD / NLOD.
 
 ### 5.2 Current Behavior
 
@@ -121,9 +123,11 @@ Pure in-memory classification on `VariantObservation` records (no VCF parsing in
 - Normal absence: a fixed VAF ceiling τ_n replaces Strelka's Bayesian ref/ref genotype posterior; **consequence:** a single cutoff rather than a probability — borderline normal contamination near τ_n flips deterministically instead of by posterior.
 - Somatic confidence: max(0, f_t − f_n) instead of a Bayesian somatic LOD/QSS; **consequence:** the score is a monotone surrogate, not a calibrated quality.
 
+**Implemented since 2026-09 (see §5.5):** the Mutect2 somatic likelihoods model (TLOD / NLOD and the emission logic) on read counts.
+
 **Not implemented:**
 
-- Bayesian somatic likelihood / LOD models (Strelka somaticLOD, Mutect2 TLOD/NLOD), panel-of-normals and germline-resource priors, LOH/copy-number correction; **users should rely on:** GATK Mutect2 / Strelka2 for production probabilistic calling.
+- Strelka somaticLOD / QSS; Mutect2 local assembly, Pair-HMM over full haplotypes, fragment merging, FilterMutectCalls filters; panel-of-normals and germline-resource priors, LOH/copy-number correction; **users should rely on:** GATK Mutect2 / Strelka2 for production probabilistic calling.
 
 ### 5.4 Deviations and Assumptions
 
@@ -131,6 +135,30 @@ Pure in-memory classification on `VariantObservation` records (no VCF parsing in
 |---|------|------|--------|--------|-------|
 | 1 | τ_n fixed normal ceiling | Assumption | borderline contamination classification | accepted | ASM-01; configurable parameter |
 | 2 | Separation score | Assumption | not a calibrated probability | accepted | ASM-02 |
+
+### 5.5 Mutect2 somatic likelihoods model (2026-09)
+
+Source: GATK `docs/mutect/mutect.tex` §"Somatic Likelihoods Model" and the GATK source
+(`SomaticLikelihoodsEngine.logEvidence`, `SomaticGenotypingEngine.somaticLogOdds` / `diploidAltLogOdds`,
+`M2ArgumentCollection`, `PairHMM`, `AlleleLikelihoods.normalizeLikelihoods`).
+
+- Read likelihoods at base quality Q (ε = 10^(−Q/10)): matching allele 1−ε, mismatching ε/3 (Pair-HMM tri-state
+  correction 3.0); each read's worse likelihood floored at best·10^(−4.5) (global mismapping rate Q45).
+- Model evidence (mean-field Dirichlet, flat prior α = (1,1)): iterate β = α + Σ_r z̄_r, z̄_ra ∝ exp(ψ(β_a) − ψ(Σβ))·ℓ_ra,
+  from β = (1,1) until ‖Δβ‖₁/Σβ < 0.001; ln P(R|A) = g(α) − g(β) + Σ_r Σ_a z̄_ra (ln ℓ_ra − ln z̄_ra), g(ω) = lnΓ(Σω) − Σ lnΓ(ω_a).
+- TLOD = [ln P(R|{ref,alt}) − ln P(R|{ref})]/ln 10; NLOD = [Σ ln ℓ_ref − Σ (ln(ℓ_ref+ℓ_alt) + ln ½)]/ln 10.
+- Emit when TLOD > 3.0 (`--tumor-lod-to-emit`); with a matched normal, Somatic iff NLOD > 2.2 (`--normal-lod`), else skipped as Germline; tumor-only skips the NLOD test (ℓ_n = 1).
+- Count form: all reads share one base quality and ref = total − alt; since only the variant base differs between
+  alleles, the shared likelihood of the remaining bases cancels, so the result equals Mutect2's per-read computation
+  for uniform Q. Cross-checked against a per-read Python port of the GATK code (agreement < 1e-8) and against the exact
+  flat-prior marginal likelihood (e.g. 75 ref/25 alt Q30: 61.5425 vs exact 61.5429).
+
+| Pileup (ref/alt, Q) | TLOD | Pileup (ref/alt, Q) | NLOD |
+|---|---|---|---|
+| 75/25, Q30 | 61.5425 | 100/0, Q30 | 30.0885 |
+| 98/2, Q30 | 1.2661 | 97/3, Q30 | 19.6585 |
+| 97/3, Q30 | 3.2296 | 7/0, Q30 | 2.1062 |
+| 97/3, Q20 | 0.3264 | 8/0, Q30 | 2.4071 |
 
 ## 6. Edge Cases and Limitations
 

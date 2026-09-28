@@ -5,7 +5,7 @@
 **Algorithm:** Somatic Mutation Calling (tumor vs matched normal classification)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -155,6 +155,19 @@
 | C1 + guards | ✅ Covered | null/empty/invalid input |
 
 ---
+
+## 5.7 2026-09 review additions — Mutect2 somatic likelihoods model
+
+| ID | Test Case | Expected | Evidence |
+|----|-----------|----------|----------|
+| M11 | TLOD at 10 pileups (Q20/30/40/50) | GATK-port reference values (1e-8) | mutect.tex; SomaticLikelihoodsEngine |
+| M12 | NLOD at 7 pileups | GATK-port reference values (1e-8) | SomaticGenotypingEngine.diploidAltLogOdds |
+| M13 | Mixed panel via CallSomaticMutationsMutect2 (Q30) | Somatic / Germline / NotDetected / Somatic (normal 3/100: NLOD 19.66) | emit-lod 3.0, normal-lod 2.2 |
+| M14 | 3/100 alt at Q30 vs Q20 | Somatic vs NotDetected | TLOD 3.23 vs 0.33 |
+| M15 | Normal depth 7 vs 8 ref reads | Germline vs Somatic | NLOD 2.106 vs 2.407 |
+| M16 | Tumor-only vs uncovered matched normal | Somatic (NLOD NaN) vs Germline (NLOD 0) | "no matched normal ⇒ ℓ_n = 1"; !hasNormal ∨ NLOD > 2.2 |
+| C2 | Empty pileup | TLOD = NLOD = 0 | GATK evidence 0 with no reads |
+| C3 | Invalid input (null, Q < 1, NaN threshold, alt > total, negative reads) | throws | contract |
 
 ## 6. Assumption Register
 

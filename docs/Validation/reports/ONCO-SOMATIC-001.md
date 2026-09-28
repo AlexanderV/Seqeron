@@ -69,3 +69,16 @@ No code defect; no description defect. One test-coverage gap (negative-read guar
 - **Stage A: PASS** — biology/maths correct and sourced; simplifications honestly labelled.
 - **Stage B: PASS** — code faithfully realises the validated rule; tests now cover all four public methods, all three classification branches, the boundaries, the score formula, and all documented error cases (null, empty, bad threshold, alt>total, negative reads).
 - **End-state: CLEAN.** Test-quality gate: PASS (after adding the two missing-coverage tests).
+
+---
+
+## 2026-09 review (campaign review-2026-09, batch B22)
+
+- **Reviewed:** 2026-09-28. **Code:** `OncologyAnalyzer.SomaticCalling.cs` (`CallSomaticMutations`, `Classify`, `FilterGermlineVariants`, `CalculateSomaticScore`).
+- **Stage A:** PASS-with-fixes (description). The VAF-threshold rule and its sources (Yan 2021 5% LoD; Strelka ref/ref normal; Mutect2 ℓ_n = 1) re-confirmed; the doc's claim that the Mutect2 TLOD/NLOD model is "out of scope" was not justified under campaign rule 2 — the model is fully specified in `mutect.tex` + GATK source and computable from read counts.
+- **Stage B:** PASS for the four existing methods (decision order, inclusive boundaries, exact double comparisons at 5/100 and 1/100, NaN-guarded thresholds, order preservation re-traced; no defect). Private-score XML doc contained a meaningless "f_t × (f_t − f_n) / f_t" formula — cleaned to `max(0, f_t − f_n)`.
+- **Rule 2 (real algorithm implemented):** added `CallSomaticMutationsMutect2`, `CalculateMutect2TumorLog10Odds`, `CalculateMutect2NormalLog10Odds` + `Mutect2SomaticCall` — the GATK Mutect2 somatic likelihoods model (mean-field Dirichlet evidence, flat prior, convergence 0.001; Pair-HMM ε/3 mismatch; Q45 mismapping cap; TLOD > 3.0 emit, NLOD > 2.2 somatic, tumor-only skips NLOD). Count form assumes one base quality for all reads (exact for uniform Q; the only evidence `VariantObservation` carries). Existing VAF-threshold API kept unchanged (documented as a VAF rule, cross-referenced to the model).
+- **Numerical confirmation:** per-read Python port of GATK `SomaticLikelihoodsEngine.logEvidence` / `somaticLogOdds` / `diploidAltLogOdds` (scipy digamma/gammaln) vs C#: agreement < 1e-8 on 10 TLOD and 7 NLOD pileups; variational TLOD vs exact flat-prior marginal likelihood (numerical integration): 61.5425 vs 61.5429 (75/25 Q30), 3.2296 vs 3.2318 (97/3 Q30).
+- **Tests added:** 23 cases (fixture 20 → 43) (TLOD ×10, NLOD ×7, empty pileup, mixed panel, Q-dependence, normal-depth 7 vs 8, tumor-only vs uncovered normal, invalid input).
+- **Remaining simplification:** reads carry no individual base qualities / fragments / haplotypes; FilterMutectCalls, local assembly and germline-resource priors are out of scope (need read-level data / gnomAD).
+- **End-state:** CLEAN.

@@ -295,4 +295,150 @@ public class OncologyAnalyzer_CallSomaticMutations_Tests
     }
 
     #endregion
+
+    #region Mutect2 somatic likelihoods model (CallSomaticMutationsMutect2)
+
+    // Reference values: a per-read Python port of GATK SomaticLikelihoodsEngine.logEvidence,
+    // SomaticGenotypingEngine.somaticLogOdds / diploidAltLogOdds, PairHMM tri-state likelihoods (ε/3) and the
+    // Q45 global-mismapping cap (broadinstitute/gatk master, fetched 2026-09-28). The variational TLOD was
+    // also checked against the exact flat-prior marginal likelihood (numerical integration): e.g.
+    // 25 alt / 75 ref at Q30: variational 61.5425 vs exact 61.5429 log10 units.
+    private const double LodTolerance = 1e-8;
+
+    [TestCase(75, 25, 30, 61.54246801643632)]
+    [TestCase(52, 48, 30, 135.9216837925928)]
+    [TestCase(98, 2, 30, 1.2661263748027127)]
+    [TestCase(97, 3, 30, 3.2295883512710644)]
+    [TestCase(97, 3, 20, 0.3263769386302512)]
+    [TestCase(95, 5, 30, 7.515738706497197)]
+    [TestCase(80, 20, 40, 66.80951519855469)]
+    [TestCase(80, 20, 50, 67.26788516897696)] // Q50: mismatch likelihood floored by the Q45 mismapping cap
+    [TestCase(0, 10, 30, 33.72555096640962)]
+    [TestCase(100, 0, 30, -2.0042635241874462)]
+    public void CalculateMutect2TumorLog10Odds_MatchesGatkReference(int refReads, int altReads, int q, double expected)
+    {
+        double tlod = OncologyAnalyzer.CalculateMutect2TumorLog10Odds(refReads, altReads, q);
+
+        Assert.That(tlod, Is.EqualTo(expected).Within(LodTolerance),
+            $"TLOD({refReads} ref, {altReads} alt, Q{q}) must equal the GATK somatic-likelihoods reference");
+    }
+
+    [TestCase(100, 0, 30, 30.088511009736504)]
+    [TestCase(50, 50, 30, -143.74582613754575)]
+    [TestCase(97, 3, 30, 19.658450780899575)]
+    [TestCase(99, 1, 30, 26.61182426679086)]
+    [TestCase(7, 0, 30, 2.106195770681557)]
+    [TestCase(8, 0, 30, 2.407080880778922)]
+    [TestCase(80, 20, 50, -59.89837377162566)]
+    public void CalculateMutect2NormalLog10Odds_MatchesGatkReference(int refReads, int altReads, int q, double expected)
+    {
+        double nlod = OncologyAnalyzer.CalculateMutect2NormalLog10Odds(refReads, altReads, q);
+
+        Assert.That(nlod, Is.EqualTo(expected).Within(LodTolerance),
+            $"NLOD({refReads} ref, {altReads} alt, Q{q}) = log10 P(hom-ref)/P(het)");
+    }
+
+    [Test]
+    public void CalculateMutect2LogOdds_EmptyPileup_IsZero()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateMutect2TumorLog10Odds(0, 0, 30), Is.EqualTo(0.0),
+                "GATK: evidence 0 for both allele sets when there are no reads");
+            Assert.That(OncologyAnalyzer.CalculateMutect2NormalLog10Odds(0, 0, 30), Is.EqualTo(0.0),
+                "No normal reads: hom-ref and het equally likely");
+        });
+    }
+
+    [Test]
+    public void CallSomaticMutationsMutect2_ClassifiesByTlodAndNlod()
+    {
+        var input = new[]
+        {
+            Make(25, 100, 0, 100),  // TLOD 61.54 > 3, NLOD 30.09 > 2.2 → Somatic
+            Make(48, 100, 50, 100), // TLOD 135.92 > 3, NLOD −143.75 ≤ 2.2 → Germline
+            Make(2, 100, 0, 100),   // TLOD 1.27 ≤ 3 → NotDetected
+            Make(30, 100, 3, 100),  // normal 3/100: NLOD 19.66 > 2.2 → Somatic (not a het germline)
+        };
+
+        var calls = OncologyAnalyzer.CallSomaticMutationsMutect2(input, baseQuality: 30);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(calls, Has.Count.EqualTo(4), "One call per variant, in order");
+            Assert.That(calls[0].Status, Is.EqualTo(Status.Somatic));
+            Assert.That(calls[0].TumorLog10Odds, Is.EqualTo(61.54246801643632).Within(LodTolerance));
+            Assert.That(calls[0].NormalLog10Odds, Is.EqualTo(30.088511009736504).Within(LodTolerance));
+            Assert.That(calls[0].TumorVaf, Is.EqualTo(0.25).Within(1e-12));
+            Assert.That(calls[1].Status, Is.EqualTo(Status.Germline));
+            Assert.That(calls[2].Status, Is.EqualTo(Status.NotDetected));
+            Assert.That(calls[3].Status, Is.EqualTo(Status.Somatic));
+            Assert.That(calls[3].NormalLog10Odds, Is.EqualTo(19.658450780899575).Within(LodTolerance));
+        });
+    }
+
+    // Base quality matters: 3/100 alt reads pass the TLOD 3.0 emission threshold at Q30 (3.23) but not at Q20 (0.33).
+    [Test]
+    public void CallSomaticMutationsMutect2_LowBaseQuality_RaisesDetectionBar()
+    {
+        var variant = new[] { Make(3, 100, 0, 100) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CallSomaticMutationsMutect2(variant, 30)[0].Status, Is.EqualTo(Status.Somatic));
+            Assert.That(OncologyAnalyzer.CallSomaticMutationsMutect2(variant, 20)[0].Status, Is.EqualTo(Status.NotDetected));
+        });
+    }
+
+    // NLOD per hom-ref Q30 read = log10(2(1−ε)/(1−ε+ε/3)) ≈ 0.3009 ⇒ 7 reads 2.106 ≤ 2.2 (germline not excluded),
+    // 8 reads 2.407 > 2.2 (somatic): Mutect2 needs normal depth to rule out a germline het.
+    [Test]
+    public void CallSomaticMutationsMutect2_NormalDepthRequiredToExcludeGermline()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CallSomaticMutationsMutect2(new[] { Make(25, 100, 0, 7) }, 30)[0].Status,
+                Is.EqualTo(Status.Germline), "7 normal ref reads: NLOD 2.106 ≤ 2.2");
+            Assert.That(OncologyAnalyzer.CallSomaticMutationsMutect2(new[] { Make(25, 100, 0, 8) }, 30)[0].Status,
+                Is.EqualTo(Status.Somatic), "8 normal ref reads: NLOD 2.407 > 2.2");
+        });
+    }
+
+    // mutect.tex: "If we have no matched normal, ℓ_n = 1" — tumor-only mode skips the NLOD test. With a matched
+    // normal of zero coverage NLOD = 0 ≤ 2.2 and Mutect2 skips the allele as possibly germline.
+    [Test]
+    public void CallSomaticMutationsMutect2_TumorOnlyVersusUncoveredNormal()
+    {
+        var variant = new[] { Make(20, 100, 0, 0) };
+
+        var tumorOnly = OncologyAnalyzer.CallSomaticMutationsMutect2(variant, 30, hasMatchedNormal: false)[0];
+        var uncovered = OncologyAnalyzer.CallSomaticMutationsMutect2(variant, 30, hasMatchedNormal: true)[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tumorOnly.Status, Is.EqualTo(Status.Somatic));
+            Assert.That(double.IsNaN(tumorOnly.NormalLog10Odds), Is.True, "No NLOD without a matched normal");
+            Assert.That(uncovered.NormalLog10Odds, Is.EqualTo(0.0));
+            Assert.That(uncovered.Status, Is.EqualTo(Status.Germline));
+        });
+    }
+
+    [Test]
+    public void CallSomaticMutationsMutect2_InvalidInput_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentNullException>(() => OncologyAnalyzer.CallSomaticMutationsMutect2(null!, 30));
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.CallSomaticMutationsMutect2(System.Array.Empty<VO>(), 0), "Q must be ≥ 1");
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.CallSomaticMutationsMutect2(System.Array.Empty<VO>(), 30, tumorLog10OddsThreshold: double.NaN));
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.CallSomaticMutationsMutect2(new[] { Make(120, 100, 0, 100) }, 30), "alt > total");
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.CalculateMutect2TumorLog10Odds(-1, 3, 30));
+        });
+    }
+
+    #endregion
 }
