@@ -364,8 +364,17 @@ public static class SequenceExtensions
     /// Enumerates k-mers without allocating strings (yields spans).
     /// Use with caution - spans are only valid during enumeration.
     /// </summary>
+    /// <remarks>
+    /// Yields the L − k + 1 overlapping windows, i.e. the same k-mers counted by <see cref="CountKmersSpan"/>
+    /// (case preserved). k must be ≥ 1, as in <see cref="CountKmersSpan"/> and scikit-bio
+    /// <c>Sequence.iter_kmers</c> ("k must be greater than 0"); previously k = 0 yielded L + 1 empty spans
+    /// and k &lt; 0 failed lazily inside <c>Current</c>.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> ≤ 0.</exception>
     public static KmerEnumerator EnumerateKmers(this ReadOnlySpan<char> sequence, int k)
     {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
         return new KmerEnumerator(sequence, k);
     }
 

@@ -132,6 +132,14 @@ public class RnaSequenceTests
     }
 
     [Test]
+    [Description("B01-SWEEP: AU% = 100 - GC% for a validated ACGU sequence; Biopython gc_fraction('GGAUCUUCGGAUCU') = 0.5 -> AU 50 %")]
+    public void AuContent_MixedSequence_IsComplementOfBiopythonGcFraction()
+    {
+        Assert.That(new RnaSequence("GGAUCUUCGGAUCU").AuContent(), Is.EqualTo(50.0));
+        Assert.That(new RnaSequence("gauua").AuContent(), Is.EqualTo(80.0));
+    }
+
+    [Test]
     public void AuContent_NoAU_Returns0()
     {
         var rna = new RnaSequence("GCGCGC");

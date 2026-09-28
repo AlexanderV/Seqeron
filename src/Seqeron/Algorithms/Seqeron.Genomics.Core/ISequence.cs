@@ -214,9 +214,19 @@ public class IupacDnaSequence : SequenceBase
     /// <summary>
     /// Gets IUPAC code from a set of bases.
     /// </summary>
+    /// <remarks>
+    /// Inverse of the NC-IUB (1984) degenerate map (Biopython <c>IUPACData.ambiguous_dna_values</c> /
+    /// <c>ambiguous_rna_values</c>): ASCII letters are case-folded and RNA U is treated as T, consistent
+    /// with <see cref="ExpandCode"/> ('U' → T), so {A, U} → 'W' (Biopython <c>ambiguous_rna_values['W'] = "AU"</c>).
+    /// Any set containing a non-base symbol, or an empty set, yields 'N'.
+    /// </remarks>
     public static char GetIupacCode(IEnumerable<char> bases)
     {
-        var baseSet = new HashSet<char>(bases.Select(char.ToUpperInvariant));
+        var baseSet = new HashSet<char>(bases.Select(b =>
+        {
+            char u = SequenceExtensions.ToUpperAscii(b);
+            return u == 'U' ? 'T' : u;
+        }));
 
         if (baseSet.SetEquals(new[] { 'A' })) return 'A';
         if (baseSet.SetEquals(new[] { 'C' })) return 'C';
@@ -259,8 +269,16 @@ public class IupacDnaSequence : SequenceBase
     /// <summary>
     /// Checks if two IUPAC codes can represent the same base.
     /// </summary>
+    /// <remarks>
+    /// True when the NC-IUB (1984) base sets of the two codes intersect (Biopython
+    /// <c>IUPACData.ambiguous_dna_values</c>; scikit-bio <c>DNA.degenerate_map</c>). ASCII letters are
+    /// case-folded first (as in <see cref="ExpandCode"/> and <see cref="MatchesAt"/>), so ('r', 'a') matches;
+    /// a symbol outside the table only matches itself.
+    /// </remarks>
     public static bool CodesMatch(char code1, char code2)
     {
+        code1 = SequenceExtensions.ToUpperAscii(code1);
+        code2 = SequenceExtensions.ToUpperAscii(code2);
         var bases1 = _expansions.TryGetValue(code1, out var b1) ? b1 : new[] { code1 };
         var bases2 = _expansions.TryGetValue(code2, out var b2) ? b2 : new[] { code2 };
 
@@ -345,14 +363,50 @@ public class QualitySequence : SequenceBase
         _qualities = qualities;
     }
 
+    /// <summary>
+    /// Creates a quality sequence from an ASCII-encoded FASTQ quality string, Q = ord(c) − <paramref name="phredOffset"/>.
+    /// </summary>
+    /// <remarks>
+    /// FASTQ (Cock et al. 2010, NAR 38:1767): the quality string has exactly one printable-ASCII character
+    /// (33–126) per base; Sanger/Phred+33 covers Q0–Q93, Illumina 1.3+/Phred+64 Q0–Q62. As in Biopython
+    /// <c>Bio.SeqIO.QualityIO</c>, a length mismatch or a character outside [offset, 126] is an error
+    /// (previously the string was silently truncated/zero-padded and low characters clamped to Q0).
+    /// </remarks>
+    /// <exception cref="ArgumentException">Length mismatch or a character outside [<paramref name="phredOffset"/>, 126].</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="phredOffset"/> outside [33, 126].</exception>
     public QualitySequence(string sequence, string qualityString, int phredOffset = 33)
         : base(sequence)
     {
+        ArgumentNullException.ThrowIfNull(qualityString);
+        ValidatePhredOffset(phredOffset);
+        if (qualityString.Length != sequence.Length)
+            throw new ArgumentException(
+                $"Quality string length ({qualityString.Length}) must match sequence length ({sequence.Length}).",
+                nameof(qualityString));
+
         _qualities = new byte[sequence.Length];
-        for (int i = 0; i < qualityString.Length && i < sequence.Length; i++)
+        for (int i = 0; i < qualityString.Length; i++)
         {
-            _qualities[i] = (byte)Math.Max(0, qualityString[i] - phredOffset);
+            char c = qualityString[i];
+            if (c < phredOffset || c > MaxQualityChar)
+                throw new ArgumentException(
+                    $"Invalid quality character '{c}' (0x{(int)c:X2}) at position {i}: must be in [{phredOffset}, {MaxQualityChar}].",
+                    nameof(qualityString));
+            _qualities[i] = (byte)(c - phredOffset);
         }
+    }
+
+    /// <summary>Highest printable-ASCII quality character ('~', 126) in any FASTQ variant (Cock et al. 2010).</summary>
+    private const int MaxQualityChar = 126;
+
+    /// <summary>Highest Phred score representable in Sanger/Phred+33 FASTQ (126 − 33).</summary>
+    public const byte MaxSangerPhred = 93;
+
+    private static void ValidatePhredOffset(int phredOffset)
+    {
+        if (phredOffset < 33 || phredOffset > MaxQualityChar)
+            throw new ArgumentOutOfRangeException(nameof(phredOffset), phredOffset,
+                "Phred offset must be a printable-ASCII code in [33, 126] (33 = Sanger, 64 = Illumina 1.3+).");
     }
 
     public override SequenceType Type => SequenceType.Quality;
@@ -374,14 +428,22 @@ public class QualitySequence : SequenceBase
     public double MeanQuality => _qualities.Average(q => (double)q);
 
     /// <summary>
-    /// Gets the quality string (Phred+33 encoding).
+    /// Gets the quality string (Phred+<paramref name="phredOffset"/> encoding, default Sanger Phred+33).
     /// </summary>
+    /// <remarks>
+    /// Scores above the encoding's ceiling (126 − offset: Q93 for Phred+33, Q62 for Phred+64) are capped at
+    /// '~' so the output stays printable ASCII, as Biopython <c>_get_sanger_quality_str</c> /
+    /// <c>_get_illumina_quality_str</c> do ("Data loss - max PHRED quality 93 in Sanger FASTQ").
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="phredOffset"/> outside [33, 126].</exception>
     public string GetQualityString(int phredOffset = 33)
     {
+        ValidatePhredOffset(phredOffset);
+        int maxQ = MaxQualityChar - phredOffset;
         var chars = new char[_qualities.Length];
         for (int i = 0; i < _qualities.Length; i++)
         {
-            chars[i] = (char)(_qualities[i] + phredOffset);
+            chars[i] = (char)(Math.Min(_qualities[i], maxQ) + phredOffset);
         }
         return new string(chars);
     }
@@ -484,10 +546,22 @@ public class QualitySequence : SequenceBase
         => Math.Pow(10, -phred / 10.0);
 
     /// <summary>
-    /// Gets Phred score from error probability.
+    /// Gets Phred score from error probability: Q = round(−10·log10 p) (Ewing &amp; Green 1998; Cock et al. 2010),
+    /// capped at Q93 (<see cref="MaxSangerPhred"/>, the Sanger FASTQ maximum); p = 0 → Q93.
     /// </summary>
+    /// <remarks>
+    /// Rounds to the nearest integer like Biopython <c>_get_sanger_quality_str</c> (29.99 → 30, 9.55 → 10):
+    /// p = 0.2 → Q7, p = 0.0011 → Q30 (ties to even, as Python <c>round</c>). Previously the value was truncated (Q6, Q29).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="errorProb"/> is NaN or outside [0, 1].</exception>
     public static byte ErrorProbabilityToPhred(double errorProb)
-        => (byte)Math.Max(0, Math.Min(93, -10 * Math.Log10(errorProb)));
+    {
+        if (double.IsNaN(errorProb) || errorProb < 0 || errorProb > 1)
+            throw new ArgumentOutOfRangeException(nameof(errorProb), errorProb, "Error probability must be in [0, 1].");
+        if (errorProb == 0)
+            return MaxSangerPhred;
+        return (byte)Math.Min(MaxSangerPhred, Math.Round(-10 * Math.Log10(errorProb)));
+    }
 
     /// <summary>
     /// Calculates expected number of errors.

@@ -276,5 +276,28 @@ public class PerformanceExtensionsTests
         Assert.That(count, Is.EqualTo(4)); // "ACG", "CGT", "GTA", "TAC"
     }
 
+    [TestCase(0)]
+    [TestCase(-1)]
+    [Description("B01-SWEEP: k must be >= 1 (scikit-bio Sequence.iter_kmers raises 'k must be greater than 0'; CountKmersSpan contract)")]
+    public void EnumerateKmers_NonPositiveK_ThrowsEagerly(int k)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => "ACGT".AsSpan().EnumerateKmers(k));
+    }
+
+    [Test]
+    [Description("B01-SWEEP: skbio DNA('ACGTACGTAC').kmer_frequencies(3, overlap=True) = {ACG:2, CGT:2, GTA:2, TAC:2}")]
+    public void EnumerateKmers_AgreesWithCountKmersSpanAndScikitBio()
+    {
+        var fromEnumerator = new Dictionary<string, int>();
+        foreach (var kmer in "ACGTACGTAC".AsSpan().EnumerateKmers(3))
+        {
+            var key = new string(kmer);
+            fromEnumerator[key] = fromEnumerator.GetValueOrDefault(key) + 1;
+        }
+        var expected = new Dictionary<string, int> { ["ACG"] = 2, ["CGT"] = 2, ["GTA"] = 2, ["TAC"] = 2 };
+        Assert.That(fromEnumerator, Is.EquivalentTo(expected));
+        Assert.That("ACGTACGTAC".AsSpan().CountKmersSpan(3), Is.EquivalentTo(expected));
+    }
+
     #endregion
 }

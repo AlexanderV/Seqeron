@@ -121,20 +121,25 @@ namespace Seqeron.Genomics.Core
         /// <summary>
         /// Calculates AU content (percentage of A and U nucleotides).
         /// </summary>
+        /// <remarks>
+        /// The sequence is validated A/C/G/U, so AU = valid − GC from the canonical
+        /// <see cref="SequenceExtensions.CountGcAndValidNucleotides"/> (no separate counting loop).
+        /// </remarks>
         public double AuContent()
         {
             if (_sequence.Length == 0) return 0;
 
-            int auCount = _sequence.Count(c => c == 'A' || c == 'U');
-            return (double)auCount / _sequence.Length * 100;
+            var (gc, valid) = _sequence.AsSpan().CountGcAndValidNucleotides();
+            return (double)(valid - gc) / _sequence.Length * 100;
         }
 
         /// <summary>
         /// Creates an RNA sequence from a DNA sequence (transcription).
         /// </summary>
+        /// <remarks>Delegates to <see cref="DnaSequence.Transcribe"/> (T → U).</remarks>
         public static RnaSequence FromDna(DnaSequence dna)
         {
-            return new RnaSequence(dna.Sequence.Replace('T', 'U'));
+            return new RnaSequence(dna.Transcribe());
         }
 
         public override string ToString() => _sequence;

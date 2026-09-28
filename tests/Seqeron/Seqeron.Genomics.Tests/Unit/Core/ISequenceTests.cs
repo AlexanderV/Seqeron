@@ -368,4 +368,107 @@ public class ISequenceTests
     }
 
     #endregion
+
+    #region B01-SWEEP — sourced fixes (Biopython 1.88 / scikit-bio 0.7.4 references)
+
+    [TestCase('r', 'a', true)]
+    [TestCase('n', 't', true)]
+    [TestCase('k', 'Y', true)]
+    [TestCase('s', 'w', false)]
+    [TestCase('b', 'a', false)]
+    [TestCase('d', 'c', false)]
+    [TestCase('m', 'K', false)]
+    [TestCase('h', 'g', false)]
+    [Description("B01-SWEEP: CodesMatch = intersection of NC-IUB base sets (Biopython IUPACData.ambiguous_dna_values), ASCII case-insensitive like ExpandCode")]
+    public void IupacDnaSequence_CodesMatch_CaseInsensitive_MatchesBiopythonSetIntersection(char c1, char c2, bool expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(IupacDnaSequence.CodesMatch(c1, c2), Is.EqualTo(expected));
+            Assert.That(IupacDnaSequence.CodesMatch(c2, c1), Is.EqualTo(expected), "symmetric");
+            Assert.That(IupacDnaSequence.CodesMatch(char.ToUpperInvariant(c1), char.ToUpperInvariant(c2)), Is.EqualTo(expected));
+        });
+    }
+
+    [TestCase("AU", 'W')]
+    [TestCase("cu", 'Y')]
+    [TestCase("gu", 'K')]
+    [TestCase("ACU", 'H')]
+    [TestCase("acgu", 'N')]
+    [TestCase("ag", 'R')]
+    [Description("B01-SWEEP: U is T (Biopython ambiguous_rna_values W='AU', Y='CU', K='GU', H='ACU'); consistent with ExpandCode('U') = T")]
+    public void IupacDnaSequence_GetIupacCode_RnaUracilTreatedAsThymine(string bases, char expected)
+    {
+        Assert.That(IupacDnaSequence.GetIupacCode(bases), Is.EqualTo(expected));
+    }
+
+    [TestCase(0.2, 7)]
+    [TestCase(0.0011, 30)]
+    [TestCase(0.5, 3)]
+    [TestCase(0.3, 5)]
+    [TestCase(0.05, 13)]
+    [TestCase(0.9, 0)]
+    [TestCase(1.0, 0)]
+    [TestCase(1e-9, 90)]
+    [TestCase(1e-10, 93)]
+    [TestCase(0.0, 93)]
+    [Description("B01-SWEEP: Q = round(-10 log10 p), capped at Q93 (Cock et al. 2010; Biopython _get_sanger_quality_str rounds: 0.2 -> 7, 0.0011 -> 30, 1e-10 -> 93)")]
+    public void QualitySequence_ErrorProbabilityToPhred_RoundsLikeBiopython(double p, int expected)
+    {
+        Assert.That((int)QualitySequence.ErrorProbabilityToPhred(p), Is.EqualTo(expected));
+    }
+
+    [TestCase(double.NaN)]
+    [TestCase(-0.1)]
+    [TestCase(1.1)]
+    public void QualitySequence_ErrorProbabilityToPhred_OutsideProbabilityDomain_Throws(double p)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => QualitySequence.ErrorProbabilityToPhred(p));
+    }
+
+    [Test]
+    [Description("B01-SWEEP: Biopython FASTQ parsing — 'II!' -> [40,40,0], '~~~' -> [93,93,93]; fastq-illumina 'h@~' -> [40,0,62]")]
+    public void QualitySequence_QualityStringCtor_DecodesLikeBiopython()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(new QualitySequence("ACG", "II!").Qualities, Is.EqualTo(new byte[] { 40, 40, 0 }));
+            Assert.That(new QualitySequence("ACG", "~~~").Qualities, Is.EqualTo(new byte[] { 93, 93, 93 }));
+            Assert.That(new QualitySequence("ACG", "h@~", phredOffset: 64).Qualities, Is.EqualTo(new byte[] { 40, 0, 62 }));
+        });
+    }
+
+    [TestCase("ACG", "II", 33)]
+    [TestCase("ACG", "IIII", 33)]
+    [TestCase("ACG", "I I", 33)]
+    [TestCase("ACG", "II\u007f", 33)]
+    [TestCase("ACG", "h?~", 64)]
+    [Description("B01-SWEEP: Biopython raises on quality/sequence length mismatch and on characters outside [offset, 126]")]
+    public void QualitySequence_QualityStringCtor_InvalidQualityString_Throws(string seq, string qual, int offset)
+    {
+        qual = System.Text.RegularExpressions.Regex.Unescape(qual);
+        Assert.Throws<ArgumentException>(() => new QualitySequence(seq, qual, offset));
+    }
+
+    [TestCase(32)]
+    [TestCase(127)]
+    public void QualitySequence_InvalidPhredOffset_Throws(int offset)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new QualitySequence("A", "I", offset));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new QualitySequence("A", new byte[] { 40 }).GetQualityString(offset));
+    }
+
+    [Test]
+    [Description("B01-SWEEP: Biopython _get_sanger_quality_str([50,40,30,20,10,0]) = 'SI?5+!'; Q>93 capped at '~' (Sanger) and Q>62 at '~' (Illumina 1.3+)")]
+    public void QualitySequence_GetQualityString_MatchesBiopythonAndCapsAtTilde()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(new QualitySequence("ACGTAN", new byte[] { 50, 40, 30, 20, 10, 0 }).GetQualityString(), Is.EqualTo("SI?5+!"));
+            Assert.That(new QualitySequence("AC", new byte[] { 100, 93 }).GetQualityString(33), Is.EqualTo("~~"));
+            Assert.That(new QualitySequence("AC", new byte[] { 70, 62 }).GetQualityString(64), Is.EqualTo("~~"));
+        });
+    }
+
+    #endregion
 }
