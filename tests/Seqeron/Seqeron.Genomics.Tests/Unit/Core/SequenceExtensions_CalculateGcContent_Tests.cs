@@ -461,4 +461,57 @@ public class SequenceExtensions_CalculateGcContent_Tests
     }
 
     #endregion
+
+    #region Biopython gc_fraction(ambiguous=...) parity — GcAmbiguityMode overload
+
+    // Expected values: Biopython 1.88 Bio.SeqUtils.gc_fraction (the first three rows are the
+    // docstring examples in Bio/SeqUtils/__init__.py, master, opened 2026-09-28 from
+    // raw.githubusercontent.com); the rest were computed with Biopython 1.88 (pip) on 2026-09-28.
+    [TestCase("ACTGSSSS", 0.75, 0.75, 0.75)]
+    [TestCase("GDVV", 1.0, 0.25, 0.6666666666666666)]
+    [TestCase("ACTGN", 0.5, 0.4, 0.5)]
+    [TestCase("acgtswn", 0.5, 0.42857142857142855, 0.5)]
+    [TestCase("gcvbhd", 1.0, 0.3333333333333333, 0.6666666666666666)]
+    [TestCase("GC-AT", 0.5, 0.4, 0.4)]
+    public void CalculateGcFraction_AmbiguityModes_MatchBiopython(
+        string sequence, double remove, double ignore, double weighted)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(sequence.CalculateGcFraction(SequenceExtensions.GcAmbiguityMode.Remove),
+                Is.EqualTo(remove).Within(1e-12), "remove");
+            Assert.That(sequence.CalculateGcFraction(SequenceExtensions.GcAmbiguityMode.Ignore),
+                Is.EqualTo(ignore).Within(1e-12), "ignore");
+            Assert.That(sequence.CalculateGcFraction(SequenceExtensions.GcAmbiguityMode.Weighted),
+                Is.EqualTo(weighted).Within(1e-12), "weighted");
+        });
+    }
+
+    // Default overload excludes S/W (documented divergence from Biopython "remove"):
+    // "ACTGSSSS" -> (G+C)/(A+T+G+C) = 2/4 = 0.5, whereas Biopython remove gives 0.75.
+    [Test]
+    public void CalculateGcFraction_Default_ExcludesStrongWeakCodes()
+    {
+        Assert.That("ACTGSSSS".AsSpan().CalculateGcFraction(), Is.EqualTo(0.5));
+    }
+
+    #endregion
+
+    #region Counting primitive
+
+    [TestCase("", 0, 0)]
+    [TestCase("ACGTU", 2, 5)]
+    [TestCase("acgtNNSW-", 2, 4)]
+    [TestCase("CCTGNN", 3, 4)]
+    public void CountGcAndValidNucleotides_ReturnsNumeratorAndDenominator(string sequence, int gc, int valid)
+    {
+        var (gcCount, validCount) = sequence.AsSpan().CountGcAndValidNucleotides();
+        Assert.Multiple(() =>
+        {
+            Assert.That(gcCount, Is.EqualTo(gc));
+            Assert.That(validCount, Is.EqualTo(valid));
+        });
+    }
+
+    #endregion
 }

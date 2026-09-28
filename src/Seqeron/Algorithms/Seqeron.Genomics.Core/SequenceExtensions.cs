@@ -17,20 +17,35 @@ public static class SequenceExtensions
     /// Returns 0 for empty sequences or sequences with no valid nucleotides.
     /// </summary>
     /// <remarks>
-    /// Matches Wikipedia GC-content formula and Biopython gc_fraction ("remove" mode).
+    /// Matches the Wikipedia GC-content formula. Equals Biopython <c>gc_fraction(seq, "remove")</c> for any
+    /// sequence without the IUPAC codes S/W; unlike Biopython, S (G|C) and W (A|T) are excluded here
+    /// like every other ambiguity code — use <see cref="CalculateGcFraction(ReadOnlySpan{char},GcAmbiguityMode)"/>
+    /// with <see cref="GcAmbiguityMode.Remove"/> for exact Biopython parity.
     /// Valid nucleotides: A, T, G, C, U (case-insensitive).
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double CalculateGcContent(this ReadOnlySpan<char> sequence)
     {
-        if (sequence.IsEmpty) return 0;
+        // Single source of truth: percentage = fraction × 100 (bit-identical to (gc / valid) × 100).
+        return sequence.CalculateGcFraction() * 100;
+    }
 
+    /// <summary>
+    /// Counts the G/C nucleotides (numerator) and the valid A/T/G/C/U nucleotides (denominator)
+    /// used by <see cref="CalculateGcFraction(ReadOnlySpan{char})"/> and
+    /// <see cref="CalculateGcContent(ReadOnlySpan{char})"/> (case-insensitive; every other
+    /// character, including IUPAC ambiguity codes, gaps and N, is excluded from both counts).
+    /// Canonical counting primitive for callers that must report the raw counts.
+    /// </summary>
+    /// <param name="sequence">Nucleotide sequence.</param>
+    /// <returns>(<c>GcCount</c> = #G + #C, <c>ValidCount</c> = #A + #T + #G + #C + #U).</returns>
+    public static (int GcCount, int ValidCount) CountGcAndValidNucleotides(this ReadOnlySpan<char> sequence)
+    {
         int gcCount = 0;
         int validCount = 0;
         for (int i = 0; i < sequence.Length; i++)
         {
-            char c = sequence[i];
-            switch (c)
+            switch (sequence[i])
             {
                 case 'G':
                 case 'g':
@@ -50,7 +65,7 @@ public static class SequenceExtensions
             }
         }
 
-        return validCount == 0 ? 0 : (double)gcCount / validCount * 100;
+        return (gcCount, validCount);
     }
 
     /// <summary>
@@ -70,39 +85,16 @@ public static class SequenceExtensions
     /// Returns 0 for empty sequences or sequences with no valid nucleotides.
     /// </summary>
     /// <remarks>
-    /// Matches Wikipedia GC-content formula and Biopython gc_fraction ("remove" mode).
+    /// Matches the Wikipedia GC-content formula. Equals Biopython <c>gc_fraction(seq, "remove")</c> for any
+    /// sequence without the IUPAC codes S/W; unlike Biopython, S (G|C) and W (A|T) are excluded here
+    /// like every other ambiguity code — use <see cref="CalculateGcFraction(ReadOnlySpan{char},GcAmbiguityMode)"/>
+    /// with <see cref="GcAmbiguityMode.Remove"/> for exact Biopython parity.
     /// Valid nucleotides: A, T, G, C, U (case-insensitive).
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double CalculateGcFraction(this ReadOnlySpan<char> sequence)
     {
-        if (sequence.IsEmpty) return 0;
-
-        int gcCount = 0;
-        int validCount = 0;
-        for (int i = 0; i < sequence.Length; i++)
-        {
-            char c = sequence[i];
-            switch (c)
-            {
-                case 'G':
-                case 'g':
-                case 'C':
-                case 'c':
-                    gcCount++;
-                    validCount++;
-                    break;
-                case 'A':
-                case 'a':
-                case 'T':
-                case 't':
-                case 'U':
-                case 'u':
-                    validCount++;
-                    break;
-            }
-        }
-
+        var (gcCount, validCount) = sequence.CountGcAndValidNucleotides();
         return validCount == 0 ? 0 : (double)gcCount / validCount;
     }
 
