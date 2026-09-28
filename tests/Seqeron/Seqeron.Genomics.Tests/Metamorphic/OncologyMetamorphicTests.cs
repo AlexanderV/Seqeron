@@ -2235,7 +2235,7 @@ public class OncologyMetamorphicTests
     //
     //   • INV (constant logR shift preserves breakpoints): both segmenters place a boundary
     //     on a logR *change*. The greedy SegmentAlleleSpecific splits when
-    //     |rᵢ − runningMean| exceeds the threshold; the ASPCF DP minimises the within-segment
+    //     |rᵢ − runningMean| exceeds the threshold; ASCAT's ASPCF minimises the MAD-standardised within-segment
     //     logR SSE plus a fixed per-segment penalty. Adding a constant c to every locus's logR
     //     shifts each running mean by c too, so every consecutive difference (greedy) and every
     //     within-segment SSE (ASPCF) is unchanged: the breakpoint set is invariant and each
@@ -2328,29 +2328,30 @@ public class OncologyMetamorphicTests
     }
 
     [Test]
-    [Description("INV: the ASPCF DP minimises within-segment logR SSE + penalty, both translation-invariant, so a constant logR shift preserves the optimal breakpoints and shifts each segment mean by c.")]
+    [Description("INV: ASCAT's ASPCF standardises each track by its MAD (translation-invariant) and minimises SSE/sd² + penalty (translation-invariant), so a constant logR shift preserves the breakpoints and shifts each segment mean by c.")]
     public void Ascat_ConstantLogRShift_PreservesAspcfBreakpoints()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0, 0.5));
+        // Noisy two-level track (ASCAT's getMad is 0 on noise-free data, which places no breakpoint at all).
+        // ascat.aspcf (R, penalty 70) gives the same breakpoints for shifts 0.3137, −0.8123, 1.9071 (Evidence).
+        List<OncologyAnalyzer.AlleleSpecificLocus> loci =
+            Seqeron.Genomics.Tests.Unit.Oncology.OncologyAnalyzer_AscatDerivation_Tests.AspcfStepTrack();
 
         IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> baseline =
-            OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
+            OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 70.0);
         baseline.Count.Should().Be(2,
-            because: "the two clean logR levels give exactly one breakpoint — the non-vacuity guard");
+            because: "the noisy two-level track gives exactly one breakpoint — the non-vacuity guard");
 
-        foreach (double c in new[] { 0.4, -0.9, 2.0 })
+        // Shifts chosen so no shifted logR is exactly 0 (getMad drops exact zeros as imputed values).
+        foreach (double c in new[] { 0.3137, -0.8123, 1.9071 })
         {
-            var shifted = loci
-                .Select(l => new OncologyAnalyzer.AlleleSpecificLocus(l.Chromosome, l.Position, l.LogR + c, l.BAF))
-                .ToList();
+            List<OncologyAnalyzer.AlleleSpecificLocus> shifted =
+                Seqeron.Genomics.Tests.Unit.Oncology.OncologyAnalyzer_AscatDerivation_Tests.AspcfStepTrack(c);
 
             IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
-                OncologyAnalyzer.SegmentAlleleSpecificAspcf(shifted, penalty: 0.5);
+                OncologyAnalyzer.SegmentAlleleSpecificAspcf(shifted, penalty: 70.0);
 
             segs.Count.Should().Be(baseline.Count,
-                because: $"within-segment logR SSE is translation-invariant, so the DP optimum is unchanged by a logR shift of {c}");
+                because: $"the standardised joint cost is translation-invariant, so the optimum is unchanged by a logR shift of {c}");
             for (int i = 0; i < baseline.Count; i++)
             {
                 segs[i].LocusCount.Should().Be(baseline[i].LocusCount,

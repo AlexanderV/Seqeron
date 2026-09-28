@@ -5,8 +5,8 @@
 | Algorithm Group | Oncology |
 | Test Unit ID | ONCO-ASCAT-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-23 |
+| Implementation Status | Complete (ASCAT runASCAT / ascat.aspcf, Battenberg determine_copynumber ports; greedy segmenter retained) |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -42,16 +42,24 @@ nA = (ρ − 1 − (b − 1)·2^(r/γ) · ((1−ρ)·2 + ρ·ψ)) / ρ
 nB = (ρ − 1 +  b   ·2^(r/γ) · ((1−ρ)·2 + ρ·ψ)) / ρ
 ```
 
-For massively parallel sequencing data **γ = 1** [2]. The joint fit grid-searches (ρ, ψ) to minimise the
-segment-length-weighted squared distance of the minor allele to the nearest non-negative integer [1][2]:
+For massively parallel sequencing data **γ = 1** [2]. ASCAT (`runASCAT`, ascat.runAscat.R [2]) computes a
+distance matrix over ψ ∈ seq(min_ploidy − 0.5, max_ploidy + 0.5, 0.05) × ρ ∈ seq(min_purity, max_purity, 0.01)
+(defaults 1.5 / 5.5 / 0.1 / 1.05) from the **autosomal** segments, `length` being the number of heterozygous probes
+(`make_segments`) and the minor allele chosen genome-wide (`sum(nA) < sum(nB)`):
 
 ```
-d(ρ,ψ) = Σ_segments  (n_minor − round(n_minor))² · length · w_b      where w_b = 0.05 if b = 0.5 else 1
+d(ρ,ψ) = Σ_segments  (n_minor − max(round(n_minor), 0))² · length · w_b      w_b = 0.05 if b = 0.5 else 1
 TheoretMaxdist = Σ_segments 0.25 · length · w_b
 goodnessOfFit  = (1 − d / TheoretMaxdist) · 100   [%]
 ```
 
-(0.25 = (½)² is the worst-case squared distance to an integer [2].)
+(0.25 = (½)² is the worst-case squared distance to an integer [2].) Candidate solutions are the cells that are the
+strict minimum of their 7 × 7 neighbourhood; a four-pass filter cascade keeps candidates with recomputed ploidy
+Σ(nA+nB)·length/Σlength in (min_ploidy, max_ploidy), ρ ≥ 0.2, GoF > 80 % and percentzero > 0.02 (pass 1), then
+relaxes to 1.7 < ploidy < 2.3 with perczeroAbb > 0.1 (pass 2), ρ > 1 columns masked with percentzero / perczeroAbb /
+percOddEven alternatives (pass 3) and strict ploidy alone (pass 4). The smallest-distance candidate wins (ρ > 1
+reported as 1); with no candidate ASCAT returns rho = NA. Integer segments (`seg_raw`) fold a negative allele into
+the other, round half-to-even and, for BAF = 0.5, apply the odd-total rule (`limitround = 0.5`).
 
 Mutation multiplicity (number of mutated copies per cancer cell) is the rounded observed mutation copy number
 [3][4]:
@@ -63,7 +71,8 @@ m     = clamp( round(n_mut), 1, majorCopyNumber )
 
 which is the inversion of the PICTograph generative model VAF = m·CCF·ρ / (N_T·ρ + 2(1−ρ)) at clonal CCF = 1 [4].
 
-**ASPCF segmentation (penalised least squares).** ASCAT segments via Piecewise Constant Fitting [6][7]: minimise
+**ASPCF segmentation (penalised least squares).** ASCAT segments via Piecewise Constant Fitting [6][7] (the
+implementation is a port of `ascat.aspcf` / `fastAspcf` / `aspcfpart` [2], see §4.1 step 4): minimise
 
 ```
 L(S | y, γ) = Σ_{I∈S} Σ_{j∈I} (y_j − ȳ_I)² + γ·|S|
@@ -84,27 +93,30 @@ mirrored-BAF (y₂) tracks are segmented with **common breakpoints** but separat
 L(S | y₁, y₂, γ) = L(S | y₁, γ) + L(S | y₂, γ)
 ```
 
-so the per-segment data cost is (logR-SSE + mirroredBAF-SSE) and γ is charged once per segment. BAF is mirrored
-to a single allelic-imbalance track (b' = 0.5 + |b − 0.5|) before segmentation [7].
+where in ASCAT each track's SSE is divided by its MAD-based variance (`getMad`: MAD of the residuals from a running
+median), so the per-segment data cost is (logR-SSE/sd₁² + BAF-SSE/sd₂²), γ is charged per breakpoint and every
+segment has at least kmin = 6 loci [2]. BAF is mirrored to a single allelic-imbalance track before segmentation [7];
+a segment's BAF is 0.5 + mean|b − 0.5|, shrunk to 0.5 when sqrt(sd₂² + μ²) < 2·sd₂ [2].
 
 **Sub-clonal copy number (Battenberg two-population model).** A segment has either one integer state (clonal, all
-tumour cells) or two integer states (sub-clonal, two cell populations whose fractions sum to 1) [8]. The
-real-valued ASCAT allele-specific copy numbers (nA, nB) at the fitted (ρ, ψ) are decomposed, when not
-(near-)integer, as a single shared fraction f mixing the two bracketing integers:
+tumour cells) or two integer states (sub-clonal, two cell populations whose fractions sum to 1) [8]. Battenberg's
+`determine_copynumber` (R/fitcopynumber.R, R/orderEdges.R) takes the corners of the **nearest edge** of the
+copy-number square around (nMajor, nMinor) — two states differing in one allele — chosen from the segment BAF l
+relative to the corner BAF levels (1 − ρ + ρ·M)/(2 − 2ρ + ρ·(M + m)) and the priority `ntot < x + y + 1`, and solves the
+BAF mixture for the fraction of state 1:
 
 ```
-major_obs = f·a_hi + (1−f)·a_lo,   minor_obs = f·b_hi + (1−f)·b_lo,   f ∈ [0,1]
+τ = (1 − ρ + ρ·M₂ − 2l(1 − ρ) − lρ(m₂ + M₂)) / (lρ(m₁ + M₁) − lρ(m₂ + M₂) − ρM₁ + ρM₂)
 ```
 
-where (a_hi, b_hi)/(a_lo, b_lo) are the two integer states; f is solved by least squares over both candidate
-allele pairings and the lower-residual pairing is kept. A near-integer segment collapses to a single state (f≈0/1)
-[8].
+A segment is clonal when |l − BAF of the closest corner| < maxdist = 0.01 (or the per-SNP t-test is not significant;
+a segment summary has constant SNP BAF, for which Battenberg sets pval = 0) [8].
 
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
-| ASM-01 | A single tumour clone / single (ρ, ψ) explains the genome | Subclonal copy number is not modelled; segments forced to nearest integer CN |
+| ASM-01 | A single (ρ, ψ) explains the genome | `FitPurityPloidy` rounds to integers; sub-clonal segments are modelled separately by `FitSubclonalCopyNumber` |
 | ASM-02 | γ matches the platform (γ = 1 for sequencing) | Wrong γ rescales logR → biased copy number [2] |
 | ASM-03 | BAF is measured at germline-heterozygous SNPs | BAF at homozygous sites is uninformative; folding assumes het loci |
 
@@ -112,13 +124,13 @@ allele pairings and the lower-residual pairing is kept. A near-integer segment c
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | At the true (ρ₀, ψ₀) of an integer-CN genome, d ≈ 0 and GoF ≈ 100% | nA, nB equal exact integers by construction [1][2] |
+| INV-01 | At the true (ρ₀, ψ₀) of an integer-CN genome, d ≈ 0 and GoF ≈ 100% (`EvaluatePurityPloidy`) | nA, nB equal exact integers by construction [1][2] |
 | INV-02 | Derived multiplicity ∈ [1, majorCopyNumber] | explicit clamp; a variant sits on ≥ 1 and ≤ major-allele copies [3][4] |
 | INV-03 | GoF ≤ 100% | d ≥ 0 and d ≤ TheoretMaxdist by the 0.25 worst-case bound [2] |
-| INV-04 | major ≥ minor in every emitted segment | nA, nB sorted before rounding |
-| INV-05 | ASPCF penalised cost is the global minimum (≤ any greedy segmentation) | DP recurrence over all S [6] |
+| INV-04 | major ≥ minor ≥ 0 in every emitted segment | ASCAT BAF ≤ 0.5 orientation ⇒ nA ≥ nB; negative-value correction [2] |
+| INV-05 | ASPCF output equals `ascat.aspcf` (per window the standardised cost is minimised exactly over segmentations with ≥ kmin loci) | aspcfpart DP [2][6] |
 | INV-06 | A segment with no logR/BAF change is one ASPCF segment; γ→∞ ⇒ \|S\|=1 | penalty dominates SSE gains [6] |
-| INV-07 | Sub-clonal state fractions sum to 1; a clonal segment has f=1 and no second state | two-population model [8] |
+| INV-07 | Sub-clonal state fractions sum to 1 (τ unclamped, as Battenberg); a clonal segment has f=1 and no second state | two-population model [8] |
 
 ## 3. Contract
 
@@ -129,11 +141,11 @@ allele pairings and the lower-residual pairing is kept. A near-integer segment c
 | loci | IEnumerable\<AlleleSpecificLocus\> | required | per-locus (chrom, pos, logR, BAF) measurements | non-null; chrom non-null |
 | logRChangeThreshold | double | required | mean-shift split threshold (logR units) | > 0 |
 | minLociPerSegment | int | 1 | min loci before a split | ≥ 1 |
-| penalty (ASPCF γ) | double | 40.0 | per-segment penalty in the PCF cost | > 0 |
+| penalty (ASPCF γ) | double | 70.0 | per-breakpoint penalty on the standardised cost (`ascat.aspcf`) | > 0, finite |
 | purity, ploidy (sub-clonal) | double | required | fitted ρ, ψ for the sub-clonal decomposition | ρ∈(0,1]; ψ>0 |
-| segments | IReadOnlyList\<AlleleSpecificSegmentSummary\> | required | segment summaries for the fit | non-empty |
-| purityMin/Max/Step | double | 0.05 / 1.0 / 0.01 | purity grid | (0,1]; max ≥ min; step > 0 |
-| ploidyMin/Max/Step | double | 1.5 / 5.0 / 0.05 | ploidy grid | > 0; max ≥ min; step > 0 |
+| segments | IReadOnlyList\<AlleleSpecificSegmentSummary\> | required | segment summaries for the fit | non-empty; finite logR; BAF ∈ [0,1]; LocusCount ≥ 1; ≥ 1 autosomal |
+| purityMin/Max/Step | double | 0.1 / 1.05 / 0.01 | purity grid (ASCAT min/max_purity) | min ∈ (0,1]; max ≥ min, finite; step > 0 |
+| ploidyMin/Max/Step | double | 1.5 / 5.5 / 0.05 | ASCAT min/max_ploidy filter; ψ grid spans ±0.5 beyond | > 0; max ≥ min; step > 0 |
 | gamma | double | 1.0 | platform γ | > 0 |
 | vaf, purity, totalCopyNumber, majorCopyNumber | double/int | required | multiplicity inputs | vaf∈[0,1]; ρ∈(0,1]; N_T≥1; major∈[1,N_T] |
 
@@ -142,14 +154,16 @@ allele pairings and the lower-residual pairing is kept. A near-integer segment c
 | Field | Type | Description |
 |-------|------|-------------|
 | AlleleSpecificSegmentSummary | record | per-segment mean logR, mirrored mean BAF, locus count |
-| PurityPloidyFit | record | recovered ρ, ψ, GoF %, and the implied integer `AlleleSpecificSegment`s |
+| PurityPloidyFit | record | ρ, ASCAT output ploidy (probe-weighted mean integer total CN), GoF %, integer `AlleleSpecificSegment`s (one per summary, ASCAT `seg_raw`), `Psi` (ψ), `IsNonAberrant` |
 | DeriveMultiplicity | int | integer multiplicity m ∈ [1, majorCopyNumber] |
 | SubclonalSegmentFit | record | per-segment primary/secondary `SubclonalCopyNumberState` (major, minor, cellFraction) + IsSubclonal flag |
 
 ### 3.3 Preconditions and Validation
 
-Positions are 0-based. Null `loci`/`segments` → `ArgumentNullException`; empty `segments` → `ArgumentException`;
-out-of-range thresholds, grid bounds, or multiplicity arguments → `ArgumentOutOfRangeException`. BAF is mirrored
+Positions are 0-based. Null `loci`/`segments` → `ArgumentNullException`; empty/malformed `segments` (or no autosomal
+segment) → `ArgumentException`; out-of-range thresholds, grid bounds, or multiplicity arguments →
+`ArgumentOutOfRangeException`; no acceptable ASCAT optimum → `InvalidOperationException` from `FitPurityPloidy`
+(`TryFitPurityPloidy` returns false). BAF is mirrored
 about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het clusters reinforce.
 
 ## 4. Algorithm
@@ -160,22 +174,25 @@ about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het 
    (mirrored) BAF mean-shift (after `minLociPerSegment`). Summarise each run by mean logR and mirrored mean BAF.
    Segmenting on BAF as well as logR is essential because copy-neutral LOH (e.g. 2:0) shares a balanced region's
    logR but not its BAF.
-2. **Fit:** for each (ρ, ψ) on the grid, map every segment to (nA, nB) via the ASCAT equations, accumulate the
-   length-weighted squared minor-allele integer distance (the reported GoF objective). For *selection* the
-   major-allele integer distance is added too, and exact ties prefer the lower ploidy ψ — the ASCAT parsimony
-   convention that resolves the 2n vs 4n degeneracy. Emit the rounded, clamped integer `AlleleSpecificSegment`s
-   and the percentage GoF (computed from the minor-allele distance, per ascat.runAscat.R).
+2. **Fit (`runASCAT`):** build the distance matrix over the autosomal segments, collect strict 7 × 7 local minima
+   through the four-pass filter cascade, keep the smallest distance (ρ > 1 ⇒ 1), emit the `seg_raw` integer
+   segments for every summary (sex chromosomes with the diploid model), the ASCAT ploidy and GoF. No candidate ⇒
+   rho = NA. `EvaluatePurityPloidy` is the rho_manual/psi_manual path.
 3. **Multiplicity:** m = clamp(round(VAF·[ρ·N_T + 2(1−ρ)]/ρ), 1, major). Feed (VAF, ρ, N_T, m) into `EstimateCcf`.
-4. **ASPCF (alternative to step 1):** per chromosome, run the PCF dynamic program over the joint (logR, mirrored
-   BAF) SSE with penalty γ; backtrack the global-optimum breakpoint set and emit segment summaries. This replaces
-   the greedy mean-shift with the penalised-least-squares optimum [6][7].
-5. **Sub-clonal fit:** for each segment compute (nA, nB) at the fitted (ρ, ψ); if both alleles snap to integers
-   within tolerance the segment is clonal (one state, f=1), else decompose into two adjacent integer states with a
-   shared least-squares fraction f (Battenberg) [8].
+4. **ASPCF (`ascat.aspcf`, alternative to step 1):** per chromosome, MAD-winsorise logR and mirrored BAF; < 6 loci ⇒
+   one segment; else `fastAspcf`: 1000-locus windows (overlap 100), per window MAD sd of both tracks (a window with
+   sd 0 is skipped), `aspcfpart` exact DP with kmin 6 on the standardised joint cost; segment logR = mean raw logR,
+   BAF = 0.5 + μ (shrunk to 0.5 when sqrt(sd₂² + μ²) < 2·sd₂); repeat with the next penalty of the ladder while ≥ 800
+   distinct logR levels remain [2][6][7].
+5. **Sub-clonal fit (Battenberg `determine_copynumber`):** nMajor/nMinor at (ρ, ψ) from l = max(b, 1 − b); nearest
+   edge (`orderEdges` option 1); clonal if the closest corner is within 0.01 BAF, else two states with fraction τ [8].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-- γ = 1 (sequencing) [2]; balanced (BAF = 0.5) segments weighted ×0.05 [2]; worst-case integer distance 0.25 [2].
+- γ = 1 (sequencing) [2]; balanced (BAF = 0.5, exact equality as in R) segments weighted ×0.05 [2]; worst-case
+  integer distance 0.25 [2]; ASCAT constants MINRHO 0.2, MINGOODNESSOFFIT 80, MINPERCZERO 0.02, MINPERCZEROABB 0.1,
+  MINPERCODDEVEN 0.05, MINPLOIDYSTRICT 1.7, MAXPLOIDYSTRICT 2.3, MINABB 0.03, MINABBREGION 0.005 [2].
+- Battenberg constants maxdist 0.01, cn_upper_limit 1000, minimum minor CN 0.01 [8].
 - Segments with End == Start are emitted with a 1 bp span so `AlleleSpecificSegment.Length > 0`.
 
 ### 4.3 Complexity
@@ -183,8 +200,8 @@ about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | Segmentation (greedy) | O(L) | O(L) | L = loci |
-| ASPCF segmentation | O(L²) per chromosome | O(L) | PCF dynamic program (Nilsen 2012) [6] |
-| Purity/ploidy fit | O(P·Q·S) | O(S) | P,Q = grid sizes, S = segments |
+| ASPCF segmentation | O(L·W) per chromosome (W = 1000-locus window) | O(W) | windowed PCF DP [2][6] |
+| Purity/ploidy fit | O(P·Q·S) | O(P·Q + S) | P,Q = grid sizes (≤ 4·10⁶ cells), S = segments |
 | Multiplicity | O(1) | O(1) | closed form |
 | Sub-clonal fit | O(S) | O(S) | closed-form decomposition per segment |
 
@@ -192,39 +209,40 @@ about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het 
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)
 
 - `OncologyAnalyzer.SegmentAlleleSpecific(...)`: greedy mean-shift segmentation of per-locus logR/BAF.
-- `OncologyAnalyzer.SegmentAlleleSpecificAspcf(...)`: ASPCF penalised-least-squares (PCF DP) joint segmentation.
-- `OncologyAnalyzer.FitPurityPloidy(...)`: ASCAT grid fit → ρ, ψ, GoF, integer segments.
+- `OncologyAnalyzer.SegmentAlleleSpecificAspcf(...)`: ASCAT ASPCF (`ascat.aspcf` port).
+- `OncologyAnalyzer.FitPurityPloidy(...)` / `TryFitPurityPloidy(...)`: ASCAT `runASCAT` fit → ρ, ψ, ploidy, GoF, integer segments.
+- `OncologyAnalyzer.EvaluatePurityPloidy(...)`: ASCAT rho_manual/psi_manual path.
 - `OncologyAnalyzer.DeriveMultiplicity(...)`: McGranahan multiplicity (rounded, clamped).
-- `OncologyAnalyzer.FitSubclonalCopyNumber(...)`: Battenberg two-state sub-clonal copy-number decomposition.
+- `OncologyAnalyzer.FitSubclonalCopyNumber(...)`: Battenberg `determine_copynumber` (nearest edge, τ, maxdist).
 
 ### 5.2 Current Behavior
 
-Single-sample fit on a fixed (ρ, ψ) grid; minor-allele integer-distance objective; mirrored-BAF summaries.
-Segmentation is available both as the original greedy mean-shift and as the global-optimum ASPCF (PCF DP); the
-sub-clonal fit adds the Battenberg two-population decomposition. Not a search/matching task, so the repository
+Single-sample ASCAT fit (runASCAT port, R-verified 150/150); ASPCF = `ascat.aspcf` port (R-verified 60/60);
+sub-clonal = Battenberg `determine_copynumber` port (R-verified 402/402). The greedy mean-shift segmenter is kept as
+a lightweight alternative (not ASCAT). Not a search/matching task, so the repository
 suffix tree is **not used** (no occurrence enumeration).
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- ASCAT nA/nB equations and the minor-allele integer-distance goodness-of-fit, including the 0.05 balanced
-  down-weight and the 0.25 worst-case term [2].
+- ASCAT `runASCAT`: nA/nB equations, distance matrix (probe-count weights, autosomes, genome-wide minor allele),
+  local-minimum scan, filter cascade, ρ clamp, `seg_raw` rounding, GoF, non-aberrant flag, manual (ρ, ψ) path [2].
 - McGranahan observed mutation copy number n_mut and the [1, major] multiplicity clamp [3][4].
-- ASPCF penalised-least-squares segmentation: the PCF cost `Σ SSE + γ·|S|`, the O(n²) DP recurrence, and the
-  joint logR + mirrored-BAF cost with common breakpoints [6][7].
-- Sub-clonal copy number: the Battenberg two-population model — one or two integer states whose cellular fractions
-  sum to 1 — with the two states being the bracketing integers and a shared fraction f [8].
+- ASCAT ASPCF: winsorisation, MAD-standardised joint cost, kmin 6, windows, BAF shrinkage, penalty ladder [2][6][7].
+- Battenberg `determine_copynumber`: nearest edge (`orderEdges` option 1), τ, maxdist clonality, negative-minor
+  adjustment [8].
 
 **Intentionally simplified:**
 
-- Purity/ploidy fit: fixed-grid minimum with a lower-ploidy tie-break, **not** the ASCAT iterative refit;
-  **consequence:** the (ρ, ψ) optimum is grid-resolution limited.
-- Sub-clonal fit: two adjacent integer states with one shared fraction, **not** an arbitrary multi-state mixture;
-  **consequence:** three-or-more cell populations per segment are not modelled.
+- ASCAT inputs are segment summaries: germline-homozygous probes (their logR averaging and the homozygous-stretch
+  resegmentation of `ascat.aspcf`) and the gender-specific haploid X/Y model are not available; sex-chromosome
+  segments are excluded from the fit and emitted with the diploid (gender "XX") model.
+- Sub-clonal fit: a summary carries no per-SNP BAF spread, so Battenberg's t-test cannot be run (pval = 0 as for a
+  constant-BAF segment; only maxdist decides clonality); bootstrap CIs and alternative solutions B–F are not produced.
 
 **Not implemented:**
 
@@ -236,8 +254,10 @@ suffix tree is **not used** (no occurrence enumeration).
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Greedy mean-shift segmentation retained alongside ASPCF | Deviation | breakpoint sensitivity of the greedy path | accepted | ASPCF (`SegmentAlleleSpecificAspcf`) is the global-optimum path [6] |
-| 2 | Two-state sub-clonal mixture (adjacent integers) | Assumption | no 3+-population segments | accepted | Battenberg single-fraction segment [8] |
+| 1 | Greedy mean-shift segmentation retained alongside ASPCF | Deviation | breakpoint sensitivity of the greedy path | accepted | ASPCF (`SegmentAlleleSpecificAspcf`) is the ASCAT path [2] |
+| 2 | Segment summaries instead of probes | Assumption | no homozygous-probe logR, no haploid X/Y model | accepted | see §5.3 |
+| 3 | No per-SNP t-test in the sub-clonal fit | Assumption | clonality by maxdist only | accepted | constant-BAF branch of Battenberg [8] |
+| 4 | `PurityPloidyFit.Ploidy` = probe-weighted mean integer CN over heterozygous probes | Assumption | ASCAT averages over all probes | accepted | `Psi` carries ψ |
 
 ## 6. Edge Cases and Limitations
 
@@ -245,20 +265,24 @@ suffix tree is **not used** (no occurrence enumeration).
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
-| Balanced-only genome (all b=0.5) | fit completes; segments ×0.05 weighted | source [2] |
+| Balanced-only genome (all b=0.5) | non-aberrant flag; fit may fail (rho = NA) | source [2] |
+| Single-segment genome | no strict local minimum passes the filters ⇒ rho = NA | source [2] (R run) |
+| Noise-free logR/BAF | ASPCF places no breakpoint (MAD sd = 0) | source [2] (R run) |
 | Single locus per chromosome | one segment per chromosome, LocusCount=1 | segmentation contract |
 | VAF rounds to 0 | multiplicity clamped to 1 | INV-02 |
 | VAF rounds above major CN | multiplicity clamped to major CN | INV-02 |
 | ASPCF flat track (no change) | single segment | INV-06 |
 | ASPCF γ → ∞ | single segment per chromosome | INV-06 [6] |
-| Sub-clonal: integer (nA,nB) | single clonal state, f=1 | INV-07 [8] |
+| ASPCF chromosome with < 6 loci | one segment, mean winsorised mirrored BAF | source [2] |
+| Sub-clonal: BAF within 0.01 of a corner | single clonal state, f=1 | INV-07 [8] |
 
 ### 6.2 Limitations
 
 logR and BAF are observed measurements and are always a caller input — this is inherent, not a limitation of the
-derivation. The derivation models sub-clonal copy number only as a two-population (two adjacent integer states)
-mixture per segment; it does not model 3+ populations per segment, multi-sample (asmultipcf) segmentation, or a
-whole-genome-doubling refit search, and assumes germline-het BAF loci.
+derivation. The unit works on heterozygous-locus segment summaries: germline-homozygous probes, the haploid X/Y
+(male) model, multi-sample (asmultipcf) segmentation and Battenberg's haplotype phasing / per-SNP t-test / bootstrap
+are out of scope (phased BAFs need an imputation reference panel). `FitPurityPloidy` fails (like ASCAT) when no local
+minimum passes the filters — use `TryFitPurityPloidy`, or `EvaluatePurityPloidy` with externally chosen (ρ, ψ).
 
 ## 7. Examples and Related Material
 
@@ -269,7 +293,8 @@ whole-genome-doubling refit search, and assumes germline-het BAF loci.
 ```csharp
 var loci = /* per-locus (chrom, pos, logR, BAF) measurements */;
 var summaries = OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2);
-var fit = OncologyAnalyzer.FitPurityPloidy(summaries);          // → ρ, ψ, integer segments
+var summaries2 = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci); // ASCAT ASPCF segmentation
+var fit = OncologyAnalyzer.FitPurityPloidy(summaries2);         // → ρ, ψ, integer segments (throws if ASCAT finds none)
 double ploidy = OncologyAnalyzer.EstimatePloidy(fit.Segments);  // downstream consumer
 var seg = fit.Segments[0];
 int m = OncologyAnalyzer.DeriveMultiplicity(vaf: 0.40, purity: fit.Purity,
@@ -288,10 +313,10 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 ## 8. References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. 2010. Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
-2. VanLoo-lab/ascat reference implementation, `ASCAT/R/ascat.runAscat.R`. https://github.com/VanLoo-lab/ascat
+2. VanLoo-lab/ascat reference implementation, `ASCAT/R/ascat.runAscat.R`, `ASCAT/R/ascat.aspcf.R` (master, read 2026-09-28). https://github.com/VanLoo-lab/ascat
 3. McGranahan N, Furness AJS, Rosenthal R, et al. 2016. Clonal neoantigens elicit T cell immunoreactivity and sensitivity to immune checkpoint blockade. Science 351(6280):1463–1469. https://doi.org/10.1126/science.aaf1490
 4. Zheng L, et al. 2022. Estimation of cancer cell fractions and clone trees from multi-region sequencing of tumors. Bioinformatics 38(15):3677–3683. https://doi.org/10.1093/bioinformatics/btac440
 5. Satas G, Zaccaria S, El-Kebir M, Raphael BJ. 2021. DeCiFering the elusive cancer cell fraction. PMC8542635. https://pmc.ncbi.nlm.nih.gov/articles/PMC8542635/
 6. Nilsen G, Liestøl K, Van Loo P, et al. 2012. Copynumber: Efficient algorithms for single- and multi-track copy number segmentation. BMC Genomics 13:591. https://doi.org/10.1186/1471-2164-13-591
 7. Ross EM, Haase K, Van Loo P, Markowetz F. 2021. Allele-specific multi-sample copy number segmentation in ASCAT. Bioinformatics 37(13):1909–1911. https://doi.org/10.1093/bioinformatics/btaa538
-8. Nik-Zainal S, Van Loo P, Wedge DC, et al. 2012. The Life History of 21 Breast Cancers. Cell 149(5):994–1007. https://doi.org/10.1016/j.cell.2012.04.023 ; Battenberg, https://github.com/Wedge-lab/battenberg
+8. Nik-Zainal S, Van Loo P, Wedge DC, et al. 2012. The Life History of 21 Breast Cancers. Cell 149(5):994–1007. https://doi.org/10.1016/j.cell.2012.04.023 ; Battenberg `R/fitcopynumber.R` (`determine_copynumber`), `R/orderEdges.R` (master, read 2026-09-28), https://github.com/Wedge-lab/battenberg

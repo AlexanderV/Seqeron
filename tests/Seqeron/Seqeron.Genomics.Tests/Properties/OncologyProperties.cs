@@ -9629,9 +9629,9 @@ public class OncologyProperties
 
     // -------------------------------------------------------------------------
     // Theory (Van Loo et al. 2010, PNAS 107:16910 — ASCAT; ascat.runAscat.R):
-    //   • FitPurityPloidy grid-searches (ρ, ψ) minimising the allele-specific "sunrise" GoF, then maps
-    //     each segment to ROUNDED, CLAMPED integer allele-specific copy numbers (nA, nB) ≥ 0.
-    //   • The recovered purity ρ lies on the purity grid ⊆ (0, 1]; the ploidy ψ lies on the ploidy grid > 0.
+    //   • FitPurityPloidy builds the ASCAT distance matrix, takes strict 7×7 local minima passing the runASCAT
+    //     filter cascade, and maps each segment to integer allele-specific copy numbers (seg_raw rounding) ≥ 0.
+    //   • The recovered purity ρ lies on the purity grid (values > 1 reported as 1); ψ lies on the ploidy grid.
     // The grid search is a deterministic pure function of its inputs.
     // -------------------------------------------------------------------------
 
@@ -9646,38 +9646,47 @@ public class OncologyProperties
          select (IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary>)segs).ToArbitrary();
 
     /// <summary>
-    /// R + P: the ASCAT fit always returns a purity ρ ∈ (0,1], a ploidy ψ &gt; 0, and integer allele-specific
-    /// copy-number segments with nA ≥ 0 and nB ≥ 0 (rounded and clamped, ascat.runAscat.R). The recovered
-    /// (ρ, ψ) lie on the searched grid.
+    /// R + P: whenever ASCAT finds an optimum (TryFitPurityPloidy = true) it returns a purity ρ ∈ (0,1] (grid points
+    /// above 1 reported as 1), a ψ on the grid seq(min_ploidy − 0.5, max_ploidy + 0.5, 0.05), GoF ∈ (80, 100] and
+    /// integer allele-specific segments with major ≥ minor ≥ 0 (ascat.runAscat.R); otherwise (rho = NA) the throwing
+    /// FitPurityPloidy reports InvalidOperationException.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property FitPurityPloidy_PurityPloidyAndCopyNumbers_AreInValidRanges()
     {
         return Prop.ForAll(AscatSegmentsArbitrary(), segs =>
         {
-            var fit = OncologyAnalyzer.FitPurityPloidy(segs);
+            if (!OncologyAnalyzer.TryFitPurityPloidy(segs, out var fit))
+            {
+                bool throws;
+                try { OncologyAnalyzer.FitPurityPloidy(segs); throws = false; }
+                catch (InvalidOperationException) { throws = true; }
+                return throws.Label("no ASCAT optimum ⇒ FitPurityPloidy throws InvalidOperationException");
+            }
+
             bool purityOk = fit.Purity > 0.0 && fit.Purity <= 1.0;
-            bool ploidyOk = fit.Ploidy > 0.0;
-            bool cnOk = fit.Segments.All(s => s.MajorCopyNumber >= 0 && s.MinorCopyNumber >= 0);
-            return (purityOk && ploidyOk && cnOk)
-                .Label($"ρ={fit.Purity}, ψ={fit.Ploidy}, segments={fit.Segments.Count}");
+            bool psiOk = fit.Psi >= 1.0 - 1e-9 && fit.Psi <= 6.0 + 1e-9;
+            bool gofOk = fit.GoodnessOfFit > 80.0 && fit.GoodnessOfFit <= 100.0 + 1e-9;
+            bool cnOk = fit.Segments.All(s => s.MinorCopyNumber >= 0 && s.MajorCopyNumber >= s.MinorCopyNumber);
+            return (purityOk && psiOk && gofOk && cnOk)
+                .Label($"ρ={fit.Purity}, ψ={fit.Psi}, GoF={fit.GoodnessOfFit}, segments={fit.Segments.Count}");
         });
     }
 
     /// <summary>
-    /// D (determinism): the grid search is a pure function — identical segments yield an identical fit
-    /// (purity, ploidy, goodness of fit, and every implied copy-number segment).
+    /// D (determinism): the ASCAT search is a pure function — identical segments yield an identical outcome
+    /// (found / not found, purity, ψ, ploidy, goodness of fit, and every implied copy-number segment).
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property FitPurityPloidy_IsDeterministic()
     {
         return Prop.ForAll(AscatSegmentsArbitrary(), segs =>
         {
-            var a = OncologyAnalyzer.FitPurityPloidy(segs);
-            var b = OncologyAnalyzer.FitPurityPloidy(segs);
-            bool same = a.Purity == b.Purity && a.Ploidy == b.Ploidy
+            bool okA = OncologyAnalyzer.TryFitPurityPloidy(segs, out var a);
+            bool okB = OncologyAnalyzer.TryFitPurityPloidy(segs, out var b);
+            bool same = okA == okB && (!okA || (a.Purity == b.Purity && a.Ploidy == b.Ploidy && a.Psi == b.Psi
                         && a.GoodnessOfFit == b.GoodnessOfFit
-                        && a.Segments.SequenceEqual(b.Segments);
+                        && a.Segments.SequenceEqual(b.Segments)));
             return same.Label("FitPurityPloidy must be deterministic for identical input");
         });
     }

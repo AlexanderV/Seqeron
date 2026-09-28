@@ -194,6 +194,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     }
 
     // S1 — the goodness-of-fit discriminates: GoF at the true (rho,psi) exceeds GoF at a wrong (rho,psi).
+    // Evaluated through the ASCAT rho_manual/psi_manual path (ascat.runAscat.R), which scores a fixed (ρ, ψ).
     [Test]
     public void FitPurityPloidy_GoodnessOfFit_DiscriminatesTrueFromWrong()
     {
@@ -201,16 +202,169 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> summaries =
             OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
 
-        // Pin the grid to the true point, then to a deliberately wrong purity, comparing the resulting GoF.
-        OncologyAnalyzer.PurityPloidyFit atTruth = OncologyAnalyzer.FitPurityPloidy(
-            summaries, purityMin: PlantedPurity, purityMax: PlantedPurity, purityStep: 1.0,
-            ploidyMin: PlantedPloidy, ploidyMax: PlantedPloidy, ploidyStep: 1.0);
-        OncologyAnalyzer.PurityPloidyFit atWrong = OncologyAnalyzer.FitPurityPloidy(
-            summaries, purityMin: 0.30, purityMax: 0.30, purityStep: 1.0,
-            ploidyMin: 1.6, ploidyMax: 1.6, ploidyStep: 1.0);
+        OncologyAnalyzer.PurityPloidyFit atTruth = OncologyAnalyzer.EvaluatePurityPloidy(summaries, PlantedPurity, PlantedPloidy);
+        OncologyAnalyzer.PurityPloidyFit atWrong = OncologyAnalyzer.EvaluatePurityPloidy(summaries, 0.30, 1.6);
 
-        Assert.That(atTruth.GoodnessOfFit, Is.GreaterThan(atWrong.GoodnessOfFit),
-            "GoF must be higher at the true (rho,psi) than at a wrong (rho,psi) — the objective discriminates.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(atTruth.GoodnessOfFit, Is.EqualTo(100.0).Within(1e-9), "d = 0 at the integer-CN truth ⇒ GoF 100 %.");
+            Assert.That(atTruth.GoodnessOfFit, Is.GreaterThan(atWrong.GoodnessOfFit),
+                "GoF must be higher at the true (rho,psi) than at a wrong (rho,psi) — the objective discriminates.");
+            Assert.That(atTruth.Psi, Is.EqualTo(PlantedPloidy), "The manual path reports the supplied ψ.");
+        });
+    }
+
+    // ---- ASCAT reference cases: values produced by the ORIGINAL ascat.runAscat.R (VanLoo-lab/ascat master) ----
+    // runASCAT(lrr, baf, lrrsegmented, bafsegmented, "XX", …, gamma = 1, min_ploidy 1.5, max_ploidy 5.5,
+    // min_purity 0.1, max_purity 1.05) run under R 4.3 on one probe per heterozygous locus (segment = LocusCount
+    // probes, segmented BAF = 1 − mirrored BAF); segments from the seg_raw rounding block. Cross-check script:
+    // docs/Evidence/ONCO-ASCAT-001-Evidence.md §"ASCAT R cross-check" (150/150 random genomes identical).
+
+    private static OncologyAnalyzer.AlleleSpecificSegmentSummary Summary(string chrom, double r, double b, int n) =>
+        new(chrom, 0, 1000, r, b, n);
+
+    // ASCAT R: rho = 1, psi = 2.7, goodnessOfFit = 99.781420571107006, nonaberrant = FALSE, seg 2:1 ×3.
+    // The chrX segment is excluded from the fit (sexchromosomes) but emitted with the diploid model.
+    [Test]
+    public void FitPurityPloidy_AscatReferenceCase_WithSexChromosome_MatchesRunAscat()
+    {
+        var segs = new[]
+        {
+            Summary("X", -0.19799990120548305, 0.7800586872805495, 55),
+            Summary("3", 0.097918462573404322, 0.66269643393554578, 13),
+            Summary("1", 0.065882791496869667, 0.6385382413628512, 15),
+        };
+
+        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(segs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Purity, Is.EqualTo(1.0), "ASCAT rho (grid value 1.00).");
+            Assert.That(fit.Psi, Is.EqualTo(2.7).Within(1e-12), "ASCAT psi.");
+            Assert.That(fit.GoodnessOfFit, Is.EqualTo(99.781420571107006).Within(1e-9), "ASCAT goodnessOfFit.");
+            Assert.That(fit.IsNonAberrant, Is.False, "ASCAT nonaberrant.");
+            Assert.That(fit.Segments.Select(s => (s.MajorCopyNumber, s.MinorCopyNumber)),
+                Is.EqualTo(new[] { (2, 1), (2, 1), (2, 1) }), "ASCAT seg_raw nMajor:nMinor.");
+            Assert.That(fit.Ploidy, Is.EqualTo(3.0).Within(1e-12), "ASCAT ploidy = mean integer total CN over probes.");
+        });
+    }
+
+    // ASCAT R: rho = 0.85, psi = 2.2, goodnessOfFit = 99.999772627448223, seg 2:0 2:1 1:1.
+    // The pre-fix global-minimum grid search returned rho = 0.72, psi = 4.45 (3:0 4:2 2:2).
+    [Test]
+    public void FitPurityPloidy_AscatReferenceCase_LocalMinimumAndFilters_MatchRunAscat()
+    {
+        var segs = new[]
+        {
+            Summary("3", -0.44374838250380438, 0.90652646528359304, 6),
+            Summary("3", 0.36009080318741721, 0.64110353482264759, 51),
+            Summary("1", -0.11480994884775791, 0.5, 60),
+        };
+
+        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(segs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Purity, Is.EqualTo(0.85).Within(1e-12), "ASCAT rho.");
+            Assert.That(fit.Psi, Is.EqualTo(2.2).Within(1e-12), "ASCAT psi.");
+            Assert.That(fit.GoodnessOfFit, Is.EqualTo(99.999772627448223).Within(1e-9), "ASCAT goodnessOfFit.");
+            Assert.That(fit.Segments.Select(s => (s.MajorCopyNumber, s.MinorCopyNumber)),
+                Is.EqualTo(new[] { (2, 0), (2, 1), (1, 1) }), "ASCAT seg_raw nMajor:nMinor.");
+            Assert.That(fit.Ploidy, Is.EqualTo(285.0 / 117.0).Within(1e-12),
+                "Probe-weighted mean integer total CN: (2·6 + 3·51 + 2·60)/117.");
+        });
+    }
+
+    // ASCAT R returns rho = NA ("ASCAT could not find an optimal ploidy and purity value") for both genomes.
+    [Test]
+    public void FitPurityPloidy_NoAscatOptimum_TryReturnsFalseAndFitThrows()
+    {
+        var withX = new[]
+        {
+            Summary("X", 0.2316983774009044, 0.5, 17),
+            Summary("3", 0.164318402357189, 0.89674532869091261, 27),
+            Summary("1", -0.48381153881768874, 0.8116658364580579, 56),
+        };
+        var autosomal = new[]
+        {
+            Summary("1", 0.23763864436633977, 0.88277974701356954, 6),
+            Summary("1", 0.2573573024164994, 0.86513206216626082, 28),
+            Summary("1", -0.7611160923354886, 0.7525369149308675, 38),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.TryFitPurityPloidy(withX, out _), Is.False, "ASCAT: rho = NA.");
+            Assert.That(OncologyAnalyzer.TryFitPurityPloidy(autosomal, out _), Is.False, "ASCAT: rho = NA.");
+            Assert.Throws<InvalidOperationException>(() => OncologyAnalyzer.FitPurityPloidy(autosomal),
+                "FitPurityPloidy reports ASCAT's failure as InvalidOperationException.");
+        });
+    }
+
+    // Sex chromosomes are excluded from the fit (ASCAT autoprobes): adding a wild chrX segment changes nothing
+    // but the emitted segment list.
+    [Test]
+    public void FitPurityPloidy_SexChromosomeSegment_DoesNotAffectFit()
+    {
+        var auto = new List<OncologyAnalyzer.AlleleSpecificSegmentSummary>
+        {
+            Summary("3", -0.44374838250380438, 0.90652646528359304, 6),
+            Summary("3", 0.36009080318741721, 0.64110353482264759, 51),
+            Summary("1", -0.11480994884775791, 0.5, 60),
+        };
+        var withSex = new List<OncologyAnalyzer.AlleleSpecificSegmentSummary>(auto)
+        {
+            Summary("chrX", 1.7, 0.97, 500),
+            Summary("Y", -2.0, 0.5, 300),
+        };
+
+        OncologyAnalyzer.PurityPloidyFit a = OncologyAnalyzer.FitPurityPloidy(auto);
+        OncologyAnalyzer.PurityPloidyFit b = OncologyAnalyzer.FitPurityPloidy(withSex);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(b.Purity, Is.EqualTo(a.Purity), "ρ unchanged by sex-chromosome segments.");
+            Assert.That(b.Psi, Is.EqualTo(a.Psi), "ψ unchanged by sex-chromosome segments.");
+            Assert.That(b.GoodnessOfFit, Is.EqualTo(a.GoodnessOfFit), "GoF is computed over autosomes only.");
+            Assert.That(b.Segments.Count, Is.EqualTo(5), "Every summary is still emitted.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidy(new[] { Summary("X", 0.0, 0.7, 10) }),
+                "No autosomal segment ⇒ nothing to fit.");
+        });
+    }
+
+    // ASCAT seg_raw rounding (ascat.runAscat.R, verified in R with the verbatim block):
+    //  • balanced (BAF 0.5) odd total: ρ=1, ψ=2, r=log2(3/2) ⇒ nA = nB = 1.5 ⇒ limitround rule ⇒ 2:1 (pre-fix 2:2);
+    //  • negative allele folded into the other: ρ=0.5, ψ=2, r=0, mirrored BAF 0.9 ⇒ nA=2.6, nB=−0.6 ⇒ 2:0 (pre-fix 3:0).
+    [Test]
+    public void EvaluatePurityPloidy_AscatSegmentRounding_BalancedOddTotalAndNegativeCorrection()
+    {
+        var balancedOdd = OncologyAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", Math.Log2(1.5), 0.5, 10) }, 1.0, 2.0);
+        var negative = OncologyAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", 0.0, 0.9, 10) }, 0.5, 2.0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((balancedOdd.Segments[0].MajorCopyNumber, balancedOdd.Segments[0].MinorCopyNumber), Is.EqualTo((2, 1)),
+                "Balanced segment with odd total 3 ⇒ ASCAT 2:1.");
+            Assert.That((negative.Segments[0].MajorCopyNumber, negative.Segments[0].MinorCopyNumber), Is.EqualTo((2, 0)),
+                "nB = −0.6 is folded into nA (2.6 − 0.6 = 2) ⇒ ASCAT 2:0.");
+        });
+    }
+
+    // Segments must carry ≥ 1 probe (ASCAT's length is the probe count) and finite logR / BAF in [0,1].
+    [Test]
+    public void FitPurityPloidy_MalformedSegments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidy(new[] { Summary("1", 0.0, 0.7, 0) }),
+                "LocusCount 0 ⇒ no probe weight.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidy(new[] { Summary("1", double.NaN, 0.7, 5) }),
+                "NaN logR rejected.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidy(new[] { Summary("1", 0.0, 1.2, 5) }),
+                "BAF > 1 rejected.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", 0.0, 0.7, 5) }, 1.2, 2.0),
+                "Manual purity > 1 rejected.");
+        });
     }
 
     // S2 — balanced-only genome (all b=0.5): fit completes and segments fold to BAF = 0.5.
@@ -343,126 +497,135 @@ public class OncologyAnalyzer_AscatDerivation_Tests
 
     #endregion
 
-    #region SegmentAlleleSpecificAspcf (Nilsen 2012 PCF/ASPCF)
+    #region SegmentAlleleSpecificAspcf (ASCAT ascat.aspcf / fastAspcf / aspcfpart)
 
-    // Computes the joint penalised cost L(S) = Σ(logR-SSE + mirroredBAF-SSE) + γ·|S| of a segmentation,
-    // recomputed directly from the loci (independent of the implementation). Used to verify DP optimality.
-    private static double PenalisedCost(
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificLocus> loci,
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs, double gamma)
-    {
-        // Reconstruct segment membership from LocusCount (loci consumed in input order).
-        double cost = gamma * segs.Count;
-        int idx = 0;
-        foreach (var seg in segs)
-        {
-            int m = seg.LocusCount;
-            double rSum = 0, rSq = 0, bSum = 0, bSq = 0;
-            for (int i = 0; i < m; i++)
-            {
-                var l = loci[idx + i];
-                double mb = 0.5 + Math.Abs(l.BAF - 0.5);
-                rSum += l.LogR; rSq += l.LogR * l.LogR;
-                bSum += mb; bSq += mb * mb;
-            }
+    // Deterministic noisy tracks (80 loci on chr1; 4-decimal literals shared with the R cross-check).
+    // Expected values are the output of the ORIGINAL ascat.aspcf (VanLoo-lab/ascat master, R 4.3) on the same
+    // loci with Germline_BAF = 0.5 (all heterozygous) — see Evidence §"ASCAT R cross-check" (60/60 random
+    // genomes, 681 segments identical to ≤ 5e-16).
+    private static readonly double[] AspcfLogRNoise = { -0.0453, -0.0731, 0.1381, -0.0817, -0.0632, 0.1167, -0.0624, -0.1293, 0.0513, -0.0016, -0.0042, -0.039, -0.0982, -0.1934, 0.1133, -0.0558, 0.0104, 0.0412, -0.0503, -0.16, -0.2202, 0.1674, -0.0273, -0.1205, 0.0077, -0.0957, -0.0398, -0.0175, -0.0372, -0.0352, 0.0519, 0.0563, 0.0991, -0.12, -0.1088, -0.0052, 0.0256, 0.0508, -0.0206, 0.0331, -0.0893, -0.1283, -0.1238, -0.0852, -0.1075, -0.0466, -0.0233, 0.0351, 0.0796, -0.0397, 0.1226, -0.1288, -0.0112, 0.0451, -0.1349, 0.0402, 0.1099, 0.1532, -0.0676, 0.0155, 0.0646, 0.1728, -0.1561, 0.0349, -0.1101, -0.0692, -0.0067, 0.0384, 0.2818, -0.0153, 0.1269, -0.0723, -0.0398, 0.0733, -0.0551, 0.104, -0.0577, 0.1, 0.0129, 0.0861 };
+    private static readonly double[] AspcfBafNoise = { 0.0551, -0.043, 0.0313, 0.0063, 0.0189, -0.0093, 0.0282, -0.0104, 0.0366, 0.0327, -0.0089, 0.0162, 0.0422, -0.0015, -0.0042, 0.0176, 0.0547, 0.0701, -0.0727, 0.0183, -0.0305, -0.0791, -0.0044, -0.0028, -0.0073, -0.0053, -0.0095, -0.0097, 0.0231, 0.0169, 0.0052, -0.024, -0.0048, -0.0044, -0.0019, -0.0138, 0.0083, -0.0535, -0.0493, 0.0487, -0.0337, -0.0589, 0.0278, -0.044, -0.0299, -0.0028, 0.0535, 0.0257, -0.0473, -0.0817, 0.0147, 0.0468, -0.0068, -0.0375, -0.0206, 0.0489, -0.0407, -0.0614, -0.0107, -0.0145, -0.0128, -0.0009, 0.0529, -0.0075, 0.0448, 0.0199, -0.0101, -0.0299, -0.0394, 0.0183, 0.0099, 0.0669, 0.004, -0.0395, -0.0178, -0.0445, 0.0081, 0.0025, 0.0197, 0.0157 };
+    private static readonly int[] AspcfBafSign = { 1, -1, -1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1, -1, 1, 1, 1, -1, -1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, -1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1 };
 
-            cost += rSq - rSum * rSum / m;
-            cost += bSq - bSum * bSum / m;
-            idx += m;
-        }
-
-        return cost;
-    }
-
-    // M-ASPCF-1 — two clean logR levels with a small γ: ASPCF recovers exactly one breakpoint (2 segments)
-    // at the planted boundary with the planted per-level means. Source: Nilsen 2012 PCF objective.
-    [Test]
-    public void SegmentAlleleSpecificAspcf_TwoLevelTrack_RecoversSingleBreakpoint()
+    // Dataset 1: logR 0 → 0.6 and BAF balanced → imbalanced (0.5 ± 0.25) at locus 41.
+    internal static List<OncologyAnalyzer.AlleleSpecificLocus> AspcfStepTrack(double logRShift = 0.0)
     {
         var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0, 0.5));
+        for (int i = 0; i < 80; i++)
+        {
+            double r = Math.Round(AspcfLogRNoise[i] + (i >= 40 ? 0.6 : 0.0), 4) + logRShift;
+            double b = Math.Round(0.5 + (i >= 40 ? AspcfBafSign[i] * 0.25 : 0.0) + AspcfBafNoise[i], 4);
+            loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, r, b));
+        }
 
-        // ΔSSE(merge → split) = 25 (two flat halves of 0 and 1 over 20 points). γ = 0.5 ≪ 25 ⇒ split wins.
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
-            OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
+        return loci;
+    }
+
+    // Dataset 2: identical logR everywhere; BAF balanced → copy-neutral LOH (0.5 ± 0.47) at locus 41.
+    private static List<OncologyAnalyzer.AlleleSpecificLocus> AspcfLohTrack()
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        for (int i = 0; i < 80; i++)
+        {
+            double b = i < 40 ? 0.5 + AspcfBafNoise[i] : 0.5 + AspcfBafSign[i] * 0.47 + AspcfBafNoise[i];
+            loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, AspcfLogRNoise[i], Math.Round(Math.Clamp(b, 0.0, 1.0), 4)));
+        }
+
+        return loci;
+    }
+
+    // M-ASPCF-1 — ASCAT (penalty 70): one breakpoint after locus 40; logR level = mean raw logR; the balanced half's
+    // BAF is shrunk to exactly 0.5 (sqrt(sd2² + μ²) < 2·sd2), the imbalanced half's is 0.5 + mean|b − 0.5|.
+    [Test]
+    public void SegmentAlleleSpecificAspcf_NoisyStep_MatchesAscatAspcf()
+    {
+        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), penalty: 70.0);
 
         Assert.Multiple(() =>
         {
-            Assert.That(segs.Count, Is.EqualTo(2), "ASPCF recovers exactly one breakpoint between the two logR levels.");
-            Assert.That(segs[0].LocusCount, Is.EqualTo(10), "First segment holds the 10 low-level loci (breakpoint at index 10).");
-            Assert.That(segs[0].MeanLogR, Is.EqualTo(0.0).Within(1e-12), "First segment mean logR is the planted 0.0.");
-            Assert.That(segs[1].MeanLogR, Is.EqualTo(1.0).Within(1e-12), "Second segment mean logR is the planted 1.0.");
-            Assert.That(segs[1].LocusCount, Is.EqualTo(10), "Second segment holds the 10 high-level loci.");
+            Assert.That(segs.Count, Is.EqualTo(2), "ascat.aspcf: 2 segments.");
+            Assert.That((segs[0].Start, segs[0].End, segs[0].LocusCount), Is.EqualTo((1000L, 40000L, 40)), "Segment 1 = loci 1–40.");
+            Assert.That((segs[1].Start, segs[1].End, segs[1].LocusCount), Is.EqualTo((41000L, 80000L, 40)), "Segment 2 = loci 41–80.");
+            Assert.That(segs[0].MeanLogR, Is.EqualTo(-0.023564999999999999).Within(1e-15), "ascat.aspcf logR level 1.");
+            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.60321000000000002).Within(1e-15), "ascat.aspcf logR level 2.");
+            Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced segment BAF shrunk to exactly 0.5 (ASCAT).");
+            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.75129407874999998).Within(1e-15), "ascat.aspcf BAF level 2 (0.5 + μ).");
         });
     }
 
-    // M-ASPCF-2 — DP returns the GLOBAL optimum: on a noisy track its penalised cost ≤ the greedy cost.
-    // Source: Nilsen 2012 (the DP recurrence minimises L(S); greedy mean-shift does not).
-    [Test]
-    public void SegmentAlleleSpecificAspcf_NoisyTrack_CostNoWorseThanGreedy()
-    {
-        // Deterministic noisy two-level track: level ~0 then ~1 with fixed jitter.
-        double[] noise = { 0.05, -0.04, 0.03, -0.02, 0.06, -0.05, 0.02, -0.03, 0.04, -0.06 };
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0 + noise[i], 0.5));
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0 + noise[i], 0.5));
-
-        const double gamma = 0.5;
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> aspcf =
-            OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: gamma);
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> greedy =
-            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.5, minLociPerSegment: 1);
-
-        double aspcfCost = PenalisedCost(loci, aspcf, gamma);
-        double greedyCost = PenalisedCost(loci, greedy, gamma);
-
-        Assert.That(aspcfCost, Is.LessThanOrEqualTo(greedyCost + 1e-9),
-            "ASPCF (global DP optimum) penalised cost must be ≤ the greedy mean-shift cost on the same track.");
-    }
-
-    // M-ASPCF-3 — mirrored-BAF joint cost separates a copy-neutral-LOH segment from a balanced segment that
-    // share logR (logR-only would merge them). Source: ASCAT/Ross 2021 joint segmentation rationale.
+    // M-ASPCF-2 — copy-neutral LOH vs balanced with the same logR: the joint (logR + BAF) cost still splits.
     [Test]
     public void SegmentAlleleSpecificAspcf_SameLogRDifferentBaf_SplitsOnBaf()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        // Balanced 1:1 region: logR 0, BAF 0.5.
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
-        // Copy-neutral LOH (2:0): SAME logR 0 but BAF 0.0 (mirrored to 1.0).
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 0.0, 0.0));
-
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
-            OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
+        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfLohTrack(), penalty: 70.0);
 
         Assert.Multiple(() =>
         {
-            Assert.That(segs.Count, Is.EqualTo(2), "Identical logR but different (mirrored) BAF must still split into 2 segments.");
-            Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5).Within(1e-12), "First segment is balanced (mirrored BAF 0.5).");
-            Assert.That(segs[1].MeanBAF, Is.EqualTo(1.0).Within(1e-12), "Second (LOH) segment has mirrored BAF 1.0.");
+            Assert.That(segs.Count, Is.EqualTo(2), "ascat.aspcf: 2 segments despite identical logR.");
+            Assert.That(segs[0].LocusCount, Is.EqualTo(40), "Breakpoint after locus 40.");
+            Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced half: BAF 0.5.");
+            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.96697500000000003).Within(1e-15), "LOH half: ascat.aspcf BAF 0.966975.");
+            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.003210000000000001).Within(1e-15), "ascat.aspcf logR level of the LOH half.");
         });
     }
 
-    // S-ASPCF-1 — large γ collapses everything to a single segment; small γ recovers each level.
-    // Source: Nilsen 2012 (γ → ∞ ⇒ |S| = 1).
+    // S-ASPCF-1 — a huge penalty collapses to one segment (ascat.aspcf, penalty 1e6: logR 0.2898225, BAF 0.637905789375).
     [Test]
     public void SegmentAlleleSpecificAspcf_PenaltyControlsSegmentCount()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0, 0.5));
-
-        var big = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 1000.0);
-        var small = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
+        var big = OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), penalty: 1e6);
+        var def = OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack());
 
         Assert.Multiple(() =>
         {
             Assert.That(big.Count, Is.EqualTo(1), "A very large penalty forces a single segment (no breakpoints).");
-            Assert.That(small.Count, Is.EqualTo(2), "A small penalty recovers the two true levels.");
+            Assert.That(big[0].MeanLogR, Is.EqualTo(0.28982249999999998).Within(1e-15), "ascat.aspcf single-segment logR.");
+            Assert.That(big[0].MeanBAF, Is.EqualTo(0.63790578937499998).Within(1e-15), "ascat.aspcf single-segment BAF.");
+            Assert.That(def.Count, Is.EqualTo(2), "The ASCAT default penalty (70) recovers the two levels.");
+            Assert.That(OncologyAnalyzer.AspcfDefaultPenalty, Is.EqualTo(70.0), "ascat.aspcf(..., penalty = 70).");
         });
     }
 
-    // S-ASPCF-2 — chromosome boundaries are never crossed by a segment.
+    // S-ASPCF-2 — noise-free data: every window has MAD sd = 0, so ASCAT's fastAspcf skips it (sd.valid fails)
+    // and places no breakpoint. ascat.aspcf on 10 × 0.0 then 10 × 1.0 (BAF 0.5), penalty 0.5: one segment,
+    // logR 0.5, BAF 0.5.
+    [Test]
+    public void SegmentAlleleSpecificAspcf_NoiseFreeTrack_NoBreakpointAsAscat()
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
+        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0, 0.5));
+
+        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(segs.Count, Is.EqualTo(1), "MAD = 0 ⇒ window skipped ⇒ no breakpoint (ascat.aspcf).");
+            Assert.That(segs[0].MeanLogR, Is.EqualTo(0.5).Within(1e-15), "Mean raw logR.");
+            Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced BAF.");
+        });
+    }
+
+    // S-ASPCF-3 — a chromosome with fewer than kmin = 6 loci is one segment with the mean winsorised mirrored BAF
+    // (no shrinkage). ascat.aspcf on logR (0.1, 0.3, −0.2, 0.05, 0.4), BAF (0.8, 0.3, 0.75, 0.28, 0.9): logR 0.13, BAF 0.774.
+    [Test]
+    public void SegmentAlleleSpecificAspcf_FewerThanSixLoci_SingleSegmentAsAscat()
+    {
+        double[] r = { 0.1, 0.3, -0.2, 0.05, 0.4 };
+        double[] b = { 0.8, 0.3, 0.75, 0.28, 0.9 };
+        var loci = Enumerable.Range(0, 5).Select(i => new OncologyAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, r[i], b[i])).ToList();
+
+        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(segs.Count, Is.EqualTo(1), "n < 6 ⇒ one segment.");
+            Assert.That(segs[0].MeanLogR, Is.EqualTo(0.13).Within(1e-15), "ascat.aspcf logR.");
+            Assert.That(segs[0].MeanBAF, Is.EqualTo(0.77400000000000002).Within(1e-15), "ascat.aspcf BAF (mean mirrored).");
+        });
+    }
+
+    // S-ASPCF-4 — chromosome boundaries are never crossed by a segment.
     [Test]
     public void SegmentAlleleSpecificAspcf_ChromosomeBoundary_NeverCrossed()
     {
@@ -492,73 +655,81 @@ public class OncologyAnalyzer_AscatDerivation_Tests
                 () => OncologyAnalyzer.SegmentAlleleSpecificAspcf(null!), "Null loci must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.0), "Non-positive penalty must throw.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.SegmentAlleleSpecificAspcf(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, double.NaN, 0.5) }),
+                "NaN logR must throw.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.SegmentAlleleSpecificAspcf(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, 0.0, 1.5) }),
+                "BAF outside [0,1] must throw.");
         });
     }
 
     #endregion
 
-    #region FitSubclonalCopyNumber (Battenberg two-state model)
+    #region FitSubclonalCopyNumber (Battenberg determine_copynumber)
 
-    // M-SUB-1 — a planted sub-clonal segment (mixture 0.4·(2,0) + 0.6·(1,1)) is recovered as two adjacent
-    // integer states with fraction f ≈ 0.4. Source: Nik-Zainal 2012 / Battenberg two-population model.
+    // Expected values: Battenberg determine_copynumber (Wedge-lab/battenberg R/fitcopynumber.R + R/orderEdges.R,
+    // master) run in R 4.3 on the same segment (constant SNP BAFs ⇒ sd = 0 ⇒ pval = 0, maxdist = 0.01);
+    // 402/402 random segments identical (Evidence §"Battenberg R cross-check").
+
+    // M-SUB-1 — planted mixture along the nearest edge: 0.3·(2,1) + 0.7·(1,1) at ρ = 0.8, ψ = 2.5
+    // (logR −0.099535673550914569, BAF 0.55357142857142849) ⇒ Battenberg state 1 = (1,1) at τ = 0.70000000000000051,
+    // state 2 = (2,1) at 0.29999999999999949.
     [Test]
-    public void FitSubclonalCopyNumber_PlantedMixture_RecoversTwoStatesAndFraction()
+    public void FitSubclonalCopyNumber_PlantedEdgeMixture_MatchesBattenberg()
     {
-        const double rho = 1.0, psi = 2.0, f0 = 0.4;
-        // Observed allele-specific CN of the mixture: nA = 0.4*2 + 0.6*1 = 1.4 ; nB = 0.4*0 + 0.6*1 = 0.6.
-        double nAobs = f0 * 2 + (1 - f0) * 1; // 1.4
-        double nBobs = f0 * 0 + (1 - f0) * 1; // 0.6
-        // Forward to (logR, BAF) at rho=1, psi=2 so AscatRawCopyNumbers reproduces (nAobs, nBobs).
-        double n = nAobs + nBobs;             // 2.0
-        double denom = rho * n + 2.0 * (1.0 - rho);
-        double d = rho * psi + 2.0 * (1.0 - rho);
-        double r = Math.Log2(denom / d);
-        double b = (rho * nBobs + (1.0 - rho)) / denom; // = nBobs / n = 0.3
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, r, 0.5 + Math.Abs(b - 0.5), 5);
+        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, -0.099535673550914569, 0.55357142857142849, 5);
 
-        IReadOnlyList<OncologyAnalyzer.SubclonalSegmentFit> fits =
-            OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, rho, psi);
+        var fit = OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 0.8, 2.5)[0];
 
-        var fit = fits[0];
         Assert.Multiple(() =>
         {
-            Assert.That(fit.IsSubclonal, Is.True, "A 1.4/0.6 allele-specific CN is not integer ⇒ sub-clonal.");
-            Assert.That(fit.SecondaryState, Is.Not.Null, "A sub-clonal segment must carry a second state.");
-            // Primary is frac1 ≥ frac2; here f≈0.4 (ceil state) vs 0.6 (floor state) ⇒ floor (1,1) is primary.
-            Assert.That(fit.PrimaryState.MajorCopyNumber, Is.EqualTo(1), "Higher-fraction state is the (1,1) floor state (major 1).");
-            Assert.That(fit.PrimaryState.MinorCopyNumber, Is.EqualTo(1), "Higher-fraction state minor is 1.");
-            Assert.That(fit.SecondaryState!.Value.MajorCopyNumber, Is.EqualTo(2), "Lower-fraction state is the (2,0) ceil state (major 2).");
-            Assert.That(fit.SecondaryState!.Value.MinorCopyNumber, Is.EqualTo(0), "Lower-fraction state minor is 0.");
-            Assert.That(fit.SecondaryState!.Value.CellFraction, Is.EqualTo(f0).Within(0.05), "Recovered sub-clonal fraction f ≈ 0.4.");
-            Assert.That(fit.PrimaryState.CellFraction + fit.SecondaryState!.Value.CellFraction, Is.EqualTo(1.0).Within(1e-9),
-                "The two state fractions must sum to 1 (Battenberg frac1+frac2=1).");
+            Assert.That(fit.IsSubclonal, Is.True, "Battenberg: pval ≤ 0.05 ⇒ sub-clonal.");
+            Assert.That((fit.PrimaryState.MajorCopyNumber, fit.PrimaryState.MinorCopyNumber), Is.EqualTo((1, 1)), "nMaj1_A:nMin1_A.");
+            Assert.That(fit.PrimaryState.CellFraction, Is.EqualTo(0.70000000000000051).Within(1e-12), "frac1_A = τ.");
+            Assert.That((fit.SecondaryState!.Value.MajorCopyNumber, fit.SecondaryState!.Value.MinorCopyNumber), Is.EqualTo((2, 1)), "nMaj2_A:nMin2_A.");
+            Assert.That(fit.SecondaryState!.Value.CellFraction, Is.EqualTo(0.29999999999999949).Within(1e-12), "frac2_A = 1 − τ.");
         });
     }
 
-    // M-SUB-2 — a pure-clonal (integer) segment collapses to a single state (f = 1, no secondary).
-    // Source: Battenberg (one state = all tumour cells).
+    // M-SUB-2 — Battenberg mixes states that differ in ONE allele (an edge of the copy-number square). The pre-fix
+    // code decomposed nA = 1.4, nB = 0.6 (ρ = 1, ψ = 2, logR 0, BAF 0.7) as 0.4·(2,0) + 0.6·(1,1); Battenberg's
+    // nearest edge is (2,0)–(2,1) with τ = 0.14285714285714241 (the BAF-mixture fraction).
     [Test]
-    public void FitSubclonalCopyNumber_IntegerSegment_CollapsesToSingleClonalState()
+    public void FitSubclonalCopyNumber_BothAllelesFractional_UsesNearestEdgeAsBattenberg()
     {
-        const double rho = 1.0, psi = 2.0;
-        // Clean (nA, nB) = (2, 1): total CN 3, integer ⇒ clonal.
-        double nAobs = 2, nBobs = 1;
-        double nn = nAobs + nBobs;
-        double denom = rho * nn + 2.0 * (1.0 - rho);
-        double dd = rho * psi + 2.0 * (1.0 - rho);
-        double r = Math.Log2(denom / dd);
-        double bb = (rho * nBobs + (1.0 - rho)) / denom;
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, r, 0.5 + Math.Abs(bb - 0.5), 5);
+        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.0, 0.7, 5);
 
-        var fit = OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, rho, psi)[0];
+        var fit = OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 1.0, 2.0)[0];
 
         Assert.Multiple(() =>
         {
-            Assert.That(fit.IsSubclonal, Is.False, "An integer (2,1) segment is clonal, not sub-clonal.");
+            Assert.That(fit.IsSubclonal, Is.True);
+            Assert.That((fit.PrimaryState.MajorCopyNumber, fit.PrimaryState.MinorCopyNumber), Is.EqualTo((2, 0)), "nMaj1_A:nMin1_A.");
+            Assert.That(fit.PrimaryState.CellFraction, Is.EqualTo(0.14285714285714241).Within(1e-12), "frac1_A.");
+            Assert.That((fit.SecondaryState!.Value.MajorCopyNumber, fit.SecondaryState!.Value.MinorCopyNumber), Is.EqualTo((2, 1)), "nMaj2_A:nMin2_A.");
+            Assert.That(fit.PrimaryState.CellFraction + fit.SecondaryState!.Value.CellFraction, Is.EqualTo(1.0).Within(1e-12),
+                "frac1 + frac2 = 1.");
+        });
+    }
+
+    // M-SUB-3 — clonal segments (|l − corner level| < maxdist 0.01) collapse to the corner with fraction 1.
+    // Battenberg on the ASCAT forward values at ρ = 0.8, ψ = 2.5: (2,1) → C 2 1; (2,0) → C 2 0; (3,1) → C 3 1.
+    [TestCase(0.22239242133644802, 0.64285714285714279, 2, 1)]
+    [TestCase(-0.26303440583379378, 0.90000000000000002, 2, 0)]
+    [TestCase(0.58496250072115619, 0.72222222222222232, 3, 1)]
+    public void FitSubclonalCopyNumber_IntegerSegment_CollapsesToSingleClonalState(double logR, double baf, int major, int minor)
+    {
+        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, logR, baf, 5);
+
+        var fit = OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 0.8, 2.5)[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.IsSubclonal, Is.False, "Battenberg maxdist rule ⇒ clonal.");
             Assert.That(fit.SecondaryState, Is.Null, "A clonal segment has no second state.");
-            Assert.That(fit.PrimaryState.MajorCopyNumber, Is.EqualTo(2), "Clonal major CN is 2.");
-            Assert.That(fit.PrimaryState.MinorCopyNumber, Is.EqualTo(1), "Clonal minor CN is 1.");
-            Assert.That(fit.PrimaryState.CellFraction, Is.EqualTo(1.0).Within(1e-12), "Clonal state is present in all tumour cells (f=1).");
+            Assert.That((fit.PrimaryState.MajorCopyNumber, fit.PrimaryState.MinorCopyNumber), Is.EqualTo((major, minor)), "Clonal corner.");
+            Assert.That(fit.PrimaryState.CellFraction, Is.EqualTo(1.0), "Clonal state is present in all tumour cells (f=1).");
         });
     }
 

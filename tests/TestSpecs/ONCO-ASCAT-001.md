@@ -5,7 +5,7 @@
 **Algorithm:** Upstream allele-specific derivation — segmentation, joint purity/ploidy fit (ASCAT), mutation multiplicity
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-23
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -27,18 +27,19 @@
 ### 1.2 Key Evidence Points
 
 1. ASCAT raw copy numbers: `nA = (rho-1 - (b-1)*2^(r/gamma) * ((1-rho)*2+rho*psi))/rho`, `nB = (rho-1 + b*2^(r/gamma) * ((1-rho)*2+rho*psi))/rho` — ascat.runAscat.R (source 2).
-2. Goodness-of-fit distance = Σ |nMinor − round(nMinor)|² · length · (b==0.5 ? 0.05 : 1); `goodnessOfFit = (1 − d/TheoretMaxdist)·100`, `TheoretMaxdist = Σ 0.25·length·weight` — source 2.
-3. Grid search over (ploidy ψ × aberrant fraction ρ), selecting copy numbers "as close as possible to nonnegative whole numbers" — Van Loo 2010 Fig. 1 (source 1).
+2. Goodness-of-fit distance = Σ |nMinor − max(round(nMinor),0)|² · length · (b==0.5 ? 0.05 : 1) over **autosomal** segments, `length` = number of heterozygous probes (`make_segments`), nMinor chosen genome-wide (`sum(nA) < sum(nB)`); `goodnessOfFit = (1 − d/TheoretMaxdist)·100`, `TheoretMaxdist = Σ 0.25·length·weight` — source 2.
+3. Grid ψ ∈ seq(min_ploidy−0.5, max_ploidy+0.5, 0.05) × ρ ∈ seq(0.1, 1.05, 0.01); candidates = strict minima of a 7×7 window; four-pass filter cascade (ploidy range, ρ ≥ 0.2, GoF > 80, percentzero > 0.02 / perczeroAbb > 0.1 / percOddEven > 0.05, non-aberrant flag, ρ>1 columns masked in pass 3); smallest distance wins; ρ>1 reported as 1; no candidate ⇒ rho = NA — `runASCAT` (source 2).
 4. γ = 1 for sequencing data — ASCAT README (source 2).
 5. n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)]; CCF = n_mut/M; M (multiplicity) is n_mut rounded for a clonal mutation — McGranahan 2016 (source 3), PICTograph inversion (source 4).
-6. PCF penalised least squares: `L(S|y,γ) = Σ_I Σ_j (y_j − ȳ_I)² + γ|S|`; DP recurrence `e_k = min_j (d_jk + e_{j−1} + γ)`, `e_0=0`; default γ=40 — Nilsen 2012 (source 6).
-7. ASPCF joint cost `L(S|y₁,y₂,γ) = L(S|y₁,γ) + L(S|y₂,γ)` (common breakpoints, per-track means); BAF mirrored to a single allelic-imbalance track — Nilsen 2012 / Ross 2021 (sources 6, 7).
-8. Sub-clonal segment = one (clonal) or two (subclonal) integer states, fractions summing to 1; `n_obs = f·n₁ + (1−f)·n₂` over the bracketing integers — Battenberg (source 8).
+6. PCF penalised least squares: `L(S|y,γ) = Σ_I Σ_j (y_j − ȳ_I)² + γ|S|`; DP recurrence `e_k = min_j (d_jk + e_{j−1} + γ)`, `e_0=0` — Nilsen 2012 (source 6). ASCAT (`ascat.aspcf`/`fastAspcf`/`aspcfpart`) standardises each track by its MAD sd (`getMad`), uses kmin = 6, MAD winsorisation (τ 2.5, k 25), 1000-locus windows, BAF level 0.5+μ with shrinkage, penalty 70 (source 2).
+7. ASPCF joint cost `Σ SSE₁/sd₁² + SSE₂/sd₂² + γ·#breakpoints` (common breakpoints, per-track means); BAF mirrored to a single allelic-imbalance track — Nilsen 2012 / Ross 2021 / ascat.aspcf.R (sources 6, 7, 2).
+8. Sub-clonal segment = one (clonal) or two (subclonal) integer states on the nearest **edge** of the copy-number square (states differ in one allele, `orderEdges` option 1), fraction τ solving the BAF mixture; clonal iff |l − nearest-corner BAF| < maxdist 0.01 or the per-SNP t-test is not significant (constant BAF ⇒ pval 0) — Battenberg `determine_copynumber` (source 8).
 
 ### 1.3 Documented Corner Cases
 
 - Balanced (BAF = 0.5) segments carry little allele-specific information → ×0.05 GoF weight (source 2).
-- Multiple sunrise optima (2n vs 4n) — global minimum over the grid is selected (source 1).
+- Multiple sunrise optima (2n vs 4n) — ASCAT takes strict local minima that pass the filter cascade and keeps the smallest distance; no acceptable minimum ⇒ rho = NA (`TryFitPurityPloidy` false / `FitPurityPloidy` throws) (source 2).
+- Sex chromosomes (X, Y) are excluded from the fit (source 2).
 - Multiplicity must be clamped to [1, major CN]: an observed variant has ≥ 1 mutated copy (sources 3, 4).
 
 ### 1.4 Known Failure Modes / Pitfalls
@@ -95,20 +96,25 @@
 | M10 | DeriveMultiplicity invalid args throw | vaf>1, purity≤0, CN<1, major∉[1,CN] | ArgumentOutOfRangeException | contract |
 | M11 | SegmentAlleleSpecific invalid args throw | null loci, threshold≤0, minLoci<1 | ArgumentNullException / ArgumentOutOfRangeException | contract |
 | M12 | FitPurityPloidy invalid args throw | null/empty segments, bad grid bounds | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
-| M-ASPCF-1 | ASPCF recovers single breakpoint | two-level logR (0 then 1, 10+10 loci), γ=0.5 | 2 segments, breakpoint at index 10, means 0.0/1.0 | source 6 |
-| M-ASPCF-2 | ASPCF ≤ greedy cost | noisy two-level track | penalised cost(ASPCF) ≤ cost(greedy) | source 6 |
-| M-ASPCF-3 | mirrored-BAF splits same-logR | balanced (BAF 0.5) then LOH (BAF 0.0), same logR | 2 segments (mirrored BAF 0.5 vs 1.0) | source 7 |
-| M-SUB-1 | sub-clonal mixture recovered | 0.4·(2,0)+0.6·(1,1) observed at ρ=1,ψ=2 | two states (1,1)/(2,0), f≈0.4, fracs sum to 1 | source 8 |
-| M-SUB-2 | clonal integer collapses | (nA,nB)=(2,1) integer at ρ=1,ψ=2 | single state (2,1), f=1, no secondary | source 8 |
+| M-ASPCF-1 | ASPCF = ascat.aspcf on a noisy step | 80 loci, logR 0→0.6, BAF balanced→0.5±0.25, penalty 70 | 2 segments (40/40), logR −0.023565/0.60321, BAF 0.5 (shrunk)/0.751294079 | source 2 (R run) |
+| M-ASPCF-2 | noise-free track | 10×0.0 + 10×1.0, penalty 0.5 | 1 segment (MAD 0 ⇒ window skipped), logR 0.5 | source 2 (R run) |
+| M-ASPCF-3 | mirrored-BAF splits same-logR | balanced then LOH (0.5±0.47), identical logR, penalty 70 | 2 segments, BAF 0.5 / 0.966975 | source 2 (R run) |
+| M-ASCAT-1..2 | FitPurityPloidy = runASCAT | two noisy genomes (one with chrX) | ρ/ψ/GoF/segments of runASCAT (1/2.7/99.781420571107006/2:1×3; 0.85/2.2/99.999772627448223/2:0 2:1 1:1) | source 2 (R run) |
+| M-ASCAT-3 | no ASCAT optimum | two genomes where runASCAT returns NA | Try = false; Fit throws InvalidOperationException | source 2 (R run) |
+| M-ASCAT-4 | seg_raw rounding | balanced odd total 3; negative allele | 2:1; 2:0 | source 2 |
+| M-SUB-1 | edge mixture recovered | 0.3·(2,1)+0.7·(1,1) at ρ=0.8, ψ=2.5 | (1,1)@0.70000000000000051, (2,1)@0.29999999999999949 | source 8 (R run) |
+| M-SUB-2 | both alleles fractional | ρ=1, ψ=2, logR 0, BAF 0.7 | (2,0)@0.14285714285714241, (2,1) | source 8 (R run) |
+| M-SUB-3 | clonal corners | forward (2,1)/(2,0)/(3,1) at ρ=0.8, ψ=2.5 | single state, f=1 | source 8 (R run) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| S1 | GoF discriminates | Distance at true (ρ,ψ) < distance at deliberately wrong (ρ,ψ) | true < wrong | INV-6 |
+| S1 | GoF discriminates | `EvaluatePurityPloidy` (ASCAT rho_manual/psi_manual) at true vs wrong (ρ,ψ) | 100 % > wrong | INV-6 |
 | S2 | Balanced-only genome | All loci b=0.5 → segments down-weighted ×0.05 | fit completes; balanced segments folded BAF=0.5 | corner case |
 | S3 | Triploid planted (ψ₀=3) | Synthesise from ψ₀=3.0 | recovers ψ≈3.0 | aneuploidy |
-| S-ASPCF-1 | penalty controls segment count | two-level track, γ=1000 vs γ=0.5 | 1 segment vs 2 segments | source 6 |
+| S-ASPCF-1 | penalty controls segment count | noisy step, γ=1e6 vs default 70 | 1 segment (logR 0.2898225, BAF 0.637905789375) vs 2 | source 2 (R run) |
+| S-ASPCF-3 | < 6 loci on a chromosome | 5 loci | 1 segment, logR 0.13, BAF 0.774 (mean mirrored, no shrink) | source 2 (R run) |
 | S-ASPCF-2 | chromosome boundary not crossed | flat value over chr1+chr2, γ=100 | 2 segments (one per chromosome) | source 6 |
 
 ### 4.3 COULD Tests (Nice to have)
@@ -202,8 +208,8 @@
 |---|-----------|---------|
 | 1 | Germline-het-SNP BAF forward model b = (ρ·nB + (1−ρ))/(ρ·n + 2(1−ρ)) — algebraic inverse of the ASCAT nA/nB equations | planted-truth synthesis only (M2–M4, M9, S1–S3, M-SUB-1/2) |
 | 2 | logR baseline = average sample ploidy (segment at genome-average CN ⇒ r = 0) | planted-truth synthesis only |
-| 3 | ASPCF γ exposed as a sourced parameter (form `+γ\|S\|` verbatim; numeric default copynumber 40 / ASCAT 70 is probe-scale-specific) | `SegmentAlleleSpecificAspcf` default; M-ASPCF tests use a γ derived from each dataset's ΔSSE |
-| 4 | Two-state sub-clonal mixture uses the two bracketing integers with one shared fraction (3+-population mixtures out of scope) | `FitSubclonalCopyNumber`, M-SUB-1/2 |
+| 3 | (superseded 2026-09) ASPCF penalty is on ASCAT's MAD-standardised cost; default 70 = `ascat.aspcf` | `SegmentAlleleSpecificAspcf` |
+| 4 | (superseded 2026-09) Sub-clonal states follow Battenberg's nearest edge; a segment summary has constant SNP BAF ⇒ Battenberg pval = 0, so only the maxdist rule decides clonality | `FitSubclonalCopyNumber` |
 
 Assumptions 1–2 affect only test-input synthesis (not production code) and are exact inverses of the cited ASCAT equations. Assumptions 3–4 are sourced modelling choices documented in the Evidence (ASPCF γ form is verbatim; the two-state mixture is the unique f∈[0,1] decomposition of a single fractional value).
 
@@ -212,3 +218,21 @@ Assumptions 1–2 affect only test-input synthesis (not production code) and are
 ## 7. Open Questions / Decisions
 
 1. None. ASPCF penalised-least-squares segmentation (`SegmentAlleleSpecificAspcf`) and two-state sub-clonal copy number (`FitSubclonalCopyNumber`) are now implemented. Remaining out-of-scope refinements: multi-sample (asmultipcf) segmentation, 3+-population per-segment mixtures, and a whole-genome-doubling refit search — these are documented limitations, not blockers.
+
+---
+
+## 8. 2026-09 review (B24, F12–F14)
+
+- **F12** `FitPurityPloidy` is now a line-by-line port of `runASCAT` (distance matrix, probe-count weights, autosomes only,
+  7×7 strict local minima, 4-pass filter cascade, ρ>1 ⇒ 1, `seg_raw` rounding with negative correction and the balanced
+  odd-total rule, R half-to-even rounding). Additive API: `TryFitPurityPloidy`, `EvaluatePurityPloidy`
+  (rho_manual/psi_manual), `PurityPloidyFit.Psi`, `PurityPloidyFit.IsNonAberrant`; `Ploidy` is ASCAT's output ploidy.
+  Defaults = ASCAT (purity 0.1–1.05, ploidy 1.5–5.5). R cross-check: 150/150 random genomes identical (pre-fix code
+  disagreed on 123/148).
+- **F13** `SegmentAlleleSpecificAspcf` is a port of `ascat.aspcf`/`fastAspcf`/`aspcfpart` (+ `madWins`, `getMad`,
+  R `runmed`/`smoothEnds`). R cross-check: 60/60 genomes, 681 segments identical to ≤ 5e-16 (pre-fix: 52/60 differ).
+- **F14** `FitSubclonalCopyNumber` is a port of Battenberg `determine_copynumber` + `orderEdges`. R cross-check:
+  402/402 segments identical.
+- Tests: unit (`OncologyAnalyzer_AscatDerivation_Tests.cs`) M-ASCAT-1..4, M-ASPCF-1..3, S-ASPCF-1..4, M-SUB-1..3;
+  fuzz (`OncologyAscatFuzzTests.cs`) single-segment genomes ⇒ ASCAT NA, random genomes ⇒ well-formed or NA;
+  properties (`OncologyProperties.cs`) ranges/determinism over found optima; metamorphic ASPCF logR-shift on a noisy track.
