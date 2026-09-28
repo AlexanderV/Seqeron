@@ -14,7 +14,7 @@ Codon-frequency similarity between two coding sequences.
 
 ## Description
 
-Computes the codon-usage similarity between two coding sequences as `1 − ½·Σ|f1(codon) − f2(codon)|`, where `f` is the relative frequency of a codon within each sequence. Result is in `[0,1]`: 1 = identical codon distribution, 0 = fully disjoint. An input that is empty or has no complete codons contributes 0.
+Computes the codon-usage similarity between two coding sequences as `1 − ½·Σ|f1(codon) − f2(codon)|`, where `f` is the relative frequency of a codon within each sequence. Result is in `[0,1]`: 1 = identical codon distribution, 0 = fully disjoint. Only complete in-frame codons over {A,C,G,T/U} are counted (case-insensitive); a triplet containing an ambiguity code or other non-nucleotide character is skipped without shifting the frame. An input that is empty or has no countable codon gives 0.
 
 ## Core Documentation Reference
 

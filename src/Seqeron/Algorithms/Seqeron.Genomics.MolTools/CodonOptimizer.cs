@@ -887,8 +887,23 @@ public static class CodonOptimizer
     }
 
     /// <summary>
-    /// Calculates codon frequency distribution for a sequence.
+    /// Counts the in-frame (frame 0) codons of a coding sequence, returning RNA-spelled keys
+    /// (<c>AUG</c>, <c>GCU</c>, …) mapped to raw counts (the "Number" column of an EMBOSS
+    /// <c>cusp</c> / Kazusa codon usage table).
     /// </summary>
+    /// <remarks>
+    /// Input is case-insensitive and may be DNA (T) or RNA (U). Only the 64 unambiguous
+    /// codons over {A,C,G,U} are counted: a triplet containing an IUPAC ambiguity code
+    /// (N, R, Y, …) or any other non-nucleotide character is skipped without shifting the
+    /// frame, and an incomplete trailing triplet is ignored — the contract documented for
+    /// EMBOSS <c>ajCodSetTripletsS</c> ("Skips triplets with ambiguity codes and any
+    /// incomplete triplet at the end"), and consistent with Biopython
+    /// <c>CodonAdaptationIndex</c>, whose count table is closed over the 64 ACGT codons.
+    /// Stop codons are counted like any other codon (they are rows of the cusp/Kazusa table).
+    /// Delegates to the canonical counter <see cref="CodonUsageAnalyzer.CountCodons(string)"/>.
+    /// Codons that do not occur are absent from the dictionary (no zero entries).
+    /// </remarks>
+    /// <param name="codingSequence">In-frame coding sequence (DNA or RNA); null/empty → empty result.</param>
     public static Dictionary<string, int> CalculateCodonUsage(string codingSequence)
     {
         var usage = new Dictionary<string, int>();
@@ -896,21 +911,20 @@ public static class CodonOptimizer
         if (string.IsNullOrEmpty(codingSequence))
             return usage;
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
-
-        foreach (var codon in codons)
-        {
-            if (!usage.ContainsKey(codon))
-                usage[codon] = 0;
-            usage[codon]++;
-        }
+        // Canonical counter works on DNA spelling; report RNA spelling for this API.
+        string dna = codingSequence.ToUpperInvariant().Replace('U', 'T');
+        foreach (var (codon, count) in CodonUsageAnalyzer.CountCodons(dna))
+            usage[codon.Replace('T', 'U')] = count;
 
         return usage;
     }
 
     /// <summary>
-    /// Compares codon usage between two sequences.
+    /// Compares the codon usage of two sequences as the total-variation-distance similarity of
+    /// their codon frequency distributions: <c>1 − ½·Σ_c |f₁(c) − f₂(c)|</c>, where
+    /// <c>f_i(c) = count_i(c) / Σ count_i</c> over the codons counted by
+    /// <see cref="CalculateCodonUsage(string)"/> (unambiguous, in-frame, complete codons only).
+    /// Returns a value in [0, 1]; returns 0 when either sequence has no countable codon.
     /// </summary>
     public static double CompareCodonUsage(string sequence1, string sequence2)
     {
@@ -927,15 +941,15 @@ public static class CodonOptimizer
         if (total1 == 0 || total2 == 0)
             return 0;
 
-        double correlation = 0;
+        double l1Distance = 0;
         foreach (var codon in allCodons)
         {
             double freq1 = usage1.GetValueOrDefault(codon, 0) / (double)total1;
             double freq2 = usage2.GetValueOrDefault(codon, 0) / (double)total2;
-            correlation += Math.Abs(freq1 - freq2);
+            l1Distance += Math.Abs(freq1 - freq2);
         }
 
-        return 1 - (correlation / 2);
+        return 1 - (l1Distance / 2);
     }
 
     #endregion

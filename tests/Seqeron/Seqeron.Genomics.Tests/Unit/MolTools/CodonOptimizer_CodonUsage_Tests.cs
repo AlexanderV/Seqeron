@@ -414,4 +414,63 @@ public class CodonOptimizer_CodonUsage_Tests
     }
 
     #endregion
+
+    #region Ambiguity / non-nucleotide triplets (review 2026-09, F9)
+
+    /// <summary>
+    /// S7: triplets containing IUPAC ambiguity codes are skipped, frame is preserved.
+    /// Source: EMBOSS ajcod.c ajCodSetTripletsS — "Skips triplets with ambiguity codes and any
+    /// incomplete triplet at the end"; Biopython 1.88 CodonAdaptationIndex counts only the 64
+    /// ACGT codons. Cross-checked against a port of the cusp counting loop.
+    /// ATG NNN GCT RYT GC → {AUG:1, GCU:1}; before the fix NNN and RYU were counted as codons.
+    /// </summary>
+    [Test]
+    public void CalculateCodonUsage_AmbiguousTriplets_SkippedFramePreserved()
+    {
+        var usage = CodonOptimizer.CalculateCodonUsage("ATGNNNGCTRYTGC");
+
+        Assert.That(usage, Is.EquivalentTo(new Dictionary<string, int> { ["AUG"] = 1, ["GCU"] = 1 }));
+    }
+
+    /// <summary>
+    /// S8: non-nucleotide characters (gap, X) invalidate only their own triplet; mixed-case RNA
+    /// input is counted. aug -GC gcu uaX ccc → {AUG:1, GCU:1, CCC:1}.
+    /// </summary>
+    [Test]
+    public void CalculateCodonUsage_NonNucleotideTriplets_Skipped()
+    {
+        var usage = CodonOptimizer.CalculateCodonUsage("aug-GCgcuuaXccc");
+
+        Assert.That(usage, Is.EquivalentTo(new Dictionary<string, int> { ["AUG"] = 1, ["GCU"] = 1, ["CCC"] = 1 }));
+    }
+
+    /// <summary>
+    /// S9: only unambiguous codons enter the frequency distributions of the comparison.
+    /// atgNNNgct vs ATGGCT: both reduce to {AUG 1/2, GCU 1/2} → similarity 1.0
+    /// (previously 2/3 because NNN was a pseudo-codon). All-ambiguous inputs have no countable
+    /// codon → 0 (previously NNNNNN vs NNNNNN gave 1.0).
+    /// </summary>
+    [TestCase("atgNNNgct", "ATGGCT", 1.0)]
+    [TestCase("NNNNNN", "NNNNNN", 0.0)]
+    [TestCase("ATGATGATGATGATGGCT", "ATGATGGCTGCC", 2.0 / 3.0)]
+    public void CompareCodonUsage_AmbiguousTripletsIgnored(string seq1, string seq2, double expected)
+    {
+        Assert.That(CodonOptimizer.CompareCodonUsage(seq1, seq2), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    /// <summary>
+    /// S10: delegation to the canonical counter — same counts as
+    /// CodonUsageAnalyzer.CountCodons, keys re-spelled T→U.
+    /// </summary>
+    [Test]
+    public void CalculateCodonUsage_AgreesWithCanonicalCountCodons()
+    {
+        const string seq = "ATGAAAGCGTTCAAGCGTACTGCGNNATGA";
+        var expected = CodonUsageAnalyzer.CountCodons(seq)
+            .ToDictionary(kv => kv.Key.Replace('T', 'U'), kv => kv.Value);
+
+        Assert.That(CodonOptimizer.CalculateCodonUsage(seq), Is.EquivalentTo(expected));
+    }
+
+    #endregion
 }
