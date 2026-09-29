@@ -290,7 +290,8 @@ public class RepeatFinderProperties
 
     /// <summary>
     /// INV-3: Sub-type counts sum to total repeats.
-    /// Evidence: TotalRepeats = Mono + Di + Tri + Tetra + remaining types.
+    /// Evidence: every reported unit has length 1–6 and each class has its own field (MISA "Distribution to
+    /// different repeat type classes" / Krait Mono…Hexa), so Mono+Di+Tri+Tetra+Penta+Hexa = TotalRepeats.
     /// </summary>
     [Test]
     [Category("Property")]
@@ -300,10 +301,33 @@ public class RepeatFinderProperties
             new DnaSequence(MicrosatelliteSequence), minRepeats: 3);
 
         int subSum = summary.MononucleotideRepeats + summary.DinucleotideRepeats +
-                     summary.TrinucleotideRepeats + summary.TetranucleotideRepeats;
+                     summary.TrinucleotideRepeats + summary.TetranucleotideRepeats +
+                     summary.PentanucleotideRepeats + summary.HexanucleotideRepeats;
 
-        Assert.That(subSum, Is.LessThanOrEqualTo(summary.TotalRepeats),
-            "Mono+Di+Tri+Tetra sub-types must be ≤ TotalRepeats (penta/hexa/complex may exist)");
+        Assert.That(subSum, Is.EqualTo(summary.TotalRepeats),
+            "Mono+Di+Tri+Tetra+Penta+Hexa must equal TotalRepeats");
+    }
+
+    /// <summary>
+    /// INV-3b: for random sequences the six class counts sum to TotalRepeats, covered bases (union) never
+    /// exceed TotalRepeatBases (sum of lengths), and LongestRepeat / MostFrequentUnit are null exactly when
+    /// nothing is found.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TandemSummary_ClassCounts_Coverage_LongestNull_Consistent()
+    {
+        return Prop.ForAll(DnaArbitrary(40), seq =>
+        {
+            var s = RepeatFinder.GetTandemRepeatSummary(new DnaSequence(seq), minRepeats: 2);
+            int subSum = s.MononucleotideRepeats + s.DinucleotideRepeats + s.TrinucleotideRepeats +
+                         s.TetranucleotideRepeats + s.PentanucleotideRepeats + s.HexanucleotideRepeats;
+            double covered = seq.Length == 0 ? 0 : s.PercentageOfSequence * seq.Length / 100.0;
+            bool ok = subSum == s.TotalRepeats
+                      && covered <= s.TotalRepeatBases + 1e-9
+                      && (s.LongestRepeat is null) == (s.TotalRepeats == 0)
+                      && (s.MostFrequentUnit is null) == (s.TotalRepeats == 0);
+            return ok.Label($"seq={seq} sum={subSum} total={s.TotalRepeats} covered={covered} bases={s.TotalRepeatBases}");
+        });
     }
 
     /// <summary>

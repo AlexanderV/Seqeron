@@ -9,7 +9,7 @@
 | **Title** | Tandem Repeat Detection |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-03-01 |
+| **Last Updated** | 2026-09-29 |
 
 ---
 
@@ -29,6 +29,8 @@
 | [Wikipedia - Tandem repeat](https://en.wikipedia.org/wiki/Tandem_repeat) | Definition | Adjacent repeating patterns; 8% of human genome; >50 diseases; detection via suffix trees/arrays |
 | [Wikipedia - Microsatellite](https://en.wikipedia.org/wiki/Microsatellite) | Classification | STR = 1–6 bp (up to 10 bp by some authors); mutation via slippage (~1 per 1,000 generations); forensic STRs are tetra-/pentanucleotide only |
 | Richard et al. (2008) | Review | Comparative genomics of DNA repeats in eukaryotes, MMBR 72(4):686–727 |
+| MISA `misa.pl` v1.0 (Thiel et al. 2003, TAG 106:411) — source opened (raw GitHub mirror, 2026-09-29) | Reference tool | `.statistics`: total SSRs; "Distribution to different repeat type classes" = one count per unit size 1–6; "Frequency of identified SSR motifs" counts raw motifs (a second table groups rotations + reverse complement) |
+| Krait `src/statistics.py` (Du et al. 2018, Bioinformatics 34:681) — source opened (raw GitHub, 2026-09-29) | Reference tool | Type table Mono…Hexa; "Length (bp)" = `SUM(length)`; density = length / valid (ACGT) size |
 
 ---
 
@@ -93,6 +95,17 @@ These tests verify the delegate method which wraps FindMicrosatellites.
 | D2 | NoRepeats_ZeroValues | Edge case |
 | D3 | LongestRepeat_Identified | Correct identification |
 | D4 | MononucleotideCount_Correct | Category counting |
+| D5 | PentaAndHexa_CountedAndSumToTotal | All six classes counted (MISA/Krait); counts sum to TotalRepeats; sum-of-lengths 71 vs union coverage 44/46 |
+| D6 | OverlappingRuns_SumExceedsCoveredBases | `AAAAATATATAT`: 13 repeat bases, 100 % coverage |
+| D7 | NoRepeats / EmptySequence → LongestRepeat and MostFrequentUnit null | Null contract (was a default Position-0 record) |
+| D8 | HigherMinRepeats_PartialCoverage | minRepeats 4 → 14/32 = 43.75 % |
+| D9 | InvalidArguments_Throw | null → ArgumentNullException; minRepeats < 2 → ArgumentOutOfRangeException |
+
+Summary expected values come from an independent Python reference (brute-force maximal primitive runs
++ aggregation); the code agreed on 9000/9000 random sequences (2026-09-29). Per-class totals of the
+same reference agreed exactly with running `misa.pl` for minRepeats ≥ 4; for minRepeats 2–3 MISA differs
+only by the run-level conventions documented under REP-STR-001 (greedy consumption of non-primitive
+regions, same-period overlapping runs).
 
 ---
 
@@ -104,8 +117,8 @@ These tests verify the delegate method which wraps FindMicrosatellites.
 | SHOULD | 5 |
 | COULD | 2 |
 | Property (invariants) | 3 |
-| Summary (delegate) | 4 |
-| **Total** | 27 |
+| Summary (delegate) | 9 |
+| **Total** | 32 |
 
 ### Deviations and Assumptions
 

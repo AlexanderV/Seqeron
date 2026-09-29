@@ -509,7 +509,11 @@ public class AnalysisTools
             s.TrinucleotideRepeats,
             s.TetranucleotideRepeats,
             longest,
-            s.MostFrequentUnit);
+            s.MostFrequentUnit)
+        {
+            PentanucleotideRepeats = s.PentanucleotideRepeats,
+            HexanucleotideRepeats = s.HexanucleotideRepeats,
+        };
     }
 
     [McpServerTool(Name = "find_palindromes", Title = "Repeats — Palindromes (Restriction Sites)", ReadOnly = true)]

@@ -852,8 +852,38 @@ public static class RepeatFinder
     #region Tandem Repeat Summary
 
     /// <summary>
-    /// Gets a summary of all tandem repeats in a sequence.
+    /// Gets a summary of all perfect microsatellites (1–6 bp units) in a sequence.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The summary aggregates exactly the list returned by
+    /// <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/> with unit lengths 1–6 and the given
+    /// <paramref name="minRepeats"/> (one maximal primitive run per unit length; no second scan), following the
+    /// statistics conventions of MISA (Thiel et al. 2003, <c>misa.pl</c> <c>.statistics</c> output) and Krait
+    /// (Du et al. 2018, <c>statistics.py</c>):
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><c>TotalRepeats</c> — number of reported microsatellites (MISA "Total number of identified SSRs").</description></item>
+    /// <item><description>Per-class counts for all six unit sizes, mono … hexa (MISA "Distribution to different repeat
+    /// type classes": one row per unit size; Krait <c>motifTypeStatis</c>: Mono, Di, Tri, Tetra, Penta, Hexa). The six
+    /// counts always sum to <c>TotalRepeats</c>.</description></item>
+    /// <item><description><c>TotalRepeatBases</c> — sum of the repeat lengths (Krait "Length (bp)" = <c>SUM(length)</c>);
+    /// runs of different unit lengths that overlap are each counted in full.</description></item>
+    /// <item><description><c>PercentageOfSequence</c> — percent of the sequence's bases covered by at least one reported
+    /// microsatellite: |∪ [Position, Position+TotalLength)| / sequence length × 100, so always in [0, 100]. When no two
+    /// reported runs overlap this equals <c>TotalRepeatBases</c> / length × 100 (Krait's relative density expressed as a
+    /// percentage; DnaSequence contains only A/C/G/T, so Krait's valid-base denominator equals the length).</description></item>
+    /// <item><description><c>LongestRepeat</c> — the run with the largest <c>TotalLength</c>; ties go to the shorter unit,
+    /// then the leftmost position (the <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/> order).</description></item>
+    /// <item><description><c>MostFrequentUnit</c> — the repeat unit string (as reported, i.e. the motif phase at the run
+    /// start, not rotation- or strand-canonicalized; MISA table "Frequency of identified SSR motifs") that occurs in the
+    /// most runs; ties go to the unit whose first run appears first in that order.</description></item>
+    /// </list>
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to summarize.</param>
+    /// <param name="minRepeats">Minimum number of complete copies (≥ 2; default 3), applied to every unit length.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minRepeats"/> is less than 2.</exception>
     public static TandemRepeatSummary GetTandemRepeatSummary(
         DnaSequence sequence,
         int minRepeats = 3)
@@ -886,7 +916,14 @@ public static class RepeatFinder
             DinucleotideRepeats: byType.GetValueOrDefault(RepeatType.Dinucleotide)?.Count ?? 0,
             TrinucleotideRepeats: byType.GetValueOrDefault(RepeatType.Trinucleotide)?.Count ?? 0,
             TetranucleotideRepeats: byType.GetValueOrDefault(RepeatType.Tetranucleotide)?.Count ?? 0,
-            LongestRepeat: microsatellites.OrderByDescending(m => m.TotalLength).FirstOrDefault(),
+            PentanucleotideRepeats: byType.GetValueOrDefault(RepeatType.Pentanucleotide)?.Count ?? 0,
+            HexanucleotideRepeats: byType.GetValueOrDefault(RepeatType.Hexanucleotide)?.Count ?? 0,
+            // MicrosatelliteResult is a struct: FirstOrDefault() on the struct sequence would return default(...)
+            // (Position 0, RepeatUnit null) instead of null when nothing is found, so lift to the nullable type first.
+            LongestRepeat: microsatellites
+                .OrderByDescending(m => m.TotalLength)
+                .Select(m => (MicrosatelliteResult?)m)
+                .FirstOrDefault(),
             MostFrequentUnit: microsatellites
                 .GroupBy(m => m.RepeatUnit)
                 .OrderByDescending(g => g.Count())
@@ -1109,7 +1146,9 @@ public readonly record struct PalindromeResult(
     int Length);
 
 /// <summary>
-/// Summary of tandem repeats in a sequence.
+/// Summary of perfect microsatellites (1–6 bp units) in a sequence; see
+/// <see cref="RepeatFinder.GetTandemRepeatSummary(DnaSequence,int)"/> for each field's definition.
+/// The six per-class counts (mono … hexa) sum to <see cref="TotalRepeats"/>.
 /// </summary>
 public readonly record struct TandemRepeatSummary(
     int TotalRepeats,
@@ -1119,5 +1158,7 @@ public readonly record struct TandemRepeatSummary(
     int DinucleotideRepeats,
     int TrinucleotideRepeats,
     int TetranucleotideRepeats,
+    int PentanucleotideRepeats,
+    int HexanucleotideRepeats,
     MicrosatelliteResult? LongestRepeat,
     string? MostFrequentUnit);

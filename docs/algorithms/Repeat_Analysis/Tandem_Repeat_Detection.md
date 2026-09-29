@@ -44,6 +44,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 | INV-02 | `TotalLength = Unit.Length × Repetitions` for every `TandemRepeat`. | Total length is defined by the unit size and repetition count. |
 | INV-03 | `Position + Unit.Length × Repetitions <= sequence.Length`. | The counting loop stops when the next full unit would exceed sequence bounds. |
 | INV-04 | The summary percentages and totals are derived only from reported microsatellites. | `GetTandemRepeatSummary` delegates to `FindMicrosatellites(sequence, 1, 6, minRepeats)`. |
+| INV-06 | The six per-class counts (mono … hexa) sum to `TotalRepeats`; `0 ≤ PercentageOfSequence ≤ 100`; covered bases ≤ `TotalRepeatBases`. | Every reported unit has length 1–6; coverage is the union of spans, the base total is their sum [5][6]. |
 | INV-05 | Within a fixed candidate unit length, later starts inside a detected tandem block are skipped. | After yielding a result, the implementation advances the start index to the end of the detected tandem block for that unit-length pass. |
 
 ## 3. Contract
@@ -62,11 +63,11 @@ The canonical detector searches candidate unit lengths and starting positions, c
 | Field | Type | Description |
 |-------|------|-------------|
 | Tandem repeats | `IEnumerable<TandemRepeat>` | Exact tandem-repeat hits with unit, 0-based start position, repetition count, total length, and full repeated sequence. |
-| Tandem summary | `TandemRepeatSummary` | Aggregate summary over microsatellite-sized tandem repeats, including total repeat count, total repeat bases, percentage of sequence, longest repeat, most frequent repeat unit, and dedicated per-class counts for mono-, di-, tri-, and tetranucleotide repeats. |
+| Tandem summary | `TandemRepeatSummary` | Aggregate summary over the perfect microsatellites (1–6 bp units) reported by `FindMicrosatellites`: `TotalRepeats`; per-class counts for mono-, di-, tri-, tetra-, penta- and hexanucleotide repeats (MISA "Distribution to different repeat type classes", Krait Mono…Hexa [5][6]); `TotalRepeatBases` = sum of repeat lengths (Krait "Length (bp)" = `SUM(length)` [6]; overlapping runs of different unit lengths each count in full); `PercentageOfSequence` = bases covered by the union of repeat spans / length × 100; `LongestRepeat` (largest `TotalLength`, ties → shorter unit then leftmost; `null` when none); `MostFrequentUnit` (reported unit string — motif phase at run start, not rotation/strand-canonicalized, as in MISA's "Frequency of identified SSR motifs" [5]; ties → first in unit-length/position order; `null` when none). |
 
 ### 3.3 Preconditions and Validation
 
-`GetTandemRepeatSummary` throws `ArgumentNullException` when `sequence` is `null` because it delegates to `FindMicrosatellites`. `FindTandemRepeats` does not perform explicit argument validation; it reads `sequence.Sequence` immediately and therefore relies on the caller to provide a non-null `DnaSequence` and sensible threshold values. Empty sequences produce no tandem-repeat hits, and an empty sequence summarized through `GetTandemRepeatSummary` returns zero totals and `0` percent coverage.
+`GetTandemRepeatSummary` throws `ArgumentNullException` when `sequence` is `null` because it delegates to `FindMicrosatellites`. `FindTandemRepeats` does not perform explicit argument validation; it reads `sequence.Sequence` immediately and therefore relies on the caller to provide a non-null `DnaSequence` and sensible threshold values. Empty sequences produce no tandem-repeat hits, and an empty sequence summarized through `GetTandemRepeatSummary` returns zero totals, `0` percent coverage and `null` `LongestRepeat` / `MostFrequentUnit`. `GetTandemRepeatSummary` throws `ArgumentOutOfRangeException` for `minRepeats < 2` (eager validation in `FindMicrosatellites`).
 
 ## 4. Algorithm
 
@@ -96,7 +97,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 ### 5.2 Current Behavior
 
-`GenomicAnalyzer.FindTandemRepeats` uses a brute-force scan over candidate unit lengths and positions, compares units with direct substring equality, and skips forward after each hit within the current unit-length pass. This suppresses later starts inside the same detected block for that unit length, but it does not prevent the same region from being reported again under a different unit-length interpretation. It does not normalize case or validate parameters before iterating. `RepeatFinder.GetTandemRepeatSummary` does validate `sequence`, then delegates to `FindMicrosatellites(sequence, 1, 6, minRepeats)`, meaning the summary covers only tandem repeats with 1-6 bp units and inherits microsatellite overlap suppression and redundant-unit filtering from that implementation. The summary record tracks total tandem-repeat counts across that full 1-6 bp range, but dedicated per-class fields stop at tetranucleotide repeats.
+`GenomicAnalyzer.FindTandemRepeats` uses a brute-force scan over candidate unit lengths and positions, compares units with direct substring equality, and skips forward after each hit within the current unit-length pass. This suppresses later starts inside the same detected block for that unit length, but it does not prevent the same region from being reported again under a different unit-length interpretation. It does not normalize case or validate parameters before iterating. `RepeatFinder.GetTandemRepeatSummary` does validate `sequence`, then delegates to `FindMicrosatellites(sequence, 1, 6, minRepeats)`, meaning the summary covers only tandem repeats with 1-6 bp units and inherits that implementation's conventions (each maximal primitive ACGT run reported once per unit length; runs of different unit lengths may overlap). The summary record has a dedicated count field for each of the six classes, and the six counts sum to `TotalRepeats`.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -110,7 +111,8 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 - Brute-force direct substring comparison instead of suffix-tree, suffix-array, or Tandem Repeats Finder style optimization; **consequence:** runtime grows rapidly on long sequences and the implementation is best suited to moderate sequence lengths [1][4].
 - `GetTandemRepeatSummary` is restricted to microsatellite-sized units from 1 to 6 bp; **consequence:** longer minisatellite and macrosatellite tandems are excluded from the summary even though `FindTandemRepeats` can detect longer exact units.
-- `GetTandemRepeatSummary` aggregates 1-6 bp microsatellites into totals, but its dedicated count fields stop at tetranucleotide repeats; **consequence:** penta- and hexanucleotide repeats contribute to total counts and bases without receiving their own named output fields.
+- `GetTandemRepeatSummary` applies one `minRepeats` threshold to every unit length, whereas MISA's default `misa.ini` uses per-size thresholds (1-10 2-6 3-5 4-5 5-5 6-5) [5]; **consequence:** to reproduce MISA per-size thresholds call `FindMicrosatellites` once per unit length.
+- MISA additionally reports compound SSRs and a motif table grouped by rotation and reverse complement [5]; the summary reports neither (the `MostFrequentUnit` is the raw reported unit).
 
 **Not implemented:**
 
@@ -166,3 +168,5 @@ The canonical detector is exact and does not score approximate tandem repeats, i
 2. Wikipedia. 2026. Microsatellite. Wikipedia. https://en.wikipedia.org/wiki/Microsatellite
 3. Richard GF, Kerrest A, Dujon B. 2008. Comparative genomics and molecular dynamics of DNA repeats in eukaryotes. Microbiology and Molecular Biology Reviews. 72(4):686-727.
 4. Benson G. 1999. Tandem Repeats Finder: a program to analyze DNA sequences. Nucleic Acids Research. 27(2):573-580.
+5. Thiel T, Michalek W, Varshney RK, Graner A. 2003. Exploiting EST databases for the development and characterization of gene-derived SSR-markers in barley. Theoretical and Applied Genetics 106:411-422. MISA `misa.pl` v1.0 source (`.statistics` output sections), opened via a raw GitHub mirror 2026-09-29.
+6. Du L, Zhang C, Liu Q, Zhang X, Yue B. 2018. Krait: an ultrafast tool for genome-wide survey of microsatellites and primer design. Bioinformatics 34(4):681-683. `src/statistics.py` (lmdu/krait, raw.githubusercontent.com, opened 2026-09-29).

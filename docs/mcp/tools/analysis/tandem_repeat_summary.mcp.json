@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.GetTandemRepeatSummary",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L871",
-  "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts, longest repeat and most frequent unit.",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L887",
+  "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts (mono..hexa), longest repeat and most frequent unit.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -25,10 +25,12 @@
       "dinucleotideRepeats": { "type": "integer" },
       "trinucleotideRepeats": { "type": "integer" },
       "tetranucleotideRepeats": { "type": "integer" },
+      "pentanucleotideRepeats": { "type": "integer" },
+      "hexanucleotideRepeats": { "type": "integer" },
       "longestRepeat": { "type": ["object", "null"] },
       "mostFrequentUnit": { "type": ["string", "null"] }
     },
-    "required": ["totalRepeats", "totalRepeatBases", "percentageOfSequence", "mononucleotideRepeats", "dinucleotideRepeats", "trinucleotideRepeats", "tetranucleotideRepeats"]
+    "required": ["totalRepeats", "totalRepeatBases", "percentageOfSequence", "mononucleotideRepeats", "dinucleotideRepeats", "trinucleotideRepeats", "tetranucleotideRepeats", "pentanucleotideRepeats", "hexanucleotideRepeats"]
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
@@ -38,12 +40,17 @@
     {
       "name": "Single trinucleotide STR",
       "input": { "sequence": "CAGCAGCAG", "minRepeats": 3 },
-      "output": { "totalRepeats": 1, "totalRepeatBases": 9, "percentageOfSequence": 100.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 1, "tetranucleotideRepeats": 0, "mostFrequentUnit": "CAG" }
+      "output": { "totalRepeats": 1, "totalRepeatBases": 9, "percentageOfSequence": 100.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 1, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 0, "hexanucleotideRepeats": 0, "longestRepeat": { "position": 0, "repeatUnit": "CAG", "repeatCount": 3, "totalLength": 9, "repeatType": "Trinucleotide" }, "mostFrequentUnit": "CAG" }
     },
     {
       "name": "No STRs",
       "input": { "sequence": "ACGT", "minRepeats": 3 },
-      "output": { "totalRepeats": 0, "totalRepeatBases": 0, "percentageOfSequence": 0.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0 }
+      "output": { "totalRepeats": 0, "totalRepeatBases": 0, "percentageOfSequence": 0.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 0, "hexanucleotideRepeats": 0, "longestRepeat": null, "mostFrequentUnit": null }
+    },
+    {
+      "name": "Penta + hexa STRs with overlapping homopolymers",
+      "input": { "sequence": "AAAGAAAAGAAAAGAAAAGACCTTAGGGTTAGGGTTAGGGTTAGGG", "minRepeats": 3 },
+      "output": { "totalRepeats": 10, "totalRepeatBases": 71, "percentageOfSequence": 95.65217391304348, "mononucleotideRepeats": 8, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 1, "hexanucleotideRepeats": 1, "longestRepeat": { "position": 22, "repeatUnit": "TTAGGG", "repeatCount": 4, "totalLength": 24, "repeatType": "Hexanucleotide" }, "mostFrequentUnit": "A" }
     }
   ]
 }

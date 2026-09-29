@@ -156,7 +156,14 @@ public record TandemRepeatSummaryResult(
     int TrinucleotideRepeats,
     int TetranucleotideRepeats,
     MicrosatelliteItem? LongestRepeat,
-    string? MostFrequentUnit);
+    string? MostFrequentUnit)
+{
+    /// <summary>Count of pentanucleotide (5 bp unit) STRs.</summary>
+    public int PentanucleotideRepeats { get; init; }
+
+    /// <summary>Count of hexanucleotide (6 bp unit) STRs.</summary>
+    public int HexanucleotideRepeats { get; init; }
+}
 
 // ================================
 // MotifFinder Results
