@@ -172,17 +172,65 @@ public static class MotifFinder
 
     #region Position Weight Matrix
 
+    /// <summary>Number of rows of a DNA PWM (A, C, G, T).</summary>
+    private const int PwmAlphabetSize = 4;
+
     /// <summary>
-    /// Creates a Position Weight Matrix (PWM) from aligned sequences.
+    /// Creates a log-odds Position Weight Matrix (PWM) from aligned sequences against a
+    /// uniform background (b = 0.25 for every base).
+    /// <para>
+    /// W[b,j] = log2( ((c[b,j] + p) / (N + 4p)) / 0.25 ), where c is the position frequency
+    /// (count) matrix, N the number of sequences and p the pseudocount added to every cell.
+    /// Identical to Biopython <c>motif.counts.normalize(pseudocounts=p).log_odds()</c>.
+    /// </para>
     /// </summary>
-    /// <param name="sequences">Aligned sequences of equal length.</param>
-    /// <param name="pseudocount">Pseudocount for smoothing (default: 0.25).</param>
+    /// <param name="sequences">Aligned sequences of equal length over A/C/G/T (case-insensitive).</param>
+    /// <param name="pseudocount">
+    /// Pseudocount added to each of the four cells of every column (default: 0.25, i.e. one
+    /// pseudo-observation per column spread uniformly). Must be finite and ≥ 0; 0 gives −∞ for
+    /// unseen bases.
+    /// </param>
     /// <returns>Position Weight Matrix.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">Empty collection, null element, unequal lengths or non-ACGT character.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pseudocount"/> is negative, NaN or infinite.</exception>
     public static PositionWeightMatrix CreatePwm(IEnumerable<string> sequences, double pseudocount = 0.25)
+        => CreatePwm(sequences, pseudocount, UniformBackground);
+
+    private static readonly double[] UniformBackground = { 0.25, 0.25, 0.25, 0.25 };
+
+    /// <summary>
+    /// Creates a log-odds Position Weight Matrix against an arbitrary background distribution
+    /// (Wasserman &amp; Sandelin 2004, Nat Rev Genet 5:276; Biopython
+    /// <c>counts.normalize(pseudocounts=p).log_odds(background=...)</c>):
+    /// W[b,j] = log2( ((c[b,j] + p) / (N + 4p)) / q[b] ), with q the background normalised to sum 1.
+    /// </summary>
+    /// <param name="sequences">Aligned sequences of equal length over A/C/G/T (case-insensitive).</param>
+    /// <param name="pseudocount">Pseudocount added to each cell (finite, ≥ 0).</param>
+    /// <param name="background">
+    /// Background probabilities in the order A, C, G, T (4 finite, strictly positive values;
+    /// normalised to sum 1 as in Biopython).
+    /// </param>
+    /// <returns>Position Weight Matrix.</returns>
+    public static PositionWeightMatrix CreatePwm(
+        IEnumerable<string> sequences,
+        double pseudocount,
+        IReadOnlyList<double> background)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentNullException.ThrowIfNull(background);
+        if (!double.IsFinite(pseudocount) || pseudocount < 0)
+            throw new ArgumentOutOfRangeException(nameof(pseudocount), pseudocount,
+                "Pseudocount must be finite and non-negative.");
+        double[] bg = NormalizeBackground(background);
 
-        var seqList = sequences.Select(s => s.ToUpperInvariant()).ToList();
+        var seqList = new List<string>();
+        foreach (var s in sequences)
+        {
+            if (s is null)
+                throw new ArgumentException("Sequences cannot contain null elements.", nameof(sequences));
+            seqList.Add(s.ToUpperInvariant());
+        }
         if (seqList.Count == 0)
             throw new ArgumentException("At least one sequence is required.", nameof(sequences));
 
@@ -190,62 +238,82 @@ public static class MotifFinder
         if (!seqList.All(s => s.Length == length))
             throw new ArgumentException("All sequences must have the same length.", nameof(sequences));
 
-        // Validate all sequences contain only A, C, G, T
+        // Position frequency (count) matrix, rows A, C, G, T.
+        var matrix = new double[PwmAlphabetSize, length];
         for (int s = 0; s < seqList.Count; s++)
         {
             var seq = seqList[s];
-            for (int i = 0; i < seq.Length; i++)
+            for (int i = 0; i < length; i++)
             {
-                if (seq[i] is not ('A' or 'C' or 'G' or 'T'))
+                int baseIndex = AcgtIndex(seq[i]);
+                if (baseIndex < 0)
                     throw new ArgumentException(
                         $"Invalid character '{seq[i]}' at position {i} in sequence {s}. " +
                         "Only A, C, G, T are valid nucleotide characters.",
                         nameof(sequences));
-            }
-        }
-
-        var matrix = new double[4, length]; // A, C, G, T
-        int count = seqList.Count;
-
-        // Count bases at each position
-        foreach (var seq in seqList)
-        {
-            for (int i = 0; i < length; i++)
-            {
-                int baseIndex = seq[i] switch
-                {
-                    'A' => 0,
-                    'C' => 1,
-                    'G' => 2,
-                    'T' => 3,
-                    _ => throw new InvalidOperationException(
-                        $"Unexpected character '{seq[i]}' passed validation.")
-                };
 
                 matrix[baseIndex, i]++;
             }
         }
 
-        // Convert to log-odds with pseudocounts
-        double background = 0.25; // Equal background frequencies
+        // Pseudocount-smoothed probabilities → log2 odds against the background.
+        int count = seqList.Count;
+        double total = count + PwmAlphabetSize * pseudocount;
         for (int i = 0; i < length; i++)
         {
-            for (int b = 0; b < 4; b++)
+            for (int b = 0; b < PwmAlphabetSize; b++)
             {
-                double freq = (matrix[b, i] + pseudocount) / (count + 4 * pseudocount);
-                matrix[b, i] = Math.Log2(freq / background);
+                double freq = (matrix[b, i] + pseudocount) / total;
+                matrix[b, i] = Math.Log2(freq / bg[b]);
             }
         }
 
         return new PositionWeightMatrix(matrix, length);
     }
 
+    private static double[] NormalizeBackground(IReadOnlyList<double> background)
+    {
+        if (background.Count != PwmAlphabetSize)
+            throw new ArgumentException(
+                "Background must have exactly 4 probabilities (A, C, G, T).", nameof(background));
+
+        double sum = 0;
+        for (int b = 0; b < PwmAlphabetSize; b++)
+        {
+            double v = background[b];
+            if (!double.IsFinite(v) || v <= 0)
+                throw new ArgumentOutOfRangeException(nameof(background), v,
+                    "Background probabilities must be finite and strictly positive.");
+            sum += v;
+        }
+
+        var result = new double[PwmAlphabetSize];
+        for (int b = 0; b < PwmAlphabetSize; b++)
+            result[b] = background[b] / sum;
+        return result;
+    }
+
+    /// <summary>Row index of a PWM for an upper-case base (A=0, C=1, G=2, T=3), or −1.</summary>
+    private static int AcgtIndex(char c) => c switch
+    {
+        'A' => 0,
+        'C' => 1,
+        'G' => 2,
+        'T' => 3,
+        _ => -1
+    };
+
     /// <summary>
-    /// Scans a sequence with a PWM and returns matches above threshold.
+    /// Scans the forward strand of a sequence with a PWM and returns every window whose score
+    /// (sum of per-position log-odds) is ≥ <paramref name="threshold"/>, in ascending position
+    /// order (Biopython <c>pssm.search(seq, threshold, both=False)</c>). Windows containing a
+    /// non-ACGT symbol are skipped. To scan the reverse strand, scan with
+    /// <see cref="PositionWeightMatrix.ReverseComplement"/>; positions are then forward-strand
+    /// window starts.
     /// </summary>
     /// <param name="sequence">DNA sequence to scan.</param>
     /// <param name="pwm">Position Weight Matrix.</param>
-    /// <param name="threshold">Minimum score threshold.</param>
+    /// <param name="threshold">Minimum score threshold (inclusive).</param>
     /// <returns>Matches with scores.</returns>
     public static IEnumerable<MotifMatch> ScanWithPwm(
         DnaSequence sequence,
@@ -267,25 +335,16 @@ public static class MotifFinder
             double score = 0;
             bool valid = true;
 
-            for (int j = 0; j < motifLen && valid; j++)
+            for (int j = 0; j < motifLen; j++)
             {
-                int baseIndex = seq[i + j] switch
-                {
-                    'A' => 0,
-                    'C' => 1,
-                    'G' => 2,
-                    'T' => 3,
-                    _ => -1
-                };
-
+                int baseIndex = AcgtIndex(seq[i + j]);
                 if (baseIndex < 0)
                 {
                     valid = false;
+                    break;
                 }
-                else
-                {
-                    score += pwm.Matrix[baseIndex, j];
-                }
+
+                score += pwm.Matrix[baseIndex, j];
             }
 
             if (valid && score >= threshold)
@@ -749,8 +808,17 @@ public sealed class PositionWeightMatrix
     public int Length { get; }
     public string Consensus { get; }
 
+    /// <summary>Creates a PWM from a 4 × <paramref name="length"/> log-odds matrix (rows A, C, G, T).</summary>
+    /// <exception cref="ArgumentNullException"><paramref name="matrix"/> is null.</exception>
+    /// <exception cref="ArgumentException">The matrix is not 4 × <paramref name="length"/>.</exception>
     public PositionWeightMatrix(double[,] matrix, int length)
     {
+        ArgumentNullException.ThrowIfNull(matrix);
+        if (length < 0 || matrix.GetLength(0) != 4 || matrix.GetLength(1) != length)
+            throw new ArgumentException(
+                $"Matrix must be 4 × {length} (rows A, C, G, T); got {matrix.GetLength(0)} × {matrix.GetLength(1)}.",
+                nameof(matrix));
+
         Matrix = matrix;
         Length = length;
         Consensus = GenerateConsensus();
@@ -779,6 +847,23 @@ public sealed class PositionWeightMatrix
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Returns the PWM of the reverse-complement strand: column order reversed and the
+    /// A↔T, C↔G rows swapped (Biopython <c>PositionSpecificScoringMatrix.reverse_complement</c>).
+    /// Scanning a sequence with it scores the minus strand at the same forward window start.
+    /// </summary>
+    public PositionWeightMatrix ReverseComplement()
+    {
+        var rc = new double[4, Length];
+        for (int j = 0; j < Length; j++)
+        {
+            int src = Length - 1 - j;
+            for (int b = 0; b < 4; b++)
+                rc[3 - b, j] = Matrix[b, src]; // A(0)↔T(3), C(1)↔G(2)
+        }
+        return new PositionWeightMatrix(rc, Length);
     }
 
     /// <summary>

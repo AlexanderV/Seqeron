@@ -5,8 +5,8 @@
 | Algorithm Group | Pattern Matching |
 | Test Unit ID | PAT-PWM-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete |
+| Last Reviewed | 2026-09-29 |
 
 ## 1. Overview
 
@@ -34,7 +34,7 @@ $$
 PWM_{k,j} = \log_2\left(\frac{PPM_{k,j}}{b_k}\right)
 $$
 
-Where `p` is the pseudocount, `|Σ| = 4` for DNA, and the current implementation fixes `b_k = 0.25` for all nucleotides.
+Where `p` is the pseudocount added to **every cell** (total `4p` per column; identical to Biopython `counts.normalize(pseudocounts=p)`), `|Σ| = 4` for DNA, and `b_k` is the background probability: `0.25` for `CreatePwm(sequences, p)`, or a caller-supplied distribution for `CreatePwm(sequences, p, background)` (normalised to sum 1, as Biopython `log_odds(background=...)`). Logarithm base is 2 (bits), as in Biopython `log_odds` and Wasserman & Sandelin (2004).
 
 The sequence score for a window of length `L` is:
 
@@ -57,7 +57,8 @@ $$
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequences` | `IEnumerable<string>` | required | Aligned DNA training sequences used to build the PWM | Must be non-null, non-empty, equal length, and contain only `A/C/G/T` |
-| `pseudocount` | `double` | `0.25` | Smoothing parameter used during PWM construction | Applied uniformly to all four bases |
+| `pseudocount` | `double` | `0.25` | Smoothing parameter added to each cell | Finite and `>= 0` (else `ArgumentOutOfRangeException`); `0` gives `-inf` for unseen bases |
+| `background` | `IReadOnlyList<double>` | uniform | Background probabilities A,C,G,T (overload) | 4 finite values `> 0`; normalised to sum 1 |
 | `sequence` | `DnaSequence` | required | Sequence scanned with an existing PWM | Null input throws `ArgumentNullException` |
 | `pwm` | `PositionWeightMatrix` | required | Matrix used for scoring windows | Null input throws `ArgumentNullException` |
 | `threshold` | `double` | `0.0` | Minimum score required for a reported match | Match condition is `score >= threshold` |
@@ -75,7 +76,7 @@ $$
 
 ### 3.3 Preconditions and Validation
 
-`CreatePwm(...)` throws `ArgumentNullException` when `sequences` is null and `ArgumentException` when the collection is empty, when lengths differ, or when any character is outside `A/C/G/T`. `ScanWithPwm(...)` throws `ArgumentNullException` for null `sequence` or `pwm` and returns no matches when the target sequence is shorter than the PWM length.
+`CreatePwm(...)` throws `ArgumentNullException` when `sequences` (or `background`) is null, `ArgumentException` when the collection is empty, contains a null element, lengths differ, or any character is outside `A/C/G/T`, and `ArgumentOutOfRangeException` for a negative/non-finite pseudocount or a non-positive/non-finite background value. The `PositionWeightMatrix(double[,], int)` constructor requires a non-null `4 × length` matrix. `ScanWithPwm(...)` scans the forward strand only; windows containing a non-ACGT symbol are skipped (Biopython `calculate` yields NaN for them, so `search` never reports them); results are in ascending position order with `score >= threshold` (Biopython `search` semantics). For the reverse strand, scan with `pwm.ReverseComplement()` (Biopython `reverse_complement`); positions are forward-strand window starts (Biopython's `search(both=True)` reports the same hit as `position - len(seq)`). `ScanWithPwm(...)` throws `ArgumentNullException` for null `sequence` or `pwm` and returns no matches when the target sequence is shorter than the PWM length.
 
 ## 4. Algorithm
 
@@ -117,7 +118,8 @@ Row 3 = T
 
 - `MotifFinder.CreatePwm(IEnumerable<string>, double)`: Builds a DNA PWM.
 - `MotifFinder.ScanWithPwm(DnaSequence, PositionWeightMatrix, double)`: Scores each sequence window against the PWM.
-- `PositionWeightMatrix`: Holds `Matrix`, `Length`, `Consensus`, `MaxScore`, and `MinScore`.
+- `MotifFinder.CreatePwm(IEnumerable<string>, double, IReadOnlyList<double>)`: Builds a DNA PWM against a non-uniform background.
+- `PositionWeightMatrix`: Holds `Matrix`, `Length`, `Consensus` (first maximum in A,C,G,T order — Biopython `consensus` tie rule), `MaxScore`, `MinScore` (sums of column extrema — Biopython `pssm.max`/`pssm.min`) and `ReverseComplement()`.
 
 ### 5.2 Current Behavior
 
@@ -131,9 +133,9 @@ Row 3 = T
 - Pseudocount smoothing before log-odds conversion.
 - Window scoring by summing per-position PWM values.
 
-**Intentionally simplified:**
+**Scope choices (not simplifications):**
 
-- The background distribution is fixed at `0.25` for each DNA base; **consequence:** callers cannot model GC-biased or otherwise nonuniform backgrounds.
+- Pseudocounts are a scalar added to every cell (Biopython float `pseudocounts`); background-proportional pseudocount distribution (Wasserman & Sandelin 2004 `sqrt(N)·b_k`) can be emulated only for a uniform background.
 - The implementation is DNA-specific with four matrix rows; **consequence:** it does not directly support protein alphabets or other symbol sets.
 
 **Not implemented:**
@@ -175,3 +177,5 @@ The original document highlights these related motif representations and alterna
 3. Nishida, K.; Frith, M.C.; Nakai, K. (2008). "Pseudocounts for transcription factor binding sites." *Nucleic Acids Research* 37(3):939-944.
 4. Rosalind. "Consensus and Profile." https://rosalind.info/problems/cons/
 5. Stormo, G.D. (2000). "DNA binding sites: representation and discovery." *Bioinformatics* review article.
+6. Wasserman, W.W.; Sandelin, A. (2004). "Applied bioinformatics for the identification of regulatory elements." *Nat Rev Genet* 5:276-287. doi:10.1038/nrg1315.
+7. Biopython 1.88 `Bio.motifs.matrix` (`normalize`, `log_odds`, `max`/`min`, `consensus`, `reverse_complement`, `calculate`, `search`) — reference implementation used to lock the test values.

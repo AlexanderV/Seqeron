@@ -233,7 +233,10 @@ ATGGCACT
 | C2 | Pseudocount is a configurable parameter (default 0.25) | API: `CreatePwm(sequences, pseudocount: 0.25)` |
 | C3 | Non-ACGT characters in training sequences → ArgumentException | Strict validation (IUPAC-IUB: only A,C,G,T defined) |
 | C4 | Case-insensitive input | Guaranteed: `ToUpperInvariant()` in CreatePwm |
-| C5 | PWM formula: log2((count + p) / (N + 4p) / 0.25) | Wikipedia log-odds formula with Bayesian pseudocounts |
+| C5 | PWM formula: log2((count + p) / (N + 4p) / b) | Wikipedia log-odds; equals Biopython `counts.normalize(pseudocounts=p).log_odds(background)` |
+| C7 | pseudocount finite and ≥ 0, else ArgumentOutOfRangeException; null element → ArgumentException | Nishida 2008 (pseudocounts are non-negative counts) |
+| C8 | Background overload: 4 positive finite values, normalised to sum 1 | Biopython `log_odds(background=...)` |
+| C9 | Forward-strand scan; reverse strand via `PositionWeightMatrix.ReverseComplement()` | Biopython `reverse_complement`, `search(both=True)` |
 | C6 | Score = sum of positional log-odds | Wikipedia: "adding (rather than multiplying) the relevant values" |
 
 ---
@@ -318,3 +321,17 @@ ATGGCACT
 | **Total** | | **37** |
 
 ---
+
+## 8. Review 2026-09 (B05) — Biopython-locked tests
+
+Reference: Biopython 1.88 `Bio.motifs` on the Wikipedia 10-sequence example, target `CCTAGGTAAGTAACAGGTCAGTGG`.
+
+| ID | Test | Locked values |
+|----|------|---------------|
+| B1 | `CreatePwm_WikipediaExample_MatrixEqualsBiopython` | all 36 cells of `normalize(0.25).log_odds()`; max 11.707530265108911, min −14.88138790352414 |
+| B2 | `ScanWithPwm_WikipediaExample_EqualsBiopythonSearch` | `search(both=False)` → (2, 11.7075), (6, 4.7792), (13, 9.3161); all 16 `calculate` scores |
+| B3 | `ReverseComplement_WikipediaExample_EqualsBiopython` | `reverse_complement()` matrix; minus-strand hit at 8 (Biopython −16), 2.38769 |
+| B4 | `CreatePwm_NonUniformBackground_EqualsBiopython` | `log_odds(background={A:.3,C:.2,G:.2,T:.3})` matrix; max 11.095108114768236, min −16.07877255458597; hits 2/6/13 |
+| B5 | `CreatePwm_ZeroPseudocount_MaxMinEqualBiopython` | max 12.438028776954503, min −∞ |
+| B6 | `CreatePwm_InvalidPseudocount_Throws` | −0.1/−0.5/NaN/+∞ → ArgumentOutOfRangeException (previously NaN cells) |
+| B7 | `CreatePwm_NullElement_ThrowsArgumentException`, `CreatePwm_InvalidBackground_Throws`, `PositionWeightMatrix_Constructor_ValidatesShape`, `CreatePwm_UniformBackgroundOverload_EqualsDefault` | contracts |

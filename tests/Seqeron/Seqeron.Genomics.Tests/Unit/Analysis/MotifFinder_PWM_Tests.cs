@@ -735,4 +735,200 @@ public class MotifFinder_PWM_Tests
     }
 
     #endregion
+
+    #region Biopython-locked reference values (review 2026-09)
+
+    // Reference: Biopython 1.88 Bio.motifs —
+    //   m = motifs.create(WikipediaSequences); pwm = m.counts.normalize(pseudocounts=0.25)
+    //   pssm = pwm.log_odds()                                   (uniform background, log2)
+    //   pssm_bg = pwm.log_odds(background={A:.3,C:.2,G:.2,T:.3})
+    //   pssm.max / pssm.min, pssm.calculate(target), pssm.search(target, 0.0, both=...)
+    //   pssm.reverse_complement()
+    private static readonly string[] WikipediaSequences =
+    {
+        "GAGGTAAAC", "TCCGTAAGT", "CAGGTTGGA", "ACAGTCAGT", "TAGGTCATT",
+        "TAGGTACTG", "ATGGTAACT", "CAGGTATAC", "TGTGTGAGT", "AAGGTAAGT"
+    };
+
+    private const string BiopythonTarget = "CCTAGGTAAGTAACAGGTCAGTGG";
+
+    private static readonly double[,] BiopythonUniformPssm =
+    {
+        { 0.241008099503795, 1.184424571137428, -1.137503523749935, -3.459431618637298, -3.459431618637298, 1.184424571137428, 1.398549376490275, -0.289506617194985, -1.137503523749935 },
+        { -0.289506617194985, -0.289506617194985, -1.137503523749935, -3.459431618637298, -3.459431618637298, -0.289506617194985, -1.137503523749935, -1.137503523749935, -0.289506617194985 },
+        { -1.137503523749935, -1.137503523749935, 1.398549376490275, 1.898120385980786, -3.459431618637298, -1.137503523749935, -1.137503523749935, 0.932885804141463, -1.137503523749935 },
+        { 0.628031222613042, -1.137503523749935, -1.137503523749935, -3.459431618637298, 1.898120385980786, -1.137503523749935, -1.137503523749935, -0.289506617194985, 1.184424571137428 },
+    };
+
+    [Test]
+    [Description("Full log-odds matrix, max, min and consensus equal Biopython normalize(0.25).log_odds()")]
+    public void CreatePwm_WikipediaExample_MatrixEqualsBiopython()
+    {
+        var pwm = MotifFinder.CreatePwm(WikipediaSequences, pseudocount: 0.25);
+
+        Assert.Multiple(() =>
+        {
+            for (int b = 0; b < 4; b++)
+                for (int j = 0; j < 9; j++)
+                    Assert.That(pwm.Matrix[b, j], Is.EqualTo(BiopythonUniformPssm[b, j]).Within(1e-12), $"cell [{b},{j}]");
+            Assert.That(pwm.MaxScore, Is.EqualTo(11.707530265108911).Within(1e-12), "pssm.max");
+            Assert.That(pwm.MinScore, Is.EqualTo(-14.88138790352414).Within(1e-12), "pssm.min");
+            Assert.That(pwm.Consensus, Is.EqualTo("TAGGTAAGT"), "pssm.consensus");
+        });
+    }
+
+    [Test]
+    [Description("Forward-strand scan equals Biopython pssm.search(target, 0.0, both=False)")]
+    public void ScanWithPwm_WikipediaExample_EqualsBiopythonSearch()
+    {
+        var pwm = MotifFinder.CreatePwm(WikipediaSequences, pseudocount: 0.25);
+        var matches = MotifFinder.ScanWithPwm(new DnaSequence(BiopythonTarget), pwm, 0.0).ToList();
+
+        // Biopython calculate() works in float32, hence the 1e-5 tolerance.
+        Assert.Multiple(() =>
+        {
+            Assert.That(matches.Select(m => m.Position), Is.EqualTo(new[] { 2, 6, 13 }));
+            Assert.That(matches[0].Score, Is.EqualTo(11.70753002166748).Within(1e-5));
+            Assert.That(matches[1].Score, Is.EqualTo(4.779160022735596).Within(1e-5));
+            Assert.That(matches[2].Score, Is.EqualTo(9.316061019897461).Within(1e-5));
+            Assert.That(matches[0].MatchedSequence, Is.EqualTo("TAGGTAAGT"));
+        });
+
+        // All-window scores equal pssm.calculate(target).
+        double[] calculate =
+        {
+            -12.337397575378418, -5.2917890548706055, 11.70753002166748, -7.796898365020752,
+            -14.033390998840332, -10.649341583251953, 4.779160022735596, -5.47497034072876,
+            -8.048437118530273, -8.167141914367676, -9.097930908203125, -11.180948257446289,
+            -6.4493303298950195, 9.316061019897461, -7.796898365020752, -12.810998916625977
+        };
+        var all = MotifFinder.ScanWithPwm(new DnaSequence(BiopythonTarget), pwm, double.NegativeInfinity).ToList();
+        Assert.That(all.Select(m => m.Score), Is.EqualTo(calculate).Within(1e-5));
+    }
+
+    [Test]
+    [Description("ReverseComplement equals Biopython pssm.reverse_complement(); minus-strand hit matches search(both=True)")]
+    public void ReverseComplement_WikipediaExample_EqualsBiopython()
+    {
+        var pwm = MotifFinder.CreatePwm(WikipediaSequences, pseudocount: 0.25);
+        var rc = pwm.ReverseComplement();
+
+        double[,] expected =
+        {
+            { 1.1844245711374277, -0.2895066171949848, -1.137503523749935, -1.137503523749935, 1.8981203859807865, -3.4594316186372978, -1.137503523749935, -1.137503523749935, 0.6280312226130421 },
+            { -1.137503523749935, 0.932885804141463, -1.137503523749935, -1.137503523749935, -3.4594316186372978, 1.8981203859807865, 1.398549376490275, -1.137503523749935, -1.137503523749935 },
+            { -0.2895066171949848, -1.137503523749935, -1.137503523749935, -0.2895066171949848, -3.4594316186372978, -3.4594316186372978, -1.137503523749935, -0.2895066171949848, -0.2895066171949848 },
+            { -1.137503523749935, -0.2895066171949848, 1.398549376490275, 1.1844245711374277, -3.4594316186372978, -3.4594316186372978, -1.137503523749935, 1.1844245711374277, 0.24100809950379498 },
+        };
+
+        Assert.Multiple(() =>
+        {
+            for (int b = 0; b < 4; b++)
+                for (int j = 0; j < 9; j++)
+                    Assert.That(rc.Matrix[b, j], Is.EqualTo(expected[b, j]).Within(1e-12), $"rc cell [{b},{j}]");
+            Assert.That(rc.MaxScore, Is.EqualTo(pwm.MaxScore).Within(1e-12));
+            Assert.That(rc.MinScore, Is.EqualTo(pwm.MinScore).Within(1e-12));
+            Assert.That(rc.Consensus, Is.EqualTo("ACTTACCTA"), "reverse complement of TAGGTAAGT");
+            Assert.That(rc.ReverseComplement().Matrix, Is.EqualTo(pwm.Matrix), "involution");
+        });
+
+        // Biopython search(both=True) reports the minus-strand hit at -16 = 8 - len(target).
+        var minus = MotifFinder.ScanWithPwm(new DnaSequence(BiopythonTarget), rc, 0.0).ToList();
+        Assert.That(minus.Select(m => m.Position), Is.EqualTo(new[] { 8 }));
+        Assert.That(minus[0].Score, Is.EqualTo(2.387691020965576).Within(1e-5));
+    }
+
+    [Test]
+    [Description("Non-uniform background equals Biopython log_odds(background={A:.3,C:.2,G:.2,T:.3})")]
+    public void CreatePwm_NonUniformBackground_EqualsBiopython()
+    {
+        // Background given unnormalised (3:2:2:3) — Biopython normalises it to sum 1 as well.
+        var pwm = MotifFinder.CreatePwm(WikipediaSequences, 0.25, new[] { 3.0, 2.0, 2.0, 3.0 });
+
+        double[,] expected =
+        {
+            { -0.02202630632999875, 0.9213901653036339, -1.4005379295837288, -3.722466024471091, -3.722466024471091, 0.9213901653036339, 1.1355149706564809, -0.5525410230287786, -1.4005379295837288 },
+            { 0.03242147769237743, 0.03242147769237743, -0.8155754288625728, -3.137503523749935, -3.137503523749935, 0.03242147769237743, -0.8155754288625728, -0.8155754288625728, 0.03242147769237743 },
+            { -0.8155754288625728, -0.8155754288625728, 1.7204774713776372, 2.2200484808681487, -3.137503523749935, -0.8155754288625728, -0.8155754288625728, 1.2548138990288253, -0.8155754288625728 },
+            { 0.3649968167792483, -1.4005379295837288, -1.4005379295837288, -3.722466024471091, 1.6350859801469926, -1.4005379295837288, -1.4005379295837288, -0.5525410230287786, 0.9213901653036339 },
+        };
+
+        Assert.Multiple(() =>
+        {
+            for (int b = 0; b < 4; b++)
+                for (int j = 0; j < 9; j++)
+                    Assert.That(pwm.Matrix[b, j], Is.EqualTo(expected[b, j]).Within(1e-12), $"cell [{b},{j}]");
+            Assert.That(pwm.MaxScore, Is.EqualTo(11.095108114768236).Within(1e-12), "pssm.max");
+            Assert.That(pwm.MinScore, Is.EqualTo(-16.07877255458597).Within(1e-12), "pssm.min");
+        });
+
+        var hits = MotifFinder.ScanWithPwm(new DnaSequence(BiopythonTarget), pwm, 0.0).ToList();
+        Assert.That(hits.Select(m => m.Position), Is.EqualTo(new[] { 2, 6, 13 }));
+        Assert.That(hits.Select(m => m.Score),
+            Is.EqualTo(new[] { 11.095108032226562, 3.581775188446045, 9.873563766479492 }).Within(1e-5));
+    }
+
+    [Test]
+    [Description("Uniform-background overload is the default CreatePwm")]
+    public void CreatePwm_UniformBackgroundOverload_EqualsDefault()
+    {
+        var a = MotifFinder.CreatePwm(WikipediaSequences, 0.5);
+        var b = MotifFinder.CreatePwm(WikipediaSequences, 0.5, new[] { 1.0, 1.0, 1.0, 1.0 });
+        Assert.That(b.Matrix, Is.EqualTo(a.Matrix).Within(1e-15));
+    }
+
+    [Test]
+    [Description("Pseudocount = 0 gives Biopython normalize(0).log_odds(): max 12.438028776954503, min -inf")]
+    public void CreatePwm_ZeroPseudocount_MaxMinEqualBiopython()
+    {
+        var pwm = MotifFinder.CreatePwm(WikipediaSequences, 0.0);
+        Assert.Multiple(() =>
+        {
+            Assert.That(pwm.Matrix[2, 3], Is.EqualTo(2.0).Within(1e-15));
+            Assert.That(pwm.Matrix[0, 3], Is.EqualTo(double.NegativeInfinity));
+            Assert.That(pwm.MaxScore, Is.EqualTo(12.438028776954503).Within(1e-12));
+            Assert.That(pwm.MinScore, Is.EqualTo(double.NegativeInfinity));
+        });
+    }
+
+    [TestCase(-0.1)]
+    [TestCase(-0.5)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [Description("Pseudocounts are non-negative counts (Nishida 2008); negative/non-finite used to yield NaN cells")]
+    public void CreatePwm_InvalidPseudocount_Throws(double pseudocount)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.CreatePwm(new[] { "ACG", "ACT" }, pseudocount));
+    }
+
+    [Test]
+    public void CreatePwm_NullElement_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => MotifFinder.CreatePwm(new[] { "ACG", null! }));
+    }
+
+    [Test]
+    public void CreatePwm_InvalidBackground_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => MotifFinder.CreatePwm(new[] { "ACG" }, 0.25, null!));
+            Assert.Throws<ArgumentException>(() => MotifFinder.CreatePwm(new[] { "ACG" }, 0.25, new[] { 0.5, 0.5 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.CreatePwm(new[] { "ACG" }, 0.25, new[] { 0.5, 0.5, 0.0, 0.0 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.CreatePwm(new[] { "ACG" }, 0.25, new[] { 0.25, 0.25, double.NaN, 0.25 }));
+        });
+    }
+
+    [Test]
+    public void PositionWeightMatrix_Constructor_ValidatesShape()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => new PositionWeightMatrix(null!, 1));
+            Assert.Throws<ArgumentException>(() => new PositionWeightMatrix(new double[4, 2], 3));
+            Assert.Throws<ArgumentException>(() => new PositionWeightMatrix(new double[3, 2], 2));
+        });
+    }
+
+    #endregion
 }
