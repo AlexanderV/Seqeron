@@ -6,7 +6,7 @@
 | Test Unit ID | REP-STR-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-06-24 |
+| Last Reviewed | 2026-09-29 |
 
 ## 1. Overview
 
@@ -49,7 +49,7 @@ The implementation searches candidate motif lengths from `minUnitLength` through
 | INV-02 | `minUnitLength <= RepeatUnit.Length <= maxUnitLength`. | The outer search loop enumerates only those unit lengths. |
 | INV-03 | `TotalLength = RepeatUnit.Length × RepeatCount`. | `MicrosatelliteResult.TotalLength` is constructed from those two fields. |
 | INV-04 | `RepeatType` matches the reported unit length. | `ClassifyRepeatType` maps unit lengths 1 through 6 to the corresponding repeat class. |
-| INV-05 | Fully contained repeats are suppressed once a containing interval has already been reported. | The implementation checks previously reported `(Start, End)` intervals before yielding a new hit. |
+| INV-05 | Per unit length, each maximal perfect run is reported exactly once, at its left end: `Position = 0` or `S[Position−1] ≠ S[Position−1+p]` (left-maximal), and `RepeatCount = ⌊runLength/p⌋` (right-maximal; a trailing partial copy is not counted). Rotations of the same run (e.g. `TA` inside `ATATATA`) are never reported. `RepeatUnit` is primitive and consists of A/C/G/T only. | The scan visits only left-maximal positions, extends the run while `S[x] = S[x−p]`, and skips to `e−p+1` (Kolpakov & Kucherov 1999 maximal repetitions [8]; MISA leftmost match [9]; pytrf/Krait run start [10]). |
 | INV-06 | Every approximate result has `AlignmentScore >= minScore`. | A candidate window is retained only when its TRF alignment score reaches the threshold [6]. |
 | INV-07 | For an approximate result, `0 <= PercentMatches <= 100` and `0 <= PercentIndels <= 100`, and a perfect tract yields `PercentMatches = 100`, `PercentIndels = 0`. | Each percentage is a column count divided by the total alignment-column count; a perfect alignment has only match columns. |
 | INV-08 | For an approximate result, `CopyNumber = (non-gap aligned bases) / Period` and `ConsensusSize = Period`. | Copy number is the aligned observed length over the period [6]; the majority-rule consensus is built with exactly `Period` columns. |
@@ -125,10 +125,11 @@ All overloads validate `minUnitLength`, `maxUnitLength`, and `minRepeats`, rejec
 ### 4.1 High-Level Steps
 
 1. Normalize raw-string input to uppercase when needed.
-2. For each unit length from `minUnitLength` to `maxUnitLength`, enumerate starting positions where at least `minRepeats` copies could fit.
-3. Extract the candidate motif and skip it if it is redundant, meaning it is itself composed of a smaller repeated subunit.
-4. Count consecutive occurrences of the motif.
-5. If the repeat count is large enough and the resulting interval is not fully contained within an already reported interval, emit a `MicrosatelliteResult` with the appropriate `RepeatType`.
+2. For each unit length `p` from `minUnitLength` to `maxUnitLength`, scan positions `i` where at least `minRepeats` copies could fit.
+3. Skip `i` unless it is a run start (left-maximal): `i = 0` or `S[i−1] ≠ S[i−1+p]`.
+4. Extend the run to its right-maximal end `e` (exclusive) while `S[e] = S[e−p]`; `RepeatCount = ⌊(e−i)/p⌋`.
+5. If `RepeatCount ≥ minRepeats` and the unit `S[i..i+p)` is primitive (not a power of a shorter word — MISA "reject false type motifs") and contains only A/C/G/T (MISA `[acgt]`, pytrf skips `N`), emit one `MicrosatelliteResult`.
+6. Continue at `e−p+1` (every position in `(i, e−p]` lies inside the same run). O(n) comparisons per unit length.
 
 For the approximate detector (`FindApproximateTandemRepeats`):
 
@@ -171,7 +172,9 @@ Approximate-detector scoring constants (Tandem Repeats Finder recommended set "2
 
 ### 5.2 Current Behavior
 
-The implementation filters redundant motifs with `IsRedundantUnit`, so larger patterns such as `ATAT` or `CAGCAG` are not reported when they can be expressed as repetitions of smaller units. It tracks previously reported `(Start, End)` intervals and suppresses a new result only when that new interval is completely contained within an existing reported interval; this is narrower than blanket overlap suppression. The cancellable implementation checks `cancellationToken` periodically and reports progress based on processed candidate positions. Raw-string overloads normalize input with `ToUpperInvariant()`.
+Per unit length, each maximal perfect run is reported once at its left end with the run-start motif phase and the number of complete copies (review 2026-09, REP-STR-001). Redundant (non-primitive) units such as `ATAT` or `CAGCAG` are not reported — their runs appear at the primitive unit length. Units containing non-ACGT symbols (e.g. `N` in the raw-string overload) are never reported. Runs of different unit lengths may overlap and are reported independently (MISA per-motif-size convention); two distinct runs of the same period may overlap by fewer than `p` bases (e.g. `ACACACGCGCGC` → `AC×3@0`, `CG×3@5`), where greedy tools (MISA regex `/g`, pytrf `next_start`) instead restart after the first run's full copies (`GC×3@6`).
+
+**Cross-check (2026-09):** 3,132 random + crafted cases (unit lengths 1–6, `minRepeats` 2–5, alphabets incl. `N`) agree 3,132/3,132 with an independent brute-force maximal-repetition reference; MISA-regex agreement 3,099/3,132 and pytrf 1.5.0 `STRFinder` (single motif size) 2,752/3,132, every disagreement being one of the two documented conventions (same-period runs overlapping by < p: 17; greedy tools consuming a non-primitive/`N` region first: MISA 16, pytrf 363 — pytrf has no primitivity check).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -189,7 +192,7 @@ The implementation filters redundant motifs with `IsRedundantUnit`, so larger pa
 **Intentionally simplified:**
 
 - The default `FindMicrosatellites` uses exact motif matching only; **consequence:** interrupted, impure, or mismatch-tolerant microsatellites are split into separate perfect tracts (use the opt-in `FindApproximateTandemRepeats` for those).
-- Redundant-unit filtering and contained-interval suppression; **consequence:** output favors a canonical representative interval rather than an exhaustive list of every possible equivalent unit decomposition.
+- Redundant-unit filtering and maximal-run reporting; **consequence:** each locus is reported once per primitive unit length (run-start phase), not once per rotation; compound / cross-size merging (MISA `interruptions`) is not performed.
 - (Approximate, TRF [6]) Candidate repeats are found by a **deterministic exhaustive (start, period) scan with alignment scoring**, in place of TRF's probabilistic k-tuple distance-list seeding; **consequence:** the reported statistics of a repeat are faithful to Benson (1999), but the candidate-discovery heuristic differs (the subset examines all windows up to `maxPeriod`, which limits practical sequence/period size rather than scaling to whole genomes).
 
 - (Bernoulli, TRF [6]) PM/PI are estimated **between adjacent copies** by segmenting the tract into period-length copies and aligning each adjacent pair; **consequence:** for substitution/perfect tracts the estimate is exact, while for indel-containing tracts the per-pair alignment frame is alignment-dependent (the qualitative Bernoulli partition still holds, but the exact PI is frame-sensitive).
@@ -203,7 +206,7 @@ The implementation filters redundant motifs with `IsRedundantUnit`, so larger pa
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Containment suppression is narrower than a global non-overlap rule. | Deviation | Some partially overlapping candidate repeats may still be reported if neither interval fully contains the other. | accepted | The legacy doc described non-overlap broadly, but the source suppresses only contained intervals. |
+| 1 | No global non-overlap rule across unit lengths; same-period runs may overlap by < p. | Deviation | Overlapping loci of different unit lengths are all reported (MISA per-size convention); rotations of one run are never reported (fixed 2026-09). | accepted | The legacy doc described non-overlap broadly, but the source suppresses only contained intervals. |
 | 2 | Approximate detector uses exhaustive (start, period) scanning, not TRF k-tuple seeding. | Assumption | Candidate discovery is deterministic but O(n²·P·L²); not whole-genome scale. Reported statistics are unaffected. | accepted | Honest residual; see §5.3 "Not implemented" and Evidence ASSUMPTION 1. Use the TRF tool [7] at genome scale. |
 | 3 | Percent matches / percent indels use total alignment columns as the denominator. | Assumption | Reproduces Benson (1999) worked statistics; the source names the statistics but gives no verbatim percentage formula. | accepted | See Evidence ASSUMPTION 2. |
 
@@ -220,6 +223,9 @@ The implementation filters redundant motifs with `IsRedundantUnit`, so larger pa
 | `minRepeats < 2` | Throws `ArgumentOutOfRangeException`. | Explicit parameter validation enforces this floor. |
 | `maxUnitLength < minUnitLength` | Throws `ArgumentOutOfRangeException`. | Explicit parameter validation enforces ordered bounds. |
 | `null` `DnaSequence` | Throws `ArgumentNullException`. | Explicit null guard on `DnaSequence` overloads. |
+| Trailing partial copy (`ATATATA`) | `AT×3@0` only; the partial `A` is not counted and `TA×3@1` is not reported. | Maximal run, complete copies (pytrf `repeat = length / p`). |
+| Run of `N` / non-ACGT unit (string overload) | Not reported. | MISA `[acgt]` motifs; pytrf skips `N`. |
+| Cancellable overloads with invalid bounds | Throw `ArgumentOutOfRangeException` eagerly (all four overloads). | Shared validation (the DnaSequence cancellable overload previously skipped it; `minUnitLength = 0` never terminated). |
 | Approximate: empty / too-short sequence | Returns empty enumerable. | No window of two copies exists. |
 | Approximate: perfect tract | `PercentMatches = 100`, `PercentIndels = 0`, exact period/copy number. | A perfect alignment has only match columns. |
 | Approximate: tract scoring below `minScore` | Not reported. | Benson (1999) report threshold [6]. |
@@ -261,3 +267,6 @@ Additional common uses include forensic DNA profiling, where tetra- and pentanuc
 5. Brinkmann B, Klintschar M, Neuhuber F, Hühne J, Rolf B. 1998. Mutation rate in human microsatellites. American Journal of Human Genetics.
 6. Benson G. 1999. Tandem repeats finder: a program to analyze DNA sequences. Nucleic Acids Research. 27(2):573-580. https://doi.org/10.1093/nar/27.2.573
 7. Benson G. Tandem Repeats Finder — reference implementation and documentation. https://github.com/Benson-Genomics-Lab/TRF and https://tandem.bu.edu/trf/trf.definitions.html
+8. Kolpakov R, Kucherov G. 1999. Finding maximal repetitions in a word in linear time. Proc. 40th IEEE FOCS, 596-604. https://doi.org/10.1109/SFFCS.1999.814634
+9. Thiel T, Michalek W, Varshney RK, Graner A. 2003. Exploiting EST databases for the development and characterization of gene-derived SSR-markers in barley. Theor Appl Genet 106:411-422 (MISA; source `misa.pl` v1.0, mirror https://raw.githubusercontent.com/cfljam/SSR_marker_design/master/misa.pl).
+10. Du L, Zhang C, Liu Q, Zhang X, Yue B. 2018. Krait: an ultrafast tool for genome-wide survey of microsatellites and primer design. Bioinformatics 34(4):681-683 (pytrf 1.5.0, PyPI, `src/str.c`).

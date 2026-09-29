@@ -76,6 +76,34 @@ public class RepeatFinderProperties
     }
 
     /// <summary>
+    /// INV-05 (maximal runs, REP-STR-001 review 2026-09): every reported microsatellite is left-maximal
+    /// (<c>Position = 0</c> or <c>S[Position-1] != S[Position-1+p]</c>), right-maximal (the next copy is
+    /// incomplete: fewer than p further bases continue the period), primitive and ACGT-only, so the same run is
+    /// never reported twice in different rotations. Evidence: Kolpakov &amp; Kucherov (1999) maximal repetitions;
+    /// MISA leftmost match / pytrf run start (see REP-STR-001-Evidence.md).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Microsatellite_EachResult_IsMaximalRun()
+    {
+        return Prop.ForAll(SeededMicrosatelliteArbitrary(), seq =>
+        {
+            var results = RepeatFinder.FindMicrosatellites(seq, 1, 6, minRepeats: 2).ToList();
+            bool ok = results.All(r =>
+            {
+                int p = r.RepeatUnit.Length, a = r.Position;
+                bool leftMax = a == 0 || seq[a - 1] != seq[a - 1 + p];
+                int e = a + r.TotalLength;
+                int ext = 0;
+                while (e + ext < seq.Length && seq[e + ext] == seq[e + ext - p]) ext++;
+                bool primitive = Enumerable.Range(1, p - 1)
+                    .All(d => p % d != 0 || string.Concat(Enumerable.Repeat(r.RepeatUnit[..d], p / d)) != r.RepeatUnit);
+                return leftMax && ext < p && primitive && r.RepeatUnit.All(c => "ACGT".Contains(c));
+            });
+            return ok.Label("Each result must be one maximal primitive run reported at its left end");
+        });
+    }
+
+    /// <summary>
     /// INV-3 (R): every reported microsatellite repeats at least <c>minRepeats</c> times.
     /// Evidence: FindMicrosatellites only yields a run when its maximal repeat count ≥ minRepeats.
     /// Exercised against sequences carrying a genuine planted tandem repeat.

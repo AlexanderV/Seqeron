@@ -222,8 +222,9 @@ public class RepeatFinderMutationTests
     // Each per-type count must reflect the PRESENT group's real, non-zero count, while the absent
     // tetranucleotide group reports 0. The "byType.GetValueOrDefault(type)?.Count ?? 0" mutants that drop
     // the left operand would collapse every present count to 0, diverging from the asserted values.
-    // The di/tri counts are 2, not 1, because overlapping-but-not-contained frames are each reported
-    // (e.g. (CG)x3 at index 6 and the offset (GC)x3 at index 7 are distinct, non-contained tracts).
+    // Each maximal run is reported once per unit length (REP-STR-001 review 2026-09: rotations of the same
+    // run are the same locus — MISA leftmost match / pytrf run start / brute-force maximal-run reference all
+    // give A x6 @0, CG x3 @6, GCA x3 @11). The earlier value 2 counted the (GC)x3@7 / (CAG)x3@12 rotations.
     [Test]
     public void GetTandemRepeatSummary_MixedTypes_CountsPresentTypesNonZero()
     {
@@ -233,8 +234,8 @@ public class RepeatFinderMutationTests
         Assert.Multiple(() =>
         {
             Assert.That(summary.MononucleotideRepeats, Is.EqualTo(1), "one A x6 mononucleotide tract");
-            Assert.That(summary.DinucleotideRepeats, Is.EqualTo(2), "two non-contained dinucleotide frames");
-            Assert.That(summary.TrinucleotideRepeats, Is.EqualTo(2), "two non-contained trinucleotide frames");
+            Assert.That(summary.DinucleotideRepeats, Is.EqualTo(1), "one CG x3 dinucleotide run at 6");
+            Assert.That(summary.TrinucleotideRepeats, Is.EqualTo(1), "one GCA x3 trinucleotide run at 11");
             Assert.That(summary.TetranucleotideRepeats, Is.EqualTo(0), "no tetranucleotide tract present");
         });
     }

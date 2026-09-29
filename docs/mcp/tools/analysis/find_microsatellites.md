@@ -17,12 +17,15 @@ Short Tandem Repeats (STRs / microsatellites) in a DNA sequence.
 Finds **microsatellites** (Short Tandem Repeats): units of length
 `minUnitLength..maxUnitLength` repeated at least `minRepeats` times consecutively.
 Each hit is classified by repeat type (Mononucleotide, Dinucleotide, …). Redundant
-units — those that are themselves a shorter unit repeated (e.g. `AA`) — are skipped,
-and repeats contained within a longer already-reported repeat are suppressed.
+units — those that are themselves a shorter unit repeated (e.g. `AA`) — are skipped.
+Per unit length each maximal perfect run is reported once, at its left end, with the
+number of complete copies (a trailing partial copy is not counted, and rotations of
+the same run — e.g. `TA` inside `ATATATA` — are not re-reported); units containing
+non-ACGT symbols (e.g. `N`) are never reported. Positions are 0-based.
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L67](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L67)
+- Source: [RepeatFinder.cs#L85](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L85)
 
 ## Input Schema
 
@@ -86,7 +89,7 @@ and repeats contained within a longer already-reported repeat are suppressed.
 
 ## Performance
 
-- **Time Complexity:** O(n · (maxUnitLength − minUnitLength + 1)).
+- **Time Complexity:** O(n · (maxUnitLength − minUnitLength + 1)) character comparisons.
 - **Space Complexity:** O(number of STRs).
 
 ## See Also

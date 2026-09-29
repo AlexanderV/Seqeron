@@ -4,7 +4,7 @@
 **Canonical Class:** `RepeatFinder`
 **Primary Method:** `FindMicrosatellites` (perfect) + `FindApproximateTandemRepeats` (approximate, Benson 1999)
 **Status:** Complete
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-09-29
 
 > §1–§8 below cover the perfect-STR detector. **§9 adds the opt-in approximate (TRF) detector**
 > (`FindApproximateTandemRepeats`), added for the REP-STR-001 limitation fix; its evidence is in
@@ -38,6 +38,9 @@
 | Wikipedia: Trinucleotide repeat disorder | Encyclopedia | CAG repeat thresholds: HD normal 6-35, pathogenic 36-250; disease-specific repeat ranges |
 | Richard GF et al. (2008) MMBR | Peer-reviewed | Comprehensive review of repeat dynamics |
 | Tóth G et al. (2000) Genome Res | Peer-reviewed | Microsatellite distribution analysis |
+| Thiel T et al. (2003) TAG 106:411 — MISA `misa.pl` source | Reference tool | Per-motif-size leftmost regex `([acgt]{p})\2{k-1,}`; reject non-primitive ("false type") motifs; ACGT-only |
+| Du L et al. (2018) Bioinformatics 34:681 — Krait / pytrf 1.5.0 `str.c` | Reference tool | Run seeded at its start, `repeat = length / p` (complete copies), `N` skipped |
+| Kolpakov & Kucherov (1999) FOCS | Peer-reviewed | Maximal repetition (run) definition: left/right-maximal, minimal period |
 
 ---
 
@@ -92,8 +95,8 @@
 
 | Name | Sequence | Expected Result | Source |
 |------|----------|-----------------|--------|
-| Huntington CAG | `ATGCAGCAGCAGCAGCAGTGA` | CAG×5 at position 3 | Wikipedia: HD has CAG repeats |
-| Dinucleotide CA | `AAACACACACACAAA` | CA×6 (or AC×6) | Wikipedia: common microsatellite |
+| Huntington CAG | `ATGCAGCAGCAGCAGCAGTGA` | GCA×5 at position 2 (run-start phase; = CAG×5 locus) | Wikipedia: HD has CAG repeats |
+| Dinucleotide CA | `AAACACACACACAAA` | AC×5 at position 2 (run of 11 bp, 5 complete copies) | Wikipedia: common microsatellite |
 | Mononucleotide A | `ACGTAAAAAACGT` | A×6 at position 4 | Basic mononucleotide |
 | Tetranucleotide GATA | `AAGATAGATAGATAGATAAA` | GATA-family×4 | Wikipedia: forensic marker |
 | EcoRI site as repeat | `GAATTCGAATTCGAATTC` | GAATTC×3 | Hexanucleotide example |
@@ -140,9 +143,9 @@ Assert.That(seq.Substring(r.Position, r.TotalLength), Is.EqualTo(r.FullSequence)
 |---------------------|--------|-------|
 | **MUST Tests** | | |
 | M01 — Mononucleotide detection | ✅ Covered | Exact: A×6, pos=4, len=6, type=Mononucleotide |
-| M02 — Dinucleotide CA detection | ✅ Covered | Strengthened: count=2, AC×5 pos=2 + CA×5 pos=3 |
-| M03 — Trinucleotide CAG detection | ✅ Covered | Strengthened: count=2, GCA×5 pos=2 + CAG×5 pos=3 |
-| M04 — Tetranucleotide GATA detection | ✅ Covered | Strengthened: count=2, AGAT×4 pos=1 + GATA×4 pos=2 |
+| M02 — Dinucleotide CA detection | ✅ Covered | 2026-09: count=1, AC×5 pos=2 (the CA×5@3 rotation of the same run is no longer reported) |
+| M03 — Trinucleotide CAG detection | ✅ Covered | 2026-09: count=1, GCA×5 pos=2 (run starts at the G; CAG×5@3 rotation not re-reported) |
+| M04 — Tetranucleotide GATA detection | ✅ Covered | 2026-09: count=1, AGAT×4 pos=1 |
 | M05 — Empty sequence returns empty | ✅ Covered | — |
 | M06 — minRepeats filter respected | ✅ Covered | 5 tests: MinRepeatsInvariant (×3) + ExactlyMinRepeats + BelowMinRepeats |
 | M07 — RepeatType classification | ✅ Covered | Strengthened: 6 TestCases, exact count=1, unit×5, pos=0 |
@@ -160,7 +163,7 @@ Assert.That(seq.Substring(r.Position, r.TotalLength), Is.EqualTo(r.FullSequence)
 | S02 — String overload parity | ✅ Covered | Compares DnaSequence vs string results field-by-field |
 | S03 — Hexanucleotide detection | ✅ Covered | GAATTC×3, exact values |
 | S04 — Case insensitivity | ✅ Covered | lowercase "cagcagcagcag" → CAG×4 |
-| S05 — Non-standard characters (N) | ✅ Covered | NEW: DnaSequence rejects N; string overload treats as regular char |
+| S05 — Non-standard characters (N) | ✅ Covered | DnaSequence rejects N; 2026-09: string overload never reports a unit containing N (MISA `[acgt]`, pytrf skips N) |
 | S06 — Adjacent different repeat types | ✅ Covered | NEW: A×5 pos=0 + CAG×3 pos=5 |
 | S07 — TandemRepeatSummary accuracy | ✅ Covered | 4 tests in RepeatFinderTests.cs |
 | **COULD Tests** | | |
@@ -208,6 +211,13 @@ All MUST (M01-M16) and SHOULD (S01-S07) tests are ✅ Covered.
 COULD tests: C01 (performance) is benchmark-only, C03 (progress) is not implemented. Neither blocks completion.
 
 ---
+
+### 6.7 Review 2026-09 (maximal-run semantics)
+
+| ID | Test | Status |
+|----|------|--------|
+| M17 | `FindMicrosatellites_MaximalRuns_EachLocusReportedOnce` (6 cases: `ATATATA`, `ATATATAT` k=2, (CAG)×10+CA, `AAAAAACACACAC`, `ACACACGCGCGC`, `AAGATAGATAGATAGATAAA`) — values from brute-force maximal-repetition reference, MISA/pytrf-consistent | ✅ |
+| M18 | `FindMicrosatellites_CancellableDnaOverload_InvalidParameters_Throw` | ✅ |
 
 ## 7. Open Questions
 

@@ -84,6 +84,39 @@ validation report `docs/Validation/reports/REP-STR-001.md`.
 
 ---
 
+### MISA — Thiel et al. (2003) Theor Appl Genet 106:411-422, `misa.pl` v1.0 source
+
+**URL:** https://raw.githubusercontent.com/cfljam/SSR_marker_design/master/misa.pl (mirror of the IPK script; the IPK host is blocked)
+**Accessed:** 2026-09-29 (downloaded and read in this session)
+
+1. Per motif size: `my $search = "(([acgt]{$motiflen})\\2{$minreps,})"; while ( $seq =~ /$search/ig )` — leftmost, greedy, non-overlapping matches; only `a/c/g/t` motifs.
+2. `#reject false type motifs [e.g. (TT)6 or (ACAC)5]` — non-primitive motifs are dropped.
+3. `$repeats{$nr} = length($ssr) / $motiflen` over the matched complete copies.
+
+### pytrf 1.5.0 (Krait engine) — Du et al. (2018) Bioinformatics 34(4):681-683
+
+**URL:** PyPI `pytrf==1.5.0` sdist, `src/str.c` (installed and read in this session)
+
+1. Run found by `while ((i < b) && (self->seq[i] == self->seq[i+j])) ++i; rl = i + j - cs;` — the period-j run from the seed `cs`.
+2. `ssr->repeat = rl/j; ssr->length = ssr->repeat * j;` — complete copies only; `next_start = end`.
+3. `if (self->seq[i] == 78) continue;` — `N` is skipped. No primitivity check (smaller sizes are tried first).
+
+### Kolpakov R, Kucherov G (1999) "Finding maximal repetitions in a word in linear time", FOCS
+
+Maximal repetition (run): a periodic factor `S[a..e)` with minimal period p, exponent ≥ 2, not extendable left or right with the same period. (Definition as used here; paper not opened.)
+
+### Numerical cross-check (review 2026-09)
+
+Harness: C# `RepeatFinder.FindMicrosatellites(string, p, p, k)` vs (a) Python brute-force maximal-repetition reference, (b) MISA regex rule, (c) pytrf `STRFinder` with only size p enabled. 3,132 cases (11 crafted × p=1..6 × k∈{2,3} + 3,000 random, seed 20260929, alphabets incl. `N`, planted repeats).
+
+| Reference | Agreement | All disagreements explained by |
+|-----------|-----------|--------------------------------|
+| Brute-force maximal runs | 3,132 / 3,132 | — |
+| MISA rule | 3,099 / 3,132 | 17 same-period runs overlapping by < p (MISA restarts after the first run's copies); 16 non-primitive region consumed by the regex first |
+| pytrf single size | 2,752 / 3,132 | 17 same overlap case; 363 non-primitive/`N` units (pytrf has no primitivity check) |
+
+Before the fix the code additionally reported every rotation of a run that reached past the run-start's complete copies (e.g. `ATATATA` → `AT×3@0` **and** `TA×3@1`; `AAACACACACACAAA` → `AC×5@2` **and** `CA×5@3`) — one locus reported up to p times, disagreeing with all three references — and reported runs of `N` as mononucleotide microsatellites.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Benson (1999)

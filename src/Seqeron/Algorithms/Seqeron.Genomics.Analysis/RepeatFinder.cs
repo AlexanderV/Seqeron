@@ -14,11 +14,31 @@ public static class RepeatFinder
     /// Finds microsatellites (Short Tandem Repeats) in a DNA sequence.
     /// STRs are 1-6 bp motifs repeated consecutively.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For every unit length <c>p</c> in <c>[minUnitLength, maxUnitLength]</c> the detector reports each
+    /// <b>maximal perfect run</b> of period <c>p</c> exactly once: a run is the longest interval
+    /// <c>S[a..e)</c> with <c>S[x] = S[x+p]</c> for all <c>a ≤ x &lt; e−p</c> that cannot be extended to the
+    /// left or right (a maximal repetition, Kolpakov &amp; Kucherov 1999). The run is reported at its
+    /// left end <c>a</c> with <c>RepeatUnit = S[a..a+p)</c> (the motif phase at the run start) and
+    /// <c>RepeatCount = ⌊(e−a)/p⌋</c> complete copies; a trailing partial copy (&lt; p bases) is not
+    /// counted, and rotations of the same run (e.g. <c>TA</c> inside <c>ATATATA</c>) are not reported again.
+    /// This is the per-motif-size convention of MISA (Thiel et al. 2003; leftmost regex match
+    /// <c>([acgt]{p})\1{k-1,}</c>) and pytrf/Krait (Du et al. 2018: seed at the run start, <c>repeat = length / p</c>).
+    /// </para>
+    /// <para>
+    /// A unit that is itself a repetition of a shorter unit (e.g. <c>ATAT</c>, <c>AA</c>) is not reported —
+    /// its run is reported at the primitive unit length (MISA "reject false type motifs"). Only units made of
+    /// the unambiguous bases A/C/G/T are reported (MISA <c>[acgt]</c>; pytrf skips <c>N</c>), so runs of
+    /// <c>N</c> (assembly gaps) or other symbols are never microsatellites. Runs of different unit lengths may
+    /// overlap and are reported independently. Input is case-insensitive; positions are 0-based.
+    /// </para>
+    /// </remarks>
     /// <param name="sequence">DNA sequence to search.</param>
     /// <param name="minUnitLength">Minimum repeat unit length (default: 1).</param>
     /// <param name="maxUnitLength">Maximum repeat unit length (default: 6).</param>
-    /// <param name="minRepeats">Minimum number of repeats to report (default: 3).</param>
-    /// <returns>Collection of microsatellite repeats found.</returns>
+    /// <param name="minRepeats">Minimum number of complete consecutive copies to report (default: 3).</param>
+    /// <returns>Collection of microsatellite repeats found, ordered by unit length then position.</returns>
     public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
         DnaSequence sequence,
         int minUnitLength = 1,
@@ -26,15 +46,15 @@ public static class RepeatFinder
         int minRepeats = 3)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ArgumentOutOfRangeException.ThrowIfLessThan(minUnitLength, 1);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxUnitLength, minUnitLength);
-        ArgumentOutOfRangeException.ThrowIfLessThan(minRepeats, 2);
+        ValidateMicrosatelliteParameters(minUnitLength, maxUnitLength, minRepeats);
 
-        return FindMicrosatellitesCore(sequence.Sequence, minUnitLength, maxUnitLength, minRepeats);
+        return FindMicrosatellitesCore(
+            sequence.Sequence, minUnitLength, maxUnitLength, minRepeats, CancellationToken.None, null);
     }
 
     /// <summary>
-    /// Finds microsatellites with cancellation support.
+    /// Finds microsatellites with cancellation support. Same semantics as
+    /// <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/>.
     /// </summary>
     /// <param name="sequence">DNA sequence to search.</param>
     /// <param name="minUnitLength">Minimum repeat unit length.</param>
@@ -52,12 +72,15 @@ public static class RepeatFinder
         IProgress<double>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return FindMicrosatellitesCancellable(
+        ValidateMicrosatelliteParameters(minUnitLength, maxUnitLength, minRepeats);
+
+        return FindMicrosatellitesCore(
             sequence.Sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
     }
 
     /// <summary>
-    /// Finds microsatellites in a raw sequence string.
+    /// Finds microsatellites in a raw sequence string (case-insensitive). Same semantics as
+    /// <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/>; <c>null</c>/empty input yields no results.
     /// </summary>
     public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
         string sequence,
@@ -65,15 +88,13 @@ public static class RepeatFinder
         int maxUnitLength = 6,
         int minRepeats = 3)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(minUnitLength, 1);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxUnitLength, minUnitLength);
-        ArgumentOutOfRangeException.ThrowIfLessThan(minRepeats, 2);
+        ValidateMicrosatelliteParameters(minUnitLength, maxUnitLength, minRepeats);
 
         if (string.IsNullOrEmpty(sequence))
-            yield break;
+            return [];
 
-        foreach (var result in FindMicrosatellitesCore(sequence.ToUpperInvariant(), minUnitLength, maxUnitLength, minRepeats))
-            yield return result;
+        return FindMicrosatellitesCore(
+            sequence.ToUpperInvariant(), minUnitLength, maxUnitLength, minRepeats, CancellationToken.None, null);
     }
 
     /// <summary>
@@ -87,132 +108,104 @@ public static class RepeatFinder
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
+        ValidateMicrosatelliteParameters(minUnitLength, maxUnitLength, minRepeats);
+
+        if (string.IsNullOrEmpty(sequence))
+            return [];
+
+        return FindMicrosatellitesCore(
+            sequence.ToUpperInvariant(), minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
+    }
+
+    private static void ValidateMicrosatelliteParameters(int minUnitLength, int maxUnitLength, int minRepeats)
+    {
         ArgumentOutOfRangeException.ThrowIfLessThan(minUnitLength, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxUnitLength, minUnitLength);
         ArgumentOutOfRangeException.ThrowIfLessThan(minRepeats, 2);
-
-        return FindMicrosatellitesCancellable(
-            sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
     }
 
-    private static IEnumerable<MicrosatelliteResult> FindMicrosatellitesCancellable(
-        string sequence,
-        int minUnitLength,
-        int maxUnitLength,
-        int minRepeats,
-        CancellationToken cancellationToken,
-        IProgress<double>? progress = null)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            yield break;
-
-        var seq = sequence.ToUpperInvariant();
-        var reported = new HashSet<(int Start, int End)>();
-        int totalPositions = seq.Length * (maxUnitLength - minUnitLength + 1);
-        int processed = 0;
-        const int checkInterval = 1000;
-
-        for (int unitLen = minUnitLength; unitLen <= maxUnitLength; unitLen++)
-        {
-            for (int i = 0; i <= seq.Length - unitLen * minRepeats; i++)
-            {
-                if (processed % checkInterval == 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    progress?.Report((double)processed / totalPositions);
-                }
-                processed++;
-
-                var unit = seq.Substring(i, unitLen);
-
-                if (IsRedundantUnit(unit))
-                    continue;
-
-                int repeats = 1;
-                int j = i + unitLen;
-
-                while (j + unitLen <= seq.Length && seq.Substring(j, unitLen) == unit)
-                {
-                    repeats++;
-                    j += unitLen;
-                }
-
-                if (repeats >= minRepeats)
-                {
-                    int end = i + (repeats * unitLen) - 1;
-
-                    bool isContained = false;
-                    foreach (var r in reported)
-                    {
-                        if (r.Start <= i && r.End >= end)
-                        {
-                            isContained = true;
-                            break;
-                        }
-                    }
-
-                    if (!isContained)
-                    {
-                        reported.Add((i, end));
-                        yield return new MicrosatelliteResult(
-                            Position: i,
-                            RepeatUnit: unit,
-                            RepeatCount: repeats,
-                            TotalLength: repeats * unitLen,
-                            RepeatType: ClassifyRepeatType(unit));
-                    }
-                }
-            }
-        }
-
-        progress?.Report(1.0);
-    }
-
+    /// <summary>
+    /// Single scan core (upper-case input): for each unit length, visits only run starts
+    /// (left-maximal positions), extends the run to its right-maximal end and reports it once.
+    /// O(n) character comparisons per unit length.
+    /// </summary>
     private static IEnumerable<MicrosatelliteResult> FindMicrosatellitesCore(
         string seq,
         int minUnitLength,
         int maxUnitLength,
-        int minRepeats)
+        int minRepeats,
+        CancellationToken cancellationToken,
+        IProgress<double>? progress)
     {
-        var reported = new HashSet<(int Start, int End)>();
+        int n = seq.Length;
+        long unitLengths = (long)maxUnitLength - minUnitLength + 1;
+        double totalPositions = Math.Max(1.0, (double)n * unitLengths);
+        int sinceCheck = 0;
+        const int checkInterval = 1000;
 
         for (int unitLen = minUnitLength; unitLen <= maxUnitLength; unitLen++)
         {
-            for (int i = 0; i <= seq.Length - unitLen * minRepeats; i++)
+            if ((long)unitLen * minRepeats > n)
+                break; // no longer unit length can fit minRepeats copies either
+
+            int i = 0;
+            while (i + unitLen * minRepeats <= n)
             {
-                string unit = seq.Substring(i, unitLen);
+                if (++sinceCheck >= checkInterval)
+                {
+                    sinceCheck = 0;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    progress?.Report(((double)(unitLen - minUnitLength) * n + i) / totalPositions);
+                }
 
-                // Skip if unit is just repetition of smaller unit
-                if (IsRedundantUnit(unit))
+                // Run start (left-maximal): the period-p run cannot be extended one base to the left.
+                // Positions inside a run (rotations / suffixes of it) are skipped.
+                if (i > 0 && seq[i - 1] == seq[i - 1 + unitLen])
+                {
+                    i++;
                     continue;
-
-                int repeats = 1;
-                int j = i + unitLen;
-
-                while (j + unitLen <= seq.Length && seq.Substring(j, unitLen) == unit)
-                {
-                    repeats++;
-                    j += unitLen;
                 }
 
-                if (repeats >= minRepeats)
-                {
-                    int end = i + (repeats * unitLen) - 1;
+                // Right-maximal end e (exclusive): extend while S[x] == S[x - p].
+                int e = i + unitLen;
+                while (e < n && seq[e] == seq[e - unitLen])
+                    e++;
 
-                    // Avoid reporting overlapping/contained repeats
-                    if (!reported.Any(r => r.Start <= i && r.End >= end))
-                    {
-                        reported.Add((i, end));
-                        yield return new MicrosatelliteResult(
-                            Position: i,
-                            RepeatUnit: unit,
-                            RepeatCount: repeats,
-                            TotalLength: repeats * unitLen,
-                            RepeatType: ClassifyRepeatType(unit));
-                    }
+                int repeats = (e - i) / unitLen;
+                if (repeats >= minRepeats && IsReportableUnit(seq, i, unitLen))
+                {
+                    string unit = seq.Substring(i, unitLen);
+                    yield return new MicrosatelliteResult(
+                        Position: i,
+                        RepeatUnit: unit,
+                        RepeatCount: repeats,
+                        TotalLength: repeats * unitLen,
+                        RepeatType: ClassifyRepeatType(unit));
                 }
+
+                // Every position in (i, e - p] lies inside this run (not left-maximal); the next possible
+                // run start of the same period is e - p + 1.
+                i = e - unitLen + 1;
             }
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report(1.0);
+    }
+
+    /// <summary>
+    /// A unit is reportable when it consists only of A/C/G/T and is primitive (not a power of a shorter word).
+    /// </summary>
+    private static bool IsReportableUnit(string seq, int start, int unitLen)
+    {
+        for (int k = start; k < start + unitLen; k++)
+        {
+            char c = seq[k];
+            if (c != 'A' && c != 'C' && c != 'G' && c != 'T')
+                return false;
+        }
+
+        return !IsRedundantUnit(seq.Substring(start, unitLen));
     }
 
     private static bool IsRedundantUnit(string unit)
