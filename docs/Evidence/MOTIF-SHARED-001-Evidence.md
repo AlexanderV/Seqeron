@@ -21,6 +21,16 @@
 3. **Fixed-length enumeration:** Retrieved text: the oligonucleotide size parameter analyses "with oligonuleotides of any size between 1 and 8"; a fixed oligo length (k) is enumerated and counted throughout the entire input sequence set.
 4. **Per-sequence counting for the matching-sequence statistic:** Retrieved text: for matching-sequence probability calculations "only the first occurrence of each sequence is taken into consideration" — i.e. presence/absence per sequence, not multiplicity, drives the matching-sequence count.
 
+### RSAT source code — `perl-scripts/oligo-analysis` (reference implementation, review 2026-09-29)
+
+**URL:** https://raw.githubusercontent.com/rsa-tools/rsat-code/master/perl-scripts/oligo-analysis (opened with curl, 2026-09-29)
+
+**Key Extracted Points:**
+
+1. Matching sequences: `### matching sequences (only count first occurrence per sequence)` — per window `$current_mseq{$pattern_seq} = 1` (with `-2str`, a word whose reverse complement is already marked is not re-marked), then after each sequence `foreach $pattern_seq (keys %current_mseq) { $patterns{$pattern_seq}->{mseq} += 1; }`.
+2. Overlapping windows are the default (`$noov="-ovlp"`); `-1str` counts the given strand only. `FindSharedMotifs` = mseq under `-1str -ovlp`.
+3. Cross-check: independent Python port of this loop on ACGTACGTTAGC / TTACGTAGCAAC / GGTAGCACGTTT / CATTTTACG, k=4, q=2 → ACGT{0,1,2}, CGTA{0,1}, TACG{0,1,3}, CGTT{0,2}, TAGC{0,1,2}, TTAC{1,3}, GTAG{1,2}, AGCA{1,2}; Rosalind LCSM sample, k=2, q=3 → TA, AC, CA.
+
 ### A survey of DNA motif finding algorithms (Das & Dai, 2007) — word-enumeration family
 
 **URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC2099490/
@@ -136,3 +146,4 @@ Sequences (0-based index):
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-29**: Review 2026-09 — RSAT source-code mseq loop added with Python cross-check values.

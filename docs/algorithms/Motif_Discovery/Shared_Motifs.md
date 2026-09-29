@@ -6,7 +6,7 @@
 | Test Unit ID | MOTIF-SHARED-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-29 |
 
 ## 1. Overview
 
@@ -80,6 +80,9 @@ oligonucleotide" [2]. Prevalence is reported as `|M(w)| / m`.
 ### 3.3 Preconditions and Validation
 
 `sequences` null → `ArgumentNullException`. `k < 1` or `minSequences < 1` → `ArgumentOutOfRangeException`.
+A null element → `ArgumentException` (param `sequences`), thrown when the result is enumerated.
+Results are yielded in order of each word's first occurrence (lowest sequence index, then lowest
+position); `SequenceIndices` is strictly ascending.
 Input is 0-based; `DnaSequence` normalizes to uppercase A/C/G/T. Empty collection → no results. A
 sequence shorter than k yields no words (no length-k window). Matching is exact and case-normalized.
 
@@ -89,7 +92,7 @@ sequence shorter than k yields no words (no length-k window). Matching is exact 
 
 1. Materialize the sequences; record total count `m`.
 2. For each sequence index `i`, slide a length-k window; collect the **distinct** words seen in `s_i`
-   (a per-sequence `HashSet`) so each word contributes 1 to that sequence.
+   (the keys of the canonical `SequenceExtensions.CountKmersSpan` dictionary) so each word contributes 1 to that sequence.
 3. For each distinct word seen in `s_i`, append `i` to the word's matching-sequence list.
 4. Emit every word whose matching-sequence list size ≥ `minSequences`, with its indices and prevalence.
 
@@ -102,7 +105,7 @@ sequence shorter than k yields no words (no length-k window). Matching is exact 
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| FindSharedMotifs | O(Σᵢ (nᵢ − k + 1) · k) | O(distinct words · k) | nᵢ = length of sequence i; per-sequence HashSet of length-k words |
+| FindSharedMotifs | O(Σᵢ (nᵢ − k + 1) · k) | O(distinct words · k) | nᵢ = length of sequence i; per-sequence `CountKmersSpan` dictionary of length-k words |
 
 ## 5. Implementation Notes
 
@@ -114,15 +117,20 @@ sequence shorter than k yields no words (no length-k window). Matching is exact 
 
 ### 5.2 Current Behavior
 
-Each sequence is scanned once with a per-sequence `HashSet<string>` so a word repeated within a
-sequence is counted once (matching-sequence semantics) [3]. Words are accumulated in a dictionary
-`word → list of sequence indices`; results are filtered by the quorum and yielded lazily.
+The distinct words of each sequence are the keys of the canonical overlapping k-mer counter
+`SequenceExtensions.CountKmersSpan` (no local window loop), so a word repeated within a sequence is
+counted once (matching-sequence semantics) [3]. Words are accumulated in a dictionary
+`word → ascending list of sequence indices`; results are filtered by the quorum and yielded lazily.
+This is exactly the RSAT `oligo-analysis` `mseq` count with `-1str -ovlp` (source
+`perl-scripts/oligo-analysis`: per sequence `$current_mseq{$pattern_seq} = 1`, then
+`$patterns{$pattern_seq}->{mseq} += 1` for every marked word) [3][5].
 
-**Suffix tree decision — not used.** The repository `SuffixTree` is a single-text generalized suffix
-tree; its `LongestCommonSubstring(other)` computes a *two-string* longest common substring, which
+**Suffix tree decision — not used.** The repository `SuffixTree` is a single-text suffix tree (no
+generalized multi-string tree / k-string LCS exists in `src/SuffixTree/**`, re-checked 2026-09); its
+`LongestCommonSubstring(other)` computes a *two-string* longest common substring, which
 solves neither the fixed-k enumeration nor the k-sequence matching-sequence count needed here. The
 required operation is "for every length-k word, in how many distinct sequences does it occur," which a
-linear per-sequence window scan with a HashSet computes directly in O(Σᵢ nᵢ · k); building one suffix
+linear per-sequence window scan (distinct keys of `CountKmersSpan`) computes directly in O(Σᵢ nᵢ · k); building one suffix
 tree per sequence would add construction overhead without changing the result. Therefore a direct
 scan is used; correctness is unchanged.
 
@@ -171,7 +179,8 @@ scan is used; correctness is unchanged.
 
 Exact words only — no mismatches, gaps, or degeneracy; no statistical significance / background model;
 fixed k (does not find variable-length shared substrings — see LCSM [4]); does not consider the
-reverse-complement strand.
+reverse-complement strand (RSAT `-2str` merges a word with its reverse complement; this method is
+`-1str`).
 
 ## 7. Examples and Related Material (Optional)
 
@@ -197,3 +206,4 @@ var shared = MotifFinder.FindSharedMotifs(seqs, k: 3, minSequences: 2).ToList();
 2. Das MK, Dai HK. 2007. A survey of DNA motif finding algorithms. BMC Bioinformatics 8(Suppl 7):S21. https://pmc.ncbi.nlm.nih.gov/articles/PMC2099490/
 3. RSAT. oligo-analysis manual (Regulatory Sequence Analysis Tools). https://rsat.eead.csic.es/plants/help.oligo-analysis.html (accessed 2026-06-14)
 4. ROSALIND. Finding a Shared Motif (LCSM). https://rosalind.info/problems/lcsm/ (accessed 2026-06-14)
+5. RSAT source code, `perl-scripts/oligo-analysis` (matching-sequence counting). https://raw.githubusercontent.com/rsa-tools/rsat-code/master/perl-scripts/oligo-analysis (opened 2026-09-29)

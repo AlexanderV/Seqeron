@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Seqeron.Genomics.Analysis;
@@ -666,12 +667,22 @@ public static class MotifFinder
     /// A word repeated several times within one sequence still contributes 1 to its
     /// matching-sequence count. Matching is exact (no degenerate/substituted matches).
     /// </summary>
+    /// <remarks>
+    /// Equals the RSAT <c>oligo-analysis</c> <c>mseq</c> column for <c>-1str -ovlp</c> (single strand;
+    /// the reverse complement is not merged). Words are enumerated with the canonical
+    /// <see cref="SequenceExtensions.CountKmersSpan"/>. Results are yielded in order of each word's
+    /// first occurrence (lowest sequence index, then lowest position); <see cref="SharedMotif.SequenceIndices"/>
+    /// is strictly ascending. This is not the longest-common-substring (Rosalind LCSM) problem:
+    /// k is fixed and membership is a quorum. Enumeration is deferred: a null element throws
+    /// <see cref="ArgumentException"/> when the result is enumerated.
+    /// </remarks>
     /// <param name="sequences">Collection of DNA sequences (each scanned for its distinct words).</param>
     /// <param name="k">Word (oligonucleotide) length; must be ≥ 1. Default: 6.</param>
     /// <param name="minSequences">Quorum: minimum number of distinct sequences a word must occur in. Must be ≥ 1. Default: 2.</param>
     /// <returns>Shared words with their distinct sequence indices and prevalence (matching sequences / total sequences).</returns>
     /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">When <paramref name="k"/> &lt; 1 or <paramref name="minSequences"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentException">When an element of <paramref name="sequences"/> is null (thrown on enumeration).</exception>
     public static IEnumerable<SharedMotif> FindSharedMotifs(
         IEnumerable<DnaSequence> sequences,
         int k = DefaultSharedMotifLength,
@@ -685,33 +696,27 @@ public static class MotifFinder
 
     private static IEnumerable<SharedMotif> FindSharedMotifsCore(IEnumerable<DnaSequence> sequences, int k, int minSequences)
     {
-
         var seqList = sequences.ToList();
-        var kmerOccurrences = new Dictionary<string, List<int>>();
 
-        // Find k-mers in each sequence
+        // word → ascending indices of the input sequences containing it (RSAT "matching sequences").
+        var matchingSequences = new Dictionary<string, List<int>>();
+
         for (int seqIdx = 0; seqIdx < seqList.Count; seqIdx++)
         {
-            var seq = seqList[seqIdx].Sequence;
-            var seenInSeq = new HashSet<string>();
+            DnaSequence dna = seqList[seqIdx]
+                ?? throw new ArgumentException($"Sequence at index {seqIdx} is null.", nameof(sequences));
 
-            for (int i = 0; i <= seq.Length - k; i++)
+            // Distinct words of this sequence (canonical overlapping k-mer counter); each word
+            // contributes this sequence once regardless of its multiplicity. Dictionary keys keep
+            // first-occurrence order, so words are registered in (sequence, position) order.
+            foreach (string kmer in dna.Sequence.AsSpan().CountKmersSpan(k).Keys)
             {
-                string kmer = seq.Substring(i, k);
-
-                if (seenInSeq.Add(kmer))
-                {
-
-                    if (!kmerOccurrences.ContainsKey(kmer))
-                        kmerOccurrences[kmer] = new List<int>();
-
-                    kmerOccurrences[kmer].Add(seqIdx);
-                }
+                ref List<int>? indices = ref CollectionsMarshal.GetValueRefOrAddDefault(matchingSequences, kmer, out _);
+                (indices ??= new List<int>()).Add(seqIdx);
             }
         }
 
-        // Return shared motifs
-        foreach (var (kmer, seqIndices) in kmerOccurrences)
+        foreach (var (kmer, seqIndices) in matchingSequences)
         {
             if (seqIndices.Count >= minSequences)
             {

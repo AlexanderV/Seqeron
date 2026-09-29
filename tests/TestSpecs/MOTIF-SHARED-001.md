@@ -5,7 +5,7 @@
 **Algorithm:** Shared Motifs via fixed-length word enumeration with matching-sequence quorum
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-29
 
 ---
 
@@ -88,6 +88,16 @@
 | C1 | Empty collection | no sequences | empty result | Input validation |
 | C2 | k < 1 | k = 0 | throws ArgumentOutOfRangeException | Implementation contract |
 | C3 | null collection | null | throws ArgumentNullException | Implementation contract |
+
+### 4.4 Reference cross-checks (review 2026-09)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | ACGTACGTTAGC, TTACGTAGCAAC, GGTAGCACGTTT, CATTTTACG; k=4, q=2 | ordered: ACGT[0,1,2] .75, CGTA[0,1] .5, TACG[0,1,3] .75, CGTT[0,2] .5, TAGC[0,1,2] .75, TTAC[1,3] .5, GTAG[1,2] .5, AGCA[1,2] .5; q=3 → ACGT, TACG, TAGC | Python port of RSAT `oligo-analysis` mseq loop (-1str -ovlp) |
+| R2 | Rosalind LCSM sample GATTACA, TAGACCA, ATACA; k=2, q=3 | TA, AC, CA (all prevalence 1) — the length-2 common substrings | Rosalind LCSM sample (answer AC) |
+| R3 | null element | ArgumentException (ParamName "sequences"), was NullReferenceException | invalid-input contract shared with CreatePwm / CreateConsensusFromAlignment |
+
+Output order contract: first occurrence (sequence index, then position); `SequenceIndices` strictly ascending.
 
 ---
 
@@ -180,4 +190,4 @@
 ## 7. Open Questions / Decisions
 
 1. **Decision:** The unit implements the word-enumeration / matching-sequence quorum framing (van Helden / RSAT), NOT Rosalind LCSM. LCSM is documented as a related-but-distinct algorithm in the algorithm doc.
-2. **Decision (suffix tree):** Suffix tree not used — see algorithm doc §5.2. The repo SuffixTree is single-text; its `LongestCommonSubstring` is a two-string LCS and does not compute fixed-k matching-sequence counts across k sequences. A per-sequence HashSet word scan is the correct O(Σ(nᵢ)·k) approach.
+2. **Decision (suffix tree):** Suffix tree not used (re-checked 2026-09: `src/SuffixTree/**` has no generalized multi-string tree; words are enumerated with canonical `SequenceExtensions.CountKmersSpan`) — see algorithm doc §5.2. The repo SuffixTree is single-text; its `LongestCommonSubstring` is a two-string LCS and does not compute fixed-k matching-sequence counts across k sequences. A per-sequence distinct-word scan is the correct O(Σ(nᵢ)·k) approach.
