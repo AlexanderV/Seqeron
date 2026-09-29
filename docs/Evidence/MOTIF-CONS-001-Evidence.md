@@ -61,6 +61,19 @@
 1. **Most-frequent rule:** the consensus at each column is the most frequently occurring character in that column.
 2. **Tie-breaking options:** ties may be broken (a) with the correct IUPAC ambiguity code (nucleotides only), (b) by a specified residue order, or (c) by an ambiguity symbol ('?'). The web-search summary of the same family of tools (Geneious manual) also documents an explicit **alphabetical** tie-break: "In the event of a tie, the residue letter occurring earlier in the alphabet was chosen."
 
+### Biopython `Bio.motifs` — reference implementation (review 2026-09)
+
+**Source:** installed Biopython 1.88 package source `Bio/motifs/matrix.py` (`GenericPositionMatrix.consensus`), opened 2026-09-29.
+**Authority rank:** 3 (reference implementation)
+
+1. `consensus` iterates `for letter in self.alphabet` (A, C, G, T) and replaces the incumbent only when `count > maximum` — i.e. profile-column maximum with the alphabetically-earliest base on ties (the rule this method implements).
+2. `degenerate_consensus` (Cavener 1987 rules) is a *different* method (IUPAC output) — not this unit.
+3. Reference values (`motifs.create([...]).consensus`): Rosalind sample → `ATGCAACT`; `AT,GT` → `AT`; `CA,GA,TC,TG` → `TA`; `ACGT,TGCA` → `ACCA`; `A,A,C` → `A`.
+
+### EMBOSS `cons` source (review 2026-09)
+
+`nucleus/embcons.c` (raw.githubusercontent.com/kimrutherford/EMBOSS) opened 2026-09-29: residue chosen by highest *substitution-matrix* score, emitted only if its matching weight ≥ plurality, else 'N'/'X'. A different (scored, thresholded) algorithm — declared "not implemented" in the algorithm doc §5.3.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -137,3 +150,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-29**: Review 2026-09 — Biopython `.consensus` and EMBOSS `embcons.c` source added; null-element contract.

@@ -5,7 +5,7 @@
 **Algorithm:** Consensus Sequence from a Multiple Alignment (most-frequent residue)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-29
 
 ---
 
@@ -86,6 +86,9 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Invalid character | `AX` | `ArgumentException` | Alphabet validation as in `CreatePwm` |
 | C2 | Three-way majority over tie | `A,A,C` column | `A` (count 2 > 1) | Pure majority, no tie |
+| R1 | Biopython `.consensus` cross-check | `CA,GA,TC,TG` → `TA`; `ACGT,TGCA` → `ACCA`; Rosalind → `ATGCAACT` | exact | Biopython 1.88 `motifs.create(...).consensus` (review 2026-09) |
+| R2 | Null element | `["ACGT", null, "ACGT"]` | `ArgumentException` (ParamName `alignedSequences`) | Same contract as `CreatePwm`; previously `NullReferenceException` |
+| R3 | Shared count profile | 9-row alignment | `CreatePwm(aln).Consensus` (p = 0.25 and 0) == consensus | Uniform-background log-odds are monotone in counts |
 
 ---
 

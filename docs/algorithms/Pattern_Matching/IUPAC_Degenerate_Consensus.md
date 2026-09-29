@@ -83,7 +83,7 @@ Null `sequences` throws `ArgumentNullException`. An empty collection returns `""
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-- **IUPAC set→symbol table** — NC-IUB 1984 / Cornish-Bowden [1], corroborated by UCSC [2] and Wikipedia Table 1 [3]; realised as the `switch` in `GetIupacCode`.
+- **IUPAC set→symbol table** — NC-IUB 1984 / Cornish-Bowden [1], corroborated by UCSC [2] and Wikipedia Table 1 [3]; realised by the canonical `IupacDnaSequence.GetIupacCode(IEnumerable<char>)` (Core/ISequence.cs), which `MotifFinder.GetIupacCode` calls after its threshold step.
 - **Inclusion threshold** — `IupacInclusionThreshold = 0.25`; a base must occur in strictly more than a quarter of the sequences. The threshold-consensus mechanism is from DECIPHER `ConsensusSequence` [4]; the 0.25 value and strict `>` boundary are this implementation's documented design constant.
 
 ### 4.3 Complexity
@@ -99,7 +99,7 @@ Null `sequences` throws `ArgumentNullException`. An empty collection returns `""
 **Implementation location:** [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs)
 
 - `MotifFinder.GenerateConsensus(IEnumerable<string>)`: builds the IUPAC-degenerate consensus.
-- `MotifFinder.GetIupacCode(...)` (private): maps a column's passing base set to the IUPAC symbol via the threshold and NC-IUB table.
+- `MotifFinder.GetIupacCode(...)` (private): applies the >25 % inclusion threshold, then maps the passing base set to its NC-IUB symbol via canonical `IupacDnaSequence.GetIupacCode`.
 
 ### 5.2 Current Behavior
 

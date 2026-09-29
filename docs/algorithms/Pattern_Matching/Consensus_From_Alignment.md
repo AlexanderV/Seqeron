@@ -6,7 +6,7 @@
 | Test Unit ID | MOTIF-CONS-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-29 |
 
 ## 1. Overview
 
@@ -55,7 +55,7 @@ For aligned strings of length *n*, build a 4×*n* profile matrix *P* where *P*[b
 
 ### 3.3 Preconditions and Validation
 
-Null collection → `ArgumentNullException`. Empty collection → `""`. Sequences of unequal length → `ArgumentException`. Any character outside {A,C,G,T} (after uppercasing) → `ArgumentException`. Input is uppercased before processing (case-insensitive); indexing is 0-based.
+Null collection → `ArgumentNullException`. Null element → `ArgumentException`. Empty collection → `""`. Sequences of unequal length → `ArgumentException`. Any character outside {A,C,G,T} (after uppercasing) → `ArgumentException`. Input is uppercased before processing (case-insensitive); indexing is 0-based.
 
 ## 4. Algorithm
 
@@ -86,7 +86,7 @@ Alphabet/order table: `{'A','C','G','T'}` — also the tie-break order [4]. No s
 
 ### 5.2 Current Behavior
 
-Sequences are uppercased via `ToUpperInvariant`. Per-column counts use a 4-element array in alphabetical order; the maximum is found with a strict `>` comparison while iterating in alphabetical order, so the first (alphabetically-earliest) maximum wins on a tie. **Search reuse:** the repository suffix tree was evaluated and is N/A — this is a column-wise tally over aligned positions, not a substring/occurrence search, so no pattern matching is involved.
+The column counts come from the private `BuildCountMatrix` (4 × L profile matrix, rows A, C, G, T; characters uppercased with `char.ToUpperInvariant`), the same helper `CreatePwm` uses, so the consensus and the PWM are derived from one count profile. The maximum is found with a strict `>` comparison while iterating rows in alphabetical order, so the first (alphabetically-earliest) maximum wins on a tie — the same scan as Biopython `Bio.motifs` `GenericPositionMatrix.consensus` (`if count > maximum` over the alphabet ACGT) [5]. **Search reuse:** the repository suffix tree was evaluated and is N/A — this is a column-wise tally over aligned positions, not a substring/occurrence search, so no pattern matching is involved.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -146,3 +146,4 @@ string consensus = MotifFinder.CreateConsensusFromAlignment(aligned); // "ATGCAA
 2. Rosalind. Consensus and Profile (CONS). https://rosalind.info/problems/cons/
 3. Rice P, Longden I, Bleasby A. 2000. EMBOSS: The European Molecular Biology Open Software Suite. Trends in Genetics 16(6):276–277. https://doi.org/10.1016/S0168-9525(00)02024-2 (program docs: https://www.bioinformatics.nl/cgi-bin/emboss/help/cons)
 4. Los Alamos HIV Sequence Database. Advanced Consensus Maker — explanation. https://hfv.lanl.gov/content/sequence/CONSENSUS/AdvConExplain.html
+5. Biopython 1.88, `Bio/motifs/matrix.py` — `GenericPositionMatrix.consensus` (installed package source; review 2026-09). Cock et al. 2009, Bioinformatics 25(11):1422.

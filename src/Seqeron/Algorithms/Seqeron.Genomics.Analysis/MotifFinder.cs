@@ -224,46 +224,20 @@ public static class MotifFinder
                 "Pseudocount must be finite and non-negative.");
         double[] bg = NormalizeBackground(background);
 
-        var seqList = new List<string>();
-        foreach (var s in sequences)
-        {
-            if (s is null)
-                throw new ArgumentException("Sequences cannot contain null elements.", nameof(sequences));
-            seqList.Add(s.ToUpperInvariant());
-        }
-        if (seqList.Count == 0)
+        int[,] counts = BuildCountMatrix(sequences, nameof(sequences), out int count);
+        if (count == 0)
             throw new ArgumentException("At least one sequence is required.", nameof(sequences));
 
-        int length = seqList[0].Length;
-        if (!seqList.All(s => s.Length == length))
-            throw new ArgumentException("All sequences must have the same length.", nameof(sequences));
-
-        // Position frequency (count) matrix, rows A, C, G, T.
+        int length = counts.GetLength(1);
         var matrix = new double[PwmAlphabetSize, length];
-        for (int s = 0; s < seqList.Count; s++)
-        {
-            var seq = seqList[s];
-            for (int i = 0; i < length; i++)
-            {
-                int baseIndex = AcgtIndex(seq[i]);
-                if (baseIndex < 0)
-                    throw new ArgumentException(
-                        $"Invalid character '{seq[i]}' at position {i} in sequence {s}. " +
-                        "Only A, C, G, T are valid nucleotide characters.",
-                        nameof(sequences));
-
-                matrix[baseIndex, i]++;
-            }
-        }
 
         // Pseudocount-smoothed probabilities → log2 odds against the background.
-        int count = seqList.Count;
         double total = count + PwmAlphabetSize * pseudocount;
         for (int i = 0; i < length; i++)
         {
             for (int b = 0; b < PwmAlphabetSize; b++)
             {
-                double freq = (matrix[b, i] + pseudocount) / total;
+                double freq = (counts[b, i] + pseudocount) / total;
                 matrix[b, i] = Math.Log2(freq / bg[b]);
             }
         }
@@ -302,6 +276,59 @@ public static class MotifFinder
         'T' => 3,
         _ => -1
     };
+
+    /// <summary>Upper-case bases in PWM row order (inverse of <see cref="AcgtIndex"/>).</summary>
+    private static readonly char[] AcgtBases = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>
+    /// Builds the 4 × L position frequency (count) matrix — Rosalind CONS "profile matrix",
+    /// Biopython <c>motif.counts</c> — of equal-length A/C/G/T sequences (case-insensitive),
+    /// rows A, C, G, T. Shared by <see cref="CreatePwm(IEnumerable{string}, double, IReadOnlyList{double})"/>
+    /// and <see cref="CreateConsensusFromAlignment"/>. An empty collection yields a 4 × 0 matrix
+    /// with <paramref name="sequenceCount"/> = 0 (callers decide whether that is an error).
+    /// </summary>
+    /// <exception cref="ArgumentException">Null element, unequal lengths or non-ACGT character.</exception>
+    private static int[,] BuildCountMatrix(IEnumerable<string> sequences, string paramName, out int sequenceCount)
+    {
+        var seqList = new List<string>();
+        foreach (var s in sequences)
+        {
+            if (s is null)
+                throw new ArgumentException("Sequences cannot contain null elements.", paramName);
+            seqList.Add(s);
+        }
+
+        sequenceCount = seqList.Count;
+        if (sequenceCount == 0)
+            return new int[PwmAlphabetSize, 0];
+
+        int length = seqList[0].Length;
+        for (int s = 1; s < seqList.Count; s++)
+        {
+            if (seqList[s].Length != length)
+                throw new ArgumentException("All sequences must have the same length.", paramName);
+        }
+
+        var counts = new int[PwmAlphabetSize, length];
+        for (int s = 0; s < seqList.Count; s++)
+        {
+            var seq = seqList[s];
+            for (int i = 0; i < length; i++)
+            {
+                char c = char.ToUpperInvariant(seq[i]);
+                int baseIndex = AcgtIndex(c);
+                if (baseIndex < 0)
+                    throw new ArgumentException(
+                        $"Invalid character '{c}' at position {i} in sequence {s}. " +
+                        "Only A, C, G, T are valid nucleotide characters.",
+                        paramName);
+
+                counts[baseIndex, i]++;
+            }
+        }
+
+        return counts;
+    }
 
     /// <summary>
     /// Scans the forward strand of a sequence with a PWM and returns every window whose score
@@ -394,14 +421,6 @@ public static class MotifFinder
     }
 
     /// <summary>
-    /// Nucleotide alphabet in alphabetical order, used both for column counting and for
-    /// deterministic tie-breaking. The order A &lt; C &lt; G &lt; T realises the alphabetical
-    /// tie-break rule: "In the event of a tie, the residue letter occurring earlier in the
-    /// alphabet was chosen" (Los Alamos HIV Database / Geneious consensus documentation).
-    /// </summary>
-    private static readonly char[] ConsensusAlphabet = { 'A', 'C', 'G', 'T' };
-
-    /// <summary>
     /// Creates a consensus sequence from a multiple alignment by selecting, at each column,
     /// the most frequent nucleotide (the symbol with the maximum count in that column of the
     /// profile matrix). This is the classical "most common symbol per position" consensus
@@ -418,50 +437,32 @@ public static class MotifFinder
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="alignedSequences"/> is null.</exception>
     /// <exception cref="ArgumentException">
-    /// Thrown when the sequences are not all of equal length, or contain a non-ACGT character.
+    /// Thrown when the collection contains a null element, the sequences are not all of equal
+    /// length, or a sequence contains a non-ACGT character (gaps are not accepted).
     /// </exception>
     public static string CreateConsensusFromAlignment(IEnumerable<string> alignedSequences)
     {
         ArgumentNullException.ThrowIfNull(alignedSequences);
 
-        var seqList = alignedSequences.Select(s => s.ToUpperInvariant()).ToList();
-        if (seqList.Count == 0) return "";
-
-        int length = seqList[0].Length;
-        if (!seqList.All(s => s.Length == length))
-            throw new ArgumentException(
-                "All aligned sequences must have the same length.", nameof(alignedSequences));
-
+        int[,] counts = BuildCountMatrix(alignedSequences, nameof(alignedSequences), out _);
+        int length = counts.GetLength(1);
         var consensus = new StringBuilder(length);
 
         for (int col = 0; col < length; col++)
         {
-            // Profile counts for this column in alphabetical order (A, C, G, T).
-            var counts = new int[ConsensusAlphabet.Length];
-
-            for (int s = 0; s < seqList.Count; s++)
-            {
-                char nucleotide = seqList[s][col];
-                int index = Array.IndexOf(ConsensusAlphabet, nucleotide);
-                if (index < 0)
-                    throw new ArgumentException(
-                        $"Invalid character '{nucleotide}' at position {col} in sequence {s}. " +
-                        "Only A, C, G, T are valid nucleotide characters.",
-                        nameof(alignedSequences));
-
-                counts[index]++;
-            }
-
-            // Most frequent base; iterating the alphabet in order makes ties resolve to the
-            // alphabetically-earliest base (strict '>' keeps the first maximum).
+            // Profile-column maximum. Rows are in alphabetical order (A, C, G, T) and only a
+            // strictly greater count displaces the incumbent, so a tie resolves to the
+            // alphabetically-earliest base — the same scan as Biopython
+            // Bio.motifs GenericPositionMatrix.consensus ("if count > maximum"), and the
+            // LANL/Geneious "residue letter occurring earlier in the alphabet" tie-break.
             int bestIndex = 0;
-            for (int b = 1; b < counts.Length; b++)
+            for (int b = 1; b < PwmAlphabetSize; b++)
             {
-                if (counts[b] > counts[bestIndex])
+                if (counts[b, col] > counts[bestIndex, col])
                     bestIndex = b;
             }
 
-            consensus.Append(ConsensusAlphabet[bestIndex]);
+            consensus.Append(AcgtBases[bestIndex]);
         }
 
         return consensus.ToString();
@@ -494,26 +495,9 @@ public static class MotifFinder
             return counts.MaxBy(kv => kv.Value).Key;
         }
 
-        string bases = string.Join("", present);
-
-        return bases switch
-        {
-            "A" => 'A',
-            "C" => 'C',
-            "G" => 'G',
-            "T" => 'T',
-            "AG" => 'R',
-            "CT" => 'Y',
-            "CG" => 'S',
-            "AT" => 'W',
-            "GT" => 'K',
-            "AC" => 'M',
-            "CGT" => 'B',
-            "AGT" => 'D',
-            "ACT" => 'H',
-            "ACG" => 'V',
-            _ => 'N'
-        };
+        // Base set → NC-IUB symbol via the canonical inverse map; present is a non-empty
+        // subset of {A,C,G,T}, and the full set {A,C,G,T} maps to N.
+        return Core.IupacDnaSequence.GetIupacCode(present);
     }
 
     #endregion
