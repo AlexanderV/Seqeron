@@ -7,7 +7,7 @@ namespace Seqeron.Mcp.Analysis.Tests;
 /// Tests for the <c>find_low_complexity_regions</c> MCP tool.
 /// Expected values from SequenceComplexity's own unit test
 /// (SequenceComplexityTests.FindLowComplexityRegions_FindsPolyARegion: ATGCx20 + A64 +
-/// ATGCx20, w=20 thr=0.5 -> region 79..146, minEntropy 0), NOT the wrapper output.
+/// ATGCx20, w=20 thr=0.5 -> region 79..145 (union of windows with H < 0.5; Python scipy reference), minEntropy 0), NOT the wrapper output.
 /// </summary>
 [TestFixture]
 public class FindLowComplexityRegionsTests
@@ -27,13 +27,14 @@ public class FindLowComplexityRegionsTests
     [Test]
     public void FindLowComplexityRegions_Binding_InvokesSuccessfully()
     {
-        // The internal poly-A tract is the single low-complexity region at 79..146.
+        // The internal poly-A tract is the single low-complexity region at 79..145.
         var regions = AnalysisTools.FindLowComplexityRegions(PolyAFlanked(), 20, 0.5).Items;
         Assert.Multiple(() =>
         {
             Assert.That(regions, Has.Length.EqualTo(1));
             Assert.That(regions[0].Start, Is.EqualTo(79));
-            Assert.That(regions[0].End, Is.EqualTo(146));
+            Assert.That(regions[0].End, Is.EqualTo(145));
+            Assert.That(regions[0].Length, Is.EqualTo(67));
             Assert.That(regions[0].MinEntropy, Is.EqualTo(0.0).Within(1e-10));
         });
 

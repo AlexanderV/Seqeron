@@ -291,13 +291,23 @@ public static class SequenceComplexity
     #region Low Complexity Regions
 
     /// <summary>
-    /// Finds low-complexity regions in the sequence.
-    /// Uses a combination of entropy and linguistic complexity.
+    /// Finds low-complexity regions in the sequence: every window of length
+    /// <paramref name="windowSize"/> (step 1) whose per-base Shannon entropy (bits, Shannon 1948;
+    /// the canonical <see cref="CalculateShannonEntropy(DnaSequence)"/> kernel) is strictly below
+    /// <paramref name="entropyThreshold"/> is flagged, and a region is a maximal run of positions
+    /// covered by flagged windows, i.e. the union of the low-entropy windows. This is the window-union
+    /// masking rule of BBTools BBDuk <c>maskLowEntropy</c> (each failing window sets bits
+    /// [left, right] of a bit mask; a window fails when entropy &lt; cutoff; masked runs are the regions).
+    /// Overlapping or abutting flagged windows therefore merge into one region.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="windowSize">Window size for analysis (default: 64).</param>
-    /// <param name="entropyThreshold">Entropy threshold below which regions are considered low complexity (default: 1.0).</param>
-    /// <returns>Low-complexity regions.</returns>
+    /// <param name="windowSize">Window size for analysis (default: 64). Must be ≥ 1.</param>
+    /// <param name="entropyThreshold">Entropy threshold (bits); windows with entropy strictly below it are low complexity (default: 1.0).</param>
+    /// <returns>Low-complexity regions (0-based, inclusive <c>End</c>), in ascending order and pairwise disjoint;
+    /// <c>MinEntropy</c> is the lowest window entropy among the windows forming the region.
+    /// Empty when the sequence is shorter than the window.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="windowSize"/> &lt; 1.</exception>
     public static IEnumerable<LowComplexityRegion> FindLowComplexityRegions(
         DnaSequence sequence,
         int windowSize = 64,
@@ -316,54 +326,44 @@ public static class SequenceComplexity
     {
         if (seq.Length < windowSize) yield break;
 
-        int? regionStart = null;
+        // Current region = union of flagged windows [regionStart, regionEnd] (inclusive).
+        int regionStart = -1;
+        int regionEnd = -1;
         double minEntropy = double.MaxValue;
 
         for (int i = 0; i + windowSize <= seq.Length; i++)
         {
-            string window = seq.Substring(i, windowSize);
-            double entropy = CalculateShannonEntropyCore(window);
+            double entropy = CalculateShannonEntropyCore(seq.Substring(i, windowSize));
+            if (!(entropy < entropyThreshold)) continue;
 
-            if (entropy < entropyThreshold)
+            int windowEnd = i + windowSize - 1;
+            if (regionStart >= 0 && i <= regionEnd + 1)
             {
-                if (regionStart == null)
-                {
-                    regionStart = i;
-                    minEntropy = entropy;
-                }
-                else
-                {
-                    minEntropy = Math.Min(minEntropy, entropy);
-                }
+                // Overlaps or abuts the current region: extend the union.
+                regionEnd = windowEnd;
+                minEntropy = Math.Min(minEntropy, entropy);
+                continue;
             }
-            else if (regionStart != null)
-            {
-                // End of low-complexity region
-                int end = i + windowSize - 1;
-                yield return new LowComplexityRegion(
-                    Start: regionStart.Value,
-                    End: end,
-                    Length: end - regionStart.Value + 1,
-                    MinEntropy: minEntropy,
-                    Sequence: seq.Substring(regionStart.Value, end - regionStart.Value + 1));
 
-                regionStart = null;
-                minEntropy = double.MaxValue;
-            }
+            if (regionStart >= 0)
+                yield return MakeLowComplexityRegion(seq, regionStart, regionEnd, minEntropy);
+
+            regionStart = i;
+            regionEnd = windowEnd;
+            minEntropy = entropy;
         }
 
-        // Handle region at end of sequence
-        if (regionStart != null)
-        {
-            int end = seq.Length - 1;
-            yield return new LowComplexityRegion(
-                Start: regionStart.Value,
-                End: end,
-                Length: end - regionStart.Value + 1,
-                MinEntropy: minEntropy,
-                Sequence: seq.Substring(regionStart.Value));
-        }
+        if (regionStart >= 0)
+            yield return MakeLowComplexityRegion(seq, regionStart, regionEnd, minEntropy);
     }
+
+    private static LowComplexityRegion MakeLowComplexityRegion(string seq, int start, int end, double minEntropy) =>
+        new(
+            Start: start,
+            End: end,
+            Length: end - start + 1,
+            MinEntropy: minEntropy,
+            Sequence: seq.Substring(start, end - start + 1));
 
     #endregion
 

@@ -106,6 +106,17 @@ $$ \text{starts } i \in \{0, s, 2s, \dots\} \text{ with } i + w \le L, \qquad \#
 
 The driver delegates per-window metrics to the existing `CalculateShannonEntropyCore` and `CalculateLinguisticComplexityCore` helpers, so window values match the standalone scalar metrics exactly. Windows are non-overlapping when `stepSize ≥ windowSize` and overlapping otherwise. A suffix tree was **not** used: this is a single left-to-right scan that computes scoring-based (entropy/LC) metrics over each window rather than locating exact-match occurrences, so the suffix-tree occurrence API does not fit; per-window LC subword enumeration is bounded by the small word-length cap (≤6).
 
+### 5.2a Low-complexity regions (`FindLowComplexityRegions`)
+
+`SequenceComplexity.FindLowComplexityRegions(DnaSequence, windowSize = 64, entropyThreshold = 1.0)` scans every
+step-1 window with the same per-base Shannon kernel and flags windows with `H < entropyThreshold` (strict). A region is
+a maximal run of positions covered by flagged windows — the union of flagged windows, exactly the bit-mask rule of
+BBTools BBDuk `maskLowEntropy` (each failing window sets `[leftPos, rightPos]`; a window fails when `entropy < cutoff`) [5].
+Overlapping or abutting flagged windows therefore merge; regions are disjoint and ascending; `End` is inclusive and equals
+the end of the last flagged window of the run; `MinEntropy` is the minimum window entropy in the run. Validation
+(null / `windowSize < 1`) is eager. Worked example: ATGC×20 + A×64 + ATGC×20, w=20, threshold 0.5 → flagged window
+starts 79..126 → one region 79..145 (length 67, MinEntropy 0).
+
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
@@ -165,3 +176,4 @@ var profile = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 8,
 2. Troyanskaya, O.G., Arbell, O., Koren, Y., Landau, G.M., Bolshoy, A. 2002. Sequence complexity profiles of prokaryotic genomic sequences: a fast algorithm for calculating linguistic complexity. Bioinformatics 18(5):679–688. https://doi.org/10.1093/bioinformatics/18.5.679
 3. Shannon, C.E. 1948. A Mathematical Theory of Communication. Bell System Technical Journal 27(3):379–423. https://doi.org/10.1002/j.1538-7305.1948.tb01338.x
 4. Gabrielian, A., Bolshoy, A. 1999. Sequence complexity and DNA curvature. Computers & Chemistry 23(3–4):263–274. https://doi.org/10.1016/S0097-8485(99)00007-8
+5. Bushnell, B. BBTools — BBDuk `maskLowEntropy` / `EntropyTracker.passes()`. https://raw.githubusercontent.com/BioInfoTools/BBMap/master/current/jgi/BBDuk.java (accessed 2026-09-29)

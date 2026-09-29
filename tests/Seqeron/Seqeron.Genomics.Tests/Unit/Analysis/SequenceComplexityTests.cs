@@ -560,16 +560,20 @@ public class SequenceComplexityTests
     [Test]
     public void FindLowComplexityRegions_FindsPolyARegion()
     {
-        // 80bp (ATGC×20) + 64A + 80bp (ATGC×20) = 224bp total
-        // The poly-A stretch has entropy=0, well below threshold=0.5
-        // Exactly 1 low-complexity region should be detected, starting near the poly-A
+        // 80bp (ATGC×20) + 64A + 80bp (ATGC×20) = 224bp total, w=20, threshold 0.5.
+        // Flagged windows (H < 0.5): starts 79 ("C"+19A, H=0.286) .. 126 (19A+"T", H=0.286);
+        // start 127 (18A+"TG", H=0.569) is not flagged. Region = union of flagged windows
+        // = [79, 126+19] = 79..145 (BBDuk maskLowEntropy window-union rule; Python reference
+        // scipy.stats.entropy(base=2) per window + bit-mask union gives (79, 145, 67, 0.0)).
         var sequence = new DnaSequence(string.Concat(Enumerable.Repeat("ATGC", 20)) + new string('A', 64) + string.Concat(Enumerable.Repeat("ATGC", 20)));
         var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 20, entropyThreshold: 0.5).ToList();
 
         Assert.That(regions.Count, Is.EqualTo(1));
         Assert.That(regions[0].Start, Is.EqualTo(79));
-        Assert.That(regions[0].End, Is.EqualTo(146));
+        Assert.That(regions[0].End, Is.EqualTo(145));
+        Assert.That(regions[0].Length, Is.EqualTo(67));
         Assert.That(regions[0].MinEntropy, Is.EqualTo(0));
+        Assert.That(regions[0].Sequence, Is.EqualTo("C" + new string('A', 65) + "T"));
     }
 
     [Test]
@@ -584,17 +588,61 @@ public class SequenceComplexityTests
     [Test]
     public void FindLowComplexityRegions_ReturnsCorrectSequence()
     {
-        // "ATGCATGC" (8bp) + 64A + "ATGCATGC" (8bp) = 80bp total
-        // With window=32, threshold=0.5: region starts at pos 6, ends at 75, length=70
-        // MinEntropy=0 (pure homopolymer windows)
+        // "ATGCATGC" (8bp) + 64A + "ATGCATGC" (8bp) = 80bp total, w=32, threshold 0.5.
+        // Flagged windows: starts 6..43 (last flagged window 43..74 = 29A+"ATG"); region =
+        // union = 6..74, length 69 (Python reference: (6, 74, 69, 0.0)). MinEntropy=0 (poly-A windows).
         var sequence = new DnaSequence("ATGCATGC" + new string('A', 64) + "ATGCATGC");
         var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 32, entropyThreshold: 0.5).ToList();
 
         Assert.That(regions.Count, Is.EqualTo(1));
         Assert.That(regions[0].Start, Is.EqualTo(6));
-        Assert.That(regions[0].End, Is.EqualTo(75));
-        Assert.That(regions[0].Length, Is.EqualTo(70));
+        Assert.That(regions[0].End, Is.EqualTo(74));
+        Assert.That(regions[0].Length, Is.EqualTo(69));
         Assert.That(regions[0].MinEntropy, Is.EqualTo(0));
+        Assert.That(regions[0].Sequence, Is.EqualTo("GC" + new string('A', 65) + "TG"));
+    }
+
+    [Test]
+    public void FindLowComplexityRegions_InvalidArguments_ThrowEagerlyBeforeEnumeration()
+    {
+        // Validation must happen at call time, not on first MoveNext of the lazy iterator.
+        var sequence = new DnaSequence("ACGT");
+        Assert.Throws<ArgumentNullException>(() => SequenceComplexity.FindLowComplexityRegions((DnaSequence)null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 0));
+    }
+
+    [Test]
+    public void FindLowComplexityRegions_OverlappingFlaggedWindows_MergeIntoOneRegion()
+    {
+        // w=8, threshold 0.6. Flagged windows (H < 0.6): starts 1,2,3,4 (end 11) and 7,8 (ends 14,15);
+        // windows 5,6 have H = H(2/8,6/8) = 0.811 and are not flagged, but window 7 overlaps the
+        // union 1..11, so the masked positions form ONE run 1..15 (BBDuk bit-mask union).
+        // MinEntropy = H(1/8,7/8) = 0.5435644431995964. Python reference: (1, 15, 15, 0.5435644431995964).
+        // (Pre-fix code emitted two overlapping regions 1..12 and 7..16.)
+        var sequence = new DnaSequence("CAAAAACAAAAACAAACAAA");
+        var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 8, entropyThreshold: 0.6).ToList();
+
+        Assert.That(regions.Count, Is.EqualTo(1));
+        Assert.That(regions[0].Start, Is.EqualTo(1));
+        Assert.That(regions[0].End, Is.EqualTo(15));
+        Assert.That(regions[0].Length, Is.EqualTo(15));
+        Assert.That(regions[0].MinEntropy, Is.EqualTo(0.5435644431995964).Within(1e-12));
+        Assert.That(regions[0].Sequence, Is.EqualTo("AAAAACAAAAACAAA"));
+    }
+
+    [Test]
+    public void FindLowComplexityRegions_TwoSeparatedTracts_ReturnsDisjointRegionsIncludingTrailing()
+    {
+        // A10 + (ACGT)×3 + C10 (32 bp), w=8, threshold 1.0: flagged windows 0..4 (union 0..11)
+        // and 21..24 (union 21..31, trailing to sequence end). Python reference:
+        // [(0, 11, 12, 0.0), (21, 31, 11, 0.0)].
+        var sequence = new DnaSequence(new string('A', 10) + "ACGTACGTACGT" + new string('C', 10));
+        var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 8, entropyThreshold: 1.0).ToList();
+
+        Assert.That(regions.Select(r => (r.Start, r.End, r.Length)),
+            Is.EqualTo(new[] { (0, 11, 12), (21, 31, 11) }));
+        Assert.That(regions.Select(r => r.MinEntropy), Is.EqualTo(new[] { 0.0, 0.0 }));
+        Assert.That(regions.Select(r => r.Sequence), Is.EqualTo(new[] { "AAAAAAAAAAAC", "TCCCCCCCCCC" }));
     }
 
     #endregion

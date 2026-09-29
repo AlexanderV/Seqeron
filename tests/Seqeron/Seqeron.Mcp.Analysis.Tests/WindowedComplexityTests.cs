@@ -38,6 +38,9 @@ public class WindowedComplexityTests
             Assert.That(pts[0].ShannonEntropy, Is.EqualTo(2.0).Within(1e-10));
             // Window 1 "AAAAAAAA" is a homopolymer -> Shannon entropy 0.
             Assert.That(pts[1].ShannonEntropy, Is.EqualTo(0.0).Within(1e-10));
+            // Linguistic complexity (word lengths 1..6): ACGTACGT = 23/29, AAAAAAAA = 6/29 (Evidence dataset).
+            Assert.That(pts[0].LinguisticComplexity, Is.EqualTo(23.0 / 29.0).Within(1e-12));
+            Assert.That(pts[1].LinguisticComplexity, Is.EqualTo(6.0 / 29.0).Within(1e-12));
         });
     }
 }

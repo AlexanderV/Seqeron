@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateWindowedComplexity",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L211",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L257",
   "description": "Sliding-window Shannon entropy and linguistic complexity for a DNA sequence. Each point reports center position, window bounds, entropy (bits) and linguistic complexity.",
   "inputSchema": {
     "type": "object",
@@ -44,7 +44,7 @@
     {
       "name": "Three non-overlapping windows",
       "input": { "sequence": "ACGTACGTAAAAAAAAACGTACGT", "windowSize": 8, "stepSize": 8 },
-      "output": { "items": [ { "position": 4, "shannonEntropy": 2.0, "windowStart": 0, "windowEnd": 7 }, { "position": 12, "shannonEntropy": 0.0, "windowStart": 8, "windowEnd": 15 }, { "position": 20, "shannonEntropy": 2.0, "windowStart": 16, "windowEnd": 23 } ] }
+      "output": { "items": [ { "position": 4, "shannonEntropy": 2.0, "linguisticComplexity": 0.7931034482758621, "windowStart": 0, "windowEnd": 7 }, { "position": 12, "shannonEntropy": 0.0, "linguisticComplexity": 0.20689655172413793, "windowStart": 8, "windowEnd": 15 }, { "position": 20, "shannonEntropy": 2.0, "linguisticComplexity": 0.7931034482758621, "windowStart": 16, "windowEnd": 23 } ] }
     }
   ]
 }

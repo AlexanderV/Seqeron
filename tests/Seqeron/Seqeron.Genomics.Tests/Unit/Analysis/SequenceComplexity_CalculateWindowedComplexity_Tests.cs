@@ -223,4 +223,38 @@ public class SequenceComplexity_CalculateWindowedComplexity_Tests
     }
 
     #endregion
+
+    #region Differential — independent Python reference
+
+    // Reference: scipy.stats.entropy(counts, base=2) per window and a direct set-based
+    // distinct-subword count for LC (word lengths 1..min(6,w)), windows i = 0, 7, 14, … with i+w ≤ L
+    // (script recorded in docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md). L=50, w=16, s=7 ⇒ 5 windows.
+    [Test]
+    public void CalculateWindowedComplexity_MixedSequence_MatchesScipyReference()
+    {
+        var seq = new DnaSequence("GCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCA");
+        var expected = new (int Start, double H, double Lc)[]
+        {
+            (0, 1.7806390622295665, 0.9130434782608695),
+            (7, 1.4197367178034828, 0.7536231884057971),
+            (14, 1.7489992230622806, 0.8405797101449275),
+            (21, 1.8828560636920488, 0.8840579710144928),
+            (28, 1.9772170014624826, 0.9420289855072463),
+        };
+
+        var points = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 16, stepSize: 7).ToList();
+
+        Assert.That(points, Has.Count.EqualTo(expected.Length));
+        Assert.Multiple(() =>
+        {
+            for (int k = 0; k < expected.Length; k++)
+            {
+                Assert.That(points[k].WindowStart, Is.EqualTo(expected[k].Start));
+                Assert.That(points[k].ShannonEntropy, Is.EqualTo(expected[k].H).Within(1e-12));
+                Assert.That(points[k].LinguisticComplexity, Is.EqualTo(expected[k].Lc).Within(1e-12));
+            }
+        });
+    }
+
+    #endregion
 }

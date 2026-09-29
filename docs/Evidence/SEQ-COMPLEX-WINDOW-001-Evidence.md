@@ -49,6 +49,38 @@
 4. **Zero convention:** "the value of the corresponding summand 0 log_b(0) is taken to be 0." (extracted from fetched article)
 5. **Primary:** Claude Shannon, "A Mathematical Theory of Communication," Bell System Technical Journal, 1948. (extracted from fetched article)
 
+### BBTools BBDuk `maskLowEntropy` — window-union region rule (FindLowComplexityRegions)
+
+**URL:** https://raw.githubusercontent.com/BioInfoTools/BBMap/master/current/jgi/BBDuk.java (lines 4134–4148) and
+https://raw.githubusercontent.com/BioInfoTools/BBMap/master/current/structures/EntropyTracker.java (`passes()`, line 434)
+**Accessed:** 2026-09-29 (review-2026-09, B04) — source files downloaded and read.
+**Authority rank:** 2 (reference implementation of entropy-based low-complexity masking).
+
+**Key Extracted Points:**
+
+1. For every full window (`i >= window-1`) that fails the entropy filter, BBDuk sets the bit range
+   `bs.set(et.leftPos(), et.rightPos()+1)` — i.e. all positions of the failing window are masked; the masked
+   regions are the maximal runs of set bits = the **union of failing windows** (overlapping/abutting windows merge).
+2. `passes()` returns `highPass ^ (e < entropyCutoff)` with `highPass = true` by default, so a window **fails when
+   entropy < cutoff** (strict).
+3. Seqeron's `SequenceComplexity.FindLowComplexityRegions` applies this rule with per-base Shannon entropy
+   (step 1, strict `<` threshold); the entropy measure itself is the canonical `CalculateShannonEntropy` kernel.
+
+**Python reference (2026-09-29):** per-window `scipy.stats.entropy(counts, base=2)`, flagged windows unioned into a
+boolean mask, regions = maximal masked runs:
+
+| Input | w | threshold | Reference regions (start, end, length, minEntropy) | Pre-fix code |
+|-------|---|-----------|------------------------------------------------------|--------------|
+| ATGC×20 + A×64 + ATGC×20 | 20 | 0.5 | (79, 145, 67, 0.0) | (79, 146) — end +1 |
+| ATGCATGC + A×64 + ATGCATGC | 32 | 0.5 | (6, 74, 69, 0.0) | (6, 75) — end +1 |
+| CAAAAACAAAAACAAACAAA | 8 | 0.6 | (1, 15, 15, 0.5435644431995964) | two overlapping regions (1,12), (7,16) |
+| A×10 + (ACGT)×3 + C×10 | 8 | 1.0 | (0, 11, 12, 0.0), (21, 31, 11, 0.0) | (0, 12), (21, 31) |
+
+Windowed-profile cross-check: `GCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCA`, w=16, s=7 — scipy entropy / set-based
+LC per window: (0: 1.7806390622295665, 0.9130434782608695), (7: 1.4197367178034828, 0.7536231884057971),
+(14: 1.7489992230622806, 0.8405797101449275), (21: 1.8828560636920488, 0.8840579710144928),
+(28: 1.9772170014624826, 0.9420289855072463) — identical to `CalculateWindowedComplexity`.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -160,3 +192,4 @@ Window = `AAAAAAAA` (length 8), LC with maxWordLength = 6:
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-29**: review-2026-09 (B04): added BBDuk window-union source + Python reference for `FindLowComplexityRegions` (region end off-by-one and overlapping-region defects fixed).

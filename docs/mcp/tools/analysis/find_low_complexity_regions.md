@@ -14,14 +14,14 @@ Entropy-thresholded low-complexity DNA regions.
 
 ## Description
 
-Finds contiguous **low-complexity DNA regions** by merging sliding windows whose
-Shannon entropy falls below `entropyThreshold`. Each region reports its bounds, length,
+Finds contiguous **low-complexity DNA regions**: a region is the union (maximal run of covered positions) of the step-1 sliding windows whose
+Shannon entropy is strictly below `entropyThreshold` (BBDuk `maskLowEntropy` window-union rule); overlapping flagged windows merge. Each region reports its bounds, length,
 minimum entropy and the covered subsequence. Homopolymer and simple-repeat tracts are
 the typical hits.
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L255](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L255)
+- Source: [SequenceComplexity.cs#L311](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L255)
 
 ## Input Schema
 
@@ -61,9 +61,9 @@ the typical hits.
 
 **Response:**
 ```json
-{ "items": [ { "start": 79, "end": 146, "minEntropy": 0.0 } ] }
+{ "items": [ { "start": 79, "end": 145, "length": 67, "minEntropy": 0.0 } ] }
 ```
-The 64-nt poly-A tract (zero entropy) forms one region spanning 79–146.
+The 64-nt poly-A tract (zero entropy) forms one region spanning 79–145: the union of all windows with entropy < 0.5 (first flagged window starts at 79 = "C"+19A, last at 126 = 19A+"T", covering up to 145).
 
 ### Example 2: High complexity
 

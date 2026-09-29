@@ -46,6 +46,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CalculateWindowedComplexity(DnaSequence, int windowSize, int stepSize)` | SequenceComplexity | **Canonical** | Sliding-window driver returning `ComplexityPoint` per window |
+| `FindLowComplexityRegions(DnaSequence, int windowSize, double entropyThreshold)` | SequenceComplexity | **Canonical** | Region = union (maximal covered run) of step-1 windows with Shannon entropy < threshold (BBDuk `maskLowEntropy` rule); tests in `SequenceComplexityTests.cs` `#region Low Complexity Region Tests` |
 
 ---
 
@@ -90,6 +91,17 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Bounds invariant | mixed sequence | every point: 0≤H≤2 and 0<LC≤1 | INV-3/INV-4 |
+
+### 4.4 FindLowComplexityRegions (added 2026-09-29, review-2026-09 B04)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | ATGC×20 + A×64 + ATGC×20, w=20, thr=0.5 | one region 79..145, length 67, MinEntropy 0 | BBDuk window union; Python reference |
+| R2 | ATGCATGC + A×64 + ATGCATGC, w=32, thr=0.5 | one region 6..74, length 69 | idem |
+| R3 | CAAAAACAAAAACAAACAAA, w=8, thr=0.6 | overlapping flagged windows merge: one region 1..15, MinEntropy 0.5435644431995964 | idem |
+| R4 | A×10 + (ACGT)×3 + C×10, w=8, thr=1.0 | two disjoint regions 0..11 and 21..31 (trailing) | idem |
+| R5 | null / windowSize 0 | ArgumentNullException / ArgumentOutOfRangeException at call time (eager) | repository contract |
+| R6 | differential windowed profile (L=50, w=16, s=7) | per-window H and LC equal scipy/set reference to 1e-12 | Evidence §Python reference |
 
 ---
 

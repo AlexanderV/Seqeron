@@ -21,7 +21,7 @@ the entropy and the linguistic complexity. Windows advance by `stepSize`.
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L211](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L211)
+- Source: [SequenceComplexity.cs#L257](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L211)
 
 ## Input Schema
 
@@ -61,10 +61,11 @@ the entropy and the linguistic complexity. Windows advance by `stepSize`.
 
 **Response:**
 ```json
-{ "items": [ { "position": 4, "shannonEntropy": 2.0, "windowStart": 0, "windowEnd": 7 }, { "position": 12, "shannonEntropy": 0.0, "windowStart": 8, "windowEnd": 15 }, { "position": 20, "shannonEntropy": 2.0, "windowStart": 16, "windowEnd": 23 } ] }
+{ "items": [ { "position": 4, "shannonEntropy": 2.0, "linguisticComplexity": 0.7931034482758621, "windowStart": 0, "windowEnd": 7 }, { "position": 12, "shannonEntropy": 0.0, "linguisticComplexity": 0.20689655172413793, "windowStart": 8, "windowEnd": 15 }, { "position": 20, "shannonEntropy": 2.0, "linguisticComplexity": 0.7931034482758621, "windowStart": 16, "windowEnd": 23 } ] }
 ```
 The uniform ACGTACGT windows have maximal entropy (log₂4 = 2.0); the homopolymer
-window has entropy 0.
+window has entropy 0. Linguistic complexity (summation form, word lengths 1..min(6, w)):
+ACGTACGT = 23/29 = 0.7931034482758621, AAAAAAAA = 6/29 = 0.20689655172413793.
 
 ## Performance
 

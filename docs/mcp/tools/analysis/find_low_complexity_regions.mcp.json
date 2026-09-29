@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.FindLowComplexityRegions",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L255",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L311",
   "description": "Entropy-thresholded contiguous low-complexity DNA regions: merges windows whose Shannon entropy falls below the threshold and reports each region's bounds, length, minimum entropy and sequence.",
   "inputSchema": {
     "type": "object",
@@ -44,7 +44,7 @@
     {
       "name": "Internal poly-A region",
       "input": { "sequence": "ATGC...(x20) + A(x64) + ATGC...(x20)", "windowSize": 20, "entropyThreshold": 0.5 },
-      "output": { "items": [ { "start": 79, "end": 146, "minEntropy": 0.0 } ] }
+      "output": { "items": [ { "start": 79, "end": 145, "length": 67, "minEntropy": 0.0 } ] }
     },
     {
       "name": "High complexity => none",
