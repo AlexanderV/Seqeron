@@ -6,11 +6,11 @@
 | Test Unit ID | MOTIF-REGULATORY-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-29 |
 
 ## 1. Overview
 
-`FindRegulatoryElements` scans a DNA sequence for a fixed library of well-characterised regulatory consensus motifs (eukaryotic and prokaryotic promoter elements, translation-initiation signals, a polyadenylation signal, and several transcription-factor binding sites). Each library entry is matched as an exact or IUPAC-degenerate consensus string and every occurrence is reported with its 0-based start position. The algorithm is specification-driven: detection is exact pattern matching against published consensus sequences, not a probabilistic score, so a hit means the input literally contains the cited consensus (or, for the E-box, a member of its IUPAC family) [1][2][3][4][5][6][7][8][9].
+`FindRegulatoryElements` scans a DNA sequence for a fixed library of well-characterised regulatory consensus motifs (eukaryotic and prokaryotic promoter elements, translation-initiation signals, a polyadenylation signal, and several transcription-factor binding sites). Each library entry is matched as its published consensus string in IUPAC nucleotide code (degenerate positions kept, e.g. Kozak `R`, AP-1 `S`, κB `R/N/W/Y`, E-box `N`) and every occurrence is reported with its 0-based start position. The algorithm is specification-driven: detection is exact pattern matching against published consensus sequences, not a probabilistic score, so a hit means the input literally contains the cited consensus (or a member of its IUPAC family) [1][2][3][4][5][6][7][8][9].
 
 ## 2. Scientific / Formal Basis
 
@@ -20,21 +20,21 @@ Regulatory elements are short, conserved DNA sequences recognised by the transcr
 
 ### 2.2 Core Model
 
-For a sequence `S` of length `n` and a consensus pattern `P` of length `m`, the scan reports every start index `i` with `0 <= i <= n - m` such that for all `j`, `S[i+j]` is in the IUPAC base set of `P[j]`. Plain bases match themselves; `N` matches any of A/C/G/T; the remaining IUPAC ambiguity codes match their defined subsets. The library consensus strings are (5'→3'):
+For a sequence `S` of length `n` and a consensus pattern `P` of length `m`, the scan reports every start index `i` with `0 <= i <= n - m` such that for all `j`, `S[i+j]` is in the IUPAC base set of `P[j]`. Plain bases match themselves; `N` matches any of A/C/G/T; the remaining IUPAC ambiguity codes match their defined subsets (NC-IUB 1985; canonical `IupacHelper.MatchesIupac`, identical to Biopython `Bio.SeqUtils.nt_search`). The library consensus strings are (5'→3'):
 
 | Element | Pattern | Source |
 |---------|---------|--------|
 | TATA Box | `TATAAA` | Bucher (1990) [1] |
 | CAAT Box | `CCAAT` | Bucher (1990) [1] |
-| GC Box | `GGGCGG` | Lundin, Nehlin & Ronne (1994) [3] |
+| GC Box | `GGGCGG` | Dynan & Tjian (1983); Gidoni, Dynan & Tjian (1984) [3] |
 | -10 Box (Pribnow) | `TATAAT` | Harley & Reynolds (1987) [2] |
 | -35 Box | `TTGACA` | Harley & Reynolds (1987) [2] |
-| Kozak | `GCCGCCACCATGG` | Kozak (1987) [4] |
-| Shine-Dalgarno | `AGGAGG` | [10] |
+| Kozak | `GCCGCCRCCATGG` (= GCCGCC(A/G)CCATGG) | Kozak (1987) [4] |
+| Shine-Dalgarno | `AGGAGG` | Shine & Dalgarno (1974) [10] |
 | Poly(A) Signal | `AATAAA` | Proudfoot & Brownlee (1976) [5] |
 | E-box | `CANNTG` | Massari & Murre (2000) [6] |
-| AP-1 | `TGACTCA` | Lee, Mitchell & Tjian (1987) [7] |
-| NF-κB | `GGGACTTTCC` | Sen & Baltimore (1986) [8] |
+| AP-1 (TRE) | `TGASTCA` (= TGA(C/G)TCA) | Lee, Mitchell & Tjian (1987) [7]; Angel et al. (1987) [11] |
+| NF-κB | `GGGRNWYYCC` | Gilmore (2006) [12]; includes Sen & Baltimore (1986) site GGGACTTTCC [8] |
 | CREB | `TGACGTCA` | Montminy et al. (1986) [9] |
 
 ### 2.4 Properties and Invariants
@@ -81,7 +81,7 @@ Null `sequence` → `ArgumentNullException`. Empty sequence → empty result. Ma
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The element library (§2.2 table) is the reference table; each consensus string is a named constant in `MotifFinder.KnownMotifs` carrying an inline source citation. IUPAC ambiguity codes follow the standard nucleotide code (only `N` is used by the current library, in the E-box `CANNTG`).
+The element library (§2.2 table) is the reference table; each consensus string is a named constant in `MotifFinder.KnownMotifs` carrying an inline source citation. IUPAC ambiguity codes follow the standard nucleotide code; the library uses `R` (Kozak −3, κB), `S` (AP-1 centre), `W`, `Y` (κB) and `N` (E-box, κB).
 
 ### 4.3 Complexity
 
@@ -107,13 +107,15 @@ Each library entry is scanned independently via `FindDegenerateMotif`, so result
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- All 12 consensus strings copied from their primary sources (§2.2): TATAAA [1], CCAAT [1], GGGCGG [3], TATAAT/TTGACA [2], GCCGCCACCATGG [4], AGGAGG [10], AATAAA [5], CANNTG [6], TGACTCA [7], GGGACTTTCC [8], TGACGTCA [9].
+- All 12 consensus strings copied from their sources (§2.2): TATAAA [1], CCAAT [1], GGGCGG [3], TATAAT/TTGACA [2], GCCGCCRCCATGG [4], AGGAGG [10], AATAAA [5], CANNTG [6], TGASTCA [7][11], GGGRNWYYCC [12], TGACGTCA [9].
 - Exhaustive 0-based exact/IUPAC occurrence reporting (INV-01..INV-03).
 
 **Intentionally simplified:**
 
-- NF-κB: scanned as the single strong reference κB site `GGGACTTTCC` rather than the full degenerate consensus `GGGRNWYYCC`; **consequence:** weaker/variant κB sites are not reported [8].
-- Kozak: scanned as the single most-preferred-base string `GCCGCCACCATGG` rather than expanding the -3 purine / +4 G degeneracy; **consequence:** Kozak contexts that differ from the optimal string are not reported [4].
+- TATA box / CCAAT box / GC box are scanned as their core consensus strings (`TATAAA`, `CCAAT`, `GGGCGG`), not with the Bucher (1990) weight matrices; **consequence:** degenerate/weak instances are not reported — use `CreatePwm`/`ScanWithPwm` with a matrix for score-based detection [1].
+- Single-strand scan: only the given strand is searched. `TGASTCA`, `CANNTG` and `TGACGTCA` are their own reverse complements, so AP-1, E-box and CREB hits cover both orientations; orientation-independent elements such as the CCAAT and GC boxes are **not** reported in reverse orientation (`ATTGG`, `CCGCCC`) — scan the reverse complement to obtain them.
+
+(2026-09 review: Kozak, AP-1 and NF-κB were previously scanned as single representative strings `GCCGCCACCATGG`, `TGACTCA`, `GGGACTTTCC`; they now use the published IUPAC consensus.)
 
 **Not implemented:**
 
@@ -125,6 +127,8 @@ Each library entry is scanned independently via `FindDegenerateMotif`, so result
 |---|------|------|--------|--------|-------|
 | 1 | AP-1 consensus corrected `TGAGTCA` → `TGACTCA` | Deviation (fix) | prior value reported wrong AP-1 sites and missed real ones | fixed | Lee, Mitchell & Tjian (1987) [7] |
 | 2 | Added -10 (`TATAAT`) and -35 (`TTGACA`) prokaryotic hexamers | Deviation (addition) | prokaryotic promoters now detected | fixed | Harley & Reynolds (1987) [2] |
+| 3 | Item 1 reconsidered (2026-09): `TGAGTCA` is the collagenase TRE and the reverse complement of `TGACTCA`; AP-1 is now the published consensus `TGASTCA` (both reported) | Fix | TREs written as TGAGTCA were missed | fixed | [7][11] |
+| 4 | Kozak `GCCGCCACCATGG` → `GCCGCCRCCATGG`; NF-κB `GGGACTTTCC` → `GGGRNWYYCC` (published IUPAC consensus instead of one representative string) | Fix | G at −3 Kozak contexts and variant κB sites were missed | fixed | [4][12] |
 
 ## 6. Edge Cases and Limitations
 
@@ -140,7 +144,7 @@ Each library entry is scanned independently via `FindDegenerateMotif`, so result
 
 ### 6.2 Limitations
 
-Detects only the fixed library of consensus strings; it is not a general motif discovery method and does not score partial matches, account for strand (only the given strand is scanned), or use spacing constraints between the -35 and -10 hexamers. NF-κB and Kozak use single representative strings (see §5.3). For weak/variant sites use PWM scanning.
+Detects only the fixed library of consensus strings; it is not a general motif discovery method and does not score partial matches, account for strand (only the given strand is scanned; see §5.3), or use spacing constraints between the -35 and -10 hexamers. For weak/variant sites use PWM scanning.
 
 ## 7. Examples and Related Material
 
@@ -152,6 +156,7 @@ Detects only the fixed library of consensus strings; it is not a general motif d
 var seq = new DnaSequence("GGGTATAAAGGG");
 var hits = MotifFinder.FindRegulatoryElements(seq).ToList();
 // hits[0]: Name="TATA Box", Position=3, Sequence="TATAAA", Pattern="TATAAA"
+// "AATGAGTCAGG" → AP-1 at 2, Sequence="TGAGTCA", Pattern="TGASTCA" (Biopython nt_search → [2])
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
@@ -164,11 +169,13 @@ var hits = MotifFinder.FindRegulatoryElements(seq).ToList();
 
 1. Bucher P. 1990. Weight matrix descriptions of four eukaryotic RNA polymerase II promoter elements derived from 502 unrelated promoter sequences. J Mol Biol 212(4):563-578. https://doi.org/10.1016/0022-2836(90)90223-9
 2. Harley C.B., Reynolds R.P. 1987. Analysis of E. coli promoter sequences. Nucleic Acids Res 15(5):2343-2361. https://doi.org/10.1093/nar/15.5.2343
-3. Lundin M., Nehlin J.O., Ronne H. 1994. Importance of a flanking AT-rich region in target site recognition by the GC box-binding zinc finger protein MIG1. Mol Cell Biol 14(3):1979-1985. https://doi.org/10.1128/mcb.14.3.1979
+3. Dynan W.S., Tjian R. 1983. The promoter-specific transcription factor Sp1 binds to upstream sequences in the SV40 early promoter. Cell 35:79-87; Gidoni D., Dynan W.S., Tjian R. 1984. Multiple specific contacts between a mammalian transcription factor and its cognate promoters. Nature 312:409-413. (Lundin et al. 1994, previously cited here, concerns yeast MIG1, not Sp1.)
 4. Kozak M. 1987. An analysis of 5'-noncoding sequences from 699 vertebrate messenger RNAs. Nucleic Acids Res 15(20):8125-8148. https://doi.org/10.1093/nar/15.20.8125
 5. Proudfoot N.J., Brownlee G.G. 1976. 3' non-coding region sequences in eukaryotic messenger RNA. Nature 263:211-214. https://doi.org/10.1038/263211a0
 6. Massari M.E., Murre C. 2000. Helix-loop-helix proteins: regulators of transcription in eucaryotic organisms. Mol Cell Biol 20(2):429-440. https://doi.org/10.1128/MCB.20.2.429-440.2000
 7. Lee W., Mitchell P., Tjian R. 1987. Purified transcription factor AP-1 interacts with TPA-inducible enhancer elements. Cell 49(6):741-752. https://doi.org/10.1016/0092-8674(87)90612-X
 8. Sen R., Baltimore D. 1986. Multiple nuclear factors interact with the immunoglobulin enhancer sequences. Cell 46(5):705-716. https://doi.org/10.1016/0092-8674(86)90346-6
 9. Montminy M.R., Sevarino K.A., Wagner J.A., Mandel G., Goodman R.H. 1986. Identification of a cyclic-AMP-responsive element within the rat somatostatin gene. PNAS 83(18):6682-6686. https://doi.org/10.1073/pnas.83.18.6682
-10. Shine–Dalgarno sequence. Wikipedia (citing primaries). https://en.wikipedia.org/wiki/Shine%E2%80%93Dalgarno_sequence
+10. Shine J., Dalgarno L. 1974. The 3'-terminal sequence of Escherichia coli 16S ribosomal RNA: complementarity to nonsense triplets and ribosome binding sites. PNAS 71(4):1342-1346. https://doi.org/10.1073/pnas.71.4.1342
+11. Angel P., Imagawa M., Chiu R., Stein B., Imbra R.J., Rahmsdorf H.J., Jonat C., Herrlich P., Karin M. 1987. Phorbol ester-inducible genes contain a common cis element recognized by a TPA-modulated trans-acting factor. Cell 49(6):729-739. https://doi.org/10.1016/0092-8674(87)90611-8
+12. Gilmore T.D. 2006. Introduction to NF-κB: players, pathways, perspectives. Oncogene 25:6680-6684. https://doi.org/10.1038/sj.onc.1209954

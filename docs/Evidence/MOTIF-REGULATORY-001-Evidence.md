@@ -137,6 +137,33 @@
 
 ---
 
+## 2026-09 review (campaign B05) — sources opened and reference computation
+
+Network: academic.oup.com, pnas.org, cell.com, frontiersin.org, jaspar.* and promega.com were blocked (egress 403); the following were read as WebSearch result records only:
+
+- **Kozak 1987 (NAR 15:8125) abstract** (OUP record): "(GCC)GCC(A/G)CCATGG emerges as the consensus sequence for initiation of translation in vertebrates … 97% of vertebrate mRNAs have a purine, most often A, in position −3" → constant `GCCGCCRCCATGG`.
+- **AP-1**: "The consensus AP-1 binding site is the palindrome TGA(C/G)TCA (Lee et al., 1987, Nature 325:368; Lee et al., 1987, Cell 49:741)" (PNAS 94:5826 record); Angel et al. 1987 Cell 49:729 record: TRE of collagenase/stromelysin/hMTIIA/SV40, canonical collagenase TRE `TGAGTCA` → constant `TGASTCA`. `TGAGTCA` = reverse complement of `TGACTCA`.
+- **NF-κB**: "NF-κB binds to the consensus sequence 5′-GGGRNWYYCC-3′" (records of Gilmore 2006 Oncogene 25:6680 and Front Immunol 10:609, 2019) → constant `GGGRNWYYCC`.
+- **GC box / Sp1**: "21-bp repeats of the SV40 promoter contain six tandem copies of the GGGCGG hexanucleotide (GC-box), each of which can bind Sp1" (Dynan & Tjian 1983 Cell record; Gidoni, Dynan & Tjian 1984). Lundin et al. 1994 (previously cited) is about yeast MIG1.
+- **Shine & Dalgarno 1974 (PNAS 71:1342)** record: 16S rRNA 3′ end `…ACCUCCUUA`; ACCUCC complementary to GGAGGU upstream of initiation codons → `AGGAGG` unchanged.
+- **Bucher 1990** (PubMed/EPFL records): weight matrices for TATA, cap, CCAAT, GC box from 502 promoters; core strings TATAAA / CCAAT unchanged (matrix scoring declared not implemented).
+
+Reference implementation: Biopython 1.88 `Bio.SeqUtils.nt_search` over the 12-pattern library (library order):
+
+| Sequence | Result (Name:Pos:Seq) |
+|---|---|
+| TTGCCGCCGCCATGGAA | Kozak:2:GCCGCCGCCATGG |
+| TTGCCGCCTCCATGGAA | — |
+| AATGAGTCAGG | AP-1:2:TGAGTCA |
+| AATGATTCAGG | — |
+| AAGGGAAATTCCAA | NF-κB:2:GGGAAATTCC |
+| AAGGGACGTTCCAA | — |
+| CCAATAAACC | CAAT Box:0:CCAAT, Poly(A) Signal:2:AATAAA |
+| GTATAATATAAA | TATA Box:6:TATAAA, -10 Box:1:TATAAT |
+| CACATGTG | E-box:0:CACATG, E-box:2:CATGTG |
+
+All 12 original single-element probes give the same (Name, position) as before.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From the consensus definitions
@@ -162,22 +189,22 @@
 | -35 Box | TTGACA | `AATTGACAGG` | 2 |
 | CAAT Box | CCAAT | `GGCCAATGG` | 2 |
 | GC Box | GGGCGG | `AAGGGCGGTT` | 2 |
-| Kozak | GCCGCCACCATGG | `TTGCCGCCACCATGGAA` | 2 |
+| Kozak | GCCGCCRCCATGG (GCCGCCACCATGG) | `TTGCCGCCACCATGGAA` | 2 |
 | Shine-Dalgarno | AGGAGG | `TTAGGAGGTTT` | 2 |
 | Poly(A) Signal | AATAAA | `CCAATAAACC` | 2 |
 | E-box | CANNTG (CACGTG) | `GGCACGTGGG` | 2 |
-| AP-1 | TGACTCA | `AATGACTCAGG` | 2 |
-| NF-κB | GGGACTTTCC | `AAGGGACTTTCCAA` | 2 |
+| AP-1 | TGASTCA (TGACTCA) | `AATGACTCAGG` | 2 |
+| NF-κB | GGGRNWYYCC (GGGACTTTCC) | `AAGGGACTTTCCAA` | 2 |
 | CREB | TGACGTCA | `CCTGACGTCAGG` | 2 |
 
-### Dataset: AP-1 negative control (defect regression)
+### Dataset: AP-1 collagenase TRE (superseded negative control, 2026-09)
 
-**Source:** Lee, Mitchell & Tjian (1987).
+**Source:** Angel et al. (1987); Lee, Mitchell & Tjian (1987) consensus TGA(C/G)TCA.
 
 | Parameter | Value |
 |-----------|-------|
-| Sequence | `AATGAGTCAGG` (contains the old wrong pattern TGAGTCA) |
-| Expected AP-1 hits | 0 (TGAGTCA is NOT the consensus; correct consensus is TGACTCA) |
+| Sequence | `AATGAGTCAGG` (collagenase TRE TGAGTCA) |
+| Expected AP-1 hits | 1 at position 2 (Biopython nt_search → [2]); `AATGATTCAGG` → 0 |
 
 ---
 
@@ -217,3 +244,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation. Recorded AP-1 defect (TGAGTCA → TGACTCA) and addition of -10/-35 prokaryotic promoter hexamers.
+- **2026-09-29**: Kozak → GCCGCCRCCATGG, AP-1 → TGASTCA (TGAGTCA is the collagenase TRE / reverse complement, not a defect), NF-κB → GGGRNWYYCC; GC box and Shine-Dalgarno citations replaced by primaries. The AP-1 negative-control dataset below is superseded (TGAGTCA now expected as an AP-1 hit).

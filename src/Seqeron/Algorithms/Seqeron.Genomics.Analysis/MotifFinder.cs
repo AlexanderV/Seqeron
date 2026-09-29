@@ -733,18 +733,25 @@ public static class MotifFinder
     #region Regulatory Motif Patterns
 
     /// <summary>
-    /// Known regulatory motif patterns.
+    /// Known regulatory motif patterns: published 5'→3' consensus strings, written in IUPAC
+    /// nucleotide code (NC-IUB 1985) exactly as the cited source states them. Degenerate positions
+    /// (R, S, W, Y, N) are kept — they are matched by the canonical IUPAC scan
+    /// (<see cref="FindDegenerateMotif(DnaSequence, string)"/>), never expanded or collapsed to a
+    /// single representative string.
     /// </summary>
     public static class KnownMotifs
     {
-        // Eukaryotic core-promoter consensus per Bucher (1990) weight-matrix analysis of 502 promoters.
-        /// <summary>TATA box consensus: TATAAA (eukaryotic RNA Pol II core promoter, Bucher 1990).</summary>
+        // Eukaryotic core-promoter elements (Bucher 1990 weight-matrix analysis of 502 Pol II promoters).
+        /// <summary>TATA box core consensus: TATAAA (eukaryotic RNA Pol II core promoter; Bucher 1990).</summary>
         public const string TataBox = "TATAAA";
 
-        /// <summary>CCAAT box consensus pentanucleotide: CCAAT (Bucher 1990).</summary>
+        /// <summary>CCAAT box core pentanucleotide: CCAAT (Bucher 1990; ~30 % of promoters).</summary>
         public const string CaatBox = "CCAAT";
 
-        /// <summary>GC box (Sp1) consensus: GGGCGG (Lundin, Nehlin &amp; Ronne 1994).</summary>
+        /// <summary>
+        /// GC box (Sp1 site) core hexanucleotide: GGGCGG (Dynan &amp; Tjian 1983; Gidoni, Dynan &amp;
+        /// Tjian 1984 — the six GGGCGG copies of the SV40 21-bp repeats).
+        /// </summary>
         public const string GcBox = "GGGCGG";
 
         // Prokaryotic sigma-70 promoter hexamers per Harley &amp; Reynolds (1987) compilation.
@@ -754,10 +761,16 @@ public static class MotifFinder
         /// <summary>-35 box consensus hexamer: TTGACA (Harley &amp; Reynolds 1987).</summary>
         public const string MinusThirtyFiveBox = "TTGACA";
 
-        /// <summary>Kozak optimal-context sequence: GCCGCCACCATGG (Kozak 1987, most-preferred bases -9..+4).</summary>
-        public const string Kozak = "GCCGCCACCATGG";
+        /// <summary>
+        /// Kozak vertebrate initiation consensus GCCGCC(A/G)CCATGG = <c>GCCGCCRCCATGG</c>
+        /// (Kozak 1987, 699 vertebrate mRNAs; positions −9..+4, ATG = +1..+3, purine at −3).
+        /// </summary>
+        public const string Kozak = "GCCGCCRCCATGG";
 
-        /// <summary>Shine-Dalgarno (bacterial RBS) consensus: AGGAGG (complementary to 3' end of 16S rRNA).</summary>
+        /// <summary>
+        /// Shine-Dalgarno (bacterial RBS) consensus: AGGAGG, the complement of the 3'-terminal
+        /// CCUCCU of E. coli 16S rRNA (Shine &amp; Dalgarno 1974).
+        /// </summary>
         public const string ShineDalgarno = "AGGAGG";
 
         /// <summary>Poly(A) signal hexamer: AATAAA (Proudfoot &amp; Brownlee 1976).</summary>
@@ -766,19 +779,52 @@ public static class MotifFinder
         /// <summary>E-box consensus (IUPAC): CANNTG (Massari &amp; Murre 2000).</summary>
         public const string EBox = "CANNTG";
 
-        /// <summary>AP-1 (TRE) recognition motif: TGACTCA (Lee, Mitchell &amp; Tjian 1987).</summary>
-        public const string Ap1 = "TGACTCA";
+        /// <summary>
+        /// AP-1 site / TPA-response element (TRE) consensus TGA(C/G)TCA = <c>TGASTCA</c>
+        /// (Lee, Mitchell &amp; Tjian 1987; Angel et al. 1987 — the collagenase TRE is TGAGTCA).
+        /// The pattern is its own reverse complement.
+        /// </summary>
+        public const string Ap1 = "TGASTCA";
 
-        /// <summary>NF-κB κB site: GGGACTTTCC (consensus GGGRNWYYCC; Sen &amp; Baltimore 1986).</summary>
-        public const string NfKb = "GGGACTTTCC";
+        /// <summary>
+        /// NF-κB κB-site consensus <c>GGGRNWYYCC</c> (Gilmore 2006); includes the Ig κ enhancer
+        /// site GGGACTTTCC of Sen &amp; Baltimore (1986).
+        /// </summary>
+        public const string NfKb = "GGGRNWYYCC";
 
         /// <summary>CREB CRE palindrome: TGACGTCA (Montminy et al. 1986).</summary>
         public const string Creb = "TGACGTCA";
     }
 
+    /// <summary>The fixed element library scanned by <see cref="FindRegulatoryElements"/>, in report order.</summary>
+    private static readonly (string Name, string Pattern, string Description)[] RegulatoryLibrary =
+    {
+        ("TATA Box", KnownMotifs.TataBox, "Eukaryotic core promoter element"),
+        ("CAAT Box", KnownMotifs.CaatBox, "Promoter element"),
+        ("GC Box", KnownMotifs.GcBox, "Sp1 binding site"),
+        ("-10 Box", KnownMotifs.MinusTenBox, "Prokaryotic Pribnow box"),
+        ("-35 Box", KnownMotifs.MinusThirtyFiveBox, "Prokaryotic -35 promoter element"),
+        ("Kozak", KnownMotifs.Kozak, "Translation initiation"),
+        ("Shine-Dalgarno", KnownMotifs.ShineDalgarno, "Bacterial ribosome binding"),
+        ("Poly(A) Signal", KnownMotifs.PolyASignal, "Polyadenylation signal"),
+        ("E-box", KnownMotifs.EBox, "bHLH transcription factor binding"),
+        ("AP-1", KnownMotifs.Ap1, "AP-1 transcription factor binding"),
+        ("NF-κB", KnownMotifs.NfKb, "NF-κB binding site"),
+        ("CREB", KnownMotifs.Creb, "CREB transcription factor binding")
+    };
+
     /// <summary>
-    /// Scans for known regulatory motifs.
+    /// Scans the given strand of a DNA sequence for the <see cref="KnownMotifs"/> consensus library.
     /// </summary>
+    /// <remarks>
+    /// Each library pattern is matched with the canonical IUPAC degenerate scan
+    /// (<see cref="FindDegenerateMotif(DnaSequence, string)"/> → <see cref="IupacHelper.MatchesIupac"/>):
+    /// every 0-based start <c>0 ≤ i ≤ n−m</c> whose window lies in the IUPAC sets of the pattern is
+    /// reported, overlapping occurrences included. Results are grouped by library entry (library order,
+    /// see <see cref="KnownMotifs"/>) and ascending by position within an entry. Only the given strand is
+    /// scanned; the AP-1, E-box and CREB patterns are their own reverse complements, so their hits cover
+    /// both orientations.
+    /// </remarks>
     /// <param name="sequence">DNA sequence to scan.</param>
     /// <returns>Found regulatory elements.</returns>
     public static IEnumerable<RegulatoryElement> FindRegulatoryElements(DnaSequence sequence)
@@ -789,23 +835,7 @@ public static class MotifFinder
 
     private static IEnumerable<RegulatoryElement> FindRegulatoryElementsCore(DnaSequence sequence)
     {
-        var patterns = new (string Name, string Pattern, string Description)[]
-        {
-            ("TATA Box", KnownMotifs.TataBox, "Eukaryotic core promoter element"),
-            ("CAAT Box", KnownMotifs.CaatBox, "Promoter element"),
-            ("GC Box", KnownMotifs.GcBox, "Sp1 binding site"),
-            ("-10 Box", KnownMotifs.MinusTenBox, "Prokaryotic Pribnow box"),
-            ("-35 Box", KnownMotifs.MinusThirtyFiveBox, "Prokaryotic -35 promoter element"),
-            ("Kozak", KnownMotifs.Kozak, "Translation initiation"),
-            ("Shine-Dalgarno", KnownMotifs.ShineDalgarno, "Bacterial ribosome binding"),
-            ("Poly(A) Signal", KnownMotifs.PolyASignal, "Polyadenylation signal"),
-            ("E-box", KnownMotifs.EBox, "bHLH transcription factor binding"),
-            ("AP-1", KnownMotifs.Ap1, "AP-1 transcription factor binding"),
-            ("NF-κB", KnownMotifs.NfKb, "NF-κB binding site"),
-            ("CREB", KnownMotifs.Creb, "CREB transcription factor binding")
-        };
-
-        foreach (var (name, pattern, description) in patterns)
+        foreach (var (name, pattern, description) in RegulatoryLibrary)
         {
             foreach (var match in FindDegenerateMotif(sequence, pattern))
             {

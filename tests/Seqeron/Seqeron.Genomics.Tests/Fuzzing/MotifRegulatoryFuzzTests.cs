@@ -58,14 +58,14 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// For a sequence S of length n and a library pattern P of length m, report every
 /// start index i with 0 <= i <= n-m such that for all j, S[i+j] is in the IUPAC base
-/// set of P[j] (plain bases match themselves; N matches A/C/G/T). The 12 library
+/// set of P[j] (plain bases match themselves; R/S/W/Y/N per NC-IUB). The 12 library
 /// entries (5'→3') and their reported Name are:
 ///   TATA Box       TATAAA          | CAAT Box       CCAAT
 ///   GC Box         GGGCGG          | -10 Box        TATAAT
-///   -35 Box        TTGACA          | Kozak          GCCGCCACCATGG
+///   -35 Box        TTGACA          | Kozak          GCCGCCRCCATGG
 ///   Shine-Dalgarno AGGAGG          | Poly(A) Signal AATAAA
-///   E-box          CANNTG (IUPAC)  | AP-1           TGACTCA
-///   NF-κB          GGGACTTTCC      | CREB           TGACGTCA
+///   E-box          CANNTG (IUPAC)  | AP-1           TGASTCA
+///   NF-κB          GGGRNWYYCC      | CREB           TGACGTCA
 /// Each hit reports Name, 0-based Position, the matched Sequence (length = m),
 /// the Pattern, and a Description (INV-01). Each matched Sequence IUPAC-matches its
 /// Pattern (INV-02). The scan is exhaustive over every offset (INV-03). Results are
@@ -92,12 +92,12 @@ public class MotifRegulatoryFuzzTests
         ("GC Box", "GGGCGG"),
         ("-10 Box", "TATAAT"),
         ("-35 Box", "TTGACA"),
-        ("Kozak", "GCCGCCACCATGG"),
+        ("Kozak", "GCCGCCRCCATGG"),
         ("Shine-Dalgarno", "AGGAGG"),
         ("Poly(A) Signal", "AATAAA"),
         ("E-box", "CANNTG"),
-        ("AP-1", "TGACTCA"),
-        ("NF-κB", "GGGACTTTCC"),
+        ("AP-1", "TGASTCA"),
+        ("NF-κB", "GGGRNWYYCC"),
         ("CREB", "TGACGTCA"),
     };
 
@@ -105,12 +105,19 @@ public class MotifRegulatoryFuzzTests
 
     /// <summary>
     /// True if base <paramref name="seqChar"/> is in the IUPAC set of consensus
-    /// symbol <paramref name="patChar"/> (the library uses only plain bases and N).
+    /// symbol <paramref name="patChar"/> (the library uses plain bases and R, S, W, Y, N).
     /// </summary>
-    private static bool IupacMatch(char patChar, char seqChar) => patChar switch
+    private static bool IupacMatch(char patChar, char seqChar) => IupacSet(patChar).Contains(seqChar);
+
+    /// <summary>NC-IUB (1985) base set of the IUPAC symbols used by the library.</summary>
+    private static string IupacSet(char patChar) => patChar switch
     {
-        'A' or 'C' or 'G' or 'T' => patChar == seqChar,
-        'N' => seqChar is 'A' or 'C' or 'G' or 'T',
+        'A' or 'C' or 'G' or 'T' => patChar.ToString(),
+        'R' => "AG",
+        'Y' => "CT",
+        'S' => "CG",
+        'W' => "AT",
+        'N' => "ACGT",
         _ => throw new InvalidOperationException($"Library pattern uses unexpected symbol '{patChar}'."),
     };
 
@@ -267,7 +274,7 @@ public class MotifRegulatoryFuzzTests
     [Category("Fuzzing")]
     public void Be_KozakLongestPattern_OneBaseShort_YieldsNoKozak_NoCrash()
     {
-        // Kozak = GCCGCCACCATGG (13 bp). A 12-bp prefix is one base short: the scan bound
+        // Kozak = GCCGCCRCCATGG (13 bp). A 12-bp prefix is one base short: the scan bound
         // for that entry is i <= -1 → no iteration → no Kozak hit, no IndexOutOfRange.
         var seq = new DnaSequence("GCCGCCACCATG"); // 12 bp
 
@@ -391,8 +398,9 @@ public class MotifRegulatoryFuzzTests
         for (int t = 0; t < 300; t++)
         {
             var (name, pattern) = Library[rng.Next(Library.Length)];
-            // Concretise an E-box CANNTG by replacing N with random bases so it is valid DNA.
-            string concrete = string.Concat(pattern.Select(c => c == 'N' ? Alphabet[rng.Next(4)] : c));
+            // Concretise a degenerate consensus (E-box N, Kozak R, AP-1 S, NF-κB R/N/W/Y) by drawing
+            // each position from its IUPAC set so the planted element is valid DNA.
+            string concrete = string.Concat(pattern.Select(c => { var set = IupacSet(c); return set[rng.Next(set.Length)]; }));
 
             string left = RandomDna(rng, rng.Next(0, 12));
             string right = RandomDna(rng, rng.Next(0, 12));
