@@ -450,6 +450,48 @@ public class RepeatFinderProperties
         });
     }
 
+    /// <summary>
+    /// INV-6: Maximality (EMBOSS palindrome -overlap Y): no reported stem lies inside another reported stem
+    /// in both arms, and no reported stem can be extended outward by one more Watson–Crick pair.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InvertedRepeat_ReportedStems_AreMaximal()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            var repeats = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 2, maxLoopLength: 10, minLoopLength: 0).ToList();
+            bool nested = repeats.Any(a => repeats.Any(b => b != a
+                && b.LeftArmStart <= a.LeftArmStart && a.LeftArmStart + a.ArmLength <= b.LeftArmStart + b.ArmLength
+                && b.RightArmStart <= a.RightArmStart && a.RightArmStart + a.ArmLength <= b.RightArmStart + b.ArmLength));
+            bool extendable = repeats.Any(r =>
+            {
+                int i = r.LeftArmStart - 1, j = r.RightArmStart + r.ArmLength;
+                return i >= 0 && j < seq.Length && ReverseComplement(seq[i].ToString()) == seq[j].ToString();
+            });
+            return (!nested && !extendable).Label("reported inverted repeats must be maximal and non-nested");
+        });
+    }
+
+    /// <summary>
+    /// INV-7: Strand symmetry: the stems of revcomp(S) are exactly the mirror images of the stems of S
+    /// (stem (i, j, A) maps to (n − j − A, n − i − A, A)).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InvertedRepeat_ReverseComplement_MirrorsStems()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            int n = seq.Length;
+            var fwd = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 3, maxLoopLength: 12, minLoopLength: 2)
+                .Select(r => (n - r.RightArmStart - r.ArmLength, n - r.LeftArmStart - r.ArmLength, r.ArmLength))
+                .OrderBy(t => t).ToList();
+            var rev = RepeatFinder.FindInvertedRepeats(ReverseComplement(seq), minArmLength: 3, maxLoopLength: 12, minLoopLength: 2)
+                .Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength))
+                .OrderBy(t => t).ToList();
+            return fwd.SequenceEqual(rev).Label("revcomp(S) stems must mirror S stems");
+        });
+    }
+
     #endregion
 
     #region REP-DIRECT-001: R: positions valid; M: lower minLen → ≥ results; P: two copies identical; D: deterministic

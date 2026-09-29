@@ -164,9 +164,13 @@ public class RepeatsCombinatorialTests
     // maxLoopLength parameter).
     //
     // The combinatorial point: minArmLen and maxGap interact. EVERY result must
-    // satisfy rightArm = revcomp(leftArm), armLen ≥ minArmLen and loop ≤ maxGap;
-    // and the embedded arm-6/loop-4 hairpin appears exactly when maxGap ≥ 4 — the
-    // loop ≤ maxGap invariant simultaneously proves its absence when maxGap < 4.
+    // satisfy rightArm = revcomp(leftArm), armLen ≥ minArmLen and loop ≤ maxGap.
+    // Only maximal stems are reported (EMBOSS palindrome, -overlap Y). The embedded
+    // loop TTAA is itself self-complementary, so with minLoopLength 0 the hairpin
+    // ACGTGC·TTAA·GCACGT extends inward to the 8-bp stem ACGTGCTT·AAGCACGT with
+    // loop 0 — EMBOSS 6.6.0 palindrome on the 40-nt cell (minpallen 3, gaplimit 5)
+    // gives [(11,14,3), (12,20,8)]. That stem is present in every cell; its
+    // arm-6/loop-4 sub-stem lies inside it and is never reported.
     // ═══════════════════════════════════════════════════════════════════════
 
     private const string IrArm = "ACGTGC";   // revcomp = GCACGT
@@ -192,9 +196,11 @@ public class RepeatsCombinatorialTests
             r.LoopLength.Should().BeLessThanOrEqualTo(maxGap);
         }
 
-        if (maxGap >= IrLoop.Length)   // minArmLen ≤ 6 holds for every tested value
-            results.Should().Contain(r => r.LeftArm == IrArm && r.RightArm == RevComp(IrArm) && r.LoopLength == IrLoop.Length,
-                "the arm-6 / loop-4 hairpin fits within the gap bound");
+        string maximalArm = IrArm + IrLoop[..2];   // ACGTGCTT (minArmLen ≤ 8 for every tested value)
+        results.Should().Contain(r => r.LeftArm == maximalArm && r.RightArm == RevComp(maximalArm) && r.LoopLength == 0,
+            "the hairpin's maximal stem (loop 0) fits within every gap bound");
+        results.Should().NotContain(r => r.LeftArm == IrArm && r.LoopLength == IrLoop.Length,
+            "the arm-6 / loop-4 sub-stem lies inside the maximal stem in both arms");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

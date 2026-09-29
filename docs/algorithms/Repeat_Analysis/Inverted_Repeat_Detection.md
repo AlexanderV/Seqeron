@@ -5,12 +5,12 @@
 | Algorithm Group | Repeat Analysis |
 | Test Unit ID | REP-INV-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete (exact-stem finder; EMBOSS `palindrome` semantics with 0 mismatches) |
+| Last Reviewed | 2026-09-29 |
 
 ## 1. Overview
 
-Inverted repeat detection identifies a sequence segment followed downstream by its reverse complement, optionally separated by a loop [1][2]. Such structures can form stem-loops or hairpins in single-stranded contexts and are closely related to palindromes, which are the special case with loop length zero [1]. The repository implements exact inverted-repeat detection in `RepeatFinder.FindInvertedRepeats`, returning explicit arm coordinates, sequences, loop sequence, and a `CanFormHairpin` flag. The implementation is deterministic and exact, but unlike score-based tools such as EMBOSS `einverted`, it does not tolerate mismatches or gaps.
+Inverted repeat detection identifies a sequence segment followed downstream by its reverse complement, optionally separated by a loop [1][2]. Such structures can form stem-loops or hairpins in single-stranded contexts and are closely related to palindromes, which are the special case with loop length zero [1]. The repository implements exact inverted-repeat detection in `RepeatFinder.FindInvertedRepeats`, returning explicit arm coordinates, sequences, loop sequence, and a `CanFormHairpin` flag. Only **maximal** stems are reported, using the reporting rule of EMBOSS `palindrome` [5] run with 0 mismatches: a stem that lies inside another stem in both arms is dropped. It is an exact-stem finder by design; unlike the score-based EMBOSS `einverted` [4], it does not tolerate mismatches or gaps.
 
 ## 2. Scientific / Formal Basis
 
@@ -45,7 +45,7 @@ $$
 \mathrm{TotalLength} = 2 \times \text{ArmLength} + \text{LoopLength}
 $$
 
-The implementation searches all possible left-arm starts and arm lengths, computes the reverse complement of each candidate left arm, and then checks downstream substrings within the configured loop-length window.
+A stem is a triple $(i, j, A)$ with $s_{i+k}$ Watson–Crick-complementary to $s_{j+A-1-k}$ for $0 \le k < A$ (pairs among A, C, G, T only), $A \ge$ `minArmLength` and `minLoopLength` $\le j-(i+A) \le$ `maxLoopLength`. The reported set is the stems not contained in both arms of another stem (EMBOSS `palindrome_AInB`, `-overlap Y`). Equivalently: each reported stem cannot be extended outward, can be extended inward only by making the loop shorter than `minLoopLength`, and is not a "slipped" re-pairing lying inside a longer stem on a neighbouring diagonal.
 
 ### 2.4 Properties and Invariants
 
@@ -55,7 +55,8 @@ The implementation searches all possible left-arm starts and arm lengths, comput
 | INV-02 | `TotalLength = 2 × ArmLength + LoopLength`. | `InvertedRepeatResult.TotalLength` is defined directly from those fields. |
 | INV-03 | `LoopLength = RightArmStart - (LeftArmStart + ArmLength)`. | Loop length is computed from the stored coordinates. |
 | INV-04 | `CanFormHairpin` is true exactly when `LoopLength >= 3`. | The constructor sets `CanFormHairpin` from that Boolean test. |
-| INV-05 | Each `(LeftArmStart, RightArmStart, ArmLength)` tuple is unique. | A hash set suppresses duplicate results. |
+| INV-05 | No reported stem lies inside another reported stem in both arms; each tuple is unique. | Containment filter (EMBOSS `palindrome_AInB`). |
+| INV-06 | Revcomp symmetry: the stems of revcomp(S) are the mirror images of the stems of S. | The definition is strand-symmetric. |
 
 ### 2.5 Comparison with Related Implementations
 
@@ -65,7 +66,8 @@ The implementation searches all possible left-arm starts and arm lengths, comput
 | Mismatches | Not allowed | Allowed with penalty [4] |
 | Gaps | Not allowed | Allowed with penalty [4] |
 | Acceptance rule | Arm length and loop constraints | Score threshold [4] |
-| Overlap handling | Duplicate coordinates suppressed | Tool-specific reporting |
+| Overlap handling | Stems contained in both arms of another stem dropped (= EMBOSS `palindrome -overlap Y`) | Best-scoring local alignments |
+| Ambiguous bases | Only A/C/G/T pair | Only a/c/g/t score as match [4] |
 
 ## 3. Contract
 
@@ -75,7 +77,7 @@ The implementation searches all possible left-arm starts and arm lengths, comput
 |------|------|---------|-------------|-------------|
 | `sequence` | `DnaSequence` or `string` | required | DNA sequence to search. | The `DnaSequence` overload throws on `null`; the raw-string overload yields no results for `null` or empty input. |
 | `minArmLength` | `int` | `4` | Minimum length of each repeat arm. | Both overloads reject values below `2` with `ArgumentOutOfRangeException`. |
-| `maxLoopLength` | `int` | `50` | Maximum loop length between arms. | Used as an upper bound when scanning downstream candidate starts. |
+| `maxLoopLength` | `int` | `50` | Maximum loop length between arms. | Must be ≥ `minLoopLength` (`ArgumentOutOfRangeException`); values beyond the sequence length are capped. |
 | `minLoopLength` | `int` | `3` | Minimum loop length between arms. | Both overloads reject negative values with `ArgumentOutOfRangeException`. |
 
 ### 3.2 Output / Return Value
@@ -93,23 +95,24 @@ The implementation searches all possible left-arm starts and arm lengths, comput
 
 ### 3.3 Preconditions and Validation
 
-`FindInvertedRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`, throws `ArgumentOutOfRangeException` when `minArmLength < 2`, and throws `ArgumentOutOfRangeException` when `minLoopLength < 0`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings; it now enforces the SAME numeric validation as the `DnaSequence` overload (`minArmLength < 2` and `minLoopLength < 0` both throw `ArgumentOutOfRangeException`), so a degenerate `minArmLength = 0` can no longer emit nonsense zero-length-arm results on either surface. Coordinates are 0-based throughout the returned results.
+`FindInvertedRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`. Both overloads throw `ArgumentOutOfRangeException` **eagerly (at the call, not on enumeration)** when `minArmLength < 2`, `minLoopLength < 0` or `maxLoopLength < minLoopLength`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings; characters other than A/C/G/T (N, IUPAC codes, U) never pair. Coordinates are 0-based; results are ordered by `LeftArmStart`, then `RightArmStart`.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
 1. Normalize the sequence to uppercase when the raw-string overload is used.
-2. For each left-arm start position that leaves room for two minimum-length arms and the minimum loop, choose a candidate left-arm start.
-3. For each arm length from `minArmLength` upward, extract the left arm and compute its reverse complement.
-4. Search downstream start positions from `i + armLength + minLoopLength` through the configured loop-length bound.
-5. When the downstream substring equals the reverse complement, compute loop length and loop sequence, suppress duplicate coordinate triples, and emit an `InvertedRepeatResult`.
+2. For every innermost pair `(iIn, rIn)` with loop `L = rIn − iIn − 1` in `[minLoopLength, maxLoopLength]`: skip it unless the bases pair and the stem cannot move inward (the next inner pair fails, or it would leave a loop shorter than `minLoopLength`).
+3. Extend the stem outward while the bases pair; discard it if the arm is shorter than `minArmLength`. These are EMBOSS `palindrome`'s candidate stems with 0 mismatches.
+4. Drop a stem that lies inside another stem in both arms. Only two families of stems can contain it: for a shift `1 ≤ m ≤ L − minLoopLength`, the stem `(i, j, A + m)` (same arm starts) or `(i − m, j − m, A + m)` (same arm ends). Checking these is exact.
+5. Emit arms, loop and `CanFormHairpin = L ≥ 3`, sorted by `(LeftArmStart, RightArmStart)`.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| Inverted-repeat detection | `O(n × A^2 × L)` | `O(k + A)` | `A` is the maximum tested arm length, `L` is the effective loop-length search bound, and each candidate performs substring plus reverse-complement work proportional to arm length. |
+| Candidate scan | `O(n · W)` | `O(k)` | `W = maxLoopLength − minLoopLength + 1`, capped by `n`. |
+| Stem extension + containment check | `O(A + W · A)` per candidate stem, early exit | — | Output-bound in periodic input; `int.MaxValue` loop bounds terminate (capped by `n`). |
 
 ## 5. Implementation Notes
 
@@ -122,29 +125,27 @@ The implementation searches all possible left-arm starts and arm lengths, comput
 
 ### 5.2 Current Behavior
 
-The implementation uses `DnaSequence.GetReverseComplementString()` to derive the right-arm target from each candidate left arm, then scans downstream positions bounded by `minLoopLength` and `maxLoopLength`. Results are deduplicated with a hash set keyed by `(LeftArmStart, RightArmStart, ArmLength)`. `CanFormHairpin` is set from `loopLength >= 3`, and loops of length `0` are possible only if the caller explicitly lowers `minLoopLength` below its default. The raw-string overload normalizes case with `ToUpperInvariant()`.
+Pairing uses the canonical `SequenceExtensions.GetComplementBase` restricted to A/C/G/T (no private complement table). The implementation scans innermost pairs within the loop window, extends each inward-maximal stem outward, and removes stems contained in both arms of another stem. With `minLoopLength = 0` its output equals the EMBOSS 6.6.0 `palindrome` binary (`-nummismatches 0 -overlap Y -gaplimit maxLoopLength -minpallen minArmLength`, unbounded `-maxpallen`) on 1000 random sequences, and it equals an independent Python brute force (enumerate all exact stems, keep the non-contained ones) on 3000 random cases with `minLoopLength` 0–6, N, U and lowercase ([REP-INV-001-Evidence.md](../../Evidence/REP-INV-001-Evidence.md)).
 
 ### 5.3 Conformance to Theory / Spec
 
-**Implemented (verbatim from the cited theory/spec):**
+**Implemented:**
 
 - Exact reverse-complement matching between left and right arms [1][2].
-- Explicit reporting of arm positions, arm length, loop length, loop sequence, and total structure length.
-- Hairpin-viability flag derived from the biologically motivated `loopLength >= 3` rule described in the legacy doc [1][2].
+- Maximal-stem reporting of EMBOSS `palindrome` with 0 mismatches [5], plus a minimum loop length.
+- Hairpin-viability flag `loopLength >= 3` [1].
 
-**Intentionally simplified:**
+**Not implemented (by design):**
 
-- Exact matching only, with no mismatch or gap penalties; **consequence:** approximate inverted repeats that would be scored by dynamic-programming tools are not reported.
-
-**Not implemented:**
-
-- Score-based inverted-repeat search with mismatch and gap tolerance; **users should rely on:** EMBOSS `einverted` when they need that richer search model [4].
+- Score-based inverted-repeat search with mismatch and gap tolerance; **users should rely on:** EMBOSS `einverted` [4] (or `palindrome -nummismatches k`) when they need that richer model.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | The raw-string overload enforces the same numeric validation as the `DnaSequence` overload. | Resolved | Invalid `minArmLength` or `minLoopLength` values now throw `ArgumentOutOfRangeException` on both surfaces; no nonsense zero-length-arm output on `minArmLength = 0`. | resolved | Validation asymmetry removed during the REP-INV-001 fuzzing pass (a `minArmLength = 0` previously emitted spurious empty-arm results via the raw-string overload). |
+| 1 | N / IUPAC codes never pair (EMBOSS `palindrome` lets `n` complement `n` and only rejects all-`n` stems). | Deviation (stricter) | A run such as `GGN…NCC` is not a 3-bp stem. | accepted | Follows EMBOSS `einverted`, which scores a match only for a/c/g/t. |
+| 2 | `minLoopLength` (default 3) has no `palindrome` counterpart. | Extension | Inward extension stops at the minimum loop. | accepted | With `minLoopLength = 0` output equals `palindrome`. |
+| 3 | No maximum arm length (`palindrome -maxpallen`). | Simplification of API | Long stems are reported whole. | accepted | Compared with unbounded `-maxpallen`. |
 
 ## 6. Edge Cases and Limitations
 
@@ -157,6 +158,8 @@ The implementation uses `DnaSequence.GetReverseComplementString()` to derive the
 | No complementary regions | Returns empty enumerable. | No downstream substring matches a reverse complement candidate. |
 | Homopolymer input such as `AAAA` | Typically returns empty. | The reverse complement of `AAAA` is `TTTT`, which is absent from the same homopolymer. |
 | Self-complementary sequence such as `GCGC` | Can match when loop-length settings permit it. | A palindrome is an inverted repeat with loop length `0`. |
+| Perfect stem longer than `minArmLength` | Reported once, as the whole stem. | Sub-stems lie inside it in both arms. |
+| Run of `N` | Returns empty. | N never pairs. |
 | Loop length `0` | Not returned under default settings. | The default `minLoopLength` is `3`. |
 
 ### 6.2 Limitations
@@ -176,4 +179,5 @@ The algorithm is DNA-specific and uses DNA complement rules. It does not score a
 1. Wikipedia. 2026. Inverted repeat. Wikipedia. https://en.wikipedia.org/wiki/Inverted_repeat
 2. Pearson CE, Zorbas H, Price GB, Zannis-Hadjopoulos M. 1996. Inverted repeats, stem-loops, and cruciforms: significance for initiation of DNA replication. Journal of Cellular Biochemistry. 63(1):1-22.
 3. Bissler JJ. 1998. DNA inverted repeats and human disease. Frontiers in Bioscience. 3:d408-d418.
-4. Rice P, Longden I, Bleasby A. 2000. EMBOSS: the European Molecular Biology Open Software Suite. Trends in Genetics. 16(6):276-277.
+4. Rice P, Longden I, Bleasby A. 2000. EMBOSS: the European Molecular Biology Open Software Suite. Trends in Genetics. 16(6):276-277. `einverted.c` (Durbin R, Thierry-Mieg J, 1993).
+5. EMBOSS `palindrome` (Faller M), `emboss/palindrome.c` and application documentation https://emboss.sourceforge.net/apps/cvs/emboss/apps/palindrome.html.

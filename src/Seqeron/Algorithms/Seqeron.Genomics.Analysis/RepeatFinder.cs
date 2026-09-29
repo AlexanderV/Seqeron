@@ -663,14 +663,46 @@ public static class RepeatFinder
     #region Inverted Repeat Detection
 
     /// <summary>
-    /// Finds inverted repeats (sequences that are reverse complements of each other).
-    /// These can form hairpin/stem-loop structures.
+    /// Finds exact (perfect-stem) inverted repeats: a left arm followed, after a loop, by a right arm
+    /// equal to the reverse complement of the left arm. Such structures can form hairpin/stem-loop
+    /// (single strand) or cruciform (duplex) structures.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Model (exact, maximal stems).</b> A stem is a triple (<c>LeftArmStart = i</c>,
+    /// <c>RightArmStart = j</c>, <c>ArmLength = A</c>) such that base <c>s[i+k]</c> is the Watson–Crick
+    /// complement of <c>s[j+A−1−k]</c> for every <c>0 ≤ k &lt; A</c>, with
+    /// <c>A ≥ minArmLength</c> and <c>minLoopLength ≤ j − (i + A) ≤ maxLoopLength</c>.
+    /// Only stems that are <b>not contained, in both arms, in another such stem</b> are reported. This is
+    /// the reporting rule of EMBOSS <c>palindrome</c> (M. Faller; <c>palindrome.c</c>: every stem is extended
+    /// inward from its outer pair and a stem that is a subset of an already found stem in both halves —
+    /// <c>palindrome_AInB</c> — is dropped, default <c>-overlap Y</c>), run with <c>-nummismatches 0</c>.
+    /// Consequently every reported stem is maximal: it cannot be extended outward, and it can be extended
+    /// inward only by making the loop shorter than <paramref name="minLoopLength"/>; sub-stems and
+    /// "slipped" re-pairings lying inside a longer stem are not reported. With
+    /// <paramref name="minLoopLength"/> = 0 the result set equals EMBOSS <c>palindrome</c>
+    /// (<c>-nummismatches 0 -overlap Y</c>, <c>-gaplimit = maxLoopLength</c>, <c>-minpallen = minArmLength</c>,
+    /// unbounded <c>-maxpallen</c>), cross-checked on random sequences.
+    /// </para>
+    /// <para>
+    /// <b>Pairing.</b> Only the unambiguous bases A, C, G, T pair, via the canonical
+    /// <see cref="SequenceExtensions.GetComplementBase(char)"/> (A↔T, C↔G). As in EMBOSS <c>einverted</c>
+    /// (which scores a match only for a/c/g/t), N and other IUPAC ambiguity codes never form a pair, so a run
+    /// of N is not reported as a stem.
+    /// </para>
+    /// <para>
+    /// <b>Not einverted.</b> This is an exact-stem finder: no mismatches, no gaps (bulges), no score threshold.
+    /// For imperfect, score-based inverted repeats use EMBOSS <c>einverted</c> (Durbin &amp; Thierry-Mieg
+    /// dynamic programming).
+    /// </para>
+    /// <para>Coordinates are 0-based; results are ordered by <c>LeftArmStart</c>, then <c>RightArmStart</c>.
+    /// Parameters are validated eagerly.</para>
+    /// </remarks>
     /// <param name="sequence">DNA sequence to search.</param>
-    /// <param name="minArmLength">Minimum length of each arm (default: 4).</param>
-    /// <param name="maxLoopLength">Maximum loop length between arms (default: 50).</param>
-    /// <param name="minLoopLength">Minimum loop length (default: 3).</param>
-    /// <returns>Collection of inverted repeats found.</returns>
+    /// <param name="minArmLength">Minimum length of each arm (default: 4, must be ≥ 2).</param>
+    /// <param name="maxLoopLength">Maximum loop length between arms (default: 50, must be ≥ <paramref name="minLoopLength"/>).</param>
+    /// <param name="minLoopLength">Minimum loop length (default: 3, must be ≥ 0).</param>
+    /// <returns>The maximal exact inverted repeats.</returns>
     public static IEnumerable<InvertedRepeatResult> FindInvertedRepeats(
         DnaSequence sequence,
         int minArmLength = 4,
@@ -678,14 +710,15 @@ public static class RepeatFinder
         int minLoopLength = 3)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ArgumentOutOfRangeException.ThrowIfLessThan(minArmLength, 2);
-        ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
+        ValidateInvertedRepeatParameters(minArmLength, maxLoopLength, minLoopLength);
 
         return FindInvertedRepeatsCore(sequence.Sequence, minArmLength, maxLoopLength, minLoopLength);
     }
 
     /// <summary>
-    /// Finds inverted repeats in a raw sequence string.
+    /// Finds exact maximal inverted repeats in a raw sequence string (case-insensitive).
+    /// Same model and validation as <see cref="FindInvertedRepeats(DnaSequence, int, int, int)"/>;
+    /// <c>null</c> or empty input yields no results. Characters other than A/C/G/T never pair.
     /// </summary>
     public static IEnumerable<InvertedRepeatResult> FindInvertedRepeats(
         string sequence,
@@ -693,66 +726,123 @@ public static class RepeatFinder
         int maxLoopLength = 50,
         int minLoopLength = 3)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(minArmLength, 2);
-        ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
+        ValidateInvertedRepeatParameters(minArmLength, maxLoopLength, minLoopLength);
 
         if (string.IsNullOrEmpty(sequence))
-            yield break;
+            return Array.Empty<InvertedRepeatResult>();
 
-        foreach (var result in FindInvertedRepeatsCore(sequence.ToUpperInvariant(), minArmLength, maxLoopLength, minLoopLength))
-            yield return result;
+        return FindInvertedRepeatsCore(sequence.ToUpperInvariant(), minArmLength, maxLoopLength, minLoopLength);
     }
 
-    private static IEnumerable<InvertedRepeatResult> FindInvertedRepeatsCore(
+    private static void ValidateInvertedRepeatParameters(int minArmLength, int maxLoopLength, int minLoopLength)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minArmLength, 2);
+        ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLoopLength, minLoopLength);
+    }
+
+    /// <summary>True when <paramref name="a"/> and <paramref name="b"/> form a Watson–Crick pair (ACGT only).</summary>
+    private static bool IsWatsonCrickPair(char a, char b) =>
+        a is 'A' or 'C' or 'G' or 'T' && SequenceExtensions.GetComplementBase(a) == b;
+
+    /// <summary>
+    /// Maximal exact stems. A stem is identified by its innermost pair (<c>iIn</c>, <c>rIn</c>) with loop
+    /// <c>L = rIn − iIn − 1</c>; it is inward-maximal when the next inner pair does not pair or would leave a loop
+    /// shorter than <c>minLoop</c>. Each inward-maximal stem is extended outward as far as the bases pair
+    /// (EMBOSS palindrome's candidate set with 0 mismatches); then stems contained in both arms of another stem
+    /// are removed (<c>palindrome_AInB</c>, see <see cref="IsContainedInShiftedStem"/>).
+    /// </summary>
+    private static List<InvertedRepeatResult> FindInvertedRepeatsCore(
         string seq,
         int minArmLength,
         int maxLoopLength,
         int minLoopLength)
     {
-        var reported = new HashSet<(int, int, int)>();
+        int n = seq.Length;
+        var results = new List<InvertedRepeatResult>();
+        if (n < 2 * minArmLength + minLoopLength)
+            return results;
 
-        for (int i = 0; i <= seq.Length - 2 * minArmLength - minLoopLength; i++)
+        // Largest loop that can still fit two minimum arms; caps a huge maxLoopLength (no overflow / no hang).
+        int maxLoop = (int)Math.Min(maxLoopLength, (long)n - 2 * minArmLength);
+
+        for (int iIn = minArmLength - 1; iIn < n; iIn++)
         {
-            for (int armLen = minArmLength; i + armLen <= seq.Length; armLen++)
+            for (int loop = minLoopLength; loop <= maxLoop; loop++)
             {
-                string leftArm = seq.Substring(i, armLen);
-                string leftArmRevComp = DnaSequence.GetReverseComplementString(leftArm);
+                int rIn = iIn + loop + 1;
+                if (rIn + minArmLength - 1 >= n)
+                    break;
+                if (!IsWatsonCrickPair(seq[iIn], seq[rIn]))
+                    continue;
+                // Inward-maximal: the next inner pair must fail, unless it would make the loop < minLoop.
+                if (loop - 2 >= minLoopLength && IsWatsonCrickPair(seq[iIn + 1], seq[rIn - 1]))
+                    continue;
 
-                // Search for right arm
-                int minJ = i + armLen + minLoopLength;
-                int maxJ = Math.Min(i + armLen + maxLoopLength, seq.Length - armLen);
+                int arm = 1;
+                while (iIn - arm >= 0 && rIn + arm < n && IsWatsonCrickPair(seq[iIn - arm], seq[rIn + arm]))
+                    arm++;
+                if (arm < minArmLength)
+                    continue;
 
-                for (int j = minJ; j <= maxJ; j++)
-                {
-                    if (j + armLen > seq.Length) break;
+                int iOut = iIn - arm + 1;
+                if (IsContainedInShiftedStem(seq, iOut, rIn, arm, loop - minLoopLength))
+                    continue;
 
-                    string rightArm = seq.Substring(j, armLen);
-
-                    if (rightArm == leftArmRevComp)
-                    {
-                        int loopLength = j - (i + armLen);
-                        string loop = loopLength > 0 ? seq.Substring(i + armLen, loopLength) : "";
-
-                        var key = (i, j, armLen);
-                        if (reported.Add(key))
-                        {
-                            yield return new InvertedRepeatResult(
-                                LeftArmStart: i,
-                                RightArmStart: j,
-                                ArmLength: armLen,
-                                LoopLength: loopLength,
-                                LeftArm: leftArm,
-                                RightArm: rightArm,
-                                Loop: loop,
-                                CanFormHairpin: loopLength >= 3);
-                        }
-                    }
-                }
+                results.Add(new InvertedRepeatResult(
+                    LeftArmStart: iOut,
+                    RightArmStart: rIn,
+                    ArmLength: arm,
+                    LoopLength: loop,
+                    LeftArm: seq.Substring(iOut, arm),
+                    RightArm: seq.Substring(rIn, arm),
+                    Loop: seq.Substring(iIn + 1, loop),
+                    CanFormHairpin: loop >= 3));
             }
         }
+
+        results.Sort(static (x, y) =>
+        {
+            int c = x.LeftArmStart.CompareTo(y.LeftArmStart);
+            return c != 0 ? c : x.RightArmStart.CompareTo(y.RightArmStart);
+        });
+        return results;
+    }
+
+    /// <summary>
+    /// True when the stem (<paramref name="left"/>, <paramref name="right"/>, <paramref name="arm"/>) lies, in both
+    /// arms, inside a stem on another diagonal. Covering both arms of the stem from a diagonal shifted by
+    /// <c>m ≥ 1</c> needs a stem with arm <c>arm + m</c> and loop <c>loop − m</c> that either keeps the left start and
+    /// the right start (<c>(left, right, arm + m)</c>) or keeps both arm ends (<c>(left − m, right − m, arm + m)</c>);
+    /// every containing stem contains one of these, so testing <c>1 ≤ m ≤ loop − minLoop</c> is exact.
+    /// </summary>
+    private static bool IsContainedInShiftedStem(string seq, int left, int right, int arm, int maxShift)
+    {
+        int n = seq.Length;
+        for (int m = 1; m <= maxShift; m++)
+        {
+            int len = arm + m;
+            if (right + len <= n && IsExactStem(seq, left, right, len))
+                return true;
+            if (left - m >= 0 && IsExactStem(seq, left - m, right - m, len))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>True when s[i+k] pairs with s[j+len−1−k] for all k (checked from the innermost pair out).</summary>
+    private static bool IsExactStem(string seq, int i, int j, int len)
+    {
+        for (int k = len - 1; k >= 0; k--)
+        {
+            if (!IsWatsonCrickPair(seq[i + k], seq[j + len - 1 - k]))
+                return false;
+        }
+        return true;
     }
 
     #endregion
+
 
     #region Direct Repeat Detection
 

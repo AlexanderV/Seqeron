@@ -76,26 +76,38 @@ public class RepeatsDifferentialTests
 
     // ---- Row 15: REP-INV-001 — FindInvertedRepeats vs brute reverse-complement search ----
 
+    // Brute-force oracle for the documented semantics (EMBOSS palindrome, -nummismatches 0 -overlap Y):
+    // enumerate EVERY exact stem (i, j, arm) with RightArm = RC(LeftArm) and the loop in bounds, then keep only
+    // the stems that are not contained, in both arms, in another stem (palindrome.c palindrome_AInB).
+    // The same definition, as an independent Python script, matched the EMBOSS 6.6.0 palindrome binary on
+    // 1000 random ACGT sequences (minLoop = 0) — docs/Evidence/REP-INV-001-Evidence.md.
     private static List<(int i, int j, int arm)> InvertedOracle(string seq, int minArm, int maxLoop, int minLoop)
     {
-        var results = new List<(int, int, int)>();
+        var all = new List<(int i, int j, int arm)>();
         for (int i = 0; i <= seq.Length - 2 * minArm - minLoop; i++)
-        for (int arm = minArm; i + arm <= seq.Length; arm++)
+        for (int arm = minArm; i + 2 * arm + minLoop <= seq.Length; arm++)
         {
             string leftRc = RevComp(seq.Substring(i, arm));
             int minJ = i + arm + minLoop;
             int maxJ = Math.Min(i + arm + maxLoop, seq.Length - arm);
             for (int j = minJ; j <= maxJ; j++)
                 if (seq.Substring(j, arm) == leftRc)
-                    results.Add((i, j, arm));
+                    all.Add((i, j, arm));
         }
-        return results;
+
+        return all.Where(a => !all.Any(b => b != a
+                && b.i <= a.i && a.i + a.arm <= b.i + b.arm
+                && b.j <= a.j && a.j + a.arm <= b.j + b.arm))
+            .OrderBy(a => a.i).ThenBy(a => a.j).ToList();
     }
 
     [Test]
     [Category("REP-INV-001")]
     [TestCase("AACCGAGGGTT")]              // arm AACC / loop GAG / arm GGTT (=RC of AACC)
     [TestCase("ACGTACGTAAAACGTACGT")]
+    [TestCase("GGGGGGAAACCCCCC")]          // slipped re-pairings inside the 6-bp stem are dropped
+    [TestCase("GAATTCAAAAGAATTCTTTTGAATTC")]
+    [TestCase("ATATATATATGCATATATATAT")]
     public void InvertedRepeats_MatchesBruteRevCompSearch(string seq)
     {
         var actual = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 4, maxLoopLength: 50, minLoopLength: 3)

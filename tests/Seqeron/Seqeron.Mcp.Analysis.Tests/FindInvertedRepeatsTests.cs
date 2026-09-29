@@ -42,4 +42,17 @@ public class FindInvertedRepeatsTests
         var none = AnalysisTools.FindInvertedRepeats("AAAAAAAA", 4, 50, 3).Items;
         Assert.That(none, Is.Empty);
     }
+
+    [Test]
+    public void FindInvertedRepeats_ReportsMaximalStemOnly()
+    {
+        // EMBOSS palindrome (-nummismatches 0 -overlap Y, minpallen 4, gaplimit 50): [(0,8,5)] —
+        // the arm-4 sub-stems (1,8,4) and (0,9,4) lie inside the 5-bp stem and are not reported.
+        var items = AnalysisTools.FindInvertedRepeats("GGGGGAAACCCCC", 4, 50, 3).Items;
+        Assert.That(items.Select(i => (i.LeftArmStart, i.RightArmStart, i.ArmLength)),
+            Is.EqualTo(new[] { (0, 8, 5) }));
+
+        // A loop window with maxLoopLength < minLoopLength is rejected by the core.
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindInvertedRepeats("GGGGAAACCCC", 4, 2, 3));
+    }
 }

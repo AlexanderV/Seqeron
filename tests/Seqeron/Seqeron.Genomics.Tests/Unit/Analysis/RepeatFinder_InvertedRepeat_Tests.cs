@@ -9,7 +9,11 @@ namespace Seqeron.Genomics.Tests.Unit.Analysis;
 /// 
 /// Sources:
 /// - Wikipedia: Inverted repeat, Stem-loop, Palindromic sequence
-/// - EMBOSS einverted documentation
+/// - EMBOSS palindrome (palindrome.c, M. Faller): exact/mismatch-bounded inverted-repeat finder whose
+///   reporting rule (stems contained in both arms of another stem are dropped, -overlap Y) is the one
+///   implemented; expected coordinates below marked "EMBOSS" were produced by the EMBOSS 6.6.0
+///   palindrome binary (-nummismatches 0 -overlap Y -minpallen = minArm -gaplimit = maxLoop).
+/// - EMBOSS einverted (einverted.c): only a/c/g/t score as matches (N never pairs).
 /// - Pearson et al. (1996), Bissler (1998)
 /// </summary>
 [TestFixture]
@@ -63,10 +67,11 @@ public class RepeatFinder_InvertedRepeat_Tests
 
         var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        Assert.That(results, Has.Count.EqualTo(6));
+        // EMBOSS palindrome reports exactly one stem, [(0,10,6)]: the arm-4/arm-5 sub-stems
+        // (e.g. AATT/AATT at 1,11) lie inside it in both arms and are not reported.
+        Assert.That(results, Has.Count.EqualTo(1));
 
-        // The full-length palindromic match: GAATTC...GAATTC (arm=6, loop=4)
-        var palindrome = results.First(r => r.ArmLength == 6);
+        var palindrome = results[0];
         Assert.Multiple(() =>
         {
             Assert.That(palindrome.LeftArmStart, Is.EqualTo(0));
@@ -517,10 +522,9 @@ public class RepeatFinder_InvertedRepeat_Tests
     }
 
     /// <summary>
-    /// C3: Overlapping inverted repeats are all reported (unlike EMBOSS einverted).
-    /// Three occurrences of GCGC with 3-base loops produce three overlapping IRs.
-    /// Source: EMBOSS einverted (behavioral difference — our algorithm uses exact matching,
-    /// not DP scoring, so all matches are reported).
+    /// C3: Overlapping but non-nested inverted repeats are all reported.
+    /// Three occurrences of GCGC give three stems that share arms but none lies inside another in
+    /// both arms, so all three are kept. EMBOSS palindrome (minpallen 4, gaplimit 10): [(0,7,4), (0,14,4), (7,14,4)].
     /// </summary>
     [Test]
     public void FindInvertedRepeats_OverlappingRepeats_AllReported()
@@ -546,7 +550,131 @@ public class RepeatFinder_InvertedRepeat_Tests
 
     #endregion
 
+    #region Maximality / pairing (EMBOSS palindrome semantics)
+
+    /// <summary>
+    /// A perfect 5-bp stem is reported once, not as its arm-4 sub-stems (1,8,4) and (0,9,4).
+    /// EMBOSS palindrome: [(0,8,5)].
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_SubStemsOfPerfectStem_NotReported()
+    {
+        var results = RepeatFinder.FindInvertedRepeats("GGGGGAAACCCCC", 4, 50, 3).ToList();
+
+        Assert.That(results.Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength)),
+            Is.EqualTo(new[] { (0, 8, 5) }));
+        Assert.That(results[0].Loop, Is.EqualTo("AAA"));
+    }
+
+    /// <summary>
+    /// "Slipped" re-pairings inside a longer stem (e.g. GGGG at 0 with CCCC at 9: pairs on a
+    /// different diagonal, loop 5) are contained in both arms of the 6-bp stem and dropped.
+    /// EMBOSS palindrome: [(0,9,6)].
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_SlippedPairingInsideStem_NotReported()
+    {
+        var results = RepeatFinder.FindInvertedRepeats("GGGGGGAAACCCCCC", 4, 50, 3).ToList();
+
+        Assert.That(results.Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength)),
+            Is.EqualTo(new[] { (0, 9, 6) }));
+    }
+
+    /// <summary>
+    /// The stem is extended inward only while the loop stays ≥ minLoopLength.
+    /// ACGTAAA|TT|TTTACGT: with minLoop 0 the stem is 7 bp with loop 2 (EMBOSS palindrome: [(0,9,7)]);
+    /// with minLoop 3 the 7th pair would leave a 2-nt loop, so the reported stem is 6 bp with loop 4.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_InwardExtension_StopsAtMinLoop()
+    {
+        var loop0 = RepeatFinder.FindInvertedRepeats("ACGTAAATTTTTACGT", 4, 50, 0).ToList();
+        var loop3 = RepeatFinder.FindInvertedRepeats("ACGTAAATTTTTACGT", 4, 50, 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loop0.Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength, r.LoopLength)),
+                Is.EqualTo(new[] { (0, 9, 7, 2) }));
+            Assert.That(loop3.Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength, r.LoopLength)),
+                Is.EqualTo(new[] { (0, 10, 6, 4) }));
+            Assert.That(loop3[0].LeftArm, Is.EqualTo("ACGTAA"));
+            Assert.That(loop3[0].RightArm, Is.EqualTo("TTACGT"));
+            Assert.That(loop3[0].Loop, Is.EqualTo("ATTT"));
+        });
+    }
+
+    /// <summary>
+    /// EMBOSS palindrome worked example with several stems (minpallen 4, gaplimit 50, 0 mismatches):
+    /// ACGTACGTAAAACGTACGT → [(0,4,4), (0,11,8), (4,14,5), (11,15,4)]; with minLoop 3 the two
+    /// loop-0 palindromes drop out and [(0,11,8), (4,14,5)] remain.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_EmbossPalindromeWorkedExample()
+    {
+        const string seq = "ACGTACGTAAAACGTACGT";
+
+        var loop0 = RepeatFinder.FindInvertedRepeats(seq, 4, 50, 0)
+            .Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength)).ToList();
+        var loop3 = RepeatFinder.FindInvertedRepeats(seq, 4, 50, 3)
+            .Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength)).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loop0, Is.EqualTo(new[] { (0, 4, 4), (0, 11, 8), (4, 14, 5), (11, 15, 4) }));
+            Assert.That(loop3, Is.EqualTo(new[] { (0, 11, 8), (4, 14, 5) }));
+        });
+    }
+
+    /// <summary>
+    /// Only A/C/G/T pair (EMBOSS einverted scores a match only for a/c/g/t): a run of N, or N inside
+    /// an arm, never forms a stem pair; U is not a DNA base here and does not pair either.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_AmbiguousAndNonDnaBases_NeverPair()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RepeatFinder.FindInvertedRepeats(new string('N', 40), 2, 50, 0), Is.Empty);
+            Assert.That(RepeatFinder.FindInvertedRepeats("GGNGAAACNCC", 3, 50, 3), Is.Empty,
+                "GGN/NCC would need an N-N pair; only the 2-bp GG/CC stem is real");
+            Assert.That(RepeatFinder.FindInvertedRepeats("UUUUGGGAAAA", 4, 50, 3), Is.Empty);
+            Assert.That(RepeatFinder.FindInvertedRepeats("AAAAGGGUUUU", 4, 50, 3), Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// A huge maxLoopLength is capped by the sequence length: no overflow, no hang.
+    /// </summary>
+    [Test, CancelAfter(10000)]
+    public void FindInvertedRepeats_HugeMaxLoop_Terminates()
+    {
+        var results = RepeatFinder.FindInvertedRepeats("GCGCAAAGCGCAAAGCGC", 4, int.MaxValue, 0)
+            .Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength)).ToList();
+
+        Assert.That(results, Is.EqualTo(new[] { (0, 7, 4), (0, 14, 4), (7, 14, 4) }));
+    }
+
+    #endregion
+
     #region Parameter Validation Tests
+
+    /// <summary>
+    /// Validation is eager on both overloads (thrown at the call, before enumeration), and a loop
+    /// window with maxLoopLength &lt; minLoopLength is rejected.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_InvalidParameters_ThrowEagerly()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", 1, 10, 3));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", 4, 10, -1));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", 4, 2, 3));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("", 4, 2, 3));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats(new DnaSequence("GCGCAAAAGCGC"), 4, 2, 3));
+            Assert.Throws<System.ArgumentNullException>(() => RepeatFinder.FindInvertedRepeats((DnaSequence)null!));
+        });
+    }
 
     /// <summary>
     /// Null DnaSequence should throw ArgumentNullException.

@@ -9,7 +9,7 @@
 | **Title** | Inverted Repeat Detection |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-01-22 |
+| **Last Updated** | 2026-09-29 |
 
 ---
 
@@ -30,7 +30,8 @@
 | [Wikipedia - Inverted repeat](https://en.wikipedia.org/wiki/Inverted_repeat) | Definition | Sequence followed by its reverse complement with intervening nucleotides |
 | [Wikipedia - Stem-loop (Hairpin)](https://en.wikipedia.org/wiki/Stem-loop) | Structure | Stem forms via intramolecular base pairing; optimal loop 4-8 bases |
 | [Wikipedia - Palindromic sequence](https://en.wikipedia.org/wiki/Palindromic_sequence) | Edge case | Inverted repeat with zero intervening nucleotides |
-| [EMBOSS einverted](https://emboss.sourceforge.net/apps/cvs/emboss/apps/einverted.html) | Algorithm | Dynamic programming approach; parameters: minArmLength, maxLoopLength |
+| [EMBOSS einverted](https://emboss.sourceforge.net/apps/cvs/emboss/apps/einverted.html) (`einverted.c`) | Algorithm (contrast) | Scored DP with mismatches/gaps — not implemented; only a/c/g/t score as match |
+| [EMBOSS palindrome](https://emboss.sourceforge.net/apps/cvs/emboss/apps/palindrome.html) (`palindrome.c`, EMBOSS 6.6.0 binary) | Reference tool | Exact/mismatch-bounded IR finder; stems contained in both arms of another are dropped (`-overlap Y`); expected values produced with `-nummismatches 0` |
 | Pearson et al. (1996) | Review | Significance for DNA replication; cruciform formation |
 | Bissler (1998) | Review | DNA inverted repeats and human disease |
 
@@ -45,7 +46,7 @@ All MUST tests are justified by evidence or explicitly marked.
 | ID | Test Name | Rationale | Evidence |
 |----|-----------|-----------|----------|
 | M1 | SimpleHairpin_FindsRepeat | Core algorithm - detects stem-loop structure | Wikipedia - inverted repeat |
-| M2 | PalindromeSequence_SelfComplementary | Self-complementary sequence (revcomp = self) | Wikipedia - palindromic sequence |
+| M2 | PalindromeSequence_SelfComplementary | Self-complementary arms; exactly one (maximal) stem (0,10,6) | Wikipedia - palindromic sequence; EMBOSS palindrome |
 | M3 | ReverseComplementMatch_BothArmsCorrect | Left arm revcomp must equal right arm | Wikipedia - inverted repeat definition |
 | M4 | NoInvertedRepeats_ReturnsEmpty | Sequence without complementary regions | Standard edge case |
 | M5 | EmptySequence_ReturnsEmpty | Boundary - empty input | Standard boundary |
@@ -74,7 +75,13 @@ All MUST tests are justified by evidence or explicitly marked.
 |----|-----------|-----------|----------|
 | C1 | RestrictionSitePalindromes_Detected | EcoRI, BamHI recognition sites | Wikipedia - restriction enzymes |
 | C2 | LoopSequence_CorrectlyExtracted | Loop sequence matches intervening nucleotides | Implementation verification |
-| C3 | OverlappingRepeats_AllReported | All matches reported including overlapping | EMBOSS einverted (behavioral difference) |
+| C3 | OverlappingRepeats_AllReported | Overlapping but non-nested stems all reported | EMBOSS palindrome |
+| C4 | SubStemsOfPerfectStem_NotReported | Sub-stems of a perfect stem not reported | EMBOSS palindrome |
+| C5 | SlippedPairingInsideStem_NotReported | Slipped re-pairings inside a stem not reported | EMBOSS palindrome |
+| C6 | InwardExtension_StopsAtMinLoop | Inward extension limited by minLoopLength | EMBOSS palindrome (minLoop 0) + definition |
+| C7 | EmbossPalindromeWorkedExample | Multi-stem EMBOSS output locked | EMBOSS palindrome |
+| C8 | AmbiguousAndNonDnaBases_NeverPair | N/IUPAC/U never pair | EMBOSS einverted (a/c/g/t only) |
+| C9 | HugeMaxLoop_Terminates / InvalidParameters_ThrowEagerly | Degenerate params: no hang; eager validation incl. maxLoop < minLoop | Contract |
 
 ---
 
@@ -83,7 +90,8 @@ All MUST tests are justified by evidence or explicitly marked.
 | Question | Decision | Justification |
 |----------|----------|---------------|
 | Should loop=0 be valid? | Allowed when minLoopLength=0; filtered by default (minLoopLength=3) | Wikipedia: "intervening sequence...can be any length including zero." Palindromes are inverted repeats with loop=0 |
-| Report overlapping structures? | Yes (all matches) | Our algorithm uses exact matching with HashSet dedup, not DP scoring like EMBOSS einverted. All valid (leftStart, rightStart, armLength) tuples are reported, including those sharing arm positions |
+| Report overlapping structures? | Only maximal stems (revised 2026-09-29) | EMBOSS palindrome `-overlap Y`: a stem contained in both arms of another stem is dropped; overlapping non-nested stems are all reported. The earlier "all tuples" rule reported every sub-stem of a stem (e.g. 6 hits for GAATTC·AAAA·GAATTC vs EMBOSS's 1) |
+| N / ambiguity codes? | Never pair | EMBOSS einverted scores a match only for a/c/g/t |
 | Case sensitivity? | Case-insensitive | Implementation uses ToUpperInvariant() |
 
 ---
