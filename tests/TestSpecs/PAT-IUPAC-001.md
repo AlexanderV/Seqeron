@@ -5,7 +5,7 @@
 **Algorithm:** IUPAC Degenerate Motif Matching
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-03-02
+**Last Updated:** 2026-09-29
 
 ---
 
@@ -18,7 +18,8 @@
 | Wikipedia: Nucleic acid notation | https://en.wikipedia.org/wiki/Nucleic_acid_notation | 2026-01-22 (verified 2026-03-02) |
 | Bioinformatics.org: IUPAC codes | https://www.bioinformatics.org/sms/iupac.html | 2026-01-22 (verified 2026-03-02) |
 | IUPAC-IUB Commission (1970) | Abbreviations and symbols for nucleic acids, polynucleotides, and their constituents. Biochemistry 9(20):4022–4027 | Reference |
-| NC-IUB (1984) | Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences. NAR 13(9):3021–3030 | Reference |
+| NC-IUB (Cornish-Bowden 1985) | Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences: Recommendations 1984. NAR 13(9):3021–3030 (1985) | Reference |
+| Biopython 1.88 | `Bio/Data/IUPACData.py` `ambiguous_dna_values` (raw.githubusercontent.com), `Bio.SeqUtils.nt_search` | 2026-09-29 |
 
 ### 1.2 Algorithm Description
 
@@ -110,7 +111,9 @@ From the IUPAC codes reference:
 | `FindDegenerateMotif(DnaSequence, string)` | MotifFinder | **Canonical** | Pattern matching |
 | `FindDegenerateMotif(DnaSequence, string, CancellationToken)` | MotifFinder | Variant | Cancellable |
 | `FindDegenerateMotif(string, string, CancellationToken)` | MotifFinder | Variant | String API |
-| `MatchesIupac(char, char)` | IupacHelper | **Canonical** | IUPAC code matching |
+| `MatchesIupac(char, char)` | IupacHelper | **Canonical** | IUPAC code matching — all 3 overloads delegate to it through one private scan (`ScanDegenerate`) since review 2026-09 |
+| `IsNucleotideCode(char)` | IupacHelper | **Canonical** | Motif validation (15 codes) |
+| MCP `find_degenerate_motif` | AnalysisTools | Wrapper | Delegates to `FindDegenerateMotif(DnaSequence, string)` |
 
 ---
 
@@ -227,6 +230,16 @@ From the IUPAC codes reference:
 |----|-----------|-------|----------|----------|
 | C1 | Large sequence performance | 10000+ chars | Completes in time | Performance |
 | C2 | Restriction site pattern | GAATTC, degenerate | Correct positions | Bioinformatics |
+
+### 4.4 Reference-parity tests (review 2026-09, Biopython 1.88)
+
+| ID | Test Case | Input | Expected | Evidence |
+|----|-----------|-------|----------|----------|
+| R1 | Full 15-code × 4-base table, all 3 overloads | single base vs single code | member ⇔ `ambiguous_dna_values[code]` contains base | Biopython IUPACData / NC-IUB 1984 |
+| R2 | nt_search parity, all 3 overloads | GAATTCGGATCCAAGCTT / GRWYYC; CACGTGCAGCTGCATATG / CANNTG; TTGCCACCATGGAAGCCGCCATGG / GCCRCCATGG | [0,6]; [0,6,12]; [2,14] | `Bio.SeqUtils.nt_search` |
+| R3 | Sequence-side ambiguity is literal (string overload) | ACNGT / N | [0,1,3,4] | `nt_search("ACNGT","N")` |
+| R4 | U is not matched by T (string overload) | ACGU / T | [] | `nt_search("ACGU","T")` |
+| R5 | Invalid motif throws on enumeration only (iterator contract), all overloads | ACGT / AXG | no throw at call; ArgumentException on enumeration | Contract |
 
 ---
 
@@ -359,3 +372,12 @@ Wikipedia full match matrix verified (each nucleotide matches exactly 8 IUPAC co
 **None.** Zero discrepancies between authoritative sources and implementation/tests/spec.
 
 ---
+
+---
+
+## 7. Review 2026-09 (campaign B05)
+
+- **Stage A PASS:** code table re-derived from Biopython 1.88 `ambiguous_dna_values` (raw GitHub source) and NC-IUB/Cornish-Bowden 1985 (bibliographic record via search: NAR 13(9):3021–3030, 1985); matching direction (pattern-degenerate, literal sequence) equals `Bio.SeqUtils.nt_search`.
+- **Stage B:** behaviour correct in all overloads; the private `IupacCodes` dictionary and the second switch in the string core duplicated `IupacHelper` → removed; all overloads now share `ScanDegenerate` → `IupacHelper.MatchesIupac`, validation via `IupacHelper.IsNucleotideCode`. Lazy (iterator) contract and edge order preserved.
+- Section 6.2 columns "MotifFinder IupacCodes" / "MotifFinder Core Switch" are historical (those copies no longer exist).
+

@@ -6,7 +6,7 @@
 | Test Unit ID | PAT-IUPAC-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-29 |
 
 ## 1. Overview
 
@@ -47,7 +47,8 @@ The repository recognizes the standard 15 DNA codes:
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | Every reported match satisfies the allowed-base constraint at every motif position | The scan exits the inner loop on the first disallowed character |
-| INV-02 | Pattern validation accepts only the 15 standard IUPAC DNA codes | `ValidateIupacPattern(...)` checks membership in the internal code dictionary |
+| INV-02 | Pattern validation accepts only the 15 standard IUPAC DNA codes | `ValidateIupacPattern(...)` checks membership with the canonical `IupacHelper.IsNucleotideCode` |
+| INV-04 | The sequence side is literal: an ambiguity symbol, `U` or gap in the sequence matches no motif code | `IupacHelper.MatchesIupac(base, code)` accepts only A/C/G/T members (same as Biopython `nt_search`) |
 | INV-03 | Returned matches preserve the original window and normalized pattern | `MotifMatch` stores `MatchedSequence` and the uppercased motif |
 
 ## 3. Contract
@@ -85,7 +86,7 @@ The repository recognizes the standard 15 DNA codes:
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The `MotifFinder` implementation uses an internal dictionary that maps each IUPAC code to the string of allowed bases. `IupacHelper.MatchesIupac(...)` exposes the same decision table as a switch expression. The cancellation-aware core checks for cancellation every 1000 starting positions.
+All three overloads share one private window scan (`ScanDegenerate`) whose per-position test is the canonical `IupacHelper.MatchesIupac(...)`; `MotifFinder` keeps no private code table (the former internal dictionary and duplicate switch were removed in the 2026-09 review). The scan checks for cancellation every 1000 starting positions (`CancellationToken.None` for the non-cancellable overload). The table equals Biopython `Bio.Data.IUPACData.ambiguous_dna_values` (A,C,G,T; M=AC, R=AG, W=AT, S=CG, Y=CT, K=GT, V=ACG, H=ACT, D=AGT, B=CGT, N=ACGT).
 
 ### 4.3 Complexity
 
@@ -106,7 +107,7 @@ The `MotifFinder` implementation uses an internal dictionary that maps each IUPA
 
 ### 5.2 Current Behavior
 
-`FindDegenerateMotif(DnaSequence, string)` reads `sequence.Sequence` directly, uppercases the motif, validates it, and assigns `Score = 1.0` to every returned `MotifMatch`. The cancellation-aware string overload uppercases both the sequence and the motif before scanning. `IupacHelper.MatchesIupac(...)` accepts only the 15 standard codes and throws on unknown codes.
+`FindDegenerateMotif(DnaSequence, string)` reads `sequence.Sequence` directly, uppercases the motif, validates it, and assigns `Score = 1.0` to every returned `MotifMatch`. The cancellation-aware string overload uppercases both the sequence and the motif before scanning. Results are lazy (iterator): an invalid motif throws on enumeration, not at call time. Sequence-side ambiguity symbols, `U` and gaps (possible only through the raw-string overload) never match — identical to Biopython `Bio.SeqUtils.nt_search`, e.g. `nt_search("ACNGT","N")` → 0,1,3,4. Edge-order note: the `DnaSequence` overloads validate the motif even for an empty sequence, whereas the raw-string overload returns no matches for an empty sequence before validating. `IupacHelper.MatchesIupac(...)` accepts only the 15 standard codes and throws on unknown codes.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -162,6 +163,7 @@ Common degenerate motifs preserved from the original document:
 ## 8. References
 
 1. IUPAC-IUB Commission on Biochemical Nomenclature (1970). "Abbreviations and symbols for nucleic acids, polynucleotides, and their constituents." *Biochemistry* 9(20):4022-4027. doi:10.1021/bi00822a023
-2. NC-IUB (1984). "Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences." *Nucleic Acids Research* 13(9):3021-3030. doi:10.1093/nar/13.9.3021
+2. NC-IUB / Cornish-Bowden A (1985). "Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences: Recommendations 1984." *Nucleic Acids Research* 13(9):3021-3030. doi:10.1093/nar/13.9.3021 (also Eur J Biochem 150:1-5, 1985)
+5. Biopython 1.88 — `Bio/Data/IUPACData.py` (`ambiguous_dna_values`) and `Bio.SeqUtils.nt_search` (reference implementation used for the 2026-09 cross-check).
 3. Wikipedia contributors. "Nucleic acid notation." *Wikipedia, The Free Encyclopedia*. https://en.wikipedia.org/wiki/Nucleic_acid_notation
 4. Bioinformatics.org. "IUPAC Codes." https://www.bioinformatics.org/sms/iupac.html

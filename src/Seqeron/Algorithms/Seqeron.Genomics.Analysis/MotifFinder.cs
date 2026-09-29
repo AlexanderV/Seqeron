@@ -42,29 +42,9 @@ public static class MotifFinder
     #region Degenerate Motif Finding
 
     /// <summary>
-    /// IUPAC nucleotide codes for degenerate bases.
-    /// </summary>
-    private static readonly Dictionary<char, string> IupacCodes = new()
-    {
-        ['A'] = "A",
-        ['T'] = "T",
-        ['G'] = "G",
-        ['C'] = "C",
-        ['R'] = "AG",   // Purine
-        ['Y'] = "CT",   // Pyrimidine
-        ['S'] = "GC",   // Strong
-        ['W'] = "AT",   // Weak
-        ['K'] = "GT",   // Keto
-        ['M'] = "AC",   // Amino
-        ['B'] = "CGT",  // Not A
-        ['D'] = "AGT",  // Not C
-        ['H'] = "ACT",  // Not G
-        ['V'] = "ACG",  // Not T
-        ['N'] = "ACGT", // Any
-    };
-
-    /// <summary>
     /// Validates that all characters in a motif pattern are valid IUPAC codes.
+    /// Membership is decided by the canonical <see cref="IupacHelper.IsNucleotideCode"/>
+    /// (the 15 IUPAC-IUB / NC-IUB 1984 DNA codes, = Biopython <c>IUPACData.ambiguous_dna_letters</c>).
     /// </summary>
     /// <param name="motif">The motif pattern to validate (expected already uppercased).</param>
     /// <exception cref="ArgumentException">Thrown when the pattern contains non-IUPAC characters.</exception>
@@ -72,7 +52,7 @@ public static class MotifFinder
     {
         for (int i = 0; i < motif.Length; i++)
         {
-            if (!IupacCodes.ContainsKey(motif[i]))
+            if (!IupacHelper.IsNucleotideCode(motif[i]))
             {
                 throw new ArgumentException(
                     $"Invalid IUPAC code '{motif[i]}' at position {i} in motif pattern. " +
@@ -85,6 +65,13 @@ public static class MotifFinder
     /// <summary>
     /// Finds all occurrences of a degenerate motif using IUPAC codes.
     /// </summary>
+    /// <remarks>
+    /// Pattern-degenerate matching (IUPAC-IUB 1970; NC-IUB 1984, Cornish-Bowden 1985): a window
+    /// <c>S[i..i+m-1]</c> matches when every sequence base belongs to the base set of the motif code at
+    /// that position (<see cref="IupacHelper.MatchesIupac"/>). The sequence side is literal — an ambiguity
+    /// symbol in the sequence (e.g. <c>N</c>) matches no motif code — exactly as Biopython
+    /// <c>Bio.SeqUtils.nt_search</c>. Positions are 0-based, ascending and overlapping.
+    /// </remarks>
     /// <param name="sequence">DNA sequence to search.</param>
     /// <param name="motif">Motif pattern with IUPAC ambiguity codes.</param>
     /// <returns>Motif matches with positions.</returns>
@@ -96,32 +83,14 @@ public static class MotifFinder
 
     private static IEnumerable<MotifMatch> FindDegenerateMotifCore(DnaSequence sequence, string motif)
     {
+        // Iterator: motif validation stays deferred to enumeration (unchanged contract).
         if (string.IsNullOrEmpty(motif)) yield break;
 
-        string seq = sequence.Sequence;
+        // DnaSequence is already upper-case ACGT; the motif is validated even for an empty sequence.
         string motifUpper = motif.ToUpperInvariant();
         ValidateIupacPattern(motifUpper);
-
-        for (int i = 0; i <= seq.Length - motifUpper.Length; i++)
-        {
-            bool matches = true;
-            for (int j = 0; j < motifUpper.Length && matches; j++)
-            {
-                char motifChar = motifUpper[j];
-                char seqChar = seq[i + j];
-
-                matches = IupacCodes[motifChar].Contains(seqChar);
-            }
-
-            if (matches)
-            {
-                yield return new MotifMatch(
-                    Position: i,
-                    MatchedSequence: seq.Substring(i, motifUpper.Length),
-                    Pattern: motifUpper,
-                    Score: 1.0);
-            }
-        }
+        foreach (var match in ScanDegenerate(sequence.Sequence, motifUpper, CancellationToken.None))
+            yield return match;
     }
 
     /// <summary>
@@ -142,6 +111,8 @@ public static class MotifFinder
 
     /// <summary>
     /// Finds degenerate motif in a raw string with cancellation support.
+    /// The sequence is upper-cased; any non-ACGT sequence character (including IUPAC ambiguity
+    /// symbols, <c>U</c> and gaps) matches no motif code.
     /// </summary>
     public static IEnumerable<MotifMatch> FindDegenerateMotif(
         string sequence,
@@ -162,6 +133,19 @@ public static class MotifFinder
         var seq = sequence.ToUpperInvariant();
         var motifUpper = motif.ToUpperInvariant();
         ValidateIupacPattern(motifUpper);
+        foreach (var match in ScanDegenerate(seq, motifUpper, cancellationToken))
+            yield return match;
+    }
+
+    /// <summary>
+    /// Single O(n·m) window scan shared by all <c>FindDegenerateMotif</c> overloads; per-position
+    /// membership is the canonical <see cref="IupacHelper.MatchesIupac"/> (no private code table).
+    /// </summary>
+    private static IEnumerable<MotifMatch> ScanDegenerate(
+        string seq,
+        string motifUpper,
+        CancellationToken cancellationToken)
+    {
         const int checkInterval = 1000;
 
         for (int i = 0; i <= seq.Length - motifUpper.Length; i++)
@@ -171,29 +155,7 @@ public static class MotifFinder
 
             bool matches = true;
             for (int j = 0; j < motifUpper.Length && matches; j++)
-            {
-                char motifChar = motifUpper[j];
-                char seqChar = seq[i + j];
-
-                matches = motifChar switch
-                {
-                    'A' or 'T' or 'G' or 'C' => motifChar == seqChar,
-                    'R' => seqChar == 'A' || seqChar == 'G',
-                    'Y' => seqChar == 'C' || seqChar == 'T',
-                    'S' => seqChar == 'G' || seqChar == 'C',
-                    'W' => seqChar == 'A' || seqChar == 'T',
-                    'K' => seqChar == 'G' || seqChar == 'T',
-                    'M' => seqChar == 'A' || seqChar == 'C',
-                    'B' => seqChar is 'C' or 'G' or 'T',
-                    'D' => seqChar is 'A' or 'G' or 'T',
-                    'H' => seqChar is 'A' or 'C' or 'T',
-                    'V' => seqChar is 'A' or 'C' or 'G',
-                    'N' => seqChar is 'A' or 'C' or 'G' or 'T',
-                    _ => throw new ArgumentException(
-                        $"Invalid IUPAC code '{motifChar}' in motif pattern. Valid codes: A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V.",
-                        nameof(motif))
-                };
-            }
+                matches = IupacHelper.MatchesIupac(seq[i + j], motifUpper[j]);
 
             if (matches)
             {
