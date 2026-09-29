@@ -173,4 +173,149 @@ public class MotifFinder_DiscoverMotifs_Tests
     }
 
     #endregion
+
+    #region DiscoverMotifs — review 2026-09 (RSAT oligo-analysis Bernoulli model, numerics, canonical counting)
+
+    // Reference values: RSAT oligo-analysis (van Helden et al. 1998; perl-scripts/oligo-analysis,
+    // raw.githubusercontent.com/rsa-tools/rsat-code): exp_freq = prod residue_proba (Bernoulli) or
+    // 1/4^k (equiprobable), exp_occ = exp_freq * sum_occurrences (overlapping windows, N-k+1),
+    // ratio = occ / exp_occ — recomputed with exact Python Fractions (scratch ref_discover.py).
+
+    private static readonly double[] RsatBackground = { 0.3, 0.2, 0.2, 0.3 };
+
+    // Deterministic 512-mer (LCG x = (1103515245x + 12345) mod 2^31, base = "ACGT"[(x >> 16) & 3], x0 = 1).
+    private static string Lcg512Mer()
+    {
+        var sb = new System.Text.StringBuilder(512);
+        long x = 1;
+        for (int i = 0; i < 512; i++)
+        {
+            x = (x * 1103515245 + 12345) % 2147483648L;
+            sb.Append("ACGT"[(int)((x >> 16) & 3)]);
+        }
+        return sb.ToString();
+    }
+
+    [Test]
+    public void DiscoverMotifs_BernoulliBackground_EqualsRsatRatio()
+    {
+        var motifs = MotifFinder.DiscoverMotifs(new DnaSequence("ATGCATGCATGC"), 4, 2, RsatBackground)
+            .ToDictionary(m => m.Sequence);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(motifs.Keys, Is.EquivalentTo(new[] { "ATGC", "TGCA", "GCAT", "CATG" }));
+            // ATGC: p = .3*.3*.2*.2 = 0.0036, E = 9*0.0036 = 0.0324, 3/0.0324
+            Assert.That(motifs["ATGC"].Enrichment, Is.EqualTo(92.5925925925926).Within(1e-12));
+            Assert.That(motifs["ATGC"].Positions, Is.EqualTo(new[] { 0, 4, 8 }));
+            // TGCA/GCAT/CATG: count 2, E = 0.0324 -> 2/0.0324
+            Assert.That(motifs["TGCA"].Enrichment, Is.EqualTo(61.72839506172839).Within(1e-12));
+            Assert.That(motifs["GCAT"].Enrichment, Is.EqualTo(61.72839506172839).Within(1e-12));
+            Assert.That(motifs["CATG"].Enrichment, Is.EqualTo(61.72839506172839).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void DiscoverMotifs_BernoulliBackground_IsNormalisedAndHomopolymerMatchesRsat()
+    {
+        // Unnormalised (3,2,2,3) == (0.3,0.2,0.2,0.3); AAA in A10: 8 / (8 * 0.3^3) = 37.037037...
+        var raw = MotifFinder.DiscoverMotifs(new DnaSequence("ATGCATGCATGC"), 4, 2, new double[] { 3, 2, 2, 3 })
+            .Single(m => m.Sequence == "ATGC");
+        var aaa = MotifFinder.DiscoverMotifs(new DnaSequence("AAAAAAAAAA"), 3, 1, RsatBackground).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raw.Enrichment, Is.EqualTo(92.5925925925926).Within(1e-12));
+            Assert.That(aaa.Enrichment, Is.EqualTo(37.03703703703704).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void DiscoverMotifs_UniformBackgroundOverload_EqualsDefaultExactly()
+    {
+        var rng = new Random(20260929);
+        for (int trial = 0; trial < 50; trial++)
+        {
+            var chars = new char[rng.Next(1, 200)];
+            for (int i = 0; i < chars.Length; i++) chars[i] = "ACGT"[rng.Next(4)];
+            var dna = new DnaSequence(new string(chars));
+            int k = rng.Next(1, 7);
+
+            var a = MotifFinder.DiscoverMotifs(dna, k, 1).ToList();
+            var b = MotifFinder.DiscoverMotifs(dna, k, 1, new[] { 1.0, 1.0, 1.0, 1.0 }).ToList();
+
+            Assert.That(b.Select(m => (m.Sequence, m.Count, m.Enrichment)),
+                Is.EqualTo(a.Select(m => (m.Sequence, m.Count, m.Enrichment))));
+        }
+    }
+
+    [Test]
+    public void DiscoverMotifs_InvalidBackground_Throws()
+    {
+        var dna = new DnaSequence("ACGTACGT");
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => MotifFinder.DiscoverMotifs(dna, 2, 1, null!),
+                NUnit.Framework.Throws.ArgumentNullException);
+            Assert.That(() => MotifFinder.DiscoverMotifs(dna, 2, 1, new[] { 0.5, 0.5, 0.0 }),
+                NUnit.Framework.Throws.ArgumentException);
+            Assert.That(() => MotifFinder.DiscoverMotifs(dna, 2, 1, new[] { 0.5, 0.5, 0.0, 0.0 }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => MotifFinder.DiscoverMotifs(dna, 2, 1, new[] { 0.25, double.NaN, 0.25, 0.25 }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => MotifFinder.DiscoverMotifs(dna, 0, 1, new[] { 0.25, 0.25, 0.25, 0.25 }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    // 4^512 = 2^1024 overflows a double, so the former E = (N-k+1)/Math.Pow(4,k) became 0 and the
+    // enrichment +Infinity, although the true ratio 2*4^512/513 = 7.008550233381348e+305 is finite.
+    [Test]
+    public void DiscoverMotifs_LongK_FiniteRatioDoesNotOverflow()
+    {
+        string x = Lcg512Mer();
+        var dna = new DnaSequence(x + x);
+
+        var uniform = MotifFinder.DiscoverMotifs(dna, 512, 2).Single();
+        var bernoulli = MotifFinder.DiscoverMotifs(dna, 512, 2, new double[] { 26, 24, 24, 26 }).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(uniform.Sequence, Is.EqualTo(x));
+            Assert.That(uniform.Positions, Is.EqualTo(new[] { 0, 512 }));
+            Assert.That(double.IsFinite(uniform.Enrichment), Is.True);
+            Assert.That(uniform.Enrichment / 7.008550233381348e+305, Is.EqualTo(1.0).Within(1e-14));
+            Assert.That(double.IsFinite(bernoulli.Enrichment), Is.True);
+            Assert.That(bernoulli.Enrichment / 3.2383751592973165e+306, Is.EqualTo(1.0).Within(1e-12));
+        });
+    }
+
+    // Counts equal the canonical k-mer counter; positions ascending; order = first occurrence.
+    [Test]
+    public void DiscoverMotifs_CountsEqualCanonicalCounter_PositionsAscending_FirstOccurrenceOrder()
+    {
+        var ordered = MotifFinder.DiscoverMotifs(new DnaSequence("ACGTACGTAA"), 4, 1).Select(m => m.Sequence);
+        Assert.That(ordered, Is.EqualTo(new[] { "ACGT", "CGTA", "GTAC", "TACG", "GTAA" }));
+
+        var rng = new Random(7);
+        for (int trial = 0; trial < 30; trial++)
+        {
+            var chars = new char[rng.Next(1, 300)];
+            for (int i = 0; i < chars.Length; i++) chars[i] = "ACGT"[rng.Next(4)];
+            string s = new(chars);
+            int k = rng.Next(1, 6);
+
+            var motifs = MotifFinder.DiscoverMotifs(new DnaSequence(s), k, 1).ToList();
+            var canonical = KmerAnalyzer.CountKmers(s, k);
+
+            Assert.That(motifs.ToDictionary(m => m.Sequence, m => m.Count), Is.EquivalentTo(canonical));
+            foreach (var m in motifs)
+            {
+                Assert.That(m.Positions, Is.Ordered.Ascending);
+                Assert.That(m.Positions.All(p => s.Substring(p, k) == m.Sequence), Is.True);
+            }
+        }
+    }
+
+    #endregion
 }

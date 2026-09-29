@@ -21,6 +21,20 @@
 3. **Expected count (t = 1):** For a single expected occurrence the binomial `( N−(k−1) | 1 ) = N−k+1`, so the expected number of occurrences of a specific k-mer is `(N − k + 1) / 4^k`: the number of length-k windows `N − k + 1` divided by the number `4^k` of distinct DNA k-mers.
 4. **Worked example:** Retrieved text: `Pr(1000, 4, 9, 1)·500 ≈ 1.9` — a random 9-mer is expected ≈ 2 times across 500 sequences of length 1000.
 
+### RSAT oligo-analysis source (review 2026-09-29)
+
+**URL:** https://raw.githubusercontent.com/rsa-tools/rsat-code/master/perl-scripts/oligo-analysis, `perl-scripts/lib/RSA.disco.lib`, `perl-scripts/lib/RSAT/stats.pm` (opened with curl, 2026-09-29)
+**Authority rank:** 1 (original code of van Helden, André & Collado-Vides 1998, J Mol Biol 281:827)
+
+**Key Extracted Points:**
+
+1. Equiprobable model: `$common_exp_freq = 1/($alphabet_size**$oligo_length)`.
+2. Bernoulli model: `exp_freq = 1; foreach residue: exp_freq *= $residue_proba{$nt}`.
+3. `exp_occ = exp_freq * $sum_occurrences`, where `sum_occurrences = sum_overlaps + sum_noov` (all overlapping windows = N − k + 1 for one strand).
+4. Significance (not implemented, declared): `occ_P = sum_of_binomials(exp_freq, sum_occurrences, occ, sum_occurrences)`; `occ_E = occ_P × nb_tested_patterns`; `occ_sig = −log10(occ_E)`.
+
+Reference values (exact Python `Fraction` re-computation of the RSAT formulas): uniform "ATGCATGCATGC", k=4 → ATGC 85.33333333333333; Bernoulli (0.3,0.2,0.2,0.3) → ATGC 92.5925925925926, TGCA/GCAT/CATG 61.72839506172839; "A"×10, k=3 → 37.03703703703704; LCG 512-mer X, X+X, k=512 → 7.008550233381348e+305 (uniform), 3.2383751592973165e+306 (bg 26/24/24/26).
+
 ### O/E ratio confirmation (search corroboration)
 
 **URL:** WebSearch query "expected number of occurrences k-mer in random sequence overrepresented motif observed expected ratio formula" (2026-06-14); top results include monaLisa `getKmerFreq` and the PeerJ supplemental "Ratio of Observed and Expected k-mer counts".
@@ -102,3 +116,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-29**: RSAT oligo-analysis source + Bernoulli-background and long-k reference values (review 2026-09, B05).

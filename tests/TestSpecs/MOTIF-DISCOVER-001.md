@@ -5,7 +5,7 @@
 **Algorithm:** Motif Discovery via Overrepresented k-mers (observed/expected enrichment)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-29
 
 ---
 
@@ -17,6 +17,7 @@
 |---|--------|---------------|------------|----------|
 | 1 | Compeau & Pevzner, *Bioinformatics Algorithms*, expected k-mer occurrences | 1 | https://github.com/wikiselev/bioinformatics-algorithms/wiki/Kmer-expected-number-of-occurrences-in-a-DNA-string | 2026-06-14 |
 | 2 | monaLisa `getKmerFreq` (O/E ratio, log2 enrichment) | 3 | https://fmicompbio.github.io/monaLisa/reference/getKmerFreq.html | 2026-06-14 |
+| 3 | RSAT oligo-analysis (van Helden et al. 1998, J Mol Biol 281:827) — Bernoulli expected frequency, ratio | 1 | https://raw.githubusercontent.com/rsa-tools/rsat-code/master/perl-scripts/oligo-analysis | 2026-09-29 |
 
 ### 1.2 Key Evidence Points
 
@@ -40,6 +41,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `DiscoverMotifs(DnaSequence sequence, int k = 6, int minCount = 2)` | MotifFinder | Canonical | Returns `DiscoveredMotif` records (Sequence, Count, Positions, Enrichment) |
+| `DiscoverMotifs(DnaSequence, int k, int minCount, IReadOnlyList<double> background)` | MotifFinder | Overload | Bernoulli background (RSAT); uniform background ≡ default |
+| MCP `discover_motifs` | AnalysisTools | Wrapper | delegates to the default overload |
 
 ---
 
@@ -162,3 +165,14 @@
 ## 7. Open Questions / Decisions
 
 1. The checklist signature reads `DiscoverMotifs(sequences, k)`, but the registered Type is "Overrepresented k-mers" and the implemented canonical method operates on a single `DnaSequence` (per-sequence k-mer overrepresentation). The single-sequence overrepresentation method is the canonical one; the cross-sequence variant is the separate unit MOTIF-SHARED-001 (`FindSharedMotifs`). External evidence (Compeau & Pevzner expected-count formula) defines the single-sequence statistic, so testing targets `DiscoverMotifs(DnaSequence, k, minCount)`.
+
+## 8. Review 2026-09 additions (B05)
+
+| ID | Test | Expected | Evidence |
+|----|------|----------|----------|
+| R1 | Bernoulli background A.3/C.2/G.2/T.3, "ATGCATGCATGC", k=4 | ATGC 92.5925925925926, TGCA/GCAT/CATG 61.72839506172839 | RSAT exp_occ = ∏q · (N−k+1); Python Fractions |
+| R2 | Unnormalised background (3,2,2,3); "A"×10, k=3 | ATGC 92.5926; AAA 37.03703703703704 | normalisation as CreatePwm; RSAT |
+| R3 | Background (1,1,1,1) overload | identical (Sequence, Count, Enrichment) to default, 50 random cases | RSAT equiprobable ≡ Bernoulli ¼ |
+| R4 | Invalid background (null, 3 values, zero, NaN) | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+| R5 | X+X, X = LCG 512-mer, k=512 | count 2, positions {0,512}, enrichment 7.008550233381348e+305 (finite; was +∞); bg (26,24,24,26) → 3.2383751592973165e+306 | exact Fractions |
+| R6 | Counts vs `KmerAnalyzer.CountKmers`; positions ascending; first-occurrence order | equal; ascending; ACGT,CGTA,GTAC,TACG,GTAA | canonical counter |

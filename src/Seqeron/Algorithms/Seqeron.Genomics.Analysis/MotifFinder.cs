@@ -505,12 +505,6 @@ public static class MotifFinder
     #region Motif Discovery
 
     /// <summary>
-    /// Size of the DNA nucleotide alphabet {A, C, G, T}; the base of the
-    /// 4^k count of distinct k-mers used in the expected-occurrence formula.
-    /// </summary>
-    private const int DnaAlphabetSize = 4;
-
-    /// <summary>
     /// Discovers overrepresented k-mers that may represent motifs.
     /// </summary>
     /// <remarks>
@@ -521,7 +515,11 @@ public static class MotifFinder
     /// <i>Bioinformatics Algorithms: An Active Learning Approach</i>; the (N − k + 1) factor
     /// is the number of length-k windows and 4^k is the number of distinct k-mers). The
     /// <see cref="DiscoveredMotif.Enrichment"/> field is the observed count divided by E, so a
-    /// value &gt; 1 means the k-mer occurs more often than chance predicts.
+    /// value &gt; 1 means the k-mer occurs more often than chance predicts. This is the
+    /// "equiprobable" model of RSAT <c>oligo-analysis</c> (van Helden et al. 1998); use
+    /// <see cref="DiscoverMotifs(DnaSequence, int, int, IReadOnlyList{double})"/> for a
+    /// non-uniform (Bernoulli) background. Occurrences overlap (every window is counted).
+    /// Results are yielded in order of each k-mer's first occurrence.
     /// </remarks>
     /// <param name="sequence">DNA sequence to analyze.</param>
     /// <param name="k">K-mer length (default: 6).</param>
@@ -534,47 +532,119 @@ public static class MotifFinder
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
-        return DiscoverMotifsCore(sequence, k, minCount);
+        return DiscoverMotifsCore(sequence, k, minCount, UniformBackground);
     }
 
-    private static IEnumerable<DiscoveredMotif> DiscoverMotifsCore(DnaSequence sequence, int k, int minCount)
+    /// <summary>
+    /// Discovers overrepresented k-mers against a Bernoulli (independent, non-uniform nucleotide)
+    /// background model.
+    /// </summary>
+    /// <remarks>
+    /// RSAT <c>oligo-analysis</c> Bernoulli model (van Helden, André &amp; Collado-Vides 1998,
+    /// J Mol Biol 281:827): the expected frequency of a word w = w₁…w_k is the product of its
+    /// residue probabilities, p(w) = ∏ q[w_i], and its expected number of occurrences is
+    /// E = p(w) · (N − k + 1) (the number of overlapping length-k windows). Enrichment = Count / E
+    /// (RSAT "ratio" column). With q = (¼, ¼, ¼, ¼) this equals
+    /// <see cref="DiscoverMotifs(DnaSequence, int, int)"/> exactly. The ratio is evaluated with
+    /// exact power-of-two rescaling, so it stays finite whenever the true value is representable
+    /// (the product p(w) itself underflows for long k).
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to analyze.</param>
+    /// <param name="k">K-mer length (≥ 1).</param>
+    /// <param name="minCount">Minimum occurrence count for a k-mer to be returned.</param>
+    /// <param name="background">
+    /// Background residue probabilities in the order A, C, G, T (4 finite, strictly positive
+    /// values; normalised to sum 1, as for <see cref="CreatePwm(IEnumerable{string}, double, IReadOnlyList{double})"/>).
+    /// </param>
+    /// <returns>Overrepresented k-mers with their counts, positions, and O/E enrichment.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="background"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> &lt; 1, or a background value is not finite and positive.</exception>
+    /// <exception cref="ArgumentException"><paramref name="background"/> does not have exactly 4 values.</exception>
+    public static IEnumerable<DiscoveredMotif> DiscoverMotifs(
+        DnaSequence sequence,
+        int k,
+        int minCount,
+        IReadOnlyList<double> background)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(background);
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+        return DiscoverMotifsCore(sequence, k, minCount, NormalizeBackground(background));
+    }
 
+    private static IEnumerable<DiscoveredMotif> DiscoverMotifsCore(
+        DnaSequence sequence, int k, int minCount, double[] background)
+    {
         string seq = sequence.Sequence;
-        var kmerPositions = new Dictionary<string, List<int>>();
+        Dictionary<string, List<int>> kmerPositions = CollectKmerPositions(seq, k, minCount);
 
-        // Count k-mers at every length-k window (0-based start positions).
-        for (int i = 0; i <= seq.Length - k; i++)
-        {
-            string kmer = seq.Substring(i, k);
-
-            if (!kmerPositions.ContainsKey(kmer))
-                kmerPositions[kmer] = new List<int>();
-
-            kmerPositions[kmer].Add(i);
-        }
-
-        // Expected occurrences of a specific k-mer under the i.i.d. uniform background:
-        // E = (N - k + 1) / 4^k  (Compeau & Pevzner, Bioinformatics Algorithms).
-        // windowCount = N - k + 1 is the number of length-k windows; it is >= 1 whenever
-        // at least one k-mer was counted, so E is strictly positive here.
+        // Number of overlapping length-k windows, N − k + 1 (≥ 1 whenever a k-mer was counted).
         double windowCount = seq.Length - k + 1.0;
-        double expectedCount = windowCount / Math.Pow(DnaAlphabetSize, k);
 
-        // Return overrepresented k-mers with their observed/expected (O/E) ratio.
         foreach (var (kmer, positions) in kmerPositions)
         {
-            if (positions.Count >= minCount)
-            {
-                double enrichment = positions.Count / expectedCount;
+            yield return new DiscoveredMotif(
+                Sequence: kmer,
+                Count: positions.Count,
+                Positions: positions.AsReadOnly(),
+                Enrichment: ObservedOverExpected(positions.Count, windowCount, kmer, background));
+        }
+    }
 
-                yield return new DiscoveredMotif(
-                    Sequence: kmer,
-                    Count: positions.Count,
-                    Positions: positions.AsReadOnly(),
-                    Enrichment: enrichment);
+    /// <summary>
+    /// Overlapping k-mer counts via the canonical <see cref="SequenceExtensions.CountKmersSpan"/>,
+    /// then 0-based start positions (ascending) collected only for k-mers with count ≥
+    /// <paramref name="minCount"/>. Insertion order = order of first occurrence.
+    /// </summary>
+    private static Dictionary<string, List<int>> CollectKmerPositions(string seq, int k, int minCount)
+    {
+        Dictionary<string, int> counts = seq.AsSpan().CountKmersSpan(k);
+
+        var positions = new Dictionary<string, List<int>>();
+        foreach (var (kmer, count) in counts)
+        {
+            if (count >= minCount)
+                positions.Add(kmer, new List<int>(count));
+        }
+
+        if (positions.Count == 0)
+            return positions;
+
+        var lookup = positions.GetAlternateLookup<ReadOnlySpan<char>>();
+        for (int i = 0; i <= seq.Length - k; i++)
+        {
+            if (lookup.TryGetValue(seq.AsSpan(i, k), out var list))
+                list.Add(i);
+        }
+
+        return positions;
+    }
+
+    // 2^-500: threshold/scale for renormalising the running product of residue probabilities.
+    private const int ProbabilityRescaleExponent = 500;
+    private static readonly double ProbabilityRescaleThreshold = Math.ScaleB(1.0, -ProbabilityRescaleExponent);
+
+    /// <summary>
+    /// O/E ratio Count / (W · ∏ q[w_i]) for an upper-case ACGT word. The product is kept as
+    /// mantissa · 2^exponent (exact power-of-two rescaling), so a product that would underflow
+    /// (e.g. 4^-k for k ≥ 512) does not turn a finite ratio into +∞. For q = ¼ every step is
+    /// exact, giving the correctly rounded Count · 4^k / W.
+    /// </summary>
+    private static double ObservedOverExpected(int count, double windowCount, string kmer, double[] background)
+    {
+        double mantissa = 1.0;
+        int exponent = 0;
+        foreach (char c in kmer)
+        {
+            mantissa *= background[AcgtIndex(c)];
+            if (mantissa < ProbabilityRescaleThreshold)
+            {
+                mantissa = Math.ScaleB(mantissa, ProbabilityRescaleExponent);
+                exponent -= ProbabilityRescaleExponent;
             }
         }
+
+        return Math.ScaleB(count / (windowCount * mantissa), -exponent);
     }
 
     // Default oligonucleotide (word) length for shared-motif enumeration. RSAT oligo-analysis
