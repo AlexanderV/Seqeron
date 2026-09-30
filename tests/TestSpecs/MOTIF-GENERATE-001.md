@@ -5,7 +5,7 @@
 **Algorithm:** IUPAC-Degenerate Consensus Generation (`MotifFinder.GenerateConsensus`)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-30 (review-2026-09 B05 F13)
 
 ---
 
@@ -19,6 +19,8 @@
 | 2 | UCSC Genome Browser — IUPAC ambiguity codes | 5 | https://genome.ucsc.edu/goldenPath/help/iupac.html | 2026-06-14 |
 | 3 | Wikipedia — Nucleic acid notation (Table 1, cites NC-IUB 1984) | 4 | https://en.wikipedia.org/wiki/Nucleic_acid_notation | 2026-06-14 |
 | 4 | DECIPHER `ConsensusSequence` (Bioconductor) | 3 | https://rdrr.io/bioc/DECIPHER/man/ConsensusSequence.html | 2026-06-14 |
+| 5 | Cavener D.R. (1987) NAR 15(4):1353 — degenerate consensus rules | 1 | PMID 3822832 (WebSearch snippet) | 2026-09-30 |
+| 6 | Biopython 1.88 `Bio.motifs` `degenerate_consensus` (installed source) + Tutorial chapter_motifs.rst | 3 | raw.githubusercontent.com/biopython/biopython/master/Doc/Tutorial/chapter_motifs.rst | 2026-09-30 |
 
 ### 1.2 Key Evidence Points
 
@@ -36,7 +38,7 @@
 ### 1.4 Known Failure Modes / Pitfalls
 
 1. Treating a base at exactly the threshold as included — boundary is strict `>`, so exactly-25 % bases are excluded (this implementation).
-2. Emitting N for four-equal columns — under strict `>` 25 % no base passes, so the fallback most-frequent base is emitted, not N (implementation contract; see §6).
+2. Four-equal columns — no base passes strict `>` 25 %; all four tie at the maximum → `N` (DECIPHER equal-abundance rule [4]; Biopython `degenerate_consensus` = N [6]). Before F13 (2026-09) this returned `A`.
 
 ---
 
@@ -82,7 +84,11 @@
 | M12 | MultiColumn_MixedCodes | `["ATGC","GTGC"]` col0={A,G}→R, rest unanimous | `"RTGC"` | NC-IUB [1] |
 | M13 | ThresholdBoundary_Exactly25Excluded | `["AAAA","AAGT","AACT","AATT"]` col3 T(2)>1.0, others ≤1.0 | col3 = `'T'` | INV-5 (design constant) |
 | M14 | MinorityBelowThreshold_Dropped | `["AAGGC"]→` split as A,A,G,G,C col; C(1)≤1.25 dropped | `"R"` | DECIPHER threshold [4] |
-| M15 | NoBasePasses_FallbackMostFrequent | `["A","C","G","T"]` none >1.0 → most-frequent, tie→A | `"A"` | implementation contract §6 |
+| M13′ | (M13 col2) | four-way tie column | `'N'` → full `"AANT"` | [4][6] (F13) |
+| M15 | FourEqualBases_ReturnsN | `["A","C","G","T"]` none >1.0, four-way tie | `"N"` | DECIPHER [4], Biopython [6] (F13) |
+| M16 | NoBasePasses_TiedBasesEncoded | `["A","C","-","-"]` → `"M"`; `["A","-","-","-"]` → `"A"` | tied-max set | [4] (F13) |
+| M17 | ColumnWithoutAcgt_ReturnsN | `["A-","AN","A-"]` | `"AN"` | NC-IUB N = any [1] (F13) |
+| M18 | Cavener_EqualsBiopython | 23 alignments (tutorial WACVC, GBGTW, CV; rule branches; 12 random) via `GenerateCavenerConsensus` | Biopython values | [5][6] |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -97,6 +103,9 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Null_Throws | null collection | `ArgumentNullException` | guard |
+| C2 | NullElement_Throws | null row | `ArgumentException` | F13 (was NRE) |
+| C3 | UnequalLengths_Throws | `["ACG","AC"]`, `["AC","ACG"]` | `ArgumentException` | Biopython MSA (F13; was silently truncated) |
+| C4 | Cavener_InvalidInput | null / null row / unequal / gap | ANE / AE | shared `BuildCountMatrix` |
 
 ---
 
@@ -174,8 +183,8 @@ All in-scope cases ✅. Count of ✅ = total in-scope cases.
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | 25 % strict-`>` inclusion threshold is a documented design constant (threshold-consensus family is authoritative; exact 25 % is implementation-specific) | M13, M14, M15, INV-5 |
-| 2 | Fallback to single most-frequent base (alphabetical tie-break) when no base passes the threshold | M15 |
-| 3 | Length from first sequence; case-insensitive; non-ACGT ignored | INV-1, S1 |
+| 2 | (resolved F13) no-pass → IUPAC code of bases tied at the maximum; no A/C/G/T → N | M15–M17 |
+| 3 | Equal-length rows required; case-insensitive; non-ACGT not counted but counted in n | INV-1, S1, C3 |
 
 ---
 

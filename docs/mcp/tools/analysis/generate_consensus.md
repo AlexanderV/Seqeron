@@ -18,11 +18,13 @@ Builds an **IUPAC consensus** from aligned, equal-length DNA sequences. At each
 column, every base whose count strictly exceeds 25% of the sequence count is included,
 and the set of included bases is mapped to its IUPAC ambiguity code (e.g. {A,T} → W,
 {A,G} → R). A unanimous column yields the single base. Ties among "present" bases are
-resolved by the IUPAC code for the whole set.
+resolved by the IUPAC code for the whole set. When no base exceeds 25% (e.g. four
+equally frequent bases), the column is the IUPAC code of the bases tied at the maximum
+count (four-way tie ⇒ `N`); a column with no A/C/G/T (only gaps/`N`) ⇒ `N`.
 
 ## Core Documentation Reference
 
-- Source: [MotifFinder.cs#L339](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L339)
+- Source: [MotifFinder.cs#L413](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L413)
 
 ## Input Schema
 
@@ -41,6 +43,8 @@ resolved by the IUPAC code for the whole set.
 | Code | Message |
 |------|---------|
 | 1001 | At least one sequence is required |
+| — | Sequences cannot contain null elements (ArgumentException) |
+| — | All sequences must have the same length (ArgumentException) |
 
 ## Examples
 

@@ -29,4 +29,12 @@ public class GenerateConsensusTests
         var amb = AnalysisTools.GenerateConsensus(new[] { "AAAA", "TTTT" }).Consensus;
         Assert.That(amb, Is.EqualTo("WWWW"));
     }
+
+    [Test]
+    public void GenerateConsensus_FourWayTie_ReturnsN_UnequalLengthsRejected()
+    {
+        // Four equally abundant bases → N (Biopython degenerate_consensus / DECIPHER equal-abundance rule).
+        Assert.That(AnalysisTools.GenerateConsensus(new[] { "A", "C", "G", "T" }).Consensus, Is.EqualTo("N"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.GenerateConsensus(new[] { "ACG", "AC" }));
+    }
 }

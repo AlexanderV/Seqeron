@@ -4,7 +4,8 @@
 // Source: Cornish-Bowden A. (1985). Nomenclature for incompletely specified bases in nucleic
 //         acid sequences: recommendations 1984. Nucleic Acids Research 13(9):3021. DOI 10.1093/nar/13.9.3021.
 //         UCSC IUPAC ambiguity codes; Wikipedia "Nucleic acid notation" (NC-IUB 1984 table);
-//         DECIPHER ConsensusSequence (threshold-consensus mechanism).
+//         DECIPHER ConsensusSequence (threshold-consensus family, equal-abundance rule);
+//         Cavener 1987 NAR 15(4):1353 via Biopython 1.88 Bio.motifs degenerate_consensus.
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
@@ -129,8 +130,8 @@ public class MotifFinder_GenerateConsensus_Tests
     }
 
     // M13 — Strict 25% boundary (INV-05): a base at exactly the threshold is excluded.
-    // n=4, threshold=1.0. col0/col1: A=4 → 'A'. col2: A=C=G=T=1, none >1.0 → fallback most-frequent
-    // (alphabetical tie → 'A'). col3: A=1,G=1,T=2 → only T(2)>1.0 → singleton {T} → 'T'.
+    // n=4, threshold=1.0. col0/col1: A=4 → 'A'. col2: A=C=G=T=1, none >1.0 → all four tie at the
+    // maximum → N (F13; Biopython degenerate_consensus of these rows is also "AANT"). col3: A=1,G=1,T=2 → only T(2)>1.0 → singleton {T} → 'T'.
     [Test]
     public void GenerateConsensus_ExactlyQuarterBoundary_ExcludesBaseAtThreshold()
     {
@@ -141,9 +142,9 @@ public class MotifFinder_GenerateConsensus_Tests
                 "One IUPAC symbol per column (INV-01).");
             Assert.That(consensus[0], Is.EqualTo('A'), "Column 0 is all A.");
             Assert.That(consensus[1], Is.EqualTo('A'), "Column 1 is all A.");
-            Assert.That(consensus[2], Is.EqualTo('A'),
+            Assert.That(consensus[2], Is.EqualTo('N'),
                 "Column 2 has four bases each at exactly 25% (count 1 = threshold 1.0); strict '>' " +
-                "excludes all, so the fallback picks the most-frequent base (alphabetical tie → A).");
+                "excludes all, and the four equally abundant bases are encoded as N.");
             Assert.That(consensus[3], Is.EqualTo('T'),
                 "Column 3: only T (count 2 > threshold 1.0) passes; A and G at exactly 25% are dropped.");
         });
@@ -159,15 +160,39 @@ public class MotifFinder_GenerateConsensus_Tests
             "C (count 1 ≤ threshold 1.25) is below 25% and dropped; surviving {A,G} → R, not B/V.");
     }
 
-    // M15 — No base passes the threshold → fallback to single most-frequent base (alphabetical tie).
-    // n=4, threshold=1.0; each base count=1, none >1.0 → fallback → 'A' (not 'N').
+    // M15 — No base passes the threshold → IUPAC code of the bases tied at the maximum count.
+    // n=4, threshold=1.0; each base count=1, none >1.0; all four equally abundant → N.
+    // Sources: DECIPHER ConsensusSequence ("degeneracy codes are always used in cases where multiple
+    // characters are equally abundant"); Biopython 1.88 degenerate_consensus(["A","C","G","T"]) = "N".
+    // Before F13 the method returned 'A' — a base with no more support than C, G or T.
     [Test]
-    public void GenerateConsensus_FourEqualBases_FallbackToA_NotN()
+    public void GenerateConsensus_FourEqualBases_ReturnsN()
     {
         var consensus = MotifFinder.GenerateConsensus(new[] { "A", "C", "G", "T" });
-        Assert.That(consensus, Is.EqualTo("A"),
-            "Four bases each at exactly 25%; strict '>' lets none pass, so the most-frequent " +
-            "fallback (alphabetical tie) returns 'A', never the four-base symbol N.");
+        Assert.That(consensus, Is.EqualTo("N"),
+            "Four equally abundant bases (none > 25%) are encoded as N, not an arbitrary 'A'.");
+    }
+
+    // M16 — Gap-diluted tie: n=4, threshold=1.0; A=1, C=1, two gaps → no base passes; A and C tie
+    // at the maximum → {A,C} = M (was 'A' before F13). A single observed base → that base.
+    [Test]
+    public void GenerateConsensus_NoBasePasses_TiedBasesEncoded()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "C", "-", "-" }), Is.EqualTo("M"),
+                "A and C equally abundant, none > 25% → M.");
+            Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "-", "-", "-" }), Is.EqualTo("A"),
+                "Only A observed → A.");
+        });
+    }
+
+    // M17 — A column without any A/C/G/T (gaps / N) is unknown → N (was 'A' before F13).
+    [Test]
+    public void GenerateConsensus_ColumnWithoutAcgt_ReturnsN()
+    {
+        Assert.That(MotifFinder.GenerateConsensus(new[] { "A-", "AN", "A-" }), Is.EqualTo("AN"),
+            "Column 1 has no A/C/G/T → N (any base, NC-IUB 1984), never a fabricated 'A'.");
     }
 
     #endregion
@@ -205,6 +230,23 @@ public class MotifFinder_GenerateConsensus_Tests
 
     #region GenerateConsensus — COULD (guards)
 
+    // F13 — a null row threw NullReferenceException; unequal rows were silently truncated/padded.
+    [Test]
+    public void GenerateConsensus_NullElement_ThrowsArgumentException()
+    {
+        Assert.That(() => MotifFinder.GenerateConsensus(new[] { "ACGT", null!, "ACGT" }),
+            NUnit.Framework.Throws.TypeOf<ArgumentException>());
+    }
+
+    // Biopython MultipleSeqAlignment / motifs.create reject rows of unequal length.
+    [TestCase("ACG", "AC")]
+    [TestCase("AC", "ACG")]
+    public void GenerateConsensus_UnequalLengths_ThrowsArgumentException(string a, string b)
+    {
+        Assert.That(() => MotifFinder.GenerateConsensus(new[] { a, b }),
+            NUnit.Framework.Throws.TypeOf<ArgumentException>());
+    }
+
     // C1 — Null collection throws ArgumentNullException (documented guard).
     [Test]
     public void GenerateConsensus_Null_ThrowsArgumentNullException()
@@ -212,6 +254,80 @@ public class MotifFinder_GenerateConsensus_Tests
         Assert.That(() => MotifFinder.GenerateConsensus(null!),
             NUnit.Framework.Throws.TypeOf<ArgumentNullException>(),
             "A null sequence collection is rejected with ArgumentNullException.");
+    }
+
+    #endregion
+
+    #region GenerateCavenerConsensus — Cavener 1987 / TRANSFAC / Biopython degenerate_consensus
+
+    // Expected values computed with Biopython 1.88 Bio.motifs.create(rows).degenerate_consensus
+    // (Cavener 1987, NAR 15(4):1353; rule text in Bio/motifs/matrix.py), not from this code.
+    private static IEnumerable<TestCaseData> CavenerBiopythonCases()
+    {
+        // Biopython Tutorial "Sequence motif analysis" — m.degenerate_consensus = WACVC.
+        yield return new TestCaseData(new[] { "TACAA", "TACGC", "TACAC", "TACCC", "AACCC", "AATGC", "AATGC" }, "WACVC")
+            .SetName("Cavener_BiopythonTutorial_WACVC");
+        // Tutorial reverse complement — r.degenerate_consensus = GBGTW.
+        yield return new TestCaseData(new[] { "TTGTA", "GCGTA", "GTGTA", "GGGTA", "GGGTT", "GCATT", "GCATT" }, "GBGTW")
+            .SetName("Cavener_BiopythonTutorialReverseComplement_GBGTW");
+        // Tutorial slice m[2:-1] — degenerate_consensus = CV.
+        yield return new TestCaseData(new[] { "CA", "CG", "CA", "CC", "CC", "TG", "TG" }, "CV")
+            .SetName("Cavener_BiopythonTutorialSlice_CV");
+        // Rule branches (single / pair / triple / N).
+        yield return new TestCaseData("AAAAAACCGT".Select(c => c.ToString()).ToArray(), "A").SetName("Cavener_Single_A6C2G1T1");
+        yield return new TestCaseData(new[] { "A", "A", "A", "C" }, "A").SetName("Cavener_Single_A3C1");
+        yield return new TestCaseData("AAAAACCCGT".Select(c => c.ToString()).ToArray(), "M").SetName("Cavener_Pair_A5C3_NotSingle");
+        yield return new TestCaseData(new[] { "A", "A", "G", "G" }, "R").SetName("Cavener_Pair_A2G2");
+        yield return new TestCaseData(new[] { "A", "C", "G" }, "V").SetName("Cavener_Triple_FourthAbsent");
+        yield return new TestCaseData(new[] { "A", "A", "C", "G", "T" }, "N").SetName("Cavener_N_A2CGT");
+        yield return new TestCaseData(new[] { "A", "C", "G", "T" }, "N").SetName("Cavener_N_FourEqual");
+        yield return new TestCaseData(new[] { "AAAA", "AAGT", "AACT", "AATT" }, "AANT").SetName("Cavener_M13Rows_AANT");
+        // Random alignments (seed 20260930), Biopython degenerate_consensus.
+        yield return new TestCaseData(new[] { "TGTATTC", "TGAATAG", "AAATTTT", "AAATCGA", "TGAAAGG", "AAACCGG", "AAATAAT", "AAGATTA", "GTGAGTA" }, "WRAWNKN");
+        yield return new TestCaseData(new[] { "ATTAGA", "ACTTGG" }, "AYTWGR");
+        yield return new TestCaseData(new[] { "TAGCT", "CAAAT", "GAGGC", "TTTTT", "GGTAG", "TCTTC", "TGATC", "ATAAT" }, "NNDNY");
+        yield return new TestCaseData(new[] { "GCGGGGGG", "CAGGGAGC" }, "SMGGGRGS");
+        yield return new TestCaseData(new[] { "CCCCGCAGC", "CCCCCCCCC", "GCCCCCCAC", "CCCCCCCCC" }, "CCCCCCCVC");
+        yield return new TestCaseData(new[] { "TCTTAA", "TTTTTT", "CTATTT", "CTTTTT", "TTATTA" }, "YTWTTW");
+        yield return new TestCaseData(new[] { "TTCTATATT", "AATAATGTT", "TACAAGTAT", "TTCTATTAT" }, "TWCWATDWT");
+        yield return new TestCaseData(new[] { "GGCTGAGGA", "TGGTCGGGG", "ACGGTTCAA", "CGAGTTAGG", "GCAGGCGAC", "GGCCGACAA" }, "NSVKKNSRR");
+        yield return new TestCaseData(new[] { "CAGAACTGT", "CGTAGATTA", "ATGGCACAT", "CGCGAAATG", "CGACGCAGA", "ATGAGGTCC", "CCAAGACAG", "TGCGAGCGC", "TCTGCCTAC" }, "CNNRRMYNN");
+        yield return new TestCaseData(new[] { "AAGGCAGTA", "GTGGGCGAA", "AAGATGAGA", "AGGAGGAGC", "GACAGAAGT", "AGCCAAACA", "ACGCTAGGA", "AGCAGAGGA", "GACCAGGGA" }, "RRSMNRRGA");
+        yield return new TestCaseData(new[] { "CGGT", "GCTG", "GTGC" }, "SBKB");
+        yield return new TestCaseData(new[] { "CCTTCCCC", "TCTTTCCC", "TCCTTTCC" }, "YCYTYYCC");
+    }
+
+    [TestCaseSource(nameof(CavenerBiopythonCases))]
+    public void GenerateCavenerConsensus_EqualsBiopythonDegenerateConsensus(string[] rows, string expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.GenerateCavenerConsensus(rows), Is.EqualTo(expected));
+            Assert.That(MotifFinder.GenerateCavenerConsensus(rows.Select(r => r.ToLowerInvariant())), Is.EqualTo(expected),
+                "case-insensitive");
+        });
+    }
+
+    [Test]
+    public void GenerateCavenerConsensus_Empty_ReturnsEmpty()
+    {
+        Assert.That(MotifFinder.GenerateCavenerConsensus(Array.Empty<string>()), Is.Empty);
+    }
+
+    [Test]
+    public void GenerateCavenerConsensus_InvalidInput_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => MotifFinder.GenerateCavenerConsensus(null!),
+                NUnit.Framework.Throws.TypeOf<ArgumentNullException>());
+            Assert.That(() => MotifFinder.GenerateCavenerConsensus(new[] { "ACGT", null! }),
+                NUnit.Framework.Throws.TypeOf<ArgumentException>());
+            Assert.That(() => MotifFinder.GenerateCavenerConsensus(new[] { "ACGT", "ACG" }),
+                NUnit.Framework.Throws.TypeOf<ArgumentException>());
+            Assert.That(() => MotifFinder.GenerateCavenerConsensus(new[] { "AC-T", "ACGT" }),
+                NUnit.Framework.Throws.TypeOf<ArgumentException>(), "gaps are not A/C/G/T");
+        });
     }
 
     #endregion

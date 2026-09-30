@@ -391,31 +391,130 @@ public static class MotifFinder
     #region Consensus Sequence
 
     /// <summary>
-    /// Generates a consensus sequence from aligned sequences.
+    /// Generates an IUPAC-degenerate consensus from aligned sequences with a per-base frequency
+    /// threshold: at each column the bases occurring in strictly more than 25 % of the sequences
+    /// are combined into their NC-IUB 1984 symbol (Cornish-Bowden, NAR 13(9):3021). When no base
+    /// passes the threshold, the column emits the IUPAC symbol for the set of bases sharing the
+    /// maximum count (DECIPHER <c>ConsensusSequence</c>: "degeneracy codes are always used in
+    /// cases where multiple characters are equally abundant"), so four equally frequent bases
+    /// give <c>N</c>; a column with no A/C/G/T at all gives <c>N</c> (any base).
     /// </summary>
+    /// <remarks>
+    /// The 25 % per-base cut is this library's design constant (see
+    /// <c>IupacInclusionThreshold</c>); it is not the Cavener (1987) / TRANSFAC / Biopython
+    /// <c>degenerate_consensus</c> rule — use <see cref="GenerateCavenerConsensus"/> for that.
+    /// Characters other than A/C/G/T (gaps, N, IUPAC codes) are not counted but still count
+    /// towards the number of sequences <c>n</c>. Case-insensitive.
+    /// </remarks>
     /// <param name="sequences">Aligned sequences of equal length.</param>
-    /// <returns>Consensus sequence using IUPAC codes.</returns>
+    /// <returns>Consensus sequence over the 15 IUPAC symbols; "" for an empty collection.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">A null element, or sequences of unequal length.</exception>
     public static string GenerateConsensus(IEnumerable<string> sequences)
     {
         ArgumentNullException.ThrowIfNull(sequences);
 
-        var seqList = sequences.Select(s => s.ToUpperInvariant()).ToList();
+        var seqList = new List<string>();
+        foreach (var s in sequences)
+        {
+            if (s is null)
+                throw new ArgumentException("Sequences cannot contain null elements.", nameof(sequences));
+            seqList.Add(s);
+        }
+
         if (seqList.Count == 0) return "";
 
         int length = seqList[0].Length;
+        for (int s = 1; s < seqList.Count; s++)
+        {
+            if (seqList[s].Length != length)
+                throw new ArgumentException("All sequences must have the same length.", nameof(sequences));
+        }
+
         var consensus = new StringBuilder(length);
+        var counts = new int[PwmAlphabetSize];
 
         for (int i = 0; i < length; i++)
         {
-            var counts = new Dictionary<char, int> { ['A'] = 0, ['C'] = 0, ['G'] = 0, ['T'] = 0 };
-
+            Array.Clear(counts);
             foreach (var seq in seqList)
             {
-                if (i < seq.Length && counts.TryGetValue(seq[i], out int value))
-                    counts[seq[i]] = ++value;
+                int baseIndex = AcgtIndex(char.ToUpperInvariant(seq[i]));
+                if (baseIndex >= 0)
+                    counts[baseIndex]++;
             }
 
             consensus.Append(GetIupacCode(counts, seqList.Count));
+        }
+
+        return consensus.ToString();
+    }
+
+    /// <summary>
+    /// Generates the degenerate consensus by the Cavener (1987) rules (Nucleic Acids Res.
+    /// 15(4):1353–1361), as used by TRANSFAC and Biopython <c>Bio.motifs</c>
+    /// <c>degenerate_consensus</c>. Per column, with base counts sorted in decreasing order
+    /// c1 ≥ c2 ≥ c3 ≥ c4 (ties in A, C, G, T order):
+    /// <list type="number">
+    /// <item>a single base if c1 &gt; c2 + c3 + c4 (more than 50 %) and c1 &gt; 2·c2;</item>
+    /// <item>otherwise the two-base IUPAC code of the top two bases if c1 + c2 &gt; 75 % of the column;</item>
+    /// <item>otherwise the three-base code of the top three bases if the fourth base is absent (c4 = 0);</item>
+    /// <item>otherwise <c>N</c>.</item>
+    /// </list>
+    /// The set → symbol mapping is NC-IUB 1984.
+    /// </summary>
+    /// <param name="alignedSequences">Aligned DNA sequences of equal length over {A, C, G, T} (case-insensitive).</param>
+    /// <returns>The degenerate consensus; "" for an empty collection.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="alignedSequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// A null element, sequences of unequal length, or a non-ACGT character (gaps are not accepted).
+    /// </exception>
+    public static string GenerateCavenerConsensus(IEnumerable<string> alignedSequences)
+    {
+        ArgumentNullException.ThrowIfNull(alignedSequences);
+
+        int[,] counts = BuildCountMatrix(alignedSequences, nameof(alignedSequences), out _);
+        int length = counts.GetLength(1);
+        var consensus = new StringBuilder(length);
+        var order = new int[PwmAlphabetSize];
+        var c = new int[PwmAlphabetSize];
+
+        for (int col = 0; col < length; col++)
+        {
+            // Stable sort of base indices by decreasing count (ties keep A, C, G, T order),
+            // identical to Biopython's sorted(..., key=count, reverse=True).
+            for (int b = 0; b < PwmAlphabetSize; b++)
+                order[b] = b;
+            for (int x = 1; x < PwmAlphabetSize; x++)
+            {
+                int cur = order[x];
+                int y = x - 1;
+                while (y >= 0 && counts[order[y], col] < counts[cur, col])
+                {
+                    order[y + 1] = order[y];
+                    y--;
+                }
+                order[y + 1] = cur;
+            }
+
+            for (int k = 0; k < PwmAlphabetSize; k++)
+                c[k] = counts[order[k], col];
+            int total = c[0] + c[1] + c[2] + c[3];
+
+            int take;
+            if (c[0] > c[1] + c[2] + c[3] && c[0] > 2 * c[1])
+                take = 1;
+            else if (4 * (c[0] + c[1]) > 3 * total)
+                take = 2;
+            else if (c[3] == 0)
+                take = 3;
+            else
+                take = 4;
+
+            var set = new char[take];
+            for (int k = 0; k < take; k++)
+                set[k] = AcgtBases[order[k]];
+            consensus.Append(Core.IupacDnaSequence.GetIupacCode(set));
         }
 
         return consensus.ToString();
@@ -471,29 +570,41 @@ public static class MotifFinder
 
     /// <summary>
     /// Minimum column frequency (as a fraction of the number of aligned sequences) a base must
-    /// exceed to be included in the position's IUPAC degeneracy code. The "combine the bases
-    /// that pass a frequency threshold into the IUPAC symbol for that set" rule is the standard
-    /// threshold-consensus mechanism (Bioconductor DECIPHER <c>ConsensusSequence</c>: "removes
-    /// the least frequent characters … so long as they represent less than <c>threshold</c> …");
-    /// the set→symbol mapping itself follows NC-IUB 1984 (Cornish-Bowden, NAR 13(9):3021). The
-    /// 0.25 cut and strict '&gt;' boundary are this implementation's documented design constant
-    /// (a base must be present in more than a quarter of the sequences). See
-    /// docs/Evidence/MOTIF-GENERATE-001-Evidence.md.
+    /// strictly exceed to be included in the position's IUPAC degeneracy code in
+    /// <see cref="GenerateConsensus(IEnumerable{string})"/>. The set→symbol mapping follows
+    /// NC-IUB 1984 (Cornish-Bowden, NAR 13(9):3021). The per-base 0.25 cut with a strict '&gt;'
+    /// boundary is this library's design constant: it belongs to the threshold-consensus family
+    /// but is NOT Bioconductor DECIPHER's rule (DECIPHER drops the least frequent characters while
+    /// their cumulative fraction stays below <c>threshold</c>, default 0.05) nor the Cavener 1987
+    /// rule (implemented separately as <see cref="GenerateCavenerConsensus"/>). Kept unchanged for
+    /// API/MCP compatibility. See docs/Evidence/MOTIF-GENERATE-001-Evidence.md.
     /// </summary>
     private const double IupacInclusionThreshold = 0.25;
 
-    private static char GetIupacCode(Dictionary<char, int> counts, int total)
+    private static char GetIupacCode(int[] counts, int total)
     {
         double threshold = total * IupacInclusionThreshold; // base count must be strictly > threshold
 
-        var present = counts.Where(kv => kv.Value > threshold)
-                           .Select(kv => kv.Key)
-                           .OrderBy(c => c)
-                           .ToList();
+        var present = new List<char>(PwmAlphabetSize);
+        for (int b = 0; b < PwmAlphabetSize; b++)
+        {
+            if (counts[b] > threshold)
+                present.Add(AcgtBases[b]);
+        }
 
         if (present.Count == 0)
         {
-            return counts.MaxBy(kv => kv.Value).Key;
+            // No base passes: encode every base sharing the maximum count (DECIPHER
+            // ConsensusSequence — "degeneracy codes are always used in cases where multiple
+            // characters are equally abundant"); a column without any A/C/G/T is unknown → N.
+            int max = counts.Max();
+            if (max == 0)
+                return 'N';
+            for (int b = 0; b < PwmAlphabetSize; b++)
+            {
+                if (counts[b] == max)
+                    present.Add(AcgtBases[b]);
+            }
         }
 
         // Base set → NC-IUB symbol via the canonical inverse map; present is a non-empty

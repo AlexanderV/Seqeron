@@ -114,7 +114,8 @@
 | A,C,G | 3 | 0.75 | {A,C,G} | V |
 | A,A,G,G,C | 5 | 1.25 | {A(2),G(2)}; C(1) dropped | R |
 | A,A,A,G | 4 | 1.0 | {A(3)}; G(1) at ≤threshold dropped | A |
-| A,C,G,T | 4 | 1.0 | none (each 1, not >1.0) → fallback to most-frequent | A (tie→alphabetical) |
+| A,C,G,T | 4 | 1.0 | none (each 1, not >1.0) → all four tied at max | N (F13, 2026-09; was A) |
+| A,C,-,- | 4 | 1.0 | none → A,C tied at max | M (F13) |
 
 ---
 
@@ -150,3 +151,30 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+
+---
+
+## Review 2026-09 (B05, F13) — sources actually opened
+
+- **Biopython 1.88** installed source `Bio/motifs/matrix.py` `GenericPositionMatrix.degenerate_consensus` — Cavener rules verbatim: `counts[0] > sum(counts[1:]) and counts[0] > 2*counts[1]` → single; `4*sum(counts[:2]) > 3*sum(counts)` → pair; `counts[3] == 0` → triple; else N ("The same rules are used by TRANSFAC").
+- **Biopython Tutorial** `Doc/Tutorial/chapter_motifs.rst` (raw.githubusercontent.com): `m.degenerate_consensus` = `WACVC`; reverse complement `GBGTW`; slice `m[2:-1]` = `CV`, "constructed following the rules specified by Cavener".
+- **Cavener 1987** NAR 15(4):1353 (PMID 3822832) — WebSearch snippet only: single base if frequency > 50 % and > twice the second; two bases if their sum > 75 %.
+- **DECIPHER `ConsensusSequence`** — WebSearch snippet (rdrr.io/bioc manuals blocked for curl) confirms verbatim "Degeneracy codes are always used in cases where multiple characters are equally abundant." DECIPHER's `threshold` is cumulative (least-frequent characters removed while together < threshold, default 0.05) — the library's per-base 25 % cut is therefore a design constant, not DECIPHER's rule.
+- Biopython `MultipleSeqAlignment` rejects unequal rows ("Sequences must all be the same length"); `motifs.create` likewise.
+
+### Reference numbers (Biopython 1.88 `degenerate_consensus`)
+
+| Rows | Result |
+|---|---|
+| A,C,G,T | N |
+| A,A,A,C | A |
+| A,A,G,G | R |
+| A,C,G | V |
+| A,A,C,G,T | N |
+| A×5 C×3 G T | M |
+| A×6 C×2 G T | A |
+| AAAA, AAGT, AACT, AATT | AANT |
+| tutorial 7 rows | WACVC |
+
+Plus 12 random alignments (seed 20260930) locked in `MotifFinder_GenerateConsensus_Tests.CavenerBiopythonCases`.
+
