@@ -11,7 +11,8 @@ public partial class SuffixTree
     /// Result is cached — subsequent calls return the same instance with zero allocation.
     /// On a length tie, which of the equally long repeats is returned is unspecified (the first
     /// deepest node in child-storage order; it can differ from the persistent tree) — the length
-    /// is always the maximum.
+    /// is always the maximum. <see cref="FindAllLongestRepeatedSubstrings"/> returns all ties with
+    /// all positions, identically for every tree implementation.
     /// </summary>
     /// <returns>The longest repeated substring, or empty string if none exists.</returns>
     public string LongestRepeatedSubstring()
@@ -58,6 +59,13 @@ public partial class SuffixTree
         AccumulateEdges(counter, m);
         return counter.ToCounts();
     }
+
+    /// <inheritdoc cref="ISuffixTree.FindAllLongestRepeatedSubstrings"/>
+    /// <remarks>
+    /// <see cref="LongestRepeatedSubstring"/> is unchanged and returns one of these substrings.
+    /// </remarks>
+    public IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
+        => SuffixTreeAlgorithms.FindAllLongestRepeatedSubstrings(this);
 
     /// <inheritdoc cref="ISuffixTree.CountDistinctSubstrings"/>
     public long CountDistinctSubstrings()

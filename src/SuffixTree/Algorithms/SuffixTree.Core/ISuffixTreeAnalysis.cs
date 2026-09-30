@@ -11,6 +11,7 @@ public interface ISuffixTreeAnalysis
     /// <summary>
     /// Finds the longest substring that appears at least twice in the text (occurrences may overlap).
     /// On a length tie the returned representative is implementation-specific; its length is always maximal.
+    /// All tied substrings with all positions: <see cref="ISuffixTree.FindAllLongestRepeatedSubstrings"/>.
     /// </summary>
     string LongestRepeatedSubstring();
 

@@ -73,4 +73,22 @@ public class PatternApproxEditFuzzTests
         foreach (var (text, k, d) in new[] { ("N", 1, 0), ("ACGT", 4, 4), ("ACGT", 5, 1), ("nnnnACGTnnnn", 3, 1), ("A", 1, 3) })
             Assert.DoesNotThrow(() => ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements(text, k, d).ToList());
     }
+
+    [Test]
+    public void LinearSpaceAlignment_ExtremeShapes_OptimalAndValid()
+    {
+        var rng = new Random(20260932);
+        var shapes = new (int M, int N)[] { (0, 0), (0, 500), (500, 0), (1, 1), (1, 700), (700, 1), (2, 900), (900, 2), (64, 65), (129, 3), (1000, 1000) };
+        foreach (string alphabet in new[] { "A", "AC", "ACGT", "é中\ud83d\ude00" })
+        {
+            foreach (var (m, n) in shapes)
+            {
+                string q = RandomString(rng, m, alphabet);
+                string t = RandomString(rng, n, alphabet);
+                var a = ApproximateMatcher.GetEditAlignmentLinearSpace(q, t);
+                Assert.That(a.Distance, Is.EqualTo(ApproximateMatcher.EditDistance(q, t)), $"m={m} n={n} alphabet={alphabet}");
+                Assert.That(Unit.Alignment.ApproximateMatcher_EditAlignment_Tests.ReplayCost(a.Cigar, q, t), Is.EqualTo(a.Distance));
+            }
+        }
+    }
 }

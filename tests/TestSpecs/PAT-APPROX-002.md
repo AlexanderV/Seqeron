@@ -22,6 +22,7 @@
 | `FindEditEndPositions(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical (Sellers 1980) | O(n × m) |
 | `FindWithEdits(DnaSequence sequence, string pattern, int maxEdits)` | ApproximateMatcher | Wrapper | Delegates to string version |
 | `GetEditAlignment(string query, string target)` | ApproximateMatcher | Canonical (traceback, edlib CIGAR) | O(m × n) |
+| `GetEditAlignmentLinearSpace(string query, string target)` | ApproximateMatcher | Canonical (Hirschberg 1975, linear space) | O(m × n) time, O(m + n) space |
 | `OptimalStringAlignmentDistance(string s1, string s2)` | ApproximateMatcher | Canonical (restricted Damerau) | O(m × n) |
 | `DamerauLevenshteinDistance(string s1, string s2)` | ApproximateMatcher | Canonical (Lowrance–Wagner 1975) | O(m × n) |
 
@@ -49,6 +50,7 @@
 | edlib tie-break reproduction (Python traceback I → D → diagonal) | 2000 pairs | 2000/2000 identical to edlib ⇒ differences are co-optimal ties only |
 | `FindEditEndPositions` (Myers) vs Python Sellers DP; edlib HW best distance + end locations | 600 (text ≤300, pattern ≤150) | 600/600 |
 | `FindWithEdits` windows, CIGAR replay, MismatchPositions, MismatchType | 500 cases, 13019 hits | 0 errors; 7461 CIGARs identical to edlib NW |
+| `GetEditAlignmentLinearSpace` (Hirschberg) vs edlib NW `editDistance`, `GetEditAlignment`, `EditDistance` | 3501 pairs (3000 random ≤120 incl. non-ASCII + mutated copies, 500 exhaustive-small, one 3000×3300) | distance 3501/3501 equal; CIGAR replay 3501/3501; path identical to `GetEditAlignment` 1757/3501 (co-optimal ties ⇒ separate method) |
 | OSA / DL vs rapidfuzz, DL vs jellyfish | 4507 pairs | 0 differences (CA/ABC: OSA 3, DL 2; pyxDamerauLevenshtein gives 3 = OSA) |
 
 **Tie-break (documented, deterministic):** traceback from (m, n) takes the diagonal when optimal, then `I`, then `D` (edlib: `I`, `D`, diagonal). Diagonal-first makes a substitution-only optimum (equal-length window with ed = Hamming) come back as the Hamming path, so `MismatchPositions` of `Substitution` hits equal the Hamming mismatch indices.
@@ -181,3 +183,14 @@
 - [x] Tests are deterministic
 - [x] Tests follow NUnit conventions
 - [x] Naming follows `Method_Scenario_ExpectedResult` pattern
+
+### Linear-space alignment tests (B05 follow-up, 2026-09-30)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| LS-M1 | 14 literal pairs: distance = edlib NW, CIGAR replays with that cost, distance = `GetEditAlignment` (`ApproximateMatcher_EditAlignmentLinearSpace_Tests`) | edlib 1.3 |
+| LS-M2 | co-optimal path may differ from `GetEditAlignment` (locked example, distance 5) | documented decision |
+| LS-S1 | aligned strings / SubstitutionPositions / HasIndels / STANDARD CIGAR; null guards; 3000×3300 input | contract |
+| LS-P6 | `Properties/EditAlignmentProperties.P6`: 1500 random pairs, distance = full traceback = Myers, replay valid | Hirschberg 1975 optimality |
+| LS-MR | `Metamorphic/PatternApproxB05MetamorphicTests`: swap (I↔D script valid for swapped pair), reversal preserve distance | symmetry of ed |
+| LS-F | `Fuzzing/PatternApproxEditFuzzTests`: extreme shapes (0×n, 1×700, 900×2, 1000×1000), non-ASCII/lone surrogates | robustness |

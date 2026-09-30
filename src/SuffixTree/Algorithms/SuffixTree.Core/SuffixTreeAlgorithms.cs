@@ -614,6 +614,76 @@ public static class SuffixTreeAlgorithms
     }
 
     /// <summary>
+    /// Finds every distinct longest repeated substring of the tree's text — the path labels of all
+    /// internal nodes of maximal string depth (Gusfield 1997 §7.1: a substring occurs at least twice
+    /// iff it ends at or above an internal node) — each with all its 0-based start positions in
+    /// ascending order (occurrences may overlap). Results are ordered by first occurrence. Empty when
+    /// no character repeats. Unlike <see cref="ISuffixTreeAnalysis.LongestRepeatedSubstring"/>, which
+    /// returns one implementation-specific representative, the output is identical for every tree
+    /// implementation. O(nodes · log σ + Σ (L + occurrences)).
+    /// </summary>
+    /// <param name="tree">Any suffix tree implementation (traversed via <see cref="ISuffixTreeDiagnostics.Traverse"/>).</param>
+    public static IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings(ISuffixTree tree)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+
+        var collector = new DeepestInternalNodeCollector();
+        tree.Traverse(collector);
+        int length = collector.MaxDepth;
+        if (length == 0)
+            return Array.Empty<(string, IReadOnlyList<int>)>();
+
+        var results = new List<(string Substring, IReadOnlyList<int> Positions)>(collector.EdgeEnds.Count);
+        foreach (int end in collector.EdgeEnds)
+        {
+            string substring = tree.Text.Substring(end - length, length);
+            var positions = new List<int>(tree.FindAllOccurrences(substring));
+            SortAndDeduplicateInPlace(positions);
+            results.Add((substring, positions));
+        }
+
+        results.Sort(static (a, b) => a.Positions[0].CompareTo(b.Positions[0]));
+        return results;
+    }
+
+    /// <summary>
+    /// Collects the end offsets of the incoming edges of all internal nodes of maximal string depth
+    /// (the root excluded). An internal node's edge never contains the terminator.
+    /// </summary>
+    private sealed class DeepestInternalNodeCollector : ISuffixTreeVisitor
+    {
+        private bool _rootSeen;
+
+        public int MaxDepth { get; private set; }
+
+        public List<int> EdgeEnds { get; } = new();
+
+        public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
+        {
+            if (!_rootSeen)
+            {
+                _rootSeen = true;
+                return;
+            }
+            if (childCount == 0)
+                return;
+
+            int stringDepth = depth + (endIndex - startIndex);
+            if (stringDepth > MaxDepth)
+            {
+                MaxDepth = stringDepth;
+                EdgeEnds.Clear();
+            }
+            if (stringDepth == MaxDepth)
+                EdgeEnds.Add(endIndex);
+        }
+
+        public void EnterBranch(int key) { }
+
+        public void ExitBranch() { }
+    }
+
+    /// <summary>
     /// Shared per-edge accumulator for distinct-substring counting. As a visitor it works with any
     /// tree via <see cref="ISuffixTreeDiagnostics.Traverse"/>; implementations with a cheaper node
     /// walk call <see cref="AddEdge"/> directly.

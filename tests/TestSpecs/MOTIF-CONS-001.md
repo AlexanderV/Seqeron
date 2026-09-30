@@ -45,6 +45,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CreateConsensusFromAlignment(IEnumerable<string>)` | MotifFinder | Canonical | Most-frequent residue per column; alphabetical tie-break |
+| `GenerateEmbossConsensus(IEnumerable<string>, ConsensusResidueType, float?, int, float?, IReadOnlyList<float>?)` | MotifFinder | Canonical (EMBOSS 6.6.0 `cons`) | EDNAFULL/EBLOSUM62 matrix score, plurality/identity/setcase, weights, gaps (B05 follow-up) |
+| `GenerateDumbConsensus(IEnumerable<string>, double, char, bool)` | MotifFinder | Canonical (Biopython 1.85 `dumb_consensus`) | majority threshold, gaps, any alphabet (B05 follow-up) |
 
 ---
 
@@ -169,10 +171,23 @@ In-scope cases: 10. ✅ Covered: 10.
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Alphabetical tie-break (A<C<G<T) for determinism (Geneious/LANL rule) | INV-3, M3 |
-| 2 | Pure most-frequent consensus, no plurality threshold (matches Registry signature) | §6 scope |
+| 2 | Pure most-frequent consensus, no plurality threshold (matches Registry signature) — `CreateConsensusFromAlignment` only; the EMBOSS plurality consensus is `GenerateEmbossConsensus` | §6 scope |
+| 3 | `GenerateEmbossConsensus`: no-consensus symbol from the explicit residue type (EMBOSS decides from the first sequence's composition); unequal rows rejected | E-D1 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. Decision: tie-breaking fixed to alphabetical order to guarantee determinism (Source 4). Rosalind permits any tied symbol, so the rank-5 worked example (no decisive ties) remains conformant.
+
+## 8. B05 follow-up tests (2026-09-30): EMBOSS `cons`, Biopython `dumb_consensus`
+
+| ID | Test | Evidence |
+|----|------|----------|
+| E-M1 | 110 alignments (40 classic × parameter sets + 70 seeded random DNA/protein, gaps, weights, plurality/identity/setcase) — exact string = EMBOSS 6.6.0 `cons` binary output, command line in each test description (`MotifFinder_AlignmentConsensus_Tests.EmbossCases`) | `em_cons` run 2026-09-30; full run 780/780 |
+| E-M2 | hand-derived columns from `embConsCalc` (score, gap-incumbent tie, lower-case `n`), `-identity 4` → `NNGNNNNT`, reader normalisation `AC-Tna` | embcons.c, binary |
+| E-D1 | protein alignment with nucleotide-looking first row → `x` (binary: `n`) | documented deviation |
+| E-S1 | guards: < 2 rows, null, unequal, invalid char, weight count/negative/NaN, identity < 0, NaN thresholds, undefined type; zero-length alignment → "" | contract (cons.c: "Insufficient sequences") |
+| B-M1 | 34 alignments = Biopython 1.85 `dumb_consensus` (`DumbCases`); doc example ANGT; gap_consensus rows → NTGT | Biopython 1.85 |
+| B-S1 | empty, all-gap, single residue + require_multiple, case-sensitive tie, guards | AlignInfo.py |
+| P/MR/F | `Properties/AlignmentConsensusProperties` (C3, C4), `Metamorphic/AlignmentConsensusMetamorphicTests` (case, gap chars, weight scaling, duplication = weight 2, dumb permutation/monotonicity), `Fuzzing/AlignmentConsensusFuzzTests` | invariants |

@@ -421,6 +421,138 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
+        /// Optimal global Levenshtein alignment of <paramref name="query"/> against
+        /// <paramref name="target"/> in linear space — Hirschberg (1975, Commun. ACM 18(6):341–343,
+        /// "A linear space algorithm for computing maximal common subsequences"), applied to the
+        /// unit-cost edit distance (Myers &amp; Miller 1988, CABIOS 4(1):11–17). The query is split
+        /// at its middle row h = ⌊m/2⌋; forward scores F[j] = ed(query[0..h), target[0..j)) and
+        /// reverse scores R[j] = ed(query[h..m), target[j..n)) are computed with the shared
+        /// Wagner–Fischer column kernel, the target is split at the smallest j minimising F[j] + R[j],
+        /// and both halves are solved recursively. Base cases: an empty side gives all 'D' / all 'I';
+        /// a single query character is aligned to its last occurrence in the target ('=') or, if it
+        /// does not occur, substituted against the last target character ('X'), all other target
+        /// characters being 'D'.
+        /// </summary>
+        /// <remarks>
+        /// Guarantees: <see cref="EditAlignment.Distance"/> = <see cref="EditDistance"/> (optimal),
+        /// and the operations are a valid edit script (replaying them yields both strings), with the
+        /// same '=' / 'X' / 'I' / 'D' convention and CIGAR strings as <see cref="GetEditAlignment"/>.
+        /// The co-optimal path chosen can differ from <see cref="GetEditAlignment"/>'s
+        /// diagonal-first traceback (that rule depends on the full forward matrix, which a
+        /// divide-and-conquer split does not see); it is deterministic. O(m·n) time (about twice the
+        /// full DP), O(m + n) working space (the full traceback needs O(m·n)).
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">Either string is null.</exception>
+        public static EditAlignment GetEditAlignmentLinearSpace(string query, string target)
+        {
+            if (query == null || target == null)
+                throw new ArgumentNullException(query == null ? nameof(query) : nameof(target));
+
+            int n = target.Length;
+            var buffers = new HirschbergBuffers(n);
+            var ops = new System.Text.StringBuilder(query.Length + n);
+            HirschbergAlign(query, 0, query.Length, target, 0, n, ops, buffers);
+
+            string operations = ops.ToString();
+            int distance = 0;
+            foreach (char op in operations)
+            {
+                if (op != '=')
+                    distance++;
+            }
+
+            return new EditAlignment(distance, operations, query, target);
+        }
+
+        /// <summary>Four reusable score columns (length n + 1) shared by the Hirschberg recursion.</summary>
+        private sealed class HirschbergBuffers
+        {
+            public HirschbergBuffers(int n)
+            {
+                A = new int[n + 1];
+                B = new int[n + 1];
+                C = new int[n + 1];
+                D = new int[n + 1];
+            }
+
+            public int[] A, B, C, D;
+        }
+
+        private static void HirschbergAlign(
+            string query, int qs, int qe, string target, int ts, int te,
+            System.Text.StringBuilder ops, HirschbergBuffers buf)
+        {
+            int m = qe - qs;
+            int n = te - ts;
+            if (m == 0)
+            {
+                ops.Append('D', n);
+                return;
+            }
+            if (n == 0)
+            {
+                ops.Append('I', m);
+                return;
+            }
+            if (m == 1)
+            {
+                int k = target.LastIndexOf(query[qs], te - 1, n);
+                if (k < 0)
+                {
+                    ops.Append('D', n - 1).Append('X');
+                }
+                else
+                {
+                    ops.Append('D', k - ts).Append('=').Append('D', te - 1 - k);
+                }
+                return;
+            }
+
+            int h = qs + m / 2;
+            string sub = target.Substring(ts, n);
+            char[] reversed = sub.ToCharArray();
+            Array.Reverse(reversed);
+            string rev = new(reversed);
+
+            // Forward: F[j] = ed(query[qs..h), sub[0..j)) — the query plays the column role of the
+            // shared kernel, sub the row (pattern) role; the distance is symmetric.
+            int[] prev = buf.A, curr = buf.B;
+            for (int j = 0; j <= n; j++)
+                prev[j] = j;
+            for (int r = qs; r < h; r++)
+            {
+                AdvanceColumn(sub, query[r], prev, curr, r - qs + 1);
+                (prev, curr) = (curr, prev);
+            }
+            int[] forward = prev;
+
+            // Reverse: G[x] = ed(reverse(query[h..qe)), reverse(sub)[0..x)) = R[n − x].
+            int[] rprev = buf.C, rcurr = buf.D;
+            for (int x = 0; x <= n; x++)
+                rprev[x] = x;
+            for (int r = qe - 1, row = 1; r >= h; r--, row++)
+            {
+                AdvanceColumn(rev, query[r], rprev, rcurr, row);
+                (rprev, rcurr) = (rcurr, rprev);
+            }
+
+            int split = 0;
+            int best = int.MaxValue;
+            for (int j = 0; j <= n; j++)
+            {
+                int total = forward[j] + rprev[n - j];
+                if (total < best)
+                {
+                    best = total;
+                    split = j;
+                }
+            }
+
+            HirschbergAlign(query, qs, h, target, ts, ts + split, ops, buf);
+            HirschbergAlign(query, h, qe, target, ts + split, te, ops, buf);
+        }
+
+        /// <summary>
         /// Traceback over DP columns <paramref name="cols"/>[0..len] of <paramref name="query"/>
         /// against <paramref name="text"/>[start..start+len) whose row 0 and column 0 are the
         /// global boundaries (C[0, j] = j, C[r, 0] = r). From (m, len) back to (0, 0) it takes

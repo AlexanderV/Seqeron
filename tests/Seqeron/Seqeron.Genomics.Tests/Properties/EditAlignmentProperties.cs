@@ -16,6 +16,8 @@ namespace Seqeron.Genomics.Tests.Properties;
 ///                          Distance = Hamming), and then MismatchPositions == Hamming mismatch indices.
 ///   P4 (Damerau order)    DL ≤ OSA ≤ Levenshtein; all ≥ |len difference|; 0 iff equal; symmetric.
 ///   P5 (DL metric)        DL satisfies the triangle inequality (Lowrance–Wagner distance is a metric).
+///   P6 (Hirschberg)       GetEditAlignmentLinearSpace distance == GetEditAlignment distance == EditDistance;
+///                          its CIGAR replays query → target with that cost; aligned strings minus gaps are the inputs.
 /// Seeded random inputs (fixed seeds), deterministic.
 /// </summary>
 [TestFixture]
@@ -153,6 +155,30 @@ public class EditAlignmentProperties
         Assert.That(ApproximateMatcher.OptimalStringAlignmentDistance("CA", "ABC"),
             Is.GreaterThan(ApproximateMatcher.OptimalStringAlignmentDistance("CA", "AC")
                            + ApproximateMatcher.OptimalStringAlignmentDistance("AC", "ABC")));
+    }
+
+    [Test]
+    public void P6_LinearSpaceAlignment_OptimalAndValid()
+    {
+        var rng = new Random(9306);
+        for (int trial = 0; trial < 1500; trial++)
+        {
+            string alphabet = Alphabets[rng.Next(Alphabets.Length)];
+            int maxLen = trial % 10 == 0 ? 200 : 40;
+            string q = RandomString(rng, rng.Next(0, maxLen), alphabet);
+            string t = trial % 3 == 0 && q.Length > 0
+                ? new string(q.Where(_ => rng.Next(10) > 0).Select(c => rng.Next(8) == 0 ? alphabet[rng.Next(alphabet.Length)] : c).ToArray())
+                : RandomString(rng, rng.Next(0, maxLen), alphabet);
+            var linear = ApproximateMatcher.GetEditAlignmentLinearSpace(q, t);
+            var full = ApproximateMatcher.GetEditAlignment(q, t);
+
+            Assert.That(linear.Distance, Is.EqualTo(full.Distance), $"q={q} t={t}");
+            Assert.That(linear.Distance, Is.EqualTo(ApproximateMatcher.EditDistance(q, t)));
+            Assert.That(Unit.Alignment.ApproximateMatcher_EditAlignment_Tests.ReplayCost(linear.Cigar, q, t), Is.EqualTo(linear.Distance));
+            Assert.That(linear.Operations.Count(op => op != '='), Is.EqualTo(linear.Distance));
+            Assert.That(linear.AlignedQuery.Replace("-", ""), Is.EqualTo(q.Replace("-", "")));
+            Assert.That(linear.AlignedTarget.Replace("-", ""), Is.EqualTo(t.Replace("-", "")));
+        }
     }
 
     private static string RunLength(string ops)

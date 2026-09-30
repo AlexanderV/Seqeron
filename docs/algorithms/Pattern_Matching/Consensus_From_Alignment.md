@@ -6,7 +6,7 @@
 | Test Unit ID | MOTIF-CONS-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-29 |
+| Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
@@ -38,6 +38,15 @@ For aligned strings of length *n*, build a 4×*n* profile matrix *P* where *P*[b
 |--------|-------------------------------|--------------------------------------------------|
 | Ambiguous column | single most-frequent base | IUPAC ambiguity code (e.g. R for A/G) |
 | Output alphabet | A, C, G, T | A, C, G, T + IUPAC codes |
+
+Two further alignment-consensus algorithms of reference tools are implemented alongside (B05 follow-up, §5.4):
+
+| Aspect | EMBOSS `cons` (`GenerateEmbossConsensus`) | Biopython `dumb_consensus` (`GenerateDumbConsensus`) |
+|--------|-------------------------------------------|------------------------------------------------------|
+| Column score | substitution matrix (EDNAFULL / EBLOSUM62), weighted | raw residue counts |
+| Gate | positive-match weight ≥ plurality (default half total weight); optional identity count | unique maximum with fraction ≥ threshold (default 0.7) |
+| No consensus | `N` / `X`, lower case when positive matches ≤ setcase | the `ambiguous` symbol (default `X`) |
+| Gaps / protein | yes / yes | yes / yes (any alphabet, case-sensitive) |
 
 ## 3. Contract
 
@@ -83,6 +92,8 @@ Alphabet/order table: `{'A','C','G','T'}` — also the tie-break order [4]. No s
 **Implementation location:** [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs)
 
 - `MotifFinder.CreateConsensusFromAlignment(IEnumerable<string>)`: column-wise most-frequent consensus with alphabetical tie-break.
+- `MotifFinder.GenerateEmbossConsensus(IEnumerable<string>, ConsensusResidueType = Nucleotide, float? plurality = null, int identity = 0, float? setcase = null, IReadOnlyList<float>? weights = null)` ([MotifFinder.AlignmentConsensus.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs)): EMBOSS 6.6.0 `cons` [3][6].
+- `MotifFinder.GenerateDumbConsensus(IEnumerable<string>, double threshold = 0.7, char ambiguous = 'X', bool requireMultiple = false)`: Biopython `SummaryInfo.dumb_consensus` [7].
 
 ### 5.2 Current Behavior
 
@@ -101,7 +112,23 @@ The column counts come from the private `BuildCountMatrix` (4 × L profile matri
 
 **Not implemented:**
 
-- Weighted plurality threshold and no-consensus 'n'/'x' output from EMBOSS `cons` [3]; **users should rely on:** the IUPAC-degenerate `MotifFinder.GenerateConsensus` for ambiguity-aware consensus, or an external EMBOSS run for threshold-gated consensus.
+- (none) — the EMBOSS `cons` weighted plurality consensus, formerly listed here, is implemented as `GenerateEmbossConsensus` (§5.4).
+
+### 5.4 EMBOSS `cons` and Biopython `dumb_consensus` (B05 follow-up, 2026-09-30)
+
+**EMBOSS `cons`** — line-by-line port of `embConsCalc` (EMBOSS 6.6.0 `nucleus/embcons.c`, driver `emboss/cons.c`, defaults `emboss/acd/cons.acd`) [6]. Per column, with weights w (default 1) and matrix M (EDNAFULL for nucleotides, EBLOSUM62 for proteins, both embedded verbatim from EMBOSS `data/`):
+
+1. score(i) = Σ_{j≠i, both non-gap} M(rᵢ, rⱼ)·wⱼ (single precision, as in C);
+2. candidate = first row of maximal score, except that a gap incumbent is displaced by a later row of equal score;
+3. positive matches(r) = Σ wⱼ over rows j (r itself included) with M(r, rⱼ) > 0;
+4. emit the candidate if positive matches ≥ plurality, else `N` (nucleotide) / `X` (protein); lower-case if positive matches ≤ setcase (this also lower-cases `N`/`X`); plurality and setcase default to half the total weight;
+5. if identity > 0 and fewer than identity rows carry the residue with the most positive matches (ties → more identical weight), emit upper-case `N`/`X`.
+
+Characters absent from the matrix (gaps, `*` in DNA, `J`/`O`/`U` in protein) have code 0: no score, no positive matches (they are only emitted when plurality ≤ 0). Input normalisation as the EMBOSS reader: upper-casing, `.`/`~` → `-`, `?` → `N`/`X`, and `X` → `N` for nucleotides. **Deliberate differences:** (a) rows of unequal length are rejected (`cons` only warns); (b) the no-consensus symbol follows the explicit residue type — `cons` decides `N` vs `X` from the composition of the *first* sequence (`ajSeqsetIsNuc` ignores `-sprotein`), so a protein alignment whose first row contains only nucleotide IUPAC letters prints `n` where this API prints `x`.
+
+**Cross-check (exact string equality) vs the EMBOSS 6.6.0 `cons` binary** (Ubuntu `emboss 6.6.0+dfsg-12ubuntu2`, `em_cons`): 780 alignments — 8 classic × 5 parameter sets + 700 seeded random (seeds 20260930 and 7; DNA and protein, 2–12 rows, 1–50 columns, gaps incl. `.`/`~`, lower case, IUPAC/B/Z/X, MSF weights 0.25–3 on ~30 %, random `-plurality`/`-identity`/`-setcase`): 780/780 identical, 14 of them after the documented first-sequence `N`/`X` difference (b). 110 are locked in `MotifFinder_AlignmentConsensus_Tests` with their command lines.
+
+**Biopython `dumb_consensus`** — port of `Bio/Align/AlignInfo.py` `SummaryInfo.dumb_consensus` (Biopython 1.85; deprecated since 1.82 and absent from the installed 1.88) [7]: per column count residues other than `-` and `.` (case-sensitive); emit the residue if it is the unique maximum and max/non-gap ≥ threshold, else `ambiguous`; with `requireMultiple` a column with exactly one non-gap residue is ambiguous. Cross-check vs Biopython 1.85: 708 alignments (4 classic + 704 seeded random, DNA/RNA/protein, gaps `-`/`.`, lower case, thresholds 0–1, require_multiple) → 708/708 identical; 34 locked.
 
 ## 6. Edge Cases and Limitations
 
@@ -116,7 +143,7 @@ The column counts come from the private `BuildCountMatrix` (4 × L profile matri
 
 ### 6.2 Limitations
 
-Operates on the DNA alphabet {A,C,G,T} only (no IUPAC ambiguity input, no gaps, no protein). Requires pre-aligned equal-length input; it does not perform alignment. No confidence/plurality threshold is applied — every column yields a base.
+`CreateConsensusFromAlignment` operates on the DNA alphabet {A,C,G,T} only (no IUPAC ambiguity input, no gaps, no protein) — use `GenerateEmbossConsensus` or `GenerateDumbConsensus` for gapped / protein alignments. Requires pre-aligned equal-length input; it does not perform alignment. No confidence/plurality threshold is applied — every column yields a base.
 
 ## 7. Examples and Related Material (Optional)
 
@@ -138,6 +165,7 @@ string consensus = MotifFinder.CreateConsensusFromAlignment(aligned); // "ATGCAA
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [MotifFinder_CreateConsensusFromAlignment_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_CreateConsensusFromAlignment_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [MotifFinder_AlignmentConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_AlignmentConsensus_Tests.cs) (EMBOSS / Biopython-locked), `Properties/AlignmentConsensusProperties.cs`, `Metamorphic/AlignmentConsensusMetamorphicTests.cs`, `Fuzzing/AlignmentConsensusFuzzTests.cs`
 - Evidence: [MOTIF-CONS-001-Evidence.md](../../../docs/Evidence/MOTIF-CONS-001-Evidence.md)
 
 ## 8. References
@@ -147,3 +175,5 @@ string consensus = MotifFinder.CreateConsensusFromAlignment(aligned); // "ATGCAA
 3. Rice P, Longden I, Bleasby A. 2000. EMBOSS: The European Molecular Biology Open Software Suite. Trends in Genetics 16(6):276–277. https://doi.org/10.1016/S0168-9525(00)02024-2 (program docs: https://www.bioinformatics.nl/cgi-bin/emboss/help/cons)
 4. Los Alamos HIV Sequence Database. Advanced Consensus Maker — explanation. https://hfv.lanl.gov/content/sequence/CONSENSUS/AdvConExplain.html
 5. Biopython 1.88, `Bio/motifs/matrix.py` — `GenericPositionMatrix.consensus` (installed package source; review 2026-09). Cock et al. 2009, Bioinformatics 25(11):1422.
+6. EMBOSS 6.6.0 source: `nucleus/embcons.c` (`embConsCalc`, Tim Carver 2001), `emboss/cons.c`, `emboss/acd/cons.acd`, `ajax/core/ajseqtype.c`, `ajax/core/ajseq.c` (raw.githubusercontent.com/kimrutherford/EMBOSS, master); matrices `data/EDNAFULL`, `data/EBLOSUM62` (Ubuntu `emboss-data 6.6.0+dfsg-12ubuntu2`).
+7. Biopython 1.85, `Bio/Align/AlignInfo.py` — `SummaryInfo.dumb_consensus` (raw.githubusercontent.com/biopython/biopython/biopython-185; PyPI wheel biopython==1.85 used as the reference).

@@ -72,7 +72,23 @@
 
 ### EMBOSS `cons` source (review 2026-09)
 
-`nucleus/embcons.c` (raw.githubusercontent.com/kimrutherford/EMBOSS) opened 2026-09-29: residue chosen by highest *substitution-matrix* score, emitted only if its matching weight ≥ plurality, else 'N'/'X'. A different (scored, thresholded) algorithm — declared "not implemented" in the algorithm doc §5.3.
+`nucleus/embcons.c` (raw.githubusercontent.com/kimrutherford/EMBOSS) opened 2026-09-29: residue chosen by highest *substitution-matrix* score, emitted only if its matching weight ≥ plurality, else 'N'/'X'. A different (scored, thresholded) algorithm — ~~declared "not implemented"~~ implemented 2026-09-30 as `GenerateEmbossConsensus` (below).
+
+### EMBOSS `cons` implementation and binary cross-check (B05 follow-up, 2026-09-30)
+
+Opened: `nucleus/embcons.c` (`embConsCalc`), `emboss/cons.c`, `emboss/acd/cons.acd` (plurality/setcase default `$(sequence.totweight)/2`, identity default 0, min 2 sequences), `ajax/core/ajseq.c` (`ajSeqcvtNewStr`: label i → code i+1, others 0; `ajSeqsetGetTotweight` float sum; `ajSeqsetIsNuc` tests only the first sequence), `ajax/core/ajseqtype.c` (gap chars `.~-`, `?`/`X` → `N` for DNA), matrices `/usr/share/EMBOSS/data/EDNAFULL`, `EBLOSUM62` (Ubuntu `emboss-data 6.6.0+dfsg-12ubuntu2`). Reference binary: EMBOSS 6.6.0 `cons` (Debian name `em_cons`), `-auto -snucleotide|-sprotein`, weights via MSF `Weight:`.
+
+| Check | Cases | Result |
+|-------|-------|--------|
+| Classic alignments × {default, `-plurality 0`, `-identity N`, `-plurality 1 -setcase 3`, `-plurality 2.5 -identity 1 -setcase 0`} | 40 | 40/40 identical |
+| Seeded random (seeds 20260930, 7): DNA (ACGT or IUPAC incl. U) and protein (20 aa ± BZX), 2–12 rows, 1–50 columns, 0/10/30 % gaps incl. `.`/`~`, lower case, weights 0.25–3 (MSF) on ~30 %, random plurality/identity/setcase | 700 | 700/700 identical (14 after the first-sequence N/X rule, see deviation) |
+| Examples | `ACGTAC-T,ACGTTCAT,AGGTAC-T,tCGAAG-T` → `ACGTACnT`; `-plurality 3.5 -setcase 3.5` → `nnGnnnnT`; `-identity 4` → `NNGNNNNT`; `-plurality 0` → `ACGTACaT`; MSF weights 0.5/2/0.25/1 `ACGT,TCGA,ACGA,ACCT` → `nCGA` | binary |
+
+Deviation (documented): `cons` picks `N` vs `X` from the first sequence (`ajSeqsetIsNuc` ignores `-sprotein`); the API uses the explicit residue type. Unequal row lengths are rejected (`cons` warns).
+
+### Biopython `dumb_consensus` (B05 follow-up, 2026-09-30)
+
+Opened: `Bio/Align/AlignInfo.py` at tags biopython-181 and biopython-185 (raw.githubusercontent.com); the method is absent from the installed 1.88, so the PyPI wheel biopython==1.85 was installed aside and used as the reference. 708 alignments (4 classic + 704 seeded random, DNA/RNA/protein, gaps `-`/`.`, lower case, thresholds 0–1 and random, `require_multiple`) → 708/708 identical; doc example `ACGT,ATGT,ATGT` (ambiguous N) → `ANGT`.
 
 ---
 
@@ -151,3 +167,4 @@
 
 - **2026-06-13**: Initial documentation.
 - **2026-09-29**: Review 2026-09 — Biopython `.consensus` and EMBOSS `embcons.c` source added; null-element contract.
+- **2026-09-30**: B05 follow-up — EMBOSS `cons` (`GenerateEmbossConsensus`, 780/780 vs binary) and Biopython `dumb_consensus` (`GenerateDumbConsensus`, 708/708) implemented.

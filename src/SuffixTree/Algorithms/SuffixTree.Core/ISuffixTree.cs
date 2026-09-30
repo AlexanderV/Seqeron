@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace SuffixTree;
 /// <summary>
 /// Interface for suffix tree operations.
@@ -52,6 +54,16 @@ public interface ISuffixTree : ISuffixTreeSearch, ISuffixTreeAnalysis, ISuffixTr
     /// Total number of distinct non-empty substrings of the text.
     /// </summary>
     long CountDistinctSubstrings() => SuffixTreeAlgorithms.CountDistinctSubstrings(this);
+
+    /// <summary>
+    /// Every distinct longest repeated substring (all length ties, unlike the single representative
+    /// of <see cref="ISuffixTreeAnalysis.LongestRepeatedSubstring"/>), each with all 0-based start
+    /// positions ascending (occurrences may overlap), ordered by first occurrence; empty when no
+    /// character repeats. Identical for every implementation
+    /// (see <see cref="SuffixTreeAlgorithms.FindAllLongestRepeatedSubstrings"/>).
+    /// </summary>
+    IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
+        => SuffixTreeAlgorithms.FindAllLongestRepeatedSubstrings(this);
 }
 
 /// <summary>

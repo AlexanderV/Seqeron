@@ -32,6 +32,13 @@ public sealed partial class PersistentSuffixTree
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
+    {
+        ThrowIfDisposed();
+        return SuffixTreeAlgorithms.FindAllLongestRepeatedSubstrings(this);
+    }
+
+    /// <inheritdoc />
     public long CountDistinctSubstrings()
     {
         ThrowIfDisposed();

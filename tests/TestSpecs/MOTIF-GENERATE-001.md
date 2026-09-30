@@ -47,6 +47,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `GenerateConsensus(IEnumerable<string>)` | `MotifFinder` | **Canonical** | IUPAC-degenerate consensus; threshold = count > n×0.25 |
+| `GenerateConsensus(IEnumerable<string>, double inclusionThreshold)` | `MotifFinder` | **Canonical** | configurable θ ∈ [0, 1]; θ = 0.25 bit-identical to the parameterless overload (B05 follow-up) |
 | `GetIupacCode(...)` | `MotifFinder` (private) | **Internal** | set→symbol mapping; tested indirectly via `GenerateConsensus` |
 
 ---
@@ -191,3 +192,13 @@ All in-scope cases ✅. Count of ✅ = total in-scope cases.
 ## 7. Open Questions / Decisions
 
 1. The 25 % threshold is correctness-affecting but documented and named in code; the *symbol* output for any given passing base set is dictated by the authoritative NC-IUB table, which is fully source-backed. Tests pin the boundary explicitly and otherwise use unambiguous inputs so verified symbols depend only on the authoritative table. No unresolved correctness-affecting assumption blocks completion.
+
+## 8. Configurable threshold tests (B05 follow-up, 2026-09-30)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| T-M1 | 20 random alignments × θ locked to an independent Python oracle of the rule (`ThresholdCases`); full run 700/700 | oracle `count > θ·n`, tie fallback, NC-IUB map |
+| T-M2 | θ = 0.25 ≡ parameterless overload (unit + property C1, 500 random) | bit-identity requirement |
+| T-M3 | hand-derived A,A,A,C,G: θ 0/0.1 → V, 0.2/0.6 → A; A,C at θ 1 → M | rule |
+| T-S1 | guards: null, θ < 0, θ > 1, NaN, unequal rows | contract |
+| T-P2 | property C2: base set at θ₂ ⊆ base set at θ₁ for θ₁ ≤ θ₂ | monotonicity of the cut |

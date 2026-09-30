@@ -428,7 +428,8 @@ public static partial class MotifFinder
     /// <remarks>
     /// The 25 % per-base cut is this library's design constant (see
     /// <c>IupacInclusionThreshold</c>); it is not the Cavener (1987) / TRANSFAC / Biopython
-    /// <c>degenerate_consensus</c> rule — use <see cref="GenerateCavenerConsensus"/> for that.
+    /// <c>degenerate_consensus</c> rule — use <see cref="GenerateCavenerConsensus"/> for that. A different
+    /// cut is available through <see cref="GenerateConsensus(IEnumerable{string}, double)"/>.
     /// Characters other than A/C/G/T (gaps, N, IUPAC codes) are not counted but still count
     /// towards the number of sequences <c>n</c>. Case-insensitive.
     /// </remarks>
@@ -439,7 +440,12 @@ public static partial class MotifFinder
     public static string GenerateConsensus(IEnumerable<string> sequences)
     {
         ArgumentNullException.ThrowIfNull(sequences);
+        return GenerateConsensusCore(sequences, IupacInclusionThreshold);
+    }
 
+    /// <summary>Shared body of both <c>GenerateConsensus</c> overloads (threshold already validated).</summary>
+    private static string GenerateConsensusCore(IEnumerable<string> sequences, double inclusionThreshold)
+    {
         List<string> seqList = MaterializeAligned(sequences, nameof(sequences));
         if (seqList.Count == 0) return "";
 
@@ -457,7 +463,7 @@ public static partial class MotifFinder
                     counts[baseIndex]++;
             }
 
-            consensus.Append(GetIupacCode(counts, seqList.Count));
+            consensus.Append(GetIupacCode(counts, seqList.Count, inclusionThreshold));
         }
 
         return consensus.ToString();
@@ -594,9 +600,9 @@ public static partial class MotifFinder
     /// </summary>
     private const double IupacInclusionThreshold = 0.25;
 
-    private static char GetIupacCode(int[] counts, int total)
+    private static char GetIupacCode(int[] counts, int total, double inclusionThreshold)
     {
-        double threshold = total * IupacInclusionThreshold; // base count must be strictly > threshold
+        double threshold = total * inclusionThreshold; // base count must be strictly > threshold
 
         var present = new List<char>(PwmAlphabetSize);
         for (int b = 0; b < PwmAlphabetSize; b++)

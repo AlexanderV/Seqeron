@@ -33,6 +33,7 @@ with a `struct` constraint, enabling JIT specialization for each backend.
 | FindAllOccurrences | O(m + k) in-memory; O(m log d + k) persistent | k = number of returned positions |
 | CountOccurrences | O(m) in-memory; O(m log d) persistent | Leaf count is precomputed; no subtree DFS |
 | LongestRepeatedSubstring | First call: O(\|LRS\|) in-memory; persistent O(h + \|LRS\|) typical, O(n + \|LRS\|) fallback; then O(1) cached | Persistent can fall back to deepest-node DFS if header metadata is unavailable |
+| FindAllLongestRepeatedSubstrings | O(nodes · log σ + Σ (L + occ)) | One `Traverse`, then one `FindAllOccurrences` per deepest internal node (L = LRS length) |
 | LongestCommonSubstring | O(m + h) in-memory; O(m log d + h) persistent | Streaming match + one leaf-position recovery |
 | FindAllLongestCommonSubstrings | O(m + Σ subtree(best matches)); worst case O(n·m) | Collects leaves for each maximal match candidate |
 | FindExactMatchAnchors | O(m + a·h); worst case O(n·m) | a = anchors emitted, each needs leaf-position recovery |
@@ -114,6 +115,23 @@ during construction. Its total depth is the LRS length.
 - Ties (several distinct repeats of maximal length): the representative is unspecified and
   implementation-specific (in-memory and persistent may return different, equally long repeats,
   e.g. `baab` → `a` vs `b`); the length is always the maximum (brute-force verified, 2026-09 review).
+  `LongestRepeatedSubstring` itself is unchanged; for **all ties** use §4.4.1.
+
+#### 4.4.1 FindAllLongestRepeatedSubstrings — every tie, every position
+
+`FindAllLongestRepeatedSubstrings()` (on `ISuffixTree` as a default interface member, overridden
+by both `SuffixTree` and `PersistentSuffixTree`; implemented once in
+`SuffixTreeAlgorithms.FindAllLongestRepeatedSubstrings(ISuffixTree)`) returns every distinct
+longest repeated substring with all its 0-based start positions, ascending (occurrences may
+overlap), ordered by first occurrence; empty when no character repeats. Method: a substring
+occurs ≥ 2 times iff its locus is at or above an internal node (Gusfield 1997 §7.1), so the
+longest repeats are exactly the path labels of the internal nodes of maximal string depth — one
+`Traverse` collects them (distinct nodes ⇒ distinct labels), and each label's leaves are its
+occurrences (`FindAllOccurrences`, sorted). The output is identical for every tree implementation
+(heap / hybrid / memory-mapped / reloaded persistent parity tests). Examples: `abcxbcaxcab` →
+(`ab`, [0, 9]), (`bc`, [1, 4]), (`ca`, [5, 8]); `xyzzyxxz` → (`x`, [0, 5, 6]), (`y`, [1, 4]),
+(`z`, [2, 3, 7]); `banana` → (`ana`, [1, 3]). Verified against an O(n²) brute force on 400 random
+texts (ASCII and non-ASCII, n ≤ 120) plus Python-checked literals.
 
 ### 4.5 LongestCommonSubstring — O(m + h) in-memory; O(m log d + h) persistent
 
@@ -236,6 +254,7 @@ IReadOnlyList<int> FindAllOccurrences(string / ReadOnlySpan<char>)
 int CountOccurrences(string / ReadOnlySpan<char>)
 string LongestRepeatedSubstring()
 ReadOnlyMemory<char> LongestRepeatedSubstringMemory()
+IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()   // default member
 IEnumerable<string> EnumerateSuffixes()
 IReadOnlyList<string> GetAllSuffixes()
 string LongestCommonSubstring(string / ReadOnlySpan<char>)

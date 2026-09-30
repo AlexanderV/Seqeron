@@ -178,3 +178,6 @@
 
 Plus 12 random alignments (seed 20260930) locked in `MotifFinder_GenerateConsensus_Tests.CavenerBiopythonCases`.
 
+## Configurable inclusion threshold (B05 follow-up, 2026-09-30)
+
+`GenerateConsensus(sequences, θ)` generalises the 25 % design constant (declared limitation) to θ ∈ [0, 1]; θ = 0.25 shares the code path of the parameterless overload (bit-identical; property test on 500 random alignments). The rule (count > θ·n, tie fallback to the maximum-count bases, no A/C/G/T → N, NC-IUB map) was cross-checked against an independent Python implementation on 700 random alignments (1–12 rows, 1–40 columns, alphabets ACGT/ACGTN with gaps and lower case; θ ∈ {0, 0.1, 0.25, 0.3, 1/3, 0.5, 0.75, 1, random}) → 700/700 identical; 20 locked in `MotifFinder_AlignmentConsensus_Tests.ThresholdCases`. Not a published rule (DECIPHER's threshold is cumulative; Cavener = `GenerateCavenerConsensus`).

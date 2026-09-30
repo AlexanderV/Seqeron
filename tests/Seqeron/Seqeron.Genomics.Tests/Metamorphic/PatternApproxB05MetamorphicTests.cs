@@ -11,6 +11,9 @@ namespace Seqeron.Genomics.Tests.Metamorphic;
 ///   • BA1J≥BA1I    the BA1J maximum is ≥ the BA1I maximum (score(P) = Count_d(P) + Count_d(rc(P)) ≥ Count_d(P)).
 ///   • ED-REVERSE   reversing both strings preserves Levenshtein distance (Myers engine) and the
 ///                  alignment distance (the reversed CIGAR is also optimal).
+///   • LS-SWAP      swapping query and target preserves the linear-space alignment distance, and the
+///                  swapped script (I ↔ D) of one is a valid optimal script of the other.
+///   • LS-REVERSE   reversing both strings preserves the linear-space alignment distance.
 /// </summary>
 [TestFixture]
 [Category("Metamorphic")]
@@ -72,6 +75,27 @@ public class PatternApproxB05MetamorphicTests
             Assert.That(ApproximateMatcher.EditDistance(ra, rb), Is.EqualTo(d));
             if (a.Length <= 40 && b.Length <= 40)
                 Assert.That(ApproximateMatcher.GetEditAlignment(ra, rb).Distance, Is.EqualTo(d));
+        }
+    }
+
+    [Test]
+    public void LinearSpaceAlignment_SwapAndReverse_PreserveDistance()
+    {
+        var rng = new Random(20260931);
+        for (int trial = 0; trial < 400; trial++)
+        {
+            string q = RandomDna(rng, rng.Next(0, 60));
+            string t = RandomDna(rng, rng.Next(0, 60));
+            var a = ApproximateMatcher.GetEditAlignmentLinearSpace(q, t);
+            var swapped = ApproximateMatcher.GetEditAlignmentLinearSpace(t, q);
+            Assert.That(swapped.Distance, Is.EqualTo(a.Distance), $"swap q={q} t={t}");
+
+            string mirrored = new(a.Operations.Select(op => op == 'I' ? 'D' : op == 'D' ? 'I' : op).ToArray());
+            string mirroredCigar = string.Concat(mirrored.Select(c => "1" + c));
+            Assert.That(Unit.Alignment.ApproximateMatcher_EditAlignment_Tests.ReplayCost(mirroredCigar, t, q), Is.EqualTo(a.Distance));
+
+            string rq = new(q.Reverse().ToArray()), rt = new(t.Reverse().ToArray());
+            Assert.That(ApproximateMatcher.GetEditAlignmentLinearSpace(rq, rt).Distance, Is.EqualTo(a.Distance), $"reverse q={q} t={t}");
         }
     }
 }

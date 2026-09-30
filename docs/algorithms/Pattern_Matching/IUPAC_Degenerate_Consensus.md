@@ -6,7 +6,7 @@
 | Test Unit ID | MOTIF-GENERATE-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-30 (review-2026-09 B05, F13) |
+| Last Reviewed | 2026-09-30 (review-2026-09 B05, F13; configurable threshold follow-up) |
 
 ## 1. Overview
 
@@ -62,6 +62,7 @@ The mapping is bijective over the 15 non-empty subsets of {A,C,G,T} [1][2][3].
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | sequences | `IEnumerable<string>` | required | Aligned DNA sequences | equal length; upper/lower-case; non-ACGT characters not counted (still count in n) |
+| inclusionThreshold | `double` | 0.25 (parameterless overload) | per-base cut θ: a base is included iff count > θ·n | `GenerateConsensus(sequences, θ)` overload; θ ∈ [0, 1], NaN → `ArgumentOutOfRangeException` |
 
 ### 3.2 Output / Return Value
 
@@ -100,8 +101,9 @@ Null `sequences` throws `ArgumentNullException`; a null element or rows of unequ
 
 **Implementation location:** [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs)
 
-- `MotifFinder.GenerateConsensus(IEnumerable<string>)`: builds the IUPAC-degenerate consensus.
-- `MotifFinder.GetIupacCode(...)` (private): applies the >25 % inclusion threshold, then maps the passing base set to its NC-IUB symbol via canonical `IupacDnaSequence.GetIupacCode`.
+- `MotifFinder.GenerateConsensus(IEnumerable<string>)`: builds the IUPAC-degenerate consensus (θ = 0.25).
+- `MotifFinder.GenerateConsensus(IEnumerable<string>, double inclusionThreshold)` ([MotifFinder.AlignmentConsensus.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs)): same algorithm with a caller-chosen θ ∈ [0, 1]; both overloads share the private `GenerateConsensusCore`, so θ = 0.25 is bit-identical to the parameterless overload (property test C1, 500 random alignments).
+- `MotifFinder.GetIupacCode(...)` (private): applies the >θ inclusion threshold, then maps the passing base set to its NC-IUB symbol via canonical `IupacDnaSequence.GetIupacCode`.
 - `MotifFinder.GenerateCavenerConsensus(IEnumerable<string>)`: Cavener 1987 rules on the shared private `BuildCountMatrix` (rejects null/unequal/non-ACGT rows); set→symbol via `IupacDnaSequence.GetIupacCode`. Locked against Biopython 1.88 `degenerate_consensus` (tutorial WACVC/GBGTW/CV + 12 random alignments).
 
 ### 5.2 Current Behavior
@@ -117,13 +119,13 @@ All rows must have the same length. Bases at exactly the threshold are excluded 
 
 **Intentionally simplified:**
 
-- Threshold value: fixed at θ = 0.25 (strict `>`); **consequence:** users cannot tune the frequency cut (DECIPHER's default is 0.05); minority bases at ≤25 % are silently dropped.
+- Default threshold value θ = 0.25 (strict `>`) in the parameterless overload (API/MCP compatibility); **tunable** via `GenerateConsensus(sequences, θ)` (θ = 0 keeps every base present; θ ≥ the column's maximum frequency reduces it to its tied most frequent bases). Cross-checked against an independent Python implementation of the rule on 700 random alignments (θ ∈ {0, 0.1, 0.25, 0.3, 1/3, 0.5, 0.75, 1, random}; 700/700 identical; 20 locked).
 - Empty-information column (only gaps/N) → `N` (Biopython's Cavener code would give `V` for an all-zero column, an artefact of its sort; DECIPHER would give `-`).
 
 **Not implemented:**
 
 - Gap (`-`) handling and U/RNA columns; **users should rely on:** pre-normalising input to DNA without gaps.
-- Configurable threshold / weighted consensus; **users should rely on:** `GenerateCavenerConsensus` for the published rule, or an external tool (DECIPHER, EMBOSS `cons`) for parameterised thresholds.
+- Weighted consensus in this IUPAC form; **users should rely on:** `GenerateCavenerConsensus` for the published rule, `GenerateConsensus(sequences, θ)` for a tunable per-base cut, and `MotifFinder.GenerateEmbossConsensus` (EMBOSS `cons`, weighted, matrix-scored — [Consensus_From_Alignment](./Consensus_From_Alignment.md) §5.4) for weighted plurality consensus. DECIPHER's cumulative-threshold rule is a different definition and is not implemented.
 
 ### 5.4 Deviations and Assumptions
 
@@ -149,7 +151,7 @@ All rows must have the same length. Bases at exactly the threshold are excluded 
 
 ### 6.2 Limitations
 
-Gaps, IUPAC-degenerate input symbols, and RNA (U) are not counted. The threshold is fixed and not exposed; weighted or quality-aware consensus is out of scope. The 25 % per-base threshold is a design constant, not a published rule; use `GenerateCavenerConsensus` for the Cavener/TRANSFAC/Biopython result.
+Gaps, IUPAC-degenerate input symbols, and RNA (U) are not counted. The threshold is 0.25 in the parameterless overload and configurable in `GenerateConsensus(sequences, θ)`; weighted or quality-aware IUPAC consensus is out of scope. The 25 % per-base threshold is a design constant, not a published rule; use `GenerateCavenerConsensus` for the Cavener/TRANSFAC/Biopython result.
 
 ## 7. Examples and Related Material
 
@@ -170,7 +172,7 @@ string consensus = MotifFinder.GenerateConsensus(new[] { "ATGC", "GTGC" });
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_GenerateConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_GenerateConsensus_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [MotifFinder_GenerateConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_GenerateConsensus_Tests.cs) — covers `INV-01`..`INV-05`; configurable threshold: [MotifFinder_AlignmentConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_AlignmentConsensus_Tests.cs), `Properties/AlignmentConsensusProperties.cs` (C1 bit-identity, C2 nesting)
 - Evidence: [MOTIF-GENERATE-001-Evidence.md](../../../docs/Evidence/MOTIF-GENERATE-001-Evidence.md)
 - Related algorithms: [Consensus_From_Alignment](./Consensus_From_Alignment.md)
 
