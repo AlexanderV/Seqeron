@@ -218,14 +218,16 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// A direct repeat is a subsequence that recurs VERBATIM downstream in the SAME 5'→3'
 /// orientation (unlike an inverted repeat, the downstream copy is the literal sequence,
 /// not its reverse complement), optionally across a spacer of zero or more bases
-/// (Direct_Repeat_Detection.md §2.1, §2.2). For length L, first position i and second
-/// position j a pair is reported when S[i..i+L) = S[j..j+L) and j &gt; i + L − 1 + minSpacing.
+/// (Direct_Repeat_Detection.md §2.1, §2.2). Since the 2026-09 review (B04 F11) pairs are reported
+/// as MAXIMAL repeated pairs (Gusfield 1997 §7.12; MUMmer repeat-match -f): i &lt; j, S[i..i+L) =
+/// S[j..j+L), i = 0 or S[i−1] ≠ S[j−1], L the full common-prefix length over A/C/G/T, minLength ≤ L ≤
+/// maxLength and Spacing = j − i − L ≥ minSpacing.
 /// The canonical exact detector is
 ///   RepeatFinder.FindDirectRepeats(sequence,
 ///                                  int minLength = 5,
 ///                                  int maxLength = 50,
 ///                                  int minSpacing = 1)
-///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs lines 369–433)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs, #region Direct Repeat Detection)
 /// in two overloads — typed DnaSequence and raw string. The checklist's "minLen" is THIS
 /// detector's minLength (the minimum repeat length tested).
 ///
@@ -257,20 +259,17 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///
 /// The all-unique-characters boundary (e.g. "ACGT"): no subsequence of length ≥ 2 recurs, so
 /// the result is cleanly empty — never a crash. The all-same-character homopolymer (e.g.
-/// "AAAA…") is the maximal-recurrence / combinatorial-blow-up watch point: every length-L
-/// window equals every other length-L window, so with minSpacing = 0 many overlapping pairs
-/// ARE legitimately reported, but the count stays polynomially bounded (deduped by the
-/// (i, j, len) hash set, INV-04) and the scan completes promptly — no hang. The
-/// minLength &gt; available-room boundary makes the position loop bound
-/// `i ≤ len·2 + minSpacing` exceed seq.Length so the loop body never runs (empty result,
-/// no out-of-range Substring). Every test forces enumeration (`.ToList()`) so the in-iterator
+/// "AAAA…") is the maximal-recurrence watch point: every window equals every other, but only the
+/// pairs (0, j) are left-maximal, so A^n has exactly n − 1 maximal pairs (length n − j) before the
+/// length/spacing filters — output stays linear and the scan completes promptly. A sequence too
+/// short for any repeat of minLength yields an empty result. Every test forces enumeration (`.ToList()`) so the in-iterator
 /// scan runs and any hang would manifest as a non-terminating materialization.
 ///
 /// Documented invariants pinned on positive results (Direct_Repeat_Detection.md §2.4):
 /// INV-01 RepeatSequence is identical at FirstPosition and SecondPosition;
 /// INV-02 Spacing = SecondPosition − FirstPosition − Length;
 /// INV-03 with minSpacing &gt; 0 the copies do not overlap;
-/// INV-04 each (FirstPosition, SecondPosition, Length) tuple is unique.
+/// INV-04 each (FirstPosition, SecondPosition) pair is reported at most once (one maximal length).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// Unit: REP-PALIN-001 — DNA palindrome (restriction-site / self-complementary) detection
@@ -1223,14 +1222,11 @@ public class RepeatsFuzzTests
     #region BE — Boundary: all-same character (homopolymer — maximal recurrence)
 
     /// <summary>
-    /// BE: an all-same-character homopolymer (e.g. "AAAA…") is the MAXIMAL-recurrence /
-    /// combinatorial-blow-up watch point — every length-L window equals every other, so direct
-    /// repeats genuinely abound. The detector must NOT hang or blow up unboundedly: the (i, j, len)
-    /// dedup hash set (INV-04) keeps the count polynomial, and the scan must complete promptly.
-    /// We pin (a) it completes within the timeout, (b) every reported pair is a real same-character
-    /// repeat satisfying the documented invariants, and (c) for a homopolymer with minSpacing = 0 a
-    /// known adjacent pair (e.g. "AA" at 0 abutting "AA" at 2) IS found — the boundary produces
-    /// correct, bounded output, not nonsense.
+    /// BE: an all-same-character homopolymer (e.g. "AAAA…") is the MAXIMAL-recurrence watch point —
+    /// every window equals every other. Under the maximal-pair convention (Gusfield 1997 §7.12;
+    /// MUMmer repeat-match -f, whose output on A^40 is (1, j, 41 − j) for j = 2..40) only pairs starting
+    /// at 0 are left-maximal, so for A^40 with length 2–6 and minSpacing 0 the result is exactly
+    /// (0,34,6), (0,35,5), (0,36,4), (0,37,3), (0,38,2) — bounded, well-formed, no hang.
     /// </summary>
     [Test]
     [CancelAfter(10000)]
@@ -1239,29 +1235,16 @@ public class RepeatsFuzzTests
         string allA = new string('A', 40);
 
         var act = () => RepeatFinder.FindDirectRepeats(allA, minLength: 2, maxLength: 6, minSpacing: 0).ToList();
-        act.Should().NotThrow("a homopolymer is the maximal-recurrence case but the (i,j,len) dedup keeps it bounded — no hang, no crash");
+        act.Should().NotThrow("a homopolymer is the maximal-recurrence case but only (0, j) pairs are maximal");
 
-        var results = RepeatFinder.FindDirectRepeats(allA, minLength: 2, maxLength: 6, minSpacing: 0).ToList();
+        var results = RepeatFinder.FindDirectRepeats(allA, minLength: 2, maxLength: 6, minSpacing: 0)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length, r.Spacing)).ToList();
 
-        results.Should().NotBeEmpty("a homopolymer trivially contains many same-orientation direct repeats");
-        results.Should().OnlyContain(r =>
-            r.RepeatSequence == allA.Substring(r.FirstPosition, r.Length) &&         // INV-01 (copy 1)
-            r.RepeatSequence == allA.Substring(r.SecondPosition, r.Length) &&        // INV-01 (copy 2)
-            r.RepeatSequence.All(c => c == 'A') &&                                   // every base is the homopolymer char
-            r.Length >= 2 && r.Length <= 6 &&                                        // within the tested length band
-            r.Spacing == r.SecondPosition - r.FirstPosition - r.Length &&            // INV-02
-            r.SecondPosition > r.FirstPosition &&                                    // downstream copy
-            r.SecondPosition + r.Length <= allA.Length,                             // in bounds
-            "every homopolymer result is a well-formed same-character direct-repeat pair, not a spurious or out-of-range entry");
+        results.Should().Equal((0, 34, 6, 28), (0, 35, 5, 30), (0, 36, 4, 32), (0, 37, 3, 34), (0, 38, 2, 36));
 
-        // INV-04: each (FirstPosition, SecondPosition, Length) tuple is reported at most once.
-        results.Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).Should()
-            .OnlyHaveUniqueItems("INV-04: the (i, j, len) dedup hash set suppresses duplicate result keys");
-
-        // A concrete known pair: 'AA' at 0 and 'AA' at 2 (adjacent, spacing 0) must be present.
-        results.Should().Contain(
-            r => r.Length == 2 && r.FirstPosition == 0 && r.SecondPosition == 2 && r.Spacing == 0,
-            "with minSpacing = 0 the adjacent 'AA'…'AA' pair is a legitimate direct repeat and is reported");
+        // Without the length/spacing filters A^40 has exactly 39 maximal pairs (0, j, 40 − j).
+        RepeatFinder.FindDirectRepeats(allA, minLength: 2, maxLength: 40, minSpacing: int.MinValue)
+            .Should().HaveCount(38, "pairs (0, j) for j = 1..38 have length 40 − j ≥ 2");
     }
 
     #endregion
@@ -1296,8 +1279,7 @@ public class RepeatsFuzzTests
     /// well-formed results — every reported pair is a verbatim same-orientation recurrence, the
     /// spacing invariant holds, copies are non-overlapping under minSpacing &gt; 0, and all keys are
     /// unique — so the degenerate-boundary guards do not corrupt the scan on ordinary input. Pinned
-    /// per INV-01..INV-04 (Direct_Repeat_Detection.md §2.4). Length kept modest because detection is
-    /// O(r·n·(m+k)); a hang would trip the timeout.
+    /// per INV-01..INV-04 (Direct_Repeat_Detection.md §2.4).
     /// </summary>
     [Test]
     [CancelAfter(30000)]
@@ -1316,8 +1298,12 @@ public class RepeatsFuzzTests
             r.FirstPosition >= 0 && r.SecondPosition + r.Length <= seq.Length,
             "every result on random input is well-formed: copies are verbatim recurrences, spacing/bounds invariants hold, no overlap");
 
-        results.Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).Should()
-            .OnlyHaveUniqueItems("INV-04: every (FirstPosition, SecondPosition, Length) key is unique");
+        results.Select(r => (r.FirstPosition, r.SecondPosition)).Should()
+            .OnlyHaveUniqueItems("INV-04: every (FirstPosition, SecondPosition) pair is reported once");
+        results.Should().OnlyContain(r =>
+            (r.FirstPosition == 0 || seq[r.FirstPosition - 1] != seq[r.SecondPosition - 1]) &&
+            (r.SecondPosition + r.Length == seq.Length || seq[r.FirstPosition + r.Length] != seq[r.SecondPosition + r.Length]),
+            "every pair is left- and right-maximal");
     }
 
     #endregion

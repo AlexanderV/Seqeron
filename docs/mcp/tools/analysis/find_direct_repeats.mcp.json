@@ -5,15 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindDirectRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L796",
-  "description": "Finds identical substrings appearing twice with spacing >= minSpacing. Reports both positions, sequence, length, and spacing = secondPos - firstPos - length.",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L908",
+  "description": "Finds exact direct repeats as maximal repeated pairs (left- and right-maximal; MUMmer repeat-match -f convention), filtered to minLength <= length <= maxLength and spacing >= minSpacing. Only A/C/G/T match, case-insensitive. Reports both 0-based positions, sequence, length, and spacing = secondPos - firstPos - length; sorted by (firstPos, secondPos).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
       "minLength": { "type": "integer", "description": "Minimum repeat length", "minimum": 2, "default": 5 },
       "maxLength": { "type": "integer", "description": "Maximum repeat length", "default": 50 },
-      "minSpacing": { "type": "integer", "description": "Minimum spacing between copies", "default": 1 }
+      "minSpacing": { "type": "integer", "description": "Minimum spacing between copies (negative admits overlap)", "default": 1 }
     },
     "required": ["sequence"]
   },
@@ -47,6 +47,11 @@
       "name": "One spaced repeat",
       "input": { "sequence": "ATGCGGATGC", "minLength": 4, "maxLength": 4, "minSpacing": 1 },
       "output": { "items": [ { "firstPosition": 0, "secondPosition": 6, "repeatSequence": "ATGC", "length": 4, "spacing": 2 } ] }
+    },
+    {
+      "name": "Periodic copies - only the maximal pair",
+      "input": { "sequence": "ACGTATTACGTATTACGTA", "minLength": 4, "maxLength": 50, "minSpacing": 1 },
+      "output": { "items": [ { "firstPosition": 0, "secondPosition": 14, "repeatSequence": "ACGTA", "length": 5, "spacing": 9 } ] }
     },
     {
       "name": "No repeat",

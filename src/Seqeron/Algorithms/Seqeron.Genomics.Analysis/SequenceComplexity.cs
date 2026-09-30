@@ -794,28 +794,10 @@ public static class SequenceComplexity
     private static int[] ComputeLongestPreviousFactor(string s)
     {
         int n = s.Length;
-        int[] sa = BuildSuffixArray(s);
-
-        var rank = new int[n];
-        for (int r = 0; r < n; r++) rank[sa[r]] = r;
-
-        // Kasai LCP: lcp[r] = lcp(S[sa[r-1]..], S[sa[r]..]), lcp[0] = 0.
-        var lcp = new int[n];
-        int h = 0;
-        for (int i = 0; i < n; i++)
-        {
-            if (rank[i] > 0)
-            {
-                int j = sa[rank[i] - 1];
-                while (i + h < n && j + h < n && s[i + h] == s[j + h]) h++;
-                lcp[rank[i]] = h;
-                if (h > 0) h--;
-            }
-            else
-            {
-                h = 0;
-            }
-        }
+        var symbols = new int[n];
+        for (int i = 0; i < n; i++) symbols[i] = s[i];
+        int[] sa = BuildSuffixArray(symbols);
+        int[] lcp = BuildLcpArray(symbols, sa);
 
         var lpf = new int[n];
         var stackPos = new int[n];
@@ -864,30 +846,36 @@ public static class SequenceComplexity
 
     /// <summary>
     /// Suffix array by prefix doubling (Manber &amp; Myers 1993), O(n log² n) with a comparison
-    /// sort on (rank[i], rank[i+k]) keys.
+    /// sort on (rank[i], rank[i+k]) keys. Symbols are arbitrary integers (compared by value);
+    /// shared by the LZ76 factorization here and by the maximal-repeat enumeration in
+    /// <see cref="RepeatFinder"/> (REP-DIRECT-001), which encodes non-ACGT symbols as unique values.
     /// </summary>
-    private static int[] BuildSuffixArray(string s)
+    internal static int[] BuildSuffixArray(int[] s)
     {
         int n = s.Length;
         var sa = new int[n];
+        if (n == 0) return sa;
         var rank = new int[n];
         var tmp = new int[n];
         var keys = new long[n];
 
-        for (int i = 0; i < n; i++)
-        {
-            sa[i] = i;
-            rank[i] = s[i];
-        }
+        // Initial ranks: dense 0..d-1 by symbol value (d ≤ n), so every key fits in rank·(n+2)+second.
+        for (int i = 0; i < n; i++) sa[i] = i;
+        var initial = (int[])s.Clone();
+        Array.Sort(initial, sa);
+        rank[sa[0]] = 0;
+        for (int r = 1; r < n; r++)
+            rank[sa[r]] = rank[sa[r - 1]] + (initial[r] != initial[r - 1] ? 1 : 0);
 
+        long radix = n + 2L;
         int k = 1;
-        while (true)
+        while (rank[sa[n - 1]] != n - 1 && k < n)
         {
             for (int r = 0; r < n; r++)
             {
                 int i = sa[r];
                 long second = i + k < n ? rank[i + k] + 1L : 0L;
-                keys[r] = rank[i] * (long)(Math.Max(n, char.MaxValue) + 2) + second;
+                keys[r] = rank[i] * radix + second;
             }
             Array.Sort(keys, sa);
 
@@ -895,12 +883,40 @@ public static class SequenceComplexity
             for (int r = 1; r < n; r++)
                 tmp[sa[r]] = tmp[sa[r - 1]] + (keys[r] != keys[r - 1] ? 1 : 0);
             Array.Copy(tmp, rank, n);
-
-            if (rank[sa[n - 1]] == n - 1 || k >= n) break;
             k <<= 1;
         }
 
         return sa;
+    }
+
+    /// <summary>
+    /// LCP array (Kasai et al. 2001): <c>lcp[r]</c> = length of the longest common prefix of the
+    /// suffixes at <c>sa[r-1]</c> and <c>sa[r]</c>; <c>lcp[0] = 0</c>. O(n).
+    /// </summary>
+    internal static int[] BuildLcpArray(int[] s, int[] sa)
+    {
+        int n = s.Length;
+        var rank = new int[n];
+        for (int r = 0; r < n; r++) rank[sa[r]] = r;
+
+        var lcp = new int[n];
+        int h = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (rank[i] > 0)
+            {
+                int j = sa[rank[i] - 1];
+                while (i + h < n && j + h < n && s[i + h] == s[j + h]) h++;
+                lcp[rank[i]] = h;
+                if (h > 0) h--;
+            }
+            else
+            {
+                h = 0;
+            }
+        }
+
+        return lcp;
     }
 
     private static double CalculateNormalizedLempelZivComplexityCore(string seq)

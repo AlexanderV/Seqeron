@@ -582,6 +582,25 @@ public class RepeatFinderProperties
         });
     }
 
+    /// <summary>
+    /// INV-6: Every reported pair is a maximal repeated pair (Gusfield 1997 §7.12; MUMmer repeat-match -f):
+    /// left-maximal (i = 0 or S[i−1] ≠ S[j−1]) and right-maximal (end of text or S[i+L] ≠ S[j+L]),
+    /// and each position pair appears once. Checked with overlaps admitted (minSpacing = int.MinValue).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DirectRepeat_Pairs_AreLeftAndRightMaximal()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            var repeats = RepeatFinder.FindDirectRepeats(seq, minLength: 2, maxLength: int.MaxValue, minSpacing: int.MinValue).ToList();
+            bool maximal = repeats.All(r =>
+                (r.FirstPosition == 0 || seq[r.FirstPosition - 1] != seq[r.SecondPosition - 1]) &&
+                (r.SecondPosition + r.Length == seq.Length || seq[r.FirstPosition + r.Length] != seq[r.SecondPosition + r.Length]));
+            bool unique = repeats.Select(r => (r.FirstPosition, r.SecondPosition)).Distinct().Count() == repeats.Count;
+            return (maximal && unique).Label("Direct repeats must be unique left- and right-maximal pairs");
+        });
+    }
+
     #endregion
 
     #region REP-APPROX-001: R: percent-matches ∈ [0,100]; R: score ≥ MinScore (50); D: deterministic

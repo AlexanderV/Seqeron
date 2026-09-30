@@ -123,31 +123,55 @@ public class RepeatsDifferentialTests
         }
     }
 
-    // ---- Row 16: REP-DIRECT-001 — suffix-tree FindDirectRepeats vs brute substring scan ----
+    // ---- Row 16: REP-DIRECT-001 — FindDirectRepeats vs brute-force maximal-pair oracle ----
+    // Oracle = the definition (Gusfield 1997 §7.12; MUMmer repeat-match -f exhaustive mode -E):
+    // i < j, left-maximal (i == 0 or S[i-1] != S[j-1]), L = full common-prefix length over A/C/G/T,
+    // minLen <= L <= maxLen, Spacing = j - i - L >= minSpacing. Sorted by (i, j).
 
     private static List<(int i, int j, int len)> DirectOracle(string seq, int minLen, int maxLen, int minSpacing)
     {
+        static bool Acgt(char c) => c is 'A' or 'C' or 'G' or 'T';
         var results = new List<(int, int, int)>();
-        for (int len = minLen; len <= maxLen; len++)
-        for (int i = 0; i <= seq.Length - len * 2 - minSpacing; i++)
+        for (int i = 0; i < seq.Length; i++)
+        for (int j = i + 1; j < seq.Length; j++)
         {
-            string repeat = seq.Substring(i, len);
-            for (int j = i + len + minSpacing; j + len <= seq.Length; j++)
-                if (seq.Substring(j, len) == repeat)
-                    results.Add((i, j, len));
+            if (i > 0 && seq[i - 1] == seq[j - 1] && Acgt(seq[i - 1])) continue;
+            int len = 0;
+            while (j + len < seq.Length && seq[i + len] == seq[j + len] && Acgt(seq[i + len])) len++;
+            if (len >= minLen && len <= maxLen && j - i - len >= minSpacing)
+                results.Add((i, j, len));
         }
         return results;
     }
 
     [Test]
     [Category("REP-DIRECT-001")]
-    [TestCase("ACGTACGTTTT")]
-    [TestCase("AAGGAAGGCCAAGG")]
-    public void DirectRepeats_MatchesBruteSubstringScan(string seq)
+    [TestCase("ACGTACGTTTT", 1)]
+    [TestCase("AAGGAAGGCCAAGG", 1)]
+    [TestCase("ACGTACGTTTTTTTTTACGTACGT", 1)]
+    [TestCase("acgtNacgtRRacgtNacgt", 0)]
+    [TestCase("ACGTACGTACGTAAACGTACG", -100)]
+    public void DirectRepeats_MatchesBruteForceMaximalPairOracle(string seq, int minSpacing)
     {
-        var actual = RepeatFinder.FindDirectRepeats(seq, minLength: 3, maxLength: 5, minSpacing: 1)
+        var actual = RepeatFinder.FindDirectRepeats(seq, minLength: 3, maxLength: 5, minSpacing: minSpacing)
             .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
-        Assert.That(actual, Is.EqualTo(DirectOracle(seq.ToUpperInvariant(), 3, 5, 1)));
+        Assert.That(actual, Is.EqualTo(DirectOracle(seq.ToUpperInvariant(), 3, 5, minSpacing)));
+    }
+
+    [Test]
+    [Category("REP-DIRECT-001")]
+    public void DirectRepeats_RandomSequences_MatchBruteForceMaximalPairOracle()
+    {
+        var rng = new Random(20260930);
+        for (int t = 0; t < 300; t++)
+        {
+            string alphabet = t % 3 == 0 ? "ACGTN" : t % 3 == 1 ? "AC" : "ACGT";
+            var seq = new string(Enumerable.Range(0, rng.Next(0, 80)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            int minLen = rng.Next(2, 7), maxLen = minLen + rng.Next(0, 10), minSpacing = rng.Next(-5, 4);
+            var actual = RepeatFinder.FindDirectRepeats(seq, minLen, maxLen, minSpacing)
+                .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
+            Assert.That(actual, Is.EqualTo(DirectOracle(seq, minLen, maxLen, minSpacing)), $"{seq} {minLen} {maxLen} {minSpacing}");
+        }
     }
 
     // ---- Row 17: REP-PALIN-001 — FindPalindromes vs independent revcomp-equality oracle ----

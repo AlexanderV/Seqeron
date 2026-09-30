@@ -214,9 +214,11 @@ public class RepeatsCombinatorialTests
     // (the gap knob).
     //
     // The combinatorial point: minLen and the spacing gate interact. Every result
-    // is a genuine duplicate (R₁ = R₂) within bounds and spacing ≥ gate; the
-    // embedded 7-mer duplicate with gap 5 appears iff minLen ≤ 7 and the gap gate
-    // ≤ 5.
+    // is a genuine maximal duplicate (R₁ = R₂; Gusfield 1997 §7.12 / MUMmer
+    // repeat-match -f) within bounds and spacing ≥ gate; the embedded 7-mer
+    // duplicate — flanked by mismatching bases (G…T on the left, T…A on the right)
+    // so the pair is left- and right-maximal at exactly 7 bp — with gap 5 appears
+    // iff minLen ≤ 7 and the gap gate ≤ 5.
     // ═══════════════════════════════════════════════════════════════════════
 
     private const string DirectCopy = "ACGTGCA"; // length 7, contains 'A' → unique to embedding
@@ -228,7 +230,7 @@ public class RepeatsCombinatorialTests
         [Values(1, 3, 8)] int spacingGate,
         [Values(40, 90, 160)] int seqLen)
     {
-        string core = DirectCopy + Pad(DirectGap) + DirectCopy;
+        string core = "G" + DirectCopy + Pad(DirectGap) + DirectCopy + "A";
         int padTotal = seqLen - core.Length;
         string text = Pad(padTotal / 2) + core + Pad(padTotal - padTotal / 2);
         var dna = new DnaSequence(text);
@@ -239,8 +241,11 @@ public class RepeatsCombinatorialTests
         {
             text.Substring(r.FirstPosition, r.Length).Should().Be(r.RepeatSequence);
             text.Substring(r.SecondPosition, r.Length).Should().Be(r.RepeatSequence);
-            r.Length.Should().BeGreaterThanOrEqualTo(minLen);
+            r.Length.Should().BeGreaterThanOrEqualTo(minLen).And.BeLessThanOrEqualTo(20);
             r.SecondPosition.Should().BeGreaterThan(r.FirstPosition);
+            (r.FirstPosition == 0 || text[r.FirstPosition - 1] != text[r.SecondPosition - 1]).Should().BeTrue("left-maximal");
+            (r.SecondPosition + r.Length == text.Length || text[r.FirstPosition + r.Length] != text[r.SecondPosition + r.Length])
+                .Should().BeTrue("right-maximal");
             r.Spacing.Should().Be(r.SecondPosition - r.FirstPosition - r.Length).And.BeGreaterThanOrEqualTo(spacingGate);
         }
 

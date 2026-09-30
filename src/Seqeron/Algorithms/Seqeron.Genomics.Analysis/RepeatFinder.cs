@@ -847,13 +847,46 @@ public static class RepeatFinder
     #region Direct Repeat Detection
 
     /// <summary>
-    /// Finds direct repeats (identical sequences appearing multiple times).
+    /// Finds exact direct repeats reported as <b>maximal repeated pairs</b> (Gusfield 1997, §7.12;
+    /// Kurtz &amp; Schleiermacher 1999 REPuter forward repeats; MUMmer <c>repeat-match -f</c>,
+    /// Kurtz et al. 2004).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A pair of 0-based positions <c>i &lt; j</c> with length <c>L</c> is reported when
+    /// <c>S[i..i+L) = S[j..j+L)</c>, the pair is <b>right-maximal</b> (<c>L</c> is the full length of the
+    /// common prefix of the suffixes at <c>i</c> and <c>j</c>) and <b>left-maximal</b> (<c>i = 0</c> or
+    /// <c>S[i−1] ≠ S[j−1]</c>). Every exact direct repeat is therefore reported exactly once, at its full
+    /// extent — its shorter sub-copies (nested windows of the same pair of copies) are not repeated.
+    /// This is exactly the forward-strand output of MUMmer <c>repeat-match -f -n minLength</c>
+    /// (converted to 0-based positions), then filtered by <paramref name="maxLength"/> and
+    /// <paramref name="minSpacing"/>.
+    /// </para>
+    /// <para>
+    /// Only A/C/G/T match (case-insensitive); any other symbol (N, IUPAC codes, gaps) never matches and
+    /// terminates a repeat — the MUMmer <c>mummer -n</c> convention ("match only the characters a, c, g,
+    /// or t"), consistent with the ACGT-only rule of the other <see cref="RepeatFinder"/> methods.
+    /// </para>
+    /// <para>
+    /// Filters: <c>minLength ≤ L ≤ maxLength</c> — a maximal repeat longer than <paramref name="maxLength"/>
+    /// is <b>not</b> reported (it is not truncated into sub-windows; pass a larger <paramref name="maxLength"/>
+    /// to see it); <c>Spacing = j − i − L ≥ minSpacing</c>. <paramref name="minSpacing"/> may be negative to
+    /// admit overlapping copies (e.g. <c>int.MinValue</c> returns every maximal pair, as repeat-match does);
+    /// <c>0</c> admits abutting (tandem) copies.
+    /// </para>
+    /// <para>
+    /// Algorithm: suffix array + Kasai LCP array (shared with <see cref="SequenceComplexity"/>), bottom-up
+    /// traversal of the lcp-interval tree with per-left-character position lists (Gusfield 1997 §7.12.3;
+    /// Abouelhoda, Kurtz &amp; Ohlebusch 2004, maximal repeated pairs on enhanced suffix arrays):
+    /// O(n log² n + z) time for z maximal pairs of length within [minLength, maxLength], O(n) extra space.
+    /// Results are ordered by (FirstPosition, SecondPosition); each position pair occurs at most once.
+    /// </para>
+    /// </remarks>
     /// <param name="sequence">DNA sequence to search.</param>
-    /// <param name="minLength">Minimum repeat length (default: 5).</param>
-    /// <param name="maxLength">Maximum repeat length (default: 50).</param>
-    /// <param name="minSpacing">Minimum spacing between repeats (default: 1).</param>
-    /// <returns>Collection of direct repeats found.</returns>
+    /// <param name="minLength">Minimum repeat length (default: 5, must be ≥ 2).</param>
+    /// <param name="maxLength">Maximum repeat length (default: 50, must be ≥ <paramref name="minLength"/>).</param>
+    /// <param name="minSpacing">Minimum number of bases between the copies (default: 1; negative admits overlap).</param>
+    /// <returns>Maximal direct-repeat pairs, sorted by (FirstPosition, SecondPosition).</returns>
     public static IEnumerable<DirectRepeatResult> FindDirectRepeats(
         DnaSequence sequence,
         int minLength = 5,
@@ -868,7 +901,9 @@ public static class RepeatFinder
     }
 
     /// <summary>
-    /// Finds direct repeats in a raw sequence string.
+    /// Finds maximal exact direct-repeat pairs in a raw sequence string (case-insensitive; non-ACGT symbols
+    /// never match). <c>null</c> or empty input yields no results. See
+    /// <see cref="FindDirectRepeats(DnaSequence,int,int,int)"/> for the reporting convention.
     /// </summary>
     public static IEnumerable<DirectRepeatResult> FindDirectRepeats(
         string sequence,
@@ -876,64 +911,178 @@ public static class RepeatFinder
         int maxLength = 50,
         int minSpacing = 1)
     {
-        // Mirror the DnaSequence overload's numeric validation onto the raw-string surface.
-        // A degenerate minLength < 2 (e.g. 0) yields a zero-length candidate whose suffix-tree
-        // lookup matches EVERY position, blowing the result set up with O(n^2) spurious
-        // empty-/single-base "repeats"; that is undisciplined fuzzing failure, so it is rejected
-        // here exactly as the typed overload rejects it. Validation is hoisted into an eager
-        // wrapper so the exception surfaces at the call, not only on enumeration.
+        // Same numeric validation as the DnaSequence overload, eager (at the call, not on enumeration).
         ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 2);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
 
-        return FindDirectRepeatsRaw(sequence, minLength, maxLength, minSpacing);
-    }
-
-    private static IEnumerable<DirectRepeatResult> FindDirectRepeatsRaw(
-        string sequence,
-        int minLength,
-        int maxLength,
-        int minSpacing)
-    {
         if (string.IsNullOrEmpty(sequence))
-            yield break;
+            return Array.Empty<DirectRepeatResult>();
 
-        foreach (var result in FindDirectRepeatsCore(sequence.ToUpperInvariant(), minLength, maxLength, minSpacing))
-            yield return result;
+        return FindDirectRepeatsCore(sequence.ToUpperInvariant(), minLength, maxLength, minSpacing);
     }
 
-    private static IEnumerable<DirectRepeatResult> FindDirectRepeatsCore(
+    /// <summary>Left-character class for a suffix start with no matchable left neighbour (p = 0 or non-ACGT).</summary>
+    private const int UniqueLeftClass = 4;
+    private const int LeftClassCount = 5;
+
+    private static int AcgtCode(char c) => c switch
+    {
+        'A' => 0,
+        'C' => 1,
+        'G' => 2,
+        'T' => 3,
+        _ => -1,
+    };
+
+    private static List<DirectRepeatResult> FindDirectRepeatsCore(
         string seq,
         int minLength,
         int maxLength,
         int minSpacing)
     {
-        // Use SuffixTree for efficient O(m+k) pattern matching instead of O(n) per pattern
-        var suffixTree = global::SuffixTree.SuffixTree.Build(seq);
-        var reported = new HashSet<(int, int, int)>();
+        var results = new List<DirectRepeatResult>();
+        int n = seq.Length;
+        if (n <= minLength)
+            return results;
 
-        for (int len = minLength; len <= maxLength; len++)
+        // Symbols: A/C/G/T → 0..3; every other symbol gets a unique code 4 + p, so it never matches.
+        var symbols = new int[n];
+        var leftClass = new int[n];
+        for (int p = 0; p < n; p++)
         {
-            for (int i = 0; i <= seq.Length - len * 2 - minSpacing; i++)
+            int code = AcgtCode(seq[p]);
+            symbols[p] = code >= 0 ? code : 4 + p;
+            leftClass[p] = UniqueLeftClass;
+        }
+        for (int p = 1; p < n; p++)
+        {
+            if (symbols[p - 1] < 4)
+                leftClass[p] = symbols[p - 1];
+        }
+
+        int[] sa = SequenceComplexity.BuildSuffixArray(symbols);
+        int[] lcp = SequenceComplexity.BuildLcpArray(symbols, sa);
+
+        // Bottom-up lcp-interval traversal. Each interval keeps its suffix positions in one linked list
+        // per left-character class; merging a child into its parent at string depth ℓ emits every pair
+        // (p from the child, q already in the parent) whose left characters differ (or are undefined):
+        // those pairs have LCP exactly ℓ (right-maximal) and are left-maximal.
+        var next = new int[n];
+        var stackLcp = new int[n + 1];
+        var stackHead = new int[(n + 1) * LeftClassCount];
+        var stackTail = new int[(n + 1) * LeftClassCount];
+        var childHead = new int[LeftClassCount];
+        var childTail = new int[LeftClassCount];
+        int top = 0;
+        stackLcp[0] = 0;
+        Array.Fill(stackHead, -1, 0, LeftClassCount);
+
+        for (int r = 1; r <= n; r++)
+        {
+            // Pending child: the leaf for suffix sa[r − 1].
+            Array.Fill(childHead, -1);
+            int leaf = sa[r - 1];
+            next[leaf] = -1;
+            childHead[leftClass[leaf]] = leaf;
+            childTail[leftClass[leaf]] = leaf;
+
+            int h = r < n ? lcp[r] : 0;
+            while (stackLcp[top] > h)
             {
-                string repeat = seq.Substring(i, len);
-
-                // Use SuffixTree.FindAllOccurrences for O(m+k) lookup
-                var occurrences = suffixTree.FindAllOccurrences(repeat);
-
-                foreach (int j in occurrences.Where(p => p > i + len - 1 + minSpacing).OrderBy(p => p))
+                MergeDirectRepeatLists(seq, top, childHead, childTail, stackLcp, stackHead, stackTail, next,
+                    minLength, maxLength, minSpacing, results);
+                for (int c = 0; c < LeftClassCount; c++)
                 {
-                    var key = (i, j, len);
-                    if (reported.Add(key))
+                    childHead[c] = stackHead[top * LeftClassCount + c];
+                    childTail[c] = stackTail[top * LeftClassCount + c];
+                }
+                top--;
+            }
+
+            if (stackLcp[top] < h)
+            {
+                top++;
+                stackLcp[top] = h;
+                Array.Fill(stackHead, -1, top * LeftClassCount, LeftClassCount);
+            }
+
+            MergeDirectRepeatLists(seq, top, childHead, childTail, stackLcp, stackHead, stackTail, next,
+                minLength, maxLength, minSpacing, results);
+        }
+
+        results.Sort(static (a, b) =>
+        {
+            int c = a.FirstPosition.CompareTo(b.FirstPosition);
+            return c != 0 ? c : a.SecondPosition.CompareTo(b.SecondPosition);
+        });
+        return results;
+    }
+
+    /// <summary>
+    /// Emits the maximal pairs between a child interval's lists and the lists already accumulated in the
+    /// interval at stack slot <paramref name="node"/>, then concatenates the child lists into the node.
+    /// </summary>
+    private static void MergeDirectRepeatLists(
+        string seq,
+        int node,
+        int[] childHead,
+        int[] childTail,
+        int[] stackLcp,
+        int[] stackHead,
+        int[] stackTail,
+        int[] next,
+        int minLength,
+        int maxLength,
+        int minSpacing,
+        List<DirectRepeatResult> results)
+    {
+        int length = stackLcp[node];
+        int baseIdx = node * LeftClassCount;
+
+        if (length >= minLength && length <= maxLength)
+        {
+            for (int a = 0; a < LeftClassCount; a++)
+            {
+                if (childHead[a] < 0) continue;
+                for (int b = 0; b < LeftClassCount; b++)
+                {
+                    if (a == b && a != UniqueLeftClass) continue; // same left character: not left-maximal
+                    int nodeListHead = stackHead[baseIdx + b];
+                    if (nodeListHead < 0) continue;
+
+                    for (int p = childHead[a]; p >= 0; p = next[p])
                     {
-                        yield return new DirectRepeatResult(
-                            FirstPosition: i,
-                            SecondPosition: j,
-                            RepeatSequence: repeat,
-                            Length: len,
-                            Spacing: j - i - len);
+                        for (int q = nodeListHead; q >= 0; q = next[q])
+                        {
+                            int i = Math.Min(p, q);
+                            int j = Math.Max(p, q);
+                            long spacing = (long)j - i - length;
+                            if (spacing < minSpacing) continue;
+                            results.Add(new DirectRepeatResult(
+                                FirstPosition: i,
+                                SecondPosition: j,
+                                RepeatSequence: seq.Substring(i, length),
+                                Length: length,
+                                Spacing: (int)spacing));
+                        }
                     }
                 }
             }
+        }
+
+        for (int c = 0; c < LeftClassCount; c++)
+        {
+            if (childHead[c] < 0) continue;
+            int idx = baseIdx + c;
+            if (stackHead[idx] < 0)
+            {
+                stackHead[idx] = childHead[c];
+            }
+            else
+            {
+                next[stackTail[idx]] = childHead[c];
+            }
+            stackTail[idx] = childTail[c];
         }
     }
 
