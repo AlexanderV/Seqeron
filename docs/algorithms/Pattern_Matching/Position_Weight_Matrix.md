@@ -121,9 +121,18 @@ Row 3 = T
 - `MotifFinder.CreatePwm(IEnumerable<string>, double, IReadOnlyList<double>)`: Builds a DNA PWM against a non-uniform background.
 - `PositionWeightMatrix`: Holds `Matrix`, `Length`, `Consensus` (first maximum in A,C,G,T order — Biopython `consensus` tie rule), `MaxScore`, `MinScore` (sums of column extrema — Biopython `pssm.max`/`pssm.min`) and `ReverseComplement()`.
 
+Additive members ([MotifFinder.PwmScoring.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmScoring.cs), 2026-09 B05 follow-up):
+
+- `MotifFinder.ScanWithPwmBothStrands(DnaSequence, PositionWeightMatrix, double)` → `PwmStrandMatch(Position, BiopythonPosition, Strand, MatchedSequence, Pattern, Score)` — Biopython `pssm.search(seq, threshold, both=True)`: minus strand scored with `ReverseComplement()` over the same forward windows; `Position` = forward window start on both strands, `BiopythonPosition` = start on '+', start − n on '−'; ascending start, '+' before '−' on ties (Biopython uses NumPy's unstable `argsort`, so its tie order is implementation-defined — observed: `(0,+),(−12,−),(−7,−),(5,+)` for a palindromic PWM); minus `MatchedSequence` = the site read 5'→3' on the minus strand.
+- `MotifFinder.CalculatePwmScores(string | DnaSequence, PositionWeightMatrix)` — Biopython `calculate`: one score per window, NaN for windows with non-ACGT symbols, case-insensitive; empty array when n < m (Biopython raises). Scores are double (Biopython float32).
+- `PositionWeightMatrix.FromCounts(double[,] counts, double pseudocount = 0 | IReadOnlyList<double> pseudocounts, background?)` — Biopython `counts.normalize(pseudocounts).log_odds(background)` with per-column totals (JASPAR matrices may have unequal column sums); `MotifFinder.JasparPseudocounts(counts, background?)` — Biopython `motifs.jaspar.calculate_pseudocounts` (√N̄·q[b]). `CreatePwm` now uses the same private log-odds kernel (bit-identical results).
+- `PositionWeightMatrix.Mean(background?)`, `Std(background?)` — Biopython `pssm.mean` / `pssm.std`.
+- `PositionWeightMatrix.ScoreDistribution(background?, precision = 1000)` → `PwmScoreDistribution` with `ThresholdFpr`, `ThresholdFnr`, `ThresholdBalanced(rateProportion[, out fpr])`, `ThresholdPatser()` — line-by-line port of Biopython `Bio.motifs.thresholds.ScoreDistribution` (Dojer 2008), including CPython float floor-division for grid indices, so thresholds equal Biopython to ~1e-12. Non-finite matrices (pseudocount 0) throw (`InvalidOperationException`; Biopython would produce an infinite grid step). The FPR/FNR loops stop at the grid ends instead of running past them (Biopython would wrap to negative indices / raise).
+- The single window-scoring kernel `ScorePwmWindow` is shared by `ScanWithPwm`, `ScanWithPwmBothStrands` and `CalculatePwmScores`.
+
 ### 5.2 Current Behavior
 
-`CreatePwm(...)` uppercases all training sequences, uses a default pseudocount of `0.25`, and always computes log-odds scores against a uniform background frequency of `0.25`. `ScanWithPwm(...)` reports matches whose score is greater than or equal to the threshold and uses the PWM consensus as the `Pattern` field in returned `MotifMatch` values.
+`CreatePwm(...)` uppercases all training sequences and uses a default pseudocount of `0.25`; the two-argument overload computes log-odds against a uniform background (0.25), the background overload against a normalised arbitrary background. `ScanWithPwm(...)` reports matches whose score is greater than or equal to the threshold and uses the PWM consensus as the `Pattern` field in returned `MotifMatch` values.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -156,7 +165,7 @@ Row 3 = T
 
 ### 6.2 Limitations
 
-The current implementation assumes a uniform DNA background and does not expose alternative alphabets or richer probabilistic motif models. It also returns raw PWM scores without converting them to calibrated probabilities or p-values.
+DNA alphabet only. Score calibration is the Biopython discretised score distribution (`ScoreDistribution`: FPR/FNR/balanced/patser thresholds); exact p-values per score (e.g. TFM-Pvalue / FIMO's exact DP) are not provided.
 
 ## 7. Examples and Related Material
 
@@ -179,3 +188,5 @@ The original document highlights these related motif representations and alterna
 5. Stormo, G.D. (2000). "DNA binding sites: representation and discovery." *Bioinformatics* review article.
 6. Wasserman, W.W.; Sandelin, A. (2004). "Applied bioinformatics for the identification of regulatory elements." *Nat Rev Genet* 5:276-287. doi:10.1038/nrg1315.
 7. Biopython 1.88 `Bio.motifs.matrix` (`normalize`, `log_odds`, `max`/`min`, `consensus`, `reverse_complement`, `calculate`, `search`) — reference implementation used to lock the test values.
+8. Biopython 1.88 source (installed package): `Bio/motifs/thresholds.py` (`ScoreDistribution`, N. Dojer 2008), `Bio/motifs/jaspar/__init__.py` (`calculate_pseudocounts`), `Bio/motifs/matrix.py` (`search(both=True)`, `mean`, `std`, `distribution`) — B05 follow-up additions.
+9. Hertz G.Z., Stormo G.D. 1999. Identifying DNA and protein patterns with statistically significant alignments of multiple sequences. Bioinformatics 15:563-577 (patser threshold, via Biopython `threshold_patser`).

@@ -335,3 +335,21 @@ Reference: Biopython 1.88 `Bio.motifs` on the Wikipedia 10-sequence example, tar
 | B5 | `CreatePwm_ZeroPseudocount_MaxMinEqualBiopython` | max 12.438028776954503, min −∞ |
 | B6 | `CreatePwm_InvalidPseudocount_Throws` | −0.1/−0.5/NaN/+∞ → ArgumentOutOfRangeException (previously NaN cells) |
 | B7 | `CreatePwm_NullElement_ThrowsArgumentException`, `CreatePwm_InvalidBackground_Throws`, `PositionWeightMatrix_Constructor_ValidatesShape`, `CreatePwm_UniformBackgroundOverload_EqualsDefault` | contracts |
+
+## 9. Review 2026-09 (B05 follow-up) — both strands, calculate, FromCounts, score distribution
+
+Tests: `Unit/Analysis/MotifFinder_PwmStrandsAndThresholds_Tests.cs`, `Metamorphic/MotifPwmMetamorphicTests.cs` (PWM-BOTH, PWM-DIST). Reference: Biopython 1.88 (`Bio/motifs/matrix.py`, `Bio/motifs/thresholds.py`, `Bio/motifs/jaspar`).
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| C1 | `ScanWithPwmBothStrands_WikipediaExample_EqualsBiopython` | `search(T, 0, both=True)` → (2, 11.70753), (6, 4.77916), (−16, 2.38769), (13, 9.31606) |
+| C2 | `ScanWithPwmBothStrands_LowerThreshold_EqualsBiopython` | threshold −3 adds (−21, −0.79252), (−17, −0.64793) |
+| C3 | `ScanWithPwmBothStrands_PalindromicPwm_ReportsBothStrandsPlusFirst` | palindromic PWM: both strands per window, '+' first (Biopython tie order is NumPy-argsort-defined) |
+| C4 | `ScanWithPwmBothStrands_RandomCases_EqualBiopython` (seed 20260930, 3 cases) | positions + scores |
+| C5 | `CalculatePwmScores_InvalidWindowsNaN_MixedCase_EqualsBiopython`, `_DnaSequence_EqualsBiopythonCalculate_AndShortSequenceEmpty` | `calculate` incl. NaN windows |
+| C6 | `MeanStd_WikipediaExample_EqualBiopython` | mean 5.522241422369563, std 3.2186083897634568, mean(bg) 5.975137019521005 |
+| C7 | `ScoreDistribution_WikipediaExample_ThresholdsEqualBiopython` | fpr .01 → 4.028388324862519, .001 → 7.10122696197535, fnr .1 → 1.2303323735684302, balanced 0.1430202404361971 (rate 0.06385040283203125), patser 2.5924271925194056 |
+| C8 | `ScoreDistribution_BackgroundAndPrecision_EqualBiopython` | bg .3/.2/.2/.3, precision 100 |
+| C9 | `PythonFloorDiv_MatchesCPython`, `ScoreDistribution_InvalidInputs_Throw`, `FromCounts_ValidationAndScalarPseudocount` | CPython `//`; contracts; FromCounts ≡ CreatePwm on the same counts |
+| C10 | `PwmBothStrands_ReverseComplementMirror` (5 seeds), `PwmScoreDistribution_Monotone` (3 seeds) | mirror relation; FPR/FNR monotone, on-grid, densities sum to 1 |
+

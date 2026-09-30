@@ -17,6 +17,13 @@ namespace Seqeron.Genomics.Tests.Metamorphic;
 ///     with q̂ the normalised background; a constant background equals the default overload.
 ///   • PWM-RC (F7, Biopython reverse_complement): RC is an involution and
 ///     score_RC(revcomp(s)) = score(s).
+///   • PWM-BOTH (B05 follow-up, Biopython search both=True): the both-strand hits of s and of revcomp(s)
+///     are mirror images — (i, strand, score) ↔ (n − m − i, opposite strand, same score); the plus subset
+///     equals ScanWithPwm; CalculatePwmScores equals the all-window ScanWithPwm scores.
+///   • PWM-DIST (Biopython thresholds.py): background density sums to 1; ThresholdFpr is non-increasing in
+///     the FPR; ThresholdFnr is non-decreasing in the FNR; thresholds lie on the grid.
+///   • REG-BOTH (B05 follow-up): FindRegulatoryElements(s, true) mirrors FindRegulatoryElements(revcomp(s), true)
+///     for the both-strand elements (CAAT, GC box, NF-κB) and the palindromic ones (AP-1, E-box, CREB).
 ///   • DISCOVER-BG (F9/F10, RSAT oligo-analysis): a constant background reproduces the default
 ///     overload; log2(Enrichment) = log2(count) − Σ log2 q̂[w_i] − log2(N − k + 1), finite for long k.
 ///
@@ -268,6 +275,92 @@ public class MotifPwmMetamorphicTests
                 Assert.That(Math.Log2(m.Enrichment), Is.EqualTo(expectedLog2).Within(1e-9 * expectedLog2), $"k={k} bg");
             }
         }
+    }
+
+    #endregion
+
+    #region PWM-BOTH / PWM-DIST / REG-BOTH (B05 follow-up)
+
+    [Test]
+    [Description("PWM-BOTH: both-strand hits of s mirror those of revcomp(s); plus subset = ScanWithPwm; calculate = all-window scan")]
+    public void PwmBothStrands_ReverseComplementMirror([Values(31_001, 31_002, 31_003, 31_004, 31_005)] int seed)
+    {
+        var rng = new Random(seed);
+        int width = rng.Next(3, 10);
+        var pwm = MotifFinder.CreatePwm(RandomAlignment(rng, rng.Next(2, 12), width), 0.25 + rng.NextDouble());
+        string s = RandomString(rng, rng.Next(width, 120), Acgt);
+        var seq = new DnaSequence(s);
+        var rcSeq = seq.ReverseComplement();
+        int n = s.Length;
+        double threshold = rng.NextDouble() * 4 - 2;
+
+        var a = MotifFinder.ScanWithPwmBothStrands(seq, pwm, threshold).ToList();
+        var b = MotifFinder.ScanWithPwmBothStrands(rcSeq, pwm, threshold).ToList();
+        var mirrored = b.Select(h => (Pos: n - width - h.Position, Strand: h.Strand == '+' ? '-' : '+', h.MatchedSequence, h.Score))
+            .OrderBy(h => h.Pos).ThenBy(h => h.Strand == '+' ? 0 : 1).ToList();
+
+        Assert.That(a.Select(h => (h.Position, h.Strand, h.MatchedSequence)),
+            Is.EqualTo(mirrored.Select(h => (h.Pos, h.Strand, h.MatchedSequence))), $"seed {seed}");
+        Assert.That(a.Select(h => h.Score), Is.EqualTo(mirrored.Select(h => h.Score)).Within(1e-9));
+        Assert.That(a.Where(h => h.Strand == '+').Select(h => (h.Position, h.Score)),
+            Is.EqualTo(MotifFinder.ScanWithPwm(seq, pwm, threshold).Select(m => (m.Position, m.Score))));
+        Assert.That(MotifFinder.CalculatePwmScores(seq, pwm),
+            Is.EqualTo(MotifFinder.ScanWithPwm(seq, pwm, double.NegativeInfinity).Select(m => m.Score)));
+    }
+
+    [Test]
+    [Description("PWM-DIST: densities normalised, ThresholdFpr non-increasing, ThresholdFnr non-decreasing, on-grid")]
+    public void PwmScoreDistribution_Monotone([Values(32_001, 32_002, 32_003)] int seed)
+    {
+        var rng = new Random(seed);
+        // Motif density q·2^W is a distribution when the PWM is built against the same background q.
+        var q = new[] { 0.2 + rng.NextDouble(), 0.2 + rng.NextDouble(), 0.2 + rng.NextDouble(), 0.2 + rng.NextDouble() };
+        var pwm = MotifFinder.CreatePwm(RandomAlignment(rng, rng.Next(3, 10), rng.Next(3, 9)), 0.5, q);
+        var d = pwm.ScoreDistribution(q, 200);
+        Assert.That(d.BackgroundDensity.Sum(), Is.EqualTo(1.0).Within(1e-9));
+        Assert.That(d.MotifDensity.Sum(), Is.EqualTo(1.0).Within(1e-6));
+
+        double[] rates = { 1e-5, 1e-4, 1e-3, 1e-2, 0.05, 0.2, 0.5 };
+        var fpr = rates.Select(d.ThresholdFpr).ToArray();
+        var fnr = rates.Select(d.ThresholdFnr).ToArray();
+        for (int i = 1; i < rates.Length; i++)
+        {
+            Assert.That(fpr[i], Is.LessThanOrEqualTo(fpr[i - 1]));
+            Assert.That(fnr[i], Is.GreaterThanOrEqualTo(fnr[i - 1]));
+        }
+        foreach (double t in fpr.Concat(fnr))
+        {
+            double k = (t - d.MinScore) / d.Step;
+            Assert.That(k, Is.EqualTo(Math.Round(k)).Within(1e-6), "threshold is a grid point");
+        }
+    }
+
+    [Test]
+    [Description("REG-BOTH: FindRegulatoryElements(s, true) mirrors FindRegulatoryElements(revcomp(s), true) for both-strand/palindromic elements")]
+    public void RegulatoryBothStrands_ReverseComplementMirror([Values(33_001, 33_002, 33_003, 33_004)] int seed)
+    {
+        var rng = new Random(seed);
+        string[] plants = { "CCAAT", "ATTGG", "GGGCGG", "CCGCCC", "GGGACTTTCC", "GGAAAGTCCC", "TGAGTCA", "CACGTG", "TGACGTCA" };
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < 12; i++)
+            sb.Append(RandomString(rng, rng.Next(0, 8), Acgt)).Append(plants[rng.Next(plants.Length)]);
+        string s = sb.ToString();
+        int n = s.Length;
+        var mirrorable = new HashSet<string> { "CAAT Box", "GC Box", "NF-κB", "AP-1", "E-box", "CREB" };
+
+        var a = MotifFinder.FindRegulatoryElements(new DnaSequence(s), true).Where(e => mirrorable.Contains(e.Name)).ToList();
+        var b = MotifFinder.FindRegulatoryElements(new DnaSequence(s).ReverseComplement(), true).Where(e => mirrorable.Contains(e.Name)).ToList();
+        bool palindromic(string name) => name is "AP-1" or "E-box" or "CREB";
+        var mirrored = b.Select(e => (e.Name, Pos: n - e.Sequence.Length - e.Position,
+                Strand: palindromic(e.Name) ? '+' : (e.Strand == '+' ? '-' : '+'),
+                Seq: palindromic(e.Name) ? DnaSequence.GetReverseComplementString(e.Sequence) : e.Sequence))
+            .OrderBy(e => Array.IndexOf(MotifFinder.OrientationIndependentRegulatoryElements.ToArray(), e.Name))
+            .ThenBy(e => e.Pos).ThenBy(e => e.Strand == '+' ? 0 : 1);
+        var actual = a.Select(e => (e.Name, Pos: e.Position, e.Strand, Seq: e.Sequence))
+            .OrderBy(e => Array.IndexOf(MotifFinder.OrientationIndependentRegulatoryElements.ToArray(), e.Name))
+            .ThenBy(e => e.Pos).ThenBy(e => e.Strand == '+' ? 0 : 1);
+        Assert.That(actual, Is.EqualTo(mirrored), $"seed {seed}: {s}");
+        Assert.That(a, Is.Not.Empty);
     }
 
     #endregion

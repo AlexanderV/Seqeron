@@ -98,6 +98,8 @@ The element library (§2.2 table) is the reference table; each consensus string 
 - `MotifFinder.FindRegulatoryElements(DnaSequence)`: scans the consensus library and yields `RegulatoryElement` records.
 - `MotifFinder.KnownMotifs`: nested static class of source-cited consensus constants.
 - `MotifFinder.FindDegenerateMotif(DnaSequence, string)`: the underlying IUPAC per-position scan reused for each entry.
+- `MotifFinder.FindRegulatoryElements(DnaSequence, bool bothStrands)` → `StrandedRegulatoryElement(..., Strand)` (2026-09 follow-up, additive): with `bothStrands = true` the orientation-independent elements whose IUPAC pattern is not its own reverse complement — CAAT box, GC box, NF-κB — are also matched on the minus strand (pattern reverse-complemented via the canonical IUPAC `DnaSequence.GetReverseComplementString`, same `FindDegenerateMotif` path). Orientation-independent set (`OrientationIndependentRegulatoryElements`): CCAAT — "found in the forward or reverse orientation" (Mantovani 1998, NAR 26:1135); GC box — Sp1 binds GC boxes in both orientations, bidirectional SV40 transcription (Gidoni et al. 1985, Science 230:511); AP-1, NF-κB, E-box, CREB — enhancer elements, which act in either orientation (Banerji, Rusconi & Schaffner 1981, Cell 27:299). AP-1 `TGASTCA`, E-box `CANNTG`, CREB `TGACGTCA` are self-reverse-complementary (not rescanned); NF-κB `GGGRNWYYCC` is not (reverse complement `GGRRWNYCCC`). TATA, −10/−35, Kozak, Shine–Dalgarno and poly(A) are strand-specific (given strand only). Positions are forward window starts; `Sequence` is the site read 5'→3' on its own strand. Verified against Biopython `nt_search` on `seq` and `seq.reverse_complement()`.
+- `MotifFinder.BucherPromoterMatrices` (`TataBox` POL012.1, `CapSignal` POL002.1 INR, `CcaatBox` POL004.1, `GcBox` POL003.1) and `MotifFinder.FindPromoterElementsByMatrix(DnaSequence, double falsePositiveRate, bool bothStrands = true)` ([MotifFinder.PromoterMatrices.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PromoterMatrices.cs)): the Bucher (1990) count matrices as distributed in the JASPAR POLII collection (MEDLINE 2329577; identical in JASPAR 2014/2016/2018/2020, read from the pyjaspar 4.0.0 SQLite releases), turned into log2-odds PWMs with JASPAR pseudocounts (`PositionWeightMatrix.FromCounts` + `JasparPseudocounts`, = Biopython `motifs.read(f,"jaspar")` + `calculate_pseudocounts` + `.pssm`) and scanned through `ScanWithPwm` / `ScanWithPwmBothStrands` (both strands for CCAAT/GC box) at the per-matrix threshold `ScoreDistribution().ThresholdFpr(falsePositiveRate)`.
 
 ### 5.2 Current Behavior
 
@@ -112,14 +114,14 @@ Each library entry is scanned independently via `FindDegenerateMotif`, so result
 
 **Intentionally simplified:**
 
-- TATA box / CCAAT box / GC box are scanned as their core consensus strings (`TATAAA`, `CCAAT`, `GGGCGG`), not with the Bucher (1990) weight matrices; **consequence:** degenerate/weak instances are not reported — use `CreatePwm`/`ScanWithPwm` with a matrix for score-based detection [1].
-- Single-strand scan: only the given strand is searched. `TGASTCA`, `CANNTG` and `TGACGTCA` are their own reverse complements, so AP-1, E-box and CREB hits cover both orientations; orientation-independent elements such as the CCAAT and GC boxes are **not** reported in reverse orientation (`ATTGG`, `CCGCCC`) — scan the reverse complement to obtain them.
+- `FindRegulatoryElements(DnaSequence)` scans TATA / CCAAT / GC box as their core consensus strings (`TATAAA`, `CCAAT`, `GGGCGG`); weight-matrix detection of the Bucher (1990) elements is `FindPromoterElementsByMatrix` (above). Bucher's own cut-off values (e.g. −8.16 for the TATA box, WebSearch record of the paper) are defined on his smoothed natural-log weight scale; that transformation (smoothing constant, normalisation) was not obtainable (paper, EPD and JASPAR sites blocked), so thresholds are set by background false-positive rate instead.
+- `FindRegulatoryElements(DnaSequence)` scans the given strand only (unchanged); reverse-orientation hits of the orientation-independent elements are available via `FindRegulatoryElements(sequence, bothStrands: true)`.
 
 (2026-09 review: Kozak, AP-1 and NF-κB were previously scanned as single representative strings `GCCGCCACCATGG`, `TGACTCA`, `GGGACTTTCC`; they now use the published IUPAC consensus.)
 
 **Not implemented:**
 
-- Position-weight-matrix scoring of partial/weak matches; **users should rely on:** `MotifFinder.CreatePwm` / `MotifFinder.ScanWithPwm` for score-based motif detection.
+- Bucher's native weight scale and cut-offs (see above).
 
 ### 5.4 Deviations and Assumptions
 
@@ -144,7 +146,7 @@ Each library entry is scanned independently via `FindDegenerateMotif`, so result
 
 ### 6.2 Limitations
 
-Detects only the fixed library of consensus strings; it is not a general motif discovery method and does not score partial matches, account for strand (only the given strand is scanned; see §5.3), or use spacing constraints between the -35 and -10 hexamers. For weak/variant sites use PWM scanning.
+Detects only the fixed library of consensus strings; it is not a general motif discovery method and does not score partial matches (use `FindPromoterElementsByMatrix` / PWM scanning), scans strand-specific elements on the given strand only, and does not use spacing constraints between the -35 and -10 hexamers. For weak/variant sites use PWM scanning.
 
 ## 7. Examples and Related Material
 
@@ -179,3 +181,8 @@ var hits = MotifFinder.FindRegulatoryElements(seq).ToList();
 10. Shine J., Dalgarno L. 1974. The 3'-terminal sequence of Escherichia coli 16S ribosomal RNA: complementarity to nonsense triplets and ribosome binding sites. PNAS 71(4):1342-1346. https://doi.org/10.1073/pnas.71.4.1342
 11. Angel P., Imagawa M., Chiu R., Stein B., Imbra R.J., Rahmsdorf H.J., Jonat C., Herrlich P., Karin M. 1987. Phorbol ester-inducible genes contain a common cis element recognized by a TPA-modulated trans-acting factor. Cell 49(6):729-739. https://doi.org/10.1016/0092-8674(87)90611-8
 12. Gilmore T.D. 2006. Introduction to NF-κB: players, pathways, perspectives. Oncogene 25:6680-6684. https://doi.org/10.1038/sj.onc.1209954
+13. Mantovani R. 1998. A survey of 178 NF-Y binding CCAAT boxes. Nucleic Acids Res 26(5):1135-1143. https://doi.org/10.1093/nar/26.5.1135 (CCAAT "found in the forward or reverse orientation"; WebSearch record)
+14. Gidoni D., Kadonaga J.T., Barrera-Saldaña H., Takahashi K., Chambon P., Tjian R. 1985. Bidirectional SV40 transcription mediated by tandem Sp1 binding interactions. Science 230:511-517 (PMID 2996137; WebSearch record)
+15. Banerji J., Rusconi S., Schaffner W. 1981. Expression of a β-globin gene is enhanced by remote SV40 DNA sequences. Cell 27:299-308 (enhancers act in either orientation; WebSearch record)
+16. JASPAR POLII collection, matrices POL012.1 (TATA-Box), POL002.1 (INR), POL004.1 (CCAAT-box), POL003.1 (GC-box), MEDLINE 2329577 = [1]; read from pyjaspar 4.0.0 (PyPI) `JASPAR2014/2016/2018/2020.sqlite` (identical in all four releases).
+17. Biopython 1.88 `Bio.motifs.jaspar` (`read`, `calculate_pseudocounts`), `Bio.motifs.matrix` (`search`, `distribution`), `Bio.motifs.thresholds` (`ScoreDistribution.threshold_fpr`).

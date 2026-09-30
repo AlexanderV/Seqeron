@@ -230,20 +230,46 @@ public static partial class MotifFinder
             throw new ArgumentException("At least one sequence is required.", nameof(sequences));
 
         int length = counts.GetLength(1);
-        var matrix = new double[PwmAlphabetSize, length];
+        var countMatrix = new double[PwmAlphabetSize, length];
+        for (int i = 0; i < length; i++)
+            for (int b = 0; b < PwmAlphabetSize; b++)
+                countMatrix[b, i] = counts[b, i];
 
-        // Pseudocount-smoothed probabilities → log2 odds against the background.
-        double total = count + PwmAlphabetSize * pseudocount;
+        var pseudocounts = new[] { pseudocount, pseudocount, pseudocount, pseudocount };
+        return new PositionWeightMatrix(
+            LogOddsFromCounts(countMatrix, pseudocounts, PwmAlphabetSize * pseudocount, bg), length);
+    }
+
+    /// <summary>
+    /// Shared log-odds kernel of <see cref="CreatePwm(IEnumerable{string}, double, IReadOnlyList{double})"/> and
+    /// <see cref="PositionWeightMatrix.FromCounts(double[,], IReadOnlyList{double}, IReadOnlyList{double}?)"/>
+    /// (Biopython <c>counts.normalize(pseudocounts).log_odds(background)</c>):
+    /// W[b,j] = log2( ((c[b,j] + p[b]) / (Σ_b c[b,j] + Σ_b p[b])) / q[b] ).
+    /// </summary>
+    /// <param name="counts">4 × L count matrix (validated by the caller).</param>
+    /// <param name="pseudocounts">Per-base pseudocounts (A, C, G, T).</param>
+    /// <param name="pseudocountSum">Σ p[b] (passed so the scalar path keeps its exact N + 4p total).</param>
+    /// <param name="background">Normalised background (A, C, G, T).</param>
+    internal static double[,] LogOddsFromCounts(double[,] counts, double[] pseudocounts, double pseudocountSum, double[] background)
+    {
+        int length = counts.GetLength(1);
+        var matrix = new double[PwmAlphabetSize, length];
         for (int i = 0; i < length; i++)
         {
+            double columnCount = 0;
+            for (int b = 0; b < PwmAlphabetSize; b++)
+                columnCount += counts[b, i];
+            double total = columnCount + pseudocountSum;
+
+            // Pseudocount-smoothed probabilities → log2 odds against the background.
             for (int b = 0; b < PwmAlphabetSize; b++)
             {
-                double freq = (counts[b, i] + pseudocount) / total;
-                matrix[b, i] = Math.Log2(freq / bg[b]);
+                double freq = (counts[b, i] + pseudocounts[b]) / total;
+                matrix[b, i] = Math.Log2(freq / background[b]);
             }
         }
 
-        return new PositionWeightMatrix(matrix, length);
+        return matrix;
     }
 
     internal static double[] NormalizeBackground(IReadOnlyList<double> background)
@@ -348,9 +374,9 @@ public static partial class MotifFinder
     /// Scans the forward strand of a sequence with a PWM and returns every window whose score
     /// (sum of per-position log-odds) is ≥ <paramref name="threshold"/>, in ascending position
     /// order (Biopython <c>pssm.search(seq, threshold, both=False)</c>). Windows containing a
-    /// non-ACGT symbol are skipped. To scan the reverse strand, scan with
-    /// <see cref="PositionWeightMatrix.ReverseComplement"/>; positions are then forward-strand
-    /// window starts.
+    /// non-ACGT symbol are skipped. For both strands use
+    /// <see cref="ScanWithPwmBothStrands(DnaSequence, PositionWeightMatrix, double)"/> (Biopython
+    /// <c>both=True</c>); for every window score use <see cref="CalculatePwmScores(string, PositionWeightMatrix)"/>.
     /// </summary>
     /// <param name="sequence">DNA sequence to scan.</param>
     /// <param name="pwm">Position Weight Matrix.</param>
@@ -373,22 +399,9 @@ public static partial class MotifFinder
 
         for (int i = 0; i <= seq.Length - motifLen; i++)
         {
-            double score = 0;
-            bool valid = true;
-
-            for (int j = 0; j < motifLen; j++)
-            {
-                int baseIndex = AcgtIndex(seq[i + j]);
-                if (baseIndex < 0)
-                {
-                    valid = false;
-                    break;
-                }
-
-                score += pwm.Matrix[baseIndex, j];
-            }
-
-            if (valid && score >= threshold)
+            // NaN (window with a non-ACGT symbol) never satisfies score >= threshold.
+            double score = ScorePwmWindow(seq, i, pwm);
+            if (score >= threshold)
             {
                 yield return new MotifMatch(
                     Position: i,
@@ -910,22 +923,37 @@ public static partial class MotifFinder
         public const string Creb = "TGACGTCA";
     }
 
-    /// <summary>The fixed element library scanned by <see cref="FindRegulatoryElements"/>, in report order.</summary>
-    private static readonly (string Name, string Pattern, string Description)[] RegulatoryLibrary =
+    /// <summary>
+    /// The fixed element library scanned by <see cref="FindRegulatoryElements(DnaSequence)"/>, in report order.
+    /// <c>OrientationIndependent</c> marks elements documented to act in either orientation:
+    /// CCAAT box — "found in the forward or reverse orientation" (Mantovani 1998, NAR 26:1135, survey of 178
+    /// NF-Y sites); GC box — Sp1 binds the SV40 GC boxes in both orientations, driving bidirectional
+    /// transcription (Gidoni et al. 1985, Science 230:511); AP-1, NF-κB, E-box and CREB sites are enhancer
+    /// elements, which act "in either orientation" (Banerji, Rusconi &amp; Schaffner 1981, Cell 27:299).
+    /// TATA, −10/−35 boxes, Kozak, Shine–Dalgarno and the poly(A) signal act on their own strand.
+    /// </summary>
+    private static readonly (string Name, string Pattern, string Description, bool OrientationIndependent)[] RegulatoryLibrary =
     {
-        ("TATA Box", KnownMotifs.TataBox, "Eukaryotic core promoter element"),
-        ("CAAT Box", KnownMotifs.CaatBox, "Promoter element"),
-        ("GC Box", KnownMotifs.GcBox, "Sp1 binding site"),
-        ("-10 Box", KnownMotifs.MinusTenBox, "Prokaryotic Pribnow box"),
-        ("-35 Box", KnownMotifs.MinusThirtyFiveBox, "Prokaryotic -35 promoter element"),
-        ("Kozak", KnownMotifs.Kozak, "Translation initiation"),
-        ("Shine-Dalgarno", KnownMotifs.ShineDalgarno, "Bacterial ribosome binding"),
-        ("Poly(A) Signal", KnownMotifs.PolyASignal, "Polyadenylation signal"),
-        ("E-box", KnownMotifs.EBox, "bHLH transcription factor binding"),
-        ("AP-1", KnownMotifs.Ap1, "AP-1 transcription factor binding"),
-        ("NF-κB", KnownMotifs.NfKb, "NF-κB binding site"),
-        ("CREB", KnownMotifs.Creb, "CREB transcription factor binding")
+        ("TATA Box", KnownMotifs.TataBox, "Eukaryotic core promoter element", false),
+        ("CAAT Box", KnownMotifs.CaatBox, "Promoter element", true),
+        ("GC Box", KnownMotifs.GcBox, "Sp1 binding site", true),
+        ("-10 Box", KnownMotifs.MinusTenBox, "Prokaryotic Pribnow box", false),
+        ("-35 Box", KnownMotifs.MinusThirtyFiveBox, "Prokaryotic -35 promoter element", false),
+        ("Kozak", KnownMotifs.Kozak, "Translation initiation", false),
+        ("Shine-Dalgarno", KnownMotifs.ShineDalgarno, "Bacterial ribosome binding", false),
+        ("Poly(A) Signal", KnownMotifs.PolyASignal, "Polyadenylation signal", false),
+        ("E-box", KnownMotifs.EBox, "bHLH transcription factor binding", true),
+        ("AP-1", KnownMotifs.Ap1, "AP-1 transcription factor binding", true),
+        ("NF-κB", KnownMotifs.NfKb, "NF-κB binding site", true),
+        ("CREB", KnownMotifs.Creb, "CREB transcription factor binding", true)
     };
+
+    /// <summary>
+    /// Names of the <see cref="FindRegulatoryElements(DnaSequence)"/> library elements that act in either
+    /// orientation (sources on the library): CAAT Box, GC Box, E-box, AP-1, NF-κB, CREB.
+    /// </summary>
+    public static IReadOnlyList<string> OrientationIndependentRegulatoryElements { get; } =
+        RegulatoryLibrary.Where(e => e.OrientationIndependent).Select(e => e.Name).ToArray();
 
     /// <summary>
     /// Scans the given strand of a DNA sequence for the <see cref="KnownMotifs"/> consensus library.
@@ -937,7 +965,8 @@ public static partial class MotifFinder
     /// reported, overlapping occurrences included. Results are grouped by library entry (library order,
     /// see <see cref="KnownMotifs"/>) and ascending by position within an entry. Only the given strand is
     /// scanned; the AP-1, E-box and CREB patterns are their own reverse complements, so their hits cover
-    /// both orientations.
+    /// both orientations. For reverse-orientation hits of the other orientation-independent elements use
+    /// <see cref="FindRegulatoryElements(DnaSequence, bool)"/>.
     /// </remarks>
     /// <param name="sequence">DNA sequence to scan.</param>
     /// <returns>Found regulatory elements.</returns>
@@ -949,7 +978,7 @@ public static partial class MotifFinder
 
     private static IEnumerable<RegulatoryElement> FindRegulatoryElementsCore(DnaSequence sequence)
     {
-        foreach (var (name, pattern, description) in RegulatoryLibrary)
+        foreach (var (name, pattern, description, _) in RegulatoryLibrary)
         {
             foreach (var match in FindDegenerateMotif(sequence, pattern))
             {
@@ -960,6 +989,58 @@ public static partial class MotifFinder
                     Pattern: pattern,
                     Description: description);
             }
+        }
+    }
+
+    /// <summary>
+    /// Scans for the <see cref="KnownMotifs"/> library with strand annotation. With
+    /// <paramref name="bothStrands"/> = false the result is exactly
+    /// <see cref="FindRegulatoryElements(DnaSequence)"/> (all hits on '+'). With
+    /// <paramref name="bothStrands"/> = true, the orientation-independent elements
+    /// (<see cref="OrientationIndependentRegulatoryElements"/>) whose IUPAC pattern differs from its own
+    /// reverse complement — CAAT Box, GC Box, NF-κB — are additionally matched on the minus strand.
+    /// </summary>
+    /// <remarks>
+    /// The minus strand is scanned through the same canonical IUPAC path by matching the reverse
+    /// complement of the pattern (canonical IUPAC complement,
+    /// <see cref="DnaSequence.GetReverseComplementString"/>) on the forward sequence; this is identical to
+    /// matching the pattern on the reverse-complement sequence (Biopython <c>nt_search</c> on
+    /// <c>seq.reverse_complement()</c>) with coordinates mapped back. Self-reverse-complementary patterns
+    /// (AP-1 TGASTCA, E-box CANNTG, CREB TGACGTCA) are not rescanned: every minus-strand occurrence is
+    /// the same window as a plus-strand one. Strand-specific elements (TATA, −10/−35, Kozak,
+    /// Shine–Dalgarno, poly(A)) are reported on the given strand only; for a minus-strand gene scan
+    /// <see cref="DnaSequence.ReverseComplement"/>.
+    /// Order: library order; within an entry ascending forward position, '+' before '-' at equal positions.
+    /// <see cref="StrandedRegulatoryElement.Position"/> is the 0-based forward start of the window and
+    /// <see cref="StrandedRegulatoryElement.Sequence"/> is the site read 5'→3' on its own strand.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to scan.</param>
+    /// <param name="bothStrands">Also report minus-strand hits of orientation-independent elements.</param>
+    /// <returns>Strand-annotated regulatory elements.</returns>
+    public static IEnumerable<StrandedRegulatoryElement> FindRegulatoryElements(DnaSequence sequence, bool bothStrands)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindStrandedRegulatoryElementsCore(sequence, bothStrands);
+    }
+
+    private static IEnumerable<StrandedRegulatoryElement> FindStrandedRegulatoryElementsCore(DnaSequence sequence, bool bothStrands)
+    {
+        foreach (var (name, pattern, description, orientationIndependent) in RegulatoryLibrary)
+        {
+            var hits = FindDegenerateMotif(sequence, pattern)
+                .Select(m => new StrandedRegulatoryElement(name, m.Position, m.MatchedSequence, pattern, description, '+'));
+
+            string rcPattern = DnaSequence.GetReverseComplementString(pattern);
+            if (bothStrands && orientationIndependent && rcPattern != pattern)
+            {
+                var minus = FindDegenerateMotif(sequence, rcPattern)
+                    .Select(m => new StrandedRegulatoryElement(name, m.Position,
+                        DnaSequence.GetReverseComplementString(m.MatchedSequence), pattern, description, '-'));
+                hits = hits.Concat(minus).OrderBy(e => e.Position).ThenBy(e => e.Strand == '+' ? 0 : 1);
+            }
+
+            foreach (var element in hits)
+                yield return element;
         }
     }
 
@@ -1003,9 +1084,26 @@ public readonly record struct RegulatoryElement(
     string Description);
 
 /// <summary>
+/// A strand-annotated regulatory element (<see cref="MotifFinder.FindRegulatoryElements(DnaSequence, bool)"/>).
+/// </summary>
+/// <param name="Name">Library element name.</param>
+/// <param name="Position">0-based forward-strand start of the window.</param>
+/// <param name="Sequence">The site read 5'→3' on its own strand (matches <paramref name="Pattern"/>).</param>
+/// <param name="Pattern">Library IUPAC pattern.</param>
+/// <param name="Description">Element description.</param>
+/// <param name="Strand">'+' or '-'.</param>
+public readonly record struct StrandedRegulatoryElement(
+    string Name,
+    int Position,
+    string Sequence,
+    string Pattern,
+    string Description,
+    char Strand);
+
+/// <summary>
 /// Position Weight Matrix for motif scoring.
 /// </summary>
-public sealed class PositionWeightMatrix
+public sealed partial class PositionWeightMatrix
 {
     public double[,] Matrix { get; }
     public int Length { get; }

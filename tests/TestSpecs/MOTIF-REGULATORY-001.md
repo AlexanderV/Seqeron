@@ -218,3 +218,19 @@ All 20 in-scope cases ✅.
 1. **Decision (revised 2026-09):** AP-1 = `TGASTCA` (TGA(C/G)TCA). The 2026-06 change `TGAGTCA` → `TGACTCA` only swapped one strand's representation of the same site for the other; both are now reported.
 2. **Decision:** Added prokaryotic -10 (`TATAAT`) and -35 (`TTGACA`) hexamers (Harley & Reynolds 1987), which the task note lists as expected regulatory elements and which were absent before.
 3. **Decision:** Used the per-position IUPAC scan (`FindDegenerateMotif`); the suffix tree was not used because the IUPAC E-box pattern is degenerate (not an exact substring), so a single linear scan over a short pattern set is the correct algorithm.
+
+## 8. Review 2026-09 (B05 follow-up) — strands and Bucher matrices
+
+Tests: `Unit/Analysis/MotifFinder_RegulatoryStrands_Tests.cs`, `Unit/Analysis/MotifFinder_PwmStrandsAndThresholds_Tests.cs` (Bucher part), `Metamorphic/MotifPwmMetamorphicTests.cs` (REG-BOTH).
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| R1 | `FindRegulatoryElements_BothStrands_EqualsBiopythonNtSearch` (2 cases) | Biopython `nt_search` on both strands (Evidence, 2026-09 follow-up) |
+| R2 | `FindRegulatoryElements_SingleStrand_EqualsLegacyOverload` | `bothStrands=false` ≡ legacy overload, all '+' |
+| R3 | `FindRegulatoryElements_BothStrands_NoPalindromeDuplicates_StrandSpecificPlusOnly` | AP-1/E-box/CREB once; TATA/poly(A) reverse orientation not reported |
+| R4 | `OrientationIndependentRegulatoryElements_AreTheSourcedSet` | CAAT, GC, E-box, AP-1, NF-κB, CREB |
+| R5 | `BucherMatrix_PssmAndThresholds_EqualBiopython` (4 matrices) | JASPAR pseudocounts, pssm max/min/consensus/mean, `threshold_fpr(1e-3/1e-4)`, `threshold_patser`, `threshold_balanced` |
+| R6 | `FromCounts_JasparTataBox_EqualsBiopythonJasparPssm` | all 60 POL012.1 PSSM cells |
+| R7 | `FindPromoterElementsByMatrix_EqualsBiopythonSearch` | Biopython `pssm.search` at `threshold_fpr(1e-3)` (both strands for CCAAT/GC) |
+| R8 | `RegulatoryBothStrands_ReverseComplementMirror` (4 seeds) | hits(s) ↔ hits(revcomp s) mirrored |
+

@@ -164,6 +164,19 @@ Reference implementation: Biopython 1.88 `Bio.SeqUtils.nt_search` over the 12-pa
 
 All 12 original single-element probes give the same (Name, position) as before.
 
+## 2026-09 follow-up (B05) — both strands and Bucher weight matrices
+
+Sources opened:
+- **Orientation independence** (WebSearch records; publisher sites blocked): Mantovani 1998 NAR 26:1135 — "the CCAAT box … found in the forward or reverse orientation"; Gidoni et al. 1985 Science 230:511 (PMID 2996137) "Bidirectional SV40 transcription mediated by tandem Sp1 binding interactions"; Banerji, Rusconi & Schaffner 1981 Cell 27:299 — enhancer fragments "could act in either orientation". NF-κB `GGGRNWYYCC` is not self-reverse-complementary (revcomp `GGRRWNYCCC`); AP-1 `TGASTCA`, E-box `CANNTG`, CREB `TGACGTCA` are (checked with the canonical IUPAC reverse complement).
+- **Bucher 1990 matrices**: jaspar.elixir.no / jaspar.genereg.net / jaspar2020.genereg.net REST API and epd.expasy.org (`promoter_elements/tata_old.php`) → proxy 403. Obtained from PyPI `pyjaspar` 4.0.0 wheel (`pyjaspar/data/JASPAR{2014,2016,2018,2020}.sqlite`, tables MATRIX / MATRIX_DATA / MATRIX_ANNOTATION): POLII collection POL012.1 TATA-Box (A 61 16 352 3 354 268 360 222 155 56 83 82 82 68 77 …), POL002.1 INR (= Bucher cap signal), POL004.1 CCAAT-box, POL003.1 GC-box, all annotated `medline 2329577` (= Bucher 1990); MD5 of the four matrices identical across the four releases (POLII collection absent from JASPAR 2024/2026).
+- **Bucher cut-off**: only the TATA-box cut-off −8.16 (97 %) was found (WebSearch record of the paper); it is on Bucher's smoothed ln-weight scale, whose exact transform was not obtainable → not used; thresholds are chosen by background FPR (Biopython `threshold_fpr`).
+
+Reference computation (Biopython 1.88):
+- `nt_search(seq, pat)` + `nt_search(seq.reverse_complement(), pat)` (minus start = n − p − m) for CAAT/GC/NF-κB:
+  `ATTGGTTTATAAACCGCCCATCCAATGGAAAGTCCCTGACTCAGGGCGGA` → TATA 7+, CAAT 0− / 21+, GC 13− / 43+, AP-1 36+, NF-κB 26− (GGGACTTTCC);
+  `GGGACTTTCCATTGGCCAATTTATTTAGGCACGTGCCGCCCGGGCGG` → CAAT 10− / 15+, GC 35− / 41+, E-box 29+, NF-κB 0+.
+- `motifs.read(open("POL012.1.jaspar"), "jaspar")`; `m.pseudocounts = motifs.jaspar.calculate_pseudocounts(m)` (TATA √389·0.25 = 4.926543751285817); `m.pssm` max/min/consensus/mean; `pssm.distribution().threshold_fpr(1e-3)` (TATA 7.042753822501211, cap 6.115969817666912, CCAAT 7.094645943646782, GC 6.836719879834341); `pssm.search(PROM, thr, both=…)` on the 105-nt test promoter (TATA +4 14.6749; cap +34 6.7934; CCAAT +64 12.0773 / −19 12.3150; GC +11 13.3694 / +17 8.6593 / −28 13.0702).
+
 ## Documented Corner Cases and Failure Modes
 
 ### From the consensus definitions
@@ -245,3 +258,4 @@ All 12 original single-element probes give the same (Name, position) as before.
 
 - **2026-06-14**: Initial documentation. Recorded AP-1 defect (TGAGTCA → TGACTCA) and addition of -10/-35 prokaryotic promoter hexamers.
 - **2026-09-29**: Kozak → GCCGCCRCCATGG, AP-1 → TGASTCA (TGAGTCA is the collagenase TRE / reverse complement, not a defect), NF-κB → GGGRNWYYCC; GC box and Shine-Dalgarno citations replaced by primaries. The AP-1 negative-control dataset below is superseded (TGAGTCA now expected as an AP-1 hit).
+- **2026-09-30**: Both-strand scan (`FindRegulatoryElements(seq, bothStrands)`) for CAAT / GC box / NF-κB; Bucher 1990 matrices (JASPAR POL012.1/POL002.1/POL004.1/POL003.1) with FPR-threshold PWM scan (`FindPromoterElementsByMatrix`).
