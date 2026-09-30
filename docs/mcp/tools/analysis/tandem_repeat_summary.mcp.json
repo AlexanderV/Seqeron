@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.GetTandemRepeatSummary",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L887",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L2379",
   "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts (mono..hexa), longest repeat and most frequent unit.",
   "inputSchema": {
     "type": "object",

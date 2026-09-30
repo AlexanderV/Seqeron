@@ -1351,13 +1351,14 @@ public static class RepeatFinder
     #region Inverted Repeat Detection
 
     /// <summary>
-    /// Finds exact (perfect-stem) inverted repeats: a left arm followed, after a loop, by a right arm
-    /// equal to the reverse complement of the left arm. Such structures can form hairpin/stem-loop
-    /// (single strand) or cruciform (duplex) structures.
+    /// Finds inverted repeats: a left arm followed, after a loop, by a right arm equal to the reverse complement of
+    /// the left arm — exact (perfect) stems by default, optionally with up to <c>maxMismatches</c> mismatched pairs,
+    /// a maximum arm length and G·U wobble pairs. Such structures can form hairpin/stem-loop (single strand) or
+    /// cruciform (duplex) structures.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Model (exact, maximal stems).</b> A stem is a triple (<c>LeftArmStart = i</c>,
+    /// <b>Model (default: exact, maximal stems).</b> A stem is a triple (<c>LeftArmStart = i</c>,
     /// <c>RightArmStart = j</c>, <c>ArmLength = A</c>) such that base <c>s[i+k]</c> is the Watson–Crick
     /// complement of <c>s[j+A−1−k]</c> for every <c>0 ≤ k &lt; A</c>, with
     /// <c>A ≥ minArmLength</c> and <c>minLoopLength ≤ j − (i + A) ≤ maxLoopLength</c>.
@@ -1373,15 +1374,17 @@ public static class RepeatFinder
     /// unbounded <c>-maxpallen</c>), cross-checked on random sequences.
     /// </para>
     /// <para>
-    /// <b>Pairing.</b> Only the unambiguous bases A, C, G, T pair, via the canonical
+    /// <b>Pairing.</b> By default only the unambiguous bases A, C, G, T pair, via the canonical
     /// <see cref="SequenceExtensions.GetComplementBase(char)"/> (A↔T, C↔G). As in EMBOSS <c>einverted</c>
     /// (which scores a match only for a/c/g/t), N and other IUPAC ambiguity codes never form a pair, so a run
     /// of N is not reported as a stem.
     /// </para>
     /// <para>
-    /// <b>Not einverted.</b> This is an exact-stem finder: no mismatches, no gaps (bulges), no score threshold.
-    /// For imperfect, score-based inverted repeats use EMBOSS <c>einverted</c> (Durbin &amp; Thierry-Mieg
-    /// dynamic programming).
+    /// <b>Options.</b> <c>maxMismatches &gt; 0</c> and a finite <c>maxArmLength</c> follow EMBOSS <c>palindrome</c>
+    /// <c>-nummismatches</c> / <c>-maxpallen</c> exactly (see the parameters; with <c>minLoopLength = 0</c> the result
+    /// set equals the EMBOSS 6.6.0 binary, cross-checked on thousands of random cases); <c>allowWobble</c> adds G·U
+    /// pairs under the same maximal-stem rule. No gaps (bulges): for scored, gap-tolerant inverted repeats use
+    /// <see cref="FindInvertedRepeatsScored(string, int, int, int, int, int)"/> (EMBOSS <c>einverted</c>).
     /// </para>
     /// <para>Coordinates are 0-based; results are ordered by <c>LeftArmStart</c>, then <c>RightArmStart</c>.
     /// Parameters are validated eagerly.</para>
@@ -1390,48 +1393,99 @@ public static class RepeatFinder
     /// <param name="minArmLength">Minimum length of each arm (default: 4, must be ≥ 2).</param>
     /// <param name="maxLoopLength">Maximum loop length between arms (default: 50, must be ≥ <paramref name="minLoopLength"/>).</param>
     /// <param name="minLoopLength">Minimum loop length (default: 3, must be ≥ 0).</param>
-    /// <returns>The maximal exact inverted repeats.</returns>
+    /// <param name="maxMismatches">
+    /// Maximum number of mismatched pairs inside a stem (default 0 = exact stems; must be ≥ 0). EMBOSS
+    /// <c>palindrome -nummismatches</c> semantics: every stem starts at a pairing outer pair and is extended inward
+    /// pair by pair until the (<paramref name="maxMismatches"/>+1)-th mismatch (or until the loop would become shorter
+    /// than <paramref name="minLoopLength"/>); mismatches at the inner end of the stem are trimmed, interior mismatches
+    /// are kept and counted in <see cref="InvertedRepeatResult.Mismatches"/>; a stem lying inside another stem in both
+    /// arms is dropped (<c>-overlap Y</c>).
+    /// </param>
+    /// <param name="maxArmLength">
+    /// Maximum arm length (default <see cref="int.MaxValue"/> = unbounded; must be ≥ <paramref name="minArmLength"/>).
+    /// EMBOSS <c>palindrome -maxpallen</c> semantics: stems are only started from outer pairs spanning at most
+    /// <c>2·maxArmLength + maxLoopLength + 1</c> bases, and stems longer than <paramref name="maxArmLength"/> are not
+    /// reported but still suppress the stems they contain (so a longer stem is <b>not</b> split into shorter pieces;
+    /// only parts of it that do not lie inside a longer candidate can surface).
+    /// </param>
+    /// <param name="allowWobble">
+    /// When true, G·T (G·U) wobble pairs count as pairs in addition to Watson–Crick pairs, using the canonical
+    /// <see cref="RnaSecondaryStructure.CanPair(char, char)"/> (A·U, G·C, G·U — T is read as U; Crick 1966,
+    /// Varani &amp; McClain 2000). Default false (Watson–Crick A·T/C·G only, U never pairs).
+    /// </param>
+    /// <returns>The maximal (non-nested) stems, ordered by <c>LeftArmStart</c>, then <c>RightArmStart</c>.</returns>
     public static IEnumerable<InvertedRepeatResult> FindInvertedRepeats(
         DnaSequence sequence,
         int minArmLength = 4,
         int maxLoopLength = 50,
-        int minLoopLength = 3)
+        int minLoopLength = 3,
+        int maxMismatches = 0,
+        int maxArmLength = int.MaxValue,
+        bool allowWobble = false)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ValidateInvertedRepeatParameters(minArmLength, maxLoopLength, minLoopLength);
+        ValidateInvertedRepeatParameters(minArmLength, maxLoopLength, minLoopLength, maxMismatches, maxArmLength);
 
-        return FindInvertedRepeatsCore(sequence.Sequence, minArmLength, maxLoopLength, minLoopLength);
+        return FindInvertedRepeatsDispatch(
+            sequence.Sequence, minArmLength, maxLoopLength, minLoopLength, maxMismatches, maxArmLength, allowWobble);
     }
 
     /// <summary>
-    /// Finds exact maximal inverted repeats in a raw sequence string (case-insensitive).
-    /// Same model and validation as <see cref="FindInvertedRepeats(DnaSequence, int, int, int)"/>;
-    /// <c>null</c> or empty input yields no results. Characters other than A/C/G/T never pair.
+    /// Finds maximal inverted repeats in a raw sequence string (case-insensitive).
+    /// Same model, options and validation as
+    /// <see cref="FindInvertedRepeats(DnaSequence, int, int, int, int, int, bool)"/>;
+    /// <c>null</c> or empty input yields no results. Characters other than A/C/G/T never pair
+    /// (with <paramref name="allowWobble"/>, U pairs as T).
     /// </summary>
     public static IEnumerable<InvertedRepeatResult> FindInvertedRepeats(
         string sequence,
         int minArmLength = 4,
         int maxLoopLength = 50,
-        int minLoopLength = 3)
+        int minLoopLength = 3,
+        int maxMismatches = 0,
+        int maxArmLength = int.MaxValue,
+        bool allowWobble = false)
     {
-        ValidateInvertedRepeatParameters(minArmLength, maxLoopLength, minLoopLength);
+        ValidateInvertedRepeatParameters(minArmLength, maxLoopLength, minLoopLength, maxMismatches, maxArmLength);
 
         if (string.IsNullOrEmpty(sequence))
             return Array.Empty<InvertedRepeatResult>();
 
-        return FindInvertedRepeatsCore(sequence.ToUpperInvariant(), minArmLength, maxLoopLength, minLoopLength);
+        return FindInvertedRepeatsDispatch(
+            sequence.ToUpperInvariant(), minArmLength, maxLoopLength, minLoopLength, maxMismatches, maxArmLength, allowWobble);
     }
 
-    private static void ValidateInvertedRepeatParameters(int minArmLength, int maxLoopLength, int minLoopLength)
+    private static void ValidateInvertedRepeatParameters(
+        int minArmLength, int maxLoopLength, int minLoopLength, int maxMismatches, int maxArmLength)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(minArmLength, 2);
         ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxLoopLength, minLoopLength);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxArmLength, minArmLength);
+    }
+
+    private static List<InvertedRepeatResult> FindInvertedRepeatsDispatch(
+        string seq, int minArmLength, int maxLoopLength, int minLoopLength,
+        int maxMismatches, int maxArmLength, bool allowWobble)
+    {
+        // An arm can never exceed n/2, so maxArmLength ≥ n/2 removes neither a start pair nor a stem.
+        bool armBounded = maxArmLength < seq.Length / 2;
+        if (maxMismatches == 0 && !armBounded)
+            return FindInvertedRepeatsCore(seq, minArmLength, maxLoopLength, minLoopLength, allowWobble);
+
+        int armLimit = armBounded ? maxArmLength : int.MaxValue;
+        return FindInvertedRepeatsMismatchCore(
+            seq, minArmLength, maxLoopLength, minLoopLength, maxMismatches, armLimit, allowWobble);
     }
 
     /// <summary>True when <paramref name="a"/> and <paramref name="b"/> form a Watson–Crick pair (ACGT only).</summary>
     private static bool IsWatsonCrickPair(char a, char b) =>
         AcgtCode(a) >= 0 && SequenceExtensions.GetComplementBase(a) == b;
+
+    /// <summary>Stem pairing rule: Watson–Crick (ACGT), or the canonical RNA pair set incl. G·U when <paramref name="wobble"/>.</summary>
+    private static bool IsStemPair(char a, char b, bool wobble) =>
+        wobble ? RnaSecondaryStructure.CanPair(a, b) : IsWatsonCrickPair(a, b);
 
     /// <summary>
     /// Maximal exact stems. A stem is identified by its innermost pair (<c>iIn</c>, <c>rIn</c>) with loop
@@ -1444,7 +1498,8 @@ public static class RepeatFinder
         string seq,
         int minArmLength,
         int maxLoopLength,
-        int minLoopLength)
+        int minLoopLength,
+        bool wobble)
     {
         int n = seq.Length;
         var results = new List<InvertedRepeatResult>();
@@ -1461,20 +1516,20 @@ public static class RepeatFinder
                 int rIn = iIn + loop + 1;
                 if (rIn + minArmLength - 1 >= n)
                     break;
-                if (!IsWatsonCrickPair(seq[iIn], seq[rIn]))
+                if (!IsStemPair(seq[iIn], seq[rIn], wobble))
                     continue;
                 // Inward-maximal: the next inner pair must fail, unless it would make the loop < minLoop.
-                if (loop - 2 >= minLoopLength && IsWatsonCrickPair(seq[iIn + 1], seq[rIn - 1]))
+                if (loop - 2 >= minLoopLength && IsStemPair(seq[iIn + 1], seq[rIn - 1], wobble))
                     continue;
 
                 int arm = 1;
-                while (iIn - arm >= 0 && rIn + arm < n && IsWatsonCrickPair(seq[iIn - arm], seq[rIn + arm]))
+                while (iIn - arm >= 0 && rIn + arm < n && IsStemPair(seq[iIn - arm], seq[rIn + arm], wobble))
                     arm++;
                 if (arm < minArmLength)
                     continue;
 
                 int iOut = iIn - arm + 1;
-                if (IsContainedInShiftedStem(seq, iOut, rIn, arm, loop - minLoopLength))
+                if (IsContainedInShiftedStem(seq, iOut, rIn, arm, loop - minLoopLength, wobble))
                     continue;
 
                 results.Add(new InvertedRepeatResult(
@@ -1504,29 +1559,545 @@ public static class RepeatFinder
     /// the right start (<c>(left, right, arm + m)</c>) or keeps both arm ends (<c>(left − m, right − m, arm + m)</c>);
     /// every containing stem contains one of these, so testing <c>1 ≤ m ≤ loop − minLoop</c> is exact.
     /// </summary>
-    private static bool IsContainedInShiftedStem(string seq, int left, int right, int arm, int maxShift)
+    private static bool IsContainedInShiftedStem(string seq, int left, int right, int arm, int maxShift, bool wobble)
     {
         int n = seq.Length;
         for (int m = 1; m <= maxShift; m++)
         {
             int len = arm + m;
-            if (right + len <= n && IsExactStem(seq, left, right, len))
+            if (right + len <= n && IsExactStem(seq, left, right, len, wobble))
                 return true;
-            if (left - m >= 0 && IsExactStem(seq, left - m, right - m, len))
+            if (left - m >= 0 && IsExactStem(seq, left - m, right - m, len, wobble))
                 return true;
         }
         return false;
     }
 
     /// <summary>True when s[i+k] pairs with s[j+len−1−k] for all k (checked from the innermost pair out).</summary>
-    private static bool IsExactStem(string seq, int i, int j, int len)
+    private static bool IsExactStem(string seq, int i, int j, int len, bool wobble)
     {
         for (int k = len - 1; k >= 0; k--)
         {
-            if (!IsWatsonCrickPair(seq[i + k], seq[j + len - 1 - k]))
+            if (!IsStemPair(seq[i + k], seq[j + len - 1 - k], wobble))
                 return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// Mismatch-tolerant and/or arm-bounded stems: the candidate set of EMBOSS <c>palindrome</c>
+    /// (<c>-nummismatches k</c>, <c>-maxpallen</c>) followed by the <c>palindrome_AInB</c> nesting filter.
+    /// All pairs of a stem lie on one anti-diagonal <c>D = left + right</c>; along a diagonal the pairs are indexed
+    /// from the innermost admissible pair (loop ≥ <paramref name="minLoop"/>, index 0) outward. A candidate starts at a
+    /// pairing outer index <c>u</c> and walks inward to just before the (k+1)-th mismatch (or to index 0); trailing
+    /// mismatches are trimmed, so its inner end is the first pairing index above that stop. Kept when
+    /// arm ≥ <paramref name="minArm"/>, loop ≤ <paramref name="maxLoopLength"/>, and (bounded arm) the outer span is at
+    /// most <c>2·maxArm + maxLoopLength + 1</c>; a candidate lying inside another candidate in both arms is dropped
+    /// (any container differs by at most <c>loop − minLoop</c> diagonals); candidates longer than
+    /// <paramref name="maxArm"/> are then not reported (<c>palindrome_Print</c> filter).
+    /// </summary>
+    private static List<InvertedRepeatResult> FindInvertedRepeatsMismatchCore(
+        string seq, int minArm, int maxLoopLength, int minLoop, int maxMismatches, int maxArm, bool wobble)
+    {
+        int n = seq.Length;
+        var results = new List<InvertedRepeatResult>();
+        if (n < 2 * minArm + minLoop)
+            return results;
+
+        long maxLoop = Math.Min(maxLoopLength, (long)n);
+        long maxSpan = maxArm == int.MaxValue ? long.MaxValue : 2L * maxArm + maxLoopLength + 1;
+        int diagonals = 2 * n - 1;
+
+        // Candidates grouped by diagonal; within a diagonal stored with increasing outer-left position.
+        var outerLeft = new List<int>();
+        var innerLeft = new List<int>();
+        var mismatchCount = new List<int>();
+        var diagStart = new int[diagonals + 1];
+        var mismatchAt = new List<int>();
+        var nextPairAfter = new List<int>();
+        var mismatchesBelow = new List<int>(); // per index u: mismatches at indices < u
+        var diagOuter = new List<int>();
+        var diagInner = new List<int>();
+        var diagMism = new List<int>();
+
+        for (int d = 0; d < diagonals; d++)
+        {
+            diagStart[d] = outerLeft.Count;
+            long a0Long = (long)d - 1 - minLoop;
+            if (a0Long < 0)
+                continue;
+            int a0 = (int)(a0Long / 2);
+            int loop0 = d - 2 * a0 - 1;
+            if (loop0 > maxLoop)
+                continue;
+            int innerLimit = (int)((maxLoop - loop0) / 2);
+            long uMaxLong = Math.Min(a0, (long)n - 1 - d + a0);
+            if (maxSpan != long.MaxValue)
+            {
+                long spanRoom = maxSpan - loop0 - 2;
+                uMaxLong = spanRoom < 0 ? -1 : Math.Min(uMaxLong, spanRoom / 2);
+            }
+            int uMax = (int)uMaxLong;
+
+            mismatchAt.Clear();
+            nextPairAfter.Clear();
+            mismatchesBelow.Clear();
+            diagOuter.Clear();
+            diagInner.Clear();
+            diagMism.Clear();
+            int pending = 0;
+            int firstPair = -1;
+            for (int u = 0; u <= uMax; u++)
+            {
+                mismatchesBelow.Add(mismatchAt.Count);
+                if (!IsStemPair(seq[a0 - u], seq[d - a0 + u], wobble))
+                {
+                    mismatchAt.Add(u);
+                    nextPairAfter.Add(-1);
+                    // Every later start stops at or above this (k+1)-th mismatch → its inner end exceeds innerLimit.
+                    if (mismatchAt.Count > maxMismatches && mismatchAt[^(maxMismatches + 1)] >= innerLimit)
+                        break;
+                    continue;
+                }
+
+                if (firstPair < 0)
+                    firstPair = u;
+                for (; pending < mismatchAt.Count; pending++)
+                    nextPairAfter[pending] = u;
+
+                // Inner end: first pairing index above the (k+1)-th mismatch met walking inward (trailing mismatches trimmed).
+                int inner = mismatchAt.Count > maxMismatches
+                    ? nextPairAfter[mismatchAt.Count - 1 - maxMismatches]
+                    : firstPair;
+                int mism = mismatchAt.Count - mismatchesBelow[inner];
+
+                if (u - inner + 1 >= minArm && inner <= innerLimit)
+                {
+                    diagOuter.Add(a0 - u);
+                    diagInner.Add(a0 - inner);
+                    diagMism.Add(mism);
+                }
+            }
+
+            for (int c = diagOuter.Count - 1; c >= 0; c--)
+            {
+                outerLeft.Add(diagOuter[c]);
+                innerLeft.Add(diagInner[c]);
+                mismatchCount.Add(diagMism[c]);
+            }
+        }
+        diagStart[diagonals] = outerLeft.Count;
+
+        // Prefix maximum of the inner-left end per diagonal (outer-left ascending) for containment queries, and the
+        // longest candidate arm per diagonal / overall (a container shifted by m diagonals is ≥ m bases longer).
+        var prefixMaxInner = new int[outerLeft.Count];
+        var longestOnDiagonal = new int[diagonals];
+        int longestArm = 0;
+        for (int d = 0; d < diagonals; d++)
+        {
+            int best = int.MinValue;
+            for (int c = diagStart[d]; c < diagStart[d + 1]; c++)
+            {
+                prefixMaxInner[c] = best = Math.Max(best, innerLeft[c]);
+                longestOnDiagonal[d] = Math.Max(longestOnDiagonal[d], innerLeft[c] - outerLeft[c] + 1);
+            }
+            longestArm = Math.Max(longestArm, longestOnDiagonal[d]);
+        }
+
+        // True when diagonal dd holds a candidate with outer-left ≤ x and inner-left ≥ y.
+        bool Covered(int dd, int x, int y)
+        {
+            if (longestOnDiagonal[dd] < y - x + 1)
+                return false;
+            int lo = diagStart[dd], hi = diagStart[dd + 1] - 1, found = -1;
+            while (lo <= hi)
+            {
+                int mid = (lo + hi) >>> 1;
+                if (outerLeft[mid] <= x) { found = mid; lo = mid + 1; }
+                else hi = mid - 1;
+            }
+            return found >= 0 && prefixMaxInner[found] >= y;
+        }
+
+        for (int d = 0; d < diagonals; d++)
+        {
+            for (int c = diagStart[d]; c < diagStart[d + 1]; c++)
+            {
+                int fs = outerLeft[c], fe = innerLeft[c];
+                int arm = fe - fs + 1;
+                if (arm > maxArm)
+                    continue;
+                int loop = d - 2 * fe - 1;
+                int rightOuter = d - fs, rightInner = d - fe;
+
+                bool contained = Covered(d, fs - 1, fe);
+                int maxShift = Math.Min(loop - minLoop, longestArm - arm);
+                for (int m = 1; !contained && m <= maxShift; m++)
+                {
+                    int up = d + m, down = d - m;
+                    if (up < diagonals && Covered(up, Math.Min(fs, up - rightOuter), Math.Max(fe, up - rightInner)))
+                        contained = true;
+                    else if (down >= 0 && Covered(down, Math.Min(fs, down - rightOuter), Math.Max(fe, down - rightInner)))
+                        contained = true;
+                }
+                if (contained)
+                    continue;
+
+                results.Add(new InvertedRepeatResult(
+                    LeftArmStart: fs,
+                    RightArmStart: rightInner,
+                    ArmLength: arm,
+                    LoopLength: loop,
+                    LeftArm: seq.Substring(fs, arm),
+                    RightArm: seq.Substring(rightInner, arm),
+                    Loop: seq.Substring(fe + 1, loop),
+                    CanFormHairpin: loop >= 3)
+                { Mismatches = mismatchCount[c] });
+            }
+        }
+
+        results.Sort(static (x, y) =>
+        {
+            int c = x.LeftArmStart.CompareTo(y.LeftArmStart);
+            return c != 0 ? c : x.RightArmStart.CompareTo(y.RightArmStart);
+        });
+        return results;
+    }
+
+    #endregion
+
+    #region Scored (einverted) Inverted Repeat Detection
+
+    /// <summary>EMBOSS <c>einverted</c> default gap penalty (<c>-gap 12</c>).</summary>
+    public const int EinvertedDefaultGapPenalty = 12;
+
+    /// <summary>EMBOSS <c>einverted</c> default minimum score (<c>-threshold 50</c>).</summary>
+    public const int EinvertedDefaultThreshold = 50;
+
+    /// <summary>EMBOSS <c>einverted</c> default match score (<c>-match 3</c>).</summary>
+    public const int EinvertedDefaultMatchScore = 3;
+
+    /// <summary>EMBOSS <c>einverted</c> default mismatch score (<c>-mismatch -4</c>).</summary>
+    public const int EinvertedDefaultMismatchScore = -4;
+
+    /// <summary>
+    /// EMBOSS 6.6 <c>einverted</c> default maximum repeat extent (<c>-maxrepeat 2000</c>, einverted.acd). Durbin's
+    /// original compile-time value was 4000 (comment in <c>einverted.c</c>); pass it explicitly to reproduce that.
+    /// </summary>
+    public const int EinvertedDefaultMaxRepeatLength = 2000;
+
+    /// <summary>Sentinel score of <c>einverted</c> (<c>rogue</c>) marking cells outside the sequence/window.</summary>
+    private const int EinvertedRogue = 1_000_000;
+
+    /// <summary>
+    /// Finds imperfect (mismatch- and gap-tolerant) inverted repeats by score, reproducing EMBOSS <c>einverted</c>
+    /// (Durbin &amp; Thierry-Mieg 1993, "Inverted repeats by dynamic programming").
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Scoring.</b> A local alignment of the sequence against its own reverse complement, grown outward from the
+    /// loop: cell (<c>i</c>, <c>k</c>) pairs right-arm base <c>i</c> with left-arm base <c>i − 1 − k</c> and scores
+    /// <c>H(i,k) = max(s(i, i−1−k) + max(0, H(i−1, k−2)), max(H(i, k−1), H(i−1, k−1)) − gap)</c>, where <c>s</c> is
+    /// <paramref name="matchScore"/> for a Watson–Crick pair of A/C/G/T and <paramref name="mismatchScore"/>
+    /// otherwise (N and other symbols never pair). Only cells with <c>k &lt; maxRepeatLength − 2</c> (outer span at
+    /// most <paramref name="maxRepeatLength"/>) are scored.
+    /// </para>
+    /// <para>
+    /// <b>Reporting.</b> Exactly the <c>einverted</c> procedure: for each right end <c>i</c> the first best cell with
+    /// score ≥ <paramref name="threshold"/> is remembered against its left start (a later end with the same left start
+    /// replaces it only with a higher score; left starts at or before the last reported right end are ignored); once
+    /// the scan is <paramref name="maxRepeatLength"/> past a remembered left start, the best-scoring end in the window
+    /// is traced back (same-row gap, previous-row gap, then diagonal) and reported, and the window is cleared.
+    /// Results are returned in einverted's report order (not necessarily sorted by position). Degenerate parameters
+    /// (threshold ≤ match score, zero gap penalty) can make einverted 6.6.0 abort (SIGFPE: its percentage divides by
+    /// matches + mismatches): a trace-back that records no column is consumed without a result, and a repeat made
+    /// only of gap columns is returned with <see cref="ScoredInvertedRepeatResult.PercentMatches"/> = 0 (the scan
+    /// otherwise continues exactly as einverted's code).
+    /// </para>
+    /// <para>
+    /// Cross-checked against the EMBOSS 6.6.0 <c>einverted</c> binary (coordinates, score, matches, mismatches,
+    /// gaps and both alignment rows) on random sequences with planted imperfect inverted repeats. Output differences
+    /// by design: coordinates are 0-based and inclusive; alignment rows use the upper-cased input characters (einverted
+    /// prints lower case and shows non-ACGT symbols as '-').
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA sequence (case-insensitive; symbols other than A/C/G/T never pair).</param>
+    /// <param name="gapPenalty">Gap penalty (≥ 0, default 12).</param>
+    /// <param name="threshold">Minimum reported score (≥ 0, default 50).</param>
+    /// <param name="matchScore">Score of a Watson–Crick pair (≥ 0, default 3).</param>
+    /// <param name="mismatchScore">Score of any other pair (≤ 0, default −4).</param>
+    /// <param name="maxRepeatLength">
+    /// Maximum extent from the start of the repeat to the end of its inverted copy (einverted <c>-maxrepeat</c>,
+    /// ≥ 2, default 2000). Memory is O(min(maxRepeatLength, n)²).
+    /// </param>
+    /// <returns>Scored inverted repeats in einverted report order.</returns>
+    public static IEnumerable<ScoredInvertedRepeatResult> FindInvertedRepeatsScored(
+        string sequence,
+        int gapPenalty = EinvertedDefaultGapPenalty,
+        int threshold = EinvertedDefaultThreshold,
+        int matchScore = EinvertedDefaultMatchScore,
+        int mismatchScore = EinvertedDefaultMismatchScore,
+        int maxRepeatLength = EinvertedDefaultMaxRepeatLength)
+    {
+        ValidateScoredInvertedRepeatParameters(gapPenalty, threshold, matchScore, mismatchScore, maxRepeatLength);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<ScoredInvertedRepeatResult>();
+        return new EinvertedScanner(sequence.ToUpperInvariant(), gapPenalty, threshold, matchScore, mismatchScore, maxRepeatLength).Run();
+    }
+
+    /// <summary>
+    /// Scored inverted repeats of a <see cref="DnaSequence"/>; see
+    /// <see cref="FindInvertedRepeatsScored(string, int, int, int, int, int)"/>.
+    /// </summary>
+    public static IEnumerable<ScoredInvertedRepeatResult> FindInvertedRepeatsScored(
+        DnaSequence sequence,
+        int gapPenalty = EinvertedDefaultGapPenalty,
+        int threshold = EinvertedDefaultThreshold,
+        int matchScore = EinvertedDefaultMatchScore,
+        int mismatchScore = EinvertedDefaultMismatchScore,
+        int maxRepeatLength = EinvertedDefaultMaxRepeatLength)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindInvertedRepeatsScored(sequence.Sequence, gapPenalty, threshold, matchScore, mismatchScore, maxRepeatLength);
+    }
+
+    private static void ValidateScoredInvertedRepeatParameters(
+        int gapPenalty, int threshold, int matchScore, int mismatchScore, int maxRepeatLength)
+    {
+        // Ranges of einverted.acd; scores must stay below the rogue sentinel (einverted's arrays assume it).
+        ArgumentOutOfRangeException.ThrowIfNegative(gapPenalty);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(gapPenalty, EinvertedRogue);
+        ArgumentOutOfRangeException.ThrowIfNegative(threshold);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(threshold, EinvertedRogue);
+        ArgumentOutOfRangeException.ThrowIfNegative(matchScore);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(matchScore, EinvertedRogue);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(mismatchScore, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(mismatchScore, -EinvertedRogue);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxRepeatLength, 2);
+    }
+
+    /// <summary>
+    /// The einverted scan: a ring of <c>W</c> DP rows (row <c>i</c> in slot <c>i mod W</c>), per-row best scores and a
+    /// left-start → right-end table, both ring-indexed. With <c>W ≥ n + 2</c> no slot is ever reused and every row is
+    /// scored in full, so <c>W</c> is capped at <c>n + 2</c> without changing the output.
+    /// </summary>
+    private sealed class EinvertedScanner
+    {
+        private readonly string _seq;
+        private readonly int[] _code;
+        private readonly int _n, _w, _gap, _threshold, _match, _mismatch;
+        private readonly int[][] _rows;
+        private readonly int[] _bestEnd;   // einverted "back": slot of a left start → right end (row) of its best repeat
+        private readonly int[] _rowBest;   // einverted "localMax": best score of a row (0 = none)
+        private readonly List<ScoredInvertedRepeatResult> _results = new();
+
+        public EinvertedScanner(string seq, int gap, int threshold, int match, int mismatch, int maxRepeat)
+        {
+            _seq = seq;
+            _n = seq.Length;
+            _w = (int)Math.Min(maxRepeat, (long)_n + 2);
+            _gap = gap;
+            _threshold = threshold;
+            _match = match;
+            _mismatch = mismatch;
+            _code = new int[_n];
+            for (int p = 0; p < _n; p++)
+            {
+                int c = AcgtCode(seq[p]);
+                _code[p] = c < 0 ? 4 : c;
+            }
+            _rows = new int[_w][];
+            for (int r = 0; r < _w; r++)
+                _rows[r] = new int[_w];
+            _bestEnd = new int[_w];
+            _rowBest = new int[_w];
+        }
+
+        /// <summary>Pair score of right base <paramref name="i"/> with left base <c>i − 1 − k</c>; rogue off the sequence.</summary>
+        private int PairScore(int i, int k)
+        {
+            int partner = i - 1 - k;
+            if (partner < 0)
+                return EinvertedRogue;
+            int ci = _code[i];
+            return ci < 4 && _code[partner] == 3 - ci ? _match : _mismatch;
+        }
+
+        public List<ScoredInvertedRepeatResult> Run()
+        {
+            int w = _w;
+            int lastReported = -1;
+            for (int i = 0; i < _n + w; i++)
+            {
+                int slot = i % w;
+                if (_bestEnd[slot] != 0)
+                    lastReported = ReportWindow(i, slot);
+
+                if (i >= _n)
+                    continue;
+
+                int[] prev = _rows[(i + w - 1) % w];
+                int[] cur = _rows[slot];
+                for (int k = 0; k < w - 2; k++)
+                    cur[k] = PairScore(i, k);
+                cur[w - 2] = cur[w - 1] = EinvertedRogue;
+                if (i == 0)
+                    Array.Clear(prev); // row "−1" of einverted is the zero-initialised matrix
+
+                int best = _threshold - 1, bestK = 0;
+                int c = cur[0], diag = -EinvertedRogue;
+                // Always ends at the rogue column (k ≤ W − 2 or the first column past the sequence start).
+                for (int k = 1; k < w; k++)
+                {
+                    int d = cur[k];
+                    if (diag > 0)
+                        d += diag;
+                    diag = prev[k - 1];
+                    if (diag > c)
+                        c = diag;
+                    c -= _gap;
+                    if (d > c)
+                        c = d;
+                    cur[k] = c;
+                    if (c >= EinvertedRogue)
+                        break;
+                    if (c > best)
+                    {
+                        best = c;
+                        bestK = k;
+                    }
+                }
+
+                if (bestK != 0)
+                {
+                    int leftStart = i - bestK - 1;
+                    int startSlot = leftStart % w;
+                    int previousEnd = _bestEnd[startSlot];
+                    if (leftStart > lastReported && (previousEnd == 0 || _rowBest[previousEnd % w] < best))
+                    {
+                        _bestEnd[startSlot] = i;
+                        _rowBest[slot] = best;
+                    }
+                }
+                else
+                {
+                    _rowBest[slot] = 0;
+                }
+            }
+            return _results;
+        }
+
+        /// <summary>Reports the best repeat of the window (i − W, end] and clears it; returns the new last-reported end.</summary>
+        private int ReportWindow(int i, int slot)
+        {
+            int w = _w;
+            int windowEnd = _bestEnd[slot];
+            int bestRow = windowEnd;
+            bool done = false;
+            while (!done)
+            {
+                int bestScore = 0;
+                bestRow = windowEnd;
+                for (int j = windowEnd; j > i - w; j--)
+                {
+                    int score = _rowBest[j % w];
+                    if (score > bestScore)
+                    {
+                        bestRow = j;
+                        bestScore = score;
+                    }
+                }
+                if (bestScore == 0)
+                    break;
+                done = TraceBack(bestScore, bestRow, i - w);
+                if (!done)
+                    _rowBest[bestRow % w] = 0;
+            }
+
+            for (int j = bestRow; j >= i - w; j--)
+            {
+                _bestEnd[j % w] = 0;
+                _rowBest[j % w] = 0;
+            }
+            return bestRow;
+        }
+
+        private bool TraceBack(int score, int endRow, int minRow)
+        {
+            int w = _w;
+            int[] row = _rows[endRow % w];
+            int k = 0;
+            while (k < w && row[k] != score)
+                k++;
+
+            var right = new List<int>();
+            var left = new List<int>();
+            int remaining = score, i = endRow, matches = 0, mismatches = 0, gaps = 0;
+            while (remaining > 0 && k >= 1)
+            {
+                if (i < minRow)
+                    return false;
+                right.Add(i);
+                left.Add(i - 1 - k);
+                if (row[k - 1] == remaining + _gap)
+                {
+                    remaining += _gap;
+                    gaps++;
+                    k--;
+                    continue;
+                }
+                row = _rows[(i - 1 + w) % w];
+                if (row[k - 1] == remaining + _gap)
+                {
+                    remaining += _gap;
+                    gaps++;
+                    i--;
+                    k--;
+                    continue;
+                }
+                int s = PairScore(i, k);
+                remaining -= s;
+                if (s == _match)
+                    matches++;
+                else
+                    mismatches++;
+                i--;
+                k -= 2;
+            }
+
+            // einverted divides by (matches + mismatches) and prints coordinates here: with no aligned column, or a
+            // column before the sequence start (possible only after a ring slot was reused), it aborts or prints
+            // garbage. Such a trace-back still counts as reported (scan state as in einverted) but yields no result.
+            if (left.Count == 0 || left[0] < 0)
+                return true;
+
+            int len = left.Count;
+            var leftRow = new char[len];
+            var midRow = new char[len];
+            var rightRow = new char[len];
+            for (int t = 0; t < len; t++)
+            {
+                bool leftGap = t + 1 < len && left[t] == left[t + 1];
+                bool rightGap = t + 1 < len && right[t] == right[t + 1];
+                leftRow[t] = leftGap ? '-' : _seq[left[t]];
+                rightRow[t] = rightGap ? '-' : _seq[right[t]];
+                midRow[t] = !leftGap && !rightGap && _code[right[t]] + _code[left[t]] == 3 ? '|' : ' ';
+            }
+
+            _results.Add(new ScoredInvertedRepeatResult(
+                LeftArmStart: left[0],
+                LeftArmEnd: left[len - 1],
+                RightArmStart: right[len - 1],
+                RightArmEnd: right[0],
+                Score: score,
+                Matches: matches,
+                Mismatches: mismatches,
+                Gaps: gaps,
+                LeftArmAlignment: new string(leftRow),
+                MatchLine: new string(midRow),
+                RightArmAlignment: new string(rightRow)));
+            return true;
+        }
     }
 
     #endregion
@@ -1907,7 +2478,7 @@ public static class RepeatFinder
     /// reverse complement, including windows nested inside longer palindromes and overlapping ones — the
     /// Rosalind REVP ("Locating Restriction Sites") convention: "the position and length of every reverse
     /// palindrome in the string having length between 4 and 12". This differs from
-    /// <see cref="FindInvertedRepeats(DnaSequence,int,int,int)"/>, which reports only maximal stems (EMBOSS
+    /// <see cref="FindInvertedRepeats(DnaSequence,int,int,int,int,int,bool)"/>, which reports only maximal stems (EMBOSS
     /// <c>palindrome</c>).
     /// </para>
     /// <para>
@@ -2104,6 +2675,47 @@ public readonly record struct InvertedRepeatResult(
     /// Total length of the inverted repeat structure.
     /// </summary>
     public int TotalLength => 2 * ArmLength + LoopLength;
+
+    /// <summary>
+    /// Number of mismatched (non-pairing) positions inside the stem; always 0 for exact stems
+    /// (<c>maxMismatches = 0</c>). Mismatches never occur at either end of a stem.
+    /// </summary>
+    public int Mismatches { get; init; }
+}
+
+/// <summary>
+/// A scored imperfect inverted repeat (EMBOSS <c>einverted</c> semantics). Coordinates are 0-based and inclusive:
+/// <c>LeftArmStart ≤ LeftArmEnd &lt; RightArmStart ≤ RightArmEnd</c>. The three alignment rows are column-aligned:
+/// <see cref="LeftArmAlignment"/> reads the left arm 5'→3' (outer → inner), <see cref="RightArmAlignment"/> reads the
+/// right arm from its outer end inward (3'→5'), '-' marks a gap, and <see cref="MatchLine"/> has '|' for each
+/// Watson–Crick pair. <see cref="Score"/>, <see cref="Matches"/>, <see cref="Mismatches"/> and <see cref="Gaps"/> are
+/// einverted's figures: a final trace-back gap step is counted in <see cref="Gaps"/> but not drawn, and an innermost
+/// loop-0 pair reached by the last diagonal step contributes to <see cref="Score"/> without being counted or drawn.
+/// </summary>
+public readonly record struct ScoredInvertedRepeatResult(
+    int LeftArmStart,
+    int LeftArmEnd,
+    int RightArmStart,
+    int RightArmEnd,
+    int Score,
+    int Matches,
+    int Mismatches,
+    int Gaps,
+    string LeftArmAlignment,
+    string MatchLine,
+    string RightArmAlignment)
+{
+    /// <summary>Length of the left arm (bases).</summary>
+    public int LeftArmLength => LeftArmEnd - LeftArmStart + 1;
+
+    /// <summary>Length of the right arm (bases).</summary>
+    public int RightArmLength => RightArmEnd - RightArmStart + 1;
+
+    /// <summary>Bases between the arms.</summary>
+    public int LoopLength => RightArmStart - LeftArmEnd - 1;
+
+    /// <summary>Percentage of aligned (non-gap) columns that pair, 100·matches / (matches + mismatches); 0 when none.</summary>
+    public double PercentMatches => Matches + Mismatches == 0 ? 0 : 100.0 * Matches / (Matches + Mismatches);
 }
 
 /// <summary>

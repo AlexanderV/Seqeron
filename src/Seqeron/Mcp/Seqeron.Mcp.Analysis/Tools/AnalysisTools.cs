@@ -451,21 +451,25 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_inverted_repeats", Title = "Repeats — Inverted Repeats / Hairpins", ReadOnly = true)]
-    [Description("Sequences whose two arms are reverse-complement of each other (hairpin candidates).")]
+    [Description("Sequences whose two arms are reverse-complement of each other (hairpin candidates). Maximal stems (EMBOSS palindrome); optional mismatches (palindrome -nummismatches), maximum arm length (-maxpallen) and G-U wobble pairs.")]
     public static FindInvertedRepeatsResult FindInvertedRepeats(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum arm length (default 4).")] int minArmLength = 4,
         [Description("Maximum loop length (default 50).")] int maxLoopLength = 50,
-        [Description("Minimum loop length (default 3).")] int minLoopLength = 3)
+        [Description("Minimum loop length (default 3).")] int minLoopLength = 3,
+        [Description("Maximum mismatched pairs inside a stem (default 0 = exact; EMBOSS palindrome -nummismatches).")] int maxMismatches = 0,
+        [Description("Maximum arm length (default 2147483647 = unbounded; EMBOSS palindrome -maxpallen: longer stems are not reported and not split).")] int maxArmLength = int.MaxValue,
+        [Description("Allow G-U (G-T) wobble pairs (default false = Watson-Crick only).")] bool allowWobble = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindInvertedRepeats(sequence, minArmLength, maxLoopLength, minLoopLength)
+            .FindInvertedRepeats(sequence, minArmLength, maxLoopLength, minLoopLength, maxMismatches, maxArmLength, allowWobble)
             .Select(r => new InvertedRepeatItem(
                 r.LeftArmStart, r.RightArmStart, r.ArmLength, r.LoopLength,
-                r.LeftArm, r.RightArm, r.Loop, r.CanFormHairpin, r.TotalLength))
+                r.LeftArm, r.RightArm, r.Loop, r.CanFormHairpin, r.TotalLength)
+            { Mismatches = r.Mismatches })
             .ToArray();
         return new FindInvertedRepeatsResult(items);
     }

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindMicrosatellites",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L85",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L83",
   "description": "Short Tandem Repeats (STRs / microsatellites): units of length minUnitLength..maxUnitLength repeated >= minRepeats times consecutively, each classified by repeat type. Redundant (self-repeating) units are skipped; each maximal run is reported once per unit length at its left end (complete copies only); non-ACGT units are not reported.",
   "inputSchema": {
     "type": "object",

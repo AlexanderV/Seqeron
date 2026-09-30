@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindDirectRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L908",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L2167",
   "description": "Finds exact direct repeats as maximal repeated pairs (left- and right-maximal; MUMmer repeat-match -f convention), filtered to minLength <= length <= maxLength and spacing >= minSpacing. Only A/C/G/T match, case-insensitive. Reports both 0-based positions, sequence, length, and spacing = secondPos - firstPos - length; sorted by (firstPos, secondPos).",
   "inputSchema": {
     "type": "object",

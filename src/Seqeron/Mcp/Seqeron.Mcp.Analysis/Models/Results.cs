@@ -124,7 +124,11 @@ public record InvertedRepeatItem(
     string RightArm,
     string Loop,
     bool CanFormHairpin,
-    int TotalLength);
+    int TotalLength)
+{
+    /// <summary>Mismatched pairs inside the stem (0 unless <c>maxMismatches</c> &gt; 0).</summary>
+    public int Mismatches { get; init; }
+}
 
 /// <summary>Result of <c>find_inverted_repeats</c>.</summary>
 public record FindInvertedRepeatsResult(InvertedRepeatItem[] Items);

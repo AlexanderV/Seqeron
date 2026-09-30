@@ -2,18 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "find_inverted_repeats",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindInvertedRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L706",
-  "description": "Exact inverted repeats: two arms that are reverse-complement of each other (A/C/G/T pairs only), separated by a loop (hairpin candidates). Only maximal stems are reported (a stem inside another stem in both arms is dropped, EMBOSS palindrome -nummismatches 0 -overlap Y). CanFormHairpin is true when the loop is >= 3 nt.",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L1440",
+  "description": "Inverted repeats (exact by default): two arms that are reverse-complement of each other (A/C/G/T pairs only), separated by a loop (hairpin candidates). Only maximal stems are reported (a stem inside another stem in both arms is dropped, EMBOSS palindrome -overlap Y). Optional maxMismatches (palindrome -nummismatches), maxArmLength (palindrome -maxpallen) and allowWobble (G-U pairs). CanFormHairpin is true when the loop is >= 3 nt.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
       "minArmLength": { "type": "integer", "description": "Minimum arm length (default 4)", "minimum": 2, "default": 4 },
       "maxLoopLength": { "type": "integer", "description": "Maximum loop length (default 50, >= minLoopLength)", "default": 50 },
-      "minLoopLength": { "type": "integer", "description": "Minimum loop length (default 3)", "minimum": 0, "default": 3 }
+      "minLoopLength": { "type": "integer", "description": "Minimum loop length (default 3)", "minimum": 0, "default": 3 },
+      "maxMismatches": { "type": "integer", "description": "Maximum mismatched pairs inside a stem (default 0 = exact)", "minimum": 0, "default": 0 },
+      "maxArmLength": { "type": "integer", "description": "Maximum arm length (default 2147483647 = unbounded; palindrome -maxpallen rule, >= minArmLength)", "default": 2147483647 },
+      "allowWobble": { "type": "boolean", "description": "Allow G-U (G-T) wobble pairs (default false)", "default": false }
     },
     "required": ["sequence"]
   },
@@ -33,9 +36,10 @@
             "rightArm": { "type": "string" },
             "loop": { "type": "string" },
             "canFormHairpin": { "type": "boolean" },
-            "totalLength": { "type": "integer" }
+            "totalLength": { "type": "integer" },
+            "mismatches": { "type": "integer" }
           },
-          "required": ["leftArmStart", "rightArmStart", "armLength", "loopLength", "leftArm", "rightArm", "loop", "canFormHairpin", "totalLength"]
+          "required": ["leftArmStart", "rightArmStart", "armLength", "loopLength", "leftArm", "rightArm", "loop", "canFormHairpin", "totalLength", "mismatches"]
         }
       }
     },
@@ -43,23 +47,28 @@
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "minArmLength must be >= 2; minLoopLength must be >= 0; maxLoopLength must be >= minLoopLength" }
+    { "code": 1002, "message": "minArmLength must be >= 2; minLoopLength must be >= 0; maxLoopLength must be >= minLoopLength; maxMismatches must be >= 0; maxArmLength must be >= minArmLength" }
   ],
   "examples": [
     {
       "name": "GGGG-AAA-CCCC hairpin",
       "input": { "sequence": "GGGGAAACCCC", "minArmLength": 4, "maxLoopLength": 50, "minLoopLength": 3 },
-      "output": { "items": [ { "leftArmStart": 0, "rightArmStart": 7, "armLength": 4, "loopLength": 3, "leftArm": "GGGG", "rightArm": "CCCC", "loop": "AAA", "canFormHairpin": true, "totalLength": 11 } ] }
+      "output": { "items": [ { "leftArmStart": 0, "rightArmStart": 7, "armLength": 4, "loopLength": 3, "leftArm": "GGGG", "rightArm": "CCCC", "loop": "AAA", "canFormHairpin": true, "totalLength": 11, "mismatches": 0 } ] }
     },
     {
       "name": "Only the maximal stem is reported",
       "input": { "sequence": "GGGGGAAACCCCC", "minArmLength": 4, "maxLoopLength": 50, "minLoopLength": 3 },
-      "output": { "items": [ { "leftArmStart": 0, "rightArmStart": 8, "armLength": 5, "loopLength": 3, "leftArm": "GGGGG", "rightArm": "CCCCC", "loop": "AAA", "canFormHairpin": true, "totalLength": 13 } ] }
+      "output": { "items": [ { "leftArmStart": 0, "rightArmStart": 8, "armLength": 5, "loopLength": 3, "leftArm": "GGGGG", "rightArm": "CCCCC", "loop": "AAA", "canFormHairpin": true, "totalLength": 13, "mismatches": 0 } ] }
     },
     {
       "name": "No inverted repeat",
       "input": { "sequence": "AAAAAAAA", "minArmLength": 4, "maxLoopLength": 50, "minLoopLength": 3 },
       "output": { "items": [] }
+    },
+    {
+      "name": "One mismatch allowed",
+      "input": { "sequence": "GAATTCAGGAAAACCTCAATTC", "minArmLength": 4, "maxLoopLength": 10, "minLoopLength": 0, "maxMismatches": 1 },
+      "output": { "items": [ { "leftArmStart": 0, "rightArmStart": 13, "armLength": 9, "loopLength": 4, "leftArm": "GAATTCAGG", "rightArm": "CCTCAATTC", "loop": "AAAA", "canFormHairpin": true, "totalLength": 22, "mismatches": 1 } ] }
     }
   ]
 }
