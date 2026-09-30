@@ -278,8 +278,33 @@ public static class MotifFinder
         _ => -1
     };
 
-    /// <summary>Upper-case bases in PWM row order (inverse of <see cref="AcgtIndex"/>).</summary>
-    private static readonly char[] AcgtBases = { 'A', 'C', 'G', 'T' };
+    /// <summary>Upper-case bases in PWM row order (inverse of <see cref="AcgtIndex"/>); shared with <see cref="PositionWeightMatrix"/>.</summary>
+    internal static readonly char[] AcgtBases = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>
+    /// Materialises an aligned-sequence collection and enforces the shared alignment contract of
+    /// <see cref="BuildCountMatrix"/> and <see cref="GenerateConsensus(IEnumerable{string})"/>:
+    /// no null element (checked while enumerating) and all rows of equal length.
+    /// </summary>
+    /// <exception cref="ArgumentException">Null element or unequal lengths.</exception>
+    private static List<string> MaterializeAligned(IEnumerable<string> sequences, string paramName)
+    {
+        var seqList = new List<string>();
+        foreach (var s in sequences)
+        {
+            if (s is null)
+                throw new ArgumentException("Sequences cannot contain null elements.", paramName);
+            seqList.Add(s);
+        }
+
+        for (int s = 1; s < seqList.Count; s++)
+        {
+            if (seqList[s].Length != seqList[0].Length)
+                throw new ArgumentException("All sequences must have the same length.", paramName);
+        }
+
+        return seqList;
+    }
 
     /// <summary>
     /// Builds the 4 × L position frequency (count) matrix — Rosalind CONS "profile matrix",
@@ -291,25 +316,13 @@ public static class MotifFinder
     /// <exception cref="ArgumentException">Null element, unequal lengths or non-ACGT character.</exception>
     private static int[,] BuildCountMatrix(IEnumerable<string> sequences, string paramName, out int sequenceCount)
     {
-        var seqList = new List<string>();
-        foreach (var s in sequences)
-        {
-            if (s is null)
-                throw new ArgumentException("Sequences cannot contain null elements.", paramName);
-            seqList.Add(s);
-        }
+        List<string> seqList = MaterializeAligned(sequences, paramName);
 
         sequenceCount = seqList.Count;
         if (sequenceCount == 0)
             return new int[PwmAlphabetSize, 0];
 
         int length = seqList[0].Length;
-        for (int s = 1; s < seqList.Count; s++)
-        {
-            if (seqList[s].Length != length)
-                throw new ArgumentException("All sequences must have the same length.", paramName);
-        }
-
         var counts = new int[PwmAlphabetSize, length];
         for (int s = 0; s < seqList.Count; s++)
         {
@@ -414,23 +427,10 @@ public static class MotifFinder
     {
         ArgumentNullException.ThrowIfNull(sequences);
 
-        var seqList = new List<string>();
-        foreach (var s in sequences)
-        {
-            if (s is null)
-                throw new ArgumentException("Sequences cannot contain null elements.", nameof(sequences));
-            seqList.Add(s);
-        }
-
+        List<string> seqList = MaterializeAligned(sequences, nameof(sequences));
         if (seqList.Count == 0) return "";
 
         int length = seqList[0].Length;
-        for (int s = 1; s < seqList.Count; s++)
-        {
-            if (seqList[s].Length != length)
-                throw new ArgumentException("All sequences must have the same length.", nameof(sequences));
-        }
-
         var consensus = new StringBuilder(length);
         var counts = new int[PwmAlphabetSize];
 
@@ -1027,7 +1027,6 @@ public sealed class PositionWeightMatrix
     private string GenerateConsensus()
     {
         var sb = new StringBuilder(Length);
-        char[] bases = { 'A', 'C', 'G', 'T' };
 
         for (int i = 0; i < Length; i++)
         {
@@ -1043,7 +1042,7 @@ public sealed class PositionWeightMatrix
                 }
             }
 
-            sb.Append(bases[maxIdx]);
+            sb.Append(MotifFinder.AcgtBases[maxIdx]);
         }
 
         return sb.ToString();

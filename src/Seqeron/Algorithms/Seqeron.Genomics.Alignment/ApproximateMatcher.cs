@@ -69,17 +69,8 @@ namespace Seqeron.Genomics.Alignment
                 if (i % checkInterval == 0)
                     cancellationToken.ThrowIfCancellationRequested();
 
-                int mismatches = 0;
-                var positions = new List<int>();
-
-                for (int j = 0; j < pat.Length && mismatches <= maxMismatches; j++)
-                {
-                    if (seq[i + j] != pat[j])
-                    {
-                        mismatches++;
-                        positions.Add(j);
-                    }
-                }
+                var positions = CollectMismatchPositions(seq, i, pat, maxMismatches);
+                int mismatches = positions.Count;
 
                 if (mismatches <= maxMismatches)
                 {
@@ -372,15 +363,28 @@ namespace Seqeron.Genomics.Alignment
             }
 
             string window = seq.Substring(bestPosition, m);
-            var positions = new List<int>(bestDistance);
-            for (int j = 0; j < m; j++)
-            {
-                if (window[j] != pat[j])
-                    positions.Add(j);
-            }
+            var positions = CollectMismatchPositions(seq, bestPosition, pat, m);
 
             return new ApproximateMatchResult(
                 bestPosition, window, bestDistance, positions.AsReadOnly(), MismatchType.Substitution);
+        }
+
+        /// <summary>
+        /// Pattern-relative indices j at which <paramref name="seq"/>[start + j] ≠ <paramref name="pat"/>[j]
+        /// (both already upper-cased), in ascending order. Scanning stops as soon as more than
+        /// <paramref name="limit"/> mismatches have been seen (the list then holds limit + 1 entries),
+        /// so a caller can reject the window by <c>Count &gt; limit</c>. Shared by
+        /// <see cref="FindWithMismatches(string, string, int, CancellationToken)"/> and <see cref="FindBestMatch"/>.
+        /// </summary>
+        private static List<int> CollectMismatchPositions(string seq, int start, string pat, int limit)
+        {
+            var positions = new List<int>();
+            for (int j = 0; j < pat.Length && positions.Count <= limit; j++)
+            {
+                if (seq[start + j] != pat[j])
+                    positions.Add(j);
+            }
+            return positions;
         }
 
         /// <summary>
