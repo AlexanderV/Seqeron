@@ -111,6 +111,18 @@ Before writing the final report the lead runs a **completeness-audit loop**:
    listed there as well (they are not leftovers of this batch only if the target file is owned
    by another batch).
 
+**"LIMITATIONS proposals" / "Simplifications kept" / "Limitations proposed (not bugs)" are leftovers too.**
+A documented limitation is not a finish line: if the fuller behaviour exists in a source or a
+reference tool, implement it (as the default when the reference does so, otherwise as an extra
+option/overload/parameter, keeping backward compatibility). Examples that are DOABLE, not
+limitations: emitting the trailing partial window like Biopython; returning *all* extrema like
+Rosalind BA1F; a thermodynamic (Turner) score instead of a pair count ("slow" → optimise or make
+it opt-in); a mismatch/gap-tolerant variant like EMBOSS einverted ("a different algorithm" → add it
+as a variant); a missing genetic-code parameter on an MCP tool ("signature change" → add an optional
+parameter); an unsourced convenience metric → find the source or replace/rename it per a sourced
+definition. Only items with a real BLOCKED proof may remain in the Limitations section, and each
+must say why it is impossible or critically complex.
+
 Never end the session with a question to the user or a list of "possible next steps": no human
 is watching. If something is doable, do it.
 
