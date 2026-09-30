@@ -106,6 +106,12 @@ Before writing the final report the lead runs a **completeness-audit loop**:
 2. The lead implements every DOABLE item (fresh subagent per item/unit, same rules: sourced,
    reference-checked, tests, fast tier, commit + push).
 3. Repeat 1–2 until the auditor returns **zero DOABLE items**. Then run the heavy tier.
+   **Order is mandatory: units → duplication sweep → audit/finish loop → heavy tier (once).**
+   The heavy tier (Fuzzing/Properties/Metamorphic: update + add + full run) runs **exactly once, at
+   the very end**, after the last DOABLE item is done — never between audit rounds, never per
+   leftover item. During the loop (and in finisher sessions) use only the fast tier per change.
+   If the heavy tier itself exposes a defect, fix it (fast tier while fixing) and re-run only the
+   affected heavy-tier classes, then one final full heavy run.
 4. The final report and the final message end with a `## Leftovers` section: either
    `none`, or each BLOCKED item with its proof. Cross-batch requests *to other batches* are
    listed there as well (they are not leftovers of this batch only if the target file is owned
