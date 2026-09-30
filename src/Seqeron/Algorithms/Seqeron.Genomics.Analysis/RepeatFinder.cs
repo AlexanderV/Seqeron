@@ -1216,41 +1216,70 @@ public static class RepeatFinder
     #region Palindrome Detection
 
     /// <summary>
-    /// Finds palindromic sequences (sequences that read the same 5' to 3' on both strands).
-    /// These are recognition sites for many restriction enzymes.
+    /// Finds reverse-complement palindromes (sequences that read the same 5'→3' on both strands, i.e. equal
+    /// their own reverse complement — the recognition-site form of most Type II restriction enzymes).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reports <b>every</b> window <c>S[i..i+len)</c> with <c>minLength ≤ len ≤ maxLength</c> that equals its
+    /// reverse complement, including windows nested inside longer palindromes and overlapping ones — the
+    /// Rosalind REVP ("Locating Restriction Sites") convention: "the position and length of every reverse
+    /// palindrome in the string having length between 4 and 12". This differs from
+    /// <see cref="FindInvertedRepeats(DnaSequence,int,int,int)"/>, which reports only maximal stems (EMBOSS
+    /// <c>palindrome</c>).
+    /// </para>
+    /// <para>
+    /// A reverse-complement palindrome always has even length (the middle base of an odd window would have to be
+    /// its own complement), so only even lengths are scanned; an odd <paramref name="maxLength"/> is effectively
+    /// rounded down. Only the unambiguous bases A, C, G, T pair (canonical
+    /// <see cref="SequenceExtensions.GetComplementBase(char)"/>): a window containing N, another IUPAC ambiguity
+    /// code, U, a gap or any other symbol is never reported (as in the REVP alphabet and EMBOSS
+    /// <c>einverted</c>; EMBOSS <c>palindrome</c> likewise rejects all-N stems) — e.g. <c>NNNN</c> or <c>SSSS</c>
+    /// equal their symbolic reverse complement but need not be palindromic once resolved (<c>SS</c> may be CC).
+    /// </para>
+    /// <para>
+    /// Positions are 0-based (REVP positions are 1-based: add 1). Results are ordered by <c>Position</c>,
+    /// then <c>Length</c> (the order of the REVP sample output). Parameters are validated eagerly on both
+    /// overloads. Cost O(n·maxLength) comparisons (one capped centre expansion per inter-base gap) plus output.
+    /// </para>
+    /// </remarks>
     /// <param name="sequence">DNA sequence to search.</param>
-    /// <param name="minLength">Minimum palindrome length (default: 4, must be even).</param>
-    /// <param name="maxLength">Maximum palindrome length (default: 12).</param>
-    /// <returns>Collection of palindromes found.</returns>
+    /// <param name="minLength">Minimum palindrome length (default: 4; must be even and ≥ 4).</param>
+    /// <param name="maxLength">Maximum palindrome length (default: 12; must be ≥ <paramref name="minLength"/>).</param>
+    /// <returns>Every palindromic window, ordered by position then length.</returns>
     public static IEnumerable<PalindromeResult> FindPalindromes(
         DnaSequence sequence,
         int minLength = 4,
         int maxLength = 12)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (minLength < 4 || minLength % 2 != 0)
-            throw new ArgumentOutOfRangeException(nameof(minLength), "Must be even and >= 4");
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
+        ValidatePalindromeParameters(minLength, maxLength);
 
         return FindPalindromesCore(sequence.Sequence, minLength, maxLength);
     }
 
     /// <summary>
-    /// Finds palindromes in a raw sequence string.
+    /// Finds reverse-complement palindromes in a raw sequence string (case-insensitive).
+    /// Same model and validation as <see cref="FindPalindromes(DnaSequence, int, int)"/>; <c>null</c> or empty
+    /// input yields no results. Characters other than A/C/G/T never pair.
     /// </summary>
     public static IEnumerable<PalindromeResult> FindPalindromes(
         string sequence,
         int minLength = 4,
         int maxLength = 12)
     {
-        if (minLength < 4 || minLength % 2 != 0)
-            throw new ArgumentOutOfRangeException(nameof(minLength), "Must be even and >= 4");
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
+        ValidatePalindromeParameters(minLength, maxLength);
 
         return string.IsNullOrEmpty(sequence)
-            ? Enumerable.Empty<PalindromeResult>()
+            ? Array.Empty<PalindromeResult>()
             : FindPalindromesCore(sequence.ToUpperInvariant(), minLength, maxLength);
+    }
+
+    private static void ValidatePalindromeParameters(int minLength, int maxLength)
+    {
+        if (minLength < 4 || minLength % 2 != 0)
+            throw new ArgumentOutOfRangeException(nameof(minLength), minLength, "Must be even and >= 4");
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
     }
 
     private static IEnumerable<PalindromeResult> FindPalindromesCore(
@@ -1258,20 +1287,29 @@ public static class RepeatFinder
         int minLength,
         int maxLength)
     {
-        for (int len = minLength; len <= maxLength; len += 2) // Palindromes must be even length
-        {
-            for (int i = 0; i <= seq.Length - len; i++)
-            {
-                string candidate = seq.Substring(i, len);
-                string revComp = DnaSequence.GetReverseComplementString(candidate);
+        int n = seq.Length;
+        int minHalf = minLength / 2;
+        int maxHalf = Math.Min(maxLength, n) / 2; // capping by n also avoids int overflow for huge maxLength
+        if (maxHalf < minHalf)
+            yield break;
 
-                if (candidate == revComp)
-                {
-                    yield return new PalindromeResult(
-                        Position: i,
-                        Sequence: candidate,
-                        Length: len);
-                }
+        // radius[c] = number of consecutive Watson–Crick pairs (seq[c−1−k], seq[c+k]) around the gap before c,
+        // capped at maxHalf. The window (i, 2h) is a palindrome iff radius[i + h] ≥ h.
+        var radius = new int[n];
+        for (int c = 1; c < n; c++)
+        {
+            int r = 0;
+            while (r < maxHalf && c - r - 1 >= 0 && c + r < n && IsWatsonCrickPair(seq[c - r - 1], seq[c + r]))
+                r++;
+            radius[c] = r;
+        }
+
+        for (int i = 0; i + 2 * minHalf <= n; i++)
+        {
+            for (int h = minHalf; h <= maxHalf && i + 2 * h <= n; h++)
+            {
+                if (radius[i + h] >= h)
+                    yield return new PalindromeResult(Position: i, Sequence: seq.Substring(i, 2 * h), Length: 2 * h);
             }
         }
     }

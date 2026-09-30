@@ -176,14 +176,17 @@ public class RepeatsDifferentialTests
 
     // ---- Row 17: REP-PALIN-001 — FindPalindromes vs independent revcomp-equality oracle ----
 
+    // Oracle = Rosalind REVP definition: every window of even length in [minLen, maxLen] over the
+    // unambiguous alphabet ACGT that equals its reverse complement, in REVP sample-output order
+    // (position, then length). Windows with any other symbol are never palindromes.
     private static List<(int pos, string seq, int len)> PalindromeOracle(string seq, int minLen, int maxLen)
     {
         var results = new List<(int, string, int)>();
-        for (int len = minLen; len <= maxLen; len += 2)
-        for (int i = 0; i + len <= seq.Length; i++)
+        for (int i = 0; i < seq.Length; i++)
+        for (int len = minLen; len <= maxLen && i + len <= seq.Length; len += 2)
         {
             string cand = seq.Substring(i, len);
-            if (cand == RevComp(cand))
+            if (cand.All(Comp.ContainsKey) && cand == RevComp(cand))
                 results.Add((i, cand, len));
         }
         return results;
@@ -194,10 +197,28 @@ public class RepeatsDifferentialTests
     [TestCase("GAATTC")]            // EcoRI site
     [TestCase("GGGAATTCCCGCGC")]
     [TestCase("ACGTACGT")]
+    [TestCase("TCAATGCATGCGGGTCTATATGCAT")] // Rosalind REVP sample
     public void Palindromes_MatchesIndependentRevCompOracle(string seq)
     {
         var actual = RepeatFinder.FindPalindromes(seq, minLength: 4, maxLength: 12)
             .Select(p => (p.Position, p.Sequence, p.Length)).ToList();
         Assert.That(actual, Is.EqualTo(PalindromeOracle(seq.ToUpperInvariant(), 4, 12)));
+    }
+
+    [Test]
+    [Category("REP-PALIN-001")]
+    public void Palindromes_RandomSequences_MatchRevpOracle()
+    {
+        var rng = new Random(20260930);
+        string[] alphabets = { "ACGT", "AT", "GC", "ACGTN", "acgtACGT", "ACGTNRYSWU-" };
+        for (int t = 0; t < 400; t++)
+        {
+            string alpha = alphabets[rng.Next(alphabets.Length)];
+            var seq = new string(Enumerable.Range(0, rng.Next(0, 90)).Select(_ => alpha[rng.Next(alpha.Length)]).ToArray());
+            int minLen = 4 + 2 * rng.Next(0, 4), maxLen = minLen + rng.Next(0, 21);
+            var actual = RepeatFinder.FindPalindromes(seq, minLen, maxLen)
+                .Select(p => (p.Position, p.Sequence, p.Length)).ToList();
+            Assert.That(actual, Is.EqualTo(PalindromeOracle(seq.ToUpperInvariant(), minLen, maxLen)), $"{seq} {minLen} {maxLen}");
+        }
     }
 }

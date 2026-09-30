@@ -504,16 +504,20 @@ public class RepeatFinder_Palindrome_Tests
             (4, 4),   // TGCA
             (5, 6),   // GCATGC
             (6, 4),   // CATG
-            (16, 4),  // ATAT
-            (17, 4),  // TATA
+            (16, 4),  // TATA
+            (17, 4),  // ATAT
             (19, 6),  // ATGCAT
             (20, 4),  // TGCA
         };
 
         // Act
-        var results = RepeatFinder.FindPalindromes(sequence, minLength: 4, maxLength: 12)
+        var ordered = RepeatFinder.FindPalindromes(sequence, minLength: 4, maxLength: 12)
             .Select(r => (r.Position, r.Length))
-            .ToHashSet();
+            .ToList();
+        var results = ordered.ToHashSet();
+
+        // REVP sample output order (1-based): 4 6, 5 4, 6 6, 7 4, 17 4, 18 4, 20 6, 21 4 — position, then length.
+        Assert.That(ordered, Is.EqualTo(new[] { (3, 6), (4, 4), (5, 6), (6, 4), (16, 4), (17, 4), (19, 6), (20, 4) }));
 
         // Assert — exact match: all expected found, no extras
         Assert.Multiple(() =>
@@ -634,6 +638,92 @@ public class RepeatFinder_Palindrome_Tests
             Assert.That(results[0].Position, Is.EqualTo(3));
             Assert.That(results[0].Length, Is.EqualTo(12));
         });
+    }
+
+    #endregion
+
+    #region Alphabet, bounds and ordering (B04 review 2026-09, F12–F13)
+
+    /// <summary>
+    /// Only A/C/G/T pair. Windows with N, IUPAC ambiguity codes (S, W, R/Y …), U, gaps or other symbols equal
+    /// their symbolic reverse complement under the IUPAC complement table but are not palindromes: REVP input is
+    /// a DNA string over ACGT; EMBOSS einverted scores only a/c/g/t; EMBOSS palindrome rejects all-N stems;
+    /// and e.g. <c>SS</c> may resolve to CC, which is not self-complementary.
+    /// Expected values = Biopython <c>Seq.reverse_complement</c> equality restricted to ACGT windows.
+    /// </summary>
+    [TestCase("NNNNNNNN")]
+    [TestCase("ANNT")]
+    [TestCase("SSSS")]
+    [TestCase("WWWW")]
+    [TestCase("RYRY")]
+    [TestCase("A--T")]
+    [TestCase("1111")]
+    [TestCase("AAUU")]
+    [TestCase("aauu")]
+    public void FindPalindromes_NonAcgtWindows_NeverReported(string sequence)
+    {
+        Assert.That(RepeatFinder.FindPalindromes(sequence, 4, 12), Is.Empty);
+    }
+
+    [Test]
+    public void FindPalindromes_NonAcgtInterruption_OnlyAcgtWindowsReported()
+    {
+        // Biopython reference: GAATTC at 0 and 10, AATT inside each; nothing spans the N run.
+        var results = RepeatFinder.FindPalindromes("GAATTCNNNNGAATTC", 4, 12)
+            .Select(r => (r.Position, r.Sequence, r.Length)).ToList();
+
+        Assert.That(results, Is.EqualTo(new[]
+        {
+            (0, "GAATTC", 6), (1, "AATT", 4), (10, "GAATTC", 6), (11, "AATT", 4),
+        }));
+    }
+
+    [Test]
+    public void FindPalindromes_HugeMaxLength_EquivalentToSequenceLength()
+    {
+        // maxLength = int.MaxValue used to overflow the length loop counter (Substring with a negative length).
+        const string seq = "AAGCGGCCGCTT"; // whole sequence is a 12-bp palindrome
+        var expected = RepeatFinder.FindPalindromes(seq, 4, 12).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RepeatFinder.FindPalindromes(seq, 4, int.MaxValue).ToList(), Is.EqualTo(expected));
+            Assert.That(RepeatFinder.FindPalindromes(new DnaSequence(seq), 4, int.MaxValue).ToList(), Is.EqualTo(expected));
+            Assert.That(expected.Select(r => (r.Position, r.Length)), Is.EqualTo(new[]
+            {
+                (0, 12), (1, 10), (2, 8), (3, 6), (4, 4),
+            }));
+        });
+    }
+
+    [Test]
+    public void FindPalindromes_OddMaxLength_SameAsNextLowerEven()
+    {
+        const string seq = "TTGCGGCCGCAATTGAATTCAA";
+        Assert.That(RepeatFinder.FindPalindromes(seq, 4, 9).ToList(),
+            Is.EqualTo(RepeatFinder.FindPalindromes(seq, 4, 8).ToList()));
+    }
+
+    [Test]
+    public void FindPalindromes_StringOverload_InvalidParameters_ThrowEagerly()
+    {
+        // Validation happens at call time, not on enumeration.
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.FindPalindromes("GAATTC", 5, 12));
+            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.FindPalindromes("GAATTC", 2, 12));
+            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.FindPalindromes("GAATTC", 6, 4));
+            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.FindPalindromes((string)null!, 5, 12));
+        });
+    }
+
+    [Test]
+    public void FindPalindromes_Output_OrderedByPositionThenLength()
+    {
+        var results = RepeatFinder.FindPalindromes("GGATCCGCGGCCGCTCGAGAATTC", 4, 12).ToList();
+        var sorted = results.OrderBy(r => r.Position).ThenBy(r => r.Length).ToList();
+        Assert.That(results, Is.EqualTo(sorted));
+        Assert.That(results, Is.Not.Empty);
     }
 
     #endregion

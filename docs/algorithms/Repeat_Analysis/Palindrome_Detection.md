@@ -5,12 +5,12 @@
 | Algorithm Group | Repeat Analysis |
 | Test Unit ID | REP-PALIN-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete |
+| Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
-DNA palindrome detection identifies sequences that are equal to their own reverse complement [1]. This is a biological notion of palindrome, distinct from textual symmetry on a single strand, and it is central to restriction-enzyme recognition-site discovery [1][2]. The repository exposes a validating implementation in `RepeatFinder.FindPalindromes` and a second, lighter-weight implementation in `GenomicAnalyzer.FindPalindromes` with a different return type. Both implementations perform exact reverse-complement comparison over even-length windows.
+DNA palindrome detection identifies sequences that are equal to their own reverse complement [1]. This is a biological notion of palindrome, distinct from textual symmetry on a single strand, and it is central to restriction-enzyme recognition-site discovery [1][2]. The repository exposes a validating implementation in `RepeatFinder.FindPalindromes` and a second, lighter-weight implementation in `GenomicAnalyzer.FindPalindromes` with a different return type. Both implementations perform exact reverse-complement comparison over even-length windows. `RepeatFinder.FindPalindromes` follows the Rosalind REVP convention [3]: it reports **every** palindromic window (nested and overlapping ones included), pairs only A/C/G/T, and orders results by position then length.
 
 ## 2. Scientific / Formal Basis
 
@@ -43,6 +43,8 @@ $$
 
 with complement mapping `A↔T` and `G↔C` [1]. Biological DNA palindromes therefore require even length so that every base pairs with a complementary partner across the symmetry axis.
 
+Only the unambiguous bases pair. IUPAC codes such as N, S, W (self-complementary as symbols) or R/Y denote sets of bases, so a window like `NNNN` or `SSSS` equals its *symbolic* reverse complement without the underlying sequence being a palindrome (`SS` may be CC). REVP inputs are ACGT strings [3]; EMBOSS `einverted` scores only a/c/g/t and EMBOSS `palindrome` rejects all-N stems [5].
+
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
@@ -51,6 +53,9 @@ with complement mapping `A↔T` and `G↔C` [1]. Biological DNA palindromes ther
 | INV-02 | All reported lengths are even. | The scan steps through candidate lengths in increments of `2`. |
 | INV-03 | Reported positions are within sequence bounds. | Candidate windows are enumerated only when `start <= seq.Length - len`. |
 | INV-04 | `Length` equals the actual sequence length of the reported palindrome. | `PalindromeResult` stores the scanned candidate and its length directly. |
+| INV-05 | Completeness: every even window in range over ACGT that equals its reverse complement is reported exactly once. | Window (i, 2h) is reported iff the centre radius at i+h is ≥ h. |
+| INV-06 | No reported window contains a symbol other than A/C/G/T. | Pairing uses `IsWatsonCrickPair` (ACGT + canonical `GetComplementBase`). |
+| INV-07 | Results are ordered by `Position`, then `Length`. | Outer loop over positions, inner over lengths. |
 
 ### 2.5 Comparison with Related Concepts
 
@@ -81,17 +86,17 @@ with complement mapping `A↔T` and `G↔C` [1]. Biological DNA palindromes ther
 
 ### 3.3 Preconditions and Validation
 
-`RepeatFinder.FindPalindromes(DnaSequence, ...)` throws `ArgumentNullException` on `null` sequence input, throws `ArgumentOutOfRangeException` when `minLength < 4` or `minLength` is odd, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload applies the same length validation, yields no results for `null` or empty strings, and uppercases non-empty input before scanning. `GenomicAnalyzer.FindPalindromes` performs the same scan logic but does not apply those explicit argument checks.
+`RepeatFinder.FindPalindromes(DnaSequence, ...)` throws `ArgumentNullException` on `null` sequence input, throws `ArgumentOutOfRangeException` when `minLength < 4` or `minLength` is odd, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload applies the same length validation (eagerly, at call time), yields no results for `null` or empty strings, and uppercases non-empty input before scanning. An odd `maxLength` is effectively rounded down, and any `maxLength` up to `int.MaxValue` is accepted (capped at the sequence length). `GenomicAnalyzer.FindPalindromes` performs the same scan logic but does not apply those explicit argument checks.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Validate `minLength` and `maxLength` in `RepeatFinder`.
+1. Validate `minLength` and `maxLength` in `RepeatFinder` (eagerly, both overloads).
 2. Normalize raw-string input to uppercase when needed.
-3. For each even candidate length from `minLength` through `maxLength`, enumerate every start position where a full window fits.
-4. Extract the candidate subsequence, compute its reverse complement, and compare for exact equality.
-5. Emit a palindrome result for every matching window.
+3. For every inter-base gap `c` (between `c−1` and `c`), expand outward while `(S[c−1−k], S[c+k])` is a Watson–Crick pair over ACGT, capped at `⌊min(maxLength, n)/2⌋` pairs; store the radius `r[c]`.
+4. For each start `i` and each half-length `h` in `[minLength/2, maxHalf]` with `i + 2h ≤ n`, the window `(i, 2h)` is a palindrome iff `r[i+h] ≥ h`.
+5. Emit results in (position, length) order.
 
 ### 4.2 Reference Table
 
@@ -112,7 +117,7 @@ Common restriction-enzyme palindrome examples cited in the legacy documentation 
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| Palindrome detection | `O(n × r × m)` | `O(m)` | `r` is the number of even candidate lengths scanned and `m` is the cost of reverse-complement comparison for a candidate window. |
+| Palindrome detection | `O(n × maxLength)` + output | `O(n)` | One capped centre expansion per gap and one O(1) radius test per (position, length); previously O(n × r × m) with a substring + reverse-complement allocation per window (1 Mb: 646 → 72 ms). |
 
 ## 5. Implementation Notes
 
@@ -126,7 +131,7 @@ Common restriction-enzyme palindrome examples cited in the legacy documentation 
 
 ### 5.2 Current Behavior
 
-`RepeatFinder` enforces `minLength >= 4`, requires even `minLength`, requires `maxLength >= minLength`, and uppercases raw-string input before scanning. `GenomicAnalyzer.FindPalindromes` performs the same even-length stepwise scan and reverse-complement equality test but does not add explicit null or range validation before it dereferences `sequence.Sequence`. Both implementations report overlapping palindromes when different even lengths match at the same or neighboring positions.
+`RepeatFinder` enforces `minLength >= 4`, requires even `minLength`, requires `maxLength >= minLength`, uppercases raw-string input before scanning, never pairs non-ACGT symbols, and orders results by position then length. Cross-checked against a Biopython `reverse_complement` REVP reference on 6000 random cases (incl. N/IUPAC/U/gaps/lowercase) with 0 mismatches (see Evidence). `GenomicAnalyzer.FindPalindromes` performs the same even-length stepwise scan and reverse-complement equality test but does not add explicit null or range validation before it dereferences `sequence.Sequence`. Both implementations report overlapping palindromes when different even lengths match at the same or neighboring positions.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -136,9 +141,10 @@ Common restriction-enzyme palindrome examples cited in the legacy documentation 
 - Even-length scanning appropriate for self-complementary DNA palindromes [1].
 - Detection of restriction-enzyme-style palindromic sites such as EcoRI, BamHI, and HindIII when those windows are present [2][4].
 
-**Intentionally simplified:**
+**Conventions (sourced):**
 
-- Exact DNA matching only, without IUPAC degeneracy or ambiguity-code handling; **consequence:** degenerate recognition motifs are not reported unless the sequence resolves to an exact palindrome.
+- Every palindromic window is reported (REVP), not maximal stems (for those use `RepeatFinder.FindInvertedRepeats`, EMBOSS `palindrome`).
+- ACGT-only pairing: windows containing N/IUPAC/U/gaps are never reported; degenerate recognition motifs (e.g. `GGNCC`) are the domain of restriction-site search, not of this structural scan.
 
 **Not implemented:**
 
@@ -148,7 +154,7 @@ Common restriction-enzyme palindrome examples cited in the legacy documentation 
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `GenomicAnalyzer.FindPalindromes` does not perform the explicit validation that `RepeatFinder.FindPalindromes` applies. | Deviation | Invalid lengths or `null` input can fail differently depending on the API used. | accepted | The algorithmic core is equivalent, but the validation surfaces differ. |
+| 1 | `GenomicAnalyzer.FindPalindromes` (B09) does not perform the explicit validation that `RepeatFinder.FindPalindromes` applies, and still pairs N/IUPAC symbols and orders by length. | Deviation | Results can differ on non-ACGT input and in order. | open (cross-batch dedup request B04 → B09) | Should delegate to `RepeatFinder.FindPalindromes`. |
 
 ## 6. Edge Cases and Limitations
 
@@ -164,6 +170,9 @@ Common restriction-enzyme palindrome examples cited in the legacy documentation 
 | Odd `minLength` | `RepeatFinder` throws `ArgumentOutOfRangeException`. | Biological palindromes require even length, and the validating API enforces it. |
 | `minLength < 4` | `RepeatFinder` throws `ArgumentOutOfRangeException`. | The validating API excludes trivial 2-bp matches. |
 | `maxLength < minLength` | `RepeatFinder` throws `ArgumentOutOfRangeException`. | Ordered bounds are required. |
+| Odd `maxLength` | Same as `maxLength − 1`. | No odd palindrome exists. |
+| `maxLength = int.MaxValue` | Same as `maxLength = n`. | Capped; no counter overflow. |
+| Window with N / IUPAC / U / gap | Not reported (`NNNN`, `SSSS`, `ANNT`, `A--T` → none). | Only A/C/G/T pair. |
 
 ### 6.2 Limitations
 
@@ -175,6 +184,7 @@ The algorithm detects only exact DNA palindromes and does not interpret ambiguou
 
 - Tests: [RepeatFinder_Palindrome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_Palindrome_Tests.cs)
 - Test spec: [REP-PALIN-001.md](../../../tests/TestSpecs/REP-PALIN-001.md)
+- Evidence: [REP-PALIN-001-Evidence.md](../../Evidence/REP-PALIN-001-Evidence.md)
 - Related smoke tests: [GenomicAnalyzerTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzerTests.cs)
 
 ## 8. References
@@ -183,3 +193,4 @@ The algorithm detects only exact DNA palindromes and does not interpret ambiguou
 2. Wikipedia. 2026. Restriction enzyme. Wikipedia. https://en.wikipedia.org/wiki/Restriction_enzyme
 3. Rosalind. 2026. REVP: Locating Restriction Sites. Rosalind. https://rosalind.info/problems/revp/
 4. REBASE. 2026. Restriction Enzyme Database. https://rebase.neb.com/
+5. Rice P, Longden I, Bleasby A. 2000. EMBOSS: the European Molecular Biology Open Software Suite. Trends Genet 16:276–277 (`palindrome.c`, `einverted.c`).

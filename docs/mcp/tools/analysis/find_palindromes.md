@@ -16,12 +16,18 @@ DNA palindromes (restriction-site candidates).
 
 Finds **DNA palindromes** — even-length subsequences that read the same 5'→3' on both
 strands (i.e. identical to their reverse complement). These are the recognition sites
-of many restriction enzymes (e.g. EcoRI `GAATTC`). `minLength` must be even and ≥ 4.
-Results are enumerated by increasing length, then by position.
+of many restriction enzymes (e.g. EcoRI `GAATTC`). `minLength` must be even and ≥ 4;
+an odd `maxLength` is rounded down (odd-length palindromes cannot exist).
+
+Every palindromic window is reported, including windows nested inside longer ones
+(Rosalind REVP convention). Positions are 0-based (REVP is 1-based). Results are ordered by
+position, then length (the REVP sample-output order). Input is case-insensitive; only A/C/G/T
+pair, so windows containing N, other IUPAC codes, U or gaps are never reported. For maximal
+stems with a loop use `find_inverted_repeats`.
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L981](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L981)
+- Source: [RepeatFinder.cs#L1266](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L1266)
 
 ## Input Schema
 
@@ -61,9 +67,9 @@ Results are enumerated by increasing length, then by position.
 
 **Response:**
 ```json
-{ "items": [ { "position": 1, "sequence": "AATT", "length": 4 }, { "position": 0, "sequence": "GAATTC", "length": 6 } ] }
+{ "items": [ { "position": 0, "sequence": "GAATTC", "length": 6 }, { "position": 1, "sequence": "AATT", "length": 4 } ] }
 ```
-AATT (length 4) and the full EcoRI site GAATTC (length 6) are both palindromic.
+The full EcoRI site GAATTC (length 6) and the nested AATT (length 4) are both palindromic.
 
 ### Example 2: No palindrome
 
@@ -84,9 +90,25 @@ AATT (length 4) and the full EcoRI site GAATTC (length 6) are both palindromic.
 ```
 The reverse complement of AAAA is TTTT, so it is not palindromic.
 
+### Example 3: Ambiguous bases never pair
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "find_palindromes",
+  "arguments": { "sequence": "GAATTCNNNNGAATTC", "minLength": 4, "maxLength": 12 }
+}
+```
+
+**Response:**
+```json
+{ "items": [ { "position": 0, "sequence": "GAATTC", "length": 6 }, { "position": 1, "sequence": "AATT", "length": 4 }, { "position": 10, "sequence": "GAATTC", "length": 6 }, { "position": 11, "sequence": "AATT", "length": 4 } ] }
+```
+`NNNN` equals its IUPAC reverse complement symbolically but is not reported: an N may be any base.
+
 ## Performance
 
-- **Time Complexity:** O(n · (maxLength − minLength)).
+- **Time Complexity:** O(n · maxLength) comparisons (capped centre expansion) plus output.
 - **Space Complexity:** O(number of palindromes).
 
 ## See Also
