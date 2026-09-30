@@ -86,6 +86,34 @@ Batch sessions must not hold every unit in one context. The batch lead:
    covered by any unit; fixes what is in-ownership; records the rest.
 5. Final full test run, final push, report finished.
 
+## Definition of Done — no doable leftovers (mandatory)
+
+A batch is **not finished** while anything doable remains. "Deferred", "follow-up", "optional",
+"out of scope for this pass", "left for later", "could be implemented", "TODO" are **not** valid
+end states. The only accepted leftover is one that is *impossible or critically complex*, and it
+must carry concrete proof (what exactly is missing: a proprietary model/dataset, an unavailable
+upstream binary, a redesign spanning files owned by another batch — with the exact blocker).
+"Takes time", "large", "many tests to update", "beyond this unit's scope" are **not** proof.
+
+Before writing the final report the lead runs a **completeness-audit loop**:
+1. Spawn a fresh **auditor** subagent. It reads the batch report, `git diff <batch-start>..HEAD`
+   of the owned files, and greps the owned code + report for: `TODO`, `FIXME`, `deferred`,
+   `follow-up`, `optional`, `not implemented`, `NotImplemented`, `simplif`, `approximat`,
+   `out of scope`, `LIMITED`, `left for`, `future`, `could `, `should `, `not yet`; it also greps
+   every other `B*.md` report for cross-batch requests addressed to this batch, and checks every
+   unit's Stage A/B findings have a matching fix. It returns a list of leftovers, each classified
+   **DOABLE** or **BLOCKED (with proof)**. The auditor is adversarial: when in doubt → DOABLE.
+2. The lead implements every DOABLE item (fresh subagent per item/unit, same rules: sourced,
+   reference-checked, tests, fast tier, commit + push).
+3. Repeat 1–2 until the auditor returns **zero DOABLE items**. Then run the heavy tier.
+4. The final report and the final message end with a `## Leftovers` section: either
+   `none`, or each BLOCKED item with its proof. Cross-batch requests *to other batches* are
+   listed there as well (they are not leftovers of this batch only if the target file is owned
+   by another batch).
+
+Never end the session with a question to the user or a list of "possible next steps": no human
+is watching. If something is doable, do it.
+
 ## Batch report format (`docs/Validation/review-2026-09/<BATCH>.md`)
 
 ```markdown
