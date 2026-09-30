@@ -4,7 +4,7 @@ namespace SuffixTree;
 /// <summary>
 /// Abstraction for navigating a suffix tree's node structure.
 /// Used by <see cref="SuffixTreeAlgorithms"/> to implement shared algorithms
-/// (LCS, FindExactMatchAnchors) that work with any node representation.
+/// (LCS, FindExactMatchAnchors, maximal exact/unique matches) that work with any node representation.
 /// <para>
 /// Implementations should be <c>struct</c> to enable JIT specialization
 /// and zero-overhead generic dispatch.
@@ -59,4 +59,12 @@ public interface ISuffixTreeNavigator<TNode>
     /// Returns -1 if not found.
     /// </summary>
     int FindAnyLeafPosition(TNode node, int depthFromRoot);
+
+    /// <summary>
+    /// Replaces the contents of <paramref name="children"/> with the children of
+    /// <paramref name="node"/> (any order; empty for a leaf). The first edge symbol of a child
+    /// (<see cref="GetEdgeSymbol"/> at offset 0, -1 for the terminator) identifies it.
+    /// Used by the maximal-match enumeration to visit the siblings of a matching path.
+    /// </summary>
+    void GetChildren(TNode node, List<TNode> children);
 }

@@ -59,7 +59,33 @@ public interface ISuffixTreeAnalysis
     /// using suffix-link-based streaming traversal: one maximal exact match per maximal run of
     /// matching statistics ≥ <paramref name="minLength"/> (its first peak), ordered by query position.
     /// Anchors of adjacent runs may overlap in the query; minLength ≤ 0 yields an empty list.
+    /// For every MEM with every text occurrence use <see cref="FindMaximalExactMatches"/>; for MUMs
+    /// <see cref="FindMaximalUniqueMatches"/>.
     /// </summary>
     IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(
         string query, int minLength);
+
+    /// <summary>
+    /// Finds all maximal exact matches (MEMs) of length ≥ <paramref name="minLength"/> between this
+    /// tree's text (reference) and <paramref name="query"/>: every (PositionInText, PositionInQuery, Length)
+    /// that is left- and right-maximal, with every text occurrence — MUMmer 3
+    /// <c>mummer -maxmatch -l minLength</c>, forward strand, 0-based. Sorted by query position, then
+    /// text position. See <see cref="SuffixTreeAlgorithms.FindMaximalExactMatches{TNode, TNav}"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minLength"/> &lt; 1.</exception>
+    IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalExactMatches(
+        string query, int minLength);
+
+    /// <summary>
+    /// Finds maximal unique matches (MUMs) of length ≥ <paramref name="minLength"/>: MEMs whose string
+    /// occurs exactly once in the text and, for <see cref="MumUniqueness.Both"/>, exactly once in the
+    /// query — MUMmer 3 <c>-mum</c> (Both) / <c>-mumreference</c> (Reference), forward strand, 0-based.
+    /// Sorted by query position, then text position.
+    /// See <see cref="SuffixTreeAlgorithms.FindMaximalUniqueMatches{TNode, TNav}"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minLength"/> &lt; 1 or undefined <paramref name="uniqueness"/>.</exception>
+    IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalUniqueMatches(
+        string query, int minLength, MumUniqueness uniqueness = MumUniqueness.Both);
 }

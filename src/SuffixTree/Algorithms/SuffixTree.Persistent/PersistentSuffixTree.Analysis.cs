@@ -147,6 +147,24 @@ public sealed partial class PersistentSuffixTree
         return SuffixTreeAlgorithms.FindExactMatchAnchors<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, query, minLength);
     }
 
+    /// <inheritdoc/>
+    public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalExactMatches(
+        string query, int minLength)
+    {
+        ThrowIfDisposed();
+        var nav = CreateNavigator();
+        return SuffixTreeAlgorithms.FindMaximalExactMatches<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, query, minLength);
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalUniqueMatches(
+        string query, int minLength, MumUniqueness uniqueness = MumUniqueness.Both)
+    {
+        ThrowIfDisposed();
+        var nav = CreateNavigator();
+        return SuffixTreeAlgorithms.FindMaximalUniqueMatches<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, query, minLength, uniqueness);
+    }
+
     private (PersistentSuffixTreeNode Node, int Depth) FindDeepestInternalNodeWithDepth(PersistentSuffixTreeNode root)
     {
         // Use pre-computed offset + depth from builder/header if available (O(1) path)

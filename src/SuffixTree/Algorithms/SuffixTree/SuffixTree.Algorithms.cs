@@ -193,6 +193,22 @@ public partial class SuffixTree
         return SuffixTreeAlgorithms.FindExactMatchAnchors<SuffixTreeNode, SuffixTreeNavigator>(ref nav, query, minLength);
     }
 
+    /// <inheritdoc />
+    public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalExactMatches(
+        string query, int minLength)
+    {
+        var nav = new SuffixTreeNavigator(this);
+        return SuffixTreeAlgorithms.FindMaximalExactMatches<SuffixTreeNode, SuffixTreeNavigator>(ref nav, query, minLength);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalUniqueMatches(
+        string query, int minLength, MumUniqueness uniqueness = MumUniqueness.Both)
+    {
+        var nav = new SuffixTreeNavigator(this);
+        return SuffixTreeAlgorithms.FindMaximalUniqueMatches<SuffixTreeNode, SuffixTreeNavigator>(ref nav, query, minLength, uniqueness);
+    }
+
     /// <summary>
     /// Walks to any leaf descendant and returns its position in the source text.
     /// <paramref name="depthFromRoot"/> is the cumulative depth from root to the

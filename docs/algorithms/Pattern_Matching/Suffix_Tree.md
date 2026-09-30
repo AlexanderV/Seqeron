@@ -36,6 +36,8 @@ with a `struct` constraint, enabling JIT specialization for each backend.
 | LongestCommonSubstring | O(m + h) in-memory; O(m log d + h) persistent | Streaming match + one leaf-position recovery |
 | FindAllLongestCommonSubstrings | O(m + Σ subtree(best matches)); worst case O(n·m) | Collects leaves for each maximal match candidate |
 | FindExactMatchAnchors | O(m + a·h); worst case O(n·m) | a = anchors emitted, each needs leaf-position recovery |
+| FindMaximalExactMatches | O(n + m + R) | R = right-maximal matches ≥ minLength (leaves visited; ≥ output size) — MUMmer 3 bound |
+| FindMaximalUniqueMatches | O(n + m + k log k) | k = MUM candidates (≤ m) |
 | EnumerateSuffixes | O(n²) total | Lazy DFS, O(n) per suffix |
 | GetAllSuffixes | O(n²) | Materialized sorted list |
 
@@ -147,6 +149,11 @@ Declared differences from MUMmer (verified by brute force, 2026-09 review):
   text `aba`, query `ababa`, `minLength = 3` → `(0,0,3)`, `(0,2,3)` (ms = 1,2,3,2,3);
 - `minLength ≤ 0` returns an empty list.
 
+For the **complete** MEM set (every MEM, every text occurrence) or MUMs use §4.9
+(`FindMaximalExactMatches` / `FindMaximalUniqueMatches`). `FindExactMatchAnchors` is kept
+unchanged as the lightweight anchor seed of `AnchorBasedAligner`; its anchors are always a
+subset of `FindMaximalExactMatches` (test `FindExactMatchAnchors_IsSubsetOfFullMemSet`).
+
 ### 4.7 Suffix Enumeration
 
 DFS traversal in sorted child-key order (ascending). Concatenates edge
@@ -159,6 +166,57 @@ labels to produce suffixes.
 `Traverse(ISuffixTreeVisitor)` — deterministic DFS in sorted key order.
 Calls `VisitNode`, `EnterBranch`, `ExitBranch` for each node/edge.
 Used by `SuffixTreeSerializer` for structural hashing.
+
+### 4.9 Maximal exact / unique matches (MUMmer 3) — O(n + m + R)
+
+`FindMaximalExactMatches(query, minLength)` and
+`FindMaximalUniqueMatches(query, minLength, MumUniqueness)` (shared code in
+`SuffixTreeAlgorithms`, identical output from `SuffixTree` and `PersistentSuffixTree`).
+The tree's text is the **reference**; all coordinates are 0-based; forward strand only.
+
+**Definitions** (Kurtz et al. 2004; Delcher et al. 1999):
+
+| Set | Triple (r, q, len), len ≥ minLength, text[r..r+len) = query[q..q+len), and … | MUMmer 3 |
+|-----|------|------|
+| MEM | left-maximal (r = 0, q = 0 or text[r−1] ≠ query[q−1]) and right-maximal (a string ends or text[r+len] ≠ query[q+len]); **every** reference occurrence | `mummer -maxmatch -l L` |
+| MUM, `Reference` | a MEM whose string occurs exactly once in the reference (may repeat in the query) | `mummer -mumreference -l L` (MUMmer default; `-mumcand`; "MAM" in MUMmer 4) |
+| MUM, `Both` (default) | a MEM whose string occurs exactly once in the reference **and** exactly once in the query | `mummer -mum -l L` |
+
+**Algorithm.** The query is streamed through the tree with suffix links (matching statistics,
+Chang & Lawler 1994), keeping for each query start q the locus of the longest prefix of
+query[q..] found in the text (length ms(q)) and — as MUMmer 3 `findmaxmat.c` — the locus of its
+prefix of length `minLength`.
+- *MEM*: the subtree below the `minLength` locus holds exactly the text suffixes matching ≥
+  `minLength` characters. Walking down the matching path, a leaf in a sibling subtree that
+  leaves the path at string depth d matches exactly d characters, and a leaf below the ms(q)
+  locus matches ms(q) — so each leaf is a right-maximal match with known length; a constant-time
+  character test keeps the left-maximal ones. Cost O(n + m + R), R = number of right-maximal
+  matches ≥ `minLength` (the same bound as MUMmer 3; every path node visited has a sibling leaf
+  that is counted in R).
+- *MUM `Reference`* (MUMmer 3 `findmumcand.c`, `checkiflocationisMUMcand`): the ms(q) locus lies
+  inside a leaf edge (string unique in the reference), ms(q) ≥ `minLength`, left-maximal.
+- *MUM `Both`* (MUMmer 3 `cleanMUMcand.c`, `mumuniqueinquery`): the `Reference` candidates sorted by
+  reference start (longer first) are swept; a candidate whose reference interval ends at or before
+  the rightmost end seen so far lies inside another candidate (its string recurs in the query)
+  and is dropped, equal candidates are dropped together. The sweep starts at −1; MUMmer 3 starts
+  it at 0, which additionally drops a length-1 MUM at reference position 0 (only reachable with
+  `-l 1`) — that artefact is not reproduced.
+
+**Output order:** ascending by query position, then reference position. (MUMmer prints `-maxmatch`
+and `-mumreference` by query position, `-mum` by reference position; the sets are identical.)
+
+**Guards:** `query == null` → `ArgumentNullException`; `minLength < 1` or an undefined
+`MumUniqueness` → `ArgumentOutOfRangeException`; empty text/query or `minLength` above either
+length → empty list.
+
+**Validation (2026-09-30).** MUMmer 3.23 (Ubuntu `mummer 3.23+dfsg-8`), commands
+`mummer -maxmatch|-mum|-mumreference -l L ref.fa qry.fa` (no `-b`/`-r`, so forward strand):
+66 cases (6 classic + 60 seeded random pairs, lengths 50–2000, alphabets {AC, ACG, ACGT},
+queries partly built from mutated reference fragments, L ∈ {2…20}) — 270 366 MEMs, 5 695
+`-mumreference` and 2 573 `-mum` matches, all identical; plus 300 short random pairs with
+L ∈ {1,2,3} identical except the documented length-1 `-mum` sweep artefact (2 cases). Every
+set also equals an independent brute-force implementation of the definitions (324 pairs).
+MUMmer-produced outputs are locked in `MaximalMatchTests` / `MaximalMatchParityTests`.
 
 ---
 
@@ -186,6 +244,8 @@ string LongestCommonSubstring(string / ReadOnlySpan<char>)
 string PrintTree()
 void Traverse(ISuffixTreeVisitor)
 IReadOnlyList<(int, int, int)> FindExactMatchAnchors(string, int)
+IReadOnlyList<(int, int, int)> FindMaximalExactMatches(string, int)
+IReadOnlyList<(int, int, int)> FindMaximalUniqueMatches(string, int, MumUniqueness = Both)
 ```
 
 ### ISuffixTreeNavigator\<TNode\>
@@ -202,6 +262,7 @@ TNode GetSuffixLink(TNode)
 bool TryGetChild(TNode, int, out TNode)
 void CollectLeaves(TNode, int, List<int>)
 int FindAnyLeafPosition(TNode, int)
+void GetChildren(TNode, List<TNode>)
 ```
 
 ### ITextSource
@@ -242,6 +303,8 @@ string lcs        = tree.LongestCommonSubstring("bandana");
 var (s, p1, p2)   = tree.LongestCommonSubstringInfo("bandana");
 var allLcs        = tree.FindAllLongestCommonSubstrings("bandana");
 var anchors       = tree.FindExactMatchAnchors("bandana", minLength: 3);
+var mems          = tree.FindMaximalExactMatches("bandana", minLength: 3);   // mummer -maxmatch
+var mums          = tree.FindMaximalUniqueMatches("bandana", 3, MumUniqueness.Both); // mummer -mum
 
 // Enumeration
 var suffixes      = tree.GetAllSuffixes();          // IReadOnlyList<string>
@@ -300,12 +363,13 @@ src/SuffixTree/Algorithms/
 │   ├── ISuffixTreeNavigator.cs
 │   ├── ITextSource.cs
 │   ├── StringTextSource.cs
-│   └── SuffixTreeAlgorithms.cs   ← LCS + Anchors (generic, JIT-specialized)
+│   ├── MumUniqueness.cs          ← MUM mode (-mum / -mumreference)
+│   └── SuffixTreeAlgorithms.cs   ← LCS, Anchors, MEM/MUM (generic, JIT-specialized)
 ├── SuffixTree/                   ← In-memory implementation (.NET 8)
 │   ├── SuffixTree.cs             ← Build, factory methods
 │   ├── SuffixTree.Construction.cs ← Ukkonen's algorithm
 │   ├── SuffixTree.Search.cs      ← Contains, FindAll, Count
-│   ├── SuffixTree.Algorithms.cs  ← LRS, LCS, Anchors
+│   ├── SuffixTree.Algorithms.cs  ← LRS, LCS, Anchors, MEM/MUM
 │   ├── SuffixTree.Navigator.cs   ← ISuffixTreeNavigator<SuffixTreeNode>
 │   ├── SuffixTree.Diagnostics.cs ← PrintTree, Traverse, ComputeStatistics
 │   └── SuffixTreeNode.cs         ← Hybrid children storage (inline ≤ 4 → Dictionary)
@@ -407,7 +471,8 @@ three phases testing small strings (all substrings), large strings
 - Ukkonen, E. (1995). *On-line construction of suffix trees.* Algorithmica, 14(3), 249–260.
 - Gusfield, D. (1997). *Algorithms on Strings, Trees, and Sequences.* Cambridge University Press.
 - Delcher, A. et al. (1999). *Alignment of whole genomes.* Nucleic Acids Research (MUMmer — suffix tree anchor approach).
-- Kurtz, S. et al. (2004). *Versatile and open software for comparing large genomes.* Genome Biology 5:R12 (MUMmer 3 — MEMs).
+- Kurtz, S. et al. (2004). *Versatile and open software for comparing large genomes.* Genome Biology 5:R12 (MUMmer 3 — MEMs, MUMs, MUM-candidates). Source consulted: MUMmer 3.23 `src/kurtz/mm3src/findmaxmat.c`, `findmumcand.c`, `libbasedir/cleanMUMcand.c` (Ubuntu source package `mummer 3.23+dfsg`); MUMmer 4 `include/mummer/sparseSA.hpp` (`findMAM_each`, `findMUM_each`, `collectMEMs_each`).
+- Khan, Z., Bloom, J.S., Kruglyak, L., Singh, M. (2009). *A practical algorithm for finding maximal exact matches in large sequence datasets using sparse suffix arrays.* Bioinformatics 25:1609–1616 (sparseMEM; MEM/MAM/MUM definitions reused by MUMmer 4).
 - Chang, W.I., Lawler, E.L. (1994). *Sublinear approximate string matching and biological applications.* Algorithmica 12:327–344 (matching statistics).
 - https://visualgo.net/en/suffixtree
 
