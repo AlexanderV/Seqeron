@@ -278,6 +278,48 @@ public class SequenceComplexityTests
         Assert.That(lc, Is.EqualTo((double)n / possible).Within(1e-15));
     }
 
+    // Alphabet size a of M = Σ min(a^i, N − i + 1) (Troyanskaya et al. 2002; Rosalind LING "alphabet of size a"):
+    // {A,C,G,T/U} extended by any other symbol present. Expected values: Python brute force (exact Fractions,
+    // scratch lc_ref.py) — 3000 random cases over ACGT/ACGTN/ACGU/ACGTU/IUPAC alphabets, m 1..70, 0 mismatches.
+    // Before the fix ACGTN gave 15/14 > 1 (V_max assumed 4^i).
+    [TestCase("ACGTN", 5, 1.0)]                                      // 15/15
+    [TestCase("acgtn", 10, 1.0)]                                     // upper-cased, m clamped to N
+    [TestCase("ATGCATGCNN", 10, 22.0 / 25.0)]                        // 44/50, a = 5
+    [TestCase("NNNNNNNN", 8, 8.0 / 33.0)]                            // a = 5 ({N} ∪ ACGT)
+    [TestCase("ACGTNNNNACGTNNNNACGTRYACGTNNNN", 6, 69.0 / 142.0)]    // hash path, a = 7
+    [TestCase("ACGTNNNNACGTNNNNACGTRYACGTNNNN", 30, 345.0 / 442.0)]  // suffix-tree path (m > 12), a = 7
+    [TestCase("ACGUACGUAAUU", 12, 6.0 / 7.0)]                        // RNA: a = 4 (U replaces T)
+    [TestCase("ACGTUACGTU", 10, 0.8)]                                // T and U both present: a = 5
+    public void CalculateLinguisticComplexity_NonAcgtSymbols_AlphabetExtended_MatchesBruteForce(
+        string sequence, int maxWordLength, double expected)
+    {
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
+
+        Assert.That(lc, Is.EqualTo(expected).Within(1e-15));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_RnaEqualsDnaCounterpart()
+    {
+        // U plays the role of T (a = 4), so the RNA and DNA spellings have identical LC.
+        Assert.That(SequenceComplexity.CalculateLinguisticComplexity("ACGUACGUAAUU", 12),
+            Is.EqualTo(SequenceComplexity.CalculateLinguisticComplexity("ACGTACGTAATT", 12)));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_LargeAlphabet_NeverExceedsOne_NoOverflow()
+    {
+        // 300 distinct caseless CJK symbols: every substring is distinct, so LC = 1 exactly for the hash and
+        // suffix-tree paths; a^i with a = 304 would overflow long by i = 8 without the saturation guard.
+        string s = new(Enumerable.Range(0x4E00, 300).Select(c => (char)c).ToArray());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateLinguisticComplexity(s, 10), Is.EqualTo(1.0));
+            Assert.That(SequenceComplexity.CalculateLinguisticComplexity(s, 300), Is.EqualTo(1.0));
+        });
+    }
+
     #endregion
 
     #region Shannon Entropy Tests

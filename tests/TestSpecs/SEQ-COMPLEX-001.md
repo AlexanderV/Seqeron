@@ -90,6 +90,9 @@ divided by $\ell(x) - 1 = N - 3$; that divisor is superseded — see SEQ-COMPLEX
 | LC-16 | `CalculateLinguisticComplexity_WordLengthsBeyond4Pow31_NoOverflow` | Exact: 749/761 (N=m=40) | Formula; no 4^i overflow |
 | LC-17 | `CalculateLinguisticComplexity_SuffixTreePath_RepeatRichSequence_MatchesReference` | Exact: 782/1209, 1405/1937, 1971/2251, 6427/6987 (N=120) | Troyanskaya suffix-tree counting; Python reference |
 | LC-18 | `CalculateLinguisticComplexity_FullLengthLongHomopolymer_ExactAndLinearTime` | Exact closed form, N=200,000 | Troyanskaya (2002) linear-time claim |
+| LC-19 | `CalculateLinguisticComplexity_NonAcgtSymbols_AlphabetExtended_MatchesBruteForce` | Exact: ACGTN 1.0 (was 15/14), ATGCATGCNN 22/25, N×8 8/33, IUPAC hash/suffix-tree 69/142, 345/442, RNA 6/7, ACGTU 0.8 | Troyanskaya (2002) / Rosalind LING alphabet size a; Python brute force (3000 random, 0 mismatches) |
+| LC-20 | `CalculateLinguisticComplexity_RnaEqualsDnaCounterpart` | RNA = DNA spelling (a = 4) | IUPAC U ≡ T |
+| LC-21 | `CalculateLinguisticComplexity_LargeAlphabet_NeverExceedsOne_NoOverflow` | 300 distinct symbols → 1.0 (m=10, m=300) | LC ≤ 1; saturating a^i |
 
 ### 4.2 Shannon Entropy Tests (8 tests)
 

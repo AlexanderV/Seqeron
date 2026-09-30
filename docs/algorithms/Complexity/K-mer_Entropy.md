@@ -86,7 +86,7 @@ Indexing is 0-based over positions 0..L−k (inclusive). The accepted alphabet i
 
 - `SequenceComplexity.CalculateKmerEntropy(DnaSequence, int)`: canonical entry; validates and delegates to the core.
 - `SequenceComplexity.CalculateKmerEntropy(string, int)`: string overload; upper-cases then delegates to the same core.
-- `SequenceComplexity.CalculateKmerEntropyCore(string, int)` (private): counts overlapping k-mers with `KmerAnalyzer.CountKmers` and applies the shared entropy kernel `ShannonEntropyBits`.
+- `SequenceComplexity.CalculateKmerEntropyCore(string, int)` (private): counts overlapping k-mers with `KmerAnalyzer.CountKmers` and applies the shared entropy kernel `ShannonEntropyBits`, which delegates to the canonical `StatisticsHelper.ShannonIndex` (natural log) ÷ ln 2 — scipy `entropy(counts, base=2)`'s computation (2000 random cases vs scipy: max |Δ| 3.6e-14, summation-order rounding).
 
 ### 5.2 Current Behavior
 

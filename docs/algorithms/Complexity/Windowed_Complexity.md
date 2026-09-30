@@ -148,7 +148,7 @@ starts 79..126 → one region 79..145 (length 67, MinEntropy 0).
 
 ### 6.2 Limitations
 
-DNA-oriented: the Shannon metric counts only A/C/G/T and the LC denominator assumes a 4-letter alphabet. Non-ACGT symbols in a window are ignored by the entropy count and may push LC outside the usual `(0,1]` interpretation. The profile reports only windows fully inside the sequence, so the final `(L − w) mod s` bases at the 3′ end may not be covered by any window.
+DNA-oriented: the Shannon metric counts only A/C/G/T and the LC denominator assumes a 4-letter alphabet. The `DnaSequence` input admits only A/C/G/T, so every window has alphabet size 4 and LC ∈ (0, 1] (the raw-string LC extends the alphabet by any other symbol present, see Linguistic_Complexity.md). The profile reports only windows fully inside the sequence, so the final `(L − w) mod s` bases at the 3′ end may not be covered by any window.
 
 ## 7. Examples and Related Material
 

@@ -10,8 +10,9 @@ public static class SequenceComplexity
 
     /// <summary>
     /// Calculates linguistic complexity (LC), the summation form
-    /// LC = Σ_{i=1..m} V_i / Σ_{i=1..m} V_max,i with V_max,i = min(4^i, N − i + 1),
-    /// where V_i is the number of distinct subwords of length i (Orlov &amp; Potapov 2004, NAR 32:W628,
+    /// LC = Σ_{i=1..m} V_i / Σ_{i=1..m} V_max,i with V_max,i = min(a^i, N − i + 1),
+    /// where V_i is the number of distinct subwords of length i and a is the alphabet size — 4 for DNA/RNA,
+    /// extended by any other symbol present (e.g. N), so LC ≤ 1 always (Orlov &amp; Potapov 2004, NAR 32:W628,
     /// word length limited by m ≤ N). With m ≥ N this is exactly the Troyanskaya et al. (2002,
     /// Bioinformatics 18:679) definition LC = A(s)/M(s) over all lengths 1..N (Rosalind LING).
     /// This is not Trifonov's (1990) product form C = Π U_i.
@@ -34,7 +35,8 @@ public static class SequenceComplexity
         if (seq.Length == 0) return 0;
         int m = Math.Min(maxWordLength, seq.Length);
         return m > LcHashEnumerationMaxWordLength
-            ? LinguisticComplexityFromCounts(sequence.SuffixTree.CountDistinctSubstringsByLength(m), seq.Length)
+            ? LinguisticComplexityFromCounts(
+                sequence.SuffixTree.CountDistinctSubstringsByLength(m), seq.Length, LcAlphabetSize(seq))
             : CalculateLinguisticComplexityCore(seq, maxWordLength);
     }
 
@@ -61,29 +63,37 @@ public static class SequenceComplexity
 
         if (m > LcHashEnumerationMaxWordLength)
             return LinguisticComplexityFromCounts(
-                global::SuffixTree.SuffixTree.Build(seq).CountDistinctSubstringsByLength(m), seq.Length);
+                global::SuffixTree.SuffixTree.Build(seq).CountDistinctSubstringsByLength(m), seq.Length, LcAlphabetSize(seq));
 
+        // V_i = number of distinct overlapping i-words = key count of the canonical k-mer tally (KMER-COUNT-001).
         var counts = new long[m + 1];
         for (int wordLen = 1; wordLen <= m; wordLen++)
-        {
-            var observedWords = new HashSet<string>();
+            counts[wordLen] = KmerAnalyzer.CountKmers(seq, wordLen).Count;
 
-            for (int i = 0; i <= seq.Length - wordLen; i++)
-            {
-                observedWords.Add(seq.Substring(i, wordLen));
-            }
-
-            counts[wordLen] = observedWords.Count;
-        }
-
-        return LinguisticComplexityFromCounts(counts, seq.Length);
+        return LinguisticComplexityFromCounts(counts, seq.Length, LcAlphabetSize(seq));
     }
 
     /// <summary>
-    /// LC = Σ V_i / Σ min(4^i, N − i + 1) for i = 1..counts.Length−1.
+    /// Alphabet size <c>a</c> of the LC denominator (Troyanskaya et al. 2002; Rosalind LING: M = Σ min(a^i, N − i + 1)
+    /// "for an alphabet of size a"): the nucleotide alphabet {A, C, G, T} (U in place of T for RNA, i.e. when U occurs
+    /// and T does not) extended by every other symbol that occurs in the (upper-cased) sequence. Pure DNA/RNA gives
+    /// a = 4; e.g. <c>ACGTN</c> gives a = 5. Because every observed symbol is in the alphabet, V_i ≤ min(a^i, N − i + 1)
+    /// and LC ≤ 1 for any input.
     /// </summary>
-    private static double LinguisticComplexityFromCounts(long[] counts, int n)
+    private static int LcAlphabetSize(string seq)
     {
+        var symbols = new HashSet<char>(seq) { 'A', 'C', 'G' };
+        if (!(symbols.Contains('U') && !symbols.Contains('T')))
+            symbols.Add('T');
+        return symbols.Count;
+    }
+
+    /// <summary>
+    /// LC = Σ V_i / Σ min(a^i, N − i + 1) for i = 1..counts.Length−1 (a = alphabet size, see <see cref="LcAlphabetSize"/>).
+    /// </summary>
+    private static double LinguisticComplexityFromCounts(long[] counts, int n, int alphabetSize)
+    {
+        long wordsOverAlphabet = 1; // a^i, saturated once it exceeds N (then min(a^i, N − i + 1) = N − i + 1)
         long observedTotal = 0;
         long possibleTotal = 0;
 
@@ -91,10 +101,12 @@ public static class SequenceComplexity
         {
             observedTotal += counts[wordLen];
 
-            // V_max,i = min(4^i, N − i + 1); 4^i > N for i ≥ 16 (N ≤ int.MaxValue), so avoid overflow.
+            // V_max,i = min(a^i, N − i + 1); a ≤ 65536 and a^(i−1) ≤ N ≤ int.MaxValue before the multiply,
+            // so the product stays below 2^47 (no overflow) and saturation keeps it there.
+            if (wordsOverAlphabet <= n)
+                wordsOverAlphabet *= alphabetSize;
             long positions = n - wordLen + 1;
-            long maxPossible = wordLen < 16 ? Math.Min(1L << (2 * wordLen), positions) : positions;
-            possibleTotal += maxPossible;
+            possibleTotal += Math.Min(wordsOverAlphabet, positions);
         }
 
         return possibleTotal > 0 ? (double)observedTotal / possibleTotal : 0;
@@ -155,28 +167,22 @@ public static class SequenceComplexity
     /// <summary>
     /// Shannon entropy H = −Σ p_i·log₂(p_i), p_i = n_i / Σ n, of a frequency table (Shannon 1948), in bits.
     /// Zero counts contribute nothing (0·log 0 := 0); an empty or all-zero table has entropy 0.
-    /// Single entropy kernel shared by the per-base and k-mer entropy methods of this class.
+    /// Delegates to the canonical <see cref="StatisticsHelper.ShannonIndex"/> (natural log) and converts
+    /// to bits by dividing by ln 2 — the same computation as <c>scipy.stats.entropy(counts, base=2)</c>
+    /// (shared with <c>SequenceStatistics.CalculateShannonEntropy</c>). <c>ShannonIndex</c> rejects a zero
+    /// total, so the empty-sum convention (entropy 0) is handled here.
     /// </summary>
-    private static double ShannonEntropyBits(IEnumerable<int> counts)
+    private static double ShannonEntropyBits(IReadOnlyList<int> counts)
     {
         long total = 0;
         foreach (int count in counts)
             total += count;
 
-        if (total == 0) return 0;
-
-        double entropy = 0;
-        foreach (int count in counts)
-        {
-            if (count > 0)
-            {
-                double p = (double)count / total;
-                entropy -= p * Math.Log2(p);
-            }
-        }
-
-        return entropy;
+        return total == 0 ? 0 : StatisticsHelper.ShannonIndex(counts) / Ln2;
     }
+
+    // Base conversion ln → log₂ (bits): H₂ = H_e / ln 2 (scipy.stats.entropy divides by log(base)).
+    private static readonly double Ln2 = Math.Log(2.0);
 
     /// <summary>
     /// Calculates the Shannon entropy (in bits) of the overlapping k-mer frequency
@@ -231,7 +237,7 @@ public static class SequenceComplexity
         // Overlapping k-mer tally (N = L − k + 1 windows) via the canonical counter (KMER-COUNT-001);
         // p_i = n_i / N because Σ n_i = N.
         var kmerCounts = KmerAnalyzer.CountKmers(seq, k);
-        return ShannonEntropyBits(kmerCounts.Values);
+        return ShannonEntropyBits(kmerCounts.Values.ToArray());
     }
 
     #endregion
@@ -512,8 +518,8 @@ public static class SequenceComplexity
 
         for (int i = 0; i <= seq.Length; i++)
         {
-            int b = i < seq.Length ? NucleotideCode(seq[i]) : 4;
-            if (b < 4)
+            int b = i < seq.Length ? AcgtCode(seq[i]) : -1;
+            if (b >= 0)
             {
                 ++l;
                 t = ((t << 2) | b) & DustTripletMask;
@@ -538,13 +544,18 @@ public static class SequenceComplexity
         return res;
     }
 
-    private static int NucleotideCode(char c) => c switch
+    /// <summary>
+    /// 2-bit nucleotide code shared by SDUST (this class) and <see cref="RepeatFinder"/> (direct repeats, TRF):
+    /// A/C/G/T (either case) → 0..3, any other symbol (N, IUPAC, U, gap, …) → −1. Same mapping as sdust's
+    /// <c>seq_nt4_table</c> (non-ACGT = 4 there, i.e. "not a nucleotide").
+    /// </summary>
+    internal static int AcgtCode(char c) => c switch
     {
         'A' or 'a' => 0,
         'C' or 'c' => 1,
         'G' or 'g' => 2,
         'T' or 't' => 3,
-        _ => 4,
+        _ => -1,
     };
 
     private static void SdustShiftWindow(

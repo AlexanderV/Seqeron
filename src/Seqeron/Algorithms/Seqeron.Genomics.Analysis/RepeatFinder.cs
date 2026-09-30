@@ -198,8 +198,7 @@ public static class RepeatFinder
     {
         for (int k = start; k < start + unitLen; k++)
         {
-            char c = seq[k];
-            if (c != 'A' && c != 'C' && c != 'G' && c != 'T')
+            if (AcgtCode(seq[k]) < 0)
                 return false;
         }
 
@@ -1432,7 +1431,7 @@ public static class RepeatFinder
 
     /// <summary>True when <paramref name="a"/> and <paramref name="b"/> form a Watson–Crick pair (ACGT only).</summary>
     private static bool IsWatsonCrickPair(char a, char b) =>
-        a is 'A' or 'C' or 'G' or 'T' && SequenceExtensions.GetComplementBase(a) == b;
+        AcgtCode(a) >= 0 && SequenceExtensions.GetComplementBase(a) == b;
 
     /// <summary>
     /// Maximal exact stems. A stem is identified by its innermost pair (<c>iIn</c>, <c>rIn</c>) with loop
@@ -1614,14 +1613,8 @@ public static class RepeatFinder
     private const int UniqueLeftClass = 4;
     private const int LeftClassCount = 5;
 
-    private static int AcgtCode(char c) => c switch
-    {
-        'A' => 0,
-        'C' => 1,
-        'G' => 2,
-        'T' => 3,
-        _ => -1,
-    };
+    /// <summary>A/C/G/T → 0..3, other symbols → −1 (shared <see cref="SequenceComplexity.AcgtCode"/>; inputs here are upper-cased).</summary>
+    private static int AcgtCode(char c) => SequenceComplexity.AcgtCode(c);
 
     private static List<DirectRepeatResult> FindDirectRepeatsCore(
         string seq,

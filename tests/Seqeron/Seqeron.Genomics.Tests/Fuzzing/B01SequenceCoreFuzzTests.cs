@@ -74,16 +74,21 @@ public class B01SequenceCoreFuzzTests
             int m = rng.Next(13, 90);
             string u = s.ToUpperInvariant();
             int n = u.Length, mm = Math.Min(m, n);
+            // Alphabet a = {A,C,G,T/U} ∪ symbols(u) (Troyanskaya 2002 / Rosalind LING "alphabet of size a"; B04 F20).
+            var alphabet = new HashSet<char>(u) { 'A', 'C', 'G' };
+            if (!(alphabet.Contains('U') && !alphabet.Contains('T'))) alphabet.Add('T');
             long obs = 0, pos = 0;
             for (int i = 1; i <= mm; i++)
             {
                 var set = new HashSet<string>(StringComparer.Ordinal);
                 for (int j = 0; j + i <= n; j++) set.Add(u.Substring(j, i));
                 obs += set.Count;
-                pos += Math.Min(i < 31 ? 1L << (2 * i) : long.MaxValue, n - i + 1);
+                double aPowI = Math.Pow(alphabet.Count, i);
+                pos += (long)Math.Min(aPowI, n - i + 1);
             }
             double lc = SequenceComplexity.CalculateLinguisticComplexity(s, m);
             double.IsFinite(lc).Should().BeTrue();
+            lc.Should().BeLessThanOrEqualTo(1.0, "V_i ≤ min(a^i, N − i + 1)");
             lc.Should().Be((double)obs / pos, $"trial {trial}, m={m}");
         }
     }

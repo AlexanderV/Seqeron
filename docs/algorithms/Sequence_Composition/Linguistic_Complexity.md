@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-COMPLEX-001 |
 | Related Projects | N/A |
 | Implementation Status | Complete |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
@@ -26,13 +26,13 @@ $$
 LC = \frac{\sum_{i=1}^{m} V_i}{\sum_{i=1}^{m} V_{max,i}}
 $$
 
-where `V_i` is the number of distinct observed subwords of length `i`, `V_{max,i}` is the maximum possible number of distinct subwords of that length, and `m` is the maximum word length parameter. For DNA with alphabet size `K = 4`:
+where `V_i` is the number of distinct observed subwords of length `i`, `V_{max,i}` is the maximum possible number of distinct subwords of that length, and `m` is the maximum word length parameter. With alphabet size `K` (Troyanskaya et al. 2002; Rosalind LING: "for an alphabet of size a"):
 
 $$
 V_{max,i} = \min(K^i, N - i + 1)
 $$
 
-where `N` is sequence length.
+where `N` is sequence length. The implementation takes `K = |{A, C, G, T} ∪ symbols(s)|` (U replaces T when U occurs and T does not): pure DNA/RNA gives `K = 4`; every other symbol present (N, IUPAC codes, gaps, …) enlarges the alphabet, so `V_i ≤ V_max,i` and `LC ≤ 1` for every input (e.g. `ACGTN` → 15/15 = 1.0, `ATGCATGCNN` → 44/50 = 0.88).
 
 This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with `m ≥ N` it is exactly the Troyanskaya et al. (2002) LC `A(s)/M(s)` over all lengths (Rosalind LING sample `ATTTGGATT` → 0.875). It is distinct from Trifonov's (1990) product form `C = Π U_i` (implemented e.g. by the R package universalmotif, method "Trifonov"); the two are not interchangeable.
 
@@ -40,7 +40,7 @@ This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with 
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | `0 <= LC <= 1` for DNA-alphabet inputs | Observed distinct counts cannot exceed the DNA-theoretical maximum when the input alphabet matches the hard-coded `K = 4` denominator |
+| INV-01 | `0 <= LC <= 1` for every input | Every observed symbol is in the alphabet of size `K`, so `V_i <= min(K^i, N-i+1)` |
 | INV-02 | Empty sequences return `0` | The implementation short-circuits before accumulating counts |
 | INV-03 | Word lengths are limited to `min(maxWordLength, sequence.Length)` | The source explicitly caps the loop bound |
 
@@ -57,7 +57,7 @@ This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `lc` | `double` | Linguistic-complexity ratio; for DNA-alphabet inputs it lies between `0` and `1` |
+| `lc` | `double` | Linguistic-complexity ratio in `[0, 1]` |
 
 ### 3.3 Preconditions and Validation
 
@@ -68,9 +68,9 @@ This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with 
 ### 4.1 High-Level Steps
 
 1. Normalize the input sequence to uppercase.
-2. Let `m = min(maxWordLength, sequence.Length)`. If `m ≤ 12`, enumerate all overlapping subwords of each length and count distinct ones with a `HashSet<string>`.
+2. Let `m = min(maxWordLength, sequence.Length)`. If `m ≤ 12`, count the distinct overlapping subwords of each length as the key count of the canonical `KmerAnalyzer.CountKmers` tally.
 3. Otherwise build (or reuse the cached `DnaSequence.SuffixTree`) suffix tree and call the shared `ISuffixTree.CountDistinctSubstringsByLength(m)` (SuffixTree project): for every edge spanning depths `d+1..d+len` (leaf edges excluding the terminator), add 1 to `V_i` for each covered `i ≤ m` (difference array).
-4. Compute the maximum possible count for that length using `min(4^i, N - i + 1)`.
+4. Compute the maximum possible count for that length using `min(K^i, N - i + 1)` (K = 4 for DNA/RNA, extended by any other symbol present).
 5. Sum observed and possible counts across all lengths and return their ratio.
 
 ### 4.3 Complexity
@@ -93,7 +93,7 @@ This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with 
 
 ### 5.2 Current Behavior
 
-For `m ≤ 12` the implementation counts distinct subwords with `HashSet<string>` collections; for larger `m` it counts them from the suffix tree in linear time. `V_max,i` is computed with integer shifts (no `4^i` overflow for any `i`). The typed overload enforces `maxWordLength >= 1`, while the raw-string overload uppercases input and delegates to the same core computation without alphabet validation. The denominator remains hard-coded to the DNA alphabet size `4`, so raw-string inputs containing other symbols can exceed the DNA-bounded `[0, 1]` interpretation. The effective word-length range is capped at sequence length.
+For `m ≤ 12` the implementation counts distinct subwords as the key count of the canonical `KmerAnalyzer.CountKmers` tally; for larger `m` it counts them from the suffix tree in linear time (terminator excluded). `V_max,i` uses a saturating `K^i` (multiplication stops once it exceeds `N`, so no overflow for any `K ≤ 65536` or `i`). The typed overload enforces `maxWordLength >= 1` (and only admits ACGT, so `K = 4`), while the raw-string overload uppercases input and uses `K = |{A,C,G,T/U} ∪ symbols|` (2026-09-30, B04 F20: previously `K = 4` always, so `ACGTN` gave 15/14 > 1). The effective word-length range is capped at sequence length.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -101,12 +101,11 @@ For `m ≤ 12` the implementation counts distinct subwords with `HashSet<string>
 
 - Summation-form linguistic complexity over subword lengths.
 - Maximum distinct-subword bounds based on both alphabet size and positional availability.
-- DNA-oriented complexity scoring in the range `[0, 1]`.
+- Complexity scoring in the range `[0, 1]` for any input alphabet (DNA/RNA `K = 4`).
 
 **Intentionally simplified:**
 
-- The implementation assumes a DNA alphabet of size 4; **consequence:** the metric is not generalized to arbitrary alphabets in this code path.
-- The raw-string overload accepts arbitrary uppercase symbols while still using the DNA denominator `4^i`; **consequence:** callers should treat the reported value as DNA-oriented and not assume the usual `[0, 1]` bound for non-ACGT inputs.
+- None for the alphabet: non-ACGT symbols extend the alphabet size `K` (not filtered out).
 
 - The linear-time suffix-tree counting of Troyanskaya et al. (2002) for `m > 12` (incl. all-length LC).
 
@@ -128,11 +127,11 @@ For `m ≤ 12` the implementation counts distinct subwords with `HashSet<string>
 | Single nucleotide such as `A` | Returns a positive value | One distinct 1-mer exists |
 | Homopolymer sequence | Returns a low value | Only one word per length is observed |
 | Random-like sequence | Returns a high value | Observed vocabulary approaches the maximum |
-| Raw-string input with non-ACGT symbols | May exceed the usual DNA-bounded interpretation | Observed words can include symbols outside the hard-coded DNA denominator |
+| Raw-string input with non-ACGT symbols | Alphabet enlarged (`ACGTN` → 1.0, `ATGCATGCNN` → 0.88, `NNNNNNNN` → 8/33); never > 1 | `K = |{A,C,G,T/U} ∪ symbols|` |
 
 ### 6.2 Limitations
 
-The current implementation is DNA-specific (alphabet size 4 in `V_max`). The raw-string overload also accepts arbitrary uppercase symbols without reconciling the denominator to a larger alphabet.
+The alphabet is inferred from the sequence (nucleotide alphabet ∪ observed symbols); a caller wanting a different fixed alphabet (e.g. 20 amino acids for a short peptide lacking some residues) cannot pass it explicitly.
 
 ## 7. Examples and Related Material
 

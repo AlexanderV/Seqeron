@@ -223,7 +223,7 @@ public class SequenceStatistics_SummarizeNucleotideSequence_Tests
     [TestCase("ATGCATGCATGC", 6, 24.0 / 49.0)]
     [TestCase("ATATATAT", 6, 12.0 / 29.0)]
     [TestCase("GGGAAAUUUCCC", 6, 45.0 / 49.0)]
-    [TestCase("ACGTN", 6, 15.0 / 14.0)]             // N is a fifth symbol: > 1 (canonical, R23)
+    [TestCase("ACGTN", 6, 1.0)]                     // N is a fifth symbol: a = 5, 15/15 (was 15/14 > 1; R23 fixed by B04 F20)
     [TestCase("ATGC", 0, 0.0)]
     [TestCase("", 6, 0.0)]
     public void CalculateLinguisticComplexity_MatchesSumFormReference(string seq, int maxK, double expected)
