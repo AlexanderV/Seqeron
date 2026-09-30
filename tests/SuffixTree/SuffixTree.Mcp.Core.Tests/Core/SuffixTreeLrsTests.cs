@@ -14,6 +14,17 @@ public class SuffixTreeLrsTests
         Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLrs(null!));
     }
 
+    [TestCase("mississippi", "issi")]
+    [TestCase("abracadabra", "abra")]
+    [TestCase("ATATAT", "ATAT")]
+    public void SuffixTreeLrs_ClassicStrings_MatchBruteForce(string text, string expected)
+    {
+        // Unique maximal repeats (Python brute force over all substrings).
+        var result = SuffixTreeCoreTools.SuffixTreeLrs(text);
+        Assert.That(result.Substring, Is.EqualTo(expected));
+        Assert.That(result.Length, Is.EqualTo(expected.Length));
+    }
+
     [Test]
     public void SuffixTreeLrs_ReturnsExpectedForRepresentativeInputs()
     {

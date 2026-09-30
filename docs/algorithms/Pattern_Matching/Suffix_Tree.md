@@ -103,6 +103,9 @@ during construction. Its total depth is the LRS length.
 - In-memory: cached in private fields.
 - Persistent: deepest-node offset + LRS depth are stored in the v6 header (72/80), then cached;
   if metadata is unavailable, a fallback DFS is used once.
+- Ties (several distinct repeats of maximal length): the representative is unspecified and
+  implementation-specific (in-memory and persistent may return different, equally long repeats,
+  e.g. `baab` → `a` vs `b`); the length is always the maximum (brute-force verified, 2026-09 review).
 
 ### 4.5 LongestCommonSubstring — O(m + h) in-memory; O(m log d + h) persistent
 
@@ -115,17 +118,28 @@ best match length and positions throughout.
 Variants:
 - `LongestCommonSubstring(other)` → string only
 - `LongestCommonSubstringInfo(other)` → `(string, posInText, posInOther)`;
-  returns `("", -1, -1)` if none
-- `FindAllLongestCommonSubstrings(other)` → canonical LCS string + all positions in both strings
+  returns `("", -1, -1)` if none. Tie-break: the substring whose occurrence in `other` comes
+  first; `posInOther` is that first occurrence, `posInText` is *one* occurrence in the text
+  (any-leaf walk — not necessarily leftmost, may differ between in-memory and persistent).
+- `FindAllLongestCommonSubstrings(other)` → canonical LCS string (same tie-break) + all its
+  positions in both strings, each list ascending and duplicate-free. Other substrings of the
+  same maximal length are **not** reported.
 
 ### 4.6 FindExactMatchAnchors — O(m + a·h), worst case O(n·m)
 
 Uses `SuffixTreeAlgorithms.FindExactMatchAnchors<TNode>`:
 
-Same suffix-link streaming as LCS, but with **peak tracking**. Emits
-right-maximal matches when the match length drops below a minimum after
-being above it. Produces non-overlapping anchors suitable for alignment
-chaining (MUMmer/LAGAN-style MEMs).
+Same suffix-link streaming as LCS (matching statistics `ms(i)`), but with **peak
+tracking**: for every maximal run of query end positions with `ms(i) ≥ minLength`, one
+anchor — the first peak of the run — is emitted when the run ends. Each anchor is a
+maximal exact match (MEM; Kurtz et al. 2004), with one arbitrary text occurrence.
+
+Declared differences from MUMmer (verified by brute force, 2026-09 review):
+- a **subset** of the MEMs ≥ `minLength` (one per run), not all MEMs and not MUMs
+  (no uniqueness test, Delcher et al. 1999);
+- anchors of adjacent runs can **overlap** in the query by < `minLength` characters:
+  text `aba`, query `ababa`, `minLength = 3` → `(0,0,3)`, `(0,2,3)` (ms = 1,2,3,2,3);
+- `minLength ≤ 0` returns an empty list.
 
 ### 4.7 Suffix Enumeration
 
@@ -387,6 +401,8 @@ three phases testing small strings (all substrings), large strings
 - Ukkonen, E. (1995). *On-line construction of suffix trees.* Algorithmica, 14(3), 249–260.
 - Gusfield, D. (1997). *Algorithms on Strings, Trees, and Sequences.* Cambridge University Press.
 - Delcher, A. et al. (1999). *Alignment of whole genomes.* Nucleic Acids Research (MUMmer — suffix tree anchor approach).
+- Kurtz, S. et al. (2004). *Versatile and open software for comparing large genomes.* Genome Biology 5:R12 (MUMmer 3 — MEMs).
+- Chang, W.I., Lawler, E.L. (1994). *Sublinear approximate string matching and biological applications.* Algorithmica 12:327–344 (matching statistics).
 - https://visualgo.net/en/suffixtree
 
 ---

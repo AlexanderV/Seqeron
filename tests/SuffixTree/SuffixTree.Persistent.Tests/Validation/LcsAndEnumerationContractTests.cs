@@ -66,11 +66,12 @@ public class LcsAndEnumerationContractTests
                 Assert.That(actualAll.Substring, Is.EqualTo(expectedAll.Substring), $"text=\"{text}\", other=\"{other}\": FindAll substring mismatch");
                 Assert.That(actualAll.Substring, Is.EqualTo(actualLcs), $"text=\"{text}\", other=\"{other}\": FindAll substring != LCS");
 
-                Assert.That(actualAll.PositionsInText.OrderBy(x => x).ToList(),
-                    Is.EqualTo(expectedAll.PositionsInText.OrderBy(x => x).ToList()),
+                // Both implementations report ascending, duplicate-free lists (identical, order included).
+                Assert.That(actualAll.PositionsInText, Is.EqualTo(expectedAll.PositionsInText),
                     $"text=\"{text}\", other=\"{other}\": PositionsInText mismatch");
-                Assert.That(actualAll.PositionsInOther.OrderBy(x => x).ToList(),
-                    Is.EqualTo(expectedAll.PositionsInOther.OrderBy(x => x).ToList()),
+                Assert.That(actualAll.PositionsInText, Is.Ordered.Ascending,
+                    $"text=\"{text}\", other=\"{other}\": PositionsInText not ascending");
+                Assert.That(actualAll.PositionsInOther, Is.EqualTo(expectedAll.PositionsInOther),
                     $"text=\"{text}\", other=\"{other}\": PositionsInOther mismatch");
 
                 if (actualInfo.Substring.Length == 0)

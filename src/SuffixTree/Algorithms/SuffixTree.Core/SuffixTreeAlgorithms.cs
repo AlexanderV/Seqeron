@@ -23,8 +23,16 @@ public static class SuffixTreeAlgorithms
 {
     /// <summary>
     /// Finds the longest common substring between the tree's text and <paramref name="other"/>
-    /// using O(n+m) suffix-link streaming traversal.
+    /// using O(n+m) suffix-link streaming traversal (matching statistics, Chang &amp; Lawler 1990;
+    /// Gusfield 1997 §7.4/§7.8).
     /// </summary>
+    /// <remarks>
+    /// Tie-break: when several distinct substrings share the maximal length, the one whose
+    /// occurrence in <paramref name="other"/> ends first (equivalently starts first) is returned,
+    /// and only its positions are reported. With <paramref name="firstOnly"/> the text position is
+    /// one occurrence reached by an arbitrary leaf walk (not necessarily the leftmost; it can differ
+    /// between tree implementations). Without it, both position lists are ascending and duplicate-free.
+    /// </remarks>
     public static (string Substring, List<int> PositionsInText, List<int> PositionsInOther)
         FindAllLcs<TNode, TNav>(ref TNav nav, string other, bool firstOnly)
         where TNav : struct, ISuffixTreeNavigator<TNode>
@@ -118,8 +126,10 @@ public static class SuffixTreeAlgorithms
 
         if (!firstOnly)
         {
-            DeduplicateInPlace(positionsInText);
-            DeduplicateInPlace(positionsInOther);
+            // Leaves arrive in child-storage order, which differs between tree implementations;
+            // report ascending, duplicate-free positions so every ISuffixTree returns the same lists.
+            SortAndDeduplicateInPlace(positionsInText);
+            SortAndDeduplicateInPlace(positionsInOther);
         }
 
         return (substring, positionsInText, positionsInOther);
@@ -129,6 +139,16 @@ public static class SuffixTreeAlgorithms
     /// Finds exact-match anchors between the tree's text and <paramref name="query"/>
     /// using O(n+m) suffix-link streaming with peak tracking.
     /// </summary>
+    /// <remarks>
+    /// Let ms(i) be the matching statistic at query end position i (length of the longest suffix of
+    /// query[0..i] occurring in the text). For every maximal run of consecutive i with
+    /// ms(i) ≥ <paramref name="minLength"/>, exactly one anchor is emitted: the first peak of ms in
+    /// the run. Each anchor is a maximal exact match (MEM: not extendable left or right for any text
+    /// occurrence), but the result is a subset of all MEMs ≥ minLength (one per run, one text
+    /// occurrence per anchor — arbitrary, implementation-specific), and anchors from adjacent runs
+    /// may overlap in the query by fewer than minLength characters (text "aba", query "ababa",
+    /// minLength 3 → (0,0,3), (0,2,3)). minLength ≤ 0 returns an empty list.
+    /// </remarks>
     public static IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)>
         FindExactMatchAnchors<TNode, TNav>(ref TNav nav, string query, int minLength)
         where TNav : struct, ISuffixTreeNavigator<TNode>
@@ -308,17 +328,15 @@ public static class SuffixTreeAlgorithms
         }
     }
 
-    private static void DeduplicateInPlace(List<int> values)
+    private static void SortAndDeduplicateInPlace(List<int> values)
     {
-        var seen = new HashSet<int>();
-        int write = 0;
-        for (int read = 0; read < values.Count; read++)
+        if (values.Count < 2) return;
+        values.Sort();
+        int write = 1;
+        for (int read = 1; read < values.Count; read++)
         {
-            int value = values[read];
-            if (!seen.Add(value))
-                continue;
-
-            values[write++] = value;
+            if (values[read] != values[write - 1])
+                values[write++] = values[read];
         }
 
         if (write < values.Count)

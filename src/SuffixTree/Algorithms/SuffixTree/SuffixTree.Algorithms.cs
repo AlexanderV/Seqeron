@@ -6,8 +6,12 @@ namespace SuffixTree;
 public partial class SuffixTree
 {
     /// <summary>
-    /// Finds the longest substring that appears at least twice in the text.
+    /// Finds the longest substring that appears at least twice in the text (occurrences may
+    /// overlap): the path label of the deepest internal node (Gusfield 1997, ch. 7).
     /// Result is cached — subsequent calls return the same instance with zero allocation.
+    /// On a length tie, which of the equally long repeats is returned is unspecified (the first
+    /// deepest node in child-storage order; it can differ from the persistent tree) — the length
+    /// is always the maximum.
     /// </summary>
     /// <returns>The longest repeated substring, or empty string if none exists.</returns>
     public string LongestRepeatedSubstring()
@@ -112,6 +116,9 @@ public partial class SuffixTree
     /// <summary>
     /// Finds the longest common substring with position information.
     /// If multiple substrings have the same maximum length, the first one found in 'other' is returned.
+    /// <c>PositionInOther</c> is the first occurrence of that substring in 'other';
+    /// <c>PositionInText</c> is one occurrence in the text (not necessarily the leftmost —
+    /// use <see cref="FindAllLongestCommonSubstrings"/> for all of them).
     /// </summary>
     /// <param name="other">The string to compare against.</param>
     /// <returns>
@@ -129,11 +136,14 @@ public partial class SuffixTree
 
     /// <summary>
     /// Finds all positions where the longest common substring occurs.
-    /// If multiple substrings have the same maximum length, all occurrences for all such candidates are returned.
+    /// If multiple substrings have the same maximum length, only the canonical one (the first found
+    /// in 'other', as returned by <see cref="LongestCommonSubstring(string)"/>) is reported, with all
+    /// of its occurrences in both strings.
     /// </summary>
     /// <param name="other">The string to compare against.</param>
     /// <returns>
-    /// A tuple containing: the substring, all positions in tree's text, all positions in other.
+    /// A tuple containing: the substring, all positions in tree's text, all positions in other
+    /// (both 0-based, ascending, duplicate-free).
     /// Returns (empty string, empty list, empty list) if no common substring exists.
     /// </returns>
     public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
@@ -152,18 +162,21 @@ public partial class SuffixTree
     /// Finds exact-match anchors between this tree's text and a query string
     /// using O(n + m) suffix-link-based streaming traversal.
     /// <para>
-    /// This method walks the query against the suffix tree using suffix links,
-    /// identical to the longest-common-substring algorithm, but emits all
-    /// right-maximal matches whose length meets or exceeds <paramref name="minLength"/>.
+    /// This method walks the query against the suffix tree using suffix links (matching
+    /// statistics), identical to the longest-common-substring algorithm.
     /// </para>
     /// <para>
-    /// A match is emitted when the running match length drops below the threshold
-    /// after being above it, capturing the peak (longest) match within each run.
-    /// This produces non-overlapping anchors suitable for anchor-based alignment.
+    /// An anchor is emitted when the running match length drops below the threshold after being
+    /// at or above it, capturing the first peak (longest) match within each run. Every anchor is a
+    /// maximal exact match (MEM, Kurtz et al. 2004), but only one per run is reported — this is a
+    /// subset of all MEMs ≥ <paramref name="minLength"/>, not the MUMmer MEM/MUM set — and the text
+    /// position is one arbitrary occurrence. Anchors of adjacent runs can overlap in the query by
+    /// fewer than <paramref name="minLength"/> characters (text "aba", query "ababa", minLength 3 →
+    /// (0,0,3) and (0,2,3)); chaining must handle overlaps.
     /// </para>
     /// </summary>
     /// <param name="query">The query string to find matches against. Cannot be null.</param>
-    /// <param name="minLength">Minimum match length to report (must be &gt; 0).</param>
+    /// <param name="minLength">Minimum match length to report; values ≤ 0 return an empty list.</param>
     /// <returns>
     /// List of (PositionInText, PositionInQuery, Length) tuples representing exact-match
     /// anchors, ordered by their position in the query.
