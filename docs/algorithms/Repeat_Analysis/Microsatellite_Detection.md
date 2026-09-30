@@ -6,11 +6,11 @@
 | Test Unit ID | REP-STR-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-09-29 |
+| Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
-Microsatellite detection identifies short tandem repeats (STRs, also called microsatellites or simple sequence repeats) whose motif length is between 1 and 6 nucleotides [1][3][4]. The repository implements exact consecutive-repeat detection in `RepeatFinder.FindMicrosatellites` (the default), classifies each hit by repeat-unit length, and exposes overloads for `DnaSequence`, raw strings, and cancellation-aware execution. The implementation also removes redundant compound motifs such as `ATAT` when they are just repetitions of a smaller motif, and it suppresses results fully contained inside already reported repeat intervals. An **opt-in approximate detector**, `RepeatFinder.FindApproximateTandemRepeats`, additionally finds **imperfect / interrupted** tandem repeats (those containing substitutions or indels) using the Tandem Repeats Finder alignment model [6]: a candidate pattern of each period is aligned against tandem copies of itself, the consensus is taken by majority rule, and the resulting alignment yields the period size, copy number, percent matches, percent indels, consensus pattern, and alignment score. The default perfect-repeat detector is unchanged. Microsatellite biology matters clinically, forensically, and evolutionarily because repeat expansions drive many genetic disorders and STR polymorphism underpins DNA profiling [1][2][3].
+Microsatellite detection identifies short tandem repeats (STRs, also called microsatellites or simple sequence repeats) whose motif length is between 1 and 6 nucleotides [1][3][4]. The repository implements exact consecutive-repeat detection in `RepeatFinder.FindMicrosatellites` (the default), classifies each hit by repeat-unit length, and exposes overloads for `DnaSequence`, raw strings, and cancellation-aware execution. The implementation also removes redundant compound motifs such as `ATAT` when they are just repetitions of a smaller motif, and it suppresses results fully contained inside already reported repeat intervals. An **opt-in approximate detector**, `RepeatFinder.FindApproximateTandemRepeats`, additionally finds **imperfect / interrupted** tandem repeats (those containing substitutions or indels) using the Tandem Repeats Finder (TRF) model [6][7]: k-tuple matches at a common distance that pass Benson's sum-of-heads criterion trigger a wraparound-dynamic-programming (WDP) alignment of the sequence against tandem copies of the candidate pattern, the consensus is taken by majority rule, the sequence is realigned against it, and the TRF table (indices, period, copy number, consensus size, % matches and % indels between adjacent copies, score, composition, entropy) is reported (review 2026-09, REP-APPROX-001: identical to compiled TRF 4.10.0 on every analysed candidate with pattern ≤ 20). The default perfect-repeat detector is unchanged. Microsatellite biology matters clinically, forensically, and evolutionarily because repeat expansions drive many genetic disorders and STR polymorphism underpins DNA profiling [1][2][3].
 
 ## 2. Scientific / Formal Basis
 
@@ -39,7 +39,7 @@ $$
 
 The implementation searches candidate motif lengths from `minUnitLength` through `maxUnitLength`, skips motifs that are themselves repetitions of a smaller motif, counts consecutive copies, and emits a result when the count reaches `minRepeats`. Each result is classified into a `RepeatType` by motif length.
 
-**Approximate (TRF) model.** Benson (1999) defines a tandem repeat as "two or more contiguous, *approximate* copies of a pattern of nucleotides" and reports, for each repeat, the period size, the number of copies aligned with the consensus pattern, the consensus size, the percent of matches and percent of indels between adjacent copies overall, and an alignment score [6]. The alignment is scored Smith-Waterman style with weights for match, mismatch and indels; the recommended parameter set is match `+2`, mismatch `7`, indel (delta) `7` (applied as negatives), and only repeats scoring at least `Minscore = 50` are reported [6]. The consensus pattern is determined "by majority rule from the alignment" [6]. The opt-in detector reproduces these statistics by aligning the observed window against a whole number of tandem copies of the majority-rule consensus and reading the match / mismatch / indel columns of the resulting alignment.
+**Approximate (TRF) model.** Benson (1999) defines a tandem repeat as "two or more contiguous, *approximate* copies of a pattern of nucleotides" and reports, for each repeat, the period size, the number of copies aligned with the consensus pattern, the consensus size, the percent of matches and percent of indels between adjacent copies overall, and an alignment score [6]. The alignment is scored Smith-Waterman style with weights for match, mismatch and indels; the recommended parameter set is match `+2`, mismatch `7`, indel (delta) `7` (applied as negatives), and only repeats scoring at least `Minscore = 50` are reported [6]. The consensus pattern is determined "by majority rule from the alignment" [6]. The alignment is a *local* wraparound DP: the sequence (rows) is aligned against unlimited tandem copies of the pattern (columns wrap from the last pattern position to the first), each row computed in two passes; the score is the best local alignment score [6][7]. The statistics compare each copy with the next one *through* the consensus alignment ("between adjacent copies in the sequence, not between the sequence and the consensus pattern" [7]); the period is "the most common matching distance between corresponding characters in the alignment" and may differ from the consensus size [7].
 
 ### 2.4 Properties and Invariants
 
@@ -50,11 +50,12 @@ The implementation searches candidate motif lengths from `minUnitLength` through
 | INV-03 | `TotalLength = RepeatUnit.Length × RepeatCount`. | `MicrosatelliteResult.TotalLength` is constructed from those two fields. |
 | INV-04 | `RepeatType` matches the reported unit length. | `ClassifyRepeatType` maps unit lengths 1 through 6 to the corresponding repeat class. |
 | INV-05 | Per unit length, each maximal perfect run is reported exactly once, at its left end: `Position = 0` or `S[Position−1] ≠ S[Position−1+p]` (left-maximal), and `RepeatCount = ⌊runLength/p⌋` (right-maximal; a trailing partial copy is not counted). Rotations of the same run (e.g. `TA` inside `ATATATA`) are never reported. `RepeatUnit` is primitive and consists of A/C/G/T only. | The scan visits only left-maximal positions, extends the run while `S[x] = S[x−p]`, and skips to `e−p+1` (Kolpakov & Kucherov 1999 maximal repetitions [8]; MISA leftmost match [9]; pytrf/Krait run start [10]). |
-| INV-06 | Every approximate result has `AlignmentScore >= minScore`. | A candidate window is retained only when its TRF alignment score reaches the threshold [6]. |
-| INV-07 | For an approximate result, `0 <= PercentMatches <= 100` and `0 <= PercentIndels <= 100`, and a perfect tract yields `PercentMatches = 100`, `PercentIndels = 0`. | Each percentage is a column count divided by the total alignment-column count; a perfect alignment has only match columns. |
-| INV-08 | For an approximate result, `CopyNumber = (non-gap aligned bases) / Period` and `ConsensusSize = Period`. | Copy number is the aligned observed length over the period [6]; the majority-rule consensus is built with exactly `Period` columns. |
+| INV-06 | Every approximate result has `AlignmentScore >= minScore` and `CopyNumber >= 1.9` (`>= 1.8` for consensus > 100). | TRF report rules [6][7]. |
+| INV-07 | For an approximate result, `PercentMatches + PercentIndels <= 100` (both in [0,100]); a perfect tract yields 100 / 0. | Matches, mismatches and indels partition the adjacent-copy comparisons [7]. |
+| INV-08 | For an approximate result, `CopyNumber` = aligned consensus columns / `ConsensusSize`; `Period` = most common distance between matching characters of adjacent copies (may differ from `ConsensusSize`); `|Consensus| = ConsensusSize`. | TRF "Table Explanation" and "Consensus Pattern and Period Size" [7]. |
+| INV-08b | No two reported approximate repeats overlapping by ≥ 90 % of one of them are redundant (same period and no higher score, or a multiple period scoring ≤ 1.1×). Output ordered by `Start`. | TRF redundancy elimination [7]. |
 
-| INV-09 | (Bernoulli) For `ComputeBernoulliStatistics`, `MatchProbability ∈ [0,1]`, `IndelProbability ∈ [0,1]`, and `Matches + Mismatches + Indels = BernoulliTrials`; a perfect tract yields `MatchProbability = 1`, `IndelProbability = 0`. | Each Bernoulli trial is one alignment column between two adjacent copies, classified as exactly match / mismatch / indel [6]. |
+| INV-09 | (Bernoulli) For `ComputeBernoulliStatistics`, `MatchProbability ∈ [0,1]`, `IndelProbability ∈ [0,1]`, and `Matches + Mismatches + Indels = BernoulliTrials`; a perfect tract yields `MatchProbability = 1`, `IndelProbability = 0`; the values equal TRF's adjacent-copy counts for the tract. | Each Bernoulli trial is one adjacent-copy comparison of the TRF consensus alignment, classified as exactly match / mismatch / indel [6][7]. |
 | INV-10 | (Bernoulli) `ExpectedMatches = MatchProbability × BernoulliTrials` and `MeetsExpectedMatchProbability ⇔ MatchProbability ≥ expectedMatchProbability`. | `ExpectedMatches` is the Bernoulli mean E[heads] = PM·d; the flag is the direct comparison to the assessed PM [6]. |
 
 > A = perfect STR detection (`FindMicrosatellites`), B = approximate / imperfect tandem-repeat detection (`FindApproximateTandemRepeats`, TRF model [6]), C = TRF Bernoulli statistical measures (`ComputeBernoulliStatistics`, Benson 1999 [6]). Invariants INV-01..INV-05 govern A; INV-06..INV-08 govern B; INV-09..INV-10 govern C.
@@ -71,12 +72,12 @@ The implementation searches candidate motif lengths from `minUnitLength` through
 | `minRepeats` | `int` | `3` | Minimum number of consecutive copies to report. | Values below `2` throw `ArgumentOutOfRangeException`. |
 | `cancellationToken` | `CancellationToken` | optional | Cancellation support for long-running scans. | Used only by the cancellable overloads. |
 | `progress` | `IProgress<double>?` | optional | Progress callback for cancellable scans. | Receives values from `0.0` to `1.0` in the cancellable implementation. |
-| `minPeriod` | `int` | `1` | (approximate) Minimum period (motif) size to consider. | `FindApproximateTandemRepeats`; values below `1` throw `ArgumentOutOfRangeException`. |
-| `maxPeriod` | `int` | `6` | (approximate) Maximum period (motif) size to consider. | `FindApproximateTandemRepeats`; values below `minPeriod` throw `ArgumentOutOfRangeException`. |
-| `minScore` | `int` | `50` | (approximate) Minimum TRF alignment score to report. | `FindApproximateTandemRepeats`; default `DefaultApproximateMinScore = 50` per Benson (1999) [6]. |
+| `minPeriod` | `int` | `1` | (approximate) Minimum reported period; applied after redundancy elimination (never resurrects a redundant multiple). | `FindApproximateTandemRepeats`; values below `1` throw `ArgumentOutOfRangeException` (eager, both overloads). |
+| `maxPeriod` | `int` | `6` | (approximate) Maximum candidate distance and reported period (TRF `MaxPeriod`; TRF recommends 500). | Values below `minPeriod` or above `2000` (TRF 4.10.0 limit) throw `ArgumentOutOfRangeException`. |
+| `minScore` | `int` | `50` | (approximate) Minimum TRF alignment score to report. | Values below `1` throw `ArgumentOutOfRangeException`; default `DefaultApproximateMinScore = 50` per Benson (1999) [6]. |
 | `repeatTract` | `string` | required | (Bernoulli) Observed tandem-repeat tract (≥ 2 copies). | `ComputeBernoulliStatistics`; `null` throws `ArgumentNullException`; fewer than two copies throws `ArgumentException`. |
-| `period` | `int` | required | (Bernoulli) Repeat period (copy length). | `ComputeBernoulliStatistics`; values below `1` throw `ArgumentOutOfRangeException`. |
-| `expectedMatchProbability` | `double` | `0.80` | (Bernoulli) PM threshold the tract is assessed against. | `ComputeBernoulliStatistics`; values outside `[0,1]` throw `ArgumentOutOfRangeException`; default `TrfDefaultMatchProbability = 0.80` per Benson (1999) [6]. |
+| `period` | `int` | required | (Bernoulli) Candidate period; the last `period` bases are the initial pattern. | `ComputeBernoulliStatistics`; values outside `1..2000` throw `ArgumentOutOfRangeException`. |
+| `expectedMatchProbability` | `double` | `0.80` | (Bernoulli) PM threshold the tract is assessed against. | `ComputeBernoulliStatistics`; values outside `[0,1]` (or NaN) throw `ArgumentOutOfRangeException`; default `TrfDefaultMatchProbability = 0.80` per Benson (1999) [6]. |
 
 ### 3.2 Output / Return Value
 
@@ -92,24 +93,26 @@ The implementation searches candidate motif lengths from `minUnitLength` through
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `Start` | `int` | 0-based start position of the approximate repeat window. |
-| `SpanLength` | `int` | Number of observed (non-gap) bases spanned by the repeat. |
-| `Period` | `int` | Period (motif) size. |
-| `ConsensusSize` | `int` | Size of the consensus pattern (equals `Period` in this subset). |
-| `Consensus` | `string` | Majority-rule consensus motif [6]. |
-| `CopyNumber` | `double` | Copies aligned with the consensus = aligned bases / period [6]. |
-| `PercentMatches` | `double` | Percent of matches between adjacent copies overall (0–100) [6]. |
-| `PercentIndels` | `double` | Percent of indels between adjacent copies overall (0–100) [6]. |
-| `AlignmentScore` | `int` | TRF alignment score (sum of column weights) [6]. |
+| `Start` | `int` | 0-based start of the repeat (TRF prints 1-based: TRF start = `Start + 1`, TRF end = `Start + SpanLength`). |
+| `SpanLength` | `int` | Length of the repeat region (all sequence symbols between its first and last aligned base). |
+| `Period` | `int` | TRF period: most common distance between matching characters of adjacent copies [7]. |
+| `ConsensusSize` | `int` | Size of the consensus pattern (may differ from `Period`) [7]. |
+| `Consensus` | `string` | Majority-rule consensus, starting at the phase of the first repeat base [6][7]. |
+| `CopyNumber` | `double` | Copies aligned with the consensus = aligned consensus columns / `ConsensusSize` [7]. |
+| `PercentMatches` | `double` | Percent of matches between adjacent copies overall (exact; TRF truncates to an integer) [7]. |
+| `PercentIndels` | `double` | Percent of indels between adjacent copies overall (exact) [7]. |
+| `AlignmentScore` | `int` | WDP local alignment score against the consensus [6]. |
+| `PercentA` / `PercentC` / `PercentG` / `PercentT` | `double` | Composition of the region (denominator = `SpanLength`, so N lowers all four) [7]. |
+| `Entropy` | `double` | Shannon entropy (bits, 0–2) of the region's A/C/G/T composition, via canonical `SequenceComplexity.CalculateShannonEntropy` [7]. |
 
 `ComputeBernoulliStatistics` returns `TandemRepeatBernoulliStatistics` (the TRF Bernoulli statistical measures, Benson 1999 [6]):
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `Period` | `int` | Repeat period (copy length). |
-| `AdjacentCopyPairs` | `int` | Number of adjacent copy pairs compared. |
-| `BernoulliTrials` | `int` | Total Bernoulli trials = total alignment columns over all adjacent pairs [6]. |
-| `Matches` / `Mismatches` / `Indels` | `int` | Column counts (heads = matches) over all adjacent-copy alignments. |
+| `AdjacentCopyPairs` | `int` | ⌈aligned copy number⌉ − 1 (0 when fewer than two copies align). |
+| `BernoulliTrials` | `int` | Adjacent-copy comparisons of the TRF consensus alignment [6][7]. |
+| `Matches` / `Mismatches` / `Indels` | `int` | Outcome counts (heads = matches) — equal to TRF's "Matches / Mismatches / Indels" statistics for the tract. |
 | `MatchProbability` | `double` | PM = P(Heads) = average percent identity between adjacent copies, as a fraction (0–1) [6]. |
 | `IndelProbability` | `double` | PI = average percentage of insertions/deletions between adjacent copies, as a fraction (0–1) [6]. |
 | `PercentMatches` / `PercentIndels` | `double` | PM / PI as percentages (0–100) [6]. |
@@ -131,13 +134,15 @@ All overloads validate `minUnitLength`, `maxUnitLength`, and `minRepeats`, rejec
 5. If `RepeatCount ≥ minRepeats` and the unit `S[i..i+p)` is primitive (not a power of a shorter word — MISA "reject false type motifs") and contains only A/C/G/T (MISA `[acgt]`, pytrf skips `N`), emit one `MicrosatelliteResult`.
 6. Continue at `e−p+1` (every position in `(i, e−p]` lies inside the same run). O(n) comparisons per unit length.
 
-For the approximate detector (`FindApproximateTandemRepeats`):
+For the approximate detector (`FindApproximateTandemRepeats`, TRF model [6][7]):
 
-1. For each period from `minPeriod` to `maxPeriod` and each start position, grow a tandem window one base at a time (at least two copies).
-2. Build the majority-rule consensus over the period-aligned columns of the window [6].
-3. Align the window against a whole number of tandem copies of the consensus using TRF scoring (match `+2`, mismatch `−7`, indel `−7`) [6].
-4. Read the alignment columns to compute matches, mismatches, indels → percent matches, percent indels, copy number, and alignment score.
-5. Keep the best-scoring window per (start, period) when its score reaches `minScore`; report best-score-first, suppressing windows contained in a higher-scoring accepted window.
+1. Scan positions `i` (1-based internally, as TRF) and distances `d = 1..maxPeriod`. A *k-tuple match* at distance `d` ends at `i` when the last `k` symbols equal those `d` earlier (A/C/G/T only); `k = 4 / 5 / 7` for `d ≤ 29 / 30..159 / ≥ 160` (Benson 1999 Table 1, PM = .80). Runs of adjacent tuple matches are kept in a window of the last `max(d, 20)` positions.
+2. **Sum-of-heads criterion:** the heads in the window must reach `max(k+1, ⌊μ − 1.65σ⌋)`, `μ, σ` = exact mean / s.d. of `R(d,k,PM)` (heads in runs ≥ k of a Bernoulli(0.80) sequence of length `d`) — reproduces TRF's `sumdata80` table for all `d ≤ 2000`. Positions already covered by an alignment at the same `d` are skipped.
+3. **WDP** with pattern `S[i−d+1..i]`: a backward local scan finds the leftmost row reaching the best score; a forward local alignment starting one pattern length earlier gives the optimum (zero cells beyond `i` / before `i − max(d,20)` are killed so the alignment stays contiguous with the candidate). Traceback preference: match/mismatch, then sequence-vs-gap, then pattern-vs-gap.
+4. Require ≥ 1.9 copies (ramp to 1.8 for 50–100, 1.8 above 100) and `d` among the **three best periods** of the aligned region (dinucleotide-distance histogram with its least-squares trend removed; period 1: ≥ 80 % one base).
+5. **Consensus** by majority rule (a position is deleted when gaps are at least as frequent; an insertion point receives its most frequent base when insertions occur in ≥ half the passes), then **realign** against the consensus (step 3) and re-apply the copy rule and `minScore`.
+6. **Statistics** from the final alignment: two cursors one consensus period apart compare each copy with the next (match / mismatch / indel), period = most common matching distance, composition and entropy over the region.
+7. Drop periods above `maxPeriod`, sort by start, apply TRF **redundancy elimination** (≥ 90 % overlap: same period with no higher score, or a multiple period with score ≤ 1.1×, is removed), drop periods below `minPeriod`, order by (start, end, period).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -148,14 +153,19 @@ Approximate-detector scoring constants (Tandem Repeats Finder recommended set "2
 | Match weight | `+2` | Benson (1999): match weight "+2 in all options" [6] |
 | Mismatch penalty | `−7` | Benson (1999): recommended Mismatch = 7 [6] |
 | Indel (delta) penalty | `−7` per gap column | Benson (1999): recommended Delta = 7; flat per-column indel [6] |
+| Non-ACGT symbols | never match (score −7 against anything) | TRF similarity matrix: only identical A/C/G/T score +2 ("avoid N matching itself") [7] |
 | `DefaultApproximateMinScore` | `50` | Benson (1999): "Only those repeats scoring at least 50 … are reported" [6] |
+| Tuple sizes | `4` (d ≤ 29), `5` (30–159), `7` (≥ 160) | Benson (1999) Table 1 / TRF 4.10.0 for PM = 80 [6][7] |
+| Min distance window | `20` | TRF `Min_Distance_Window` [7] |
+| Minimum copies | `1.9` (≤ 50), `1.9 − 0.002(d−50)` (50–100), `1.8` (> 100) | TRF 4.10.0 [7] |
+| `MaxApproximatePeriod` | `2000` | TRF README: MaxPeriod above 2000 is an error [7] |
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | Microsatellite detection (perfect) | `O(n × U × R)` | `O(k)` | `U` is the searched unit-length range, `R` is the average repeat count encountered while extending motifs, and `k` is the number of retained intervals/results. |
-| Approximate detection (TRF) | `O(n² × P × L²)` worst case | `O(L²)` | `P` is the period range and `L` the window length; each (start, period, window) does a Needleman-Wunsch alignment. Deterministic exhaustive scan; appropriate for short tracts, not whole-genome scale. |
+| Approximate detection (TRF) | `O(n × P + Σ_candidates (L + d) × d)` | `O(P² + L × c)` | `P = maxPeriod`; each candidate costs one WDP over its region `L` (extent-only pass, no matrix); only candidates passing the copy / best-period tests store an `L × c` traceback matrix (`c` = consensus size). Measured (Release, this container): 100 kb random, `maxPeriod` 500 → 0.34 s; 100 kb of mixed embedded repeats → 1.3 s (545 rows; TRF 549 rows); pathological 100 kb perfect `(CA)n` with `maxPeriod` 500 → 54 s (compiled TRF 74 s — every even `d` aligns the whole array in both). |
 
 ## 5. Implementation Notes
 
@@ -167,8 +177,9 @@ Approximate-detector scoring constants (Tandem Repeats Finder recommended set "2
 - `RepeatFinder.FindMicrosatellites(DnaSequence, int, int, int, CancellationToken, IProgress<double>?)`: Cancellable overload with progress reporting.
 - `RepeatFinder.FindMicrosatellites(string, int, int, int)`: Raw-string overload with uppercase normalization.
 - `RepeatFinder.FindMicrosatellites(string, int, int, int, CancellationToken, IProgress<double>?)`: Cancellable raw-string overload.
-- `RepeatFinder.FindApproximateTandemRepeats(DnaSequence | string, int minPeriod, int maxPeriod, int minScore)`: Opt-in approximate / imperfect / interrupted tandem-repeat detector (TRF model [6]); reuses [`SequenceAligner.GlobalAlign`](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs) for the underlying alignment.
-- `RepeatFinder.ComputeBernoulliStatistics(string repeatTract, int period, double expectedMatchProbability = 0.80)`: Opt-in TRF Bernoulli statistical-significance measures (Benson 1999 [6]) — PM (matching probability), PI (indel probability), and the Bernoulli-mean expected matches `PM·d`, estimated **between adjacent copies** (not against the consensus); flags whether the tract is at least as conserved as a random tandem repeat with the default PM = 0.80.
+- `RepeatFinder.FindApproximateTandemRepeats(DnaSequence | string, int minPeriod, int maxPeriod, int minScore)`: Opt-in approximate / imperfect / interrupted tandem-repeat detector (TRF model [6][7]); wraparound DP is its own algorithm (the library's pairwise aligners have no wraparound mode); entropy via canonical `SequenceComplexity.CalculateShannonEntropy`.
+- `RepeatFinder.ComputeBernoulliStatistics(string repeatTract, int period, double expectedMatchProbability = 0.80)`: TRF Bernoulli measures (Benson 1999 [6]) — PM, PI and `ExpectedMatches = PM × trials` (= matches), computed **between adjacent copies** through the same TRF WDP + consensus alignment of the tract; flags whether PM ≥ the assessed PM (default 0.80).
+- `RepeatFinder.TrfSumOfHeadsCriterion(int d)` (internal): Benson's sum-of-heads cut-off from the exact moments of `R(d,k,PM)`.
 
 ### 5.2 Current Behavior
 
@@ -184,7 +195,8 @@ Per unit length, each maximal perfect run is reported once at its left end with 
 - Classification of repeats into mono-, di-, tri-, tetra-, penta-, and hexanucleotide categories [1][3].
 - Consecutive-copy counting with explicit reporting of repeat unit, count, start position, and total length.
 
-- (Approximate, TRF [6]) Reported statistics — period size, copy number, consensus size, percent matches and percent indels between adjacent copies overall, alignment score — computed from an alignment of the sequence against tandem copies of the majority-rule consensus.
+- (Approximate, TRF [6][7]) Analysis component: WDP local alignment, majority consensus, realignment, TRF statistics (indices, period, copies, consensus size, adjacent-copy % matches / % indels, score, composition), minimum copy number, three-best-periods test, redundancy elimination. **Cross-check (2026-09):** on 2 483 TRF-detected candidates (instrumented TRF 4.10.0, same position and distance) the C# analysis is identical (indices, score, consensus size, copy number, adjacent-copy counts) for all 1 524 candidates with pattern ≤ 20 (TRF's full-WDP range) and for 827 / 959 larger ones (TRF aligns those in a narrow band).
+- (Approximate, TRF [6]) Detection: k-tuple trigger with Benson's tuple sizes and the sum-of-heads criterion (exact moments + normal approximation, = TRF table for all d ≤ 2000).
 - (Approximate, TRF [6]) Recommended scoring constants match `+2`, mismatch `−7`, indel `−7`, and the `Minscore = 50` report threshold.
 
 - (Bernoulli, TRF [6]) The probabilistic measures: "We model alignment of two tandem copies … by … independent Bernoulli trials"; PM = P(Heads) = "the average percent identity between the copies"; PI = "the average percentage of insertions and deletions between the copies"; statistics "between adjacent copies … not between the sequence and the consensus pattern"; Bernoulli mean expected matches `PM·d`; default `PM = .80`, `PI = .10`. Implemented as `ComputeBernoulliStatistics`.
@@ -193,13 +205,12 @@ Per unit length, each maximal perfect run is reported once at its left end with 
 
 - The default `FindMicrosatellites` uses exact motif matching only; **consequence:** interrupted, impure, or mismatch-tolerant microsatellites are split into separate perfect tracts (use the opt-in `FindApproximateTandemRepeats` for those).
 - Redundant-unit filtering and maximal-run reporting; **consequence:** each locus is reported once per primitive unit length (run-start phase), not once per rotation; compound / cross-size merging (MISA `interruptions`) is not performed.
-- (Approximate, TRF [6]) Candidate repeats are found by a **deterministic exhaustive (start, period) scan with alignment scoring**, in place of TRF's probabilistic k-tuple distance-list seeding; **consequence:** the reported statistics of a repeat are faithful to Benson (1999), but the candidate-discovery heuristic differs (the subset examines all windows up to `maxPeriod`, which limits practical sequence/period size rather than scaling to whole genomes).
-
-- (Bernoulli, TRF [6]) PM/PI are estimated **between adjacent copies** by segmenting the tract into period-length copies and aligning each adjacent pair; **consequence:** for substitution/perfect tracts the estimate is exact, while for indel-containing tracts the per-pair alignment frame is alignment-dependent (the qualitative Bernoulli partition still holds, but the exact PI is frame-sensitive).
+- (Approximate, TRF [6][7]) **Partial detection criteria:** TRF's apparent-size / waiting-time criterion (cut-offs estimated by simulation), the random-walk distance range `d ± ⌊2.3·√(PI·d)⌋` summation, the best-period list for `d > 250` and the narrow-band WDP for patterns > 20 are not reproduced (a line-by-line port is also excluded by licence: TRF is AGPL-3.0, this library MIT). **Consequence (measured on 700 random sequences with embedded imperfect repeats, N and substitutions/indels, TRF `2 7 7 80 10 50 500`):** embedded periods ≤ 20 — 1 069 / 1 154 TRF rows (92.6 %) reproduced exactly (indices, period, consensus size, score, consensus), 96.0 % at region level (same period ±1, ≥ 90 % mutual overlap), C# rows confirmed by TRF 96.3 %; embedded periods ≤ 100 — 80.5 % exact, 93.1 % region level, 97.3 % confirmed. On exactly reproduced rows the numeric fields (copies, % matches, % indels, composition, entropy) agree on 1 347 / 1 349 (two equal-score traceback ties reached from a different trigger position). The gap comes from TRF's banded alignment and range distances (large periods) and trigger-position-dependent consensus choice. **Users should rely on:** compiled TRF [7] when bit-identical TRF output is required.
+- (Approximate) `Entropy` uses the canonical ACGT-normalised Shannon entropy; TRF divides the four counts by the region length including N, so for regions containing N the TRF value is lower (TRF's is not a normalised entropy).
 
 **Not implemented:**
 
-- TRF's probabilistic k-tuple **seeding** — the sum-of-heads percentile cut-off `R(d,k,pM)` ("the largest x such that 95% of the time R(d,k,pM) ≥ x") and the random-walk band `W(d,pI)` — which drive whole-genome-scale candidate discovery. The per-repeat Bernoulli statistical measures (PM, PI, expected matches) ARE now computed by `ComputeBernoulliStatistics`; the residual is the **genome-scale-performance** seeding index (the deterministic exhaustive scan is not a seeded genome-scale index), whose 95% percentile cut-offs come from TRF's non-redistributable simulation tables; **users should rely on:** the reference Tandem Repeats Finder tool [6][7] for genome-scale seeded detection.
+- TRF's apparent-size criterion, random-walk distance ranges, best-period list and narrow-band WDP (see "Intentionally simplified"); TRF's alignment / flanking HTML outputs and masked-sequence file.
 - PCR-stutter modeling and locus-specific forensic interpretation; **users should rely on:** dedicated forensic STR pipelines.
 
 ### 5.4 Deviations and Assumptions
@@ -207,8 +218,8 @@ Per unit length, each maximal perfect run is reported once at its left end with 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | No global non-overlap rule across unit lengths; same-period runs may overlap by < p. | Deviation | Overlapping loci of different unit lengths are all reported (MISA per-size convention); rotations of one run are never reported (fixed 2026-09). | accepted | The legacy doc described non-overlap broadly, but the source suppresses only contained intervals. |
-| 2 | Approximate detector uses exhaustive (start, period) scanning, not TRF k-tuple seeding. | Assumption | Candidate discovery is deterministic but O(n²·P·L²); not whole-genome scale. Reported statistics are unaffected. | accepted | Honest residual; see §5.3 "Not implemented" and Evidence ASSUMPTION 1. Use the TRF tool [7] at genome scale. |
-| 3 | Percent matches / percent indels use total alignment columns as the denominator. | Assumption | Reproduces Benson (1999) worked statistics; the source names the statistics but gives no verbatim percentage formula. | accepted | See Evidence ASSUMPTION 2. |
+| 2 | Approximate detector implements TRF's k-tuple + sum-of-heads trigger but not the apparent-size, range-distance, best-period-list criteria or the narrow band. | Deviation | Reported loci can differ from TRF (measured agreement in §5.3, REP-APPROX-001 Evidence); the analysis of a candidate is TRF-identical for patterns ≤ 20. | accepted (review 2026-09) | Replaces the former exhaustive O(n²·P·L²) window scan. |
+| 3 | Percentages are exact (TRF truncates to integers); `Start` 0-based (TRF 1-based); output ordered by start (TRF: discovery order). | Convention | None numerically. | accepted | REP-APPROX-001 Evidence. |
 
 ## 6. Edge Cases and Limitations
 
@@ -227,13 +238,16 @@ Per unit length, each maximal perfect run is reported once at its left end with 
 | Run of `N` / non-ACGT unit (string overload) | Not reported. | MISA `[acgt]` motifs; pytrf skips `N`. |
 | Cancellable overloads with invalid bounds | Throw `ArgumentOutOfRangeException` eagerly (all four overloads). | Shared validation (the DnaSequence cancellable overload previously skipped it; `minUnitLength = 0` never terminated). |
 | Approximate: empty / too-short sequence | Returns empty enumerable. | No window of two copies exists. |
-| Approximate: perfect tract | `PercentMatches = 100`, `PercentIndels = 0`, exact period/copy number. | A perfect alignment has only match columns. |
+| Approximate: perfect tract | `PercentMatches = 100`, `PercentIndels = 0`, exact period/copy number (TRF README test_seqs tables reproduced). | A perfect alignment has only match columns. |
 | Approximate: tract scoring below `minScore` | Not reported. | Benson (1999) report threshold [6]. |
-| Approximate: `minPeriod < 1` or `maxPeriod < minPeriod` | Throws `ArgumentOutOfRangeException`. | Explicit parameter validation. |
+| Approximate: short interrupted tract without a k-run (`CACACATACACA`) | Not reported (TRF reports nothing). | Sum-of-heads criterion 5 not met [6]. |
+| Approximate: all-N / N inside a repeat | All-N: nothing; N inside: a mismatch. | TRF similarity matrix [7]. |
+| Approximate: lowercase input | Same result as uppercase. | TRF uppercases input [7]. |
+| Approximate: `minPeriod < 1`, `maxPeriod < minPeriod`, `maxPeriod > 2000`, `minScore < 1` | Throws `ArgumentOutOfRangeException` eagerly (both overloads, also for empty input). | Explicit parameter validation; TRF limits [7]. |
 
 ### 6.2 Limitations
 
-The default detector detects only exact consecutive repeats and does not model interruptions, motif degeneracy, or sequencing noise; the opt-in `FindApproximateTandemRepeats` closes that gap for substitutions and indels but uses an exhaustive period scan that is not whole-genome scale and does not compute TRF's statistical significance. Both are limited to motif/period lengths within the configured range, which defaults to the biological microsatellite window of 1-6 bp. Default output is also canonicalized by redundant-unit filtering and contained-interval suppression, so it is not a complete enumeration of every equivalent motif interpretation.
+The default detector detects only exact consecutive repeats and does not model interruptions, motif degeneracy, or sequencing noise; the opt-in `FindApproximateTandemRepeats` closes that gap for substitutions and indels with the TRF model (partial detection criteria, see §5.3). Both are limited to motif/period lengths within the configured range, which defaults to the biological microsatellite window of 1-6 bp. Default output is also canonicalized by redundant-unit filtering and contained-interval suppression, so it is not a complete enumeration of every equivalent motif interpretation.
 
 ## 7. Examples and Related Material
 
@@ -253,7 +267,8 @@ Additional common uses include forensic DNA profiling, where tetra- and pentanuc
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [RepeatFinder_Microsatellite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_Microsatellite_Tests.cs)
-- Approximate-detector tests: [RepeatFinder_ApproximateTandemRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs) — covers `INV-06`, `INV-07`, `INV-08`
+- Approximate-detector tests: [RepeatFinder_ApproximateTandemRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs) — TRF-locked rows; covers `INV-06`..`INV-09`
+- Approximate-detector evidence: [REP-APPROX-001-Evidence.md](../../Evidence/REP-APPROX-001-Evidence.md); test spec [REP-APPROX-001.md](../../../tests/TestSpecs/REP-APPROX-001.md)
 - Test spec: [REP-STR-001.md](../../../tests/TestSpecs/REP-STR-001.md)
 - Related property tests: [RepeatFinderProperties.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Properties/RepeatFinderProperties.cs)
 - Related metamorphic tests: [MetamorphicTests.cs](../../../tests/SuffixTree/SuffixTree.Tests/Algorithms/MetamorphicTests.cs)
@@ -266,7 +281,7 @@ Additional common uses include forensic DNA profiling, where tetra- and pentanuc
 4. Tóth G, Gáspári Z, Jurka J. 2000. Microsatellites in different eukaryotic genomes: survey and analysis. Genome Research. 10(7):967-981.
 5. Brinkmann B, Klintschar M, Neuhuber F, Hühne J, Rolf B. 1998. Mutation rate in human microsatellites. American Journal of Human Genetics.
 6. Benson G. 1999. Tandem repeats finder: a program to analyze DNA sequences. Nucleic Acids Research. 27(2):573-580. https://doi.org/10.1093/nar/27.2.573
-7. Benson G. Tandem Repeats Finder — reference implementation and documentation. https://github.com/Benson-Genomics-Lab/TRF and https://tandem.bu.edu/trf/trf.definitions.html
+7. Benson G, Hernandez Y, Gelfand Y, Rodriguez A. Tandem Repeats Finder 4.10.0 — README ("TRF Definitions", "How does Tandem Repeats Finder work?") and source (`tr30dat.c`, `trfclean.h`; AGPL-3.0). https://github.com/Benson-Genomics-Lab/TRF (commit 355c1f9, 2020-06-29)
 8. Kolpakov R, Kucherov G. 1999. Finding maximal repetitions in a word in linear time. Proc. 40th IEEE FOCS, 596-604. https://doi.org/10.1109/SFFCS.1999.814634
 9. Thiel T, Michalek W, Varshney RK, Graner A. 2003. Exploiting EST databases for the development and characterization of gene-derived SSR-markers in barley. Theor Appl Genet 106:411-422 (MISA; source `misa.pl` v1.0, mirror https://raw.githubusercontent.com/cfljam/SSR_marker_design/master/misa.pl).
 10. Du L, Zhang C, Liu Q, Zhang X, Yue B. 2018. Krait: an ultrafast tool for genome-wide survey of microsatellites and primer design. Bioinformatics 34(4):681-683 (pytrf 1.5.0, PyPI, `src/str.c`).

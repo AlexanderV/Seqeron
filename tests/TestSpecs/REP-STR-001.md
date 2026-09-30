@@ -243,6 +243,13 @@ None — all behavior verified against external sources.
 
 ## 9. Approximate / Imperfect Tandem-Repeat Detection (TRF model — opt-in)
 
+> **Superseded 2026-09-30 (REP-APPROX-001, batch B04):** §9–§10 describe the 2026-06 exhaustive-window
+> implementation. The detector now follows the compiled TRF 4.10.0 model (wraparound DP, adjacent-copy
+> statistics, k-tuple + sum-of-heads detection); expected values in §9/§10 (e.g. A2 94.4̄ %, A3 reported,
+> all-N reported) are no longer valid. Authoritative spec: `tests/TestSpecs/REP-APPROX-001.md`; evidence:
+> `docs/Evidence/REP-APPROX-001-Evidence.md`.
+
+
 **Method under test:** `RepeatFinder.FindApproximateTandemRepeats(DnaSequence | string, int minPeriod, int maxPeriod, int minScore)`.
 
 ### 9.1 Evidence

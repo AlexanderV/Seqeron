@@ -608,7 +608,7 @@ public class RepeatFinderProperties
     // FindApproximateTandemRepeats — TRF-style imperfect tandem-repeat detection (Benson 1999). Every
     // reported repeat passes the minimum alignment-score gate (default 50) and has a match percentage in [0,100].
 
-    // Length-bounded planted tandem repeat (the TRF scan is super-linear, so cap the generated size).
+    // Length-bounded planted tandem repeat.
     private static Arbitrary<string> BoundedSeededRepeatArbitrary() =>
         (from prefixLen in Gen.Choose(0, 10)
          from suffixLen in Gen.Choose(0, 10)
@@ -632,6 +632,37 @@ public class RepeatFinderProperties
             var results = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 6, minScore).ToList();
             return results.All(r => r.PercentMatches is >= 0.0 and <= 100.0 + 1e-9 && r.AlignmentScore >= minScore)
                 .Label($"a repeat had PercentMatches/score out of contract (results={results.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV (TRF redundancy, README "Redundancy"): after elimination no pair of reported repeats overlapping by
+    /// ≥ 90 % of one of them is redundant — i.e. has the same period with no higher score, or a period that is
+    /// a multiple of the other's with score ≤ 1.1×; results are ordered by start.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproximateRepeats_NoRedundantPairRemains_AndOrderedByStart()
+    {
+        static bool Redundant(ApproximateTandemRepeatResult x, ApproximateTandemRepeatResult y) =>
+            (x.Period > y.Period && y.Period > 0 && x.Period % y.Period == 0 && x.AlignmentScore <= 1.1 * y.AlignmentScore) ||
+            (x.Period == y.Period && x.AlignmentScore <= y.AlignmentScore);
+
+        return Prop.ForAll(BoundedSeededRepeatArbitrary(), seq =>
+        {
+            var results = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 30, 20).ToList();
+            bool ordered = results.Zip(results.Skip(1)).All(p => p.First.Start <= p.Second.Start);
+            bool clean = true;
+            for (int i = 0; i < results.Count; i++)
+                for (int j = i + 1; j < results.Count; j++)
+                {
+                    var a = results[i];
+                    var b = results[j];
+                    int overlap = Math.Min(a.Start + a.SpanLength, b.Start + b.SpanLength) - Math.Max(a.Start, b.Start);
+                    if (overlap <= 0) continue;
+                    if ((overlap >= 0.9 * a.SpanLength && Redundant(a, b)) || (overlap >= 0.9 * b.SpanLength && Redundant(b, a)))
+                        clean = false;
+                }
+            return (ordered && clean).Label("no TRF-redundant pair may remain and output is ordered by start");
         });
     }
 

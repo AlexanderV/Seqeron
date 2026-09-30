@@ -1,5 +1,7 @@
 # Evidence Artifact: REP-STR-001
 
+> **2026-09-30:** the approximate-detector (TRF) parts of this artifact are superseded by `docs/Evidence/REP-APPROX-001-Evidence.md` (TRF 4.10.0 compiled and used as the oracle; % matches / % indels are between adjacent copies, not vs the consensus).
+
 **Test Unit ID:** REP-STR-001
 **Algorithm:** Microsatellite / Short Tandem Repeat (STR) detection — perfect (default) and approximate / imperfect / interrupted (opt-in, Tandem Repeats Finder model)
 **Date Collected:** 2026-06-24

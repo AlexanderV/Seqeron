@@ -348,6 +348,15 @@ public class RepeatsCombinatorialTests
             .OrderByDescending(r => r.AlignmentScore)
             .ToList();
 
+        if (period == 2 && copies == 5 && imperfect)
+        {
+            // CACACGCACA: the longest run of matches at distance 2 is 3 (< tuple size 4), so TRF's k-tuple
+            // detection never examines it — compiled TRF 4.10.0 (2 7 7 80 10 8 6) reports nothing. All other
+            // 17 cells equal the TRF rows (REP-APPROX-001 Evidence).
+            found.Should().BeEmpty("TRF detection needs a k-tuple (k = 4) match run at the candidate distance");
+            return;
+        }
+
         found.Should().NotBeEmpty($"a period-{period} tandem array is detected at its own period");
         var top = found[0];
         top.CopyNumber.Should().BeApproximately(copies, 1.0, "copy number = span / period (within one copy)");

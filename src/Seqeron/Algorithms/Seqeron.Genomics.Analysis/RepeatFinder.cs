@@ -1,5 +1,3 @@
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
@@ -253,25 +251,50 @@ public static class RepeatFinder
 
     #region Approximate (Imperfect/Interrupted) Tandem Repeat Detection — TRF model
 
-    // --- Tandem Repeats Finder (Benson 1999) reported alignment-scoring parameters -------------------
+    // --- Tandem Repeats Finder (TRF; Benson 1999) ----------------------------------------------------
     // Benson G (1999) "Tandem repeats finder: a program to analyze DNA sequences", Nucleic Acids Res
-    // 27(2):573-580, https://doi.org/10.1093/nar/27.2.573. The TRF README/usage (Benson-Genomics-Lab/TRF)
-    // states the recommended parameter set "2 7 7 80 10 50 500" = Match Mismatch Delta PM PI Minscore
-    // MaxPeriod, and: "The recomended values for Match Mismatch and Delta are 2, 7, and 7 respectively."
-    // The TRF definitions page gives Match weight "+2 in all options here. Mismatch and indel weights
-    // (interpreted as negative numbers) are either 3, 5, or 7." Score is a Smith-Waterman style alignment
-    // score (sum of column weights) computed by wraparound dynamic programming; a tandem repeat is
-    // reported when its score is at least Minscore (Benson 1999: "Only those repeats scoring at least 50
-    // with these parameters are reported").
+    // 27(2):573-580, https://doi.org/10.1093/nar/27.2.573; TRF 4.10.0 README (github.com/
+    // Benson-Genomics-Lab/TRF: parameters, "TRF Definitions", "How does Tandem Repeats Finder work?").
+    //
+    // TRF has a DETECTION component (k-tuple matches at a common distance d, tested against statistical
+    // criteria) and an ANALYSIS component (wraparound dynamic programming (WDP) of the sequence against
+    // tandem copies of a candidate pattern, majority-rule consensus, realignment against the consensus,
+    // statistics "between adjacent copies"). This region implements:
+    //   * the ANALYSIS component in full (reported score / indices / period / copy number / consensus /
+    //     %matches / %indels / composition identical to compiled TRF 4.10.0 on 1524/1524 analysed
+    //     candidates with pattern <= 20 bp, the range where TRF itself runs the full WDP (SMALLDISTANCE);
+    //     for larger patterns TRF restricts WDP to a narrow diagonal band — a speed heuristic — whereas
+    //     this code keeps the full (optimal) WDP: 827/959 identical);
+    //   * the DETECTION component's k-tuple trigger with Benson's tuple sizes (Table 1 / README: k = 4 for
+    //     d <= 29, 5 for 30..159, 7 for >= 160 at PM = .80) and the sum-of-heads criterion R(d,k,PM),
+    //     derived here from the exact mean/variance of R (normal approximation, 95% one-sided, floor
+    //     k+1) — this reproduces TRF's own sumdata80 table for all d = 1..2000;
+    //   * the three-best-periods ("multiples") test, the minimum copy-number rule, per-distance
+    //     "already aligned" suppression, and TRF's redundancy elimination / MaxPeriod filter.
+    // NOT implemented (declared residual, see FindApproximateTandemRepeats remarks): the apparent-size
+    // (waiting-time) criterion, whose cut-offs TRF estimates by simulation; the random-walk distance
+    // range d +/- floor(2.3*sqrt(PI*d)) summation; the narrow-band WDP for patterns > 20; and TRF's
+    // best-period list for d > 250. A line-by-line port of TRF is also excluded by licence: TRF is
+    // AGPL-3.0, this library is MIT.
 
-    /// <summary>Match weight per aligned identical column. Benson (1999) recommended Match = +2.</summary>
+    /// <summary>TRF match weight: "Match ... The recomended values for Match Mismatch and Delta are 2, 7, and 7" (TRF README).</summary>
     private const int TrfMatchWeight = 2;
 
-    /// <summary>Mismatch penalty per substituted column. Benson (1999) recommended Mismatch = 7 (applied negatively).</summary>
-    private const int TrfMismatchPenalty = -7;
+    /// <summary>TRF mismatch weight −7 (TRF README; weights are "interpreted as negative numbers").</summary>
+    private const int TrfMismatchWeight = -7;
 
-    /// <summary>Indel (gap) penalty per gap column. Benson (1999) recommended Delta = 7 (applied negatively); TRF uses a flat per-column indel weight.</summary>
-    private const int TrfIndelPenalty = -7;
+    /// <summary>TRF indel weight (Delta) −7 per gap column (TRF README).</summary>
+    private const int TrfIndelWeight = -7;
+
+    /// <summary>Marks a dead WDP cell (TRF: a zero cell beyond the candidate is set to −1000 so that the
+    /// local alignment cannot restart there).</summary>
+    private const int TrfDeadCell = -1000;
+
+    /// <summary>
+    /// TRF Min_Distance_Window = 20: the smallest tandem-repeat span the detector wants to see; the k-tuple
+    /// distance window and the backward WDP scan both extend at least this far (TRF 4.10.0 source, tr30dat.h).
+    /// </summary>
+    private const int TrfMinDistanceWindow = 20;
 
     /// <summary>
     /// Default minimum alignment score to report a tandem repeat. Benson (1999): "Only those repeats
@@ -280,31 +303,45 @@ public static class RepeatFinder
     public const int DefaultApproximateMinScore = 50;
 
     /// <summary>
-    /// TRF flat-indel scoring matrix: Match +2, Mismatch -7, indel -7 per gap column (Benson 1999,
-    /// recommended set "2 7 7"). The library aligner charges <see cref="ScoringMatrix.GapExtend"/> per
-    /// gap column with no separate open cost, which matches TRF's flat indel weight.
+    /// Largest supported period. TRF README (4.10.0): "TRF will throw an error if a value of over 2000 is
+    /// given for MaxPeriod ... very large TRs are outside the scope of the TRF statistical models."
     /// </summary>
-    private static readonly ScoringMatrix TrfScoring = new(
-        Match: TrfMatchWeight,
-        Mismatch: TrfMismatchPenalty,
-        GapOpen: TrfIndelPenalty,
-        GapExtend: TrfIndelPenalty);
+    public const int MaxApproximatePeriod = 2000;
 
     /// <summary>
-    /// Finds approximate (imperfect / interrupted) tandem repeats using the Tandem Repeats Finder
-    /// alignment model (Benson 1999). Unlike <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/>
-    /// — which detects only PERFECT (exact) tandem tracts — this opt-in detector tolerates substitutions
-    /// and indels within the repeat: a candidate pattern of each period is aligned against tandem copies
-    /// of itself across the sequence, the consensus pattern is determined by majority rule, and the
-    /// resulting alignment yields the reported statistics (period size, copy number, percent matches,
-    /// percent indels, consensus, alignment score). A repeat is reported when its alignment score is at
-    /// least <paramref name="minScore"/>.
+    /// Finds approximate (imperfect / interrupted) tandem repeats with the Tandem Repeats Finder model
+    /// (Benson 1999; recommended parameters Match 2, Mismatch 7, Delta 7, PM 80, PI 10).
     /// </summary>
+    /// <remarks>
+    /// <para><b>Analysis (TRF-exact).</b> For every candidate (position i, distance d) the sequence is aligned
+    /// by wraparound dynamic programming (local alignment against unlimited tandem copies of the pattern
+    /// S[i−d+1..i]); a consensus is taken by majority rule from that alignment and the sequence is realigned
+    /// against the consensus. Reported values follow the TRF table: indices, period = most common distance
+    /// between matching characters of adjacent copies, copy number = aligned consensus columns / consensus
+    /// size, consensus size, % matches and % indels "between adjacent copies overall" (not between the
+    /// sequence and the consensus), alignment score, nucleotide composition and entropy. A repeat needs at
+    /// least 1.9 copies (1.8 for large patterns) and score ≥ <paramref name="minScore"/>. Scoring: +2 for
+    /// an identical A/C/G/T pair, −7 for any other pair (N and other symbols never match), −7 per gap.</para>
+    /// <para><b>Detection (TRF criteria, partial).</b> A candidate is examined when a k-tuple match at distance d
+    /// ends at i and the heads counted in k-runs over the last max(d, 20) positions reach the sum-of-heads
+    /// cut-off; d must be among the three best periods of the aligned region (period 1 needs ≥ 80 % of one
+    /// base); overlapping reports are reduced with TRF's redundancy rule (≥ 90 % overlap, same period or a
+    /// multiple scoring ≤ 1.1×). TRF's simulated apparent-size criterion, random-walk distance ranges,
+    /// narrow-band alignment for patterns &gt; 20 and best-period list are not reproduced, so the set of
+    /// reported loci can differ from TRF (measured on random sequences with embedded repeats: 92.6 % of TRF
+    /// rows identical and 96 % found at region level for periods ≤ 20; 80.5 % / 93 % for periods ≤ 100 —
+    /// docs/Evidence/REP-APPROX-001-Evidence.md).</para>
+    /// <para>Complexity: O(n · maxPeriod) for the k-tuple scan plus one wraparound DP over the aligned region per
+    /// examined candidate (O(region · pattern) time, O(pattern) memory unless the candidate passes the copy and
+    /// best-period tests, which store the traceback matrix).</para>
+    /// <para>Coordinates are 0-based (<c>Start</c>; TRF prints 1-based indices). Percentages are exact
+    /// (TRF truncates them to integers). Output is ordered by start, then end, then period.</para>
+    /// </remarks>
     /// <param name="sequence">DNA sequence to search.</param>
-    /// <param name="minPeriod">Minimum period (motif) size to consider (default: 1).</param>
-    /// <param name="maxPeriod">Maximum period (motif) size to consider (default: 6).</param>
-    /// <param name="minScore">Minimum TRF alignment score to report (default: <see cref="DefaultApproximateMinScore"/> = 50, per Benson 1999).</param>
-    /// <returns>Non-overlapping approximate tandem repeats, best alignment score first.</returns>
+    /// <param name="minPeriod">Minimum reported period (≥ 1; default 1).</param>
+    /// <param name="maxPeriod">Maximum candidate distance and reported period (minPeriod..2000; default 6).</param>
+    /// <param name="minScore">Minimum TRF alignment score to report (≥ 1; default 50, Benson 1999).</param>
+    /// <returns>Approximate tandem repeats ordered by start position.</returns>
     public static IEnumerable<ApproximateTandemRepeatResult> FindApproximateTandemRepeats(
         DnaSequence sequence,
         int minPeriod = 1,
@@ -312,13 +349,14 @@ public static class RepeatFinder
         int minScore = DefaultApproximateMinScore)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        ValidateApproximateParameters(minPeriod, maxPeriod, minScore);
         return FindApproximateTandemRepeatsCore(sequence.Sequence, minPeriod, maxPeriod, minScore);
     }
 
     /// <summary>
-    /// Finds approximate (imperfect / interrupted) tandem repeats in a raw sequence string using the
-    /// Tandem Repeats Finder alignment model (Benson 1999). See
-    /// <see cref="FindApproximateTandemRepeats(DnaSequence,int,int,int)"/>.
+    /// Finds approximate (imperfect / interrupted) tandem repeats in a raw sequence string with the Tandem
+    /// Repeats Finder model; case-insensitive, any non-A/C/G/T symbol never matches. See
+    /// <see cref="FindApproximateTandemRepeats(DnaSequence,int,int,int)"/>. Null or empty input yields no repeats.
     /// </summary>
     public static IEnumerable<ApproximateTandemRepeatResult> FindApproximateTandemRepeats(
         string sequence,
@@ -326,263 +364,936 @@ public static class RepeatFinder
         int maxPeriod = 6,
         int minScore = DefaultApproximateMinScore)
     {
+        ValidateApproximateParameters(minPeriod, maxPeriod, minScore);
         if (string.IsNullOrEmpty(sequence))
-            return Enumerable.Empty<ApproximateTandemRepeatResult>();
+            return Array.Empty<ApproximateTandemRepeatResult>();
 
         return FindApproximateTandemRepeatsCore(sequence.ToUpperInvariant(), minPeriod, maxPeriod, minScore);
     }
 
+    private static void ValidateApproximateParameters(int minPeriod, int maxPeriod, int minScore)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minPeriod, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxPeriod, minPeriod);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxPeriod, MaxApproximatePeriod);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minScore, 1);
+    }
+
+    /// <summary>One column of a TRF alignment: sequence symbol (or '-'), pattern symbol (or '-'), 1-based
+    /// sequence index, 0-based pattern index (for an inserted sequence symbol: the next pattern position).</summary>
+    private readonly record struct TrfColumn(char Seq, char Pat, int SeqIndex, int PatIndex);
+
+    /// <summary>A traced WDP alignment; <see cref="Columns"/> run from the RIGHTMOST column to the leftmost.</summary>
+    private sealed record TrfAlignment(int Score, double CopyNumber, TrfColumn[] Columns)
+    {
+        public int First => Columns[^1].SeqIndex;
+        public int Last => Columns[0].SeqIndex;
+    }
+
+    /// <summary>Extent of a WDP alignment without traceback (same optimum and same path as the traceback).</summary>
+    private readonly record struct TrfExtent(int Score, int First, int Last, double CopyNumber);
+
+    private static int TrfWeight(char a, char b) =>
+        a == b && AcgtCode(a) >= 0 ? TrfMatchWeight : TrfMismatchWeight;
+
+    /// <summary>TRF k-tuple size for distance d at PM = .80 (Benson 1999 Table 1; TRF 4.10.0: 4 / 5 / 7).</summary>
+    private static int TrfTupleSize(int d)
+    {
+        if (d <= 29)
+            return 4;
+        return d <= 159 ? 5 : 7;
+    }
+
+    private static readonly int[] SumOfHeadsCache = new int[MaxApproximatePeriod + 1];
+
+    /// <summary>
+    /// Sum-of-heads criterion for distance d (Benson 1999): R(d,k,PM) = total heads in head runs of length ≥ k
+    /// in an iid Bernoulli(PM) sequence of length d; "the distribution of R is well approximated by the normal
+    /// distribution and its exact mean and variance can be calculated"; the criterion is the largest x such
+    /// that R ≥ x 95 % of the time. Mean and variance are computed exactly by a run-length Markov chain; the
+    /// cut-off is ⌊μ − 1.65σ⌋, never below k + 1 ("the smallest pattern for tuple size k [has] a sum-of-heads
+    /// criterion of at least k+1"). Reproduces TRF 4.10.0's PM = 80 table for every d = 1..2000.
+    /// </summary>
+    internal static int TrfSumOfHeadsCriterion(int d)
+    {
+        int cached = Volatile.Read(ref SumOfHeadsCache[d]);
+        if (cached != 0)
+            return cached;
+
+        int k = TrfTupleSize(d);
+        const double pm = TrfDefaultMatchProbability;
+        // State r = current head-run length (0..k-1) or k = inside a run already counted.
+        var p = new double[k + 1];
+        var m1 = new double[k + 1];
+        var m2 = new double[k + 1];
+        var np = new double[k + 1];
+        var n1 = new double[k + 1];
+        var n2 = new double[k + 1];
+        p[0] = 1.0;
+        for (int step = 0; step < d; step++)
+        {
+            Array.Clear(np);
+            Array.Clear(n1);
+            Array.Clear(n2);
+            for (int r = 0; r <= k; r++)
+            {
+                if (p[r] == 0.0)
+                    continue;
+                // tails: run resets, nothing added
+                np[0] += p[r] * (1 - pm);
+                n1[0] += m1[r] * (1 - pm);
+                n2[0] += m2[r] * (1 - pm);
+                // heads: the k-th head of a run adds k, every later head adds 1
+                int next = r < k ? r + 1 : k;
+                int add = 1;
+                if (r < k - 1)
+                    add = 0;
+                else if (r == k - 1)
+                    add = k;
+                np[next] += p[r] * pm;
+                n1[next] += (m1[r] + add * p[r]) * pm;
+                n2[next] += (m2[r] + 2.0 * add * m1[r] + (double)add * add * p[r]) * pm;
+            }
+            (p, np) = (np, p);
+            (m1, n1) = (n1, m1);
+            (m2, n2) = (n2, m2);
+        }
+
+        double mean = m1.Sum();
+        double sd = Math.Sqrt(Math.Max(0.0, m2.Sum() - mean * mean));
+        int criterion = Math.Max(k + 1, (int)(mean - 1.65 * sd));
+        Volatile.Write(ref SumOfHeadsCache[d], criterion);
+        return criterion;
+    }
+
     private static IReadOnlyList<ApproximateTandemRepeatResult> FindApproximateTandemRepeatsCore(
-        string seq,
+        string sequence,
         int minPeriod,
         int maxPeriod,
         int minScore)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(minPeriod, 1);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxPeriod, minPeriod);
+        int n = sequence.Length;
+        var s = new char[n + 1]; // 1-based, as in TRF
+        sequence.CopyTo(0, s, 1, n);
 
-        var candidates = new List<ApproximateTandemRepeatResult>();
-        if (string.IsNullOrEmpty(seq))
-            return candidates;
+        var found = new List<ApproximateTandemRepeatResult>();
+        var runLength = new int[maxPeriod + 1];
+        var seenEnd = new int[maxPeriod + 1];
+        var windows = new TupleMatchWindow?[maxPeriod + 1];
+        var bestPeriods = new Dictionary<(int First, int Last), int[]>();
 
-        // For every starting position and every period, grow a window of tandem copies and score it
-        // against the majority-rule consensus by alignment. This is a deterministic, exhaustive
-        // substitute for TRF's probabilistic k-tuple seeding (the honest residual).
-        for (int period = minPeriod; period <= maxPeriod; period++)
+        for (int i = 2; i <= n; i++)
         {
-            // A repeat needs at least two contiguous copies (Benson 1999: "two or more contiguous,
-            // approximate copies of a pattern").
-            const int MinCopiesForRepeat = 2;
-            for (int start = 0; start + period * MinCopiesForRepeat <= seq.Length; start++)
+            bool acgt = AcgtCode(s[i]) >= 0;
+            int dMax = Math.Min(maxPeriod, i - 1);
+            for (int d = 1; d <= dMax; d++)
             {
-                var best = EvaluateApproximateRepeat(seq, start, period, minScore);
-                if (best is not null)
-                    candidates.Add(best.Value);
+                if (!acgt || s[i] != s[i - d])
+                {
+                    runLength[d] = 0;
+                    continue;
+                }
+
+                int k = TrfTupleSize(d);
+                if (++runLength[d] < k)
+                    continue;
+
+                // A k-tuple match at distance d ends at i; record it in the distance window of the last
+                // max(d, 20) positions (adjacent tuple matches form one entry of growing size).
+                var window = windows[d] ??= new TupleMatchWindow(Math.Max(d, TrfMinDistanceWindow) + 1);
+                window.Add(i, k, i - Math.Max(d, TrfMinDistanceWindow) + 1);
+
+                if (seenEnd[d] >= i || window.Heads < TrfSumOfHeadsCriterion(d))
+                    continue;
+
+                var repeat = AnalyzeTrfCandidate(s, n, i, d, maxPeriod, minScore, seenEnd, bestPeriods);
+                if (repeat is not null)
+                    found.Add(repeat.Value);
             }
         }
 
-        // Report best (highest-scoring) repeats first, suppressing any whose span is contained in an
-        // already-accepted higher-scoring repeat.
-        var accepted = new List<ApproximateTandemRepeatResult>();
-        foreach (var c in candidates.OrderByDescending(r => r.AlignmentScore).ThenBy(r => r.Start).ThenBy(r => r.Period))
-        {
-            int cEnd = c.Start + c.SpanLength;
-            bool contained = accepted.Any(a => a.Start <= c.Start && a.Start + a.SpanLength >= cEnd);
-            if (!contained)
-                accepted.Add(c);
-        }
+        // TRF: drop periods above MaxPeriod, sort by start (stable), eliminate redundancy. The minimum
+        // period is a library option applied afterwards, so it never resurrects a redundant multiple.
+        var reported = RemoveTrfRedundancy(found.Where(r => r.Period <= maxPeriod).OrderBy(r => r.Start).ToList());
 
-        return accepted
-            .OrderByDescending(r => r.AlignmentScore)
-            .ThenBy(r => r.Start)
+        return reported
+            .Where(r => r.Period >= minPeriod)
+            .OrderBy(r => r.Start)
+            .ThenBy(r => r.Start + r.SpanLength)
+            .ThenBy(r => r.Period)
             .ToList();
     }
 
     /// <summary>
-    /// Grows the tandem window from <paramref name="start"/> with the given <paramref name="period"/>,
-    /// determines the consensus by majority rule, aligns the window against tandem copies of the
-    /// consensus with TRF scoring, and returns the repeat statistics if the alignment score reaches
-    /// <paramref name="minScore"/>. Returns the longest scoring window for this (start, period).
+    /// Sliding window of k-tuple matches at one distance d (TRF distance list): runs of adjacent tuple
+    /// matches, each stored as (end position, number of heads); runs whose end falls before the window's
+    /// left end are dropped. <see cref="Heads"/> is the sum of heads in k-runs inside the window.
     /// </summary>
-    private static ApproximateTandemRepeatResult? EvaluateApproximateRepeat(
-        string seq,
-        int start,
-        int period,
-        int minScore)
+    private sealed class TupleMatchWindow(int capacity)
     {
-        // Candidate pattern is the first copy at the window start (Benson 1999: "An initial candidate
-        // pattern P is drawn from the sequence").
-        ApproximateTandemRepeatResult? best = null;
+        private readonly int[] _end = new int[capacity];
+        private readonly int[] _size = new int[capacity];
+        private int _head;
+        private int _count;
 
-        // Extend the window one copy at a time; the window length need not be an exact multiple of the
-        // period (the trailing copy may be partial / contain indels), so we extend in single-base steps
-        // but only evaluate when at least two copies are spanned.
-        for (int spanLen = period * 2; start + spanLen <= seq.Length; spanLen++)
+        public int Heads { get; private set; }
+
+        public void Add(int position, int tupleSize, int windowLeft)
         {
-            string window = seq.Substring(start, spanLen);
-
-            // Consensus by majority rule over the period-aligned columns of the window.
-            string consensus = MajorityConsensus(window, period);
-
-            // Reference = a WHOLE number of tandem copies of the consensus pattern covering the window
-            // (TRF aligns the sequence against tandem copies of the pattern). The copy count is rounded
-            // up so the reference is at least as long as the window; tiling to a partial trailing copy
-            // would inject a spurious end-gap and understate the match percentage.
-            int copies = (spanLen + period - 1) / period;
-            string reference = TileTo(consensus, copies * period);
-
-            AlignmentResult alignment = SequenceAligner.GlobalAlign(window, reference, TrfScoring);
-            var stats = ComputeTrfStatistics(alignment, period, consensus);
-
-            if (stats.AlignmentScore >= minScore &&
-                (best is null || stats.AlignmentScore > best.Value.AlignmentScore))
+            while (_count > 0 && _end[_head] < windowLeft)
             {
-                best = stats with { Start = start, SpanLength = spanLen };
+                Heads -= _size[_head];
+                _head = (_head + 1) % _end.Length;
+                _count--;
             }
+
+            int tail = (_head + _count - 1 + _end.Length) % _end.Length;
+            if (_count > 0 && _end[tail] == position - 1)
+            {
+                _end[tail] = position;
+                _size[tail]++;
+                Heads++;
+                return;
+            }
+
+            tail = (_head + _count) % _end.Length;
+            _end[tail] = position;
+            _size[tail] = tupleSize;
+            _count++;
+            Heads += tupleSize;
+        }
+    }
+
+    /// <summary>
+    /// TRF analysis of one candidate (position <paramref name="i"/>, distance <paramref name="d"/>): align the
+    /// candidate pattern S[i−d+1..i], apply the copy-number and three-best-periods tests, build the consensus,
+    /// realign against it and report the statistics. Updates <paramref name="seenEnd"/>[d] with the end of each
+    /// alignment so that later matches at d inside the aligned region are not re-analysed (TRF).
+    /// </summary>
+    private static ApproximateTandemRepeatResult? AnalyzeTrfCandidate(
+        char[] s, int n, int i, int d, int maxPeriod, int minScore, int[] seenEnd,
+        Dictionary<(int First, int Last), int[]> bestPeriods)
+    {
+        var pattern = new char[d];
+        Array.Copy(s, i - d + 1, pattern, 0, d);
+
+        // Extent-only pass first: the multiples test needs only the aligned region, so the traceback
+        // matrix is built only for candidates that pass both tests (identical path either way).
+        var extent = TrfWraparoundExtent(s, n, i, pattern);
+        if (extent is null)
+            return null;
+        MarkAligned(seenEnd, d, extent.Value.Last);
+        if (!MeetsTrfCopyNumber(extent.Value.CopyNumber, d, d) ||
+            !IsAmongTrfBestPeriods(s, extent.Value.First, extent.Value.Last, d, maxPeriod, bestPeriods))
+            return null;
+
+        var first = TrfWraparoundAlign(s, n, i, pattern);
+        if (first is null)
+            return null;
+        char[] consensus = TrfConsensus(first.Columns, d);
+        if (consensus.Length == 0)
+            return null;
+
+        var final = TrfWraparoundAlign(s, n, i, consensus);
+        if (final is null)
+            return null;
+        MarkAligned(seenEnd, d, final.Last);
+        // TRF quirk kept: the 50 < size <= 100 ramp uses the candidate distance d.
+        if (!MeetsTrfCopyNumber(final.CopyNumber, consensus.Length, d) || final.Score < minScore)
+            return null;
+
+        return TrfStatistics(s, final, consensus);
+    }
+
+    /// <summary>Records that sequence positions up to <paramref name="last"/> were aligned at distance d.</summary>
+    private static void MarkAligned(int[] seenEnd, int d, int last) => seenEnd[d] = last;
+
+    /// <summary>
+    /// TRF minimum copy number: ≥ 1.9 copies for patterns ≤ 50, ramping from 1.9 down to 1.8 for 50..100,
+    /// ≥ 1.8 above 100 (TRF 4.10.0; Benson 1999: "If at least two copies of the pattern are aligned with the
+    /// sequence, the tandem repeat is reported").
+    /// </summary>
+    private static bool MeetsTrfCopyNumber(double copies, int size, int d)
+    {
+        if (size <= 50)
+            return copies >= 1.9;
+        if (size <= 100)
+            return copies >= 1.9 - 0.002 * (d - 50);
+        return copies >= 1.8;
+    }
+
+    /// <summary>Result of a WDP fill: best score, its cell, and (extent mode) the traced path's start and
+    /// consumed pattern columns.</summary>
+    private readonly record struct TrfFill(int Score, int RealRow, int Row, int Col, int First, int Consumed);
+
+    /// <summary>
+    /// Runs the TRF wraparound DP for <paramref name="pattern"/> around candidate end <paramref name="start"/>:
+    /// a backward local scan locates the leftmost row reaching the best score, then a forward local alignment
+    /// starting one pattern length before it yields the optimum (first strictly greatest cell, row-major).
+    /// Each row is computed in two passes because the horizontal dependency wraps from the last pattern column
+    /// to the first; zero cells beyond the candidate are killed so the alignment cannot restart there.
+    /// With <paramref name="rows"/> the final forward rows are stored for traceback; without, every cell carries
+    /// the start row and consumed pattern columns of the path the traceback would follow (same predecessor
+    /// preference — diagonal, then vertical, then horizontal — on the final values), so the extent is known
+    /// without the O(rows × pattern) matrix.
+    /// </summary>
+    private static TrfFill TrfWraparoundFill(char[] s, int n, int start, char[] pattern, List<int[]>? rows)
+    {
+        int size = pattern.Length;
+        var weights = TrfWeightRows(pattern);
+        var up = new int[size];
+        var diag = new int[size];
+        var cur = new int[size];
+
+        // Backward scan (sequence read right-to-left from the candidate end, pattern read in reverse).
+        Array.Fill(up, TrfIndelWeight);
+        int maxScore = 0;
+        int minRow = start;
+        int killBelow = start - Math.Max(size, TrfMinDistanceWindow);
+        int realRow = start + 1;
+        bool endOfTrace = false;
+        while (!endOfTrace && realRow > 1)
+        {
+            realRow--;
+            int[] w = weights[TrfSymbolClass(s[realRow])];
+            int left = TrfIndelWeight;
+            for (int c = size - 1; c >= 0; c--)
+            {
+                diag[c] += w[c];
+                left = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left)) + TrfIndelWeight;
+            }
+
+            endOfTrace = true;
+            for (int c = size - 1; c >= 0; c--)
+            {
+                int v = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left));
+                left = up[c] = v + TrfIndelWeight;
+                if (realRow <= killBelow && v == 0)
+                {
+                    v = TrfDeadCell;
+                    left = up[c] = TrfDeadCell;
+                }
+                else
+                {
+                    endOfTrace = false;
+                }
+
+                cur[c] = v;
+                if (v >= maxScore)
+                {
+                    maxScore = v;
+                    minRow = realRow;
+                }
+            }
+
+            for (int c = 0; c < size - 1; c++)
+                diag[c] = cur[c + 1];
+            diag[size - 1] = cur[0];
+        }
+
+        // Forward local alignment from one pattern length before the leftmost best row.
+        Array.Fill(up, TrfIndelWeight);
+        Array.Clear(diag);
+        bool trackExtent = rows is null;
+        var prev = new int[size];
+        var prevFirst = trackExtent ? new int[size] : [];
+        var prevCols = trackExtent ? new int[size] : [];
+        var curFirst = trackExtent ? new int[size] : [];
+        var curCols = trackExtent ? new int[size] : [];
+        var pending = trackExtent ? new bool[size] : [];
+        rows?.Add(new int[size]);
+
+        realRow = Math.Max(minRow - size - 1, 0);
+        int row = 0;
+        maxScore = 0;
+        int bestReal = -1, bestRow = -1, bestCol = -1, bestFirst = 0, bestConsumed = 0;
+        endOfTrace = false;
+        while (!endOfTrace && realRow < n)
+        {
+            row++;
+            realRow++;
+            int[] w = weights[TrfSymbolClass(s[realRow])];
+            int[] values = rows is null ? cur : new int[size];
+            int left = TrfIndelWeight;
+            for (int c = 0; c < size; c++)
+            {
+                diag[c] += w[c];
+                left = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left)) + TrfIndelWeight;
+            }
+
+            endOfTrace = true;
+            int rowMax = 0, rowMaxCol = -1;
+            for (int c = 0; c < size; c++)
+            {
+                int v = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left));
+                left = up[c] = v + TrfIndelWeight;
+                if (realRow > start && v == 0)
+                {
+                    v = TrfDeadCell;
+                    left = up[c] = TrfDeadCell;
+                }
+                else
+                {
+                    endOfTrace = false;
+                }
+
+                values[c] = v;
+                if (v > maxScore && v > rowMax)
+                {
+                    rowMax = v;
+                    rowMaxCol = c;
+                }
+            }
+
+            if (trackExtent)
+                TrackExtent(values, prev, w, realRow, prevFirst, prevCols, curFirst, curCols, pending);
+
+            if (rowMaxCol >= 0)
+            {
+                maxScore = rowMax;
+                bestReal = realRow;
+                bestRow = row;
+                bestCol = rowMaxCol;
+                if (trackExtent)
+                {
+                    bestFirst = curFirst[rowMaxCol];
+                    bestConsumed = curCols[rowMaxCol];
+                }
+            }
+
+            for (int c = size - 1; c > 0; c--)
+                diag[c] = values[c - 1];
+            diag[0] = values[size - 1];
+
+            if (rows is null)
+            {
+                Array.Copy(values, prev, size);
+                Array.Copy(curFirst, prevFirst, size);
+                Array.Copy(curCols, prevCols, size);
+            }
+            else
+            {
+                rows.Add(values);
+            }
+        }
+
+        return new TrfFill(maxScore, bestReal, bestRow, bestCol, bestFirst, bestConsumed);
+    }
+
+    /// <summary>Per-row extent bookkeeping for <see cref="TrfWraparoundFill"/> (start row and consumed pattern
+    /// columns inherited along the traceback's preferred predecessor).</summary>
+    private static void TrackExtent(
+        int[] values, int[] prev, int[] w, int realRow,
+        int[] prevFirst, int[] prevCols, int[] curFirst, int[] curCols, bool[] pending)
+    {
+        int size = values.Length;
+        for (int c = 0; c < size; c++)
+        {
+            pending[c] = false;
+            int v = values[c];
+            if (v <= 0)
+                continue;
+            int jp = c == 0 ? size - 1 : c - 1;
+            if (v == prev[jp] + w[c])
+            {
+                bool starts = prev[jp] <= 0;
+                curFirst[c] = starts ? realRow : prevFirst[jp];
+                curCols[c] = (starts ? 0 : prevCols[jp]) + 1;
+            }
+            else if (v == prev[c] + TrfIndelWeight)
+            {
+                curFirst[c] = prevFirst[c];
+                curCols[c] = prevCols[c];
+            }
+            else
+            {
+                pending[c] = true; // horizontal move: inherits from its left neighbour in this row
+            }
+        }
+
+        // Horizontal chains may wrap from the last pattern column to the first: two sweeps resolve them.
+        for (int sweep = 0; sweep < 2; sweep++)
+        {
+            for (int c = 0; c < size; c++)
+            {
+                int jp = c == 0 ? size - 1 : c - 1;
+                if (pending[c] && !pending[jp] && values[jp] > 0)
+                {
+                    curFirst[c] = curFirst[jp];
+                    curCols[c] = curCols[jp] + 1;
+                    pending[c] = false;
+                }
+            }
+        }
+    }
+
+    /// <summary>Weight of each pattern column against A, C, G, T and any other symbol (TRF: +2 for an
+    /// identical A/C/G/T pair, −7 otherwise; N never matches).</summary>
+    private static int[][] TrfWeightRows(char[] pattern)
+    {
+        var weights = new int[5][];
+        for (int symbol = 0; symbol < 5; symbol++)
+        {
+            weights[symbol] = new int[pattern.Length];
+            for (int c = 0; c < pattern.Length; c++)
+                weights[symbol][c] = symbol < 4 && TrfSymbolClass(pattern[c]) == symbol ? TrfMatchWeight : TrfMismatchWeight;
+        }
+        return weights;
+    }
+
+    /// <summary>A/C/G/T → 0..3, any other symbol → 4 (never matches).</summary>
+    private static int TrfSymbolClass(char c)
+    {
+        int code = AcgtCode(c);
+        return code < 0 ? 4 : code;
+    }
+
+    /// <summary>WDP optimum and its extent (first/last sequence index, copy number) without traceback.</summary>
+    private static TrfExtent? TrfWraparoundExtent(char[] s, int n, int start, char[] pattern)
+    {
+        var fill = TrfWraparoundFill(s, n, start, pattern, rows: null);
+        if (fill.Score <= 0)
+            return null;
+        return new TrfExtent(fill.Score, fill.First, fill.RealRow, TrfCopyNumber(fill.Consumed, pattern.Length));
+    }
+
+    /// <summary>TRF copy number: full passes through the pattern plus the final partial pass, i.e. aligned
+    /// pattern columns / pattern size (summed as TRF does, integer part then fraction).</summary>
+    private static double TrfCopyNumber(int consumedColumns, int size) =>
+        consumedColumns / size + (double)(consumedColumns % size) / size;
+
+    /// <summary>
+    /// Runs the TRF wraparound DP and traces the optimal local alignment back from its best cell
+    /// (predecessor preference: match/mismatch, then a sequence symbol against a gap, then a pattern symbol
+    /// against a gap). Columns are returned rightmost first.
+    /// </summary>
+    private static TrfAlignment? TrfWraparoundAlign(char[] s, int n, int start, char[] pattern)
+    {
+        int size = pattern.Length;
+        var rows = new List<int[]>();
+        var fill = TrfWraparoundFill(s, n, start, pattern, rows);
+        if (fill.Score <= 0)
+            return null;
+
+        var columns = new List<TrfColumn>();
+        int i = fill.RealRow, r = fill.Row, j = fill.Col, consumed = 0;
+        while (rows[r][j] > 0)
+        {
+            int v = rows[r][j];
+            int jp = j == 0 ? size - 1 : j - 1;
+            if (v == rows[r - 1][jp] + TrfWeight(s[i], pattern[j]))
+            {
+                columns.Add(new TrfColumn(s[i], pattern[j], i, j));
+                consumed++;
+                i--;
+                r--;
+                j = jp;
+            }
+            else if (v == rows[r - 1][j] + TrfIndelWeight)
+            {
+                columns.Add(new TrfColumn(s[i], '-', i, (j + 1) % size));
+                i--;
+                r--;
+            }
+            else if (v == rows[r][jp] + TrfIndelWeight)
+            {
+                columns.Add(new TrfColumn('-', pattern[j], i + 1, j));
+                consumed++;
+                j = jp;
+            }
+            else
+            {
+                throw new InvalidOperationException("Wraparound DP traceback is inconsistent.");
+            }
+        }
+
+        return new TrfAlignment(fill.Score, TrfCopyNumber(consumed, size), columns.ToArray());
+    }
+
+    /// <summary>
+    /// Majority-rule consensus from an alignment against a pattern of <paramref name="patternLength"/>
+    /// (Benson 1999: "we determine a consensus pattern by majority rule from the alignment of the copies with
+    /// P"). Slot 2c+1 is pattern position c, slot 2c the insertion point before it. A position takes the most
+    /// frequent aligned symbol, or is deleted when gaps are at least as frequent (ties: gap, A, C, G, T); an
+    /// insertion point receives its most frequent inserted base when insertions occur there in at least half
+    /// of the passes. Follows the TRF 4.10.0 (non-weighted) consensus rule.
+    /// </summary>
+    private static char[] TrfConsensus(TrfColumn[] columns, int patternLength)
+    {
+        int slots = 2 * patternLength + 1;
+        var counts = new int[5, slots]; // A C G T gap
+        var inserts = new int[slots];
+        var passes = new int[slots];
+
+        int last = -1;
+        int k = 0;
+        while (k < columns.Length)
+        {
+            int index = columns[k].PatIndex;
+            if (index != last)
+            {
+                int symbol = ConsensusSymbol(columns[k].Seq);
+                if (symbol >= 0)
+                    counts[symbol, 2 * index + 1]++;
+                if (last != -1)
+                    passes[index == patternLength - 1 ? 0 : 2 * index + 2]++;
+                last = index;
+                k++;
+            }
+            else
+            {
+                inserts[2 * index]++;
+                while (k < columns.Length && columns[k].PatIndex == last)
+                {
+                    int symbol = ConsensusSymbol(columns[k].Seq);
+                    if (symbol >= 0)
+                        counts[symbol, 2 * index]++;
+                    k++;
+                }
+            }
+        }
+
+        const string Bases = "ACGT";
+        var consensus = new List<char>(patternLength + 4);
+        for (int slot = 0; slot < slots; slot++)
+        {
+            if (slot % 2 == 1)
+            {
+                int best = counts[4, slot];
+                char chosen = '-';
+                for (int b = 0; b < 4; b++)
+                {
+                    if (counts[b, slot] > best)
+                    {
+                        best = counts[b, slot];
+                        chosen = Bases[b];
+                    }
+                }
+                if (chosen != '-')
+                    consensus.Add(chosen);
+            }
+            else if (passes[slot] != 0 && (float)inserts[slot] / passes[slot] >= 0.5f)
+            {
+                int best = counts[0, slot];
+                char chosen = 'A';
+                for (int b = 1; b < 4; b++)
+                {
+                    if (counts[b, slot] > best)
+                    {
+                        best = counts[b, slot];
+                        chosen = Bases[b];
+                    }
+                }
+                consensus.Add(chosen);
+            }
+        }
+
+        return consensus.ToArray();
+    }
+
+    /// <summary>Consensus count slot: A/C/G/T → 0..3, gap → 4, other symbols are not counted (−1).</summary>
+    private static int ConsensusSymbol(char c) => c == '-' ? 4 : AcgtCode(c);
+
+    /// <summary>Match / mismatch / indel counts between adjacent copies and the TRF period (most common
+    /// distance between matching characters).</summary>
+    private readonly record struct TrfCopyComparison(int Matches, int Mismatches, int Indels, int Period);
+
+    /// <summary>
+    /// Compares ADJACENT copies through the consensus alignment (TRF: statistics refer to "the matches,
+    /// mismatches and indels overall between adjacent copies in the sequence, not between the sequence and the
+    /// consensus pattern"): two cursors one consensus period apart walk the alignment; aligned symbols of the
+    /// two copies are a match or a mismatch, a symbol against a gap is an indel. The period is "the most
+    /// common matching distance between corresponding characters in the alignment" (ties: smallest).
+    /// </summary>
+    private static TrfCopyComparison CompareAdjacentCopies(TrfColumn[] columns)
+    {
+        int length = columns.Length;
+        int lp = 0;
+        while (lp < length && columns[lp].Pat == '-')
+            lp++;
+        int rp = lp + 1;
+        while (rp < length && columns[rp].PatIndex != columns[lp].PatIndex)
+            rp++;
+        while (rp < length && columns[rp].Pat == '-')
+            rp++;
+        if (rp >= length)
+            return new TrfCopyComparison(0, 0, 0, 0);
+
+        int matches = 0, mismatches = 0, indels = 0;
+        var distances = new Dictionary<int, int>();
+        void Match(int a, int b)
+        {
+            matches++;
+            int distance = Math.Abs(columns[b].SeqIndex - columns[a].SeqIndex);
+            distances[distance] = distances.GetValueOrDefault(distance) + 1;
+        }
+
+        while (rp < length && lp < rp)
+        {
+            bool leftGapPat = columns[lp].Pat == '-';
+            bool rightGapPat = columns[rp].Pat == '-';
+            if (!leftGapPat && !rightGapPat)
+            {
+                bool leftGapSeq = columns[lp].Seq == '-';
+                bool rightGapSeq = columns[rp].Seq == '-';
+                if (!leftGapSeq && !rightGapSeq)
+                {
+                    if (columns[lp].Seq == columns[rp].Seq) Match(lp, rp);
+                    else mismatches++;
+                }
+                else if (leftGapSeq != rightGapSeq)
+                {
+                    indels++;
+                }
+                lp++;
+                rp++;
+            }
+            else if (leftGapPat && rightGapPat)
+            {
+                if (columns[lp].Seq == columns[rp].Seq) Match(lp, rp);
+                else mismatches++;
+                lp++;
+                rp++;
+            }
+            else if (leftGapPat)
+            {
+                indels++;
+                lp++;
+            }
+            else
+            {
+                indels++;
+                rp++;
+            }
+        }
+
+        int period = 0, bestCount = 0;
+        foreach (var (distance, count) in distances.OrderBy(kv => kv.Key))
+        {
+            if (count > bestCount)
+            {
+                bestCount = count;
+                period = distance;
+            }
+        }
+
+        return new TrfCopyComparison(matches, mismatches, indels, period);
+    }
+
+    /// <summary>Builds the reported TRF statistics from the final (consensus) alignment.</summary>
+    private static ApproximateTandemRepeatResult TrfStatistics(char[] s, TrfAlignment alignment, char[] consensus)
+    {
+        var copies = CompareAdjacentCopies(alignment.Columns);
+        int trials = copies.Matches + copies.Mismatches + copies.Indels;
+
+        int first = alignment.First, last = alignment.Last, span = last - first + 1;
+        var region = new string(s, first, span);
+        int a = 0, c = 0, g = 0, t = 0;
+        foreach (char ch in region)
+        {
+            switch (ch)
+            {
+                case 'A': a++; break;
+                case 'C': c++; break;
+                case 'G': g++; break;
+                case 'T': t++; break;
+            }
+        }
+
+        // TRF prints the consensus starting at the pattern position aligned with the first repeat base.
+        int phase = alignment.Columns[^1].PatIndex;
+        string rotated = new string(consensus, phase, consensus.Length - phase) + new string(consensus, 0, phase);
+
+        return new ApproximateTandemRepeatResult(
+            Start: first - 1,
+            SpanLength: span,
+            Period: copies.Period,
+            ConsensusSize: consensus.Length,
+            Consensus: rotated,
+            CopyNumber: alignment.CopyNumber,
+            PercentMatches: trials > 0 ? 100.0 * copies.Matches / trials : 0.0,
+            PercentIndels: trials > 0 ? 100.0 * copies.Indels / trials : 0.0,
+            AlignmentScore: alignment.Score)
+        {
+            PercentA = 100.0 * a / span,
+            PercentC = 100.0 * c / span,
+            PercentG = 100.0 * g / span,
+            PercentT = 100.0 * t / span,
+            Entropy = SequenceComplexity.CalculateShannonEntropy(region),
+        };
+    }
+
+    /// <summary>
+    /// TRF multiples test: the candidate distance must be one of the three best periods of the aligned region
+    /// (Benson 1999 / TRF README: redundant reporting at multiples of the pattern size is limited "to, at most,
+    /// three pattern sizes"). Best periods = the largest counts of distances between identical dinucleotides in
+    /// the region after removing their least-squares linear trend (TRF 4.10.0 method; non-ACGT symbols count as
+    /// A as in TRF). Period 1 instead requires ≥ 80 % of the region to be one base.
+    /// </summary>
+    private static bool IsAmongTrfBestPeriods(
+        char[] s, int first, int last, int d, int maxPeriod, Dictionary<(int First, int Last), int[]> cache)
+    {
+        int length = last - first + 1;
+        if (d == 1)
+        {
+            var composition = new int[4];
+            for (int p = first; p <= last; p++)
+                composition[AcgtIndexOrA(s[p])]++;
+            return composition.Max() * 100.0f / length >= 80.0f;
+        }
+
+        // The best periods depend only on the region; different distances often align the same region.
+        if (!cache.TryGetValue((first, last), out int[]? best))
+        {
+            best = TrfBestPeriods(s, first, length, maxPeriod);
+            cache[(first, last)] = best;
+        }
+
+        return Array.IndexOf(best, d) >= 0;
+    }
+
+    /// <summary>The three best periods of s[first..first+length−1] (see <see cref="IsAmongTrfBestPeriods"/>).</summary>
+    private static int[] TrfBestPeriods(char[] s, int first, int length, int maxPeriod)
+    {
+        var best = new int[3];
+        int end = length - 2;
+        if (end < 1)
+            return best;
+
+        var counts = new double[length];
+        var history = new int[length];
+        var heads = new int[16];
+        Array.Fill(heads, -1);
+        const int MaxCountedDistance = 3 * MaxApproximatePeriod;
+        for (int p = 0; p <= end; p++)
+        {
+            int tuple = AcgtIndexOrA(s[first + p]) * 4 + AcgtIndexOrA(s[first + p + 1]);
+            history[p] = heads[tuple];
+            heads[tuple] = p;
+            int distance = 0;
+            for (int cur = p; history[cur] != -1 && distance < MaxCountedDistance; cur = history[cur])
+            {
+                distance = p - history[cur];
+                counts[distance] += 1.0;
+            }
+        }
+
+        double xy = 0, x = 0, y = 0, x2 = 0;
+        for (int q = 1; q <= end; q++)
+        {
+            xy += q * counts[q];
+            x += q;
+            y += counts[q];
+            x2 += (double)q * q;
+        }
+        double slope = (end * xy - x * y) / (end * x2 - x * x);
+        for (int q = 1; q <= end; q++)
+            counts[q] -= q * slope;
+
+        int top = Math.Min(end, maxPeriod);
+        for (int pick = 0; pick < best.Length; pick++)
+        {
+            int bestIndex = 0;
+            double bestValue = 0.0;
+            for (int q = 1; q <= top; q++)
+            {
+                if (counts[q] > bestValue)
+                {
+                    bestIndex = q;
+                    bestValue = counts[q];
+                }
+            }
+            best[pick] = bestIndex;
+            counts[bestIndex] = 0.0;
         }
 
         return best;
     }
 
-    /// <summary>
-    /// Determines the consensus pattern of length <paramref name="period"/> by majority rule over the
-    /// period-aligned columns of <paramref name="window"/> (Benson 1999: "we determine a consensus
-    /// pattern by majority rule from the alignment"). Ties are broken by first-seen base for determinism.
-    /// </summary>
-    private static string MajorityConsensus(string window, int period)
-    {
-        var consensus = new char[period];
-        for (int col = 0; col < period; col++)
-        {
-            var counts = new Dictionary<char, int>();
-            var order = new List<char>();
-            for (int i = col; i < window.Length; i += period)
-            {
-                char b = window[i];
-                if (!counts.TryGetValue(b, out int n))
-                {
-                    counts[b] = 1;
-                    order.Add(b);
-                }
-                else
-                {
-                    counts[b] = n + 1;
-                }
-            }
-
-            char bestBase = order[0];
-            int bestCount = counts[bestBase];
-            foreach (char b in order)
-            {
-                if (counts[b] > bestCount)
-                {
-                    bestBase = b;
-                    bestCount = counts[b];
-                }
-            }
-            consensus[col] = bestBase;
-        }
-        return new string(consensus);
-    }
-
-    /// <summary>Tiles <paramref name="pattern"/> head-to-tail until it reaches <paramref name="length"/> characters.</summary>
-    private static string TileTo(string pattern, int length)
-    {
-        var chars = new char[length];
-        for (int i = 0; i < length; i++)
-            chars[i] = pattern[i % pattern.Length];
-        return new string(chars);
-    }
+    /// <summary>A/C/G/T → 0..3 with any other symbol counted as A (TRF's zero-initialised index table).</summary>
+    private static int AcgtIndexOrA(char c) => Math.Max(0, AcgtCode(c));
 
     /// <summary>
-    /// Reads the TRF reported statistics from a column-by-column alignment of the observed window
-    /// (sequence 1) against tandem copies of the consensus (sequence 2). Percent matches and percent
-    /// indels are each expressed over the total alignment columns ("between adjacent copies overall",
-    /// Benson 1999). The alignment score is the library aligner's column-weight sum.
+    /// TRF redundancy elimination over repeats sorted by start: of two repeats overlapping by ≥ 90 % of one of
+    /// them, that one is dropped when it has the same period and no higher score, or a period that is a
+    /// multiple of the other's and a score ≤ 1.1× (TRF README "Redundancy": the same repeat detected at
+    /// several period sizes / "the same period size may be detected more than once").
     /// </summary>
-    private static ApproximateTandemRepeatResult ComputeTrfStatistics(
-        AlignmentResult alignment,
-        int period,
-        string consensus)
+    private static List<ApproximateTandemRepeatResult> RemoveTrfRedundancy(List<ApproximateTandemRepeatResult> repeats)
     {
-        string a = alignment.AlignedSequence1;
-        string b = alignment.AlignedSequence2;
-        int columns = a.Length;
-
-        int matches = 0;
-        int mismatches = 0;
-        int indels = 0;
-        for (int i = 0; i < columns; i++)
+        int i = 0;
+        while (i < repeats.Count)
         {
-            if (a[i] == '-' || b[i] == '-')
-                indels++;
-            else if (a[i] == b[i])
-                matches++;
-            else
-                mismatches++;
+            bool removedI = false;
+            int j = i + 1;
+            while (j < repeats.Count)
+            {
+                var a = repeats[i];
+                var b = repeats[j];
+                int overlap = Math.Min(a.Start + a.SpanLength, b.Start + b.SpanLength) - Math.Max(a.Start, b.Start);
+                if (overlap <= 0)
+                    break;
+                if (!(overlap / (double)a.SpanLength < 0.9) && IsTrfRedundant(a, b))
+                {
+                    repeats.RemoveAt(i);
+                    removedI = true;
+                    break;
+                }
+                if (!(overlap / (double)b.SpanLength < 0.9) && IsTrfRedundant(b, a))
+                {
+                    repeats.RemoveAt(j);
+                    continue;
+                }
+                j++;
+            }
+
+            if (!removedI)
+                i++;
         }
 
-        double percentMatches = columns > 0 ? (double)matches / columns * 100.0 : 0.0;
-        double percentIndels = columns > 0 ? (double)indels / columns * 100.0 : 0.0;
-
-        // Copy number = aligned repeat length / period (Benson 1999: "Number of copies aligned with the
-        // consensus pattern"). The aligned repeat length is the number of observed (non-gap) bases.
-        int observedBases = a.Count(c => c != '-');
-        double copyNumber = period > 0 ? (double)observedBases / period : 0.0;
-
-        return new ApproximateTandemRepeatResult(
-            Start: 0,
-            SpanLength: observedBases,
-            Period: period,
-            ConsensusSize: consensus.Length,
-            Consensus: consensus,
-            CopyNumber: copyNumber,
-            PercentMatches: percentMatches,
-            PercentIndels: percentIndels,
-            AlignmentScore: alignment.Score);
+        return repeats;
     }
+
+    private static bool IsTrfRedundant(ApproximateTandemRepeatResult x, ApproximateTandemRepeatResult y) =>
+        (x.Period > y.Period && y.Period > 0 && x.Period % y.Period == 0 && x.AlignmentScore <= 1.1 * y.AlignmentScore) ||
+        (x.Period == y.Period && x.AlignmentScore <= y.AlignmentScore);
 
     #endregion
 
-    #region TRF Bernoulli statistical-significance scoring (Benson 1999)
+    #region TRF Bernoulli statistics (Benson 1999)
 
-    // --- Tandem Repeats Finder probabilistic / Bernoulli model (Benson 1999) -------------------------
-    // Benson G (1999) "Tandem repeats finder: a program to analyze DNA sequences", Nucleic Acids Res
-    // 27(2):573-580, https://doi.org/10.1093/nar/27.2.573. TRF detailed description / definitions pages
-    // (tandem.bu.edu/trf/trf.desc.html, trf.definitions.html; Benson-Genomics-Lab/TRF README), captured
-    // VERBATIM 2026-06-24:
-    //   * "We model alignment of two tandem copies of a pattern of length n by a sequence of n
-    //      independent Bernoulli trials (coin-tosses)."
-    //   * "The probability of success, P(Heads), which we also call PM or matching probability,
-    //      represents the average percent identity between the copies."
-    //   * "A second probability, PI or indel probability, specifies the average percentage of
-    //      insertions and deletions between the copies."
-    //   * The reported statistics (definitions page items 5-6) are "Percent of matches between adjacent
-    //      copies overall" and "Percent of indels between adjacent copies overall", and the alignment
-    //      explanation states the statistics refer to "the matches, mismatches and indels overall between
-    //      adjacent copies in the sequence, NOT between the sequence and the consensus pattern."
-    //   * Default probabilistic data: "PM=80 and PI=10" ("PM = .80 and PI = .10 by default").
-    // Faithfully reproducible here: the Bernoulli match/indel PROBABILITY ESTIMATES (PM, PI) computed
-    // between ADJACENT COPIES, and the Bernoulli-mean expected matches PM*d over d aligned positions.
-    // NOT reproducible without TRF's non-redistributable simulation tables: the percentile cut-offs of
-    // R(d,k,PM) (sum-of-heads, "the largest x such that 95% of the time R(d,k,PM) >= x") and the random
-    // walk W(d,PI) distance band used for k-tuple SEEDING — that residual is genome-scale performance.
+    // Benson (1999) / TRF README "Probabilistic Model of Tandem Repeats": "We model alignment of two tandem
+    // copies of a pattern of length n by a sequence of n independent Bernoulli trials ... P(Heads), which we
+    // also call PM or matching probability, represents the average percent identity between the copies ...
+    // PI or indel probability specifies the average percentage of insertions and deletions between the
+    // copies." Default "(PM = .80, PI = .10)"; "Probabilistic data is available for PM values of 80 and 75 and
+    // PI values of 10 and 20."
 
-    /// <summary>Benson (1999) default Bernoulli matching probability PM = 0.80 ("PM = .80 by default").</summary>
+    /// <summary>Benson (1999) default Bernoulli matching probability PM = 0.80.</summary>
     public const double TrfDefaultMatchProbability = 0.80;
 
-    /// <summary>Benson (1999) default Bernoulli indel probability PI = 0.10 ("PI = .10 by default").</summary>
+    /// <summary>Benson (1999) default Bernoulli indel probability PI = 0.10.</summary>
     public const double TrfDefaultIndelProbability = 0.10;
 
     /// <summary>
-    /// Computes the Tandem Repeats Finder Bernoulli-model statistical measures (Benson 1999) for a
-    /// detected tandem-repeat tract. Benson models the alignment of two adjacent copies of the pattern
-    /// as a sequence of independent Bernoulli trials whose success probability P(Heads) = <c>PM</c>
-    /// (matching probability) is "the average percent identity between the copies", with a second
-    /// probability <c>PI</c> (indel probability) = "the average percentage of insertions and deletions
-    /// between the copies". This method estimates <c>PM</c> and <c>PI</c> from the observed tract by
-    /// aligning each pair of ADJACENT copies (TRF: statistics are "between adjacent copies in the
-    /// sequence, not between the sequence and the consensus pattern") and counting match / mismatch /
-    /// indel columns. The Bernoulli-mean expected number of matches over the aligned positions
-    /// (<c>PM × columns</c>) is reported as a significance reference, and the estimate is compared to
-    /// Benson's default PM (0.80) so callers can judge whether the tract is at least as conserved as a
-    /// "significant" random tandem repeat under the model.
+    /// Estimates the TRF Bernoulli-model parameters of a tandem-repeat tract: PM (match probability) and PI
+    /// (indel probability) between ADJACENT copies. The tract is analysed exactly as TRF analyses a detected
+    /// repeat: wraparound-DP alignment against tandem copies of the candidate pattern (the last
+    /// <paramref name="period"/> bases of the tract), majority-rule consensus, realignment against the
+    /// consensus, then comparison of each copy with the next one through that alignment (TRF: statistics refer
+    /// to "the matches, mismatches and indels overall between adjacent copies in the sequence, not between the
+    /// sequence and the consensus pattern"). Each compared column is one Bernoulli trial: heads = match,
+    /// tails = mismatch or indel. PM and PI therefore equal TRF's reported % matches / % indels (/100) for
+    /// the same region.
     /// </summary>
     /// <remarks>
-    /// This is the opt-in probabilistic measure; <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/>
-    /// and <see cref="FindApproximateTandemRepeats(DnaSequence,int,int,int)"/> are unchanged. Candidate
-    /// k-tuple SEEDING (the R(d,k,PM) sum-of-heads percentile cut-off and the W(d,PI) random-walk band)
-    /// is NOT reproduced — it depends on TRF's non-redistributable simulation tables and is a
-    /// genome-scale performance heuristic, not a per-repeat statistic.
+    /// The statistics cover the locally aligned part of the tract (flanks that do not align are ignored, as in
+    /// TRF). A tract without two aligned copies yields zero trials and PM = PI = 0.
+    /// <see cref="TandemRepeatBernoulliStatistics.ExpectedMatches"/> is PM × trials (= matches).
     /// </remarks>
-    /// <param name="repeatTract">The observed tandem-repeat tract (≥ 2 copies of the period).</param>
-    /// <param name="period">The repeat period (copy length), ≥ 1.</param>
-    /// <param name="expectedMatchProbability">
-    /// The Bernoulli PM the tract is assessed against (default <see cref="TrfDefaultMatchProbability"/> = 0.80,
-    /// Benson 1999). The tract is flagged <see cref="TandemRepeatBernoulliStatistics.MeetsExpectedMatchProbability"/>
-    /// when its estimated PM ≥ this value.
-    /// </param>
-    /// <returns>The Bernoulli-model statistics for the tract.</returns>
+    /// <param name="repeatTract">The tandem-repeat tract (≥ 2 × period symbols; case-insensitive).</param>
+    /// <param name="period">Candidate period of the tract (1..2000).</param>
+    /// <param name="expectedMatchProbability">PM the tract is compared with (default 0.80, Benson 1999).</param>
     public static TandemRepeatBernoulliStatistics ComputeBernoulliStatistics(
         string repeatTract,
         int period,
@@ -590,72 +1301,50 @@ public static class RepeatFinder
     {
         ArgumentNullException.ThrowIfNull(repeatTract);
         ArgumentOutOfRangeException.ThrowIfLessThan(period, 1);
-        if (expectedMatchProbability < 0.0 || expectedMatchProbability > 1.0)
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(period, MaxApproximatePeriod);
+        if (!(expectedMatchProbability >= 0.0 && expectedMatchProbability <= 1.0))
             throw new ArgumentOutOfRangeException(nameof(expectedMatchProbability));
-
-        string tract = repeatTract.ToUpperInvariant();
-        if (tract.Length < period * 2)
+        if (repeatTract.Length < period * 2)
             throw new ArgumentException(
                 "A tandem repeat needs at least two contiguous copies of the period.", nameof(repeatTract));
 
-        // Segment the tract into copies of the period (the last copy may be partial) and align each pair
-        // of ADJACENT copies. Each Bernoulli trial is one alignment column between the two adjacent
-        // copies: heads = match, tails = mismatch or indel (Benson 1999).
-        int matches = 0;
-        int mismatches = 0;
-        int indels = 0;
+        int n = repeatTract.Length;
+        var s = new char[n + 1];
+        repeatTract.ToUpperInvariant().CopyTo(0, s, 1, n);
+        var pattern = new char[period];
+        Array.Copy(s, n - period + 1, pattern, 0, period);
 
-        int copyCount = (tract.Length + period - 1) / period;
-        for (int c = 0; c + 1 < copyCount; c++)
+        TrfCopyComparison copies = default;
+        double copyNumber = 0.0;
+        var initial = TrfWraparoundAlign(s, n, n, pattern);
+        if (initial is not null)
         {
-            int leftStart = c * period;
-            int rightStart = (c + 1) * period;
-            string left = tract.Substring(leftStart, Math.Min(period, tract.Length - leftStart));
-            string right = tract.Substring(rightStart, Math.Min(period, tract.Length - rightStart));
-
-            AlignmentResult pair = SequenceAligner.GlobalAlign(left, right, TrfScoring);
-            string a = pair.AlignedSequence1;
-            string b = pair.AlignedSequence2;
-
-            // GlobalAlign returns AlignmentResult.Empty (no aligned strings) only when an input copy is
-            // empty; with ≥ 2 whole copies both adjacent copies are non-empty, so columns are present.
-            int columns = a.Length;
-            for (int i = 0; i < columns; i++)
+            char[] consensus = TrfConsensus(initial.Columns, period);
+            var final = consensus.Length > 0 ? TrfWraparoundAlign(s, n, n, consensus) : null;
+            if (final is not null)
             {
-                if (a[i] == '-' || b[i] == '-') indels++;
-                else if (a[i] == b[i]) matches++;
-                else mismatches++;
+                copies = CompareAdjacentCopies(final.Columns);
+                copyNumber = final.CopyNumber;
             }
         }
 
-        int totalColumns = matches + mismatches + indels;
-
-        // PM = matching probability = average percent identity between adjacent copies (Benson 1999).
-        // Heads in the Bernoulli model are matches; PM is the fraction of trials that are heads.
-        double matchProbability = totalColumns > 0 ? (double)matches / totalColumns : 0.0;
-
-        // PI = indel probability = average percentage of insertions and deletions between the copies.
-        double indelProbability = totalColumns > 0 ? (double)indels / totalColumns : 0.0;
-
-        // Bernoulli-mean expected matches over the aligned positions: E[heads] = PM * d for d trials with
-        // success probability PM (the mean of a length-d Bernoulli(PM) sequence). Reported as the
-        // significance reference (the expected number of matching positions a random tandem repeat with
-        // this match probability would show over the same number of trials).
-        double expectedMatches = matchProbability * totalColumns;
+        int trials = copies.Matches + copies.Mismatches + copies.Indels;
+        double pm = trials > 0 ? (double)copies.Matches / trials : 0.0;
+        double pi = trials > 0 ? (double)copies.Indels / trials : 0.0;
 
         return new TandemRepeatBernoulliStatistics(
             Period: period,
-            AdjacentCopyPairs: Math.Max(0, copyCount - 1),
-            BernoulliTrials: totalColumns,
-            Matches: matches,
-            Mismatches: mismatches,
-            Indels: indels,
-            MatchProbability: matchProbability,
-            IndelProbability: indelProbability,
-            PercentMatches: matchProbability * 100.0,
-            PercentIndels: indelProbability * 100.0,
-            ExpectedMatches: expectedMatches,
-            MeetsExpectedMatchProbability: matchProbability >= expectedMatchProbability);
+            AdjacentCopyPairs: Math.Max(0, (int)Math.Ceiling(copyNumber) - 1),
+            BernoulliTrials: trials,
+            Matches: copies.Matches,
+            Mismatches: copies.Mismatches,
+            Indels: copies.Indels,
+            MatchProbability: pm,
+            IndelProbability: pi,
+            PercentMatches: pm * 100.0,
+            PercentIndels: pi * 100.0,
+            ExpectedMatches: pm * trials,
+            MeetsExpectedMatchProbability: trials > 0 && pm >= expectedMatchProbability);
     }
 
     #endregion
@@ -1348,9 +2037,13 @@ public readonly record struct MicrosatelliteResult(
 }
 
 /// <summary>
-/// Result of approximate (imperfect / interrupted) tandem-repeat detection, following the statistics
-/// reported by Tandem Repeats Finder (Benson 1999): period size, copy number, percent matches, percent
-/// indels, consensus pattern/size, and alignment score.
+/// Result of approximate (imperfect / interrupted) tandem-repeat detection with the Tandem Repeats Finder
+/// model (Benson 1999). Fields mirror the TRF table: <see cref="Start"/> (0-based; TRF prints 1-based) and
+/// <see cref="SpanLength"/> give the indices; <see cref="Period"/> is the most common distance between matching
+/// characters of adjacent copies (may differ from <see cref="ConsensusSize"/>); <see cref="CopyNumber"/> is the
+/// number of copies aligned with the consensus; <see cref="PercentMatches"/> / <see cref="PercentIndels"/> are
+/// between ADJACENT copies (exact values; TRF truncates to integers); <see cref="AlignmentScore"/> is the WDP
+/// score; <see cref="Consensus"/> starts at the phase of the first repeat base.
 /// </summary>
 public readonly record struct ApproximateTandemRepeatResult(
     int Start,
@@ -1361,7 +2054,23 @@ public readonly record struct ApproximateTandemRepeatResult(
     double CopyNumber,
     double PercentMatches,
     double PercentIndels,
-    int AlignmentScore);
+    int AlignmentScore)
+{
+    /// <summary>Percentage of A in the repeat region (TRF "A" column, exact; denominator = region length).</summary>
+    public double PercentA { get; init; }
+
+    /// <summary>Percentage of C in the repeat region (TRF "C" column, exact).</summary>
+    public double PercentC { get; init; }
+
+    /// <summary>Percentage of G in the repeat region (TRF "G" column, exact).</summary>
+    public double PercentG { get; init; }
+
+    /// <summary>Percentage of T in the repeat region (TRF "T" column, exact).</summary>
+    public double PercentT { get; init; }
+
+    /// <summary>Shannon entropy of the region's A/C/G/T composition in bits, 0–2 (TRF "Entropy (0-2)").</summary>
+    public double Entropy { get; init; }
+}
 
 /// <summary>
 /// Tandem Repeats Finder Bernoulli-model statistical measures (Benson 1999) for a detected repeat tract.
