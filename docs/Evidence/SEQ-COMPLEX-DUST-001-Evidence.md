@@ -2,7 +2,56 @@
 
 **Test Unit ID:** SEQ-COMPLEX-DUST-001
 **Algorithm:** DUST Score (triplet-frequency low-complexity score of Morgulis et al. 2006 SDUST/DUST)
-**Date Collected:** 2026-06-14 (revised 2026-09-28, review campaign B04)
+**Date Collected:** 2026-06-14 (revised 2026-09-28 and 2026-09-30, review campaign B04)
+
+---
+
+## 2026-09-30 Revision (B04 completeness audit WP4) — triplets only; longdust; linker; N input
+
+**Sources opened (2026-09-30):**
+- lh3/sdust `sdust.c` (git clone of github.com/lh3/sdust, compiled with `make`): `#define SD_WLEN 3`;
+  line 68 `TODO: is this right for SD_WLEN!=3?`; `sdust_core` comment "N or the end of sequence; N effectively
+  breaks input into pieces of independent sequences" — but the `else` branch resets only `l` and `t`, not the
+  triplet window `w`, `L`, `rw`, `rv`, `cw`, `cv`.
+- NCBI C++ Toolkit `src/algo/dustmask/symdust.cpp` / `include/algo/dustmask/symdust.hpp`
+  (`triplet_type`; `DEFAULT_LINKER = 1`; constructor clamps linker to 1–32; `save_masked_regions`:
+  `if (s + linker_ >= b1.first) res.back().second = max(s, b1.second)`), `src/app/dustmask/dust_mask_app.cpp`
+  (`GetDustMasks_SkipNs`: only runs of N ≥ window are cut out). Binary: Debian `ncbi-blast+` 2.12.0 `dustmasker`.
+- lh3/longdust 1.4-r97 (git clone, commit 9491215, MIT): `README.md` ("[SDUST] hardcodes k=3";
+  `S_L(x) = Σ log c_x(t)! − f(ℓ(x)/4^k)`), `tex/longdust.tex` (Li H, Li B: `Q = Σ log c! − f(ℓ)`,
+  `S = Q − T·ℓ`, T = 0.6; `f(ℓ;q) ≈ Σ_t e^{−ℓq_t} Σ_n log n!·(ℓq_t)^n/n!`), `longdust.c` (`ld_opt_init`,
+  `ld_cal_f`, `ld_cal_f2`, `ld_dust1`, `ld_dust2`, `ld_extend`, `ld_if_backward`, `ld_backward`, `ld_forward`),
+  compiled with `make` (and an AddressSanitizer build).
+
+**F34 — `wordSize ≠ 3` rejected; longdust added.** Every source defines DUST on triplets only (above), so the
+former extrapolation (divisor L − wordSize) is removed; the sourced k-mer generalisation is longdust.
+Cross-check of `FindLongdustRegions` vs the compiled `longdust` binary: 1 500 random repeat-rich inputs
+(5 bp–12 kb, 4 507 434 bp, 410 containing N/IUPAC; k ∈ {3..8}, w ∈ {50, 100, 300, 1000, 2000, 5000},
+T ∈ {0.3, 0.45, 0.6, 0.8, 1.0}, `-e` 0/10/50/200, `-b` 2/3, `-f`, `-a`, `-g` 0.3/0.41/0.6) → 12 818 reference
+intervals, **0 mismatches**; 121 homopolymer edge cases around w + k − 1 plus one 2 Mb sequence
+(`longdust_asan`, 0 ASan errors) → **0 mismatches**. `CalculateLongdustScore` vs a C helper linking
+`longdust.c` (`ld_cal_f`/`ld_cal_f2` + the same Σ log c accumulation): 3 000 inputs (k 1–10, GC off/0.3/0.41)
+→ **3 000 bit-identical**; vs an independent Python lgamma/Poisson evaluation (1 057 uniform cases)
+→ max relative difference 8.7·10⁻⁸.
+
+**F35 — dustmasker linker + soft mask.** C# `FindLowComplexityIntervals(…, linker)` / `MaskLowComplexity(…,
+softMask: true)` vs `dustmasker -window W -level T -linker L -outfmt interval|fasta` on 1 500 ACGT inputs
+(10–500 bp; W ∈ {8, 16, 30, 64}; level ∈ {2, 10, 15, 20, 30}; linker ∈ {1, 2, 3, 5, 10, 20, 32}; the linker
+changed the output in 261 cases): **0 interval mismatches, 0 soft-mask mismatches**. Second run (1 000
+inputs): symdust's rule applied to dustmasker's own linker-1 output reproduces dustmasker(L) in 1 000/1 000;
+C#(L) = symdust rule applied to sdust in 1 000/1 000; dustmasker's core differs from sdust in 10 cases,
+all W = 8 / level 30 (symdust `thresholds_` has only W − 3 entries), so C#(L) = dustmasker(L) in 990/1 000.
+Worked row (dustmasker 2.12.0, `-window 64 -level 20`, 96-bp A×16 / (CA)×8 / A×13 sequence): linker 1–17 →
+`10-25, 43-58, 81-93`; 18–19 → `10-58, 81-93`; 32 → `10-93` (closed).
+
+**F36 — string overload with N.** Upstream sdust on
+`ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA` (53 bp, `-w 64 -t 20`) prints `8 20 / 21 34 /
+35 72` — an interval ending past the sequence end, caused by the window leaking across the N. The C# string
+path resets the window at every non-ACGT symbol, i.e. it equals sdust run on each maximal ACGT piece
+(`[6,18) [23,38)`). 3 000 random inputs (1 037 with N/IUPAC/lower case; W 3–100, T 1–30): C# vs per-piece
+sdust **0 mismatches**; ACGT-only inputs vs whole-input sdust **0 mismatches**; upstream whole-input sdust
+differs from its own per-piece output on 274 of the N inputs. dustmasker is not the reference on N input
+(it treats IUPAC codes as bases and only cuts N runs ≥ window).
 
 ---
 
@@ -154,3 +203,4 @@ T ∈ {10,12,15,20,25,30}) and one 1-Mb sequence: 0 mismatches.
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-28**: Normaliser corrected to ℓ − 1 (sdust/dustmasker source + binary); SDUST masking evidence added.
+- **2026-09-30**: F34 triplets-only + longdust, F35 dustmasker linker/soft mask, F36 N-splitting string overload (B04 WP4); cross-check numbers above.

@@ -932,33 +932,45 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "dust_score", Title = "Complexity — DUST Score", ReadOnly = true)]
-    [Description("DUST low-complexity score (BLAST-style, triplet-based) for a DNA sequence.")]
+    [Description("DUST low-complexity score of a DNA sequence (Morgulis et al. 2006; the score thresholded by NCBI dustmasker and lh3/sdust): sum over triplets of c(c-1)/2 divided by (number of triplets - 1). Higher = lower complexity; > 2.0 is dustmasker's default masking level.")]
     public static DustScoreResult DustScore(
         [Description("DNA sequence.")] string sequence,
-        [Description("Word size (default 3).")] int wordSize = 3)
+        [Description("Word size; must be 3 (DUST is defined for triplets only). Kept for compatibility.")] int wordSize = 3)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
-        if (wordSize < 1)
-            throw new ArgumentOutOfRangeException(nameof(wordSize), "Word size must be at least 1");
+        if (wordSize != 3)
+            throw new ArgumentOutOfRangeException(nameof(wordSize), "The DUST score is defined for triplets only (word size 3)");
 
         var score = global::Seqeron.Genomics.Analysis.SequenceComplexity
             .CalculateDustScore(sequence, wordSize);
         return new DustScoreResult(score);
     }
 
-    [McpServerTool(Name = "mask_low_complexity", Title = "Complexity — Mask Low-Complexity Windows", ReadOnly = true)]
-    [Description("Mask low-complexity windows (DUST-driven) of a DNA sequence with a chosen character.")]
+    [McpServerTool(Name = "mask_low_complexity", Title = "Complexity — Mask Low-Complexity Regions (SDUST)", ReadOnly = true)]
+    [Description("Mask low-complexity regions of a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust): every perfect interval of at most windowSize bases whose DUST score exceeds the threshold is masked. N and other IUPAC codes are accepted and split the scan like sdust. Optional dustmasker linker merge and soft (lower-case) masking.")]
     public static MaskLowComplexityResult MaskLowComplexity(
-        [Description("DNA sequence.")] string sequence,
-        [Description("Window size (default 64).")] int windowSize = 64,
-        [Description("DUST threshold above which to mask (default 2.0).")] double threshold = 2.0,
-        [Description("Mask character (default 'N').")] char maskChar = 'N')
+        [Description("DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive).")] string sequence,
+        [Description("SDUST window length in bases (default 64, >= 3).")] int windowSize = 64,
+        [Description("DUST score threshold; intervals scoring strictly above it are masked (default 2.0 = dustmasker level 20).")] double threshold = 2.0,
+        [Description("Mask character (default 'N'; ignored when softMask is true).")] char maskChar = 'N',
+        [Description("dustmasker linker: merge masked intervals separated by fewer than linker unmasked bases (1-32, default 1 = sdust/dustmasker default).")] int linker = 1,
+        [Description("Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta). Default false.")] bool softMask = false)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
+        var dna = RequireIupacDna(sequence, nameof(sequence));
         var masked = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .MaskLowComplexity(dna, windowSize, threshold, maskChar);
+            .MaskLowComplexity(dna, windowSize, threshold, maskChar, linker, softMask);
         return new MaskLowComplexityResult(masked);
+    }
+
+    // Accepts A/C/G/T + IUPAC ambiguity codes (N, R, Y, …) for tools whose algorithm handles them (sdust).
+    private static string RequireIupacDna(string sequence, string paramName)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", paramName);
+        if (!global::Seqeron.Genomics.Core.SequenceExtensions.IsValidIupacDna(sequence.AsSpan()))
+            throw new ArgumentException("Invalid DNA sequence (A/C/G/T and IUPAC codes only)", paramName);
+        return sequence;
     }
 
     [McpServerTool(Name = "compression_ratio", Title = "Complexity — Compression Ratio", ReadOnly = true)]

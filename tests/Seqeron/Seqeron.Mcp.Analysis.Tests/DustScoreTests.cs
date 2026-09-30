@@ -19,6 +19,9 @@ public class DustScoreTests
         Assert.Throws<ArgumentException>(() => AnalysisTools.DustScore("", 3));
         Assert.Throws<ArgumentException>(() => AnalysisTools.DustScore(null!, 3));
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.DustScore("AAAAA", 0));
+        // B04 F34: DUST is defined for triplets only (Morgulis 2006; symdust; lh3/sdust SD_WLEN = 3).
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.DustScore("AAAAA", 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.DustScore("AAAAA", 4));
     }
 
     [Test]

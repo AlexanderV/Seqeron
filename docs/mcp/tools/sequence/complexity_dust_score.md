@@ -14,18 +14,18 @@ Calculate DUST score for low-complexity filtering.
 
 ## Description
 
-Calculates the DUST score for a DNA sequence, which is used for low-complexity filtering in BLAST and other sequence analysis tools. The DUST algorithm identifies simple/repetitive regions by counting triplet word frequencies: score = Σ_t c_t·(c_t − 1)/2 / (ℓ − 1), where ℓ = L − wordSize + 1 is the number of overlapping words (Morgulis et al. 2006; the normaliser used by NCBI dustmasker and lh3/sdust). Higher scores indicate lower complexity (more repetitive sequences); fewer than two words yield 0.
+Calculates the DUST score for a DNA sequence, which is used for low-complexity filtering in BLAST and other sequence analysis tools. The DUST algorithm identifies simple/repetitive regions by counting triplet word frequencies: score = Σ_t c_t·(c_t − 1)/2 / (ℓ − 1), where ℓ = L − 2 is the number of overlapping triplets (Morgulis et al. 2006; the normaliser used by NCBI dustmasker and lh3/sdust). Higher scores indicate lower complexity (more repetitive sequences); fewer than two triplets yield 0. DUST is defined for triplets only, so `wordSize` must be 3 (kept for compatibility; other values are rejected); the sourced k-mer generalisation is the C# API `SequenceComplexity.FindLongdustRegions` / `CalculateLongdustScore` (longdust, Li & Li 2025).
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L296](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L296)
+- Source: [SequenceComplexity.cs#L437](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L437)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The DNA sequence to analyze (min length: 1) |
-| `wordSize` | integer | No | Word size for triplet counting (default: 3, minimum: 1) |
+| `wordSize` | integer | No | Word size; must be 3 (default: 3) |
 
 ## Output Schema
 
@@ -39,7 +39,7 @@ Calculates the DUST score for a DNA sequence, which is used for low-complexity f
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
-| 1003 | Word size must be at least 1 |
+| 1003 | The DUST score is defined for triplets only (word size 3) |
 
 ## Examples
 
@@ -93,7 +93,7 @@ Calculates the DUST score for a DNA sequence, which is used for low-complexity f
 ## Performance
 
 - **Time Complexity:** O(n) where n is sequence length
-- **Space Complexity:** O(4^wordSize) for triplet storage
+- **Space Complexity:** O(64) for triplet storage
 
 ## See Also
 

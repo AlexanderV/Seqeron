@@ -165,6 +165,22 @@ public class SequenceComplexity_CalculateDustScore_Tests
         });
     }
 
+    // F34: DUST is defined for triplets only (Morgulis 2006; NCBI symdust triplet_type; lh3/sdust
+    // SD_WLEN = 3; longdust README "SDUST … hardcodes k = 3"). Other word sizes were an unsourced
+    // extrapolation and are rejected; the sourced k-mer generalisation is longdust.
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(4)]
+    [TestCase(7)]
+    public void CalculateDustScore_WordSizeNotThree_Throws(int wordSize)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.CalculateDustScore(new DnaSequence("AAAAAAAA"), wordSize));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.CalculateDustScore("AAAAAAAA", wordSize));
+        });
+    }
+
     #endregion
 
     #region MaskLowComplexity — symmetric DUST (SDUST), cross-checked against lh3/sdust
@@ -239,6 +255,221 @@ public class SequenceComplexity_CalculateDustScore_Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.MaskLowComplexity(seq, threshold: -1.0));
             Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.MaskLowComplexity(seq, threshold: double.NaN));
             Assert.Throws<ArgumentNullException>(() => SequenceComplexity.MaskLowComplexity((DnaSequence)null!));
+        });
+    }
+
+    #endregion
+
+    #region F35 — dustmasker linker + soft masking (NCBI dustmasker 2.12.0 binary output)
+
+    // 96 bp: A-run, (CA)-run, A-run. dustmasker (-window 64 -level 20) -outfmt interval reports the
+    // closed intervals 10–25, 43–58, 81–93 for linker 1..17, 10–58 + 81–93 for linker 18 and 19,
+    // and 10–93 for linker 32 (symdust save_masked_regions: prev.last + linker >= next.first).
+    private const string LinkerSeq =
+        "ACGTGCATGCAAAAAAAAAAAAAAAAGCTAGCATCGACTGCAGCACACACACACACACAGATCGATCGTACGGTGCATGACAAAAAAAAAAAAACT";
+
+    [TestCase(1, new[] { 10, 26, 43, 59, 81, 94 })]
+    [TestCase(17, new[] { 10, 26, 43, 59, 81, 94 })]
+    [TestCase(18, new[] { 10, 59, 81, 94 })]
+    [TestCase(19, new[] { 10, 59, 81, 94 })]
+    [TestCase(32, new[] { 10, 94 })]
+    public void FindLowComplexityIntervals_Linker_MatchesDustmasker(int linker, int[] flat)
+    {
+        var expected = Enumerable.Range(0, flat.Length / 2).Select(i => (flat[2 * i], flat[2 * i + 1])).ToList();
+
+        var got = SequenceComplexity.FindLowComplexityIntervals(LinkerSeq, linker: linker);
+
+        Assert.That(got, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void FindLowComplexityIntervals_DefaultLinker_EqualsSdustAndMask()
+    {
+        // lh3/sdust (-w 64 -t 20): x 10 26 / x 43 59 / x 81 94; linker 1 is the sdust merge rule.
+        var intervals = SequenceComplexity.FindLowComplexityIntervals(new DnaSequence(LinkerSeq));
+        string masked = SequenceComplexity.MaskLowComplexity(new DnaSequence(LinkerSeq));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(intervals, Is.EqualTo(new[] { (10, 26), (43, 59), (81, 94) }));
+            for (int i = 0; i < LinkerSeq.Length; i++)
+                Assert.That(masked[i] == 'N', Is.EqualTo(intervals.Any(p => i >= p.Start && i < p.End)), $"position {i}");
+        });
+    }
+
+    [Test]
+    public void MaskLowComplexity_SoftMask_MatchesDustmaskerFasta()
+    {
+        // dustmasker -outfmt fasta (soft masking), linker 1 and 32; lower-case input is upper-cased.
+        const string Linker1 = "ACGTGCATGCaaaaaaaaaaaaaaaaGCTAGCATCGACTGCAGcacacacacacacacaGATCGATCGTACGGTGCATGACaaaaaaaaaaaaaCT";
+        const string Linker32 = "ACGTGCATGCaaaaaaaaaaaaaaaagctagcatcgactgcagcacacacacacacacagatcgatcgtacggtgcatgacaaaaaaaaaaaaaCT";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.MaskLowComplexity(LinkerSeq, softMask: true), Is.EqualTo(Linker1));
+            Assert.That(SequenceComplexity.MaskLowComplexity(LinkerSeq.ToLowerInvariant(), softMask: true), Is.EqualTo(Linker1));
+            Assert.That(SequenceComplexity.MaskLowComplexity(new DnaSequence(LinkerSeq), 64, 2.0, 'N', linker: 32, softMask: true),
+                Is.EqualTo(Linker32));
+            Assert.That(SequenceComplexity.MaskLowComplexity(LinkerSeq, maskChar: 'X', linker: 18),
+                Is.EqualTo(LinkerSeq[..10] + new string('X', 49) + LinkerSeq[59..81] + new string('X', 13) + LinkerSeq[94..]));
+        });
+    }
+
+    [Test]
+    public void SdustLinkerAndString_InvalidParameters_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals(LinkerSeq, linker: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.MaskLowComplexity(LinkerSeq, linker: -1));
+            // symdust accepts 1–32 only (dustmasker silently falls back to 1 outside it): rejected here.
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals(LinkerSeq, linker: 33));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.MaskLowComplexity(new DnaSequence(LinkerSeq), 64, 2.0, 'N', linker: 33));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.MaskLowComplexity(LinkerSeq, windowSize: 2));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals(LinkerSeq, threshold: double.PositiveInfinity));
+            Assert.Throws<ArgumentNullException>(() => SequenceComplexity.MaskLowComplexity((string)null!));
+            Assert.Throws<ArgumentNullException>(() => SequenceComplexity.FindLowComplexityIntervals((string)null!));
+            Assert.That(SequenceComplexity.MaskLowComplexity(string.Empty), Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region F36 — SDUST on strings with N / IUPAC (each ACGT run = independent sdust input)
+
+    // Expected = compiled lh3/sdust run on every maximal ACGT piece separately, shifted to input
+    // coordinates (sdust's documented contract "N effectively breaks input into pieces of independent
+    // sequences"). Upstream sdust_core on the whole string leaks its window across the N and reports
+    // shifted intervals instead — for the first row (8,20),(21,34),(35,72) on a 53-bp input.
+    private static readonly object[] SdustNCases =
+    {
+        new object[] { "ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA", 64, 2.0, new[] { 6, 18, 23, 38 } },
+        new object[] { "ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA", 16, 1.5, new[] { 6, 18, 23, 38 } },
+        new object[] { "ACGTTGCAGTCATGCGATCAAAAAAANTGCATCGGATCCAAAAAAATAGG", 64, 2.0, new[] { 19, 26, 39, 46 } },
+        new object[] { "acgtgcatgcAAAAAAAAAAAAAAAAgctaRcatcgacACACACACACACACACAGATnGATCG", 64, 2.0, new[] { 10, 26, 36, 55 } },
+        new object[] { "NNNN", 64, 2.0, Array.Empty<int>() },
+    };
+
+    [TestCaseSource(nameof(SdustNCases))]
+    public void FindLowComplexityIntervals_NonAcgt_EqualsPerPieceSdust(string input, int window, double threshold, int[] flat)
+    {
+        var expected = Enumerable.Range(0, flat.Length / 2).Select(i => (flat[2 * i], flat[2 * i + 1])).ToList();
+
+        var got = SequenceComplexity.FindLowComplexityIntervals(input, window, threshold);
+        string masked = SequenceComplexity.MaskLowComplexity(input, window, threshold);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(got, Is.EqualTo(expected));
+            Assert.That(masked, Has.Length.EqualTo(input.Length));
+            for (int i = 0; i < input.Length; i++)
+            {
+                bool inInterval = expected.Any(p => i >= p.Item1 && i < p.Item2);
+                Assert.That(masked[i], Is.EqualTo(inInterval ? 'N' : char.ToUpperInvariant(input[i])), $"position {i}");
+            }
+        });
+    }
+
+    [Test]
+    public void MaskLowComplexity_String_AcgtOnly_EqualsDnaSequencePath()
+    {
+        foreach (var row in SdustReferenceCases.Cast<object[]>())
+        {
+            var (input, window, threshold) = ((string)row[0], (int)row[1], (double)row[2]);
+            Assert.That(SequenceComplexity.MaskLowComplexity(input.ToLowerInvariant(), window, threshold), Is.EqualTo((string)row[3]));
+        }
+    }
+
+    [Test]
+    public void MaskLowComplexity_SoftMask_KeepsNonAcgtAndLowercasesIntervals()
+    {
+        // pieces: A×12 at [6,18) and the (AC) run at [23,38); N outside intervals stays upper-case.
+        Assert.That(SequenceComplexity.MaskLowComplexity("ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA", softMask: true),
+            Is.EqualTo("ACGTNNaaaaaaaaaaaaNACGTacacacacacacacaNNGGGCCCTAGGTCA"));
+    }
+
+    #endregion
+
+    #region F34 — longdust (Li & Li 2025) k-mer generalisation, compiled lh3/longdust 1.4-r97 output
+
+    private const string LdVntr =
+        "ATCAGTCATTAAACTATAAACCACTTGAACCACAACGATGTCGTTTATAGCGCGCGGGGACGGCAGCTGCGATACCCCCTCGAATCCCCGGCGGCTCTCACCTGCAGGGTGGACGTTTG" +
+        "GGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCA" +
+        "GGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCA" +
+        "ACCGAGCCTCAACGGAAAGGCGGCATTGGGCGTAGATCATTGTAAGAATTGAGAGGACTGAGGGATAGGGAAAGGTACGGGCCCCGATTTCCCATGCAGGCATCTCCAAGTGTAAGCACG";
+
+    private const string LdStrN =
+        "CGGACACACCCTCAACCAAGCGCGTTCCGCCGCGGCTGTACCACAGGCCTTTATGTCAGCAGAAAGAGGGCATACAGCGGCACACACACACACACACACACACACACACACACACACACACA" +
+        "CACACACACACACACANNNNGCAATCAGACCGCTCTTAGCCCATACGCAATTTTCGGCGGAAGGCTTGCCTCCCGAGGACTTTTTTTTTTTTTTTTTTTTTTTTTGTCAGAGGGGTATCTG" +
+        "TACTGAGTGCGTCGATATCATGTTTTCAGCAATAACAGGTTAGTCTCCTGCTTATCGTTGCCTG";
+
+    [Test]
+    public void FindLongdustRegions_MatchesCompiledLongdust()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(LdVntr, Has.Length.EqualTo(408));
+            Assert.That(LdStrN, Has.Length.EqualTo(307));
+            // longdust (defaults -k7 -w5000 -t0.6 -e50 -b3, both strands)
+            Assert.That(SequenceComplexity.FindLongdustRegions(LdVntr), Is.EqualTo(new[] { (120, 288) }));
+            Assert.That(SequenceComplexity.FindLongdustRegions(LdStrN), Is.EqualTo(new[] { (80, 138), (202, 227) }));
+            // longdust -k5 -w100
+            Assert.That(SequenceComplexity.FindLongdustRegions(LdVntr, k: 5, windowSize: 100), Is.EqualTo(new[] { (117, 291) }));
+            // longdust -f (forward strand only)
+            Assert.That(SequenceComplexity.FindLongdustRegions(LdStrN, forwardOnly: true), Is.EqualTo(new[] { (80, 138), (202, 227) }));
+            // longdust -k4 -w200 -t1.0
+            Assert.That(SequenceComplexity.FindLongdustRegions(LdVntr, k: 4, windowSize: 200, threshold: 1.0), Is.EqualTo(new[] { (120, 288) }));
+            Assert.That(SequenceComplexity.FindLongdustRegions(string.Empty), Is.Empty);
+            Assert.That(SequenceComplexity.FindLongdustRegions("NNNNNNNNNN"), Is.Empty);
+        });
+    }
+
+    // S_L(x) = Σ_t log c(t)! − f(ℓ/4^k): values from longdust's own f() table (ld_cal_f / ld_cal_f2 with -g)
+    // and the same in-order Σ log c accumulation, compiled from lh3/longdust 1.4-r97.
+    [TestCase("AAAAAAAAAA", 3, null, 10.263913947178825)]
+    [TestCase("AAAAAAAAAA", 3, 0.41, 10.230970927904716)]
+    [TestCase("ACACACACACACACACACACACACACACAC", 7, null, 39.962247232206003)]
+    [TestCase("ACGT", 2, null, -0.1900272033309148)]
+    [TestCase("ACGTNACGTACGTACGT", 4, null, 4.9941414253104837)]
+    [TestCase("ACGTNACGTACGTACGT", 4, 0.41, 4.9589302235838071)]
+    public void CalculateLongdustScore_MatchesLongdustF(string seq, int k, double? gc, double expected)
+    {
+        Assert.That(SequenceComplexity.CalculateLongdustScore(seq, k, gc), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    [Test]
+    public void CalculateLongdustScore_VntrExceedsThresholdTimesLength()
+    {
+        // longdust calls x low-complexity when S_L(x) − T·ℓ(x) > 0 (T = 0.6): true for the VNTR region
+        // [120, 288) that longdust reports, false for a random flank.
+        string vntr = LdVntr[120..288];
+        string flank = LdVntr[..120];
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateLongdustScore(vntr) - 0.6 * (vntr.Length - 6), Is.GreaterThan(0));
+            Assert.That(SequenceComplexity.CalculateLongdustScore(flank) - 0.6 * (flank.Length - 6), Is.LessThan(0));
+            Assert.That(SequenceComplexity.CalculateLongdustScore("ACGTAC"), Is.EqualTo(0.0)); // ℓ = 0
+        });
+    }
+
+    [Test]
+    public void Longdust_InvalidParameters_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => SequenceComplexity.FindLongdustRegions(null!));
+            Assert.Throws<ArgumentNullException>(() => SequenceComplexity.CalculateLongdustScore(null!));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", k: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", k: 15));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", windowSize: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", windowSize: 65535));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", threshold: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", threshold: double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", xdropLength: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", minStartCount: 1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLongdustRegions("ACGT", gcContent: 1.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.CalculateLongdustScore("ACGT", k: 15));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.CalculateLongdustScore("ACGT", gcContent: 0.0));
         });
     }
 

@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateDustScore",
-  "docRef": "Seqeron.Genomics/SequenceComplexity.cs#L296",
-  "description": "Calculate DUST score for low-complexity filtering (as used in BLAST). Higher scores indicate lower complexity.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L437",
+  "description": "Calculate the DUST low-complexity score (Morgulis et al. 2006; the score thresholded by NCBI dustmasker and lh3/sdust): sum over triplets of c(c-1)/2 divided by (number of triplets - 1). Higher scores indicate lower complexity.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -17,9 +17,9 @@
       },
       "wordSize": {
         "type": "integer",
-        "description": "Word size for triplet counting (default: 3)",
+        "description": "Word size; must be 3 (DUST is defined for triplets only). Kept for compatibility.",
         "default": 3,
-        "minimum": 1
+        "enum": [3]
       }
     },
     "required": ["sequence"]
@@ -34,18 +34,18 @@
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "Word size must be at least 1" }
+    { "code": 1003, "message": "The DUST score is defined for triplets only (word size 3)" }
   ],
   "examples": [
     {
       "name": "Complex sequence",
       "input": { "sequence": "ATGCGATCGATCG", "wordSize": 3 },
-      "output": { "dustScore": 0.45, "wordSize": 3 }
+      "output": { "dustScore": 0.4, "wordSize": 3 }
     },
     {
       "name": "Low complexity sequence",
       "input": { "sequence": "AAAAAAAAAAAA", "wordSize": 3 },
-      "output": { "dustScore": 4.5, "wordSize": 3 }
+      "output": { "dustScore": 5.0, "wordSize": 3 }
     }
   ]
 }

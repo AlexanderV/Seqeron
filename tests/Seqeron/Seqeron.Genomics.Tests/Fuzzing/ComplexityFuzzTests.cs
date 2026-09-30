@@ -852,43 +852,45 @@ public class ComplexityFuzzTests
     }
 
     /// <summary>
-    /// BE: the "shorter than the WORD" boundary is parameterised by wordSize. For any
-    /// wordSize > L the score is the defined 0; the exact boundary L == wordSize gives
-    /// exactly ONE word (S = 0, a single distinct word ⇒ c=1 ⇒ c(c−1)/2 = 0, divided
-    /// by 1). This pins the off-by-one around the window edge — the first length at
-    /// which a word exists yields a finite, non-NaN 0, not a crash.
+    /// BE: the "shorter than the WORD" boundary for the (only defined) triplet word. L &lt; 3 gives
+    /// the defined 0; L == 3 gives exactly ONE word (S = 0); L == 4 two distinct words (S = 0).
+    /// This pins the off-by-one around the window edge — a finite, non-NaN 0, not a crash.
     /// </summary>
-    [TestCase("ACGTAC", 4)]   // L=6 > wordSize=4 ⇒ words exist
-    [TestCase("ACG", 3)]      // L == wordSize ⇒ exactly one word, S = 0
-    [TestCase("AC", 3)]       // L < wordSize ⇒ 0
-    [TestCase("A", 5)]        // L << wordSize ⇒ 0
-    [TestCase("ACGTACGT", 8)] // whole sequence is one word, S = 0
-    public void Dust_WordSizeBoundary_IsDefinedAndFinite(string s, int wordSize)
+    [TestCase("ACG")]      // L == wordSize ⇒ exactly one word, S = 0
+    [TestCase("AC")]       // L < wordSize ⇒ 0
+    [TestCase("A")]        // L << wordSize ⇒ 0
+    [TestCase("AAAA")]     // two identical words: 1 pair / (2 − 1) = 1
+    public void Dust_WordSizeBoundary_IsDefinedAndFinite(string s)
     {
-        double score = SequenceComplexity.CalculateDustScore(s, wordSize);
+        double score = SequenceComplexity.CalculateDustScore(s, 3);
 
         double.IsNaN(score).Should().BeFalse("no NaN at the window edge");
         double.IsInfinity(score).Should().BeFalse("no Infinity at the window edge");
         score.Should().BeGreaterThanOrEqualTo(0.0, "S ≥ 0 (INV-01)");
-        score.Should().BeApproximately(ReferenceDustScore(s, wordSize), Tolerance,
-            "must match the independent generalized reference S = Σ c(c−1)/2 / (L − wordSize)");
+        score.Should().BeApproximately(ReferenceDustScore(s, 3), Tolerance,
+            "must match the independent reference S = Σ c(c−1)/2 / (L − 3)");
     }
 
     /// <summary>
-    /// BE: wordSize &lt; 1 is the documented ArgumentOutOfRangeException boundary
-    /// (§3.3) on both surfaces — including the BE archetype 0 and −1. An intentional
-    /// validation throw, never a DivideByZero or empty-loop silent 0.
+    /// BE: every word size other than 3 is rejected with ArgumentOutOfRangeException on both
+    /// surfaces (DUST is defined for triplets only: Morgulis 2006, NCBI symdust, lh3/sdust
+    /// SD_WLEN = 3; B04 F34) — including the BE archetypes 0, −1 and int.MinValue and the former
+    /// extrapolated sizes 1, 2, 4, 8.
     /// </summary>
     [TestCase(0)]
     [TestCase(-1)]
     [TestCase(int.MinValue)]
-    public void Dust_WordSizeBelowOne_ThrowsArgumentOutOfRange(int wordSize)
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(4)]
+    [TestCase(8)]
+    public void Dust_WordSizeNotThree_ThrowsArgumentOutOfRange(int wordSize)
     {
         var viaString = () => SequenceComplexity.CalculateDustScore("ACGTACGT", wordSize);
         var viaDna = () => SequenceComplexity.CalculateDustScore(new DnaSequence("ACGTACGT"), wordSize);
 
-        viaString.Should().Throw<ArgumentOutOfRangeException>("wordSize < 1 is invalid (§3.3)");
-        viaDna.Should().Throw<ArgumentOutOfRangeException>("wordSize < 1 is invalid (§3.3)");
+        viaString.Should().Throw<ArgumentOutOfRangeException>("DUST is defined for word size 3 only");
+        viaDna.Should().Throw<ArgumentOutOfRangeException>("DUST is defined for word size 3 only");
     }
 
     #endregion

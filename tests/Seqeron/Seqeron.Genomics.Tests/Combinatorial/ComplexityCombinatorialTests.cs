@@ -59,8 +59,17 @@ public class ComplexityCombinatorialTests
     {
         string seq = MakeSeq(seqType, 60);
 
+        // DUST is defined for triplets only (Morgulis 2006; NCBI symdust; lh3/sdust SD_WLEN = 3):
+        // any other word size is rejected (B04 F34), k = 3 matches the formula.
+        if (wordSize != 3)
+        {
+            FluentActions.Invoking(() => SequenceComplexity.CalculateDustScore(seq, wordSize))
+                .Should().Throw<ArgumentOutOfRangeException>("DUST is defined for triplets only");
+            return;
+        }
+
         double dust = SequenceComplexity.CalculateDustScore(seq, wordSize);
-        dust.Should().BeApproximately(DustGroundTruth(seq, wordSize), 1e-9, "DUST = Σ c(c−1)/2 / (ℓ−1), ℓ = L−w+1");
+        dust.Should().BeApproximately(DustGroundTruth(seq, wordSize), 1e-9, "DUST = Σ c(c−1)/2 / (ℓ−1), ℓ = L−2");
         dust.Should().BeGreaterThanOrEqualTo(0, "the DUST score is non-negative");
     }
 

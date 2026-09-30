@@ -5,14 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.MaskLowComplexity",
-  "docRef": "Seqeron.Genomics/SequenceComplexity.cs#L346",
-  "description": "Mask low-complexity regions in a DNA sequence using the DUST algorithm. Replaces low-complexity bases with mask character.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L539",
+  "description": "Mask low-complexity regions in a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust). N and other IUPAC codes are accepted and split the scan like sdust. Optional dustmasker linker merge and soft (lower-case) masking.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
         "type": "string",
-        "description": "The DNA sequence to mask",
+        "description": "The DNA sequence to mask (A/C/G/T plus IUPAC codes such as N; case-insensitive)",
         "minLength": 1
       },
       "windowSize": {
@@ -31,6 +31,18 @@
         "description": "Character to use for masking (default: 'N')",
         "default": "N",
         "maxLength": 1
+      },
+      "linker": {
+        "type": "integer",
+        "description": "dustmasker linker: merge masked intervals separated by fewer than linker unmasked bases (1-32, default: 1 = sdust/dustmasker default)",
+        "default": 1,
+        "minimum": 1,
+        "maximum": 32
+      },
+      "softMask": {
+        "type": "boolean",
+        "description": "Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta). Default: false",
+        "default": false
       }
     },
     "required": ["sequence"]
@@ -47,7 +59,7 @@
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
     { "code": 1003, "message": "Window size must be at least 1" },
-    { "code": 2001, "message": "Invalid DNA sequence" }
+    { "code": 2001, "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)" }
   ],
   "examples": [
     {

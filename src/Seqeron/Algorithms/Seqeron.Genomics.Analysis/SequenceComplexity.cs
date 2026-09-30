@@ -401,16 +401,28 @@ public static class SequenceComplexity
     /// LOWER complexity; all-distinct words give 0; a homopolymer of length L scores (L−2)/2.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST). Values other
-    /// than 3 are an extrapolation (divisor = number of words − 1); only k = 3 is source-defined.</param>
+    /// <param name="wordSize">Word size; must be 3. The DUST score is defined for triplets only
+    /// (Morgulis et al. 2006; NCBI symdust <c>triplet_type</c>; lh3/sdust <c>SD_WLEN = 3</c>). The
+    /// parameter is kept for source compatibility. For a sourced k-mer generalisation use
+    /// <see cref="CalculateLongdustScore(string, int, double?)"/> / <see cref="FindLongdustRegions(string, int, int, double, int, int, bool, bool, double?)"/>
+    /// (Li &amp; Li 2025, longdust).</param>
     /// <returns>DUST score (≥ 0); 0 when fewer than two words exist (ℓ − 1 ≤ 0).</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> ≠ 3.</exception>
     public static double CalculateDustScore(DnaSequence sequence, int wordSize = DustWordSize)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ArgumentOutOfRangeException.ThrowIfLessThan(wordSize, 1);
+        ValidateDustWordSize(wordSize);
         return CalculateDustScoreCore(sequence.Sequence, wordSize);
+    }
+
+    // DUST is defined for triplets only; any other word size was an unsourced extrapolation (B04 F34).
+    private static void ValidateDustWordSize(int wordSize)
+    {
+        if (wordSize != DustWordSize)
+            throw new ArgumentOutOfRangeException(nameof(wordSize), wordSize,
+                "The DUST score is defined for triplets only (word size 3; Morgulis et al. 2006, NCBI symdust, lh3/sdust). " +
+                "Use CalculateLongdustScore / FindLongdustRegions (longdust, Li & Li 2025) for other k-mer lengths.");
     }
 
     /// <summary>
@@ -419,12 +431,12 @@ public static class SequenceComplexity
     /// The string is upper-cased to match the normalization applied by <see cref="DnaSequence"/>.
     /// </summary>
     /// <param name="sequence">Raw sequence string; null or empty yields 0.</param>
-    /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST).</param>
+    /// <param name="wordSize">Word size; must be 3 (DUST is defined for triplets only).</param>
     /// <returns>DUST score (≥ 0); 0 when null/empty or fewer than two words exist.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> ≠ 3.</exception>
     public static double CalculateDustScore(string sequence, int wordSize = DustWordSize)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(wordSize, 1);
+        ValidateDustWordSize(wordSize);
         if (string.IsNullOrEmpty(sequence)) return 0;
         return CalculateDustScoreCore(sequence.ToUpperInvariant(), wordSize);
     }
@@ -473,23 +485,141 @@ public static class SequenceComplexity
         int windowSize = DustWindowSize,
         double threshold = DustMaskThreshold,
         char maskChar = 'N')
+        => MaskLowComplexity(sequence, windowSize, threshold, maskChar, DustDefaultLinker, softMask: false);
+
+    /// <summary>
+    /// SDUST masking (see <see cref="MaskLowComplexity(DnaSequence, int, double, char)"/>) with the
+    /// NCBI <c>dustmasker</c> interval <paramref name="linker"/> and optional soft masking.
+    /// </summary>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <param name="windowSize">SDUST window length W in bases (must be ≥ 3).</param>
+    /// <param name="threshold">DUST score threshold (strictly greater ⇒ low complexity; ≥ 0).</param>
+    /// <param name="maskChar">Hard-mask character (ignored when <paramref name="softMask"/> is true).</param>
+    /// <param name="linker">dustmasker <c>-linker</c>: consecutive masked intervals are merged when
+    /// the number of unmasked bases between them is &lt; <paramref name="linker"/> (NCBI symdust
+    /// <c>save_masked_regions</c>: <c>prev.last + linker ≥ next.first</c>, closed coordinates).
+    /// 1 (dustmasker's default) merges only overlapping/adjacent intervals, which is exactly the
+    /// lh3/sdust behaviour. Must be 1–32, the range symdust accepts (dustmasker silently substitutes the
+    /// default 1 for any other value; here that is rejected instead).</param>
+    /// <param name="softMask">When true, masked bases are written in lower case and all other bases in
+    /// upper case (dustmasker <c>-outfmt fasta</c>); when false, masked bases become <paramref name="maskChar"/>.</param>
+    /// <returns>Masked sequence (same length as the input).</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker.</exception>
+    public static string MaskLowComplexity(
+        DnaSequence sequence,
+        int windowSize,
+        double threshold,
+        char maskChar,
+        int linker,
+        bool softMask = false)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        ValidateSdustParameters(windowSize, threshold, linker);
+        return ApplySdustMask(sequence.Sequence, FindSdustIntervals(sequence.Sequence, windowSize, threshold, linker), maskChar, softMask);
+    }
+
+    /// <summary>
+    /// SDUST masking of a raw nucleotide string that may contain N, IUPAC codes or other
+    /// non-ACGT symbols. As lh3/sdust specifies ("N effectively breaks input into pieces of
+    /// independent sequences"), every non-ACGT character ends the current window: each maximal
+    /// ACGT run is scanned exactly as a separate sdust input (output = sdust run per piece, shifted
+    /// to input coordinates) and a non-ACGT symbol is never part of a perfect interval (only a <paramref name="linker"/> &gt; 1 can join two
+    /// intervals across one). The output is upper-cased (the <see cref="DnaSequence"/> normalisation);
+    /// with <paramref name="softMask"/> masked bases are lower case instead (dustmasker <c>-outfmt fasta</c>).
+    /// </summary>
+    /// <param name="sequence">Nucleotide string (any symbols; ACGT case-insensitive).</param>
+    /// <param name="windowSize">SDUST window length W (default 64; ≥ 3).</param>
+    /// <param name="threshold">DUST score threshold (default 2.0 = level 20; ≥ 0).</param>
+    /// <param name="maskChar">Hard-mask character (default 'N'; ignored when soft-masking).</param>
+    /// <param name="linker">dustmasker linker (default 1 = sdust/dustmasker default; 1–32).</param>
+    /// <param name="softMask">Lower-case masking instead of <paramref name="maskChar"/> (default false).</param>
+    /// <returns>Masked sequence (same length as the input).</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker.</exception>
+    public static string MaskLowComplexity(
+        string sequence,
+        int windowSize = DustWindowSize,
+        double threshold = DustMaskThreshold,
+        char maskChar = 'N',
+        int linker = DustDefaultLinker,
+        bool softMask = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateSdustParameters(windowSize, threshold, linker);
+        string upper = sequence.ToUpperInvariant();
+        return ApplySdustMask(upper, FindSdustIntervals(upper, windowSize, threshold, linker), maskChar, softMask);
+    }
+
+    /// <summary>
+    /// Returns the SDUST low-complexity intervals as 0-based half-open [Start, End) pairs in
+    /// ascending order — the native output of lh3/sdust (<c>name start end</c>) and, with
+    /// End − 1, of dustmasker <c>-outfmt interval</c> (closed coordinates). Non-ACGT symbols
+    /// split the input into independently scanned ACGT runs (sdust's contract).
+    /// </summary>
+    /// <param name="sequence">Nucleotide string (any symbols; ACGT case-insensitive).</param>
+    /// <param name="windowSize">SDUST window length W (default 64; ≥ 3).</param>
+    /// <param name="threshold">DUST score threshold (default 2.0; ≥ 0).</param>
+    /// <param name="linker">dustmasker linker (default 1; 1–32), see
+    /// <see cref="MaskLowComplexity(string, int, double, char, int, bool)"/>.</param>
+    /// <returns>Merged masked intervals.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker.</exception>
+    public static IReadOnlyList<(int Start, int End)> FindLowComplexityIntervals(
+        string sequence,
+        int windowSize = DustWindowSize,
+        double threshold = DustMaskThreshold,
+        int linker = DustDefaultLinker)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateSdustParameters(windowSize, threshold, linker);
+        return FindSdustIntervals(sequence, windowSize, threshold, linker);
+    }
+
+    /// <summary>
+    /// <see cref="FindLowComplexityIntervals(string, int, double, int)"/> for a <see cref="DnaSequence"/>.
+    /// </summary>
+    public static IReadOnlyList<(int Start, int End)> FindLowComplexityIntervals(
+        DnaSequence sequence,
+        int windowSize = DustWindowSize,
+        double threshold = DustMaskThreshold,
+        int linker = DustDefaultLinker)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindLowComplexityIntervals(sequence.Sequence, windowSize, threshold, linker);
+    }
+
+    // dustmasker DEFAULT_LINKER = 1 (symdust.hpp); identical to lh3/sdust's adjacency merge.
+    private const int DustDefaultLinker = 1;
+
+    // symdust constructor: linker_( (linker >= 1 && linker <= 32) ? linker : DEFAULT_LINKER ).
+    private const int DustMaxLinker = 32;
+
+    private static void ValidateSdustParameters(int windowSize, double threshold, int linker)
+    {
         ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, DustWordSize);
         if (double.IsNaN(threshold) || double.IsInfinity(threshold) || threshold < 0)
             throw new ArgumentOutOfRangeException(nameof(threshold), threshold, "Threshold must be a finite value ≥ 0.");
-
-        return MaskLowComplexityCore(sequence.Sequence, windowSize, threshold, maskChar);
+        ArgumentOutOfRangeException.ThrowIfLessThan(linker, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(linker, DustMaxLinker);
     }
 
-    private static string MaskLowComplexityCore(string seq, int windowSize, double threshold, char maskChar)
+    private static string ApplySdustMask(string seq, List<(int Start, int End)> intervals, char maskChar, bool softMask)
     {
-        var intervals = FindSdustIntervals(seq, windowSize, threshold);
         if (intervals.Count == 0) return seq;
 
         var masked = seq.ToCharArray();
         foreach (var (start, end) in intervals)
-            Array.Fill(masked, maskChar, start, end - start);
+        {
+            if (softMask)
+            {
+                for (int i = start; i < end; i++) masked[i] = char.ToLowerInvariant(masked[i]);
+            }
+            else
+            {
+                Array.Fill(masked, maskChar, start, end - start);
+            }
+        }
 
         return new string(masked);
     }
@@ -504,8 +634,11 @@ public static class SequenceComplexity
     /// SDUST core: returns the merged, 0-based half-open masked intervals [start, end).
     /// Port of lh3/sdust <c>sdust_core</c>/<c>shift_window</c>/<c>find_perfect</c>/
     /// <c>save_masked_regions</c>; integer tests <c>x·10 &gt; T·y</c> become <c>x &gt; threshold·y</c>.
+    /// The merge of consecutive intervals uses the NCBI symdust linker rule (linker 1 = sdust).
+    /// A non-ACGT symbol resets the window, so every maximal ACGT run is scanned as an independent
+    /// sequence (sdust's documented intent; upstream sdust_core leaks the window across the break).
     /// </summary>
-    private static List<(int Start, int End)> FindSdustIntervals(string seq, int windowSize, double threshold)
+    private static List<(int Start, int End)> FindSdustIntervals(string seq, int windowSize, double threshold, int linker)
     {
         var res = new List<(int Start, int End)>();
         var perfect = new List<SdustPerfectInterval>(); // descending start, then ascending finish
@@ -526,7 +659,7 @@ public static class SequenceComplexity
                 if (l >= DustWordSize)
                 {
                     int start = Math.Max(l - windowSize, 0) + (i + 1 - l);
-                    SdustSaveMaskedRegions(res, perfect, start);
+                    SdustSaveMaskedRegions(res, perfect, start, linker);
                     SdustShiftWindow(t, window, threshold, ref suffixLen, ref rw, ref rv, cw, cv);
                     if (rw > threshold * suffixLen)
                         SdustFindPerfect(perfect, window, threshold, start, suffixLen, rv, cv, scratch);
@@ -536,8 +669,18 @@ public static class SequenceComplexity
             {
                 // Non-ACGT or end of input: flush all pending perfect intervals.
                 int start = Math.Max(l - windowSize + 1, 0) + (i + 1 - l);
-                while (perfect.Count > 0) SdustSaveMaskedRegions(res, perfect, start++);
+                while (perfect.Count > 0) SdustSaveMaskedRegions(res, perfect, start++, linker);
                 l = t = 0;
+
+                // sdust's stated contract is that "N effectively breaks input into pieces of independent
+                // sequences", but sdust_core resets only l and t: the triplet window, its counts and the
+                // suffix state leak across the N, so later intervals get shifted coordinates (they can
+                // even end past the sequence end, e.g. 35–72 on a 53-bp input). Resetting the window
+                // state makes each ACGT run exactly an independent sdust run (B04 F36).
+                window.Clear();
+                Array.Clear(cw);
+                Array.Clear(cv);
+                rw = rv = suffixLen = 0;
             }
         }
 
@@ -588,7 +731,8 @@ public static class SequenceComplexity
         }
     }
 
-    private static void SdustSaveMaskedRegions(List<(int Start, int End)> res, List<SdustPerfectInterval> perfect, int start)
+    private static void SdustSaveMaskedRegions(
+        List<(int Start, int End)> res, List<SdustPerfectInterval> perfect, int start, int linker)
     {
         if (perfect.Count == 0 || perfect[^1].Start >= start) return;
 
@@ -597,7 +741,9 @@ public static class SequenceComplexity
         if (res.Count > 0)
         {
             var (s, f) = res[^1];
-            if (p.Start <= f) // overlapping with or adjacent to the previous interval
+            // NCBI symdust: merge when prev.last + linker >= next.first (closed coordinates), i.e.
+            // p.Start <= f + linker − 1 with f half-open; linker = 1 is lh3/sdust's "p->start <= f".
+            if (p.Start <= f + linker - 1)
             {
                 saved = true;
                 res[^1] = (s, Math.Max(f, p.Finish));
@@ -677,7 +823,437 @@ public static class SequenceComplexity
             Count--;
             return value;
         }
+
+        public void Clear()
+        {
+            _front = 0;
+            Count = 0;
+        }
     }
+
+    #region Longdust (k-mer generalisation of DUST; Li & Li 2025)
+
+    // Defaults of longdust 1.4-r97 ld_opt_init (github.com/lh3/longdust, MIT):
+    // kmer = 7, ws = 5000, thres = 0.6, xdrop_len = 50, min_start_cnt = 3, approx = 0, gc disabled.
+    private const int LongdustDefaultK = 7;
+    private const int LongdustDefaultWindow = 5000;
+    private const double LongdustDefaultThreshold = 0.6;
+    private const int LongdustDefaultXdrop = 50;
+    private const int LongdustDefaultMinStartCount = 3;
+    private const int LongdustMaxK = 14;          // longdust: assert(k < LD_MAX_K = 15)
+    private const int LongdustMaxWindow = 0xfffe; // longdust: assert(ws < 0xffff) (16-bit counts)
+
+    /// <summary>
+    /// Longdust complexity score of a whole sequence x (Li &amp; Li 2025, arXiv:2509.07357; lh3/longdust):
+    /// S_L(x) = Σ_t log c_x(t)! − f(ℓ(x)/4^k), with c_x(t) the count of k-mer t in x,
+    /// ℓ(x) = |x| − k + 1 and f(λ) = 4^k e^{−λ} Σ_n log(n!) λ^n/n! (the expected Σ log c! of a
+    /// random sequence). This is the sourced k-mer generalisation of the DUST score: DUST's
+    /// Σ c(c−1)/2 over triplets is replaced by the composite-likelihood term Σ log c!.
+    /// Higher = lower complexity; longdust calls x low-complexity when S_L(x) − T·ℓ(x) &gt; 0 (T = 0.6).
+    /// </summary>
+    /// <param name="sequence">Nucleotide string; k-mers containing a non-ACGT symbol are not counted
+    /// but still count in ℓ, as in longdust's window.</param>
+    /// <param name="k">k-mer length (default 7; 1–14).</param>
+    /// <param name="gcContent">Optional genome GC fraction in (0, 1) for longdust's GC correction
+    /// (<c>-g</c>); null = uniform base composition (longdust default).</param>
+    /// <returns>S_L(x); 0 when the sequence holds no k-mer position.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> or <paramref name="gcContent"/> is out of range.</exception>
+    public static double CalculateLongdustScore(string sequence, int k = LongdustDefaultK, double? gcContent = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateLongdustK(k);
+        ValidateLongdustGc(gcContent);
+        int positions = sequence.Length - k + 1;
+        if (positions <= 0) return 0;
+
+        var f = LongdustF(k, positions, gcContent);
+        var counts = new Dictionary<int, int>();
+        int mask = (1 << (2 * k)) - 1, x = 0, run = 0;
+        double s = 0;
+        foreach (char ch in sequence)
+        {
+            int b = AcgtCode(ch);
+            if (b < 0) { run = 0; continue; }
+            x = ((x << 2) | b) & mask;
+            if (++run < k) continue;
+            counts.TryGetValue(x, out int c);
+            counts[x] = ++c;
+            if (c >= 2) s += Math.Log(c); // Σ_t log c_t! accumulated as log 2 + … + log c_t
+        }
+        return s - f[positions];
+    }
+
+    /// <summary>
+    /// Finds low-complexity regions with longdust (Li &amp; Li 2025, arXiv:2509.07357), the k-mer
+    /// generalisation of SDUST for long windows (STRs, VNTRs, satellites). A port of lh3/longdust
+    /// 1.4-r97 (<c>ld_dust1</c>/<c>ld_dust2</c>, MIT licence): at each position a backward then forward
+    /// scan over the last <paramref name="windowSize"/> k-mers finds a good interval with
+    /// S_L(x) − T·ℓ(x) &gt; 0 (see <see cref="CalculateLongdustScore"/>), with X-drop and the reference's
+    /// speed-ups; overlapping hits are merged; by default the union over both strands is returned.
+    /// Non-ACGT symbols make the overlapping k-mers ambiguous (they score −T).
+    /// </summary>
+    /// <param name="sequence">Nucleotide string (any symbols; ACGT case-insensitive).</param>
+    /// <param name="k">k-mer length (<c>-k</c>, default 7; 1–14).</param>
+    /// <param name="windowSize">Window size in k-mers (<c>-w</c>, default 5000; 1–65534).</param>
+    /// <param name="threshold">Score threshold T per k-mer (<c>-t</c>, default 0.6; finite, &gt; 0).</param>
+    /// <param name="xdropLength">X-drop length (<c>-e</c>, default 50; 0 disables X-drop, i.e. uses the window).</param>
+    /// <param name="minStartCount">Minimum count of the current k-mer in the window before a search starts
+    /// (<c>-b</c>, default 3; ≥ 2).</param>
+    /// <param name="forwardOnly">Scan the forward strand only (<c>-f</c>); default false = union of both strands.</param>
+    /// <param name="approximate">Guaranteed O(Lw) mode with one forward pass (<c>-a</c>).</param>
+    /// <param name="gcContent">Genome GC fraction in (0, 1) for GC correction (<c>-g</c>); null = off.</param>
+    /// <returns>0-based half-open [Start, End) intervals in ascending order (longdust BED output).</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when a parameter is out of range.</exception>
+    public static IReadOnlyList<(int Start, int End)> FindLongdustRegions(
+        string sequence,
+        int k = LongdustDefaultK,
+        int windowSize = LongdustDefaultWindow,
+        double threshold = LongdustDefaultThreshold,
+        int xdropLength = LongdustDefaultXdrop,
+        int minStartCount = LongdustDefaultMinStartCount,
+        bool forwardOnly = false,
+        bool approximate = false,
+        double? gcContent = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateLongdustK(k);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(windowSize, LongdustMaxWindow);
+        if (double.IsNaN(threshold) || double.IsInfinity(threshold) || threshold <= 0)
+            throw new ArgumentOutOfRangeException(nameof(threshold), threshold, "Threshold must be a finite value > 0.");
+        ArgumentOutOfRangeException.ThrowIfNegative(xdropLength);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minStartCount, 2);
+        ValidateLongdustGc(gcContent);
+
+        var ld = new LongdustScanner(k, windowSize, threshold, xdropLength, minStartCount, approximate, gcContent);
+        int n = sequence.Length;
+        var fwd = new int[n];
+        for (int i = 0; i < n; i++) fwd[i] = AcgtCode(sequence[i]);
+        var forward = ld.Dust1(fwd);
+        if (forwardOnly) return forward;
+
+        // ld_dust2: reverse complement, map back, merge the two sorted interval lists.
+        var rev = new int[n];
+        for (int i = 0; i < n; i++) rev[n - 1 - i] = fwd[i] < 0 ? -1 : 3 - fwd[i];
+        var revRaw = ld.Dust1(rev);
+        var reverse = new List<(int Start, int End)>(revRaw.Count);
+        for (int i = revRaw.Count - 1; i >= 0; i--) reverse.Add((n - revRaw[i].End, n - revRaw[i].Start));
+
+        var merged = new List<(int Start, int End)>();
+        int st = 0, en = 0, j0 = 0, j1 = 0;
+        while (j0 < forward.Count || j1 < reverse.Count)
+        {
+            bool takeReverse = j0 >= forward.Count || (j1 < reverse.Count && forward[j0].Start >= reverse[j1].Start);
+            var p = takeReverse ? reverse[j1++] : forward[j0++];
+            if (p.Start <= en)
+            {
+                en = Math.Max(en, p.End);
+            }
+            else
+            {
+                if (en > st) merged.Add((st, en));
+                st = p.Start;
+                en = p.End;
+            }
+        }
+        if (en > st) merged.Add((st, en));
+        return merged;
+    }
+
+    private static void ValidateLongdustK(int k)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(k, LongdustMaxK);
+    }
+
+    private static void ValidateLongdustGc(double? gc)
+    {
+        if (gc is { } g && !(g > 0.0 && g < 1.0))
+            throw new ArgumentOutOfRangeException(nameof(gc), g, "GC content must lie in (0, 1).");
+    }
+
+    // f[l] for l = 0..maxL (longdust ld_cal_f / ld_cal_f2): f(λ) = 4^k e^{−λ} Σ_{n≥2} log(n!) λ^n/n!,
+    // λ = l/4^k (per GC class when GC correction is on); Stirling form for λ ≥ 30.
+    private static double[] LongdustF(int k, int maxL, double? gc)
+    {
+        double[] dr;
+        int[] nDr;
+        uint nKmer = 1U << (2 * k);
+        if (gc is { } g)
+        {
+            dr = new double[k + 1];
+            nDr = new int[k + 1];
+            for (int i = 0; i <= k; ++i)
+                dr[i] = Math.Pow(g / 0.5, i) * Math.Pow((1.0 - g) / 0.5, k - i);
+            for (uint x = 0; x < nKmer; ++x)
+            {
+                int nGc = 0;
+                for (int i = 0; i < k; ++i)
+                {
+                    uint b = (x >> (2 * i)) & 3;
+                    if (b == 1 || b == 2) ++nGc;
+                }
+                nDr[nGc]++;
+            }
+        }
+        else
+        {
+            dr = new[] { 1.0 };
+            nDr = new[] { (int)nKmer };
+        }
+
+        const double eps = 1e-9;
+        const int maxN = 10000;
+        var f = new double[maxL + 1];
+        for (int l = 1; l <= maxL; ++l)
+        {
+            for (int i = 0; i < dr.Length; ++i)
+            {
+                double lambda = (double)l / nKmer * dr[i];
+                double fli;
+                if (lambda < 30.0)
+                {
+                    double x = 0.0, sn = 0.0, y = lambda;
+                    for (int n = 2; n <= maxN; ++n)
+                    {
+                        sn += Math.Log(n);
+                        y *= lambda / n;
+                        double z = y * sn;
+                        if (z < x * eps) break;
+                        x += z;
+                    }
+                    fli = x * Math.Exp(-lambda);
+                }
+                else
+                {
+                    // Stirling series (longdust ld_f_large).
+                    double xl = 0.5 * Math.Log(2.0 * Math.PI * Math.E * lambda)
+                        - 1.0 / 12.0 / lambda * (1.0 + 0.5 / lambda + 19.0 / 30.0 / lambda / lambda);
+                    fli = xl + lambda * (Math.Log(lambda) - 1.0);
+                }
+                f[l] += fli * nDr[i];
+            }
+        }
+        return f;
+    }
+
+    /// <summary>Port of longdust's <c>ld_data_t</c> and the forward-strand scan <c>ld_dust1</c>.</summary>
+    private sealed class LongdustScanner
+    {
+        private readonly int _k, _ws, _xdropLen, _minStartCnt, _maxTest;
+        private readonly double _thres;
+        private readonly bool _approx;
+        private readonly double[] _f, _c;
+        private readonly ushort[] _ht;          // ld->ht: counts of the current backward/forward scan
+        private readonly SdustWindow _q;        // entries x<<1 | ambiguous
+        private readonly int[] _forPos;
+        private readonly double[] _forMax;
+
+        public LongdustScanner(int k, int ws, double thres, int xdropLen, int minStartCnt, bool approx, double? gc)
+        {
+            _k = k; _ws = ws; _thres = thres; _xdropLen = xdropLen; _minStartCnt = minStartCnt; _approx = approx;
+            _ht = new ushort[1 << (2 * k)];
+            _f = LongdustF(k, ws + 1, gc);
+            // c[i] = log i (c[0] = c[1] = 0). One extra slot: ld_extend may read c[count + 1] with count = ws.
+            _c = new double[ws + 2];
+            for (int i = 2; i <= ws + 1; ++i) _c[i] = Math.Log(i);
+            _q = new SdustWindow(ws);
+            _forPos = new int[ws + 1];
+            _forMax = new double[ws + 1];
+
+            // max_test: the maximum step used by IfBackward (i − 1 + k = minimum detectable homopolymer).
+            int m;
+            double s = 0.0;
+            for (m = 1; m < ws; ++m)
+            {
+                s += _c[m] - thres;
+                double sl = s - _f[m];
+                if (sl > 0.0) break;
+            }
+            _maxTest = (int)(m * Math.Log(m) / thres);
+        }
+
+        private int Forward(int i0, double maxBack)
+        {
+            Array.Clear(_ht);
+            int maxI = -1, qn = _q.Count;
+            double s = 0.0, maxSf = 0.0;
+            for (int i = i0, l = 1; i < qn; ++i, ++l)
+            {
+                int x = _q[i];
+                s += ((x & 1) != 0 ? 0 : _c[++_ht[x >> 1]]) - _thres;
+                double sl = s - _f[l];
+                if (sl >= maxSf) { maxSf = sl; maxI = i; }
+                if (sl > maxBack + 1e-6) break;
+            }
+            return maxI;
+        }
+
+        private int Backward(ushort[] winHt)
+        {
+            double xdrop = _thres * (_xdropLen > 0 ? _xdropLen : _ws);
+            int maxI = -1, qn = _q.Count;
+            double s = 0.0, sw = 0.0, maxSb = 0.0, lastSl = -1.0;
+
+            Array.Clear(_ht);
+            int nForPos = 0;
+            for (int i = qn - 1, l = 1; i >= 0; --i, ++l)
+            {
+                int x = _q[i];
+                s += ((x & 1) != 0 ? 0 : _c[++_ht[x >> 1]]) - _thres;
+                double sl = s - _f[l];
+                sw += ((x & 1) != 0 ? 0 : _c[winHt[x >> 1] + 1 - _ht[x >> 1]]) - _thres;
+                if (sw - _f[l] < 0.0) break; // the forward pass cannot reach the current position
+                if (sl < lastSl && lastSl > 0.0 && lastSl == maxSb)
+                {
+                    _forPos[nForPos] = i + 1;
+                    _forMax[nForPos++] = maxSb;
+                }
+                if (sl >= maxSb)
+                {
+                    maxSb = sl;
+                    maxI = i;
+                }
+                else if (maxI >= 0 && maxSb - sl > xdrop)
+                {
+                    break; // X-drop
+                }
+                lastSl = sl;
+            }
+            if (maxI < 0) return -1;
+            if (nForPos == 0 || maxI < _forPos[nForPos - 1])
+            {
+                _forPos[nForPos] = maxI;
+                _forMax[nForPos++] = maxSb;
+            }
+            for (int i = nForPos - 1, maxEnd = -1; i >= 0; --i)
+            {
+                if (_forPos[i] < maxEnd) continue;
+                int e = Forward(_forPos[i], _forMax[i]);
+                if (e == qn - 1) return _forPos[i];
+                if (_approx) break; // approximate mode: one forward pass only
+                maxEnd = Math.Max(maxEnd, e);
+            }
+            return -1;
+        }
+
+        private int Extend()
+        {
+            int x = _q[_q.Count - 1];
+            int l = _q.Count - 1;
+            if ((x & 1) != 0) return -1;
+            double diff = _c[_ht[x >> 1] + 1] - (_f[l + 1] - _f[l]);
+            if (diff < _thres) return -1; // extending would not increase the score
+            ++_ht[x >> 1];
+            return 0;
+        }
+
+        private bool IfBackward(ushort[] winHt)
+        {
+            double s = 0.0;
+            for (int i = _q.Count - 1, j = 0; i >= 0 && j < _maxTest; --i, ++j)
+            {
+                int x = _q[i];
+                s += ((x & 1) != 0 ? 0 : _c[winHt[x >> 1]]) - _thres;
+                if (s < 0.0) return false;
+            }
+            return true;
+        }
+
+        private static void SaveInterval(List<(int Start, int End)> intv, int st, int en)
+        {
+            int k;
+            for (k = intv.Count - 1; k >= 0; --k) // sorted by end
+                if (st > intv[k].End) break;
+            ++k;
+            if (k < intv.Count)
+            {
+                // overlaps one or more saved intervals: widen the leftmost and drop the rest
+                intv[k] = (Math.Min(intv[k].Start, st), Math.Max(intv[k].End, en));
+                intv.RemoveRange(k + 1, intv.Count - (k + 1));
+            }
+            else
+            {
+                intv.Add((st, en));
+            }
+        }
+
+        /// <summary>ld_dust1 over 2-bit codes (−1 = non-ACGT).</summary>
+        public List<(int Start, int End)> Dust1(int[] seq)
+        {
+            var intv = new List<(int Start, int End)>();
+            int mask = (1 << (2 * _k)) - 1;
+            int st = -1, en = -1, lastQ = -1, x = 0, l = 0;
+            var ht = new ushort[mask + 1];
+            double htSum = 0.0;
+            _q.Clear();
+
+            for (int i = 0; i <= seq.Length; ++i)
+            {
+                int b = i < seq.Length ? seq[i] : -1;
+                int ambi;
+                if (b >= 0)
+                {
+                    x = ((x << 2) | b) & mask;
+                    ++l;
+                    ambi = l < _k ? 1 : 0;
+                }
+                else
+                {
+                    l = 0;
+                    ambi = 1;
+                }
+                if (_q.Count >= _ws)
+                {
+                    int p = _q.Shift();
+                    if ((p & 1) == 0) htSum -= _c[ht[p >> 1]--];
+                    if (lastQ == 0)
+                    {
+                        if ((p & 1) == 0 && _ht[p >> 1] > 0) --_ht[p >> 1];
+                    }
+                    else
+                    {
+                        --lastQ;
+                    }
+                }
+                _q.Push((x << 1) | ambi);
+                if (ambi != 0) continue;
+                htSum += _c[++ht[x]];
+
+                int j = -1;
+                if (ht[x] >= _minStartCnt)
+                {
+                    int qn = _q.Count;
+                    double swin = htSum - _f[qn] - qn * _thres; // full-window score
+                    if (i == en && (lastQ == 0 || i - st >= qn) && swin > 0.0)
+                        j = Extend();
+                    if (j < 0 && IfBackward(ht))
+                        j = Backward(ht);
+                }
+                if (j >= 0)
+                {
+                    int st2 = i - (_q.Count - 1 - j) - (_k - 1); // LCR start
+                    if (st2 < en)
+                    {
+                        if (st < 0 || st2 < st) st = st2;
+                    }
+                    else
+                    {
+                        if (st >= 0) SaveInterval(intv, st, en);
+                        st = st2;
+                    }
+                    en = i + 1;
+                    lastQ = j;
+                }
+            }
+            if (st >= 0) SaveInterval(intv, st, en);
+            return intv;
+        }
+    }
+
+    #endregion
 
     #endregion
 

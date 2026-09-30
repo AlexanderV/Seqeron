@@ -37,4 +37,22 @@ public class MaskLowComplexityTests
         var preserved = AnalysisTools.MaskLowComplexity(highComplexity, 64, 10.0, 'N').Masked;
         Assert.That(preserved, Does.Not.Contain("N"));
     }
+
+    [Test]
+    public void MaskLowComplexity_AcceptsN_LinkerAndSoftMask()
+    {
+        // Expected = lh3/sdust per ACGT piece (A×12 at [6,18), (AC) run at [23,38)); dustmasker
+        // -linker 18 merges [10,26)+[43,59); soft mask = dustmasker -outfmt fasta.
+        const string withN = "ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA";
+        const string linkerSeq = "ACGTGCATGCAAAAAAAAAAAAAAAAGCTAGCATCGACTGCAGCACACACACACACACAGATCGATCGTACGGTGCATGACAAAAAAAAAAAAACT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.MaskLowComplexity(withN).Masked,
+                Is.EqualTo("ACGTNNNNNNNNNNNNNNNACGTNNNNNNNNNNNNNNNNNGGGCCCTAGGTCA"));
+            Assert.That(AnalysisTools.MaskLowComplexity(withN, softMask: true).Masked,
+                Is.EqualTo("ACGTNNaaaaaaaaaaaaNACGTacacacacacacacaNNGGGCCCTAGGTCA"));
+            Assert.That(AnalysisTools.MaskLowComplexity(linkerSeq, linker: 18, softMask: true).Masked,
+                Is.EqualTo("ACGTGCATGCaaaaaaaaaaaaaaaagctagcatcgactgcagcacacacacacacacaGATCGATCGTACGGTGCATGACaaaaaaaaaaaaaCT"));
+        });
+    }
 }
