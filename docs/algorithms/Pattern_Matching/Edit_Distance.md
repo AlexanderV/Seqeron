@@ -6,11 +6,11 @@
 | Test Unit ID | PAT-APPROX-002 |
 | Related Projects | N/A |
 | Implementation Status | Complete |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
-Edit distance measures the minimum number of insertions, deletions, and substitutions required to transform one string into another. In this repository, the core Levenshtein distance implementation uses a two-row Wagner-Fischer dynamic program, and the approximate-search surface scans variable-length windows around the pattern length to find matches within a maximum edit threshold.
+Edit distance measures the minimum number of insertions, deletions, and substitutions required to transform one string into another. In this repository the Levenshtein distance and the Sellers end-position search run on the Myers (1999) bit-parallel engine (global form of Hyyrö 2003, multi-word blocks as in edlib), with the Wagner–Fischer column kernel kept as the reference and as the engine of the window search `FindWithEdits` and of the traceback (`GetEditAlignment`, per-hit alignments in edlib CIGAR convention). The Damerau variants — optimal string alignment (restricted) and true Damerau–Levenshtein (Lowrance–Wagner 1975) — are separate methods.
 
 ## 2. Scientific / Formal Basis
 
@@ -35,7 +35,13 @@ lev(tail(a), tail(b))
 \end{cases}
 $$
 
-Approximate search (the *k differences* problem, Sellers 1980; Navarro 2001 §5.1) uses the same recurrence with a free start in the text: `C[0, j] = 0`, `C[i, 0] = i`, and a match ends at text position `j` whenever `C[m, j] ≤ k`, where `C[m, j] = min_i ed(P, T[i..j])`. `FindEditEndPositions(...)` returns exactly these `(j, C[m, j])` pairs. `FindWithEdits(...)` reports every window `T[i..i+len)` (len ∈ `[max(1, m − k), m + k]`) with `ed(P, window) ≤ k`; the set of its window end positions (with the minimum distance per end) equals the Sellers set.
+Approximate search (the *k differences* problem, Sellers 1980; Navarro 2001 §5.1) uses the same recurrence with a free start in the text: `C[0, j] = 0`, `C[i, 0] = i`, and a match ends at text position `j` whenever `C[m, j] ≤ k`, where `C[m, j] = min_i ed(P, T[i..j])`. `FindEditEndPositions(...)` returns exactly these `(j, C[m, j])` pairs.
+
+**Bit-parallel engine (Myers 1999; Hyyrö 2003).** Each DP column is encoded by its vertical deltas `Δv ∈ {−1, 0, +1}` as two bit-vectors `Pv`/`Mv` (64 rows per word; ⌈m/64⌉ words). One column step is edlib's `calculateBlock` (Myers' Advance_Block with a horizontal input delta `hin`): `Xv = Eq | Mv; Xh = (((Eq & Pv) + Pv) ^ Pv) | Eq; Ph = Mv | ~(Xh | Pv); Mh = Pv & Xh`, then shift in `hin` and `Pv' = Mh | ~(Xv | Ph); Mv' = Ph & Xv`. The delta entering row 0 is `+1` for global distance (`C[0, j] = j`, Hyyrö's NW form) and `0` for Sellers search (`C[0, j] = 0`); each word's outgoing delta feeds the next word. The score `C[m, j]` is tracked from the horizontal delta at row `m` (bit `(m − 1) mod 64` of the last word). The results are exactly the DP values (tests: exhaustive over `{A,C}^≤6` pairs, random incl. m > 64 and non-ASCII symbols).
+
+**Traceback / CIGAR.** The alignment is recovered from the stored DP columns (query = rows, target = columns). Operations follow edlib (`edlib.h`): `=` match, `X` mismatch, `I` insertion to the query (query character without target counterpart), `D` deletion from the query (target character without query counterpart); EXTENDED CIGAR uses `=`/`X`, STANDARD CIGAR `M`. Tie-break (deterministic): walking back from `(m, n)`, take the diagonal whenever `C[i−1, j−1] + [q_i ≠ t_j] = C[i, j]`, else `I` when `C[i−1, j] + 1 = C[i, j]`, else `D`. edlib's traceback tries `I`, then `D`, then the diagonal; a Python traceback with edlib's order reproduced edlib's CIGAR on 2000/2000 random pairs, so the two differ only on co-optimal ties. Diagonal-first guarantees that when an equal-length window has `ed = Hamming` the returned path is the ungapped Hamming path (on the main diagonal `C[i, i] = HD(prefix_i)` for every `i`, so the diagonal test always succeeds).
+
+**Damerau variants.** Optimal string alignment (OSA, restricted edit distance; Damerau 1964, Boytsov 2011) adds `d[i−2, j−2] + 1` when `a_i = b_{j−1}` and `a_{i−1} = b_j` (no substring edited twice; not a metric: OSA(CA, ABC) = 3 > OSA(CA, AC) + OSA(AC, ABC) = 2). True Damerau–Levenshtein (Lowrance & Wagner 1975) allows insertions/deletions between transposed characters via the last-occurrence table `da`: `d[k−1, l−1] + (i−k−1) + 1 + (j−l−1)`; DL(CA, ABC) = 2. `DL ≤ OSA ≤ Levenshtein`. `FindWithEdits(...)` reports every window `T[i..i+len)` (len ∈ `[max(1, m − k), m + k]`) with `ed(P, window) ≤ k`; the set of its window end positions (with the minimum distance per end) equals the Sellers set.
 
 ### 2.4 Properties and Invariants
 
@@ -55,7 +61,9 @@ Approximate search (the *k differences* problem, Sellers 1980; Navarro 2001 §5.
 | `[FindWithEdits(string)] sequence` | `string` | required | Sequence searched by `FindWithEdits(...)` | Null or empty input yields no matches |
 | `[FindWithEdits(DnaSequence)] sequence` | `DnaSequence` | required | Sequence searched through the typed wrapper | Null input throws because the wrapper dereferences `sequence.Sequence` |
 | `pattern` | `string` | required | Pattern compared against variable-length windows | Null or empty input yields no matches |
-| `maxEdits` | `int` | required | Maximum allowed edit distance | Negative values throw `ArgumentOutOfRangeException` |
+| `maxEdits` | `int` | required | Maximum allowed edit distance | Negative values throw `ArgumentOutOfRangeException`; values up to `int.MaxValue` are valid (window bound computed in `long`) |
+| `[GetEditAlignment] query`, `target` | `string` | required | Strings aligned globally (query = pattern/rows) | Null input throws `ArgumentNullException`; case-sensitive |
+| `[OptimalStringAlignmentDistance / DamerauLevenshteinDistance] s1`, `s2` | `string` | required | Strings compared | Null input throws `ArgumentNullException`; case-sensitive |
 
 ### 3.2 Output / Return Value
 
@@ -65,7 +73,10 @@ Approximate search (the *k differences* problem, Sellers 1980; Navarro 2001 §5.
 | `Position` | `int` | Start of a matching window in `FindWithEdits(...)` |
 | `MatchedSequence` | `string` | Window whose edit distance is within threshold |
 | `Distance` | `int` | Observed edit distance |
-| `MismatchType` | `MismatchType` | `Substitution` when the edit distance equals the Hamming distance on equal-length windows; otherwise `Edit` |
+| `MismatchType` | `MismatchType` | `Substitution` when the hit's alignment has no indel (⇔ equal-length window with edit distance = Hamming distance); otherwise `Edit` |
+| `MismatchPositions` | `IReadOnlyList<int>` | Pattern-relative indices of the substituted (`X`) pattern characters of the hit's alignment (= the Hamming mismatch indices for `Substitution` hits) |
+| `Alignment` | `EditAlignment?` | Hit alignment (pattern = query, window = target); null for Hamming results |
+| `EditAlignment` | record | `Distance`, `Operations` (`=`/`X`/`I`/`D` per column), `Cigar` (EXTENDED), `StandardCigar`, `AlignedQuery`, `AlignedTarget` (`-` for gaps), `SubstitutionPositions`, `HasIndels` |
 
 ### 3.3 Preconditions and Validation
 
@@ -75,19 +86,24 @@ Approximate search (the *k differences* problem, Sellers 1980; Navarro 2001 §5.
 
 ### 4.1 High-Level Steps
 
-All three entry points share one column kernel (`AdvanceColumn`) of the unit-cost Wagner–Fischer DP; they differ only in the top cell of each column.
+The DP entry points share one column kernel (`AdvanceColumn`) of the unit-cost Wagner–Fischer DP; they differ only in the top cell of each column. The two distance-only entry points run on the Myers bit-vector engine (`MyersBitVector`), which produces the same column scores.
 
-1. `EditDistance`: two columns over the pattern rows, top cell = column index `j` (global distance); return `C[m, n]`.
-2. `FindEditEndPositions` (Sellers): uppercase inputs; top cell = 0 (free text start); yield `(j, C[m, j])` when `C[m, j] ≤ k`.
-3. `FindWithEdits`: uppercase inputs; for each start `i`, run the start-anchored DP (top cell = window length) over `T[i..i+m+k)` — one pass gives `ed(P, T[i..i+len))` for every length; yield windows with `len ≥ max(1, m − k)` and distance `≤ k`; stop early once the column minimum exceeds `k` (Ukkonen 1985 cut-off; column minima never decrease).
+1. `EditDistance`: Myers/Hyyrö global engine (row-0 delta +1) with the shorter string as bit-vector pattern; return `C[m, n]`. Reference: `EditDistanceDp` (two DP columns, top cell = `j`).
+2. `FindEditEndPositions` (Sellers): uppercase inputs; Myers engine with row-0 delta 0 (free text start); yield `(j, C[m, j])` when `C[m, j] ≤ k`. Reference: `FindEditEndPositionsDp` (top cell = 0).
+3. `FindWithEdits`: uppercase inputs; for each start `i`, run the start-anchored DP (top cell = window length) over `T[i..i+m+k)`, keeping the columns — one pass gives `ed(P, T[i..i+len))` for every length; for windows with `len ≥ max(1, m − k)` and distance `≤ k` trace the alignment back through the kept columns and yield the hit; stop early once the column minimum exceeds `k` (Ukkonen 1985 cut-off; column minima never decrease).
+4. `GetEditAlignment`: full DP matrix (top cell = `j`), then the diagonal-first traceback.
+5. `OptimalStringAlignmentDistance`: three rolling rows with the adjacent-transposition case; `DamerauLevenshteinDistance`: Lowrance–Wagner full matrix with sentinel row/column `m + n` and the `da` table.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `EditDistance` | `O(m × n)` | `O(n)` | Two-row Wagner-Fischer dynamic program for strings of lengths `m` and `n` |
-| `FindEditEndPositions` | `O(s × p)` | `O(p)` | Sellers (1980) semi-global DP |
-| `FindWithEdits` | `O(s × p × (p + e))` worst case | `O(p)` | `s` = sequence length, `p` = pattern length, `e` = `maxEdits`; one start-anchored DP per start with Ukkonen cut-off |
+| `EditDistance` | `O(⌈min(m,n)/64⌉ × max(m,n))` | `O(⌈min(m,n)/64⌉ + σ·⌈min(m,n)/64⌉)` | Myers bit-parallel (σ = distinct pattern symbols) |
+| `FindEditEndPositions` | `O(⌈p/64⌉ × s)` | `O(σ·⌈p/64⌉)` | Sellers (1980) semi-global search, Myers engine |
+| `FindWithEdits` | `O(s × p × (p + e))` worst case, plus `O(p + len)` traceback per hit | `O(p × (p + e))` | `s` = sequence length, `p` = pattern length, `e` = `maxEdits`; start-anchored DP columns kept for the traceback |
+| `GetEditAlignment` | `O(m × n)` | `O(m × n)` | Full Wagner–Fischer matrix + traceback |
+| `OptimalStringAlignmentDistance` | `O(m × n)` | `O(n)` | Three rolling rows |
+| `DamerauLevenshteinDistance` | `O(m × n)` | `O(m × n)` | Lowrance–Wagner with alphabet table |
 
 ## 5. Implementation Notes
 
@@ -95,14 +111,18 @@ All three entry points share one column kernel (`AdvanceColumn`) of the unit-cos
 
 **Implementation location:** [ApproximateMatcher.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs)
 
-- `ApproximateMatcher.EditDistance(string, string)`: Two-row Levenshtein distance.
+- `ApproximateMatcher.EditDistance(string, string)`: Levenshtein distance (Myers/Hyyrö bit-parallel engine).
+- `ApproximateMatcher.GetEditAlignment(string, string)`: Optimal global alignment (`EditAlignment`, edlib CIGAR).
+- `ApproximateMatcher.OptimalStringAlignmentDistance(string, string)`: Restricted Damerau (OSA) distance.
+- `ApproximateMatcher.DamerauLevenshteinDistance(string, string)`: True Damerau–Levenshtein distance (Lowrance–Wagner 1975).
+- internal `EditDistanceDp` / `FindEditEndPositionsDp`: Wagner–Fischer references for the Myers engine (tests only).
 - `ApproximateMatcher.FindWithEdits(string, string, int)`: All windows within `maxEdits` (start-anchored DP per start).
 - `ApproximateMatcher.FindEditEndPositions(string, string, int)`: Sellers (1980) end positions with minimum distance.
 - `ApproximateMatcher.FindWithEdits(DnaSequence, string, int)`: Typed wrapper over the string implementation.
 
 ### 5.2 Current Behavior
 
-The core `EditDistance(...)` method is case-sensitive because it compares characters directly. `FindWithEdits(...)` uppercases both the sequence and pattern before scanning and distinguishes substitution-only matches from general edits by comparing the edit distance to the canonical `SequenceExtensions.HammingDistance` on equal-length windows. For edit matches that involve insertions or deletions, `MismatchPositions` is returned as an empty list. The `DnaSequence` overload is a thin wrapper over the string implementation and does not add its own null guard.
+The core `EditDistance(...)` method is case-sensitive because it compares characters directly. `FindWithEdits(...)` uppercases both the sequence and pattern before scanning and distinguishes substitution-only matches from general edits by comparing the edit distance to the canonical `SequenceExtensions.HammingDistance` on equal-length windows. Every hit carries its alignment (`Alignment`); `MismatchPositions` are the pattern-relative indices of its substituted characters (empty when the only edits are indels). The `DnaSequence` overload is a thin wrapper over the string implementation and does not add its own null guard.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -113,13 +133,13 @@ The core `EditDistance(...)` method is case-sensitive because it compares charac
 - Approximate search by accepting windows with edit distance at most `maxEdits`.
 - Sellers (1980) k-differences search (`FindEditEndPositions`), cross-checked against edlib infix (HW) mode and Navarro's `survey`/`surgery` example.
 
-**Intentionally simplified:**
-
-- Edit-match results do not reconstruct insertion or deletion coordinates; **consequence:** callers receive the edit distance and matched window, but not a full alignment trace.
+- Myers (1999) bit-parallel edit distance in the global form of Hyyrö (2003), multi-word blocks, transcribed from edlib's `calculateBlock`; identical to the DP reference (exhaustive + random tests) and to rapidfuzz/edlib (3160 random pairs, lengths 0–300, incl. non-ASCII; 600 Sellers cases vs Python DP and edlib HW best-distance/end locations).
+- Traceback with edlib's operation/CIGAR convention; deterministic diagonal-first tie-break (documented above). Cross-check vs edlib `align(q, t, mode='NW', task='path')`: 2000 random pairs — distance and path validity 2000/2000, CIGAR identical in 116, and identical in 115/115 pairs whose optimal path is unique; FindWithEdits: 13019 hits in 500 random cases — windows = brute force, CIGAR replays with cost = distance, 7461 identical to edlib NW on (pattern, window).
+- Optimal string alignment and true Damerau–Levenshtein distances; rapidfuzz `OSA`/`DamerauLevenshtein` and jellyfish agree on 4507 pairs (classic CA/ABC: OSA 3, DL 2). Note: `pyxDamerauLevenshtein` returns 3 for CA/ABC — it implements OSA, not unrestricted DL.
 
 **Not implemented:**
 
-- Damerau-style transpositions or other extended edit operations; **users should rely on:** specialized edit-distance variants if those operations are required.
+- Weighted / non-unit edit costs (e.g. affine gaps) — use the pairwise aligners in `SequenceAligner`.
 
 ## 6. Edge Cases and Limitations
 
@@ -135,7 +155,7 @@ The core `EditDistance(...)` method is case-sensitive because it compares charac
 
 ### 6.2 Limitations
 
-The search routines do not expose a full alignment traceback, and no bit-parallel (Myers 1999) acceleration is used. The core distance method is also case-sensitive, so callers who need normalized comparisons must uppercase or otherwise normalize inputs before calling it directly.
+`GetEditAlignment` and `DamerauLevenshteinDistance` keep an `O(m·n)` matrix (no Hirschberg linear-space traceback); `FindWithEdits` keeps `O(p·(p+e))` DP columns per start. Among co-optimal alignments exactly one (diagonal-first) is returned; it may differ from edlib's (I-first) path. The core distance methods are also case-sensitive, so callers who need normalized comparisons must uppercase or otherwise normalize inputs before calling it directly.
 
 ## 7. Examples and Related Material
 
@@ -155,6 +175,12 @@ The search routines do not expose a full alignment traceback, and no bit-paralle
 2. Wagner, R.A.; Fischer, M.J. (1974). "The String-to-String Correction Problem." Journal of the ACM, 21(1): 168–173.
 3. Sellers, P.H. (1980). "The theory and computation of evolutionary distances: Pattern recognition." Journal of Algorithms, 1(4): 359–373.
 4. Ukkonen, E. (1985). "Finding approximate patterns in strings." Journal of Algorithms, 6(1): 132–137.
+4a. Myers, G. (1999). "A fast bit-vector algorithm for approximate string matching based on dynamic programming." Journal of the ACM, 46(3): 395–415.
+4b. Hyyrö, H. (2003). "A bit-vector algorithm for computing Levenshtein and Damerau edit distances." Nordic Journal of Computing, 10(1): 29–39.
+4c. Šošić, M.; Šikić, M. (2017). "Edlib: a C/C++ library for fast, exact sequence alignment using edit distance." Bioinformatics, 33(9): 1394–1395; source opened: raw.githubusercontent.com/Martinsos/edlib/master/edlib/src/edlib.cpp (`calculateBlock`, `obtainAlignmentTraceback`, `edlibAlignmentToCigar`) and `edlib/include/edlib.h` (EDLIB_EDOP_*, EDLIB_CIGAR_*).
+4d. Damerau, F.J. (1964). "A technique for computer detection and correction of spelling errors." Communications of the ACM, 7(3): 171–176.
+4e. Lowrance, R.; Wagner, R.A. (1975). "An extension of the string-to-string correction problem." Journal of the ACM, 22(2): 177–183.
+4f. Boytsov, L. (2011). "Indexing methods for approximate dictionary searching: comparative analyses." ACM Journal of Experimental Algorithmics, 16: 1.1.
 5. Navarro, G. (2001). "A guided tour to approximate string matching." ACM Computing Surveys, 33(1): 31–88.
 6. Berger, B.; Waterman, M.S.; Yu, Y.W. (2021). "Levenshtein Distance, Sequence Comparison and Biological Database Search." IEEE Transactions on Information Theory, 67(6): 3287–3294.
 7. Rosetta Code - Levenshtein Distance: https://rosettacode.org/wiki/Levenshtein_distance

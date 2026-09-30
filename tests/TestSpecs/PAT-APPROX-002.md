@@ -9,7 +9,7 @@
 | **Area** | Pattern Matching |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-09-28 |
+| **Last Updated** | 2026-09-30 |
 
 ---
 
@@ -21,6 +21,11 @@
 | `FindWithEdits(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical | O(n × m × (m+k)) |
 | `FindEditEndPositions(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical (Sellers 1980) | O(n × m) |
 | `FindWithEdits(DnaSequence sequence, string pattern, int maxEdits)` | ApproximateMatcher | Wrapper | Delegates to string version |
+| `GetEditAlignment(string query, string target)` | ApproximateMatcher | Canonical (traceback, edlib CIGAR) | O(m × n) |
+| `OptimalStringAlignmentDistance(string s1, string s2)` | ApproximateMatcher | Canonical (restricted Damerau) | O(m × n) |
+| `DamerauLevenshteinDistance(string s1, string s2)` | ApproximateMatcher | Canonical (Lowrance–Wagner 1975) | O(m × n) |
+
+`EditDistance` and `FindEditEndPositions` run on the Myers (1999) bit-parallel engine (Hyyrö 2003 global form, ⌈m/64⌉ words, edlib `calculateBlock`); the Wagner–Fischer references `EditDistanceDp` / `FindEditEndPositionsDp` (internal) are the test oracles.
 
 ---
 
@@ -32,6 +37,21 @@
 3. **Rosetta Code - Levenshtein Distance**: Test vectors, cross-language validation
 4. **Navarro (2001)**: "A Guided Tour to Approximate String Matching" - theoretical foundation; §5.1 Sellers DP and `survey`/`surgery` example
 5. **edlib 1.3 (infix/HW mode)**, rapidfuzz 3.14 Levenshtein: reference implementations used for the review-2026-09 cross-check
+6. **Myers (1999) J. ACM 46(3):395; Hyyrö (2003); edlib source** (`edlib.cpp`: `calculateBlock`, `obtainAlignmentTraceback`, `edlibAlignmentToCigar`; `edlib.h`: EDLIB_EDOP_*, EDLIB_CIGAR_*) — bit-parallel engine and CIGAR convention (B05 follow-up, 2026-09-30)
+7. **Lowrance & Wagner (1975) J. ACM 22(2):177; Damerau (1964); Boytsov (2011)**; rapidfuzz `OSA` / `DamerauLevenshtein`, jellyfish — Damerau variants
+
+### B05 follow-up reference cross-check (2026-09-30)
+
+| Check | Cases | Result |
+|-------|-------|--------|
+| `EditDistance` (Myers) vs rapidfuzz Levenshtein | 3160 random pairs, lengths 0–300, alphabets {AC, ACGT, ACGTN, a–z, ACαβ} | 3160/3160 equal |
+| `GetEditAlignment` vs edlib NW `task='path'` | 2000 random pairs (≤25, {AC}/{ACGT}) | distance + CIGAR replay 2000/2000; CIGAR identical 116; identical on all 115 pairs with a unique optimal path |
+| edlib tie-break reproduction (Python traceback I → D → diagonal) | 2000 pairs | 2000/2000 identical to edlib ⇒ differences are co-optimal ties only |
+| `FindEditEndPositions` (Myers) vs Python Sellers DP; edlib HW best distance + end locations | 600 (text ≤300, pattern ≤150) | 600/600 |
+| `FindWithEdits` windows, CIGAR replay, MismatchPositions, MismatchType | 500 cases, 13019 hits | 0 errors; 7461 CIGARs identical to edlib NW |
+| OSA / DL vs rapidfuzz, DL vs jellyfish | 4507 pairs | 0 differences (CA/ABC: OSA 3, DL 2; pyxDamerauLevenshtein gives 3 = OSA) |
+
+**Tie-break (documented, deterministic):** traceback from (m, n) takes the diagonal when optimal, then `I`, then `D` (edlib: `I`, `D`, diagonal). Diagonal-first makes a substitution-only optimum (equal-length window with ed = Hamming) come back as the Hamming path, so `MismatchPositions` of `Substitution` hits equal the Hamming mismatch indices.
 
 ### Canonical Test Vectors (from Sources)
 
@@ -101,6 +121,16 @@
 | C05 | FindEditEndPositions_Guards | Negative k / empty input | Contract |
 | C06 | FindWithEdits_NavarroSurveySurgery_ReturnsAllWindows | Window enumeration | Navarro 2001 §5.1; rapidfuzz |
 | C07 | FindWithEdits_EndPositionSet_EqualsSellers | Window ends ≡ Sellers ends (300 seeded cases) | Sellers 1980 |
+| C08 | GetEditAlignment_UniqueOptimalPath_EqualsEdlibCigar (4 cases) | CIGAR = edlib on unique optimal paths | edlib NW |
+| C09 | GetEditAlignment_CoOptimalPaths_UsesDiagonalFirstTieBreak (3 cases) | Documented tie-break; edlib path same cost | edlib NW |
+| C10 | GetEditAlignment_AlignedStringsAndSubstitutions / _EmptyInputs | Gapped strings, guards | edlib convention |
+| C11 | FindWithEdits_SurveySurgery_AlignmentsEqualEdlib / _TtacInGattaca_Cigars | Per-hit CIGAR + MismatchPositions | edlib NW per window |
+| C12 | FindWithEdits_HugeMaxEdits_DoesNotOverflow | maxEdits = int.MaxValue reports every window | k-differences definition |
+| C13 | EditDistance_MultiBlock_EqualsRapidfuzz, _Myers_EqualsDp_Exhaustive, _NonAsciiSymbols_EqualDp, FindEditEndPositions_Myers_EqualsDp | Myers engine == DP / rapidfuzz, m > 64 | Myers 1999; rapidfuzz |
+| C14 | DamerauVariants_EqualRapidfuzz (11 cases), DamerauVariants_NullInput_Throws | OSA / DL reference values | rapidfuzz, jellyfish |
+| P01 | Properties/EditAlignmentProperties P1–P5 | Myers == DP; CIGAR replay cost = distance; hit alignments; DL ≤ OSA ≤ Lev; DL triangle | Myers 1999; Lowrance–Wagner 1975 |
+| P02 | Metamorphic/PatternApproxB05MetamorphicTests.EditDistance_ReversingBothStrings_PreservesDistance | Reversal invariance | Definition |
+| P03 | Fuzzing/PatternApproxEditFuzzTests | Word-boundary lengths 63–129, non-ASCII, int.MaxValue | Myers 1999 |
 
 ---
 
@@ -138,6 +168,8 @@
 | C05 | FindEditEndPositions_Guards | ✅ Covered |
 | C06 | FindWithEdits_NavarroSurveySurgery_ReturnsAllWindows | ✅ Covered |
 | C07 | FindWithEdits_EndPositionSet_EqualsSellers | ✅ Covered |
+| C08–C14 | ApproximateMatcher_EditAlignment_Tests | ✅ Covered |
+| P01–P03 | Property / Metamorphic / Fuzzing (B05 follow-up) | ✅ Covered |
 
 ---
 

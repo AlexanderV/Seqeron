@@ -29,6 +29,9 @@ public class FindWithEditsTests
             Assert.That(r.Items[0].Distance, Is.EqualTo(1));
             Assert.That(r.Items[1].MatchedSequence, Is.EqualTo("CGT"));
             Assert.That(r.Items[1].Distance, Is.EqualTo(1));
+            // Pattern-relative substitution indices of the optimal alignment (AGT vs CGT: A→C at 0).
+            Assert.That(r.Items[1].MismatchPositions, Is.EqualTo(new[] { 0 }));
+            Assert.That(r.Items[0].MismatchPositions, Is.Empty, "ACGT: 1=1D2=, no substitution");
         });
     }
 }

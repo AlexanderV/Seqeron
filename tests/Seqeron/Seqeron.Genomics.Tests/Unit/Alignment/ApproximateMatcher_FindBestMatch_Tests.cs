@@ -154,6 +154,57 @@ public class ApproximateMatcher_FindBestMatch_Tests
 
     #endregion
 
+    #region FindFrequentKmersWithMismatchesAndReverseComplements (BA1J)
+
+    // ROSALIND BA1J sample; other values from a Python brute force over all 4^k k-mers of
+    // Count_d(Text, P) + Count_d(Text, rc(P)) (review 2026-09 B05 follow-up).
+    [TestCase("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4, 1, new[] { "ACAT", "ATGT" }, 9, TestName = "Ba1j_RosalindSample_ReturnsAtgtAcat")]
+    [TestCase("acgttgcatgtcgcatgatgcatgagagct", 4, 1, new[] { "ACAT", "ATGT" }, 9, TestName = "Ba1j_LowercaseSample_SameAsUppercase")]
+    [TestCase("ACGT", 4, 0, new[] { "ACGT" }, 2, TestName = "Ba1j_ReverseComplementPalindrome_CountedTwice")]
+    [TestCase("AAAAA", 2, 0, new[] { "AA", "TT" }, 4, TestName = "Ba1j_Homopolymer_ReturnsKmerAndReverseComplement")]
+    [TestCase("ACGTTNCATGTCGCATGATGCANGAGAGCT", 4, 1, new[] { "CATG" }, 8, TestName = "Ba1j_NonAcgtWindows_MatchesBruteForce")]
+    public void Ba1j_MatchesReference(string text, int k, int d, string[] expected, int score)
+    {
+        var result = ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements(text, k, d)
+            .OrderBy(r => r.Kmer, StringComparer.Ordinal).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Select(r => r.Kmer), Is.EqualTo(expected));
+            Assert.That(result.Select(r => r.Count), Is.All.EqualTo(score));
+        });
+    }
+
+    // go-rosalind rosalind/data/frequent_words_mismatch_complements.txt (BA1J extra dataset):
+    // gold output "AGCGCCGCT AGCGGCGCT"; score 22 from a numpy brute force over all 4^9 9-mers.
+    [Test]
+    public void Ba1j_GoRosalindExtraDataset_K9D3()
+    {
+        const string text = "CTTGCCGGCGCCGATTATACGATCGCGGCCGCTTGCCTTCTTTATAATGCATCGGCGCCGCGATCTTGCTATATACGTACGCTTCGCTTGCATCTTGCGCGCATTACGTACTTATCGATTACTTATCTTCGATGCCGGCCGGCATATGCCGCTTTAGCATCGATCGATCGTACTTTACGCGTATAGCCGCTTCGCTTGCCGTACGCGATGCTAGCATATGCTAGCGCTAATTACTTAT";
+
+        var result = ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements(text, 9, 3)
+            .OrderBy(r => r.Kmer, StringComparer.Ordinal).ToList();
+
+        Assert.That(result, Is.EqualTo(new[] { ("AGCGCCGCT", 22), ("AGCGGCGCT", 22) }));
+    }
+
+    [Test]
+    public void Ba1j_GuardsAndEmpty()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("ACGT", 0, 1).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("ACGT", 2, -1).ToList());
+            Assert.That(ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("", 4, 1), Is.Empty);
+            Assert.That(ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("ACG", 4, 1), Is.Empty);
+            Assert.That(ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("NNNN", 2, 1), Is.Empty);
+        });
+    }
+
+    #endregion
+
     #region CountApproximateOccurrences (Count_d, BA1H/BA1I)
 
     // M3 — ROSALIND BA1H sample Count_d.

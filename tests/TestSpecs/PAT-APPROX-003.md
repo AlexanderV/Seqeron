@@ -49,6 +49,7 @@
 |--------|-------|------|-------|
 | `FindFrequentKmersWithMismatches(sequence, k, d)` | ApproximateMatcher | **Canonical** | BA1I; tally over d-neighborhoods, return all maxima |
 | `CountApproximateOccurrences(sequence, pattern, maxMismatches)` | ApproximateMatcher | **Canonical** | Count_d (BA1H); delegates to FindWithMismatches |
+| `FindFrequentKmersWithMismatchesAndReverseComplements(sequence, k, d)` | ApproximateMatcher | **Canonical** | BA1J; reuses the BA1I tally + canonical `DnaSequence.GetReverseComplementString`; all maxima of Count_d(P) + Count_d(rc(P)) |
 | `FindBestMatch(sequence, pattern)` | ApproximateMatcher | **Canonical** | leftmost minimum-Hamming-distance equal-length window |
 
 ---
@@ -81,6 +82,10 @@
 | M8 | FindBestMatch no exact | seq=TTTTTTTT, pat=ACGT | Distance 3, leftmost Position 0, MatchedSequence TTTT | Source 2 (INV-4, INV-5) |
 | M9 | BA1N neighborhood via FrequentKmers | seq=ACG, k=3, d=1 (single window) | exactly {CCG TCG GCG AAG ATG AGG ACA ACC ACT ACG}, each count 1 | Source 3 sample |
 | M10 | Non-ACGT windows → DNA k-mers only | ANGANG k=3 d=1; NNNN k=2 d=1; BA1I sample with two N | {AAG,ACG,AGG,ATG}×2; empty; {ATGA,ATGT,CATG}×4 | Source 3 (k-mers over {A,C,G,T}); brute-force BA1I (all 4^k k-mers) in Python; Source 4 rejects non-DNA input |
+| M11 | BA1J sample (B05 follow-up, 2026-09-30) | ACGTTGCATGTCGCATGATGCATGAGAGCT, k=4, d=1 | {ATGT, ACAT}, score 9 | ROSALIND BA1J sample; go-rosalind `TestMatrixMostFrequentKmersMismatchesRevComp`; Python brute force over 4^k |
+| M12 | BA1J extra dataset | go-rosalind `data/frequent_words_mismatch_complements.txt`, k=9, d=3 | {AGCGCCGCT, AGCGGCGCT}, score 22 | go-rosalind gold output; numpy brute force over 4^9 |
+| M13 | BA1J palindrome / homopolymer / non-ACGT / lowercase / guards | ACGT k4 d0; AAAAA k2 d0; N-containing sample; lowercase sample; k≤0, d<0, empty, NNNN | {ACGT}:2; {AA,TT}:4; {CATG}:8; = uppercase; throw / empty | BA1J definition (literal sum); Python brute force (300 random cases, 0 differences) |
+| P1 | BA1J metamorphic | random texts | BA1J(T) = BA1J(rc(T)); result closed under rc; max ≥ BA1I max | Count_d(rc T, P) = Count_d(T, rc P) (Metamorphic/PatternApproxB05MetamorphicTests) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
