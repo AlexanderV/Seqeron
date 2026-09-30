@@ -28,7 +28,7 @@ public partial class PersistentSuffixTreeBuilder
         bool textIsAscii = IsTextAscii();
         int bytesPerChar = textIsAscii ? 1 : 2;
         long textByteLen = (long)_text.Length * bytesPerChar;
-        long textOffset = _storage.Allocate((int)textByteLen);
+        long textOffset = AllocateContiguous(_storage, textByteLen);
         const int ChunkChars = 4096;
         byte[] chunkBuf = ArrayPool<byte>.Shared.Rent(ChunkChars * 2);
         try
@@ -41,7 +41,7 @@ public partial class PersistentSuffixTreeBuilder
                 var charSpan = _text.Slice(written, chunkLen);
                 int byteCount = textIsAscii
                     ? Encoding.ASCII.GetBytes(charSpan, chunkBuf.AsSpan())
-                    : Encoding.Unicode.GetBytes(charSpan, chunkBuf.AsSpan());
+                    : Utf16CodeUnits.Write(charSpan, chunkBuf.AsSpan());
                 _storage.WriteBytes(textOffset + (long)written * bytesPerChar, chunkBuf, 0, byteCount);
                 written += chunkLen;
             }
@@ -52,6 +52,30 @@ public partial class PersistentSuffixTreeBuilder
         }
 
         return (textOffset, textIsAscii);
+    }
+
+    /// <summary>
+    /// Allocates <paramref name="byteLength"/> contiguous bytes, which may exceed
+    /// <see cref="int.MaxValue"/> (a UTF-16 text longer than 2^30 − 1 chars needs &gt; 2 GiB).
+    /// <see cref="IStorageProvider.Allocate(int)"/> takes an <c>int</c>; a plain cast would
+    /// wrap negative. Storage providers are bump allocators (the node-sweep loops of the
+    /// builder already rely on this), so consecutive chunks form one contiguous region.
+    /// </summary>
+    internal static long AllocateContiguous(IStorageProvider storage, long byteLength)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(byteLength);
+        long start = storage.Allocate((int)Math.Min(byteLength, int.MaxValue));
+        long allocated = Math.Min(byteLength, int.MaxValue);
+        while (allocated < byteLength)
+        {
+            int chunk = (int)Math.Min(byteLength - allocated, int.MaxValue);
+            long offset = storage.Allocate(chunk);
+            if (offset != start + allocated)
+                throw new InvalidOperationException(
+                    $"Storage provider returned non-contiguous allocation at {offset} (expected {start + allocated}).");
+            allocated += chunk;
+        }
+        return start;
     }
 
     private void WriteHeader(long textOffset, bool textIsAscii)

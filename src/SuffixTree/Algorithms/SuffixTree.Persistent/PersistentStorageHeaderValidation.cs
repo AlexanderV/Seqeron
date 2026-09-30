@@ -153,9 +153,12 @@ internal static class PersistentStorageHeaderValidator
             throw new InvalidOperationException(
                 $"Invalid storage format: text length {header.TextLength} is negative.");
 
-        if (header.TextOffset < headerSize || header.TextOffset >= storageSize)
+        // An empty text occupies zero bytes, so its region may start exactly at the
+        // end of storage (the builder appends the text last). For non-empty text the
+        // textEnd check below already forces TextOffset < storageSize.
+        if (header.TextOffset < headerSize || header.TextOffset > storageSize)
             throw new InvalidOperationException(
-                $"Invalid storage format: text offset {header.TextOffset} is outside valid range [{headerSize}, {storageSize}).");
+                $"Invalid storage format: text offset {header.TextOffset} is outside valid range [{headerSize}, {storageSize}].");
 
         long textEnd = header.TextOffset + (long)header.TextLength * bytesPerChar;
         if (textEnd > storageSize)

@@ -74,6 +74,12 @@ from 24-byte (compact) to 32-byte (large) nodes. A jump table bridges
 cross-zone suffix links and child arrays (see
 [Persistent README](../../../src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md)).
 
+Text persistence is lossless at the code-unit level: the persistent file (non-ASCII
+texts), the `SuffixTreeSerializer` v2 payload and the structural hash store raw
+UTF-16LE code units, so any `string` accepted by the in-memory tree — including
+lone surrogates and surrogate pairs straddling the 4096-char write chunks — reloads
+and re-imports unchanged (review 2026-09 F17). Empty texts round-trip through MMF files (F16).
+
 ---
 
 ## 4. Algorithms
