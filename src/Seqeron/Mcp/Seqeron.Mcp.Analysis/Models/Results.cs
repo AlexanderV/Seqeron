@@ -111,8 +111,21 @@ public record MicrosatelliteItem(
     int TotalLength,
     string RepeatType);
 
+/// <summary>A MISA compound microsatellite (types c / c*).</summary>
+public record CompoundMicrosatelliteItem(
+    int Start,
+    int End,
+    int Length,
+    string Type,
+    string Notation,
+    MicrosatelliteItem[] Components);
+
 /// <summary>Result of <c>find_microsatellites</c>.</summary>
-public record FindMicrosatellitesResult(MicrosatelliteItem[] Items);
+public record FindMicrosatellitesResult(MicrosatelliteItem[] Items)
+{
+    /// <summary>MISA compound microsatellites (only when <c>maxCompoundInterruption</c> ≥ 0; otherwise null).</summary>
+    public CompoundMicrosatelliteItem[]? Compounds { get; init; }
+}
 
 /// <summary>An inverted repeat candidate (potential hairpin).</summary>
 public record InvertedRepeatItem(
@@ -167,6 +180,9 @@ public record TandemRepeatSummaryResult(
 
     /// <summary>Count of hexanucleotide (6 bp unit) STRs.</summary>
     public int HexanucleotideRepeats { get; init; }
+
+    /// <summary>STR counts per MISA repeat-type class (rotations + reverse complement, e.g. "AC/GT").</summary>
+    public Dictionary<string, int>? CanonicalMotifCounts { get; init; }
 }
 
 // ================================

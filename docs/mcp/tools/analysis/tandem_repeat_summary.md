@@ -29,17 +29,25 @@ and Krait statistics (Du et al. 2018):
   reverse-complement-canonicalized, as in MISA's "Frequency of identified SSR motifs") occurring
   in the most STRs; ties → the unit whose first STR comes first in the unit-length/position order.
   `null` when none.
+- `canonicalMotifCounts` — STR count per MISA repeat-type class "considering sequence
+  complementary" (`misa.pl` `.statistics`): motif rotations and reverse-complement rotations are
+  one class named `X/Y` (smallest rotation of each strand, smaller first), e.g. AC, CA, GT, TG →
+  `AC/GT`; A, T → `A/T`. Verified against a real `perl misa.pl` run.
+
+With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum copies
+(`1-10 2-6 3-5 4-5 5-5 6-5`) instead of one `minRepeats`.
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L887](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L887)
+- Source: [RepeatFinder.cs#L3376](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3376)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | DNA sequence (min length 1) |
-| `minRepeats` | integer | No | Minimum complete copies for every unit length (default 3, ≥ 2; smaller values throw `ArgumentOutOfRangeException`) |
+| `minRepeats` | integer | No | Minimum complete copies for every unit length (default 3, ≥ 2; smaller values throw `ArgumentOutOfRangeException`); ignored when `misaThresholds` is true |
+| `misaThresholds` | boolean | No | MISA default per-unit-size minimum copies `1-10 2-6 3-5 4-5 5-5 6-5` (default false) |
 
 ## Output Schema
 
@@ -56,6 +64,7 @@ and Krait statistics (Du et al. 2018):
 | `hexanucleotideRepeats` | integer | Count of hexanucleotide STRs |
 | `longestRepeat` | object/null | The longest microsatellite (or null) |
 | `mostFrequentUnit` | string/null | The most frequent repeat unit (or null) |
+| `canonicalMotifCounts` | object | STR count per MISA repeat-type class, e.g. `{ "AC/GT": 3, "A/T": 1 }` |
 
 ## Errors
 
@@ -81,7 +90,7 @@ and Krait statistics (Du et al. 2018):
 
 **Response:**
 ```json
-{ "totalRepeats": 1, "totalRepeatBases": 9, "percentageOfSequence": 100.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 1, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 0, "hexanucleotideRepeats": 0, "longestRepeat": { "position": 0, "repeatUnit": "CAG", "repeatCount": 3, "totalLength": 9, "repeatType": "Trinucleotide" }, "mostFrequentUnit": "CAG" }
+{ "totalRepeats": 1, "totalRepeatBases": 9, "percentageOfSequence": 100.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 1, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 0, "hexanucleotideRepeats": 0, "longestRepeat": { "position": 0, "repeatUnit": "CAG", "repeatCount": 3, "totalLength": 9, "repeatType": "Trinucleotide" }, "mostFrequentUnit": "CAG", "canonicalMotifCounts": { "AGC/CTG": 1 } }
 ```
 
 ### Example 2: No STRs
@@ -99,7 +108,7 @@ and Krait statistics (Du et al. 2018):
 
 **Response:**
 ```json
-{ "totalRepeats": 0, "totalRepeatBases": 0, "percentageOfSequence": 0.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 0, "hexanucleotideRepeats": 0, "longestRepeat": null, "mostFrequentUnit": null }
+{ "totalRepeats": 0, "totalRepeatBases": 0, "percentageOfSequence": 0.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 0, "hexanucleotideRepeats": 0, "longestRepeat": null, "mostFrequentUnit": null, "canonicalMotifCounts": {} }
 ```
 
 ### Example 3: Penta- and hexanucleotide STRs, overlapping homopolymers
@@ -118,7 +127,7 @@ and Krait statistics (Du et al. 2018):
 **Response** (STRs: `A×3@0, A×4@4, A×4@9, A×4@14, G×3@25, G×3@31, G×3@37, G×3@43, (AAAGA)4@0, (TTAGGG)4@22`;
 71 repeat bases, but only `[0,20) ∪ [22,46)` = 44 of 46 bases covered):
 ```json
-{ "totalRepeats": 10, "totalRepeatBases": 71, "percentageOfSequence": 95.65217391304348, "mononucleotideRepeats": 8, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 1, "hexanucleotideRepeats": 1, "longestRepeat": { "position": 22, "repeatUnit": "TTAGGG", "repeatCount": 4, "totalLength": 24, "repeatType": "Hexanucleotide" }, "mostFrequentUnit": "A" }
+{ "totalRepeats": 10, "totalRepeatBases": 71, "percentageOfSequence": 95.65217391304348, "mononucleotideRepeats": 8, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 1, "hexanucleotideRepeats": 1, "longestRepeat": { "position": 22, "repeatUnit": "TTAGGG", "repeatCount": 4, "totalLength": 24, "repeatType": "Hexanucleotide" }, "mostFrequentUnit": "A", "canonicalMotifCounts": { "A/T": 4, "C/G": 4, "AAAAG/CTTTT": 1, "AACCCT/AGGGTT": 1 } }
 ```
 
 ## Performance

@@ -69,6 +69,33 @@ public class TandemRepeatSummaryTests
             Assert.That(s.HexanucleotideRepeats, Is.EqualTo(1));
             Assert.That(s.LongestRepeat, Is.EqualTo(new MicrosatelliteItem(22, "TTAGGG", 4, 24, "Hexanucleotide")));
             Assert.That(s.MostFrequentUnit, Is.EqualTo("A"));
+            // perl misa.pl (definition 1-3 … 6-3) .statistics classified table: A/T 4, C/G 4, AAAAG/CTTTT 1, AACCCT/AGGGTT 1.
+            Assert.That(s.CanonicalMotifCounts, Is.EquivalentTo(new Dictionary<string, int>
+            {
+                ["A/T"] = 4, ["C/G"] = 4, ["AAAAG/CTTTT"] = 1, ["AACCCT/AGGGTT"] = 1,
+            }));
         });
+    }
+
+    [Test]
+    public void TandemRepeatSummary_MisaThresholds_CanonicalMotifCounts_MatchMisaPl()
+    {
+        // perl misa.pl (default misa.ini) on (AC)6 / (GT)6 / (TG)6 / (A)13 separated by a 101-bp SSR-free spacer:
+        // 4 SSRs (p2 (AC)6, p2 (GT)6, p2 (TG)6, p1 (A)14); .statistics "Frequency of classified repeat types": A/T 1, AC/GT 3.
+        const string spacer =
+            "CTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTA";
+        string seq = "ACACACACACACT" + spacer + "GTGTGTGTGTGTA" + spacer + "TGTGTGTGTGTGA" + spacer + "AAAAAAAAAAAAAG";
+        var s = AnalysisTools.TandemRepeatSummary(seq, misaThresholds: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.TotalRepeats, Is.EqualTo(4));
+            Assert.That(s.DinucleotideRepeats, Is.EqualTo(3));
+            Assert.That(s.MononucleotideRepeats, Is.EqualTo(1));
+            Assert.That(s.CanonicalMotifCounts, Is.EquivalentTo(new Dictionary<string, int> { ["A/T"] = 1, ["AC/GT"] = 3 }));
+        });
+
+        // Default thresholds (minRepeats 3) also fill the class table: (CAG)3 → AGC/CTG.
+        Assert.That(AnalysisTools.TandemRepeatSummary("CAGCAGCAG", 3).CanonicalMotifCounts,
+            Is.EquivalentTo(new Dictionary<string, int> { ["AGC/CTG"] = 1 }));
     }
 }

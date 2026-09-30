@@ -9,7 +9,7 @@
 | **Title** | Tandem Repeat Detection |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-09-29 |
+| **Last Updated** | 2026-09-30 |
 
 ---
 
@@ -19,6 +19,9 @@
 |--------|-------|------|---------------|
 | `FindTandemRepeats(seq, minUnitLength, minRepetitions)` | GenomicAnalyzer | Canonical | Deep testing |
 | `GetTandemRepeatSummary(seq, minRepeats)` | RepeatFinder | Summary/Delegate | Smoke testing |
+| `GetTandemRepeatSummary(seq, IReadOnlyDictionary<int,int> minRepeatsByUnitLength)` | RepeatFinder | MISA per-unit-size thresholds | Deep (D10) |
+| `GetCanonicalMotifClass`, `GetCanonicalMotifFrequencies` | RepeatFinder | MISA repeat-type classes | Deep (D11) |
+| `GetStandardMotif(motif, level)`, `GetStandardMotifFrequencies` | RepeatFinder | Krait standard motifs | Deep (D12) |
 
 ---
 
@@ -100,12 +103,22 @@ These tests verify the delegate method which wraps FindMicrosatellites.
 | D7 | NoRepeats / EmptySequence → LongestRepeat and MostFrequentUnit null | Null contract (was a default Position-0 record) |
 | D8 | HigherMinRepeats_PartialCoverage | minRepeats 4 → 14/32 = 43.75 % |
 | D9 | InvalidArguments_Throw | null → ArgumentNullException; minRepeats < 2 → ArgumentOutOfRangeException |
+| D10 | `GetTandemRepeatSummary_MisaThresholds_StatSequence` (+ map validation: unit length outside 1–6 throws) | misa.pl default ini: 7 SSRs, class counts 2 / 4 / 1 |
+| D11 | `GetCanonicalMotifClass_MatchesMisaStatisticsRowName` (10), `GetCanonicalMotifFrequencies_StatSequence_MatchesMisaClassifiedTable` | misa.pl `.statistics` "Frequency of classified repeat types (considering sequence complementary)": AC/CA/GT/TG → AC/GT; table A/T 2, AC/GT 4, ACAT/ATGT 1 |
+| D12 | `GetStandardMotif_MatchesKraitAllLevels` (8 motifs × levels 0–4) | Krait `motif.py` `StandardMotif(level).standard()` (A < T < C < G order; level 2 = rotations + reverse complement, e.g. ACAT → ATAC; Krait GUI default level 3) |
 
 Summary expected values come from an independent Python reference (brute-force maximal primitive runs
 + aggregation); the code agreed on 9000/9000 random sequences (2026-09-29). Per-class totals of the
 same reference agreed exactly with running `misa.pl` for minRepeats ≥ 4; for minRepeats 2–3 MISA differs
 only by the run-level conventions documented under REP-STR-001 (greedy consumption of non-primitive
 regions, same-period overlapping runs).
+
+2026-09-30: MISA class names equal real misa.pl `.statistics` rows for all 5 356 primitive motifs of 1–6 bp
+(one misa.pl run per motif); Krait standard motifs equal Krait's `StandardMotif.standard()` for all 5 460 motifs
+of 1–6 bp at levels 0–4 (note: Krait caches in a class-level dict shared by all levels; the reference was run with
+a fresh cache per level). The classified table built from misa.pl's own SSR list equals misa.pl's table in all
+6 `misa.ini` configurations (6 048 sequences); built from this library's SSR list it differs only through the
+documented SSR-list conventions. Tests: `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_MisaCompound_Tests.cs`.
 
 ---
 
@@ -117,8 +130,8 @@ regions, same-period overlapping runs).
 | SHOULD | 5 |
 | COULD | 2 |
 | Property (invariants) | 3 |
-| Summary (delegate) | 9 |
-| **Total** | 32 |
+| Summary (delegate) | 12 |
+| **Total** | 35 |
 
 ### Deviations and Assumptions
 

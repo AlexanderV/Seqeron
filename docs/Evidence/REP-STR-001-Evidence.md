@@ -119,6 +119,44 @@ Harness: C# `RepeatFinder.FindMicrosatellites(string, p, p, k)` vs (a) Python br
 
 Before the fix the code additionally reported every rotation of a run that reached past the run-start's complete copies (e.g. `ATATATA` → `AT×3@0` **and** `TA×3@1`; `AAACACACACACAAA` → `AC×5@2` **and** `CA×5@3`) — one locus reported up to p times, disagreeing with all three references — and reported runs of `N` as mononucleotide microsatellites.
 
+### MISA per-unit-size thresholds, compound SSRs and repeat-type classes (review 2026-09-30, audit WP3)
+
+**Source:** the same `misa.pl` v1.0 (read in full and executed with `perl` 5; an instrumented copy that additionally prints
+the per-sequence SSR list in `@order` and the rejected non-primitive matches was used only as a harness).
+
+1. `misa.ini` header example: `definition(unit_size,min_repeats): 1-10 2-6 3-5 4-5 5-5 6-5`, `interruptions(max_difference_for_2_SSRs): 100`.
+2. Compound loop: `@order = sort { $start{$a} <=> $start{$b} } keys %start`; `$space = $amb + 1`; two SSRs join when
+   `$start{next} - $end{prev} <= $space` (1-based inclusive coordinates ⇒ ≤ `amb` bases in between); `< 1` ⇒ overlap,
+   type `c*`, notation `($motif)$repeats*`; otherwise `$interssr = lc substr($seq, $end, $start − $end − 1)` and type `c`;
+   the inner `while` compares with `$end{$order[$i]}` of the previous SSR and sets `$end = $end{$order[$i+1]}`.
+3. `.statistics` "Frequency of classified repeat types (considering sequence complementary)": for each motif, the
+   smallest rotation of the motif and of its reverse complement (`tr/ACGT/TGCA/`, `reverse`), joined `A/B` with the
+   smaller first; counts summed over the group.
+4. Krait `src/motif.py` (`StandardMotif`, raw.githubusercontent lmdu/krait): `similar_motif` = rotations,
+   `reverse_complete_motif`, `complete_motif`, `reverse_motif`; `motif_sorted` by `motif_to_number` (A=1, T=2, C=3, G=4);
+   levels 0–4; `src/widgets.py` default `ssr/level` = 3. `_motifs` is a class attribute, so its cache is shared by all
+   levels until `setLevel` — the reference runs used a fresh cache per call.
+
+**Numerical cross-check (C# harness vs `perl misa.pl`, PERL_HASH_SEED=0):** 6 048 sequences (6 × 8 crafted + 6 000 random
+SSR-rich, with interruptions of 0–130 bp, N runs, lowercase) in six configurations — `1-10 2-6 3-5 4-5 5-5 6-5` with
+interruptions 100 and 0; `1-5 2-3 3-3 4-3 5-3 6-3` / 20; `1-3 2-2 3-2 4-2 5-2 6-2` / 5; `2-4 3-3 5-2` / 50;
+defaults + `7-4 8-3 10-3` / 100 — 72 974 misa.pl SSRs, 12 330 compounds.
+
+| Check | Result |
+|-------|--------|
+| `FindMicrosatellites(seq, map)` vs brute-force maximal primitive runs with per-size thresholds | 0 mismatching sequences |
+| `AssembleCompoundMicrosatellites` fed misa.pl's SSR list in misa.pl order vs misa.pl `.misa` (type, notation, size, start, end) | 0 mismatching sequences |
+| End to end vs misa.pl, sequences with identical SSR lists | `.misa` rows identical in all of them |
+| SSR-list differences (971 sequences) | 1 220 SSRs: same-size run overlapping the previous match by < p (misa.pl truncates); 1 365 SSRs: primitive run inside a rejected non-primitive match (misa.pl consumed it); 0 unexplained |
+| Same SSR set, equal-start SSRs ordered differently (53 sequences, configurations with minimum copies 2–3) | Perl hash order in misa.pl; stable input order here |
+| `GetCanonicalMotifFrequencies` on misa.pl's SSR list vs misa.pl classified table | identical in all 6 configurations |
+| `GetCanonicalMotifClass` vs misa.pl `.statistics` (one run per motif, motif × 12) | 5 356 / 5 356 primitive motifs of 1–6 bp |
+| `GetStandardMotif(m, level)` vs Krait `StandardMotif(level).standard(m)` | 5 460 motifs × 5 levels, 0 mismatches |
+
+**Progress contract (`IProgress<double>` on the cancellable overloads):** values `(k·n + i)/(K·n)` for the k-th of K
+unit lengths every 1000 visited run starts — non-decreasing, in [0, 1) — then exactly 1.0; the token is checked at
+the same points and before the final report. (The 2026-06 TestSpec entry "progress reporting not implemented" was wrong.)
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Benson (1999)
@@ -272,3 +310,5 @@ default PM = 0.80; the `CACACATACACA` tract sits exactly on that threshold (PM =
 
 - **2026-06-24**: Initial documentation — Benson (1999) TRF approximate-repeat model added to support the opt-in `FindApproximateTandemRepeats` detector (REP-STR-001 limitation fix). Perfect-repeat detector evidence (Wikipedia / MISA) carried from the prior validation.
 - **2026-06-24**: Added the TRF Bernoulli statistical-significance model (Benson 1999) — verbatim PM/PI/Bernoulli-trial definitions from the TRF desc/definitions pages, the adjacent-copy PM/PI dataset, and the supporting assumption — for the new opt-in `ComputeBernoulliStatistics`. The R(d,k,pM)/W(d,pI) k-tuple seeding remains the documented genome-scale-performance residual.
+- **2026-09-30** (review 2026-09, B04 audit WP3): MISA per-unit-size thresholds, compound SSRs (types c / c*), MISA
+  repeat-type classes and Krait standard motifs — sources, misa.pl / Krait cross-checks; progress-reporting contract.

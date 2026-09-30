@@ -4,7 +4,7 @@
 **Canonical Class:** `RepeatFinder`
 **Primary Method:** `FindMicrosatellites` (perfect) + `FindApproximateTandemRepeats` (approximate, Benson 1999)
 **Status:** Complete
-**Last Updated:** 2026-09-29
+**Last Updated:** 2026-09-30
 
 > §1–§8 below cover the perfect-STR detector. **§9 adds the opt-in approximate (TRF) detector**
 > (`FindApproximateTandemRepeats`), added for the REP-STR-001 limitation fix; its evidence is in
@@ -20,8 +20,11 @@
 |--------|-------|------|------------|
 | `FindMicrosatellites(DnaSequence, int, int, int)` | RepeatFinder | Canonical | Deep |
 | `FindMicrosatellites(string, int, int, int)` | RepeatFinder | Overload | Deep |
-| `FindMicrosatellites(DnaSequence, ..., CancellationToken)` | RepeatFinder | Cancellable | Smoke |
-| `FindMicrosatellites(string, ..., CancellationToken)` | RepeatFinder | Cancellable | Smoke |
+| `FindMicrosatellites(DnaSequence, ..., CancellationToken, IProgress<double>)` | RepeatFinder | Cancellable + progress | Deep (C02/C03) |
+| `FindMicrosatellites(string, ..., CancellationToken, IProgress<double>)` | RepeatFinder | Cancellable + progress | Deep (C02/C03) |
+| `FindMicrosatellites(DnaSequence \| string, IReadOnlyDictionary<int,int>, CancellationToken, IProgress<double>)` | RepeatFinder | MISA per-unit-size thresholds | Deep (§11) |
+| `MisaDefaultMinRepeats` / `MisaDefaultMaxInterruption` | RepeatFinder | MISA `misa.ini` defaults | Deep (§11) |
+| `FindCompoundMicrosatellites(...)`, `AssembleCompoundMicrosatellites(string, IEnumerable<MicrosatelliteResult>, int)` | RepeatFinder | MISA compound SSRs (c / c*) | Deep (§11) |
 
 ### Supporting Methods
 | Method | Class | Test Approach |
@@ -85,7 +88,7 @@
 |----|-----------|-----------|
 | C01 | Large sequence performance | Scalability |
 | C02 | Cancellation mid-operation | Async operation support |
-| C03 | Progress reporting | User feedback |
+| C03 | Progress reporting (`IProgress<double>` on the cancellable overloads) | User feedback |
 
 ---
 
@@ -133,9 +136,10 @@ Assert.That(seq.Substring(r.Position, r.TotalLength), Is.EqualTo(r.FullSequence)
 
 ### 6.1 Discovery Summary
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_Microsatellite_Tests.cs` — 34 tests
-- **Supporting file:** `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinderTests.cs` — TandemRepeatSummary tests (4 tests, S07)
-- **Cross-reference:** `tests/Seqeron/Seqeron.Genomics.Tests/PerformanceExtensionsTests.cs` — cancellation smoke (separate test unit)
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_Microsatellite_Tests.cs`
+- **Supporting file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinderTests.cs` — TandemRepeatSummary tests (S07)
+- **MISA / progress file (2026-09-30):** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_MisaCompound_Tests.cs` — §11, C02, C03
+- **Cross-reference:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/PerformanceExtensionsTests.cs` — cancellation smoke (separate test unit)
 
 ### 6.2 Coverage Classification
 
@@ -168,8 +172,8 @@ Assert.That(seq.Substring(r.Position, r.TotalLength), Is.EqualTo(r.FullSequence)
 | S07 — TandemRepeatSummary accuracy | ✅ Covered | 4 tests in RepeatFinderTests.cs |
 | **COULD Tests** | | |
 | C01 — Large sequence performance | ❌ Missing | Benchmark-only (SuffixTree.Benchmarks), not unit-testable |
-| C02 — Cancellation mid-operation | ✅ Covered | Smoke test (deep cancellation in PerformanceExtensionsTests) |
-| C03 — Progress reporting | ❌ Missing | Not implemented in API |
+| C02 — Cancellation mid-operation | ✅ Covered | 2026-09-30: pre-cancelled token → `OperationCanceledException` on enumeration (DnaSequence, string, map overloads); token cancelled from the first progress callback → throws at the next check, no further report (`RepeatFinder_MisaCompound_Tests`) |
+| C03 — Progress reporting | ✅ Covered | 2026-09-30 (was wrongly listed "not implemented": the cancellable overloads take `IProgress<double>`): values non-decreasing, in [0, 1), final report exactly 1.0; results identical to the non-cancellable overload; short input → only the final 1.0; map overload likewise |
 | **Edge Cases** | | |
 | SequenceTooShort | ✅ Covered | "AT" with minRepeats=3 → empty |
 | EntireSequenceIsRepeat | ✅ Covered | CAG×10, exact: count=1, pos=0, len=30 |
@@ -208,7 +212,7 @@ Assert.That(seq.Substring(r.Position, r.TotalLength), Is.EqualTo(r.FullSequence)
 ### 6.6 Post-Implementation Coverage
 
 All MUST (M01-M16) and SHOULD (S01-S07) tests are ✅ Covered.
-COULD tests: C01 (performance) is benchmark-only, C03 (progress) is not implemented. Neither blocks completion.
+COULD tests: C02 and C03 covered (2026-09-30); C01 (performance) is benchmark-only.
 
 ---
 
@@ -236,18 +240,18 @@ None — all behavior verified against external sources.
 - [x] Zero assumptions — all design decisions backed by external sources
 - [x] Duplicates removed (14 from RepeatFinderTests.cs)
 - [x] Weak tests strengthened (6 tests hardened with exact values)
-- [x] Tests passing (45/45)
+- [x] Tests passing (all REP-STR-001 fixtures green, 2026-09-30)
 - [ ] Zero warnings (4 pre-existing in ApproximateMatcher_EditDistance_Tests.cs)
 
 ---
 
 ## 9. Approximate / Imperfect Tandem-Repeat Detection (TRF model — opt-in)
 
-> **Superseded 2026-09-30 (REP-APPROX-001, batch B04):** §9–§10 describe the 2026-06 exhaustive-window
-> implementation. The detector now follows the compiled TRF 4.10.0 model (wraparound DP, adjacent-copy
-> statistics, k-tuple + sum-of-heads detection); expected values in §9/§10 (e.g. A2 94.4̄ %, A3 reported,
-> all-N reported) are no longer valid. Authoritative spec: `tests/TestSpecs/REP-APPROX-001.md`; evidence:
-> `docs/Evidence/REP-APPROX-001-Evidence.md`.
+> **Updated 2026-09-30 (REP-APPROX-001, batch B04):** the detector follows the compiled TRF 4.10.0 model
+> (wraparound DP, statistics between ADJACENT copies, k-tuple + sum-of-heads detection); the values below are
+> the TRF-locked values of the current tests (the 2026-06 hand-derived "vs consensus" values — A2 94.4̄ %,
+> A3 reported, A4 9.67 copies / 96.67 % — were wrong and are gone). Full spec: `tests/TestSpecs/REP-APPROX-001.md`;
+> evidence: `docs/Evidence/REP-APPROX-001-Evidence.md`.
 
 
 **Method under test:** `RepeatFinder.FindApproximateTandemRepeats(DnaSequence | string, int minPeriod, int maxPeriod, int minScore)`.
@@ -268,30 +272,43 @@ None — all behavior verified against external sources.
 | Indel penalty | −7 / gap column | Benson (1999) recommended (flat) |
 | `DefaultApproximateMinScore` | 50 | Benson (1999) |
 
-### 9.3 MUST cases (exact hand-derived values)
+### 9.3 MUST cases (values from compiled TRF 4.10.0, `trf seq 2 7 7 80 10 <minscore> <maxperiod> -d -h`)
 
-| ID | Sequence (period) | Expected (verbatim-derived) | Evidence |
+TRF row format: start end period copies consensus-size %matches %indels score (1-based inclusive indices; TRF
+truncates percentages to integers — the API returns the exact ratios).
+
+| ID | Sequence (periods, minScore) | Expected (TRF-locked) | Evidence |
 |----|-------------------|-----------------------------|----------|
-| A1 | `CACACACACA`, period 2 | consensus `CA`, copies 5.0, %matches **100**, %indels **0**, score **20** | perfect-alignment control |
-| A2 | `CAGCAGCAGTAGCAGCAG`, period 3 (one substitution at idx 9) | consensus `CAG`, copies 6.0, %matches **94.4̄ (= 17/18·100)**, %indels **0**, score **27 (= 17·2 − 7)** | Benson approximate def. |
-| A2b | (same A2 sequence) perfect detector `FindMicrosatellites(...,minRepeats=3)` | reports only `CAG`×3 at pos 0 (fragmented) | contrast: perfect detector breaks the interrupted tract |
-| A3 | `CACACATACACA`, period 2 (one substitution at idx 6) | consensus `CA`, copies 6.0, %matches **91.6̄ (= 11/12·100)**, %indels **0**, score **15 (= 11·2 − 7)** | Benson approximate def. |
-| A4 | `CAGCAGCAGCAGCAGAGCAGCAGCAGCAG`, period 3 (one deletion) | consensus `CAG`, copies **29/3 = 9.6̄**, %matches **96.6̄ (= 29/30·100)**, %indels **3.3̄ (= 1/30·100)**, score **51 (= 29·2 − 7)** | Benson percent-indels statistic |
-| A5 | `CACACACACA` at `minScore = 50` default | empty (score 20 < 50) | Benson "≥ 50 … reported" |
-| A6 | A4 sequence at default `minScore` | reported (score 51 ≥ 50) | Benson "≥ 50 … reported" |
-| A7 | `""` | empty | edge |
+| A1 | `CACACACACA` (1–6, 10) | 1–10, period 2, copies 5.0, size 2, %matches **100**, %indels **0**, score **20**, consensus `CA`, entropy 1.00 | TRF row `1 10 2 5.0 2 100 0 20 50 50 0 0 1.00 CA` |
+| A2 | `CAGCAGCAGTAGCAGCAG` (3–3, 10) | 1–18, period 3, copies 6.0, %matches **86.67 (= 1300/15; 13 matches, 2 mismatches between adjacent copies)**, %indels **0**, score **27**, `CAG`, %T = 100/18 | TRF row `1 18 3 6.0 3 86 0 27 33 27 33 5 1.80 CAG` + instrumented TRF counts |
+| A2b | (same A2 sequence) perfect detector `FindMicrosatellites(...,1,6,3)` | only `CAG`×3 at pos 0 (fragmented) | contrast: perfect detector breaks the interrupted tract |
+| A3 | `CACACATACACA` (2–2 and 1–500, 10) | **nothing reported** — the only run of ≥ 4 matches at distance 2 has 4 heads < sum-of-heads criterion 5 (d = 2, k = 4) | compiled TRF reports nothing |
+| A4 | `CAGCAGCAGCAGCAGAGCAGCAGCAGCAG` (3–3, 10; one deletion) | 1–29, period 3, copies **10.0** (30 aligned consensus columns / 3), %matches **92.59 (= 2500/27)**, %indels **7.41 (= 200/27)**, score **51**, `CAG` (25 matches, 0 mismatches, 2 indels between adjacent copies) | TRF row `1 29 3 10.0 3 92 7 51 34 31 34 0 1.58 CAG` |
+| A4b | A4 sequence (1–500, 10) | three overlapping rows: 1–29 p 3 score 51; 2–29 p 14 (2.0 copies, 100 %) score 56; 5–26 p 11 (2.0 copies, 100 %) score 44; at minScore 50 only (3, 51) and (14, 56) remain | TRF reports overlapping periods |
+| A5 | `CACACACACA` at default minScore 50 | empty (score 20 < 50) | Benson "≥ 50 … reported" |
+| A6 | A4 sequence (3–3) at default minScore | reported, score 51; minScore 52 → empty | Benson "≥ 50 … reported" |
+| A7 | `""`, `null`, `A`, `ACG` (6–6) | empty | edge |
 | A8 | `ACGTGCAT` (no repeat) | empty | edge |
-| A9 | `minPeriod = 0` / `maxPeriod < minPeriod` | `ArgumentOutOfRangeException` | parameter validation |
+| A9 | `minPeriod = 0` / `maxPeriod < minPeriod` / `maxPeriod > 2000` / `minScore < 1` (also on empty input) | `ArgumentOutOfRangeException` (eager) | parameter validation (TRF: MaxPeriod ≤ 2000, positive scores) |
 | A10 | `null` DnaSequence | `ArgumentNullException` | parameter validation |
-| A11 | determinism — same input twice → identical results | equal | determinism |
+| A11 | determinism — same input twice / DnaSequence vs string → identical results | equal | determinism |
+| A12 | all-`N` input; `N` inside a repeat | never reported; `N` counts as a mismatch | TRF matches only identical A/C/G/T |
+| A13 | TRF README test sequences, homopolymer `A29 G A26`, lowercase/flanked input | published TRF tables reproduced (e.g. homopolymer `1 57 1 57.0 1 96 0 105 …`, entropy 0.13) | TRF README / compiled TRF |
+| A14 | `TrfSumOfHeadsCriterion(d)` | TRF `sumdata80` table (d = 1 → 5, 29 → 9, 30 → 6, 159 → 69, 160 → 43, 2000 → 818) | TRF 4.10.0 `tr30dat.c` |
 
 ### 9.4 Coverage status
 
-All A1–A11 implemented in `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs`, exact assertions with `.Within(1e-9)` on the percentages/copy number. ✅ Done = 11 / 11; Remaining = 0.
+All A1–A14 implemented in `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`,
+exact assertions (`Within(1e-9)`) on percentages / copy number against the TRF rows. ✅ Done = 14 / 14; Remaining = 0.
 
-### 9.5 Residual (honest)
+### 9.5 Residual (declared)
 
-The per-repeat **Bernoulli statistical-significance** measures are now reproduced (see §10). What remains unreproduced is TRF's probabilistic k-tuple distance-list **seeding** (the `R(d,k,pM)` 95% sum-of-heads percentile cut-off and the `W(d,pI)` random-walk band, whose values come from TRF's non-redistributable simulation tables) — a whole-genome-scale **performance** index, not a per-repeat-correctness gap; the deterministic exhaustive (start, period) scan already finds every candidate a seed would. See Evidence ASSUMPTION 1, 2 and 3.
+Detection is the TRF k-tuple + sum-of-heads trigger with TRF's own analysis component (WDP, consensus,
+adjacent-copy statistics identical to compiled TRF on 1524/1524 candidates with pattern ≤ 20). The exhaustive
+(start, period) window scan of the 2026-06 version was removed. TRF's apparent-size (simulated) criterion,
+random-walk distance ranges, best-period list for d > 250 and narrow-band WDP for patterns > 20 are not
+reproduced; measured agreement and the LIMITATIONS proposal are in `tests/TestSpecs/REP-APPROX-001.md` and
+`docs/Validation/review-2026-09/B04.md` (REP-APPROX-001).
 
 ## 10. TRF Bernoulli statistical-significance measures (Benson 1999 — opt-in)
 
@@ -308,14 +325,49 @@ Benson (1999) NAR 27(2):573–580; TRF desc/definitions pages (verbatim): "We mo
 | B1 | `CACACACACA`, period 2 | 4 pairs, 8 trials, 8/0/0, PM **1.0**, PI **0**, E[matches] **8**, meets-0.80 **true** | PM = average % identity; perfect tract |
 | B2 | `CAGCAGCAGTAGCAGCAG`, period 3 | 5 pairs, 15 trials, 13/2/0, PM **13/15**, PI **0**, E[matches] **13** | adjacent-copy PM (≠ 17/18 consensus) |
 | B3 | `CACACATACACA`, period 2 | 10 trials, 8/2/0, PM **0.80**, E[matches] **8**, meets-0.80 **true** (inclusive) | PM on the default threshold |
-| B4 | `ACACTGTG`, period 4 | 1 pair, PM **0**, meets-0.80 **false** | low-identity tract below PM = 0.80 |
+| B4 | `ACACTGTG`, period 4 | the WDP aligns only one copy (`TGTG`): **0** pairs, **0** trials, PM **0**, meets-0.80 **false** | no two copies to compare |
 | B5 | `CAGCAGCAGTAGCAGCAG`, period 3, PM-threshold 0.80 / 0.90 | meets 0.80 **true**, meets 0.90 **false** | custom PM threshold |
-| B6 | `CAGCAGCAGCAGCAGAGCAGCAGCAGCAG` (deletion), period 3 | PI **> 0**; match+mismatch+indel = trials; PM+PI ≤ 1 | PI = average % indels |
+| B6 | `CAGCAGCAGCAGCAGAGCAGCAGCAGCAG` (deletion), period 3 | 9 pairs, 27 trials, **25/0/2**, PM **25/27**, PI **2/27** | TRF adjacent-copy counts (92 % / 7 %) |
 | B7 | `CAGCAGCAGTAGCAGCAG`, period 3 | PM + mismatch-fraction + PI = **1.0** | Bernoulli outcomes partition the trials |
 | B8 | `CAG`, period 3 | `ArgumentException` | model of two copies undefined for one copy |
-| B9 | `null` / period 0 / PM 1.5 | `ArgumentNullException` / `ArgumentOutOfRangeException` ×2 | parameter validation |
+| B9 | `null` / period 0 / period 2001 / PM 1.5 / PM NaN | `ArgumentNullException` / `ArgumentOutOfRangeException` ×4 | parameter validation |
 | B10 | exposed defaults | `TrfDefaultMatchProbability` **0.80**, `TrfDefaultIndelProbability` **0.10** | Benson (1999) defaults |
 
 ### 10.3 Coverage status
 
-All B1–B10 implemented in `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs` (region "ComputeBernoulliStatistics"), exact assertions with `.Within(1e-9)` on the probabilities/expected matches. ✅ Done = 10 / 10; Remaining = 0. Invariants INV-09, INV-10.
+All B1–B10 implemented in `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs` (region "ComputeBernoulliStatistics"), exact assertions with `.Within(1e-9)` on the probabilities/expected matches. ✅ Done = 10 / 10; Remaining = 0. Invariants INV-09, INV-10.
+
+## 11. MISA per-unit-size thresholds, compound SSRs, canonical motif classes (2026-09-30)
+
+Sources opened: MISA `misa.pl` v1.0 (Thiel et al. 2003; raw GitHub mirror `cfljam/SSR_marker_design`) — `misa.ini`
+`definition(unit_size,min_repeats): 1-10 2-6 3-5 4-5 5-5 6-5`, `interruptions(max_difference_for_2_SSRs): 100`,
+compound assembly (types `c`, `c*`), `.statistics` table "Frequency of classified repeat types (considering sequence
+complementary)"; Krait `src/motif.py` `StandardMotif` (lmdu/krait). Expected values are copied from real
+`perl misa.pl` runs and from Krait's `standard()` in Python.
+
+| ID | Test | Expected (reference) |
+|----|------|----------|
+| T01 | `MisaDefaultMinRepeats`, `MisaDefaultMaxInterruption` | {1:10, 2:6, 3:5, 4:5, 5:5, 6:5}, 100 (misa.ini) |
+| T02 | `CCCCCCCCCGCCCCCCCCCC`, MISA thresholds | only `(C)10` at 11–20 (misa.pl `p1`) |
+| T03 | 7-SSR test sequence, MISA thresholds | SSR list = misa.pl list (AC, AC, GT, TG, ACAT, A, T with coordinates) |
+| T04 | uniform map ≡ `minRepeats` overload | 300 random sequences identical |
+| T05 | map with unit lengths {3, 1} only | only those unit lengths, ordered by unit length |
+| T06 | map validation (null, empty, unit < 1, copies < 2, summary unit > 6) | eager exceptions |
+| T07 | `GetTandemRepeatSummary(dna, MisaDefaultMinRepeats)` | misa.pl class counts 2 / 4 / 1, total 7 |
+| T08 | compound rows (6 cases: interrupted `c`, overlapping `c*`, exactly 100 interrupting bases, adjacent, 4-component mixed, adjacent+interrupted+overlapping) | misa.pl type, notation, size, start, end |
+| T09 | 101 interrupting bases | two single SSRs (misa.pl `p2`, `p2`); `maxInterruption: 101` joins |
+| T10 | `maxInterruption` 0 / 1 | misa.pl with `interruptions 0` / `1` |
+| T11 | chaining compares with the previous component's end; compound end = last component's end | misa.pl loop semantics |
+| T12 | equal starts keep input order (stable) | MISA ties = Perl hash order |
+| T13 | documented detection differences vs MISA (overlap < p; greedy non-primitive consumption) | misa.pl `(AGAAA)8 46-85` vs maximal `(AAGAA)8 45-84`; `(TAAACT)6 131-166` vs `(CTTAAA)7 129-170` |
+| T14 | `GetCanonicalMotifClass` (10 motifs) | misa.pl `.statistics` row names (AC/GT, A/T, AT/AT, ACAT/ATGT, …) |
+| T15 | `GetStandardMotif` levels 0–4 (8 motifs) | Krait `StandardMotif(level).standard()` (fresh cache) |
+| T16 | `GetCanonicalMotifFrequencies` / `GetStandardMotifFrequencies` on the test sequence | misa.pl classified table A/T 2, AC/GT 4, ACAT/ATGT 1; Krait A 2, AC 4, ATAC 1 |
+
+Bulk cross-checks (scratch harness, not unit tests): 6 048 sequences in 6 `misa.ini` configurations (72 974 SSRs):
+brute-force maximal primitive runs with per-size thresholds 0 mismatching sequences; `AssembleCompoundMicrosatellites`
+fed with misa.pl's own SSR list (in misa.pl order) reproduces every misa.pl row (0 mismatching sequences, 12 330
+compounds); with this library's SSR list, compound rows are identical wherever the SSR lists agree, and every SSR-list
+difference is one of the two documented conventions (0 unexplained); MISA class names = misa.pl for all 5 356 primitive
+motifs of 1–6 bp; Krait standard motif = Krait for all 5 460 motifs of 1–6 bp at levels 0–4.
+

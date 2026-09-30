@@ -47,7 +47,7 @@ public static class RepeatFinder
         ValidateMicrosatelliteParameters(minUnitLength, maxUnitLength, minRepeats);
 
         return FindMicrosatellitesCore(
-            sequence.Sequence, minUnitLength, maxUnitLength, minRepeats, CancellationToken.None, null);
+            sequence.Sequence, UniformThresholds(sequence.Length, minUnitLength, maxUnitLength, minRepeats), CancellationToken.None, null);
     }
 
     /// <summary>
@@ -58,8 +58,11 @@ public static class RepeatFinder
     /// <param name="minUnitLength">Minimum repeat unit length.</param>
     /// <param name="maxUnitLength">Maximum repeat unit length.</param>
     /// <param name="minRepeats">Minimum number of repeats.</param>
-    /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
-    /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
+    /// <param name="cancellationToken">Cancellation token, checked every 1000 visited run starts and once at the end;
+    /// cancellation surfaces as <see cref="OperationCanceledException"/> while the result is enumerated.</param>
+    /// <param name="progress">Optional progress reporter: non-decreasing values in [0, 1) (fraction of the unit-length ×
+    /// position scan space visited) every 1000 visited run starts, then exactly 1.0 when the scan completes. Reported
+    /// synchronously during enumeration (the result is lazy).</param>
     /// <returns>Collection of microsatellite repeats found.</returns>
     public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
         DnaSequence sequence,
@@ -73,7 +76,7 @@ public static class RepeatFinder
         ValidateMicrosatelliteParameters(minUnitLength, maxUnitLength, minRepeats);
 
         return FindMicrosatellitesCore(
-            sequence.Sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
+            sequence.Sequence, UniformThresholds(sequence.Length, minUnitLength, maxUnitLength, minRepeats), cancellationToken, progress);
     }
 
     /// <summary>
@@ -92,7 +95,7 @@ public static class RepeatFinder
             return [];
 
         return FindMicrosatellitesCore(
-            sequence.ToUpperInvariant(), minUnitLength, maxUnitLength, minRepeats, CancellationToken.None, null);
+            sequence.ToUpperInvariant(), UniformThresholds(sequence.Length, minUnitLength, maxUnitLength, minRepeats), CancellationToken.None, null);
     }
 
     /// <summary>
@@ -112,7 +115,108 @@ public static class RepeatFinder
             return [];
 
         return FindMicrosatellitesCore(
-            sequence.ToUpperInvariant(), minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
+            sequence.ToUpperInvariant(), UniformThresholds(sequence.Length, minUnitLength, maxUnitLength, minRepeats), cancellationToken, progress);
+    }
+
+    /// <summary>
+    /// MISA default microsatellite definition (Thiel et al. 2003; <c>misa.ini</c>
+    /// <c>definition(unit_size,min_repeats): 1-10 2-6 3-5 4-5 5-5 6-5</c>): minimum number of complete copies per unit
+    /// length — mononucleotide ≥ 10, dinucleotide ≥ 6, tri- to hexanucleotide ≥ 5. Read-only.
+    /// </summary>
+    public static IReadOnlyDictionary<int, int> MisaDefaultMinRepeats { get; } =
+        new System.Collections.ObjectModel.ReadOnlyDictionary<int, int>(new Dictionary<int, int>
+        {
+            [1] = 10, [2] = 6, [3] = 5, [4] = 5, [5] = 5, [6] = 5,
+        });
+
+    /// <summary>
+    /// MISA default maximal number of bases interrupting two SSRs in a compound microsatellite
+    /// (<c>misa.ini</c> <c>interruptions(max_difference_for_2_SSRs): 100</c>).
+    /// </summary>
+    public const int MisaDefaultMaxInterruption = 100;
+
+    /// <summary>
+    /// Finds microsatellites with a separate minimum number of copies per unit length (MISA-style definition,
+    /// e.g. <see cref="MisaDefaultMinRepeats"/> = <c>1-10 2-6 3-5 4-5 5-5 6-5</c>). Only the unit lengths present as
+    /// keys are searched. Detection semantics are those of
+    /// <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/> (one maximal primitive ACGT run per unit length,
+    /// reported at its left end with complete copies); a run is reported when its copy number is at least the
+    /// threshold of its unit length. Results are ordered by unit length, then position.
+    /// </summary>
+    /// <remarks>
+    /// Compared with a <c>misa.pl</c> run using the same definition, results are identical except where MISA's
+    /// left-to-right regex scan (<c>([acgt]{p})\2{k-1,}</c>, resumed after each match) differs from the maximal-run
+    /// convention: (a) a run of the same unit length that overlaps the previous match by fewer than p bases is
+    /// truncated (MISA) instead of reported from its true left end; (b) a match whose unit is not primitive
+    /// (e.g. <c>ATAT</c>) is rejected by MISA after it has consumed the bases, hiding a primitive run of that unit
+    /// length that starts inside it.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (≥ 1) → minimum number of complete copies (≥ 2); at least one entry.</param>
+    /// <param name="cancellationToken">Cancellation token, checked every 1000 visited run starts.</param>
+    /// <param name="progress">Optional progress reporter (non-decreasing values in [0, 1], final 1.0).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="minRepeatsByUnitLength"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="minRepeatsByUnitLength"/> is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A unit length is &lt; 1 or a minimum copy number is &lt; 2.</exception>
+    public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
+        DnaSequence sequence,
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
+        CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength);
+
+        return FindMicrosatellitesCore(sequence.Sequence, thresholds, cancellationToken, progress);
+    }
+
+    /// <summary>
+    /// Finds microsatellites in a raw sequence string (case-insensitive; non-ACGT symbols never form a unit) with
+    /// a minimum copy number per unit length. Same semantics as
+    /// <see cref="FindMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},CancellationToken,IProgress{double})"/>;
+    /// <c>null</c>/empty input yields no results.
+    /// </summary>
+    public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
+        string sequence,
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
+        CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null)
+    {
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength);
+
+        if (string.IsNullOrEmpty(sequence))
+            return [];
+
+        return FindMicrosatellitesCore(sequence.ToUpperInvariant(), thresholds, cancellationToken, progress);
+    }
+
+    /// <summary>
+    /// Validates a per-unit-length threshold map and returns it as (unit length, minRepeats) pairs in ascending
+    /// unit length.
+    /// </summary>
+    private static (int UnitLength, int MinRepeats)[] ThresholdsFromMap(
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
+        int maxUnitLength = int.MaxValue)
+    {
+        ArgumentNullException.ThrowIfNull(minRepeatsByUnitLength);
+        if (minRepeatsByUnitLength.Count == 0)
+            throw new ArgumentException("At least one unit length must be given.", nameof(minRepeatsByUnitLength));
+
+        var thresholds = new (int UnitLength, int MinRepeats)[minRepeatsByUnitLength.Count];
+        int k = 0;
+        foreach (var (unitLength, minRepeats) in minRepeatsByUnitLength)
+        {
+            if (unitLength < 1 || unitLength > maxUnitLength)
+                throw new ArgumentOutOfRangeException(nameof(minRepeatsByUnitLength), unitLength,
+                    $"Unit lengths must be in [1, {maxUnitLength}].");
+            if (minRepeats < 2)
+                throw new ArgumentOutOfRangeException(nameof(minRepeatsByUnitLength), minRepeats,
+                    $"The minimum number of copies for unit length {unitLength} must be at least 2.");
+            thresholds[k++] = (unitLength, minRepeats);
+        }
+
+        Array.Sort(thresholds, (a, b) => a.UnitLength.CompareTo(b.UnitLength));
+        return thresholds;
     }
 
     private static void ValidateMicrosatelliteParameters(int minUnitLength, int maxUnitLength, int minRepeats)
@@ -123,28 +227,32 @@ public static class RepeatFinder
     }
 
     /// <summary>
-    /// Single scan core (upper-case input): for each unit length, visits only run starts
-    /// (left-maximal positions), extends the run to its right-maximal end and reports it once.
-    /// O(n) character comparisons per unit length.
+    /// Single scan core (upper-case input): for each (unit length, minimum copies) threshold in ascending unit
+    /// length, visits only run starts (left-maximal positions), extends the run to its right-maximal end and
+    /// reports it once. O(n) character comparisons per unit length.
     /// </summary>
+    /// <remarks>
+    /// Progress (when a reporter is given) is the fraction of the (unit length × position) scan space already
+    /// visited: reported every 1000 visited run starts as <c>(k·n + i) / (K·n)</c> for the k-th of K unit lengths,
+    /// so the values are non-decreasing and lie in [0, 1); a final <c>1.0</c> is reported once the scan is
+    /// complete. The token is checked at the same points and once more before the final report.
+    /// </remarks>
     private static IEnumerable<MicrosatelliteResult> FindMicrosatellitesCore(
         string seq,
-        int minUnitLength,
-        int maxUnitLength,
-        int minRepeats,
+        (int UnitLength, int MinRepeats)[] thresholds,
         CancellationToken cancellationToken,
         IProgress<double>? progress)
     {
         int n = seq.Length;
-        long unitLengths = (long)maxUnitLength - minUnitLength + 1;
-        double totalPositions = Math.Max(1.0, (double)n * unitLengths);
+        double totalPositions = Math.Max(1.0, (double)n * thresholds.Length);
         int sinceCheck = 0;
         const int checkInterval = 1000;
 
-        for (int unitLen = minUnitLength; unitLen <= maxUnitLength; unitLen++)
+        for (int k = 0; k < thresholds.Length; k++)
         {
+            var (unitLen, minRepeats) = thresholds[k];
             if ((long)unitLen * minRepeats > n)
-                break; // no longer unit length can fit minRepeats copies either
+                continue; // minRepeats copies of this unit cannot fit
 
             int i = 0;
             while (i + unitLen * minRepeats <= n)
@@ -153,7 +261,7 @@ public static class RepeatFinder
                 {
                     sinceCheck = 0;
                     cancellationToken.ThrowIfCancellationRequested();
-                    progress?.Report(((double)(unitLen - minUnitLength) * n + i) / totalPositions);
+                    progress?.Report(((double)k * n + i) / totalPositions);
                 }
 
                 // Run start (left-maximal): the period-p run cannot be extended one base to the left.
@@ -189,6 +297,22 @@ public static class RepeatFinder
 
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(1.0);
+    }
+
+    /// <summary>
+    /// One (unit length, minRepeats) pair per unit length in [min, max], capped at the longest unit whose
+    /// <paramref name="minRepeats"/> copies still fit a sequence of length <paramref name="n"/> (longer units can
+    /// never be reported, so a huge <paramref name="maxUnitLength"/> costs nothing).
+    /// </summary>
+    private static (int UnitLength, int MinRepeats)[] UniformThresholds(
+        int n, int minUnitLength, int maxUnitLength, int minRepeats)
+    {
+        long lastFitting = Math.Min(maxUnitLength, n / minRepeats);
+        long count = Math.Max(0, lastFitting - minUnitLength + 1);
+        var thresholds = new (int, int)[count];
+        for (int k = 0; k < count; k++)
+            thresholds[k] = (minUnitLength + k, minRepeats);
+        return thresholds;
     }
 
     /// <summary>
@@ -244,6 +368,336 @@ public static class RepeatFinder
             6 => RepeatType.Hexanucleotide,
             _ => RepeatType.Complex
         };
+    }
+
+    #endregion
+
+    #region Compound Microsatellites (MISA)
+
+    /// <summary>
+    /// Finds compound microsatellites: two or more microsatellites separated by at most
+    /// <paramref name="maxInterruption"/> bases (MISA, Thiel et al. 2003, <c>misa.pl</c> types <c>c</c> and <c>c*</c>).
+    /// The component SSRs are those of
+    /// <see cref="FindMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},CancellationToken,IProgress{double})"/>
+    /// with <paramref name="minRepeatsByUnitLength"/> (default <see cref="MisaDefaultMinRepeats"/>); they are chained
+    /// exactly as by <see cref="AssembleCompoundMicrosatellites"/>.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minRepeatsByUnitLength">Unit length → minimum copies; <c>null</c> = MISA default <c>1-10 2-6 3-5 4-5 5-5 6-5</c>.</param>
+    /// <param name="maxInterruption">Maximal number of bases between two adjacent SSRs of a compound (≥ 0; MISA default 100).</param>
+    /// <returns>Compound microsatellites ordered by start position (only records with ≥ 2 components).</returns>
+    public static IReadOnlyList<CompoundMicrosatelliteResult> FindCompoundMicrosatellites(
+        DnaSequence sequence,
+        IReadOnlyDictionary<int, int>? minRepeatsByUnitLength = null,
+        int maxInterruption = MisaDefaultMaxInterruption)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxInterruption);
+        var ssrs = FindMicrosatellites(sequence, minRepeatsByUnitLength ?? MisaDefaultMinRepeats);
+        return AssembleCompoundsCore(sequence.Sequence, ssrs, maxInterruption);
+    }
+
+    /// <summary>
+    /// Finds compound microsatellites in a raw sequence string (case-insensitive; interruption strings keep the
+    /// input symbols, lower-cased as in MISA). See
+    /// <see cref="FindCompoundMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},int)"/>.
+    /// </summary>
+    public static IReadOnlyList<CompoundMicrosatelliteResult> FindCompoundMicrosatellites(
+        string sequence,
+        IReadOnlyDictionary<int, int>? minRepeatsByUnitLength = null,
+        int maxInterruption = MisaDefaultMaxInterruption)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxInterruption);
+        var ssrs = FindMicrosatellites(sequence, minRepeatsByUnitLength ?? MisaDefaultMinRepeats);
+        return string.IsNullOrEmpty(sequence) ? [] : AssembleCompoundsCore(sequence, ssrs, maxInterruption);
+    }
+
+    /// <summary>
+    /// Finds compound microsatellites whose components are microsatellites of unit length 1–6 with at least
+    /// <paramref name="minRepeats"/> complete copies (one threshold for every unit length).
+    /// </summary>
+    public static IReadOnlyList<CompoundMicrosatelliteResult> FindCompoundMicrosatellites(
+        DnaSequence sequence,
+        int minRepeats,
+        int maxInterruption = MisaDefaultMaxInterruption)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindCompoundMicrosatellites(sequence, UniformMap(minRepeats), maxInterruption);
+    }
+
+    /// <summary>
+    /// Raw-string counterpart of <see cref="FindCompoundMicrosatellites(DnaSequence,int,int)"/>.
+    /// </summary>
+    public static IReadOnlyList<CompoundMicrosatelliteResult> FindCompoundMicrosatellites(
+        string sequence,
+        int minRepeats,
+        int maxInterruption = MisaDefaultMaxInterruption) =>
+        FindCompoundMicrosatellites(sequence, UniformMap(minRepeats), maxInterruption);
+
+    /// <summary>
+    /// Chains a given list of microsatellites into compound microsatellites with MISA's rule (<c>misa.pl</c> v1.0):
+    /// the SSRs are ordered by start; consecutive SSRs i, i+1 belong to the same compound when the number of bases
+    /// between them, <c>start(i+1) − end(i)</c> (0-based start, exclusive end), is ≤ <paramref name="maxInterruption"/>
+    /// — adjacent SSRs (0 bases) and overlapping SSRs (negative) always join. The comparison uses the end of the
+    /// previous SSR in the chain, not the maximal end so far, and the compound ends where its last SSR ends
+    /// (MISA's <c>end</c> column). A compound containing an overlapping pair is type <c>c*</c>, otherwise <c>c</c>.
+    /// </summary>
+    /// <remarks>
+    /// Use this overload to chain SSRs detected under another convention (e.g. MISA's own SSR list): given the
+    /// same SSR list, the result equals MISA's <c>c</c>/<c>c*</c> rows (start, end, type and the notation
+    /// <c>(AT)6ccgt(GA)7</c> / <c>(A)10(AT)6*</c>). The ordering by start is stable: SSRs with equal start keep their
+    /// input order (MISA orders such ties by Perl hash order, so feeding MISA's SSRs in its own order reproduces its
+    /// output). SSRs that are not part of a compound (MISA types p1…p6) are not returned.
+    /// </remarks>
+    /// <param name="sequence">The sequence the SSRs were found in (used for the interruption strings).</param>
+    /// <param name="microsatellites">SSRs (positions within <paramref name="sequence"/>).</param>
+    /// <param name="maxInterruption">Maximal number of interrupting bases (≥ 0; MISA default 100).</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxInterruption"/> is negative, or an SSR lies
+    /// outside the sequence or has an empty unit / non-positive copy number.</exception>
+    public static IReadOnlyList<CompoundMicrosatelliteResult> AssembleCompoundMicrosatellites(
+        string sequence,
+        IEnumerable<MicrosatelliteResult> microsatellites,
+        int maxInterruption = MisaDefaultMaxInterruption)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(microsatellites);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxInterruption);
+
+        var list = microsatellites.ToList();
+        foreach (var m in list)
+        {
+            if (string.IsNullOrEmpty(m.RepeatUnit) || m.RepeatCount < 1 || m.Position < 0
+                || (long)m.Position + m.TotalLength > sequence.Length || m.TotalLength < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(microsatellites), m,
+                    "Every microsatellite must have a non-empty unit, at least one copy and lie inside the sequence.");
+            }
+        }
+
+        return AssembleCompoundsCore(sequence, list, maxInterruption);
+    }
+
+    private static Dictionary<int, int> UniformMap(int minRepeats)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minRepeats, 2);
+        var map = new Dictionary<int, int>();
+        for (int p = 1; p <= 6; p++)
+            map[p] = minRepeats;
+        return map;
+    }
+
+    private static List<CompoundMicrosatelliteResult> AssembleCompoundsCore(
+        string sequence, IEnumerable<MicrosatelliteResult> microsatellites, int maxInterruption)
+    {
+        // misa.pl: @order = sort { $start{$a} <=> $start{$b} } keys %start. The sort here is stable, so SSRs with
+        // equal start keep their input order (FindMicrosatellites lists them by unit length).
+        var ordered = microsatellites
+            .OrderBy(m => m.Position)
+            .ToList();
+
+        var compounds = new List<CompoundMicrosatelliteResult>();
+        int i = 0;
+        while (i < ordered.Count)
+        {
+            // Single SSR (MISA type p1…p6): last one, or the next starts more than maxInterruption bases later.
+            if (i + 1 >= ordered.Count || Gap(ordered[i], ordered[i + 1]) > maxInterruption)
+            {
+                i++;
+                continue;
+            }
+
+            var components = new List<MicrosatelliteResult> { ordered[i] };
+            var interruptions = new List<string>();
+            var notation = new System.Text.StringBuilder();
+            AppendComponent(notation, ordered[i]);
+            bool overlapping = false;
+
+            int j = i;
+            while (j + 1 < ordered.Count && Gap(ordered[j], ordered[j + 1]) <= maxInterruption)
+            {
+                int gap = Gap(ordered[j], ordered[j + 1]);
+                if (gap < 0)
+                {
+                    // misa.pl: "($motif)$repeats*" — overlapping SSRs, compound type c*.
+                    overlapping = true;
+                    interruptions.Add(string.Empty);
+                    AppendComponent(notation, ordered[j + 1]);
+                    notation.Append('*');
+                }
+                else
+                {
+                    // misa.pl: $interssr = lc substr($seq, end, start − end − 1) (1-based) = the gap bases.
+                    string interruption = sequence.Substring(End(ordered[j]), gap).ToLowerInvariant();
+                    interruptions.Add(interruption);
+                    notation.Append(interruption);
+                    AppendComponent(notation, ordered[j + 1]);
+                }
+
+                components.Add(ordered[j + 1]);
+                j++;
+            }
+
+            compounds.Add(new CompoundMicrosatelliteResult(
+                Start: ordered[i].Position,
+                End: End(ordered[j]),
+                Components: components,
+                Interruptions: interruptions,
+                IsOverlapping: overlapping,
+                Notation: notation.ToString()));
+            i = j + 1;
+        }
+
+        return compounds;
+
+        static int End(MicrosatelliteResult m) => m.Position + m.TotalLength;
+        static int Gap(MicrosatelliteResult a, MicrosatelliteResult b) => b.Position - End(a);
+        static void AppendComponent(System.Text.StringBuilder sb, MicrosatelliteResult m) =>
+            sb.Append('(').Append(m.RepeatUnit.ToUpperInvariant()).Append(')').Append(m.RepeatCount);
+    }
+
+    #endregion
+
+    #region Canonical Motifs (MISA classes / Krait standard motifs)
+
+    /// <summary>
+    /// MISA repeat-type class of a motif "considering sequence complementary" (<c>misa.pl</c> <c>.statistics</c>,
+    /// table "Frequency of classified repeat types"): <c>X/Y</c> where X and Y are the lexicographically smallest
+    /// rotations of the motif and of its reverse complement, the smaller one first — e.g. AC, CA, GT, TG →
+    /// <c>AC/GT</c>; A, T → <c>A/T</c>; AT → <c>AT/AT</c>.
+    /// </summary>
+    /// <param name="motif">Repeat unit of A/C/G/T (case-insensitive).</param>
+    /// <exception cref="ArgumentException"><paramref name="motif"/> is null/empty or contains a non-ACGT symbol.</exception>
+    public static string GetCanonicalMotifClass(string motif)
+    {
+        string m = NormalizeMotif(motif);
+        string forward = MinimalRotation(m, string.CompareOrdinal);
+        string reverse = MinimalRotation(DnaSequence.GetReverseComplementString(m), string.CompareOrdinal);
+        return string.CompareOrdinal(forward, reverse) < 0 ? $"{forward}/{reverse}" : $"{reverse}/{forward}";
+    }
+
+    /// <summary>
+    /// Krait standard motif (Du et al. 2018, lmdu/krait <c>motif.py</c> <c>StandardMotif.standard</c>): the smallest
+    /// member of the motif's equivalence set under Krait's base order A &lt; T &lt; C &lt; G. Level 0 = the motif
+    /// itself; 1 = its rotations ("similar motifs"); 2 = + rotations of the reverse complement; 3 = + rotations of
+    /// the complement; 4 = + rotations of the reverse. Krait's GUI default is level 3; level 2 is the
+    /// rotation + reverse-complement standardization (the MISA class grouping, e.g. AC/CA/GT/TG → AC; ACAT → ATAC).
+    /// </summary>
+    /// <param name="motif">Repeat unit of A/C/G/T (case-insensitive).</param>
+    /// <param name="level">Standardization level 0–4 (default 2).</param>
+    public static string GetStandardMotif(string motif, int level = 2)
+    {
+        string m = NormalizeMotif(motif);
+        ArgumentOutOfRangeException.ThrowIfLessThan(level, 0);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, 4);
+        if (level == 0)
+            return m;
+
+        string best = MinimalRotation(m, CompareKraitOrder);
+        if (level >= 2)
+            best = MinOf(best, MinimalRotation(DnaSequence.GetReverseComplementString(m), CompareKraitOrder));
+        if (level >= 3)
+        {
+            string complement = string.Concat(m.Select(SequenceExtensions.GetComplementBase));
+            best = MinOf(best, MinimalRotation(complement, CompareKraitOrder));
+        }
+        if (level >= 4)
+        {
+            var reversed = m.ToCharArray();
+            Array.Reverse(reversed);
+            best = MinOf(best, MinimalRotation(new string(reversed), CompareKraitOrder));
+        }
+
+        return best;
+
+        static string MinOf(string current, string candidate) => CompareKraitOrder(candidate, current) < 0 ? candidate : current;
+    }
+
+    /// <summary>
+    /// Counts microsatellites per MISA repeat-type class (<see cref="GetCanonicalMotifClass"/>): the MISA
+    /// <c>.statistics</c> table "Frequency of classified repeat types (considering sequence complementary)", column
+    /// <c>total</c>. Keys are ordered like MISA's rows (class length, then ordinal).
+    /// </summary>
+    public static IReadOnlyDictionary<string, int> GetCanonicalMotifFrequencies(
+        IEnumerable<MicrosatelliteResult> microsatellites)
+    {
+        ArgumentNullException.ThrowIfNull(microsatellites);
+        return CountByKey(microsatellites, GetCanonicalMotifClass);
+    }
+
+    /// <summary>
+    /// Counts microsatellites per Krait standard motif (<see cref="GetStandardMotif"/> at <paramref name="level"/>),
+    /// i.e. Krait's per-standard-motif SSR counts. Keys are ordered by length, then ordinal.
+    /// </summary>
+    public static IReadOnlyDictionary<string, int> GetStandardMotifFrequencies(
+        IEnumerable<MicrosatelliteResult> microsatellites, int level = 2)
+    {
+        ArgumentNullException.ThrowIfNull(microsatellites);
+        ArgumentOutOfRangeException.ThrowIfLessThan(level, 0);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(level, 4);
+        return CountByKey(microsatellites, u => GetStandardMotif(u, level));
+    }
+
+    private static IReadOnlyDictionary<string, int> CountByKey(
+        IEnumerable<MicrosatelliteResult> microsatellites, Func<string, string> key)
+    {
+        var counts = new SortedDictionary<string, int>(
+            Comparer<string>.Create((a, b) => a.Length != b.Length ? a.Length.CompareTo(b.Length) : string.CompareOrdinal(a, b)));
+        var cache = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var m in microsatellites)
+        {
+            if (!cache.TryGetValue(m.RepeatUnit ?? string.Empty, out var k))
+            {
+                k = key(m.RepeatUnit!);
+                cache[m.RepeatUnit!] = k;
+            }
+
+            counts[k] = counts.TryGetValue(k, out int c) ? c + 1 : 1;
+        }
+
+        return new System.Collections.ObjectModel.ReadOnlyDictionary<string, int>(
+            counts.ToDictionary(kv => kv.Key, kv => kv.Value));
+    }
+
+    private static string NormalizeMotif(string motif)
+    {
+        if (string.IsNullOrEmpty(motif))
+            throw new ArgumentException("Motif must be a non-empty A/C/G/T string.", nameof(motif));
+        foreach (char c in motif)
+        {
+            if (AcgtCode(c) < 0)
+                throw new ArgumentException($"Motif must contain only A/C/G/T; found '{c}'.", nameof(motif));
+        }
+
+        return motif.ToUpperInvariant();
+    }
+
+    private static string MinimalRotation(string s, Comparison<string> compare)
+    {
+        string best = s;
+        for (int r = 1; r < s.Length; r++)
+        {
+            string rotation = string.Concat(s.AsSpan(r), s.AsSpan(0, r));
+            if (compare(rotation, best) < 0)
+                best = rotation;
+        }
+
+        return best;
+    }
+
+    /// <summary>Krait <c>motif_to_number</c> order for equal-length motifs: A &lt; T &lt; C &lt; G.</summary>
+    private static int CompareKraitOrder(string a, string b)
+    {
+        for (int k = 0; k < Math.Min(a.Length, b.Length); k++)
+        {
+            int d = KraitRank(a[k]) - KraitRank(b[k]);
+            if (d != 0)
+                return d;
+        }
+
+        return a.Length.CompareTo(b.Length);
+
+        static int KraitRank(char c) => c switch { 'A' => 1, 'T' => 2, 'C' => 3, 'G' => 4, _ => 5 };
     }
 
     #endregion
@@ -2910,7 +3364,9 @@ public static class RepeatFinder
     /// then the leftmost position (the <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/> order).</description></item>
     /// <item><description><c>MostFrequentUnit</c> — the repeat unit string (as reported, i.e. the motif phase at the run
     /// start, not rotation- or strand-canonicalized; MISA table "Frequency of identified SSR motifs") that occurs in the
-    /// most runs; ties go to the unit whose first run appears first in that order.</description></item>
+    /// most runs; ties go to the unit whose first run appears first in that order. For MISA's rotation + reverse-complement
+    /// class table use <see cref="GetCanonicalMotifFrequencies"/>; per-unit-size thresholds: the
+    /// <see cref="GetTandemRepeatSummary(DnaSequence,IReadOnlyDictionary{int,int})"/> overload.</description></item>
     /// </list>
     /// </remarks>
     /// <param name="sequence">DNA sequence to summarize.</param>
@@ -2923,8 +3379,36 @@ public static class RepeatFinder
     {
         ArgumentNullException.ThrowIfNull(sequence);
 
-        var microsatellites = FindMicrosatellites(sequence, 1, 6, minRepeats).ToList();
+        return SummarizeMicrosatellites(sequence, FindMicrosatellites(sequence, 1, 6, minRepeats).ToList());
+    }
 
+    /// <summary>
+    /// Gets a summary of all perfect microsatellites with a separate minimum copy number per unit length (MISA-style
+    /// definition, e.g. <see cref="MisaDefaultMinRepeats"/> = <c>1-10 2-6 3-5 4-5 5-5 6-5</c>). Fields are defined as in
+    /// <see cref="GetTandemRepeatSummary(DnaSequence,int)"/>; the SSR list is
+    /// <see cref="FindMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},CancellationToken,IProgress{double})"/>
+    /// with the given thresholds. Unit lengths absent from the map are not searched (their class count is 0).
+    /// </summary>
+    /// <param name="sequence">DNA sequence to summarize.</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (1–6) → minimum number of complete copies (≥ 2).</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The map is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A unit length is outside 1–6 or a threshold is &lt; 2.</exception>
+    public static TandemRepeatSummary GetTandemRepeatSummary(
+        DnaSequence sequence,
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength, maxUnitLength: 6);
+
+        return SummarizeMicrosatellites(
+            sequence,
+            FindMicrosatellitesCore(sequence.Sequence, thresholds, CancellationToken.None, null).ToList());
+    }
+
+    private static TandemRepeatSummary SummarizeMicrosatellites(
+        DnaSequence sequence, List<MicrosatelliteResult> microsatellites)
+    {
         var byType = microsatellites
             .GroupBy(m => m.RepeatType)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -3139,6 +3623,34 @@ public readonly record struct MicrosatelliteResult(
     /// Gets the full repeat sequence.
     /// </summary>
     public string FullSequence => string.Concat(Enumerable.Repeat(RepeatUnit, RepeatCount));
+}
+
+/// <summary>
+/// A compound microsatellite (MISA, Thiel et al. 2003): two or more microsatellites whose neighbours in start order
+/// are separated by at most the maximal interruption. See
+/// <see cref="RepeatFinder.AssembleCompoundMicrosatellites"/> for the chaining rule.
+/// </summary>
+/// <param name="Start">0-based start of the first component (MISA prints 1-based: add 1).</param>
+/// <param name="End">Exclusive 0-based end of the LAST component in start order (= MISA's 1-based inclusive
+/// <c>end</c>); when the last component is nested inside an earlier one this is smaller than the maximal end.</param>
+/// <param name="Components">Component SSRs in start order (at least two).</param>
+/// <param name="Interruptions">Bases between each consecutive component pair (lower case, as in MISA; empty when
+/// adjacent or overlapping); one entry per join.</param>
+/// <param name="IsOverlapping">True when some consecutive components overlap (MISA type <c>c*</c>).</param>
+/// <param name="Notation">MISA SSR notation, e.g. <c>(AT)6ccgt(GA)7</c> or <c>(A)10(AT)6*</c>.</param>
+public readonly record struct CompoundMicrosatelliteResult(
+    int Start,
+    int End,
+    IReadOnlyList<MicrosatelliteResult> Components,
+    IReadOnlyList<string> Interruptions,
+    bool IsOverlapping,
+    string Notation)
+{
+    /// <summary>MISA SSR type: <c>c*</c> when components overlap, otherwise <c>c</c>.</summary>
+    public string MisaType => IsOverlapping ? "c*" : "c";
+
+    /// <summary>MISA <c>size</c> column: <see cref="End"/> − <see cref="Start"/>.</summary>
+    public int Length => End - Start;
 }
 
 /// <summary>

@@ -432,22 +432,54 @@ public class AnalysisTools
     #region RepeatFinder
 
     [McpServerTool(Name = "find_microsatellites", Title = "Repeats — Microsatellites (STR)", ReadOnly = true)]
-    [Description("Short Tandem Repeats (STRs): 1-6 bp motif units repeated consecutively.")]
+    [Description("Short Tandem Repeats (STRs): 1-6 bp motif units repeated consecutively. Optional MISA per-unit-size thresholds (1-10 2-6 3-5 4-5 5-5 6-5) and MISA compound microsatellites (types c / c*).")]
     public static FindMicrosatellitesResult FindMicrosatellites(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum unit length (default 1).")] int minUnitLength = 1,
         [Description("Maximum unit length (default 6).")] int maxUnitLength = 6,
-        [Description("Minimum number of repeats (default 3).")] int minRepeats = 3)
+        [Description("Minimum number of repeats (default 3); ignored when misaThresholds is true.")] int minRepeats = 3,
+        [Description("Use the MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) for the unit lengths minUnitLength..maxUnitLength within 1-6 instead of minRepeats (default false).")] bool misaThresholds = false,
+        [Description("When >= 0, also chain the reported STRs into MISA compound microsatellites with at most this many interrupting bases (MISA default 100); default -1 = no compounds.")] int maxCompoundInterruption = -1)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepeats)
-            .Select(m => new MicrosatelliteItem(
-                m.Position, m.RepeatUnit, m.RepeatCount, m.TotalLength, m.RepeatType.ToString()))
-            .ToArray();
-        return new FindMicrosatellitesResult(items);
+        var found = misaThresholds
+            ? global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
+                sequence, MisaThresholdsForRange(minUnitLength, maxUnitLength)).ToList()
+            : global::Seqeron.Genomics.Analysis.RepeatFinder
+                .FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepeats).ToList();
+
+        var items = found.Select(ToMicrosatelliteItem).ToArray();
+
+        CompoundMicrosatelliteItem[]? compounds = null;
+        if (maxCompoundInterruption >= 0)
+        {
+            compounds = global::Seqeron.Genomics.Analysis.RepeatFinder
+                .AssembleCompoundMicrosatellites(sequence, found, maxCompoundInterruption)
+                .Select(c => new CompoundMicrosatelliteItem(
+                    c.Start, c.End, c.Length, c.MisaType, c.Notation,
+                    c.Components.Select(ToMicrosatelliteItem).ToArray()))
+                .ToArray();
+        }
+
+        return new FindMicrosatellitesResult(items) { Compounds = compounds };
+    }
+
+    private static MicrosatelliteItem ToMicrosatelliteItem(global::Seqeron.Genomics.Analysis.MicrosatelliteResult m) =>
+        new(m.Position, m.RepeatUnit, m.RepeatCount, m.TotalLength, m.RepeatType.ToString());
+
+    /// <summary>MISA default thresholds (<c>RepeatFinder.MisaDefaultMinRepeats</c>) restricted to [min, max].</summary>
+    private static Dictionary<int, int> MisaThresholdsForRange(int minUnitLength, int maxUnitLength)
+    {
+        if (minUnitLength < 1 || maxUnitLength < minUnitLength)
+            throw new ArgumentOutOfRangeException(nameof(minUnitLength), "Invalid unit-length bounds.");
+        var map = global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats
+            .Where(kv => kv.Key >= minUnitLength && kv.Key <= maxUnitLength)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        if (map.Count == 0)
+            throw new ArgumentOutOfRangeException(nameof(minUnitLength), "MISA thresholds cover unit lengths 1-6 only.");
+        return map;
     }
 
     [McpServerTool(Name = "find_inverted_repeats", Title = "Repeats — Inverted Repeats / Hairpins", ReadOnly = true)]
@@ -494,13 +526,22 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "tandem_repeat_summary", Title = "Repeats — Tandem Repeat Summary", ReadOnly = true)]
-    [Description("Aggregate statistics across all microsatellites in a DNA sequence.")]
+    [Description("Aggregate statistics across all microsatellites in a DNA sequence, incl. MISA repeat-type classes (motif rotations + reverse complement, e.g. AC/GT).")]
     public static TandemRepeatSummaryResult TandemRepeatSummary(
         [Description("DNA sequence.")] string sequence,
-        [Description("Minimum number of repeats (default 3).")] int minRepeats = 3)
+        [Description("Minimum number of repeats (default 3); ignored when misaThresholds is true.")] int minRepeats = 3,
+        [Description("Use the MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) instead of minRepeats (default false).")] bool misaThresholds = false)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var s = global::Seqeron.Genomics.Analysis.RepeatFinder.GetTandemRepeatSummary(dna, minRepeats);
+        var s = misaThresholds
+            ? global::Seqeron.Genomics.Analysis.RepeatFinder.GetTandemRepeatSummary(
+                dna, global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats)
+            : global::Seqeron.Genomics.Analysis.RepeatFinder.GetTandemRepeatSummary(dna, minRepeats);
+        var ssrs = misaThresholds
+            ? global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
+                dna, global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats)
+            : global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(dna, 1, 6, minRepeats);
+        var canonical = global::Seqeron.Genomics.Analysis.RepeatFinder.GetCanonicalMotifFrequencies(ssrs);
         MicrosatelliteItem? longest = s.LongestRepeat is { } lr
             ? new MicrosatelliteItem(lr.Position, lr.RepeatUnit, lr.RepeatCount, lr.TotalLength, lr.RepeatType.ToString())
             : null;
@@ -517,6 +558,7 @@ public class AnalysisTools
         {
             PentanucleotideRepeats = s.PentanucleotideRepeats,
             HexanucleotideRepeats = s.HexanucleotideRepeats,
+            CanonicalMotifCounts = new Dictionary<string, int>(canonical),
         };
     }
 

@@ -23,9 +23,20 @@ number of complete copies (a trailing partial copy is not counted, and rotations
 the same run — e.g. `TA` inside `ATATATA` — are not re-reported); units containing
 non-ACGT symbols (e.g. `N`) are never reported. Positions are 0-based.
 
+Optional MISA behaviour (Thiel et al. 2003, `misa.pl` v1.0; verified against a real `perl misa.pl` run):
+
+- `misaThresholds: true` — minimum copies per unit length from MISA's default `misa.ini`
+  (`1-10 2-6 3-5 4-5 5-5 6-5`) for the unit lengths `minUnitLength..maxUnitLength` within 1–6;
+  `minRepeats` is ignored. Items are ordered by unit length, then position.
+- `maxCompoundInterruption ≥ 0` — also returns `compounds`: MISA compound microsatellites, i.e.
+  chains of STRs (in start order) where each STR starts at most that many bases after the previous
+  one ends (adjacent and overlapping STRs always join; MISA default 100). `type` is `c`, or `c*`
+  when two components overlap; `notation` is MISA's SSR string (e.g. `(TA)6tccgt(GA)7ttttt(A)12`,
+  interruptions lower-case); `end` is the end of the last component (MISA's `end` column).
+
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L85](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L85)
+- Source: [RepeatFinder.cs#L86](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L86)
 
 ## Input Schema
 
@@ -34,13 +45,16 @@ non-ACGT symbols (e.g. `N`) are never reported. Positions are 0-based.
 | `sequence` | string | Yes | DNA sequence (min length 1) |
 | `minUnitLength` | integer | No | Minimum unit length (default 1, ≥ 1) |
 | `maxUnitLength` | integer | No | Maximum unit length (default 6) |
-| `minRepeats` | integer | No | Minimum repeats (default 3, ≥ 2) |
+| `minRepeats` | integer | No | Minimum repeats (default 3, ≥ 2); ignored when `misaThresholds` is true |
+| `misaThresholds` | boolean | No | MISA default per-unit-size minimum copies `1-10 2-6 3-5 4-5 5-5 6-5` (default false) |
+| `maxCompoundInterruption` | integer | No | ≥ 0: also return MISA compound microsatellites with at most this many interrupting bases (MISA default 100); default −1 = none |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `items` | array | `{ position, repeatUnit, repeatCount, totalLength, repeatType }` |
+| `compounds` | array/null | `{ start, end, length, type ("c"/"c*"), notation, components[] }`; null unless `maxCompoundInterruption ≥ 0` |
 
 ## Errors
 
@@ -85,6 +99,27 @@ non-ACGT symbols (e.g. `N`) are never reported. Positions are 0-based.
 **Response:**
 ```json
 { "items": [ { "position": 0, "repeatUnit": "CAG", "repeatCount": 3, "totalLength": 9, "repeatType": "Trinucleotide" } ] }
+```
+
+### Example 3: MISA thresholds and compound microsatellite
+
+**User Prompt:**
+> MISA-style SSR search with compound SSRs in "ACGTATATATATATATccgtGAGAGAGAGAGAGAtttttAAAAAAAAAAAAT".
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "find_microsatellites",
+  "arguments": { "sequence": "ACGTATATATATATATccgtGAGAGAGAGAGAGAtttttAAAAAAAAAAAAT", "misaThresholds": true, "maxCompoundInterruption": 100 }
+}
+```
+
+**Response** (`perl misa.pl`: `c (TA)6tccgt(GA)7ttttt(A)12 48 4 51`, 1-based):
+```json
+{ "items": [ { "position": 39, "repeatUnit": "A", "repeatCount": 12, "totalLength": 12, "repeatType": "Mononucleotide" },
+             { "position": 3, "repeatUnit": "TA", "repeatCount": 6, "totalLength": 12, "repeatType": "Dinucleotide" },
+             { "position": 20, "repeatUnit": "GA", "repeatCount": 7, "totalLength": 14, "repeatType": "Dinucleotide" } ],
+  "compounds": [ { "start": 3, "end": 51, "length": 48, "type": "c", "notation": "(TA)6tccgt(GA)7ttttt(A)12", "components": [ "…the three items in start order…" ] } ] }
 ```
 
 ## Performance
