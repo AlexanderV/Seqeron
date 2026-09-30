@@ -134,6 +134,45 @@ Sequences (0-based index):
 
 ---
 
+## RSAT oligo-analysis run (review 2026-09 follow-up, 2026-09-30)
+
+**Source opened:** git clone of rsa-tools/rsat-code master 10043f2 (2026-09-23): `perl-scripts/oligo-analysis` (v1.169),
+`perl-scripts/lib/RSA.disco.lib` (`NbPossibleOligos`, `MultiTestCorrections`, `GroupRC`), `perl-scripts/lib/RSA.lib`
+(`SumExpectedFrequencies`, `ReadPatternFrequencies`), `perl-scripts/lib/RSA.seq.lib` (`SmartRC`),
+`perl-scripts/lib/RSAT/stats.pm` (`sum_of_binomials`, `binomial_boe`), `perl-scripts/lib/RSAT/MarkovModel.pm`
+(`load_from_file_oligos`, `add_pseudo_freq`, `normalize_transition_frequencies`, `segment_proba`).
+
+**How it was run:** `RSAT=<clone> perl -I perl-scripts/lib perl-scripts/oligo-analysis -i x.fa -l k ...` (an empty
+`RSAT_config.props`; no other installation needed), plus a copy with one debug line after `MultiTestCorrections`
+printing every pattern's exp_freq, occ_P, occ_E, occ_sig, exp_ms, ms_P, ms_E, ms_sig with `%.17g`.
+
+**Source facts established (code, confirmed by the runs):**
+- Trials n = `sum_occurrences` = all N − k + 1 windows (also with `-noov`, where overlaps are added back); `-2str` pairs
+  are grouped before summing, so n is not doubled.
+- occ_P = `sum_of_binomials(exp_freq, sum_occurrences, occ, sum_occurrences)` (right tail, exact summation).
+- occ_E = occ_P × `$nb_tested_patterns` — the number of patterns reaching `CalcProba`, i.e. after `-lth occ`
+  (the manual's "NPO" equals it only with `-zeroocc`); occ_sig = −log10 occ_E (350 when occ_E = 0).
+- ms_P = `binomial_boe(exp_ms/S, S, mseq)`, exp_ms = S·(1 − (1 − exp_freq)^(nb_pos/S)), S = all sequences,
+  nb_pos over sequences with L ≥ k; ms_E = ms_P × `nb_possible_oligos` (4^k; with `-2str` (4^k + 4^{k/2})/2 for even k, 4^k/2 for odd k).
+- `-markov m` (slow mode): sub-word frequencies of all overlapping (m+1)- and m-mers, single strand;
+  exp_freq = f(w[0..m]) ∏ f(w[o..o+m]) / f(w[o..o+m−1]); m ≤ k − 2 for m > 0.
+- `-2str`: occ summed with the reverse complement (palindromes once); input Bernoulli pools complementary residues.
+  The code copies the kept member's exp_freq to its partner (2·p(min)), contradicting the manual's
+  exp_freq(W) + exp_freq(W') for asymmetric backgrounds (e.g. `-markov 2` gives exp_freq 0 for observed pairs);
+  the documented sum is implemented.
+- `-bgfile` probabilities are returned as `%5g` strings by `segment_proba` (6 significant digits).
+
+**Independent cross-checks:** Python port of the above (scipy.stats.binom.sf) = RSAT to ≤ 2e-12 relative on 68 runs
+(t2/long sequences, k = 3/4/6, equi/input/`-markov 0..4`/`-noov`, 1str/2str, mseq on 4 sequences) and to %5g on 18
+`-bgfile` runs, tables of order 0–2 (strand-sensitive and -insensitive); C# = port to ≤ 3e-13 on 400 random configurations.
+Binomial tail vs mpmath exact sums ≤ 1e-13 (scipy ≤ 5e-14).
+
+**Locked values (see TestSpec §8):** ACGTACGTTAGC / TTACGTAGCAAC / GGTAGCACGTTT / CATTTTACG, k = 4, `-1str` input
+Bernoulli: ACGT mseq 3, exp_ms 0.12225827585979898, ms_P 0.00011159466135309564, ms_E 0.028568233306392483,
+ms_sig 1.5441166160753867; `-2str`: CGTA|TACG mseq 3, ms_P 0.00087319490302470882, ms_sig 0.9253498996301337.
+
+---
+
 ## References
 
 1. van Helden J, André B, Collado-Vides J. (1998). Extracting regulatory sites from the upstream region of yeast genes by computational analysis of oligonucleotide frequencies. J Mol Biol 281(5):827–842. https://www.sciencedirect.com/science/article/abs/pii/S0022283698919477
@@ -147,3 +186,4 @@ Sequences (0-based index):
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-29**: Review 2026-09 — RSAT source-code mseq loop added with Python cross-check values.
+- **2026-09-30**: RSAT oligo-analysis significance / Markov / `-2str` implemented; RSAT run + Python port + mpmath references (review 2026-09 follow-up, B05).

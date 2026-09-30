@@ -176,3 +176,25 @@
 | R4 | Invalid background (null, 3 values, zero, NaN) | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
 | R5 | X+X, X = LCG 512-mer, k=512 | count 2, positions {0,512}, enrichment 7.008550233381348e+305 (finite; was +∞); bg (26,24,24,26) → 3.2383751592973165e+306 | exact Fractions |
 | R6 | Counts vs `KmerAnalyzer.CountKmers`; positions ascending; first-occurrence order | equal; ascending; ACGT,CGTA,GTAC,TACG,GTAA | canonical counter |
+
+## 9. Review 2026-09 follow-up — RSAT oligo-analysis significance, Markov backgrounds, both strands
+
+Method: `MotifFinder.DiscoverMotifs(DnaSequence, int k, int minCount, OligoBackgroundModel, OligoStrandMode, bool countOverlapping)` → `OligoAnalysisResult`.
+Reference: RSAT `oligo-analysis` 1.169 (rsa-tools/rsat-code 10043f2) run with perl 5.38, full-precision debug print after `MultiTestCorrections`; independent Python port (scipy `binom.sf`) of the same source agreeing with RSAT to ≤ 2e-12 on 68 configurations (plus 18 `-bgfile` runs to RSAT's %5g) and with the C# code to ≤ 3e-13 on 400 random configurations (all backgrounds, strands, `-noov`).
+Test file: `Unit/Analysis/MotifFinder_OligoAnalysis_Tests.cs`; binomial tail: `Unit/Core/StatisticsHelper_BinomialUpperTail_Tests.cs`.
+
+| ID | Test | Expected | Evidence |
+|----|------|----------|----------|
+| S1 | t2 (63 nt), k=4, `-1str -bg equi -lth occ 2` | n 60, tested 10, NPO 256; ATGC occ 6, occ_P 1.4844942103072834e-07, occ_E 1.4844942103072835e-06, occ_sig 5.8284214918614703; TGCA occ 4, occ_P 9.5343622068379445e-05 | RSAT run; scipy binom.sf(5,60,1/256) |
+| S2 | t2, k=4, `-2str` input Bernoulli, `-lth occ 2` | tested 15, NPO 136; ATGC|GCAT occ 9, exp_freq 0.0077771093320170084, occ_P 1.0760647330191343e-09, occ_sig 7.7920703428970466; CATG palindrome occ 5, occ_P 4.0637121408222015e-06 | RSAT run |
+| S3 | t2, k=4, `-markov 1` / `-markov 2 -lth occ 3` | ATGC exp_freq 0.032915191520534237, occ_P 0.013954892377198637, occ_E 0.55819569508794542 (40 tested); GCAT exp_freq 0.055540625279942669, occ_P 0.65459731021733769, occ_sig −0.41803420775951439 (4 tested) | RSAT run |
+| S4 | Markov table f(AA..TT) = 1..16 | ψ=0: exp_freq(ATGC) = 600/331296 (hand); ψ=0.01: 0.0018478880336134456 (RSAT prints %5g 0.00184789), occ_P 1.8299363778610906e-09, occ_sig 8.436534013635193 | RSAT `-bgfile`; MarkovModel.pm port |
+| S5 | t3 (35 nt), k=2, `-noov` | AA occ 5 at {1,3,5,27,29}, occ_P 0.058469994275128084 (10 tested); `-2str -noov` AA|TT occ 10, occ_P 0.0070505538526756187; `-2str -ovlp` occ 17, occ_P 1.2344994901541932e-07 | RSAT run |
+| S6 | t2, `-2str -markov 1 -lth occ 3` | ATGC|GCAT exp_freq 0.06289152665530649 = p(ATGC)+p(GCAT), occ_P 0.012300624704130635, occ_sig 1.3080128404304179 | RSAT manual formula (RSAT code: 2·p(min), a quirk); Python port |
+| S7 | Equiprobable single strand vs legacy overload | Ratio = Enrichment (1e-12), same words/positions/order | definition |
+| S8 | `-2str` count | occ(W|W') = occ(W)+occ(W'), pairs partition the N−k+1 windows | RSAT `SumReverseComplements` |
+| S9 | invalid arguments | null → ArgumentNullException; k<1, Markov order > k−2, table order ≥ k, ψ∉[0,1] → ArgumentOutOfRangeException; empty/mixed/non-ACGT table, ψ=0 null transition → ArgumentException | RSAT FatalError conditions |
+| S10 | X+X, X 600-mer, k=600 | occ_P underflows to 0 but occ_sig = −(ln C(601,2) − 1200 ln 4 + ln T)/ln 10 (finite); NPO = +∞ | log-space tail |
+| B1 | `StatisticsHelper.BinomialUpperTail` / `LogBinomialUpperTail` | 7 cases = mpmath exact sums (scipy ≤ 5e-14); p = e^−800: ln tail −1586.8786371229292547 (mpmath); bounds; pmf differences | Loader 2000; RSAT sum_of_binomials |
+
+Heavy tier: `Properties/MotifOligoAnalysisProperties.cs` (definitions consistency, monotone in occ, Markov-0 = input Bernoulli, uniform composition Markov-0 = 4^−k, `-2str` = forward + revcomp, ms consistency), `Metamorphic/MotifOligoAnalysisMetamorphicTests.cs` (reverse-complement input invariance under `-2str`), `Fuzzing/MotifOligoAnalysisFuzzTests.cs`.

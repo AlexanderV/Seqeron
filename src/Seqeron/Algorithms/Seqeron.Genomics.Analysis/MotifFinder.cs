@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Analysis;
 /// Finds conserved motifs and patterns in DNA sequences.
 /// Supports exact and degenerate motif searching, position weight matrices, and consensus sequences.
 /// </summary>
-public static class MotifFinder
+public static partial class MotifFinder
 {
     #region Exact Motif Finding
 
@@ -246,7 +246,7 @@ public static class MotifFinder
         return new PositionWeightMatrix(matrix, length);
     }
 
-    private static double[] NormalizeBackground(IReadOnlyList<double> background)
+    internal static double[] NormalizeBackground(IReadOnlyList<double> background)
     {
         if (background.Count != PwmAlphabetSize)
             throw new ArgumentException(
@@ -269,7 +269,7 @@ public static class MotifFinder
     }
 
     /// <summary>Row index of a PWM for an upper-case base (A=0, C=1, G=2, T=3), or −1.</summary>
-    private static int AcgtIndex(char c) => c switch
+    internal static int AcgtIndex(char c) => c switch
     {
         'A' => 0,
         'C' => 1,
@@ -631,7 +631,9 @@ public static class MotifFinder
     /// "equiprobable" model of RSAT <c>oligo-analysis</c> (van Helden et al. 1998); use
     /// <see cref="DiscoverMotifs(DnaSequence, int, int, IReadOnlyList{double})"/> for a
     /// non-uniform (Bernoulli) background. Occurrences overlap (every window is counted).
-    /// Results are yielded in order of each k-mer's first occurrence.
+    /// Results are yielded in order of each k-mer's first occurrence. For RSAT binomial significance
+    /// (occ_P / occ_E / occ_sig), Markov backgrounds and both-strand counting use
+    /// <see cref="DiscoverMotifs(DnaSequence, int, int, OligoBackgroundModel, OligoStrandMode, bool)"/>.
     /// </remarks>
     /// <param name="sequence">DNA sequence to analyze.</param>
     /// <param name="k">K-mer length (default: 6).</param>
@@ -780,7 +782,8 @@ public static class MotifFinder
     /// </summary>
     /// <remarks>
     /// Equals the RSAT <c>oligo-analysis</c> <c>mseq</c> column for <c>-1str -ovlp</c> (single strand;
-    /// the reverse complement is not merged). Words are enumerated with the canonical
+    /// the reverse complement is not merged; RSAT ms_P / ms_E / ms_sig, background models and <c>-2str</c> are provided by
+    /// <see cref="FindSharedMotifs(IEnumerable{DnaSequence}, int, int, OligoBackgroundModel, OligoStrandMode)"/>). Words are enumerated with the canonical
     /// <see cref="SequenceExtensions.CountKmersSpan"/>. Results are yielded in order of each word's
     /// first occurrence (lowest sequence index, then lowest position); <see cref="SharedMotif.SequenceIndices"/>
     /// is strictly ascending. This is not the longest-common-substring (Rosalind LCSM) problem:

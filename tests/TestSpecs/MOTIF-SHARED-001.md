@@ -191,3 +191,21 @@ Output order contract: first occurrence (sequence index, then position); `Sequen
 
 1. **Decision:** The unit implements the word-enumeration / matching-sequence quorum framing (van Helden / RSAT), NOT Rosalind LCSM. LCSM is documented as a related-but-distinct algorithm in the algorithm doc.
 2. **Decision (suffix tree):** Suffix tree not used (re-checked 2026-09: `src/SuffixTree/**` has no generalized multi-string tree; words are enumerated with canonical `SequenceExtensions.CountKmersSpan`) — see algorithm doc §5.2. The repo SuffixTree is single-text; its `LongestCommonSubstring` is a two-string LCS and does not compute fixed-k matching-sequence counts across k sequences. A per-sequence distinct-word scan is the correct O(Σ(nᵢ)·k) approach.
+
+---
+
+## 8. Review 2026-09 follow-up — RSAT matching-sequence significance and both strands
+
+Method: `MotifFinder.FindSharedMotifs(IEnumerable<DnaSequence>, int k, int minSequences, OligoBackgroundModel, OligoStrandMode)` → `SharedMotifAnalysisResult`.
+Reference: RSAT `oligo-analysis` 1.169 (`-return occ,mseq,proba -lth mseq q`) run with perl 5.38 (full-precision debug print); Python port agreement ≤ 1e-13; C# vs port ≤ 5e-14 on random inputs.
+Test file: `Unit/Analysis/MotifFinder_OligoAnalysis_Tests.cs`.
+
+| ID | Test | Expected | Evidence |
+|----|------|----------|----------|
+| G1 | ms.fa (4 seqs), k=4, `-1str`, input Bernoulli, `-lth mseq 2` | nb_pos 33, S 4, NPO 256; ACGT mseq 3 {0,1,2}, exp_freq 0.0037555250723974999, exp_ms 0.12225827585979898, ms_P 0.00011159466135309564, ms_E 0.028568233306392483, ms_sig 1.5441166160753867; words/order = quorum-only overload | RSAT run |
+| G2 | ms.fa, k=4, `-2str` | 7 pairs, NPO 136; CGTA|TACG mseq 3 {0,1,3}, exp_ms 0.24464786582736009, ms_P 0.00087319490302470882, ms_sig 0.9253498996301337; ACGT palindrome exp_ms 0.12401989758949705, ms_P 0.00011644903222066987 | RSAT run |
+| G3 | ms.fa, k=4, `-markov 1 -lth mseq 3` / `-bg equi` | TAGC exp_freq 0.014423628634101493, exp_ms 0.45182668021626959, ms_P 0.0052765589179613543, ms_sig −0.13059075713882745; equi TACG ms_P 0.00012525578947139476 | RSAT run |
+| G4 | invalid arguments / empty input | ArgumentNullException, ArgumentOutOfRangeException (k, minSequences), ArgumentException (null element); empty → no motifs | contract |
+| G5 | adding a sequence shorter than k | S + 1, nb_pos unchanged, exp_ms = S·(1 − (1 − p)^(nb_pos/S)) | RSAT `sequence_number` vs `nb_possible_pos` (metamorphic) |
+
+Heavy tier: `Properties/MotifOligoAnalysisProperties.Shared_Significance_IsConsistent`, `Metamorphic/MotifOligoAnalysisMetamorphicTests` (sequence permutation, short sequence), `Fuzzing/MotifOligoAnalysisFuzzTests.FindSharedMotifs_RandomInputs_*`.

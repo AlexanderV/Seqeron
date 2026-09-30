@@ -108,6 +108,7 @@ Null `sequence` (or `background`) raises `ArgumentNullException`; `k < 1` or a n
 
 - `MotifFinder.DiscoverMotifs(DnaSequence, int, int)`: uniform background (Compeau & Pevzner / RSAT equiprobable).
 - `MotifFinder.DiscoverMotifs(DnaSequence, int, int, IReadOnlyList<double>)`: Bernoulli background (RSAT oligo-analysis).
+- `MotifFinder.DiscoverMotifs(DnaSequence, int k, int minCount, OligoBackgroundModel, OligoStrandMode = Single, bool countOverlapping = true)` → `OligoAnalysisResult` ([MotifFinder.OligoAnalysis.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs)): full RSAT `oligo-analysis` occurrence statistics — exp_freq, exp_occ, ratio, binomial `occ_P`/`occ_E`/`occ_sig` — with backgrounds `OligoBackgroundModel.Equiprobable` (`-bg equi`), `.BernoulliFromInput` (default `-bg input`), `.Bernoulli(acgt)`, `.MarkovFromInput(m)` (`-markov m`), `.MarkovFromOligoFrequencies(table, ψ = 0.01, strandInsensitive)` (`-bgfile`, `RSAT::MarkovModel`), strands `-1str`/`-2str`, and `-ovlp`/`-noov`. The binomial tail is the shared `StatisticsHelper.LogBinomialUpperTail` (Loader 2000 saddle-point terms, log space) [5][6].
 - MCP `discover_motifs` (Seqeron.Mcp.Analysis `AnalysisTools.DiscoverMotifs`) delegates to the uniform overload.
 
 ### 5.2 Current Behavior
@@ -125,12 +126,17 @@ The expected count is computed once per call from the closed-form `(N − k + 1)
 - Overlapping window enumeration of k-mers [1].
 
 - Bernoulli (independent, non-uniform) background, `E = (N − k + 1) · ∏ q[w_i]` [3][4] (overload; uniform default unchanged).
+- RSAT significance (`OligoBackgroundModel` overload) [3][4][5]: with n = `sum_occurrences` = N − k + 1 windows (also with `-noov`) and p = exp_freq, `occ_P = P(X ≥ occ)`, X ~ Binomial(n, p) (`RSAT::stats::sum_of_binomials`, right tail); `occ_E = occ_P × T` with T = number of patterns tested after the `-lth occ` threshold (`MultiTestCorrections($nb_tested_patterns)` — the value RSAT prints; the manual's NPO, `nb_possible_oligos`, is exposed as `OligoAnalysisResult.PossibleOligos` and equals T with `-zeroocc`); `occ_sig = −log10 occ_E`.
+- Markov backgrounds of order m (`-markov m`): exp_freq(w) = f(w[0..m]) · ∏_{o≥1} f(w[o..o+m]) / f(w[o..o+m−1]) with f the relative frequencies of all overlapping (m+1)- and m-mers of the input, single strand (`CalcSubWordFrequencies`, `CalcExpected`); order constraint m ≤ k − 2 for m > 0. From a table (`-bgfile`): `RSAT::MarkovModel` — P(b|x) = (1 − ψ)·f(xb)/S(x) + ψ/4, P(x) = (1 − ψ)·S(x)/F + ψ/4^m, ψ = 0.01; strand-insensitive tables are halved for non-palindromes (`load_from_file_oligos`).
+- Both strands (`-2str`, `-grouprc`): occ(W|W') = occ(W) + occ(W'), palindromes once; exp_freq(W|W') = exp_freq(W) + exp_freq(W') (manual, "Specific treatment for double strand counts"); input Bernoulli pools complementary residues; NPO = (4^k + 4^{k/2})/2 (even k) or 4^k/2; pattern reported under the lexicographically smaller member.
+- `-noov`: windows read from the 3′ end; an occurrence closer than k to the last counted occurrence of the same word (or, with `-2str`, of its reverse complement) is discarded.
 
-**Not implemented (out of the O/E contract; declared):**
+**Deliberate deviations from the RSAT code (documented formula / exact arithmetic kept):**
 
-- Markov-chain backgrounds of order ≥ 1 (RSAT `-bg` Markov models, monaLisa [2]).
-- Significance statistics — RSAT binomial `occ_P = P(X ≥ occ)`, `occ_E = occ_P × number of tested words`, `occ_sig = −log10 occ_E` [3][4] — and the textbook `Pr(N,4,k,t)` [1]; **users should rely on:** the deterministic Count and O/E Enrichment for ranking, or an external significance tool.
-- Reverse-complement grouping / both-strand counting (RSAT `-2str`).
+- `-2str` with a strand-asymmetric background: current RSAT code copies the kept member's expected frequency to its partner (2·exp_freq(min(W, W'))) instead of the documented sum; on t2.fa `-markov 1` it prints `aaat|attt` 0.0166535 = 2 × 0.0083268, and with `-markov 2` exp_freq 0 (probability "NA") for observed pairs. Both coincide for strand-symmetric backgrounds (equiprobable, input Bernoulli), where the RSAT run is reproduced exactly.
+- `segment_proba` returns the probability formatted with `%5g` (6 significant digits); the unrounded value is used.
+- occ_P is evaluated in log space, so occ_sig stays finite and exact where RSAT's occ_P underflows (RSAT prints `$MAX_SIG` = 350).
+- For k = 1 with `-markov 0`, RSAT has no 1-mer sub-word table (exp_freq undefined); the model is the residue composition here.
 
 ## 6. Edge Cases and Limitations
 
@@ -145,7 +151,7 @@ The expected count is computed once per call from the closed-form `(N − k + 1)
 
 ### 6.2 Limitations
 
-Zero-order background only (ASM-01); no statistical p-value/E-value; single-sequence (cross-sequence shared motifs are a separate unit, `FindSharedMotifs`); DNA alphabet only.
+The legacy overloads report the O/E ratio only (uniform or Bernoulli background); significance, Markov backgrounds and both-strand counting are in the `OligoBackgroundModel` overload (§5.3). Single-sequence (cross-sequence shared motifs are a separate unit, `FindSharedMotifs`); DNA alphabet only. Not ported: RSAT `-calib1/-calibN` calibration files (negative-binomial/Poisson fit), `-lexicon`, `-onedeg` degenerate words, `-zscore`, and the organism-specific frequency files of an RSAT installation (`-bg upstream …`; pass such a table to `MarkovFromOligoFrequencies`).
 
 ## 7. Examples and Related Material
 
@@ -154,6 +160,8 @@ Zero-order background only (ASM-01); no statistical p-value/E-value; single-sequ
 **Numerical walk-through:** Sequence `ATGCATGCATGC` (N=12), k=4. Windows = 12 − 4 + 1 = 9. Expected count `E = 9 / 4^4 = 9/256 = 0.03515625`. The k-mer `ATGC` occurs at positions 0, 4, 8 (Count = 3). Enrichment = `3 / (9/256) = 768/9 ≈ 85.333` [1].
 
 With the Bernoulli background `q = (0.3, 0.2, 0.2, 0.3)`: `p(ATGC) = 0.3·0.3·0.2·0.2 = 0.0036`, `E = 9 · 0.0036 = 0.0324`, enrichment = `3 / 0.0324 = 92.5926` (TGCA/GCAT/CATG: `2 / 0.0324 = 61.7284`) [3][4].
+
+**RSAT significance (run of RSAT oligo-analysis 1.169):** `ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC`, k = 4, `-1str -bg equi -lth occ 2`: n = 60, 10 tested; `ATGC` occ 6, exp_freq 1/256, `occ_P = P(Bin(60, 1/256) ≥ 6) = 1.4844942103072834e-07`, `occ_E = 1.48449e-06`, `occ_sig = 5.8284214918614703`. `-2str` (input Bernoulli): `atgc|gcat` occ 9, exp_freq 0.0077771093320170084, occ_P 1.0760647330191343e-09, occ_sig 7.7920703428970466 (15 tested, NPO 136).
 
 **API usage example:**
 
@@ -165,7 +173,7 @@ var atgc = motifs.First(m => m.Sequence == "ATGC");
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_DiscoverMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_DiscoverMotifs_Tests.cs) — covers `INV-01`..`INV-04`
+- Tests: [MotifFinder_DiscoverMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_DiscoverMotifs_Tests.cs) — covers `INV-01`..`INV-04`; [MotifFinder_OligoAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_OligoAnalysis_Tests.cs) — RSAT-run occ_P/occ_E/occ_sig, Markov, `-2str`, `-noov`; property/metamorphic/fuzz: `MotifOligoAnalysisProperties`, `MotifOligoAnalysisMetamorphicTests`, `MotifOligoAnalysisFuzzTests`; binomial tail: `StatisticsHelper_BinomialUpperTail_Tests`
 - Evidence: [MOTIF-DISCOVER-001-Evidence.md](../../../docs/Evidence/MOTIF-DISCOVER-001-Evidence.md)
 
 ## 8. References
@@ -174,3 +182,5 @@ var atgc = motifs.First(m => m.Sequence == "ATGC");
 2. fmicompbio. monaLisa `getKmerFreq` — observed vs expected k-mer frequencies and log2 enrichment. https://fmicompbio.github.io/monaLisa/reference/getKmerFreq.html
 3. van Helden J, André B, Collado-Vides J. 1998. Extracting regulatory sites from the upstream region of yeast genes by computational analysis of oligonucleotide frequencies. *J Mol Biol* 281:827–842.
 4. RSAT `oligo-analysis` source — https://raw.githubusercontent.com/rsa-tools/rsat-code/master/perl-scripts/oligo-analysis (Bernoulli `exp_freq *= residue_proba`, `exp_occ = exp_freq * sum_occurrences`, `sum_of_binomials` occ_P) and `perl-scripts/lib/RSA.disco.lib` `MultiTestCorrections` (occ_E, occ_sig); opened 2026-09-29.
+5. RSAT source, rsa-tools/rsat-code master 10043f2 (2026-09-23), git clone run with perl 5.38: `perl-scripts/oligo-analysis` (v1.169: `CountOligos`, `SumReverseComplements`, `CalcSubWordFrequencies`, `CalcExpected`, `CalcProba`), `perl-scripts/lib/RSA.disco.lib` (`NbPossibleOligos`, `MultiTestCorrections`, `GroupRC`), `perl-scripts/lib/RSA.lib` (`SumExpectedFrequencies`, `ReadPatternFrequencies`), `perl-scripts/lib/RSAT/stats.pm` (`sum_of_binomials`, `binomial_boe`), `perl-scripts/lib/RSAT/MarkovModel.pm` (`load_from_file_oligos`, `add_pseudo_freq`, `normalize_transition_frequencies`, `segment_proba`); opened 2026-09-30.
+6. Loader C. 2000. Fast and accurate computation of binomial probabilities (R nmath `dbinom_raw`, `stirlerr`, `bd0`).

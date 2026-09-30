@@ -106,6 +106,46 @@ Reference values (exact Python `Fraction` re-computation of the RSAT formulas): 
 
 ---
 
+## RSAT oligo-analysis run (review 2026-09 follow-up, 2026-09-30)
+
+**Source opened:** git clone of rsa-tools/rsat-code master 10043f2 (2026-09-23): `perl-scripts/oligo-analysis` (v1.169),
+`perl-scripts/lib/RSA.disco.lib` (`NbPossibleOligos`, `MultiTestCorrections`, `GroupRC`), `perl-scripts/lib/RSA.lib`
+(`SumExpectedFrequencies`, `ReadPatternFrequencies`), `perl-scripts/lib/RSA.seq.lib` (`SmartRC`),
+`perl-scripts/lib/RSAT/stats.pm` (`sum_of_binomials`, `binomial_boe`), `perl-scripts/lib/RSAT/MarkovModel.pm`
+(`load_from_file_oligos`, `add_pseudo_freq`, `normalize_transition_frequencies`, `segment_proba`).
+
+**How it was run:** `RSAT=<clone> perl -I perl-scripts/lib perl-scripts/oligo-analysis -i x.fa -l k ...` (an empty
+`RSAT_config.props`; no other installation needed), plus a copy with one debug line after `MultiTestCorrections`
+printing every pattern's exp_freq, occ_P, occ_E, occ_sig, exp_ms, ms_P, ms_E, ms_sig with `%.17g`.
+
+**Source facts established (code, confirmed by the runs):**
+- Trials n = `sum_occurrences` = all N − k + 1 windows (also with `-noov`, where overlaps are added back); `-2str` pairs
+  are grouped before summing, so n is not doubled.
+- occ_P = `sum_of_binomials(exp_freq, sum_occurrences, occ, sum_occurrences)` (right tail, exact summation).
+- occ_E = occ_P × `$nb_tested_patterns` — the number of patterns reaching `CalcProba`, i.e. after `-lth occ`
+  (the manual's "NPO" equals it only with `-zeroocc`); occ_sig = −log10 occ_E (350 when occ_E = 0).
+- ms_P = `binomial_boe(exp_ms/S, S, mseq)`, exp_ms = S·(1 − (1 − exp_freq)^(nb_pos/S)), S = all sequences,
+  nb_pos over sequences with L ≥ k; ms_E = ms_P × `nb_possible_oligos` (4^k; with `-2str` (4^k + 4^{k/2})/2 for even k, 4^k/2 for odd k).
+- `-markov m` (slow mode): sub-word frequencies of all overlapping (m+1)- and m-mers, single strand;
+  exp_freq = f(w[0..m]) ∏ f(w[o..o+m]) / f(w[o..o+m−1]); m ≤ k − 2 for m > 0.
+- `-2str`: occ summed with the reverse complement (palindromes once); input Bernoulli pools complementary residues.
+  The code copies the kept member's exp_freq to its partner (2·p(min)), contradicting the manual's
+  exp_freq(W) + exp_freq(W') for asymmetric backgrounds (e.g. `-markov 2` gives exp_freq 0 for observed pairs);
+  the documented sum is implemented.
+- `-bgfile` probabilities are returned as `%5g` strings by `segment_proba` (6 significant digits).
+
+**Independent cross-checks:** Python port of the above (scipy.stats.binom.sf) = RSAT to ≤ 2e-12 relative on 68 runs
+(t2/long sequences, k = 3/4/6, equi/input/`-markov 0..4`/`-noov`, 1str/2str, mseq on 4 sequences) and to %5g on 18
+`-bgfile` runs, tables of order 0–2 (strand-sensitive and -insensitive); C# = port to ≤ 3e-13 on 400 random configurations.
+Binomial tail vs mpmath exact sums ≤ 1e-13 (scipy ≤ 5e-14).
+
+**Locked values (see TestSpec §9):** t2 = `ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC`, k = 4,
+`-1str -bg equi -lth occ 2`: ATGC occ 6, occ_P 1.4844942103072834e-07, occ_E 1.4844942103072835e-06 (10 tested),
+occ_sig 5.8284214918614703; `-2str` input: ATGC|GCAT occ 9, occ_P 1.0760647330191343e-09, occ_sig 7.7920703428970466;
+`-markov 1`: ATGC exp_freq 0.032915191520534237, occ_P 0.013954892377198637; `-noov` t3 k = 2: AA occ 5 at {1,3,5,27,29}.
+
+---
+
 ## References
 
 1. Compeau P, Pevzner P (2015). *Bioinformatics Algorithms: An Active Learning Approach*, 2nd ed., Chapter 2 ("Which DNA Patterns Play the Role of Molecular Clocks?"). Active Learning Publishers. Formula reproduced at https://github.com/wikiselev/bioinformatics-algorithms/wiki/Kmer-expected-number-of-occurrences-in-a-DNA-string (accessed 2026-06-14).
@@ -117,3 +157,4 @@ Reference values (exact Python `Fraction` re-computation of the RSAT formulas): 
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-29**: RSAT oligo-analysis source + Bernoulli-background and long-k reference values (review 2026-09, B05).
+- **2026-09-30**: RSAT oligo-analysis significance / Markov / `-2str` implemented; RSAT run + Python port + mpmath references (review 2026-09 follow-up, B05).
