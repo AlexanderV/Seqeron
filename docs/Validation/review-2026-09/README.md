@@ -81,7 +81,7 @@ Batch sessions must not hold every unit in one context. The batch lead:
    Run unit subagents **sequentially** (one build directory).
 3. The lead commits + pushes after each unit, appends the summary to the batch report, and keeps
    only the summaries in its own context.
-4. After all units: one extra fresh subagent sweeps the owned files for **duplication**
+4. After all units **and after the completeness-audit loop below**: one extra fresh subagent sweeps the owned files for **duplication**
    (internal and vs. other canonical implementations) and for public algorithmic methods not
    covered by any unit; fixes what is in-ownership; records the rest.
 5. Final full test run, final push, report finished.
@@ -106,7 +106,10 @@ Before writing the final report the lead runs a **completeness-audit loop**:
 2. The lead implements every DOABLE item (fresh subagent per item/unit, same rules: sourced,
    reference-checked, tests, fast tier, commit + push).
 3. Repeat 1–2 until the auditor returns **zero DOABLE items**. Then run the heavy tier.
-   **Order is mandatory: units → duplication sweep → audit/finish loop → heavy tier (once).**
+   **Order is mandatory: units → audit/finish loop → duplication sweep → final audit → heavy tier (once).**
+   Leftovers are finished *before* the duplication sweep, so the sweep also covers the code the
+   finish loop added (no second sweep). The sweep's own leftovers ("duplication kept because…")
+   go through one final audit round (fix every DOABLE item, fast tier) before the heavy tier.
    The heavy tier (Fuzzing/Properties/Metamorphic: update + add + full run) runs **exactly once, at
    the very end**, after the last DOABLE item is done — never between audit rounds, never per
    leftover item. During the loop (and in finisher sessions) use only the fast tier per change.
