@@ -90,3 +90,10 @@ The driver delegates to the same `*Core` helpers used by the standalone `Calcula
 - **End-state: ✅ CLEAN** — no defect found; nothing to fix.
 - **Build/test:** `dotnet build` 0 errors (4 pre-existing warnings in unrelated `ApproximateMatcher_EditDistance_Tests.cs`, untouched); full unfiltered `dotnet test` = **6598 passed, 0 failed**.
 - No code or test changes were made this session (none warranted). Working tree changes are limited to validation docs.
+
+## Revision 2026-09-30 — completeness audit WP5 (B04 F38, F39)
+
+- **Stage A correction:** `FindLowComplexityRegions` was documented as "the BBDuk `maskLowEntropy` rule"; only the window-union reporting is BBDuk's — BBDuk's statistic is 5-mer entropy over a 50-bp window normalised by ln(W_k) (BBMap 40.02 `tracker/EntropyTracker.java`). The method is a per-base Shannon scan, identical to BBDuk with `entropyk=1 entropy=t/log₂w` (1 600 cases vs `bbduk.sh`, 0 mismatches). XML doc / algorithm doc corrected.
+- **Added:** `FindLowEntropyRegionsBbduk(string, cutoff, window = 50, k = 5)` (port of `maskLowEntropy` + EntropyTracker FAST mode; 4 500 random cases + 20 long reads vs `bbduk.sh` 40.02: 0 mismatches); `string` overloads of `CalculateWindowedComplexity` / `FindLowComplexityRegions` (windows with a non-A/C/G/T/U symbol skipped, BBDuk `ns() < 1`); `lcMaxWordLength` (default 6 kept; Gabrielian & Bolshoy bound W is a free parameter); `entropyThreshold` NaN/∞/negative → `ArgumentOutOfRangeException`.
+- **Stage B:** PASS after changes; tests `SequenceComplexity_AuditWp5_Tests.cs` (F38/F39 regions) + MCP `windowed_complexity` (`lcMaxWordLength`, N) / `find_low_complexity_regions` (`method = "bbduk"`, `entropyK`, N accepted).
+

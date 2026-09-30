@@ -143,3 +143,9 @@ No code change required.
   (Li 2025 §2.5) and the normalized Lempel–Ziv compression metric, matching the
   already-validated SEQ-COMPLEX-DUST-001 / SEQ-COMPLEX-COMPRESS-001 sub-units.
 - Full unfiltered suite after edits: **18208 passed, 0 failed**.
+
+## Revision 2026-09-30 — completeness audit WP5 (B04 F37)
+
+- **Added:** fixed-alphabet LC `CalculateLinguisticComplexity(DnaSequence | string, maxWordLength, alphabetSize)` — LC = Σ V_i / Σ min(a^i, N−i+1) with caller-supplied a (Troyanskaya et al. 2002 "alphabet of size a"; Rosalind LING a = 4). a < 1 or m < 1 → `ArgumentOutOfRangeException`; a below the number of distinct (upper-cased) symbols → `ArgumentException`. Cross-check vs exact-Fraction Python brute force: 4 001 random cases (7 alphabets, lower case, m 1–100, hash and suffix-tree paths, a 1…int.MaxValue; 723 expected exceptions) → 0 mismatches; Rosalind LING sample `ATTTGGATT` → 0.875. MCP `complexity_linguistic` / `linguistic_complexity` gained optional `alphabetSize`.
+- TestSpec LC-22..24 added; stale LCR-1/LCR-3 ends (146 / 75) corrected to the F4 values (145 / 74).
+

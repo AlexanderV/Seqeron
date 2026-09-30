@@ -291,12 +291,15 @@ public class SequenceTools
     [Description("Calculate linguistic complexity of a sequence based on k-mer diversity. Values range from 0 to 1.")]
     public static LinguisticComplexityResult LinguisticComplexity(
         [Description("The sequence to analyze")] string sequence,
-        [Description("Maximum k-mer length to consider (default: 6)")] int maxK = 6)
+        [Description("Maximum k-mer length to consider (default: 6)")] int maxK = 6,
+        [Description("Optional fixed alphabet size a for the denominator min(a^i, N-i+1) (4 for DNA as in Rosalind LING, 20 for protein); default: inferred from the sequence.")] int? alphabetSize = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var complexity = SequenceStatistics.CalculateLinguisticComplexity(sequence, maxK);
+        var complexity = alphabetSize is int a
+            ? SequenceComplexity.CalculateLinguisticComplexity(sequence, maxK, a)
+            : SequenceStatistics.CalculateLinguisticComplexity(sequence, maxK);
         return new LinguisticComplexityResult(complexity);
     }
 
@@ -410,7 +413,8 @@ public class SequenceTools
     [Description("Calculate DNA linguistic complexity as ratio of observed to possible subwords. LC = 1.0 for maximum complexity.")]
     public static ComplexityLinguisticResult ComplexityLinguistic(
         [Description("The DNA sequence to analyze")] string sequence,
-        [Description("Maximum word length to consider (default: 10)")] int maxWordLength = 10)
+        [Description("Maximum word length to consider (default: 10)")] int maxWordLength = 10,
+        [Description("Optional fixed alphabet size a (Troyanskaya et al. 2002; 4 for DNA as in Rosalind LING); must be >= the number of distinct symbols. Default: inferred from the sequence.")] int? alphabetSize = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -418,7 +422,9 @@ public class SequenceTools
         if (maxWordLength < 1)
             throw new ArgumentException("Max word length must be at least 1", nameof(maxWordLength));
 
-        var complexity = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
+        var complexity = alphabetSize is int a
+            ? SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength, a)
+            : SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
         return new ComplexityLinguisticResult(complexity, maxWordLength);
     }
 

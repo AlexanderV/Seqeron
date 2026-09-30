@@ -51,7 +51,8 @@ This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `DnaSequence` or `string` | required | DNA-oriented sequence to analyze | Null `DnaSequence` input throws `ArgumentNullException`; empty string returns `0` |
-| `maxWordLength` | `int` | `10` | Maximum subword length included in the summation | `DnaSequence` overload throws `ArgumentOutOfRangeException` when `< 1` |
+| `maxWordLength` | `int` | `10` | Maximum subword length included in the summation | `DnaSequence` overload and the fixed-alphabet overloads throw `ArgumentOutOfRangeException` when `< 1` |
+| `alphabetSize` | `int` | inferred | Optional fixed alphabet size `K` (3-argument overloads; Troyanskaya et al. 2002 / Rosalind LING `a`, 4 for DNA, 20 for protein) | `< 1` ⇒ `ArgumentOutOfRangeException`; fewer than the distinct (upper-cased) symbols of the sequence ⇒ `ArgumentException` |
 
 ### 3.2 Output / Return Value
 
@@ -88,6 +89,7 @@ This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with 
 
 - `SequenceComplexity.CalculateLinguisticComplexity(DnaSequence, int)`: Canonical typed overload.
 - `SequenceComplexity.CalculateLinguisticComplexity(string, int)`: Raw-string overload.
+- `SequenceComplexity.CalculateLinguisticComplexity(DnaSequence | string, int maxWordLength, int alphabetSize)`: fixed alphabet size `K` (no inference). Cross-check: exact-Fraction Python brute force on 4 001 random cases (alphabets ACGT/AC/AT/ACGTN/ACGU/20 aa/unary, lower case, m 1–100, both hash and suffix-tree paths, a from 1 to int.MaxValue incl. 723 cases with a < distinct symbols → `ArgumentException`): 0 mismatches; Rosalind LING sample 0.875.
 - `SequenceComplexity.FindLowComplexityRegions(...)`: Uses complexity metrics downstream.
 - `SequenceComplexity.MaskLowComplexity(...)`: Related masking workflow using DUST score.
 
@@ -131,7 +133,7 @@ For `m ≤ 12` the implementation counts distinct subwords as the key count of t
 
 ### 6.2 Limitations
 
-The alphabet is inferred from the sequence (nucleotide alphabet ∪ observed symbols); a caller wanting a different fixed alphabet (e.g. 20 amino acids for a short peptide lacking some residues) cannot pass it explicitly.
+The two-argument overloads infer the alphabet from the sequence (nucleotide alphabet ∪ observed symbols); a caller wanting a different fixed alphabet (e.g. 20 amino acids for a short peptide lacking some residues, or a binary alphabet) passes it via the `alphabetSize` overloads (MCP: optional `alphabetSize` of `complexity_linguistic` / `linguistic_complexity`).
 
 ## 7. Examples and Related Material
 

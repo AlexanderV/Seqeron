@@ -41,4 +41,12 @@ public class LinguisticComplexityTests
         Assert.That(a, Is.EqualTo(b));
         Assert.That(a, Is.EqualTo(expected).Within(1e-12));
     }
+
+    [Test]
+    public void LinguisticComplexity_AlphabetSize_FixedAlphabet()
+    {
+        // Protein, a = 20: MKVLAAGIVGLLLAA, m = 15 -> 9/10 (exact brute force; B04 F37).
+        Assert.That(SequenceTools.LinguisticComplexity("MKVLAAGIVGLLLAA", 15, alphabetSize: 20).Complexity, Is.EqualTo(0.9).Within(1e-15));
+        Assert.Throws<ArgumentException>(() => SequenceTools.LinguisticComplexity("ACGTN", 6, alphabetSize: 4));
+    }
 }

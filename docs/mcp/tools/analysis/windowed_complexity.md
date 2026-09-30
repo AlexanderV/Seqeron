@@ -17,19 +17,21 @@ Sliding-window Shannon entropy and linguistic complexity (DNA).
 Computes, in sliding windows along a DNA sequence, both the **Shannon entropy**
 (bits/symbol) and the **linguistic complexity**. Each point reports the window center
 position (`start + windowSize/2`), the inclusive window bounds `[start, start+w-1]`,
-the entropy and the linguistic complexity. Windows advance by `stepSize`.
+the entropy and the linguistic complexity (word lengths 1..min(`lcMaxWordLength`, w), default 6). Windows advance by `stepSize`.
+N / IUPAC codes are accepted; a window containing any non-ACGT symbol is skipped (no point), as BBDuk scores only windows with `ns() < 1`.
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L257](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L211)
+- Source: [SequenceComplexity.cs#L351](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L351)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence (min length 1) |
+| `sequence` | string | Yes | DNA sequence, A/C/G/T + IUPAC codes (min length 1) |
 | `windowSize` | integer | No | Window size (default 64) |
 | `stepSize` | integer | No | Step size (default 10) |
+| `lcMaxWordLength` | integer | No | Per-window LC word-length cap (default 6; ≥ windowSize gives the all-length LC, e.g. `ACGTACGT` → 13/16) |
 
 ## Output Schema
 

@@ -902,30 +902,40 @@ public class AnalysisTools
     #region SequenceComplexity
 
     [McpServerTool(Name = "windowed_complexity", Title = "Complexity — Sliding Window (DNA)", ReadOnly = true)]
-    [Description("Sliding-window Shannon entropy + linguistic complexity for a DNA sequence.")]
+    [Description("Sliding-window Shannon entropy (bits) + linguistic complexity (word lengths 1..lcMaxWordLength) for a DNA sequence. IUPAC codes (e.g. N) are accepted; windows containing a non-ACGT symbol are skipped (BBDuk convention).")]
     public static WindowedComplexityResult WindowedComplexity(
-        [Description("DNA sequence.")] string sequence,
+        [Description("DNA sequence (A/C/G/T + IUPAC codes).")] string sequence,
         [Description("Window size (default 64).")] int windowSize = 64,
-        [Description("Step size (default 10).")] int stepSize = 10)
+        [Description("Step size (default 10).")] int stepSize = 10,
+        [Description("Per-window linguistic-complexity word-length cap (default 6; >= windowSize gives the all-length LC).")] int lcMaxWordLength = 6)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
+        var dna = RequireIupacDna(sequence, nameof(sequence));
         var items = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .CalculateWindowedComplexity(dna, windowSize, stepSize)
+            .CalculateWindowedComplexity(dna, windowSize, stepSize, lcMaxWordLength)
             .Select(p => new ComplexityPointItem(p.Position, p.ShannonEntropy, p.LinguisticComplexity, p.WindowStart, p.WindowEnd))
             .ToArray();
         return new WindowedComplexityResult(items);
     }
 
     [McpServerTool(Name = "find_low_complexity_regions", Title = "Complexity — Low-Complexity Regions (DNA)", ReadOnly = true)]
-    [Description("Entropy-thresholded contiguous low-complexity DNA regions.")]
+    [Description("Low-complexity DNA regions = union of low-entropy sliding windows. method 'shannon' (default): per-base Shannon entropy in bits < entropyThreshold. method 'bbduk': exactly what `bbduk.sh entropy=<entropyThreshold> entropymask=t entropywindow=<windowSize> entropyk=<entropyK>` masks (k-mer entropy normalised to 0-1; BBDuk defaults window 50, k 5). Windows containing N/IUPAC codes are never flagged.")]
     public static FindLowComplexityRegionsResult FindLowComplexityRegions(
-        [Description("DNA sequence.")] string sequence,
-        [Description("Window size (default 64).")] int windowSize = 64,
-        [Description("Entropy threshold (default 1.0).")] double entropyThreshold = 1.0)
+        [Description("DNA sequence (A/C/G/T + IUPAC codes).")] string sequence,
+        [Description("Window size (default 64; BBDuk's entropywindow default is 50).")] int windowSize = 64,
+        [Description("Entropy threshold: bits for 'shannon' (default 1.0); BBDuk entropy cutoff in [0,1] for 'bbduk'.")] double entropyThreshold = 1.0,
+        [Description("'shannon' (default) or 'bbduk'.")] string method = "shannon",
+        [Description("k-mer length for method 'bbduk' (BBDuk entropyk, 1-15, default 5).")] int entropyK = 5)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
-        var items = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .FindLowComplexityRegions(dna, windowSize, entropyThreshold)
+        var dna = RequireIupacDna(sequence, nameof(sequence));
+        IEnumerable<global::Seqeron.Genomics.Analysis.LowComplexityRegion> regions = (method ?? "shannon").ToLowerInvariant() switch
+        {
+            "shannon" => global::Seqeron.Genomics.Analysis.SequenceComplexity
+                .FindLowComplexityRegions(dna, windowSize, entropyThreshold),
+            "bbduk" => global::Seqeron.Genomics.Analysis.SequenceComplexity
+                .FindLowEntropyRegionsBbduk(dna, entropyThreshold, windowSize, entropyK),
+            _ => throw new ArgumentException("method must be 'shannon' or 'bbduk'", nameof(method)),
+        };
+        var items = regions
             .Select(r => new DnaLowComplexityItem(r.Start, r.End, r.Length, r.MinEntropy, r.Sequence))
             .ToArray();
         return new FindLowComplexityRegionsResult(items);

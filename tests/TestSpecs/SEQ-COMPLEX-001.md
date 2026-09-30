@@ -93,6 +93,9 @@ divided by $\ell(x) - 1 = N - 3$; that divisor is superseded — see SEQ-COMPLEX
 | LC-19 | `CalculateLinguisticComplexity_NonAcgtSymbols_AlphabetExtended_MatchesBruteForce` | Exact: ACGTN 1.0 (was 15/14), ATGCATGCNN 22/25, N×8 8/33, IUPAC hash/suffix-tree 69/142, 345/442, RNA 6/7, ACGTU 0.8 | Troyanskaya (2002) / Rosalind LING alphabet size a; Python brute force (3000 random, 0 mismatches) |
 | LC-20 | `CalculateLinguisticComplexity_RnaEqualsDnaCounterpart` | RNA = DNA spelling (a = 4) | IUPAC U ≡ T |
 | LC-21 | `CalculateLinguisticComplexity_LargeAlphabet_NeverExceedsOne_NoOverflow` | 300 distinct symbols → 1.0 (m=10, m=300) | LC ≤ 1; saturating a^i |
+| LC-22 | `CalculateLinguisticComplexity_FixedAlphabet_MatchesBruteForce` (8 cases, string/lower-case/`DnaSequence`) | ATTTGGATT a=4 → 7/8 (Rosalind LING); AACCAACC a=2 → 8/9, a=4 → 3/4; protein a=20 → 9/10; suffix-tree path a=4 → 138/173, a=6 → 46/59; GATTACA×3 → 41/70; A×8 a=1 → 1 | Troyanskaya 2002 fixed alphabet a; exact-Fraction brute force (4 001 random, 0 mismatches) |
+| LC-23 | `CalculateLinguisticComplexity_FixedAlphabet4_EqualsInferredForDna` | a=4 ≡ inferred for pure DNA (m 1..100) | contract |
+| LC-24 | `CalculateLinguisticComplexity_FixedAlphabet_InvalidArguments_Throw` / `_HugeAlphabet_NoOverflow` | a < distinct → ArgumentException; a<1, m<1 → ArgumentOutOfRange; null DnaSequence → ArgumentNull; empty/null string → 0; a = int.MaxValue → 1.0 | contract; saturation |
 
 ### 4.2 Shannon Entropy Tests (8 tests)
 
@@ -134,9 +137,9 @@ divided by $\ell(x) - 1 = N - 3$; that divisor is superseded — see SEQ-COMPLEX
 
 | ID | Test Method | Assertion | Source |
 |----|-------------|-----------|--------|
-| LCR-1 | `FindLowComplexityRegions_FindsPolyARegion` | Count=1, start=79, end=146, minH=0 | Entropy-based detection |
+| LCR-1 | `FindLowComplexityRegions_FindsPolyARegion` | Count=1, start=79, end=145, minH=0 (F4) | Entropy-based detection |
 | LCR-2 | `FindLowComplexityRegions_HighComplexity_ReturnsEmpty` | Empty | Definition |
-| LCR-3 | `FindLowComplexityRegions_ReturnsCorrectSequence` | start=6, end=75, length=70 | Region merging |
+| LCR-3 | `FindLowComplexityRegions_ReturnsCorrectSequence` | start=6, end=74, length=69 (F4) | Region merging |
 | LCR-4 | `FindLowComplexityRegions_NullSequence_ThrowsException` | Throws | Guard clause |
 | LCR-5 | `FindLowComplexityRegions_InvalidWindowSize_ThrowsException` | Throws | Guard clause |
 

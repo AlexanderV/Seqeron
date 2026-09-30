@@ -31,13 +31,70 @@ public static class SequenceComplexity
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxWordLength, 1);
 
+        return CalculateLinguisticComplexityDna(sequence, maxWordLength, LcAlphabetSize(sequence.Sequence));
+    }
+
+    /// <summary>
+    /// Calculates linguistic complexity over a caller-supplied alphabet of size <paramref name="alphabetSize"/>:
+    /// LC = Σ_{i=1..m} V_i / Σ_{i=1..m} min(a^i, N − i + 1) with a fixed (Troyanskaya et al. 2002, Bioinformatics 18:679,
+    /// "a text of size n over an alphabet of cardinality a"; Rosalind LING: m(a, n) with a = 4 for DNA). Unlike the
+    /// two-argument overload the alphabet is not inferred from the sequence, so e.g. a DNA window that happens to lack
+    /// T is still scored against a = 4, and a protein can be scored with a = 20.
+    /// </summary>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <param name="maxWordLength">Maximum word length m (≥ 1; values ≥ N give the all-length LC).</param>
+    /// <param name="alphabetSize">Alphabet size a (≥ 1 and ≥ the number of distinct symbols in the sequence).</param>
+    /// <returns>Linguistic complexity in [0, 1]; 0 for an empty sequence.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxWordLength"/> or <paramref name="alphabetSize"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentException">The sequence contains more distinct symbols than <paramref name="alphabetSize"/>.</exception>
+    public static double CalculateLinguisticComplexity(DnaSequence sequence, int maxWordLength, int alphabetSize)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxWordLength, 1);
+        ValidateLcAlphabetSize(sequence.Sequence, alphabetSize);
+
+        return CalculateLinguisticComplexityDna(sequence, maxWordLength, alphabetSize);
+    }
+
+    /// <summary>
+    /// Fixed-alphabet linguistic complexity of a raw string (see
+    /// <see cref="CalculateLinguisticComplexity(DnaSequence, int, int)"/>); the input is upper-cased, and the number of
+    /// distinct (upper-cased) symbols must not exceed <paramref name="alphabetSize"/>. Null/empty input returns 0.
+    /// Rosalind LING sample: <c>ATTTGGATT</c>, a = 4, m ≥ 9 → 35/40 = 0.875.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxWordLength"/> or <paramref name="alphabetSize"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentException">The sequence contains more distinct symbols than <paramref name="alphabetSize"/>.</exception>
+    public static double CalculateLinguisticComplexity(string sequence, int maxWordLength, int alphabetSize)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxWordLength, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(alphabetSize, 1);
+        if (string.IsNullOrEmpty(sequence)) return 0;
+
+        string seq = sequence.ToUpperInvariant();
+        ValidateLcAlphabetSize(seq, alphabetSize);
+        return CalculateLinguisticComplexityCore(seq, maxWordLength, alphabetSize);
+    }
+
+    private static double CalculateLinguisticComplexityDna(DnaSequence sequence, int maxWordLength, int alphabetSize)
+    {
         string seq = sequence.Sequence;
         if (seq.Length == 0) return 0;
         int m = Math.Min(maxWordLength, seq.Length);
         return m > LcHashEnumerationMaxWordLength
             ? LinguisticComplexityFromCounts(
-                sequence.SuffixTree.CountDistinctSubstringsByLength(m), seq.Length, LcAlphabetSize(seq))
-            : CalculateLinguisticComplexityCore(seq, maxWordLength);
+                sequence.SuffixTree.CountDistinctSubstringsByLength(m), seq.Length, alphabetSize)
+            : CalculateLinguisticComplexityCore(seq, maxWordLength, alphabetSize);
+    }
+
+    private static void ValidateLcAlphabetSize(string seq, int alphabetSize)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(alphabetSize, 1);
+        int distinct = new HashSet<char>(seq).Count;
+        if (distinct > alphabetSize)
+            throw new ArgumentException(
+                $"The sequence contains {distinct} distinct symbols, more than alphabetSize = {alphabetSize}.",
+                nameof(alphabetSize));
     }
 
     /// <summary>
@@ -48,13 +105,14 @@ public static class SequenceComplexity
     public static double CalculateLinguisticComplexity(string sequence, int maxWordLength = 10)
     {
         if (string.IsNullOrEmpty(sequence)) return 0;
-        return CalculateLinguisticComplexityCore(sequence.ToUpperInvariant(), maxWordLength);
+        string seq = sequence.ToUpperInvariant();
+        return CalculateLinguisticComplexityCore(seq, maxWordLength, LcAlphabetSize(seq));
     }
 
     /// <summary>Largest word length for which direct hash enumeration is used instead of the suffix tree.</summary>
     private const int LcHashEnumerationMaxWordLength = 12;
 
-    private static double CalculateLinguisticComplexityCore(string seq, int maxWordLength)
+    private static double CalculateLinguisticComplexityCore(string seq, int maxWordLength, int alphabetSize)
     {
         if (seq.Length == 0) return 0;
 
@@ -63,14 +121,14 @@ public static class SequenceComplexity
 
         if (m > LcHashEnumerationMaxWordLength)
             return LinguisticComplexityFromCounts(
-                global::SuffixTree.SuffixTree.Build(seq).CountDistinctSubstringsByLength(m), seq.Length, LcAlphabetSize(seq));
+                global::SuffixTree.SuffixTree.Build(seq).CountDistinctSubstringsByLength(m), seq.Length, alphabetSize);
 
         // V_i = number of distinct overlapping i-words = key count of the canonical k-mer tally (KMER-COUNT-001).
         var counts = new long[m + 1];
         for (int wordLen = 1; wordLen <= m; wordLen++)
             counts[wordLen] = KmerAnalyzer.CountKmers(seq, wordLen).Count;
 
-        return LinguisticComplexityFromCounts(counts, seq.Length, LcAlphabetSize(seq));
+        return LinguisticComplexityFromCounts(counts, seq.Length, alphabetSize);
     }
 
     /// <summary>
@@ -101,8 +159,8 @@ public static class SequenceComplexity
         {
             observedTotal += counts[wordLen];
 
-            // V_max,i = min(a^i, N − i + 1); a ≤ 65536 and a^(i−1) ≤ N ≤ int.MaxValue before the multiply,
-            // so the product stays below 2^47 (no overflow) and saturation keeps it there.
+            // V_max,i = min(a^i, N − i + 1); a ≤ int.MaxValue and a^(i−1) ≤ N ≤ int.MaxValue before the multiply,
+            // so the product stays below 2^62 (no overflow) and saturation keeps it there.
             if (wordsOverAlphabet <= n)
                 wordsOverAlphabet *= alphabetSize;
             long positions = n - wordLen + 1;
@@ -244,44 +302,87 @@ public static class SequenceComplexity
 
     #region Sliding Window Complexity
 
-    // Per-window linguistic-complexity vocabulary cap. Following Gabrielian & Bolshoy (1999),
-    // the linguistic-complexity assessment limits vocabulary evaluation to a bounded set of
-    // word lengths (W) rather than all N-1 lengths, for computational efficiency. Sequence
-    // complexity and DNA curvature, Comput. Chem. 23(3-4):263-274. doi:10.1016/S0097-8485(99)00007-8
+    // Default per-window linguistic-complexity word-length cap m. Gabrielian & Bolshoy (1999, Comput. Chem.
+    // 23:263-274, doi:10.1016/S0097-8485(99)00007-8) bound the word lengths of the windowed LC "not in the range
+    // of 2 to N-1 but only up to W" for efficiency; the value W is a free parameter there (universalmotif
+    // sequence_complexity uses trifonov.max.word.size = 7). 6 is this library's historical default, kept for
+    // backward compatibility and exposed as the lcMaxWordLength parameter.
     private const int WindowLcMaxWordLength = 6;
 
     /// <summary>
     /// Calculates complexity across the sequence using a sliding window (a complexity
     /// profile, in the sense of Troyanskaya et al. (2002)). For each window fully contained
     /// in the sequence the per-window Shannon entropy (bits, Shannon 1948) and linguistic
-    /// complexity (summation form) are reported with the window's coordinates.
+    /// complexity (summation form, word lengths 1..min(<paramref name="lcMaxWordLength"/>, w),
+    /// windowed LC with a bounded word length as in Gabrielian &amp; Bolshoy 1999) are reported with the window's coordinates.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
     /// <param name="windowSize">Size of the sliding window (default: 64).</param>
     /// <param name="stepSize">Step size for window movement (default: 10).</param>
+    /// <param name="lcMaxWordLength">Per-window LC word-length cap m (default 6, the library's historical value; ≥ 1).
+    /// Values ≥ <paramref name="windowSize"/> give the all-length LC of each window (Troyanskaya et al. 2002).</param>
     /// <returns>Complexity values with positions.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/>, <paramref name="stepSize"/> or
+    /// <paramref name="lcMaxWordLength"/> &lt; 1.</exception>
     public static IEnumerable<ComplexityPoint> CalculateWindowedComplexity(
         DnaSequence sequence,
         int windowSize = 64,
-        int stepSize = 10)
+        int stepSize = 10,
+        int lcMaxWordLength = WindowLcMaxWordLength)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        ValidateWindowedParameters(windowSize, stepSize, lcMaxWordLength);
+
+        return CalculateWindowedComplexityCore(sequence.Sequence, windowSize, stepSize, lcMaxWordLength);
+    }
+
+    /// <summary>
+    /// Sliding-window complexity profile of a raw nucleotide string (same metrics as the
+    /// <see cref="CalculateWindowedComplexity(DnaSequence, int, int, int)"/> overload; input is upper-cased).
+    /// Windows that contain an undefined symbol (anything other than A/C/G/T/U — N, IUPAC ambiguity codes, gaps)
+    /// are not evaluated and produce no point, following BBTools BBDuk, which scores only windows with
+    /// <c>EntropyTracker.ns() &lt; 1</c> (<c>maskLowEntropy</c>/<c>markLowEntropy</c>). For A/C/G/T input the result
+    /// is identical to the <see cref="DnaSequence"/> overload.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/>, <paramref name="stepSize"/> or
+    /// <paramref name="lcMaxWordLength"/> &lt; 1.</exception>
+    public static IEnumerable<ComplexityPoint> CalculateWindowedComplexity(
+        string sequence,
+        int windowSize = 64,
+        int stepSize = 10,
+        int lcMaxWordLength = WindowLcMaxWordLength)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateWindowedParameters(windowSize, stepSize, lcMaxWordLength);
+
+        return CalculateWindowedComplexityCore(sequence.ToUpperInvariant(), windowSize, stepSize, lcMaxWordLength);
+    }
+
+    private static void ValidateWindowedParameters(int windowSize, int stepSize, int lcMaxWordLength)
+    {
         ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
-
-        return CalculateWindowedComplexityCore(sequence.Sequence, windowSize, stepSize);
+        ArgumentOutOfRangeException.ThrowIfLessThan(lcMaxWordLength, 1);
     }
 
     private static IEnumerable<ComplexityPoint> CalculateWindowedComplexityCore(
         string seq,
         int windowSize,
-        int stepSize)
+        int stepSize,
+        int lcMaxWordLength)
     {
+        int[] undefinedPrefix = UndefinedBasePrefixCounts(seq);
+        int m = Math.Min(lcMaxWordLength, windowSize);
+
         for (int i = 0; i + windowSize <= seq.Length; i += stepSize)
         {
+            if (undefinedPrefix[i + windowSize] != undefinedPrefix[i]) continue; // BBDuk: only windows with ns() < 1
+
             string window = seq.Substring(i, windowSize);
             double entropy = CalculateShannonEntropyCore(window);
-            double lc = CalculateLinguisticComplexityCore(window, Math.Min(WindowLcMaxWordLength, windowSize));
+            double lc = CalculateLinguisticComplexityCore(window, m, LcAlphabetSize(window));
 
             yield return new ComplexityPoint(
                 Position: i + windowSize / 2,
@@ -292,28 +393,49 @@ public static class SequenceComplexity
         }
     }
 
+    /// <summary>
+    /// BBTools nucleotide code (<c>AminoAcid.baseToNumber</c>): A/C/G/T/U in either case → 0..3 (U = T),
+    /// anything else → −1 ("not fully defined"; counted by <c>EntropyTracker.ns()</c>).
+    /// </summary>
+    private static int BbtoolsBaseCode(char c) => c is 'U' or 'u' ? 3 : AcgtCode(c);
+
+    /// <summary>prefix[i] = number of undefined symbols (see <see cref="BbtoolsBaseCode"/>) in seq[0..i).</summary>
+    private static int[] UndefinedBasePrefixCounts(string seq)
+    {
+        var prefix = new int[seq.Length + 1];
+        for (int i = 0; i < seq.Length; i++)
+            prefix[i + 1] = prefix[i] + (BbtoolsBaseCode(seq[i]) < 0 ? 1 : 0);
+        return prefix;
+    }
+
     #endregion
 
     #region Low Complexity Regions
 
     /// <summary>
-    /// Finds low-complexity regions in the sequence: every window of length
-    /// <paramref name="windowSize"/> (step 1) whose per-base Shannon entropy (bits, Shannon 1948;
-    /// the canonical <see cref="CalculateShannonEntropy(DnaSequence)"/> kernel) is strictly below
-    /// <paramref name="entropyThreshold"/> is flagged, and a region is a maximal run of positions
-    /// covered by flagged windows, i.e. the union of the low-entropy windows. This is the window-union
-    /// masking rule of BBTools BBDuk <c>maskLowEntropy</c> (each failing window sets bits
-    /// [left, right] of a bit mask; a window fails when entropy &lt; cutoff; masked runs are the regions).
-    /// Overlapping or abutting flagged windows therefore merge into one region.
+    /// Finds low-complexity regions by a per-base Shannon-entropy window scan: every window of length
+    /// <paramref name="windowSize"/> (step 1) whose per-base Shannon entropy (bits, Shannon 1948; the canonical
+    /// <see cref="CalculateShannonEntropy(DnaSequence)"/> kernel, i.e. 1-mer entropy, not normalised) is strictly below
+    /// <paramref name="entropyThreshold"/> is flagged, and a region is a maximal run of positions covered by flagged
+    /// windows (the union of the low-entropy windows; overlapping or abutting flagged windows merge).
     /// </summary>
+    /// <remarks>
+    /// The window-union reporting rule is the one of BBTools BBDuk <c>maskLowEntropy</c> (each failing window sets bits
+    /// [left, right] of a bit mask). The window statistic is <b>not</b> BBDuk's default: BBDuk scores k-mer entropy
+    /// (entropyk = 5, entropywindow = 50) normalised by ln(window k-mers) — use
+    /// <see cref="FindLowEntropyRegionsBbduk"/> for that. This method equals BBDuk with <c>entropyk=1</c> and
+    /// <c>entropy = entropyThreshold / log₂(windowSize)</c> (BBDuk's 1-mer value is H_bits / log₂ w), up to BBDuk's
+    /// single-precision comparison.
+    /// </remarks>
     /// <param name="sequence">DNA sequence.</param>
     /// <param name="windowSize">Window size for analysis (default: 64). Must be ≥ 1.</param>
-    /// <param name="entropyThreshold">Entropy threshold (bits); windows with entropy strictly below it are low complexity (default: 1.0).</param>
+    /// <param name="entropyThreshold">Entropy threshold (bits, finite, ≥ 0); windows with entropy strictly below it are low complexity (default: 1.0).</param>
     /// <returns>Low-complexity regions (0-based, inclusive <c>End</c>), in ascending order and pairwise disjoint;
     /// <c>MinEntropy</c> is the lowest window entropy among the windows forming the region.
     /// Empty when the sequence is shorter than the window.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="windowSize"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="windowSize"/> &lt; 1 or
+    /// <paramref name="entropyThreshold"/> is NaN, infinite or negative.</exception>
     public static IEnumerable<LowComplexityRegion> FindLowComplexityRegions(
         DnaSequence sequence,
         int windowSize = 64,
@@ -321,8 +443,38 @@ public static class SequenceComplexity
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ValidateEntropyThreshold(entropyThreshold);
 
         return FindLowComplexityRegionsCore(sequence.Sequence, windowSize, entropyThreshold);
+    }
+
+    /// <summary>
+    /// Low-complexity regions of a raw nucleotide string (same rule as the
+    /// <see cref="FindLowComplexityRegions(DnaSequence, int, double)"/> overload; input is upper-cased). A window that
+    /// contains an undefined symbol (anything other than A/C/G/T/U) is never flagged, exactly as BBDuk
+    /// <c>maskLowEntropy</c> only tests windows with <c>ns() &lt; 1</c>; a region may still span such a symbol when
+    /// flagged windows on both sides overlap it. For A/C/G/T input the result equals the <see cref="DnaSequence"/> overload.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> &lt; 1 or
+    /// <paramref name="entropyThreshold"/> is NaN, infinite or negative.</exception>
+    public static IEnumerable<LowComplexityRegion> FindLowComplexityRegions(
+        string sequence,
+        int windowSize = 64,
+        double entropyThreshold = 1.0)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ValidateEntropyThreshold(entropyThreshold);
+
+        return FindLowComplexityRegionsCore(sequence.ToUpperInvariant(), windowSize, entropyThreshold);
+    }
+
+    private static void ValidateEntropyThreshold(double entropyThreshold)
+    {
+        if (!double.IsFinite(entropyThreshold) || entropyThreshold < 0)
+            throw new ArgumentOutOfRangeException(nameof(entropyThreshold), entropyThreshold,
+                "Entropy threshold must be a finite, non-negative number of bits.");
     }
 
     private static IEnumerable<LowComplexityRegion> FindLowComplexityRegionsCore(
@@ -332,6 +484,8 @@ public static class SequenceComplexity
     {
         if (seq.Length < windowSize) yield break;
 
+        int[] undefinedPrefix = UndefinedBasePrefixCounts(seq);
+
         // Current region = union of flagged windows [regionStart, regionEnd] (inclusive).
         int regionStart = -1;
         int regionEnd = -1;
@@ -339,6 +493,8 @@ public static class SequenceComplexity
 
         for (int i = 0; i + windowSize <= seq.Length; i++)
         {
+            if (undefinedPrefix[i + windowSize] != undefinedPrefix[i]) continue; // BBDuk: only windows with ns() < 1
+
             double entropy = CalculateShannonEntropyCore(seq.Substring(i, windowSize));
             if (!(entropy < entropyThreshold)) continue;
 
@@ -370,6 +526,136 @@ public static class SequenceComplexity
             Length: end - start + 1,
             MinEntropy: minEntropy,
             Sequence: seq.Substring(start, end - start + 1));
+
+    /// <summary>BBDuk's default entropy window, <c>EntropyTracker.defaultWindowBases</c> (<c>entropywindow=50</c>).</summary>
+    public const int BbdukDefaultEntropyWindow = 50;
+
+    /// <summary>BBDuk's default entropy k-mer length, <c>EntropyTracker.defaultK</c> (<c>entropyk=5</c>).</summary>
+    public const int BbdukDefaultEntropyK = 5;
+
+    /// <summary>
+    /// Returns the regions that BBTools BBDuk masks with
+    /// <c>bbduk.sh entropy=<paramref name="entropyCutoff"/> entropymask=t entropywindow=<paramref name="windowSize"/>
+    /// entropyk=<paramref name="k"/></c> (port of <c>BBDuk.maskLowEntropy</c> + <c>tracker/EntropyTracker</c>, BBMap 40.02).
+    /// </summary>
+    /// <remarks>
+    /// For every window of <paramref name="windowSize"/> bases (step 1) that contains no undefined base (A/C/G/T/U in
+    /// either case are defined; <c>EntropyTracker.ns() &lt; 1</c>), the normalised k-mer entropy
+    /// e = −Σ p_j ln p_j / ln(W_k), p_j = c_j / W_k, W_k = windowSize − k + 1 (overlapping k-mers in the window), is
+    /// computed; the window fails when e &lt; cutoff (single precision, as BBDuk's <c>float</c> comparison) and all its
+    /// bases are masked. Regions are the maximal masked runs (the BBDuk bit set). A sequence shorter than the window is
+    /// never masked. Note that the normaliser is ln(W_k) even when 4^k &lt; W_k (so for tiny k the maximum is below 1).
+    /// The window entropy is maintained incrementally exactly as BBDuk's default <c>FAST</c> mode (running sum of the
+    /// precomputed p·ln p table, k-mers containing an undefined base encoded as A), so values agree with BBDuk to the bit.
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence (any symbols; see remarks).</param>
+    /// <param name="entropyCutoff">BBDuk <c>entropy=</c> value in [0, 1]; windows with entropy strictly below it are masked.</param>
+    /// <param name="windowSize">BBDuk <c>entropywindow</c> (default 50); must exceed <paramref name="k"/>.</param>
+    /// <param name="k">BBDuk <c>entropyk</c> (default 5), 1..15.</param>
+    /// <returns>Masked regions (0-based, inclusive <c>End</c>), ascending and disjoint; <c>MinEntropy</c> is the lowest
+    /// normalised entropy of the failing windows forming the region; <c>Sequence</c> is the input substring.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> outside 1..15, <paramref name="windowSize"/> ≤ k,
+    /// or <paramref name="entropyCutoff"/> outside [0, 1] / NaN.</exception>
+    public static IReadOnlyList<LowComplexityRegion> FindLowEntropyRegionsBbduk(
+        string sequence,
+        double entropyCutoff,
+        int windowSize = BbdukDefaultEntropyWindow,
+        int k = BbdukDefaultEntropyK)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        // EntropyTracker constructor assertions: k > 0 && k <= 15 && k < windowBases; 0 <= cutoff <= 1.
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(k, 15);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(windowSize, k);
+        if (!(entropyCutoff >= 0 && entropyCutoff <= 1))
+            throw new ArgumentOutOfRangeException(nameof(entropyCutoff), entropyCutoff,
+                "BBDuk entropy cutoff must lie in [0, 1].");
+
+        return FindLowEntropyRegionsBbdukCore(sequence, (float)entropyCutoff, windowSize, k);
+    }
+
+    private static List<LowComplexityRegion> FindLowEntropyRegionsBbdukCore(string seq, float cutoff, int windowBases, int k)
+    {
+        var regions = new List<LowComplexityRegion>();
+        if (seq.Length < windowBases) return regions; // maskLowEntropy: r.length() < window → nothing masked
+
+        // EntropyTracker constructor.
+        int windowKmers = windowBases - k + 1;
+        var entropy = new double[windowKmers + 2]; // makeEntropyArray: entropy[c] = pk·ln pk, pk = c·(1/W_k)
+        double mult = 1d / windowKmers;
+        for (int c = 1; c < entropy.Length; c++)
+        {
+            double pk = c * mult;
+            entropy[c] = pk * Math.Log(pk);
+        }
+        double entropyMult = -1 / Math.Log(windowKmers);
+        int mask = ~(-1 << (2 * k));
+        var counts = new Dictionary<int, int>();
+
+        // EntropyTracker.clear().
+        var ring = new char[windowBases];
+        int pos = 0, pos2 = -windowBases + k - 1, len = 0, kmer = 0, kmer2 = 0, ns = 0;
+        double currentEsum = 0;
+
+        int regionStart = -1, regionEnd = -1; // inclusive
+        double minEntropy = double.MaxValue;
+
+        for (int i = 0; i < seq.Length; i++)
+        {
+            // EntropyTracker.add(b).
+            char b = seq[i];
+            char oldBase = ring[pos];
+            len++;
+            ring[pos] = b;
+            int code = BbtoolsBaseCode(b);
+            kmer = ((kmer << 2) | Math.Max(code, 0)) & mask; // symbolToNumber0: undefined → 0
+            if (code < 0) ns++;
+            if (len >= k)
+            {
+                counts.TryGetValue(kmer, out int oldCount);
+                counts[kmer] = oldCount + 1;
+                currentEsum = currentEsum + entropy[oldCount + 1] - entropy[oldCount];
+            }
+            if (pos2 >= 0)
+            {
+                char b2 = k > 1 ? ring[pos2] : oldBase;
+                kmer2 = ((kmer2 << 2) | Math.Max(BbtoolsBaseCode(b2), 0)) & mask;
+                if (len > windowBases)
+                {
+                    if (BbtoolsBaseCode(oldBase) < 0) ns--;
+                    int oldCount = counts[kmer2];
+                    counts[kmer2] = oldCount - 1;
+                    currentEsum = currentEsum + entropy[oldCount - 1] - entropy[oldCount];
+                }
+            }
+            if (++pos >= windowBases) pos = 0;
+            if (++pos2 >= windowBases) pos2 = 0;
+
+            // BBDuk.maskLowEntropy: if (i >= window−1 && ns() < 1 && !passes()) mask [leftPos, rightPos].
+            if (i < windowBases - 1 || ns >= 1) continue;
+            float e = (float)(currentEsum * entropyMult); // calcEntropyFast
+            if (!(e > 0)) e = 0;
+            if (!(e < cutoff)) continue;
+
+            int left = len - windowBases, right = len - 1;
+            if (regionStart >= 0 && left <= regionEnd + 1)
+            {
+                regionEnd = right;
+                minEntropy = Math.Min(minEntropy, e);
+                continue;
+            }
+            if (regionStart >= 0)
+                regions.Add(MakeLowComplexityRegion(seq, regionStart, regionEnd, minEntropy));
+            regionStart = left;
+            regionEnd = right;
+            minEntropy = e;
+        }
+
+        if (regionStart >= 0)
+            regions.Add(MakeLowComplexityRegion(seq, regionStart, regionEnd, minEntropy));
+        return regions;
+    }
 
     #endregion
 

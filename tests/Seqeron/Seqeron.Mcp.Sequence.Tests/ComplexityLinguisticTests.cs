@@ -28,4 +28,14 @@ public class ComplexityLinguisticTests
         var highComplexity = SequenceTools.ComplexityLinguistic("ATGCATGCATGCATGC", 10);
         Assert.That(highComplexity.Complexity, Is.GreaterThan(lowComplexity.Complexity));
     }
+
+    [Test]
+    public void ComplexityLinguistic_AlphabetSize_RosalindLingAndValidation()
+    {
+        // Rosalind LING sample (a = 4): ATTTGGATT -> 35/40 = 0.875 (B04 F37).
+        Assert.That(SequenceTools.ComplexityLinguistic("ATTTGGATT", 100, alphabetSize: 4).Complexity, Is.EqualTo(0.875));
+        // Binary alphabet: AACCAACC, m = 8, a = 2 -> 8/9 (exact brute force).
+        Assert.That(SequenceTools.ComplexityLinguistic("AACCAACC", 8, alphabetSize: 2).Complexity, Is.EqualTo(8.0 / 9.0).Within(1e-15));
+        Assert.Throws<ArgumentException>(() => SequenceTools.ComplexityLinguistic("ACGTN", 5, alphabetSize: 4));
+    }
 }

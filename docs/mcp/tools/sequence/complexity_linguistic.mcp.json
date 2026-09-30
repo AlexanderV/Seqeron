@@ -20,32 +20,78 @@
         "description": "Maximum word length to consider (default: 10)",
         "default": 10,
         "minimum": 1
+      },
+      "alphabetSize": {
+        "type": "integer",
+        "description": "Optional fixed alphabet size a (Troyanskaya et al. 2002; 4 for DNA as in Rosalind LING, 20 for protein); must be >= the number of distinct symbols. Default: inferred from the sequence.",
+        "minimum": 1
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "complexity": { "type": "number", "description": "Linguistic complexity (0 to 1)" },
-      "maxWordLength": { "type": "integer", "description": "Max word length used" }
+      "complexity": {
+        "type": "number",
+        "description": "Linguistic complexity (0 to 1)"
+      },
+      "maxWordLength": {
+        "type": "integer",
+        "description": "Max word length used"
+      }
     },
-    "required": ["complexity", "maxWordLength"]
+    "required": [
+      "complexity",
+      "maxWordLength"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "Max word length must be at least 1" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "Max word length must be at least 1"
+    }
   ],
   "examples": [
     {
       "name": "Complex sequence",
-      "input": { "sequence": "ATGCGATCGATCG", "maxWordLength": 10 },
-      "output": { "complexity": 0.85, "maxWordLength": 10 }
+      "input": {
+        "sequence": "ATGCGATCGATCG",
+        "maxWordLength": 10
+      },
+      "output": {
+        "complexity": 0.7894736842105263,
+        "maxWordLength": 10
+      }
     },
     {
       "name": "Low complexity sequence",
-      "input": { "sequence": "AAAAAAAAAA", "maxWordLength": 10 },
-      "output": { "complexity": 0.12, "maxWordLength": 10 }
+      "input": {
+        "sequence": "AAAAAAAAAA",
+        "maxWordLength": 10
+      },
+      "output": {
+        "complexity": 0.20408163265306123,
+        "maxWordLength": 10
+      }
+    },
+    {
+      "name": "Rosalind LING sample (a = 4)",
+      "input": {
+        "sequence": "ATTTGGATT",
+        "maxWordLength": 100,
+        "alphabetSize": 4
+      },
+      "output": {
+        "complexity": 0.875,
+        "maxWordLength": 100
+      }
     }
   ]
 }

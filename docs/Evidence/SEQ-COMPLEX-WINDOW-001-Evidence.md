@@ -187,9 +187,24 @@ Window = `AAAAAAAA` (length 8), LC with maxWordLength = 6:
 4. Trifonov, E.N. (1990). Making sense of the human genome. In: Structure & Methods, Vol 1, Adenine Press. (cited via https://en.wikipedia.org/wiki/Linguistic_sequence_complexity, accessed 2026-06-14)
 5. Wikipedia. Linguistic sequence complexity. https://en.wikipedia.org/wiki/Linguistic_sequence_complexity (accessed 2026-06-14)
 
+## Revision 2026-09-30 — completeness audit WP5 (B04 F38/F39)
+
+**Sources opened (this session):**
+- BBMap **40.02** release (`https://sourceforge.net/projects/bbmap/files/latest/download`, `BBMap_40.02.tar.gz`); source files read from `bbtools.jar`: `jgi/BBDuk.java` (`maskLowEntropy` l. 4432–4446: `if(i>=min && et.ns()<1 && !et.passes()) bs.set(et.leftPos(), et.rightPos()+1)`; reads shorter than the window returned unmasked), `tracker/EntropyTracker.java` (`entropyMult = −1/Math.log(windowKmers)`, `makeEntropyArray`: `pk·ln pk`, `calcEntropyFast` float cast, `add()` incremental update, `defaultK = 5`, `defaultWindowBases = 50`, `speed = FAST`, constructor assertions `k>0 && k<=15 && k<windowBases`, `0 ≤ cutoff ≤ 1`), `dna/AminoAcid.java` (`baseToNumber`: A/C/G/T/U either case defined, anything else −1; `baseToNumber0` maps undefined to 0). Same logic in the GitHub mirror `BioInfoTools/BBMap/master/current/structures/EntropyTracker.java` (v38) and its `BBDuk.java` l. 4134–4148; `shared/Parser.java` `entropyk`/`entropywindow` flags.
+- Note: the normaliser is `ln(windowKmers)`, not `ln(min(windowKmers, 4^k))`.
+- Gabrielian & Bolshoy (1999) abstract via WebSearch snippet: "the word length is not in the range of 2 to N−1 but only up to W. This limitation makes the algorithm substantially more efficient" — W is a free parameter (no value 6 in the source). universalmotif `R/sequence_complexity.R` (raw GitHub): `trifonov.max.word.size = 7`.
+
+**Reference cross-checks (harness in the session scratchpad; `bbduk.sh ... entropymask=t|lc fastawrap=100000 minlen=0`):**
+- `FindLowEntropyRegionsBbduk` vs `bbduk.sh` 40.02: 3 000 cases (upper-case, N/IUPAC/U sprinkled, masks read from `entropymask=lc`) + 1 500 cases (lower-case acgt/u, `entropymask=t`), 90 parameter combinations (k ∈ 1..6, 8, 10, 12; w ∈ {k+1, k+2, 20, 25, 50, 64, 100}; 13 cutoffs incl. 0 and 1) → **0 mismatches** (2 735 non-empty masks); 20 reads of 20–60 kb (defaults-like params) → 0 mismatches.
+- `FindLowComplexityRegions(string, w, t)` vs `bbduk.sh entropyk=1 entropywindow=w entropy=t/log₂w`: 1 600 cases (with N/IUPAC/U) → **0 mismatches** (1 078 non-empty).
+- `CalculateWindowedComplexity(string, w, s, m)` vs scipy `entropy(base=2)` + set-counting LC (windows with non-ACGTU skipped): 600 cases / 8 517 points → 0 mismatches (H 1e-12, LC 1e-15).
+
+**Datasets locked in `SequenceComplexity_AuditWp5_Tests.cs`:** bbduk.sh output for S1 = `CGGAGCCTGTTCCTGTACCATTATCTCTTC`+A×40+`TACCCTGAAGAGGATCTACAGATGCAAAGC` (defaults, 0.5 → 11..88; same for its lower-case U spelling; with an N inside the poly-A → nothing), S4 = 40 bp + (AC)×40 + 30 bp (0.7 → 17..143; w=20 k=3 0.6 → 34..125), 40 bp + (AAG)×10 + 30 bp (w=25 k=2 0.55 → 32..74), 49-bp read (cutoff 1 → nothing).
+
 ---
 
 ## Change History
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-29**: review-2026-09 (B04): added BBDuk window-union source + Python reference for `FindLowComplexityRegions` (region end off-by-one and overlapping-region defects fixed).
+- **2026-09-30**: completeness audit WP5 (B04 F38/F39): BBDuk k-mer entropy masking port + `bbduk.sh` 40.02 cross-check; string overloads (N windows skipped); `lcMaxWordLength`; Shannon scan ≡ BBDuk k=1 identity.

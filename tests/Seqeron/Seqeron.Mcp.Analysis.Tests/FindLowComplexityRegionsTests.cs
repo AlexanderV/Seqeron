@@ -42,4 +42,17 @@ public class FindLowComplexityRegionsTests
         var none = AnalysisTools.FindLowComplexityRegions(string.Concat(Enumerable.Repeat("ATGC", 20)), 20, 0.5).Items;
         Assert.That(none, Is.Empty);
     }
+
+    [Test]
+    public void FindLowComplexityRegions_BbdukMethod_MatchesBbdukOutput()
+    {
+        // bbduk.sh 40.02 entropy=0.5 entropymask=t (entropywindow=50 entropyk=5) masks 11..88 of this read (B04 F39).
+        const string s1 = "CGGAGCCTGTTCCTGTACCATTATCTCTTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATACCCTGAAGAGGATCTACAGATGCAAAGC";
+        var r = AnalysisTools.FindLowComplexityRegions(s1, 50, 0.5, method: "bbduk", entropyK: 5).Items;
+        Assert.That(r.Select(x => (x.Start, x.End)), Is.EqualTo(new[] { (11, 88) }));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindLowComplexityRegions(s1, 50, 0.5, method: "dust"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindLowComplexityRegions(s1, 50, double.NaN));
+        // N accepted; windows containing it are never flagged.
+        Assert.DoesNotThrow(() => AnalysisTools.FindLowComplexityRegions("ACGTNNACGT", 4, 1.0));
+    }
 }

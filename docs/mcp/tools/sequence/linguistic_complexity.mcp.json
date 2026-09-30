@@ -19,30 +19,64 @@
         "type": "integer",
         "description": "Maximum k-mer length to consider (default: 6)",
         "default": 6
+      },
+      "alphabetSize": {
+        "type": "integer",
+        "description": "Optional fixed alphabet size a (Troyanskaya et al. 2002; 4 for DNA as in Rosalind LING, 20 for protein); must be >= the number of distinct symbols. Default: inferred from the sequence.",
+        "minimum": 1
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "complexity": { "type": "number", "description": "Linguistic complexity (0-1)" }
+      "complexity": {
+        "type": "number",
+        "description": "Linguistic complexity (0-1)"
+      }
     },
-    "required": ["complexity"]
+    "required": [
+      "complexity"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
   ],
   "examples": [
     {
-      "name": "High complexity sequence",
-      "input": { "sequence": "ATGCATGCATGC" },
-      "output": { "complexity": 0.95 }
+      "name": "Periodic sequence (ATGC x3)",
+      "input": {
+        "sequence": "ATGCATGCATGC"
+      },
+      "output": {
+        "complexity": 0.4897959183673469
+      }
     },
     {
       "name": "Low complexity sequence",
-      "input": { "sequence": "AAAAAAAAAA" },
-      "output": { "complexity": 0.17 }
+      "input": {
+        "sequence": "AAAAAAAAAA"
+      },
+      "output": {
+        "complexity": 0.15384615384615385
+      }
+    },
+    {
+      "name": "Protein, fixed alphabet a = 20",
+      "input": {
+        "sequence": "MKVLAAGIVGLLLAA",
+        "maxK": 15,
+        "alphabetSize": 20
+      },
+      "output": {
+        "complexity": 0.9
+      }
     }
   ]
 }
