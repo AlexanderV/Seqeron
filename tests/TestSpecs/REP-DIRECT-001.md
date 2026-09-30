@@ -19,6 +19,9 @@
 |--------|-------|------|---------------|
 | `FindDirectRepeats(DnaSequence, minLength, maxLength, minSpacing)` | RepeatFinder | Canonical | Deep testing |
 | `FindDirectRepeats(string, minLength, maxLength, minSpacing)` | RepeatFinder | Overload | Smoke testing |
+| `FindReverseComplementRepeats(DnaSequence\|string, minLength, maxLength, minSpacing)` | RepeatFinder | Variant (audit WP2) | Deep testing |
+| `FindApproximateDirectRepeats(DnaSequence\|string, minLength, maxMismatches, maxLength, minSpacing, excludeContained)` | RepeatFinder | Variant (audit WP2) | Deep testing |
+| `FindSupermaximalRepeats(DnaSequence\|string, minLength)` | RepeatFinder | Variant (audit WP2) | Deep testing |
 
 ---
 
@@ -33,6 +36,10 @@
 | [Wikipedia - Repeated sequence (DNA)](https://en.wikipedia.org/wiki/Repeated_sequence_(DNA)) | Context | Direct vs inverted repeats; types: tandem, interspersed, flanking |
 | Ussery et al. (2009) | Technical | Computing for Comparative Microbial Genomics, Springer, Chapter 8 |
 | Richard (2021) PMC8145212 | Clinical | Trinucleotide repeat expansions and mismatch repair |
+| MUMmer `repeat-match.cc` without `-f` (`List_Matches`, `Verify_Match`) | Reference tool | Reverse pairs kept with `k ≥ i`; prints `i+1`, `k+L` + `r` (1-based end of copy 2) |
+| Vmatch 2.3.1 manual `virtman.tex` Appendix A + `vmatch`/`mkvtree` binaries (Ubuntu `vmatch` package, ISC) | Definition + reference tool | Palindromic match (`i ≤ j`), k-mismatch match (d_H ≤ k), maximal = not contained, supermaximal repeat; `-p`, `-h k -allmax`, `-supermax` outputs |
+| Kurtz et al. 2001 NAR 29:4633 (REPuter; snippets) | Definition | k-mismatch repeats found from exact seeds (pigeonhole ⌊ℓ/(k+1)⌋), maximum-error extension |
+| Gusfield 1997 §7.12.1, Thm 7.12.4 | Definition | Supermaximal repeat; locus = internal node with only leaf children, left-diverse |
 
 ---
 
@@ -81,6 +88,24 @@ All MUST tests are justified by evidence or explicitly marked.
 | C5 | NonAcgt_NeverMatches | N-run → empty; `acgtannnnnacgta` → (0,10,ACGTA); N splits copies | MUMmer `-n` |
 | C6 | Output_SortedAndUniquePerPositionPair | sorted by (First, Second), unique pairs, left/right-maximal | definition |
 
+### Variant tests (audit WP2, `RepeatFinder_RepeatVariants_Tests.cs`)
+
+| ID | Test | Expected (source) |
+|----|------|-------------------|
+| V1 | ReverseComplement_MatchesRepeatMatchAndVmatch | `AAAAAAAACGTTGCAACGTAAAA`, min 3 → (6,6,6) (7,7,12) (15,15,4); repeat-match lines `7 12r 6`, `8 19r 12`, `16 19r 4` (Start2 = k + L) |
+| V2 | ReverseComplement_Hairpins_FullRepeatMatchList | `TTGCATGCAAAAAATTTTTTTGCATGCAA`, min 4 → 14 pairs (repeat-match = Vmatch -p) |
+| V3 | ReverseComplement_Defaults_SeparatedCopiesOnly | defaults → (0,15,14,1) (8,14,5,1) (9,16,5,2) |
+| V4 | ReverseComplement_SamePairSeveralLengths | T₇/A₇: (6,19,4) (6,19,5) (6,19,6) (Vmatch -p) |
+| V5 | ReverseComplement_NonAcgt/Case | `GAATTCNGANTTC` → (0,0,6) (0,10,3); N-run empty; lowercase `gaattcAAAAAgaattc` → (0,11,6) |
+| V6–V7 | ReverseComplement random maximality / overloads / validation | definition |
+| V8 | KMismatch_TwoMismatches_MatchesVmatch | (0,21,17,2) (vmatch -l 10 -h 2) |
+| V9 | KMismatch_ExactRepeatAtBoundaries | `GATTACAGATTACA` 6,1 → (0,7,7,0) |
+| V10 | KMismatch_ExcludeContained_EqualsVmatchAllmax | A₈… 5,1: 10 per-diagonal repeats; `excludeContained` → the 7 of `vmatch -h 1 -allmax` |
+| V11 | KMismatch_NonAcgtCountsAsMismatch | (0,4,8,1) (0,14,10,1) (vmatch) |
+| V12–V14 | k = 0 ≡ FindDirectRepeats; random maximality/Hamming; validation (`maxMismatches < minLength`) | definition |
+| V15 | Supermaximal_MatchesVmatchSupermax (4 cases) | e.g. `CAGCAGCAGTTTCAGCAG` 3 → CAGCAG at 0,3,12 |
+| V16–V18 | Supermaximal sequence/N; random = maximal and uncontained; validation | Gusfield §7.12.1 |
+
 ---
 
 ## Test Audit
@@ -101,3 +126,8 @@ Also: `RepeatsDifferentialTests` (brute-force maximal-pair oracle, 5 fixed + 300
 - `minSpacing` may be negative (overlap admitted); pairs always have `i < j` (no self-pairs).
 - Only A/C/G/T match (MUMmer `mummer -n`); case-insensitive. `null`/empty string → empty; `null` DnaSequence throws.
 - Evidence: `docs/Evidence/REP-DIRECT-001-Evidence.md` (repeat-match cross-check, 0 mismatches).
+- Variants (audit WP2): reverse-complement pairs use forward-strand starts `i ≤ k` (Vmatch `-p`); repeat-match's
+  shared-`$` leaf loss is not reproduced (definition + Vmatch followed). k-mismatch repeats default to per-diagonal
+  maximality (k = 0 ≡ maximal pairs); `excludeContained` = Vmatch's literal containment (`-allmax`). Heavy tier:
+  `RepDirectVariantsProperties` (3 brute-force oracles), `RepDirectVariantsMetamorphicTests` (5 relations),
+  `RepDirectVariantsFuzzTests` (5).

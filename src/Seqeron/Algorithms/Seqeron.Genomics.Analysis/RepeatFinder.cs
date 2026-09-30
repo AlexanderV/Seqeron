@@ -2187,6 +2187,9 @@ public static class RepeatFinder
     /// <summary>A/C/G/T → 0..3, other symbols → −1 (shared <see cref="SequenceComplexity.AcgtCode"/>; inputs here are upper-cased).</summary>
     private static int AcgtCode(char c) => SequenceComplexity.AcgtCode(c);
 
+    /// <summary>A maximal pair of suffix starts (P, Q) in the encoded text with common prefix length exactly <c>Length</c>.</summary>
+    private readonly record struct RawMaximalPair(int P, int Q, int Length);
+
     private static List<DirectRepeatResult> FindDirectRepeatsCore(
         string seq,
         int minLength,
@@ -2198,69 +2201,18 @@ public static class RepeatFinder
         if (n <= minLength)
             return results;
 
-        // Symbols: A/C/G/T → 0..3; every other symbol gets a unique code 4 + p, so it never matches.
-        var symbols = new int[n];
-        var leftClass = new int[n];
-        for (int p = 0; p < n; p++)
+        foreach (var pair in EnumerateForwardMaximalPairs(seq, minLength, maxLength))
         {
-            int code = AcgtCode(seq[p]);
-            symbols[p] = code >= 0 ? code : 4 + p;
-            leftClass[p] = UniqueLeftClass;
-        }
-        for (int p = 1; p < n; p++)
-        {
-            if (symbols[p - 1] < 4)
-                leftClass[p] = symbols[p - 1];
-        }
-
-        int[] sa = SequenceComplexity.BuildSuffixArray(symbols);
-        int[] lcp = SequenceComplexity.BuildLcpArray(symbols, sa);
-
-        // Bottom-up lcp-interval traversal. Each interval keeps its suffix positions in one linked list
-        // per left-character class; merging a child into its parent at string depth ℓ emits every pair
-        // (p from the child, q already in the parent) whose left characters differ (or are undefined):
-        // those pairs have LCP exactly ℓ (right-maximal) and are left-maximal.
-        var next = new int[n];
-        var stackLcp = new int[n + 1];
-        var stackHead = new int[(n + 1) * LeftClassCount];
-        var stackTail = new int[(n + 1) * LeftClassCount];
-        var childHead = new int[LeftClassCount];
-        var childTail = new int[LeftClassCount];
-        int top = 0;
-        stackLcp[0] = 0;
-        Array.Fill(stackHead, -1, 0, LeftClassCount);
-
-        for (int r = 1; r <= n; r++)
-        {
-            // Pending child: the leaf for suffix sa[r − 1].
-            Array.Fill(childHead, -1);
-            int leaf = sa[r - 1];
-            next[leaf] = -1;
-            childHead[leftClass[leaf]] = leaf;
-            childTail[leftClass[leaf]] = leaf;
-
-            int h = r < n ? lcp[r] : 0;
-            while (stackLcp[top] > h)
-            {
-                MergeDirectRepeatLists(seq, top, childHead, childTail, stackLcp, stackHead, stackTail, next,
-                    minLength, maxLength, minSpacing, results);
-                for (int c = 0; c < LeftClassCount; c++)
-                {
-                    childHead[c] = stackHead[top * LeftClassCount + c];
-                    childTail[c] = stackTail[top * LeftClassCount + c];
-                }
-                top--;
-            }
-
-            if (stackLcp[top] < h)
-            {
-                top++;
-                stackLcp[top] = h;
-                Array.Fill(stackHead, -1, top * LeftClassCount, LeftClassCount);
-            }
-
-            MergeDirectRepeatLists(seq, top, childHead, childTail, stackLcp, stackHead, stackTail, next,
-                minLength, maxLength, minSpacing, results);
+            int i = Math.Min(pair.P, pair.Q);
+            int j = Math.Max(pair.P, pair.Q);
+            long spacing = (long)j - i - pair.Length;
+            if (spacing < minSpacing) continue;
+            results.Add(new DirectRepeatResult(
+                FirstPosition: i,
+                SecondPosition: j,
+                RepeatSequence: seq.Substring(i, pair.Length),
+                Length: pair.Length,
+                Spacing: (int)spacing));
         }
 
         results.Sort(static (a, b) =>
@@ -2272,12 +2224,108 @@ public static class RepeatFinder
     }
 
     /// <summary>
+    /// Every maximal exact repeated pair (Gusfield 1997 §7.12) of the (upper-cased) sequence with
+    /// length in [minLength, maxLength]: A/C/G/T → 0..3, every other symbol a unique code (never matches).
+    /// </summary>
+    private static List<RawMaximalPair> EnumerateForwardMaximalPairs(string seq, int minLength, int maxLength)
+    {
+        int n = seq.Length;
+        var symbols = new int[n];
+        var leftClass = new int[n];
+        for (int p = 0; p < n; p++)
+        {
+            int code = AcgtCode(seq[p]);
+            symbols[p] = code >= 0 ? code : 4 + p;
+            leftClass[p] = p > 0 && symbols[p - 1] < 4 ? symbols[p - 1] : UniqueLeftClass;
+        }
+
+        return EnumerateMaximalPairs(symbols, leftClass, strandOf: null, minLength, maxLength);
+    }
+
+    /// <summary>
+    /// Bottom-up lcp-interval traversal of the suffix array (Gusfield 1997 §7.12.3; Abouelhoda, Kurtz &amp;
+    /// Ohlebusch 2004). Each interval keeps its suffix positions in one linked list per class
+    /// (left character 0..4, times the strand when <paramref name="strandOf"/> is given); merging a child
+    /// into its parent at string depth ℓ emits every pair (p from the child, q already in the parent)
+    /// whose left characters differ (or are undefined) — those pairs have LCP exactly ℓ (right-maximal)
+    /// and are left-maximal. With <paramref name="strandOf"/>, only pairs on different strands are emitted.
+    /// O(n log² n + z) for z visited pairs.
+    /// </summary>
+    private static List<RawMaximalPair> EnumerateMaximalPairs(
+        int[] symbols,
+        int[] leftClass,
+        int[]? strandOf,
+        int minLength,
+        int maxLength)
+    {
+        var pairs = new List<RawMaximalPair>();
+        int n = symbols.Length;
+        if (n < 2)
+            return pairs;
+
+        int strands = strandOf is null ? 1 : 2;
+        int classCount = LeftClassCount * strands;
+        var classOf = new int[n];
+        for (int p = 0; p < n; p++)
+            classOf[p] = (strandOf is null ? 0 : strandOf[p] * LeftClassCount) + leftClass[p];
+
+        int[] sa = SequenceComplexity.BuildSuffixArray(symbols);
+        int[] lcp = SequenceComplexity.BuildLcpArray(symbols, sa);
+
+        var next = new int[n];
+        var stackLcp = new int[n + 1];
+        var stackHead = new int[(n + 1) * classCount];
+        var stackTail = new int[(n + 1) * classCount];
+        var childHead = new int[classCount];
+        var childTail = new int[classCount];
+        int top = 0;
+        stackLcp[0] = 0;
+        Array.Fill(stackHead, -1, 0, classCount);
+
+        for (int r = 1; r <= n; r++)
+        {
+            // Pending child: the leaf for suffix sa[r − 1].
+            Array.Fill(childHead, -1);
+            int leaf = sa[r - 1];
+            next[leaf] = -1;
+            childHead[classOf[leaf]] = leaf;
+            childTail[classOf[leaf]] = leaf;
+
+            int h = r < n ? lcp[r] : 0;
+            while (stackLcp[top] > h)
+            {
+                MergeMaximalPairLists(top, classCount, strands, childHead, childTail, stackLcp, stackHead,
+                    stackTail, next, minLength, maxLength, pairs);
+                for (int c = 0; c < classCount; c++)
+                {
+                    childHead[c] = stackHead[top * classCount + c];
+                    childTail[c] = stackTail[top * classCount + c];
+                }
+                top--;
+            }
+
+            if (stackLcp[top] < h)
+            {
+                top++;
+                stackLcp[top] = h;
+                Array.Fill(stackHead, -1, top * classCount, classCount);
+            }
+
+            MergeMaximalPairLists(top, classCount, strands, childHead, childTail, stackLcp, stackHead,
+                stackTail, next, minLength, maxLength, pairs);
+        }
+
+        return pairs;
+    }
+
+    /// <summary>
     /// Emits the maximal pairs between a child interval's lists and the lists already accumulated in the
     /// interval at stack slot <paramref name="node"/>, then concatenates the child lists into the node.
     /// </summary>
-    private static void MergeDirectRepeatLists(
-        string seq,
+    private static void MergeMaximalPairLists(
         int node,
+        int classCount,
+        int strands,
         int[] childHead,
         int[] childTail,
         int[] stackLcp,
@@ -2286,44 +2334,34 @@ public static class RepeatFinder
         int[] next,
         int minLength,
         int maxLength,
-        int minSpacing,
-        List<DirectRepeatResult> results)
+        List<RawMaximalPair> pairs)
     {
         int length = stackLcp[node];
-        int baseIdx = node * LeftClassCount;
+        int baseIdx = node * classCount;
 
         if (length >= minLength && length <= maxLength)
         {
-            for (int a = 0; a < LeftClassCount; a++)
+            for (int a = 0; a < classCount; a++)
             {
                 if (childHead[a] < 0) continue;
-                for (int b = 0; b < LeftClassCount; b++)
+                int leftA = a % LeftClassCount;
+                for (int b = 0; b < classCount; b++)
                 {
-                    if (a == b && a != UniqueLeftClass) continue; // same left character: not left-maximal
+                    if (strands == 2 && a / LeftClassCount == b / LeftClassCount) continue; // same strand
+                    if (leftA == b % LeftClassCount && leftA != UniqueLeftClass) continue; // not left-maximal
                     int nodeListHead = stackHead[baseIdx + b];
                     if (nodeListHead < 0) continue;
 
                     for (int p = childHead[a]; p >= 0; p = next[p])
                     {
                         for (int q = nodeListHead; q >= 0; q = next[q])
-                        {
-                            int i = Math.Min(p, q);
-                            int j = Math.Max(p, q);
-                            long spacing = (long)j - i - length;
-                            if (spacing < minSpacing) continue;
-                            results.Add(new DirectRepeatResult(
-                                FirstPosition: i,
-                                SecondPosition: j,
-                                RepeatSequence: seq.Substring(i, length),
-                                Length: length,
-                                Spacing: (int)spacing));
-                        }
+                            pairs.Add(new RawMaximalPair(p, q, length));
                     }
                 }
             }
         }
 
-        for (int c = 0; c < LeftClassCount; c++)
+        for (int c = 0; c < classCount; c++)
         {
             if (childHead[c] < 0) continue;
             int idx = baseIdx + c;
@@ -2337,6 +2375,509 @@ public static class RepeatFinder
             }
             stackTail[idx] = childTail[c];
         }
+    }
+
+    #endregion
+
+    #region Reverse-Complement (Palindromic) Maximal Repeats
+
+    /// <summary>
+    /// Finds exact <b>reverse-complement maximal repeated pairs</b>: the second copy is the reverse
+    /// complement of the first (MUMmer <c>repeat-match</c> without <c>-f</c>, the <c>r</c> lines; Vmatch
+    /// <c>-p</c> "palindromic matches"; REPuter palindromic repeats, Kurtz &amp; Schleiermacher 1999).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A triple (<c>i</c>, <c>k</c>, <c>L</c>) with 0-based starts <c>i ≤ k</c> is reported when
+    /// <c>S[i..i+L) = revcomp(S[k..k+L))</c> (Watson–Crick complement via
+    /// <see cref="SequenceExtensions.GetComplementBase(char)"/>) and the pair is maximal: it can be extended
+    /// neither outward (<c>i = 0</c>, <c>k + L = n</c>, or <c>S[i−1]</c> does not pair with <c>S[k+L]</c>) nor
+    /// inward (<c>i + L = n</c>, <c>k = 0</c>, or <c>S[i+L]</c> does not pair with <c>S[k−1]</c>). This is the
+    /// Vmatch Appendix A definition of a maximal palindromic exact match of a sequence with itself
+    /// (<c>i ≤ j</c>; <c>i = k</c> is allowed and denotes a reverse palindrome such as <c>GAATTC</c> or the
+    /// centre of a longer one).
+    /// </para>
+    /// <para>
+    /// <b>Coordinates.</b> <see cref="ReverseComplementRepeatResult.FirstPosition"/> = <c>i</c> and
+    /// <see cref="ReverseComplementRepeatResult.SecondPosition"/> = <c>k</c> are 0-based <b>forward-strand
+    /// starts</b> of both copies (Vmatch <c>-p</c> prints exactly these). MUMmer <c>repeat-match</c> prints the
+    /// line <c>Start1 = i + 1</c>, <c>Start2 = k + L</c> followed by <c>r</c>: its Start2 is the 1-based
+    /// position of the <i>last</i> base of the second copy, i.e. where the copy starts when read on the
+    /// reverse strand (<c>Data[a+t] = Complement(Data[b−t])</c> in repeat-match.cc <c>Verify_Match</c>).
+    /// Convert with <c>k = Start2 − L</c> (0-based).
+    /// </para>
+    /// <para>
+    /// Only A/C/G/T pair (case-insensitive); N, IUPAC codes, U and gaps never match (MUMmer <c>-n</c> /
+    /// Vmatch wildcard convention), as in <see cref="FindDirectRepeats(string,int,int,int)"/>.
+    /// Filters: <c>minLength ≤ L ≤ maxLength</c> (a longer maximal pair is not truncated) and
+    /// <c>Spacing = k − i − L ≥ minSpacing</c>: the number of bases between the end of the first copy and
+    /// the start of the second (the loop of a hairpin; negative when the copies overlap, e.g.
+    /// <c>−L</c> for <c>i = k</c>). <c>minSpacing = int.MinValue</c> with <c>maxLength = int.MaxValue</c>
+    /// returns the complete <c>repeat-match</c> reverse-complement set.
+    /// </para>
+    /// <para>
+    /// Algorithm: the suffix array + LCP of <c>S · # · revcomp(S)</c> (shared helpers of
+    /// <see cref="SequenceComplexity"/>) traversed bottom-up with per-(strand, left-character) lists
+    /// (Gusfield 1997 §7.12.3, restricted to pairs across the two strands); each pair is found in both
+    /// orientations and kept once (<c>i ≤ k</c>, as repeat-match does). O(n log² n + z).
+    /// Unlike direct pairs, one (i, k) can carry several maximal lengths on different anti-diagonals
+    /// (e.g. T₇ facing A₇); results are ordered by (FirstPosition, SecondPosition, Length).
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minLength">Minimum repeat length (default: 5, must be ≥ 2).</param>
+    /// <param name="maxLength">Maximum repeat length (default: 50, must be ≥ <paramref name="minLength"/>).</param>
+    /// <param name="minSpacing">Minimum number of bases between the copies (default: 1; negative admits overlap).</param>
+    /// <returns>Maximal reverse-complement repeat pairs, sorted by (FirstPosition, SecondPosition, Length).</returns>
+    public static IEnumerable<ReverseComplementRepeatResult> FindReverseComplementRepeats(
+        DnaSequence sequence,
+        int minLength = 5,
+        int maxLength = 50,
+        int minSpacing = 1)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
+
+        return FindReverseComplementRepeatsCore(sequence.Sequence, minLength, maxLength, minSpacing);
+    }
+
+    /// <summary>
+    /// Finds maximal exact reverse-complement repeat pairs in a raw sequence string (case-insensitive;
+    /// non-ACGT symbols never match). <c>null</c> or empty input yields no results. See
+    /// <see cref="FindReverseComplementRepeats(DnaSequence,int,int,int)"/> for the definition and coordinates.
+    /// </summary>
+    public static IEnumerable<ReverseComplementRepeatResult> FindReverseComplementRepeats(
+        string sequence,
+        int minLength = 5,
+        int maxLength = 50,
+        int minSpacing = 1)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
+
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<ReverseComplementRepeatResult>();
+
+        return FindReverseComplementRepeatsCore(sequence.ToUpperInvariant(), minLength, maxLength, minSpacing);
+    }
+
+    private static List<ReverseComplementRepeatResult> FindReverseComplementRepeatsCore(
+        string seq,
+        int minLength,
+        int maxLength,
+        int minSpacing)
+    {
+        var results = new List<ReverseComplementRepeatResult>();
+        int n = seq.Length;
+        if (n < minLength)
+            return results;
+
+        // Text T = S · # · revcomp(S), length 2n + 1. A/C/G/T → 0..3; every other symbol and the separator
+        // get a unique code, so they never match (and the separator stops every common prefix).
+        int total = 2 * n + 1;
+        var symbols = new int[total];
+        var strandOf = new int[total];
+        for (int p = 0; p < n; p++)
+        {
+            int code = AcgtCode(seq[p]);
+            symbols[p] = code >= 0 ? code : 4 + p;
+
+            int t = n + 1 + (n - 1 - p);
+            int rc = code >= 0 ? AcgtCode(SequenceExtensions.GetComplementBase(seq[p])) : -1;
+            symbols[t] = rc >= 0 ? rc : 4 + t;
+            strandOf[t] = 1;
+        }
+        symbols[n] = 4 + n;
+        strandOf[n] = 0;
+
+        var leftClass = new int[total];
+        for (int p = 0; p < total; p++)
+            leftClass[p] = p > 0 && symbols[p - 1] < 4 ? symbols[p - 1] : UniqueLeftClass;
+
+        foreach (var pair in EnumerateMaximalPairs(symbols, leftClass, strandOf, minLength, maxLength))
+        {
+            int forward = pair.P < n ? pair.P : pair.Q;
+            int reverse = pair.P < n ? pair.Q : pair.P;
+
+            int i = forward;
+            int k = n - (reverse - (n + 1)) - pair.Length;
+            if (k < i) continue; // mirror image of the pair (k, i), which is also enumerated
+
+            long spacing = (long)k - i - pair.Length;
+            if (spacing < minSpacing) continue;
+            results.Add(new ReverseComplementRepeatResult(
+                FirstPosition: i,
+                SecondPosition: k,
+                RepeatSequence: seq.Substring(i, pair.Length),
+                SecondSequence: seq.Substring(k, pair.Length),
+                Length: pair.Length,
+                Spacing: (int)spacing));
+        }
+
+        results.Sort(static (a, b) =>
+        {
+            int c = a.FirstPosition.CompareTo(b.FirstPosition);
+            if (c != 0) return c;
+            c = a.SecondPosition.CompareTo(b.SecondPosition);
+            return c != 0 ? c : a.Length.CompareTo(b.Length);
+        });
+        return results;
+    }
+
+    #endregion
+
+    #region Degenerate (k-mismatch) Direct Repeats
+
+    /// <summary>
+    /// Finds <b>maximal k-mismatch (degenerate) direct repeats</b> under the Hamming distance (REPuter,
+    /// Kurtz &amp; Schleiermacher 1999; Kurtz et al. 2001 NAR 29:4633 "k-mismatch repeats"; Vmatch <c>-h k</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Definition (Vmatch manual, Appendix A "Basic Notions", Kurtz): two equal-length substrings
+    /// <c>S[i..i+L)</c> and <c>S[j..j+L)</c>, <c>i &lt; j</c>, form a <i>k-mismatch repeat</i> when their Hamming
+    /// distance is ≤ <paramref name="maxMismatches"/>; the repeat is <i>maximal</i> when it is not contained in
+    /// another k-mismatch repeat — here, as for exact maximal pairs (Gusfield 1997 §7.12), containment is taken
+    /// on the same alignment diagonal <c>j − i</c>: the pair cannot be extended one position to the left or to
+    /// the right (sequence boundary, or the extension would exceed <paramref name="maxMismatches"/>). With
+    /// <c>maxMismatches = 0</c> the result is exactly <see cref="FindDirectRepeats(string,int,int,int)"/>.
+    /// A maximal window may end on a mismatch (then the next position is also a mismatch or a boundary).
+    /// </para>
+    /// <para>
+    /// Only A/C/G/T match (case-insensitive); N, IUPAC codes, U and gaps count as mismatches (the Vmatch
+    /// wildcard rule: "a degenerate match may contain a wildcard, but this always leads to a pair of
+    /// mismatching characters"). Copies may overlap; <c>Spacing = j − i − L</c> is filtered by
+    /// <paramref name="minSpacing"/> after maximality, and <c>minLength ≤ L ≤ maxLength</c>.
+    /// </para>
+    /// <para>
+    /// Algorithm (REPuter seed-and-extend, complete): by the pigeonhole principle every such repeat of length
+    /// ≥ <c>m</c> contains an exact maximal pair of length ≥ ⌊m/(k+1)⌋ (Vmatch <c>-seedlength</c> rule); seeds are
+    /// enumerated with the suffix-array maximal-pair engine of <see cref="FindDirectRepeats(string,int,int,int)"/>
+    /// and, per seed, every maximal window containing it is generated from the first k+1 mismatches to its
+    /// left and right (all splits a + b = k, as in REPuter's maximum-error extension tables). Duplicates found
+    /// from several seeds are reported once. Unlike Vmatch's default output (one E-value-best extension per
+    /// seed, not a set definition), <b>all</b> maximal k-mismatch repeats are returned; with
+    /// <paramref name="excludeContained"/> the output is identical to <c>vmatch -h k -allmax</c> (verified on
+    /// 3 040 random cases, 1.09 M repeats). Cost O(n log² n + s·k + z) for s seeds; a small ⌊m/(k+1)⌋ makes s
+    /// grow quadratically.
+    /// Results are ordered by (FirstPosition, SecondPosition, Length).
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minLength">Minimum repeat length (default: 10; must be ≥ 2 and &gt; <paramref name="maxMismatches"/>).</param>
+    /// <param name="maxMismatches">Maximum Hamming distance k between the copies (default: 1; ≥ 0).</param>
+    /// <param name="maxLength">Maximum repeat length (default: unbounded; ≥ <paramref name="minLength"/>).</param>
+    /// <param name="minSpacing">Minimum number of bases between the copies (default: 1; negative admits overlap).</param>
+    /// <param name="excludeContained">
+    /// When <c>true</c>, also drop repeats contained (both copies as intervals) in a k-mismatch repeat on
+    /// another diagonal — the literal Vmatch Appendix A maximality; output then equals Vmatch
+    /// <c>vmatch -l minLength -h k -allmax</c> (k ≥ 1). Default <c>false</c>: per-diagonal maximality, which for
+    /// k = 0 coincides with Gusfield maximal pairs / <see cref="FindDirectRepeats(string,int,int,int)"/> (Vmatch's
+    /// exact-repeat output keeps such cross-diagonal-contained pairs too, e.g. (0,2,6) inside (0,1,7) in A×8).
+    /// Containment is decided before the <paramref name="maxLength"/>/<paramref name="minSpacing"/> filters.
+    /// </param>
+    /// <returns>Maximal k-mismatch direct repeats, sorted by (FirstPosition, SecondPosition, Length).</returns>
+    public static IEnumerable<ApproximateDirectRepeatResult> FindApproximateDirectRepeats(
+        DnaSequence sequence,
+        int minLength = 10,
+        int maxMismatches = 1,
+        int maxLength = int.MaxValue,
+        int minSpacing = 1,
+        bool excludeContained = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateApproximateDirectParameters(minLength, maxMismatches, maxLength);
+        return FindApproximateDirectRepeatsCore(sequence.Sequence, minLength, maxMismatches, maxLength, minSpacing, excludeContained);
+    }
+
+    /// <summary>
+    /// Finds maximal k-mismatch direct repeats in a raw sequence string (case-insensitive; non-ACGT symbols
+    /// are mismatches). <c>null</c> or empty input yields no results. See
+    /// <see cref="FindApproximateDirectRepeats(DnaSequence,int,int,int,int,bool)"/> for the definition.
+    /// </summary>
+    public static IEnumerable<ApproximateDirectRepeatResult> FindApproximateDirectRepeats(
+        string sequence,
+        int minLength = 10,
+        int maxMismatches = 1,
+        int maxLength = int.MaxValue,
+        int minSpacing = 1,
+        bool excludeContained = false)
+    {
+        ValidateApproximateDirectParameters(minLength, maxMismatches, maxLength);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<ApproximateDirectRepeatResult>();
+
+        return FindApproximateDirectRepeatsCore(sequence.ToUpperInvariant(), minLength, maxMismatches, maxLength, minSpacing, excludeContained);
+    }
+
+    private static void ValidateApproximateDirectParameters(int minLength, int maxMismatches, int maxLength)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 2);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
+        // A window of length ≥ minLength must contain at least one matching position (and hence an exact seed).
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(maxMismatches, minLength);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
+    }
+
+    /// <summary>A maximal k-mismatch window on diagonal <c>Diagonal = j − i</c>: first copy [Start, Start + Length).</summary>
+    private readonly record struct MismatchWindow(int Start, int Diagonal, int Length, int Mismatches);
+
+    private static List<ApproximateDirectRepeatResult> FindApproximateDirectRepeatsCore(
+        string seq,
+        int minLength,
+        int k,
+        int maxLength,
+        int minSpacing,
+        bool excludeContained)
+    {
+        var results = new List<ApproximateDirectRepeatResult>();
+        int n = seq.Length;
+        if (n <= minLength)
+            return results;
+
+        List<MismatchWindow> windows = FindMaximalMismatchWindows(seq, minLength, k);
+        if (excludeContained)
+            windows = RemoveCrossDiagonalContained(windows);
+
+        foreach (var w in windows)
+        {
+            if (w.Length > maxLength) continue;
+            long spacing = (long)w.Diagonal - w.Length;
+            if (spacing < minSpacing) continue;
+            int second = w.Start + w.Diagonal;
+            results.Add(new ApproximateDirectRepeatResult(
+                FirstPosition: w.Start,
+                SecondPosition: second,
+                Length: w.Length,
+                Mismatches: w.Mismatches,
+                Spacing: (int)spacing,
+                FirstCopy: seq.Substring(w.Start, w.Length),
+                SecondCopy: seq.Substring(second, w.Length)));
+        }
+
+        results.Sort(static (x, y) =>
+        {
+            int c = x.FirstPosition.CompareTo(y.FirstPosition);
+            if (c != 0) return c;
+            c = x.SecondPosition.CompareTo(y.SecondPosition);
+            return c != 0 ? c : x.Length.CompareTo(y.Length);
+        });
+        return results;
+    }
+
+    /// <summary>
+    /// Every per-diagonal maximal window with ≤ k mismatches and length ≥ minLength (no other filter), each once.
+    /// </summary>
+    private static List<MismatchWindow> FindMaximalMismatchWindows(string seq, int minLength, int k)
+    {
+        int n = seq.Length;
+        var codes = new int[n];
+        for (int p = 0; p < n; p++)
+            codes[p] = AcgtCode(seq[p]);
+
+        int seedLength = Math.Max(1, minLength / (k + 1));
+        var windows = new List<MismatchWindow>();
+        var seen = new HashSet<(int, int, int)>();
+        var left = new int[k + 2];
+        var right = new int[k + 2];
+
+        foreach (var seed in EnumerateForwardMaximalPairs(seq, seedLength, int.MaxValue))
+        {
+            int i = Math.Min(seed.P, seed.Q);
+            int d = Math.Max(seed.P, seed.Q) - i;
+
+            // left[a] = first-copy position of the a-th mismatch to the left of the seed (a = 1..k+1), right[b]
+            // likewise to the right; scanning stops after k + 1 mismatches or at the diagonal boundary.
+            int leftCount = 0;
+            for (int p = i - 1; p >= 0 && leftCount <= k; p--)
+            {
+                if (!IsAcgtMatch(codes, p, p + d)) left[++leftCount] = p;
+            }
+
+            int rightCount = 0;
+            int rightLimit = n - d; // first-copy index where the second copy would leave the sequence
+            for (int p = i + seed.Length; p < rightLimit && rightCount <= k; p++)
+            {
+                if (!IsAcgtMatch(codes, p, p + d)) right[++rightCount] = p;
+            }
+
+            int maxA = Math.Min(k, leftCount);
+            for (int a = 0; a <= maxA; a++)
+            {
+                int b = Math.Min(k - a, rightCount);
+                // Maximal: each side is blocked by a mismatch that would exceed k, or by the diagonal boundary
+                // (b < k − a already means the right side reached its boundary).
+                if (a + b != k && a != leftCount) continue;
+
+                int start = a < leftCount ? left[a + 1] + 1 : 0;
+                int end = b < rightCount ? right[b + 1] : rightLimit;
+                int length = end - start;
+                if (length < minLength) continue;
+                if (seen.Add((start, d, length)))
+                    windows.Add(new MismatchWindow(start, d, length, a + b));
+            }
+        }
+
+        return windows;
+    }
+
+    /// <summary>
+    /// Drops every window contained (both copies, as intervals) in a window on another diagonal — the literal
+    /// Vmatch Appendix A maximality ("not contained in another k-mismatch match"), which Vmatch <c>-h k -allmax</c>
+    /// applies. Windows on one diagonal are never nested (both maximal), so per diagonal they are sorted by start
+    /// with increasing ends and a containing window on diagonal d′ is found by one binary search. A window of
+    /// length L can only be contained in one of length ≥ L + |d − d′|, which bounds the diagonals probed.
+    /// </summary>
+    private static List<MismatchWindow> RemoveCrossDiagonalContained(List<MismatchWindow> windows)
+    {
+        if (windows.Count < 2)
+            return windows;
+
+        var byDiagonal = new Dictionary<int, (int[] Starts, int[] Ends)>();
+        foreach (var group in windows.GroupBy(w => w.Diagonal))
+        {
+            var sorted = group.OrderBy(w => w.Start).ToArray();
+            byDiagonal[group.Key] = (sorted.Select(w => w.Start).ToArray(), sorted.Select(w => w.Start + w.Length).ToArray());
+        }
+
+        int longest = windows.Max(w => w.Length);
+        var kept = new List<MismatchWindow>(windows.Count);
+        foreach (var w in windows)
+        {
+            bool contained = false;
+            int reach = longest - w.Length;
+            for (int delta = -reach; delta <= reach && !contained; delta++)
+            {
+                if (delta == 0 || !byDiagonal.TryGetValue(w.Diagonal + delta, out var other)) continue;
+                // Window on d′ = d + delta must cover [Start + min(0, −delta), Start + Length + max(0, −delta)).
+                long needStart = w.Start + Math.Min(0, -delta);
+                long needEnd = (long)w.Start + w.Length + Math.Max(0, -delta);
+                int idx = Array.BinarySearch(other.Starts, (int)Math.Max(needStart, int.MinValue));
+                if (idx < 0) idx = ~idx - 1;
+                contained = idx >= 0 && other.Ends[idx] >= needEnd;
+            }
+            if (!contained) kept.Add(w);
+        }
+
+        return kept;
+    }
+
+    private static bool IsAcgtMatch(int[] codes, int p, int q) => codes[p] >= 0 && codes[p] == codes[q];
+
+    #endregion
+
+    #region Supermaximal Repeats
+
+    /// <summary>
+    /// Finds <b>supermaximal repeats</b> (Gusfield 1997 §7.12.1): maximal repeats that never occur as a
+    /// substring of any other maximal repeat (also Vmatch <c>-supermax</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A string α is a maximal repeat when it has a maximal pair (see <see cref="FindDirectRepeats(string,int,int,int)"/>);
+    /// it is supermaximal when no other maximal repeat contains it. Gusfield Theorem 7.12.4: α is supermaximal
+    /// iff its locus is an internal suffix-tree node whose children are all leaves and whose leaves have pairwise
+    /// distinct left characters. On the suffix array this is an lcp-interval with only singleton children
+    /// (a local maximum of the LCP array) whose suffixes have pairwise distinct left characters (Abouelhoda,
+    /// Kurtz &amp; Ohlebusch 2004). A suffix at position 0 or preceded by a non-ACGT symbol has an undefined left
+    /// character, distinct from every other.
+    /// </para>
+    /// <para>
+    /// Only A/C/G/T match (case-insensitive); other symbols never match. Each supermaximal repeat is reported
+    /// once with every (possibly overlapping) occurrence, positions ascending; results are ordered by first
+    /// occurrence, then length. O(n log² n) (shared suffix-array + LCP helpers of <see cref="SequenceComplexity"/>).
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minLength">Minimum repeat length (default: 5, must be ≥ 1).</param>
+    /// <returns>Supermaximal repeats with all their occurrences.</returns>
+    public static IEnumerable<SupermaximalRepeatResult> FindSupermaximalRepeats(DnaSequence sequence, int minLength = 5)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 1);
+        return FindSupermaximalRepeatsCore(sequence.Sequence, minLength);
+    }
+
+    /// <summary>
+    /// Finds supermaximal repeats in a raw sequence string (case-insensitive; non-ACGT symbols never match).
+    /// <c>null</c> or empty input yields no results. See <see cref="FindSupermaximalRepeats(DnaSequence,int)"/>.
+    /// </summary>
+    public static IEnumerable<SupermaximalRepeatResult> FindSupermaximalRepeats(string sequence, int minLength = 5)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 1);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<SupermaximalRepeatResult>();
+
+        return FindSupermaximalRepeatsCore(sequence.ToUpperInvariant(), minLength);
+    }
+
+    private static List<SupermaximalRepeatResult> FindSupermaximalRepeatsCore(string seq, int minLength)
+    {
+        var results = new List<SupermaximalRepeatResult>();
+        int n = seq.Length;
+        if (n < 2)
+            return results;
+
+        var symbols = new int[n];
+        for (int p = 0; p < n; p++)
+        {
+            int code = AcgtCode(seq[p]);
+            symbols[p] = code >= 0 ? code : 4 + p;
+        }
+
+        int[] sa = SequenceComplexity.BuildSuffixArray(symbols);
+        int[] lcp = SequenceComplexity.BuildLcpArray(symbols, sa);
+
+        // Local maxima of the LCP array: runs lcp[lb+1..rb] = ℓ with lcp[lb] < ℓ and lcp[rb+1] < ℓ
+        // (lcp[0] = 0, virtual lcp[n] = 0) are exactly the lcp-intervals whose children are all leaves.
+        Span<bool> seenLeft = stackalloc bool[4];
+        int r = 1;
+        while (r < n)
+        {
+            int ell = lcp[r];
+            if (ell == 0 || lcp[r - 1] >= ell)
+            {
+                r++;
+                continue;
+            }
+
+            int rb = r;
+            while (rb + 1 < n && lcp[rb + 1] == ell) rb++;
+            bool localMax = rb + 1 >= n || lcp[rb + 1] < ell;
+            int lb = r - 1;
+
+            if (localMax && ell >= minLength)
+            {
+                seenLeft.Clear();
+                bool leftDiverse = true;
+                for (int x = lb; x <= rb && leftDiverse; x++)
+                {
+                    int p = sa[x];
+                    if (p == 0 || symbols[p - 1] >= 4) continue; // undefined left character: always distinct
+                    int c = symbols[p - 1];
+                    if (seenLeft[c]) leftDiverse = false;
+                    seenLeft[c] = true;
+                }
+
+                if (leftDiverse)
+                {
+                    var positions = new int[rb - lb + 1];
+                    for (int x = lb; x <= rb; x++) positions[x - lb] = sa[x];
+                    Array.Sort(positions);
+                    results.Add(new SupermaximalRepeatResult(seq.Substring(positions[0], ell), ell, positions));
+                }
+            }
+
+            r = rb + 1;
+        }
+
+        results.Sort(static (a, b) =>
+        {
+            int c = a.Positions[0].CompareTo(b.Positions[0]);
+            return c != 0 ? c : a.Length.CompareTo(b.Length);
+        });
+        return results;
     }
 
     #endregion
@@ -2727,6 +3268,48 @@ public readonly record struct DirectRepeatResult(
     string RepeatSequence,
     int Length,
     int Spacing);
+
+/// <summary>
+/// Maximal exact reverse-complement repeat pair (see
+/// <see cref="RepeatFinder.FindReverseComplementRepeats(DnaSequence,int,int,int)"/>):
+/// <c>RepeatSequence = S[FirstPosition..+Length)</c> is the reverse complement of
+/// <c>SecondSequence = S[SecondPosition..+Length)</c>. Both positions are 0-based forward-strand starts,
+/// <c>FirstPosition ≤ SecondPosition</c>; MUMmer <c>repeat-match</c> prints <c>FirstPosition + 1</c> and
+/// <c>SecondPosition + Length</c> followed by <c>r</c>. <c>Spacing = SecondPosition − FirstPosition − Length</c>
+/// (negative when the copies overlap).
+/// </summary>
+public readonly record struct ReverseComplementRepeatResult(
+    int FirstPosition,
+    int SecondPosition,
+    string RepeatSequence,
+    string SecondSequence,
+    int Length,
+    int Spacing);
+
+/// <summary>
+/// Maximal k-mismatch (degenerate) direct repeat (see
+/// <see cref="RepeatFinder.FindApproximateDirectRepeats(DnaSequence,int,int,int,int,bool)"/>): the copies
+/// <c>FirstCopy = S[FirstPosition..+Length)</c> and <c>SecondCopy = S[SecondPosition..+Length)</c> differ at
+/// <c>Mismatches</c> positions (Hamming distance; non-ACGT symbols count as mismatches);
+/// <c>Spacing = SecondPosition − FirstPosition − Length</c>.
+/// </summary>
+public readonly record struct ApproximateDirectRepeatResult(
+    int FirstPosition,
+    int SecondPosition,
+    int Length,
+    int Mismatches,
+    int Spacing,
+    string FirstCopy,
+    string SecondCopy);
+
+/// <summary>
+/// Supermaximal repeat (see <see cref="RepeatFinder.FindSupermaximalRepeats(DnaSequence,int)"/>): the repeated
+/// string, its length and every 0-based start position (ascending, ≥ 2 occurrences, possibly overlapping).
+/// </summary>
+public readonly record struct SupermaximalRepeatResult(
+    string Sequence,
+    int Length,
+    IReadOnlyList<int> Positions);
 
 /// <summary>
 /// Result of palindrome detection.

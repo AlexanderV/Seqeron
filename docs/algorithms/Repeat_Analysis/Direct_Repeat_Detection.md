@@ -5,12 +5,12 @@
 | Algorithm Group | Repeat Analysis |
 | Test Unit ID | REP-DIRECT-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
-| Implementation Status | Complete (exact repeats) |
+| Implementation Status | Complete (exact maximal pairs; reverse-complement pairs; k-mismatch repeats; supermaximal repeats) |
 | Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
-Direct repeat detection identifies nucleotide sequences that recur in the same 5'→3' orientation at multiple genomic positions [1][2]. Unlike inverted repeats, the downstream copy preserves the original sequence rather than its reverse complement. The repository implements exact direct-repeat discovery in `RepeatFinder.FindDirectRepeats`, reporting **maximal repeated pairs** — the convention of the reference tools MUMmer `repeat-match` [5] and REPuter [6] and of Gusfield's maximal-pair definition [7]. Spacing between copies is configurable, so adjacent tandem-like repeats, separated direct repeats and (with negative spacing) overlapping copies can all be reported.
+Direct repeat detection identifies nucleotide sequences that recur in the same 5'→3' orientation at multiple genomic positions [1][2]. Unlike inverted repeats, the downstream copy preserves the original sequence rather than its reverse complement. The repository implements exact direct-repeat discovery in `RepeatFinder.FindDirectRepeats`, reporting **maximal repeated pairs** — the convention of the reference tools MUMmer `repeat-match` [5] and REPuter [6] and of Gusfield's maximal-pair definition [7]. Spacing between copies is configurable, so adjacent tandem-like repeats, separated direct repeats and (with negative spacing) overlapping copies can all be reported. Three companion enumerations share the same maximal-pair engine (§4.4): reverse-complement maximal pairs (`FindReverseComplementRepeats`, repeat-match without `-f` / Vmatch `-p`), maximal k-mismatch degenerate repeats (`FindApproximateDirectRepeats`, REPuter / Vmatch `-h`) and supermaximal repeats (`FindSupermaximalRepeats`, Gusfield §7.12.1 / Vmatch `-supermax`).
 
 ## 2. Scientific / Formal Basis
 
@@ -99,6 +99,16 @@ Both overloads throw `ArgumentOutOfRangeException` eagerly (at the call) when `m
 
 Measured: 1 Mb random DNA with planted repeats, `minLength` 16 → 1.1 s (MUMmer repeat-match 0.9 s), identical output.
 
+### 4.4 Enumeration variants (B04 audit WP2)
+
+All three reuse the same suffix-array/LCP maximal-pair engine (`EnumerateMaximalPairs`, shared helpers `SequenceComplexity.BuildSuffixArray` / `BuildLcpArray`); A/C/G/T only, case-insensitive, eager validation, `null`/empty → empty.
+
+**Reverse-complement maximal pairs** — `FindReverseComplementRepeats(seq, minLength = 5, maxLength = 50, minSpacing = 1)`. Definition (Vmatch manual, Appendix A [10]): a palindromic match of `S` with itself, `S[i..i+L) = revcomp(S[k..k+L))`, `i ≤ k`, maximal = extendable neither outward (`S[i−1]` vs `S[k+L]`) nor inward (`S[i+L]` vs `S[k−1]`). `i = k` is allowed (reverse palindromes such as `GAATTC`). Engine run on `S · # · revcomp(S)` with per-(strand, left character) lists, only cross-strand pairs emitted, each pair kept in the orientation `i ≤ k` (as `repeat-match.cc` `List_Matches` does). Coordinates: `FirstPosition = i`, `SecondPosition = k`, both 0-based forward-strand starts (Vmatch `-p` prints these); MUMmer `repeat-match` prints `i + 1` and `k + L` (1-based **last** base of copy 2, where it starts on the reverse strand) followed by `r` — convert with `k = Start2 − L`. `Spacing = k − i − L` (the hairpin loop; negative for overlapping copies). One `(i, k)` may carry several lengths on different anti-diagonals (T₇ facing A₇), so results are ordered by (i, k, L). **repeat-match quirk** (documented, not reproduced): it terminates `S` and `revcomp(S)` with the same `$`, so a suffix of `revcomp(S)` equal to a suffix of `S` shares one leaf and that leaf's pairs are lost (e.g. `ATAAT` → (0,0,2) `AT` missing; 31/3 000 random cases); it aborts on a sequence equal to its own reverse complement. Appending one `N` to the FASTA removes both effects (0 mismatches).
+
+**Maximal k-mismatch (degenerate) repeats** — `FindApproximateDirectRepeats(seq, minLength = 10, maxMismatches = 1, maxLength = ∞, minSpacing = 1, excludeContained = false)`. Definition (REPuter [6][9]; Vmatch Appendix A [10]): equal-length copies `S[i..i+L)`, `S[j..j+L)`, `i < j`, Hamming distance ≤ k (non-ACGT = mismatch, the Vmatch wildcard rule); maximal = cannot be extended left or right on its diagonal without exceeding k (a window may end on a mismatch). `excludeContained = true` applies Vmatch's literal Appendix A reading — "not contained in another k-mismatch match" across diagonals — which is exactly what `vmatch -h k -allmax` prints (and what Vmatch does **not** apply to exact repeats: `vmatch -l` keeps (0,2,6) inside (0,1,7) in A₈; hence the per-diagonal default, which for k = 0 equals `FindDirectRepeats`). Algorithm = REPuter seed-and-extend made complete: every such repeat of length ≥ m contains an exact maximal pair of length ≥ ⌊m/(k+1)⌋ (pigeonhole; Vmatch `-seedlength` rule); for each seed the first k + 1 mismatches left and right give all maximal windows containing it (splits a + b = k, or both sides at the boundary); duplicates from several seeds removed. Cross-diagonal containment: windows on one diagonal are never nested, so a containing window on diagonal d′ (|d − d′| ≤ Lmax − L) is found by binary search. Requires `maxMismatches < minLength`. Cost O(n log² n + s·k + z) for s seeds; small ⌊m/(k+1)⌋ makes s grow like n²·4^−⌊m/(k+1)⌋ (1 Mb, m = 30, k = 2: 0.8 s).
+
+**Supermaximal repeats** — `FindSupermaximalRepeats(seq, minLength = 5)`. Definition (Gusfield 1997 §7.12.1 [7]; Vmatch `-supermax`): a maximal repeat that never occurs as a substring of any other maximal repeat. Gusfield Theorem 7.12.4 on the suffix array: an lcp-interval whose children are all singletons (a local maximum of the LCP array) whose suffixes have pairwise distinct left characters (position 0 / non-ACGT left neighbour = distinct). One record per repeated string with every occurrence (ascending; Vmatch prints each position pair instead). O(n log² n).
+
 ## 5. Implementation Notes
 
 ### 5.1 Location and Entry Points
@@ -107,6 +117,10 @@ Measured: 1 Mb random DNA with planted repeats, `minLength` 16 → 1.1 s (MUMmer
 
 - `RepeatFinder.FindDirectRepeats(DnaSequence, int, int, int)`: Validating overload for `DnaSequence` input.
 - `RepeatFinder.FindDirectRepeats(string, int, int, int)`: Uppercases raw string input and yields results for non-empty strings.
+- `RepeatFinder.FindReverseComplementRepeats(DnaSequence|string, int, int, int)` → `ReverseComplementRepeatResult` (§4.4).
+- `RepeatFinder.FindApproximateDirectRepeats(DnaSequence|string, int, int, int, int, bool)` → `ApproximateDirectRepeatResult` (§4.4).
+- `RepeatFinder.FindSupermaximalRepeats(DnaSequence|string, int)` → `SupermaximalRepeatResult` (§4.4).
+- MCP: `find_direct_repeats` wraps `FindDirectRepeats`; the three variants are C# API only (a new MCP tool would change the hard-coded tool counts owned by other batches).
 
 ### 5.2 Current Behavior
 
@@ -119,11 +133,9 @@ See §4. The previous implementation (until 2026-09) enumerated every `(i, j, le
 - Exact same-orientation repeats [1][2] reported as maximal repeated pairs [7], identical to MUMmer `repeat-match -f` [5] (0 mismatches on 2 200 random cases incl. 12.8 M pairs, and 50 kb–1 Mb genomes; see Evidence).
 - Only A/C/G/T match (MUMmer `-n`) [5].
 
-**Not implemented (different algorithms, not simplifications):**
-
-- Reverse-complement (palindromic) repeats — `repeat-match` without `-f`; use `FindInvertedRepeats` for inverted repeats.
-- Approximate (mismatch/indel) repeats (REPuter degenerate repeats [6]); use alignment-based tools.
-- Supermaximal repeats / repeat families (one record per repeated string rather than per pair).
+- Reverse-complement maximal pairs identical to `repeat-match` (without `-f`) and Vmatch `-p` (§4.4; Evidence).
+- Maximal k-mismatch repeats identical to an independent brute force of the definition and, with `excludeContained`, to `vmatch -h k -allmax` (§4.4; Evidence).
+- Supermaximal repeats identical to Vmatch `-supermax` and a brute force of Gusfield's definition (§4.4; Evidence).
 
 ### 5.4 Deviations and Assumptions
 
@@ -151,7 +163,7 @@ See §4. The previous implementation (until 2026-09) enumerated every `(i, j, le
 
 ### 6.2 Limitations
 
-Exact repeats only (no mismatches/indels); forward strand only; one record per position pair (a repeat present in c copies yields c(c−1)/2 pairs, as in repeat-match). No biological annotation (LTR, recombination substrate, etc.).
+`FindDirectRepeats` / `FindReverseComplementRepeats`: one record per position pair (a repeat present in c copies yields c(c−1)/2 pairs, as in repeat-match); `FindSupermaximalRepeats` groups occurrences per string. `FindApproximateDirectRepeats` uses the Hamming distance (mismatches only); REPuter/Vmatch's k-differences (edit-distance, `-e`) repeats are a separate search not provided here. No biological annotation (LTR, recombination substrate, etc.).
 
 ## 7. Examples and Related Material
 
@@ -164,7 +176,7 @@ Exact repeats only (no mismatches/indels); forward strand only; one record per p
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RepeatFinder_DirectRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_DirectRepeat_Tests.cs)
+- Tests: [RepeatFinder_DirectRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_DirectRepeat_Tests.cs), [RepeatFinder_RepeatVariants_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_RepeatVariants_Tests.cs); heavy tier `Properties/RepDirectVariantsProperties.cs`, `Metamorphic/RepDirectVariantsMetamorphicTests.cs`, `Fuzzing/RepDirectVariantsFuzzTests.cs`
 - Test spec: [REP-DIRECT-001.md](../../../tests/TestSpecs/REP-DIRECT-001.md)
 - Related snapshot tests: [RepeatSnapshotTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Snapshots/RepeatSnapshotTests.cs)
 - Evidence: [REP-DIRECT-001-Evidence.md](../../Evidence/REP-DIRECT-001-Evidence.md)
@@ -179,3 +191,5 @@ Exact repeats only (no mismatches/indels); forward strand only; one record per p
 6. Kurtz S, Schleiermacher C. 1999. REPuter: fast computation of maximal repeats in complete genomes. Bioinformatics 15(5):426–427.
 7. Gusfield D. 1997. Algorithms on Strings, Trees, and Sequences. Cambridge University Press. §7.12 (maximal pairs, maximal repeats).
 8. Abouelhoda MI, Kurtz S, Ohlebusch E. 2004. Replacing suffix trees with enhanced suffix arrays. J Discrete Algorithms 2:53–86.
+9. Kurtz S, Choudhuri JV, Ohlebusch E, Schleiermacher C, Stoye J, Giegerich R. 2001. REPuter: the manifold applications of repeat analysis on a genomic scale. Nucleic Acids Res 29(22):4633–4642.
+10. Kurtz S. The Vmatch large scale sequence analysis software — a manual (Vmatch 2.3.1, ISC licence; Debian/Ubuntu `vmatch` source package `vstree-2.3.1/src/doc/virtman.tex`): options `-p`, `-h`, `-allmax`, `-seedlength`, `-supermax`; Appendix A "Basic Notions" (palindromic match, k-mismatch match, maximality by containment, supermaximal repeat).

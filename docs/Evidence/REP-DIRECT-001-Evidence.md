@@ -93,3 +93,59 @@ Worked values (repeat-match -f, converted to 0-based):
    including (0,0), (1,1), …).
 3. N / non-ACGT runs reported as repeats (`N×20`, 5, 5, 1 → NNNNN pairs).
 4. Cost `O(r · n · (m + k))` with a `Substring` + suffix-tree lookup per window and an `(i, j, len)` hash set.
+
+---
+
+## Enumeration variants (B04 completeness audit WP2, 2026-09-30)
+
+### Sources opened
+- mummer4 `src/tigr/repeat-match.cc` (already compiled for F11): without `-f` the reverse complement is added to the
+  tree (`Data = % S $ revcomp(S) $`); `List_Matches` skips pairs with both leaves in revcomp and keeps a reverse pair
+  only when `k ≥ i` (`k = Genome_Len − (j − String_Separator) − n + 2`), printing `L = i`, `R = k + n − 1` and `r`;
+  `Verify_Match` checks `Data[a+t] = Complement(Data[b−t])`, i.e. Start2 is the **last** base of copy 2 (1-based).
+  Both strings end in the same `$`, so `Add_String` merges a revcomp suffix equal to a suffix of S into one leaf
+  ("Suffix can't appear twice"), and an exact whole-genome palindrome aborts ("Genome is exact palindrome").
+- Vmatch 2.3.1 (Kurtz; ISC licence) — Ubuntu `vmatch` binary package + `vmatch_2.3.1+dfsg.orig.tar.xz` from
+  archive.ubuntu.com: manual `src/doc/virtman.tex` Appendix A "Basic Notions" (palindromic match
+  `u_i…u_{i+l−1} ≈ wcc(v_{j+r−1}…v_j)`, `i ≤ j` for self-comparison; k-mismatch match `d_H(x,y) ≤ k`;
+  "A k-mismatch match is maximal if it is not contained in another k-mismatch match of the same kind";
+  "A supermaximal repeat is a maximal repeat that never occurs as a substring of any other maximal repeat";
+  wildcards "always lead to a pair of mismatching characters"); options `-p`, `-h`, `-allmax` ("compatibility with
+  REPuter"), `-seedlength` (seed = max(⌊ℓ/(k+1)⌋, m)), `-supermax`; source `kurtz/extendHD.c` (REPuter maximum-error
+  extension: per seed, left/right tables of the first k+1 mismatches, all splits). REPuter itself is not open source;
+  Kurtz et al. 2001 (NAR 29:4633) and the Vmatch successor by the same author were used.
+- Gusfield 1997 §7.12.1 / Theorem 7.12.4 (supermaximal repeat ⇔ internal node, all children leaves, left-diverse).
+
+### Reference cross-checks (C# harness `scratchpad/rc/h` vs binaries / brute force; 0 mismatches unless stated)
+
+| Comparison | Cases | Result |
+|---|---|---|
+| `FindReverseComplementRepeats(s, L, ∞, int.MinValue)` vs `repeat-match -n L` `r` lines (1–200 bp, 6 alphabets, planted revcomp copies) | 3 000 (318 713 pairs) | 0 mismatches after classifying repeat-match's shared-`$` leaf loss: 31 cases / 106 pairs present in C# and missing in repeat-match, every one a pair whose revcomp suffix equals a suffix of S; 14 self-reverse-complement inputs aborted by repeat-match |
+| same, repeat-match run on `S + N` (unique sentinel removes both quirks; pairs touching the sentinel dropped) | 3 000 (279 490) + 100 cases of 1–5 kb (6 607 616 pairs) | 0 mismatches |
+| vs `vmatch -p -l L` (`mkvtree -dna -pl -allout`) | 2 000 (186 444 pairs) | 0 mismatches |
+| vs Python brute force of the definition (N / IUPAC / `-` / U / lowercase, random maxLength and minSpacing) | 3 000 (7 470 pairs) | 0 mismatches |
+| `FindApproximateDirectRepeats` (both modes, random maxLength/minSpacing, N/IUPAC/`-`) vs Python brute force (per-diagonal; literal containment) | 3 000 (24 637 repeats) | 0 mismatches |
+| `excludeContained = true` vs `vmatch -l m -h k -allmax` (k = 1–4; k = 0 vs `vmatch -l m`), ACGT/ACGTN/lowercase, 1–150 bp | 3 000 (432 579 repeats) | 0 mismatches |
+| same, 1–1 500 bp | 40 (659 247 repeats) | 0 mismatches |
+| Python check: `vmatch -h k -allmax` = per-diagonal maximal set minus repeats contained in a repeat on another diagonal | 300 (9 363) | 0 mismatches (hypothesis confirmed) |
+| `FindSupermaximalRepeats` vs `vmatch -supermax -l m` (all position pairs) | 3 000 × ≤ 200 bp (24 767 pairs) + 60 × ≤ 3 kb (13 667) | 0 mismatches |
+| vs Python brute force (maximal repeat strings not contained in another; N/IUPAC/U) | 3 000 (3 808 repeats) | 0 mismatches |
+| `FindDirectRepeats` regression after the engine refactor vs `repeat-match -f` | 2 000 (223 155 pairs) | 0 mismatches |
+
+Vmatch's **default** `-h k` output (no `-allmax`) keeps one E-value-best extension per seed and is not a set
+definition (it can report a shorter-than-maximal window, e.g. (26,81,12,−1) where (26,81,13,−2) exists); the
+library therefore reproduces the definitional set (`-allmax`).
+
+Timing (1 Mb random DNA, Release): direct (min 20) 0.63 s; reverse-complement (min 20) 1.2 s; k-mismatch
+(min 30, k = 2, both modes) 0.76 s; supermaximal (min 15) 0.53 s.
+
+### Worked values locked in tests
+| Call | Result (0-based) | Reference |
+|---|---|---|
+| RC `AAAAAAAACGTTGCAACGTAAAA`, 3 | (6,6,6) (7,7,12) (15,15,4) | repeat-match `7 12r 6`, `8 19r 12`, `16 19r 4`; vmatch -p |
+| RC `TTGCATGCAAAAAATTTTTTTGCATGCAA`, 4 | 14 pairs incl. (0,15,14) | repeat-match = vmatch -p |
+| RC `GGATCCTTTTTTTGGATCCAAAAAAA`, 4 | (6,19,4) (6,19,5) (6,19,6) … | vmatch -p |
+| k-mm `ACGTTGCAAGCTTACGGGGGGACGATGCAAGCATACGG`, 10, 2 | (0,21,17, 2 mm) | vmatch -h 2 |
+| k-mm `AAAAAAAACGTTGCAACGTAAAA`, 5, 1, excludeContained | 7 repeats | vmatch -h 1 -allmax |
+| k-mm `ACGTACGTACTTTTACGTNCGTAC`, 8, 1 | (0,4,8,1) (0,14,10,1) | vmatch -h 1 (N = wildcard) |
+| supermax `CAGCAGCAGTTTCAGCAG`, 3 | CAGCAG @ 0,3,12 | vmatch -supermax |
