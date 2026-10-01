@@ -3,8 +3,8 @@
 **Test Unit ID:** PROBE-LNATM-001
 **Area:** MolTools
 **Algorithm:** LNA-Adjusted NN Tm + MGB Probe Design
-**Status:** ☑ Validated (Stage A ✅ / Stage B ✅ / CLEAN) — 2026-06-25
-**Last Updated:** 2026-06-25
+**Status:** ☑ Revalidated in review campaign 2026-09 (B07 F26–F28: base set + Owczarzy 2011 model + heteroduplex symmetry) — 2026-10-01
+**Last Updated:** 2026-10-01
 
 ---
 
@@ -17,6 +17,22 @@
 | 3 | rmelting tutorial / MELTING `mct04` worked example `CCATT(L)GCTACC` → 63.61426 °C. |
 | 4 | SantaLucia & Hicks (2004) Annu Rev Biophys 33:415 / SantaLucia (1998) PNAS 95:1460 — base DNA unified NN set (PRIMER-NNTM-001). |
 | 5 | Kutyavin et al. (2000) Nucleic Acids Res 28(2):655–661, DOI 10.1093/nar/28.2.655 — 3'-MGB design rules. |
+
+## 1a. Campaign 2026-09 update (supersedes §3–§4 below where they differ)
+
+- Base DNA set is the SantaLucia (1998) unified / Allawi & SantaLucia (1997) table (Biopython DNA_NN3, MELTING `all97`) —
+  the set McTigue (2004) and Owczarzy (2011) parameterised on; the former SantaLucia & Hicks (2004) base caused the
+  63.528 vs 63.614 °C gap that was mis-attributed to "base-set choice".
+- New model `LnaNearestNeighborModel.Owczarzy2011` (default of the 2-argument overloads, as in MELTING): single-LNA (32),
+  consecutive-LNA (16) and LNA-mismatch (96) parameters; `target` (3'→5') for mismatched duplexes; DNA internal mismatches
+  via DNA_IMM1. McTigue model: isolated LNAs; runs use the Owczarzy tables (MELTING behaviour).
+- Oracle: melting5.jar 5.2.0 run in full precision (`Main.getMeltingResults`): rmelting test values 63.61426 / 63.48299 /
+  12.94323; Owczarzy (2011) triplet set (14 duplexes, 2 µM); McTigue (2004) duplexes (5 µM, both models); Na⁺ 50 mM;
+  Mg²⁺ 3 mM; DNA mismatch. 4 200 random duplexes: ΔH°/ΔS° bit-identical, same not-computable set.
+- Reduction (empty LNA set) = Biopython `Tm_NN(nn_table=DNA_NN3)` (R 1.987): 59.833634529845824, 75.52391452117843,
+  46.231595611732246 (self-comp), 16.621392992113726 (self-comp, 50 mM, method 6).
+- LNA-modified strands are never self-complementary duplexes; C_T/Na⁺/Mg²⁺/dNTP/R guards throw like `CalculateMeltingTemperatureNN`.
+- MGB: qualitative rules only (quantitative ΔTm BLOCKED — vendor parameters unobtainable; see B07.md).
 
 ## 2. Canonical Method(s)
 

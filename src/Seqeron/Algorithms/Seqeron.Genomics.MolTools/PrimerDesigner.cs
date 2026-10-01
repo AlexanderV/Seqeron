@@ -1277,7 +1277,7 @@ public static class PrimerDesigner
     private static double NnTm(
         double deltaH, double deltaS, string saltSequence, bool selfComp,
         double strandConcentrationMolar, double sodiumMolar, double magnesiumMolar, double dntpMolar,
-        SaltCorrectionMode saltMode)
+        SaltCorrectionMode saltMode, double gasConstant = GasConstant)
     {
         double dnac = selfComp ? strandConcentrationMolar * 1e9 : strandConcentrationMolar * 1e9 / 2.0;
         var method = saltMode switch
@@ -1296,7 +1296,7 @@ public static class PrimerDesigner
                 sodium: sodiumMolar * 1000.0,
                 magnesium: divalent ? magnesiumMolar * 1000.0 : 0,
                 dntps: divalent ? dntpMolar * 1000.0 : 0,
-                saltCorrection: method, gasConstant: GasConstant).MeltingTemperature;
+                saltCorrection: method, gasConstant: gasConstant).MeltingTemperature;
         }
         catch (ArgumentException)
         {
@@ -1441,164 +1441,327 @@ public static class PrimerDesigner
             strandConcentrationMolar, sodiumMolar, magnesiumMolar, dntpMolar, saltMode);
     }
 
-    // ---- LNA (locked nucleic acid)-adjusted NN Tm (PROBE-DESIGN-001, opt-in extension) ----
-    // Extends the perfect-match DNA NN model with the McTigue, Peterson & Kahn (2004) LNA-DNA
-    // nearest-neighbour increments so the NN Tm can be computed for a DNA oligo carrying one or
-    // more INTERNAL LNA substitutions on one strand. The LNA value is an ADDITIVE increment
-    // (ΔΔH°, ΔΔS°) added to the underlying DNA NN stack for each step containing the LNA base,
-    // exactly as the MELTING 5 reference implementation realises it (McTigue04LockedAcid.java:
-    // DNA NN sum, then `enthalpy += lockedAcidValue.getEnthalpy()`). The perfect-match
-    // CalculateMeltingTemperatureNN above is UNCHANGED; this is opt-in.
+    // ---- LNA (locked nucleic acid)-modified NN thermodynamics + Tm (PROBE-LNATM-001) ----------
+    // A DNA oligonucleotide with LNA monomers at given INTERNAL positions, hybridised to a DNA strand
+    // (perfect complement or a supplied 3'→5' target), modelled by one of two published LNA·DNA
+    // nearest-neighbour models, exactly as the MELTING 5 reference implementation (Dumousseau et al.
+    // 2012, BMC Bioinformatics 13:101; melting5.jar 5.2.0 as shipped in Bioconductor rmelting:
+    // LockedAcidNNMethod / McTigue04LockedAcid / Owczarzy11LockedAcid / Owczarzy11TandemLockedAcid /
+    // Owczarzy11SingleMismatchLockedAcid, NearestNeighborMode.getAppropriatePatternModel) realises them:
     //
-    // Convention: the increment for a step is keyed by the DNA dinucleotide step (e.g. "TT")
-    // and which of the two bases of that step is locked (0 = the 5' base, 1 = the 3' base),
-    // matching the paper's MX_L / X_L N notation (XML keys e.g. "TTL/AA" = step TT, 3' base
-    // locked; "TLG/AC" = step TG, 5' base locked). Terminal LNA positions are NOT parameterised
-    // by McTigue (2004) and are rejected (return not-computable), per MELTING isApplicable.
+    //  * Base DNA model (both LNA models): SantaLucia (1998) unified = Allawi & SantaLucia (1997) stacks,
+    //    initiation per terminal A·T (+2.3/+4.1) or G·C (+0.1/−2.8) pair (Biopython DNA_NN3, MELTING
+    //    "all97", the DNA/DNA default of MELTING). McTigue et al. (2004) derived their LNA increments on
+    //    this unified set; Owczarzy et al. (2011)'s single-LNA ΔH° equal those increments added to it
+    //    (e.g. TTL/AA −5.574 = −7.9 + 2.326). Steps without LNA: Watson–Crick or internal-mismatch
+    //    (DNA_IMM1) value, looked up as Biopython Tm_NN (ThermoConstants.TryGetNearestNeighborDuplexStep).
+    //  * McTigue, Peterson & Kahn (2004) Biochemistry 43:5388 (MELTING "mct04"): for an ISOLATED LNA, each
+    //    of its two flanking steps = DNA stack + ΔΔH°/ΔΔS° increment (32 increments, McTigue2004lockedmn.xml).
+    //    McTigue parameterised single internal LNAs only; a run of ≥ 2 consecutive LNAs is handled — as in
+    //    MELTING (getAppropriatePatternModel → tandem/single-mismatch LNA model whatever -lck says) — by the
+    //    Owczarzy (2011) tables below.
+    //  * Owczarzy, You, Groth & Tataurov (2011) Biochemistry 50:9352 (MELTING "owc11", its default): every
+    //    step containing an LNA takes a COMPLETE NN value (no DNA base added): one LNA in the step → 32
+    //    single-LNA parameters (Owczarzy2011lockedmn.xml); two LNAs, both pairs Watson–Crick → 16
+    //    consecutive-LNA parameters (Owczarzy2011lockedTandemmn.xml); two LNAs, a mismatch opposite one of
+    //    them → LNA-mismatch parameters (Owczarzy2011lockedmmn.xml). A mismatched LNA is therefore
+    //    computable only when both of its neighbours are LNAs (the paper's +X+M+Y triplets).
+    //  * Terminal LNAs and terminal mismatches are not parameterised (MELTING isApplicable → not computable).
+    //  * Tm = 1000·ΔH° / (ΔS° + R·ln(C_T/x)) − 273.15 (x = 4, 1 if self-complementary) with the salt
+    //    correction of saltMode (MELTING default for Na⁺ only = Owczarzy et al. 2004 Eq. 22 = Biopython
+    //    method 6). MELTING's code uses R = 1.99 (NearestNeighborMode.computesMeltingTemperature); this
+    //    class uses R = 1.9872 by default — pass gasConstant: 1.99 for bit-exact MELTING parity.
     //
-    // Source (retrieved & cross-checked this session, 2026-06-24):
-    //   McTigue PM, Peterson RJ, Kahn JD (2004) Biochemistry 43:5388-5405, DOI 10.1021/bi035976d
-    //   — ΔΔH°/ΔΔS° for all 32 LNA+DNA:DNA nearest neighbours.
-    //   Parameter values transcribed VERBATIM from the MELTING 5 data file
-    //   "McTigue2004lockedmn.xml" (Dumousseau et al. 2012, BMC Bioinformatics 13:101; mirrored in
-    //   aravind-j/rmelting). MELTING stores ΔΔH°/ΔΔS° in cal/mol and cal/(mol·K); the kcal/mol
-    //   values below are XML_value / 1000. Worked example reproduced: CCATT(L)GCTACC at C=1e-4,
-    //   Na=1 → ΔH°=-80.014 kcal/mol, ΔS°=-216.6 cal/(mol·K), Tm=63.528 °C (MELTING mct04: 63.614).
+    // Data anomalies kept exactly as in the reference implementation (the primary tables are behind
+    // the ACS paywall; see docs/Validation/review-2026-09/B07.md F26): the mismatch file has no
+    // "GLAL/CA" entry but a double-mismatch key "CLAL/CA", and lists "GLTL/TA" twice (MELTING's
+    // HashMap keeps the last: −14.213/−40.041); an independent transcription (iCarrin/Bio_dpt
+    // lna_tm.py) has ΔS° −21.535 for consecutive +T+C where MELTING has −21.735 (MELTING kept).
+    // Reference cross-check (melting5.jar, Na = 1 M): CCATT(L)GCTACC, 1e-4 M — mct04 63.61426 °C,
+    // owc11 63.48299 °C; GA(L)C(L)C 12.94323 °C (rmelting test-method.locked.R) — reproduced bit-exactly.
 
-    /// <summary>Which base of a nearest-neighbour dinucleotide step is the LNA monomer.</summary>
-    private enum LnaStepPosition
+    /// <summary>Published LNA·DNA nearest-neighbour models for <see cref="CalculateMeltingTemperatureNNLna(string, IReadOnlyCollection{int}, LnaNearestNeighborModel, string?, double, double, double, double, SaltCorrectionMode, double)"/>.</summary>
+    public enum LnaNearestNeighborModel
     {
-        /// <summary>The 5' (first) base of the step is locked — McTigue X_L N (key e.g. "TLG/AC").</summary>
-        FivePrime = 0,
+        /// <summary>
+        /// Owczarzy, You, Groth &amp; Tataurov (2011) Biochemistry 50:9352 — complete NN parameters for steps with
+        /// one LNA, two consecutive LNAs, and an LNA·DNA mismatch inside an LNA triplet (MELTING "owc11", its default).
+        /// </summary>
+        Owczarzy2011,
 
-        /// <summary>The 3' (second) base of the step is locked — McTigue MX_L (key e.g. "TTL/AA").</summary>
-        ThreePrime = 1
+        /// <summary>
+        /// McTigue, Peterson &amp; Kahn (2004) Biochemistry 43:5388 — ΔΔH°/ΔΔS° increments for an isolated internal
+        /// LNA added to the SantaLucia (1998) unified DNA stacks (MELTING "mct04"); runs of consecutive LNAs use
+        /// the <see cref="Owczarzy2011"/> parameters, as MELTING does.
+        /// </summary>
+        McTigue2004
     }
 
-    /// <summary>
-    /// McTigue, Peterson &amp; Kahn (2004) LNA-DNA nearest-neighbour increments
-    /// (ΔΔH° in kcal/mol, ΔΔS° in cal/(K·mol)), added to the base DNA NN stack for the step
-    /// containing the LNA base. Key = (DNA dinucleotide step 5'→3', which base is locked).
-    /// All 32 nearest neighbours are present (16 with the 5' base locked, 16 with the 3' base
-    /// locked). Values transcribed verbatim from MELTING 5 <c>McTigue2004lockedmn.xml</c>
-    /// (cal/mol ÷ 1000 = kcal/mol); the XML <c>sequence</c> key is shown in the comment.
-    /// Source: McTigue et al. (2004) Biochemistry 43:5388-5405 (DOI 10.1021/bi035976d).
-    /// </summary>
-    private static readonly Dictionary<(string Step, LnaStepPosition Locked), (double DeltaH, double DeltaS)> McTigueLnaIncrements = new()
-    {
-        // 5'-base locked (X_L N): XML key "XLY/comp".
-        [("AA", LnaStepPosition.FivePrime)] = (0.707, 2.5),    // ALA/TT
-        [("AT", LnaStepPosition.FivePrime)] = (2.282, 7.5),    // ALT/TA
-        [("AG", LnaStepPosition.FivePrime)] = (0.264, 2.6),    // ALG/TC
-        [("AC", LnaStepPosition.FivePrime)] = (1.131, 4.1),    // ALC/TG
-        [("TA", LnaStepPosition.FivePrime)] = (-0.046, 1.6),   // TLA/AT
-        [("TT", LnaStepPosition.FivePrime)] = (1.528, 5.3),    // TLT/AA
-        [("TG", LnaStepPosition.FivePrime)] = (-1.540, -3.0),  // TLG/AC
-        [("TC", LnaStepPosition.FivePrime)] = (1.893, 6.7),    // TLC/AG
-        [("GA", LnaStepPosition.FivePrime)] = (3.162, 10.5),   // GLA/CT
-        [("GT", LnaStepPosition.FivePrime)] = (-0.212, 0.1),   // GLT/CA
-        [("GG", LnaStepPosition.FivePrime)] = (-2.844, -6.7),  // GLG/CC
-        [("GC", LnaStepPosition.FivePrime)] = (-0.360, -0.3),  // GLC/CG
-        [("CA", LnaStepPosition.FivePrime)] = (1.049, 4.3),    // CLA/GT
-        [("CT", LnaStepPosition.FivePrime)] = (0.708, 4.2),    // CLT/GA
-        [("CG", LnaStepPosition.FivePrime)] = (0.785, 3.7),    // CLG/GC
-        [("CC", LnaStepPosition.FivePrime)] = (2.096, 8.0),    // CLC/GG
+    // The base DNA NN set of both LNA models: SantaLucia (1998) unified / Allawi & SantaLucia (1997).
+    private const NnParameterSet LnaBaseParameterSet = NnParameterSet.AllawiSantaLucia1997;
 
-        // 3'-base locked (MX_L): XML key "MXL/comp".
-        [("AA", LnaStepPosition.ThreePrime)] = (0.992, 4.1),   // AAL/TT
-        [("AT", LnaStepPosition.ThreePrime)] = (1.816, 6.9),   // ATL/TA
-        [("AG", LnaStepPosition.ThreePrime)] = (-1.200, -1.8), // AGL/TC
-        [("AC", LnaStepPosition.ThreePrime)] = (2.890, 10.6),  // ACL/TG
-        [("TA", LnaStepPosition.ThreePrime)] = (1.591, 5.3),   // TAL/AT
-        [("TT", LnaStepPosition.ThreePrime)] = (2.326, 8.1),   // TTL/AA
-        [("TG", LnaStepPosition.ThreePrime)] = (2.165, 7.2),   // TGL/AC
-        [("TC", LnaStepPosition.ThreePrime)] = (0.609, 3.2),   // TCL/AG
-        [("GA", LnaStepPosition.ThreePrime)] = (0.444, 2.9),   // GAL/CT
-        [("GT", LnaStepPosition.ThreePrime)] = (-0.635, -0.3), // GTL/CA
-        [("GG", LnaStepPosition.ThreePrime)] = (-0.943, -0.9), // GGL/CC
-        [("GC", LnaStepPosition.ThreePrime)] = (-0.925, -1.1), // GCL/CG
-        [("CA", LnaStepPosition.ThreePrime)] = (1.358, 4.4),   // CAL/GT
-        [("CT", LnaStepPosition.ThreePrime)] = (-1.671, -4.1), // CTL/GA
-        [("CG", LnaStepPosition.ThreePrime)] = (-0.276, -0.7), // CGL/GC
-        [("CC", LnaStepPosition.ThreePrime)] = (2.063, 7.6)    // CCL/GG
+    // LNA parameter tables (ΔH° kcal/mol, ΔS° cal/(K·mol), 1 M Na⁺), transcribed from the MELTING 5.2.0
+    // data files (cal/mol ÷ 1000). Key = MELTING notation: top strand 5'→3' with "L" after each locked
+    // base / the two opposite bottom-strand bases 3'→5' (e.g. "TTL/AA": step TT, 3' base locked).
+    // McTigue (2004): increments ΔΔH°/ΔΔS° (McTigue2004lockedmn.xml).
+    private static readonly Dictionary<string, (double DeltaH, double DeltaS)> McTigue2004LnaIncrements = new(StringComparer.Ordinal)
+    {
+        ["ALA/TT"] = (0.707, 2.5), ["ALT/TA"] = (2.282, 7.5),
+        ["ALG/TC"] = (0.264, 2.6), ["ALC/TG"] = (1.131, 4.1),
+        ["TLA/AT"] = (-0.046, 1.6), ["TLT/AA"] = (1.528, 5.3),
+        ["TLG/AC"] = (-1.540, -3), ["TLC/AG"] = (1.893, 6.7),
+        ["GLA/CT"] = (3.162, 10.5), ["GLT/CA"] = (-0.212, 0.1),
+        ["GLG/CC"] = (-2.844, -6.7), ["GLC/CG"] = (-0.360, -0.3),
+        ["CLA/GT"] = (1.049, 4.3), ["CLT/GA"] = (0.708, 4.2),
+        ["CLG/GC"] = (0.785, 3.7), ["CLC/GG"] = (2.096, 8),
+        ["AAL/TT"] = (0.992, 4.1), ["ATL/TA"] = (1.816, 6.9),
+        ["AGL/TC"] = (-1.200, -1.8), ["ACL/TG"] = (2.890, 10.6),
+        ["TAL/AT"] = (1.591, 5.3), ["TTL/AA"] = (2.326, 8.1),
+        ["TGL/AC"] = (2.165, 7.2), ["TCL/AG"] = (0.609, 3.2),
+        ["GAL/CT"] = (0.444, 2.9), ["GTL/CA"] = (-0.635, -0.3),
+        ["GGL/CC"] = (-0.943, -0.9), ["GCL/CG"] = (-0.925, -1.1),
+        ["CAL/GT"] = (1.358, 4.4), ["CTL/GA"] = (-1.671, -4.1),
+        ["CGL/GC"] = (-0.276, -0.7), ["CCL/GG"] = (2.063, 7.6)
+    };
+
+    // Owczarzy (2011): complete NN parameters of a step with one LNA (Owczarzy2011lockedmn.xml).
+    private static readonly Dictionary<string, (double DeltaH, double DeltaS)> Owczarzy2011LnaSingle = new(StringComparer.Ordinal)
+    {
+        ["ALA/TT"] = (-7.193, -19.723), ["ALC/TG"] = (-7.269, -18.336),
+        ["ALG/TC"] = (-7.536, -18.387), ["ALT/TA"] = (-4.918, -12.943),
+        ["CLA/GT"] = (-7.451, -18.38), ["CLC/GG"] = (-5.904, -11.904),
+        ["CLG/GC"] = (-9.815, -23.491), ["CLT/GA"] = (-7.092, -16.825),
+        ["GLA/CT"] = (-5.038, -11.656), ["GLC/CG"] = (-10.160, -24.651),
+        ["GLG/CC"] = (-10.844, -26.58), ["GLT/CA"] = (-8.612, -22.327),
+        ["TLA/AT"] = (-7.246, -19.738), ["TLC/AG"] = (-6.307, -15.515),
+        ["TLG/AC"] = (-10.040, -25.744), ["TLT/AA"] = (-6.372, -16.902),
+        ["AAL/TT"] = (-6.908, -18.135), ["ACL/TG"] = (-5.510, -11.824),
+        ["AGL/TC"] = (-9.000, -22.826), ["ATL/TA"] = (-5.384, -13.537),
+        ["CAL/GT"] = (-7.142, -18.333), ["CCL/GG"] = (-5.937, -12.335),
+        ["CGL/GC"] = (-10.876, -27.918), ["CTL/GA"] = (-9.471, -25.07),
+        ["GAL/CT"] = (-7.756, -19.302), ["GCL/CG"] = (-10.725, -25.511),
+        ["GGL/CC"] = (-8.943, -20.833), ["GTL/CA"] = (-9.035, -22.742),
+        ["TAL/AT"] = (-5.609, -16.019), ["TCL/AG"] = (-7.591, -19.031),
+        ["TGL/AC"] = (-6.335, -15.537), ["TTL/AA"] = (-5.574, -14.149)
+    };
+
+    // Owczarzy (2011): two consecutive LNAs, Watson–Crick (Owczarzy2011lockedTandemmn.xml).
+    private static readonly Dictionary<string, (double DeltaH, double DeltaS)> Owczarzy2011LnaConsecutive = new(StringComparer.Ordinal)
+    {
+        ["ALAL/TT"] = (-9.991, -27.175), ["ALCL/TG"] = (-11.389, -28.963),
+        ["ALGL/TC"] = (-12.793, -31.607), ["ALTL/TA"] = (-14.703, -40.75),
+        ["CLAL/GT"] = (-14.177, -35.498), ["CLCL/GG"] = (-15.399, -36.375),
+        ["CLGL/GC"] = (-14.558, -35.239), ["CLTL/GA"] = (-15.737, -41.218),
+        ["GLAL/CT"] = (-13.959, -35.097), ["GLCL/CG"] = (-16.109, -40.738),
+        ["GLGL/CC"] = (-13.022, -29.673), ["GLTL/CA"] = (-17.361, -45.858),
+        ["TLAL/AT"] = (-10.318, -26.108), ["TLCL/AG"] = (-9.166, -21.735),
+        ["TLGL/AC"] = (-10.046, -22.591), ["TLTL/AA"] = (-10.419, -27.683)
+    };
+
+    // Owczarzy (2011): two consecutive LNAs with a mismatch opposite one of them (Owczarzy2011lockedmmn.xml;
+    // 98 entries, "GLTL/TA" listed twice — the later value is kept, as MELTING's HashMap does).
+    private static readonly Dictionary<string, (double DeltaH, double DeltaS)> Owczarzy2011LnaMismatch = new(StringComparer.Ordinal)
+    {
+        ["ALAL/AT"] = (-3.826, -13.109), ["ALCL/AG"] = (-2.367, -7.322),
+        ["ALGL/AC"] = (-4.849, -13.007), ["ALTL/AA"] = (-5.049, -17.514),
+        ["ALAL/TA"] = (-4.229, -15.16), ["CLAL/GA"] = (-5.878, -17.663),
+        ["CLAL/CA"] = (-8.558, -23.976), ["TLAL/AA"] = (2.074, 3.446),
+        ["CLAL/CT"] = (2.218, 4.75), ["CLCL/CG"] = (1.127, 1.826),
+        ["CLGL/CC"] = (-10.903, -32.025), ["CLTL/CA"] = (-2.053, -10.517),
+        ["ALCL/TC"] = (1.065, -1.403), ["CLCL/GC"] = (-9.522, -27.024),
+        ["GLCL/CC"] = (-4.767, -14.897), ["TLCL/AC"] = (4.114, 9.258),
+        ["GLAL/GT"] = (-2.920, -9.387), ["GLCL/GG"] = (-8.139, -21.784),
+        ["GLGL/GC"] = (-5.149, -12.508), ["GLTL/GA"] = (-8.991, -27.311),
+        ["ALGL/TG"] = (-4.980, -15.426), ["CLGL/GG"] = (-4.441, -12.158),
+        ["GLGL/CG"] = (-13.505, -36.021), ["TLGL/AG"] = (-2.775, -9.286),
+        ["TLAL/TT"] = (-3.744, -12.149), ["TLCL/TG"] = (-4.387, -13.52),
+        ["TLGL/TC"] = (-6.346, -16.629), ["TLTL/TA"] = (-7.697, -25.049),
+        ["ALTL/TT"] = (-4.207, -14.307), ["CLTL/GT"] = (-8.176, -22.962),
+        ["GLTL/CT"] = (-7.241, -20.622), ["TLTL/AT"] = (-2.051, -7.055),
+        ["ALAL/CT"] = (-1.362, -5.551), ["ALCL/CG"] = (-1.759, -6.511),
+        ["ALGL/CC"] = (-6.549, -18.073), ["ALTL/CA"] = (-3.563, -14.105),
+        ["ALAL/TC"] = (-2.078, -10.088), ["CLAL/GC"] = (-5.868, -16.952),
+        ["GLAL/CC"] = (-8.477, -24.565), ["TLAL/AC"] = (2.690, 4.965),
+        ["CLAL/AT"] = (-9.844, -29.673), ["CLCL/AG"] = (-3.761, -11.204),
+        ["CLGL/AC"] = (-9.845, -27.316), ["CLTL/AA"] = (-3.389, -12.517),
+        ["ALCL/TA"] = (0.753, -0.503), ["CLCL/GA"] = (-12.714, -35.555),
+        ["GLCL/CA"] = (-12.658, -35.729), ["TLCL/AA"] = (-1.719, -7.023),
+        ["ALAL/GT"] = (2.193, 4.374), ["ALCL/GG"] = (-8.453, -22.672),
+        ["ALGL/GC"] = (-1.164, -2.532), ["ALTL/GA"] = (-7.418, -24.066),
+        ["ALAL/TG"] = (-1.963, -9.013), ["CLAL/GG"] = (-8.712, -23.779),
+        ["GLAL/CG"] = (-7.875, -21.661), ["TLAL/AG"] = (3.207, 7.156),
+        ["GLAL/AT"] = (-2.914, -9.402), ["GLCL/AG"] = (-9.131, -25.347),
+        ["GLGL/AC"] = (-2.154, -3.871), ["GLTL/AA"] = (-8.515, -26.313),
+        ["ALGL/TA"] = (-6.691, -21.148), ["CLGL/GA"] = (-3.960, -10.588),
+        ["GLGL/CA"] = (-12.898, -34.656), ["TLGL/AA"] = (0.334, -0.44),
+        ["CLAL/TT"] = (0.382, -0.579), ["CLCL/TG"] = (-2.716, -8),
+        ["CLGL/TC"] = (-10.363, -29.315), ["CLTL/TA"] = (-5.783, -20.173),
+        ["ALCL/TT"] = (-0.692, -5.278), ["CLCL/GT"] = (-10.288, -28.503),
+        ["GLCL/CT"] = (-9.062, -26.356), ["TLCL/AT"] = (2.073, 3.968),
+        ["TLAL/CT"] = (-5.485, -17.347), ["TLCL/CG"] = (1.451, 1.556),
+        ["TLGL/CC"] = (-7.213, -20.128), ["TLTL/CA"] = (-2.397, -11.371),
+        ["ALTL/TC"] = (-0.633, -5.801), ["CLTL/GC"] = (-6.868, -21),
+        ["GLTL/CC"] = (-5.853, -16.643), ["TLTL/AC"] = (0.211, -1.446),
+        ["GLAL/TT"] = (-5.551, -15.398), ["GLCL/TG"] = (-14.943, -40.148),
+        ["GLGL/TC"] = (-8.110, -18.349), ["GLTL/TA"] = (-14.213, -40.041),
+        ["ALGL/TT"] = (-7.130, -20.786), ["CLGL/GT"] = (-14.862, -39.43),
+        ["GLGL/CT"] = (-14.622, -37.51), ["TLGL/AT"] = (-6.703, -18.111),
+        ["TLAL/GT"] = (-4.612, -14.039), ["TLCL/GG"] = (-9.798, -26.406),
+        ["TLGL/GC"] = (-4.519, -11.065), ["TLTL/GA"] = (-4.523, -15.693),
+        ["ALTL/TG"] = (-2.364, -8.834), ["CLTL/GG"] = (-11.396, -30.732),
+        ["GLTL/CG"] = (-6.233, -15.933), ["TLTL/AG"] = (-2.960, -9.305)
     };
 
     /// <summary>
-    /// Computes the duplex ΔH° (kcal/mol) and ΔS° (cal/(K·mol)) of a DNA oligonucleotide that
-    /// carries one or more <b>internal</b> LNA (locked nucleic acid) substitutions, by adding the
-    /// McTigue, Peterson &amp; Kahn (2004) LNA-DNA nearest-neighbour increments to the SantaLucia
-    /// &amp; Hicks (2004) DNA NN stack (initiation + terminal-A·T + symmetry are computed on the underlying
-    /// DNA sequence, unchanged). <b>Opt-in</b>: the perfect-match
-    /// <see cref="CalculateNearestNeighborThermodynamics"/> is unchanged, and an empty
-    /// <paramref name="lnaPositions"/> reproduces it exactly.
+    /// Duplex ΔH° (kcal/mol) and ΔS° (cal/(K·mol), 1 M Na⁺) of a DNA oligonucleotide with <b>internal</b> LNA
+    /// monomers at <paramref name="lnaPositions"/> paired with its perfect DNA complement, by the default
+    /// <see cref="LnaNearestNeighborModel.Owczarzy2011"/> LNA·DNA nearest-neighbour model on the SantaLucia (1998)
+    /// unified DNA parameters (MELTING 5 default). See
+    /// <see cref="CalculateNearestNeighborThermodynamicsLna(string, IReadOnlyCollection{int}, LnaNearestNeighborModel, string?)"/>.
     /// </summary>
-    /// <param name="sequence">DNA sequence (one strand, 5'→3'); the LNA monomers are at the given
-    /// positions of this sequence. Must be ≥ 2 ACGT bases.</param>
-    /// <param name="lnaPositions">Zero-based positions of the LNA monomers within
-    /// <paramref name="sequence"/>. Order and duplicates are tolerated. A <b>terminal</b> position
-    /// (0 or length−1) is not parameterised by McTigue (2004) and makes the result not computable.</param>
-    /// <returns>(ΔH°, ΔS°, IsSelfComplementary) of the LNA-substituted duplex, or <c>null</c> if the
-    /// sequence is empty/&lt; 2 bases/contains a non-ACGT base, or any LNA position is out of range
-    /// or terminal.</returns>
+    /// <param name="sequence">DNA sequence (5'→3'; case-insensitive), ≥ 2 ACGT bases.</param>
+    /// <param name="lnaPositions">Zero-based LNA positions (order/duplicates tolerated); terminal or out-of-range → not computable.</param>
+    /// <returns>(ΔH°, ΔS°, IsSelfComplementary) or <c>null</c> when not computable.</returns>
     public static (double DeltaH, double DeltaS, bool IsSelfComplementary)? CalculateNearestNeighborThermodynamicsLna(
         string sequence,
-        IReadOnlyCollection<int> lnaPositions)
+        IReadOnlyCollection<int> lnaPositions) =>
+        CalculateNearestNeighborThermodynamicsLna(sequence, lnaPositions, LnaNearestNeighborModel.Owczarzy2011);
+
+    /// <summary>
+    /// Duplex ΔH° (kcal/mol) and ΔS° (cal/(K·mol), 1 M Na⁺) of a DNA oligonucleotide carrying <b>internal</b> LNA
+    /// (locked nucleic acid) monomers, hybridised to a DNA strand, by a published LNA·DNA nearest-neighbour model
+    /// (see <see cref="LnaNearestNeighborModel"/>) on the SantaLucia (1998) unified DNA parameters (Allawi &amp;
+    /// SantaLucia 1997; initiation per terminal A·T / G·C pair) — the MELTING 5 implementation, reproduced
+    /// bit-exactly. Steps without an LNA use the Watson–Crick or (for an internal DNA mismatch) the Allawi /
+    /// SantaLucia / Peyret internal-mismatch parameters.
+    /// </summary>
+    /// <param name="sequence">LNA-modified oligonucleotide (DNA letters, 5'→3'; case-insensitive), ≥ 2 ACGT bases.</param>
+    /// <param name="lnaPositions">Zero-based positions of the LNA monomers in <paramref name="sequence"/>; order and
+    /// duplicates are tolerated. A terminal (0 or length − 1) or out-of-range position is not parameterised.</param>
+    /// <param name="model">LNA nearest-neighbour model.</param>
+    /// <param name="target">The DNA strand opposite <paramref name="sequence"/>, written 3'→5' (base i pairs with
+    /// sequence[i]; same length); <c>null</c> = the perfect complement. Internal mismatches are allowed opposite a DNA
+    /// base (DNA_IMM1) or opposite the central LNA of three consecutive LNAs (Owczarzy 2011); the two terminal pairs
+    /// must be Watson–Crick.</param>
+    /// <returns>(ΔH°, ΔS°, IsSelfComplementary) or <c>null</c> when not computable: empty / &lt; 2 bases / non-ACGT
+    /// strand, target of another length, terminal or out-of-range LNA, terminal mismatch, or a step with no
+    /// published parameter (e.g. a mismatch opposite an isolated LNA, any mismatch with
+    /// <see cref="LnaNearestNeighborModel.McTigue2004"/> at an isolated LNA).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="lnaPositions"/> is null.</exception>
+    public static (double DeltaH, double DeltaS, bool IsSelfComplementary)? CalculateNearestNeighborThermodynamicsLna(
+        string sequence,
+        IReadOnlyCollection<int> lnaPositions,
+        LnaNearestNeighborModel model,
+        string? target = null)
     {
         ArgumentNullException.ThrowIfNull(lnaPositions);
-
-        var dna = CalculateNearestNeighborThermodynamics(sequence);
-        if (dna is null)
+        if (model is not (LnaNearestNeighborModel.Owczarzy2011 or LnaNearestNeighborModel.McTigue2004))
+            throw new ArgumentOutOfRangeException(nameof(model), model, "Unknown LNA nearest-neighbour model.");
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < 2)
             return null;
 
         string seq = sequence.ToUpperInvariant();
-        var locked = new HashSet<int>();
+        if (!IsAcgtOnly(seq))
+            return null;
+        string bottom = target is null ? Complement(seq) : target.ToUpperInvariant();
+        if (bottom.Length != seq.Length || !IsAcgtOnly(bottom))
+            return null;
+
+        int n = seq.Length;
+        var locked = new bool[n];
         foreach (int pos in lnaPositions)
         {
-            // McTigue (2004) parameters are for internal LNA only — reject terminal/out-of-range.
-            if (pos <= 0 || pos >= seq.Length - 1)
+            // Terminal LNAs are not parameterised by either model (MELTING isApplicable).
+            if (pos <= 0 || pos >= n - 1)
                 return null;
-            locked.Add(pos);
+            locked[pos] = true;
         }
 
-        var (dH, dS, selfComp) = dna.Value;
+        // Terminal pairs must be Watson–Crick (no terminal-mismatch LNA parameters).
+        if (!IsWatsonCrickPair(seq[0], bottom[0]) || !IsWatsonCrickPair(seq[n - 1], bottom[n - 1]))
+            return null;
 
-        // Add the McTigue increment to each NN step (i, i+1) that contains an LNA base.
-        for (int i = 0; i < seq.Length - 1; i++)
+        // An LNA-modified strand paired with an unmodified DNA strand is never a symmetric duplex (the two
+        // strands differ chemically), so only an LNA-free self-complementary sequence with its own complement
+        // is treated as self-complementary (symmetry term, x = 1); MELTING likewise rejects -self with LNAs.
+        bool selfComp = target is null && !locked.Contains(true) && IsSelfComplementary(seq);
+        var init = ThermoConstants.GetNearestNeighborInitiation(LnaBaseParameterSet);
+        double dH = init.Initiation.DeltaH, dS = init.Initiation.DeltaS;
+        var oneOrAll = seq.Any(c => c is 'G' or 'C') ? init.OneGC : init.AllAT;
+        dH += oneOrAll.DeltaH; dS += oneOrAll.DeltaS;
+        foreach (char end in new[] { seq[0], seq[n - 1] })
         {
-            string step = seq.Substring(i, 2);
-            if (locked.Contains(i)
-                && McTigueLnaIncrements.TryGetValue((step, LnaStepPosition.FivePrime), out var inc5))
+            var t = end is 'A' or 'T' ? init.TerminalAT : init.TerminalGC;
+            dH += t.DeltaH; dS += t.DeltaS;
+        }
+        if (seq[0] == 'T') { dH += init.FiveTerminalTA.DeltaH; dS += init.FiveTerminalTA.DeltaS; }
+        if (seq[n - 1] == 'A') { dH += init.FiveTerminalTA.DeltaH; dS += init.FiveTerminalTA.DeltaS; }
+
+        for (int i = 0; i < n - 1; i++)
+        {
+            string top = seq.Substring(i, 2);
+            string bot = bottom.Substring(i, 2);
+            int lockedCount = (locked[i] ? 1 : 0) + (locked[i + 1] ? 1 : 0);
+
+            if (lockedCount == 0)
             {
-                dH += inc5.DeltaH; dS += inc5.DeltaS;
+                if (!ThermoConstants.TryGetNearestNeighborDuplexStep(LnaBaseParameterSet, top, bot, out var p))
+                    return null;
+                dH += p.DeltaH; dS += p.DeltaS;
+                continue;
             }
-            if (locked.Contains(i + 1)
-                && McTigueLnaIncrements.TryGetValue((step, LnaStepPosition.ThreePrime), out var inc3))
+
+            bool isolated = (locked[i] && IsIsolatedLna(locked, i)) || (locked[i + 1] && IsIsolatedLna(locked, i + 1));
+            if (model == LnaNearestNeighborModel.McTigue2004 && isolated)
             {
-                dH += inc3.DeltaH; dS += inc3.DeltaS;
+                // McTigue (2004): DNA stack + increment (Watson–Crick steps only).
+                if (!IsWatsonCrickPair(top[0], bot[0]) || !IsWatsonCrickPair(top[1], bot[1])
+                    || !ThermoConstants.TryGetNearestNeighborStack(LnaBaseParameterSet, top, out var stack)
+                    || !McTigue2004LnaIncrements.TryGetValue(LnaKey(top, bot, locked[i], locked[i + 1]), out var inc))
+                    return null;
+                dH += stack.DeltaH + inc.DeltaH;
+                dS += stack.DeltaS + inc.DeltaS;
+                continue;
             }
+
+            // Owczarzy (2011): complete parameter of the LNA-containing step.
+            bool watsonCrick = IsWatsonCrickPair(top[0], bot[0]) && IsWatsonCrickPair(top[1], bot[1]);
+            var table = Owczarzy2011LnaSingle;
+            if (lockedCount == 2)
+                table = watsonCrick ? Owczarzy2011LnaConsecutive : Owczarzy2011LnaMismatch;
+            if (!table.TryGetValue(LnaKey(top, bot, locked[i], locked[i + 1]), out var v))
+                return null;
+            dH += v.DeltaH; dS += v.DeltaS;
         }
 
+        if (selfComp)
+        {
+            dH += init.Symmetry.DeltaH; dS += init.Symmetry.DeltaS;
+        }
         return (dH, dS, selfComp);
+
+        static bool IsIsolatedLna(bool[] l, int p) =>
+            (p == 0 || !l[p - 1]) && (p == l.Length - 1 || !l[p + 1]);
+
+        static string LnaKey(string top, string bot, bool lock0, bool lock1) =>
+            string.Concat(top[0].ToString(), lock0 ? "L" : "", top[1].ToString(), lock1 ? "L" : "", "/", bot);
     }
 
     /// <summary>
-    /// Computes the design melting temperature (°C) of a DNA oligonucleotide carrying one or more
-    /// <b>internal</b> LNA substitutions, using the McTigue (2004) LNA-DNA nearest-neighbour
-    /// increments on top of the SantaLucia &amp; Hicks (2004) DNA NN model, with the same bimolecular Tm
-    /// equation and optional salt corrections as <see cref="CalculateMeltingTemperatureNN"/>.
-    /// <b>Opt-in</b>: the perfect-match <see cref="CalculateMeltingTemperatureNN"/> is unchanged,
-    /// and an empty <paramref name="lnaPositions"/> equals it exactly.
+    /// LNA-adjusted nearest-neighbour Tm (°C) of a DNA oligonucleotide with <b>internal</b> LNA monomers paired with its
+    /// perfect DNA complement, by the default <see cref="LnaNearestNeighborModel.Owczarzy2011"/> model (MELTING 5
+    /// default) at the stated conditions. See
+    /// <see cref="CalculateMeltingTemperatureNNLna(string, IReadOnlyCollection{int}, LnaNearestNeighborModel, string?, double, double, double, double, SaltCorrectionMode, double)"/>.
     /// </summary>
-    /// <param name="sequence">DNA sequence (5'→3'). Must be ≥ 2 ACGT bases.</param>
-    /// <param name="lnaPositions">Zero-based positions of the internal LNA monomers (see
-    /// <see cref="CalculateNearestNeighborThermodynamicsLna"/>).</param>
+    /// <param name="sequence">DNA sequence (5'→3'), ≥ 2 ACGT bases.</param>
+    /// <param name="lnaPositions">Zero-based internal LNA positions.</param>
     /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L (default 0.5 µM).</param>
     /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
     /// <param name="magnesiumMolar">[Mg²⁺] in mol/L (default 0; only used by the divalent mode).</param>
     /// <param name="dntpMolar">Total dNTP concentration in mol/L (default 0).</param>
-    /// <param name="saltMode">Salt correction to apply (default Owczarzy2004Monovalent).</param>
-    /// <returns>The LNA-adjusted NN Tm in °C, or <c>double.NaN</c> if the duplex is not computable
-    /// (empty/&lt; 2 bases/non-ACGT, or an out-of-range/terminal LNA position).</returns>
+    /// <param name="saltMode">Salt correction (default Owczarzy2004Monovalent, as MELTING for Na⁺ only).</param>
+    /// <returns>Tm in °C, or <c>double.NaN</c> when not computable.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">C_T ≤ 0, [Na⁺] ≤ 0, [Mg²⁺] &lt; 0 or [dNTP] &lt; 0.</exception>
     public static double CalculateMeltingTemperatureNNLna(
         string sequence,
         IReadOnlyCollection<int> lnaPositions,
@@ -1606,15 +1769,56 @@ public static class PrimerDesigner
         double sodiumMolar = ThermoConstants.DefaultNaConcentration,
         double magnesiumMolar = 0.0,
         double dntpMolar = 0.0,
-        SaltCorrectionMode saltMode = SaltCorrectionMode.Owczarzy2004Monovalent)
+        SaltCorrectionMode saltMode = SaltCorrectionMode.Owczarzy2004Monovalent) =>
+        CalculateMeltingTemperatureNNLna(sequence, lnaPositions, LnaNearestNeighborModel.Owczarzy2011, null,
+            strandConcentrationMolar, sodiumMolar, magnesiumMolar, dntpMolar, saltMode);
+
+    /// <summary>
+    /// LNA-adjusted nearest-neighbour melting temperature (°C) of an LNA-modified DNA oligonucleotide hybridised to a
+    /// DNA strand: ΔH°/ΔS° from
+    /// <see cref="CalculateNearestNeighborThermodynamicsLna(string, IReadOnlyCollection{int}, LnaNearestNeighborModel, string?)"/>,
+    /// Tm = 1000·ΔH° / (ΔS° + R·ln(C_T/x)) − 273.15 (x = 4; 1 for a self-complementary duplex) with the salt correction
+    /// of <paramref name="saltMode"/> evaluated on the DNA letters of <paramref name="sequence"/> (the canonical
+    /// <see cref="ThermoConstants.CalculateNearestNeighborTmFromThermodynamics"/>). With
+    /// <c>gasConstant: 1.99</c> and <see cref="SaltCorrectionMode.Owczarzy2004Monovalent"/> this equals MELTING 5
+    /// (<c>-H dnadna -P C_T -E Na=…</c>, <c>-lck mct04|owc11</c>) exactly.
+    /// </summary>
+    /// <param name="sequence">LNA-modified oligonucleotide (DNA letters, 5'→3'), ≥ 2 ACGT bases.</param>
+    /// <param name="lnaPositions">Zero-based internal LNA positions.</param>
+    /// <param name="model">LNA nearest-neighbour model.</param>
+    /// <param name="target">Opposite DNA strand 3'→5' (same length), or <c>null</c> for the perfect complement.</param>
+    /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L (default 0.5 µM).</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
+    /// <param name="magnesiumMolar">[Mg²⁺] in mol/L (default 0; only used by the divalent mode).</param>
+    /// <param name="dntpMolar">Total dNTP concentration in mol/L (default 0).</param>
+    /// <param name="saltMode">Salt correction (default Owczarzy2004Monovalent).</param>
+    /// <param name="gasConstant">R in cal/(K·mol) (default 1.9872, SantaLucia &amp; Hicks 2004; MELTING uses 1.99).</param>
+    /// <returns>Tm in °C, or <c>double.NaN</c> when not computable.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">C_T ≤ 0, [Na⁺] ≤ 0, [Mg²⁺] &lt; 0, [dNTP] &lt; 0, R ≤ 0 or an unknown model.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="lnaPositions"/> is null.</exception>
+    public static double CalculateMeltingTemperatureNNLna(
+        string sequence,
+        IReadOnlyCollection<int> lnaPositions,
+        LnaNearestNeighborModel model,
+        string? target = null,
+        double strandConcentrationMolar = DefaultStrandConcentrationMolar,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration,
+        double magnesiumMolar = 0.0,
+        double dntpMolar = 0.0,
+        SaltCorrectionMode saltMode = SaltCorrectionMode.Owczarzy2004Monovalent,
+        double gasConstant = GasConstant)
     {
-        var thermo = CalculateNearestNeighborThermodynamicsLna(sequence, lnaPositions);
+        ValidateNnConditions(strandConcentrationMolar, sodiumMolar, magnesiumMolar, dntpMolar);
+        if (!(gasConstant > 0) || double.IsInfinity(gasConstant))
+            throw new ArgumentOutOfRangeException(nameof(gasConstant), gasConstant, "R must be a positive finite number.");
+
+        var thermo = CalculateNearestNeighborThermodynamicsLna(sequence, lnaPositions, model, target);
         if (thermo is null)
             return double.NaN;
 
         var (dH, dS, selfComp) = thermo.Value;
         return NnTm(dH, dS, sequence.ToUpperInvariant(), selfComp,
-            strandConcentrationMolar, sodiumMolar, magnesiumMolar, dntpMolar, saltMode);
+            strandConcentrationMolar, sodiumMolar, magnesiumMolar, dntpMolar, saltMode, gasConstant);
     }
 
     // ---- DNA hairpin folding + secondary-structure (hairpin) Tm (PRIMER-TM-001, opt-in) ----

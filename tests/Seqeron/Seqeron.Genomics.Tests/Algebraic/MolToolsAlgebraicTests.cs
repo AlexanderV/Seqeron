@@ -290,7 +290,7 @@ public class MolToolsAlgebraicTests
     //   — PrimerDesigner.CalculateNearestNeighborThermodynamicsLna /
     //     CalculateMeltingTemperatureNNLna. TestSpec tests/TestSpecs/PROBE-LNATM-001.md.
     //
-    // Laws (row 243): ID — zero LNA → equals the PRIMER-NNTM result.
+    // Laws (row 243): ID — zero LNA → equals the SantaLucia (1998) unified DNA NN result (DNA_NN3).
     //                 IDEMP — LNA Tm is a pure, deterministic function.
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -298,14 +298,17 @@ public class MolToolsAlgebraicTests
     public void LnaTm_Identity_ZeroLnaEqualsPlainNn()
     {
         const string seq = "GTGCATCGATGCAGC";
+        // Both LNA models sit on the SantaLucia (1998) unified DNA set (Allawi & SantaLucia 1997, Biopython DNA_NN3),
+        // as McTigue (2004) / Owczarzy (2011) and MELTING do — zero LNA reduces to that DNA NN model.
         var lna = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, System.Array.Empty<int>());
-        var dna = PrimerDesigner.CalculateNearestNeighborThermodynamics(seq);
-        lna!.Value.DeltaH.Should().Be(dna!.Value.DeltaH);
-        lna.Value.DeltaS.Should().Be(dna.Value.DeltaS);
+        var dna = ThermoConstants.CalculateNearestNeighborThermodynamics(seq, parameterSet: NnParameterSet.AllawiSantaLucia1997);
+        lna!.Value.DeltaH.Should().BeApproximately(dna.DeltaH, 1e-9);
+        lna.Value.DeltaS.Should().BeApproximately(dna.DeltaS, 1e-9);
 
         double tmLna = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, System.Array.Empty<int>());
-        double tmDna = PrimerDesigner.CalculateMeltingTemperatureNN(seq);
-        tmLna.Should().Be(tmDna);
+        double tmDna = ThermoConstants.CalculateNearestNeighborTm(seq, parameterSet: NnParameterSet.AllawiSantaLucia1997,
+            dnac1: 250, dnac2: 250, sodium: 50, saltCorrection: NnSaltCorrection.Owczarzy2004, gasConstant: 1.9872);
+        tmLna.Should().BeApproximately(tmDna, 1e-9);
     }
 
     [Test]

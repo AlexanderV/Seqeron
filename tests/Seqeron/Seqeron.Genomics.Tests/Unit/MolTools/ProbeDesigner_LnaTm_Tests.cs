@@ -1,259 +1,300 @@
-// PROBE-DESIGN-001 — LNA-adjusted nearest-neighbour Tm + citable MGB design rules
+// PROBE-LNATM-001 — LNA-modified nearest-neighbour thermodynamics / Tm + citable MGB design rules
 // Evidence: docs/Evidence/PROBE-DESIGN-001-LNA-Evidence.md
-// TestSpec: tests/TestSpecs/PROBE-DESIGN-001-LNA.md
+// TestSpec: tests/TestSpecs/PROBE-LNATM-001.md
 // Sources:
-//   McTigue PM, Peterson RJ, Kahn JD (2004). Biochemistry 43:5388-5405 — LNA-DNA NN increments
-//     (DOI 10.1021/bi035976d); values transcribed verbatim from MELTING 5 McTigue2004lockedmn.xml.
-//   rmelting tutorial worked example (MELTING mct04): CCATT(L)GCTACC → Tm 63.61426 °C.
-//   SantaLucia J (1998). PNAS 95(4):1460-65 — base DNA NN model.
+//   McTigue PM, Peterson RJ, Kahn JD (2004). Biochemistry 43:5388-5405 — LNA-DNA NN increments.
+//   Owczarzy R, You Y, Groth CL, Tataurov AV (2011). Biochemistry 50:9352-9367 — single-LNA, consecutive-LNA
+//     and LNA-mismatch NN parameters; measured Tm (2 µM, 1 M Na⁺) of the LNA triplet duplexes below.
+//   MELTING 5.2.0 (Dumousseau et al. 2012, BMC Bioinformatics 13:101; melting5.jar + data files shipped in
+//     Bioconductor rmelting) — reference implementation; every expected ΔH°/ΔS°/Tm below was produced by
+//     melting5.jar (Main.getMeltingResults, full double precision), e.g. rmelting test-method.locked.R:
+//     CCATTLGCTACC mct04 63.61426, owc11 63.48299; GALCLC 12.94323.
+//   Biopython 1.88 Bio.SeqUtils.MeltingTemp.Tm_NN(nn_table=DNA_NN3) — LNA-free reduction.
 //   Kutyavin IV et al. (2000). Nucleic Acids Res 28(2):655-661 — 3'-MGB design rules.
 
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>
-/// Tests for the opt-in LNA (locked nucleic acid)-adjusted nearest-neighbour Tm added under
-/// PROBE-DESIGN-001, and the citable 3'-MGB design-rule check. Expected ΔH°/ΔS°/Tm are
-/// hand-derived from the McTigue (2004) increment table (verbatim from the MELTING data file)
-/// added to the SantaLucia (1998) DNA NN model — independent of the implementation.
+/// Tests for the LNA-modified nearest-neighbour thermodynamics / Tm (McTigue 2004 and Owczarzy 2011 models on the
+/// SantaLucia 1998 unified DNA set, as MELTING 5 implements them) and the citable 3'-MGB design-rule check.
 /// </summary>
 [TestFixture]
 public class ProbeDesigner_LnaTm_Tests
 {
     private const double Tol = 1e-9;
-    private const double TmTol = 1e-4;
+    private const double MeltingR = 1.99;   // MELTING NearestNeighborMode.computesMeltingTemperature
+    private const PrimerDesigner.LnaNearestNeighborModel Owc = PrimerDesigner.LnaNearestNeighborModel.Owczarzy2011;
+    private const PrimerDesigner.LnaNearestNeighborModel Mct = PrimerDesigner.LnaNearestNeighborModel.McTigue2004;
 
-    // Worked example duplex (rmelting tutorial CCATT(L)GCTACC → DNA CCATTGCTACC, LNA at index 4).
-    private const string WorkedSeq = "CCATTGCTACC";
-    private const int WorkedLnaIndex = 4;
-
-    // Worked-example conditions: C_T = 1e-4 M, [Na+] = 1 M reference state, no salt correction.
-    private const double WorkedConc = 1e-4;
-    private const double WorkedNa = 1.0;
-
-    #region CalculateNearestNeighborThermodynamicsLna — ΔH°/ΔS°
-
-    // M1 — CCATTGCTACC, LNA at index 4 (the second T).
-    // Base DNA NN (SantaLucia 1998 unified, library NnUnifiedParams):
-    //   ends C,C → no terminal-AT; not self-comp → no symmetry.
-    //   ΔH° = -80.8 kcal/mol, ΔS° = -221.7 cal/(mol·K)  (library CalculateNearestNeighborThermodynamics).
-    // LNA increments for locked index 4 (McTigue 2004, verbatim XML):
-    //   step i=3 "TT", 3' base (idx 4) locked → TTL/AA = (+2326 cal, +8.1) = (+2.326 kcal, +8.1)
-    //   step i=4 "TG", 5' base (idx 4) locked → TLG/AC = (-1540 cal, -3.0) = (-1.540 kcal, -3.0)
-    //   ΔH°_LNA = -80.8 + 2.326 - 1.540 = -80.014 kcal/mol
-    //   ΔS°_LNA = -221.7 + 8.1 - 3.0    = -216.6  cal/(mol·K)
-    [Test]
-    public void CalculateNearestNeighborThermodynamicsLna_SingleInternalLna_MatchesMcTigueIncrement()
+    // MELTING notation: "L" after a base marks it as LNA.
+    private static (string Seq, int[] Lna) Parse(string melting)
     {
-        var lna = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { WorkedLnaIndex });
+        var sb = new System.Text.StringBuilder();
+        var lna = new List<int>();
+        foreach (char c in melting)
+        {
+            if (c == 'L') lna.Add(sb.Length - 1);
+            else sb.Append(c);
+        }
+        return (sb.ToString(), lna.ToArray());
+    }
 
-        Assert.That(lna, Is.Not.Null, "CCATTGCTACC is all-ACGT and the LNA at index 4 is internal.");
+    private static void AssertMelting(string melting, string? target, PrimerDesigner.LnaNearestNeighborModel model,
+        double c, double na, double mg, double hCal, double s, double tm)
+    {
+        var (seq, lna) = Parse(melting);
+        var th = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, lna, model, target);
+        var mode = mg > 0 ? PrimerDesigner.SaltCorrectionMode.Owczarzy2008Divalent : PrimerDesigner.SaltCorrectionMode.Owczarzy2004Monovalent;
+        double t = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, lna, model, target, c, na, mg, 0, mode, MeltingR);
+        Assert.That(th, Is.Not.Null, melting);
         Assert.Multiple(() =>
         {
-            Assert.That(lna!.Value.DeltaH, Is.EqualTo(-80.014).Within(Tol),
-                "ΔH° = base DNA -80.8 + TTL/AA(+2.326) + TLG/AC(-1.540) (McTigue 2004 verbatim).");
-            Assert.That(lna.Value.DeltaS, Is.EqualTo(-216.6).Within(Tol),
-                "ΔS° = base DNA -221.7 + TTL/AA(+8.1) + TLG/AC(-3.0) (McTigue 2004 verbatim).");
-            Assert.That(lna.Value.IsSelfComplementary, Is.False,
-                "CCATTGCTACC is not self-complementary (computed on the underlying DNA).");
+            Assert.That(th!.Value.DeltaH * 1000, Is.EqualTo(hCal).Within(1e-6), $"{melting} ΔH° (MELTING)");
+            Assert.That(th.Value.DeltaS, Is.EqualTo(s).Within(Tol), $"{melting} ΔS° (MELTING)");
+            Assert.That(t, Is.EqualTo(tm).Within(1e-9), $"{melting} Tm (MELTING)");
         });
     }
 
-    // M6 — Negative-ΔΔ increment applied with the correct sign.
-    // Step "GG" with the 5' base (the first G) locked → GLG/CC = (-2844 cal, -6.7) = (-2.844 kcal, -6.7).
-    // Sequence GGGCC, LNA at index 1: only step i=1 "GG" has the locked 5' base (index 1);
-    //   step i=0 "GG" has the locked base at i+1 (index 1) → GGL/CC = (-943 cal, -0.9) = (-0.943, -0.9);
-    //   step i=2 "GC", step i=3 "CC" no LNA.
-    // So increments = GGL/CC (i=0, 3'-locked) + GLG/CC (i=1, 5'-locked).
-    //   ΔΔH = -0.943 + -2.844 = -3.787 kcal/mol ; ΔΔS = -0.9 + -6.7 = -7.6 cal/(mol·K).
-    [Test]
-    public void CalculateNearestNeighborThermodynamicsLna_NegativeIncrement_LowersDeltaHByExactAmount()
-    {
-        var dna = PrimerDesigner.CalculateNearestNeighborThermodynamics("GGGCC");
-        var lna = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("GGGCC", new[] { 1 });
+    #region rmelting worked examples (test-method.locked.R) — C_T 1e-4 M, Na⁺ 1 M
 
-        Assert.That(dna, Is.Not.Null);
-        Assert.That(lna, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(lna!.Value.DeltaH - dna!.Value.DeltaH, Is.EqualTo(-3.787).Within(Tol),
-                "ΔΔH = GGL/CC(-0.943) + GLG/CC(-2.844) applied with correct (negative) sign.");
-            Assert.That(lna.Value.DeltaS - dna.Value.DeltaS, Is.EqualTo(-7.6).Within(Tol),
-                "ΔΔS = GGL/CC(-0.9) + GLG/CC(-6.7).");
-        });
+    [Test]
+    public void WorkedExample_McTigue2004_CCATTLGCTACC_MatchesMelting()
+    {
+        // MELTING -lck mct04: base all97 (−81.1/−222.5) + TTL/AA (+2.326/+8.1) + TLG/AC (−1.540/−3.0).
+        AssertMelting("CCATTLGCTACC", null, Mct, 1e-4, 1, 0, -80314.0, -217.4, 63.614259353345176);
     }
 
-    // C1 — Two internal LNA positions: increments are additive.
-    // CCATTGCTACC, LNA at indices 4 and 6 (T and C).
-    //   index 4 (as M1): TTL/AA(i=3,3') + TLG/AC(i=4,5')  → already counted.
-    //   index 6 (the C): step i=5 "GC", 3' base (idx 6) locked → GCL/CG = (-0.925, -1.1)
-    //                    step i=6 "CT", 5' base (idx 6) locked → CLT/GA = (+0.708, +4.2)
-    //   total over single-LNA(4): add GCL/CG + CLT/GA.
     [Test]
-    public void CalculateNearestNeighborThermodynamicsLna_TwoInternalLna_AddsBothIncrements()
+    public void WorkedExample_Owczarzy2011_CCATTLGCTACC_MatchesMelting()
     {
-        var one = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { 4 });
-        var two = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { 4, 6 });
+        // MELTING default owc11: complete TTL/AA (−5.574/−14.149) and TLG/AC (−10.040/−25.744).
+        AssertMelting("CCATTLGCTACC", null, Owc, 1e-4, 1, 0, -80314.0, -217.493, 63.48298667194416);
+    }
 
-        Assert.That(one, Is.Not.Null);
-        Assert.That(two, Is.Not.Null);
-        // ΔΔ from adding the index-6 LNA = GCL/CG(-0.925,-1.1) + CLT/GA(+0.708,+4.2).
+    [Test]
+    public void WorkedExample_Owczarzy2011_ConsecutiveLna_GALCLC_MatchesMelting()
+    {
+        AssertMelting("GALCLC", null, Owc, 1e-4, 1, 0, -24849.0, -65.76899999999999, 12.943226486909339);
+    }
+
+    [Test]
+    public void DefaultOverloads_AreOwczarzy2011()
+    {
+        var (seq, lna) = Parse("CCATTLGCTACC");
+        var a = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, lna);
+        var b = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, lna, Owc);
+        double ta = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, lna, 1e-4, 1.0,
+            saltMode: PrimerDesigner.SaltCorrectionMode.None);
+        // R = 1.9872 (class default): −80314 / (−217.493 + 1.9872·ln(2.5e-5)) − 273.15
+        double expected = -80314.0 / (-217.493 + 1.9872 * Math.Log(1e-4 / 4)) - 273.15;
         Assert.Multiple(() =>
         {
-            Assert.That(two!.Value.DeltaH - one!.Value.DeltaH, Is.EqualTo(-0.925 + 0.708).Within(Tol),
-                "Second LNA adds GCL/CG(-0.925) + CLT/GA(+0.708) on top of the first.");
-            Assert.That(two.Value.DeltaS - one.Value.DeltaS, Is.EqualTo(-1.1 + 4.2).Within(Tol),
-                "Second LNA adds GCL/CG(-1.1) + CLT/GA(+4.2) on top of the first.");
+            Assert.That(a, Is.EqualTo(b));
+            Assert.That(ta, Is.EqualTo(expected).Within(1e-9));
         });
     }
 
     #endregion
 
-    #region CalculateMeltingTemperatureNNLna — Tm
+    #region Owczarzy et al. (2011) LNA triplet duplexes — 2 µM, 1 M Na⁺ (MELTING test set)
 
-    // M2 — LNA-adjusted Tm of CCATT(L)GCTACC at C=1e-4, Na=1 (reference state, no salt correction).
-    //   Tm = ΔH°·1000 / (ΔS° + R·ln(C/4)) - 273.15,  R = 1.9872, x = 4 (non-self-comp).
-    //      = -80014 / (-216.6 + 1.9872·ln(1e-4/4)) - 273.15 = 63.527594 °C.
-    //   MELTING mct04 reports 63.61426 °C; agreement within ~0.1 °C (different base DNA NN set).
-    [Test]
-    public void CalculateMeltingTemperatureNNLna_WorkedExample_MatchesHandDerivedAndMelting()
+    // (probe in MELTING notation, target 3'→5', MELTING ΔH cal/mol, ΔS, Tm, measured Tm (Owczarzy 2011))
+    private static readonly object[] TripletCases =
     {
-        double tm = PrimerDesigner.CalculateMeltingTemperatureNNLna(
-            WorkedSeq, new[] { WorkedLnaIndex },
-            strandConcentrationMolar: WorkedConc, sodiumMolar: WorkedNa,
-            saltMode: PrimerDesigner.SaltCorrectionMode.None);
+        new object[] { "TGACGGAGLCLGLATTCAGC", "ACTGCCTCGCTAAGTCG", -143605.0, -378.65899999999993, 79.2279033762257, 78.6 },
+        new object[] { "CTATCCAGLGLCLATTCGCA", "GATAGGTCCGTAAGCGT", -142282.0, -376.9169999999999, 77.48030230203858, 77.4 },
+        new object[] { "TTACTGTCLALALGGCAACT", "AATGACAGTTCCGTTGA", -133295.0, -356.491, 72.74444452341862, 73.0 },
+        new object[] { "GCGTCAAGLCLGLACATCAT", "CGCAGTTCGCTGTAGTA", -143705.0, -381.0589999999999, 77.40880076697937, 75.0 },
+        new object[] { "CGACTTGTLCLCLATACCTA", "GCTGAACAGGTATGGAT", -135851.0, -361.9319999999999, 74.46906334150503, 73.7 },
+        new object[] { "CCATGCGTLALGLACAAGTG", "GGTACGCATCTGTTCAC", -139084.0, -368.41299999999995, 76.9360084459031, 74.4 },
+        new object[] { "CTATCGCALTLCLTAATAAT", "GATAGCGTAGATTATTA", -131103.0, -360.6429999999999, 63.4299082370959, 63.8 },
+        // central +X·mismatch (LNA-mismatch parameters)
+        new object[] { "TGACGGAGLCLGLATTCAGC", "ACTGCCTCACTAAGTCG", -135441.0, -365.7269999999999, 70.08685927536197, 68.5 },
+        new object[] { "CTATCCAGLGLCLATTCGCA", "GATAGGTCTGTAAGCGT", -142716.0, -384.1639999999999, 72.3790117774858, 70.7 },
+        new object[] { "TTACTGTCLALALGGCAACT", "AATGACAGCTCCGTTGA", -116357.0, -316.32099999999997, 63.927874820717705, 61.4 },
+        new object[] { "GCGTCAAGLCLGLACATCAT", "CGCAGTTCCCTGTAGTA", -128708.0, -352.0039999999999, 64.77605112645784, 57.4 },
+        new object[] { "CGACTTGTLCLCLATACCTA", "GCTGAACACGTATGGAT", -106045.0, -292.738, 56.58142789274967, 53.6 },
+        new object[] { "CCATGCGTLALGLACAAGTG", "GGTACGCAGCTGTTCAC", -113930.0, -306.07399999999996, 66.99414903034778, 65.6 },
+        new object[] { "CTATCGCALTLCLTAATAAT", "GATAGCGTCGATTATTA", -106416.0, -302.4029999999999, 48.081383202006236, 50.6 },
+    };
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(tm, Is.EqualTo(63.527594).Within(TmTol),
-                "Hand-derived LNA Tm from -80.014 kcal / -216.6 cal·K⁻¹ via the bimolecular Tm equation.");
-            Assert.That(Math.Abs(tm - 63.61426), Is.LessThan(0.1),
-                "Within 0.1 °C of MELTING mct04 (63.61426 °C); residual is the base DNA NN model choice.");
-        });
+    [TestCaseSource(nameof(TripletCases))]
+    public void Owczarzy2011_LnaTriplets_MatchMelting(string probe, string target, double h, double s, double tm, double measured)
+    {
+        AssertMelting(probe, target, Owc, 2e-6, 1, 0, h, s, tm);
     }
 
-    // M3 — Adding the internal LNA RAISES Tm vs the all-DNA duplex (McTigue 2004 stabilization).
-    //   all-DNA Tm = -80800 / (-221.7 + R·ln(1e-4/4)) - 273.15 = 59.692264 °C.
     [Test]
-    public void CalculateMeltingTemperatureNNLna_AddingLna_RaisesTmVsAllDna()
+    public void Owczarzy2011_PerfectMatchTriplets_WithinMeasuredTm()
     {
-        double tmDna = PrimerDesigner.CalculateMeltingTemperatureNN(
-            WorkedSeq, strandConcentrationMolar: WorkedConc, sodiumMolar: WorkedNa,
-            saltMode: PrimerDesigner.SaltCorrectionMode.None);
-        double tmLna = PrimerDesigner.CalculateMeltingTemperatureNNLna(
-            WorkedSeq, new[] { WorkedLnaIndex },
-            strandConcentrationMolar: WorkedConc, sodiumMolar: WorkedNa,
-            saltMode: PrimerDesigner.SaltCorrectionMode.None);
-
-        Assert.Multiple(() =>
+        // The seven perfect-match triplet duplexes: model vs measured Tm (Owczarzy 2011), mean |error| 1.007 °C.
+        double sum = 0;
+        for (int i = 0; i < 7; i++)
         {
-            Assert.That(tmDna, Is.EqualTo(59.692264).Within(TmTol),
-                "All-DNA CCATTGCTACC Tm (no LNA) by the same equation.");
-            Assert.That(tmLna, Is.GreaterThan(tmDna),
-                "An internal LNA substitution stabilises the duplex → higher Tm (McTigue 2004).");
-            Assert.That(tmLna - tmDna, Is.EqualTo(63.527594 - 59.692264).Within(TmTol),
-                "ΔTm = +3.835 °C from the McTigue increments for this duplex.");
-        });
+            var row = (object[])TripletCases[i];
+            var (seq, lna) = Parse((string)row[0]);
+            double t = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, lna, Owc, (string)row[1], 2e-6, 1.0,
+                saltMode: PrimerDesigner.SaltCorrectionMode.Owczarzy2004Monovalent, gasConstant: MeltingR);
+            sum += Math.Abs(t - (double)row[5]);
+        }
+        Assert.That(sum / 7, Is.EqualTo(1.0068).Within(0.001));
     }
 
-    // M4 — With no LNA positions, the LNA Tm exactly equals the plain perfect-match NN Tm.
     [Test]
-    public void CalculateMeltingTemperatureNNLna_NoLnaPositions_EqualsPlainNNTm()
+    public void Owczarzy2011_CentralMismatch_LowersTmVsPerfectMatch()
     {
-        double plain = PrimerDesigner.CalculateMeltingTemperatureNN(
-            WorkedSeq, strandConcentrationMolar: WorkedConc, sodiumMolar: WorkedNa,
-            saltMode: PrimerDesigner.SaltCorrectionMode.None);
-        double lnaEmpty = PrimerDesigner.CalculateMeltingTemperatureNNLna(
-            WorkedSeq, Array.Empty<int>(),
-            strandConcentrationMolar: WorkedConc, sodiumMolar: WorkedNa,
-            saltMode: PrimerDesigner.SaltCorrectionMode.None);
-
-        Assert.That(lnaEmpty, Is.EqualTo(plain).Within(Tol),
-            "Empty LNA-position set must reduce to the unchanged perfect-match NN Tm (opt-in additivity).");
-    }
-
-    // M5 — Terminal LNA (index 0 or last) is not parameterised by McTigue (2004) → not computable.
-    [Test]
-    public void CalculateMeltingTemperatureNNLna_TerminalLna_ReturnsNotComputable()
-    {
-        int last = WorkedSeq.Length - 1;
-        Assert.Multiple(() =>
-        {
-            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { 0 }),
-                Is.Null, "LNA at index 0 (terminal) has no McTigue parameter.");
-            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { last }),
-                Is.Null, "LNA at the last index (terminal) has no McTigue parameter.");
-            Assert.That(PrimerDesigner.CalculateMeltingTemperatureNNLna(WorkedSeq, new[] { 0 }),
-                Is.NaN, "Terminal LNA → Tm NaN.");
-            Assert.That(PrimerDesigner.CalculateMeltingTemperatureNNLna(WorkedSeq, new[] { last }),
-                Is.NaN, "Terminal LNA → Tm NaN.");
-        });
+        for (int i = 0; i < 7; i++)
+            Assert.That((double)((object[])TripletCases[i + 7])[4], Is.LessThan((double)((object[])TripletCases[i])[4]));
     }
 
     #endregion
 
-    #region Edge cases / guards
+    #region McTigue (2004) single-LNA duplexes — 5 µM, 1 M Na⁺, both models (MELTING)
 
-    // S1 — null / empty / single-base sequence are not computable.
-    [Test]
-    public void CalculateNearestNeighborThermodynamicsLna_NullEmptyShort_ReturnsNull()
+    [TestCase("CCATTLGCTACC", -80314.0, -217.493, 55.276455530336534, -217.4, 55.40140463653762)]
+    [TestCase("GGACLCTCGAC", -70614.0, -186.42799999999997, 57.63065896930431, -186.4, 57.674050443054966)]
+    [TestCase("ACGTLCTTCG", -66442.0, -179.15699999999995, 49.06206516637917, -179.09999999999997, 49.15115657410496)]
+    [TestCase("GTAGCGATLGTA", -80624.0, -220.181, 52.95954111103447, -220.1, 53.06641952486666)]
+    [TestCase("CACLGGCTC", -57425.0, -151.11499999999998, 49.1657379120395, -151.09999999999997, 49.19287666227518)]
+    public void McTigueSet_BothModels_MatchMelting(string probe, double h, double sOwc, double tmOwc, double sMct, double tmMct)
     {
+        AssertMelting(probe, null, Owc, 5e-6, 1, 0, h, sOwc, tmOwc);
+        AssertMelting(probe, null, Mct, 5e-6, 1, 0, h, sMct, tmMct);
+    }
+
+    [Test]
+    public void McTigue2004_ConsecutiveRun_UsesOwczarzyTables_AsMelting()
+    {
+        // GCATT(L)G(L)CTA(L)CCAG: run 4–5 → Owczarzy single/tandem; isolated LNA 8 → McTigue increments.
+        AssertMelting("GCATTLGLCTALCCAG", null, Mct, 5e-6, 1, 0, -96058.0, -253.39100000000002, 69.37626216810469);
+        AssertMelting("GCATTLGLCTALCCAG", null, Owc, 5e-6, 1, 0, -96058.0, -253.44600000000003, 69.30909891329725);
+    }
+
+    #endregion
+
+    #region Salt, Mg²⁺ and DNA mismatch (MELTING)
+
+    [Test]
+    public void Owczarzy2004Sodium_MatchesMelting()
+    {
+        AssertMelting("CCATTLGCTACC", null, Owc, 5e-6, 0.05, 0, -80314.0, -217.493, 41.57149460316782);
+    }
+
+    [Test]
+    public void Owczarzy2008Magnesium_MatchesMelting()
+    {
+        AssertMelting("CCATTLGCTACC", null, Owc, 5e-6, 0.05, 0.003, -80314.0, -217.493, 49.48637755780163);
+    }
+
+    [Test]
+    public void InternalDnaMismatchAwayFromLna_UsesAllawiSantaLuciaPeyret_MatchesMelting()
+    {
+        // T·T mismatch at position 7 (target 3'→5' GGTAACGTTGG).
+        AssertMelting("CCATTLGCTACC", "GGTAACGTTGG", Owc, 5e-6, 1, 0, -70114.0, -192.493, 46.215135462730984);
+    }
+
+    #endregion
+
+    #region Reduction, guards and not-computable cases
+
+    [TestCase("CCATTGCTACC", 59.833634529845824)]
+    [TestCase("GTGCATCGATGCAGC", 75.52391452117843)]
+    [TestCase("GCATATGC", 46.231595611732246)] // self-complementary: symmetry term, k = C_T
+    public void NoLna_ReducesToBiopythonTmNN_DnaNn3(string seq, double biopython)
+    {
+        // Biopython Tm_NN(seq, nn_table=DNA_NN3, dnac1=dnac2=C_T/2 (self-comp: dnac1=C_T, dnac2=0), Na=1000, saltcorr=0)
+        foreach (var model in new[] { Owc, Mct })
+        {
+            double t = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, Array.Empty<int>(), model, null,
+                1e-4, 1.0, saltMode: PrimerDesigner.SaltCorrectionMode.None, gasConstant: 1.987);
+            Assert.That(t, Is.EqualTo(biopython).Within(1e-9), $"{seq} {model}");
+        }
+    }
+
+    [Test]
+    public void NoLna_SelfComplementary_At50mM_ReducesToBiopythonTmNN_Method6()
+    {
+        // Biopython Tm_NN("GCATATGC", nn_table=DNA_NN3, dnac1=500, dnac2=0, selfcomp=True, Na=50, saltcorr=6)
+        double t = PrimerDesigner.CalculateMeltingTemperatureNNLna("GCATATGC", Array.Empty<int>(), Owc, null,
+            0.5e-6, 0.05, gasConstant: 1.987);
+        Assert.That(t, Is.EqualTo(16.621392992113726).Within(1e-9));
+    }
+
+    [Test]
+    public void LnaModifiedSelfComplementarySequence_IsNotSymmetricDuplex()
+    {
+        // An LNA strand paired with an unmodified DNA complement is a heteroduplex (MELTING rejects -self with LNA).
+        var th = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("GCATATGC", new[] { 3 });
+        Assert.That(th!.Value.IsSelfComplementary, Is.False);
+        var dna = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("GCATATGC", Array.Empty<int>());
+        Assert.That(dna!.Value.IsSelfComplementary, Is.True);
+    }
+
+    [Test]
+    public void NotComputable_Cases()
+    {
+        const string seq = "CCATTGCTACC";
         Assert.Multiple(() =>
         {
-            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(null!, Array.Empty<int>()),
-                Is.Null, "null sequence → null.");
-            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("", Array.Empty<int>()),
-                Is.Null, "empty sequence → null.");
-            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("A", Array.Empty<int>()),
-                Is.Null, "single base (< 2 nt) → null.");
-            Assert.Throws<ArgumentNullException>(
-                () => PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, null!),
-                "null lnaPositions → ArgumentNullException.");
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 0 }), Is.Null, "terminal LNA");
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 10 }), Is.Null, "terminal LNA");
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 11 }), Is.Null, "out of range");
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { -1 }), Is.Null, "negative");
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(null!, Array.Empty<int>()), Is.Null);
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("", Array.Empty<int>()), Is.Null);
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("A", Array.Empty<int>()), Is.Null);
+            Assert.That(PrimerDesigner.CalculateMeltingTemperatureNNLna("CCANTGCTACC", new[] { 4 }), Is.NaN, "non-ACGT");
+            // Target of another length / terminal mismatch.
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 4 }, Owc, "GGTAACGATG"), Is.Null);
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 4 }, Owc, "AGTAACGATGG"), Is.Null);
+            // Mismatch opposite an isolated LNA: no published parameter (MELTING: "GAL/CC … missing").
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("CCAGACAGG", new[] { 4 }, Owc, "GGTCCGTCC"), Is.Null);
+            // Owczarzy mismatch table has no GLAL/CA (MELTING: "GLAL/C A … missing").
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("CCATGACAGG", new[] { 4, 5, 6 }, Owc, "GGTACAGTCC"), Is.Null);
+            Assert.Throws<ArgumentNullException>(() => PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, null!));
+            Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 4 }, (PrimerDesigner.LnaNearestNeighborModel)7));
         });
     }
 
-    // S2 — out-of-range LNA index → null; duplicates and unsorted order tolerated.
     [Test]
-    public void CalculateNearestNeighborThermodynamicsLna_IndexRangeAndOrder()
+    public void DuplicateAndUnorderedPositions_SetSemantics()
     {
-        var outOfRange = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("ACGTA", new[] { 7 });
-        var dup = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { 4, 4 });
-        var single = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { 4 });
-        var unsorted = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { 6, 4 });
-        var sorted = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(WorkedSeq, new[] { 4, 6 });
-
+        const string seq = "CCATTGCTACC";
+        var a = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 4, 4 });
+        var b = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 4 });
+        var c = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 6, 4 });
+        var d = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { 4, 6 });
         Assert.Multiple(() =>
         {
-            Assert.That(outOfRange, Is.Null, "Index beyond the sequence → null.");
-            Assert.That(dup!.Value.DeltaH, Is.EqualTo(single!.Value.DeltaH).Within(Tol),
-                "Duplicate LNA index counts once (set semantics).");
-            Assert.That(unsorted!.Value.DeltaH, Is.EqualTo(sorted!.Value.DeltaH).Within(Tol),
-                "LNA-position order does not change the result.");
+            Assert.That(a, Is.EqualTo(b));
+            Assert.That(c, Is.EqualTo(d));
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna("ccattgctacc", new[] { 4 }), Is.EqualTo(b), "case-insensitive");
         });
     }
 
-    // S3 — non-ACGT base makes the underlying DNA NN lookup fail → not computable.
     [Test]
-    public void CalculateMeltingTemperatureNNLna_NonAcgtBase_ReturnsNaN()
+    public void EveryInternalLnaContext_IsParameterised_BothModels()
     {
-        double tm = PrimerDesigner.CalculateMeltingTemperatureNNLna("CCANTGCTACC", new[] { 4 });
-        Assert.That(tm, Is.NaN, "An 'N' makes the DNA NN lookup fail → NaN.");
+        const string seq = "AACAGATCCGCTGGTTA"; // all 16 dinucleotides
+        for (int i = 1; i < seq.Length - 1; i++)
+        {
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { i }, Owc), Is.Not.Null, $"owc {i}");
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { i }, Mct), Is.Not.Null, $"mct {i}");
+            if (i + 1 < seq.Length - 1)
+                Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { i, i + 1 }, Owc), Is.Not.Null, $"tandem {i}");
+        }
     }
 
-    // S4 — completeness: every NN step has both a 5'-locked and a 3'-locked increment so that any
-    // internal LNA in an all-ACGT sequence is computable (32 = 16 steps × 2 locked positions).
     [Test]
-    public void CalculateNearestNeighborThermodynamicsLna_AllInternalContexts_AreParameterised()
+    public void ConditionGuards_Throw()
     {
-        // A sequence visiting many contexts; any single internal LNA must be computable.
-        const string seq = "ACGTACGTACGTACGT";
+        var p = new[] { 4 };
         Assert.Multiple(() =>
         {
-            for (int i = 1; i < seq.Length - 1; i++)
-            {
-                var r = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, new[] { i });
-                Assert.That(r, Is.Not.Null,
-                    $"Internal LNA at index {i} must have a McTigue increment for both adjacent steps.");
-            }
+            Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.CalculateMeltingTemperatureNNLna("CCATTGCTACC", p, 0.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.CalculateMeltingTemperatureNNLna("CCATTGCTACC", p, 1e-6, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.CalculateMeltingTemperatureNNLna("CCATTGCTACC", p, 1e-6, 0.05, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.CalculateMeltingTemperatureNNLna("CCATTGCTACC", p, Owc, null, gasConstant: 0));
         });
     }
 
@@ -261,31 +302,25 @@ public class ProbeDesigner_LnaTm_Tests
 
     #region MGB design rules (Kutyavin 2000)
 
-    // M7 — MGB design rules: 12–20mer length window; 3'-MGB attachment guidance.
     [Test]
     public void EvaluateMgbProbeDesign_LengthWindowAndThreePrimePlacement()
     {
-        var fifteen = ProbeDesigner.EvaluateMgbProbeDesign("ACGTACGTACGTACG");   // 15 nt — in range
-        var twentyFive = ProbeDesigner.EvaluateMgbProbeDesign("ACGTACGTACGTACGTACGTACGTA"); // 25 nt — too long
-
+        var fifteen = ProbeDesigner.EvaluateMgbProbeDesign("ACGTACGTACGTACG");
+        var twentyFive = ProbeDesigner.EvaluateMgbProbeDesign("ACGTACGTACGTACGTACGTACGTA");
+        var twelve = ProbeDesigner.EvaluateMgbProbeDesign("ACGTACGTACGT");
+        var eleven = ProbeDesigner.EvaluateMgbProbeDesign("ACGTACGTACG");
         Assert.Multiple(() =>
         {
             Assert.That(fifteen.Length, Is.EqualTo(15));
-            Assert.That(fifteen.LengthInMgbRange, Is.True,
-                "15mer is within the Kutyavin (2000) MGB 12–20mer window.");
-            Assert.That(fifteen.MgbAttachmentEnd, Is.EqualTo("3'"),
-                "MGB is attached at the 3' end (Kutyavin 2000).");
-
-            Assert.That(twentyFive.Length, Is.EqualTo(25));
-            Assert.That(twentyFive.LengthInMgbRange, Is.False,
-                "25mer exceeds the MGB 12–20mer window — MGB probes are designed shorter.");
-            Assert.That(twentyFive.Guidance,
-                Has.Some.Contains("12-20mer"),
-                "Out-of-range length is flagged against the cited 12–20mer window.");
+            Assert.That(fifteen.LengthInMgbRange, Is.True);
+            Assert.That(fifteen.MgbAttachmentEnd, Is.EqualTo("3'"));
+            Assert.That(twelve.LengthInMgbRange, Is.True, "12mer is the lower bound");
+            Assert.That(eleven.LengthInMgbRange, Is.False);
+            Assert.That(twentyFive.LengthInMgbRange, Is.False);
+            Assert.That(twentyFive.Guidance, Has.Some.Contains("12-20mer"));
         });
     }
 
-    // S-guard — null probe throws.
     [Test]
     public void EvaluateMgbProbeDesign_Null_Throws()
     {

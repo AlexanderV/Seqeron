@@ -1242,7 +1242,9 @@ public class MolToolsCombinatorialTests
         double tm0 = PrimerDesigner.CalculateMeltingTemperatureNNLna(probe, System.Array.Empty<int>());
 
         if (lnaCount == 0)
-            tm.Should().Be(PrimerDesigner.CalculateMeltingTemperatureNN(probe), "zero LNA reduces to the plain DNA NN Tm");
+            tm.Should().BeApproximately(ThermoConstants.CalculateNearestNeighborTm(probe, parameterSet: NnParameterSet.AllawiSantaLucia1997,
+                dnac1: 500, dnac2: 0, selfComplementary: true, sodium: 50, saltCorrection: NnSaltCorrection.Owczarzy2004, gasConstant: 1.9872), 1e-9,
+                "zero LNA reduces to the SantaLucia (1998) unified DNA NN Tm (the base set of the LNA models); the GCAT-repeat probes are self-complementary");
         else
             tm.Should().BeGreaterThan(tm0, "stabilising LNA increments raise Tm above the unmodified probe");
 

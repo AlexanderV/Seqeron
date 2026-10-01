@@ -739,6 +739,36 @@ public static class ThermoConstants
     }
 
     /// <summary>
+    /// Parameters (ΔH° kcal/mol, ΔS° cal/(K·mol)) of one internal nearest-neighbour step of a possibly
+    /// mismatched duplex, looked up exactly as Biopython <c>Tm_NN</c>'s zipping loop does: key
+    /// "<paramref name="top"/>/<paramref name="bottom"/>" first in the internal-mismatch / inosine table
+    /// (DNA_IMM1; Allawi &amp; SantaLucia 1997–1998, Peyret et al. 1999), then in the Watson–Crick table of
+    /// <paramref name="parameterSet"/>, each key also tried reversed.
+    /// </summary>
+    /// <param name="parameterSet">Watson–Crick NN table.</param>
+    /// <param name="top">Top-strand dinucleotide 5'→3' (upper case).</param>
+    /// <param name="bottom">The two opposite bottom-strand bases, written 3'→5' (upper case).</param>
+    /// <param name="parameters">The step parameters when found.</param>
+    /// <returns><c>true</c> when either table has the step.</returns>
+    public static bool TryGetNearestNeighborDuplexStep(
+        NnParameterSet parameterSet, string top, string bottom, out (double DeltaH, double DeltaS) parameters)
+    {
+        parameters = default;
+        if (top is null || bottom is null || top.Length != 2 || bottom.Length != 2)
+            return false;
+        string key = top + "/" + bottom;
+        string reversed = ReverseString(key);
+        var stacks = GetNnTable(parameterSet).Stacks;
+        if (DnaImm1.TryGetValue(key, out var p) || DnaImm1.TryGetValue(reversed, out p)
+            || stacks.TryGetValue(key, out p) || stacks.TryGetValue(reversed, out p))
+        {
+            parameters = (p.H, p.S);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Initiation-type terms of a nearest-neighbour table (ΔH° kcal/mol, ΔS° cal/(K·mol)) — Biopython keys
     /// <c>init</c>, <c>init_A/T</c>, <c>init_G/C</c>, <c>init_oneG/C</c>, <c>init_allA/T</c>, <c>init_5T/A</c>, <c>sym</c>.
     /// </summary>
