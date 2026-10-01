@@ -122,8 +122,8 @@
 ## Assumptions
 
 1. **ASSUMPTION: 25 % inclusion threshold is a documented design constant.** This implementation includes a base in a column's IUPAC code iff its count is strictly greater than 25 % of the number of sequences (`count > total × 0.25`). The *threshold-consensus family* and the "include bases above a frequency threshold, encode the set with an IUPAC code" rule are authoritative (DECIPHER); the specific 25 % cut and the strict `>` boundary are this implementation's design choice (DECIPHER's own default is 0.05 and tools vary). It is correctness-affecting but documented and named (`threshold = total * 0.25`), not invented-untraceable. Tests pin the boundary behaviour explicitly and otherwise use inputs where the inclusion decision is unambiguous so the verified *symbol* is dictated solely by the authoritative NC-IUB table.
-2. **ASSUMPTION: Fallback when no base passes the threshold.** When no base exceeds the threshold (e.g. four equally-frequent bases at exactly 25 %), the implementation falls back to the single most-frequent base (ties broken by dictionary/alphabetical order). No authoritative spec defines this corner; it is an implementation contract, verified as a documented edge case.
-3. **ASSUMPTION: Column length taken from the first sequence; case-insensitive over {A,C,G,T}; non-ACGT characters at a position are ignored in the counts.** Inputs are upper-cased; only A/C/G/T are counted per the four-base alphabet.
+2. **Fallback when no base passes the threshold (sourced since 2026-09-29, B05 F13a).** When no base exceeds the threshold, the column is the IUPAC code of **all bases tied at the maximum count** (DECIPHER `ConsensusSequence`: "degeneracy codes are always used in cases where multiple characters are equally abundant"; Biopython `degenerate_consensus` agrees): four equal bases ACGT → `N`, `A,C,-,-` → `M`; a column without any A/C/G/T → `N`. (Previously the single first most-frequent base was emitted, e.g. ACGT → `A` — superseded.)
+3. **Input contract (since 2026-09-29, B05 F13b): all rows must have equal length; case-insensitive over {A,C,G,T}; non-ACGT characters at a position are ignored in the counts.** Ragged rows (and null rows) throw `ArgumentException` ("All sequences must have the same length."), as Biopython `MultipleSeqAlignment` / `motifs.create`; the column length is no longer silently taken from the first sequence. Inputs are upper-cased; only A/C/G/T are counted per the four-base alphabet.
 
 ---
 
@@ -151,6 +151,7 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-10-01**: Assumptions 2/3 synced to B05 F13 (tied-max IUPAC fallback, ACGT → N; ragged/null rows → `ArgumentException`).
 
 ---
 

@@ -209,7 +209,7 @@ All 20 in-scope cases ✅.
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | TATA/CCAAT/GC box scanned as core consensus strings rather than Bucher (1990) weight matrices; single-strand scan (declared in the algorithm doc §5.3). | M1, M4, M5 |
+| 1 | TATA/CCAAT/GC box scanned as core consensus strings rather than Bucher (1990) weight matrices; single-strand scan (declared in the algorithm doc §5.3). Applies to the string-library overload `FindRegulatoryElements(seq)` only — since B05 F22 (2026-09-30) Bucher/JASPAR matrices are scanned by `FindPromoterElementsByMatrix` and both strands by `FindRegulatoryElements(seq, bothStrands)`. | M1, M4, M5 |
 
 (2026-09: former assumptions "NF-κB as GGGACTTTCC" and "Kozak as GCCGCCACCATGG" removed — the published IUPAC consensus is now scanned.)
 

@@ -31,7 +31,7 @@
 1. Equiprobable model: `$common_exp_freq = 1/($alphabet_size**$oligo_length)`.
 2. Bernoulli model: `exp_freq = 1; foreach residue: exp_freq *= $residue_proba{$nt}`.
 3. `exp_occ = exp_freq * $sum_occurrences`, where `sum_occurrences = sum_overlaps + sum_noov` (all overlapping windows = N − k + 1 for one strand).
-4. Significance (not implemented, declared): `occ_P = sum_of_binomials(exp_freq, sum_occurrences, occ, sum_occurrences)`; `occ_E = occ_P × nb_tested_patterns`; `occ_sig = −log10(occ_E)`.
+4. Significance (implemented 2026-09-30, B05 F21 — `DiscoverMotifs(seq, k, minCount, OligoBackgroundModel, OligoStrandMode, countOverlapping)` → `OligoAnalysisResult` occ_P/occ_E/occ_sig; RSAT options `-zscore`, `-pseudo`, `-oneN`/`-onedeg`, `-lexicon`, `-calibN`/`-calib1` added by F31 via `AnalyzeOligos(sequences, k, OligoAnalysisOptions)`; originally declared not implemented): `occ_P = sum_of_binomials(exp_freq, sum_occurrences, occ, sum_occurrences)`; `occ_E = occ_P × nb_tested_patterns`; `occ_sig = −log10(occ_E)`.
 
 Reference values (exact Python `Fraction` re-computation of the RSAT formulas): uniform "ATGCATGCATGC", k=4 → ATGC 85.33333333333333; Bernoulli (0.3,0.2,0.2,0.3) → ATGC 92.5925925925926, TGCA/GCAT/CATG 61.72839506172839; "A"×10, k=3 → 37.03703703703704; LCG 512-mer X, X+X, k=512 → 7.008550233381348e+305 (uniform), 3.2383751592973165e+306 (bg 26/24/24/26).
 
@@ -193,3 +193,4 @@ patterns, mseq exact, ms columns ≤ 1.3e-13. Locked values in TestSpec §11.
 - **2026-09-30**: RSAT oligo-analysis significance / Markov / `-2str` implemented; RSAT run + Python port + mpmath references (review 2026-09 follow-up, B05).
 - **2026-10-01**: RSAT options (`-zscore`, `-pseudo`, `-oneN`/`-onedeg`, `-lexicon`, `-calibN`/`-calib1`) and `dyad-analysis` (review 2026-09 audit group E, B05 F31).
 - **2026-10-01**: RSAT `-seqtype dna|prot|other` and degenerate matching-sequence statistics (review 2026-09 audit round 2, B05 F33).
+- **2026-10-01**: Doc sync — key point 4 (significance) marked implemented (B05 F21, F31 options).

@@ -66,7 +66,7 @@
 2. **Longest common substring:** Retrieved text: "A common substring of a collection of maximum length."
 3. **Non-uniqueness:** Retrieved text: "AA" and "CC" are both longest common substrings of "AACC" and "CCAA".
 4. **Example:** "CG" is a common substring of "ACGTACGT" and "AACCGTATA"; "CGTA" is a longer common substring of both.
-5. **Scope note:** LCSM requires a substring present in *all* sequences with variable length. The unit under test instead fixes the length (k) and uses a *quorum* (≥ minSequences), so LCSM is documented as a related-but-distinct algorithm, not the contract here.
+5. **Scope note:** LCSM requires a substring present in *all* sequences with variable length. The unit under test instead fixes the length (k) and uses a *quorum* (≥ minSequences), so LCSM is documented as a related-but-distinct algorithm, not the contract here. LCSM itself is available since B05 F26 as `SuffixTree.FindLongestCommonSubstrings(texts, minSupport)` (MCP `suffix_tree_k_common_substrings`; Rosalind sample → {AC, CA, TA}).
 
 ---
 
@@ -79,7 +79,7 @@
 
 ### From Das & Dai (2007)
 
-1. **No variations within a word:** Exact word matching only; degenerate/substituted matches are out of scope for this enumerative method.
+1. **No variations within a word:** Exact word matching only in the plain overloads; degenerate (`-oneN` / `-onedeg`) matching-sequence statistics are available since B05 F33 via `FindSharedMotifs(…, OligoDegeneracy)` (see the degenerate-word section below).
 
 ---
 
@@ -173,12 +173,18 @@ ms_sig 1.5441166160753867; `-2str`: CGTA|TACG mseq 3, ms_P 0.0008731949030247088
 
 ---
 
+## Degenerate-word matching-sequence statistics (B05 F33, 2026-10-01)
+
+Overload `FindSharedMotifs(IEnumerable<DnaSequence>, int k, int minSequences, OligoBackgroundModel, OligoStrandMode, double pseudoFrequency, OligoDegeneracy degeneracy)` (`MotifFinder.SharedMotifsDegenerate.cs`) applies RSAT `-oneN` / `-onedeg` to mseq / ms_P: a degenerate word's matching sequences are the **union** of its words' sequence sets (RSAT 1.169 sums them — documented deviation), expected frequency = Σ over matching words; `OligoDegeneracy.None` = the plain overload exactly. Reference: RSAT `oligo-analysis` 1.169 run with the env-guarded mseq-union fix (B05.md F33). MCP: `shared_motifs_significance` optional `degenerate` ('none' | 'oneN' | 'onedeg'). Tests and spec: `Unit/Analysis/MotifFinder_SharedMotifsDegenerate_Tests.cs`; TestSpec [MOTIF-DISCOVER-001 §11](../../tests/TestSpecs/MOTIF-DISCOVER-001.md) (S1–S7, M1–M3).
+
+---
+
 ## References
 
 1. van Helden J, André B, Collado-Vides J. (1998). Extracting regulatory sites from the upstream region of yeast genes by computational analysis of oligonucleotide frequencies. J Mol Biol 281(5):827–842. https://www.sciencedirect.com/science/article/abs/pii/S0022283698919477
 2. Das MK, Dai HK. (2007). A survey of DNA motif finding algorithms. BMC Bioinformatics 8(Suppl 7):S21. https://pmc.ncbi.nlm.nih.gov/articles/PMC2099490/
 3. RSAT — oligonucleotide analysis (oligo-analysis) manual. Regulatory Sequence Analysis Tools. https://rsat.eead.csic.es/plants/help.oligo-analysis.html (accessed 2026-06-14)
-4. ROSALIND. Finding a Shared Motif (LCSM). https://rosalind.info/problems/lcsm/ (accessed 2026-06-14; cited to delineate the alternative LCSM framing not implemented here)
+4. ROSALIND. Finding a Shared Motif (LCSM). https://rosalind.info/problems/lcsm/ (accessed 2026-06-14; cited to delineate the alternative LCSM framing, which this unit does not implement — the generalized-suffix-tree LCS of k strings is implemented separately since 2026-10-01 (B05 F26): `SuffixTree.FindLongestCommonSubstrings(texts, minSupport)` / MCP `suffix_tree_k_common_substrings`)
 
 ---
 
@@ -187,3 +193,4 @@ ms_sig 1.5441166160753867; `-2str`: CGTA|TACG mseq 3, ms_P 0.0008731949030247088
 - **2026-06-14**: Initial documentation.
 - **2026-09-29**: Review 2026-09 — RSAT source-code mseq loop added with Python cross-check values.
 - **2026-09-30**: RSAT oligo-analysis significance / Markov / `-2str` implemented; RSAT run + Python port + mpmath references (review 2026-09 follow-up, B05).
+- **2026-10-01**: LCSM pointer → implemented (B05 F26, `SuffixTree.FindLongestCommonSubstrings` / `suffix_tree_k_common_substrings`); degenerate-word overload `FindSharedMotifs(…, OligoDegeneracy)` cross-referenced (B05 F33, spec in TestSpec MOTIF-DISCOVER-001 §11).

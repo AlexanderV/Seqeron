@@ -18,7 +18,7 @@
 | 1 | RSAT oligo-analysis manual (reference implementation; defines "matching sequences") | 3 | https://rsat.eead.csic.es/plants/help.oligo-analysis.html | 2026-06-14 |
 | 2 | Das & Dai (2007), A survey of DNA motif finding algorithms, BMC Bioinformatics 8(S7):S21 | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC2099490/ | 2026-06-14 |
 | 3 | van Helden, André, Collado-Vides (1998), J Mol Biol 281(5):827–842 | 1 | https://www.sciencedirect.com/science/article/abs/pii/S0022283698919477 | 2026-06-14 (403; named primary) |
-| 4 | ROSALIND LCSM (alternative framing, not implemented) | 4 | https://rosalind.info/problems/lcsm/ | 2026-06-14 |
+| 4 | ROSALIND LCSM (alternative framing, not implemented by this unit; available since B05 F26 as `SuffixTree.FindLongestCommonSubstrings(texts, minSupport)` / MCP `suffix_tree_k_common_substrings`) | 4 | https://rosalind.info/problems/lcsm/ | 2026-06-14 |
 
 ### 1.2 Key Evidence Points
 
@@ -190,7 +190,7 @@ Output order contract: first occurrence (sequence index, then position); `Sequen
 ## 7. Open Questions / Decisions
 
 1. **Decision:** The unit implements the word-enumeration / matching-sequence quorum framing (van Helden / RSAT), NOT Rosalind LCSM. LCSM is documented as a related-but-distinct algorithm in the algorithm doc.
-2. **Decision (suffix tree):** Suffix tree not used (re-checked 2026-09: `src/SuffixTree/**` has no generalized multi-string tree; words are enumerated with canonical `SequenceExtensions.CountKmersSpan`) — see algorithm doc §5.2. The repo SuffixTree is single-text; its `LongestCommonSubstring` is a two-string LCS and does not compute fixed-k matching-sequence counts across k sequences. A per-sequence distinct-word scan is the correct O(Σ(nᵢ)·k) approach.
+2. **Decision (suffix tree):** Suffix tree not used (re-checked 2026-09; note: since B05 F26 `src/SuffixTree/**` does provide a generalized-suffix-tree k-common substring, `SuffixTree.FindLongestCommonSubstrings(texts, minSupport)` / MCP `suffix_tree_k_common_substrings`, but that is variable-length LCSM, not fixed-k quorum counts; words are enumerated with canonical `SequenceExtensions.CountKmersSpan`) — see algorithm doc §5.2. The repo SuffixTree is single-text; its `LongestCommonSubstring` is a two-string LCS and does not compute fixed-k matching-sequence counts across k sequences. A per-sequence distinct-word scan is the correct O(Σ(nᵢ)·k) approach.
 
 ---
 
@@ -209,3 +209,11 @@ Test file: `Unit/Analysis/MotifFinder_OligoAnalysis_Tests.cs`.
 | G5 | adding a sequence shorter than k | S + 1, nb_pos unchanged, exp_ms = S·(1 − (1 − p)^(nb_pos/S)) | RSAT `sequence_number` vs `nb_possible_pos` (metamorphic) |
 
 Heavy tier: `Properties/MotifOligoAnalysisProperties.Shared_Significance_IsConsistent`, `Metamorphic/MotifOligoAnalysisMetamorphicTests` (sequence permutation, short sequence), `Fuzzing/MotifOligoAnalysisFuzzTests.FindSharedMotifs_RandomInputs_*`.
+
+## 9. Cross-reference — degenerate-word overload (B05 F33)
+
+`FindSharedMotifs(sequences, k, minSequences, OligoBackgroundModel, OligoStrandMode, pseudoFrequency, OligoDegeneracy)` (RSAT `-oneN` / `-onedeg` matching-sequence statistics, mseq union) is specified and tested in [MOTIF-DISCOVER-001 §11](MOTIF-DISCOVER-001.md) (S1–S7, M1–M3; `Unit/Analysis/MotifFinder_SharedMotifsDegenerate_Tests.cs`). Evidence: `docs/Evidence/MOTIF-SHARED-001-Evidence.md` (degenerate-word section).
+
+## Change History
+
+- **2026-10-01**: §7 decision 2 annotated with the F26 k-common substring; §9 cross-reference to the F33 degenerate-word overload (spec in MOTIF-DISCOVER-001 §11).

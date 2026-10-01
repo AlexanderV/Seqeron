@@ -146,7 +146,7 @@ Network: academic.oup.com, pnas.org, cell.com, frontiersin.org, jaspar.* and pro
 - **NF-κB**: "NF-κB binds to the consensus sequence 5′-GGGRNWYYCC-3′" (records of Gilmore 2006 Oncogene 25:6680 and Front Immunol 10:609, 2019) → constant `GGGRNWYYCC`.
 - **GC box / Sp1**: "21-bp repeats of the SV40 promoter contain six tandem copies of the GGGCGG hexanucleotide (GC-box), each of which can bind Sp1" (Dynan & Tjian 1983 Cell record; Gidoni, Dynan & Tjian 1984). Lundin et al. 1994 (previously cited) is about yeast MIG1.
 - **Shine & Dalgarno 1974 (PNAS 71:1342)** record: 16S rRNA 3′ end `…ACCUCCUUA`; ACCUCC complementary to GGAGGU upstream of initiation codons → `AGGAGG` unchanged.
-- **Bucher 1990** (PubMed/EPFL records): weight matrices for TATA, cap, CCAAT, GC box from 502 promoters; core strings TATAAA / CCAAT unchanged (matrix scoring declared not implemented).
+- **Bucher 1990** (PubMed/EPFL records): weight matrices for TATA, cap, CCAAT, GC box from 502 promoters; core strings TATAAA / CCAAT unchanged (matrix scoring declared not implemented at that point; implemented 2026-09-30 by B05 F22 as `FindPromoterElementsByMatrix`, see the follow-up section below).
 
 Reference implementation: Biopython 1.88 `Bio.SeqUtils.nt_search` over the 12-pattern library (library order):
 
@@ -251,6 +251,9 @@ Reference computation (Biopython 1.88):
 8. Sen R., Baltimore D. (1986). Multiple nuclear factors interact with the immunoglobulin enhancer sequences. Cell 46(5):705-716. https://doi.org/10.1016/0092-8674(86)90346-6
 9. Montminy M.R., Sevarino K.A., Wagner J.A., Mandel G., Goodman R.H. (1986). Identification of a cyclic-AMP-responsive element within the rat somatostatin gene. PNAS 83(18):6682-6686. https://doi.org/10.1073/pnas.83.18.6682
 10. Wikipedia: TATA box — https://en.wikipedia.org/wiki/TATA_box ; Pribnow box — https://en.wikipedia.org/wiki/Pribnow_box ; GC box — https://en.wikipedia.org/wiki/GC_box ; E-box — https://en.wikipedia.org/wiki/E-box ; Shine–Dalgarno sequence — https://en.wikipedia.org/wiki/Shine%E2%80%93Dalgarno_sequence ; Kozak consensus sequence — https://en.wikipedia.org/wiki/Kozak_consensus_sequence (all accessed 2026-06-14).
+11. Angel P., Imagawa M., Chiu R., Stein B., Imbra R.J., Rahmsdorf H.J., Jonat C., Herrlich P., Karin M. (1987). Phorbol ester-inducible genes contain a common cis element recognized by a TPA-modulated trans-acting factor. Cell 49(6):729-739. https://doi.org/10.1016/0092-8674(87)90611-8
+12. Gilmore T.D. (2006). Introduction to NF-κB: players, pathways, perspectives. Oncogene 25(51):6680-6684. https://doi.org/10.1038/sj.onc.1209954
+13. La Fleur T.L., Hossain A., Salis H.M. (2022). Automated model-predictive design of synthetic promoters to control transcriptional profiles in bacteria. Nat Commun 13:5159. https://doi.org/10.1038/s41467-022-32829-5 ; reference code https://github.com/hsalis/SalisLabCode/tree/master/Promoter_Calculator
 
 ---
 
@@ -259,3 +262,4 @@ Reference computation (Biopython 1.88):
 - **2026-06-14**: Initial documentation. Recorded AP-1 defect (TGAGTCA → TGACTCA) and addition of -10/-35 prokaryotic promoter hexamers.
 - **2026-09-29**: Kozak → GCCGCCRCCATGG, AP-1 → TGASTCA (TGAGTCA is the collagenase TRE / reverse complement, not a defect), NF-κB → GGGRNWYYCC; GC box and Shine-Dalgarno citations replaced by primaries. The AP-1 negative-control dataset below is superseded (TGAGTCA now expected as an AP-1 hit).
 - **2026-09-30**: Both-strand scan (`FindRegulatoryElements(seq, bothStrands)`) for CAAT / GC box / NF-κB; Bucher 1990 matrices (JASPAR POL012.1/POL002.1/POL004.1/POL003.1) with FPR-threshold PWM scan (`FindPromoterElementsByMatrix`).
+- **2026-10-01**: B05 F30 — σ70 −35/−10 consensus pairing `FindSigma70Promoters` (Harley & Reynolds 1987) and Promoter Calculator v1.0 port `PredictSigma70Promoters` (La Fleur, Hossain & Salis 2022), bit-identical to the reference code. Doc sync: Assumptions / Recommendation 2 / AP-1 and NF-κB key points rewritten to the F12 IUPAC constants (`GCCGCCRCCATGG`, `TGASTCA`, `GGGRNWYYCC`); the 2026-06-14 AP-1 "defect" marked superseded.

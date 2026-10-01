@@ -149,7 +149,7 @@ Opened: `Bio/Align/AlignInfo.py` at tags biopython-181 and biopython-185 (raw.gi
 ## Assumptions
 
 1. **ASSUMPTION: Alphabetical tie-break (A<C<G<T).** Rosalind explicitly permits any most-common symbol on a tie; EMBOSS uses scoring/plurality; the Geneious/LANL family documents an explicit alphabetical tie-break. To make the method deterministic (a library requirement) we adopt the alphabetical-order tie-break documented by Geneious/LANL. This is correctness-affecting only on tied columns; on the Rosalind worked example there are no ties affecting the published consensus, so conformance to the rank-5 dataset is unaffected.
-2. **ASSUMPTION: Pure most-frequent consensus, no plurality threshold.** The Registry canonical signature `CreateConsensusFromAlignment(alignedSequences)` takes no threshold parameter, matching the Rosalind/Wikipedia "most common symbol" definition rather than EMBOSS's parameterised plurality. Threshold-based no-consensus ('n'/'x') output is therefore out of scope for this method (the area already exposes IUPAC-degenerate consensus via `GenerateConsensus`).
+2. **ASSUMPTION: Pure most-frequent consensus, no plurality threshold.** The Registry canonical signature `CreateConsensusFromAlignment(alignedSequences)` takes no threshold parameter, matching the Rosalind/Wikipedia "most common symbol" definition rather than EMBOSS's parameterised plurality. Threshold-based no-consensus ('n'/'x') output is therefore out of scope for this method (the area already exposes IUPAC-degenerate consensus via `GenerateConsensus`; since B05 F24/F28 the EMBOSS plurality consensus is `GenerateEmbossConsensus` and Biopython `dumb_consensus` is `GenerateDumbConsensus`).
 
 ---
 
