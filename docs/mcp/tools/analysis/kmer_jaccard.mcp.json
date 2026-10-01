@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.JaccardSimilarity",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1136",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1293",
   "description": "Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]) and the Mash distance -ln(2J/(1+J))/k (Ondov et al. 2016). canonical=true gives Mash/sourmash k-mers.",
   "inputSchema": {
     "type": "object",

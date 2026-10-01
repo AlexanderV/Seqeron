@@ -29,7 +29,7 @@ symbol and `canonical` counts min(k-mer, reverse complement) — together with t
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1344](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1344)
+- Source: [KmerAnalyzer.cs#L1561](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1561)
 
 ## Input Schema
 

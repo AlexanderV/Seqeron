@@ -73,4 +73,25 @@ public class KmerDistanceTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.KmerDistance(s1, s2, 3, "d2star", 3));
         Assert.Throws<ArgumentException>(() => AnalysisTools.KmerDistance(s1, s2, 3, "bogus"));
     }
+
+    /// <summary>
+    /// Audit round 2 WP6: bothStrands (CAFE -R) and the jensen_shannon / euclidean_counts metrics. Reference values:
+    /// Python replica whose formula engine reproduces the CAFE -R binary (20 runs, 6 digits), sequence MLE background;
+    /// scipy jensenshannon(base=2)**2.
+    /// </summary>
+    [Test]
+    public void KmerDistance_BothStrandsAndNewMetrics_Delegate()
+    {
+        const string s1 = "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT";
+        const string s2 = "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 3, "d2star", 0, bothStrands: true).Distance, Is.EqualTo(0.3838876158581438).Within(1e-12));
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 3, "d2shepherd", 1, bothStrands: true).Distance, Is.EqualTo(0.5152519131905425).Within(1e-12));
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 3, "d2star", 0, bothStrands: false).Distance, Is.EqualTo(0.44457941706964565).Within(1e-12));
+            Assert.That(AnalysisTools.KmerDistance("ATGTGTG", "CATGTG", 3, "jensen_shannon").Distance, Is.EqualTo(0.1522040934665307).Within(1e-12));
+            Assert.That(AnalysisTools.KmerDistance("ATGTGTG", "CATGTG", 3, "euclidean_counts").Distance, Is.EqualTo(Math.Sqrt(3)).Within(1e-12));
+        });
+        Assert.Throws<ArgumentException>(() => AnalysisTools.KmerDistance(s1, s2, 3, "euclidean", 0, bothStrands: true));
+    }
 }

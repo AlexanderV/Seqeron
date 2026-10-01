@@ -36,7 +36,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (124 tools)
+## Analysis (126 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -120,6 +120,7 @@
 | `hydrophobicity_profile` | `SequenceStatistics.CalculateHydrophobicityProfile` | [doc](../../mcp/tools/analysis/hydrophobicity_profile.md) |
 | `internal_loop_energy` | `RnaSecondaryStructure.CalculateInternalLoopEnergy` | [doc](../../mcp/tools/analysis/internal_loop_energy.md) |
 | `is_disorder_promoting` | `DisorderPredictor.IsDisorderPromoting` | [doc](../../mcp/tools/analysis/is_disorder_promoting.md) |
+| `kmer_d2_statistics` | `KmerAnalyzer.BackgroundAdjustedD2` | [doc](../../mcp/tools/analysis/kmer_d2_statistics.md) |
 | `kmer_distance` | `KmerAnalyzer.KmerDistance` | [doc](../../mcp/tools/analysis/kmer_distance.md) |
 | `kmer_frequencies` | `KmerAnalyzer.GetKmerFrequencies` | [doc](../../mcp/tools/analysis/kmer_frequencies.md) |
 | `kmer_jaccard` | `KmerAnalyzer.JaccardSimilarity` | [doc](../../mcp/tools/analysis/kmer_jaccard.md) |
@@ -155,6 +156,7 @@
 | `scan_with_pwm` | `MotifFinder.ScanWithPwm` | [doc](../../mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `shared_motifs_significance` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/shared_motifs_significance.md) |
+| `spaced_word_distance` | `KmerAnalyzer.SpacedWordDistance` | [doc](../../mcp/tools/analysis/spaced_word_distance.md) |
 | `standardize_repeat_motif` | `RepeatFinder.GetStandardMotif` | [doc](../../mcp/tools/analysis/standardize_repeat_motif.md) |
 | `stem_energy` | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../mcp/tools/analysis/stem_energy.md) |
 | `tandem_repeat_bernoulli_statistics` | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |

@@ -23,7 +23,7 @@ The input must be a valid DNA sequence.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1806](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1806)
+- Source: [KmerAnalyzer.cs#L2023](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2023)
 
 ## Input Schema
 

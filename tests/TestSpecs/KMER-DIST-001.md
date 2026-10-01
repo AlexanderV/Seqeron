@@ -132,6 +132,21 @@
 | D7 | `MarkovOrderBic` = replica (S1, S2, S3, periodic; r = 0..3, 1e-9); `markovOrder = −1` picks (1, 0) for periodic/S1 and gives the replica values | Schwarz 1978; Katz 1981; CAFE `-M -1` |
 | D8 | `ParseDistanceMetric` names incl. `d2star`, `d2shepherd`, `d2s`; unknown → `ArgumentException` | MCP contract |
 
+### 4.6 Audit round 2 (WP6) — both strands, sparse tables, null-as-empty, JS, spaced-word distance (`KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs`)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| R1 | 18 rows (S1/S2, S1/S3, S2/S3 × (k, r) ∈ {(2,0),(3,0),(3,1),(4,2),(5,1)} + A/B × {(3,0),(4,2),(5,1)}): `bothStrands` D2*, D2S, d2*, d2S = replica (1e-12) | CAFE `-R` (`KmerModel::load`, `getKmerlogProb`); replica engine = CAFE `-R` binary on 20 runs (6 digits) |
+| R2 | `bothStrands = false` = single-strand statistic (WP4 value; 4-argument overload equal) | backward compatibility |
+| R3 | `bothStrands` invariant under reverse-complementing a sequence (r = 0) | X(w)+X(RC w) and p(w)+p(RC w) are strand-symmetric |
+| R4 | `KmerDistance(.., bothStrands)` = statistics; auto order (−1) reports the BIC minimisers; `bothStrands` with a plain metric → `ArgumentException` (`bothStrands`) | contract |
+| R5 | Order 8, k = 10 (sparse Markov tables), single and both strands = replica (1e-9) | ML Markov chain |
+| R6 | k = 12, r = 11 allocates < 16 MB (no 4^12-double table) | audit item (134 MB per sequence before) |
+| R7 | `KmerDistance(null, ..)` = `KmerDistance("", ..)` for every metric (D2*/D2S: same `ArgumentException`, not `ArgumentNullException`) | consistency |
+| R8 | `JensenShannon` = scipy `jensenshannon(base=2)²` (0.1522040934665307), symmetric, identity 0, disjoint 1, zero vector ½; `EuclideanCounts` = √3 | Lin 1991; scipy 1.17.1 |
+| R9 | `SpacedWordDistance` (6 rows: S1/S2, A/B × {w4, w5, contiguous 1111}): JS = `spaced -r -d JS`, `EuclideanCounts` = `spaced -r -d EU`, `Euclidean` = scipy frequency Euclidean (1e-12 / 1e-10) | Leimeister et al. 2014; spaced 1.2.0 binary + source |
+| R10 | Contiguous pattern = `KmerDistance(k)`; mean of per-pattern values; identity 0; validation (null/empty set, null pattern, unequal weight, malformed pattern, D2*) | definition / contract |
+
 ## 5. Audit of Existing Tests
 
 ### 5.1 Discovery Summary

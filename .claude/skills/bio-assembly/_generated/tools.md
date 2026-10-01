@@ -86,6 +86,7 @@
 | `hydrophobicity_profile` | Analysis | `SequenceStatistics.CalculateHydrophobicityProfile` | [doc](../../../../docs/mcp/tools/analysis/hydrophobicity_profile.md) |
 | `internal_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateInternalLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/internal_loop_energy.md) |
 | `is_disorder_promoting` | Analysis | `DisorderPredictor.IsDisorderPromoting` | [doc](../../../../docs/mcp/tools/analysis/is_disorder_promoting.md) |
+| `kmer_d2_statistics` | Analysis | `KmerAnalyzer.BackgroundAdjustedD2` | [doc](../../../../docs/mcp/tools/analysis/kmer_d2_statistics.md) |
 | `kmer_distance` | Analysis | `KmerAnalyzer.KmerDistance` | [doc](../../../../docs/mcp/tools/analysis/kmer_distance.md) |
 | `kmer_frequencies` | Analysis | `KmerAnalyzer.GetKmerFrequencies` | [doc](../../../../docs/mcp/tools/analysis/kmer_frequencies.md) |
 | `kmer_jaccard` | Analysis | `KmerAnalyzer.JaccardSimilarity` | [doc](../../../../docs/mcp/tools/analysis/kmer_jaccard.md) |
@@ -121,6 +122,7 @@
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
+| `spaced_word_distance` | Analysis | `KmerAnalyzer.SpacedWordDistance` | [doc](../../../../docs/mcp/tools/analysis/spaced_word_distance.md) |
 | `standardize_repeat_motif` | Analysis | `RepeatFinder.GetStandardMotif` | [doc](../../../../docs/mcp/tools/analysis/standardize_repeat_motif.md) |
 | `stem_energy` | Analysis | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../../../docs/mcp/tools/analysis/stem_energy.md) |
 | `tandem_repeat_bernoulli_statistics` | Analysis | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../../../docs/mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |

@@ -39,7 +39,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `iupac_matches` | Check if a specific nucleotide matches an IUPAC ambiguity code. |
 | `kmer_analyze` | Comprehensive k-mer analysis (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U filters and canonical / acgtOnly modes. |
 | `kmer_count` | Count k-mer (substring of length k) frequencies in a sequence. |
-| `kmer_distance` | Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies; optional `metric` / `markovOrder` as the Analysis server's `kmer_distance`. |
+| `kmer_distance` | Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies; optional `metric` / `markovOrder` / `bothStrands` as the Analysis server's `kmer_distance`. |
 | `kmer_entropy` | Calculate Shannon entropy based on k-mer frequencies. |
 | `linguistic_complexity` | Calculate linguistic complexity of a sequence based on k-mer diversity. |
 | `melting_temperature` | Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula. |

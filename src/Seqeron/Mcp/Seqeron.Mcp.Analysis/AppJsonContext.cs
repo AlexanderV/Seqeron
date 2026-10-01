@@ -26,6 +26,7 @@ namespace Seqeron.Mcp.Analysis;
 [JsonSerializable(typeof(KmerListResult))]
 [JsonSerializable(typeof(KmerFrequenciesResult))]
 [JsonSerializable(typeof(KmerDistanceResult))]
+[JsonSerializable(typeof(KmerD2StatisticsResult))]
 [JsonSerializable(typeof(KmerCountItem))]
 [JsonSerializable(typeof(KmerCountItem[]))]
 [JsonSerializable(typeof(KmerClumpWindowsResult))]

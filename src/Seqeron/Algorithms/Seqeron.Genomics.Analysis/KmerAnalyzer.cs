@@ -696,18 +696,53 @@ public static class KmerAnalyzer
     /// <returns>The metric value.</returns>
     /// <exception cref="ArgumentOutOfRangeException">k, <paramref name="metric"/> or <paramref name="markovOrder"/> is out of range.</exception>
     /// <exception cref="ArgumentException"><paramref name="markovOrder"/> ≠ 0 for a metric without background model, or (D2*/D2S)
-    /// a sequence is null or has no ACGT k-mer.</exception>
+    /// a sequence has no ACGT k-mer (a null sequence counts as empty, as for every other metric).</exception>
     public static double KmerDistance(string seq1, string seq2, int k, KmerDistanceMetric metric, int markovOrder)
     {
         if (k <= 0)
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
+        return KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands: false);
+    }
+
+    /// <summary>
+    /// <see cref="KmerDistance(string, string, int, KmerDistanceMetric, int)"/> with the CAFE both-strand mode
+    /// (<c>-R</c>) for <see cref="KmerDistanceMetric.D2Star"/> / <see cref="KmerDistanceMetric.D2Shepherd"/>
+    /// (<see cref="BackgroundAdjustedD2(string, string, int, int, bool)"/>).
+    /// </summary>
+    /// <remarks>
+    /// A null sequence is treated as the empty sequence for every metric (the word-vector metrics then see the zero
+    /// vector; D2*/D2S reject it with <see cref="ArgumentException"/> because an empty sequence has no background).
+    /// <paramref name="bothStrands"/> applies only to D2*/D2S; for the plain word-vector metrics count canonical k-mers
+    /// with <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/> and use
+    /// the count-table overload.
+    /// </remarks>
+    /// <param name="seq1">First sequence (case-insensitive).</param>
+    /// <param name="seq2">Second sequence.</param>
+    /// <param name="k">K-mer length; must be positive (≤ <see cref="MaxBackgroundAdjustedK"/> for D2*/D2S).</param>
+    /// <param name="metric">The metric.</param>
+    /// <param name="markovOrder">Background Markov order (D2*/D2S only; 0 for every other metric).</param>
+    /// <param name="bothStrands">CAFE <c>-R</c> both-strand counts and background (D2*/D2S only; false for every other metric).</param>
+    /// <returns>The metric value.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">k, <paramref name="metric"/> or <paramref name="markovOrder"/> is out of range.</exception>
+    /// <exception cref="ArgumentException"><paramref name="markovOrder"/> ≠ 0 or <paramref name="bothStrands"/> set for a metric
+    /// without background model, or (D2*/D2S) a sequence has no ACGT k-mer.</exception>
+    public static double KmerDistance(string seq1, string seq2, int k, KmerDistanceMetric metric, int markovOrder, bool bothStrands)
+    {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+
+        seq1 ??= string.Empty;
+        seq2 ??= string.Empty;
         return metric switch
         {
-            KmerDistanceMetric.D2Star => BackgroundAdjustedD2(seq1, seq2, k, markovOrder).D2StarDistance,
-            KmerDistanceMetric.D2Shepherd => BackgroundAdjustedD2(seq1, seq2, k, markovOrder).D2ShepherdDistance,
+            KmerDistanceMetric.D2Star => BackgroundAdjustedD2(seq1, seq2, k, markovOrder, bothStrands).D2StarDistance,
+            KmerDistanceMetric.D2Shepherd => BackgroundAdjustedD2(seq1, seq2, k, markovOrder, bothStrands).D2ShepherdDistance,
             _ when markovOrder != 0 => throw new ArgumentException(
                 "markovOrder applies only to the background-adjusted metrics D2Star and D2Shepherd.", nameof(markovOrder)),
+            _ when bothStrands => throw new ArgumentException(
+                "bothStrands applies only to the background-adjusted metrics D2Star and D2Shepherd; count canonical k-mers (KmerCountingOptions.Canonical) for the other metrics.",
+                nameof(bothStrands)),
             _ => KmerDistance(CountKmers(seq1, k), CountKmers(seq2, k), metric),
         };
     }
@@ -715,7 +750,8 @@ public static class KmerAnalyzer
     /// <summary>
     /// Parses a metric name as used by the MCP tools (case-insensitive, surrounding blanks ignored): <c>euclidean</c>
     /// (also null/empty), <c>squared_euclidean_counts</c>, <c>manhattan</c>, <c>chebyshev</c>, <c>canberra</c>,
-    /// <c>cosine</c>, <c>d2</c>, <c>d2star</c>, <c>d2shepherd</c> (alias <c>d2s</c>).
+    /// <c>cosine</c>, <c>d2</c>, <c>d2star</c>, <c>d2shepherd</c> (alias <c>d2s</c>), <c>jensen_shannon</c> (alias <c>js</c>),
+    /// <c>euclidean_counts</c>.
     /// </summary>
     /// <exception cref="ArgumentException">The name is not one of the above.</exception>
     public static KmerDistanceMetric ParseDistanceMetric(string? name) =>
@@ -730,8 +766,10 @@ public static class KmerAnalyzer
             "d2" => KmerDistanceMetric.D2,
             "d2star" => KmerDistanceMetric.D2Star,
             "d2shepherd" or "d2s" => KmerDistanceMetric.D2Shepherd,
+            "jensen_shannon" or "js" => KmerDistanceMetric.JensenShannon,
+            "euclidean_counts" => KmerDistanceMetric.EuclideanCounts,
             _ => throw new ArgumentException(
-                "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd",
+                "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts",
                 nameof(name)),
         };
 
@@ -772,6 +810,39 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentOutOfRangeException">k or <paramref name="markovOrder"/> is out of range.</exception>
     /// <exception cref="ArgumentException">A sequence has no ACGT k-mer window.</exception>
     public static D2StarStatistics BackgroundAdjustedD2(string seq1, string seq2, int k, int markovOrder = 0)
+        => BackgroundAdjustedD2(seq1, seq2, k, markovOrder, bothStrands: false);
+
+    /// <summary>
+    /// <see cref="BackgroundAdjustedD2(string, string, int, int)"/> with an optional both-strand mode, the semantics of
+    /// CAFE's <c>-R</c> option (Lu et al. 2017, <c>kmer.cpp</c> <c>KmerModel::load</c> and
+    /// <c>KmerProbEnsembDelegate::getKmerlogProb</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>With <paramref name="bothStrands"/> = false this is exactly the single-strand statistic.</para>
+    /// <para>With <paramref name="bothStrands"/> = true each word's count is X^R(w) = X(w) + X(RC(w)) (so the total is
+    /// 2n̄, palindromes w = RC(w) count twice), and the background probability is symmetrised,
+    /// p^R(w) = ½(p̂(w) + p̂(RC(w))), where p̂ is the order-r Markov chain fitted to the given strand. The expected count is
+    /// therefore E^R(w) = 2n̄·p^R(w) = E_X(w) + E_X(RC(w)), the expectation of X(w) + X(RC(w)). The sums still run over
+    /// all 4^k words (each non-palindromic pair {w, RC(w)} contributes twice, as in CAFE). The Markov order chosen by
+    /// BIC (−1) is computed on the given strand, as CAFE's <c>getEstMarkovOrder</c>.</para>
+    /// <para>CAFE takes p̂ from prefix marginals of the k-mer table (and prunes probability-1 factors). This method uses
+    /// the maximum-likelihood chain on the sequence, as in the single-strand mode. A Python replica reproduces the CAFE
+    /// <c>-R</c> binary to its 6 printed digits on 20 runs when given CAFE's estimator, and this method to 1e-12 with
+    /// the sequence estimator (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.5).</para>
+    /// <para>Memory: the counts and the Markov tables are sparse (one entry per k-mer / r-mer / (r+1)-mer present in
+    /// the sequence; dense arrays only for r + 1 ≤ 8), so high orders such as k = 12, r = 11 need no 4^12 array. The
+    /// time is Θ(4^k·k) for every order.</para>
+    /// </remarks>
+    /// <param name="seq1">First sequence (case-insensitive).</param>
+    /// <param name="seq2">Second sequence (case-insensitive).</param>
+    /// <param name="k">Word length, 1 ≤ k ≤ <see cref="MaxBackgroundAdjustedK"/>.</param>
+    /// <param name="markovOrder">Background Markov order r, 0 ≤ r &lt; k, or <see cref="AutoMarkovOrder"/> (−1, BIC).</param>
+    /// <param name="bothStrands">Combine each word with its reverse complement (CAFE <c>-R</c>).</param>
+    /// <returns>The two statistics, the two dissimilarities and the orders used.</returns>
+    /// <exception cref="ArgumentNullException">A sequence is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">k or <paramref name="markovOrder"/> is out of range.</exception>
+    /// <exception cref="ArgumentException">A sequence has no ACGT k-mer window.</exception>
+    public static D2StarStatistics BackgroundAdjustedD2(string seq1, string seq2, int k, int markovOrder, bool bothStrands)
     {
         ArgumentNullException.ThrowIfNull(seq1);
         ArgumentNullException.ThrowIfNull(seq2);
@@ -790,11 +861,14 @@ public static class KmerAnalyzer
         var word = new int[k];
         var probX = new double[k + 1];
         var probY = new double[k + 1];
-        probX[0] = probY[0] = 1.0;
+        var probXRc = new double[k + 1];
+        var probYRc = new double[k + 1];
+        probX[0] = probY[0] = probXRc[0] = probYRc[0] = 1.0;
         int depth = 0;
         word[0] = -1;
 
-        // Odometer over {A,C,G,T}^k in lexicographic order; prob[d] = background probability of the d-symbol prefix.
+        // Odometer over {A,C,G,T}^k in lexicographic order; prob[d] = background probability of the d-symbol prefix
+        // (probRc[d]: the factors of RC(word) fixed by the first d symbols, complete at d = k).
         while (depth >= 0)
         {
             if (++word[depth] == 4)
@@ -805,6 +879,12 @@ public static class KmerAnalyzer
 
             probX[depth + 1] = probX[depth] * x.Factor(word, depth, order1);
             probY[depth + 1] = probY[depth] * y.Factor(word, depth, order2);
+            if (bothStrands)
+            {
+                probXRc[depth + 1] = probXRc[depth] * x.ReverseComplementFactor(word, depth, order1);
+                probYRc[depth + 1] = probYRc[depth] * y.ReverseComplementFactor(word, depth, order2);
+            }
+
             if (depth < k - 1)
             {
                 word[++depth] = -1;
@@ -812,8 +892,20 @@ public static class KmerAnalyzer
             }
 
             long code = WordBackground.Encode(word, 0, k);
-            double ex = x.Windows * probX[k], ey = y.Windows * probY[k];
-            double xt = x.CountOf(code) - ex, yt = y.CountOf(code) - ey;
+            double cx = x.CountOf(code), cy = y.CountOf(code);
+            double px = probX[k], py = probY[k];
+            if (bothStrands)
+            {
+                long rc = WordBackground.EncodeReverseComplement(word);
+                cx += x.CountOf(rc);
+                cy += y.CountOf(rc);
+                px += probXRc[k];
+                py += probYRc[k];
+            }
+
+            // Single strand: E = n̄·p. Both strands: E = 2n̄·½(p + p_RC) = n̄·(p + p_RC).
+            double ex = x.Windows * px, ey = y.Windows * py;
+            double xt = cx - ex, yt = cy - ey;
             if (ex > 0 && ey > 0)
             {
                 starNum += xt * yt / Math.Sqrt(ex * ey);
@@ -911,9 +1003,13 @@ public static class KmerAnalyzer
     /// <summary>Per-sequence k-mer counts (2-bit codes) and fitted order-r Markov background for <see cref="BackgroundAdjustedD2"/>.</summary>
     private sealed class WordBackground
     {
+        // Largest (r+1)-mer table kept as a dense array (4^8 doubles = 512 KB); higher orders use sparse tables
+        // keyed by the 2-bit code, holding only the r-mers / (r+1)-mers that occur (absent = probability 0).
+        private const int MaxDenseTableWordLength = 8;
+
         private readonly Dictionary<long, int> _counts = new();
-        private double[] _initial = Array.Empty<double>();
-        private double[] _transition = Array.Empty<double>();
+        private ProbabilityTable _initial = null!;
+        private ProbabilityTable _transition = null!;
 
         public double Windows { get; private set; }
 
@@ -933,33 +1029,33 @@ public static class KmerAnalyzer
 
             // Initial distribution over r-mers and transition probabilities P(a | r-mer context), both maximum
             // likelihood from the sequence's ACGT r-mer and (r+1)-mer counts.
-            int contexts = 1 << (2 * order);
-            model._initial = new double[contexts];
+            bool dense = order + 1 <= MaxDenseTableWordLength;
+            model._initial = new ProbabilityTable(dense ? 1 << (2 * order) : 0);
             if (order == 0)
             {
-                model._initial[0] = 1.0;
+                model._initial.Set(0, 1.0);
             }
             else
             {
                 var rmers = CountKmers(sequence, order, acgt);
                 double totalR = rmers.Values.Sum();
                 foreach (var (rmer, count) in rmers)
-                    model._initial[Encode(rmer)] = count / totalR;
+                    model._initial.Set(Encode(rmer), count / totalR);
             }
 
-            model._transition = new double[contexts * 4];
-            var rowTotals = new double[contexts];
-            foreach (var (word, count) in CountKmers(sequence, order + 1, acgt))
+            var words = CountKmers(sequence, order + 1, acgt);
+            var rowTotals = new Dictionary<long, double>();
+            foreach (var (w, count) in words)
             {
-                long code = Encode(word);
-                model._transition[code] = count;
-                rowTotals[code >> 2] += count;
+                long context = Encode(w) >> 2;
+                rowTotals[context] = rowTotals.GetValueOrDefault(context) + count;
             }
 
-            for (int c = 0; c < model._transition.Length; c++)
+            model._transition = new ProbabilityTable(dense ? 1 << (2 * (order + 1)) : 0);
+            foreach (var (w, count) in words)
             {
-                if (rowTotals[c >> 2] > 0)
-                    model._transition[c] /= rowTotals[c >> 2];
+                long code = Encode(w);
+                model._transition.Set(code, count / rowTotals[code >> 2]);
             }
 
             return model;
@@ -973,8 +1069,24 @@ public static class KmerAnalyzer
             if (depth < order - 1)
                 return 1.0;
             if (depth == order - 1)
-                return _initial[Encode(word, 0, order)];
-            return _transition[Encode(word, depth - order, order + 1)];
+                return _initial.Get(Encode(word, 0, order));
+            return _transition.Get(Encode(word, depth - order, order + 1));
+        }
+
+        /// <summary>
+        /// Factor of p̂(RC(word)) fixed once <paramref name="word"/>[0..<paramref name="depth"/>] is known: the window
+        /// word[depth−r..depth] is, reverse-complemented, the context c(w_depth)..c(w_{depth−r+1}) followed by
+        /// c(w_{depth−r}) (CAFE's reverse-complement delegate); at depth k − 1 the initial r-mer
+        /// c(w_{k−1})..c(w_{k−r}) of RC(word) is multiplied in.
+        /// </summary>
+        public double ReverseComplementFactor(int[] word, int depth, int order)
+        {
+            double factor = 1.0;
+            if (depth >= order)
+                factor = _transition.Get(EncodeComplementDescending(word, depth, order + 1));
+            if (depth == word.Length - 1 && order > 0)
+                factor *= _initial.Get(EncodeComplementDescending(word, depth, order));
+            return factor;
         }
 
         public static long Encode(int[] word, int start, int length)
@@ -985,12 +1097,46 @@ public static class KmerAnalyzer
             return code;
         }
 
+        /// <summary>Code of the reverse complement of the whole word.</summary>
+        public static long EncodeReverseComplement(int[] word) => EncodeComplementDescending(word, word.Length - 1, word.Length);
+
+        // Code of c(word[from]), c(word[from − 1]), …, c(word[from − length + 1]) with c(x) = 3 − x (A↔T, C↔G).
+        private static long EncodeComplementDescending(int[] word, int from, int length)
+        {
+            long code = 0;
+            for (int i = from; i > from - length; i--)
+                code = (code << 2) | (uint)(3 - word[i]);
+            return code;
+        }
+
         private static long Encode(string kmer)
         {
             long code = 0;
             foreach (char c in kmer)
                 code = (code << 2) | (uint)(c switch { 'A' => 0, 'C' => 1, 'G' => 2, _ => 3 });
             return code;
+        }
+
+        /// <summary>Probabilities indexed by 2-bit word code: a dense array, or (size 0) a sparse dictionary.</summary>
+        private sealed class ProbabilityTable(int denseSize)
+        {
+            private readonly double[]? _dense = denseSize > 0 ? new double[denseSize] : null;
+            private readonly Dictionary<long, double>? _sparse = denseSize > 0 ? null : new Dictionary<long, double>();
+
+            public void Set(long code, double value)
+            {
+                if (_dense is not null)
+                    _dense[code] = value;
+                else
+                    _sparse![code] = value;
+            }
+
+            public double Get(long code)
+            {
+                if (_dense is not null)
+                    return _dense[code];
+                return _sparse!.TryGetValue(code, out var v) ? v : 0.0;
+            }
         }
     }
 
@@ -1010,8 +1156,11 @@ public static class KmerAnalyzer
     /// Chebyshev max|f₁−f₂|; Canberra Σ|f₁−f₂|/(f₁+f₂) (0/0 terms omitted, as scipy and alfpy); cosine distance
     /// 1 − c₁·c₂/(‖c₁‖‖c₂‖) clipped to [0, 2] as scipy (scale-invariant, so counts and frequencies agree; a zero
     /// vector has cosine similarity 0, so its distance is 1); D2 = Σ c₁(w)·c₂(w) (Torney et al. 1990; Lippert
-    /// et al. 2005; Reinert et al. 2009). Cross-checked against scipy.spatial.distance and alfpy 1.0.6
-    /// (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.2).</para>
+    /// et al. 2005; Reinert et al. 2009); Jensen–Shannon divergence ½Σ f₁ log₂(f₁/m) + ½Σ f₂ log₂(f₂/m), m = ½(f₁+f₂)
+    /// (Lin 1991; the JS measure of Leimeister et al. 2014 and of the <c>spaced</c> program, = scipy
+    /// <c>jensenshannon(p, q, base=2)²</c>); Euclidean on counts √Σ(c₁−c₂)² (the <c>spaced</c> 1.2 <c>-d EU</c> value).
+    /// Cross-checked against scipy.spatial.distance and alfpy 1.0.6
+    /// (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.2, §7.5).</para>
     /// </remarks>
     /// <param name="counts1">First count table (non-negative counts).</param>
     /// <param name="counts2">Second count table (non-negative counts).</param>
@@ -1051,7 +1200,7 @@ public static class KmerAnalyzer
 
         return metric switch
         {
-            KmerDistanceMetric.Euclidean => Math.Sqrt(acc),
+            KmerDistanceMetric.Euclidean or KmerDistanceMetric.EuclideanCounts => Math.Sqrt(acc),
             KmerDistanceMetric.Cosine => norm1 == 0 || norm2 == 0
                 ? 1.0
                 : Math.Clamp(1.0 - dot / (Math.Sqrt(norm1) * Math.Sqrt(norm2)), 0.0, 2.0),
@@ -1069,7 +1218,15 @@ public static class KmerAnalyzer
                     acc += (f1 - f2) * (f1 - f2);
                     break;
                 case KmerDistanceMetric.SquaredEuclideanCounts:
+                case KmerDistanceMetric.EuclideanCounts:
                     acc += ((double)c1 - c2) * ((double)c1 - c2);
+                    break;
+                case KmerDistanceMetric.JensenShannon:
+                    double m = 0.5 * (f1 + f2);
+                    if (f1 > 0)
+                        acc += 0.5 * f1 * Math.Log2(f1 / m);
+                    if (f2 > 0)
+                        acc += 0.5 * f2 * Math.Log2(f2 / m);
                     break;
                 case KmerDistanceMetric.Manhattan:
                     acc += Math.Abs(f1 - f2);
@@ -1249,6 +1406,66 @@ public static class KmerAnalyzer
         }
 
         return counts;
+    }
+
+    /// <summary>
+    /// Multiple-pattern spaced-word distance (Leimeister, Boden, Horwege, Lindner &amp; Morgenstern 2014,
+    /// Bioinformatics 30:1991): the average, over a set of patterns of equal weight, of the per-pattern word-vector
+    /// distance between the two spaced-word count tables.
+    /// </summary>
+    /// <remarks>
+    /// <para>d_P(S₁, S₂) = (1/m) Σ_{i=1..m} d(N_{P_i}(S₁), N_{P_i}(S₂)), where N_P(S) is
+    /// <see cref="CountSpacedWords(string, string)"/> and d is
+    /// <see cref="KmerDistance(IReadOnlyDictionary{string, int}, IReadOnlyDictionary{string, int}, KmerDistanceMetric)"/>
+    /// (the paper: "the distance between two sequences is the average of the distances based on the individual
+    /// patterns"). The paper applies the Euclidean distance (<see cref="KmerDistanceMetric.Euclidean"/>, relative
+    /// frequencies, the default) and the Jensen–Shannon distance (<see cref="KmerDistanceMetric.JensenShannon"/>) to
+    /// relative spaced-word frequencies.</para>
+    /// <para>Reference program: <c>spaced</c> 1.2.0 (Debian/Ubuntu package source, <c>sort.h</c> <c>spacedDNA</c>), run
+    /// with <c>-r</c> (single strand) and <c>-f</c> (fixed patterns): its <c>-d JS</c> output equals
+    /// <see cref="KmerDistanceMetric.JensenShannon"/>, and its <c>-d EU</c> output equals
+    /// <see cref="KmerDistanceMetric.EuclideanCounts"/> (the program takes the Euclidean distance of raw counts, not of
+    /// frequencies). Two conventions differ on sequences with symbols other than A/C/G/T: <c>spaced</c> drops a word
+    /// with such a symbol at a match position but keeps its window in the frequency denominator, whereas
+    /// <see cref="CountSpacedWords(string, string)"/> keeps the literal word. Its default mode (no <c>-r</c>) compares
+    /// the forward words of one sequence with the words of both strands of the other; that asymmetric variant is not
+    /// provided (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.5).</para>
+    /// </remarks>
+    /// <param name="seq1">First sequence (case-insensitive; null/empty or shorter than a pattern gives an empty table).</param>
+    /// <param name="seq2">Second sequence, same conventions.</param>
+    /// <param name="patterns">One or more binary patterns (see <see cref="CountSpacedWords(string, string)"/>), all of the
+    /// same weight (number of '1'). The all-'1' pattern of length k gives the contiguous k-mer distance.</param>
+    /// <param name="metric">The per-pattern word-vector metric; any metric of the count-table overload (not D2*/D2S).</param>
+    /// <returns>The mean of the per-pattern values.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="patterns"/> or one of its patterns is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="patterns"/> is empty, a pattern is malformed, the weights
+    /// differ, or <paramref name="metric"/> is D2*/D2S.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="metric"/> is undefined.</exception>
+    public static double SpacedWordDistance(
+        string seq1,
+        string seq2,
+        IReadOnlyList<string> patterns,
+        KmerDistanceMetric metric = KmerDistanceMetric.Euclidean)
+    {
+        ArgumentNullException.ThrowIfNull(patterns);
+        if (patterns.Count == 0)
+            throw new ArgumentException("At least one pattern is required.", nameof(patterns));
+
+        int weight = -1;
+        foreach (var pattern in patterns)
+        {
+            if (pattern is null)
+                throw new ArgumentNullException(nameof(patterns), "Patterns must not contain null.");
+            int w = pattern.Count(c => c == '1');
+            if (weight >= 0 && w != weight)
+                throw new ArgumentException("All patterns must have the same weight (number of '1' positions).", nameof(patterns));
+            weight = w;
+        }
+
+        double sum = 0;
+        foreach (var pattern in patterns)
+            sum += KmerDistance(CountSpacedWords(seq1, pattern), CountSpacedWords(seq2, pattern), metric);
+        return sum / patterns.Count;
     }
 
 
@@ -2053,4 +2270,14 @@ public enum KmerDistanceMetric
     /// dissimilarity in [0, 1]. Needs the sequences (see <see cref="D2Star"/>).
     /// </summary>
     D2Shepherd,
+
+    /// <summary>
+    /// Jensen–Shannon divergence ½Σ f₁ log₂(f₁/m) + ½Σ f₂ log₂(f₂/m), m = ½(f₁+f₂), on relative frequencies (Lin 1991;
+    /// Leimeister et al. 2014 "JS"; <c>spaced -d JS</c>); in [0, 1], = scipy <c>jensenshannon(p, q, base=2)</c> squared.
+    /// One empty table against a non-empty one gives ½ (the zero vector convention of this method).
+    /// </summary>
+    JensenShannon,
+
+    /// <summary>√Σ(c₁−c₂)² on raw counts — the per-pattern Euclidean value of the <c>spaced</c> 1.2 program (<c>-d EU</c>).</summary>
+    EuclideanCounts,
 }

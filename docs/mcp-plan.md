@@ -1,6 +1,6 @@
 > ⚠️ **SUPERSEDED (2026-07-01).** This v4 plan describes a 12-server / 241-tool design
 > (`SuffixTree.Mcp.*`, with Variants/Assembly/Epigenetics/Structure servers) that was **never
-> built**. The repository actually ships **11 servers / ~471 tools** with a different decomposition.
+> built**. The repository actually ships **11 servers / ~473 tools** with a different decomposition.
 > The live source of truth and campaign ledger is **`docs/mcp/MCP_STATUS.md`**. Sections 6–8 below
 > (error catalog, schema rules, doc contract) remain valid as standards.
 
@@ -132,7 +132,7 @@ Legend:
 | 25 | `complexity_mask_low` | Mask low-complexity regions | ✓ | SequenceComplexity.cs:L826#xml | SequenceComplexity.MaskLowComplexity | 1.0.0 | stable |
 | 26 | `complexity_compression_ratio` | Estimate compression ratio | ✓ | SequenceComplexity.cs:L1631#xml | SequenceComplexity.EstimateCompressionRatio | 1.0.0 | stable |
 | 27 | `kmer_count` | Count k-mer frequencies | ✓ | docs/algorithms/K-mer/K-mer_Counting.md | KmerAnalyzer.CountKmers | 1.0.0 | stable |
-| 28 | `kmer_distance` | K-mer based distance | ✓ | KmerAnalyzer.cs:L700#xml | KmerAnalyzer.KmerDistance | 1.0.0 | stable |
+| 28 | `kmer_distance` | K-mer based distance | ✓ | KmerAnalyzer.cs:L730#xml | KmerAnalyzer.KmerDistance | 1.0.0 | stable |
 | 29 | `kmer_entropy` | K-mer entropy calculation | ✓ | docs/algorithms/K-mer/K-mer_Frequency_Analysis.md | KmerAnalyzer.CalculateKmerEntropy | 1.0.0 | stable |
 | 30 | `kmer_analyze` | Comprehensive k-mer analysis | ✓ | docs/algorithms/K-mer/K-mer_Search.md | KmerAnalyzer.AnalyzeKmers | 1.0.0 | stable |
 | 31 | `iupac_code` | Get IUPAC ambiguity code | ✓ | docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md | ISequence.GetIupacCode | 1.0.0 | stable |

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.CountKmersBothStrands",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1806",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2023",
   "description": "Counts every k-mer over both strands of double-stranded DNA: count[w] = forward[w] + forward[RC(w)]. Total over all k-mers is 2*(L - k + 1).",
   "inputSchema": {
     "type": "object",

@@ -23,7 +23,7 @@ longer than the sequence or does not occur. The scan is the Knuth–Morris–Pra
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1701](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1701)
+- Source: [KmerAnalyzer.cs#L1918](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1918)
 
 ## Input Schema
 

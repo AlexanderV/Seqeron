@@ -203,7 +203,25 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
   ASM-D2 a transition probability of 1 is a valid probability (CAFE treats log 0 as missing); ASM-D3 k ≤ 12 because the
   sums run over all 4^k words; ASM-D4 NaN for a zero normaliser (0/0, as CAFE).
 
+## Audit round 2 (WP6, 2026-10-01) — both-strand D2* / D2S, spaced-word distance
+
+- CAFE `-R` read in `code/kmer.cpp`: `KmerModel::load` adds each count to the reverse complement's entry
+  (X^R(w) = X(w) + X(RC w)); `KmerProbEnsembDelegate::getKmerlogProb` = log(½(p(w) + p(RC w))) with p(RC w) from the
+  reverse-complement `KmerProbDelegate` on the same single-strand chain; `getEstMarkovOrder` is single-strand;
+  `main.cpp` runs Jellyfish without `-C`. The CAFE binary with `-R` = replica (CAFE estimator) on 20 runs to 6 digits;
+  replica (sequence MLE) = C# on 18 + 2 rows (K-mer_Euclidean_Distance.md §7.5).
+- Spaced words: `spaced` 1.2.0 obtained from the Ubuntu archive (source tarball + binary; spaced.gobics.de not
+  allow-listed, no GitHub repository found). `src/sort.h` `spacedDNA`: per-pattern Euclidean on raw counts (`-d EU`),
+  JS divergence base 2 on frequencies (`-d JS`), average over patterns. Binary runs with `-r -f` = replica = scipy = C#
+  on 6 (pair, pattern set) rows × 2 measures. Leimeister et al. 2014 definition via search snippets (average of the
+  per-pattern distances; Euclidean / JS of relative spaced-word frequencies).
+- Assumptions: ASM-D5 `-R` background = ½(p̂(w) + p̂(RC w)) with the sequence MLE chain (CAFE semantics, published
+  estimator); ASM-D6 null sequence = empty for every metric; ASM-D7 spaced words are literal (no N filtering), so
+  `spaced` equality is claimed on ACGT sequences only.
+
 ## Change History
+
+- **2026-10-01**: Audit round 2 WP6 — CAFE `-R` both-strand D2*/D2S, sparse Markov tables, JS / count-Euclidean metrics, multiple-pattern spaced-word distance.
 
 - **2026-10-01**: Audit round 1 WP2 — metric variants, exact Jaccard / Mash distance, spaced words; reference [4] first author corrected.
 

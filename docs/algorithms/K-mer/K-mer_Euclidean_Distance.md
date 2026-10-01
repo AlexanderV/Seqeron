@@ -99,6 +99,8 @@ what the implementation uses. MUSCLE's k-mer distance (Edgar 2004) is a differen
 | `Canberra` | Σ\|f_x − f_y\|/(f_x + f_y), 0/0 terms omitted | frequencies | alfpy `canberra`; scipy `canberra` |
 | `Cosine` | 1 − c_x·c_y/(‖c_x‖‖c_y‖), clipped to [0, 2] | counts (scale-invariant) | [3]; scipy `cosine` (clip as scipy); zero vector → similarity 0 → distance 1 |
 | `D2` | Σ c_x(w)·c_y(w) | raw counts | Torney et al. 1990; Lippert et al. 2005; Reinert et al. 2009 [6]; [3] — a **similarity**, not a metric |
+| `JensenShannon` (audit round 2) | ½Σ f_x log₂(f_x/m) + ½Σ f_y log₂(f_y/m), m = ½(f_x + f_y) | frequencies | Lin 1991 [12]; the JS measure of [4] and `spaced -d JS`; scipy `jensenshannon(p, q, base=2)²`; zero vector vs non-empty → ½ |
+| `EuclideanCounts` (audit round 2) | √Σ(c_x − c_y)² | raw counts | the per-pattern value of `spaced -d EU` (§7.5) |
 
 Counts vs frequencies follow the sources: d_E and D2 are defined on counts [3][5][6]; the L1/L∞/Canberra
 members use the same relative-frequency vectors as the default (alfpy `Freqs`, total = L − k + 1), so they are
@@ -124,8 +126,15 @@ exact sets, so it equals `mash dist -s s` whenever s ≥ |K(a) ∪ K(b)|.
 ('1' = match, '0' = don't care; weight k = number of '1's). The spaced word at window i is the string of
 sequence[i + j] over the match positions j; counts sum to L − ℓ + 1; the all-'1' pattern equals `CountKmers`.
 Spaced-word frequency vectors are compared with `KmerDistance(counts1, counts2, metric)` (Leimeister et al. use
-the Euclidean distance of the relative frequencies). Multi-pattern averaging (the `spaced` program) is a
-caller-side loop over patterns.
+the Euclidean distance of the relative frequencies).
+
+`SpacedWordDistance(seq1, seq2, patterns, metric = Euclidean)` (audit round 2) is the multiple-pattern distance of
+[4]: "the distance between two sequences is the average of the distances based on the individual patterns",
+d_P = (1/m) Σᵢ d(N_{Pᵢ}(S₁), N_{Pᵢ}(S₂)), with all patterns of the same weight (as the pattern sets of [4] and of
+the `spaced` program). [4] applies the Euclidean distance and the Jensen–Shannon distance to relative spaced-word
+frequencies (`Euclidean`, `JensenShannon`); every count-table metric of §2.6 except D2*/D2S is accepted. Pattern
+sets are passed by the caller: the `spaced` program generates them by randomised optimisation (`variance::Improve`,
+rasbhari-style), which is not deterministic and is not reproduced.
 
 ### 2.9 Background-adjusted D2* and D2S (audit round 1, WP4)
 
@@ -147,6 +156,23 @@ With a common background p (Reinert 2009's setting) √(E_X E_Y) = √(n̄ m̄)�
 d2*, d2S ∈ [0, 1]; identical sequences → 0. k ≤ 12 (`MaxBackgroundAdjustedK`: 4^12 words are enumerated), 0 ≤ r < k.
 NaN when a normaliser is 0 (e.g. a homopolymer at order 0, whose counts equal their expectation). The counts
 overload `KmerDistance(counts1, counts2, metric)` rejects D2*/D2S (a background needs the sequence).
+
+**Both strands (audit round 2, CAFE `-R`).** `BackgroundAdjustedD2(seq1, seq2, k, markovOrder, bothStrands)` and
+`KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands)`. CAFE's semantics, read from the source
+(`kmer.cpp`): `KmerModel::load` adds every word's count to its reverse complement's entry as well, so
+X^R(w) = X(w) + X(RC(w)) (palindromes count twice; Σ_w X^R = 2n̄), and `KmerProbEnsembDelegate::getKmerlogProb`
+returns log(½(p(w) + p(RC(w)))), where p(RC(w)) is the probability of the reverse-complement word under the chain
+fitted to the given strand (the reverse-complement `KmerProbDelegate` walks w left to right with complemented,
+reversed contexts). With total 2n̄ the expected count is E^R(w) = n̄·(p̂(w) + p̂(RC(w))) = E[X(w) + X(RC(w))]. The sums
+still run over all 4^k words (a non-palindromic pair contributes twice). The Markov order chosen by BIC uses the
+given strand (CAFE `getEstMarkovOrder` builds single-strand models). As in single-strand mode, p̂ is the maximum-likelihood
+chain on the sequence, not CAFE's prefix-marginal estimator (§7.4). The incremental odometer carries a second prefix
+product for p̂(RC(w)): at depth d ≥ r the window w_{d−r..d} reverse-complemented gives the transition
+P(c(w_{d−r}) | c(w_d)…c(w_{d−r+1})), and at d = k − 1 the initial r-mer c(w_{k−1})…c(w_{k−r}) is multiplied in.
+
+**Memory (audit round 2).** The Markov tables are dense arrays only for r + 1 ≤ 8 (4^8 doubles); above that
+they are dictionaries holding the r-mers / (r+1)-mers present, so k = 12, r = 11 no longer allocates a 4^12-double
+(134 MB) array per sequence (locked by an allocation test).
 
 ## 3. Contract
 
@@ -188,7 +214,8 @@ overload `KmerDistance(counts1, counts2, metric)` rejects D2*/D2S (a background 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | KmerDistance | O(n + m) | O(u) | n, m = sequence lengths; u = number of distinct k-mers in the union; one linear pass per sequence to count, one pass over the union |
-| BackgroundAdjustedD2 | O(n + m + 4^k) | O(u + 4^r) | counts + Markov fit per sequence, then one odometer pass over all 4^k words (prefix probabilities updated incrementally) |
+| BackgroundAdjustedD2 | O(n + m + 4^k·k) | O(u + distinct (r+1)-mers) | counts + Markov fit per sequence, then one odometer pass over all 4^k words (prefix probabilities updated incrementally; O(k) per leaf for the code, O(r) per factor) |
+| SpacedWordDistance | O(m·(n + n')·k) | O(distinct spaced words) | m patterns of weight k |
 
 ## 5. Implementation Notes
 
@@ -203,7 +230,8 @@ overload `KmerDistance(counts1, counts2, metric)` rejects D2*/D2S (a background 
 - `KmerAnalyzer.JaccardSimilarity(string, string, int[, KmerCountingOptions])`, `MashDistance(string, string, int, KmerCountingOptions)`, `MashDistanceFromJaccard(double, int)`: §2.7 (over `DistinctKmers`).
 - `KmerAnalyzer.CountSpacedWords(string, string)`: §2.8.
 - `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int)` → `D2StarStatistics(D2Star, D2Shepherd, D2StarDistance, D2ShepherdDistance)`; `KmerDistance(seq1, seq2, k, metric, markovOrder)`; metrics `D2Star` / `D2Shepherd`; `ParseDistanceMetric(string)` (MCP metric names): §2.9.
-- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`) and `markovOrder`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly`.
+- `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int, bool bothStrands)`, `KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands)` (CAFE `-R`), `SpacedWordDistance(string, string, IReadOnlyList<string>, KmerDistanceMetric)`, metrics `JensenShannon` / `EuclideanCounts` (audit round 2, WP6).
+- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly`; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis).
 
 ### 5.2 Current Behavior
 
@@ -238,12 +266,20 @@ overload `KmerDistance(counts1, counts2, metric)` rejects D2*/D2S (a background 
 
 **Implemented in audit round 1 (WP4):**
 
-- Background-adjusted D2* / D2S and d2* / d2S [6][10][11] with an order-r Markov background per sequence (§2.9). `markovOrder = -1` (`AutoMarkovOrder`) chooses each sequence's order in [0, min(k − 1, 10)] by BIC (`MarkovOrderBic`, `SelectMarkovOrder`; Schwarz 1978, Katz 1981 — CAFE `-M -1`). Not provided: CAFE's both-strand mode (`-R`: canonical counts with the background probability averaged over w and RC(w)), a CAFE-specific option that none of the published definitions [6][10] uses.
+- Background-adjusted D2* / D2S and d2* / d2S [6][10][11] with an order-r Markov background per sequence (§2.9). `markovOrder = -1` (`AutoMarkovOrder`) chooses each sequence's order in [0, min(k − 1, 10)] by BIC (`MarkovOrderBic`, `SelectMarkovOrder`; Schwarz 1978, Katz 1981 — CAFE `-M -1`). CAFE's both-strand mode (`-R`) was added in audit round 2 (§2.9).
+
+**Implemented in audit round 2 (WP6):**
+
+- CAFE `-R` both-strand D2*/D2S (§2.9, §7.5); sparse Markov tables for high orders; null = empty for every `KmerDistance` metric.
+- Multiple-pattern spaced-word distance [4] (`SpacedWordDistance`, §2.8) with the Jensen–Shannon (`JensenShannon`) and count-Euclidean (`EuclideanCounts`) metrics; cross-checked against the `spaced` 1.2.0 program (§7.5).
 
 **Not implemented:**
 
 - MinHash *sketching* (Mash/sourmash estimate J from a bottom-s sketch); this unit computes the exact sets, which
   is the quantity the sketch estimates.
+- `spaced` program conventions not reproduced (§7.5): its default both-strand mode (forward words of one sequence
+  against both strands of the other; asymmetric in the sequence order), dropping words with a non-ACGT symbol at a
+  match position while keeping their windows in the denominator, and its randomised pattern-set generation.
 
 ### 5.4 Deviations and Assumptions
 
@@ -321,7 +357,8 @@ R1/R2 are the 120-nt pair in the test file (Python `random.seed(2026)`, every 9t
 (Python replica of the [4] definition): ATGTGTG/`101` → AG:1 GG:2 TT:2; ACGTTGCAACGGT/`1101` → 9 words, CGT:2;
 GATTACAGATTACA/`11011` → ATAC:2 GATA:2 TTCA:2 ACGA/AGTT/CAAT/TAAG:1; R1/`1100111` → 108 distinct, 114 total;
 `1101` frequency-Euclidean GATTACAGATTACA vs GATTACCGATTTCA 0.3149183286488868 (sqEuclid counts 12).
-The `spaced` reference program (spaced.gobics.de) was not reachable (host not allow-listed; no GitHub mirror found).
+The `spaced` reference program (spaced.gobics.de) was not reachable in round 1; round 2 obtained it from the
+Ubuntu archive (§7.5).
 
 ### 7.4 D2* / D2S reference cross-check (audit round 1, WP4)
 
@@ -359,11 +396,46 @@ The estimator difference is deliberate: the published statistics estimate the ba
 CAFE's prefix marginal drops the last k − 1 letters (e.g. T 76 vs 78 in the 300-nt sequence), and its log-zero
 sentinel is an implementation artefact (a probability of 1 is valid).
 
+### 7.5 Both-strand D2* / D2S and multiple-pattern spaced words (audit round 2, WP6)
+
+**CAFE `-R`.** Source read: `kmer.cpp` `KmerModel::load` (`(*kmerCntUnorderMap)[index2revCompleIdx(idx, k)] += cnt`
+when not single-strand), `KmerProbDelegate::push` (reverse-complement branch), `KmerProbEnsembDelegate::getKmerlogProb`
+(log_sum(log p, log p_RC) − log 2), `main.cpp` (`-R` sets `singleStrain = false`; Jellyfish is called without `-C`).
+The WP4 CAFE binary (Jellyfish 2.3.1) was run with `-R` on the WP4 pairs; the Python replica extended with
+X^R = X(w) + X(RC w), p^R = ½(p + p_RC), total 2n̄ and CAFE's estimator (prefix marginals + log-zero pruning in both
+delegates) reproduces all **20 runs to the 6 printed digits** (d2* / d2S): A/B (k, r) = (3,0) 0.352575/0.401636,
+(3,1) 0.416406/0.435342, (4,2) 0.500353/0.530720, (5,0) 0.453000/0.454436, (5,1) 0.465944/0.460541; S1/S2
+0.381753/0.432310, 0.582753/0.531700, 0.475315/0.495437, 0.513293/0.399786, 0.535129/0.454515; S1/S3
+0.555598/0.509182, 0.342658/0.394448, 0.355213/0.452993, 0.487593/0.359372, 0.454912/0.404730; S2/S3
+0.660850/0.627895, 0.644076/0.570558, 0.523529/0.500030, 0.524609/0.373953, 0.513226/0.430231 (single-strand A/B
+k=3 r=0 = 0.414504/0.420488, the WP4 value). With the sequence maximum-likelihood estimator the replica gives the
+locked values; C# equals all 18 rows to 1e-12 (S1/S2 k=3 r=0: D2* 15.34415418761105, D2S 8.071125717307769,
+d2* 0.3838876158581438, d2S 0.4345248995381073), and two order-8 rows (k = 10, sparse tables) to 1e-9.
+
+**Spaced words.** Sources: [4] (search snippets: "the distance between two sequences is the average of the distances
+based on the individual patterns"; Euclidean and Jensen–Shannon distances of relative spaced-word frequencies);
+the `spaced` 1.2.0 source (Ubuntu archive `spaced_1.2.0-201605+dfsg.orig.tar.xz`, `src/sort.h` `spacedDNA`) and
+binary (`apt-get install spaced`; earlier tries: spaced.gobics.de not allow-listed, no GitHub repository found).
+The source shows: per pattern, `-d EU` accumulates (c₁ − c₂)² on **raw counts** and takes the square root; `-d JS`
+divides counts by the number of word positions and sums ½ f log₂(f/m) on both sides; the matrix is divided by the
+number of patterns; `-r` disables the reverse complement. Runs (`spaced -r -t 1 -f patterns -d JS|EU`, 12 digits)
+= Python replica = scipy (`jensenshannon(base=2)**2`, `euclidean` on frequencies) = C# (1e-12):
+
+| Pair | Patterns | JS (`spaced -d JS`) | EU (`spaced -d EU`) | Euclidean on frequencies |
+|------|----------|---------------------|---------------------|--------------------------|
+| S1/S2 | 11011, 10111, 11101 | 0.816322854161 (0.8163228541607376) | 12.4089758166 | 0.17567404832368613 |
+| S1/S2 | 1101011, 1011101, 1110011 | 0.946781915619 | 11.6604179806 | 0.16946832495600062 |
+| S1/S2 | 1111 | 0.800398953366 | 12.4899959968 | 0.17553282636413806 (= `KmerDistance(k=4)`) |
+| A/B | 11011, 10111, 11101 | 0.414517255412 | 25.7044109754 | 0.09756721735575496 |
+| A/B | 1101011, 1011101, 1110011 | 0.757979428497 | 23.8455999144 | 0.0898354125393724 |
+| A/B | 1111 | 0.418942116525 | 25.8069758011 | 0.09773005238795092 |
+
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [KmerAnalyzer_KmerDistance_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_KmerDistance_Tests.cs) — covers `INV-01`–`INV-04`
 - Tests: [KmerAnalyzer_DistanceMetrics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_DistanceMetrics_Tests.cs) — §7.2 values, `INV-05`/`INV-06`, conventions, spaced words
 - Tests: [KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs) — §7.4 values, D2*/D2S conventions and validation
+- Tests: [KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs) — §7.5 values, null-as-empty, sparse tables, JS metric
 - Evidence: [KMER-DIST-001-Evidence.md](../../../docs/Evidence/KMER-DIST-001-Evidence.md)
 
 ## 8. References
@@ -379,3 +451,5 @@ sentinel is an implementation artefact (a probability of 1 is valid).
 9. Zielezinski A, Girgis HZ, Bernard G, et al. 2019. Benchmarking of alignment-free sequence comparison methods. Genome Biology 20:144 (alfpy reference implementation; PyPI alfpy 1.0.6).
 10. Wan L, Reinert G, Sun F, Waterman MS. 2010. Alignment-free sequence comparison (II): theoretical power of comparison statistics. J Comput Biol 17(11):1467–1490; Song K, Ren J, Reinert G, Deng M, Waterman MS, Sun F. 2014. New developments of alignment-free sequence comparison: measures, statistics and next-generation sequencing. Brief Bioinform 15(3):343–353 (d2* / d2S dissimilarities; full text blocked, definition from search snippets).
 11. Lu YY, Tang K, Ren J, Fuhrman JA, Waterman MS, Sun F. 2017. CAFE: aCcelerated Alignment-FrEe sequence analysis. Nucleic Acids Res 45(W1):W554–W559. Source: github.com/younglululu/CAFE `code/dist_model.cpp`, `code/kmer.cpp`, `code/seq_model.cpp` (cloned and built 2026-10-01).
+12. Lin J. 1991. Divergence measures based on the Shannon entropy. IEEE Trans Inf Theory 37(1):145–151.
+13. `spaced` 1.2.0 (Leimeister, Hahn, Morgenstern), Debian Med package source `spaced_1.2.0-201605+dfsg` (archive.ubuntu.com, `src/sort.h`, `src/spaced.cc`), opened and run 2026-10-01.

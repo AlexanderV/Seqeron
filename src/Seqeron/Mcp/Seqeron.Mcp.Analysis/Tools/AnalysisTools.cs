@@ -111,13 +111,14 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "kmer_distance", Title = "k-mers — Euclidean Distance", ReadOnly = true)]
-    [Description("Euclidean distance between k-mer frequency vectors of two sequences. 0 means identical k-mer composition. Optional metric: euclidean (default, frequencies), squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity), d2star / d2shepherd (background-adjusted d2* / d2S dissimilarities in [0,1], Reinert et al. 2009 / Song et al. 2014; Markov background of order markovOrder fitted to each sequence; k <= 12).")]
+    [Description("Euclidean distance between k-mer frequency vectors of two sequences. 0 means identical k-mer composition. Optional metric: euclidean (default, frequencies), squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity), d2star / d2shepherd (background-adjusted d2* / d2S dissimilarities in [0,1], Reinert et al. 2009 / Song et al. 2014; Markov background of order markovOrder fitted to each sequence; k <= 12; bothStrands = CAFE -R), jensen_shannon (JS divergence, base 2, frequencies), euclidean_counts.")]
     public static KmerDistanceResult KmerDistance(
         [Description("First sequence.")] string seq1,
         [Description("Second sequence.")] string seq2,
         [Description("k-mer length.")] int k,
-        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd (alias d2s).")] string metric = "euclidean",
-        [Description("Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; default 0 (i.i.d. letters). Must be 0 for the other metrics.")] int markovOrder = 0)
+        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd (alias d2s), jensen_shannon (alias js), euclidean_counts.")] string metric = "euclidean",
+        [Description("Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; default 0 (i.i.d. letters). Must be 0 for the other metrics.")] int markovOrder = 0,
+        [Description("d2star/d2shepherd only: CAFE -R both-strand mode (count of w + count of its reverse complement, background probability averaged over w and its reverse complement). Default false.")] bool bothStrands = false)
     {
         if (string.IsNullOrEmpty(seq1))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
@@ -126,7 +127,45 @@ public class AnalysisTools
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        return new KmerDistanceResult(KmerAnalyzer.KmerDistance(seq1, seq2, k, KmerAnalyzer.ParseDistanceMetric(metric), markovOrder));
+        return new KmerDistanceResult(KmerAnalyzer.KmerDistance(seq1, seq2, k, KmerAnalyzer.ParseDistanceMetric(metric), markovOrder, bothStrands));
+    }
+
+    [McpServerTool(Name = "kmer_d2_statistics", Title = "k-mers — D2* / D2S Statistics", ReadOnly = true)]
+    [Description("Background-adjusted word-match statistics of two DNA sequences: raw D2* and D2S (Reinert et al. 2009), their dissimilarities d2* and d2S in [0,1] (Song et al. 2014; CAFE D2star/D2shepp), the Markov orders used for each sequence, and each sequence's BIC for orders 0..min(k-1, 10) (Schwarz 1978; the criterion of markovOrder = -1). ACGT windows only, case-insensitive; k <= 12. Optional bothStrands = CAFE -R.")]
+    public static KmerD2StatisticsResult KmerD2Statistics(
+        [Description("First DNA sequence.")] string seq1,
+        [Description("Second DNA sequence.")] string seq2,
+        [Description("Word length k (1..12).")] int k,
+        [Description("Background Markov order r (0 <= r < k), or -1 to choose each sequence's order by BIC. Default 0.")] int markovOrder = 0,
+        [Description("CAFE -R both-strand mode (count of w + count of its reverse complement; background averaged over both). Default false.")] bool bothStrands = false)
+    {
+        if (string.IsNullOrEmpty(seq1))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
+        if (string.IsNullOrEmpty(seq2))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(seq2));
+
+        var stats = KmerAnalyzer.BackgroundAdjustedD2(seq1, seq2, k, markovOrder, bothStrands);
+        int maxOrder = Math.Min(k - 1, KmerAnalyzer.MaxAutoMarkovOrder);
+        double[] Bic(string s) => Enumerable.Range(0, maxOrder + 1).Select(r => KmerAnalyzer.MarkovOrderBic(s, r)).ToArray();
+        return new KmerD2StatisticsResult(
+            stats.D2Star, stats.D2Shepherd, stats.D2StarDistance, stats.D2ShepherdDistance,
+            stats.MarkovOrder1, stats.MarkovOrder2, Bic(seq1), Bic(seq2));
+    }
+
+    [McpServerTool(Name = "spaced_word_distance", Title = "k-mers — Spaced-Word Distance", ReadOnly = true)]
+    [Description("Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (e.g. 11011; '1' = match position, '0' = don't care; all patterns of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies, as the paper), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or manhattan / chebyshev / canberra / cosine / squared_euclidean_counts / d2. Single strand (spaced -r).")]
+    public static KmerDistanceResult SpacedWordDistance(
+        [Description("First sequence.")] string seq1,
+        [Description("Second sequence.")] string seq2,
+        [Description("Binary patterns over {0,1}, each starting and ending with 1, all with the same number of 1s, e.g. [\"11011\", \"10111\", \"11101\"].")] string[] patterns,
+        [Description("Per-pattern metric: euclidean (default), jensen_shannon (alias js), euclidean_counts, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2.")] string metric = "euclidean")
+    {
+        if (string.IsNullOrEmpty(seq1))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
+        if (string.IsNullOrEmpty(seq2))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(seq2));
+
+        return new KmerDistanceResult(KmerAnalyzer.SpacedWordDistance(seq1, seq2, patterns, KmerAnalyzer.ParseDistanceMetric(metric)));
     }
 
     [McpServerTool(Name = "kmer_jaccard", Title = "k-mers — Jaccard Similarity / Mash Distance", ReadOnly = true)]

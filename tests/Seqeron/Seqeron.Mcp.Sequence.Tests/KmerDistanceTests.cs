@@ -60,4 +60,15 @@ public class KmerDistanceTests
         // vs (CCC 1); scipy.spatial.distance.euclidean = 1.130388330520878 (the old doc value 0.87 was wrong).
         Assert.That(SequenceTools.KmerDistance("ATGCATGC", "CCCCCCCC", 3).Distance, Is.EqualTo(1.130388330520878).Within(1e-12));
     }
+
+    /// <summary>Audit round 2 WP6: bothStrands (CAFE -R) parity with the Analysis server (replica value, S1/S2 k=3 r=0).</summary>
+    [Test]
+    public void KmerDistance_BothStrands_ParityWithAnalysisServer()
+    {
+        const string s1 = "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT";
+        const string s2 = "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC";
+        Assert.That(SequenceTools.KmerDistance(s1, s2, 3, "d2star", 0, bothStrands: true).Distance, Is.EqualTo(0.3838876158581438).Within(1e-12));
+        Assert.That(SequenceTools.KmerDistance("ATGTGTG", "CATGTG", 3, "js").Distance, Is.EqualTo(0.1522040934665307).Within(1e-12));
+        Assert.Throws<ArgumentException>(() => SequenceTools.KmerDistance(s1, s2, 3, "manhattan", 0, bothStrands: true));
+    }
 }

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindClumps",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1544",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1761",
   "description": "Finds k-mers that occur at least minOccurrences times within some sliding window of size windowSize (Clump Finding Problem, Compeau & Pevzner Ch.1).",
   "inputSchema": {
     "type": "object",

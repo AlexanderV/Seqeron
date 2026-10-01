@@ -5,7 +5,7 @@
 #
 # What it does NOT do: it does not register any MCP server in a config. The 20
 # skills call the shipped Seqeron.Mcp.* servers on demand (spawn → call → tear
-# down), so their 471 tool schemas never enter the model's context. This script
+# down), so their 473 tool schemas never enter the model's context. This script
 # just makes sure the servers are built (first call is then instant) and the path
 # is live.
 #

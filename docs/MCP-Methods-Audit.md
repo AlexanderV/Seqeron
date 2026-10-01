@@ -94,8 +94,8 @@
 | 87 | ISequence.cs | ErrorProbabilityToPhred | 490 |
 | 88 | IupacHelper.cs | MatchesIupac | 14 |
 | 89 | KmerAnalyzer.cs | KmerDistance | 652 |
-| 90 | KmerAnalyzer.cs | CalculateKmerEntropy | 1497 |
-| 91 | KmerAnalyzer.cs | AnalyzeKmers | 1843 |
+| 90 | KmerAnalyzer.cs | CalculateKmerEntropy | 1714 |
+| 91 | KmerAnalyzer.cs | AnalyzeKmers | 2060 |
 | 92 | MetagenomicsAnalyzer.cs | GenerateTaxonomicProfile | 229 |
 | 93 | MetagenomicsAnalyzer.cs | CalculateAlphaDiversity | 288 |
 | 94 | MetagenomicsAnalyzer.cs | CalculateBetaDiversity | 353 |

@@ -21,7 +21,7 @@ case-insensitive and overlapping. The returned set is unordered. `windowSize` mu
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1544](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1544)
+- Source: [KmerAnalyzer.cs#L1761](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1761)
 
 ## Input Schema
 

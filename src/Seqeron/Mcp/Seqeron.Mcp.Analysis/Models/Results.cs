@@ -25,6 +25,20 @@ public record KmerFrequenciesResult(Dictionary<string, double> Frequencies);
 /// <summary>Euclidean distance between two k-mer frequency vectors.</summary>
 public record KmerDistanceResult(double Distance);
 
+/// <summary>
+/// Result of <c>kmer_d2_statistics</c>: raw D2* / D2S, the dissimilarities d2* / d2S, the Markov orders used and each
+/// sequence's BIC for orders 0..min(k−1, 10) (index = order).
+/// </summary>
+public record KmerD2StatisticsResult(
+    double D2Star,
+    double D2Shepherd,
+    double D2StarDistance,
+    double D2ShepherdDistance,
+    int MarkovOrder1,
+    int MarkovOrder2,
+    double[] Bic1,
+    double[] Bic2);
+
 /// <summary>Exact k-mer Jaccard index (fraction in [0,1]) and the Mash distance derived from it.</summary>
 public record KmerJaccardResult(double Jaccard, double MashDistance);
 

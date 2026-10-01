@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **124 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **126 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (124)
+## Tools (126)
 
 | Tool | Description |
 |------|-------------|
@@ -99,7 +99,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy values for a protein sequence. |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |
 | `is_disorder_promoting` | Whether an amino acid is in Dunker's disorder-promoting set {A, R, G, Q, S, P, E, K} (Dunker 2001). |
-| `kmer_distance` | Euclidean distance between k-mer frequency vectors of two sequences; optional `metric` (squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd) and `markovOrder` (background of d2star/d2shepherd). |
+| `kmer_d2_statistics` | Background-adjusted D2* / D2S statistics, d2* / d2S dissimilarities, Markov orders used and per-sequence BIC values; optional `markovOrder`, `bothStrands` (CAFE -R). |
+| `kmer_distance` | Euclidean distance between k-mer frequency vectors of two sequences; optional `metric` (squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts), `markovOrder` (background of d2star/d2shepherd) and `bothStrands` (CAFE -R d2star/d2shepherd). |
 | `kmer_frequencies` | Normalized k-mer counts (each value in [0,1], summing to 1). |
 | `kmer_jaccard` | Exact k-mer Jaccard index of the distinct k-mer sets and the Mash distance; optional `canonical` / `acgtOnly` (Mash/sourmash k-mers). |
 | `kmer_positions` | Zero-based positions of all (overlapping) occurrences of a k-mer. |
@@ -134,6 +135,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |
 | `shared_motifs_significance` | RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA se… |
+| `spaced_word_distance` | Multiple-pattern spaced-word distance (Leimeister et al. 2014): mean over equal-weight patterns of the per-pattern word-vector distance (euclidean, jensen_shannon, euclidean_counts, …). |
 | `standardize_repeat_motif` | Standardizes a repeat unit two ways. canonicalClass — the MISA repeat-type class "considering sequence complementary" (misa.pl .statistics,… |
 | `stem_energy` | Free energy of an RNA stem (Turner 2004 nearest-neighbor stacking + AU/GU terminal penalties). |
 | `tandem_repeat_bernoulli_statistics` | Estimates the Tandem Repeats Finder Bernoulli-model parameters of a tandem-repeat tract (Benson 1999): **PM** (match probability) and **PI*… |
