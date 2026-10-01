@@ -270,6 +270,14 @@ Tests in `KmerAnalyzer_SpacedEvAndFracMinHash_Tests.cs`; reference values K-mer_
 | V12 | `CompareMinHashSketches` with reversed / duplicate hashes, Count > SketchSize, null hashes, Length < 0 | `ArgumentException`; `MinHashSketch.FromHashes` sorts/dedups/keeps s |
 | V13 | S1/S1 k = 2 r = 0 (raw d2* = d2S = −1.11e-16) | 0 (clamped to [0, 1]) |
 | V14 | MCP `kmer_jaccard(scaled: 3)`, `spaced_word_distance(metric: "ev")`, `kmer_distance(metric: "ev")` (both servers) | sourmash S1/S2 k = 4 S = 3 values; `spaced` 0.767483449137, NaN, 0.427666596474, 1.2 |
+| V15 | `FracMinHashMaxHash(2049, 123456789, 4294967295)`; S = 4294967296 / 0; sketch at S = 4294967295 (WP10) | 9002803354665472, 149418628356, 4294967297 (sourmash `_max_hash`); `ArgumentOutOfRangeException` |
+| V16 | `DownsampleFracMinHash` C k = 21: 10 → 1000; 1 → 7919; S′ < S | 1011 → 15 hashes = the S = 1000 sketch, `_max_hash` 18446744073709552 / 2329428472497733 (sourmash `downsample`); `ArgumentException` (newScaled) |
+| V17 | `CompareFracMinHashSketches(…, downsample: true)`, 6 pairs of mixed scaled | sourmash `jaccard(downsample=True)` and `sourmash compare --containment/--max-containment` (= downsample both, then `contained_by`) (1e-15); without `downsample` → `ArgumentException` |
+| V18 | `trackAbundance` sketch of P (k = 21, S = 1) and its downsample to 10 | 2600 hashes, abundances {1, 2, 3}, Σ 3380; 230 hashes, Σ 280 (sourmash `track_abundance=True`) |
+| V19 | 9 abundance comparisons (P/Q/W tandem-repeat inputs, A/B/C; k 7–31, S 1–100, mixed S) | sourmash `angular_similarity` (= `similarity`), Jaccard, `contained_by_weighted` both ways (1e-15) |
+| V20 | One flat sketch; identical sketches; empty sketch; bad `Abundances` | angular null / Jaccard 0.63748031496063; 1; 0; `ArgumentException` |
+| V21 | `MashPValue(1, 1000, 1000, 600 / 33 / 0, 10)`; k = 32 | `ArgumentOutOfRangeException("k")` (Mash `-k` 1..32); 2.7105054312137606e-16 (scipy `binom.sf`) |
+| V22 | MCP `kmer_jaccard`: `scaled` without `canonical`; `trackAbundance` without `scaled`; S = 4294967295 / 4294967296; N1/N2 with N/IUPAC; S1/S2 `trackAbundance` S = 1/3 | `ArgumentException` (canonical / trackAbundance / scaled); sourmash `force=True` values; `angularSimilarity` 0.2363801370444173 / 0.3123095603640216 |
 
 ## 6. Assumption Register
 

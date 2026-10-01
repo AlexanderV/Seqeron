@@ -1668,16 +1668,20 @@ public static class KmerAnalyzer
     /// <param name="sharedHashes">x, the shared hashes.</param>
     /// <param name="length1">Total length of the first sequence set (Mash reference length).</param>
     /// <param name="length2">Total length of the second sequence set.</param>
-    /// <param name="k">K-mer size (k-mer space 4^k).</param>
+    /// <param name="k">K-mer size, 1..32 (k-mer space 4^k; Mash <c>Command.cpp</c> declares <c>-k</c> as an integer option with
+    /// range 1..32).</param>
     /// <param name="sketchSize">The comparison denominator (number of binomial trials).</param>
     /// <remarks>
     /// Inputs that no comparison can produce are rejected instead of being passed through Mash's formula: x &gt; s (the
     /// shared hashes are a subset of the s visited union hashes; Mash's <c>gsl_cdf_binomial_Q(x − 1, r, s)</c> silently
     /// returns 0 for x − 1 ≥ s) and x ≥ 1 with a length of 0 (an empty sequence set has no hashes; Mash would compute
-    /// p = 1/(1 + 4^k/0) = 0, r = 0/0 = NaN, and GSL's beta CDF of NaN is NaN).
+    /// p = 1/(1 + 4^k/0) = 0, r = 0/0 = NaN, and GSL's beta CDF of NaN is NaN). k is limited to Mash's 1..32: for
+    /// k ≥ 512, 4^k overflows a double to ∞, r = 0/0 = NaN and the binomial tail is undefined (k = 32 gives 4^k ≈ 1.8·10^19,
+    /// still a positive r for any length ≥ 1).
     /// </remarks>
     /// <returns>The p-value in [0, 1].</returns>
-    /// <exception cref="ArgumentOutOfRangeException">A count or length is negative, or <paramref name="k"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A count or length is negative, or <paramref name="k"/> is outside 1..32 (Mash's
+    /// k-mer size range).</exception>
     /// <exception cref="ArgumentException"><paramref name="sharedHashes"/> exceeds <paramref name="sketchSize"/>, or is
     /// positive while a length is 0.</exception>
     public static double MashPValue(long sharedHashes, long length1, long length2, int k, long sketchSize)
@@ -1686,8 +1690,8 @@ public static class KmerAnalyzer
         ArgumentOutOfRangeException.ThrowIfNegative(length1);
         ArgumentOutOfRangeException.ThrowIfNegative(length2);
         ArgumentOutOfRangeException.ThrowIfNegative(sketchSize);
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+        if (k < 1 || k > MaxMashKmerSize)
+            throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{MaxMashKmerSize} (mash -k).");
         if (sharedHashes > sketchSize)
             throw new ArgumentException("Shared hashes cannot exceed the sketch size (number of compared hashes).", nameof(sharedHashes));
         if (sharedHashes == 0)
@@ -1771,6 +1775,9 @@ public static class KmerAnalyzer
     /// <summary>Default sourmash hash seed (<c>MinHash(seed=42)</c>).</summary>
     public const uint DefaultSourmashSeed = 42;
 
+    /// <summary>Largest sourmash scaled factor (<c>ScaledType</c> = u32: 4294967295).</summary>
+    public const long MaxSourmashScaled = uint.MaxValue;
+
     /// <summary>
     /// The FracMinHash threshold for a <paramref name="scaled"/> value, as sourmash 4.9.4 computes it (Rust core
     /// <c>sketch/minhash.rs</c> <c>max_hash_for_scaled</c>): scaled = 1 → 2^64 − 1; otherwise
@@ -1779,77 +1786,134 @@ public static class KmerAnalyzer
     /// <remarks>
     /// <c>u64::MAX as f64</c> rounds to 2^64. The Python helper <c>_get_max_hash_for_scaled</c> rounds instead of truncating;
     /// the two agree while 2^64/scaled ≥ 2^53 (scaled ≤ 2048) and differ by one above (e.g. scaled 7919: Rust
-    /// 2329428472497733, Python 2329428472497734). <c>MinHash(n=0, scaled=S)</c> passes S to the Rust constructor, so the
-    /// Rust value is the one applied (sourmash <c>MinHash(0, 21, scaled=7919)._max_hash</c> = 2329428472497733).
+    /// 2329428472497733, Python 2329428472497734). <c>MinHash(n=0, scaled=S)</c> passes S to the Rust constructor, and
+    /// <c>MinHash.downsample(scaled=S)</c> converts its rounded max_hash back to S and does the same, so the Rust value is the
+    /// one applied (sourmash <c>MinHash(0, 21, scaled=7919)._max_hash</c> and <c>.downsample(scaled=7919)._max_hash</c> =
+    /// 2329428472497733; scaled 4294967295 → 4294967297).
     /// </remarks>
-    /// <param name="scaled">The scaled factor S ≥ 1 (sourmash <c>ScaledType</c> is u32).</param>
+    /// <param name="scaled">The scaled factor S, 1 ≤ S ≤ 4294967295 (sourmash <c>ScaledType</c> is u32).</param>
     /// <returns>max_hash; a sketch keeps the hashes h ≤ max_hash (about 1/S of all hashes).</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="scaled"/> is less than 1.</exception>
-    public static ulong FracMinHashMaxHash(int scaled)
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="scaled"/> is outside 1..4294967295.</exception>
+    public static ulong FracMinHashMaxHash(long scaled)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(scaled, 1);
+        ThrowIfScaledOutOfRange(scaled, nameof(scaled));
         return scaled == 1 ? ulong.MaxValue : (ulong)(18446744073709551616.0 / scaled);
+    }
+
+    private static void ThrowIfScaledOutOfRange(long scaled, string paramName)
+    {
+        if (scaled < 1 || scaled > MaxSourmashScaled)
+            throw new ArgumentOutOfRangeException(paramName, scaled, $"Scaled must be in 1..{MaxSourmashScaled} (sourmash u32 scaled).");
     }
 
     /// <summary>
     /// Builds a FracMinHash ("scaled") sketch of one sequence exactly as sourmash 4.9.4
-    /// <c>MinHash(n=0, ksize=k, scaled=S, seed=42).add_sequence(seq, force=True)</c> does (Irber, Brooks, Reiter et al. 2022,
-    /// "Lightweight compositional analysis of metagenomes with FracMinHash and minimum metagenome covers", bioRxiv
-    /// 2022.01.11.475838; Hera, Pierce-Ward &amp; Koslicki 2023, Genome Res 33:1061).
+    /// <c>MinHash(n=0, ksize=k, scaled=S, seed=42, track_abundance=…).add_sequence(seq, force=True)</c> does (Irber, Brooks,
+    /// Reiter et al. 2022, "Lightweight compositional analysis of metagenomes with FracMinHash and minimum metagenome covers",
+    /// bioRxiv 2022.01.11.475838; Hera, Pierce-Ward &amp; Koslicki 2023, Genome Res 33:1061).
     /// </summary>
     /// <remarks>
     /// <para>K-mers: upper-cased; windows with a symbol other than A/C/G/T are skipped (sourmash <c>force=True</c>; without it
     /// sourmash raises on such a window); each k-mer replaced by the lexicographically smaller of itself and its reverse
-    /// complement (Rust <c>signature.rs</c> <c>SeqToHashes</c>: <c>std::cmp::min(kmer, krc)</c> on the byte strings) — the set of
-    /// <see cref="DistinctKmers(string, int, KmerCountingOptions)"/> with <c>Canonical</c>. With
-    /// <paramref name="canonical"/> = false the forward k-mers (<c>AcgtOnly</c>) are hashed instead; sourmash has no such DNA
-    /// mode (it is Mash's <c>-n</c>).</para>
+    /// complement (Rust <c>signature.rs</c> <c>SeqToHashes</c>: <c>std::cmp::min(kmer, krc)</c> on the byte strings) — the
+    /// counts of <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/> with
+    /// <c>Canonical</c>. With <paramref name="canonical"/> = false the forward k-mers (<c>AcgtOnly</c>) are hashed instead;
+    /// sourmash has no such DNA mode (it is Mash's <c>-n</c>).</para>
     /// <para>Hash: the first 64-bit word of <see cref="MurmurHash3X64_128"/> of the k ASCII bytes with
     /// <paramref name="seed"/> (sourmash <c>_hash_murmur</c>). The sketch keeps every distinct hash h ≤
     /// <see cref="FracMinHashMaxHash"/>(<paramref name="scaled"/>) (Rust <c>add_hash</c>: <c>hash &gt; max_hash</c> is dropped),
     /// ascending. <paramref name="scaled"/> = 1 keeps all hashes, so the sketch is the exact canonical k-mer set (up to
     /// 64-bit hash collisions).</para>
+    /// <para><paramref name="trackAbundance"/> (sourmash <c>track_abundance=True</c>): every k-mer occurrence adds 1 to the
+    /// abundance of its hash (Rust <c>add_hash_with_abundance</c>), so <see cref="FracMinHashSketch.Abundances"/>[i] is the
+    /// (canonical) count of the k-mer(s) hashing to <c>Hashes[i]</c>; the hash set is unchanged.</para>
     /// </remarks>
     /// <param name="sequence">The sequence; null is treated as empty.</param>
     /// <param name="k">K-mer size ≥ 1 (sourmash default 31).</param>
-    /// <param name="scaled">Scaled factor S ≥ 1 (sourmash default 1000).</param>
+    /// <param name="scaled">Scaled factor S in 1..4294967295 (sourmash default 1000).</param>
     /// <param name="canonical">True (default, sourmash): canonical k-mers; false: forward k-mers.</param>
     /// <param name="seed">MurmurHash3 seed (sourmash default 42).</param>
+    /// <param name="trackAbundance">True: also record the abundance of each kept hash (sourmash <c>track_abundance</c>).</param>
     /// <returns>The sketch.</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> or <paramref name="scaled"/> is less than 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> is less than 1, or <paramref name="scaled"/> is outside
+    /// 1..4294967295.</exception>
     public static FracMinHashSketch CreateFracMinHashSketch(
-        string sequence, int k, int scaled, bool canonical = true, uint seed = DefaultSourmashSeed)
+        string sequence, int k, long scaled, bool canonical = true, uint seed = DefaultSourmashSeed, bool trackAbundance = false)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         ulong maxHash = FracMinHashMaxHash(scaled);
         var options = canonical ? new KmerCountingOptions(Canonical: true) : new KmerCountingOptions(AcgtOnly: true);
-        var kmers = DistinctKmers(sequence ?? string.Empty, k, options);
+        var counts = CountKmers(sequence ?? string.Empty, k, options);
 
-        var hashes = new List<ulong>();
+        var kept = new Dictionary<ulong, long>();
         var bytes = new byte[k];
-        foreach (var kmer in kmers)
+        foreach (var (kmer, count) in counts)
         {
             for (int i = 0; i < k; i++)
                 bytes[i] = (byte)kmer[i];
             ulong h = MurmurHash3X64_128(bytes, seed).H1;
-            if (h <= maxHash)
-                hashes.Add(h);
+            if (h <= maxHash && !kept.TryAdd(h, count))
+                kept[h] += count;
         }
 
-        hashes.Sort();
-        int distinct = 0;
-        for (int i = 0; i < hashes.Count; i++)
+        var hashes = kept.Keys.ToArray();
+        Array.Sort(hashes);
+        long[]? abundances = null;
+        if (trackAbundance)
         {
-            if (distinct == 0 || hashes[distinct - 1] != hashes[i])
-                hashes[distinct++] = hashes[i];
+            abundances = new long[hashes.Length];
+            for (int i = 0; i < hashes.Length; i++)
+                abundances[i] = kept[hashes[i]];
         }
-        hashes.RemoveRange(distinct, hashes.Count - distinct);
-        return new FracMinHashSketch(k, scaled, maxHash, canonical, seed, hashes.ToArray());
+        return new FracMinHashSketch(k, scaled, maxHash, canonical, seed, hashes, abundances);
+    }
+
+    /// <summary>
+    /// Downsamples a FracMinHash sketch to a larger scaled factor, as sourmash 4.9.4 <c>MinHash.downsample(scaled=S′)</c>
+    /// (Rust <c>downsample_scaled</c>): a new sketch at S′ holding the hashes h ≤ <see cref="FracMinHashMaxHash"/>(S′), with
+    /// their abundances when tracked — the sketch that sketching the sequence at S′ would give.
+    /// </summary>
+    /// <param name="sketch">The sketch.</param>
+    /// <param name="newScaled">The target scaled factor S′ ≥ <c>sketch.Scaled</c> (S′ = S returns an equal sketch).</param>
+    /// <returns>The downsampled sketch.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sketch"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="newScaled"/> is outside 1..4294967295.</exception>
+    /// <exception cref="ArgumentException"><paramref name="newScaled"/> &lt; <c>sketch.Scaled</c> (sourmash: "new scaled … is lower
+    /// than current sample scaled", Rust <c>CannotUpsampleScaled</c>), or the sketch is malformed (see
+    /// <see cref="CompareFracMinHashSketches"/>).</exception>
+    public static FracMinHashSketch DownsampleFracMinHash(FracMinHashSketch sketch, long newScaled)
+    {
+        ArgumentNullException.ThrowIfNull(sketch);
+        ThrowIfScaledOutOfRange(newScaled, nameof(newScaled));
+        ValidateFracMinHashSketch(sketch, nameof(sketch));
+        if (newScaled < sketch.Scaled)
+            throw new ArgumentException(
+                $"New scaled {newScaled} is lower than the sketch's scaled {sketch.Scaled} (a FracMinHash sketch cannot be upsampled).",
+                nameof(newScaled));
+
+        ulong maxHash = FracMinHashMaxHash(newScaled);
+        var hashes = sketch.Hashes;
+        int n = 0;
+        while (n < hashes.Count && hashes[n] <= maxHash)
+            n++;
+        var kept = new ulong[n];
+        for (int i = 0; i < n; i++)
+            kept[i] = hashes[i];
+        long[]? abundances = null;
+        if (sketch.Abundances is { } ab)
+        {
+            abundances = new long[n];
+            for (int i = 0; i < n; i++)
+                abundances[i] = ab[i];
+        }
+        return sketch with { Scaled = newScaled, MaxHash = maxHash, Hashes = kept, Abundances = abundances };
     }
 
     /// <summary>
     /// Compares two FracMinHash sketches as sourmash 4.9.4 does: Jaccard (<c>MinHash.jaccard</c>), containment of each in the
-    /// other (<c>contained_by</c>) and maximum containment (<c>max_containment</c>).
+    /// other (<c>contained_by</c>), maximum containment (<c>max_containment</c>) and, when both track abundance, the angular
+    /// similarity (<c>angular_similarity</c> = <c>similarity(ignore_abundance=False)</c>) and the abundance-weighted
+    /// containments (<c>contained_by_weighted</c>).
     /// </summary>
     /// <remarks>
     /// <para>x = |A ∩ B| (shared hashes), u = |A ∪ B|. Jaccard = x / max(1, u) (Rust <c>KmerMinHash::jaccard</c>; 0 for two
@@ -1858,28 +1922,58 @@ public static class KmerAnalyzer
     /// x / (|A|·b) with the bias factor b = 1 − (1 − 1/S)^(|A|·S) (Hera et al. 2023), clamped to [0, 1]. Maximum
     /// containment uses min(|A|, |B|) in place of |A|. For S = 1, b = 1 and these are the exact ratios of
     /// <see cref="ContainmentIndex(string, string, int, KmerCountingOptions)"/>.</para>
-    /// <para>sourmash refuses to compare sketches with different k, seed or scaled unless asked to downsample; the
-    /// downsampled sketch at a scaled S′ ≥ S is the subset with h ≤ max_hash(S′), which is what sketching the sequence at S′
-    /// gives, so sketch both sequences at the same <c>scaled</c>.</para>
+    /// <para>Angular similarity (Rust <c>KmerMinHash::angular_similarity</c>): with abundance vectors a, b over each sketch's
+    /// own hashes, cos = min(1, Σ_{h∈A∩B} a_h·b_h / (‖a‖·‖b‖)) (‖·‖ over all of each sketch's abundances; 0 when a norm
+    /// is 0) and similarity = 1 − 2·acos(cos)/π. Weighted containment of A in B (<c>contained_by_weighted</c>):
+    /// Σ_{h∈A∩B} a_h / Σ_{h∈A} a_h (not bias-corrected; 0 for an empty A, where sourmash divides by zero). These are null
+    /// unless the sketch(es) carry <see cref="FracMinHashSketch.Abundances"/>: angular needs both (sourmash raises
+    /// otherwise), the weighted containment of A needs A's.</para>
+    /// <para>Different <c>scaled</c>: refused unless <paramref name="downsample"/> is true (sourmash <c>downsample=True</c>);
+    /// then both sketches are downsampled to S = max(S_A, S_B) with <see cref="DownsampleFracMinHash"/> and every value is
+    /// computed at S. Jaccard and angular similarity equal sourmash's <c>jaccard</c> / <c>angular_similarity(…,
+    /// downsample=True)</c> (Rust downsamples the smaller-scaled sketch). The containments equal
+    /// <c>sourmash compare --containment / --max-containment</c>, which downsamples every signature to the common maximum
+    /// scaled first (<c>commands.py</c>), i.e. <c>A.downsample(scaled=S).contained_by(B.downsample(scaled=S))</c>. The Python
+    /// methods <c>contained_by(…, downsample=True)</c> / <c>max_containment(…, downsample=True)</c> differ when <c>self</c> has
+    /// the smaller scaled: only the shared count is downsampled while the denominator keeps <c>len(self)</c> and
+    /// <c>self.scaled</c> of the undownsampled sketch (e.g. sourmash 4.9.4: 0.0291 instead of 0.3155), so they are not
+    /// reproduced.</para>
     /// </remarks>
     /// <param name="a">First sketch (sourmash <c>self</c>).</param>
     /// <param name="b">Second sketch (<c>other</c>).</param>
-    /// <returns>Shared and union hash counts, Jaccard, both containments and the maximum containment.</returns>
+    /// <param name="downsample">True: compare sketches of different scaled at the larger one (sourmash <c>downsample=True</c>).</param>
+    /// <returns>Shared and union hash counts, Jaccard, both containments, the maximum containment and the abundance metrics.</returns>
     /// <exception cref="ArgumentNullException">A sketch is null.</exception>
-    /// <exception cref="ArgumentException">The sketches differ in k, seed, canonical mode or scaled, or a sketch is malformed
-    /// (<c>Hashes</c> null or not strictly ascending, a hash above <c>MaxHash</c>, or <c>MaxHash</c> ≠ max_hash(<c>Scaled</c>)).</exception>
-    public static FracMinHashComparison CompareFracMinHashSketches(FracMinHashSketch a, FracMinHashSketch b)
+    /// <exception cref="ArgumentException">The sketches differ in k, seed or canonical mode, or in scaled with
+    /// <paramref name="downsample"/> false, or a sketch is malformed (<c>Scaled</c> outside 1..4294967295, <c>MaxHash</c> ≠
+    /// max_hash(<c>Scaled</c>), <c>Hashes</c> null or not strictly ascending, a hash above <c>MaxHash</c>, or <c>Abundances</c>
+    /// not one positive count per hash).</exception>
+    public static FracMinHashComparison CompareFracMinHashSketches(FracMinHashSketch a, FracMinHashSketch b, bool downsample = false)
     {
         ArgumentNullException.ThrowIfNull(a);
         ArgumentNullException.ThrowIfNull(b);
         ValidateFracMinHashSketch(a, nameof(a));
         ValidateFracMinHashSketch(b, nameof(b));
-        if (a.K != b.K || a.Seed != b.Seed || a.Canonical != b.Canonical || a.Scaled != b.Scaled)
-            throw new ArgumentException("Sketches must have the same k-mer size, seed, canonical mode and scaled.", nameof(b));
+        if (a.K != b.K || a.Seed != b.Seed || a.Canonical != b.Canonical)
+            throw new ArgumentException("Sketches must have the same k-mer size, seed and canonical mode.", nameof(b));
+        if (a.Scaled != b.Scaled)
+        {
+            if (!downsample)
+                throw new ArgumentException(
+                    "Sketches must have the same scaled (pass downsample: true to compare at the larger scaled, sourmash downsample=True).",
+                    nameof(b));
+            long common = Math.Max(a.Scaled, b.Scaled);
+            a = DownsampleFracMinHash(a, common);
+            b = DownsampleFracMinHash(b, common);
+        }
 
         var x = a.Hashes;
         var y = b.Hashes;
+        var xa = a.Abundances;
+        var ya = b.Abundances;
         int i = 0, j = 0, shared = 0;
+        ulong dot = 0;
+        long sharedA = 0, sharedB = 0;
         while (i < x.Count && j < y.Count)
         {
             if (x[i] < y[j])
@@ -1889,6 +1983,12 @@ public static class KmerAnalyzer
             else
             {
                 shared++;
+                if (xa is not null)
+                    sharedA += xa[i];
+                if (ya is not null)
+                    sharedB += ya[j];
+                if (xa is not null && ya is not null)
+                    dot = unchecked(dot + (ulong)xa[i] * (ulong)ya[j]);
                 i++;
                 j++;
             }
@@ -1896,21 +1996,50 @@ public static class KmerAnalyzer
 
         int union = x.Count + y.Count - shared;
         double jaccard = (double)shared / Math.Max(1, union);
+        double? angular = xa is not null && ya is not null ? AngularSimilarity(dot, xa, ya) : null;
         return new FracMinHashComparison(
             shared,
             union,
             jaccard,
             DebiasedContainment(shared, x.Count, a.Scaled),
             DebiasedContainment(shared, y.Count, a.Scaled),
-            DebiasedContainment(shared, Math.Min(x.Count, y.Count), a.Scaled));
+            DebiasedContainment(shared, Math.Min(x.Count, y.Count), a.Scaled),
+            angular,
+            xa is null ? null : WeightedContainment(sharedA, xa),
+            ya is null ? null : WeightedContainment(sharedB, ya));
+    }
+
+    // Rust KmerMinHash::angular_similarity: u64 sums of squares over each sketch's abundances, prod over shared hashes.
+    private static double AngularSimilarity(ulong dot, IReadOnlyList<long> a, IReadOnlyList<long> b)
+    {
+        ulong aSq = 0, bSq = 0;
+        foreach (var v in a)
+            aSq = unchecked(aSq + (ulong)v * (ulong)v);
+        foreach (var v in b)
+            bSq = unchecked(bSq + (ulong)v * (ulong)v);
+        double normA = Math.Sqrt(aSq);
+        double normB = Math.Sqrt(bSq);
+        if (normA == 0 || normB == 0)
+            return 0.0;
+        double cos = Math.Min(dot / (normA * normB), 1.0);
+        return 1.0 - 2.0 * Math.Acos(cos) / Math.PI;
+    }
+
+    // sourmash minhash.py contained_by_weighted: inflate(other ∩ self).sum_abundances / self.sum_abundances.
+    private static double WeightedContainment(long sharedAbundance, IReadOnlyList<long> abundances)
+    {
+        long total = 0;
+        foreach (var v in abundances)
+            total += v;
+        return total == 0 ? 0.0 : (double)sharedAbundance / total;
     }
 
     // sourmash minhash.py contained_by / max_containment: x / (denom · (1 − (1 − 1/S)^(denom·S))), clamped to [0, 1].
-    private static double DebiasedContainment(int shared, int denom, int scaled)
+    private static double DebiasedContainment(int shared, int denom, long scaled)
     {
         if (denom == 0)
             return 0.0;
-        double totalDenom = (double)((long)denom * scaled);
+        double totalDenom = (double)denom * scaled;
         double biasFactor = 1.0 - Math.Pow(1.0 - 1.0 / scaled, totalDenom);
         double containment = shared / (denom * biasFactor);
         if (containment >= 1)
@@ -1920,13 +2049,24 @@ public static class KmerAnalyzer
 
     private static void ValidateFracMinHashSketch(FracMinHashSketch sketch, string paramName)
     {
-        if (sketch.Scaled < 1 || sketch.MaxHash != FracMinHashMaxHash(sketch.Scaled))
-            throw new ArgumentException("Scaled must be >= 1 and MaxHash must equal FracMinHashMaxHash(Scaled).", paramName);
+        if (sketch.Scaled < 1 || sketch.Scaled > MaxSourmashScaled || sketch.MaxHash != FracMinHashMaxHash(sketch.Scaled))
+            throw new ArgumentException(
+                $"Scaled must be in 1..{MaxSourmashScaled} and MaxHash must equal FracMinHashMaxHash(Scaled).", paramName);
         if (sketch.Hashes is null)
             throw new ArgumentException("Hashes must not be null.", paramName);
         ThrowIfNotStrictlyAscending(sketch.Hashes, paramName);
         if (sketch.Hashes.Count > 0 && sketch.Hashes[^1] > sketch.MaxHash)
             throw new ArgumentException("A FracMinHash sketch holds only hashes <= MaxHash.", paramName);
+        if (sketch.Abundances is { } ab)
+        {
+            if (ab.Count != sketch.Hashes.Count)
+                throw new ArgumentException("Abundances must hold one count per hash.", paramName);
+            foreach (var v in ab)
+            {
+                if (v < 1)
+                    throw new ArgumentException("Abundances must be positive (sourmash removes a hash whose abundance is 0).", paramName);
+            }
+        }
     }
 
     #endregion
@@ -3132,16 +3272,19 @@ public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint S
 /// A FracMinHash ("scaled") sketch as built by sourmash (<see cref="KmerAnalyzer.CreateFracMinHashSketch"/>).
 /// </summary>
 /// <param name="K">K-mer size.</param>
-/// <param name="Scaled">Scaled factor S.</param>
+/// <param name="Scaled">Scaled factor S (1..4294967295, sourmash u32).</param>
 /// <param name="MaxHash">Threshold <see cref="KmerAnalyzer.FracMinHashMaxHash"/>(S): the sketch holds every hash ≤ MaxHash.</param>
 /// <param name="Canonical">True for canonical k-mers (sourmash), false for forward k-mers.</param>
 /// <param name="Seed">MurmurHash3 seed.</param>
 /// <param name="Hashes">The kept distinct hash values, ascending.</param>
-public sealed record FracMinHashSketch(int K, int Scaled, ulong MaxHash, bool Canonical, uint Seed, IReadOnlyList<ulong> Hashes);
+/// <param name="Abundances">With <c>trackAbundance</c> (sourmash <c>track_abundance=True</c>): the count of each hash, parallel to
+/// <paramref name="Hashes"/>; null otherwise.</param>
+public sealed record FracMinHashSketch(
+    int K, long Scaled, ulong MaxHash, bool Canonical, uint Seed, IReadOnlyList<ulong> Hashes, IReadOnlyList<long>? Abundances = null);
 
 /// <summary>
-/// Result of <see cref="KmerAnalyzer.CompareFracMinHashSketches"/> — sourmash <c>jaccard</c>, <c>contained_by</c> (both ways)
-/// and <c>max_containment</c>.
+/// Result of <see cref="KmerAnalyzer.CompareFracMinHashSketches"/> — sourmash <c>jaccard</c>, <c>contained_by</c> (both ways),
+/// <c>max_containment</c> and, with abundances, <c>angular_similarity</c> / <c>contained_by_weighted</c>.
 /// </summary>
 /// <param name="SharedHashes">|A ∩ B| (sourmash <c>count_common</c>).</param>
 /// <param name="UnionHashes">|A ∪ B|.</param>
@@ -3149,8 +3292,13 @@ public sealed record FracMinHashSketch(int K, int Scaled, ulong MaxHash, bool Ca
 /// <param name="ContainmentAInB">sourmash <c>A.contained_by(B)</c> (bias-corrected, clamped to [0, 1]).</param>
 /// <param name="ContainmentBInA">sourmash <c>B.contained_by(A)</c>.</param>
 /// <param name="MaxContainment">sourmash <c>A.max_containment(B)</c>.</param>
+/// <param name="AngularSimilarity">sourmash <c>A.angular_similarity(B)</c> (1 − 2·acos(cos)/π of the abundance vectors) when
+/// both sketches track abundance; null otherwise.</param>
+/// <param name="WeightedContainmentAInB">sourmash <c>A.contained_by_weighted(B)</c> when A tracks abundance; null otherwise.</param>
+/// <param name="WeightedContainmentBInA">sourmash <c>B.contained_by_weighted(A)</c> when B tracks abundance; null otherwise.</param>
 public readonly record struct FracMinHashComparison(
-    int SharedHashes, int UnionHashes, double Jaccard, double ContainmentAInB, double ContainmentBInA, double MaxContainment);
+    int SharedHashes, int UnionHashes, double Jaccard, double ContainmentAInB, double ContainmentBInA, double MaxContainment,
+    double? AngularSimilarity = null, double? WeightedContainmentAInB = null, double? WeightedContainmentBInA = null);
 
 /// <summary>
 /// Result of <see cref="KmerAnalyzer.CompareMinHashSketches"/> — one <c>mash dist</c> output line.

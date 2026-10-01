@@ -237,7 +237,9 @@ p-value 1. Sketches with different k, seed or canonical mode are rejected (Mash 
 well-formed sketch from arbitrary hash values. `MashPValue` rejects inputs no comparison can produce: x > s (Mash's
 `gsl_cdf_binomial_Q(x − 1, r, s)` silently returns 0 for x − 1 ≥ s, GSL `cdf/binomial.c`) and x ≥ 1 with a length
 of 0 (Mash would compute r = 0/0 = NaN; an empty set has no hashes); earlier, the first case returned 0 and the second
-threw `ArgumentOutOfRangeException` from inside the binomial tail.
+threw `ArgumentOutOfRangeException` from inside the binomial tail. Audit round 4 (WP10): k outside Mash's 1..32
+(`Command.cpp`: `Option(Option::Integer, "k", …, "21", 1, 32)`) is rejected with `ArgumentOutOfRangeException("k")`;
+before, k = 600 gave 4^600 = ∞, r = NaN and an undocumented `ArgumentOutOfRangeException("p")` from the binomial tail.
 
 ### 2.11 FracMinHash (sourmash `scaled`) sketches (audit round 3, WP9)
 
@@ -256,9 +258,40 @@ k-mers (Mash `-n` style; sourmash has no such DNA mode).
 (Rust `KmerMinHash::jaccard`); `contained_by` (A in B) = x / (|A|·b), b = 1 − (1 − 1/S)^(|A|·S) (the bias factor of
 Hera et al. 2023 [18], sourmash `minhash.py`), clamped to [0, 1], 0 for an empty A; `max_containment` uses
 min(|A|, |B|). S = 1 gives b = 1, i.e. the exact `JaccardSimilarity`/`ContainmentIndex` (canonical). Sketches must
-share k, seed, canonical mode and scaled (sourmash refuses otherwise unless asked to downsample; the downsampled
+share k, seed, canonical mode and scaled unless `downsample` is set (§2.12; sourmash refuses otherwise unless asked to downsample; the downsampled
 sketch at S′ ≥ S is the subset h ≤ max_hash(S′), i.e. the sketch built at S′). Malformed sketches (hashes not strictly
 ascending, a hash above `MaxHash`, `MaxHash` ≠ max_hash(`Scaled`)) are rejected.
+
+### 2.12 FracMinHash downsampling, abundance tracking, u32 `scaled` (audit round 4, WP10)
+
+`scaled` is a `long` restricted to 1..4294967295 (sourmash `ScaledType` = u32; `MaxSourmashScaled`): S = 4294967295
+gives max_hash 4294967297 = sourmash `MinHash(0, 21, scaled=4294967295)._max_hash`.
+
+`DownsampleFracMinHash(sketch, S′)` = sourmash `MinHash.downsample(scaled=S′)` / Rust `downsample_scaled`: the hashes
+h ≤ max_hash(S′) (same truncating `FracMinHashMaxHash`; Python's `downsample` converts its rounded max_hash back to S′
+and the Rust constructor recomputes the truncated value — `downsample(scaled=7919)._max_hash` = 2329428472497733),
+abundances kept; S′ < S is rejected (sourmash "new scaled … is lower than current sample scaled", Rust
+`CannotUpsampleScaled`). It equals sketching the sequence at S′ (checked on sequence C: 1011 hashes at S = 10 → 15,
+identical to the S = 1000 sketch).
+
+`CompareFracMinHashSketches(a, b, downsample: true)` = sourmash `downsample=True`: sketches of different scaled are both
+downsampled to max(S_a, S_b) and compared there. Jaccard (and angular similarity) equal `a.jaccard(b, downsample=True)`
+(Rust `similarity` downsamples the smaller-scaled sketch). The containments equal `sourmash compare --containment` /
+`--max-containment`, which downsamples all signatures to the common maximum scaled first (`commands.py`), i.e.
+`a.downsample(scaled=S).contained_by(b.downsample(scaled=S))`. The Python methods `contained_by(…, downsample=True)` /
+`max_containment(…, downsample=True)` only downsample inside `count_common` and keep `len(self)` and `self.scaled` of
+the undownsampled sketch in the denominator, so when `self` has the smaller scaled they differ (sourmash 4.9.4, A at
+S = 10 in B at S = 100, k = 21: method 0.029064039408866996, CLI / downsampled 0.3155080213903743); that mixed-scale
+artefact is not reproduced.
+
+`CreateFracMinHashSketch(…, trackAbundance: true)` = sourmash `track_abundance=True`: every k-mer occurrence adds 1 to
+its hash (Rust `add_hash_with_abundance`), so `FracMinHashSketch.Abundances` holds the canonical counts of
+`CountKmers(…, Canonical)` (summed if two k-mers collide on one hash). With both sketches tracking abundance,
+`FracMinHashComparison.AngularSimilarity` = sourmash `angular_similarity` = `similarity(ignore_abundance=False)` (Rust
+`KmerMinHash::angular_similarity`): cos = min(1, Σ_{h∈A∩B} a_h·b_h / (‖a‖·‖b‖)) with ‖a‖² = Σ over all of A's
+abundances (u64), 0 when a norm is 0, similarity = 1 − 2·acos(cos)/π. `WeightedContainmentAInB` = sourmash
+`contained_by_weighted` = Σ_{h∈A∩B} a_h / Σ_{h∈A} a_h (not bias-corrected; needs only A's abundances). With one flat
+sketch, `AngularSimilarity` is null (sourmash raises `TypeError`) and `similarity` falls back to Jaccard.
 
 ## 3. Contract
 
@@ -323,7 +356,8 @@ ascending, a hash above `MaxHash`, `MaxHash` ≠ max_hash(`Scaled`)) are rejecte
 - `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int, bool bothStrands)`, `KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands)` (CAFE `-R`), `SpacedWordDistance(string, string, IReadOnlyList<string>, KmerDistanceMetric)`, metrics `JensenShannon` / `EuclideanCounts` (audit round 2, WP6).
 - `KmerAnalyzer.ContainmentIndex(string, string, int[, KmerCountingOptions])` (§2.7), `CreateMinHashSketch` → `MinHashSketch`, `CompareMinHashSketches` → `MashComparison(SharedHashes, Denominator, Jaccard, Distance, PValue)`, `MashPValue`, `MurmurHash3X64_128` (§2.10; audit round 2, WP7).
 - Audit round 3 (WP9): metric `KmerDistanceMetric.SpacedEvolutionary` (`spaced -d EV`, §2.8) in `SpacedWordDistance` and `KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands)`, `SpacedEvolutionarySaturationDistance`; spaced reader in the `AcgtOnly` spaced path (§2.8); `FracMinHashMaxHash`, `CreateFracMinHashSketch` → `FracMinHashSketch`, `CompareFracMinHashSketches` → `FracMinHashComparison` (§2.11); `MinHashSketch.FromHashes`.
-- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly` and `sketchSize` (0 = exact; s > 0 = Mash sketch estimate + `sharedHashes`/`sketchDenominator`/`pValue`), always returning both exact containment indices; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis; optional `acgtOnly` and `bothStrands`, WP8). WP9: metric `ev` on `spaced_word_distance` and both `kmer_distance` tools; `kmer_jaccard` optional `scaled` (sourmash FracMinHash; exclusive with `sketchSize`) and output `maxContainment`.
+- Audit round 4 (WP10): `DownsampleFracMinHash`, `CompareFracMinHashSketches(a, b, downsample)`, `CreateFracMinHashSketch(…, trackAbundance)` with `FracMinHashSketch.Abundances`, `FracMinHashComparison.AngularSimilarity` / `WeightedContainmentAInB` / `WeightedContainmentBInA`, `long` scaled in 1..4294967295 (`MaxSourmashScaled`) (§2.12); `MashPValue` k limited to Mash's 1..32.
+- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly` and `sketchSize` (0 = exact; s > 0 = Mash sketch estimate + `sharedHashes`/`sketchDenominator`/`pValue`), always returning both exact containment indices; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis; optional `acgtOnly` and `bothStrands`, WP8). WP9: metric `ev` on `spaced_word_distance` and both `kmer_distance` tools; `kmer_jaccard` optional `scaled` (sourmash FracMinHash; exclusive with `sketchSize`) and output `maxContainment`. WP10: `kmer_jaccard` `scaled` accepts 1..4294967295 and requires `canonical = true` (sourmash DNA hashing is canonical; `canonical = false` was silently ignored), optional `trackAbundance` → output `angularSimilarity`.
 
 ### 5.2 Current Behavior
 

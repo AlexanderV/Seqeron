@@ -5,7 +5,7 @@
   "version": "1.2.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.SpacedWordDistance",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2133",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2273",
   "description": "Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (all of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or another kmer_distance word-vector metric. metric ev = spaced -d EV (evolutionary distance from spaced-word match counts, Morgenstern et al. 2015; Jukes-Cantor; 1.2 when undefined; equal pattern lengths). Single strand (spaced -r) unless bothStrands; acgtOnly = the spaced reader (non-letters deleted) and N-word rule.",
   "inputSchema": {
     "type": "object",

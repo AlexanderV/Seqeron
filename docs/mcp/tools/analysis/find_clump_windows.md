@@ -26,7 +26,7 @@ at least `k`; a window longer than the sequence gives an empty list.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L2629](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2629)
+- Source: [KmerAnalyzer.cs#L2769](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2769)
 - Algorithm: [K-mer_Search.md](../../../algorithms/K-mer/K-mer_Search.md) §2.2, §7.3
 
 ## Input Schema

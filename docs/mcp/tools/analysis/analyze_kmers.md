@@ -29,7 +29,7 @@ BA1B sample k=4 `canonical` → Unique 16, Distinct 20, Total 27, Max 4, as the 
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L2964](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2964)
+- Source: [KmerAnalyzer.cs#L3104](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L3104)
 - Evidence: `docs/Evidence/KMER-STATS-001-Evidence.md`
 
 ## Input Schema

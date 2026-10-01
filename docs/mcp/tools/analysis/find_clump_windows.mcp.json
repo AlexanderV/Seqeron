@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindClumpWindows",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2629",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2769",
   "description": "(L, t)-clump k-mers with the windows in which they form clumps: for each k-mer the maximal runs of consecutive 0-based window starts i such that sequence[i..i+windowSize-1] holds at least minOccurrences occurrences (Compeau & Pevzner Ch.1, Rosalind BA1E). Same k-mer set as find_clumps.",
   "inputSchema": {
     "type": "object",

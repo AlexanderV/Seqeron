@@ -117,7 +117,7 @@ The option-aware overload uses the same single loop (`CountKmersCore`). With `Km
 
 **Intentionally simplified:**
 
-- Both-strand counting sums forward and reverse-complement counts rather than canonicalizing each k-mer to a single representative key; **consequence:** forward and reverse-complement words remain separate dictionary entries unless they are identical strings.
+- Both-strand counting sums forward and reverse-complement counts rather than canonicalizing each k-mer to a single representative key; **consequence:** forward and reverse-complement words remain separate dictionary entries unless they are identical strings. Canonical keys (one entry min(w, RC(w)) per k-mer pair, Jellyfish `count -C`) are available through `KmerCountingOptions.Canonical` in `CountKmers(sequence, k, options)` (B06 audit round 1, F10); see also the kPAL ACGT-only both-strand mode (F25).
 - The option-less overloads and `CountKmersSpan` do not enforce a DNA alphabet (generic definition, also used for non-DNA text); **consequence:** the usual `4^k` bound applies only to DNA input. The Jellyfish behaviour (non-ACGT windows skipped) is available as `KmerCountingOptions.AcgtOnly`, and canonical keys as `KmerCountingOptions.Canonical`. The literal mode stays the default for backward compatibility.
 
 **Not implemented:** none (canonical collapsing and ACGT-only counting are available as options since B06 audit round 1).

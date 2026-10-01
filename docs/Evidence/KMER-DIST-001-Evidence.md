@@ -276,7 +276,31 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
   record otherwise). ASM-D13: `MashPValue` rejects x > s and x ≥ 1 with a zero length (unreachable from a comparison;
   Mash would return 0 / NaN). ASM-D14: d2*/d2S clamped to [0, 1] (Cauchy–Schwarz; removes −1.1e-16 rounding).
 
+## Audit round 4 (WP10, 2026-10-01) — FracMinHash downsampling, abundance tracking, u32 scaled, Mash k range
+
+- Sources opened: sourmash 4.9.4 Python `minhash.py` (`downsample`, `jaccard`, `similarity`, `angular_similarity`,
+  `contained_by`, `max_containment`, `contained_by_weighted`, `_get_max_hash_for_scaled` / `_get_scaled_for_max_hash`),
+  `commands.py` (`compare` downsamples every signature to the maximum scaled), `compare.py`; Rust core v4.9.4
+  `sketch/minhash.rs` (`max_hash_for_scaled`, `scaled_for_max_hash`, `add_hash_with_abundance`, `count_common`,
+  `similarity`, `angular_similarity`, `downsample_scaled`) and `signature.rs` (`SeqToHashes`: always
+  `min(kmer, krc)` for DNA; `force` skips, otherwise `InvalidDNA`). Mash `src/mash/Command.cpp` (`-k`: Integer, 1..32)
+  and `sketchParameterSetup.cpp`.
+- sourmash (executed): `downsample(scaled=S′)._max_hash` = Rust truncation (2049 → 9002803354665472, 7919 →
+  2329428472497733, 123456789 → 149418628356, 4294967295 → 4294967297); C k = 21 S 10 → 1000: 1011 → 15 hashes = the
+  S = 1000 sketch. Downsample comparisons (x at S_a, y at S_b): A/B k 21 10/100 jaccard 0.18322981366459629,
+  `compare --containment` 0.3155080213903743 / 0.30412371134020616 (method `contained_by(downsample=True)` 0.029064039408866996
+  — denominator not downsampled), max 0.3155080213903743; C/B k 31 100/10 0.06985294117647059, 0.19791666666666666 /
+  0.09743589743589744; B/A k 31 1000/10 0.06060606060606061, 0.1250000139547377 / 0.10526315847892492.
+- Abundance (`track_abundance=True`): P/Q k 21 S 1 angular 0.4701473676328215 (Jaccard 0.63748031496063, weighted
+  0.8236686390532545 / 0.8590686274509803); P/W k 15 0.7252694187711534; W/Q k 21 S 10/100 (downsample) 0.6670115706749962;
+  A/B k 21 S 10 0.2325202182944529; S1/S2 k 4 S 1 / 3: 0.2363801370444173 / 0.3123095603640216. All equal C# within 1e-15.
+- ASM-D15: with `downsample`, containments follow `sourmash compare` (downsample both); the Python methods' mixed-scale
+  denominator is not reproduced. ASM-D16: MCP `kmer_jaccard` with `scaled` requires `canonical = true` (no non-canonical
+  sourmash DNA mode); non-ACGT k-mers are skipped (`force=True`). ASM-D17: `MashPValue` k ∈ 1..32 (Mash).
+
 ## Change History
+
+- **2026-10-01**: Audit round 4 WP10 — `DownsampleFracMinHash` / `downsample`, `trackAbundance` + angular similarity / weighted containment, u32 `scaled`, `MashPValue` k range, MCP `kmer_jaccard` canonical requirement + `trackAbundance`.
 
 - **2026-10-01**: Audit round 3 WP9 — `spaced -d EV` (`SpacedEvolutionary`), spaced reader in the `AcgtOnly` path, sourmash FracMinHash sketches, `MashPValue` / sketch validation, d2*/d2S clamp.
 
