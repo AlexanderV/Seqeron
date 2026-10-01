@@ -297,41 +297,10 @@ public sealed class AlphabetPositionWeightMatrix
         ArgumentNullException.ThrowIfNull(pseudocounts);
         MotifFinder.AlphabetRowIndex.Create(alphabet, nameof(alphabet));
         int k = alphabet.Length;
-        if (counts.GetLength(0) != k)
-            throw new ArgumentException($"Count matrix must have {k} rows (one per alphabet symbol).", nameof(counts));
-        foreach (double c in counts)
-        {
-            if (!double.IsFinite(c) || c < 0)
-                throw new ArgumentOutOfRangeException(nameof(counts), c, "Counts must be finite and non-negative.");
-        }
-
-        if (pseudocounts.Count != k)
-            throw new ArgumentException($"Exactly {k} pseudocounts (one per alphabet symbol) are required.", nameof(pseudocounts));
-        var pseudo = new double[k];
-        double pseudoSum = 0;
-        for (int a = 0; a < k; a++)
-        {
-            double p = pseudocounts[a];
-            if (!double.IsFinite(p) || p < 0)
-                throw new ArgumentOutOfRangeException(nameof(pseudocounts), p, "Pseudocounts must be finite and non-negative.");
-            pseudo[a] = p;
-            pseudoSum += p;
-        }
-
-        double[] bg = ResolveBackground(background, k);
-
-        int length = counts.GetLength(1);
-        for (int i = 0; i < length; i++)
-        {
-            double total = pseudoSum;
-            for (int a = 0; a < k; a++)
-                total += counts[a, i];
-            if (total <= 0)
-                throw new ArgumentException(
-                    $"Column {i} has zero counts and zero pseudocounts; its frequencies are undefined.", nameof(counts));
-        }
-
-        return new AlphabetPositionWeightMatrix(alphabet, MotifFinder.LogOddsFromCounts(counts, pseudo, pseudoSum, bg));
+        MotifFinder.ValidateCountMatrix(counts, k, $"Count matrix must have {k} rows (one per alphabet symbol).");
+        double[,] logOdds = MotifFinder.CountsToLogOdds(counts, pseudocounts,
+            $"Exactly {k} pseudocounts (one per alphabet symbol) are required.", () => ResolveBackground(background, k));
+        return new AlphabetPositionWeightMatrix(alphabet, logOdds);
     }
 
     /// <summary>The alphabet (row order).</summary>

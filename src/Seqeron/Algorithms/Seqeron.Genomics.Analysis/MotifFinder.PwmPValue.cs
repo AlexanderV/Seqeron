@@ -44,12 +44,7 @@ public static partial class MotifFinder
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="score"/> is NaN or infinite.</exception>
     public static PwmPValueResult PwmScorePValue(
         PositionWeightMatrix pwm, double score, IReadOnlyList<double>? background = null)
-    {
-        if (!double.IsFinite(score))
-            throw new ArgumentOutOfRangeException(nameof(score), score, "Score must be finite.");
-        var engine = new PwmPValueEngine(pwm, ResolveBackground(background));
-        return engine.ScoreToPValue(score);
-    }
+        => PwmScorePValue(pwm, score, background, null);
 
     /// <summary>
     /// Exact score threshold of a p-value (TFM-Pvalue <c>pv2sc</c>): the smallest score t attained by a word
@@ -80,12 +75,7 @@ public static partial class MotifFinder
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pValue"/> is not in [0, 1].</exception>
     public static PwmPValueResult PwmScoreThresholdForPValue(
         PositionWeightMatrix pwm, double pValue, IReadOnlyList<double>? background = null)
-    {
-        if (!(pValue >= 0 && pValue <= 1))
-            throw new ArgumentOutOfRangeException(nameof(pValue), pValue, "P-value must be in [0, 1].");
-        var engine = new PwmPValueEngine(pwm, ResolveBackground(background));
-        return engine.PValueToScore(pValue);
-    }
+        => PwmScoreThresholdForPValue(pwm, pValue, background, null);
 
     /// <summary>
     /// <see cref="PwmScorePValue(PositionWeightMatrix, double, IReadOnlyList{double}?)"/> with explicit search options
@@ -99,8 +89,7 @@ public static partial class MotifFinder
     public static PwmPValueResult PwmScorePValue(
         PositionWeightMatrix pwm, double score, IReadOnlyList<double>? background, PwmPValueOptions? options)
     {
-        if (!double.IsFinite(score))
-            throw new ArgumentOutOfRangeException(nameof(score), score, "Score must be finite.");
+        ValidatePValueScore(score);
         var engine = new PwmPValueEngine(pwm, ResolveBackground(background), options);
         return engine.ScoreToPValue(score);
     }
@@ -115,8 +104,7 @@ public static partial class MotifFinder
     public static PwmPValueResult PwmScoreThresholdForPValue(
         PositionWeightMatrix pwm, double pValue, IReadOnlyList<double>? background, PwmPValueOptions? options)
     {
-        if (!(pValue >= 0 && pValue <= 1))
-            throw new ArgumentOutOfRangeException(nameof(pValue), pValue, "P-value must be in [0, 1].");
+        ValidatePValue(pValue);
         var engine = new PwmPValueEngine(pwm, ResolveBackground(background), options);
         return engine.PValueToScore(pValue);
     }
@@ -153,8 +141,7 @@ public static partial class MotifFinder
     public static PwmPValueResult PwmMarkovScorePValue(
         PositionWeightMatrix pwm, double score, OligoBackgroundModel background, PwmPValueOptions? options = null)
     {
-        if (!double.IsFinite(score))
-            throw new ArgumentOutOfRangeException(nameof(score), score, "Score must be finite.");
+        ValidatePValueScore(score);
         return CreateMarkovEngine(pwm, background, options).ScoreToPValue(score);
     }
 
@@ -169,8 +156,7 @@ public static partial class MotifFinder
     public static PwmPValueResult PwmMarkovScoreThresholdForPValue(
         PositionWeightMatrix pwm, double pValue, OligoBackgroundModel background, PwmPValueOptions? options = null)
     {
-        if (!(pValue >= 0 && pValue <= 1))
-            throw new ArgumentOutOfRangeException(nameof(pValue), pValue, "P-value must be in [0, 1].");
+        ValidatePValue(pValue);
         return CreateMarkovEngine(pwm, background, options).PValueToScore(pValue);
     }
 
@@ -191,8 +177,7 @@ public static partial class MotifFinder
         AlphabetPositionWeightMatrix pwm, double score, IReadOnlyList<double>? background = null, PwmPValueOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(pwm);
-        if (!double.IsFinite(score))
-            throw new ArgumentOutOfRangeException(nameof(score), score, "Score must be finite.");
+        ValidatePValueScore(score);
         return CreateAlphabetEngine(pwm, background, options).ScoreToPValue(score);
     }
 
@@ -208,9 +193,20 @@ public static partial class MotifFinder
         AlphabetPositionWeightMatrix pwm, double pValue, IReadOnlyList<double>? background = null, PwmPValueOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(pwm);
+        ValidatePValue(pValue);
+        return CreateAlphabetEngine(pwm, background, options).PValueToScore(pValue);
+    }
+
+    private static void ValidatePValueScore(double score)
+    {
+        if (!double.IsFinite(score))
+            throw new ArgumentOutOfRangeException(nameof(score), score, "Score must be finite.");
+    }
+
+    private static void ValidatePValue(double pValue)
+    {
         if (!(pValue >= 0 && pValue <= 1))
             throw new ArgumentOutOfRangeException(nameof(pValue), pValue, "P-value must be in [0, 1].");
-        return CreateAlphabetEngine(pwm, background, options).PValueToScore(pValue);
     }
 
     private static PwmPValueEngine CreateMarkovEngine(

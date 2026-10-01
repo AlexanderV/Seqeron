@@ -63,13 +63,7 @@ public static partial class MotifFinder
         var type = options.Type;
         options.Background.ValidateFor(m, nameof(options));
 
-        var seqs = new List<string>();
-        foreach (var dna in sequences)
-        {
-            if (dna is null)
-                throw new ArgumentException($"Sequence at index {seqs.Count} is null.", nameof(sequences));
-            seqs.Add(dna.Sequence);
-        }
+        List<string> seqs = SequenceStrings(sequences);
 
         int spacings = maxSp - minSp + 1;
         var valid = new long[spacings];
@@ -122,7 +116,7 @@ public static partial class MotifFinder
                         }
                         lastCounted[pattern] = pos1;
                         if (both)
-                            lastCounted[DyadPattern(Rc(m2, rcCache), s, Rc(m1, rcCache))] = pos1;
+                            lastCounted[DyadPattern(CachedReverseComplement(m2, rcCache), s, CachedReverseComplement(m1, rcCache))] = pos1;
                     }
 
                     var t = Tally(pattern, m1, s, m2);
@@ -138,7 +132,7 @@ public static partial class MotifFinder
         void AddCandidate(string m1, int s, string m2)
         {
             string pattern = DyadPattern(m1, s, m2);
-            string rm1 = Rc(m2, rcCache), rm2 = Rc(m1, rcCache);
+            string rm1 = CachedReverseComplement(m2, rcCache), rm2 = CachedReverseComplement(m1, rcCache);
             string rcPattern = both ? DyadPattern(rm1, s, rm2) : pattern;
             bool swap = string.CompareOrdinal(rcPattern, pattern) < 0;
             string key = swap ? rcPattern : pattern;
@@ -178,7 +172,7 @@ public static partial class MotifFinder
             double e = MonadFrequency(g.First) * MonadFrequency(g.Second);
             if (both)
             {
-                string rc1 = Rc(g.First, rcCache), rc2 = Rc(g.Second, rcCache);
+                string rc1 = CachedReverseComplement(g.First, rcCache), rc2 = CachedReverseComplement(g.Second, rcCache);
                 if (rc1 != g.Second)
                     e += MonadFrequency(rc1) * MonadFrequency(rc2);
             }
@@ -257,7 +251,7 @@ public static partial class MotifFinder
                 OccurrenceEValue: Math.Exp(logOccE),
                 OccurrenceSignificance: -logOccE / Ln10,
                 IsDirectRepeat: g.First == g.Second,
-                IsReversePalindrome: Rc(g.First, rcCache) == g.Second,
+                IsReversePalindrome: CachedReverseComplement(g.First, rcCache) == g.Second,
                 ExpectedFromMonads: fromMonads));
         }
 
@@ -293,13 +287,12 @@ public static partial class MotifFinder
     internal static string DyadPattern(string first, int spacing, string second)
         => string.Concat(first, "n{", spacing.ToString(CultureInfo.InvariantCulture), "}", second);
 
-    private static string Rc(string word, Dictionary<string, string> cache) => CachedReverseComplement(word, cache);
 
     private static bool DyadTypeAccepts(DyadType type, string m1, string m2, Dictionary<string, string> rcCache) => type switch
     {
         DyadType.DirectRepeat => m1 == m2,
-        DyadType.InvertedRepeat => m2 == Rc(m1, rcCache),
-        DyadType.Repeat => m1 == m2 || m2 == Rc(m1, rcCache),
+        DyadType.InvertedRepeat => m2 == CachedReverseComplement(m1, rcCache),
+        DyadType.Repeat => m1 == m2 || m2 == CachedReverseComplement(m1, rcCache),
         _ => true,
     };
 
@@ -308,8 +301,8 @@ public static partial class MotifFinder
         => type switch
         {
             DyadType.DirectRepeat => new[] { m1 },
-            DyadType.InvertedRepeat => new[] { Rc(m1, rcCache) },
-            DyadType.Repeat => new[] { m1, Rc(m1, rcCache) },
+            DyadType.InvertedRepeat => new[] { CachedReverseComplement(m1, rcCache) },
+            DyadType.Repeat => new[] { m1, CachedReverseComplement(m1, rcCache) },
             _ => observedMonads,
         };
 

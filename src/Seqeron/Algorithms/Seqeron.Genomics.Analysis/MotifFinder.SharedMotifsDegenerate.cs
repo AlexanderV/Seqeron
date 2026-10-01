@@ -60,18 +60,11 @@ public static partial class MotifFinder
         ArgumentNullException.ThrowIfNull(background);
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(minSequences, 1);
-        if (!(pseudoFrequency >= 0.0 && pseudoFrequency <= 1.0))
-            throw new ArgumentOutOfRangeException(nameof(pseudoFrequency), pseudoFrequency, "Pseudo-frequency must be in [0, 1].");
+        ValidatePseudoFrequency(pseudoFrequency, nameof(pseudoFrequency));
         background.ValidateFor(k, nameof(background));
 
         bool both = strands == OligoStrandMode.Both;
-        var seqs = new List<string>();
-        foreach (var dna in sequences)
-        {
-            if (dna is null)
-                throw new ArgumentException($"Sequence at index {seqs.Count} is null.", nameof(sequences));
-            seqs.Add(dna.Sequence);
-        }
+        List<string> seqs = SequenceStrings(sequences);
 
         char[] codes = degeneracy == OligoDegeneracy.OneN ? OneNCodes : OneDegenerateCodes;
         long possiblePositions = 0;
@@ -92,20 +85,7 @@ public static partial class MotifFinder
                         if (!IupacHelper.MatchesIupac(word[l], code)) continue;
                         word.CopyTo(0, buffer, 0, k);
                         buffer[l] = code;
-                        string key = new(buffer), rc = key;
-                        if (both)
-                        {
-                            rc = CachedReverseComplement(key, rcCache);
-                            if (string.CompareOrdinal(rc, key) < 0) (key, rc) = (rc, key);
-                        }
-
-                        if (!matching.TryGetValue(key, out var entry))
-                        {
-                            entry = (rc, new List<int>());
-                            matching.Add(key, entry);
-                        }
-                        if (entry.Indices.Count == 0 || entry.Indices[^1] != i)
-                            entry.Indices.Add(i);
+                        AddMatchingSequence(matching, new string(buffer), i, both, rcCache);
                     }
                 }
             }

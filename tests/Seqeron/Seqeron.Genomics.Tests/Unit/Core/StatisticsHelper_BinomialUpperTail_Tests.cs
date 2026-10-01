@@ -105,6 +105,22 @@ public class StatisticsHelper_BinomialUpperTail_Tests
         });
     }
 
+    [Test]
+    public void LogAddExp_MatchesNumpyLogaddexp()
+    {
+        // numpy 2.x np.logaddexp: (-1000, -1001) → -999.6867383124818; (ln ¼, ln ½) → ln ¾ = -0.2876820724517809;
+        // (-inf, -inf) → -inf; (-inf, -3.5) → -3.5; (700, 710) → 710.0000453988993 (no overflow).
+        Assert.Multiple(() =>
+        {
+            Assert.That(StatisticsHelper.LogAddExp(-1000.0, -1001.0), Is.EqualTo(-999.6867383124818).Within(1e-12));
+            Assert.That(StatisticsHelper.LogAddExp(Math.Log(0.25), Math.Log(0.5)), Is.EqualTo(-0.2876820724517809).Within(1e-15));
+            Assert.That(StatisticsHelper.LogAddExp(double.NegativeInfinity, double.NegativeInfinity), Is.EqualTo(double.NegativeInfinity));
+            Assert.That(StatisticsHelper.LogAddExp(double.NegativeInfinity, -3.5), Is.EqualTo(-3.5));
+            Assert.That(StatisticsHelper.LogAddExp(-3.5, double.NegativeInfinity), Is.EqualTo(-3.5));
+            Assert.That(StatisticsHelper.LogAddExp(700.0, 710.0), Is.EqualTo(710.0000453988993).Within(1e-12));
+        });
+    }
+
     private static double LogChoose(long n, long k)
     {
         double s = 0;

@@ -239,10 +239,14 @@ public static partial class MotifFinder
         => background is null ? UniformBackground : NormalizeBackground(background);
 
     internal static void ValidateCountMatrix(double[,] counts)
+        => ValidateCountMatrix(counts, PwmAlphabetSize, "Count matrix must have 4 rows (A, C, G, T).");
+
+    /// <summary>Count-matrix contract shared by the DNA and the generic-alphabet PWM: <paramref name="rows"/> rows, cells finite and ≥ 0.</summary>
+    internal static void ValidateCountMatrix(double[,] counts, int rows, string rowsMessage)
     {
         ArgumentNullException.ThrowIfNull(counts);
-        if (counts.GetLength(0) != PwmAlphabetSize)
-            throw new ArgumentException("Count matrix must have 4 rows (A, C, G, T).", nameof(counts));
+        if (counts.GetLength(0) != rows)
+            throw new ArgumentException(rowsMessage, nameof(counts));
         foreach (double c in counts)
         {
             if (!double.IsFinite(c) || c < 0)
@@ -254,13 +258,28 @@ public static partial class MotifFinder
         double[,] counts, IReadOnlyList<double> pseudocounts, IReadOnlyList<double>? background)
     {
         ValidateCountMatrix(counts);
-        ArgumentNullException.ThrowIfNull(pseudocounts);
-        if (pseudocounts.Count != PwmAlphabetSize)
-            throw new ArgumentException("Exactly 4 pseudocounts (A, C, G, T) are required.", nameof(pseudocounts));
+        double[,] logOdds = CountsToLogOdds(counts, pseudocounts,
+            "Exactly 4 pseudocounts (A, C, G, T) are required.", () => ResolveBackground(background));
+        return new PositionWeightMatrix(logOdds, counts.GetLength(1));
+    }
 
-        var pseudo = new double[PwmAlphabetSize];
+    /// <summary>
+    /// Validated count matrix → log-odds, shared by <see cref="PositionWeightMatrix.FromCounts(double[,], IReadOnlyList{double}, IReadOnlyList{double}?)"/>
+    /// and <see cref="AlphabetPositionWeightMatrix.FromCounts(string, double[,], IReadOnlyList{double}, IReadOnlyList{double}?)"/>:
+    /// one finite, non-negative pseudocount per row; the background is resolved after the pseudocounts; a column whose
+    /// counts and pseudocounts are all 0 is rejected (Biopython divides by a zero total); then <see cref="LogOddsFromCounts"/>.
+    /// </summary>
+    internal static double[,] CountsToLogOdds(
+        double[,] counts, IReadOnlyList<double> pseudocounts, string pseudocountCountMessage, Func<double[]> resolveBackground)
+    {
+        ArgumentNullException.ThrowIfNull(pseudocounts);
+        int k = counts.GetLength(0);
+        if (pseudocounts.Count != k)
+            throw new ArgumentException(pseudocountCountMessage, nameof(pseudocounts));
+
+        var pseudo = new double[k];
         double pseudoSum = 0;
-        for (int b = 0; b < PwmAlphabetSize; b++)
+        for (int b = 0; b < k; b++)
         {
             double p = pseudocounts[b];
             if (!double.IsFinite(p) || p < 0)
@@ -270,20 +289,20 @@ public static partial class MotifFinder
             pseudoSum += p;
         }
 
-        double[] bg = ResolveBackground(background);
+        double[] bg = resolveBackground();
 
         int length = counts.GetLength(1);
         for (int i = 0; i < length; i++)
         {
             double columnTotal = pseudoSum;
-            for (int b = 0; b < PwmAlphabetSize; b++)
+            for (int b = 0; b < k; b++)
                 columnTotal += counts[b, i];
             if (columnTotal <= 0)
                 throw new ArgumentException(
                     $"Column {i} has zero counts and zero pseudocounts; its frequencies are undefined.", nameof(counts));
         }
 
-        return new PositionWeightMatrix(LogOddsFromCounts(counts, pseudo, pseudoSum, bg), length);
+        return LogOddsFromCounts(counts, pseudo, pseudoSum, bg);
     }
 
     #endregion

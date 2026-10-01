@@ -198,13 +198,7 @@ public static partial class MotifFinder
         List<string> rows;
         if (padRaggedRows)
         {
-            rows = new List<string>();
-            foreach (string s in alignedSequences)
-            {
-                if (s is null)
-                    throw new ArgumentException("Sequences cannot contain null elements.", nameof(alignedSequences));
-                rows.Add(s);
-            }
+            rows = MaterializeRows(alignedSequences, nameof(alignedSequences));
             int len = rows.Count == 0 ? 0 : rows.Max(r => r.Length);
             for (int i = 0; i < rows.Count; i++)
                 rows[i] = rows[i].PadRight(len, '-'); // ajSeqsetFill: append '-' × (Len − own length)

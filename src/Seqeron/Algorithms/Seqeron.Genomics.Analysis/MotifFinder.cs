@@ -376,13 +376,7 @@ public static partial class MotifFinder
     /// <exception cref="ArgumentException">Null element or unequal lengths.</exception>
     private static List<string> MaterializeAligned(IEnumerable<string> sequences, string paramName)
     {
-        var seqList = new List<string>();
-        foreach (var s in sequences)
-        {
-            if (s is null)
-                throw new ArgumentException("Sequences cannot contain null elements.", paramName);
-            seqList.Add(s);
-        }
+        List<string> seqList = MaterializeRows(sequences, paramName);
 
         for (int s = 1; s < seqList.Count; s++)
         {
@@ -391,6 +385,21 @@ public static partial class MotifFinder
         }
 
         return seqList;
+    }
+
+    /// <summary>Materialises the rows of an alignment, rejecting a null element (checked while enumerating).</summary>
+    /// <exception cref="ArgumentException">Null element.</exception>
+    private static List<string> MaterializeRows(IEnumerable<string> sequences, string paramName)
+    {
+        var rows = new List<string>();
+        foreach (var s in sequences)
+        {
+            if (s is null)
+                throw new ArgumentException("Sequences cannot contain null elements.", paramName);
+            rows.Add(s);
+        }
+
+        return rows;
     }
 
     /// <summary>

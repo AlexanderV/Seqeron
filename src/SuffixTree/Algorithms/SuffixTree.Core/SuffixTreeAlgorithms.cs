@@ -123,17 +123,7 @@ public static partial class SuffixTreeAlgorithms
 
         for (int i = 0; i < querySpan.Length; i++)
         {
-            int c = querySpan[i];
-
-            while (true)
-            {
-                if (TryConsumeSymbol(ref nav, c, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth))
-                    break;
-
-                // Cannot extend — follow suffix link
-                if (currentMatchLen == 0) break;
-                FollowSuffixLinkAndRescan(ref nav, querySpan, i, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth);
-            }
+            AdvanceMatchingStatistics(ref nav, querySpan, i, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth);
 
             // Update peak tracking
             if (currentMatchLen >= minLength)
@@ -142,10 +132,7 @@ public static partial class SuffixTreeAlgorithms
                 {
                     peakLen = currentMatchLen;
                     peakEndInQuery = i;
-                    peakNode = nav.IsNull(currentEdge) ? currentNode : currentEdge;
-                    peakDepthFromRoot = nav.IsNull(currentEdge)
-                        ? currentNodeDepth - nav.LengthOf(currentNode)
-                        : currentNodeDepth;
+                    (peakNode, peakDepthFromRoot) = MatchLocus(ref nav, currentNode, currentEdge, currentNodeDepth);
                 }
             }
             else if (peakLen >= minLength)
@@ -396,6 +383,39 @@ public static partial class SuffixTreeAlgorithms
                 hits.Add((r, length));
         }
     }
+
+    /// <summary>
+    /// One matching-statistics step (Chang &amp; Lawler; shared by <see cref="FindExactMatchAnchors{TNode, TNav}"/> and
+    /// the LCS collectors): extends the current match by <paramref name="source"/>[<paramref name="i"/>], following
+    /// suffix links (with rescan) until it extends or the match is empty.
+    /// </summary>
+    private static void AdvanceMatchingStatistics<TNode, TNav>(
+        ref TNav nav, ReadOnlySpan<char> source, int i,
+        ref TNode currentNode, ref TNode currentEdge, ref int edgeOffset, ref int currentMatchLen, ref int currentNodeDepth)
+        where TNav : struct, ISuffixTreeNavigator<TNode>
+    {
+        int c = source[i];
+        while (true)
+        {
+            if (TryConsumeSymbol(ref nav, c, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth))
+                break;
+
+            // Cannot extend — follow suffix link
+            if (currentMatchLen == 0) break;
+            FollowSuffixLinkAndRescan(ref nav, source, i, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth);
+        }
+    }
+
+    /// <summary>
+    /// Node whose subtree holds the current match and that node's depth from the root: the current node
+    /// (depth = node depth − its edge length) when the match ends at a node, else the edge's child (depth = node depth).
+    /// </summary>
+    private static (TNode Node, int DepthFromRoot) MatchLocus<TNode, TNav>(
+        ref TNav nav, TNode currentNode, TNode currentEdge, int currentNodeDepth)
+        where TNav : struct, ISuffixTreeNavigator<TNode>
+        => nav.IsNull(currentEdge)
+            ? (currentNode, currentNodeDepth - nav.LengthOf(currentNode))
+            : (currentEdge, currentNodeDepth);
 
     private static bool TryConsumeSymbol<TNode, TNav>(
         ref TNav nav,

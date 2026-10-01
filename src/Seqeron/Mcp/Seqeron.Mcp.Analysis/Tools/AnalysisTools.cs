@@ -1244,16 +1244,9 @@ public class AnalysisTools
             throw new ArgumentException("Background must have 4 values (A,C,G,T).", nameof(background));
         if (precision < 1)
             throw new ArgumentOutOfRangeException(nameof(precision), "Precision must be >= 1.");
-        if (!(fpr >= 0 && fpr <= 1))
-            throw new ArgumentOutOfRangeException(nameof(fpr), "fpr must be in [0, 1].");
-        if (!(fnr >= 0 && fnr <= 1))
-            throw new ArgumentOutOfRangeException(nameof(fnr), "fnr must be in [0, 1].");
+        RequireRates(fpr, fnr);
 
-        var d = pwmObj.ScoreDistribution(background, precision);
-        double balanced = d.ThresholdBalanced(rateProportion, out double balancedRate);
-        return new PwmScoreThresholdsResult(
-            d.MinScore, d.Step, d.PointCount, d.MeanScore,
-            d.ThresholdFpr(fpr), d.ThresholdFnr(fnr), balanced, balancedRate, d.ThresholdPatser());
+        return ToThresholdsResult(pwmObj.ScoreDistribution(background, precision), fpr, fnr, rateProportion);
     }
 
     [McpServerTool(Name = "pwm_score_pvalue", Title = "Motifs — Exact PWM Score P-value", ReadOnly = true)]
@@ -1302,6 +1295,24 @@ public class AnalysisTools
         }
 
         return ToPValueResult(r);
+    }
+
+    private static void RequireRates(double fpr, double fnr)
+    {
+        if (!(fpr >= 0 && fpr <= 1))
+            throw new ArgumentOutOfRangeException(nameof(fpr), "fpr must be in [0, 1].");
+        if (!(fnr >= 0 && fnr <= 1))
+            throw new ArgumentOutOfRangeException(nameof(fnr), "fnr must be in [0, 1].");
+    }
+
+    // DNA and any-alphabet thresholds share one DTO mapping (MotifFinder's PwmScoreDistribution).
+    private static PwmScoreThresholdsResult ToThresholdsResult(
+        global::Seqeron.Genomics.Analysis.PwmScoreDistribution d, double fpr, double fnr, double rateProportion)
+    {
+        double balanced = d.ThresholdBalanced(rateProportion, out double balancedRate);
+        return new PwmScoreThresholdsResult(
+            d.MinScore, d.Step, d.PointCount, d.MeanScore,
+            d.ThresholdFpr(fpr), d.ThresholdFnr(fnr), balanced, balancedRate, d.ThresholdPatser());
     }
 
     private static void RequireScoreOrPValue(double? score, double? pValue)
@@ -1381,16 +1392,9 @@ public class AnalysisTools
             throw new ArgumentException("PWM cells must be finite: use a positive pseudocount.", nameof(pseudocount));
         if (precision < 1)
             throw new ArgumentOutOfRangeException(nameof(precision), "Precision must be >= 1.");
-        if (!(fpr >= 0 && fpr <= 1))
-            throw new ArgumentOutOfRangeException(nameof(fpr), "fpr must be in [0, 1].");
-        if (!(fnr >= 0 && fnr <= 1))
-            throw new ArgumentOutOfRangeException(nameof(fnr), "fnr must be in [0, 1].");
+        RequireRates(fpr, fnr);
 
-        var d = pwm.ScoreDistribution(background, precision);
-        double balanced = d.ThresholdBalanced(rateProportion, out double balancedRate);
-        return new PwmScoreThresholdsResult(
-            d.MinScore, d.Step, d.PointCount, d.MeanScore,
-            d.ThresholdFpr(fpr), d.ThresholdFnr(fnr), balanced, balancedRate, d.ThresholdPatser());
+        return ToThresholdsResult(pwm.ScoreDistribution(background, precision), fpr, fnr, rateProportion);
     }
 
     [McpServerTool(Name = "find_promoter_elements_by_matrix", Title = "Motifs — Promoter Elements (Bucher Matrices)", ReadOnly = true)]
@@ -1566,13 +1570,7 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(k), "k must be >= 1.");
         var bg = ToOligoBackground(background, markovOrder, residueFrequencies, oligoFrequencies, pseudoFrequency, strandInsensitive);
         var mode = ToOligoStrandMode(strands);
-        var degeneracy = (degenerate ?? string.Empty).Trim().ToLowerInvariant() switch
-        {
-            "none" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.None,
-            "onen" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneN,
-            "onedeg" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneDegenerate,
-            _ => throw new ArgumentException("degenerate must be 'none', 'oneN' or 'onedeg'.", nameof(degenerate)),
-        };
+        var degeneracy = ToOligoDegeneracy(degenerate);
         if (!(expectedFrequencyPseudo >= 0 && expectedFrequencyPseudo <= 1))
             throw new ArgumentOutOfRangeException(nameof(expectedFrequencyPseudo), "expectedFrequencyPseudo must be in [0, 1].");
 
@@ -1626,33 +1624,12 @@ public class AnalysisTools
                 Calibration = calibration,
             });
         // Patterns without a valid expected frequency (RSAT "NA", not tested) are omitted.
-        var extendedItems = report.Patterns
-            .Where(p => p.FittedDistribution != global::Seqeron.Genomics.Analysis.OligoFittedDistribution.None)
-            .Select(p => new OligoMotifItem(
-                p.Pattern, p.ReverseComplement, p.Occurrences, p.Positions.Select(o => o.Position).ToArray(),
-                p.ExpectedFrequency, p.ExpectedOccurrences, FiniteOrNull(p.Ratio),
-                p.OccurrenceProbability, p.OccurrenceEValue, p.OccurrenceSignificance)
-            {
-                SequenceIndices = p.Positions.Select(o => o.SequenceIndex).ToArray(),
-                Overlaps = p.Overlaps,
-                ObservedFrequency = p.ObservedFrequency,
-                ExpectedVariance = zscore || calibration is not null ? FiniteOrNull(p.ExpectedVariance) : null,
-                OverlapCoefficient = zscore ? FiniteOrNull(p.OverlapCoefficient) : null,
-                ZScore = zscore ? FiniteOrNull(p.ZScore) : null,
-                FittedDistribution = p.FittedDistribution.ToString(),
-                LexiconSegmentation = p.LexiconSegmentation is { } seg ? $"{seg.Prefix}|{seg.Suffix}" : null,
-            })
-            .ToArray();
+        var extendedItems = ToOligoMotifItems(report, zscore, includeVariance: zscore || calibration is not null);
         return new OligoAnalysisResultDto(extendedItems, report.OligoLength, StrandName(report.Strands), report.CountOverlapping,
             report.TotalOccurrences, report.TestedPatterns, FiniteOrNull(report.PossibleOligos))
         {
             SequenceCount = report.SequenceCount,
-            Degenerate = degeneracy switch
-            {
-                global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneN => "oneN",
-                global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneDegenerate => "onedeg",
-                _ => "none",
-            },
+            Degenerate = DegeneracyName(degeneracy) ?? "none",
         };
     }
 
@@ -1698,23 +1675,8 @@ public class AnalysisTools
                 PseudoFrequency = expectedFrequencyPseudo,
                 SequenceType = seqType,
             });
-        var items = report.Patterns
-            .Where(p => p.FittedDistribution != global::Seqeron.Genomics.Analysis.OligoFittedDistribution.None)
-            .Select(p => new OligoMotifItem(
-                p.Pattern, null, p.Occurrences, p.Positions.Select(o => o.Position).ToArray(),
-                p.ExpectedFrequency, p.ExpectedOccurrences, FiniteOrNull(p.Ratio),
-                p.OccurrenceProbability, p.OccurrenceEValue, p.OccurrenceSignificance)
-            {
-                SequenceIndices = p.Positions.Select(o => o.SequenceIndex).ToArray(),
-                Overlaps = p.Overlaps,
-                ObservedFrequency = p.ObservedFrequency,
-                ExpectedVariance = zscore ? FiniteOrNull(p.ExpectedVariance) : null,
-                OverlapCoefficient = zscore ? FiniteOrNull(p.OverlapCoefficient) : null,
-                ZScore = zscore ? FiniteOrNull(p.ZScore) : null,
-                FittedDistribution = p.FittedDistribution.ToString(),
-                LexiconSegmentation = p.LexiconSegmentation is { } seg ? $"{seg.Prefix}|{seg.Suffix}" : null,
-            })
-            .ToArray();
+        // Single strand only (checked above), so every ReverseComplement is null.
+        var items = ToOligoMotifItems(report, zscore, includeVariance: zscore);
         return new OligoAnalysisResultDto(items, report.OligoLength, StrandName(report.Strands), report.CountOverlapping,
             report.TotalOccurrences, report.TestedPatterns, FiniteOrNull(report.PossibleOligos))
         {
@@ -1813,13 +1775,7 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(k), "k must be >= 1.");
         if (minSequences < 1)
             throw new ArgumentOutOfRangeException(nameof(minSequences), "minSequences must be >= 1.");
-        var degeneracy = (degenerate ?? string.Empty).Trim().ToLowerInvariant() switch
-        {
-            "none" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.None,
-            "onen" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneN,
-            "onedeg" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneDegenerate,
-            _ => throw new ArgumentException("degenerate must be 'none', 'oneN' or 'onedeg'.", nameof(degenerate)),
-        };
+        var degeneracy = ToOligoDegeneracy(degenerate);
 
         var dnaList = sequences.Select(s => RequireDna(s, nameof(sequences))).ToList();
         var bg = ToOligoBackground(background, markovOrder, residueFrequencies, oligoFrequencies, pseudoFrequency, strandInsensitive);
@@ -1837,12 +1793,7 @@ public class AnalysisTools
         return new SharedMotifSignificanceResult(items, r.OligoLength, StrandName(r.Strands), r.SequenceCount,
             r.PossiblePositions, FiniteOrNull(r.PossibleOligos))
         {
-            Degenerate = degeneracy switch
-            {
-                global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneN => "oneN",
-                global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneDegenerate => "onedeg",
-                _ => null,
-            },
+            Degenerate = DegeneracyName(degeneracy),
         };
     }
 
@@ -1886,6 +1837,43 @@ public class AnalysisTools
                     "Background must be 'input', 'equiprobable', 'bernoulli', 'markov', 'markov_table' or 'lexicon'.", nameof(background));
         }
     }
+
+    private static global::Seqeron.Genomics.Analysis.OligoDegeneracy ToOligoDegeneracy(string degenerate)
+        => (degenerate ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "none" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.None,
+            "onen" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneN,
+            "onedeg" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneDegenerate,
+            _ => throw new ArgumentException("degenerate must be 'none', 'oneN' or 'onedeg'.", nameof(degenerate)),
+        };
+
+    private static string? DegeneracyName(global::Seqeron.Genomics.Analysis.OligoDegeneracy degeneracy) => degeneracy switch
+    {
+        global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneN => "oneN",
+        global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneDegenerate => "onedeg",
+        _ => null,
+    };
+
+    // AnalyzeOligos / AnalyzeOligoStrings rows → DTO; rows without a valid expected frequency (RSAT "NA", not tested) are omitted.
+    private static OligoMotifItem[] ToOligoMotifItems(
+        global::Seqeron.Genomics.Analysis.OligoAnalysisReport report, bool zscore, bool includeVariance)
+        => report.Patterns
+            .Where(p => p.FittedDistribution != global::Seqeron.Genomics.Analysis.OligoFittedDistribution.None)
+            .Select(p => new OligoMotifItem(
+                p.Pattern, p.ReverseComplement, p.Occurrences, p.Positions.Select(o => o.Position).ToArray(),
+                p.ExpectedFrequency, p.ExpectedOccurrences, FiniteOrNull(p.Ratio),
+                p.OccurrenceProbability, p.OccurrenceEValue, p.OccurrenceSignificance)
+            {
+                SequenceIndices = p.Positions.Select(o => o.SequenceIndex).ToArray(),
+                Overlaps = p.Overlaps,
+                ObservedFrequency = p.ObservedFrequency,
+                ExpectedVariance = includeVariance ? FiniteOrNull(p.ExpectedVariance) : null,
+                OverlapCoefficient = zscore ? FiniteOrNull(p.OverlapCoefficient) : null,
+                ZScore = zscore ? FiniteOrNull(p.ZScore) : null,
+                FittedDistribution = p.FittedDistribution.ToString(),
+                LexiconSegmentation = p.LexiconSegmentation is { } seg ? $"{seg.Prefix}|{seg.Suffix}" : null,
+            })
+            .ToArray();
 
     private static global::Seqeron.Genomics.Analysis.OligoStrandMode ToOligoStrandMode(string strands)
         => (strands ?? string.Empty).Trim().ToLowerInvariant() switch

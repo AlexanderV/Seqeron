@@ -339,6 +339,18 @@ namespace Seqeron.Genomics.Infrastructure
         }
 
         /// <summary>
+        /// ln(eᵃ + eᵇ) without overflow (numpy <c>logaddexp</c>): max + ln(e^(a−max) + e^(b−max)); when either argument is
+        /// −∞ (probability 0) the other is returned exactly, so ln 0 + ln 0 = −∞ (never NaN).
+        /// </summary>
+        public static double LogAddExp(double a, double b)
+        {
+            if (double.IsNegativeInfinity(a)) return b;
+            if (double.IsNegativeInfinity(b)) return a;
+            double max = Math.Max(a, b);
+            return max + Math.Log(Math.Exp(a - max) + Math.Exp(b - max));
+        }
+
+        /// <summary>
         /// eˣ − 1 without cancellation for small |x| (W. Kahan's expm1 identity). <c>double.ExpM1</c> evaluates eˣ − 1
         /// directly and returns 0 for x = 1e−20; this returns 1e−20 (= numpy.expm1).
         /// </summary>

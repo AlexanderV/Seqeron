@@ -161,13 +161,7 @@ public static partial class MotifFinder
         background.ValidateFor(k, nameof(background));
 
         bool both = strands == OligoStrandMode.Both;
-        var seqs = new List<string>();
-        foreach (var dna in sequences)
-        {
-            if (dna is null)
-                throw new ArgumentException($"Sequence at index {seqs.Count} is null.", nameof(sequences));
-            seqs.Add(dna.Sequence);
-        }
+        List<string> seqs = SequenceStrings(sequences);
 
         long possiblePositions = 0;
         var rcCache = new Dictionary<string, string>();
@@ -179,23 +173,7 @@ public static partial class MotifFinder
             possiblePositions += s.Length - k + 1;
             // Distinct words of this sequence via the canonical counter (keys in first-occurrence order).
             foreach (string word in s.AsSpan().CountKmersSpan(k).Keys)
-            {
-                string key = word, rc = word;
-                if (both)
-                {
-                    rc = CachedReverseComplement(word, rcCache);
-                    if (string.CompareOrdinal(rc, word) < 0) (key, rc) = (rc, word);
-                }
-
-                if (!matching.TryGetValue(key, out var entry))
-                {
-                    entry = (rc, new List<int>());
-                    matching.Add(key, entry);
-                }
-
-                if (entry.Indices.Count == 0 || entry.Indices[^1] != i)
-                    entry.Indices.Add(i);
-            }
+                AddMatchingSequence(matching, word, i, both, rcCache);
         }
 
         double logNpo = LogPossibleOligos(k, both);
@@ -259,19 +237,11 @@ public static partial class MotifFinder
     {
         double logP = logWordProbability(pattern.Word);
         if (pattern.ReverseComplement != pattern.Word)
-            logP = LogAddExp(logP, logWordProbability(pattern.ReverseComplement));
+            logP = StatisticsHelper.LogAddExp(logP, logWordProbability(pattern.ReverseComplement));
         if (double.IsNegativeInfinity(logP))
             throw new ArgumentException(
                 $"The background model assigns probability 0 to the observed word {pattern.Word}.");
         return Math.Min(logP, 0.0);
-    }
-
-    private static double LogAddExp(double a, double b)
-    {
-        if (double.IsNegativeInfinity(a)) return b;
-        if (double.IsNegativeInfinity(b)) return a;
-        double max = Math.Max(a, b);
-        return max + Math.Log(Math.Exp(a - max) + Math.Exp(b - max));
     }
 
     /// <summary>
@@ -364,6 +334,47 @@ public static partial class MotifFinder
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Records that sequence <paramref name="sequenceIndex"/> contains <paramref name="word"/> (RSAT mseq: each sequence
+    /// counted once per pattern); with <paramref name="both"/> the word and its reverse complement share the
+    /// lexicographically smaller key. Shared by the plain and the degenerate matching-sequence statistics.
+    /// </summary>
+    private static void AddMatchingSequence(Dictionary<string, (string Rc, List<int> Indices)> matching, string word,
+        int sequenceIndex, bool both, Dictionary<string, string> rcCache)
+    {
+        string key = word, rc = word;
+        if (both)
+        {
+            rc = CachedReverseComplement(word, rcCache);
+            if (string.CompareOrdinal(rc, word) < 0) (key, rc) = (rc, word);
+        }
+
+        if (!matching.TryGetValue(key, out var entry))
+        {
+            entry = (rc, new List<int>());
+            matching.Add(key, entry);
+        }
+
+        if (entry.Indices.Count == 0 || entry.Indices[^1] != sequenceIndex)
+            entry.Indices.Add(sequenceIndex);
+    }
+
+    /// <summary>
+    /// The sequence strings of a DNA-sequence collection (shared by the oligo, dyad and shared-motif entry points);
+    /// a null element throws <see cref="ArgumentException"/> naming its index.
+    /// </summary>
+    private static List<string> SequenceStrings(IEnumerable<DnaSequence> sequences)
+    {
+        var seqs = new List<string>();
+        foreach (var dna in sequences)
+        {
+            if (dna is null)
+                throw new ArgumentException($"Sequence at index {seqs.Count} is null.", nameof(sequences));
+            seqs.Add(dna.Sequence);
+        }
+        return seqs;
     }
 
     private static string CachedReverseComplement(string word, Dictionary<string, string> cache)
@@ -480,8 +491,7 @@ public sealed class OligoBackgroundModel
         bool strandInsensitive = false)
     {
         ArgumentNullException.ThrowIfNull(frequencies);
-        if (!(pseudoFrequency >= 0.0 && pseudoFrequency <= 1.0))
-            throw new ArgumentOutOfRangeException(nameof(pseudoFrequency), pseudoFrequency, "Pseudo-frequency must be in [0, 1].");
+        MotifFinder.ValidatePseudoFrequency(pseudoFrequency, nameof(pseudoFrequency));
         if (frequencies.Count == 0)
             throw new ArgumentException("The frequency table is empty.", nameof(frequencies));
 
@@ -535,6 +545,14 @@ public sealed class OligoBackgroundModel
 
         double psi = pseudoFrequency;
         double uniformPrefix = Math.Pow(4.0, -order);
+        // RSAT: P(b | prefix) = (1 − ψ)·f(prefix·b)/Σ + ψ/4; an all-zero prefix row gets ¼ from the pseudo-frequency
+        // (0 without one). One formula for the log table and the linear p-value chain below.
+        double Transition(string prefix, double sum, int b)
+        {
+            double transition = psi > 0 ? 0.25 : 0.0;
+            if (sum > 0) transition = (1 - psi) * table.GetValueOrDefault(prefix + MotifFinder.AcgtBases[b]) / sum + psi / 4;
+            return transition;
+        }
         var logPrefix = new Dictionary<string, double>(StringComparer.Ordinal);
         var logTransition = new Dictionary<string, double[]>(StringComparer.Ordinal);
         foreach (var (prefix, sum) in prefixSum)
@@ -542,13 +560,7 @@ public sealed class OligoBackgroundModel
             logPrefix[prefix] = Math.Log((1 - psi) * sum / total + psi * uniformPrefix);
             var row = new double[4];
             for (int b = 0; b < 4; b++)
-            {
-                double f = table.GetValueOrDefault(prefix + MotifFinder.AcgtBases[b]);
-                // RSAT: an all-zero prefix row gets transitions ¼ from the pseudo-frequency (0 without one).
-                double transition = psi > 0 ? 0.25 : 0.0;
-                if (sum > 0) transition = (1 - psi) * f / sum + psi / 4;
-                row[b] = Math.Log(transition);
-            }
+                row[b] = Math.Log(Transition(prefix, sum, b));
             logTransition[prefix] = row;
         }
 
@@ -568,12 +580,7 @@ public sealed class OligoBackgroundModel
             {
                 initial[x] = (1 - psi) * sum / total + psi * uniformPrefix;
                 for (int b = 0; b < 4; b++)
-                {
-                    double f = table.GetValueOrDefault(prefix + MotifFinder.AcgtBases[b]);
-                    double transition = psi > 0 ? 0.25 : 0.0;
-                    if (sum > 0) transition = (1 - psi) * f / sum + psi / 4;
-                    transitions[x * 4 + b] = transition;
-                }
+                    transitions[x * 4 + b] = Transition(prefix, sum, b);
             }
             else
             {
@@ -765,20 +772,8 @@ public sealed class OligoBackgroundModel
             case ModelKind.MarkovFromInput:
             {
                 int m = _order;
-                var longer = RsatSubWordLogFrequencies(sequences, k, m + 1, alphabet);
-                var shorter = m > 0 ? RsatSubWordLogFrequencies(sequences, k, m, alphabet) : null;
-                return word =>
-                {
-                    double sum = 0;
-                    for (int o = 0; o + m < word.Length; o++)
-                    {
-                        if (!longer.TryGetValue(word.Substring(o, m + 1), out double lf))
-                            return double.NegativeInfinity;
-                        sum += lf;
-                        if (m > 0 && o > 0) sum -= shorter![word.Substring(o, m)];
-                    }
-                    return sum;
-                };
+                return MarkovChainLogProbability(m, RsatSubWordLogFrequencies(sequences, k, m + 1, alphabet),
+                    m > 0 ? RsatSubWordLogFrequencies(sequences, k, m, alphabet) : null);
             }
             default:
                 return CreateLogProbability(sequences, k, bothStrands);
@@ -808,6 +803,12 @@ public sealed class OligoBackgroundModel
                 total++;
             }
         }
+        return LogRelativeFrequencies(counts, total);
+    }
+
+    // ln(count / total) per word (shared by the DNA and the residue-alphabet sub-word tables).
+    private static Dictionary<string, double> LogRelativeFrequencies(Dictionary<string, long> counts, long total)
+    {
         double logTotal = Math.Log(total);
         return counts.ToDictionary(e => e.Key, e => Math.Log(e.Value) - logTotal, StringComparer.Ordinal);
     }
@@ -826,9 +827,17 @@ public sealed class OligoBackgroundModel
     private Func<string, double> MarkovFromInputLogProbability(IReadOnlyList<string> sequences, int k)
     {
         int m = _order;
-        var longer = RelativeWordLogFrequencies(sequences, k, m + 1);
-        var shorter = m > 0 ? RelativeWordLogFrequencies(sequences, k, m) : null;
-        return word =>
+        return MarkovChainLogProbability(m, RelativeWordLogFrequencies(sequences, k, m + 1),
+            m > 0 ? RelativeWordLogFrequencies(sequences, k, m) : null);
+    }
+
+    /// <summary>
+    /// RSAT order-m Markov word probability from relative sub-word frequencies (DNA and residue alphabets alike):
+    /// ln P(w) = Σ_o ln f(w[o..o+m]) − Σ_{o≥1} ln f(w[o..o+m−1]); an unobserved (m+1)-mer gives probability 0.
+    /// </summary>
+    private static Func<string, double> MarkovChainLogProbability(int m, Dictionary<string, double> longer,
+        Dictionary<string, double>? shorter)
+        => word =>
         {
             double sum = 0;
             for (int o = 0; o + m < word.Length; o++)
@@ -840,7 +849,6 @@ public sealed class OligoBackgroundModel
             }
             return sum;
         };
-    }
 
     // ln(count / total) of the overlapping w-mers of the sequences of length ≥ k (canonical k-mer counter).
     private static Dictionary<string, double> RelativeWordLogFrequencies(IReadOnlyList<string> sequences, int k, int w)
@@ -856,8 +864,7 @@ public sealed class OligoBackgroundModel
                 total += n;
             }
         }
-        double logTotal = Math.Log(total);
-        return counts.ToDictionary(e => e.Key, e => Math.Log(e.Value) - logTotal, StringComparer.Ordinal);
+        return LogRelativeFrequencies(counts, total);
     }
 
     private double MarkovTableLogProbability(string word)

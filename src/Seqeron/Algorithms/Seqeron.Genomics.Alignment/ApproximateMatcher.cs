@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Seqeron.Genomics.Alignment
 {
     /// <summary>
@@ -321,18 +323,30 @@ namespace Seqeron.Genomics.Alignment
         /// Returns the column minimum.
         /// </summary>
         private static int AdvanceColumn(string pat, char c, int[] prev, int[] curr, int top)
+            => AdvanceEditColumn(pat, c, prev, curr, top, 1, 1, 1);
+
+        /// <summary>
+        /// The single edit-distance column kernel (unit <see cref="AdvanceColumn"/>, 32-bit cells, and weighted
+        /// <see cref="AdvanceWeightedColumn"/>, 64-bit cells): rows = <paramref name="pat"/>, column = text character
+        /// <paramref name="c"/>, top cell <paramref name="top"/>;
+        /// curr[r] = min(min(prev[r] + <paramref name="columnCharCost"/> (c unmatched),
+        /// curr[r−1] + <paramref name="rowCharCost"/> (pat[r−1] unmatched)),
+        /// prev[r−1] + [pat[r−1] ≠ c]·<paramref name="substitutionCost"/>). Returns the column minimum.
+        /// </summary>
+        private static T AdvanceEditColumn<T>(
+            string pat, char c, T[] prev, T[] curr, T top, T columnCharCost, T rowCharCost, T substitutionCost)
+            where T : struct, INumber<T>
         {
             curr[0] = top;
-            int min = top;
+            T min = top;
             for (int r = 1; r <= pat.Length; r++)
             {
-                int cost = pat[r - 1] == c ? 0 : 1;
-                int v = Math.Min(
-                    Math.Min(
-                        prev[r] + 1,      // text character unmatched (insertion into pattern)
-                        curr[r - 1] + 1   // pattern character unmatched (deletion from pattern)
+                T v = T.Min(
+                    T.Min(
+                        prev[r] + columnCharCost, // text character unmatched (insertion into pattern)
+                        curr[r - 1] + rowCharCost // pattern character unmatched (deletion from pattern)
                     ),
-                    prev[r - 1] + cost    // match / substitution
+                    prev[r - 1] + (pat[r - 1] == c ? T.Zero : substitutionCost) // match / substitution
                 );
                 curr[r] = v;
                 if (v < min)
@@ -521,15 +535,7 @@ namespace Seqeron.Genomics.Alignment
         private static void AdvanceWeightedColumn(
             string pat, char c, long[] prev, long[] curr, long top,
             long columnCharCost, long rowCharCost, long substitutionCost)
-        {
-            curr[0] = top;
-            for (int r = 1; r <= pat.Length; r++)
-            {
-                long diag = prev[r - 1] + (pat[r - 1] == c ? 0 : substitutionCost);
-                long v = Math.Min(Math.Min(prev[r] + columnCharCost, curr[r - 1] + rowCharCost), diag);
-                curr[r] = v;
-            }
-        }
+            => AdvanceEditColumn(pat, c, prev, curr, top, columnCharCost, rowCharCost, substitutionCost);
 
         /// <summary>
         /// Optimal global Levenshtein alignment of <paramref name="query"/> against
@@ -551,19 +557,7 @@ namespace Seqeron.Genomics.Alignment
             if (query == null || target == null)
                 throw new ArgumentNullException(query == null ? nameof(query) : nameof(target));
 
-            int m = query.Length;
-            int n = target.Length;
-            var cols = new int[n + 1][];
-            cols[0] = new int[m + 1];
-            for (int r = 0; r <= m; r++)
-                cols[0][r] = r;
-            for (int j = 1; j <= n; j++)
-            {
-                cols[j] = new int[m + 1];
-                AdvanceColumn(query, target[j - 1], cols[j - 1], cols[j], j);
-            }
-
-            return Traceback(query, target, 0, n, cols);
+            return Traceback(query, target, 0, target.Length, FillEditColumns(query, target, 1, 1, 1));
         }
 
         /// <summary>
@@ -591,48 +585,9 @@ namespace Seqeron.Genomics.Alignment
             int m = query.Length;
             int n = target.Length;
             long ins = costs.Insertion, del = costs.Deletion, sub = costs.Substitution;
-            var cols = new long[n + 1][];
-            cols[0] = new long[m + 1];
-            for (int r = 0; r <= m; r++)
-                cols[0][r] = r * del;
-            for (int j = 1; j <= n; j++)
-            {
-                cols[j] = new long[m + 1];
-                AdvanceWeightedColumn(query, target[j - 1], cols[j - 1], cols[j], j * ins, ins, del, sub);
-            }
-
-            int qi = m;
-            int tj = n;
-            var ops = new char[m + n];
-            int p = ops.Length;
-            while (qi > 0 || tj > 0)
-            {
-                long v = cols[tj][qi];
-                if (qi > 0 && tj > 0)
-                {
-                    bool same = query[qi - 1] == target[tj - 1];
-                    if (cols[tj - 1][qi - 1] + (same ? 0 : sub) == v)
-                    {
-                        ops[--p] = same ? '=' : 'X';
-                        qi--;
-                        tj--;
-                        continue;
-                    }
-                }
-
-                if (qi > 0 && cols[tj][qi - 1] + del == v)
-                {
-                    ops[--p] = 'I';
-                    qi--;
-                }
-                else
-                {
-                    ops[--p] = 'D';
-                    tj--;
-                }
-            }
-
-            return new EditAlignment(checked((int)cols[n][m]), new string(ops, p, ops.Length - p), query, target);
+            long[][] cols = FillEditColumns(query, target, ins, del, sub);
+            return new EditAlignment(checked((int)cols[n][m]), TracebackOperations(query, target, 0, n, cols, sub, del),
+                query, target);
         }
 
         /// <summary>
@@ -816,6 +771,44 @@ namespace Seqeron.Genomics.Alignment
         /// C[r−1, j] + 1 = C[r, j], else 'D' (C[r, j−1] + 1 = C[r, j] then holds by the recurrence).
         /// </summary>
         private static EditAlignment Traceback(string query, string text, int start, int len, int[][] cols)
+            => new EditAlignment(
+                cols[len][query.Length],
+                TracebackOperations(query, text, start, len, cols, 1, 1),
+                query,
+                text.Substring(start, len));
+
+        /// <summary>
+        /// Full Wagner–Fischer column matrix of <paramref name="query"/> (rows) against <paramref name="target"/>
+        /// (columns) with global boundaries C[r, 0] = r·<paramref name="deletion"/>, C[0, j] = j·<paramref name="insertion"/>
+        /// (unit costs: 32-bit cells; weighted: 64-bit cells).
+        /// </summary>
+        private static T[][] FillEditColumns<T>(string query, string target, T insertion, T deletion, T substitution)
+            where T : struct, INumber<T>
+        {
+            int m = query.Length;
+            int n = target.Length;
+            var cols = new T[n + 1][];
+            cols[0] = new T[m + 1];
+            for (int r = 0; r <= m; r++)
+                cols[0][r] = T.CreateTruncating(r) * deletion;
+            for (int j = 1; j <= n; j++)
+            {
+                cols[j] = new T[m + 1];
+                AdvanceEditColumn(query, target[j - 1], cols[j - 1], cols[j], T.CreateTruncating(j) * insertion,
+                    insertion, deletion, substitution);
+            }
+
+            return cols;
+        }
+
+        /// <summary>
+        /// Edit operations of the traceback over <paramref name="cols"/> (unit and weighted alike): from (m, len) back to
+        /// (0, 0) the diagonal ('=' / 'X') when C[r−1, j−1] + [≠]·<paramref name="substitutionCost"/> = C[r, j], else 'I'
+        /// when C[r−1, j] + <paramref name="rowCharCost"/> = C[r, j], else 'D'.
+        /// </summary>
+        private static string TracebackOperations<T>(
+            string query, string text, int start, int len, T[][] cols, T substitutionCost, T rowCharCost)
+            where T : struct, INumber<T>
         {
             int r = query.Length;
             int j = len;
@@ -823,11 +816,11 @@ namespace Seqeron.Genomics.Alignment
             int p = ops.Length;
             while (r > 0 || j > 0)
             {
-                int v = cols[j][r];
+                T v = cols[j][r];
                 if (r > 0 && j > 0)
                 {
                     bool same = query[r - 1] == text[start + j - 1];
-                    if (cols[j - 1][r - 1] + (same ? 0 : 1) == v)
+                    if (cols[j - 1][r - 1] + (same ? T.Zero : substitutionCost) == v)
                     {
                         ops[--p] = same ? '=' : 'X';
                         r--;
@@ -836,7 +829,7 @@ namespace Seqeron.Genomics.Alignment
                     }
                 }
 
-                if (r > 0 && cols[j][r - 1] + 1 == v)
+                if (r > 0 && cols[j][r - 1] + rowCharCost == v)
                 {
                     ops[--p] = 'I';
                     r--;
@@ -848,11 +841,7 @@ namespace Seqeron.Genomics.Alignment
                 }
             }
 
-            return new EditAlignment(
-                cols[len][query.Length],
-                new string(ops, p, ops.Length - p),
-                query,
-                text.Substring(start, len));
+            return new string(ops, p, ops.Length - p);
         }
 
         /// <summary>
@@ -968,28 +957,7 @@ namespace Seqeron.Genomics.Alignment
             if (m == 0) return n;
             if (n == 0) return m;
 
-            // Three rolling rows over s2: d[i−2], d[i−1], d[i].
-            var prev2 = new int[n + 1];
-            var prev = new int[n + 1];
-            var curr = new int[n + 1];
-            for (int j = 0; j <= n; j++)
-                prev[j] = j;
-
-            for (int i = 1; i <= m; i++)
-            {
-                curr[0] = i;
-                for (int j = 1; j <= n; j++)
-                {
-                    int cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
-                    int v = Math.Min(Math.Min(prev[j] + 1, curr[j - 1] + 1), prev[j - 1] + cost);
-                    if (i > 1 && j > 1 && s1[i - 1] == s2[j - 2] && s1[i - 2] == s2[j - 1])
-                        v = Math.Min(v, prev2[j - 2] + 1);
-                    curr[j] = v;
-                }
-                (prev2, prev, curr) = (prev, curr, prev2);
-            }
-
-            return prev[n];
+            return OsaDistanceRows(s1, s2, 1, 1, 1, 1);
         }
 
         /// <summary>
@@ -1092,7 +1060,8 @@ namespace Seqeron.Genomics.Alignment
 
         /// <summary>
         /// Lowrance–Wagner (1975) full-matrix unrestricted Damerau–Levenshtein distance
-        /// (sentinel row/column m + n, last-occurrence table "da"): O(m·n) time and space. The
+        /// (last-occurrence table "da"; the matrix of <see cref="GetDamerauLevenshteinAlignment(string, string)"/>
+        /// with unit costs): O(m·n) time and space. The
         /// oracle against which the linear-space engine of
         /// <see cref="DamerauLevenshteinDistance(string, string)"/> is tested. Same contract.
         /// </summary>
@@ -1101,54 +1070,9 @@ namespace Seqeron.Genomics.Alignment
             if (s1 == null || s2 == null)
                 throw new ArgumentNullException(s1 == null ? nameof(s1) : nameof(s2));
 
-            int m = s1.Length;
-            int n = s2.Length;
-            if (m == 0) return n;
-            if (n == 0) return m;
-
-            // d is offset by one so that index 0 holds the "max distance" sentinel row/column
-            // (Lowrance–Wagner's d[−1, ·] / d[·, −1]).
-            int maxDist = m + n;
-            var d = new int[m + 2, n + 2];
-            d[0, 0] = maxDist;
-            for (int i = 0; i <= m; i++)
-            {
-                d[i + 1, 0] = maxDist;
-                d[i + 1, 1] = i;
-            }
-            for (int j = 0; j <= n; j++)
-            {
-                d[0, j + 1] = maxDist;
-                d[1, j + 1] = j;
-            }
-
-            var da = new Dictionary<char, int>(); // last row (1-based) where each character occurred in s1
-            for (int i = 1; i <= m; i++)
-            {
-                int db = 0; // last column (1-based) in this row where s2[j] == s1[i]
-                for (int j = 1; j <= n; j++)
-                {
-                    int k = da.TryGetValue(s2[j - 1], out int row) ? row : 0;
-                    int l = db;
-                    int cost;
-                    if (s1[i - 1] == s2[j - 1])
-                    {
-                        cost = 0;
-                        db = j;
-                    }
-                    else
-                    {
-                        cost = 1;
-                    }
-
-                    d[i + 1, j + 1] = Math.Min(
-                        Math.Min(d[i, j] + cost, d[i + 1, j] + 1),
-                        Math.Min(d[i, j + 1] + 1, d[k, l] + (i - k - 1) + 1 + (j - l - 1)));
-                }
-                da[s1[i - 1]] = i;
-            }
-
-            return d[m + 1, n + 1];
+            // The Lowrance–Wagner full matrix of the weighted engine with unit costs (one implementation of the
+            // recurrence; still independent of the linear-space engine above, which it cross-checks).
+            return checked((int)FillDamerauMatrix(s1, s2, DamerauCosts.Unit, restricted: false)[s1.Length, s2.Length]);
         }
 
         /// <summary>

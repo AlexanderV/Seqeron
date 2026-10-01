@@ -397,17 +397,7 @@ public static partial class SuffixTreeAlgorithms
 
         for (int i = 0; i < otherSpan.Length; i++)
         {
-            int c = otherSpan[i];
-
-            while (true)
-            {
-                if (TryConsumeSymbol(ref nav, c, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth))
-                    break;
-
-                // Cannot extend — follow suffix link
-                if (currentMatchLen == 0) break;
-                FollowSuffixLinkAndRescan(ref nav, otherSpan, i, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth);
-            }
+            AdvanceMatchingStatistics(ref nav, otherSpan, i, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth);
 
             bool better = currentMatchLen > maxLen;
             if (better || (currentMatchLen == maxLen && maxLen > 0 && !firstOnly))
@@ -417,13 +407,9 @@ public static partial class SuffixTreeAlgorithms
                     maxLen = currentMatchLen;
                     bestMatches.Clear();
                 }
-                TNode matchNode = nav.IsNull(currentEdge) ? currentNode : currentEdge;
-                // DepthFromRoot of matchNode:
-                // - currentNode: currentNodeDepth - LengthOf(currentNode)
-                // - currentEdge: currentNodeDepth (= depth to END of parent = depth to START of child)
-                int matchDFR = nav.IsNull(currentEdge)
-                    ? currentNodeDepth - nav.LengthOf(currentNode)
-                    : currentNodeDepth;
+                // DepthFromRoot: currentNodeDepth − LengthOf(currentNode) at a node; currentNodeDepth inside an edge
+                // (= depth to END of parent = depth to START of child).
+                var (matchNode, matchDFR) = MatchLocus(ref nav, currentNode, currentEdge, currentNodeDepth);
                 bestMatches.Add((matchNode, i, matchDFR));
             }
         }

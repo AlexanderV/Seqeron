@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Seqeron.Genomics.Alignment
 {
     /// <summary>
@@ -31,32 +33,42 @@ namespace Seqeron.Genomics.Alignment
             if (costs.IsUniform)
                 return checked(costs.Insertion * OptimalStringAlignmentDistance(s1, s2));
 
+            return checked((int)OsaDistanceRows<long>(
+                s1, s2, costs.Insertion, costs.Deletion, costs.Substitution, costs.Transposition));
+        }
+
+        /// <summary>
+        /// The single OSA (restricted Damerau–Levenshtein) DP, three rolling rows over <paramref name="s2"/>
+        /// (d[i−2], d[i−1], d[i]); unit costs in 32-bit cells (<see cref="OptimalStringAlignmentDistance(string, string)"/>),
+        /// weighted in 64-bit cells. d[i, j] = min(min(d[i−1, j] + del, d[i, j−1] + ins), d[i−1, j−1] + [a_i ≠ b_j]·sub),
+        /// then min with d[i−2, j−2] + tr when a_i = b_{j−1} and a_{i−1} = b_j.
+        /// </summary>
+        private static T OsaDistanceRows<T>(string s1, string s2, T ins, T del, T sub, T tr)
+            where T : struct, INumber<T>
+        {
             int m = s1.Length;
             int n = s2.Length;
-            long ins = costs.Insertion, del = costs.Deletion, sub = costs.Substitution, tr = costs.Transposition;
-
-            // Three rolling rows over s2: d[i−2], d[i−1], d[i].
-            var prev2 = new long[n + 1];
-            var prev = new long[n + 1];
-            var curr = new long[n + 1];
+            var prev2 = new T[n + 1];
+            var prev = new T[n + 1];
+            var curr = new T[n + 1];
             for (int j = 0; j <= n; j++)
-                prev[j] = j * ins;
+                prev[j] = T.CreateTruncating(j) * ins;
 
             for (int i = 1; i <= m; i++)
             {
-                curr[0] = i * del;
+                curr[0] = T.CreateTruncating(i) * del;
                 for (int j = 1; j <= n; j++)
                 {
-                    long v = Math.Min(Math.Min(prev[j] + del, curr[j - 1] + ins),
-                        prev[j - 1] + (s1[i - 1] == s2[j - 1] ? 0 : sub));
+                    T v = T.Min(T.Min(prev[j] + del, curr[j - 1] + ins),
+                        prev[j - 1] + (s1[i - 1] == s2[j - 1] ? T.Zero : sub));
                     if (i > 1 && j > 1 && s1[i - 1] == s2[j - 2] && s1[i - 2] == s2[j - 1])
-                        v = Math.Min(v, prev2[j - 2] + tr);
+                        v = T.Min(v, prev2[j - 2] + tr);
                     curr[j] = v;
                 }
                 (prev2, prev, curr) = (prev, curr, prev2);
             }
 
-            return checked((int)prev[n]);
+            return prev[n];
         }
 
         /// <summary>

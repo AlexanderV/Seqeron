@@ -287,10 +287,9 @@ public static partial class MotifFinder
                 TranscriptionRate: K * Math.Exp(-beta * total));
         }
 
-        /// <summary>Σ table[dimer] over the non-overlapping dimers of seq[start, start + length) (length even), left to right.</summary>
-        private static double Sum(double[] table, string seq, int start, int length)
+        /// <summary>s + Σ table[dimer] over the non-overlapping dimers of seq[start, start + length) (length even), left to right.</summary>
+        private static double Sum(double[] table, string seq, int start, int length, double s = 0)
         {
-            double s = 0;
             for (int k = 0; k < length; k += 2)
                 s += table[Dimer(seq, start + k)];
             return s;
@@ -299,14 +298,9 @@ public static partial class MotifFinder
         /// <summary>Σ persistence over the dimers of UP (24) + −35 (6) + spacer[0:14], accumulated left to right.</summary>
         private static double RigiditySum(string seq, int upStart, int hex35Start, int spacerStart)
         {
-            double s = 0;
-            for (int k = 0; k < UpLength; k += 2)
-                s += Persistence[Dimer(seq, upStart + k)];
-            for (int k = 0; k < HexLength; k += 2)
-                s += Persistence[Dimer(seq, hex35Start + k)];
-            for (int k = 0; k < 14; k += 2)
-                s += Persistence[Dimer(seq, spacerStart + k)];
-            return s;
+            double s = Sum(Persistence, seq, upStart, UpLength);
+            s = Sum(Persistence, seq, hex35Start, HexLength, s);
+            return Sum(Persistence, seq, spacerStart, 14, s);
         }
 
         // Row order A, C, G, T: the reference's one-hot categories are the sorted k-mers (AAA, AAC, …, TTT).

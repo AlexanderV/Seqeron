@@ -77,13 +77,7 @@ public static partial class MotifFinder
         options ??= new OligoAnalysisOptions();
         ValidateOligoOptions(k, options);
 
-        var seqs = new List<string>();
-        foreach (var dna in sequences)
-        {
-            if (dna is null)
-                throw new ArgumentException($"Sequence at index {seqs.Count} is null.", nameof(sequences));
-            seqs.Add(dna.Sequence);
-        }
+        List<string> seqs = SequenceStrings(sequences);
 
         // RSAT -seqtype prot / other: the residues of the DNA sequences are analysed as letters of that alphabet.
         if (options.SequenceType != OligoSequenceType.Dna)
@@ -324,14 +318,20 @@ public static partial class MotifFinder
         OligoStrandMode strands,
         double pseudoFrequency)
     {
-        if (!(pseudoFrequency >= 0.0 && pseudoFrequency <= 1.0))
-            throw new ArgumentOutOfRangeException(nameof(pseudoFrequency), pseudoFrequency, "Pseudo-frequency must be in [0, 1].");
+        ValidatePseudoFrequency(pseudoFrequency, nameof(pseudoFrequency));
         if (pseudoFrequency == 0.0)
             return FindSharedMotifs(sequences, k, minSequences, background, strands);
         ArgumentNullException.ThrowIfNull(background);
         double logNpo = LogPossibleOligos(k, strands == OligoStrandMode.Both);
         return FindSharedMotifsCore(sequences, k, minSequences, background, strands,
-            logWord => w => LogAddExp(Math.Log(1 - pseudoFrequency) + logWord(w), Math.Log(pseudoFrequency) - logNpo));
+            logWord => w => StatisticsHelper.LogAddExp(Math.Log(1 - pseudoFrequency) + logWord(w), Math.Log(pseudoFrequency) - logNpo));
+    }
+
+    /// <summary>RSAT <c>-pseudo</c> / Markov-table pseudo-frequency guard shared by every entry point: ψ ∈ [0, 1].</summary>
+    internal static void ValidatePseudoFrequency(double pseudoFrequency, string paramName)
+    {
+        if (!(pseudoFrequency >= 0.0 && pseudoFrequency <= 1.0))
+            throw new ArgumentOutOfRangeException(paramName, pseudoFrequency, "Pseudo-frequency must be in [0, 1].");
     }
 
     private static readonly char[] OneNCodes = { 'N' };
@@ -541,13 +541,13 @@ public static partial class MotifFinder
         {
             double logQ = codes.Length == 0 ? logWord(word) : DegenerateLogFrequency(word, logWord);
             if (psi > 0)
-                logQ = LogAddExp(Math.Log(1 - psi) + logQ, Math.Log(psi) - logNpo);
+                logQ = StatisticsHelper.LogAddExp(Math.Log(1 - psi) + logQ, Math.Log(psi) - logNpo);
             return logQ;
         }
 
         double logP = Strand(pattern.Word);
         if (pattern.ReverseComplement != pattern.Word)
-            logP = LogAddExp(logP, Strand(pattern.ReverseComplement));
+            logP = StatisticsHelper.LogAddExp(logP, Strand(pattern.ReverseComplement));
         return Math.Min(logP, 0.0);
     }
 
@@ -567,7 +567,7 @@ public static partial class MotifFinder
         {
             if (!IupacHelper.MatchesIupac(b, word[at])) continue;
             buffer[at] = b;
-            sum = LogAddExp(sum, logWord(new string(buffer)));
+            sum = StatisticsHelper.LogAddExp(sum, logWord(new string(buffer)));
         }
         return sum;
     }
@@ -598,25 +598,22 @@ public static partial class MotifFinder
         return coeff;
     }
 
-    private static double ResidueProbability(char c, double[] q) => c switch
+    // Σ q[b] over the bases of an IUPAC code (canonical IupacHelper sets, summed in A, C, G, T order); N is exactly 1
+    // (RSAT), any other symbol 0.
+    private static double ResidueProbability(char c, double[] q)
     {
-        'A' => q[0],
-        'C' => q[1],
-        'G' => q[2],
-        'T' => q[3],
-        'R' => q[0] + q[2],
-        'Y' => q[1] + q[3],
-        'W' => q[0] + q[3],
-        'S' => q[2] + q[1],
-        'M' => q[0] + q[1],
-        'K' => q[2] + q[3],
-        'H' => q[0] + q[1] + q[3],
-        'B' => q[1] + q[2] + q[3],
-        'V' => q[0] + q[1] + q[2],
-        'D' => q[0] + q[2] + q[3],
-        'N' => 1.0,
-        _ => 0.0,
-    };
+        if (c == 'N')
+            return 1.0;
+        if (!IupacHelper.IsNucleotideCode(c))
+            return 0.0;
+        double p = 0.0;
+        for (int b = 0; b < PwmAlphabetSize; b++)
+        {
+            if (IupacHelper.MatchesIupac(AcgtBases[b], c))
+                p += q[b];
+        }
+        return p;
+    }
 
     /// <summary>
     /// RSAT <c>NbPossibleOligos</c>: 4^k, or k·|codes|·4^(k−1) with one degenerate position; with both strands
@@ -822,8 +819,7 @@ public sealed record OligoAnalysisOptions
     {
         if (Background is null)
             throw new ArgumentException("A background model is required.", paramName);
-        if (!(PseudoFrequency >= 0.0 && PseudoFrequency <= 1.0))
-            throw new ArgumentOutOfRangeException(paramName, PseudoFrequency, "Pseudo-frequency must be in [0, 1].");
+        MotifFinder.ValidatePseudoFrequency(PseudoFrequency, paramName);
         if (!Enum.IsDefined(Strands))
             throw new ArgumentOutOfRangeException(paramName, Strands, "Unknown strand mode.");
         if (!Enum.IsDefined(Degeneracy))
