@@ -5,7 +5,7 @@
 **Algorithm:** K-mer Positions (find all start positions of a k-mer in a sequence)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-10-01
 
 ---
 
@@ -71,6 +71,12 @@
 | M5 | Pattern absent | `GG` in `ATATAT` | `[]` | BA1D (only matching starts) |
 | M6 | Ascending order | overlapping matches returned in increasing index order | strictly ascending | BA1D / INV-2 |
 
+| R1 | Rosalind SUBS sample (1-based) | `ATAT` in `GATATATGCATATACTT`, +1 | `[2, 4, 10]` | Rosalind SUBS (breezedu mirror) |
+| R2 | Rosalind SUBS legacy sample | `GTA` in `ACGTACGTACGTACGT` | `[2, 6, 10]` (1-based 3 7 11) | Rosalind SUBS (mtarbit mirror) |
+| R3 | Biopython `nt_search` / regex lookahead values | AAAAAAAAAA/AAA, ACGTACGTACGT/CGTA, …/GCAT, ATATATAT/ATAT | `[0..7]`, `[1,5]`, `[7]`, `[0,2,4]` | Biopython 1.88, Python `re` |
+| R4 | Bordered patterns (KMP fallback) | ABABX, AABAAB, AABA | `[10]`, `[0,3]`, `[0,9,12]` | Python `re`; TheAlgorithms KMP self-test |
+| R6 | Adversarial homopolymer | `A`^2e6 vs `A`^199 999`C` and `A`^200 000 | `[]`; 1 800 001 starts; < 5 s | KMP O(L + k) (Knuth–Morris–Pratt 1977) |
+
 ### 4.2 SHOULD Tests (Important edge cases)
 
 | ID | Test Case | Description | Expected Outcome | Notes |
@@ -78,6 +84,8 @@
 | S1 | Pattern longer than text | `ACGT` in `AC` | `[]` | L−k+1 ≤ 0 |
 | S2 | Pattern equals whole sequence | `ACGT` in `ACGT` | `[0]` | single occurrence |
 | S3 | Case-insensitive match | `atat` in `GATATATGCATATACTT` | `[1, 3, 9]` | case-folding assumption |
+
+| R5 | Lower-case sequence, mixed-case k-mer | `aTaT` in `gatatatgcatatactt` | `[1, 3, 9]` | case-folding assumption |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -112,14 +120,14 @@
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_FindKmerPositions_Tests.cs` — all cases for this unit.
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_FindKmerPositions_Tests.cs` — all cases for this unit.
 - **Remove:** none.
 
 ### 5.4 Final State After Consolidation
 
 | File | Role | Test Count |
 |------|------|------------|
-| `KmerAnalyzer_FindKmerPositions_Tests.cs` | Canonical | 11 |
+| `KmerAnalyzer_FindKmerPositions_Tests.cs` | Canonical | 22 (11 original + 11 B06 reference cross-checks) |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -156,7 +164,9 @@
 | C1 | ✅ Covered | FindKmerPositions_NullOrEmptySequence_ReturnsEmpty |
 | C2 | ✅ Covered | FindKmerPositions_NullOrEmptyKmer_ReturnsEmpty |
 
-**✅ count: 11 = total in-scope cases.**
+| R1–R6 | ✅ Covered | `#region Reference cross-checks` (B06 review 2026-10-01; 11 test cases) |
+
+**✅ count: 17 = total in-scope cases (22 test cases).**
 
 ---
 
@@ -174,4 +184,4 @@
 
 ## 7. Open Questions / Decisions
 
-1. **Search reuse decision:** SuffixTree `FindAllOccurrences` was evaluated. It counts overlapping occurrences correctly but returns positions in unordered leaf-collection order and requires O(n) construction per text; for a single k-mer query against one text the naive O(n·m) scan is simpler and yields ascending order directly. Naive scan retained. Recorded in the algorithm doc §4.3 / §5.2.
+1. **Search reuse decision:** SuffixTree `FindAllOccurrences` was evaluated. It counts overlapping occurrences correctly but returns positions in unordered leaf-collection order and requires O(n) construction per text; for a single k-mer query against one text it is far costlier (10 Mbp: 23.3 s / ≈1.7 GB vs 71 ms). Since the 2026-10-01 B06 review the scan is Knuth–Morris–Pratt (O(L + k) worst case; the earlier window-by-window scan was Θ((L−k+1)·k)). Recorded in the algorithm doc §4.3 / §5.2.

@@ -485,10 +485,20 @@ public static class KmerAnalyzer
     /// e.g. <c>AA</c> in <c>AAAA</c> yields 0, 1, 2. There are at most
     /// <c>L − k + 1</c> candidate positions for a length-L sequence (Wikipedia, "k-mer").
     /// Matching is case-insensitive (both arguments are upper-cased), mirroring the sibling
-    /// <see cref="CountKmers(string,int)"/> methods. Positions are produced in ascending
-    /// order via a single forward scan; the repository <c>SuffixTree.FindAllOccurrences</c>
-    /// was evaluated but rejected for this single-query case because it returns positions
-    /// unordered and needs O(n) construction per text (see algorithm doc §5.2).
+    /// <see cref="CountKmers(string,int)"/> methods.
+    /// <para>
+    /// The scan is the Knuth–Morris–Pratt matcher (Knuth, Morris &amp; Pratt 1977,
+    /// <i>SIAM J. Comput.</i> 6:323–350; CLRS §32.4 KMP-MATCHER / COMPUTE-PREFIX-FUNCTION):
+    /// the prefix function of the k-mer is built in O(k), then the text is read once, left
+    /// to right, in O(L), so the worst case is O(L + k) instead of the Θ((L − k + 1)·k) of a
+    /// window-by-window comparison (e.g. <c>A</c><sup>10⁶</sup> searched for
+    /// <c>A</c><sup>99 999</sup><c>C</c>). After a full match the state falls back to
+    /// π[k − 1], so overlapping occurrences are all reported, in ascending order.
+    /// The repository <c>SuffixTree.FindAllOccurrences</c> (used by
+    /// <c>MotifFinder.FindExactMotif</c> on <c>DnaSequence</c>) is an index for many queries
+    /// against one text; for a single query it costs an O(L) tree build with a large constant
+    /// and memory, and returns positions unordered (see algorithm doc §5.2).
+    /// </para>
     /// </remarks>
     /// <param name="sequence">The sequence to search (case-insensitive).</param>
     /// <param name="kmer">The k-mer / pattern to locate (case-insensitive).</param>
@@ -502,16 +512,51 @@ public static class KmerAnalyzer
         if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(kmer))
             yield break;
 
-        var seq = sequence.ToUpperInvariant();
-        var km = kmer.ToUpperInvariant();
+        if (kmer.Length > sequence.Length)
+            yield break;
 
-        // L − k + 1 candidate start positions; scan every one to count overlapping
-        // occurrences (Rosalind BA1D: overlapping occurrences are all reported).
-        for (int i = 0; i <= seq.Length - km.Length; i++)
+        var text = sequence.ToUpperInvariant();
+        var pattern = kmer.ToUpperInvariant();
+        int m = pattern.Length;
+        int[] prefix = ComputeKmpPrefixFunction(pattern);
+
+        // KMP-MATCHER (CLRS §32.4): q = number of pattern characters currently matched.
+        int q = 0;
+        for (int i = 0; i < text.Length; i++)
         {
-            if (seq.AsSpan(i, km.Length).SequenceEqual(km.AsSpan()))
-                yield return i;
+            char c = text[i];
+            while (q > 0 && pattern[q] != c)
+                q = prefix[q - 1];
+            if (pattern[q] == c)
+                q++;
+            if (q == m)
+            {
+                yield return i - m + 1;
+                // Fall back to the longest proper border so overlapping occurrences
+                // are reported too (Rosalind BA1D / SUBS).
+                q = prefix[q - 1];
+            }
         }
+    }
+
+    /// <summary>
+    /// KMP prefix (failure) function: <c>prefix[q]</c> is the length of the longest proper
+    /// prefix of <c>pattern[0..q]</c> that is also its suffix (CLRS §32.4
+    /// COMPUTE-PREFIX-FUNCTION, 0-based). O(|pattern|).
+    /// </summary>
+    private static int[] ComputeKmpPrefixFunction(string pattern)
+    {
+        var prefix = new int[pattern.Length];
+        int k = 0;
+        for (int q = 1; q < pattern.Length; q++)
+        {
+            while (k > 0 && pattern[k] != pattern[q])
+                k = prefix[k - 1];
+            if (pattern[k] == pattern[q])
+                k++;
+            prefix[q] = k;
+        }
+        return prefix;
     }
 
     /// <summary>
