@@ -29,7 +29,7 @@ k=4, `minCount 2`, `maxCount 3`, `canonical` → CATG:3, ATGA:2, TGCA:2).
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1599](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1599)
+- Source: [KmerAnalyzer.cs#L1886](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1886)
 
 ## Input Schema
 

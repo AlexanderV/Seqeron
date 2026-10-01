@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindUniqueKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1561",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1848",
   "description": "Returns the k-mers that occur exactly once (overlapping occurrence count = 1) in the sequence — the singleton k-mers. Optional Jellyfish modes: canonical (count -C + dump -L 1 -U 1) and acgtOnly.",
   "inputSchema": {
     "type": "object",

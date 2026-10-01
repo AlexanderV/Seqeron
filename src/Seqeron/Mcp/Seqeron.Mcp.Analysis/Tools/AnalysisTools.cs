@@ -168,14 +168,15 @@ public class AnalysisTools
         return new KmerDistanceResult(KmerAnalyzer.SpacedWordDistance(seq1, seq2, patterns, KmerAnalyzer.ParseDistanceMetric(metric)));
     }
 
-    [McpServerTool(Name = "kmer_jaccard", Title = "k-mers — Jaccard Similarity / Mash Distance", ReadOnly = true)]
-    [Description("Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]) and the Mash distance -ln(2J/(1+J))/k. Set canonical=true for Mash/sourmash k-mers (strand-collapsed, non-ACGT windows skipped).")]
+    [McpServerTool(Name = "kmer_jaccard", Title = "k-mers — Jaccard Similarity / Mash Distance / Containment", ReadOnly = true)]
+    [Description("Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]), the Mash distance -ln(2J/(1+J))/k and the exact containment indices |A∩B|/|A| and |A∩B|/|B| (sourmash compare --containment). Set canonical=true for Mash/sourmash k-mers (strand-collapsed, non-ACGT windows skipped). sketchSize > 0 estimates J from Mash bottom-s MinHash sketches (MurmurHash3, seed 42; = mash dist -s sketchSize) and adds sharedHashes/sketchDenominator (Mash x/s) and the Mash p-value.")]
     public static KmerJaccardResult KmerJaccard(
         [Description("First sequence.")] string seq1,
         [Description("Second sequence.")] string seq2,
-        [Description("k-mer length.")] int k,
-        [Description("Canonical k-mers min(w, revcomp(w)) as Mash/sourmash/jellyfish -C (implies acgtOnly).")] bool canonical = false,
-        [Description("Skip k-mers containing a non-ACGT symbol (Mash -n / Jellyfish convention).")] bool acgtOnly = false)
+        [Description("k-mer length (1..32 when sketchSize > 0, as mash -k).")] int k,
+        [Description("Canonical k-mers min(w, revcomp(w)) as Mash/sourmash/jellyfish -C (implies acgtOnly). With sketchSize > 0, false = mash -n.")] bool canonical = false,
+        [Description("Skip k-mers containing a non-ACGT symbol (Mash -n / Jellyfish convention).")] bool acgtOnly = false,
+        [Description("0 (default) = exact sets; > 0 = Mash MinHash sketch size s (Mash default 1000). Jaccard/mashDistance are then sketch estimates; containment stays exact.")] int sketchSize = 0)
     {
         if (string.IsNullOrEmpty(seq1))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
@@ -183,11 +184,28 @@ public class AnalysisTools
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq2));
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
+        if (sketchSize < 0)
+            throw new ArgumentException("sketchSize must be >= 0", nameof(sketchSize));
+        if (sketchSize > 0 && k > KmerAnalyzer.MaxMashKmerSize)
+            throw new ArgumentException($"k must be <= {KmerAnalyzer.MaxMashKmerSize} when sketchSize > 0", nameof(k));
 
-        var options = new KmerCountingOptions(Canonical: canonical, AcgtOnly: acgtOnly);
-        return new KmerJaccardResult(
-            KmerAnalyzer.JaccardSimilarity(seq1, seq2, k, options),
-            KmerAnalyzer.MashDistance(seq1, seq2, k, options));
+        var options = new KmerCountingOptions(Canonical: canonical, AcgtOnly: acgtOnly || sketchSize > 0);
+        double containment12 = KmerAnalyzer.ContainmentIndex(seq1, seq2, k, options);
+        double containment21 = KmerAnalyzer.ContainmentIndex(seq2, seq1, k, options);
+        if (sketchSize == 0)
+        {
+            return new KmerJaccardResult(
+                KmerAnalyzer.JaccardSimilarity(seq1, seq2, k, options),
+                KmerAnalyzer.MashDistance(seq1, seq2, k, options),
+                containment12,
+                containment21);
+        }
+
+        var cmp = KmerAnalyzer.CompareMinHashSketches(
+            KmerAnalyzer.CreateMinHashSketch(seq1, k, sketchSize, canonical),
+            KmerAnalyzer.CreateMinHashSketch(seq2, k, sketchSize, canonical));
+        return new KmerJaccardResult(cmp.Jaccard, cmp.Distance, containment12, containment21,
+            cmp.SharedHashes, cmp.Denominator, cmp.PValue);
     }
 
     [McpServerTool(Name = "unique_kmers", Title = "k-mers — Unique (Singletons)", ReadOnly = true)]

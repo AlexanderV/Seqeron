@@ -39,8 +39,19 @@ public record KmerD2StatisticsResult(
     double[] Bic1,
     double[] Bic2);
 
-/// <summary>Exact k-mer Jaccard index (fraction in [0,1]) and the Mash distance derived from it.</summary>
-public record KmerJaccardResult(double Jaccard, double MashDistance);
+/// <summary>
+/// k-mer Jaccard index (fraction in [0,1]) and the Mash distance derived from it — exact, or estimated from Mash
+/// MinHash sketches when <c>sketchSize</c> &gt; 0 (then <c>SharedHashes</c>/<c>SketchDenominator</c> = Mash "x/s" and
+/// <c>PValue</c> = Mash p-value; null in exact mode) — plus the exact containment indices |A∩B|/|A| and |A∩B|/|B|.
+/// </summary>
+public record KmerJaccardResult(
+    double Jaccard,
+    double MashDistance,
+    double ContainmentSeq1InSeq2 = 0,
+    double ContainmentSeq2InSeq1 = 0,
+    int? SharedHashes = null,
+    int? SketchDenominator = null,
+    double? PValue = null);
 
 /// <summary>A maximal run of consecutive qualifying window starts (0-based, both ends inclusive).</summary>
 public record ClumpWindowRunItem(int FirstWindowStart, int LastWindowStart);

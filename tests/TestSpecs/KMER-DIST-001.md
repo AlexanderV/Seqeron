@@ -147,6 +147,20 @@
 | R9 | `SpacedWordDistance` (6 rows: S1/S2, A/B × {w4, w5, contiguous 1111}): JS = `spaced -r -d JS`, `EuclideanCounts` = `spaced -r -d EU`, `Euclidean` = scipy frequency Euclidean (1e-12 / 1e-10) | Leimeister et al. 2014; spaced 1.2.0 binary + source |
 | R10 | Contiguous pattern = `KmerDistance(k)`; mean of per-pattern values; identity 0; validation (null/empty set, null pattern, unequal weight, malformed pattern, D2*) | definition / contract |
 
+### 4.7 Audit round 2 (WP7) — Mash MinHash sketches, containment index (`KmerAnalyzer_MinHashContainment_Tests.cs`)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| M1 | `MurmurHash3X64_128(key, 42)` = `mmh3.hash64(key, 42, signed=False)` on 8 keys of length 0–32 (both words) | Appleby MurmurHash3; Mash `MurmurHash3.cpp`; mmh3 |
+| M2 | `CreateMinHashSketch(A, 21, 5)` hashes = `mash info -d` (= sourmash `MinHash(n=5, ksize=21)`); `(A, 16, 5)` = the 32-bit `mash info -d` hashes, `Use64` false | Mash `Sketch.cpp` (`use64 = 4^k > 2^32`), `hash.cpp` |
+| M3 | Sketch length counts N (E: 5005 = `mash info -d`); records shorter than k are skipped (length and k-mers) | Mash `sketchFile` (`l < kmerSize`) |
+| M4 | 63 `mash dist` rows (A–E, AA2; k ∈ {8, 9, 10, 11, 12, 16, 21}; s ∈ {10, 50, 200, 1000, 100000}; canonical and `-n`): x, denominator exact; J = x/denominator; distance and p-value formatted `G6` = Mash's printed text | Mash 2.3 binary; `CommandDistance.cpp` `compareSketches`/`pValue` |
+| M5 | s ≥ union → sketch J and distance = exact `JaccardSimilarity`/`MashDistance` (8069/11891 = sourmash `scaled=1` 0.678580438987470) | Mash; sourmash 4.9.4 |
+| M6 | Different sketch sizes → merge capped at min(s) (32/50); mismatched k/seed/canonical → `ArgumentException`; k ∉ 1..32, s < 1, null → exceptions; both sketches empty → (0, 0, 0, 0, 1) | Mash (sketch-size reduction, parameter checks, `-k` 1..32); convention |
+| M7 | `MashPValue`: x = 0 → 1; A/D k=9 s=200 x=9 → 0.0137623 (`mash dist`); negative inputs / k ≤ 0 throw | Mash `pValue` |
+| M8 | `ContainmentIndex` canonical (9 rows, k = 21 and 16) = sourmash `MinHash(scaled=1).contained_by` (1e-14) | Koslicki & Zabeti 2019; sourmash `compare --containment` |
+| M9 | C(A,B)·|K(A)| = C(B,A)·|K(B)| = 8069 (Mash shared count); J ≤ min(C(A,B), C(B,A)); literal GATTACA/GATTACCA k=3 → 0.8; empty/null → 0; k ≤ 0 throws | definition / contract |
+
 ## 5. Audit of Existing Tests
 
 ### 5.1 Discovery Summary

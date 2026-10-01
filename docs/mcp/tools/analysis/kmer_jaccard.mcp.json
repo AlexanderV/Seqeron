@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "kmer_jaccard",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.JaccardSimilarity",
   "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1293",
-  "description": "Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]) and the Mash distance -ln(2J/(1+J))/k (Ondov et al. 2016). canonical=true gives Mash/sourmash k-mers.",
+  "description": "k-mer Jaccard index |A∩B|/|A∪B| (exact, or Mash bottom-s MinHash estimate with sketchSize > 0), the Mash distance -ln(2J/(1+J))/k (Ondov et al. 2016), the Mash p-value and x/s in sketch mode, and the exact containment indices |A∩B|/|A|, |A∩B|/|B| (Koslicki & Zabeti 2019). canonical=true gives Mash/sourmash k-mers.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -34,6 +34,12 @@
         "type": "boolean",
         "description": "Skip k-mers containing a non-ACGT symbol (mash sketch -n)",
         "default": false
+      },
+      "sketchSize": {
+        "type": "integer",
+        "description": "0 = exact sets (default); s > 0 = Mash MinHash sketch size (mash -s; Mash default 1000), MurmurHash3_x64_128 seed 42, k <= 32",
+        "minimum": 0,
+        "default": 0
       }
     },
     "required": [
@@ -52,11 +58,42 @@
       "mashDistance": {
         "type": "number",
         "description": "Mash distance in [0,1] (0 for identical sets, 1 when no k-mer is shared, capped at 1)"
+      },
+      "containmentSeq1InSeq2": {
+        "type": "number",
+        "description": "Exact containment |A∩B|/|A| (0 when A is empty)"
+      },
+      "containmentSeq2InSeq1": {
+        "type": "number",
+        "description": "Exact containment |A∩B|/|B| (0 when B is empty)"
+      },
+      "sharedHashes": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Sketch mode: shared hashes x of Mash's x/s; null in exact mode"
+      },
+      "sketchDenominator": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Sketch mode: union hashes compared (denominator of x/s); null in exact mode"
+      },
+      "pValue": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Sketch mode: Mash p-value P(X >= x), X ~ Binomial(denominator, r); null in exact mode"
       }
     },
     "required": [
       "jaccard",
-      "mashDistance"
+      "mashDistance",
+      "containmentSeq1InSeq2",
+      "containmentSeq2InSeq1"
     ]
   },
   "errors": [
@@ -67,6 +104,14 @@
     {
       "code": 1003,
       "message": "k must be positive"
+    },
+    {
+      "code": 1003,
+      "message": "sketchSize must be >= 0"
+    },
+    {
+      "code": 1003,
+      "message": "k must be <= 32 when sketchSize > 0"
     }
   ],
   "examples": [
@@ -80,7 +125,12 @@
       },
       "output": {
         "jaccard": 0.5,
-        "mashDistance": 0.20273255405408222
+        "mashDistance": 0.20273255405408222,
+        "containmentSeq1InSeq2": 0.8333333333333334,
+        "containmentSeq2InSeq1": 0.5555555555555556,
+        "sharedHashes": null,
+        "sketchDenominator": null,
+        "pValue": null
       }
     },
     {
@@ -92,7 +142,12 @@
       },
       "output": {
         "jaccard": 0.75,
-        "mashDistance": 0.05138355994241945
+        "mashDistance": 0.05138355994241945,
+        "containmentSeq1InSeq2": 1.0,
+        "containmentSeq2InSeq1": 0.75,
+        "sharedHashes": null,
+        "sketchDenominator": null,
+        "pValue": null
       }
     }
   ]

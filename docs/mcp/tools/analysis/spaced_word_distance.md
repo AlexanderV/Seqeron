@@ -36,7 +36,7 @@ of the other. Pattern-set generation (`spaced`/rasbhari random optimisation) is 
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1444](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1444)
+- Source: [KmerAnalyzer.cs#L1731](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1731)
 - Algorithm: [K-mer_Euclidean_Distance.md](../../../algorithms/K-mer/K-mer_Euclidean_Distance.md) §7.5
 
 ## Input Schema

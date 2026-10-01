@@ -1346,6 +1346,13 @@ public static class KmerAnalyzer
 
     private static (int Shared, int Union) SharedAndUnionKmers(string a, string b, int k, KmerCountingOptions options)
     {
+        var (shared, countA, countB) = SharedAndSetSizes(a, b, k, options);
+        return (shared, countA + countB - shared);
+    }
+
+    /// <summary>|K(A) ∩ K(B)|, |K(A)| and |K(B)| of the distinct k-mer sets under <paramref name="options"/> (null = empty).</summary>
+    private static (int Shared, int CountA, int CountB) SharedAndSetSizes(string a, string b, int k, KmerCountingOptions options)
+    {
         if (k <= 0)
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
@@ -1359,8 +1366,288 @@ public static class KmerAnalyzer
             if (large.Contains(kmer))
                 shared++;
         }
-        return (shared, setA.Count + setB.Count - shared);
+        return (shared, setA.Count, setB.Count);
     }
+
+    /// <summary>
+    /// Exact containment index C(A, B) = |K(A) ∩ K(B)| / |K(A)|: the fraction of the distinct k-mers of
+    /// <paramref name="a"/> that also occur in <paramref name="b"/> (Koslicki &amp; Zabeti 2019, Appl Math Comput
+    /// 354:206, "Improving MinHash via the containment index"; sourmash <c>compare --containment</c>, which reports
+    /// C(row, column); exact for <c>scaled=1</c> sketches). Asymmetric: C(A, B)·|K(A)| = C(B, A)·|K(B)| = |K(A) ∩ K(B)|.
+    /// </summary>
+    /// <remarks>
+    /// Pass <c>new KmerCountingOptions(Canonical: true)</c> for sourmash's DNA k-mers (strand-collapsed, non-ACGT windows
+    /// skipped). K(A) empty (null/empty or shorter than <paramref name="k"/>): the ratio is 0/0 and 0 is returned,
+    /// as sourmash's <c>contained_by</c> returns 0 for an empty sketch and as <see cref="JaccardSimilarity(string, string, int)"/> does.
+    /// </remarks>
+    /// <param name="a">The sequence whose k-mers are tested for containment; null is treated as empty.</param>
+    /// <param name="b">The containing sequence; null is treated as empty.</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <param name="options">Counting mode for both sequences.</param>
+    /// <returns>C(A, B) in [0, 1]; 1 when every k-mer of <paramref name="a"/> occurs in <paramref name="b"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
+    public static double ContainmentIndex(string a, string b, int k, KmerCountingOptions options)
+    {
+        var (shared, countA, _) = SharedAndSetSizes(a, b, k, options);
+        return countA == 0 ? 0.0 : (double)shared / countA;
+    }
+
+    /// <summary>Exact containment index C(A, B) with literal counting; see <see cref="ContainmentIndex(string, string, int, KmerCountingOptions)"/>.</summary>
+    /// <param name="a">The sequence whose k-mers are tested for containment; null is treated as empty.</param>
+    /// <param name="b">The containing sequence; null is treated as empty.</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <returns>C(A, B) in [0, 1].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
+    public static double ContainmentIndex(string a, string b, int k)
+        => ContainmentIndex(a, b, k, default);
+
+    #region MinHash (Mash) sketches
+
+    /// <summary>Default Mash sketch size (<c>mash sketch -s</c>, 1000).</summary>
+    public const int DefaultMashSketchSize = 1000;
+
+    /// <summary>Default Mash hash seed (<c>mash sketch -S</c>, 42).</summary>
+    public const uint DefaultMashSeed = 42;
+
+    /// <summary>Largest k-mer size Mash accepts (<c>mash sketch -k</c>, 1..32).</summary>
+    public const int MaxMashKmerSize = 32;
+
+    /// <summary>
+    /// Builds a bottom-s MinHash sketch of one sequence exactly as <c>mash sketch</c> 2.3 does (Ondov et al. 2016,
+    /// Genome Biol 17:132): see <see cref="CreateMinHashSketch(IEnumerable{string}, int, int, bool, uint)"/>.
+    /// </summary>
+    /// <param name="sequence">The sequence; null is treated as empty.</param>
+    /// <param name="k">K-mer size, 1..32 (Mash default 21).</param>
+    /// <param name="sketchSize">Sketch size s ≥ 1 (Mash default 1000).</param>
+    /// <param name="canonical">True (default): canonical k-mers min(w, RC(w)); false: forward k-mers (<c>mash sketch -n</c>).</param>
+    /// <param name="seed">MurmurHash3 seed (Mash default 42).</param>
+    /// <returns>The sketch.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> outside 1..32 or <paramref name="sketchSize"/> &lt; 1.</exception>
+    public static MinHashSketch CreateMinHashSketch(
+        string sequence, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed)
+        => CreateMinHashSketch([sequence ?? string.Empty], k, sketchSize, canonical, seed);
+
+    /// <summary>
+    /// Builds a bottom-s MinHash sketch of a set of records (e.g. the contigs of one FASTA file) exactly as
+    /// <c>mash sketch</c> 2.3 does (Ondov et al. 2016; Mash <c>Sketch.cpp</c> <c>sketchFile</c>/<c>addMinHashes</c>,
+    /// <c>hash.cpp</c>, <c>MinHashHeap.cpp</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>K-mers: upper-cased, windows containing a non-ACGT symbol skipped (Mash nucleotide alphabet), each k-mer
+    /// replaced by the lexicographically smaller of itself and its reverse complement (<c>memcmp(fwd, rev) &lt;= 0</c>)
+    /// unless <paramref name="canonical"/> is false — the k-mer set of
+    /// <see cref="DistinctKmers(string, int, KmerCountingOptions)"/> with <c>Canonical</c> (or <c>AcgtOnly</c>) set. No
+    /// k-mer spans two records.</para>
+    /// <para>Hash: MurmurHash3_x64_128 of the k ASCII bytes with <paramref name="seed"/>; Mash keeps the first 64-bit
+    /// word h1 when 4^k &gt; 2^32 (k ≥ 17, <c>use64</c>) and otherwise its low 32 bits (<c>hash32</c>), compared unsigned.
+    /// The sketch is the <paramref name="sketchSize"/> smallest distinct hash values, ascending (<c>MinHashHeap</c> keeps
+    /// non-redundant hashes).</para>
+    /// <para>Length: Σ record lengths over records of length ≥ k (all symbols, N included); shorter records are skipped
+    /// like Mash's <c>l &lt; kmerSize</c> rule. The length enters the p-value of <see cref="CompareMinHashSketches"/>.</para>
+    /// </remarks>
+    /// <param name="records">The records; null entries are treated as empty.</param>
+    /// <param name="k">K-mer size, 1..32 (Mash default 21).</param>
+    /// <param name="sketchSize">Sketch size s ≥ 1 (Mash default 1000).</param>
+    /// <param name="canonical">True (default): canonical k-mers; false: forward k-mers (<c>mash sketch -n</c>).</param>
+    /// <param name="seed">MurmurHash3 seed (Mash default 42).</param>
+    /// <returns>The sketch.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="records"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> outside 1..32 or <paramref name="sketchSize"/> &lt; 1.</exception>
+    public static MinHashSketch CreateMinHashSketch(
+        IEnumerable<string> records, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        if (k < 1 || k > MaxMashKmerSize)
+            throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{MaxMashKmerSize} (mash sketch -k).");
+        ArgumentOutOfRangeException.ThrowIfLessThan(sketchSize, 1);
+
+        bool use64 = k > 16; // Mash: use64 = 4^k > 2^32
+        var options = canonical ? new KmerCountingOptions(Canonical: true) : new KmerCountingOptions(AcgtOnly: true);
+        var kmers = new HashSet<string>(StringComparer.Ordinal);
+        long length = 0;
+        foreach (var record in records)
+        {
+            var seq = record ?? string.Empty;
+            if (seq.Length < k)
+                continue;
+            length += seq.Length;
+            kmers.UnionWith(CountKmers(seq, k, options).Keys);
+        }
+
+        var hashes = new ulong[kmers.Count];
+        Span<byte> buffer = stackalloc byte[MaxMashKmerSize];
+        int n = 0;
+        foreach (var kmer in kmers)
+        {
+            var bytes = buffer[..k];
+            for (int i = 0; i < k; i++)
+                bytes[i] = (byte)kmer[i];
+            ulong h1 = MurmurHash3X64_128(bytes, seed).H1;
+            hashes[n++] = use64 ? h1 : (uint)h1;
+        }
+
+        Array.Sort(hashes);
+        var bottom = new List<ulong>(Math.Min(sketchSize, hashes.Length));
+        foreach (var h in hashes)
+        {
+            if (bottom.Count == sketchSize)
+                break;
+            if (bottom.Count == 0 || bottom[^1] != h)
+                bottom.Add(h);
+        }
+
+        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, bottom.ToArray());
+    }
+
+    /// <summary>
+    /// Compares two MinHash sketches as <c>mash dist</c> 2.3 does (Mash <c>CommandDistance.cpp</c>
+    /// <c>compareSketches</c> + <c>pValue</c>; Ondov et al. 2016 eqs. 1, 4 and the p-value of the Methods).
+    /// </summary>
+    /// <remarks>
+    /// <para>The sorted sketches are merged until s = min(s_A, s_B) union hashes have been visited (or a sketch is exhausted,
+    /// in which case the rest of the other is added and the total capped at s); x = shared hashes among them, and
+    /// J = x / denominator — Mash's "x/s" column. Distance: x = denominator → 0; x = 0 → 1; otherwise
+    /// −ln(2J/(1 + J))/k capped at 1 (<see cref="MashDistanceFromJaccard"/>).</para>
+    /// <para>p-value: P(X ≥ x) for X ~ Binomial(denominator, r) with r = p_A·p_B/(p_A + p_B − p_A·p_B) and
+    /// p = 1/(1 + 4^k/length) — Mash's <c>gsl_cdf_binomial_Q(x − 1, r, denominator)</c>, evaluated by
+    /// <see cref="StatisticsHelper.BinomialUpperTail"/>; x = 0 → 1.</para>
+    /// <para>Both sketches empty: denominator 0, Jaccard 0 (the convention of <see cref="JaccardSimilarity(string, string, int)"/>;
+    /// Mash would print nan), distance 0, p-value 1.</para>
+    /// </remarks>
+    /// <param name="reference">Reference sketch (Mash's first argument).</param>
+    /// <param name="query">Query sketch.</param>
+    /// <returns>Shared hashes, denominator, Jaccard estimate, Mash distance and p-value.</returns>
+    /// <exception cref="ArgumentNullException">A sketch is null.</exception>
+    /// <exception cref="ArgumentException">The sketches differ in k, seed or canonical mode (Mash refuses to compare them).</exception>
+    public static MashComparison CompareMinHashSketches(MinHashSketch reference, MinHashSketch query)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(query);
+        if (reference.K != query.K || reference.Seed != query.Seed || reference.Canonical != query.Canonical)
+            throw new ArgumentException("Sketches must have the same k-mer size, seed and canonical mode.", nameof(query));
+
+        int sketchSize = Math.Min(reference.SketchSize, query.SketchSize);
+        var r = reference.Hashes;
+        var q = query.Hashes;
+        int i = 0, j = 0, common = 0, denom = 0;
+        while (denom < sketchSize && i < r.Count && j < q.Count)
+        {
+            if (r[i] < q[j])
+                i++;
+            else if (q[j] < r[i])
+                j++;
+            else
+            {
+                i++;
+                j++;
+                common++;
+            }
+            denom++;
+        }
+        if (denom < sketchSize)
+        {
+            denom += (r.Count - i) + (q.Count - j);
+            if (denom > sketchSize)
+                denom = sketchSize;
+        }
+
+        double jaccard = denom == 0 ? 0.0 : (double)common / denom;
+        double distance = common == denom ? 0.0 : MashDistanceFromJaccard(jaccard, reference.K);
+        double pValue = MashPValue(common, reference.Length, query.Length, reference.K, denom);
+        return new MashComparison(common, denom, jaccard, distance, pValue);
+    }
+
+    /// <summary>
+    /// Mash p-value of observing ≥ <paramref name="sharedHashes"/> shared hashes by chance (Mash <c>CommandDistance.cpp</c>
+    /// <c>pValue</c>): P(X ≥ x), X ~ Binomial(<paramref name="sketchSize"/>, r), r = p₁p₂/(p₁ + p₂ − p₁p₂),
+    /// p_i = 1/(1 + 4^k/length_i); x = 0 → 1.
+    /// </summary>
+    /// <param name="sharedHashes">x, the shared hashes.</param>
+    /// <param name="length1">Total length of the first sequence set (Mash reference length).</param>
+    /// <param name="length2">Total length of the second sequence set.</param>
+    /// <param name="k">K-mer size (k-mer space 4^k).</param>
+    /// <param name="sketchSize">The comparison denominator (number of binomial trials).</param>
+    /// <returns>The p-value in [0, 1].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A count or length is negative, or <paramref name="k"/> is not positive.</exception>
+    public static double MashPValue(long sharedHashes, long length1, long length2, int k, long sketchSize)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(sharedHashes);
+        ArgumentOutOfRangeException.ThrowIfNegative(length1);
+        ArgumentOutOfRangeException.ThrowIfNegative(length2);
+        ArgumentOutOfRangeException.ThrowIfNegative(sketchSize);
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+        if (sharedHashes == 0)
+            return 1.0;
+
+        double kmerSpace = Math.Pow(4.0, k);
+        double pX = 1.0 / (1.0 + kmerSpace / length1);
+        double pY = 1.0 / (1.0 + kmerSpace / length2);
+        double r = pX * pY / (pX + pY - pX * pY);
+        return StatisticsHelper.BinomialUpperTail(sharedHashes, sketchSize, r);
+    }
+
+    /// <summary>
+    /// MurmurHash3_x64_128 (Austin Appleby, public domain; the <c>MurmurHash3.cpp</c> bundled with Mash and used by
+    /// sourmash / <c>mmh3.hash64</c>), little-endian block reads.
+    /// </summary>
+    /// <param name="data">Bytes to hash.</param>
+    /// <param name="seed">32-bit seed (zero-extended to both 64-bit lanes).</param>
+    /// <returns>The two 64-bit output words (h1 first, as written to <c>out[0]</c>).</returns>
+    public static (ulong H1, ulong H2) MurmurHash3X64_128(ReadOnlySpan<byte> data, uint seed)
+    {
+        const ulong c1 = 0x87c37b91114253d5UL;
+        const ulong c2 = 0x4cf5ad432745937fUL;
+        int len = data.Length;
+        int nblocks = len / 16;
+        ulong h1 = seed, h2 = seed;
+
+        for (int i = 0; i < nblocks; i++)
+        {
+            ulong k1 = System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(i * 16, 8));
+            ulong k2 = System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(i * 16 + 8, 8));
+
+            k1 *= c1; k1 = ulong.RotateLeft(k1, 31); k1 *= c2; h1 ^= k1;
+            h1 = ulong.RotateLeft(h1, 27); h1 += h2; h1 = h1 * 5 + 0x52dce729;
+            k2 *= c2; k2 = ulong.RotateLeft(k2, 33); k2 *= c1; h2 ^= k2;
+            h2 = ulong.RotateLeft(h2, 31); h2 += h1; h2 = h2 * 5 + 0x38495ab5;
+        }
+
+        var tail = data[(nblocks * 16)..];
+        int rem = len & 15;
+        if (rem > 8)
+        {
+            ulong k2 = 0;
+            for (int t = rem - 1; t >= 8; t--)
+                k2 ^= (ulong)tail[t] << ((t - 8) * 8);
+            k2 *= c2; k2 = ulong.RotateLeft(k2, 33); k2 *= c1; h2 ^= k2;
+        }
+        if (rem > 0)
+        {
+            ulong k1 = 0;
+            for (int t = Math.Min(rem, 8) - 1; t >= 0; t--)
+                k1 ^= (ulong)tail[t] << (t * 8);
+            k1 *= c1; k1 = ulong.RotateLeft(k1, 31); k1 *= c2; h1 ^= k1;
+        }
+
+        h1 ^= (ulong)len; h2 ^= (ulong)len;
+        h1 += h2; h2 += h1;
+        h1 = FMix64(h1); h2 = FMix64(h2);
+        h1 += h2; h2 += h1;
+        return (h1, h2);
+    }
+
+    private static ulong FMix64(ulong k)
+    {
+        k ^= k >> 33;
+        k *= 0xff51afd7ed558ccdUL;
+        k ^= k >> 33;
+        k *= 0xc4ceb9fe1a85ec53UL;
+        k ^= k >> 33;
+        return k;
+    }
+
+    #endregion
 
     /// <summary>
     /// Counts the spaced words of <paramref name="sequence"/> with respect to a binary match pattern
@@ -2228,6 +2515,28 @@ public readonly record struct D2StarStatistics(double D2Star, double D2Shepherd,
     /// <summary>Background Markov order used for the second sequence.</summary>
     public int MarkovOrder2 { get; init; }
 }
+
+/// <summary>
+/// A bottom-s MinHash sketch as built by <c>mash sketch</c> (<see cref="KmerAnalyzer.CreateMinHashSketch(IEnumerable{string}, int, int, bool, uint)"/>).
+/// </summary>
+/// <param name="K">K-mer size.</param>
+/// <param name="SketchSize">Target sketch size s (the sketch holds min(s, distinct hashes) values).</param>
+/// <param name="Canonical">True for canonical k-mers (Mash default), false for <c>-n</c>.</param>
+/// <param name="Seed">MurmurHash3 seed.</param>
+/// <param name="Use64">True when the 64-bit hash h1 is used (k ≥ 17); false for its low 32 bits.</param>
+/// <param name="Length">Total length of the sketched records of length ≥ k (Mash reference length).</param>
+/// <param name="Hashes">The smallest distinct hash values, ascending.</param>
+public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint Seed, bool Use64, long Length, IReadOnlyList<ulong> Hashes);
+
+/// <summary>
+/// Result of <see cref="KmerAnalyzer.CompareMinHashSketches"/> — one <c>mash dist</c> output line.
+/// </summary>
+/// <param name="SharedHashes">x, the shared hashes (numerator of Mash's "x/s" column).</param>
+/// <param name="Denominator">Union hashes visited (denominator of "x/s"; s unless both sketches are smaller).</param>
+/// <param name="Jaccard">Jaccard estimate x / denominator.</param>
+/// <param name="Distance">Mash distance −ln(2J/(1+J))/k (0 when x = denominator, 1 when x = 0, capped at 1).</param>
+/// <param name="PValue">Probability of ≥ x shared hashes by chance (Mash binomial p-value).</param>
+public readonly record struct MashComparison(int SharedHashes, int Denominator, double Jaccard, double Distance, double PValue);
 
 /// <summary>
 /// Word-vector metric for <see cref="KmerAnalyzer.KmerDistance(string, string, int, KmerDistanceMetric)"/>.

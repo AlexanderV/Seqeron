@@ -120,6 +120,11 @@ the value is the exact Jaccard that `mash dist` / sourmash estimate; `AcgtOnly =
 at 1. `MashDistanceFromJaccard(J, k)` is the bare conversion (J = 1 → 0, J = 0 → 1, cap 1). The method uses the
 exact sets, so it equals `mash dist -s s` whenever s ≥ |K(a) ∪ K(b)|.
 
+`ContainmentIndex(a, b, k[, options])` (audit round 2, WP7) = |K(a) ∩ K(b)| / |K(a)| — the containment index of
+Koslicki & Zabeti 2019 [14] and of sourmash `compare --containment` (exact for `scaled=1` sketches); asymmetric,
+C(a, b)·|K(a)| = C(b, a)·|K(b)| = |K(a) ∩ K(b)|; K(a) empty → 0. It shares the set-intersection helper with
+`JaccardSimilarity`/`MashDistance`.
+
 ### 2.8 Spaced words
 
 `CountSpacedWords(sequence, pattern)` (Leimeister et al. 2014 [4]): a pattern P ∈ {0,1}^ℓ with P[1] = P[ℓ] = 1
@@ -174,6 +179,26 @@ P(c(w_{d−r}) | c(w_d)…c(w_{d−r+1})), and at d = k − 1 the initial r-mer 
 they are dictionaries holding the r-mers / (r+1)-mers present, so k = 12, r = 11 no longer allocates a 4^12-double
 (134 MB) array per sequence (locked by an allocation test).
 
+### 2.10 MinHash sketches (Mash) (audit round 2, WP7)
+
+`CreateMinHashSketch(sequence | records, k, sketchSize = 1000, canonical = true, seed = 42)` builds the bottom-s
+sketch of `mash sketch` 2.3 [8]: the k-mer set is `DistinctKmers` with `Canonical` (or `AcgtOnly` for `-n`) —
+upper-cased, non-ACGT windows skipped, min(w, RC(w)) by `memcmp` — so no second canonicalisation exists; each k-mer's
+k ASCII bytes are hashed with MurmurHash3_x64_128 (`MurmurHash3X64_128`, Appleby; Mash's bundled `MurmurHash3.cpp`,
+same as `mmh3.hash64`), keeping h1 when 4^k > 2^32 (k ≥ 17, Mash `use64`) and its low 32 bits otherwise
+(`hash.cpp`); the sketch holds the s smallest **distinct** hash values ascending (`MinHashHeap`). With several
+records (contigs of one FASTA), no k-mer spans two records, and records shorter than k are skipped; the sketch length
+is the summed length of the remaining records (all symbols, N included; Mash `sketchFile`). k ∈ 1..32 (`mash -k`).
+
+`CompareMinHashSketches(ref, query)` is `mash dist`'s `compareSketches`: merge the sorted sketches until
+s = min(s_ref, s_query) union hashes have been visited (if one sketch runs out first, the rest of the other is
+added and the total capped at s); x = hashes in both; J = x / denominator (Mash's "x/s" column); distance by
+`MashDistanceFromJaccard` (x = denominator → 0, x = 0 → 1). The p-value (`MashPValue`, Mash `pValue`) is
+P(X ≥ x) for X ~ Binomial(denominator, r), r = p₁p₂/(p₁ + p₂ − p₁p₂), pᵢ = 1/(1 + 4^k/lengthᵢ) — Mash's
+`gsl_cdf_binomial_Q(x − 1, r, denominator)`, here `StatisticsHelper.BinomialUpperTail` (log-space, Loader 2000);
+x = 0 → 1. Both sketches empty: denominator 0, J = 0 (exact-Jaccard convention; Mash prints nan), distance 0,
+p-value 1. Sketches with different k, seed or canonical mode are rejected (Mash skips them).
+
 ## 3. Contract
 
 ### 3.1 Inputs and Parameters
@@ -216,6 +241,9 @@ they are dictionaries holding the r-mers / (r+1)-mers present, so k = 12, r = 11
 | KmerDistance | O(n + m) | O(u) | n, m = sequence lengths; u = number of distinct k-mers in the union; one linear pass per sequence to count, one pass over the union |
 | BackgroundAdjustedD2 | O(n + m + 4^k·k) | O(u + distinct (r+1)-mers) | counts + Markov fit per sequence, then one odometer pass over all 4^k words (prefix probabilities updated incrementally; O(k) per leaf for the code, O(r) per factor) |
 | SpacedWordDistance | O(m·(n + n')·k) | O(distinct spaced words) | m patterns of weight k |
+| CreateMinHashSketch | O(n·k + d log d) | O(d) | d distinct (canonical) k-mers, all hashed and sorted; the sketch keeps s |
+| CompareMinHashSketches | O(s) | O(1) | one merge of two sorted sketches |
+| ContainmentIndex | O(n + m) | O(u) | same set pass as `JaccardSimilarity` |
 
 ## 5. Implementation Notes
 
@@ -231,7 +259,8 @@ they are dictionaries holding the r-mers / (r+1)-mers present, so k = 12, r = 11
 - `KmerAnalyzer.CountSpacedWords(string, string)`: §2.8.
 - `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int)` → `D2StarStatistics(D2Star, D2Shepherd, D2StarDistance, D2ShepherdDistance)`; `KmerDistance(seq1, seq2, k, metric, markovOrder)`; metrics `D2Star` / `D2Shepherd`; `ParseDistanceMetric(string)` (MCP metric names): §2.9.
 - `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int, bool bothStrands)`, `KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands)` (CAFE `-R`), `SpacedWordDistance(string, string, IReadOnlyList<string>, KmerDistanceMetric)`, metrics `JensenShannon` / `EuclideanCounts` (audit round 2, WP6).
-- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly`; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis).
+- `KmerAnalyzer.ContainmentIndex(string, string, int[, KmerCountingOptions])` (§2.7), `CreateMinHashSketch` → `MinHashSketch`, `CompareMinHashSketches` → `MashComparison(SharedHashes, Denominator, Jaccard, Distance, PValue)`, `MashPValue`, `MurmurHash3X64_128` (§2.10; audit round 2, WP7).
+- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly` and `sketchSize` (0 = exact; s > 0 = Mash sketch estimate + `sharedHashes`/`sketchDenominator`/`pValue`), always returning both exact containment indices; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis).
 
 ### 5.2 Current Behavior
 
@@ -273,10 +302,17 @@ they are dictionaries holding the r-mers / (r+1)-mers present, so k = 12, r = 11
 - CAFE `-R` both-strand D2*/D2S (§2.9, §7.5); sparse Markov tables for high orders; null = empty for every `KmerDistance` metric.
 - Multiple-pattern spaced-word distance [4] (`SpacedWordDistance`, §2.8) with the Jensen–Shannon (`JensenShannon`) and count-Euclidean (`EuclideanCounts`) metrics; cross-checked against the `spaced` 1.2.0 program (§7.5).
 
+**Implemented in audit round 2 (WP7):**
+
+- Mash bottom-s MinHash sketches, `mash dist` comparison (x/s, Jaccard estimate, distance, binomial p-value) and
+  MurmurHash3_x64_128 (§2.10), = the Mash 2.3 binary on 63 runs (§7.6); exact containment index [14] (§2.7),
+  = sourmash 4.9.4 `scaled=1` `contained_by`.
+
 **Not implemented:**
 
-- MinHash *sketching* (Mash/sourmash estimate J from a bottom-s sketch); this unit computes the exact sets, which
-  is the quantity the sketch estimates.
+- sourmash *scaled* (FracMinHash) sketches and sketch-based containment estimates: the exact containment is
+  available, which is what a `scaled=1` sketch gives; Mash `screen` (containment score with multiplicities) and
+  Mash's 32-bit `ARCH_32` hash variant (two MurmurHash3_x86_32 calls; only in 32-bit builds) are not reproduced.
 - `spaced` program conventions not reproduced (§7.5): its default both-strand mode (forward words of one sequence
   against both strands of the other; asymmetric in the sequence order), dropping words with a non-ACGT symbol at a
   match position while keeping their windows in the denominator, and its randomised pattern-set generation.
@@ -430,12 +466,47 @@ number of patterns; `-r` disables the reverse complement. Runs (`spaced -r -t 1 
 | A/B | 1101011, 1011101, 1110011 | 0.757979428497 | 23.8455999144 | 0.0898354125393724 |
 | A/B | 1111 | 0.418942116525 | 25.8069758011 | 0.09773005238795092 |
 
+### 7.6 MinHash sketches and containment (audit round 2, WP7)
+
+Sources read: Mash v2.3 `src/mash/Sketch.cpp` (`addMinHashes`, `sketchFile`, `use64 = pow(alphabetSize, k) > 2^32`),
+`hash.cpp`, `MinHashHeap.cpp`, `CommandDistance.cpp` (`compareSketches`, `pValue`), `MurmurHash3.cpp`, `Command.cpp`
+(`-k` 1..32, `-s` 1000) — raw.githubusercontent.com/marbl/Mash/v2.3. Executed: the Mash 2.3 binary (`/usr/bin/mash`,
+`mash dist -k K -s S [-n]`, `mash info -d`), sourmash 4.9.4 (`MinHash(n=…)`, `MinHash(scaled=1).contained_by` / CLI
+`compare --containment`), mmh3 (`hash64(key, 42, signed=False)`). Sequences: 64-bit LCG (`gen.py`, reproduced in the
+tests): A random 10 kb; B = A with ~1 % substitutions; C ~5 %; D unrelated random 10 kb; E = A[2000, 7000) lower-case
+with "NNNNN" inserted (5005 nt); AA2 = A as two records (6000 + 4000).
+
+- Hashes: `mash info -d` of `mash sketch -k 21 -s 5 A.fa` = 6460448764372083, 7468640311819670, 7856285671510867,
+  9659045342622411, 10133432196212684 (= sourmash `MinHash(n=5, ksize=21)`); `-k 16 -s 5` (32-bit) = 357156, 675973,
+  681892, 948453, 1205556. Eight `mmh3.hash64` vectors (lengths 0–32) equal `MurmurHash3X64_128`.
+- `mash dist` output (distance, p-value, x/s), all 63 runs reproduced **exactly at the printed 6 digits**, e.g.:
+
+| Pair | k | s | Mash output | Note |
+|------|---|---|-------------|------|
+| A/B | 21 | 1000 | 0.0101459  0  678/1000 | sourmash `num=1000` Jaccard 0.678 (same hashes) |
+| A/E, E/A | 21 | 1000 | 0.0196919  0  494/1000 | symmetric; E has N + lower case |
+| AA2/A | 21 | 1000 | 2.38274e-05  0  999/1000 | the junction k-mers are missing |
+| A/B | 21 | 50 | 0.0118017  1.09468e-273  32/50 | |
+| A/B | 21 | 100000 | 0.0101216  0  8069/11891 | = exact Jaccard (sourmash `scaled=1` 0.678580438987470) |
+| A/B | 16 | 1000 | 0.00949197  0  753/1000 | 32-bit hashes (sourmash 64-bit `num=1000`: 0.738) |
+| A/B | 16 | 50 | 0.0111051  2.23086e-202  36/50 | |
+| A/B -n | 21 | 1000 | 0.00997914  0  682/1000 | non-canonical |
+| A/D | 8 | 1000 | 0.163715  3.51356e-20  156/1000 | unrelated, small k |
+| C/D | 9 | 200 | 0.335603  0.320676  5/200 | |
+| A/D | 11 | 1000 | 0.502133  0.33404  2/1000 | |
+| A/D | 21 | 1000 | 1  1  0/1000 | nothing shared |
+
+- Containment (canonical, exact) = sourmash `scaled=1` `contained_by`: k=21 A in B 0.808517034068136, A in C
+  0.347795591182365, A in E 0.496993987975952, E in A 1; k=16 A in B 0.850575863795693, A in C 0.446169253880821,
+  A in E 0.497746619929895. C(A,B)·|K(A)| = 8069 = the `mash dist -s 100000` shared count.
+
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [KmerAnalyzer_KmerDistance_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_KmerDistance_Tests.cs) — covers `INV-01`–`INV-04`
 - Tests: [KmerAnalyzer_DistanceMetrics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_DistanceMetrics_Tests.cs) — §7.2 values, `INV-05`/`INV-06`, conventions, spaced words
 - Tests: [KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs) — §7.4 values, D2*/D2S conventions and validation
 - Tests: [KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs) — §7.5 values, null-as-empty, sparse tables, JS metric
+- Tests: [KmerAnalyzer_MinHashContainment_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_MinHashContainment_Tests.cs) — §7.6 values (63 `mash dist` rows, hashes, containment)
 - Evidence: [KMER-DIST-001-Evidence.md](../../../docs/Evidence/KMER-DIST-001-Evidence.md)
 
 ## 8. References
@@ -453,3 +524,5 @@ number of patterns; `-r` disables the reverse complement. Runs (`spaced -r -t 1 
 11. Lu YY, Tang K, Ren J, Fuhrman JA, Waterman MS, Sun F. 2017. CAFE: aCcelerated Alignment-FrEe sequence analysis. Nucleic Acids Res 45(W1):W554–W559. Source: github.com/younglululu/CAFE `code/dist_model.cpp`, `code/kmer.cpp`, `code/seq_model.cpp` (cloned and built 2026-10-01).
 12. Lin J. 1991. Divergence measures based on the Shannon entropy. IEEE Trans Inf Theory 37(1):145–151.
 13. `spaced` 1.2.0 (Leimeister, Hahn, Morgenstern), Debian Med package source `spaced_1.2.0-201605+dfsg` (archive.ubuntu.com, `src/sort.h`, `src/spaced.cc`), opened and run 2026-10-01.
+14. Koslicki D, Zabeti H. 2019. Improving MinHash via the containment index with applications to metagenomic analysis. Applied Mathematics and Computation 354:206–215 (containment index C(A, B) = |A ∩ B| / |A|).
+15. Appleby A. MurmurHash3 (public domain), `MurmurHash3_x64_128`, as bundled in Mash `src/mash/MurmurHash3.cpp`.

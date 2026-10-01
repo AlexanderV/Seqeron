@@ -219,7 +219,31 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
   estimator); ASM-D6 null sequence = empty for every metric; ASM-D7 spaced words are literal (no N filtering), so
   `spaced` equality is claimed on ACGT sequences only.
 
+## Audit round 2 (WP7, 2026-10-01) — Mash MinHash sketches, containment index
+
+- Mash v2.3 source read (raw.githubusercontent.com/marbl/Mash/v2.3): `Sketch.cpp` `addMinHashes` (upper-case,
+  skip windows with a base outside the ACGT alphabet, canonical = `memcmp(fwd, rev) <= 0 ? fwd : rev`), `sketchFile`
+  (records with `l < kmerSize` skipped; `reference.length += l`), `setAlphabetFromString` (`use64 = pow(alphabetSize,
+  k) > 2^32`); `hash.cpp` (`MurmurHash3_x64_128`; `hash64` = first 64-bit word, `hash32` = its first 4 bytes =
+  low 32 bits on little-endian); `MinHashHeap::tryInsert` (non-redundant bottom-s); `CommandDistance.cpp`
+  `compareSketches` (merge until `denom = sketchSize`, then complete the union capped at s; `common == denom` → 0,
+  `common == 0` → 1) and `pValue` (`gsl_cdf_binomial_Q(x − 1, r, sketchSize)`, r = pX·pY/(pX + pY − pX·pY),
+  p = 1/(1 + kmerSpace/length)); `Command.cpp` (`-k` 1..32, default 21; `-s` default 1000); `MurmurHash3.cpp`.
+- No MurmurHash3 existed in the repository (grep); `System.IO.Hashing` has no Murmur (XxHash/CRC only), so
+  `KmerAnalyzer.MurmurHash3X64_128` was written from `MurmurHash3.cpp` and checked against mmh3 on 8 vectors.
+- Reference runs: Mash 2.3 binary (`/usr/bin/mash`), 63 `mash dist` rows + 3 `mash info -d` dumps; sourmash 4.9.4
+  (`MinHash(n=1000)` gives Mash's k = 21 hashes and Jaccard 0.678 = 678/1000; its 64-bit hashes differ from Mash's
+  32-bit ones at k = 16: 0.738 vs 753/1000; `MinHash(scaled=1)` Jaccard 0.678580438987470 = `mash dist -s 100000`
+  8069/11891; `contained_by` and CLI `compare --containment` give the containment values). All reproduced: Mash rows
+  exactly at the printed 6 digits (x/s exact), containment to 1e-14 (K-mer_Euclidean_Distance.md §7.6).
+- Koslicki & Zabeti 2019 (Appl Math Comput 354:206): containment index C(A, B) = |A ∩ B| / |A| (definition; the
+  same quantity as sourmash `contained_by` on `scaled=1` sketches).
+- Assumptions: ASM-D8 a single input string is one FASTA record (sketch length = its length incl. N); ASM-D9 both
+  sketches empty → J = 0, distance 0, p-value 1 (Mash prints nan for J); ASM-D10 empty K(A) → containment 0.
+
 ## Change History
+
+- **2026-10-01**: Audit round 2 WP7 — Mash MinHash sketches (MurmurHash3_x64_128, x/s, distance, p-value), exact containment index.
 
 - **2026-10-01**: Audit round 2 WP6 — CAFE `-R` both-strand D2*/D2S, sparse Markov tables, JS / count-Euclidean metrics, multiple-pattern spaced-word distance.
 
