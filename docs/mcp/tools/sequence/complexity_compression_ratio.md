@@ -18,7 +18,7 @@ Returns the normalized Lempel–Ziv (1976) complexity c / (n / log_b n) (Zhang e
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L1631](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1631)
+- Source: [SequenceComplexity.cs#L1772](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1772)
 
 ## Input Schema
 

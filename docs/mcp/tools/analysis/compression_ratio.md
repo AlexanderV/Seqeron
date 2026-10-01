@@ -21,7 +21,7 @@ indicate more repetitive / less complex sequences. Comparison is case-insensitiv
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L1631](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1631)
+- Source: [SequenceComplexity.cs#L1772](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1772)
 
 ## Input Schema
 

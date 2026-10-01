@@ -23,7 +23,7 @@ generalisation of the DUST score. Higher = lower complexity; longdust calls x lo
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L1148](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1148)
+- Source: [SequenceComplexity.cs#L1273](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1273)
 
 ## Input Schema
 

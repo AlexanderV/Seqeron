@@ -23,7 +23,7 @@ make the overlapping k-mers ambiguous. Defaults = `longdust -k7 -w5000 -t0.6 -e5
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L1195](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1195)
+- Source: [SequenceComplexity.cs#L1336](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1336)
 
 ## Input Schema
 

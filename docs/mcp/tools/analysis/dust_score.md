@@ -24,7 +24,7 @@ yield 0.
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L723](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L723)
+- Source: [SequenceComplexity.cs#L864](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L864)
 
 ## Input Schema
 

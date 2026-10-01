@@ -15,7 +15,7 @@
 - **Reference cross-check:** brute-force exhaustive-history definition = antropy on 20 000 random strings (0 mismatches); 6 DNA strings + 20 kb DNA (c = 2756, normalized 0.984423382950957) = antropy to 1e-12; independent Kaspar–Schuster port agrees.
 - **Fix:** LZ76 from the Longest-Previous-Factor array (Crochemore & Ilie 2008; shared suffix-array + Kasai LCP helpers), O(n log² n). Normalization c/(n/log_b n) (Zhang 2009) unchanged. `EstimateCompressionRatio`, MCP `compression_ratio`, `complexity_compression_ratio` inherit the fix; raw + normalized LZ76 also exposed as MCP `lempel_ziv_complexity` (F49).
 - **Tests:** `SequenceComplexity_EstimateCompressionRatio_Tests.cs` re-sourced (M1–M9, LZ1976, Estévez-Rams, antropy text and DNA datasets, 20 kb); fuzz reference = brute-force LZ76; MCP `CompressionRatioTests` → 1.5 / 0.625. TestSpec `tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md`, Evidence, `docs/algorithms/Complexity/Lempel_Ziv_Complexity.md` corrected.
-- **Current code path:** `SequenceComplexity.cs:1571/1581` (raw), :1599/1608 (normalized), :1621/1631 (`EstimateCompressionRatio`), core :1636, `ComputeLongestPreviousFactor` :1667.
+- **Current code path:** `SequenceComplexity.cs:1712/1581` (raw), :1599/1608 (normalized), :1621/1631 (`EstimateCompressionRatio`), core :1636, `ComputeLongestPreviousFactor` :1667.
 
 *Historical 2026-06-16 report (superseded — its LZ values are LZ78, see above):*
 
@@ -85,7 +85,7 @@ Normalized (my computation): `1001111011000010`→**2.0**; `ACGTACGTACGTACGT`→
 
 ### Code path reviewed
 
-`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:460-573` *(2026-06 line numbers and parser — superseded; current: public overloads :1571–1631, LZ76 core `CalculateLempelZivComplexityCore` :1636, `ComputeLongestPreviousFactor` :1667, normalization :1795)*.
+`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:601-573` *(2026-06 line numbers and parser — superseded; current: public overloads :1571–1631, LZ76 core `CalculateLempelZivComplexityCore` :1636, `ComputeLongestPreviousFactor` :1667, normalization :1795)*.
 - `CalculateLempelZivComplexityCore` (522): set-based exhaustive-history parser — identical to
   the Naereen reference. ✅
 - `CalculateNormalizedLempelZivComplexityCore` (548): computed `c/(n/log_b n)` for b≥2 (✅) but

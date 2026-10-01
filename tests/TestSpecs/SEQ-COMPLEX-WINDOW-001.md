@@ -129,6 +129,13 @@
 | B7 | null, cutoff −0.01 / 1.01 / NaN, k 0 / 16, w ≤ k | ArgumentNull / ArgumentOutOfRange | EntropyTracker assertions |
 | X1 | differential vs compiled-release `bbduk.sh` 40.02 (harness, not a unit test) | 4 500 random cases + 20 long reads: 0 mismatches | Evidence 2026-09-30 |
 
+### 4.6 Suffix-tree window LC (2026-10-01, B04 F55)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| T1 | `CalculateWindowedComplexity_SuffixTreePath_BitIdenticalToDefinition` (m 1, 3, 4, 6, 12, 13, 40, 200; w/s 8/3, 37/5, 64/10, 150/50) | LC `==` HashSet definition on every window | Troyanskaya 2002 definition |
+| X2 | harness: 10 000 random cases / 325 636 windows (string + DnaSequence; m up to 3w+1) | byte-identical to the pre-change profile (195 745 windows) and `==` brute force: 0 mismatches | Evidence 2026-10-01 |
+
 ---
 
 ## 5. Audit of Existing Tests

@@ -208,3 +208,16 @@ Window = `AAAAAAAA` (length 8), LC with maxWordLength = 6:
 - **2026-06-14**: Initial documentation.
 - **2026-09-29**: review-2026-09 (B04): added BBDuk window-union source + Python reference for `FindLowComplexityRegions` (region end off-by-one and overlapping-region defects fixed).
 - **2026-09-30**: completeness audit WP5 (B04 F38/F39): BBDuk k-mer entropy masking port + `bbduk.sh` 40.02 cross-check; string overloads (N windows skipped); `lcMaxWordLength`; Shannon scan ≡ BBDuk k=1 identity.
+- **2026-10-01**: completeness audit WP13 (B04 F55): per-window LC from the window's suffix tree (m ≥ 4) — see below.
+
+## Revision 2026-10-01 — suffix-tree window LC (B04 F55)
+
+**Source / infrastructure:** Troyanskaya et al. (2002) — V_i from the suffix tree (number of edges spanning depth i);
+`SuffixTreeAlgorithms.CountDistinctSubstringsByLength` / `SuffixTree.CountDistinctSubstringsByLength` (B01, opened:
+difference array over edge depth ranges, O(nodes + m)). **Equality (harness `scratchpad/wp13/xc` mode `wd`):** 10 000 random
+cases (seeds 2024 × 6 000, 77 × 4 000; L 1–400, alphabets AC / ACGT / ACGTN / ACGU / mixed case, homopolymer runs, w 1–L+4,
+s 1–11, m 1–15 or 1–3w+1) = 325 636 windows: output file byte-identical to the pre-change implementation (195 745 lines) and LC
+`==` a HashSet brute force of the definition on every string window → 0 mismatches. **Timing (1 Mb random DNA, Release):**
+crossover m = 4 (w 64 s 10: m 1/2/3 hash 320/665/1 067 ms vs tree 1 104/977/1 204 ms; m 4/6 1 485/2 155 vs 1 192/1 090 ms);
+profile before → after: (64, 10, 6) 2.50 → 1.71 s; (64, 1, 6) 20.1 → 11.3 s; (100, 10, 10) 5.62 → 1.86 s; (200, 20, 12)
+6.39 → 1.80 s; (1000, 100, 6) 3.45 → 1.90 s; (1000, 100, 12) 7.14 → 1.88 s.

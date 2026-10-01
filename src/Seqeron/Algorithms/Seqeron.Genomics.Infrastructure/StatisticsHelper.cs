@@ -241,6 +241,32 @@ namespace Seqeron.Genomics.Infrastructure
             return um1 * x / Math.Log(u);
         }
 
+        /// <summary>
+        /// Digamma function ψ(x) = d/dx ln Γ(x) for x &gt; 0: upward recurrence ψ(x) = ψ(x + 1) − 1/x until x ≥ 10, then
+        /// the asymptotic expansion ψ(x) ~ ln x − 1/(2x) − Σ_{k≥1} B_{2k} / (2k·x^{2k}) (Abramowitz &amp; Stegun 6.3.18)
+        /// through B₁₄ (next term &lt; 5e−17 at x = 10). Agrees with <c>scipy.special.digamma</c> / mpmath to ≈ 1e−15
+        /// absolute; e.g. ψ(1) = −γ = −0.5772156649015329, ψ(½) = −γ − 2 ln 2.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="x"/> is not a finite positive number.</exception>
+        public static double Digamma(double x)
+        {
+            if (!(x > 0) || double.IsPositiveInfinity(x))
+                throw new ArgumentOutOfRangeException(nameof(x), x, "Digamma is implemented for finite x > 0.");
+
+            double result = 0.0;
+            while (x < 10.0)
+            {
+                result -= 1.0 / x;
+                x += 1.0;
+            }
+
+            double inv2 = 1.0 / (x * x);
+            // Σ B_{2k}/(2k) x^{-2k}, k = 1..7: 1/12, −1/120, 1/252, −1/240, 1/132, −691/32760, 1/12.
+            double series = inv2 * (1.0 / 12 - inv2 * (1.0 / 120 - inv2 * (1.0 / 252 - inv2 * (1.0 / 240
+                - inv2 * (1.0 / 132 - inv2 * (691.0 / 32760 - inv2 / 12))))));
+            return result + Math.Log(x) - 0.5 / x - series;
+        }
+
         // ln P(X = x), X ~ Binomial(n, p), 0 ≤ x ≤ n, 0 < p < 1 — Loader (2000) / R nmath dbinom_raw.
         private static double LogBinomialPmf(long x, long n, double logP, double p, double logQ)
         {

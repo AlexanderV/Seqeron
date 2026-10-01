@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-COMPLEX-WINDOW-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-30 |
+| Last Reviewed | 2026-10-01 |
 
 ## 1. Overview
 
@@ -103,7 +103,7 @@ per-base Shannon scan of §5.2a is BBDuk with `entropyk=1 entropy=t/log₂w`.
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `CalculateWindowedComplexity` | O((L/s) · w²) | O(distinct subwords per window) | One pass per window (≈L/s windows); each window's LC enumerates subwords of lengths 1..min(6,w) over the w-length window |
+| `CalculateWindowedComplexity` | O((L/s) · w) for m ≥ 4; O((L/s) · w · m) for m ≤ 3 | O(w) per window | ≈L/s windows; LC counts V_1..V_m from each window's suffix tree (linear in w, independent of m) when m ≥ 4, else m hash enumerations |
 
 ## 5. Implementation Notes
 
@@ -119,7 +119,9 @@ per-base Shannon scan of §5.2a is BBDuk with `entropyk=1 entropy=t/log₂w`.
 
 ### 5.2 Current Behavior
 
-The driver delegates per-window metrics to the existing `CalculateShannonEntropyCore` and `CalculateLinguisticComplexityCore` helpers, so window values match the standalone scalar metrics exactly. Windows are non-overlapping when `stepSize ≥ windowSize` and overlapping otherwise. A suffix tree was **not** used: this is a single left-to-right scan that computes scoring-based (entropy/LC) metrics over each window rather than locating exact-match occurrences, so the suffix-tree occurrence API does not fit; per-window LC subword enumeration is bounded by the small word-length cap (≤6).
+The driver delegates per-window Shannon entropy to `CalculateShannonEntropyCore`. Per-window LC (m = min(`lcMaxWordLength`, w)) is computed, as in Troyanskaya et al. (2002) [2], from the window's suffix tree when m ≥ 4: V_i = number of suffix-tree edges spanning string depth i, read by the shared `ISuffixTree.CountDistinctSubstringsByLength` (SuffixTree project), so each window costs O(w) whatever m is; for m ≤ 3 the m hash enumerations (`KmerAnalyzer.CountKmers`) are cheaper and are kept. Both paths produce the same integer V_i and the same `LinguisticComplexityFromCounts` ratio, so values are bit-identical to the scalar LC. Windows are non-overlapping when `stepSize ≥ windowSize` and overlapping otherwise.
+
+Crossover and speed (1 Mb random DNA, Release, 2026-10-01): w 64 s 10 — m 1/2/3: hash 320/665/1 067 ms vs tree 1 104/977/1 204 ms; m 4/6: hash 1 485/2 155 ms vs tree 1 192/1 090 ms. Full profile before → after: (w 64, s 10, m 6) 2.50 → 1.71 s; (64, 1, 6) 20.1 → 11.3 s; (100, 10, 10) 5.62 → 1.86 s; (200, 20, 12) 6.39 → 1.80 s; (1000, 100, 6) 3.45 → 1.90 s; (1000, 100, 12) 7.14 → 1.88 s. Equality: 10 000 random cases (L 1–400; alphabets AC / ACGT / ACGTN / ACGU / mixed case; homopolymer runs; w 1–L+4, s 1–11, m 1–3w+1; string and DnaSequence overloads) = 325 636 windows — profile byte-identical to the previous implementation on 195 745 windows and equal (`==`) to a HashSet brute force of the definition on every string window (0 mismatches).
 
 ### 5.2a Low-complexity regions (`FindLowComplexityRegions`)
 
@@ -155,12 +157,11 @@ defaults, `entropy=0.5` → masked 11..88 (MinEntropy 0.26749653).
 - Per-window Shannon entropy `H = -Σ p log₂ p` in bits, with `0·log₂0 = 0` [3].
 - Per-window linguistic complexity in summation form with `V_{max,i} = min(4^i, w−i+1)` [1][4].
 - Sliding-window complexity profile over fully-contained windows [2].
+- Suffix-tree LC per window (Troyanskaya et al. 2002) [2], linear in the window length (§5.2).
 
 **Intentionally simplified:** none. The per-window LC word-length cap is a parameter (`lcMaxWordLength`, default 6; `≥ w` gives the full Troyanskaya LC of each window) [4].
 
-**Not implemented:**
-
-- Suffix-tree-based linear-time profile of Troyanskaya et al. (2002); **users should rely on:** the direct per-window enumeration here, which is exact for the bounded word lengths used.
+**Not implemented:** none.
 
 ## 6. Edge Cases and Limitations
 

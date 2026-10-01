@@ -22,7 +22,7 @@ computed via the longest-previous-factor array) — and the **normalized** value
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L1581](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1581)
+- Source: [SequenceComplexity.cs#L1722](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1722)
 
 ## Input Schema
 

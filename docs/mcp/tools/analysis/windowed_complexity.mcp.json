@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateWindowedComplexity",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L351",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L470",
   "description": "Sliding-window Shannon entropy and linguistic complexity for a DNA sequence. Each point reports center position, window bounds, entropy (bits) and linguistic complexity.",
   "inputSchema": {
     "type": "object",

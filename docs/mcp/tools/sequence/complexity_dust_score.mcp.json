@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateDustScore",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L723",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L864",
   "description": "Calculate the DUST low-complexity score (Morgulis et al. 2006; the score thresholded by NCBI dustmasker and lh3/sdust): sum over triplets of c(c-1)/2 divided by (number of triplets - 1). Higher scores indicate lower complexity.",
   "inputSchema": {
     "type": "object",

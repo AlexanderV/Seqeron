@@ -1,6 +1,22 @@
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
+/// Finite-sample bias correction applied by
+/// <see cref="SequenceComplexity.CalculateKmerEntropy(string, int, KmerEntropyCorrection, bool)"/>.
+/// </summary>
+public enum KmerEntropyCorrection
+{
+    /// <summary>Plug-in (maximum-likelihood) estimate −Σ p ln p, no correction (Shannon 1948).</summary>
+    None = 0,
+
+    /// <summary>Miller (1955): plug-in + (D − 1)/(2N) nats, D = number of observed k-mers, N = number of k-mers.</summary>
+    MillerMadow = 1,
+
+    /// <summary>Grassberger (2003, arXiv:physics/0307138, eq. 35): ln N − (1/N) Σ n_i G(n_i).</summary>
+    Grassberger = 2,
+}
+
+/// <summary>
 /// Calculates various sequence complexity metrics for detecting low-complexity regions,
 /// repetitive sequences, and information content.
 /// </summary>
@@ -289,13 +305,116 @@ public static partial class SequenceComplexity
     }
 
     private static double CalculateKmerEntropyCore(string seq, int k)
+        => CalculateKmerEntropyCore(seq, k, KmerEntropyCorrection.None, normalize: false);
+
+    /// <summary>
+    /// K-mer (block) entropy in bits with an optional finite-sample bias correction and optional normalisation.
+    /// </summary>
+    /// <remarks>
+    /// With n_i the counts of the D distinct overlapping k-mers and N = L − k + 1 = Σ n_i (all in nats, converted to bits
+    /// by ÷ ln 2):
+    /// <list type="bullet">
+    /// <item><see cref="KmerEntropyCorrection.None"/>: plug-in H_ML = −Σ (n_i/N) ln(n_i/N) — identical to
+    /// <see cref="CalculateKmerEntropy(DnaSequence, int)"/>.</item>
+    /// <item><see cref="KmerEntropyCorrection.MillerMadow"/>: H_MM = H_ML + (D − 1)/(2N) (Miller 1955; D = number of
+    /// k-mers actually observed — R <c>entropy::entropy.MillerMadow</c>, <c>m = sum(y &gt; 0)</c>).</item>
+    /// <item><see cref="KmerEntropyCorrection.Grassberger"/>: H_G = ln N − (1/N) Σ n_i G(n_i) with
+    /// G(n) = ψ(n) + ½(−1)ⁿ[ψ((n + 1)/2) − ψ(n/2)] (Grassberger 2003, arXiv:physics/0307138, eq. 35; the estimator of
+    /// Python <c>ndd.estimators.Grassberger</c>). For N = 1 it is γ + ln 2 nats (1.8327 bits), not 0.</item>
+    /// </list>
+    /// The bias of the plug-in block entropy H_n for N ≪ 4^k is the problem these estimators address (Herzel, Schmitt
+    /// &amp; Ebeling 1994; Schmitt &amp; Herzel 1997). With <paramref name="normalize"/> the (possibly corrected) value is
+    /// divided by log₂ N, the maximum of the plug-in estimate (all N k-mers distinct) — the 0–1 scale of BBTools
+    /// <c>EntropyTracker.calcEntropy</c> (multiplier 1/ln(windowKmers)). A corrected value can exceed 1 after
+    /// normalisation. When N ≤ 1 the normaliser log₂ N is 0 and the normalised result is defined as 0.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <param name="k">K-mer size (≥ 1).</param>
+    /// <param name="correction">Bias correction (<see cref="KmerEntropyCorrection.None"/> = plug-in).</param>
+    /// <param name="normalize">Divide by log₂ N (N = L − k + 1).</param>
+    /// <returns>Entropy in bits (or normalised); 0 when L &lt; k.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> &lt; 1 or <paramref name="correction"/> undefined.</exception>
+    public static double CalculateKmerEntropy(
+        DnaSequence sequence, int k, KmerEntropyCorrection correction, bool normalize = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateKmerEntropyOptions(k, correction);
+        return CalculateKmerEntropyCore(sequence.Sequence, k, correction, normalize);
+    }
+
+    /// <summary>
+    /// String form of <see cref="CalculateKmerEntropy(DnaSequence, int, KmerEntropyCorrection, bool)"/>; the input is
+    /// upper-cased, every length-k substring is a symbol; null/empty input returns 0.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> &lt; 1 or <paramref name="correction"/> undefined.</exception>
+    public static double CalculateKmerEntropy(
+        string sequence, int k, KmerEntropyCorrection correction, bool normalize = false)
+    {
+        ValidateKmerEntropyOptions(k, correction);
+        if (string.IsNullOrEmpty(sequence)) return 0;
+        return CalculateKmerEntropyCore(sequence.ToUpperInvariant(), k, correction, normalize);
+    }
+
+    /// <summary>
+    /// Parses an MCP / text correction name (case-insensitive): <c>none</c>, <c>millermadow</c> (or <c>miller-madow</c>,
+    /// <c>mm</c>), <c>grassberger</c>.
+    /// </summary>
+    /// <exception cref="ArgumentException">Unknown name.</exception>
+    public static KmerEntropyCorrection ParseKmerEntropyCorrection(string? name)
+    {
+        string key = (name ?? "none").Trim().Replace("-", "").Replace("_", "").ToLowerInvariant();
+        return key switch
+        {
+            "" or "none" or "plugin" or "ml" => KmerEntropyCorrection.None,
+            "millermadow" or "mm" => KmerEntropyCorrection.MillerMadow,
+            "grassberger" => KmerEntropyCorrection.Grassberger,
+            _ => throw new ArgumentException(
+                $"Unknown k-mer entropy correction '{name}'; expected none, millerMadow or grassberger.", nameof(name)),
+        };
+    }
+
+    private static void ValidateKmerEntropyOptions(int k, KmerEntropyCorrection correction)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+        if (!Enum.IsDefined(correction))
+            throw new ArgumentOutOfRangeException(nameof(correction), correction, "Undefined k-mer entropy correction.");
+    }
+
+    private static double CalculateKmerEntropyCore(string seq, int k, KmerEntropyCorrection correction, bool normalize)
     {
         if (seq.Length < k) return 0;
 
         // Overlapping k-mer tally (N = L − k + 1 windows) via the canonical counter (KMER-COUNT-001);
         // p_i = n_i / N because Σ n_i = N.
-        var kmerCounts = KmerAnalyzer.CountKmers(seq, k);
-        return ShannonEntropyBits(kmerCounts.Values.ToArray());
+        int[] counts = KmerAnalyzer.CountKmers(seq, k).Values.ToArray();
+        int n = seq.Length - k + 1;
+
+        double bits = correction switch
+        {
+            KmerEntropyCorrection.MillerMadow => ShannonEntropyBits(counts) + (counts.Length - 1) / (2.0 * n) / Ln2,
+            KmerEntropyCorrection.Grassberger => GrassbergerEntropyNats(counts, n) / Ln2,
+            _ => ShannonEntropyBits(counts),
+        };
+
+        if (!normalize) return bits;
+        return n > 1 ? bits / Math.Log2(n) : 0;
+    }
+
+    /// <summary>Grassberger (2003) eq. 35: H = ln N − (1/N) Σ n_i G(n_i), nats.</summary>
+    private static double GrassbergerEntropyNats(IReadOnlyList<int> counts, int total)
+    {
+        double sum = 0;
+        foreach (int c in counts)
+            sum += c * GrassbergerG(c);
+        return Math.Log(total) - sum / total;
+    }
+
+    /// <summary>G(n) = ψ(n) + ½(−1)ⁿ[ψ((n + 1)/2) − ψ(n/2)] (Grassberger 2003, eq. 35), n ≥ 1.</summary>
+    internal static double GrassbergerG(int n)
+    {
+        double half = 0.5 * (StatisticsHelper.Digamma((n + 1) / 2.0) - StatisticsHelper.Digamma(n / 2.0));
+        return StatisticsHelper.Digamma(n) + ((n & 1) == 0 ? half : -half);
     }
 
     #endregion
@@ -382,7 +501,7 @@ public static partial class SequenceComplexity
 
             string window = seq.Substring(i, windowSize);
             double entropy = CalculateShannonEntropyCore(window);
-            double lc = CalculateLinguisticComplexityCore(window, m, LcAlphabetSize(window));
+            double lc = WindowLinguisticComplexity(window, m);
 
             yield return new ComplexityPoint(
                 Position: i + windowSize / 2,
@@ -391,6 +510,28 @@ public static partial class SequenceComplexity
                 WindowStart: i,
                 WindowEnd: i + windowSize - 1);
         }
+    }
+
+    /// <summary>
+    /// Smallest per-window word-length cap m for which the window's V_1..V_m are read from the window's suffix tree
+    /// instead of m hash enumerations. Measured on 1 Mb random DNA (w = 64, s = 10): m = 1/2/3 hash 320/665/1 067 ms vs
+    /// tree 1 104/977/1 204 ms; m = 4/6 hash 1 485/2 155 ms vs tree 1 192/1 090 ms (tree cost is independent of m).
+    /// </summary>
+    private const int WindowLcSuffixTreeMinWordLength = 4;
+
+    /// <summary>
+    /// LC of one window. For m ≥ <see cref="WindowLcSuffixTreeMinWordLength"/> the subword counts V_i come from the
+    /// window's suffix tree (Troyanskaya et al. 2002: V_i = number of edges spanning string depth i, via the shared
+    /// <c>ISuffixTree.CountDistinctSubstringsByLength</c>), O(w) per window whatever m is; otherwise from
+    /// <see cref="KmerAnalyzer.CountKmers"/>. Both produce the same integer counts, so the value is bit-identical.
+    /// </summary>
+    private static double WindowLinguisticComplexity(string window, int m)
+    {
+        int alphabetSize = LcAlphabetSize(window);
+        return m >= WindowLcSuffixTreeMinWordLength
+            ? LinguisticComplexityFromCounts(
+                global::SuffixTree.SuffixTree.Build(window).CountDistinctSubstringsByLength(m), window.Length, alphabetSize)
+            : CalculateLinguisticComplexityCore(window, m, alphabetSize);
     }
 
     /// <summary>

@@ -157,3 +157,26 @@ Derivation of `AAACGT`,k=2 (N=5; p=2/5,1/5,1/5,1/5): H = −[0.4·log₂0.4 + 3�
   ATGCGATCGATCG k=2 → 2.4591479170272446, k=3 → 2.7321588913645702; seeded random 200-mer
   k=1/2/3/5/8 → 1.9964735194730474 / 3.937571048725419 / 5.6801547658649625 / 7.382517114501296 /
   7.582094342967564).
+- **2026-10-01**: completeness audit WP13 (B04 F54): bias corrections and normalisation — see the section below.
+
+## Revision 2026-10-01 — bias-corrected and normalised k-mer entropy (B04 F54)
+
+**Sources opened:** R package `entropy` 1.3.2 (`raw.githubusercontent.com/cran/entropy/master/R/entropy.MillerMadow.R`,
+`entropy.empirical.R`, `entropy.plugin.R`: `H = entropy.empirical(y, "log") + (m − 1)/(2n)`, `m = sum(y > 0)`, then
+÷ log 2); `ndd` 1.10.6 sdist (`ndd/estimators.py`: `MillerMadow` = plug-in + 0.5(k − 1)/n; `Grassberger` docstring
+"equation 35 in arXiv physics/0307138", G series G(1) = −γ − ln 2, G(2) = 2 + G(1), G(2m) = ψ(m + ½) + ln 2, odd = previous
+even; its `fit` returns `log(n) − estimate/n` with `estimate = −Σ x G(x)`, i.e. ln N **+** Σ n G/N — a sign error that its own
+`check.py` locks as 6.221 for counts whose plug-in entropy is 2.635; eq. 35 gives 2.734); infomeasure 0.6.3
+(`estimators/entropy/grassberger.py` = Grassberger **1988**: ln N − ψ(n) − (−1)ⁿ/(n + 1); `miller_madow.py`); entropart
+(`R/Shannon.R`: `Grassberger` = 1988 form, `Grassberger2003` = ψ(N) − Σ n/N (ψ(n) + (−1)ⁿ ∫₀¹ t^{n−1}/(1+t) dt)); WebSearch
+snippets of arXiv:2310.07547 / Entropy 24:680 quoting Ĥ^G = ln N − (1/N) Σ n_i G_{n_i} with G₁ = −γ − ln 2, G₂ = 2 − γ − ln 2,
+G_{2n+1} = G_{2n}, G_{2n+2} = G_{2n} + 2/(2n+1). arXiv / MDPI themselves are blocked (proxy 403 / EGRESS_BLOCKED). BBMap 40.02
+`tracker/EntropyTracker.java` static `calcEntropy(bytes, counts, k)` / `calcEntropyFromCounts` (multiplier 1/ln(windowKmers)).
+
+**Cross-check (harness `scratchpad/wp13/x_ent.py`, C# harness `xc ent`):** 3 000 strings (seed 1313; 60 % random ACGT,
+25 % low-complexity, 15 % `ACGTNacgtRY`; L 1–3 000; k 1–10), 2 832 with N ≥ 1, 168 with L < k (all outputs 0):
+R `entropy.empirical` / `entropy.MillerMadow` (log2) → 0 mismatches (max |Δ| 9.1e-13); Grassberger vs mpmath 40-digit eq. 35,
+vs the recurrence (mpmath) and vs ndd's G series with eq. 35's sign → 0 (max 6.1e-14 / 6.1e-14 / 5.3e-15); normalised
+(÷ log₂ N) plug-in / MM / Grassberger vs the oracles → 0 (2 801 cases with N > 1; 31 cases N = 1 → 0); normalised plug-in vs
+BBTools `EntropyTracker.calcEntropy` (Java harness on `bbtools.jar`, 2 412 ACGT cases with N ≥ 2) → 0 float differences
+(max |Δ| 5.8e-8 = float rounding). Digamma: `StatisticsHelper.Digamma` = mpmath/scipy on 9 points (≤ 2e-15 rel).

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateLongdustScore",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1148",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1273",
   "description": "Computes the **longdust** score of a whole sequence x (Li & Li 2025, arXiv:2509.07357; lh3/longdust): S_L(x) = Σ_t log c_x(t)! − f(ℓ(x)/4^k), where c_x(t) counts k-mer t in x, ℓ(x) = |x| − k + 1 (kmerPositions) and f(λ) = 4^k e^{−λ} Σ_n log(n!) λ^n/n! is the expected Σ log c! of a random sequence — the k-mer generalisation of the DUST score. Higher = lower complexity; longdust calls x low-complexity when S_L(x) − T·ℓ(x) > 0 (T = 0.6). k-mers containing a non-ACGT symbol are not counted but still count in ℓ. gcContent enables longdust's GC correction (-g). Score 0 when ℓ ≤ 0.",
   "inputSchema": {
     "type": "object",

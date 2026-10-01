@@ -24,7 +24,7 @@ dustmasker `-linker` (intervals separated by fewer than `linker` unmasked bases 
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L872](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L872)
+- Source: [SequenceComplexity.cs#L1013](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1013)
 
 ## Input Schema
 

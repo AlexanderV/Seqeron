@@ -263,4 +263,95 @@ public class SequenceComplexity_CalculateKmerEntropy_Tests
     }
 
     #endregion
+
+    #region Bias corrections and normalisation (WP13, F54)
+
+    // Reference values: Miller–Madow = R package entropy 1.3.2 entropy.MillerMadow(y, unit = "log2");
+    // Grassberger = Grassberger (2003, arXiv:physics/0307138) H = ln N − (1/N) Σ n_i G(n_i),
+    // G(n) = ψ(n) + ½(−1)ⁿ[ψ((n+1)/2) − ψ(n/2)], evaluated with mpmath at 40 digits (= the G_1 = −γ − ln 2,
+    // G_{2m+1} = G_{2m}, G_{2m+2} = G_{2m} + 2/(2m+1) recurrence); normalised = value / log₂ N (BBTools
+    // EntropyTracker.calcEntropy multiplier 1/ln N). Not derived from the implementation.
+    [TestCase("ATATAT", 2, 0.97095059445466864, 1.115220098543565, 1.2692841903863027)]
+    [TestCase("ACGTACGTAAAAAAAAACGTACGT", 3, 2.5318692569751747, 2.7286003989145788, 2.8297096977806522)]
+    [TestCase("ATGCATGCAT", 2, 1.974937501201927, 2.2153866746834209, 2.1172810969412527)]
+    public void CalculateKmerEntropy_Corrections_MatchReferenceEstimators(
+        string sequence, int k, double plugin, double millerMadow, double grassberger)
+    {
+        var dna = new DnaSequence(sequence);
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(dna, k, KmerEntropyCorrection.None), Is.EqualTo(plugin).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(dna, k, KmerEntropyCorrection.MillerMadow), Is.EqualTo(millerMadow).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(dna, k, KmerEntropyCorrection.Grassberger), Is.EqualTo(grassberger).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(sequence.ToLowerInvariant(), k, KmerEntropyCorrection.Grassberger),
+                Is.EqualTo(grassberger).Within(1e-12), "string overload, case-insensitive");
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(dna, k, KmerEntropyCorrection.None),
+                Is.EqualTo(SequenceComplexity.CalculateKmerEntropy(dna, k)), "None = legacy plug-in exactly");
+        });
+    }
+
+    [TestCase("ATATAT", 2, 0.4181656600790516, 0.48029915353501278, 0.54665094633254617)]
+    [TestCase("ACGTACGTAAAAAAAAACGTACGT", 3, 0.5677560446030244, 0.61187178821420702, 0.6345449240558931)]
+    public void CalculateKmerEntropy_Normalized_DividesByLog2N(
+        string sequence, int k, double plugin, double millerMadow, double grassberger)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(sequence, k, KmerEntropyCorrection.None, normalize: true), Is.EqualTo(plugin).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(sequence, k, KmerEntropyCorrection.MillerMadow, normalize: true), Is.EqualTo(millerMadow).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy(sequence, k, KmerEntropyCorrection.Grassberger, normalize: true), Is.EqualTo(grassberger).Within(1e-12));
+        });
+    }
+
+    // BBTools 40.02 tracker.EntropyTracker.calcEntropy("ATATAT".getBytes(), null, 2) = 0.41816565f (float).
+    [Test]
+    public void CalculateKmerEntropy_Normalized_MatchesBbtoolsEntropyTracker()
+    {
+        double e = SequenceComplexity.CalculateKmerEntropy("ATATAT", 2, KmerEntropyCorrection.None, normalize: true);
+        Assert.That((float)e, Is.EqualTo(0.41816565f));
+    }
+
+    // N = 1: Miller–Madow adds (1 − 1)/2 = 0; Grassberger gives ln 1 − G(1) = γ + ln 2 nats = 1.8327461772768672 bits
+    // (mpmath); normalisation by log₂ 1 = 0 is defined as 0. Homopolymer A×10, k = 1: Grassberger = −0.0023880009817158878
+    // (the estimator can be slightly negative; mpmath).
+    [Test]
+    public void CalculateKmerEntropy_Corrections_EdgeCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateKmerEntropy("ACG", 3, KmerEntropyCorrection.MillerMadow), Is.EqualTo(0.0));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy("ACG", 3, KmerEntropyCorrection.Grassberger), Is.EqualTo(1.8327461772768672).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy("ACG", 3, KmerEntropyCorrection.Grassberger, normalize: true), Is.EqualTo(0.0));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy("AAAAAAAAAA", 1, KmerEntropyCorrection.Grassberger), Is.EqualTo(-0.0023880009817158878).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateKmerEntropy("AC", 3, KmerEntropyCorrection.Grassberger), Is.EqualTo(0.0), "L < k");
+            Assert.That(SequenceComplexity.CalculateKmerEntropy((string)null!, 2, KmerEntropyCorrection.MillerMadow), Is.EqualTo(0.0));
+        });
+    }
+
+    [Test]
+    public void CalculateKmerEntropy_Corrections_InvalidArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.CalculateKmerEntropy("ACGT", 0, KmerEntropyCorrection.MillerMadow));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.CalculateKmerEntropy("ACGT", 2, (KmerEntropyCorrection)7));
+            Assert.Throws<ArgumentNullException>(() => SequenceComplexity.CalculateKmerEntropy((DnaSequence)null!, 2, KmerEntropyCorrection.None));
+            Assert.Throws<ArgumentException>(() => SequenceComplexity.ParseKmerEntropyCorrection("chao-shen"));
+            Assert.That(SequenceComplexity.ParseKmerEntropyCorrection("Miller-Madow"), Is.EqualTo(KmerEntropyCorrection.MillerMadow));
+            Assert.That(SequenceComplexity.ParseKmerEntropyCorrection("grassberger"), Is.EqualTo(KmerEntropyCorrection.Grassberger));
+            Assert.That(SequenceComplexity.ParseKmerEntropyCorrection(null), Is.EqualTo(KmerEntropyCorrection.None));
+        });
+    }
+
+    // Miller–Madow = plug-in + (D − 1)/(2N ln 2) exactly; random 200-mer, k = 1..8.
+    [Test]
+    public void CalculateKmerEntropy_MillerMadow_IsPluginPlusMillerTerm([Range(1, 8)] int k)
+    {
+        int d = KmerAnalyzer.CountKmers(Random200, k).Count;
+        int n = Random200.Length - k + 1;
+        double expected = SequenceComplexity.CalculateKmerEntropy(Random200, k) + (d - 1) / (2.0 * n) / Math.Log(2);
+        Assert.That(SequenceComplexity.CalculateKmerEntropy(Random200, k, KmerEntropyCorrection.MillerMadow), Is.EqualTo(expected).Within(1e-13));
+    }
+
+    #endregion
 }

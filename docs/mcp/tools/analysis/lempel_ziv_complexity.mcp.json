@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateLempelZivComplexity",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1581",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1722",
   "description": "Returns the raw **Lempel–Ziv (1976) complexity** c — the number of components of the exhaustive history of the sequence (Lempel & Ziv 1976; values identical to the Kaspar–Schuster 1987 scan in antropy _lz_complexity, computed via the longest-previous-factor array) — and the **normalized** value c / (n / log_b(n)) (Zhang et al. 2009; antropy lziv_complexity(normalize=True); b = number of distinct symbols, clamped to ≥ 2; equals compression_ratio). Input is upper-cased; any symbol alphabet. A homopolymer of length ≥ 2 has c = 2.",
   "inputSchema": {
     "type": "object",

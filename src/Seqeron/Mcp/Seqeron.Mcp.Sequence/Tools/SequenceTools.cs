@@ -447,10 +447,12 @@ public class SequenceTools
     /// Calculate k-mer entropy using SequenceComplexity class.
     /// </summary>
     [McpServerTool(Name = "complexity_kmer_entropy", Title = "Complexity — K-mer Entropy", ReadOnly = true)]
-    [Description("Calculate k-mer based Shannon entropy for DNA complexity analysis.")]
+    [Description("Calculate the Shannon entropy (bits) of the overlapping k-mer distribution (block entropy) for DNA complexity analysis; optional finite-sample bias correction (Miller-Madow 1955 or Grassberger 2003) and normalisation by log2 of the number of k-mers (BBTools EntropyTracker 0-1 scale).")]
     public static ComplexityKmerEntropyResult ComplexityKmerEntropy(
         [Description("The DNA sequence to analyze")] string sequence,
-        [Description("K-mer size (default: 2 for dinucleotides)")] int k = 2)
+        [Description("K-mer size (default: 2 for dinucleotides)")] int k = 2,
+        [Description("Bias correction: 'none' (plug-in, default), 'millerMadow' (+ (D-1)/(2N) nats, D = observed k-mers), 'grassberger' (Grassberger 2003: ln N - (1/N) sum n_i G(n_i)).")] string correction = "none",
+        [Description("Divide the (corrected) entropy by log2 N, N = number of k-mers (0 when N <= 1). Default false.")] bool normalize = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -461,8 +463,14 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
-        var entropy = SequenceComplexity.CalculateKmerEntropy(dna!, k);
-        return new ComplexityKmerEntropyResult(entropy, k);
+        var mode = SequenceComplexity.ParseKmerEntropyCorrection(correction);
+        var entropy = SequenceComplexity.CalculateKmerEntropy(dna!, k, mode, normalize);
+        return new ComplexityKmerEntropyResult(entropy, k, mode switch
+        {
+            KmerEntropyCorrection.MillerMadow => "millerMadow",
+            KmerEntropyCorrection.Grassberger => "grassberger",
+            _ => "none",
+        }, normalize);
     }
 
     /// <summary>

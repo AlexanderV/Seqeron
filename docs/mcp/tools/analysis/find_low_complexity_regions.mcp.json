@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.FindLowComplexityRegions",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L461",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L602",
   "description": "Low-complexity DNA regions = union of low-entropy sliding windows. method 'shannon' (default): per-base Shannon entropy (bits) below entropyThreshold. method 'bbduk': exactly what `bbduk.sh entropy=<entropyThreshold> entropymask=t entropywindow=<windowSize> entropyk=<entropyK>` masks. Windows containing N/IUPAC codes are never flagged. Reports each region's bounds, length, minimum entropy and sequence.",
   "inputSchema": {
     "type": "object",

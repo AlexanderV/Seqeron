@@ -95,6 +95,20 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | `CalculateKmerEntropy_BoundsInvariant_WithinRange` | several sequences/k | 0 ≤ H ≤ log₂(L−k+1) | INV-1 property test |
 
+### 4.4 Bias corrections and normalisation (2026-10-01, B04 F54)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| K1 | `CalculateKmerEntropy_Corrections_MatchReferenceEstimators`: ATATAT k2 / ACGTACGTAAAAAAAAACGTACGT k3 / ATGCATGCAT k2 | plug-in / Miller–Madow / Grassberger = 0.9709505944546686, 1.115220098543565, 1.2692841903863027 / 2.5318692569751747, 2.7286003989145788, 2.8297096977806522 / 1.974937501201927, 2.2153866746834209, 2.1172810969412527 | R `entropy` 1.3.2 `entropy.MillerMadow`; mpmath eq. 35 |
+| K2 | `CalculateKmerEntropy_Normalized_DividesByLog2N` | ATATAT: 0.4181656600790516 / 0.48029915353501278 / 0.54665094633254617 | value / log₂ N |
+| K3 | `CalculateKmerEntropy_Normalized_MatchesBbtoolsEntropyTracker` | (float) 0.41816565 | BBTools 40.02 `EntropyTracker.calcEntropy` |
+| K4 | `CalculateKmerEntropy_Corrections_EdgeCases` | N = 1: MM 0, Grassberger 1.8327461772768672 (γ + ln 2 nats), normalised 0; A×10 k1 Grassberger −0.0023880009817158878; L < k → 0; null string → 0 | mpmath |
+| K5 | `CalculateKmerEntropy_MillerMadow_IsPluginPlusMillerTerm` (k 1–8) | plug-in + (D − 1)/(2N ln 2) | Miller 1955 |
+| K6 | `CalculateKmerEntropy_Corrections_InvalidArguments_Throw` | k 0 / undefined enum → ArgumentOutOfRange; null DnaSequence → ArgumentNull; unknown name → ArgumentException | contract |
+| K7 | `StatisticsHelper_Digamma_Tests` | ψ at 9 points = mpmath (≤ 2e-15 rel); recurrence; x ≤ 0 / NaN / ∞ throw | mpmath / scipy |
+| K8 | MCP `ComplexityKmerEntropy_CorrectionAndNormalize_MatchReferences` | `correction` / `normalize` parameters reproduce K1/K3 | as K1/K3 |
+| X1 | differential harness (not a unit test): 3 000 strings, k 1–10 | 0 mismatches vs R entropy (MM, plug-in), mpmath + recurrence + ndd G series (Grassberger), BBTools (normalised, 2 412 ACGT cases) | Evidence 2026-10-01 |
+
 ---
 
 ## 5. Audit of Existing Tests

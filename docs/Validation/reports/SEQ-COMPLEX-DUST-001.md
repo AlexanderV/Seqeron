@@ -1,7 +1,7 @@
 # Validation Report: SEQ-COMPLEX-DUST-001 — DUST Score (triplet-frequency low-complexity score)
 
 - **Validated:** 2026-06-16   **Area:** Complexity
-- **Canonical method(s):** `SequenceComplexity.CalculateDustScore(DnaSequence, int)`, `SequenceComplexity.CalculateDustScore(string, int)` (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:698,723,730`; SDUST `MaskLowComplexity` :769/795/826, `FindLowComplexityIntervals` :854/868, longdust `CalculateLongdustScore` :1148 / `FindLongdustRegions` :1195)
+- **Canonical method(s):** `SequenceComplexity.CalculateDustScore(DnaSequence, int)`, `SequenceComplexity.CalculateDustScore(string, int)` (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:839,723,730`; SDUST `MaskLowComplexity` :769/795/826, `FindLowComplexityIntervals` :854/868, longdust `CalculateLongdustScore` :1148 / `FindLongdustRegions` :1195)
 - **Stage A verdict:** PASS (2026-06) → FAIL → corrected (2026-09, see revision)
 - **Stage B verdict:** PASS (2026-06) → FAIL → fixed (2026-09, see revision)
 
@@ -68,7 +68,7 @@ All values trace to the source-(1) formula, not to code output. INV-1..INV-5 are
 
 ### Code path reviewed
 
-*(2026-06 code path, line numbers and `/ wordCount` divisor superseded by F2/F34 — current core `SequenceComplexity.cs:730`, divisor ℓ − 1, triplets only.)* `SequenceComplexity.cs:368` `CalculateDustScoreCore`: counts overlapping words over `wordCount = L − wordSize + 1` positions (`:375`), sums `count*(count-1)/2.0` (`:391`), returns `sum / wordCount` (`:396`). Validation: null DnaSequence throws (`:348`), wordSize<1 throws (`:349,363`), null/empty string ⇒ 0 (`:364`), L<wordSize ⇒ 0 (`:370`).
+*(2026-06 code path, line numbers and `/ wordCount` divisor superseded by F2/F34 — current core `SequenceComplexity.cs:871`, divisor ℓ − 1, triplets only.)* `SequenceComplexity.cs:382` `CalculateDustScoreCore`: counts overlapping words over `wordCount = L − wordSize + 1` positions (`:375`), sums `count*(count-1)/2.0` (`:391`), returns `sum / wordCount` (`:396`). Validation: null DnaSequence throws (`:348`), wordSize<1 throws (`:349,363`), null/empty string ⇒ 0 (`:364`), L<wordSize ⇒ 0 (`:370`).
 
 ### Formula realised correctly?
 

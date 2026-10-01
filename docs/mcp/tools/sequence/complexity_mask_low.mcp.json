@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.MaskLowComplexity",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L838",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L979",
   "description": "Mask low-complexity regions in a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust). N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking. engine='dustmasker' reproduces NCBI dustmasker 2.12.0 exactly (port of symdust.cpp + GetDustMasks_SkipNs: IUPAC codes scanned as bases, N runs longer than the window and leading/trailing N runs cut the scan and are masked).",
   "inputSchema": {
     "type": "object",

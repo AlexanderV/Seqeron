@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.FindLongdustRegions",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1195",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1336",
   "description": "Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisation of SDUST for long windows (STRs, VNTRs, satellites). At each position a backward then forward scan over the last windowSize k-mers finds a good interval with S_L(x) − T·ℓ(x) > 0 (see longdust_score), with X-drop and the reference's speed-ups; overlapping hits are merged; by default the union over both strands is returned (forwardOnly = -f). Output = longdust BED intervals, 0-based half-open. Non-ACGT symbols make the overlapping k-mers ambiguous. Defaults = longdust -k7 -w5000 -t0.6 -e50 -b3.",
   "inputSchema": {
     "type": "object",

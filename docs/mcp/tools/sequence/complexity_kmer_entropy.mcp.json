@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateKmerEntropy",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L267",
-  "description": "Calculate k-mer based Shannon entropy for DNA complexity analysis.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L283",
+  "description": "Calculate the Shannon entropy (bits) of the overlapping k-mer distribution (block entropy) for DNA complexity analysis; optional finite-sample bias correction (Miller-Madow 1955 or Grassberger 2003) and normalisation by log2 of the number of k-mers (BBTools EntropyTracker 0-1 scale).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,33 +20,124 @@
         "description": "K-mer size (default: 2 for dinucleotides)",
         "default": 2,
         "minimum": 1
+      },
+      "correction": {
+        "type": "string",
+        "description": "Bias correction: 'none' (plug-in, default), 'millerMadow' (+ (D-1)/(2N) nats, D = observed k-mers), 'grassberger' (Grassberger 2003: ln N - (1/N) sum n_i G(n_i)).",
+        "default": "none",
+        "enum": [
+          "none",
+          "millerMadow",
+          "grassberger"
+        ]
+      },
+      "normalize": {
+        "type": "boolean",
+        "description": "Divide the (corrected) entropy by log2 N, N = number of k-mers (0 when N <= 1). Default false.",
+        "default": false
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "entropy": { "type": "number", "description": "K-mer entropy (bits)" },
-      "k": { "type": "integer", "description": "K-mer size used" }
+      "entropy": {
+        "type": "number",
+        "description": "K-mer entropy (bits)"
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer size used"
+      },
+      "correction": {
+        "type": "string",
+        "description": "Correction applied"
+      },
+      "normalized": {
+        "type": "boolean",
+        "description": "Whether the value was divided by log2 N"
+      }
     },
-    "required": ["entropy", "k"]
+    "required": [
+      "entropy",
+      "k"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "K must be at least 1" },
-    { "code": 2001, "message": "Invalid DNA sequence" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "K must be at least 1"
+    },
+    {
+      "code": 2001,
+      "message": "Invalid DNA sequence"
+    },
+    {
+      "code": 1002,
+      "message": "Unknown k-mer entropy correction"
+    }
   ],
   "examples": [
     {
       "name": "Dinucleotide entropy",
-      "input": { "sequence": "ATGCATGCAT", "k": 2 },
-      "output": { "entropy": 1.974937501201927, "k": 2 }
+      "input": {
+        "sequence": "ATGCATGCAT",
+        "k": 2
+      },
+      "output": {
+        "entropy": 1.974937501201927,
+        "k": 2,
+        "correction": "none",
+        "normalized": false
+      }
     },
     {
       "name": "Low complexity",
-      "input": { "sequence": "AAAAAAAAAA", "k": 2 },
-      "output": { "entropy": 0, "k": 2 }
+      "input": {
+        "sequence": "AAAAAAAAAA",
+        "k": 2
+      },
+      "output": {
+        "entropy": 0,
+        "k": 2,
+        "correction": "none",
+        "normalized": false
+      }
+    },
+    {
+      "name": "Miller-Madow correction",
+      "input": {
+        "sequence": "ATATAT",
+        "k": 2,
+        "correction": "millerMadow"
+      },
+      "output": {
+        "entropy": 1.115220098543565,
+        "k": 2,
+        "correction": "millerMadow",
+        "normalized": false
+      }
+    },
+    {
+      "name": "Normalised",
+      "input": {
+        "sequence": "ATATAT",
+        "k": 2,
+        "normalize": true
+      },
+      "output": {
+        "entropy": 0.4181656600790516,
+        "k": 2,
+        "correction": "none",
+        "normalized": true
+      }
     }
   ]
 }

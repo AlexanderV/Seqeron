@@ -22,7 +22,7 @@ N / IUPAC codes are accepted; a window containing any non-ACGT symbol is skipped
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L351](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L351)
+- Source: [SequenceComplexity.cs#L470](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L470)
 
 ## Input Schema
 

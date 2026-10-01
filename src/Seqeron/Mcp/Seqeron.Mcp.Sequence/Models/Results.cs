@@ -123,7 +123,7 @@ public record ComplexityLinguisticResult(double Complexity, int MaxWordLength);
 public record ComplexityShannonResult(double Entropy);
 
 /// <summary>Result of complexity_kmer_entropy operation.</summary>
-public record ComplexityKmerEntropyResult(double Entropy, int K);
+public record ComplexityKmerEntropyResult(double Entropy, int K, string Correction = "none", bool Normalized = false);
 
 /// <summary>Result of complexity_dust_score operation.</summary>
 public record ComplexityDustScoreResult(double DustScore, int WordSize);

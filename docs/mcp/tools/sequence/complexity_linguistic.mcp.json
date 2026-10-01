@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateLinguisticComplexity",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L105",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L121",
   "description": "Calculate DNA linguistic complexity as ratio of observed to possible subwords. LC = 1.0 for maximum complexity.",
   "inputSchema": {
     "type": "object",

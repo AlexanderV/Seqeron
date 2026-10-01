@@ -31,7 +31,7 @@ finite and ≥ 0 (default 2.0 = dustmasker level 20), `linker` 1–32.
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L838](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L838)
+- Source: [SequenceComplexity.cs#L979](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L979)
 
 ## Input Schema
 
