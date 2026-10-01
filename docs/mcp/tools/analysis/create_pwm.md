@@ -21,6 +21,12 @@ smoothed observed frequency against a uniform 0.25 background. The consensus is 
 per-column argmax base; `maxScore`/`minScore` are the best/worst achievable total scores.
 All input sequences must be equal length and contain only A, C, G, T.
 
+Optional (Biopython `counts.normalize(pseudocounts).log_odds(background)`): `background` (A,C,G,T,
+normalised) replaces the uniform 0.25; `pseudocounts` (per-base A,C,G,T) replaces the scalar
+`pseudocount` — cell `log2( (count + p[b]) / (N + Σp) / q[b] )`; `jasparPseudocounts = true` uses the
+JASPAR pseudocounts √N·q[b] (Biopython `Bio.motifs.jaspar.calculate_pseudocounts`, Wasserman & Sandelin
+2004) against the background (`MotifFinder.CreatePwmWithJasparPseudocounts`).
+
 ## Core Documentation Reference
 
 - Source: [MotifFinder.cs#L213](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L213)
@@ -30,7 +36,10 @@ All input sequences must be equal length and contain only A, C, G, T.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequences` | string[] | Yes | Aligned DNA sequences of equal length |
-| `pseudocount` | number | No | Smoothing pseudocount (default 0.25, ≥ 0) |
+| `pseudocount` | number | No | Smoothing pseudocount (default 0.25, ≥ 0); ignored with `pseudocounts` / `jasparPseudocounts` |
+| `pseudocounts` | number[4] | No | Per-base pseudocounts A,C,G,T (≥ 0) |
+| `background` | number[4] | No | Background A,C,G,T (uniform when omitted) |
+| `jasparPseudocounts` | boolean | No | Use JASPAR pseudocounts √N·q[b] (default false) |
 
 ## Output Schema
 
@@ -48,6 +57,9 @@ All input sequences must be equal length and contain only A, C, G, T.
 |------|---------|
 | 1001 | At least one sequence is required |
 | 1003 | Pseudocount must be non-negative |
+| 1003 | pseudocounts must have 4 values (A,C,G,T) |
+| 1003 | Give either pseudocounts or jasparPseudocounts, not both |
+| 1003 | Background must have 4 values (A,C,G,T) |
 | 1002 | All sequences must have the same length |
 | 1002 | Invalid character … Only A, C, G, T are valid |
 

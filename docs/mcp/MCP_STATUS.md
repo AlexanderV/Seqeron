@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 460 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 461 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 460 | 460 |
-| Schema+Binding tests | 460 | 460 |
-| Docs (.md + .mcp.json) | 460 | 460 |
+| Gold-standard binding | 461 | 461 |
+| Schema+Binding tests | 461 | 461 |
+| Docs (.md + .mcp.json) | 461 | 461 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 26 | 26/26 | 26/26 | 26/26 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 114 | 114/114 | 114/114 | 114/114 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 115 | 115/115 | 115/115 | 115/115 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -171,7 +171,7 @@
 | 25 | `semi_global_align` | ☑ | ☑ | ☑ |
 | 26 | `sequence_identity` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 114 tools
+### Analysis (Seqeron.Mcp.Analysis) — 115 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -274,21 +274,22 @@
 | 97 | `predict_signal_peptide` | ☑ | ☑ | ☑ |
 | 98 | `predict_transmembrane_helices` | ☑ | ☑ | ☑ |
 | 99 | `prosite_to_regex` | ☑ | ☑ | ☑ |
-| 100 | `pwm_score_thresholds` | ☑ | ☑ | ☑ |
-| 101 | `reversal_distance` | ☑ | ☑ | ☑ |
-| 102 | `rna_complement_base` | ☑ | ☑ | ☑ |
-| 103 | `scan_with_pwm` | ☑ | ☑ | ☑ |
-| 104 | `scan_with_pwm_both_strands` | ☑ | ☑ | ☑ |
-| 105 | `shared_motifs_significance` | ☑ | ☑ | ☑ |
-| 106 | `standardize_repeat_motif` | ☑ | ☑ | ☑ |
-| 107 | `stem_energy` | ☑ | ☑ | ☑ |
-| 108 | `tandem_repeat_bernoulli_statistics` | ☑ | ☑ | ☑ |
-| 109 | `tandem_repeat_summary` | ☑ | ☑ | ☑ |
-| 110 | `terminal_mismatch_energy` | ☑ | ☑ | ☑ |
-| 111 | `unique_kmers` | ☑ | ☑ | ☑ |
-| 112 | `validate_dot_bracket` | ☑ | ☑ | ☑ |
-| 113 | `windowed_complexity` | ☑ | ☑ | ☑ |
-| 114 | `windowed_gc_skew` | ☑ | ☑ | ☑ |
+| 100 | `pwm_score_pvalue` | ☑ | ☑ | ☑ |
+| 101 | `pwm_score_thresholds` | ☑ | ☑ | ☑ |
+| 102 | `reversal_distance` | ☑ | ☑ | ☑ |
+| 103 | `rna_complement_base` | ☑ | ☑ | ☑ |
+| 104 | `scan_with_pwm` | ☑ | ☑ | ☑ |
+| 105 | `scan_with_pwm_both_strands` | ☑ | ☑ | ☑ |
+| 106 | `shared_motifs_significance` | ☑ | ☑ | ☑ |
+| 107 | `standardize_repeat_motif` | ☑ | ☑ | ☑ |
+| 108 | `stem_energy` | ☑ | ☑ | ☑ |
+| 109 | `tandem_repeat_bernoulli_statistics` | ☑ | ☑ | ☑ |
+| 110 | `tandem_repeat_summary` | ☑ | ☑ | ☑ |
+| 111 | `terminal_mismatch_energy` | ☑ | ☑ | ☑ |
+| 112 | `unique_kmers` | ☑ | ☑ | ☑ |
+| 113 | `validate_dot_bracket` | ☑ | ☑ | ☑ |
+| 114 | `windowed_complexity` | ☑ | ☑ | ☑ |
+| 115 | `windowed_gc_skew` | ☑ | ☑ | ☑ |
 
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 

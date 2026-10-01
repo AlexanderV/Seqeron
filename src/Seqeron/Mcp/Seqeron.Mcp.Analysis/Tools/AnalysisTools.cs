@@ -963,18 +963,34 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "create_pwm", Title = "Motifs — Build PWM", ReadOnly = true)]
-    [Description("Build a log-odds Position Weight Matrix (4×L; rows A,C,G,T) from aligned, equal-length DNA sequences.")]
+    [Description("Build a log-odds Position Weight Matrix (4×L; rows A,C,G,T) from aligned, equal-length DNA sequences (Biopython counts.normalize(pseudocounts).log_odds(background)): scalar pseudocount, per-base pseudocounts, or JASPAR pseudocounts √N·q[b]; optional background.")]
     public static PwmResult CreatePwm(
         [Description("Aligned DNA sequences of equal length.")] string[] sequences,
-        [Description("Pseudocount for smoothing (default 0.25).")] double pseudocount = 0.25)
+        [Description("Pseudocount added to every cell (default 0.25); ignored when pseudocounts or jasparPseudocounts is given.")] double pseudocount = 0.25,
+        [Description("Optional per-base pseudocounts A,C,G,T (finite, >= 0).")] double[]? pseudocounts = null,
+        [Description("Optional background probabilities A,C,G,T (normalised; uniform when omitted).")] double[]? background = null,
+        [Description("Use the JASPAR pseudocounts √N·q[b] (Biopython Bio.motifs.jaspar.calculate_pseudocounts) against the background (default false).")] bool jasparPseudocounts = false)
     {
         if (sequences is null || sequences.Length == 0)
             throw new ArgumentException("At least one sequence is required.", nameof(sequences));
         if (pseudocount < 0)
             throw new ArgumentOutOfRangeException(nameof(pseudocount), "Pseudocount must be non-negative.");
+        if (pseudocounts is not null && pseudocounts.Length != 4)
+            throw new ArgumentException("pseudocounts must have 4 values (A,C,G,T).", nameof(pseudocounts));
+        if (pseudocounts is not null && jasparPseudocounts)
+            throw new ArgumentException("Give either pseudocounts or jasparPseudocounts, not both.", nameof(pseudocounts));
+        if (background is not null && background.Length != 4)
+            throw new ArgumentException("Background must have 4 values (A,C,G,T).", nameof(background));
 
-        var pwm = global::Seqeron.Genomics.Analysis.MotifFinder
-            .CreatePwm(sequences, pseudocount);
+        global::Seqeron.Genomics.Analysis.PositionWeightMatrix pwm;
+        if (jasparPseudocounts)
+            pwm = global::Seqeron.Genomics.Analysis.MotifFinder.CreatePwmWithJasparPseudocounts(sequences, background);
+        else if (pseudocounts is not null)
+            pwm = global::Seqeron.Genomics.Analysis.MotifFinder.CreatePwm(sequences, pseudocounts, background);
+        else if (background is not null)
+            pwm = global::Seqeron.Genomics.Analysis.MotifFinder.CreatePwm(sequences, pseudocount, background);
+        else
+            pwm = global::Seqeron.Genomics.Analysis.MotifFinder.CreatePwm(sequences, pseudocount);
         var jagged = MatrixToJagged(pwm.Matrix, 4, pwm.Length);
         return new PwmResult(jagged, pwm.Length, pwm.Consensus, pwm.MaxScore, pwm.MinScore);
     }
@@ -1195,6 +1211,34 @@ public class AnalysisTools
         return new PwmScoreThresholdsResult(
             d.MinScore, d.Step, d.PointCount, d.MeanScore,
             d.ThresholdFpr(fpr), d.ThresholdFnr(fnr), balanced, balancedRate, d.ThresholdPatser());
+    }
+
+    [McpServerTool(Name = "pwm_score_pvalue", Title = "Motifs — Exact PWM Score P-value", ReadOnly = true)]
+    [Description("Exact p-value of a PWM score, P(S >= score) for a random i.i.d. background word, or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — Touzet & Varré 2007 TFM-Pvalue successive refinement of integer-rounded matrices, with the undecided band resolved by enumeration. Give exactly one of score / pValue.")]
+    public static PwmScorePValueResult PwmScorePValue(
+        [Description("Position Weight Matrix: matrix is jagged 4×L (rows A,C,G,T), finite cells, length is L.")] PwmInput pwm,
+        [Description("Score threshold: returns P(S >= score). Omit when pValue is given.")] double? score = null,
+        [Description("Target p-value in [0,1]: returns the exact score threshold. Omit when score is given.")] double? pValue = null,
+        [Description("Optional background probabilities A,C,G,T (uniform when omitted).")] double[]? background = null)
+    {
+        var pwmObj = RequirePwm(pwm);
+        if (pwmObj.Matrix.Cast<double>().Any(w => !double.IsFinite(w)))
+            throw new ArgumentException("PWM cells must be finite.", nameof(pwm));
+        if (background is not null && background.Length != 4)
+            throw new ArgumentException("Background must have 4 values (A,C,G,T).", nameof(background));
+        if (score.HasValue == pValue.HasValue)
+            throw new ArgumentException("Give exactly one of score or pValue.", nameof(score));
+        if (score.HasValue && !double.IsFinite(score.Value))
+            throw new ArgumentOutOfRangeException(nameof(score), "Score must be finite.");
+        if (pValue.HasValue && !(pValue.Value >= 0 && pValue.Value <= 1))
+            throw new ArgumentOutOfRangeException(nameof(pValue), "pValue must be in [0, 1].");
+
+        var r = score.HasValue
+            ? global::Seqeron.Genomics.Analysis.MotifFinder.PwmScorePValue(pwmObj, score.Value, background)
+            : global::Seqeron.Genomics.Analysis.MotifFinder.PwmScoreThresholdForPValue(pwmObj, pValue!.Value, background);
+        bool aboveMax = double.IsPositiveInfinity(r.Score);
+        return new PwmScorePValueResult(aboveMax ? null : r.Score, aboveMax, r.PValue,
+            r.PValueLowerBound, r.PValueUpperBound, r.IsExact, r.Granularity);
     }
 
     [McpServerTool(Name = "find_promoter_elements_by_matrix", Title = "Motifs — Promoter Elements (Bucher Matrices)", ReadOnly = true)]

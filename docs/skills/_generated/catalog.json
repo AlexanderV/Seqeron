@@ -875,6 +875,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L277"
   },
   {
+    "tool": "pwm_score_pvalue",
+    "server": "Analysis",
+    "methodId": "MotifFinder.PwmScorePValue",
+    "docPath": "docs/mcp/tools/analysis/pwm_score_pvalue.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmPValue.cs#L41"
+  },
+  {
     "tool": "pwm_score_thresholds",
     "server": "Analysis",
     "methodId": "PositionWeightMatrix.ScoreDistribution",

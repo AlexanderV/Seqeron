@@ -6,51 +6,176 @@
   "stability": "stable",
   "methodId": "MotifFinder.CreatePwm",
   "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L213",
-  "description": "Builds a log-odds Position Weight Matrix (4xL, rows A,C,G,T) from aligned equal-length DNA sequences. Cell = log2((count + pc)/(N + 4*pc)/0.25).",
+  "description": "Builds a log-odds Position Weight Matrix (4xL, rows A,C,G,T) from aligned equal-length DNA sequences. Cell = log2((count + pc)/(N + 4*pc)/0.25). Optional: per-base `pseudocounts` (A,C,G,T), `background` (A,C,G,T; cell log2((count + p[b])/(N + Σp)/q[b]), Biopython counts.normalize(pseudocounts).log_odds(background)), or `jasparPseudocounts` = √N·q[b] (Biopython jaspar.calculate_pseudocounts).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequences": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "Aligned DNA sequences of equal length",
         "minItems": 1
       },
-      "pseudocount": { "type": "number", "description": "Smoothing pseudocount", "minimum": 0, "default": 0.25 }
+      "pseudocount": {
+        "type": "number",
+        "description": "Smoothing pseudocount",
+        "minimum": 0,
+        "default": 0.25
+      },
+      "pseudocounts": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": 0
+        },
+        "minItems": 4,
+        "maxItems": 4,
+        "description": "Per-base pseudocounts A,C,G,T"
+      },
+      "background": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 4,
+        "maxItems": 4,
+        "description": "Background A,C,G,T (uniform when omitted)"
+      },
+      "jasparPseudocounts": {
+        "type": "boolean",
+        "default": false,
+        "description": "Use JASPAR pseudocounts sqrt(N)·q[b] against the background"
+      }
     },
-    "required": ["sequences"]
+    "required": [
+      "sequences"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
       "matrix": {
         "type": "array",
-        "items": { "type": "array", "items": { "type": "number" } },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
         "description": "Jagged 4xL log-odds matrix (rows A,C,G,T)"
       },
-      "length": { "type": "integer", "description": "Motif length L" },
-      "consensus": { "type": "string", "description": "Per-column argmax consensus" },
-      "maxScore": { "type": "number", "description": "Maximum achievable total score" },
-      "minScore": { "type": "number", "description": "Minimum achievable total score" }
+      "length": {
+        "type": "integer",
+        "description": "Motif length L"
+      },
+      "consensus": {
+        "type": "string",
+        "description": "Per-column argmax consensus"
+      },
+      "maxScore": {
+        "type": "number",
+        "description": "Maximum achievable total score"
+      },
+      "minScore": {
+        "type": "number",
+        "description": "Minimum achievable total score"
+      }
     },
-    "required": ["matrix", "length", "consensus", "maxScore", "minScore"]
+    "required": [
+      "matrix",
+      "length",
+      "consensus",
+      "maxScore",
+      "minScore"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "At least one sequence is required" },
-    { "code": 1003, "message": "Pseudocount must be non-negative" },
-    { "code": 1002, "message": "All sequences must have the same length" },
-    { "code": 1002, "message": "Invalid character. Only A, C, G, T are valid" }
+    {
+      "code": 1001,
+      "message": "At least one sequence is required"
+    },
+    {
+      "code": 1003,
+      "message": "Pseudocount must be non-negative"
+    },
+    {
+      "code": 1002,
+      "message": "All sequences must have the same length"
+    },
+    {
+      "code": 1002,
+      "message": "Invalid character. Only A, C, G, T are valid"
+    },
+    {
+      "code": 1003,
+      "message": "pseudocounts must have 4 values (A,C,G,T)"
+    },
+    {
+      "code": 1003,
+      "message": "Give either pseudocounts or jasparPseudocounts, not both"
+    },
+    {
+      "code": 1003,
+      "message": "Background must have 4 values (A,C,G,T)"
+    }
   ],
   "examples": [
     {
       "name": "Two identical motifs",
-      "input": { "sequences": ["ACGT", "ACGT"], "pseudocount": 0.25 },
-      "output": { "length": 4, "consensus": "ACGT", "maxScore": 6.3399, "minScore": -6.3399 }
+      "input": {
+        "sequences": [
+          "ACGT",
+          "ACGT"
+        ],
+        "pseudocount": 0.25
+      },
+      "output": {
+        "length": 4,
+        "consensus": "ACGT",
+        "maxScore": 6.3399,
+        "minScore": -6.3399
+      }
     },
     {
       "name": "Consensus of a variable column",
-      "input": { "sequences": ["AAAA", "AAAT", "AAAA"] },
-      "output": { "length": 4, "consensus": "AAAA" }
+      "input": {
+        "sequences": [
+          "AAAA",
+          "AAAT",
+          "AAAA"
+        ]
+      },
+      "output": {
+        "length": 4,
+        "consensus": "AAAA"
+      }
+    },
+    {
+      "name": "JASPAR pseudocounts, non-uniform background",
+      "input": {
+        "sequences": [
+          "TACAA",
+          "TACGC",
+          "TACAC",
+          "TACCC",
+          "AACCC",
+          "AATGC",
+          "AATGC"
+        ],
+        "background": [
+          0.3,
+          0.2,
+          0.2,
+          0.3
+        ],
+        "jasparPseudocounts": true
+      },
+      "output": {
+        "length": 5,
+        "consensus": "AACCC"
+      }
     }
   ]
 }

@@ -225,6 +225,61 @@ public static partial class MotifFinder
                 "Pseudocount must be finite and non-negative.");
         double[] bg = NormalizeBackground(background);
 
+        double[,] countMatrix = SequenceCountMatrix(sequences);
+        int length = countMatrix.GetLength(1);
+
+        var pseudocounts = new[] { pseudocount, pseudocount, pseudocount, pseudocount };
+        return new PositionWeightMatrix(
+            LogOddsFromCounts(countMatrix, pseudocounts, PwmAlphabetSize * pseudocount, bg), length);
+    }
+
+    /// <summary>
+    /// Creates a log-odds PWM from aligned sequences with per-base pseudocounts — Biopython
+    /// <c>motifs.create(seqs).counts.normalize(pseudocounts={'A':pA,'C':pC,'G':pG,'T':pT}).log_odds(background)</c>:
+    /// W[b,j] = log2( ((c[b,j] + p[b]) / (N + Σ p)) / q[b] ). The count matrix is the one of
+    /// <see cref="CreatePwm(IEnumerable{string}, double, IReadOnlyList{double})"/>; the log-odds are those of
+    /// <see cref="PositionWeightMatrix.FromCounts(double[,], IReadOnlyList{double}, IReadOnlyList{double}?)"/>.
+    /// </summary>
+    /// <remarks>
+    /// JASPAR / Wasserman &amp; Sandelin (2004) pseudocounts √N · q[b] for any background are obtained with
+    /// <see cref="CreatePwmWithJasparPseudocounts"/> (Biopython <c>Bio.motifs.jaspar.calculate_pseudocounts</c>).
+    /// </remarks>
+    /// <param name="sequences">Aligned sequences of equal length over A/C/G/T (case-insensitive).</param>
+    /// <param name="pseudocounts">Pseudocounts for A, C, G, T (finite, ≥ 0).</param>
+    /// <param name="background">Background (A, C, G, T), normalised to sum 1; uniform when null.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> or <paramref name="pseudocounts"/> is null.</exception>
+    /// <exception cref="ArgumentException">Empty collection, null element, unequal lengths, non-ACGT character, not 4 pseudocounts.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Negative / non-finite pseudocount or invalid background value.</exception>
+    public static PositionWeightMatrix CreatePwm(
+        IEnumerable<string> sequences,
+        IReadOnlyList<double> pseudocounts,
+        IReadOnlyList<double>? background = null)
+    {
+        ArgumentNullException.ThrowIfNull(pseudocounts);
+        return PwmFromCounts(SequenceCountMatrix(sequences), pseudocounts, background);
+    }
+
+    /// <summary>
+    /// Creates a log-odds PWM from aligned sequences with the JASPAR pseudocounts p[b] = √N · q[b]
+    /// (<see cref="JasparPseudocounts"/>, Biopython <c>Bio.motifs.jaspar.calculate_pseudocounts</c>; Wasserman &amp;
+    /// Sandelin 2004) against the same background q — Biopython
+    /// <c>m.counts.normalize(pseudocounts=jaspar.calculate_pseudocounts(m)).log_odds(background)</c> with
+    /// <c>m.background = background</c>.
+    /// </summary>
+    /// <param name="sequences">Aligned sequences of equal length over A/C/G/T (case-insensitive).</param>
+    /// <param name="background">Background (A, C, G, T), normalised to sum 1; uniform when null.</param>
+    public static PositionWeightMatrix CreatePwmWithJasparPseudocounts(
+        IEnumerable<string> sequences,
+        IReadOnlyList<double>? background = null)
+    {
+        double[,] counts = SequenceCountMatrix(sequences);
+        return PwmFromCounts(counts, JasparPseudocounts(counts, background), background);
+    }
+
+    /// <summary>The <see cref="BuildCountMatrix"/> of a non-empty alignment as doubles (shared by the per-base pseudocount overloads).</summary>
+    private static double[,] SequenceCountMatrix(IEnumerable<string> sequences)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
         int[,] counts = BuildCountMatrix(sequences, nameof(sequences), out int count);
         if (count == 0)
             throw new ArgumentException("At least one sequence is required.", nameof(sequences));
@@ -234,10 +289,7 @@ public static partial class MotifFinder
         for (int i = 0; i < length; i++)
             for (int b = 0; b < PwmAlphabetSize; b++)
                 countMatrix[b, i] = counts[b, i];
-
-        var pseudocounts = new[] { pseudocount, pseudocount, pseudocount, pseudocount };
-        return new PositionWeightMatrix(
-            LogOddsFromCounts(countMatrix, pseudocounts, PwmAlphabetSize * pseudocount, bg), length);
+        return countMatrix;
     }
 
     /// <summary>

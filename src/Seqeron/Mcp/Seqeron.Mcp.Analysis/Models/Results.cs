@@ -402,6 +402,23 @@ public record PwmScoreThresholdsResult(
     double BalancedFalsePositiveRate,
     double ThresholdPatser);
 
+/// <summary>Result of <c>pwm_score_pvalue</c>: score threshold and its exact p-value P(S &gt;= Score).</summary>
+/// <param name="Score">The requested score, or the computed threshold; null when no word score qualifies (ScoreAboveMaximum).</param>
+/// <param name="ScoreAboveMaximum">True when even the best word has P(S &gt;= max) &gt; pValue (threshold above the maximum, p-value 0).</param>
+/// <param name="PValue">P(S &gt;= Score); the conservative upper bound when IsExact is false.</param>
+/// <param name="PValueLowerBound">Certified lower bound.</param>
+/// <param name="PValueUpperBound">Certified upper bound.</param>
+/// <param name="IsExact">True when the p-value is exact.</param>
+/// <param name="Granularity">Scale g of the integer-rounded matrix that resolved it (0 = decided without rounding).</param>
+public record PwmScorePValueResult(
+    double? Score,
+    bool ScoreAboveMaximum,
+    double PValue,
+    double PValueLowerBound,
+    double PValueUpperBound,
+    bool IsExact,
+    double Granularity);
+
 /// <summary>A promoter-element weight-matrix hit.</summary>
 public record PromoterMatrixHitItem(string Name, string MatrixId, int Position, string Strand, string Sequence, double Score, double Threshold);
 

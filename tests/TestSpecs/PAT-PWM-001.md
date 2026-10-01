@@ -353,3 +353,22 @@ Tests: `Unit/Analysis/MotifFinder_PwmStrandsAndThresholds_Tests.cs`, `Metamorphi
 | C9 | `PythonFloorDiv_MatchesCPython`, `ScoreDistribution_InvalidInputs_Throw`, `FromCounts_ValidationAndScalarPseudocount` | CPython `//`; contracts; FromCounts ≡ CreatePwm on the same counts |
 | C10 | `PwmBothStrands_ReverseComplementMirror` (5 seeds), `PwmScoreDistribution_Monotone` (3 seeds) | mirror relation; FPR/FNR monotone, on-grid, densities sum to 1 |
 
+
+## 10. Review 2026-09 (B05 audit group D) — exact p-values, per-base / JASPAR pseudocounts
+
+Tests: `Unit/Analysis/MotifFinder_PwmPValue_Tests.cs`; MCP `PwmScorePValueTests`, `CreatePwmTests.CreatePwm_PseudocountOptions_EqualBiopython`.
+References: exhaustive enumeration of all 4^L words (C oracle, left-to-right double window sums, long-double accumulation) for the Wikipedia PWM (L = 9) and Bucher TATA box POL012.1 (L = 15); TFM-Pvalue C++ (CRAN TFMPvalue 1.0.0 `src/Matrix.cpp`, driver = `testScoreToPvalue` / `testPvalueToScore` loops); Biopython 1.88 (`counts.normalize(pseudocounts=dict).log_odds(bg)`, `jaspar.calculate_pseudocounts`).
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| D1 | `PwmScorePValue_ToyMatrix_EqualsBinomialTail` | ±2/−1 matrix: P(S ≥ 6) = 1/64, ≥ 3 = 10/64, ≥ 0 = 37/64, ≥ −3 = 1, > max = 0 |
+| D2 | `PwmScorePValue_Wikipedia(_Background)_EqualsExhaustiveEnumeration` | e.g. site 6 score 4.77915994208994 → 0.006160736083984375 (bg .3/.2/.2/.3: 0.007509384); consensus → 4^-9 |
+| D3 | `PwmScorePValue_ObservedWindowScores_AreCounted` | scores from `CalculatePwmScores` count their own window (TFM-Pvalue: 0 / 0.006023406982421875) |
+| D4 | `PwmScorePValue_BucherTataBox_EqualsExhaustiveEnumeration` | 13.282082872405402 → 6.019137799739838e-06; 0 → 0.02533565554767847 |
+| D5 | `PwmScorePValue_Wikipedia_EqualsTfmPvalue`, `PwmScoreThresholdForPValue_PValuesEqualTfmPvalue` | non-tied thresholds = TFM-Pvalue sc2pv; pv2sc p-values identical (TFM score rounded: 7.11 vs 7.150252343998389) |
+| D6 | `PwmScoreThresholdForPValue_*_EqualsExhaustiveEnumeration` | smallest word score t with P(S ≥ t) ≤ p, next lower word score has P > p (Wikipedia p = .01 → 4.028050165603465; next 4.028050165603464 one ulp below) |
+| D7 | `_BelowConsensusProbability_IsPositiveInfinity`, `_RoundTripsThroughScorePValue`, `PwmScorePValue_ContrastsWithGridDistribution` | +∞/0; round trip; Biopython grid threshold 4.028388324862519 vs exact 4.028050165603465 |
+| D8 | `PwmPValue_InvalidArguments_Throw`, `PwmPValue_EmptyMatrix_ScoresZero` | contracts (non-finite matrix → ArgumentException) |
+| D9 | `CreatePwm_PerBasePseudocounts_EqualsBiopython`, `CreatePwmWithJasparPseudocounts_(Background|Uniform)_EqualsBiopython`, `CreatePwm_PerBase_EqualsScalarAndFromCounts`, `CreatePwm_PerBase_InvalidArguments_Throw` | 20-cell matrices to 1e-12; √7·q pseudocounts |
+| D10 | `PwmScoreThresholdForPValue_LargestAchievablePValue_WhereTfmIsNotMaximal` | 8-column random matrix, p = 1e-4: 8.685556713812995 / 9.930678854038951e-05 (TFM-Pvalue: 8.6866 / 9.923731321091039e-05; next lower word has P > 1e-4) |
+| D11 | `PwmScorePValue_BudgetExhausted_ReturnsCertifiedBounds` | 20-column random matrix at 0: IsExact = false, bounds [0.058402542608746444, 0.05840680768687889], PValue = upper |

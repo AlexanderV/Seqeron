@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pwm_score_pvalue",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.PwmScorePValue",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.PwmPValue.cs#L41",
+  "description": "Exact p-value of a PWM score, P(S >= score) for a word drawn i.i.d. from the background (S = the window score exactly as scan_with_pwm / CalculatePwmScores computes it, so an observed window counts itself), or — with `pValue` — the exact score threshold: the smallest word score t with P(S >= t) <= pValue and its exact p-value. Method: Touzet & Varré (2007) TFM-Pvalue successive refinement of integer-rounded matrices (M = floor(g·W), g = 10, 100, …; error bound E), with the undecided band of words resolved by branch-and-bound enumeration of their exact scores. When the work budget is exhausted the certified bounds are returned with isExact = false and pValue = the upper bound. Give exactly one of `score` / `pValue`. Finite matrices only (use a positive pseudocount).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "pwm": {
+        "type": "object",
+        "description": "Position Weight Matrix",
+        "properties": {
+          "matrix": {
+            "type": "array",
+            "description": "Jagged 4xL matrix (rows A,C,G,T)",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "length": {
+            "type": "integer",
+            "description": "Motif length L",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "matrix",
+          "length"
+        ]
+      },
+      "score": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Score threshold: returns P(S >= score). Omit when pValue is given."
+      },
+      "pValue": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Target p-value in [0,1]: returns the exact score threshold. Omit when score is given.",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "background": {
+        "type": "array",
+        "description": "Background A,C,G,T (uniform when omitted)",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 4,
+        "maxItems": 4
+      }
+    },
+    "required": [
+      "pwm"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "The requested score, or the computed threshold (null when scoreAboveMaximum)"
+      },
+      "scoreAboveMaximum": {
+        "type": "boolean",
+        "description": "True when even the best word has P(S >= max) > pValue (no word score qualifies; p-value 0)"
+      },
+      "pValue": {
+        "type": "number",
+        "description": "P(S >= score); the conservative upper bound when isExact is false"
+      },
+      "pValueLowerBound": {
+        "type": "number",
+        "description": "Certified lower bound"
+      },
+      "pValueUpperBound": {
+        "type": "number",
+        "description": "Certified upper bound"
+      },
+      "isExact": {
+        "type": "boolean",
+        "description": "True when the p-value is exact"
+      },
+      "granularity": {
+        "type": "number",
+        "description": "Scale g of the integer-rounded matrix that resolved it (0 = decided without rounding)"
+      }
+    },
+    "required": [
+      "score",
+      "scoreAboveMaximum",
+      "pValue",
+      "pValueLowerBound",
+      "pValueUpperBound",
+      "isExact",
+      "granularity"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1002,
+      "message": "PWM is required"
+    },
+    {
+      "code": 1002,
+      "message": "PWM cells must be finite"
+    },
+    {
+      "code": 1003,
+      "message": "Background must have 4 values (A,C,G,T)"
+    },
+    {
+      "code": 1004,
+      "message": "Give exactly one of score or pValue"
+    },
+    {
+      "code": 1005,
+      "message": "Score must be finite"
+    },
+    {
+      "code": 1006,
+      "message": "pValue must be in [0, 1]"
+    }
+  ],
+  "examples": [
+    {
+      "name": "P-value of score 0",
+      "input": {
+        "pwm": {
+          "matrix": [
+            [
+              2.0,
+              -2.0
+            ],
+            [
+              -2.0,
+              2.0
+            ],
+            [
+              -2.0,
+              -2.0
+            ],
+            [
+              -2.0,
+              -2.0
+            ]
+          ],
+          "length": 2
+        },
+        "score": 0.0
+      },
+      "output": {
+        "score": 0,
+        "scoreAboveMaximum": false,
+        "pValue": 0.4375,
+        "pValueLowerBound": 0.4375,
+        "pValueUpperBound": 0.4375,
+        "isExact": true,
+        "granularity": 10
+      }
+    },
+    {
+      "name": "Threshold for p = 0.1",
+      "input": {
+        "pwm": {
+          "matrix": [
+            [
+              2.0,
+              -2.0
+            ],
+            [
+              -2.0,
+              2.0
+            ],
+            [
+              -2.0,
+              -2.0
+            ],
+            [
+              -2.0,
+              -2.0
+            ]
+          ],
+          "length": 2
+        },
+        "pValue": 0.1
+      },
+      "output": {
+        "score": 4,
+        "scoreAboveMaximum": false,
+        "pValue": 0.0625,
+        "pValueLowerBound": 0.0625,
+        "pValueUpperBound": 0.0625,
+        "isExact": true,
+        "granularity": 10
+      }
+    }
+  ]
+}

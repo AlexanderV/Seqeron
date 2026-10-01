@@ -284,6 +284,7 @@
 | predict_signal_peptide | Analysis | ProteinMotifFinder.PredictSignalPeptide | ProteinMotifFinder.cs#L325 | 0/0 | – | – | Build-Ready |
 | predict_transmembrane_helices | Analysis | ProteinMotifFinder.PredictTransmembraneHelices | ProteinMotifFinder.cs#L460 | 0/0 | – | – | Build-Ready |
 | prosite_to_regex | Analysis | ProteinMotifFinder.ConvertPrositeToRegex | ProteinMotifFinder.cs#L220 | 0/0 | – | – | Build-Ready |
+| pwm_score_pvalue | Analysis | MotifFinder.PwmScorePValue | MotifFinder.PwmPValue.cs#L41 | 2/2 | ✓ | ✓ | Ready |
 | pwm_score_thresholds | Analysis | PositionWeightMatrix.ScoreDistribution | MotifFinder.PwmScoring.cs#L322 | 2/2 | ✓ | ✓ | Ready |
 | reversal_distance | Analysis | ComparativeGenomics.CalculateReversalDistance | ComparativeGenomics.cs#L425 | 0/0 | – | – | Build-Ready |
 | rna_complement_base | Analysis | RnaSecondaryStructure.GetComplement | RnaSecondaryStructure.cs#L580 | 0/0 | – | – | Build-Ready |

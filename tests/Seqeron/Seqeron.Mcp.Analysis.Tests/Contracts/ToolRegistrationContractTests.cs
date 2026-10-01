@@ -115,6 +115,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "predict_signal_peptide",
         "predict_transmembrane_helices",
         "prosite_to_regex",
+        "pwm_score_pvalue",
         "pwm_score_thresholds",
         "reversal_distance",
         "rna_complement_base",
