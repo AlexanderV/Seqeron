@@ -1,5 +1,5 @@
 // REP-APPROX-001 — TRF 4.10.0 alignment pages (<prefix>.<parameters>.N.txt.html) (B04 audit WP17, F64).
-// Evidence: docs/Evidence/REP-APPROX-001-Evidence.md (§WP17); TestSpec: tests/TestSpecs/REP-APPROX-001.md (O13..O18).
+// Evidence: docs/Evidence/REP-APPROX-001-Evidence.md (§WP17); TestSpec: tests/TestSpecs/REP-APPROX-001.md (O13..O19).
 // Sources: TRF 4.10.0 README ("Alignment explanation", "-f"); TRF 4.10.0 source read for the layout only
 //          (trfrun.h alignment-file heading, tr30dat.c print_alignment_headings / alt3_print_alignment /
 //          get_statistics / printECtoAlignments / print_flanking_sequence, trfclean.h CleanAlignments / BreakAlignments).
@@ -595,6 +595,88 @@ public class RepeatFinder_TrfAlignmentPages_Tests
                 Assert.That(pages[k].Html, Does.Contain("<A NAME=\"" + m.Groups[2].Value + "\">"));
             }
         }
+    }
+
+    // O19: TRF's page split (trfclean.h BreakAlignments) reads 199-character line chunks; a chunk starting with 'F'
+    // starts a new alignment and a chunk starting with 'D' ends the page. The reader keeps every letter (trfrun.h
+    // LoadSequenceFromFileBenson: A..Z / a..z, upper-cased) and -f flank lines start at column 0, so an IUPAC 'D' or a
+    // letter 'F' at the start of a flank line cuts the pages. Sequence: 150 blocks of 40 background letters from a
+    // 32-letter alphabet (7 × ACGT + A, C, D, F, so D and F are 1/32 each) + a random trinucleotide × 12 (same LCG as
+    // O18, background letter = alphabet[(x >> 16) mod 32]). `trf df.fa 2 7 7 80 10 50 500 -f` writes two pages. Page 1
+    // holds only 4 "Found at": two 'F' flank lines each used up one of the 120 slots, then a 'D' flank line ended the
+    // page. Page 2 holds just the two lines from that 'D' chunk to the next 'D' chunk. The other 146 alignments are lost,
+    // and their table links (e.g. #345--380,3,12.0,3,13) dangle in TRF too. TRF's own apparent-size table and the exact
+    // table give the same pages.
+    [Test]
+    public void FlankLinesStartingWithDOrF_CutPagesLikeTrf()
+    {
+        const string alphabet = "ACGTACGTACGTACGTACGTACGTACGTACDF";
+        var sb = new StringBuilder();
+        long x = 12345;
+        char Next(string letters)
+        {
+            x = (x * 1103515245 + 12345) % 2147483648;
+            return letters[(int)((x >> 16) % letters.Length)];
+        }
+
+        for (int b = 0; b < 150; b++)
+        {
+            for (int k = 0; k < 40; k++)
+                sb.Append(Next(alphabet));
+            string unit = new([Next("ACGT"), Next("ACGT"), Next("ACGT")]);
+            for (int k = 0; k < 12; k++)
+                sb.Append(unit);
+        }
+
+        string seq = sb.ToString();
+        var p = TandemRepeatsFinderParameters.Recommended with { FlankLength = 500 };
+        var found = RepeatFinder.FindApproximateTandemRepeats(seq, p).ToList();
+        var pages = RepeatFinder.FormatTrfAlignmentPages(seq, found, "df", p, "df.fa");
+        static string Sha(string s) => Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(s))).ToLowerInvariant();
+        static int Count(string s, string what) => (s.Length - s.Replace(what, "").Length) / what.Length;
+
+        const string page2 = "<HTML><HEAD><TITLE>df.fa.2.7.7.80.10.50.500.txt.html</TITLE></HEAD><BODY bgcolor=\"#FBF8BC\"><PRE>\n"
+            + "Tandem Repeats Finder Program written by:\n"
+            + "\n"
+            + "                 Gary Benson\n"
+            + "      Program in Bioinformatics\n"
+            + "          Boston University\n"
+            + "\n"
+            + "Version 4.10.0\n"
+            + "\n"
+            + "Sequence: df\n"
+            + "\n"
+            + "Parameters: 2 7 7 80 10 50 500\n"
+            + "\n"
+            + "Pmatch=0.80,Pindel=0.10\n"
+            + "tuple sizes 0,4,5,7\n"
+            + "tuple distances 0, 29, 159, 500\n"
+            + "\n"
+            + "Length: 11400\n"
+            + "ACGTcount: A:0.26, C:0.23, G:0.23, T:0.24\n"
+            + "\n"
+            + "Warning! 404 characters in sequence are not A, C, G, or T\n"
+            + "\n"
+            + "\n"
+            + "File 2 of 2\n"
+            + "\n"
+            + "DGGGCGADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATGTAACGDGCCAGACTCTACG\n"
+            + "TCGAGGAATTFGADGTGTGTTATTATTATTATTATTATTATTATTATTATTATTATATDCCAGCA\n"
+            + "\n"
+            + "Done.\n"
+            + "</PRE></BODY></HTML>\n";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(found, Has.Count.EqualTo(150));
+            Assert.That(pages.Select(q => q.FileName), Is.EqualTo(new[] { "df.fa.2.7.7.80.10.50.500.1.txt.html", "df.fa.2.7.7.80.10.50.500.2.txt.html" }));
+            Assert.That(Count(pages[0].Html, "Found at i:"), Is.EqualTo(4));
+            Assert.That(pages[0].Html, Does.Contain("\nFound at i:276 ").And.Not.Contain("<A NAME=\"345--380,3,12.0,3,13\">"));
+            Assert.That(pages[0].Html, Does.Contain("\nFGAACAGAAACFCGADCGGATAATAATAATAATAATAATAATAATAATAATAATAGGGCGAFCTG\n"));
+            Assert.That(pages[1].Html, Is.EqualTo(page2));
+            Assert.That(Sha(pages[0].Html), Is.EqualTo("c9a03351303444b7043c5a7b10306e3dfdf13592027abd20525a6f3b2eddc691"));
+            Assert.That(Sha(pages[1].Html), Is.EqualTo("9110867d714b0c42020e0a85e249cd0c97ec62dee193f4e6e160788a2fe061f0"));
+        });
     }
 
     [Test]

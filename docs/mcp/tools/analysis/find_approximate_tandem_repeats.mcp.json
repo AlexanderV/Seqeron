@@ -116,7 +116,7 @@
       },
       "sequenceName": {
         "type": "string",
-        "description": "Sequence description printed in dat/ngs/html output (TRF prints the FASTA header after '>'); also the HTML file prefix",
+        "description": "Sequence description printed in dat/ngs/html output (TRF prints the FASTA header after '>', keeping only its first 199 characters; pass the truncated name for parity); also the HTML file prefix",
         "default": "sequence"
       }
     },

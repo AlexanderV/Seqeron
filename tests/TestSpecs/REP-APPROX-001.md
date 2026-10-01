@@ -42,7 +42,7 @@
 
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs`
 - **Test fixtures:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`,
-  `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs` (WP6: P1–P14), `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs` (WP7: D1–D9), `Unit/Analysis/RepeatFinder_TrfOutput_Tests.cs` (WP14: O1–O12), `Unit/Analysis/RepeatFinder_TrfAlignmentPages_Tests.cs` (WP17: O13–O18)
+  `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs` (WP6: P1–P14), `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs` (WP7: D1–D9), `Unit/Analysis/RepeatFinder_TrfOutput_Tests.cs` (WP14: O1–O12), `Unit/Analysis/RepeatFinder_TrfAlignmentPages_Tests.cs` (WP17: O13–O18; WP18: O19)
 - **Other tiers:** `Fuzzing/RepeatApproxFuzzTests.cs`, `Properties/RepeatFinderProperties.cs` (REP-APPROX-001 region),
   `Metamorphic/RepeatsMetamorphicTests.cs`, `Combinatorial/RepeatsCombinatorialTests.cs`
 
@@ -64,7 +64,7 @@
 | INV-12 | Apparent-size offset: 1 ≤ `TrfApparentSizeOffset(d, pm)` ≤ max(d, 20) − 1 for every d = 1..2000, PM 80 / 75 |
 | INV-13 | `CopyMatches + CopyMismatches + CopyIndels` = adjacent-copy trials; `PercentMatches = 100·CopyMatches/trials`; `OutputIndex` ≥ 1, distinct within one call |
 | INV-14 | Formatters: one `.dat` / `-ngs` row per repeat, in `OutputIndex` order; row fields 1–15 depend only on the repeat and the sequence; supplying `ExactApparentSizeTable(pm)` ≡ `null` |
-| INV-15 | Alignment pages: page count = max(1, ⌈rows/120⌉); one "Found at" section per repeat in `OutputIndex` order; every `FormatTrfHtmlTables` link `#anchor` occurs as `<A NAME="anchor">` on the page of the same number; recomputed Matches / Mismatches / Indels = `CopyMatches` / `CopyMismatches` / `CopyIndels`; `OutputIndex` ≤ `OutputCount` |
+| INV-15 | Alignment pages: page count = max(1, ⌈rows/120⌉); for input without the letters D / F (or without `-f`, or with ≤ 120 rows): one "Found at" section per repeat in `OutputIndex` order and every `FormatTrfHtmlTables` link `#anchor` occurs as `<A NAME="anchor">` on the page of the same number (a flank line starting with 'D' / 'F' cuts the pages like TRF, O19); recomputed Matches / Mismatches / Indels = `CopyMatches` / `CopyMismatches` / `CopyIndels`; `OutputIndex` ≤ `OutputCount` |
 | V-2 | `TandemRepeatsFinderParameters.Validate`: weights ≥ 1, PM ∈ {75, 80}, PI 1..100, MinScore ≥ 1, MaxPeriod 1..2000, MaxRepeatLength ≥ 1, FlankLength ≥ 0, ApparentSizeTable null or 2001 entries each in 0..max(d,20) − 1 (entry 0 ignored; wrong length → `ArgumentException`) → else `ArgumentOutOfRangeException`; null parameters / sequence → `ArgumentNullException`; mask with a repeat outside the sequence → `ArgumentOutOfRangeException` |
 | V-1 | Eager `ArgumentOutOfRangeException`: `minPeriod < 1`, `maxPeriod < minPeriod`, `maxPeriod > 2000`, `minScore < 1` (both overloads, also for empty input); `ArgumentNullException` for null `DnaSequence` / tract; Bernoulli: `period ∉ 1..2000`, PM ∉ [0,1] or NaN, tract < 2 × period → `ArgumentException` |
 
@@ -152,6 +152,7 @@ the WP7 bisection results (B04 F46).
 | O16 | Period 34 with insertions and deletions, lower-case input (s12) | TRF page byte for byte: distance table 31–35, anchor counter 2, no blank line before "Done." |
 | O17 | No repeat kept, two alignments dropped (s12, MaxPeriod 3) | TRF page byte for byte with `outputCount` 2 from the `out` overload; without it the extra blank line is missing |
 | O18 | 150 repeats → two pages; invalid input | SHA-256 of TRF's two pages; "File k of 2"; every table link resolves to an anchor of the page with the same number; missing / inconsistent alignment rows, empty sequence, null prefix / parameters, negative outputCount rejected |
+| O19 | > 120 repeats with `-f` and IUPAC 'D' / letter 'F' flank lines (TRF BreakAlignments chunk cut) | 150 repeats, background 1/32 each D and F (LCG): page 1 has only 4 "Found at" (two 'F' flank chunks used up slots, a 'D' chunk ended the page), page 2 = heading + "File 2 of 2" + two flank lines byte for byte; SHA-256 of both TRF 4.10.0 pages |
 
 ## 5. Cross-check / Differential Oracle
 

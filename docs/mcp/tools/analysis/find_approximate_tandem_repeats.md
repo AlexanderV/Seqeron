@@ -63,7 +63,7 @@ with TRF's table every `.dat`, `-ngs` and HTML file is byte-identical (Evidence 
 | `apparentSizeTable` | string | No | 2001 comma/space-separated integers y(d), d = 0..2000 (entry 0 ignored; each in 0..max(d,20)−1); empty = exact table |
 | `apparentSizeTableKind` | string | No | `apparent` (y(d), default) or `trfWaitingTimes` (TRF `waitdata` w(d); y = max(d,20) − w − 1) |
 | `format` | string | No | `json` (default), `dat`, `ngs` or `html` — extra TRF-layout output |
-| `sequenceName` | string | No | Description printed in dat/ngs/html output; HTML file prefix (default `sequence`) |
+| `sequenceName` | string | No | Description printed in dat/ngs/html output; HTML file prefix (default `sequence`). TRF prints the FASTA header after '>' but keeps only its first 199 characters (`trfrun.h` reader, `MAXSEQNAMELEN` − 1); pass the truncated name for byte-identical output |
 
 ## Output Schema
 

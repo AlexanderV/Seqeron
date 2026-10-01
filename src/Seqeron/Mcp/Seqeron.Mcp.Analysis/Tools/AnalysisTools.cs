@@ -781,7 +781,7 @@ public class AnalysisTools
         [Description(ApparentSizeTableDescription)] string? apparentSizeTable = null,
         [Description(ApparentSizeTableKindDescription)] string apparentSizeTableKind = "apparent",
         [Description("Extra output text: 'json' (default, items only), 'dat' (TRF -d data file: program header, Sequence/Parameters block, rows), 'ngs' (TRF -ngs block: @name + rows with 50-bp flanks) or 'html' (TRF repeat-table HTML pages, 120 rows per page, in htmlPages, plus the .N.txt.html alignment pages they link to, in alignmentPages). Rows follow TRF 4.10.0 byte for byte (order, truncation, %.1f/%.2f).")] string format = "json",
-        [Description("Sequence description printed in dat/ngs/html output (TRF prints the FASTA header after '>'; default 'sequence'). Also the HTML file prefix.")] string sequenceName = "sequence")
+        [Description("Sequence description printed in dat/ngs/html output (TRF prints the FASTA header after '>', keeping only its first 199 characters; pass the truncated name for parity; default 'sequence'). Also the HTML file prefix.")] string sequenceName = "sequence")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));

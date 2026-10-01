@@ -426,6 +426,22 @@ results `res_main.txt`, `res_single.txt`, `res_singles.txt`)
   the others differ only in "Found at i:" (the apparent-size criterion fires at a different scan position — exactly
   what the table governs), anchor counters or the trailing blank line; the remaining 3 / 3 are the F46 residual
   sequences whose rows differ.
-- Not reproduced: TRF's `CleanAlignments` matches anchors with `strstr`, and `BreakAlignments` cuts sections at any
-  line starting with 'F' or 'D'; both only matter for anchors that contain one another / sequences with IUPAC letters
-  D or F in a > 120-repeat file (never observed). The page split itself is emulated chunk for chunk.
+- `BreakAlignments` D/F cut — reproduced and verified (WP18, F65). The split reads 199-character chunks and starts
+  a new alignment at any chunk beginning with 'F' and ends the page at any chunk beginning with 'D'. TRF's reader
+  keeps every letter (`trfrun.h` `LoadSequenceFromFileBenson`, A–Z / a–z upper-cased), and `-f` flank lines start at
+  column 0 (`tr30dat.c` 2782–2788), so a flank line starting with IUPAC 'D' or a letter 'F' cuts the pages in files
+  with more than 120 repeats. The chunk emulation (`SplitTrfAlignmentFile`) reproduces this. Reference check
+  (`scratchpad/wp18/`, compiled TRF 4.10.0, `-f` and `-r -f`, 2 7 7 80 10 50 500 and 2 5 5 75 10 30 100):
+  - 20 random sequences with D and F background letters (260 microsatellites each) × 2 sets × (`-f`, `-r -f`):
+    342 / 342 alignment pages byte-identical.
+  - 5 more random files and 3 LCG files (2 7 7 80 10 50 500 `-f`): 14 / 14 byte-identical.
+  - The cuts are real. Page 1 holds 0–13 "Found at" instead of 120, and alignments after the last page are lost.
+  - Test O19 locks one LCG case (both pages, TRF's table and the exact table give the same pages).
+- `CleanAlignments` `strstr` anchor matching — unreachable, so no emulation is needed. Proof:
+  - The kept reference is `first--last,period,copies,size,OUTPUTcount` (`tr30dat.c` 3243). The anchor of every
+    section has the same form with its own count d.
+  - OUTPUTcount is unique and increases in file order. The kept list is sorted by count (`SortByCount`,
+    `trfclean.h` 119), so the sections tested against kept count c' before its own section all have d < c'.
+  - Each string contains a single "--", so the fields must line up. Containment then needs d to begin with the
+    digits of c' while d ≠ c', so d ≥ 10·c' > c'. That contradicts d < c'.
+  - The "Fo" / "Do" tests in `CleanAlignments` need a lower-case 'o', which an upper-cased flank line never has.
