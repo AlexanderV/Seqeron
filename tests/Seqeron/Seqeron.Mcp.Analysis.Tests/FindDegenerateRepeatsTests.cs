@@ -43,4 +43,19 @@ public class FindDegenerateRepeatsTests
         Assert.That(Tuples(AnalysisTools.FindDegenerateRepeats(seq, 8, 1, "hamming", true, int.MaxValue, int.MinValue).Items),
             Is.EqualTo("0,14,12,12,1;13,13,9,9,1"));
     }
+
+    [Test]
+    public void FindDegenerateRepeats_ReportingAndVmatchCompatible_MatchStockVmatch()
+    {
+        // Stock vmatch -l 15 -e 3 -allmax loses (0,21,16,18,3) to its seed shortcut; vmatch -l 15 -e 3 (no -allmax)
+        // reports one E-value-best window per seed (WP15).
+        const string seq = "ATCTGGTGTACTCTGCCCACGACTATCGGTGTACTCTGC";
+        Assert.That(Tuples(AnalysisTools.FindDegenerateRepeats(seq, 15, 3, "edit", false, int.MaxValue, int.MinValue, "allMaximal", true).Items),
+            Is.EqualTo("0,22,16,17,3;0,23,17,16,3;0,24,18,15,3"));
+        Assert.That(Tuples(AnalysisTools.FindDegenerateRepeats(seq, 15, 3, "edit", false, int.MaxValue, int.MinValue, "bestPerSeed", true).Items),
+            Is.EqualTo("0,24,16,15,1"));
+        Assert.That(Tuples(AnalysisTools.FindDegenerateRepeats(seq, 15, 3, "hamming", false, int.MaxValue, int.MinValue, "bestPerSeed").Items),
+            Is.EqualTo("1,24,15,15,3"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindDegenerateRepeats(seq, 15, 3, reporting: "top"));
+    }
 }

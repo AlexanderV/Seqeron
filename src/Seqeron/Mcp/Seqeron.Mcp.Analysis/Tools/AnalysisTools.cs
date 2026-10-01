@@ -663,20 +663,23 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_approximate_direct_repeats", Title = "Repeats — k-Mismatch Direct Repeats (REPuter/Vmatch -h)", ReadOnly = true)]
-    [Description("All maximal k-mismatch (Hamming) direct repeats (REPuter / Vmatch -h k). excludeContained=true drops repeats contained in a k-mismatch repeat on another diagonal (= vmatch -h k -allmax). Non-ACGT symbols are mismatches. Sorted by (firstPosition, secondPosition, length).")]
+    [Description("All maximal k-mismatch (Hamming) direct repeats (REPuter / Vmatch -h k). excludeContained=true drops repeats contained in a k-mismatch repeat on another diagonal (= vmatch -h k -allmax). Non-ACGT symbols are mismatches. reporting='bestPerSeed' gives Vmatch's default output (vmatch -h k without -allmax: one E-value-best extension per exact seed); vmatchCompatible=true reproduces stock Vmatch's seed shortcut. Sorted by (firstPosition, secondPosition, length).")]
     public static FindApproximateDirectRepeatsResult FindApproximateDirectRepeats(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum repeat length (default 10; >= 2 and > maxMismatches).")] int minLength = 10,
         [Description("Maximum Hamming distance k between the copies (default 1, >= 0).")] int maxMismatches = 1,
         [Description("Maximum repeat length (default 2147483647 = unbounded).")] int maxLength = int.MaxValue,
         [Description("Minimum number of bases between the copies (default 1; negative admits overlap).")] int minSpacing = 1,
-        [Description("Drop repeats contained in a k-mismatch repeat on another diagonal (Vmatch -allmax; default false).")] bool excludeContained = false)
+        [Description("Drop repeats contained in a k-mismatch repeat on another diagonal (Vmatch -allmax; default false).")] bool excludeContained = false,
+        [Description("'allMaximal' (default): every maximal repeat; 'bestPerSeed': Vmatch's default output without -allmax, one E-value-best extension per exact seed (rows may repeat; maxMismatches >= 1; excludeContained ignored).")] string reporting = "allMaximal",
+        [Description("Reproduce stock Vmatch's left-extension seed shortcut (default false = complete extension); changes only bestPerSeed output for Hamming.")] bool vmatchCompatible = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindApproximateDirectRepeats(sequence, minLength, maxMismatches, maxLength, minSpacing, excludeContained)
+            .FindApproximateDirectRepeats(sequence, minLength, maxMismatches, maxLength, minSpacing, excludeContained,
+                ParseDegenerateReporting(reporting), vmatchCompatible)
             .Select(r => new ApproximateDirectRepeatItem(
                 r.FirstPosition, r.SecondPosition, r.Length, r.Mismatches, r.Spacing, r.FirstCopy, r.SecondCopy))
             .ToArray();
@@ -684,7 +687,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_degenerate_repeats", Title = "Repeats — Degenerate Repeats (Vmatch -h/-e, -p)", ReadOnly = true)]
-    [Description("All maximal degenerate repeats with at most k differences (Kurtz et al. 2000 REPuter / Vmatch): distance 'edit' (k-differences, Vmatch -e, default) or 'hamming' (k-mismatches, Vmatch -h); reverseComplement=true gives palindromic repeats (Vmatch -p). Copies may differ in length under edit distance. Sorted by (firstPosition, secondPosition, firstLength, secondLength).")]
+    [Description("All maximal degenerate repeats with at most k differences (Kurtz et al. 2000 REPuter / Vmatch): distance 'edit' (k-differences, Vmatch -e, default) or 'hamming' (k-mismatches, Vmatch -h); reverseComplement=true gives palindromic repeats (Vmatch -p). Copies may differ in length under edit distance. reporting='bestPerSeed' gives Vmatch's default output (no -allmax: one best match per exact seed by E-value, identity, length); vmatchCompatible=true reproduces stock Vmatch 2.3.1 exactly (its left-extension seed shortcut). Sorted by (firstPosition, secondPosition, firstLength, secondLength, distance).")]
     public static FindDegenerateRepeatsResult FindDegenerateRepeats(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum length of each instance (Vmatch -l; default 10, >= 2, > maxDifferences).")] int minLength = 10,
@@ -692,7 +695,9 @@ public class AnalysisTools
         [Description("'edit' (default, unit-cost edit distance) or 'hamming'.")] string distance = "edit",
         [Description("false (default): direct repeats; true: palindromic / reverse-complement repeats (Vmatch -p).")] bool reverseComplement = false,
         [Description("Maximum length of each instance (default 2147483647 = unbounded).")] int maxLength = int.MaxValue,
-        [Description("Minimum spacing = secondPosition - firstPosition - firstLength (default 1; -2147483648 returns the complete Vmatch set).")] int minSpacing = 1)
+        [Description("Minimum spacing = secondPosition - firstPosition - firstLength (default 1; -2147483648 returns the complete Vmatch set).")] int minSpacing = 1,
+        [Description("'allMaximal' (default, Vmatch -allmax): every maximal match; 'bestPerSeed': Vmatch's default output, one best match per exact seed by E-value, identity, length (rows may repeat).")] string reporting = "allMaximal",
+        [Description("Reproduce stock Vmatch 2.3.1 exactly, including its left-extension seed shortcut that drops some maximal edit-distance matches (default false = definition-complete).")] bool vmatchCompatible = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -704,13 +709,22 @@ public class AnalysisTools
         };
 
         var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindDegenerateRepeats(sequence, minLength, maxDifferences, metric, reverseComplement, maxLength, minSpacing)
+            .FindDegenerateRepeats(sequence, minLength, maxDifferences, metric, reverseComplement, maxLength, minSpacing,
+                ParseDegenerateReporting(reporting), vmatchCompatible)
             .Select(r => new DegenerateRepeatItem(
                 r.FirstPosition, r.FirstLength, r.SecondPosition, r.SecondLength, r.Distance, r.Spacing,
                 r.FirstCopy, r.SecondCopy, r.IsReverseComplement))
             .ToArray();
         return new FindDegenerateRepeatsResult(items);
     }
+
+    private static global::Seqeron.Genomics.Analysis.DegenerateRepeatReporting ParseDegenerateReporting(string? reporting) =>
+        (reporting ?? "allMaximal").Trim().ToLowerInvariant() switch
+        {
+            "allmaximal" or "allmax" or "all" => global::Seqeron.Genomics.Analysis.DegenerateRepeatReporting.AllMaximal,
+            "bestperseed" or "best" => global::Seqeron.Genomics.Analysis.DegenerateRepeatReporting.BestPerSeed,
+            _ => throw new ArgumentException("reporting must be 'allMaximal' or 'bestPerSeed'", nameof(reporting)),
+        };
 
     [McpServerTool(Name = "find_supermaximal_repeats", Title = "Repeats — Supermaximal Repeats", ReadOnly = true)]
     [Description("Supermaximal repeats (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats not contained in any other maximal repeat, each with all its 0-based occurrences. Only A/C/G/T match. Ordered by first occurrence, then length.")]

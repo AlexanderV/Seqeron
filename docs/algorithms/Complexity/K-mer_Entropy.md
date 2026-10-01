@@ -126,7 +126,7 @@ K-mers are enumerated by the canonical `KmerAnalyzer.CountKmers` (single linear 
 
 **Not implemented:**
 
-- The entropy-rank ratio of [2] (a combinatorial rank of the entropy among all sequences of the same length) — a different measure, not part of this unit's estimators.
+- The entropy-rank ratio R of [2] — **BLOCKED (2026-10-01, B04 WP15): the paper text is unreachable from this environment**, so its exact conventions and any reference values cannot be checked. What is known from search-engine snippets of arXiv:2511.05300 is that R is the share of all length-T blocks (under non-overlapping n-tuples) whose Shannon entropy is ≤ that of the target, computed by enumerating integer partitions of the n-tuple counts with multinomial weights. Still unknown: how a remainder T mod n is handled, the tie tolerance, and how non-ACGT symbols are treated. No table, worked example or author code was found. Tried: `curl` arxiv.org/abs, /html (+v1), /pdf, export.arxiv.org/abs and api.semanticscholar.org, each giving proxy `CONNECT tunnel failed, response 403`; export.arxiv.org/api/query gave HTTP 403 "Host not in allowlist"; WebFetch of arxiv.org/html, alphaxiv.org and api.semanticscholar.org gave EGRESS_BLOCKED; `gh search repos/code` gave HTTP 403 (session bound to its repositories); four WebSearch queries returned the abstract and definition snippets only. Implementing it needs the paper's §Methods and at least one published R value.
 
 ## 6. Edge Cases and Limitations
 
@@ -166,7 +166,7 @@ double h = SequenceComplexity.CalculateKmerEntropy(new DnaSequence("ATATAT"), k:
 ## 8. References
 
 1. Li, H. 2025. Finding low-complexity DNA sequences with longdust. arXiv:2509.07357. https://arxiv.org/pdf/2509.07357
-2. Çakır, et al. 2025. Entropy–Rank Ratio: A Novel Entropy-Based Perspective for DNA Complexity and Classification. arXiv:2511.05300. https://arxiv.org/html/2511.05300
+2. Pastore, E. P., Passarino, G., Sapia, P., De Rango, F. 2025. Entropy–Rank Ratio: A Novel Entropy-Based Perspective for DNA Complexity and Classification. arXiv:2511.05300. https://arxiv.org/html/2511.05300
 3. Shannon, C. E. 1948. A Mathematical Theory of Communication. Bell System Technical Journal 27. https://en.wikipedia.org/wiki/Entropy_(information_theory)
 4. Herzel, H., Ebeling, W., Schmitt, A. O. 1994. Entropies of biosequences: the role of repeats. Phys. Rev. E 50:5061–5071. https://doi.org/10.1103/PhysRevE.50.5061
 5. Schmitt, A. O., Herzel, H. 1997. Estimating the entropy of DNA sequences. J. Theor. Biol. 188:369–377. https://doi.org/10.1006/jtbi.1997.0493

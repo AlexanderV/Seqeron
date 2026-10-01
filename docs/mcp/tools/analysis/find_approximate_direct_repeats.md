@@ -23,6 +23,12 @@ diagonal — output identical to `vmatch -l minLength -h k -allmax`. Non-ACGT sy
 `length ≤ maxLength`, `spacing = secondPosition − firstPosition − length ≥ minSpacing`. Sorted by (firstPosition,
 secondPosition, length). For edit distance or palindromic repeats use `find_degenerate_repeats`.
 
+`reporting = "bestPerSeed"` gives Vmatch's default `vmatch -l minLength -h k` output, i.e. without `-allmax`:
+one E-value-best extension per exact seed. Rows may repeat, `maxMismatches ≥ 1` is required, and
+`excludeContained` is ignored. `vmatchCompatible = true` reproduces stock Vmatch's left-extension seed shortcut,
+which changes only best-per-seed rows. Both were cross-checked against real Vmatch with 0 differing rows
+(Evidence REP-DIRECT-001 §WP15).
+
 ## Core Documentation Reference
 
 - Source: [RepeatFinder.cs#L4489](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4489)
@@ -37,6 +43,8 @@ secondPosition, length). For edit distance or palindromic repeats use `find_dege
 | `maxLength` | integer | No | Maximum repeat length (default 2147483647) |
 | `minSpacing` | integer | No | Minimum number of bases between the copies (negative admits overlap) (default 1) |
 | `excludeContained` | boolean | No | Drop repeats contained in a k-mismatch repeat on another diagonal (vmatch -allmax) (default false) |
+| `reporting` | string | No | allMaximal or bestPerSeed (Vmatch default output) (default allMaximal) |
+| `vmatchCompatible` | boolean | No | Reproduce stock Vmatch's seed shortcut (default false) |
 
 ## Output Schema
 
@@ -48,6 +56,7 @@ secondPosition, length). For edit distance or palindromic repeats use `find_dege
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1003 | minLength must be >= 2 and > maxMismatches; maxMismatches >= 0; maxLength >= minLength |
+| 1004 | reporting must be 'allMaximal' or 'bestPerSeed'; bestPerSeed requires maxMismatches >= 1 |
 
 ## Examples
 

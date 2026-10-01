@@ -134,7 +134,8 @@ Worked values (repeat-match -f, converted to 0-based):
 
 Vmatch's **default** `-h k` output (no `-allmax`) keeps one E-value-best extension per seed and is not a set
 definition (it can report a shorter-than-maximal window, e.g. (26,81,12,−1) where (26,81,13,−2) exists); the
-library therefore reproduces the definitional set (`-allmax`).
+library therefore reproduces the definitional set (`-allmax`) by default; since WP15 the default output is available as
+`DegenerateRepeatReporting.BestPerSeed` (§WP15).
 
 Timing (1 Mb random DNA, Release): direct (min 20) 0.63 s; reverse-complement (min 20) 1.2 s; k-mismatch
 (min 30, k = 2, both modes) 0.76 s; supermaximal (min 15) 0.53 s.
@@ -205,4 +206,98 @@ copies with substitutions/indels and spacers, single N. Timing 1 Mb (m 30, k 2):
 | `GATTACANGATTACA` -l 6 -e 1 | (0,7,7,8,1) (0,8,8,7,1) | all three |
 | `GGACCATGAAGG` -p -l 5 -e 3 | 9 matches incl. (0,0,5,7,3) (0,0,7,5,3) (1,4,7,7,3) | VM_NOPRUNE = brute force; stock (1,4,7,6,3) |
 | `TTGACCGTAACCCCCGTTACGGTCAACC` -p -l 8 -e 1 / -h 1 | 3 / 2 matches | all three |
+
+## WP15 — Vmatch default output (best per seed) and stock compatibility (B04 audit, 2026-10-01)
+
+### Sources opened
+- Vmatch 2.3.1 source (same tree as §WP8):
+  - `src/doc/virtman.tex`. Option `-allmax`: "Report all maximal matches … mainly used for compatibility with REPuter". The paragraph after Table "Exclude": "If the options -best, -allmax, and -complete are not used, then for each seed a best match, i.e. one with a minimum E-value is output … There is no limit on the number of matches reported".
+  - `Vmengine/extendgen.c`. Without `-allmax`, `processallmax = NULL` and `processfinal` is called once per seed.
+  - `kurtz/extendHD.c`:
+    - `hammingextend`, with the lookleft/lookright tables and the boundary special cases;
+    - `extendmismatchesleft`, whose `searchlength` shortcut returns h − 1 when the run between two mismatches is longer than the seed length;
+    - the enumeration order: distance, then left errors.
+  - `kurtz/extendED.c`:
+    - `editextend`: the `maxleftextend`/`maxrightextend` early exit, the combination order (distance → lookindex → left diagonal → right diagonal), the swap to `pos1 ≤ pos2`, and `acceptmatch`;
+    - best selection with `cmpmatches`.
+  - `include/extcmp.c` (`cmpmatches`), in priority order:
+    1. E-value via `incgetEvalue(evalues, 1.0, d, len)`;
+    2. identity via `EVALIDENTITY`, `100(1 − |d|/len)`;
+    3. length;
+    4. a full tie returns 1 (replace).
+  - `kurtz/evalues.c` (`incprecomputehammingEvalues`, `incgetEvalue`, the `averagequot` table, `SMALLESTEVALUE` 1e-300). `Vmatch/procmatch.c` sets the match probability to 1/(mapsize − 1) = 1/4 (checked: the printed E-value 9.42e-17 for (36, d 1) equals 36 · 0.25³⁵ · 0.75³ · n²/2).
+  - `kurtz/frontSEP.c` and `kurtz/front.gen`:
+    - fronts: `evalentryforward/backward`, `frontspecparms` band, `accessfront`;
+    - minus infinity = −max(ulen, vlen);
+    - the same-position rule `uptr == vptr`.
+  - `kurtz/mcontain.c` (`matchcontainer`: a new match identical to a stored one is dropped, so the first seed's distance stays).
+  - `Vmengine/vmatfind.c` (`processleafedge` / `processbranch` pair emission order).
+  - `Vmengine/fquery.c`, `procexqu.c` and `Vmatch/procfinal.c`:
+    - `-p` is a query of revcomp(S) streamed by query start;
+    - `fetchpositions` drops rows with relpos1 > relpos2.
+
+### Reference build
+- Stock: `apt` `vmatch` 2.3.1+dfsg-9.
+- Source build (§WP8). Besides `VM_NOPRUNE` (`extendedleftSEP` reach = UINT_MAX), WP15 adds `VM_NOPRUNE_H`, which passes `searchlength = UINT_MAX` to `extendmismatchesleft` in `extendHD.c`.
+- Without the env switches, the rebuilt `vmatch.x` output is byte-identical to stock.
+- Harness `scratchpad/wp15/cmp15.py` (+ `xc15`, `big15.py`) compares rows as multisets of (l, i, r, j, |d|), because the default output may repeat a row.
+
+### Findings
+1. **Default output.** Without `-allmax`, Vmatch prints one row per seed. The same match is printed once for every seed whose best extension it is.
+   - Stock Vmatch rarely prints such duplicates: the left-extension shortcut stops seeds that cross another seed.
+   - With the shortcut off, the duplicates are frequent.
+   - The E-value criterion prefers a short exact or low-distance window to a longer maximal one. Example: `ATCTGGTGTACTCTGCCCACGACTATCGGTGTACTCTGC -l 15 -e 3` prints only (0,24,16,15,1).
+2. **Hamming shortcut.** `extendHD.c` has its own shortcut (`searchlength`). It never changes the `-allmax` set (§WP8: stock = definition), but it does change the best-per-seed rows (2 982 / 6 000 direct cases differ between stock and shortcut-off).
+3. **Distance label in `-allmax`.** `matchcontainer` keeps the first stored copy of a match, so Vmatch prints the distance of the **first seed** (in its seed order) that reaches the match. That can exceed the edit distance:
+   - `CAAATTTT -p -l 8 -e 3 -allmax` prints (0,0,8,8,3) although d_E(CAAATTTT, AAAATTTG) = 2;
+   - `ACAAAAAAAACAC -l 7 -e 3 -allmax` (stock) prints (0,2,11,11,3), where d_E = 2.
+
+   `FindDegenerateRepeats` keeps reporting the edit distance by default. The 6 000-case WP8 harness had not hit such a case, but the WP15 run did: 1 case, 2 rows, vs the shortcut-off build. `vmatchCompatible` reproduces the label by extending seeds in Vmatch's order: `vmatfind.c` emission order for direct seeds, query start for `-p`.
+
+### Implementation (WP15)
+- `DegenerateRepeatReporting { AllMaximal, BestPerSeed }`.
+- New overloads:
+  - `FindDegenerateRepeats(…, reporting, vmatchCompatible = false)`;
+  - `FindApproximateDirectRepeats(string, …, excludeContained, reporting, vmatchCompatible = false)`.
+- MCP `find_degenerate_repeats` / `find_approximate_direct_repeats` get the optional parameters `reporting` (`allMaximal` | `bestPerSeed`) and `vmatchCompatible`.
+- **Literal port, `VmatchExtension`.** Hamming tables, edit fronts with every convention above, and candidates produced in Vmatch's order. `VmatchEvalues` builds the table exactly as `incprecomputehammingEvalues` (same double arithmetic order), and `CompareVmatchMatches` = `cmpmatches`.
+- **`vmatchCompatible`.** The reach is the seed length (stock shortcut). For edit `-allmax`, candidates go through the per-seed and global containers with first-seed-wins distances.
+
+### Cross-checks (0 = no differing row; reference: stock `vmatch` for compatible, `VM_NOPRUNE`+`VM_NOPRUNE_H` build for complete)
+The edit `-allmax` complete row is the existing F47 default; it reports the edit distance, not the first-seed label.
+
+| Inputs | Configurations | Rows (Vmatch) | Differing rows |
+|---|---|---|---|
+| 6 000 × 8–50 bp (k 1–3; ℓ = k+1 … k+1+max(8, n/6); uniform / AC / 5 % N / motif copies with indels / single N) | 16 = {h, e} × {direct, -p} × {allmax, best} × {stock, complete} | 1 423 142 | 0 in all 15 configurations except edit -p `-allmax` complete (default): 1 case / 2 rows, the first-seed distance label (finding 3) |
+| 2 000 × 8–50 bp, k 1–4 | 8 Hamming configurations | 233 692 | 0 |
+| 300 × 100–1 500 bp | 16 | 2 338 723 | 0 |
+| 1 Mb random + 500 planted 100-bp copies (half reverse-complemented, 5 % noise), ℓ 30, k 2 | e/h × d/p best stock, e d/p allmax stock, e/h d best complete | 6 237 | 0 |
+| 200 kb, 100 planted copies, ℓ 20, k 3 | 10 (all stock + complete best) | 12 929 | 0 |
+
+The shortcut changes the output in:
+
+| Configuration | Cases changed (of 6 000) |
+|---|---|
+| direct edit `-allmax` | 109 |
+| `-p` edit `-allmax` | 97 |
+| best-per-seed edit | 3 624 (direct) / 2 961 (`-p`) |
+| best-per-seed Hamming | 2 982 (direct) / 2 773 (`-p`) |
+
+Every one of those cases matches Vmatch in both settings.
+
+Timing (Release):
+- 1 Mb (ℓ 30, k 2): best-per-seed 1.0–2.7 s, against stock Vmatch 0.1–0.5 s.
+- 200 kb (ℓ 20, k 3, seed length 5): 1.5–27 s, against 3–16 s.
+
+### Locked values (`RepeatFinder_VmatchReporting_Tests`, MCP tests)
+Tuples (i, j, l, r, d). The 121-bp input is `CCGGCCCCTGAGTCCGAGGAGGATCACAGTCTACACTGCTCACTCCAACCGAGGATCACAGTTTACACTGCTCACTCCAACCGAGGGTGCTTGGATCACAGTCTACATGCTCACTCCAACC`.
+
+| Call | Stock | Shortcut off |
+|---|---|---|
+| 121-bp copies `-l 12 -h 2` | 18,50,36,36,1; 20,92,15,15,0; 31,63,23,23,0; 36,107,14,14,0; 52,92,15,15,1; 68,107,14,14,0 | 18,50,36,36,1 ×2; 20,92,15,15,0; 36,107,14,14,0; 52,92,15,15,1 ×2; 68,107,14,14,0 |
+| same `-l 12 -e 2` | 18,50,36,36,1; 20,92,30,29,1; 31,63,23,23,0; 36,107,14,14,0; 52,92,30,29,2; 63,103,19,18,1; 68,107,14,14,0 | 18,50,36,36,1 ×2; 20,92,30,29,1 ×2; 52,92,30,29,2 ×3 |
+| same `-p -l 12 -h 2` | 26,26,12,12,2; 26,58,12,12,2; 58,58,12,12,2 | each ×2 |
+| `ATCTGG…GTGTACTCTGC -l 15 -e 3` / `-h 3` | 0,24,16,15,1 / 1,24,15,15,3 | 0,24,16,15,1 ×2 / 1,24,15,15,3 |
+| `GGACCATGAAGG -p -l 5 -e 3` | 9 rows | 19 rows |
+| `-allmax` `CAAATTTT -p -l 8 -e 3` | 0,0,8,8,3 | default 0,0,8,8,2 (edit distance) |
 

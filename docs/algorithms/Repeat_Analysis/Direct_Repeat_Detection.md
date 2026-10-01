@@ -116,8 +116,29 @@ All three reuse the same suffix-array/LCP maximal-pair engine (`EnumerateMaximal
 - **Definitions** (Vmatch manual App. A [10]): a match `(l, i, r, j)` pairs `u = S[i..i+l)` with `w = S[j..j+r)`; direct `u ≈ w` (`i < j`), palindromic `u ≈ revcomp(w)` (`i ≤ j`). Hamming: `l = r`, `d_H ≤ k` ("k-mismatch match"); edit: unit-cost `d_E ≤ k` (mismatch, insertion, deletion; "k-differences match"). Contained: `i′ ≤ i ≤ i+l ≤ i′+l′` and `j′ ≤ j ≤ j+r ≤ j′+r′`; maximal = not contained in another match of the same kind; both `l, r ≥ minLength` (`-l`). Wildcards always mismatch.
 - **Vmatch conventions** (source `kurtz/extendED.c`, `mcontain.c`, Vmatch 2.3.1 [11]): direct edit matches pass `acceptmatch` — the right instance must not be embedded in the left one and overlapping instances need a non-overlapping part `(j − i) + (j + r) − (i + l)` larger than the distance (removes trivial self-alignments like `S[0..n)` vs `S[1..n)`); palindromic matches are compared in both orientations (the mirror `(r, j, l, i)` is the same pair of strings) and reported with `i ≤ j` (for `i = j`, `l ≠ r` both orientations).
 - **Algorithm**: pigeonhole seeds (exact maximal pairs ≥ ⌊m/(k+1)⌋; direct engine of §4.1, palindromic engine of §4.4 in both orientations). Hamming: the (k+1)-th-mismatch windows of §4.4 on `S` vs `S` or `S` vs `revcomp(S)`, then cross-diagonal containment. Edit: greedy furthest-reaching fronts (Ukkonen 1985 / Myers 1986 [12], as Vmatch `frontSEP.c` [11]) left and right of each seed, every combination of front points with a + b ≤ k is a candidate with distance min(a + b); per-seed then global containment (max segment tree over the u-intervals, output-sensitive). For a maximal match the rerouting argument (an optimal alignment through any error-free block can follow the seed diagonal) makes min(a + b) = `d_E`.
-- **Vmatch shortcut not reproduced**: Vmatch stops a left extension that crosses another exact match ≥ the seed length (`evalentrybackward`, "seed … detected while scanning"), assuming the match is found from that seed; for edit matches the other seed's alignment differs, so stock Vmatch misses some maximal matches (and then prints contained ones). The same Vmatch release built from source with that one test disabled (`VM_NOPRUNE`) and a brute force of the definition agree with this method on every case (Evidence §WP8).
+- **Vmatch shortcut not reproduced by default** (opt-in since WP15, §4.6): Vmatch stops a left extension that crosses another exact match ≥ the seed length (`evalentrybackward`, "seed … detected while scanning"), assuming the match is found from that seed; for edit matches the other seed's alignment differs, so stock Vmatch misses some maximal matches (and then prints contained ones). The same Vmatch release built from source with that one test disabled (`VM_NOPRUNE`) and a brute force of the definition agree with this method on every case (Evidence §WP8).
 - Cost: O(n log² n + s·k⁴ + c log c) for s seeds and c candidates; 1 Mb random + planted repeats (m 30, k 2): direct 0.8 s, palindromic 1.8 s (Hamming 0.9 / 1.7 s).
+
+### 4.6 Vmatch output modes and stock compatibility (B04 audit WP15)
+
+`FindDegenerateRepeats(seq, minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing, DegenerateRepeatReporting reporting, bool vmatchCompatible = false)` (and `FindApproximateDirectRepeats(…, excludeContained, reporting, vmatchCompatible)` for Hamming/direct). The MCP tools `find_degenerate_repeats` and `find_approximate_direct_repeats` expose these as `reporting` = `allMaximal` | `bestPerSeed` and `vmatchCompatible`.
+
+- **`BestPerSeed`** is Vmatch's default output when `-allmax`, `-best` and `-complete` are all absent. The manual (`virtman.tex`) says: "for each seed a best match, i.e. one with a minimum E-value is output … no limit on the number of matches".
+  - **Extension.** Each exact maximal seed is extended exactly as Vmatch does it. Hamming follows `hammingextend` / `extendmismatchesleft/right` (`kurtz/extendHD.c`). Edit follows `editextend` (`kurtz/extendED.c`) over the greedy fronts of `frontSEP.c`/`front.gen`, including their conventions (minus-infinity = −max(ulen, vlen), the band once p > min(ulen, vlen), the same-position rule).
+  - **Candidate order.** Candidates are visited in Vmatch's order: distance, left errors, left diagonal, right diagonal.
+  - **Choice of the best candidate.** It follows `cmpmatches` (`include/extcmp.c`): smaller E-value first, then higher identity `100(1 − d/len)`, then longer `len`. A full tie keeps the later candidate. `len` is the common length for Hamming and the longer instance for edit.
+  - **E-values.** They follow `kurtz/evalues.c` (Kurtz et al. ISMB 2000). The Hamming table P(l, k) is built incrementally with match probability 1/4, stops at 1e-300 and uses multiplier 1. Edit distances are scaled by `averagequot[k]`.
+  - **Output.** There is one row per seed, so the same repeat can repeat, as in Vmatch's output. Palindromic rows with i > j are dropped, as `fetchpositions` does.
+- **`vmatchCompatible = true`** reproduces stock Vmatch 2.3.1.
+  - **Left-extension shortcut.** A left extension stops where it scans another exact match ≥ the seed length. For edit this is `evalentrybackward`; for Hamming it is `extendmismatchesleft`, which returns h − 1.
+  - **`-allmax` edit output.** Seeds are taken in Vmatch's order: the `processleafedge`/`processbranch` emission order of `Vmengine/vmatfind.c`, and for `-p` the query start. The match container keeps the distance of the **first** seed that reaches a match, because `matchcontainer` never replaces a stored match with an identical one. So stock prints `(0,0,8,8,3)` for `CAAATTTT -p -l 8 -e 3`, although d_E = 2.
+  - **Default (`false`).** The default keeps the complete extension and reports the edit distance.
+  - **Hamming `-allmax`.** The shortcut never changes the maximal set.
+- **Cross-check against real Vmatch** (Evidence §WP15): 0 mismatching rows, compared as multisets.
+  - The reference is stock `vmatch` for `vmatchCompatible = true`. For `false` it is the same release built from source with both shortcuts switched off (`VM_NOPRUNE`, `VM_NOPRUNE_H`).
+  - The cases cover all 16 combinations of {h, e} × {direct, -p} × {allmax, best} × {stock, complete}.
+  - Inputs: 6 000 + 2 000 (k ≤ 4) inputs of 8–50 bp, 300 of 100–1 500 bp, and 1 Mb and 200 kb inputs.
+  - **One documented exception, in the default `allMaximal` edit mode.** That mode reports the true edit distance, whereas Vmatch prints its first-seed label: 1 case in 6 000, `CAAATTTT -p`.
 
 ## 5. Implementation Notes
 
@@ -131,6 +152,7 @@ All three reuse the same suffix-array/LCP maximal-pair engine (`EnumerateMaximal
 - `RepeatFinder.FindApproximateDirectRepeats(DnaSequence|string, int, int, int, int, bool)` → `ApproximateDirectRepeatResult` (§4.4).
 - `RepeatFinder.FindSupermaximalRepeats(DnaSequence|string, int)` → `SupermaximalRepeatResult` (§4.4).
 - `RepeatFinder.FindDegenerateRepeats(DnaSequence|string, int, int, ApproximateRepeatDistance, bool, int, int)` → `DegenerateRepeatResult` (§4.5).
+- `RepeatFinder.FindDegenerateRepeats(DnaSequence|string, …, DegenerateRepeatReporting, bool vmatchCompatible = false)` and `FindApproximateDirectRepeats(string, …, bool excludeContained, DegenerateRepeatReporting, bool vmatchCompatible = false)`: Vmatch best-per-seed output and stock-Vmatch compatibility (§4.6).
 - MCP: `find_direct_repeats` wraps `FindDirectRepeats`; the variants are exposed as `find_reverse_complement_repeats`, `find_approximate_direct_repeats`, `find_degenerate_repeats` and `find_supermaximal_repeats` (Analysis server, review-2026-09 B04 F49).
 
 ### 5.2 Current Behavior

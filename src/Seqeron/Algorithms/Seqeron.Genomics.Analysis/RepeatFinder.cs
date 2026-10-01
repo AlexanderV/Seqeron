@@ -4101,7 +4101,7 @@ public static class RepeatFinder
     /// Every maximal exact repeated pair (Gusfield 1997 §7.12) of the (upper-cased) sequence with
     /// length in [minLength, maxLength]: A/C/G/T → 0..3, every other symbol a unique code (never matches).
     /// </summary>
-    private static List<RawMaximalPair> EnumerateForwardMaximalPairs(string seq, int minLength, int maxLength)
+    private static List<RawMaximalPair> EnumerateForwardMaximalPairs(string seq, int minLength, int maxLength, bool vmatchOrder = false)
     {
         int n = seq.Length;
         var symbols = new int[n];
@@ -4113,7 +4113,7 @@ public static class RepeatFinder
             leftClass[p] = p > 0 && symbols[p - 1] < 4 ? symbols[p - 1] : UniqueLeftClass;
         }
 
-        return EnumerateMaximalPairs(symbols, leftClass, strandOf: null, minLength, maxLength);
+        return EnumerateMaximalPairs(symbols, leftClass, strandOf: null, minLength, maxLength, vmatchOrder);
     }
 
     /// <summary>
@@ -4123,14 +4123,17 @@ public static class RepeatFinder
     /// into its parent at string depth ℓ emits every pair (p from the child, q already in the parent)
     /// whose left characters differ (or are undefined) — those pairs have LCP exactly ℓ (right-maximal)
     /// and are left-maximal. With <paramref name="strandOf"/>, only pairs on different strands are emitted.
-    /// O(n log² n + z) for z visited pairs.
+    /// O(n log² n + z) for z visited pairs. <paramref name="vmatchOrder"/> (single strand only) emits the pairs
+    /// of each merge in the order of Vmatch's <c>processleafedge</c>/<c>processbranch</c> (Vmengine/vmatfind.c):
+    /// parent class outer, child class inner, undefined-left-character lists last; the set is unchanged.
     /// </summary>
     private static List<RawMaximalPair> EnumerateMaximalPairs(
         int[] symbols,
         int[] leftClass,
         int[]? strandOf,
         int minLength,
-        int maxLength)
+        int maxLength,
+        bool vmatchOrder = false)
     {
         var pairs = new List<RawMaximalPair>();
         int n = symbols.Length;
@@ -4169,7 +4172,7 @@ public static class RepeatFinder
             while (stackLcp[top] > h)
             {
                 MergeMaximalPairLists(top, classCount, strands, childHead, childTail, stackLcp, stackHead,
-                    stackTail, next, minLength, maxLength, pairs);
+                    stackTail, next, minLength, maxLength, pairs, vmatchOrder);
                 for (int c = 0; c < classCount; c++)
                 {
                     childHead[c] = stackHead[top * classCount + c];
@@ -4186,7 +4189,7 @@ public static class RepeatFinder
             }
 
             MergeMaximalPairLists(top, classCount, strands, childHead, childTail, stackLcp, stackHead,
-                stackTail, next, minLength, maxLength, pairs);
+                stackTail, next, minLength, maxLength, pairs, vmatchOrder);
         }
 
         return pairs;
@@ -4208,12 +4211,39 @@ public static class RepeatFinder
         int[] next,
         int minLength,
         int maxLength,
-        List<RawMaximalPair> pairs)
+        List<RawMaximalPair> pairs,
+        bool vmatchOrder)
     {
         int length = stackLcp[node];
         int baseIdx = node * classCount;
 
-        if (length >= minLength && length <= maxLength)
+        if (vmatchOrder && length >= minLength && length <= maxLength)
+        {
+            // processbranch: for each parent character cf: parent[cf] × child[cs ≠ cf], then child-unique ×
+            // parent[cf]; then parent-unique × every child list.
+            for (int cf = 0; cf < UniqueLeftClass; cf++)
+            {
+                int fHead = stackHead[baseIdx + cf];
+                if (fHead < 0) continue;
+                for (int cs = 0; cs < UniqueLeftClass; cs++)
+                {
+                    if (cs == cf || childHead[cs] < 0) continue;
+                    for (int f = fHead; f >= 0; f = next[f])
+                        for (int c = childHead[cs]; c >= 0; c = next[c])
+                            pairs.Add(new RawMaximalPair(f, c, length));
+                }
+                for (int c = childHead[UniqueLeftClass]; c >= 0; c = next[c])
+                    for (int f = fHead; f >= 0; f = next[f])
+                        pairs.Add(new RawMaximalPair(c, f, length));
+            }
+            for (int f = stackHead[baseIdx + UniqueLeftClass]; f >= 0; f = next[f])
+            {
+                for (int cs = 0; cs <= UniqueLeftClass; cs++)
+                    for (int c = childHead[cs]; c >= 0; c = next[c])
+                        pairs.Add(new RawMaximalPair(f, c, length));
+            }
+        }
+        else if (length >= minLength && length <= maxLength)
         {
             for (int a = 0; a < classCount; a++)
             {
@@ -4446,8 +4476,8 @@ public static class RepeatFinder
     /// enumerated with the suffix-array maximal-pair engine of <see cref="FindDirectRepeats(string,int,int,int)"/>
     /// and, per seed, every maximal window containing it is generated from the first k+1 mismatches to its
     /// left and right (all splits a + b = k, as in REPuter's maximum-error extension tables). Duplicates found
-    /// from several seeds are reported once. Unlike Vmatch's default output (one E-value-best extension per
-    /// seed, not a set definition), <b>all</b> maximal k-mismatch repeats are returned; with
+    /// from several seeds are reported once. <b>All</b> maximal k-mismatch repeats are returned (Vmatch's default
+    /// output — one E-value-best extension per seed — is the overload with <see cref="DegenerateRepeatReporting.BestPerSeed"/>); with
     /// <paramref name="excludeContained"/> the output is identical to <c>vmatch -h k -allmax</c> (verified on
     /// 3 040 random cases, 1.09 M repeats). Cost O(n log² n + s·k + z) for s seeds; a small ⌊m/(k+1)⌋ makes s
     /// grow quadratically.
@@ -4499,6 +4529,42 @@ public static class RepeatFinder
             return Array.Empty<ApproximateDirectRepeatResult>();
 
         return FindApproximateDirectRepeatsCore(sequence.ToUpperInvariant(), minLength, maxMismatches, maxLength, minSpacing, excludeContained);
+    }
+
+    /// <summary>
+    /// k-mismatch direct repeats with a choice of Vmatch output mode: <see cref="DegenerateRepeatReporting.AllMaximal"/>
+    /// is <see cref="FindApproximateDirectRepeats(string,int,int,int,int,bool)"/>;
+    /// <see cref="DegenerateRepeatReporting.BestPerSeed"/> is Vmatch's default <c>vmatch -l minLength -h k</c> output
+    /// without <c>-allmax</c> (one E-value-best extension per exact seed; requires <paramref name="maxMismatches"/> ≥ 1,
+    /// <paramref name="excludeContained"/> does not apply), i.e.
+    /// <see cref="FindDegenerateRepeats(string,int,int,ApproximateRepeatDistance,bool,int,int,DegenerateRepeatReporting,bool)"/>
+    /// with <see cref="ApproximateRepeatDistance.Hamming"/>, direct. <paramref name="vmatchCompatible"/> reproduces stock
+    /// Vmatch's left-extension shortcut (it changes only the best-per-seed output; the maximal set is the same).
+    /// <c>null</c> or empty input yields no results.
+    /// </summary>
+    public static IEnumerable<ApproximateDirectRepeatResult> FindApproximateDirectRepeats(
+        string sequence,
+        int minLength,
+        int maxMismatches,
+        int maxLength,
+        int minSpacing,
+        bool excludeContained,
+        DegenerateRepeatReporting reporting,
+        bool vmatchCompatible = false)
+    {
+        ValidateApproximateDirectParameters(minLength, maxMismatches, maxLength);
+        ValidateReporting(reporting);
+        if (reporting == DegenerateRepeatReporting.AllMaximal)
+            return FindApproximateDirectRepeats(sequence, minLength, maxMismatches, maxLength, minSpacing, excludeContained);
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxMismatches, 1); // vmatch -h k requires k > 0
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<ApproximateDirectRepeatResult>();
+
+        return FindDegenerateRepeatsCore(sequence.ToUpperInvariant(), minLength, maxMismatches, ApproximateRepeatDistance.Hamming,
+                palindromic: false, maxLength, minSpacing, reporting, vmatchCompatible)
+            .ConvertAll(static r => new ApproximateDirectRepeatResult(
+                r.FirstPosition, r.SecondPosition, r.FirstLength, r.Distance, r.Spacing, r.FirstCopy, r.SecondCopy));
     }
 
     private static void ValidateApproximateDirectParameters(int minLength, int maxMismatches, int maxLength)
@@ -4722,7 +4788,10 @@ public static class RepeatFinder
     /// (<c>evalentrybackward</c> "seed … detected while scanning"), assuming it is found from that seed; for
     /// k-differences matches this loses some maximal matches (and then reports contained ones). This method
     /// returns the complete set: identical to Vmatch with that shortcut disabled, and to a brute-force
-    /// enumeration of the definition (Evidence REP-DIRECT-001 §WP8). Results ordered by
+    /// enumeration of the definition (Evidence REP-DIRECT-001 §WP8); the overload with <c>vmatchCompatible</c>
+    /// reproduces stock Vmatch, and <see cref="DegenerateRepeatReporting.BestPerSeed"/> Vmatch's default output
+    /// without <c>-allmax</c> (§WP15). Distance is the edit distance of the copies (Vmatch prints the distance of the
+    /// first seed that reached the match, which can be larger). Results ordered by
     /// (FirstPosition, SecondPosition, FirstLength, SecondLength).
     /// </para>
     /// </remarks>
@@ -4748,7 +4817,70 @@ public static class RepeatFinder
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ValidateDegenerateParameters(minLength, maxDifferences, distance, maxLength);
-        return FindDegenerateRepeatsCore(sequence.Sequence, minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing);
+        return FindDegenerateRepeatsCore(sequence.Sequence, minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing,
+            DegenerateRepeatReporting.AllMaximal, vmatchCompatible: false);
+    }
+
+    /// <summary>
+    /// Degenerate repeats with a choice of Vmatch output mode (<paramref name="reporting"/>) and optional
+    /// bug-for-bug compatibility with stock Vmatch 2.3.1 (<paramref name="vmatchCompatible"/>). The other
+    /// parameters are those of <see cref="FindDegenerateRepeats(DnaSequence,int,int,ApproximateRepeatDistance,bool,int,int)"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="DegenerateRepeatReporting.AllMaximal"/> is the complete set of maximal matches
+    /// (<c>vmatch … -allmax</c>, the default of the shorter overload). <see cref="DegenerateRepeatReporting.BestPerSeed"/>
+    /// is Vmatch's default output when <c>-allmax</c>, <c>-best</c> and <c>-complete</c> are absent (manual
+    /// virtman.tex: "for each seed a best match, i.e. one with a minimum E-value is output … There is no limit
+    /// on the number of matches reported"). Every exact maximal seed (length ≥ ⌊minLength/(k+1)⌋) is extended
+    /// exactly as Vmatch's <c>hammingextend</c> (kurtz/extendHD.c) / <c>editextend</c> (kurtz/extendED.c,
+    /// greedy fronts of kurtz/frontSEP.c + front.gen) does; the candidates are visited in Vmatch's order
+    /// (distance, left errors, left diagonal, right diagonal) and the best one is kept by Vmatch's
+    /// <c>cmpmatches</c> (include/extcmp.c): smaller E-value (kurtz/evalues.c, Kurtz et al. ISMB 2000, match
+    /// probability 1/4, multiplier 1; edit E-values scaled by the <c>averagequot</c> table), then higher
+    /// identity <c>100·(1 − d/len)</c>, then longer <c>len</c> (Hamming: the common length; edit: the longer
+    /// instance); a full tie keeps the later candidate. One row per seed that has a match of length ≥
+    /// <paramref name="minLength"/>, so the same repeat can appear more than once (as in Vmatch's output);
+    /// a palindromic row is kept when its left instance does not start after its right one.
+    /// </para>
+    /// <para>
+    /// <paramref name="vmatchCompatible"/> = <c>false</c> (default): the extension of every seed is complete
+    /// (the definition). <c>true</c>: reproduce stock Vmatch, which stops a left extension that crosses another
+    /// exact match of length ≥ the seed length (edit: <c>evalentrybackward</c> "seed … detected while
+    /// scanning", frontSEP.c; Hamming: <c>extendmismatchesleft</c>, extendHD.c) on the assumption that the
+    /// match is found from that seed. For <see cref="DegenerateRepeatReporting.AllMaximal"/> with edit distance
+    /// this loses some maximal matches and then reports contained ones (Evidence REP-DIRECT-001 §WP8, 71 of
+    /// 6 000 cases); for Hamming it does not change the maximal set; for <see cref="DegenerateRepeatReporting.BestPerSeed"/>
+    /// it changes which extension a seed reports. Verified against stock <c>vmatch</c> and against Vmatch built
+    /// from source with the shortcut switched off (Evidence REP-DIRECT-001 §WP15).
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minLength">Minimum length of each instance (Vmatch <c>-l</c>).</param>
+    /// <param name="maxDifferences">Maximum distance k (Vmatch <c>-h k</c> / <c>-e k</c>).</param>
+    /// <param name="distance">Hamming or unit-cost edit distance.</param>
+    /// <param name="reverseComplement"><c>true</c>: palindromic (Vmatch <c>-p</c>).</param>
+    /// <param name="maxLength">Maximum length of each instance.</param>
+    /// <param name="minSpacing">Minimum spacing (<c>int.MinValue</c>: no filter).</param>
+    /// <param name="reporting">All maximal matches (<c>-allmax</c>) or one best match per seed (Vmatch default).</param>
+    /// <param name="vmatchCompatible">Reproduce stock Vmatch's left-extension shortcut (default <c>false</c>).</param>
+    /// <returns>Rows sorted by (FirstPosition, SecondPosition, FirstLength, SecondLength, Distance).</returns>
+    public static IEnumerable<DegenerateRepeatResult> FindDegenerateRepeats(
+        DnaSequence sequence,
+        int minLength,
+        int maxDifferences,
+        ApproximateRepeatDistance distance,
+        bool reverseComplement,
+        int maxLength,
+        int minSpacing,
+        DegenerateRepeatReporting reporting,
+        bool vmatchCompatible = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateDegenerateParameters(minLength, maxDifferences, distance, maxLength);
+        ValidateReporting(reporting);
+        return FindDegenerateRepeatsCore(sequence.Sequence, minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing,
+            reporting, vmatchCompatible);
     }
 
     /// <summary>
@@ -4769,7 +4901,39 @@ public static class RepeatFinder
         if (string.IsNullOrEmpty(sequence))
             return Array.Empty<DegenerateRepeatResult>();
 
-        return FindDegenerateRepeatsCore(sequence.ToUpperInvariant(), minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing);
+        return FindDegenerateRepeatsCore(sequence.ToUpperInvariant(), minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing,
+            DegenerateRepeatReporting.AllMaximal, vmatchCompatible: false);
+    }
+
+    /// <summary>
+    /// Degenerate repeats in a raw sequence string with a Vmatch output mode and optional stock-Vmatch
+    /// compatibility; see <see cref="FindDegenerateRepeats(DnaSequence,int,int,ApproximateRepeatDistance,bool,int,int,DegenerateRepeatReporting,bool)"/>.
+    /// <c>null</c> or empty input yields no results.
+    /// </summary>
+    public static IEnumerable<DegenerateRepeatResult> FindDegenerateRepeats(
+        string sequence,
+        int minLength,
+        int maxDifferences,
+        ApproximateRepeatDistance distance,
+        bool reverseComplement,
+        int maxLength,
+        int minSpacing,
+        DegenerateRepeatReporting reporting,
+        bool vmatchCompatible = false)
+    {
+        ValidateDegenerateParameters(minLength, maxDifferences, distance, maxLength);
+        ValidateReporting(reporting);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<DegenerateRepeatResult>();
+
+        return FindDegenerateRepeatsCore(sequence.ToUpperInvariant(), minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing,
+            reporting, vmatchCompatible);
+    }
+
+    private static void ValidateReporting(DegenerateRepeatReporting reporting)
+    {
+        if (reporting is not (DegenerateRepeatReporting.AllMaximal or DegenerateRepeatReporting.BestPerSeed))
+            throw new ArgumentOutOfRangeException(nameof(reporting), reporting, "Unknown reporting mode.");
     }
 
     private static void ValidateDegenerateParameters(int minLength, int maxDifferences, ApproximateRepeatDistance distance, int maxLength)
@@ -4797,7 +4961,9 @@ public static class RepeatFinder
         ApproximateRepeatDistance distance,
         bool palindromic,
         int maxLength,
-        int minSpacing)
+        int minSpacing,
+        DegenerateRepeatReporting reporting,
+        bool vmatchCompatible)
     {
         var results = new List<DegenerateRepeatResult>();
         int n = seq.Length;
@@ -4807,6 +4973,10 @@ public static class RepeatFinder
         int[] u = AcgtCodes(seq);
         int[] v = u;
         int seedLength = Math.Max(1, minLength / (k + 1));
+        // Only the stock -allmax edit path depends on the order in which seeds are extended (matchcontainer
+        // keeps the distance of the first seed that reaches a match).
+        bool vmatchSeedOrder = vmatchCompatible && reporting == DegenerateRepeatReporting.AllMaximal
+            && distance == ApproximateRepeatDistance.Edit;
         List<RawMaximalPair> seeds;
         if (palindromic)
         {
@@ -4818,14 +4988,28 @@ public static class RepeatFinder
                 v[q] = c >= 0 ? 3 - c : -1; // A C G T = 0 1 2 3 → complement 3 − c
             }
             seeds = EnumerateReverseComplementSeeds(seq, seedLength, int.MaxValue);
+            if (vmatchSeedOrder)
+            {
+                // Vmatch streams revcomp(S) as a query against S: seeds arrive by query start.
+                seeds = seeds.OrderBy(static x => x.Q).ToList();
+            }
         }
         else
         {
-            seeds = EnumerateForwardMaximalPairs(seq, seedLength, int.MaxValue);
+            seeds = EnumerateForwardMaximalPairs(seq, seedLength, int.MaxValue, vmatchOrder: vmatchSeedOrder);
         }
 
         List<DegenerateMatch> matches;
-        if (distance == ApproximateRepeatDistance.Hamming)
+        if (reporting == DegenerateRepeatReporting.BestPerSeed)
+        {
+            matches = FindBestMatchPerSeed(u, v, seeds, minLength, k, distance == ApproximateRepeatDistance.Hamming,
+                palindromic, vmatchCompatible ? seedLength : int.MaxValue);
+        }
+        else if (distance == ApproximateRepeatDistance.Edit && vmatchCompatible)
+        {
+            matches = RemoveContainedMatches(FindStockVmatchEditCandidates(u, v, seeds, minLength, k, palindromic, seedLength));
+        }
+        else if (distance == ApproximateRepeatDistance.Hamming)
         {
             var windows = RemoveCrossDiagonalContained(FindMaximalMismatchWindows(u, v, seeds, minLength, k));
             matches = windows.ConvertAll(w => new DegenerateMatch(w.Start, w.Length, w.Start + w.Diagonal, w.Length, w.Mismatches));
@@ -4862,7 +5046,9 @@ public static class RepeatFinder
             c = x.SecondPosition.CompareTo(y.SecondPosition);
             if (c != 0) return c;
             c = x.FirstLength.CompareTo(y.FirstLength);
-            return c != 0 ? c : x.SecondLength.CompareTo(y.SecondLength);
+            if (c != 0) return c;
+            c = x.SecondLength.CompareTo(y.SecondLength);
+            return c != 0 ? c : x.Distance.CompareTo(y.Distance);
         });
         return results;
     }
@@ -4927,24 +5113,543 @@ public static class RepeatFinder
                 if (selfDirect && !IsAcceptedSelfMatch(key.Item1, key.Item2, key.Item3, key.Item4, dist)) continue;
                 seedMatches.Add(new DegenerateMatch(key.Item1, key.Item2 - key.Item1, key.Item3, key.Item4 - key.Item3, dist));
             }
-
-            for (int x = 0; x < seedMatches.Count; x++)
-            {
-                var c = seedMatches[x];
-                bool contained = false;
-                for (int y = 0; y < seedMatches.Count && !contained; y++)
-                    contained = y != x && Contains(seedMatches[y], c);
-                if (contained) continue;
-                var key = (c.U, c.UEnd, c.V, c.VEnd);
-                if (!best.TryGetValue(key, out int old) || c.Distance < old)
-                    best[key] = c.Distance;
-            }
+            KeepSeedMaximal(seedMatches, best);
         }
 
         var result = new List<DegenerateMatch>(best.Count);
         foreach (var (key, dist) in best)
             result.Add(new DegenerateMatch(key.Item1, key.Item2 - key.Item1, key.Item3, key.Item4 - key.Item3, dist));
         return result;
+    }
+
+    /// <summary>
+    /// Stock-Vmatch <c>-allmax</c> edit candidates: the per-seed candidates of the literal Vmatch extension
+    /// (<see cref="VmatchSeedCandidates"/> with the left-extension shortcut at the seed length), then the same
+    /// per-seed and global reduction as <see cref="FindDifferenceMatchCandidates"/>.
+    /// </summary>
+    private static List<DegenerateMatch> FindStockVmatchEditCandidates(
+        int[] u, int[] v, List<RawMaximalPair> seeds, int minLength, int k, bool palindromic, int seedLength)
+    {
+        var ext = new VmatchExtension(u, v, !palindromic, k, minLength, seedLength);
+        var candidates = new List<DegenerateMatch>();
+        var perSeed = new Dictionary<(int, int, int, int), int>();
+        var seedMatches = new List<DegenerateMatch>();
+        var best = new Dictionary<(int, int, int, int), int>();
+        foreach (var seed in seeds)
+        {
+            ext.EditCandidates(SeedInVmatchOrder(seed, palindromic), candidates);
+            perSeed.Clear();
+            foreach (var c in candidates)
+            {
+                var key = (c.U, c.UEnd, c.V, c.VEnd);
+                if (!perSeed.TryGetValue(key, out int old) || c.Distance < old)
+                    perSeed[key] = c.Distance;
+            }
+
+            seedMatches.Clear();
+            foreach (var (key, dist) in perSeed)
+                seedMatches.Add(new DegenerateMatch(key.Item1, key.Item2 - key.Item1, key.Item3, key.Item4 - key.Item3, dist));
+            KeepSeedMaximal(seedMatches, best, firstSeedWins: true);
+        }
+
+        var result = new List<DegenerateMatch>(best.Count);
+        foreach (var (key, dist) in best)
+            result.Add(new DegenerateMatch(key.Item1, key.Item2 - key.Item1, key.Item3, key.Item4 - key.Item3, dist));
+        return result;
+    }
+
+    /// <summary>
+    /// Adds the candidates of one seed that no other candidate of that seed contains to <paramref name="best"/>:
+    /// the smallest distance per key, or (<paramref name="firstSeedWins"/>, Vmatch's <c>matchcontainer</c>, which
+    /// never replaces a stored match by an identical one) the distance of the first seed producing the key.
+    /// </summary>
+    private static void KeepSeedMaximal(List<DegenerateMatch> seedMatches, Dictionary<(int, int, int, int), int> best, bool firstSeedWins = false)
+    {
+        for (int x = 0; x < seedMatches.Count; x++)
+        {
+            var c = seedMatches[x];
+            bool contained = false;
+            for (int y = 0; y < seedMatches.Count && !contained; y++)
+                contained = y != x && Contains(seedMatches[y], c);
+            if (contained) continue;
+            var key = (c.U, c.UEnd, c.V, c.VEnd);
+            if (!best.TryGetValue(key, out int old) || (!firstSeedWins && c.Distance < old))
+                best[key] = c.Distance;
+        }
+    }
+
+    /// <summary>A direct seed as Vmatch passes it to the extension (position1 &lt; position2); palindromic seeds as found.</summary>
+    private static RawMaximalPair SeedInVmatchOrder(RawMaximalPair seed, bool palindromic)
+    {
+        if (palindromic || seed.P <= seed.Q) return seed;
+        int first = seed.Q, second = seed.P;
+        return new RawMaximalPair(first, second, seed.Length);
+    }
+
+    /// <summary>
+    /// Vmatch default output (no <c>-allmax</c>): for every seed, the best of its candidates by Vmatch's
+    /// <c>cmpmatches</c>, visited in Vmatch's order (a full tie keeps the later candidate). Rows may repeat.
+    /// <paramref name="reach"/> = seed length reproduces stock Vmatch's left-extension shortcut;
+    /// <c>int.MaxValue</c> disables it.
+    /// </summary>
+    private static List<DegenerateMatch> FindBestMatchPerSeed(
+        int[] u, int[] v, List<RawMaximalPair> seeds, int minLength, int k, bool hamming, bool palindromic, int reach)
+    {
+        var ext = new VmatchExtension(u, v, !palindromic, k, minLength, reach);
+        var evalues = new VmatchEvalues();
+        var candidates = new List<DegenerateMatch>();
+        var result = new List<DegenerateMatch>();
+        foreach (var seed in seeds)
+        {
+            var s = SeedInVmatchOrder(seed, palindromic);
+            if (hamming) ext.HammingCandidates(s, candidates);
+            else ext.EditCandidates(s, candidates);
+
+            bool found = false;
+            DegenerateMatch bestMatch = default;
+            foreach (var c in candidates)
+            {
+                if (!found || CompareVmatchMatches(evalues, hamming, bestMatch, c) == 1)
+                {
+                    bestMatch = c;
+                    found = true;
+                }
+            }
+            if (found) result.Add(bestMatch);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Vmatch <c>cmpmatches</c> (include/extcmp.c): 1 when <paramref name="candidate"/> replaces
+    /// <paramref name="current"/> — larger current E-value, else lower current identity, else shorter current
+    /// match, else (full tie) 1; −1 otherwise. Length = the common length (Hamming) or the longer instance (edit).
+    /// </summary>
+    private static int CompareVmatchMatches(VmatchEvalues evalues, bool hamming, DegenerateMatch current, DegenerateMatch candidate)
+    {
+        int length1 = Math.Max(current.ULength, current.VLength);
+        int length2 = Math.Max(candidate.ULength, candidate.VLength);
+        double evalue1 = evalues.Get(hamming, current.Distance, length1);
+        double evalue2 = evalues.Get(hamming, candidate.Distance, length2);
+        if (evalue1 < evalue2) return -1;
+        if (evalue1 > evalue2) return 1;
+        double identity1 = 100.0 * (1.0 - (double)current.Distance / length1);
+        double identity2 = 100.0 * (1.0 - (double)candidate.Distance / length2);
+        if (identity1 < identity2) return 1;
+        if (identity1 > identity2) return -1;
+        if (length1 < length2) return 1;
+        if (length1 > length2) return -1;
+        return 1;
+    }
+
+    /// <summary>
+    /// Vmatch E-values of a degenerate match (kurtz/evalues.c; Kurtz, Ohlebusch, Stoye, Schleiermacher &amp;
+    /// Giegerich, ISMB 2000): the Hamming probability table <c>P(l, k)</c> built incrementally exactly as
+    /// <c>incprecomputehammingEvalues</c> (match probability 1/(alphabet size) = 1/4 for DNA; entries stop
+    /// at ≤ 1e-300, beyond which the value is 0), multiplier 1 (as in <c>cmpmatches</c>); edit distances
+    /// k ≥ 1 scale <c>P(l, k)</c> by <c>averagequot[k]</c> (k ≤ 20) or <c>1.31e7·2^(k−20)</c>.
+    /// </summary>
+    private sealed class VmatchEvalues
+    {
+        private const double ProbMatch = 1.0 / 4.0;
+        private const double SmallestEvalue = 1.0e-300;
+        private const int MaxExponentOf2 = 100;
+
+        private static readonly double[] AverageQuot =
+        {
+            0.0, 3.97e+00, 1.28e+01, 3.26e+01, 7.60e+01, 1.71e+02, 3.77e+02, 8.22e+02, 1.78e+03, 3.91e+03,
+            8.50e+03, 1.76e+04, 3.78e+04, 7.98e+04, 1.66e+05, 3.58e+05, 7.44e+05, 1.52e+06, 3.20e+06, 6.40e+06,
+            1.31e+07,
+        };
+
+        private readonly List<double[]> _rows = new();
+        private double _first = ProbMatch * ((1.0 - ProbMatch) * (1.0 - ProbMatch));
+
+        public double Get(bool hamming, int distance, int length)
+        {
+            if (hamming || distance == 0)
+                return Lookup(distance, length);
+            if (distance > 20)
+            {
+                if (distance - 20 > MaxExponentOf2) return 0.0;
+                double hequot = 1.31e+07 * Math.Pow(2.0, distance - 20);
+                return 1.0 * hequot * Lookup(distance, length);
+            }
+            return 1.0 * AverageQuot[distance] * Lookup(distance, length);
+        }
+
+        private double Lookup(int k, int length)
+        {
+            while (_rows.Count <= k)
+            {
+                int row = _rows.Count;
+                var values = new List<double>();
+                double prob = _first;
+                _first *= ((double)(row + 2) / (row + 1)) * (1.0 - ProbMatch);
+                int l = row + 1;
+                while (prob > SmallestEvalue)
+                {
+                    values.Add(prob);
+                    prob *= (l + 1) * ProbMatch / (l + 1 - row);
+                    l++;
+                }
+                _rows.Add(values.ToArray());
+            }
+
+            int index = length - (k + 1);
+            double[] r = _rows[k];
+            return index >= 0 && index < r.Length ? r[index] : 0.0;
+        }
+    }
+
+    /// <summary>
+    /// Literal port of Vmatch 2.3.1's seed extension for one text pair: u = S, v = S (direct, the same buffer)
+    /// or v = revcomp(S) (palindromic). Hamming: <c>hammingextend</c> with <c>extendmismatchesleft/right</c>
+    /// (kurtz/extendHD.c). Edit: <c>editextend</c> (kurtz/extendED.c) over the greedy fronts of
+    /// <c>extendedleftSEP</c>/<c>extendedrightSEP</c> (kurtz/frontSEP.c, front.gen), including their
+    /// conventions: the minus-infinity front value is −max(ulen, vlen), the band restriction once p exceeds
+    /// min(ulen, vlen), the "same position in the same text" rule, and the left-extension shortcut (an entry
+    /// whose slide is ≥ <c>reach</c> becomes undefined and ends the left extension after that front).
+    /// Candidates are produced in Vmatch's enumeration order with Vmatch's <c>acceptmatch</c> (direct edit)
+    /// and length (≥ minLength) checks.
+    /// </summary>
+    private sealed class VmatchExtension
+    {
+        private readonly int[] _u, _v;
+        private readonly bool _sameText;
+        private readonly int _k, _minLength, _reach;
+        private readonly Fronts _left, _right;
+        private readonly int[] _lookLeft, _lookRight;
+
+        public VmatchExtension(int[] u, int[] v, bool sameText, int k, int minLength, int reach)
+        {
+            _u = u; _v = v; _sameText = sameText; _k = k; _minLength = minLength; _reach = reach;
+            _left = new Fronts(k);
+            _right = new Fronts(k);
+            _lookLeft = new int[k + 2];
+            _lookRight = new int[k + 2];
+        }
+
+        private sealed class Fronts
+        {
+            public readonly int[] Left, Width, Offset, Values;
+            public int IntegerMin;
+
+            public Fronts(int k)
+            {
+                Left = new int[k + 1];
+                Width = new int[k + 1];
+                Offset = new int[k + 1];
+                int total = 0;
+                for (int p = 0; p <= k; p++) total += 2 * p + 1;
+                Values = new int[total];
+            }
+
+            public int Access(int p, int diagonal) =>
+                diagonal >= Left[p] && diagonal < Left[p] + Width[p] ? Values[Offset[p] + diagonal - Left[p]] : IntegerMin;
+
+            public void Spec(int p, int r, int ulen, int vlen)
+            {
+                Offset[p] = Offset[p - 1] + Width[p - 1];
+                if (r <= 0)
+                {
+                    Left[p] = -p;
+                    Width[p] = p + p + 1;
+                }
+                else
+                {
+                    Left[p] = Math.Max(-ulen, -p);
+                    Width[p] = Math.Min(vlen, p) - Left[p] + 1;
+                }
+            }
+
+            public void First(int ulen, int vlen)
+            {
+                IntegerMin = -Math.Max(ulen, vlen);
+                Left[0] = 0; Width[0] = 1; Offset[0] = 0; Values[0] = 0;
+            }
+        }
+
+        private bool Match(int i, int j) => _u[i] >= 0 && _u[i] == _v[j];
+
+        /// <summary><c>extendedleftSEP</c>: fronts ending before u-position <paramref name="ulen"/> / v-position <paramref name="vlen"/>.</summary>
+        private int ExtendLeft(int ulen, int vlen)
+        {
+            var f = _left;
+            f.First(ulen, vlen);
+            if (ulen == vlen && vlen == 0) return 0;
+            bool foundSeed = false;
+            int min = Math.Min(ulen, vlen);
+            for (int p = 1; p <= _k; p++)
+            {
+                int r = p - min;
+                f.Spec(p, r, ulen, vlen);
+                bool defined = false;
+                for (int d = f.Left[p], x = 0; x < f.Width[p]; d++, x++)
+                {
+                    int value = r <= 0 || d <= -r || d >= r ? LeftEntry(f, p - 1, d, ulen, vlen, ref foundSeed) : f.IntegerMin;
+                    f.Values[f.Offset[p] + x] = value;
+                    if (value >= 0) defined = true;
+                }
+                if (defined && foundSeed) return p;
+                if (!defined) return p - 1;
+            }
+            return _k;
+        }
+
+        private int LeftEntry(Fronts f, int prev, int d, int ulen, int vlen, ref bool foundSeed)
+        {
+            int t = f.Access(prev, d) + 1;
+            int value = f.Access(prev, d - 1);
+            if (t < value) t = value;
+            value = f.Access(prev, d + 1) + 1;
+            if (t < value) t = value;
+            if (t < 0 || t + d < 0) return f.IntegerMin;
+            if (ulen != 0 && vlen != 0)
+            {
+                int ui = ulen - 1 - t, vi = vlen - 1 - (t + d);
+                if (_sameText && ui == vi)
+                {
+                    t = ulen - 1;
+                }
+                else
+                {
+                    int start = ui;
+                    while (ui > -1 && vi > -1 && Match(ui, vi)) { ui--; vi--; }
+                    int matchLength = start - ui;
+                    if (matchLength >= _reach)
+                    {
+                        foundSeed = true;
+                        return f.IntegerMin;
+                    }
+                    t += matchLength;
+                }
+            }
+            if (ulen - 1 - t < -1 || vlen - 1 - (t + d) < -1) return f.IntegerMin;
+            return t;
+        }
+
+        /// <summary><c>extendedrightSEP</c>: fronts starting at u-position <paramref name="l1"/> / v-position <paramref name="l2"/>.</summary>
+        private int ExtendRight(int l1, int l2)
+        {
+            var f = _right;
+            int ulen = _u.Length - l1, vlen = _v.Length - l2;
+            f.First(ulen, vlen);
+            if (ulen == vlen && vlen == 0) return 0;
+            int min = Math.Min(ulen, vlen);
+            for (int p = 1; p <= _k; p++)
+            {
+                int r = p - min;
+                f.Spec(p, r, ulen, vlen);
+                bool defined = false;
+                for (int d = f.Left[p], x = 0; x < f.Width[p]; d++, x++)
+                {
+                    int value = r <= 0 || d <= -r || d >= r ? RightEntry(f, p - 1, d, l1, l2, ulen, vlen) : f.IntegerMin;
+                    f.Values[f.Offset[p] + x] = value;
+                    if (value >= 0) defined = true;
+                }
+                if (!defined) return p - 1;
+            }
+            return _k;
+        }
+
+        private int RightEntry(Fronts f, int prev, int d, int l1, int l2, int ulen, int vlen)
+        {
+            int t = f.Access(prev, d) + 1;
+            int value = f.Access(prev, d - 1);
+            if (t < value) t = value;
+            value = f.Access(prev, d + 1) + 1;
+            if (t < value) t = value;
+            if (t < 0 || t + d < 0) return f.IntegerMin;
+            if (ulen != 0 && vlen != 0)
+            {
+                int ui = l1 + t, vi = l2 + t + d;
+                if (_sameText && ui == vi)
+                {
+                    t = ulen - 1;
+                }
+                else
+                {
+                    int ue = l1 + ulen, ve = l2 + vlen;
+                    while (ui < ue && vi < ve && Match(ui, vi)) { ui++; vi++; }
+                    t = ui - l1;
+                }
+            }
+            if (t > ulen || t + d > vlen) return f.IntegerMin;
+            return t;
+        }
+
+        /// <summary>Largest <c>value + diagonal</c> over the fronts h, h−1, … down to the first front without an undefined entry (editextend's early exit).</summary>
+        private static int MaxExtend(Fronts f, int h)
+        {
+            int max = 0;
+            bool next = true;
+            for (int i = h; next && i >= 0; i--)
+            {
+                next = false;
+                for (int x = 0; x < f.Width[i]; x++)
+                {
+                    int value = f.Values[f.Offset[i] + x];
+                    if (value < 0) next = true;
+                    else max = Math.Max(max, value + f.Left[i] + x);
+                }
+            }
+            return max;
+        }
+
+        /// <summary><c>editextend</c>: every combination of a left and a right front entry, in Vmatch's order.</summary>
+        public void EditCandidates(RawMaximalPair seed, List<DegenerateMatch> output)
+        {
+            output.Clear();
+            int p = seed.P, q = seed.Q, m = seed.Length;
+            int hleft = ExtendLeft(p, q);
+            int hright = ExtendRight(p + m, q + m);
+            int remain = m >= _minLength ? 0 : _minLength - m;
+            if (MaxExtend(_left, hleft) + MaxExtend(_right, hright) < remain) return;
+
+            int maxdist = Math.Min(_k, hleft + hright);
+            for (int dist = 0; dist <= maxdist; dist++)
+            {
+                for (int a = dist < hright ? 0 : dist - hright; a <= Math.Min(dist, hleft); a++)
+                {
+                    int b = dist - a;
+                    for (int x = 0; x < _left.Width[a]; x++)
+                    {
+                        int lv = _left.Values[_left.Offset[a] + x];
+                        if (lv < 0) continue;
+                        int lk = _left.Left[a] + x;
+                        for (int y = 0; y < _right.Width[b]; y++)
+                        {
+                            int rv = _right.Values[_right.Offset[b] + y];
+                            if (rv < 0) continue;
+                            int rk = _right.Left[b] + y;
+                            int exti = lv + rv;
+                            if (exti < remain) continue;
+                            int extj = exti + lk + rk;
+                            if (extj < remain) continue;
+
+                            int pos1 = p - lv, pos2 = q - lv - lk, length1, length2;
+                            if (!_sameText || pos1 <= pos2)
+                            {
+                                length1 = m + exti;
+                                length2 = m + extj;
+                            }
+                            else
+                            {
+                                (pos1, pos2) = (pos2, pos1);
+                                length1 = m + extj;
+                                length2 = m + exti;
+                            }
+                            if (_sameText && !IsAcceptedSelfMatch(pos1, pos1 + length1, pos2, pos2 + length2, dist)) continue;
+                            output.Add(new DegenerateMatch(pos1, length1, pos2, length2, dist));
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary><c>hammingextend</c>: lookleft/lookright mismatch tables, every split of the distance, in Vmatch's order.</summary>
+        public void HammingCandidates(RawMaximalPair seed, List<DegenerateMatch> output)
+        {
+            output.Clear();
+            int p = seed.P, q = seed.Q, m = seed.Length;
+            int n1 = _u.Length, n2 = _v.Length;
+            Array.Clear(_lookLeft);
+            Array.Clear(_lookRight);
+
+            int hleft;
+            if (p > 1 && q > 1)
+            {
+                hleft = MismatchesLeft(p - 2, q - 2);
+            }
+            else if (p == 0 || q == 0)
+            {
+                hleft = 0;
+            }
+            else
+            {
+                hleft = 1;
+                _lookLeft[1] = 1;
+            }
+
+            int r1 = p + m, r2 = q + m, hright;
+            if (r1 < n1 - 1 && r2 < n2 - 1)
+            {
+                hright = MismatchesRight(r1 + 1, r2 + 1);
+            }
+            else if (r1 >= n1 || r2 >= n2)
+            {
+                hright = 0;
+            }
+            else
+            {
+                hright = 1;
+                _lookRight[1] = 1;
+            }
+
+            int remain = m >= _minLength ? 0 : _minLength - m;
+            if (_lookLeft[hleft] + _lookRight[hright] < remain) return;
+            int maxdist = Math.Min(_k, hleft + hright);
+            for (int dist = 0; dist <= maxdist; dist++)
+            {
+                for (int a = dist < hright ? 0 : dist - hright; a <= Math.Min(dist, hleft); a++)
+                {
+                    int ll = _lookLeft[a];
+                    int extLength = ll + _lookRight[dist - a];
+                    if (extLength < remain) continue;
+                    output.Add(new DegenerateMatch(p - ll, m + extLength, q - ll, m + extLength, dist));
+                }
+            }
+        }
+
+        /// <summary><c>extendmismatchesleft</c> from u-position <paramref name="r1"/> / v-position <paramref name="r2"/> leftwards (the seed's left neighbours are the first mismatch).</summary>
+        private int MismatchesLeft(int r1, int r2)
+        {
+            var look = _lookLeft;
+            int h = 1, i1 = r1, i2 = r2;
+            while (true)
+            {
+                if (!Match(i1, i2))
+                {
+                    look[h] = r1 - i1 + 1;
+                    if (h == _k || look[h] - look[h - 1] > _reach) break;
+                    h++;
+                }
+                if (i1 == 0 || i2 == 0)
+                {
+                    look[h] = r1 - i1 + 2;
+                    break;
+                }
+                i1--;
+                i2--;
+            }
+            return look[h] - look[h - 1] > _reach ? h - 1 : h;
+        }
+
+        /// <summary><c>extendmismatchesright</c> from u-position <paramref name="l1"/> / v-position <paramref name="l2"/> rightwards.</summary>
+        private int MismatchesRight(int l1, int l2)
+        {
+            var look = _lookRight;
+            int last1 = _u.Length - 1, last2 = _v.Length - 1;
+            int h = 1, i1 = l1, i2 = l2;
+            while (true)
+            {
+                if (!Match(i1, i2))
+                {
+                    look[h] = i1 - l1 + 1;
+                    if (h == _k) break;
+                    h++;
+                }
+                if (i1 == last1 || i2 == last2)
+                {
+                    look[h] = i1 - l1 + 2;
+                    break;
+                }
+                i1++;
+                i2++;
+            }
+            return h;
+        }
     }
 
     /// <summary>
@@ -5971,6 +6676,18 @@ public enum ApproximateRepeatDistance
 
     /// <summary>Unit-cost edit (Levenshtein) distance: mismatches, insertions, deletions (Vmatch <c>-e k</c>, "k-differences match").</summary>
     Edit,
+}
+
+/// <summary>
+/// Output mode of <see cref="RepeatFinder.FindDegenerateRepeats(DnaSequence,int,int,ApproximateRepeatDistance,bool,int,int,DegenerateRepeatReporting,bool)"/>.
+/// </summary>
+public enum DegenerateRepeatReporting
+{
+    /// <summary>Every maximal degenerate match (Vmatch <c>-allmax</c>).</summary>
+    AllMaximal,
+
+    /// <summary>One best match per exact seed by E-value, then identity, then length (Vmatch's default output without <c>-allmax</c>).</summary>
+    BestPerSeed,
 }
 
 /// <summary>

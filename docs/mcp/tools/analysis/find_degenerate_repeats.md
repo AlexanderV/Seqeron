@@ -24,6 +24,13 @@ shortcut disabled, and to a brute force of the definition — Evidence REP-DIREC
 mismatch. Filters `maxLength`, `spacing = secondPosition − firstPosition − firstLength ≥ minSpacing`
 (−2147483648 = complete Vmatch set). Sorted by (firstPosition, secondPosition, firstLength, secondLength).
 
+`reporting = "bestPerSeed"` gives Vmatch's **default output** (no `-allmax`): for every exact seed, the best
+extension by E-value, then identity, then length (Vmatch `cmpmatches`). Rows may repeat, one per seed, as in
+Vmatch. `vmatchCompatible = true` reproduces stock Vmatch 2.3.1 exactly. That includes its left-extension seed
+shortcut, which drops some maximal edit matches and changes best-per-seed choices. It also includes its
+first-seed distance label in `-allmax` mode. The default is the complete, definition-correct output.
+Cross-checked against real Vmatch with 0 differing rows (Evidence REP-DIRECT-001 §WP15).
+
 ## Core Documentation Reference
 
 - Source: [RepeatFinder.cs#L4759](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4759)
@@ -39,6 +46,8 @@ mismatch. Filters `maxLength`, `spacing = secondPosition − firstPosition − f
 | `reverseComplement` | boolean | No | Palindromic (reverse-complement) repeats (Vmatch -p) (default false) |
 | `maxLength` | integer | No | Maximum length of each instance (default 2147483647) |
 | `minSpacing` | integer | No | Minimum spacing secondPosition - firstPosition - firstLength (default 1) |
+| `reporting` | string | No | allMaximal (Vmatch -allmax) or bestPerSeed (Vmatch default output) (default allMaximal) |
+| `vmatchCompatible` | boolean | No | Reproduce stock Vmatch 2.3.1 (seed shortcut) (default false) |
 
 ## Output Schema
 
@@ -51,6 +60,7 @@ mismatch. Filters `maxLength`, `spacing = secondPosition − firstPosition − f
 | 1001 | Sequence cannot be null or empty |
 | 1002 | distance must be 'edit' or 'hamming' |
 | 1003 | minLength must be >= 2 and > maxDifferences; maxDifferences >= 1; maxLength >= minLength |
+| 1004 | reporting must be 'allMaximal' or 'bestPerSeed' |
 
 ## Examples
 

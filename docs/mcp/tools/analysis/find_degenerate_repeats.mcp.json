@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RepeatFinder.FindDegenerateRepeats",
   "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4759",
-  "description": "Finds **all maximal degenerate repeats** with at most maxDifferences differences (Kurtz et al. 2000 REPuter; Vmatch -e k / -h k, -p, -allmax). distance = \"edit\" (default) uses unit-cost edit distance, so the two instances may differ in length (firstLength, secondLength); \"hamming\" uses mismatches only. reverseComplement = true reports palindromic repeats (instance 2 matched against the reverse complement of instance 1; Vmatch -p). Edit-distance extension uses the greedy furthest-reaching fronts of Ukkonen 1985 / Myers 1986 (Vmatch frontSEP.c); the result is the complete maximal set (identical to Vmatch with its left-extension shortcut disabled, and to a brute force of the definition — Evidence REP-DIRECT-001 §WP8). Non-ACGT symbols always mismatch. Filters maxLength, spacing = secondPosition − firstPosition − firstLength ≥ minSpacing (−2147483648 = complete Vmatch set). Sorted by (firstPosition, secondPosition, firstLength, secondLength).",
+  "description": "Finds **all maximal degenerate repeats** with at most maxDifferences differences (Kurtz et al. 2000 REPuter; Vmatch -e k / -h k, -p, -allmax). distance = \"edit\" (default) uses unit-cost edit distance, so the two instances may differ in length (firstLength, secondLength); \"hamming\" uses mismatches only. reverseComplement = true reports palindromic repeats (instance 2 matched against the reverse complement of instance 1; Vmatch -p). Edit-distance extension uses the greedy furthest-reaching fronts of Ukkonen 1985 / Myers 1986 (Vmatch frontSEP.c); the result is the complete maximal set (identical to Vmatch with its left-extension shortcut disabled, and to a brute force of the definition — Evidence REP-DIRECT-001 §WP8). Non-ACGT symbols always mismatch. Filters maxLength, spacing = secondPosition − firstPosition − firstLength ≥ minSpacing (−2147483648 = complete Vmatch set). Sorted by (firstPosition, secondPosition, firstLength, secondLength). reporting = \"bestPerSeed\" gives Vmatch's default output without -allmax (one best match per exact seed by E-value, then identity, then length — Vmatch cmpmatches; rows may repeat). vmatchCompatible = true reproduces stock Vmatch 2.3.1 exactly, including its left-extension seed shortcut and its first-seed distance label (Evidence REP-DIRECT-001 §WP15).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -50,6 +50,20 @@
         "type": "integer",
         "description": "Minimum spacing secondPosition - firstPosition - firstLength",
         "default": 1
+      },
+      "reporting": {
+        "type": "string",
+        "description": "allMaximal (every maximal match, Vmatch -allmax) or bestPerSeed (Vmatch default output, one best match per seed)",
+        "enum": [
+          "allMaximal",
+          "bestPerSeed"
+        ],
+        "default": "allMaximal"
+      },
+      "vmatchCompatible": {
+        "type": "boolean",
+        "description": "Reproduce stock Vmatch 2.3.1 (left-extension seed shortcut) instead of the complete extension",
+        "default": false
       }
     },
     "required": [

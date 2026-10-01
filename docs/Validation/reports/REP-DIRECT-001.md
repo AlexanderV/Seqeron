@@ -66,6 +66,7 @@ suffixes for supermaximal repeats.
 | `FindApproximateDirectRepeats` | brute force (both modes); `vmatch -h k -allmax` | 3 000; 3 040 (1.09 M repeats) |
 | `FindSupermaximalRepeats` | `vmatch -supermax`; brute force | 3 060 (38 434 pairs); 3 000 |
 | `FindDegenerateRepeats` (4 modes) | brute force of Vmatch App. A; Vmatch 2.3.1 built from source with the left-extension seed shortcut disabled; stock Vmatch | 6 000 (78 507 repeats): 0 / 0; + 800 × 100–1 500 bp (534 587 repeats) and 1 Mb (2 333): 0 vs shortcut-free Vmatch; stock Vmatch differs only for edit mode (71 cases), only through the shortcut |
+| `FindDegenerateRepeats(…, reporting, vmatchCompatible)` (WP15: `BestPerSeed` = Vmatch default without `-allmax`; `vmatchCompatible` = stock shortcut + first-seed distance label) | stock `vmatch` (compatible) / source build with `VM_NOPRUNE` + `VM_NOPRUNE_H` (complete), 16 configurations, multiset rows | 6 000 × 8–50 bp (1 423 142 rows) + 2 000 Hamming k ≤ 4 (233 692) + 300 × 100–1 500 bp (2 338 723) + 1 Mb / 200 kb (19 166): 0, except the documented default-mode distance label (1 case, finding 3 of Evidence §WP15) |
 
 Locked values: `AAAAAATTTTAAAAAA` 4–6 → the 5 pairs above; `ACGTACGTTTTTTTTTACGTACGT` min 4 → (0,16,8) (0,20,4)
 (3,15,5) (7,12,4) at spacing ≥ 1; RC `AAAAAAAACGTTGCAACGTAAAA` min 3 → (6,6,6) (7,7,12) (15,15,4) (repeat-match
@@ -83,4 +84,4 @@ MCP `FindDirectRepeatsTests`.
 - MCP: `find_direct_repeats` delegates to `FindDirectRepeats`. ~~The three variants are C# API only~~ — resolved by B04 F49:
   `find_reverse_complement_repeats`, `find_approximate_direct_repeats`, `find_degenerate_repeats`, `find_supermaximal_repeats`
   (Analysis server, delegating; tool counts updated additively).
-- ~~REPuter/Vmatch k-differences (edit-distance, `vmatch -e`) repeats are not provided (Hamming only).~~ Implemented in WP8 (`FindDegenerateRepeats`, B04 F47), incl. approximate palindromic repeats (`-p -h`, `-p -e`); Vmatch's left-extension seed shortcut (incomplete for edit matches) is documented, not reproduced.
+- ~~REPuter/Vmatch k-differences (edit-distance, `vmatch -e`) repeats are not provided (Hamming only).~~ Implemented in WP8 (`FindDegenerateRepeats`, B04 F47), incl. approximate palindromic repeats (`-p -h`, `-p -e`); Vmatch's left-extension seed shortcut (incomplete for edit matches) is documented and, since WP15 (B04 F59), reproducible on request (`vmatchCompatible`); Vmatch's default best-per-seed output is `DegenerateRepeatReporting.BestPerSeed` (F58). Tests `RepeatFinder_VmatchReporting_Tests` (10) + 2 MCP.

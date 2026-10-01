@@ -45,4 +45,17 @@ public class FindApproximateDirectRepeatsTests
         Assert.That(string.Join(";", items.Select(x => $"{x.FirstPosition},{x.SecondPosition},{x.Length},{x.Mismatches}")),
             Is.EqualTo("0,1,8,1;0,18,5,1;1,18,5,1;2,18,5,1;3,18,5,1;5,13,6,1;6,14,6,1"));
     }
+
+    [Test]
+    public void FindApproximateDirectRepeats_BestPerSeed_MatchesVmatchDefaultOutput()
+    {
+        // vmatch -l 12 -h 2 (no -allmax): stock binary, and the source build with the seed shortcut off (WP15).
+        const string seq = "CCGGCCCCTGAGTCCGAGGAGGATCACAGTCTACACTGCTCACTCCAACCGAGGATCACAGTTTACACTGCTCACTCCAACCGAGGGTGCTTGGATCACAGTCTACATGCTCACTCCAACC";
+        string Rows(bool compatible) => string.Join(";", AnalysisTools.FindApproximateDirectRepeats(
+                seq, 12, 2, int.MaxValue, int.MinValue, reporting: "bestPerSeed", vmatchCompatible: compatible).Items
+            .Select(x => $"{x.FirstPosition},{x.SecondPosition},{x.Length},{x.Mismatches}"));
+        Assert.That(Rows(true), Is.EqualTo("18,50,36,1;20,92,15,0;31,63,23,0;36,107,14,0;52,92,15,1;68,107,14,0"));
+        Assert.That(Rows(false), Is.EqualTo("18,50,36,1;18,50,36,1;20,92,15,0;36,107,14,0;52,92,15,1;52,92,15,1;68,107,14,0"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindApproximateDirectRepeats(seq, 12, 2, reporting: "first"));
+    }
 }

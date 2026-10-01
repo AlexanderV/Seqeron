@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RepeatFinder.FindApproximateDirectRepeats",
   "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4489",
-  "description": "Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-based firstPosition < secondPosition with at most maxMismatches mismatches that cannot be extended on either side within k. Seeds are exact maximal pairs of length ⌊minLength/(k+1)⌋ (pigeonhole), extended to every maximal window. Default per-diagonal maximality (for k = 0 equal to find_direct_repeats); excludeContained = true also drops repeats contained in a k-mismatch repeat on another diagonal — output identical to vmatch -l minLength -h k -allmax. Non-ACGT symbols are mismatches. Filters length ≤ maxLength, spacing = secondPosition − firstPosition − length ≥ minSpacing. Sorted by (firstPosition, secondPosition, length). For edit distance or palindromic repeats use find_degenerate_repeats.",
+  "description": "Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-based firstPosition < secondPosition with at most maxMismatches mismatches that cannot be extended on either side within k. Seeds are exact maximal pairs of length ⌊minLength/(k+1)⌋ (pigeonhole), extended to every maximal window. Default per-diagonal maximality (for k = 0 equal to find_direct_repeats); excludeContained = true also drops repeats contained in a k-mismatch repeat on another diagonal — output identical to vmatch -l minLength -h k -allmax. Non-ACGT symbols are mismatches. Filters length ≤ maxLength, spacing = secondPosition − firstPosition − length ≥ minSpacing. Sorted by (firstPosition, secondPosition, length). For edit distance or palindromic repeats use find_degenerate_repeats. reporting = \"bestPerSeed\" gives Vmatch's default vmatch -h k output without -allmax (one E-value-best extension per exact seed; rows may repeat; maxMismatches ≥ 1; excludeContained ignored); vmatchCompatible = true reproduces stock Vmatch's left-extension seed shortcut (Evidence REP-DIRECT-001 §WP15).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -40,6 +40,20 @@
       "excludeContained": {
         "type": "boolean",
         "description": "Drop repeats contained in a k-mismatch repeat on another diagonal (vmatch -allmax)",
+        "default": false
+      },
+      "reporting": {
+        "type": "string",
+        "description": "allMaximal (every maximal match, Vmatch -allmax) or bestPerSeed (Vmatch default output, one best match per seed)",
+        "enum": [
+          "allMaximal",
+          "bestPerSeed"
+        ],
+        "default": "allMaximal"
+      },
+      "vmatchCompatible": {
+        "type": "boolean",
+        "description": "Reproduce stock Vmatch 2.3.1 (left-extension seed shortcut) instead of the complete extension",
         "default": false
       }
     },

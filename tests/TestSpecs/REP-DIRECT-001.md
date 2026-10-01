@@ -127,6 +127,20 @@ Tuples (i, j, l, r, distance).
 | D10 | Results_DistanceAndCopiesAreConsistent | `ApproximateMatcher.EditDistance` / `HammingDistance` of the copies = `Distance` |
 | D11–D12 | filters after maximality (defaults minSpacing 1, maxLength); DnaSequence ≡ string; validation (k ≥ 1, k < m, maxLength ≥ m, enum) | contract |
 
+### WP15 — Vmatch output modes (`RepeatFinder_VmatchReporting_Tests`; expected = stock `vmatch` / source build with shortcuts off)
+
+| ID | Test | Expected (source) |
+|----|------|-------------------|
+| V1 | BestPerSeed_HammingDirect_MatchesVmatch | 121-bp copies -l 12 -h 2: stock 6 rows incl. (31,63,23,23,0); complete 7 rows, (18,50,36,36,1) ×2 |
+| V2 | BestPerSeed_EditDirect_MatchesVmatch | same -l 12 -e 2: stock 7 rows; complete 7 rows incl. (52,92,30,29,2) ×3 |
+| V3 | BestPerSeed_Palindromic_MatchesVmatch | -p -l 12 -h 2 (3 / 6 rows); `GGACCATGAAGG` -p -l 5 -e 3 (9 / 19 rows) |
+| V4 | BestPerSeed_PrefersSmallerEvalueOverLongerMatch | -l 15 -e 3 → (0,24,16,15,1) (×2 complete); -h 3 → (1,24,15,15,3) |
+| V5 | BestPerSeed_RowsAreValidMatches | 40 random: Hamming distance of copies = Distance, length ≥ m |
+| V6 | AllMaximal_Compatible_ReproducesStockShortcutLoss | stock -l 15 -e 3 -allmax (0,22,16,17,3)…; -p `GGACCATGAAGG` (1,4,7,6,3) |
+| V7 | AllMaximal_Compatible_ReproducesFirstSeedDistanceLabel | `CAAATTTT` -p -l 8 -e 3 → d 3 (stock) vs 2 (default); `ACAAAAAAAACAC` -l 7 -e 3 (0,2,11,11,3/2) |
+| V8 | AllMaximal_Hamming_CompatibleEqualsDefault | 40 random, direct + palindromic |
+| V9–V10 | overload ≡ legacy default; DnaSequence ≡ string; enum validation; FindApproximateDirectRepeats BestPerSeed (k ≥ 1) | contract |
+
 ---
 
 ## Test Audit
