@@ -1,6 +1,6 @@
-# bio-annotation tool map — ~188 tools by family
+# bio-annotation tool map — ~197 tools by family
 
-Human index for the **Annotation** (97) + **Analysis** (91) servers. Grouped by workflow family.
+Human index for the **Annotation** (97) + **Analysis** (100) servers. Grouped by workflow family.
 Each row: `tool` · server · one-line purpose · `Method ID`. Open the per-tool doc for the full I/O
 schema — **point, don't duplicate**: docs live at `docs/mcp/tools/{annotation,analysis}/<tool>.md`.
 
@@ -82,15 +82,24 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
 | `discover_motifs` | X | De novo overrepresented k-mer motifs | `MotifFinder.DiscoverMotifs` |
+| `oligo_analysis` | X | RSAT oligo-analysis: occ_P/occ_E/occ_sig vs equiprobable/Bernoulli/Markov background, 1 or 2 strands | `MotifFinder.DiscoverMotifs` (RSAT overload) |
 | `find_exact_motif` | X | Exact motif positions (suffix tree) | `MotifFinder.FindExactMotif` |
 | `find_motif` | X | Exact motif occurrences | `GenomicAnalyzer.FindMotif` |
 | `find_degenerate_motif` | X | IUPAC-degenerate matches | `MotifFinder.FindDegenerateMotif` |
 | `find_known_motifs` | X | Search a set of known motifs at once | `GenomicAnalyzer.FindKnownMotifs` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
+| `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance | `MotifFinder.FindSharedMotifs` (RSAT overload) |
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |
+| `find_regulatory_elements_both_strands` | X | Regulatory scan with strand; orientation-independent elements on both strands | `MotifFinder.FindRegulatoryElements(seq, bothStrands)` |
+| `find_promoter_elements_by_matrix` | X | Bucher/JASPAR TATA, Inr, CCAAT, GC-box weight matrices at a background FPR | `MotifFinder.FindPromoterElementsByMatrix` |
 | `generate_consensus` | X | IUPAC consensus from aligned seqs | `MotifFinder.GenerateConsensus` |
+| `generate_cavener_consensus` | X | Cavener (1987) degenerate consensus (Biopython degenerate_consensus) | `MotifFinder.GenerateCavenerConsensus` |
+| `generate_emboss_consensus` | X | EMBOSS cons plurality consensus (DNA/protein, gaps, weights) | `MotifFinder.GenerateEmbossConsensus` |
+| `generate_dumb_consensus` | X | Biopython dumb_consensus majority-threshold consensus | `MotifFinder.GenerateDumbConsensus` |
 | `create_pwm` | X | Log-odds PWM from aligned DNA | `MotifFinder.CreatePwm` |
 | `scan_with_pwm` | X | Scan a sequence with a PWM | `MotifFinder.ScanWithPwm` |
+| `scan_with_pwm_both_strands` | X | PWM scan on both strands (Biopython search both=True) | `MotifFinder.ScanWithPwmBothStrands` |
+| `pwm_score_thresholds` | X | PWM score thresholds (FPR / FNR / balanced / patser) from the score distribution | `PositionWeightMatrix.ScoreDistribution` |
 | `find_protein_motifs` | X | PROSITE-style protein motif catalog — owned by **seqeron-protein-features** | `ProteinMotifFinder.FindCommonMotifs` |
 | `find_motif_by_pattern` | X | Regex match in a protein | `ProteinMotifFinder.FindMotifByPattern` |
 | `find_motif_by_prosite` | X | PROSITE-pattern match in a protein | `ProteinMotifFinder.FindMotifByProsite` |

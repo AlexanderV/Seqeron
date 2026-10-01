@@ -108,6 +108,77 @@ public class SuffixTreeCoreTools
     }
 
     /// <summary>
+    /// Find every longest repeated substring (all length ties) with all positions.
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_all_lrs", Title = "Suffix Tree — All Longest Repeated Substrings", ReadOnly = true)]
+    [Description("Find every distinct longest repeated substring of text (all length ties, unlike suffix_tree_lrs which returns one representative), each with all 0-based start positions in ascending order (occurrences may overlap); substrings ordered by first occurrence. Empty when no character repeats.")]
+    public static SuffixTreeAllLrsResult SuffixTreeAllLrs(
+        [Description("The text to analyze")] string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            throw new ArgumentException("Text cannot be null or empty", nameof(text));
+
+        var tree = global::SuffixTree.SuffixTree.Build(text);
+        var all = tree.FindAllLongestRepeatedSubstrings();
+        var items = all.Select(r => new RepeatedSubstringItem(r.Substring, r.Positions.ToArray())).ToArray();
+        return new SuffixTreeAllLrsResult(items, items.Length == 0 ? 0 : items[0].Substring.Length);
+    }
+
+    /// <summary>
+    /// Find all maximal exact matches (MEMs) between a reference text and a query (MUMmer -maxmatch).
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_find_mems", Title = "Suffix Tree — Maximal Exact Matches (MEMs)", ReadOnly = true)]
+    [Description("Find all maximal exact matches (MEMs) of length >= minLength between a reference text and a query: every left- and right-maximal match with every reference occurrence (MUMmer 3 'mummer -maxmatch -l minLength', forward strand). Positions are 0-based; sorted by query position, then text position.")]
+    public static SuffixTreeMaximalMatchesResult SuffixTreeFindMems(
+        [Description("The reference text (the suffix tree is built on it)")] string text,
+        [Description("The query string matched against the reference")] string query,
+        [Description("Minimum match length (>= 1; MUMmer default 20)")] int minLength = 20)
+    {
+        if (string.IsNullOrEmpty(text))
+            throw new ArgumentException("Text cannot be null or empty", nameof(text));
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException("Query cannot be null or empty", nameof(query));
+        if (minLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minLength), "minLength must be >= 1");
+
+        var tree = global::SuffixTree.SuffixTree.Build(text);
+        return ToMaximalMatchesResult(tree.FindMaximalExactMatches(query, minLength));
+    }
+
+    /// <summary>
+    /// Find maximal unique matches (MUMs) between a reference text and a query (MUMmer -mum / -mumreference).
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_find_mums", Title = "Suffix Tree — Maximal Unique Matches (MUMs)", ReadOnly = true)]
+    [Description("Find maximal unique matches (MUMs) of length >= minLength: MEMs whose string occurs exactly once in the reference and, with uniqueness 'both', exactly once in the query (MUMmer 3 'mummer -mum'); 'reference' requires uniqueness in the reference only ('mummer -mumreference'). Forward strand, 0-based; sorted by query position, then text position.")]
+    public static SuffixTreeMaximalMatchesResult SuffixTreeFindMums(
+        [Description("The reference text (the suffix tree is built on it)")] string text,
+        [Description("The query string matched against the reference")] string query,
+        [Description("Minimum match length (>= 1; MUMmer default 20)")] int minLength = 20,
+        [Description("Uniqueness requirement: 'both' (unique in reference and query, -mum; default) or 'reference' (unique in reference only, -mumreference)")] string uniqueness = "both")
+    {
+        if (string.IsNullOrEmpty(text))
+            throw new ArgumentException("Text cannot be null or empty", nameof(text));
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException("Query cannot be null or empty", nameof(query));
+        if (minLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minLength), "minLength must be >= 1");
+
+        var mode = (uniqueness ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "both" => MumUniqueness.Both,
+            "reference" => MumUniqueness.Reference,
+            _ => throw new ArgumentException("Uniqueness must be 'both' or 'reference'", nameof(uniqueness)),
+        };
+
+        var tree = global::SuffixTree.SuffixTree.Build(text);
+        return ToMaximalMatchesResult(tree.FindMaximalUniqueMatches(query, minLength, mode));
+    }
+
+    private static SuffixTreeMaximalMatchesResult ToMaximalMatchesResult(
+        IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> matches)
+        => new(matches.Select(m => new MaximalMatchItem(m.PositionInText, m.PositionInQuery, m.Length)).ToArray());
+
+    /// <summary>
     /// Get statistics about a suffix tree built from text.
     /// </summary>
     [McpServerTool(Name = "suffix_tree_stats", Title = "Suffix Tree — Statistics", ReadOnly = true)]

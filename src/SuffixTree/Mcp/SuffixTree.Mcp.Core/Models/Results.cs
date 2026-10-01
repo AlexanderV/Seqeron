@@ -37,6 +37,29 @@ public record SuffixTreeLcsResult(string Substring, int Length);
 /// </summary>
 public record SuffixTreeStatsResult(int NodeCount, int LeafCount, int MaxDepth, int TextLength);
 
+/// <summary>
+/// One repeated substring with all its 0-based start positions (ascending).
+/// </summary>
+public record RepeatedSubstringItem(string Substring, int[] Positions);
+
+/// <summary>
+/// Result of suffix_tree_all_lrs operation.
+/// </summary>
+/// <param name="Substrings">Every longest repeated substring, ordered by first occurrence.</param>
+/// <param name="Length">Common length of the substrings (0 when none).</param>
+public record SuffixTreeAllLrsResult(RepeatedSubstringItem[] Substrings, int Length);
+
+/// <summary>
+/// One maximal match between the reference text and the query (0-based, forward strand).
+/// </summary>
+public record MaximalMatchItem(int PositionInText, int PositionInQuery, int Length);
+
+/// <summary>
+/// Result of suffix_tree_find_mems / suffix_tree_find_mums operations.
+/// </summary>
+/// <param name="Matches">Matches sorted by query position, then text position.</param>
+public record SuffixTreeMaximalMatchesResult(MaximalMatchItem[] Matches);
+
 // ================================
 // Genomics Results
 // ================================

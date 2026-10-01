@@ -225,6 +225,80 @@ public record RegulatoryElementItem(string Name, int Position, string Sequence, 
 /// <summary>Result of <c>find_regulatory_elements</c>.</summary>
 public record FindRegulatoryElementsResult(RegulatoryElementItem[] Items);
 
+/// <summary>A both-strand PWM hit (Biopython <c>search(both=True)</c> coordinates in <c>BiopythonPosition</c>).</summary>
+public record PwmStrandMatchItem(int Position, int BiopythonPosition, string Strand, string MatchedSequence, string Pattern, double Score);
+
+/// <summary>Result of <c>scan_with_pwm_both_strands</c>.</summary>
+public record ScanWithPwmBothStrandsResult(PwmStrandMatchItem[] Items);
+
+/// <summary>Result of <c>pwm_score_thresholds</c>: score-distribution grid and derived thresholds.</summary>
+public record PwmScoreThresholdsResult(
+    double MinScore,
+    double Step,
+    int PointCount,
+    double MeanScore,
+    double ThresholdFpr,
+    double ThresholdFnr,
+    double ThresholdBalanced,
+    double BalancedFalsePositiveRate,
+    double ThresholdPatser);
+
+/// <summary>A promoter-element weight-matrix hit.</summary>
+public record PromoterMatrixHitItem(string Name, string MatrixId, int Position, string Strand, string Sequence, double Score, double Threshold);
+
+/// <summary>Result of <c>find_promoter_elements_by_matrix</c>.</summary>
+public record FindPromoterElementsByMatrixResult(PromoterMatrixHitItem[] Items);
+
+/// <summary>A strand-annotated regulatory element occurrence.</summary>
+public record StrandedRegulatoryElementItem(string Name, int Position, string Sequence, string Pattern, string Description, string Strand);
+
+/// <summary>Result of <c>find_regulatory_elements_both_strands</c>.</summary>
+public record FindRegulatoryElementsBothStrandsResult(StrandedRegulatoryElementItem[] Items);
+
+/// <summary>A k-mer (or reverse-complement pair) scored by RSAT oligo-analysis occurrence statistics.</summary>
+public record OligoMotifItem(
+    string Sequence,
+    string? ReverseComplement,
+    int Count,
+    int[] Positions,
+    double ExpectedFrequency,
+    double ExpectedOccurrences,
+    double? Ratio,
+    double OccurrenceProbability,
+    double OccurrenceEValue,
+    double OccurrenceSignificance);
+
+/// <summary>Result of <c>oligo_analysis</c>.</summary>
+public record OligoAnalysisResultDto(
+    OligoMotifItem[] Motifs,
+    int OligoLength,
+    string Strands,
+    bool CountOverlapping,
+    long TotalOccurrences,
+    int TestedPatterns,
+    double? PossibleOligos);
+
+/// <summary>A k-mer (or pair) scored by RSAT oligo-analysis matching-sequence statistics.</summary>
+public record SharedMotifSignificanceItem(
+    string Sequence,
+    string? ReverseComplement,
+    int[] SequenceIndices,
+    double Prevalence,
+    double ExpectedFrequency,
+    double ExpectedMatchingSequences,
+    double MatchingSequenceProbability,
+    double? MatchingSequenceEValue,
+    double? MatchingSequenceSignificance);
+
+/// <summary>Result of <c>shared_motifs_significance</c>.</summary>
+public record SharedMotifSignificanceResult(
+    SharedMotifSignificanceItem[] Motifs,
+    int OligoLength,
+    string Strands,
+    int SequenceCount,
+    long PossiblePositions,
+    double? PossibleOligos);
+
 // ================================
 // ProteinMotifFinder Results
 // ================================

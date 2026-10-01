@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_emboss_consensus",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.GenerateEmbossConsensus",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L133",
+  "description": "Line-by-line port of EMBOSS 6.6.0 `cons` (`embConsCalc`): per column the residue with the highest positive-match score under the scoring matrix (EDNAFULL for nucleotides, EBLOSUM62 for proteins) is chosen; if its positive-match weight is below `plurality` (default half the total weight) or fewer than `identity` residues are identical, the no-consensus symbol (`N` nucleotide / `X` protein) is emitted; residues whose weight is ≤ `setcase` are written in lower case. Gaps `-`, `.`, `~` are allowed. Single-precision arithmetic as in EMBOSS; outputs are character-identical to `cons -plurality P -identity I -setcase S` (780/780 reference runs). The residue type is explicit (cons infers it from the first sequence).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "At least two aligned sequences of equal length (DNA or protein)",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 2
+      },
+      "residueType": {
+        "type": "string",
+        "description": "'nucleotide' (EDNAFULL, default) or 'protein' (EBLOSUM62)",
+        "enum": [
+          "nucleotide",
+          "protein"
+        ],
+        "default": "nucleotide"
+      },
+      "plurality": {
+        "type": "number",
+        "description": "Minimum positive-match weight (cons -plurality); default half the total sequence weight"
+      },
+      "identity": {
+        "type": "integer",
+        "description": "Required number of identical residues (cons -identity, default 0 = off)",
+        "minimum": 0,
+        "default": 0
+      },
+      "setcase": {
+        "type": "number",
+        "description": "Weight at or below which output is lower case (cons -setcase); default half the total sequence weight"
+      },
+      "weights": {
+        "type": "array",
+        "description": "Optional per-sequence weights (finite, >= 0; default 1.0 each)",
+        "items": {
+          "type": "number"
+        }
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "consensus": {
+        "type": "string",
+        "description": "Consensus sequence, one symbol per alignment column"
+      }
+    },
+    "required": [
+      "consensus"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least two sequences are required"
+    },
+    {
+      "code": 1002,
+      "message": "residueType must be 'nucleotide' or 'protein'"
+    }
+  ],
+  "examples": [
+    {
+      "name": "cons -snucleotide",
+      "input": {
+        "sequences": [
+          "ACGTAC-T",
+          "ACGTTCAT",
+          "AGGTAC-T",
+          "tCGAAG-T"
+        ]
+      },
+      "output": {
+        "consensus": "ACGTACnT"
+      }
+    },
+    {
+      "name": "cons -sprotein -plurality 1.0 -setcase 3.0",
+      "input": {
+        "sequences": [
+          "MKVLAAGIVG",
+          "MKVLSAGIVA",
+          "MRVLAAG-VG",
+          "MKILTAGLVG"
+        ],
+        "residueType": "protein",
+        "plurality": 1.0,
+        "setcase": 3.0
+      },
+      "output": {
+        "consensus": "MKVLaAGiVg"
+      }
+    }
+  ]
+}

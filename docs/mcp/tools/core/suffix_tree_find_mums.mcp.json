@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_find_mums",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.FindMaximalUniqueMatches",
+  "docRef": "SuffixTree/SuffixTree.Algorithms.cs#L213",
+  "description": "Find maximal unique matches (MUMs) of length >= minLength: MEMs unique in the reference and, with uniqueness 'both', in the query (MUMmer -mum / -mumreference).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The reference text (the suffix tree is built on it)",
+        "minLength": 1
+      },
+      "query": {
+        "type": "string",
+        "description": "The query string matched against the reference",
+        "minLength": 1
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum match length (>= 1; MUMmer default 20)",
+        "minimum": 1,
+        "default": 20
+      },
+      "uniqueness": {
+        "type": "string",
+        "description": "'both' (unique in reference and query, -mum; default) or 'reference' (unique in reference only, -mumreference)",
+        "enum": [
+          "both",
+          "reference"
+        ],
+        "default": "both"
+      }
+    },
+    "required": [
+      "text",
+      "query"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matches": {
+        "type": "array",
+        "description": "Matches sorted by query position, then text position",
+        "items": {
+          "type": "object",
+          "properties": {
+            "positionInText": {
+              "type": "integer"
+            },
+            "positionInQuery": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "positionInText",
+            "positionInQuery",
+            "length"
+          ]
+        }
+      }
+    },
+    "required": [
+      "matches"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Text cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Query cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "minLength must be >= 1"
+    },
+    {
+      "code": 1004,
+      "message": "Uniqueness must be 'both' or 'reference'"
+    }
+  ],
+  "examples": [
+    {
+      "name": "MUMmer -mum -l 4",
+      "input": {
+        "text": "TTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCG",
+        "query": "TTTCCTCATGCAAATAGCCTCATGCATCCGTAATGTAG",
+        "minLength": 4,
+        "uniqueness": "both"
+      },
+      "output": {
+        "matches": [
+          {
+            "positionInText": 0,
+            "positionInQuery": 0,
+            "length": 13
+          },
+          {
+            "positionInText": 15,
+            "positionInQuery": 10,
+            "length": 4
+          },
+          {
+            "positionInText": 25,
+            "positionInQuery": 26,
+            "length": 12
+          }
+        ]
+      }
+    },
+    {
+      "name": "MUMmer -mumreference -l 4",
+      "input": {
+        "text": "TTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCG",
+        "query": "TTTCCTCATGCAAATAGCCTCATGCATCCGTAATGTAG",
+        "minLength": 4,
+        "uniqueness": "reference"
+      },
+      "output": {
+        "matches": [
+          {
+            "positionInText": 0,
+            "positionInQuery": 0,
+            "length": 13
+          },
+          {
+            "positionInText": 15,
+            "positionInQuery": 10,
+            "length": 4
+          },
+          {
+            "positionInText": 3,
+            "positionInQuery": 17,
+            "length": 9
+          },
+          {
+            "positionInText": 25,
+            "positionInQuery": 26,
+            "length": 12
+          }
+        ]
+      }
+    }
+  ]
+}

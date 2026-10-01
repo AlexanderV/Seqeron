@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_cavener_consensus",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.GenerateCavenerConsensus",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L491",
+  "description": "Degenerate consensus of aligned, equal-length DNA sequences by the Cavener (1987, NAR 15:1353) rules, as used by TRANSFAC and Biopython `Bio.motifs` `degenerate_consensus`. Per column, with base counts sorted c1 ≥ c2 ≥ c3 ≥ c4: a single base if c1 > 50% and c1 > 2·c2; otherwise the two-base IUPAC code if c1 + c2 > 75%; otherwise the three-base code if the fourth base is absent; otherwise `N`. Case-insensitive; only A/C/G/T are accepted (no gaps). Cross-checked against Biopython.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "Aligned DNA sequences of equal length over A/C/G/T",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "consensus": {
+        "type": "string",
+        "description": "Consensus sequence, one symbol per alignment column"
+      }
+    },
+    "required": [
+      "consensus"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least one sequence is required"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Biopython tutorial motif",
+      "input": {
+        "sequences": [
+          "TACAA",
+          "TACGC",
+          "TACAC",
+          "TACCC",
+          "AACCC",
+          "AATGC",
+          "AATGC"
+        ]
+      },
+      "output": {
+        "consensus": "WACVC"
+      }
+    }
+  ]
+}

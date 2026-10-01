@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_edit_end_positions",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.FindEditEndPositions",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L209",
+  "description": "Sellers (1980) approximate string matching (the k-differences problem; Navarro 2001 §5.1): reports every 0-based end position j of `sequence` at which some substring ending at j is within `maxEdits` Levenshtein edits of `pattern`, together with that minimum distance min_i ed(pattern, sequence[i..j]). Case-insensitive. Engine: Myers (1999) bit-parallel column scan (⌈m/64⌉ words, O(⌈m/64⌉·n)), identical to the Wagner–Fischer DP with a free text start; cross-checked against edlib HW mode. Output ordered by increasing end position.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Sequence to search in.",
+        "minLength": 1
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Pattern to find.",
+        "minLength": 1
+      },
+      "maxEdits": {
+        "type": "integer",
+        "description": "Maximum allowed edit distance (>= 0).",
+        "minimum": 0
+      }
+    },
+    "required": [
+      "sequence",
+      "pattern",
+      "maxEdits"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "End positions with minimum distance, increasing end position",
+        "items": {
+          "type": "object",
+          "properties": {
+            "endPosition": {
+              "type": "integer"
+            },
+            "distance": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "endPosition",
+            "distance"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1005,
+      "message": "Pattern cannot be null or empty"
+    },
+    {
+      "code": 1006,
+      "message": "maxEdits must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Navarro survey/surgery",
+      "input": {
+        "sequence": "surgery",
+        "pattern": "survey",
+        "maxEdits": 2
+      },
+      "output": {
+        "items": [
+          {
+            "endPosition": 4,
+            "distance": 2
+          },
+          {
+            "endPosition": 5,
+            "distance": 2
+          },
+          {
+            "endPosition": 6,
+            "distance": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Exact and 1-edit ends",
+      "input": {
+        "sequence": "GATTACAGATTTACA",
+        "pattern": "TTAC",
+        "maxEdits": 1
+      },
+      "output": {
+        "items": [
+          {
+            "endPosition": 4,
+            "distance": 1
+          },
+          {
+            "endPosition": 5,
+            "distance": 0
+          },
+          {
+            "endPosition": 6,
+            "distance": 1
+          },
+          {
+            "endPosition": 12,
+            "distance": 1
+          },
+          {
+            "endPosition": 13,
+            "distance": 0
+          },
+          {
+            "endPosition": 14,
+            "distance": 1
+          }
+        ]
+      }
+    }
+  ]
+}

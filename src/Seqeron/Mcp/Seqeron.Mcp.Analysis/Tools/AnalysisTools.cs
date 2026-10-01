@@ -709,6 +709,261 @@ public class AnalysisTools
         return new FindRegulatoryElementsResult(items);
     }
 
+    [McpServerTool(Name = "generate_cavener_consensus", Title = "Motifs — Cavener Degenerate Consensus", ReadOnly = true)]
+    [Description("Degenerate IUPAC consensus of aligned equal-length DNA sequences by the Cavener (1987) rules (TRANSFAC / Biopython degenerate_consensus): single base if > 50% and > 2× the second; else two-base code if the top two exceed 75%; else three-base code if the fourth base is absent; else N.")]
+    public static ConsensusResult GenerateCavenerConsensus(
+        [Description("Aligned DNA sequences of equal length over A/C/G/T (case-insensitive, no gaps).")] string[] sequences)
+    {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required", nameof(sequences));
+
+        var consensus = global::Seqeron.Genomics.Analysis.MotifFinder
+            .GenerateCavenerConsensus(sequences);
+        return new ConsensusResult(consensus);
+    }
+
+    [McpServerTool(Name = "generate_emboss_consensus", Title = "Motifs — EMBOSS cons Consensus", ReadOnly = true)]
+    [Description("Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; lower case at or below setcase). Gaps '-', '.', '~' allowed.")]
+    public static ConsensusResult GenerateEmbossConsensus(
+        [Description("At least two aligned sequences of equal length (DNA or protein).")] string[] sequences,
+        [Description("Residue type: 'nucleotide' (default, EDNAFULL, no-consensus N) or 'protein' (EBLOSUM62, no-consensus X).")] string residueType = "nucleotide",
+        [Description("Minimum positive-match weight for a consensus residue (cons -plurality); default half the total sequence weight.")] double? plurality = null,
+        [Description("Required number of identical residues at a position (cons -identity, default 0 = off).")] int identity = 0,
+        [Description("Positive-match weight at or below which the residue is written in lower case (cons -setcase); default half the total sequence weight.")] double? setcase = null,
+        [Description("Optional per-sequence weights (one per sequence, finite, >= 0; default 1.0 each).")] double[]? weights = null)
+    {
+        if (sequences is null || sequences.Length < 2)
+            throw new ArgumentException("At least two sequences are required", nameof(sequences));
+        var type = (residueType ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "nucleotide" => global::Seqeron.Genomics.Analysis.ConsensusResidueType.Nucleotide,
+            "protein" => global::Seqeron.Genomics.Analysis.ConsensusResidueType.Protein,
+            _ => throw new ArgumentException("residueType must be 'nucleotide' or 'protein'", nameof(residueType)),
+        };
+
+        var consensus = global::Seqeron.Genomics.Analysis.MotifFinder.GenerateEmbossConsensus(
+            sequences, type, (float?)plurality, identity, (float?)setcase,
+            weights?.Select(w => (float)w).ToArray());
+        return new ConsensusResult(consensus);
+    }
+
+    [McpServerTool(Name = "generate_dumb_consensus", Title = "Motifs — Majority (dumb) Consensus", ReadOnly = true)]
+    [Description("Majority-threshold consensus with Biopython SummaryInfo.dumb_consensus semantics: per column the most frequent non-gap residue is emitted if it is unique and its fraction of the non-gap residues is >= threshold, otherwise the ambiguous symbol. Any alphabet, case-sensitive.")]
+    public static ConsensusResult GenerateDumbConsensus(
+        [Description("Aligned sequences of equal length.")] string[] sequences,
+        [Description("Required fraction of non-gap residues (Biopython default 0.7).")] double threshold = 0.7,
+        [Description("Single-character symbol for columns without consensus (default 'X').")] string ambiguous = "X",
+        [Description("When true, a column with a single non-gap residue gives the ambiguous symbol (default false).")] bool requireMultiple = false)
+    {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required", nameof(sequences));
+        if (ambiguous is null || ambiguous.Length != 1)
+            throw new ArgumentException("Ambiguous must be exactly one character", nameof(ambiguous));
+        if (double.IsNaN(threshold))
+            throw new ArgumentOutOfRangeException(nameof(threshold), "Threshold cannot be NaN.");
+
+        var consensus = global::Seqeron.Genomics.Analysis.MotifFinder
+            .GenerateDumbConsensus(sequences, threshold, ambiguous[0], requireMultiple);
+        return new ConsensusResult(consensus);
+    }
+
+    [McpServerTool(Name = "scan_with_pwm_both_strands", Title = "Motifs — Scan with PWM (Both Strands)", ReadOnly = true)]
+    [Description("Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the reverse-complement PWM over the same windows. Returns hits with score >= threshold, ordered by forward window start, '+' before '-'.")]
+    public static ScanWithPwmBothStrandsResult ScanWithPwmBothStrands(
+        [Description("DNA sequence to scan.")] string sequence,
+        [Description("Position Weight Matrix: matrix is jagged 4×L (rows A,C,G,T), length is L.")] PwmInput pwm,
+        [Description("Minimum score threshold (inclusive, default 0.0).")] double threshold = 0.0)
+    {
+        var dna = RequireDna(sequence, nameof(sequence));
+        var pwmObj = RequirePwm(pwm);
+        var items = global::Seqeron.Genomics.Analysis.MotifFinder
+            .ScanWithPwmBothStrands(dna, pwmObj, threshold)
+            .Select(m => new PwmStrandMatchItem(m.Position, m.BiopythonPosition, m.Strand.ToString(), m.MatchedSequence, m.Pattern, m.Score))
+            .ToArray();
+        return new ScanWithPwmBothStrandsResult(items);
+    }
+
+    [McpServerTool(Name = "pwm_score_thresholds", Title = "Motifs — PWM Score Thresholds", ReadOnly = true)]
+    [Description("Score thresholds of a PWM from its discretised score distribution (Biopython Bio.motifs.thresholds.ScoreDistribution): background false-positive-rate threshold, motif false-negative-rate threshold, balanced threshold (FNR = FPR × rateProportion) and the patser threshold (log2 FPR = −information content).")]
+    public static PwmScoreThresholdsResult PwmScoreThresholds(
+        [Description("Position Weight Matrix: matrix is jagged 4×L (rows A,C,G,T), finite cells, length is L.")] PwmInput pwm,
+        [Description("Optional background probabilities A,C,G,T (uniform when omitted).")] double[]? background = null,
+        [Description("Grid points per motif position (Biopython default 1000).")] int precision = 1000,
+        [Description("Target background false-positive rate in [0,1] (default 0.01).")] double fpr = 0.01,
+        [Description("Target motif false-negative rate in [0,1] (default 0.1).")] double fnr = 0.1,
+        [Description("Balanced threshold rate proportion FNR/FPR (default 1.0).")] double rateProportion = 1.0)
+    {
+        var pwmObj = RequirePwm(pwm);
+        if (pwmObj.Matrix.Cast<double>().Any(w => !double.IsFinite(w)))
+            throw new ArgumentException("PWM cells must be finite.", nameof(pwm));
+        if (background is not null && background.Length != 4)
+            throw new ArgumentException("Background must have 4 values (A,C,G,T).", nameof(background));
+        if (precision < 1)
+            throw new ArgumentOutOfRangeException(nameof(precision), "Precision must be >= 1.");
+        if (!(fpr >= 0 && fpr <= 1))
+            throw new ArgumentOutOfRangeException(nameof(fpr), "fpr must be in [0, 1].");
+        if (!(fnr >= 0 && fnr <= 1))
+            throw new ArgumentOutOfRangeException(nameof(fnr), "fnr must be in [0, 1].");
+
+        var d = pwmObj.ScoreDistribution(background, precision);
+        double balanced = d.ThresholdBalanced(rateProportion, out double balancedRate);
+        return new PwmScoreThresholdsResult(
+            d.MinScore, d.Step, d.PointCount, d.MeanScore,
+            d.ThresholdFpr(fpr), d.ThresholdFnr(fnr), balanced, balancedRate, d.ThresholdPatser());
+    }
+
+    [McpServerTool(Name = "find_promoter_elements_by_matrix", Title = "Motifs — Promoter Elements (Bucher Matrices)", ReadOnly = true)]
+    [Description("Scan a DNA sequence with the Bucher (1990) promoter weight matrices from JASPAR POLII (TATA box POL012.1, cap/Inr POL002.1, CCAAT box POL004.1, GC box POL003.1) at the score threshold with the given background false-positive rate; CCAAT and GC boxes optionally on both strands.")]
+    public static FindPromoterElementsByMatrixResult FindPromoterElementsByMatrix(
+        [Description("DNA sequence.")] string sequence,
+        [Description("Background false-positive rate per window and strand, in [0,1] (default 0.001).")] double falsePositiveRate = 0.001,
+        [Description("Scan the orientation-independent CCAAT / GC boxes on both strands (default true).")] bool bothStrands = true)
+    {
+        var dna = RequireDna(sequence, nameof(sequence));
+        if (!(falsePositiveRate >= 0 && falsePositiveRate <= 1))
+            throw new ArgumentOutOfRangeException(nameof(falsePositiveRate), "falsePositiveRate must be in [0, 1].");
+
+        var items = global::Seqeron.Genomics.Analysis.MotifFinder
+            .FindPromoterElementsByMatrix(dna, falsePositiveRate, bothStrands)
+            .Select(h => new PromoterMatrixHitItem(h.Name, h.MatrixId, h.Position, h.Strand.ToString(), h.Sequence, h.Score, h.Threshold))
+            .ToArray();
+        return new FindPromoterElementsByMatrixResult(items);
+    }
+
+    [McpServerTool(Name = "find_regulatory_elements_both_strands", Title = "Motifs — Regulatory Elements (Both Strands)", ReadOnly = true)]
+    [Description("Strand-annotated scan of the built-in regulatory library: every element on the given strand, plus the orientation-independent elements (CAAT box, GC box, NF-κB; AP-1 / E-box / CREB are self-complementary) rescanned on the minus strand. Positions are 0-based forward-strand window starts.")]
+    public static FindRegulatoryElementsBothStrandsResult FindRegulatoryElementsBothStrands(
+        [Description("DNA sequence.")] string sequence)
+    {
+        var dna = RequireDna(sequence, nameof(sequence));
+        var items = global::Seqeron.Genomics.Analysis.MotifFinder
+            .FindRegulatoryElements(dna, bothStrands: true)
+            .Select(r => new StrandedRegulatoryElementItem(r.Name, r.Position, r.Sequence, r.Pattern, r.Description, r.Strand.ToString()))
+            .ToArray();
+        return new FindRegulatoryElementsBothStrandsResult(items);
+    }
+
+    [McpServerTool(Name = "oligo_analysis", Title = "Motifs — RSAT oligo-analysis Significance", ReadOnly = true)]
+    [Description("RSAT oligo-analysis over-representation of the k-mers of one DNA sequence: occurrences, expected frequency under a background model (equiprobable, input Bernoulli, given Bernoulli, input Markov order m, or Markov table), observed/expected ratio and binomial significance occ_P / occ_E / occ_sig; single strand or reverse-complement pairs (-2str); overlapping or non-overlapping (-noov) counts.")]
+    public static OligoAnalysisResultDto OligoAnalysis(
+        [Description("DNA sequence.")] string sequence,
+        [Description("Oligonucleotide length k (>= 1, default 6).")] int k = 6,
+        [Description("Occurrence threshold (RSAT -lth occ, default 2).")] int minCount = 2,
+        [Description("Background model: 'input' (default, Bernoulli from input), 'equiprobable', 'bernoulli' (needs residueFrequencies), 'markov' (order markovOrder from input) or 'markov_table' (needs oligoFrequencies).")] string background = "input",
+        [Description("Markov order for background 'markov' (>= 0, <= k-2 when > 0; default 1).")] int markovOrder = 1,
+        [Description("Residue probabilities A,C,G,T for background 'bernoulli'.")] double[]? residueFrequencies = null,
+        [Description("(m+1)-mer frequency table for background 'markov_table' (RSAT -bgfile oligos).")] Dictionary<string, double>? oligoFrequencies = null,
+        [Description("Pseudo-frequency in [0,1] for background 'markov_table' (default 0.01).")] double pseudoFrequency = 0.01,
+        [Description("The 'markov_table' frequencies are strand-insensitive pair frequencies (default false).")] bool strandInsensitive = false,
+        [Description("Strands: 'single' (-1str, default) or 'both' (-2str, reverse-complement pairs).")] string strands = "single",
+        [Description("Count overlapping occurrences (-ovlp, default true); false = -noov.")] bool countOverlapping = true)
+    {
+        var dna = RequireDna(sequence, nameof(sequence));
+        if (k < 1)
+            throw new ArgumentOutOfRangeException(nameof(k), "k must be >= 1.");
+        var bg = ToOligoBackground(background, markovOrder, residueFrequencies, oligoFrequencies, pseudoFrequency, strandInsensitive);
+        var mode = ToOligoStrandMode(strands);
+
+        var r = global::Seqeron.Genomics.Analysis.MotifFinder.DiscoverMotifs(dna, k, minCount, bg, mode, countOverlapping);
+        var items = r.Motifs
+            .Select(m => new OligoMotifItem(
+                m.Sequence, m.ReverseComplement, m.Count, m.Positions.ToArray(),
+                m.ExpectedFrequency, m.ExpectedOccurrences, FiniteOrNull(m.Ratio),
+                m.OccurrenceProbability, m.OccurrenceEValue, m.OccurrenceSignificance))
+            .ToArray();
+        return new OligoAnalysisResultDto(items, r.OligoLength, StrandName(r.Strands), r.CountOverlapping,
+            r.TotalOccurrences, r.TestedPatterns, FiniteOrNull(r.PossibleOligos));
+    }
+
+    [McpServerTool(Name = "shared_motifs_significance", Title = "Motifs — Shared Motifs Significance (RSAT)", ReadOnly = true)]
+    [Description("RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA sequences, with expected matching sequences exp_ms and binomial significance ms_P / ms_E / ms_sig under a background model.")]
+    public static SharedMotifSignificanceResult SharedMotifsSignificance(
+        [Description("DNA sequences.")] string[] sequences,
+        [Description("Word length k (>= 1, default 6).")] int k = 6,
+        [Description("Matching-sequence quorum (RSAT -lth mseq, >= 1, default 2).")] int minSequences = 2,
+        [Description("Background model: 'input' (default), 'equiprobable', 'bernoulli' (needs residueFrequencies), 'markov' (order markovOrder) or 'markov_table' (needs oligoFrequencies).")] string background = "input",
+        [Description("Markov order for background 'markov' (default 1).")] int markovOrder = 1,
+        [Description("Residue probabilities A,C,G,T for background 'bernoulli'.")] double[]? residueFrequencies = null,
+        [Description("(m+1)-mer frequency table for background 'markov_table'.")] Dictionary<string, double>? oligoFrequencies = null,
+        [Description("Pseudo-frequency in [0,1] for background 'markov_table' (default 0.01).")] double pseudoFrequency = 0.01,
+        [Description("The 'markov_table' frequencies are strand-insensitive pair frequencies (default false).")] bool strandInsensitive = false,
+        [Description("Strands: 'single' (default) or 'both' (reverse-complement pairs).")] string strands = "single")
+    {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required", nameof(sequences));
+        if (k < 1)
+            throw new ArgumentOutOfRangeException(nameof(k), "k must be >= 1.");
+        if (minSequences < 1)
+            throw new ArgumentOutOfRangeException(nameof(minSequences), "minSequences must be >= 1.");
+
+        var dnaList = sequences.Select(s => RequireDna(s, nameof(sequences))).ToList();
+        var bg = ToOligoBackground(background, markovOrder, residueFrequencies, oligoFrequencies, pseudoFrequency, strandInsensitive);
+        var mode = ToOligoStrandMode(strands);
+
+        var r = global::Seqeron.Genomics.Analysis.MotifFinder.FindSharedMotifs(dnaList, k, minSequences, bg, mode);
+        var items = r.Motifs
+            .Select(m => new SharedMotifSignificanceItem(
+                m.Sequence, m.ReverseComplement, m.SequenceIndices.ToArray(), m.Prevalence,
+                m.ExpectedFrequency, m.ExpectedMatchingSequences, m.MatchingSequenceProbability,
+                FiniteOrNull(m.MatchingSequenceEValue), FiniteOrNull(m.MatchingSequenceSignificance)))
+            .ToArray();
+        return new SharedMotifSignificanceResult(items, r.OligoLength, StrandName(r.Strands), r.SequenceCount,
+            r.PossiblePositions, FiniteOrNull(r.PossibleOligos));
+    }
+
+    private static global::Seqeron.Genomics.Analysis.PositionWeightMatrix RequirePwm(PwmInput pwm)
+    {
+        if (pwm is null)
+            throw new ArgumentException("PWM is required.", nameof(pwm));
+        if (pwm.Length < 1)
+            throw new ArgumentException("PWM length must be >= 1.", nameof(pwm));
+        var matrix2d = JaggedToMatrix(pwm.Matrix, 4, pwm.Length);
+        return new global::Seqeron.Genomics.Analysis.PositionWeightMatrix(matrix2d, pwm.Length);
+    }
+
+    private static global::Seqeron.Genomics.Analysis.OligoBackgroundModel ToOligoBackground(
+        string background, int markovOrder, double[]? residueFrequencies,
+        Dictionary<string, double>? oligoFrequencies, double pseudoFrequency, bool strandInsensitive)
+    {
+        switch ((background ?? string.Empty).Trim().ToLowerInvariant())
+        {
+            case "input":
+                return global::Seqeron.Genomics.Analysis.OligoBackgroundModel.BernoulliFromInput;
+            case "equiprobable":
+                return global::Seqeron.Genomics.Analysis.OligoBackgroundModel.Equiprobable;
+            case "bernoulli":
+                if (residueFrequencies is null || residueFrequencies.Length != 4)
+                    throw new ArgumentException("Background 'bernoulli' requires 4 residueFrequencies (A,C,G,T).", nameof(residueFrequencies));
+                return global::Seqeron.Genomics.Analysis.OligoBackgroundModel.Bernoulli(residueFrequencies);
+            case "markov":
+                if (markovOrder < 0)
+                    throw new ArgumentOutOfRangeException(nameof(markovOrder), "markovOrder must be >= 0.");
+                return global::Seqeron.Genomics.Analysis.OligoBackgroundModel.MarkovFromInput(markovOrder);
+            case "markov_table":
+                if (oligoFrequencies is null || oligoFrequencies.Count == 0)
+                    throw new ArgumentException("Background 'markov_table' requires oligoFrequencies.", nameof(oligoFrequencies));
+                return global::Seqeron.Genomics.Analysis.OligoBackgroundModel.MarkovFromOligoFrequencies(
+                    oligoFrequencies, pseudoFrequency, strandInsensitive);
+            default:
+                throw new ArgumentException(
+                    "Background must be 'input', 'equiprobable', 'bernoulli', 'markov' or 'markov_table'.", nameof(background));
+        }
+    }
+
+    private static global::Seqeron.Genomics.Analysis.OligoStrandMode ToOligoStrandMode(string strands)
+        => (strands ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "single" => global::Seqeron.Genomics.Analysis.OligoStrandMode.Single,
+            "both" => global::Seqeron.Genomics.Analysis.OligoStrandMode.Both,
+            _ => throw new ArgumentException("Strands must be 'single' or 'both'.", nameof(strands)),
+        };
+
+    private static string StrandName(global::Seqeron.Genomics.Analysis.OligoStrandMode mode)
+        => mode == global::Seqeron.Genomics.Analysis.OligoStrandMode.Both ? "both" : "single";
+
+    // JSON has no representation for ±∞ / NaN; such values (beyond the double range) map to null.
+    private static double? FiniteOrNull(double value) => double.IsFinite(value) ? value : null;
+
     private static double[][] MatrixToJagged(double[,] matrix, int rows, int cols)
     {
         var result = new double[rows][];

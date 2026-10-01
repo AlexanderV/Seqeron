@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (22 tools)
+## Alignment (26 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -14,14 +14,18 @@
 | `assembly_stats` | `SequenceAssembler.CalculateStats` | [doc](../../mcp/tools/alignment/assembly_stats.md) |
 | `calculate_coverage` | `SequenceAssembler.CalculateCoverage` | [doc](../../mcp/tools/alignment/calculate_coverage.md) |
 | `compute_consensus` | `SequenceAssembler.ComputeConsensus` | [doc](../../mcp/tools/alignment/compute_consensus.md) |
+| `damerau_levenshtein_distance` | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../mcp/tools/alignment/damerau_levenshtein_distance.md) |
+| `edit_alignment` | `ApproximateMatcher.GetEditAlignment` | [doc](../../mcp/tools/alignment/edit_alignment.md) |
 | `error_correct_reads` | `SequenceAssembler.ErrorCorrectReads` | [doc](../../mcp/tools/alignment/error_correct_reads.md) |
 | `find_all_overlaps` | `SequenceAssembler.FindAllOverlaps` | [doc](../../mcp/tools/alignment/find_all_overlaps.md) |
 | `find_best_match` | `ApproximateMatcher.FindBestMatch` | [doc](../../mcp/tools/alignment/find_best_match.md) |
+| `find_edit_end_positions` | `ApproximateMatcher.FindEditEndPositions` | [doc](../../mcp/tools/alignment/find_edit_end_positions.md) |
 | `find_overlap` | `SequenceAssembler.FindOverlap` | [doc](../../mcp/tools/alignment/find_overlap.md) |
 | `find_with_edits` | `ApproximateMatcher.FindWithEdits` | [doc](../../mcp/tools/alignment/find_with_edits.md) |
 | `find_with_mismatches` | `ApproximateMatcher.FindWithMismatches` | [doc](../../mcp/tools/alignment/find_with_mismatches.md) |
 | `format_alignment` | `SequenceAligner.FormatAlignment` | [doc](../../mcp/tools/alignment/format_alignment.md) |
 | `frequent_kmers_with_mismatches` | `ApproximateMatcher.FindFrequentKmersWithMismatches` | [doc](../../mcp/tools/alignment/frequent_kmers_with_mismatches.md) |
+| `frequent_kmers_with_mismatches_and_revcomp` | `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements` | [doc](../../mcp/tools/alignment/frequent_kmers_with_mismatches_and_revcomp.md) |
 | `global_align` | `SequenceAligner.GlobalAlign` | [doc](../../mcp/tools/alignment/global_align.md) |
 | `local_align` | `SequenceAligner.LocalAlign` | [doc](../../mcp/tools/alignment/local_align.md) |
 | `merge_contigs` | `SequenceAssembler.MergeContigs` | [doc](../../mcp/tools/alignment/merge_contigs.md) |
@@ -31,7 +35,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (91 tools)
+## Analysis (100 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -74,11 +78,13 @@
 | `find_open_reading_frames` | `GenomicAnalyzer.FindOpenReadingFrames` | [doc](../../mcp/tools/analysis/find_open_reading_frames.md) |
 | `find_orthologs` | `ComparativeGenomics.FindOrthologs` | [doc](../../mcp/tools/analysis/find_orthologs.md) |
 | `find_palindromes` | `RepeatFinder.FindPalindromes` | [doc](../../mcp/tools/analysis/find_palindromes.md) |
+| `find_promoter_elements_by_matrix` | `MotifFinder.FindPromoterElementsByMatrix` | [doc](../../mcp/tools/analysis/find_promoter_elements_by_matrix.md) |
 | `find_protein_domains` | `ProteinMotifFinder.FindDomains` | [doc](../../mcp/tools/analysis/find_protein_domains.md) |
 | `find_protein_low_complexity_regions` | `ProteinMotifFinder.FindLowComplexityRegions` | [doc](../../mcp/tools/analysis/find_protein_low_complexity_regions.md) |
 | `find_protein_motifs` | `ProteinMotifFinder.FindCommonMotifs` | [doc](../../mcp/tools/analysis/find_protein_motifs.md) |
 | `find_reciprocal_best_hits` | `ComparativeGenomics.FindReciprocalBestHits` | [doc](../../mcp/tools/analysis/find_reciprocal_best_hits.md) |
 | `find_regulatory_elements` | `MotifFinder.FindRegulatoryElements` | [doc](../../mcp/tools/analysis/find_regulatory_elements.md) |
+| `find_regulatory_elements_both_strands` | `MotifFinder.FindRegulatoryElements` | [doc](../../mcp/tools/analysis/find_regulatory_elements_both_strands.md) |
 | `find_repeats` | `GenomicAnalyzer.FindRepeats` | [doc](../../mcp/tools/analysis/find_repeats.md) |
 | `find_rna_inverted_repeats` | `RnaSecondaryStructure.FindInvertedRepeats` | [doc](../../mcp/tools/analysis/find_rna_inverted_repeats.md) |
 | `find_shared_motifs` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/find_shared_motifs.md) |
@@ -89,8 +95,11 @@
 | `gc_content_profile` | `SequenceStatistics.CalculateGcContentProfile` | [doc](../../mcp/tools/analysis/gc_content_profile.md) |
 | `gc_skew` | `GcSkewCalculator.CalculateGcSkew` | [doc](../../mcp/tools/analysis/gc_skew.md) |
 | `generate_all_kmers` | `KmerAnalyzer.GenerateAllKmers` | [doc](../../mcp/tools/analysis/generate_all_kmers.md) |
+| `generate_cavener_consensus` | `MotifFinder.GenerateCavenerConsensus` | [doc](../../mcp/tools/analysis/generate_cavener_consensus.md) |
 | `generate_consensus` | `MotifFinder.GenerateConsensus` | [doc](../../mcp/tools/analysis/generate_consensus.md) |
 | `generate_dot_plot` | `ComparativeGenomics.GenerateDotPlot` | [doc](../../mcp/tools/analysis/generate_dot_plot.md) |
+| `generate_dumb_consensus` | `MotifFinder.GenerateDumbConsensus` | [doc](../../mcp/tools/analysis/generate_dumb_consensus.md) |
+| `generate_emboss_consensus` | `MotifFinder.GenerateEmbossConsensus` | [doc](../../mcp/tools/analysis/generate_emboss_consensus.md) |
 | `hairpin_loop_energy` | `RnaSecondaryStructure.CalculateHairpinLoopEnergy` | [doc](../../mcp/tools/analysis/hairpin_loop_energy.md) |
 | `hydrophobicity_profile` | `SequenceStatistics.CalculateHydrophobicityProfile` | [doc](../../mcp/tools/analysis/hydrophobicity_profile.md) |
 | `internal_loop_energy` | `RnaSecondaryStructure.CalculateInternalLoopEnergy` | [doc](../../mcp/tools/analysis/internal_loop_energy.md) |
@@ -105,6 +114,7 @@
 | `mismatch_coaxial_stacking` | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../mcp/tools/analysis/mismatch_coaxial_stacking.md) |
 | `most_frequent_kmers` | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../mcp/tools/analysis/most_frequent_kmers.md) |
 | `multibranch_loop_energy` | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../mcp/tools/analysis/multibranch_loop_energy.md) |
+| `oligo_analysis` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../mcp/tools/analysis/parse_dot_bracket.md) |
 | `predict_chou_fasman` | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../mcp/tools/analysis/predict_coiled_coils.md) |
@@ -116,9 +126,12 @@
 | `predict_signal_peptide` | `ProteinMotifFinder.PredictSignalPeptide` | [doc](../../mcp/tools/analysis/predict_signal_peptide.md) |
 | `predict_transmembrane_helices` | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../mcp/tools/analysis/predict_transmembrane_helices.md) |
 | `prosite_to_regex` | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../mcp/tools/analysis/prosite_to_regex.md) |
+| `pwm_score_thresholds` | `PositionWeightMatrix.ScoreDistribution` | [doc](../../mcp/tools/analysis/pwm_score_thresholds.md) |
 | `reversal_distance` | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | `RnaSecondaryStructure.GetComplement` | [doc](../../mcp/tools/analysis/rna_complement_base.md) |
 | `scan_with_pwm` | `MotifFinder.ScanWithPwm` | [doc](../../mcp/tools/analysis/scan_with_pwm.md) |
+| `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |
+| `shared_motifs_significance` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/shared_motifs_significance.md) |
 | `stem_energy` | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../mcp/tools/analysis/stem_energy.md) |
 | `tandem_repeat_summary` | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../mcp/tools/analysis/tandem_repeat_summary.md) |
 | `terminal_mismatch_energy` | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../mcp/tools/analysis/terminal_mismatch_energy.md) |
@@ -266,7 +279,7 @@
 | `predict_g_bands` | `ChromosomeAnalyzer.PredictGBands` | [doc](../../mcp/tools/chromosome/predict_g_bands.md) |
 | `repeat_content` | `GenomeAssemblyAnalyzer.CalculateRepeatContent` | [doc](../../mcp/tools/chromosome/repeat_content.md) |
 
-## Core (12 tools)
+## Core (15 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -276,9 +289,12 @@
 | `find_longest_common_region` | `GenomicAnalyzer.FindLongestCommonRegion` | [doc](../../mcp/tools/core/find_longest_common_region.md) |
 | `find_longest_repeat` | `GenomicAnalyzer.FindLongestRepeat` | [doc](../../mcp/tools/core/find_longest_repeat.md) |
 | `hamming_distance` | `ApproximateMatcher.HammingDistance` | [doc](../../mcp/tools/core/hamming_distance.md) |
+| `suffix_tree_all_lrs` | `SuffixTree.FindAllLongestRepeatedSubstrings` | [doc](../../mcp/tools/core/suffix_tree_all_lrs.md) |
 | `suffix_tree_contains` | `SuffixTree.Contains` | [doc](../../mcp/tools/core/suffix_tree_contains.md) |
 | `suffix_tree_count` | `SuffixTree.CountOccurrences` | [doc](../../mcp/tools/core/suffix_tree_count.md) |
 | `suffix_tree_find_all` | `SuffixTree.FindAllOccurrences` | [doc](../../mcp/tools/core/suffix_tree_find_all.md) |
+| `suffix_tree_find_mems` | `SuffixTree.FindMaximalExactMatches` | [doc](../../mcp/tools/core/suffix_tree_find_mems.md) |
+| `suffix_tree_find_mums` | `SuffixTree.FindMaximalUniqueMatches` | [doc](../../mcp/tools/core/suffix_tree_find_mums.md) |
 | `suffix_tree_lcs` | `SuffixTree.LongestCommonSubstring` | [doc](../../mcp/tools/core/suffix_tree_lcs.md) |
 | `suffix_tree_lrs` | `SuffixTree.LongestRepeatedSubstring` | [doc](../../mcp/tools/core/suffix_tree_lrs.md) |
 | `suffix_tree_stats` | `SuffixTree.Properties` | [doc](../../mcp/tools/core/suffix_tree_stats.md) |

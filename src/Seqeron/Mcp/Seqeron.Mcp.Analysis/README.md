@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **91 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **100 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (91)
+## Tools (100)
 
 | Tool | Description |
 |------|-------------|
@@ -58,11 +58,13 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_open_reading_frames` | ORFs in all 6 frames (3 forward + 3 reverse-complement) starting ATG and ending TAA/TAG/TGA. |
 | `find_orthologs` | Best-hit ortholog pairs between two genomes by k-mer similarity (one-directional). |
 | `find_palindromes` | Sequences identical to their reverse complement (restriction-site candidates). |
+| `find_promoter_elements_by_matrix` | Scan a DNA sequence with the Bucher (1990) promoter weight matrices from JASPAR POLII (TATA box POL012.1, cap/Inr POL002.1, CCAAT box POL00… |
 | `find_protein_domains` | Detect common protein domains with EXACT PROSITE patterns: zinc finger C2H2 (PS00028), WD-repeats (PS00678), kinase ATP-binding / Walker… |
 | `find_protein_low_complexity_regions` | Low-complexity regions in a protein via the SEG algorithm (Wootton & Federhen 1993): sliding-window Shannon entropy in bits/residue, two-… |
 | `find_protein_motifs` | Scan a protein sequence against the built-in PROSITE-style motif catalog (N-glycosylation, kinase phosphorylation sites, ATP/GTP P-loop,… |
 | `find_reciprocal_best_hits` | Reciprocal best hits (RBH) for stricter ortholog identification. |
 | `find_regulatory_elements` | Scan for built-in regulatory motifs (TATA, CAAT, GC-box, Kozak, Shine-Dalgarno, poly(A), E-box, AP-1, NF-κB, CREB). |
+| `find_regulatory_elements_both_strands` | Strand-annotated scan of the built-in regulatory library: every element on the given strand, plus the orientation-independent elements (CAA… |
 | `find_repeats` | All repeated substrings of length >= minLength in a DNA sequence, with their positions. |
 | `find_rna_inverted_repeats` | Finds antiparallel complementary regions (potential RNA hairpin stems). |
 | `find_shared_motifs` | k-mers present in at least minSequences of the input DNA sequences. |
@@ -73,8 +75,11 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `gc_content_profile` | GC content in sliding windows along the sequence. |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |
 | `generate_all_kmers` | Enumerate the entire k-mer space for an alphabet (default "ACGT\ |
+| `generate_cavener_consensus` | Degenerate IUPAC consensus of aligned equal-length DNA sequences by the Cavener (1987) rules (TRANSFAC / Biopython degenerate_consensus): s… |
 | `generate_consensus` | IUPAC consensus sequence from aligned equal-length DNA sequences (>25% per position threshold). |
 | `generate_dot_plot` | Coordinates of matching k-mers between two sequences for dot-plot visualization. |
+| `generate_dumb_consensus` | Majority-threshold consensus with Biopython SummaryInfo.dumb_consensus semantics: per column the most frequent non-gap residue is emitted i… |
+| `generate_emboss_consensus` | Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; |
 | `hairpin_loop_energy` | Free energy of an RNA hairpin loop (Turner 2004 with special tri/tetra/hexaloops, terminal mismatch, all-C and special-GU adjustments). |
 | `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy values for a protein sequence. |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |
@@ -89,6 +94,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `mismatch_coaxial_stacking` | Mismatch-mediated coaxial stacking energy: terminal mismatch + base + WC/GU bonus. |
 | `most_frequent_kmers` | Returns all k-mers tied for the maximum occurrence count. |
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
+| `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence: occurrences, expected frequency under a background model (equipr… |
 | `parse_dot_bracket` | Parses dot-bracket notation into a list of base-pair coordinates. |
 | `predict_chou_fasman` | Per-window helix/sheet/turn propensities for a protein sequence (Chou-Fasman parameters). |
 | `predict_coiled_coils` | Heptad-repeat-based coiled-coil prediction. |
@@ -100,9 +106,12 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `predict_signal_peptide` | von Heijne (1986) weight-matrix signal-peptide cleavage-site prediction (EMBOSS sigcleave). |
 | `predict_transmembrane_helices` | Hydropathy-based transmembrane helix prediction (Kyte-Doolittle, ≥15 aa). |
 | `prosite_to_regex` | Translate a PROSITE pattern string to a .NET regex string. |
+| `pwm_score_thresholds` | Score thresholds of a PWM from its discretised score distribution (Biopython Bio.motifs.thresholds.ScoreDistribution): background false-pos… |
 | `reversal_distance` | Lower-bound reversal distance via breakpoint count for two equal-length permutations. |
 | `rna_complement_base` | Returns the RNA complement (A↔U, G↔C) for a single base. |
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
+| `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |
+| `shared_motifs_significance` | RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA se… |
 | `stem_energy` | Free energy of an RNA stem (Turner 2004 nearest-neighbor stacking + AU/GU terminal penalties). |
 | `tandem_repeat_summary` | Aggregate statistics across all microsatellites in a DNA sequence. |
 | `terminal_mismatch_energy` | Closing-pair × first-mismatch terminal stacking energy (Turner 2004). |

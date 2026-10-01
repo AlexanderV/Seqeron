@@ -422,7 +422,7 @@ SuffixTree.Core  ←──  SuffixTree (in-memory)
 
 ## 8. MCP Integration
 
-The `SuffixTree.Mcp.Core` project exposes 12 tools via Model Context Protocol:
+The `SuffixTree.Mcp.Core` project exposes 15 tools via Model Context Protocol:
 
 | Tool | Method |
 |------|--------|
@@ -432,6 +432,9 @@ The `SuffixTree.Mcp.Core` project exposes 12 tools via Model Context Protocol:
 | `suffix_tree_lrs` | Longest repeated substring |
 | `suffix_tree_lcs` | Longest common substring |
 | `suffix_tree_stats` | Tree statistics |
+| `suffix_tree_all_lrs` | All tied longest repeated substrings with positions |
+| `suffix_tree_find_mems` | Maximal exact matches (MUMmer `-maxmatch`) |
+| `suffix_tree_find_mums` | Maximal unique matches (MUMmer `-mum` / `-mumreference`) |
 | `find_longest_repeat` | DNA longest tandem repeat |
 | `find_longest_common_region` | DNA common region |
 | `calculate_similarity` | K-mer Jaccard similarity |

@@ -45,11 +45,13 @@
 | `find_open_reading_frames` | Analysis | `GenomicAnalyzer.FindOpenReadingFrames` | [doc](../../../../docs/mcp/tools/analysis/find_open_reading_frames.md) |
 | `find_orthologs` | Analysis | `ComparativeGenomics.FindOrthologs` | [doc](../../../../docs/mcp/tools/analysis/find_orthologs.md) |
 | `find_palindromes` | Analysis | `RepeatFinder.FindPalindromes` | [doc](../../../../docs/mcp/tools/analysis/find_palindromes.md) |
+| `find_promoter_elements_by_matrix` | Analysis | `MotifFinder.FindPromoterElementsByMatrix` | [doc](../../../../docs/mcp/tools/analysis/find_promoter_elements_by_matrix.md) |
 | `find_protein_domains` | Analysis | `ProteinMotifFinder.FindDomains` | [doc](../../../../docs/mcp/tools/analysis/find_protein_domains.md) |
 | `find_protein_low_complexity_regions` | Analysis | `ProteinMotifFinder.FindLowComplexityRegions` | [doc](../../../../docs/mcp/tools/analysis/find_protein_low_complexity_regions.md) |
 | `find_protein_motifs` | Analysis | `ProteinMotifFinder.FindCommonMotifs` | [doc](../../../../docs/mcp/tools/analysis/find_protein_motifs.md) |
 | `find_reciprocal_best_hits` | Analysis | `ComparativeGenomics.FindReciprocalBestHits` | [doc](../../../../docs/mcp/tools/analysis/find_reciprocal_best_hits.md) |
 | `find_regulatory_elements` | Analysis | `MotifFinder.FindRegulatoryElements` | [doc](../../../../docs/mcp/tools/analysis/find_regulatory_elements.md) |
+| `find_regulatory_elements_both_strands` | Analysis | `MotifFinder.FindRegulatoryElements` | [doc](../../../../docs/mcp/tools/analysis/find_regulatory_elements_both_strands.md) |
 | `find_repeats` | Analysis | `GenomicAnalyzer.FindRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_repeats.md) |
 | `find_rna_inverted_repeats` | Analysis | `RnaSecondaryStructure.FindInvertedRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_rna_inverted_repeats.md) |
 | `find_shared_motifs` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/find_shared_motifs.md) |
@@ -60,8 +62,11 @@
 | `gc_content_profile` | Analysis | `SequenceStatistics.CalculateGcContentProfile` | [doc](../../../../docs/mcp/tools/analysis/gc_content_profile.md) |
 | `gc_skew` | Analysis | `GcSkewCalculator.CalculateGcSkew` | [doc](../../../../docs/mcp/tools/analysis/gc_skew.md) |
 | `generate_all_kmers` | Analysis | `KmerAnalyzer.GenerateAllKmers` | [doc](../../../../docs/mcp/tools/analysis/generate_all_kmers.md) |
+| `generate_cavener_consensus` | Analysis | `MotifFinder.GenerateCavenerConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_cavener_consensus.md) |
 | `generate_consensus` | Analysis | `MotifFinder.GenerateConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_consensus.md) |
 | `generate_dot_plot` | Analysis | `ComparativeGenomics.GenerateDotPlot` | [doc](../../../../docs/mcp/tools/analysis/generate_dot_plot.md) |
+| `generate_dumb_consensus` | Analysis | `MotifFinder.GenerateDumbConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_dumb_consensus.md) |
+| `generate_emboss_consensus` | Analysis | `MotifFinder.GenerateEmbossConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_emboss_consensus.md) |
 | `hairpin_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateHairpinLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/hairpin_loop_energy.md) |
 | `hydrophobicity_profile` | Analysis | `SequenceStatistics.CalculateHydrophobicityProfile` | [doc](../../../../docs/mcp/tools/analysis/hydrophobicity_profile.md) |
 | `internal_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateInternalLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/internal_loop_energy.md) |
@@ -76,6 +81,7 @@
 | `mismatch_coaxial_stacking` | Analysis | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../../../docs/mcp/tools/analysis/mismatch_coaxial_stacking.md) |
 | `most_frequent_kmers` | Analysis | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../../../docs/mcp/tools/analysis/most_frequent_kmers.md) |
 | `multibranch_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/multibranch_loop_energy.md) |
+| `oligo_analysis` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | Analysis | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../../../docs/mcp/tools/analysis/parse_dot_bracket.md) |
 | `predict_chou_fasman` | Analysis | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../../../docs/mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | Analysis | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../../../docs/mcp/tools/analysis/predict_coiled_coils.md) |
@@ -87,9 +93,12 @@
 | `predict_signal_peptide` | Analysis | `ProteinMotifFinder.PredictSignalPeptide` | [doc](../../../../docs/mcp/tools/analysis/predict_signal_peptide.md) |
 | `predict_transmembrane_helices` | Analysis | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../../../docs/mcp/tools/analysis/predict_transmembrane_helices.md) |
 | `prosite_to_regex` | Analysis | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../../../docs/mcp/tools/analysis/prosite_to_regex.md) |
+| `pwm_score_thresholds` | Analysis | `PositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_thresholds.md) |
 | `reversal_distance` | Analysis | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../../../docs/mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | Analysis | `RnaSecondaryStructure.GetComplement` | [doc](../../../../docs/mcp/tools/analysis/rna_complement_base.md) |
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
+| `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
+| `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
 | `stem_energy` | Analysis | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../../../docs/mcp/tools/analysis/stem_energy.md) |
 | `tandem_repeat_summary` | Analysis | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../../../docs/mcp/tools/analysis/tandem_repeat_summary.md) |
 | `terminal_mismatch_energy` | Analysis | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../../../docs/mcp/tools/analysis/terminal_mismatch_energy.md) |

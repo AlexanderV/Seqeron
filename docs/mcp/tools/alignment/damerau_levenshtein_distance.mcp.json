@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "damerau_levenshtein_distance",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.DamerauLevenshteinDistance",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L751",
+  "description": "Edit distance with unit-cost insertions, deletions, substitutions and transpositions of adjacent characters. `variant` = `unrestricted` (default) is the true Damerau–Levenshtein distance (Lowrance & Wagner 1975; `ApproximateMatcher.DamerauLevenshteinDistance`), a metric in which transposed characters may be separated by further edits (DL(CA, ABC) = 2). `variant` = `osa` is the optimal string alignment (restricted Damerau) distance (`ApproximateMatcher.OptimalStringAlignmentDistance`), where no substring is edited more than once (OSA(CA, ABC) = 3). Case-sensitive (ordinal). Cross-checked against rapidfuzz and jellyfish.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "First sequence.",
+        "minLength": 1
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "Second sequence.",
+        "minLength": 1
+      },
+      "variant": {
+        "type": "string",
+        "description": "'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment).",
+        "enum": [
+          "unrestricted",
+          "osa"
+        ],
+        "default": "unrestricted"
+      }
+    },
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": {
+        "type": "integer"
+      },
+      "variant": {
+        "type": "string",
+        "enum": [
+          "unrestricted",
+          "osa"
+        ]
+      }
+    },
+    "required": [
+      "distance",
+      "variant"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1004,
+      "message": "Variant must be 'unrestricted' or 'osa'"
+    }
+  ],
+  "examples": [
+    {
+      "name": "True Damerau–Levenshtein",
+      "input": {
+        "sequence1": "CA",
+        "sequence2": "ABC"
+      },
+      "output": {
+        "distance": 2,
+        "variant": "unrestricted"
+      }
+    },
+    {
+      "name": "Optimal string alignment",
+      "input": {
+        "sequence1": "CA",
+        "sequence2": "ABC",
+        "variant": "osa"
+      },
+      "output": {
+        "distance": 3,
+        "variant": "osa"
+      }
+    }
+  ]
+}

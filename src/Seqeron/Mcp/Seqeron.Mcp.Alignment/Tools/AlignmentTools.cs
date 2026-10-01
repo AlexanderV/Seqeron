@@ -206,6 +206,69 @@ public class AlignmentTools
         return new ApproximateMatchListResult(items.ToArray());
     }
 
+    [McpServerTool(Name = "find_edit_end_positions", Title = "Approximate — Edit End Positions (Sellers)", ReadOnly = true)]
+    [Description("Sellers (1980) k-differences search: reports every 0-based end position j in sequence at which some substring ending at j is within maxEdits Levenshtein edits of pattern, with that minimum distance (case-insensitive; Myers bit-parallel engine). Ordered by increasing end position.")]
+    public static EditEndPositionsResult FindEditEndPositions(
+        [Description("Sequence to search in.")] string sequence,
+        [Description("Pattern to find.")] string pattern,
+        [Description("Maximum allowed edit distance (>= 0).")] int maxEdits)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (string.IsNullOrEmpty(pattern))
+            throw new ArgumentException("Pattern cannot be null or empty.", nameof(pattern));
+        if (maxEdits < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxEdits), "maxEdits must be >= 0.");
+
+        var items = global::Seqeron.Genomics.Alignment.ApproximateMatcher
+            .FindEditEndPositions(sequence, pattern, maxEdits)
+            .Select(e => new EditEndPositionItem(e.EndPosition, e.Distance))
+            .ToArray();
+        return new EditEndPositionsResult(items);
+    }
+
+    [McpServerTool(Name = "edit_alignment", Title = "Approximate — Edit (Levenshtein) Alignment", ReadOnly = true)]
+    [Description("Optimal global unit-cost (Levenshtein) alignment of query against target in edlib's convention: operations '=' match, 'X' mismatch, 'I' query character absent from the target, 'D' target character absent from the query; returns the distance, extended and standard CIGAR, gapped strings and substitution positions. Case-sensitive. linearSpace=true uses Hirschberg's O(m+n)-space algorithm (same distance, possibly a different co-optimal path).")]
+    public static EditAlignmentDto EditAlignment(
+        [Description("Query sequence (alignment rows).")] string query,
+        [Description("Target sequence (alignment columns).")] string target,
+        [Description("Use Hirschberg's linear-space algorithm instead of the full-matrix diagonal-first traceback (default false).")] bool linearSpace = false)
+    {
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException("Query cannot be null or empty.", nameof(query));
+        if (string.IsNullOrEmpty(target))
+            throw new ArgumentException("Target cannot be null or empty.", nameof(target));
+
+        var a = linearSpace
+            ? global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignmentLinearSpace(query, target)
+            : global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignment(query, target);
+        return new EditAlignmentDto(
+            a.Distance, a.Operations, a.Cigar, a.StandardCigar,
+            a.AlignedQuery, a.AlignedTarget, a.SubstitutionPositions.ToArray(), a.HasIndels);
+    }
+
+    [McpServerTool(Name = "damerau_levenshtein_distance", Title = "Approximate — Damerau–Levenshtein Distance", ReadOnly = true)]
+    [Description("Edit distance with adjacent transpositions. variant 'unrestricted' (default) is the true Damerau–Levenshtein metric (Lowrance & Wagner 1975; DL(CA,ABC)=2); 'osa' is the optimal string alignment (restricted) distance where no substring is edited twice (OSA(CA,ABC)=3). Unit costs, case-sensitive.")]
+    public static DamerauDistanceResult DamerauLevenshteinDistance(
+        [Description("First sequence.")] string sequence1,
+        [Description("Second sequence.")] string sequence2,
+        [Description("'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment).")] string variant = "unrestricted")
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+
+        string v = (variant ?? string.Empty).Trim().ToLowerInvariant();
+        int distance = v switch
+        {
+            "unrestricted" => global::Seqeron.Genomics.Alignment.ApproximateMatcher.DamerauLevenshteinDistance(sequence1, sequence2),
+            "osa" => global::Seqeron.Genomics.Alignment.ApproximateMatcher.OptimalStringAlignmentDistance(sequence1, sequence2),
+            _ => throw new ArgumentException("Variant must be 'unrestricted' or 'osa'.", nameof(variant)),
+        };
+        return new DamerauDistanceResult(distance, v);
+    }
+
     [McpServerTool(Name = "find_best_match", Title = "Approximate — Find Best (Minimum Hamming)", ReadOnly = true)]
     [Description("Returns the single best (minimum-Hamming-distance) fixed-length window of pattern inside sequence. Stops early on perfect (distance=0) match.")]
     public static FindBestMatchResult FindBestMatch(
@@ -245,6 +308,29 @@ public class AlignmentTools
             items.Add(new FrequentKmerItem(t.Kmer, t.Count));
         }
         return new FrequentKmersResult(items.ToArray());
+    }
+
+    [McpServerTool(Name = "frequent_kmers_with_mismatches_and_revcomp", Title = "K-mers — Frequent with Mismatches + Reverse Complements", ReadOnly = true)]
+    [Description("Frequent words with mismatches and reverse complements (ROSALIND BA1J): all DNA k-mers P maximising Count_d(sequence, P) + Count_d(sequence, reverseComplement(P)), ties included; the set is closed under reverse complement. Items sorted by k-mer (ordinal).")]
+    public static FrequentKmersResult FrequentKmersWithMismatchesAndRevcomp(
+        [Description("Sequence to analyze.")] string sequence,
+        [Description("K-mer length (> 0).")] int k,
+        [Description("Maximum mismatches in neighborhood (>= 0).")] int d)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "k must be > 0.");
+        if (d < 0)
+            throw new ArgumentOutOfRangeException(nameof(d), "d must be >= 0.");
+
+        // The library leaves the order unspecified; sort for a deterministic tool output.
+        var items = global::Seqeron.Genomics.Alignment.ApproximateMatcher
+            .FindFrequentKmersWithMismatchesAndReverseComplements(sequence, k, d)
+            .OrderBy(t => t.Kmer, StringComparer.Ordinal)
+            .Select(t => new FrequentKmerItem(t.Kmer, t.Count))
+            .ToArray();
+        return new FrequentKmersResult(items);
     }
 
     #endregion

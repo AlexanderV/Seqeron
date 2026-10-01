@@ -1,0 +1,314 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "oligo_analysis",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.DiscoverMotifs",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs#L58",
+  "description": "RSAT `oligo-analysis` (van Helden et al. 1998) over-representation of the length-k words of one DNA sequence (the RSAT overload of `MotifFinder.DiscoverMotifs`): for every word (or reverse-complement pair with `strands` = `both`, RSAT `-2str`) with occ ≥ `minCount`, the expected frequency under the background model, exp_occ, the ratio occ/exp_occ and the binomial right-tail significance occ_P = P(X ≥ occ), X ~ Bin(N−k+1, exp_freq), occ_E = occ_P × tested patterns, occ_sig = −log10 occ_E. Backgrounds: `equiprobable` (`-bg equi`), `input` (Bernoulli from input, RSAT default), `bernoulli` (given A,C,G,T), `markov` (order m from input, `-markov m`), `markov_table` (RSAT `-bgfile` oligo frequencies with pseudo-frequency). `countOverlapping` = false is RSAT `-noov`. Reproduces the RSAT perl code (≤ 1e-12). Values beyond the double range (`ratio`, `possibleOligos` for very long k) are returned as null.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "Oligonucleotide length (>= 1, default 6)",
+        "minimum": 1,
+        "default": 6
+      },
+      "minCount": {
+        "type": "integer",
+        "description": "Occurrence threshold (RSAT -lth occ, default 2)",
+        "default": 2
+      },
+      "background": {
+        "type": "string",
+        "description": "Background model: 'input' (Bernoulli from input, default), 'equiprobable', 'bernoulli' (needs residueFrequencies), 'markov' (order markovOrder from input), 'markov_table' (needs oligoFrequencies)",
+        "enum": [
+          "input",
+          "equiprobable",
+          "bernoulli",
+          "markov",
+          "markov_table"
+        ],
+        "default": "input"
+      },
+      "markovOrder": {
+        "type": "integer",
+        "description": "Markov order for background 'markov' (>= 0; <= k-2 when > 0; default 1)",
+        "minimum": 0,
+        "default": 1
+      },
+      "residueFrequencies": {
+        "type": "array",
+        "description": "Residue probabilities A,C,G,T for background 'bernoulli'",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 4,
+        "maxItems": 4
+      },
+      "oligoFrequencies": {
+        "type": "object",
+        "description": "(m+1)-mer -> frequency table for background 'markov_table' (RSAT -bgfile oligos format)",
+        "additionalProperties": {
+          "type": "number"
+        }
+      },
+      "pseudoFrequency": {
+        "type": "number",
+        "description": "Pseudo-frequency in [0,1] for background 'markov_table' (default 0.01)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.01
+      },
+      "strandInsensitive": {
+        "type": "boolean",
+        "description": "The 'markov_table' frequencies are strand-insensitive pair frequencies (default false)",
+        "default": false
+      },
+      "strands": {
+        "type": "string",
+        "description": "'single' (-1str, default) or 'both' (-2str)",
+        "enum": [
+          "single",
+          "both"
+        ],
+        "default": "single"
+      },
+      "countOverlapping": {
+        "type": "boolean",
+        "description": "Count overlapping occurrences (default true); false = -noov",
+        "default": true
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "motifs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": {
+              "type": "string"
+            },
+            "reverseComplement": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "count": {
+              "type": "integer"
+            },
+            "positions": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "expectedFrequency": {
+              "type": "number"
+            },
+            "expectedOccurrences": {
+              "type": "number"
+            },
+            "ratio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "occurrenceProbability": {
+              "type": "number"
+            },
+            "occurrenceEValue": {
+              "type": "number"
+            },
+            "occurrenceSignificance": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "sequence",
+            "count",
+            "positions",
+            "expectedFrequency",
+            "expectedOccurrences",
+            "occurrenceProbability",
+            "occurrenceEValue",
+            "occurrenceSignificance"
+          ]
+        }
+      },
+      "oligoLength": {
+        "type": "integer"
+      },
+      "strands": {
+        "type": "string"
+      },
+      "countOverlapping": {
+        "type": "boolean"
+      },
+      "totalOccurrences": {
+        "type": "integer"
+      },
+      "testedPatterns": {
+        "type": "integer"
+      },
+      "possibleOligos": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "motifs",
+      "oligoLength",
+      "strands",
+      "countOverlapping",
+      "totalOccurrences",
+      "testedPatterns"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence"
+    },
+    {
+      "code": 1002,
+      "message": "k must be >= 1"
+    },
+    {
+      "code": 1003,
+      "message": "Background must be 'input', 'equiprobable', 'bernoulli', 'markov' or 'markov_table'"
+    },
+    {
+      "code": 1004,
+      "message": "Background 'bernoulli' requires 4 residueFrequencies (A,C,G,T)"
+    },
+    {
+      "code": 1005,
+      "message": "Background 'markov_table' requires oligoFrequencies"
+    },
+    {
+      "code": 1006,
+      "message": "Strands must be 'single' or 'both'"
+    }
+  ],
+  "examples": [
+    {
+      "name": "RSAT -l 4 -1str -bg equi -lth occ 5",
+      "input": {
+        "sequence": "ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC",
+        "k": 4,
+        "minCount": 5,
+        "background": "equiprobable"
+      },
+      "output": {
+        "motifs": [
+          {
+            "sequence": "ATGC",
+            "reverseComplement": null,
+            "count": 6,
+            "positions": [
+              0,
+              4,
+              8,
+              24,
+              39,
+              43
+            ],
+            "expectedFrequency": 0.003906250000000001,
+            "expectedOccurrences": 0.23437499999999997,
+            "ratio": 25.6,
+            "occurrenceProbability": 1.4844942103072874e-07,
+            "occurrenceEValue": 2.968988420614575e-07,
+            "occurrenceSignificance": 6.527391496197488
+          },
+          {
+            "sequence": "CATG",
+            "reverseComplement": null,
+            "count": 5,
+            "positions": [
+              3,
+              7,
+              23,
+              38,
+              42
+            ],
+            "expectedFrequency": 0.003906250000000001,
+            "expectedOccurrences": 0.23437499999999997,
+            "ratio": 21.33333333333334,
+            "occurrenceProbability": 4.153655783353449e-06,
+            "occurrenceEValue": 8.307311566706898e-06,
+            "occurrenceSignificance": 5.080539500963187
+          }
+        ],
+        "oligoLength": 4,
+        "strands": "single",
+        "countOverlapping": true,
+        "totalOccurrences": 60,
+        "testedPatterns": 2,
+        "possibleOligos": 256
+      }
+    },
+    {
+      "name": "RSAT -l 4 -2str -lth occ 6",
+      "input": {
+        "sequence": "ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC",
+        "k": 4,
+        "minCount": 6,
+        "strands": "both"
+      },
+      "output": {
+        "motifs": [
+          {
+            "sequence": "ATGC",
+            "reverseComplement": "GCAT",
+            "count": 9,
+            "positions": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              24,
+              39,
+              41,
+              43
+            ],
+            "expectedFrequency": 0.007777109332017005,
+            "expectedOccurrences": 0.4666265599210202,
+            "ratio": 19.287371900826464,
+            "occurrenceProbability": 1.076064733019135e-09,
+            "occurrenceEValue": 1.076064733019135e-09,
+            "occurrenceSignificance": 8.968161601952728
+          }
+        ],
+        "oligoLength": 4,
+        "strands": "both",
+        "countOverlapping": true,
+        "totalOccurrences": 60,
+        "testedPatterns": 1,
+        "possibleOligos": 136
+      }
+    }
+  ]
+}

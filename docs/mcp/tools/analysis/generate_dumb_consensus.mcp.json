@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_dumb_consensus",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.GenerateDumbConsensus",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L346",
+  "description": "Majority-threshold consensus with the semantics of Biopython `Bio.Align.AlignInfo.SummaryInfo.dumb_consensus(threshold, ambiguous, require_multiple)` (Biopython ≤ 1.85). Per column the residues other than the gaps `-` and `.` are counted (case-sensitive, any alphabet); if exactly one residue has the maximum count and that count divided by the number of non-gap residues is ≥ `threshold`, it is emitted; otherwise (ties, below threshold, all-gap column, or a single non-gap residue when `requireMultiple` is set) `ambiguous` is emitted. Cross-checked against Biopython 1.85 (708/708).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "Aligned sequences of equal length",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "threshold": {
+        "type": "number",
+        "description": "Required fraction of non-gap residues (default 0.7)",
+        "default": 0.7
+      },
+      "ambiguous": {
+        "type": "string",
+        "description": "Single-character no-consensus symbol (default 'X')",
+        "minLength": 1,
+        "maxLength": 1,
+        "default": "X"
+      },
+      "requireMultiple": {
+        "type": "boolean",
+        "description": "A column with one non-gap residue gives the ambiguous symbol (default false)",
+        "default": false
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "consensus": {
+        "type": "string",
+        "description": "Consensus sequence, one symbol per alignment column"
+      }
+    },
+    "required": [
+      "consensus"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least one sequence is required"
+    },
+    {
+      "code": 1002,
+      "message": "Ambiguous must be exactly one character"
+    },
+    {
+      "code": 1003,
+      "message": "Threshold cannot be NaN"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Threshold 0.7, ambiguous N",
+      "input": {
+        "sequences": [
+          "ACGT",
+          "ATGT",
+          "ATGT"
+        ],
+        "threshold": 0.7,
+        "ambiguous": "N"
+      },
+      "output": {
+        "consensus": "ANGT"
+      }
+    },
+    {
+      "name": "requireMultiple",
+      "input": {
+        "sequences": [
+          "A-",
+          "-A",
+          "--"
+        ],
+        "requireMultiple": true
+      },
+      "output": {
+        "consensus": "XX"
+      }
+    }
+  ]
+}
