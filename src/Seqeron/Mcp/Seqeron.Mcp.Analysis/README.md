@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **120 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **122 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,10 +15,12 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (120)
+## Tools (122)
 
 | Tool | Description |
 |------|-------------|
+| `alphabet_pwm_score_pvalue` | Exact p-value of a score / exact score threshold of a p-value for a PWM over any alphabet (protein, RNA, …) built from aligned instances — the TFM-Pvalue engine of pwm_score_pvalue with K rows… |
+| `alphabet_pwm_score_thresholds` | Score thresholds (FPR / FNR / balanced / patser) of an any-alphabet PWM from its discretised score distribution — Biopython pssm.distribution… |
 | `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. |
 | `analyze_kmers` | Aggregate k-mer statistics: total, unique, min/max/avg count, and Shannon entropy. |
 | `at_skew` | Whole-sequence AT skew = (A - T) / (A + T). |
@@ -122,7 +124,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `predict_signal_peptide` | von Heijne (1986) weight-matrix signal-peptide cleavage-site prediction (EMBOSS sigcleave). |
 | `predict_transmembrane_helices` | Hydropathy-based transmembrane helix prediction (Kyte-Doolittle, ≥15 aa). |
 | `prosite_to_regex` | Translate a PROSITE pattern string to a .NET regex string. |
-| `pwm_score_pvalue` | Exact p-value of a PWM score, P(S >= score) for a random i.i.d. background word, or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — Touzet & Varré 2007 TFM-Pvalue… |
+| `pwm_score_pvalue` | Exact p-value of a PWM score, P(S >= score) for a random background word (i.i.d. or order-m Markov table; TFM-Pvalue search options, exhaustive mode), or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — Touzet & Varré 2007 TFM-Pvalue… |
 | `pwm_score_thresholds` | Score thresholds of a PWM from its discretised score distribution (Biopython Bio.motifs.thresholds.ScoreDistribution): background false-pos… |
 | `reversal_distance` | Lower-bound reversal distance via breakpoint count for two equal-length permutations. |
 | `rna_complement_base` | Returns the RNA complement (A↔U, G↔C) for a single base. |

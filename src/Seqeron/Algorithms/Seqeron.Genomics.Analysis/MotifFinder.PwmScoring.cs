@@ -379,22 +379,32 @@ public sealed class PwmScoreDistribution
     private readonly double[] _backgroundDensity;
 
     internal PwmScoreDistribution(PositionWeightMatrix pwm, double[] background, int precision)
+        : this(pwm.Matrix, 4, pwm.Length, pwm.MinScore, pwm.MaxScore, () => pwm.Mean(background), background, precision)
     {
-        foreach (double w in pwm.Matrix)
+    }
+
+    /// <summary>
+    /// K-row grid DP shared by the DNA and the generic-alphabet PWM (Biopython iterates the PSSM's own alphabet:
+    /// <c>for letter, score in pssm[:, position].items()</c>).
+    /// </summary>
+    internal PwmScoreDistribution(double[,] matrix, int k, int length, double pwmMin, double pwmMax,
+        Func<double> mean, double[] background, int precision)
+    {
+        foreach (double w in matrix)
         {
             if (!double.IsFinite(w))
                 throw new InvalidOperationException(
                     "The score distribution needs a finite matrix (use a positive pseudocount).");
         }
-        if (precision < 1 || (long)precision * pwm.Length < 2)
+        if (precision < 1 || (long)precision * length < 2)
             throw new ArgumentOutOfRangeException(nameof(precision), precision,
                 "precision × motif length must be at least 2.");
 
-        MinScore = Math.Min(0.0, pwm.MinScore);
-        double interval = Math.Max(0.0, pwm.MaxScore) - MinScore;
-        PointCount = checked(precision * pwm.Length);
+        MinScore = Math.Min(0.0, pwmMin);
+        double interval = Math.Max(0.0, pwmMax) - MinScore;
+        PointCount = checked(precision * length);
         Step = interval / (PointCount - 1);
-        MeanScore = pwm.Mean(background);
+        MeanScore = mean();
 
         var mo = new double[PointCount];
         var bgd = new double[PointCount];
@@ -402,21 +412,21 @@ public sealed class PwmScoreDistribution
         mo[origin] = 1.0;
         bgd[origin] = 1.0;
 
-        for (int position = 0; position < pwm.Length; position++)
+        for (int position = 0; position < length; position++)
         {
             var moNew = new double[PointCount];
             var bgNew = new double[PointCount];
-            for (int b = 0; b < 4; b++)
+            for (int b = 0; b < k; b++)
             {
-                double score = pwm.Matrix[b, position];
+                double score = matrix[b, position];
                 double q = background[b];
                 double moProb = Math.Pow(2, score) * q;
                 int d = IndexDiff(score);
                 for (int i = 0; i < PointCount; i++)
                 {
-                    int k = Math.Max(0, Math.Min(PointCount - 1, i + d));
-                    moNew[k] += mo[i] * moProb;
-                    bgNew[k] += bgd[i] * q;
+                    int idx = Math.Max(0, Math.Min(PointCount - 1, i + d));
+                    moNew[idx] += mo[i] * moProb;
+                    bgNew[idx] += bgd[i] * q;
                 }
             }
             mo = moNew;

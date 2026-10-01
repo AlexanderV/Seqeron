@@ -381,12 +381,29 @@ public sealed class AlphabetPositionWeightMatrix
     public double Mean(IReadOnlyList<double>? background = null)
         => MotifFinder.PwmMean(_matrix, Length, ResolveBackground(background, Alphabet.Length));
 
+    /// <summary>
+    /// Discretised score distribution under the motif and background models — Biopython
+    /// <c>pssm.distribution(background, precision)</c> (<c>Bio.motifs.thresholds.ScoreDistribution</c>, which loops over
+    /// the PSSM's own alphabet, so it applies unchanged to protein / any-alphabet PSSMs); the same kernel as
+    /// <see cref="PositionWeightMatrix.ScoreDistribution"/> with K rows.
+    /// </summary>
+    /// <param name="background">Background in alphabet order; uniform when null.</param>
+    /// <param name="precision">Grid points per motif position (Biopython default 10³).</param>
+    /// <exception cref="InvalidOperationException">The matrix has a non-finite cell (the grid is undefined).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="precision"/> × length &lt; 2.</exception>
+    public PwmScoreDistribution ScoreDistribution(IReadOnlyList<double>? background = null, int precision = 1000)
+    {
+        double[] bg = ResolveBackground(background, Alphabet.Length);
+        return new PwmScoreDistribution(_matrix, Alphabet.Length, Length, MinScore, MaxScore,
+            () => MotifFinder.PwmMean(_matrix, Length, bg), bg, precision);
+    }
+
     /// <summary>Standard deviation of the score of a random background window — Biopython <c>pssm.std(background)</c>.</summary>
     /// <param name="background">Background in alphabet order; uniform when null.</param>
     public double Std(IReadOnlyList<double>? background = null)
         => MotifFinder.PwmStd(_matrix, Length, ResolveBackground(background, Alphabet.Length));
 
-    private static double[] ResolveBackground(IReadOnlyList<double>? background, int k)
+    internal static double[] ResolveBackground(IReadOnlyList<double>? background, int k)
     {
         if (background is null)
         {

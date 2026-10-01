@@ -388,3 +388,23 @@ Reference: Biopython 1.88 `motifs.create(instances, alphabet).counts.normalize(p
 | E6 | `IgnoreUnknownSymbols_SkipsGapsAndX_EqualsBiopythonCounts` | W[M,0] 2.6520766965796927, W[V,3] 3.192645077942396, all-unknown column uniform, consensus MKAV |
 | E7 | `DnaAlphabet_ScoresEqualDnaPwm`, `FromCounts_EqualsCreateFromInstances` | ACGT generic ≡ DNA PWM (shared kernels) |
 | E8 | `ShortSequence_EmptyScoresAndNoHits`, `GetMatrix_ReturnsDefensiveCopy`, `Guards` | contracts |
+
+## 12. Review 2026-09 (B05 audit round 2, group G1) — p-value options, Markov backgrounds, K-row calibration
+
+Tests: `Unit/Analysis/MotifFinder_PwmPValueOptions_Tests.cs` (30); MCP `PwmScorePValueTests.PwmScorePValue_OptionsAndMarkovBackground_Delegate`, `AlphabetPwmPValueTests` (3), registry (+2).
+Reference: exhaustive enumeration of all words (Python/C; word probability = RSAT segment_proba P(prefix)·∏P(b | context)); meet-in-the-middle C enumeration of the 4^20 words of the 20-column matrix (pairs within 1e-9 of the threshold recomputed left to right); MACRO-APE 3.0.6 `ru.autosome.ape.di.FindPvalue --from-mono -d 16` (dyadic matrix, circular dinucleotide table); Biopython 1.88 `pssm.distribution`.
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| G1 | `PwmScorePValue_LargerBudget_ResolvesBudgetExhaustedCase` | D11 matrix at 0: default not exact; `MaxStates` 2^23 → exact 0.058404839602189895 (meet-in-the-middle), inside the default bounds |
+| G2 | `PwmScoreThresholdForPValue_Random20_EqualsMeetInTheMiddleEnumeration` | p = 1e-3 → 7.189559567375462 / 9.99999972009391e-4 (next lower word 7.1895595327135027: P = 1.0000000256695785e-3) |
+| G3 | `Exhaustive_ResolvesWhatTheBudgetCannot` | MaxStates 4: bounds only; + Exhaustive: Wikipedia 4.77915994208994 → 0.006160736083984375, inverse 1e-2/1e-3/1e-4 = D6 values |
+| G4 | `DefaultOptions_AreBitIdenticalToTheThreeArgumentOverloads`, `GranularitySchedule_FollowsTheOptions`, `InvalidOptions_Throw` | Default/null/Exact ≡ 3-argument overload; initial granularity 0.01 × 100; MaxGranularity 0.1 → only g = 10; invalid options throw |
+| G5 | `Markov1_Wikipedia_EqualsExhaustiveEnumeration`, `Markov1_Threshold_EqualsExhaustiveEnumeration` | order 1 (dinucleotides of a fixed text, ψ 0.01): consensus → 3.033617247605823e-06, 0 → 0.06962309429876835; p 1e-3 → 6.898713577002425 / 0.0009711428119647605 |
+| G6 | `Markov2StrandInsensitive_EqualsExhaustiveEnumeration` | order 2, 2str table: consensus → 4.124380700286126e-07; p 1e-4 → 9.250117814108265 / 4.7495286790552905e-06 |
+| G7 | `SubStochasticMarkovTable_UsesTheWordMeasure` | ψ = 0, C without successor: total mass 0.6289127081283757 = P(S ≥ min); p 1e-4 → 9.941995518745932 / 9.765625e-05 |
+| G8 | `Markov1_EqualsMacroApeDinucleotideBackground` | MACRO-APE: T 2 → 0.2654045414462081, 3 → 0.12487874779541447, 4.5 → 0.01626984126984127 |
+| G9 | `BernoulliModels_EqualTheIidOverload`, `Markov_UnsupportedModelsAndArguments_Throw` | Equiprobable/Bernoulli ≡ i.i.d. engine; input-estimated / lexicon models throw |
+| G10 | `AlphabetPwmScorePValue_Protein_EqualsExhaustiveEnumeration`, `AlphabetPwmScoreThresholdForPValue_Protein_EqualsExhaustiveEnumeration` | 20^6 words: consensus 1.5625e-08 (bg 1..5: 2.57201646090535e-09); p 1e-5 → 11.064750927399535 / 8.906250000000003e-06 |
+| G11 | `AlphabetScoreDistribution_Protein_EqualsBiopython` | precision 1000: fpr(.01) 2.843772328236984, fnr(.1) −0.6157413003600496, balanced −0.6157413003600496, patser 0.970722050032081 (bit-identical) |
+| G12 | `AlphabetAcgt_EqualsDnaEngine`, `AlphabetPValue_InvalidArguments_Throw` | ACGT alphabet ≡ DNA engine; −∞ cells / wrong background throw |

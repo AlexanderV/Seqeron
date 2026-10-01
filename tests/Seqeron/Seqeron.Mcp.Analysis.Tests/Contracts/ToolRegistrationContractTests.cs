@@ -16,6 +16,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
 
     protected override string[] ExpectedToolNames { get; } =
     {
+        "alphabet_pwm_score_pvalue",
+        "alphabet_pwm_score_thresholds",
         "analyze_gc_content",
         "analyze_kmers",
         "at_skew",

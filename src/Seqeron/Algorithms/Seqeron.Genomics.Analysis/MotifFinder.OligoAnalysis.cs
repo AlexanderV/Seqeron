@@ -542,10 +542,81 @@ public sealed class OligoBackgroundModel
             logTransition[prefix] = row;
         }
 
+        // The same probabilities in linear form, indexed by base-4 prefix code (A = 0 … T = 3, first letter most
+        // significant), for the exact PWM p-value DP (MotifFinder.PwmMarkovScorePValue).
+        int contexts = 1 << (2 * order);
+        var initial = new double[contexts];
+        var transitions = new double[contexts * 4];
+        double absentTransition = psi > 0 ? 0.25 : 0.0;
+        var prefixChars = new char[order];
+        for (int x = 0; x < contexts; x++)
+        {
+            for (int i = 0, code = x; i < order; i++, code >>= 2)
+                prefixChars[order - 1 - i] = MotifFinder.AcgtBases[code & 3];
+            string prefix = new(prefixChars);
+            if (prefixSum.TryGetValue(prefix, out double sum))
+            {
+                initial[x] = (1 - psi) * sum / total + psi * uniformPrefix;
+                for (int b = 0; b < 4; b++)
+                {
+                    double f = table.GetValueOrDefault(prefix + MotifFinder.AcgtBases[b]);
+                    double transition = psi > 0 ? 0.25 : 0.0;
+                    if (sum > 0) transition = (1 - psi) * f / sum + psi / 4;
+                    transitions[x * 4 + b] = transition;
+                }
+            }
+            else
+            {
+                initial[x] = psi * uniformPrefix;
+                for (int b = 0; b < 4; b++)
+                    transitions[x * 4 + b] = absentTransition;
+            }
+        }
+
         return new OligoBackgroundModel(ModelKind.MarkovTable, order,
             logPrefix: logPrefix, logTransition: logTransition,
             logAbsentPrefix: Math.Log(psi * uniformPrefix),
-            logAbsentTransition: psi > 0 ? Math.Log(0.25) : double.NegativeInfinity);
+            logAbsentTransition: psi > 0 ? Math.Log(0.25) : double.NegativeInfinity)
+        {
+            _chainInitial = initial,
+            _chainTransitions = transitions,
+        };
+    }
+
+    /// <summary>Markov table: P(prefix) and P(b | prefix) in linear form (base-4 prefix codes).</summary>
+    private double[]? _chainInitial;
+    private double[]? _chainTransitions;
+
+    /// <summary>Largest Markov order accepted by the PWM p-value DP (4^10 contexts).</summary>
+    internal const int MaxPValueMarkovOrder = 10;
+
+    /// <summary>
+    /// The model as an explicit word distribution for the exact PWM p-value DP: equiprobable / Bernoulli → i.i.d.;
+    /// Markov table → order-m chain with RSAT's <c>segment_proba</c> prefix and transition probabilities.
+    /// </summary>
+    /// <exception cref="ArgumentException">An input-estimated or lexicon model (not an explicit probability distribution), or order &gt; 10.</exception>
+    internal PwmBackgroundChain ToPValueChain(string paramName)
+    {
+        switch (_kind)
+        {
+            case ModelKind.Equiprobable:
+                return new PwmBackgroundChain(4, new[] { 0.25, 0.25, 0.25, 0.25 });
+            case ModelKind.Bernoulli:
+                return new PwmBackgroundChain(4, (double[])_residues!.Clone());
+            case ModelKind.MarkovTable:
+                if (_order > MaxPValueMarkovOrder)
+                    throw new ArgumentException(
+                        $"Markov order {_order} exceeds the maximum ({MaxPValueMarkovOrder}) supported by the p-value DP.", paramName);
+                return _order == 0
+                    ? new PwmBackgroundChain(4, (double[])_chainTransitions!.Clone())
+                    : new PwmBackgroundChain(4, _order, _chainInitial!, _chainTransitions!);
+            default:
+                throw new ArgumentException(
+                    "PWM p-values need an explicit word distribution: use Equiprobable, Bernoulli(acgt) or " +
+                    "MarkovFromOligoFrequencies (input-estimated models need sequences and RSAT's input Markov estimate is " +
+                    "not a normalised distribution; the lexicon model is a segmentation frequency, not a probability).",
+                    paramName);
+        }
     }
 
     /// <summary>

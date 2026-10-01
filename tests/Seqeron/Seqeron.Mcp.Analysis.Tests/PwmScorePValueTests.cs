@@ -55,4 +55,34 @@ public class PwmScorePValueTests
         Assert.That(none.Score, Is.Null);
         Assert.That(none.PValue, Is.Zero);
     }
+
+    [Test]
+    [Description("Optional search options and Markov background delegate to MotifFinder (values locked in MotifFinder_PwmPValueOptions_Tests: " +
+                 "exhaustive enumeration; MACRO-APE 3.0.6 di.FindPvalue for the dinucleotide background).")]
+    public void PwmScorePValue_OptionsAndMarkovBackground_Delegate()
+    {
+        var pwm = ScanWithPwmBothStrandsTests.WikipediaPwm();
+        var tiny = AnalysisTools.PwmScorePValue(pwm, score: 4.77915994208994, maxStates: 4, maxSuffixSet: 4);
+        Assert.That(tiny.IsExact, Is.False);
+        var exhaustive = AnalysisTools.PwmScorePValue(pwm, score: 4.77915994208994, maxStates: 4, maxSuffixSet: 4, exhaustive: true);
+        Assert.That(exhaustive.IsExact, Is.True);
+        Assert.That(exhaustive.PValue, Is.EqualTo(0.006160736083984375).Within(1e-15));
+
+        var ape = new PwmInput(new[]
+        {
+            new[] { 1.5, -1, 0.75, -0.5 }, new[] { -0.5, 2, -1.5, 0.5 }, new[] { 0.25, 0.5, 1, -0.75 }, new[] { -1, -0.25, 0.125, 1.25 },
+        }, 4);
+        var table = new Dictionary<string, double>
+        {
+            ["AA"] = 2, ["AC"] = 1, ["AG"] = 2, ["AT"] = 4, ["CA"] = 2, ["CC"] = 1, ["CG"] = 3, ["CT"] = 2,
+            ["GA"] = 2, ["GC"] = 4, ["GG"] = 2, ["GT"] = 1, ["TA"] = 3, ["TC"] = 2, ["TG"] = 2, ["TT"] = 2,
+        };
+        var markov = AnalysisTools.PwmScorePValue(ape, score: 3.0, markovFrequencies: table, markovPseudoFrequency: 0);
+        Assert.That(markov.PValue, Is.EqualTo(0.12487874779541447).Within(1e-15));
+        Assert.That(markov.IsExact, Is.True);
+
+        Assert.Throws<ArgumentException>(() => AnalysisTools.PwmScorePValue(pwm, score: 0, background: new[] { 0.25, 0.25, 0.25, 0.25 }, markovFrequencies: table));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.PwmScorePValue(pwm, score: 0, markovFrequencies: new Dictionary<string, double>()));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.PwmScorePValue(pwm, score: 0, decreaseFactor: 1));
+    }
 }

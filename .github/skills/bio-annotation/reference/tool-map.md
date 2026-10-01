@@ -105,7 +105,9 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `scan_with_pwm_both_strands` | X | PWM scan on both strands (Biopython search both=True) | `MotifFinder.ScanWithPwmBothStrands` |
 | `create_alphabet_pwm` | X | Log-odds PWM over any alphabet (protein/RNA/gapped), consensus, max/min, mean/std | `MotifFinder.CreateAlphabetPwm` |
 | `scan_with_alphabet_pwm` | X | Window scores (NaN outside alphabet) + forward hits with an any-alphabet PWM | `MotifFinder.ScanWithAlphabetPwm` |
-| `pwm_score_pvalue` | X | Exact PWM score p-value / p-value threshold (Touzet & Varré 2007 TFM-Pvalue) | `MotifFinder.PwmScorePValue` |
+| `pwm_score_pvalue` | X | Exact PWM score p-value / p-value threshold (Touzet & Varré 2007 TFM-Pvalue), i.i.d. or Markov (RSAT table) background, search options / exhaustive mode | `MotifFinder.PwmScorePValue` / `PwmMarkovScorePValue` |
+| `alphabet_pwm_score_pvalue` | X | Exact p-value / p-value threshold of an any-alphabet (protein) PWM | `MotifFinder.AlphabetPwmScorePValue` |
+| `alphabet_pwm_score_thresholds` | X | Biopython pssm.distribution thresholds (FPR/FNR/balanced/patser) of an any-alphabet PWM | `AlphabetPositionWeightMatrix.ScoreDistribution` |
 | `pwm_score_thresholds` | X | PWM score thresholds (FPR / FNR / balanced / patser) from the score distribution | `PositionWeightMatrix.ScoreDistribution` |
 | `find_protein_motifs` | X | PROSITE-style protein motif catalog — owned by **seqeron-protein-features** | `ProteinMotifFinder.FindCommonMotifs` |
 | `find_motif_by_pattern` | X | Regex match in a protein | `ProteinMotifFinder.FindMotifByPattern` |

@@ -25,21 +25,21 @@ guessing a number. Same math as the C# API; the tool call is just a different fr
 - **Auditable** — each answer comes with the exact tools called, in order (see the worked workflows).
 
 > **New here?** If you use Claude Code or Copilot, you usually don't touch MCP directly — the
-> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 466 tool
+> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 468 tool
 > schemas out of the model's context. This guide is for wiring the servers into any MCP client
 > yourself, or understanding what runs underneath.
 
 ## The servers
 
 Tools are split into focused, per-domain servers so you attach only what a task needs — a smaller
-tool surface loads faster and is easier for the model to reason about. **466 tools across 11 servers:**
+tool surface loads faster and is easier for the model to reason about. **468 tools across 11 servers:**
 
 | Server | What it's for | Tools |
 |--------|---------------|------:|
 | [`Seqeron.Mcp.Sequence`](../../src/Seqeron/Mcp/Seqeron.Mcp.Sequence) | DNA/RNA/Protein models, composition, complexity, k-mers, Tm | 35 |
 | [`Seqeron.Mcp.Parsers`](../../src/Seqeron/Mcp/Seqeron.Mcp.Parsers) | FASTA/FASTQ/GenBank/GFF/VCF/BED/EMBL parsing & utilities | 41 |
 | [`Seqeron.Mcp.Alignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment) | Pairwise & multiple sequence alignment | 26 |
-| [`Seqeron.Mcp.Analysis`](../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis) | K-mer, motif, repeat, complexity, comparative & structural genomics | 120 |
+| [`Seqeron.Mcp.Analysis`](../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis) | K-mer, motif, repeat, complexity, comparative & structural genomics | 122 |
 | [`Seqeron.Mcp.Annotation`](../../src/Seqeron/Mcp/Seqeron.Mcp.Annotation) | Genes/ORFs/promoters, variants, epigenetics, miRNA, splicing, SVs, transcriptomics | 97 |
 | [`Seqeron.Mcp.Phylogenetics`](../../src/Seqeron/Mcp/Seqeron.Mcp.Phylogenetics) | Distances, tree building, phylogenetic statistics | 13 |
 | [`Seqeron.Mcp.Population`](../../src/Seqeron/Mcp/Seqeron.Mcp.Population) | Population genetics (Fst, diversity, LD, selection) | 18 |
@@ -159,7 +159,7 @@ tm_diff_c = 4.1
 
 ## Tool catalog & schemas
 
-Every one of the 466 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
+Every one of the 468 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
 (`{tool}.mcp.json`) under [`tools/<server>/`](tools), and each server's own `README.md` lists its
 full tool table.
 

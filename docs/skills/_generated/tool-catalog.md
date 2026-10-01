@@ -35,10 +35,12 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (120 tools)
+## Analysis (122 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
+| `alphabet_pwm_score_pvalue` | `MotifFinder.AlphabetPwmScorePValue` | [doc](../../mcp/tools/analysis/alphabet_pwm_score_pvalue.md) |
+| `alphabet_pwm_score_thresholds` | `AlphabetPositionWeightMatrix.ScoreDistribution` | [doc](../../mcp/tools/analysis/alphabet_pwm_score_thresholds.md) |
 | `analyze_gc_content` | `GcSkewCalculator.AnalyzeGcContent` | [doc](../../mcp/tools/analysis/analyze_gc_content.md) |
 | `analyze_kmers` | `KmerAnalyzer.AnalyzeKmers` | [doc](../../mcp/tools/analysis/analyze_kmers.md) |
 | `at_skew` | `GcSkewCalculator.CalculateAtSkew` | [doc](../../mcp/tools/analysis/at_skew.md) |

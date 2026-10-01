@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "alphabet_pwm_score_pvalue",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.AlphabetPwmScorePValue",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.PwmPValue.cs#L190",
+  "description": "Build a PWM over an arbitrary alphabet (protein, RNA, …) from aligned instances (as create_alphabet_pwm; positive pseudocount so every cell is finite) and return the exact p-value of a score, P(S >= score) for a random i.i.d. background word (S = the window score of scan_with_alphabet_pwm), or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — the Touzet & Varré 2007 TFM-Pvalue engine of pwm_score_pvalue with K rows. Give exactly one of score / pValue.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Aligned instances defining the motif"
+      },
+      "alphabet": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Alphabet in row order (e.g. ACDEFGHIKLMNPQRSTVWY)"
+      },
+      "score": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Score threshold: returns P(S >= score). Omit when pValue is given."
+      },
+      "pValue": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0,
+        "maximum": 1,
+        "description": "Target p-value in [0,1]: returns the exact score threshold. Omit when score is given."
+      },
+      "pseudocount": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "default": 0.5,
+        "description": "Pseudocount per cell (default 0.5; every cell must be finite)"
+      },
+      "pseudocounts": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "Per-symbol pseudocounts in alphabet order"
+      },
+      "background": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "Background in alphabet order (uniform when omitted)"
+      },
+      "ignoreUnknownSymbols": {
+        "type": "boolean",
+        "default": false,
+        "description": "Skip symbols outside the alphabet when counting the instances"
+      },
+      "initialGranularity": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "default": 0.1,
+        "description": "TFM-Pvalue initial granularity (rounding step of the first integer matrix)"
+      },
+      "maxGranularity": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "exclusiveMinimum": 0,
+        "description": "TFM-Pvalue maximal (finest) granularity; omitted = limited only by g·Σmax|W| <= 2^40"
+      },
+      "decreaseFactor": {
+        "type": "number",
+        "exclusiveMinimum": 1,
+        "default": 10,
+        "description": "Granularity decrease factor between refinements"
+      },
+      "maxStates": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 2097152,
+        "description": "Maximum DP states per column before a scale is abandoned"
+      },
+      "maxSuffixSet": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1048576,
+        "description": "Maximum exact suffix-score set size used for pruning"
+      },
+      "exhaustive": {
+        "type": "boolean",
+        "default": false,
+        "description": "Resolve an unresolved band by unbounded enumeration (always exact)"
+      }
+    },
+    "required": [
+      "sequences",
+      "alphabet"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "The requested score, or the computed threshold (null when scoreAboveMaximum)"
+      },
+      "scoreAboveMaximum": {
+        "type": "boolean",
+        "description": "True when even the best word has P(S >= max) > pValue (no word score qualifies; p-value 0)"
+      },
+      "pValue": {
+        "type": "number",
+        "description": "P(S >= score); the conservative upper bound when isExact is false"
+      },
+      "pValueLowerBound": {
+        "type": "number",
+        "description": "Certified lower bound"
+      },
+      "pValueUpperBound": {
+        "type": "number",
+        "description": "Certified upper bound"
+      },
+      "isExact": {
+        "type": "boolean",
+        "description": "True when the p-value is exact"
+      },
+      "granularity": {
+        "type": "number",
+        "description": "Scale g of the integer-rounded matrix that resolved it (0 = decided without rounding)"
+      }
+    },
+    "required": [
+      "score",
+      "scoreAboveMaximum",
+      "pValue",
+      "pValueLowerBound",
+      "pValueUpperBound",
+      "isExact",
+      "granularity"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1002,
+      "message": "At least one sequence is required."
+    },
+    {
+      "code": 1002,
+      "message": "Alphabet is required (e.g. ACDEFGHIKLMNPQRSTVWY)."
+    },
+    {
+      "code": 1003,
+      "message": "PWM cells must be finite: use a positive pseudocount."
+    },
+    {
+      "code": 1003,
+      "message": "background must have one value per alphabet symbol."
+    },
+    {
+      "code": 1004,
+      "message": "Give exactly one of score or pValue"
+    },
+    {
+      "code": 1005,
+      "message": "Score must be finite"
+    },
+    {
+      "code": 1006,
+      "message": "pValue must be in [0, 1]"
+    }
+  ],
+  "examples": [
+    {
+      "name": "P-value of a protein site score",
+      "input": {
+        "sequences": [
+          "MKVLAT",
+          "MRVLGT",
+          "MKILAS",
+          "LKVLAT",
+          "MKVIAT",
+          "MEVLAT"
+        ],
+        "alphabet": "ACDEFGHIKLMNPQRSTVWY",
+        "score": 12.939220045315675
+      },
+      "output": {
+        "score": 12.939220045315675,
+        "scoreAboveMaximum": false,
+        "pValue": 1.953125000000001e-06,
+        "pValueLowerBound": 1.953125000000001e-06,
+        "pValueUpperBound": 1.953125000000001e-06,
+        "isExact": true,
+        "granularity": 10
+      }
+    },
+    {
+      "name": "Threshold for p = 1e-5",
+      "input": {
+        "sequences": [
+          "MKVLAT",
+          "MRVLGT",
+          "MKILAS",
+          "LKVLAT",
+          "MKVIAT",
+          "MEVLAT"
+        ],
+        "alphabet": "ACDEFGHIKLMNPQRSTVWY",
+        "pValue": 1e-05
+      },
+      "output": {
+        "score": 11.064750927399535,
+        "scoreAboveMaximum": false,
+        "pValue": 8.906250000000003e-06,
+        "pValueLowerBound": 8.906250000000003e-06,
+        "pValueUpperBound": 8.906250000000003e-06,
+        "isExact": true,
+        "granularity": 10
+      }
+    }
+  ]
+}

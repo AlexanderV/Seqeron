@@ -182,6 +182,20 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L247"
   },
   {
+    "tool": "alphabet_pwm_score_pvalue",
+    "server": "Analysis",
+    "methodId": "MotifFinder.AlphabetPwmScorePValue",
+    "docPath": "docs/mcp/tools/analysis/alphabet_pwm_score_pvalue.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmPValue.cs#L190"
+  },
+  {
+    "tool": "alphabet_pwm_score_thresholds",
+    "server": "Analysis",
+    "methodId": "AlphabetPositionWeightMatrix.ScoreDistribution",
+    "docPath": "docs/mcp/tools/analysis/alphabet_pwm_score_thresholds.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlphabetPwm.cs#L394"
+  },
+  {
     "tool": "analyze_gc_content",
     "server": "Analysis",
     "methodId": "GcSkewCalculator.AnalyzeGcContent",
@@ -907,7 +921,7 @@
     "server": "Analysis",
     "methodId": "MotifFinder.PwmScorePValue",
     "docPath": "docs/mcp/tools/analysis/pwm_score_pvalue.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmPValue.cs#L41"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmPValue.cs#L45"
   },
   {
     "tool": "pwm_score_thresholds",

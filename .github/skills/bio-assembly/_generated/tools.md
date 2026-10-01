@@ -6,6 +6,8 @@
 
 | tool | server | Method ID | doc |
 |------|--------|-----------|-----|
+| `alphabet_pwm_score_pvalue` | Analysis | `MotifFinder.AlphabetPwmScorePValue` | [doc](../../../../docs/mcp/tools/analysis/alphabet_pwm_score_pvalue.md) |
+| `alphabet_pwm_score_thresholds` | Analysis | `AlphabetPositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/alphabet_pwm_score_thresholds.md) |
 | `analyze_gc_content` | Analysis | `GcSkewCalculator.AnalyzeGcContent` | [doc](../../../../docs/mcp/tools/analysis/analyze_gc_content.md) |
 | `analyze_kmers` | Analysis | `KmerAnalyzer.AnalyzeKmers` | [doc](../../../../docs/mcp/tools/analysis/analyze_kmers.md) |
 | `at_skew` | Analysis | `GcSkewCalculator.CalculateAtSkew` | [doc](../../../../docs/mcp/tools/analysis/at_skew.md) |

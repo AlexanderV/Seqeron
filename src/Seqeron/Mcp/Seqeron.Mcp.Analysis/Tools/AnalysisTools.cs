@@ -1257,31 +1257,140 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "pwm_score_pvalue", Title = "Motifs — Exact PWM Score P-value", ReadOnly = true)]
-    [Description("Exact p-value of a PWM score, P(S >= score) for a random i.i.d. background word, or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — Touzet & Varré 2007 TFM-Pvalue successive refinement of integer-rounded matrices, with the undecided band resolved by enumeration. Give exactly one of score / pValue.")]
+    [Description("Exact p-value of a PWM score, P(S >= score) for a random background word, or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — Touzet & Varré 2007 TFM-Pvalue successive refinement of integer-rounded matrices, with the undecided band resolved by enumeration. Background: i.i.d. (background) or an order-m Markov chain from an RSAT (m+1)-mer frequency table (markovFrequencies; MACRO-APE-style DP over score × last m letters). Optional TFM-Pvalue search options (initialGranularity, maxGranularity, decreaseFactor), work budgets and an exhaustive mode that always returns an exact value. Give exactly one of score / pValue.")]
     public static PwmScorePValueResult PwmScorePValue(
         [Description("Position Weight Matrix: matrix is jagged 4×L (rows A,C,G,T), finite cells, length is L.")] PwmInput pwm,
         [Description("Score threshold: returns P(S >= score). Omit when pValue is given.")] double? score = null,
         [Description("Target p-value in [0,1]: returns the exact score threshold. Omit when score is given.")] double? pValue = null,
-        [Description("Optional background probabilities A,C,G,T (uniform when omitted).")] double[]? background = null)
+        [Description("Optional i.i.d. background probabilities A,C,G,T (uniform when omitted). Not with markovFrequencies.")] double[]? background = null,
+        [Description("Optional Markov background: (m+1)-mer -> frequency table (RSAT -bgfile oligos format; order m = word length - 1, <= 10), word probability P(prefix)·∏P(b | last m letters).")] Dictionary<string, double>? markovFrequencies = null,
+        [Description("RSAT pseudo-frequency in [0,1] for markovFrequencies (default 0.01).")] double markovPseudoFrequency = 0.01,
+        [Description("markovFrequencies are strand-insensitive pair frequencies (RSAT 2str; default false).")] bool markovStrandInsensitive = false,
+        [Description("TFM-Pvalue initial granularity (rounding step of the first integer matrix, default 0.1).")] double initialGranularity = 0.1,
+        [Description("TFM-Pvalue maximal (finest) granularity; omitted = limited only by g·Σmax|W| <= 2^40.")] double? maxGranularity = null,
+        [Description("TFM-Pvalue granularity decrease factor between refinements (> 1, default 10).")] double decreaseFactor = 10,
+        [Description("Maximum DP states per column before a scale is abandoned (default 2097152 = 2^21).")] int maxStates = 1 << 21,
+        [Description("Maximum size of an exact suffix-score set used for pruning (default 1048576 = 2^20).")] int maxSuffixSet = 1 << 20,
+        [Description("Exhaustive mode: resolve an unresolved band by unbounded enumeration, so the result is always exact (default false).")] bool exhaustive = false)
     {
         var pwmObj = RequirePwm(pwm);
         if (pwmObj.Matrix.Cast<double>().Any(w => !double.IsFinite(w)))
             throw new ArgumentException("PWM cells must be finite.", nameof(pwm));
         if (background is not null && background.Length != 4)
             throw new ArgumentException("Background must have 4 values (A,C,G,T).", nameof(background));
+        if (background is not null && markovFrequencies is not null)
+            throw new ArgumentException("Give either background or markovFrequencies, not both.", nameof(markovFrequencies));
+        RequireScoreOrPValue(score, pValue);
+        var options = PValueOptions(initialGranularity, maxGranularity, decreaseFactor, maxStates, maxSuffixSet, exhaustive);
+
+        global::Seqeron.Genomics.Analysis.PwmPValueResult r;
+        if (markovFrequencies is not null)
+        {
+            if (markovFrequencies.Count == 0)
+                throw new ArgumentException("markovFrequencies must not be empty.", nameof(markovFrequencies));
+            var model = global::Seqeron.Genomics.Analysis.OligoBackgroundModel.MarkovFromOligoFrequencies(
+                markovFrequencies, markovPseudoFrequency, markovStrandInsensitive);
+            r = score.HasValue
+                ? global::Seqeron.Genomics.Analysis.MotifFinder.PwmMarkovScorePValue(pwmObj, score.Value, model, options)
+                : global::Seqeron.Genomics.Analysis.MotifFinder.PwmMarkovScoreThresholdForPValue(pwmObj, pValue!.Value, model, options);
+        }
+        else
+        {
+            r = score.HasValue
+                ? global::Seqeron.Genomics.Analysis.MotifFinder.PwmScorePValue(pwmObj, score.Value, background, options)
+                : global::Seqeron.Genomics.Analysis.MotifFinder.PwmScoreThresholdForPValue(pwmObj, pValue!.Value, background, options);
+        }
+
+        return ToPValueResult(r);
+    }
+
+    private static void RequireScoreOrPValue(double? score, double? pValue)
+    {
         if (score.HasValue == pValue.HasValue)
             throw new ArgumentException("Give exactly one of score or pValue.", nameof(score));
         if (score.HasValue && !double.IsFinite(score.Value))
             throw new ArgumentOutOfRangeException(nameof(score), "Score must be finite.");
         if (pValue.HasValue && !(pValue.Value >= 0 && pValue.Value <= 1))
             throw new ArgumentOutOfRangeException(nameof(pValue), "pValue must be in [0, 1].");
+    }
 
-        var r = score.HasValue
-            ? global::Seqeron.Genomics.Analysis.MotifFinder.PwmScorePValue(pwmObj, score.Value, background)
-            : global::Seqeron.Genomics.Analysis.MotifFinder.PwmScoreThresholdForPValue(pwmObj, pValue!.Value, background);
+    private static global::Seqeron.Genomics.Analysis.PwmPValueOptions PValueOptions(
+        double initialGranularity, double? maxGranularity, double decreaseFactor, int maxStates, int maxSuffixSet, bool exhaustive)
+        => new()
+        {
+            InitialGranularity = initialGranularity,
+            MaxGranularity = maxGranularity,
+            DecreaseFactor = decreaseFactor,
+            MaxStates = maxStates,
+            MaxSuffixSet = maxSuffixSet,
+            Exhaustive = exhaustive,
+        };
+
+    private static PwmScorePValueResult ToPValueResult(global::Seqeron.Genomics.Analysis.PwmPValueResult r)
+    {
         bool aboveMax = double.IsPositiveInfinity(r.Score);
         return new PwmScorePValueResult(aboveMax ? null : r.Score, aboveMax, r.PValue,
             r.PValueLowerBound, r.PValueUpperBound, r.IsExact, r.Granularity);
+    }
+
+    [McpServerTool(Name = "alphabet_pwm_score_pvalue", Title = "Motifs — Exact PWM P-value (Any Alphabet / Protein)", ReadOnly = true)]
+    [Description("Build a PWM over an arbitrary alphabet (protein, RNA, …) from aligned instances (as create_alphabet_pwm; use a positive pseudocount so every cell is finite) and return the exact p-value of a score, P(S >= score) for a random i.i.d. background word, or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — the Touzet & Varré 2007 TFM-Pvalue engine of pwm_score_pvalue with K rows. Give exactly one of score / pValue.")]
+    public static PwmScorePValueResult AlphabetPwmScorePValue(
+        [Description("Aligned instances of equal length that define the motif.")] string[] sequences,
+        [Description("Alphabet in row order, distinct symbols ignoring case (e.g. ACDEFGHIKLMNPQRSTVWY).")] string alphabet,
+        [Description("Score threshold: returns P(S >= score). Omit when pValue is given.")] double? score = null,
+        [Description("Target p-value in [0,1]: returns the exact score threshold. Omit when score is given.")] double? pValue = null,
+        [Description("Pseudocount per cell (default 0.5; must make every cell finite); ignored when pseudocounts is given.")] double pseudocount = 0.5,
+        [Description("Optional per-symbol pseudocounts in alphabet order.")] double[]? pseudocounts = null,
+        [Description("Optional background in alphabet order (log-odds and word distribution; uniform when omitted).")] double[]? background = null,
+        [Description("Skip symbols outside the alphabet when counting the instances (default false).")] bool ignoreUnknownSymbols = false,
+        [Description("TFM-Pvalue initial granularity (default 0.1).")] double initialGranularity = 0.1,
+        [Description("TFM-Pvalue maximal (finest) granularity; omitted = limited only by g·Σmax|W| <= 2^40.")] double? maxGranularity = null,
+        [Description("Granularity decrease factor (> 1, default 10).")] double decreaseFactor = 10,
+        [Description("Maximum DP states per column (default 2^21).")] int maxStates = 1 << 21,
+        [Description("Maximum suffix-score set size (default 2^20).")] int maxSuffixSet = 1 << 20,
+        [Description("Exhaustive mode: always exact (default false).")] bool exhaustive = false)
+    {
+        var pwm = BuildAlphabetPwm(sequences, alphabet, pseudocount, pseudocounts, background, ignoreUnknownSymbols);
+        if (pwm.GetMatrix().Cast<double>().Any(w => !double.IsFinite(w)))
+            throw new ArgumentException("PWM cells must be finite: use a positive pseudocount.", nameof(pseudocount));
+        RequireScoreOrPValue(score, pValue);
+        var options = PValueOptions(initialGranularity, maxGranularity, decreaseFactor, maxStates, maxSuffixSet, exhaustive);
+        var r = score.HasValue
+            ? global::Seqeron.Genomics.Analysis.MotifFinder.AlphabetPwmScorePValue(pwm, score.Value, background, options)
+            : global::Seqeron.Genomics.Analysis.MotifFinder.AlphabetPwmScoreThresholdForPValue(pwm, pValue!.Value, background, options);
+        return ToPValueResult(r);
+    }
+
+    [McpServerTool(Name = "alphabet_pwm_score_thresholds", Title = "Motifs — PWM Score Thresholds (Any Alphabet / Protein)", ReadOnly = true)]
+    [Description("Build a PWM over an arbitrary alphabet (protein, RNA, …) from aligned instances (as create_alphabet_pwm; positive pseudocount) and return the score thresholds of its discretised score distribution — Biopython pssm.distribution(background, precision) (Bio.motifs.thresholds.ScoreDistribution, which iterates the PSSM's own alphabet): background false-positive-rate, motif false-negative-rate, balanced (FNR = FPR × rateProportion) and patser thresholds.")]
+    public static PwmScoreThresholdsResult AlphabetPwmScoreThresholds(
+        [Description("Aligned instances of equal length that define the motif.")] string[] sequences,
+        [Description("Alphabet in row order, distinct symbols ignoring case (e.g. ACDEFGHIKLMNPQRSTVWY).")] string alphabet,
+        [Description("Pseudocount per cell (default 0.5; must make every cell finite); ignored when pseudocounts is given.")] double pseudocount = 0.5,
+        [Description("Optional per-symbol pseudocounts in alphabet order.")] double[]? pseudocounts = null,
+        [Description("Optional background in alphabet order (uniform when omitted).")] double[]? background = null,
+        [Description("Skip symbols outside the alphabet when counting the instances (default false).")] bool ignoreUnknownSymbols = false,
+        [Description("Grid points per motif position (Biopython default 1000).")] int precision = 1000,
+        [Description("Target background false-positive rate in [0,1] (default 0.01).")] double fpr = 0.01,
+        [Description("Target motif false-negative rate in [0,1] (default 0.1).")] double fnr = 0.1,
+        [Description("Balanced threshold rate proportion FNR/FPR (default 1.0).")] double rateProportion = 1.0)
+    {
+        var pwm = BuildAlphabetPwm(sequences, alphabet, pseudocount, pseudocounts, background, ignoreUnknownSymbols);
+        if (pwm.GetMatrix().Cast<double>().Any(w => !double.IsFinite(w)))
+            throw new ArgumentException("PWM cells must be finite: use a positive pseudocount.", nameof(pseudocount));
+        if (precision < 1)
+            throw new ArgumentOutOfRangeException(nameof(precision), "Precision must be >= 1.");
+        if (!(fpr >= 0 && fpr <= 1))
+            throw new ArgumentOutOfRangeException(nameof(fpr), "fpr must be in [0, 1].");
+        if (!(fnr >= 0 && fnr <= 1))
+            throw new ArgumentOutOfRangeException(nameof(fnr), "fnr must be in [0, 1].");
+
+        var d = pwm.ScoreDistribution(background, precision);
+        double balanced = d.ThresholdBalanced(rateProportion, out double balancedRate);
+        return new PwmScoreThresholdsResult(
+            d.MinScore, d.Step, d.PointCount, d.MeanScore,
+            d.ThresholdFpr(fpr), d.ThresholdFnr(fnr), balanced, balancedRate, d.ThresholdPatser());
     }
 
     [McpServerTool(Name = "find_promoter_elements_by_matrix", Title = "Motifs — Promoter Elements (Bucher Matrices)", ReadOnly = true)]

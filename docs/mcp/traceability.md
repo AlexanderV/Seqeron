@@ -185,6 +185,8 @@
 | sticky_cutters | MolTools | RestrictionAnalyzer.GetStickyCutters | RestrictionAnalyzer.cs#L94 | 0/0 | – | – | Build-Ready |
 | three_prime_stability | MolTools | PrimerDesigner.Calculate3PrimeStability | PrimerDesigner.cs#L427 | 0/0 | – | – | Build-Ready |
 | validate_probe | MolTools | ProbeDesigner.ValidateProbe | ProbeDesigner.cs#L491 | 0/0 | – | – | Build-Ready |
+| alphabet_pwm_score_pvalue | Analysis | MotifFinder.AlphabetPwmScorePValue | MotifFinder.PwmPValue.cs#L190 | 2/2 | ✓ | ✓ | Ready |
+| alphabet_pwm_score_thresholds | Analysis | AlphabetPositionWeightMatrix.ScoreDistribution | MotifFinder.AlphabetPwm.cs#L394 | 1/1 | ✓ | ✓ | Ready |
 | analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L243 | 0/0 | – | – | Build-Ready |
 | analyze_kmers | Analysis | KmerAnalyzer.AnalyzeKmers | KmerAnalyzer.cs#L382 | 0/0 | – | – | Build-Ready |
 | at_skew | Analysis | GcSkewCalculator.CalculateAtSkew | GcSkewCalculator.cs#L172 | 0/0 | – | – | Build-Ready |
@@ -288,7 +290,7 @@
 | predict_signal_peptide | Analysis | ProteinMotifFinder.PredictSignalPeptide | ProteinMotifFinder.cs#L325 | 0/0 | – | – | Build-Ready |
 | predict_transmembrane_helices | Analysis | ProteinMotifFinder.PredictTransmembraneHelices | ProteinMotifFinder.cs#L460 | 0/0 | – | – | Build-Ready |
 | prosite_to_regex | Analysis | ProteinMotifFinder.ConvertPrositeToRegex | ProteinMotifFinder.cs#L220 | 0/0 | – | – | Build-Ready |
-| pwm_score_pvalue | Analysis | MotifFinder.PwmScorePValue | MotifFinder.PwmPValue.cs#L41 | 2/2 | ✓ | ✓ | Ready |
+| pwm_score_pvalue | Analysis | MotifFinder.PwmScorePValue | MotifFinder.PwmPValue.cs#L45 | 4/4 | ✓ | ✓ | Ready |
 | pwm_score_thresholds | Analysis | PositionWeightMatrix.ScoreDistribution | MotifFinder.PwmScoring.cs#L322 | 2/2 | ✓ | ✓ | Ready |
 | reversal_distance | Analysis | ComparativeGenomics.CalculateReversalDistance | ComparativeGenomics.cs#L425 | 0/0 | – | – | Build-Ready |
 | rna_complement_base | Analysis | RnaSecondaryStructure.GetComplement | RnaSecondaryStructure.cs#L580 | 0/0 | – | – | Build-Ready |
