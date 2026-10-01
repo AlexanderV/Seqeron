@@ -25,7 +25,7 @@ secondPosition, length). For edit distance or palindromic repeats use `find_dege
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L4126](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4126)
+- Source: [RepeatFinder.cs#L4489](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4489)
 
 ## Input Schema
 

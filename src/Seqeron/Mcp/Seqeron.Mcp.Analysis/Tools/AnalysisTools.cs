@@ -743,32 +743,44 @@ public class AnalysisTools
         [Description("TRF -l: maximum tandem-repeat length in bp (>= 1, default 2000000).")] int maxRepeatLength = 2_000_000,
         [Description("Redundancy elimination (default true; TRF -r turns it off).")] bool eliminateRedundancy = true,
         [Description("TRF -f: flanking-sequence length to report on each side (>= 0, default 0 = none; TRF -f uses 500).")] int flankLength = 0,
-        [Description("Examine candidate distances only up to maxPeriod (library legacy mode; default false = TRF MAXDISTANCE). Requires the recommended weights/PM/PI and default -l/-r/-f.")] bool examineUpToMaxPeriodOnly = false)
+        [Description("Examine candidate distances only up to maxPeriod (library legacy mode; default false = TRF MAXDISTANCE). Requires the recommended weights/PM/PI and default -l/-r/-f/table.")] bool examineUpToMaxPeriodOnly = false,
+        [Description(ApparentSizeTableDescription)] string? apparentSizeTable = null,
+        [Description(ApparentSizeTableKindDescription)] string apparentSizeTableKind = "apparent",
+        [Description("Extra output text: 'json' (default, items only), 'dat' (TRF -d data file: program header, Sequence/Parameters block, rows), 'ngs' (TRF -ngs block: @name + rows with 50-bp flanks) or 'html' (TRF repeat-table HTML pages, 120 rows per page). Rows follow TRF 4.10.0 byte for byte (order, truncation, %.1f/%.2f).")] string format = "json",
+        [Description("Sequence description printed in dat/ngs/html output (TRF prints the FASTA header after '>'; default 'sequence'). Also the HTML file prefix.")] string sequenceName = "sequence")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        string outputFormat = (format ?? "json").Trim().ToLowerInvariant();
+        if (outputFormat is not ("json" or "dat" or "ngs" or "html"))
+            throw new ArgumentException("format must be 'json', 'dat', 'ngs' or 'html'", nameof(format));
+        ArgumentNullException.ThrowIfNull(sequenceName);
+        var table = ParseApparentSizeTable(apparentSizeTable, apparentSizeTableKind);
+
         IEnumerable<global::Seqeron.Genomics.Analysis.ApproximateTandemRepeatResult> found;
+        var parameters = TrfParameters(maxPeriod, minScore, matchWeight, mismatchPenalty, indelPenalty,
+            matchProbability, indelProbability, maxRepeatLength, eliminateRedundancy, flankLength) with { ApparentSizeTable = table };
         if (examineUpToMaxPeriodOnly)
         {
             var defaults = global::Seqeron.Genomics.Analysis.TandemRepeatsFinderParameters.Recommended;
             if (matchWeight != defaults.MatchWeight || mismatchPenalty != defaults.MismatchPenalty
                 || indelPenalty != defaults.IndelPenalty || matchProbability != defaults.MatchProbability
                 || indelProbability != defaults.IndelProbability || maxRepeatLength != defaults.MaxRepeatLength
-                || eliminateRedundancy != defaults.EliminateRedundancy || flankLength != defaults.FlankLength)
+                || eliminateRedundancy != defaults.EliminateRedundancy || flankLength != defaults.FlankLength
+                || table is not null)
                 throw new ArgumentException(
-                    "examineUpToMaxPeriodOnly uses the TRF recommended weights 2 7 7 80 10 and default -l/-r/-f; leave those parameters at their defaults",
+                    "examineUpToMaxPeriodOnly uses the TRF recommended weights 2 7 7 80 10, default -l/-r/-f and the exact apparent-size table; leave those parameters at their defaults",
                     nameof(examineUpToMaxPeriodOnly));
             found = global::Seqeron.Genomics.Analysis.RepeatFinder.FindApproximateTandemRepeats(sequence, minPeriod, maxPeriod, minScore);
         }
         else
         {
-            var parameters = TrfParameters(maxPeriod, minScore, matchWeight, mismatchPenalty, indelPenalty,
-                matchProbability, indelProbability, maxRepeatLength, eliminateRedundancy, flankLength);
             found = global::Seqeron.Genomics.Analysis.RepeatFinder.FindApproximateTandemRepeats(sequence, parameters, minPeriod);
         }
 
-        var items = found
+        var repeats = found.ToList();
+        var items = repeats
             .Select(r => new ApproximateTandemRepeatItem(
                 r.Start, r.SpanLength, r.Period, r.ConsensusSize, r.Consensus, r.CopyNumber,
                 r.PercentMatches, r.PercentIndels, r.AlignmentScore)
@@ -783,9 +795,61 @@ public class AnalysisTools
                 AlignedConsensus = r.AlignedConsensus,
                 LeftFlank = r.LeftFlank,
                 RightFlank = r.RightFlank,
+                CopyMatches = r.CopyMatches,
+                CopyMismatches = r.CopyMismatches,
+                CopyIndels = r.CopyIndels,
+                OutputIndex = r.OutputIndex,
             })
             .ToArray();
-        return new FindApproximateTandemRepeatsResult(items);
+
+        return outputFormat switch
+        {
+            "dat" => new FindApproximateTandemRepeatsResult(items)
+            {
+                Formatted = global::Seqeron.Genomics.Analysis.RepeatFinder.FormatTrfDatFileHeader()
+                    + global::Seqeron.Genomics.Analysis.RepeatFinder.FormatTrfDatLines(sequence, repeats, sequenceName, parameters),
+            },
+            "ngs" => new FindApproximateTandemRepeatsResult(items)
+            {
+                Formatted = global::Seqeron.Genomics.Analysis.RepeatFinder.FormatTrfDatLines(
+                    sequence, repeats, sequenceName, parameters, global::Seqeron.Genomics.Analysis.TrfDatLayout.Ngs),
+            },
+            "html" => new FindApproximateTandemRepeatsResult(items)
+            {
+                HtmlPages = global::Seqeron.Genomics.Analysis.RepeatFinder
+                    .FormatTrfHtmlTables(sequence, repeats, sequenceName, parameters, sequenceName)
+                    .Select(p => new TrfHtmlPageItem(p.FileName, p.Html))
+                    .ToArray(),
+            },
+            _ => new FindApproximateTandemRepeatsResult(items),
+        };
+    }
+
+    private const string ApparentSizeTableDescription =
+        "Optional apparent-size table for TRF's apparent-size detection criterion: 2001 comma/space-separated integers for distances d = 0..2000 (entry 0 ignored). Empty = the exact table the library computes. Supplying TRF 4.10.0's own waitdata80/waitdata75 array (tr30dat.c, with apparentSizeTableKind='trfWaitingTimes'; not shipped, AGPL) reproduces TRF's output bit for bit. Applies to the given matchProbability.";
+
+    private const string ApparentSizeTableKindDescription =
+        "How apparentSizeTable is expressed: 'apparent' (default; y(d), each in 0..max(d,20)-1) or 'trfWaitingTimes' (TRF waitdata w(d); y = max(d,20) - w - 1).";
+
+    /// <summary>Parses the optional MCP apparent-size table argument (null / blank = exact table).</summary>
+    private static int[]? ParseApparentSizeTable(string? table, string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(table))
+            return null;
+        var tokens = table.Split([',', ' ', '\t', '\n', '\r', ';'], StringSplitOptions.RemoveEmptyEntries);
+        var values = new int[tokens.Length];
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            if (!int.TryParse(tokens[i], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out values[i]))
+                throw new ArgumentException($"apparentSizeTable entry '{tokens[i]}' is not an integer", nameof(table));
+        }
+
+        return (kind ?? "apparent").Trim().ToLowerInvariant() switch
+        {
+            "apparent" => values,
+            "trfwaitingtimes" => global::Seqeron.Genomics.Analysis.TandemRepeatsFinderParameters.ApparentSizeTableFromWaitingTimes(values),
+            _ => throw new ArgumentException("apparentSizeTableKind must be 'apparent' or 'trfWaitingTimes'", nameof(kind)),
+        };
     }
 
     [McpServerTool(Name = "mask_approximate_tandem_repeats", Title = "Repeats — Mask Tandem Repeats (TRF -m)", ReadOnly = true)]
@@ -801,13 +865,16 @@ public class AnalysisTools
         [Description("TRF PI in percent (1-100, default 10).")] int indelProbability = 10,
         [Description("TRF -l: maximum tandem-repeat length in bp (>= 1, default 2000000).")] int maxRepeatLength = 2_000_000,
         [Description("Redundancy elimination (default true; TRF -r turns it off).")] bool eliminateRedundancy = true,
-        [Description("Soft-mask: lower-case repeat positions instead of writing N (default false).")] bool softMask = false)
+        [Description("Soft-mask: lower-case repeat positions instead of writing N (default false).")] bool softMask = false,
+        [Description(ApparentSizeTableDescription)] string? apparentSizeTable = null,
+        [Description(ApparentSizeTableKindDescription)] string apparentSizeTableKind = "apparent")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         var parameters = TrfParameters(maxPeriod, minScore, matchWeight, mismatchPenalty, indelPenalty,
-            matchProbability, indelProbability, maxRepeatLength, eliminateRedundancy, 0);
+            matchProbability, indelProbability, maxRepeatLength, eliminateRedundancy, 0)
+            with { ApparentSizeTable = ParseApparentSizeTable(apparentSizeTable, apparentSizeTableKind) };
         var masked = global::Seqeron.Genomics.Analysis.RepeatFinder.MaskApproximateTandemRepeats(sequence, parameters, softMask);
         return new MaskApproximateTandemRepeatsResult(masked);
     }

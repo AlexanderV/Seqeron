@@ -26,7 +26,7 @@ mismatch. Filters `maxLength`, `spacing = secondPosition − firstPosition − f
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L4396](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4396)
+- Source: [RepeatFinder.cs#L4759](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4759)
 
 ## Input Schema
 

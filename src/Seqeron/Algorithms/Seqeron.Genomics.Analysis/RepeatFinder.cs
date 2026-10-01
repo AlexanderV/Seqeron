@@ -1070,6 +1070,354 @@ public static class RepeatFinder
         return new string(masked);
     }
 
+    #region TRF output formats (.dat, -ngs, HTML table)
+
+    /// <summary>The TRF release whose output layout the formatters reproduce (TRF 4.10.0, <c>versionstring</c>).</summary>
+    public const string TrfReferenceVersion = "4.10.0";
+
+    /// <summary>Flank length TRF prints in <c>-ngs</c> rows (fixed at 50, TRF 4.10.0 trfrun.h).</summary>
+    public const int TrfNgsFlankLength = 50;
+
+    /// <summary>Rows per TRF HTML repeat-table page (TRF 4.10.0 trfclean.h <c>EO_MAX_TBL</c>).</summary>
+    public const int TrfHtmlRowsPerTable = 120;
+
+    private const string TrfHtmlTableHeadingRow =
+        "<TR><TD WIDTH=140><CENTER>Indices</CENTER></TD><TD WIDTH=80><CENTER>Period<BR>Size </CENTER></TD><TD WIDTH=70><CENTER>Copy<BR>Number</CENTER></TD><TD WIDTH=70><CENTER>Consensus<BR>Size</CENTER></TD><TD WIDTH=70><CENTER>Percent<BR>Matches</CENTER></TD><TD WIDTH=70><CENTER>Percent<BR>Indels</CENTER></TD><TD WIDTH=60><CENTER>Score</CENTER></TD><TD WIDTH=40><CENTER>A</CENTER></TD><TD WIDTH=40><CENTER>C</CENTER></TD><TD WIDTH=40><CENTER>G</CENTER></TD><TD WIDTH=40><CENTER>T</CENTER></TD><TD WIDTH=70><CENTER>Entropy<BR>(0-2)</CENTER></TD></TR>\n";
+
+    private const string TrfCitation =
+        "\nPlease cite:\nG. Benson,\n\"Tandem repeats finder: a program to analyze DNA sequences\"\nNucleic Acid Research(1999)\nVol. 27, No. 2, pp. 573-580.\n";
+
+    /// <summary>
+    /// The program header TRF writes once at the top of a <c>-d</c> data file (omitted with <c>-ngs</c>).
+    /// </summary>
+    /// <param name="programVersion">Version printed on the last line (default <see cref="TrfReferenceVersion"/>).</param>
+    public static string FormatTrfDatFileHeader(string programVersion = TrfReferenceVersion)
+    {
+        ArgumentNullException.ThrowIfNull(programVersion);
+        return "Tandem Repeats Finder Program written by:\n\nGary Benson\nProgram in Bioinformatics\nBoston University\nVersion "
+            + programVersion + "\n";
+    }
+
+    /// <summary>
+    /// Formats approximate tandem repeats of one sequence as Tandem Repeats Finder 4.10.0 data output
+    /// (TRF README "Data file"; trfrun.h): <see cref="TrfDatLayout.Dat"/> = the per-sequence block of a <c>-d</c>
+    /// .dat file ("Sequence:" / "Parameters:" lines, then one row per repeat; prefix
+    /// <see cref="FormatTrfDatFileHeader"/> once per file), <see cref="TrfDatLayout.Ngs"/> = the <c>-ngs</c> block
+    /// (<c>@name</c> then rows with 50-bp flanks, '.' at a sequence end; empty when there are no repeats).
+    /// </summary>
+    /// <remarks>
+    /// Row: <c>first last period copies consensusSize %matches %indels score A C G T entropy consensus repeat</c> with
+    /// 1-based inclusive indices, copies "%.1f" and entropy "%.2f" of TRF's single-precision values (C rounding: exact
+    /// binary value, ties to even), %matches / %indels = ⌊100·(float)count/(float)trials⌋ from
+    /// <see cref="ApproximateTandemRepeatResult.CopyMatches"/> / <see cref="ApproximateTandemRepeatResult.CopyIndels"/>
+    /// (⌊PercentMatches⌋ when the counts are not set), base columns ⌊PercentX⌋ and the repeat text upper-cased.
+    /// Rows are written in TRF's order, by <see cref="ApproximateTandemRepeatResult.OutputIndex"/> (the given order
+    /// when it is not set).
+    /// </remarks>
+    /// <param name="sequence">The searched sequence (indices of <paramref name="repeats"/> refer to it).</param>
+    /// <param name="repeats">Repeats found in <paramref name="sequence"/>.</param>
+    /// <param name="sequenceName">FASTA description TRF prints (the header line after '&gt;').</param>
+    /// <param name="parameters">The parameter set used (printed in the "Parameters:" line).</param>
+    /// <param name="layout">.dat block or <c>-ngs</c> block.</param>
+    public static string FormatTrfDatLines(
+        string sequence,
+        IEnumerable<ApproximateTandemRepeatResult> repeats,
+        string sequenceName,
+        TandemRepeatsFinderParameters parameters,
+        TrfDatLayout layout = TrfDatLayout.Dat)
+    {
+        var rows = PrepareTrfRows(sequence, repeats, sequenceName, parameters);
+        var sb = new System.Text.StringBuilder();
+        if (layout == TrfDatLayout.Ngs)
+        {
+            if (rows.Count > 0)
+                sb.Append('@').Append(sequenceName).Append('\n');
+        }
+        else if (layout == TrfDatLayout.Dat)
+        {
+            sb.Append("\n\nSequence: ").Append(sequenceName).Append("\n\n\n\n").Append(TrfParameterLine(parameters)).Append("\n\n\n");
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(layout));
+        }
+
+        string upper = sequence.ToUpperInvariant();
+        foreach (var r in rows)
+        {
+            int first = r.Start + 1, last = r.Start + r.SpanLength;
+            sb.Append(first).Append(' ').Append(last).Append(' ').Append(r.Period).Append(' ')
+              .Append(FormatCFixed((float)r.CopyNumber, 1)).Append(' ').Append(r.ConsensusSize).Append(' ')
+              .Append(TrfPercentOfTrials(r.CopyMatches, r, r.PercentMatches)).Append(' ')
+              .Append(TrfPercentOfTrials(r.CopyIndels, r, r.PercentIndels)).Append(' ')
+              .Append(r.AlignmentScore).Append(' ')
+              .Append((int)r.PercentA).Append(' ').Append((int)r.PercentC).Append(' ')
+              .Append((int)r.PercentG).Append(' ').Append((int)r.PercentT).Append(' ')
+              .Append(FormatCFixed((float)r.EntropyTrf, 2)).Append(' ').Append(r.Consensus).Append(' ')
+              .Append(upper, r.Start, r.SpanLength);
+            if (layout == TrfDatLayout.Ngs)
+            {
+                sb.Append(' ');
+                if (first == 1)
+                    sb.Append('.');
+                else
+                {
+                    int flankStart = Math.Max(1, first - TrfNgsFlankLength);
+                    sb.Append(upper, flankStart - 1, first - flankStart);
+                }
+
+                sb.Append(' ');
+                if (last == upper.Length)
+                    sb.Append('.');
+                else
+                    sb.Append(upper, last, Math.Min(upper.Length, last + TrfNgsFlankLength) - last);
+            }
+
+            sb.Append('\n');
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Formats approximate tandem repeats of one sequence as Tandem Repeats Finder 4.10.0's HTML repeat table
+    /// (trfclean.h OutputHTML: the <c>&lt;prefix&gt;.&lt;parameters&gt;.N.html</c> pages, <see cref="TrfHtmlRowsPerTable"/>
+    /// rows per page, one page when there are no repeats). Each row links its indices to the alignment page
+    /// <c>&lt;prefix&gt;.&lt;parameters&gt;.N.txt.html</c> at the anchor <c>first--last,period,copies,size,OutputIndex</c>
+    /// (TRF's label; copies from the double-precision value, the table cell from the single-precision one, as TRF prints
+    /// them; the row index when <see cref="ApproximateTandemRepeatResult.OutputIndex"/> is not set); this library does not
+    /// write the alignment pages themselves.
+    /// </summary>
+    /// <param name="sequence">The searched sequence (its length is printed in the heading).</param>
+    /// <param name="repeats">Repeats found in <paramref name="sequence"/>.</param>
+    /// <param name="sequenceName">FASTA description TRF prints.</param>
+    /// <param name="parameters">The parameter set used.</param>
+    /// <param name="filePrefix">TRF's output prefix: the input file name (single-sequence file) or
+    /// <c>&lt;file&gt;.sK</c> for the K-th sequence of a multi-sequence file.</param>
+    /// <param name="programVersion">Version printed in the heading (default <see cref="TrfReferenceVersion"/>).</param>
+    /// <returns>The pages in order, each with its TRF file name.</returns>
+    public static IReadOnlyList<TrfHtmlPage> FormatTrfHtmlTables(
+        string sequence,
+        IEnumerable<ApproximateTandemRepeatResult> repeats,
+        string sequenceName,
+        TandemRepeatsFinderParameters parameters,
+        string filePrefix,
+        string programVersion = TrfReferenceVersion)
+    {
+        ArgumentNullException.ThrowIfNull(filePrefix);
+        ArgumentNullException.ThrowIfNull(programVersion);
+        var rows = PrepareTrfRows(sequence, repeats, sequenceName, parameters);
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        string stem = filePrefix + "." + TrfParameterString(parameters);
+        int pages = Math.Max(1, (rows.Count + TrfHtmlRowsPerTable - 1) / TrfHtmlRowsPerTable);
+        string TableName(int k) => $"{stem}.{k}.html";
+        string AlignmentName(int k) => $"{stem}.{k}.txt.html";
+
+        void AppendTableLinks(System.Text.StringBuilder sb, int current)
+        {
+            sb.Append("\n<P><PRE>Tables:   ");
+            for (int j = 1; j <= pages; j++)
+            {
+                if (j != current)
+                    sb.Append("<A HREF=\"").Append(TableName(j)).Append("\" target=\"_self\">").Append(j).Append("</A>   ");
+                else
+                    sb.Append(j).Append("   ");
+                if (j % 16 == 0 && j < pages)
+                    sb.Append("\n          ");
+            }
+        }
+
+        var result = new List<TrfHtmlPage>(pages);
+        for (int page = 1; page <= pages; page++)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<HTML><HEAD><TITLE>").Append(TableName(page)).Append("</TITLE><BASE TARGET=\"").Append(stem)
+              .Append(".txt.html\"></HEAD><BODY bgcolor=\"#FBF8BC\"><BR><PRE>Tandem Repeats Finder Program written by:</PRE><PRE><CENTER>Gary Benson<BR>Program in Bioinformatics<BR>Boston University<BR>Version ")
+              .Append(programVersion).Append("<BR></CENTER>").Append(TrfCitation)
+              .Append("\nSequence: ").Append(sequenceName).Append('\n').Append(TrfParameterLine(parameters)).Append('\n')
+              .Append("Length:  ").Append(sequence.Length).Append("</PRE>\n");
+            AppendTableLinks(sb, page);
+            sb.Append("\n\nThis is table  ").Append(page).Append("  of  ").Append(pages).Append("  ( ").Append(rows.Count)
+              .Append(" repeats found )\n</PRE>")
+              .Append("<PRE>\nClick on indices to view alignment\n")
+              .Append("</PRE><A HREF=\"http://tandem.bu.edu/trf/trf.definitions.html#table\" target = \"explanation\">Table Explanation</A><BR><BR>\n")
+              .Append("<TABLE BORDER=1 CELLSPACING=0 CELLPADDING=0>\n");
+            int from = (page - 1) * TrfHtmlRowsPerTable;
+            int to = Math.Min(rows.Count, from + TrfHtmlRowsPerTable);
+            for (int j = from; j < to; j++)
+            {
+                var r = rows[j];
+                if ((j - from) % 22 == 0)
+                    sb.Append(TrfHtmlTableHeadingRow);
+                int first = r.Start + 1, last = r.Start + r.SpanLength;
+                // The anchor label prints TRF's double-precision copy number, the table cell its float copy.
+                string copies = FormatCFixed((float)r.CopyNumber, 1);
+                sb.Append("<TR><TD><CENTER><A HREF=\"").Append(AlignmentName(page)).Append('#')
+                  .Append(first).Append("--").Append(last).Append(',').Append(r.Period).Append(',')
+                  .Append(FormatCFixed(r.CopyNumber, 1)).Append(',')
+                  .Append(r.ConsensusSize).Append(',').Append(r.OutputIndex > 0 ? r.OutputIndex : j + 1).Append("\">")
+                  .Append(first).Append("--").Append(last).Append("</A></CENTER></TD>");
+                foreach (string cell in new[]
+                {
+                    r.Period.ToString(ci), copies, r.ConsensusSize.ToString(ci),
+                    TrfPercentOfTrials(r.CopyMatches, r, r.PercentMatches).ToString(ci),
+                    TrfPercentOfTrials(r.CopyIndels, r, r.PercentIndels).ToString(ci),
+                    r.AlignmentScore.ToString(ci),
+                    ((int)r.PercentA).ToString(ci), ((int)r.PercentC).ToString(ci),
+                    ((int)r.PercentG).ToString(ci), ((int)r.PercentT).ToString(ci),
+                    FormatCFixed((float)r.EntropyTrf, 2),
+                })
+                    sb.Append("<TD><CENTER>").Append(cell).Append("</CENTER></TD>");
+                sb.Append("</TR>\n");
+            }
+
+            if (rows.Count == 0)
+                sb.Append(TrfHtmlTableHeadingRow);
+            sb.Append("\n</TABLE>\n");
+            if (rows.Count == 0)
+                sb.Append("\nNo Repeats Found!<BR>");
+            AppendTableLinks(sb, page);
+            sb.Append("\n</PRE>");
+            if (page == pages)
+                sb.Append("<P>The End!\n");
+            sb.Append("\n</BODY></HTML>\n");
+            result.Add(new TrfHtmlPage(TableName(page), sb.ToString()));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Tandem Repeats Finder 4.10.0's multi-sequence summary page (trfrun.h, <c>&lt;file&gt;.&lt;parameters&gt;.summary.html</c>):
+    /// one row per sequence with at least one repeat (1-based sequence index, description linked to its first table page
+    /// <c>&lt;file&gt;.sK.&lt;parameters&gt;.1.html</c>, number of repeats); "No Repeats Found!" when none has any.
+    /// </summary>
+    /// <param name="sequences">Every sequence of the file in order: its description and its number of reported repeats.</param>
+    /// <param name="parameters">The parameter set used.</param>
+    /// <param name="filePrefix">The input file name.</param>
+    /// <param name="programVersion">Version printed in the heading (default <see cref="TrfReferenceVersion"/>).</param>
+    /// <returns>The page and its TRF file name.</returns>
+    public static TrfHtmlPage FormatTrfHtmlSummary(
+        IEnumerable<(string Name, int RepeatCount)> sequences,
+        TandemRepeatsFinderParameters parameters,
+        string filePrefix,
+        string programVersion = TrfReferenceVersion)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentNullException.ThrowIfNull(parameters);
+        ArgumentNullException.ThrowIfNull(filePrefix);
+        ArgumentNullException.ThrowIfNull(programVersion);
+        string parameterString = TrfParameterString(parameters);
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<HTML><HEAD><TITLE>Output Summary</TITLE></HEAD><BODY bgcolor=\"#FBF8BC\"><PRE>")
+          .Append("\nTandem Repeats Finder Program written by:<CENTER>\nGary Benson\nProgram in Bioinformatics\nBoston University\nVersion ")
+          .Append(programVersion).Append("</CENTER>\n").Append(TrfCitation)
+          .Append("\n\n<B>Multiple Sequence Summary</B>\n\nOnly sequences containing repeats are shown!\n\nClick on sequence description to view repeat table.\n\n")
+          .Append("<TABLE BORDER=1 CELLSPACING=0 CELLPADDING=0>\n")
+          .Append("<TR><TD WIDTH=80><CENTER>Sequence\nIndex</CENTER></TD><TD WIDTH=400><CENTER>Sequence\nDescription</CENTER></TD><TD WIDTH=80><CENTER>Number of\nRepeats</CENTER></TD></TR>\n");
+        int index = 0;
+        bool any = false;
+        foreach (var (name, count) in sequences)
+        {
+            index++;
+            if (name is null)
+                throw new ArgumentException("A sequence description is null.", nameof(sequences));
+            if (count < 0)
+                throw new ArgumentOutOfRangeException(nameof(sequences), "A repeat count is negative.");
+            if (count == 0)
+                continue;
+            string table = $"{filePrefix}.s{index}.{parameterString}.1.html";
+            sb.Append("<TR><TD><CENTER>").Append(index).Append("</CENTER></TD><TD><CENTER><A TARGET=\"").Append(table)
+              .Append("\" HREF=\"").Append(table).Append("\">").Append(name).Append("</A></CENTER></TD><TD><CENTER>")
+              .Append(count).Append("</CENTER></TD></TR>");
+            any = true;
+        }
+
+        sb.Append("\n</TABLE>\n");
+        if (!any)
+            sb.Append("\nNo Repeats Found!<BR>");
+        sb.Append("\n</BODY></HTML>\n");
+        return new TrfHtmlPage($"{filePrefix}.{parameterString}.summary.html", sb.ToString());
+    }
+
+    private static List<ApproximateTandemRepeatResult> PrepareTrfRows(
+        string sequence, IEnumerable<ApproximateTandemRepeatResult> repeats, string sequenceName, TandemRepeatsFinderParameters parameters)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(repeats);
+        ArgumentNullException.ThrowIfNull(sequenceName);
+        ArgumentNullException.ThrowIfNull(parameters);
+        var rows = repeats.ToList();
+        foreach (var r in rows)
+        {
+            if (r.Start < 0 || r.SpanLength < 1 || r.Start + r.SpanLength > sequence.Length)
+                throw new ArgumentOutOfRangeException(nameof(repeats), "A repeat lies outside the sequence.");
+            if (r.Consensus is null)
+                throw new ArgumentException("A repeat has no consensus.", nameof(repeats));
+        }
+
+        // TRF lists repeats in the order they were reported (SortByCount); a stable sort keeps the given order
+        // for results without an output index.
+        return rows.All(r => r.OutputIndex > 0) ? rows.OrderBy(r => r.OutputIndex).ToList() : rows;
+    }
+
+    /// <summary>"Parameters: Match Mismatch Delta PM PI Minscore MaxPeriod" (TRF hparameters, without newline).</summary>
+    private static string TrfParameterLine(TandemRepeatsFinderParameters p) =>
+        $"Parameters: {p.MatchWeight} {p.MismatchPenalty} {p.IndelPenalty} {p.MatchProbability} {p.IndelProbability} {p.MinScore} {p.MaxPeriod}";
+
+    /// <summary>TRF's file-name parameter string "Match.Mismatch.Delta.PM.PI.Minscore.MaxPeriod".</summary>
+    private static string TrfParameterString(TandemRepeatsFinderParameters p) =>
+        $"{p.MatchWeight}.{p.MismatchPenalty}.{p.IndelPenalty}.{p.MatchProbability}.{p.IndelProbability}.{p.MinScore}.{p.MaxPeriod}";
+
+    /// <summary>TRF's integer percentage (int)(100·(float)count / x) in single precision, x = all adjacent-copy columns;
+    /// falls back to truncating the stored percentage when the counts are absent.</summary>
+    private static int TrfPercentOfTrials(int count, ApproximateTandemRepeatResult r, double percent)
+    {
+        int trials = r.CopyMatches + r.CopyMismatches + r.CopyIndels;
+        if (trials == 0)
+            return (int)percent;
+        float scaled = 100 * (float)count;
+        return (int)(scaled / trials);
+    }
+
+    /// <summary>
+    /// C <c>printf("%.Nf")</c> of a double: the exact binary value rounded to <paramref name="decimals"/> places,
+    /// ties to even (glibc, default rounding mode). .NET's "F" format rounds ties away from zero instead.
+    /// </summary>
+    internal static string FormatCFixed(double value, int decimals)
+    {
+        bool negative = double.IsNegative(value);
+        long bits = BitConverter.DoubleToInt64Bits(Math.Abs(value));
+        int exponent = (int)((bits >> 52) & 0x7FF);
+        long mantissa = bits & 0xF_FFFF_FFFF_FFFFL;
+        if (exponent == 0)
+            exponent = 1;
+        else
+            mantissa |= 1L << 52;
+        exponent -= 1075; // |value| = mantissa · 2^exponent
+
+        var scaled = mantissa * System.Numerics.BigInteger.Pow(10, decimals);
+        System.Numerics.BigInteger units;
+        if (exponent >= 0)
+        {
+            units = scaled << exponent;
+        }
+        else
+        {
+            var denominator = System.Numerics.BigInteger.One << -exponent;
+            units = System.Numerics.BigInteger.DivRem(scaled, denominator, out var remainder);
+            var twice = remainder * 2;
+            if (twice > denominator || (twice == denominator && !units.IsEven))
+                units += 1;
+        }
+
+        string digits = units.ToString(System.Globalization.CultureInfo.InvariantCulture).PadLeft(decimals + 1, '0');
+        string text = decimals == 0 ? digits : digits[..^decimals] + "." + digits[^decimals..];
+        return negative ? "-" + text : text;
+    }
+
+    #endregion
+
     private static void ValidateApproximateParameters(int minPeriod, int maxPeriod, int minScore)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(minPeriod, 1);
@@ -1096,6 +1444,14 @@ public static class RepeatFinder
         public bool EliminateRedundancy { get; init; } = true;
         public int FlankLength { get; init; }
 
+        /// <summary>Caller-supplied apparent-size table y(d) (index d = 1..2000); null = the exact computed table.</summary>
+        public IReadOnlyList<int>? ApparentSize { get; init; }
+
+        /// <summary>Apparent-size offset for distance d under this model (see <see cref="TrfApparentSizeOffset"/>).</summary>
+        public int ApparentSizeOffset(int d) => ApparentSize is null
+            ? TrfApparentSizeOffset(d, Pm)
+            : Math.Max(d, TrfMinDistanceWindow) - ApparentSize[Math.Min(d, MaxApproximatePeriod)] - 1;
+
         /// <summary>Recommended weights (2, 7, 7), PM 80, PI 10 — used by the Bernoulli-statistics analysis.</summary>
         public static readonly TrfModel Recommended = new();
 
@@ -1117,6 +1473,7 @@ public static class RepeatFinder
             MaxWrapLength = p.MaxRepeatLength,
             EliminateRedundancy = p.EliminateRedundancy,
             FlankLength = p.FlankLength,
+            ApparentSize = p.ApparentSizeTable,
         };
 
         /// <summary>Random-walk distance radius ⌊2.3·√(PI·d)⌋ (Benson 1999), applied for d &gt; 20.</summary>
@@ -1284,6 +1641,9 @@ public static class RepeatFinder
     /// </summary>
     internal static int TrfApparentSizeOffset(int d, int pmPercent) =>
         Math.Max(d, TrfMinDistanceWindow) - TrfApparentSize(d, pmPercent) - 1;
+
+    /// <summary>A copy of the exact apparent-size table for PM 80 or 75 (index d = 1..2000; index 0 = 0).</summary>
+    internal static int[] CopyApparentSizeTable(int pmPercent) => (int[])GetApparentSizeTable(pmPercent).Clone();
 
     private static int[] GetApparentSizeTable(int pmPercent)
     {
@@ -1496,7 +1856,7 @@ public static class RepeatFinder
 
                 var repeat = AnalyzeTrfCandidate(m, s, n, i, d, seenEnd, bestPeriods, bestPeriodList);
                 if (repeat is not null)
-                    found.Add(repeat.Value);
+                    found.Add(repeat.Value with { OutputIndex = found.Count + 1 });
             }
         }
 
@@ -1532,7 +1892,7 @@ public static class RepeatFinder
     {
         var main = windows[d]!;
         int criterion = TrfSumOfHeadsCriterion(d, m.Pm);
-        int maxFirstMatch = Math.Max(0, i - Math.Max(d, TrfMinDistanceWindow)) + TrfApparentSizeOffset(d, m.Pm);
+        int maxFirstMatch = Math.Max(0, i - Math.Max(d, TrfMinDistanceWindow)) + m.ApparentSizeOffset(d);
         int mainHeads = main.Heads;
         int rangeMinHeads = (int)(0.35 * Math.Min(criterion, mainHeads));
 
@@ -1642,7 +2002,7 @@ public static class RepeatFinder
     {
         int cutoff = i - 2 * m.MaxDistance;
         list.RemoveAll(e => e.High < cutoff);
-        int need = i - 2 * d + 1 + TrfApparentSizeOffset(d, m.Pm);
+        int need = i - 2 * d + 1 + m.ApparentSizeOffset(d);
         bool covered = false;
         foreach (var entry in list)
         {
@@ -2581,6 +2941,9 @@ public static class RepeatFinder
             PercentIndels: trials > 0 ? 100.0 * copies.Indels / trials : 0.0,
             AlignmentScore: alignment.Score)
         {
+            CopyMatches = copies.Matches,
+            CopyMismatches = copies.Mismatches,
+            CopyIndels = copies.Indels,
             PercentA = 100.0 * a / span,
             PercentC = 100.0 * c / span,
             PercentG = 100.0 * g / span,
@@ -5263,6 +5626,23 @@ public readonly record struct ApproximateTandemRepeatResult(
     double PercentIndels,
     int AlignmentScore)
 {
+    /// <summary>Matching column pairs between adjacent copies (TRF alignment-file "Statistics" Matches; the numerator of
+    /// <see cref="PercentMatches"/>).</summary>
+    public int CopyMatches { get; init; }
+
+    /// <summary>Mismatching column pairs between adjacent copies (TRF "Statistics" Mismatches).</summary>
+    public int CopyMismatches { get; init; }
+
+    /// <summary>Indel columns between adjacent copies (TRF "Statistics" Indels; the numerator of <see cref="PercentIndels"/>).</summary>
+    public int CopyIndels { get; init; }
+
+    /// <summary>
+    /// 1-based rank in which the detector reported this repeat, counted over every reported alignment before the
+    /// MaxPeriod filter and redundancy elimination (TRF 4.10.0 <c>OUTPUTcount</c>): TRF orders its .dat / HTML rows by
+    /// it and uses it in the alignment anchor label. 0 when not set.
+    /// </summary>
+    public int OutputIndex { get; init; }
+
     /// <summary>Percentage of A in the repeat region (TRF "A" column, exact; denominator = region length).</summary>
     public double PercentA { get; init; }
 
@@ -5313,6 +5693,19 @@ public readonly record struct ApproximateTandemRepeatResult(
     public string? RightFlank { get; init; }
 }
 
+/// <summary>Layout of <see cref="RepeatFinder.FormatTrfDatLines"/> (TRF 4.10.0 data output).</summary>
+public enum TrfDatLayout
+{
+    /// <summary><c>trf ... -d</c>: "Sequence:" / "Parameters:" block followed by the repeat rows.</summary>
+    Dat,
+
+    /// <summary><c>trf ... -ngs</c>: <c>@name</c> line followed by rows that end with 50-bp left / right flanks.</summary>
+    Ngs,
+}
+
+/// <summary>One HTML page written by a TRF output formatter: TRF's file name for it and its content.</summary>
+public readonly record struct TrfHtmlPage(string FileName, string Html);
+
 /// <summary>
 /// Tandem Repeats Finder parameter set (<c>trf File Match Mismatch Delta PM PI Minscore MaxPeriod [options]</c>;
 /// TRF 4.10.0 README "parameters"). Defaults are TRF's recommended command line <c>2 7 7 80 10 50 500</c>.
@@ -5360,6 +5753,70 @@ public sealed record TandemRepeatsFinderParameters
     /// <summary>Flanking sequence length reported on each side (0 = none; TRF <c>-f</c> uses 500, <c>-ngs</c> 50).</summary>
     public int FlankLength { get; init; }
 
+    /// <summary>Required length of an apparent-size table: one entry per distance d = 0..2000 (entry 0 unused).</summary>
+    public const int ApparentSizeTableLength = RepeatFinder.MaxApproximatePeriod + 1;
+
+    private readonly int[]? _apparentSizeTable;
+
+    /// <summary>
+    /// Optional apparent-size table y(d) for the apparent-size detection criterion (Benson 1999; TRF README
+    /// "Apparent Size Distribution"), indexed by distance d = 1..2000 (length <see cref="ApparentSizeTableLength"/>;
+    /// entry 0 is ignored): a k-tuple candidate at distance d passes only when its first and last tuple matches in the
+    /// max(d, 20)-long window lie more than y(d) apart. Each entry must lie in 0..max(d, 20) − 1; the table applies to
+    /// this set's <see cref="MatchProbability"/>. <c>null</c> (default) = the exact table this library computes
+    /// (<see cref="ExactApparentSizeTable"/>). TRF 4.10.0 instead uses Monte-Carlo estimates (its <c>waitdata80</c> /
+    /// <c>waitdata75</c> arrays, AGPL-licensed and therefore not shipped here); a caller holding TRF can pass them through
+    /// <see cref="ApparentSizeTableFromWaitingTimes"/> to obtain TRF's output bit for bit. The array is copied on assignment.
+    /// </summary>
+    public IReadOnlyList<int>? ApparentSizeTable
+    {
+        get => _apparentSizeTable;
+        init => _apparentSizeTable = value?.ToArray();
+    }
+
+    /// <summary>
+    /// The exact apparent-size table this library uses when <see cref="ApparentSizeTable"/> is null, for PM = 80 or 75
+    /// (a fresh copy, length <see cref="ApparentSizeTableLength"/>, entry 0 = 0).
+    /// </summary>
+    public static int[] ExactApparentSizeTable(int matchProbability)
+    {
+        if (matchProbability != 80)
+            ArgumentOutOfRangeException.ThrowIfNotEqual(matchProbability, 75);
+        return RepeatFinder.CopyApparentSizeTable(matchProbability);
+    }
+
+    /// <summary>
+    /// Converts a TRF waiting-time table (TRF 4.10.0 <c>tr30dat.c</c> <c>waitdata80</c> / <c>waitdata75</c>: index
+    /// d = 0..2000, the largest number of window positions the first tuple match may follow the window's left end)
+    /// into an apparent-size table: y(d) = max(d, 20) − w(d) − 1 (entry 0 = 0). Each w(d), d ≥ 1, must lie in
+    /// 0..max(d, 20) − 1.
+    /// </summary>
+    public static int[] ApparentSizeTableFromWaitingTimes(IReadOnlyList<int> waitingTimes)
+    {
+        ArgumentNullException.ThrowIfNull(waitingTimes);
+        ValidateTable(waitingTimes, nameof(waitingTimes));
+        var table = new int[ApparentSizeTableLength];
+        for (int d = 1; d < table.Length; d++)
+            table[d] = Math.Max(d, MinDistanceWindow) - waitingTimes[d] - 1;
+        return table;
+    }
+
+    /// <summary>TRF Min_Distance_Window (20): the shortest k-tuple distance window.</summary>
+    private const int MinDistanceWindow = 20;
+
+    private static void ValidateTable(IReadOnlyList<int> table, string name)
+    {
+        if (table.Count != ApparentSizeTableLength)
+            throw new ArgumentException(
+                $"The table must have {ApparentSizeTableLength} entries (distances 0..{RepeatFinder.MaxApproximatePeriod}); got {table.Count}.", name);
+        for (int d = 1; d < table.Count; d++)
+        {
+            if (table[d] < 0 || table[d] > Math.Max(d, MinDistanceWindow) - 1)
+                throw new ArgumentOutOfRangeException(name,
+                    $"Entry {d} = {table[d]} lies outside 0..{Math.Max(d, MinDistanceWindow) - 1} (max(d, 20) − 1).");
+        }
+    }
+
     /// <summary>Validates the set against TRF's accepted ranges; throws <see cref="ArgumentOutOfRangeException"/>.</summary>
     public void Validate()
     {
@@ -5376,6 +5833,8 @@ public sealed record TandemRepeatsFinderParameters
         ArgumentOutOfRangeException.ThrowIfGreaterThan(MaxPeriod, RepeatFinder.MaxApproximatePeriod);
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxRepeatLength, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(FlankLength);
+        if (_apparentSizeTable is not null)
+            ValidateTable(_apparentSizeTable, nameof(ApparentSizeTable));
     }
 }
 

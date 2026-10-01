@@ -51,7 +51,7 @@ sequences" = `length $seq`).
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L4864](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4864)
+- Source: [RepeatFinder.cs#L5227](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5227)
 
 ## Input Schema
 

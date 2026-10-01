@@ -19,10 +19,16 @@
 > Each of the 25 remaining (parameter set, sequence) cases (16 TRF rows) is traced (bisection) to one entry of TRF's Monte-Carlo apparent-size table that is
 > 1 below the exact value; with TRF's table substituted every comparison is 100 %. **Stage A: corrected · Stage B:
 > fixed · State: FIXED** — no method residual (TRF's simulation noise and its 150-cell band abort are documented).
+> Completeness audit WP14 (B04 F56–F57): `TandemRepeatsFinderParameters.ApparentSizeTable` lets a caller supply the
+> apparent-size table (TRF's AGPL simulated table is not shipped); with TRF's table passed through the public API every
+> `.dat` file, `-ngs` output and HTML page over 700 sequences × 7 parameter sets (+ `-r`) is **byte-identical** to the
+> TRF binary. New TRF 4.10.0 formatters `FormatTrfDatLines` (`-d` / `-ngs`), `FormatTrfHtmlTables`,
+> `FormatTrfHtmlSummary`; with the exact table every same-locus row is byte-identical (e.g. 1 303/1 303). MCP:
+> `format`, `sequenceName`, `apparentSizeTable`, `apparentSizeTableKind`.
 > Current sources: `tests/TestSpecs/REP-APPROX-001.md`, `docs/Evidence/REP-APPROX-001-Evidence.md`,
-> `docs/Validation/review-2026-09/B04.md` (F14–F18, F40–F46). Tests:
+> `docs/Validation/review-2026-09/B04.md` (F14–F18, F40–F46, F56–F57). Tests:
 > `Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`, `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs`,
-> `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs`.
+> `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs`, `Unit/Analysis/RepeatFinder_TrfOutput_Tests.cs`.
 
 ---
 

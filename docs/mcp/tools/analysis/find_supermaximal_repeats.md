@@ -23,7 +23,7 @@ occurrence, then length.
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L4748](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4748)
+- Source: [RepeatFinder.cs#L5111](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5111)
 
 ## Input Schema
 

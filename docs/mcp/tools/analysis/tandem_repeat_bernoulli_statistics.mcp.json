@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.ComputeBernoulliStatistics",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L2807",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L3170",
   "description": "Estimates the Tandem Repeats Finder Bernoulli-model parameters of a tandem-repeat tract (Benson 1999): **PM** (match probability) and **PI** (indel probability) between ADJACENT copies. The tract is analysed as TRF analyses a detected repeat — wraparound-DP alignment against tandem copies of the candidate pattern (the last period bases), majority-rule consensus, realignment, then comparison of each copy with the next one (\"between adjacent copies in the sequence, not between the sequence and the consensus pattern\"). Each compared column is one Bernoulli trial (heads = match). PM/PI therefore equal TRF's % matches / % indels (/100) for the same region. Flanks that do not align are ignored; a tract without two aligned copies gives zero trials and PM = PI = 0. meetsExpectedMatchProbability = PM ≥ expectedMatchProbability.",
   "inputSchema": {
     "type": "object",

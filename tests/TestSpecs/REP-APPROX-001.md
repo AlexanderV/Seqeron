@@ -3,8 +3,8 @@
 **Test Unit ID:** REP-APPROX-001
 **Area:** Repeats
 **Algorithm:** Approximate (TRF) Tandem-Repeat Detection + TRF Bernoulli statistics
-**Status:** ☑ Complete — re-validated 2026-09-30 (campaign 2026-09, batch B04; Stage A corrected, Stage B fixed); TRF parameters / outputs added 2026-10-01 (B04 audit WP6); TRF detection pipeline completed 2026-10-01 (B04 audit WP7)
-**Last Updated:** 2026-10-01 (WP7)
+**Status:** ☑ Complete — re-validated 2026-09-30 (campaign 2026-09, batch B04; Stage A corrected, Stage B fixed); TRF parameters / outputs added 2026-10-01 (B04 audit WP6); TRF detection pipeline completed 2026-10-01 (B04 audit WP7); caller-supplied apparent-size table + TRF .dat/-ngs/HTML formatters 2026-10-01 (B04 audit WP14)
+**Last Updated:** 2026-10-01 (WP14)
 
 > **2026-09 review.** The 2026-06 validation had no TRF binary and hand-derived its expectations from a
 > window-vs-consensus model that is not TRF's. TRF 4.10.0 was compiled from source and used as the oracle:
@@ -23,6 +23,7 @@
 | 3 | TRF 4.10.0 source, compiled (`trf seq.fa 2 7 7 80 10 <min> <maxp> -h -d`) + instrumented copy | numeric oracle for every expected value |
 | 4 | TRF 4.10.0 README parameters `-m` / `-f` / `-r` / `-l` / `-ngs`, PM/PI data note; compiled TRF with non-default `Match Mismatch Delta PM PI Minscore MaxPeriod`, `-m`, `-f`, `-r`; a TRF build taking `-l` in bp (WP6) | parameter sets, masked file, flanks, alignment rows, redundancy-off, `-l` cap |
 | 5 | TRF 4.10.0 README "Apparent Size Distribution" (definition of S, conditioning on the sum-of-heads criterion, 95 %, example PM .75 / k 5 / d 100 → 56), "Narrow Band Alignment" (band radius Δd_max, recentring), "Multiple Reporting …", What's New 4.04 (wider forward band) / 4.07b (alignment continues through zero); TRF source read for behaviour only (`new_meet_criteria_3`, `search_for_range_in_bestperiodlist`, `narrowbandwrap`, `get_narrowband_pair_alignment_with_copynumber`, `waitdata80/75` used as oracle) (WP7) | detection criteria, best-period list, band WDP |
+| 6 | TRF 4.10.0 README "Data file" / `-d` / `-h` / `-ngs` / "Table Explanation"; TRF source read for the output layout only (`trfrun.h` .dat / -ngs / summary writers, `trfclean.h` `OutputHTML` / `OutputHeading` / `MakeFileName` / `SortByCount`, `tr30dat.c` `get_statistics` IL fields + `OUTPUTcount`, `trfrun.h` IL types: float copies / entropy); compiled TRF `-d -h`, `-ngs -h` and HTML output as oracle (WP14) | output formats, row order, number formatting |
 
 ## 2. Canonical Method(s)
 
@@ -36,10 +37,12 @@
 | `ApproximateTandemRepeatResult.EntropyTrf / AlignedSequence / AlignedConsensus / LeftFlank / RightFlank` | TRF entropy column, alignment rows, `-f` flanks |
 | `TrfSumOfHeadsCriterion(int d)`, `TrfSumOfHeadsCriterion(int d, int pm)` (internal) | Helper (tested; PM 80 and 75) |
 | `TrfApparentSize(int d, int pm)`, `TrfApparentSizeOffset(int d, int pm)` (internal) | Helper (apparent-size criterion y and its window offset max(d,20) − y − 1; tested, WP7) |
+| `TandemRepeatsFinderParameters.ApparentSizeTable` / `ExactApparentSizeTable(pm)` / `ApparentSizeTableFromWaitingTimes(w)` | Caller-supplied apparent-size table (WP14) |
+| `FormatTrfDatFileHeader()`, `FormatTrfDatLines(sequence, repeats, name, parameters, TrfDatLayout.Dat \| Ngs)`, `FormatTrfHtmlTables(…, filePrefix)`, `FormatTrfHtmlSummary(sequences, parameters, filePrefix)`; result fields `CopyMatches / CopyMismatches / CopyIndels / OutputIndex` | TRF 4.10.0 `.dat` / `-ngs` / HTML output (WP14) |
 
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs`
 - **Test fixtures:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`,
-  `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs` (WP6: P1–P14), `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs` (WP7: D1–D9)
+  `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs` (WP6: P1–P14), `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs` (WP7: D1–D9), `Unit/Analysis/RepeatFinder_TrfOutput_Tests.cs` (WP14: O1–O12)
 - **Other tiers:** `Fuzzing/RepeatApproxFuzzTests.cs`, `Properties/RepeatFinderProperties.cs` (REP-APPROX-001 region),
   `Metamorphic/RepeatsMetamorphicTests.cs`, `Combinatorial/RepeatsCombinatorialTests.cs`
 
@@ -59,7 +62,9 @@
 | INV-10 | Mask: output length = input length; exactly the positions of reported repeats become `N` (soft: lower case), all others unchanged |
 | INV-11 | Flanks: `LeftFlank` = the min(FlankLength, Start) symbols before the repeat, `RightFlank` = up to FlankLength symbols after it; null when FlankLength = 0 |
 | INV-12 | Apparent-size offset: 1 ≤ `TrfApparentSizeOffset(d, pm)` ≤ max(d, 20) − 1 for every d = 1..2000, PM 80 / 75 |
-| V-2 | `TandemRepeatsFinderParameters.Validate`: weights ≥ 1, PM ∈ {75, 80}, PI 1..100, MinScore ≥ 1, MaxPeriod 1..2000, MaxRepeatLength ≥ 1, FlankLength ≥ 0 → else `ArgumentOutOfRangeException`; null parameters / sequence → `ArgumentNullException`; mask with a repeat outside the sequence → `ArgumentOutOfRangeException` |
+| INV-13 | `CopyMatches + CopyMismatches + CopyIndels` = adjacent-copy trials; `PercentMatches = 100·CopyMatches/trials`; `OutputIndex` ≥ 1, distinct within one call |
+| INV-14 | Formatters: one `.dat` / `-ngs` row per repeat, in `OutputIndex` order; row fields 1–15 depend only on the repeat and the sequence; supplying `ExactApparentSizeTable(pm)` ≡ `null` |
+| V-2 | `TandemRepeatsFinderParameters.Validate`: weights ≥ 1, PM ∈ {75, 80}, PI 1..100, MinScore ≥ 1, MaxPeriod 1..2000, MaxRepeatLength ≥ 1, FlankLength ≥ 0, ApparentSizeTable null or 2001 entries each in 0..max(d,20) − 1 (entry 0 ignored; wrong length → `ArgumentException`) → else `ArgumentOutOfRangeException`; null parameters / sequence → `ArgumentNullException`; mask with a repeat outside the sequence → `ArgumentOutOfRangeException` |
 | V-1 | Eager `ArgumentOutOfRangeException`: `minPeriod < 1`, `maxPeriod < minPeriod`, `maxPeriod > 2000`, `minScore < 1` (both overloads, also for empty input); `ArgumentNullException` for null `DnaSequence` / tract; Bernoulli: `period ∉ 1..2000`, PM ∉ [0,1] or NaN, tract < 2 × period → `ArgumentException` |
 
 ## 4. Test cases (expected values = compiled TRF 4.10.0)
@@ -121,6 +126,26 @@ by the named component (ablation builds; Evidence §WP7).
 | D8 | active distances, `2 5 5 75 10 30 100`, 175 bp | single row 1–175 p43 4.0 42 83/9 256 (all distances active: extra period-23 row) |
 | D9 | best-period list (d > 250), `2 7 7 80 10 50 2000`, 1 374 bp | 58–1201 p278 4.1 275 79/10 1140 (without the list: 36–1201, score 1185) |
 
+### Apparent-size table and TRF output formats (WP14; `RepeatFinder_TrfOutput_Tests.cs`; expected = compiled TRF)
+
+TRF's own apparent-size (`waitdata`) tables are AGPL source data: no test embeds them. Single entries quoted below are
+the WP7 bisection results (B04 F46).
+
+| ID | Input | Expected |
+|---|---|---|
+| O1 | `ExactApparentSizeTable(75 / 80)` | length 2001, entry 0 = 0, [100] at PM 75 = 56 (README); fresh copy per call; PM 70 rejected |
+| O2 | exact table supplied vs `null`, PM 80 / 75, four sequences | identical result lists |
+| O3 | s342 (929 bp), `2 7 7 80 10 50 500`, exact table with [43] = 13 (TRF; exact 12) | TRF `-ngs` block byte for byte (one row 679–832 p39); exact table: rows (679, p42), (679, p39) |
+| O4 | s350 (1 113 bp), `2 5 5 75 10 30 100`, waiting time [24] = 15 via `ApparentSizeTableFromWaitingTimes` (y 8; exact 7) | TRF `-ngs` block byte for byte (6 rows); exact table differs only in the period-24 row |
+| O5 | synthetic tables: all 0 / strictest y = max(d,20) − 1 | D4 sequences report the clustered period-28 (148–209, 92) / period-22 (129–182, 67) candidates TRF rejects; a perfect (AC)30 run is still found with the strictest table |
+| O6 | validation | length ≠ 2001 → ArgumentException; entry < 0 or > max(d,20) − 1 → ArgumentOutOfRange; entry 0 ignored; table copied on assignment; waiting-time conversion y = max(d,20) − w − 1 (w = 43 at d = 100 ↔ 56) |
+| O7 | `.dat` file, one.fa (516 bp, "seq1 test") | `trf one.fa 2 7 7 80 10 50 500 -d -h` file byte for byte |
+| O8 | `-ngs` block, U1 (also lower-cased input) | TRF stdout byte for byte (upper-cased repeat and flanks) |
+| O9 | `-ngs` at a sequence end; no repeats | '.' flank; empty `-ngs` block; bare Sequence/Parameters `.dat` block |
+| O10 | row order / `OutputIndex` | one.fa OutputIndex 1, 4 (TRF anchors `…,1` / `…,4`); s350 rows 229, 719, 690, 727, 886, 886 (TRF report order) |
+| O11 | HTML table U1; paging (121 rows); empty | `U1.fa.2.7.7.80.10.50.500.1.html` byte for byte; 2 pages, heading every 22 rows, cross-links, "The End!" on the last; "No Repeats Found!" |
+| O12 | HTML summary (two.fa: one sequence with 2 repeats, one with none); `%.Nf` rounding; invalid input | `two.fa.2.7.7.80.10.50.500.summary.html` byte for byte; 2.25 → 2.2, 0.125 → 0.12, 15.65 → 15.7; out-of-range repeat / nulls / bad layout rejected |
+
 ## 5. Cross-check / Differential Oracle
 
 - Per-candidate analysis vs instrumented TRF: 1 524 / 1 524 identical (pattern ≤ 20), 827 / 959 (> 20, TRF band).
@@ -140,11 +165,21 @@ by the named component (ablation builds; Evidence §WP7).
   700/700, 700/700, 699/700 identical; alignment rows 192/192 + 149/149; 1 Mb sequence 1 543/1 544. With TRF's own
   simulated apparent-size table substituted (diagnostic only) every one of these is 100 %.
 
+- WP14 (same 700 sequences, seven parameter sets + `-r`; harness `xc14` / `cmp14.py` / `cmphtml.py`): with TRF's
+  table supplied through `ApparentSizeTable` (the public API, no reflection) the whole `.dat` file, the whole `-ngs`
+  output and every HTML table / summary page are byte-identical to TRF for every set (e.g. recommended: 700/700 `.dat`
+  blocks, 595/595 `-ngs` blocks, 596/596 HTML pages; 2 3 3 80 20: 679/679 pages). With the exact table every
+  same-locus row is byte-identical (1 303/1 303, 1 407/1 407, 1 701/1 701, 1 356/1 356, 1 755/1 755, 1 135/1 135,
+  2 409/2 409; `-r` 2 624/2 624); HTML pages identical 591/596, 668/679, 637/644 (differences = the residual rows).
+  Supplying the exact table equals `null` on 700/700 sequences (PM 80 and 75).
+
 ## 6. Declared residual
 
 None in the method. The apparent-size cut-offs are the exact values of the distribution TRF estimates by Monte-Carlo
 simulation; TRF's shipped tables carry simulation noise (equal at 825/2000 and 713/2000 distances, |Δ| ≤ 3 / 4).
 Each of the 25 remaining non-identical (parameter set, sequence) cases (16 TRF rows) over the seven sets traces (bisection) to a single table
-entry where TRF's noisy value is 1 below the exact one (Evidence §WP7). TRF exits when a band exceeds 150 cells (PI 20,
+entry where TRF's noisy value is 1 below the exact one (Evidence §WP7). A caller holding TRF can remove even this by
+passing TRF's table through `ApparentSizeTable` (WP14: 100 % byte-identical output); the library does not ship it
+(AGPL-3.0 source data). TRF exits when a band exceeds 150 cells (PI 20,
 patterns ≥ 1365); this implementation has no such limit. `Entropy` stays the normalised Shannon entropy; `EntropyTrf`
 is TRF's column in every case (WP6).

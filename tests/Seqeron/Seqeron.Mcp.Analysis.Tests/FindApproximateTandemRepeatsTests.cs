@@ -63,4 +63,61 @@ public class FindApproximateTandemRepeatsTests
         Assert.That(items.Select(r => (r.Start + 1, r.Start + r.SpanLength, r.Period, r.AlignmentScore)),
             Is.EqualTo(new[] { (61, 124, 7, 110), (61, 124, 14, 110), (61, 124, 21, 110) }));
     }
+
+    // RepeatFinder_TrfDetection_Tests D2: TRF reports nothing on this sequence; its apparent-size test rejects a clustered
+    // period-28 candidate (148..209, score 92) that a table of zeros (no apparent-size rejection) admits.
+    private const string Spread28 =
+        "CAGTCACGGGCTCTGGATCCAGCAGCAGTGCAGCATGTTGGTACCCTATCCCCATACGACACTGTTTGGCGCTGTTGGTTTATGCACGAGTCGTTACTAT"
+        + "ATAAAGACCTCGAAGTGCCAGAATTCATCTTTGACCTCAGCGCGTTCGTACTCCGATCGGAACCGCCCGTTCACTGTACTCCGATCGGAACCGCCCCGAT"
+        + "ATGTACTCCATTAATCGTCCCTTTGAATTCGGAGATACGCGTGACGGACGTATCGCGTCTCCATTCTTAGCCGACTCCACGACCTCCTTAATGGTTAATC"
+        + "AACATAAGAATATTCCCAGGAG";
+
+    private static string Zeros() => string.Join(",", Enumerable.Repeat(0, 2001));
+
+    // TRF 4.10.0 `trf U1.fa 2 7 7 80 10 50 500 -d -h` (.dat) / `-ngs -h` (stdout) / without -h (.1.html).
+    [Test]
+    public void FindApproximateTandemRepeats_Formats_ReproduceTrfOutput()
+    {
+        const string row = "61 124 7 9.1 7 92 0 110 14 14 26 42 1.83 TCATTGG TCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGT";
+        var dat = AnalysisTools.FindApproximateTandemRepeats(U1, format: "dat", sequenceName: "U1");
+        var ngs = AnalysisTools.FindApproximateTandemRepeats(U1, format: "ngs", sequenceName: "U1");
+        var html = AnalysisTools.FindApproximateTandemRepeats(U1, format: "html", sequenceName: "U1.fa");
+        var json = AnalysisTools.FindApproximateTandemRepeats(U1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(dat.Formatted, Is.EqualTo("Tandem Repeats Finder Program written by:\n\nGary Benson\nProgram in Bioinformatics\nBoston University\nVersion 4.10.0\n"
+                + "\n\nSequence: U1\n\n\n\nParameters: 2 7 7 80 10 50 500\n\n\n" + row + "\n"));
+            Assert.That(ngs.Formatted, Is.EqualTo("@U1\n" + row
+                + " CCGACCCTAGGAGCGGTTGGCGTGTATGCCGTGAATTTTCTCATTTCCGC AGACATAATCGTTCTGCCTATATCTGGACAACATCCCGGCGACTTAGGCG\n"));
+            Assert.That(html.HtmlPages!.Select(p => p.FileName), Is.EqualTo(new[] { "U1.fa.2.7.7.80.10.50.500.1.html" }));
+            Assert.That(html.HtmlPages![0].Html, Does.Contain("<A HREF=\"U1.fa.2.7.7.80.10.50.500.1.txt.html#61--124,7,9.1,7,1\">61--124</A>"));
+            Assert.That(html.HtmlPages![0].Html, Does.Contain("<TD><CENTER>9.1</CENTER></TD><TD><CENTER>7</CENTER></TD><TD><CENTER>92</CENTER></TD>"));
+            Assert.That(json.Formatted, Is.Null);
+            Assert.That(json.HtmlPages, Is.Null);
+            Assert.That(json.Items.Single().OutputIndex, Is.EqualTo(1));
+            Assert.That((json.Items.Single().CopyMatches + json.Items.Single().CopyMismatches + json.Items.Single().CopyIndels) > 0);
+            Assert.Throws<ArgumentException>(() => AnalysisTools.FindApproximateTandemRepeats(U1, format: "xml"));
+        });
+    }
+
+    [Test]
+    public void FindApproximateTandemRepeats_ApparentSizeTable_ChangesDetection()
+    {
+        // y = 0 everywhere, given directly or as TRF waiting times w = max(d,20) - 1.
+        string waits = string.Join(",", Enumerable.Range(0, 2001).Select(d => d == 0 ? 0 : Math.Max(d, 20) - 1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.FindApproximateTandemRepeats(Spread28).Items, Is.Empty);
+            foreach (var items in new[]
+            {
+                AnalysisTools.FindApproximateTandemRepeats(Spread28, apparentSizeTable: Zeros()).Items,
+                AnalysisTools.FindApproximateTandemRepeats(Spread28, apparentSizeTable: waits, apparentSizeTableKind: "trfWaitingTimes").Items,
+            })
+                Assert.That(items.Select(r => (r.Start + 1, r.Start + r.SpanLength, r.Period, r.AlignmentScore)), Is.EqualTo(new[] { (148, 209, 28, 92) }));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.FindApproximateTandemRepeats(Spread28, apparentSizeTable: "1,2,3"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.FindApproximateTandemRepeats(Spread28, apparentSizeTable: "0,x"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.FindApproximateTandemRepeats(Spread28, apparentSizeTable: Zeros(), apparentSizeTableKind: "other"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.FindApproximateTandemRepeats(Spread28, apparentSizeTable: Zeros(), examineUpToMaxPeriodOnly: true));
+        });
+    }
 }

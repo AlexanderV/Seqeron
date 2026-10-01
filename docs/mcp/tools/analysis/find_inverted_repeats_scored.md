@@ -25,7 +25,7 @@ binary (Evidence REP-INV-001). Use `find_inverted_repeats` for exact/maximal ste
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L3345](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3345)
+- Source: [RepeatFinder.cs#L3708](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3708)
 
 ## Input Schema
 

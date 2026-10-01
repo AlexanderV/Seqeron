@@ -18,7 +18,8 @@ Returns TRF's masked sequence (`trf ... -m`; TRF README: "every location that oc
 changed to the letter 'N'"): every position inside a repeat reported by `find_approximate_tandem_repeats` with the
 same TRF parameters becomes `N`, or — with `softMask` — lower case. Positions outside repeats keep the input
 characters (TRF itself upper-cases its whole output). Same length as the input. Defaults = TRF recommended
-`2 7 7 80 10 50 500`.
+`2 7 7 80 10 50 500`. `apparentSizeTable` / `apparentSizeTableKind` optionally replace the exact apparent-size table,
+as in `find_approximate_tandem_repeats` (TRF's own table → TRF's mask bit for bit).
 
 ## Core Documentation Reference
 
@@ -39,6 +40,8 @@ characters (TRF itself upper-cases its whole output). Same length as the input. 
 | `maxRepeatLength` | integer | No | TRF -l: maximum tandem-repeat length in bp (default 2000000) |
 | `eliminateRedundancy` | boolean | No | Redundancy elimination (TRF -r turns it off) (default true) |
 | `softMask` | boolean | No | Lower-case repeat positions instead of writing N (default false) |
+| `apparentSizeTable` | string | No | 2001 comma/space-separated integers y(d), d = 0..2000 (entry 0 ignored; each in 0..max(d,20)−1); empty = exact table |
+| `apparentSizeTableKind` | string | No | `apparent` (y(d), default) or `trfWaitingTimes` (TRF `waitdata` w(d); y = max(d,20) − w − 1) |
 
 ## Output Schema
 
@@ -50,6 +53,7 @@ characters (TRF itself upper-cases its whole output). Same length as the input. 
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1003 | TRF parameter out of range (weights >= 1, PM 80/75, PI 1-100, MaxPeriod 1-2000, -l >= 1) |
+| 1004 | apparentSizeTable must hold 2001 integers, each in 0..max(d,20)-1 (waiting times likewise); apparentSizeTableKind must be 'apparent' or 'trfWaitingTimes' |
 
 ## Examples
 

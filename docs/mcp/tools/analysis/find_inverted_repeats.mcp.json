@@ -5,7 +5,7 @@
   "version": "1.1.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindInvertedRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L2951",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L3314",
   "description": "Inverted repeats (exact by default): two arms that are reverse-complement of each other (A/C/G/T pairs only), separated by a loop (hairpin candidates). Only maximal stems are reported (a stem inside another stem in both arms is dropped, EMBOSS palindrome -overlap Y). Optional maxMismatches (palindrome -nummismatches), maxArmLength (palindrome -maxpallen) and allowWobble (G-U pairs). CanFormHairpin is true when the loop is >= 3 nt.",
   "inputSchema": {
     "type": "object",

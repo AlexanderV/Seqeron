@@ -35,4 +35,20 @@ public class MaskApproximateTandemRepeatsTests
         var masked = AnalysisTools.MaskApproximateTandemRepeats(U3, softMask: true).Masked;
         Assert.That(masked, Is.EqualTo(U3[..60].ToLowerInvariant() + U3[60..]));
     }
+
+    // RepeatFinder_TrfDetection_Tests D2: a table of zeros admits the period-28 candidate (148..209) TRF rejects.
+    private const string Spread28 =
+        "CAGTCACGGGCTCTGGATCCAGCAGCAGTGCAGCATGTTGGTACCCTATCCCCATACGACACTGTTTGGCGCTGTTGGTTTATGCACGAGTCGTTACTAT"
+        + "ATAAAGACCTCGAAGTGCCAGAATTCATCTTTGACCTCAGCGCGTTCGTACTCCGATCGGAACCGCCCGTTCACTGTACTCCGATCGGAACCGCCCCGAT"
+        + "ATGTACTCCATTAATCGTCCCTTTGAATTCGGAGATACGCGTGACGGACGTATCGCGTCTCCATTCTTAGCCGACTCCACGACCTCCTTAATGGTTAATC"
+        + "AACATAAGAATATTCCCAGGAG";
+
+    [Test]
+    public void MaskApproximateTandemRepeats_ApparentSizeTable_IsApplied()
+    {
+        string zeros = string.Join(",", Enumerable.Repeat(0, 2001));
+        Assert.That(AnalysisTools.MaskApproximateTandemRepeats(Spread28).Masked, Is.EqualTo(Spread28));
+        Assert.That(AnalysisTools.MaskApproximateTandemRepeats(Spread28, apparentSizeTable: zeros).Masked,
+            Is.EqualTo(Spread28[..147] + new string('N', 62) + Spread28[209..]));
+    }
 }

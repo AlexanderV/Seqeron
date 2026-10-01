@@ -25,7 +25,18 @@ filters the reported periods. Each item carries TRF's `.dat` columns — `start`
 final alignment rows and, when `flankLength > 0`, the flanking sequences. `minPeriod` is a library filter applied
 after redundancy elimination. `examineUpToMaxPeriodOnly = true` (legacy library mode) examines candidate
 distances only up to `maxPeriod` (faster for short periods) and requires the recommended weights/PM/PI and default
-`-l/-r/-f`. Measured against the TRF binary: 99.8 % identical rows (Evidence REP-APPROX-001).
+`-l/-r/-f`.
+
+`format = dat | ngs | html` adds TRF 4.10.0's own output text (`formatted` / `htmlPages`): the `-d` data file (program
+header, `Sequence:` / `Parameters:` block, one row per repeat), the `-ngs` block (`@name`, rows with 50-bp flanks,
+`.` at a sequence end) or the repeat-table HTML pages (`<name>.<parameters>.N.html`, 120 rows per page). Rows are in
+TRF's report order with TRF's integer truncations and C (`printf`) rounding; `sequenceName` is the description TRF
+prints. `apparentSizeTable` (2001 integers, d = 0..2000) optionally replaces the exact apparent-size table the
+library computes — a user holding TRF can pass TRF's simulated `waitdata80` / `waitdata75` array (AGPL TRF source, not
+shipped here) with `apparentSizeTableKind = trfWaitingTimes` and obtain TRF's output bit for bit.
+
+Measured against the TRF binary on 700 sequences × 7 parameter sets: 99.8 % identical rows with the exact table;
+with TRF's table every `.dat`, `-ngs` and HTML file is byte-identical (Evidence REP-APPROX-001 §WP14).
 
 ## Core Documentation Reference
 
@@ -48,18 +59,26 @@ distances only up to `maxPeriod` (faster for short periods) and requires the rec
 | `eliminateRedundancy` | boolean | No | Redundancy elimination (TRF -r turns it off) (default true) |
 | `flankLength` | integer | No | TRF -f: flanking-sequence length on each side (0 = none; TRF -f uses 500) (default 0) |
 | `examineUpToMaxPeriodOnly` | boolean | No | Examine candidate distances only up to maxPeriod (legacy mode; recommended weights required) (default false) |
+| `apparentSizeTable` | string | No | 2001 comma/space-separated integers y(d), d = 0..2000 (entry 0 ignored; each in 0..max(d,20)−1); empty = exact table |
+| `apparentSizeTableKind` | string | No | `apparent` (y(d), default) or `trfWaitingTimes` (TRF `waitdata` w(d); y = max(d,20) − w − 1) |
+| `format` | string | No | `json` (default), `dat`, `ngs` or `html` — extra TRF-layout output |
+| `sequenceName` | string | No | Description printed in dat/ngs/html output; HTML file prefix (default `sequence`) |
 
 ## Output Schema
 
-`items`: `start, spanLength, period, consensusSize, consensus, copyNumber, percentMatches, percentIndels, alignmentScore, percentA, percentC, percentG, percentT, entropy, entropyTrf, alignedSequence, alignedConsensus` (+ `leftFlank, rightFlank` when `flankLength > 0`)
+`items`: `start, spanLength, period, consensusSize, consensus, copyNumber, percentMatches, percentIndels, alignmentScore, percentA, percentC, percentG, percentT, entropy, entropyTrf, alignedSequence, alignedConsensus, copyMatches, copyMismatches, copyIndels, outputIndex` (+ `leftFlank, rightFlank` when `flankLength > 0`)
+
+`formatted`: TRF `.dat` text (`format = dat`) or `-ngs` text (`format = ngs`); `htmlPages`: `[{fileName, html}]` (`format = html`).
 
 ## Errors
 
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
-| 1002 | examineUpToMaxPeriodOnly requires the TRF recommended weights and default -l/-r/-f |
+| 1002 | examineUpToMaxPeriodOnly requires the TRF recommended weights, default -l/-r/-f and the exact apparent-size table |
 | 1003 | TRF parameter out of range (weights >= 1, PM 80/75, PI 1-100, MaxPeriod 1-2000, -l >= 1, flankLength >= 0, minPeriod >= 1) |
+| 1004 | apparentSizeTable must hold 2001 integers, each in 0..max(d,20)-1 (waiting times likewise); apparentSizeTableKind must be 'apparent' or 'trfWaitingTimes' |
+| 1005 | format must be 'json', 'dat', 'ngs' or 'html' |
 
 ## Examples
 
@@ -103,3 +122,14 @@ distances only up to `maxPeriod` (faster for short periods) and requires the rec
 - [tandem_repeat_bernoulli_statistics](tandem_repeat_bernoulli_statistics.md)
 - [find_microsatellites](find_microsatellites.md)
 - [find_tandem_repeats](find_tandem_repeats.md)
+
+### Example 4: TRF -ngs block (format = ngs)
+
+**Input:** `{"sequence": "CTATCCTAACCCGACCCTAGGAGCGGTTGGCGTGTATGCCGTGAATTTTCTCATTTCCGCTCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGTAGACATAATCGTTCTGCCTATATCTGGACAACATCCCGGCGACTTAGGCGACCCACAGA", "format": "ngs", "sequenceName": "U1"}`
+
+**Output (`formatted`, identical to `trf U1.fa 2 7 7 80 10 50 500 -ngs -h`):**
+
+```
+@U1
+61 124 7 9.1 7 92 0 110 14 14 26 42 1.83 TCATTGG TCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGT CCGACCCTAGGAGCGGTTGGCGTGTATGCCGTGAATTTTCTCATTTCCGC AGACATAATCGTTCTGCCTATATCTGGACAACATCCCGGCGACTTAGGCG
+```

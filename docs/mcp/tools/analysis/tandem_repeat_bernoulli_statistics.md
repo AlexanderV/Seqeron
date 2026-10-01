@@ -25,7 +25,7 @@ Flanks that do not align are ignored; a tract without two aligned copies gives z
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L2807](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L2807)
+- Source: [RepeatFinder.cs#L3170](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3170)
 
 ## Input Schema
 

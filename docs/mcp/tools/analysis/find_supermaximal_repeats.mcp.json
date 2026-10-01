@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindSupermaximalRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4748",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L5111",
   "description": "Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maximal repeat — on the suffix array, lcp-intervals with only singleton children whose suffixes have pairwise distinct left characters (Abouelhoda, Kurtz & Ohlebusch 2004). Each repeat is reported once with every (possibly overlapping) 0-based occurrence, ascending. Only A/C/G/T match (case-insensitive); a suffix at position 0 or preceded by a non-ACGT symbol has an undefined (distinct) left character. Ordered by first occurrence, then length.",
   "inputSchema": {
     "type": "object",

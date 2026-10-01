@@ -296,10 +296,32 @@ public record ApproximateTandemRepeatItem(
 
     /// <summary>Right flank (only when flankLength &gt; 0).</summary>
     public string? RightFlank { get; init; }
+
+    /// <summary>Matching column pairs between adjacent copies (numerator of PercentMatches).</summary>
+    public int CopyMatches { get; init; }
+
+    /// <summary>Mismatching column pairs between adjacent copies.</summary>
+    public int CopyMismatches { get; init; }
+
+    /// <summary>Indel columns between adjacent copies (numerator of PercentIndels).</summary>
+    public int CopyIndels { get; init; }
+
+    /// <summary>1-based report rank before MaxPeriod filtering / redundancy elimination (TRF OUTPUTcount; TRF row order).</summary>
+    public int OutputIndex { get; init; }
 }
 
+/// <summary>One TRF HTML page: TRF's file name and the page content.</summary>
+public record TrfHtmlPageItem(string FileName, string Html);
+
 /// <summary>Result of <c>find_approximate_tandem_repeats</c>.</summary>
-public record FindApproximateTandemRepeatsResult(ApproximateTandemRepeatItem[] Items);
+public record FindApproximateTandemRepeatsResult(ApproximateTandemRepeatItem[] Items)
+{
+    /// <summary>TRF .dat (format 'dat') or -ngs (format 'ngs') text; null for 'json' / 'html'.</summary>
+    public string? Formatted { get; init; }
+
+    /// <summary>TRF repeat-table HTML pages (format 'html'); null otherwise.</summary>
+    public TrfHtmlPageItem[]? HtmlPages { get; init; }
+}
 
 /// <summary>Result of <c>mask_approximate_tandem_repeats</c>.</summary>
 public record MaskApproximateTandemRepeatsResult(string Masked);

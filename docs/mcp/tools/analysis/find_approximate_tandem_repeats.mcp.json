@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RepeatFinder.FindApproximateTandemRepeats",
   "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L1002",
-  "description": "Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match Mismatch Delta PM PI Minscore MaxPeriod [-l] [-r] [-f]). Defaults are TRF's recommended 2 7 7 80 10 50 500. Detection follows TRF (k-tuple matches, sum-of-heads and apparent-size criteria, random-walk distance range for d > 20, best-period list, wraparound DP alignment, narrow band for patterns > 20, redundancy elimination); candidate distances are examined up to TRF's MAXDISTANCE and maxPeriod filters the reported periods. Each item carries TRF's .dat columns — start (0-based; TRF prints 1-based), spanLength, period, copyNumber, consensusSize, percentMatches, percentIndels (exact; TRF truncates), alignmentScore, base percentages, entropyTrf (TRF's entropy column) and entropy (A/C/G/T-only) — plus the final alignment rows and, when flankLength > 0, the flanking sequences. minPeriod is a library filter applied after redundancy elimination. examineUpToMaxPeriodOnly = true (legacy library mode) examines candidate distances only up to maxPeriod (faster for short periods) and requires the recommended weights/PM/PI and default -l/-r/-f. Measured against the TRF binary: 99.8 % identical rows (Evidence REP-APPROX-001).",
+  "description": "Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match Mismatch Delta PM PI Minscore MaxPeriod [-l] [-r] [-f]). Defaults are TRF's recommended 2 7 7 80 10 50 500. Detection follows TRF (k-tuple matches, sum-of-heads and apparent-size criteria, random-walk distance range for d > 20, best-period list, wraparound DP alignment, narrow band for patterns > 20, redundancy elimination); candidate distances are examined up to TRF's MAXDISTANCE and maxPeriod filters the reported periods. Each item carries TRF's .dat columns — start (0-based; TRF prints 1-based), spanLength, period, copyNumber, consensusSize, percentMatches, percentIndels (exact; TRF truncates), alignmentScore, base percentages, entropyTrf (TRF's entropy column) and entropy (A/C/G/T-only) — plus the final alignment rows and, when flankLength > 0, the flanking sequences. minPeriod is a library filter applied after redundancy elimination. examineUpToMaxPeriodOnly = true (legacy library mode) examines candidate distances only up to maxPeriod (faster for short periods) and requires the recommended weights/PM/PI and default -l/-r/-f. format = dat / ngs / html adds TRF 4.10.0's data-file, -ngs or HTML repeat-table text (rows in TRF's report order, TRF's truncations and C rounding; byte-identical to the TRF binary for identical loci). apparentSizeTable optionally replaces the exact apparent-size table (e.g. by TRF's own simulated table, which a TRF holder can supply; then the output equals TRF's bit for bit). Measured against the TRF binary: 99.8 % identical rows with the exact table, 100 % (whole .dat / -ngs / HTML files byte-identical) with TRF's table (Evidence REP-APPROX-001).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -89,6 +89,35 @@
         "type": "boolean",
         "description": "Examine candidate distances only up to maxPeriod (legacy mode; recommended weights required)",
         "default": false
+      },
+      "apparentSizeTable": {
+        "type": "string",
+        "description": "Optional apparent-size table y(d) for TRF's apparent-size criterion: 2001 comma/space-separated integers for d = 0..2000 (entry 0 ignored; each y(d) in 0..max(d,20)-1). Empty = the exact table the library computes. TRF 4.10.0's own waitdata80/waitdata75 array (tr30dat.c; AGPL, not shipped) given with apparentSizeTableKind='trfWaitingTimes' reproduces TRF's output bit for bit."
+      },
+      "apparentSizeTableKind": {
+        "type": "string",
+        "description": "How apparentSizeTable is expressed: 'apparent' (y(d)) or 'trfWaitingTimes' (TRF waitdata w(d); y = max(d,20) - w - 1)",
+        "enum": [
+          "apparent",
+          "trfWaitingTimes"
+        ],
+        "default": "apparent"
+      },
+      "format": {
+        "type": "string",
+        "description": "Extra output text in TRF 4.10.0 layout (byte-identical rows): 'json' (items only), 'dat' (-d data file: header, Sequence/Parameters block, rows), 'ngs' (-ngs block with 50-bp flanks) or 'html' (repeat-table pages, 120 rows per page)",
+        "enum": [
+          "json",
+          "dat",
+          "ngs",
+          "html"
+        ],
+        "default": "json"
+      },
+      "sequenceName": {
+        "type": "string",
+        "description": "Sequence description printed in dat/ngs/html output (TRF prints the FASTA header after '>'); also the HTML file prefix",
+        "default": "sequence"
       }
     },
     "required": [
@@ -159,6 +188,18 @@
             },
             "rightFlank": {
               "type": "string"
+            },
+            "copyMatches": {
+              "type": "integer"
+            },
+            "copyMismatches": {
+              "type": "integer"
+            },
+            "copyIndels": {
+              "type": "integer"
+            },
+            "outputIndex": {
+              "type": "integer"
             }
           },
           "required": [
@@ -173,6 +214,35 @@
             "alignmentScore"
           ]
         }
+      },
+      "formatted": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "TRF .dat ('dat') or -ngs ('ngs') text"
+      },
+      "htmlPages": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "fileName": {
+              "type": "string"
+            },
+            "html": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "fileName",
+            "html"
+          ]
+        },
+        "description": "TRF repeat-table HTML pages ('html')"
       }
     },
     "required": [
@@ -186,11 +256,19 @@
     },
     {
       "code": 1002,
-      "message": "examineUpToMaxPeriodOnly requires the TRF recommended weights and default -l/-r/-f"
+      "message": "examineUpToMaxPeriodOnly requires the TRF recommended weights, default -l/-r/-f and the exact apparent-size table"
     },
     {
       "code": 1003,
       "message": "TRF parameter out of range (weights >= 1, PM 80/75, PI 1-100, MaxPeriod 1-2000, -l >= 1, flankLength >= 0, minPeriod >= 1)"
+    },
+    {
+      "code": 1004,
+      "message": "apparentSizeTable must hold 2001 integers, each in 0..max(d,20)-1 (waiting times likewise); apparentSizeTableKind must be 'apparent' or 'trfWaitingTimes'"
+    },
+    {
+      "code": 1005,
+      "message": "format must be 'json', 'dat', 'ngs' or 'html'"
     }
   ],
   "examples": [
@@ -286,6 +364,17 @@
             "alignedConsensus": "CAGCAGCAGCAGCAGCAG"
           }
         ]
+      }
+    },
+    {
+      "name": "TRF -ngs block (format = ngs; TRF stdout of trf U1.fa 2 7 7 80 10 50 500 -ngs -h)",
+      "input": {
+        "sequence": "CTATCCTAACCCGACCCTAGGAGCGGTTGGCGTGTATGCCGTGAATTTTCTCATTTCCGCTCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGTAGACATAATCGTTCTGCCTATATCTGGACAACATCCCGGCGACTTAGGCGACCCACAGA",
+        "format": "ngs",
+        "sequenceName": "U1"
+      },
+      "output": {
+        "formatted": "@U1\n61 124 7 9.1 7 92 0 110 14 14 26 42 1.83 TCATTGG TCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGT CCGACCCTAGGAGCGGTTGGCGTGTATGCCGTGAATTTTCTCATTTCCGC AGACATAATCGTTCTGCCTATATCTGGACAACATCCCGGCGACTTAGGCG\n"
       }
     }
   ]

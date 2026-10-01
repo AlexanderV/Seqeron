@@ -310,3 +310,62 @@ Same 700-sequence set as WP6 (843 837 bp). Exact = every .dat field; region = �
   (`search.py`, `bpl.py`, `trim.py` shortened the linking / best-period cases while the property held) such that the
   WP6 code disagrees with TRF and the disagreement disappears only with the named component (ablation builds
   `v_fullwdp`, `v_nobestlist`, `v_nolink`, reflection switch for the apparent-size table).
+
+## WP14 revision (2026-10-01, B04 completeness audit 4a′ + 9 — caller-supplied apparent-size table, TRF output formats)
+
+### Sources opened (this session)
+
+- TRF 4.10.0 README (`scratchpad/trfsrc/README.md`): "Data file" (`-d`), `-h` (no HTML), `-ngs` ("more compact .dat
+  output on multisequence files, … flanking sequence"), "Table Explanation", "Apparent Size Distribution".
+- TRF 4.10.0 source, read for the output layout and field types only (AGPL-3.0; nothing copied):
+  `trfrun.h` 179–300 (single-sequence `.dat` / `-ngs` writer: header once, `\n\nSequence: …\n\n\n\nParameters: …\n\n\n`,
+  row format `%d %d %d %.1f %d %d %d %d %d %d %d %d %.2f %s`, 50-bp flanks with '.' at sequence ends), 330–600
+  (multi-sequence writer, `.summary.html`), IL struct 60–80 (`float copies`, `float entropy`, int percentages);
+  `trfclean.h` 99–140 (`TRFClean`: RemoveBySize → SortByIndex → RemoveRedundancy → **SortByCount**, i.e. rows in report
+  order), 668–697 (`MakeFileName`), 699–835 (`OutputHTML`, `EO_MAX_TBL` 120, heading every 22 rows, `OutputHeading`);
+  `tr30dat.c` 3240–3260 (`(int)(100*(float)match/x)`, `(int)(100*(double)ACGTcount/count)`, anchor label
+  `%d--%d,%d,%3.1f,%d,%d` with the **double** `Copynumber` and `OUTPUTcount`), 3980 / 4239 (`OUTPUTcount` reset per
+  sequence, incremented for every reported alignment before MaxPeriod filtering and redundancy elimination), 3299 /
+  3563 / 3912 (`waitdata80/75[2001]`, `waiting_time_criteria = waitdata[min(2000, d)]`).
+- The TRF waiting-time tables are not monotonic (PM 80: 598 decreases, PM 75: 677), so `ApparentSizeTable` is not
+  required to be monotonic; validated range: 0 ≤ y(d) ≤ max(d, 20) − 1 (TRF's own entries satisfy it: y ≥ 1 / 4).
+
+### Changes
+
+- `TandemRepeatsFinderParameters.ApparentSizeTable` (int[2001], copied on assignment; null = exact table),
+  `ExactApparentSizeTable(pm)`, `ApparentSizeTableFromWaitingTimes(w)` (y = max(d,20) − w − 1); `TrfModel` uses the
+  supplied table for both apparent-size uses (criteria test and best-period-list window).
+- Result fields `CopyMatches / CopyMismatches / CopyIndels` (adjacent-copy counts, TRF's integer percentages need
+  them in single precision) and `OutputIndex` (= TRF `OUTPUTcount`).
+- `FormatTrfDatFileHeader`, `FormatTrfDatLines(…, TrfDatLayout.Dat | Ngs)`, `FormatTrfHtmlTables`,
+  `FormatTrfHtmlSummary`; C `printf("%.Nf")` rounding (exact binary value, ties to even — .NET "F" rounds ties away).
+- MCP `find_approximate_tandem_repeats`: `format` (json | dat | ngs | html), `sequenceName`, `apparentSizeTable`
+  (comma/space-separated string) + `apparentSizeTableKind` (apparent | trfWaitingTimes); `mask_approximate_tandem_repeats`:
+  the two table parameters.
+
+### Reference cross-checks (compiled TRF 4.10.0; harness `scratchpad/wp14/`: C# driver `xc14` using only the public
+API, `cmp14.py`, `cmphtml.py`; results `res_dat.txt`)
+
+Same 700 sequences as WP6/WP7. "TRF table" = TRF's `waitdata80/75` loaded at run time from the local TRF build
+(`scratchpad/trftables.json`) and passed through `ApparentSizeTableFromWaitingTimes` → `ApparentSizeTable`.
+
+| Parameters | `.dat` file, TRF table | `-ngs`, TRF table | same-locus `.dat` rows byte-identical, exact table | HTML pages (tables + summary), TRF table / exact table |
+|---|---|---|---|---|
+| 2 7 7 80 10 50 500 | identical (700/700 blocks) | identical (595/595) | 1 303/1 303 (blocks 697/700) | 596/596 / 591/596 |
+| 2 5 7 80 10 50 2000 | identical | identical (619/619) | 1 407/1 407 | 620/620 / — |
+| 2 3 5 80 10 40 200 | identical | identical (657/657) | 1 701/1 701 | 658/658 / — |
+| 2 7 7 75 20 50 500 | identical | identical (600/600) | 1 356/1 356 | 601/601 / — |
+| 2 5 5 75 10 30 100 | identical | identical (643/643) | 1 755/1 755 | 644/644 / 637/644 |
+| 3 7 7 80 10 60 50 | identical | identical (550/550) | 1 135/1 135 (file identical) | 551/551 / — |
+| 2 3 3 80 20 50 500 | identical | identical (678/678) | 2 409/2 409 | 679/679 / 668/679 |
+| 2 7 7 80 10 50 500 `-r` | identical | identical | 2 624/2 624 | — |
+
+- Single-sequence files (`one.fa` 516 bp; `many.fa` 150 repeats → two HTML pages; `none.fa` no repeats): `.dat`,
+  `-ngs` and HTML byte-identical with both tables.
+- The first HTML run differed on 7/596 pages, all in the anchor label's copy number (e.g. TRF `…,15.7,…` vs `15.6`):
+  TRF prints the double-precision `Copynumber` there and the float `copies` in the cell; fixed, then 596/596.
+- Supplying `ExactApparentSizeTable(pm)` equals `null` on 700/700 sequences for PM 80 and PM 75.
+- The 25 WP7 residual (set, sequence) cases: all reach TRF parity with TRF's table through the public parameter
+  (included in the byte-identical files above). Unit tests use only single bisected entries (s342: d 43, y 13; s350:
+  d 24, w 15), synthetic all-zero / strictest tables and the exact table — TRF's tables are not embedded anywhere.
+- Not generated: TRF's alignment page (`.txt.html`; its alignment rows, flanks and statistics are result fields).

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindPalindromes",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L5054",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L5468",
   "description": "DNA palindromes: even-length subsequences identical to their reverse complement (restriction-enzyme recognition-site candidates). minLength must be even and >= 4. Every palindromic window is reported (Rosalind REVP), 0-based, ordered by position then length; only A/C/G/T pair (windows with N/IUPAC/U/gaps are never reported).",
   "inputSchema": {
     "type": "object",
