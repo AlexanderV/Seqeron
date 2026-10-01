@@ -47,4 +47,15 @@ public class FindLowComplexityIntervalsTests
         var items = AnalysisTools.FindLowComplexityIntervals("ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA").Items;
         Assert.That(items.Select(i => (i.Start, i.End)), Is.EqualTo(new[] { (6, 18), (23, 38) }));
     }
+
+    [TestCase(1, new[] { 0, 2, 9, 21, 24, 36, 40, 50, 59, 63 })]
+    [TestCase(5, new[] { 0, 2, 9, 50, 59, 63 })]
+    public void FindLowComplexityIntervals_DustmaskerEngine_MatchesDustmaskerInterval(int linker, int[] flat)
+    {
+        // Expected = NCBI dustmasker 2.12.0 -window 8 -level 20 -linker L -outfmt interval (closed → end+1).
+        var expected = Enumerable.Range(0, flat.Length / 2).Select(i => (flat[2 * i], flat[2 * i + 1])).ToArray();
+        var items = AnalysisTools.FindLowComplexityIntervals(
+            "NNACGTTGCAAAAAAAAAAAACGTRRRRRRRRRRRRTGCANNNNNNNNNNACGTTGCAANNNN", 8, 2.0, linker, engine: "dustmasker").Items;
+        Assert.That(items.Select(i => (i.Start, i.End)), Is.EqualTo(expected));
+    }
 }

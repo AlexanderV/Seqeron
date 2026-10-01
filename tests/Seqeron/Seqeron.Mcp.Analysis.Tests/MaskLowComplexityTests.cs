@@ -55,4 +55,21 @@ public class MaskLowComplexityTests
                 Is.EqualTo("ACGTGCATGCaaaaaaaaaaaaaaaagctagcatcgactgcagcacacacacacacacaGATCGATCGTACGGTGCATGACaaaaaaaaaaaaaCT"));
         });
     }
+
+    [Test]
+    public void MaskLowComplexity_DustmaskerEngine_MatchesDustmaskerFasta()
+    {
+        // Expected = NCBI dustmasker 2.12.0 -window 8 -level 20 -outfmt fasta: terminal N runs and the 10-N run
+        // (> window) are masked, R codes scanned as A. engine is optional (default sdust, unchanged output).
+        const string seq = "NNACGTTGCAAAAAAAAAAAACGTRRRRRRRRRRRRTGCANNNNNNNNNNACGTTGCAANNNN";
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.MaskLowComplexity(seq, 8, 2.0, softMask: true, engine: "dustmasker").Masked,
+                Is.EqualTo("nnACGTTGCaaaaaaaaaaaaCGTrrrrrrrrrrrrTGCAnnnnnnnnnnACGTTGCAAnnnn"));
+            Assert.That(AnalysisTools.MaskLowComplexity(seq, 8, 2.0, softMask: true).Masked,
+                Is.EqualTo("NNACGTTGCaaaaaaaaaaaaCGTRRRRRRRRRRRRTGCANNNNNNNNNNACGTTGCAANNNN"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.MaskLowComplexity(seq, engine: "seg"));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.MaskLowComplexity(seq, 7, engine: "dustmasker"));
+        });
+    }
 }

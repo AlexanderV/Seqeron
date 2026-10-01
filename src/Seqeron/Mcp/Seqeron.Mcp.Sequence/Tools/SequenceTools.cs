@@ -488,14 +488,15 @@ public class SequenceTools
     /// Mask low-complexity regions using symmetric DUST (SDUST).
     /// </summary>
     [McpServerTool(Name = "complexity_mask_low", Title = "Complexity — Mask Low-Complexity Regions", ReadOnly = true)]
-    [Description("Mask low-complexity regions in a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust). N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking.")]
+    [Description("Mask low-complexity regions in a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust). N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking. engine='dustmasker' reproduces NCBI dustmasker 2.12.0 output exactly (symdust core, IUPAC scanned as bases, long/terminal N runs masked).")]
     public static ComplexityMaskLowResult ComplexityMaskLow(
         [Description("The DNA sequence to mask (A/C/G/T plus IUPAC codes such as N; case-insensitive)")] string sequence,
         [Description("SDUST window length in bases (default: 64, >= 3)")] int windowSize = 64,
         [Description("DUST threshold; intervals scoring strictly above it are masked (default: 2.0)")] double threshold = 2.0,
         [Description("Character to use for masking (default: 'N'; ignored when softMask is true)")] char maskChar = 'N',
         [Description("dustmasker linker: merge masked intervals separated by fewer than linker unmasked bases (1-32, default: 1 = sdust/dustmasker default)")] int linker = 1,
-        [Description("Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta). Default: false")] bool softMask = false)
+        [Description("Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta). Default: false")] bool softMask = false,
+        [Description("DUST engine: 'sdust' (default: lh3/sdust port, non-ACGT symbols split the scan) or 'dustmasker' (exact NCBI dustmasker 2.12.0 parity: IUPAC codes scanned as bases, only N runs longer than the window plus leading/trailing N runs cut the scan and are masked; window 8-64, 10*threshold an integer 2-64).")] string engine = "sdust")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -506,7 +507,8 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.SequenceExtensions.IsValidIupacDna(sequence.AsSpan()))
             throw new ArgumentException("Invalid DNA sequence (A/C/G/T and IUPAC codes only)", nameof(sequence));
 
-        var masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize, threshold, maskChar, linker, softMask);
+        var dustEngine = SequenceComplexity.ParseDustEngine(engine);
+        var masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize, threshold, maskChar, linker, softMask, dustEngine);
         return new ComplexityMaskLowResult(masked, sequence.Length, maskChar);
     }
 

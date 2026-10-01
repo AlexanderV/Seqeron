@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.FindLowComplexityIntervals",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L854",
-  "description": "Returns the **SDUST** low-complexity intervals (Morgulis et al. 2006; symmetric DUST) as 0-based half-open [start, end) pairs in ascending order — the native output of lh3/sdust (name start end) and, with end − 1, of NCBI dustmasker -outfmt interval. These are exactly the positions mask_low_complexity masks. N and other IUPAC codes split the input into independently scanned A/C/G/T runs (sdust's contract). linker reproduces dustmasker -linker (intervals separated by fewer than linker unmasked bases are merged; default 1 = sdust).",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L872",
+  "description": "Returns the **SDUST** low-complexity intervals (Morgulis et al. 2006; symmetric DUST) as 0-based half-open [start, end) pairs in ascending order — the native output of lh3/sdust (name start end) and, with end − 1, of NCBI dustmasker -outfmt interval. These are exactly the positions mask_low_complexity masks. N and other IUPAC codes split the input into independently scanned A/C/G/T runs (sdust's contract). linker reproduces dustmasker -linker (intervals separated by fewer than linker unmasked bases are merged; default 1 = sdust). engine='dustmasker' reproduces NCBI dustmasker 2.12.0 exactly (port of symdust.cpp + GetDustMasks_SkipNs: IUPAC codes scanned as bases, N runs longer than the window and leading/trailing N runs cut the scan and are masked).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -33,6 +33,15 @@
         "minimum": 1,
         "maximum": 32,
         "default": 1
+      },
+      "engine": {
+        "type": "string",
+        "description": "DUST engine: 'sdust' (default; lh3/sdust port, non-ACGT symbols split the scan) or 'dustmasker' (exact NCBI dustmasker 2.12.0 parity: IUPAC codes scanned as bases, only N runs longer than the window plus leading/trailing N runs cut the scan and are masked; window 8-64, 10*threshold an integer 2-64)",
+        "enum": [
+          "sdust",
+          "dustmasker"
+        ],
+        "default": "sdust"
       }
     },
     "required": [
@@ -81,6 +90,10 @@
     {
       "code": 1003,
       "message": "windowSize >= 3; threshold finite >= 0; linker 1-32"
+    },
+    {
+      "code": 1003,
+      "message": "engine 'dustmasker': windowSize 8-64, 10*threshold an integer 2-64, IUPAC DNA only; unknown engine name"
     }
   ],
   "examples": [
@@ -141,6 +154,35 @@
             "start": 23,
             "end": 38,
             "length": 15
+          }
+        ]
+      }
+    },
+    {
+      "name": "dustmasker engine (-window 8 -linker 5)",
+      "input": {
+        "sequence": "NNACGTTGCAAAAAAAAAAAACGTRRRRRRRRRRRRTGCANNNNNNNNNNACGTTGCAANNNN",
+        "windowSize": 8,
+        "threshold": 2.0,
+        "linker": 5,
+        "engine": "dustmasker"
+      },
+      "output": {
+        "items": [
+          {
+            "start": 0,
+            "end": 2,
+            "length": 2
+          },
+          {
+            "start": 9,
+            "end": 50,
+            "length": 41
+          },
+          {
+            "start": 59,
+            "end": 63,
+            "length": 4
           }
         ]
       }

@@ -438,7 +438,7 @@
     "server": "Analysis",
     "methodId": "SequenceComplexity.FindLowComplexityIntervals",
     "docPath": "docs/mcp/tools/analysis/find_low_complexity_intervals.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L854"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L872"
   },
   {
     "tool": "find_low_complexity_regions",
@@ -760,7 +760,7 @@
     "server": "Analysis",
     "methodId": "SequenceComplexity.MaskLowComplexity",
     "docPath": "docs/mcp/tools/analysis/mask_low_complexity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L826"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L838"
   },
   {
     "tool": "minimum_free_energy",
@@ -3021,7 +3021,7 @@
     "server": "Sequence",
     "methodId": "SequenceComplexity.MaskLowComplexity",
     "docPath": "docs/mcp/tools/sequence/complexity_mask_low.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L826"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L838"
   },
   {
     "tool": "complexity_shannon",

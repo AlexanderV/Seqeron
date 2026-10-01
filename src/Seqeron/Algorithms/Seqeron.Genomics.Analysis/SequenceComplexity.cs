@@ -4,7 +4,7 @@ namespace Seqeron.Genomics.Analysis;
 /// Calculates various sequence complexity metrics for detecting low-complexity regions,
 /// repetitive sequences, and information content.
 /// </summary>
-public static class SequenceComplexity
+public static partial class SequenceComplexity
 {
     #region Linguistic Complexity
 
@@ -789,20 +789,26 @@ public static class SequenceComplexity
     /// default 1 for any other value; here that is rejected instead).</param>
     /// <param name="softMask">When true, masked bases are written in lower case and all other bases in
     /// upper case (dustmasker <c>-outfmt fasta</c>); when false, masked bases become <paramref name="maskChar"/>.</param>
+    /// <param name="engine">DUST implementation (default <see cref="DustEngine.Sdust"/>, the lh3/sdust port).
+    /// <see cref="DustEngine.Dustmasker"/> reproduces NCBI dustmasker 2.12.0 exactly (symdust core +
+    /// <c>GetDustMasks_SkipNs</c>): IUPAC codes are scanned as bases, only N runs longer than the window
+    /// (and leading/trailing N runs) cut the scan and are reported as masked; window 8–64, 10·threshold an
+    /// integer 2–64, IUPAC DNA input only (B04 F53).</param>
     /// <returns>Masked sequence (same length as the input).</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker (or one outside the dustmasker ranges with <see cref="DustEngine.Dustmasker"/>).</exception>
+    /// <exception cref="ArgumentException">Thrown with <see cref="DustEngine.Dustmasker"/> when the input is not IUPAC DNA.</exception>
     public static string MaskLowComplexity(
         DnaSequence sequence,
         int windowSize,
         double threshold,
         char maskChar,
         int linker,
-        bool softMask = false)
+        bool softMask = false,
+        DustEngine engine = DustEngine.Sdust)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ValidateSdustParameters(windowSize, threshold, linker);
-        return ApplySdustMask(sequence.Sequence, FindSdustIntervals(sequence.Sequence, windowSize, threshold, linker), maskChar, softMask);
+        return MaskLowComplexity(sequence.Sequence, windowSize, threshold, maskChar, linker, softMask, engine);
     }
 
     /// <summary>
@@ -820,21 +826,27 @@ public static class SequenceComplexity
     /// <param name="maskChar">Hard-mask character (default 'N'; ignored when soft-masking).</param>
     /// <param name="linker">dustmasker linker (default 1 = sdust/dustmasker default; 1–32).</param>
     /// <param name="softMask">Lower-case masking instead of <paramref name="maskChar"/> (default false).</param>
+    /// <param name="engine">DUST implementation (default <see cref="DustEngine.Sdust"/>, the lh3/sdust port).
+    /// <see cref="DustEngine.Dustmasker"/> reproduces NCBI dustmasker 2.12.0 exactly (symdust core +
+    /// <c>GetDustMasks_SkipNs</c>): IUPAC codes are scanned as bases, only N runs longer than the window
+    /// (and leading/trailing N runs) cut the scan and are reported as masked; window 8–64, 10·threshold an
+    /// integer 2–64, IUPAC DNA input only (B04 F53).</param>
     /// <returns>Masked sequence (same length as the input).</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker (or one outside the dustmasker ranges with <see cref="DustEngine.Dustmasker"/>).</exception>
+    /// <exception cref="ArgumentException">Thrown with <see cref="DustEngine.Dustmasker"/> when the input is not IUPAC DNA.</exception>
     public static string MaskLowComplexity(
         string sequence,
         int windowSize = DustWindowSize,
         double threshold = DustMaskThreshold,
         char maskChar = 'N',
         int linker = DustDefaultLinker,
-        bool softMask = false)
+        bool softMask = false,
+        DustEngine engine = DustEngine.Sdust)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ValidateSdustParameters(windowSize, threshold, linker);
         string upper = sequence.ToUpperInvariant();
-        return ApplySdustMask(upper, FindSdustIntervals(upper, windowSize, threshold, linker), maskChar, softMask);
+        return ApplySdustMask(upper, FindDustIntervals(upper, windowSize, threshold, linker, engine), maskChar, softMask);
     }
 
     /// <summary>
@@ -847,32 +859,62 @@ public static class SequenceComplexity
     /// <param name="windowSize">SDUST window length W (default 64; ≥ 3).</param>
     /// <param name="threshold">DUST score threshold (default 2.0; ≥ 0).</param>
     /// <param name="linker">dustmasker linker (default 1; 1–32), see
-    /// <see cref="MaskLowComplexity(string, int, double, char, int, bool)"/>.</param>
+    /// <see cref="MaskLowComplexity(string, int, double, char, int, bool, DustEngine)"/>.</param>
+    /// <param name="engine">DUST implementation (default <see cref="DustEngine.Sdust"/>, the lh3/sdust port).
+    /// <see cref="DustEngine.Dustmasker"/> reproduces NCBI dustmasker 2.12.0 exactly (symdust core +
+    /// <c>GetDustMasks_SkipNs</c>): IUPAC codes are scanned as bases, only N runs longer than the window
+    /// (and leading/trailing N runs) cut the scan and are reported as masked; window 8–64, 10·threshold an
+    /// integer 2–64, IUPAC DNA input only (B04 F53).</param>
     /// <returns>Merged masked intervals.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown on an invalid window, threshold or linker (or one outside the dustmasker ranges with <see cref="DustEngine.Dustmasker"/>).</exception>
+    /// <exception cref="ArgumentException">Thrown with <see cref="DustEngine.Dustmasker"/> when the input is not IUPAC DNA.</exception>
     public static IReadOnlyList<(int Start, int End)> FindLowComplexityIntervals(
         string sequence,
         int windowSize = DustWindowSize,
         double threshold = DustMaskThreshold,
-        int linker = DustDefaultLinker)
+        int linker = DustDefaultLinker,
+        DustEngine engine = DustEngine.Sdust)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ValidateSdustParameters(windowSize, threshold, linker);
-        return FindSdustIntervals(sequence, windowSize, threshold, linker);
+        return FindDustIntervals(sequence, windowSize, threshold, linker, engine);
     }
 
     /// <summary>
-    /// <see cref="FindLowComplexityIntervals(string, int, double, int)"/> for a <see cref="DnaSequence"/>.
+    /// <see cref="FindLowComplexityIntervals(string, int, double, int, DustEngine)"/> for a <see cref="DnaSequence"/>.
     /// </summary>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <param name="windowSize">Window length W.</param>
+    /// <param name="threshold">DUST score threshold.</param>
+    /// <param name="linker">dustmasker linker (1–32).</param>
+    /// <param name="engine">DUST implementation (default sdust).</param>
+    /// <returns>Merged masked intervals, half-open.</returns>
     public static IReadOnlyList<(int Start, int End)> FindLowComplexityIntervals(
         DnaSequence sequence,
         int windowSize = DustWindowSize,
         double threshold = DustMaskThreshold,
-        int linker = DustDefaultLinker)
+        int linker = DustDefaultLinker,
+        DustEngine engine = DustEngine.Sdust)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return FindLowComplexityIntervals(sequence.Sequence, windowSize, threshold, linker);
+        return FindLowComplexityIntervals(sequence.Sequence, windowSize, threshold, linker, engine);
+    }
+
+    // Engine dispatch shared by the mask and interval entry points (validation per engine).
+    private static List<(int Start, int End)> FindDustIntervals(string seq, int windowSize, double threshold, int linker, DustEngine engine)
+    {
+        ValidateSdustParameters(windowSize, threshold, linker);
+        switch (engine)
+        {
+            case DustEngine.Sdust:
+                return FindSdustIntervals(seq, windowSize, threshold, linker);
+            case DustEngine.Dustmasker:
+                string upper = seq.ToUpperInvariant();
+                int level = ValidateDustmaskerParameters(upper, windowSize, threshold);
+                return FindDustmaskerIntervals(upper, windowSize, level, linker);
+            default:
+                throw new ArgumentOutOfRangeException(nameof(engine), engine, "Unknown DUST engine.");
+        }
     }
 
     // dustmasker DEFAULT_LINKER = 1 (symdust.hpp); identical to lh3/sdust's adjacency merge.

@@ -27,9 +27,11 @@ the rest upper case; `maskChar` ignored). Otherwise masked bases become `maskCha
 The result is the same length as the input. `windowSize` must be ≥ 3, `threshold`
 finite and ≥ 0 (default 2.0 = dustmasker level 20), `linker` 1–32.
 
+`engine: "dustmasker"` switches to a line-by-line port of NCBI `CSymDustMasker` (symdust.cpp) driven by dustmasker's `GetDustMasks_SkipNs` (dust_mask_app.cpp), reproducing dustmasker 2.12.0 output exactly (3 000+ randomized inputs with N/IUPAC, 0 mismatches; B04 F53): IUPAC codes are scanned as bases (C/G/T → 1/2/3, N → the toolkit's deterministic `CRandom` 2-bit code, every other code → A), only N runs longer than the window plus leading/trailing N runs cut the scan — and those N runs are themselves reported as masked —, and a window holding a single triplet value (homopolymer ≥ window) is masked without a score test.
+
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L826](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L826)
+- Source: [SequenceComplexity.cs#L838](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L838)
 
 ## Input Schema
 
@@ -41,6 +43,7 @@ finite and ≥ 0 (default 2.0 = dustmasker level 20), `linker` 1–32.
 | `maskChar` | string | No | Mask character (default `N`; ignored when `softMask`) |
 | `linker` | integer | No | dustmasker linker, 1–32 (default 1 = sdust) |
 | `softMask` | boolean | No | Lower-case masking like dustmasker `-outfmt fasta` (default false) |
+| `engine` | string | No | `sdust` (default) or `dustmasker` — exact NCBI dustmasker 2.12.0 parity (IUPAC scanned as bases; N runs > window and leading/trailing N runs cut the scan and are masked; window 8–64, 10·threshold an integer 2–64) |
 
 ## Output Schema
 
@@ -55,6 +58,7 @@ finite and ≥ 0 (default 2.0 = dustmasker level 20), `linker` 1–32.
 | 1001 | Sequence cannot be null or empty |
 | 1001 | Invalid DNA sequence (A/C/G/T and IUPAC codes only) |
 | 1003 | windowSize < 3, threshold negative/NaN/infinite, or linker outside 1–32 |
+| 1003 | engine `dustmasker`: windowSize outside 8–64, 10·threshold not an integer 2–64, non-IUPAC input; unknown engine name |
 
 ## Examples
 
@@ -106,6 +110,12 @@ lh3/sdust (`-w 64 -t 10`) reports the interval [0,100), so every position is mas
 **Input:** `{ "sequence": "ACGTGCATGCAAAAAAAAAAAAAAAAGCTAGCATCGACTGCAGCACACACACACACACAGATCGATCGTACGGTGCATGACAAAAAAAAAAAAACT", "linker": 18, "softMask": true }`
 → dustmasker 2.12.0 `-linker 18`: intervals 10–58 and 81–93 (17 unmasked bases between the first two runs are bridged) →
 **Response:** `{ "masked": "ACGTGCATGCaaaaaaaaaaaaaaaagctagcatcgactgcagcacacacacacacacaGATCGATCGTACGGTGCATGACaaaaaaaaaaaaaCT" }`
+
+### Example 5: dustmasker engine
+
+**Input:** `{ "sequence": "NNACGTTGCAAAAAAAAAAAACGTRRRRRRRRRRRRTGCANNNNNNNNNNACGTTGCAANNNN", "windowSize": 8, "threshold": 2.0, "softMask": true, "engine": "dustmasker" }`
+→ dustmasker 2.12.0 `-window 8 -level 20 -outfmt fasta` (leading NN, the 10-N run and trailing NNNN masked; R×12 masked as poly-A) →
+**Response:** `{ "masked": "nnACGTTGCaaaaaaaaaaaaCGTrrrrrrrrrrrrTGCAnnnnnnnnnnACGTTGCAAnnnn" }`
 
 ## Performance
 

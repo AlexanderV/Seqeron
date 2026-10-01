@@ -390,6 +390,129 @@ public class SequenceComplexity_CalculateDustScore_Tests
 
     #endregion
 
+    #region F53 — DustEngine.Dustmasker: NCBI dustmasker 2.12.0 parity (symdust + GetDustMasks_SkipNs)
+
+    // Expected values are the verbatim output of the NCBI dustmasker 2.12.0 binary (Debian ncbi-blast+,
+    // `-outfmt interval` closed "a - b" → half-open [a, b+1); `-outfmt fasta` joined lines), NOT the
+    // implementation's output. Sources: ncbi-cxx-toolkit-public algo/dustmask/symdust.cpp/.hpp,
+    // app/dustmasker/dust_mask_app.cpp, util/random_gen.cpp/.hpp (public domain).
+    private const string DmNSeq = "NNACGTTGCAAAAAAAAAAAACGTRRRRRRRRRRRRTGCANNNNNNNNNNACGTTGCAANNNN";
+    private const string DmShortNSeq = "ACGTTGCAAGCTTCGATGCAAAAAAAAAAAAAAANNNNNAAAAAAAAAAAAAAAACGTTGCAAGCTTCGATGC";
+    private const string DmPolyGSeq = "TACTGTCCGGTGATTGGTGTCTCTGTAACATTACTAACTTTTCCACGCTTGTTCTGTTCGGGGGGGGGGGGGGGGGGCAAGGGCGGAACGGGTCC";
+
+    private static (int, int)[] Pairs(int[] flat) =>
+        Enumerable.Range(0, flat.Length / 2).Select(i => (flat[2 * i], flat[2 * i + 1])).ToArray();
+
+    // dustmasker -window 8 -level 20 (-linker L): leading/trailing N runs and the interior N run of 10 > W
+    // are masked and cut the scan; R codes are scanned as A (R×12 masked like poly-A); s_InsertMerge joins an
+    // N run only when prev.end + linker == N.start exactly (linker 5 bridges 35→40, linker 6 does not).
+    [TestCase(1, new[] { 0, 2, 9, 21, 24, 36, 40, 50, 59, 63 })]
+    [TestCase(3, new[] { 0, 2, 9, 21, 24, 36, 40, 50, 59, 63 })]
+    [TestCase(4, new[] { 0, 2, 9, 36, 40, 50, 59, 63 })]
+    [TestCase(5, new[] { 0, 2, 9, 50, 59, 63 })]
+    [TestCase(6, new[] { 0, 2, 9, 36, 40, 50, 59, 63 })]
+    [TestCase(10, new[] { 0, 2, 9, 36, 40, 50, 59, 63 })]
+    public void FindLowComplexityIntervals_Dustmasker_NRunsAndIupac_MatchDustmasker(int linker, int[] flat)
+    {
+        var got = SequenceComplexity.FindLowComplexityIntervals(DmNSeq, 8, 2.0, linker, DustEngine.Dustmasker);
+        Assert.That(got, Is.EqualTo(Pairs(flat)));
+    }
+
+    [Test]
+    public void FindLowComplexityIntervals_Dustmasker_DiffersFromSdustOnNonAcgt()
+    {
+        Assert.Multiple(() =>
+        {
+            // sdust engine: R and N split the scan, so only the A run is masked.
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(DmNSeq, 8, 2.0),
+                Is.EqualTo(new[] { (9, 21) }));
+            // dustmasker (default W 64): the short N run (5 ≤ W) is scanned as CRandom bases inside the poly-A
+            // and the whole tract is one interval; sdust (per ACGT run) gives two.
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(DmShortNSeq, engine: DustEngine.Dustmasker),
+                Is.EqualTo(new[] { (19, 55) }));
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(DmShortNSeq),
+                Is.EqualTo(new[] { (19, 34), (39, 55) }));
+            // dustmasker -window 8: the CRandom codes of NNNNN (positions 34–38) leave only N@34 inside a
+            // perfect interval — locks the port of CRandom (LFG 33/13, Reset() table, GetRand() >> 1).
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(DmShortNSeq, 8, 2.0, engine: DustEngine.Dustmasker),
+                Is.EqualTo(new[] { (19, 35), (39, 55) }));
+        });
+    }
+
+    // A window holding one triplet value only (homopolymer ≥ W) is masked by symdust's num_diff ≤ 1 shortcut
+    // (shift_window / shift_high insert a perfect interval with no score test). With W = 8 the best possible
+    // DUST score is 15/5 = 3.0, so at level 30 sdust masks nothing while dustmasker masks the G×18 run.
+    // This — not the size of thresholds_ (W − 2 entries) — is the W = 8 dustmasker/sdust difference of F35.
+    [Test]
+    public void FindLowComplexityIntervals_Dustmasker_SingleTripletWindowShortcut()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(DmPolyGSeq, 8, 3.0, engine: DustEngine.Dustmasker),
+                Is.EqualTo(new[] { (59, 77) }));
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(new DnaSequence(DmPolyGSeq), 8, 3.0, engine: DustEngine.Dustmasker),
+                Is.EqualTo(new[] { (59, 77) }));
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(DmPolyGSeq, 8, 3.0), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void MaskLowComplexity_Dustmasker_SoftMask_MatchesDustmaskerFasta()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.MaskLowComplexity(DmNSeq, 8, 2.0, softMask: true, engine: DustEngine.Dustmasker),
+                Is.EqualTo("nnACGTTGCaaaaaaaaaaaaCGTrrrrrrrrrrrrTGCAnnnnnnnnnnACGTTGCAAnnnn"));
+            // Lower-case input is upper-cased, as dustmasker's FASTA reader does.
+            Assert.That(SequenceComplexity.MaskLowComplexity(DmNSeq.ToLowerInvariant(), softMask: true, engine: DustEngine.Dustmasker),
+                Is.EqualTo("nnACGTTGCaaaaaaaaaaaacgtrrrrrrrrrrrrTGCANNNNNNNNNNACGTTGCAAnnnn"));
+            Assert.That(SequenceComplexity.MaskLowComplexity(DmShortNSeq, softMask: true, engine: DustEngine.Dustmasker),
+                Is.EqualTo("ACGTTGCAAGCTTCGATGCaaaaaaaaaaaaaaannnnnaaaaaaaaaaaaaaaaCGTTGCAAGCTTCGATGC"));
+            Assert.That(SequenceComplexity.MaskLowComplexity(new DnaSequence(DmPolyGSeq), 8, 3.0, 'X', 1, engine: DustEngine.Dustmasker),
+                Is.EqualTo(DmPolyGSeq[..59] + new string('X', 18) + DmPolyGSeq[77..]));
+        });
+    }
+
+    [Test]
+    public void Dustmasker_AcgtDefaults_EqualSdustEngine()
+    {
+        // At W = 64 / level 20 the single-triplet shortcut never fires below the score test, so on ACGT input the
+        // two engines agree (dustmasker 2.12.0: 10-25 43-58 81-93 and, -linker 32, 10-93).
+        const string seq = "ACGTGCATGCAAAAAAAAAAAAAAAAGCTAGCATCGACTGCAGCACACACACACACACAGATCGATCGTACGGTGCATGACAAAAAAAAAAAAACT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(seq, engine: DustEngine.Dustmasker),
+                Is.EqualTo(new[] { (10, 26), (43, 59), (81, 94) }));
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals(seq, linker: 32, engine: DustEngine.Dustmasker),
+                Is.EqualTo(new[] { (10, 94) }));
+        });
+    }
+
+    [Test]
+    public void Dustmasker_InvalidParameters_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            // symdust accepts window 8–64 and level 2–64 (dustmasker silently substitutes 64 / 20 otherwise).
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals("ACGT", 7, 2.0, engine: DustEngine.Dustmasker));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals("ACGT", 65, 2.0, engine: DustEngine.Dustmasker));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals("ACGT", 64, 0.1, engine: DustEngine.Dustmasker));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals("ACGT", 64, 6.5, engine: DustEngine.Dustmasker));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals("ACGT", 64, 2.05, engine: DustEngine.Dustmasker));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals("ACGT", 64, 2.0, 33, DustEngine.Dustmasker));
+            // dustmasker's reader turns U into T, '-' into N and drops X/'*' (coordinates shift): rejected here.
+            Assert.Throws<ArgumentException>(() => SequenceComplexity.FindLowComplexityIntervals("ACGU", engine: DustEngine.Dustmasker));
+            Assert.Throws<ArgumentException>(() => SequenceComplexity.MaskLowComplexity("ACG-T", engine: DustEngine.Dustmasker));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityIntervals("ACGT", engine: (DustEngine)7));
+            Assert.That(SequenceComplexity.FindLowComplexityIntervals("", engine: DustEngine.Dustmasker), Is.Empty);
+            Assert.That(SequenceComplexity.ParseDustEngine("DustMasker"), Is.EqualTo(DustEngine.Dustmasker));
+            Assert.That(SequenceComplexity.ParseDustEngine(null), Is.EqualTo(DustEngine.Sdust));
+            Assert.Throws<ArgumentException>(() => SequenceComplexity.ParseDustEngine("seg"));
+        });
+    }
+
+    #endregion
+
     #region F34 — longdust (Li & Li 2025) k-mer generalisation, compiled lh3/longdust 1.4-r97 output
 
     private const string LdVntr =

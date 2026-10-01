@@ -221,7 +221,7 @@
 | find_inverted_repeats_scored | Analysis | RepeatFinder.FindInvertedRepeatsScored | RepeatFinder.cs#L3345 | 2/2 | ✓ | ✓ | Ready |
 | find_known_motifs | Analysis | GenomicAnalyzer.FindKnownMotifs | GenomicAnalyzer.cs#L140 | 0/0 | – | – | Build-Ready |
 | find_longdust_regions | Analysis | SequenceComplexity.FindLongdustRegions | SequenceComplexity.cs#L1195 | 2/2 | ✓ | ✓ | Ready |
-| find_low_complexity_intervals | Analysis | SequenceComplexity.FindLowComplexityIntervals | SequenceComplexity.cs#L854 | 2/2 | ✓ | ✓ | Ready |
+| find_low_complexity_intervals | Analysis | SequenceComplexity.FindLowComplexityIntervals | SequenceComplexity.cs#L872 | 2/2 | ✓ | ✓ | Ready |
 | find_low_complexity_regions | Analysis | SequenceComplexity.FindLowComplexityRegions | SequenceComplexity.cs#L461 | 0/0 | – | – | Build-Ready |
 | find_microsatellites | Analysis | RepeatFinder.FindMicrosatellites | RepeatFinder.cs#L86 | 0/0 | – | – | Build-Ready |
 | find_motif | Analysis | GenomicAnalyzer.FindMotif | GenomicAnalyzer.cs#L107 | 0/0 | – | – | Build-Ready |
@@ -267,7 +267,7 @@
 | lempel_ziv_complexity | Analysis | SequenceComplexity.CalculateLempelZivComplexity | SequenceComplexity.cs#L1581 | 2/2 | ✓ | ✓ | Ready |
 | longdust_score | Analysis | SequenceComplexity.CalculateLongdustScore | SequenceComplexity.cs#L1148 | 2/2 | ✓ | ✓ | Ready |
 | mask_approximate_tandem_repeats | Analysis | RepeatFinder.MaskApproximateTandemRepeats | RepeatFinder.cs#L1039 | 2/2 | ✓ | ✓ | Ready |
-| mask_low_complexity | Analysis | SequenceComplexity.MaskLowComplexity | SequenceComplexity.cs#L826 | 0/0 | – | – | Build-Ready |
+| mask_low_complexity | Analysis | SequenceComplexity.MaskLowComplexity | SequenceComplexity.cs#L838 | 0/0 | – | – | Build-Ready |
 | minimum_free_energy | Analysis | RnaSecondaryStructure.CalculateMinimumFreeEnergy | RnaSecondaryStructure.cs#L985 | 0/0 | – | – | Build-Ready |
 | mismatch_coaxial_stacking | Analysis | RnaSecondaryStructure.CalculateMismatchCoaxialStacking | RnaSecondaryStructure.cs#L965 | 0/0 | – | – | Build-Ready |
 | most_frequent_kmers | Analysis | KmerAnalyzer.FindMostFrequentKmers | KmerAnalyzer.cs#L160 | 0/0 | – | – | Build-Ready |

@@ -5,8 +5,8 @@
 | Algorithm Group | Complexity |
 | Test Unit ID | SEQ-COMPLEX-DUST-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
-| Implementation Status | Complete (score + SDUST masking + dustmasker linker/soft mask + longdust k-mer generalisation) |
-| Last Reviewed | 2026-09-30 |
+| Implementation Status | Complete (score + SDUST masking + dustmasker linker/soft mask + dustmasker-parity engine + longdust k-mer generalisation) |
+| Last Reviewed | 2026-10-01 |
 
 ## 1. Overview
 
@@ -54,7 +54,7 @@ The numerator `Σ_t c_t(c_t−1)/2` counts pairs of identical triplets (the refe
 
 ### 3.3 Preconditions and Validation
 
-`string` input is upper-cased (T↔U not performed; DNA alphabet assumed). Null `DnaSequence` ⇒ `ArgumentNullException`; null/empty `string` ⇒ 0. `wordSize ≠ 3` ⇒ `ArgumentOutOfRangeException` (B04 F34: DUST is defined for triplets only — Morgulis 2006 [1], NCBI symdust `triplet_type` [4], lh3/sdust `SD_WLEN = 3` [3], longdust README "It [SDUST] hardcodes k=3" [2], and sdust itself marks `SD_WLEN != 3` as untested (`TODO: is this right for SD_WLEN!=3?`); the former extrapolation to other k had no source; the sourced k-mer generalisation is longdust, §4.3). Fewer than two words (`ℓ ≤ 1`) ⇒ 0 (no word pair exists; defined-output convention, not a source value). `MaskLowComplexity` / `FindLowComplexityIntervals`: `windowSize < 3`, a negative/NaN/infinite `threshold` or `linker` outside 1–32 ⇒ `ArgumentOutOfRangeException`; null ⇒ `ArgumentNullException`.
+`string` input is upper-cased (T↔U not performed; DNA alphabet assumed). Null `DnaSequence` ⇒ `ArgumentNullException`; null/empty `string` ⇒ 0. `wordSize ≠ 3` ⇒ `ArgumentOutOfRangeException` (B04 F34: DUST is defined for triplets only — Morgulis 2006 [1], NCBI symdust `triplet_type` [4], lh3/sdust `SD_WLEN = 3` [3], longdust README "It [SDUST] hardcodes k=3" [2], and sdust itself marks `SD_WLEN != 3` as untested (`TODO: is this right for SD_WLEN!=3?`); the former extrapolation to other k had no source; the sourced k-mer generalisation is longdust, §4.3). Fewer than two words (`ℓ ≤ 1`) ⇒ 0 (no word pair exists; defined-output convention, not a source value). `MaskLowComplexity` / `FindLowComplexityIntervals`: `windowSize < 3`, a negative/NaN/infinite `threshold` or `linker` outside 1–32 ⇒ `ArgumentOutOfRangeException`; null ⇒ `ArgumentNullException`. With `engine: DustEngine.Dustmasker` additionally `windowSize` outside 8–64 or `10·threshold` not an integer in 2–64 ⇒ `ArgumentOutOfRangeException` (symdust's accepted ranges; dustmasker silently substitutes 64 / 20) and non-IUPAC-DNA input (U, gaps, X, …: dustmasker's FASTA reader rewrites or drops them, shifting coordinates) ⇒ `ArgumentException`.
 
 ## 4. Algorithm
 
@@ -68,6 +68,8 @@ The numerator `Σ_t c_t(c_t−1)/2` counts pairs of identical triplets (the refe
 **SDUST masking (`MaskLowComplexity`)** — a port of lh3/sdust `sdust_core` [3]: slide a window of `W` bases (≤ W − 2 triplets); maintain the window score `rw` and the score `rv` of the longest window suffix in which no triplet occurs more than `2·threshold` times; when `rw > threshold·L_suffix`, extend leftwards from that suffix to find every *perfect interval* (score > threshold and ≥ the best score of any perfect interval it contains); intervals leaving the window are emitted and merged when overlapping/adjacent (dustmasker `linker`, below). Non-ACGT characters split the scan: every maximal ACGT run is scanned as an independent sequence (sdust's stated contract "N effectively breaks input into pieces of independent sequences" [3]; upstream `sdust_core` resets only `l` and `t` and leaks the triplet window across the break — e.g. `sdust -w 64 -t 20` reports `35 72` on a 53-bp input — so the window is reset here, B04 F36).
 
 **dustmasker linker and soft masking (B04 F35)** — NCBI symdust `save_masked_regions` [4] merges a new interval into the previous one when `prev.last + linker ≥ next.first` (closed coordinates), i.e. when fewer than `linker` unmasked bases separate them; `linker` = 1 (dustmasker `DEFAULT_LINKER`; symdust accepts 1–32 and silently substitutes 1 for any other value — `-linker 0` and `-linker 50` both give the linker-1 output — so values outside 1–32 are rejected here) is exactly sdust's overlap/adjacency merge, so the default output is unchanged. `softMask` writes masked bases in lower case and the rest in upper case (dustmasker `-outfmt fasta`). `FindLowComplexityIntervals` returns the merged intervals as 0-based half-open `[start, end)` (sdust output; dustmasker `-outfmt interval` prints `start - end−1`).
+
+**dustmasker-parity engine (`engine: DustEngine.Dustmasker`, B04 F53)** — a line-by-line port of NCBI `CSymDustMasker` [4] driven by dustmasker's `GetDustMasks_SkipNs` [5]. It differs from sdust in four sourced ways: (a) *IUPAC as bases* — `CIupac2Ncbi2na_converter` maps C/G/T → 1/2/3, every other code (A, R, Y, …) → 0 and N → `CRandom::GetRand() & 3`, the toolkit's lagged-Fibonacci generator (lags 33/13, fixed `Reset()` seed table [6], one generator per sequence, consumed in scan order including symdust's re-scans), so dustmasker's output is deterministic and reproduced exactly; (b) *N runs* — `s_FindSegmentWithLongNs` cuts the scan only at N runs longer than the window and at leading/trailing N runs of any length, and those runs are themselves reported as masked intervals; the per-segment results are joined by `s_InsertMerge`, which merges only when `prev.last + linker == next.first` exactly (e.g. linker 5 bridges a gap of 4, linker 6 does not); (c) *single-triplet windows* — when a full window holds one triplet value (`num_diff ≤ 1`, a homopolymer ≥ W bases) `shift_window`/`shift_high` record a perfect interval without a score test and the scan restarts from the window start afterwards, so at W = 8, level ≥ 30 (best possible score 15/5 = 3.0) dustmasker masks homopolymers sdust never masks — this, not the `thresholds_` table (which has W − 2 entries, indices 0…W − 3), is the W = 8 difference recorded in F35; (d) after a completed pass symdust re-scans the last window from `start + w.start()` (`operator()` loop) and merges via `save_masked_regions`. Parameters are restricted to symdust's ranges (window 8–64, integer level 2–64, linker 1–32).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -107,6 +109,7 @@ Cross-check (compiled lh3/longdust 1.4-r97, commit 9491215): 1 500 random repeat
 - `SequenceComplexity.MaskLowComplexity(DnaSequence, …)`: symmetric DUST (SDUST) masking of perfect intervals; default W = 64, threshold 2.0 (level 20); overload with `linker` + `softMask`.
 - `SequenceComplexity.MaskLowComplexity(string, …)`: same on a raw string that may contain N/IUPAC (split into independent ACGT runs), with `linker` and `softMask`.
 - `SequenceComplexity.FindLowComplexityIntervals(string|DnaSequence, …)`: the SDUST intervals as `[start, end)`.
+- `engine: DustEngine` (optional last parameter of the `linker` overloads, default `Sdust`): `DustEngine.Dustmasker` selects the NCBI dustmasker port ([SequenceComplexity.Dustmasker.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.Dustmasker.cs)); `SequenceComplexity.ParseDustEngine(string)` maps `"sdust"`/`"dustmasker"` (MCP `engine` parameter).
 - `SequenceComplexity.CalculateLongdustScore(string, k, gc)` / `FindLongdustRegions(string, …)`: longdust (§4.3).
 
 ### 5.2 Current Behavior
@@ -124,10 +127,11 @@ The score is computed exactly as the formula in §2.2: numerator `Σ c(c−1)/2`
 
 - dustmasker `linker` interval merge and `-outfmt fasta` soft masking [4] — identical to dustmasker 2.12.0 on 1 500 ACGT inputs (W 8–64, level 2–30, linker 1–32; 261 outputs changed by the linker): 0 interval and 0 soft-mask mismatches.
 - k-mer generalisation: longdust [2] (§4.3), not an extrapolation of the DUST formula.
+- dustmasker-parity engine [4][5][6] (B04 F53) — identical to dustmasker 2.12.0 `-outfmt interval` and `-outfmt fasta` on 4 030 inputs: 3 000 random/low-complexity (1 533 with N, 1 090 with other IUPAC codes; W 8–64, level 2–64, linker 1–32; 5 946 reference intervals) → 0 interval and 0 soft-mask mismatches; 1 000 N-stress inputs (91 618 N bases in short runs ≤ W) → 0; 30 long sequences (1.65 Mb) → 0. Sensitivity: replacing the CRandom code of N by A gives 806/1 000 N-stress mismatches, evaluating the first triplet's two converter calls right-to-left gives 9/1 000.
 
 **Intentionally simplified:** none. (The former `wordSize ≠ 3` extrapolation was removed, B04 F34.)
 
-**Known reference differences:** dustmasker's own SDUST core differs from lh3/sdust for very small windows at high levels (10/1 000 cases, all W = 8, level 30: symdust's `thresholds_` table has only W − 3 entries); dustmasker additionally treats IUPAC codes as bases and only skips long N runs (`GetDustMasks_SkipNs`), so on N-containing input the reference here is sdust per ACGT run.
+**Known reference differences:** the default engine is lh3/sdust. dustmasker's own core differs from it for small windows at high levels (single-triplet-window shortcut, §4.1 (c); on 2 000 ACGT inputs 47 differ, all W = 8 / level 30) and on N/IUPAC input (§4.1 (a)(b)); both are available exactly through `engine: DustEngine.Dustmasker` (B04 F53).
 
 ### 5.4 Deviations and Assumptions
 
@@ -136,6 +140,7 @@ The score is computed exactly as the formula in §2.2: numerator `Σ c(c−1)/2`
 | 1 | `ℓ ≤ 1` ⇒ 0 | Assumption | No score defined by sources (ℓ − 1 = 0) | accepted | Defined-output convention |
 | 2 | `wordSize ≠ 3` rejected | Source rule | DUST is triplet-only | resolved (F34) | k-mer generalisation = longdust |
 | 3 | Window reset at non-ACGT | Deviation from upstream sdust code, conforms to its stated contract | Intervals after an N are no longer shifted/out of range | resolved (F36) | 3 000 inputs (1 037 with N): 0 mismatches vs sdust per ACGT run; upstream whole-input output differs on 274 |
+| 4 | dustmasker engine rejects out-of-range window/level and non-IUPAC input | Stricter than the reference | dustmasker silently substitutes defaults / its reader rewrites U→T, '-'→N and drops X, '*' | accepted (F53) | Same policy as the linker (F35) |
 
 ## 6. Edge Cases and Limitations
 
@@ -151,7 +156,7 @@ The score is computed exactly as the formula in §2.2: numerator `Σ c(c−1)/2`
 
 ### 6.2 Limitations
 
-Heuristic, not a probabilistic significance test. Only triplet scoring (k = 3) is source-defined for DUST; longer k use longdust. Masked intervals equal lh3/sdust output (per ACGT run for inputs with N).
+Heuristic, not a probabilistic significance test. Only triplet scoring (k = 3) is source-defined for DUST; longer k use longdust. Masked intervals equal lh3/sdust output (per ACGT run for inputs with N), or NCBI dustmasker 2.12.0 output with `engine: DustEngine.Dustmasker`.
 
 ## 7. Examples and Related Material
 
@@ -167,6 +172,8 @@ Linker (dustmasker 2.12.0, `-window 64 -level 20`): the 96-bp `ACGTGCATGC A×16 
 
 N input: `ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA` ⇒ `[6,18) [23,38)` (sdust per ACGT run; upstream whole-input sdust: `8 20 / 21 34 / 35 72`).
 
+dustmasker engine (dustmasker 2.12.0 `-window 8 -level 20`): `NN ACGTTGC A×12 CGT R×12 TGCA N×10 ACGTTGCAA NNNN` ⇒ `[0,2) [9,21) [24,36) [40,50) [59,63)` (terminal N runs and the 10-N run > W masked, R×12 scanned as poly-A; `-linker 5` gives `[0,2) [9,50) [59,63)`, `-linker 6` the linker-1 list); the sdust engine gives `[9,21)`. At the default W 64 the 5-N run of `ACGTTGCAAGCTTCGATGC A×15 N×5 A×16 CGTTGCAAGCTTCGATGC` is scanned as CRandom bases and `[19,55)` is masked (sdust engine: `[19,34) [39,55)`).
+
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [SequenceComplexity_CalculateDustScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceComplexity_CalculateDustScore_Tests.cs) — covers `INV-01`–`INV-04`
@@ -179,4 +186,5 @@ N input: `ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA` ⇒ `[6,18) [23
 2. Li H, Li B. 2025. Finding low-complexity DNA sequences with longdust. arXiv:2509.07357. https://arxiv.org/abs/2509.07357 — opened via github.com/lh3/longdust (`README.md`, `tex/longdust.tex`, `longdust.c` 1.4-r97, MIT).
 3. Li H. sdust — Symmetric DUST reference C implementation. https://raw.githubusercontent.com/lh3/sdust/master/sdust.c
 4. NCBI C++ Toolkit — dustmasker symmetric DUST (`src/algo/dustmask/symdust.cpp`, `include/algo/dustmask/symdust.hpp`). https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/algo/dustmask/symdust.cpp
-5. NCBI BLAST+ 2.12.0 `dustmasker` (Debian package `ncbi-blast+`) and `src/app/dustmask/dust_mask_app.cpp` (`GetDustMasks_SkipNs`).
+5. NCBI BLAST+ 2.12.0 `dustmasker` (Debian package `ncbi-blast+`) and `src/app/dustmasker/dust_mask_app.cpp` (`s_FindSegmentWithLongNs`, `s_InsertMerge`, `GetDustMasks_SkipNs`). https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/app/dustmasker/dust_mask_app.cpp
+6. NCBI C++ Toolkit — `CRandom` (`src/util/random_gen.cpp`, `include/util/random_gen.hpp`: LFG lags 33/13, `Reset()` table, `GetRand() = x_GetRand32Bits() >> 1`), the generator behind symdust's N conversion. https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/util/random_gen.cpp

@@ -1531,18 +1531,20 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "mask_low_complexity", Title = "Complexity — Mask Low-Complexity Regions (SDUST)", ReadOnly = true)]
-    [Description("Mask low-complexity regions of a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust): every perfect interval of at most windowSize bases whose DUST score exceeds the threshold is masked. N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking.")]
+    [Description("Mask low-complexity regions of a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust): every perfect interval of at most windowSize bases whose DUST score exceeds the threshold is masked. N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking. engine='dustmasker' reproduces NCBI dustmasker 2.12.0 output exactly (symdust core, IUPAC scanned as bases, long/terminal N runs masked).")]
     public static MaskLowComplexityResult MaskLowComplexity(
         [Description("DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive).")] string sequence,
         [Description("SDUST window length in bases (default 64, >= 3).")] int windowSize = 64,
         [Description("DUST score threshold; intervals scoring strictly above it are masked (default 2.0 = dustmasker level 20).")] double threshold = 2.0,
         [Description("Mask character (default 'N'; ignored when softMask is true).")] char maskChar = 'N',
         [Description("dustmasker linker: merge masked intervals separated by fewer than linker unmasked bases (1-32, default 1 = sdust/dustmasker default).")] int linker = 1,
-        [Description("Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta). Default false.")] bool softMask = false)
+        [Description("Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta). Default false.")] bool softMask = false,
+        [Description("DUST engine: 'sdust' (default; lh3/sdust port, non-ACGT symbols split the scan) or 'dustmasker' (exact NCBI dustmasker 2.12.0 parity: IUPAC codes scanned as bases, only N runs longer than the window plus leading/trailing N runs cut the scan and are masked; window 8-64, 10*threshold an integer 2-64).")] string engine = "sdust")
     {
         var dna = RequireIupacDna(sequence, nameof(sequence));
+        var dustEngine = global::Seqeron.Genomics.Analysis.SequenceComplexity.ParseDustEngine(engine);
         var masked = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .MaskLowComplexity(dna, windowSize, threshold, maskChar, linker, softMask);
+            .MaskLowComplexity(dna, windowSize, threshold, maskChar, linker, softMask, dustEngine);
         return new MaskLowComplexityResult(masked);
     }
 
@@ -1570,16 +1572,18 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_low_complexity_intervals", Title = "Complexity — SDUST Low-Complexity Intervals", ReadOnly = true)]
-    [Description("SDUST low-complexity intervals (Morgulis et al. 2006; lh3/sdust native output, dustmasker -outfmt interval with end+1) as 0-based half-open [start, end) pairs in ascending order — the intervals that mask_low_complexity masks. N and other IUPAC codes split the scan into independent ACGT runs. Optional dustmasker linker merge.")]
+    [Description("SDUST low-complexity intervals (Morgulis et al. 2006; lh3/sdust native output, dustmasker -outfmt interval with end+1) as 0-based half-open [start, end) pairs in ascending order — the intervals that mask_low_complexity masks. N and other IUPAC codes split the scan into independent ACGT runs. Optional dustmasker linker merge. engine='dustmasker' returns exactly NCBI dustmasker 2.12.0 -outfmt interval (end+1), including masked N runs longer than the window and leading/trailing N runs.")]
     public static FindLowComplexityIntervalsResult FindLowComplexityIntervals(
         [Description("DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive).")] string sequence,
         [Description("SDUST window length in bases (default 64, >= 3).")] int windowSize = 64,
         [Description("DUST score threshold; intervals scoring strictly above it are reported (default 2.0 = dustmasker level 20).")] double threshold = 2.0,
-        [Description("dustmasker linker: merge intervals separated by fewer than linker unmasked bases (1-32, default 1 = sdust/dustmasker default).")] int linker = 1)
+        [Description("dustmasker linker: merge intervals separated by fewer than linker unmasked bases (1-32, default 1 = sdust/dustmasker default).")] int linker = 1,
+        [Description("DUST engine: 'sdust' (default; lh3/sdust port, non-ACGT symbols split the scan) or 'dustmasker' (exact NCBI dustmasker 2.12.0 parity: IUPAC codes scanned as bases, only N runs longer than the window plus leading/trailing N runs cut the scan and are masked; window 8-64, 10*threshold an integer 2-64).")] string engine = "sdust")
     {
         var dna = RequireIupacDna(sequence, nameof(sequence));
+        var dustEngine = global::Seqeron.Genomics.Analysis.SequenceComplexity.ParseDustEngine(engine);
         var items = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .FindLowComplexityIntervals(dna, windowSize, threshold, linker)
+            .FindLowComplexityIntervals(dna, windowSize, threshold, linker, dustEngine)
             .Select(p => new ComplexityIntervalItem(p.Start, p.End, p.End - p.Start))
             .ToArray();
         return new FindLowComplexityIntervalsResult(items);

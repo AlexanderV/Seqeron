@@ -20,6 +20,7 @@
 | 3 | lh3/sdust — reference C implementation (`sdust.c`), compiled and run. | 3 | https://raw.githubusercontent.com/lh3/sdust/master/sdust.c | 2026-09-28 |
 | 4 | NCBI dustmasker `symdust.cpp`/`symdust.hpp`, `dust_mask_app.cpp`; BLAST+ 2.12.0 `dustmasker` binary run. | 3 | https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/algo/dustmask/symdust.cpp | 2026-09-30 |
 | 5 | lh3/longdust 1.4-r97 (`longdust.c`, MIT) — compiled and run. | 3 | https://github.com/lh3/longdust | 2026-09-30 |
+| 6 | NCBI `dust_mask_app.cpp` (`s_FindSegmentWithLongNs`, `s_InsertMerge`, `GetDustMasks_SkipNs`) and `util/random_gen.cpp/.hpp` (`CRandom`); dustmasker 2.12.0 binary run. | 3 | https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/app/dustmasker/dust_mask_app.cpp | 2026-10-01 |
 
 ### 1.2 Key Evidence Points
 
@@ -30,6 +31,7 @@
 5. DUST is defined for triplets only: symdust `triplet_type`, sdust `SD_WLEN 3`, longdust README "It [SDUST] hardcodes k=3"; sdust.c `TODO: is this right for SD_WLEN!=3?`. Other word sizes are rejected (F34).
 6. dustmasker linker: merge when `prev.last + linker ≥ next.first` (closed coords), linker ∈ 1–32, default 1 (= sdust adjacency merge). — symdust `save_masked_regions`.
 7. sdust: "N effectively breaks input into pieces of independent sequences" (sdust.c comment); upstream code leaks the window across N (e.g. interval 35–72 on a 53-bp input) — each ACGT run is scanned independently here (F36).
+9. dustmasker engine (F53): symdust converts IUPAC to 2-bit codes (C/G/T → 1/2/3, N → `CRandom::GetRand() & 3`, else 0); `GetDustMasks_SkipNs` cuts the scan only at N runs > window and leading/trailing N runs, reports those runs as masked and joins segments only when `prev.last + linker == next.first`; full windows with one triplet value (`num_diff ≤ 1`) are masked without a score test. — symdust.cpp, dust_mask_app.cpp, random_gen.hpp.
 8. longdust `S_L(x) = Σ log c(t)! − f(ℓ/4^k)`, low complexity iff `S_L − T·ℓ > 0`; defaults k 7, w 5000, T 0.6, X-drop 50, b 3. — Li & Li (2025), longdust.c.
 
 ### 1.3 Documented Corner Cases
@@ -55,6 +57,7 @@
 | `MaskLowComplexity(DnaSequence, int, double, char, int linker, bool softMask)` | SequenceComplexity | Canonical | + dustmasker linker / soft mask. |
 | `MaskLowComplexity(string, …, linker, softMask)` | SequenceComplexity | Canonical | Raw string with N/IUPAC (independent ACGT runs). |
 | `FindLowComplexityIntervals(string / DnaSequence, int, double, int)` | SequenceComplexity | Canonical | SDUST intervals `[start, end)`. |
+| `… , DustEngine engine` (last optional parameter of the linker overloads and `FindLowComplexityIntervals`) | SequenceComplexity | Canonical | `DustEngine.Dustmasker` = NCBI dustmasker port (F53); `ParseDustEngine` for MCP. |
 | `CalculateLongdustScore(string, int, double?)` | SequenceComplexity | Canonical | longdust `S_L(x)`. |
 | `FindLongdustRegions(string, …)` | SequenceComplexity | Canonical | Port of longdust `ld_dust1/ld_dust2`. |
 
@@ -75,6 +78,7 @@
 | INV-9 | For input with non-ACGT symbols, intervals = sdust run on each maximal ACGT run, shifted; no interval covers a non-ACGT position. | Yes | sdust contract |
 | INV-10 | Soft mask: `ToUpper(soft) == ToUpper(input)`; lower-case positions = hard-masked positions. | Yes | dustmasker -outfmt fasta |
 | INV-11 | longdust intervals equal compiled longdust; forward ⊆ both-strand union. | Yes | longdust binary |
+| INV-12 | `engine: Dustmasker` intervals/soft mask equal dustmasker 2.12.0 `-outfmt interval`/`fasta`; on ACGT input with `level < 5·(W − 2)` they equal the sdust engine; masked set grows with linker. | Yes | dustmasker binary, symdust source |
 
 ---
 
@@ -102,6 +106,8 @@
 | M16 | N input = sdust per ACGT run | 5 rows (N, R, n; W 16/64) | exact intervals + masked strings | sdust binary per piece |
 | M17 | longdust regions | VNTR 408 bp, STR+N 307 bp; defaults, -k5 -w100, -f, -k4 -w200 -t1.0 | (120,288); (80,138)(202,227); (117,291); …; (120,288) | longdust binary |
 | M18 | longdust score | 6 rows incl. GC 0.41 | 17-digit values from longdust's `ld_cal_f/ld_cal_f2` | longdust source (compiled helper) |
+| M20 | dustmasker engine = dustmasker 2.12.0 | N/R input W 8 linker 1/3/4/5/6/10; short-N poly-A W 64 and W 8 (CRandom); G×18 at W 8 level 30 (single-triplet shortcut, string + DnaSequence); soft mask (upper/lower-case input, maskChar via DnaSequence); ACGT defaults + linker 32 | exact intervals / strings (e.g. `[0,2)[9,50)[59,63)` at linker 5) | dustmasker binary |
+| M21 | dustmasker engine validation | W 7/65, threshold 0.1/6.5/2.05, linker 33, U / '-' input, unknown enum, `ParseDustEngine` | ArgumentOutOfRange / Argument; "" ⇒ empty | symdust ranges, F53 |
 | M19 | longdust validation | k 0/15, w 0/65535, T 0/NaN, X-drop −1, b 1, GC 0/1, null | exceptions | longdust asserts/options |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -208,3 +214,4 @@ In-scope cases: 11. ✅ count: 11.
 1. The source hardcodes k = 3; the repository exposes a `wordSize` parameter. Decision (2026-09-30, F34): keep the parameter for source compatibility but reject every value other than 3; the sourced k-mer generalisation is longdust (`CalculateLongdustScore` / `FindLongdustRegions`).
 2. **2026-09-28 (review campaign B04):** the normaliser was corrected from ℓ to ℓ − 1 (sdust `find_perfect`, dustmasker `thresholds_`, confirmed with the compiled sdust binary), and `MaskLowComplexity` was replaced by the real SDUST perfect-interval algorithm (identical to sdust on 3,000 random cases). Tests M1–M7/S3 were re-locked to the reference-confirmed values; §5 audit rows above describe the 2026-06 state.
 3. **2026-09-30 (B04 completeness audit WP4):** F34 `wordSize ≠ 3` rejected + longdust added (1 500 inputs / 12 818 intervals, 0 mismatches vs compiled longdust; `S_L` bit-identical on 3 000); F35 dustmasker `linker` + soft mask (1 500 inputs, 0 interval / 0 soft-mask mismatches vs dustmasker 2.12.0); F36 `string` overload + `FindLowComplexityIntervals` with N splitting (3 000 inputs, 1 037 with non-ACGT, 0 mismatches vs sdust per ACGT run). Tests M13–M19.
+4. **2026-10-01 (B04 completeness audit WP12):** F53 `DustEngine.Dustmasker` — port of NCBI symdust + `GetDustMasks_SkipNs` + `CRandom`; 4 030 inputs vs dustmasker 2.12.0 (3 000 random incl. 1 533 with N / 1 090 with IUPAC, W 8–64, level 2–64, linker 1–32; 1 000 N-stress; 30 long, 1.65 Mb): 0 interval / 0 soft-mask mismatches. Tests M20–M21 + MCP tests.

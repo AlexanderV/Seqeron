@@ -5,46 +5,133 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.MaskLowComplexity",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L826",
-  "description": "Mask low-complexity regions of a DNA sequence with symmetric DUST (SDUST, Morgulis 2006; same output as lh3/sdust): every perfect interval of at most windowSize bases whose DUST score exceeds the threshold is masked. N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking. Returns a same-length masked string.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L838",
+  "description": "Mask low-complexity regions of a DNA sequence with symmetric DUST (SDUST, Morgulis 2006; same output as lh3/sdust): every perfect interval of at most windowSize bases whose DUST score exceeds the threshold is masked. N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking. Returns a same-length masked string. engine='dustmasker' reproduces NCBI dustmasker 2.12.0 exactly (port of symdust.cpp + GetDustMasks_SkipNs: IUPAC codes scanned as bases, N runs longer than the window and leading/trailing N runs cut the scan and are masked).",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive)", "minLength": 1 },
-      "windowSize": { "type": "integer", "description": "SDUST window length in bases (default 64, >= 3)", "minimum": 3, "default": 64 },
-      "threshold": { "type": "number", "description": "DUST threshold above which to mask (default 2.0)", "default": 2.0 },
-      "maskChar": { "type": "string", "description": "Mask character (default 'N'; ignored when softMask is true)", "minLength": 1, "maxLength": 1, "default": "N" },
-      "linker": { "type": "integer", "description": "dustmasker linker: merge masked intervals separated by fewer than linker unmasked bases (1-32, default 1 = sdust/dustmasker default)", "minimum": 1, "maximum": 32, "default": 1 },
-      "softMask": { "type": "boolean", "description": "Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta)", "default": false }
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive)",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "SDUST window length in bases (default 64, >= 3)",
+        "minimum": 3,
+        "default": 64
+      },
+      "threshold": {
+        "type": "number",
+        "description": "DUST threshold above which to mask (default 2.0)",
+        "default": 2.0
+      },
+      "maskChar": {
+        "type": "string",
+        "description": "Mask character (default 'N'; ignored when softMask is true)",
+        "minLength": 1,
+        "maxLength": 1,
+        "default": "N"
+      },
+      "linker": {
+        "type": "integer",
+        "description": "dustmasker linker: merge masked intervals separated by fewer than linker unmasked bases (1-32, default 1 = sdust/dustmasker default)",
+        "minimum": 1,
+        "maximum": 32,
+        "default": 1
+      },
+      "softMask": {
+        "type": "boolean",
+        "description": "Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta)",
+        "default": false
+      },
+      "engine": {
+        "type": "string",
+        "description": "DUST engine: 'sdust' (default; lh3/sdust port, non-ACGT symbols split the scan) or 'dustmasker' (exact NCBI dustmasker 2.12.0 parity: IUPAC codes scanned as bases, only N runs longer than the window plus leading/trailing N runs cut the scan and are masked; window 8-64, 10*threshold an integer 2-64)",
+        "enum": [
+          "sdust",
+          "dustmasker"
+        ],
+        "default": "sdust"
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "masked": { "type": "string", "description": "Masked sequence (same length as input)" }
+      "masked": {
+        "type": "string",
+        "description": "Masked sequence (same length as input)"
+      }
     },
-    "required": ["masked"]
+    "required": [
+      "masked"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+    },
+    {
+      "code": 1003,
+      "message": "engine 'dustmasker': windowSize 8-64, 10*threshold an integer 2-64, IUPAC DNA only; unknown engine name"
+    }
   ],
   "examples": [
     {
       "name": "Fully masked poly-A",
-      "input": { "sequence": "AAAA…(100×)", "windowSize": 64, "threshold": 1.0, "maskChar": "X" },
-      "output": { "masked": "XXXX…(100×)" }
+      "input": {
+        "sequence": "AAAA…(100×)",
+        "windowSize": 64,
+        "threshold": 1.0,
+        "maskChar": "X"
+      },
+      "output": {
+        "masked": "XXXX…(100×)"
+      }
     },
     {
       "name": "High complexity preserved",
-      "input": { "sequence": "ATGCTAGCATGCA…(78 bp)", "windowSize": 64, "threshold": 10.0, "maskChar": "N" },
-      "output": { "masked": "ATGCTAGCATGCA…(78 bp, unchanged)" }
+      "input": {
+        "sequence": "ATGCTAGCATGCA…(78 bp)",
+        "windowSize": 64,
+        "threshold": 10.0,
+        "maskChar": "N"
+      },
+      "output": {
+        "masked": "ATGCTAGCATGCA…(78 bp, unchanged)"
+      }
     },
     {
       "name": "Input with N, soft mask",
-      "input": { "sequence": "ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA", "softMask": true },
-      "output": { "masked": "ACGTNNaaaaaaaaaaaaNACGTacacacacacacacaNNGGGCCCTAGGTCA" }
+      "input": {
+        "sequence": "ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA",
+        "softMask": true
+      },
+      "output": {
+        "masked": "ACGTNNaaaaaaaaaaaaNACGTacacacacacacacaNNGGGCCCTAGGTCA"
+      }
+    },
+    {
+      "name": "dustmasker engine, soft mask",
+      "input": {
+        "sequence": "NNACGTTGCAAAAAAAAAAAACGTRRRRRRRRRRRRTGCANNNNNNNNNNACGTTGCAANNNN",
+        "windowSize": 8,
+        "threshold": 2.0,
+        "softMask": true,
+        "engine": "dustmasker"
+      },
+      "output": {
+        "masked": "nnACGTTGCaaaaaaaaaaaaCGTrrrrrrrrrrrrTGCAnnnnnnnnnnACGTTGCAAnnnn"
+      }
     }
   ]
 }

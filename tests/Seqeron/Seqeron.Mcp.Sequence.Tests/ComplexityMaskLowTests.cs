@@ -44,4 +44,20 @@ public class ComplexityMaskLowTests
             Assert.Throws<ArgumentOutOfRangeException>(() => SequenceTools.ComplexityMaskLow(linkerSeq, 64, 2.0, 'N', linker: 0));
         });
     }
+
+    [Test]
+    public void ComplexityMaskLow_DustmaskerEngine_MatchesDustmaskerFasta()
+    {
+        // Expected = NCBI dustmasker 2.12.0 default (-window 64 -level 20) -outfmt fasta: the 5-N run (≤ window) is
+        // scanned as pseudo-random bases (toolkit CRandom) and masked with the surrounding poly-A.
+        const string seq = "ACGTTGCAAGCTTCGATGCAAAAAAAAAAAAAAANNNNNAAAAAAAAAAAAAAAACGTTGCAAGCTTCGATGC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceTools.ComplexityMaskLow(seq, 64, 2.0, 'N', softMask: true, engine: "dustmasker").MaskedSequence,
+                Is.EqualTo("ACGTTGCAAGCTTCGATGCaaaaaaaaaaaaaaannnnnaaaaaaaaaaaaaaaaCGTTGCAAGCTTCGATGC"));
+            Assert.That(SequenceTools.ComplexityMaskLow(seq, 64, 2.0, 'N', softMask: true).MaskedSequence,
+                Is.EqualTo("ACGTTGCAAGCTTCGATGCaaaaaaaaaaaaaaaNNNNNaaaaaaaaaaaaaaaaCGTTGCAAGCTTCGATGC"));
+            Assert.Throws<ArgumentException>(() => SequenceTools.ComplexityMaskLow(seq, engine: "longdust"));
+        });
+    }
 }

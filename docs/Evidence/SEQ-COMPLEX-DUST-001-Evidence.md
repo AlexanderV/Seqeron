@@ -2,7 +2,47 @@
 
 **Test Unit ID:** SEQ-COMPLEX-DUST-001
 **Algorithm:** DUST Score (triplet-frequency low-complexity score of Morgulis et al. 2006 SDUST/DUST)
-**Date Collected:** 2026-06-14 (revised 2026-09-28 and 2026-09-30, review campaign B04)
+**Date Collected:** 2026-06-14 (revised 2026-09-28, 2026-09-30 and 2026-10-01, review campaign B04)
+
+---
+
+## 2026-10-01 Revision (B04 completeness audit WP12) — dustmasker-parity engine (F53)
+
+**Sources opened (2026-10-01):** NCBI C++ Toolkit (public domain, US-Government work), master, byte-identical to the
+copies used in WP4: `src/algo/dustmask/symdust.cpp` / `include/algo/dustmask/symdust.hpp` (`CIupac2Ncbi2na_converter`:
+`67→1, 71→2, 84→3, 78→m_Random.GetRand() & 0x3, default→0`; constructor ranges window 8–64, level 2–64, linker 1–32,
+`low_k_ = level/5`, `thresholds_ = {1, 1·level, …, (W−3)·level}` = **W − 2 entries**; `triplets::shift_window`,
+`shift_high`, `needs_processing`, `find_perfect`; `save_masked_regions`; `operator()(seq, start, stop)` incl. the
+`num_diff ≤ 1` inner loop and the `start += w.start()` re-scan), `src/app/dustmasker/dust_mask_app.cpp`
+(`s_FindSegmentWithLongNs`: N runs with `Ns > window` or at the start/end; `s_InsertMerge`: join iff
+`back.second + linker == new.first`; `GetDustMasks_SkipNs`; one `CSymDustMasker` per sequence),
+`src/util/random_gen.cpp` / `include/util/random_gen.hpp` (`CRandom` LFG lags 33/13, `Reset()` `sm_State[33]`,
+`m_RJ = 12`, `m_RK = 32`, `x_GetRand32Bits`, `GetRand() = x_GetRand32Bits() >> 1`). Binary: Debian `ncbi-blast+`
+2.12.0 `dustmasker` (`-version`: "blast 2.12.0").
+
+**Reader behaviour (measured):** lower case → upper case; `U` → `T`; `-` → `N`; `X` and `*` dropped (output shorter).
+Hence the engine accepts IUPAC DNA only (coordinates would otherwise differ).
+
+**Cross-check — C# `DustEngine.Dustmasker` vs `dustmasker -window W -level T -linker L -outfmt interval|fasta`:**
+
+| Set | Inputs | Content | Parameters | Reference intervals | Mismatches |
+|-----|--------|---------|------------|---------------------|------------|
+| Random / low-complexity (seed 21) | 2 000 | 1 012 with N, 728 with other IUPAC, 20 % lower case | W {8,9,10,12,16,20,30,32,45,64}, level {2…64}, linker {1…32} | 4 426 | 0 interval, 0 soft-mask |
+| Uniform parameters (seed 22) | 1 000 | 521 with N, 362 IUPAC | W 8–64, level 2–64, linker 1–32 uniform | 1 520 | 0 interval, 0 soft-mask |
+| N-stress (seed 23) | 1 000 | 91 618 N bases in runs 1…W (CRandom path) | W {8,10,16,30,64}, level {2,10,20,30}, linker {1,2,5} | — | 0 |
+| Long (seed 31) | 30 | 10 × ~55 kb, half with N/IUPAC, 1.65 Mb total | (64,20,1), (8,30,3), (30,15,10) | — | 0 |
+
+Total 4 030 inputs, **0 mismatches**. Sensitivity (N-stress seed 5): N → A instead of the CRandom code → 806/1 000
+mismatches; evaluating the first triplet's two converter calls right-to-left → 9/1 000 (left-to-right, as compiled,
+matches). On ACGT-only input (2 000, seed 9) the engines differ in 47 cases, all W = 8 / level 30: the `num_diff ≤ 1`
+single-triplet-window shortcut masks homopolymers ≥ W without a score test while the best W = 8 score is 15/5 = 3.0
+— this corrects the F35 explanation ("`thresholds_` has W − 3 entries"; it has W − 2). The sdust engine differs from
+dustmasker on 1 235 of the 3 000 random inputs (N/IUPAC handling and the W = 8 shortcut).
+
+**Locked rows** (dustmasker 2.12.0): `NNACGTTGCA×12…` (63 bp) `-window 8 -level 20` → `0-1 9-20 24-35 40-49 59-62`;
+`-linker 4` → `0-1 9-35 40-49 59-62`; `-linker 5` → `0-1 9-49 59-62`; `-linker 6/10` = linker 4; fasta
+`nnACGTTGCaaaaaaaaaaaaCGTrrrrrrrrrrrrTGCAnnnnnnnnnnACGTTGCAAnnnn`; short-N poly-A (73 bp) default → `19-54`,
+`-window 8` → `19-34 39-54`; poly-G 95 bp `-window 8 -level 30` → `59-76` (sdust: none).
 
 ---
 
@@ -15,7 +55,7 @@
   triplet window `w`, `L`, `rw`, `rv`, `cw`, `cv`.
 - NCBI C++ Toolkit `src/algo/dustmask/symdust.cpp` / `include/algo/dustmask/symdust.hpp`
   (`triplet_type`; `DEFAULT_LINKER = 1`; constructor clamps linker to 1–32; `save_masked_regions`:
-  `if (s + linker_ >= b1.first) res.back().second = max(s, b1.second)`), `src/app/dustmask/dust_mask_app.cpp`
+  `if (s + linker_ >= b1.first) res.back().second = max(s, b1.second)`), `src/app/dustmasker/dust_mask_app.cpp`
   (`GetDustMasks_SkipNs`: only runs of N ≥ window are cut out). Binary: Debian `ncbi-blast+` 2.12.0 `dustmasker`.
 - lh3/longdust 1.4-r97 (git clone, commit 9491215, MIT): `README.md` ("[SDUST] hardcodes k=3";
   `S_L(x) = Σ log c_x(t)! − f(ℓ(x)/4^k)`), `tex/longdust.tex` (Li H, Li B: `Q = Σ log c! − f(ℓ)`,
@@ -40,7 +80,7 @@ softMask: true)` vs `dustmasker -window W -level T -linker L -outfmt interval|fa
 changed the output in 261 cases): **0 interval mismatches, 0 soft-mask mismatches**. Second run (1 000
 inputs): symdust's rule applied to dustmasker's own linker-1 output reproduces dustmasker(L) in 1 000/1 000;
 C#(L) = symdust rule applied to sdust in 1 000/1 000; dustmasker's core differs from sdust in 10 cases,
-all W = 8 / level 30 (symdust `thresholds_` has only W − 3 entries), so C#(L) = dustmasker(L) in 990/1 000.
+all W = 8 / level 30 (symdust `thresholds_` has only W − 3 entries — corrected by F53: the cause is the `num_diff ≤ 1` single-triplet-window shortcut), so C#(L) = dustmasker(L) in 990/1 000.
 Worked row (dustmasker 2.12.0, `-window 64 -level 20`, 96-bp A×16 / (CA)×8 / A×13 sequence): linker 1–17 →
 `10-25, 43-58, 81-93`; 18–19 → `10-58, 81-93`; 32 → `10-93` (closed).
 
@@ -51,7 +91,7 @@ path resets the window at every non-ACGT symbol, i.e. it equals sdust run on eac
 (`[6,18) [23,38)`). 3 000 random inputs (1 037 with N/IUPAC/lower case; W 3–100, T 1–30): C# vs per-piece
 sdust **0 mismatches**; ACGT-only inputs vs whole-input sdust **0 mismatches**; upstream whole-input sdust
 differs from its own per-piece output on 274 of the N inputs. dustmasker is not the reference on N input
-(it treats IUPAC codes as bases and only cuts N runs ≥ window).
+(it treats IUPAC codes as bases and only cuts N runs > window); its exact behaviour is available as `DustEngine.Dustmasker` (F53).
 
 ---
 
@@ -204,3 +244,4 @@ T ∈ {10,12,15,20,25,30}) and one 1-Mb sequence: 0 mismatches.
 - **2026-06-14**: Initial documentation.
 - **2026-09-28**: Normaliser corrected to ℓ − 1 (sdust/dustmasker source + binary); SDUST masking evidence added.
 - **2026-09-30**: F34 triplets-only + longdust, F35 dustmasker linker/soft mask, F36 N-splitting string overload (B04 WP4); cross-check numbers above.
+- **2026-10-01**: F53 dustmasker-parity engine (`DustEngine.Dustmasker`), 4 030 inputs vs dustmasker 2.12.0, 0 mismatches (B04 WP12).
