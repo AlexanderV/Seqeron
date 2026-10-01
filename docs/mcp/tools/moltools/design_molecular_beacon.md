@@ -14,7 +14,7 @@ Design a hairpin molecular-beacon probe for real-time detection.
 
 ## Description
 
-Chooses the highest-scoring `probe_length`-bp loop in the target (GC 40–60%, Tm 55–65 °C, no long homopolymer preferred) and flanks it with GC-rich complementary stems to form a hairpin. The 5′ stem is `⌊stem_length/2⌋` G's followed by the remaining C's; the 3′ stem is its reverse complement. The final probe is `stem5 + loop + stem3`; `Tm` is the loop Tm and `Start`/`End` mark the loop in the target. Returns `probe = null` when the target is shorter than `probe_length`.
+Chooses the highest-scoring `probe_length`-bp loop in the target (GC 40–60%, loop Tm in the window, no homopolymer run > 4 preferred) and flanks it with GC-rich complementary stems to form a hairpin. The 5′ stem is `⌊stem_length/2⌋` G's followed by the remaining C's; the 3′ stem is its reverse complement. The final probe is `stem5 + loop + stem3`; `Tm` is the loop (probe–target) Tm — Primer3 `seqtm` at the Primer3 probe conditions (50 nM, 50 mM monovalent, no Mg²⁺/dNTP) — and `Start`/`End` mark the loop in the target. The warnings carry the ntthal stem-loop (hairpin) Tm of the whole beacon (≤ 60 nt). With `detection_temperature` = T the loop Tm window is [T + 7, T + 10] °C and the stem-loop Tm is checked against T + 7 °C (molecular-beacon rules of Tyagi & Kramer: probe and stem Tm 7–10 °C above the detection temperature); without it the window is 55–65 °C. Returns `probe = null` when the target is shorter than `probe_length`.
 
 ## Core Documentation Reference
 
@@ -27,6 +27,7 @@ Chooses the highest-scoring `probe_length`-bp loop in the target (GC 40–60%, T
 | `target_sequence` | string | Yes | Target DNA sequence, non-empty. |
 | `probe_length` | integer | No | Loop length in bp (> 0, default 25). |
 | `stem_length` | integer | No | Stem length in bp (> 0, default 5). |
+| `detection_temperature` | number | No | Detection (annealing) temperature in °C for the 7–10 °C rules (default: none). |
 
 ## Output Schema
 

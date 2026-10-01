@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.AnalyzeOligo",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1299",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs",
   "description": "Return Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide.",
   "inputSchema": {
     "type": "object",
@@ -21,9 +21,9 @@
   "outputSchema": {
     "type": "object",
     "properties": {
-      "tm": { "type": "number", "description": "Melting temperature in °C (Wallace rule for length < 14, salt-adjusted otherwise)" },
+      "tm": { "type": ["number", "null"], "description": "Melting temperature in °C: Primer3 seqtm (= primer3-py calc_tm with max_nn_length 36) at 50 nM, 50 mM monovalent, no Mg/dNTP; null for < 2 bases or a non-ACGT base" },
       "gcContent": { "type": "number", "description": "GC content as a fraction in [0,1]" },
-      "molecularWeight": { "type": "number", "description": "Molecular weight in Da" },
+      "molecularWeight": { "type": "number", "description": "Single-stranded molecular weight in Da (Biopython molecular_weight; RNA when U and no T)" },
       "extinctionCoefficient": { "type": "number", "description": "Molar extinction coefficient at 260 nm (M⁻¹·cm⁻¹)" }
     },
     "required": ["tm", "gcContent", "molecularWeight", "extinctionCoefficient"]
@@ -33,14 +33,14 @@
   ],
   "examples": [
     {
-      "name": "4-mer (Wallace rule Tm)",
+      "name": "4-mer",
       "input": { "sequence": "ATGC" },
-      "output": { "tm": 12, "gcContent": 0.5, "molecularWeight": 1253.8, "extinctionCoefficient": 43000 }
+      "output": { "tm": -54.53620887888866, "gcContent": 0.5, "molecularWeight": 1253.8027, "extinctionCoefficient": 43000 }
     },
     {
-      "name": "20-mer (salt-adjusted Tm)",
+      "name": "20-mer (nearest-neighbour Tm)",
       "input": { "sequence": "ACGTACGTACGTACGTACGT" },
-      "output": { "tm": 50.402902071977906, "gcContent": 0.5, "molecularWeight": 6197, "extinctionCoefficient": 215000 }
+      "output": { "tm": 53.99351583691026, "gcContent": 0.5, "molecularWeight": 6196.9523, "extinctionCoefficient": 215000 }
     }
   ]
 }

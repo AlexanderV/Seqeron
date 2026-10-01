@@ -14,7 +14,7 @@ Design ranked hybridization probes for a target sequence.
 
 ## Description
 
-Scans the target for every candidate of admissible length (`parameters.MinLength..MaxLength`), scores each on GC%, Tm, homopolymers, self-complementarity and structure heuristics, and returns up to `max_probes` probes sorted by score (descending). Use a `ProbeParameters` preset (`Microarray` default, `FISH`, `NorthernBlot`, `qPCR`, `SouthernBlot`) or custom values. A target shorter than the minimum probe length returns an empty list.
+Scans the target for every candidate of admissible length (`parameters.MinLength..MaxLength`), scores each with an additive penalty score on GC%, Tm (Primer3 `seqtm` at the parameters' conditions, default Primer3 probe conditions 50 nM / 50 mM monovalent / no Mg²⁺ / no dNTP), homopolymers, self-structure (for ≤ 60-nt ACGT probes the Primer3 ntthal self-dimer, 3′ self-dimer and hairpin Tm limit, default 47 °C; longer probes use the sequence-only fold-back fraction and inverted-repeat screens) and simple repeats, and returns up to `max_probes` probes sorted by score (descending). Use a `ProbeParameters` preset (`Microarray` default, `FISH`, `NorthernBlot`, `qPCR` — Tm 68–70 °C, GC 30–80 % per the Applied Biosystems TaqMan probe guidelines —, `SouthernBlot`) or custom values. A target shorter than the minimum probe length returns an empty list.
 
 ## Core Documentation Reference
 

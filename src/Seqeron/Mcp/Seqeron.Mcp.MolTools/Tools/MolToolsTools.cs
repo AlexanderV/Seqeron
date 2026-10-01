@@ -589,7 +589,7 @@ public class MolToolsTools
 
     #region ProbeDesigner
 
-    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking by GC%, Tm, homopolymers, self-complementarity, and structure heuristics (returned sorted by score, descending). Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
+    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking them with an additive penalty score (GC%, Tm, homopolymers, self-structure, simple repeats; returned sorted by score, descending). Tm is Primer3's seqtm (SantaLucia 1998 nearest-neighbour ≤ 36 nt, long_seq_tm above) at the parameters' conditions (default Primer3 probe conditions: 50 nM, 50 mM monovalent, no Mg/dNTP); probes ≤ 60 nt are screened with Primer3's ntthal self-dimer/hairpin Tm limit (47 °C). Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
     public static ProbesResult design_probes(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold). Defaults to Microarray when null.")] ProbeDesigner.ProbeParameters? parameters = null,
@@ -636,11 +636,12 @@ public class MolToolsTools
         return new ProbesResult(probes);
     }
 
-    [McpServerTool(Name = "design_molecular_beacon", Title = "MolTools — Design Molecular Beacon", ReadOnly = true), Description("Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse complement) flanking the best target-specific loop of probe_length bases, for real-time detection. The reported Tm is the loop Tm and Start/End mark the loop in the target. Returns probe=null when the target is shorter than probe_length.")]
+    [McpServerTool(Name = "design_molecular_beacon", Title = "MolTools — Design Molecular Beacon", ReadOnly = true), Description("Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse complement) flanking the best target-specific loop of probe_length bases, for real-time detection. The reported Tm is the loop (probe–target) Tm (Primer3 seqtm) and Start/End mark the loop in the target; warnings carry the ntthal stem-loop Tm. With detection_temperature T the loop Tm window is [T+7, T+10] °C and the stem-loop Tm is checked against T+7 °C (Tyagi & Kramer molecular-beacon rules). Returns probe=null when the target is shorter than probe_length.")]
     public static MolecularBeaconResult design_molecular_beacon(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Loop (target-specific) length in bp (default 25).")] int probe_length = 25,
-        [Description("Stem length in bp (default 5).")] int stem_length = 5)
+        [Description("Stem length in bp (default 5).")] int stem_length = 5,
+        [Description("Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules.")] double? detection_temperature = null)
     {
         if (string.IsNullOrEmpty(target_sequence))
             throw new System.ArgumentException("Target sequence cannot be null or empty.", nameof(target_sequence));
@@ -650,7 +651,7 @@ public class MolToolsTools
             throw new System.ArgumentException("Stem length must be positive.", nameof(stem_length));
 
         return new MolecularBeaconResult(
-            ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length));
+            ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length, detection_temperature));
     }
 
     [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a probe against a set of reference sequences using ungapped k-mismatch (Hamming) approximate matching. Reports the off-target hit count, self-complementarity, a secondary-structure flag, an issues list, and a 0..1 specificity score (0 hits → 0.0, 1 hit → 1.0, N hits → 1/N). Call to check whether a designed probe is specific to its intended target.")]
@@ -670,7 +671,7 @@ public class MolToolsTools
         return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold);
     }
 
-    [McpServerTool(Name = "analyze_oligo", Title = "MolTools — Oligonucleotide Property Analysis", ReadOnly = true), Description("Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. Call when the user needs the basic physical properties of an oligo/primer/probe. Tm uses the Wallace rule for sequences shorter than 14 bases and a salt-adjusted formula otherwise; GC is returned as a fraction (0-1).")]
+    [McpServerTool(Name = "analyze_oligo", Title = "MolTools — Oligonucleotide Property Analysis", ReadOnly = true), Description("Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. Call when the user needs the basic physical properties of an oligo/primer/probe. Tm is Primer3's seqtm at the Primer3 hybridization-probe conditions (50 nM oligo, 50 mM monovalent, no Mg/dNTP; SantaLucia 1998 nearest-neighbour for ≤ 36 nt, long_seq_tm above) and is null when not computable (fewer than 2 bases or a non-ACGT base, e.g. RNA). Molecular weight is the single-stranded Biopython molecular_weight (RNA when the oligo has U and no T); ε260 is the mononucleotide sum. GC is returned as a fraction (0-1).")]
     public static OligoAnalysisResult analyze_oligo(
         [Description("Oligonucleotide sequence (non-empty; A/C/G/T/U, case-insensitive).")] string sequence)
     {
@@ -678,17 +679,26 @@ public class MolToolsTools
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
         var (tm, gc, mw, eps) = ProbeDesigner.AnalyzeOligo(sequence);
-        return new OligoAnalysisResult(tm, gc, mw, eps);
+        return new OligoAnalysisResult(double.IsNaN(tm) ? null : tm, gc, mw, eps);
     }
 
-    [McpServerTool(Name = "oligo_extinction_coefficient", Title = "MolTools — Oligo Extinction Coefficient", ReadOnly = true), Description("Sums per-base 260 nm molar extinction contributions (A=15400, C=7400, G=11500, T=8700, U=9900 M⁻¹·cm⁻¹; any other base = 10000) for an oligonucleotide. Call to estimate an oligo's ε₂₆₀ for concentration calculations.")]
+    [McpServerTool(Name = "oligo_extinction_coefficient", Title = "MolTools — Oligo Extinction Coefficient", ReadOnly = true), Description("Estimates an oligonucleotide's 260 nm molar extinction coefficient (M⁻¹·cm⁻¹). Default: sum of per-base contributions (A=15400, C=7400, G=11500, T=8700, U=9900; any other base = 10000). With nearest_neighbor=true: the nearest-neighbour model (Cantor, Warshaw & Shapiro 1970 DNA / Warshaw & Tinoco 1966 RNA table, ε = Σ ε(dinucleotides) − Σ ε(internal mononucleotides)). Call to estimate an oligo's ε₂₆₀ for concentration calculations.")]
     public static ExtinctionCoefficientResult oligo_extinction_coefficient(
-        [Description("Oligonucleotide sequence.")] string sequence)
+        [Description("Oligonucleotide sequence.")] string sequence,
+        [Description("Use the nearest-neighbour model (default false = mononucleotide sum).")] bool nearest_neighbor = false,
+        [Description("For nearest_neighbor: true = DNA table (A/C/G/T), false = RNA table (A/C/G/U) (default true).")] bool is_dna = true)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
-        return new ExtinctionCoefficientResult(ProbeDesigner.CalculateExtinctionCoefficient(sequence));
+        if (!nearest_neighbor)
+            return new ExtinctionCoefficientResult(ProbeDesigner.CalculateExtinctionCoefficient(sequence));
+
+        double eps = ProbeDesigner.CalculateExtinctionCoefficientNearestNeighbor(sequence, is_dna);
+        if (double.IsNaN(eps))
+            throw new System.ArgumentException(
+                $"Nearest-neighbour ε260 needs only {(is_dna ? "A/C/G/T" : "A/C/G/U")} bases.", nameof(sequence));
+        return new ExtinctionCoefficientResult(eps);
     }
 
     [McpServerTool(Name = "oligo_concentration_from_absorbance", Title = "MolTools — Oligo Concentration (Beer–Lambert)", ReadOnly = true), Description("Computes oligonucleotide concentration in µM from the Beer–Lambert law: c = A₂₆₀ / (ε · path) · 1e6. Call to convert a spectrophotometer A260 reading into a molar concentration given the oligo's extinction coefficient.")]

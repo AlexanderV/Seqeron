@@ -2438,6 +2438,18 @@ public static class PrimerDesigner
     /// </summary>
     public const double Primer3MaxStructureTm = 47.0;
 
+    /// <summary>Primer3 hybridization-probe (internal-oligo) default PRIMER_INTERNAL_DNA_CONC = 50 nM (<c>libprimer3.cc</c> <c>o_args.dna_conc</c>).</summary>
+    public const double Primer3InternalDnaConcentrationNanomolar = 50.0;
+
+    /// <summary>Primer3 hybridization-probe default PRIMER_INTERNAL_SALT_MONOVALENT = 50 mM (<c>o_args.salt_conc</c>).</summary>
+    public const double Primer3InternalMonovalentMillimolar = 50.0;
+
+    /// <summary>Primer3 hybridization-probe default PRIMER_INTERNAL_SALT_DIVALENT = 0 mM (<c>o_args.divalent_conc</c>).</summary>
+    public const double Primer3InternalDivalentMillimolar = 0.0;
+
+    /// <summary>Primer3 hybridization-probe default PRIMER_INTERNAL_DNTP_CONC = 0 mM (<c>o_args.dntp_conc</c>).</summary>
+    public const double Primer3InternalDntpMillimolar = 0.0;
+
     /// <summary>
     /// Primer3 thermodynamic secondary-structure values of one primer (Tm in °C; 0 when ntthal finds
     /// no structure or the Tm is below 0 °C, as <c>align_thermod</c> reports): <c>PRIMER_*_SELF_ANY_TH</c>, <c>PRIMER_*_SELF_END_TH</c>, <c>PRIMER_*_HAIRPIN_TH</c>.
