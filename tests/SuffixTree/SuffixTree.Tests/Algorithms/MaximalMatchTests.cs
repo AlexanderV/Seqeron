@@ -176,6 +176,74 @@ namespace SuffixTree.Tests.Algorithms
 
         #endregion
 
+        #region Default interface implementation (implementers outside the library)
+
+        /// <summary>
+        /// An implementer that does not override FindMaximalExactMatches / FindMaximalUniqueMatches,
+        /// so calls go to the ISuffixTreeAnalysis default (definition-level scan over Text).
+        /// </summary>
+        private sealed class ExternalTree(SuffixTree inner) : ISuffixTreeSearch, ISuffixTreeAnalysis
+        {
+            public ITextSource Text => inner.Text;
+            public int NodeCount => inner.NodeCount;
+            public int LeafCount => inner.LeafCount;
+            public int MaxDepth => inner.MaxDepth;
+            public bool IsEmpty => inner.IsEmpty;
+            public bool Contains(string value) => inner.Contains(value);
+            public bool Contains(ReadOnlySpan<char> value) => inner.Contains(value);
+            public IReadOnlyList<int> FindAllOccurrences(string pattern) => inner.FindAllOccurrences(pattern);
+            public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern) => inner.FindAllOccurrences(pattern);
+            public int CountOccurrences(string pattern) => inner.CountOccurrences(pattern);
+            public int CountOccurrences(ReadOnlySpan<char> pattern) => inner.CountOccurrences(pattern);
+            public string LongestRepeatedSubstring() => inner.LongestRepeatedSubstring();
+            public IReadOnlyList<string> GetAllSuffixes() => inner.GetAllSuffixes();
+            public IEnumerable<string> EnumerateSuffixes() => inner.EnumerateSuffixes();
+            public string LongestCommonSubstring(string other) => inner.LongestCommonSubstring(other);
+            public string LongestCommonSubstring(ReadOnlySpan<char> other) => inner.LongestCommonSubstring(other);
+            public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)
+                => inner.LongestCommonSubstringInfo(other);
+            public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
+                => inner.FindAllLongestCommonSubstrings(other);
+            public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(string query, int minLength)
+                => inner.FindExactMatchAnchors(query, minLength);
+        }
+
+        [Test]
+        public void DefaultInterfaceImplementation_EqualsSuffixTreeAlgorithm()
+        {
+            var rng = new Random(20261001);
+            for (int iter = 0; iter < 150; iter++)
+            {
+                string alphabet = iter % 3 == 0 ? "AB" : "ACGT";
+                string text = RandomString(rng, rng.Next(0, 60), alphabet);
+                string query = rng.Next(2) == 0 || text.Length == 0
+                    ? RandomString(rng, rng.Next(0, 60), alphabet)
+                    : Mutate(rng, text.Substring(rng.Next(text.Length)), alphabet);
+                int minLength = rng.Next(1, 6);
+
+                var fast = SuffixTree.Build(text);
+                ISuffixTreeAnalysis external = new ExternalTree(fast);
+                string ctx = $"iter {iter}: text={text} query={query} L={minLength}";
+                Assert.That(external.FindMaximalExactMatches(query, minLength),
+                    Is.EqualTo(fast.FindMaximalExactMatches(query, minLength)), ctx);
+                foreach (var mode in new[] { MumUniqueness.Both, MumUniqueness.Reference })
+                    Assert.That(external.FindMaximalUniqueMatches(query, minLength, mode),
+                        Is.EqualTo(fast.FindMaximalUniqueMatches(query, minLength, mode)), ctx + " " + mode);
+            }
+        }
+
+        [Test]
+        public void DefaultInterfaceImplementation_Guards()
+        {
+            ISuffixTreeAnalysis external = new ExternalTree(SuffixTree.Build("ACGT"));
+            Assert.Throws<ArgumentNullException>(() => external.FindMaximalExactMatches(null!, 1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => external.FindMaximalExactMatches("AC", 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => external.FindMaximalUniqueMatches("AC", 1, (MumUniqueness)99));
+            Assert.That(external.FindMaximalExactMatches("", 1), Is.Empty);
+        }
+
+        #endregion
+
         #region Seeded property test vs brute force
 
         [Test]

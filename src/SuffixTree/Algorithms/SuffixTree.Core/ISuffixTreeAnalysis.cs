@@ -75,8 +75,15 @@ public interface ISuffixTreeAnalysis
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="query"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minLength"/> &lt; 1.</exception>
+    /// <remarks>
+    /// The default implementation (for implementers outside this library) checks the definition
+    /// directly over <see cref="ISuffixTreeSearch.Text"/> in O(|text|·|query|) via
+    /// <see cref="SuffixTreeAlgorithms.FindMaximalExactMatchesByDefinition"/>; the library trees
+    /// override it with the linear-time suffix-tree algorithm (identical output).
+    /// </remarks>
     IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalExactMatches(
-        string query, int minLength);
+        string query, int minLength)
+        => SuffixTreeAlgorithms.FindMaximalExactMatchesByDefinition(DefaultTextOf(this), query, minLength);
 
     /// <summary>
     /// Finds maximal unique matches (MUMs) of length ≥ <paramref name="minLength"/>: MEMs whose string
@@ -87,6 +94,18 @@ public interface ISuffixTreeAnalysis
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="query"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minLength"/> &lt; 1 or undefined <paramref name="uniqueness"/>.</exception>
+    /// <remarks>
+    /// The default implementation checks the definition over <see cref="ISuffixTreeSearch.Text"/>
+    /// (<see cref="SuffixTreeAlgorithms.FindMaximalUniqueMatchesByDefinition"/>); the library trees
+    /// override it with the linear-time suffix-tree algorithm (identical output).
+    /// </remarks>
     IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalUniqueMatches(
-        string query, int minLength, MumUniqueness uniqueness = MumUniqueness.Both);
+        string query, int minLength, MumUniqueness uniqueness = MumUniqueness.Both)
+        => SuffixTreeAlgorithms.FindMaximalUniqueMatchesByDefinition(DefaultTextOf(this), query, minLength, uniqueness);
+
+    private static ITextSource DefaultTextOf(ISuffixTreeAnalysis tree)
+        => tree as ISuffixTreeSearch is { } search
+            ? search.Text
+            : throw new NotSupportedException(
+                "The default maximal-match implementation needs ISuffixTreeSearch.Text; override the method.");
 }

@@ -614,6 +614,85 @@ public static class SuffixTreeAlgorithms
     }
 
     /// <summary>
+    /// Reference (definition-level) MEM enumeration used as the default interface implementation:
+    /// every (PositionInText, PositionInQuery, Length) with Length ≥ <paramref name="minLength"/>,
+    /// left-maximal (r = 0, q = 0 or text[r−1] ≠ query[q−1]) and right-maximal (end of either string or
+    /// next characters differ). Same output and order as
+    /// <see cref="FindMaximalExactMatches{TNode, TNav}"/> (query position, then text position), in
+    /// O(|text|·|query| + Σ Length) time.
+    /// </summary>
+    public static IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalExactMatchesByDefinition(
+        ITextSource text, string query, int minLength)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 1);
+
+        var result = new List<(int, int, int)>();
+        int n = text.Length, m = query.Length;
+        for (int q = 0; q < m; q++)
+        {
+            for (int r = 0; r < n; r++)
+            {
+                if (text[r] != query[q])
+                    continue;
+                if (r > 0 && q > 0 && text[r - 1] == query[q - 1])
+                    continue;
+                int len = 1;
+                while (r + len < n && q + len < m && text[r + len] == query[q + len])
+                    len++;
+                if (len >= minLength)
+                    result.Add((r, q, len));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Reference (definition-level) MUM enumeration used as the default interface implementation:
+    /// the MEMs of <see cref="FindMaximalExactMatchesByDefinition"/> whose string occurs exactly once in
+    /// the text and, for <see cref="MumUniqueness.Both"/>, exactly once in the query (occurrences may
+    /// overlap). Same output and order as <see cref="FindMaximalUniqueMatches{TNode, TNav}"/>.
+    /// </summary>
+    public static IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalUniqueMatchesByDefinition(
+        ITextSource text, string query, int minLength, MumUniqueness uniqueness = MumUniqueness.Both)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 1);
+        if (uniqueness is not (MumUniqueness.Both or MumUniqueness.Reference))
+            throw new ArgumentOutOfRangeException(nameof(uniqueness));
+
+        string reference = text.Substring(0, text.Length);
+        var result = new List<(int, int, int)>();
+        foreach (var mem in FindMaximalExactMatchesByDefinition(text, query, minLength))
+        {
+            var word = query.AsSpan(mem.PositionInQuery, mem.Length);
+            if (CountOverlapping(reference, word) != 1)
+                continue;
+            if (uniqueness == MumUniqueness.Both && CountOverlapping(query, word) != 1)
+                continue;
+            result.Add(mem);
+        }
+        return result;
+    }
+
+    /// <summary>Counts overlapping occurrences of <paramref name="word"/>, stopping once it exceeds 1.</summary>
+    private static int CountOverlapping(string haystack, ReadOnlySpan<char> word)
+    {
+        int count = 0;
+        int from = 0;
+        while (from <= haystack.Length - word.Length)
+        {
+            int i = haystack.AsSpan(from).IndexOf(word, StringComparison.Ordinal);
+            if (i < 0 || ++count > 1)
+                break;
+            from += i + 1;
+        }
+        return count;
+    }
+
+    /// <summary>
     /// Finds every distinct longest repeated substring of the tree's text — the path labels of all
     /// internal nodes of maximal string depth (Gusfield 1997 §7.1: a substring occurs at least twice
     /// iff it ends at or above an internal node) — each with all its 0-based start positions in
