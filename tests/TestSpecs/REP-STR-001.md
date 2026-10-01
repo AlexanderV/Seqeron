@@ -303,12 +303,12 @@ exact assertions (`Within(1e-9)`) on percentages / copy number against the TRF r
 
 ### 9.5 Residual (declared)
 
-Detection is the TRF k-tuple + sum-of-heads trigger with TRF's own analysis component (WDP, consensus,
-adjacent-copy statistics identical to compiled TRF on 1524/1524 candidates with pattern ≤ 20). The exhaustive
-(start, period) window scan of the 2026-06 version was removed. TRF's apparent-size (simulated) criterion,
-random-walk distance ranges, best-period list for d > 250 and narrow-band WDP for patterns > 20 are not
-reproduced; measured agreement and the LIMITATIONS proposal are in `tests/TestSpecs/REP-APPROX-001.md` and
-`docs/Validation/review-2026-09/B04.md` (REP-APPROX-001).
+Detection follows TRF's full pipeline (k-tuples, sum of heads, apparent size, random-walk range over active
+distances, best-period list for d > 250) with TRF's analysis component (full WDP ≤ 20, narrow band above); the
+exhaustive (start, period) window scan of the 2026-06 version was removed. Since B04 WP7, 99.8–100 % of compiled-TRF
+rows are identical on seven parameter sets; the only difference left is that the apparent-size cut-offs are exact
+where TRF's are simulated (details: `tests/TestSpecs/REP-APPROX-001.md` §6, `docs/Validation/review-2026-09/B04.md`
+F43–F46).
 
 ## 10. TRF Bernoulli statistical-significance measures (Benson 1999 — opt-in)
 

@@ -8,11 +8,21 @@
 > MAXDISTANCE, `-l`, `-r`, `-f`); `MaskApproximateTandemRepeats` (`-m`, + soft mask); `EntropyTrf`, alignment rows and
 > flanks on the result. Cross-check vs compiled TRF on 700 sequences: recommended set 87.8 % rows exact / 99.4 %
 > region level, non-default sets comparable (Evidence, WP6 revision); masks 0 mismatches given identical loci;
-> `EntropyTrf` 0 mismatches on every N-containing row. **Stage A: corrected · Stage B: fixed · State: FIXED** —
-> declared residual: TRF's simulated waiting-time criterion, best-period list (d > 250), narrow-band WDP (> 20).
+> `EntropyTrf` 0 mismatches on every N-containing row.
+> Completeness audit WP7 (B04 F43–F46): the TRF detection pipeline is complete — apparent-size criterion (the
+> distribution TRF simulates, derived exactly; README example y = 56 reproduced; equal to TRF's simulated table at
+> 825/2000 and 713/2000 distances, within its noise elsewhere), random-walk range sums over active distances only,
+> best-period list for d > 250, narrow-band WDP for patterns > 20 (also on the legacy overloads, which now take the
+> range too). Compiled TRF on the same 700 sequences: **99.8–100 % rows exact, 100 % region level on all seven
+> parameter sets** (recommended 1 303/1 305; permissive 2 3 3 80 20 64.2 % → 99.8 %), `-r` 99.8/99.9 %, `-l` 100 /
+> 100 / 99.8 %, masks 699–700/700, alignment rows 149/149 for consensus > 20, 1 Mb sequence 1 543/1 544; 3× faster.
+> Each of the 25 remaining (parameter set, sequence) cases (16 TRF rows) is traced (bisection) to one entry of TRF's Monte-Carlo apparent-size table that is
+> 1 below the exact value; with TRF's table substituted every comparison is 100 %. **Stage A: corrected · Stage B:
+> fixed · State: FIXED** — no method residual (TRF's simulation noise and its 150-cell band abort are documented).
 > Current sources: `tests/TestSpecs/REP-APPROX-001.md`, `docs/Evidence/REP-APPROX-001-Evidence.md`,
-> `docs/Validation/review-2026-09/B04.md` (F14–F18, F40–F42). Tests:
-> `Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`, `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs`.
+> `docs/Validation/review-2026-09/B04.md` (F14–F18, F40–F46). Tests:
+> `Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`, `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs`,
+> `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs`.
 
 ---
 

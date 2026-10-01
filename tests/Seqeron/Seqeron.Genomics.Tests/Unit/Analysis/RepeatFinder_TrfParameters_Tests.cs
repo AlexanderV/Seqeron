@@ -119,16 +119,16 @@ public class RepeatFinder_TrfParameters_Tests
     }
 
     // `trf craft.fa 2 7 7 80 10 50 500`: U4 → 41 136 12 8.0 12 86 4 140 7 48 11 32 1.66 TCTTCACTGCCC and
-    // 43 136 49 2.0 47 91 4 152 (consensus of 47 > 20: TRF uses its narrow-band WDP there; row locked only
-    // for indices/period/score).
+    // 43 136 49 2.0 47 91 4 152 7 48 11 31 1.67 TTCACTGCCC… (consensus of 47 > 20: TRF's narrow-band WDP, fully
+    // reproduced since WP7; WP6 locked this row on indices / period / score only).
     [Test]
     public void RecommendedParameters_U4_ReproduceTrfRows()
     {
         var rows = RepeatFinder.FindApproximateTandemRepeats(U4, TandemRepeatsFinderParameters.Recommended).ToList();
         Assert.That(rows, Has.Count.EqualTo(2));
         AssertTrfRow(rows[0], 41, 136, 12, 8.0, 12, 86, 4, 140, 7, 48, 11, 32, 1.66, "TCTTCACTGCCC");
-        Assert.That((rows[1].Start + 1, rows[1].Start + rows[1].SpanLength, rows[1].Period, rows[1].AlignmentScore),
-            Is.EqualTo((43, 136, 49, 152)));
+        AssertTrfRow(rows[1], 43, 136, 49, 2.0, 47, 91, 4, 152, 7, 48, 11, 31, 1.67,
+            "TTCACTGCCCTCTTCCTGCCCTCTTCACTGCCCTCGTCACTGCCCTG");
     }
 
     // Weights change the alignment: `trf 2 3 5 80 10 40 200` → U3 1 60 2 30.0 2 89 0 105 (recommended 2 7 7:

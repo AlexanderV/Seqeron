@@ -2,7 +2,7 @@
 
 **Test Unit ID:** REP-APPROX-001
 **Algorithm:** Approximate (imperfect / interrupted) tandem-repeat detection with the Tandem Repeats Finder model (`RepeatFinder.FindApproximateTandemRepeats`) and the TRF Bernoulli statistics (`RepeatFinder.ComputeBernoulliStatistics`)
-**Date Collected:** 2026-09-30 (campaign 2026-09, batch B04)
+**Date Collected:** 2026-09-30 (campaign 2026-09, batch B04); revised 2026-10-01 (WP6, WP7)
 
 ---
 
@@ -118,7 +118,7 @@ recomputed independently (below).
 
 - Analysis exactly as TRF (see algorithm doc §4.1); full WDP for every pattern size (TRF: band for > 20).
 - Detection: k-tuple trigger + sum-of-heads criterion + distance-seen suppression + copy rule + three best periods.
-  Not reproduced (declared): apparent-size criterion (simulated cut-offs), best-period list (d > 250), narrow band.
+  Not reproduced (declared): apparent-size criterion (simulated cut-offs), best-period list (d > 250), narrow band.  **Resolved by WP7** (all three implemented; see §WP7 revision).
   Random-walk range distances: implemented in the parameter-set API (WP6 revision below); the legacy overloads keep
   the 2026-09-30 behaviour.
 - Output: 0-based `Start`, exact percentages, ordered by (start, end, period); `minPeriod` applied after redundancy
@@ -201,5 +201,112 @@ Fields of rows at the same locus agree except 1–6 copy-number / % indel values
   forward rows at the backward optimum. Default (2 000 000) = uncapped for every input here.
 - **Timing (Release):** 100 kb random, recommended set: 0.51 s (PM 75 / PI 20: 1.1 s).
 - **Crafted rows locked in tests:** U1–U5 (`RepeatFinder_TrfParameters_Tests.cs`) — all TRF rows reproduced except
-  two consensus > 20 rows (asserted on indices / period / score only).
+  two consensus > 20 rows (asserted on indices / period / score only; the U4 period-49 row is fully locked since WP7).
 
+
+## WP7 revision (2026-10-01, B04 completeness audit L7 — TRF detection pipeline)
+
+### Sources opened (this session)
+
+- **TRF 4.10.0 README** (repository clone, commit 355c1f9): "Apparent Size Distribution" — *S = the distance between
+  the first and last run of k heads in an iid Bernoulli sequence of length d … We estimate the distribution of S by
+  simulation because we make it conditional on first meeting the sum-of-heads criterion … we determine the maximum
+  number y such that 95 % of the time S > y … if PM = .75, k = 5 and d = 100, then the criterion is 56. In order to
+  test the apparent-size criterion, we compute the distance between the first and last tuple on list D_d*;
+  "Detection" (sum-of-heads and apparent-size tests on the distance lists, nearby distances via the random walk);
+  "Narrow Band Alignment" — *we limit WDP calculations to a narrow diagonal band … for patterns larger than 20
+  characters. In accordance with the random walk results, the band radius is Δd_max. The band is periodically
+  recentered around a run of matches in the current best alignment*; "Multiple Reporting of Repeat at Different
+  Pattern Sizes"; What's New 4.04 (*widened radius of narrowband alignment*), 4.07b (*changed alignment to go further
+  when score drops to 0*). The paper itself (NAR 27:573) was not reachable from this sandbox (publisher / PMC hosts
+  blocked by the egress proxy); the README reproduces its method sections.
+- **TRF source, read for behaviour only** (AGPL — nothing transliterated): `newtupbo` (candidate loop, order of the
+  tests, which width a pattern is aligned with), `new_meet_criteria_3` (apparent-size test as "first tuple of the
+  window lies within W of the window start", the 35 % rule for range distances, range sums over *linked* distances),
+  `link_Distance_window` / `no_matches_so_unlink_Distance` (a distance list becomes active when tested and inactive
+  when found empty), `add_to_bestperiodlist` / `adjust_bestperiod_entry` / `search_for_range_in_bestperiodlist`
+  (5 best periods per analysed region; span test i − 2d + 1 + W .. i), `multiples_criteria_4` / `GetTopPeriods`
+  (3 of 5 tested), `narrowbandwrap` / `get_narrowband_pair_alignment_with_copynumber` (radii max(6, Δd_max) and
+  min(2·max(6, Δd_max), ⌊size/3⌋), recentring after 3 diagonal row maxima, anchored forward start, tie rules,
+  traceback through genuine zeros), `waitdata80` / `waitdata75` (used only as the oracle for the derived table).
+
+### Derivation of the apparent-size criterion (exact, replaces TRF's simulation)
+
+With f = position of the k-th head of the first k-run and E = the last head of the last k-run in a Bernoulli(PM)
+sequence of length L, the sequence splits into a prefix ending at f (probability F(f) = p^k·[f = k] + q·p^k·N(f−k−1),
+N(m) = P(no k-run in m tosses), contributing exactly k heads to R), a middle part f+1..E (a run-length Markov chain
+started inside a counted run and ending inside one after S = E − f steps, accumulating the other heads R′ of R) and a
+tail (a tail toss, then no k-run: T(m) = q·N(m−1), T(0) = 1). Hence
+P(S = s, R ≥ x) = M(s, R′ ≥ x − k) · Σ_f F(f)·T(L − s − f), where M does not depend on L, so one chain run per tuple
+size gives every d. y = max{y : P(S > y | R ≥ x) ≥ 0.95}; TRF's test (first tuple ≤ window start + W) is S ≥ y + 1,
+i.e. W = max(d, 20) − y − 1. Results:
+
+- README example (PM .75, k 5, d 100): **y = 56** (reproduced).
+- C# table = independent NumPy prototype (`scratchpad/wp7/cond.py`) for **4000/4000** (d, PM).
+- vs TRF 4.10.0 `waitdata80`: equal at **825/2000** d, |Δ| ≤ 1 at 1 795, Δ ∈ [−2, +3], mean +0.03 (k 4) /
+  +0.28 (k 5) / +0.47 (k 7); `waitdata75`: equal 713/2000, |Δ| ≤ 1 at 1 640, Δ ∈ [−3, +4]. TRF's table is visibly
+  Monte-Carlo (non-monotone in d, e.g. 62, 63, 63, 62 at d 160–163). Variants checked on a sample of d (`variants.py`): conditioning on R > x (PM 80 mean Δ −0.25 / +0.37 for k ≤ 5 / k 7,
+  exact 90/159 vs 116/159 for the README definition), 95.5 % / 96 % quantiles (bias +0.8 … +5.7), L = d below 20 (no
+  better); none fits clearly better, so the README's definition (S > y, R ≥ x) is kept.
+- Unconditional variants (no sum-of-heads conditioning, or the plain waiting time of the first run) do not match
+  the table at all (constant in d where TRF's values grow with d).
+
+### Reference cross-checks (compiled TRF 4.10.0; harness `scratchpad/wp7/`: `run7.py`, `cmp7.py`, `rl7.py`,
+`maskcmp7.py`, `bisect7.py`, `ablate.py`, C# driver `xc7`)
+
+Same 700-sequence set as WP6 (843 837 bp). Exact = every .dat field; region = ≥ 50 % overlap.
+
+| Parameters | TRF rows | WP6 exact / region | **WP7 exact / region** | with TRF's waitdata substituted |
+|---|---|---|---|---|
+| 2 7 7 80 10 50 500 | 1 305 | 87.8 / 99.4 | **99.8 / 100** (1 303) | 100 / 100 |
+| 2 5 7 80 10 50 2000 | 1 409 | 88.9 / 99.8 | **99.9 / 100** (1 407) | 100 / 100 |
+| 2 3 5 80 10 40 200 | 1 703 | 84.3 / 99.1 | **99.9 / 100** (1 701) | 100 / 100 |
+| 2 7 7 75 20 50 500 | 1 357 | 87.4 / 99.6 | **99.9 / 100** (1 356) | 100 / 100 |
+| 2 5 5 75 10 30 100 | 1 759 | 87.3 / 99.9 | **99.8 / 100** (1 755) | 100 / 100 |
+| 3 7 7 80 10 60 50 | 1 135 | 92.2 / 99.7 | **100 / 100** | 100 / 100 |
+| 2 3 3 80 20 50 500 | 2 414 | 64.2 / 93.8 | **99.8 / 100** (2 409) | 100 / 100 |
+| 2 7 7 80 10 50 500 `-r` | 2 628 | 89.1 / 99.7 | **99.8 / 100** | 100 / 100 |
+| 2 5 7 75 10 50 500 `-r` | 3 057 | 89.1 / 99.8 | **99.9 / 100** | 100 / 100 |
+| `-l` 60 / 120 / 250 bp (TRF `-l`-in-bp build) | 2 766 / 2 458 / 1 545 | 68.3 / 50.3 / 57.0 | **100 / 100 / 99.8** | 100 / 100 / 100 |
+| legacy overload, maxPeriod 500 | 1 305 | 83.1 / 96.4 | **99.8 / 100** | — |
+| 1 Mb single sequence (1 400 concatenated records), recommended | 1 544 | — | **99.9 / 100** (1 543) | 100 / 100 |
+
+- **Masks** (`-m`): identical for 700/700, 700/700, 700/700, 699/700 sequences (2 7 7 80 10 50 500, 2 5 7 80 10 50
+  2000, 2 7 7 75 20 50 500, 2 3 5 80 10 40 200; WP6: 641, 631, 633, 536); 700/700 with TRF's table.
+- **Alignment rows** vs TRF alignment file (200-sequence subset): consensus ≤ 20 192/192, **> 20 149/149** (WP6
+  116/123); 500-bp flanks 341/341.
+- **Ablation** (each component switched off in a scratch build; exact % on the seven sets in table order):
+  no apparent-size test 92.4 / 94.6 / 93.0 / 91.5 / 93.6 / 95.4 / 92.0; full WDP instead of the band 94.2 / 93.5 /
+  90.1 / 94.8 / 92.7 / 95.9 / 69.5; all distances active 99.8 / 99.9 / 99.9 / 99.9 / 99.7 / 100 / 99.8; no best-period
+  list: unchanged on this set and on the 1 Mb sequence; sequences where it matters were found by a targeted search
+  (two or three adjacent arrays, one with period > 250: 2 of the first 200 generated sequences, e.g. D9).
+- **Residual, row by row** (`bisect7.py`: the TRF table is substituted only for d in a range, bisected to the single
+  entry that restores TRF's output). All 25 non-identical (set, sequence) cases over the seven sets (16 TRF rows not reproduced exactly) are explained by exactly one
+  table entry each, and in every case TRF's simulated W is one below the exact value (the exact criterion is
+  marginally more permissive there):
+
+  | Sets | Sequence | entry (d, PM) | exact W | TRF W |
+  |---|---|---|---|---|
+  | 2 7 7 80 10 50 500; 2 5 7 80 10 50 2000; 2 3 5 80 10 40 200; 2 3 3 80 20 50 500 | s166 | 145, 80 | 32 | 31 |
+  | 2 7 7 80 10 50 500; 2 5 7 80 10 50 2000 | s342 | 43, 80 | 30 | 29 |
+  | 2 7 7 80 10 50 500; 2 5 7 80 10 50 2000; 2 3 5 80 10 40 200; 2 3 3 80 20 50 500 | s599 | 119, 80 | 32 | 31 |
+  | 2 3 5 80 10 40 200; 2 3 3 80 20 50 500 | s416 | 41, 80 | 30 | 29 |
+  | 2 7 7 75 20 50 500; 2 5 5 75 10 30 100 | s411 | 96, 75 | 43 | 42 |
+  | 2 7 7 75 20 50 500 | s514 | 157, 75 | 44 | 43 |
+  | 2 5 5 75 10 30 100 | s350 | 24, 75 | 16 | 15 |
+  | 2 5 5 75 10 30 100 | s457, s614 | 29, 75 | 16 | 15 |
+  | 2 3 3 80 20 50 500 | s18, s253, s530 | 29, 80 | 20 | 19 |
+  | 2 3 3 80 20 50 500 | s443 | 39, 80 | 29 | 28 |
+  | 2 3 3 80 20 50 500 | s451 | 43, 80 | 30 | 29 |
+  | 2 3 3 80 20 50 500 | s549 | 122, 80 | 32 | 31 |
+  | 2 3 3 80 20 50 500 | s631 | 32, 80 | 28 | 27 |
+
+- **Timing** (Release, 1 Mb single sequence, `scratchpad/wp7/r1m.fa`): recommended set 15.1 s (WP6) → **5.1 s**;
+  permissive 2 3 3 80 20 50 500 55.5 s → **14.4 s** (compiled TRF: 1.8 s). The band replaces O(region · pattern) by
+  O(region · band) for patterns > 20 and the apparent-size test removes most spurious candidates. One-off table cost:
+  sum-of-heads + apparent-size tables for both PM ≈ 150 ms on first use (sum-of-heads now filled in one chain pass per
+  tuple size: identical values, 2000/2000 vs `sumdata80/75`).
+- **Tests locked to TRF** (`RepeatFinder_TrfDetection_Tests.cs`, D1–D9): selected from seeded random sequences
+  (`search.py`, `bpl.py`, `trim.py` shortened the linking / best-period cases while the property held) such that the
+  WP6 code disagrees with TRF and the disagreement disappears only with the named component (ablation builds
+  `v_fullwdp`, `v_nobestlist`, `v_nolink`, reflection switch for the apparent-size table).
