@@ -234,7 +234,7 @@ public class RepeatFinder_DegenerateRepeats_Tests
 
     private static int Code(char c) => "ACGT".IndexOf(c);
 
-    private static List<(int, int, int, int, int)> BruteForce(string s, int k, int minLength, bool edit, bool pal)
+    internal static List<(int, int, int, int, int)> BruteForce(string s, int k, int minLength, bool edit, bool pal)
     {
         int n = s.Length;
         var good = new int[n + 1, n + 1, n + 1, n + 1]; // [i, j, e1, e2] = distance + 1 (0 = not a match)
