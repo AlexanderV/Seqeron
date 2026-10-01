@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_degenerate_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.FindDegenerateRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4396",
+  "description": "Finds **all maximal degenerate repeats** with at most maxDifferences differences (Kurtz et al. 2000 REPuter; Vmatch -e k / -h k, -p, -allmax). distance = \"edit\" (default) uses unit-cost edit distance, so the two instances may differ in length (firstLength, secondLength); \"hamming\" uses mismatches only. reverseComplement = true reports palindromic repeats (instance 2 matched against the reverse complement of instance 1; Vmatch -p). Edit-distance extension uses the greedy furthest-reaching fronts of Ukkonen 1985 / Myers 1986 (Vmatch frontSEP.c); the result is the complete maximal set (identical to Vmatch with its left-extension shortcut disabled, and to a brute force of the definition — Evidence REP-DIRECT-001 §WP8). Non-ACGT symbols always mismatch. Filters maxLength, spacing = secondPosition − firstPosition − firstLength ≥ minSpacing (−2147483648 = complete Vmatch set). Sorted by (firstPosition, secondPosition, firstLength, secondLength).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum length of each instance (Vmatch -l; > maxDifferences)",
+        "minimum": 2,
+        "default": 10
+      },
+      "maxDifferences": {
+        "type": "integer",
+        "description": "Maximum distance k",
+        "minimum": 1,
+        "default": 1
+      },
+      "distance": {
+        "type": "string",
+        "description": "Distance: edit (k-differences) or hamming (k-mismatches)",
+        "enum": [
+          "edit",
+          "hamming"
+        ],
+        "default": "edit"
+      },
+      "reverseComplement": {
+        "type": "boolean",
+        "description": "Palindromic (reverse-complement) repeats (Vmatch -p)",
+        "default": false
+      },
+      "maxLength": {
+        "type": "integer",
+        "description": "Maximum length of each instance",
+        "default": 2147483647
+      },
+      "minSpacing": {
+        "type": "integer",
+        "description": "Minimum spacing secondPosition - firstPosition - firstLength",
+        "default": 1
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "firstPosition": {
+              "type": "integer"
+            },
+            "firstLength": {
+              "type": "integer"
+            },
+            "secondPosition": {
+              "type": "integer"
+            },
+            "secondLength": {
+              "type": "integer"
+            },
+            "distance": {
+              "type": "integer"
+            },
+            "spacing": {
+              "type": "integer"
+            },
+            "firstCopy": {
+              "type": "string"
+            },
+            "secondCopy": {
+              "type": "string"
+            },
+            "isReverseComplement": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "firstPosition",
+            "firstLength",
+            "secondPosition",
+            "secondLength",
+            "distance",
+            "spacing",
+            "firstCopy",
+            "secondCopy",
+            "isReverseComplement"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "distance must be 'edit' or 'hamming'"
+    },
+    {
+      "code": 1003,
+      "message": "minLength must be >= 2 and > maxDifferences; maxDifferences >= 1; maxLength >= minLength"
+    }
+  ],
+  "examples": [
+    {
+      "name": "vmatch -l 6 -e 1 -allmax: insertions and deletions",
+      "input": {
+        "sequence": "GATTACAGATTACATTTTTGATTCAGATTACA",
+        "minLength": 6,
+        "maxDifferences": 1,
+        "distance": "edit",
+        "reverseComplement": false,
+        "maxLength": 2147483647,
+        "minSpacing": -2147483648
+      },
+      "output": {
+        "items": [
+          {
+            "firstPosition": 0,
+            "firstLength": 7,
+            "secondPosition": 6,
+            "secondLength": 8,
+            "distance": 1,
+            "spacing": -1,
+            "firstCopy": "GATTACA",
+            "secondCopy": "AGATTACA",
+            "isReverseComplement": false
+          },
+          {
+            "firstPosition": 0,
+            "firstLength": 8,
+            "secondPosition": 7,
+            "secondLength": 8,
+            "distance": 1,
+            "spacing": -1,
+            "firstCopy": "GATTACAG",
+            "secondCopy": "GATTACAT",
+            "isReverseComplement": false
+          },
+          {
+            "firstPosition": 0,
+            "firstLength": 14,
+            "secondPosition": 19,
+            "secondLength": 13,
+            "distance": 1,
+            "spacing": 5,
+            "firstCopy": "GATTACAGATTACA",
+            "secondCopy": "GATTCAGATTACA",
+            "isReverseComplement": false
+          },
+          {
+            "firstPosition": 5,
+            "firstLength": 10,
+            "secondPosition": 23,
+            "secondLength": 9,
+            "distance": 1,
+            "spacing": 8,
+            "firstCopy": "CAGATTACAT",
+            "secondCopy": "CAGATTACA",
+            "isReverseComplement": false
+          },
+          {
+            "firstPosition": 19,
+            "firstLength": 6,
+            "secondPosition": 25,
+            "secondLength": 7,
+            "distance": 1,
+            "spacing": 0,
+            "firstCopy": "GATTCA",
+            "secondCopy": "GATTACA",
+            "isReverseComplement": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "vmatch -p -l 8 -h 1 -allmax: palindromic, Hamming",
+      "input": {
+        "sequence": "TTGACCGTAACCCCCGTTACGGTCAACC",
+        "minLength": 8,
+        "maxDifferences": 1,
+        "distance": "hamming",
+        "reverseComplement": true,
+        "maxLength": 2147483647,
+        "minSpacing": -2147483648
+      },
+      "output": {
+        "items": [
+          {
+            "firstPosition": 0,
+            "firstLength": 12,
+            "secondPosition": 14,
+            "secondLength": 12,
+            "distance": 1,
+            "spacing": 2,
+            "firstCopy": "TTGACCGTAACC",
+            "secondCopy": "CGTTACGGTCAA",
+            "isReverseComplement": true
+          },
+          {
+            "firstPosition": 13,
+            "firstLength": 9,
+            "secondPosition": 13,
+            "secondLength": 9,
+            "distance": 1,
+            "spacing": -9,
+            "firstCopy": "CCGTTACGG",
+            "secondCopy": "CCGTTACGG",
+            "isReverseComplement": true
+          }
+        ]
+      }
+    }
+  ]
+}

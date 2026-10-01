@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.EstimateCompressionRatio",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L523",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1631",
   "description": "Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). Lower values indicate more repetitive/less complex sequences.",
   "inputSchema": {
     "type": "object",

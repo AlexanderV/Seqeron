@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 446 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 459 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 446 | 446 |
-| Schema+Binding tests | 446 | 446 |
-| Docs (.md + .mcp.json) | 446 | 446 |
+| Gold-standard binding | 459 | 459 |
+| Schema+Binding tests | 459 | 459 |
+| Docs (.md + .mcp.json) | 459 | 459 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 26 | 26/26 | 26/26 | 26/26 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 100 | 100/100 | 100/100 | 100/100 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 113 | 113/113 | 113/113 | 113/113 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -171,7 +171,7 @@
 | 25 | `semi_global_align` | ☑ | ☑ | ☑ |
 | 26 | `sequence_identity` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 100 tools
+### Analysis (Seqeron.Mcp.Analysis) — 113 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -198,83 +198,96 @@
 | 21 | `disorder_propensity` | ☑ | ☑ | ☑ |
 | 22 | `dust_score` | ☑ | ☑ | ☑ |
 | 23 | `entropy_profile` | ☑ | ☑ | ☑ |
-| 24 | `find_clumps` | ☑ | ☑ | ☑ |
-| 25 | `find_common_regions` | ☑ | ☑ | ☑ |
-| 26 | `find_conserved_clusters` | ☑ | ☑ | ☑ |
-| 27 | `find_degenerate_motif` | ☑ | ☑ | ☑ |
-| 28 | `find_direct_repeats` | ☑ | ☑ | ☑ |
-| 29 | `find_exact_motif` | ☑ | ☑ | ☑ |
-| 30 | `find_inverted_repeats` | ☑ | ☑ | ☑ |
-| 31 | `find_known_motifs` | ☑ | ☑ | ☑ |
-| 32 | `find_low_complexity_regions` | ☑ | ☑ | ☑ |
-| 33 | `find_microsatellites` | ☑ | ☑ | ☑ |
-| 34 | `find_motif` | ☑ | ☑ | ☑ |
-| 35 | `find_motif_by_pattern` | ☑ | ☑ | ☑ |
-| 36 | `find_motif_by_prosite` | ☑ | ☑ | ☑ |
-| 37 | `find_open_reading_frames` | ☑ | ☑ | ☑ |
-| 38 | `find_orthologs` | ☑ | ☑ | ☑ |
-| 39 | `find_palindromes` | ☑ | ☑ | ☑ |
-| 40 | `find_promoter_elements_by_matrix` | ☑ | ☑ | ☑ |
-| 41 | `find_protein_domains` | ☑ | ☑ | ☑ |
-| 42 | `find_protein_low_complexity_regions` | ☑ | ☑ | ☑ |
-| 43 | `find_protein_motifs` | ☑ | ☑ | ☑ |
-| 44 | `find_reciprocal_best_hits` | ☑ | ☑ | ☑ |
-| 45 | `find_regulatory_elements` | ☑ | ☑ | ☑ |
-| 46 | `find_regulatory_elements_both_strands` | ☑ | ☑ | ☑ |
-| 47 | `find_repeats` | ☑ | ☑ | ☑ |
-| 48 | `find_rna_inverted_repeats` | ☑ | ☑ | ☑ |
-| 49 | `find_shared_motifs` | ☑ | ☑ | ☑ |
-| 50 | `find_stem_loops` | ☑ | ☑ | ☑ |
-| 51 | `find_syntenic_blocks` | ☑ | ☑ | ☑ |
-| 52 | `find_tandem_repeats` | ☑ | ☑ | ☑ |
-| 53 | `flush_coaxial_stacking` | ☑ | ☑ | ☑ |
-| 54 | `gc_content_profile` | ☑ | ☑ | ☑ |
-| 55 | `gc_skew` | ☑ | ☑ | ☑ |
-| 56 | `generate_all_kmers` | ☑ | ☑ | ☑ |
-| 57 | `generate_cavener_consensus` | ☑ | ☑ | ☑ |
-| 58 | `generate_consensus` | ☑ | ☑ | ☑ |
-| 59 | `generate_dot_plot` | ☑ | ☑ | ☑ |
-| 60 | `generate_dumb_consensus` | ☑ | ☑ | ☑ |
-| 61 | `generate_emboss_consensus` | ☑ | ☑ | ☑ |
-| 62 | `hairpin_loop_energy` | ☑ | ☑ | ☑ |
-| 63 | `hydrophobicity_profile` | ☑ | ☑ | ☑ |
-| 64 | `internal_loop_energy` | ☑ | ☑ | ☑ |
-| 65 | `is_disorder_promoting` | ☑ | ☑ | ☑ |
-| 66 | `kmer_distance` | ☑ | ☑ | ☑ |
-| 67 | `kmer_frequencies` | ☑ | ☑ | ☑ |
-| 68 | `kmer_positions` | ☑ | ☑ | ☑ |
-| 69 | `kmer_spectrum` | ☑ | ☑ | ☑ |
-| 70 | `kmers_with_min_count` | ☑ | ☑ | ☑ |
-| 71 | `mask_low_complexity` | ☑ | ☑ | ☑ |
-| 72 | `minimum_free_energy` | ☑ | ☑ | ☑ |
-| 73 | `mismatch_coaxial_stacking` | ☑ | ☑ | ☑ |
-| 74 | `most_frequent_kmers` | ☑ | ☑ | ☑ |
-| 75 | `multibranch_loop_energy` | ☑ | ☑ | ☑ |
-| 76 | `oligo_analysis` | ☑ | ☑ | ☑ |
-| 77 | `parse_dot_bracket` | ☑ | ☑ | ☑ |
-| 78 | `predict_chou_fasman` | ☑ | ☑ | ☑ |
-| 79 | `predict_coiled_coils` | ☑ | ☑ | ☑ |
-| 80 | `predict_disorder` | ☑ | ☑ | ☑ |
-| 81 | `predict_low_complexity_seg` | ☑ | ☑ | ☑ |
-| 82 | `predict_morfs` | ☑ | ☑ | ☑ |
-| 83 | `predict_replication_origin` | ☑ | ☑ | ☑ |
-| 84 | `predict_rna_structure` | ☑ | ☑ | ☑ |
-| 85 | `predict_signal_peptide` | ☑ | ☑ | ☑ |
-| 86 | `predict_transmembrane_helices` | ☑ | ☑ | ☑ |
-| 87 | `prosite_to_regex` | ☑ | ☑ | ☑ |
-| 88 | `pwm_score_thresholds` | ☑ | ☑ | ☑ |
-| 89 | `reversal_distance` | ☑ | ☑ | ☑ |
-| 90 | `rna_complement_base` | ☑ | ☑ | ☑ |
-| 91 | `scan_with_pwm` | ☑ | ☑ | ☑ |
-| 92 | `scan_with_pwm_both_strands` | ☑ | ☑ | ☑ |
-| 93 | `shared_motifs_significance` | ☑ | ☑ | ☑ |
-| 94 | `stem_energy` | ☑ | ☑ | ☑ |
-| 95 | `tandem_repeat_summary` | ☑ | ☑ | ☑ |
-| 96 | `terminal_mismatch_energy` | ☑ | ☑ | ☑ |
-| 97 | `unique_kmers` | ☑ | ☑ | ☑ |
-| 98 | `validate_dot_bracket` | ☑ | ☑ | ☑ |
-| 99 | `windowed_complexity` | ☑ | ☑ | ☑ |
-| 100 | `windowed_gc_skew` | ☑ | ☑ | ☑ |
+| 24 | `find_approximate_direct_repeats` | ☑ | ☑ | ☑ |
+| 25 | `find_approximate_tandem_repeats` | ☑ | ☑ | ☑ |
+| 26 | `find_clumps` | ☑ | ☑ | ☑ |
+| 27 | `find_common_regions` | ☑ | ☑ | ☑ |
+| 28 | `find_conserved_clusters` | ☑ | ☑ | ☑ |
+| 29 | `find_degenerate_motif` | ☑ | ☑ | ☑ |
+| 30 | `find_degenerate_repeats` | ☑ | ☑ | ☑ |
+| 31 | `find_direct_repeats` | ☑ | ☑ | ☑ |
+| 32 | `find_exact_motif` | ☑ | ☑ | ☑ |
+| 33 | `find_inverted_repeats` | ☑ | ☑ | ☑ |
+| 34 | `find_inverted_repeats_scored` | ☑ | ☑ | ☑ |
+| 35 | `find_known_motifs` | ☑ | ☑ | ☑ |
+| 36 | `find_longdust_regions` | ☑ | ☑ | ☑ |
+| 37 | `find_low_complexity_intervals` | ☑ | ☑ | ☑ |
+| 38 | `find_low_complexity_regions` | ☑ | ☑ | ☑ |
+| 39 | `find_microsatellites` | ☑ | ☑ | ☑ |
+| 40 | `find_motif` | ☑ | ☑ | ☑ |
+| 41 | `find_motif_by_pattern` | ☑ | ☑ | ☑ |
+| 42 | `find_motif_by_prosite` | ☑ | ☑ | ☑ |
+| 43 | `find_open_reading_frames` | ☑ | ☑ | ☑ |
+| 44 | `find_orthologs` | ☑ | ☑ | ☑ |
+| 45 | `find_palindromes` | ☑ | ☑ | ☑ |
+| 46 | `find_promoter_elements_by_matrix` | ☑ | ☑ | ☑ |
+| 47 | `find_protein_domains` | ☑ | ☑ | ☑ |
+| 48 | `find_protein_low_complexity_regions` | ☑ | ☑ | ☑ |
+| 49 | `find_protein_motifs` | ☑ | ☑ | ☑ |
+| 50 | `find_reciprocal_best_hits` | ☑ | ☑ | ☑ |
+| 51 | `find_regulatory_elements` | ☑ | ☑ | ☑ |
+| 52 | `find_regulatory_elements_both_strands` | ☑ | ☑ | ☑ |
+| 53 | `find_repeats` | ☑ | ☑ | ☑ |
+| 54 | `find_reverse_complement_repeats` | ☑ | ☑ | ☑ |
+| 55 | `find_rna_inverted_repeats` | ☑ | ☑ | ☑ |
+| 56 | `find_shared_motifs` | ☑ | ☑ | ☑ |
+| 57 | `find_stem_loops` | ☑ | ☑ | ☑ |
+| 58 | `find_supermaximal_repeats` | ☑ | ☑ | ☑ |
+| 59 | `find_syntenic_blocks` | ☑ | ☑ | ☑ |
+| 60 | `find_tandem_repeats` | ☑ | ☑ | ☑ |
+| 61 | `flush_coaxial_stacking` | ☑ | ☑ | ☑ |
+| 62 | `gc_content_profile` | ☑ | ☑ | ☑ |
+| 63 | `gc_skew` | ☑ | ☑ | ☑ |
+| 64 | `generate_all_kmers` | ☑ | ☑ | ☑ |
+| 65 | `generate_cavener_consensus` | ☑ | ☑ | ☑ |
+| 66 | `generate_consensus` | ☑ | ☑ | ☑ |
+| 67 | `generate_dot_plot` | ☑ | ☑ | ☑ |
+| 68 | `generate_dumb_consensus` | ☑ | ☑ | ☑ |
+| 69 | `generate_emboss_consensus` | ☑ | ☑ | ☑ |
+| 70 | `hairpin_loop_energy` | ☑ | ☑ | ☑ |
+| 71 | `hydrophobicity_profile` | ☑ | ☑ | ☑ |
+| 72 | `internal_loop_energy` | ☑ | ☑ | ☑ |
+| 73 | `is_disorder_promoting` | ☑ | ☑ | ☑ |
+| 74 | `kmer_distance` | ☑ | ☑ | ☑ |
+| 75 | `kmer_frequencies` | ☑ | ☑ | ☑ |
+| 76 | `kmer_positions` | ☑ | ☑ | ☑ |
+| 77 | `kmer_spectrum` | ☑ | ☑ | ☑ |
+| 78 | `kmers_with_min_count` | ☑ | ☑ | ☑ |
+| 79 | `lempel_ziv_complexity` | ☑ | ☑ | ☑ |
+| 80 | `longdust_score` | ☑ | ☑ | ☑ |
+| 81 | `mask_approximate_tandem_repeats` | ☑ | ☑ | ☑ |
+| 82 | `mask_low_complexity` | ☑ | ☑ | ☑ |
+| 83 | `minimum_free_energy` | ☑ | ☑ | ☑ |
+| 84 | `mismatch_coaxial_stacking` | ☑ | ☑ | ☑ |
+| 85 | `most_frequent_kmers` | ☑ | ☑ | ☑ |
+| 86 | `multibranch_loop_energy` | ☑ | ☑ | ☑ |
+| 87 | `oligo_analysis` | ☑ | ☑ | ☑ |
+| 88 | `parse_dot_bracket` | ☑ | ☑ | ☑ |
+| 89 | `predict_chou_fasman` | ☑ | ☑ | ☑ |
+| 90 | `predict_coiled_coils` | ☑ | ☑ | ☑ |
+| 91 | `predict_disorder` | ☑ | ☑ | ☑ |
+| 92 | `predict_low_complexity_seg` | ☑ | ☑ | ☑ |
+| 93 | `predict_morfs` | ☑ | ☑ | ☑ |
+| 94 | `predict_replication_origin` | ☑ | ☑ | ☑ |
+| 95 | `predict_rna_structure` | ☑ | ☑ | ☑ |
+| 96 | `predict_signal_peptide` | ☑ | ☑ | ☑ |
+| 97 | `predict_transmembrane_helices` | ☑ | ☑ | ☑ |
+| 98 | `prosite_to_regex` | ☑ | ☑ | ☑ |
+| 99 | `pwm_score_thresholds` | ☑ | ☑ | ☑ |
+| 100 | `reversal_distance` | ☑ | ☑ | ☑ |
+| 101 | `rna_complement_base` | ☑ | ☑ | ☑ |
+| 102 | `scan_with_pwm` | ☑ | ☑ | ☑ |
+| 103 | `scan_with_pwm_both_strands` | ☑ | ☑ | ☑ |
+| 104 | `shared_motifs_significance` | ☑ | ☑ | ☑ |
+| 105 | `standardize_repeat_motif` | ☑ | ☑ | ☑ |
+| 106 | `stem_energy` | ☑ | ☑ | ☑ |
+| 107 | `tandem_repeat_bernoulli_statistics` | ☑ | ☑ | ☑ |
+| 108 | `tandem_repeat_summary` | ☑ | ☑ | ☑ |
+| 109 | `terminal_mismatch_energy` | ☑ | ☑ | ☑ |
+| 110 | `unique_kmers` | ☑ | ☑ | ☑ |
+| 111 | `validate_dot_bracket` | ☑ | ☑ | ☑ |
+| 112 | `windowed_complexity` | ☑ | ☑ | ☑ |
+| 113 | `windowed_gc_skew` | ☑ | ☑ | ☑ |
 
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 

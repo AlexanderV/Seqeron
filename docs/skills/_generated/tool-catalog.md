@@ -35,7 +35,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (100 tools)
+## Analysis (113 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -62,14 +62,20 @@
 | `disorder_propensity` | `DisorderPredictor.GetDisorderPropensity` | [doc](../../mcp/tools/analysis/disorder_propensity.md) |
 | `dust_score` | `SequenceComplexity.CalculateDustScore` | [doc](../../mcp/tools/analysis/dust_score.md) |
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
+| `find_approximate_direct_repeats` | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../mcp/tools/analysis/find_approximate_direct_repeats.md) |
+| `find_approximate_tandem_repeats` | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/find_approximate_tandem_repeats.md) |
 | `find_clumps` | `KmerAnalyzer.FindClumps` | [doc](../../mcp/tools/analysis/find_clumps.md) |
 | `find_common_regions` | `GenomicAnalyzer.FindCommonRegions` | [doc](../../mcp/tools/analysis/find_common_regions.md) |
 | `find_conserved_clusters` | `ComparativeGenomics.FindConservedClusters` | [doc](../../mcp/tools/analysis/find_conserved_clusters.md) |
 | `find_degenerate_motif` | `MotifFinder.FindDegenerateMotif` | [doc](../../mcp/tools/analysis/find_degenerate_motif.md) |
+| `find_degenerate_repeats` | `RepeatFinder.FindDegenerateRepeats` | [doc](../../mcp/tools/analysis/find_degenerate_repeats.md) |
 | `find_direct_repeats` | `RepeatFinder.FindDirectRepeats` | [doc](../../mcp/tools/analysis/find_direct_repeats.md) |
 | `find_exact_motif` | `MotifFinder.FindExactMotif` | [doc](../../mcp/tools/analysis/find_exact_motif.md) |
 | `find_inverted_repeats` | `RepeatFinder.FindInvertedRepeats` | [doc](../../mcp/tools/analysis/find_inverted_repeats.md) |
+| `find_inverted_repeats_scored` | `RepeatFinder.FindInvertedRepeatsScored` | [doc](../../mcp/tools/analysis/find_inverted_repeats_scored.md) |
 | `find_known_motifs` | `GenomicAnalyzer.FindKnownMotifs` | [doc](../../mcp/tools/analysis/find_known_motifs.md) |
+| `find_longdust_regions` | `SequenceComplexity.FindLongdustRegions` | [doc](../../mcp/tools/analysis/find_longdust_regions.md) |
+| `find_low_complexity_intervals` | `SequenceComplexity.FindLowComplexityIntervals` | [doc](../../mcp/tools/analysis/find_low_complexity_intervals.md) |
 | `find_low_complexity_regions` | `SequenceComplexity.FindLowComplexityRegions` | [doc](../../mcp/tools/analysis/find_low_complexity_regions.md) |
 | `find_microsatellites` | `RepeatFinder.FindMicrosatellites` | [doc](../../mcp/tools/analysis/find_microsatellites.md) |
 | `find_motif` | `GenomicAnalyzer.FindMotif` | [doc](../../mcp/tools/analysis/find_motif.md) |
@@ -86,9 +92,11 @@
 | `find_regulatory_elements` | `MotifFinder.FindRegulatoryElements` | [doc](../../mcp/tools/analysis/find_regulatory_elements.md) |
 | `find_regulatory_elements_both_strands` | `MotifFinder.FindRegulatoryElements` | [doc](../../mcp/tools/analysis/find_regulatory_elements_both_strands.md) |
 | `find_repeats` | `GenomicAnalyzer.FindRepeats` | [doc](../../mcp/tools/analysis/find_repeats.md) |
+| `find_reverse_complement_repeats` | `RepeatFinder.FindReverseComplementRepeats` | [doc](../../mcp/tools/analysis/find_reverse_complement_repeats.md) |
 | `find_rna_inverted_repeats` | `RnaSecondaryStructure.FindInvertedRepeats` | [doc](../../mcp/tools/analysis/find_rna_inverted_repeats.md) |
 | `find_shared_motifs` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/find_shared_motifs.md) |
 | `find_stem_loops` | `RnaSecondaryStructure.FindStemLoops` | [doc](../../mcp/tools/analysis/find_stem_loops.md) |
+| `find_supermaximal_repeats` | `RepeatFinder.FindSupermaximalRepeats` | [doc](../../mcp/tools/analysis/find_supermaximal_repeats.md) |
 | `find_syntenic_blocks` | `ComparativeGenomics.FindSyntenicBlocks` | [doc](../../mcp/tools/analysis/find_syntenic_blocks.md) |
 | `find_tandem_repeats` | `GenomicAnalyzer.FindTandemRepeats` | [doc](../../mcp/tools/analysis/find_tandem_repeats.md) |
 | `flush_coaxial_stacking` | `RnaSecondaryStructure.CalculateFlushCoaxialStacking` | [doc](../../mcp/tools/analysis/flush_coaxial_stacking.md) |
@@ -109,6 +117,9 @@
 | `kmer_positions` | `KmerAnalyzer.FindKmerPositions` | [doc](../../mcp/tools/analysis/kmer_positions.md) |
 | `kmer_spectrum` | `KmerAnalyzer.GetKmerSpectrum` | [doc](../../mcp/tools/analysis/kmer_spectrum.md) |
 | `kmers_with_min_count` | `KmerAnalyzer.FindKmersWithMinCount` | [doc](../../mcp/tools/analysis/kmers_with_min_count.md) |
+| `lempel_ziv_complexity` | `SequenceComplexity.CalculateLempelZivComplexity` | [doc](../../mcp/tools/analysis/lempel_ziv_complexity.md) |
+| `longdust_score` | `SequenceComplexity.CalculateLongdustScore` | [doc](../../mcp/tools/analysis/longdust_score.md) |
+| `mask_approximate_tandem_repeats` | `RepeatFinder.MaskApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/mask_approximate_tandem_repeats.md) |
 | `mask_low_complexity` | `SequenceComplexity.MaskLowComplexity` | [doc](../../mcp/tools/analysis/mask_low_complexity.md) |
 | `minimum_free_energy` | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | [doc](../../mcp/tools/analysis/minimum_free_energy.md) |
 | `mismatch_coaxial_stacking` | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../mcp/tools/analysis/mismatch_coaxial_stacking.md) |
@@ -132,7 +143,9 @@
 | `scan_with_pwm` | `MotifFinder.ScanWithPwm` | [doc](../../mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `shared_motifs_significance` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/shared_motifs_significance.md) |
+| `standardize_repeat_motif` | `RepeatFinder.GetStandardMotif` | [doc](../../mcp/tools/analysis/standardize_repeat_motif.md) |
 | `stem_energy` | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../mcp/tools/analysis/stem_energy.md) |
+| `tandem_repeat_bernoulli_statistics` | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |
 | `tandem_repeat_summary` | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../mcp/tools/analysis/tandem_repeat_summary.md) |
 | `terminal_mismatch_energy` | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../mcp/tools/analysis/terminal_mismatch_energy.md) |
 | `unique_kmers` | `KmerAnalyzer.FindUniqueKmers` | [doc](../../mcp/tools/analysis/unique_kmers.md) |

@@ -14,7 +14,7 @@ Prefer code? The same algorithms are a normal C# API. Prefer your own agent? The
 [![Status](https://img.shields.io/badge/status-beta-f5a623)](#project-status--validation)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-22k%2B%20green-3fb950)](#build--test)
-[![MCP](https://img.shields.io/badge/MCP-446%20tools-6f42c1)](#3-mcp-integration)
+[![MCP](https://img.shields.io/badge/MCP-459%20tools-6f42c1)](#3-mcp-integration)
 
 > 🧪 **Beta — research-grade software, not for clinical or diagnostic use.**
 > Seqeron is feature-complete with a stabilizing public API on the road to 1.0, and every algorithm
@@ -54,7 +54,7 @@ calculator or drowning in schemas.
 
 | What you gain | Why it matters |
 |---|---|
-| 🤖 **LLM-native and context-smart** | 21 skills discover and chain **446 strict-schema tools** on demand, without loading the whole catalog into context. You state the biology; Seqeron handles tools, order, parameters, units, coordinates, and provenance. |
+| 🤖 **LLM-native and context-smart** | 21 skills discover and chain **459 strict-schema tools** on demand, without loading the whole catalog into context. You state the biology; Seqeron handles tools, order, parameters, units, coordinates, and provenance. |
 | ⚙️ **Executable answers, not plausible prose** | The LLM orchestrates; Seqeron computes. Alignments, variants, trees, structures, scores, and primer properties come from tested code — never model arithmetic. |
 | 🧭 **One question, an end-to-end workflow** | Move from parsing and QC through alignment, assembly, annotation, RNA, oncology, or assay design. More than 250 algorithms share models and conventions instead of behaving like unrelated utilities. |
 | 🔁 **Conversation today, production code tomorrow** | Skills, MCP tools, and C# reach the same implementations. Explore interactively, then embed the pipeline without rewriting the biology. |
@@ -207,7 +207,7 @@ biological tasks — not just single tool calls. The [Agent Skills](https://docs
 live under [`.claude/skills/`](.claude/skills) (Claude Code) with a byte-identical mirror under
 [`.github/skills/`](.github/skills) (Copilot / VS Code).
 
-**Why a skill layer at all?** With **446 tools**, an LLM drowns if you attach every schema. The
+**Why a skill layer at all?** With **459 tools**, an LLM drowns if you attach every schema. The
 skills keep tool descriptions **out of the model's context** and instead teach it to **discover** the
 right tool, **orchestrate** a correct multi-step pipeline, and stay **scientifically honest** (compute
 with tools — never guess; respect each algorithm's validated envelope; carry provenance). Every recipe
@@ -217,7 +217,7 @@ don't need MCP at all; the algorithms are identical either way.
 **The 21 skills:**
 
 - **Cross-cutting** — `seqeron-setup` (one-command install for a fresh clone) · `seqeron-discovery`
-  (find the right tool among 446 without loading schemas) · `bio-rigor` (tool-only computation,
+  (find the right tool among 459 without loading schemas) · `bio-rigor` (tool-only computation,
   provenance, envelope STOP rules) · `seqeron-dev` (the C# API path: namespaces, `LimitationPolicy`,
   `TryCreate`) · `seqeron-python-client` (wrap any tool in a small Python script).
 - **Domains** — `bio-qc` · `bio-alignment` · `bio-assembly` · `bio-annotation` · `bio-moldesign` ·

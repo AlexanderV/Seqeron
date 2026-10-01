@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_low_complexity_intervals",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.FindLowComplexityIntervals",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L854",
+  "description": "Returns the **SDUST** low-complexity intervals (Morgulis et al. 2006; symmetric DUST) as 0-based half-open [start, end) pairs in ascending order — the native output of lh3/sdust (name start end) and, with end − 1, of NCBI dustmasker -outfmt interval. These are exactly the positions mask_low_complexity masks. N and other IUPAC codes split the input into independently scanned A/C/G/T runs (sdust's contract). linker reproduces dustmasker -linker (intervals separated by fewer than linker unmasked bases are merged; default 1 = sdust).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive)",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "SDUST window length in bases",
+        "minimum": 3,
+        "default": 64
+      },
+      "threshold": {
+        "type": "number",
+        "description": "DUST score threshold; intervals scoring strictly above it are reported (2.0 = dustmasker level 20)",
+        "minimum": 0,
+        "default": 2.0
+      },
+      "linker": {
+        "type": "integer",
+        "description": "dustmasker linker",
+        "minimum": 1,
+        "maximum": 32,
+        "default": 1
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "start",
+            "end",
+            "length"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+    },
+    {
+      "code": 1003,
+      "message": "windowSize >= 3; threshold finite >= 0; linker 1-32"
+    }
+  ],
+  "examples": [
+    {
+      "name": "sdust -w 64 -t 20",
+      "input": {
+        "sequence": "ACGTGCATGCAAAAAAAAAAAAAAAAGCTAGCATCGACTGCAGCACACACACACACACAGATCGATCGTACGGTGCATGACAAAAAAAAAAAAACT"
+      },
+      "output": {
+        "items": [
+          {
+            "start": 10,
+            "end": 26,
+            "length": 16
+          },
+          {
+            "start": 43,
+            "end": 59,
+            "length": 16
+          },
+          {
+            "start": 81,
+            "end": 94,
+            "length": 13
+          }
+        ]
+      }
+    },
+    {
+      "name": "dustmasker -linker 32",
+      "input": {
+        "sequence": "ACGTGCATGCAAAAAAAAAAAAAAAAGCTAGCATCGACTGCAGCACACACACACACACAGATCGATCGTACGGTGCATGACAAAAAAAAAAAAACT",
+        "linker": 32
+      },
+      "output": {
+        "items": [
+          {
+            "start": 10,
+            "end": 94,
+            "length": 84
+          }
+        ]
+      }
+    },
+    {
+      "name": "N splits the scan",
+      "input": {
+        "sequence": "ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA"
+      },
+      "output": {
+        "items": [
+          {
+            "start": 6,
+            "end": 18,
+            "length": 12
+          },
+          {
+            "start": 23,
+            "end": 38,
+            "length": 15
+          }
+        ]
+      }
+    }
+  ]
+}

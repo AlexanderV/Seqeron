@@ -15,13 +15,13 @@ description: >-
   Triggers: "annotate this
   sequence", "find ORFs / genes / promoters", "call variants", "what motifs are
   in…", "classify this variant", "predict the effect", "mask low-complexity",
-  "find repeats", "k-mer profile". Servers: annotation + analysis (~197 tools).
+  "find repeats", "k-mer profile". Servers: annotation + analysis (~210 tools).
 allowed-tools: Read, Bash, Grep, Glob
 ---
 
 # bio-annotation — structural annotation, variants, motifs, repeats, k-mers
 
-Routing + orchestration skill for the **Annotation** (97 tools) and **Analysis** (100 tools) servers.
+Routing + orchestration skill for the **Annotation** (97 tools) and **Analysis** (113 tools) servers.
 It picks the right tool for an annotation/characterization question and gives a **dual-mode** recipe
 (MCP tool calls **and** the equivalent `Seqeron.Genomics` C# `Method ID`s).
 
@@ -36,7 +36,7 @@ It picks the right tool for an annotation/characterization question and gives a 
 
 ## Decision guide — question → workflow family → entry tool(s)
 
-With ~197 tools, route by **family** first, then open the family table in
+With ~210 tools, route by **family** first, then open the family table in
 [`reference/tool-map.md`](reference/tool-map.md) for the full per-tool list.
 
 | If the task is about… | Family | Key entry tool(s) ([MCP] / `Method ID`) |
@@ -149,7 +149,7 @@ Caveat: alpha software; not for clinical use — independently validate before a
 
 - **Full domain tool index (all ~188, generated — do NOT hand-edit):** [`_generated/tools.md`](_generated/tools.md)
   (produced by `scripts/skills/gen-catalog.py`; if absent, use `seqeron-discovery`).
-- **Tool map (~197 tools by family, one-liners + Method ID):** [`reference/tool-map.md`](reference/tool-map.md)
+- **Tool map (~210 tools by family, one-liners + Method ID):** [`reference/tool-map.md`](reference/tool-map.md)
 - **Fuller recipes + parameter/coordinate guidance + envelope STOP rules:** [`reference/pipelines.md`](reference/pipelines.md)
 - **Algorithm background (invariants/formulas — link, don't copy):**
   [`docs/algorithms/Annotation/`](../../../docs/algorithms/Annotation/) ·

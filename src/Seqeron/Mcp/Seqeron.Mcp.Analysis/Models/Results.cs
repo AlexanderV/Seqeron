@@ -183,7 +183,144 @@ public record TandemRepeatSummaryResult(
 
     /// <summary>STR counts per MISA repeat-type class (rotations + reverse complement, e.g. "AC/GT").</summary>
     public Dictionary<string, int>? CanonicalMotifCounts { get; init; }
+
+    /// <summary>STR counts per Krait standard motif (only when <c>standardMotifLevel</c> is 0-4; otherwise null).</summary>
+    public Dictionary<string, int>? StandardMotifCounts { get; init; }
 }
+
+/// <summary>An EMBOSS einverted scored inverted repeat (0-based inclusive arm coordinates).</summary>
+public record ScoredInvertedRepeatItem(
+    int LeftArmStart,
+    int LeftArmEnd,
+    int RightArmStart,
+    int RightArmEnd,
+    int Score,
+    int Matches,
+    int Mismatches,
+    int Gaps,
+    string LeftArmAlignment,
+    string MatchLine,
+    string RightArmAlignment,
+    int LeftArmLength,
+    int RightArmLength,
+    int LoopLength,
+    double PercentMatches);
+
+/// <summary>Result of <c>find_inverted_repeats_scored</c>.</summary>
+public record FindInvertedRepeatsScoredResult(ScoredInvertedRepeatItem[] Items);
+
+/// <summary>A maximal reverse-complement repeat pair.</summary>
+public record ReverseComplementRepeatItem(
+    int FirstPosition,
+    int SecondPosition,
+    string RepeatSequence,
+    string SecondSequence,
+    int Length,
+    int Spacing);
+
+/// <summary>Result of <c>find_reverse_complement_repeats</c>.</summary>
+public record FindReverseComplementRepeatsResult(ReverseComplementRepeatItem[] Items);
+
+/// <summary>A maximal k-mismatch direct repeat.</summary>
+public record ApproximateDirectRepeatItem(
+    int FirstPosition,
+    int SecondPosition,
+    int Length,
+    int Mismatches,
+    int Spacing,
+    string FirstCopy,
+    string SecondCopy);
+
+/// <summary>Result of <c>find_approximate_direct_repeats</c>.</summary>
+public record FindApproximateDirectRepeatsResult(ApproximateDirectRepeatItem[] Items);
+
+/// <summary>A maximal degenerate (k-differences / k-mismatches) repeat.</summary>
+public record DegenerateRepeatItem(
+    int FirstPosition,
+    int FirstLength,
+    int SecondPosition,
+    int SecondLength,
+    int Distance,
+    int Spacing,
+    string FirstCopy,
+    string SecondCopy,
+    bool IsReverseComplement);
+
+/// <summary>Result of <c>find_degenerate_repeats</c>.</summary>
+public record FindDegenerateRepeatsResult(DegenerateRepeatItem[] Items);
+
+/// <summary>A supermaximal repeat with all its occurrences.</summary>
+public record SupermaximalRepeatItem(string Sequence, int Length, int[] Positions);
+
+/// <summary>Result of <c>find_supermaximal_repeats</c>.</summary>
+public record FindSupermaximalRepeatsResult(SupermaximalRepeatItem[] Items);
+
+/// <summary>A Tandem Repeats Finder row (0-based start; TRF .dat columns).</summary>
+public record ApproximateTandemRepeatItem(
+    int Start,
+    int SpanLength,
+    int Period,
+    int ConsensusSize,
+    string Consensus,
+    double CopyNumber,
+    double PercentMatches,
+    double PercentIndels,
+    int AlignmentScore)
+{
+    /// <summary>Percentage of A in the repeat.</summary>
+    public double PercentA { get; init; }
+
+    /// <summary>Percentage of C in the repeat.</summary>
+    public double PercentC { get; init; }
+
+    /// <summary>Percentage of G in the repeat.</summary>
+    public double PercentG { get; init; }
+
+    /// <summary>Percentage of T in the repeat.</summary>
+    public double PercentT { get; init; }
+
+    /// <summary>Shannon entropy (bits) over A/C/G/T only.</summary>
+    public double Entropy { get; init; }
+
+    /// <summary>TRF's entropy column (denominator = all non-gap symbols).</summary>
+    public double EntropyTrf { get; init; }
+
+    /// <summary>Final alignment row of the repeat.</summary>
+    public string? AlignedSequence { get; init; }
+
+    /// <summary>Final alignment row of the consensus copies.</summary>
+    public string? AlignedConsensus { get; init; }
+
+    /// <summary>Left flank (only when flankLength &gt; 0).</summary>
+    public string? LeftFlank { get; init; }
+
+    /// <summary>Right flank (only when flankLength &gt; 0).</summary>
+    public string? RightFlank { get; init; }
+}
+
+/// <summary>Result of <c>find_approximate_tandem_repeats</c>.</summary>
+public record FindApproximateTandemRepeatsResult(ApproximateTandemRepeatItem[] Items);
+
+/// <summary>Result of <c>mask_approximate_tandem_repeats</c>.</summary>
+public record MaskApproximateTandemRepeatsResult(string Masked);
+
+/// <summary>Result of <c>tandem_repeat_bernoulli_statistics</c>.</summary>
+public record TandemRepeatBernoulliStatisticsResult(
+    int Period,
+    int AdjacentCopyPairs,
+    int BernoulliTrials,
+    int Matches,
+    int Mismatches,
+    int Indels,
+    double MatchProbability,
+    double IndelProbability,
+    double PercentMatches,
+    double PercentIndels,
+    double ExpectedMatches,
+    bool MeetsExpectedMatchProbability);
+
+/// <summary>Result of <c>standardize_repeat_motif</c>.</summary>
+public record StandardizeRepeatMotifResult(string CanonicalClass, string StandardMotif, int Level);
 
 // ================================
 // MotifFinder Results
@@ -384,6 +521,21 @@ public record MaskLowComplexityResult(string Masked);
 
 /// <summary>Result of <c>compression_ratio</c>.</summary>
 public record CompressionRatioResult(double Ratio);
+
+/// <summary>A 0-based half-open [Start, End) low-complexity interval.</summary>
+public record ComplexityIntervalItem(int Start, int End, int Length);
+
+/// <summary>Result of <c>find_low_complexity_intervals</c>.</summary>
+public record FindLowComplexityIntervalsResult(ComplexityIntervalItem[] Items);
+
+/// <summary>Result of <c>longdust_score</c>: S_L(x) and the number of k-mer positions l(x).</summary>
+public record LongdustScoreResult(double Score, int KmerPositions);
+
+/// <summary>Result of <c>find_longdust_regions</c>.</summary>
+public record FindLongdustRegionsResult(ComplexityIntervalItem[] Items);
+
+/// <summary>Result of <c>lempel_ziv_complexity</c>.</summary>
+public record LempelZivComplexityResult(int Complexity, double Normalized);
 
 // ================================
 // ComparativeGenomics Results

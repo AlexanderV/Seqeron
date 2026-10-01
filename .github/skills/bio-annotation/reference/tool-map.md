@@ -118,6 +118,15 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `find_palindromes` | X | DNA palindromes (restriction sites) | `RepeatFinder.FindPalindromes` |
 | `find_repeats` | X | All repeats ≥ minLength | `GenomicAnalyzer.FindRepeats` |
 | `find_rna_inverted_repeats` | X | RNA hairpin stems | `RnaSecondaryStructure.FindInvertedRepeats` |
+| `find_inverted_repeats_scored` | X | Gapped, mismatch-tolerant inverted repeats scored like EMBOSS einverted | `RepeatFinder.FindInvertedRepeatsScored` |
+| `find_reverse_complement_repeats` | X | Maximal exact reverse-complement repeat pairs (repeat-match / Vmatch -p) | `RepeatFinder.FindReverseComplementRepeats` |
+| `find_approximate_direct_repeats` | X | Maximal k-mismatch direct repeats (REPuter / Vmatch -h) | `RepeatFinder.FindApproximateDirectRepeats` |
+| `find_degenerate_repeats` | X | Maximal k-differences / k-mismatches repeats, direct or palindromic (Vmatch -e/-h, -p) | `RepeatFinder.FindDegenerateRepeats` |
+| `find_supermaximal_repeats` | X | Supermaximal repeats (Vmatch -supermax) | `RepeatFinder.FindSupermaximalRepeats` |
+| `find_approximate_tandem_repeats` | X | Approximate tandem repeats, Tandem Repeats Finder model and parameters | `RepeatFinder.FindApproximateTandemRepeats` |
+| `mask_approximate_tandem_repeats` | X | TRF -m masked sequence (N or soft mask) | `RepeatFinder.MaskApproximateTandemRepeats` |
+| `tandem_repeat_bernoulli_statistics` | X | TRF Bernoulli PM/PI between adjacent copies of a tract | `RepeatFinder.ComputeBernoulliStatistics` |
+| `standardize_repeat_motif` | X | MISA repeat-type class + Krait standard motif of a unit | `RepeatFinder.GetStandardMotif` |
 
 ## 6. Complexity / low-complexity masking
 
@@ -128,6 +137,10 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `dust_score` | X | DUST low-complexity score | `SequenceComplexity.CalculateDustScore` |
 | `compression_ratio` | X | LZ-normalized complexity | `SequenceComplexity.EstimateCompressionRatio` |
 | `windowed_complexity` | X | Windowed Shannon + linguistic complexity | `SequenceComplexity.CalculateWindowedComplexity` |
+| `find_low_complexity_intervals` | X | SDUST intervals (sdust / dustmasker -outfmt interval) | `SequenceComplexity.FindLowComplexityIntervals` |
+| `longdust_score` | X | Longdust k-mer complexity score S_L(x) | `SequenceComplexity.CalculateLongdustScore` |
+| `find_longdust_regions` | X | Longdust low-complexity regions (STR/VNTR/satellites) | `SequenceComplexity.FindLongdustRegions` |
+| `lempel_ziv_complexity` | X | Raw + normalized LZ76 complexity | `SequenceComplexity.CalculateLempelZivComplexity` |
 | `entropy_profile` | X | Sliding-window Shannon entropy | `SequenceStatistics.CalculateEntropyProfile` |
 | `find_protein_low_complexity_regions` | X | Protein LCRs via SEG | `ProteinMotifFinder.FindLowComplexityRegions` |
 | `predict_low_complexity_seg` | X | SEG LCRs in a protein | `DisorderPredictor.PredictLowComplexityRegions` |

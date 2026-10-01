@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "tandem_repeat_bernoulli_statistics",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.ComputeBernoulliStatistics",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L2807",
+  "description": "Estimates the Tandem Repeats Finder Bernoulli-model parameters of a tandem-repeat tract (Benson 1999): **PM** (match probability) and **PI** (indel probability) between ADJACENT copies. The tract is analysed as TRF analyses a detected repeat — wraparound-DP alignment against tandem copies of the candidate pattern (the last period bases), majority-rule consensus, realignment, then comparison of each copy with the next one (\"between adjacent copies in the sequence, not between the sequence and the consensus pattern\"). Each compared column is one Bernoulli trial (heads = match). PM/PI therefore equal TRF's % matches / % indels (/100) for the same region. Flanks that do not align are ignored; a tract without two aligned copies gives zero trials and PM = PI = 0. meetsExpectedMatchProbability = PM ≥ expectedMatchProbability.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "repeatTract": {
+        "type": "string",
+        "description": "The tandem-repeat tract (>= 2 x period symbols; case-insensitive)",
+        "minLength": 1
+      },
+      "period": {
+        "type": "integer",
+        "description": "Candidate period of the tract",
+        "minimum": 1,
+        "maximum": 2000
+      },
+      "expectedMatchProbability": {
+        "type": "number",
+        "description": "PM the tract is compared with (Benson 1999 default 0.80)",
+        "default": 0.8
+      }
+    },
+    "required": [
+      "repeatTract",
+      "period"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "period": {
+        "type": "integer"
+      },
+      "adjacentCopyPairs": {
+        "type": "integer"
+      },
+      "bernoulliTrials": {
+        "type": "integer"
+      },
+      "matches": {
+        "type": "integer"
+      },
+      "mismatches": {
+        "type": "integer"
+      },
+      "indels": {
+        "type": "integer"
+      },
+      "matchProbability": {
+        "type": "number"
+      },
+      "indelProbability": {
+        "type": "number"
+      },
+      "percentMatches": {
+        "type": "number"
+      },
+      "percentIndels": {
+        "type": "number"
+      },
+      "expectedMatches": {
+        "type": "number"
+      },
+      "meetsExpectedMatchProbability": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "period",
+      "adjacentCopyPairs",
+      "bernoulliTrials",
+      "matches",
+      "mismatches",
+      "indels",
+      "matchProbability",
+      "indelProbability",
+      "percentMatches",
+      "percentIndels",
+      "expectedMatches",
+      "meetsExpectedMatchProbability"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "repeatTract must hold at least 2 x period symbols"
+    },
+    {
+      "code": 1003,
+      "message": "period must be 1-2000; expectedMatchProbability in [0, 1]"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Perfect (CA)5",
+      "input": {
+        "repeatTract": "CACACACACA",
+        "period": 2
+      },
+      "output": {
+        "period": 2,
+        "adjacentCopyPairs": 4,
+        "bernoulliTrials": 8,
+        "matches": 8,
+        "mismatches": 0,
+        "indels": 0,
+        "matchProbability": 1,
+        "indelProbability": 0,
+        "percentMatches": 100,
+        "percentIndels": 0,
+        "expectedMatches": 8,
+        "meetsExpectedMatchProbability": true
+      }
+    },
+    {
+      "name": "CAG x6 with one TAG copy (TRF m=13 mm=2 ind=0)",
+      "input": {
+        "repeatTract": "CAGCAGCAGTAGCAGCAG",
+        "period": 3
+      },
+      "output": {
+        "period": 3,
+        "adjacentCopyPairs": 5,
+        "bernoulliTrials": 15,
+        "matches": 13,
+        "mismatches": 2,
+        "indels": 0,
+        "matchProbability": 0.8666666666666667,
+        "indelProbability": 0,
+        "percentMatches": 86.66666666666667,
+        "percentIndels": 0,
+        "expectedMatches": 13,
+        "meetsExpectedMatchProbability": true
+      }
+    },
+    {
+      "name": "Deletion tract (TRF m=25 mm=0 ind=2)",
+      "input": {
+        "repeatTract": "CAGCAGCAGCAGCAGAGCAGCAGCAGCAG",
+        "period": 3
+      },
+      "output": {
+        "period": 3,
+        "adjacentCopyPairs": 9,
+        "bernoulliTrials": 27,
+        "matches": 25,
+        "mismatches": 0,
+        "indels": 2,
+        "matchProbability": 0.9259259259259259,
+        "indelProbability": 0.07407407407407407,
+        "percentMatches": 92.5925925925926,
+        "percentIndels": 7.4074074074074066,
+        "expectedMatches": 25,
+        "meetsExpectedMatchProbability": true
+      }
+    }
+  ]
+}

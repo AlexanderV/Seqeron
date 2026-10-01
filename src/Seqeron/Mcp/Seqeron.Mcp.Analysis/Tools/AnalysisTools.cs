@@ -561,9 +561,12 @@ public class AnalysisTools
     public static TandemRepeatSummaryResult TandemRepeatSummary(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum number of repeats (default 3); ignored when misaThresholds is true.")] int minRepeats = 3,
-        [Description("Use the MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) instead of minRepeats (default false).")] bool misaThresholds = false)
+        [Description("Use the MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) instead of minRepeats (default false).")] bool misaThresholds = false,
+        [Description("When 0-4, also count STRs per Krait standard motif at this level (Du et al. 2018; 2 = rotations + reverse complement); default -1 = not reported.")] int standardMotifLevel = -1)
     {
         var dna = RequireDna(sequence, nameof(sequence));
+        if (standardMotifLevel is < -1 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(standardMotifLevel), "standardMotifLevel must be -1 (off) or 0-4.");
         var s = misaThresholds
             ? global::Seqeron.Genomics.Analysis.RepeatFinder.GetTandemRepeatSummary(
                 dna, global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats)
@@ -590,6 +593,9 @@ public class AnalysisTools
             PentanucleotideRepeats = s.PentanucleotideRepeats,
             HexanucleotideRepeats = s.HexanucleotideRepeats,
             CanonicalMotifCounts = new Dictionary<string, int>(canonical),
+            StandardMotifCounts = standardMotifLevel >= 0
+                ? new Dictionary<string, int>(global::Seqeron.Genomics.Analysis.RepeatFinder.GetStandardMotifFrequencies(ssrs, standardMotifLevel))
+                : null,
         };
     }
 
@@ -608,6 +614,247 @@ public class AnalysisTools
             .Select(p => new PalindromeItem(p.Position, p.Sequence, p.Length))
             .ToArray();
         return new FindPalindromesResult(items);
+    }
+
+    [McpServerTool(Name = "find_inverted_repeats_scored", Title = "Repeats — Scored Inverted Repeats (einverted)", ReadOnly = true)]
+    [Description("Gapped, mismatch-tolerant inverted repeats scored like EMBOSS einverted (Durbin & Thierry-Mieg 1993): local alignment of the sequence against its reverse complement, +matchScore per Watson-Crick pair, mismatchScore otherwise, -gapPenalty per gap; repeats scoring >= threshold are reported in einverted order with both alignment rows. Coordinates 0-based inclusive.")]
+    public static FindInvertedRepeatsScoredResult FindInvertedRepeatsScored(
+        [Description("DNA sequence (case-insensitive; symbols other than A/C/G/T never pair).")] string sequence,
+        [Description("Gap penalty (>= 0, default 12 = einverted -gap).")] int gapPenalty = 12,
+        [Description("Minimum reported score (>= 0, default 50 = einverted -threshold).")] int threshold = 50,
+        [Description("Score of a Watson-Crick pair (>= 0, default 3 = einverted -match).")] int matchScore = 3,
+        [Description("Score of any other pair (<= 0, default -4 = einverted -mismatch).")] int mismatchScore = -4,
+        [Description("Maximum extent from the repeat start to the end of its inverted copy (>= 2, default 2000 = einverted -maxrepeat).")] int maxRepeatLength = 2000)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var items = global::Seqeron.Genomics.Analysis.RepeatFinder
+            .FindInvertedRepeatsScored(sequence, gapPenalty, threshold, matchScore, mismatchScore, maxRepeatLength)
+            .Select(r => new ScoredInvertedRepeatItem(
+                r.LeftArmStart, r.LeftArmEnd, r.RightArmStart, r.RightArmEnd, r.Score, r.Matches, r.Mismatches, r.Gaps,
+                r.LeftArmAlignment, r.MatchLine, r.RightArmAlignment,
+                r.LeftArmLength, r.RightArmLength, r.LoopLength, r.PercentMatches))
+            .ToArray();
+        return new FindInvertedRepeatsScoredResult(items);
+    }
+
+    [McpServerTool(Name = "find_reverse_complement_repeats", Title = "Repeats — Reverse-Complement Repeat Pairs", ReadOnly = true)]
+    [Description("Maximal exact reverse-complement repeat pairs (MUMmer repeat-match reverse lines / Vmatch -p): copy 2 at SecondPosition equals the reverse complement of copy 1. Filters minLength <= length <= maxLength and spacing = secondPosition - firstPosition - length >= minSpacing (negative admits overlap). Only A/C/G/T pair. Sorted by (firstPosition, secondPosition, length).")]
+    public static FindReverseComplementRepeatsResult FindReverseComplementRepeats(
+        [Description("DNA sequence.")] string sequence,
+        [Description("Minimum repeat length (default 5, >= 2).")] int minLength = 5,
+        [Description("Maximum repeat length (default 50, >= minLength).")] int maxLength = 50,
+        [Description("Minimum number of bases between the copies (default 1; negative admits overlap).")] int minSpacing = 1)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var items = global::Seqeron.Genomics.Analysis.RepeatFinder
+            .FindReverseComplementRepeats(sequence, minLength, maxLength, minSpacing)
+            .Select(r => new ReverseComplementRepeatItem(
+                r.FirstPosition, r.SecondPosition, r.RepeatSequence, r.SecondSequence, r.Length, r.Spacing))
+            .ToArray();
+        return new FindReverseComplementRepeatsResult(items);
+    }
+
+    [McpServerTool(Name = "find_approximate_direct_repeats", Title = "Repeats — k-Mismatch Direct Repeats (REPuter/Vmatch -h)", ReadOnly = true)]
+    [Description("All maximal k-mismatch (Hamming) direct repeats (REPuter / Vmatch -h k). excludeContained=true drops repeats contained in a k-mismatch repeat on another diagonal (= vmatch -h k -allmax). Non-ACGT symbols are mismatches. Sorted by (firstPosition, secondPosition, length).")]
+    public static FindApproximateDirectRepeatsResult FindApproximateDirectRepeats(
+        [Description("DNA sequence.")] string sequence,
+        [Description("Minimum repeat length (default 10; >= 2 and > maxMismatches).")] int minLength = 10,
+        [Description("Maximum Hamming distance k between the copies (default 1, >= 0).")] int maxMismatches = 1,
+        [Description("Maximum repeat length (default 2147483647 = unbounded).")] int maxLength = int.MaxValue,
+        [Description("Minimum number of bases between the copies (default 1; negative admits overlap).")] int minSpacing = 1,
+        [Description("Drop repeats contained in a k-mismatch repeat on another diagonal (Vmatch -allmax; default false).")] bool excludeContained = false)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var items = global::Seqeron.Genomics.Analysis.RepeatFinder
+            .FindApproximateDirectRepeats(sequence, minLength, maxMismatches, maxLength, minSpacing, excludeContained)
+            .Select(r => new ApproximateDirectRepeatItem(
+                r.FirstPosition, r.SecondPosition, r.Length, r.Mismatches, r.Spacing, r.FirstCopy, r.SecondCopy))
+            .ToArray();
+        return new FindApproximateDirectRepeatsResult(items);
+    }
+
+    [McpServerTool(Name = "find_degenerate_repeats", Title = "Repeats — Degenerate Repeats (Vmatch -h/-e, -p)", ReadOnly = true)]
+    [Description("All maximal degenerate repeats with at most k differences (Kurtz et al. 2000 REPuter / Vmatch): distance 'edit' (k-differences, Vmatch -e, default) or 'hamming' (k-mismatches, Vmatch -h); reverseComplement=true gives palindromic repeats (Vmatch -p). Copies may differ in length under edit distance. Sorted by (firstPosition, secondPosition, firstLength, secondLength).")]
+    public static FindDegenerateRepeatsResult FindDegenerateRepeats(
+        [Description("DNA sequence.")] string sequence,
+        [Description("Minimum length of each instance (Vmatch -l; default 10, >= 2, > maxDifferences).")] int minLength = 10,
+        [Description("Maximum distance k (default 1, >= 1).")] int maxDifferences = 1,
+        [Description("'edit' (default, unit-cost edit distance) or 'hamming'.")] string distance = "edit",
+        [Description("false (default): direct repeats; true: palindromic / reverse-complement repeats (Vmatch -p).")] bool reverseComplement = false,
+        [Description("Maximum length of each instance (default 2147483647 = unbounded).")] int maxLength = int.MaxValue,
+        [Description("Minimum spacing = secondPosition - firstPosition - firstLength (default 1; -2147483648 returns the complete Vmatch set).")] int minSpacing = 1)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        var metric = (distance ?? "edit").ToLowerInvariant() switch
+        {
+            "edit" => global::Seqeron.Genomics.Analysis.ApproximateRepeatDistance.Edit,
+            "hamming" => global::Seqeron.Genomics.Analysis.ApproximateRepeatDistance.Hamming,
+            _ => throw new ArgumentException("distance must be 'edit' or 'hamming'", nameof(distance)),
+        };
+
+        var items = global::Seqeron.Genomics.Analysis.RepeatFinder
+            .FindDegenerateRepeats(sequence, minLength, maxDifferences, metric, reverseComplement, maxLength, minSpacing)
+            .Select(r => new DegenerateRepeatItem(
+                r.FirstPosition, r.FirstLength, r.SecondPosition, r.SecondLength, r.Distance, r.Spacing,
+                r.FirstCopy, r.SecondCopy, r.IsReverseComplement))
+            .ToArray();
+        return new FindDegenerateRepeatsResult(items);
+    }
+
+    [McpServerTool(Name = "find_supermaximal_repeats", Title = "Repeats — Supermaximal Repeats", ReadOnly = true)]
+    [Description("Supermaximal repeats (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats not contained in any other maximal repeat, each with all its 0-based occurrences. Only A/C/G/T match. Ordered by first occurrence, then length.")]
+    public static FindSupermaximalRepeatsResult FindSupermaximalRepeats(
+        [Description("DNA sequence.")] string sequence,
+        [Description("Minimum repeat length (default 5, >= 1).")] int minLength = 5)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var items = global::Seqeron.Genomics.Analysis.RepeatFinder
+            .FindSupermaximalRepeats(sequence, minLength)
+            .Select(r => new SupermaximalRepeatItem(r.Sequence, r.Length, r.Positions.ToArray()))
+            .ToArray();
+        return new FindSupermaximalRepeatsResult(items);
+    }
+
+    [McpServerTool(Name = "find_approximate_tandem_repeats", Title = "Repeats — Approximate Tandem Repeats (TRF)", ReadOnly = true)]
+    [Description("Approximate (imperfect) tandem repeats with the Tandem Repeats Finder model (Benson 1999; trf File Match Mismatch Delta PM PI Minscore MaxPeriod [-l] [-r] [-f]). Defaults = TRF recommended 2 7 7 80 10 50 500. Returns TRF's .dat columns (0-based start, span, period, copies, consensus, % matches / indels, score, base %, entropy) plus the alignment rows and optional flanks. examineUpToMaxPeriodOnly=true examines candidate distances only up to maxPeriod (faster for short periods; recommended weights required) instead of TRF's MAXDISTANCE.")]
+    public static FindApproximateTandemRepeatsResult FindApproximateTandemRepeats(
+        [Description("Sequence (case-insensitive; any non-A/C/G/T symbol never matches).")] string sequence,
+        [Description("Minimum reported period (>= 1, default 1; library option applied after redundancy elimination).")] int minPeriod = 1,
+        [Description("TRF MaxPeriod (1-2000, default 500).")] int maxPeriod = 500,
+        [Description("TRF Minscore (>= 1, default 50).")] int minScore = 50,
+        [Description("TRF Match weight (>= 1, default 2).")] int matchWeight = 2,
+        [Description("TRF Mismatch penalty (>= 1, default 7).")] int mismatchPenalty = 7,
+        [Description("TRF Delta (indel penalty, >= 1, default 7).")] int indelPenalty = 7,
+        [Description("TRF PM, match probability in percent (80 or 75; default 80).")] int matchProbability = 80,
+        [Description("TRF PI, indel probability in percent (1-100, default 10).")] int indelProbability = 10,
+        [Description("TRF -l: maximum tandem-repeat length in bp (>= 1, default 2000000).")] int maxRepeatLength = 2_000_000,
+        [Description("Redundancy elimination (default true; TRF -r turns it off).")] bool eliminateRedundancy = true,
+        [Description("TRF -f: flanking-sequence length to report on each side (>= 0, default 0 = none; TRF -f uses 500).")] int flankLength = 0,
+        [Description("Examine candidate distances only up to maxPeriod (library legacy mode; default false = TRF MAXDISTANCE). Requires the recommended weights/PM/PI and default -l/-r/-f.")] bool examineUpToMaxPeriodOnly = false)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        IEnumerable<global::Seqeron.Genomics.Analysis.ApproximateTandemRepeatResult> found;
+        if (examineUpToMaxPeriodOnly)
+        {
+            var defaults = global::Seqeron.Genomics.Analysis.TandemRepeatsFinderParameters.Recommended;
+            if (matchWeight != defaults.MatchWeight || mismatchPenalty != defaults.MismatchPenalty
+                || indelPenalty != defaults.IndelPenalty || matchProbability != defaults.MatchProbability
+                || indelProbability != defaults.IndelProbability || maxRepeatLength != defaults.MaxRepeatLength
+                || eliminateRedundancy != defaults.EliminateRedundancy || flankLength != defaults.FlankLength)
+                throw new ArgumentException(
+                    "examineUpToMaxPeriodOnly uses the TRF recommended weights 2 7 7 80 10 and default -l/-r/-f; leave those parameters at their defaults",
+                    nameof(examineUpToMaxPeriodOnly));
+            found = global::Seqeron.Genomics.Analysis.RepeatFinder.FindApproximateTandemRepeats(sequence, minPeriod, maxPeriod, minScore);
+        }
+        else
+        {
+            var parameters = TrfParameters(maxPeriod, minScore, matchWeight, mismatchPenalty, indelPenalty,
+                matchProbability, indelProbability, maxRepeatLength, eliminateRedundancy, flankLength);
+            found = global::Seqeron.Genomics.Analysis.RepeatFinder.FindApproximateTandemRepeats(sequence, parameters, minPeriod);
+        }
+
+        var items = found
+            .Select(r => new ApproximateTandemRepeatItem(
+                r.Start, r.SpanLength, r.Period, r.ConsensusSize, r.Consensus, r.CopyNumber,
+                r.PercentMatches, r.PercentIndels, r.AlignmentScore)
+            {
+                PercentA = r.PercentA,
+                PercentC = r.PercentC,
+                PercentG = r.PercentG,
+                PercentT = r.PercentT,
+                Entropy = r.Entropy,
+                EntropyTrf = r.EntropyTrf,
+                AlignedSequence = r.AlignedSequence,
+                AlignedConsensus = r.AlignedConsensus,
+                LeftFlank = r.LeftFlank,
+                RightFlank = r.RightFlank,
+            })
+            .ToArray();
+        return new FindApproximateTandemRepeatsResult(items);
+    }
+
+    [McpServerTool(Name = "mask_approximate_tandem_repeats", Title = "Repeats — Mask Tandem Repeats (TRF -m)", ReadOnly = true)]
+    [Description("TRF masked sequence (trf ... -m): every position inside a reported Tandem Repeats Finder repeat becomes N, or lower case with softMask. Same TRF parameters as find_approximate_tandem_repeats (defaults 2 7 7 80 10 50 500). Positions outside repeats keep the input characters.")]
+    public static MaskApproximateTandemRepeatsResult MaskApproximateTandemRepeats(
+        [Description("Sequence (case-insensitive; any non-A/C/G/T symbol never matches).")] string sequence,
+        [Description("TRF MaxPeriod (1-2000, default 500).")] int maxPeriod = 500,
+        [Description("TRF Minscore (>= 1, default 50).")] int minScore = 50,
+        [Description("TRF Match weight (>= 1, default 2).")] int matchWeight = 2,
+        [Description("TRF Mismatch penalty (>= 1, default 7).")] int mismatchPenalty = 7,
+        [Description("TRF Delta (indel penalty, >= 1, default 7).")] int indelPenalty = 7,
+        [Description("TRF PM in percent (80 or 75; default 80).")] int matchProbability = 80,
+        [Description("TRF PI in percent (1-100, default 10).")] int indelProbability = 10,
+        [Description("TRF -l: maximum tandem-repeat length in bp (>= 1, default 2000000).")] int maxRepeatLength = 2_000_000,
+        [Description("Redundancy elimination (default true; TRF -r turns it off).")] bool eliminateRedundancy = true,
+        [Description("Soft-mask: lower-case repeat positions instead of writing N (default false).")] bool softMask = false)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var parameters = TrfParameters(maxPeriod, minScore, matchWeight, mismatchPenalty, indelPenalty,
+            matchProbability, indelProbability, maxRepeatLength, eliminateRedundancy, 0);
+        var masked = global::Seqeron.Genomics.Analysis.RepeatFinder.MaskApproximateTandemRepeats(sequence, parameters, softMask);
+        return new MaskApproximateTandemRepeatsResult(masked);
+    }
+
+    private static global::Seqeron.Genomics.Analysis.TandemRepeatsFinderParameters TrfParameters(
+        int maxPeriod, int minScore, int matchWeight, int mismatchPenalty, int indelPenalty,
+        int matchProbability, int indelProbability, int maxRepeatLength, bool eliminateRedundancy, int flankLength) =>
+        new()
+        {
+            MatchWeight = matchWeight,
+            MismatchPenalty = mismatchPenalty,
+            IndelPenalty = indelPenalty,
+            MatchProbability = matchProbability,
+            IndelProbability = indelProbability,
+            MinScore = minScore,
+            MaxPeriod = maxPeriod,
+            MaxRepeatLength = maxRepeatLength,
+            EliminateRedundancy = eliminateRedundancy,
+            FlankLength = flankLength,
+        };
+
+    [McpServerTool(Name = "tandem_repeat_bernoulli_statistics", Title = "Repeats — TRF Bernoulli Statistics (PM/PI)", ReadOnly = true)]
+    [Description("Estimates the Tandem Repeats Finder Bernoulli-model parameters of a tandem-repeat tract (Benson 1999): PM (match probability) and PI (indel probability) between ADJACENT copies, from TRF's wraparound alignment and consensus realignment; equals TRF's % matches / % indels for the same region. Flags whether PM >= expectedMatchProbability.")]
+    public static TandemRepeatBernoulliStatisticsResult TandemRepeatBernoulliStatistics(
+        [Description("The tandem-repeat tract (>= 2 x period symbols; case-insensitive).")] string repeatTract,
+        [Description("Candidate period of the tract (1-2000).")] int period,
+        [Description("PM the tract is compared with (default 0.80, Benson 1999).")] double expectedMatchProbability = 0.80)
+    {
+        if (string.IsNullOrEmpty(repeatTract))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(repeatTract));
+
+        var s = global::Seqeron.Genomics.Analysis.RepeatFinder
+            .ComputeBernoulliStatistics(repeatTract, period, expectedMatchProbability);
+        return new TandemRepeatBernoulliStatisticsResult(
+            s.Period, s.AdjacentCopyPairs, s.BernoulliTrials, s.Matches, s.Mismatches, s.Indels,
+            s.MatchProbability, s.IndelProbability, s.PercentMatches, s.PercentIndels,
+            s.ExpectedMatches, s.MeetsExpectedMatchProbability);
+    }
+
+    [McpServerTool(Name = "standardize_repeat_motif", Title = "Repeats — Canonical / Standard Motif", ReadOnly = true)]
+    [Description("Repeat-motif standardization: the MISA repeat-type class (misa.pl .statistics 'considering sequence complementary', e.g. CA -> AC/GT) and the Krait standard motif at level 0-4 (Du et al. 2018: 0 = motif, 1 = + rotations, 2 = + reverse-complement rotations (default; the MISA grouping), 3 = + complement, 4 = + reverse).")]
+    public static StandardizeRepeatMotifResult StandardizeRepeatMotif(
+        [Description("Repeat unit of A/C/G/T (case-insensitive).")] string motif,
+        [Description("Krait standardization level 0-4 (default 2).")] int level = 2)
+    {
+        if (string.IsNullOrEmpty(motif))
+            throw new ArgumentException("Motif cannot be null or empty", nameof(motif));
+
+        var canonical = global::Seqeron.Genomics.Analysis.RepeatFinder.GetCanonicalMotifClass(motif);
+        var standard = global::Seqeron.Genomics.Analysis.RepeatFinder.GetStandardMotif(motif, level);
+        return new StandardizeRepeatMotifResult(canonical, standard, level);
     }
 
     #endregion
@@ -1280,6 +1527,68 @@ public class AnalysisTools
         var ratio = global::Seqeron.Genomics.Analysis.SequenceComplexity
             .EstimateCompressionRatio(sequence);
         return new CompressionRatioResult(ratio);
+    }
+
+    [McpServerTool(Name = "find_low_complexity_intervals", Title = "Complexity — SDUST Low-Complexity Intervals", ReadOnly = true)]
+    [Description("SDUST low-complexity intervals (Morgulis et al. 2006; lh3/sdust native output, dustmasker -outfmt interval with end+1) as 0-based half-open [start, end) pairs in ascending order — the intervals that mask_low_complexity masks. N and other IUPAC codes split the scan into independent ACGT runs. Optional dustmasker linker merge.")]
+    public static FindLowComplexityIntervalsResult FindLowComplexityIntervals(
+        [Description("DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive).")] string sequence,
+        [Description("SDUST window length in bases (default 64, >= 3).")] int windowSize = 64,
+        [Description("DUST score threshold; intervals scoring strictly above it are reported (default 2.0 = dustmasker level 20).")] double threshold = 2.0,
+        [Description("dustmasker linker: merge intervals separated by fewer than linker unmasked bases (1-32, default 1 = sdust/dustmasker default).")] int linker = 1)
+    {
+        var dna = RequireIupacDna(sequence, nameof(sequence));
+        var items = global::Seqeron.Genomics.Analysis.SequenceComplexity
+            .FindLowComplexityIntervals(dna, windowSize, threshold, linker)
+            .Select(p => new ComplexityIntervalItem(p.Start, p.End, p.End - p.Start))
+            .ToArray();
+        return new FindLowComplexityIntervalsResult(items);
+    }
+
+    [McpServerTool(Name = "longdust_score", Title = "Complexity — Longdust Score", ReadOnly = true)]
+    [Description("Longdust complexity score of a whole sequence (Li & Li 2025, lh3/longdust): S_L(x) = sum_t log c_x(t)! - f(l(x)/4^k) over the k-mers t of x, the k-mer generalisation of the DUST score. Higher = lower complexity; longdust calls x low-complexity when S_L(x) - T*l(x) > 0 (T = 0.6), l(x) = |x| - k + 1. k-mers containing non-ACGT symbols are not counted but still count in l.")]
+    public static LongdustScoreResult LongdustScore(
+        [Description("DNA sequence (A/C/G/T plus IUPAC codes; case-insensitive).")] string sequence,
+        [Description("k-mer length (1-14, default 7 = longdust -k).")] int k = 7,
+        [Description("Optional genome GC fraction in (0, 1) for longdust's GC correction (-g); omit for uniform base composition.")] double? gcContent = null)
+    {
+        var dna = RequireIupacDna(sequence, nameof(sequence));
+        var score = global::Seqeron.Genomics.Analysis.SequenceComplexity.CalculateLongdustScore(dna, k, gcContent);
+        return new LongdustScoreResult(score, Math.Max(0, dna.Length - k + 1));
+    }
+
+    [McpServerTool(Name = "find_longdust_regions", Title = "Complexity — Longdust Low-Complexity Regions", ReadOnly = true)]
+    [Description("Low-complexity regions with longdust (Li & Li 2025; port of lh3/longdust 1.4-r97), the k-mer generalisation of SDUST for long windows (STRs, VNTRs, satellites). Returns 0-based half-open [start, end) intervals (longdust BED output), by default the union over both strands. Defaults = longdust -k7 -w5000 -t0.6 -e50 -b3.")]
+    public static FindLongdustRegionsResult FindLongdustRegions(
+        [Description("DNA sequence (A/C/G/T plus IUPAC codes; case-insensitive).")] string sequence,
+        [Description("k-mer length (-k, 1-14, default 7).")] int k = 7,
+        [Description("Window size in k-mers (-w, 1-65534, default 5000).")] int windowSize = 5000,
+        [Description("Score threshold T per k-mer (-t, > 0, default 0.6).")] double threshold = 0.6,
+        [Description("X-drop length (-e, >= 0, default 50; 0 disables X-drop).")] int xdropLength = 50,
+        [Description("Minimum count of the current k-mer in the window before a search starts (-b, >= 2, default 3).")] int minStartCount = 3,
+        [Description("Scan the forward strand only (-f; default false = union of both strands).")] bool forwardOnly = false,
+        [Description("Guaranteed O(Lw) mode with one forward pass (-a; default false).")] bool approximate = false,
+        [Description("Optional genome GC fraction in (0, 1) for GC correction (-g); omit = off.")] double? gcContent = null)
+    {
+        var dna = RequireIupacDna(sequence, nameof(sequence));
+        var items = global::Seqeron.Genomics.Analysis.SequenceComplexity
+            .FindLongdustRegions(dna, k, windowSize, threshold, xdropLength, minStartCount, forwardOnly, approximate, gcContent)
+            .Select(p => new ComplexityIntervalItem(p.Start, p.End, p.End - p.Start))
+            .ToArray();
+        return new FindLongdustRegionsResult(items);
+    }
+
+    [McpServerTool(Name = "lempel_ziv_complexity", Title = "Complexity — Lempel-Ziv (LZ76) Complexity", ReadOnly = true)]
+    [Description("Raw Lempel-Ziv (1976) complexity c = number of components of the exhaustive history (Kaspar-Schuster scan, antropy _lz_complexity) and the normalized value c/(n/log_b(n)) (Zhang et al. 2009; antropy lziv_complexity(normalize=True); = compression_ratio). Input is upper-cased; any symbol alphabet.")]
+    public static LempelZivComplexityResult LempelZivComplexity(
+        [Description("Sequence (any symbols; case-insensitive).")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var raw = global::Seqeron.Genomics.Analysis.SequenceComplexity.CalculateLempelZivComplexity(sequence);
+        var normalized = global::Seqeron.Genomics.Analysis.SequenceComplexity.CalculateNormalizedLempelZivComplexity(sequence);
+        return new LempelZivComplexityResult(raw, normalized);
     }
 
     #endregion

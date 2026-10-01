@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.GetTandemRepeatSummary",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L3376",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4864",
   "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts (mono..hexa), longest repeat and most frequent unit. Also the MISA table of repeat-type classes considering sequence complementarity (motif rotations + reverse complement, e.g. AC/CA/GT/TG -> AC/GT); optional MISA per-unit-size thresholds.",
   "inputSchema": {
     "type": "object",
@@ -25,6 +25,13 @@
         "type": "boolean",
         "description": "Use MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) instead of minRepeats",
         "default": false
+      },
+      "standardMotifLevel": {
+        "type": "integer",
+        "description": "When 0-4, also count STRs per Krait standard motif at this level (Du et al. 2018; 2 = rotations + reverse complement); -1 = not reported",
+        "minimum": -1,
+        "maximum": 4,
+        "default": -1
       }
     },
     "required": [
@@ -82,6 +89,16 @@
           "type": "integer"
         },
         "description": "STR count per MISA repeat-type class (e.g. AC/GT)"
+      },
+      "standardMotifCounts": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "description": "STR count per Krait standard motif (only when standardMotifLevel is 0-4)"
       }
     },
     "required": [
@@ -186,6 +203,26 @@
           "C/G": 4,
           "AAAAG/CTTTT": 1,
           "AACCCT/AGGGTT": 1
+        }
+      }
+    },
+    {
+      "name": "MISA thresholds + Krait standard motifs (level 2); output abridged to the two count tables",
+      "input": {
+        "sequence": "ACACACACACACTCTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTACACACACACACATCTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTAGTGTGTGTGTGTACTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTATGTGTGTGTGTGACTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTAACATACATACATACATACATGCTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTAAAAAAAAAAAAAGCTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTATTTTTTTTTTTTTG",
+        "misaThresholds": true,
+        "standardMotifLevel": 2
+      },
+      "output": {
+        "canonicalMotifCounts": {
+          "A/T": 2,
+          "AC/GT": 4,
+          "ACAT/ATGT": 1
+        },
+        "standardMotifCounts": {
+          "A": 2,
+          "AC": 4,
+          "ATAC": 1
         }
       }
     }

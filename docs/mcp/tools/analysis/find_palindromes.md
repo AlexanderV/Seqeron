@@ -27,7 +27,7 @@ stems with a loop use `find_inverted_repeats`.
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L1266](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L1266)
+- Source: [RepeatFinder.cs#L5054](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5054)
 
 ## Input Schema
 

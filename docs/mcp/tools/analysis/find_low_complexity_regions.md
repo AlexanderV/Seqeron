@@ -25,7 +25,7 @@ the typical hits.
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L439](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L439), BBDuk mode [#L560](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L560)
+- Source: [SequenceComplexity.cs#L461](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L461), BBDuk mode [#L560](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L560)
 
 ## Input Schema
 

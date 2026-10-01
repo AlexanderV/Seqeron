@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "longdust_score",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.CalculateLongdustScore",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1148",
+  "description": "Computes the **longdust** score of a whole sequence x (Li & Li 2025, arXiv:2509.07357; lh3/longdust): S_L(x) = Σ_t log c_x(t)! − f(ℓ(x)/4^k), where c_x(t) counts k-mer t in x, ℓ(x) = |x| − k + 1 (kmerPositions) and f(λ) = 4^k e^{−λ} Σ_n log(n!) λ^n/n! is the expected Σ log c! of a random sequence — the k-mer generalisation of the DUST score. Higher = lower complexity; longdust calls x low-complexity when S_L(x) − T·ℓ(x) > 0 (T = 0.6). k-mers containing a non-ACGT symbol are not counted but still count in ℓ. gcContent enables longdust's GC correction (-g). Score 0 when ℓ ≤ 0.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive)",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "k-mer length (longdust -k)",
+        "minimum": 1,
+        "maximum": 14,
+        "default": 7
+      },
+      "gcContent": {
+        "type": "number",
+        "description": "Genome GC fraction in (0, 1) for GC correction (-g); omit = uniform composition",
+        "exclusiveMinimum": 0,
+        "exclusiveMaximum": 1
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": "number"
+      },
+      "kmerPositions": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "score",
+      "kmerPositions"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+    },
+    {
+      "code": 1003,
+      "message": "k must be 1-14; gcContent in (0, 1)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Homopolymer, k = 3",
+      "input": {
+        "sequence": "AAAAAAAAAA",
+        "k": 3
+      },
+      "output": {
+        "score": 10.263913947178825,
+        "kmerPositions": 8
+      }
+    },
+    {
+      "name": "With GC correction",
+      "input": {
+        "sequence": "AAAAAAAAAA",
+        "k": 3,
+        "gcContent": 0.41
+      },
+      "output": {
+        "score": 10.230970927904716,
+        "kmerPositions": 8
+      }
+    },
+    {
+      "name": "No k-mer position",
+      "input": {
+        "sequence": "ACGTAC"
+      },
+      "output": {
+        "score": 0,
+        "kmerPositions": 0
+      }
+    }
+  ]
+}

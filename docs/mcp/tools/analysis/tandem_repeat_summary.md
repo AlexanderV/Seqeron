@@ -33,13 +33,16 @@ and Krait statistics (Du et al. 2018):
   complementary" (`misa.pl` `.statistics`): motif rotations and reverse-complement rotations are
   one class named `X/Y` (smallest rotation of each strand, smaller first), e.g. AC, CA, GT, TG →
   `AC/GT`; A, T → `A/T`. Verified against a real `perl misa.pl` run.
+- `standardMotifCounts` — with `standardMotifLevel` 0–4, STR count per Krait standard motif
+  (Du et al. 2018 `motif.py`; see `standardize_repeat_motif`), e.g. level 2 → `{ "A": 2, "AC": 4, "ATAC": 1 }`;
+  `null` when `standardMotifLevel` is −1 (default).
 
 With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum copies
 (`1-10 2-6 3-5 4-5 5-5 6-5`) instead of one `minRepeats`.
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L3376](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3376)
+- Source: [RepeatFinder.cs#L4864](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4864)
 
 ## Input Schema
 
@@ -48,6 +51,7 @@ With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum co
 | `sequence` | string | Yes | DNA sequence (min length 1) |
 | `minRepeats` | integer | No | Minimum complete copies for every unit length (default 3, ≥ 2; smaller values throw `ArgumentOutOfRangeException`); ignored when `misaThresholds` is true |
 | `misaThresholds` | boolean | No | MISA default per-unit-size minimum copies `1-10 2-6 3-5 4-5 5-5 6-5` (default false) |
+| `standardMotifLevel` | integer | No | −1 (default, off) or Krait standardization level 0–4 for `standardMotifCounts` |
 
 ## Output Schema
 
@@ -65,6 +69,7 @@ With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum co
 | `longestRepeat` | object/null | The longest microsatellite (or null) |
 | `mostFrequentUnit` | string/null | The most frequent repeat unit (or null) |
 | `canonicalMotifCounts` | object | STR count per MISA repeat-type class, e.g. `{ "AC/GT": 3, "A/T": 1 }` |
+| `standardMotifCounts` | object/null | STR count per Krait standard motif (only when `standardMotifLevel` is 0–4) |
 
 ## Errors
 
@@ -139,3 +144,4 @@ With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum co
 
 - [find_microsatellites](find_microsatellites.md) — the per-STR list
 - [find_tandem_repeats](find_tandem_repeats.md) — general tandem repeats
+- [standardize_repeat_motif](standardize_repeat_motif.md) — MISA class / Krait standard motif of one unit

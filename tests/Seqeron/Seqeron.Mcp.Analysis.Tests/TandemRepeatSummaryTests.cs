@@ -98,4 +98,22 @@ public class TandemRepeatSummaryTests
         Assert.That(AnalysisTools.TandemRepeatSummary("CAGCAGCAG", 3).CanonicalMotifCounts,
             Is.EquivalentTo(new Dictionary<string, int> { ["AGC/CTG"] = 1 }));
     }
+    [Test]
+    public void TandemRepeatSummary_StandardMotifLevel_MatchesKraitCounts()
+    {
+        // misa.pl .statistics classified table A/T 2, AC/GT 4, ACAT/ATGT 1; Krait standard motifs (level 2) A 2, AC 4, ATAC 1
+        // (RepeatFinder_MisaCompound_Tests.GetCanonicalMotifFrequencies_StatSequence_MatchesMisaClassifiedTable).
+        const string spacer =
+            "CTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTA";
+        string seq = "ACACACACACACT" + spacer + "CACACACACACAT" + spacer + "GTGTGTGTGTGTA" + spacer + "TGTGTGTGTGTGA" + spacer +
+            "ACATACATACATACATACATG" + spacer + "AAAAAAAAAAAAG" + spacer + "TTTTTTTTTTTTTG";
+        var s = AnalysisTools.TandemRepeatSummary(seq, misaThresholds: true, standardMotifLevel: 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.CanonicalMotifCounts, Is.EquivalentTo(new Dictionary<string, int> { ["A/T"] = 2, ["AC/GT"] = 4, ["ACAT/ATGT"] = 1 }));
+            Assert.That(s.StandardMotifCounts, Is.EquivalentTo(new Dictionary<string, int> { ["A"] = 2, ["AC"] = 4, ["ATAC"] = 1 }));
+            Assert.That(AnalysisTools.TandemRepeatSummary(seq, misaThresholds: true).StandardMotifCounts, Is.Null);
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.TandemRepeatSummary(seq, standardMotifLevel: 5));
+        });
+    }
 }

@@ -18,7 +18,7 @@ Masks low-complexity regions in a DNA sequence using the symmetric DUST (SDUST) 
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L539](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L539)
+- Source: [SequenceComplexity.cs#L826](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L826)
 
 ## Input Schema
 

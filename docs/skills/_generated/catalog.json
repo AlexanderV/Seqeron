@@ -249,7 +249,7 @@
     "server": "Analysis",
     "methodId": "SequenceComplexity.EstimateCompressionRatio",
     "docPath": "docs/mcp/tools/analysis/compression_ratio.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L523"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1631"
   },
   {
     "tool": "count_kmers",
@@ -333,7 +333,7 @@
     "server": "Analysis",
     "methodId": "SequenceComplexity.CalculateDustScore",
     "docPath": "docs/mcp/tools/analysis/dust_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L437"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L723"
   },
   {
     "tool": "entropy_profile",
@@ -341,6 +341,20 @@
     "methodId": "SequenceStatistics.CalculateEntropyProfile",
     "docPath": "docs/mcp/tools/analysis/entropy_profile.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L963"
+  },
+  {
+    "tool": "find_approximate_direct_repeats",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.FindApproximateDirectRepeats",
+    "docPath": "docs/mcp/tools/analysis/find_approximate_direct_repeats.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4126"
+  },
+  {
+    "tool": "find_approximate_tandem_repeats",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.FindApproximateTandemRepeats",
+    "docPath": "docs/mcp/tools/analysis/find_approximate_tandem_repeats.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L1002"
   },
   {
     "tool": "find_clumps",
@@ -371,11 +385,18 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L90"
   },
   {
+    "tool": "find_degenerate_repeats",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.FindDegenerateRepeats",
+    "docPath": "docs/mcp/tools/analysis/find_degenerate_repeats.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4396"
+  },
+  {
     "tool": "find_direct_repeats",
     "server": "Analysis",
     "methodId": "RepeatFinder.FindDirectRepeats",
     "docPath": "docs/mcp/tools/analysis/find_direct_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L908"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3678"
   },
   {
     "tool": "find_exact_motif",
@@ -389,7 +410,14 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.FindInvertedRepeats",
     "docPath": "docs/mcp/tools/analysis/find_inverted_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L2951"
+  },
+  {
+    "tool": "find_inverted_repeats_scored",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.FindInvertedRepeatsScored",
+    "docPath": "docs/mcp/tools/analysis/find_inverted_repeats_scored.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3345"
   },
   {
     "tool": "find_known_motifs",
@@ -399,11 +427,25 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L218"
   },
   {
+    "tool": "find_longdust_regions",
+    "server": "Analysis",
+    "methodId": "SequenceComplexity.FindLongdustRegions",
+    "docPath": "docs/mcp/tools/analysis/find_longdust_regions.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1195"
+  },
+  {
+    "tool": "find_low_complexity_intervals",
+    "server": "Analysis",
+    "methodId": "SequenceComplexity.FindLowComplexityIntervals",
+    "docPath": "docs/mcp/tools/analysis/find_low_complexity_intervals.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L854"
+  },
+  {
     "tool": "find_low_complexity_regions",
     "server": "Analysis",
     "methodId": "SequenceComplexity.FindLowComplexityRegions",
     "docPath": "docs/mcp/tools/analysis/find_low_complexity_regions.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L439"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L461"
   },
   {
     "tool": "find_microsatellites",
@@ -452,7 +494,7 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.FindPalindromes",
     "docPath": "docs/mcp/tools/analysis/find_palindromes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L1266"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5054"
   },
   {
     "tool": "find_promoter_elements_by_matrix",
@@ -511,6 +553,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L49"
   },
   {
+    "tool": "find_reverse_complement_repeats",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.FindReverseComplementRepeats",
+    "docPath": "docs/mcp/tools/analysis/find_reverse_complement_repeats.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3961"
+  },
+  {
     "tool": "find_rna_inverted_repeats",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.FindInvertedRepeats",
@@ -530,6 +579,13 @@
     "methodId": "RnaSecondaryStructure.FindStemLoops",
     "docPath": "docs/mcp/tools/analysis/find_stem_loops.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L458"
+  },
+  {
+    "tool": "find_supermaximal_repeats",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.FindSupermaximalRepeats",
+    "docPath": "docs/mcp/tools/analysis/find_supermaximal_repeats.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4748"
   },
   {
     "tool": "find_syntenic_blocks",
@@ -672,11 +728,32 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L274"
   },
   {
+    "tool": "lempel_ziv_complexity",
+    "server": "Analysis",
+    "methodId": "SequenceComplexity.CalculateLempelZivComplexity",
+    "docPath": "docs/mcp/tools/analysis/lempel_ziv_complexity.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1581"
+  },
+  {
+    "tool": "longdust_score",
+    "server": "Analysis",
+    "methodId": "SequenceComplexity.CalculateLongdustScore",
+    "docPath": "docs/mcp/tools/analysis/longdust_score.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1148"
+  },
+  {
+    "tool": "mask_approximate_tandem_repeats",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.MaskApproximateTandemRepeats",
+    "docPath": "docs/mcp/tools/analysis/mask_approximate_tandem_repeats.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L1039"
+  },
+  {
     "tool": "mask_low_complexity",
     "server": "Analysis",
     "methodId": "SequenceComplexity.MaskLowComplexity",
     "docPath": "docs/mcp/tools/analysis/mask_low_complexity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L539"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L826"
   },
   {
     "tool": "minimum_free_energy",
@@ -833,6 +910,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs#L140"
   },
   {
+    "tool": "standardize_repeat_motif",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.GetStandardMotif",
+    "docPath": "docs/mcp/tools/analysis/standardize_repeat_motif.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L740"
+  },
+  {
     "tool": "stem_energy",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.CalculateStemEnergy",
@@ -840,11 +924,18 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L570"
   },
   {
+    "tool": "tandem_repeat_bernoulli_statistics",
+    "server": "Analysis",
+    "methodId": "RepeatFinder.ComputeBernoulliStatistics",
+    "docPath": "docs/mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L2807"
+  },
+  {
     "tool": "tandem_repeat_summary",
     "server": "Analysis",
     "methodId": "RepeatFinder.GetTandemRepeatSummary",
     "docPath": "docs/mcp/tools/analysis/tandem_repeat_summary.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3376"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4864"
   },
   {
     "tool": "terminal_mismatch_energy",
@@ -2895,42 +2986,42 @@
     "server": "Sequence",
     "methodId": "SequenceComplexity.EstimateCompressionRatio",
     "docPath": "docs/mcp/tools/sequence/complexity_compression_ratio.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1631"
   },
   {
     "tool": "complexity_dust_score",
     "server": "Sequence",
     "methodId": "SequenceComplexity.CalculateDustScore",
     "docPath": "docs/mcp/tools/sequence/complexity_dust_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L437"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L723"
   },
   {
     "tool": "complexity_kmer_entropy",
     "server": "Sequence",
     "methodId": "SequenceComplexity.CalculateKmerEntropy",
     "docPath": "docs/mcp/tools/sequence/complexity_kmer_entropy.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L267"
   },
   {
     "tool": "complexity_linguistic",
     "server": "Sequence",
     "methodId": "SequenceComplexity.CalculateLinguisticComplexity",
     "docPath": "docs/mcp/tools/sequence/complexity_linguistic.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L22"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L105"
   },
   {
     "tool": "complexity_mask_low",
     "server": "Sequence",
     "methodId": "SequenceComplexity.MaskLowComplexity",
     "docPath": "docs/mcp/tools/sequence/complexity_mask_low.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L539"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L826"
   },
   {
     "tool": "complexity_shannon",
     "server": "Sequence",
     "methodId": "SequenceComplexity.CalculateShannonEntropy",
     "docPath": "docs/mcp/tools/sequence/complexity_shannon.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L78"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L198"
   },
   {
     "tool": "dna_reverse_complement",

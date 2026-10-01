@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **100 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **113 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (100)
+## Tools (113)
 
 | Tool | Description |
 |------|-------------|
@@ -42,14 +42,20 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `disorder_propensity` | Returns the TOP-IDP propensity value for a single amino acid (Campen 2008). |
 | `dust_score` | DUST low-complexity score (BLAST-style, triplet-based) for a DNA sequence. |
 | `entropy_profile` | Shannon entropy in sliding windows along the sequence. |
+| `find_approximate_direct_repeats` | Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-… |
+| `find_approximate_tandem_repeats` | Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match… |
 | `find_clumps` | Finds k-mers that occur at least minOccurrences times within any sliding window of size windowSize. |
 | `find_common_regions` | All common regions between two DNA sequences with length >= minLength. |
 | `find_conserved_clusters` | Gene clusters preserved across multiple genomes. |
 | `find_degenerate_motif` | Motif search with IUPAC ambiguity codes (N, R, Y, S, W, K, M, B, D, H, V). |
+| `find_degenerate_repeats` | Finds **all maximal degenerate repeats** with at most maxDifferences differences (Kurtz et al. 2000 REPuter; Vmatch -e k / -h k, -p, -allma… |
 | `find_direct_repeats` | Identical sequences appearing twice with a spacer between them. |
 | `find_exact_motif` | Exact-match motif positions in a DNA sequence via suffix tree. |
 | `find_inverted_repeats` | Sequences whose two arms are reverse-complement of each other (hairpin candidates). |
+| `find_inverted_repeats_scored` | Finds inverted repeats with EMBOSS einverted (Durbin & Thierry-Mieg 1993; EMBOSS 6.6.0): a local alignment of the sequence against its reve… |
 | `find_known_motifs` | Search for a user-provided set of motifs simultaneously. |
+| `find_longdust_regions` | Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisati… |
+| `find_low_complexity_intervals` | Returns the **SDUST** low-complexity intervals (Morgulis et al. 2006; symmetric DUST) as 0-based half-open [start, end) pairs in ascending… |
 | `find_low_complexity_regions` | Entropy-thresholded contiguous low-complexity DNA regions. |
 | `find_microsatellites` | Short Tandem Repeats (STRs): 1-6 bp motif units repeated consecutively. |
 | `find_motif` | All exact occurrences of a motif (case-insensitive) in a DNA sequence via suffix tree. |
@@ -66,9 +72,11 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_regulatory_elements` | Scan for built-in regulatory motifs (TATA, CAAT, GC-box, Kozak, Shine-Dalgarno, poly(A), E-box, AP-1, NF-κB, CREB). |
 | `find_regulatory_elements_both_strands` | Strand-annotated scan of the built-in regulatory library: every element on the given strand, plus the orientation-independent elements (CAA… |
 | `find_repeats` | All repeated substrings of length >= minLength in a DNA sequence, with their positions. |
+| `find_reverse_complement_repeats` | Finds **maximal exact reverse-complement repeat pairs**: copy 1 at firstPosition and copy 2 at secondPosition (both 0-based, firstPosition… |
 | `find_rna_inverted_repeats` | Finds antiparallel complementary regions (potential RNA hairpin stems). |
 | `find_shared_motifs` | k-mers present in at least minSequences of the input DNA sequences. |
 | `find_stem_loops` | Enumerates hairpin stem-loop candidates with stem, loop, and Turner 2004 free energy. |
+| `find_supermaximal_repeats` | Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maxima… |
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
 | `find_tandem_repeats` | Consecutive repeating units (e.g., ATGATGATG) of unit-length >= minUnitLength repeated >= minRepetitions times. |
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
@@ -89,6 +97,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `kmer_positions` | Zero-based positions of all (overlapping) occurrences of a k-mer. |
 | `kmer_spectrum` | Frequency-of-frequencies: for each occurrence count, how many distinct k-mers reach that count. |
 | `kmers_with_min_count` | k-mers occurring at least minCount times, sorted descending by count. |
+| `lempel_ziv_complexity` | Returns the raw **Lempel–Ziv (1976) complexity** c — the number of components of the exhaustive history of the sequence (Lempel & Ziv 1976;… |
+| `longdust_score` | Computes the **longdust** score of a whole sequence x (Li & Li 2025, arXiv:2509.07357; lh3/longdust): S_L(x) = Σ_t log c_x(t)! − f(ℓ(x)/4^k… |
+| `mask_approximate_tandem_repeats` | Returns TRF's masked sequence (trf ... -m; TRF README: "every location that occurred in a tandem repeat changed to the letter 'N'"): every… |
 | `mask_low_complexity` | Mask low-complexity windows (DUST-driven) of a DNA sequence with a chosen character. |
 | `minimum_free_energy` | Zuker-style minimum free energy with Turner 2004 parameters (O(n³)). |
 | `mismatch_coaxial_stacking` | Mismatch-mediated coaxial stacking energy: terminal mismatch + base + WC/GU bonus. |
@@ -112,7 +123,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |
 | `shared_motifs_significance` | RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA se… |
+| `standardize_repeat_motif` | Standardizes a repeat unit two ways. canonicalClass — the MISA repeat-type class "considering sequence complementary" (misa.pl .statistics,… |
 | `stem_energy` | Free energy of an RNA stem (Turner 2004 nearest-neighbor stacking + AU/GU terminal penalties). |
+| `tandem_repeat_bernoulli_statistics` | Estimates the Tandem Repeats Finder Bernoulli-model parameters of a tandem-repeat tract (Benson 1999): **PM** (match probability) and **PI*… |
 | `tandem_repeat_summary` | Aggregate statistics across all microsatellites in a DNA sequence. |
 | `terminal_mismatch_energy` | Closing-pair × first-mismatch terminal stacking energy (Turner 2004). |
 | `unique_kmers` | k-mers that occur exactly once in the sequence. |

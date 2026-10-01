@@ -29,7 +29,7 @@ Such structures can fold into hairpins; `canFormHairpin` is true when the loop i
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs) (`FindInvertedRepeats`)
+- Source: [RepeatFinder.cs#L2951](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L2951) (`FindInvertedRepeats`)
 
 ## Input Schema
 
