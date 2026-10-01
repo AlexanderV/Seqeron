@@ -186,3 +186,16 @@ None. All tests backed by Rosalind or Wikipedia sources.
 ---
 
 *TestSpec generated: 2026-01-23*
+
+### Audit round 2, WP8 (B06) — `FindMostFrequentKmers(sequence, k, KmerCountingOptions)`
+
+Reference: Jellyfish 2.3.1 `count -m k [-C]` + `dump -c`, arg-max (K-mer_Search.md §7.4); tests in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs`.
+
+| ID | Case | Expected |
+|----|------|----------|
+| F1 | BA1B sample k = 4, canonical / ACGT-only | `ATGC` / `CATG GCAT` |
+| F2 | `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` k = 2, 3, 4 | `-C`: CA / GCA / TGCA; ACGT-only: CA GC TG / TGC |
+| F3 | `AAAANTTTTGGGGuCCCC` k = 2; `ACGTNACGTAAcgtRTT` k = 3 | `-C`: AA CC; ACG. ACGT-only: AA CC GG TT |
+| F4 | Default options | = legacy overload (BA1B answer CATG GCAT) |
+| F5 | all-N / empty / k ≤ 0 | empty / empty / `ArgumentOutOfRangeException` |
+| F6 | MCP `most_frequent_kmers(canonical, acgtOnly)` | rows F1, F3 |

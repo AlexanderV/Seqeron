@@ -32,7 +32,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `compare_genomes` | End-to-end comparative pipeline: RBH orthologs + synteny + rearrangements + summary stats. |
 | `compression_ratio` | Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). |
 | `count_kmers` | Counts every k-mer (substring of length k) occurrence in a sequence; optional `canonical` (jellyfish -C) and `acgtOnly` modes. |
-| `count_kmers_both_strands` | k-mer counts on the forward strand combined with counts on the reverse-complement strand. |
+| `count_kmers_both_strands` | k-mer counts on the forward strand combined with counts on the reverse-complement strand (kPAL balance); optional `acgtOnly` (kPAL: N/IUPAC accepted, non-ACGT windows skipped). |
 | `create_alphabet_pwm` | Build a log-odds position weight matrix over an arbitrary alphabet (protein, RNA, gapped DNA, …) from aligned instances — Biopython motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background)… |
 | `create_pwm` | Build a log-odds Position Weight Matrix (4×L; rows A,C,G,T) from aligned, equal-length DNA sequences (Biopython counts.normalize(pseudocounts).log_odds(background)): scalar pseudocount, per-base pseudocounts, or JASPAR pseudocounts… |
 | `cumulative_gc_skew` | Cumulative GC skew along the sequence — minimum approximates origin and maximum approximates terminus of replication. |
@@ -101,7 +101,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `is_disorder_promoting` | Whether an amino acid is in Dunker's disorder-promoting set {A, R, G, Q, S, P, E, K} (Dunker 2001). |
 | `kmer_d2_statistics` | Background-adjusted D2* / D2S statistics, d2* / d2S dissimilarities, Markov orders used and per-sequence BIC values; optional `markovOrder`, `bothStrands` (CAFE -R). |
 | `kmer_distance` | Euclidean distance between k-mer frequency vectors of two sequences; optional `metric` (squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts), `markovOrder` (background of d2star/d2shepherd) and `bothStrands` (CAFE -R d2star/d2shepherd). |
-| `kmer_frequencies` | Normalized k-mer counts (each value in [0,1], summing to 1). |
+| `kmer_frequencies` | Normalized k-mer counts (each value in [0,1], summing to 1); optional `canonical` (jellyfish count -C) / `acgtOnly` (kPAL/Jellyfish). |
 | `kmer_jaccard` | k-mer Jaccard index of the distinct k-mer sets (exact, or Mash MinHash estimate with `sketchSize` > 0, then also Mash x/s and p-value), the Mash distance and the exact containment indices; optional `canonical` / `acgtOnly` (Mash/sourmash k-mers). |
 | `kmer_positions` | Zero-based positions of all (overlapping) occurrences of a k-mer. |
 | `kmer_spectrum` | Frequency-of-frequencies: for each occurrence count, how many distinct k-mers reach that count; optional `canonical`/`acgtOnly` and jellyfish histo `low`/`high`/`increment`/`full` (adds `histogram`). |
@@ -112,7 +112,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `mask_low_complexity` | Mask low-complexity windows (DUST-driven) of a DNA sequence with a chosen character. |
 | `minimum_free_energy` | Zuker-style minimum free energy with Turner 2004 parameters (O(n³)). |
 | `mismatch_coaxial_stacking` | Mismatch-mediated coaxial stacking energy: terminal mismatch + base + WC/GU bonus. |
-| `most_frequent_kmers` | Returns all k-mers tied for the maximum occurrence count. |
+| `most_frequent_kmers` | Returns all k-mers tied for the maximum occurrence count; optional `canonical` (jellyfish count -C) / `acgtOnly`. |
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
 | `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equipr… |
 | `parse_dot_bracket` | Parses dot-bracket notation into a list of base-pair coordinates. |
@@ -135,7 +135,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |
 | `shared_motifs_significance` | RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA se… |
-| `spaced_word_distance` | Multiple-pattern spaced-word distance (Leimeister et al. 2014): mean over equal-weight patterns of the per-pattern word-vector distance (euclidean, jensen_shannon, euclidean_counts, …). |
+| `spaced_word_distance` | Multiple-pattern spaced-word distance (Leimeister et al. 2014): mean over equal-weight patterns of the per-pattern word-vector distance (euclidean, jensen_shannon, euclidean_counts, …). Optional `acgtOnly` (spaced's N-word rule) and `bothStrands` (spaced default reverse-complement mode). |
 | `standardize_repeat_motif` | Standardizes a repeat unit two ways. canonicalClass — the MISA repeat-type class "considering sequence complementary" (misa.pl .statistics,… |
 | `stem_energy` | Free energy of an RNA stem (Turner 2004 nearest-neighbor stacking + AU/GU terminal penalties). |
 | `tandem_repeat_bernoulli_statistics` | Estimates the Tandem Repeats Finder Bernoulli-model parameters of a tandem-repeat tract (Benson 1999): **PM** (match probability) and **PI*… |

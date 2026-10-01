@@ -539,10 +539,12 @@ public class SequenceTools
     /// Count k-mer frequencies in a sequence.
     /// </summary>
     [McpServerTool(Name = "kmer_count", Title = "K-mer — Count Frequencies", ReadOnly = true)]
-    [Description("Count k-mer (substring of length k) frequencies in a sequence. Returns a dictionary of k-mers and their counts.")]
+    [Description("Count k-mer (substring of length k) frequencies in a sequence. Returns a dictionary of k-mers and their counts. Optional Jellyfish modes (same as the Analysis server's count_kmers): acgtOnly skips windows containing a non-ACGT symbol; canonical keys each k-mer by min(k-mer, reverse complement) (jellyfish count -C, implies acgtOnly).")]
     public static KmerCountResult KmerCount(
         [Description("The sequence to analyze")] string sequence,
-        [Description("K-mer length (default: 3)")] int k = 3)
+        [Description("K-mer length (default: 3)")] int k = 3,
+        [Description("Canonical counting (jellyfish count -C): key = lexicographically smaller of the k-mer and its reverse complement; implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip every window containing a symbol other than A/C/G/T (case-insensitive), as Jellyfish does. Default false (all symbols counted literally).")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -550,7 +552,7 @@ public class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        var counts = KmerAnalyzer.CountKmers(sequence, k);
+        var counts = KmerAnalyzer.CountKmers(sequence, k, new KmerCountingOptions(canonical, acgtOnly));
         return new KmerCountResult(counts, k, counts.Count, counts.Values.Sum());
     }
 

@@ -241,7 +241,23 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
 - Assumptions: ASM-D8 a single input string is one FASTA record (sketch length = its length incl. N); ASM-D9 both
   sketches empty → J = 0, distance 0, p-value 1 (Mash prints nan for J); ASM-D10 empty K(A) → containment 0.
 
+## Audit round 2 (WP8, 2026-10-01) — `spaced` N-word rule and reverse-complement mode
+
+- `spaced` 1.2.0 `src/sort.h` `spacedDNA` re-read (WP6's Ubuntu archive tarball): non-ACGT letters are stored as `N`
+  (N complements to N); a word is dropped when a match position reads `N` (`correctWord`); word positions per record
+  = L − ℓ + 1 incl. dropped words (JS denominator); with `revComp` (no `-r`) d[i][j], i > j, compares the forward
+  counts of record i with forward + reverse-strand counts of the earlier record j (EU: |row_i − (row_j + row_j′)|;
+  JS: row_i / W_i vs (row_j + row_j′) / (2 W_j)).
+- Binary runs `spaced [-r] -t 1 -f patterns -d JS|EU` on S1/S2, A/B, N1/N2 (S1/S2 with N, R, Y, lower case) × 3
+  pattern sets × 2 measures × 2 modes = 36 values = the Python replica (`rep.py`) = C# (`AcgtOnly`, `bothStrands`)
+  to the 12 printed digits; records swapped: JS 0.632325490347 vs 0.644779801994 (order dependence).
+- Supersedes ASM-D7: `spaced` equality now holds on any input with `AcgtOnly` (literal words remain the default).
+  ASM-D11: `bothStrands` maps `seq1` to the first FASTA record (both strands) and `seq2` to the second (forward), the
+  `spaced` matrix entry d[second][first].
+
 ## Change History
+
+- **2026-10-01**: Audit round 2 WP8 — `spaced` N-word rule (`AcgtOnly`) and reverse-complement mode (`bothStrands`) for `SpacedWordDistance`; 36 binary runs.
 
 - **2026-10-01**: Audit round 2 WP7 — Mash MinHash sketches (MurmurHash3_x64_128, x/s, distance, p-value), exact containment index.
 

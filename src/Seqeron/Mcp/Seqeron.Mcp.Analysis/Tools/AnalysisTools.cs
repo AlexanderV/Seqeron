@@ -81,32 +81,36 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "most_frequent_kmers", Title = "k-mers — Most Frequent", ReadOnly = true)]
-    [Description("Returns all k-mers tied for the maximum occurrence count.")]
+    [Description("Returns all k-mers tied for the maximum occurrence count. Optional Jellyfish modes: canonical pools each k-mer with its reverse complement under min(k-mer, reverse complement) (top of jellyfish count -C + dump; implies acgtOnly); acgtOnly skips windows containing a non-ACGT symbol.")]
     public static KmerListResult MostFrequentKmers(
         [Description("Sequence to analyze.")] string sequence,
-        [Description("k-mer length.")] int k)
+        [Description("k-mer length.")] int k,
+        [Description("Canonical counting (jellyfish count -C): a k-mer and its reverse complement are one entry keyed by the lexicographically smaller; implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip every window containing a symbol other than A/C/G/T (case-insensitive), as Jellyfish/kPAL do. Default false.")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        var kmers = KmerAnalyzer.FindMostFrequentKmers(sequence, k).ToArray();
+        var kmers = KmerAnalyzer.FindMostFrequentKmers(sequence, k, new KmerCountingOptions(canonical, acgtOnly)).ToArray();
         return new KmerListResult(kmers);
     }
 
     [McpServerTool(Name = "kmer_frequencies", Title = "k-mers — Normalized Frequencies", ReadOnly = true)]
-    [Description("Normalized k-mer counts (each value in [0,1], summing to 1).")]
+    [Description("Normalized k-mer counts (each value in [0,1], summing to 1): count / number of counted windows. Optional modes: acgtOnly (kPAL / Jellyfish profile: windows containing a non-ACGT symbol are skipped) and canonical (jellyfish count -C counts, implies acgtOnly).")]
     public static KmerFrequenciesResult KmerFrequencies(
         [Description("Sequence to analyze.")] string sequence,
-        [Description("k-mer length.")] int k)
+        [Description("k-mer length.")] int k,
+        [Description("Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip every window containing a symbol other than A/C/G/T (case-insensitive), as kPAL/Jellyfish do. Default false.")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        var freq = KmerAnalyzer.GetKmerFrequencies(sequence, k);
+        var freq = KmerAnalyzer.GetKmerFrequencies(sequence, k, new KmerCountingOptions(canonical, acgtOnly));
         return new KmerFrequenciesResult(freq);
     }
 
@@ -153,19 +157,22 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "spaced_word_distance", Title = "k-mers — Spaced-Word Distance", ReadOnly = true)]
-    [Description("Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (e.g. 11011; '1' = match position, '0' = don't care; all patterns of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies, as the paper), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or manhattan / chebyshev / canberra / cosine / squared_euclidean_counts / d2. Single strand (spaced -r).")]
+    [Description("Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (e.g. 11011; '1' = match position, '0' = don't care; all patterns of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies, as the paper), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or manhattan / chebyshev / canberra / cosine / squared_euclidean_counts / d2. Single strand by default (spaced -r). acgtOnly drops words with a non-ACGT symbol at a match position (spaced's rule; frequencies stay count / number of windows). bothStrands = spaced's default reverse-complement mode: seq1 (first FASTA record) is counted on both strands, seq2 on its forward strand only, so the value depends on the argument order.")]
     public static KmerDistanceResult SpacedWordDistance(
-        [Description("First sequence.")] string seq1,
-        [Description("Second sequence.")] string seq2,
+        [Description("First sequence (both strands when bothStrands is true).")] string seq1,
+        [Description("Second sequence (forward strand).")] string seq2,
         [Description("Binary patterns over {0,1}, each starting and ending with 1, all with the same number of 1s, e.g. [\"11011\", \"10111\", \"11101\"].")] string[] patterns,
-        [Description("Per-pattern metric: euclidean (default), jensen_shannon (alias js), euclidean_counts, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2.")] string metric = "euclidean")
+        [Description("Per-pattern metric: euclidean (default), jensen_shannon (alias js), euclidean_counts, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2.")] string metric = "euclidean",
+        [Description("Drop spaced words with a symbol other than A/C/G/T at a match position (the spaced program's rule). Default false (literal words).")] bool acgtOnly = false,
+        [Description("spaced's default reverse-complement mode (spaced without -r): seq1 counted on both strands vs seq2 forward. Default false (= spaced -r).")] bool bothStrands = false)
     {
         if (string.IsNullOrEmpty(seq1))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
         if (string.IsNullOrEmpty(seq2))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq2));
 
-        return new KmerDistanceResult(KmerAnalyzer.SpacedWordDistance(seq1, seq2, patterns, KmerAnalyzer.ParseDistanceMetric(metric)));
+        return new KmerDistanceResult(KmerAnalyzer.SpacedWordDistance(
+            seq1, seq2, patterns, KmerAnalyzer.ParseDistanceMetric(metric), new KmerCountingOptions(AcgtOnly: acgtOnly), bothStrands));
     }
 
     [McpServerTool(Name = "kmer_jaccard", Title = "k-mers — Jaccard Similarity / Mash Distance / Containment", ReadOnly = true)]
@@ -340,14 +347,23 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "count_kmers_both_strands", Title = "k-mers — Count Both Strands", ReadOnly = true)]
-    [Description("k-mer counts on the forward strand combined with counts on the reverse-complement strand.")]
+    [Description("k-mer counts on the forward strand combined with counts on the reverse-complement strand (kPAL balance: count[w] = forward[w] + forward[revcomp(w)], palindromes doubled). acgtOnly = kPAL counting: accepts sequences with N/IUPAC symbols and skips every window containing a non-ACGT symbol on both strands. For strand-collapsed canonical counts use count_kmers with canonical=true (jellyfish count -C).")]
     public static KmerCountsResult CountKmersBothStrands(
-        [Description("DNA sequence.")] string sequence,
-        [Description("k-mer length.")] int k)
+        [Description("DNA sequence (A/C/G/T only unless acgtOnly is true).")] string sequence,
+        [Description("k-mer length.")] int k,
+        [Description("kPAL / Jellyfish window rule: allow any symbols and skip windows containing a non-ACGT symbol. Default false (the sequence must be A/C/G/T).")] bool acgtOnly = false)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
-        var counts = KmerAnalyzer.CountKmersBothStrands(dna, k);
-        return new KmerCountsResult(counts);
+        if (!acgtOnly)
+        {
+            var dna = RequireDna(sequence, nameof(sequence));
+            return new KmerCountsResult(KmerAnalyzer.CountKmersBothStrands(dna, k));
+        }
+
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+        return new KmerCountsResult(KmerAnalyzer.CountKmersBothStrands(sequence, k, new KmerCountingOptions(AcgtOnly: true)));
     }
 
     [McpServerTool(Name = "analyze_kmers", Title = "k-mers — Aggregate Statistics", ReadOnly = true)]

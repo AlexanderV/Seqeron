@@ -588,8 +588,29 @@ public static class KmerAnalyzer
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static IEnumerable<string> FindMostFrequentKmers(string sequence, int k)
+        => FindMostFrequentKmers(sequence, k, KmerCountingOptions.Default);
+
+    /// <summary>
+    /// Finds the most frequent k-mers under explicit <see cref="KmerCountingOptions"/>: literal (default, Rosalind BA1B),
+    /// ACGT-only windows, or canonical k-mers (Jellyfish <c>count -C</c>).
+    /// </summary>
+    /// <remarks>
+    /// The arg-max of the table of
+    /// <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>: every key tied at
+    /// the maximum count. With <c>Canonical = true</c> this is the top of <c>jellyfish count -C -m k</c> + <c>jellyfish dump -c</c>
+    /// (keys are canonical representatives min(w, RC(w)); a k-mer and its reverse complement are one entry, so their
+    /// occurrences on both strands are pooled — the exact-match, reverse-complement-aware frequent-words question; Rosalind
+    /// BA1J adds mismatches, which this method does not do). Cross-checked against Jellyfish 2.3.1 (BA1B sample k = 4:
+    /// canonical → {ATGC} with 4, literal → {CATG, GCAT} with 3).
+    /// </remarks>
+    /// <param name="sequence">The sequence (case-insensitive). Null/empty gives an empty result.</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <param name="options">Counting mode.</param>
+    /// <returns>All (canonical) k-mers tied at the maximum count, in table order (order is not part of the contract).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    public static IEnumerable<string> FindMostFrequentKmers(string sequence, int k, KmerCountingOptions options)
     {
-        var counts = CountKmers(sequence, k);
+        var counts = CountKmers(sequence, k, options);
 
         if (counts.Count == 0)
             yield break;
@@ -615,8 +636,29 @@ public static class KmerAnalyzer
     /// <returns>Dictionary mapping k-mers to their frequencies (0.0 to 1.0).</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static Dictionary<string, double> GetKmerFrequencies(string sequence, int k)
+        => GetKmerFrequencies(sequence, k, KmerCountingOptions.Default);
+
+    /// <summary>
+    /// Gets the k-mer frequency profile under explicit <see cref="KmerCountingOptions"/>: literal (default), ACGT-only
+    /// (kPAL / Jellyfish window convention) or canonical (Jellyfish <c>count -C</c>).
+    /// </summary>
+    /// <remarks>
+    /// f(w) = c(w) / Σc over the table of
+    /// <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>; Σc is the number of
+    /// counted windows (L − k + 1 literal; the all-ACGT windows with <c>AcgtOnly</c> or <c>Canonical</c>), so the values
+    /// always sum to 1. ACGT-only = a kPAL profile (<c>kpal/klib.py</c> <c>Profile.from_sequences</c> splits the sequence on
+    /// every non-ACGT symbol and counts the k-mers of each part) divided by its total; canonical = Jellyfish
+    /// <c>count -C</c> + <c>dump -c</c> counts divided by their total. Cross-checked against kPAL (run from source) and
+    /// Jellyfish 2.3.1 (docs/algorithms/K-mer/K-mer_Frequency_Analysis.md §7.4).
+    /// </remarks>
+    /// <param name="sequence">The sequence (case-insensitive). Null/empty returns an empty dictionary.</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <param name="options">Counting mode.</param>
+    /// <returns>Dictionary mapping (canonical) k-mers to their relative frequencies; empty when nothing is counted.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    public static Dictionary<string, double> GetKmerFrequencies(string sequence, int k, KmerCountingOptions options)
     {
-        var counts = CountKmers(sequence, k);
+        var counts = CountKmers(sequence, k, options);
         var total = counts.Values.Sum();
 
         if (total == 0)
@@ -1185,7 +1227,21 @@ public static class KmerAnalyzer
 
         double total1 = SumNonNegative(counts1, nameof(counts1));
         double total2 = SumNonNegative(counts2, nameof(counts2));
+        return WordVectorDistance(counts1, total1, counts2, total2, metric);
+    }
 
+    /// <summary>
+    /// The single word-vector metric loop: frequencies are c / <paramref name="total1"/> and c / <paramref name="total2"/>
+    /// (0 when a total is 0). The count-table overload passes Σc; <see cref="SpacedWordDistance(string, string, IReadOnlyList{string}, KmerDistanceMetric, KmerCountingOptions, bool)"/>
+    /// passes the <c>spaced</c> window totals.
+    /// </summary>
+    private static double WordVectorDistance(
+        IReadOnlyDictionary<string, int> counts1,
+        double total1,
+        IReadOnlyDictionary<string, int> counts2,
+        double total2,
+        KmerDistanceMetric metric)
+    {
         double acc = 0, dot = 0, norm1 = 0, norm2 = 0;
 
         // Union of keys: counts1's keys in table order, then counts2's keys absent from counts1
@@ -1669,10 +1725,36 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentException"><paramref name="pattern"/> is empty, contains a symbol other than '0'/'1',
     /// or does not start and end with '1'.</exception>
     public static Dictionary<string, int> CountSpacedWords(string sequence, string pattern)
+        => CountSpacedWords(sequence, pattern, KmerCountingOptions.Default);
+
+    /// <summary>
+    /// Counts the spaced words of <paramref name="sequence"/> under <see cref="KmerCountingOptions"/>: literal (default) or
+    /// ACGT-only — the word rule of the <c>spaced</c> program.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>AcgtOnly</b>: a window whose symbol at some <b>match</b> position is not A/C/G/T (after case folding) gives no
+    /// word; symbols at don't-care positions are ignored. This is <c>spaced</c> 1.2.0 (<c>src/sort.h</c> <c>spacedDNA</c>):
+    /// every letter other than A/C/G/T is stored as 'N', and a word is kept only while <c>correctWord</c> holds, i.e. no
+    /// match position reads 'N'. For the all-'1' pattern this is the k-mer ACGT-only window rule of
+    /// <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>. The counts then
+    /// sum to the number of kept words (≤ L − ℓ + 1).</para>
+    /// <para><b>Canonical</b> is rejected (<see cref="ArgumentException"/>): the reverse strand's spaced word at a window is
+    /// read with the mirrored pattern, so min(word, RC(word)) is not a strand-independent key unless the pattern is a
+    /// palindrome, and neither the paper nor <c>spaced</c> defines it. <c>spaced</c>'s reverse-complement handling is the
+    /// both-strand comparison of
+    /// <see cref="SpacedWordDistance(string, string, IReadOnlyList{string}, KmerDistanceMetric, KmerCountingOptions, bool)"/>.</para>
+    /// </remarks>
+    /// <param name="sequence">The sequence; null/empty or shorter than the pattern gives an empty table.</param>
+    /// <param name="pattern">Binary pattern over {'0','1'} that starts and ends with '1', e.g. "1101".</param>
+    /// <param name="options">Counting mode; <c>Canonical</c> must be false.</param>
+    /// <returns>Dictionary mapping spaced words (upper-case match-position symbols) to their counts.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pattern"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="pattern"/> is malformed, or <paramref name="options"/> has
+    /// <c>Canonical = true</c>.</exception>
+    public static Dictionary<string, int> CountSpacedWords(string sequence, string pattern, KmerCountingOptions options)
     {
-        ArgumentNullException.ThrowIfNull(pattern);
-        if (pattern.Length == 0 || pattern[0] != '1' || pattern[^1] != '1' || pattern.Any(c => c is not ('0' or '1')))
-            throw new ArgumentException("Pattern must be a non-empty string over {0,1} that starts and ends with '1'.", nameof(pattern));
+        ValidateSpacedPattern(pattern);
+        ThrowIfCanonicalSpaced(options);
 
         var counts = new Dictionary<string, int>();
         if (string.IsNullOrEmpty(sequence) || pattern.Length > sequence.Length)
@@ -1681,18 +1763,42 @@ public static class KmerAnalyzer
         int[] matchPositions = Enumerable.Range(0, pattern.Length).Where(j => pattern[j] == '1').ToArray();
         var seq = sequence.ToUpperInvariant();
         var buffer = new char[matchPositions.Length];
+        var lookup = counts.GetAlternateLookup<ReadOnlySpan<char>>();
 
         for (int i = 0; i <= seq.Length - pattern.Length; i++)
         {
+            bool keep = true;
             for (int m = 0; m < matchPositions.Length; m++)
-                buffer[m] = seq[i + matchPositions[m]];
+            {
+                char c = seq[i + matchPositions[m]];
+                if (options.AcgtOnly && !IsAcgt(c))
+                {
+                    keep = false;
+                    break;
+                }
+                buffer[m] = c;
+            }
 
-            var word = new string(buffer);
-            if (!counts.TryAdd(word, 1))
-                counts[word]++;
+            if (keep)
+                CollectionsMarshal.GetValueRefOrAddDefault(lookup, buffer, out _)++;
         }
 
         return counts;
+    }
+
+    private static void ValidateSpacedPattern(string pattern)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        if (pattern.Length == 0 || pattern[0] != '1' || pattern[^1] != '1' || pattern.Any(c => c is not ('0' or '1')))
+            throw new ArgumentException("Pattern must be a non-empty string over {0,1} that starts and ends with '1'.", nameof(pattern));
+    }
+
+    private static void ThrowIfCanonicalSpaced(KmerCountingOptions options)
+    {
+        if (options.Canonical)
+            throw new ArgumentException(
+                "Canonical spaced words are not defined (the reverse strand is read with the mirrored pattern); use bothStrands = true for the spaced program's reverse-complement mode.",
+                nameof(options));
     }
 
     /// <summary>
@@ -1712,11 +1818,11 @@ public static class KmerAnalyzer
     /// with <c>-r</c> (single strand) and <c>-f</c> (fixed patterns): its <c>-d JS</c> output equals
     /// <see cref="KmerDistanceMetric.JensenShannon"/>, and its <c>-d EU</c> output equals
     /// <see cref="KmerDistanceMetric.EuclideanCounts"/> (the program takes the Euclidean distance of raw counts, not of
-    /// frequencies). Two conventions differ on sequences with symbols other than A/C/G/T: <c>spaced</c> drops a word
-    /// with such a symbol at a match position but keeps its window in the frequency denominator, whereas
-    /// <see cref="CountSpacedWords(string, string)"/> keeps the literal word. Its default mode (no <c>-r</c>) compares
-    /// the forward words of one sequence with the words of both strands of the other; that asymmetric variant is not
-    /// provided (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.5).</para>
+    /// frequencies). This overload counts literal words (<see cref="CountSpacedWords(string, string)"/>); on sequences
+    /// with symbols other than A/C/G/T, <c>spaced</c> drops a word with such a symbol at a match position, which is
+    /// <c>KmerCountingOptions.AcgtOnly</c> of the 6-argument overload. <c>spaced</c>'s default mode (no <c>-r</c>), which
+    /// compares one sequence's forward words with both strands of the other, is that overload's <c>bothStrands</c>
+    /// (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.5, §7.7).</para>
     /// </remarks>
     /// <param name="seq1">First sequence (case-insensitive; null/empty or shorter than a pattern gives an empty table).</param>
     /// <param name="seq2">Second sequence, same conventions.</param>
@@ -1733,6 +1839,54 @@ public static class KmerAnalyzer
         string seq2,
         IReadOnlyList<string> patterns,
         KmerDistanceMetric metric = KmerDistanceMetric.Euclidean)
+        => SpacedWordDistance(seq1, seq2, patterns, metric, KmerCountingOptions.Default, bothStrands: false);
+
+    /// <summary>
+    /// Multiple-pattern spaced-word distance with the word rule of <see cref="CountSpacedWords(string, string, KmerCountingOptions)"/>
+    /// and, optionally, the reverse-complement mode of the <c>spaced</c> program.
+    /// </summary>
+    /// <remarks>
+    /// <para>For each pattern P (length ℓ) the two word tables are compared with the word-vector metric, and the values are
+    /// averaged over the patterns, as in
+    /// <see cref="SpacedWordDistance(string, string, IReadOnlyList{string}, KmerDistanceMetric)"/>. Frequencies are
+    /// count ÷ W with W = L − ℓ + 1, the number of pattern windows (0 when L &lt; ℓ). That is <c>spaced</c>'s denominator
+    /// (<c>src/sort.h</c>: <c>row[i] /= seqWordEnd − seqStart</c>). With the default literal words every window gives one
+    /// word, so W = Σc and the result equals the 4-argument overload. With <c>AcgtOnly</c> the dropped words still count in W,
+    /// as in <c>spaced</c>, so the frequencies sum to less than 1.</para>
+    /// <para><b><paramref name="bothStrands"/></b> reproduces <c>spaced</c>'s default mode (run without <c>-r</c>), in which the
+    /// sequence that comes first in the input is compared on both strands and the other on its forward strand only.
+    /// In <c>spacedDNA</c> the matrix entry d[i][j] (i &gt; j) uses row_i = forward counts of sequence i and, for sequence j,
+    /// counts on the forward strand plus counts on the reverse-complement strand (the reverse-complement string read with
+    /// the same pattern). For <c>-d EU</c> it takes |row_i − (row_j + row_j′)|; for <c>-d JS</c> it takes
+    /// (row_j + row_j′) ÷ (2·W_j) against row_i ÷ W_i. Here <paramref name="seq1"/> plays sequence j (both strands; the first
+    /// FASTA record) and <paramref name="seq2"/> sequence i (forward strand; the second record). For every metric, the
+    /// seq1 vector becomes F₁ + R₁ with total 2·W₁, and the seq2 vector stays F₂ with total W₂. The value therefore
+    /// depends on the argument order. This is a convention of the tool: the paper (Leimeister et al. 2014) does not
+    /// define it. Exact <c>spaced</c> output needs <c>AcgtOnly = true</c> (spaced turns every non-ACGT letter into N, and
+    /// N complements to N) or ACGT input. Metric correspondence: <see cref="KmerDistanceMetric.JensenShannon"/> =
+    /// <c>-d JS</c>, <see cref="KmerDistanceMetric.EuclideanCounts"/> = <c>-d EU</c>.</para>
+    /// <para>Cross-checked against the <c>spaced</c> 1.2.0 binary (Ubuntu archive) with and without <c>-r</c> on 3 sequence
+    /// pairs (one with N, IUPAC and lower case) × 3 pattern sets × JS/EU: all 36 values equal to the 12 printed digits
+    /// (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.7).</para>
+    /// </remarks>
+    /// <param name="seq1">First sequence (both strands when <paramref name="bothStrands"/>).</param>
+    /// <param name="seq2">Second sequence (forward strand).</param>
+    /// <param name="patterns">One or more binary patterns of equal weight.</param>
+    /// <param name="metric">The per-pattern word-vector metric (not D2*/D2S).</param>
+    /// <param name="options">Word rule; <c>Canonical</c> must be false.</param>
+    /// <param name="bothStrands">The <c>spaced</c> reverse-complement mode (seq1 on both strands vs seq2 forward).</param>
+    /// <returns>The mean of the per-pattern values.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="patterns"/> or one of its patterns is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="patterns"/> is empty, a pattern is malformed, the weights differ,
+    /// <paramref name="metric"/> is D2*/D2S, or <paramref name="options"/> has <c>Canonical = true</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="metric"/> is undefined.</exception>
+    public static double SpacedWordDistance(
+        string seq1,
+        string seq2,
+        IReadOnlyList<string> patterns,
+        KmerDistanceMetric metric,
+        KmerCountingOptions options,
+        bool bothStrands = false)
     {
         ArgumentNullException.ThrowIfNull(patterns);
         if (patterns.Count == 0)
@@ -1743,15 +1897,40 @@ public static class KmerAnalyzer
         {
             if (pattern is null)
                 throw new ArgumentNullException(nameof(patterns), "Patterns must not contain null.");
+            ValidateSpacedPattern(pattern);
             int w = pattern.Count(c => c == '1');
             if (weight >= 0 && w != weight)
                 throw new ArgumentException("All patterns must have the same weight (number of '1' positions).", nameof(patterns));
             weight = w;
         }
 
+        ThrowIfCanonicalSpaced(options);
+        if (!Enum.IsDefined(metric))
+            throw new ArgumentOutOfRangeException(nameof(metric), metric, "Unknown k-mer distance metric.");
+        if (metric is KmerDistanceMetric.D2Star or KmerDistanceMetric.D2Shepherd)
+            throw new ArgumentException(
+                "D2*/D2S need each sequence's background model; use KmerDistance(string, string, int, metric) or BackgroundAdjustedD2.",
+                nameof(metric));
+
+        seq1 ??= string.Empty; // null = empty sequence (zero vector), as before
+        seq2 ??= string.Empty;
+        string reverse1 = bothStrands ? DnaSequence.GetReverseComplementString(seq1) : string.Empty;
         double sum = 0;
         foreach (var pattern in patterns)
-            sum += KmerDistance(CountSpacedWords(seq1, pattern), CountSpacedWords(seq2, pattern), metric);
+        {
+            var counts1 = CountSpacedWords(seq1, pattern, options);
+            var counts2 = CountSpacedWords(seq2, pattern, options);
+            double windows1 = Math.Max(0, seq1.Length - pattern.Length + 1);
+            double windows2 = Math.Max(0, seq2.Length - pattern.Length + 1);
+            if (bothStrands)
+            {
+                foreach (var (word, count) in CountSpacedWords(reverse1, pattern, options))
+                    CollectionsMarshal.GetValueRefOrAddDefault(counts1, word, out _) += count;
+                windows1 *= 2;
+            }
+
+            sum += WordVectorDistance(counts1, windows1, counts2, windows2, metric);
+        }
         return sum / patterns.Count;
     }
 
@@ -2282,16 +2461,49 @@ public static class KmerAnalyzer
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
     public static Dictionary<string, int> CountKmersBothStrands(string sequence, int k)
+        => CountKmersBothStrands(sequence, k, KmerCountingOptions.Default);
+
+    /// <summary>
+    /// Counts every k-mer over both strands (count[w] = forward[w] + forward[RC(w)], palindromes doubled) under
+    /// <see cref="KmerCountingOptions"/>: literal (default) or ACGT-only — the kPAL convention.
+    /// </summary>
+    /// <remarks>
+    /// <para>The forward table is
+    /// <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>; each entry is then
+    /// also added to its reverse complement's entry, which is kPAL's <c>Profile.balance()</c> (<c>kpal/klib.py</c>:
+    /// <c>counts[i] += counts[i_rc]; counts[i_rc] += temp</c>, and <c>counts[i] += counts[i]</c> for a palindrome).
+    /// Counting the forward strand's windows of RC(w) equals counting w on the reverse strand, so the result is the same
+    /// as counting the reverse-complement string.</para>
+    /// <para><b>AcgtOnly</b>: windows containing a non-ACGT symbol are skipped on both strands. kPAL does this:
+    /// <c>Profile.from_sequences</c> splits every sequence on the regular expression <c>[^AaCcGgTt]</c> and counts only
+    /// the k-mers inside the parts. Total = 2 × (number of all-ACGT windows). Cross-checked against kPAL run from source
+    /// (e.g. ACGTNACGTAAcgtRTT, k = 3 → ACG = CGT = 6, AAC = GTA = GTT = TAA = TAC = TTA = 1, Σ 18).</para>
+    /// <para><b>Canonical</b> is rejected (<see cref="ArgumentException"/>). Canonical counting already is the both-strand
+    /// count: Jellyfish <c>count -C</c> (<see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>
+    /// with <c>Canonical = true</c>) keys forward[w] + forward[RC(w)] by min(w, RC(w)) and counts a palindrome once.
+    /// Restricting this balanced table to canonical keys would instead double the palindromes (e.g. GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA,
+    /// k = 4: AATT 2 here vs 1 in <c>jellyfish -C</c>), a combination that neither kPAL (which has no canonical profiles)
+    /// nor Jellyfish defines.</para>
+    /// </remarks>
+    /// <param name="sequence">The DNA sequence (case-insensitive). Null/empty gives an empty dictionary.</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <param name="options">Counting mode; <c>Canonical</c> must be false.</param>
+    /// <returns>Dictionary mapping each k-mer seen on either strand to its summed forward + reverse-strand count.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    /// <exception cref="ArgumentException"><paramref name="options"/> has <c>Canonical = true</c>.</exception>
+    public static Dictionary<string, int> CountKmersBothStrands(string sequence, int k, KmerCountingOptions options)
     {
-        var forwardCounts = CountKmers(sequence, k);
-        var revCompCounts = CountKmers(DnaSequence.GetReverseComplementString(sequence ?? string.Empty), k);
+        if (options.Canonical)
+            throw new ArgumentException(
+                "Canonical counting is already the both-strand count (Jellyfish count -C); use CountKmers(sequence, k, new KmerCountingOptions(Canonical: true)).",
+                nameof(options));
 
-        var combined = new Dictionary<string, int>(forwardCounts);
-
-        foreach (var kvp in revCompCounts)
+        var forward = CountKmers(sequence, k, options);
+        var combined = new Dictionary<string, int>(forward);
+        foreach (var (kmer, count) in forward)
         {
-            if (!combined.TryAdd(kvp.Key, kvp.Value))
-                combined[kvp.Key] += kvp.Value;
+            var rc = DnaSequence.GetReverseComplementString(kmer);
+            CollectionsMarshal.GetValueRefOrAddDefault(combined, rc, out _) += count;
         }
 
         return combined;

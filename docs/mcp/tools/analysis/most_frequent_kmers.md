@@ -9,7 +9,7 @@ All k-mers tied for the maximum occurrence count.
 | **Server** | Analysis |
 | **Tool Name** | `most_frequent_kmers` |
 | **Method ID** | `KmerAnalyzer.FindMostFrequentKmers` |
-| **Version** | 1.0.0 |
+| **Version** | 1.1.0 |
 | **Stability** | Stable |
 
 ## Description
@@ -20,9 +20,16 @@ maximum. There may be a single winner or several tied k-mers. Counting is
 case-insensitive; order of the returned list is unspecified. When `k` exceeds the
 sequence length the result is empty.
 
+Optional Jellyfish modes (`KmerAnalyzer.FindMostFrequentKmers(sequence, k, KmerCountingOptions)`): `acgtOnly`
+skips every window containing a non-ACGT symbol; `canonical` keys each k-mer by min(k-mer, reverse complement), so
+a k-mer and its reverse complement are one entry whose count pools both strands — the arg-max of
+`jellyfish count -C -m k` + `jellyfish dump -c` (implies `acgtOnly`). This is the exact-match reverse-complement-aware
+frequent-words question; mismatches (Rosalind BA1J) are the Alignment server's
+`frequent_kmers_with_mismatches_and_revcomp`.
+
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L590](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L590)
+- Source: [KmerAnalyzer.cs#L611](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L611)
 
 ## Input Schema
 
@@ -30,6 +37,8 @@ sequence length the result is empty.
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Sequence to analyze (min length 1) |
 | `k` | integer | Yes | k-mer length (> 0) |
+| `canonical` | boolean | No | Canonical k-mers (jellyfish count -C); implies `acgtOnly`. Default false |
+| `acgtOnly` | boolean | No | Skip windows containing a non-ACGT symbol. Default false |
 
 ## Output Schema
 
@@ -83,6 +92,22 @@ ATG occurs twice; TGA and GAT once each.
 { "kmers": ["CATG", "GCAT"] }
 ```
 Both CATG and GCAT occur 3 times (the documented Rosalind BA1B answer).
+
+### Example 3: Canonical (jellyfish count -C), BA1B sample, k=4
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "most_frequent_kmers",
+  "arguments": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4, "canonical": true }
+}
+```
+
+**Response:**
+```json
+{ "kmers": ["ATGC"] }
+```
+`jellyfish count -m 4 -C` + `dump -c` (Jellyfish 2.3.1): ATGC 4 (ATGC + GCAT), CATG 3 (palindrome), others ≤ 2.
 
 ## Performance
 

@@ -9,7 +9,7 @@ Multiple-pattern spaced-word distance between two sequences (Leimeister et al. 2
 | **Server** | Analysis |
 | **Tool Name** | `spaced_word_distance` |
 | **Method ID** | `KmerAnalyzer.SpacedWordDistance` |
-| **Version** | 1.0.0 |
+| **Version** | 1.1.0 |
 | **Stability** | Stable |
 
 ## Description
@@ -29,15 +29,24 @@ background-adjusted ones: `euclidean` (default; relative frequencies, the paper'
 gives the contiguous k-mer distance.
 
 Reference program `spaced` 1.2.0 (`-r -f patterns`): `-d JS` equals `jensen_shannon`; `-d EU` equals
-`euclidean_counts` (the program takes the Euclidean distance of raw counts, not frequencies). Conventions not
-reproduced: `spaced` drops words with a non-ACGT symbol at a match position (keeping their windows in the JS
-denominator), and its default both-strand mode (no `-r`) compares forward words of one sequence with both strands
-of the other. Pattern-set generation (`spaced`/rasbhari random optimisation) is not provided; pass the patterns.
+`euclidean_counts` (the program takes the Euclidean distance of raw counts, not frequencies). Two further `spaced`
+conventions are opt-in (`KmerAnalyzer.SpacedWordDistance(seq1, seq2, patterns, metric, KmerCountingOptions, bothStrands)`):
+
+- `acgtOnly: true` — a window with a non-ACGT symbol at a **match** position gives no word (`spaced` stores every
+  non-ACGT letter as N and drops words reading N; don't-care positions are ignored). Frequencies stay
+  count ÷ (L − ℓ + 1), the number of windows, as in `spaced`, so they sum to less than 1 when words are dropped.
+- `bothStrands: true` — `spaced`'s default mode (no `-r`): the first sequence of the input (`seq1`) is counted on
+  its forward strand plus its reverse-complement strand (total 2·W₁), the second (`seq2`) on its forward strand
+  only. The value depends on the argument order (a convention of the tool; the paper does not define it).
+
+With both options on, every `spaced` 1.2.0 value checked (3 pairs incl. N/IUPAC/lower case × 3 pattern sets × JS/EU,
+with and without `-r`, 36 runs) is reproduced to the 12 printed digits. Pattern-set generation (`spaced`/rasbhari
+random optimisation) is not provided; pass the patterns.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1731](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1731)
-- Algorithm: [K-mer_Euclidean_Distance.md](../../../algorithms/K-mer/K-mer_Euclidean_Distance.md) §7.5
+- Source: [KmerAnalyzer.cs#L1883](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1883)
+- Algorithm: [K-mer_Euclidean_Distance.md](../../../algorithms/K-mer/K-mer_Euclidean_Distance.md) §7.5, §7.7
 
 ## Input Schema
 
@@ -47,6 +56,8 @@ of the other. Pattern-set generation (`spaced`/rasbhari random optimisation) is 
 | `seq2` | string | Yes | Second sequence (min length 1) |
 | `patterns` | string[] | Yes | One or more patterns over {0,1}, each starting and ending with `1`, all of the same weight |
 | `metric` | string | No | `euclidean` (default), `jensen_shannon` (`js`), `euclidean_counts`, `squared_euclidean_counts`, `manhattan`, `chebyshev`, `canberra`, `cosine`, `d2` |
+| `acgtOnly` | boolean | No | Drop words with a non-ACGT symbol at a match position (`spaced` rule). Default false |
+| `bothStrands` | boolean | No | `spaced` default mode: `seq1` on both strands vs `seq2` forward (order-dependent). Default false (= `spaced -r`) |
 
 ## Output Schema
 
@@ -107,6 +118,30 @@ of the other. Pattern-set generation (`spaced`/rasbhari random optimisation) is 
 { "distance": 0.17567404832368613 }
 ```
 With `"metric": "euclidean_counts"` the value is 12.40897581662776 (`spaced -r -d EU` prints 12.4089758166).
+
+### Example 3: `spaced` default mode on sequences with N / IUPAC symbols
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "spaced_word_distance",
+  "arguments": {
+    "seq1": "AGGTAAGGTGNGTTGAGATctggacTTTTGACGCCTRGAGCCCGCAGTGCTCCTCGAAAAGTAGCNNATGCCTTGGGCTGCT",
+    "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTYCAACATACAAGTAtagttgGAAGTTCTAAGTTCAGNTTAATC",
+    "patterns": ["11011", "10111", "11101"],
+    "metric": "jensen_shannon",
+    "acgtOnly": true,
+    "bothStrands": true
+  }
+}
+```
+
+**Response:**
+```json
+{ "distance": 0.6447798019943918 }
+```
+`spaced -t 1 -f patterns -d JS` (no `-r`) on the FASTA file with `seq1` first prints 0.644779801994; with `-r`
+(`bothStrands: false`) 0.706137367852; swapping the records prints 0.632325490347.
 
 ## Performance
 

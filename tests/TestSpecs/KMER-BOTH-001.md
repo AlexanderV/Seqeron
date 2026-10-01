@@ -198,3 +198,17 @@ Both are boundary/API-shape only; neither changes output for valid in-range inpu
 
 1. Decision: implement the additive both-strand (kPAL "balance") semantics, NOT canonical collapsing — the method name and registry ("Forward + reverse complement"), and the existing implementation, both denote the additive view. Canonical collapsing is a separate, non-implemented variant noted in the algorithm doc §5.3.
 2. Decision: added a `string` overload to match the registry signature `CountKmersBothStrands(sequence, k)`; the pre-existing `DnaSequence` overload now delegates to it.
+
+## Audit round 2, WP8 (B06) — ACGT-only (kPAL) option, canonical decision
+
+`CountKmersBothStrands(sequence, k, KmerCountingOptions)`; tests in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs`.
+
+| ID | Case | Expected (source) |
+|----|------|-------------------|
+| B1 | `AcgtOnly`, `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` k = 3 / 4, `ACGTNACGTAAcgtRTT` k = 3, `AAAANTTTTGGGGuCCCC` k = 2 | kPAL `Profile.from_sequences([s], k)` + `balance()` (klib.py run from source): full tables, Σ 56 / 48 / 18 / 26 |
+| B2 | `AcgtOnly` invariants | Σ = 2 × all-ACGT windows; palindrome AATT = 2 (kPAL) vs 1 under `-C`; count[w] = count[RC(w)] |
+| B3 | Default options | = legacy 2-argument overload (incl. IUPAC / lower case / empty) |
+| B4 | `AcgtOnly` on ACGT input | = literal |
+| B5 | `Canonical` (alone or with `AcgtOnly`) | `ArgumentException`, ParamName `options` (decision: Jellyfish `-C` already is the both-strand count; balanced + canonical keys would double palindromes — defined by neither kPAL nor Jellyfish) |
+| B6 | null / all-N / k > L / k ≤ 0 with `AcgtOnly` | empty / empty / empty / `ArgumentOutOfRangeException` |
+| B7 | MCP `count_kmers_both_strands(acgtOnly: true)` | non-ACGT input accepted, kPAL table; without the flag non-ACGT input is still rejected |

@@ -233,6 +233,23 @@
 
 ---
 
+### 5.7 Audit round 2, WP8 (B06) — `spaced` N-word rule and reverse-complement mode
+
+`CountSpacedWords(sequence, pattern, options)`, `SpacedWordDistance(seq1, seq2, patterns, metric, options, bothStrands)`;
+tests in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs`; reference values K-mer_Euclidean_Distance.md §7.7.
+
+| ID | Case | Expected (source) |
+|----|------|-------------------|
+| W1 | 36 rows: S1/S2, A/B, N1/N2 × 3 pattern sets × JS/EU × with/without `-r`, `AcgtOnly` | `spaced` 1.2.0 binary (12 digits) = replica (1e-12; EU 1e-10) |
+| W2 | `bothStrands`, records swapped (N2, N1) | `spaced` 0.632325490347 / 14.604611969 (order dependence) |
+| W3 | `CountSpacedWords("ANGTCN", "1011", AcgtOnly)` | {AGT: 1} (N at the don't-care position kept, N at a match position dropped; `sort.h` `correctWord`) |
+| W4 | all-'1' pattern + `AcgtOnly` | = `CountKmers(…, AcgtOnly)` |
+| W5 | Default options, single strand | = 4-argument `SpacedWordDistance` (bit-identical); ACGT input + `AcgtOnly` = literal |
+| W6 | Literal words on N input | ≠ `spaced` value (documents why `AcgtOnly` is needed) |
+| W7 | `Canonical` | `ArgumentException` (CountSpacedWords and SpacedWordDistance) |
+| W8 | D2*, unequal weights, malformed pattern, null sequences with `bothStrands` | `ArgumentException` ×3; null = empty → 0 |
+| W9 | MCP `spaced_word_distance(acgtOnly, bothStrands)` | N1/N2 JS 0.706137367852 / 0.644779801994, EU both 14.4441651361; S1/S2 JS both 0.741748311452 |
+
 ## 6. Assumption Register
 
 **Total assumptions:** 4

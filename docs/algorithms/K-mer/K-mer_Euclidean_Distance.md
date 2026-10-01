@@ -141,6 +141,16 @@ frequencies (`Euclidean`, `JensenShannon`); every count-table metric of §2.6 ex
 sets are passed by the caller: the `spaced` program generates them by randomised optimisation (`variance::Improve`,
 rasbhari-style), which is not deterministic and is not reproduced.
 
+`CountSpacedWords(sequence, pattern, KmerCountingOptions)` and
+`SpacedWordDistance(seq1, seq2, patterns, metric, KmerCountingOptions, bothStrands = false)` (audit round 2, WP8) add
+the two remaining `spaced` 1.2.0 conventions as options (§7.7): `AcgtOnly` drops a window whose symbol at a **match**
+position is not A/C/G/T (don't-care positions are ignored), with frequencies count ÷ W, W = L − ℓ + 1 windows (the
+dropped windows stay in W, as in `spaced`); `bothStrands` is `spaced`'s default reverse-complement mode, in which
+`seq1` (the first input record) is counted on both strands (forward + reverse-complement strand, total 2·W₁) and
+`seq2` on its forward strand only. That mode is asymmetric in the argument order and is a convention of the tool, not
+of [4]. `Canonical` is rejected for spaced words: the reverse strand reads a window with the mirrored pattern, so
+min(word, RC(word)) is not strand-independent for an asymmetric pattern, and no source defines it.
+
 ### 2.9 Background-adjusted D2* and D2S (audit round 1, WP4)
 
 `BackgroundAdjustedD2(seq1, seq2, k, markovOrder = 0)` and the metrics `KmerDistanceMetric.D2Star` /
@@ -256,11 +266,12 @@ p-value 1. Sketches with different k, seed or canonical mode are rejected (Mash 
 - `KmerAnalyzer.CountKmers(string, int)`: underlying k-mer counter (upper-cases input; throws for k ≤ 0).
 - `KmerAnalyzer.KmerDistance(string, string, int, KmerDistanceMetric)` / `KmerDistance(IReadOnlyDictionary<string,int>, IReadOnlyDictionary<string,int>, KmerDistanceMetric)`: the metric variants of §2.6 (single word-vector loop; the legacy method delegates to it).
 - `KmerAnalyzer.JaccardSimilarity(string, string, int[, KmerCountingOptions])`, `MashDistance(string, string, int, KmerCountingOptions)`, `MashDistanceFromJaccard(double, int)`: §2.7 (over `DistinctKmers`).
-- `KmerAnalyzer.CountSpacedWords(string, string)`: §2.8.
+- `KmerAnalyzer.CountSpacedWords(string, string[, KmerCountingOptions])`: §2.8.
+- `KmerAnalyzer.SpacedWordDistance(string, string, IReadOnlyList<string>, KmerDistanceMetric, KmerCountingOptions, bool bothStrands = false)`: `spaced` N-word rule and reverse-complement mode (§2.8, §7.7; audit round 2, WP8).
 - `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int)` → `D2StarStatistics(D2Star, D2Shepherd, D2StarDistance, D2ShepherdDistance)`; `KmerDistance(seq1, seq2, k, metric, markovOrder)`; metrics `D2Star` / `D2Shepherd`; `ParseDistanceMetric(string)` (MCP metric names): §2.9.
 - `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int, bool bothStrands)`, `KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands)` (CAFE `-R`), `SpacedWordDistance(string, string, IReadOnlyList<string>, KmerDistanceMetric)`, metrics `JensenShannon` / `EuclideanCounts` (audit round 2, WP6).
 - `KmerAnalyzer.ContainmentIndex(string, string, int[, KmerCountingOptions])` (§2.7), `CreateMinHashSketch` → `MinHashSketch`, `CompareMinHashSketches` → `MashComparison(SharedHashes, Denominator, Jaccard, Distance, PValue)`, `MashPValue`, `MurmurHash3X64_128` (§2.10; audit round 2, WP7).
-- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly` and `sketchSize` (0 = exact; s > 0 = Mash sketch estimate + `sharedHashes`/`sketchDenominator`/`pValue`), always returning both exact containment indices; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis).
+- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly` and `sketchSize` (0 = exact; s > 0 = Mash sketch estimate + `sharedHashes`/`sketchDenominator`/`pValue`), always returning both exact containment indices; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis; optional `acgtOnly` and `bothStrands`, WP8).
 
 ### 5.2 Current Behavior
 
@@ -308,14 +319,19 @@ p-value 1. Sketches with different k, seed or canonical mode are rejected (Mash 
   MurmurHash3_x64_128 (§2.10), = the Mash 2.3 binary on 63 runs (§7.6); exact containment index [14] (§2.7),
   = sourmash 4.9.4 `scaled=1` `contained_by`.
 
+**Implemented in audit round 2 (WP8):**
+
+- `spaced` 1.2.0's N-word rule (`AcgtOnly`) and default reverse-complement mode (`bothStrands`) for
+  `SpacedWordDistance`; = the `spaced` binary with and without `-r` on 36 runs (§7.7).
+
 **Not implemented:**
 
 - sourmash *scaled* (FracMinHash) sketches and sketch-based containment estimates: the exact containment is
   available, which is what a `scaled=1` sketch gives; Mash `screen` (containment score with multiplicities) and
   Mash's 32-bit `ARCH_32` hash variant (two MurmurHash3_x86_32 calls; only in 32-bit builds) are not reproduced.
-- `spaced` program conventions not reproduced (§7.5): its default both-strand mode (forward words of one sequence
-  against both strands of the other; asymmetric in the sequence order), dropping words with a non-ACGT symbol at a
-  match position while keeping their windows in the denominator, and its randomised pattern-set generation.
+- `spaced`'s randomised pattern-set generation (`variance::Improve`; not deterministic, so not reproducible) and
+  its `-d EV` evolutionary distance (Morgenstern et al. 2015 spaced-word-match estimator; a different measure, not
+  the word-vector distance of [4]).
 
 ### 5.4 Deviations and Assumptions
 
@@ -500,6 +516,36 @@ with "NNNNN" inserted (5005 nt); AA2 = A as two records (6000 + 4000).
   0.347795591182365, A in E 0.496993987975952, E in A 1; k=16 A in B 0.850575863795693, A in C 0.446169253880821,
   A in E 0.497746619929895. C(A,B)·|K(A)| = 8069 = the `mash dist -s 100000` shared count.
 
+### 7.7 `spaced` N-word rule and reverse-complement mode (audit round 2, WP8)
+
+Source: `spaced` 1.2.0 `src/sort.h` `spacedDNA` (Ubuntu archive `spaced_1.2.0-201605+dfsg.orig.tar.xz`). While
+reading, every letter other than A/C/G/T (after `toupper`) is stored as `N`; non-letters are skipped. The reverse
+complement of each record is stored after the forward data (N ↦ N). A word is kept only while `correctWord` holds,
+i.e. no match position reads `N`. Word positions per record are `seqWordEnd − seqStart` = L − ℓ + 1, including the
+dropped ones. With `revComp` (no `-r`), the entry d[i][j] (i > j, i.e. j is the earlier record) uses
+`row[i]` = forward counts of record i and `row[j] + row[j + seqNum]` = forward + reverse-strand counts of record j:
+EU sums |row_i − (row_j + row_j′)|², JS uses row_i ÷ W_i against (row_j + row_j′) ÷ (2·W_j).
+
+Runs: the `spaced` binary (`spaced [-r] -t 1 -f patterns -d JS|EU`, 12 printed digits) on S1/S2, A/B and N1/N2 =
+S1/S2 with N, R, Y and lower case inserted, × the three pattern sets of §7.5, with and without `-r`. All 36 values
+= the Python replica = C# (`AcgtOnly`, `bothStrands`; 1e-12, EU 1e-10). Without `-r`:
+
+| Pair (first, second) | Patterns | JS | EU |
+|---|---|---|---|
+| S1, S2 | 11011, 10111, 11101 | 0.741748311452 | 16.165781203 |
+| S1, S2 | 1101011, 1011101, 1110011 | 0.899930296951 | 14.5571570182 |
+| S1, S2 | 1111 | 0.705385434836 | 15.7797338381 |
+| A, B | 11011, 10111, 11101 | 0.347532568204 | 35.6349133067 |
+| A, B | 1101011, 1011101, 1110011 | 0.672311954762 | 29.6025878705 |
+| A, B | 1111 | 0.355631754711 | 36.6196668472 |
+| N1, N2 | 11011, 10111, 11101 | 0.644779801994 | 14.4441651361 |
+| N1, N2 | 1101011, 1011101, 1110011 | 0.724905982831 | 12.8296572574 |
+| N1, N2 | 1111 | 0.618160592821 | 14.2478068488 |
+| N2, N1 (records swapped) | 11011, 10111, 11101 | 0.632325490347 | 14.604611969 |
+
+With `-r`, N1/N2 (N words dropped): JS 0.706137367852 / 0.767473374082 / 0.693975547992, EU 11.2827316031 /
+10.59658835 / 11.3578166916; S1/S2 and A/B as in §7.5. The swapped row shows the order dependence of the mode.
+
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [KmerAnalyzer_KmerDistance_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_KmerDistance_Tests.cs) — covers `INV-01`–`INV-04`
@@ -507,6 +553,7 @@ with "NNNNN" inserted (5005 nt); AA2 = A as two records (6000 + 4000).
 - Tests: [KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs) — §7.4 values, D2*/D2S conventions and validation
 - Tests: [KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs) — §7.5 values, null-as-empty, sparse tables, JS metric
 - Tests: [KmerAnalyzer_MinHashContainment_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_MinHashContainment_Tests.cs) — §7.6 values (63 `mash dist` rows, hashes, containment)
+- Tests: [KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs) — §7.7 values (36 `spaced` runs), N-word rule, order dependence
 - Evidence: [KMER-DIST-001-Evidence.md](../../../docs/Evidence/KMER-DIST-001-Evidence.md)
 
 ## 8. References

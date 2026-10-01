@@ -49,4 +49,23 @@ public class CountKmersBothStrandsTests
             Assert.That(mixed["AT"], Is.EqualTo(mixed["AT"]));
         });
     }
+
+    [Test]
+    public void CountKmersBothStrands_AcgtOnly_EqualsKpalBalancedProfile()
+    {
+        // kPAL (klib.py from source): Profile.from_sequences(["ACGTNACGTAAcgtRTT"], 3).balance()
+        // -> ACG = CGT = 6, AAC = GTA = GTT = TAA = TAC = TTA = 1 (sum 18). Non-ACGT input is accepted only with acgtOnly.
+        var counts = AnalysisTools.CountKmersBothStrands("ACGTNACGTAAcgtRTT", 3, acgtOnly: true).Counts;
+        Assert.Multiple(() =>
+        {
+            Assert.That(counts, Has.Count.EqualTo(8));
+            Assert.That(counts["ACG"], Is.EqualTo(6));
+            Assert.That(counts["CGT"], Is.EqualTo(6));
+            foreach (var w in new[] { "AAC", "GTA", "GTT", "TAA", "TAC", "TTA" })
+                Assert.That(counts[w], Is.EqualTo(1), w);
+            Assert.Throws<ArgumentException>(() => AnalysisTools.CountKmersBothStrands("ACGTNACGT", 3));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.CountKmersBothStrands("", 3, acgtOnly: true));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.CountKmersBothStrands("ACGT", 0, acgtOnly: true));
+        });
+    }
 }

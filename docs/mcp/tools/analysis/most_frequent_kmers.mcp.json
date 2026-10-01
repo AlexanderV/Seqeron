@@ -2,16 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "most_frequent_kmers",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindMostFrequentKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L590",
-  "description": "Returns every k-mer whose overlapping occurrence count equals the maximum (all k-mers tied for most frequent). Frequent Words Problem, Rosalind BA1B.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L611",
+  "description": "Returns every k-mer whose overlapping occurrence count equals the maximum (all k-mers tied for most frequent). Frequent Words Problem, Rosalind BA1B. Optional canonical (top of jellyfish count -C + dump: a k-mer and its reverse complement pooled) and acgtOnly modes.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "canonical": { "type": "boolean", "description": "Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly", "default": false },
+      "acgtOnly": { "type": "boolean", "description": "Skip windows containing a non-ACGT symbol (Jellyfish / kPAL convention)", "default": false }
     },
     "required": ["sequence", "k"]
   },
@@ -40,6 +42,11 @@
       "name": "Tie ACGTTGCATGTCGCATGATGCATGAGAGCT k=4 (Rosalind BA1B)",
       "input": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4 },
       "output": { "kmers": ["CATG", "GCAT"] }
+    },
+    {
+      "name": "Canonical BA1B sample k=4 (jellyfish count -C)",
+      "input": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4, "canonical": true },
+      "output": { "kmers": ["ATGC"] }
     }
   ]
 }

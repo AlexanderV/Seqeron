@@ -191,6 +191,19 @@ New method `GetKmerHistogram(sequence, k, KmerCountingOptions = default, low = 1
 
 ---
 
+#### Audit round 2, WP8 (B06) — `GetKmerFrequencies(sequence, k, KmerCountingOptions)`
+
+References: kPAL profile ÷ total (klib.py from source) and Jellyfish 2.3.1 `count [-C]` + `dump -c` ÷ Σ
+(K-mer_Frequency_Analysis.md §7.4); tests in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs`.
+
+| ID | Case | Expected |
+|----|------|----------|
+| P1 | `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` k = 2 (`-C`, ACGT-only), k = 4 (`-C`, ACGT-only) | full Jellyfish / kPAL profiles, 1e-12; Σ f = 1 |
+| P2 | `ACGTNACGTAAcgtRTT` k = 3 `-C`; `AAAANTTTTGGGGuCCCC` k = 3 ACGT-only | ACG 6/9, …; AAA .2, TGG .1, … |
+| P3 | Default options | = legacy overload |
+| P4 | all-N / null / k ≤ 0 | empty / empty / `ArgumentOutOfRangeException` |
+| P5 | MCP `kmer_frequencies(canonical, acgtOnly)` | rows P2 |
+
 ## Deviations and Assumptions
 
 None. Implementation matches external source definitions exactly.

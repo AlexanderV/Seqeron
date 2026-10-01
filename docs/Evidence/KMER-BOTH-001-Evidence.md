@@ -178,8 +178,23 @@
 
 ---
 
+## Audit round 2 (WP8, 2026-10-01) — kPAL ACGT-only counting, canonical decision
+
+- kPAL `kpal/klib.py` (LUMC/kPAL master, raw.githubusercontent.com; `pip install kPAL` fails to build, so `klib.py`,
+  `metrics.py`, `__init__.py` were run from source with `future`, `biopython`, `semantic_version`):
+  `Profile.from_sequences` splits each sequence on `[^AaCcGgTt]` (`re.compile('[^' + ''.join(_nucleotide_to_binary) + ']')`)
+  and counts the k-mers of every part of length ≥ k; `balance()` adds each k-mer's count to its reverse complement's
+  (palindromes doubled). Balanced profiles (= `CountKmersBothStrands(…, AcgtOnly)`): `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA`
+  k = 3 (26 keys, Σ 56, GCA = TGC = 7), k = 4 (31 keys, Σ 48, TGCA = 6), `ACGTNACGTAAcgtRTT` k = 3 (ACG = CGT = 6,
+  Σ 18), `AAAANTTTTGGGGuCCCC` k = 2 (AA = CC = GG = TT = 6, CA = TG = 1). The kPAL forward profile = Jellyfish 2.3.1
+  `count` + `dump -c` on each input.
+- Canonical: Jellyfish `count -C` (k = 4 on the first input: AATT 1, ACGT 2) vs the balanced table restricted to
+  canonical keys (AATT 2, ACGT 4) differ exactly on palindromes; kPAL has no canonical profile. Decision: `Canonical`
+  is rejected for both-strand counting (`ArgumentException`); the canonical both-strand count is `CountKmers(…, Canonical)`.
+
 ## Change History
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-28**: Review 2026-09 (B06) — kPAL `balance()` source executed as reference; datasets R1–R3 and IUPAC note added.
 - **2026-10-01**: B06 audit round 1 — Jellyfish `mer_iterator`/`mer_dna` source and executed Jellyfish 2.3.1 `count -C`; canonical collapsing now available via `KmerCountingOptions(Canonical: true)` (contrast table unchanged).
+- **2026-10-01**: B06 audit round 2 WP8 — kPAL `from_sequences` ACGT-only rule (option `AcgtOnly`), canonical rejected with reason.

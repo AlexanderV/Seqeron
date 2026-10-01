@@ -87,6 +87,7 @@ For clumps, the windows are the substrings `Genome[i..i+L-1]` for `i ∈ [0, |Ge
 **Implementation location:** [KmerAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs)
 
 - `KmerAnalyzer.FindMostFrequentKmers(string, int)`: Returns all maxima from the count map.
+- `KmerAnalyzer.FindMostFrequentKmers(string, int, KmerCountingOptions)`: the maxima of the literal / ACGT-only / canonical (`jellyfish count -C`) table (B06 audit round 2, WP8; §7.4).
 - `KmerAnalyzer.FindUniqueKmers(string, int[, KmerCountingOptions])`: Returns all singleton k-mers (option-aware overload: `jellyfish count -C` + `dump -L 1 -U 1`, see Unique_And_MinCount_Kmers.md).
 - `KmerAnalyzer.FindClumps(string, int, int, int)`: Returns deduplicated clump-forming k-mers (streamed).
 - `KmerAnalyzer.FindClumpWindows(string, int, int, int)`: Returns `IReadOnlyList<KmerClump>` — each clump k-mer with its maximal runs of qualifying window starts (`ClumpWindowRun(FirstWindowStart, LastWindowStart)`, inclusive, 0-based; `KmerClump.FirstWindowStart` = leftmost qualifying window), ordered by first window then ordinal k-mer (B06 audit round 1 WP3, F12). Both methods consume one private sliding pass (`ScanClumpTransitions`), so the sliding logic exists once.
@@ -100,7 +101,7 @@ All three methods uppercase the input sequence. All three reuse the canonical `C
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Identification of all k-mers tied at the maximum count.
+- Identification of all k-mers tied at the maximum count; with `Canonical` the arg-max of `jellyfish count -C` + `dump -c` (a k-mer and its reverse complement pooled — the exact-match reverse-complement-aware frequent-words question; mismatches, Rosalind BA1J, are `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements` in the Alignment module).
 - Identification of singleton k-mers.
 - Sliding-window `(L, t)` clump detection.
 
@@ -167,6 +168,22 @@ gatcagcataagggtcccTGCAATGCATGACAAGCCTGCAgttgttttac
 | `AAAAAAAAAA` | 2, 4, 3 | `AA:0-6` (leaving = entering on every slide) | identical |
 | 3000 random strings (alphabets AC/ACGT/ACGTN/acgt, n ≤ 60, k ≤ 5, L ≤ 30, t ≤ 5; 743 with clumps) | random | brute force | 0 mismatches (runs and order); FindClumps set equal in all 3000 |
 | 2 Mbp random ACGT (seed 7) | 6, 300, 4 | occurrence-interval method | 113 k-mers, 142 runs, identical (C# 0.38 s) |
+
+### 7.4 Canonical / ACGT-only most frequent k-mers (B06 audit round 2, WP8)
+
+Reference: **Jellyfish 2.3.1** `jellyfish count -m k -s 10000 [-C]` + `jellyfish dump -c`, arg-max taken over the dump.
+
+| Input | k | `-C` (canonical) | no `-C` (ACGT-only) |
+|---|---|---|---|
+| BA1B sample `ACGTTGCATGTCGCATGATGCATGAGAGCT` | 4 | `ATGC` (4: ATGC + GCAT; CATG palindrome 3) | `CATG GCAT` (3) |
+| `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` | 2 | `CA` (8) | `CA GC TG` (4) |
+| same | 3 | `GCA` (7) | `TGC` (4) |
+| same | 4 | `TGCA` (3) | `TGCA` (3) |
+| `AAAANTTTTGGGGuCCCC` | 2 | `AA CC` (6) | `AA CC GG TT` (3) |
+| `ACGTNACGTAAcgtRTT` | 3 | `ACG` (6) | — |
+
+`FindMostFrequentKmers(sequence, k, options)` is identical on every row (`KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests`;
+MCP `most_frequent_kmers` optional `canonical` / `acgtOnly`).
 
 The E. coli genome was not re-run for the window output (the textbook file is not in the repository and no GitHub mirror path could be resolved); its 1904-set is unchanged because `FindClumps` emits exactly the run openings of the shared pass (set equality with `FindClumpWindows` is tested).
 

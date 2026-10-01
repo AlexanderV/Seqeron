@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "spaced_word_distance",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.SpacedWordDistance",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1731",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1883",
   "description": "Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (all of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or another kmer_distance word-vector metric. Single strand (spaced -r).",
   "inputSchema": {
     "type": "object",
@@ -45,6 +45,16 @@
           "d2"
         ],
         "default": "euclidean"
+      },
+      "acgtOnly": {
+        "type": "boolean",
+        "description": "Drop spaced words with a non-ACGT symbol at a match position (the spaced program's rule); frequencies stay count / number of windows",
+        "default": false
+      },
+      "bothStrands": {
+        "type": "boolean",
+        "description": "spaced's default reverse-complement mode (spaced without -r): seq1 counted on both strands vs seq2 forward; order-dependent",
+        "default": false
       }
     },
     "required": [
@@ -137,6 +147,24 @@
       },
       "output": {
         "distance": 12.40897581662776
+      }
+    },
+    {
+      "name": "spaced default mode (both strands, N dropped) = spaced -d JS without -r",
+      "input": {
+        "seq1": "AGGTAAGGTGNGTTGAGATctggacTTTTGACGCCTRGAGCCCGCAGTGCTCCTCGAAAAGTAGCNNATGCCTTGGGCTGCT",
+        "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTYCAACATACAAGTAtagttgGAAGTTCTAAGTTCAGNTTAATC",
+        "patterns": [
+          "11011",
+          "10111",
+          "11101"
+        ],
+        "metric": "jensen_shannon",
+        "acgtOnly": true,
+        "bothStrands": true
+      },
+      "output": {
+        "distance": 0.6447798019943918
       }
     }
   ]

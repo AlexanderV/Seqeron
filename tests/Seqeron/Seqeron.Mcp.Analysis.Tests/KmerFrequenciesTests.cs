@@ -42,4 +42,19 @@ public class KmerFrequenciesTests
             Assert.That(homo, Has.Count.EqualTo(1));
         });
     }
+
+    [Test]
+    public void KmerFrequencies_CanonicalAndAcgtOnly_EqualJellyfishAndKpalProfiles()
+    {
+        // jellyfish count -m 3 -C + dump -c on ACGTNACGTAAcgtRTT: ACG 6, AAC 1, GTA 1, TAA 1 (sum 9).
+        var canonical = AnalysisTools.KmerFrequencies("ACGTNACGTAAcgtRTT", 3, canonical: true).Frequencies;
+        Assert.That(canonical, Has.Count.EqualTo(4));
+        Assert.That(canonical["ACG"], Is.EqualTo(6.0 / 9).Within(1e-15));
+        Assert.That(canonical["TAA"], Is.EqualTo(1.0 / 9).Within(1e-15));
+        // kPAL profile (= jellyfish without -C) of AAAANTTTTGGGGuCCCC k=3: AAA CCC GGG TTT 2, TGG TTG 1 (sum 10).
+        var acgt = AnalysisTools.KmerFrequencies("AAAANTTTTGGGGuCCCC", 3, acgtOnly: true).Frequencies;
+        Assert.That(acgt, Has.Count.EqualTo(6));
+        Assert.That(acgt["AAA"], Is.EqualTo(0.2).Within(1e-15));
+        Assert.That(acgt["TGG"], Is.EqualTo(0.1).Within(1e-15));
+    }
 }

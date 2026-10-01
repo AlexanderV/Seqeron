@@ -44,4 +44,21 @@ public class SpacedWordDistanceTests
                 Is.EqualTo(AnalysisTools.KmerDistance(S1, S2, 4).Distance));
         });
     }
+
+    [Test]
+    public void SpacedWordDistance_AcgtOnlyAndBothStrands_MatchSpacedProgram()
+    {
+        // S1 / S2 with N, IUPAC and lower case; spaced 1.2.0 -f patterns: -r -d JS 0.706137367852,
+        // default (both strands, first record = seq1) -d JS 0.644779801994, -d EU 14.4441651361.
+        const string n1 = "AGGTAAGGTGNGTTGAGATctggacTTTTGACGCCTRGAGCCCGCAGTGCTCCTCGAAAAGTAGCNNATGCCTTGGGCTGCT";
+        const string n2 = "CAAAGGCCCTACCTTCTTATAGTCCTTYCAACATACAAGTAtagttgGAAGTTCTAAGTTCAGNTTAATC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.SpacedWordDistance(n1, n2, Patterns, "js", acgtOnly: true).Distance, Is.EqualTo(0.7061373678517503).Within(1e-12));
+            Assert.That(AnalysisTools.SpacedWordDistance(n1, n2, Patterns, "js", acgtOnly: true, bothStrands: true).Distance, Is.EqualTo(0.6447798019943918).Within(1e-12));
+            Assert.That(AnalysisTools.SpacedWordDistance(n1, n2, Patterns, "euclidean_counts", acgtOnly: true, bothStrands: true).Distance, Is.EqualTo(14.444165136064031).Within(1e-10));
+            // ACGT input, both strands: spaced -d JS 0.741748311452.
+            Assert.That(AnalysisTools.SpacedWordDistance(S1, S2, Patterns, "js", bothStrands: true).Distance, Is.EqualTo(0.7417483114521346).Within(1e-12));
+        });
+    }
 }

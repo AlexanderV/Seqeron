@@ -5,7 +5,7 @@
   "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.JaccardSimilarity",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1293",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1349",
   "description": "k-mer Jaccard index |A∩B|/|A∪B| (exact, or Mash bottom-s MinHash estimate with sketchSize > 0), the Mash distance -ln(2J/(1+J))/k (Ondov et al. 2016), the Mash p-value and x/s in sketch mode, and the exact containment indices |A∩B|/|A|, |A∩B|/|B| (Koslicki & Zabeti 2019). canonical=true gives Mash/sourmash k-mers.",
   "inputSchema": {
     "type": "object",

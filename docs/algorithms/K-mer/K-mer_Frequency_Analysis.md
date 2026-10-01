@@ -87,6 +87,7 @@ All three metrics delegate to `CountKmers(...)` for input handling. Null or empt
 **Implementation location:** [KmerAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs)
 
 - `KmerAnalyzer.GetKmerFrequencies(string, int)`: Returns normalized frequencies in `[0.0, 1.0]`.
+- `KmerAnalyzer.GetKmerFrequencies(string, int, KmerCountingOptions)`: the same over ACGT-only (kPAL profile) or canonical (`jellyfish count -C`) counts; denominator = counted windows (B06 audit round 2, WP8; §7.4).
 - `KmerAnalyzer.GetKmerSpectrum(string, int)`: Returns the count-of-counts histogram.
 - `KmerAnalyzer.GetKmerSpectrum(string, int, KmerCountingOptions)`: The same over literal / ACGT-only / canonical (`count -C`) counts.
 - `KmerAnalyzer.GetKmerHistogram(string, int, KmerCountingOptions = default, long low = 1, long high = 10000, long increment = 1, bool full = false)` and `GetKmerHistogram(IEnumerable<int> kmerCounts, …)`: `jellyfish count [-C]` + `jellyfish histo -l -h -i [-f]`, returning ordered `KmerHistogramBin(Bin, Frequency)` rows — exactly the lines Jellyfish prints (B06 audit round 1 WP3, F12).
@@ -155,6 +156,28 @@ Reference: the real **Jellyfish 2.3.1** binary (`apt jellyfish 2.3.1-3build1`): 
 | A^31… k=3 | plain | `-f -l 3 -h 8 -i 2` | 1 6 3 4 5 0 7 0 9 1 |
 
 Defaults pool multiplicities > 10000 into bin 10001 (`A^10010`, k=1 → `10001 1`); `--full` with defaults lists the 10002 bins 0…10001. `GetKmerSpectrum` is unchanged (no cap).
+
+### 7.4 kPAL / Jellyfish frequency profiles (B06 audit round 2, WP8)
+
+`GetKmerFrequencies(sequence, k, options)` divides the table of `CountKmers(sequence, k, options)` by its sum, i.e. by
+the number of counted windows. References (executed):
+
+- **kPAL** (LUMC/kPAL master, `kpal/klib.py` + `metrics.py` run from source; `pip install kPAL` does not build):
+  `Profile.from_sequences([s], k)` splits `s` on `[^AaCcGgTt]` and counts the k-mers of each part. Its profile divided
+  by `Profile.total` equals `AcgtOnly` frequencies.
+- **Jellyfish 2.3.1**: `jellyfish count -m k -s 10000 [-C]` + `jellyfish dump -c`, counts ÷ their sum. Without `-C`
+  it equals the kPAL profile on every input below; with `-C` it equals `Canonical`.
+
+| Input | k | Mode | Reference profile (count ÷ Σ) |
+|---|---|---|---|
+| `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` | 2 | `-C` | AA .125, AC .125, AG .03125, AT .09375, CA .25, CC .0625, CG .0625, GA .125, GC .125 (Σ 32) |
+| same | 2 | ACGT-only (kPAL) | AT .09375, CA .125, GC .125, TG .125, TT .09375, … 14 keys (Σ 32) |
+| same | 4 | `-C` | 18 keys, TGCA .125, ACGT/ATCC/ATTC/GCAA 1/12, others 1/24 (Σ 24) |
+| `ACGTNACGTAAcgtRTT` | 3 | `-C` | ACG 6/9, AAC/GTA/TAA 1/9 |
+| `AAAANTTTTGGGGuCCCC` | 3 | ACGT-only (kPAL) | AAA/CCC/GGG/TTT .2, TGG/TTG .1 |
+
+All locked to 1e-12 in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests` (MCP `kmer_frequencies` optional
+`canonical` / `acgtOnly`).
 
 ### 7.2 Applications and Use Cases (Optional)
 

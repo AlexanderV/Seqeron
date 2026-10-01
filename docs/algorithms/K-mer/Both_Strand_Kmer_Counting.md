@@ -52,6 +52,7 @@ equivalently obtained by counting k-mers in S and in RC(S) and summing per key. 
 |------|------|---------|-------------|-------------|
 | sequence | string / DnaSequence | required | DNA sequence | case-insensitive (upper-cased internally); IUPAC bases complemented per repository `GetComplementBase` |
 | k | int | required | k-mer length | k > 0 |
+| options | KmerCountingOptions | literal | `AcgtOnly`: skip windows containing a non-ACGT symbol (kPAL / Jellyfish rule); `Canonical` is rejected | `Canonical = false` |
 
 ### 3.2 Output / Return Value
 
@@ -64,22 +65,23 @@ equivalently obtained by counting k-mers in S and in RC(S) and summing per key. 
 - Null or empty sequence ⇒ empty dictionary.
 - k > L (so L − k + 1 ≤ 0) ⇒ empty dictionary.
 - k ≤ 0 ⇒ `ArgumentOutOfRangeException` (inherited from `CountKmers`).
+- `options.Canonical = true` ⇒ `ArgumentException` (ParamName `options`): see §5.3.
 - Input is upper-cased internally (case-insensitive); the reverse complement of recognized bases is uppercase.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Count overlapping k-mers of the forward sequence (`CountKmers`).
-2. Compute the reverse-complement string `RC(S)`.
-3. Count overlapping k-mers of `RC(S)`.
-4. Merge the two dictionaries by summing counts on shared keys.
+1. Count overlapping k-mers of the forward sequence (`CountKmers(sequence, k, options)`; literal or ACGT-only windows).
+2. Copy the forward table; for every forward entry (w, c) add c to the entry of RC(w) (kPAL `balance()`).
+   Windows of RC(S) are exactly the reverse complements of the windows of S, so this equals counting `RC(S)` and
+   summing per key; a palindrome receives its own count twice.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| CountKmersBothStrands | O(n·k) | O(d·k) | n = L − k + 1 windows per strand (two passes); d = number of distinct k-mers; k-length substring materialization per window |
+| CountKmersBothStrands | O(n·k + d·k) | O(d·k) | n = L − k + 1 windows (one counting pass); d = number of distinct forward k-mers, each reverse-complemented once |
 
 ## 5. Implementation Notes
 
@@ -87,12 +89,13 @@ equivalently obtained by counting k-mers in S and in RC(S) and summing per key. 
 
 **Implementation location:** [KmerAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs)
 
-- `KmerAnalyzer.CountKmersBothStrands(string, int)`: additive both-strand counting (canonical method).
+- `KmerAnalyzer.CountKmersBothStrands(string, int)`: additive both-strand counting; = the options overload with literal options.
+- `KmerAnalyzer.CountKmersBothStrands(string, int, KmerCountingOptions)`: the implementation (literal or ACGT-only; B06 audit round 2, WP8).
 - `KmerAnalyzer.CountKmersBothStrands(DnaSequence, int)`: delegates to the string overload.
 
 ### 5.2 Current Behavior
 
-Counts forward k-mers via `CountKmers`, counts k-mers of `DnaSequence.GetReverseComplementString(sequence)`, and merges by summing per key. The reverse-complement helper handles IUPAC ambiguity codes and is case-insensitive. A **suffix tree was not used**: this is a single linear two-pass tally over the sequence and its reverse complement (count-all-windows, not occurrence-enumeration of a query pattern), so the suffix-tree's O(m) post-construction query advantage does not apply; a direct O(n) scan is optimal here.
+Counts forward k-mers via `CountKmers(sequence, k, options)` and adds each entry's count to the entry of its reverse complement (`DnaSequence.GetReverseComplementString` of the k-mer), which equals counting k-mers of the reverse-complement string and summing per key. The reverse-complement helper handles IUPAC ambiguity codes and is case-insensitive. A **suffix tree was not used**: this is a single linear two-pass tally over the sequence and its reverse complement (count-all-windows, not occurrence-enumeration of a query pattern), so the suffix-tree's O(m) post-construction query advantage does not apply; a direct O(n) scan is optimal here.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -102,6 +105,9 @@ Counts forward k-mers via `CountKmers`, counts k-mers of `DnaSequence.GetReverse
 - Grand total 2·(L − k + 1) [4]; strand-symmetric profile [1]; palindrome doubling [3].
 - Reference-confirmed (review 2026-09): kPAL's own `Profile.balance()` (`kpal/klib.py`, LUMC/kPAL master: `if i < i_rc: counts[i] += counts[i_rc]; counts[i_rc] += temp` / `elif i == i_rc: counts[i] += counts[i]`) was run on `ATGGC`/k=2, `ACGT`/k=2, `AAA`/k=2, `ATGC`/k=4 and `GAATTCACGTTGCAGGATCCATGC`/k=3,4,6; every balanced profile equals this method's output (and `Counter(S) + Counter(Bio.Seq.reverse_complement(S))`). Palindromes are doubled by kPAL exactly as here.
 - Relation to canonical counting (Jellyfish `-C`) [4]: for a non-palindromic canonical k-mer c, count[c] = count[RC(c)] = canonical_count[c]; for a reverse-complement palindrome, count[w] = 2·canonical_count[w] (e.g. k=4 on the reference sequence above: AATT, ACGT, CATG, GATC, TGCA → 2 here, 1 under `-C`). Palindromes exist only for even k.
+
+- ACGT-only counting (`KmerCountingOptions.AcgtOnly`, B06 audit round 2, WP8) is kPAL's counting rule: `Profile.from_sequences` (`kpal/klib.py`) splits every sequence on the regular expression `[^AaCcGgTt]` and counts only the k-mers inside each part, then `balance()` is applied. kPAL (LUMC/kPAL master, `klib.py` + `metrics.py`, run from source) gives exactly this method's ACGT-only output on `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` k = 3 (26 keys, Σ 56, GCA = TGC = 7) and k = 4 (31 keys, Σ 48, TGCA = 6, AATT = 2), `ACGTNACGTAAcgtRTT` k = 3 (ACG = CGT = 6, Σ 18) and `AAAANTTTTGGGGuCCCC` k = 2 (AA = CC = GG = TT = 6, CA = TG = 1). The kPAL forward profile also equals Jellyfish 2.3.1 `count` (no `-C`) + `dump -c` on every one of these inputs (`u` is a non-ACGT symbol in both tools).
+- Canonical option (decision, WP8): rejected with `ArgumentException`. The canonical count already is the both-strand count — Jellyfish `count -C` keys forward[w] + forward[RC(w)] by min(w, RC(w)) and counts a palindrome once (`KmerAnalyzer.CountKmers(sequence, k, Canonical)`). "Both strands + canonical" would be this balanced table restricted to canonical keys, which differs from `-C` exactly on palindromes (k = 4 on the sequence above: AATT 2 vs 1, ACGT 4 vs 2) — not 2× the canonical counts for non-palindromes, and a combination that neither kPAL (no canonical profiles) nor Jellyfish defines.
 
 **Intentionally simplified:**
 
@@ -120,10 +126,12 @@ Counts forward k-mers via `CountKmers`, counts k-mers of `DnaSequence.GetReverse
 | k = L | one window per strand | boundary of the window formula [4] |
 | Palindromic k-mer (RC(w)=w) | count doubled on one key | INV-04 [3] |
 | k ≤ 0 | ArgumentOutOfRangeException | API contract (sibling `CountKmers`) |
+| `AcgtOnly`, sequence with N/IUPAC/U | windows containing a non-ACGT symbol skipped on both strands; Σ = 2 × all-ACGT windows | kPAL `from_sequences` split rule |
+| `Canonical = true` | ArgumentException | §5.3 decision (use `CountKmers` with `Canonical`) |
 
 ### 6.2 Limitations
 
-Additive counting double-counts every k-mer's information relative to a single canonical key; it is not interchangeable with canonical k-mer sets used by sketching tools. Ambiguity codes (N, R, Y, …) are kept as literal k-mer keys (inherited from `CountKmers`, KMER-COUNT-001) and complemented by the canonical IUPAC `SequenceExtensions.GetComplementBase` (N↔N, R↔Y, …), so e.g. `AAN`/k=2 → {AA, AN, NT, TT}; kPAL and Jellyfish instead skip every k-mer containing a non-ACGT base. Non-IUPAC characters (gaps etc.) pass through the reverse-complement helper unchanged. `U` is not DNA: the forward strand keeps `U` while its complement is `A`, so strand symmetry (INV-03) does not hold for U-containing input (the MCP tool rejects non-DNA input via `RequireDna`).
+Additive counting double-counts every k-mer's information relative to a single canonical key; it is not interchangeable with canonical k-mer sets used by sketching tools. Ambiguity codes (N, R, Y, …) are kept as literal k-mer keys (inherited from `CountKmers`, KMER-COUNT-001) and complemented by the canonical IUPAC `SequenceExtensions.GetComplementBase` (N↔N, R↔Y, …), so e.g. `AAN`/k=2 → {AA, AN, NT, TT}; kPAL and Jellyfish instead skip every k-mer containing a non-ACGT base, which is the `AcgtOnly` option (`AAN`/k=2 → {AA: 1, TT: 1}). The MCP tool accepts non-ACGT input only with `acgtOnly: true`. Non-IUPAC characters (gaps etc.) pass through the reverse-complement helper unchanged. `U` is not DNA: the forward strand keeps `U` while its complement is `A`, so strand symmetry (INV-03) does not hold for U-containing input (the MCP tool rejects non-DNA input via `RequireDna`).
 
 ## 7. Examples and Related Material
 
@@ -140,7 +148,7 @@ var counts = KmerAnalyzer.CountKmersBothStrands("ATGGC", 2);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [KmerAnalyzer_CountKmersBothStrands_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_CountKmersBothStrands_Tests.cs) — covers INV-01..INV-05
+- Tests: [KmerAnalyzer_CountKmersBothStrands_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_CountKmersBothStrands_Tests.cs) — covers INV-01..INV-05; [KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs) — kPAL ACGT-only values, canonical rejection
 - Evidence: [KMER-BOTH-001-Evidence.md](../../../docs/Evidence/KMER-BOTH-001-Evidence.md)
 - Related algorithms: [K-mer_Generation](./K-mer_Generation.md), [K-mer_Counting](../K-mer/K-mer_Counting.md)
 
