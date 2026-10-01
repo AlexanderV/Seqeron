@@ -44,7 +44,7 @@ orders and BIC values are returned by [`kmer_d2_statistics`](../analysis/kmer_d2
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L778](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L778)
+- Source: [KmerAnalyzer.cs#L779](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L779)
 
 ## Input Schema
 

@@ -14,7 +14,7 @@ Background-adjusted word-match statistics D2* and D2S of two DNA sequences, with
 
 ## Description
 
-Returns the full result of `KmerAnalyzer.BackgroundAdjustedD2` (plus `KmerAnalyzer.MarkovOrderBic`), which
+Returns the full result of `KmerAnalyzer.BackgroundAdjustedD2` (plus `KmerAnalyzer.MarkovOrderBics` over orders 0 … `AutoMarkovOrderLimit(k)`), which
 [`kmer_distance`](kmer_distance.md) reduces to one dissimilarity:
 
 - **D2*** = Σ X̃Ỹ/√(E_X E_Y) and **D2S** = Σ X̃Ỹ/√(X̃² + Ỹ²) (Reinert, Chew, Sun & Waterman 2009; Wan et al. 2010),

@@ -5,7 +5,7 @@
   "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.KmerDistance",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L778",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L779",
   "description": "Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies (default). Optional metric, same values and library overload as the Analysis server's kmer_distance: squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2 (a similarity), d2star / d2shepherd (background-adjusted d2* / d2S dissimilarities in [0,1], Reinert et al. 2009; Song et al. 2014; Markov background of order markovOrder fitted to each sequence, ACGT words, k <= 12). bothStrands = CAFE -R both-strand d2*/d2S. jensen_shannon: JS divergence (base 2) of the frequency vectors; euclidean_counts: Euclidean distance of raw counts. ev: spaced -d EV evolutionary distance with the pattern 1^k.",
   "inputSchema": {
     "type": "object",

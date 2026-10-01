@@ -281,6 +281,20 @@ Tests in `KmerAnalyzer_SpacedEvAndFracMinHash_Tests.cs`; reference values K-mer_
 | V23 | MCP `kmer_jaccard` S1/S2 k = 4 `trackAbundance` S = 1 / 3; without `trackAbundance` (WP11) | `weightedContainmentSeq1InSeq2` / `Seq2InSeq1` = sourmash `contained_by_weighted` 0.37662337662337664 / 0.417910447761194 (S = 1), 0.4642857142857143 / 0.5238095238095238 (S = 3); null |
 | V24 | `CompareMinHashSketches` with `MinHashSketch(40, 10, true, 42, true, 1000, {1,2,3})`, K = 0 / 33, `Use64` ≠ K > 16, 32-bit sketch with a hash > 2^32 − 1; `FromHashes(16, …, [2^32])` (WP11) | `ArgumentException` naming the sketch (Mash `-k` 1..32, `use64 = 4^k > 2^32`); K = 32 / K = 16 boundaries valid; `FromHashes` `ArgumentException("hashes")` |
 
+### 5.9 B06 duplication sweep — factored helpers (`KmerAnalyzer_DedupSweep_Tests.cs`)
+
+Behaviour-preserving refactor; besides the existing rows (which stay green), an old-vs-new differential run of 64,709
+outputs (every metric × k 0–5 × 144 sequence pairs, D2*/D2S all orders both modes, spaced words 4 pattern sets × 3 option
+modes × both strands, Mash/FracMinHash sketches and comparisons, BIC, parallel counts, exception type/parameter/message)
+was bit-identical.
+
+| ID | Test | Expected (source) |
+|----|------|-------------------|
+| X1 | `MarkovOrderBics(S1/S2, 2)`; element r = `MarkovOrderBic(S1, r)` for r ≤ 4 | 231.88984329117494, 255.74056400499072, 370.90681674887685 / 199.825085479026, 217.12856241056033, 322.30742386881116 (replica BIC, Schwarz 1978; the values of D-row BIC tests and MCP `kmer_d2_statistics`) |
+| X2 | `SelectMarkovOrder` = first arg-min of `MarkovOrderBics` (S1, S2, (AC)₂₀; maxOrder 3) | definition (ties → smaller order) |
+| X3 | `MarkovOrderBics` with maxOrder −1, null, "NNNN" | `ArgumentOutOfRangeException`, `ArgumentNullException`, `ArgumentException` (same contract as `SelectMarkovOrder`) |
+| X4 | `AutoMarkovOrderLimit(1, 5, 11, 12)`; k ∈ {0, −3} on every `KmerDistance` string overload, `MashDistanceFromJaccard`, `JaccardSimilarity`, `GenerateAllKmers` | 0, 4, 10, 10 (CAFE `MAX_ORDER` = 10, order range [0, min(k − 1, 10)]); one `ArgumentOutOfRangeException("k", "K must be positive.")` |
+
 ## 6. Assumption Register
 
 **Total assumptions:** 4

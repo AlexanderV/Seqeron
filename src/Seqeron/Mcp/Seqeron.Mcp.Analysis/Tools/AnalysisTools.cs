@@ -149,8 +149,8 @@ public class AnalysisTools
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq2));
 
         var stats = KmerAnalyzer.BackgroundAdjustedD2(seq1, seq2, k, markovOrder, bothStrands);
-        int maxOrder = Math.Min(k - 1, KmerAnalyzer.MaxAutoMarkovOrder);
-        double[] Bic(string s) => Enumerable.Range(0, maxOrder + 1).Select(r => KmerAnalyzer.MarkovOrderBic(s, r)).ToArray();
+        int maxOrder = KmerAnalyzer.AutoMarkovOrderLimit(k);
+        double[] Bic(string s) => KmerAnalyzer.MarkovOrderBics(s, maxOrder);
         return new KmerD2StatisticsResult(
             stats.D2Star, stats.D2Shepherd, stats.D2StarDistance, stats.D2ShepherdDistance,
             stats.MarkovOrder1, stats.MarkovOrder2, Bic(seq1), Bic(seq2));

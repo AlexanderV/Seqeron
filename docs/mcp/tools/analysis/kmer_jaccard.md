@@ -53,7 +53,7 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1371](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1371)
+- Source: [KmerAnalyzer.cs#L1406](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1406)
 - Algorithm: [K-mer_Euclidean_Distance.md](../../../algorithms/K-mer/K-mer_Euclidean_Distance.md) §2.7, §2.10
 
 ## Input Schema

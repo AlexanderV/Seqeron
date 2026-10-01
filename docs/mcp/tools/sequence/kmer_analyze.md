@@ -23,7 +23,7 @@ same library overload `KmerAnalyzer.AnalyzeKmers(sequence, k, KmerCountingOption
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L3113](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L3113)
+- Source: [KmerAnalyzer.cs#L3167](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L3167)
 
 ## Input Schema
 

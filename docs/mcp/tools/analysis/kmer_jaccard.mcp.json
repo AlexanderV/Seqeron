@@ -5,7 +5,7 @@
   "version": "1.4.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.JaccardSimilarity",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1371",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1406",
   "description": "k-mer Jaccard index |A∩B|/|A∪B| (exact, or Mash bottom-s MinHash estimate with sketchSize > 0), the Mash distance -ln(2J/(1+J))/k (Ondov et al. 2016), the Mash p-value and x/s in sketch mode, and the exact containment indices |A∩B|/|A|, |A∩B|/|B| (Koslicki & Zabeti 2019). scaled = S in 1..4294967295 (requires canonical=true; sourmash DNA hashing is always canonical and skips non-ACGT k-mers) uses sourmash FracMinHash sketches (keep hashes <= max_hash(S); Jaccard, bias-corrected contained_by, max_containment; Irber et al. 2022, Hera et al. 2023); trackAbundance=true adds the sourmash angular_similarity of the abundance vectors. canonical=true gives Mash/sourmash k-mers.",
   "inputSchema": {
     "type": "object",

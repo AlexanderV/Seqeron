@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.GetKmerSpectrum",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L424",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L439",
   "description": "Frequency-of-frequencies (k-mer spectrum): for each occurrence count c, how many distinct k-mers occur exactly c times. Optional Jellyfish counting modes (canonical = count -C, acgtOnly) and jellyfish histo options (low, high, increment, full) that add a binned histogram (counts above high pooled in the last bin).",
   "inputSchema": {
     "type": "object",

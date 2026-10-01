@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindKmerPositions",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2894",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2948",
   "description": "Zero-based starting positions of every (possibly overlapping) occurrence of a k-mer in a sequence. Pattern Matching Problem, Rosalind BA1D.",
   "inputSchema": {
     "type": "object",

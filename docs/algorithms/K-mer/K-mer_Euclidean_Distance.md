@@ -184,7 +184,9 @@ p̂(w) = N(w₁..w_r)/Σ N(r-mers) · Π_{i>r} N(w_{i−r}..w_i)/Σ_a N(w_{i−r
 frequencies). Expected counts E_X = n̄·p̂_X(w), E_Y = m̄·p̂_Y(w); centred counts X̃ = X − E_X, Ỹ = Y − E_Y. Sums run
 over all 4^k words (absent words contribute through −E). `markovOrder = −1` selects each sequence's order by
 BIC(r) = −2 ln L̂_r + 3·4^r·ln N_r (N_r = number of ACGT (r+1)-mers; Schwarz 1978, Katz 1981; the criterion of
-CAFE `-M -1`, orders 0..min(k − 1, 10)):
+CAFE `-M -1`, orders 0..min(k − 1, 10)). The per-order values are `MarkovOrderBics(sequence, maxOrder)` and the
+order limit is `AutoMarkovOrderLimit(k)` = min(k − 1, 10); `SelectMarkovOrder` takes the first minimum, and `MarkovOrderBic`
+and the background fit share one maximum-likelihood transition estimator (B06 duplication sweep):
 
 - D2* = Σ X̃Ỹ/√(E_X E_Y) (E_X·E_Y = 0 omitted); d2* = ½(1 − D2*/√(Σ X̃²/E_X · Σ Ỹ²/E_Y)).
 - D2S = Σ X̃Ỹ/√(X̃² + Ỹ²) (X̃ = Ỹ = 0 omitted); d2S = ½(1 − D2S/√(Σ X̃²/√(X̃²+Ỹ²) · Σ Ỹ²/√(X̃²+Ỹ²))).

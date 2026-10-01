@@ -242,7 +242,14 @@ public static class KmerAnalyzer
     /// <summary>k must be positive for non-empty input (null/empty input yields an empty count for any k).</summary>
     private static void ValidateKmerLength(string sequence, int k)
     {
-        if (!string.IsNullOrEmpty(sequence) && k <= 0)
+        if (!string.IsNullOrEmpty(sequence))
+            ThrowIfKNotPositive(k);
+    }
+
+    /// <summary>The single k &gt; 0 check (<see cref="ArgumentOutOfRangeException"/> "K must be positive.", parameter <c>k</c>).</summary>
+    private static void ThrowIfKNotPositive(int k)
+    {
+        if (k <= 0)
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
     }
 
@@ -380,14 +387,22 @@ public static class KmerAnalyzer
         merged.EnsureCapacity(tables.Sum(t => t.Count)); // upper bound of the union: no rehash while merging
         foreach (var table in tables)
         {
-            if (ReferenceEquals(table, merged))
-                continue;
-            foreach (var (kmer, count) in table)
-                CollectionsMarshal.GetValueRefOrAddDefault(merged, kmer, out _) += count;
+            if (!ReferenceEquals(table, merged))
+                AddCounts(merged, table);
         }
 
         progress?.Report(1.0);
         return options.Canonical ? FoldToCanonical(merged) : merged;
+    }
+
+    /// <summary>
+    /// The single count-table merge: adds every entry of <paramref name="source"/> to <paramref name="target"/> (new keys are
+    /// appended in <paramref name="source"/>'s order). Used by the parallel merge and the both-strand spaced-word tables.
+    /// </summary>
+    private static void AddCounts(Dictionary<string, int> target, Dictionary<string, int> source)
+    {
+        foreach (var (word, count) in source)
+            CollectionsMarshal.GetValueRefOrAddDefault(target, word, out _) += count;
     }
 
     /// <summary>Minimum number of windows per range of <see cref="CountKmersParallel"/> (smaller inputs are counted serially).</summary>
@@ -693,13 +708,9 @@ public static class KmerAnalyzer
     /// <returns>Non-negative Euclidean distance between the two frequency vectors; 0 when both are empty or equal.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
     public static double KmerDistance(string seq1, string seq2, int k)
-    {
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
-
-        // Single word-vector loop: the metric overload (frequency Euclidean over the union of k-mers).
-        return KmerDistance(seq1, seq2, k, KmerDistanceMetric.Euclidean);
-    }
+        // Single word-vector loop: the metric overload (frequency Euclidean over the union of k-mers); k is checked
+        // once, by the 6-argument overload all string overloads delegate to.
+        => KmerDistance(seq1, seq2, k, KmerDistanceMetric.Euclidean);
 
     /// <summary>
     /// Alignment-free word-vector dissimilarity between two sequences under an explicit
@@ -718,12 +729,7 @@ public static class KmerAnalyzer
     /// <returns>The metric value (a dissimilarity for every member except <see cref="KmerDistanceMetric.D2"/>, a similarity).</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive or <paramref name="metric"/> is undefined.</exception>
     public static double KmerDistance(string seq1, string seq2, int k, KmerDistanceMetric metric)
-    {
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
-
-        return KmerDistance(seq1, seq2, k, metric, markovOrder: 0);
-    }
+        => KmerDistance(seq1, seq2, k, metric, markovOrder: 0);
 
     /// <summary>
     /// <see cref="KmerDistance(string, string, int, KmerDistanceMetric)"/> with an explicit background Markov order
@@ -741,12 +747,7 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentException"><paramref name="markovOrder"/> ≠ 0 for a metric without background model, or (D2*/D2S)
     /// a sequence has no ACGT k-mer (a null sequence counts as empty, as for every other metric).</exception>
     public static double KmerDistance(string seq1, string seq2, int k, KmerDistanceMetric metric, int markovOrder)
-    {
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
-
-        return KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands: false);
-    }
+        => KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands: false);
 
     /// <summary>
     /// <see cref="KmerDistance(string, string, int, KmerDistanceMetric, int)"/> with the CAFE both-strand mode
@@ -777,8 +778,7 @@ public static class KmerAnalyzer
     /// k letters.</exception>
     public static double KmerDistance(string seq1, string seq2, int k, KmerDistanceMetric metric, int markovOrder, bool bothStrands)
     {
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+        ThrowIfKNotPositive(k);
 
         seq1 ??= string.Empty;
         seq2 ??= string.Empty;
@@ -904,7 +904,7 @@ public static class KmerAnalyzer
         if (markovOrder < AutoMarkovOrder || markovOrder >= k)
             throw new ArgumentOutOfRangeException(nameof(markovOrder), markovOrder, "Markov order must be in [0, k) or -1 (BIC).");
 
-        int maxAutoOrder = Math.Min(k - 1, MaxAutoMarkovOrder);
+        int maxAutoOrder = AutoMarkovOrderLimit(k);
         int order1 = markovOrder == AutoMarkovOrder ? SelectMarkovOrder(seq1, maxAutoOrder) : markovOrder;
         int order2 = markovOrder == AutoMarkovOrder ? SelectMarkovOrder(seq2, maxAutoOrder) : markovOrder;
         var x = WordBackground.Fit(seq1, k, order1, nameof(seq1));
@@ -1019,21 +1019,60 @@ public static class KmerAnalyzer
         if (words.Count == 0)
             throw new ArgumentException("Sequence has no (order+1)-mer window over A/C/G/T.", nameof(sequence));
 
+        double observations = 0, logLikelihood = 0;
+        foreach (var (_, count, probability) in MarkovTransitions(words, order))
+        {
+            observations += count;
+            logLikelihood += count * Math.Log(probability);
+        }
+
+        return -2.0 * logLikelihood + 3.0 * Math.Pow(4, order) * Math.Log(observations);
+    }
+
+    /// <summary>
+    /// The maximum-likelihood transition probabilities of the order-r Markov chain over an ACGT (r+1)-mer table:
+    /// P(a | u) = N(u a) / Σ_b N(u b), one entry per (r+1)-mer u a in table order. The single estimator behind
+    /// <see cref="MarkovOrderBic"/> and the background of <see cref="BackgroundAdjustedD2(string, string, int, int, bool)"/>.
+    /// </summary>
+    private static IEnumerable<(string Word, int Count, double Probability)> MarkovTransitions(Dictionary<string, int> words, int order)
+    {
         var contextTotals = new Dictionary<string, double>(StringComparer.Ordinal);
-        double observations = 0;
         foreach (var (word, count) in words)
         {
             var context = word[..order];
             contextTotals[context] = contextTotals.GetValueOrDefault(context) + count;
-            observations += count;
         }
 
-        double logLikelihood = 0;
         foreach (var (word, count) in words)
-            logLikelihood += count * Math.Log(count / contextTotals[word[..order]]);
-
-        return -2.0 * logLikelihood + 3.0 * Math.Pow(4, order) * Math.Log(observations);
+            yield return (word, count, count / contextTotals[word[..order]]);
     }
+
+    /// <summary>
+    /// <see cref="MarkovOrderBic"/> for every order r = 0 … <paramref name="maxOrder"/> (index r), the criterion values
+    /// <see cref="SelectMarkovOrder"/> minimises.
+    /// </summary>
+    /// <param name="sequence">The sequence (case-insensitive; windows with a non-ACGT symbol are skipped).</param>
+    /// <param name="maxOrder">Highest order, ≥ 0.</param>
+    /// <returns>An array of <paramref name="maxOrder"/> + 1 BIC values.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxOrder"/> is negative.</exception>
+    /// <exception cref="ArgumentException">The sequence has no ACGT (maxOrder+1)-mer.</exception>
+    public static double[] MarkovOrderBics(string sequence, int maxOrder)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxOrder);
+        var bics = new double[maxOrder + 1];
+        for (int r = 0; r <= maxOrder; r++)
+            bics[r] = MarkovOrderBic(sequence, r);
+        return bics;
+    }
+
+    /// <summary>
+    /// The highest order the BIC selection tries for word length <paramref name="k"/> (<see cref="AutoMarkovOrder"/>):
+    /// min(k − 1, <see cref="MaxAutoMarkovOrder"/>).
+    /// </summary>
+    /// <param name="k">Word length ≥ 1.</param>
+    /// <returns>min(k − 1, 10).</returns>
+    public static int AutoMarkovOrderLimit(int k) => Math.Min(k - 1, MaxAutoMarkovOrder);
 
     /// <summary>
     /// The Markov order r ∈ [0, <paramref name="maxOrder"/>] with the smallest <see cref="MarkovOrderBic"/>
@@ -1044,15 +1083,14 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentException">The sequence has no ACGT (maxOrder+1)-mer.</exception>
     public static int SelectMarkovOrder(string sequence, int maxOrder)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(maxOrder);
+        var bics = MarkovOrderBics(sequence, maxOrder);
         int best = 0;
         double bestBic = double.PositiveInfinity;
-        for (int r = 0; r <= maxOrder; r++)
+        for (int r = 0; r < bics.Length; r++)
         {
-            double bic = MarkovOrderBic(sequence, r);
-            if (bic < bestBic)
+            if (bics[r] < bestBic)
             {
-                bestBic = bic;
+                bestBic = bics[r];
                 best = r;
             }
         }
@@ -1096,26 +1134,13 @@ public static class KmerAnalyzer
             }
             else
             {
-                var rmers = CountKmers(sequence, order, acgt);
-                double totalR = rmers.Values.Sum();
-                foreach (var (rmer, count) in rmers)
-                    model._initial.Set(Encode(rmer), count / totalR);
-            }
-
-            var words = CountKmers(sequence, order + 1, acgt);
-            var rowTotals = new Dictionary<long, double>();
-            foreach (var (w, count) in words)
-            {
-                long context = Encode(w) >> 2;
-                rowTotals[context] = rowTotals.GetValueOrDefault(context) + count;
+                foreach (var (rmer, frequency) in GetKmerFrequencies(sequence, order, acgt))
+                    model._initial.Set(Encode(rmer), frequency);
             }
 
             model._transition = new ProbabilityTable(dense ? 1 << (2 * (order + 1)) : 0);
-            foreach (var (w, count) in words)
-            {
-                long code = Encode(w);
-                model._transition.Set(code, count / rowTotals[code >> 2]);
-            }
+            foreach (var (w, _, probability) in MarkovTransitions(CountKmers(sequence, order + 1, acgt), order))
+                model._transition.Set(Encode(w), probability);
 
             return model;
         }
@@ -1172,7 +1197,7 @@ public static class KmerAnalyzer
         {
             long code = 0;
             foreach (char c in kmer)
-                code = (code << 2) | (uint)(c switch { 'A' => 0, 'C' => 1, 'G' => 2, _ => 3 });
+                code = (code << 2) | (uint)MotifFinder.AcgtIndex(c); // ACGT-only keys: A=0, C=1, G=2, T=3
             return code;
         }
 
@@ -1236,12 +1261,7 @@ public static class KmerAnalyzer
     {
         ArgumentNullException.ThrowIfNull(counts1);
         ArgumentNullException.ThrowIfNull(counts2);
-        if (!Enum.IsDefined(metric))
-            throw new ArgumentOutOfRangeException(nameof(metric), metric, "Unknown k-mer distance metric.");
-        if (metric is KmerDistanceMetric.D2Star or KmerDistanceMetric.D2Shepherd)
-            throw new ArgumentException(
-                "D2*/D2S need each sequence's background model; use KmerDistance(string, string, int, metric) or BackgroundAdjustedD2.",
-                nameof(metric));
+        ThrowIfUndefinedOrBackgroundMetric(metric);
         if (metric is KmerDistanceMetric.SpacedEvolutionary)
             throw new ArgumentException(
                 "The spaced EV distance needs the sequence lengths and base composition; use SpacedWordDistance or KmerDistance(string, string, int, metric).",
@@ -1323,6 +1343,21 @@ public static class KmerAnalyzer
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// The shared metric check of the count-table and spaced-word distances: <paramref name="metric"/> must be a defined member
+    /// (<see cref="ArgumentOutOfRangeException"/>) and not D2*/D2S, which need each sequence's background model
+    /// (<see cref="ArgumentException"/>).
+    /// </summary>
+    private static void ThrowIfUndefinedOrBackgroundMetric(KmerDistanceMetric metric)
+    {
+        if (!Enum.IsDefined(metric))
+            throw new ArgumentOutOfRangeException(nameof(metric), metric, "Unknown k-mer distance metric.");
+        if (metric is KmerDistanceMetric.D2Star or KmerDistanceMetric.D2Shepherd)
+            throw new ArgumentException(
+                "D2*/D2S need each sequence's background model; use KmerDistance(string, string, int, metric) or BackgroundAdjustedD2.",
+                nameof(metric));
     }
 
     private static double SumNonNegative(IReadOnlyDictionary<string, int> counts, string paramName)
@@ -1408,8 +1443,7 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="jaccard"/> is outside [0, 1] (or NaN), or <paramref name="k"/> is not positive.</exception>
     public static double MashDistanceFromJaccard(double jaccard, int k)
     {
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+        ThrowIfKNotPositive(k);
         if (!(jaccard >= 0.0 && jaccard <= 1.0))
             throw new ArgumentOutOfRangeException(nameof(jaccard), jaccard, "Jaccard index must be in [0, 1].");
 
@@ -1431,8 +1465,7 @@ public static class KmerAnalyzer
     /// <summary>|K(A) ∩ K(B)|, |K(A)| and |K(B)| of the distinct k-mer sets under <paramref name="options"/> (null = empty).</summary>
     private static (int Shared, int CountA, int CountB) SharedAndSetSizes(string a, string b, int k, KmerCountingOptions options)
     {
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+        ThrowIfKNotPositive(k);
 
         var setA = DistinctKmers(a ?? string.Empty, k, options);
         var setB = DistinctKmers(b ?? string.Empty, k, options);
@@ -1535,12 +1568,12 @@ public static class KmerAnalyzer
         IEnumerable<string> records, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed)
     {
         ArgumentNullException.ThrowIfNull(records);
-        if (k < 1 || k > MaxMashKmerSize)
+        if (!IsMashKmerSize(k))
             throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{MaxMashKmerSize} (mash sketch -k).");
         ArgumentOutOfRangeException.ThrowIfLessThan(sketchSize, 1);
 
-        bool use64 = k > 16; // Mash: use64 = 4^k > 2^32
-        var options = canonical ? new KmerCountingOptions(Canonical: true) : new KmerCountingOptions(AcgtOnly: true);
+        bool use64 = MashUses64BitHash(k);
+        var options = SketchCountingOptions(canonical);
         var kmers = new HashSet<string>(StringComparer.Ordinal);
         long length = 0;
         foreach (var record in records)
@@ -1557,10 +1590,7 @@ public static class KmerAnalyzer
         int n = 0;
         foreach (var kmer in kmers)
         {
-            var bytes = buffer[..k];
-            for (int i = 0; i < k; i++)
-                bytes[i] = (byte)kmer[i];
-            ulong h1 = MurmurHash3X64_128(bytes, seed).H1;
+            ulong h1 = KmerHashH1(kmer, buffer, seed);
             hashes[n++] = use64 ? h1 : (uint)h1;
         }
 
@@ -1605,8 +1635,8 @@ public static class KmerAnalyzer
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(query);
-        if (reference.K != query.K || reference.Seed != query.Seed || reference.Canonical != query.Canonical)
-            throw new ArgumentException("Sketches must have the same k-mer size, seed and canonical mode.", nameof(query));
+        ThrowIfSketchParametersDiffer(
+            reference.K != query.K || reference.Seed != query.Seed || reference.Canonical != query.Canonical, nameof(query));
         ValidateMinHashSketch(reference, nameof(reference));
         ValidateMinHashSketch(query, nameof(query));
 
@@ -1645,9 +1675,9 @@ public static class KmerAnalyzer
     {
         // Mash Command.cpp: -k is an integer option with range 1..32; Sketch.cpp: use64 = alphabetSize^k > 2^32,
         // i.e. k > 16 for DNA, and a 32-bit sketch stores only 32-bit hash values.
-        if (sketch.K < 1 || sketch.K > MaxMashKmerSize)
+        if (!IsMashKmerSize(sketch.K))
             throw new ArgumentException($"K must be in 1..{MaxMashKmerSize} (mash sketch -k).", paramName);
-        if (sketch.Use64 != sketch.K > 16)
+        if (sketch.Use64 != MashUses64BitHash(sketch.K))
             throw new ArgumentException("Use64 must equal K > 16 (Mash: use64 = 4^k > 2^32).", paramName);
         if (sketch.SketchSize < 1 || sketch.Length < 0)
             throw new ArgumentException("SketchSize must be >= 1 and Length >= 0.", paramName);
@@ -1658,6 +1688,38 @@ public static class KmerAnalyzer
         ThrowIfNotStrictlyAscending(sketch.Hashes, paramName);
         if (!sketch.Use64 && sketch.Hashes.Count > 0 && sketch.Hashes[^1] > uint.MaxValue)
             throw new ArgumentException("A 32-bit sketch (Use64 = false) holds only hash values <= 2^32 - 1.", paramName);
+    }
+
+    /// <summary>Mash's k-mer size range (<c>Command.cpp</c>: <c>-k</c> is an integer option with range 1..32).</summary>
+    internal static bool IsMashKmerSize(int k) => k >= 1 && k <= MaxMashKmerSize;
+
+    /// <summary>Mash <c>Sketch.cpp</c> <c>use64 = 4^k &gt; 2^32</c>, i.e. k &gt; 16: the 64-bit hash h1 is kept, else its low 32 bits.</summary>
+    internal static bool MashUses64BitHash(int k) => k > 16;
+
+    /// <summary>
+    /// The k-mer set a sketch hashes: canonical k-mers min(w, RC(w)) (Mash default, sourmash DNA) or forward ACGT k-mers
+    /// (Mash <c>-n</c>); non-ACGT windows are skipped in both modes.
+    /// </summary>
+    private static KmerCountingOptions SketchCountingOptions(bool canonical)
+        => canonical ? new KmerCountingOptions(Canonical: true) : new KmerCountingOptions(AcgtOnly: true);
+
+    /// <summary>
+    /// The single k-mer hash of the Mash and FracMinHash sketches: the first 64-bit word h1 of
+    /// <see cref="MurmurHash3X64_128"/> over the k-mer's ASCII bytes (written into <paramref name="buffer"/>, length ≥ k).
+    /// </summary>
+    private static ulong KmerHashH1(string kmer, Span<byte> buffer, uint seed)
+    {
+        var bytes = buffer[..kmer.Length];
+        for (int i = 0; i < bytes.Length; i++)
+            bytes[i] = (byte)kmer[i];
+        return MurmurHash3X64_128(bytes, seed).H1;
+    }
+
+    /// <summary>Both sketch comparisons refuse sketches of different k, seed or canonical mode (Mash, sourmash).</summary>
+    private static void ThrowIfSketchParametersDiffer(bool differ, string paramName)
+    {
+        if (differ)
+            throw new ArgumentException("Sketches must have the same k-mer size, seed and canonical mode.", paramName);
     }
 
     private static void ThrowIfNotStrictlyAscending(IReadOnlyList<ulong> hashes, string paramName)
@@ -1699,7 +1761,7 @@ public static class KmerAnalyzer
         ArgumentOutOfRangeException.ThrowIfNegative(length1);
         ArgumentOutOfRangeException.ThrowIfNegative(length2);
         ArgumentOutOfRangeException.ThrowIfNegative(sketchSize);
-        if (k < 1 || k > MaxMashKmerSize)
+        if (!IsMashKmerSize(k))
             throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{MaxMashKmerSize} (mash -k).");
         if (sharedHashes > sketchSize)
             throw new ArgumentException("Shared hashes cannot exceed the sketch size (number of compared hashes).", nameof(sharedHashes));
@@ -1851,16 +1913,13 @@ public static class KmerAnalyzer
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         ulong maxHash = FracMinHashMaxHash(scaled);
-        var options = canonical ? new KmerCountingOptions(Canonical: true) : new KmerCountingOptions(AcgtOnly: true);
-        var counts = CountKmers(sequence ?? string.Empty, k, options);
+        var counts = CountKmers(sequence ?? string.Empty, k, SketchCountingOptions(canonical));
 
         var kept = new Dictionary<ulong, long>();
-        var bytes = new byte[k];
+        var buffer = new byte[k];
         foreach (var (kmer, count) in counts)
         {
-            for (int i = 0; i < k; i++)
-                bytes[i] = (byte)kmer[i];
-            ulong h = MurmurHash3X64_128(bytes, seed).H1;
+            ulong h = KmerHashH1(kmer, buffer, seed);
             if (h <= maxHash && !kept.TryAdd(h, count))
                 kept[h] += count;
         }
@@ -1963,8 +2022,7 @@ public static class KmerAnalyzer
         ArgumentNullException.ThrowIfNull(b);
         ValidateFracMinHashSketch(a, nameof(a));
         ValidateFracMinHashSketch(b, nameof(b));
-        if (a.K != b.K || a.Seed != b.Seed || a.Canonical != b.Canonical)
-            throw new ArgumentException("Sketches must have the same k-mer size, seed and canonical mode.", nameof(b));
+        ThrowIfSketchParametersDiffer(a.K != b.K || a.Seed != b.Seed || a.Canonical != b.Canonical, nameof(b));
         if (a.Scaled != b.Scaled)
         {
             if (!downsample)
@@ -2304,12 +2362,7 @@ public static class KmerAnalyzer
         }
 
         ThrowIfCanonicalSpaced(options);
-        if (!Enum.IsDefined(metric))
-            throw new ArgumentOutOfRangeException(nameof(metric), metric, "Unknown k-mer distance metric.");
-        if (metric is KmerDistanceMetric.D2Star or KmerDistanceMetric.D2Shepherd)
-            throw new ArgumentException(
-                "D2*/D2S need each sequence's background model; use KmerDistance(string, string, int, metric) or BackgroundAdjustedD2.",
-                nameof(metric));
+        ThrowIfUndefinedOrBackgroundMetric(metric);
 
         seq1 ??= string.Empty; // null = empty sequence (zero vector), as before
         seq2 ??= string.Empty;
@@ -2322,24 +2375,35 @@ public static class KmerAnalyzer
             seq2 = SpacedRead(seq2);
         }
 
-        string reverse1 = bothStrands ? DnaSequence.GetReverseComplementString(seq1) : string.Empty;
+        string? reverse1 = bothStrands ? DnaSequence.GetReverseComplementString(seq1) : null;
         double sum = 0;
         foreach (var pattern in patterns)
         {
-            var counts1 = CountSpacedWords(seq1, pattern, options);
+            var counts1 = CountSpacedWordsOnStrands(seq1, reverse1, pattern, options);
             var counts2 = CountSpacedWords(seq2, pattern, options);
             double windows1 = Math.Max(0, seq1.Length - pattern.Length + 1);
             double windows2 = Math.Max(0, seq2.Length - pattern.Length + 1);
             if (bothStrands)
-            {
-                foreach (var (word, count) in CountSpacedWords(reverse1, pattern, options))
-                    CollectionsMarshal.GetValueRefOrAddDefault(counts1, word, out _) += count;
                 windows1 *= 2;
-            }
 
             sum += WordVectorDistance(counts1, windows1, counts2, windows2, metric);
         }
         return sum / patterns.Count;
+    }
+
+    /// <summary>
+    /// Spaced-word counts of <paramref name="forward"/> plus, when <paramref name="reverse"/> (its reverse-complement string) is
+    /// given, those of the reverse strand read with the same pattern — <c>spacedDNA</c>'s row_j + row_j′. The single both-strand
+    /// table of the word-vector and EV paths of
+    /// <see cref="SpacedWordDistance(string, string, IReadOnlyList{string}, KmerDistanceMetric, KmerCountingOptions, bool)"/>.
+    /// </summary>
+    private static Dictionary<string, int> CountSpacedWordsOnStrands(
+        string forward, string? reverse, string pattern, KmerCountingOptions options)
+    {
+        var counts = CountSpacedWords(forward, pattern, options);
+        if (reverse is not null)
+            AddCounts(counts, CountSpacedWords(reverse, pattern, options));
+        return counts;
     }
 
     /// <summary>
@@ -2383,16 +2447,11 @@ public static class KmerAnalyzer
                 read1.Length < patternLength ? "seq1" : "seq2");
 
         var acgtOnly = new KmerCountingOptions(AcgtOnly: true);
-        string reverse1 = bothStrands ? DnaSequence.GetReverseComplementString(read1) : string.Empty;
+        string? reverse1 = bothStrands ? DnaSequence.GetReverseComplementString(read1) : null;
         double matches = 0;
         foreach (var pattern in patterns)
         {
-            var counts1 = CountSpacedWords(read1, pattern, acgtOnly);
-            if (bothStrands)
-            {
-                foreach (var (word, count) in CountSpacedWords(reverse1, pattern, acgtOnly))
-                    CollectionsMarshal.GetValueRefOrAddDefault(counts1, word, out _) += count;
-            }
+            var counts1 = CountSpacedWordsOnStrands(read1, reverse1, pattern, acgtOnly);
             foreach (var (word, count2) in CountSpacedWords(read2, pattern, acgtOnly))
             {
                 if (counts1.TryGetValue(word, out int count1))
@@ -2430,13 +2489,9 @@ public static class KmerAnalyzer
             var f = new double[4];
             foreach (char c in read)
             {
-                switch (c)
-                {
-                    case 'A': f[0]++; break;
-                    case 'C': f[1]++; break;
-                    case 'G': f[2]++; break;
-                    case 'T': f[3]++; break;
-                }
+                int a = MotifFinder.AcgtIndex(c);
+                if (a >= 0)
+                    f[a]++;
             }
             for (int a = 0; a < 4; a++)
                 f[a] /= read.Length;
@@ -2629,8 +2684,7 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentException">Thrown when <paramref name="alphabet"/> is null or empty.</exception>
     public static IEnumerable<string> GenerateAllKmers(int k, string alphabet = "ACGT")
     {
-        if (k <= 0)
-            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+        ThrowIfKNotPositive(k);
 
         if (string.IsNullOrEmpty(alphabet))
             throw new ArgumentException("Alphabet cannot be empty.", nameof(alphabet));
@@ -3270,11 +3324,11 @@ public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint S
     public static MinHashSketch FromHashes(int k, int sketchSize, bool canonical, uint seed, long length, IEnumerable<ulong> hashes)
     {
         ArgumentNullException.ThrowIfNull(hashes);
-        if (k < 1 || k > KmerAnalyzer.MaxMashKmerSize)
+        if (!KmerAnalyzer.IsMashKmerSize(k))
             throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{KmerAnalyzer.MaxMashKmerSize} (mash sketch -k).");
         ArgumentOutOfRangeException.ThrowIfLessThan(sketchSize, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(length);
-        bool use64 = k > 16;
+        bool use64 = KmerAnalyzer.MashUses64BitHash(k);
         var bottom = hashes.Distinct().Order().Take(sketchSize).ToArray();
         if (!use64 && bottom.Length > 0 && bottom[^1] > uint.MaxValue)
             throw new ArgumentException("For k <= 16 Mash stores 32-bit hashes; every value must be <= 2^32 - 1.", nameof(hashes));

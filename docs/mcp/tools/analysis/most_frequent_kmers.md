@@ -29,7 +29,7 @@ frequent-words question; mismatches (Rosalind BA1J) are the Alignment server's
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L612](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L612)
+- Source: [KmerAnalyzer.cs#L627](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L627)
 
 ## Input Schema
 

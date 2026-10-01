@@ -309,6 +309,15 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
   `Command.cpp` `-k` range 1..32. ASM-D18: `CompareMinHashSketches` rejects sketches with K ∉ 1..32, `Use64` ≠ K > 16
   or a hash > 2^32 − 1 in a 32-bit sketch (`ArgumentException`); `FromHashes` rejects a 64-bit value for k ≤ 16.
 
+## B06 duplication sweep (2026-10-01) — behaviour-preserving refactor
+
+No new source or reference value. The BIC estimator, Mash/FracMinHash k-mer hash, metric check, both-strand spaced table,
+count merge and k > 0 check each exist once in `KmerAnalyzer.cs`; the Markov background reuses `GetKmerFrequencies` (initial
+r-mer distribution) and `MotifFinder.AcgtIndex` (2-bit code). New public `MarkovOrderBics` / `AutoMarkovOrderLimit` replace
+the BIC loop and order-limit formula that MCP `kmer_d2_statistics` computed itself; they are locked with the replica BIC
+values already in this document's D rows (TestSpec X1–X4). An old-vs-new differential run (64,709 outputs incl. exception
+type/parameter/message) was bit-identical.
+
 ## Change History
 
 - **2026-10-01**: Audit round 5 WP11 — MCP `kmer_jaccard` weighted containments; `CompareMinHashSketches` / `FromHashes` K, `Use64` and 32-bit hash validation.
@@ -322,6 +331,8 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
 - **2026-10-01**: Audit round 2 WP7 — Mash MinHash sketches (MurmurHash3_x64_128, x/s, distance, p-value), exact containment index.
 
 - **2026-10-01**: Audit round 2 WP6 — CAFE `-R` both-strand D2*/D2S, sparse Markov tables, JS / count-Euclidean metrics, multiple-pattern spaced-word distance.
+
+- **2026-10-01**: B06 duplication sweep — factored helpers, `MarkovOrderBics` / `AutoMarkovOrderLimit` (no value changed).
 
 - **2026-10-01**: Audit round 1 WP2 — metric variants, exact Jaccard / Mash distance, spaced words; reference [4] first author corrected.
 
