@@ -1534,18 +1534,7 @@ public static class RepeatFinder
     /// <summary>"A:%3.2f, C:%3.2f, G:%3.2f, T:%3.2f" of the base counts over all <paramref name="length"/> symbols.</summary>
     private static void AppendTrfAcgtFractions(System.Text.StringBuilder sb, string upper, int start, int length)
     {
-        int a = 0, c = 0, g = 0, t = 0;
-        for (int k = start; k < start + length; k++)
-        {
-            switch (upper[k])
-            {
-                case 'A': a++; break;
-                case 'C': c++; break;
-                case 'G': g++; break;
-                case 'T': t++; break;
-            }
-        }
-
+        var (a, c, g, t) = CountTrfBases(upper.AsSpan(start, length));
         sb.Append("A:").Append(FormatCFixed((double)a / length, 2)).Append(", C:").Append(FormatCFixed((double)c / length, 2))
           .Append(", G:").Append(FormatCFixed((double)g / length, 2)).Append(", T:").Append(FormatCFixed((double)t / length, 2));
     }
@@ -3331,17 +3320,7 @@ public static class RepeatFinder
 
         int first = alignment.First, last = alignment.Last, span = last - first + 1;
         var region = new string(s, first, span);
-        int a = 0, c = 0, g = 0, t = 0;
-        foreach (char ch in region)
-        {
-            switch (ch)
-            {
-                case 'A': a++; break;
-                case 'C': c++; break;
-                case 'G': g++; break;
-                case 'T': t++; break;
-            }
-        }
+        var (a, c, g, t) = CountTrfBases(region);
 
         // TRF prints the consensus starting at the pattern position aligned with the first repeat base.
         int phase = alignment.Columns[^1].PatIndex;
@@ -3372,6 +3351,27 @@ public static class RepeatFinder
             LeftFlank = m.FlankLength > 0 ? new string(s, Math.Max(1, first - m.FlankLength), first - Math.Max(1, first - m.FlankLength)) : null,
             RightFlank = m.FlankLength > 0 ? new string(s, last + 1, Math.Min(n, last + m.FlankLength) - last) : null,
         };
+    }
+
+    /// <summary>
+    /// Upper-case A, C, G, T counts of a TRF region (TRF <c>get_statistics</c> ACGTcount: every other symbol,
+    /// including N, IUPAC codes and lower case, is counted by none of the four). Shared by the reported
+    /// statistics (<see cref="TrfStatistics"/>) and the alignment pages (<see cref="AppendTrfAcgtFractions"/>).
+    /// </summary>
+    private static (int A, int C, int G, int T) CountTrfBases(ReadOnlySpan<char> region)
+    {
+        int a = 0, c = 0, g = 0, t = 0;
+        foreach (char ch in region)
+        {
+            switch (ch)
+            {
+                case 'A': a++; break;
+                case 'C': c++; break;
+                case 'G': g++; break;
+                case 'T': t++; break;
+            }
+        }
+        return (a, c, g, t);
     }
 
     /// <summary>
@@ -4840,7 +4840,7 @@ public static class RepeatFinder
             symbols[p] = code >= 0 ? code : 4 + p;
 
             int t = n + 1 + (n - 1 - p);
-            int rc = code >= 0 ? AcgtCode(SequenceExtensions.GetComplementBase(seq[p])) : -1;
+            int rc = AcgtComplementCode(seq[p]);
             symbols[t] = rc >= 0 ? rc : 4 + t;
             strandOf[t] = 1;
         }
@@ -5158,6 +5158,14 @@ public static class RepeatFinder
 
     private static bool IsAcgtMatch(int[] u, int[] v, int p, int q) => u[p] >= 0 && u[p] == v[q];
 
+    /// <summary>
+    /// Code (A/C/G/T → 0..3) of the Watson–Crick complement of an A/C/G/T symbol via the canonical
+    /// <see cref="SequenceExtensions.GetComplementBase(char)"/>; −1 for every other symbol (U and IUPAC
+    /// codes included, which never pair here).
+    /// </summary>
+    private static int AcgtComplementCode(char c) =>
+        AcgtCode(c) >= 0 ? AcgtCode(SequenceExtensions.GetComplementBase(c)) : -1;
+
     #endregion
 
     #region Degenerate Repeats — Vmatch -h / -e, direct and palindromic (REPuter)
@@ -5401,8 +5409,7 @@ public static class RepeatFinder
             v = new int[n];
             for (int q = 0; q < n; q++)
             {
-                int c = u[n - 1 - q];
-                v[q] = c >= 0 ? 3 - c : -1; // A C G T = 0 1 2 3 → complement 3 − c
+                v[q] = AcgtComplementCode(seq[n - 1 - q]);
             }
             seeds = EnumerateReverseComplementSeeds(seq, seedLength, int.MaxValue);
             if (vmatchSeedOrder)
@@ -5787,7 +5794,7 @@ public static class RepeatFinder
             }
         }
 
-        private bool Match(int i, int j) => _u[i] >= 0 && _u[i] == _v[j];
+        private bool Match(int i, int j) => IsAcgtMatch(_u, _v, i, j);
 
         /// <summary><c>extendedleftSEP</c>: fronts ending before u-position <paramref name="ulen"/> / v-position <paramref name="vlen"/>.</summary>
         private int ExtendLeft(int ulen, int vlen)
