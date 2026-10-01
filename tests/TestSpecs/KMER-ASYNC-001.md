@@ -197,6 +197,19 @@
 
 ---
 
+### 5.8 Audit round 1 (WP4) — `CountKmersParallel`
+
+Test file: `Unit/Analysis/KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs`.
+
+| ID | Test | Evidence |
+|----|------|----------|
+| PA1 | Result equals serial `CountKmers(seq, k, options)` (random inputs, all options, degrees 2–8, −1) | sum over a partition of the windows |
+| PA2 | Small inputs (< 2 ranges of 65,536 windows), degree 1, null/empty, k > L → serial path, same result | contract |
+| PA3 | `maxDegreeOfParallelism` 0 or < −1 → `ArgumentOutOfRangeException`; k ≤ 0 → `ArgumentOutOfRangeException("k")` | contract |
+| PA4 | Pre-canceled token → `OperationCanceledException` carrying the token, no progress | cooperative cancellation [2] |
+| PA5 | Token canceled from the first progress report → `OperationCanceledException` carrying the token | cooperative cancellation [2] |
+| PA6 | Progress non-decreasing, < 1 before completion, exactly one final 1.0 | contract of the serial overload (F3) |
+
 ## 6. Assumption Register
 
 **Total assumptions:** 1

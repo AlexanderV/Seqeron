@@ -20,6 +20,12 @@ the alphabet is sorted the k-mers are emitted in lexicographic order with the
 rightmost position advancing fastest (odometer ordering), so the default `"ACGT"`
 yields `AAA, AAC, …, TTT`.
 
+The tool returns the whole space as one array, so it refuses results larger than
+**1,048,576 k-mers** (= 4^10, `AnalysisTools.MaxGeneratedKmers`; DNA k ≤ 10, protein k ≤ 4). The size
+`alphabet.Length^k` is checked with overflow-safe arithmetic before anything is enumerated: without the cap, DNA
+k ≥ 16 exceeds the maximum .NET array length and crashes the server. For larger spaces, call the streaming
+library method `KmerAnalyzer.GenerateAllKmers` directly.
+
 ## Core Documentation Reference
 
 - Source: [KmerAnalyzer.cs#L299](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L299)
@@ -43,6 +49,7 @@ yields `AAA, AAC, …, TTT`.
 |------|---------|
 | 1003 | k must be positive |
 | 1001 | Alphabet cannot be null or empty |
+| 1003 | alphabet.Length^k = {a}^{k} exceeds the maximum of 1,048,576 k-mers per call |
 
 ## Examples
 
@@ -86,7 +93,7 @@ yields `AAA, AAC, …, TTT`.
 ## Performance
 
 - **Time Complexity:** O(alphabet.Length^k) — exponential in k.
-- **Space Complexity:** O(k) recursion depth (streamed).
+- **Space Complexity:** O(alphabet.Length^k) for the returned array (at most 1,048,576 k-mers); the library enumerator itself streams in O(k).
 
 ## See Also
 

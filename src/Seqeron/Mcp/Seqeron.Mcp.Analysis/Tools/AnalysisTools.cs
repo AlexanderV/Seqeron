@@ -111,12 +111,13 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "kmer_distance", Title = "k-mers — Euclidean Distance", ReadOnly = true)]
-    [Description("Euclidean distance between k-mer frequency vectors of two sequences. 0 means identical k-mer composition. Optional metric: euclidean (default, frequencies), squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity).")]
+    [Description("Euclidean distance between k-mer frequency vectors of two sequences. 0 means identical k-mer composition. Optional metric: euclidean (default, frequencies), squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity), d2star / d2shepherd (background-adjusted d2* / d2S dissimilarities in [0,1], Reinert et al. 2009 / Song et al. 2014; Markov background of order markovOrder fitted to each sequence; k <= 12).")]
     public static KmerDistanceResult KmerDistance(
         [Description("First sequence.")] string seq1,
         [Description("Second sequence.")] string seq2,
         [Description("k-mer length.")] int k,
-        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2.")] string metric = "euclidean")
+        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd (alias d2s).")] string metric = "euclidean",
+        [Description("Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; default 0 (i.i.d. letters). Must be 0 for the other metrics.")] int markovOrder = 0)
     {
         if (string.IsNullOrEmpty(seq1))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
@@ -125,23 +126,8 @@ public class AnalysisTools
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        var d = KmerAnalyzer.KmerDistance(seq1, seq2, k, ParseKmerDistanceMetric(metric));
-        return new KmerDistanceResult(d);
+        return new KmerDistanceResult(KmerAnalyzer.KmerDistance(seq1, seq2, k, KmerAnalyzer.ParseDistanceMetric(metric), markovOrder));
     }
-
-    private static KmerDistanceMetric ParseKmerDistanceMetric(string? metric) =>
-        (metric ?? "euclidean").Trim().ToLowerInvariant() switch
-        {
-            "" or "euclidean" => KmerDistanceMetric.Euclidean,
-            "squared_euclidean_counts" => KmerDistanceMetric.SquaredEuclideanCounts,
-            "manhattan" => KmerDistanceMetric.Manhattan,
-            "chebyshev" => KmerDistanceMetric.Chebyshev,
-            "canberra" => KmerDistanceMetric.Canberra,
-            "cosine" => KmerDistanceMetric.Cosine,
-            "d2" => KmerDistanceMetric.D2,
-            _ => throw new ArgumentException(
-                "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2", nameof(metric)),
-        };
 
     [McpServerTool(Name = "kmer_jaccard", Title = "k-mers — Jaccard Similarity / Mash Distance", ReadOnly = true)]
     [Description("Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]) and the Mash distance -ln(2J/(1+J))/k. Set canonical=true for Mash/sourmash k-mers (strand-collapsed, non-ACGT windows skipped).")]
@@ -207,8 +193,11 @@ public class AnalysisTools
         return new KmersWithMinCountResult(items);
     }
 
+    /// <summary>Maximum result size of <c>generate_all_kmers</c> (4^10: DNA k ≤ 10).</summary>
+    public const long MaxGeneratedKmers = 1_048_576;
+
     [McpServerTool(Name = "generate_all_kmers", Title = "k-mers — Enumerate Alphabet Space", ReadOnly = true)]
-    [Description("Enumerate the entire k-mer space for an alphabet (default \"ACGT\"). Result size = alphabet.Length^k.")]
+    [Description("Enumerate the entire k-mer space for an alphabet (default \"ACGT\"). Result size = alphabet.Length^k, at most 1,048,576 (4^10) k-mers.")]
     public static KmerListResult GenerateAllKmers(
         [Description("k-mer length (>0).")] int k,
         [Description("Alphabet (default \"ACGT\").")] string alphabet = "ACGT")
@@ -217,6 +206,15 @@ public class AnalysisTools
             throw new ArgumentException("k must be positive", nameof(k));
         if (string.IsNullOrEmpty(alphabet))
             throw new ArgumentException("Alphabet cannot be null or empty", nameof(alphabet));
+
+        // |Σ|^k is materialised as one array: refuse it above the cap before enumerating (DNA k >= 16 would
+        // exceed the maximum .NET array length and crash the server).
+        long size = 1;
+        for (int i = 0; i < k && size <= MaxGeneratedKmers; i++)
+            size *= alphabet.Length;
+        if (size > MaxGeneratedKmers)
+            throw new ArgumentException(
+                $"alphabet.Length^k = {alphabet.Length}^{k} exceeds the maximum of {MaxGeneratedKmers:N0} k-mers per call", nameof(k));
 
         var kmers = KmerAnalyzer.GenerateAllKmers(k, alphabet).ToArray();
         return new KmerListResult(kmers);
@@ -270,12 +268,14 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "analyze_kmers", Title = "k-mers — Aggregate Statistics", ReadOnly = true)]
-    [Description("Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters.")]
+    [Description("Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters and canonical (count -C) / acgtOnly modes.")]
     public static AnalyzeKmersResult AnalyzeKmers(
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length (>0).")] int k,
         [Description("Ignore k-mers with count below this value (Jellyfish stats -L; default 0).")] int lowerCount = 0,
-        [Description("Ignore k-mers with count above this value (Jellyfish stats -U; default unbounded).")] int upperCount = int.MaxValue)
+        [Description("Ignore k-mers with count above this value (Jellyfish stats -U; default unbounded).")] int upperCount = int.MaxValue,
+        [Description("Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip windows containing a non-ACGT symbol (Jellyfish convention). Default false.")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -286,7 +286,7 @@ public class AnalysisTools
         if (upperCount < 0)
             throw new ArgumentException("upperCount must be non-negative", nameof(upperCount));
 
-        var s = KmerAnalyzer.AnalyzeKmers(sequence, k, lowerCount, upperCount);
+        var s = KmerAnalyzer.AnalyzeKmers(sequence, k, new KmerCountingOptions(canonical, acgtOnly), lowerCount, upperCount);
         return new AnalyzeKmersResult(
             s.TotalKmers, s.UniqueKmers, s.MaxCount, s.MinCount, s.AverageCount, s.Entropy)
         {

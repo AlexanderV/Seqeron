@@ -558,11 +558,13 @@ public class SequenceTools
     /// Calculate k-mer distance between two sequences.
     /// </summary>
     [McpServerTool(Name = "kmer_distance", Title = "K-mer — Distance Between Sequences", ReadOnly = true)]
-    [Description("Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences.")]
+    [Description("Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences. Optional metric (same as the Analysis server's kmer_distance): euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2 (a similarity), d2star / d2shepherd (background-adjusted, k <= 12, Markov order markovOrder).")]
     public static KmerDistanceResult KmerDistance(
         [Description("First sequence")] string sequence1,
         [Description("Second sequence")] string sequence2,
-        [Description("K-mer length (default: 3)")] int k = 3)
+        [Description("K-mer length (default: 3)")] int k = 3,
+        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd (alias d2s).")] string metric = "euclidean",
+        [Description("Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; default 0. Must be 0 for the other metrics.")] int markovOrder = 0)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
@@ -573,7 +575,7 @@ public class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        var distance = KmerAnalyzer.KmerDistance(sequence1, sequence2, k);
+        var distance = KmerAnalyzer.KmerDistance(sequence1, sequence2, k, KmerAnalyzer.ParseDistanceMetric(metric), markovOrder);
         return new KmerDistanceResult(distance, k);
     }
 
@@ -581,18 +583,26 @@ public class SequenceTools
     /// Analyze k-mer composition of a sequence.
     /// </summary>
     [McpServerTool(Name = "kmer_analyze", Title = "K-mer — Comprehensive Analysis", ReadOnly = true)]
-    [Description("Comprehensive k-mer analysis (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy.")]
+    [Description("Comprehensive k-mer analysis (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters and canonical (count -C) / acgtOnly modes (same as analyze_kmers).")]
     public static KmerAnalyzeResult KmerAnalyze(
         [Description("The sequence to analyze")] string sequence,
-        [Description("K-mer length (default: 3)")] int k = 3)
+        [Description("K-mer length (default: 3)")] int k = 3,
+        [Description("Ignore k-mers with count below this value (Jellyfish stats -L; default 0).")] int lowerCount = 0,
+        [Description("Ignore k-mers with count above this value (Jellyfish stats -U; default unbounded).")] int upperCount = int.MaxValue,
+        [Description("Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip windows containing a non-ACGT symbol (Jellyfish convention). Default false.")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
+        if (lowerCount < 0)
+            throw new ArgumentException("lowerCount must be non-negative", nameof(lowerCount));
+        if (upperCount < 0)
+            throw new ArgumentException("upperCount must be non-negative", nameof(upperCount));
 
-        var stats = KmerAnalyzer.AnalyzeKmers(sequence, k);
+        var stats = KmerAnalyzer.AnalyzeKmers(sequence, k, new KmerCountingOptions(canonical, acgtOnly), lowerCount, upperCount);
         return new KmerAnalyzeResult(
             stats.TotalKmers,
             stats.UniqueKmers,

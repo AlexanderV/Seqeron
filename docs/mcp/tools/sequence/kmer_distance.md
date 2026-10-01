@@ -16,6 +16,23 @@ Calculate k-mer based distance between two sequences.
 
 Computes the k-mer distance between two sequences using Euclidean distance of k-mer frequencies. This alignment-free method is useful for comparing sequences of different lengths and provides a quick measure of sequence similarity. Lower values indicate more similar sequences; identical sequences have a distance of 0.
 
+The optional `metric` / `markovOrder` parameters are the same as on the Analysis server's [`kmer_distance`](../analysis/kmer_distance.md) and call the same library overload `KmerAnalyzer.KmerDistance(seq1, seq2, k, metric, markovOrder)`:
+
+| `metric` | Definition | Vector |
+|----------|------------|--------|
+| `euclidean` (default) | √Σ(f₁−f₂)² | relative frequencies |
+| `squared_euclidean_counts` | Σ(c₁−c₂)² — Blaisdell (1986) d_E | raw counts |
+| `manhattan` / `chebyshev` / `canberra` | L1 / L∞ / Canberra | relative frequencies |
+| `cosine` | 1 − c₁·c₂/(‖c₁‖‖c₂‖) | counts |
+| `d2` | Σ c₁·c₂ (a similarity) | raw counts |
+| `d2star` | d2* = ½(1 − D2*/√(Σ X̃²/E_X · Σ Ỹ²/E_Y)), D2* = Σ X̃Ỹ/√(E_X E_Y) — Reinert et al. (2009), Song et al. (2014) | background-centred counts X̃ = X − E_X (ACGT words) |
+| `d2shepherd` (alias `d2s`) | d2S = ½(1 − D2S/√(Σ X̃²/√(X̃²+Ỹ²) · Σ Ỹ²/√(X̃²+Ỹ²))), D2S = Σ X̃Ỹ/√(X̃²+Ỹ²) | background-centred counts |
+
+For `d2star` / `d2shepherd` the expected counts E_X = n̄·p̂_X(w) come from an order-`markovOrder` Markov chain
+fitted to each sequence (maximum likelihood on its ACGT r- and (r+1)-mer counts; order 0 = letter frequencies),
+the sums run over all 4^k words, windows with a non-ACGT symbol are skipped, and k ≤ 12
+(`KmerAnalyzer.BackgroundAdjustedD2`). Formulas as CAFE (Lu et al. 2017) `D2star` / `D2shepp`, single-strand.
+
 ## Core Documentation Reference
 
 - Source: [KmerAnalyzer.cs#L165](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L165)
@@ -27,6 +44,8 @@ Computes the k-mer distance between two sequences using Euclidean distance of k-
 | `sequence1` | string | Yes | First sequence (min length: 1) |
 | `sequence2` | string | Yes | Second sequence (min length: 1) |
 | `k` | integer | No | K-mer length (default: 3, minimum: 1) |
+| `metric` | string | No | `euclidean` (default), `squared_euclidean_counts`, `manhattan`, `chebyshev`, `canberra`, `cosine`, `d2`, `d2star`, `d2shepherd` (`d2s`) |
+| `markovOrder` | integer | No | Background Markov order r, 0 ≤ r < k, for `d2star`/`d2shepherd` (default 0), or −1 = each sequence's order chosen by BIC; must be 0 for the other metrics |
 
 ## Output Schema
 
@@ -41,6 +60,8 @@ Computes the k-mer distance between two sequences using Euclidean distance of k-
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1003 | K must be at least 1 |
+| 1002 | metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd |
+| 1002 | markovOrder applies only to the background-adjusted metrics D2Star and D2Shepherd. |
 
 ## Examples
 

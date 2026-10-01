@@ -23,7 +23,9 @@ and every statistic is 0. Field definitions follow Jellyfish `stats`
 (`sub_commands/stats_main.cc`): Total, Distinct, Unique (= count 1, here
 `singletonKmers`), Max_count; `uniqueKmers` is a legacy name for the **distinct**
 count. Optional `lowerCount`/`upperCount` apply Jellyfish's `-L`/`-U` filters; all
-statistics are then computed over the retained k-mers.
+statistics are then computed over the retained k-mers. Optional `canonical` (Jellyfish `count -C`)
+and `acgtOnly` choose the counting mode (`KmerAnalyzer.AnalyzeKmers(sequence, k, KmerCountingOptions, lowerCount, upperCount)`;
+BA1B sample k=4 `canonical` → Unique 16, Distinct 20, Total 27, Max 4, as the Jellyfish 2.3.1 binary).
 
 ## Core Documentation Reference
 
@@ -38,6 +40,8 @@ statistics are then computed over the retained k-mers.
 | `k` | integer | Yes | k-mer length (> 0) |
 | `lowerCount` | integer | No | Ignore k-mers with count < lowerCount (Jellyfish `-L`; default 0) |
 | `upperCount` | integer | No | Ignore k-mers with count > upperCount (Jellyfish `-U`; default unbounded) |
+| `canonical` | boolean | No | Canonical k-mers min(w, RC(w)) (Jellyfish `count -C`); implies `acgtOnly` (default false) |
+| `acgtOnly` | boolean | No | Skip windows containing a non-ACGT symbol (Jellyfish convention; default false) |
 
 ## Output Schema
 

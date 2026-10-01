@@ -186,6 +186,23 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
 1.5726495726495728, cosine 0.16666666666666663, D2 5; Jaccard literal 0.75, canonical 1.0 (Mash 0, 3/3), `-n` Mash
 0.0513836 (3/4); R1/R2 k=5 canonical J = 58/158 = 0.3670886075949367, Mash 0.124338.
 
+## Audit round 1 (WP4, 2026-10-01) — background-adjusted D2* / D2S
+
+- Sources opened: CAFE (Lu et al. 2017, NAR 45:W554) source, cloned from github.com/younglululu/CAFE: `code/dist_model.cpp`
+  (`D2starStrategy::dealWithQuad`: X̃ = X − E_X, numerator X̃Ỹ/√(E_X E_Y), normalisers X̃²/E_X; `D2sheppStrategy`:
+  X̃Ỹ/√(X̃²+Ỹ²), normalisers X̃²/√(X̃²+Ỹ²); `getDist` = 0.5·(1 − num/(√Σ_X·√Σ_Y))), `code/kmer.cpp` (`getCntExpDist`:
+  E = total·p, all 4^k words when lower count is 0; `getMarkovModel`; `saveFromLargerK` prefix marginal; `getEstMarkovOrder`
+  BIC), `code/seq_model.cpp` (log-probability storage). Song et al. 2014 (Brief Bioinform 15:343) d2S definition via search
+  snippet (centred counts estimated from each sequence, sum over A^k). Reinert et al. 2009 / Wan et al. 2010 full texts
+  blocked (PMC, arXiv); the D2* form √(n̄ m̄)·p_w is the common-background special case of CAFE's √(E_X E_Y).
+- alfpy 1.0.6 has no D2*/D2S (its `word_d2` is a squared Euclidean, WP2 note), so CAFE is the reference implementation.
+- Executed: the CAFE binary (g++ build, Jellyfish 2.3.1) and an independent Python replica. Replica + CAFE's estimator
+  (prefix-marginal counts, log-zero pruning) = CAFE output on 14 (pair, k, r) runs to 6 digits; replica + sequence
+  maximum-likelihood estimator = C# on 18 rows to 1e-12 (tables: K-mer_Euclidean_Distance.md §7.4).
+- Assumptions: ASM-D1 background estimated per sequence by maximum likelihood on the sequence (not CAFE's prefix marginal);
+  ASM-D2 a transition probability of 1 is a valid probability (CAFE treats log 0 as missing); ASM-D3 k ≤ 12 because the
+  sums run over all 4^k words; ASM-D4 NaN for a zero normaliser (0/0, as CAFE).
+
 ## Change History
 
 - **2026-10-01**: Audit round 1 WP2 — metric variants, exact Jaccard / Mash distance, spaced words; reference [4] first author corrected.

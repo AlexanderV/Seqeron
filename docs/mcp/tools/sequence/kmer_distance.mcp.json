@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "KmerAnalyzer.KmerDistance",
   "docRef": "Seqeron.Genomics/KmerAnalyzer.cs#L165",
-  "description": "Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences.",
+  "description": "Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies (default). Optional metric, same values and library overload as the Analysis server's kmer_distance: squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2 (a similarity), d2star / d2shepherd (background-adjusted d2* / d2S dissimilarities in [0,1], Reinert et al. 2009; Song et al. 2014; Markov background of order markovOrder fitted to each sequence, ACGT words, k <= 12).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -25,32 +25,108 @@
         "description": "K-mer length (default: 3)",
         "default": 3,
         "minimum": 1
+      },
+      "metric": {
+        "type": "string",
+        "description": "Word-vector metric",
+        "default": "euclidean",
+        "enum": [
+          "euclidean",
+          "squared_euclidean_counts",
+          "manhattan",
+          "chebyshev",
+          "canberra",
+          "cosine",
+          "d2",
+          "d2star",
+          "d2shepherd",
+          "d2s"
+        ]
+      },
+      "markovOrder": {
+        "type": "integer",
+        "description": "Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; must be 0 for the other metrics",
+        "minimum": -1,
+        "default": 0
       }
     },
-    "required": ["sequence1", "sequence2"]
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "distance": { "type": "number", "description": "K-mer distance (0 = identical)" },
-      "k": { "type": "integer", "description": "K-mer length used" }
+      "distance": {
+        "type": "number",
+        "description": "K-mer distance (0 = identical)"
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer length used"
+      }
     },
-    "required": ["distance", "k"]
+    "required": [
+      "distance",
+      "k"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "K must be at least 1" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "K must be at least 1"
+    },
+    {
+      "code": 1002,
+      "message": "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd"
+    },
+    {
+      "code": 1002,
+      "message": "markovOrder applies only to the background-adjusted metrics D2Star and D2Shepherd."
+    }
   ],
   "examples": [
     {
       "name": "Identical sequences",
-      "input": { "sequence1": "ATGCATGC", "sequence2": "ATGCATGC", "k": 3 },
-      "output": { "distance": 0, "k": 3 }
+      "input": {
+        "sequence1": "ATGCATGC",
+        "sequence2": "ATGCATGC",
+        "k": 3
+      },
+      "output": {
+        "distance": 0,
+        "k": 3
+      }
     },
     {
       "name": "Different sequences",
-      "input": { "sequence1": "ATGCATGC", "sequence2": "CCCCCCCC", "k": 3 },
-      "output": { "distance": 0.87, "k": 3 }
+      "input": {
+        "sequence1": "ATGCATGC",
+        "sequence2": "CCCCCCCC",
+        "k": 3
+      },
+      "output": {
+        "distance": 0.87,
+        "k": 3
+      }
+    },
+    {
+      "name": "Background-adjusted d2* (order-0 background)",
+      "input": {
+        "sequence1": "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT",
+        "sequence2": "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC",
+        "k": 3,
+        "metric": "d2star"
+      },
+      "output": {
+        "distance": 0.44457941706964565,
+        "k": 3
+      }
     }
   ]
 }

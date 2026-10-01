@@ -6,7 +6,7 @@
 | Test Unit ID | KMER-ASYNC-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-01 |
 
 ## 1. Overview
 
@@ -96,7 +96,8 @@ inclusive of length *k*. Cancellation: a signaled token ⇒ awaiting throws
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| CountKmersAsync | O(n·k) | O(u·k) | n = L − k + 1 windows, each building a length-*k* string key; u = number of distinct k-mers. Thread-pool offload does not change asymptotic cost |
+| CountKmersAsync | O(n·k) | O(u·k) | n = L − k + 1 windows, each looked up by a length-*k* span (a string is allocated only for a new k-mer); u = number of distinct k-mers. Thread-pool offload does not change asymptotic cost |
+| CountKmersParallel | O(n·k / P + Σᵣ uᵣ) | O(Σᵣ uᵣ·k) | P ranges counted concurrently, then the P tables (uᵣ distinct k-mers each) are merged serially into one |
 
 ## 5. Implementation Notes
 
@@ -110,6 +111,13 @@ inclusive of length *k*. Cancellation: a signaled token ⇒ awaiting throws
   synchronous reference invoked by the async method.
 - `KmerAnalyzer.CountKmersSpan(ReadOnlySpan<char>, int)`: span variant (deeply tested
   under KMER-COUNT-001).
+- `KmerAnalyzer.CountKmersParallel(string, int, KmerCountingOptions, int maxDegreeOfParallelism, CancellationToken, IProgress<double>)`
+  (audit round 1, WP4): opt-in data-parallel count. The windows are split into contiguous ranges of at least
+  65,536 windows (adjacent ranges share k − 1 symbols); each range runs the class's single counting loop
+  (`CountWindowRange`, the same loop as the serial count) into its own table; the tables are merged. The result
+  equals the serial `CountKmers(sequence, k, options)` exactly for every input (tested on random inputs, all
+  options, degrees 2–8). Cancellation is polled every 1000 windows in every range and observed by
+  `Parallel.For`; progress is non-decreasing in [0, 1) followed by one final 1.0.
 
 ### 5.2 Current Behavior
 
@@ -141,9 +149,33 @@ O(n) construction without improving a one-pass full-spectrum count.
 
 **Not implemented:**
 
-- Parallel partitioning of the window scan across cores; **users should rely on:** the
-  current single-threaded thread-pool offload, which already satisfies the async contract
-  and matches the synchronous result exactly.
+- (none). Parallel partitioning of the window scan, previously listed here, is
+  `CountKmersParallel` (audit round 1, WP4). It is the data-parallel scheme of Jellyfish's multi-threaded
+  counter (`count -t`; Marçais & Kingsford 2011 [5]): counting is a sum over windows, so any partition of the
+  windows gives the same table. `CountKmersAsync` itself still offloads the serial count (TAP advice [4]);
+  callers that want cores use `CountKmersParallel` (optionally inside `Task.Run`).
+
+**Measured speed-up** (Release, 4 cores, random 10 Mbp ACGT, median of 3 runs, `maxDegreeOfParallelism` = 1/2/4):
+
+| k | distinct k-mers | 1 range | 2 ranges | 4 ranges |
+|---|-----------------|---------|----------|----------|
+| 6 | 4,096 | 205 ms | 110 ms | 86 ms (2.4×) |
+| 8 | 65,536 | 436 ms | 230 ms | 144 ms (3.0×) |
+| 10 | 1,048,503 | 1244 ms | 1179 ms | 1307 ms (none) |
+| 12 | 7,533,738 | 2975 ms | 3232 ms | 2840 ms (none) |
+| 21 | 9,999,973 | 3524 ms | 3583 ms | 3036 ms (1.16×) |
+
+The speed-up is 2.4–3× when the distinct k-mers are few compared with the windows (small k, or repetitive
+genomes). It disappears when almost every window is a new k-mer: then the cost is dominated by allocating one
+string per distinct k-mer in each range and by the serial merge into the single result dictionary, which no
+partition of the windows can avoid. The parallel path is correct in every case, so it stays opt-in; the serial
+count remains the default.
+
+**Single counting loop** (audit round 1, WP4): the loop looks each window up by `ReadOnlySpan<char>` through the
+dictionary's alternate lookup (`Dictionary.GetAlternateLookup`, .NET 9+), so a string is allocated only for the
+first occurrence of a k-mer. On random 10 Mbp at k = 8 the serial count dropped from 1041 ms / 404 MB allocated to
+about 430 ms / 7 MB (k = 12: 4342 → 3328 ms; k = 21: 4911 → 3909 ms); results are unchanged (tested against a naive
+counter on 300 random inputs).
 
 ## 6. Edge Cases and Limitations
 
@@ -164,7 +196,8 @@ O(n) construction without improving a one-pass full-spectrum count.
 Counting is alphabet-agnostic (non-ACGT characters are counted literally). The async
 variant offloads to a single thread-pool thread; it does not parallelize the scan, so it
 is not faster asymptotically than the synchronous method — its purpose is
-non-blocking execution with cancellation and progress. TAP guidance [4] advises exposing
+non-blocking execution with cancellation and progress. Multi-core counting is the separate opt-in
+`CountKmersParallel` (§5.3, with measured speed-ups). TAP guidance [4] advises exposing
 purely compute-bound work only synchronously (letting callers choose `Task.Run`); the async
 wrapper is retained for public-API compatibility. The method is thread-safe (static, no shared
 mutable state); the `IProgress<double>` callback runs on the thread-pool worker.
@@ -192,3 +225,4 @@ var counts = await KmerAnalyzer.CountKmersAsync("ATGG", 3);
 2. Microsoft. 2025. Task Cancellation — .NET. Microsoft Learn. https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/task-cancellation (accessed 2026-06-14).
 3. Microsoft. 2025. Task.Run Method (System.Threading.Tasks). Microsoft Learn. https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.task.run (accessed 2026-06-14).
 4. Microsoft. 2026. Task-based asynchronous pattern (TAP) in .NET; Implementing the Task-based Asynchronous Pattern. Microsoft Learn. https://learn.microsoft.com/en-us/dotnet/standard/asynchronous-programming-patterns/task-based-asynchronous-pattern-tap (source opened as dotnet/docs `docs/standard/asynchronous-programming-patterns/*.md` on raw.githubusercontent.com, 2026-09-28).
+5. Marçais G, Kingsford C. 2011. A fast, lock-free approach for efficient parallel counting of occurrences of k-mers. Bioinformatics 27(6):764–770 (multi-threaded counting; Jellyfish `count -t`).

@@ -76,4 +76,27 @@ public class AnalyzeKmersTests
         Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeKmers("GTAG", 2, lowerCount: -1));
         Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeKmers("GTAG", 2, upperCount: -1));
     }
+
+    /// <summary>
+    /// Audit round 1 WP4: optional canonical / acgtOnly delegate to the option-aware library overload.
+    /// Reference: Jellyfish 2.3.1 binary, BA1B sample k=4: count -C + stats → Unique 16, Distinct 20, Total 27, Max 4;
+    /// count -C + stats -L 2 → 0, 4, 11, 4.
+    /// </summary>
+    [Test]
+    public void AnalyzeKmers_CanonicalMode_MatchesJellyfishStats()
+    {
+        const string ba1b = "ACGTTGCATGTCGCATGATGCATGAGAGCT";
+        var c = AnalysisTools.AnalyzeKmers(ba1b, 4, canonical: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.SingletonKmers, Is.EqualTo(16));
+            Assert.That(c.DistinctKmers, Is.EqualTo(20));
+            Assert.That(c.TotalKmers, Is.EqualTo(27));
+            Assert.That(c.MaxCount, Is.EqualTo(4));
+        });
+        var l2 = AnalysisTools.AnalyzeKmers(ba1b, 4, lowerCount: 2, canonical: true);
+        Assert.That((l2.SingletonKmers, l2.DistinctKmers, l2.TotalKmers, l2.MaxCount), Is.EqualTo((0, 4, 11, 4)));
+        // acgtOnly drops the N windows.
+        Assert.That(AnalysisTools.AnalyzeKmers("ACGTNACGT", 4, acgtOnly: true).TotalKmers, Is.EqualTo(2));
+    }
 }

@@ -22,7 +22,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `alphabet_pwm_score_pvalue` | Exact p-value of a score / exact score threshold of a p-value for a PWM over any alphabet (protein, RNA, …) built from aligned instances — the TFM-Pvalue engine of pwm_score_pvalue with K rows… |
 | `alphabet_pwm_score_thresholds` | Score thresholds (FPR / FNR / balanced / patser) of an any-alphabet PWM from its discretised score distribution — Biopython pssm.distribution… |
 | `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. |
-| `analyze_kmers` | Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters. |
+| `analyze_kmers` | Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters and canonical (count -C) / acgtOnly modes. |
 | `at_skew` | Whole-sequence AT skew = (A - T) / (A + T). |
 | `base_pair_type` | Classification of an RNA base-pair candidate: WatsonCrick, Wobble, or null if bases cannot pair. |
 | `bulge_loop_energy` | Free energy of an RNA bulge loop (special-C bonus, n=1 stacking, degeneracy entropy from numStates). |
@@ -87,7 +87,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
 | `gc_content_profile` | GC content in sliding windows along the sequence. |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |
-| `generate_all_kmers` | Enumerate the entire k-mer space for an alphabet (default "ACGT\ |
+| `generate_all_kmers` | Enumerate the entire k-mer space for an alphabet (default "ACGT"); result size alphabet.Length^k, at most 1,048,576 (4^10) k-mers per call. |
 | `generate_cavener_consensus` | Degenerate IUPAC consensus of aligned equal-length DNA sequences by the Cavener (1987) rules (TRANSFAC / Biopython degenerate_consensus): s… |
 | `generate_consensus` | IUPAC consensus sequence from aligned equal-length DNA sequences: bases above the per-position inclusion threshold (default >25%) form the NC-IUB symbol; if none passes, the tied most frequent bases. |
 | `generate_decipher_consensus` | Consensus with Bioconductor DECIPHER ConsensusSequence semantics (DNA, RNA or protein): at each position the least frequent characters are dropped while they represent less than 'threshold'… |
@@ -98,7 +98,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy values for a protein sequence. |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |
 | `is_disorder_promoting` | Whether an amino acid is in Dunker's disorder-promoting set {A, R, G, Q, S, P, E, K} (Dunker 2001). |
-| `kmer_distance` | Euclidean distance between k-mer frequency vectors of two sequences; optional `metric` (squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2). |
+| `kmer_distance` | Euclidean distance between k-mer frequency vectors of two sequences; optional `metric` (squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd) and `markovOrder` (background of d2star/d2shepherd). |
 | `kmer_frequencies` | Normalized k-mer counts (each value in [0,1], summing to 1). |
 | `kmer_jaccard` | Exact k-mer Jaccard index of the distinct k-mer sets and the Mash distance; optional `canonical` / `acgtOnly` (Mash/sourmash k-mers). |
 | `kmer_positions` | Zero-based positions of all (overlapping) occurrences of a k-mer. |

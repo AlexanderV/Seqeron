@@ -141,3 +141,16 @@ Test file: `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_Coun
 | O5 | `-C` with `-L 2` | BA1B: Distinct 4, Total 11, Max 4 |
 | O6 | Invariants: default options equal the literal overloads; `Canonical` implies ACGT-only; keys = ordinal min(w, RC(w)); canonical table invariant under reverse complement of the input; sum = number of all-ACGT windows | — |
 | O7 | Contracts: null/empty/k>L/all-N give empty results; k ≤ 0 throws (ParamName "k"); cancellation and progress (0.0, 1.0); `DistinctKmers` returns a caller-owned ordinal set | — |
+
+## Audit round 1 (B06 WP4) — single span-lookup loop, CountKmersSpan contract, null DnaSequence, parallel count
+
+Test file: `Unit/Analysis/KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs`.
+
+| ID | Test | Evidence |
+|----|------|----------|
+| P1 | `CountKmers` (literal and ACGT-only) equals an independent naive substring counter on 300 random inputs (alphabet ACGTacgtNR, L ≤ 3000, k ≤ 8) | k-mer definition; Jellyfish window rule (WP1) |
+| P2 | `KmerAnalyzer.CountKmersSpan` equals `CountKmers` for every k incl. k > L on mixed-case/IUPAC input | same contract |
+| P3 | Empty span with k ≤ 0 → empty (as `CountKmers`); non-empty with k ≤ 0 → `ArgumentOutOfRangeException("k")` | `ValidateKmerLength` contract (F2) |
+| P4 | `CountKmers(DnaSequence)`, `CountKmers(DnaSequence, k, ct)`, `CountKmersBothStrands(DnaSequence)` with null → `ArgumentNullException("dna")` | .NET Framework Design Guidelines, argument validation |
+| P5 | `CountKmersParallel` equals the serial count on 8 random inputs × 3 option sets × degrees 2/3/4/8/−1 (140k–420k windows) | counting is a sum over windows (any partition) |
+

@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "KmerAnalyzer.KmerDistance",
   "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L392",
-  "description": "Alignment-free word-vector distance between two sequences' k-mer composition. Default: Euclidean distance between the normalized k-mer frequency vectors (0 = identical composition). Optional metric: squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity).",
+  "description": "Alignment-free word-vector distance between two sequences' k-mer composition. Default: Euclidean distance between the normalized k-mer frequency vectors (0 = identical composition). Optional metric: squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity). d2star / d2shepherd: background-adjusted d2* / d2S dissimilarities in [0,1] (Reinert et al. 2009; Song et al. 2014), Markov background of order markovOrder fitted to each sequence, ACGT words, k <= 12.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -35,9 +35,18 @@
           "chebyshev",
           "canberra",
           "cosine",
-          "d2"
+          "d2",
+          "d2star",
+          "d2shepherd",
+          "d2s"
         ],
         "default": "euclidean"
+      },
+      "markovOrder": {
+        "type": "integer",
+        "description": "Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; must be 0 for the other metrics",
+        "minimum": -1,
+        "default": 0
       }
     },
     "required": [
@@ -69,7 +78,11 @@
     },
     {
       "code": 1002,
-      "message": "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2"
+      "message": "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd"
+    },
+    {
+      "code": 1002,
+      "message": "markovOrder applies only to the background-adjusted metrics D2Star and D2Shepherd."
     }
   ],
   "examples": [
@@ -105,6 +118,18 @@
       },
       "output": {
         "distance": 3.0
+      }
+    },
+    {
+      "name": "Background-adjusted d2* (order-0 background)",
+      "input": {
+        "seq1": "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT",
+        "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC",
+        "k": 3,
+        "metric": "d2star"
+      },
+      "output": {
+        "distance": 0.44457941706964565
       }
     }
   ]

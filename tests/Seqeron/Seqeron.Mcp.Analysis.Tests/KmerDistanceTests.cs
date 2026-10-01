@@ -52,4 +52,25 @@ public class KmerDistanceTests
             Assert.Throws<ArgumentException>(() => AnalysisTools.KmerDistance("ACGT", "ACGT", 2, "hamming"));
         });
     }
+
+    /// <summary>
+    /// Audit round 1 WP4: d2star / d2shepherd (+ markovOrder) delegate to KmerAnalyzer.BackgroundAdjustedD2.
+    /// Reference values: Python replica of Reinert et al. 2009 / Song et al. 2014 (formula engine checked against the
+    /// CAFE binary), pair S1/S2 of KmerAnalyzer_ParallelAndBackgroundD2_Tests.
+    /// </summary>
+    [Test]
+    public void KmerDistance_D2StarMetrics_DelegateToBackgroundAdjustedD2()
+    {
+        const string s1 = "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT";
+        const string s2 = "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 3, "d2star").Distance, Is.EqualTo(0.44457941706964565).Within(1e-12));
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 3, "d2shepherd", 1).Distance, Is.EqualTo(0.5226793773737308).Within(1e-12));
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 3, "d2s", 1).Distance, Is.EqualTo(0.5226793773737308).Within(1e-12));
+        });
+        Assert.Throws<ArgumentException>(() => AnalysisTools.KmerDistance(s1, s2, 3, "euclidean", 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.KmerDistance(s1, s2, 3, "d2star", 3));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.KmerDistance(s1, s2, 3, "bogus"));
+    }
 }

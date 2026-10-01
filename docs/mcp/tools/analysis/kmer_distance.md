@@ -32,6 +32,13 @@ The optional `metric` selects another word-vector metric (`KmerAnalyzer.KmerDist
 | `canberra` | Σ\|f₁−f₂\|/(f₁+f₂) | relative frequencies |
 | `cosine` | 1 − c₁·c₂/(‖c₁‖‖c₂‖) (zero vector → 1) | counts (scale-invariant) |
 | `d2` | Σ c₁·c₂ — D2 statistic (a similarity, not a distance) | raw counts |
+| `d2star` | d2* = ½(1 − D2*/√(Σ X̃²/E_X · Σ Ỹ²/E_Y)), D2* = Σ X̃Ỹ/√(E_X E_Y) — Reinert et al. (2009), Song et al. (2014) | background-centred counts X̃ = X − E_X (ACGT words) |
+| `d2shepherd` (alias `d2s`) | d2S = ½(1 − D2S/√(Σ X̃²/√(X̃²+Ỹ²) · Σ Ỹ²/√(X̃²+Ỹ²))), D2S = Σ X̃Ỹ/√(X̃²+Ỹ²) | background-centred counts |
+
+For `d2star` / `d2shepherd` the expected counts E_X = n̄·p̂_X(w) come from an order-`markovOrder` Markov chain
+fitted to each sequence (maximum likelihood on its ACGT r- and (r+1)-mer counts; order 0 = letter frequencies),
+the sums run over all 4^k words, windows with a non-ACGT symbol are skipped, and k ≤ 12
+(`KmerAnalyzer.BackgroundAdjustedD2`). Formulas as CAFE (Lu et al. 2017) `D2star` / `D2shepp`, single-strand.
 
 ## Core Documentation Reference
 
@@ -44,7 +51,8 @@ The optional `metric` selects another word-vector metric (`KmerAnalyzer.KmerDist
 | `seq1` | string | Yes | First sequence (min length 1) |
 | `seq2` | string | Yes | Second sequence (min length 1) |
 | `k` | integer | Yes | k-mer length (> 0) |
-| `metric` | string | No | `euclidean` (default), `squared_euclidean_counts`, `manhattan`, `chebyshev`, `canberra`, `cosine`, `d2` |
+| `metric` | string | No | `euclidean` (default), `squared_euclidean_counts`, `manhattan`, `chebyshev`, `canberra`, `cosine`, `d2`, `d2star`, `d2shepherd` (`d2s`) |
+| `markovOrder` | integer | No | Background Markov order r, 0 ≤ r < k, for `d2star`/`d2shepherd` (default 0), or −1 = each sequence's order chosen by BIC; must be 0 for the other metrics |
 
 ## Output Schema
 
@@ -57,7 +65,8 @@ The optional `metric` selects another word-vector metric (`KmerAnalyzer.KmerDist
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
-| 1002 | metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2 |
+| 1002 | metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd |
+| 1002 | markovOrder applies only to the background-adjusted metrics D2Star and D2Shepherd. |
 | 1003 | k must be positive |
 
 ## Examples

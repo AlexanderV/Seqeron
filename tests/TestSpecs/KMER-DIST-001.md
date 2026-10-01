@@ -119,6 +119,19 @@
 
 ---
 
+### 4.5 Audit round 1 (WP4) — background-adjusted D2* / D2S (`KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs`)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| D1 | 18 rows (3 pairs × (k, r) ∈ {(2,0),(3,0),(3,1),(4,0),(4,2),(5,1)}): D2*, D2S, d2*, d2S equal the Python replica to 1e-12 | Reinert et al. 2009; Song et al. 2014; CAFE formulas (replica engine = CAFE binary to 6 digits) |
+| D2 | `KmerDistance(.., D2Star/D2Shepherd)` = order-0 statistics; symmetric | definition |
+| D3 | Identical sequences → 0; values in [0, 1] | definition |
+| D4 | Case-insensitive; non-ACGT windows skipped | Jellyfish convention (CAFE counts with Jellyfish) |
+| D5 | Homopolymer at order 0 → NaN distance (0/0), D2* = 0 | definition (all centred counts 0) |
+| D6 | Validation: null, k ∉ [1, 12], r ∉ [−1, k), no ACGT window, counts overload rejects D2*/D2S | contract |
+| D7 | `MarkovOrderBic` = replica (S1, S2, S3, periodic; r = 0..3, 1e-9); `markovOrder = −1` picks (1, 0) for periodic/S1 and gives the replica values | Schwarz 1978; Katz 1981; CAFE `-M -1` |
+| D8 | `ParseDistanceMetric` names incl. `d2star`, `d2shepherd`, `d2s`; unknown → `ArgumentException` | MCP contract |
+
 ## 5. Audit of Existing Tests
 
 ### 5.1 Discovery Summary

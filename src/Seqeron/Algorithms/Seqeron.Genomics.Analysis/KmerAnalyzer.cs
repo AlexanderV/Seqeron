@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
@@ -129,8 +131,8 @@ public static class KmerAnalyzer
     private static bool IsAcgt(char c) => c is 'A' or 'C' or 'G' or 'T';
 
     /// <summary>
-    /// The single counting loop. With <paramref name="acgtOnly"/>, windows containing a non-ACGT symbol
-    /// (after upper-casing) are skipped — tracked in O(1) per window via the last non-ACGT index.
+    /// Serial driver of the single counting loop <see cref="CountWindowRange"/>: validates, upper-cases once and
+    /// counts every window [0, L − k] (cancellation + progress at every 1000th window, final 1.0).
     /// </summary>
     private static Dictionary<string, int> CountKmersCore(
         string sequence,
@@ -147,19 +149,52 @@ public static class KmerAnalyzer
             return new Dictionary<string, int>();
         }
 
-        sequence = sequence.ToUpperInvariant();
-        var seq = sequence.AsSpan();
+        var upper = sequence.ToUpperInvariant();
+        int total = upper.Length - k + 1;
         var counts = new Dictionary<string, int>();
-        int total = sequence.Length - k + 1;
-        const int checkInterval = 1000;
-        int scanned = 0, lastInvalid = -1;
+        CountWindowRange(upper, k, 0, total, acgtOnly, counts, cancellationToken,
+            progress is null ? null : i => progress.Report((double)i / total));
 
-        for (int i = 0; i <= sequence.Length - k; i++)
+        progress?.Report(1.0);
+        return counts;
+    }
+
+    /// <summary>Cancellation/progress checkpoint interval (windows), shared by the serial and parallel drivers.</summary>
+    private const int CountCheckInterval = 1000;
+
+    /// <summary>
+    /// The single k-mer counting loop: adds the windows starting at <paramref name="firstWindow"/> ..
+    /// <paramref name="endWindow"/> − 1 of the upper-cased <paramref name="upper"/> to <paramref name="counts"/>.
+    /// </summary>
+    /// <remarks>
+    /// A window reads <c>upper[i .. i + k − 1]</c>, so a range needs the k − 1 symbols after its last start —
+    /// adjacent ranges of a partition overlap by k − 1 symbols and every window is counted exactly once.
+    /// Lookup is by <see cref="ReadOnlySpan{T}"/> through the dictionary's alternate lookup, so a string is
+    /// allocated only when a k-mer is seen for the first time (one allocation per distinct k-mer instead of
+    /// one per window). At every window index divisible by <see cref="CountCheckInterval"/> the token is polled and
+    /// <paramref name="checkpoint"/> receives the index. With <paramref name="acgtOnly"/>, windows containing a
+    /// non-ACGT symbol are skipped, tracked in O(1) per window via the last non-ACGT index.
+    /// </remarks>
+    private static void CountWindowRange(
+        string upper,
+        int k,
+        int firstWindow,
+        int endWindow,
+        bool acgtOnly,
+        Dictionary<string, int> counts,
+        CancellationToken cancellationToken,
+        Action<int>? checkpoint)
+    {
+        var seq = upper.AsSpan();
+        var lookup = counts.GetAlternateLookup<ReadOnlySpan<char>>();
+        int scanned = firstWindow, lastInvalid = firstWindow - 1;
+
+        for (int i = firstWindow; i < endWindow; i++)
         {
-            if (i % checkInterval == 0)
+            if (i % CountCheckInterval == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                progress?.Report((double)i / total);
+                checkpoint?.Invoke(i);
             }
 
             if (acgtOnly)
@@ -174,13 +209,8 @@ public static class KmerAnalyzer
                     continue;
             }
 
-            var kmer = new string(seq.Slice(i, k));
-            if (!counts.TryAdd(kmer, 1))
-                counts[kmer]++;
+            CollectionsMarshal.GetValueRefOrAddDefault(lookup, seq.Slice(i, k), out _)++;
         }
-
-        progress?.Report(1.0);
-        return counts;
     }
 
     /// <summary>
@@ -216,32 +246,151 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Counts k-mers in a DNA sequence.
+    /// Counts k-mers in a DNA sequence (<see cref="CountKmers(string, int)"/> on <see cref="DnaSequence.Sequence"/>).
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="dna"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static Dictionary<string, int> CountKmers(DnaSequence dna, int k)
     {
+        ArgumentNullException.ThrowIfNull(dna);
         return CountKmers(dna.Sequence, k);
     }
 
     /// <summary>
     /// Counts k-mers in a DNA sequence with cancellation support.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="dna"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static Dictionary<string, int> CountKmers(
         DnaSequence dna,
         int k,
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
+        ArgumentNullException.ThrowIfNull(dna);
         return CountKmers(dna.Sequence, k, cancellationToken, progress);
     }
 
     /// <summary>
-    /// Counts k-mers using Span-based optimization (more memory efficient).
+    /// Counts the k-mers of a character span (same result and contract as <see cref="CountKmers(string, int)"/>).
     /// </summary>
+    /// <remarks>
+    /// Runs the class's single counting loop on one upper-cased copy of the span: one O(L) copy plus one string per
+    /// distinct k-mer (the loop looks windows up by span). The contract is <see cref="CountKmers(string, int)"/>'s:
+    /// empty input yields an empty dictionary for any k, and k ≤ 0 throws only for non-empty input. (Core's
+    /// <c>SequenceExtensions.CountKmersSpan</c> throws for k ≤ 0 even on an empty span and allocates a string per
+    /// window; this method no longer delegates to it.)
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the span is non-empty.</exception>
     public static Dictionary<string, int> CountKmersSpan(ReadOnlySpan<char> sequence, int k)
+        => CountKmersCore(sequence.IsEmpty ? string.Empty : new string(sequence), k, acgtOnly: false, CancellationToken.None, null);
+
+    /// <summary>
+    /// Counts k-mers on several cores: the windows are partitioned into contiguous ranges (adjacent ranges share
+    /// k − 1 symbols), each range is counted by the class's single counting loop into its own table, and the tables
+    /// are merged. The result equals <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>
+    /// exactly (same keys and counts) for every input and option.
+    /// </summary>
+    /// <remarks>
+    /// <para>Data-parallel partition of an embarrassingly parallel count, as in Jellyfish's multi-threaded counting
+    /// (<c>count -t</c>; Marçais &amp; Kingsford 2011) — each window belongs to exactly one range, and counting is a
+    /// sum, so the merged table is independent of the partition. Ranges are at least <see cref="ParallelMinWindowsPerRange"/>
+    /// windows long; inputs with fewer windows than two ranges are counted serially.</para>
+    /// <para>Cancellation: every range polls <paramref name="cancellationToken"/> at each window index divisible by 1000
+    /// (as the serial loop) and <see cref="Parallel.For(int, int, ParallelOptions, Action{int})"/> observes it, so a
+    /// cancelled call throws <see cref="OperationCanceledException"/> carrying the token. Progress: the fraction of
+    /// windows scanned, reported at the same checkpoints, non-decreasing in [0, 1), then exactly one final 1.0; with
+    /// several ranges the reports come from worker threads under a lock. The canonical fold (if requested) runs once,
+    /// after the merge.</para>
+    /// <para>Measured speed-up (Release, 4 cores, random 10 Mbp, 4 ranges): see docs/algorithms/K-mer/Asynchronous_K-mer_Counting.md §5.</para>
+    /// </remarks>
+    /// <param name="sequence">The sequence (case-insensitive). Null/empty returns an empty dictionary.</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <param name="options">Counting mode (literal by default).</param>
+    /// <param name="maxDegreeOfParallelism">Maximum number of ranges counted concurrently; −1 (default) =
+    /// <see cref="Environment.ProcessorCount"/>. 1 counts serially.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
+    /// <returns>Dictionary mapping (canonical) k-mers to their counts.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">k ≤ 0 with non-empty input, or <paramref name="maxDegreeOfParallelism"/>
+    /// is 0 or less than −1.</exception>
+    public static Dictionary<string, int> CountKmersParallel(
+        string sequence,
+        int k,
+        KmerCountingOptions options = default,
+        int maxDegreeOfParallelism = -1,
+        CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null)
     {
-        return sequence.CountKmersSpan(k);
+        if (maxDegreeOfParallelism == 0 || maxDegreeOfParallelism < -1)
+            throw new ArgumentOutOfRangeException(nameof(maxDegreeOfParallelism), maxDegreeOfParallelism,
+                "Degree of parallelism must be positive or -1 (all processors).");
+        ValidateKmerLength(sequence, k);
+
+        int degree = maxDegreeOfParallelism == -1 ? Environment.ProcessorCount : maxDegreeOfParallelism;
+        int total = string.IsNullOrEmpty(sequence) ? 0 : Math.Max(0, sequence.Length - k + 1);
+        int ranges = Math.Min(degree, total / ParallelMinWindowsPerRange);
+        if (ranges < 2)
+            return CountKmers(sequence, k, options, cancellationToken, progress);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var upper = sequence.ToUpperInvariant();
+        var tables = new Dictionary<string, int>[ranges];
+        var gate = new object();
+        long scanned = 0;
+        double lastReported = -1;
+
+        void Checkpoint(int window)
+        {
+            // Each range reports once per 1000 windows; the reported fraction is the windows covered so far.
+            lock (gate)
+            {
+                double fraction = (double)scanned / total;
+                scanned += CountCheckInterval;
+                if (fraction > lastReported && fraction < 1.0)
+                {
+                    lastReported = fraction;
+                    progress!.Report(fraction);
+                }
+            }
+        }
+
+        try
+        {
+            Parallel.For(0, ranges,
+                new ParallelOptions { CancellationToken = cancellationToken, MaxDegreeOfParallelism = degree },
+                r =>
+                {
+                    int first = (int)((long)total * r / ranges);
+                    int end = (int)((long)total * (r + 1) / ranges);
+                    var table = new Dictionary<string, int>();
+                    CountWindowRange(upper, k, first, end, options.SkipsNonAcgt, table, cancellationToken,
+                        progress is null ? null : Checkpoint);
+                    tables[r] = table;
+                });
+        }
+        catch (AggregateException ex) when (cancellationToken.IsCancellationRequested
+                                            && ex.Flatten().InnerExceptions.All(e => e is OperationCanceledException))
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+
+        var merged = tables.MaxBy(t => t.Count)!;
+        merged.EnsureCapacity(tables.Sum(t => t.Count)); // upper bound of the union: no rehash while merging
+        foreach (var table in tables)
+        {
+            if (ReferenceEquals(table, merged))
+                continue;
+            foreach (var (kmer, count) in table)
+                CollectionsMarshal.GetValueRefOrAddDefault(merged, kmer, out _) += count;
+        }
+
+        progress?.Report(1.0);
+        return options.Canonical ? FoldToCanonical(merged) : merged;
     }
+
+    /// <summary>Minimum number of windows per range of <see cref="CountKmersParallel"/> (smaller inputs are counted serially).</summary>
+    public const int ParallelMinWindowsPerRange = 65536;
 
     /// <summary>
     /// Gets the k-mer spectrum (frequency distribution) of a sequence.
@@ -530,7 +679,319 @@ public static class KmerAnalyzer
         if (k <= 0)
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
-        return KmerDistance(CountKmers(seq1, k), CountKmers(seq2, k), metric);
+        return KmerDistance(seq1, seq2, k, metric, markovOrder: 0);
+    }
+
+    /// <summary>
+    /// <see cref="KmerDistance(string, string, int, KmerDistanceMetric)"/> with an explicit background Markov order
+    /// for <see cref="KmerDistanceMetric.D2Star"/> / <see cref="KmerDistanceMetric.D2Shepherd"/>
+    /// (<see cref="BackgroundAdjustedD2(string, string, int, int)"/>); the other metrics have no background model
+    /// and require <paramref name="markovOrder"/> = 0.
+    /// </summary>
+    /// <param name="seq1">First sequence (case-insensitive).</param>
+    /// <param name="seq2">Second sequence.</param>
+    /// <param name="k">K-mer length; must be positive (≤ <see cref="MaxBackgroundAdjustedK"/> for D2*/D2S).</param>
+    /// <param name="metric">The metric.</param>
+    /// <param name="markovOrder">Background Markov order r (0 ≤ r &lt; k, or −1 = BIC per sequence) for D2*/D2S; 0 for every other metric.</param>
+    /// <returns>The metric value.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">k, <paramref name="metric"/> or <paramref name="markovOrder"/> is out of range.</exception>
+    /// <exception cref="ArgumentException"><paramref name="markovOrder"/> ≠ 0 for a metric without background model, or (D2*/D2S)
+    /// a sequence is null or has no ACGT k-mer.</exception>
+    public static double KmerDistance(string seq1, string seq2, int k, KmerDistanceMetric metric, int markovOrder)
+    {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+
+        return metric switch
+        {
+            KmerDistanceMetric.D2Star => BackgroundAdjustedD2(seq1, seq2, k, markovOrder).D2StarDistance,
+            KmerDistanceMetric.D2Shepherd => BackgroundAdjustedD2(seq1, seq2, k, markovOrder).D2ShepherdDistance,
+            _ when markovOrder != 0 => throw new ArgumentException(
+                "markovOrder applies only to the background-adjusted metrics D2Star and D2Shepherd.", nameof(markovOrder)),
+            _ => KmerDistance(CountKmers(seq1, k), CountKmers(seq2, k), metric),
+        };
+    }
+
+    /// <summary>
+    /// Parses a metric name as used by the MCP tools (case-insensitive, surrounding blanks ignored): <c>euclidean</c>
+    /// (also null/empty), <c>squared_euclidean_counts</c>, <c>manhattan</c>, <c>chebyshev</c>, <c>canberra</c>,
+    /// <c>cosine</c>, <c>d2</c>, <c>d2star</c>, <c>d2shepherd</c> (alias <c>d2s</c>).
+    /// </summary>
+    /// <exception cref="ArgumentException">The name is not one of the above.</exception>
+    public static KmerDistanceMetric ParseDistanceMetric(string? name) =>
+        (name ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "" or "euclidean" => KmerDistanceMetric.Euclidean,
+            "squared_euclidean_counts" => KmerDistanceMetric.SquaredEuclideanCounts,
+            "manhattan" => KmerDistanceMetric.Manhattan,
+            "chebyshev" => KmerDistanceMetric.Chebyshev,
+            "canberra" => KmerDistanceMetric.Canberra,
+            "cosine" => KmerDistanceMetric.Cosine,
+            "d2" => KmerDistanceMetric.D2,
+            "d2star" => KmerDistanceMetric.D2Star,
+            "d2shepherd" or "d2s" => KmerDistanceMetric.D2Shepherd,
+            _ => throw new ArgumentException(
+                "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd",
+                nameof(name)),
+        };
+
+    /// <summary>Largest k for <see cref="BackgroundAdjustedD2"/>: the statistics sum over all 4^k DNA words (4^12 ≈ 1.7·10⁷).</summary>
+    public const int MaxBackgroundAdjustedK = 12;
+
+    /// <summary>
+    /// Background-adjusted word-match statistics D2* and D2S (Reinert, Chew, Sun &amp; Waterman 2009, J Comput Biol
+    /// 16:1615; Wan, Reinert, Sun &amp; Waterman 2010) and their dissimilarities d2* and d2S (Song et al. 2014,
+    /// Brief Bioinform 15:343), with a Markov background of order <paramref name="markovOrder"/> estimated from each
+    /// sequence.
+    /// </summary>
+    /// <remarks>
+    /// <para>Counts X_w, Y_w are the single-strand k-mer counts over the ACGT windows (upper-cased; a window with
+    /// another symbol is skipped, the Jellyfish convention used by CAFE), n̄ = Σ X_w, m̄ = Σ Y_w. The expected count is
+    /// E_X(w) = n̄·p̂_X(w) under the order-r Markov chain fitted to that sequence by maximum likelihood:
+    /// p̂(w) = N(w₁..w_r)/Σ N(r-mers) · Π_{i&gt;r} N(w_{i−r}..w_i)/Σ_a N(w_{i−r}..w_{i−1}a), with the r-mer and
+    /// (r+1)-mer counts N taken over the sequence's ACGT windows (r = 0: p̂(w) = Π p̂(w_i), the letter frequencies).
+    /// Centred counts X̃ = X − E_X, Ỹ = Y − E_Y; the sums run over all 4^k words w ∈ {A,C,G,T}^k (words absent from
+    /// both sequences contribute too):</para>
+    /// <para>D2* = Σ X̃Ỹ/√(E_X E_Y) (words with E_X·E_Y = 0 omitted); d2* = ½(1 − D2*/√(Σ X̃²/E_X · Σ Ỹ²/E_Y)).</para>
+    /// <para>D2S = Σ X̃Ỹ/√(X̃² + Ỹ²) (words with X̃ = Ỹ = 0 omitted); d2S = ½(1 − D2S/√(Σ X̃²/√(X̃²+Ỹ²) · Σ Ỹ²/√(X̃²+Ỹ²))).</para>
+    /// <para>These are the formulas of CAFE (Lu et al. 2017, <c>dist_model.cpp</c> D2starStrategy/D2sheppStrategy,
+    /// single-strand mode). CAFE derives the r- and (r+1)-mer counts by marginalising the k-mer table on the prefix;
+    /// this method counts them on the sequence (the textbook maximum-likelihood estimator). A Python replica of the
+    /// formulas reproduces the CAFE binary to 6 digits when given CAFE's estimator, and this method to 1e-12 with the
+    /// sequence estimator (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.4). A distance is NaN when a
+    /// normaliser is 0 (e.g. a sequence whose k-mer counts equal their expectation exactly).</para>
+    /// </remarks>
+    /// <param name="seq1">First sequence (case-insensitive).</param>
+    /// <param name="seq2">Second sequence (case-insensitive).</param>
+    /// <param name="k">Word length, 1 ≤ k ≤ <see cref="MaxBackgroundAdjustedK"/>.</param>
+    /// <param name="markovOrder">Background Markov order r, 0 ≤ r &lt; k (0 = i.i.d. letters, the default), or
+    /// <see cref="AutoMarkovOrder"/> (−1) to choose each sequence's order in [0, min(k − 1, 10)] by
+    /// <see cref="SelectMarkovOrder"/> (BIC; CAFE <c>-M -1</c>).</param>
+    /// <returns>The two statistics, the two dissimilarities and the orders used.</returns>
+    /// <exception cref="ArgumentNullException">A sequence is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">k or <paramref name="markovOrder"/> is out of range.</exception>
+    /// <exception cref="ArgumentException">A sequence has no ACGT k-mer window.</exception>
+    public static D2StarStatistics BackgroundAdjustedD2(string seq1, string seq2, int k, int markovOrder = 0)
+    {
+        ArgumentNullException.ThrowIfNull(seq1);
+        ArgumentNullException.ThrowIfNull(seq2);
+        if (k <= 0 || k > MaxBackgroundAdjustedK)
+            throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in [1, {MaxBackgroundAdjustedK}].");
+        if (markovOrder < AutoMarkovOrder || markovOrder >= k)
+            throw new ArgumentOutOfRangeException(nameof(markovOrder), markovOrder, "Markov order must be in [0, k) or -1 (BIC).");
+
+        int maxAutoOrder = Math.Min(k - 1, MaxAutoMarkovOrder);
+        int order1 = markovOrder == AutoMarkovOrder ? SelectMarkovOrder(seq1, maxAutoOrder) : markovOrder;
+        int order2 = markovOrder == AutoMarkovOrder ? SelectMarkovOrder(seq2, maxAutoOrder) : markovOrder;
+        var x = WordBackground.Fit(seq1, k, order1, nameof(seq1));
+        var y = WordBackground.Fit(seq2, k, order2, nameof(seq2));
+
+        double starNum = 0, starX = 0, starY = 0, shepNum = 0, shepX = 0, shepY = 0;
+        var word = new int[k];
+        var probX = new double[k + 1];
+        var probY = new double[k + 1];
+        probX[0] = probY[0] = 1.0;
+        int depth = 0;
+        word[0] = -1;
+
+        // Odometer over {A,C,G,T}^k in lexicographic order; prob[d] = background probability of the d-symbol prefix.
+        while (depth >= 0)
+        {
+            if (++word[depth] == 4)
+            {
+                depth--;
+                continue;
+            }
+
+            probX[depth + 1] = probX[depth] * x.Factor(word, depth, order1);
+            probY[depth + 1] = probY[depth] * y.Factor(word, depth, order2);
+            if (depth < k - 1)
+            {
+                word[++depth] = -1;
+                continue;
+            }
+
+            long code = WordBackground.Encode(word, 0, k);
+            double ex = x.Windows * probX[k], ey = y.Windows * probY[k];
+            double xt = x.CountOf(code) - ex, yt = y.CountOf(code) - ey;
+            if (ex > 0 && ey > 0)
+            {
+                starNum += xt * yt / Math.Sqrt(ex * ey);
+                starX += xt * xt / ex;
+                starY += yt * yt / ey;
+            }
+
+            double norm = Math.Sqrt(xt * xt + yt * yt);
+            if (norm > 0)
+            {
+                shepNum += xt * yt / norm;
+                shepX += xt * xt / norm;
+                shepY += yt * yt / norm;
+            }
+        }
+
+        return new D2StarStatistics(
+            starNum,
+            shepNum,
+            0.5 * (1.0 - starNum / (Math.Sqrt(starX) * Math.Sqrt(starY))),
+            0.5 * (1.0 - shepNum / (Math.Sqrt(shepX) * Math.Sqrt(shepY))))
+        {
+            MarkovOrder1 = order1,
+            MarkovOrder2 = order2,
+        };
+    }
+
+    /// <summary><c>markovOrder</c> value of <see cref="BackgroundAdjustedD2"/> that selects each sequence's order by BIC.</summary>
+    public const int AutoMarkovOrder = -1;
+
+    /// <summary>Highest order tried by the BIC selection (CAFE <c>MAX_ORDER</c> = 10).</summary>
+    public const int MaxAutoMarkovOrder = 10;
+
+    /// <summary>
+    /// Bayesian information criterion of the order-r Markov chain fitted to a sequence:
+    /// BIC(r) = −2·ln L̂_r + (|A| − 1)·|A|^r·ln N_r, with |A| = 4, ln L̂_r = Σ N(u a)·ln(N(u a)/Σ_b N(u b)) over the
+    /// sequence's ACGT (r+1)-mers u a, and N_r their number (Schwarz 1978; Katz 1981 Markov-order estimation; the
+    /// criterion CAFE <c>-M -1</c> minimises).
+    /// </summary>
+    /// <param name="sequence">The sequence (case-insensitive; windows with a non-ACGT symbol are skipped).</param>
+    /// <param name="order">Markov order r ≥ 0.</param>
+    /// <returns>The BIC value (smaller is better).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is negative.</exception>
+    /// <exception cref="ArgumentException">The sequence has no ACGT (r+1)-mer.</exception>
+    public static double MarkovOrderBic(string sequence, int order)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfNegative(order);
+
+        var words = CountKmers(sequence, order + 1, new KmerCountingOptions(AcgtOnly: true));
+        if (words.Count == 0)
+            throw new ArgumentException("Sequence has no (order+1)-mer window over A/C/G/T.", nameof(sequence));
+
+        var contextTotals = new Dictionary<string, double>(StringComparer.Ordinal);
+        double observations = 0;
+        foreach (var (word, count) in words)
+        {
+            var context = word[..order];
+            contextTotals[context] = contextTotals.GetValueOrDefault(context) + count;
+            observations += count;
+        }
+
+        double logLikelihood = 0;
+        foreach (var (word, count) in words)
+            logLikelihood += count * Math.Log(count / contextTotals[word[..order]]);
+
+        return -2.0 * logLikelihood + 3.0 * Math.Pow(4, order) * Math.Log(observations);
+    }
+
+    /// <summary>
+    /// The Markov order r ∈ [0, <paramref name="maxOrder"/>] with the smallest <see cref="MarkovOrderBic"/>
+    /// (ties → the smaller order).
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxOrder"/> is negative.</exception>
+    /// <exception cref="ArgumentException">The sequence has no ACGT (maxOrder+1)-mer.</exception>
+    public static int SelectMarkovOrder(string sequence, int maxOrder)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxOrder);
+        int best = 0;
+        double bestBic = double.PositiveInfinity;
+        for (int r = 0; r <= maxOrder; r++)
+        {
+            double bic = MarkovOrderBic(sequence, r);
+            if (bic < bestBic)
+            {
+                bestBic = bic;
+                best = r;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>Per-sequence k-mer counts (2-bit codes) and fitted order-r Markov background for <see cref="BackgroundAdjustedD2"/>.</summary>
+    private sealed class WordBackground
+    {
+        private readonly Dictionary<long, int> _counts = new();
+        private double[] _initial = Array.Empty<double>();
+        private double[] _transition = Array.Empty<double>();
+
+        public double Windows { get; private set; }
+
+        public static WordBackground Fit(string sequence, int k, int order, string paramName)
+        {
+            var acgt = new KmerCountingOptions(AcgtOnly: true);
+            var kmers = CountKmers(sequence, k, acgt);
+            if (kmers.Count == 0)
+                throw new ArgumentException("Sequence has no k-mer window over A/C/G/T.", paramName);
+
+            var model = new WordBackground();
+            foreach (var (kmer, count) in kmers)
+            {
+                model._counts[Encode(kmer)] = count;
+                model.Windows += count;
+            }
+
+            // Initial distribution over r-mers and transition probabilities P(a | r-mer context), both maximum
+            // likelihood from the sequence's ACGT r-mer and (r+1)-mer counts.
+            int contexts = 1 << (2 * order);
+            model._initial = new double[contexts];
+            if (order == 0)
+            {
+                model._initial[0] = 1.0;
+            }
+            else
+            {
+                var rmers = CountKmers(sequence, order, acgt);
+                double totalR = rmers.Values.Sum();
+                foreach (var (rmer, count) in rmers)
+                    model._initial[Encode(rmer)] = count / totalR;
+            }
+
+            model._transition = new double[contexts * 4];
+            var rowTotals = new double[contexts];
+            foreach (var (word, count) in CountKmers(sequence, order + 1, acgt))
+            {
+                long code = Encode(word);
+                model._transition[code] = count;
+                rowTotals[code >> 2] += count;
+            }
+
+            for (int c = 0; c < model._transition.Length; c++)
+            {
+                if (rowTotals[c >> 2] > 0)
+                    model._transition[c] /= rowTotals[c >> 2];
+            }
+
+            return model;
+        }
+
+        public int CountOf(long code) => _counts.TryGetValue(code, out var c) ? c : 0;
+
+        /// <summary>Probability factor contributed by symbol <paramref name="word"/>[<paramref name="depth"/>].</summary>
+        public double Factor(int[] word, int depth, int order)
+        {
+            if (depth < order - 1)
+                return 1.0;
+            if (depth == order - 1)
+                return _initial[Encode(word, 0, order)];
+            return _transition[Encode(word, depth - order, order + 1)];
+        }
+
+        public static long Encode(int[] word, int start, int length)
+        {
+            long code = 0;
+            for (int i = start; i < start + length; i++)
+                code = (code << 2) | (uint)word[i];
+            return code;
+        }
+
+        private static long Encode(string kmer)
+        {
+            long code = 0;
+            foreach (char c in kmer)
+                code = (code << 2) | (uint)(c switch { 'A' => 0, 'C' => 1, 'G' => 2, _ => 3 });
+            return code;
+        }
     }
 
     /// <summary>
@@ -568,6 +1029,10 @@ public static class KmerAnalyzer
         ArgumentNullException.ThrowIfNull(counts2);
         if (!Enum.IsDefined(metric))
             throw new ArgumentOutOfRangeException(nameof(metric), metric, "Unknown k-mer distance metric.");
+        if (metric is KmerDistanceMetric.D2Star or KmerDistanceMetric.D2Shepherd)
+            throw new ArgumentException(
+                "D2*/D2S need each sequence's background model; use KmerDistance(string, string, int, metric) or BackgroundAdjustedD2.",
+                nameof(metric));
 
         double total1 = SumNonNegative(counts1, nameof(counts1));
         double total2 = SumNonNegative(counts2, nameof(counts2));
@@ -1337,8 +1802,12 @@ public static class KmerAnalyzer
     /// <param name="k">The k-mer length. Must be positive.</param>
     /// <returns>Dictionary mapping each observed k-mer to its summed forward + reverse-complement count.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="dna"/> is null.</exception>
     public static Dictionary<string, int> CountKmersBothStrands(DnaSequence dna, int k)
-        => CountKmersBothStrands(dna.Sequence, k);
+    {
+        ArgumentNullException.ThrowIfNull(dna);
+        return CountKmersBothStrands(dna.Sequence, k);
+    }
 
     /// <summary>
     /// Computes comprehensive k-mer composition statistics for a sequence: the
@@ -1531,6 +2000,19 @@ public readonly record struct KmerCountingOptions(bool Canonical = false, bool A
 }
 
 /// <summary>
+/// Background-adjusted word-match statistics of <see cref="KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int)"/>:
+/// the similarity statistics D2* and D2S and their dissimilarities d2* and d2S (in [0, 1]; Song et al. 2014).
+/// </summary>
+public readonly record struct D2StarStatistics(double D2Star, double D2Shepherd, double D2StarDistance, double D2ShepherdDistance)
+{
+    /// <summary>Background Markov order used for the first sequence (the requested order, or the BIC choice for −1).</summary>
+    public int MarkovOrder1 { get; init; }
+
+    /// <summary>Background Markov order used for the second sequence.</summary>
+    public int MarkovOrder2 { get; init; }
+}
+
+/// <summary>
 /// Word-vector metric for <see cref="KmerAnalyzer.KmerDistance(string, string, int, KmerDistanceMetric)"/>.
 /// Each member states the vector it is applied to: raw counts c(w) or relative frequencies f(w) = c(w)/Σc.
 /// </summary>
@@ -1556,4 +2038,19 @@ public enum KmerDistanceMetric
 
     /// <summary>D2 = Σ c₁(w)·c₂(w), the inner product of the count vectors — a similarity statistic, not a distance (Torney et al. 1990; Lippert et al. 2005; Reinert et al. 2009).</summary>
     D2,
+
+    /// <summary>
+    /// d2* = ½(1 − D2*/√(Σ X̃²/E_X · Σ Ỹ²/E_Y)) on background-centred counts X̃ = X − E_X, with D2* = Σ X̃Ỹ/√(E_X E_Y)
+    /// (Reinert et al. 2009; Song et al. 2014; CAFE <c>D2star</c>), order-0 (i.i.d.) background estimated from each
+    /// sequence; a dissimilarity in [0, 1]. Needs the sequences (string overload or
+    /// <see cref="KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int)"/> for a Markov order r).
+    /// </summary>
+    D2Star,
+
+    /// <summary>
+    /// d2S = ½(1 − D2S/√(Σ X̃²/√(X̃²+Ỹ²) · Σ Ỹ²/√(X̃²+Ỹ²))), D2S = Σ X̃Ỹ/√(X̃²+Ỹ²) ("D2 shepherd"; Reinert et al. 2009;
+    /// Wan et al. 2010; Song et al. 2014; CAFE <c>D2shepp</c>), order-0 background estimated from each sequence; a
+    /// dissimilarity in [0, 1]. Needs the sequences (see <see cref="D2Star"/>).
+    /// </summary>
+    D2Shepherd,
 }

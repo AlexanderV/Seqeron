@@ -127,6 +127,27 @@ Spaced-word frequency vectors are compared with `KmerDistance(counts1, counts2, 
 the Euclidean distance of the relative frequencies). Multi-pattern averaging (the `spaced` program) is a
 caller-side loop over patterns.
 
+### 2.9 Background-adjusted D2* and D2S (audit round 1, WP4)
+
+`BackgroundAdjustedD2(seq1, seq2, k, markovOrder = 0)` and the metrics `KmerDistanceMetric.D2Star` /
+`D2Shepherd` (Reinert, Chew, Sun & Waterman 2009 [6]; Wan et al. 2010 [10]; dissimilarities as Song et al. 2014
+[10]; CAFE `D2star` / `D2shepp` [11]). X_w, Y_w are the single-strand counts over the ACGT windows (Jellyfish
+convention, as CAFE), n̄ = Σ X_w, m̄ = Σ Y_w. Each sequence gets its own order-r Markov background, fitted by
+maximum likelihood on its ACGT r-mer and (r+1)-mer counts:
+p̂(w) = N(w₁..w_r)/Σ N(r-mers) · Π_{i>r} N(w_{i−r}..w_i)/Σ_a N(w_{i−r}..w_{i−1}a) (r = 0: the product of letter
+frequencies). Expected counts E_X = n̄·p̂_X(w), E_Y = m̄·p̂_Y(w); centred counts X̃ = X − E_X, Ỹ = Y − E_Y. Sums run
+over all 4^k words (absent words contribute through −E). `markovOrder = −1` selects each sequence's order by
+BIC(r) = −2 ln L̂_r + 3·4^r·ln N_r (N_r = number of ACGT (r+1)-mers; Schwarz 1978, Katz 1981; the criterion of
+CAFE `-M -1`, orders 0..min(k − 1, 10)):
+
+- D2* = Σ X̃Ỹ/√(E_X E_Y) (E_X·E_Y = 0 omitted); d2* = ½(1 − D2*/√(Σ X̃²/E_X · Σ Ỹ²/E_Y)).
+- D2S = Σ X̃Ỹ/√(X̃² + Ỹ²) (X̃ = Ỹ = 0 omitted); d2S = ½(1 − D2S/√(Σ X̃²/√(X̃²+Ỹ²) · Σ Ỹ²/√(X̃²+Ỹ²))).
+
+With a common background p (Reinert 2009's setting) √(E_X E_Y) = √(n̄ m̄)·p_w, the published D2* denominator.
+d2*, d2S ∈ [0, 1]; identical sequences → 0. k ≤ 12 (`MaxBackgroundAdjustedK`: 4^12 words are enumerated), 0 ≤ r < k.
+NaN when a normaliser is 0 (e.g. a homopolymer at order 0, whose counts equal their expectation). The counts
+overload `KmerDistance(counts1, counts2, metric)` rejects D2*/D2S (a background needs the sequence).
+
 ## 3. Contract
 
 ### 3.1 Inputs and Parameters
@@ -167,6 +188,7 @@ caller-side loop over patterns.
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | KmerDistance | O(n + m) | O(u) | n, m = sequence lengths; u = number of distinct k-mers in the union; one linear pass per sequence to count, one pass over the union |
+| BackgroundAdjustedD2 | O(n + m + 4^k) | O(u + 4^r) | counts + Markov fit per sequence, then one odometer pass over all 4^k words (prefix probabilities updated incrementally) |
 
 ## 5. Implementation Notes
 
@@ -180,7 +202,8 @@ caller-side loop over patterns.
 - `KmerAnalyzer.KmerDistance(string, string, int, KmerDistanceMetric)` / `KmerDistance(IReadOnlyDictionary<string,int>, IReadOnlyDictionary<string,int>, KmerDistanceMetric)`: the metric variants of §2.6 (single word-vector loop; the legacy method delegates to it).
 - `KmerAnalyzer.JaccardSimilarity(string, string, int[, KmerCountingOptions])`, `MashDistance(string, string, int, KmerCountingOptions)`, `MashDistanceFromJaccard(double, int)`: §2.7 (over `DistinctKmers`).
 - `KmerAnalyzer.CountSpacedWords(string, string)`: §2.8.
-- MCP: `kmer_distance` (Analysis) optional `metric`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly`.
+- `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int)` → `D2StarStatistics(D2Star, D2Shepherd, D2StarDistance, D2ShepherdDistance)`; `KmerDistance(seq1, seq2, k, metric, markovOrder)`; metrics `D2Star` / `D2Shepherd`; `ParseDistanceMetric(string)` (MCP metric names): §2.9.
+- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`) and `markovOrder`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly`.
 
 ### 5.2 Current Behavior
 
@@ -213,10 +236,12 @@ caller-side loop over patterns.
 - Count-based squared d_E (Blaisdell 1986 [5]), Manhattan, Chebyshev, Canberra, cosine and D2 [6] — `KmerDistanceMetric` (§2.6).
 - Exact k-mer Jaccard and Mash distance [7][8] (§2.7); spaced-word counts [4] (§2.8).
 
+**Implemented in audit round 1 (WP4):**
+
+- Background-adjusted D2* / D2S and d2* / d2S [6][10][11] with an order-r Markov background per sequence (§2.9). `markovOrder = -1` (`AutoMarkovOrder`) chooses each sequence's order in [0, min(k − 1, 10)] by BIC (`MarkovOrderBic`, `SelectMarkovOrder`; Schwarz 1978, Katz 1981 — CAFE `-M -1`). Not provided: CAFE's both-strand mode (`-R`: canonical counts with the background probability averaged over w and RC(w)), a CAFE-specific option that none of the published definitions [6][10] uses.
+
 **Not implemented:**
 
-- Background-corrected D2* / D2S (Reinert et al. 2009 [6]; Wan et al. 2010): they need a Markov background model
-  of word probabilities; **users should rely on:** `D2` (raw) and the distances above.
 - MinHash *sketching* (Mash/sourmash estimate J from a bottom-s sketch); this unit computes the exact sets, which
   is the quantity the sketch estimates.
 
@@ -245,8 +270,8 @@ caller-side loop over patterns.
 - Frequency normalization removes overall length information, so two sequences with the same
   relative composition but different lengths can have distance 0.
 - The default uses contiguous literal k-mers; spaced words (§2.8) and canonical (strand-collapsed)
-  count tables (`KmerDistance(counts1, counts2, metric)`) are available. No statistical background
-  correction (D2*, D2S). The raw Euclidean value is a
+  count tables (`KmerDistance(counts1, counts2, metric)`) are available. Background-corrected d2* / d2S are
+  available (§2.9) for k ≤ 12. The raw Euclidean value is a
   dissimilarity, not a calibrated phylogenetic distance [2].
 
 ## 7. Examples and Related Material
@@ -298,10 +323,47 @@ GATTACAGATTACA/`11011` → ATAC:2 GATA:2 TTCA:2 ACGA/AGTT/CAAT/TAAG:1; R1/`11001
 `1101` frequency-Euclidean GATTACAGATTACA vs GATTACCGATTTCA 0.3149183286488868 (sqEuclid counts 12).
 The `spaced` reference program (spaced.gobics.de) was not reachable (host not allow-listed; no GitHub mirror found).
 
+### 7.4 D2* / D2S reference cross-check (audit round 1, WP4)
+
+Sources opened: CAFE source (github.com/younglululu/CAFE, cloned 2026-10-01): `dist_model.cpp` (D2starStrategy /
+D2sheppStrategy `dealWithQuad`, `getDist` = 0.5·(1 − num/(√Σ·√Σ))), `kmer.cpp` (`getCntExpDist`: expected count =
+exp(log total + log p); with lower count 0 the traverse iterator visits all 4^k words; `getMarkovModel`,
+`saveFromLargerK`), `seq_model.cpp` (Markov model, log-probabilities); Song et al. 2014 definition of d2S (search
+snippet: Ñ_w = N_w − E N_w estimated from each sequence, sum over w ∈ A^k). The Reinert 2009 / Song 2014 full texts
+(PMC, arXiv) are blocked by the proxy.
+
+Reference programs executed:
+
+1. **CAFE binary** (built with `g++ -O2`, run as `cafe -M r -K k -D D2star,D2shepp -J jellyfish` with Jellyfish 2.3.1,
+   single strand). CAFE derives the r- and (r+1)-mer counts by marginalising the k-mer table on the prefix, and it
+   stores log-probabilities and tests `== 0` for "missing", so a transition probability of exactly 1 (log 0) prunes the
+   word (E = 0).
+2. An independent **Python replica** of the formulas (`itertools.product` over ACGT^k). With CAFE's estimator
+   (prefix marginal + the log-zero pruning) it reproduces every CAFE output to the 6 printed digits: random 300/250-nt
+   pair (k, r) = (3,0) 0.414504/0.420488, (3,1) 0.463955/0.417225, (4,2) 0.456430/0.498431, (5,0) 0.471348/0.419045,
+   (5,1) 0.480534/0.428895 (d2*/d2S); fixtures S1/S2 k=3 r=0 0.446849/0.510267, k=4 r=2 0.336470/0.488786 (needs the
+   log-zero emulation), k=5 r=1 0.531238/0.451976; S1/S3 0.565131/0.525654, 0.488625/0.488019, 0.470944/0.422149;
+   S2/S3 0.568492/0.528325, 0.691869/0.530888, 0.521633/0.445835.
+3. The same replica with the **maximum-likelihood estimator on the sequence** (the definition implemented here) gives
+   the values locked in the tests; C# equals all 18 rows (3 pairs × (k, r) ∈ {(2,0), (3,0), (3,1), (4,0), (4,2), (5,1)})
+   to 1e-12, e.g. S1/S2 k=3 r=0: D2* 7.136981012975184, D2S −0.6884013403313263, d2* 0.44457941706964565,
+   d2S 0.5084031847096179; S1/S3 k=5 r=1: 27.25084993741092, 15.703707350850248, 0.47723568878974626, 0.41877711459909545.
+
+BIC (Python replica `bic_seq` = C# to 1e-9; S1 231.88984329117494 / 255.74056400499072 / 370.90681674887685 /
+914.1030179340269 for r = 0..3; a periodic 100-nt sequence picks r = 1). CAFE's printed BIC uses its prefix-marginal
+tables and ln(n − r + 1), so the values differ slightly (300-nt sequence A: CAFE 848.929 / 900.92 / 1156.14 /
+1816.02 / 4655.87 vs 847.339 / 885.089 / 1047.615 / 1692.768 / 4633.977 here), but the selected order agrees
+(0 for both test sequences).
+
+The estimator difference is deliberate: the published statistics estimate the background from the sequence;
+CAFE's prefix marginal drops the last k − 1 letters (e.g. T 76 vs 78 in the 300-nt sequence), and its log-zero
+sentinel is an implementation artefact (a probability of 1 is valid).
+
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [KmerAnalyzer_KmerDistance_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_KmerDistance_Tests.cs) — covers `INV-01`–`INV-04`
 - Tests: [KmerAnalyzer_DistanceMetrics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_DistanceMetrics_Tests.cs) — §7.2 values, `INV-05`/`INV-06`, conventions, spaced words
+- Tests: [KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs) — §7.4 values, D2*/D2S conventions and validation
 - Evidence: [KMER-DIST-001-Evidence.md](../../../docs/Evidence/KMER-DIST-001-Evidence.md)
 
 ## 8. References
@@ -315,3 +377,5 @@ The `spaced` reference program (spaced.gobics.de) was not reachable (host not al
 7. Jaccard P. 1901. Bull Soc Vaudoise Sci Nat 37:547–579; Jaccard P. 1912. The distribution of the flora in the alpine zone. New Phytol 11:37–50.
 8. Ondov BD, Treangen TJ, Melsted P, Mallonee AB, Bergman NH, Koren S, Phillippy AM. 2016. Mash: fast genome and metagenome distance estimation using MinHash. Genome Biology 17:132. Source: github.com/marbl/Mash `src/mash/CommandDistance.cpp`, `src/mash/Sketch.cpp` (raw.githubusercontent.com, opened 2026-10-01).
 9. Zielezinski A, Girgis HZ, Bernard G, et al. 2019. Benchmarking of alignment-free sequence comparison methods. Genome Biology 20:144 (alfpy reference implementation; PyPI alfpy 1.0.6).
+10. Wan L, Reinert G, Sun F, Waterman MS. 2010. Alignment-free sequence comparison (II): theoretical power of comparison statistics. J Comput Biol 17(11):1467–1490; Song K, Ren J, Reinert G, Deng M, Waterman MS, Sun F. 2014. New developments of alignment-free sequence comparison: measures, statistics and next-generation sequencing. Brief Bioinform 15(3):343–353 (d2* / d2S dissimilarities; full text blocked, definition from search snippets).
+11. Lu YY, Tang K, Ren J, Fuhrman JA, Waterman MS, Sun F. 2017. CAFE: aCcelerated Alignment-FrEe sequence analysis. Nucleic Acids Res 45(W1):W554–W559. Source: github.com/younglululu/CAFE `code/dist_model.cpp`, `code/kmer.cpp`, `code/seq_model.cpp` (cloned and built 2026-10-01).
