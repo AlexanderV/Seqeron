@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | Algorithm Group | MolTools |
-| Test Unit ID | PRIMER-TM-001 |
+| Test Unit ID | PRIMER-TM-001, PRIMER-HAIRPIN-001 |
 | Related Projects | Seqeron.Genomics.MolTools |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-25 |
+| Last Reviewed | 2026-10-01 (PRIMER-HAIRPIN-001, review-2026-09 B07) |
 
 ## 1. Overview
 
@@ -14,7 +14,9 @@ Computes the full Primer3 `ntthal` intramolecular-hairpin thermodynamics (ΔH°,
 DNA oligo, **automatically applying the bundled sequence-specific special triloop (3-nt) and
 tetraloop (4-nt) stability bonus tables**. These tables are the extra stability that recognised loops
 (e.g. GNRA tetraloops) gain over a generic loop of the same length; before this work the bonus had to
-be supplied by hand. The method reproduces primer3-py `calc_hairpin` to machine precision and is
+be supplied by hand. The engine is a bit-faithful port of the primer3-py **2.3.1** `thal.c` type-4
+(hairpin) path and reproduces `calc_hairpin` exactly (Tm, ΔG, ΔH, ΔS and the ASCII structure) at any
+`mv`/`dv`/`dntp`/`temp_c`/`max_loop` (§5.3). It is
 opt-in: the legacy SantaLucia & Hicks (2004) Table 4 hairpin model and the duplex/dimer Tm methods are
 unchanged [1][3].
 
@@ -40,8 +42,12 @@ triloop / tetraloop tables, keyed on the full loop string including the closing 
   ΔH/ΔS in cal/mol and cal/(K·mol) (e.g. CGAAAG = −1100/0) [primer3 `tetraloop.dh`/`.ds`].
 
 The unimolecular melting temperature is `Tm = ΔH°/(ΔS° + (N/2 − 1)·saltCorrection) − 273.15`, with
-`saltCorrection = 0.368·ln([Na⁺])` and no strand-concentration term (the transition is intramolecular)
-[3]. The bonus tables are the verbatim libprimer3 parameter files that `ntthal` loads; their values
+thal.c `saltCorrectS` = `0.368·ln((mv + 120·√max(0, dv − dntp))/1000)` (mM; dntp ignored when dv ≤ 0)
+and no strand-concentration term (the transition is intramolecular); the reported
+`ΔG = ΔH° − T·(ΔS° + (N/2 − 1)·saltCorrection)` at the analysis temperature `T = temp_c + 273.15`
+[3]. The exterior loop (`calc_terminal_bp`) adds the A·T penalty and the best dangling-end /
+terminal-mismatch contribution of each outermost pair and accepts a candidate only when its
+`ΔH − T·ΔS < 0` (thal.c global `G2 = 0`), so `temp_c` can also change the selected structure. The bonus tables are the verbatim libprimer3 parameter files that `ntthal` loads; their values
 trace to SantaLucia & Hicks (2004) "special hairpin loops" [1].
 
 ### 2.4 Properties and Invariants
@@ -60,15 +66,28 @@ trace to SantaLucia & Hicks (2004) "special hairpin loops" [1].
 |------|------|---------|-------------|-------------|
 | sequence | string | required | DNA oligo (5′→3') | ACGT only; case-insensitive |
 | sodiumMolar | double | 0.05 | Monovalent cation concentration (mol/L) | > 0; primer3 `mv=50` mM |
+| divalentMolar, dntpMolar | double | 0 (2-arg overload); 1.5 mM / 0.6 mM (`CalculateHairpinStructureNtthal`) | Mg²⁺ / dNTP (mol/L), enter `saltCorrectS` | ≥ 0 |
+| temperatureCelsius | double | 37 | primer3-py `temp_c` (ΔG temperature and exterior-loop acceptance) | — |
+| maxLoop | int | 30 | primer3-py `max_loop` (largest bulge / internal loop) | 0–30, else `ArgumentOutOfRangeException` |
+
+Overloads: `CalculateHairpinThermodynamicsNtthal(seq, mv)` (dv = dntp = 0, 37 °C, max loop 30),
+`(seq, mv, dv, dntp)`, `(seq, mv, dv, dntp, temperatureCelsius, maxLoop)`, and
+`CalculateHairpinStructureNtthal(seq, mv, dv, dntp, temperatureCelsius, maxLoop)` (defaults = primer3-py
+`calc_hairpin` defaults) which also returns the thal.c `drawHairpin` lines.
 
 ### 3.2 Output / Return Value
 
-`HairpinThermodynamics?` — ΔH° (kcal/mol), ΔS° (cal/(K·mol), incl. salt term), ΔG°37 (kcal/mol),
-Tm (°C), BasePairs (ntthal N/2). `null` when no hairpin forms or input is invalid.
+`HairpinThermodynamics?` — ΔH° (kcal/mol), ΔS° (cal/(K·mol), incl. salt term), ΔG°37 (kcal/mol; ΔG at
+`temp_c` for the temperature overload), Tm (°C), BasePairs (ntthal N/2). `null` when no hairpin forms or
+input is invalid. `NtthalHairpinStructure` adds `AsciiStructureLines` = primer3-py
+`ascii_structure_lines`: `"SEQ\t"` + one character per base (`-` unpaired, `/` 5′ partner, `\` 3′
+partner) and `"STR\t"` + the upper-case oligo.
 
 ### 3.3 Preconditions and Validation
 
-null / empty / any non-ACGT character → `null`. The sequence is uppercased internally. A homopolymer
+null / empty / any non-ACGT character → `null` (thal.c would read other characters as N). The
+sequence is uppercased internally. Longer than 60 nt → `ArgumentException` (thal.c `THAL_MAX_ALIGN`:
+both "sequences" of a hairpin are the oligo; primer3-py raises the same message). A homopolymer
 or an oligo too short to close a ≥ 3-nt loop returns `null` (matching primer3 `structure_found=False`).
 
 ## 4. Algorithm
@@ -102,9 +121,11 @@ provenance header; the stem / terminal-mismatch / dangle / interior / bulge tabl
 **Implementation location:** [NtthalHairpin.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalHairpin.cs),
 [PrimerDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs)
 
-- `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, double)`: public entry; validates input,
-  runs the ntthal hairpin DP, converts ntthal cal/mol → kcal/mol.
-- `NtthalHairpin.Run(string, double)`: the full monomer DP + bundled special-loop bonus lookups.
+- `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(...)` / `CalculateHairpinStructureNtthal(...)`:
+  public entries; validate input, run the ntthal hairpin DP, convert ntthal cal/mol → kcal/mol.
+- `NtthalHairpin.Run(oligo, mv, dv, dntp, tempKelvin, maxLoop, withStructure)`: the full monomer DP +
+  bundled special-loop bonus lookups + `drawHairpin`. thal.c `RSH` and its terminal-pair selection are
+  shared with the dimer engine (`NtthalDimer.RightTerminalPair` / `TerminalPair`).
 
 ### 5.2 Current Behavior
 
@@ -119,15 +140,21 @@ Table 4 model) are unchanged and still accept a caller-supplied `loopBonusDeltaG
 - The full ntthal hairpin DP and the triloop/tetraloop bonus tables (verbatim libprimer3 files),
   keyed on the full loop string including the closing pair, added to loop ΔH°/ΔS° [3].
 - Unimolecular Tm with the `(N/2 − 1)·saltCorrection` entropy term and no concentration term [3].
+- thal.c details that change results and are reproduced deliberately: `calc_hairpin` evaluates the
+  dimer `RSH(i, j)` on the non-reversed oligo (neighbours `s[i+1]`, `s[j+1]`) whose running Tm stays −∞
+  unless a dangling-end branch is entered; `calc_terminal_bp` accepts an exterior candidate only when
+  `ΔH − temp·ΔS < G2 = 0`; `max5` tie/NaN rule; `equal()` (|a − b| < 1e−5, non-finite never equal);
+  `DBL_EQ` skip of 1×1 mismatches that do not raise the cell Tm by ≥ 1e−6; `tracebacku`'s
+  `CBI(…, traceback = 2)` probe; `Ss`/`Hs` range guards; C `isfinite` (NaN not finite).
+- Validation (PRIMER-HAIRPIN-001, 2026-10-01): primer3-py 2.3.1 `calc_hairpin(output_structure=True)`
+  on 9000 random oligos (5–60 nt: random, palindromic, GC-rich, homopolymer runs, designed hairpins with
+  mismatches/bulges; 4000 at the defaults, 5000 at random mv ∈ {10,50,100,200}, dv ∈ {0,…,10},
+  dntp ∈ {0,…,2}, temp_c ∈ {25,37,55,60,70}, max_loop ∈ {0,5,10,20,30}) — 0 mismatches in Tm, ΔG, ΔH,
+  ΔS (≤ 1e−6) and in the ASCII structure; all 1409 oligos of length 1–7 agree on structure/no-structure.
 
-**Intentionally simplified:**
+**Intentionally simplified / Not implemented:**
 
 - (none)
-
-**Not implemented:**
-
-- Divalent (Mg²⁺) / dNTP salt terms: the public method exposes only monovalent `[Na⁺]` (dv=dntp=0),
-  matching the captured primer3 conditions; **users should rely on:** primer3 directly for divalent salt.
 
 ## 6. Edge Cases and Limitations
 
@@ -142,7 +169,7 @@ Table 4 model) are unchanged and still accept a caller-supplied `loopBonusDeltaG
 
 ### 6.2 Limitations
 
-Monovalent salt only (dv=dntp=0). Special bonus tables exist only for 3-nt and 4-nt loops (the
+Input limited to ACGT and ≤ 60 nt (as thal.c / primer3-py). Special bonus tables exist only for 3-nt and 4-nt loops (the
 biology — there are no measured 5-nt+ special-loop tables).
 
 ## 7. Examples and Related Material

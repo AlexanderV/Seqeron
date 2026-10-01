@@ -157,11 +157,12 @@ methods score any non-ACGT character as N (Primer3 `p3_reverse_complement` turns
   `design_primers` whenever the engines match `calc_homodimer` / `calc_end_stability` /
   `calc_hairpin` (all END1/END2/dv code paths verified to 1e-9 on the engine-exact cases).
   The dimer engine is bit-exact to primer3-py 2.3.1 since PRIMER-DIMER-001 (8000/8000 random
-  pairs, all modes and conditions); residual hairpin-engine discrepancies (≈ 5 % of random
-  hairpins, see B07 report) are owned by PRIMER-HAIRPIN-001.
+  pairs, all modes and conditions) and the hairpin engine since PRIMER-HAIRPIN-001 (9000/9000
+  random oligos 5–60 nt, default and random mv/dv/dntp/temp_c/max_loop; Tm/ΔG/ΔH/ΔS ≤ 1e−6 and
+  identical ASCII structure).
 - `DesignPrimers` vs primer3-py `design_primers` (thermodynamic default, this library's per-primer
-  limits): 574/600 random templates identical; every one of the 26 differences traced to an ntthal
-  engine value differing from primer3-py.
+  limits): 1800/1800 random templates (seeds 1–9 × 200) identical after PRIMER-HAIRPIN-001 (before:
+  574/600 with both engines inexact, 1733/1800 with only the hairpin engine inexact).
 
 ## 6. Edge Cases and Limitations
 

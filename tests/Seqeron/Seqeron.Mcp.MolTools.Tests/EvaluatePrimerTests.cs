@@ -41,4 +41,21 @@ public class EvaluatePrimerTests
                 Is.EqualTo(Math.Round(MolToolsTools.three_prime_stability(Primer).DeltaG, 1)).Within(1e-9));
         });
     }
+
+    [Test]
+    public void EvaluatePrimer_ThermodynamicStructure_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(check_primers) / calc_hairpin / calc_homodimer /
+        // calc_end_stability at the Primer3 defaults (mv 50, dv 1.5, dNTP 0.6 mM, 50 nM):
+        // PRIMER_LEFT_0_HAIRPIN_TH = 70.32453138616256, _SELF_ANY_TH = _SELF_END_TH = 56.93752320069052.
+        var c = MolToolsTools.evaluate_primer(Primer, 0, true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.HairpinTh, Is.EqualTo(70.32453138616256).Within(1e-9));
+            Assert.That(c.SelfAnyTh, Is.EqualTo(56.93752320069052).Within(1e-9));
+            Assert.That(c.SelfEndTh, Is.EqualTo(56.93752320069052).Within(1e-9));
+            Assert.That(c.HasHairpin, Is.True, "Hairpin Tm exceeds Primer3's PRIMER_MAX_HAIRPIN_TH = 47 °C.");
+            Assert.That(c.IsValid, Is.False);
+        });
+    }
 }

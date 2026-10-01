@@ -14,7 +14,7 @@ Evaluate a single primer against quality criteria.
 
 ## Description
 
-Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm: 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM), longest homopolymer, hairpin potential, 3′-end ΔG°37 stability, a list of quality issues (against the supplied or default `PrimerParameters`), an overall validity flag, an informational numeric score and the Primer3 per-primer `penalty` (|Tm − OptimalTm| + |length − OptimalLength|; lower is better). `position` and `is_forward` are informational and echoed back.
+Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm: 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM), longest homopolymer, the Primer3 thermodynamic secondary-structure Tm values (`hairpinTh` = primer3 `calc_hairpin` Tm, `selfAnyTh` = `calc_homodimer` Tm, `selfEndTh` = `calc_end_stability(p, p)` Tm at the same conditions; 0 when no structure or Tm < 0; the ntthal engines are bit-exact ports of primer3-py 2.3.1 `thal.c`), `hasHairpin` (= `hairpinTh` > `MaxStructureTm`, default 47 °C = Primer3 `PRIMER_MAX_HAIRPIN_TH`; with `StructureScreen = Heuristic` it is the sequence-only `HasHairpinPotential` and the `*Th` fields are null), 3′-end ΔG°37 stability, a list of quality issues (against the supplied or default `PrimerParameters`), an overall validity flag, an informational numeric score and the Primer3 per-primer `penalty` (|Tm − OptimalTm| + |length − OptimalLength|; lower is better). `position` and `is_forward` are informational and echoed back.
 
 ## Core Documentation Reference
 
@@ -35,6 +35,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3-
 |-------|------|-------------|
 | `length` / `gcContent` / `meltingTemperature` | number | Basic metrics. |
 | `homopolymerLength` / `hasHairpin` / `stability3Prime` | mixed | Structural metrics. |
+| `selfAnyTh` / `selfEndTh` / `hairpinTh` | number \| null | Primer3 `PRIMER_*_SELF_ANY_TH` / `_SELF_END_TH` / `_HAIRPIN_TH` (°C). |
 | `isValid` / `issues` / `score` / `penalty` | mixed | QC verdict; `penalty` is the Primer3 ranking penalty. |
 
 ## Errors

@@ -33,7 +33,7 @@ public class MolToolsTools
         return PrimerDesigner.DesignPrimers(new DnaSequence(template), target_start, target_end, parameters);
     }
 
-    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, hairpin potential, 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. Call to QC one primer (position/strand are informational).")]
+    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, the Primer3 thermodynamic secondary-structure Tm values (hairpinTh / selfAnyTh / selfEndTh = primer3 calc_hairpin / calc_homodimer / calc_end_stability Tm at 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM; hasHairpin = hairpinTh > 47 °C, PRIMER_MAX_HAIRPIN_TH), 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. Call to QC one primer (position/strand are informational).")]
     public static PrimerCandidate evaluate_primer(
         [Description("Primer sequence to evaluate.")] string sequence,
         [Description("0-based location of the primer in the template (informational).")] int position,

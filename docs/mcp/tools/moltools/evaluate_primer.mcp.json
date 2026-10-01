@@ -32,7 +32,10 @@
       "isValid": { "type": "boolean" },
       "issues": { "type": "array", "items": { "type": "string" } },
       "score": { "type": "number" },
-      "penalty": { "type": "number" }
+      "penalty": { "type": "number" },
+      "selfAnyTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_SELF_ANY_TH: ntthal ANY self-dimer Tm (°C), 0 when none." },
+      "selfEndTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_SELF_END_TH: ntthal END1 self-dimer Tm (°C), 0 when none." },
+      "hairpinTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_HAIRPIN_TH: ntthal hairpin Tm (°C) = primer3-py calc_hairpin, 0 when none." }
     },
     "required": ["sequence", "position", "isForward", "length", "gcContent", "meltingTemperature", "homopolymerLength", "hasHairpin", "stability3Prime", "isValid", "issues", "score"]
   },

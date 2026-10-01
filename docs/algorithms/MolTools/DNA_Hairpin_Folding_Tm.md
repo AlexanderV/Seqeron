@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | Algorithm Group | MolTools |
-| Test Unit ID | PRIMER-TM-001 (hairpin / secondary-structure Tm extension) |
+| Test Unit ID | PRIMER-TM-001 (hairpin / secondary-structure Tm extension), PRIMER-HAIRPIN-001 |
 | Related Projects | Seqeron.Genomics.MolTools |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-06-25 |
+| Last Reviewed | 2026-10-01 (PRIMER-HAIRPIN-001, review-2026-09 B07) |
 
 ## 1. Overview
 
@@ -16,8 +16,12 @@ A hairpin is intramolecular, so its Tm is concentration-independent: `Tm = ΔH°
 strand-concentration term [1]. The model reuses the SantaLucia (1998) unified nearest-neighbour stem stacks [2]
 and the SantaLucia & Hicks (2004) Table 4 hairpin-loop-initiation increments [1]. It is an **opt-in** addition:
 the existing duplex Tm methods (`CalculateMeltingTemperatureNN`, the default Wallace/Marmur-Doty Tm) are
-unchanged. The result is exact for the stem-stack + loop-initiation core; the supplementary triloop/tetraloop
-bonus and terminal-mismatch increments are not bundled (see §5.3, §6.2).
+unchanged. The result is exact for the stem-stack + loop-initiation core; the triloop/tetraloop bonus and
+terminal-mismatch increments are not part of this single-stem core (see §5.3, §6.2). The complete hairpin model
+(special loops, terminal mismatches, bulges/internal loops, exterior dangles, Mg²⁺/dNTP salt) is
+`PrimerDesigner.CalculateHairpinThermodynamicsNtthal` — a bit-exact port of primer3-py 2.3.1 `calc_hairpin`
+([DNA_Hairpin_Special_Loop_Bonus](DNA_Hairpin_Special_Loop_Bonus.md)) and the hairpin model used by
+`DesignPrimers`.
 
 ## 2. Scientific / Formal Basis
 
@@ -155,11 +159,12 @@ lets a caller add the supplementary terminal-mismatch / triloop-tetraloop increm
 
 **Not implemented:**
 
-- The supplementary triloop (length-3) / tetraloop (length-4) bonus tables and the terminal-mismatch
-  increment; **users should rely on:** the opt-in `loopBonusDeltaG37` (caller-supplied) or a full folding tool
-  (UNAFold, ViennaRNA, MELTING 5) for those special-loop corrections.
-- Bulges, internal loops, multibranch loops, and self-/cross-dimer (intermolecular) structures; **users should
-  rely on:** UNAFold / ViennaRNA.
+- The triloop (length-3) / tetraloop (length-4) bonus and the terminal-mismatch increment are not added to
+  this single-stem core (the opt-in `loopBonusDeltaG37` remains for a caller-supplied increment); bulges,
+  internal loops and exterior dangles are outside a single-stem model. **Users should rely on:**
+  `CalculateHairpinThermodynamicsNtthal` / `CalculateHairpinStructureNtthal`, which implement all of them
+  (primer3 `thal.c` with the libprimer3 `triloop`/`tetraloop`/`tstack2`/`dangle` tables; exact to
+  primer3-py 2.3.1 `calc_hairpin`). Self-/cross-dimers: `CalculateDimerThermodynamicsNtthal`.
 
 ### 5.4 Deviations and Assumptions
 
@@ -184,8 +189,9 @@ lets a caller add the supplementary terminal-mismatch / triloop-tetraloop increm
 ### 6.2 Limitations
 
 Single hairpin only — no bulges, internal loops, multibranch, or pseudoknots; no self-dimer/cross-dimer
-(intermolecular) Tm; the length-3/4 special-loop bonuses and terminal mismatch are caller-supplied. For a full
-secondary-structure energy minimisation use UNAFold, ViennaRNA, or MELTING 5.
+(intermolecular) Tm; the length-3/4 special-loop bonuses and terminal mismatch are caller-supplied. For the
+complete DNA hairpin model use `CalculateHairpinThermodynamicsNtthal` (primer3 ntthal, exact to primer3-py
+2.3.1); for multibranch secondary structure use UNAFold or ViennaRNA.
 
 ## 7. Examples and Related Material
 

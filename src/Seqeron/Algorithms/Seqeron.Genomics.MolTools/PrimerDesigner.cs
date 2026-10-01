@@ -2357,10 +2357,12 @@ public static class PrimerDesigner
     /// </summary>
     /// <param name="sequence">The DNA oligo (5′→3'); ≥ 1 ACGT base.</param>
     /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM, the
-    /// primer3 <c>calc_hairpin</c> default of <c>mv=50</c>).</param>
+    /// primer3 <c>calc_hairpin</c> default of <c>mv=50</c>). This overload has no divalent cations or
+    /// dNTPs: it equals <c>calc_hairpin(seq, mv_conc, dv_conc=0, dntp_conc=0)</c> at 37 °C, max loop 30.</param>
     /// <returns>The most stable hairpin's thermodynamics, or <c>null</c> if the sequence is
     /// null/empty/contains a non-ACGT character, or no hairpin can form (ntthal
     /// <c>no_structure</c>, e.g. a homopolymer).</returns>
+    /// <exception cref="ArgumentException">The sequence is longer than 60 nt (thal.c <c>THAL_MAX_ALIGN</c>).</exception>
     public static HairpinThermodynamics? CalculateHairpinThermodynamicsNtthal(
         string sequence,
         double sodiumMolar = ThermoConstants.DefaultNaConcentration)
@@ -2391,9 +2393,11 @@ public static class PrimerDesigner
     /// </summary>
     /// <param name="DeltaH">Hairpin ΔH° in kcal/mol (salt-independent).</param>
     /// <param name="DeltaS">Hairpin ΔS° in cal/(K·mol), including the (N/2−1)·saltCorrection term.</param>
-    /// <param name="DeltaG37">Hairpin ΔG°37 = ΔH° − 310.15·ΔS°/1000 in kcal/mol (negative = stable).</param>
+    /// <param name="DeltaG37">Hairpin ΔG = ΔH° − T·ΔS°/1000 in kcal/mol (negative = stable) at T = 310.15 K
+    /// (37 °C), or at <c>temperatureCelsius</c> + 273.15 for the overloads taking it (primer3-py <c>temp_c</c>).</param>
     /// <param name="TmCelsius">Unimolecular melting temperature in °C (no strand-concentration term).</param>
-    /// <param name="BasePairs">Number of base pairs in the optimal stem.</param>
+    /// <param name="BasePairs">ntthal N/2: half the number of paired positions among bases 1..len−1 of the
+    /// optimal structure (the count thal.c uses in the (N/2 − 1)·saltCorrection term).</param>
     public readonly record struct HairpinThermodynamics(
         double DeltaH, double DeltaS, double DeltaG37, double TmCelsius, int BasePairs);
 
@@ -2539,27 +2543,96 @@ public static class PrimerDesigner
     /// <summary>
     /// Full <c>ntthal</c> hairpin thermodynamics with the complete ntthal salt model (divalent
     /// cations and dNTPs enter through <c>saltCorrectS</c>), reproducing primer3-py
-    /// <c>calc_hairpin</c> at any mv/dv/dntp.
+    /// <c>calc_hairpin</c> at any mv/dv/dntp (temperature 37 °C, max loop 30 — the primer3-py defaults).
     /// </summary>
-    /// <param name="sequence">DNA oligo (5′→3′), ACGT only.</param>
+    /// <param name="sequence">DNA oligo (5′→3′), ACGT only, at most 60 nt.</param>
     /// <param name="sodiumMolar">Monovalent cation concentration, mol/L.</param>
     /// <param name="divalentMolar">Mg²⁺ concentration, mol/L.</param>
     /// <param name="dntpMolar">dNTP concentration, mol/L.</param>
     /// <returns>The thermodynamics, or <c>null</c> for invalid input or when no hairpin forms.</returns>
+    /// <exception cref="ArgumentException">The sequence is longer than 60 nt (thal.c
+    /// <c>THAL_MAX_ALIGN</c>; primer3-py raises).</exception>
     public static HairpinThermodynamics? CalculateHairpinThermodynamicsNtthal(
         string sequence,
         double sodiumMolar,
         double divalentMolar,
-        double dntpMolar)
+        double dntpMolar) =>
+        CalculateHairpinThermodynamicsNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            NtthalDefaultTemperatureCelsius, NtthalDefaultMaxLoop);
+
+    /// <summary>
+    /// Full <c>ntthal</c> hairpin thermodynamics with every primer3-py <c>calc_hairpin</c> argument:
+    /// mv/dv/dntp, <c>temp_c</c> (the analysis temperature: it sets the reported ΔG = ΔH − (temp_c +
+    /// 273.15)·ΔS and, as in thal.c <c>calc_terminal_bp</c>, the exterior-loop acceptance test
+    /// ΔH − T·ΔS &lt; 0, so it can change the selected structure) and <c>max_loop</c> (largest internal
+    /// loop / bulge considered, 0–30). Bit-faithful port of primer3-py 2.3.1 <c>thal.c</c> (type 4).
+    /// </summary>
+    /// <param name="sequence">DNA oligo (5′→3′), ACGT only (case-insensitive), at most 60 nt.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration, mol/L.</param>
+    /// <param name="divalentMolar">Mg²⁺ concentration, mol/L.</param>
+    /// <param name="dntpMolar">dNTP concentration, mol/L.</param>
+    /// <param name="temperatureCelsius">primer3-py <c>temp_c</c>; the returned
+    /// <see cref="HairpinThermodynamics.DeltaG37"/> is ΔG at this temperature.</param>
+    /// <param name="maxLoop">primer3-py <c>max_loop</c>, 0–30.</param>
+    /// <returns>The thermodynamics, or <c>null</c> for invalid input or when no hairpin forms.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30.</exception>
+    /// <exception cref="ArgumentException">The sequence is longer than 60 nt.</exception>
+    public static HairpinThermodynamics? CalculateHairpinThermodynamicsNtthal(
+        string sequence,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double temperatureCelsius,
+        int maxLoop) =>
+        CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius, maxLoop, withStructure: false)?.Thermodynamics;
+
+    /// <summary>
+    /// As <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int)"/>,
+    /// plus the optimal hairpin drawn exactly as thal.c <c>drawHairpin</c> / primer3-py
+    /// <c>ThermoResult.ascii_structure_lines</c> (<c>output_structure=True</c>): two lines,
+    /// "SEQ\t" followed by one character per base ('-' unpaired; for each base pair the 5′ partner
+    /// is drawn '/' and the 3′ partner '\') and "STR\t" followed by the (upper-case) oligo.
+    /// Defaults are the primer3-py <c>calc_hairpin</c> defaults (mv 50 mM, dv 1.5 mM, dNTP 0.6 mM,
+    /// 37 °C, max loop 30).
+    /// </summary>
+    /// <returns>The thermodynamics and structure lines, or <c>null</c> for invalid input or when no
+    /// hairpin forms.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30.</exception>
+    /// <exception cref="ArgumentException">The sequence is longer than 60 nt.</exception>
+    public static NtthalHairpinStructure? CalculateHairpinStructureNtthal(
+        string sequence,
+        double sodiumMolar = 0.05,
+        double divalentMolar = 0.0015,
+        double dntpMolar = 0.0006,
+        double temperatureCelsius = NtthalDefaultTemperatureCelsius,
+        int maxLoop = NtthalDefaultMaxLoop) =>
+        CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius, maxLoop, withStructure: true);
+
+    private static NtthalHairpinStructure? CalculateHairpinStructureNtthal(
+        string sequence, double sodiumMolar, double divalentMolar, double dntpMolar,
+        double temperatureCelsius, int maxLoop, bool withStructure)
     {
         if (!IsAcgtOnly(sequence))
             return null;
-        var r = NtthalHairpin.Run(sequence.ToUpperInvariant(), sodiumMolar, divalentMolar, dntpMolar);
+        var r = NtthalHairpin.Run(sequence.ToUpperInvariant(), sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius + KelvinOffset, maxLoop, withStructure);
         if (r is null)
             return null;
         var v = r.Value;
-        return new HairpinThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs);
+        return new NtthalHairpinStructure(
+            new HairpinThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs),
+            v.AsciiStructure ?? Array.Empty<string>());
     }
+
+    /// <summary>
+    /// ntthal hairpin thermodynamics plus the thal.c <c>drawHairpin</c> ASCII structure
+    /// (primer3-py <c>ThermoResult.ascii_structure_lines</c>).
+    /// </summary>
+    /// <param name="Thermodynamics">ΔH/ΔS/ΔG/Tm of the optimal hairpin.</param>
+    /// <param name="AsciiStructureLines">The "SEQ\t…" and "STR\t…" lines.</param>
+    public sealed record NtthalHairpinStructure(HairpinThermodynamics Thermodynamics, IReadOnlyList<string> AsciiStructureLines);
 
     private static bool IsAcgtOnly(string? s)
     {

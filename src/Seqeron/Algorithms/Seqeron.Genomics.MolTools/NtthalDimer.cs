@@ -182,9 +182,8 @@ internal static class NtthalDimer
         // saltCorrectS (thal.c 1042).
         double saltCorrection = SaltCorrectS(mv, dvMolar * 1000.0, dntpMolar * 1000.0);
 
-        // A·T penalty tables (thal.c tableStartATH/ATS): only A·T (0,3)/(3,0) carry the penalty.
-        double AtPenaltyH(int x, int y) => (x == 0 && y == 3) || (x == 3 && y == 0) ? AtH : 0.0;
-        double AtPenaltyS(int x, int y) => (x == 0 && y == 3) || (x == 3 && y == 0) ? AtS : AtPenaltySEntry;
+        static double AtPenaltyH(int x, int y) => AtPenaltyHOf(x, y);
+        static double AtPenaltyS(int x, int y) => AtPenaltySOf(x, y);
 
         int Bp(int x, int y) => Bpi[x, y];
 
@@ -210,58 +209,12 @@ internal static class NtthalDimer
         double Ss(int i, int j) => T4(StackS, a[i], a[i + 1], b[j], b[j + 1]);
         double Hs(int i, int j) => T4(StackH, a[i], a[i + 1], b[j], b[j + 1]);
 
-        // RSH / LSH share thal.c's terminal-pair selection: candidate 1 = A·T penalty + tstack2
-        // terminal mismatch; candidate 2 (only when the neighbouring bases do not pair and a dangling
-        // end exists) = A·T penalty + 3'/5' dangling end(s); fallback = A·T penalty alone. thal.c keeps
-        // the running Tm T1 at −∞ unless a dangling-end branch is entered, so when no branch is
-        // entered the bare A·T penalty always wins over the tstack2 candidate (T1 = −∞ < T2).
-        (double S, double H) Terminal(double s1, double h1, bool branch, double s2, double h2, int x, int y)
-        {
-            double g1 = h1 - TempKelvin * s1;
-            if (!IsFinite(h1) || g1 > 0) { h1 = Inf; s1 = -1.0; g1 = 1.0; }
-            double t1 = double.NegativeInfinity, t2;
-            if (branch)
-            {
-                double g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                    if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; t1 = t2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; t1 = t2; }
-            }
-            s2 = AtPenaltyS(x, y);
-            h2 = AtPenaltyH(x, y);
-            t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-            if (IsFinite(h1))
-                return t1 < t2 ? (s2, h2) : (s1, h1);
-            return (s2, h2);
-        }
+        // RSH / LSH: thal.c terminal-pair selection, shared with the hairpin engine (see TerminalPair).
+        (double S, double H) Terminal(double s1, double h1, bool branch, double s2, double h2, int x, int y) =>
+            TerminalPair(s1, h1, branch, s2, h2, x, y, DplxInitH, DplxInitS, rc);
 
         // RSH — right terminal stack (3'-side): tstack2 terminal-mismatch / dangling-end (thal.c RSH).
-        (double S, double H) Rsh(int i, int j)
-        {
-            if (Bp(a[i], b[j]) == 0) return (-1.0, Inf);
-            double s1 = AtPenaltyS(a[i], b[j]) + T4(Tstack2S, a[i], a[i + 1], b[j], b[j + 1]);
-            double h1 = AtPenaltyH(a[i], b[j]) + T4(Tstack2H, a[i], a[i + 1], b[j], b[j + 1]);
-            bool unpaired = Bp(a[i + 1], b[j + 1]) == 0;
-            bool d3 = IsFinite(T3(Dangle3H, a[i], a[i + 1], b[j]));
-            bool d5 = IsFinite(T3(Dangle5H, a[i], b[j], b[j + 1]));
-            double s2 = AtPenaltyS(a[i], b[j]), h2 = AtPenaltyH(a[i], b[j]);
-            if (unpaired && d3)
-            {
-                s2 += T3(Dangle3S, a[i], a[i + 1], b[j]);
-                h2 += T3(Dangle3H, a[i], a[i + 1], b[j]);
-            }
-            if (unpaired && d5)
-            {
-                s2 += T3(Dangle5S, a[i], b[j], b[j + 1]);
-                h2 += T3(Dangle5H, a[i], b[j], b[j + 1]);
-            }
-            return Terminal(s1, h1, unpaired && (d3 || d5), s2, h2, a[i], b[j]);
-        }
+        (double S, double H) Rsh(int i, int j) => RightTerminalPair(a, b, i, j, DplxInitH, DplxInitS, rc);
 
         // LSH — left terminal stack (5'-side) (thal.c LSH).
         (double S, double H)? Lsh(int i, int j)
@@ -484,6 +437,77 @@ internal static class NtthalDimer
             ? DrawDimer(oligo1.ToUpperInvariant(), ReverseString(oligo2.ToUpperInvariant()), ps1, ps2)
             : null;
         return new Result(dH, dsOut, dg, tm, n + 1, bestI, bestJ, structure);
+    }
+
+    // A·T penalty tables (thal.c tableStartATH/ATS): only A·T (0,3)/(3,0) carry the penalty.
+    internal static double AtPenaltyHOf(int x, int y) => (x == 0 && y == 3) || (x == 3 && y == 0) ? AtH : 0.0;
+    internal static double AtPenaltySOf(int x, int y) => (x == 0 && y == 3) || (x == 3 && y == 0) ? AtS : AtPenaltySEntry;
+
+    /// <summary>
+    /// thal.c terminal-pair selection shared by <c>RSH</c> and <c>LSH</c> (used by both the dimer and
+    /// the hairpin engine, which differ only in <c>dplx_init_H</c>/<c>dplx_init_S</c>/<c>RC</c>):
+    /// candidate 1 = A·T penalty + tstack2 terminal mismatch; candidate 2 (only when the neighbouring
+    /// bases do not pair and a dangling end exists, <paramref name="branch"/>) = A·T penalty + 3′/5′
+    /// dangling end(s); fallback = A·T penalty alone. thal.c keeps the running Tm T1 at −∞ unless a
+    /// dangling-end branch is entered, so when no branch is entered the bare A·T penalty wins over the
+    /// tstack2 candidate (T1 = −∞ &lt; T2) unless T2 is NaN (0/0 for a G·C pair in the hairpin
+    /// engine, where dplx_init_S = −1e−11 cancels the 1e−11 non-A·T entropy entry).
+    /// </summary>
+    internal static (double S, double H) TerminalPair(
+        double s1, double h1, bool branch, double s2, double h2, int x, int y,
+        double dplxInitH, double dplxInitS, double rc)
+    {
+        double g1 = h1 - TempKelvin * s1;
+        if (!IsFinite(h1) || g1 > 0) { h1 = Inf; s1 = -1.0; g1 = 1.0; }
+        double t1 = double.NegativeInfinity, t2;
+        if (branch)
+        {
+            double g2 = h2 - TempKelvin * s2;
+            if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
+            t2 = (h2 + dplxInitH) / (s2 + dplxInitS + rc);
+            if (IsFinite(h1) && g1 < 0)
+            {
+                t1 = (h1 + dplxInitH) / (s1 + dplxInitS + rc);
+                if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; t1 = t2; }
+            }
+            else if (g2 < 0) { s1 = s2; h1 = h2; t1 = t2; }
+        }
+        s2 = AtPenaltySOf(x, y);
+        h2 = AtPenaltyHOf(x, y);
+        t2 = (h2 + dplxInitH) / (s2 + dplxInitS + rc);
+        if (IsFinite(h1))
+            return t1 < t2 ? (s2, h2) : (s1, h1);
+        return (s2, h2);
+    }
+
+    /// <summary>
+    /// thal.c <c>RSH(i, j)</c> on numeric sequences <paramref name="a"/> (numSeq1) and
+    /// <paramref name="b"/> (numSeq2), both 1-indexed with N (=4) sentinels. The hairpin engine
+    /// passes the same (non-reversed) oligo for both, exactly as thal.c does for type 4.
+    /// </summary>
+    internal static (double S, double H) RightTerminalPair(
+        int[] a, int[] b, int i, int j, double dplxInitH, double dplxInitS, double rc)
+    {
+        static double T4(double[] t, int i, int ii, int j, int jj) => t[((i * 5 + ii) * 5 + j) * 5 + jj];
+        static double T3(double[] t, int i, int j, int k) => t[(i * 5 + j) * 5 + k];
+        if (Bpi[a[i], b[j]] == 0) return (-1.0, Inf);
+        double s1 = AtPenaltySOf(a[i], b[j]) + T4(Tstack2S, a[i], a[i + 1], b[j], b[j + 1]);
+        double h1 = AtPenaltyHOf(a[i], b[j]) + T4(Tstack2H, a[i], a[i + 1], b[j], b[j + 1]);
+        bool unpaired = Bpi[a[i + 1], b[j + 1]] == 0;
+        bool d3 = IsFinite(T3(Dangle3H, a[i], a[i + 1], b[j]));
+        bool d5 = IsFinite(T3(Dangle5H, a[i], b[j], b[j + 1]));
+        double s2 = AtPenaltySOf(a[i], b[j]), h2 = AtPenaltyHOf(a[i], b[j]);
+        if (unpaired && d3)
+        {
+            s2 += T3(Dangle3S, a[i], a[i + 1], b[j]);
+            h2 += T3(Dangle3H, a[i], a[i + 1], b[j]);
+        }
+        if (unpaired && d5)
+        {
+            s2 += T3(Dangle5S, a[i], b[j], b[j + 1]);
+            h2 += T3(Dangle5H, a[i], b[j], b[j + 1]);
+        }
+        return TerminalPair(s1, h1, unpaired && (d3 || d5), s2, h2, a[i], b[j], dplxInitH, dplxInitS, rc);
     }
 
     private static string ReverseString(string s)

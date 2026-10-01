@@ -3,8 +3,8 @@
 **Test Unit ID:** PRIMER-HAIRPIN-001
 **Area:** MolTools
 **Algorithm:** DNA Hairpin Folder + Secondary-Structure (unimolecular) Tm
-**Status:** ☑ Validated — Stage A ✅ / Stage B ✅ / CLEAN (2026-06-25)
-**Last Updated:** 2026-06-25
+**Status:** ☑ Validated — Stage A ✅ / Stage B ✅ / CLEAN (2026-06-25); re-reviewed 2026-10-01 (review-2026-09 B07): ntthal engine made bit-exact to primer3-py 2.3.1 (F13–F14)
+**Last Updated:** 2026-10-01
 
 ---
 
@@ -15,12 +15,15 @@
 | 1 | SantaLucia J, Hicks D (2004). Annu Rev Biophys Biomol Struct 33:415–440 | Table 1 NN stem stacks; Table 4 hairpin-loop ΔG°37 by size (ΔH°=0, ΔS°=ΔG°37·1000/310.15); Eq. 7 Jacobson-Stockmayer (coeff 2.44); Eq. 8–11 hairpin model + unimolecular Tm (no C_T term). Full PDF read this session. |
 | 2 | SantaLucia J (1998). PNAS 95(4):1460–65 | Unified NN ΔH°/ΔS° (stem stacks; same values reproduced in Table 1 above). |
 | 3 | primer3-py 2.3.0 `calc_hairpin` + shipped `primer3_config/{loops,triloop,tetraloop}.{dh,ds}` | Independent ntthal oracle for `CalculateHairpinThermodynamicsNtthal`; special tri/tetraloop bonus tables (triloop ±2000, tetraloop ±1100). |
+| 4 | primer3-py **2.3.1** vendored `primer3/src/libprimer3/thal.c` + `thal.h` + `primer3/thermoanalysis.pyx` (raw.githubusercontent.com/libnano/primer3-py/v2.3.1/…) | The type-4 path ported line by line: `thal`, `initMatrix2`, `fillMatrix2`, `maxTM2`, `CBI`, `calc_bulge_internal2`, `calc_hairpin`, `RSH`, `Ss`/`Hs`, `calc_terminal_bp`, `END5_1..4`, `max5`, `tracebacku`, `equal`, `calcHairpin`, `drawHairpin`, `THAL_MAX_ALIGN`, `temp_c`/`max_loop`. |
 
 ## 2. Canonical Method(s)
 
 - `PrimerDesigner.FindMostStableHairpin(string, int minStemLength=2, double loopBonusDeltaG37=0)` → `HairpinResult?`
 - `PrimerDesigner.CalculateHairpinMeltingTemperature(string, int minStemLength=2, double loopBonusDeltaG37=0)` → `double`
-- `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, double sodiumMolar=0.05)` → `HairpinThermodynamics?` (bundled special tri/tetraloop bonuses)
+- `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, double sodiumMolar=0.05)` → `HairpinThermodynamics?` (bundled special tri/tetraloop bonuses; dv = dntp = 0)
+- `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, mv, dv, dntp[, temperatureCelsius, maxLoop])` → `HairpinThermodynamics?` (= primer3-py `calc_hairpin`)
+- `PrimerDesigner.CalculateHairpinStructureNtthal(string, mv=0.05, dv=0.0015, dntp=0.0006, temperatureCelsius=37, maxLoop=30)` → `NtthalHairpinStructure?` (+ `ascii_structure_lines`)
 
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs` (+ `NtthalHairpin.cs`)
 - **Test fixtures:** `PrimerDesigner_HairpinTm_Tests.cs`, `PrimerDesigner_HairpinSpecialLoop_Tests.cs`
@@ -32,16 +35,20 @@
 - Loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15. Stem = NN stacks only (no bimolecular init).
 - Tm is unimolecular/concentration-independent: Tm = ΔH°·1000/ΔS° − 273.15 (no R·ln(C_T/x) term).
 - D (deterministic): same input → same output.
+- ntthal path: identical to primer3-py 2.3.1 `calc_hairpin` (Tm, ΔG at `temp_c`, ΔH, ΔS, ASCII structure, `structure_found`); > 60 nt → `ArgumentException`; `maxLoop` outside 0–30 → `ArgumentOutOfRangeException`; non-ACGT / empty → `null`.
 
 ## 4. Cross-check / Differential Oracle
 
 - **Reference:** primer3-py 2.3.0 `calc_hairpin` (ntthal path) + hand-derivation from SantaLucia & Hicks 2004 Table 1/Table 4 (legacy path).
 - **Comparison:** ntthal path matches primer3 to machine precision (ΔH exact; ΔS/Tm ≤1e-6). Legacy path matches hand-derivation to <1e-12.
 
+- **2026-10-01 (B07):** 9000 random oligos (5–60 nt; random, palindromic, GC-rich, homopolymer runs, designed hairpins with mismatches/bulges) at the defaults and at random mv/dv/dntp/temp_c/max_loop — 0 mismatches (≤ 1e−6) in Tm/ΔG/ΔH/ΔS and ASCII structure (pre-fix port: 185/1000 and 575/3000 mismatches). `DesignPrimers` vs `design_primers`: 1800/1800 random templates identical (was 1733/1800).
+
 ### Worked numbers (locked in tests)
 - `GGGCTTTTGCCC` (legacy Table 4): ΔH=−25.8, ΔS=−75.48486216346927, ΔG37=−2.3883700000000054, Tm=68.64038366828805 °C.
 - `GGGGCGAAAGCCCC` (ntthal, GAAA tetraloop): ΔH=−40900 cal, ΔS=−114.1872884299936, ΔG37=−5484.812493437487 cal, Tm=85.03347700825856 °C (primer3 parity).
 - `GGGCGAAGCCC` (ntthal, GAA triloop): ΔH=−27800 cal, Tm=84.7060915802943 °C (primer3 parity).
+- Former discrepancies (calc_hairpin defaults): `GGGAGACAGTAGTCGCCCAT` Tm 64.43690682436392 (old 69.31), `TGTTGAATATCAGCG` ΔG +530.6133132321556 cal, `TTTGCCACTAATAATATGATCAACCGGAGGGTCTCCATT` Tm 83.58095561848427 (old 139.59), a 53-mer with no structure (old: 32.64 °C) — `PrimerDesigner_HairpinTm_Tests.CalculateHairpinThermodynamicsNtthal_FormerDiscrepancies_MatchPrimer3Py`, `_FormerFalseStructure_IsNoStructure`, `_ConditionsTemperatureAndMaxLoop_MatchPrimer3Py`, `CalculateHairpinStructureNtthal_AsciiStructure_MatchesPrimer3Py`, `_ThalLimits`.
 
 ## 5. Validation Checklist (restored ☑)
 
