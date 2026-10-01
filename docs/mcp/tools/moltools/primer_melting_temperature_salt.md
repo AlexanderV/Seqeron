@@ -19,11 +19,11 @@ OligoCalc "Salt Adjusted" Tm (Kibbe 2007, NAR 35:W43), the [Na+]-aware counterpa
 - fewer than 14 valid bases: `Tm = 2·(A+T) + 4·(G+C) − 16.6·log10(0.050) + 16.6·log10([Na+])`
 - 14 or more: `Tm = 100.5 + 41·(G+C)/N − 820/N + 16.6·log10([Na+])`
 
-[Na+] in mol/L (the argument is in mM). Rounded to one decimal place. OligoCalc cross-check: the 39-mer `GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC` at 50 mM gives 78 °C (basic 67.6 °C).
+[Na+] in mol/L (the argument is in mM). Rounded to one decimal place. Bases are counted as in [primer_melting_temperature](primer_melting_temperature.md): A, C, G, T and U (U read as T), case-insensitive; other characters are ignored. OligoCalc cross-check: the 39-mer `GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC` at 50 mM gives 78 °C (basic 67.6 °C).
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L227](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L227)
+- Source: [PrimerDesigner.cs#L481](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L481)
 
 ## Input Schema
 

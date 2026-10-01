@@ -403,18 +403,48 @@ public class PrimerDesigner_MeltingTemperature_Tests
     }
 
     /// <summary>
-    /// RNA uracil (U) is not a standard DNA base and is ignored.
-    /// This is a DNA-only Tm calculator; RNA input is not supported.
-    /// Evidence: Defined behavior — DNA tool, only ACGT recognized.
+    /// RNA uracil (U) is read as T, as Biopython <c>MeltingTemp._check</c> back-transcribes RNA before
+    /// <c>Tm_Wallace</c> (2026-09 B07 PRIMER-NNTM-001, R24; same as SequenceStatistics after B03 F20).
+    /// Evidence: Biopython 1.88 <c>Tm_Wallace("ACGUACGU")</c> = <c>Tm_Wallace("acguacgu")</c> = 24.0
+    /// (= Wallace of ACGTACGT: 2·4 + 4·4).
     /// </summary>
     [Test]
-    public void CalculateMeltingTemperature_RnaUracil_NotCountedAsDnaBase()
+    public void CalculateMeltingTemperature_RnaUracil_ReadAsThymine_MatchesBiopythonTmWallace()
     {
-        // "ACGUACGU" has 2 AT (A,A) + 2 GC (C,G,C,G) — wait:
-        // A(AT) C(GC) G(GC) U(ignored) A(AT) C(GC) G(GC) U(ignored)
-        // = 2 AT + 4 GC = 6 valid bases < 14 → Wallace: 2×2 + 4×4 = 20
-        double tm = PrimerDesigner.CalculateMeltingTemperature("ACGUACGU");
-        Assert.That(tm, Is.EqualTo(20.0));
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculateMeltingTemperature("ACGUACGU"), Is.EqualTo(24.0));
+            Assert.That(PrimerDesigner.CalculateMeltingTemperature("acguacgu"), Is.EqualTo(24.0));
+            Assert.That(PrimerDesigner.CalculateMeltingTemperature("ACGUACGUACGUACGUACGU"),
+                Is.EqualTo(PrimerDesigner.CalculateMeltingTemperature("ACGTACGTACGTACGTACGT")));
+            // Salt-adjusted variant counts U the same way.
+            Assert.That(PrimerDesigner.CalculateMeltingTemperatureWithSalt("ACGUACGU", 100),
+                Is.EqualTo(PrimerDesigner.CalculateMeltingTemperatureWithSalt("ACGTACGT", 100)));
+        });
+    }
+
+    /// <summary>
+    /// The basic Tm is the canonical <see cref="ThermoConstants.CalculateBasicTm"/>, and B03's
+    /// <c>SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: true)</c> returns the same
+    /// value for any input (random strings over ACGTU/acgtu/N/IUPAC/gap/whitespace) — differential check
+    /// for the R10 routing request.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_EqualsCanonicalBasicTm_AndSequenceStatistics()
+    {
+        var rng = new Random(20261001);
+        const string alphabet = "ACGTUacgtuNRYI-. ";
+        for (int i = 0; i < 2000; i++)
+        {
+            int n = rng.Next(0, 45);
+            var chars = new char[n];
+            for (int j = 0; j < n; j++) chars[j] = alphabet[rng.Next(alphabet.Length)];
+            string s = new(chars);
+            double canonical = ThermoConstants.CalculateBasicTm(s);
+            Assert.That(PrimerDesigner.CalculateMeltingTemperature(s), Is.EqualTo(canonical), s);
+            Assert.That(Seqeron.Genomics.Analysis.SequenceStatistics.CalculateMeltingTemperature(s, useWallaceRule: true),
+                Is.EqualTo(canonical), s);
+        }
     }
 
     /// <summary>

@@ -440,5 +440,75 @@ public class PrimerDesigner_NearestNeighborTm_Tests
         });
     }
 
+    // TMM1 — Terminal mismatch (3'-terminal A·A): Tm_NN scores it with the SantaLucia & Peyret (2001)
+    // terminal-mismatch table (Biopython DNA_TMM1 "CA/GA" = (−4.3, −10.7)), NOT the internal-mismatch
+    // table (the pre-2026-10 port used DNA_IMM1 "CA/GA" = (−0.9, −4.2) → 8.063 °C).
+    //   CGTGACA / GCACTGA: TMM CA/GA (−4.3,−10.7) + init (0.2,−5.7) + one terminal A·T (2.2, 6.9)
+    //   + CG/GC (−10.6,−27.2) + GT/CA (−8.4,−22.4) + TG/AC (−8.5,−22.7) + GA/CT (−8.2,−22.2) + AC/TG (−8.4,−22.4)
+    //   ΔH° = −46.0, ΔS° = −126.4. Biopython Tm_NN("CGTGACA", c_seq="GCACTGA", nn_table=DNA_NN4,
+    //   dnac1=dnac2=250, saltcorr=0) with R = 1.9872 → 18.01421279029239 (R = 1.987: 18.02007169069452).
+    [Test]
+    public void CalculateMeltingTemperatureNNMismatch_TerminalMismatch_UsesTerminalMismatchTable()
+    {
+        var r = PrimerDesigner.CalculateNearestNeighborThermodynamicsMismatch("CGTGACA", "GCACTGA");
+        double tm = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+            "CGTGACA", "GCACTGA", strandConcentrationMolar: 0.5e-6,
+            saltMode: PrimerDesigner.SaltCorrectionMode.None);
+
+        Assert.That(r, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r!.Value.DeltaH, Is.EqualTo(-46.0).Within(Tol));
+            Assert.That(r.Value.DeltaS, Is.EqualTo(-126.4).Within(Tol));
+            Assert.That(tm, Is.EqualTo(18.01421279029239).Within(1e-9));
+        });
+    }
+
+    // DE2 — Dangling base on the BOTTOM strand ('.' leads the top): the top strand's first base still
+    // closes the duplex, so its terminal A·T penalty applies (Tm_NN: ends = seq[0] + seq[-1]); the
+    // pre-2026-10 port tested the '.' and dropped it (24.106 °C).
+    //   .ACGTGAC / TTGCACTG ≡ Tm_NN("ACGTGAC", c_seq="TTGCACTG", shift=1): DE .A/TT (2.9, 10.4)
+    //   + init (0.2,−5.7) + one terminal A·T (2.2, 6.9) + AC, CG, GT, TG, GA, AC stacks
+    //   ΔH° = −47.2, ΔS° = −127.7; Tm (R = 1.9872, C_T 0.5 µM, no salt) = 23.171503504583256.
+    [Test]
+    public void CalculateMeltingTemperatureNNMismatch_BottomDanglingEnd_KeepsTopTerminalAtPenalty()
+    {
+        var r = PrimerDesigner.CalculateNearestNeighborThermodynamicsMismatch(".ACGTGAC", "TTGCACTG");
+        double tm = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+            ".ACGTGAC", "TTGCACTG", strandConcentrationMolar: 0.5e-6,
+            saltMode: PrimerDesigner.SaltCorrectionMode.None);
+
+        Assert.That(r, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r!.Value.DeltaH, Is.EqualTo(-47.2).Within(Tol));
+            Assert.That(r.Value.DeltaS, Is.EqualTo(-127.7).Within(Tol));
+            Assert.That(tm, Is.EqualTo(23.171503504583256).Within(1e-9));
+        });
+    }
+
+    // BP1 — Differential: Biopython 1.88 Tm_NN(nn_table=DNA_NN4, dnac1=dnac2=C_T/2, Na, Mg, dNTPs,
+    // saltcorr 0/5/6/7) with R = 1.9872 (SantaLucia & Hicks 2004 Eq. 3), random duplexes of the
+    // 3000-case harness (all 3000 perfect and 3000 mismatch/dangling cases agree to 1e-9).
+    [TestCase("ACGTTGCAAGTCCATGGTAC", null, 5e-7, 0.05, 0.0, 0.0, PrimerDesigner.SaltCorrectionMode.Owczarzy2004Monovalent)]
+    [TestCase(".TTCTCCAGGTGTCGCCGTGA", "TAAGAGGTCCACAGCGGCACA", 2.5e-7, 0.1, 0.0015, 0.002, PrimerDesigner.SaltCorrectionMode.Owczarzy2008Divalent)]
+    [TestCase("ACGAT", ".GCTG", 5e-8, 0.05, 0.003, 0.0008, PrimerDesigner.SaltCorrectionMode.SantaLuciaEntropy)]
+    [TestCase("GAATTAATAGGC", "CTTAAGTATCCC", 5e-8, 0.1, 0.0005, 0.0006, PrimerDesigner.SaltCorrectionMode.Owczarzy2004Monovalent)]
+    public void CalculateMeltingTemperatureNN_MatchesBiopythonTmNN_DnaNn4(
+        string top, string? bottom, double ct, double na, double mg, double dntp, PrimerDesigner.SaltCorrectionMode mode)
+    {
+        double expected = (top, bottom) switch
+        {
+            ("ACGTTGCAAGTCCATGGTAC", null) => 55.37888947081632,
+            (".TTCTCCAGGTGTCGCCGTGA", _) => 63.913784158256306,
+            ("ACGAT", _) => -51.69030414412072,
+            _ => 4.8307063688479275
+        };
+        double tm = bottom is null
+            ? PrimerDesigner.CalculateMeltingTemperatureNN(top, ct, na, mg, dntp, mode)
+            : PrimerDesigner.CalculateMeltingTemperatureNNMismatch(top, bottom, ct, na, mg, dntp, mode);
+        Assert.That(tm, Is.EqualTo(expected).Within(1e-9));
+    }
+
     #endregion
 }

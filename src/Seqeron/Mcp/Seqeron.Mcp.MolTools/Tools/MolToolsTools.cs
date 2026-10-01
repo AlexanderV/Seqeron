@@ -46,7 +46,7 @@ public class MolToolsTools
         return PrimerDesigner.EvaluatePrimer(sequence, position, is_forward, parameters);
     }
 
-    [McpServerTool(Name = "primer_melting_temperature", Title = "MolTools — Primer Melting Temperature", ReadOnly = true), Description("Computes a primer's melting temperature (Tm, °C): Wallace rule Tm = 2·(A+T) + 4·(G+C) for < 14 valid bases, or Marmur–Doty Tm = 64.9 + 41·(GC−16.4)/N for ≥ 14 valid bases. Non-ACGT characters are ignored. Call for a quick Tm estimate of a short oligo/primer.")]
+    [McpServerTool(Name = "primer_melting_temperature", Title = "MolTools — Primer Melting Temperature", ReadOnly = true), Description("Computes a primer's melting temperature (Tm, °C): Wallace rule Tm = 2·(A+T) + 4·(G+C) for < 14 valid bases, or Marmur–Doty Tm = 64.9 + 41·(GC−16.4)/N for ≥ 14 valid bases. A/C/G/T/U are counted (U read as T, as Biopython); other characters are ignored. Call for a quick Tm estimate of a short oligo/primer.")]
     public static TmResult primer_melting_temperature(
         [Description("Primer sequence.")] string primer)
     {

@@ -88,7 +88,7 @@ basic formulas double-counts salt (the pre-2026-09 implementation did this: 20-m
 
 ### 3.3 Preconditions and Validation
 
-`PrimerDesigner.CalculateMeltingTemperature(...)` returns `0` for null or empty input and converts input to uppercase before counting bases. Only standard DNA bases `A/C/G/T` are counted; other characters are ignored when computing the valid length and GC count. `PrimerDesigner.CalculateMeltingTemperatureWithSalt(...)` also returns `0` for null or empty input (or no A/C/G/T), evaluates the OligoCalc salt-adjusted formula with [Na+] converted from mM to M, and rounds the result to one decimal place.
+`PrimerDesigner.CalculateMeltingTemperature(...)` returns `0` for null or empty input and counts bases case-insensitively. `A/C/G/T` and RNA `U` are counted (U is read as T, as Biopython `MeltingTemp._check` back-transcribes RNA before `Tm_Wallace`/`Tm_GC`); other characters are ignored when computing the valid length and GC count. It delegates to the canonical `ThermoConstants.CalculateBasicTm` (Infrastructure), which `SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: true)` equals for every input. `PrimerDesigner.CalculateMeltingTemperatureWithSalt(...)` also returns `0` for null or empty input (or no A/C/G/T/U), evaluates the OligoCalc salt-adjusted formula with [Na+] converted from mM to M, and rounds the result to one decimal place.
 
 ## 4. Algorithm
 
@@ -140,7 +140,7 @@ The implementation centralizes the formula constants in `ThermoConstants`:
 
 ### 5.2 Current Behavior
 
-The current implementation is DNA-oriented and case-insensitive. In `PrimerDesigner.CalculateMeltingTemperature(...)`, only `A/C/G/T` contribute to the counted length, so ambiguous or non-DNA characters are ignored rather than rejected. The short-sequence branch switches at fewer than 14 counted bases, and the longer-sequence branch clamps negative estimates to `0`. The salt-adjusted variant evaluates the OligoCalc salt-adjusted formula and rounds the final result to one decimal place.
+The current implementation is DNA-oriented and case-insensitive. In `PrimerDesigner.CalculateMeltingTemperature(...)`, only `A/C/G/T/U` (U as T) contribute to the counted length, so ambiguous or non-nucleotide characters are ignored rather than rejected. The short-sequence branch switches at fewer than 14 counted bases; the longer-sequence branch cannot go negative (≥ 64.9 − 672.4/14 > 16.8 °C). The salt-adjusted variant evaluates the OligoCalc salt-adjusted formula and rounds the final result to one decimal place.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -154,7 +154,7 @@ The current implementation is DNA-oriented and case-insensitive. In `PrimerDesig
 
 - The repository uses base-composition formulas instead of a full nearest-neighbor model; **consequence:** sequence-context effects from dinucleotide stacking are not reflected in the reported Tm.
 - The branch point is fixed at fewer than 14 counted DNA bases; **consequence:** users may see different estimates from tools that switch formulas at a different threshold.
-- Non-`ACGT` characters are ignored during counting; **consequence:** degenerate primers can yield estimates based only on the standard DNA subset.
+- Characters other than `A/C/G/T/U` are ignored during counting; **consequence:** degenerate primers can yield estimates based only on the standard DNA subset.
 
 **Not implemented:**
 
@@ -165,7 +165,7 @@ The current implementation is DNA-oriented and case-insensitive. In `PrimerDesig
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Fixed Wallace/Marmur-Doty switch at 14 counted bases | Assumption | Results may differ from tools that switch at another length threshold | accepted | The original document notes that some literature uses thresholds around 17-20 bp |
-| 2 | Non-`ACGT` characters are excluded from counted length | Deviation | Degenerate or malformed symbols do not contribute to the estimate | accepted | Confirmed in `PrimerDesigner.CalculateMeltingTemperature(...)` |
+| 2 | Characters other than `A/C/G/T/U` (U read as T) are excluded from counted length | Deviation | Degenerate or malformed symbols do not contribute to the estimate | accepted | Confirmed in `PrimerDesigner.CalculateMeltingTemperature(...)` |
 
 ## 6. Edge Cases and Limitations
 
@@ -181,7 +181,7 @@ The current implementation is DNA-oriented and case-insensitive. In `PrimerDesig
 
 ### 6.2 Limitations
 
-The current implementation does not model nearest-neighbor stacking effects, mixed buffer chemistries, or ambiguity-code thermodynamics. The sodium-adjusted path accounts only for an additive sodium term, and the base estimator treats non-`ACGT` characters as non-contributing symbols rather than rejecting them.
+The current implementation does not model nearest-neighbor stacking effects, mixed buffer chemistries, or ambiguity-code thermodynamics. The sodium-adjusted path accounts only for an additive sodium term, and the base estimator treats characters other than `A/C/G/T/U` as non-contributing symbols rather than rejecting them.
 
 ## 7. Examples and Related Material
 
