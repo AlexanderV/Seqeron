@@ -723,11 +723,15 @@ public static class RepeatFinder
     //     derived here from the exact mean/variance of R (normal approximation, 95% one-sided, floor
     //     k+1) — this reproduces TRF's own sumdata80 table for all d = 1..2000;
     //   * the three-best-periods ("multiples") test, the minimum copy-number rule, per-distance
-    //     "already aligned" suppression, and TRF's redundancy elimination / MaxPeriod filter.
+    //     "already aligned" suppression, and TRF's redundancy elimination / MaxPeriod filter;
+    //   * (parameter-set API, TandemRepeatsFinderParameters) every TRF parameter: weights, PM 80/75 (tuple
+    //     sizes + sum-of-heads cut-offs for both reproduce TRF's tables), PI via the random-walk distance
+    //     range d +/- floor(2.3*sqrt(PI*d)) summation, Minscore, MaxPeriod with TRF's MAXDISTANCE, -l, -r,
+    //     -f flanks, -m masking (MaskApproximateTandemRepeats), TRF's entropy column and alignment rows.
     // NOT implemented (declared residual, see FindApproximateTandemRepeats remarks): the apparent-size
-    // (waiting-time) criterion, whose cut-offs TRF estimates by simulation; the random-walk distance
-    // range d +/- floor(2.3*sqrt(PI*d)) summation; the narrow-band WDP for patterns > 20; and TRF's
-    // best-period list for d > 250. A line-by-line port of TRF is also excluded by licence: TRF is
+    // (waiting-time) criterion, whose cut-offs TRF estimates by simulation; the narrow-band WDP for
+    // patterns > 20; and TRF's best-period list for d > 250. The legacy (int, int, int) overloads also
+    // omit the random-walk range and examine distances up to maxPeriod only (behaviour kept). A line-by-line port of TRF is also excluded by licence: TRF is
     // AGPL-3.0, this library is MIT.
 
     /// <summary>TRF match weight: "Match ... The recomended values for Match Mismatch and Delta are 2, 7, and 7" (TRF README).</summary>
@@ -783,7 +787,8 @@ public static class RepeatFinder
     /// narrow-band alignment for patterns &gt; 20 and best-period list are not reproduced, so the set of
     /// reported loci can differ from TRF (measured on random sequences with embedded repeats: 92.6 % of TRF
     /// rows identical and 96 % found at region level for periods ≤ 20; 80.5 % / 93 % for periods ≤ 100 —
-    /// docs/Evidence/REP-APPROX-001-Evidence.md).</para>
+    /// docs/Evidence/REP-APPROX-001-Evidence.md). The overload taking <see cref="TandemRepeatsFinderParameters"/>
+    /// exposes every TRF parameter and adds the random-walk distance range (87.8 % / 99.4 % at the recommended set).</para>
     /// <para>Complexity: O(n · maxPeriod) for the k-tuple scan plus one wraparound DP over the aligned region per
     /// examined candidate (O(region · pattern) time, O(pattern) memory unless the candidate passes the copy and
     /// best-period tests, which store the traceback matrix).</para>
@@ -803,7 +808,7 @@ public static class RepeatFinder
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ValidateApproximateParameters(minPeriod, maxPeriod, minScore);
-        return FindApproximateTandemRepeatsCore(sequence.Sequence, minPeriod, maxPeriod, minScore);
+        return FindApproximateTandemRepeatsCore(sequence.Sequence, TrfModel.Legacy(maxPeriod, minScore), minPeriod);
     }
 
     /// <summary>
@@ -821,7 +826,99 @@ public static class RepeatFinder
         if (string.IsNullOrEmpty(sequence))
             return Array.Empty<ApproximateTandemRepeatResult>();
 
-        return FindApproximateTandemRepeatsCore(sequence.ToUpperInvariant(), minPeriod, maxPeriod, minScore);
+        return FindApproximateTandemRepeatsCore(sequence.ToUpperInvariant(), TrfModel.Legacy(maxPeriod, minScore), minPeriod);
+    }
+
+    /// <summary>
+    /// Finds approximate tandem repeats with an explicit Tandem Repeats Finder parameter set
+    /// (<c>trf File Match Mismatch Delta PM PI Minscore MaxPeriod [-l n] [-r] [-f]</c>).
+    /// </summary>
+    /// <remarks>
+    /// Same model as <see cref="FindApproximateTandemRepeats(string,int,int,int)"/>, with every TRF parameter
+    /// explicit (<see cref="TandemRepeatsFinderParameters"/>): alignment weights, PM (selects TRF's tuple sizes and
+    /// sum-of-heads cut-offs; 80 or 75), PI (random-walk distance range for d &gt; 20), Minscore, MaxPeriod, maximum
+    /// TR length (<c>-l</c>), redundancy elimination (<c>-r</c> disables it) and flanking sequence (<c>-f</c>).
+    /// As in TRF, candidate distances are examined up to MAXDISTANCE = max(200, min(max(MaxPeriod, 500),
+    /// ⌊0.6·n⌋)) and MaxPeriod only filters the reported periods (the legacy overloads examine distances up to
+    /// maxPeriod only). Distances d &gt; 20 that miss the sum-of-heads cut-off on their own are also tested on the
+    /// heads summed over the random-walk range d ± ⌊2.3·√(PI·d)⌋ when d has the most heads in that range
+    /// (Benson 1999, "random walk" distance range). Every result carries the final alignment rows
+    /// (<see cref="ApproximateTandemRepeatResult.AlignedSequence"/> / <see cref="ApproximateTandemRepeatResult.AlignedConsensus"/>),
+    /// TRF's entropy (<see cref="ApproximateTandemRepeatResult.EntropyTrf"/>) and, when
+    /// <see cref="TandemRepeatsFinderParameters.FlankLength"/> &gt; 0, the flanking sequences.
+    /// </remarks>
+    /// <param name="sequence">Sequence (case-insensitive; any non-A/C/G/T symbol never matches). Null or empty → no repeats.</param>
+    /// <param name="parameters">TRF parameter set (<see cref="TandemRepeatsFinderParameters.Recommended"/> = 2 7 7 80 10 50 500).</param>
+    /// <param name="minPeriod">Library option: minimum reported period (≥ 1), applied after redundancy elimination.</param>
+    public static IEnumerable<ApproximateTandemRepeatResult> FindApproximateTandemRepeats(
+        string sequence,
+        TandemRepeatsFinderParameters parameters,
+        int minPeriod = 1)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+        parameters.Validate();
+        ArgumentOutOfRangeException.ThrowIfLessThan(minPeriod, 1);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<ApproximateTandemRepeatResult>();
+
+        return FindApproximateTandemRepeatsCore(
+            sequence.ToUpperInvariant(), TrfModel.FromParameters(parameters, sequence.Length), minPeriod);
+    }
+
+    /// <summary>
+    /// Finds approximate tandem repeats in a <see cref="DnaSequence"/> with an explicit TRF parameter set; see
+    /// <see cref="FindApproximateTandemRepeats(string,TandemRepeatsFinderParameters,int)"/>.
+    /// </summary>
+    public static IEnumerable<ApproximateTandemRepeatResult> FindApproximateTandemRepeats(
+        DnaSequence sequence,
+        TandemRepeatsFinderParameters parameters,
+        int minPeriod = 1)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindApproximateTandemRepeats(sequence.Sequence, parameters, minPeriod);
+    }
+
+    /// <summary>
+    /// TRF masked sequence (<c>trf ... -m</c>): a copy of <paramref name="sequence"/> with every position inside a
+    /// reported tandem repeat replaced by <c>N</c> (TRF README: "every location that occurred in a tandem repeat
+    /// changed to the letter 'N'"), or — with <paramref name="softMask"/> — lower-cased (soft masking). Positions
+    /// outside repeats are returned as given (TRF itself upper-cases its whole output).
+    /// </summary>
+    /// <param name="sequence">Sequence to mask (null → <see cref="ArgumentNullException"/>; empty → empty).</param>
+    /// <param name="parameters">TRF parameters; null = <see cref="TandemRepeatsFinderParameters.Recommended"/>.</param>
+    /// <param name="softMask">Lower-case repeat positions instead of writing <c>N</c>.</param>
+    public static string MaskApproximateTandemRepeats(
+        string sequence,
+        TandemRepeatsFinderParameters? parameters = null,
+        bool softMask = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var repeats = FindApproximateTandemRepeats(sequence, parameters ?? TandemRepeatsFinderParameters.Recommended);
+        return MaskApproximateTandemRepeats(sequence, repeats, softMask);
+    }
+
+    /// <summary>
+    /// Masks the given tandem repeats in <paramref name="sequence"/> (TRF <c>-m</c> semantics: positions
+    /// <c>Start .. Start + SpanLength − 1</c> of every repeat → <c>N</c>, or lower case with
+    /// <paramref name="softMask"/>). Repeats reaching beyond the sequence are rejected.
+    /// </summary>
+    public static string MaskApproximateTandemRepeats(
+        string sequence,
+        IEnumerable<ApproximateTandemRepeatResult> repeats,
+        bool softMask = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(repeats);
+        var masked = sequence.ToCharArray();
+        foreach (var repeat in repeats)
+        {
+            if (repeat.Start < 0 || repeat.SpanLength < 0 || repeat.Start + repeat.SpanLength > masked.Length)
+                throw new ArgumentOutOfRangeException(nameof(repeats), "A repeat lies outside the sequence.");
+            for (int p = repeat.Start; p < repeat.Start + repeat.SpanLength; p++)
+                masked[p] = softMask ? char.ToLowerInvariant(masked[p]) : 'N';
+        }
+
+        return new string(masked);
     }
 
     private static void ValidateApproximateParameters(int minPeriod, int maxPeriod, int minScore)
@@ -831,6 +928,60 @@ public static class RepeatFinder
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maxPeriod, MaxApproximatePeriod);
         ArgumentOutOfRangeException.ThrowIfLessThan(minScore, 1);
     }
+
+    /// <summary>
+    /// Resolved TRF run settings: alignment weights (mismatch / indel stored negative, as TRF uses them),
+    /// PM / PI in percent, reporting thresholds, detection distance limit, WDP row cap, and output options.
+    /// </summary>
+    private sealed class TrfModel
+    {
+        public int Match { get; init; } = TrfMatchWeight;
+        public int Mismatch { get; init; } = TrfMismatchWeight;
+        public int Indel { get; init; } = TrfIndelWeight;
+        public int Pm { get; init; } = TrfRecommendedPm;
+        public int Pi { get; init; } = 10;
+        public int MinScore { get; init; } = DefaultApproximateMinScore;
+        public int MaxPeriod { get; init; } = MaxApproximatePeriod;
+        public int MaxDistance { get; init; } = MaxApproximatePeriod;
+        public int MaxWrapLength { get; init; } = TandemRepeatsFinderParameters.DefaultMaxRepeatLength;
+        public bool EliminateRedundancy { get; init; } = true;
+        public bool UseDistanceRange { get; init; }
+        public int FlankLength { get; init; }
+
+        /// <summary>Recommended weights (2, 7, 7), PM 80, PI 10 — used by the Bernoulli-statistics analysis.</summary>
+        public static readonly TrfModel Recommended = new();
+
+        /// <summary>The legacy overloads: recommended weights, distances examined up to maxPeriod only.</summary>
+        public static TrfModel Legacy(int maxPeriod, int minScore) =>
+            new() { MinScore = minScore, MaxPeriod = maxPeriod, MaxDistance = maxPeriod };
+
+        /// <summary>A full TRF parameter set; MAXDISTANCE as TRF derives it from MaxPeriod and the length.</summary>
+        public static TrfModel FromParameters(TandemRepeatsFinderParameters p, int length) => new()
+        {
+            Match = p.MatchWeight,
+            Mismatch = -p.MismatchPenalty,
+            Indel = -p.IndelPenalty,
+            Pm = p.MatchProbability,
+            Pi = p.IndelProbability,
+            MinScore = p.MinScore,
+            MaxPeriod = p.MaxPeriod,
+            MaxDistance = Math.Max(TrfMinMaxDistance, Math.Min(Math.Max(p.MaxPeriod, TrfDefaultMaxDistance), (int)(length * 0.6))),
+            MaxWrapLength = p.MaxRepeatLength,
+            EliminateRedundancy = p.EliminateRedundancy,
+            UseDistanceRange = true,
+            FlankLength = p.FlankLength,
+        };
+
+        /// <summary>Random-walk distance radius ⌊2.3·√(PI·d)⌋ (Benson 1999), applied for d &gt; 20.</summary>
+        public int DistanceRadius(int d) => d <= TrfSmallDistance ? 0 : (int)Math.Floor(2.3 * Math.Sqrt((double)((float)Pi / 100) * d)); // TRF: Pindel = (float)PI/100
+    }
+
+    /// <summary>TRF MAXDISTANCE lower bound (200) and the value used for MaxPeriod &lt; 500 (500).</summary>
+    private const int TrfMinMaxDistance = 200;
+    private const int TrfDefaultMaxDistance = 500;
+
+    /// <summary>Largest pattern size aligned with the full WDP and without a random-walk distance range (TRF: 20).</summary>
+    private const int TrfSmallDistance = 20;
 
     /// <summary>One column of a TRF alignment: sequence symbol (or '-'), pattern symbol (or '-'), 1-based
     /// sequence index, 0-based pattern index (for an inserted sequence symbol: the next pattern position).</summary>
@@ -846,18 +997,43 @@ public static class RepeatFinder
     /// <summary>Extent of a WDP alignment without traceback (same optimum and same path as the traceback).</summary>
     private readonly record struct TrfExtent(int Score, int First, int Last, double CopyNumber);
 
-    private static int TrfWeight(char a, char b) =>
-        a == b && AcgtCode(a) >= 0 ? TrfMatchWeight : TrfMismatchWeight;
+    private static int TrfWeight(TrfModel m, char a, char b) =>
+        a == b && AcgtCode(a) >= 0 ? m.Match : m.Mismatch;
 
-    /// <summary>TRF k-tuple size for distance d at PM = .80 (Benson 1999 Table 1; TRF 4.10.0: 4 / 5 / 7).</summary>
-    private static int TrfTupleSize(int d)
+    /// <summary>
+    /// TRF k-tuple size for distance d. PM = 80: Benson 1999 Table 1 (k = 4 for d ≤ 29, 5 for 30..159, 7 for
+    /// ≥ 160). PM = 75: TRF 4.10.0's tuple set for that PM (k = 3 for d ≤ 29, 4 for 30..43, 5 for 44..159, 7 for
+    /// ≥ 160 — printed by the program as "tuple sizes 0,3,4,5,7 / tuple distances 0, 29, 43, 159"); each range
+    /// starts where the exact sum-of-heads cut-off already reaches k + 1, the paper's rule for picking tuple
+    /// ranges (first such d at PM = .75: k = 4 → 27, k = 5 → 41, k = 7 → 91).
+    /// </summary>
+    private static int TrfTupleSize(int d, int pm = TrfRecommendedPm)
     {
+        if (pm == 75)
+        {
+            if (d <= 29)
+                return 3;
+            if (d <= 43)
+                return 4;
+            return d <= 159 ? 5 : 7;
+        }
+
         if (d <= 29)
             return 4;
         return d <= 159 ? 5 : 7;
     }
 
+    /// <summary>TRF's recommended matching probability PM = 80 (percent).</summary>
+    private const int TrfRecommendedPm = 80;
+
+    /// <summary>Smallest sum-of-heads cut-off in either TRF table (PM = 80 and PM = 75): 5 heads.</summary>
+    private const int TrfMinSumOfHeads = 5;
+
     private static readonly int[] SumOfHeadsCache = new int[MaxApproximatePeriod + 1];
+    private static readonly int[] SumOfHeadsCache75 = new int[MaxApproximatePeriod + 1];
+
+    /// <summary>Sum-of-heads criterion at the recommended PM = 80 (see <see cref="TrfSumOfHeadsCriterion(int,int)"/>).</summary>
+    internal static int TrfSumOfHeadsCriterion(int d) => TrfSumOfHeadsCriterion(d, TrfRecommendedPm);
 
     /// <summary>
     /// Sum-of-heads criterion for distance d (Benson 1999): R(d,k,PM) = total heads in head runs of length ≥ k
@@ -865,16 +1041,20 @@ public static class RepeatFinder
     /// distribution and its exact mean and variance can be calculated"; the criterion is the largest x such
     /// that R ≥ x 95 % of the time. Mean and variance are computed exactly by a run-length Markov chain; the
     /// cut-off is ⌊μ − 1.65σ⌋, never below k + 1 ("the smallest pattern for tuple size k [has] a sum-of-heads
-    /// criterion of at least k+1"). Reproduces TRF 4.10.0's PM = 80 table for every d = 1..2000.
+    /// criterion of at least k+1") and never below 5 (the floor of both TRF tables; binding only for k = 3 at
+    /// PM = 75, d ≤ 20). Reproduces TRF 4.10.0's PM = 80 and PM = 75 tables for every d = 1..2000.
     /// </summary>
-    internal static int TrfSumOfHeadsCriterion(int d)
+    /// <param name="d">Distance (pattern size) 1..2000.</param>
+    /// <param name="pmPercent">Matching probability PM in percent: 80 or 75 (the values TRF has data for).</param>
+    internal static int TrfSumOfHeadsCriterion(int d, int pmPercent)
     {
-        int cached = Volatile.Read(ref SumOfHeadsCache[d]);
+        int[] cache = pmPercent == 75 ? SumOfHeadsCache75 : SumOfHeadsCache;
+        int cached = Volatile.Read(ref cache[d]);
         if (cached != 0)
             return cached;
 
-        int k = TrfTupleSize(d);
-        const double pm = TrfDefaultMatchProbability;
+        int k = TrfTupleSize(d, pmPercent);
+        double pm = pmPercent / 100.0;
         // State r = current head-run length (0..k-1) or k = inside a run already counted.
         var p = new double[k + 1];
         var m1 = new double[k + 1];
@@ -914,31 +1094,31 @@ public static class RepeatFinder
 
         double mean = m1.Sum();
         double sd = Math.Sqrt(Math.Max(0.0, m2.Sum() - mean * mean));
-        int criterion = Math.Max(k + 1, (int)(mean - 1.65 * sd));
-        Volatile.Write(ref SumOfHeadsCache[d], criterion);
+        int criterion = Math.Max(Math.Max(k + 1, TrfMinSumOfHeads), (int)(mean - 1.65 * sd));
+        Volatile.Write(ref cache[d], criterion);
         return criterion;
     }
 
     private static IReadOnlyList<ApproximateTandemRepeatResult> FindApproximateTandemRepeatsCore(
         string sequence,
-        int minPeriod,
-        int maxPeriod,
-        int minScore)
+        TrfModel m,
+        int minPeriod)
     {
         int n = sequence.Length;
         var s = new char[n + 1]; // 1-based, as in TRF
         sequence.CopyTo(0, s, 1, n);
 
+        int maxDistance = m.MaxDistance;
         var found = new List<ApproximateTandemRepeatResult>();
-        var runLength = new int[maxPeriod + 1];
-        var seenEnd = new int[maxPeriod + 1];
-        var windows = new TupleMatchWindow?[maxPeriod + 1];
+        var runLength = new int[maxDistance + 1];
+        var seenEnd = new int[maxDistance + 1];
+        var windows = new TupleMatchWindow?[maxDistance + 1];
         var bestPeriods = new Dictionary<(int First, int Last), int[]>();
 
         for (int i = 2; i <= n; i++)
         {
             bool acgt = AcgtCode(s[i]) >= 0;
-            int dMax = Math.Min(maxPeriod, i - 1);
+            int dMax = Math.Min(maxDistance, i - 1);
             for (int d = 1; d <= dMax; d++)
             {
                 if (!acgt || s[i] != s[i - d])
@@ -947,27 +1127,32 @@ public static class RepeatFinder
                     continue;
                 }
 
-                int k = TrfTupleSize(d);
+                int k = TrfTupleSize(d, m.Pm);
                 if (++runLength[d] < k)
                     continue;
 
                 // A k-tuple match at distance d ends at i; record it in the distance window of the last
                 // max(d, 20) positions (adjacent tuple matches form one entry of growing size).
                 var window = windows[d] ??= new TupleMatchWindow(Math.Max(d, TrfMinDistanceWindow) + 1);
-                window.Add(i, k, i - Math.Max(d, TrfMinDistanceWindow) + 1);
+                window.Add(i, k, TrfWindowLeft(i, d));
 
-                if (seenEnd[d] >= i || window.Heads < TrfSumOfHeadsCriterion(d))
+                if (seenEnd[d] >= i)
+                    continue;
+                int criterion = TrfSumOfHeadsCriterion(d, m.Pm);
+                if (window.Heads < criterion &&
+                    !(m.UseDistanceRange && MeetsTrfDistanceRange(windows, i, d, criterion, m)))
                     continue;
 
-                var repeat = AnalyzeTrfCandidate(s, n, i, d, maxPeriod, minScore, seenEnd, bestPeriods);
+                var repeat = AnalyzeTrfCandidate(m, s, n, i, d, seenEnd, bestPeriods);
                 if (repeat is not null)
                     found.Add(repeat.Value);
             }
         }
 
-        // TRF: drop periods above MaxPeriod, sort by start (stable), eliminate redundancy. The minimum
-        // period is a library option applied afterwards, so it never resurrects a redundant multiple.
-        var reported = RemoveTrfRedundancy(found.Where(r => r.Period <= maxPeriod).OrderBy(r => r.Start).ToList());
+        // TRF: drop periods above MaxPeriod, sort by start (stable), eliminate redundancy (unless -r). The
+        // minimum period is a library option applied afterwards, so it never resurrects a redundant multiple.
+        var sorted = found.Where(r => r.Period <= m.MaxPeriod).OrderBy(r => r.Start).ToList();
+        var reported = m.EliminateRedundancy ? RemoveTrfRedundancy(sorted) : sorted;
 
         return reported
             .Where(r => r.Period >= minPeriod)
@@ -975,6 +1160,80 @@ public static class RepeatFinder
             .ThenBy(r => r.Start + r.SpanLength)
             .ThenBy(r => r.Period)
             .ToList();
+    }
+
+    /// <summary>Left end of the tuple-match window of distance d at position i: the last max(d, 20) positions.</summary>
+    private static int TrfWindowLeft(int i, int d) => i - Math.Max(d, TrfMinDistanceWindow) + 1;
+
+    /// <summary>
+    /// Random-walk distance-range test (Benson 1999: indels make the distance between copies drift, "the
+    /// distance d ... [lies] in the range d ± Δd_max"; Δd_max = ⌊2.3·√(PI·d)⌋, applied for d &gt; 20). When d misses
+    /// the sum-of-heads cut-off on its own it still qualifies if no distance in [d − Δ, d + Δ] has more heads than
+    /// d and the heads summed over d and the lower range — or over any window of the same width sliding up through
+    /// the upper range — reach the cut-off. Only distances with heads in their own window count.
+    /// </summary>
+    private static bool MeetsTrfDistanceRange(TupleMatchWindow?[] windows, int i, int d, int criterion, TrfModel m)
+    {
+        int radius = m.DistanceRadius(d);
+        if (radius == 0)
+            return false;
+        int low = Math.Max(d - radius, 1);
+        int high = Math.Min(d + radius, m.MaxDistance);
+        int mainHeads = windows[d]!.Heads;
+
+        int HeadsAt(int t)
+        {
+            var w = windows[t];
+            if (w is null)
+                return 0;
+            w.Purge(TrfWindowLeft(i, t));
+            return w.Heads;
+        }
+
+        int sum = mainHeads;
+        int lowPointer = d;
+        for (int t = d - 1; t >= low; t--)
+        {
+            int heads = HeadsAt(t);
+            if (heads == 0)
+                continue;
+            if (heads > mainHeads)
+                return false;
+            sum += heads;
+            lowPointer = t;
+        }
+
+        for (int t = d + 1; t <= high; t++)
+        {
+            if (HeadsAt(t) > mainHeads)
+                return false;
+        }
+
+        if (sum >= criterion)
+            return true;
+
+        // Slide a window of the lower range's width up through the upper range.
+        int width = d - low + 1;
+        for (int t = d + 1; t <= high; t++)
+        {
+            int heads = HeadsAt(t);
+            if (heads == 0)
+                continue;
+            sum += heads;
+            while (lowPointer < t - width + 1)
+            {
+                sum -= HeadsAt(lowPointer);
+                int next = lowPointer + 1;
+                while (next < t && HeadsAt(next) == 0)
+                    next++;
+                lowPointer = next;
+            }
+
+            if (sum >= criterion)
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -991,7 +1250,8 @@ public static class RepeatFinder
 
         public int Heads { get; private set; }
 
-        public void Add(int position, int tupleSize, int windowLeft)
+        /// <summary>Drops runs that end before <paramref name="windowLeft"/>.</summary>
+        public void Purge(int windowLeft)
         {
             while (_count > 0 && _end[_head] < windowLeft)
             {
@@ -999,6 +1259,11 @@ public static class RepeatFinder
                 _head = (_head + 1) % _end.Length;
                 _count--;
             }
+        }
+
+        public void Add(int position, int tupleSize, int windowLeft)
+        {
+            Purge(windowLeft);
 
             int tail = (_head + _count - 1 + _end.Length) % _end.Length;
             if (_count > 0 && _end[tail] == position - 1)
@@ -1024,7 +1289,7 @@ public static class RepeatFinder
     /// alignment so that later matches at d inside the aligned region are not re-analysed (TRF).
     /// </summary>
     private static ApproximateTandemRepeatResult? AnalyzeTrfCandidate(
-        char[] s, int n, int i, int d, int maxPeriod, int minScore, int[] seenEnd,
+        TrfModel m, char[] s, int n, int i, int d, int[] seenEnd,
         Dictionary<(int First, int Last), int[]> bestPeriods)
     {
         var pattern = new char[d];
@@ -1032,30 +1297,30 @@ public static class RepeatFinder
 
         // Extent-only pass first: the multiples test needs only the aligned region, so the traceback
         // matrix is built only for candidates that pass both tests (identical path either way).
-        var extent = TrfWraparoundExtent(s, n, i, pattern);
+        var extent = TrfWraparoundExtent(m, s, n, i, pattern);
         if (extent is null)
             return null;
         MarkAligned(seenEnd, d, extent.Value.Last);
         if (!MeetsTrfCopyNumber(extent.Value.CopyNumber, d, d) ||
-            !IsAmongTrfBestPeriods(s, extent.Value.First, extent.Value.Last, d, maxPeriod, bestPeriods))
+            !IsAmongTrfBestPeriods(s, extent.Value.First, extent.Value.Last, d, m.MaxDistance, bestPeriods))
             return null;
 
-        var first = TrfWraparoundAlign(s, n, i, pattern);
+        var first = TrfWraparoundAlign(m, s, n, i, pattern);
         if (first is null)
             return null;
         char[] consensus = TrfConsensus(first.Columns, d);
         if (consensus.Length == 0)
             return null;
 
-        var final = TrfWraparoundAlign(s, n, i, consensus);
+        var final = TrfWraparoundAlign(m, s, n, i, consensus);
         if (final is null)
             return null;
         MarkAligned(seenEnd, d, final.Last);
         // TRF quirk kept: the 50 < size <= 100 ramp uses the candidate distance d.
-        if (!MeetsTrfCopyNumber(final.CopyNumber, consensus.Length, d) || final.Score < minScore)
+        if (!MeetsTrfCopyNumber(final.CopyNumber, consensus.Length, d) || final.Score < m.MinScore)
             return null;
 
-        return TrfStatistics(s, final, consensus);
+        return TrfStatistics(m, s, n, final, consensus);
     }
 
     /// <summary>Records that sequence positions up to <paramref name="last"/> were aligned at distance d.</summary>
@@ -1090,37 +1355,40 @@ public static class RepeatFinder
     /// preference — diagonal, then vertical, then horizontal — on the final values), so the extent is known
     /// without the O(rows × pattern) matrix.
     /// </summary>
-    private static TrfFill TrfWraparoundFill(char[] s, int n, int start, char[] pattern, List<int[]>? rows)
+    private static TrfFill TrfWraparoundFill(TrfModel m, char[] s, int n, int start, char[] pattern, List<int[]>? rows)
     {
         int size = pattern.Length;
-        var weights = TrfWeightRows(pattern);
+        var weights = TrfWeightRows(m, pattern);
+        int indel = m.Indel;
         var up = new int[size];
         var diag = new int[size];
         var cur = new int[size];
 
         // Backward scan (sequence read right-to-left from the candidate end, pattern read in reverse).
-        Array.Fill(up, TrfIndelWeight);
+        Array.Fill(up, indel);
         int maxScore = 0;
         int minRow = start;
         int killBelow = start - Math.Max(size, TrfMinDistanceWindow);
         int realRow = start + 1;
         bool endOfTrace = false;
-        while (!endOfTrace && realRow > 1)
+        int backwardRows = 0;
+        while (!endOfTrace && realRow > 1 && backwardRows < m.MaxWrapLength)
         {
+            backwardRows++;
             realRow--;
             int[] w = weights[TrfSymbolClass(s[realRow])];
-            int left = TrfIndelWeight;
+            int left = indel;
             for (int c = size - 1; c >= 0; c--)
             {
                 diag[c] += w[c];
-                left = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left)) + TrfIndelWeight;
+                left = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left)) + indel;
             }
 
             endOfTrace = true;
             for (int c = size - 1; c >= 0; c--)
             {
                 int v = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left));
-                left = up[c] = v + TrfIndelWeight;
+                left = up[c] = v + indel;
                 if (realRow <= killBelow && v == 0)
                 {
                     v = TrfDeadCell;
@@ -1145,7 +1413,7 @@ public static class RepeatFinder
         }
 
         // Forward local alignment from one pattern length before the leftmost best row.
-        Array.Fill(up, TrfIndelWeight);
+        Array.Fill(up, indel);
         Array.Clear(diag);
         bool trackExtent = rows is null;
         var prev = new int[size];
@@ -1161,17 +1429,17 @@ public static class RepeatFinder
         maxScore = 0;
         int bestReal = -1, bestRow = -1, bestCol = -1, bestFirst = 0, bestConsumed = 0;
         endOfTrace = false;
-        while (!endOfTrace && realRow < n)
+        while (!endOfTrace && realRow < n && row < m.MaxWrapLength)
         {
             row++;
             realRow++;
             int[] w = weights[TrfSymbolClass(s[realRow])];
             int[] values = rows is null ? cur : new int[size];
-            int left = TrfIndelWeight;
+            int left = indel;
             for (int c = 0; c < size; c++)
             {
                 diag[c] += w[c];
-                left = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left)) + TrfIndelWeight;
+                left = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left)) + indel;
             }
 
             endOfTrace = true;
@@ -1179,7 +1447,7 @@ public static class RepeatFinder
             for (int c = 0; c < size; c++)
             {
                 int v = Math.Max(Math.Max(0, diag[c]), Math.Max(up[c], left));
-                left = up[c] = v + TrfIndelWeight;
+                left = up[c] = v + indel;
                 if (realRow > start && v == 0)
                 {
                     v = TrfDeadCell;
@@ -1199,7 +1467,7 @@ public static class RepeatFinder
             }
 
             if (trackExtent)
-                TrackExtent(values, prev, w, realRow, prevFirst, prevCols, curFirst, curCols, pending);
+                TrackExtent(indel, values, prev, w, realRow, prevFirst, prevCols, curFirst, curCols, pending);
 
             if (rowMaxCol >= 0)
             {
@@ -1236,7 +1504,7 @@ public static class RepeatFinder
     /// <summary>Per-row extent bookkeeping for <see cref="TrfWraparoundFill"/> (start row and consumed pattern
     /// columns inherited along the traceback's preferred predecessor).</summary>
     private static void TrackExtent(
-        int[] values, int[] prev, int[] w, int realRow,
+        int indel, int[] values, int[] prev, int[] w, int realRow,
         int[] prevFirst, int[] prevCols, int[] curFirst, int[] curCols, bool[] pending)
     {
         int size = values.Length;
@@ -1253,7 +1521,7 @@ public static class RepeatFinder
                 curFirst[c] = starts ? realRow : prevFirst[jp];
                 curCols[c] = (starts ? 0 : prevCols[jp]) + 1;
             }
-            else if (v == prev[c] + TrfIndelWeight)
+            else if (v == prev[c] + indel)
             {
                 curFirst[c] = prevFirst[c];
                 curCols[c] = prevCols[c];
@@ -1282,14 +1550,14 @@ public static class RepeatFinder
 
     /// <summary>Weight of each pattern column against A, C, G, T and any other symbol (TRF: +2 for an
     /// identical A/C/G/T pair, −7 otherwise; N never matches).</summary>
-    private static int[][] TrfWeightRows(char[] pattern)
+    private static int[][] TrfWeightRows(TrfModel m, char[] pattern)
     {
         var weights = new int[5][];
         for (int symbol = 0; symbol < 5; symbol++)
         {
             weights[symbol] = new int[pattern.Length];
             for (int c = 0; c < pattern.Length; c++)
-                weights[symbol][c] = symbol < 4 && TrfSymbolClass(pattern[c]) == symbol ? TrfMatchWeight : TrfMismatchWeight;
+                weights[symbol][c] = symbol < 4 && TrfSymbolClass(pattern[c]) == symbol ? m.Match : m.Mismatch;
         }
         return weights;
     }
@@ -1302,9 +1570,9 @@ public static class RepeatFinder
     }
 
     /// <summary>WDP optimum and its extent (first/last sequence index, copy number) without traceback.</summary>
-    private static TrfExtent? TrfWraparoundExtent(char[] s, int n, int start, char[] pattern)
+    private static TrfExtent? TrfWraparoundExtent(TrfModel m, char[] s, int n, int start, char[] pattern)
     {
-        var fill = TrfWraparoundFill(s, n, start, pattern, rows: null);
+        var fill = TrfWraparoundFill(m, s, n, start, pattern, rows: null);
         if (fill.Score <= 0)
             return null;
         return new TrfExtent(fill.Score, fill.First, fill.RealRow, TrfCopyNumber(fill.Consumed, pattern.Length));
@@ -1320,11 +1588,11 @@ public static class RepeatFinder
     /// (predecessor preference: match/mismatch, then a sequence symbol against a gap, then a pattern symbol
     /// against a gap). Columns are returned rightmost first.
     /// </summary>
-    private static TrfAlignment? TrfWraparoundAlign(char[] s, int n, int start, char[] pattern)
+    private static TrfAlignment? TrfWraparoundAlign(TrfModel m, char[] s, int n, int start, char[] pattern)
     {
         int size = pattern.Length;
         var rows = new List<int[]>();
-        var fill = TrfWraparoundFill(s, n, start, pattern, rows);
+        var fill = TrfWraparoundFill(m, s, n, start, pattern, rows);
         if (fill.Score <= 0)
             return null;
 
@@ -1334,7 +1602,7 @@ public static class RepeatFinder
         {
             int v = rows[r][j];
             int jp = j == 0 ? size - 1 : j - 1;
-            if (v == rows[r - 1][jp] + TrfWeight(s[i], pattern[j]))
+            if (v == rows[r - 1][jp] + TrfWeight(m, s[i], pattern[j]))
             {
                 columns.Add(new TrfColumn(s[i], pattern[j], i, j));
                 consumed++;
@@ -1342,13 +1610,13 @@ public static class RepeatFinder
                 r--;
                 j = jp;
             }
-            else if (v == rows[r - 1][j] + TrfIndelWeight)
+            else if (v == rows[r - 1][j] + m.Indel)
             {
                 columns.Add(new TrfColumn(s[i], '-', i, (j + 1) % size));
                 i--;
                 r--;
             }
-            else if (v == rows[r][jp] + TrfIndelWeight)
+            else if (v == rows[r][jp] + m.Indel)
             {
                 columns.Add(new TrfColumn('-', pattern[j], i + 1, j));
                 consumed++;
@@ -1534,7 +1802,7 @@ public static class RepeatFinder
     }
 
     /// <summary>Builds the reported TRF statistics from the final (consensus) alignment.</summary>
-    private static ApproximateTandemRepeatResult TrfStatistics(char[] s, TrfAlignment alignment, char[] consensus)
+    private static ApproximateTandemRepeatResult TrfStatistics(TrfModel m, char[] s, int n, TrfAlignment alignment, char[] consensus)
     {
         var copies = CompareAdjacentCopies(alignment.Columns);
         int trials = copies.Matches + copies.Mismatches + copies.Indels;
@@ -1573,7 +1841,40 @@ public static class RepeatFinder
             PercentG = 100.0 * g / span,
             PercentT = 100.0 * t / span,
             Entropy = SequenceComplexity.CalculateShannonEntropy(region),
+            EntropyTrf = TrfEntropy(a, c, g, t, span),
+            AlignedSequence = AlignmentRow(alignment.Columns, sequenceRow: true),
+            AlignedConsensus = AlignmentRow(alignment.Columns, sequenceRow: false),
+            LeftFlank = m.FlankLength > 0 ? new string(s, Math.Max(1, first - m.FlankLength), first - Math.Max(1, first - m.FlankLength)) : null,
+            RightFlank = m.FlankLength > 0 ? new string(s, last + 1, Math.Min(n, last + m.FlankLength) - last) : null,
         };
+    }
+
+    /// <summary>
+    /// TRF's "Entropy (0-2)" column: −Σ p_b·log₂ p_b over A, C, G, T with p_b = count_b / region length, where the
+    /// region length counts EVERY symbol of the repeat (TRF 4.10.0 get_statistics: the denominator is the number of
+    /// non-gap characters of the aligned sequence, so an N lowers every p_b and the four p_b sum to less than 1).
+    /// Terms are summed from the largest p_b down, with log₂ x computed as ln x / ln 2, as TRF does.
+    /// </summary>
+    private static double TrfEntropy(int a, int c, int g, int t, int length)
+    {
+        Span<double> p = [(double)a / length, (double)c / length, (double)g / length, (double)t / length];
+        p.Sort();
+        double entropy = 0.0;
+        for (int b = 3; b >= 0; b--)
+            entropy += p[b] == 0 ? 0 : p[b] * (Math.Log(p[b]) / Math.Log(2));
+        return Math.Abs(entropy);
+    }
+
+    /// <summary>One row of the final alignment, left to right ('-' = gap): the repeat or the consensus copies.</summary>
+    private static string AlignmentRow(TrfColumn[] columns, bool sequenceRow)
+    {
+        var row = new char[columns.Length];
+        for (int k = 0; k < columns.Length; k++)
+        {
+            var column = columns[columns.Length - 1 - k];
+            row[k] = sequenceRow ? column.Seq : column.Pat;
+        }
+        return new string(row);
     }
 
     /// <summary>
@@ -1769,11 +2070,11 @@ public static class RepeatFinder
 
         TrfCopyComparison copies = default;
         double copyNumber = 0.0;
-        var initial = TrfWraparoundAlign(s, n, n, pattern);
+        var initial = TrfWraparoundAlign(TrfModel.Recommended, s, n, n, pattern);
         if (initial is not null)
         {
             char[] consensus = TrfConsensus(initial.Columns, period);
-            var final = consensus.Length > 0 ? TrfWraparoundAlign(s, n, n, consensus) : null;
+            var final = consensus.Length > 0 ? TrfWraparoundAlign(TrfModel.Recommended, s, n, n, consensus) : null;
             if (final is not null)
             {
                 copies = CompareAdjacentCopies(final.Columns);
@@ -3685,8 +3986,106 @@ public readonly record struct ApproximateTandemRepeatResult(
     /// <summary>Percentage of T in the repeat region (TRF "T" column, exact).</summary>
     public double PercentT { get; init; }
 
-    /// <summary>Shannon entropy of the region's A/C/G/T composition in bits, 0–2 (TRF "Entropy (0-2)").</summary>
+    /// <summary>
+    /// Shannon entropy of the region's A/C/G/T composition in bits, 0–2, normalised over the A/C/G/T symbols
+    /// only. Equals TRF's "Entropy (0-2)" column unless the region contains N or other non-ACGT symbols; see
+    /// <see cref="EntropyTrf"/> for the TRF value in every case.
+    /// </summary>
     public double Entropy { get; init; }
+
+    /// <summary>
+    /// TRF's "Entropy (0-2)" exactly as TRF 4.10.0 computes it: −Σ p·log₂ p over A, C, G, T with each p taken over
+    /// the WHOLE region length (N and other symbols included in the denominator, excluded from the sum). Identical
+    /// to <see cref="Entropy"/> for pure A/C/G/T regions.
+    /// </summary>
+    public double EntropyTrf { get; init; }
+
+    /// <summary>
+    /// Sequence row of the final (consensus) alignment, left to right: the repeat's symbols with '-' where a
+    /// consensus symbol is deleted (TRF alignment file, top line of each pair). Removing the gaps gives the region.
+    /// </summary>
+    public string? AlignedSequence { get; init; }
+
+    /// <summary>
+    /// Consensus row of the final alignment, column-aligned with <see cref="AlignedSequence"/>: the consensus copies
+    /// (starting at the phase of the first repeat base) with '-' where a sequence symbol is inserted (TRF alignment
+    /// file, bottom line of each pair).
+    /// </summary>
+    public string? AlignedConsensus { get; init; }
+
+    /// <summary>
+    /// Up to <see cref="TandemRepeatsFinderParameters.FlankLength"/> symbols immediately left of the repeat (TRF
+    /// <c>-f</c> "Left flanking sequence"; upper case); empty at the sequence start; null when flanks were not requested.
+    /// </summary>
+    public string? LeftFlank { get; init; }
+
+    /// <summary>Up to <see cref="TandemRepeatsFinderParameters.FlankLength"/> symbols immediately right of the repeat
+    /// (TRF <c>-f</c> "Right flanking sequence"); null when flanks were not requested.</summary>
+    public string? RightFlank { get; init; }
+}
+
+/// <summary>
+/// Tandem Repeats Finder parameter set (<c>trf File Match Mismatch Delta PM PI Minscore MaxPeriod [options]</c>;
+/// TRF 4.10.0 README "parameters"). Defaults are TRF's recommended command line <c>2 7 7 80 10 50 500</c>.
+/// </summary>
+public sealed record TandemRepeatsFinderParameters
+{
+    /// <summary>TRF default longest expected TR array (<c>-l 2</c> = 2 million bp).</summary>
+    public const int DefaultMaxRepeatLength = 2_000_000;
+
+    /// <summary>The recommended parameter set 2 7 7 80 10 50 500 (TRF README).</summary>
+    public static TandemRepeatsFinderParameters Recommended { get; } = new();
+
+    /// <summary>Match weight (TRF "Match"; positive; "a match weight of 2 has proven effective").</summary>
+    public int MatchWeight { get; init; } = 2;
+
+    /// <summary>Mismatch penalty, given positive and applied as −value (TRF "Mismatch"; 3–7 recommended, 7 default).</summary>
+    public int MismatchPenalty { get; init; } = 7;
+
+    /// <summary>Indel penalty per gap column, given positive (TRF "Delta"; 3–7 recommended, 7 default).</summary>
+    public int IndelPenalty { get; init; } = 7;
+
+    /// <summary>Matching probability PM in percent (TRF "PM"): 80 or 75 — "probabilistic data is available for PM
+    /// values of 80 and 75". Selects the tuple sizes and the sum-of-heads cut-offs.</summary>
+    public int MatchProbability { get; init; } = 80;
+
+    /// <summary>Indel probability PI in percent (TRF "PI"; data for 10 and 20; any 1..100 accepted as by TRF).
+    /// Sets the random-walk distance range ⌊2.3·√(PI/100·d)⌋ for d &gt; 20.</summary>
+    public int IndelProbability { get; init; } = 10;
+
+    /// <summary>Minimum alignment score to report (TRF "Minscore"; ≥ 1; 50 recommended).</summary>
+    public int MinScore { get; init; } = 50;
+
+    /// <summary>Maximum reported period (TRF "MaxPeriod"; 1..2000; 500 recommended).</summary>
+    public int MaxPeriod { get; init; } = 500;
+
+    /// <summary>Longest tandem-repeat array expected, in bp (TRF <c>-l n</c> = n million; default 2 000 000): the
+    /// wraparound alignment extends at most this many rows on either side of the candidate.</summary>
+    public int MaxRepeatLength { get; init; } = DefaultMaxRepeatLength;
+
+    /// <summary>TRF redundancy elimination (default on; TRF <c>-r</c> turns it off).</summary>
+    public bool EliminateRedundancy { get; init; } = true;
+
+    /// <summary>Flanking sequence length reported on each side (0 = none; TRF <c>-f</c> uses 500, <c>-ngs</c> 50).</summary>
+    public int FlankLength { get; init; }
+
+    /// <summary>Validates the set against TRF's accepted ranges; throws <see cref="ArgumentOutOfRangeException"/>.</summary>
+    public void Validate()
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(MatchWeight, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(MismatchPenalty, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(IndelPenalty, 1);
+        // TRF has tuple-size and sum-of-heads data only for PM = 80 and PM = 75.
+        if (MatchProbability != 80)
+            ArgumentOutOfRangeException.ThrowIfNotEqual(MatchProbability, 75);
+        ArgumentOutOfRangeException.ThrowIfLessThan(IndelProbability, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(IndelProbability, 100);
+        ArgumentOutOfRangeException.ThrowIfLessThan(MinScore, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(MaxPeriod, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(MaxPeriod, RepeatFinder.MaxApproximatePeriod);
+        ArgumentOutOfRangeException.ThrowIfLessThan(MaxRepeatLength, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(FlankLength);
+    }
 }
 
 /// <summary>

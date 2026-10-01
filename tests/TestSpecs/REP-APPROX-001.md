@@ -3,8 +3,8 @@
 **Test Unit ID:** REP-APPROX-001
 **Area:** Repeats
 **Algorithm:** Approximate (TRF) Tandem-Repeat Detection + TRF Bernoulli statistics
-**Status:** ☑ Complete — re-validated 2026-09-30 (campaign 2026-09, batch B04; Stage A corrected, Stage B fixed)
-**Last Updated:** 2026-09-30
+**Status:** ☑ Complete — re-validated 2026-09-30 (campaign 2026-09, batch B04; Stage A corrected, Stage B fixed); TRF parameters / outputs added 2026-10-01 (B04 audit WP6)
+**Last Updated:** 2026-10-01
 
 > **2026-09 review.** The 2026-06 validation had no TRF binary and hand-derived its expectations from a
 > window-vs-consensus model that is not TRF's. TRF 4.10.0 was compiled from source and used as the oracle:
@@ -21,6 +21,7 @@
 | 1 | Benson G (1999) NAR 27:573 (content via TRF README) | model, WDP, sum-of-heads R(d,k,PM), tuple sizes, consensus, period definition, Minscore 50, PM .80 / PI .10 |
 | 2 | TRF 4.10.0 README (github.com/Benson-Genomics-Lab/TRF) | parameters, table / alignment explanation, redundancy, MaxPeriod ≤ 2000, test_seqs expected tables |
 | 3 | TRF 4.10.0 source, compiled (`trf seq.fa 2 7 7 80 10 <min> <maxp> -h -d`) + instrumented copy | numeric oracle for every expected value |
+| 4 | TRF 4.10.0 README parameters `-m` / `-f` / `-r` / `-l` / `-ngs`, PM/PI data note; compiled TRF with non-default `Match Mismatch Delta PM PI Minscore MaxPeriod`, `-m`, `-f`, `-r`; a TRF build taking `-l` in bp (WP6) | parameter sets, masked file, flanks, alignment rows, redundancy-off, `-l` cap |
 
 ## 2. Canonical Method(s)
 
@@ -29,10 +30,14 @@
 | `FindApproximateTandemRepeats(DnaSequence, minPeriod = 1, maxPeriod = 6, minScore = 50)` | Canonical |
 | `FindApproximateTandemRepeats(string, …)` | Overload (case-insensitive; null/empty → empty) |
 | `ComputeBernoulliStatistics(string repeatTract, int period, double expectedMatchProbability = 0.80)` | Canonical |
-| `TrfSumOfHeadsCriterion(int d)` (internal) | Helper (tested) |
+| `FindApproximateTandemRepeats(string | DnaSequence, TandemRepeatsFinderParameters, minPeriod = 1)` | Canonical (full TRF parameter set, WP6) |
+| `MaskApproximateTandemRepeats(string, TandemRepeatsFinderParameters? = null, softMask = false)` / `(string, IEnumerable<ApproximateTandemRepeatResult>, softMask)` | TRF `-m` masked sequence (+ soft mask) |
+| `ApproximateTandemRepeatResult.EntropyTrf / AlignedSequence / AlignedConsensus / LeftFlank / RightFlank` | TRF entropy column, alignment rows, `-f` flanks |
+| `TrfSumOfHeadsCriterion(int d)`, `TrfSumOfHeadsCriterion(int d, int pm)` (internal) | Helper (tested; PM 80 and 75) |
 
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs`
-- **Test fixture:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`
+- **Test fixtures:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`,
+  `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs` (WP6: P1–P14)
 - **Other tiers:** `Fuzzing/RepeatApproxFuzzTests.cs`, `Properties/RepeatFinderProperties.cs` (REP-APPROX-001 region),
   `Metamorphic/RepeatsMetamorphicTests.cs`, `Combinatorial/RepeatsCombinatorialTests.cs`
 
@@ -47,6 +52,11 @@
 | INV-5 | Deterministic; case-insensitive; `DnaSequence` and string overloads agree |
 | INV-6 | N / non-ACGT never match; all-N input → no repeat |
 | INV-7 | Bernoulli: `Matches + Mismatches + Indels = BernoulliTrials`; PM, PI ∈ [0,1]; equal to TRF's adjacent-copy counts |
+| INV-8 | `EntropyTrf` = −Σ p_b log₂ p_b over A/C/G/T with p_b = count_b / region length (N counted in the length); `EntropyTrf = Entropy` when the region is pure A/C/G/T |
+| INV-9 | `AlignedSequence` and `AlignedConsensus` have equal length; `AlignedSequence` without '-' = the region; `AlignedConsensus` without '-' starts with `Consensus` |
+| INV-10 | Mask: output length = input length; exactly the positions of reported repeats become `N` (soft: lower case), all others unchanged |
+| INV-11 | Flanks: `LeftFlank` = the min(FlankLength, Start) symbols before the repeat, `RightFlank` = up to FlankLength symbols after it; null when FlankLength = 0 |
+| V-2 | `TandemRepeatsFinderParameters.Validate`: weights ≥ 1, PM ∈ {75, 80}, PI 1..100, MinScore ≥ 1, MaxPeriod 1..2000, MaxRepeatLength ≥ 1, FlankLength ≥ 0 → else `ArgumentOutOfRangeException`; null parameters / sequence → `ArgumentNullException`; mask with a repeat outside the sequence → `ArgumentOutOfRangeException` |
 | V-1 | Eager `ArgumentOutOfRangeException`: `minPeriod < 1`, `maxPeriod < minPeriod`, `maxPeriod > 2000`, `minScore < 1` (both overloads, also for empty input); `ArgumentNullException` for null `DnaSequence` / tract; Bernoulli: `period ∉ 1..2000`, PM ∉ [0,1] or NaN, tract < 2 × period → `ArgumentException` |
 
 ## 4. Test cases (expected values = compiled TRF 4.10.0)
@@ -72,14 +82,39 @@
 | B6 | deletion tract, p3 | 25/0/2, 27 trials, 9 pairs |
 | B-link | Bernoulli on a detected region | equals the reported % matches / % indels |
 
+### TRF parameters and outputs (WP6; `RepeatFinder_TrfParameters_Tests.cs`; crafted U1–U5, expected = compiled TRF)
+
+| ID | Input | Expected (TRF .dat / files) |
+|---|---|---|
+| P1 | U1 (2 N inside a period-7 array), recommended | 61–124 p7 9.1 7 92/0 110 14/14/26/42 entropy 1.83; `EntropyTrf` = 1.829258111162015 (denominator 64); legacy `Entropy` 1.8425 (prints 1.84) |
+| P2 | U3, U4 pure ACGT | `EntropyTrf = Entropy` (1.18, 1.66) |
+| P3 | `Recommended` | 2 7 7 80 10 50 500, `-l` 2 000 000, redundancy on, no flanks |
+| P4 | U4, recommended | 41–136 p12 8.0 12 86/4 140 TCTTCACTGCCC; 43–136 p49 score 152 |
+| P5 | `2 3 5 80 10 40 200` on U3/U4/U1/U2 | U3 1–60 p2 89/0 105; U4 score 160; U1 score 118; U2 51–173 p25 5.0 24 82/6 178 and p49 2.5 50 86/2 196 |
+| P6 | PM 75: `2 7 7 75 20 50 500`, `2 5 5 75 10 30 100` | U2 51–167 p25 4.8 24 84/10 148 / 168; U3 score 101; U1 score 114 |
+| P7 | `TrfSumOfHeadsCriterion(d, 75)` | TRF `sumdata75`: d 1/18/20/21/29/30/43/44/100/159/160/500/2000 → 5/5/5/6/10/6/11/7/27/50/24/116/567 |
+| P8 | `TrfSumOfHeadsCriterion(d, 80)` | = default overload (5, 6, 43, 818) |
+| P9 | `-r` (`EliminateRedundancy = false`) | U1 periods 7/14/21 (110); U3 2/4/6 (95); U5 copies 100.0/50.0/33.3 (400) |
+| P10 | `MaxRepeatLength` 150 / 60 (TRF built with `-l` in bp) | U5 79–228 75.0 300 / 169–228 30.0 120; U1 61–117 8.1 96 |
+| P11 | invalid parameter sets | V-2 |
+| P12 | `-m` | U1 / U3 / U4 equal to TRF's masked file; U2 soft mask = lower-cased 51..167 |
+| P13 | `FlankLength` 50 / 500 | U1 flanks = TRF `-ngs` 50-bp flanks; U3 left flank empty (TRF '.'), right = rest of sequence (`-f`) |
+| P14 | alignment rows, U4 | equal to TRF alignment file (`TCTTC-GTGCCC`, `TCTT-CACTGCCC` columns) |
+
 ## 5. Cross-check / Differential Oracle
 
 - Per-candidate analysis vs instrumented TRF: 1 524 / 1 524 identical (pattern ≤ 20), 827 / 959 (> 20, TRF band).
 - Whole pipeline vs TRF `.dat` (700 random sequences): 92.6 % exact rows / 96.0 % region level (periods ≤ 20);
   80.5 % / 93.1 % (periods ≤ 100). Details in the Evidence file.
+- WP6 (new 700-sequence set, 25 % with N; `TandemRepeatsFinderParameters` API): recommended 2 7 7 80 10 50 500 →
+  87.8 % exact / 99.4 % region (1 305 TRF rows; periods ≤ 20: 98.3 % / 99.8 %); six non-default sets 84–92 % /
+  99.1–99.9 % except the most permissive 2 3 3 80 20 (64.2 % / 93.8 %); `-r`: 89.1 % / 99.7 %; `EntropyTrf` equal to
+  TRF on every same-locus N-containing row (229/229 … 566/566); masks identical whenever the loci are identical
+  (601/601, 565/565, 582/582, 461/461 sequences); flanks 50 bp 100 %, 500 bp 314/314; alignment rows 191/191
+  (consensus ≤ 20), 116/123 (> 20).
 
 ## 6. Declared residual
 
-TRF's apparent-size criterion (simulated), random-walk range distances, best-period list (d > 250) and narrow-band
-WDP (patterns > 20) are not reproduced; entropy is the canonical normalised Shannon entropy (differs from TRF only
-for regions containing N).
+TRF's apparent-size / waiting-time criterion (simulated tables), best-period list (d > 250) and narrow-band WDP
+(patterns > 20) are not reproduced. The random-walk distance range (PI) is implemented in the parameter-set API
+(WP6). `Entropy` stays the normalised Shannon entropy; `EntropyTrf` is TRF's column in every case (WP6).

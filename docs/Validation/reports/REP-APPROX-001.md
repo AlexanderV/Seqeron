@@ -1,5 +1,23 @@
 # Validation Report: REP-APPROX-001 — Approximate (TRF) Tandem-Repeat Detection
 
+> **Re-validation 2026-09 / 2026-10 (campaign 2026-09, batch B04) — supersedes the 2026-06 verdict below.**
+> The 2026-06 review had no TRF binary; TRF 4.10.0 compiled from source showed the old statistics and detection were
+> not TRF's (B04 F14–F18: analysis now TRF-identical for patterns ≤ 20, k-tuple + sum-of-heads detection).
+> Completeness audit WP6 (B04 F40–F42): `TandemRepeatsFinderParameters` overloads expose every TRF parameter
+> (weights, PM 80/75 with both sum-of-heads tables reproduced 2000/2000, PI random-walk range, Minscore, MaxPeriod /
+> MAXDISTANCE, `-l`, `-r`, `-f`); `MaskApproximateTandemRepeats` (`-m`, + soft mask); `EntropyTrf`, alignment rows and
+> flanks on the result. Cross-check vs compiled TRF on 700 sequences: recommended set 87.8 % rows exact / 99.4 %
+> region level, non-default sets comparable (Evidence, WP6 revision); masks 0 mismatches given identical loci;
+> `EntropyTrf` 0 mismatches on every N-containing row. **Stage A: corrected · Stage B: fixed · State: FIXED** —
+> declared residual: TRF's simulated waiting-time criterion, best-period list (d > 250), narrow-band WDP (> 20).
+> Current sources: `tests/TestSpecs/REP-APPROX-001.md`, `docs/Evidence/REP-APPROX-001-Evidence.md`,
+> `docs/Validation/review-2026-09/B04.md` (F14–F18, F40–F42). Tests:
+> `Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`, `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs`.
+
+---
+
+*Historical 2026-06 report (superseded):*
+
 - **Validated:** 2026-06-25   **Area:** Repeats
 - **Canonical method(s):** `RepeatFinder.FindApproximateTandemRepeats` (string + `DnaSequence` overloads), `RepeatFinder.ComputeBernoulliStatistics`
 - **Stage A verdict:** ✅ PASS
