@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.GetTandemRepeatSummary",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L5994",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L6352",
   "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts (mono..hexa), longest repeat and most frequent unit. Also the MISA table of repeat-type classes considering sequence complementarity (motif rotations + reverse complement, e.g. AC/CA/GT/TG -> AC/GT); optional MISA per-unit-size thresholds (default or a custom misa.ini definition with any unit sizes, misaDefinition; per-size counts in countsByUnitLength) and misa.pl regex scan (misaScan; counts = misa.pl .statistics). N and other IUPAC codes are accepted (case-insensitive) and never form or extend an STR, as in find_microsatellites; percentageOfSequence uses the full length (N included) as denominator.",
   "inputSchema": {
     "type": "object",

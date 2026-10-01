@@ -26,7 +26,7 @@ longer than `maxLength` is not reported, not truncated) and `spacing = secondPos
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L4041](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4041)
+- Source: [RepeatFinder.cs#L4399](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4399)
 
 ## Input Schema
 

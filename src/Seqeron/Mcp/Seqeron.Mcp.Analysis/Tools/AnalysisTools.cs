@@ -780,7 +780,7 @@ public class AnalysisTools
         [Description("Examine candidate distances only up to maxPeriod (library legacy mode; default false = TRF MAXDISTANCE). Requires the recommended weights/PM/PI and default -l/-r/-f/table.")] bool examineUpToMaxPeriodOnly = false,
         [Description(ApparentSizeTableDescription)] string? apparentSizeTable = null,
         [Description(ApparentSizeTableKindDescription)] string apparentSizeTableKind = "apparent",
-        [Description("Extra output text: 'json' (default, items only), 'dat' (TRF -d data file: program header, Sequence/Parameters block, rows), 'ngs' (TRF -ngs block: @name + rows with 50-bp flanks) or 'html' (TRF repeat-table HTML pages, 120 rows per page). Rows follow TRF 4.10.0 byte for byte (order, truncation, %.1f/%.2f).")] string format = "json",
+        [Description("Extra output text: 'json' (default, items only), 'dat' (TRF -d data file: program header, Sequence/Parameters block, rows), 'ngs' (TRF -ngs block: @name + rows with 50-bp flanks) or 'html' (TRF repeat-table HTML pages, 120 rows per page, in htmlPages, plus the .N.txt.html alignment pages they link to, in alignmentPages). Rows follow TRF 4.10.0 byte for byte (order, truncation, %.1f/%.2f).")] string format = "json",
         [Description("Sequence description printed in dat/ngs/html output (TRF prints the FASTA header after '>'; default 'sequence'). Also the HTML file prefix.")] string sequenceName = "sequence")
     {
         if (string.IsNullOrEmpty(sequence))
@@ -793,6 +793,7 @@ public class AnalysisTools
         var table = ParseApparentSizeTable(apparentSizeTable, apparentSizeTableKind);
 
         IEnumerable<global::Seqeron.Genomics.Analysis.ApproximateTandemRepeatResult> found;
+        int reportedCount = 0;
         var parameters = TrfParameters(maxPeriod, minScore, matchWeight, mismatchPenalty, indelPenalty,
             matchProbability, indelProbability, maxRepeatLength, eliminateRedundancy, flankLength) with { ApparentSizeTable = table };
         if (examineUpToMaxPeriodOnly)
@@ -810,10 +811,11 @@ public class AnalysisTools
         }
         else
         {
-            found = global::Seqeron.Genomics.Analysis.RepeatFinder.FindApproximateTandemRepeats(sequence, parameters, minPeriod);
+            found = global::Seqeron.Genomics.Analysis.RepeatFinder.FindApproximateTandemRepeats(sequence, parameters, out reportedCount, minPeriod);
         }
 
         var repeats = found.ToList();
+        int? outputCount = examineUpToMaxPeriodOnly ? null : reportedCount;
         var items = repeats
             .Select(r => new ApproximateTandemRepeatItem(
                 r.Start, r.SpanLength, r.Period, r.ConsensusSize, r.Consensus, r.CopyNumber,
@@ -833,6 +835,9 @@ public class AnalysisTools
                 CopyMismatches = r.CopyMismatches,
                 CopyIndels = r.CopyIndels,
                 OutputIndex = r.OutputIndex,
+                OutputCount = r.OutputCount,
+                DetectionPosition = r.DetectionPosition,
+                DetectionDistance = r.DetectionDistance,
             })
             .ToArray();
 
@@ -852,6 +857,10 @@ public class AnalysisTools
             {
                 HtmlPages = global::Seqeron.Genomics.Analysis.RepeatFinder
                     .FormatTrfHtmlTables(sequence, repeats, sequenceName, parameters, sequenceName)
+                    .Select(p => new TrfHtmlPageItem(p.FileName, p.Html))
+                    .ToArray(),
+                AlignmentPages = global::Seqeron.Genomics.Analysis.RepeatFinder
+                    .FormatTrfAlignmentPages(sequence, repeats, sequenceName, parameters, sequenceName, outputCount)
                     .Select(p => new TrfHtmlPageItem(p.FileName, p.Html))
                     .ToArray(),
             },

@@ -105,7 +105,7 @@
       },
       "format": {
         "type": "string",
-        "description": "Extra output text in TRF 4.10.0 layout (byte-identical rows): 'json' (items only), 'dat' (-d data file: header, Sequence/Parameters block, rows), 'ngs' (-ngs block with 50-bp flanks) or 'html' (repeat-table pages, 120 rows per page)",
+        "description": "Extra output text in TRF 4.10.0 layout (byte-identical rows): 'json' (items only), 'dat' (-d data file: header, Sequence/Parameters block, rows), 'ngs' (-ngs block with 50-bp flanks) or 'html' (repeat-table pages, 120 rows per page, plus the .N.txt.html alignment pages they link to)",
         "enum": [
           "json",
           "dat",
@@ -200,6 +200,18 @@
             },
             "outputIndex": {
               "type": "integer"
+            },
+            "outputCount": {
+              "type": "integer",
+              "description": "Alignments reported for the whole sequence before MaxPeriod filtering / redundancy elimination (TRF OUTPUTcount)"
+            },
+            "detectionPosition": {
+              "type": "integer",
+              "description": "0-based detection position (TRF alignment page 'Found at i:' = this + 1)"
+            },
+            "detectionDistance": {
+              "type": "integer",
+              "description": "Candidate distance at detection (TRF 'original size')"
             }
           },
           "required": [
@@ -243,6 +255,28 @@
           ]
         },
         "description": "TRF repeat-table HTML pages ('html')"
+      },
+      "alignmentPages": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "fileName": {
+              "type": "string"
+            },
+            "html": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "fileName",
+            "html"
+          ]
+        },
+        "description": "TRF alignment pages <name>.<parameters>.N.txt.html ('html'), the targets of the table links"
       }
     },
     "required": [

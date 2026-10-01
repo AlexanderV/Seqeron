@@ -100,6 +100,115 @@ public class FindApproximateTandemRepeatsTests
         });
     }
 
+    // TRF 4.10.0 `trf U1.fa 2 7 7 80 10 50 500` → U1.fa.2.7.7.80.10.50.500.1.txt.html (the page the table links to); the MCP
+    // tool uses sequenceName as both the description and the file prefix, so only the "Sequence:" line differs.
+    [Test]
+    public void FindApproximateTandemRepeats_Html_ReturnsTrfAlignmentPages()
+    {
+        const string trf = "<HTML><HEAD><TITLE>U1.fa.2.7.7.80.10.50.500.txt.html</TITLE></HEAD><BODY bgcolor=\"#FBF8BC\"><PRE>\n"
+            + "Tandem Repeats Finder Program written by:\n"
+            + "\n"
+            + "                 Gary Benson\n"
+            + "      Program in Bioinformatics\n"
+            + "          Boston University\n"
+            + "\n"
+            + "Version 4.10.0\n"
+            + "\n"
+            + "Sequence: U1\n"
+            + "\n"
+            + "Parameters: 2 7 7 80 10 50 500\n"
+            + "\n"
+            + "Pmatch=0.80,Pindel=0.10\n"
+            + "tuple sizes 0,4,5,7\n"
+            + "tuple distances 0, 29, 159, 200\n"
+            + "\n"
+            + "Length: 183\n"
+            + "ACGTcount: A:0.20, C:0.25, G:0.23, T:0.31\n"
+            + "\n"
+            + "Warning! 2 characters in sequence are not A, C, G, or T\n"
+            + "\n"
+            + "\n"
+            + "Found at i:71 original size:7 final size:7\n"
+            + "\n"
+            + "<A NAME=\"61--124,7,9.1,7,1\"></A><A HREF=\"http://tandem.bu.edu/trf/trf.definitions.html#alignment\" target =\"explanation\">Alignment explanation</A><BR><BR>\n"
+            + "    Indices: 61--124  Score: 110\n"
+            + "    Period size: 7  Copynumber: 9.1  Consensus size: 7\n"
+            + "\n"
+            + "         51 TCATTTCCGC\n"
+            + "\n"
+            + "                   \n"
+            + "         61 TCATTGG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "                   \n"
+            + "         68 TCATTGG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "               *   \n"
+            + "         75 TCANTGG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "                   \n"
+            + "         82 TCATTGG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "                   \n"
+            + "         89 TCATTGG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "                 * \n"
+            + "         96 TCATTNG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "                   \n"
+            + "        103 TCATTGG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "                   \n"
+            + "        110 TCATTGG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "                   \n"
+            + "        117 TCATTGG\n"
+            + "          1 TCATTGG\n"
+            + "\n"
+            + "             \n"
+            + "        124 T\n"
+            + "          1 T\n"
+            + "\n"
+            + "        125 AGACATAATC\n"
+            + "\n"
+            + "\n"
+            + "Statistics\n"
+            + "Matches: 53,  Mismatches: 4, Indels: 0\n"
+            + "        0.93            0.07        0.00\n"
+            + "\n"
+            + "Matches are distributed among these distances:\n"
+            + "   7   53  1.00\n"
+            + "\n"
+            + "ACGTcount: A:0.14, C:0.14, G:0.27, T:0.42\n"
+            + "\n"
+            + "\n"
+            + "Consensus pattern (7 bp):   \n"
+            + "TCATTGG\n"
+            + "\n"
+            + "Done.\n"
+            + "</PRE></BODY></HTML>\n";
+        var html = AnalysisTools.FindApproximateTandemRepeats(U1, format: "html", sequenceName: "U1.fa");
+        var none = AnalysisTools.FindApproximateTandemRepeats(U1, maxPeriod: 3, format: "html", sequenceName: "U1.fa");
+        Assert.Multiple(() =>
+        {
+            Assert.That(html.AlignmentPages!.Select(p => p.FileName), Is.EqualTo(new[] { "U1.fa.2.7.7.80.10.50.500.1.txt.html" }));
+            Assert.That(html.AlignmentPages![0].Html, Is.EqualTo(trf.Replace("Sequence: U1\n", "Sequence: U1.fa\n")));
+            var item = html.Items.Single();
+            Assert.That((item.DetectionPosition + 1, item.DetectionDistance, item.OutputCount), Is.EqualTo((71, 7, 3)));
+            Assert.That(none.Items, Is.Empty);
+            Assert.That(none.AlignmentPages!.Single().Html, Does.EndWith("T:0.31\n\nWarning! 2 characters in sequence are not A, C, G, or T\n\n\nDone.\n</PRE></BODY></HTML>\n"),
+                "three alignments were reported and dropped (period > 3): TRF keeps the blank line before them");
+            Assert.That(AnalysisTools.FindApproximateTandemRepeats(U1).AlignmentPages, Is.Null);
+        });
+    }
+
     [Test]
     public void FindApproximateTandemRepeats_ApparentSizeTable_ChangesDetection()
     {

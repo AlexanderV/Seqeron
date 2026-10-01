@@ -361,7 +361,7 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.FindApproximateDirectRepeats",
     "docPath": "docs/mcp/tools/analysis/find_approximate_direct_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4489"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4847"
   },
   {
     "tool": "find_approximate_tandem_repeats",
@@ -403,14 +403,14 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.FindDegenerateRepeats",
     "docPath": "docs/mcp/tools/analysis/find_degenerate_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4759"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5117"
   },
   {
     "tool": "find_direct_repeats",
     "server": "Analysis",
     "methodId": "RepeatFinder.FindDirectRepeats",
     "docPath": "docs/mcp/tools/analysis/find_direct_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4041"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4399"
   },
   {
     "tool": "find_exact_motif",
@@ -424,14 +424,14 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.FindInvertedRepeats",
     "docPath": "docs/mcp/tools/analysis/find_inverted_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3314"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3672"
   },
   {
     "tool": "find_inverted_repeats_scored",
     "server": "Analysis",
     "methodId": "RepeatFinder.FindInvertedRepeatsScored",
     "docPath": "docs/mcp/tools/analysis/find_inverted_repeats_scored.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3708"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4066"
   },
   {
     "tool": "find_known_motifs",
@@ -508,7 +508,7 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.FindPalindromes",
     "docPath": "docs/mcp/tools/analysis/find_palindromes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5468"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5826"
   },
   {
     "tool": "find_promoter_elements_by_matrix",
@@ -571,7 +571,7 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.FindReverseComplementRepeats",
     "docPath": "docs/mcp/tools/analysis/find_reverse_complement_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4324"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4682"
   },
   {
     "tool": "find_rna_inverted_repeats",
@@ -606,7 +606,7 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.FindSupermaximalRepeats",
     "docPath": "docs/mcp/tools/analysis/find_supermaximal_repeats.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5111"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5469"
   },
   {
     "tool": "find_syntenic_blocks",
@@ -977,14 +977,14 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.ComputeBernoulliStatistics",
     "docPath": "docs/mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3170"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L3528"
   },
   {
     "tool": "tandem_repeat_summary",
     "server": "Analysis",
     "methodId": "RepeatFinder.GetTandemRepeatSummary",
     "docPath": "docs/mcp/tools/analysis/tandem_repeat_summary.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5994"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L6352"
   },
   {
     "tool": "terminal_mismatch_energy",

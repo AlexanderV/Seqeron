@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindReverseComplementRepeats",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4324",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4682",
   "description": "Finds **maximal exact reverse-complement repeat pairs**: copy 1 at firstPosition and copy 2 at secondPosition (both 0-based, firstPosition ≤ secondPosition) with copy 2 = reverse complement of copy 1, not extendable outward or inward — the reverse (r) lines of MUMmer repeat-match and Vmatch -p (repeat-match Start2 = secondPosition + length). One pair can carry several maximal lengths on different anti-diagonals. Filters: minLength ≤ length ≤ maxLength (longer maximal pairs are not truncated) and spacing = secondPosition − firstPosition − length ≥ minSpacing (negative admits overlap; minSpacing = −2147483648 with maxLength = 2147483647 returns the complete repeat-match set). Only A/C/G/T pair (case-insensitive). Sorted by (firstPosition, secondPosition, length).",
   "inputSchema": {
     "type": "object",

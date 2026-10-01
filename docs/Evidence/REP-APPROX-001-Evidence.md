@@ -368,4 +368,64 @@ Same 700 sequences as WP6/WP7. "TRF table" = TRF's `waitdata80/75` loaded at run
 - The 25 WP7 residual (set, sequence) cases: all reach TRF parity with TRF's table through the public parameter
   (included in the byte-identical files above). Unit tests use only single bisected entries (s342: d 43, y 13; s350:
   d 24, w 15), synthetic all-zero / strictest tables and the exact table — TRF's tables are not embedded anywhere.
-- Not generated: TRF's alignment page (`.txt.html`; its alignment rows, flanks and statistics are result fields).
+- ~~Not generated: TRF's alignment page (`.txt.html`)~~ — generated since WP17 (`FormatTrfAlignmentPages`, see §WP17).
+
+## WP17 revision (2026-10-01, B04 completeness audit 3 item 4 — TRF alignment pages)
+
+### Sources opened (this session)
+
+- TRF 4.10.0 README ("Alignment explanation", `-f`, `-r`, output file names).
+- TRF 4.10.0 source, read for the output layout and index conventions only (AGPL; no code copied):
+  `trfrun.h` 726–760 / 799–810 / 875–879 (alignment-file heading, "Length", "ACGTcount", non-ACGT warning, "Done."),
+  1086–1150 (FASTA reader: description truncated to 199 characters, letters upper-cased, non-letters dropped);
+  `tr30dat.c` 1530–1600 / 1239–1290 (traceback: index of a gap column = the next sequence / pattern position),
+  1674–1821 (`shift_pattern_indices`, `alt3_print_alignment`: 65 columns per row, a new row at each copy for patterns
+  > 6, otherwise a blank between copies while 2·pattern columns remain, '*' line, 10-base context), 1822–1860
+  (`print_alignment_headings`: anchor `%d--%d,%d,%3.1f,%d,%d`), 2760–2840 (flanks, consensus pattern 65 per line),
+  2884–3215 (`get_statistics`: Matches / Mismatches / Indels, `%0.2f` of float fractions, distance table
+  `\n %3d  %3d  %0.2f`, ACGTcount over the repeat), 3837–3890 (Pmatch / Pindel / tuple sizes / tuple distances with
+  MAXDISTANCE), 4241 ("Found at i:%d original size:%d final size:%d" for every reported alignment);
+  `trfclean.h` 520–660 (`CleanAlignments`: dropped alignments removed from their "Found at" line, so a blank line
+  survives only after the last kept one; `BreakAlignments`: > 120 alignments → heading repeated, "File k of N",
+  199-character `fgets` chunks, sections cut at lines starting with 'F' / 'D', closing "\nDone.").
+
+### Changes
+
+- `RepeatFinder.FormatTrfAlignmentPages(sequence, repeats, name, parameters, prefix, outputCount?, version)` →
+  `<prefix>.<parameters>.N.txt.html` pages (same parameter style as `FormatTrfHtmlTables`; the table anchors resolve).
+  Statistics are recomputed from the alignment rows by the same `CompareAdjacentCopies` routine (now also returning the
+  matching-distance distribution).
+- Result fields `DetectionPosition` (0-based i), `DetectionDistance` (candidate distance, "original size") and
+  `OutputCount` (TRF's final `OUTPUTcount`); overload `FindApproximateTandemRepeats(string, parameters, out int
+  outputCount, minPeriod)` for the empty case.
+- MCP `find_approximate_tandem_repeats`: `format=html` also returns `alignmentPages`; items gain `outputCount`,
+  `detectionPosition`, `detectionDistance` (additive).
+
+### Reference cross-check (compiled TRF 4.10.0; harness `scratchpad/wp17/`: public-API driver `xc17`, `cmp17.py`;
+results `res_main.txt`, `res_single.txt`, `res_singles.txt`)
+
+| Run (700 sequences, TRF's table supplied) | alignment pages TRF / byte-identical |
+|---|---|
+| 2 3 3 80 20 50 500 (and `-f`) | 678 / 678 (678 / 678) |
+| 2 3 5 80 10 40 200 (and `-f`) | 657 / 657 (657 / 657) |
+| 2 5 5 75 10 30 100 (and `-f`) | 643 / 643 (643 / 643) |
+| 2 5 7 80 10 50 2000 (and `-f`) | 619 / 619 (619 / 619) |
+| 2 7 7 75 20 50 500 (and `-f`) | 600 / 600 (600 / 600) |
+| 2 7 7 80 10 50 500 (and `-f`) | 595 / 595 (595 / 595) |
+| 3 7 7 80 10 60 50 (and `-f`) | 550 / 550 (550 / 550) |
+| 2 7 7 80 10 50 500 `-r` (and `-r -f`) | 595 / 595 (595 / 595) |
+
+- Total 9 874 / 9 874 pages byte-identical, first run; table / summary pages of the same runs stay identical.
+- Single-sequence files: `many.fa` (150 repeats → 2 pages, BreakAlignments path) and `none.fa`, 3 parameter sets with
+  and without `-r -f`: 18 / 18. 60 set700 sequences as separate files (every third lower-cased, every fifth with a
+  260-character description), MaxPeriod 3 and 500: 120 / 120 after passing TRF's 199-character description (the
+  first run differed on the 24 long-name pages only, in the "Sequence:" line — TRF's reader truncates; the WP14 table
+  pages differ the same way, so the caller passes the truncated name). These include 42 pages with no kept repeat but
+  dropped alignments (extra blank line from `OutputCount`) and 22 without any alignment.
+- Exact table instead of TRF's (2 7 7 80 10 50 500 / 2 7 7 75 20 50 500): 541 / 595 and 548 / 600 identical; 51 / 49 of
+  the others differ only in "Found at i:" (the apparent-size criterion fires at a different scan position — exactly
+  what the table governs), anchor counters or the trailing blank line; the remaining 3 / 3 are the F46 residual
+  sequences whose rows differ.
+- Not reproduced: TRF's `CleanAlignments` matches anchors with `strstr`, and `BreakAlignments` cuts sections at any
+  line starting with 'F' or 'D'; both only matter for anchors that contain one another / sequences with IUPAC letters
+  D or F in a > 120-repeat file (never observed). The page split itself is emulated chunk for chunk.

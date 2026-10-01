@@ -27,9 +27,10 @@ after redundancy elimination. `examineUpToMaxPeriodOnly = true` (legacy library 
 distances only up to `maxPeriod` (faster for short periods) and requires the recommended weights/PM/PI and default
 `-l/-r/-f`.
 
-`format = dat | ngs | html` adds TRF 4.10.0's own output text (`formatted` / `htmlPages`): the `-d` data file (program
+`format = dat | ngs | html` adds TRF 4.10.0's own output text (`formatted` / `htmlPages` / `alignmentPages`): the `-d` data file (program
 header, `Sequence:` / `Parameters:` block, one row per repeat), the `-ngs` block (`@name`, rows with 50-bp flanks,
-`.` at a sequence end) or the repeat-table HTML pages (`<name>.<parameters>.N.html`, 120 rows per page). Rows are in
+`.` at a sequence end) or the repeat-table HTML pages (`<name>.<parameters>.N.html`, 120 rows per page) together with the alignment pages
+they link to (`<name>.<parameters>.N.txt.html`: "Found at", alignment rows, statistics, consensus, `-f` flanks). Rows are in
 TRF's report order with TRF's integer truncations and C (`printf`) rounding; `sequenceName` is the description TRF
 prints. `apparentSizeTable` (2001 integers, d = 0..2000) optionally replaces the exact apparent-size table the
 library computes — a user holding TRF can pass TRF's simulated `waitdata80` / `waitdata75` array (AGPL TRF source, not
@@ -66,9 +67,9 @@ with TRF's table every `.dat`, `-ngs` and HTML file is byte-identical (Evidence 
 
 ## Output Schema
 
-`items`: `start, spanLength, period, consensusSize, consensus, copyNumber, percentMatches, percentIndels, alignmentScore, percentA, percentC, percentG, percentT, entropy, entropyTrf, alignedSequence, alignedConsensus, copyMatches, copyMismatches, copyIndels, outputIndex` (+ `leftFlank, rightFlank` when `flankLength > 0`)
+`items`: `start, spanLength, period, consensusSize, consensus, copyNumber, percentMatches, percentIndels, alignmentScore, percentA, percentC, percentG, percentT, entropy, entropyTrf, alignedSequence, alignedConsensus, copyMatches, copyMismatches, copyIndels, outputIndex, outputCount, detectionPosition, detectionDistance` (+ `leftFlank, rightFlank` when `flankLength > 0`)
 
-`formatted`: TRF `.dat` text (`format = dat`) or `-ngs` text (`format = ngs`); `htmlPages`: `[{fileName, html}]` (`format = html`).
+`formatted`: TRF `.dat` text (`format = dat`) or `-ngs` text (`format = ngs`); `htmlPages` / `alignmentPages`: `[{fileName, html}]` (`format = html`).
 
 ## Errors
 

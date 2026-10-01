@@ -31,7 +31,7 @@ which changes only best-per-seed rows. Both were cross-checked against real Vmat
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L4489](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4489)
+- Source: [RepeatFinder.cs#L4847](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4847)
 
 ## Input Schema
 

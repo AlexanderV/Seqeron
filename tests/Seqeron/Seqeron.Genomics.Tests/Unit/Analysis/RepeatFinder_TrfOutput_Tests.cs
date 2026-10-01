@@ -188,8 +188,9 @@ public class RepeatFinder_TrfOutput_Tests
             Assert.That(RepeatFinder.FindApproximateTandemRepeats(Spread22, p), Is.Empty);
             Assert.That(RepeatFinder.FindApproximateTandemRepeats(Spread22, p with { ApparentSizeTable = zero })
                 .Select(r => (r.Start + 1, r.Start + r.SpanLength, r.Period, r.AlignmentScore)), Is.EqualTo(new[] { (129, 182, 22, 67) }));
-            Assert.That(RepeatFinder.FindApproximateTandemRepeats(micro, p with { ApparentSizeTable = strict }),
-                Is.EqualTo(RepeatFinder.FindApproximateTandemRepeats(micro, p)));
+            // Same repeat; only the detection point (WP17 DetectionPosition, TRF "Found at i:") moves later.
+            Assert.That(RepeatFinder.FindApproximateTandemRepeats(micro, p with { ApparentSizeTable = strict }).Select(r => r with { DetectionPosition = 0 }),
+                Is.EqualTo(RepeatFinder.FindApproximateTandemRepeats(micro, p).Select(r => r with { DetectionPosition = 0 })));
         });
     }
 

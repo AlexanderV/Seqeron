@@ -1074,6 +1074,29 @@ public static class RepeatFinder
     }
 
     /// <summary>
+    /// <see cref="FindApproximateTandemRepeats(string,TandemRepeatsFinderParameters,int)"/> that also returns the
+    /// number of alignments reported before the MaxPeriod filter and redundancy elimination (TRF <c>OUTPUTcount</c>;
+    /// equal to every result's <see cref="ApproximateTandemRepeatResult.OutputCount"/>, and available when no repeat
+    /// is kept). <see cref="FormatTrfAlignmentPages"/> needs it to reproduce TRF's page exactly when the list is empty.
+    /// </summary>
+    public static IReadOnlyList<ApproximateTandemRepeatResult> FindApproximateTandemRepeats(
+        string sequence,
+        TandemRepeatsFinderParameters parameters,
+        out int outputCount,
+        int minPeriod = 1)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+        parameters.Validate();
+        ArgumentOutOfRangeException.ThrowIfLessThan(minPeriod, 1);
+        outputCount = 0;
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<ApproximateTandemRepeatResult>();
+
+        return FindApproximateTandemRepeatsCore(
+            sequence.ToUpperInvariant(), TrfModel.FromParameters(parameters, sequence.Length), minPeriod, out outputCount);
+    }
+
+    /// <summary>
     /// Finds approximate tandem repeats in a <see cref="DnaSequence"/> with an explicit TRF parameter set; see
     /// <see cref="FindApproximateTandemRepeats(string,TandemRepeatsFinderParameters,int)"/>.
     /// </summary>
@@ -1244,8 +1267,8 @@ public static class RepeatFinder
     /// rows per page, one page when there are no repeats). Each row links its indices to the alignment page
     /// <c>&lt;prefix&gt;.&lt;parameters&gt;.N.txt.html</c> at the anchor <c>first--last,period,copies,size,OutputIndex</c>
     /// (TRF's label; copies from the double-precision value, the table cell from the single-precision one, as TRF prints
-    /// them; the row index when <see cref="ApproximateTandemRepeatResult.OutputIndex"/> is not set); this library does not
-    /// write the alignment pages themselves.
+    /// them; the row index when <see cref="ApproximateTandemRepeatResult.OutputIndex"/> is not set); the alignment pages
+    /// themselves are written by <see cref="FormatTrfAlignmentPages"/>.
     /// </summary>
     /// <param name="sequence">The searched sequence (its length is printed in the heading).</param>
     /// <param name="repeats">Repeats found in <paramref name="sequence"/>.</param>
@@ -1397,6 +1420,329 @@ public static class RepeatFinder
             sb.Append("\nNo Repeats Found!<BR>");
         sb.Append("\n</BODY></HTML>\n");
         return new TrfHtmlPage($"{filePrefix}.{parameterString}.summary.html", sb.ToString());
+    }
+
+    /// <summary>Line width TRF uses for alignment rows, the consensus pattern and flanks (<c>pwidth</c> 75 − 10).</summary>
+    private const int TrfAlignmentLineWidth = 65;
+
+    /// <summary>
+    /// Formats approximate tandem repeats of one sequence as Tandem Repeats Finder 4.10.0's alignment pages
+    /// (<c>&lt;prefix&gt;.&lt;parameters&gt;.N.txt.html</c>, the pages the rows of <see cref="FormatTrfHtmlTables"/> link
+    /// to; one page per table page, <see cref="TrfHtmlRowsPerTable"/> alignments per page).
+    /// </summary>
+    /// <remarks>
+    /// <para>Layout (TRF 4.10.0 README "Alignment explanation" and the alignment file the program writes): a heading
+    /// (program, "Sequence:", "Parameters:", Pmatch / Pindel, tuple sizes and distances with TRF's MAXDISTANCE,
+    /// "Length:", the sequence's ACGTcount and the non-ACGT warning), then per repeat, in
+    /// <see cref="ApproximateTandemRepeatResult.OutputIndex"/> order: "Found at i: original size: final size:"
+    /// (<see cref="ApproximateTandemRepeatResult.DetectionPosition"/> + 1,
+    /// <see cref="ApproximateTandemRepeatResult.DetectionDistance"/>, consensus size), the anchor the table links to,
+    /// Indices / Score, Period size / Copynumber / Consensus size, up to 10 bases before the repeat, the alignment of the
+    /// sequence with the consensus copies (rows of at most 65 columns; a new row at each copy for patterns longer than
+    /// 6, otherwise copies separated by a blank while two more fit; a '*' line marks mismatches; each row labelled with
+    /// the 1-based sequence index and consensus position of its first column), up to 10 bases after it, the adjacent-copy
+    /// statistics (matches, mismatches, indels and their fractions, the distances between matching characters), the
+    /// repeat's ACGTcount, the consensus pattern (65 per line) and, when
+    /// <see cref="TandemRepeatsFinderParameters.FlankLength"/> &gt; 0 (TRF <c>-f</c>), the flanking sequences. With more
+    /// than one page, every page repeats the heading followed by "File k of N".</para>
+    /// <para>Every repeat needs its alignment rows (<see cref="ApproximateTandemRepeatResult.AlignedSequence"/> /
+    /// <see cref="ApproximateTandemRepeatResult.AlignedConsensus"/>); the statistics are recomputed from them exactly as
+    /// for the result. Without a detection distance the "Found at" line prints the repeat's last index and the consensus
+    /// size. The page ends with one blank line more when alignments were reported after the last kept one (TRF removes
+    /// the dropped alignments but not the blank line before them): pass <paramref name="outputCount"/>, or it is taken
+    /// from <see cref="ApproximateTandemRepeatResult.OutputCount"/>.</para>
+    /// </remarks>
+    /// <param name="sequence">The searched sequence (non-empty; indices of <paramref name="repeats"/> refer to it).</param>
+    /// <param name="repeats">Repeats found in <paramref name="sequence"/> with their alignment rows.</param>
+    /// <param name="sequenceName">FASTA description TRF prints.</param>
+    /// <param name="parameters">The parameter set used.</param>
+    /// <param name="filePrefix">TRF's output prefix (as for <see cref="FormatTrfHtmlTables"/>).</param>
+    /// <param name="outputCount">Alignments reported before the MaxPeriod filter and redundancy elimination (TRF
+    /// <c>OUTPUTcount</c>; see the <c>out</c> overload of <c>FindApproximateTandemRepeats</c>); null = the largest
+    /// <see cref="ApproximateTandemRepeatResult.OutputCount"/> of <paramref name="repeats"/>.</param>
+    /// <param name="programVersion">Version printed in the heading (default <see cref="TrfReferenceVersion"/>).</param>
+    /// <returns>The pages in order, each with its TRF file name.</returns>
+    public static IReadOnlyList<TrfHtmlPage> FormatTrfAlignmentPages(
+        string sequence,
+        IEnumerable<ApproximateTandemRepeatResult> repeats,
+        string sequenceName,
+        TandemRepeatsFinderParameters parameters,
+        string filePrefix,
+        int? outputCount = null,
+        string programVersion = TrfReferenceVersion)
+    {
+        ArgumentNullException.ThrowIfNull(filePrefix);
+        ArgumentNullException.ThrowIfNull(programVersion);
+        var rows = PrepareTrfRows(sequence, repeats, sequenceName, parameters);
+        parameters.Validate();
+        if (sequence.Length == 0)
+            throw new ArgumentException("The sequence is empty.", nameof(sequence));
+        if (outputCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(outputCount));
+        foreach (var r in rows)
+        {
+            if (r.AlignedSequence is null || r.AlignedConsensus is null || r.AlignedSequence.Length != r.AlignedConsensus.Length
+                || r.AlignedSequence.Count(ch => ch != '-') != r.SpanLength || r.ConsensusSize < 1)
+                throw new ArgumentException("A repeat has no valid alignment rows.", nameof(repeats));
+        }
+
+        string upper = sequence.ToUpperInvariant();
+        string stem = filePrefix + "." + TrfParameterString(parameters);
+        int total = outputCount ?? (rows.Count > 0 ? rows.Max(r => r.OutputCount) : 0);
+        int lastKept = rows.Count == 0 ? 0 : rows.Max(r => r.OutputIndex);
+
+        var sb = new System.Text.StringBuilder();
+        AppendTrfAlignmentHeading(sb, upper, sequenceName, parameters, stem, programVersion);
+        for (int j = 0; j < rows.Count; j++)
+            AppendTrfAlignment(sb, upper, rows[j], parameters.FlankLength, rows[j].OutputIndex > 0 ? rows[j].OutputIndex : j + 1);
+        if (total > lastKept)
+            sb.Append('\n');
+        sb.Append("Done.\n</PRE></BODY></HTML>\n");
+
+        int pages = Math.Max(1, (rows.Count + TrfHtmlRowsPerTable - 1) / TrfHtmlRowsPerTable);
+        string PageName(int k) => $"{stem}.{k}.txt.html";
+        if (pages == 1)
+            return [new TrfHtmlPage(PageName(1), sb.ToString())];
+        return SplitTrfAlignmentFile(sb.ToString(), pages).Select((html, k) => new TrfHtmlPage(PageName(k + 1), html)).ToList();
+    }
+
+    /// <summary>Heading of the TRF alignment file, up to the first "Found at" line.</summary>
+    private static void AppendTrfAlignmentHeading(
+        System.Text.StringBuilder sb, string upper, string sequenceName, TandemRepeatsFinderParameters p, string stem, string version)
+    {
+        int maxDistance = TrfModel.FromParameters(p, upper.Length).MaxDistance;
+        sb.Append("<HTML><HEAD><TITLE>").Append(stem).Append(".txt.html</TITLE></HEAD><BODY bgcolor=\"#FBF8BC\"><PRE>")
+          .Append("\nTandem Repeats Finder Program written by:")
+          .Append("\n\n                 Gary Benson")
+          .Append("\n      Program in Bioinformatics")
+          .Append("\n          Boston University")
+          .Append("\n\nVersion ").Append(version)
+          .Append("\n\nSequence: ").Append(sequenceName).Append("\n\n").Append(TrfParameterLine(p)).Append('\n')
+          .Append("\nPmatch=").Append(FormatCFixed((float)p.MatchProbability / 100, 2))
+          .Append(",Pindel=").Append(FormatCFixed((float)p.IndelProbability / 100, 2))
+          .Append(p.MatchProbability == 75 ? "\ntuple sizes 0,3,4,5,7" : "\ntuple sizes 0,4,5,7")
+          .Append(p.MatchProbability == 75 ? "\ntuple distances 0, 29, 43, 159, " : "\ntuple distances 0, 29, 159, ").Append(maxDistance)
+          .Append("\n\nLength: ").Append(upper.Length)
+          .Append("\nACGTcount: ");
+        AppendTrfAcgtFractions(sb, upper, 0, upper.Length);
+        sb.Append("\n\n");
+        int other = upper.Count(ch => AcgtCode(ch) < 0);
+        if (other > 0)
+            sb.Append("Warning! ").Append(other).Append(" characters in sequence are not A, C, G, or T\n\n");
+    }
+
+    /// <summary>"A:%3.2f, C:%3.2f, G:%3.2f, T:%3.2f" of the base counts over all <paramref name="length"/> symbols.</summary>
+    private static void AppendTrfAcgtFractions(System.Text.StringBuilder sb, string upper, int start, int length)
+    {
+        int a = 0, c = 0, g = 0, t = 0;
+        for (int k = start; k < start + length; k++)
+        {
+            switch (upper[k])
+            {
+                case 'A': a++; break;
+                case 'C': c++; break;
+                case 'G': g++; break;
+                case 'T': t++; break;
+            }
+        }
+
+        sb.Append("A:").Append(FormatCFixed((double)a / length, 2)).Append(", C:").Append(FormatCFixed((double)c / length, 2))
+          .Append(", G:").Append(FormatCFixed((double)g / length, 2)).Append(", T:").Append(FormatCFixed((double)t / length, 2));
+    }
+
+    /// <summary>One repeat's section of the TRF alignment file ("Found at" line through the consensus / flanks).</summary>
+    private static void AppendTrfAlignment(System.Text.StringBuilder sb, string upper, ApproximateTandemRepeatResult r, int flankLength, int outputIndex)
+    {
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        int first = r.Start + 1, last = r.Start + r.SpanLength, size = r.ConsensusSize;
+        string copies = FormatCFixed(r.CopyNumber, 1).PadLeft(3);
+        bool detected = r.DetectionDistance > 0;
+        sb.Append("\nFound at i:").Append(detected ? r.DetectionPosition + 1 : last)
+          .Append(" original size:").Append(detected ? r.DetectionDistance : size)
+          .Append(" final size:").Append(size)
+          .Append("\n\n<A NAME=\"").Append(first).Append("--").Append(last).Append(',').Append(r.Period).Append(',')
+          .Append(copies).Append(',').Append(size).Append(',').Append(outputIndex)
+          .Append("\"></A><A HREF=\"http://tandem.bu.edu/trf/trf.definitions.html#alignment\" target =\"explanation\">Alignment explanation</A><BR><BR>\n")
+          .Append("    Indices: ").Append(first).Append("--").Append(last).Append("  Score: ").Append(r.AlignmentScore)
+          .Append("\n    Period size: ").Append(r.Period).Append("  Copynumber: ").Append(copies)
+          .Append("  Consensus size: ").Append(size).Append("\n\n");
+
+        // Columns left to right with TRF's indices: the 1-based sequence index (a deleted symbol takes the next one)
+        // and the consensus position, counted from the first column (an inserted symbol takes the next one).
+        string seqRow = r.AlignedSequence!.ToUpperInvariant(), patRow = r.AlignedConsensus!.ToUpperInvariant();
+        int length = seqRow.Length;
+        var seqIndex = new int[length];
+        var patIndex = new int[length];
+        for (int k = 0, position = first, consumed = 0; k < length; k++)
+        {
+            seqIndex[k] = position;
+            patIndex[k] = consumed % size;
+            if (seqRow[k] != '-') position++;
+            if (patRow[k] != '-') consumed++;
+        }
+
+        if (first != 1)
+        {
+            int from = Math.Max(1, first - 10);
+            sb.Append("  ").Append(from.ToString(ci).PadLeft(9)).Append(' ').Append(upper, from - 1, first - from).Append("\n\n");
+        }
+
+        var marks = new System.Text.StringBuilder();
+        var top = new System.Text.StringBuilder();
+        var bottom = new System.Text.StringBuilder();
+        for (int g = 0; g < length;)
+        {
+            marks.Clear(); top.Clear(); bottom.Clear();
+            int j = g, used = 0;
+            for (int i = 0; i < TrfAlignmentLineWidth && j < length; i++)
+            {
+                if (j > g && patIndex[j] == 0 && patIndex[j - 1] != 0)
+                {
+                    // A new copy starts: a new row for patterns > 6, otherwise a blank while two copies still fit.
+                    if (size > 6 || TrfAlignmentLineWidth - used < 2 * size)
+                        break;
+                    marks.Append(' '); top.Append(' '); bottom.Append(' ');
+                    used++;
+                }
+
+                marks.Append(seqRow[j] != patRow[j] && seqRow[j] != '-' && patRow[j] != '-' ? '*' : ' ');
+                top.Append(seqRow[j]);
+                bottom.Append(patRow[j]);
+                j++;
+                used++;
+            }
+
+            sb.Append("            ").Append(marks).Append('\n')
+              .Append("  ").Append(seqIndex[g].ToString(ci).PadLeft(9)).Append(' ').Append(top).Append('\n')
+              .Append("  ").Append((patIndex[g] + 1).ToString(ci).PadLeft(9)).Append(' ').Append(bottom).Append("\n\n");
+            g = j;
+        }
+
+        if (last != upper.Length)
+        {
+            int to = Math.Min(upper.Length, last + 10);
+            sb.Append("  ").Append((last + 1).ToString(ci).PadLeft(9)).Append(' ').Append(upper, last, to - last).Append("\n\n");
+        }
+
+        // Adjacent-copy statistics, recomputed from the rows (TrfColumn order: rightmost column first).
+        var columns = new TrfColumn[length];
+        for (int k = 0; k < length; k++)
+            columns[length - 1 - k] = new TrfColumn(seqRow[k], patRow[k], seqIndex[k], patIndex[k]);
+        var copiesStats = CompareAdjacentCopies(columns);
+        int trials = copiesStats.Matches + copiesStats.Mismatches + copiesStats.Indels;
+        sb.Append("\nStatistics")
+          .Append("\nMatches: ").Append(copiesStats.Matches).Append(",  Mismatches: ").Append(copiesStats.Mismatches)
+          .Append(", Indels: ").Append(copiesStats.Indels)
+          .Append("\n        ").Append(FormatCFixed((float)copiesStats.Matches / trials, 2))
+          .Append("            ").Append(FormatCFixed((float)copiesStats.Mismatches / trials, 2))
+          .Append("        ").Append(FormatCFixed((float)copiesStats.Indels / trials, 2))
+          .Append('\n')
+          .Append("\nMatches are distributed among these distances:");
+        foreach (var (distance, count) in copiesStats.Distances)
+        {
+            sb.Append("\n ").Append(distance.ToString(ci).PadLeft(3)).Append("  ").Append(count.ToString(ci).PadLeft(3))
+              .Append("  ").Append(FormatCFixed((float)count / copiesStats.Matches, 2));
+        }
+
+        sb.Append("\n\nACGTcount: ");
+        AppendTrfAcgtFractions(sb, upper, r.Start, r.SpanLength);
+        sb.Append("\n\n");
+
+        sb.Append("\nConsensus pattern (").Append(size).Append(" bp):   ");
+        for (int k = 0; k < r.Consensus.Length; k++)
+        {
+            if (k % TrfAlignmentLineWidth == 0)
+                sb.Append('\n');
+            sb.Append(r.Consensus[k]);
+        }
+
+        sb.Append('\n');
+        if (flankLength > 0)
+            AppendTrfFlanks(sb, upper, first, last, flankLength);
+    }
+
+    /// <summary>TRF <c>-f</c> flanking sequences of the alignment file (65 symbols per line).</summary>
+    private static void AppendTrfFlanks(System.Text.StringBuilder sb, string upper, int first, int last, int flankLength)
+    {
+        void Lines(int from, int to)
+        {
+            for (int k = from; k <= to; k += TrfAlignmentLineWidth)
+                sb.Append(upper, k - 1, Math.Min(TrfAlignmentLineWidth, to - k + 1)).Append('\n');
+        }
+
+        int left = Math.Max(1, first - flankLength), right = Math.Min(upper.Length, last + flankLength);
+        if (left == first)
+        {
+            sb.Append("\nLeft flanking sequence: None");
+        }
+        else
+        {
+            sb.Append("\nLeft flanking sequence: Indices ").Append(left).Append(" -- ").Append(first - 1).Append('\n');
+            Lines(left, first - 1);
+        }
+
+        if (right == last)
+        {
+            sb.Append("\n\nRight flanking sequence: None");
+        }
+        else
+        {
+            sb.Append("\n\nRight flanking sequence: Indices ").Append(last + 1).Append(" -- ").Append(right).Append('\n');
+            Lines(last + 1, right);
+        }
+
+        sb.Append("\n\n");
+    }
+
+    /// <summary>
+    /// TRF's split of the alignment file into <paramref name="pages"/> files of at most <see cref="TrfHtmlRowsPerTable"/>
+    /// alignments (trfclean.h BreakAlignments, reading 199-character line chunks): the heading (up to 30 chunks, until
+    /// the first chunk starting with 'F'), "File k of N", the alignments (each from its "Found at" chunk up to the next
+    /// chunk starting with 'F' or 'D'), then "Done.".
+    /// </summary>
+    private static List<string> SplitTrfAlignmentFile(string text, int pages)
+    {
+        const int ChunkLength = 199, MaxHeadingChunks = 30;
+        var chunks = new List<string>();
+        for (int k = 0; k < text.Length;)
+        {
+            int newline = text.IndexOf('\n', k);
+            int end = Math.Min(newline < 0 ? text.Length : newline + 1, k + ChunkLength);
+            chunks.Add(text[k..end]);
+            k = end;
+        }
+
+        int next = 0;
+        var heading = new System.Text.StringBuilder();
+        for (int k = 0; k < MaxHeadingChunks && next < chunks.Count && chunks[next][0] != 'F'; k++)
+            heading.Append(chunks[next++]);
+
+        var result = new List<string>(pages);
+        for (int page = 1; page <= pages; page++)
+        {
+            var sb = new System.Text.StringBuilder().Append(heading).Append("File ").Append(page).Append(" of ").Append(pages).Append("\n\n");
+            for (int j = 0; j < TrfHtmlRowsPerTable && next < chunks.Count; j++)
+            {
+                sb.Append(chunks[next++]);
+                char nextChar = 'D';
+                while (next < chunks.Count)
+                {
+                    nextChar = chunks[next][0];
+                    if (nextChar is 'F' or 'D')
+                        break;
+                    sb.Append(chunks[next++]);
+                    nextChar = 'D';
+                }
+
+                if (nextChar == 'D')
+                    break;
+            }
+
+            sb.Append("\nDone.\n</PRE></BODY></HTML>\n");
+            result.Add(sb.ToString());
+        }
+
+        return result;
     }
 
     private static List<ApproximateTandemRepeatResult> PrepareTrfRows(
@@ -1865,7 +2211,13 @@ public static class RepeatFinder
     private static IReadOnlyList<ApproximateTandemRepeatResult> FindApproximateTandemRepeatsCore(
         string sequence,
         TrfModel m,
-        int minPeriod)
+        int minPeriod) => FindApproximateTandemRepeatsCore(sequence, m, minPeriod, out _);
+
+    private static IReadOnlyList<ApproximateTandemRepeatResult> FindApproximateTandemRepeatsCore(
+        string sequence,
+        TrfModel m,
+        int minPeriod,
+        out int outputCount)
     {
         int n = sequence.Length;
         var s = new char[n + 1]; // 1-based, as in TRF
@@ -1915,7 +2267,7 @@ public static class RepeatFinder
 
                 var repeat = AnalyzeTrfCandidate(m, s, n, i, d, seenEnd, bestPeriods, bestPeriodList);
                 if (repeat is not null)
-                    found.Add(repeat.Value with { OutputIndex = found.Count + 1 });
+                    found.Add(repeat.Value with { OutputIndex = found.Count + 1, DetectionPosition = i - 1, DetectionDistance = d });
             }
         }
 
@@ -1924,11 +2276,13 @@ public static class RepeatFinder
         var sorted = found.Where(r => r.Period <= m.MaxPeriod).OrderBy(r => r.Start).ToList();
         var reported = m.EliminateRedundancy ? RemoveTrfRedundancy(sorted) : sorted;
 
+        int count = outputCount = found.Count;
         return reported
             .Where(r => r.Period >= minPeriod)
             .OrderBy(r => r.Start)
             .ThenBy(r => r.Start + r.SpanLength)
             .ThenBy(r => r.Period)
+            .Select(r => r with { OutputCount = count })
             .ToList();
     }
 
@@ -2881,7 +3235,10 @@ public static class RepeatFinder
 
     /// <summary>Match / mismatch / indel counts between adjacent copies and the TRF period (most common
     /// distance between matching characters).</summary>
-    private readonly record struct TrfCopyComparison(int Matches, int Mismatches, int Indels, int Period);
+    /// <summary>Distances: (distance, number of matches at it), ascending (TRF "Matches are distributed among these
+    /// distances").</summary>
+    private readonly record struct TrfCopyComparison(
+        int Matches, int Mismatches, int Indels, int Period, IReadOnlyList<(int Distance, int Count)> Distances);
 
     /// <summary>
     /// Compares ADJACENT copies through the consensus alignment (TRF: statistics refer to "the matches,
@@ -2902,7 +3259,7 @@ public static class RepeatFinder
         while (rp < length && columns[rp].Pat == '-')
             rp++;
         if (rp >= length)
-            return new TrfCopyComparison(0, 0, 0, 0);
+            return new TrfCopyComparison(0, 0, 0, 0, Array.Empty<(int, int)>());
 
         int matches = 0, mismatches = 0, indels = 0;
         var distances = new Dictionary<int, int>();
@@ -2952,8 +3309,9 @@ public static class RepeatFinder
             }
         }
 
+        var distribution = distances.OrderBy(kv => kv.Key).Select(kv => (kv.Key, kv.Value)).ToArray();
         int period = 0, bestCount = 0;
-        foreach (var (distance, count) in distances.OrderBy(kv => kv.Key))
+        foreach (var (distance, count) in distribution)
         {
             if (count > bestCount)
             {
@@ -2962,7 +3320,7 @@ public static class RepeatFinder
             }
         }
 
-        return new TrfCopyComparison(matches, mismatches, indels, period);
+        return new TrfCopyComparison(matches, mismatches, indels, period, distribution);
     }
 
     /// <summary>Builds the reported TRF statistics from the final (consensus) alignment.</summary>
@@ -6429,6 +6787,25 @@ public readonly record struct ApproximateTandemRepeatResult(
     /// it and uses it in the alignment anchor label. 0 when not set.
     /// </summary>
     public int OutputIndex { get; init; }
+
+    /// <summary>
+    /// Number of alignments the detector reported for the whole sequence, counted like <see cref="OutputIndex"/>
+    /// (before the MaxPeriod filter and redundancy elimination; TRF 4.10.0's final <c>OUTPUTcount</c>). The TRF
+    /// alignment page ends with an extra blank line when the last of them was not kept. 0 when not set.
+    /// </summary>
+    public int OutputCount { get; init; }
+
+    /// <summary>
+    /// 0-based sequence position i at which the k-tuple scan detected the candidate (TRF alignment file
+    /// "Found at i:" prints <c>DetectionPosition + 1</c>). Meaningful only when <see cref="DetectionDistance"/> &gt; 0.
+    /// </summary>
+    public int DetectionPosition { get; init; }
+
+    /// <summary>
+    /// Candidate distance d (pattern size before the consensus step) at which the repeat was detected: TRF's
+    /// "original size" ("final size" is <see cref="ConsensusSize"/>). 0 when not set.
+    /// </summary>
+    public int DetectionDistance { get; init; }
 
     /// <summary>Percentage of A in the repeat region (TRF "A" column, exact; denominator = region length).</summary>
     public double PercentA { get; init; }

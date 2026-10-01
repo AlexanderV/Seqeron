@@ -25,7 +25,7 @@ Filters: `minLength ≤ length ≤ maxLength` (longer maximal pairs are not trun
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L4324](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4324)
+- Source: [RepeatFinder.cs#L4682](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4682)
 
 ## Input Schema
 

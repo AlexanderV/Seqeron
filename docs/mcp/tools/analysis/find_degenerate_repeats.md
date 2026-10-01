@@ -33,7 +33,7 @@ Cross-checked against real Vmatch with 0 differing rows (Evidence REP-DIRECT-001
 
 ## Core Documentation Reference
 
-- Source: [RepeatFinder.cs#L4759](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L4759)
+- Source: [RepeatFinder.cs#L5117](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5117)
 
 ## Input Schema
 

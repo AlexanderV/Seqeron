@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindInvertedRepeatsScored",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L3708",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4066",
   "description": "Finds inverted repeats with EMBOSS einverted (Durbin & Thierry-Mieg 1993; EMBOSS 6.6.0): a local alignment of the sequence against its reverse complement in which a Watson–Crick pair scores +matchScore, any other pair mismatchScore and each gap −gapPenalty. Every repeat whose score reaches threshold is reported in einverted's report order with both alignment rows and the match line. Coordinates are **0-based and inclusive** (einverted prints 1-based); alignment rows use the upper-cased input (einverted prints lower case). Symbols other than A/C/G/T never pair. maxRepeatLength bounds the extent from the start of the repeat to the end of its inverted copy (einverted -maxrepeat; memory O(min(maxRepeatLength, n)²)). Cross-checked against the einverted binary (Evidence REP-INV-001). Use find_inverted_repeats for exact/maximal stems (EMBOSS palindrome).",
   "inputSchema": {
     "type": "object",

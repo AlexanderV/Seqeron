@@ -311,6 +311,15 @@ public record ApproximateTandemRepeatItem(
 
     /// <summary>1-based report rank before MaxPeriod filtering / redundancy elimination (TRF OUTPUTcount; TRF row order).</summary>
     public int OutputIndex { get; init; }
+
+    /// <summary>Alignments reported for the whole sequence before MaxPeriod filtering / redundancy elimination (TRF final OUTPUTcount).</summary>
+    public int OutputCount { get; init; }
+
+    /// <summary>0-based position at which the candidate was detected (TRF alignment page "Found at i:" = this + 1).</summary>
+    public int DetectionPosition { get; init; }
+
+    /// <summary>Candidate distance at detection (TRF "original size"; 0 = not set).</summary>
+    public int DetectionDistance { get; init; }
 }
 
 /// <summary>One TRF HTML page: TRF's file name and the page content.</summary>
@@ -324,6 +333,9 @@ public record FindApproximateTandemRepeatsResult(ApproximateTandemRepeatItem[] I
 
     /// <summary>TRF repeat-table HTML pages (format 'html'); null otherwise.</summary>
     public TrfHtmlPageItem[]? HtmlPages { get; init; }
+
+    /// <summary>TRF alignment pages (<c>.N.txt.html</c>, the targets of the table links; format 'html'); null otherwise.</summary>
+    public TrfHtmlPageItem[]? AlignmentPages { get; init; }
 }
 
 /// <summary>Result of <c>mask_approximate_tandem_repeats</c>.</summary>

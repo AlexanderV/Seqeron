@@ -25,10 +25,14 @@
 > TRF binary. New TRF 4.10.0 formatters `FormatTrfDatLines` (`-d` / `-ngs`), `FormatTrfHtmlTables`,
 > `FormatTrfHtmlSummary`; with the exact table every same-locus row is byte-identical (e.g. 1 303/1 303). MCP:
 > `format`, `sequenceName`, `apparentSizeTable`, `apparentSizeTableKind`.
+> Completeness audit WP17 (B04 F64): `FormatTrfAlignmentPages` writes TRF's `.N.txt.html` alignment pages the table rows
+> link to (result fields `DetectionPosition`, `DetectionDistance`, `OutputCount`; MCP `alignmentPages`); with TRF's
+> table 9 874/9 874 pages (7 sets × with/without `-f`, `-r`, `-r -f`) plus 138 single-sequence files byte-identical.
 > Current sources: `tests/TestSpecs/REP-APPROX-001.md`, `docs/Evidence/REP-APPROX-001-Evidence.md`,
-> `docs/Validation/review-2026-09/B04.md` (F14–F18, F40–F46, F56–F57). Tests:
+> `docs/Validation/review-2026-09/B04.md` (F14–F18, F40–F46, F56–F57, F64). Tests:
 > `Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs`, `Unit/Analysis/RepeatFinder_TrfParameters_Tests.cs`,
-> `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs`, `Unit/Analysis/RepeatFinder_TrfOutput_Tests.cs`.
+> `Unit/Analysis/RepeatFinder_TrfDetection_Tests.cs`, `Unit/Analysis/RepeatFinder_TrfOutput_Tests.cs`,
+> `Unit/Analysis/RepeatFinder_TrfAlignmentPages_Tests.cs`.
 
 ---
 
