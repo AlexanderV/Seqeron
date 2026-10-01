@@ -1,6 +1,6 @@
 # complexity_compression_ratio
 
-Estimate sequence complexity using compression ratio.
+Normalized Lempel–Ziv (LZ76) complexity c / (n / log_b n). Not a compressor's compression ratio — the tool name is historical and kept for compatibility.
 
 ## Overview
 
@@ -43,7 +43,7 @@ Returns the normalized Lempel–Ziv (1976) complexity c / (n / log_b n) (Zhang e
 ### Example 1: Complex DNA sequence
 
 **User Prompt:**
-> What's the compression ratio for "ATGCGATCGATCG"?
+> What's the normalized Lempel–Ziv complexity of "ATGCGATCGATCG"?
 
 **Expected Tool Call:**
 ```json

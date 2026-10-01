@@ -1,6 +1,6 @@
 # Validation Report: REP-TANDEM-001 — Tandem Repeat Detection / Tandem Repeat Summary
 
-- **Validated:** 2026-09-30 (review campaign 2026-09, batch B04: F8–F9 + completeness audit WP3); first pass 2026-06-24 superseded
+- **Validated:** 2026-09-30 (review campaign 2026-09, batch B04: F8–F9 + completeness audit WP3; raw-string overloads WP11 / F51, 2026-10-01); first pass 2026-06-24 superseded
 - **Area:** Repeats
 - **Methods:** B04 part — `RepeatFinder.GetTandemRepeatSummary(DnaSequence, int minRepeats = 3)` and (WP3)
   `GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int> minRepeatsByUnitLength)`
@@ -40,6 +40,15 @@
 - `GetCanonicalMotifClass` (MISA class name), `GetStandardMotif(motif, level 0–4)` (Krait), frequency tables over any SSR list
   (reverse complement via canonical `DnaSequence.GetReverseComplementString`, complement via `SequenceExtensions.GetComplementBase`).
 
+### Additions (audit WP11, F51)
+- Raw-string, N/IUPAC-tolerant overloads `GetTandemRepeatSummary(string, int)`, `(string, IReadOnlyDictionary<int,int>)` and
+  `(string, IReadOnlyDictionary<int,int>, MicrosatelliteScanMode)` reusing the `FindMicrosatellites` string core (N/IUPAC never
+  belong to an SSR; percentage denominator = full length incl. N, misa.pl `length $seq`; null/empty → empty summary).
+  MCP `tandem_repeat_summary` now accepts IUPAC/N (was `DnaSequence`-only while `find_microsatellites` accepted N) and has an
+  optional `misaScan`.
+- Cross-check vs real `perl misa.pl` `.statistics`: 6 000 sequences (5 684 with N/IUPAC/lower case) × 6 definitions, aggregate
+  totals and per-unit-size counts identical; per sequence 12 000 / 12 000 identical (default and `1-3 2-2 3-2 4-2 5-2 6-2`).
+
 ### Cross-verification (0 mismatches)
 | Check | Reference | Cases |
 |---|---|---|
@@ -59,6 +68,6 @@ Krait A 2, AC 4, ATAC 1; Krait levels e.g. CTG → CTG / TGC / AGC / ACG / ACG; 
 
 ## Verdict & follow-ups
 - Stage A: PASS-WITH-NOTES. Stage B: FAIL → fixed. **State: FIXED**; MISA thresholds and canonical motif tables implemented and reference-identical.
-- MCP: `tandem_repeat_summary` delegates; optional `misaThresholds`, additive `canonicalMotifCounts` output.
+- MCP: `tandem_repeat_summary` delegates; optional `misaThresholds`, `misaScan` (WP11), additive `canonicalMotifCounts` output; accepts N/IUPAC (WP11).
 - Cross-batch (B09, `GenomicAnalyzer.cs`): `FindTandemRepeats` validates its parameters but reports non-primitive units
   (`ATATATAT` → `AT×4` and `ATAT×2`) with an O(n²·m) substring scan; delegation to `RepeatFinder.FindMicrosatellites` is requested in the B04 report.

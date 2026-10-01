@@ -488,7 +488,7 @@ public class SequenceTools
     /// Mask low-complexity regions using symmetric DUST (SDUST).
     /// </summary>
     [McpServerTool(Name = "complexity_mask_low", Title = "Complexity — Mask Low-Complexity Regions", ReadOnly = true)]
-    [Description("Mask low-complexity regions in a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust). N and other IUPAC codes are accepted and split the scan like sdust. Optional dustmasker linker merge and soft (lower-case) masking.")]
+    [Description("Mask low-complexity regions in a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust). N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking.")]
     public static ComplexityMaskLowResult ComplexityMaskLow(
         [Description("The DNA sequence to mask (A/C/G/T plus IUPAC codes such as N; case-insensitive)")] string sequence,
         [Description("SDUST window length in bases (default: 64, >= 3)")] int windowSize = 64,
@@ -511,10 +511,10 @@ public class SequenceTools
     }
 
     /// <summary>
-    /// Estimate sequence complexity using compression ratio.
+    /// Normalized Lempel–Ziv (LZ76) complexity (tool name kept for compatibility).
     /// </summary>
-    [McpServerTool(Name = "complexity_compression_ratio", Title = "Complexity — Compression Ratio", ReadOnly = true)]
-    [Description("Estimate sequence complexity using compression ratio. Lower ratios indicate more repetitive/less complex sequences.")]
+    [McpServerTool(Name = "complexity_compression_ratio", Title = "Complexity — Normalized Lempel-Ziv Complexity", ReadOnly = true)]
+    [Description("Normalized Lempel-Ziv (LZ76) complexity c/(n/log_b n) (Lempel & Ziv 1976; Zhang et al. 2009): c = number of components of the LZ76 exhaustive history, n = length, b = number of distinct symbols (at least 2). Not a compressor's compression ratio (the tool name is historical). About 1 for random sequences (finite sequences may exceed 1); lower values indicate more repetitive/less complex sequences.")]
     public static ComplexityCompressionRatioResult ComplexityCompressionRatio(
         [Description("The sequence to analyze")] string sequence)
     {

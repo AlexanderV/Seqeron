@@ -6,13 +6,13 @@
   "stability": "stable",
   "methodId": "RepeatFinder.GetTandemRepeatSummary",
   "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4864",
-  "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts (mono..hexa), longest repeat and most frequent unit. Also the MISA table of repeat-type classes considering sequence complementarity (motif rotations + reverse complement, e.g. AC/CA/GT/TG -> AC/GT); optional MISA per-unit-size thresholds.",
+  "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts (mono..hexa), longest repeat and most frequent unit. Also the MISA table of repeat-type classes considering sequence complementarity (motif rotations + reverse complement, e.g. AC/CA/GT/TG -> AC/GT); optional MISA per-unit-size thresholds and misa.pl regex scan (misaScan; counts = misa.pl .statistics). N and other IUPAC codes are accepted (case-insensitive) and never form or extend an STR, as in find_microsatellites; percentageOfSequence uses the full length (N included) as denominator.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
         "type": "string",
-        "description": "DNA sequence",
+        "description": "DNA sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); N/IUPAC never form or extend an STR",
         "minLength": 1
       },
       "minRepeats": {
@@ -32,6 +32,11 @@
         "minimum": -1,
         "maximum": 4,
         "default": -1
+      },
+      "misaScan": {
+        "type": "boolean",
+        "description": "Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs, so the counts equal misa.pl's .statistics",
+        "default": false
       }
     },
     "required": [
@@ -120,7 +125,7 @@
     },
     {
       "code": 1001,
-      "message": "Invalid DNA sequence"
+      "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
     }
   ],
   "examples": [
@@ -225,6 +230,15 @@
           "ATAC": 1
         }
       }
+    },
+    {
+      "name": "N and IUPAC codes, misa.pl scan (misa.pl .statistics: size 87, 3 SSRs, unit sizes 1:1 2:2)",
+      "input": {
+        "sequence": "ACACACACANCACACACACACACACAGTNNNNNNNNNNNNNNNNNNNNATATATATATATATATATRYSWKMggggggggggggggg",
+        "misaThresholds": true,
+        "misaScan": true
+      },
+      "output": {"totalRepeats":3,"totalRepeatBases":49,"percentageOfSequence":56.32183908045977,"mononucleotideRepeats":1,"dinucleotideRepeats":2,"trinucleotideRepeats":0,"tetranucleotideRepeats":0,"pentanucleotideRepeats":0,"hexanucleotideRepeats":0,"longestRepeat":{"position":48,"repeatUnit":"AT","repeatCount":9,"totalLength":18,"repeatType":"Dinucleotide"},"mostFrequentUnit":"G","canonicalMotifCounts":{"C/G":1,"AC/GT":1,"AT/AT":1}}
     }
   ]
 }

@@ -116,4 +116,40 @@ public class TandemRepeatSummaryTests
             Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.TandemRepeatSummary(seq, standardMotifLevel: 5));
         });
     }
+
+    [Test]
+    public void TandemRepeatSummary_AcceptsNAndIupac_LikeFindMicrosatellites()
+    {
+        // WP11: tandem_repeat_summary used to reject N (DnaSequence) while find_microsatellites accepted it.
+        // misa.pl .statistics on this 87-mer (1-10 2-6 3-5 4-5 5-5 6-5): size 87, 3 SSRs, unit sizes 1:1 2:2.
+        const string seq = "ACACACACANCACACACACACACACAGTNNNNNNNNNNNNNNNNNNNNATATATATATATATATATRYSWKMggggggggggggggg";
+        var misa = AnalysisTools.TandemRepeatSummary(seq, misaThresholds: true, misaScan: true);
+        var max = AnalysisTools.TandemRepeatSummary(seq, 3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(misa.TotalRepeats, Is.EqualTo(3));
+            Assert.That(misa.MononucleotideRepeats, Is.EqualTo(1));
+            Assert.That(misa.DinucleotideRepeats, Is.EqualTo(2));
+            Assert.That(max.TotalRepeats, Is.EqualTo(AnalysisTools.FindMicrosatellites(seq, 1, 6, 3).Items.Length));
+            Assert.That(AnalysisTools.TandemRepeatSummary("AAAAAAAAAANNNNNNNNNN", misaThresholds: true).PercentageOfSequence,
+                Is.EqualTo(50.0));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.TandemRepeatSummary("ACGU", 3));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.TandemRepeatSummary("ACGT", 1));
+        });
+    }
+
+    [Test]
+    public void TandemRepeatSummary_MisaScan_UniformThresholds_MatchesMisaPl()
+    {
+        // misa.pl 1-3 2-3 3-3 4-3 5-3 6-3 on the 87-mer: 4 SSRs, unit sizes 1:1 2:3 ((AC)4an(CA)8 ... (AT)9 ... (G)15).
+        const string seq = "ACACACACANCACACACACACACACAGTNNNNNNNNNNNNNNNNNNNNATATATATATATATATATRYSWKMggggggggggggggg";
+        var s = AnalysisTools.TandemRepeatSummary(seq, 3, misaScan: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.TotalRepeats, Is.EqualTo(4));
+            Assert.That(s.MononucleotideRepeats, Is.EqualTo(1));
+            Assert.That(s.DinucleotideRepeats, Is.EqualTo(3));
+            Assert.That(s.CanonicalMotifCounts, Is.EquivalentTo(new Dictionary<string, int> { ["C/G"] = 1, ["AC/GT"] = 2, ["AT/AT"] = 1 }));
+        });
+    }
 }

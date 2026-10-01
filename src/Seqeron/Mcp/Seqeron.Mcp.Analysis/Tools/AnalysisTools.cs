@@ -538,7 +538,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_direct_repeats", Title = "Repeats — Direct Repeats", ReadOnly = true)]
-    [Description("Identical sequences appearing twice with a spacer between them.")]
+    [Description("Exact direct repeats reported as maximal repeated pairs (left- and right-maximal; MUMmer repeat-match -f, Gusfield 1997 §7.12): each pair of identical copies once at its full extent, sorted by (firstPosition, secondPosition). Only A/C/G/T match (case-insensitive; N/IUPAC never match). Filters: minLength <= length <= maxLength (a maximal repeat longer than maxLength is dropped, not split into shorter windows) and spacing = second - first - length >= minSpacing (negative admits overlapping copies).")]
     public static FindDirectRepeatsResult FindDirectRepeats(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum repeat length (default 5).")] int minLength = 5,
@@ -557,24 +557,28 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "tandem_repeat_summary", Title = "Repeats — Tandem Repeat Summary", ReadOnly = true)]
-    [Description("Aggregate statistics across all microsatellites in a DNA sequence, incl. MISA repeat-type classes (motif rotations + reverse complement, e.g. AC/GT).")]
+    [Description("Aggregate statistics across all microsatellites in a DNA sequence, incl. MISA repeat-type classes (motif rotations + reverse complement, e.g. AC/GT). N and other IUPAC codes are accepted (case-insensitive) and never form or extend a microsatellite, as in find_microsatellites; the percentage uses the full length (N included) as denominator. Optional misa.pl regex scan (misaScan) reproducing misa.pl's .statistics counts.")]
     public static TandemRepeatSummaryResult TandemRepeatSummary(
-        [Description("DNA sequence.")] string sequence,
+        [Description("DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive).")] string sequence,
         [Description("Minimum number of repeats (default 3); ignored when misaThresholds is true.")] int minRepeats = 3,
         [Description("Use the MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) instead of minRepeats (default false).")] bool misaThresholds = false,
-        [Description("When 0-4, also count STRs per Krait standard motif at this level (Du et al. 2018; 2 = rotations + reverse complement); default -1 = not reported.")] int standardMotifLevel = -1)
+        [Description("When 0-4, also count STRs per Krait standard motif at this level (Du et al. 2018; 2 = rotations + reverse complement); default -1 = not reported.")] int standardMotifLevel = -1,
+        [Description("Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs, so the counts equal misa.pl's .statistics (default false).")] bool misaScan = false)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
+        var dna = RequireIupacDna(sequence, nameof(sequence));
         if (standardMotifLevel is < -1 or > 4)
             throw new ArgumentOutOfRangeException(nameof(standardMotifLevel), "standardMotifLevel must be -1 (off) or 0-4.");
-        var s = misaThresholds
-            ? global::Seqeron.Genomics.Analysis.RepeatFinder.GetTandemRepeatSummary(
-                dna, global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats)
-            : global::Seqeron.Genomics.Analysis.RepeatFinder.GetTandemRepeatSummary(dna, minRepeats);
-        var ssrs = misaThresholds
-            ? global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
-                dna, global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats)
-            : global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(dna, 1, 6, minRepeats);
+        if (!misaThresholds && minRepeats < 2)
+            throw new ArgumentOutOfRangeException(nameof(minRepeats), "minRepeats must be at least 2.");
+
+        var scanMode = misaScan
+            ? global::Seqeron.Genomics.Analysis.MicrosatelliteScanMode.MisaRegex
+            : global::Seqeron.Genomics.Analysis.MicrosatelliteScanMode.MaximalRuns;
+        IReadOnlyDictionary<int, int> map = misaThresholds
+            ? global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats
+            : Enumerable.Range(1, 6).ToDictionary(p => p, _ => minRepeats);
+        var s = global::Seqeron.Genomics.Analysis.RepeatFinder.GetTandemRepeatSummary(dna, map, scanMode);
+        var ssrs = global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(dna, map, scanMode).ToList();
         var canonical = global::Seqeron.Genomics.Analysis.RepeatFinder.GetCanonicalMotifFrequencies(ssrs);
         MicrosatelliteItem? longest = s.LongestRepeat is { } lr
             ? new MicrosatelliteItem(lr.Position, lr.RepeatUnit, lr.RepeatCount, lr.TotalLength, lr.RepeatType.ToString())
@@ -1491,7 +1495,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "mask_low_complexity", Title = "Complexity — Mask Low-Complexity Regions (SDUST)", ReadOnly = true)]
-    [Description("Mask low-complexity regions of a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust): every perfect interval of at most windowSize bases whose DUST score exceeds the threshold is masked. N and other IUPAC codes are accepted and split the scan like sdust. Optional dustmasker linker merge and soft (lower-case) masking.")]
+    [Description("Mask low-complexity regions of a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust): every perfect interval of at most windowSize bases whose DUST score exceeds the threshold is masked. N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking.")]
     public static MaskLowComplexityResult MaskLowComplexity(
         [Description("DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive).")] string sequence,
         [Description("SDUST window length in bases (default 64, >= 3).")] int windowSize = 64,

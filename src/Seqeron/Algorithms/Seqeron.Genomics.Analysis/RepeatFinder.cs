@@ -4916,8 +4916,75 @@ public static class RepeatFinder
             FindMicrosatellitesCore(sequence.Sequence, thresholds, CancellationToken.None, null, scanMode).ToList());
     }
 
+    /// <summary>
+    /// Raw-string (N/IUPAC-tolerant) counterpart of <see cref="GetTandemRepeatSummary(DnaSequence,int)"/>: the summary
+    /// aggregates exactly <see cref="FindMicrosatellites(string,int,int,int)"/> with unit lengths 1–6 (case-insensitive;
+    /// only A/C/G/T form units, so N runs and IUPAC codes never belong to a microsatellite and interrupt runs —
+    /// MISA <c>[acgt]</c>). <c>PercentageOfSequence</c> uses the full input length, non-ACGT symbols included, as
+    /// denominator (misa.pl "Total size of examined sequences (bp)" = <c>length $seq</c>). <c>null</c> or empty input
+    /// yields the empty summary (all counts 0, no longest repeat).
+    /// </summary>
+    /// <param name="sequence">Nucleotide string (any symbols; ACGT case-insensitive).</param>
+    /// <param name="minRepeats">Minimum number of complete copies (≥ 2; default 3), applied to every unit length.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minRepeats"/> is less than 2.</exception>
+    public static TandemRepeatSummary GetTandemRepeatSummary(
+        string sequence,
+        int minRepeats = 3)
+    {
+        var found = FindMicrosatellites(sequence, 1, 6, minRepeats).ToList();
+        return SummarizeMicrosatellites(sequence?.Length ?? 0, found);
+    }
+
+    /// <summary>
+    /// Raw-string (N/IUPAC-tolerant) counterpart of
+    /// <see cref="GetTandemRepeatSummary(DnaSequence,IReadOnlyDictionary{int,int})"/>; the SSR list is
+    /// <see cref="FindMicrosatellites(string,IReadOnlyDictionary{int,int},CancellationToken,IProgress{double})"/>.
+    /// Denominator and <c>null</c>/empty handling as in <see cref="GetTandemRepeatSummary(string,int)"/>.
+    /// </summary>
+    /// <param name="sequence">Nucleotide string (any symbols; ACGT case-insensitive).</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (1–6) → minimum number of complete copies (≥ 2).</param>
+    /// <exception cref="ArgumentNullException">The map is null.</exception>
+    /// <exception cref="ArgumentException">The map is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A unit length is outside 1–6 or a threshold is &lt; 2.</exception>
+    public static TandemRepeatSummary GetTandemRepeatSummary(
+        string sequence,
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength)
+        => GetTandemRepeatSummary(sequence, minRepeatsByUnitLength, MicrosatelliteScanMode.MaximalRuns);
+
+    /// <summary>
+    /// Raw-string (N/IUPAC-tolerant) counterpart of
+    /// <see cref="GetTandemRepeatSummary(DnaSequence,IReadOnlyDictionary{int,int},MicrosatelliteScanMode)"/>; the SSR
+    /// list is <see cref="FindMicrosatellites(string,IReadOnlyDictionary{int,int},MicrosatelliteScanMode,CancellationToken,IProgress{double})"/>.
+    /// With <see cref="MicrosatelliteScanMode.MisaRegex"/> the total and the per-unit-size counts equal misa.pl's
+    /// <c>.statistics</c> ("Total number of identified SSRs", "Distribution to different repeat type classes") on
+    /// sequences containing N or IUPAC codes too. Denominator and <c>null</c>/empty handling as in
+    /// <see cref="GetTandemRepeatSummary(string,int)"/>.
+    /// </summary>
+    /// <param name="sequence">Nucleotide string (any symbols; ACGT case-insensitive).</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (1–6) → minimum number of complete copies (≥ 2).</param>
+    /// <param name="scanMode">Scan convention.</param>
+    public static TandemRepeatSummary GetTandemRepeatSummary(
+        string sequence,
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
+        MicrosatelliteScanMode scanMode)
+    {
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength, maxUnitLength: 6);
+        ValidateScanMode(scanMode);
+
+        if (string.IsNullOrEmpty(sequence))
+            return SummarizeMicrosatellites(0, []);
+
+        return SummarizeMicrosatellites(
+            sequence.Length,
+            FindMicrosatellitesCore(sequence.ToUpperInvariant(), thresholds, CancellationToken.None, null, scanMode).ToList());
+    }
+
     private static TandemRepeatSummary SummarizeMicrosatellites(
         DnaSequence sequence, List<MicrosatelliteResult> microsatellites)
+        => SummarizeMicrosatellites(sequence.Length, microsatellites);
+
+    private static TandemRepeatSummary SummarizeMicrosatellites(
+        int sequenceLength, List<MicrosatelliteResult> microsatellites)
     {
         var byType = microsatellites
             .GroupBy(m => m.RepeatType)
@@ -4930,9 +4997,9 @@ public static class RepeatFinder
         // lengths: overlapping repeats (e.g. a homopolymer run also matched as a dinucleotide repeat) would
         // otherwise double-count bases and push the percentage above 100. Covered bases ≤ sequence length, so
         // the percentage is always in [0, 100]. TotalRepeatBases keeps the (possibly overlapping) repeat content.
-        long coveredBases = CountCoveredBases(microsatellites, sequence.Length);
-        double percentageOfSequence = sequence.Length > 0
-            ? (double)coveredBases / sequence.Length * 100
+        long coveredBases = CountCoveredBases(microsatellites, sequenceLength);
+        double percentageOfSequence = sequenceLength > 0
+            ? (double)coveredBases / sequenceLength * 100
             : 0;
 
         return new TandemRepeatSummary(

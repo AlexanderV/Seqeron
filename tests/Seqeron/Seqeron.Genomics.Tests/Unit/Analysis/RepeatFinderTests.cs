@@ -165,7 +165,7 @@ public class RepeatFinderTests
     [Test]
     public void GetTandemRepeatSummary_InvalidArguments_Throw()
     {
-        Assert.Throws<ArgumentNullException>(() => RepeatFinder.GetTandemRepeatSummary(null!, 3));
+        Assert.Throws<ArgumentNullException>(() => RepeatFinder.GetTandemRepeatSummary((DnaSequence)null!, 3));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             RepeatFinder.GetTandemRepeatSummary(new DnaSequence("ACGT"), 1));
         Assert.Throws<ArgumentOutOfRangeException>(() =>

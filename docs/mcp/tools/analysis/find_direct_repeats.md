@@ -1,6 +1,6 @@
 # find_direct_repeats
 
-Find direct repeats (identical copies separated by a spacer).
+Find exact direct repeats as maximal repeated pairs (MUMmer `repeat-match -f`); only A/C/G/T match; repeats longer than `maxLength` are dropped, not split.
 
 ## Overview
 

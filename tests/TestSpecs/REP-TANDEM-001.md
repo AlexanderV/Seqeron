@@ -20,6 +20,7 @@
 | `FindTandemRepeats(seq, minUnitLength, minRepetitions)` | GenomicAnalyzer | Canonical | Deep testing |
 | `GetTandemRepeatSummary(seq, minRepeats)` | RepeatFinder | Summary/Delegate | Smoke testing |
 | `GetTandemRepeatSummary(seq, IReadOnlyDictionary<int,int> minRepeatsByUnitLength)` | RepeatFinder | MISA per-unit-size thresholds | Deep (D10) |
+| `GetTandemRepeatSummary(string, …)` (uniform / map / map + `MicrosatelliteScanMode`) | RepeatFinder | N/IUPAC-tolerant raw-string overloads (WP11) | Deep (D13) |
 | `GetCanonicalMotifClass`, `GetCanonicalMotifFrequencies` | RepeatFinder | MISA repeat-type classes | Deep (D11) |
 | `GetStandardMotif(motif, level)`, `GetStandardMotifFrequencies` | RepeatFinder | Krait standard motifs | Deep (D12) |
 
@@ -107,6 +108,13 @@ These tests verify the delegate method which wraps FindMicrosatellites.
 | D11 | `GetCanonicalMotifClass_MatchesMisaStatisticsRowName` (10), `GetCanonicalMotifFrequencies_StatSequence_MatchesMisaClassifiedTable` | misa.pl `.statistics` "Frequency of classified repeat types (considering sequence complementary)": AC/CA/GT/TG → AC/GT; table A/T 2, AC/GT 4, ACAT/ATGT 1 |
 | D12 | `GetStandardMotif_MatchesKraitAllLevels` (8 motifs × levels 0–4) | Krait `motif.py` `StandardMotif(level).standard()` (A < T < C < G order; level 2 = rotations + reverse complement, e.g. ACAT → ATAC; Krait GUI default level 3) |
 
+| D13 | `RepeatFinder_TandemSummaryString_Tests` (6) | Raw-string overloads (WP11): N/IUPAC never form or extend an SSR (MISA `[acgt]`); `PercentageOfSequence` denominator = full length incl. N (misa.pl `length $seq`); `MisaRegex` counts = misa.pl `.statistics` (93-mer: 6 SSRs, 3/1/1/1; 87-mer: default 3 SSRs 1/2, uniform 3 copies 4 SSRs 1/3); ACGT-only input = DnaSequence overloads; maximal-runs class counts = sum over ACGT pieces; null/empty → empty summary |
+
+2026-10-01 (WP11): string overloads with `MicrosatelliteScanMode.MisaRegex` vs real `perl misa.pl` `.statistics` on 6 000 random
+sequences (5 684 containing N/IUPAC/lower case, 1 882 307 bp) × 6 `misa.ini` definitions: total size, total SSRs, SSR-containing
+sequences, sequences with > 1 SSR and the six per-unit-size counts identical (aggregate, all 6 definitions); per sequence (one
+misa.pl run each) for the default and the `1-3 2-2 3-2 4-2 5-2 6-2` definitions: 12 000 / 12 000 identical.
+
 Summary expected values come from an independent Python reference (brute-force maximal primitive runs
 + aggregation); the code agreed on 9000/9000 random sequences (2026-09-29). Per-class totals of the
 same reference agreed exactly with running `misa.pl` for minRepeats ≥ 4; for minRepeats 2–3 MISA differs
@@ -130,8 +138,8 @@ documented SSR-list conventions. Tests: `tests/Seqeron/Seqeron.Genomics.Tests/Un
 | SHOULD | 5 |
 | COULD | 2 |
 | Property (invariants) | 3 |
-| Summary (delegate) | 12 |
-| **Total** | 35 |
+| Summary (delegate) | 13 |
+| **Total** | 36 |
 
 ### Deviations and Assumptions
 

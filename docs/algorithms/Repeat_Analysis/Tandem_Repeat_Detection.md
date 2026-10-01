@@ -53,7 +53,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `sequence` | `DnaSequence` | required | DNA sequence to analyze. | `FindTandemRepeats` dereferences `sequence.Sequence` directly; `GetTandemRepeatSummary` throws on `null`. |
+| `sequence` | `DnaSequence` or `string` | required | DNA sequence to analyze (string overloads of `GetTandemRepeatSummary` accept N/IUPAC, case-insensitive). | `FindTandemRepeats` dereferences `sequence.Sequence` directly; `GetTandemRepeatSummary(DnaSequence, …)` throws on `null`; the string overloads return the empty summary for `null`/empty. |
 | `minUnitLength` | `int` | `2` | Minimum candidate repeat-unit length for `FindTandemRepeats`. | Values below `1` throw `ArgumentOutOfRangeException` (eager). |
 | `minRepetitions` | `int` | `2` | Minimum number of consecutive unit copies for `FindTandemRepeats`. | Values below `2` throw `ArgumentOutOfRangeException` (eager). |
 | `minRepeats` | `int` | `3` | Minimum repeat count used by `GetTandemRepeatSummary(DnaSequence, int)` for every unit length 1–6. | Passed to `FindMicrosatellites(sequence, 1, 6, minRepeats)`, which rejects values below 2. |
@@ -97,6 +97,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 - `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int, int)`: Canonical exact detector for consecutive tandem repeats.
 - `RepeatFinder.GetTandemRepeatSummary(DnaSequence, int)`: Summary helper that aggregates microsatellite-sized tandem repeats.
 - `RepeatFinder.GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int>)`: Same summary with MISA-style per-unit-size thresholds (`RepeatFinder.MisaDefaultMinRepeats`).
+- `RepeatFinder.GetTandemRepeatSummary(string, int)`, `(string, IReadOnlyDictionary<int,int>)`, `(string, IReadOnlyDictionary<int,int>, MicrosatelliteScanMode)`: raw-string, N/IUPAC-tolerant counterparts (case-insensitive; only A/C/G/T form units, so N/IUPAC never belong to an SSR — MISA `[acgt]`); `PercentageOfSequence` uses the full length incl. N (misa.pl `length $seq`); `null`/empty → empty summary. With `MisaRegex` the totals and per-unit-size counts equal misa.pl `.statistics` (6 000 N-containing sequences × 6 definitions, 0 mismatches; 12 000 per-sequence runs identical).
 - `RepeatFinder.GetCanonicalMotifClass(string)` / `GetCanonicalMotifFrequencies(IEnumerable<MicrosatelliteResult>)`: MISA repeat-type classes (rotation + reverse complement).
 - `RepeatFinder.GetStandardMotif(string, int level = 2)` / `GetStandardMotifFrequencies(IEnumerable<MicrosatelliteResult>, int level = 2)`: Krait standard motifs.
 - Compound SSRs (MISA types `c` / `c*`): `RepeatFinder.FindCompoundMicrosatellites` / `AssembleCompoundMicrosatellites` — see [Microsatellite_Detection.md](Microsatellite_Detection.md) §5.

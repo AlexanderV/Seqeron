@@ -38,7 +38,16 @@ and Krait statistics (Du et al. 2018):
   `null` when `standardMotifLevel` is −1 (default).
 
 With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum copies
-(`1-10 2-6 3-5 4-5 5-5 6-5`) instead of one `minRepeats`.
+(`1-10 2-6 3-5 4-5 5-5 6-5`) instead of one `minRepeats`. With `misaScan: true` the STRs come from
+misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed
+then rejected — `find_microsatellites` `misaScan`), so `totalRepeats` and the per-unit-size counts
+equal misa.pl's `.statistics` ("Total number of identified SSRs", "Distribution to different repeat
+type classes"; 6 000 N/IUPAC-containing sequences × 6 definitions, 0 mismatches).
+
+N and other IUPAC codes are accepted (case-insensitive), as in `find_microsatellites`: only A/C/G/T
+form units, so N/IUPAC symbols never belong to an STR and interrupt runs (MISA `[acgt]`). The
+`percentageOfSequence` denominator is the full length, N included (misa.pl "Total size of examined
+sequences" = `length $seq`).
 
 ## Core Documentation Reference
 
@@ -48,10 +57,11 @@ With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum co
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence (min length 1) |
+| `sequence` | string | Yes | DNA sequence: A/C/G/T plus IUPAC codes such as N, case-insensitive (min length 1) |
 | `minRepeats` | integer | No | Minimum complete copies for every unit length (default 3, ≥ 2; smaller values throw `ArgumentOutOfRangeException`); ignored when `misaThresholds` is true |
 | `misaThresholds` | boolean | No | MISA default per-unit-size minimum copies `1-10 2-6 3-5 4-5 5-5 6-5` (default false) |
 | `standardMotifLevel` | integer | No | −1 (default, off) or Krait standardization level 0–4 for `standardMotifCounts` |
+| `misaScan` | boolean | No | misa.pl regex scan instead of maximal primitive runs (default false) |
 
 ## Output Schema
 
@@ -76,7 +86,7 @@ With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum co
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
-| 1001 | Invalid DNA sequence |
+| 1001 | Invalid DNA sequence (A/C/G/T and IUPAC codes only) |
 
 ## Examples
 
@@ -133,6 +143,25 @@ With `misaThresholds: true` the STRs use MISA's default per-unit-size minimum co
 71 repeat bases, but only `[0,20) ∪ [22,46)` = 44 of 46 bases covered):
 ```json
 { "totalRepeats": 10, "totalRepeatBases": 71, "percentageOfSequence": 95.65217391304348, "mononucleotideRepeats": 8, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 1, "hexanucleotideRepeats": 1, "longestRepeat": { "position": 22, "repeatUnit": "TTAGGG", "repeatCount": 4, "totalLength": 24, "repeatType": "Hexanucleotide" }, "mostFrequentUnit": "A", "canonicalMotifCounts": { "A/T": 4, "C/G": 4, "AAAAG/CTTTT": 1, "AACCCT/AGGGTT": 1 } }
+```
+
+### Example 4: N and IUPAC codes, misa.pl scan
+
+**User Prompt:**
+> MISA-style SSR statistics for "ACACACACANCACACACACACACACAGTNNNNNNNNNNNNNNNNNNNNATATATATATATATATATRYSWKMggggggggggggggg".
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "tandem_repeat_summary",
+  "arguments": { "sequence": "ACACACACANCACACACACACACACAGTNNNNNNNNNNNNNNNNNNNNATATATATATATATATATRYSWKMggggggggggggggg", "misaThresholds": true, "misaScan": true }
+}
+```
+
+**Response** (misa.pl `.statistics`: size 87, 3 SSRs, unit sizes 1: 1, 2: 2; `.misa` row
+`c (CA)8gtnnnnnnnnnnnnnnnnnnnn(AT)9ryswkm(G)15 77 11 87` → 16 + 18 + 15 = 49 bases, 49 / 87):
+```json
+{ "totalRepeats": 3, "totalRepeatBases": 49, "percentageOfSequence": 56.32183908045977, "mononucleotideRepeats": 1, "dinucleotideRepeats": 2, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0, "pentanucleotideRepeats": 0, "hexanucleotideRepeats": 0, "longestRepeat": { "position": 48, "repeatUnit": "AT", "repeatCount": 9, "totalLength": 18, "repeatType": "Dinucleotide" }, "mostFrequentUnit": "G", "canonicalMotifCounts": { "C/G": 1, "AC/GT": 1, "AT/AT": 1 } }
 ```
 
 ## Performance

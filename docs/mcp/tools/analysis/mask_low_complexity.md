@@ -19,7 +19,8 @@ identical output to lh3/sdust). Every *perfect interval* — a subsequence of
 at most `windowSize` bases whose DUST score `Σ c(c−1)/2 / (ℓ−1)` exceeds `threshold` and is not
 exceeded by any of its sub-intervals — is masked; overlapping/adjacent intervals
 are merged. N and other IUPAC codes are accepted (case-insensitive): each maximal A/C/G/T run is scanned as an
-independent sequence, as sdust specifies, and a non-ACGT base is never inside a perfect interval. `linker`
+independent sequence, as sdust specifies ("N effectively breaks input into pieces of independent sequences";
+sdust's code itself carries its scoring window across N, which this tool does not reproduce), and a non-ACGT base is never inside a perfect interval. `linker`
 reproduces NCBI dustmasker's `-linker` (consecutive intervals separated by fewer than `linker` unmasked bases are
 merged; default 1 = sdust/dustmasker default) and `softMask` its `-outfmt fasta` output (masked bases lower case,
 the rest upper case; `maskChar` ignored). Otherwise masked bases become `maskChar` and the output is upper case.

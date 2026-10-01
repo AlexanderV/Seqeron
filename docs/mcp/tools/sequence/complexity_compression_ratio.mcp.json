@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceComplexity.EstimateCompressionRatio",
   "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1631",
-  "description": "Estimate sequence complexity using compression ratio. Lower ratios indicate more repetitive/less complex sequences.",
+  "description": "Normalized Lempel-Ziv (LZ76) complexity c/(n/log_b n) (Lempel & Ziv 1976; Zhang et al. 2009): c = number of components of the LZ76 exhaustive history, n = length, b = number of distinct symbols (at least 2). Not a compressor's compression ratio (the tool name is historical). About 1 for random sequences (finite sequences may exceed 1); lower values indicate more repetitive/less complex sequences.",
   "inputSchema": {
     "type": "object",
     "properties": {
