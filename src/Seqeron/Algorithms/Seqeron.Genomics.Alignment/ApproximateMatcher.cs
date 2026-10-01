@@ -3,7 +3,7 @@ namespace Seqeron.Genomics.Alignment
     /// <summary>
     /// Performs approximate pattern matching with support for mismatches, insertions, and deletions.
     /// </summary>
-    public static class ApproximateMatcher
+    public static partial class ApproximateMatcher
     {
         // DNA alphabet over which the d-neighborhood is generated.
         // Per Compeau & Pevzner, Bioinformatics Algorithms ch.1 (ROSALIND BA1N),

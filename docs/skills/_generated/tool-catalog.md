@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (26 tools)
+## Alignment (27 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -14,6 +14,7 @@
 | `assembly_stats` | `SequenceAssembler.CalculateStats` | [doc](../../mcp/tools/alignment/assembly_stats.md) |
 | `calculate_coverage` | `SequenceAssembler.CalculateCoverage` | [doc](../../mcp/tools/alignment/calculate_coverage.md) |
 | `compute_consensus` | `SequenceAssembler.ComputeConsensus` | [doc](../../mcp/tools/alignment/compute_consensus.md) |
+| `damerau_alignment` | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../mcp/tools/alignment/damerau_alignment.md) |
 | `damerau_levenshtein_distance` | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../mcp/tools/alignment/damerau_levenshtein_distance.md) |
 | `edit_alignment` | `ApproximateMatcher.GetEditAlignment` | [doc](../../mcp/tools/alignment/edit_alignment.md) |
 | `error_correct_reads` | `SequenceAssembler.ErrorCorrectReads` | [doc](../../mcp/tools/alignment/error_correct_reads.md) |

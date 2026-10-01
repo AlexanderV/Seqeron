@@ -23,6 +23,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "calculate_coverage",
         "compute_consensus",
         "damerau_levenshtein_distance",
+        "damerau_alignment",
         "edit_alignment",
         "error_correct_reads",
         "find_all_overlaps",

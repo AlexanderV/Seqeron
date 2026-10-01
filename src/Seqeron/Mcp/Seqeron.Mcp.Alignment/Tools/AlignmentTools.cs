@@ -274,25 +274,81 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "damerau_levenshtein_distance", Title = "Approximate — Damerau–Levenshtein Distance", ReadOnly = true)]
-    [Description("Edit distance with adjacent transpositions. variant 'unrestricted' (default) is the true Damerau–Levenshtein metric (Lowrance & Wagner 1975; DL(CA,ABC)=2); 'osa' is the optimal string alignment (restricted) distance where no substring is edited twice (OSA(CA,ABC)=3). Unit costs, case-sensitive.")]
+    [Description("Edit distance with adjacent transpositions. variant 'unrestricted' (default) is the true Damerau–Levenshtein metric (Lowrance & Wagner 1975; DL(CA,ABC)=2); 'osa' is the optimal string alignment (restricted) distance where no substring is edited twice (OSA(CA,ABC)=3). Case-sensitive. Optional insertionCost/deletionCost/substitutionCost/transpositionCost (default 1) give the weighted distance (sequence1 = s1 transformed into sequence2: insertion adds a sequence2 character, deletion removes a sequence1 character); 'unrestricted' requires 2*transpositionCost >= insertionCost + deletionCost (Lowrance-Wagner exactness condition).")]
     public static DamerauDistanceResult DamerauLevenshteinDistance(
         [Description("First sequence.")] string sequence1,
         [Description("Second sequence.")] string sequence2,
-        [Description("'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment).")] string variant = "unrestricted")
+        [Description("'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment).")] string variant = "unrestricted",
+        [Description("Cost of inserting a sequence2 character (>= 0; default 1).")] int insertionCost = 1,
+        [Description("Cost of deleting a sequence1 character (>= 0; default 1).")] int deletionCost = 1,
+        [Description("Cost of a substitution (>= 0; default 1).")] int substitutionCost = 1,
+        [Description("Cost of swapping two adjacent characters (>= 0; default 1; 'unrestricted' needs 2*transpositionCost >= insertionCost + deletionCost).")] int transpositionCost = 1)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
 
-        string v = (variant ?? string.Empty).Trim().ToLowerInvariant();
-        int distance = v switch
+        string v = ParseDamerauVariant(variant);
+        var costs = ToDamerauCosts(insertionCost, deletionCost, substitutionCost, transpositionCost, v);
+        bool unit = costs == global::Seqeron.Genomics.Alignment.DamerauCosts.Unit;
+        int distance = (v, unit) switch
         {
-            "unrestricted" => global::Seqeron.Genomics.Alignment.ApproximateMatcher.DamerauLevenshteinDistance(sequence1, sequence2),
-            "osa" => global::Seqeron.Genomics.Alignment.ApproximateMatcher.OptimalStringAlignmentDistance(sequence1, sequence2),
-            _ => throw new ArgumentException("Variant must be 'unrestricted' or 'osa'.", nameof(variant)),
+            ("unrestricted", true) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.DamerauLevenshteinDistance(sequence1, sequence2),
+            ("unrestricted", false) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.DamerauLevenshteinDistance(sequence1, sequence2, costs),
+            (_, true) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.OptimalStringAlignmentDistance(sequence1, sequence2),
+            (_, false) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.OptimalStringAlignmentDistance(sequence1, sequence2, costs),
         };
         return new DamerauDistanceResult(distance, v);
+    }
+
+    [McpServerTool(Name = "damerau_alignment", Title = "Approximate — Damerau–Levenshtein Alignment (Edit Script)", ReadOnly = true)]
+    [Description("Optimal transposition-aware edit script turning sequence1 into sequence2 (Lowrance & Wagner 1975 trace). variant 'unrestricted' (default, true Damerau–Levenshtein: a transposition block a_k..a_i -> b_l..b_j deletes the characters between the swapped pair and inserts b_(l+1..j-1) between them) or 'osa' (adjacent swaps only). Returns the distance (summed cost), a compact script ('=' match, 'X' substitution, 'I' sequence1 character deleted, 'D' sequence2 character inserted, 'T' transposition followed by one 'i' per character deleted and one 'd' per character inserted inside the block) and the operations with 0-based positions and costs. Optional weighted costs as in damerau_levenshtein_distance. Case-sensitive. O(m*n) time and space.")]
+    public static DamerauAlignmentDto DamerauAlignment(
+        [Description("Source sequence (s1).")] string sequence1,
+        [Description("Target sequence (s2).")] string sequence2,
+        [Description("'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment).")] string variant = "unrestricted",
+        [Description("Cost of inserting a sequence2 character (>= 0; default 1).")] int insertionCost = 1,
+        [Description("Cost of deleting a sequence1 character (>= 0; default 1).")] int deletionCost = 1,
+        [Description("Cost of a substitution (>= 0; default 1).")] int substitutionCost = 1,
+        [Description("Cost of swapping two adjacent characters (>= 0; default 1; 'unrestricted' needs 2*transpositionCost >= insertionCost + deletionCost).")] int transpositionCost = 1)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+
+        string v = ParseDamerauVariant(variant);
+        var costs = ToDamerauCosts(insertionCost, deletionCost, substitutionCost, transpositionCost, v);
+        var a = v == "unrestricted"
+            ? global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetDamerauLevenshteinAlignment(sequence1, sequence2, costs)
+            : global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetOptimalStringAlignment(sequence1, sequence2, costs);
+        var ops = a.Operations
+            .Select(o => new DamerauOperationDto(
+                o.Kind.ToString().ToLowerInvariant(), o.SourcePosition, o.SourceLength, o.TargetPosition, o.TargetLength, o.Cost))
+            .ToArray();
+        return new DamerauAlignmentDto(a.Distance, v, a.Script, a.TranspositionCount, ops);
+    }
+
+    private static string ParseDamerauVariant(string variant)
+    {
+        string v = (variant ?? string.Empty).Trim().ToLowerInvariant();
+        if (v != "unrestricted" && v != "osa")
+            throw new ArgumentException("Variant must be 'unrestricted' or 'osa'.", nameof(variant));
+        return v;
+    }
+
+    private static global::Seqeron.Genomics.Alignment.DamerauCosts ToDamerauCosts(
+        int insertionCost, int deletionCost, int substitutionCost, int transpositionCost, string variant)
+    {
+        var edit = ToEditCosts(insertionCost, deletionCost, substitutionCost);
+        if (transpositionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(transpositionCost), "transpositionCost must be >= 0.");
+        if (variant == "unrestricted" && 2L * transpositionCost < (long)insertionCost + deletionCost)
+            throw new ArgumentException(
+                "variant 'unrestricted' requires 2*transpositionCost >= insertionCost + deletionCost (Lowrance & Wagner 1975); use variant 'osa'.",
+                nameof(transpositionCost));
+        return new global::Seqeron.Genomics.Alignment.DamerauCosts(edit, transpositionCost);
     }
 
     [McpServerTool(Name = "find_best_match", Title = "Approximate — Find Best (Minimum Hamming)", ReadOnly = true)]

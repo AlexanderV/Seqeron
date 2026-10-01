@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 468 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 469 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 468 | 468 |
-| Schema+Binding tests | 468 | 468 |
-| Docs (.md + .mcp.json) | 468 | 468 |
+| Gold-standard binding | 469 | 469 |
+| Schema+Binding tests | 469 | 469 |
+| Docs (.md + .mcp.json) | 469 | 469 |
 
 ## Per-server summary
 
@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 26 | 26/26 | 26/26 | 26/26 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 27 | 27/27 | 27/27 | 27/27 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 122 | 122/122 | 122/122 | 122/122 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 26 tools
+### Alignment (Seqeron.Mcp.Alignment) — 27 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -150,26 +150,27 @@
 | 4 | `assembly_stats` | ☑ | ☑ | ☑ |
 | 5 | `calculate_coverage` | ☑ | ☑ | ☑ |
 | 6 | `compute_consensus` | ☑ | ☑ | ☑ |
-| 7 | `damerau_levenshtein_distance` | ☑ | ☑ | ☑ |
-| 8 | `edit_alignment` | ☑ | ☑ | ☑ |
-| 9 | `error_correct_reads` | ☑ | ☑ | ☑ |
-| 10 | `find_all_overlaps` | ☑ | ☑ | ☑ |
-| 11 | `find_best_match` | ☑ | ☑ | ☑ |
-| 12 | `find_edit_end_positions` | ☑ | ☑ | ☑ |
-| 13 | `find_overlap` | ☑ | ☑ | ☑ |
-| 14 | `find_with_edits` | ☑ | ☑ | ☑ |
-| 15 | `find_with_mismatches` | ☑ | ☑ | ☑ |
-| 16 | `format_alignment` | ☑ | ☑ | ☑ |
-| 17 | `frequent_kmers_with_mismatches` | ☑ | ☑ | ☑ |
-| 18 | `frequent_kmers_with_mismatches_and_revcomp` | ☑ | ☑ | ☑ |
-| 19 | `global_align` | ☑ | ☑ | ☑ |
-| 20 | `local_align` | ☑ | ☑ | ☑ |
-| 21 | `merge_contigs` | ☑ | ☑ | ☑ |
-| 22 | `multiple_align` | ☑ | ☑ | ☑ |
-| 23 | `quality_trim_reads` | ☑ | ☑ | ☑ |
-| 24 | `scaffold_contigs` | ☑ | ☑ | ☑ |
-| 25 | `semi_global_align` | ☑ | ☑ | ☑ |
-| 26 | `sequence_identity` | ☑ | ☑ | ☑ |
+| 7 | `damerau_alignment` | ☑ | ☑ | ☑ |
+| 8 | `damerau_levenshtein_distance` | ☑ | ☑ | ☑ |
+| 9 | `edit_alignment` | ☑ | ☑ | ☑ |
+| 10 | `error_correct_reads` | ☑ | ☑ | ☑ |
+| 11 | `find_all_overlaps` | ☑ | ☑ | ☑ |
+| 12 | `find_best_match` | ☑ | ☑ | ☑ |
+| 13 | `find_edit_end_positions` | ☑ | ☑ | ☑ |
+| 14 | `find_overlap` | ☑ | ☑ | ☑ |
+| 15 | `find_with_edits` | ☑ | ☑ | ☑ |
+| 16 | `find_with_mismatches` | ☑ | ☑ | ☑ |
+| 17 | `format_alignment` | ☑ | ☑ | ☑ |
+| 18 | `frequent_kmers_with_mismatches` | ☑ | ☑ | ☑ |
+| 19 | `frequent_kmers_with_mismatches_and_revcomp` | ☑ | ☑ | ☑ |
+| 20 | `global_align` | ☑ | ☑ | ☑ |
+| 21 | `local_align` | ☑ | ☑ | ☑ |
+| 22 | `merge_contigs` | ☑ | ☑ | ☑ |
+| 23 | `multiple_align` | ☑ | ☑ | ☑ |
+| 24 | `quality_trim_reads` | ☑ | ☑ | ☑ |
+| 25 | `scaffold_contigs` | ☑ | ☑ | ☑ |
+| 26 | `semi_global_align` | ☑ | ☑ | ☑ |
+| 27 | `sequence_identity` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 122 tools
 

@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "damerau_levenshtein_distance",
   "serverName": "Alignment",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "ApproximateMatcher.DamerauLevenshteinDistance",
-  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L751",
-  "description": "Edit distance with unit-cost insertions, deletions, substitutions and transpositions of adjacent characters. `variant` = `unrestricted` (default) is the true Damerau–Levenshtein distance (Lowrance & Wagner 1975; `ApproximateMatcher.DamerauLevenshteinDistance`), a metric in which transposed characters may be separated by further edits (DL(CA, ABC) = 2). `variant` = `osa` is the optimal string alignment (restricted Damerau) distance (`ApproximateMatcher.OptimalStringAlignmentDistance`), where no substring is edited more than once (OSA(CA, ABC) = 3). Case-sensitive (ordinal). Cross-checked against rapidfuzz and jellyfish.",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L1016",
+  "description": "Edit distance with insertions, deletions, substitutions and transpositions of adjacent characters. `variant` = `unrestricted` (default) is the true Damerau–Levenshtein distance (Lowrance & Wagner 1975; `ApproximateMatcher.DamerauLevenshteinDistance`), in which transposed characters may be separated by further edits (DL(CA, ABC) = 2). `variant` = `osa` is the optimal string alignment (restricted Damerau) distance (`ApproximateMatcher.OptimalStringAlignmentDistance`), where no substring is edited more than once (OSA(CA, ABC) = 3). Unit costs by default (cross-checked against rapidfuzz and jellyfish); optional `insertionCost` / `deletionCost` / `substitutionCost` / `transpositionCost` give the weighted Lowrance–Wagner distance (sequence1 → sequence2; `unrestricted` requires 2·transpositionCost ≥ insertionCost + deletionCost, the condition under which the Lowrance–Wagner recurrence is exact). Weighted `osa` equals R stringdist `method='osa'`; weighted `unrestricted` equals the exhaustive minimum over all edit sequences. Case-sensitive (ordinal).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -28,6 +28,30 @@
           "osa"
         ],
         "default": "unrestricted"
+      },
+      "insertionCost": {
+        "type": "integer",
+        "description": "Cost of inserting a sequence2 character (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "deletionCost": {
+        "type": "integer",
+        "description": "Cost of deleting a sequence1 character (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "substitutionCost": {
+        "type": "integer",
+        "description": "Cost of a substitution (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "transpositionCost": {
+        "type": "integer",
+        "description": "Cost of swapping two adjacent characters (>= 0; default 1; 'unrestricted' needs 2*transpositionCost >= insertionCost + deletionCost).",
+        "minimum": 0,
+        "default": 1
       }
     },
     "required": [
@@ -62,6 +86,10 @@
     {
       "code": 1004,
       "message": "Variant must be 'unrestricted' or 'osa'"
+    },
+    {
+      "code": 1004,
+      "message": "Costs must be >= 0; 'unrestricted' requires 2*transpositionCost >= insertionCost + deletionCost"
     }
   ],
   "examples": [
@@ -86,6 +114,21 @@
       "output": {
         "distance": 3,
         "variant": "osa"
+      }
+    },
+    {
+      "name": "Weighted Damerau–Levenshtein",
+      "input": {
+        "sequence1": "CA",
+        "sequence2": "ABC",
+        "insertionCost": 2,
+        "deletionCost": 3,
+        "substitutionCost": 4,
+        "transpositionCost": 3
+      },
+      "output": {
+        "distance": 5,
+        "variant": "unrestricted"
       }
     }
   ]

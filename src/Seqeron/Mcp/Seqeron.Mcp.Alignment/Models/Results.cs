@@ -72,6 +72,12 @@ public record EditAlignmentDto(
 /// <summary>Damerau–Levenshtein (unrestricted) or optimal string alignment distance.</summary>
 public record DamerauDistanceResult(int Distance, string Variant);
 
+/// <summary>One step of a Damerau edit script (kind: match, substitution, insertion, deletion, transposition).</summary>
+public record DamerauOperationDto(string Kind, int SourcePosition, int SourceLength, int TargetPosition, int TargetLength, int Cost);
+
+/// <summary>Transposition-aware (Lowrance–Wagner) edit script from sequence1 to sequence2.</summary>
+public record DamerauAlignmentDto(int Distance, string Variant, string Script, int TranspositionCount, DamerauOperationDto[] Operations);
+
 /// <summary>Frequent k-mer item.</summary>
 public record FrequentKmerItem(string Kmer, int Count);
 

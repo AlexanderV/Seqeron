@@ -201,3 +201,14 @@
 | LS-P6 | `Properties/EditAlignmentProperties.P6`: 1500 random pairs, distance = full traceback = Myers, replay valid | Hirschberg 1975 optimality |
 | LS-MR | `Metamorphic/PatternApproxB05MetamorphicTests`: swap (I↔D script valid for swapped pair), reversal preserve distance | symmetry of ed |
 | LS-F | `Fuzzing/PatternApproxEditFuzzTests`: extreme shapes (0×n, 1×700, 900×2, 1000×1000), non-ASCII/lone surrogates | robustness |
+
+### Weighted Damerau distances + transposition-aware traceback (B05 audit round 2 group G3, 2026-10-01)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| WD-M1 | 40 locked pairs × (ins, del, sub, trans): weighted OSA (both overloads) = R stringdist 0.9.12 `osa`; weighted DL (both overloads) = exhaustive Dijkstra minimum; both alignments replay s1 → s2 with summed cost = distance (`ApproximateMatcher_WeightedDamerau_Tests`) | stringdist / Dijkstra |
+| WD-M2 | 600 random weighted pairs ({A,B,C} ≤ 4, costs 0–6, 2·T ≥ I + D): DL distance and alignment = in-test Dijkstra over all edit sequences; OSA alignment = OSA distance; replays valid | Lowrance & Wagner 1975 exactness |
+| WD-M3 | exhaustive {A,B,C} ≤ 4 (14641 pairs): `DamerauCosts.Unit` = unit engines, uniform (3,3,3,3) = 3 × unit, unit alignments' distance = unit engines, replays valid | bit-identical unit path |
+| WD-M4 | CA → ABC: DL script `Td` (one block, cost 2), OSA 3; ab → ba `T`; AXB → BA `Ti` | Lowrance–Wagner trace |
+| WD-S1 | 2·T < I + D rejected for unrestricted (ABC → BCA, (2,2,4,1)), OSA still 4; negative costs, nulls, overflow | contract |
+| WD-MCP | `damerau_levenshtein_distance` weighted params, `damerau_alignment` delegation + doc examples (`Seqeron.Mcp.Alignment.Tests/DamerauLevenshteinDistanceTests.cs`) | delegation |

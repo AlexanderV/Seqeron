@@ -42,11 +42,18 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L861"
   },
   {
+    "tool": "damerau_alignment",
+    "server": "Alignment",
+    "methodId": "ApproximateMatcher.GetDamerauLevenshteinAlignment",
+    "docPath": "docs/mcp/tools/alignment/damerau_alignment.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.Damerau.cs#L151"
+  },
+  {
     "tool": "damerau_levenshtein_distance",
     "server": "Alignment",
     "methodId": "ApproximateMatcher.DamerauLevenshteinDistance",
     "docPath": "docs/mcp/tools/alignment/damerau_levenshtein_distance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L751"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L1016"
   },
   {
     "tool": "edit_alignment",

@@ -313,7 +313,8 @@
 | assembly_stats | Alignment | SequenceAssembler.CalculateStats | Alignment/SequenceAssembler.cs#L415 | 0/0 | – | – | Build-Ready |
 | calculate_coverage | Alignment | SequenceAssembler.CalculateCoverage | Alignment/SequenceAssembler.cs#L513 | 0/0 | – | – | Build-Ready |
 | compute_consensus | Alignment | SequenceAssembler.ComputeConsensus | Alignment/SequenceAssembler.cs#L561 | 0/0 | – | – | Build-Ready |
-| damerau_levenshtein_distance | Alignment | ApproximateMatcher.DamerauLevenshteinDistance | Alignment/ApproximateMatcher.cs#L751 | 2/2 | ✓ | ✓ | Ready |
+| damerau_alignment | Alignment | ApproximateMatcher.GetDamerauLevenshteinAlignment | Alignment/ApproximateMatcher.Damerau.cs#L151 | 4/4 | ✓ | ✓ | Ready |
+| damerau_levenshtein_distance | Alignment | ApproximateMatcher.DamerauLevenshteinDistance | Alignment/ApproximateMatcher.cs#L1016 | 4/4 | ✓ | ✓ | Ready |
 | edit_alignment | Alignment | ApproximateMatcher.GetEditAlignment | Alignment/ApproximateMatcher.cs#L403 | 2/2 | ✓ | ✓ | Ready |
 | error_correct_reads | Alignment | SequenceAssembler.ErrorCorrectReads | Alignment/SequenceAssembler.cs#L632 | 0/0 | – | – | Build-Ready |
 | find_all_overlaps | Alignment | SequenceAssembler.FindAllOverlaps | Alignment/SequenceAssembler.cs#L101 | 0/0 | – | – | Build-Ready |

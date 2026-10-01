@@ -5,12 +5,12 @@ WHY THIS EXISTS
 ---------------
 The skills architecture (docs/skills/STRATEGY.md, esp. sections 5 and 6) is
 "many independent skills". The risk of that architecture is drift: N skills
-whose tool tables slowly diverge from the real set of 468 MCP tools. The
+whose tool tables slowly diverge from the real set of 469 MCP tools. The
 counter-measure is a SINGLE generator (this script) that reads the source of
 truth and emits every tool table, wrapped in machine-owned markers.
 
 SOURCE OF TRUTH (never edited by this script):
-  * docs/mcp/tools/<server>/*.md   -- 468 per-tool docs (11 servers)
+  * docs/mcp/tools/<server>/*.md   -- 469 per-tool docs (11 servers)
   * docs/mcp/MCP_STATUS.md         -- (referenced by strategy; not parsed here)
 
 GENERATED (owned by this script; do not hand-edit inside the markers):
@@ -70,7 +70,7 @@ EXPECTED_COUNTS = {
     "core": 18,
     "sequence": 35,
     "parsers": 41,
-    "alignment": 26,
+    "alignment": 27,
     "analysis": 122,
     "annotation": 97,
     "chromosome": 32,
@@ -79,7 +79,7 @@ EXPECTED_COUNTS = {
     "phylogenetics": 13,
     "population": 18,
 }
-EXPECTED_TOTAL = 468
+EXPECTED_TOTAL = 469
 
 BEGIN_MARK = "<!-- BEGIN generated: do not edit by hand -->"
 END_MARK = "<!-- END generated -->"
@@ -178,7 +178,7 @@ def collect_tools():
 
 
 def crosscheck_counts(per_server):
-    """Warn loudly (non-fatal) if counts diverge from the expected 468."""
+    """Warn loudly (non-fatal) if counts diverge from the expected 469."""
     total = sum(per_server.values())
     problems = []
 
