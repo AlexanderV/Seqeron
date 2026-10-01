@@ -92,6 +92,8 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |
 | `find_regulatory_elements_both_strands` | X | Regulatory scan with strand; orientation-independent elements on both strands | `MotifFinder.FindRegulatoryElements(seq, bothStrands)` |
 | `find_promoter_elements_by_matrix` | X | Bucher/JASPAR TATA, Inr, CCAAT, GC-box weight matrices at a background FPR | `MotifFinder.FindPromoterElementsByMatrix` |
+| `find_sigma70_promoters` | X | Bacterial σ70 −35/−10 consensus pairing (TTGACA/TATAAT, spacer 15–21; Harley & Reynolds 1987) | `MotifFinder.FindSigma70Promoters` |
+| `predict_sigma70_promoters` | X | σ70 promoter ΔG + transcription rate per TSS (Promoter Calculator v1.0, La Fleur 2022) | `MotifFinder.PredictSigma70Promoters` |
 | `generate_consensus` | X | IUPAC consensus from aligned seqs (inclusionThreshold, default 0.25) | `MotifFinder.GenerateConsensus` |
 | `generate_decipher_consensus` | X | DECIPHER ConsensusSequence (DNA/RNA/protein, gaps, IUPAC input) | `MotifFinder.GenerateDecipherConsensus` |
 | `generate_cavener_consensus` | X | Cavener (1987) degenerate consensus (Biopython degenerate_consensus) | `MotifFinder.GenerateCavenerConsensus` |
@@ -100,6 +102,8 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `create_pwm` | X | Log-odds PWM from aligned DNA (scalar / per-base / JASPAR pseudocounts, background) | `MotifFinder.CreatePwm` |
 | `scan_with_pwm` | X | Scan a sequence with a PWM | `MotifFinder.ScanWithPwm` |
 | `scan_with_pwm_both_strands` | X | PWM scan on both strands (Biopython search both=True) | `MotifFinder.ScanWithPwmBothStrands` |
+| `create_alphabet_pwm` | X | Log-odds PWM over any alphabet (protein/RNA/gapped), consensus, max/min, mean/std | `MotifFinder.CreateAlphabetPwm` |
+| `scan_with_alphabet_pwm` | X | Window scores (NaN outside alphabet) + forward hits with an any-alphabet PWM | `MotifFinder.ScanWithAlphabetPwm` |
 | `pwm_score_pvalue` | X | Exact PWM score p-value / p-value threshold (Touzet & Varré 2007 TFM-Pvalue) | `MotifFinder.PwmScorePValue` |
 | `pwm_score_thresholds` | X | PWM score thresholds (FPR / FNR / balanced / patser) from the score distribution | `PositionWeightMatrix.ScoreDistribution` |
 | `find_protein_motifs` | X | PROSITE-style protein motif catalog — owned by **seqeron-protein-features** | `ProteinMotifFinder.FindCommonMotifs` |

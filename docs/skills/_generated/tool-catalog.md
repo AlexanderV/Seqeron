@@ -35,7 +35,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (115 tools)
+## Analysis (119 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -51,6 +51,7 @@
 | `compression_ratio` | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../mcp/tools/analysis/compression_ratio.md) |
 | `count_kmers` | `KmerAnalyzer.CountKmers` | [doc](../../mcp/tools/analysis/count_kmers.md) |
 | `count_kmers_both_strands` | `KmerAnalyzer.CountKmersBothStrands` | [doc](../../mcp/tools/analysis/count_kmers_both_strands.md) |
+| `create_alphabet_pwm` | `MotifFinder.CreateAlphabetPwm` | [doc](../../mcp/tools/analysis/create_alphabet_pwm.md) |
 | `create_pwm` | `MotifFinder.CreatePwm` | [doc](../../mcp/tools/analysis/create_pwm.md) |
 | `cumulative_gc_skew` | `GcSkewCalculator.CalculateCumulativeGcSkew` | [doc](../../mcp/tools/analysis/cumulative_gc_skew.md) |
 | `dangling_end_energy` | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../mcp/tools/analysis/dangling_end_energy.md) |
@@ -95,6 +96,7 @@
 | `find_reverse_complement_repeats` | `RepeatFinder.FindReverseComplementRepeats` | [doc](../../mcp/tools/analysis/find_reverse_complement_repeats.md) |
 | `find_rna_inverted_repeats` | `RnaSecondaryStructure.FindInvertedRepeats` | [doc](../../mcp/tools/analysis/find_rna_inverted_repeats.md) |
 | `find_shared_motifs` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/find_shared_motifs.md) |
+| `find_sigma70_promoters` | `MotifFinder.FindSigma70Promoters` | [doc](../../mcp/tools/analysis/find_sigma70_promoters.md) |
 | `find_stem_loops` | `RnaSecondaryStructure.FindStemLoops` | [doc](../../mcp/tools/analysis/find_stem_loops.md) |
 | `find_supermaximal_repeats` | `RepeatFinder.FindSupermaximalRepeats` | [doc](../../mcp/tools/analysis/find_supermaximal_repeats.md) |
 | `find_syntenic_blocks` | `ComparativeGenomics.FindSyntenicBlocks` | [doc](../../mcp/tools/analysis/find_syntenic_blocks.md) |
@@ -135,6 +137,7 @@
 | `predict_morfs` | `DisorderPredictor.PredictMoRFs` | [doc](../../mcp/tools/analysis/predict_morfs.md) |
 | `predict_replication_origin` | `GcSkewCalculator.PredictReplicationOrigin` | [doc](../../mcp/tools/analysis/predict_replication_origin.md) |
 | `predict_rna_structure` | `RnaSecondaryStructure.PredictStructure` | [doc](../../mcp/tools/analysis/predict_rna_structure.md) |
+| `predict_sigma70_promoters` | `MotifFinder.PredictSigma70Promoters` | [doc](../../mcp/tools/analysis/predict_sigma70_promoters.md) |
 | `predict_signal_peptide` | `ProteinMotifFinder.PredictSignalPeptide` | [doc](../../mcp/tools/analysis/predict_signal_peptide.md) |
 | `predict_transmembrane_helices` | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../mcp/tools/analysis/predict_transmembrane_helices.md) |
 | `prosite_to_regex` | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../mcp/tools/analysis/prosite_to_regex.md) |
@@ -142,6 +145,7 @@
 | `pwm_score_thresholds` | `PositionWeightMatrix.ScoreDistribution` | [doc](../../mcp/tools/analysis/pwm_score_thresholds.md) |
 | `reversal_distance` | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | `RnaSecondaryStructure.GetComplement` | [doc](../../mcp/tools/analysis/rna_complement_base.md) |
+| `scan_with_alphabet_pwm` | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | `MotifFinder.ScanWithPwm` | [doc](../../mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `shared_motifs_significance` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/shared_motifs_significance.md) |

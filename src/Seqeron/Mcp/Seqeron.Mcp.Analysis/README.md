@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **115 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **119 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (115)
+## Tools (119)
 
 | Tool | Description |
 |------|-------------|
@@ -31,6 +31,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `compression_ratio` | Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). |
 | `count_kmers` | Counts every k-mer (substring of length k) occurrence in a sequence. |
 | `count_kmers_both_strands` | k-mer counts on the forward strand combined with counts on the reverse-complement strand. |
+| `create_alphabet_pwm` | Build a log-odds position weight matrix over an arbitrary alphabet (protein, RNA, gapped DNA, …) from aligned instances — Biopython motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background)… |
 | `create_pwm` | Build a log-odds Position Weight Matrix (4×L; rows A,C,G,T) from aligned, equal-length DNA sequences (Biopython counts.normalize(pseudocounts).log_odds(background)): scalar pseudocount, per-base pseudocounts, or JASPAR pseudocounts… |
 | `cumulative_gc_skew` | Cumulative GC skew along the sequence — minimum approximates origin and maximum approximates terminus of replication. |
 | `dangling_end_energy` | 5' or 3' dangling-end stacking energy for an RNA helix end. |
@@ -75,6 +76,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_reverse_complement_repeats` | Finds **maximal exact reverse-complement repeat pairs**: copy 1 at firstPosition and copy 2 at secondPosition (both 0-based, firstPosition… |
 | `find_rna_inverted_repeats` | Finds antiparallel complementary regions (potential RNA hairpin stems). |
 | `find_shared_motifs` | k-mers present in at least minSequences of the input DNA sequences. |
+| `find_sigma70_promoters` | Pair bacterial σ70 −35 and −10 boxes (Harley & Reynolds 1987: TTGACA / TATAAT, spacer 15–21 bp, 17 ± 1 in 92 % of promoters)… |
 | `find_stem_loops` | Enumerates hairpin stem-loop candidates with stem, loop, and Turner 2004 free energy. |
 | `find_supermaximal_repeats` | Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maxima… |
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
@@ -115,6 +117,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `predict_morfs` | Predicts Molecular Recognition Features within IDRs by hydropathy enrichment (heuristic, Mohan 2006-inspired). |
 | `predict_replication_origin` | Predicts replication origin and terminus from cumulative GC skew extrema. |
 | `predict_rna_structure` | Greedy non-overlapping stem-loop selection — produces dot-bracket notation, base pairs, stems, pseudoknots, and total MFE. |
+| `predict_sigma70_promoters` | σ70 promoter prediction with the Promoter Calculator v1.0 (La Fleur, Hossain & Salis 2022, Nat Commun 13:5159; port of the authors' reference code)… |
 | `predict_signal_peptide` | von Heijne (1986) weight-matrix signal-peptide cleavage-site prediction (EMBOSS sigcleave). |
 | `predict_transmembrane_helices` | Hydropathy-based transmembrane helix prediction (Kyte-Doolittle, ≥15 aa). |
 | `prosite_to_regex` | Translate a PROSITE pattern string to a .NET regex string. |
@@ -122,6 +125,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `pwm_score_thresholds` | Score thresholds of a PWM from its discretised score distribution (Biopython Bio.motifs.thresholds.ScoreDistribution): background false-pos… |
 | `reversal_distance` | Lower-bound reversal distance via breakpoint count for two equal-length permutations. |
 | `rna_complement_base` | Returns the RNA complement (A↔U, G↔C) for a single base. |
+| `scan_with_alphabet_pwm` | Build a PWM over an arbitrary alphabet from aligned instances (as create_alphabet_pwm) and score every window of a sequence (Biopython pssm.calculate rule)… |
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |
 | `shared_motifs_significance` | RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA se… |

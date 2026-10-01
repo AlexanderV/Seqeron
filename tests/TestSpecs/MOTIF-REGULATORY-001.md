@@ -234,3 +234,18 @@ Tests: `Unit/Analysis/MotifFinder_RegulatoryStrands_Tests.cs`, `Unit/Analysis/Mo
 | R7 | `FindPromoterElementsByMatrix_EqualsBiopythonSearch` | Biopython `pssm.search` at `threshold_fpr(1e-3)` (both strands for CCAAT/GC) |
 | R8 | `RegulatoryBothStrands_ReverseComplementMirror` (4 seeds) | hits(s) ↔ hits(revcomp s) mirrored |
 
+
+## 9. Review 2026-09 (B05 audit group D, part 2) — σ70 promoter pairing and Promoter Calculator
+
+Tests: `Unit/Analysis/MotifFinder_Sigma70Promoters_Tests.cs`; MCP `AlphabetPwmAndSigma70Tests` (find_sigma70_promoters, predict_sigma70_promoters).
+References: Harley & Reynolds 1987 (TTGACA / TATAAT, spacer 15–21, 17 ± 1); independent Python brute force (300 random cases, identical); Promoter Calculator v1.0 reference Python (hsalis/SalisLabCode; 60 random sequences, 4634 per-TSS predictions, bit-identical).
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| S1 | `FindSigma70_LacUv5_PairsTttacaTataatWithSpacer18` | −35 TTTACA at 68 (1 mm), −10 TATAAT at 92, spacer 18, deviation 1 |
+| S2 | `FindSigma70_ConsensusPromoter_SpacerBounds` | spacer 17 found; 15–16 / 22 excluded unless allowed |
+| S3 | `FindSigma70_MinusStrand_ForwardCoordinatesAndOrder` | minus-strand boxes, forward coordinates |
+| S4 | `FindSigma70_MismatchTolerance_EqualsBruteForceEnumeration`, `FindSigma70_Guards` | every pair within limits; contracts |
+| S5 | `PromoterCalculator_LacUv5_BestForwardStateEqualsReference` | 65 + 65 TSSs; best TSS 108 TTTACA·18·TATAAT, ΔG −3.044998584365458 (all 9 terms), rate 6123.861140216731 |
+| S6 | `PromoterCalculator_LacUv5_ReverseStrandAndInVitroEqualReference` | reverse best key 63 CACACA/TAAAGT ΔG −1.9519008907397968; in-vitro rate 504.40616830647446 |
+| S7 | `PromoterCalculator_TooShortSequence_NoPredictions` | 77 nt → none; 78 nt → TSS 58 (+), 20 (−) |

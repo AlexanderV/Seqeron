@@ -425,6 +425,72 @@ public record PromoterMatrixHitItem(string Name, string MatrixId, int Position, 
 /// <summary>Result of <c>find_promoter_elements_by_matrix</c>.</summary>
 public record FindPromoterElementsByMatrixResult(PromoterMatrixHitItem[] Items);
 
+/// <summary>Result of <c>create_alphabet_pwm</c>: K×L log-odds (rows in alphabet order; null = −∞) and summary statistics.</summary>
+public record AlphabetPwmResult(
+    string Alphabet,
+    double?[][] Matrix,
+    int Length,
+    string Consensus,
+    string Anticonsensus,
+    double? MaxScore,
+    double? MinScore,
+    double Mean,
+    double Std);
+
+/// <summary>Result of <c>scan_with_alphabet_pwm</c>: every window score (null when not finite), NaN windows, and hits.</summary>
+public record ScanWithAlphabetPwmResult(
+    string Consensus,
+    int Length,
+    double?[] Scores,
+    int[] InvalidWindows,
+    MotifMatchItem[] Hits);
+
+/// <summary>A paired σ70 −35/−10 consensus candidate.</summary>
+public record Sigma70CandidateItem(
+    string Strand,
+    int Minus35Start,
+    string Minus35,
+    int Minus10Start,
+    string Minus10,
+    int Spacer,
+    int Mismatches35,
+    int Mismatches10,
+    int TotalMismatches,
+    int SpacerDeviation);
+
+/// <summary>Result of <c>find_sigma70_promoters</c>.</summary>
+public record FindSigma70PromotersResult(Sigma70CandidateItem[] Items);
+
+/// <summary>Promoter Calculator v1.0 minimum-ΔG configuration of one TSS.</summary>
+public record Sigma70PredictionItem(
+    string Strand,
+    int Tss,
+    string PromoterSequence,
+    string Up,
+    string Minus35,
+    string Spacer,
+    string Minus10,
+    string Discriminator,
+    string Itr,
+    int UpStart,
+    int Minus35Start,
+    int SpacerStart,
+    int Minus10Start,
+    int DiscriminatorStart,
+    double DeltaGTotal,
+    double DeltaG10,
+    double DeltaG35,
+    double DeltaGDiscriminator,
+    double DeltaGItr,
+    double DeltaGExtended10,
+    double DeltaGSpacer,
+    double DeltaGUp,
+    double DeltaGBind,
+    double TranscriptionRate);
+
+/// <summary>Result of <c>predict_sigma70_promoters</c>: per-TSS predictions and the overall lowest-ΔG one.</summary>
+public record PredictSigma70PromotersResult(Sigma70PredictionItem[] Items, Sigma70PredictionItem? Best);
+
 /// <summary>A strand-annotated regulatory element occurrence.</summary>
 public record StrandedRegulatoryElementItem(string Name, int Position, string Sequence, string Pattern, string Description, string Strand);
 

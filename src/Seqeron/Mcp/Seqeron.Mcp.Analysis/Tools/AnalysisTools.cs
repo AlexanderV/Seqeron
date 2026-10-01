@@ -1259,6 +1259,110 @@ public class AnalysisTools
         return new FindPromoterElementsByMatrixResult(items);
     }
 
+    private static global::Seqeron.Genomics.Analysis.AlphabetPositionWeightMatrix BuildAlphabetPwm(
+        string[] sequences, string alphabet, double pseudocount, double[]? pseudocounts, double[]? background, bool ignoreUnknownSymbols)
+    {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required.", nameof(sequences));
+        if (string.IsNullOrEmpty(alphabet))
+            throw new ArgumentException("Alphabet is required (e.g. ACDEFGHIKLMNPQRSTVWY).", nameof(alphabet));
+        if (pseudocounts is not null && pseudocounts.Length != alphabet.Length)
+            throw new ArgumentException("pseudocounts must have one value per alphabet symbol.", nameof(pseudocounts));
+        if (background is not null && background.Length != alphabet.Length)
+            throw new ArgumentException("background must have one value per alphabet symbol.", nameof(background));
+
+        return pseudocounts is not null
+            ? global::Seqeron.Genomics.Analysis.MotifFinder.CreateAlphabetPwm(sequences, alphabet, pseudocounts, background, ignoreUnknownSymbols)
+            : global::Seqeron.Genomics.Analysis.MotifFinder.CreateAlphabetPwm(sequences, alphabet, pseudocount, background, ignoreUnknownSymbols);
+    }
+
+    [McpServerTool(Name = "create_alphabet_pwm", Title = "Motifs — Build PWM (Any Alphabet / Protein)", ReadOnly = true)]
+    [Description("Build a log-odds position weight matrix over an arbitrary alphabet (protein, RNA, gapped DNA, …) from aligned instances — Biopython motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background): K×L matrix (rows in alphabet order), consensus / anticonsensus, max / min score, mean / std of the background score. Case-insensitive. Matrix cells and MinScore are null where the value is −∞ (unseen symbol with zero pseudocount).")]
+    public static AlphabetPwmResult CreateAlphabetPwm(
+        [Description("Aligned instances of equal length.")] string[] sequences,
+        [Description("Alphabet in row order, distinct symbols ignoring case (e.g. ACDEFGHIKLMNPQRSTVWY for protein).")] string alphabet,
+        [Description("Pseudocount added to every cell (default 0 = Biopython pseudocounts=None); ignored when pseudocounts is given.")] double pseudocount = 0.0,
+        [Description("Optional per-symbol pseudocounts in alphabet order (finite, >= 0).")] double[]? pseudocounts = null,
+        [Description("Optional background probabilities in alphabet order (> 0, normalised; uniform when omitted). Also used for mean/std.")] double[]? background = null,
+        [Description("Skip symbols outside the alphabet (gaps, X) when counting, as Biopython (default false: reject them).")] bool ignoreUnknownSymbols = false)
+    {
+        var pwm = BuildAlphabetPwm(sequences, alphabet, pseudocount, pseudocounts, background, ignoreUnknownSymbols);
+        var m = pwm.GetMatrix();
+        var rows = new double?[alphabet.Length][];
+        for (int a = 0; a < alphabet.Length; a++)
+        {
+            rows[a] = new double?[pwm.Length];
+            for (int j = 0; j < pwm.Length; j++)
+                rows[a][j] = FiniteOrNull(m[a, j]);
+        }
+
+        return new AlphabetPwmResult(pwm.Alphabet, rows, pwm.Length, pwm.Consensus, pwm.Anticonsensus,
+            FiniteOrNull(pwm.MaxScore), FiniteOrNull(pwm.MinScore), pwm.Mean(background), pwm.Std(background));
+    }
+
+    [McpServerTool(Name = "scan_with_alphabet_pwm", Title = "Motifs — Scan with PWM (Any Alphabet / Protein)", ReadOnly = true)]
+    [Description("Build a PWM over an arbitrary alphabet from aligned instances (as create_alphabet_pwm) and score every window of a sequence (Biopython pssm.calculate rule: Σ log-odds, NaN when the window holds a symbol outside the alphabet) plus the forward hits with score >= threshold (Biopython search(both=False)). Scores are null when not finite; InvalidWindows lists the NaN windows (any other null is −∞).")]
+    public static ScanWithAlphabetPwmResult ScanWithAlphabetPwm(
+        [Description("Sequence to scan (case-insensitive).")] string sequence,
+        [Description("Aligned instances of equal length that define the motif.")] string[] sequences,
+        [Description("Alphabet in row order (e.g. ACDEFGHIKLMNPQRSTVWY).")] string alphabet,
+        [Description("Minimum hit score, finite (default 0.0).")] double threshold = 0.0,
+        [Description("Pseudocount per cell (default 0); ignored when pseudocounts is given.")] double pseudocount = 0.0,
+        [Description("Optional per-symbol pseudocounts in alphabet order.")] double[]? pseudocounts = null,
+        [Description("Optional background in alphabet order (uniform when omitted).")] double[]? background = null,
+        [Description("Skip symbols outside the alphabet when counting the instances (default false).")] bool ignoreUnknownSymbols = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (!double.IsFinite(threshold))
+            throw new ArgumentOutOfRangeException(nameof(threshold), "threshold must be finite.");
+        var pwm = BuildAlphabetPwm(sequences, alphabet, pseudocount, pseudocounts, background, ignoreUnknownSymbols);
+
+        double[] scores = global::Seqeron.Genomics.Analysis.MotifFinder.CalculateAlphabetPwmScores(sequence, pwm);
+        var hits = global::Seqeron.Genomics.Analysis.MotifFinder.ScanWithAlphabetPwm(sequence, pwm, threshold)
+            .Select(h => new MotifMatchItem(h.Position, h.MatchedSequence, h.Pattern, h.Score))
+            .ToArray();
+        var invalid = Enumerable.Range(0, scores.Length).Where(i => double.IsNaN(scores[i])).ToArray();
+        return new ScanWithAlphabetPwmResult(pwm.Consensus, pwm.Length,
+            scores.Select(FiniteOrNull).ToArray(), invalid, hits);
+    }
+
+    [McpServerTool(Name = "find_sigma70_promoters", Title = "Promoters — σ70 −35/−10 Consensus Pairing", ReadOnly = true)]
+    [Description("Pair bacterial σ70 −35 and −10 boxes (Harley & Reynolds 1987: TTGACA / TATAAT, spacer 15–21 bp, 17 ± 1 in 92 % of promoters): every −35 hexamer within maxMismatches35 of TTGACA followed after a minSpacer…maxSpacer spacer by a −10 hexamer within maxMismatches10 of TATAAT, with mismatch counts and |spacer − 17|. 0-based forward-strand coordinates; optional minus strand.")]
+    public static FindSigma70PromotersResult FindSigma70Promoters(
+        [Description("DNA sequence.")] string sequence,
+        [Description("Maximum mismatches of the −35 box to TTGACA, 0–6 (default 2).")] int maxMismatches35 = 2,
+        [Description("Maximum mismatches of the −10 box to TATAAT, 0–6 (default 2).")] int maxMismatches10 = 2,
+        [Description("Minimum spacer length (default 15).")] int minSpacer = 15,
+        [Description("Maximum spacer length (default 21).")] int maxSpacer = 21,
+        [Description("Also scan the reverse-complement strand (default false).")] bool bothStrands = false)
+    {
+        var dna = RequireDna(sequence, nameof(sequence));
+        var items = global::Seqeron.Genomics.Analysis.MotifFinder
+            .FindSigma70Promoters(dna, maxMismatches35, maxMismatches10, minSpacer, maxSpacer, bothStrands)
+            .Select(c => new Sigma70CandidateItem(c.Strand.ToString(), c.Minus35Start, c.Minus35, c.Minus10Start, c.Minus10,
+                c.Spacer, c.Mismatches35, c.Mismatches10, c.TotalMismatches, c.SpacerDeviation))
+            .ToArray();
+        return new FindSigma70PromotersResult(items);
+    }
+
+    [McpServerTool(Name = "predict_sigma70_promoters", Title = "Promoters — σ70 Promoter Calculator", ReadOnly = true)]
+    [Description("σ70 promoter prediction with the Promoter Calculator v1.0 (La Fleur, Hossain & Salis 2022, Nat Commun 13:5159; port of the authors' reference code): for every TSS the minimum-ΔG configuration UP · −35 · spacer (15–20) · −10 · discriminator (6–10) · ITR (20), its free-energy terms and predicted transcription rate K·exp(−β·ΔG_total). Needs >= 78 nt; TSS uses the reference convention (minus strand: first transcribed base at Tss − 1). Best = the prediction with the lowest ΔG_total.")]
+    public static PredictSigma70PromotersResult PredictSigma70Promoters(
+        [Description("DNA sequence (A/C/G/T).")] string sequence,
+        [Description("Also predict on the reverse-complement strand (default true).")] bool bothStrands = true,
+        [Description("Use the reference in-vitro β instead of E. coli MG1655 (default false).")] bool inVitro = false)
+    {
+        var dna = RequireDna(sequence, nameof(sequence));
+        var items = global::Seqeron.Genomics.Analysis.MotifFinder.PredictSigma70Promoters(dna, bothStrands, inVitro)
+            .Select(p => new Sigma70PredictionItem(p.Strand.ToString(), p.Tss, p.PromoterSequence, p.Up, p.Minus35, p.Spacer,
+                p.Minus10, p.Discriminator, p.Itr, p.UpStart, p.Minus35Start, p.SpacerStart, p.Minus10Start, p.DiscriminatorStart,
+                p.DeltaGTotal, p.DeltaG10, p.DeltaG35, p.DeltaGDiscriminator, p.DeltaGItr, p.DeltaGExtended10, p.DeltaGSpacer,
+                p.DeltaGUp, p.DeltaGBind, p.TranscriptionRate))
+            .ToArray();
+        Sigma70PredictionItem? best = items.Length == 0 ? null : items.MinBy(p => p.DeltaGTotal);
+        return new PredictSigma70PromotersResult(items, best);
+    }
+
     [McpServerTool(Name = "find_regulatory_elements_both_strands", Title = "Motifs — Regulatory Elements (Both Strands)", ReadOnly = true)]
     [Description("Strand-annotated scan of the built-in regulatory library: every element on the given strand, plus the orientation-independent elements (CAAT box, GC box, NF-κB; AP-1 / E-box / CREB are self-complementary) rescanned on the minus strand. Positions are 0-based forward-strand window starts.")]
     public static FindRegulatoryElementsBothStrandsResult FindRegulatoryElementsBothStrands(

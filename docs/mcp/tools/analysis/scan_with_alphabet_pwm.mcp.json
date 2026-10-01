@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "scan_with_alphabet_pwm",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.ScanWithAlphabetPwm",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlphabetPwm.cs#L142",
+  "description": "Builds the PWM of `create_alphabet_pwm` from the aligned instances, then returns the score of every window (generic form of Biopython `pssm.calculate`: Σ_j W[s[i+j], j]; a window containing a symbol outside the alphabet scores NaN, the `_pwm.c` rule — Biopython 1.88 `calculate` itself only accepts DNA) and the forward-strand hits with score ≥ `threshold` in ascending position (Biopython `search(sequence, threshold, both=False)`). Case-insensitive. `scores` holds null where the score is not finite; `invalidWindows` lists the NaN windows (any other null is −∞).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Sequence to scan"
+      },
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Aligned instances defining the motif"
+      },
+      "alphabet": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Alphabet in row order"
+      },
+      "threshold": {
+        "type": "number",
+        "default": 0,
+        "description": "Minimum hit score, finite (default 0)"
+      },
+      "pseudocount": {
+        "type": "number",
+        "minimum": 0,
+        "default": 0,
+        "description": "Pseudocount per cell (default 0)"
+      },
+      "pseudocounts": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "Per-symbol pseudocounts in alphabet order"
+      },
+      "background": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "Background in alphabet order (uniform when omitted)"
+      },
+      "ignoreUnknownSymbols": {
+        "type": "boolean",
+        "default": false,
+        "description": "Skip symbols outside the alphabet when counting the instances (default false)"
+      }
+    },
+    "required": [
+      "sequence",
+      "sequences",
+      "alphabet"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "consensus": {
+        "type": "string"
+      },
+      "length": {
+        "type": "integer"
+      },
+      "scores": {
+        "type": "array",
+        "items": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "invalidWindows": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        }
+      },
+      "hits": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": {
+              "type": "integer"
+            },
+            "matchedSequence": {
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "score": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "position",
+            "matchedSequence",
+            "pattern",
+            "score"
+          ]
+        }
+      }
+    },
+    "required": [
+      "consensus",
+      "length",
+      "scores",
+      "invalidWindows",
+      "hits"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least one sequence is required."
+    },
+    {
+      "code": 1001,
+      "message": "Alphabet is required (e.g. ACDEFGHIKLMNPQRSTVWY)."
+    },
+    {
+      "code": 1002,
+      "message": "threshold must be finite."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Protein motif with unknown symbols",
+      "input": {
+        "sequence": "GGMKVLATxxMRvLGTPPMKXLAS",
+        "sequences": [
+          "MKVLAT",
+          "MRVLGT",
+          "MKILAS",
+          "LKVLAT",
+          "MKVIAT",
+          "MEVLAT"
+        ],
+        "alphabet": "ACDEFGHIKLMNPQRSTVWY",
+        "threshold": 5.0,
+        "pseudocount": 0.5
+      },
+      "output": {
+        "consensus": "MKVLAT",
+        "length": 6,
+        "scores": [
+          -4.068431430675826,
+          -4.068431430675826,
+          16.398651663952972,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          12.939220045315675,
+          -4.068431430675826,
+          -4.068431430675826,
+          -2.4834689299546704,
+          -4.068431430675826,
+          null,
+          null,
+          null,
+          null
+        ],
+        "invalidWindows": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          15,
+          16,
+          17,
+          18
+        ],
+        "hits": [
+          {
+            "position": 2,
+            "matchedSequence": "MKVLAT",
+            "pattern": "MKVLAT",
+            "score": 16.398651663952972
+          },
+          {
+            "position": 10,
+            "matchedSequence": "MRvLGT",
+            "pattern": "MKVLAT",
+            "score": 12.939220045315675
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -298,23 +298,26 @@ public static partial class MotifFinder
     /// (Biopython <c>counts.normalize(pseudocounts).log_odds(background)</c>):
     /// W[b,j] = log2( ((c[b,j] + p[b]) / (Σ_b c[b,j] + Σ_b p[b])) / q[b] ).
     /// </summary>
-    /// <param name="counts">4 × L count matrix (validated by the caller).</param>
-    /// <param name="pseudocounts">Per-base pseudocounts (A, C, G, T).</param>
+    /// <param name="counts">K × L count matrix (K = 4, rows A, C, G, T, for DNA; K = |alphabet| for
+    /// <see cref="AlphabetPositionWeightMatrix"/>), validated by the caller.</param>
+    /// <param name="pseudocounts">Per-row pseudocounts.</param>
     /// <param name="pseudocountSum">Σ p[b] (passed so the scalar path keeps its exact N + 4p total).</param>
-    /// <param name="background">Normalised background (A, C, G, T).</param>
+    /// <param name="background">Normalised background (one value per row).</param>
     internal static double[,] LogOddsFromCounts(double[,] counts, double[] pseudocounts, double pseudocountSum, double[] background)
     {
+        // Row count taken from the matrix: 4 for DNA, |alphabet| for AlphabetPositionWeightMatrix (one shared kernel).
+        int rows = counts.GetLength(0);
         int length = counts.GetLength(1);
-        var matrix = new double[PwmAlphabetSize, length];
+        var matrix = new double[rows, length];
         for (int i = 0; i < length; i++)
         {
             double columnCount = 0;
-            for (int b = 0; b < PwmAlphabetSize; b++)
+            for (int b = 0; b < rows; b++)
                 columnCount += counts[b, i];
             double total = columnCount + pseudocountSum;
 
             // Pseudocount-smoothed probabilities → log2 odds against the background.
-            for (int b = 0; b < PwmAlphabetSize; b++)
+            for (int b = 0; b < rows; b++)
             {
                 double freq = (counts[b, i] + pseudocounts[b]) / total;
                 matrix[b, i] = Math.Log2(freq / background[b]);
@@ -325,13 +328,19 @@ public static partial class MotifFinder
     }
 
     internal static double[] NormalizeBackground(IReadOnlyList<double> background)
+        => NormalizeBackground(background, PwmAlphabetSize, "Background must have exactly 4 probabilities (A, C, G, T).");
+
+    /// <summary>
+    /// Background of <paramref name="size"/> finite, strictly positive values normalised to sum 1 (Biopython
+    /// <c>log_odds</c> / <c>mean</c> / <c>std</c> divide by the total); shared by the DNA and the generic-alphabet PWM.
+    /// </summary>
+    internal static double[] NormalizeBackground(IReadOnlyList<double> background, int size, string countMessage)
     {
-        if (background.Count != PwmAlphabetSize)
-            throw new ArgumentException(
-                "Background must have exactly 4 probabilities (A, C, G, T).", nameof(background));
+        if (background.Count != size)
+            throw new ArgumentException(countMessage, nameof(background));
 
         double sum = 0;
-        for (int b = 0; b < PwmAlphabetSize; b++)
+        for (int b = 0; b < size; b++)
         {
             double v = background[b];
             if (!double.IsFinite(v) || v <= 0)
@@ -340,8 +349,8 @@ public static partial class MotifFinder
             sum += v;
         }
 
-        var result = new double[PwmAlphabetSize];
-        for (int b = 0; b < PwmAlphabetSize; b++)
+        var result = new double[size];
+        for (int b = 0; b < size; b++)
             result[b] = background[b] / sum;
         return result;
     }

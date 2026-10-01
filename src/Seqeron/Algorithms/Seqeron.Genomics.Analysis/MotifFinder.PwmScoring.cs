@@ -20,18 +20,90 @@ public static partial class MotifFinder
     /// <see cref="ScanWithPwm"/>, <see cref="ScanWithPwmBothStrands"/> and <see cref="CalculatePwmScores(string, PositionWeightMatrix)"/>.
     /// </summary>
     internal static double ScorePwmWindow(string upperSequence, int start, PositionWeightMatrix pwm)
+        => ScorePwmWindow(upperSequence, start, pwm.Matrix, pwm.Length, default(AcgtRowIndex));
+
+    /// <summary>
+    /// Generic window-scoring kernel shared by the DNA PWM (<see cref="AcgtRowIndex"/>) and
+    /// <see cref="AlphabetPositionWeightMatrix"/> (arbitrary alphabet): Σ_j W[row(s[start+j]), j], accumulated
+    /// left to right; NaN as soon as a symbol has no row (Biopython <c>_pwm.c</c>: "ambiguous bases" → NaN).
+    /// The row mapper is a struct type argument, so the call is specialised and inlined per alphabet.
+    /// </summary>
+    internal static double ScorePwmWindow<TRowIndex>(string sequence, int start, double[,] matrix, int length, TRowIndex rows)
+        where TRowIndex : struct, IPwmRowIndex
     {
         double score = 0;
-        double[,] matrix = pwm.Matrix;
-        for (int j = 0; j < pwm.Length; j++)
+        for (int j = 0; j < length; j++)
         {
-            int baseIndex = AcgtIndex(upperSequence[start + j]);
-            if (baseIndex < 0)
+            int row = rows.RowOf(sequence[start + j]);
+            if (row < 0)
                 return double.NaN;
-            score += matrix[baseIndex, j];
+            score += matrix[row, j];
         }
 
         return score;
+    }
+
+    /// <summary>Maps a sequence symbol to its PWM row, or −1 when the symbol is not in the alphabet.</summary>
+    internal interface IPwmRowIndex
+    {
+        int RowOf(char symbol);
+    }
+
+    /// <summary>DNA rows A, C, G, T for upper-case input (<see cref="AcgtIndex"/>).</summary>
+    internal readonly struct AcgtRowIndex : IPwmRowIndex
+    {
+        public int RowOf(char symbol) => AcgtIndex(symbol);
+    }
+
+    /// <summary>
+    /// Expected window score under background q — Biopython <c>PositionSpecificScoringMatrix.mean</c>:
+    /// Σ_j Σ_b q[b]·2^W[b,j]·W[b,j], skipping NaN and −∞ cells. Shared by the DNA and generic-alphabet PWMs.
+    /// </summary>
+    internal static double PwmMean(double[,] matrix, int length, double[] background)
+    {
+        int rows = matrix.GetLength(0);
+        double sx = 0.0;
+        for (int i = 0; i < length; i++)
+        {
+            for (int b = 0; b < rows; b++)
+            {
+                double w = matrix[b, i];
+                if (double.IsNaN(w) || double.IsNegativeInfinity(w))
+                    continue;
+                double p = background[b] * Math.Pow(2, w);
+                sx += p * w;
+            }
+        }
+
+        return sx;
+    }
+
+    /// <summary>
+    /// Standard deviation of the window score under background q — Biopython
+    /// <c>PositionSpecificScoringMatrix.std</c> (per-column variances summed, NaN / −∞ cells skipped, clamped at 0).
+    /// </summary>
+    internal static double PwmStd(double[,] matrix, int length, double[] background)
+    {
+        int rows = matrix.GetLength(0);
+        double variance = 0.0;
+        for (int i = 0; i < length; i++)
+        {
+            double sx = 0.0, sxx = 0.0;
+            for (int b = 0; b < rows; b++)
+            {
+                double w = matrix[b, i];
+                if (double.IsNaN(w) || double.IsNegativeInfinity(w))
+                    continue;
+                double p = background[b] * Math.Pow(2, w);
+                sx += p * w;
+                sxx += p * w * w;
+            }
+            sxx -= sx * sx;
+            variance += sxx;
+        }
+
+        variance = Math.Max(variance, 0);
+        return Math.Sqrt(variance);
     }
 
     /// <summary>
@@ -264,23 +336,7 @@ public sealed partial class PositionWeightMatrix
     /// </summary>
     /// <param name="background">Background (A, C, G, T); uniform when null.</param>
     public double Mean(IReadOnlyList<double>? background = null)
-    {
-        double[] bg = ResolveBackground(background);
-        double sx = 0.0;
-        for (int i = 0; i < Length; i++)
-        {
-            for (int b = 0; b < 4; b++)
-            {
-                double w = Matrix[b, i];
-                if (double.IsNaN(w) || double.IsNegativeInfinity(w))
-                    continue;
-                double p = bg[b] * Math.Pow(2, w);
-                sx += p * w;
-            }
-        }
-
-        return sx;
-    }
+        => MotifFinder.PwmMean(Matrix, Length, ResolveBackground(background));
 
     /// <summary>
     /// Standard deviation of the score of a random window — Biopython
@@ -288,28 +344,7 @@ public sealed partial class PositionWeightMatrix
     /// </summary>
     /// <param name="background">Background (A, C, G, T); uniform when null.</param>
     public double Std(IReadOnlyList<double>? background = null)
-    {
-        double[] bg = ResolveBackground(background);
-        double variance = 0.0;
-        for (int i = 0; i < Length; i++)
-        {
-            double sx = 0.0, sxx = 0.0;
-            for (int b = 0; b < 4; b++)
-            {
-                double w = Matrix[b, i];
-                if (double.IsNaN(w) || double.IsNegativeInfinity(w))
-                    continue;
-                double p = bg[b] * Math.Pow(2, w);
-                sx += p * w;
-                sxx += p * w * w;
-            }
-            sxx -= sx * sx;
-            variance += sxx;
-        }
-
-        variance = Math.Max(variance, 0);
-        return Math.Sqrt(variance);
-    }
+        => MotifFinder.PwmStd(Matrix, Length, ResolveBackground(background));
 
     /// <summary>
     /// Discretised score distribution of this PWM under the motif and background models — Biopython

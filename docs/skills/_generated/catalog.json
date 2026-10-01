@@ -266,6 +266,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L476"
   },
   {
+    "tool": "create_alphabet_pwm",
+    "server": "Analysis",
+    "methodId": "MotifFinder.CreateAlphabetPwm",
+    "docPath": "docs/mcp/tools/analysis/create_alphabet_pwm.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlphabetPwm.cs#L42"
+  },
+  {
     "tool": "create_pwm",
     "server": "Analysis",
     "methodId": "MotifFinder.CreatePwm",
@@ -574,6 +581,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L585"
   },
   {
+    "tool": "find_sigma70_promoters",
+    "server": "Analysis",
+    "methodId": "MotifFinder.FindSigma70Promoters",
+    "docPath": "docs/mcp/tools/analysis/find_sigma70_promoters.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.Sigma70Promoters.cs#L47"
+  },
+  {
     "tool": "find_stem_loops",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.FindStemLoops",
@@ -854,6 +868,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L1839"
   },
   {
+    "tool": "predict_sigma70_promoters",
+    "server": "Analysis",
+    "methodId": "MotifFinder.PredictSigma70Promoters",
+    "docPath": "docs/mcp/tools/analysis/predict_sigma70_promoters.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.Sigma70Promoters.cs#L149"
+  },
+  {
     "tool": "predict_signal_peptide",
     "server": "Analysis",
     "methodId": "ProteinMotifFinder.PredictSignalPeptide",
@@ -901,6 +922,13 @@
     "methodId": "RnaSecondaryStructure.GetComplement",
     "docPath": "docs/mcp/tools/analysis/rna_complement_base.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L449"
+  },
+  {
+    "tool": "scan_with_alphabet_pwm",
+    "server": "Analysis",
+    "methodId": "MotifFinder.ScanWithAlphabetPwm",
+    "docPath": "docs/mcp/tools/analysis/scan_with_alphabet_pwm.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlphabetPwm.cs#L142"
   },
   {
     "tool": "scan_with_pwm",

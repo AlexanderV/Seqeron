@@ -18,6 +18,7 @@
 | `compression_ratio` | Analysis | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../../../docs/mcp/tools/analysis/compression_ratio.md) |
 | `count_kmers` | Analysis | `KmerAnalyzer.CountKmers` | [doc](../../../../docs/mcp/tools/analysis/count_kmers.md) |
 | `count_kmers_both_strands` | Analysis | `KmerAnalyzer.CountKmersBothStrands` | [doc](../../../../docs/mcp/tools/analysis/count_kmers_both_strands.md) |
+| `create_alphabet_pwm` | Analysis | `MotifFinder.CreateAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/create_alphabet_pwm.md) |
 | `create_pwm` | Analysis | `MotifFinder.CreatePwm` | [doc](../../../../docs/mcp/tools/analysis/create_pwm.md) |
 | `cumulative_gc_skew` | Analysis | `GcSkewCalculator.CalculateCumulativeGcSkew` | [doc](../../../../docs/mcp/tools/analysis/cumulative_gc_skew.md) |
 | `dangling_end_energy` | Analysis | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../../../docs/mcp/tools/analysis/dangling_end_energy.md) |
@@ -62,6 +63,7 @@
 | `find_reverse_complement_repeats` | Analysis | `RepeatFinder.FindReverseComplementRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_reverse_complement_repeats.md) |
 | `find_rna_inverted_repeats` | Analysis | `RnaSecondaryStructure.FindInvertedRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_rna_inverted_repeats.md) |
 | `find_shared_motifs` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/find_shared_motifs.md) |
+| `find_sigma70_promoters` | Analysis | `MotifFinder.FindSigma70Promoters` | [doc](../../../../docs/mcp/tools/analysis/find_sigma70_promoters.md) |
 | `find_stem_loops` | Analysis | `RnaSecondaryStructure.FindStemLoops` | [doc](../../../../docs/mcp/tools/analysis/find_stem_loops.md) |
 | `find_supermaximal_repeats` | Analysis | `RepeatFinder.FindSupermaximalRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_supermaximal_repeats.md) |
 | `find_syntenic_blocks` | Analysis | `ComparativeGenomics.FindSyntenicBlocks` | [doc](../../../../docs/mcp/tools/analysis/find_syntenic_blocks.md) |
@@ -102,6 +104,7 @@
 | `predict_morfs` | Analysis | `DisorderPredictor.PredictMoRFs` | [doc](../../../../docs/mcp/tools/analysis/predict_morfs.md) |
 | `predict_replication_origin` | Analysis | `GcSkewCalculator.PredictReplicationOrigin` | [doc](../../../../docs/mcp/tools/analysis/predict_replication_origin.md) |
 | `predict_rna_structure` | Analysis | `RnaSecondaryStructure.PredictStructure` | [doc](../../../../docs/mcp/tools/analysis/predict_rna_structure.md) |
+| `predict_sigma70_promoters` | Analysis | `MotifFinder.PredictSigma70Promoters` | [doc](../../../../docs/mcp/tools/analysis/predict_sigma70_promoters.md) |
 | `predict_signal_peptide` | Analysis | `ProteinMotifFinder.PredictSignalPeptide` | [doc](../../../../docs/mcp/tools/analysis/predict_signal_peptide.md) |
 | `predict_transmembrane_helices` | Analysis | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../../../docs/mcp/tools/analysis/predict_transmembrane_helices.md) |
 | `prosite_to_regex` | Analysis | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../../../docs/mcp/tools/analysis/prosite_to_regex.md) |
@@ -109,6 +112,7 @@
 | `pwm_score_thresholds` | Analysis | `PositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_thresholds.md) |
 | `reversal_distance` | Analysis | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../../../docs/mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | Analysis | `RnaSecondaryStructure.GetComplement` | [doc](../../../../docs/mcp/tools/analysis/rna_complement_base.md) |
+| `scan_with_alphabet_pwm` | Analysis | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |

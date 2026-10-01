@@ -372,3 +372,19 @@ References: exhaustive enumeration of all 4^L words (C oracle, left-to-right dou
 | D9 | `CreatePwm_PerBasePseudocounts_EqualsBiopython`, `CreatePwmWithJasparPseudocounts_(Background|Uniform)_EqualsBiopython`, `CreatePwm_PerBase_EqualsScalarAndFromCounts`, `CreatePwm_PerBase_InvalidArguments_Throw` | 20-cell matrices to 1e-12; √7·q pseudocounts |
 | D10 | `PwmScoreThresholdForPValue_LargestAchievablePValue_WhereTfmIsNotMaximal` | 8-column random matrix, p = 1e-4: 8.685556713812995 / 9.930678854038951e-05 (TFM-Pvalue: 8.6866 / 9.923731321091039e-05; next lower word has P > 1e-4) |
 | D11 | `PwmScorePValue_BudgetExhausted_ReturnsCertifiedBounds` | 20-column random matrix at 0: IsExact = false, bounds [0.058402542608746444, 0.05840680768687889], PValue = upper |
+
+## 11. Review 2026-09 (B05 audit group D, part 2) — generic-alphabet (protein) PWM
+
+Tests: `Unit/Analysis/MotifFinder_AlphabetPwm_Tests.cs`; MCP `AlphabetPwmAndSigma70Tests` (create_alphabet_pwm, scan_with_alphabet_pwm).
+Reference: Biopython 1.88 `motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background)`, `consensus`, `anticonsensus`, `max`, `min`, `mean`, `std`; window scores = Σ_j `pssm[letter][j]` with NaN outside the alphabet (`_pwm.c` rule; Biopython `calculate` itself is DNA-only); scratch cross-check of 400 random cases (≤ 1.1e-14 relative; ACGT cases = Biopython `calculate` float32 exactly).
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| E1 | `ProteinPwm_ScalarPseudocount_EqualsBiopython` | 6 instances, p = 0.5: W[M,0] 2.7813597135246595, W[K,1] 2.4918530963296748, consensus MKVLAT, anticonsensus AAAACA, max 16.398651663952972, min −4.068431430675826, mean 3.809139711610947, std 3.8318293687371425 |
+| E2 | `CalculateScores_ProteinSequence_NaNForUnknownSymbols_EqualsBiopythonSums` | 19 windows of GGMKVLATxxMRvLGTPPMKXLAS incl. 11 NaN; lower case scored |
+| E3 | `Scan_Protein_ForwardHitsAtThreshold_EqualsBiopythonSearchBothFalseRule` | threshold 5 → positions 2, 10 (12.939220045315675) |
+| E4 | `ProteinPwm_PerSymbolPseudocountsAndBackground_EqualsBiopython` | max 19.061964092904915, min −18.17848406036431, mean(bg) 10.253659399954454, std(bg) 4.8477154676833605 |
+| E5 | `ProteinPwm_ZeroPseudocount_UnseenSymbolsNegativeInfinity_EqualsBiopython` | min −∞, max 24.03143403943405, mean 21.429827293694583, std 2.1524130640960037 |
+| E6 | `IgnoreUnknownSymbols_SkipsGapsAndX_EqualsBiopythonCounts` | W[M,0] 2.6520766965796927, W[V,3] 3.192645077942396, all-unknown column uniform, consensus MKAV |
+| E7 | `DnaAlphabet_ScoresEqualDnaPwm`, `FromCounts_EqualsCreateFromInstances` | ACGT generic ≡ DNA PWM (shared kernels) |
+| E8 | `ShortSequence_EmptyScoresAndNoHits`, `GetMatrix_ReturnsDefensiveCopy`, `Guards` | contracts |

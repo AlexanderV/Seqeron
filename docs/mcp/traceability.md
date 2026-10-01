@@ -197,6 +197,7 @@
 | compression_ratio | Analysis | SequenceComplexity.EstimateCompressionRatio | SequenceComplexity.cs#L1772 | 0/0 | – | – | Build-Ready |
 | count_kmers | Analysis | KmerAnalyzer.CountKmers | KmerAnalyzer.cs#L20 | 0/0 | – | – | Build-Ready |
 | count_kmers_both_strands | Analysis | KmerAnalyzer.CountKmersBothStrands | KmerAnalyzer.cs#L361 | 0/0 | – | – | Build-Ready |
+| create_alphabet_pwm | Analysis | MotifFinder.CreateAlphabetPwm | MotifFinder.AlphabetPwm.cs#L42 | 2/2 | ✓ | ✓ | Ready |
 | create_pwm | Analysis | MotifFinder.CreatePwm | MotifFinder.cs#L196 | 0/0 | – | – | Build-Ready |
 | cumulative_gc_skew | Analysis | GcSkewCalculator.CalculateCumulativeGcSkew | GcSkewCalculator.cs#L130 | 0/0 | – | – | Build-Ready |
 | dangling_end_energy | Analysis | RnaSecondaryStructure.GetDanglingEndEnergy | RnaSecondaryStructure.cs#L735 | 0/0 | – | – | Build-Ready |
@@ -241,6 +242,7 @@
 | find_reverse_complement_repeats | Analysis | RepeatFinder.FindReverseComplementRepeats | RepeatFinder.cs#L4324 | 2/2 | ✓ | ✓ | Ready |
 | find_rna_inverted_repeats | Analysis | RnaSecondaryStructure.FindInvertedRepeats | RnaSecondaryStructure.cs#L1450 | 0/0 | – | – | Build-Ready |
 | find_shared_motifs | Analysis | MotifFinder.FindSharedMotifs | MotifFinder.cs#L425 | 0/0 | – | – | Build-Ready |
+| find_sigma70_promoters | Analysis | MotifFinder.FindSigma70Promoters | MotifFinder.Sigma70Promoters.cs#L47 | 2/2 | ✓ | ✓ | Ready |
 | find_stem_loops | Analysis | RnaSecondaryStructure.FindStemLoops | RnaSecondaryStructure.cs#L595 | 0/0 | – | – | Build-Ready |
 | find_supermaximal_repeats | Analysis | RepeatFinder.FindSupermaximalRepeats | RepeatFinder.cs#L5111 | 2/2 | ✓ | ✓ | Ready |
 | find_syntenic_blocks | Analysis | ComparativeGenomics.FindSyntenicBlocks | ComparativeGenomics.cs#L80 | 0/0 | – | – | Build-Ready |
@@ -281,6 +283,7 @@
 | predict_morfs | Analysis | DisorderPredictor.PredictMoRFs | DisorderPredictor.cs#L505 | 0/0 | – | – | Build-Ready |
 | predict_replication_origin | Analysis | GcSkewCalculator.PredictReplicationOrigin | GcSkewCalculator.cs#L213 | 0/0 | – | – | Build-Ready |
 | predict_rna_structure | Analysis | RnaSecondaryStructure.PredictStructure | RnaSecondaryStructure.cs#L1245 | 0/0 | – | – | Build-Ready |
+| predict_sigma70_promoters | Analysis | MotifFinder.PredictSigma70Promoters | MotifFinder.Sigma70Promoters.cs#L149 | 1/1 | ✓ | ✓ | Ready |
 | predict_signal_peptide | Analysis | ProteinMotifFinder.PredictSignalPeptide | ProteinMotifFinder.cs#L325 | 0/0 | – | – | Build-Ready |
 | predict_transmembrane_helices | Analysis | ProteinMotifFinder.PredictTransmembraneHelices | ProteinMotifFinder.cs#L460 | 0/0 | – | – | Build-Ready |
 | prosite_to_regex | Analysis | ProteinMotifFinder.ConvertPrositeToRegex | ProteinMotifFinder.cs#L220 | 0/0 | – | – | Build-Ready |
@@ -288,6 +291,7 @@
 | pwm_score_thresholds | Analysis | PositionWeightMatrix.ScoreDistribution | MotifFinder.PwmScoring.cs#L322 | 2/2 | ✓ | ✓ | Ready |
 | reversal_distance | Analysis | ComparativeGenomics.CalculateReversalDistance | ComparativeGenomics.cs#L425 | 0/0 | – | – | Build-Ready |
 | rna_complement_base | Analysis | RnaSecondaryStructure.GetComplement | RnaSecondaryStructure.cs#L580 | 0/0 | – | – | Build-Ready |
+| scan_with_alphabet_pwm | Analysis | MotifFinder.ScanWithAlphabetPwm | MotifFinder.AlphabetPwm.cs#L142 | 1/1 | ✓ | ✓ | Ready |
 | scan_with_pwm | Analysis | MotifFinder.ScanWithPwm | MotifFinder.cs#L255 | 0/0 | – | – | Build-Ready |
 | scan_with_pwm_both_strands | Analysis | MotifFinder.ScanWithPwmBothStrands | MotifFinder.PwmScoring.cs#L100 | 2/2 | ✓ | ✓ | Ready |
 | shared_motifs_significance | Analysis | MotifFinder.FindSharedMotifs | MotifFinder.OligoAnalysis.cs#L140 | 2/2 | ✓ | ✓ | Ready |
