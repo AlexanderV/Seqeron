@@ -2,7 +2,7 @@
 
 - **Validated:** 2026-09-30 (review campaign 2026-09, batch B04: F11 + completeness audit WP2); first pass 2026-06-24 superseded
 - **Area:** Repeats
-- **Canonical method(s):** `RepeatFinder.FindDirectRepeats(DnaSequence|string, minLength=5, maxLength=50, minSpacing=1)` — `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:2149/2167` (core `FindDirectRepeatsCore` :2193, shared engine `EnumerateMaximalPairs` :2254)
+- **Canonical method(s):** `RepeatFinder.FindDirectRepeats(DnaSequence|string, minLength=5, maxLength=50, minSpacing=1)` — `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:3660/3678` (core `FindDirectRepeatsCore` :3704, shared engine `EnumerateMaximalPairs` :3765; variants `FindReverseComplementRepeats` :3943, `FindApproximateDirectRepeats` :4108, `FindDegenerateRepeats` :4377, `FindSupermaximalRepeats` :4737)
 - **Variants (audit WP2):** `FindReverseComplementRepeats` (:2432/2450), `FindApproximateDirectRepeats` (:2578/2596), `FindSupermaximalRepeats` (:2792/2803)
 - **Variant (audit WP8, 2026-10-01):** `FindDegenerateRepeats(DnaSequence|string, minLength, maxDifferences, ApproximateRepeatDistance, reverseComplement, maxLength, minSpacing)` — Vmatch `-e k` / `-p -e k` / `-p -h k` / `-h k -allmax`
 - **Stage A verdict:** FAIL → corrected (the 2026-06 description accepted "every (i, j, len) window"; the reporting convention is now sourced: maximal repeated pairs)
@@ -80,6 +80,7 @@ MCP `FindDirectRepeatsTests`.
 
 ## Verdict & follow-ups
 - Stage A: FAIL → corrected. Stage B: FAIL → fixed. **State: FIXED**; variants implemented and reference-identical.
-- MCP: `find_direct_repeats` delegates to `FindDirectRepeats`; the three variants are C# API only (new MCP tools
-  would change hard-coded tool counts in files owned by other batches).
+- MCP: `find_direct_repeats` delegates to `FindDirectRepeats`. ~~The three variants are C# API only~~ — resolved by B04 F49:
+  `find_reverse_complement_repeats`, `find_approximate_direct_repeats`, `find_degenerate_repeats`, `find_supermaximal_repeats`
+  (Analysis server, delegating; tool counts updated additively).
 - ~~REPuter/Vmatch k-differences (edit-distance, `vmatch -e`) repeats are not provided (Hamming only).~~ Implemented in WP8 (`FindDegenerateRepeats`, B04 F47), incl. approximate palindromic repeats (`-p -h`, `-p -e`); Vmatch's left-extension seed shortcut (incomplete for edit matches) is documented, not reproduced.

@@ -2,8 +2,19 @@
 
 - **Validated:** 2026-06-16   **Area:** Complexity (Extended Sequence Complexity)
 - **Canonical method(s):** `SequenceComplexity.CalculateKmerEntropy(DnaSequence, int k = 2)`; delegate `CalculateKmerEntropy(string, int k = 2)`; private core `CalculateKmerEntropyCore(string, int)`
-- **Stage A verdict:** PASS
-- **Stage B verdict:** PASS
+- **Stage A verdict:** PASS-WITH-NOTES (2026-09: citation corrected — the formula is Shannon k-mer entropy, not Li 2025 longdust)
+- **Stage B verdict:** PASS (2026-09: no numeric defect; dedup only)
+
+## Review campaign 2026-09 revision (B04) — supersedes the 2026-06 notes below where they conflict
+
+- **End-state: CLEAN (dedup + docs)** (batch report `docs/Validation/review-2026-09/B04.md`, "Duplication removed" and F19).
+- **Citation:** the 2026-06 report and Evidence attributed H = −Σ p log₂ p over k-mers to Li (2025) longdust; longdust's score is S_L = Σ log c(t)! − f(ℓ/4^k) (now implemented separately as `CalculateLongdustScore`, SEQ-COMPLEX-DUST-001 F34). Re-sourced to Shannon 1948, Herzel/Ebeling/Schmitt 1994, Schmitt & Herzel 1997, BBDuk `EntropyTracker.java`.
+- **Dedup:** the private Substring/Dictionary k-mer counter → canonical `KmerAnalyzer.CountKmers`; entropy kernel → `StatisticsHelper.ShannonIndex` / ln 2 (F19; scipy `entropy(base=2)` on 2 000 random strings, k = 1..6: max |Δ| 3.6e-14).
+- **Values locked (scipy):** `ATGCATGCAT` k=2 → 1.974937501201927 (MCP doc example 3.17 corrected); `ATGCGATCGATCG` k=2/3 → 2.4591479170272446 / 2.7321588913645702; seeded random 200-mer k = 1/2/3/5/8.
+- **Current code path:** `SequenceComplexity.cs:267/284`, core `CalculateKmerEntropyCore` :291.
+- **Open cross-batch item:** `KmerAnalyzer.CalculateKmerEntropy` (B06) re-implements the same quantity (request in B04.md).
+
+*Historical 2026-06-16 report (superseded where it conflicts with the revision above):*
 
 ## Scope note (prompt vs. registry)
 
@@ -72,7 +83,7 @@ definitions; every numeric expectation traces to an independent computation done
 
 ### Code path reviewed
 
-`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:140–189`.
+`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:140–189` *(2026-06 line numbers and private `Dictionary` counter — superseded: current overloads :267/284, core `CalculateKmerEntropyCore` :291 counting via `KmerAnalyzer.CountKmers`)*.
 
 - `CalculateKmerEntropy(DnaSequence,k)` (l.140): null-check, `k<1` guard, delegates core with
   `sequence.Sequence`.

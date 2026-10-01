@@ -16,9 +16,9 @@ This TestSpec covers all sequence complexity metrics in `SequenceComplexity`:
 | `CalculateKmerEntropy` | Entropy of k-mer frequency distribution |
 | `CalculateWindowedComplexity` | Sliding-window complexity profile |
 | `FindLowComplexityRegions` | Low-entropy region detection |
-| `CalculateDustScore` | DUST low-complexity score |
-| `MaskLowComplexity` | Mask low-complexity by DUST threshold |
-| `EstimateCompressionRatio` | Unique substring ratio |
+| `CalculateDustScore` | DUST low-complexity score (Σc(c−1)/2 / (ℓ−1), triplets only; see SEQ-COMPLEX-DUST-001) |
+| `MaskLowComplexity` | SDUST perfect-interval masking (port of lh3/sdust; see SEQ-COMPLEX-DUST-001) |
+| `EstimateCompressionRatio` | Normalized Lempel–Ziv (1976) complexity (= `CalculateNormalizedLempelZivComplexity`; see SEQ-COMPLEX-COMPRESS-001) |
 
 ## 2. Evidence Sources
 
@@ -31,7 +31,7 @@ This TestSpec covers all sequence complexity metrics in `SequenceComplexity`:
 | universalmotif `sequence_complexity` (R, bjmt/universalmotif, `R/sequence_complexity.R`) | Reference implementation | Trifonov (1990) **product** form C = ΠU_i; doc examples reproduce our V_i / V_max,i to 4 dp |
 | Wikipedia "Entropy (information theory)" | Encyclopedia | Shannon formula H = −Σ p_i log₂ p_i |
 | Shannon (1948) Bell System Technical Journal | Original paper | Information entropy definition |
-| Morgulis et al. (2006) J Comput Biol 13(5):1028–40 | Peer-reviewed | Symmetric DUST originator: S = Σc_t(c_t−1)/2 / (w−1). **Implemented variant** follows Li (2025) SDUST: divisor = ℓ = number of triplets (N−2), not (w−1) — see §Formulas and the DUST test rows. |
+| Morgulis et al. (2006) J Comput Biol 13(5):1028–40 | Peer-reviewed | Symmetric DUST originator: S = Σc_t(c_t−1)/2 / (ℓ−1), ℓ = number of triplets (N−2). Implemented exactly (lh3/sdust `find_perfect`, NCBI dustmasker `thresholds_[i] = i·level`; review-2026-09 B04 F2 replaced the earlier ℓ divisor taken from the longdust README). |
 
 ## 3. Formulas
 
@@ -39,7 +39,7 @@ This TestSpec covers all sequence complexity metrics in `SequenceComplexity`:
 
 $$LC = \frac{\sum_{i=1}^{m} V_{obs}(i)}{\sum_{i=1}^{m} V_{max}(i)}$$
 
-Where $V_{max}(i) = \min(4^i, N - i + 1)$ and $m$ = `maxWordLength` (clamped to N). Range: $0 \le LC \le 1$.
+Where $V_{max}(i) = \min(a^i, N - i + 1)$, $a$ = alphabet size (4 for DNA/RNA; extended to the symbols present for other input, B04 F20; caller-supplied via the `alphabetSize` overloads, B04 F37) and $m$ = `maxWordLength` (clamped to N). Range: $0 \le LC \le 1$.
 With $m \ge N$ this is exactly Troyanskaya et al. (2002) $LC = A(s)/M(s)$ over all lengths (Rosalind LING);
 the default $m = 10$ is the Orlov & Potapov (2004) word-length-limited variant. This is **not** Trifonov's
 (1990) product $C = \prod_i U_i$ (universalmotif "Trifonov"). For $m > 12$ the $V_i$ are counted from the
@@ -57,14 +57,15 @@ Shannon entropy applied to k-mer frequency distribution. Range: $0 \le H \le \lo
 
 ### 3.4 DUST Score (Morgulis 2006)
 
-$$DUST = \frac{\sum_t c_t(c_t - 1)/2}{\ell(x)}$$
+$$DUST = \frac{\sum_t c_t(c_t - 1)/2}{\ell(x) - 1}$$
 
-Where $c_t$ = count of triplet $t$ and $\ell(x) = N - k + 1$ = the number of overlapping
-triplets ($N - 2$ for $k = 3$). The normalization is by the number of triplets $\ell(x)$, per
-the authoritative restatement $S_S(\vec c_x) = \frac{1}{\ell(x)}\sum_t \frac{c_t(c_t-1)}{2}$
-in Li (2025), *Finding low-complexity DNA sequences with longdust*, Bioinformatics
-42(3):btag112, §2.5, which cites Morgulis et al. (2006). (An earlier draft of this spec
-divided by $\ell(x) - 1 = N - 3$; that divisor is superseded — see SEQ-COMPLEX-DUST-001.)
+Where $c_t$ = count of triplet $t$ and $\ell(x) = N - 2$ = the number of overlapping triplets
+(fewer than 2 triplets → 0). Divisor $\ell - 1$ per Morgulis et al. (2006), lh3/sdust
+`find_perfect` (`new_l = kdq_size(w) − i − 1`, mask iff `r·10 > T·l`) and NCBI dustmasker,
+confirmed on the compiled sdust binary (review-2026-09 B04 F2). DUST is defined for triplets
+only: `wordSize ≠ 3` is rejected (B04 F34); the sourced k-mer generalisation is longdust
+(`CalculateLongdustScore`). *Superseded:* the 2026-06 revision of this spec used the divisor
+$\ell(x)$ from the longdust README restatement — that was a regression (see SEQ-COMPLEX-DUST-001).
 
 ## 4. Test Categories
 
@@ -147,10 +148,10 @@ divided by $\ell(x) - 1 = N - 3$; that divisor is superseded — see SEQ-COMPLEX
 
 | ID | Test Method | Assertion | Source |
 |----|-------------|-----------|--------|
-| DUST-1 | `CalculateDustScore_LowComplexity_ReturnsHigh` | Exact: 7.5 (N=18, =120/16) | Morgulis (2006); Li (2025) §2.5 |
-| DUST-2 | `CalculateDustScore_HighComplexity_ReturnsLow` | Exact: 6/14 (N=16) | Morgulis (2006); Li (2025) §2.5 |
+| DUST-1 | `CalculateDustScore_LowComplexity_ReturnsHigh` | Exact: 8.0 (N=18, =120/15) | Morgulis (2006) ℓ−1; sdust `find_perfect` (B04 F2) |
+| DUST-2 | `CalculateDustScore_HighComplexity_ReturnsLow` | Exact: 6/13 (N=16) | Morgulis (2006) ℓ−1; sdust (B04 F2) |
 | DUST-3 | `CalculateDustScore_EmptySequence_ReturnsZero` | Exact: 0 | Convention |
-| DUST-4 | `CalculateDustScore_StringOverload_ReturnsExact` | Exact: 2.0 (N=7, =10/5) | Morgulis (2006); Li (2025) §2.5 |
+| DUST-4 | `CalculateDustScore_StringOverload_ReturnsExact` | Exact: 2.5 (N=7, =10/4) | Morgulis (2006) ℓ−1; sdust (B04 F2) |
 | DUST-5 | `CalculateDustScore_SequenceShorterThanWordSize_ReturnsZero` | Exact: 0 | Boundary |
 | DUST-6 | `CalculateDustScore_NullSequence_ThrowsException` | Throws | Guard clause |
 
@@ -158,12 +159,12 @@ divided by $\ell(x) - 1 = N - 3$; that divisor is superseded — see SEQ-COMPLEX
 
 | ID | Test Method | Assertion | Source |
 |----|-------------|-----------|--------|
-| MASK-1 | `MaskLowComplexity_MasksLowComplexityWindows` | N=192 (all masked) | DUST threshold |
-| MASK-2 | `MaskLowComplexity_PreservesHighComplexity` | No N chars | DUST threshold |
-| MASK-3 | `MaskLowComplexity_CustomMaskChar` | X=100 (all masked) | Parameter |
+| MASK-1 | `MaskLowComplexity_MasksLowComplexityWindows` | N=192 (all masked) | lh3/sdust `-w 64 -t 20` → [0,192) |
+| MASK-2 | `MaskLowComplexity_PreservesHighComplexity` | No N chars | lh3/sdust `-t 100` → no interval |
+| MASK-3 | `MaskLowComplexity_CustomMaskChar` | X=100 (all masked) | lh3/sdust `-w 64 -t 10` → [0,100) |
 | MASK-4 | `MaskLowComplexity_NullSequence_ThrowsException` | Throws | Guard clause |
 | MASK-5 | `MaskLowComplexity_ResultLengthEqualsInputLength` | Length invariant | Definition |
-| MASK-6 | `MaskLowComplexity_ShortSequence_PreservesOriginal` | Returns "ATGC" | seq < window |
+| MASK-6 | `MaskLowComplexity_ShortSequence_PreservesOriginal` | Returns "ATGC" (threshold 0) | raw score 0 is not > 0 (sdust `-t 0`: no output) |
 
 ### 4.8 Compression Ratio Tests (SUPERSEDED — see SEQ-COMPLEX-COMPRESS-001)
 
@@ -223,26 +224,29 @@ are the empty→0 and null→throw guards.
 
 ### 5.4 DUST Score
 
-| Input | N | Triplets ℓ | Score | DUST = Score/ℓ |
+| Input | N | Triplets ℓ | Score | DUST = Score/(ℓ−1) |
 |-------|---|-----------|-------|----------------|
-| `"AAAAAAAAAAAAAAAAAA"` | 18 | AAA×16 | 16·15/2=120 | 120/16=7.5 |
-| `"ATGCTAGCATGCTAGC"` | 16 | 14 (6 dups ×2) | 6 | 6/14=3/7 |
-| `"AAAAAAA"` | 7 | AAA×5 | 5·4/2=10 | 10/5=2.0 |
+| `"AAAAAAAAAAAAAAAAAA"` | 18 | AAA×16 | 16·15/2=120 | 120/15=8.0 |
+| `"ATGCTAGCATGCTAGC"` | 16 | 14 (6 dups ×2) | 6 | 6/13 |
+| `"AAAAAAA"` | 7 | AAA×5 | 5·4/2=10 | 10/4=2.5 |
 
-(Divisor = number of triplets ℓ = N−2, per Li 2025 §2.5. These match the current
-implementation and the SEQ-COMPLEX-DUST-001 unit tests.)
+(Divisor = ℓ − 1 with ℓ = N − 2 triplets — Morgulis et al. 2006, lh3/sdust `find_perfect`
+`new_l = kdq_size(w) − i − 1`, NCBI dustmasker; corrected by review-2026-09 B04 F2 from the
+earlier ℓ divisor taken from the longdust README. Values = current tests.)
 
 ### 5.5 Compression Ratio (SUPERSEDED — normalized Lempel–Ziv, see SEQ-COMPLEX-COMPRESS-001)
 
 `EstimateCompressionRatio` now returns the normalized Lempel–Ziv (1976) complexity
 $c/(n/\log_b n)$. The old unique-substring values (14/27, 5/112) no longer apply.
-Worked LZ values (verified against the Naereen reference doctests):
+Worked LZ76 values (antropy 0.2.2 `lziv_complexity` doctests / exhaustive-history definition;
+corrected by review-2026-09 B04 F1 — the earlier 8 / 9 / 5 values were the Naereen LZ78
+incremental parse):
 
 | Input | n | b | c | Normalized LZ |
 |-------|---|---|---|---------------|
-| `"1001111011000010"` | 16 | 2 | 8 | 8/(16/log₂16) = 2.0 |
-| `"ACGTACGTACGTACGT"` | 16 | 4 | 9 | 9/(16/log₄16) = 1.125 |
-| `"0"×16` | 16 | (clamp 2) | 5 | 5/(16/log₂16) = 1.25 |
+| `"1001111011000010"` | 16 | 2 | 6 (1/0/01/1110/1100/0010) | 6/(16/log₂16) = 1.5 |
+| `"ACGTACGTACGTACGT"` | 16 | 4 | 5 | 5/(16/log₄16) = 0.625 |
+| `"0"×16` | 16 | (clamp 2) | 2 | 2/(16/log₂16) = 0.5 |
 
 ## 6. Validation Checklist
 

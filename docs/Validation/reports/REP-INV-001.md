@@ -39,7 +39,7 @@
 - `einverted` defaults on `CCCAACCCATGCGTACGTTAGCCTAGGATCCATTTTTTTTTGGATACTAGGCAACGTACGCATGGGAAGGG` → "Score 60: 28/31 (90%) matches, 1 gaps", 1..32 / 71..41 (= 28·3 − 3·4 − 12).
 
 ### Tests
-Unit: `RepeatFinder_InvertedRepeat_Tests` (F10) + `RepeatFinder_InvertedRepeatOptions_Tests` (options, scored, literal oracle, brute force); heavy tier: `Properties/RepInvOptionsProperties`, `Metamorphic/RepInvOptionsMetamorphicTests` (revcomp mirror, wobble reverse mirror, scored case / N-prefix shift), `Fuzzing/RepInvOptionsFuzzTests`; MCP `FindInvertedRepeatsTests`.
+Unit: `RepeatFinder_InvertedRepeat_Tests` (F10) + `RepeatFinder_InvertedRepeatOptions_Tests` (options, scored, literal oracle, brute force); heavy tier: `Properties/RepInvOptionsProperties`, `Metamorphic/RepInvOptionsMetamorphicTests` (revcomp mirror, wobble reverse mirror, scored case / N-prefix shift), `Fuzzing/RepInvOptionsFuzzTests`; MCP `FindInvertedRepeatsTests`, `FindInvertedRepeatsScoredTests` (tool `find_inverted_repeats_scored` → `FindInvertedRepeatsScored`, B04 F49).
 
 ## Verdict
 **FIXED + extended.** Exact default output unchanged by the options; `palindrome` and `einverted` behaviour reproduced with 0 mismatches. Evidence: [REP-INV-001-Evidence.md](../../Evidence/REP-INV-001-Evidence.md).

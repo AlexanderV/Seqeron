@@ -156,7 +156,7 @@ section (Naereen values, "set-based contract", homopolymer 5, ASSUMPTION 1), thi
 
 ## Test Datasets
 
-### Dataset: Naereen reference doctests (binary alphabet)
+### Dataset: Naereen reference doctests (binary alphabet) — *superseded 2026-09-28: LZ78 counts, not LZ76; use the correction table at the top*
 
 **Source:** Naereen/Lempel-Ziv_Complexity `src/lempel_ziv_complexity.py` (retrieved 2026-06-14)
 
@@ -167,7 +167,7 @@ section (Naereen values, "set-based contract", homopolymer 5, ASSUMPTION 1), thi
 | `1001111011000010000010` | `1/0/01/11/10/110/00/010/000` | 9 |
 | `100111101100001000001010` | `…/000/0101` | 10 |
 
-### Dataset: Normalized LZ (derived from entropy formula `LZn = c / (n / log_b n)`)
+### Dataset: Normalized LZ (derived from entropy formula `LZn = c / (n / log_b n)`) — *superseded 2026-09-28: built on the LZ78 counts; correct values in the table at the top*
 
 **Source:** entropy/antropy `lziv_complexity` normalization (retrieved 2026-06-14); derivation shown.
 
@@ -194,6 +194,8 @@ Additional traced raw values (reference parser, retrieved 2026-06-14): `"AAAA"` 
 ---
 
 ## Recommendations for Test Coverage
+
+*(2026-06 recommendations; the expected values cited below are the superseded LZ78 ones — current tests lock the LZ76 values of the correction table, see `tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md`.)*
 
 1. **MUST Test:** raw LZ76 complexity equals the four Naereen doctest values exactly (8, 7, 9, 10). — Evidence: Naereen `lempel_ziv_complexity.py` doctests.
 2. **MUST Test:** normalized LZ for `1001111011000010` = 2.0 via `c/(n/log_b n)`. — Evidence: entropy normalization formula + derivation.

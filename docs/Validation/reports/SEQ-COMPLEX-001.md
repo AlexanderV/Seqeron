@@ -4,7 +4,17 @@
 - **Canonical method(s):** `SequenceComplexity.CalculateLinguisticComplexity` (+ Shannon entropy,
   k-mer entropy, windowed complexity, low-complexity regions, DUST score, masking, compression ratio)
 - **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS
+- **Stage B verdict:** PASS (2026-06) → FAIL → fixed (review campaign 2026-09, batch B04: F20 LC alphabet; sub-unit fixes F1–F4, F37 — see below)
+
+> **Review campaign 2026-09 (B04) — supersedes the statements below where they conflict.**
+> (1) The DUST divisor is ℓ − 1, not ℓ(x): the 2026-06 conclusion "the code was already right with
+> `/ℓ(x)`" is wrong (F2, sdust `find_perfect`, compiled sdust; SEQ-COMPLEX-DUST-001). `MaskLowComplexity`
+> is now real SDUST (F3). (2) The "normalized Lempel–Ziv" values the 2026-06 TestSpec carried were LZ78
+> (F1; SEQ-COMPLEX-COMPRESS-001): `1001111011000010` → 6 / 1.5. (3) LC exceeded 1 with more than four
+> symbols (`ACGTN` → 15/14) — F20 uses the actual alphabet size a (now 1.0; exact-Fraction brute force,
+> 3 000 cases, 0 mismatches); F37 adds caller-supplied `alphabetSize`. (4) `FindLowComplexityRegions`
+> region ends were off by one (F4; SEQ-COMPLEX-WINDOW-001). TestSpec `tests/TestSpecs/SEQ-COMPLEX-001.md`
+> §1/§3.1/§3.4/§4.6/§4.7/§5.4/§5.5 corrected to the current tests (2026-10-01, B04 F50).
 
 Source: `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs`
 Tests: `SequenceComplexityTests.cs`, `SequenceComplexity_CalculateDustScore_Tests.cs`,
@@ -78,6 +88,8 @@ Tests: `SequenceComplexityTests.cs`, `SequenceComplexity_CalculateDustScore_Test
 | `AAAAAAA` | DUST | 10/5 = 2.0 | 2.0 ✅ |
 | `1001111011000010` | norm. LZ | 8/(16/log₂16)=2.0 | 2.0 ✅ |
 | `ACGTACGTACGTACGT` | norm. LZ | 9/(16/log₄16)=1.125 | 1.125 ✅ |
+
+*Superseded (review campaign 2026-09, B04):* the DUST rows used the wrong divisor ℓ (correct ℓ − 1: 8.0, 6/13, 2.5 — F2) and the LZ rows are LZ78 counts (correct LZ76: 6 → 1.5, 5 → 0.625 — F1).
 
 **Stage A verdict: PASS-WITH-NOTES** — every formula now matches its authoritative source
 exactly. Two stale TestSpec sections (DUST divisor, compression metric) were corrected to the

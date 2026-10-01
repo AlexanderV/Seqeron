@@ -4,8 +4,8 @@
 - **Area:** Repeats
 - **Canonical method(s):** `RepeatFinder.FindMicrosatellites(DnaSequence|string, minUnitLength=1, maxUnitLength=6, minRepeats=3)`
   (+ `CancellationToken` / `IProgress<double>` overloads) — `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:40/67/86/104`,
-  single core `FindMicrosatellitesCore` :240
-- **MISA additions (audit WP3):** `FindMicrosatellites(DnaSequence|string, IReadOnlyDictionary<int,int> minRepeatsByUnitLength, …)` (:161/179),
+  single core `FindMicrosatellitesCore` :296
+- **MISA additions (audit WP3):** `FindMicrosatellites(DnaSequence|string, IReadOnlyDictionary<int,int> minRepeatsByUnitLength, …)` (:161/179/209/227),
   `MisaDefaultMinRepeats`, `MisaDefaultMaxInterruption`; `FindCompoundMicrosatellites` (:389–431), `AssembleCompoundMicrosatellites` (:458)
 - **Related (own reports / specs):** approximate detector `FindApproximateTandemRepeats` / `ComputeBernoulliStatistics` → REP-APPROX-001;
   summary / motif classes → REP-TANDEM-001

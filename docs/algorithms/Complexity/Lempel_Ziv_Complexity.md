@@ -104,7 +104,7 @@ The raw count is computed from the LPF array [8]; it reproduces the Kaspar–Sch
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- LZ76 exhaustive-history component count `c(S)` [1] via the Kaspar–Schuster scan [3].
+- LZ76 exhaustive-history component count `c(S)` [1], computed from the LPF array [8] — value-identical to the Kaspar–Schuster scan [3].
 - Length normalization `c / (n / log_b(n))` with `b` = alphabet size [4][5][6].
 
 **Intentionally simplified:**

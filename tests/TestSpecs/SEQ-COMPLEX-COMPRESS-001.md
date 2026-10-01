@@ -175,15 +175,15 @@
 
 | Area / Test Case ID | Status | Resolution |
 |---------------------|--------|------------|
-| M1 | ✅ Covered | exact doctest value 8 |
-| M2 | ✅ Covered | exact doctest value 7 |
-| M3 | ✅ Covered | exact doctest value 9 |
-| M4 | ✅ Covered | exact doctest value 10 |
-| M5 | ✅ Covered | homopolymer 5 |
+| M1 | ✅ Covered | antropy doctest 6 |
+| M2 | ✅ Covered | LZ 1976 example 6 |
+| M3 | ✅ Covered | Estévez-Rams example 6 |
+| M4 | ✅ Covered | period-2 string 3 |
+| M5 | ✅ Covered | homopolymer 2 |
 | M6 | ✅ Covered | all-distinct 4 |
-| M7 | ✅ Covered | normalized 2.0 |
-| M8 | ✅ Covered | b<2 clamp-to-2 → 1.25 |
-| M9 | ✅ Covered | delegation 2.0 |
+| M7 | ✅ Covered | normalized 1.5 |
+| M8 | ✅ Covered | b<2 clamp-to-2 → 0.5 |
+| M9 | ✅ Covered | delegation 1.5 |
 | S1 | ✅ Covered | empty → 0 |
 | S2 | ✅ Covered | null → ArgumentNullException |
 | S3 | ✅ Covered | single base → 1 |

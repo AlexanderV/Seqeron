@@ -112,7 +112,7 @@ The canonical `SequenceComplexity` implementation counts only `A/C/G/T` (RNA `U`
 
 **Intentionally simplified:**
 
-- The canonical `SequenceComplexity` implementation ignores non-`ATGC` symbols; **consequence:** ambiguity codes do not contribute to the entropy value and the reported range remains DNA-specific.
+- The canonical `SequenceComplexity` implementation counts A, C, G and T/U (U in the T class) and ignores every other symbol; **consequence:** ambiguity codes do not contribute to the entropy value and the reported range remains DNA-specific.
 
 **Not implemented:**
 

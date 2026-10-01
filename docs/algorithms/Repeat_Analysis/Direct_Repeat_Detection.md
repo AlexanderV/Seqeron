@@ -131,7 +131,7 @@ All three reuse the same suffix-array/LCP maximal-pair engine (`EnumerateMaximal
 - `RepeatFinder.FindApproximateDirectRepeats(DnaSequence|string, int, int, int, int, bool)` → `ApproximateDirectRepeatResult` (§4.4).
 - `RepeatFinder.FindSupermaximalRepeats(DnaSequence|string, int)` → `SupermaximalRepeatResult` (§4.4).
 - `RepeatFinder.FindDegenerateRepeats(DnaSequence|string, int, int, ApproximateRepeatDistance, bool, int, int)` → `DegenerateRepeatResult` (§4.5).
-- MCP: `find_direct_repeats` wraps `FindDirectRepeats`; the variants are C# API only (a new MCP tool would change the hard-coded tool counts owned by other batches).
+- MCP: `find_direct_repeats` wraps `FindDirectRepeats`; the variants are exposed as `find_reverse_complement_repeats`, `find_approximate_direct_repeats`, `find_degenerate_repeats` and `find_supermaximal_repeats` (Analysis server, review-2026-09 B04 F49).
 
 ### 5.2 Current Behavior
 

@@ -1,7 +1,7 @@
 # Validation Report: SEQ-COMPLEX-DUST-001 — DUST Score (triplet-frequency low-complexity score)
 
 - **Validated:** 2026-06-16   **Area:** Complexity
-- **Canonical method(s):** `SequenceComplexity.CalculateDustScore(DnaSequence, int)`, `SequenceComplexity.CalculateDustScore(string, int)` (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:346,361,368`)
+- **Canonical method(s):** `SequenceComplexity.CalculateDustScore(DnaSequence, int)`, `SequenceComplexity.CalculateDustScore(string, int)` (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:698,723,730`; SDUST `MaskLowComplexity` :769/795/826, `FindLowComplexityIntervals` :854/868, longdust `CalculateLongdustScore` :1148 / `FindLongdustRegions` :1195)
 - **Stage A verdict:** PASS (2026-06) → FAIL → corrected (2026-09, see revision)
 - **Stage B verdict:** PASS (2026-06) → FAIL → fixed (2026-09, see revision)
 
@@ -67,7 +67,7 @@ All values trace to the source-(1) formula, not to code output. INV-1..INV-5 are
 
 ### Code path reviewed
 
-`SequenceComplexity.cs:368` `CalculateDustScoreCore`: counts overlapping words over `wordCount = L − wordSize + 1` positions (`:375`), sums `count*(count-1)/2.0` (`:391`), returns `sum / wordCount` (`:396`). Validation: null DnaSequence throws (`:348`), wordSize<1 throws (`:349,363`), null/empty string ⇒ 0 (`:364`), L<wordSize ⇒ 0 (`:370`).
+*(2026-06 code path, line numbers and `/ wordCount` divisor superseded by F2/F34 — current core `SequenceComplexity.cs:730`, divisor ℓ − 1, triplets only.)* `SequenceComplexity.cs:368` `CalculateDustScoreCore`: counts overlapping words over `wordCount = L − wordSize + 1` positions (`:375`), sums `count*(count-1)/2.0` (`:391`), returns `sum / wordCount` (`:396`). Validation: null DnaSequence throws (`:348`), wordSize<1 throws (`:349,363`), null/empty string ⇒ 0 (`:364`), L<wordSize ⇒ 0 (`:370`).
 
 ### Formula realised correctly?
 
@@ -88,7 +88,7 @@ Ran the canonical test fixture (18 cases) — all pass with the hand-computed ex
 - **Coverage:** both public overloads; all five Stage-A formula cases; all-distinct (INV-2); two homopolymers (INV-5); dinucleotide repeat; overload agreement; case-insensitivity; null DnaSequence→throw; null/empty string→0; L<wordSize→0; wordSize=0→throw on both overloads. Every Stage-A branch and documented edge/error case is exercised. ✔
 - **Honest green:** FULL unfiltered suite `Failed: 0, Passed: 6598`; `dotnet build` 0 errors. (The 4 NUnit2007 warnings are pre-existing in `ApproximateMatcher_EditDistance_Tests.cs`, unrelated and untouched.) ✔
 
-Minor (non-defect) note: there is no exact-value test for a non-default `wordSize` (e.g. k=2), because no external source defines a value for k≠3 (ASSUMPTION 1); asserting one would violate the "sourced expectations" rule. The default k=3 path is fully covered. The MCP smoke test (`Seqeron.Mcp.Sequence.Tests/ComplexityDustScoreTests.cs`) is a separate binding unit using relational asserts and a different empty-input contract (throws on `""`); out of scope here, no change made.
+*(Superseded by F34: `wordSize ≠ 3` is now rejected — DUST is triplet-only in every source; the k-mer generalisation is longdust, tested against compiled lh3/longdust.)* Minor (non-defect) note: there is no exact-value test for a non-default `wordSize` (e.g. k=2), because no external source defines a value for k≠3 (ASSUMPTION 1); asserting one would violate the "sourced expectations" rule. The default k=3 path is fully covered. The MCP smoke test (`Seqeron.Mcp.Sequence.Tests/ComplexityDustScoreTests.cs`) is a separate binding unit using relational asserts and a different empty-input contract (throws on `""`); out of scope here, no change made.
 
 ### Findings / defects (Stage B)
 

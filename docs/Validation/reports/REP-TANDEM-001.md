@@ -4,8 +4,8 @@
 - **Area:** Repeats
 - **Methods:** B04 part — `RepeatFinder.GetTandemRepeatSummary(DnaSequence, int minRepeats = 3)` and (WP3)
   `GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int> minRepeatsByUnitLength)`
-  (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:3376/3397`), `GetCanonicalMotifClass` / `GetCanonicalMotifFrequencies`
-  (:571/621), `GetStandardMotif` / `GetStandardMotifFrequencies`. The general detector `GenomicAnalyzer.FindTandemRepeats`
+  (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:4864/4885/4905`), `GetCanonicalMotifClass` / `GetCanonicalMotifFrequencies`
+  (:723/773), `GetStandardMotif` / `GetStandardMotifFrequencies` (:740/784). The general detector `GenomicAnalyzer.FindTandemRepeats`
   is owned by batch B09 (GENOMIC-TANDEM-001) — see "Cross-batch" below.
 - **Stage A verdict:** PASS-WITH-NOTES (summary fields sourced: MISA `.statistics`, Krait `statistics.py`; motif classes: MISA, Krait `motif.py`)
 - **Stage B verdict:** FAIL → fixed (B04 F8 penta/hexa classes, F9 null `LongestRepeat`); MISA per-size thresholds and canonical motif tables added and reference-verified (WP3)

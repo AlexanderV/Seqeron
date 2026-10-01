@@ -119,7 +119,7 @@ Both methods delegate the core string work to the repository suffix tree. `FindL
 
 **Not implemented:**
 
-- Maximal-repeat / supermaximal-repeat classification (left-diverse nodes [4]): not distinguished here; **users should rely on** dedicated repeat-classification tooling — no current in-repo alternative.
+- Maximal-repeat / supermaximal-repeat classification (left-diverse nodes [4]): not distinguished here; **users should rely on** `RepeatFinder.FindDirectRepeats` (maximal repeated pairs, `repeat-match -f` identical) and `RepeatFinder.FindSupermaximalRepeats` (Gusfield §7.12.1, `vmatch -supermax` identical) — REP-DIRECT-001, review-2026-09 B04 F11/F27.
 
 ### 5.4 Deviations and Assumptions
 

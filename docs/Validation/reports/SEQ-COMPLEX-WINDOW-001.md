@@ -2,8 +2,17 @@
 
 - **Validated:** 2026-06-16   **Area:** Complexity
 - **Canonical method(s):** `SequenceComplexity.CalculateWindowedComplexity(DnaSequence, int windowSize = 64, int stepSize = 10)` → `IEnumerable<ComplexityPoint>`
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS
+- **Stage A verdict:** PASS-WITH-NOTES (LCR rule sourced: BBDuk `maskLowEntropy` window union; 2026-09-30 correction: the statistic is per-base Shannon, ≡ BBDuk `entropyk=1`)
+- **Stage B verdict:** FAIL → fixed (review campaign 2026-09, batch B04: F4; options F38, F39) — supersedes the 2026-06 "PASS / CLEAN" below
+
+## Review campaign 2026-09 revision (B04) — supersedes the 2026-06 verdicts below
+
+- **End-state: FIXED** (batch report `docs/Validation/review-2026-09/B04.md`, F4, F38, F39). Uncovered public method `FindLowComplexityRegions` added to this unit.
+- **F4 (defect):** a region ending mid-sequence got `End` one base too far (first non-flagged window + w − 1) and flagged windows overlapping across a short gap were emitted as two overlapping regions. Repro: ATGC×20 + A×64 + ATGC×20, w 20, t 0.5 → 79..146 (correct 79..145); `CAAAAACAAAAACAAACAAA`, w 8, t 0.6 → (1,12)+(7,16) (correct (1,15)). Now the union of flagged windows (BBDuk `maskLowEntropy`, BBDuk.java / EntropyTracker.java opened). Cross-check: scipy `entropy(base=2)` per window + boolean mask on all repros; `CalculateWindowedComplexity` itself was correct (50 bp, w 16, s 7 matches scipy / set counting to 1e-12).
+- **F38 / F39:** see "Revision 2026-09-30" at the end (BBDuk-faithful `FindLowEntropyRegionsBbduk`, `bbduk.sh` 40.02 identical on 4 520 cases; LCR ≡ BBDuk `entropyk=1`, 1 600 cases 0 mismatches; `lcMaxWordLength`; N-tolerant string overloads).
+- **Current code path:** `SequenceComplexity.cs:328/351` (`CalculateWindowedComplexity`), core :370; `FindLowComplexityRegions` :439/461, core :480; `FindLowEntropyRegionsBbduk` :560.
+
+*Historical 2026-06-16 report (superseded where it conflicts with the revision above):*
 
 ## Stage A — Description
 
