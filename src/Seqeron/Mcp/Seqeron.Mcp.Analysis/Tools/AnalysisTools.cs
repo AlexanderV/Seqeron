@@ -115,14 +115,14 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "kmer_distance", Title = "k-mers — Euclidean Distance", ReadOnly = true)]
-    [Description("Euclidean distance between k-mer frequency vectors of two sequences. 0 means identical k-mer composition. Optional metric: euclidean (default, frequencies), squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity), d2star / d2shepherd (background-adjusted d2* / d2S dissimilarities in [0,1], Reinert et al. 2009 / Song et al. 2014; Markov background of order markovOrder fitted to each sequence; k <= 12; bothStrands = CAFE -R), jensen_shannon (JS divergence, base 2, frequencies), euclidean_counts.")]
+    [Description("Euclidean distance between k-mer frequency vectors of two sequences. 0 means identical k-mer composition. Optional metric: euclidean (default, frequencies), squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity), d2star / d2shepherd (background-adjusted d2* / d2S dissimilarities in [0,1], Reinert et al. 2009 / Song et al. 2014; Markov background of order markovOrder fitted to each sequence; k <= 12; bothStrands = CAFE -R), jensen_shannon (JS divergence, base 2, frequencies), euclidean_counts, ev (spaced -d EV evolutionary distance, Morgenstern et al. 2015, with the contiguous pattern 1^k; bothStrands = spaced's reverse-complement mode).")]
     public static KmerDistanceResult KmerDistance(
         [Description("First sequence.")] string seq1,
         [Description("Second sequence.")] string seq2,
         [Description("k-mer length.")] int k,
-        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd (alias d2s), jensen_shannon (alias js), euclidean_counts.")] string metric = "euclidean",
+        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd (alias d2s), jensen_shannon (alias js), euclidean_counts, ev (alias evolutionary).")] string metric = "euclidean",
         [Description("Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; default 0 (i.i.d. letters). Must be 0 for the other metrics.")] int markovOrder = 0,
-        [Description("d2star/d2shepherd only: CAFE -R both-strand mode (count of w + count of its reverse complement, background probability averaged over w and its reverse complement). Default false.")] bool bothStrands = false)
+        [Description("d2star/d2shepherd: CAFE -R both-strand mode (count of w + count of its reverse complement, background probability averaged over w and its reverse complement); ev: spaced's reverse-complement mode (seq1 on both strands). Default false.")] bool bothStrands = false)
     {
         if (string.IsNullOrEmpty(seq1))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
@@ -157,13 +157,13 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "spaced_word_distance", Title = "k-mers — Spaced-Word Distance", ReadOnly = true)]
-    [Description("Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (e.g. 11011; '1' = match position, '0' = don't care; all patterns of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies, as the paper), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or manhattan / chebyshev / canberra / cosine / squared_euclidean_counts / d2. Single strand by default (spaced -r). acgtOnly drops words with a non-ACGT symbol at a match position (spaced's rule; frequencies stay count / number of windows). bothStrands = spaced's default reverse-complement mode: seq1 (first FASTA record) is counted on both strands, seq2 on its forward strand only, so the value depends on the argument order.")]
+    [Description("Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (e.g. 11011; '1' = match position, '0' = don't care; all patterns of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies, as the paper), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or manhattan / chebyshev / canberra / cosine / squared_euclidean_counts / d2; or ev (= spaced -d EV, the evolutionary distance of Morgenstern et al. 2015 from spaced-word match counts, Jukes-Cantor corrected; 1.2 when undefined; patterns must have equal length; always read as spaced does). Single strand by default (spaced -r). acgtOnly = the spaced program's reader and word rule: non-letter characters (gaps, '*', digits) are deleted, words with a non-ACGT symbol at a match position are dropped (frequencies stay count / number of windows). bothStrands = spaced's default reverse-complement mode: seq1 (first FASTA record) is counted on both strands, seq2 on its forward strand only, so the value depends on the argument order.")]
     public static KmerDistanceResult SpacedWordDistance(
         [Description("First sequence (both strands when bothStrands is true).")] string seq1,
         [Description("Second sequence (forward strand).")] string seq2,
         [Description("Binary patterns over {0,1}, each starting and ending with 1, all with the same number of 1s, e.g. [\"11011\", \"10111\", \"11101\"].")] string[] patterns,
-        [Description("Per-pattern metric: euclidean (default), jensen_shannon (alias js), euclidean_counts, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2.")] string metric = "euclidean",
-        [Description("Drop spaced words with a symbol other than A/C/G/T at a match position (the spaced program's rule). Default false (literal words).")] bool acgtOnly = false,
+        [Description("Per-pattern metric: euclidean (default), jensen_shannon (alias js), euclidean_counts, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2; or ev (alias evolutionary) = spaced -d EV.")] string metric = "euclidean",
+        [Description("The spaced program's reader and word rule: delete non-letter characters (gaps, '*', digits), drop spaced words with a symbol other than A/C/G/T at a match position. Default false (literal words; ev always uses the spaced rule).")] bool acgtOnly = false,
         [Description("spaced's default reverse-complement mode (spaced without -r): seq1 counted on both strands vs seq2 forward. Default false (= spaced -r).")] bool bothStrands = false)
     {
         if (string.IsNullOrEmpty(seq1))
@@ -176,14 +176,15 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "kmer_jaccard", Title = "k-mers — Jaccard Similarity / Mash Distance / Containment", ReadOnly = true)]
-    [Description("Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]), the Mash distance -ln(2J/(1+J))/k and the exact containment indices |A∩B|/|A| and |A∩B|/|B| (sourmash compare --containment). Set canonical=true for Mash/sourmash k-mers (strand-collapsed, non-ACGT windows skipped). sketchSize > 0 estimates J from Mash bottom-s MinHash sketches (MurmurHash3, seed 42; = mash dist -s sketchSize) and adds sharedHashes/sketchDenominator (Mash x/s) and the Mash p-value.")]
+    [Description("Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]), the Mash distance -ln(2J/(1+J))/k and the exact containment indices |A∩B|/|A| and |A∩B|/|B| (sourmash compare --containment). Set canonical=true for Mash/sourmash k-mers (strand-collapsed, non-ACGT windows skipped). sketchSize > 0 estimates J from Mash bottom-s MinHash sketches (MurmurHash3, seed 42; = mash dist -s sketchSize) and adds sharedHashes/sketchDenominator (Mash x/s) and the Mash p-value. scaled > 0 (exclusive with sketchSize) uses sourmash FracMinHash sketches (canonical k-mers, keep hashes <= 2^64/scaled; = sourmash MinHash(n=0, scaled=scaled)): jaccard, containments (sourmash contained_by, bias-corrected), maxContainment (max_containment), sharedHashes and the union size in sketchDenominator.")]
     public static KmerJaccardResult KmerJaccard(
         [Description("First sequence.")] string seq1,
         [Description("Second sequence.")] string seq2,
         [Description("k-mer length (1..32 when sketchSize > 0, as mash -k).")] int k,
         [Description("Canonical k-mers min(w, revcomp(w)) as Mash/sourmash/jellyfish -C (implies acgtOnly). With sketchSize > 0, false = mash -n.")] bool canonical = false,
         [Description("Skip k-mers containing a non-ACGT symbol (Mash -n / Jellyfish convention).")] bool acgtOnly = false,
-        [Description("0 (default) = exact sets; > 0 = Mash MinHash sketch size s (Mash default 1000). Jaccard/mashDistance are then sketch estimates; containment stays exact.")] int sketchSize = 0)
+        [Description("0 (default) = exact sets; > 0 = Mash MinHash sketch size s (Mash default 1000). Jaccard/mashDistance are then sketch estimates; containment stays exact.")] int sketchSize = 0,
+        [Description("0 (default) = no FracMinHash; > 0 = sourmash scaled factor S (sourmash default 1000; 1 = all hashes, exact). Canonical k-mers always (sourmash DNA). Not combinable with sketchSize.")] int scaled = 0)
     {
         if (string.IsNullOrEmpty(seq1))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
@@ -195,6 +196,19 @@ public class AnalysisTools
             throw new ArgumentException("sketchSize must be >= 0", nameof(sketchSize));
         if (sketchSize > 0 && k > KmerAnalyzer.MaxMashKmerSize)
             throw new ArgumentException($"k must be <= {KmerAnalyzer.MaxMashKmerSize} when sketchSize > 0", nameof(k));
+        if (scaled < 0)
+            throw new ArgumentException("scaled must be >= 0", nameof(scaled));
+        if (scaled > 0 && sketchSize > 0)
+            throw new ArgumentException("sketchSize and scaled are mutually exclusive (Mash bottom-s vs sourmash FracMinHash)", nameof(scaled));
+
+        if (scaled > 0)
+        {
+            var frac = KmerAnalyzer.CompareFracMinHashSketches(
+                KmerAnalyzer.CreateFracMinHashSketch(seq1, k, scaled),
+                KmerAnalyzer.CreateFracMinHashSketch(seq2, k, scaled));
+            return new KmerJaccardResult(frac.Jaccard, KmerAnalyzer.MashDistanceFromJaccard(frac.Jaccard, k),
+                frac.ContainmentAInB, frac.ContainmentBInA, frac.SharedHashes, frac.UnionHashes, MaxContainment: frac.MaxContainment);
+        }
 
         var options = new KmerCountingOptions(Canonical: canonical, AcgtOnly: acgtOnly || sketchSize > 0);
         double containment12 = KmerAnalyzer.ContainmentIndex(seq1, seq2, k, options);

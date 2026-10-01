@@ -32,7 +32,7 @@ n̄·(p̂(w) + p̂(RC(w)))), all 4^k words; the chain and the BIC are computed o
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L887](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L887)
+- Source: [KmerAnalyzer.cs#L898](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L898)
 - Algorithm: [K-mer_Euclidean_Distance.md](../../../algorithms/K-mer/K-mer_Euclidean_Distance.md) §2.9, §7.4, §7.5
 
 ## Input Schema

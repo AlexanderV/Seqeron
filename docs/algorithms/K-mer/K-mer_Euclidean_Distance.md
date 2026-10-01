@@ -151,6 +151,28 @@ dropped windows stay in W, as in `spaced`); `bothStrands` is `spaced`'s default 
 of [4]. `Canonical` is rejected for spaced words: the reverse strand reads a window with the mirrored pattern, so
 min(word, RC(word)) is not strand-independent for an asymmetric pattern, and no source defines it.
 
+**Spaced-faithful reader (audit round 3, WP9).** `spaced`'s FASTA reader (`spacedDNA`) deletes every character for
+which `isalpha` is false (gap `-`, `*`, digits, blanks) before windowing; only letters are stored (non-ACGT letters as
+N). `SpacedWordDistance(…, AcgtOnly, …)` — the spaced-faithful mode, with or without `bothStrands` — now reads both
+sequences that way, so L and W = L − ℓ + 1 are those of the letters only: `ACG-TACGT` is windowed as `ACGTACGT`
+(`spaced -r -d JS -f {1011, 1101}` against `ACGTTACGA` prints 0.57013316426; keeping the gap as an N window, as WP8
+did, gave 0.25). The literal default and `CountSpacedWords` window the string as given.
+
+**Evolutionary distance `spaced -d EV` (audit round 3, WP9).** `KmerDistanceMetric.SpacedEvolutionary`
+(Morgenstern, Zhu, Horwege & Leimeister 2015 [16]) in `SpacedWordDistance`, implemented exactly as `spaced` 1.2.0
+`sort.h` (EV branch) [13]: N = Σ_P Σ_w min(c₂(w), c₁(w)) is the number of spaced-word matches summed over all
+patterns (c₂ = forward counts of the second record, c₁ = the first record's forward, or forward + reverse-strand,
+counts; words reading N excluded); with read lengths L₁, L₂ (N letters included), ℓ the common pattern length and w the
+weight, m = min(L₁, L₂) − ℓ + 1, M = max(L₁, L₂) − ℓ + 1, f(a) = count(a)/L, q = Σ_a f₁(a)f₂(a) (strand-averaged
+f(a) = ½(f(a) + f(ā)) in reverse-complement mode), V = N/(|P|·m) − s·M·q^w with s = 2 in reverse-complement mode and
+1 with `-r`. V ≥ 0: p = V^(1/w) (estimated match probability per site) and d = −¾ ln(4p/3 − 1/3) (Jukes–Cantor);
+V < 0: `spaced` prints 1.2 (`SpacedEvolutionarySaturationDistance`). As in the program, p < ¼ gives NaN (`-nan`)
+and p = ¼ gives +∞. EV is always read in the spaced-faithful mode; all patterns must have the same length (spaced keeps
+one weight and one don't-care count, `ell = dontCare + weight − 1`) and both read sequences at least ℓ letters
+(shorter input makes `spaced` index outside the record). `KmerDistance(seq1, seq2, k, SpacedEvolutionary, 0,
+bothStrands)` is the same with the contiguous pattern 1^k. The count-table overload rejects it (it needs lengths and
+base composition).
+
 ### 2.9 Background-adjusted D2* and D2S (audit round 1, WP4)
 
 `BackgroundAdjustedD2(seq1, seq2, k, markovOrder = 0)` and the metrics `KmerDistanceMetric.D2Star` /
@@ -169,7 +191,9 @@ CAFE `-M -1`, orders 0..min(k − 1, 10)):
 
 With a common background p (Reinert 2009's setting) √(E_X E_Y) = √(n̄ m̄)·p_w, the published D2* denominator.
 d2*, d2S ∈ [0, 1]; identical sequences → 0. k ≤ 12 (`MaxBackgroundAdjustedK`: 4^12 words are enumerated), 0 ≤ r < k.
-NaN when a normaliser is 0 (e.g. a homopolymer at order 0, whose counts equal their expectation). The counts
+NaN when a normaliser is 0 (e.g. a homopolymer at order 0, whose counts equal their expectation). Audit round 3 (WP9):
+d2* and d2S are clamped to [0, 1] — Cauchy–Schwarz bounds them there, and rounding gave −1.1102230246251565e-16 for
+identical sequences (S1/S1, k = 2, r = 0); NaN passes through, the raw D2*/D2S are not clamped. The counts
 overload `KmerDistance(counts1, counts2, metric)` rejects D2*/D2S (a background needs the sequence).
 
 **Both strands (audit round 2, CAFE `-R`).** `BackgroundAdjustedD2(seq1, seq2, k, markovOrder, bothStrands)` and
@@ -207,7 +231,34 @@ added and the total capped at s); x = hashes in both; J = x / denominator (Mash'
 P(X ≥ x) for X ~ Binomial(denominator, r), r = p₁p₂/(p₁ + p₂ − p₁p₂), pᵢ = 1/(1 + 4^k/lengthᵢ) — Mash's
 `gsl_cdf_binomial_Q(x − 1, r, denominator)`, here `StatisticsHelper.BinomialUpperTail` (log-space, Loader 2000);
 x = 0 → 1. Both sketches empty: denominator 0, J = 0 (exact-Jaccard convention; Mash prints nan), distance 0,
-p-value 1. Sketches with different k, seed or canonical mode are rejected (Mash skips them).
+p-value 1. Sketches with different k, seed or canonical mode are rejected (Mash skips them). Audit round 3 (WP9):
+`CompareMinHashSketches` also rejects malformed sketches (hashes not strictly ascending, more hashes than
+`SketchSize`, `SketchSize` < 1, negative length) with `ArgumentException`; `MinHashSketch.FromHashes` builds a
+well-formed sketch from arbitrary hash values. `MashPValue` rejects inputs no comparison can produce: x > s (Mash's
+`gsl_cdf_binomial_Q(x − 1, r, s)` silently returns 0 for x − 1 ≥ s, GSL `cdf/binomial.c`) and x ≥ 1 with a length
+of 0 (Mash would compute r = 0/0 = NaN; an empty set has no hashes); earlier, the first case returned 0 and the second
+threw `ArgumentOutOfRangeException` from inside the binomial tail.
+
+### 2.11 FracMinHash (sourmash `scaled`) sketches (audit round 3, WP9)
+
+`CreateFracMinHashSketch(sequence, k, scaled, canonical = true, seed = 42)` is sourmash 4.9.4
+`MinHash(n=0, ksize=k, scaled=S).add_sequence(seq, force=True)` [17][18][19]: canonical k-mers (Rust `SeqToHashes`:
+`std::cmp::min(kmer, krc)` on the upper-cased bytes, the same set as `DistinctKmers` with `Canonical`; windows with a
+non-ACGT base are skipped, which is `force=True` — without it sourmash raises), hashed with `MurmurHash3X64_128`
+(h1, seed 42; `_hash_murmur`), and **every** distinct hash h ≤ max_hash kept (Rust `add_hash`). max_hash =
+`FracMinHashMaxHash(S)` = Rust `max_hash_for_scaled`: S = 1 → 2^64 − 1, else `(u64::MAX as f64 / S as f64) as u64`
+(double division by 2^64, truncated). sourmash's Python helper `_get_max_hash_for_scaled` rounds instead; the two
+agree while 2^64/S ≥ 2^53 and differ by one above (S = 7919: Rust 2329428472497733 = `MinHash(0, 21,
+scaled=7919)._max_hash`, Python helper …734); the Rust value is the one applied. `canonical = false` hashes forward
+k-mers (Mash `-n` style; sourmash has no such DNA mode).
+
+`CompareFracMinHashSketches(a, b)` → `FracMinHashComparison`: x = |A ∩ B|, u = |A ∪ B|, Jaccard = x / max(1, u)
+(Rust `KmerMinHash::jaccard`); `contained_by` (A in B) = x / (|A|·b), b = 1 − (1 − 1/S)^(|A|·S) (the bias factor of
+Hera et al. 2023 [18], sourmash `minhash.py`), clamped to [0, 1], 0 for an empty A; `max_containment` uses
+min(|A|, |B|). S = 1 gives b = 1, i.e. the exact `JaccardSimilarity`/`ContainmentIndex` (canonical). Sketches must
+share k, seed, canonical mode and scaled (sourmash refuses otherwise unless asked to downsample; the downsampled
+sketch at S′ ≥ S is the subset h ≤ max_hash(S′), i.e. the sketch built at S′). Malformed sketches (hashes not strictly
+ascending, a hash above `MaxHash`, `MaxHash` ≠ max_hash(`Scaled`)) are rejected.
 
 ## 3. Contract
 
@@ -271,7 +322,8 @@ p-value 1. Sketches with different k, seed or canonical mode are rejected (Mash 
 - `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int)` → `D2StarStatistics(D2Star, D2Shepherd, D2StarDistance, D2ShepherdDistance)`; `KmerDistance(seq1, seq2, k, metric, markovOrder)`; metrics `D2Star` / `D2Shepherd`; `ParseDistanceMetric(string)` (MCP metric names): §2.9.
 - `KmerAnalyzer.BackgroundAdjustedD2(string, string, int, int, bool bothStrands)`, `KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands)` (CAFE `-R`), `SpacedWordDistance(string, string, IReadOnlyList<string>, KmerDistanceMetric)`, metrics `JensenShannon` / `EuclideanCounts` (audit round 2, WP6).
 - `KmerAnalyzer.ContainmentIndex(string, string, int[, KmerCountingOptions])` (§2.7), `CreateMinHashSketch` → `MinHashSketch`, `CompareMinHashSketches` → `MashComparison(SharedHashes, Denominator, Jaccard, Distance, PValue)`, `MashPValue`, `MurmurHash3X64_128` (§2.10; audit round 2, WP7).
-- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly` and `sketchSize` (0 = exact; s > 0 = Mash sketch estimate + `sharedHashes`/`sketchDenominator`/`pValue`), always returning both exact containment indices; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis; optional `acgtOnly` and `bothStrands`, WP8).
+- Audit round 3 (WP9): metric `KmerDistanceMetric.SpacedEvolutionary` (`spaced -d EV`, §2.8) in `SpacedWordDistance` and `KmerDistance(seq1, seq2, k, metric, markovOrder, bothStrands)`, `SpacedEvolutionarySaturationDistance`; spaced reader in the `AcgtOnly` spaced path (§2.8); `FracMinHashMaxHash`, `CreateFracMinHashSketch` → `FracMinHashSketch`, `CompareFracMinHashSketches` → `FracMinHashComparison` (§2.11); `MinHashSketch.FromHashes`.
+- MCP: `kmer_distance` (Analysis and Sequence servers) optional `metric` (incl. `d2star`, `d2shepherd`, `jensen_shannon`, `euclidean_counts`), `markovOrder` and `bothStrands`; `kmer_jaccard` (Analysis) with optional `canonical` / `acgtOnly` and `sketchSize` (0 = exact; s > 0 = Mash sketch estimate + `sharedHashes`/`sketchDenominator`/`pValue`), always returning both exact containment indices; `kmer_d2_statistics` (raw D2*/D2S, d2*/d2S, orders, BIC) and `spaced_word_distance` (Analysis; optional `acgtOnly` and `bothStrands`, WP8). WP9: metric `ev` on `spaced_word_distance` and both `kmer_distance` tools; `kmer_jaccard` optional `scaled` (sourmash FracMinHash; exclusive with `sketchSize`) and output `maxContainment`.
 
 ### 5.2 Current Behavior
 
@@ -324,14 +376,21 @@ p-value 1. Sketches with different k, seed or canonical mode are rejected (Mash 
 - `spaced` 1.2.0's N-word rule (`AcgtOnly`) and default reverse-complement mode (`bothStrands`) for
   `SpacedWordDistance`; = the `spaced` binary with and without `-r` on 36 runs (§7.7).
 
+**Implemented in audit round 3 (WP9):**
+
+- `spaced -d EV` evolutionary distance [16] (`SpacedEvolutionary`, §2.8) and `spaced`'s reader (non-letters deleted)
+  in the `AcgtOnly` spaced path; = the `spaced` binary on 248 runs with and without `-r` (§7.8).
+- sourmash FracMinHash (`scaled`) sketches with Jaccard, bias-corrected `contained_by` and `max_containment`
+  [17][18] (§2.11); = sourmash 4.9.4 on 40 comparisons (k = 21/31 × scaled 1/10/100/1000 × 5 pairs, §7.8).
+- Validation: `MashPValue` (x > s, x ≥ 1 with length 0), malformed sketches in `CompareMinHashSketches`; d2*/d2S
+  clamped to [0, 1] (§2.9, §2.10).
+
 **Not implemented:**
 
-- sourmash *scaled* (FracMinHash) sketches and sketch-based containment estimates: the exact containment is
-  available, which is what a `scaled=1` sketch gives; Mash `screen` (containment score with multiplicities) and
-  Mash's 32-bit `ARCH_32` hash variant (two MurmurHash3_x86_32 calls; only in 32-bit builds) are not reproduced.
-- `spaced`'s randomised pattern-set generation (`variance::Improve`; not deterministic, so not reproducible) and
-  its `-d EV` evolutionary distance (Morgenstern et al. 2015 spaced-word-match estimator; a different measure, not
-  the word-vector distance of [4]).
+- Mash `screen` (containment score with multiplicities, a different tool) and Mash's 32-bit `ARCH_32` hash variant
+  (two MurmurHash3_x86_32 calls; only in 32-bit builds); sourmash abundance tracking (angular similarity) and
+  protein/Dayhoff/HP hash functions (not k-mer DNA set measures).
+- `spaced`'s randomised pattern-set generation (`variance::Improve`; not deterministic, so not reproducible).
 
 ### 5.4 Deviations and Assumptions
 
@@ -546,6 +605,48 @@ S1/S2 with N, R, Y and lower case inserted, × the three pattern sets of §7.5, 
 With `-r`, N1/N2 (N words dropped): JS 0.706137367852 / 0.767473374082 / 0.693975547992, EU 11.2827316031 /
 10.59658835 / 11.3578166916; S1/S2 and A/B as in §7.5. The swapped row shows the order dependence of the mode.
 
+Correction (audit round 3, WP9): the sentence "non-letters are skipped" above describes `spaced`, but until WP9 the C#
+`AcgtOnly` path kept non-letters as window positions (none of the 36 inputs contained one). Now the spaced path
+deletes them too (§2.8, §7.8).
+
+### 7.8 `spaced -d EV`, the spaced reader on gapped input, and sourmash FracMinHash (audit round 3, WP9)
+
+**spaced.** The binary (`spaced [-r] -t 1 -f patterns -d EV|JS|EU`, 12 printed digits) on 11 pairs: m10/m25/dirty/ab
+(WP9 scratch), N1/N2, a gapped pair G1 = `ACG-TACGTACGGT-ACCA*TTG` / G2 = `ACGTTACGTAC1GGTAACCATT`, three LCG pairs
+(A = 1500-nt LCG sequence with seed 11; B, C = A with 10 % / 25 % substitutions; D = A with 12 % substitutions, then
+gaps `-`, `*`, digits, N, R and lower case inserted, against E = A[200:1400]), `X = ACG-TACGT` / `Y = ACGTTACGA` and
+S1/S2; pattern sets {11011, 10111, 11101}, {1101011, 1011101, 1110011}, {1111}, {110101100111, 101110011011,
+111001010111}, {11011011, 10111011, 11101101}, {1011, 1101}, {11111111}. **All 248 runs** equal the Python replica
+(`ref.py`: reader + N-word rule + the `sort.h` EV formula) to the printed digits, and C# equals all of them to one unit
+of the 12th digit (one JS value differs in the 12th digit by summation order). Small weights saturate EV (V < 0 →
+1.2). Selected EV values:
+
+| Pair (first, second) | Patterns | `-r` | default (both strands) |
+|---|---|---|---|
+| A, B (10 %) | weight 8, ℓ 12 | 0.117255304438 | 0.119414426485 |
+| A, B (10 %) | 11111111 (`KmerDistance`, k = 8) | 0.119340289783 | 0.122709335653 |
+| A, B (10 %) | weight 6, ℓ 8 | 0.27326159765 | 1.2 |
+| A, C (25 %) | weight 8, ℓ 12 | 0.308204981926 | 0.311479608973 |
+| A, C (25 %) | weight 6, ℓ 8 | −nan (p < ¼) | 1.2 |
+| D (dirty), E | weight 8, ℓ 12 | 0.154793408617 | 0.156900799006 |
+| N1, N2 | 1101011, 1011101, 1110011 | −nan | 0.767483449137 |
+| G1, G2 | 11011, 10111, 11101 | 0.159471857578 | 0.194616371339 |
+| X, Y | 1011, 1101 | 0.427666596474 | 0.578620038162 |
+
+Gapped input (JS / EU, `-r`): G1/G2 {11011, 10111, 11101} JS 0.330976739232, EU 3.77806939218 (WP8's C# gave
+0.305757130732 / 3.40370085031 with the gaps kept as N windows); X/Y JS 0.57013316426 (was 0.25).
+
+**sourmash 4.9.4** (`pip`; `MinHash(n=0, ksize=k, scaled=S)`, `add_sequence(seq, force=True)`): A = 20 000-nt LCG
+sequence (seed 1), B = A with 5 % substitutions, C = A[5000:15000], D = an unrelated 8000-nt sequence, E = B with
+every 997th base N and the first 100 lower case; pairs A/B, A/C, A/D, A/E, C/B × k ∈ {21, 31} × S ∈ {1, 10, 100,
+1000}. All 40 rows (sketch sizes, `count_common`, `jaccard`, both `contained_by`, `max_containment`) equal C#
+exactly (max |Δ| = 0). Examples (k = 21): S = 1 A/B J 0.21773579155873837, C(A,B) 0.3576076076076076; S = 1000 A/B
+len 23 / 14, common 5, J 0.15625, C(A,B) 0.21739130436987927, C(B,A) = max 0.35714315204470304; A/C S = 10 C(C,A)
+clamped to 1. The five smallest hashes of C at k = 21, S = 1000: 4371404454895749, 5919670475642754,
+6049817491049527, 9659045342622411, 10788914448772484 (15 hashes). `_max_hash` for S = 1, 3, 10, 100, 1000, 7919:
+18446744073709551615, 6148914691236516864, 1844674407370955264, 184467440737095520, 18446744073709552,
+2329428472497733.
+
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [KmerAnalyzer_KmerDistance_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_KmerDistance_Tests.cs) — covers `INV-01`–`INV-04`
@@ -554,6 +655,7 @@ With `-r`, N1/N2 (N words dropped): JS 0.706137367852 / 0.767473374082 / 0.69397
 - Tests: [KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_BothStrandD2AndSpacedWords_Tests.cs) — §7.5 values, null-as-empty, sparse tables, JS metric
 - Tests: [KmerAnalyzer_MinHashContainment_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_MinHashContainment_Tests.cs) — §7.6 values (63 `mash dist` rows, hashes, containment)
 - Tests: [KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs) — §7.7 values (36 `spaced` runs), N-word rule, order dependence
+- Tests: [KmerAnalyzer_SpacedEvAndFracMinHash_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_SpacedEvAndFracMinHash_Tests.cs) — §7.8 values (120 `spaced` rows, 40 sourmash rows), EV contract, spaced reader, p-value / sketch validation, d2* clamp
 - Evidence: [KMER-DIST-001-Evidence.md](../../../docs/Evidence/KMER-DIST-001-Evidence.md)
 
 ## 8. References
@@ -573,3 +675,7 @@ With `-r`, N1/N2 (N words dropped): JS 0.706137367852 / 0.767473374082 / 0.69397
 13. `spaced` 1.2.0 (Leimeister, Hahn, Morgenstern), Debian Med package source `spaced_1.2.0-201605+dfsg` (archive.ubuntu.com, `src/sort.h`, `src/spaced.cc`), opened and run 2026-10-01.
 14. Koslicki D, Zabeti H. 2019. Improving MinHash via the containment index with applications to metagenomic analysis. Applied Mathematics and Computation 354:206–215 (containment index C(A, B) = |A ∩ B| / |A|).
 15. Appleby A. MurmurHash3 (public domain), `MurmurHash3_x64_128`, as bundled in Mash `src/mash/MurmurHash3.cpp`.
+16. Morgenstern B, Zhu B, Horwege S, Leimeister CA. 2015. Estimating evolutionary distances between genomic sequences from spaced-word matches. Algorithms for Molecular Biology 10:5. doi:10.1186/s13015-015-0032-x (implemented as `spaced` 1.2.0 `sort.h` EV branch [13]).
+17. Irber L, Brooks PT, Reiter T, Pierce-Ward NT, Hera MR, Koslicki D, Brown CT. 2022. Lightweight compositional analysis of metagenomes with FracMinHash and minimum metagenome covers. bioRxiv 2022.01.11.475838.
+18. Hera MR, Pierce-Ward NT, Koslicki D. 2023. Deriving confidence intervals for mutation rates across a wide range of evolutionary distances using FracMinHash. Genome Research 33:1061–1068 (containment bias factor 1 − (1 − 1/S)^(|A|·S)).
+19. sourmash 4.9.4 (PyPI; `sourmash/minhash.py` installed) and its Rust core at tag v4.9.4 (raw.githubusercontent.com `src/core/src/sketch/minhash.rs` `max_hash_for_scaled`, `jaccard`, `add_hash`; `src/core/src/signature.rs` `SeqToHashes`; `src/core/src/lib.rs` `_hash_murmur`), opened 2026-10-01.

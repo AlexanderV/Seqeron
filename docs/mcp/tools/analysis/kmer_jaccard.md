@@ -1,6 +1,6 @@
 # kmer_jaccard
 
-k-mer Jaccard similarity of two sequences (exact, or from Mash MinHash sketches), the Mash distance derived from it, the Mash p-value in sketch mode, and the exact containment indices.
+k-mer Jaccard similarity of two sequences (exact, or from Mash MinHash sketches), the Mash distance derived from it, the Mash p-value in sketch mode, and the exact containment indices; or sourmash FracMinHash (`scaled`) estimates.
 
 ## Overview
 
@@ -9,7 +9,7 @@ k-mer Jaccard similarity of two sequences (exact, or from Mash MinHash sketches)
 | **Server** | Analysis |
 | **Tool Name** | `kmer_jaccard` |
 | **Method ID** | `KmerAnalyzer.JaccardSimilarity` |
-| **Version** | 1.1.0 |
+| **Version** | 1.2.0 |
 | **Stability** | Stable |
 
 ## Description
@@ -32,10 +32,18 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
   k-mers (64-bit h1 for k ≥ 17, its low 32 bits for k ≤ 16), merged until s union hashes; `sharedHashes`/`sketchDenominator`
   are Mash's "x/s" column and `pValue` the Mash binomial p-value (sequence lengths = the input lengths). Non-ACGT
   windows are always skipped; `canonical = false` gives `mash dist -n`. k must be ≤ 32.
+- `scaled = S > 0` (mutually exclusive with `sketchSize`): sourmash 4.9.4 FracMinHash, delegating to
+  `KmerAnalyzer.CreateFracMinHashSketch` + `KmerAnalyzer.CompareFracMinHashSketches` (Irber et al. 2022; Hera, Pierce-Ward
+  & Koslicki 2023). Canonical k-mers (lexicographically smaller of k-mer and reverse complement, non-ACGT windows
+  skipped = `add_sequence(force=True)`), MurmurHash3_x64_128 h1 with seed 42, every hash ≤ max_hash kept, where
+  max_hash = `(u64::MAX as f64 / S) as u64` (Rust `max_hash_for_scaled`; S = 1 keeps all). `jaccard` = shared / max(1, union)
+  (`MinHash.jaccard`); the containments are `contained_by` = shared / (|A|·(1 − (1 − 1/S)^(|A|·S))) clamped to [0, 1];
+  `maxContainment` = `max_containment` (min(|A|, |B|) in the denominator); `sharedHashes` = |A ∩ B|,
+  `sketchDenominator` = |A ∪ B|; `mashDistance` = the Mash formula applied to the estimated J; `pValue` null.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L1349](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1349)
+- Source: [KmerAnalyzer.cs#L1371](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1371)
 - Algorithm: [K-mer_Euclidean_Distance.md](../../../algorithms/K-mer/K-mer_Euclidean_Distance.md) §2.7, §2.10
 
 ## Input Schema
@@ -48,6 +56,7 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
 | `canonical` | boolean | No | Canonical (strand-collapsed) k-mers, implies `acgtOnly` (default false) |
 | `acgtOnly` | boolean | No | Skip k-mers containing a non-ACGT symbol (default false) |
 | `sketchSize` | integer | No | 0 (default) = exact sets; s > 0 = Mash MinHash sketch size (Mash default 1000) |
+| `scaled` | integer | No | 0 (default) = no FracMinHash; S > 0 = sourmash scaled factor (sourmash default 1000); not with `sketchSize` |
 
 ## Output Schema
 
@@ -55,11 +64,12 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
 |-------|------|-------------|
 | `jaccard` | number | Jaccard index in [0, 1] |
 | `mashDistance` | number | Mash distance in [0, 1] |
-| `containmentSeq1InSeq2` | number | Exact containment |A ∩ B| / |A| |
-| `containmentSeq2InSeq1` | number | Exact containment |A ∩ B| / |B| |
-| `sharedHashes` | integer \| null | Sketch mode: shared hashes x (Mash "x/s"); null when exact |
-| `sketchDenominator` | integer \| null | Sketch mode: union hashes compared (s unless both sketches are smaller); null when exact |
-| `pValue` | number \| null | Sketch mode: Mash p-value; null when exact |
+| `containmentSeq1InSeq2` | number | Exact containment |A ∩ B| / |A| (scaled mode: sourmash `contained_by`) |
+| `containmentSeq2InSeq1` | number | Exact containment |A ∩ B| / |B| (scaled mode: sourmash `contained_by`) |
+| `sharedHashes` | integer \| null | Sketch mode: shared hashes x (Mash "x/s"); scaled mode: |A ∩ B|; null when exact |
+| `sketchDenominator` | integer \| null | Sketch mode: union hashes compared (s unless both sketches are smaller); scaled mode: |A ∪ B|; null when exact |
+| `pValue` | number \| null | Sketch mode: Mash p-value; null otherwise |
+| `maxContainment` | number \| null | Scaled mode: sourmash `max_containment`; null otherwise |
 
 ## Errors
 
@@ -69,6 +79,8 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
 | 1003 | k must be positive |
 | 1003 | sketchSize must be >= 0 |
 | 1003 | k must be <= 32 when sketchSize > 0 |
+| 1003 | scaled must be >= 0 |
+| 1003 | sketchSize and scaled are mutually exclusive (Mash bottom-s vs sourmash FracMinHash) |
 
 ## Examples
 
@@ -111,9 +123,20 @@ Mash 2.3 `mash dist -k 2 -s 100000`: 0.202733, shared-hashes 5/10; sourmash `Min
 `containmentSeq1InSeq2` 0.35, `containmentSeq2InSeq1` 0.42857142857142855. Mash 2.3 `mash dist -k 4 -s 10`:
 `0.139904  0.0291702  4/10`; sourmash `contained_by` (scaled=1) 0.35 / 0.428571.
 
+### Example 4: sourmash FracMinHash (scaled)
+
+```json
+{ "tool": "kmer_jaccard", "arguments": { "seq1": "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT",
+  "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC", "k": 4, "scaled": 3 } }
+```
+**Response:** `jaccard` 0.3103448275862069, `sharedHashes` 9, `sketchDenominator` 29, `containmentSeq1InSeq2`
+0.4285714285748822, `containmentSeq2InSeq1` 0.52941176525941, `maxContainment` 0.52941176525941, `mashDistance`
+0.18680360045755526, `pValue` null. sourmash 4.9.4 `MinHash(n=0, ksize=4, scaled=3)`: len 21 / 17, `count_common` 9,
+`jaccard` 0.3103448275862069, `contained_by` 0.4285714285748822 / 0.52941176525941, `max_containment` 0.52941176525941.
+
 ## Performance
 
-- **Time Complexity:** O(n·k) to build the two k-mer sets (sketch mode: plus O(d log d) to sort the d distinct hashes).
+- **Time Complexity:** O(n·k) to build the two k-mer sets (sketch / scaled mode: plus O(d log d) to sort the d kept hashes).
 - **Space Complexity:** O(distinct k-mers).
 
 ## See Also

@@ -43,6 +43,9 @@ public record KmerD2StatisticsResult(
 /// k-mer Jaccard index (fraction in [0,1]) and the Mash distance derived from it — exact, or estimated from Mash
 /// MinHash sketches when <c>sketchSize</c> &gt; 0 (then <c>SharedHashes</c>/<c>SketchDenominator</c> = Mash "x/s" and
 /// <c>PValue</c> = Mash p-value; null in exact mode) — plus the exact containment indices |A∩B|/|A| and |A∩B|/|B|.
+/// With <c>scaled</c> &gt; 0 every value comes from sourmash FracMinHash sketches: <c>SharedHashes</c> = |A∩B|,
+/// <c>SketchDenominator</c> = |A∪B|, the containments are sourmash <c>contained_by</c> (bias-corrected) and
+/// <c>MaxContainment</c> = <c>max_containment</c> (null otherwise).
 /// </summary>
 public record KmerJaccardResult(
     double Jaccard,
@@ -51,7 +54,8 @@ public record KmerJaccardResult(
     double ContainmentSeq2InSeq1 = 0,
     int? SharedHashes = null,
     int? SketchDenominator = null,
-    double? PValue = null);
+    double? PValue = null,
+    double? MaxContainment = null);
 
 /// <summary>A maximal run of consecutive qualifying window starts (0-based, both ends inclusive).</summary>
 public record ClumpWindowRunItem(int FirstWindowStart, int LastWindowStart);

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindKmersWithMinCount",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2065",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2426",
   "description": "Returns k-mers whose overlapping occurrence count is at least minCount and, if given, at most maxCount (jellyfish dump -L/-U), ordered by count descending then k-mer (ordinal). Optional Jellyfish modes: canonical (count -C) and acgtOnly.",
   "inputSchema": {
     "type": "object",

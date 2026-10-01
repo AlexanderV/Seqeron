@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Seqeron.Genomics.Analysis;
 
@@ -755,20 +756,25 @@ public static class KmerAnalyzer
     /// <remarks>
     /// A null sequence is treated as the empty sequence for every metric (the word-vector metrics then see the zero
     /// vector; D2*/D2S reject it with <see cref="ArgumentException"/> because an empty sequence has no background).
-    /// <paramref name="bothStrands"/> applies only to D2*/D2S; for the plain word-vector metrics count canonical k-mers
+    /// <paramref name="bothStrands"/> applies only to D2*/D2S and to <see cref="KmerDistanceMetric.SpacedEvolutionary"/>;
+    /// for the plain word-vector metrics count canonical k-mers
     /// with <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/> and use
-    /// the count-table overload.
+    /// the count-table overload. <see cref="KmerDistanceMetric.SpacedEvolutionary"/> is the <c>spaced -d EV</c> distance
+    /// with the contiguous pattern 1^k: <see cref="SpacedWordDistance(string, string, IReadOnlyList{string}, KmerDistanceMetric, KmerCountingOptions, bool)"/>
+    /// with that one pattern (<paramref name="bothStrands"/> = <c>spaced</c>'s reverse-complement mode, seq1 on both strands).
     /// </remarks>
     /// <param name="seq1">First sequence (case-insensitive).</param>
     /// <param name="seq2">Second sequence.</param>
     /// <param name="k">K-mer length; must be positive (≤ <see cref="MaxBackgroundAdjustedK"/> for D2*/D2S).</param>
     /// <param name="metric">The metric.</param>
     /// <param name="markovOrder">Background Markov order (D2*/D2S only; 0 for every other metric).</param>
-    /// <param name="bothStrands">CAFE <c>-R</c> both-strand counts and background (D2*/D2S only; false for every other metric).</param>
+    /// <param name="bothStrands">CAFE <c>-R</c> both-strand counts and background (D2*/D2S), or <c>spaced</c>'s reverse-complement
+    /// mode (<see cref="KmerDistanceMetric.SpacedEvolutionary"/>); false for every other metric.</param>
     /// <returns>The metric value.</returns>
     /// <exception cref="ArgumentOutOfRangeException">k, <paramref name="metric"/> or <paramref name="markovOrder"/> is out of range.</exception>
     /// <exception cref="ArgumentException"><paramref name="markovOrder"/> ≠ 0 or <paramref name="bothStrands"/> set for a metric
-    /// without background model, or (D2*/D2S) a sequence has no ACGT k-mer.</exception>
+    /// without background model, (D2*/D2S) a sequence has no ACGT k-mer, or (SpacedEvolutionary) a sequence has fewer than
+    /// k letters.</exception>
     public static double KmerDistance(string seq1, string seq2, int k, KmerDistanceMetric metric, int markovOrder, bool bothStrands)
     {
         if (k <= 0)
@@ -782,6 +788,8 @@ public static class KmerAnalyzer
             KmerDistanceMetric.D2Shepherd => BackgroundAdjustedD2(seq1, seq2, k, markovOrder, bothStrands).D2ShepherdDistance,
             _ when markovOrder != 0 => throw new ArgumentException(
                 "markovOrder applies only to the background-adjusted metrics D2Star and D2Shepherd.", nameof(markovOrder)),
+            KmerDistanceMetric.SpacedEvolutionary => SpacedWordDistance(
+                seq1, seq2, [new string('1', k)], metric, new KmerCountingOptions(AcgtOnly: true), bothStrands),
             _ when bothStrands => throw new ArgumentException(
                 "bothStrands applies only to the background-adjusted metrics D2Star and D2Shepherd; count canonical k-mers (KmerCountingOptions.Canonical) for the other metrics.",
                 nameof(bothStrands)),
@@ -793,7 +801,7 @@ public static class KmerAnalyzer
     /// Parses a metric name as used by the MCP tools (case-insensitive, surrounding blanks ignored): <c>euclidean</c>
     /// (also null/empty), <c>squared_euclidean_counts</c>, <c>manhattan</c>, <c>chebyshev</c>, <c>canberra</c>,
     /// <c>cosine</c>, <c>d2</c>, <c>d2star</c>, <c>d2shepherd</c> (alias <c>d2s</c>), <c>jensen_shannon</c> (alias <c>js</c>),
-    /// <c>euclidean_counts</c>.
+    /// <c>euclidean_counts</c>, <c>ev</c> (alias <c>evolutionary</c>; <see cref="KmerDistanceMetric.SpacedEvolutionary"/>).
     /// </summary>
     /// <exception cref="ArgumentException">The name is not one of the above.</exception>
     public static KmerDistanceMetric ParseDistanceMetric(string? name) =>
@@ -810,8 +818,9 @@ public static class KmerAnalyzer
             "d2shepherd" or "d2s" => KmerDistanceMetric.D2Shepherd,
             "jensen_shannon" or "js" => KmerDistanceMetric.JensenShannon,
             "euclidean_counts" => KmerDistanceMetric.EuclideanCounts,
+            "ev" or "evolutionary" => KmerDistanceMetric.SpacedEvolutionary,
             _ => throw new ArgumentException(
-                "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts",
+                "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts, ev",
                 nameof(name)),
         };
 
@@ -839,7 +848,9 @@ public static class KmerAnalyzer
     /// this method counts them on the sequence (the textbook maximum-likelihood estimator). A Python replica of the
     /// formulas reproduces the CAFE binary to 6 digits when given CAFE's estimator, and this method to 1e-12 with the
     /// sequence estimator (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.4). A distance is NaN when a
-    /// normaliser is 0 (e.g. a sequence whose k-mer counts equal their expectation exactly).</para>
+    /// normaliser is 0 (e.g. a sequence whose k-mer counts equal their expectation exactly). The two
+    /// dissimilarities are clamped to [0, 1]: the Cauchy–Schwarz inequality bounds them there, and rounding could otherwise
+    /// return −1.1e-16 for identical sequences (the raw D2*/D2S are not clamped).</para>
     /// </remarks>
     /// <param name="seq1">First sequence (case-insensitive).</param>
     /// <param name="seq2">Second sequence (case-insensitive).</param>
@@ -967,13 +978,19 @@ public static class KmerAnalyzer
         return new D2StarStatistics(
             starNum,
             shepNum,
-            0.5 * (1.0 - starNum / (Math.Sqrt(starX) * Math.Sqrt(starY))),
-            0.5 * (1.0 - shepNum / (Math.Sqrt(shepX) * Math.Sqrt(shepY))))
+            ClampUnit(0.5 * (1.0 - starNum / (Math.Sqrt(starX) * Math.Sqrt(starY)))),
+            ClampUnit(0.5 * (1.0 - shepNum / (Math.Sqrt(shepX) * Math.Sqrt(shepY)))))
         {
             MarkovOrder1 = order1,
             MarkovOrder2 = order2,
         };
     }
+
+    /// <summary>
+    /// Clamps a dissimilarity ½(1 − ratio) to [0, 1]. By the Cauchy–Schwarz inequality |ratio| ≤ 1, so values outside [0, 1]
+    /// are only floating-point rounding (e.g. −1.1e-16 for identical sequences). NaN (a zero normaliser) passes through.
+    /// </summary>
+    private static double ClampUnit(double distance) => Math.Clamp(distance, 0.0, 1.0);
 
     /// <summary><c>markovOrder</c> value of <see cref="BackgroundAdjustedD2"/> that selects each sequence's order by BIC.</summary>
     public const int AutoMarkovOrder = -1;
@@ -1209,7 +1226,8 @@ public static class KmerAnalyzer
     /// <param name="metric">The word-vector metric.</param>
     /// <returns>The metric value.</returns>
     /// <exception cref="ArgumentNullException">A table is null.</exception>
-    /// <exception cref="ArgumentException">A table contains a negative count.</exception>
+    /// <exception cref="ArgumentException">A table contains a negative count, or <paramref name="metric"/> is D2*/D2S or
+    /// <see cref="KmerDistanceMetric.SpacedEvolutionary"/> (they need the sequences).</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="metric"/> is undefined.</exception>
     public static double KmerDistance(
         IReadOnlyDictionary<string, int> counts1,
@@ -1223,6 +1241,10 @@ public static class KmerAnalyzer
         if (metric is KmerDistanceMetric.D2Star or KmerDistanceMetric.D2Shepherd)
             throw new ArgumentException(
                 "D2*/D2S need each sequence's background model; use KmerDistance(string, string, int, metric) or BackgroundAdjustedD2.",
+                nameof(metric));
+        if (metric is KmerDistanceMetric.SpacedEvolutionary)
+            throw new ArgumentException(
+                "The spaced EV distance needs the sequence lengths and base composition; use SpacedWordDistance or KmerDistance(string, string, int, metric).",
                 nameof(metric));
 
         double total1 = SumNonNegative(counts1, nameof(counts1));
@@ -1574,13 +1596,18 @@ public static class KmerAnalyzer
     /// <param name="query">Query sketch.</param>
     /// <returns>Shared hashes, denominator, Jaccard estimate, Mash distance and p-value.</returns>
     /// <exception cref="ArgumentNullException">A sketch is null.</exception>
-    /// <exception cref="ArgumentException">The sketches differ in k, seed or canonical mode (Mash refuses to compare them).</exception>
+    /// <exception cref="ArgumentException">The sketches differ in k, seed or canonical mode (Mash refuses to compare them), or a
+    /// sketch is malformed: <c>Hashes</c> null, not strictly ascending (sorted, distinct), longer than its <c>SketchSize</c>,
+    /// <c>SketchSize</c> &lt; 1 or <c>Length</c> &lt; 0 (build sketches with <see cref="CreateMinHashSketch(IEnumerable{string}, int, int, bool, uint)"/>
+    /// or <see cref="MinHashSketch.FromHashes"/>).</exception>
     public static MashComparison CompareMinHashSketches(MinHashSketch reference, MinHashSketch query)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(query);
         if (reference.K != query.K || reference.Seed != query.Seed || reference.Canonical != query.Canonical)
             throw new ArgumentException("Sketches must have the same k-mer size, seed and canonical mode.", nameof(query));
+        ValidateMinHashSketch(reference, nameof(reference));
+        ValidateMinHashSketch(query, nameof(query));
 
         int sketchSize = Math.Min(reference.SketchSize, query.SketchSize);
         var r = reference.Hashes;
@@ -1613,6 +1640,26 @@ public static class KmerAnalyzer
         return new MashComparison(common, denom, jaccard, distance, pValue);
     }
 
+    private static void ValidateMinHashSketch(MinHashSketch sketch, string paramName)
+    {
+        if (sketch.SketchSize < 1 || sketch.Length < 0)
+            throw new ArgumentException("SketchSize must be >= 1 and Length >= 0.", paramName);
+        if (sketch.Hashes is null)
+            throw new ArgumentException("Hashes must not be null.", paramName);
+        if (sketch.Hashes.Count > sketch.SketchSize)
+            throw new ArgumentException("A bottom-s sketch holds at most SketchSize hashes.", paramName);
+        ThrowIfNotStrictlyAscending(sketch.Hashes, paramName);
+    }
+
+    private static void ThrowIfNotStrictlyAscending(IReadOnlyList<ulong> hashes, string paramName)
+    {
+        for (int i = 1; i < hashes.Count; i++)
+        {
+            if (hashes[i] <= hashes[i - 1])
+                throw new ArgumentException("Hashes must be sorted ascending and distinct.", paramName);
+        }
+    }
+
     /// <summary>
     /// Mash p-value of observing ≥ <paramref name="sharedHashes"/> shared hashes by chance (Mash <c>CommandDistance.cpp</c>
     /// <c>pValue</c>): P(X ≥ x), X ~ Binomial(<paramref name="sketchSize"/>, r), r = p₁p₂/(p₁ + p₂ − p₁p₂),
@@ -1623,8 +1670,16 @@ public static class KmerAnalyzer
     /// <param name="length2">Total length of the second sequence set.</param>
     /// <param name="k">K-mer size (k-mer space 4^k).</param>
     /// <param name="sketchSize">The comparison denominator (number of binomial trials).</param>
+    /// <remarks>
+    /// Inputs that no comparison can produce are rejected instead of being passed through Mash's formula: x &gt; s (the
+    /// shared hashes are a subset of the s visited union hashes; Mash's <c>gsl_cdf_binomial_Q(x − 1, r, s)</c> silently
+    /// returns 0 for x − 1 ≥ s) and x ≥ 1 with a length of 0 (an empty sequence set has no hashes; Mash would compute
+    /// p = 1/(1 + 4^k/0) = 0, r = 0/0 = NaN, and GSL's beta CDF of NaN is NaN).
+    /// </remarks>
     /// <returns>The p-value in [0, 1].</returns>
     /// <exception cref="ArgumentOutOfRangeException">A count or length is negative, or <paramref name="k"/> is not positive.</exception>
+    /// <exception cref="ArgumentException"><paramref name="sharedHashes"/> exceeds <paramref name="sketchSize"/>, or is
+    /// positive while a length is 0.</exception>
     public static double MashPValue(long sharedHashes, long length1, long length2, int k, long sketchSize)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(sharedHashes);
@@ -1633,8 +1688,14 @@ public static class KmerAnalyzer
         ArgumentOutOfRangeException.ThrowIfNegative(sketchSize);
         if (k <= 0)
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+        if (sharedHashes > sketchSize)
+            throw new ArgumentException("Shared hashes cannot exceed the sketch size (number of compared hashes).", nameof(sharedHashes));
         if (sharedHashes == 0)
             return 1.0;
+        if (length1 == 0 || length2 == 0)
+            throw new ArgumentException(
+                "Shared hashes require two non-empty sequence sets (length >= 1); an empty set has no hashes.",
+                length1 == 0 ? nameof(length1) : nameof(length2));
 
         double kmerSpace = Math.Pow(4.0, k);
         double pX = 1.0 / (1.0 + kmerSpace / length1);
@@ -1705,6 +1766,171 @@ public static class KmerAnalyzer
 
     #endregion
 
+    #region FracMinHash (sourmash scaled sketches)
+
+    /// <summary>Default sourmash hash seed (<c>MinHash(seed=42)</c>).</summary>
+    public const uint DefaultSourmashSeed = 42;
+
+    /// <summary>
+    /// The FracMinHash threshold for a <paramref name="scaled"/> value, as sourmash 4.9.4 computes it (Rust core
+    /// <c>sketch/minhash.rs</c> <c>max_hash_for_scaled</c>): scaled = 1 → 2^64 − 1; otherwise
+    /// <c>(u64::MAX as f64 / scaled as f64) as u64</c>, i.e. ⌊2^64 / scaled⌋ evaluated in double precision and truncated.
+    /// </summary>
+    /// <remarks>
+    /// <c>u64::MAX as f64</c> rounds to 2^64. The Python helper <c>_get_max_hash_for_scaled</c> rounds instead of truncating;
+    /// the two agree while 2^64/scaled ≥ 2^53 (scaled ≤ 2048) and differ by one above (e.g. scaled 7919: Rust
+    /// 2329428472497733, Python 2329428472497734). <c>MinHash(n=0, scaled=S)</c> passes S to the Rust constructor, so the
+    /// Rust value is the one applied (sourmash <c>MinHash(0, 21, scaled=7919)._max_hash</c> = 2329428472497733).
+    /// </remarks>
+    /// <param name="scaled">The scaled factor S ≥ 1 (sourmash <c>ScaledType</c> is u32).</param>
+    /// <returns>max_hash; a sketch keeps the hashes h ≤ max_hash (about 1/S of all hashes).</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="scaled"/> is less than 1.</exception>
+    public static ulong FracMinHashMaxHash(int scaled)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(scaled, 1);
+        return scaled == 1 ? ulong.MaxValue : (ulong)(18446744073709551616.0 / scaled);
+    }
+
+    /// <summary>
+    /// Builds a FracMinHash ("scaled") sketch of one sequence exactly as sourmash 4.9.4
+    /// <c>MinHash(n=0, ksize=k, scaled=S, seed=42).add_sequence(seq, force=True)</c> does (Irber, Brooks, Reiter et al. 2022,
+    /// "Lightweight compositional analysis of metagenomes with FracMinHash and minimum metagenome covers", bioRxiv
+    /// 2022.01.11.475838; Hera, Pierce-Ward &amp; Koslicki 2023, Genome Res 33:1061).
+    /// </summary>
+    /// <remarks>
+    /// <para>K-mers: upper-cased; windows with a symbol other than A/C/G/T are skipped (sourmash <c>force=True</c>; without it
+    /// sourmash raises on such a window); each k-mer replaced by the lexicographically smaller of itself and its reverse
+    /// complement (Rust <c>signature.rs</c> <c>SeqToHashes</c>: <c>std::cmp::min(kmer, krc)</c> on the byte strings) — the set of
+    /// <see cref="DistinctKmers(string, int, KmerCountingOptions)"/> with <c>Canonical</c>. With
+    /// <paramref name="canonical"/> = false the forward k-mers (<c>AcgtOnly</c>) are hashed instead; sourmash has no such DNA
+    /// mode (it is Mash's <c>-n</c>).</para>
+    /// <para>Hash: the first 64-bit word of <see cref="MurmurHash3X64_128"/> of the k ASCII bytes with
+    /// <paramref name="seed"/> (sourmash <c>_hash_murmur</c>). The sketch keeps every distinct hash h ≤
+    /// <see cref="FracMinHashMaxHash"/>(<paramref name="scaled"/>) (Rust <c>add_hash</c>: <c>hash &gt; max_hash</c> is dropped),
+    /// ascending. <paramref name="scaled"/> = 1 keeps all hashes, so the sketch is the exact canonical k-mer set (up to
+    /// 64-bit hash collisions).</para>
+    /// </remarks>
+    /// <param name="sequence">The sequence; null is treated as empty.</param>
+    /// <param name="k">K-mer size ≥ 1 (sourmash default 31).</param>
+    /// <param name="scaled">Scaled factor S ≥ 1 (sourmash default 1000).</param>
+    /// <param name="canonical">True (default, sourmash): canonical k-mers; false: forward k-mers.</param>
+    /// <param name="seed">MurmurHash3 seed (sourmash default 42).</param>
+    /// <returns>The sketch.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> or <paramref name="scaled"/> is less than 1.</exception>
+    public static FracMinHashSketch CreateFracMinHashSketch(
+        string sequence, int k, int scaled, bool canonical = true, uint seed = DefaultSourmashSeed)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+        ulong maxHash = FracMinHashMaxHash(scaled);
+        var options = canonical ? new KmerCountingOptions(Canonical: true) : new KmerCountingOptions(AcgtOnly: true);
+        var kmers = DistinctKmers(sequence ?? string.Empty, k, options);
+
+        var hashes = new List<ulong>();
+        var bytes = new byte[k];
+        foreach (var kmer in kmers)
+        {
+            for (int i = 0; i < k; i++)
+                bytes[i] = (byte)kmer[i];
+            ulong h = MurmurHash3X64_128(bytes, seed).H1;
+            if (h <= maxHash)
+                hashes.Add(h);
+        }
+
+        hashes.Sort();
+        int distinct = 0;
+        for (int i = 0; i < hashes.Count; i++)
+        {
+            if (distinct == 0 || hashes[distinct - 1] != hashes[i])
+                hashes[distinct++] = hashes[i];
+        }
+        hashes.RemoveRange(distinct, hashes.Count - distinct);
+        return new FracMinHashSketch(k, scaled, maxHash, canonical, seed, hashes.ToArray());
+    }
+
+    /// <summary>
+    /// Compares two FracMinHash sketches as sourmash 4.9.4 does: Jaccard (<c>MinHash.jaccard</c>), containment of each in the
+    /// other (<c>contained_by</c>) and maximum containment (<c>max_containment</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>x = |A ∩ B| (shared hashes), u = |A ∪ B|. Jaccard = x / max(1, u) (Rust <c>KmerMinHash::jaccard</c>; 0 for two
+    /// empty sketches).</para>
+    /// <para>Containment of A in B (sourmash <c>A.contained_by(B)</c>, Python <c>minhash.py</c>): |A| = 0 → 0; otherwise
+    /// x / (|A|·b) with the bias factor b = 1 − (1 − 1/S)^(|A|·S) (Hera et al. 2023), clamped to [0, 1]. Maximum
+    /// containment uses min(|A|, |B|) in place of |A|. For S = 1, b = 1 and these are the exact ratios of
+    /// <see cref="ContainmentIndex(string, string, int, KmerCountingOptions)"/>.</para>
+    /// <para>sourmash refuses to compare sketches with different k, seed or scaled unless asked to downsample; the
+    /// downsampled sketch at a scaled S′ ≥ S is the subset with h ≤ max_hash(S′), which is what sketching the sequence at S′
+    /// gives, so sketch both sequences at the same <c>scaled</c>.</para>
+    /// </remarks>
+    /// <param name="a">First sketch (sourmash <c>self</c>).</param>
+    /// <param name="b">Second sketch (<c>other</c>).</param>
+    /// <returns>Shared and union hash counts, Jaccard, both containments and the maximum containment.</returns>
+    /// <exception cref="ArgumentNullException">A sketch is null.</exception>
+    /// <exception cref="ArgumentException">The sketches differ in k, seed, canonical mode or scaled, or a sketch is malformed
+    /// (<c>Hashes</c> null or not strictly ascending, a hash above <c>MaxHash</c>, or <c>MaxHash</c> ≠ max_hash(<c>Scaled</c>)).</exception>
+    public static FracMinHashComparison CompareFracMinHashSketches(FracMinHashSketch a, FracMinHashSketch b)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+        ValidateFracMinHashSketch(a, nameof(a));
+        ValidateFracMinHashSketch(b, nameof(b));
+        if (a.K != b.K || a.Seed != b.Seed || a.Canonical != b.Canonical || a.Scaled != b.Scaled)
+            throw new ArgumentException("Sketches must have the same k-mer size, seed, canonical mode and scaled.", nameof(b));
+
+        var x = a.Hashes;
+        var y = b.Hashes;
+        int i = 0, j = 0, shared = 0;
+        while (i < x.Count && j < y.Count)
+        {
+            if (x[i] < y[j])
+                i++;
+            else if (y[j] < x[i])
+                j++;
+            else
+            {
+                shared++;
+                i++;
+                j++;
+            }
+        }
+
+        int union = x.Count + y.Count - shared;
+        double jaccard = (double)shared / Math.Max(1, union);
+        return new FracMinHashComparison(
+            shared,
+            union,
+            jaccard,
+            DebiasedContainment(shared, x.Count, a.Scaled),
+            DebiasedContainment(shared, y.Count, a.Scaled),
+            DebiasedContainment(shared, Math.Min(x.Count, y.Count), a.Scaled));
+    }
+
+    // sourmash minhash.py contained_by / max_containment: x / (denom · (1 − (1 − 1/S)^(denom·S))), clamped to [0, 1].
+    private static double DebiasedContainment(int shared, int denom, int scaled)
+    {
+        if (denom == 0)
+            return 0.0;
+        double totalDenom = (double)((long)denom * scaled);
+        double biasFactor = 1.0 - Math.Pow(1.0 - 1.0 / scaled, totalDenom);
+        double containment = shared / (denom * biasFactor);
+        if (containment >= 1)
+            return 1.0;
+        return containment <= 0 ? 0.0 : containment;
+    }
+
+    private static void ValidateFracMinHashSketch(FracMinHashSketch sketch, string paramName)
+    {
+        if (sketch.Scaled < 1 || sketch.MaxHash != FracMinHashMaxHash(sketch.Scaled))
+            throw new ArgumentException("Scaled must be >= 1 and MaxHash must equal FracMinHashMaxHash(Scaled).", paramName);
+        if (sketch.Hashes is null)
+            throw new ArgumentException("Hashes must not be null.", paramName);
+        ThrowIfNotStrictlyAscending(sketch.Hashes, paramName);
+        if (sketch.Hashes.Count > 0 && sketch.Hashes[^1] > sketch.MaxHash)
+            throw new ArgumentException("A FracMinHash sketch holds only hashes <= MaxHash.", paramName);
+    }
+
+    #endregion
+
     /// <summary>
     /// Counts the spaced words of <paramref name="sequence"/> with respect to a binary match pattern
     /// (Leimeister, Boden, Horwege, Lindner &amp; Morgenstern 2014, Bioinformatics 30:1991).
@@ -1737,7 +1963,10 @@ public static class KmerAnalyzer
     /// every letter other than A/C/G/T is stored as 'N', and a word is kept only while <c>correctWord</c> holds, i.e. no
     /// match position reads 'N'. For the all-'1' pattern this is the k-mer ACGT-only window rule of
     /// <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>. The counts then
-    /// sum to the number of kept words (≤ L − ℓ + 1).</para>
+    /// sum to the number of kept words (≤ L − ℓ + 1). This method windows the string as given; <c>spaced</c>'s reader also
+    /// deletes every non-letter character (gaps '-', '*', digits, blanks) before windowing, which
+    /// <see cref="SpacedWordDistance(string, string, IReadOnlyList{string}, KmerDistanceMetric, KmerCountingOptions, bool)"/>
+    /// does in its <c>AcgtOnly</c> (spaced-faithful) mode.</para>
     /// <para><b>Canonical</b> is rejected (<see cref="ArgumentException"/>): the reverse strand's spaced word at a window is
     /// read with the mirrored pattern, so min(word, RC(word)) is not a strand-independent key unless the pattern is a
     /// palindrome, and neither the paper nor <c>spaced</c> defines it. <c>spaced</c>'s reverse-complement handling is the
@@ -1828,7 +2057,9 @@ public static class KmerAnalyzer
     /// <param name="seq2">Second sequence, same conventions.</param>
     /// <param name="patterns">One or more binary patterns (see <see cref="CountSpacedWords(string, string)"/>), all of the
     /// same weight (number of '1'). The all-'1' pattern of length k gives the contiguous k-mer distance.</param>
-    /// <param name="metric">The per-pattern word-vector metric; any metric of the count-table overload (not D2*/D2S).</param>
+    /// <param name="metric">The per-pattern word-vector metric; any metric of the count-table overload (not D2*/D2S), or
+    /// <see cref="KmerDistanceMetric.SpacedEvolutionary"/> (<c>spaced -d EV</c>, always read in the spaced-faithful mode; see the
+    /// 6-argument overload).</param>
     /// <returns>The mean of the per-pattern values.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="patterns"/> or one of its patterns is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="patterns"/> is empty, a pattern is malformed, the weights
@@ -1843,7 +2074,8 @@ public static class KmerAnalyzer
 
     /// <summary>
     /// Multiple-pattern spaced-word distance with the word rule of <see cref="CountSpacedWords(string, string, KmerCountingOptions)"/>
-    /// and, optionally, the reverse-complement mode of the <c>spaced</c> program.
+    /// and, optionally, the reverse-complement mode of the <c>spaced</c> program; also the <c>spaced -d EV</c> evolutionary
+    /// distance (<see cref="KmerDistanceMetric.SpacedEvolutionary"/>).
     /// </summary>
     /// <remarks>
     /// <para>For each pattern P (length ℓ) the two word tables are compared with the word-vector metric, and the values are
@@ -1853,6 +2085,11 @@ public static class KmerAnalyzer
     /// (<c>src/sort.h</c>: <c>row[i] /= seqWordEnd − seqStart</c>). With the default literal words every window gives one
     /// word, so W = Σc and the result equals the 4-argument overload. With <c>AcgtOnly</c> the dropped words still count in W,
     /// as in <c>spaced</c>, so the frequencies sum to less than 1.</para>
+    /// <para><b>Spaced-faithful mode = <c>AcgtOnly</c></b> (with or without <paramref name="bothStrands"/>). Both sequences are
+    /// first read as <c>spacedDNA</c> reads a FASTA record: every character that is not an ASCII letter (gap '-', '*',
+    /// digits, blanks) is deleted, letters are upper-cased, and every letter other than A/C/G/T becomes N. L and W are taken
+    /// on the read sequence, so "ACG-TACGT" is windowed as "ACGTACGT" (8 letters). The literal default mode windows the string
+    /// as given (a gap is a symbol) and is not <c>spaced</c>'s rule.</para>
     /// <para><b><paramref name="bothStrands"/></b> reproduces <c>spaced</c>'s default mode (run without <c>-r</c>), in which the
     /// sequence that comes first in the input is compared on both strands and the other on its forward strand only.
     /// In <c>spacedDNA</c> the matrix entry d[i][j] (i &gt; j) uses row_i = forward counts of sequence i and, for sequence j,
@@ -1862,23 +2099,36 @@ public static class KmerAnalyzer
     /// FASTA record) and <paramref name="seq2"/> sequence i (forward strand; the second record). For every metric, the
     /// seq1 vector becomes F₁ + R₁ with total 2·W₁, and the seq2 vector stays F₂ with total W₂. The value therefore
     /// depends on the argument order. This is a convention of the tool: the paper (Leimeister et al. 2014) does not
-    /// define it. Exact <c>spaced</c> output needs <c>AcgtOnly = true</c> (spaced turns every non-ACGT letter into N, and
-    /// N complements to N) or ACGT input. Metric correspondence: <see cref="KmerDistanceMetric.JensenShannon"/> =
-    /// <c>-d JS</c>, <see cref="KmerDistanceMetric.EuclideanCounts"/> = <c>-d EU</c>.</para>
-    /// <para>Cross-checked against the <c>spaced</c> 1.2.0 binary (Ubuntu archive) with and without <c>-r</c> on 3 sequence
-    /// pairs (one with N, IUPAC and lower case) × 3 pattern sets × JS/EU: all 36 values equal to the 12 printed digits
-    /// (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.7).</para>
+    /// define it. Exact <c>spaced</c> output needs <c>AcgtOnly = true</c>. Metric correspondence:
+    /// <see cref="KmerDistanceMetric.JensenShannon"/> = <c>-d JS</c>, <see cref="KmerDistanceMetric.EuclideanCounts"/> =
+    /// <c>-d EU</c>, <see cref="KmerDistanceMetric.SpacedEvolutionary"/> = <c>-d EV</c>.</para>
+    /// <para><b><see cref="KmerDistanceMetric.SpacedEvolutionary"/></b> (Morgenstern, Zhu, Horwege &amp; Leimeister 2015,
+    /// Algorithms Mol Biol 10:5), exactly as <c>spaced</c> 1.2.0 <c>sort.h</c> (EV branch) computes it; always read in the
+    /// spaced-faithful mode (<c>AcgtOnly</c> implied). All patterns must have the same length ℓ (the program keeps one
+    /// weight w and one don't-care count). N = Σ_P Σ_w min(c₂(w), c₁(w)) is the number of spaced-word matches summed over the
+    /// patterns, with c₂ the forward counts of <paramref name="seq2"/> and c₁ those of <paramref name="seq1"/> (forward +
+    /// reverse strand with <paramref name="bothStrands"/>). With L₁, L₂ the read lengths (N letters included),
+    /// m = min(L₁, L₂) − ℓ + 1, M = max(L₁, L₂) − ℓ + 1, base frequencies f(a) = count(a) ÷ L and background match probability
+    /// q = Σ_a f₁(a)·f₂(a) (with <paramref name="bothStrands"/>, each f(a) is averaged with f(complement a)), the value under
+    /// the root is V = N ÷ (|P|·m) − s·M·q^w, s = 2 with <paramref name="bothStrands"/> and 1 without. If V ≥ 0 the
+    /// match probability per site is p = V^(1/w) and the distance d = −¾·ln(4p/3 − 1/3) (Jukes–Cantor); otherwise
+    /// <c>spaced</c> prints the saturation value <see cref="SpacedEvolutionarySaturationDistance"/> (1.2). As in the
+    /// program, p &lt; ¼ gives NaN and p = ¼ gives +∞ (e.g. a sequence of N only).</para>
+    /// <para>Cross-checked against the <c>spaced</c> 1.2.0 binary (Ubuntu archive) with and without <c>-r</c>: 248 runs on 11
+    /// sequence pairs (with N, IUPAC, lower case, gaps, '*' and digits) × up to 7 pattern sets × EV/JS/EU, all equal to the
+    /// 12 printed digits (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.7, §7.8).</para>
     /// </remarks>
     /// <param name="seq1">First sequence (both strands when <paramref name="bothStrands"/>).</param>
     /// <param name="seq2">Second sequence (forward strand).</param>
-    /// <param name="patterns">One or more binary patterns of equal weight.</param>
-    /// <param name="metric">The per-pattern word-vector metric (not D2*/D2S).</param>
-    /// <param name="options">Word rule; <c>Canonical</c> must be false.</param>
+    /// <param name="patterns">One or more binary patterns of equal weight (and, for EV, equal length).</param>
+    /// <param name="metric">The per-pattern word-vector metric (not D2*/D2S), or <see cref="KmerDistanceMetric.SpacedEvolutionary"/>.</param>
+    /// <param name="options">Word rule; <c>AcgtOnly</c> = the spaced-faithful reader and N-word rule; <c>Canonical</c> must be false.</param>
     /// <param name="bothStrands">The <c>spaced</c> reverse-complement mode (seq1 on both strands vs seq2 forward).</param>
-    /// <returns>The mean of the per-pattern values.</returns>
+    /// <returns>The mean of the per-pattern values, or the EV distance.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="patterns"/> or one of its patterns is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="patterns"/> is empty, a pattern is malformed, the weights differ,
-    /// <paramref name="metric"/> is D2*/D2S, or <paramref name="options"/> has <c>Canonical = true</c>.</exception>
+    /// <paramref name="metric"/> is D2*/D2S, <paramref name="options"/> has <c>Canonical = true</c>, or (EV) the pattern
+    /// lengths differ or a read sequence is shorter than the pattern.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="metric"/> is undefined.</exception>
     public static double SpacedWordDistance(
         string seq1,
@@ -1914,6 +2164,15 @@ public static class KmerAnalyzer
 
         seq1 ??= string.Empty; // null = empty sequence (zero vector), as before
         seq2 ??= string.Empty;
+        if (metric is KmerDistanceMetric.SpacedEvolutionary)
+            return SpacedEvolutionaryDistance(SpacedRead(seq1), SpacedRead(seq2), patterns, weight, bothStrands);
+
+        if (options.AcgtOnly)
+        {
+            seq1 = SpacedRead(seq1);
+            seq2 = SpacedRead(seq2);
+        }
+
         string reverse1 = bothStrands ? DnaSequence.GetReverseComplementString(seq1) : string.Empty;
         double sum = 0;
         foreach (var pattern in patterns)
@@ -1932,6 +2191,108 @@ public static class KmerAnalyzer
             sum += WordVectorDistance(counts1, windows1, counts2, windows2, metric);
         }
         return sum / patterns.Count;
+    }
+
+    /// <summary>
+    /// The value <c>spaced</c> 1.2.0 prints for <c>-d EV</c> when the estimated match rate is undefined (negative value under
+    /// the root: fewer spaced-word matches than expected by chance), <c>sort.h</c> <c>dmat[0][i][j] = 1.2</c>.
+    /// </summary>
+    public const double SpacedEvolutionarySaturationDistance = 1.2;
+
+    /// <summary>
+    /// <c>spacedDNA</c>'s FASTA reader applied to one sequence: non-letters (ASCII <c>isalpha</c> false) are deleted, letters
+    /// upper-cased, every letter other than A/C/G/T stored as N.
+    /// </summary>
+    private static string SpacedRead(string sequence)
+    {
+        var read = new StringBuilder(sequence.Length);
+        foreach (char ch in sequence)
+        {
+            if (!char.IsAsciiLetter(ch))
+                continue;
+            char c = char.ToUpperInvariant(ch);
+            read.Append(IsAcgt(c) ? c : 'N');
+        }
+        return read.ToString();
+    }
+
+    /// <summary><c>spaced</c> 1.2.0 <c>sort.h</c> EV branch on two read sequences (see <see cref="KmerDistanceMetric.SpacedEvolutionary"/>).</summary>
+    private static double SpacedEvolutionaryDistance(
+        string read1, string read2, IReadOnlyList<string> patterns, int weight, bool bothStrands)
+    {
+        int patternLength = patterns[0].Length;
+        foreach (var pattern in patterns)
+        {
+            if (pattern.Length != patternLength)
+                throw new ArgumentException(
+                    "The spaced EV distance needs all patterns of the same length (spaced keeps one weight and one don't-care count).",
+                    nameof(patterns));
+        }
+        if (read1.Length < patternLength || read2.Length < patternLength)
+            throw new ArgumentException(
+                "The spaced EV distance needs both sequences to have at least as many letters as the pattern length.",
+                read1.Length < patternLength ? "seq1" : "seq2");
+
+        var acgtOnly = new KmerCountingOptions(AcgtOnly: true);
+        string reverse1 = bothStrands ? DnaSequence.GetReverseComplementString(read1) : string.Empty;
+        double matches = 0;
+        foreach (var pattern in patterns)
+        {
+            var counts1 = CountSpacedWords(read1, pattern, acgtOnly);
+            if (bothStrands)
+            {
+                foreach (var (word, count) in CountSpacedWords(reverse1, pattern, acgtOnly))
+                    CollectionsMarshal.GetValueRefOrAddDefault(counts1, word, out _) += count;
+            }
+            foreach (var (word, count2) in CountSpacedWords(read2, pattern, acgtOnly))
+            {
+                if (counts1.TryGetValue(word, out int count1))
+                    matches += Math.Min(count1, count2);
+            }
+        }
+
+        int ell = patternLength - 1;
+        double min = Math.Min(read1.Length, read2.Length) - ell;
+        double max = Math.Max(read1.Length, read2.Length) - ell;
+        double[] f1 = BaseFrequencies(read1);
+        double[] f2 = BaseFrequencies(read2);
+        double q = 0;
+        for (int a = 0; a < 4; a++)
+        {
+            if (bothStrands)
+                q += ((f2[a] + f2[3 - a]) * 0.5) * ((f1[a] + f1[3 - a]) * 0.5);
+            else
+                q += f2[a] * f1[a];
+        }
+
+        double underRoot = bothStrands
+            ? matches / (patterns.Count * min) - 2 * max * Math.Pow(q, weight)
+            : matches / (patterns.Count * min) - max * Math.Pow(q, weight);
+        if (underRoot >= 0)
+        {
+            double p = Math.Pow(underRoot, 1.0 / weight);
+            return -0.75 * Math.Log((4.0 / 3.0) * p - (1.0 / 3.0));
+        }
+        return SpacedEvolutionarySaturationDistance;
+
+        // A, C, G, T counts ÷ read length (N letters count in the length only), spaced's frequencies[k].
+        static double[] BaseFrequencies(string read)
+        {
+            var f = new double[4];
+            foreach (char c in read)
+            {
+                switch (c)
+                {
+                    case 'A': f[0]++; break;
+                    case 'C': f[1]++; break;
+                    case 'G': f[2]++; break;
+                    case 'T': f[3]++; break;
+                }
+            }
+            for (int a = 0; a < 4; a++)
+                f[a] /= read.Length;
+            return f;
+        }
     }
 
 
@@ -2738,7 +3099,58 @@ public readonly record struct D2StarStatistics(double D2Star, double D2Shepherd,
 /// <param name="Use64">True when the 64-bit hash h1 is used (k ≥ 17); false for its low 32 bits.</param>
 /// <param name="Length">Total length of the sketched records of length ≥ k (Mash reference length).</param>
 /// <param name="Hashes">The smallest distinct hash values, ascending.</param>
-public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint Seed, bool Use64, long Length, IReadOnlyList<ulong> Hashes);
+public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint Seed, bool Use64, long Length, IReadOnlyList<ulong> Hashes)
+{
+    /// <summary>
+    /// Builds a well-formed sketch from arbitrary hash values (e.g. read from a Mash <c>.msh</c> file): the values are sorted,
+    /// duplicates removed and the <paramref name="sketchSize"/> smallest kept, which is the form
+    /// <see cref="KmerAnalyzer.CompareMinHashSketches"/> requires.
+    /// </summary>
+    /// <param name="k">K-mer size, 1..32.</param>
+    /// <param name="sketchSize">Sketch size s ≥ 1.</param>
+    /// <param name="canonical">Canonical mode of the hashed k-mers.</param>
+    /// <param name="seed">Hash seed.</param>
+    /// <param name="length">Total sequence length (Mash reference length), ≥ 0.</param>
+    /// <param name="hashes">Hash values in any order.</param>
+    /// <returns>The sketch, with <see cref="Use64"/> = k ≥ 17 as Mash sets it.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="hashes"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> outside 1..32, <paramref name="sketchSize"/> &lt; 1,
+    /// or <paramref name="length"/> &lt; 0.</exception>
+    public static MinHashSketch FromHashes(int k, int sketchSize, bool canonical, uint seed, long length, IEnumerable<ulong> hashes)
+    {
+        ArgumentNullException.ThrowIfNull(hashes);
+        if (k < 1 || k > KmerAnalyzer.MaxMashKmerSize)
+            throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{KmerAnalyzer.MaxMashKmerSize} (mash sketch -k).");
+        ArgumentOutOfRangeException.ThrowIfLessThan(sketchSize, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        var bottom = hashes.Distinct().Order().Take(sketchSize).ToArray();
+        return new MinHashSketch(k, sketchSize, canonical, seed, k > 16, length, bottom);
+    }
+}
+
+/// <summary>
+/// A FracMinHash ("scaled") sketch as built by sourmash (<see cref="KmerAnalyzer.CreateFracMinHashSketch"/>).
+/// </summary>
+/// <param name="K">K-mer size.</param>
+/// <param name="Scaled">Scaled factor S.</param>
+/// <param name="MaxHash">Threshold <see cref="KmerAnalyzer.FracMinHashMaxHash"/>(S): the sketch holds every hash ≤ MaxHash.</param>
+/// <param name="Canonical">True for canonical k-mers (sourmash), false for forward k-mers.</param>
+/// <param name="Seed">MurmurHash3 seed.</param>
+/// <param name="Hashes">The kept distinct hash values, ascending.</param>
+public sealed record FracMinHashSketch(int K, int Scaled, ulong MaxHash, bool Canonical, uint Seed, IReadOnlyList<ulong> Hashes);
+
+/// <summary>
+/// Result of <see cref="KmerAnalyzer.CompareFracMinHashSketches"/> — sourmash <c>jaccard</c>, <c>contained_by</c> (both ways)
+/// and <c>max_containment</c>.
+/// </summary>
+/// <param name="SharedHashes">|A ∩ B| (sourmash <c>count_common</c>).</param>
+/// <param name="UnionHashes">|A ∪ B|.</param>
+/// <param name="Jaccard">Shared / max(1, union).</param>
+/// <param name="ContainmentAInB">sourmash <c>A.contained_by(B)</c> (bias-corrected, clamped to [0, 1]).</param>
+/// <param name="ContainmentBInA">sourmash <c>B.contained_by(A)</c>.</param>
+/// <param name="MaxContainment">sourmash <c>A.max_containment(B)</c>.</param>
+public readonly record struct FracMinHashComparison(
+    int SharedHashes, int UnionHashes, double Jaccard, double ContainmentAInB, double ContainmentBInA, double MaxContainment);
 
 /// <summary>
 /// Result of <see cref="KmerAnalyzer.CompareMinHashSketches"/> — one <c>mash dist</c> output line.
@@ -2801,4 +3213,13 @@ public enum KmerDistanceMetric
 
     /// <summary>√Σ(c₁−c₂)² on raw counts — the per-pattern Euclidean value of the <c>spaced</c> 1.2 program (<c>-d EU</c>).</summary>
     EuclideanCounts,
+
+    /// <summary>
+    /// Evolutionary distance (substitutions per site, Jukes–Cantor corrected) estimated from the number of spaced-word
+    /// matches (Morgenstern, Zhu, Horwege &amp; Leimeister 2015, Algorithms Mol Biol 10:5; <c>spaced -d EV</c>). Not a
+    /// word-vector metric: it needs the sequence lengths and base composition, so only the string overloads accept it
+    /// (<see cref="KmerAnalyzer.SpacedWordDistance(string, string, IReadOnlyList{string}, KmerDistanceMetric, KmerCountingOptions, bool)"/>,
+    /// and <see cref="KmerAnalyzer.KmerDistance(string, string, int, KmerDistanceMetric, int, bool)"/> with the pattern 1^k).
+    /// </summary>
+    SpacedEvolutionary,
 }

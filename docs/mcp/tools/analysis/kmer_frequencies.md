@@ -27,7 +27,7 @@ of counted windows, so the values sum to 1.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L659](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L659)
+- Source: [KmerAnalyzer.cs#L660](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L660)
 
 ## Input Schema
 

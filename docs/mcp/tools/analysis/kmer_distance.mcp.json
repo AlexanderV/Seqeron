@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "kmer_distance",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.KmerDistance",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L772",
-  "description": "Alignment-free word-vector distance between two sequences' k-mer composition. Default: Euclidean distance between the normalized k-mer frequency vectors (0 = identical composition). Optional metric: squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity). d2star / d2shepherd: background-adjusted d2* / d2S dissimilarities in [0,1] (Reinert et al. 2009; Song et al. 2014), Markov background of order markovOrder fitted to each sequence, ACGT words, k <= 12. bothStrands = CAFE -R both-strand d2*/d2S. jensen_shannon: JS divergence (base 2) of the frequency vectors; euclidean_counts: Euclidean distance of raw counts.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L778",
+  "description": "Alignment-free word-vector distance between two sequences' k-mer composition. Default: Euclidean distance between the normalized k-mer frequency vectors (0 = identical composition). Optional metric: squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity). d2star / d2shepherd: background-adjusted d2* / d2S dissimilarities in [0,1] (Reinert et al. 2009; Song et al. 2014), Markov background of order markovOrder fitted to each sequence, ACGT words, k <= 12. bothStrands = CAFE -R both-strand d2*/d2S. jensen_shannon: JS divergence (base 2) of the frequency vectors; euclidean_counts: Euclidean distance of raw counts. ev: spaced -d EV evolutionary distance with the pattern 1^k.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -27,7 +27,7 @@
       },
       "metric": {
         "type": "string",
-        "description": "Word-vector metric",
+        "description": "Word-vector metric; ev = spaced -d EV evolutionary distance (Morgenstern et al. 2015) with the contiguous pattern 1^k",
         "enum": [
           "euclidean",
           "squared_euclidean_counts",
@@ -41,7 +41,9 @@
           "d2s",
           "jensen_shannon",
           "js",
-          "euclidean_counts"
+          "euclidean_counts",
+          "ev",
+          "evolutionary"
         ],
         "default": "euclidean"
       },
@@ -53,7 +55,7 @@
       },
       "bothStrands": {
         "type": "boolean",
-        "description": "d2star/d2shepherd only: CAFE -R both-strand mode (count of w + count of its reverse complement; background probability averaged over w and its reverse complement)",
+        "description": "d2star/d2shepherd: CAFE -R both-strand mode (count of w + count of its reverse complement; background probability averaged over w and its reverse complement); ev: spaced's reverse-complement mode (seq1 on both strands vs seq2 forward)",
         "default": false
       }
     },
@@ -86,7 +88,7 @@
     },
     {
       "code": 1002,
-      "message": "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts"
+      "message": "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts, ev"
     },
     {
       "code": 1002,
@@ -95,6 +97,10 @@
     {
       "code": 1002,
       "message": "bothStrands applies only to the background-adjusted metrics D2Star and D2Shepherd; count canonical k-mers (KmerCountingOptions.Canonical) for the other metrics."
+    },
+    {
+      "code": 1002,
+      "message": "The spaced EV distance needs both sequences to have at least as many letters as the pattern length."
     }
   ],
   "examples": [

@@ -94,4 +94,22 @@ public class KmerDistanceTests
         });
         Assert.Throws<ArgumentException>(() => AnalysisTools.KmerDistance(s1, s2, 3, "euclidean", 0, bothStrands: true));
     }
+
+    /// <summary>
+    /// Audit round 3 WP9: metric ev = spaced -d EV with the pattern 1^k (spaced 1.2.0 -f 1111 on S1/S2 prints 1.2, the
+    /// saturation value, with and without -r).
+    /// </summary>
+    [Test]
+    public void KmerDistance_Ev_DelegatesToSpacedEvolutionary()
+    {
+        const string s1 = "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT";
+        const string s2 = "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 4, "ev").Distance, Is.EqualTo(1.2));
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 4, "ev", 0, bothStrands: true).Distance, Is.EqualTo(1.2));
+            Assert.That(AnalysisTools.KmerDistance(s1, s2, 3, "ev").Distance, Is.EqualTo(
+                Seqeron.Genomics.Analysis.KmerAnalyzer.SpacedWordDistance(s1, s2, new[] { "111" }, Seqeron.Genomics.Analysis.KmerDistanceMetric.SpacedEvolutionary)));
+        });
+    }
 }

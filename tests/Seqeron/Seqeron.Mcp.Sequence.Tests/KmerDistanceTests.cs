@@ -48,6 +48,8 @@ public class KmerDistanceTests
             Assert.That(SequenceTools.KmerDistance("ATGTGTG", "CATGTG", 3, "d2").Distance, Is.EqualTo(5.0));
             Assert.That(SequenceTools.KmerDistance(s1, s2, 3, "d2star").Distance, Is.EqualTo(0.44457941706964565).Within(1e-12));
             Assert.That(SequenceTools.KmerDistance(s1, s2, 3, "d2shepherd", 1).Distance, Is.EqualTo(0.5226793773737308).Within(1e-12));
+            // spaced 1.2.0 -r -f 1111 -d EV on S1/S2: 1.2 (saturation value); audit round 3 WP9.
+            Assert.That(SequenceTools.KmerDistance(s1, s2, 4, "ev").Distance, Is.EqualTo(1.2));
         });
         Assert.Throws<ArgumentException>(() => SequenceTools.KmerDistance(s1, s2, 3, "bogus"));
         Assert.Throws<ArgumentException>(() => SequenceTools.KmerDistance(s1, s2, 3, "cosine", 2));

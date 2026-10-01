@@ -73,6 +73,30 @@ public class KmerJaccardTests
         });
     }
 
+    [Test]
+    public void KmerJaccard_Scaled_MatchesSourmashFracMinHash()
+    {
+        // sourmash 4.9.4 MinHash(n=0, ksize=4, scaled=3) on S1/S2: len 21 / 17, count_common 9, jaccard 0.3103448275862069,
+        // S1.contained_by(S2) 0.4285714285748822, S2.contained_by(S1) 0.52941176525941, max_containment 0.52941176525941;
+        // Mash formula -ln(2J/(1+J))/4 = 0.18680360045755526. scaled=1: jaccard 0.23863636363636365 (exact).
+        var r = AnalysisTools.KmerJaccard(S1, S2, 4, scaled: 3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.SharedHashes, Is.EqualTo(9));
+            Assert.That(r.SketchDenominator, Is.EqualTo(29));
+            Assert.That(r.Jaccard, Is.EqualTo(0.3103448275862069).Within(1e-15));
+            Assert.That(r.ContainmentSeq1InSeq2, Is.EqualTo(0.4285714285748822).Within(1e-15));
+            Assert.That(r.ContainmentSeq2InSeq1, Is.EqualTo(0.52941176525941).Within(1e-15));
+            Assert.That(r.MaxContainment!.Value, Is.EqualTo(0.52941176525941).Within(1e-15));
+            Assert.That(r.MashDistance, Is.EqualTo(0.18680360045755526).Within(1e-15));
+            Assert.That(r.PValue, Is.Null);
+            Assert.That(AnalysisTools.KmerJaccard(S1, S2, 4, scaled: 1).Jaccard, Is.EqualTo(0.23863636363636365).Within(1e-15));
+            Assert.That(AnalysisTools.KmerJaccard(S1, S2, 4).MaxContainment, Is.Null);
+            Assert.Throws<ArgumentException>(() => AnalysisTools.KmerJaccard(S1, S2, 4, scaled: -1));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.KmerJaccard(S1, S2, 4, sketchSize: 10, scaled: 10));
+        });
+    }
+
     private const string S1 = "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT";
     private const string S2 = "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC";
 }

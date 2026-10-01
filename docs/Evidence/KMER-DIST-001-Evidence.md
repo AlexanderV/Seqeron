@@ -255,7 +255,30 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
   ASM-D11: `bothStrands` maps `seq1` to the first FASTA record (both strands) and `seq2` to the second (forward), the
   `spaced` matrix entry d[second][first].
 
+## Audit round 3 (WP9, 2026-10-01) — `spaced -d EV`, spaced reader, sourmash FracMinHash, validation
+
+- Sources opened: `spaced` 1.2.0 `src/sort.h` (Ubuntu archive `spaced_1.2.0-201605+dfsg`, Debian patch 0002 moves
+  `ell = dontCare + weight − 1` out of `#ifdef _OPENMP`) — EV branch: Σ min(row_i, row_j [+ row_j′]) over words and
+  patterns, `min/max = min/max(length) − ell`, q = Σ f_i f_j (strand-averaged with `revComp`), V = M/(P·min) − (2·)max·q^w,
+  p = V^(1/w), d = −0.75·ln(4p/3 − 1/3), else 1.2; reader: `isalpha` letters only, `toupper`, non-ACGT → N
+  (Morgenstern, Zhu, Horwege & Leimeister 2015, Algorithms Mol Biol 10:5). sourmash 4.9.4 Python `minhash.py`
+  (`contained_by`, `max_containment`, `_get_max_hash_for_scaled`) and Rust core v4.9.4 (`max_hash_for_scaled`,
+  `jaccard`, `add_hash`, `SeqToHashes` `std::cmp::min(kmer, krc)`, `_hash_murmur`). GSL `cdf/binomial.c`
+  (`gsl_cdf_binomial_Q`: k ≥ n → 0) for Mash's p-value edge cases.
+- `spaced` binary: 248 runs (EV/JS/EU × `-r`/default × 11 pairs incl. gaps, `*`, digits, N, IUPAC, lower case × up to
+  7 pattern sets) = Python replica `ref.py` at the printed digits = C# within one unit of the 12th digit. E.g. A/B
+  (10 %) weight-8 EV 0.117255304438 / 0.119414426485; N1/N2 P7 EV −nan / 0.767483449137; X = `ACG-TACGT`, Y =
+  `ACGTTACGA` {1011, 1101} JS 0.57013316426 (pre-WP9 C# 0.25), EV 0.427666596474.
+- sourmash: 40 comparisons (5 pairs × k 21/31 × scaled 1/10/100/1000; `add_sequence(force=True)`) — sketch sizes,
+  `count_common`, `jaccard`, `contained_by` both ways, `max_containment` all equal C# exactly; `_max_hash` S = 7919 =
+  2329428472497733 (Rust truncation; the Python helper's rounding gives …734).
+- ASM-D12: EV requires equal pattern lengths and read lengths ≥ ℓ (`spaced` assumes one ℓ and reads outside the
+  record otherwise). ASM-D13: `MashPValue` rejects x > s and x ≥ 1 with a zero length (unreachable from a comparison;
+  Mash would return 0 / NaN). ASM-D14: d2*/d2S clamped to [0, 1] (Cauchy–Schwarz; removes −1.1e-16 rounding).
+
 ## Change History
+
+- **2026-10-01**: Audit round 3 WP9 — `spaced -d EV` (`SpacedEvolutionary`), spaced reader in the `AcgtOnly` path, sourmash FracMinHash sketches, `MashPValue` / sketch validation, d2*/d2S clamp.
 
 - **2026-10-01**: Audit round 2 WP8 — `spaced` N-word rule (`AcgtOnly`) and reverse-complement mode (`bothStrands`) for `SpacedWordDistance`; 36 binary runs.
 

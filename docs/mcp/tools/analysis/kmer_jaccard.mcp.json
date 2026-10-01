@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "kmer_jaccard",
   "serverName": "Analysis",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.JaccardSimilarity",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1349",
-  "description": "k-mer Jaccard index |A∩B|/|A∪B| (exact, or Mash bottom-s MinHash estimate with sketchSize > 0), the Mash distance -ln(2J/(1+J))/k (Ondov et al. 2016), the Mash p-value and x/s in sketch mode, and the exact containment indices |A∩B|/|A|, |A∩B|/|B| (Koslicki & Zabeti 2019). canonical=true gives Mash/sourmash k-mers.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1371",
+  "description": "k-mer Jaccard index |A∩B|/|A∪B| (exact, or Mash bottom-s MinHash estimate with sketchSize > 0), the Mash distance -ln(2J/(1+J))/k (Ondov et al. 2016), the Mash p-value and x/s in sketch mode, and the exact containment indices |A∩B|/|A|, |A∩B|/|B| (Koslicki & Zabeti 2019). scaled > 0 uses sourmash FracMinHash sketches (keep hashes <= max_hash(scaled); Jaccard, bias-corrected contained_by, max_containment; Irber et al. 2022, Hera et al. 2023). canonical=true gives Mash/sourmash k-mers.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -40,6 +40,12 @@
         "description": "0 = exact sets (default); s > 0 = Mash MinHash sketch size (mash -s; Mash default 1000), MurmurHash3_x64_128 seed 42, k <= 32",
         "minimum": 0,
         "default": 0
+      },
+      "scaled": {
+        "type": "integer",
+        "description": "0 = no FracMinHash (default); S > 0 = sourmash scaled factor (MinHash(n=0, scaled=S), canonical k-mers, MurmurHash3_x64_128 seed 42, hashes <= (u64::MAX as f64 / S) as u64 kept; sourmash default 1000; 1 = exact). Mutually exclusive with sketchSize",
+        "minimum": 0,
+        "default": 0
       }
     },
     "required": [
@@ -61,25 +67,25 @@
       },
       "containmentSeq1InSeq2": {
         "type": "number",
-        "description": "Exact containment |A∩B|/|A| (0 when A is empty)"
+        "description": "Exact containment |A∩B|/|A| (0 when A is empty); with scaled > 0 sourmash A.contained_by(B) (bias-corrected)"
       },
       "containmentSeq2InSeq1": {
         "type": "number",
-        "description": "Exact containment |A∩B|/|B| (0 when B is empty)"
+        "description": "Exact containment |A∩B|/|B| (0 when B is empty); with scaled > 0 sourmash B.contained_by(A)"
       },
       "sharedHashes": {
         "type": [
           "integer",
           "null"
         ],
-        "description": "Sketch mode: shared hashes x of Mash's x/s; null in exact mode"
+        "description": "Sketch mode: shared hashes x of Mash's x/s; scaled mode: |A∩B| (sourmash count_common); null in exact mode"
       },
       "sketchDenominator": {
         "type": [
           "integer",
           "null"
         ],
-        "description": "Sketch mode: union hashes compared (denominator of x/s); null in exact mode"
+        "description": "Sketch mode: union hashes compared (denominator of x/s); scaled mode: |A∪B|; null in exact mode"
       },
       "pValue": {
         "type": [
@@ -87,6 +93,13 @@
           "null"
         ],
         "description": "Sketch mode: Mash p-value P(X >= x), X ~ Binomial(denominator, r); null in exact mode"
+      },
+      "maxContainment": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Scaled mode: sourmash max_containment (shared / min(|A|,|B|), bias-corrected); null otherwise"
       }
     },
     "required": [
@@ -112,6 +125,14 @@
     {
       "code": 1003,
       "message": "k must be <= 32 when sketchSize > 0"
+    },
+    {
+      "code": 1003,
+      "message": "scaled must be >= 0"
+    },
+    {
+      "code": 1003,
+      "message": "sketchSize and scaled are mutually exclusive (Mash bottom-s vs sourmash FracMinHash)"
     }
   ],
   "examples": [
@@ -130,7 +151,8 @@
         "containmentSeq2InSeq1": 0.5555555555555556,
         "sharedHashes": null,
         "sketchDenominator": null,
-        "pValue": null
+        "pValue": null,
+        "maxContainment": null
       }
     },
     {
@@ -147,7 +169,27 @@
         "containmentSeq2InSeq1": 0.75,
         "sharedHashes": null,
         "sketchDenominator": null,
-        "pValue": null
+        "pValue": null,
+        "maxContainment": null
+      }
+    },
+    {
+      "name": "sourmash FracMinHash scaled=3",
+      "input": {
+        "seq1": "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT",
+        "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC",
+        "k": 4,
+        "scaled": 3
+      },
+      "output": {
+        "jaccard": 0.3103448275862069,
+        "mashDistance": 0.18680360045755526,
+        "containmentSeq1InSeq2": 0.4285714285748822,
+        "containmentSeq2InSeq1": 0.52941176525941,
+        "sharedHashes": 9,
+        "sketchDenominator": 29,
+        "pValue": null,
+        "maxContainment": 0.52941176525941
       }
     }
   ]

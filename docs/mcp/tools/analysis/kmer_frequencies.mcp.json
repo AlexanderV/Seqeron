@@ -5,7 +5,7 @@
   "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.GetKmerFrequencies",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L659",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L660",
   "description": "Normalized k-mer frequencies: each distinct k-mer's count divided by the total number of overlapping k-mers. Values are in [0,1] and sum to 1. Optional acgtOnly (kPAL / Jellyfish profile: windows with a non-ACGT symbol skipped, denominator = counted windows) and canonical (jellyfish count -C counts) modes.",
   "inputSchema": {
     "type": "object",

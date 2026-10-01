@@ -30,7 +30,7 @@ Jellyfish modes delegate to `KmerAnalyzer.CountKmers(sequence, k, KmerCountingOp
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L83](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L83)
+- Source: [KmerAnalyzer.cs#L84](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L84)
 
 ## Input Schema
 

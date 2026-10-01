@@ -61,4 +61,23 @@ public class SpacedWordDistanceTests
             Assert.That(AnalysisTools.SpacedWordDistance(S1, S2, Patterns, "js", bothStrands: true).Distance, Is.EqualTo(0.7417483114521346).Within(1e-12));
         });
     }
+
+    [Test]
+    public void SpacedWordDistance_EvAndGapReader_MatchSpacedProgram()
+    {
+        // spaced 1.2.0 -f {1101011,1011101,1110011} -d EV on N1/N2: default (both strands) 0.767483449137, -r -nan;
+        // tiny pair X = ACG-TACGT, Y = ACGTTACGA, patterns 1011/1101: -r -d EV 0.427666596474, -r -d JS 0.57013316426.
+        const string n1 = "AGGTAAGGTGNGTTGAGATctggacTTTTGACGCCTRGAGCCCGCAGTGCTCCTCGAAAAGTAGCNNATGCCTTGGGCTGCT";
+        const string n2 = "CAAAGGCCCTACCTTCTTATAGTCCTTYCAACATACAAGTAtagttgGAAGTTCTAAGTTCAGNTTAATC";
+        var p7 = new[] { "1101011", "1011101", "1110011" };
+        var pt = new[] { "1011", "1101" };
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.SpacedWordDistance(n1, n2, p7, "ev", bothStrands: true).Distance, Is.EqualTo(0.767483449137).Within(1e-12));
+            Assert.That(AnalysisTools.SpacedWordDistance(n1, n2, p7, "ev").Distance, Is.NaN);
+            Assert.That(AnalysisTools.SpacedWordDistance("ACG-TACGT", "ACGTTACGA", pt, "evolutionary").Distance, Is.EqualTo(0.427666596474).Within(1e-12));
+            Assert.That(AnalysisTools.SpacedWordDistance("ACG-TACGT", "ACGTTACGA", pt, "js", acgtOnly: true).Distance, Is.EqualTo(0.57013316426).Within(1e-11));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.SpacedWordDistance(n1, n2, new[] { "1011", "10101" }, "ev"));
+        });
+    }
 }

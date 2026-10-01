@@ -250,6 +250,27 @@ tests in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs`; reference va
 | W8 | D2*, unequal weights, malformed pattern, null sequences with `bothStrands` | `ArgumentException` ×3; null = empty → 0 |
 | W9 | MCP `spaced_word_distance(acgtOnly, bothStrands)` | N1/N2 JS 0.706137367852 / 0.644779801994, EU both 14.4441651361; S1/S2 JS both 0.741748311452 |
 
+### 5.8 Audit round 3, WP9 (B06) — `spaced -d EV`, spaced reader, FracMinHash, validation
+
+Tests in `KmerAnalyzer_SpacedEvAndFracMinHash_Tests.cs`; reference values K-mer_Euclidean_Distance.md §7.8.
+
+| ID | Case | Expected (source) |
+|----|------|-------------------|
+| V1 | 120 rows: LCG pairs A/B, A/C, D(dirty)/E, G1/G2 (gaps), N1/N2 × pattern sets × EV/JS/EU × with/without `-r`, `AcgtOnly` | `spaced` 1.2.0 binary, 12 printed digits (one unit of the 12th digit; `-nan` = NaN) |
+| V2 | `ACG-TACGT` / `ACGTTACGA`, {1011, 1101} | `spaced`: JS 0.57013316426 (both modes), EU 2.64575131106 / 4.69041575982, EV 0.427666596474 / 0.578620038162; non-letters deleted = stripped input |
+| V3 | `KmerDistance(…, SpacedEvolutionary, 0, bothStrands)` | = `SpacedWordDistance` with 1^k; A/B k = 8: `spaced -f 11111111` 0.119340289783 / 0.122709335653; 1111 → 1.2 |
+| V4 | EV with literal options; count-table overload; unequal pattern lengths; too-short read; `Canonical`; `markovOrder` ≠ 0 | literal = `AcgtOnly`; `ArgumentException` (param metric / patterns / seq1 / seq2) |
+| V5 | `ParseDistanceMetric("ev" / " EV " / "evolutionary")` | `SpacedEvolutionary` |
+| V6 | `FracMinHashMaxHash(1, 3, 10, 100, 1000, 7919)` | sourmash `_max_hash` (Rust truncation) |
+| V7 | 40 rows: 5 pairs × k 21/31 × scaled 1/10/100/1000 | sourmash 4.9.4 len, `count_common`, `jaccard`, `contained_by` ×2, `max_containment` (1e-15) |
+| V8 | First 5 hashes of C, k = 21, scaled 1000 | sourmash hashes (15 total) |
+| V9 | scaled 1 | = exact canonical `JaccardSimilarity` / `ContainmentIndex` |
+| V10 | Empty sketches; k/scaled < 1; mismatched scaled/k/canonical; unsorted/duplicate hashes; wrong MaxHash; hash > MaxHash | 0s; `ArgumentOutOfRangeException` / `ArgumentException` |
+| V11 | `MashPValue(1, 0, 0, 21, 10)`, `(1, 10, 0, …)`, `(5, 1000, 1000, 21, 3)` | `ArgumentException` (length1 / length2 / sharedHashes); x = 0 → 1 |
+| V12 | `CompareMinHashSketches` with reversed / duplicate hashes, Count > SketchSize, null hashes, Length < 0 | `ArgumentException`; `MinHashSketch.FromHashes` sorts/dedups/keeps s |
+| V13 | S1/S1 k = 2 r = 0 (raw d2* = d2S = −1.11e-16) | 0 (clamped to [0, 1]) |
+| V14 | MCP `kmer_jaccard(scaled: 3)`, `spaced_word_distance(metric: "ev")`, `kmer_distance(metric: "ev")` (both servers) | sourmash S1/S2 k = 4 S = 3 values; `spaced` 0.767483449137, NaN, 0.427666596474, 1.2 |
+
 ## 6. Assumption Register
 
 **Total assumptions:** 4

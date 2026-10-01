@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "spaced_word_distance",
   "serverName": "Analysis",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.SpacedWordDistance",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1883",
-  "description": "Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (all of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or another kmer_distance word-vector metric. Single strand (spaced -r).",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2133",
+  "description": "Multiple-pattern spaced-word distance (Leimeister et al. 2014): for each binary pattern (all of equal weight) count the spaced words of both sequences, compute the word-vector distance, and average over the patterns. metric: euclidean (default, relative frequencies), jensen_shannon (JS divergence base 2, = spaced -d JS), euclidean_counts (= spaced -d EU), or another kmer_distance word-vector metric. metric ev = spaced -d EV (evolutionary distance from spaced-word match counts, Morgenstern et al. 2015; Jukes-Cantor; 1.2 when undefined; equal pattern lengths). Single strand (spaced -r) unless bothStrands; acgtOnly = the spaced reader (non-letters deleted) and N-word rule.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -31,7 +31,7 @@
       },
       "metric": {
         "type": "string",
-        "description": "Per-pattern word-vector metric",
+        "description": "Per-pattern word-vector metric, or ev (spaced -d EV, not averaged per pattern: the match counts are summed over the patterns)",
         "enum": [
           "euclidean",
           "jensen_shannon",
@@ -42,13 +42,15 @@
           "chebyshev",
           "canberra",
           "cosine",
-          "d2"
+          "d2",
+          "ev",
+          "evolutionary"
         ],
         "default": "euclidean"
       },
       "acgtOnly": {
         "type": "boolean",
-        "description": "Drop spaced words with a non-ACGT symbol at a match position (the spaced program's rule); frequencies stay count / number of windows",
+        "description": "The spaced program's reader and word rule: non-letter characters (gaps '-', '*', digits) are deleted, words with a non-ACGT symbol at a match position are dropped; frequencies stay count / number of windows (ev always applies it)",
         "default": false
       },
       "bothStrands": {
@@ -68,7 +70,7 @@
     "properties": {
       "distance": {
         "type": "number",
-        "description": "Mean of the per-pattern metric values"
+        "description": "Mean of the per-pattern metric values, or the ev distance (NaN when the match rate is below 1/4, as spaced)"
       }
     },
     "required": [
@@ -98,7 +100,15 @@
     },
     {
       "code": 1002,
-      "message": "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts"
+      "message": "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts, ev"
+    },
+    {
+      "code": 1002,
+      "message": "The spaced EV distance needs all patterns of the same length (spaced keeps one weight and one don't-care count)."
+    },
+    {
+      "code": 1002,
+      "message": "The spaced EV distance needs both sequences to have at least as many letters as the pattern length."
     }
   ],
   "examples": [
@@ -165,6 +175,39 @@
       },
       "output": {
         "distance": 0.6447798019943918
+      }
+    },
+    {
+      "name": "spaced -d EV (default mode, both strands)",
+      "input": {
+        "seq1": "AGGTAAGGTGNGTTGAGATctggacTTTTGACGCCTRGAGCCCGCAGTGCTCCTCGAAAAGTAGCNNATGCCTTGGGCTGCT",
+        "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTYCAACATACAAGTAtagttgGAAGTTCTAAGTTCAGNTTAATC",
+        "patterns": [
+          "1101011",
+          "1011101",
+          "1110011"
+        ],
+        "metric": "ev",
+        "bothStrands": true
+      },
+      "output": {
+        "distance": 0.767483449137
+      }
+    },
+    {
+      "name": "Gapped input, spaced reader (= spaced -r -d JS)",
+      "input": {
+        "seq1": "ACG-TACGT",
+        "seq2": "ACGTTACGA",
+        "patterns": [
+          "1011",
+          "1101"
+        ],
+        "metric": "jensen_shannon",
+        "acgtOnly": true
+      },
+      "output": {
+        "distance": 0.57013316426
       }
     }
   ]
