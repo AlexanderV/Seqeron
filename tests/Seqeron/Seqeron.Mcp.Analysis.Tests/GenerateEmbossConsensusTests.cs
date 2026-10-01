@@ -42,4 +42,15 @@ public class GenerateEmbossConsensusTests
         Assert.That(AnalysisTools.GenerateEmbossConsensus(Dna, identity: 4).Consensus,
             Is.EqualTo(global::Seqeron.Genomics.Analysis.MotifFinder.GenerateEmbossConsensus(Dna, identity: 4)));
     }
+
+    [Test]
+    public void GenerateEmbossConsensus_AutoAndPadRaggedRows_EqualCons()
+    {
+        // cons -sequence a.fa (no -snucleotide/-sprotein): ragged rows padded by ajSeqsetFill.
+        Assert.That(AnalysisTools.GenerateEmbossConsensus(new[] { "ACGTAC", "ACG", "AC" }, "auto", padRaggedRows: true).Consensus, Is.EqualTo("ACGnnn"));
+        // cons -sequence a.fa -setcase 2.15: N/X decided by the first sequence.
+        Assert.That(AnalysisTools.GenerateEmbossConsensus(new[] { "V", "x", "~" }, "auto", setcase: 2.15).Consensus, Is.EqualTo("n"));
+        Assert.That(AnalysisTools.GenerateEmbossConsensus(Protein, "auto").Consensus, Is.EqualTo("MKVLAAGIVG"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.GenerateEmbossConsensus(new[] { "ACG", "AC" }, "auto"));
+    }
 }

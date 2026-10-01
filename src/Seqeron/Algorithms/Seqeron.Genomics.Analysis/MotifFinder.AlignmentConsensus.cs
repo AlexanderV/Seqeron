@@ -10,6 +10,19 @@ public enum ConsensusResidueType
 
     /// <summary>Amino acids: EMBOSS <c>EBLOSUM62</c> matrix, no-consensus symbol <c>X</c>.</summary>
     Protein,
+
+    /// <summary>
+    /// Decided from the alignment as the EMBOSS 6.6.0 <c>cons</c> program does without
+    /// <c>-snucleotide</c>/<c>-sprotein</c>: the sequence-set type is the type of the first
+    /// sequence (<c>ajSeqsetFromList</c>/<c>ajSeqType</c>), which is nucleotide when every
+    /// character of that sequence is in <c>ACGTU</c> + <c>BDHKMNRSVWXY?</c> + <c>.~-</c>
+    /// (case-insensitive, <c>ajSeqTypeGapnucS</c>; an empty first sequence counts as nucleotide),
+    /// otherwise protein. <c>ajSeqsetIsNuc</c> then selects the no-consensus symbol and
+    /// <c>$(acdprotein)</c> the matrix. As in the EMBOSS reader, each sequence is also typed on its
+    /// own: <c>?</c> becomes <c>X</c> (<c>gapany</c>), and in a nucleotide-looking sequence
+    /// <c>ajSeqSetNuc</c> then turns <c>X</c> into <c>N</c>; other sequences keep <c>X</c>.
+    /// </summary>
+    Auto,
 }
 
 /// <summary>
@@ -97,17 +110,23 @@ public static partial class MotifFinder
     /// <c>cons -plurality P -identity I -setcase S</c>.
     /// </summary>
     /// <remarks>
-    /// Input normalisation follows the EMBOSS sequence reader: letters are upper-cased, <c>.</c> and
-    /// <c>~</c> become the gap <c>-</c>, and <c>?</c> becomes <c>N</c> (nucleotide; <c>X</c> is also
-    /// read as <c>N</c>) or <c>X</c> (protein). Characters absent from the matrix (gaps, <c>*</c> in
+    /// Input normalisation follows the EMBOSS sequence reader of <c>cons -snucleotide</c> /
+    /// <c>-sprotein</c>: letters are upper-cased, <c>.</c> and <c>~</c> become the gap <c>-</c>,
+    /// <c>X</c> is read as <c>N</c> for nucleotides, and <c>?</c> becomes <c>X</c> (for nucleotides an
+    /// unscored code; if it is emitted it is written as <c>N</c>, as <c>cons</c> writes the
+    /// consensus through <c>ajSeqSetNuc</c>). Characters absent from the matrix (gaps, <c>*</c> in
     /// DNA, <c>J</c>/<c>O</c>/<c>U</c> in protein) contribute no score and no positive matches, exactly
     /// as <c>embConsCalc</c> treats code 0; they can still be emitted when <paramref name="plurality"/>
-    /// ≤ 0. Unlike the <c>cons</c> program (which only warns), rows of unequal length are rejected.
+    /// ≤ 0. Rows of unequal length are rejected here; the <c>cons</c> program pads them with
+    /// trailing gaps first (<c>ajSeqsetFill</c>) — use the overload with <c>padRaggedRows</c>.
     /// Cross-checked character-for-character against the EMBOSS 6.6.0 <c>cons</c> binary
     /// (docs/Evidence/MOTIF-CONS-001-Evidence.md).
     /// </remarks>
     /// <param name="alignedSequences">At least two aligned sequences of equal length.</param>
-    /// <param name="residueType">Selects the matrix (<c>EDNAFULL</c>/<c>EBLOSUM62</c>) and the no-consensus symbol.</param>
+    /// <param name="residueType">
+    /// Selects the matrix (<c>EDNAFULL</c>/<c>EBLOSUM62</c>) and the no-consensus symbol;
+    /// <see cref="ConsensusResidueType.Auto"/> decides both from the first sequence as <c>cons</c> does.
+    /// </param>
     /// <param name="plurality">
     /// Minimum positive-match weight for a consensus residue (<c>-plurality</c>); default half the
     /// total sequence weight.
@@ -137,9 +156,38 @@ public static partial class MotifFinder
         int identity = 0,
         float? setcase = null,
         IReadOnlyList<float>? weights = null)
+        => GenerateEmbossConsensus(alignedSequences, false, residueType, plurality, identity, setcase, weights);
+
+    /// <summary>
+    /// <see cref="GenerateEmbossConsensus(IEnumerable{string}, ConsensusResidueType, float?, int, float?, IReadOnlyList{float}?)"/>
+    /// with the EMBOSS sequence-set padding option: when <paramref name="padRaggedRows"/> is true,
+    /// rows shorter than the longest are padded at the end with gaps (<c>-</c>), as
+    /// <c>ajSeqsetFill</c> (EMBOSS 6.6.0 <c>ajax/core/ajseq.c</c>) does for every <c>aligned: "Y"</c>
+    /// sequence-set input of <c>cons</c> (<c>ajax/acd/ajacd.c</c>) before <c>embConsCalc</c>;
+    /// when false, rows of unequal length are rejected (the original overload's contract).
+    /// </summary>
+    /// <param name="alignedSequences">At least two aligned sequences.</param>
+    /// <param name="padRaggedRows">Pad shorter rows with trailing gaps instead of rejecting them.</param>
+    /// <param name="residueType">Nucleotide, Protein, or Auto (decided from the first sequence like <c>cons</c>).</param>
+    /// <param name="plurality">See the primary overload.</param>
+    /// <param name="identity">See the primary overload.</param>
+    /// <param name="setcase">See the primary overload.</param>
+    /// <param name="weights">See the primary overload.</param>
+    /// <returns>The consensus, one symbol per (padded) alignment column.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="alignedSequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">As the primary overload (unequal lengths only when not padding).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">As the primary overload.</exception>
+    public static string GenerateEmbossConsensus(
+        IEnumerable<string> alignedSequences,
+        bool padRaggedRows,
+        ConsensusResidueType residueType = ConsensusResidueType.Nucleotide,
+        float? plurality = null,
+        int identity = 0,
+        float? setcase = null,
+        IReadOnlyList<float>? weights = null)
     {
         ArgumentNullException.ThrowIfNull(alignedSequences);
-        if (residueType is not (ConsensusResidueType.Nucleotide or ConsensusResidueType.Protein))
+        if (residueType is not (ConsensusResidueType.Nucleotide or ConsensusResidueType.Protein or ConsensusResidueType.Auto))
             throw new ArgumentOutOfRangeException(nameof(residueType));
         ArgumentOutOfRangeException.ThrowIfNegative(identity);
         if (plurality is float p && float.IsNaN(p))
@@ -147,7 +195,25 @@ public static partial class MotifFinder
         if (setcase is float sc && float.IsNaN(sc))
             throw new ArgumentOutOfRangeException(nameof(setcase), "Setcase cannot be NaN.");
 
-        List<string> rows = MaterializeAligned(alignedSequences, nameof(alignedSequences));
+        List<string> rows;
+        if (padRaggedRows)
+        {
+            rows = new List<string>();
+            foreach (string s in alignedSequences)
+            {
+                if (s is null)
+                    throw new ArgumentException("Sequences cannot contain null elements.", nameof(alignedSequences));
+                rows.Add(s);
+            }
+            int len = rows.Count == 0 ? 0 : rows.Max(r => r.Length);
+            for (int i = 0; i < rows.Count; i++)
+                rows[i] = rows[i].PadRight(len, '-'); // ajSeqsetFill: append '-' × (Len − own length)
+        }
+        else
+        {
+            rows = MaterializeAligned(alignedSequences, nameof(alignedSequences));
+        }
+
         int nseqs = rows.Count;
         if (nseqs < 2)
             throw new ArgumentException(
@@ -179,7 +245,9 @@ public static partial class MotifFinder
         float fplural = plurality ?? totalWeight / 2f;
         float fsetcase = setcase ?? totalWeight / 2f;
 
-        bool nucleotide = residueType == ConsensusResidueType.Nucleotide;
+        bool nucleotide = residueType == ConsensusResidueType.Auto
+            ? IsEmbossNucleotideSequence(rows[0])
+            : residueType == ConsensusResidueType.Nucleotide;
         string labels = nucleotide ? EdnaFullLabels : EBlosum62Labels;
         sbyte[,] matrix = nucleotide ? EdnaFull : EBlosum62;
         char nocon = nucleotide ? 'N' : 'X';
@@ -197,9 +265,15 @@ public static partial class MotifFinder
         {
             chars[s] = new char[mlen];
             codes[s] = new int[mlen];
+            // Auto: every sequence is typed on its own when read (ajSeqType → ajSeqSetNuc turns
+            // X into N in a nucleotide-looking sequence only); explicit types apply to all rows.
+            bool rowNucleotide = residueType == ConsensusResidueType.Auto
+                ? IsEmbossNucleotideSequence(rows[s])
+                : nucleotide;
             for (int k = 0; k < mlen; k++)
             {
-                char c = NormalizeEmbossResidue(rows[s][k], nucleotide, s, k, nameof(alignedSequences));
+                char c = NormalizeEmbossResidue(
+                    rows[s][k], rowNucleotide, residueType == ConsensusResidueType.Auto, s, k, nameof(alignedSequences));
                 chars[s][k] = c;
                 codes[s][k] = codeOf[c];
             }
@@ -292,24 +366,58 @@ public static partial class MotifFinder
                     res = nocon;
             }
 
+            // cons.c writes the consensus as a nucleotide sequence when ajSeqsetIsNuc, and
+            // ajSeqSetNuc exchanges x/X for n/N: an unscored X (from '?' under -snucleotide, or
+            // from a protein-looking row under Auto) emitted with plurality <= 0 is written as N.
+            if (nucleotide && res is 'X' or 'x')
+                res = res == 'X' ? 'N' : 'n';
+
             consensus.Append(res);
         }
 
         return consensus.ToString();
     }
 
+    // ajseqtype.c seqTypeStrNucGap: seqCharNucPure + seqCharNucAmbig + seqCharGap.
+    private const string EmbossNucGapChars = "ACGTUBDHKMNRSVWXY?.~-";
+
+    /// <summary>
+    /// <c>ajSeqTypeGapnucS</c> success (case-insensitive <c>ajStrIsCharsetCaseS</c>; empty → true),
+    /// i.e. <c>ajSeqIsNuc</c> of an untyped first sequence.
+    /// </summary>
+    private static bool IsEmbossNucleotideSequence(string sequence)
+    {
+        foreach (char ch in sequence)
+        {
+            char c = ch is >= 'a' and <= 'z' ? (char)(ch - 'a' + 'A') : ch;
+            if (EmbossNucGapChars.IndexOf(c) < 0)
+                return false;
+        }
+        return true;
+    }
+
     /// <summary>
     /// EMBOSS sequence-reader normalisation of one alignment character (ajSeqsetFmtUpper, gap
     /// conversion <c>.~</c> → <c>-</c>, <c>ajseqtype.c</c> ambiguity conversion).
     /// </summary>
-    private static char NormalizeEmbossResidue(char c, bool nucleotide, int row, int column, string paramName)
+    /// <param name="c">Input character.</param>
+    /// <param name="nucleotide">The sequence is read as nucleotide (ajSeqSetNuc: X → N).</param>
+    /// <param name="typedOnRead">
+    /// The type was found by ajSeqType after the <c>gapany</c> conversion (Auto), so <c>?</c> → X →
+    /// N; with an explicit <c>-snucleotide</c> the sequence is set nucleotide first
+    /// (ajSeqTypeCheckIn) and the later <c>?</c> → X stays an unscored X.
+    /// </param>
+    /// <param name="row">Row index (error message).</param>
+    /// <param name="column">Column index (error message).</param>
+    /// <param name="paramName">Parameter name (error message).</param>
+    private static char NormalizeEmbossResidue(char c, bool nucleotide, bool typedOnRead, int row, int column, string paramName)
     {
         if (c is '-' or '.' or '~')
             return '-';
         if (c == '*')
             return '*';
         if (c == '?')
-            return nucleotide ? 'N' : 'X';
+            return nucleotide && typedOnRead ? 'N' : 'X';
         if (c is >= 'a' and <= 'z')
             c = (char)(c - 'a' + 'A');
         if (c is >= 'A' and <= 'Z')

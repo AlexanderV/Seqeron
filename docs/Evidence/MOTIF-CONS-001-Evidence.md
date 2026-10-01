@@ -84,7 +84,19 @@ Opened: `nucleus/embcons.c` (`embConsCalc`), `emboss/cons.c`, `emboss/acd/cons.a
 | Seeded random (seeds 20260930, 7): DNA (ACGT or IUPAC incl. U) and protein (20 aa ± BZX), 2–12 rows, 1–50 columns, 0/10/30 % gaps incl. `.`/`~`, lower case, weights 0.25–3 (MSF) on ~30 %, random plurality/identity/setcase | 700 | 700/700 identical (14 after the first-sequence N/X rule, see deviation) |
 | Examples | `ACGTAC-T,ACGTTCAT,AGGTAC-T,tCGAAG-T` → `ACGTACnT`; `-plurality 3.5 -setcase 3.5` → `nnGnnnnT`; `-identity 4` → `NNGNNNNT`; `-plurality 0` → `ACGTACaT`; MSF weights 0.5/2/0.25/1 `ACGT,TCGA,ACGA,ACCT` → `nCGA` | binary |
 
-Deviation (documented): `cons` picks `N` vs `X` from the first sequence (`ajSeqsetIsNuc` ignores `-sprotein`); the API uses the explicit residue type. Unequal row lengths are rejected (`cons` warns).
+Deviation (documented): `cons` picks `N` vs `X` from the first sequence (`ajSeqsetIsNuc` ignores `-sprotein`); the API uses the explicit residue type (F28 adds `Auto`, which reproduces `cons` without a type flag). Unequal row lengths are rejected by the original overload; `cons` pads them (`ajSeqsetFill`), as the F28 `padRaggedRows` overload does.
+
+### EMBOSS `cons` residue type Auto, ragged padding, `?` under `-snucleotide` (B05 audit group C, F28, 2026-10-01)
+
+Opened (Ubuntu `emboss_6.6.0+dfsg.orig.tar.xz`, archive.ubuntu.com pool): `emboss/cons.c` (`ajSeqsetIsNuc` → `ajSeqSetNuc(seqo)` on the output), `nucleus/embcons.c` (nocon from `ajSeqsetIsNuc`/`ajSeqsetIsProt`), `ajax/core/ajseq.c` (`ajSeqsetFill`: append `-` × (Len − own length); `ajSeqsetIsNuc`: Type "N", else first sequence `ajSeqTypeGapnucS`; `ajSeqsetIsProt`; `ajSeqIsNuc`/`ajSeqIsProt`), `ajax/core/ajseqtype.c` (`ajSeqType`; `ajSeqSetNuc`: x/X → n/N; `ajSeqTypeCheckIn`: `seqin->IsNuc` → `ajSeqSetNuc` before the type conversion; `gapany` `?` → `X`; charsets `seqCharNucPure` ACGTU, `seqCharNucAmbig` BDHKMNRSVWXY?, `seqCharGap` .~-), `ajax/core/ajseqread.c` (`ajSeqsetFromList`/`ajSeqsetApp`: set Type = first sequence's, Len = longest; `seqDefine` → `ajSeqType`), `ajax/acd/ajacd.c` (aligned seqsets → `ajSeqsetFill`; `acdprotein` = `$(sequence.protein)`), `emboss/acd/cons.acd` (`aligned: "Y"`, matrix default by `$(acdprotein)`). Binary: Ubuntu noble `emboss` 6.6.0 `/usr/lib/emboss/cons`, FASTA input, `-auto -osformat2 raw`.
+
+| Check | Cases | Result |
+|---|---|---|
+| `Auto` + `padRaggedRows` vs `cons` (no type flag): seeds 20261001 ×1200, 99 ×1000 (DNA, IUPAC incl. U/X/?, protein ± BZX*, mixed rows, nucleotide-looking first row + protein rows, 50 % ragged, plurality incl. 0/negative, identity, setcase) | 2,200 | 2,200/2,200 identical |
+| `Auto` on equal-length sets, seeds 20260930 ×800, 4242 ×700 | 1,500 | 1,500/1,500 identical |
+| Explicit `Nucleotide` vs `cons -snucleotide` (same sets) | 592 | 592/592 after the `?` fix (33/315 of seed 20260930 differed before, all containing `?`) |
+| Explicit `Protein` vs `cons -sprotein` (same sets) | 908 | 865 identical; the 43 others all have a nucleotide-looking first row (documented first-sequence N/X deviation; `Auto` = `cons` without flags there) |
+| Probes (`-plurality 0`): `A-,EX,EX` → `an`; `A-,E?,E?` → `an`; `A-,E*,E*` → `a*`; `E-,AX,EX` → `E-`; `EXGT,AXGT,A?GT` → `ANGT`; `A?GT,E?GT,E?GT` → `anGT`; ragged `ACGTAC,ACG,AC` → `ACGnnn`; one-column `USC?TK` `-plurality 4.51 -setcase 1.1` → `n` with `-snucleotide`, `N` without | 9 | locked |
 
 ### Biopython `dumb_consensus` (B05 follow-up, 2026-09-30)
 

@@ -249,11 +249,12 @@
 | gc_content_profile | Analysis | SequenceStatistics.CalculateGcContentProfile | SequenceStatistics.cs#L700 | 0/0 | – | – | Build-Ready |
 | gc_skew | Analysis | GcSkewCalculator.CalculateGcSkew | GcSkewCalculator.cs#L29 | 0/0 | – | – | Build-Ready |
 | generate_all_kmers | Analysis | KmerAnalyzer.GenerateAllKmers | KmerAnalyzer.cs#L236 | 0/0 | – | – | Build-Ready |
-| generate_cavener_consensus | Analysis | MotifFinder.GenerateCavenerConsensus | MotifFinder.cs#L491 | 2/2 | ✓ | ✓ | Ready |
-| generate_consensus | Analysis | MotifFinder.GenerateConsensus | MotifFinder.cs#L312 | 0/0 | – | – | Build-Ready |
+| generate_cavener_consensus | Analysis | MotifFinder.GenerateCavenerConsensus | MotifFinder.cs#L492 | 2/2 | ✓ | ✓ | Ready |
+| generate_consensus | Analysis | MotifFinder.GenerateConsensus | MotifFinder.cs#L441 | 0/0 | – | – | Build-Ready |
+| generate_decipher_consensus | Analysis | MotifFinder.GenerateDecipherConsensus | MotifFinder.DecipherConsensus.cs#L110 | 3/3 | ✓ | ✓ | Ready |
 | generate_dot_plot | Analysis | ComparativeGenomics.GenerateDotPlot | ComparativeGenomics.cs#L645 | 0/0 | – | – | Build-Ready |
-| generate_dumb_consensus | Analysis | MotifFinder.GenerateDumbConsensus | MotifFinder.AlignmentConsensus.cs#L346 | 2/2 | ✓ | ✓ | Ready |
-| generate_emboss_consensus | Analysis | MotifFinder.GenerateEmbossConsensus | MotifFinder.AlignmentConsensus.cs#L133 | 2/2 | ✓ | ✓ | Ready |
+| generate_dumb_consensus | Analysis | MotifFinder.GenerateDumbConsensus | MotifFinder.AlignmentConsensus.cs#L454 | 2/2 | ✓ | ✓ | Ready |
+| generate_emboss_consensus | Analysis | MotifFinder.GenerateEmbossConsensus | MotifFinder.AlignmentConsensus.cs#L152 | 2/2 | ✓ | ✓ | Ready |
 | hairpin_loop_energy | Analysis | RnaSecondaryStructure.CalculateHairpinLoopEnergy | RnaSecondaryStructure.cs#L755 | 0/0 | – | – | Build-Ready |
 | hydrophobicity_profile | Analysis | SequenceStatistics.CalculateHydrophobicityProfile | SequenceStatistics.cs#L324 | 0/0 | – | – | Build-Ready |
 | internal_loop_energy | Analysis | RnaSecondaryStructure.CalculateInternalLoopEnergy | RnaSecondaryStructure.cs#L825 | 0/0 | – | – | Build-Ready |

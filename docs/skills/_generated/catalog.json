@@ -634,14 +634,21 @@
     "server": "Analysis",
     "methodId": "MotifFinder.GenerateCavenerConsensus",
     "docPath": "docs/mcp/tools/analysis/generate_cavener_consensus.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L491"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L492"
   },
   {
     "tool": "generate_consensus",
     "server": "Analysis",
     "methodId": "MotifFinder.GenerateConsensus",
     "docPath": "docs/mcp/tools/analysis/generate_consensus.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L413"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L441"
+  },
+  {
+    "tool": "generate_decipher_consensus",
+    "server": "Analysis",
+    "methodId": "MotifFinder.GenerateDecipherConsensus",
+    "docPath": "docs/mcp/tools/analysis/generate_decipher_consensus.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.DecipherConsensus.cs#L110"
   },
   {
     "tool": "generate_dot_plot",
@@ -655,14 +662,14 @@
     "server": "Analysis",
     "methodId": "MotifFinder.GenerateDumbConsensus",
     "docPath": "docs/mcp/tools/analysis/generate_dumb_consensus.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L346"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L454"
   },
   {
     "tool": "generate_emboss_consensus",
     "server": "Analysis",
     "methodId": "MotifFinder.GenerateEmbossConsensus",
     "docPath": "docs/mcp/tools/analysis/generate_emboss_consensus.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L133"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L152"
   },
   {
     "tool": "hairpin_loop_energy",

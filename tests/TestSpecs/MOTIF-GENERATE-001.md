@@ -202,3 +202,14 @@ All in-scope cases ✅. Count of ✅ = total in-scope cases.
 | T-M3 | hand-derived A,A,A,C,G: θ 0/0.1 → V, 0.2/0.6 → A; A,C at θ 1 → M | rule |
 | T-S1 | guards: null, θ < 0, θ > 1, NaN, unequal rows | contract |
 | T-P2 | property C2: base set at θ₂ ⊆ base set at θ₁ for θ₁ ≤ θ₂ | monotonicity of the cut |
+
+## 9. DECIPHER `ConsensusSequence` tests (B05 audit group C, F28, 2026-10-01)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| T-D1 | 90 stratified random cases (DNA/RNA/AA × ambiguity × includeNonLetters × includeTerminalGaps × minInformation) = output of DECIPHER 3.9.4 R/C source built against R 4.3.3 + Biostrings 2.70.2 (`DecipherCases`); full run 10,000/10,000 | `MotifFinder_DecipherConsensus_Tests` |
+| T-D2 | every example of `man/ConsensusSequence.Rd` (AAAT, majority, ties, terminal gaps, `.` as gap, non-letters, degeneracy) | manual + R build |
+| T-D3 | RNA → `U`, ragged rows, lower case, empty set → "" | R build |
+| T-D4 | hand-derived source order: A .6/C .4 → M; A .9/C .06/G .04 → M (t .95), A (t .9) | `makeConsensus` |
+| T-D5 | guards as `ConsensusSequence.R`: threshold ∉ [0,1), minInformation ∉ (0,1], noConsensusChar ∉ alphabet, characters outside DNA_/RNA_/AA_ALPHABET, null | R argument checks, Biostrings |
+| T-MCP | `generate_consensus` `inclusionThreshold` (default 0.25 = parameterless; 0.2 → `HHHH`); `generate_decipher_consensus` delegation | Mcp.Analysis.Tests |

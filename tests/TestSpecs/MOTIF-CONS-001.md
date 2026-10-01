@@ -191,3 +191,12 @@ In-scope cases: 10. ✅ Covered: 10.
 | B-M1 | 34 alignments = Biopython 1.85 `dumb_consensus` (`DumbCases`); doc example ANGT; gap_consensus rows → NTGT | Biopython 1.85 |
 | B-S1 | empty, all-gap, single residue + require_multiple, case-sensitive tie, guards | AlignInfo.py |
 | P/MR/F | `Properties/AlignmentConsensusProperties` (C3, C4), `Metamorphic/AlignmentConsensusMetamorphicTests` (case, gap chars, weight scaling, duplication = weight 2, dumb permutation/monotonicity), `Fuzzing/AlignmentConsensusFuzzTests` | invariants |
+
+## EMBOSS `cons` Auto type / ragged padding (B05 audit group C, F28, 2026-10-01)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| E-A1 | 70 alignments (14 strata: DNA, IUPAC, protein ± BZX*, mixed, nucleotide-looking first row; equal and ragged) with `Auto` + `padRaggedRows` = `cons` without type flag (`MotifFinder_EmbossConsensusAutoPad_Tests.AutoCases`); full run 3,700/3,700 | cons binary |
+| E-A2 | per-sequence typing probes (`an`, `a*`, `E-`, `ANGT`, `anGT`) and first-sequence type (`V,x,~` → `n` vs explicit Protein `x`) | ajSeqType / ajSeqSetNuc / ajSeqsetIsNuc |
+| E-A3 | `?` under `-snucleotide` is an unscored X written as N (`USC?TK` → `n`, `???` → `n`; `AWASGdNU` → `w`) | ajSeqTypeCheckIn order, binary |
+| E-A4 | padding = explicit `-` padding (`ACGnnn`); original overload still rejects ragged rows; guards | ajSeqsetFill |

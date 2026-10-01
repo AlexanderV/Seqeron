@@ -6,7 +6,7 @@
 | Test Unit ID | MOTIF-CONS-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-30 |
+| Last Reviewed | 2026-10-01 (F28: Auto type, ragged padding, `?` under -snucleotide) |
 
 ## 1. Overview
 
@@ -93,6 +93,7 @@ Alphabet/order table: `{'A','C','G','T'}` — also the tie-break order [4]. No s
 
 - `MotifFinder.CreateConsensusFromAlignment(IEnumerable<string>)`: column-wise most-frequent consensus with alphabetical tie-break.
 - `MotifFinder.GenerateEmbossConsensus(IEnumerable<string>, ConsensusResidueType = Nucleotide, float? plurality = null, int identity = 0, float? setcase = null, IReadOnlyList<float>? weights = null)` ([MotifFinder.AlignmentConsensus.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs)): EMBOSS 6.6.0 `cons` [3][6].
+- `MotifFinder.GenerateEmbossConsensus(IEnumerable<string>, bool padRaggedRows, ConsensusResidueType = Nucleotide, …)` (F28): the same with EMBOSS sequence-set padding — `padRaggedRows = true` appends `-` to rows shorter than the longest (`ajSeqsetFill`, applied by ACD to every `aligned: "Y"` input of `cons`); `ConsensusResidueType.Auto` (either overload) types the set like `cons` without `-snucleotide`/`-sprotein`.
 - `MotifFinder.GenerateDumbConsensus(IEnumerable<string>, double threshold = 0.7, char ambiguous = 'X', bool requireMultiple = false)`: Biopython `SummaryInfo.dumb_consensus` [7].
 
 ### 5.2 Current Behavior
@@ -124,9 +125,17 @@ The column counts come from the private `BuildCountMatrix` (4 × L profile matri
 4. emit the candidate if positive matches ≥ plurality, else `N` (nucleotide) / `X` (protein); lower-case if positive matches ≤ setcase (this also lower-cases `N`/`X`); plurality and setcase default to half the total weight;
 5. if identity > 0 and fewer than identity rows carry the residue with the most positive matches (ties → more identical weight), emit upper-case `N`/`X`.
 
-Characters absent from the matrix (gaps, `*` in DNA, `J`/`O`/`U` in protein) have code 0: no score, no positive matches (they are only emitted when plurality ≤ 0). Input normalisation as the EMBOSS reader: upper-casing, `.`/`~` → `-`, `?` → `N`/`X`, and `X` → `N` for nucleotides. **Deliberate differences:** (a) rows of unequal length are rejected (`cons` only warns); (b) the no-consensus symbol follows the explicit residue type — `cons` decides `N` vs `X` from the composition of the *first* sequence (`ajSeqsetIsNuc` ignores `-sprotein`), so a protein alignment whose first row contains only nucleotide IUPAC letters prints `n` where this API prints `x`.
+Characters absent from the matrix (gaps, `*` in DNA, `J`/`O`/`U` in protein) have code 0: no score, no positive matches (they are only emitted when plurality ≤ 0). Input normalisation as the EMBOSS reader with an explicit type (`cons -snucleotide`/`-sprotein`): upper-casing, `.`/`~` → `-`, `X` → `N` for nucleotides (`ajSeqSetNuc`, applied before the `gapany` `?` → `X` conversion in `ajSeqTypeCheckIn`), so `?` is an unscored `X` (code 0) in both types; an `X` emitted into a nucleotide consensus is written as `N` (`cons.c` writes the result through `ajSeqSetNuc`). (F28 fix: `?` was previously scored as `N` in the explicit nucleotide type, which `cons -snucleotide` does not do — e.g. one-column `USC?TK`, `-plurality 4.51 -setcase 1.1` → `n`, was `N`.)
 
-**Cross-check (exact string equality) vs the EMBOSS 6.6.0 `cons` binary** (Ubuntu `emboss 6.6.0+dfsg-12ubuntu2`, `em_cons`): 780 alignments — 8 classic × 5 parameter sets + 700 seeded random (seeds 20260930 and 7; DNA and protein, 2–12 rows, 1–50 columns, gaps incl. `.`/`~`, lower case, IUPAC/B/Z/X, MSF weights 0.25–3 on ~30 %, random `-plurality`/`-identity`/`-setcase`): 780/780 identical, 14 of them after the documented first-sequence `N`/`X` difference (b). 110 are locked in `MotifFinder_AlignmentConsensus_Tests` with their command lines.
+**Residue type `Auto` (F28)** — what `cons` does without a type flag (EMBOSS 6.6.0 `ajSeqsetFromList`, `ajSeqType`, `ajSeqIsNuc`/`ajSeqTypeGapnucS`, `ajSeqsetIsNuc`/`ajSeqsetIsProt`, `acdprotein`): every sequence is typed when read — nucleotide iff all its characters are in `ACGTU` + `BDHKMNRSVWXY?` + `.~-` (case-insensitive; empty → nucleotide), otherwise protein; a nucleotide-typed row reads `?` → `X` → `N` and `X` → `N`, a protein row keeps `X` (unscored in EDNAFULL). The *set* takes the first sequence's type, which selects the matrix (`$(acdprotein)`) and the no-consensus symbol (`ajSeqsetIsNuc`).
+
+**Ragged rows (F28)** — `cons` never sees ragged rows: ACD pads every aligned sequence set with trailing gaps (`ajSeqsetFill`, `ajax/acd/ajacd.c`) before `embConsCalc`, so `cons` on `ACGTAC`, `ACG`, `AC` prints `ACGnnn`. `padRaggedRows = true` does the same; the original overload keeps rejecting unequal lengths.
+
+**Remaining deliberate difference:** with the explicit `Protein` type the no-consensus symbol is `X`; `cons -sprotein` still decides `N` vs `X` (and writes emitted `X` as `N`) from the composition of the *first* sequence (`ajSeqsetIsNuc` tests the first sequence's characters even when the set type is `P`), so a protein alignment whose first row contains only nucleotide IUPAC letters prints `n` there where this type prints `x`. `Auto` reproduces `cons` without flags exactly.
+
+**Cross-check (exact string equality) vs the EMBOSS 6.6.0 `cons` binary** (Ubuntu `emboss 6.6.0+dfsg-12ubuntu2`, `em_cons`): 780 alignments — 8 classic × 5 parameter sets + 700 seeded random (seeds 20260930 and 7; DNA and protein, 2–12 rows, 1–50 columns, gaps incl. `.`/`~`, lower case, IUPAC/B/Z/X, MSF weights 0.25–3 on ~30 %, random `-plurality`/`-identity`/`-setcase`): 780/780 identical, 14 of them after the documented first-sequence `N`/`X` difference. 110 are locked in `MotifFinder_AlignmentConsensus_Tests` with their command lines.
+
+**F28 re-run (2026-10-01, Ubuntu noble `emboss` 6.6.0 `/usr/lib/emboss/cons`)**: `Auto` + `padRaggedRows` vs `cons` without type flags — 3,700/3,700 identical (seeds 20261001 ×1200 and 99 ×1000: DNA, IUPAC incl. `U`/`X`/`?`, protein ± `BZX*`, mixed rows, nucleotide-looking first row + protein rows, 50 % ragged, `-plurality` incl. 0 and negative, `-identity`, `-setcase`; seeds 20260930 ×800 and 4242 ×700 equal-length). Explicit types vs `cons -snucleotide`/`-sprotein` on the same 1,500 equal-length alignments: nucleotide 592/592 after the `?` fix (before it, 33/315 of seed 20260930 differed, all with `?`); protein 865/908 — the 43 differences are exactly the first-row-looks-nucleotide cases above (where `Auto` = `cons` without flags). 70 Auto cases + typing probes locked in `MotifFinder_EmbossConsensusAutoPad_Tests`.
 
 **Biopython `dumb_consensus`** — port of `Bio/Align/AlignInfo.py` `SummaryInfo.dumb_consensus` (Biopython 1.85; deprecated since 1.82 and absent from the installed 1.88) [7]: per column count residues other than `-` and `.` (case-sensitive); emit the residue if it is the unique maximum and max/non-gap ≥ threshold, else `ambiguous`; with `requireMultiple` a column with exactly one non-gap residue is ambiguous. Cross-check vs Biopython 1.85: 708 alignments (4 classic + 704 seeded random, DNA/RNA/protein, gaps `-`/`.`, lower case, thresholds 0–1, require_multiple) → 708/708 identical; 34 locked.
 

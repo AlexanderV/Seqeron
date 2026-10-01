@@ -426,10 +426,11 @@ public static partial class MotifFinder
     /// give <c>N</c>; a column with no A/C/G/T at all gives <c>N</c> (any base).
     /// </summary>
     /// <remarks>
-    /// The 25 % per-base cut is this library's design constant (see
-    /// <c>IupacInclusionThreshold</c>); it is not the Cavener (1987) / TRANSFAC / Biopython
-    /// <c>degenerate_consensus</c> rule — use <see cref="GenerateCavenerConsensus"/> for that. A different
-    /// cut is available through <see cref="GenerateConsensus(IEnumerable{string}, double)"/>.
+    /// The 25 % per-base cut is this overload's fixed default (see <c>IupacInclusionThreshold</c>);
+    /// any other cut is available through <see cref="GenerateConsensus(IEnumerable{string}, double)"/>.
+    /// It is not the Cavener (1987) / TRANSFAC / Biopython <c>degenerate_consensus</c> rule (use
+    /// <see cref="GenerateCavenerConsensus"/>) nor DECIPHER's <c>ConsensusSequence</c> (use
+    /// <see cref="GenerateDecipherConsensus"/>).
     /// Characters other than A/C/G/T (gaps, N, IUPAC codes) are not counted but still count
     /// towards the number of sequences <c>n</c>. Case-insensitive.
     /// </remarks>
@@ -592,11 +593,12 @@ public static partial class MotifFinder
     /// strictly exceed to be included in the position's IUPAC degeneracy code in
     /// <see cref="GenerateConsensus(IEnumerable{string})"/>. The set→symbol mapping follows
     /// NC-IUB 1984 (Cornish-Bowden, NAR 13(9):3021). The per-base 0.25 cut with a strict '&gt;'
-    /// boundary is this library's design constant: it belongs to the threshold-consensus family
-    /// but is NOT Bioconductor DECIPHER's rule (DECIPHER drops the least frequent characters while
-    /// their cumulative fraction stays below <c>threshold</c>, default 0.05) nor the Cavener 1987
-    /// rule (implemented separately as <see cref="GenerateCavenerConsensus"/>). Kept unchanged for
-    /// API/MCP compatibility. See docs/Evidence/MOTIF-GENERATE-001-Evidence.md.
+    /// boundary is the default of the parameterless overload: it belongs to the threshold-consensus
+    /// family but is NOT Bioconductor DECIPHER's rule (implemented as
+    /// <see cref="GenerateDecipherConsensus"/>) nor the Cavener 1987 rule (implemented as
+    /// <see cref="GenerateCavenerConsensus"/>). Any other cut is available through
+    /// <see cref="GenerateConsensus(IEnumerable{string}, double)"/> (MCP <c>generate_consensus</c>
+    /// parameter <c>inclusionThreshold</c>). See docs/Evidence/MOTIF-GENERATE-001-Evidence.md.
     /// </summary>
     private const double IupacInclusionThreshold = 0.25;
 

@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **113 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **114 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (113)
+## Tools (114)
 
 | Tool | Description |
 |------|-------------|
@@ -84,10 +84,11 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |
 | `generate_all_kmers` | Enumerate the entire k-mer space for an alphabet (default "ACGT\ |
 | `generate_cavener_consensus` | Degenerate IUPAC consensus of aligned equal-length DNA sequences by the Cavener (1987) rules (TRANSFAC / Biopython degenerate_consensus): s… |
-| `generate_consensus` | IUPAC consensus sequence from aligned equal-length DNA sequences (>25% per position threshold). |
+| `generate_consensus` | IUPAC consensus sequence from aligned equal-length DNA sequences: bases above the per-position inclusion threshold (default >25%) form the NC-IUB symbol; if none passes, the tied most frequent bases. |
+| `generate_decipher_consensus` | Consensus with Bioconductor DECIPHER ConsensusSequence semantics (DNA, RNA or protein): at each position the least frequent characters are dropped while they represent less than 'threshold'… |
 | `generate_dot_plot` | Coordinates of matching k-mers between two sequences for dot-plot visualization. |
 | `generate_dumb_consensus` | Majority-threshold consensus with Biopython SummaryInfo.dumb_consensus semantics: per column the most frequent non-gap residue is emitted i… |
-| `generate_emboss_consensus` | Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; |
+| `generate_emboss_consensus` | Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; residueType 'auto', padRaggedRows)… |
 | `hairpin_loop_energy` | Free energy of an RNA hairpin loop (Turner 2004 with special tri/tetra/hexaloops, terminal mismatch, all-C and special-GU adjustments). |
 | `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy values for a protein sequence. |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |

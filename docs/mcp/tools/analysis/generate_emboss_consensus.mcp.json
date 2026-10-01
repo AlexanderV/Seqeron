@@ -5,14 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "MotifFinder.GenerateEmbossConsensus",
-  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L133",
-  "description": "Line-by-line port of EMBOSS 6.6.0 `cons` (`embConsCalc`): per column the residue with the highest positive-match score under the scoring matrix (EDNAFULL for nucleotides, EBLOSUM62 for proteins) is chosen; if its positive-match weight is below `plurality` (default half the total weight) or fewer than `identity` residues are identical, the no-consensus symbol (`N` nucleotide / `X` protein) is emitted; residues whose weight is ≤ `setcase` are written in lower case. Gaps `-`, `.`, `~` are allowed. Single-precision arithmetic as in EMBOSS; outputs are character-identical to `cons -plurality P -identity I -setcase S` (780/780 reference runs). The residue type is explicit (cons infers it from the first sequence).",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L152",
+  "description": "Line-by-line port of EMBOSS 6.6.0 `cons` (`embConsCalc`): per column the residue with the highest positive-match score under the scoring matrix (EDNAFULL for nucleotides, EBLOSUM62 for proteins) is chosen; if its positive-match weight is below `plurality` (default half the total weight) or fewer than `identity` residues are identical, the no-consensus symbol (`N` nucleotide / `X` protein) is emitted; residues whose weight is ≤ `setcase` are written in lower case. Gaps `-`, `.`, `~` are allowed. Single-precision arithmetic as in EMBOSS; outputs are character-identical to `cons -plurality P -identity I -setcase S` (780/780 reference runs). residueType 'auto' types the alignment exactly as cons does without -snucleotide/-sprotein (first sequence decides matrix and N/X; 3,700/3,700 reference runs) and padRaggedRows pads shorter rows with trailing gaps as cons does (ajSeqsetFill).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequences": {
         "type": "array",
-        "description": "At least two aligned sequences of equal length (DNA or protein)",
+        "description": "At least two aligned sequences (DNA or protein); equal length unless padRaggedRows",
         "items": {
           "type": "string"
         },
@@ -20,10 +20,11 @@
       },
       "residueType": {
         "type": "string",
-        "description": "'nucleotide' (EDNAFULL, default) or 'protein' (EBLOSUM62)",
+        "description": "'nucleotide' (EDNAFULL, default), 'protein' (EBLOSUM62) or 'auto' (decided from the first sequence like cons)",
         "enum": [
           "nucleotide",
-          "protein"
+          "protein",
+          "auto"
         ],
         "default": "nucleotide"
       },
@@ -47,6 +48,11 @@
         "items": {
           "type": "number"
         }
+      },
+      "padRaggedRows": {
+        "type": "boolean",
+        "description": "Pad rows shorter than the longest with trailing '-' (cons ajSeqsetFill) instead of rejecting them (default false)",
+        "default": false
       }
     },
     "required": [
@@ -72,7 +78,7 @@
     },
     {
       "code": 1002,
-      "message": "residueType must be 'nucleotide' or 'protein'"
+      "message": "residueType must be 'nucleotide', 'protein' or 'auto'"
     }
   ],
   "examples": [
@@ -105,6 +111,21 @@
       },
       "output": {
         "consensus": "MKVLaAGiVg"
+      }
+    },
+    {
+      "name": "cons without a type flag, ragged rows",
+      "input": {
+        "sequences": [
+          "ACGTAC",
+          "ACG",
+          "AC"
+        ],
+        "residueType": "auto",
+        "padRaggedRows": true
+      },
+      "output": {
+        "consensus": "ACGnnn"
       }
     }
   ]

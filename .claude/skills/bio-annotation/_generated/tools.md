@@ -72,6 +72,7 @@
 | `generate_all_kmers` | Analysis | `KmerAnalyzer.GenerateAllKmers` | [doc](../../../../docs/mcp/tools/analysis/generate_all_kmers.md) |
 | `generate_cavener_consensus` | Analysis | `MotifFinder.GenerateCavenerConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_cavener_consensus.md) |
 | `generate_consensus` | Analysis | `MotifFinder.GenerateConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_consensus.md) |
+| `generate_decipher_consensus` | Analysis | `MotifFinder.GenerateDecipherConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_decipher_consensus.md) |
 | `generate_dot_plot` | Analysis | `ComparativeGenomics.GenerateDotPlot` | [doc](../../../../docs/mcp/tools/analysis/generate_dot_plot.md) |
 | `generate_dumb_consensus` | Analysis | `MotifFinder.GenerateDumbConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_dumb_consensus.md) |
 | `generate_emboss_consensus` | Analysis | `MotifFinder.GenerateEmbossConsensus` | [doc](../../../../docs/mcp/tools/analysis/generate_emboss_consensus.md) |

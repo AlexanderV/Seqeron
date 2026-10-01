@@ -14,22 +14,23 @@ EMBOSS cons scoring-matrix plurality consensus of an alignment.
 
 ## Description
 
-Line-by-line port of EMBOSS 6.6.0 `cons` (`embConsCalc`): per column the residue with the highest positive-match score under the scoring matrix (EDNAFULL for nucleotides, EBLOSUM62 for proteins) is chosen; if its positive-match weight is below `plurality` (default half the total weight) or fewer than `identity` residues are identical, the no-consensus symbol (`N` nucleotide / `X` protein) is emitted; residues whose weight is ≤ `setcase` are written in lower case. Gaps `-`, `.`, `~` are allowed. Single-precision arithmetic as in EMBOSS; outputs are character-identical to `cons -plurality P -identity I -setcase S` (780/780 reference runs). The residue type is explicit (cons infers it from the first sequence).
+Line-by-line port of EMBOSS 6.6.0 `cons` (`embConsCalc`): per column the residue with the highest positive-match score under the scoring matrix (EDNAFULL for nucleotides, EBLOSUM62 for proteins) is chosen; if its positive-match weight is below `plurality` (default half the total weight) or fewer than `identity` residues are identical, the no-consensus symbol (`N` nucleotide / `X` protein) is emitted; residues whose weight is ≤ `setcase` are written in lower case. Gaps `-`, `.`, `~` are allowed. Single-precision arithmetic as in EMBOSS; outputs are character-identical to `cons -plurality P -identity I -setcase S` (780/780 reference runs). `residueType: "auto"` types the alignment exactly as `cons` does without `-snucleotide`/`-sprotein` (each sequence typed on reading, the set takes the first sequence's type — matrix and N/X; 3,700/3,700 reference runs), and `padRaggedRows: true` pads shorter rows with trailing gaps as `cons` does (`ajSeqsetFill`). With the explicit `protein` type the no-consensus symbol is always `X` (`cons -sprotein` takes N/X from the first sequence).
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L133](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L133)
+- Source: [Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L152](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L152)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequences` | array<string> | Yes | At least two aligned sequences of equal length (DNA or protein) |
-| `residueType` | string | No | 'nucleotide' (EDNAFULL, default) or 'protein' (EBLOSUM62) |
+| `sequences` | array<string> | Yes | At least two aligned sequences (DNA or protein); equal length unless `padRaggedRows` |
+| `residueType` | string | No | 'nucleotide' (EDNAFULL, default), 'protein' (EBLOSUM62) or 'auto' (decided from the first sequence like cons) |
 | `plurality` | number | No | Minimum positive-match weight (cons -plurality); default half the total sequence weight |
 | `identity` | integer | No | Required number of identical residues (cons -identity, default 0 = off) |
 | `setcase` | number | No | Weight at or below which output is lower case (cons -setcase); default half the total sequence weight |
 | `weights` | array<number> | No | Optional per-sequence weights (finite, >= 0; default 1.0 each) |
+| `padRaggedRows` | boolean | No | Pad rows shorter than the longest with trailing '-' (cons ajSeqsetFill) instead of rejecting them (default false) |
 
 ## Output Schema
 
@@ -42,7 +43,7 @@ Line-by-line port of EMBOSS 6.6.0 `cons` (`embConsCalc`): per column the residue
 | Code | Message |
 |------|---------|
 | 1001 | At least two sequences are required |
-| 1002 | residueType must be 'nucleotide' or 'protein' |
+| 1002 | residueType must be 'nucleotide', 'protein' or 'auto' |
 | — | Null element, unequal lengths, invalid character or weight count (ArgumentException); negative identity / invalid weight (ArgumentOutOfRangeException) |
 
 ## Examples
@@ -101,6 +102,27 @@ Line-by-line port of EMBOSS 6.6.0 `cons` (`embConsCalc`): per column the residue
 }
 ```
 
+### Example 3: cons without a type flag, ragged rows
+
+**Tool Call:**
+```json
+{
+  "tool": "generate_emboss_consensus",
+  "arguments": {
+    "sequences": ["ACGTAC", "ACG", "AC"],
+    "residueType": "auto",
+    "padRaggedRows": true
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "consensus": "ACGnnn"
+}
+```
+
 ## See Also
 
 - [generate_dumb_consensus](generate_dumb_consensus.md) — Biopython dumb_consensus
@@ -108,5 +130,5 @@ Line-by-line port of EMBOSS 6.6.0 `cons` (`embConsCalc`): per column the residue
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L133](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L133)
+- Algorithm source: [Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L152](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L152)
 - Binding: [AnalysisTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.cs)

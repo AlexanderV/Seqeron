@@ -18,7 +18,7 @@ Majority-threshold consensus with the semantics of Biopython `Bio.Align.AlignInf
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L346](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L346)
+- Source: [Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L454](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L454)
 
 ## Input Schema
 
@@ -109,5 +109,5 @@ Column 2 has C×1, T×2: T is 2/3 = 0.67 < 0.7 → N.
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L346](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L346)
+- Algorithm source: [Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L454](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L454)
 - Binding: [AnalysisTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.cs)

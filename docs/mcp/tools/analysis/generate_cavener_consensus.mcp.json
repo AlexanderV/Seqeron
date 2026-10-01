@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "MotifFinder.GenerateCavenerConsensus",
-  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L491",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L492",
   "description": "Degenerate consensus of aligned, equal-length DNA sequences by the Cavener (1987, NAR 15:1353) rules, as used by TRANSFAC and Biopython `Bio.motifs` `degenerate_consensus`. Per column, with base counts sorted c1 ≥ c2 ≥ c3 ≥ c4: a single base if c1 > 50% and c1 > 2·c2; otherwise the two-base IUPAC code if c1 + c2 > 75%; otherwise the three-base code if the fourth base is absent; otherwise `N`. Case-insensitive; only A/C/G/T are accepted (no gaps). Cross-checked against Biopython.",
   "inputSchema": {
     "type": "object",

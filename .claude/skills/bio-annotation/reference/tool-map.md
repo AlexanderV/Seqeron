@@ -92,9 +92,10 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |
 | `find_regulatory_elements_both_strands` | X | Regulatory scan with strand; orientation-independent elements on both strands | `MotifFinder.FindRegulatoryElements(seq, bothStrands)` |
 | `find_promoter_elements_by_matrix` | X | Bucher/JASPAR TATA, Inr, CCAAT, GC-box weight matrices at a background FPR | `MotifFinder.FindPromoterElementsByMatrix` |
-| `generate_consensus` | X | IUPAC consensus from aligned seqs | `MotifFinder.GenerateConsensus` |
+| `generate_consensus` | X | IUPAC consensus from aligned seqs (inclusionThreshold, default 0.25) | `MotifFinder.GenerateConsensus` |
+| `generate_decipher_consensus` | X | DECIPHER ConsensusSequence (DNA/RNA/protein, gaps, IUPAC input) | `MotifFinder.GenerateDecipherConsensus` |
 | `generate_cavener_consensus` | X | Cavener (1987) degenerate consensus (Biopython degenerate_consensus) | `MotifFinder.GenerateCavenerConsensus` |
-| `generate_emboss_consensus` | X | EMBOSS cons plurality consensus (DNA/protein, gaps, weights) | `MotifFinder.GenerateEmbossConsensus` |
+| `generate_emboss_consensus` | X | EMBOSS cons plurality consensus (DNA/protein/auto, gaps, weights, ragged padding) | `MotifFinder.GenerateEmbossConsensus` |
 | `generate_dumb_consensus` | X | Biopython dumb_consensus majority-threshold consensus | `MotifFinder.GenerateDumbConsensus` |
 | `create_pwm` | X | Log-odds PWM from aligned DNA | `MotifFinder.CreatePwm` |
 | `scan_with_pwm` | X | Scan a sequence with a PWM | `MotifFinder.ScanWithPwm` |

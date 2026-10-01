@@ -931,15 +931,19 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "generate_consensus", Title = "Motifs — IUPAC Consensus", ReadOnly = true)]
-    [Description("IUPAC consensus sequence from aligned equal-length DNA sequences (>25% per position threshold).")]
+    [Description("IUPAC consensus sequence from aligned equal-length DNA sequences: bases above the per-position inclusion threshold (default >25%) form the NC-IUB symbol; if none passes, the tied most frequent bases.")]
     public static ConsensusResult GenerateConsensus(
-        [Description("Aligned DNA sequences of equal length.")] string[] sequences)
+        [Description("Aligned DNA sequences of equal length.")] string[] sequences,
+        [Description("Per-base inclusion threshold in [0, 1]: a base is included when its count is strictly greater than threshold × n (default 0.25).")] double inclusionThreshold = 0.25)
     {
         if (sequences is null || sequences.Length == 0)
             throw new ArgumentException("At least one sequence is required", nameof(sequences));
+        if (double.IsNaN(inclusionThreshold) || inclusionThreshold < 0 || inclusionThreshold > 1)
+            throw new ArgumentOutOfRangeException(nameof(inclusionThreshold), "inclusionThreshold must be in [0, 1].");
 
-        var consensus = global::Seqeron.Genomics.Analysis.MotifFinder
-            .GenerateConsensus(sequences);
+        var consensus = inclusionThreshold == 0.25
+            ? global::Seqeron.Genomics.Analysis.MotifFinder.GenerateConsensus(sequences)
+            : global::Seqeron.Genomics.Analysis.MotifFinder.GenerateConsensus(sequences, inclusionThreshold);
         return new ConsensusResult(consensus);
     }
 
@@ -1005,14 +1009,15 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "generate_emboss_consensus", Title = "Motifs — EMBOSS cons Consensus", ReadOnly = true)]
-    [Description("Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; lower case at or below setcase). Gaps '-', '.', '~' allowed.")]
+    [Description("Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; lower case at or below setcase). Gaps '-', '.', '~' allowed. residueType 'auto' decides the type from the first sequence like cons; padRaggedRows pads shorter rows with trailing gaps like cons (ajSeqsetFill).")]
     public static ConsensusResult GenerateEmbossConsensus(
-        [Description("At least two aligned sequences of equal length (DNA or protein).")] string[] sequences,
-        [Description("Residue type: 'nucleotide' (default, EDNAFULL, no-consensus N) or 'protein' (EBLOSUM62, no-consensus X).")] string residueType = "nucleotide",
+        [Description("At least two aligned sequences (DNA or protein); equal length unless padRaggedRows.")] string[] sequences,
+        [Description("Residue type: 'nucleotide' (default, EDNAFULL, no-consensus N), 'protein' (EBLOSUM62, no-consensus X) or 'auto' (decided from the first sequence as the cons program does).")] string residueType = "nucleotide",
         [Description("Minimum positive-match weight for a consensus residue (cons -plurality); default half the total sequence weight.")] double? plurality = null,
         [Description("Required number of identical residues at a position (cons -identity, default 0 = off).")] int identity = 0,
         [Description("Positive-match weight at or below which the residue is written in lower case (cons -setcase); default half the total sequence weight.")] double? setcase = null,
-        [Description("Optional per-sequence weights (one per sequence, finite, >= 0; default 1.0 each).")] double[]? weights = null)
+        [Description("Optional per-sequence weights (one per sequence, finite, >= 0; default 1.0 each).")] double[]? weights = null,
+        [Description("Pad rows shorter than the longest with trailing '-' gaps (cons ajSeqsetFill) instead of rejecting unequal lengths (default false).")] bool padRaggedRows = false)
     {
         if (sequences is null || sequences.Length < 2)
             throw new ArgumentException("At least two sequences are required", nameof(sequences));
@@ -1020,12 +1025,43 @@ public class AnalysisTools
         {
             "nucleotide" => global::Seqeron.Genomics.Analysis.ConsensusResidueType.Nucleotide,
             "protein" => global::Seqeron.Genomics.Analysis.ConsensusResidueType.Protein,
-            _ => throw new ArgumentException("residueType must be 'nucleotide' or 'protein'", nameof(residueType)),
+            "auto" => global::Seqeron.Genomics.Analysis.ConsensusResidueType.Auto,
+            _ => throw new ArgumentException("residueType must be 'nucleotide', 'protein' or 'auto'", nameof(residueType)),
         };
 
         var consensus = global::Seqeron.Genomics.Analysis.MotifFinder.GenerateEmbossConsensus(
-            sequences, type, (float?)plurality, identity, (float?)setcase,
+            sequences, padRaggedRows, type, (float?)plurality, identity, (float?)setcase,
             weights?.Select(w => (float)w).ToArray());
+        return new ConsensusResult(consensus);
+    }
+
+    [McpServerTool(Name = "generate_decipher_consensus", Title = "Motifs — DECIPHER Consensus", ReadOnly = true)]
+    [Description("Consensus with Bioconductor DECIPHER ConsensusSequence semantics (DNA, RNA or protein): at each position the least frequent characters are dropped while they represent less than 'threshold' of the sequences and the rest are encoded with an IUPAC degeneracy code (DNA/RNA) or B/Z/J/X (protein); noConsensusChar where the consensus carries less than minInformation. Gaps '-'/'.', masks '+'.")]
+    public static ConsensusResult GenerateDecipherConsensus(
+        [Description("Aligned sequences (unequal lengths allowed, as in DECIPHER).")] string[] sequences,
+        [Description("Sequence type: 'dna' (default), 'rna' or 'protein'.")] string sequenceType = "dna",
+        [Description("Fraction of sequence information that may be lost at a position, in [0, 1) (default 0.05).")] double threshold = 0.05,
+        [Description("Split IUPAC degeneracy codes between their residues (default true).")] bool ambiguity = true,
+        [Description("Single character from the alphabet for positions without consensus (default '+').")] string noConsensusChar = "+",
+        [Description("Minimum fraction of information in (0, 1]; default 1 - threshold.")] double? minInformation = null,
+        [Description("DECIPHER includeNonLetters (default false: gaps/masks are counted; true: they are left out, as DECIPHER's own examples show).")] bool includeNonLetters = false,
+        [Description("Count leading/trailing gaps (default false).")] bool includeTerminalGaps = false)
+    {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required", nameof(sequences));
+        if (noConsensusChar is null || noConsensusChar.Length != 1)
+            throw new ArgumentException("noConsensusChar must be exactly one character", nameof(noConsensusChar));
+        var type = (sequenceType ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "dna" => global::Seqeron.Genomics.Analysis.DecipherSequenceType.Dna,
+            "rna" => global::Seqeron.Genomics.Analysis.DecipherSequenceType.Rna,
+            "protein" or "aa" => global::Seqeron.Genomics.Analysis.DecipherSequenceType.AminoAcid,
+            _ => throw new ArgumentException("sequenceType must be 'dna', 'rna' or 'protein'", nameof(sequenceType)),
+        };
+
+        var consensus = global::Seqeron.Genomics.Analysis.MotifFinder.GenerateDecipherConsensus(
+            sequences, type, threshold, ambiguity, noConsensusChar[0], minInformation,
+            includeNonLetters, includeTerminalGaps);
         return new ConsensusResult(consensus);
     }
 

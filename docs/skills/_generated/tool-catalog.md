@@ -35,7 +35,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (113 tools)
+## Analysis (114 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -105,6 +105,7 @@
 | `generate_all_kmers` | `KmerAnalyzer.GenerateAllKmers` | [doc](../../mcp/tools/analysis/generate_all_kmers.md) |
 | `generate_cavener_consensus` | `MotifFinder.GenerateCavenerConsensus` | [doc](../../mcp/tools/analysis/generate_cavener_consensus.md) |
 | `generate_consensus` | `MotifFinder.GenerateConsensus` | [doc](../../mcp/tools/analysis/generate_consensus.md) |
+| `generate_decipher_consensus` | `MotifFinder.GenerateDecipherConsensus` | [doc](../../mcp/tools/analysis/generate_decipher_consensus.md) |
 | `generate_dot_plot` | `ComparativeGenomics.GenerateDotPlot` | [doc](../../mcp/tools/analysis/generate_dot_plot.md) |
 | `generate_dumb_consensus` | `MotifFinder.GenerateDumbConsensus` | [doc](../../mcp/tools/analysis/generate_dumb_consensus.md) |
 | `generate_emboss_consensus` | `MotifFinder.GenerateEmbossConsensus` | [doc](../../mcp/tools/analysis/generate_emboss_consensus.md) |

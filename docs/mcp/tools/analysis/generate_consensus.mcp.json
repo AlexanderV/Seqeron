@@ -5,35 +5,93 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "MotifFinder.GenerateConsensus",
-  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L339",
-  "description": "IUPAC consensus sequence from aligned equal-length DNA sequences: at each column, every base whose count strictly exceeds 25% of the sequences is included, mapped to its IUPAC ambiguity code.",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L441",
+  "description": "IUPAC consensus sequence from aligned equal-length DNA sequences: at each column, every base whose count strictly exceeds 25% of the sequences is included, mapped to its IUPAC ambiguity code. The per-base inclusion threshold is configurable (inclusionThreshold, default 0.25 = parameterless overload; other values call GenerateConsensus(sequences, inclusionThreshold)).",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequences": { "type": "array", "description": "Aligned DNA sequences of equal length", "items": { "type": "string" }, "minItems": 1 }
+      "sequences": {
+        "type": "array",
+        "description": "Aligned DNA sequences of equal length",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "inclusionThreshold": {
+        "type": "number",
+        "description": "Per-base inclusion threshold in [0, 1]: a base is included when its count > threshold × n (default 0.25)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.25
+      }
     },
-    "required": ["sequences"]
+    "required": [
+      "sequences"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "consensus": { "type": "string", "description": "IUPAC consensus sequence" }
+      "consensus": {
+        "type": "string",
+        "description": "IUPAC consensus sequence"
+      }
     },
-    "required": ["consensus"]
+    "required": [
+      "consensus"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "At least one sequence is required" }
+    {
+      "code": 1001,
+      "message": "At least one sequence is required"
+    },
+    {
+      "code": 1002,
+      "message": "inclusionThreshold must be in [0, 1]"
+    }
   ],
   "examples": [
     {
       "name": "Unanimous columns",
-      "input": { "sequences": ["ATGC", "ATGC", "ATGC"] },
-      "output": { "consensus": "ATGC" }
+      "input": {
+        "sequences": [
+          "ATGC",
+          "ATGC",
+          "ATGC"
+        ]
+      },
+      "output": {
+        "consensus": "ATGC"
+      }
     },
     {
       "name": "A/T ambiguity => W",
-      "input": { "sequences": ["AAAA", "TTTT"] },
-      "output": { "consensus": "WWWW" }
+      "input": {
+        "sequences": [
+          "AAAA",
+          "TTTT"
+        ]
+      },
+      "output": {
+        "consensus": "WWWW"
+      }
+    },
+    {
+      "name": "Custom inclusion threshold",
+      "input": {
+        "sequences": [
+          "AAAA",
+          "TTTT",
+          "TTTT",
+          "CCCC"
+        ],
+        "inclusionThreshold": 0.2
+      },
+      "output": {
+        "consensus": "HHHH"
+      }
     }
   ]
 }

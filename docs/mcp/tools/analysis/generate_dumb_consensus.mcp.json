@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "MotifFinder.GenerateDumbConsensus",
-  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L346",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L454",
   "description": "Majority-threshold consensus with the semantics of Biopython `Bio.Align.AlignInfo.SummaryInfo.dumb_consensus(threshold, ambiguous, require_multiple)` (Biopython ≤ 1.85). Per column the residues other than the gaps `-` and `.` are counted (case-sensitive, any alphabet); if exactly one residue has the maximum count and that count divided by the number of non-gap residues is ≥ `threshold`, it is emitted; otherwise (ties, below threshold, all-gap column, or a single non-gap residue when `requireMultiple` is set) `ambiguous` is emitted. Cross-checked against Biopython 1.85 (708/708).",
   "inputSchema": {
     "type": "object",

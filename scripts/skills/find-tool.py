@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """find-tool.py — discovery search over Seqeron's MCP tool + algorithm docs.
 
-Answers "is there a Seqeron tool/algorithm for X?" without loading all 459 MCP
+Answers "is there a Seqeron tool/algorithm for X?" without loading all 460 MCP
 tool schemas into context. Greps the per-tool docs under docs/mcp/tools/ (and,
 with --algorithms, the algorithm docs under docs/algorithms/) for keywords and
 prints a compact, greppable table pointing at the full doc + Method ID.

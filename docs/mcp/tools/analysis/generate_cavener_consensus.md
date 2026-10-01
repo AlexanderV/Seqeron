@@ -18,7 +18,7 @@ Degenerate consensus of aligned, equal-length DNA sequences by the Cavener (1987
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Analysis/MotifFinder.cs#L491](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L491)
+- Source: [Seqeron.Genomics.Analysis/MotifFinder.cs#L492](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L492)
 
 ## Input Schema
 
@@ -82,5 +82,5 @@ Column 1: T×4, A×3 — T is > 50% but not > 2×A; T + A = 100% > 75% → W. Co
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Analysis/MotifFinder.cs#L491](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L491)
+- Algorithm source: [Seqeron.Genomics.Analysis/MotifFinder.cs#L492](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L492)
 - Binding: [AnalysisTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.cs)

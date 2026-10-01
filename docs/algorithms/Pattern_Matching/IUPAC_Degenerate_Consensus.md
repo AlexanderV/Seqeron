@@ -6,11 +6,11 @@
 | Test Unit ID | MOTIF-GENERATE-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-30 (review-2026-09 B05, F13; configurable threshold follow-up) |
+| Last Reviewed | 2026-10-01 (review-2026-09 B05, F13; configurable threshold follow-up; F28 DECIPHER `ConsensusSequence`) |
 
 ## 1. Overview
 
-Given a set of equal-length aligned DNA sequences, this algorithm produces a single consensus string in which each column is summarised by an IUPAC nucleotide symbol. Unlike a plain most-frequent ("plurality") consensus, ambiguous columns are encoded with IUPAC degeneracy codes (R, Y, B, N, …) so the consensus retains the set of bases that occur with appreciable frequency at that position [1][2]. A base is included in a column's code only if its frequency exceeds a fixed threshold; the surviving base set is then mapped to its IUPAC symbol. The library also provides the published Cavener (1987) rule set (`GenerateCavenerConsensus`, as in TRANSFAC and Biopython `degenerate_consensus`) [5][6]. The computation is exact and deterministic.
+Given a set of equal-length aligned DNA sequences, this algorithm produces a single consensus string in which each column is summarised by an IUPAC nucleotide symbol. Unlike a plain most-frequent ("plurality") consensus, ambiguous columns are encoded with IUPAC degeneracy codes (R, Y, B, N, …) so the consensus retains the set of bases that occur with appreciable frequency at that position [1][2]. A base is included in a column's code only if its frequency exceeds a fixed threshold; the surviving base set is then mapped to its IUPAC symbol. The library also provides the published Cavener (1987) rule set (`GenerateCavenerConsensus`, as in TRANSFAC and Biopython `degenerate_consensus`) [5][6] and Bioconductor DECIPHER's `ConsensusSequence` (`GenerateDecipherConsensus`, DNA/RNA/protein, gaps, masks, IUPAC input, ragged rows) [4][7]. The computation is exact and deterministic.
 
 ## 2. Scientific / Formal Basis
 
@@ -20,9 +20,13 @@ A multiple alignment of related sequences can be collapsed into one representati
 
 ### 2.2 Core Model
 
-For each column *j* of *n* aligned sequences, count the occurrences of each standard base. Retain the set `B_j = { b : count(b) > θ·n }`, where θ = 0.25 is this library's per-base design threshold; remaining (low-frequency) bases are dropped. This belongs to the threshold-consensus family but is **not** DECIPHER's rule (DECIPHER drops the least frequent characters while their *cumulative* fraction stays below `threshold`, default 0.05) [4]. If no base passes, the column emits the IUPAC symbol of all bases tied at the maximum count — DECIPHER: "degeneracy codes are always used in cases where multiple characters are equally abundant" [4] — and `N` when the column contains no A/C/G/T.
+For each column *j* of *n* aligned sequences, count the occurrences of each standard base. Retain the set `B_j = { b : count(b) > θ·n }`, where θ = 0.25 is this library's per-base design threshold; remaining (low-frequency) bases are dropped. This belongs to the threshold-consensus family but is **not** DECIPHER's rule (below; implemented separately as `GenerateDecipherConsensus`) [4]. If no base passes, the column emits the IUPAC symbol of all bases tied at the maximum count — DECIPHER: "degeneracy codes are always used in cases where multiple characters are equally abundant" [4] — and `N` when the column contains no A/C/G/T.
 
-**Cavener (1987) rules** (`GenerateCavenerConsensus`) [5][6]: with counts sorted c1 ≥ c2 ≥ c3 ≥ c4 (ties in A,C,G,T order): single base if c1 > c2+c3+c4 and c1 > 2·c2; else two-base code of the top two if c1+c2 > 75 %; else three-base code of the top three if c4 = 0; else `N`. The column emits `IUPAC(B_j)`, the single symbol that the NC-IUB 1984 nomenclature assigns to that base set [1]:
+**Cavener (1987) rules** (`GenerateCavenerConsensus`) [5][6]: with counts sorted c1 ≥ c2 ≥ c3 ≥ c4 (ties in A,C,G,T order): single base if c1 > c2+c3+c4 and c1 > 2·c2; else two-base code of the top two if c1+c2 > 75 %; else three-base code of the top three if c4 = 0; else `N`.
+
+**DECIPHER `ConsensusSequence`** (`GenerateDecipherConsensus`; DECIPHER 3.9.4 `src/ConsensusSequence.c` `alphabetFrequency`/`makeConsensus`/`makeConsensusAA`) [4][7]: per column the characters are tallied as fractions of the counted characters (with `ambiguity = TRUE` an IUPAC code is split equally between its bases, protein `B`/`Z`/`J` between their pair and `X` as 1/20 of each canonical residue). With t = 1 − `threshold` (default 0.05 → t = 0.95) the first test that holds, in source order, wins: a single residue that is strictly the most frequent with fraction ≥ t; then (DNA/RNA) `Y K W S R M B D H V` — every included base strictly above every excluded base and the sum ≥ t — then `N` if A+C+G+T ≥ t; (protein) `B`/`Z`/`J` when N/Q/I is the unique (or with D/E/L tied) maximum and the pair sums to ≥ t, then `X` if all residues sum to ≥ t. The chosen fraction must also be ≥ the gap and mask fractions (else `-`, or `+` when masks outnumber gaps); a column failing every test is `-`/`+` when that fraction ≥ t. A position whose consensus carries less than `minInformation` (default 1 − threshold) is `noConsensusChar` (default `+`). Terminal gaps are not counted unless `includeTerminalGaps`; a column with nothing counted is `-`. DECIPHER passes `includeNonLetters` to the C argument `ignoreNonLetters`, so with the default `FALSE` gaps/masks are counted and with `TRUE` they are left out — as the package's own manual examples show (`c("A-+.A","AAAAA")` → `ANNNA` with `noConsensusChar="N"`, `AAAAA` with `includeNonLetters=TRUE`); the port keeps that behaviour.
+
+The column emits `IUPAC(B_j)`, the single symbol that the NC-IUB 1984 nomenclature assigns to that base set [1]:
 
 | Base set | Symbol | Base set | Symbol |
 |----------|--------|----------|--------|
@@ -87,7 +91,7 @@ Null `sequences` throws `ArgumentNullException`; a null element or rows of unequ
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 - **IUPAC set→symbol table** — NC-IUB 1984 / Cornish-Bowden [1], corroborated by UCSC [2] and Wikipedia Table 1 [3]; realised by the canonical `IupacDnaSequence.GetIupacCode(IEnumerable<char>)` (Core/ISequence.cs), which `MotifFinder.GetIupacCode` calls after its threshold step.
-- **Inclusion threshold** — `IupacInclusionThreshold = 0.25`; a base must occur in strictly more than a quarter of the sequences. Design constant (kept for API/MCP compatibility); not DECIPHER's cumulative rule [4] nor Cavener's [5].
+- **Inclusion threshold** — `IupacInclusionThreshold = 0.25`; a base must occur in strictly more than a quarter of the sequences. Default of the parameterless overload (API/MCP compatibility); any θ via `GenerateConsensus(sequences, θ)` and MCP `generate_consensus` `inclusionThreshold`; not DECIPHER's rule [4] (`GenerateDecipherConsensus`) nor Cavener's [5].
 
 ### 4.3 Complexity
 
@@ -104,6 +108,7 @@ Null `sequences` throws `ArgumentNullException`; a null element or rows of unequ
 - `MotifFinder.GenerateConsensus(IEnumerable<string>)`: builds the IUPAC-degenerate consensus (θ = 0.25).
 - `MotifFinder.GenerateConsensus(IEnumerable<string>, double inclusionThreshold)` ([MotifFinder.AlignmentConsensus.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs)): same algorithm with a caller-chosen θ ∈ [0, 1]; both overloads share the private `GenerateConsensusCore`, so θ = 0.25 is bit-identical to the parameterless overload (property test C1, 500 random alignments).
 - `MotifFinder.GetIupacCode(...)` (private): applies the >θ inclusion threshold, then maps the passing base set to its NC-IUB symbol via canonical `IupacDnaSequence.GetIupacCode`.
+- `MotifFinder.GenerateDecipherConsensus(sequences, DecipherSequenceType = Dna, threshold = 0.05, ambiguity = true, noConsensusChar = '+', minInformation = 1 − threshold, includeNonLetters = false, includeTerminalGaps = false)` ([MotifFinder.DecipherConsensus.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.DecipherConsensus.cs)): line-by-line port of DECIPHER 3.9.4 `ConsensusSequence` (R validation + C kernels) for DNA, RNA (`U`) and amino acids. Cross-checked against DECIPHER's own R/C source built as an R package (R 4.3.3, Biostrings 2.70.2): 10,000 random cases (seeds 20261001, 7), 0 mismatches; MCP `generate_decipher_consensus`.
 - `MotifFinder.GenerateCavenerConsensus(IEnumerable<string>)`: Cavener 1987 rules on the shared private `BuildCountMatrix` (rejects null/unequal/non-ACGT rows); set→symbol via `IupacDnaSequence.GetIupacCode`. Locked against Biopython 1.88 `degenerate_consensus` (tutorial WACVC/GBGTW/CV + 12 random alignments).
 
 ### 5.2 Current Behavior
@@ -120,12 +125,11 @@ All rows must have the same length. Bases at exactly the threshold are excluded 
 **Intentionally simplified:**
 
 - Default threshold value θ = 0.25 (strict `>`) in the parameterless overload (API/MCP compatibility); **tunable** via `GenerateConsensus(sequences, θ)` (θ = 0 keeps every base present; θ ≥ the column's maximum frequency reduces it to its tied most frequent bases). Cross-checked against an independent Python implementation of the rule on 700 random alignments (θ ∈ {0, 0.1, 0.25, 0.3, 1/3, 0.5, 0.75, 1, random}; 700/700 identical; 20 locked).
-- Empty-information column (only gaps/N) → `N` (Biopython's Cavener code would give `V` for an all-zero column, an artefact of its sort; DECIPHER would give `-`).
+- Empty-information column (only gaps/N) → `N` (Biopython's Cavener code would give `V` for an all-zero column, an artefact of its sort; DECIPHER gives `-`, see `GenerateDecipherConsensus`).
 
-**Not implemented:**
+**Other forms (implemented separately):**
 
-- Gap (`-`) handling and U/RNA columns; **users should rely on:** pre-normalising input to DNA without gaps.
-- Weighted consensus in this IUPAC form; **users should rely on:** `GenerateCavenerConsensus` for the published rule, `GenerateConsensus(sequences, θ)` for a tunable per-base cut, and `MotifFinder.GenerateEmbossConsensus` (EMBOSS `cons`, weighted, matrix-scored — [Consensus_From_Alignment](./Consensus_From_Alignment.md) §5.4) for weighted plurality consensus. DECIPHER's cumulative-threshold rule is a different definition and is not implemented.
+- Gaps, masks, IUPAC-degenerate input, RNA (`U`), protein and ragged rows: `GenerateDecipherConsensus` (DECIPHER `ConsensusSequence`). Published Cavener rule: `GenerateCavenerConsensus`. Weighted, matrix-scored plurality consensus: `MotifFinder.GenerateEmbossConsensus` (EMBOSS `cons` — [Consensus_From_Alignment](./Consensus_From_Alignment.md) §5.4). DECIPHER's `ConsensusSequence` itself has no sequence weights.
 
 ### 5.4 Deviations and Assumptions
 
@@ -151,7 +155,7 @@ All rows must have the same length. Bases at exactly the threshold are excluded 
 
 ### 6.2 Limitations
 
-Gaps, IUPAC-degenerate input symbols, and RNA (U) are not counted. The threshold is 0.25 in the parameterless overload and configurable in `GenerateConsensus(sequences, θ)`; weighted or quality-aware IUPAC consensus is out of scope. The 25 % per-base threshold is a design constant, not a published rule; use `GenerateCavenerConsensus` for the Cavener/TRANSFAC/Biopython result.
+In `GenerateConsensus`, gaps, IUPAC-degenerate input symbols and RNA (U) are not counted (use `GenerateDecipherConsensus` for those inputs). The threshold is 0.25 in the parameterless overload and configurable in `GenerateConsensus(sequences, θ)` / MCP `inclusionThreshold`. The 25 % default is not a published rule; use `GenerateCavenerConsensus` for the Cavener/TRANSFAC/Biopython result and `GenerateDecipherConsensus` for DECIPHER's.
 
 ## 7. Examples and Related Material
 
@@ -172,6 +176,7 @@ string consensus = MotifFinder.GenerateConsensus(new[] { "ATGC", "GTGC" });
 
 ### 7.3 Related Tests, Evidence, or Documents
 
+- DECIPHER: [MotifFinder_DecipherConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_DecipherConsensus_Tests.cs) (90 cases locked from the DECIPHER R/C build + all manual examples + guards)
 - Tests: [MotifFinder_GenerateConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_GenerateConsensus_Tests.cs) — covers `INV-01`..`INV-05`; configurable threshold: [MotifFinder_AlignmentConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_AlignmentConsensus_Tests.cs), `Properties/AlignmentConsensusProperties.cs` (C1 bit-identity, C2 nesting)
 - Evidence: [MOTIF-GENERATE-001-Evidence.md](../../../docs/Evidence/MOTIF-GENERATE-001-Evidence.md)
 - Related algorithms: [Consensus_From_Alignment](./Consensus_From_Alignment.md)
@@ -184,3 +189,4 @@ string consensus = MotifFinder.GenerateConsensus(new[] { "ATGC", "GTGC" });
 4. Wright E.S. DECIPHER `ConsensusSequence` (Bioconductor). https://rdrr.io/bioc/DECIPHER/man/ConsensusSequence.html
 5. Cavener D.R. 1987. Comparison of the consensus sequence flanking translational start sites in Drosophila and vertebrates. Nucleic Acids Research 15(4):1353–1361.
 6. Biopython 1.88 `Bio.motifs.matrix.GenericPositionMatrix.degenerate_consensus` (installed source) and Tutorial `chapter_motifs.rst` (WACVC / GBGTW / CV examples). https://raw.githubusercontent.com/biopython/biopython/master/Doc/Tutorial/chapter_motifs.rst
+7. Wright E.S. DECIPHER 3.9.4 source: `R/ConsensusSequence.R`, `src/ConsensusSequence.c`, `man/ConsensusSequence.Rd` (Bioconductor git mirror). https://raw.githubusercontent.com/bioc/DECIPHER/devel/src/ConsensusSequence.c
