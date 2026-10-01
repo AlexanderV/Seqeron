@@ -2,7 +2,7 @@ namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
 /// Faithful port of the Primer3 <c>ntthal</c> dimer thermodynamic-alignment engine
-/// (oligo–oligo hybridisation, <c>type == 1</c> / mode ANY) for PRIMER-TM-001.
+/// (oligo–oligo hybridisation, thal types 1/2/3 = ANY/END1/END2) for PRIMER-TM-001 / PRIMER-DIMER-001.
 /// <para>
 /// Computes the most stable intermolecular DNA duplex between two oligonucleotides via the
 /// full ntthal dynamic program — matched nearest-neighbour stacks, single internal mismatches
@@ -18,17 +18,24 @@ namespace Seqeron.Genomics.MolTools;
 /// This is a line-for-line translation of <c>thal.c</c> (<c>fillMatrix</c>, <c>LSH</c>,
 /// <c>RSH</c>, <c>maxTM</c>, <c>calc_bulge_internal</c>, <c>traceback</c>, <c>calcDimer</c>) from
 /// the primer3-py vendored libprimer3, retrieved this session from
-/// https://raw.githubusercontent.com/libnano/primer3-py/master/primer3/src/libprimer3/thal.c .
+/// https://raw.githubusercontent.com/libnano/primer3-py/master/primer3/src/libprimer3/thal.c and
+/// re-verified line by line (PRIMER-DIMER-001, 2026-10) against the primer3-py v2.3.1 tag
+/// (…/primer3-py/v2.3.1/primer3/src/libprimer3/thal.c): <c>LSH</c>/<c>RSH</c> keep the running Tm
+/// <c>T1</c> at −∞ unless a dangling-end branch is taken (so the bare A·T term then wins over the
+/// tstack2 term), <c>equal()</c> uses 1e-5 and never matches non-finite values, <c>maxTM</c> leaves
+/// the cell unchanged for NaN Tm, the best-pair scan adds <c>SMALL_NON_ZERO</c>, ΔG is evaluated at
+/// the caller's <c>temp</c>, <c>maxLoop</c> is a parameter, and the THAL_MAX_ALIGN/THAL_MAX_SEQ
+/// length checks apply.
 /// All thermodynamic tables (<c>stack</c>, <c>stackmm</c>, <c>tstack2</c>, <c>tstack</c>,
 /// <c>dangle</c>, interior/bulge loop lengths) are taken verbatim from the primer3 config files
 /// (<c>primer3_config/*.dh</c>, <c>*.ds</c>), the same authoritative parameter set ntthal loads.
 /// </para>
 /// <para>
-/// Cross-checked against primer3-py 2.3.0 <c>calc_homodimer</c> / <c>calc_heterodimer</c>
-/// (mv = 50 mM, dv = 0, dntp = 0, dna_conc = 50 nM): this engine reproduces ntthal's ΔH°, ΔS°,
-/// ΔG° and Tm to machine precision for contiguous Watson–Crick duplexes <b>and</b> for dimers
-/// whose optimal structure contains an internal mismatch, an internal loop, a bulge, or a
-/// terminal overhang.
+/// Cross-checked against primer3-py 2.3.1 <c>calc_heterodimer</c> / <c>calc_homodimer</c> /
+/// <c>calc_end_stability</c>: 8000 random pairs (5–60 nt incl. self-complementary, GC-rich and
+/// homopolymer-run oligos; ANY/END1/END2; default and random mv/dv/dntp/dna_conc/temp_c/max_loop)
+/// identical (max |ΔTm| = 0, max |ΔG| &lt; 1e-11 cal/mol), and the thal.c <c>drawDimer</c> ASCII
+/// structure identical to <c>ascii_structure_lines</c>.
 /// </para>
 /// <para>
 /// Sources (retrieved &amp; extracted this session):
@@ -56,7 +63,12 @@ internal static class NtthalDimer
     private const double DplxInitH = 200.0;          // duplex initiation ΔH, cal/mol
     private const double DplxInitS = -5.7;           // duplex initiation ΔS, cal/(K·mol)
     internal const double AtPenaltySEntry = 1e-11;    // tableStartATS default (non-A·T) entropy
-    private const double Equal = 1e-6;               // traceback equality tolerance (thal.c equal())
+    private const double Equal = 1e-5;               // traceback equality tolerance (thal.c equal())
+    private const double SmallNonZero = 0.000001;    // thal.c SMALL_NON_ZERO (added in the best-pair scan)
+    /// <summary>thal.h THAL_MAX_ALIGN: at least one strand of a dimer must be at most this long.</summary>
+    internal const int ThalMaxAlign = 60;
+    /// <summary>thal.h THAL_MAX_SEQ: maximum length of either strand.</summary>
+    internal const int ThalMaxSeq = 10000;
 
     // bp index matrix BPI[5][5] (A,C,G,T,N): 1 = Watson-Crick pair, 0 = none (thal.c lines 140-145).
     internal static readonly int[,] Bpi =
@@ -87,9 +99,11 @@ internal static class NtthalDimer
     /// <param name="BasePairs">Number of paired bases N+1 in the optimal structure.</param>
     /// <param name="Strand1End">1-based 3′-most paired index on strand 1 (ntthal align_end_1).</param>
     /// <param name="Strand2End">1-based paired index on the reversed strand 2 (ntthal align_end_2).</param>
+    /// <param name="AsciiStructure">The four thal.c <c>drawDimer</c> lines ("SEQ\t…", "SEQ\t…",
+    /// "STR\t…", "STR\t…"; primer3-py <c>ascii_structure_lines</c>) when requested, else null.</param>
     internal readonly record struct Result(
         double DeltaH, double DeltaS, double DeltaG37, double TmCelsius,
-        int BasePairs, int Strand1End, int Strand2End);
+        int BasePairs, int Strand1End, int Strand2End, string[]? AsciiStructure = null);
 
     /// <summary>
     /// Runs the full ntthal dimer DP for two oligos (5′→3′). Returns <c>null</c> when no duplex
@@ -125,10 +139,24 @@ internal static class NtthalDimer
     /// Runs the ntthal dimer DP with an explicit alignment type and divalent/dNTP concentrations
     /// (all in mol/L; ntthal's mv/dv/dntp are mM, dna_conc nM).
     /// </summary>
+    /// <param name="tempKelvin">ntthal <c>temp</c> (K): the temperature at which the reported ΔG is
+    /// evaluated (<c>calcDimer</c>: G = H − temp·S). The DP itself always ranks at 310.15 K.</param>
+    /// <param name="maxLoop">ntthal <c>maxLoop</c>: maximum internal-loop / bulge size (0–30).</param>
     internal static Result? Run(
         string oligo1, string oligo2, double mvMolar, double dnaConcMolar,
-        AlignmentType type, double dvMolar, double dntpMolar)
+        AlignmentType type, double dvMolar, double dntpMolar,
+        double tempKelvin = TempKelvin, int maxLoop = MaxLoop, bool withStructure = false)
     {
+        if (maxLoop < 0 || maxLoop > MaxLoop)
+            throw new ArgumentOutOfRangeException(nameof(maxLoop), maxLoop, "ntthal max_loop must be in 0..30.");
+        // thal.c CHECK_ERROR: at least one sequence must be ≤ THAL_MAX_ALIGN (60) nt, neither > THAL_MAX_SEQ.
+        if (oligo1.Length > ThalMaxAlign && oligo2.Length > ThalMaxAlign)
+            throw new ArgumentException(
+                "At least one sequence must be equal to or shorter than 60bp for thermodynamic calculations");
+        if (oligo1.Length > ThalMaxSeq || oligo2.Length > ThalMaxSeq)
+            throw new ArgumentException(
+                "Target sequence length > maximum allowed (10000) in thermodynamic alignment");
+
         // THAL_END2 (type 3): oligo_r becomes oligo1 and oligo_f oligo2 (thal.c 568-578).
         if (type == AlignmentType.End2)
             (oligo1, oligo2) = (oligo2, oligo1);
@@ -182,138 +210,80 @@ internal static class NtthalDimer
         double Ss(int i, int j) => T4(StackS, a[i], a[i + 1], b[j], b[j + 1]);
         double Hs(int i, int j) => T4(StackH, a[i], a[i + 1], b[j], b[j + 1]);
 
-        // RSH — right terminal stack (3'-side): tstack2 terminal-mismatch / dangling-end (thal.c 1857-1983).
+        // RSH / LSH share thal.c's terminal-pair selection: candidate 1 = A·T penalty + tstack2
+        // terminal mismatch; candidate 2 (only when the neighbouring bases do not pair and a dangling
+        // end exists) = A·T penalty + 3'/5' dangling end(s); fallback = A·T penalty alone. thal.c keeps
+        // the running Tm T1 at −∞ unless a dangling-end branch is entered, so when no branch is
+        // entered the bare A·T penalty always wins over the tstack2 candidate (T1 = −∞ < T2).
+        (double S, double H) Terminal(double s1, double h1, bool branch, double s2, double h2, int x, int y)
+        {
+            double g1 = h1 - TempKelvin * s1;
+            if (!IsFinite(h1) || g1 > 0) { h1 = Inf; s1 = -1.0; g1 = 1.0; }
+            double t1 = double.NegativeInfinity, t2;
+            if (branch)
+            {
+                double g2 = h2 - TempKelvin * s2;
+                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
+                t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
+                if (IsFinite(h1) && g1 < 0)
+                {
+                    t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
+                    if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; t1 = t2; }
+                }
+                else if (g2 < 0) { s1 = s2; h1 = h2; t1 = t2; }
+            }
+            s2 = AtPenaltyS(x, y);
+            h2 = AtPenaltyH(x, y);
+            t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
+            if (IsFinite(h1))
+                return t1 < t2 ? (s2, h2) : (s1, h1);
+            return (s2, h2);
+        }
+
+        // RSH — right terminal stack (3'-side): tstack2 terminal-mismatch / dangling-end (thal.c RSH).
         (double S, double H) Rsh(int i, int j)
         {
             if (Bp(a[i], b[j]) == 0) return (-1.0, Inf);
             double s1 = AtPenaltyS(a[i], b[j]) + T4(Tstack2S, a[i], a[i + 1], b[j], b[j + 1]);
             double h1 = AtPenaltyH(a[i], b[j]) + T4(Tstack2H, a[i], a[i + 1], b[j], b[j + 1]);
-            double g1 = h1 - TempKelvin * s1;
-            if (!IsFinite(h1) || g1 > 0) { h1 = Inf; s1 = -1.0; g1 = 1.0; }
-            double s2, h2, t2;
-            double t1;
-
             bool unpaired = Bp(a[i + 1], b[j + 1]) == 0;
             bool d3 = IsFinite(T3(Dangle3H, a[i], a[i + 1], b[j]));
             bool d5 = IsFinite(T3(Dangle5H, a[i], b[j], b[j + 1]));
-            if (unpaired && d3 && d5)
+            double s2 = AtPenaltyS(a[i], b[j]), h2 = AtPenaltyH(a[i], b[j]);
+            if (unpaired && d3)
             {
-                s2 = AtPenaltyS(a[i], b[j]) + T3(Dangle3S, a[i], a[i + 1], b[j]) + T3(Dangle5S, a[i], b[j], b[j + 1]);
-                h2 = AtPenaltyH(a[i], b[j]) + T3(Dangle3H, a[i], a[i + 1], b[j]) + T3(Dangle5H, a[i], b[j], b[j + 1]);
-                double g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                    if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
+                s2 += T3(Dangle3S, a[i], a[i + 1], b[j]);
+                h2 += T3(Dangle3H, a[i], a[i + 1], b[j]);
             }
-            else if (unpaired && d3)
+            if (unpaired && d5)
             {
-                s2 = AtPenaltyS(a[i], b[j]) + T3(Dangle3S, a[i], a[i + 1], b[j]);
-                h2 = AtPenaltyH(a[i], b[j]) + T3(Dangle3H, a[i], a[i + 1], b[j]);
-                double g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                    if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
+                s2 += T3(Dangle5S, a[i], b[j], b[j + 1]);
+                h2 += T3(Dangle5H, a[i], b[j], b[j + 1]);
             }
-            else if (unpaired && d5)
-            {
-                s2 = AtPenaltyS(a[i], b[j]) + T3(Dangle5S, a[i], b[j], b[j + 1]);
-                h2 = AtPenaltyH(a[i], b[j]) + T3(Dangle5H, a[i], b[j], b[j + 1]);
-                double g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                    if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
-            }
-            // bare A·T-penalty alternative (no terminal stack).
-            s2 = AtPenaltyS(a[i], b[j]);
-            h2 = AtPenaltyH(a[i], b[j]);
-            t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-            if (IsFinite(h1))
-            {
-                t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                return t1 < t2 ? (s2, h2) : (s1, h1);
-            }
-            return (s2, h2);
+            return Terminal(s1, h1, unpaired && (d3 || d5), s2, h2, a[i], b[j]);
         }
 
-        // LSH — left terminal stack (5'-side) (thal.c 1741-1855).
+        // LSH — left terminal stack (5'-side) (thal.c LSH).
         (double S, double H)? Lsh(int i, int j)
         {
             if (Bp(a[i], b[j]) == 0) { enS[i, j] = -1.0; enH[i, j] = Inf; return null; }
             double s1 = AtPenaltyS(a[i], b[j]) + T4(Tstack2S, b[j], b[j - 1], a[i], a[i - 1]);
             double h1 = AtPenaltyH(a[i], b[j]) + T4(Tstack2H, b[j], b[j - 1], a[i], a[i - 1]);
-            double g1 = h1 - TempKelvin * s1;
-            if (!IsFinite(h1) || g1 > 0) { h1 = Inf; s1 = -1.0; g1 = 1.0; }
-            double s2, h2, t2, t1;
-
             bool notPaired = Bp(a[i - 1], b[j - 1]) != 1;
             bool d3 = IsFinite(T3(Dangle3H, b[j], b[j - 1], a[i]));
             bool d5 = IsFinite(T3(Dangle5H, b[j], a[i], a[i - 1]));
-            if (notPaired && d3 && d5)
+            double s2 = AtPenaltyS(a[i], b[j]), h2 = AtPenaltyH(a[i], b[j]);
+            if (notPaired && d3)
             {
-                s2 = AtPenaltyS(a[i], b[j]) + T3(Dangle3S, b[j], b[j - 1], a[i]) + T3(Dangle5S, b[j], a[i], a[i - 1]);
-                h2 = AtPenaltyH(a[i], b[j]) + T3(Dangle3H, b[j], b[j - 1], a[i]) + T3(Dangle5H, b[j], a[i], a[i - 1]);
-                double g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                    if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
+                s2 += T3(Dangle3S, b[j], b[j - 1], a[i]);
+                h2 += T3(Dangle3H, b[j], b[j - 1], a[i]);
             }
-            else if (notPaired && d3)
+            if (notPaired && d5)
             {
-                s2 = AtPenaltyS(a[i], b[j]) + T3(Dangle3S, b[j], b[j - 1], a[i]);
-                h2 = AtPenaltyH(a[i], b[j]) + T3(Dangle3H, b[j], b[j - 1], a[i]);
-                double g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                    if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
+                s2 += T3(Dangle5S, b[j], a[i], a[i - 1]);
+                h2 += T3(Dangle5H, b[j], a[i], a[i - 1]);
             }
-            else if (notPaired && d5)
-            {
-                s2 = AtPenaltyS(a[i], b[j]) + T3(Dangle5S, b[j], a[i], a[i - 1]);
-                h2 = AtPenaltyH(a[i], b[j]) + T3(Dangle5H, b[j], a[i], a[i - 1]);
-                double g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                    if (t1 < t2 && g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
-            }
-            s2 = AtPenaltyS(a[i], b[j]);
-            h2 = AtPenaltyH(a[i], b[j]);
-            t2 = (h2 + DplxInitH) / (s2 + DplxInitS + rc);
-            if (IsFinite(h1))
-            {
-                t1 = (h1 + DplxInitH) / (s1 + DplxInitS + rc);
-                return t1 < t2 ? (s2, h2) : (s1, h1);
-            }
-            return (s2, h2);
+            return Terminal(s1, h1, notPaired && (d3 || d5), s2, h2, a[i], b[j]);
         }
 
         // maxTM — stack extension from (i-1,j-1) vs current (thal.c 1662-1702).
@@ -333,7 +303,7 @@ internal static class NtthalDimer
             if (s1 < MinEntropyCutoff) { s1 = MinEntropy; h1 = 0.0; }
             if (s0 < MinEntropyCutoff) { s0 = MinEntropy; h0 = 0.0; }
             if (t1 > t0) { enS[i, j] = s1; enH[i, j] = h1; }
-            else { enS[i, j] = s0; enH[i, j] = h0; }
+            else if (t0 >= t1) { enS[i, j] = s0; enH[i, j] = h0; } // NaN T: cell left unchanged (thal.c)
         }
 
         // calc_bulge_internal — bulges + internal loops closing at (i,j) from inner pair (ii,jj)
@@ -410,7 +380,7 @@ internal static class NtthalDimer
                 if (i > 1 && j > 1)
                 {
                     MaxTm(i, j);
-                    for (int d = 3; d <= MaxLoop + 2; d++)
+                    for (int d = 3; d <= maxLoop + 2; d++)
                     {
                         int ii = i - 1;
                         int jj = -ii - d + (j + i);
@@ -444,6 +414,8 @@ internal static class NtthalDimer
             for (int j = 1; j <= len2; j++)
             {
                 var (s, h) = Rsh(i, j);
+                s += SmallNonZero; // thal.c: SH[0..1] += SMALL_NON_ZERO before ranking
+                h += SmallNonZero;
                 double g = (enH[i, j] + h + DplxInitH) - TempKelvin * (enS[i, j] + s + DplxInitS);
                 if (g < bestG) { bestG = g; bestI = i; bestJ = j; }
             }
@@ -457,12 +429,9 @@ internal static class NtthalDimer
         double dS = enS[bestI, bestJ] + bs + DplxInitS;
 
         // traceback to count paired bases N (thal.c 2957-3003).
-        bool Eq(double x, double y)
-        {
-            if (double.IsInfinity(x) && double.IsInfinity(y)) return (x > 0) == (y > 0);
-            if (double.IsInfinity(x) || double.IsInfinity(y)) return false;
-            return Math.Abs(x - y) < Equal;
-        }
+        // thal.c equal(): non-finite operands never compare equal; tolerance 1e-5.
+        static bool Eq(double x, double y) =>
+            double.IsFinite(x) && double.IsFinite(y) && Math.Abs(x - y) < Equal;
 
         var ps1 = new int[len1];
         var ps2 = new int[len2];
@@ -480,7 +449,7 @@ internal static class NtthalDimer
                 {
                     i -= 1; j -= 1; ps1[i - 1] = j; ps2[j - 1] = i; done = true;
                 }
-                for (int d = 3; !done && d <= MaxLoop + 2; d++)
+                for (int d = 3; !done && d <= maxLoop + 2; d++)
                 {
                     int ii = i - 1;
                     int jj = -ii - d + (j + i);
@@ -497,6 +466,9 @@ internal static class NtthalDimer
                         }
                     }
                 }
+                // thal.c would spin forever here when no predecessor matches (never observed on the
+                // validated inputs); stop the traceback instead of hanging.
+                if (!done) break;
             }
         }
 
@@ -506,23 +478,91 @@ internal static class NtthalDimer
         n = n / 2 - 1; // number of NN stacks (thal.c calcDimer line 3027)
 
         double tm = dH / (dS + n * saltCorrection + rc) - AbsoluteZero;
+        double dg = dH - tempKelvin * (dS + n * saltCorrection); // calcDimer: G = H − t37·(S + N·salt)
         double dsOut = dS + n * saltCorrection;
-        double dg = dH - TempKelvin * dsOut;
-        return new Result(dH, dsOut, dg, tm, n + 1, bestI, bestJ);
+        string[]? structure = withStructure
+            ? DrawDimer(oligo1.ToUpperInvariant(), ReverseString(oligo2.ToUpperInvariant()), ps1, ps2)
+            : null;
+        return new Result(dH, dsOut, dg, tm, n + 1, bestI, bestJ, structure);
     }
 
-    /// <summary>Reverse-complement palindrome test (thal.c symmetry_thermo).</summary>
+    private static string ReverseString(string s)
+    {
+        var c = s.ToCharArray();
+        Array.Reverse(c);
+        return new string(c);
+    }
+
+    /// <summary>
+    /// Port of thal.c <c>drawDimer</c>'s ASCII duplex (primer3-py <c>ascii_structure_lines</c>):
+    /// line 1 = unpaired bases of strand 1 ('-' pads the shorter loop side), line 2 = paired bases of
+    /// strand 1, line 3 = paired bases of strand 2, line 4 = unpaired bases of strand 2; strand 2 is
+    /// written 3′→5′. Trailing whitespace is trimmed as in thal.c <c>trim_trailing_whitespace</c>.
+    /// </summary>
+    private static string[] DrawDimer(string oligo1, string oligo2, int[] ps1, int[] ps2)
+    {
+        int len1 = oligo1.Length, len2 = oligo2.Length;
+        var d0 = new System.Text.StringBuilder();
+        var d1 = new System.Text.StringBuilder();
+        var d2 = new System.Text.StringBuilder();
+        var d3 = new System.Text.StringBuilder();
+        int numSS1 = 0;
+        while (ps1[numSS1] == 0) numSS1++;
+        int numSS2 = 0;
+        while (ps2[numSS2] == 0) numSS2++;
+        if (numSS1 >= numSS2)
+        {
+            for (int k = 0; k < numSS1; k++) { d0.Append(oligo1[k]); d1.Append(' '); d2.Append(' '); }
+            d3.Append(' ', numSS1 - numSS2);
+            d3.Append(oligo2, 0, numSS2);
+        }
+        else
+        {
+            for (int k = 0; k < numSS2; k++) { d3.Append(oligo2[k]); d1.Append(' '); d2.Append(' '); }
+            d0.Append(' ', numSS2 - numSS1);
+            d0.Append(oligo1, 0, numSS1);
+        }
+        int i = numSS1 + 1, j = numSS2 + 1;
+        while (i <= len1)
+        {
+            while (i <= len1 && ps1[i - 1] != 0 && j <= len2 && ps2[j - 1] != 0)
+            {
+                d0.Append(' '); d1.Append(oligo1[i - 1]); d2.Append(oligo2[j - 1]); d3.Append(' ');
+                i++; j++;
+            }
+            int ss1 = 0;
+            while (i <= len1 && ps1[i - 1] == 0) { d0.Append(oligo1[i - 1]); d1.Append(' '); ss1++; i++; }
+            int ss2 = 0;
+            while (j <= len2 && ps2[j - 1] == 0) { d2.Append(' '); d3.Append(oligo2[j - 1]); ss2++; j++; }
+            if (ss1 < ss2)
+                for (int k = 0; k < ss2 - ss1; k++) { d0.Append('-'); d1.Append(' '); }
+            else if (ss1 > ss2)
+                for (int k = 0; k < ss1 - ss2; k++) { d2.Append(' '); d3.Append('-'); }
+        }
+        return new[]
+        {
+            "SEQ\t" + d0.ToString().TrimEnd(), "SEQ\t" + d1.ToString().TrimEnd(),
+            "STR\t" + d2.ToString().TrimEnd(), "STR\t" + d3.ToString().TrimEnd(),
+        };
+    }
+
+    /// <summary>
+    /// Reverse-complement palindrome test, a port of thal.c <c>symmetry_thermo</c>: odd length is
+    /// never symmetric; each mirrored pair fails only when one side is A/T/C/G and the other is not
+    /// its Watson–Crick partner (two non-ACGT characters pass, as in thal.c).
+    /// </summary>
     private static bool IsSymmetric(string oligo)
     {
         int len = oligo.Length;
         if (len % 2 != 0) return false;
-        for (int i = 0; i < len; i++)
+        for (int i = 0; i < len / 2; i++)
         {
             char x = char.ToUpperInvariant(oligo[i]);
             char y = char.ToUpperInvariant(oligo[len - 1 - i]);
-            bool wc = (x == 'A' && y == 'T') || (x == 'T' && y == 'A') ||
-                      (x == 'C' && y == 'G') || (x == 'G' && y == 'C');
-            if (!wc) return false;
+            if ((x == 'A' && y != 'T') || (x == 'T' && y != 'A') || (y == 'A' && x != 'T') || (y == 'T' && x != 'A'))
+                return false;
+            if ((x == 'C' && y != 'G') || (x == 'G' && y != 'C') || (y == 'C' && x != 'G') || (y == 'G' && x != 'C'))
+                return false;
         }
         return true;
     }

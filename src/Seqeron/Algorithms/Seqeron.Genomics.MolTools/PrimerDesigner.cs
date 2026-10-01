@@ -2236,12 +2236,14 @@ public static class PrimerDesigner
     /// Primer3 / <c>ntthal</c> thermodynamic alignment (SantaLucia &amp; Hicks 2004 unified NN).
     /// <b>Opt-in</b>: the perfect-match duplex / hairpin / default Tm methods are unchanged.
     /// </summary>
-    /// <param name="sequence">DNA oligo (5'→3'); must be ≥ 2 ACGT bases.</param>
+    /// <param name="sequence">DNA oligo (5'→3'); ACGT only (case-insensitive).</param>
     /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
     /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L
     /// (default 50 nM, the Primer3/ntthal convention).</param>
-    /// <returns>The self-dimer Tm in °C, or <c>double.NaN</c> if no self-dimer of ≥ 2 contiguous
-    /// base pairs exists / the sequence is invalid.</returns>
+    /// <returns>The self-dimer Tm in °C (ntthal also reports weak / single-pair structures, whose Tm
+    /// may be negative), or <c>double.NaN</c> if ntthal finds no structure / the sequence is
+    /// null, empty or non-ACGT.</returns>
+    /// <exception cref="ArgumentException">The sequence is longer than 60 nt (thal.c THAL_MAX_ALIGN).</exception>
     public static double CalculateSelfDimerMeltingTemperature(
         string sequence,
         double sodiumMolar = ThermoConstants.DefaultNaConcentration,
@@ -2254,15 +2256,17 @@ public static class PrimerDesigner
     /// as the bimolecular Tm of the most stable duplex found by the Primer3 / <c>ntthal</c>
     /// thermodynamic alignment (SantaLucia &amp; Hicks 2004 unified NN):
     /// Tm = ΔH°·1000/(ΔS° + R·ln(C_T/x)) − 273.15, x = 1 if both oligos are reverse-complement
-    /// palindromes else x = 4 (C_T = 0.5 µM). <b>Opt-in</b>: existing Tm methods are unchanged.
+    /// palindromes else x = 4 (C_T = the total strand concentration, default 50 nM). <b>Opt-in</b>: existing Tm methods are unchanged.
     /// </summary>
-    /// <param name="strand1">First DNA oligo (5'→3'); ≥ 2 ACGT bases.</param>
-    /// <param name="strand2">Second DNA oligo (5'→3'); ≥ 2 ACGT bases.</param>
+    /// <param name="strand1">First DNA oligo (5'→3'); ACGT only (case-insensitive).</param>
+    /// <param name="strand2">Second DNA oligo (5'→3'); ACGT only (case-insensitive).</param>
     /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
     /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L
     /// (default 50 nM, the Primer3/ntthal convention).</param>
-    /// <returns>The dimer Tm in °C, or <c>double.NaN</c> if no duplex of ≥ 2 contiguous base pairs
-    /// exists between the strands / either sequence is invalid.</returns>
+    /// <returns>The dimer Tm in °C (ntthal also reports weak / single-pair structures, whose Tm may
+    /// be negative), or <c>double.NaN</c> if ntthal finds no structure / either sequence is null,
+    /// empty or non-ACGT.</returns>
+    /// <exception cref="ArgumentException">Both strands are longer than 60 nt (thal.c THAL_MAX_ALIGN).</exception>
     public static double CalculateDimerMeltingTemperature(
         string strand1,
         string strand2,
@@ -2282,8 +2286,12 @@ public static class PrimerDesigner
     /// bulge loop-length parameters). Unlike <see cref="FindMostStableDimer"/> (which scores only
     /// the best contiguous Watson–Crick run), this reproduces primer3-py's
     /// <c>calc_homodimer</c>/<c>calc_heterodimer</c> for dimers whose optimum is <b>non-contiguous</b>.
+    /// This overload uses monovalent salt only (primer3-py with <c>dv_conc=0, dntp_conc=0</c>; note the
+    /// primer3-py defaults are 1.5 mM Mg²⁺ / 0.6 mM dNTP — use the overload taking
+    /// <see cref="NtthalAlignmentMode"/> for those).
     /// <b>Opt-in</b>: all other Tm methods and defaults are unchanged.
     /// </summary>
+    /// <exception cref="ArgumentException">Both strands are longer than 60 nt (thal.c THAL_MAX_ALIGN).</exception>
     /// <param name="strand1">First DNA oligo (5′→3′); ≥ 1 ACGT base.</param>
     /// <param name="strand2">Second DNA oligo (5′→3′); the same string for a self-dimer.</param>
     /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
@@ -2326,7 +2334,9 @@ public static class PrimerDesigner
     /// </summary>
     /// <param name="DeltaH">Dimer ΔH° in kcal/mol (salt-independent).</param>
     /// <param name="DeltaS">Dimer ΔS° in cal/(K·mol), including the N·saltCorrection term.</param>
-    /// <param name="DeltaG37">Dimer ΔG°37 = ΔH° − 310.15·ΔS°/1000 in kcal/mol (negative = stable).</param>
+    /// <param name="DeltaG37">Dimer ΔG° = ΔH° − T·ΔS°/1000 in kcal/mol (negative = stable) at the
+    /// analysis temperature T (310.15 K = 37 °C unless an overload with <c>temperatureCelsius</c> is used;
+    /// ntthal / primer3-py <c>temp_c</c>). ntthal may report a positive ΔG for its optimal structure.</param>
     /// <param name="TmCelsius">Bimolecular melting temperature in °C.</param>
     /// <param name="BasePairs">Number of paired bases in the optimal structure.</param>
     public readonly record struct DimerThermodynamics(
@@ -2407,7 +2417,7 @@ public static class PrimerDesigner
     /// ntthal salt model (<c>saltCorrectS</c>: 0.368·ln((mv + 120·√max(0, dv − dntp))/1000), mM),
     /// reproducing primer3-py <c>calc_heterodimer</c> (mode <see cref="NtthalAlignmentMode.Any"/>)
     /// and <c>calc_end_stability</c> (mode <see cref="NtthalAlignmentMode.End1"/>) at any
-    /// mv/dv/dntp/dna_conc.
+    /// mv/dv/dntp/dna_conc (temperature 37 °C, max loop 30 — the primer3-py defaults).
     /// </summary>
     /// <param name="strand1">First DNA oligo (5′→3′), ACGT only.</param>
     /// <param name="strand2">Second DNA oligo (5′→3′), ACGT only.</param>
@@ -2417,6 +2427,8 @@ public static class PrimerDesigner
     /// <param name="dntpMolar">dNTP concentration, mol/L.</param>
     /// <param name="strandConcentrationMolar">Oligo concentration, mol/L (ntthal dna_conc).</param>
     /// <returns>The thermodynamics, or <c>null</c> for invalid input or when no duplex forms.</returns>
+    /// <exception cref="ArgumentException">Both strands are longer than 60 nt, or either is longer
+    /// than 10 000 nt (thal.c <c>THAL_MAX_ALIGN</c> / <c>THAL_MAX_SEQ</c>; primer3-py raises).</exception>
     public static DimerThermodynamics? CalculateDimerThermodynamicsNtthal(
         string strand1,
         string strand2,
@@ -2424,7 +2436,77 @@ public static class PrimerDesigner
         double sodiumMolar,
         double divalentMolar,
         double dntpMolar,
-        double strandConcentrationMolar)
+        double strandConcentrationMolar) =>
+        CalculateDimerThermodynamicsNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, NtthalDefaultTemperatureCelsius, NtthalDefaultMaxLoop);
+
+    /// <summary>primer3-py / ntthal default analysis temperature (°C) at which ΔG is reported.</summary>
+    public const double NtthalDefaultTemperatureCelsius = 37.0;
+
+    /// <summary>primer3-py / ntthal default (and maximum) internal-loop / bulge size.</summary>
+    public const int NtthalDefaultMaxLoop = 30;
+
+    /// <summary>
+    /// Full <c>ntthal</c> dimer thermodynamics with every primer3-py <c>calc_heterodimer</c> /
+    /// <c>calc_end_stability</c> argument: alignment type, mv/dv/dntp/dna_conc, <c>temp_c</c> (the
+    /// temperature at which ΔG is evaluated: ΔG = ΔH − (temp_c + 273.15)·ΔS, thal.c <c>calcDimer</c>;
+    /// the DP ranking and Tm do not depend on it) and <c>max_loop</c> (largest internal loop / bulge
+    /// considered, 0–30). Bit-faithful port of primer3-py 2.3.1 <c>thal.c</c>.
+    /// </summary>
+    /// <param name="strand1">First DNA oligo (5′→3′), ACGT only.</param>
+    /// <param name="strand2">Second DNA oligo (5′→3′), ACGT only.</param>
+    /// <param name="mode">ntthal alignment type.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration, mol/L.</param>
+    /// <param name="divalentMolar">Mg²⁺ concentration, mol/L.</param>
+    /// <param name="dntpMolar">dNTP concentration, mol/L.</param>
+    /// <param name="strandConcentrationMolar">Oligo concentration, mol/L (ntthal dna_conc).</param>
+    /// <param name="temperatureCelsius">primer3-py <c>temp_c</c>; the returned
+    /// <see cref="DimerThermodynamics.DeltaG37"/> is ΔG at this temperature.</param>
+    /// <param name="maxLoop">primer3-py <c>max_loop</c>, 0–30.</param>
+    /// <returns>The thermodynamics, or <c>null</c> for invalid input or when no duplex forms.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30.</exception>
+    /// <exception cref="ArgumentException">Both strands are longer than 60 nt, or either is longer
+    /// than 10 000 nt (thal.c <c>THAL_MAX_ALIGN</c> / <c>THAL_MAX_SEQ</c>).</exception>
+    public static DimerThermodynamics? CalculateDimerThermodynamicsNtthal(
+        string strand1,
+        string strand2,
+        NtthalAlignmentMode mode,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double strandConcentrationMolar,
+        double temperatureCelsius,
+        int maxLoop) =>
+        CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: false)?.Thermodynamics;
+
+    /// <summary>
+    /// As <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>,
+    /// plus the optimal duplex drawn exactly as thal.c <c>drawDimer</c> / primer3-py
+    /// <c>ThermoResult.ascii_structure_lines</c> (<c>output_structure=True</c>): four lines
+    /// "SEQ	…" (unpaired strand-1 bases), "SEQ	…" (paired strand-1 bases), "STR	…" (paired
+    /// strand-2 bases), "STR	…" (unpaired strand-2 bases); strand 2 runs 3′→5′ and '-' pads the
+    /// shorter side of a loop. In mode <see cref="NtthalAlignmentMode.End2"/> the strands are drawn
+    /// swapped, as ntthal does.
+    /// </summary>
+    /// <returns>The thermodynamics and structure lines, or <c>null</c> for invalid input or when no
+    /// duplex forms.</returns>
+    public static NtthalDimerStructure? CalculateDimerStructureNtthal(
+        string strand1,
+        string strand2,
+        NtthalAlignmentMode mode = NtthalAlignmentMode.Any,
+        double sodiumMolar = 0.05,
+        double divalentMolar = 0.0015,
+        double dntpMolar = 0.0006,
+        double strandConcentrationMolar = DefaultDimerStrandConcentrationMolar,
+        double temperatureCelsius = NtthalDefaultTemperatureCelsius,
+        int maxLoop = NtthalDefaultMaxLoop) =>
+        CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: true);
+
+    private static NtthalDimerStructure? CalculateDimerStructureNtthal(
+        string strand1, string strand2, NtthalAlignmentMode mode, double sodiumMolar, double divalentMolar,
+        double dntpMolar, double strandConcentrationMolar, double temperatureCelsius, int maxLoop, bool withStructure)
     {
         if (!IsAcgtOnly(strand1) || !IsAcgtOnly(strand2))
             return null;
@@ -2436,12 +2518,23 @@ public static class PrimerDesigner
             _ => throw new ArgumentOutOfRangeException(nameof(mode)),
         };
         var r = NtthalDimer.Run(strand1.ToUpperInvariant(), strand2.ToUpperInvariant(),
-            sodiumMolar, strandConcentrationMolar, type, divalentMolar, dntpMolar);
+            sodiumMolar, strandConcentrationMolar, type, divalentMolar, dntpMolar,
+            temperatureCelsius + KelvinOffset, maxLoop, withStructure);
         if (r is null)
             return null;
         var v = r.Value;
-        return new DimerThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs);
+        return new NtthalDimerStructure(
+            new DimerThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs),
+            v.AsciiStructure ?? Array.Empty<string>());
     }
+
+    /// <summary>
+    /// ntthal dimer thermodynamics plus the thal.c <c>drawDimer</c> ASCII duplex
+    /// (primer3-py <c>ThermoResult.ascii_structure_lines</c>).
+    /// </summary>
+    /// <param name="Thermodynamics">ΔH/ΔS/ΔG/Tm of the optimal duplex.</param>
+    /// <param name="AsciiStructureLines">The four "SEQ	"/"SEQ	"/"STR	"/"STR	" lines.</param>
+    public sealed record NtthalDimerStructure(DimerThermodynamics Thermodynamics, IReadOnlyList<string> AsciiStructureLines);
 
     /// <summary>
     /// Full <c>ntthal</c> hairpin thermodynamics with the complete ntthal salt model (divalent

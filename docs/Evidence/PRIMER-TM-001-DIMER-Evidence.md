@@ -204,3 +204,11 @@ Python reference port that mirrors the C# DP), and still reproduces all contiguo
 ## Change History
 
 - **2026-06-25**: Initial documentation of the self-/hetero-dimer Tm extension under PRIMER-TM-001.
+- **2026-10-01** (PRIMER-DIMER-001, campaign 2026-09 B07 F11): re-verified against primer3-py **2.3.1** `thal.c`
+  (https://raw.githubusercontent.com/libnano/primer3-py/v2.3.1/primer3/src/libprimer3/thal.c, `thermoanalysis.pyx`).
+  `LSH`/`RSH` keep `T1 = −∞` unless a dangling-end branch is taken (bare A·T then beats tstack2) — the port
+  differed for ≈1.4 % of random pairs (e.g. `calc_heterodimer('GTTCGTCCAGAACA','ATGACACGATAGATGTTCT')`
+  Tm −11.594804143101555 °C / ΔG −3951.231144607904 cal/mol vs −11.2567 / −3937.38 before). Also ported:
+  `equal()` (1e-5, non-finite never equal), `maxTM` NaN branch, `SMALL_NON_ZERO` in the best-pair scan,
+  `symmetry_thermo`, `temp_c`, `max_loop`, THAL_MAX_ALIGN = 60 / THAL_MAX_SEQ = 10000, `drawDimer`.
+  8000 random pairs (all modes/conditions) identical: max |ΔTm| = 0, max |ΔG| = 7.3e-12 cal/mol.

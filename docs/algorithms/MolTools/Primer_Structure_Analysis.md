@@ -156,8 +156,9 @@ methods score any non-ACGT character as N (Primer3 `p3_reverse_complement` turns
 - Thermodynamic values are as exact as the ntthal engines: the structure-screen formulas match
   `design_primers` whenever the engines match `calc_homodimer` / `calc_end_stability` /
   `calc_hairpin` (all END1/END2/dv code paths verified to 1e-9 on the engine-exact cases).
-  Residual engine discrepancies (≈ 2 % of random dimers, ≈ 5 % of random hairpins, see B07
-  report) are owned by PRIMER-DIMER-001 / PRIMER-HAIRPIN-001.
+  The dimer engine is bit-exact to primer3-py 2.3.1 since PRIMER-DIMER-001 (8000/8000 random
+  pairs, all modes and conditions); residual hairpin-engine discrepancies (≈ 5 % of random
+  hairpins, see B07 report) are owned by PRIMER-HAIRPIN-001.
 - `DesignPrimers` vs primer3-py `design_primers` (thermodynamic default, this library's per-primer
   limits): 574/600 random templates identical; every one of the 26 differences traced to an ntthal
   engine value differing from primer3-py.
