@@ -96,17 +96,28 @@ public class SuffixTreeGenomicsTools
     /// Calculate edit distance (Levenshtein distance) between two sequences.
     /// </summary>
     [McpServerTool(Name = "edit_distance", Title = "Genomics — Edit Distance", ReadOnly = true)]
-    [Description("Calculate edit distance (Levenshtein distance) between two sequences. Returns minimum number of edits needed.")]
+    [Description("Calculate edit distance (Levenshtein distance) between two sequences. Returns minimum number of edits needed. Optional insertionCost/deletionCost/substitutionCost (default 1) give the weighted Levenshtein distance with rapidfuzz Levenshtein.distance(s1, s2, weights=(insertion, deletion, substitution)) semantics: transforming sequence1 into sequence2, an insertion adds a character of sequence2, a deletion removes one of sequence1.")]
     public static EditDistanceResult EditDistance(
         [Description("The first sequence")] string sequence1,
-        [Description("The second sequence")] string sequence2)
+        [Description("The second sequence")] string sequence2,
+        [Description("Cost of inserting a character of sequence2 (>= 0; default 1)")] int insertionCost = 1,
+        [Description("Cost of deleting a character of sequence1 (>= 0; default 1)")] int deletionCost = 1,
+        [Description("Cost of substituting a character (>= 0; default 1)")] int substitutionCost = 1)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
+        if (insertionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(insertionCost), "insertionCost must be >= 0");
+        if (deletionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(deletionCost), "deletionCost must be >= 0");
+        if (substitutionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(substitutionCost), "substitutionCost must be >= 0");
 
-        var distance = ApproximateMatcher.EditDistance(sequence1, sequence2);
+        var distance = insertionCost == 1 && deletionCost == 1 && substitutionCost == 1
+            ? ApproximateMatcher.EditDistance(sequence1, sequence2)
+            : ApproximateMatcher.EditDistance(sequence1, sequence2, insertionCost, deletionCost, substitutionCost);
         return new EditDistanceResult(distance);
     }
 

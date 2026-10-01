@@ -207,11 +207,14 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "find_edit_end_positions", Title = "Approximate — Edit End Positions (Sellers)", ReadOnly = true)]
-    [Description("Sellers (1980) k-differences search: reports every 0-based end position j in sequence at which some substring ending at j is within maxEdits Levenshtein edits of pattern, with that minimum distance (case-insensitive; Myers bit-parallel engine). Ordered by increasing end position.")]
+    [Description("Sellers (1980) k-differences search: reports every 0-based end position j in sequence at which some substring ending at j is within maxEdits Levenshtein edits of pattern, with that minimum distance (case-insensitive; Myers bit-parallel engine). Ordered by increasing end position. Optional insertionCost/deletionCost/substitutionCost (default 1) switch to the weighted Sellers DP (pattern = s1, text window = s2, rapidfuzz weights convention); maxEdits is then the maximum weighted cost.")]
     public static EditEndPositionsResult FindEditEndPositions(
         [Description("Sequence to search in.")] string sequence,
         [Description("Pattern to find.")] string pattern,
-        [Description("Maximum allowed edit distance (>= 0).")] int maxEdits)
+        [Description("Maximum allowed edit distance (>= 0); the maximum weighted cost when costs are given.")] int maxEdits,
+        [Description("Cost of a text character absent from the pattern (insertion into the pattern, >= 0; default 1).")] int insertionCost = 1,
+        [Description("Cost of a pattern character absent from the text (deletion from the pattern, >= 0; default 1).")] int deletionCost = 1,
+        [Description("Cost of a substitution (>= 0; default 1).")] int substitutionCost = 1)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
@@ -220,31 +223,54 @@ public class AlignmentTools
         if (maxEdits < 0)
             throw new ArgumentOutOfRangeException(nameof(maxEdits), "maxEdits must be >= 0.");
 
-        var items = global::Seqeron.Genomics.Alignment.ApproximateMatcher
-            .FindEditEndPositions(sequence, pattern, maxEdits)
+        var costs = ToEditCosts(insertionCost, deletionCost, substitutionCost);
+        var positions = costs == global::Seqeron.Genomics.Alignment.EditCosts.Unit
+            ? global::Seqeron.Genomics.Alignment.ApproximateMatcher.FindEditEndPositions(sequence, pattern, maxEdits)
+            : global::Seqeron.Genomics.Alignment.ApproximateMatcher.FindEditEndPositions(sequence, pattern, maxEdits, costs);
+        var items = positions
             .Select(e => new EditEndPositionItem(e.EndPosition, e.Distance))
             .ToArray();
         return new EditEndPositionsResult(items);
     }
 
     [McpServerTool(Name = "edit_alignment", Title = "Approximate — Edit (Levenshtein) Alignment", ReadOnly = true)]
-    [Description("Optimal global unit-cost (Levenshtein) alignment of query against target in edlib's convention: operations '=' match, 'X' mismatch, 'I' query character absent from the target, 'D' target character absent from the query; returns the distance, extended and standard CIGAR, gapped strings and substitution positions. Case-sensitive. linearSpace=true uses Hirschberg's O(m+n)-space algorithm (same distance, possibly a different co-optimal path).")]
+    [Description("Optimal global unit-cost (Levenshtein) alignment of query against target in edlib's convention: operations '=' match, 'X' mismatch, 'I' query character absent from the target, 'D' target character absent from the query; returns the distance, extended and standard CIGAR, gapped strings and substitution positions. Case-sensitive. linearSpace=true uses Hirschberg's O(m+n)-space algorithm (same distance, possibly a different co-optimal path). Optional insertionCost/deletionCost/substitutionCost (default 1) give a weighted alignment with rapidfuzz Levenshtein weights semantics (query = s1, target = s2: 'D' costs insertionCost, 'I' deletionCost, 'X' substitutionCost); distance is then the weighted cost.")]
     public static EditAlignmentDto EditAlignment(
         [Description("Query sequence (alignment rows).")] string query,
         [Description("Target sequence (alignment columns).")] string target,
-        [Description("Use Hirschberg's linear-space algorithm instead of the full-matrix diagonal-first traceback (default false).")] bool linearSpace = false)
+        [Description("Use Hirschberg's linear-space algorithm instead of the full-matrix diagonal-first traceback (default false).")] bool linearSpace = false,
+        [Description("Cost of inserting a target character, i.e. a 'D' column (>= 0; default 1).")] int insertionCost = 1,
+        [Description("Cost of deleting a query character, i.e. an 'I' column (>= 0; default 1).")] int deletionCost = 1,
+        [Description("Cost of a substitution, i.e. an 'X' column (>= 0; default 1).")] int substitutionCost = 1)
     {
         if (string.IsNullOrEmpty(query))
             throw new ArgumentException("Query cannot be null or empty.", nameof(query));
         if (string.IsNullOrEmpty(target))
             throw new ArgumentException("Target cannot be null or empty.", nameof(target));
 
-        var a = linearSpace
-            ? global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignmentLinearSpace(query, target)
-            : global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignment(query, target);
+        var costs = ToEditCosts(insertionCost, deletionCost, substitutionCost);
+        bool unit = costs == global::Seqeron.Genomics.Alignment.EditCosts.Unit;
+        var a = (linearSpace, unit) switch
+        {
+            (true, true) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignmentLinearSpace(query, target),
+            (false, true) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignment(query, target),
+            (true, false) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignmentLinearSpace(query, target, costs),
+            (false, false) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignment(query, target, costs),
+        };
         return new EditAlignmentDto(
             a.Distance, a.Operations, a.Cigar, a.StandardCigar,
             a.AlignedQuery, a.AlignedTarget, a.SubstitutionPositions.ToArray(), a.HasIndels);
+    }
+
+    private static global::Seqeron.Genomics.Alignment.EditCosts ToEditCosts(int insertionCost, int deletionCost, int substitutionCost)
+    {
+        if (insertionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(insertionCost), "insertionCost must be >= 0.");
+        if (deletionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(deletionCost), "deletionCost must be >= 0.");
+        if (substitutionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(substitutionCost), "substitutionCost must be >= 0.");
+        return new global::Seqeron.Genomics.Alignment.EditCosts(insertionCost, deletionCost, substitutionCost);
     }
 
     [McpServerTool(Name = "damerau_levenshtein_distance", Title = "Approximate — Damerau–Levenshtein Distance", ReadOnly = true)]

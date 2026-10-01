@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ApproximateMatcher.FindEditEndPositions",
   "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L209",
-  "description": "Sellers (1980) approximate string matching (the k-differences problem; Navarro 2001 §5.1): reports every 0-based end position j of `sequence` at which some substring ending at j is within `maxEdits` Levenshtein edits of `pattern`, together with that minimum distance min_i ed(pattern, sequence[i..j]). Case-insensitive. Engine: Myers (1999) bit-parallel column scan (⌈m/64⌉ words, O(⌈m/64⌉·n)), identical to the Wagner–Fischer DP with a free text start; cross-checked against edlib HW mode. Output ordered by increasing end position.",
+  "description": "Sellers (1980) approximate string matching (the k-differences problem; Navarro 2001 §5.1): reports every 0-based end position j of `sequence` at which some substring ending at j is within `maxEdits` Levenshtein edits of `pattern`, together with that minimum distance min_i ed(pattern, sequence[i..j]). Case-insensitive. Engine: Myers (1999) bit-parallel column scan (⌈m/64⌉ words, O(⌈m/64⌉·n)), identical to the Wagner–Fischer DP with a free text start; cross-checked against edlib HW mode. Output ordered by increasing end position. Optional insertionCost/deletionCost/substitutionCost switch to the weighted Sellers DP (maxEdits = maximum weighted cost).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -24,6 +24,24 @@
         "type": "integer",
         "description": "Maximum allowed edit distance (>= 0).",
         "minimum": 0
+      },
+      "insertionCost": {
+        "type": "integer",
+        "description": "Cost of a text character absent from the pattern (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "deletionCost": {
+        "type": "integer",
+        "description": "Cost of a pattern character absent from the text (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "substitutionCost": {
+        "type": "integer",
+        "description": "Cost of a substitution (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
       }
     },
     "required": [
@@ -71,6 +89,18 @@
     {
       "code": 1006,
       "message": "maxEdits must be >= 0"
+    },
+    {
+      "code": 1007,
+      "message": "insertionCost must be >= 0"
+    },
+    {
+      "code": 1008,
+      "message": "deletionCost must be >= 0"
+    },
+    {
+      "code": 1009,
+      "message": "substitutionCost must be >= 0"
     }
   ],
   "examples": [
@@ -130,6 +160,45 @@
           {
             "endPosition": 14,
             "distance": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Weighted Sellers (deletion 3)",
+      "input": {
+        "sequence": "TTACGTAAGGCTACG",
+        "pattern": "ACGT",
+        "maxEdits": 2,
+        "insertionCost": 1,
+        "deletionCost": 3,
+        "substitutionCost": 1
+      },
+      "output": {
+        "items": [
+          {
+            "endPosition": 5,
+            "distance": 0
+          },
+          {
+            "endPosition": 6,
+            "distance": 1
+          },
+          {
+            "endPosition": 7,
+            "distance": 2
+          },
+          {
+            "endPosition": 9,
+            "distance": 2
+          },
+          {
+            "endPosition": 10,
+            "distance": 2
+          },
+          {
+            "endPosition": 11,
+            "distance": 2
           }
         ]
       }

@@ -267,6 +267,52 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
+        /// Weighted Sellers (1980) search: every 0-based end position j of the (upper-cased)
+        /// sequence at which min_i wed(pattern, T[i..j]) ≤ <paramref name="maxCost"/>, with that
+        /// minimum, where wed is the weighted distance of
+        /// <see cref="EditDistance(string, string, EditCosts)"/> with s1 = pattern, s2 = text window
+        /// (an insertion adds a text character, a deletion drops a pattern character). DP: the
+        /// weighted Wagner–Fischer recurrence with free start in the text (C[0, j] = 0,
+        /// C[r, 0] = r·deletion). Unit costs give exactly
+        /// <see cref="FindEditEndPositions(string, string, int)"/>. O(m·n) time, O(m) space.
+        /// A null/empty sequence or pattern yields no matches.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxCost"/> or a cost is negative.</exception>
+        public static IEnumerable<(int EndPosition, int Distance)> FindEditEndPositions(
+            string sequence, string pattern, int maxCost, EditCosts costs)
+        {
+            if (maxCost < 0)
+                throw new ArgumentOutOfRangeException(nameof(maxCost), "Cannot be negative.");
+            ValidateCosts(costs);
+            return FindWeightedEditEndPositionsCore(sequence, pattern, maxCost, costs);
+        }
+
+        private static IEnumerable<(int EndPosition, int Distance)> FindWeightedEditEndPositionsCore(
+            string sequence, string pattern, int maxCost, EditCosts costs)
+        {
+            if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
+                yield break;
+
+            var seq = sequence.ToUpperInvariant();
+            var pat = pattern.ToUpperInvariant();
+            int m = pat.Length;
+
+            var prev = new long[m + 1];
+            var curr = new long[m + 1];
+            for (int r = 0; r <= m; r++)
+                prev[r] = (long)r * costs.Deletion;
+
+            for (int j = 0; j < seq.Length; j++)
+            {
+                AdvanceWeightedColumn(pat, seq[j], prev, curr, 0, costs.Insertion, costs.Deletion, costs.Substitution);
+                (prev, curr) = (curr, prev);
+
+                if (prev[m] <= maxCost)
+                    yield return (j, (int)prev[m]);
+            }
+        }
+
+        /// <summary>
         /// One column step of the unit-cost edit-distance DP (Wagner &amp; Fischer 1974):
         /// given column <paramref name="prev"/> (pattern prefixes vs text up to the previous
         /// character) computes column <paramref name="curr"/> for text character
@@ -386,6 +432,106 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
+        /// Weighted (generalised) Levenshtein distance with non-negative additive costs, with the
+        /// semantics of rapidfuzz <c>Levenshtein.distance(s1, s2, weights=(insertion, deletion,
+        /// substitution))</c>: the minimum total cost of transforming <paramref name="s1"/> into
+        /// <paramref name="s2"/>, where an insertion adds a character of s2, a deletion removes a
+        /// character of s1 and a substitution replaces one (matches are free). Recurrence
+        /// (Wagner &amp; Fischer 1974): D[i, j] = min(D[i−1, j] + deletion, D[i, j−1] + insertion,
+        /// D[i−1, j−1] + [a_i ≠ b_j]·substitution), D[i, 0] = i·deletion, D[0, j] = j·insertion.
+        /// Not symmetric unless insertion = deletion: swapping the arguments swaps those two costs.
+        /// Case-sensitive (ordinal). Uniform costs c = insertion = deletion = substitution give
+        /// c·<see cref="EditDistance(string, string)"/> (Myers engine, as rapidfuzz does); otherwise a
+        /// two-column DP over the shorter string: O(m·n) time, O(min(m, n)) space.
+        /// </summary>
+        /// <param name="s1">Source string.</param>
+        /// <param name="s2">Target string.</param>
+        /// <param name="insertionCost">Cost of inserting one character of s2 (≥ 0).</param>
+        /// <param name="deletionCost">Cost of deleting one character of s1 (≥ 0).</param>
+        /// <param name="substitutionCost">Cost of replacing one character (≥ 0).</param>
+        /// <exception cref="ArgumentNullException">Either string is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A cost is negative.</exception>
+        /// <exception cref="OverflowException">The distance exceeds <see cref="int.MaxValue"/>.</exception>
+        public static int EditDistance(string s1, string s2, int insertionCost, int deletionCost, int substitutionCost)
+        {
+            return EditDistance(s1, s2, new EditCosts(insertionCost, deletionCost, substitutionCost));
+        }
+
+        /// <summary>
+        /// Weighted Levenshtein distance; see
+        /// <see cref="EditDistance(string, string, int, int, int)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Either string is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A cost is negative.</exception>
+        /// <exception cref="OverflowException">The distance exceeds <see cref="int.MaxValue"/>.</exception>
+        public static int EditDistance(string s1, string s2, EditCosts costs)
+        {
+            if (s1 == null || s2 == null)
+                throw new ArgumentNullException(s1 == null ? nameof(s1) : nameof(s2));
+            ValidateCosts(costs);
+
+            if (costs.Insertion == costs.Deletion && costs.Insertion == costs.Substitution)
+                return checked(costs.Insertion * EditDistance(s1, s2));
+
+            // Rows = the shorter string (O(min(m, n)) space); swapping the strings swaps the
+            // roles of insertion and deletion.
+            int ins = costs.Insertion, del = costs.Deletion;
+            if (s1.Length > s2.Length)
+            {
+                (s1, s2) = (s2, s1);
+                (ins, del) = (del, ins);
+            }
+
+            int m = s1.Length;
+            var prev = new long[m + 1];
+            var curr = new long[m + 1];
+            for (int r = 0; r <= m; r++)
+                prev[r] = (long)r * del;
+
+            for (int j = 1; j <= s2.Length; j++)
+            {
+                AdvanceWeightedColumn(s1, s2[j - 1], prev, curr, (long)j * ins, ins, del, costs.Substitution);
+                (prev, curr) = (curr, prev);
+            }
+
+            return checked((int)prev[m]);
+        }
+
+        /// <summary>
+        /// Rejects negative costs (rapidfuzz's weights are unsigned).
+        /// </summary>
+        private static void ValidateCosts(EditCosts costs)
+        {
+            if (costs.Insertion < 0)
+                throw new ArgumentOutOfRangeException(nameof(costs), "Insertion cost cannot be negative.");
+            if (costs.Deletion < 0)
+                throw new ArgumentOutOfRangeException(nameof(costs), "Deletion cost cannot be negative.");
+            if (costs.Substitution < 0)
+                throw new ArgumentOutOfRangeException(nameof(costs), "Substitution cost cannot be negative.");
+        }
+
+        /// <summary>
+        /// One column step of the weighted edit-distance DP: rows = <paramref name="pat"/>, the
+        /// column is text character <paramref name="c"/> with top cell <paramref name="top"/>.
+        /// curr[r] = min(prev[r] + <paramref name="columnCharCost"/> (c unmatched),
+        /// curr[r−1] + <paramref name="rowCharCost"/> (pat[r−1] unmatched),
+        /// prev[r−1] + [pat[r−1] ≠ c]·<paramref name="substitutionCost"/>).
+        /// The weighted counterpart of <see cref="AdvanceColumn"/> (64-bit cells).
+        /// </summary>
+        private static void AdvanceWeightedColumn(
+            string pat, char c, long[] prev, long[] curr, long top,
+            long columnCharCost, long rowCharCost, long substitutionCost)
+        {
+            curr[0] = top;
+            for (int r = 1; r <= pat.Length; r++)
+            {
+                long diag = prev[r - 1] + (pat[r - 1] == c ? 0 : substitutionCost);
+                long v = Math.Min(Math.Min(prev[r] + columnCharCost, curr[r - 1] + rowCharCost), diag);
+                curr[r] = v;
+            }
+        }
+
+        /// <summary>
         /// Optimal global Levenshtein alignment of <paramref name="query"/> against
         /// <paramref name="target"/> (edlib NW mode; query = rows, target = columns). The
         /// operations follow edlib's convention: '=' match, 'X' mismatch, 'I' query character
@@ -421,6 +567,75 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
+        /// Optimal global alignment under weighted additive edit costs (the weighted recurrence of
+        /// <see cref="EditDistance(string, string, EditCosts)"/> with s1 = <paramref name="query"/>,
+        /// s2 = <paramref name="target"/>; rapidfuzz convention). Operations as in
+        /// <see cref="GetEditAlignment(string, string)"/>: '=' (free), 'X' (substitution cost),
+        /// 'I' — a query character absent from the target, i.e. a deletion from s1 (deletion
+        /// cost), 'D' — a target character absent from the query, i.e. an insertion of s2
+        /// (insertion cost). <see cref="EditAlignment.Distance"/> is the weighted cost of the path,
+        /// equal to <see cref="EditDistance(string, string, EditCosts)"/>. Traceback from (m, n)
+        /// with the same tie-break (diagonal, then 'I', then 'D'), so unit costs return exactly
+        /// the path of <see cref="GetEditAlignment(string, string)"/>. Full matrix: O(m·n) time and
+        /// space (linear space: <see cref="GetEditAlignmentLinearSpace(string, string, EditCosts)"/>).
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Either string is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A cost is negative.</exception>
+        /// <exception cref="OverflowException">The weighted cost exceeds <see cref="int.MaxValue"/>.</exception>
+        public static EditAlignment GetEditAlignment(string query, string target, EditCosts costs)
+        {
+            if (query == null || target == null)
+                throw new ArgumentNullException(query == null ? nameof(query) : nameof(target));
+            ValidateCosts(costs);
+
+            int m = query.Length;
+            int n = target.Length;
+            long ins = costs.Insertion, del = costs.Deletion, sub = costs.Substitution;
+            var cols = new long[n + 1][];
+            cols[0] = new long[m + 1];
+            for (int r = 0; r <= m; r++)
+                cols[0][r] = r * del;
+            for (int j = 1; j <= n; j++)
+            {
+                cols[j] = new long[m + 1];
+                AdvanceWeightedColumn(query, target[j - 1], cols[j - 1], cols[j], j * ins, ins, del, sub);
+            }
+
+            int qi = m;
+            int tj = n;
+            var ops = new char[m + n];
+            int p = ops.Length;
+            while (qi > 0 || tj > 0)
+            {
+                long v = cols[tj][qi];
+                if (qi > 0 && tj > 0)
+                {
+                    bool same = query[qi - 1] == target[tj - 1];
+                    if (cols[tj - 1][qi - 1] + (same ? 0 : sub) == v)
+                    {
+                        ops[--p] = same ? '=' : 'X';
+                        qi--;
+                        tj--;
+                        continue;
+                    }
+                }
+
+                if (qi > 0 && cols[tj][qi - 1] + del == v)
+                {
+                    ops[--p] = 'I';
+                    qi--;
+                }
+                else
+                {
+                    ops[--p] = 'D';
+                    tj--;
+                }
+            }
+
+            return new EditAlignment(checked((int)cols[n][m]), new string(ops, p, ops.Length - p), query, target);
+        }
+
+        /// <summary>
         /// Optimal global Levenshtein alignment of <paramref name="query"/> against
         /// <paramref name="target"/> in linear space — Hirschberg (1975, Commun. ACM 18(6):341–343,
         /// "A linear space algorithm for computing maximal common subsequences"), applied to the
@@ -448,20 +663,60 @@ namespace Seqeron.Genomics.Alignment
             if (query == null || target == null)
                 throw new ArgumentNullException(query == null ? nameof(query) : nameof(target));
 
+            return GetEditAlignmentLinearSpaceCore(query, target, EditCosts.Unit);
+        }
+
+        /// <summary>
+        /// Weighted form of <see cref="GetEditAlignmentLinearSpace(string, string)"/>: Hirschberg's
+        /// divide and conquer over the weighted Wagner–Fischer recurrence of
+        /// <see cref="EditDistance(string, string, EditCosts)"/> (query = s1, target = s2; an 'I'
+        /// column costs <see cref="EditCosts.Deletion"/>, a 'D' column <see cref="EditCosts.Insertion"/>,
+        /// an 'X' column <see cref="EditCosts.Substitution"/>). Single-query-character base case:
+        /// '=' at the last occurrence in the target if any; otherwise 'X' against the last target
+        /// character when Substitution ≤ Insertion + Deletion, else 'I' followed by all 'D'.
+        /// <see cref="EditAlignment.Distance"/> is the weighted cost, equal to
+        /// <see cref="EditDistance(string, string, EditCosts)"/>. With unit costs the result is
+        /// identical to <see cref="GetEditAlignmentLinearSpace(string, string)"/>.
+        /// O(m·n) time, O(m + n) space.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Either string is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A cost is negative.</exception>
+        /// <exception cref="OverflowException">The weighted cost exceeds <see cref="int.MaxValue"/>.</exception>
+        public static EditAlignment GetEditAlignmentLinearSpace(string query, string target, EditCosts costs)
+        {
+            if (query == null || target == null)
+                throw new ArgumentNullException(query == null ? nameof(query) : nameof(target));
+            ValidateCosts(costs);
+
+            return GetEditAlignmentLinearSpaceCore(query, target, costs);
+        }
+
+        private static EditAlignment GetEditAlignmentLinearSpaceCore(string query, string target, EditCosts costs)
+        {
             int n = target.Length;
             var buffers = new HirschbergBuffers(n);
             var ops = new System.Text.StringBuilder(query.Length + n);
-            HirschbergAlign(query, 0, query.Length, target, 0, n, ops, buffers);
+            HirschbergAlign(query, 0, query.Length, target, 0, n, ops, buffers, costs);
 
             string operations = ops.ToString();
-            int distance = 0;
+            return new EditAlignment(PathCost(operations, costs), operations, query, target);
+        }
+
+        /// <summary>Weighted cost of an edit path: '=' 0, 'X' substitution, 'I' deletion, 'D' insertion.</summary>
+        private static int PathCost(string operations, EditCosts costs)
+        {
+            long cost = 0;
             foreach (char op in operations)
             {
-                if (op != '=')
-                    distance++;
+                cost += op switch
+                {
+                    'X' => costs.Substitution,
+                    'I' => costs.Deletion,
+                    'D' => costs.Insertion,
+                    _ => 0,
+                };
             }
-
-            return new EditAlignment(distance, operations, query, target);
+            return checked((int)cost);
         }
 
         /// <summary>Four reusable score columns (length n + 1) shared by the Hirschberg recursion.</summary>
@@ -469,18 +724,18 @@ namespace Seqeron.Genomics.Alignment
         {
             public HirschbergBuffers(int n)
             {
-                A = new int[n + 1];
-                B = new int[n + 1];
-                C = new int[n + 1];
-                D = new int[n + 1];
+                A = new long[n + 1];
+                B = new long[n + 1];
+                C = new long[n + 1];
+                D = new long[n + 1];
             }
 
-            public int[] A, B, C, D;
+            public long[] A, B, C, D;
         }
 
         private static void HirschbergAlign(
             string query, int qs, int qe, string target, int ts, int te,
-            System.Text.StringBuilder ops, HirschbergBuffers buf)
+            System.Text.StringBuilder ops, HirschbergBuffers buf, EditCosts costs)
         {
             int m = qe - qs;
             int n = te - ts;
@@ -497,14 +752,12 @@ namespace Seqeron.Genomics.Alignment
             if (m == 1)
             {
                 int k = target.LastIndexOf(query[qs], te - 1, n);
-                if (k < 0)
-                {
-                    ops.Append('D', n - 1).Append('X');
-                }
-                else
-                {
+                if (k >= 0)
                     ops.Append('D', k - ts).Append('=').Append('D', te - 1 - k);
-                }
+                else if ((long)costs.Substitution <= (long)costs.Insertion + costs.Deletion)
+                    ops.Append('D', n - 1).Append('X');
+                else
+                    ops.Append('I').Append('D', n);
                 return;
             }
 
@@ -515,32 +768,35 @@ namespace Seqeron.Genomics.Alignment
             string rev = new(reversed);
 
             // Forward: F[j] = ed(query[qs..h), sub[0..j)) — the query plays the column role of the
-            // shared kernel, sub the row (pattern) role; the distance is symmetric.
-            int[] prev = buf.A, curr = buf.B;
+            // weighted kernel, sub the row (pattern) role: an unmatched query (column) character is
+            // a deletion, an unmatched target (row) character an insertion.
+            long[] prev = buf.A, curr = buf.B;
             for (int j = 0; j <= n; j++)
-                prev[j] = j;
+                prev[j] = (long)j * costs.Insertion;
             for (int r = qs; r < h; r++)
             {
-                AdvanceColumn(sub, query[r], prev, curr, r - qs + 1);
+                AdvanceWeightedColumn(sub, query[r], prev, curr, (long)(r - qs + 1) * costs.Deletion,
+                    costs.Deletion, costs.Insertion, costs.Substitution);
                 (prev, curr) = (curr, prev);
             }
-            int[] forward = prev;
+            long[] forward = prev;
 
             // Reverse: G[x] = ed(reverse(query[h..qe)), reverse(sub)[0..x)) = R[n − x].
-            int[] rprev = buf.C, rcurr = buf.D;
+            long[] rprev = buf.C, rcurr = buf.D;
             for (int x = 0; x <= n; x++)
-                rprev[x] = x;
+                rprev[x] = (long)x * costs.Insertion;
             for (int r = qe - 1, row = 1; r >= h; r--, row++)
             {
-                AdvanceColumn(rev, query[r], rprev, rcurr, row);
+                AdvanceWeightedColumn(rev, query[r], rprev, rcurr, (long)row * costs.Deletion,
+                    costs.Deletion, costs.Insertion, costs.Substitution);
                 (rprev, rcurr) = (rcurr, rprev);
             }
 
             int split = 0;
-            int best = int.MaxValue;
+            long best = long.MaxValue;
             for (int j = 0; j <= n; j++)
             {
-                int total = forward[j] + rprev[n - j];
+                long total = forward[j] + rprev[n - j];
                 if (total < best)
                 {
                     best = total;
@@ -548,8 +804,8 @@ namespace Seqeron.Genomics.Alignment
                 }
             }
 
-            HirschbergAlign(query, qs, h, target, ts, ts + split, ops, buf);
-            HirschbergAlign(query, h, qe, target, ts + split, te, ops, buf);
+            HirschbergAlign(query, qs, h, target, ts, ts + split, ops, buf, costs);
+            HirschbergAlign(query, h, qe, target, ts + split, te, ops, buf, costs);
         }
 
         /// <summary>
@@ -741,14 +997,106 @@ namespace Seqeron.Genomics.Alignment
         /// J. ACM 22(2):177–183) with unit costs: insertions, deletions, substitutions and
         /// transpositions of adjacent characters, where the transposed characters may be further
         /// separated by insertions/deletions (DL(CA, ABC) = 2 via CA → AC → ABC). A metric.
-        /// Algorithm: d[i, j] = min(d[i−1, j−1] + [a_i ≠ b_j], d[i, j−1] + 1, d[i−1, j] + 1,
+        /// Recurrence: d[i, j] = min(d[i−1, j−1] + [a_i ≠ b_j], d[i, j−1] + 1, d[i−1, j] + 1,
         /// d[k−1, l−1] + (i−k−1) + 1 + (j−l−1)), k = last row whose character equals b_j,
-        /// l = last column ≤ j−1 whose character equals a_i (the "da" table over the alphabet).
-        /// Case-sensitive (ordinal). O(m·n) time and space. Reference:
+        /// l = last column ≤ j−1 whose character equals a_i. Case-sensitive (ordinal).
+        /// Engine: the linear-space algorithm of Zhao &amp; Sahni (2020, "Linear space string
+        /// correction algorithm using the Damerau-Levenshtein distance", BMC Bioinformatics
+        /// 21(Suppl 1), doi:10.1186/s12859-019-3184-8; predecessor: Zhao &amp; Sahni 2019, BMC
+        /// Bioinformatics 20(Suppl 11):277), transcribed from rapidfuzz-cpp
+        /// <c>damerau_levenshtein_distance_zhao</c>: only the transposition cases with
+        /// j − l = 1 (value saved in FR[j] = H[k−1, j−2] when a_k = b_j) or i − k = 1 (value saved
+        /// in T = H[i−2, l−1] when a_i = b_l) can improve on the Levenshtein moves, so two DP rows,
+        /// the FR row and a last-row-per-symbol table suffice. O(m·n) time, O(n + |Σ|) space.
+        /// Identical to the Lowrance–Wagner full matrix (kept internally as the test oracle
+        /// <see cref="DamerauLevenshteinDistanceFullMatrix"/>). Reference:
         /// rapidfuzz.distance.DamerauLevenshtein, jellyfish.damerau_levenshtein_distance.
         /// </summary>
         /// <exception cref="ArgumentNullException">Either string is null.</exception>
         public static int DamerauLevenshteinDistance(string s1, string s2)
+        {
+            if (s1 == null || s2 == null)
+                throw new ArgumentNullException(s1 == null ? nameof(s1) : nameof(s2));
+
+            int m = s1.Length;
+            int n = s2.Length;
+            if (m == 0) return n;
+            if (n == 0) return m;
+
+            // Rows are stored with offset 1 (index j + 1 holds column j; index 0 is column −1),
+            // exactly as rapidfuzz's R = &R_arr[1].
+            int maxVal = Math.Max(m, n) + 1;
+            var r = new int[n + 2];
+            var r1 = new int[n + 2];
+            var fr = new int[n + 2];
+            Array.Fill(r1, maxVal);
+            Array.Fill(fr, maxVal);
+            r[0] = maxVal;
+            for (int j = 0; j <= n; j++)
+                r[j + 1] = j;
+
+            var lastRowAscii = new int[128];
+            Array.Fill(lastRowAscii, -1);
+            var lastRowOther = new Dictionary<char, int>();
+
+            for (int i = 1; i <= m; i++)
+            {
+                (r, r1) = (r1, r);
+                int lastColId = -1;
+                int lastI2L1 = r[1];
+                r[1] = i;
+                long t = maxVal;
+                char a = s1[i - 1];
+
+                for (int j = 1; j <= n; j++)
+                {
+                    char b = s2[j - 1];
+                    long diag = r1[j] + (a != b ? 1 : 0);
+                    long left = r[j] + 1;
+                    long up = r1[j + 1] + 1;
+                    long temp = Math.Min(diag, Math.Min(left, up));
+
+                    if (a == b)
+                    {
+                        lastColId = j;       // last occurrence of a_i in s2
+                        fr[j + 1] = r1[j - 1]; // H[i−1, j−2]
+                        t = lastI2L1;        // H[i−2, l−1]
+                    }
+                    else
+                    {
+                        int k;
+                        if (b < 128)
+                            k = lastRowAscii[b];
+                        else if (!lastRowOther.TryGetValue(b, out k))
+                            k = -1;
+                        int l = lastColId;
+
+                        if (j - l == 1)
+                            temp = Math.Min(temp, fr[j + 1] + (long)(i - k));
+                        else if (i - k == 1)
+                            temp = Math.Min(temp, t + (j - l));
+                    }
+
+                    lastI2L1 = r[j + 1];
+                    r[j + 1] = (int)temp;
+                }
+
+                if (a < 128)
+                    lastRowAscii[a] = i;
+                else
+                    lastRowOther[a] = i;
+            }
+
+            return r[n + 1];
+        }
+
+        /// <summary>
+        /// Lowrance–Wagner (1975) full-matrix unrestricted Damerau–Levenshtein distance
+        /// (sentinel row/column m + n, last-occurrence table "da"): O(m·n) time and space. The
+        /// oracle against which the linear-space engine of
+        /// <see cref="DamerauLevenshteinDistance(string, string)"/> is tested. Same contract.
+        /// </summary>
+        internal static int DamerauLevenshteinDistanceFullMatrix(string s1, string s2)
         {
             if (s1 == null || s2 == null)
                 throw new ArgumentNullException(s1 == null ? nameof(s1) : nameof(s2));
@@ -1043,6 +1391,21 @@ namespace Seqeron.Genomics.Alignment
     }
 
     /// <summary>
+    /// Non-negative additive edit costs for the weighted Levenshtein methods of
+    /// <see cref="ApproximateMatcher"/>, in rapidfuzz's <c>weights=(insertion, deletion, substitution)</c>
+    /// order and convention (transforming s1 into s2: an insertion adds a character of s2, a
+    /// deletion removes a character of s1). Matches are free.
+    /// </summary>
+    /// <param name="Insertion">Cost of inserting one character of s2 (the target).</param>
+    /// <param name="Deletion">Cost of deleting one character of s1 (the query / pattern).</param>
+    /// <param name="Substitution">Cost of replacing one character.</param>
+    public readonly record struct EditCosts(int Insertion, int Deletion, int Substitution)
+    {
+        /// <summary>Unit costs (1, 1, 1): plain Levenshtein distance.</summary>
+        public static EditCosts Unit => new(1, 1, 1);
+    }
+
+    /// <summary>
     /// Result of an approximate pattern match.
     /// </summary>
     public readonly record struct ApproximateMatchResult(
@@ -1112,7 +1475,11 @@ namespace Seqeron.Genomics.Alignment
             StandardCigar = RunLength(operations, standard: true);
         }
 
-        /// <summary>Number of non-'=' operations (the edit distance).</summary>
+        /// <summary>
+        /// Cost of the path: the number of non-'=' operations (the edit distance) for the unit-cost
+        /// methods; the weighted cost (Σ 'X'·substitution + 'I'·deletion + 'D'·insertion) for the
+        /// <see cref="EditCosts"/> overloads.
+        /// </summary>
         public int Distance { get; }
 
         /// <summary>One operation per alignment column: '=', 'X', 'I' or 'D'.</summary>

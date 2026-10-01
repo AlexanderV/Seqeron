@@ -63,4 +63,37 @@ public class EditAlignmentTests
         Assert.That((r.Distance, r.Operations, r.AlignedQuery, r.AlignedTarget, r.HasIndels),
             Is.EqualTo((lib.Distance, lib.Operations, lib.AlignedQuery, lib.AlignedTarget, lib.HasIndels)));
     }
+
+    // Weighted costs (B05 F27): rapidfuzz 3.14.6 Levenshtein.distance(q, t, weights=(ins, del, sub)).
+    [TestCase("kitten", "sitting", 1, 1, 2, 5, false)]
+    [TestCase("kitten", "sitting", 1, 3, 5, 9, true)]
+    [TestCase("GATTACA", "GCATGCU", 2, 3, 4, 13, false)]
+    [TestCase("ACGT", "AGT", 1, 5, 9, 5, true)]
+    public void EditAlignment_WeightedCosts_RapidfuzzDistance_DelegatesToLibrary(
+        string query, string target, int ins, int del, int sub, int expected, bool linearSpace)
+    {
+        var r = AlignmentTools.EditAlignment(query, target, linearSpace, ins, del, sub);
+        var costs = new global::Seqeron.Genomics.Alignment.EditCosts(ins, del, sub);
+        var lib = linearSpace
+            ? global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignmentLinearSpace(query, target, costs)
+            : global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignment(query, target, costs);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Distance, Is.EqualTo(expected));
+            Assert.That(r.Operations, Is.EqualTo(lib.Operations));
+            Assert.That(r.Cigar, Is.EqualTo(lib.Cigar));
+        });
+    }
+
+    [Test]
+    public void EditAlignment_DefaultCosts_Unchanged_NegativeCostsRejected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.EditAlignment("survey", "surgery", false, 1, 1, 1).Cigar, Is.EqualTo("3=1X1=1D1="));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.EditAlignment("A", "C", insertionCost: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.EditAlignment("A", "C", deletionCost: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.EditAlignment("A", "C", substitutionCost: -1));
+        });
+    }
 }

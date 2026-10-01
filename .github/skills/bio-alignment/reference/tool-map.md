@@ -35,14 +35,14 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`find_best_match`](../../../../docs/mcp/tools/alignment/find_best_match.md) | `ApproximateMatcher.FindBestMatch` | Single best (min Hamming) window of pattern in sequence; leftmost tie. |
 | [`frequent_kmers_with_mismatches`](../../../../docs/mcp/tools/alignment/frequent_kmers_with_mismatches.md) | `ApproximateMatcher.FindFrequentKmersWithMismatches` | Most-frequent k-mers allowing up to d mismatches (neighborhood tally). |
 | [`frequent_kmers_with_mismatches_and_revcomp`](../../../../docs/mcp/tools/alignment/frequent_kmers_with_mismatches_and_revcomp.md) | `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements` | BA1J: most-frequent k-mers counting d-mismatch hits of the k-mer and its reverse complement. |
-| [`find_edit_end_positions`](../../../../docs/mcp/tools/alignment/find_edit_end_positions.md) | `ApproximateMatcher.FindEditEndPositions` | Sellers k-differences: every end position within `maxEdits` + its minimum edit distance. |
+| [`find_edit_end_positions`](../../../../docs/mcp/tools/alignment/find_edit_end_positions.md) | `ApproximateMatcher.FindEditEndPositions` | Sellers k-differences: every end position within `maxEdits` + its minimum edit distance (optional weighted costs). |
 
 ## Similarity & distance (Core server)
 
 | Tool | Method ID | Purpose |
 |---|---|---|
-| [`edit_distance`](../../../../docs/mcp/tools/core/edit_distance.md) | `ApproximateMatcher.EditDistance` | Levenshtein distance (any lengths); Wagner-Fischer. |
-| [`edit_alignment`](../../../../docs/mcp/tools/alignment/edit_alignment.md) | `ApproximateMatcher.GetEditAlignment` | Optimal Levenshtein alignment: `=`/`X`/`I`/`D` ops, edlib CIGAR, gapped strings (`linearSpace` → Hirschberg). Alignment server. |
+| [`edit_distance`](../../../../docs/mcp/tools/core/edit_distance.md) | `ApproximateMatcher.EditDistance` | Levenshtein distance (any lengths; Myers bit-parallel); optional insertion/deletion/substitution costs → weighted distance (rapidfuzz weights). |
+| [`edit_alignment`](../../../../docs/mcp/tools/alignment/edit_alignment.md) | `ApproximateMatcher.GetEditAlignment` | Optimal Levenshtein alignment: `=`/`X`/`I`/`D` ops, edlib CIGAR, gapped strings (`linearSpace` → Hirschberg; optional weighted costs). Alignment server. |
 | [`damerau_levenshtein_distance`](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) | `ApproximateMatcher.DamerauLevenshteinDistance` | Edit distance with adjacent transpositions (`unrestricted` DL or `osa`). Alignment server. |
 | [`hamming_distance`](../../../../docs/mcp/tools/core/hamming_distance.md) | `ApproximateMatcher.HammingDistance` | Mismatch count for **equal-length** seqs. |
 | [`calculate_similarity`](../../../../docs/mcp/tools/core/calculate_similarity.md) | `GenomicAnalyzer.CalculateSimilarity` | k-mer Jaccard similarity in [0,1] (optional `kmerSize`). |

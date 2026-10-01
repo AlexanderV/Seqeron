@@ -37,4 +37,17 @@ public class FindEditEndPositionsTests
         Assert.That(Items(r), Is.EqualTo(global::Seqeron.Genomics.Alignment.ApproximateMatcher
             .FindEditEndPositions("GATTACAGATTTACA", "TTAC", 1).ToArray()));
     }
+
+    // Weighted Sellers (B05 F27): Python brute force min_i rapidfuzz Levenshtein.distance(p, t[i..j], weights).
+    [Test]
+    public void FindEditEndPositions_WeightedCosts_BruteForceValues()
+    {
+        var r = AlignmentTools.FindEditEndPositions("TTACGTAAGGCTACG", "ACGT", 2, insertionCost: 1, deletionCost: 3, substitutionCost: 1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Items.Select(i => (i.EndPosition, i.Distance)),
+                Is.EqualTo(new[] { (5, 0), (6, 1), (7, 2), (9, 2), (10, 2), (11, 2) }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.FindEditEndPositions("ACGT", "AC", 1, insertionCost: -1));
+        });
+    }
 }

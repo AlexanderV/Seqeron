@@ -21,7 +21,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 |------|-------------|
 | `calculate_similarity` | Calculate similarity between two DNA sequences using k-mer Jaccard index (0-100 percentage scale). |
 | `count_approximate_occurrences` | Count approximate occurrences of a pattern in a sequence, allowing up to maxMismatches substitutions. |
-| `edit_distance` | Calculate edit distance (Levenshtein distance) between two sequences. |
+| `edit_distance` | Calculate edit distance (Levenshtein distance) between two sequences; optional insertion/deletion/substitution costs give the weighted distance. |
 | `find_longest_common_region` | Find the longest common region between two DNA sequences. |
 | `find_longest_repeat` | Find the longest repeated region in a DNA sequence. |
 | `hamming_distance` | Calculate Hamming distance between two sequences of equal length. |

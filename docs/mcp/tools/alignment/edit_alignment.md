@@ -28,6 +28,11 @@ Optimal global unit-cost (Levenshtein) alignment of `query` (rows) against `targ
 | `query` | string | Yes | Query sequence (alignment rows). |
 | `target` | string | Yes | Target sequence (alignment columns). |
 | `linearSpace` | boolean | No | Use Hirschberg's linear-space algorithm instead of the full-matrix traceback (default false). |
+| `insertionCost` | integer | No | Cost of inserting a target character, i.e. a `D` column (>= 0; default 1). |
+| `deletionCost` | integer | No | Cost of deleting a query character, i.e. an `I` column (>= 0; default 1). |
+| `substitutionCost` | integer | No | Cost of a substitution, i.e. an `X` column (>= 0; default 1). |
+
+With non-unit costs the tool delegates to `ApproximateMatcher.GetEditAlignment(query, target, EditCosts)` (or `GetEditAlignmentLinearSpace(…, EditCosts)` with `linearSpace`), rapidfuzz `Levenshtein.distance(query, target, weights=(insertion, deletion, substitution))` semantics; `distance` is then the weighted cost of the path. Unit costs (the default) keep the original behaviour.
 
 ## Output Schema
 
@@ -48,6 +53,9 @@ Optimal global unit-cost (Levenshtein) alignment of `query` (rows) against `targ
 |------|---------|
 | 1001 | Query cannot be null or empty |
 | 1003 | Target cannot be null or empty |
+| 1007 | insertionCost must be >= 0 |
+| 1008 | deletionCost must be >= 0 |
+| 1009 | substitutionCost must be >= 0 |
 
 ## Examples
 
@@ -113,6 +121,41 @@ Optimal global unit-cost (Levenshtein) alignment of `query` (rows) against `targ
   "hasIndels": true
 }
 ```
+
+### Example 3: Weighted costs (substitution 2)
+
+**Tool Call:**
+```json
+{
+  "tool": "edit_alignment",
+  "arguments": {
+    "query": "kitten",
+    "target": "sitting",
+    "insertionCost": 1,
+    "deletionCost": 1,
+    "substitutionCost": 2
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "distance": 5,
+  "operations": "X===X=D",
+  "cigar": "1X3=1X1=1D",
+  "standardCigar": "6M1D",
+  "alignedQuery": "kitten-",
+  "alignedTarget": "sitting",
+  "substitutionPositions": [
+    0,
+    4
+  ],
+  "hasIndels": true
+}
+```
+
+(rapidfuzz 3.14.6 `Levenshtein.distance("kitten", "sitting", weights=(1, 1, 2))` = 5; the path replays to both strings with cost 2 + 2 + 1.)
 
 ## See Also
 

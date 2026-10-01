@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ApproximateMatcher.EditDistance",
   "docRef": "Seqeron.Genomics/ApproximateMatcher.cs#L186",
-  "description": "Calculate edit distance (Levenshtein distance) between two sequences.",
+  "description": "Calculate edit distance (Levenshtein distance) between two sequences. Optional insertionCost/deletionCost/substitutionCost give the weighted distance (rapidfuzz Levenshtein weights semantics).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -19,9 +19,30 @@
         "type": "string",
         "description": "The second sequence",
         "minLength": 1
+      },
+      "insertionCost": {
+        "type": "integer",
+        "description": "Cost of inserting a character of sequence2 (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "deletionCost": {
+        "type": "integer",
+        "description": "Cost of deleting a character of sequence1 (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "substitutionCost": {
+        "type": "integer",
+        "description": "Cost of a substitution (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
       }
     },
-    "required": ["sequence1", "sequence2"]
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -32,22 +53,65 @@
         "minimum": 0
       }
     },
-    "required": ["distance"]
+    "required": [
+      "distance"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence1 cannot be null or empty" },
-    { "code": 1003, "message": "Sequence2 cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence1 cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "Sequence2 cannot be null or empty"
+    },
+    {
+      "code": 1007,
+      "message": "insertionCost must be >= 0"
+    },
+    {
+      "code": 1008,
+      "message": "deletionCost must be >= 0"
+    },
+    {
+      "code": 1009,
+      "message": "substitutionCost must be >= 0"
+    }
   ],
   "examples": [
     {
       "name": "Identical sequences",
-      "input": { "sequence1": "ATGC", "sequence2": "ATGC" },
-      "output": { "distance": 0 }
+      "input": {
+        "sequence1": "ATGC",
+        "sequence2": "ATGC"
+      },
+      "output": {
+        "distance": 0
+      }
     },
     {
       "name": "Classic kitten-sitting",
-      "input": { "sequence1": "kitten", "sequence2": "sitting" },
-      "output": { "distance": 3 }
+      "input": {
+        "sequence1": "kitten",
+        "sequence2": "sitting"
+      },
+      "output": {
+        "distance": 3
+      }
+    },
+    {
+      "name": "Weighted costs (rapidfuzz weights=(1,1,2))",
+      "input": {
+        "sequence1": "kitten",
+        "sequence2": "sitting",
+        "insertionCost": 1,
+        "deletionCost": 1,
+        "substitutionCost": 2
+      },
+      "output": {
+        "distance": 5
+      }
     }
   ]
 }

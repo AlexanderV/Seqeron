@@ -24,7 +24,10 @@
 | `GetEditAlignment(string query, string target)` | ApproximateMatcher | Canonical (traceback, edlib CIGAR) | O(m × n) |
 | `GetEditAlignmentLinearSpace(string query, string target)` | ApproximateMatcher | Canonical (Hirschberg 1975, linear space) | O(m × n) time, O(m + n) space |
 | `OptimalStringAlignmentDistance(string s1, string s2)` | ApproximateMatcher | Canonical (restricted Damerau) | O(m × n) |
-| `DamerauLevenshteinDistance(string s1, string s2)` | ApproximateMatcher | Canonical (Lowrance–Wagner 1975) | O(m × n) |
+| `DamerauLevenshteinDistance(string s1, string s2)` | ApproximateMatcher | Canonical (Lowrance–Wagner 1975; Zhao & Sahni 2020 linear-space engine) | O(m × n) time, O(n + σ) space |
+| `EditDistance(string s1, string s2, int insertionCost, int deletionCost, int substitutionCost)` / `EditDistance(s1, s2, EditCosts)` | ApproximateMatcher | Canonical (weighted Wagner–Fischer, rapidfuzz weights) | O(m × n) |
+| `GetEditAlignment(query, target, EditCosts)` / `GetEditAlignmentLinearSpace(query, target, EditCosts)` | ApproximateMatcher | Canonical (weighted traceback / Hirschberg) | O(m × n) |
+| `FindEditEndPositions(sequence, pattern, int maxCost, EditCosts)` | ApproximateMatcher | Canonical (weighted Sellers) | O(n × m) |
 
 `EditDistance` and `FindEditEndPositions` run on the Myers (1999) bit-parallel engine (Hyyrö 2003 global form, ⌈m/64⌉ words, edlib `calculateBlock`); the Wagner–Fischer references `EditDistanceDp` / `FindEditEndPositionsDp` (internal) are the test oracles.
 
@@ -52,6 +55,10 @@
 | `FindWithEdits` windows, CIGAR replay, MismatchPositions, MismatchType | 500 cases, 13019 hits | 0 errors; 7461 CIGARs identical to edlib NW |
 | `GetEditAlignmentLinearSpace` (Hirschberg) vs edlib NW `editDistance`, `GetEditAlignment`, `EditDistance` | 3501 pairs (3000 random ≤120 incl. non-ASCII + mutated copies, 500 exhaustive-small, one 3000×3300) | distance 3501/3501 equal; CIGAR replay 3501/3501; path identical to `GetEditAlignment` 1757/3501 (co-optimal ties ⇒ separate method) |
 | OSA / DL vs rapidfuzz, DL vs jellyfish | 4507 pairs | 0 differences (CA/ABC: OSA 3, DL 2; pyxDamerauLevenshtein gives 3 = OSA) |
+| DL (Zhao & Sahni engine) vs rapidfuzz 3.14.6 `DamerauLevenshtein`, jellyfish (2026-10-01) | 7620 pairs (≤120 random/mutated incl. non-ASCII, 3600 small {A,B,C}, 20 up to 2500) | 7620/7620 rapidfuzz, 7600/7600 jellyfish; = Lowrance–Wagner full matrix on all 364² strings ≤ 5 over {A,B,C} |
+| Weighted `EditDistance` vs rapidfuzz `Levenshtein.distance(weights=…)` | 4010 pairs, weights 0–6 / uniform / ≤1000 | 4010/4010 |
+| Weighted `GetEditAlignment` / `GetEditAlignmentLinearSpace` | 3000 pairs | distance = rapidfuzz and weighted replay = distance 3000/3000 (both) |
+| Weighted Sellers vs Python brute force min_i rapidfuzz distance | 800 cases, 8330 hits | 800/800 |
 
 **Tie-break (documented, deterministic):** traceback from (m, n) takes the diagonal when optimal, then `I`, then `D` (edlib: `I`, `D`, diagonal). Diagonal-first makes a substitution-only optimum (equal-length window with ed = Hamming) come back as the Hamming path, so `MismatchPositions` of `Substitution` hits equal the Hamming mismatch indices.
 

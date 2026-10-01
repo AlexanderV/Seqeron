@@ -26,7 +26,12 @@ Sellers (1980) approximate string matching (the k-differences problem; Navarro 2
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Sequence to search in. |
 | `pattern` | string | Yes | Pattern to find. |
-| `maxEdits` | integer | Yes | Maximum allowed edit distance (>= 0). |
+| `maxEdits` | integer | Yes | Maximum allowed edit distance (>= 0); the maximum weighted cost when costs are given. |
+| `insertionCost` | integer | No | Cost of a text character absent from the pattern (>= 0; default 1). |
+| `deletionCost` | integer | No | Cost of a pattern character absent from the text (>= 0; default 1). |
+| `substitutionCost` | integer | No | Cost of a substitution (>= 0; default 1). |
+
+Non-unit costs delegate to `ApproximateMatcher.FindEditEndPositions(sequence, pattern, maxCost, EditCosts)` — the weighted Sellers DP (pattern = s1, text window = s2 in rapidfuzz `weights=(insertion, deletion, substitution)` convention, free start in the text). Unit costs (the default) keep the Myers engine and the original behaviour.
 
 ## Output Schema
 
@@ -41,6 +46,9 @@ Sellers (1980) approximate string matching (the k-differences problem; Navarro 2
 | 1001 | Sequence cannot be null or empty |
 | 1005 | Pattern cannot be null or empty |
 | 1006 | maxEdits must be >= 0 |
+| 1007 | insertionCost must be >= 0 |
+| 1008 | deletionCost must be >= 0 |
+| 1009 | substitutionCost must be >= 0 |
 
 ## Examples
 
@@ -126,6 +134,39 @@ Sellers (1980) approximate string matching (the k-differences problem; Navarro 2
   ]
 }
 ```
+
+### Example 3: Weighted Sellers (deletion 3)
+
+**Tool Call:**
+```json
+{
+  "tool": "find_edit_end_positions",
+  "arguments": {
+    "sequence": "TTACGTAAGGCTACG",
+    "pattern": "ACGT",
+    "maxEdits": 2,
+    "insertionCost": 1,
+    "deletionCost": 3,
+    "substitutionCost": 1
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "items": [
+    { "endPosition": 5, "distance": 0 },
+    { "endPosition": 6, "distance": 1 },
+    { "endPosition": 7, "distance": 2 },
+    { "endPosition": 9, "distance": 2 },
+    { "endPosition": 10, "distance": 2 },
+    { "endPosition": 11, "distance": 2 }
+  ]
+}
+```
+
+(Python brute force: min over i of rapidfuzz `Levenshtein.distance("ACGT", t[i..j], weights=(1, 3, 1))`.)
 
 ## Worked Example
 

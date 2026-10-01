@@ -6,11 +6,11 @@
 | Test Unit ID | PAT-APPROX-002 |
 | Related Projects | N/A |
 | Implementation Status | Complete |
-| Last Reviewed | 2026-09-30 |
+| Last Reviewed | 2026-10-01 |
 
 ## 1. Overview
 
-Edit distance measures the minimum number of insertions, deletions, and substitutions required to transform one string into another. In this repository the Levenshtein distance and the Sellers end-position search run on the Myers (1999) bit-parallel engine (global form of Hyyrö 2003, multi-word blocks as in edlib), with the Wagner–Fischer column kernel kept as the reference and as the engine of the window search `FindWithEdits` and of the traceback (`GetEditAlignment`, per-hit alignments in edlib CIGAR convention). The Damerau variants — optimal string alignment (restricted) and true Damerau–Levenshtein (Lowrance–Wagner 1975) — are separate methods.
+Edit distance measures the minimum number of insertions, deletions, and substitutions required to transform one string into another. In this repository the Levenshtein distance and the Sellers end-position search run on the Myers (1999) bit-parallel engine (global form of Hyyrö 2003, multi-word blocks as in edlib), with the Wagner–Fischer column kernel kept as the reference and as the engine of the window search `FindWithEdits` and of the traceback (`GetEditAlignment`, per-hit alignments in edlib CIGAR convention). The Damerau variants — optimal string alignment (restricted) and true Damerau–Levenshtein (Lowrance–Wagner 1975; linear-space engine of Zhao & Sahni 2020) — are separate methods. Weighted (non-unit, additive) insertion/deletion/substitution costs are available through `EditCosts` overloads of `EditDistance`, `GetEditAlignment`, `GetEditAlignmentLinearSpace` and `FindEditEndPositions` (rapidfuzz `Levenshtein` weights semantics).
 
 ## 2. Scientific / Formal Basis
 
@@ -65,6 +65,8 @@ Approximate search (the *k differences* problem, Sellers 1980; Navarro 2001 §5.
 | `[GetEditAlignment] query`, `target` | `string` | required | Strings aligned globally (query = pattern/rows) | Null input throws `ArgumentNullException`; case-sensitive |
 | `[GetEditAlignmentLinearSpace] query`, `target` | `string` | required | Same, linear space (Hirschberg) | Null input throws `ArgumentNullException`; case-sensitive |
 | `[OptimalStringAlignmentDistance / DamerauLevenshteinDistance] s1`, `s2` | `string` | required | Strings compared | Null input throws `ArgumentNullException`; case-sensitive |
+| `costs` (`EditCosts(Insertion, Deletion, Substitution)`) or `insertionCost`, `deletionCost`, `substitutionCost` | `int` × 3 | unit overloads = (1, 1, 1) | Additive costs, rapidfuzz `weights=(insertion, deletion, substitution)`: transforming s1 (query / pattern) into s2 (target / text window), an insertion adds a character of s2 ('D' column), a deletion removes a character of s1 ('I' column) | Each ≥ 0 (else `ArgumentOutOfRangeException`); a result above `int.MaxValue` throws `OverflowException` |
+| `[FindEditEndPositions(…, EditCosts)] maxCost` | `int` | required | Maximum weighted cost | ≥ 0 |
 
 ### 3.2 Output / Return Value
 
@@ -77,7 +79,7 @@ Approximate search (the *k differences* problem, Sellers 1980; Navarro 2001 §5.
 | `MismatchType` | `MismatchType` | `Substitution` when the hit's alignment has no indel (⇔ equal-length window with edit distance = Hamming distance); otherwise `Edit` |
 | `MismatchPositions` | `IReadOnlyList<int>` | Pattern-relative indices of the substituted (`X`) pattern characters of the hit's alignment (= the Hamming mismatch indices for `Substitution` hits) |
 | `Alignment` | `EditAlignment?` | Hit alignment (pattern = query, window = target); null for Hamming results |
-| `EditAlignment` | record | `Distance`, `Operations` (`=`/`X`/`I`/`D` per column), `Cigar` (EXTENDED), `StandardCigar`, `AlignedQuery`, `AlignedTarget` (`-` for gaps), `SubstitutionPositions`, `HasIndels` |
+| `EditAlignment` | record | `Distance` (weighted cost for the `EditCosts` overloads), `Operations` (`=`/`X`/`I`/`D` per column), `Cigar` (EXTENDED), `StandardCigar`, `AlignedQuery`, `AlignedTarget` (`-` for gaps), `SubstitutionPositions`, `HasIndels` |
 
 ### 3.3 Preconditions and Validation
 
@@ -93,7 +95,8 @@ The DP entry points share one column kernel (`AdvanceColumn`) of the unit-cost W
 2. `FindEditEndPositions` (Sellers): uppercase inputs; Myers engine with row-0 delta 0 (free text start); yield `(j, C[m, j])` when `C[m, j] ≤ k`. Reference: `FindEditEndPositionsDp` (top cell = 0).
 3. `FindWithEdits`: uppercase inputs; for each start `i`, run the start-anchored DP (top cell = window length) over `T[i..i+m+k)`, keeping the columns — one pass gives `ed(P, T[i..i+len))` for every length; for windows with `len ≥ max(1, m − k)` and distance `≤ k` trace the alignment back through the kept columns and yield the hit; stop early once the column minimum exceeds `k` (Ukkonen 1985 cut-off; column minima never decrease).
 4. `GetEditAlignment`: full DP matrix (top cell = `j`), then the diagonal-first traceback.
-5. `OptimalStringAlignmentDistance`: three rolling rows with the adjacent-transposition case; `DamerauLevenshteinDistance`: Lowrance–Wagner full matrix with sentinel row/column `m + n` and the `da` table.
+5. `OptimalStringAlignmentDistance`: three rolling rows with the adjacent-transposition case; `DamerauLevenshteinDistance`: Zhao & Sahni (2020) linear-space algorithm as transcribed from rapidfuzz-cpp `damerau_levenshtein_distance_zhao` — rows `R` (current), `R1` (previous), `FR[j]` = `H[k−1, j−2]` saved at the last row k with `a_k = b_j`, `T` = `H[i−2, l−1]` saved at the last column l with `a_i = b_l`, and a last-row-per-symbol table; when `a_i ≠ b_j` only the transpositions with `j − l = 1` (`FR[j] + (i − k)`) or `i − k = 1` (`T + (j − l)`) can beat the Levenshtein moves. Reference: Lowrance–Wagner full matrix with sentinel row/column `m + n` and the `da` table (internal `DamerauLevenshteinDistanceFullMatrix`, test oracle).
+6. Weighted costs (`EditCosts`): the weighted Wagner–Fischer recurrence `D[i, j] = min(D[i−1, j] + del, D[i, j−1] + ins, D[i−1, j−1] + [a_i ≠ b_j]·sub)`, `D[i, 0] = i·del`, `D[0, j] = j·ins` (rapidfuzz-cpp `generalized_levenshtein_wagner_fischer`), one 64-bit column kernel (`AdvanceWeightedColumn`) shared by `EditDistance` (two columns over the shorter string; uniform costs c → c × the Myers distance, as rapidfuzz), `GetEditAlignment` (full matrix + the same diagonal → `I` → `D` traceback, so unit costs reproduce the unit path), `GetEditAlignmentLinearSpace` (Hirschberg; the unit overload is this with (1, 1, 1)) and weighted Sellers `FindEditEndPositions` (top cell 0).
 
 ### 4.3 Complexity
 
@@ -105,7 +108,11 @@ The DP entry points share one column kernel (`AdvanceColumn`) of the unit-cost W
 | `GetEditAlignment` | `O(m × n)` | `O(m × n)` | Full Wagner–Fischer matrix + traceback |
 | `GetEditAlignmentLinearSpace` | `O(m × n)` (≈ 2× the full DP) | `O(m + n)` | Hirschberg (1975) divide and conquer over the shared column kernel |
 | `OptimalStringAlignmentDistance` | `O(m × n)` | `O(n)` | Three rolling rows |
-| `DamerauLevenshteinDistance` | `O(m × n)` | `O(m × n)` | Lowrance–Wagner with alphabet table |
+| `DamerauLevenshteinDistance` | `O(m × n)` | `O(n + σ)` | Zhao & Sahni linear space (σ = distinct symbols of s1) |
+| `EditDistance(…, EditCosts)` | `O(m × n)` (uniform costs: Myers) | `O(min(m, n))` | Weighted Wagner–Fischer |
+| `GetEditAlignment(…, EditCosts)` | `O(m × n)` | `O(m × n)` | Weighted full matrix + traceback |
+| `GetEditAlignmentLinearSpace(…, EditCosts)` | `O(m × n)` | `O(m + n)` | Weighted Hirschberg |
+| `FindEditEndPositions(…, EditCosts)` | `O(p × s)` | `O(p)` | Weighted Sellers DP |
 
 ## 5. Implementation Notes
 
@@ -117,7 +124,10 @@ The DP entry points share one column kernel (`AdvanceColumn`) of the unit-cost W
 - `ApproximateMatcher.GetEditAlignment(string, string)`: Optimal global alignment (`EditAlignment`, edlib CIGAR).
 - `ApproximateMatcher.GetEditAlignmentLinearSpace(string, string)`: Optimal global alignment in O(m + n) space (Hirschberg 1975; Myers & Miller 1988).
 - `ApproximateMatcher.OptimalStringAlignmentDistance(string, string)`: Restricted Damerau (OSA) distance.
-- `ApproximateMatcher.DamerauLevenshteinDistance(string, string)`: True Damerau–Levenshtein distance (Lowrance–Wagner 1975).
+- `ApproximateMatcher.DamerauLevenshteinDistance(string, string)`: True Damerau–Levenshtein distance (Lowrance–Wagner 1975), O(n + σ) space (Zhao & Sahni 2020); internal `DamerauLevenshteinDistanceFullMatrix` = Lowrance–Wagner oracle (tests only).
+- `ApproximateMatcher.EditDistance(string, string, int insertionCost, int deletionCost, int substitutionCost)` / `EditDistance(string, string, EditCosts)`: weighted Levenshtein distance (rapidfuzz `Levenshtein.distance(s1, s2, weights=…)`).
+- `ApproximateMatcher.GetEditAlignment(string, string, EditCosts)` / `GetEditAlignmentLinearSpace(string, string, EditCosts)`: weighted optimal alignment (full matrix / Hirschberg).
+- `ApproximateMatcher.FindEditEndPositions(string, string, int maxCost, EditCosts)`: weighted Sellers end positions.
 - internal `EditDistanceDp` / `FindEditEndPositionsDp`: Wagner–Fischer references for the Myers engine (tests only).
 - `ApproximateMatcher.FindWithEdits(string, string, int)`: All windows within `maxEdits` (start-anchored DP per start).
 - `ApproximateMatcher.FindEditEndPositions(string, string, int)`: Sellers (1980) end positions with minimum distance.
@@ -140,11 +150,14 @@ The core `EditDistance(...)` method is case-sensitive because it compares charac
 - Traceback with edlib's operation/CIGAR convention; deterministic diagonal-first tie-break (documented above). Cross-check vs edlib `align(q, t, mode='NW', task='path')`: 2000 random pairs — distance and path validity 2000/2000, CIGAR identical in 116, and identical in 115/115 pairs whose optimal path is unique; FindWithEdits: 13019 hits in 500 random cases — windows = brute force, CIGAR replays with cost = distance, 7461 identical to edlib NW on (pattern, window).
 - Optimal string alignment and true Damerau–Levenshtein distances; rapidfuzz `OSA`/`DamerauLevenshtein` and jellyfish agree on 4507 pairs (classic CA/ABC: OSA 3, DL 2). Note: `pyxDamerauLevenshtein` returns 3 for CA/ABC — it implements OSA, not unrestricted DL.
 
-- Linear-space traceback (B05 follow-up, 2026-09-30): `GetEditAlignmentLinearSpace` — Hirschberg (1975) [10] for the unit-cost edit distance (Myers & Miller 1988 [11]). Split the query at h = ⌊m/2⌋; forward scores F[j] = ed(q[0..h), t[0..j)) and reverse scores R[j] = ed(q[h..m), t[j..n)) from the same `AdvanceColumn` kernel (no second DP); split the target at the smallest j minimising F[j] + R[j]; recurse. Base cases: empty side → all `D` / all `I`; one query character → `=` at its last occurrence in the target, else `X` against the last target character, all other target characters `D`. **Why a separate method:** the diagonal-first traceback of `GetEditAlignment` is defined on the full forward matrix, which a divide-and-conquer split never materialises, so the same co-optimal path cannot be guaranteed in linear space — measured: identical paths in 1757/3501 random pairs. Guarantees instead: optimal distance and a valid script. Cross-check: 3501 pairs (3000 random, lengths 0–120 over {AC, ACGT, 10 letters, non-ASCII}, half of them mutated copies; 500 exhaustive-small ≤ 4×4 over {A,C}; one 3000 × 3300 pair): distance = edlib 1.3 NW `editDistance` = `GetEditAlignment` = `EditDistance` 3501/3501, CIGAR replays with cost = distance 3501/3501.
+- Linear-space traceback (B05 follow-up, 2026-09-30): `GetEditAlignmentLinearSpace` — Hirschberg (1975) [10] for the unit-cost edit distance (Myers & Miller 1988 [11]). Split the query at h = ⌊m/2⌋; forward scores F[j] = ed(q[0..h), t[0..j)) and reverse scores R[j] = ed(q[h..m), t[j..n)) from the shared weighted column kernel `AdvanceWeightedColumn` with costs (1, 1, 1) (no second DP; values identical to `AdvanceColumn`); split the target at the smallest j minimising F[j] + R[j]; recurse. Base cases: empty side → all `D` / all `I`; one query character → `=` at its last occurrence in the target, else `X` against the last target character, all other target characters `D`. **Why a separate method:** the diagonal-first traceback of `GetEditAlignment` is defined on the full forward matrix, which a divide-and-conquer split never materialises, so the same co-optimal path cannot be guaranteed in linear space — measured: identical paths in 1757/3501 random pairs. Guarantees instead: optimal distance and a valid script. Cross-check: 3501 pairs (3000 random, lengths 0–120 over {AC, ACGT, 10 letters, non-ASCII}, half of them mutated copies; 500 exhaustive-small ≤ 4×4 over {A,C}; one 3000 × 3300 pair): distance = edlib 1.3 NW `editDistance` = `GetEditAlignment` = `EditDistance` 3501/3501, CIGAR replays with cost = distance 3501/3501.
+
+- Linear-space unrestricted Damerau–Levenshtein (B05 audit group B, 2026-10-01): Zhao, C.; Sahni, S. (2020) [12] (paper hosts blocked; algorithm read from rapidfuzz-cpp `rapidfuzz/distance/DamerauLevenshtein_impl.hpp`, `damerau_levenshtein_distance_zhao`, which cites it). Cross-check: rapidfuzz 3.14.6 `DamerauLevenshtein.distance` 7620/7620 pairs (4000 random lengths 0–120 over {AC, ACGT, 10 letters, non-ASCII Greek/Cyrillic/€, mixed with 中/ü}, half mutated copies with transpositions; 3600 small pairs over {A,B,C} ≤ 4; 20 pairs up to 2500 × 2500) and jellyfish `damerau_levenshtein_distance` 7600/7600; = the Lowrance–Wagner full matrix exhaustively for all 364² strings ≤ 5 over {A,B,C}.
+- Weighted additive costs (B05 audit group B, 2026-10-01): semantics of rapidfuzz `Levenshtein.distance(s1, s2, weights=(insertion, deletion, substitution))` (rapidfuzz-cpp `Levenshtein_impl.hpp`: `generalized_levenshtein_wagner_fischer`, `levenshtein_distance` uniform/InDel shortcuts; cache[i] = i·delete_cost, so deletions remove s1 characters and insertions add s2 characters). Cross-check: `EditDistance` (both overloads) = rapidfuzz on 4010 pairs (weights 0–6, uniform, up to 1000; lengths 0–80 plus 10 pairs ≤ 1500); `GetEditAlignment` and `GetEditAlignmentLinearSpace` on 3000 pairs — distance = rapidfuzz and the operations replay both strings with weighted cost = distance 3000/3000 (rapidfuzz `editops` is unit-cost only, so weighted path validity is checked by replay); weighted Sellers on 800 cases (8330 hits) = Python brute force `min_i Levenshtein.distance(p, t[i..j], weights)`. Unit costs return exactly the unit methods' results and paths (tests).
 
 **Not implemented:**
 
-- Weighted / non-unit edit costs (e.g. affine gaps) — use the pairwise aligners in `SequenceAligner`.
+- Affine gap costs and substitution matrices — use the pairwise aligners in `SequenceAligner`.
 
 ## 6. Edge Cases and Limitations
 
@@ -160,7 +173,7 @@ The core `EditDistance(...)` method is case-sensitive because it compares charac
 
 ### 6.2 Limitations
 
-`GetEditAlignment` and `DamerauLevenshteinDistance` keep an `O(m·n)` matrix (for long inputs use `GetEditAlignmentLinearSpace`, O(m + n) space, same distance, possibly a different co-optimal path); a linear-space form of the unrestricted Damerau–Levenshtein distance is not provided (its transposition table needs the last-row-per-symbol history); `FindWithEdits` keeps `O(p·(p+e))` DP columns per start. Among co-optimal alignments exactly one (diagonal-first) is returned; it may differ from edlib's (I-first) path. The core distance methods are also case-sensitive, so callers who need normalized comparisons must uppercase or otherwise normalize inputs before calling it directly.
+`GetEditAlignment` keeps an `O(m·n)` matrix (for long inputs use `GetEditAlignmentLinearSpace`, O(m + n) space, same distance, possibly a different co-optimal path); `DamerauLevenshteinDistance` runs in O(n + σ) space (Zhao & Sahni) and returns the distance only (no transposition-aware traceback); `FindWithEdits` keeps `O(p·(p+e))` DP columns per start. Among co-optimal alignments exactly one (diagonal-first) is returned; it may differ from edlib's (I-first) path. The core distance methods are also case-sensitive, so callers who need normalized comparisons must uppercase or otherwise normalize inputs before calling it directly.
 
 ## 7. Examples and Related Material
 
@@ -193,3 +206,5 @@ The core `EditDistance(...)` method is case-sensitive because it compares charac
 9. Wikipedia - Edit Distance: https://en.wikipedia.org/wiki/Edit_distance
 10. Hirschberg, D.S. (1975). "A linear space algorithm for computing maximal common subsequences." Communications of the ACM, 18(6): 341–343 (bibliographic record via WebSearch/Semantic Scholar, 2026-09-30).
 11. Myers, E.W.; Miller, W. (1988). "Optimal alignments in linear space." CABIOS, 4(1): 11–17 (bibliographic record via WebSearch, 2026-09-30).
+12. Zhao, C.; Sahni, S. (2020). "Linear space string correction algorithm using the Damerau-Levenshtein distance." BMC Bioinformatics, 21(Suppl 1), doi:10.1186/s12859-019-3184-8; predecessor Zhao & Sahni (2019) "String correction using the Damerau-Levenshtein distance", BMC Bioinformatics 20(Suppl 11):277 (bibliographic records via WebSearch 2026-10-01; biomedcentral/springer/scispace/PMC blocked). Implementation transcribed from rapidfuzz-cpp `rapidfuzz/distance/DamerauLevenshtein_impl.hpp` (raw.githubusercontent.com, main, 2026-10-01).
+13. rapidfuzz-cpp `rapidfuzz/distance/Levenshtein_impl.hpp` (weighted `generalized_levenshtein_wagner_fischer`, `LevenshteinWeightTable`), raw.githubusercontent.com main, 2026-10-01; rapidfuzz 3.14.6 (PyPI).
