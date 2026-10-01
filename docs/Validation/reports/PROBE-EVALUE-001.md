@@ -1,5 +1,14 @@
 # Validation Report: PROBE-EVALUE-001 — Karlin–Altschul Off-Target E-value / Bit-Score
 
+> **Superseded in part by the B07 re-review (2026-10-01, `docs/Validation/review-2026-09/B07.md` F29–F31).**
+> Corrections: (1) the "published ungapped 2/−3 λ = 0.55, K = 0.21" cited below is the non-affine (megablast)
+> row of BLAST+ `blastn_values_2_3`; blastn's ungapped 2/−3 parameters are λ 0.634, K 0.408 (blastn 2.12.0+),
+> which the uniform-0.25 root reproduces; (2) K *is* computable (BLAST+ `BlastKarlinLHtoK`, Karlin & Altschul 1990
+> lattice) and is now computed for the scoring scheme instead of defaulting to the +1/−3 constant 0.711 for every
+> scheme (the +2/−3 default paired λ 0.634 with K 0.711); (3) BLAST+ gapped parameters, length adjustment and
+> blastn E-values were added (`ComputeBlastnStatistics`), verified against NCBI blastn 2.12.0+.
+
+
 - **Validated:** 2026-06-25   **Area:** MolTools
 - **Canonical method(s):** `ProbeDesigner.ComputeKarlinAltschul`, `ProbeDesigner.ComputeLambdaNucleotide`
 - **Stage A verdict:** ✅ PASS

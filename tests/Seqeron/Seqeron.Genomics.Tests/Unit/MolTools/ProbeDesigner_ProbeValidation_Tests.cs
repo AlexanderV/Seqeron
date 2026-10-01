@@ -925,17 +925,251 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     // KA12 — the DEFAULT scheme path (no scoring arg → BlastDna +2/−3) computes λ from that matrix
-    // under uniform 0.25 frequencies: independently re-solved oracle λ(2,−3) = 0.6337314430979077.
-    // NOTE: this is the UNIFORM-0.25 two-term root, not NCBI's published ungapped 2/−3 value (λ≈0.55,
-    // K≈0.21), which derives from the full score lattice; the documented contract is the uniform-0.25 model.
+    // under uniform 0.25 frequencies: λ(2,−3) = 0.6337314430979077, the ungapped Lambda NCBI blastn 2.12.0+
+    // prints for -reward 2 -penalty 3 -ungapped ("0.634"). (blast_stat.c's blastn_values_2_3 {0,0,0.55,0.21}
+    // row is the non-affine megablast entry, not the ungapped value.) K is now computed for the same scheme:
+    // BlastKarlinLHtoK → 0.4081456625463167 (blastn prints 0.408), no longer the +1/−3 constant 0.711.
     [Test]
-    public void ComputeKarlinAltschul_DefaultScheme_UsesBlastDna2_3UniformLambda()
+    public void ComputeKarlinAltschul_DefaultScheme_UsesBlastDna2_3UngappedLambdaAndK()
     {
         var stats = ProbeDesigner.ComputeKarlinAltschul(
             rawScore: 30, queryLength: 20, databaseLength: 1000);
 
-        Assert.That(stats.Lambda, Is.EqualTo(0.6337314430979077).Within(1e-9),
-            "Default scoring is BlastDna (+2/−3); λ is its uniform-0.25 root 0.6337314430979077");
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.Lambda, Is.EqualTo(0.6337314430979077).Within(1e-9),
+                "Default scoring is BlastDna (+2/−3); λ is its uniform-0.25 root 0.6337314430979077");
+            Assert.That(stats.K, Is.EqualTo(0.4081456625463167).Within(1e-9),
+                "K is computed for the +2/−3 scheme (NCBI BlastKarlinLHtoK; blastn -ungapped prints 0.408)");
+            Assert.That(stats.EValue, Is.EqualTo(0.4081456625463167 * 20 * 1000 * Math.Exp(-0.6337314430979077 * 30))
+                .Within(1e-12), "E = K·m·n·e^{−λS} with the scheme's own K");
+        });
+    }
+
+    #endregion
+
+    #region NCBI BLAST+ Karlin–Altschul parameters, length adjustment and blastn E-values (PROBE-EVALUE-001, B07)
+
+    // Oracles: NCBI C++ Toolkit BLAST+ core blast_stat.c / blast_setup.c / blast_hits.c (raw.githubusercontent.com,
+    // ncbi/ncbi-cxx-toolkit-public master, retrieved 2026-10-01), ported line-by-line to Python
+    // (scratch ka_ref.py: Blast_KarlinLambdaNR, BlastKarlinLtoH, BlastKarlinLHtoK, BLAST_ComputeLengthAdjustment),
+    // and NCBI blastn 2.12.0+ (Debian ncbi-blast+) runs whose Lambda/K/H footers, effective search spaces and
+    // E-values the Python port reproduces exactly.
+
+    // KA13 — ungapped λ, K, H for match/mismatch schemes under uniform composition (blastn -ungapped footers:
+    // 1/−3 → 1.37 0.711 1.31; 2/−3 → 0.634 0.408 0.912; 1/−2 → 1.33 0.621 1.12). Values from the Python port.
+    [TestCase(1, -3, 1.3740631224599753, 0.7106027952162398, 1.3072466039090012)]
+    [TestCase(2, -3, 0.6337314430979075, 0.4081456625463167, 0.9124383922742278)]
+    [TestCase(1, -2, 1.3327057628202603, 0.6209911172603866, 1.1240918464926624)]
+    [TestCase(1, -1, 1.0986122886681096, 0.3333333333333333, 0.5493061443340547)]   // closed form low=−1, high=1
+    [TestCase(1, -5, 1.3855589708750102, 0.7465088564177568, 1.3794476589446871)]   // closed form high=1
+    [TestCase(3, -4, 0.40960018945921306, 0.3400126968378049, 0.8109980590982684)]  // series
+    [TestCase(4, -5, 0.30105238556335095, 0.30626406181359495, 0.7531655560686317)] // series
+    [TestCase(5, -4, 0.191529283390431, 0.17578794214241147, 0.35672385105693066)]  // series
+    [TestCase(3, -2, 0.27117894897553707, 0.13043656940239723, 0.22232354260180037)] // series (low −2, high 3)
+    [TestCase(2, -7, 0.6901463137128534, 0.5479023050006323, 1.3431256028187626)]
+    public void ComputeUngappedKarlinParameters_MatchesNcbiBlastStat(
+        int match, int mismatch, double lambda, double k, double h)
+    {
+        var p = ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.Lambda, Is.EqualTo(lambda).Within(1e-9));
+            Assert.That(p.K, Is.EqualTo(k).Within(1e-9));
+            Assert.That(p.H, Is.EqualTo(h).Within(1e-9));
+            Assert.That(p.Alpha, Is.EqualTo(lambda / h).Within(1e-9), "ungapped α = λ/H (Blast_GetNuclAlphaBeta)");
+            Assert.That(p.Gapped, Is.False);
+            Assert.That(p.RoundDown, Is.False);
+        });
+    }
+
+    // KA14 — K is invariant under scaling all scores by an integer, λ scales by its inverse (E is unchanged).
+    [Test]
+    public void ComputeUngappedKarlinParameters_ScaledScheme_SameKHalfLambda()
+    {
+        var p23 = ProbeDesigner.ComputeUngappedKarlinParameters(2, -3);
+        var p46 = ProbeDesigner.ComputeUngappedKarlinParameters(4, -6);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p46.K, Is.EqualTo(0.4081456625463167).Within(1e-9), "K is a lattice-invariant (Karlin & Altschul 1990)");
+            Assert.That(p46.Lambda, Is.EqualTo(p23.Lambda / 2).Within(1e-12));
+            Assert.That(p46.H, Is.EqualTo(p23.H).Within(1e-9));
+        });
+    }
+
+    // KA15 — explicit composition: A,C,G,T = 0.3,0.2,0.2,0.3 → p(match) = Σp² = 0.26 (Python port:
+    // λ 1.333431429944318, K 0.6965155054507803, H 1.261161661613095); a uniform vector equals the scalar overload.
+    [Test]
+    public void ComputeUngappedKarlinParameters_Composition_MatchesNcbiPort()
+    {
+        var p = ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, new[] { 0.3, 0.2, 0.2, 0.3 });
+        var uniform = ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, new[] { 1.0, 1.0, 1.0, 1.0 });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.Lambda, Is.EqualTo(1.333431429944318).Within(1e-9));
+            Assert.That(p.K, Is.EqualTo(0.6965155054507803).Within(1e-9));
+            Assert.That(p.H, Is.EqualTo(1.261161661613095).Within(1e-9));
+            Assert.That(uniform, Is.EqualTo(ProbeDesigner.ComputeUngappedKarlinParameters(1, -3)));
+        });
+    }
+
+    [Test]
+    public void ComputeUngappedKarlinParameters_InvalidArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, 0.5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, 0.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ComputeLambdaNucleotide(1, -3, 0.6));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ComputeUngappedKarlinParameters(3, -1));
+            Assert.Throws<ArgumentException>(() => ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, new[] { 0.5, 0.5, 0.0 }));
+            Assert.Throws<ArgumentException>(() => ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, new[] { 0.5, 0.5, -0.1, 0.1 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, new[] { 1.0, 0, 0, 0 }));
+        });
+    }
+
+    // KA16 — gapped parameters from blast_stat.c blastn_values_* (blastn "Gapped" footers: 2/−3 5/2 → 0.625 0.410 0.780;
+    // 1/−3 2/2 → 1.37 0.700 1.20; 1/−2 2/2 → 1.33 0.620 1.10; 2/−3 4/4 → 0.630 0.420 0.840; 1/−3 5/5 → ungapped).
+    [TestCase(2, -3, 5, 2, 0.625, 0.41, 0.78, 0.8, -2.0, true)]
+    [TestCase(1, -3, 2, 2, 1.37, 0.70, 1.2, 1.1, 0.0, false)]
+    [TestCase(1, -2, 2, 2, 1.33, 0.62, 1.1, 1.2, 0.0, false)]
+    [TestCase(2, -3, 4, 4, 0.63, 0.42, 0.84, 0.75, -2.0, true)]
+    [TestCase(2, -3, 0, 0, 0.55, 0.21, 0.46, 1.2, -5.0, true)]   // non-affine (megablast) row
+    [TestCase(4, -6, 10, 4, 0.3125, 0.41, 0.78, 0.4, -2.0, true)] // gcd 2: gaps ×2, λ and α ÷2
+    [TestCase(3, -4, 6, 3, 0.389, 0.25, 0.56, 0.7, -5.0, true)]
+    public void GetBlastnGappedKarlinParameters_MatchesBlastStatTables(
+        int reward, int penalty, int open, int extend, double lambda, double k, double h, double alpha, double beta, bool roundDown)
+    {
+        var p = ProbeDesigner.GetBlastnGappedKarlinParameters(reward, penalty, open, extend);
+
+        Assert.That(p, Is.EqualTo(new ProbeDesigner.KarlinAltschulParameters(lambda, k, h, alpha, beta, roundDown, true)));
+    }
+
+    [Test]
+    public void GetBlastnGappedKarlinParameters_InfiniteGapDomain_UsesUngappedValues()
+    {
+        var p = ProbeDesigner.GetBlastnGappedKarlinParameters(1, -3, 5, 5);
+        var u = ProbeDesigner.ComputeUngappedKarlinParameters(1, -3);
+
+        Assert.That(p, Is.EqualTo(u with { Gapped = true }),
+            "gap costs ≥ gap_open_max/gap_extend_max (2/2) copy the ungapped Karlin block (blastn prints 1.37 0.711 1.31)");
+    }
+
+    [Test]
+    public void GetBlastnGappedKarlinParameters_Unsupported_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => ProbeDesigner.GetBlastnGappedKarlinParameters(2, -3, 1, 1),
+                "1/1 is not a 2/−3 table entry and is below the infinite domain (6/4)");
+            Assert.Throws<ArgumentException>(() => ProbeDesigner.GetBlastnGappedKarlinParameters(7, -11, 5, 2),
+                "7/−11 has no blastn_values table");
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.GetBlastnGappedKarlinParameters(2, -3, -1, 2));
+        });
+    }
+
+    // KA17 — length adjustment / effective search space / E-value = blastn 2.12.0+ (query 40 nt, subject 3079 nt):
+    // 2/−3 gap 5/2 → "Effective search space used: 88972", score 80 → 73.4 bits, E 7e-18; score 15 → E 5.8 (as 14).
+    [Test]
+    public void ComputeBlastnStatistics_Bl2seq_MatchesBlastn()
+    {
+        var hit = ProbeDesigner.ComputeBlastnStatistics(80, 40, 3079);
+        var odd = ProbeDesigner.ComputeBlastnStatistics(15, 40, 3079);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hit.LengthAdjustment, Is.EqualTo(11));
+            Assert.That(hit.EffectiveSearchSpace, Is.EqualTo(88972));
+            Assert.That(hit.EValue, Is.EqualTo(7.035793990394873e-18).Within(1e-27));
+            Assert.That(hit.BitScore, Is.EqualTo(73.42105622960482).Within(1e-9));
+            Assert.That(odd.EValueScore, Is.EqualTo(14), "2/−3 table: odd scores are rounded down to even");
+            Assert.That(odd.EValue, Is.EqualTo(5.780434617461434).Within(1e-9));
+        });
+    }
+
+    // KA18 — database of N = 5 sequences, 6040 letters: blastn "Effective search space used: 167440", E 1.32e-17.
+    [Test]
+    public void ComputeBlastnStatistics_MultiSequenceDatabase_MatchesBlastn()
+    {
+        var s = ProbeDesigner.ComputeBlastnStatistics(80, 40, 6040, databaseSequenceCount: 5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.LengthAdjustment, Is.EqualTo(12));
+            Assert.That(s.EffectiveSearchSpace, Is.EqualTo(167440));
+            Assert.That(s.EValue, Is.EqualTo(1.3240944856266213e-17).Within(1e-26));
+        });
+    }
+
+    // KA19 — other schemes: 1/−3 gap 2/2 (space 98272, score 31 → E 2e-14) and ungapped 2/−3 (space 95170,
+    // score 80 → 74.4 bits, E 4e-18; ungapped β = −2 from s_GetUngappedBeta).
+    [Test]
+    public void ComputeBlastnStatistics_OtherSchemes_MatchBlastn()
+    {
+        var m13 = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: 1, Mismatch: -3, GapOpen: -2, GapExtend: -2);
+        var g = ProbeDesigner.ComputeBlastnStatistics(31, 40, 3079, scoring: m13);
+        var u = ProbeDesigner.ComputeBlastnStatistics(80, 40, 3079, gapped: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(g.EffectiveSearchSpace, Is.EqualTo(98272));
+            Assert.That(g.EValue, Is.EqualTo(2.4719585736391905e-14).Within(1e-23));
+            Assert.That(u.EffectiveSearchSpace, Is.EqualTo(95170));
+            Assert.That(u.EValueScore, Is.EqualTo(80));
+            Assert.That(u.EValue, Is.EqualTo(3.725887650102598e-18).Within(1e-24));
+            Assert.That(u.BitScore, Is.EqualTo(74.4353407865069).Within(1e-6));
+        });
+    }
+
+    // KA20 — end-to-end through the canonical affine aligner: probe vs a 279-nt subject carrying the probe with one
+    // mismatch and a 1-nt deletion. blastn -task blastn (2/−3, 5/2) bl2seq: score 66, 60.8 bits, E 4.33e-15,
+    // effective search space 8672; Biopython PairwiseAligner local (2, −3, open −7, extend −2) score 66.0.
+    private const string EValueProbe = "GCTAAAGACAATTACATAACATACACGTCAGCACGAAACT";
+    private const string EValueSubject =
+        "CTTGTCTCCAAGTACCCATTTAGTAGACAAATCGTTCCATCACCAATTCGCTGGTTGTTGAACTATACGACCGGGGCACACTGCACTCAGTTCCCATTTAGAGGATCC" +
+        "TAGCCTAGCTACGCTAAAGACAATGACATAACATACAGTCAGCACGAAACTGCGTTTGCGCATCAGGCTGTCCCATACATCAAGCGGTTCCCCTCAAATTATCCGGAC" +
+        "TCGGTAAGGGCAGCGAGTAAATATTTTACAATACGTTTCTTGTCAATCTGCTGCTTTGTACGC";
+
+    [Test]
+    public void ComputeBlastnStatistics_ProbeVsSubject_AlignsWithLocalAlignAffineAndMatchesBlastn()
+    {
+        var s = ProbeDesigner.ComputeBlastnStatistics(EValueProbe, EValueSubject);
+        var kane = ProbeDesigner.AssessCrossHybridization(EValueProbe, new[] { EValueSubject }, bothStrands: false)[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(EValueSubject.Length, Is.EqualTo(279));
+            Assert.That(s.RawScore, Is.EqualTo(66));
+            Assert.That(kane.AlignmentScore, Is.EqualTo(66), "same canonical LocalAlignAffine score");
+            Assert.That(s.EffectiveSearchSpace, Is.EqualTo(8672));
+            Assert.That(s.EValue, Is.EqualTo(4.327686048582086e-15).Within(1e-24));
+            Assert.That(s.BitScore, Is.EqualTo(60.79747462182638).Within(1e-9));
+        });
+    }
+
+    [Test]
+    public void ComputeLengthAdjustment_TinySearchSpace_IsZero()
+    {
+        // c = n·m − max(m, n)/K < 0 → BLAST returns 0.
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProbeDesigner.ComputeLengthAdjustment(0.41, 1.28, -2, 1, 1), Is.EqualTo(0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ComputeLengthAdjustment(0, 1, 0, 10, 10));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ComputeBlastnStatistics(10, 20, 100, databaseSequenceCount: 0));
+        });
+    }
+
+    // KA21 — ComputeKarlinAltschul without k computes K for the scheme (+1/−3 → 0.7106027952162398 ≈ blastn 0.711).
+    [Test]
+    public void ComputeKarlinAltschul_NoK_ComputesSchemeK()
+    {
+        var stats = ProbeDesigner.ComputeKarlinAltschul(10, 100, 1000, MatchMismatch1_3);
+
+        Assert.That(stats.K, Is.EqualTo(0.7106027952162398).Within(1e-9));
     }
 
     #endregion

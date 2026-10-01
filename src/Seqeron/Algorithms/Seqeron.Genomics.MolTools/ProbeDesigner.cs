@@ -314,7 +314,7 @@ public static class ProbeDesigner
     /// The Karlin–Altschul scale parameter λ — the unique positive root of
     /// Σ_{i,j} p_i p_j e^{λ s_ij} = 1 for the scoring scheme and base frequencies.
     /// </param>
-    /// <param name="K">The Karlin–Altschul search-space scale parameter K (supplied by the caller).</param>
+    /// <param name="K">The Karlin–Altschul search-space scale parameter K (computed for the scoring scheme unless supplied by the caller).</param>
     /// <param name="BitScore">The normalized bit score S' = (λS − ln K) / ln 2.</param>
     /// <param name="EValue">
     /// The expected number of distinct alignments scoring ≥ S by chance: E = K·m·n·e^{−λS} = m·n·2^{−S'}.
@@ -1924,13 +1924,16 @@ public static class ProbeDesigner
     /// <param name="match">Match score (must be &gt; 0 — the required positive score).</param>
     /// <param name="mismatch">Mismatch score (must be &lt; 0).</param>
     /// <param name="baseFrequency">
-    /// Per-base background frequency (default 0.25, uniform). The four bases are assumed equiprobable
-    /// at this value; the four base frequencies must sum to 1, i.e. <paramref name="baseFrequency"/> = 0.25.
+    /// Per-base background frequency (default 0.25, uniform — the standard nucleotide composition NCBI blastn uses).
+    /// The model takes p(match) = 4·p² and p(mismatch) = 1 − 4·p², which is the composition-exact value only at
+    /// p = 0.25; for a non-uniform composition use
+    /// <see cref="ComputeUngappedKarlinParameters(int, int, IReadOnlyList{double})"/>. Must lie in (0, 0.5).
     /// </param>
     /// <returns>The positive λ solving the Karlin–Altschul equation.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
     /// Thrown when the scheme cannot define λ: the match score is not positive, the mismatch score is
-    /// not negative, or the expected per-pair score is not negative (the theory's preconditions).
+    /// not negative, or the expected per-pair score is not negative (the theory's preconditions); or when
+    /// <paramref name="baseFrequency"/> is outside (0, 0.5) (p(match) = 4·p² would not be a probability in (0, 1)).
     /// </exception>
     public static double ComputeLambdaNucleotide(
         int match,
@@ -1938,15 +1941,10 @@ public static class ProbeDesigner
         double baseFrequency = UniformBaseFrequency)
     {
         // Karlin–Altschul preconditions: at least one positive score, and negative expected score.
-        if (match <= 0)
-            throw new ArgumentOutOfRangeException(nameof(match),
-                "Karlin–Altschul λ is undefined: the scoring scheme must have at least one positive score.");
-        if (mismatch >= 0)
-            throw new ArgumentOutOfRangeException(nameof(mismatch),
-                "Karlin–Altschul λ is undefined: the mismatch score must be negative.");
+        ValidateMatchMismatch(match, mismatch);
 
         // p(match) = 4 · p² (the four identical ordered pairs); p(mismatch) = 1 − p(match).
-        double pMatch = 4.0 * baseFrequency * baseFrequency;
+        double pMatch = MatchProbability(baseFrequency);
         double pMismatch = 1.0 - pMatch;
 
         // Expected per-pair score must be negative for the theory to hold.
@@ -1955,24 +1953,9 @@ public static class ProbeDesigner
             throw new ArgumentOutOfRangeException(nameof(mismatch),
                 "Karlin–Altschul λ is undefined: the expected per-pair score must be negative.");
 
-        // f(λ) = p(match)·e^{λ·match} + p(mismatch)·e^{λ·mismatch} − 1.
-        // f(0) = 0; f'(0) = expectedScore < 0 so f dips below 0 for small λ>0, then a positive
-        // match score drives e^{λ·match} → ∞, so f crosses 0 exactly once at the positive root.
-        static double F(double lambda, double pM, int m, double pMm, int mm)
-            => pM * Math.Exp(lambda * m) + pMm * Math.Exp(lambda * mm) - 1.0;
-
-        double lo = 0.0;
-        double hi = LambdaSearchUpperBound;
-        for (int i = 0; i < LambdaBisectionIterations; i++)
-        {
-            double mid = 0.5 * (lo + hi);
-            if (F(mid, pMatch, match, pMismatch, mismatch) > 0.0)
-                hi = mid;
-            else
-                lo = mid;
-        }
-
-        return 0.5 * (lo + hi);
+        // f(λ) = p(match)·e^{λ·match} + p(mismatch)·e^{λ·mismatch} − 1: f(0) = 0, f'(0) = expectedScore < 0,
+        // and the positive match score drives f → ∞, so f crosses 0 exactly once at the positive root.
+        return SolveLambda(pMatch, match, pMismatch, mismatch);
     }
 
     /// <summary>
@@ -1983,11 +1966,16 @@ public static class ProbeDesigner
     /// <para>
     /// E = K·m·n·e^{−λS}, S' = (λS − ln K) / ln 2, E = m·n·2^{−S'} (Karlin &amp; Altschul 1990;
     /// Altschul et al. 1990). λ is computed from <paramref name="scoring"/> by
-    /// <see cref="ComputeLambdaNucleotide"/>; K is supplied by the caller (the closed form requires
-    /// the score-lattice machinery of Karlin–Altschul; for the BLAST +1/−3 nucleotide scheme the
-    /// published value is K ≈ 0.711, NCBI blastn).
+    /// <see cref="ComputeLambdaNucleotide"/>; K is, unless the caller supplies it, computed for the same
+    /// scoring scheme and background by the Karlin–Altschul (1990) lattice formula as NCBI BLAST+ computes it
+    /// (<see cref="ComputeUngappedKarlinParameters(int, int, double)"/>; +1/−3 → K = 0.7106, +2/−3 → K = 0.4081,
+    /// the values blastn 2.12 reports for ungapped searches).
     /// </para>
-    /// <para>This is additive and opt-in; <see cref="ScanOffTargetsGapped"/> and its defaults are unchanged.</para>
+    /// <para>
+    /// These are the <b>ungapped</b> statistics on the raw search space m·n. For a gapped (affine) alignment score
+    /// such as <see cref="CrossHybridizationAssessment.AlignmentScore"/>, and for BLAST's edge-effect length
+    /// correction, use <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool)"/>.
+    /// </para>
     /// </remarks>
     /// <param name="rawScore">The raw alignment score S of the hit.</param>
     /// <param name="queryLength">Query (probe) length m (&gt; 0).</param>
@@ -1997,7 +1985,10 @@ public static class ProbeDesigner
     /// determine λ. Defaults to <see cref="SequenceAligner.BlastDna"/> (+2/−3). Pass a +1/−3 matrix to
     /// reproduce the published λ ≈ 1.374.
     /// </param>
-    /// <param name="k">The Karlin–Altschul K parameter (default 0.711, the published nucleotide value).</param>
+    /// <param name="k">
+    /// The Karlin–Altschul K parameter; null (default) computes it for <paramref name="scoring"/> and
+    /// <paramref name="baseFrequency"/> (<see cref="ComputeUngappedKarlinParameters(int, int, double)"/>).
+    /// </param>
     /// <param name="baseFrequency">Per-base background frequency for λ (default 0.25, uniform).</param>
     /// <returns>The <see cref="KarlinAltschulStatistics"/> for the hit.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="scoring"/> is null.</exception>
@@ -2007,7 +1998,7 @@ public static class ProbeDesigner
         int queryLength,
         long databaseLength,
         ScoringMatrix? scoring = null,
-        double k = DefaultNucleotideK,
+        double? k = null,
         double baseFrequency = UniformBaseFrequency)
     {
         var matrix = scoring ?? SequenceAligner.BlastDna;
@@ -2016,26 +2007,603 @@ public static class ProbeDesigner
             throw new ArgumentOutOfRangeException(nameof(queryLength), "Query length m must be positive.");
         if (databaseLength <= 0)
             throw new ArgumentOutOfRangeException(nameof(databaseLength), "Database length n must be positive.");
-        if (k <= 0)
+        if (k is double given && !(given > 0))
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
         double lambda = ComputeLambdaNucleotide(matrix.Match, matrix.Mismatch, baseFrequency);
+        double kValue = k ?? ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch, baseFrequency).K;
 
         // S' = (λS − ln K) / ln 2  (Altschul et al. 1990).
-        double bitScore = (lambda * rawScore - Math.Log(k)) / Math.Log(2.0);
+        double bitScore = (lambda * rawScore - Math.Log(kValue)) / Math.Log(2.0);
 
         // E = K·m·n·e^{−λS}  (Karlin & Altschul 1990).
-        double eValue = k * queryLength * databaseLength * Math.Exp(-lambda * rawScore);
+        double eValue = kValue * queryLength * databaseLength * Math.Exp(-lambda * rawScore);
 
         return new KarlinAltschulStatistics(
-            rawScore, lambda, k, bitScore, eValue, queryLength, databaseLength);
+            rawScore, lambda, kValue, bitScore, eValue, queryLength, databaseLength);
     }
 
-    // Published Karlin–Altschul K for the BLAST +1/−3 nucleotide scheme (NCBI blastn reports
-    // Lambda ≈ 1.37, K ≈ 0.711 for match=1/mismatch=−3). K's full closed form needs the
-    // score-probability lattice/geometric-spacing machinery of Karlin & Altschul (1990); it is
-    // therefore exposed as a caller parameter, defaulted to this published value.
-    private const double DefaultNucleotideK = 0.711;
+    // --- NCBI BLAST+ Karlin–Altschul machinery (blastn statistics) ---
+    //
+    // Ported from NCBI C++ Toolkit BLAST+ core (retrieved 2026-10-01 from
+    // https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/algo/blast/core/):
+    //   blast_stat.c  — BlastScoreFreqCalc, Blast_KarlinBlkUngappedCalc (λ, BlastKarlinLtoH, BlastKarlinLHtoK),
+    //                   blastn_values_* tables + s_GetNuclValuesArray / s_SplitArrayOf8 / s_AdjustGapParametersByGcd,
+    //                   Blast_KarlinBlkNuclGappedCalc, s_GetUngappedBeta, Blast_GetNuclAlphaBeta,
+    //                   BLAST_KarlinStoE_simple, BLAST_ComputeLengthAdjustment;
+    //   blast_setup.c — BLAST_CalcEffLengths (effective search space);
+    //   blast_hits.c  — Blast_HSPListGetEvalues (even-score round-down), Blast_HSPListGetBitScores;
+    //   ncbi_math.c   — BLAST_Expm1.
+    // Cross-checked against NCBI blastn 2.12.0+ (Lambda/K/H footers, effective search spaces and E-values).
+
+    /// <summary>
+    /// Karlin–Altschul parameters of a nucleotide scoring system, as NCBI BLAST+ uses them.
+    /// </summary>
+    /// <param name="Lambda">Scale parameter λ.</param>
+    /// <param name="K">Search-space scale parameter K.</param>
+    /// <param name="H">Relative entropy H (nats per aligned pair).</param>
+    /// <param name="Alpha">
+    /// Edge-effect parameter α (BLAST+ <c>Blast_GetNuclAlphaBeta</c>; ungapped: λ/H). The length adjustment uses α/λ.
+    /// </param>
+    /// <param name="Beta">Edge-effect parameter β (BLAST+ <c>Blast_GetNuclAlphaBeta</c>).</param>
+    /// <param name="RoundDown">
+    /// True when BLAST+ rounds odd gapped scores down to the next even score before computing the E-value
+    /// (tables for 2/−3, 2/−5, 2/−7, 3/−4: "these parameters can only be applied to even scores").
+    /// </param>
+    /// <param name="Gapped">True for gapped (affine) parameters, false for ungapped ones.</param>
+    public readonly record struct KarlinAltschulParameters(
+        double Lambda,
+        double K,
+        double H,
+        double Alpha,
+        double Beta,
+        bool RoundDown,
+        bool Gapped);
+
+    /// <summary>
+    /// NCBI BLAST+ blastn statistics of an alignment score: bit score and E-value over the effective
+    /// (edge-corrected) search space.
+    /// </summary>
+    /// <param name="RawScore">Raw alignment score S.</param>
+    /// <param name="EValueScore">The score the E-value uses (S rounded down to even when <see cref="KarlinAltschulParameters.RoundDown"/>).</param>
+    /// <param name="Parameters">The Karlin–Altschul parameters used.</param>
+    /// <param name="BitScore">S' = (λS − ln K)/ln 2 on the raw score (BLAST+ <c>Blast_HSPListGetBitScores</c>).</param>
+    /// <param name="EValue">E = K·(m − ℓ)·(n − N·ℓ)·e^{−λS} (BLAST+ <c>BLAST_KarlinStoE_simple</c>).</param>
+    /// <param name="LengthAdjustment">The edge-effect length adjustment ℓ (BLAST+ <c>BLAST_ComputeLengthAdjustment</c>).</param>
+    /// <param name="EffectiveSearchSpace">(m − ℓ)·max(1, n − N·ℓ).</param>
+    /// <param name="QueryLength">Query (probe) length m.</param>
+    /// <param name="DatabaseLength">Total database (subject) length n.</param>
+    /// <param name="DatabaseSequenceCount">Number of database sequences N.</param>
+    public readonly record struct BlastnStatistics(
+        int RawScore,
+        int EValueScore,
+        KarlinAltschulParameters Parameters,
+        double BitScore,
+        double EValue,
+        int LengthAdjustment,
+        double EffectiveSearchSpace,
+        int QueryLength,
+        long DatabaseLength,
+        int DatabaseSequenceCount);
+
+    // BlastKarlinLHtoK: BLAST_KARLIN_K_SUMLIMIT_DEFAULT and BLAST_KARLIN_K_ITER_MAX (blast_stat.c).
+    private const double KarlinKSumLimit = 0.0001;
+    private const int KarlinKIterMax = 100;
+
+    // BLAST_ComputeLengthAdjustment: kMaxIterations.
+    private const int LengthAdjustmentMaxIterations = 20;
+
+    // blastn_values_* (blast_stat.c): rows {gap open, gap extend, λ, K, H, α, β, θ}; a leading {0, 0} row is the
+    // non-affine (greedy megablast) entry split off by s_SplitArrayOf8. Keyed by (reward, penalty) after division
+    // by their gcd; GapOpenMax/GapExtendMax start the "infinite" gap-cost domain where ungapped values apply.
+    private sealed record BlastnValueTable(double[][] Rows, int GapOpenMax, int GapExtendMax, bool RoundDown);
+
+    private static readonly Dictionary<(int Reward, int Penalty), BlastnValueTable> BlastnValueTables = new()
+    {
+        [(1, -5)] = new([[0, 0, 1.39, 0.747, 1.38, 1.00, 0, 100], [3, 3, 1.39, 0.747, 1.38, 1.00, 0, 100]], 3, 3, false),
+        [(1, -4)] = new([
+            [0, 0, 1.383, 0.738, 1.36, 1.02, 0, 100], [1, 2, 1.36, 0.67, 1.2, 1.1, 0, 98],
+            [0, 2, 1.26, 0.43, 0.90, 1.4, -1, 91], [2, 1, 1.35, 0.61, 1.1, 1.2, -1, 98],
+            [1, 1, 1.22, 0.35, 0.72, 1.7, -3, 88]], 2, 2, false),
+        [(2, -7)] = new([
+            [0, 0, 0.69, 0.73, 1.34, 0.515, 0, 100], [2, 4, 0.68, 0.67, 1.2, 0.55, 0, 99],
+            [0, 4, 0.63, 0.43, 0.90, 0.7, -1, 91], [4, 2, 0.675, 0.62, 1.1, 0.6, -1, 98],
+            [2, 2, 0.61, 0.35, 0.72, 1.7, -3, 88]], 4, 4, true),
+        [(1, -3)] = new([
+            [0, 0, 1.374, 0.711, 1.31, 1.05, 0, 100], [2, 2, 1.37, 0.70, 1.2, 1.1, 0, 99],
+            [1, 2, 1.35, 0.64, 1.1, 1.2, -1, 98], [0, 2, 1.25, 0.42, 0.83, 1.5, -2, 91],
+            [2, 1, 1.34, 0.60, 1.1, 1.2, -1, 97], [1, 1, 1.21, 0.34, 0.71, 1.7, -2, 88]], 2, 2, false),
+        [(2, -5)] = new([
+            [0, 0, 0.675, 0.65, 1.1, 0.6, -1, 99], [2, 4, 0.67, 0.59, 1.1, 0.6, -1, 98],
+            [0, 4, 0.62, 0.39, 0.78, 0.8, -2, 91], [4, 2, 0.67, 0.61, 1.0, 0.65, -2, 98],
+            [2, 2, 0.56, 0.32, 0.59, 0.95, -4, 82]], 4, 4, true),
+        [(1, -2)] = new([
+            [0, 0, 1.28, 0.46, 0.85, 1.5, -2, 96], [2, 2, 1.33, 0.62, 1.1, 1.2, 0, 99],
+            [1, 2, 1.30, 0.52, 0.93, 1.4, -2, 97], [0, 2, 1.19, 0.34, 0.66, 1.8, -3, 89],
+            [3, 1, 1.32, 0.57, 1.0, 1.3, -1, 99], [2, 1, 1.29, 0.49, 0.92, 1.4, -1, 96],
+            [1, 1, 1.14, 0.26, 0.52, 2.2, -5, 85]], 2, 2, false),
+        [(2, -3)] = new([
+            [0, 0, 0.55, 0.21, 0.46, 1.2, -5, 87], [4, 4, 0.63, 0.42, 0.84, 0.75, -2, 99],
+            [2, 4, 0.615, 0.37, 0.72, 0.85, -3, 97], [0, 4, 0.55, 0.21, 0.46, 1.2, -5, 87],
+            [3, 3, 0.615, 0.37, 0.68, 0.9, -3, 97], [6, 2, 0.63, 0.42, 0.84, 0.75, -2, 99],
+            [5, 2, 0.625, 0.41, 0.78, 0.8, -2, 99], [4, 2, 0.61, 0.35, 0.68, 0.9, -3, 96],
+            [2, 2, 0.515, 0.14, 0.33, 1.55, -9, 81]], 6, 4, true),
+        [(3, -4)] = new([
+            [6, 3, 0.389, 0.25, 0.56, 0.7, -5, 95], [5, 3, 0.375, 0.21, 0.47, 0.8, -6, 92],
+            [4, 3, 0.351, 0.14, 0.35, 1.0, -9, 86], [6, 2, 0.362, 0.16, 0.45, 0.8, -4, 88],
+            [5, 2, 0.330, 0.092, 0.28, 1.2, -13, 81], [4, 2, 0.281, 0.046, 0.16, 1.8, -23, 69]], 6, 3, true),
+        [(1, -1)] = new([
+            [3, 2, 1.09, 0.31, 0.55, 2.0, -2, 99], [2, 2, 1.07, 0.27, 0.49, 2.2, -3, 97],
+            [1, 2, 1.02, 0.21, 0.36, 2.8, -6, 92], [0, 2, 0.80, 0.064, 0.17, 4.8, -16, 72],
+            [4, 1, 1.08, 0.28, 0.54, 2.0, -2, 98], [3, 1, 1.06, 0.25, 0.46, 2.3, -4, 96],
+            [2, 1, 0.99, 0.17, 0.30, 3.3, -10, 90]], 4, 2, false),
+        [(3, -2)] = new([[5, 5, 0.208, 0.030, 0.072, 2.9, -47, 77]], 5, 5, false),
+        [(4, -5)] = new([
+            [0, 0, 0.22, 0.061, 0.22, 1.0, -15, 74], [6, 5, 0.28, 0.21, 0.47, 0.6, -7, 93],
+            [5, 5, 0.27, 0.17, 0.39, 0.7, -9, 90], [4, 5, 0.25, 0.10, 0.31, 0.8, -10, 83],
+            [3, 5, 0.23, 0.065, 0.25, 0.9, -11, 76]], 12, 8, false),
+        [(5, -4)] = new([[10, 6, 0.163, 0.068, 0.16, 1.0, -19, 85], [8, 6, 0.146, 0.039, 0.11, 1.3, -29, 76]], 25, 10, false),
+    };
+
+    /// <summary>
+    /// Ungapped Karlin–Altschul parameters λ, K and H of a match/mismatch nucleotide scoring scheme under the
+    /// standard uniform composition (or a given per-base frequency), computed as NCBI BLAST+ computes them
+    /// (<c>Blast_KarlinBlkUngappedCalc</c>): λ is the positive root of Σ p_s e^{λs} = 1, H = λ·Σ s·p_s·e^{λs}
+    /// (<c>BlastKarlinLtoH</c>), and K follows Karlin &amp; Altschul (1990, PNAS 87:2264, eq. and appendix) on the
+    /// score lattice of span δ = gcd of the scores (<c>BlastKarlinLHtoK</c>: closed forms when the lattice's lowest
+    /// score is −1 or its highest +1, otherwise the convergent series over gapless-alignment score distributions).
+    /// </summary>
+    /// <remarks>
+    /// Reproduces the Lambda/K/H that NCBI blastn 2.12.0+ prints for ungapped searches: +1/−3 → 1.374 / 0.711 / 1.31,
+    /// +2/−3 → 0.634 / 0.408 / 0.912, +1/−2 → 1.33 / 0.621 / 1.12. K is computed on the reduced lattice, so it is
+    /// invariant under multiplying all scores by an integer (λ scales by its inverse) as the theory requires;
+    /// BLAST+ 2.12 indexes the probabilities by the unreduced offset when δ &gt; 1 (e.g. it prints K = 1.17 for
+    /// +4/−6 although +2/−3 gives 0.408), which this port does not reproduce. <see cref="KarlinAltschulParameters.Alpha"/>
+    /// = λ/H and <see cref="KarlinAltschulParameters.Beta"/> = BLAST+ <c>s_GetUngappedBeta</c> (−2 for +1/−1 and
+    /// +2/−3, else 0).
+    /// </remarks>
+    /// <param name="match">Match score (&gt; 0).</param>
+    /// <param name="mismatch">Mismatch score (&lt; 0).</param>
+    /// <param name="baseFrequency">Per-base frequency, p(match) = 4·p² (default 0.25; must lie in (0, 0.5)).</param>
+    /// <exception cref="ArgumentOutOfRangeException">λ undefined (no positive score, non-negative mismatch or
+    /// non-negative expected score) or a base frequency outside (0, 0.5).</exception>
+    public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
+        int match, int mismatch, double baseFrequency = UniformBaseFrequency)
+    {
+        ValidateMatchMismatch(match, mismatch);
+        return UngappedKarlinParameters(match, mismatch, MatchProbability(baseFrequency));
+    }
+
+    /// <summary>
+    /// Ungapped Karlin–Altschul parameters for a match/mismatch scheme under an arbitrary base composition
+    /// (Σ_{i,j} p_i p_j e^{λ s_ij} = 1 with p(match) = Σ p_i²), computed as in
+    /// <see cref="ComputeUngappedKarlinParameters(int, int, double)"/>.
+    /// </summary>
+    /// <param name="match">Match score (&gt; 0).</param>
+    /// <param name="mismatch">Mismatch score (&lt; 0).</param>
+    /// <param name="baseFrequencies">Frequencies of A, C, G, T (four finite non-negative values with a positive sum;
+    /// normalized to sum 1 as BLAST+ <c>BlastScoreFreqCalc</c> normalizes the score probabilities).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="baseFrequencies"/> is null.</exception>
+    /// <exception cref="ArgumentException">Not exactly four frequencies, a negative/non-finite one, or a zero sum.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">λ undefined for the scheme and composition.</exception>
+    public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
+        int match, int mismatch, IReadOnlyList<double> baseFrequencies)
+    {
+        ArgumentNullException.ThrowIfNull(baseFrequencies);
+        if (baseFrequencies.Count != 4)
+            throw new ArgumentException("Exactly four base frequencies (A, C, G, T) are required.", nameof(baseFrequencies));
+        double sum = 0, sumSquares = 0;
+        foreach (double f in baseFrequencies)
+        {
+            if (!double.IsFinite(f) || f < 0)
+                throw new ArgumentException("Base frequencies must be finite and non-negative.", nameof(baseFrequencies));
+            sum += f;
+            sumSquares += f * f;
+        }
+
+        if (!(sum > 0))
+            throw new ArgumentException("Base frequencies must have a positive sum.", nameof(baseFrequencies));
+
+        ValidateMatchMismatch(match, mismatch);
+        double pMatch = sumSquares / (sum * sum);
+        if (!(pMatch < 1.0))
+            throw new ArgumentOutOfRangeException(nameof(baseFrequencies),
+                "Karlin–Altschul λ is undefined: a single-base composition has no mismatch (expected score not negative).");
+        return UngappedKarlinParameters(match, mismatch, pMatch);
+    }
+
+    /// <summary>
+    /// Gapped Karlin–Altschul parameters NCBI BLAST+ uses for a blastn reward/penalty/gap-cost combination
+    /// (<c>Blast_KarlinBlkNuclGappedCalc</c> + <c>Blast_GetNuclAlphaBeta</c>): the simulated values of the
+    /// <c>blastn_values_*</c> tables (gap costs scaled and λ, α divided by gcd(reward, penalty)); gap costs at
+    /// or beyond the table's "infinite" domain use the ungapped parameters; gap costs 0/0 select BLAST's
+    /// non-affine (greedy megablast) row.
+    /// </summary>
+    /// <remarks>
+    /// Examples (blast_stat.c; printed by blastn 2.12.0+): +2/−3 gap 5/2 (blastn task default) → λ 0.625, K 0.41,
+    /// H 0.78, α 0.8, β −2, even-score round-down; +1/−3 gap 2/2 → 1.37 / 0.70 / 1.2; +1/−2 gap 2/2 → 1.33 / 0.62 / 1.1.
+    /// </remarks>
+    /// <param name="reward">Match reward (&gt; 0).</param>
+    /// <param name="penalty">Mismatch penalty (&lt; 0).</param>
+    /// <param name="gapOpen">Gap existence cost (≥ 0; a gap of length k costs gapOpen + k·gapExtend).</param>
+    /// <param name="gapExtend">Gap extension cost (≥ 0).</param>
+    /// <exception cref="ArgumentOutOfRangeException">Non-positive reward, non-negative penalty or negative gap costs.</exception>
+    /// <exception cref="ArgumentException">A reward/penalty or gap-cost combination BLAST+ does not support.</exception>
+    public static KarlinAltschulParameters GetBlastnGappedKarlinParameters(
+        int reward, int penalty, int gapOpen, int gapExtend)
+    {
+        ValidateMatchMismatch(reward, penalty);
+        if (gapOpen < 0)
+            throw new ArgumentOutOfRangeException(nameof(gapOpen), "Gap existence cost cannot be negative.");
+        if (gapExtend < 0)
+            throw new ArgumentOutOfRangeException(nameof(gapExtend), "Gap extension cost cannot be negative.");
+
+        int divisor = Gcd(reward, -penalty);
+        if (!BlastnValueTables.TryGetValue((reward / divisor, penalty / divisor), out var table))
+            throw new ArgumentException(
+                $"Substitution scores {reward} and {penalty} are not supported by NCBI BLAST+ blastn statistics.",
+                nameof(reward));
+
+        // s_SplitArrayOf8: a leading {0, 0} row is the non-affine entry; the remaining rows are the affine ones.
+        bool split = table.Rows[0][0] == 0 && table.Rows[0][1] == 0;
+        double[]? linear = split ? table.Rows[0] : null;
+        IEnumerable<double[]> normal = split ? table.Rows.Skip(1) : table.Rows;
+
+        double[]? row = null;
+        if (gapOpen == 0 && gapExtend == 0 && linear is not null)
+        {
+            row = linear;
+        }
+        else
+        {
+            // s_AdjustGapParametersByGcd: the table's gap costs are multiplied by the divisor.
+            row = normal.FirstOrDefault(r => (int)r[0] * divisor == gapOpen && (int)r[1] * divisor == gapExtend);
+        }
+
+        if (row is not null)
+        {
+            // s_AdjustGapParametersByGcd: λ and α are divided by the divisor.
+            return new KarlinAltschulParameters(
+                row[2] / divisor, row[3], row[4], row[5] / divisor, row[6], table.RoundDown, Gapped: true);
+        }
+
+        if (gapOpen >= table.GapOpenMax * divisor && gapExtend >= table.GapExtendMax * divisor)
+        {
+            // Infinite gap-cost domain: Blast_KarlinBlkCopy(kbp, kbp_ungap); α/β fall back to the ungapped values.
+            var ungapped = UngappedKarlinParameters(reward, penalty, MatchProbability(UniformBaseFrequency));
+            return ungapped with { RoundDown = table.RoundDown, Gapped = true };
+        }
+
+        throw new ArgumentException(
+            $"Gap existence and extension values {gapOpen} and {gapExtend} are not supported for substitution scores " +
+            $"{reward} and {penalty}; supported: " +
+            string.Join(", ", normal.Select(r => $"{(int)r[0] * divisor}/{(int)r[1] * divisor}")) +
+            $", or any values at least {table.GapOpenMax * divisor}/{table.GapExtendMax * divisor}.",
+            nameof(gapOpen));
+    }
+
+    /// <summary>
+    /// BLAST+ edge-effect length adjustment ℓ (<c>BLAST_ComputeLengthAdjustment</c>): the integer approximation to the
+    /// fixed point of ℓ = β + (α/λ)·(ln K + ln((m − ℓ)(n − N·ℓ))), kept small enough that K(m − ℓ)(n − N·ℓ) &gt; max(m, n).
+    /// The effective search space is then (m − ℓ)(n − N·ℓ) (Altschul &amp; Gish 1996; Altschul et al. 2001).
+    /// </summary>
+    /// <param name="k">K (&gt; 0).</param>
+    /// <param name="alphaOverLambda">α/λ (ungapped: 1/H).</param>
+    /// <param name="beta">β.</param>
+    /// <param name="queryLength">Query length m (&gt; 0).</param>
+    /// <param name="databaseLength">Database length n (&gt; 0).</param>
+    /// <param name="databaseSequenceCount">Number of database sequences N (≥ 1).</param>
+    /// <returns>The length adjustment ℓ ≥ 0.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A non-positive K, length or sequence count, or a non-finite α/λ or β.</exception>
+    public static int ComputeLengthAdjustment(
+        double k, double alphaOverLambda, double beta, int queryLength, long databaseLength, int databaseSequenceCount = 1)
+    {
+        if (!(k > 0) || !double.IsFinite(k))
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive and finite.");
+        if (!double.IsFinite(alphaOverLambda))
+            throw new ArgumentOutOfRangeException(nameof(alphaOverLambda), "α/λ must be finite.");
+        if (!double.IsFinite(beta))
+            throw new ArgumentOutOfRangeException(nameof(beta), "β must be finite.");
+        if (queryLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(queryLength), "Query length m must be positive.");
+        if (databaseLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(databaseLength), "Database length n must be positive.");
+        if (databaseSequenceCount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(databaseSequenceCount), "Database sequence count N must be positive.");
+
+        double m = queryLength;
+        double n = databaseLength;
+        double bigN = databaseSequenceCount;
+        double logK = Math.Log(k);
+
+        // ell_max: largest ℓ with K(m − ℓ)(n − Nℓ) > max(m, n) (quadratic formula 2c/(−b + √(b² − 4ac))).
+        double a = bigN;
+        double mb = m * bigN + n;
+        double c = n * m - Math.Max(m, n) / k;
+        if (c < 0)
+            return 0;
+        double ellMax = 2 * c / (mb + Math.Sqrt(mb * mb - 4 * a * c));
+
+        double ellMin = 0, ellNext = 0;
+        bool converged = false;
+        for (int i = 1; i <= LengthAdjustmentMaxIterations; i++)
+        {
+            double ell = ellNext;
+            double ss = (m - ell) * (n - bigN * ell);
+            double ellBar = alphaOverLambda * (logK + Math.Log(ss)) + beta;
+            if (ellBar >= ell)
+            {
+                ellMin = ell;
+                if (ellBar - ellMin <= 1.0)
+                {
+                    converged = true;
+                    break;
+                }
+
+                if (ellMin == ellMax)
+                    break;
+            }
+            else
+            {
+                ellMax = ell;
+            }
+
+            if (ellMin <= ellBar && ellBar <= ellMax)
+                ellNext = ellBar;          // ell_bar is in range: accept it
+            else if (i == 1)
+                ellNext = ellMax;
+            else
+                ellNext = (ellMin + ellMax) / 2;
+        }
+
+        int adjustment = (int)ellMin;
+        if (converged)
+        {
+            // floor(ell_min) is taken as floor(ell_fixed) unless ceil(ell_min) is still below the fixed point.
+            double ell = Math.Ceiling(ellMin);
+            if (ell <= ellMax)
+            {
+                double ss = (m - ell) * (n - bigN * ell);
+                if (alphaOverLambda * (logK + Math.Log(ss)) + beta >= ell)
+                    adjustment = (int)ell;
+            }
+        }
+
+        return adjustment;
+    }
+
+    /// <summary>
+    /// NCBI BLAST+ blastn statistics of an alignment score: the Karlin–Altschul parameters of the scoring scheme
+    /// (gapped: <see cref="GetBlastnGappedKarlinParameters"/>; ungapped: <see cref="ComputeUngappedKarlinParameters(int, int, double)"/>),
+    /// the edge-effect length adjustment (<see cref="ComputeLengthAdjustment"/>), the effective search space
+    /// (m − ℓ)·max(1, n − N·ℓ) (<c>BLAST_CalcEffLengths</c>), the bit score S' = (λS − ln K)/ln 2 and the E-value
+    /// E = K·(m − ℓ)(n − N·ℓ)·e^{−λS}, with odd gapped scores rounded down to even for the E-value where the BLAST+
+    /// table requires it (<c>Blast_HSPListGetEvalues</c>).
+    /// </summary>
+    /// <remarks>
+    /// Reproduces NCBI blastn 2.12.0+: e.g. a 40-nt query against a 3079-nt subject with +2/−3, gap 5/2 →
+    /// ℓ = 11, effective search space 88972, raw score 80 → 73.4 bits, E = 7e-18; a raw score of 15 is evaluated as 14.
+    /// The scoring follows <see cref="ScoringMatrix"/>'s convention (gap of length k = GapOpen + k·GapExtend),
+    /// so BLAST's gap existence/extension costs are −GapOpen/−GapExtend.
+    /// </remarks>
+    /// <param name="rawScore">Raw alignment score S (e.g. <see cref="CrossHybridizationAssessment.AlignmentScore"/>).</param>
+    /// <param name="queryLength">Query (probe) length m (&gt; 0).</param>
+    /// <param name="databaseLength">Total database length n (&gt; 0).</param>
+    /// <param name="databaseSequenceCount">Number of database sequences N (≥ 1; default 1, a single subject).</param>
+    /// <param name="scoring">Scoring scheme (default <see cref="SequenceAligner.BlastDna"/>: +2/−3, gap 5/2).</param>
+    /// <param name="gapped">Gapped statistics (default true, as blastn); false for ungapped HSP scores.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Non-positive lengths/count, or positive gap scores.</exception>
+    /// <exception cref="ArgumentException">A scoring scheme BLAST+ has no gapped statistics for.</exception>
+    public static BlastnStatistics ComputeBlastnStatistics(
+        int rawScore,
+        int queryLength,
+        long databaseLength,
+        int databaseSequenceCount = 1,
+        ScoringMatrix? scoring = null,
+        bool gapped = true)
+    {
+        var matrix = scoring ?? SequenceAligner.BlastDna;
+        if (queryLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(queryLength), "Query length m must be positive.");
+        if (databaseLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(databaseLength), "Database length n must be positive.");
+        if (databaseSequenceCount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(databaseSequenceCount), "Database sequence count N must be positive.");
+        if (matrix.GapOpen > 0 || matrix.GapExtend > 0)
+            throw new ArgumentOutOfRangeException(nameof(scoring), "Gap scores must be non-positive (penalties).");
+
+        KarlinAltschulParameters p = gapped
+            ? GetBlastnGappedKarlinParameters(matrix.Match, matrix.Mismatch, -matrix.GapOpen, -matrix.GapExtend)
+            : ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch);
+
+        int adjustment = ComputeLengthAdjustment(
+            p.K, p.Alpha / p.Lambda, p.Beta, queryLength, databaseLength, databaseSequenceCount);
+
+        // BLAST_CalcEffLengths: effective_db_length = n − N·ℓ (at least 1); search space × (m − ℓ).
+        double effectiveDb = Math.Max(1.0, databaseLength - (double)databaseSequenceCount * adjustment);
+        double searchSpace = effectiveDb * (queryLength - adjustment);
+
+        // Blast_HSPListGetEvalues: score &= ~1 for gapped round-down tables (E-value only).
+        int eScore = p.Gapped && p.RoundDown ? rawScore & ~1 : rawScore;
+        double logK = Math.Log(p.K);
+        double eValue = searchSpace * Math.Exp(-p.Lambda * eScore + logK);
+        double bitScore = (rawScore * p.Lambda - logK) / Math.Log(2.0);
+
+        return new BlastnStatistics(rawScore, eScore, p, bitScore, eValue, adjustment, searchSpace,
+            queryLength, databaseLength, databaseSequenceCount);
+    }
+
+    /// <summary>
+    /// BLAST+ blastn statistics of the best local alignment of a probe with one subject sequence (bl2seq-style
+    /// search space: m = probe length, n = subject length, N = 1). The alignment is the canonical affine
+    /// Smith–Waterman–Gotoh <see cref="SequenceAligner.LocalAlignAffine(string, string, ScoringMatrix?)"/> — the same
+    /// optimal local score <see cref="AssessCrossHybridization"/> reports — and its score is evaluated by
+    /// <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool)"/> with gapped parameters.
+    /// Only the given strand is aligned; pass the reverse complement for the other strand.
+    /// </summary>
+    /// <param name="probeSequence">Probe (query) sequence (non-empty).</param>
+    /// <param name="subjectSequence">Subject (off-target) sequence (non-empty).</param>
+    /// <param name="scoring">Scoring scheme (default <see cref="SequenceAligner.BlastDna"/>).</param>
+    /// <exception cref="ArgumentNullException">A null sequence.</exception>
+    /// <exception cref="ArgumentException">An empty sequence or an unsupported scoring scheme.</exception>
+    public static BlastnStatistics ComputeBlastnStatistics(
+        string probeSequence, string subjectSequence, ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(probeSequence);
+        ArgumentNullException.ThrowIfNull(subjectSequence);
+        if (probeSequence.Length == 0)
+            throw new ArgumentException("Probe sequence cannot be empty.", nameof(probeSequence));
+        if (subjectSequence.Length == 0)
+            throw new ArgumentException("Subject sequence cannot be empty.", nameof(subjectSequence));
+
+        var matrix = scoring ?? SequenceAligner.BlastDna;
+        var (score, _, _, _) = BestLocalAlignment(
+            probeSequence.ToUpperInvariant(), subjectSequence.ToUpperInvariant(), matrix);
+        return ComputeBlastnStatistics(score, probeSequence.Length, subjectSequence.Length, 1, matrix, gapped: true);
+    }
+
+    private static void ValidateMatchMismatch(int match, int mismatch)
+    {
+        if (match <= 0)
+            throw new ArgumentOutOfRangeException(nameof(match),
+                "Karlin–Altschul λ is undefined: the scoring scheme must have at least one positive score.");
+        if (mismatch >= 0)
+            throw new ArgumentOutOfRangeException(nameof(mismatch),
+                "Karlin–Altschul λ is undefined: the mismatch score must be negative.");
+    }
+
+    // p(match) = 4·p² for four equiprobable bases of frequency p (p must keep it a probability in (0, 1)).
+    private static double MatchProbability(double baseFrequency)
+    {
+        if (double.IsNaN(baseFrequency) || baseFrequency <= 0 || baseFrequency >= 0.5)
+            throw new ArgumentOutOfRangeException(nameof(baseFrequency), "Base frequency must lie in (0, 0.5).");
+        return 4.0 * baseFrequency * baseFrequency;
+    }
+
+    // Blast_KarlinBlkUngappedCalc for the two-score distribution {match: pMatch, mismatch: 1 − pMatch}.
+    private static KarlinAltschulParameters UngappedKarlinParameters(int match, int mismatch, double pMatch)
+    {
+        double pMismatch = 1.0 - pMatch;
+        double expected = pMatch * match + pMismatch * mismatch;
+        if (expected >= 0)
+            throw new ArgumentOutOfRangeException(nameof(mismatch),
+                "Karlin–Altschul λ is undefined: the expected per-pair score must be negative.");
+
+        double lambda = SolveLambda(pMatch, match, pMismatch, mismatch);
+
+        // BlastKarlinLtoH: H = λ Σ s·p_s·e^{λs}.
+        double h = lambda * (pMatch * match * Math.Exp(lambda * match) + pMismatch * mismatch * Math.Exp(lambda * mismatch));
+
+        // BlastKarlinLHtoK on the lattice reduced by δ = gcd(match, −mismatch): scores low = mismatch/δ … high = match/δ,
+        // λ·δ, mean score / δ (H is scale-invariant).
+        int delta = Gcd(match, -mismatch);
+        int low = mismatch / delta, high = match / delta;
+        var prob = new double[high - low + 1];
+        prob[0] = pMismatch;
+        prob[high - low] = pMatch;
+        double k = KarlinLHtoK(prob, low, high, lambda * delta, h, expected / delta);
+
+        double beta = (match == 1 && mismatch == -1) || (match == 2 && mismatch == -3) ? -2.0 : 0.0;
+        return new KarlinAltschulParameters(lambda, k, h, lambda / h, beta, RoundDown: false, Gapped: false);
+    }
+
+    // Unique positive root of pM·e^{λ·match} + pMm·e^{λ·mismatch} = 1 by bisection to double resolution.
+    private static double SolveLambda(double pMatch, int match, double pMismatch, int mismatch)
+    {
+        double lo = 0.0;
+        double hi = LambdaSearchUpperBound;
+        for (int i = 0; i < LambdaBisectionIterations; i++)
+        {
+            double mid = 0.5 * (lo + hi);
+            if (pMatch * Math.Exp(mid * match) + pMismatch * Math.Exp(mid * mismatch) - 1.0 > 0.0)
+                hi = mid;
+            else
+                lo = mid;
+        }
+
+        return 0.5 * (lo + hi);
+    }
+
+    // BlastKarlinLHtoK (blast_stat.c) on a gcd-1 lattice: prob[j] is the probability of score low + j.
+    private static double KarlinLHtoK(double[] prob, int low, int high, double lambda, double h, double scoreAverage)
+    {
+        int range = high - low;
+        double firstTermClosedForm = h / lambda;
+        double expMinusLambda = Math.Exp(-lambda);
+
+        if (low == -1 && high == 1)
+        {
+            double pLow = prob[0], pHigh = prob[range];
+            return (pLow - pHigh) * (pLow - pHigh) / pLow;
+        }
+
+        if (low == -1 || high == 1)
+        {
+            if (high != 1)
+                firstTermClosedForm = scoreAverage * scoreAverage / firstTermClosedForm;
+            return firstTermClosedForm * (1.0 - expMinusLambda);
+        }
+
+        // P(i, j): probability of total score i over a gapless alignment of j pairs (shifted so index 0 ↔ j·low).
+        var p = new double[KarlinKIterMax * range + 1];
+        double outerSum = 0.0, innerSum = 1.0;
+        int lowScore = 0, highScore = 0;
+        p[0] = 1.0;
+        for (int iter = 0; iter < KarlinKIterMax && innerSum > KarlinKSumLimit;)
+        {
+            int first = range, last = range;
+            lowScore += low;
+            highScore += high;
+            for (int idx = highScore - lowScore; idx >= 0; idx--)
+            {
+                double sum = 0.0;
+                for (int i1 = idx - first, j = first; i1 >= idx - last; i1--, j++)
+                    sum += p[i1] * prob[j];
+                p[idx] = sum;
+                if (first > 0)
+                    first--;
+                if (idx <= range)
+                    last--;
+            }
+
+            // Horner's rule: Σ_{i<0} P(i)·e^{λi} + Σ_{i≥0} P(i).
+            int ptr = 0;
+            innerSum = p[ptr];
+            int score = lowScore + 1;
+            for (; score < 0; score++)
+                innerSum = p[++ptr] + innerSum * expMinusLambda;
+            innerSum *= expMinusLambda;
+            for (; score <= highScore; score++)
+                innerSum += p[++ptr];
+
+            innerSum /= ++iter;
+            outerSum += innerSum;
+        }
+
+        return -Math.Exp(-2.0 * outerSum) / (firstTermClosedForm * BlastExpm1(-lambda));
+    }
+
+    // BLAST_Expm1 (ncbi_math.c).
+    private static double BlastExpm1(double x)
+    {
+        double absx = Math.Abs(x);
+        if (absx > .33)
+            return Math.Exp(x) - 1.0;
+        if (absx < 1e-16)
+            return x;
+        return x * (1.0 + x * (1.0 / 2 + x * (1.0 / 6 + x * (1.0 / 24 + x * (1.0 / 120 + x * (1.0 / 720
+            + x * (1.0 / 5040 + x * (1.0 / 40320 + x * (1.0 / 362880 + x * (1.0 / 3628800 + x * (1.0 / 39916800
+            + x * (1.0 / 479001600 + x / 6227020800.0))))))))))));
+    }
+
+    private static int Gcd(int a, int b)
+    {
+        a = Math.Abs(a);
+        b = Math.Abs(b);
+        while (b != 0)
+            (a, b) = (b, a % b);
+        return a;
+    }
 
     #endregion
 

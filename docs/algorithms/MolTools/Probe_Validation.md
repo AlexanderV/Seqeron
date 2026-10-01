@@ -47,7 +47,9 @@ where the scale parameter `λ` is the unique positive root of the defining equat
 
 $$\sum_{i,j} p_i\, p_j\, e^{\lambda s_{ij}} = 1$$
 
-with `p_i` the background base frequencies and `s_ij` the score matrix. For four equiprobable bases (`p_i = 0.25`) and a match/mismatch scheme this reduces to `0.25·e^{λ·match} + 0.75·e^{λ·mismatch} = 1`; for the BLAST `+1/−3` scheme it solves to `λ ≈ 1.374` (matching the value NCBI blastn reports). The theory requires a scoring scheme with **negative expected per-pair score** and **at least one positive score** [9]; both are checked. `K` (whose full closed form needs the Karlin–Altschul score-lattice machinery) is exposed as a caller parameter, defaulted to the published nucleotide value `0.711`.
+with `p_i` the background base frequencies and `s_ij` the score matrix. For four equiprobable bases (`p_i = 0.25`) and a match/mismatch scheme this reduces to `0.25·e^{λ·match} + 0.75·e^{λ·mismatch} = 1`; for the BLAST `+1/−3` scheme it solves to `λ ≈ 1.374` (matching the value NCBI blastn reports). The theory requires a scoring scheme with **negative expected per-pair score** and **at least one positive score** [9]; both are checked. `K` is computed for the same scheme and composition with the Karlin–Altschul lattice formula as NCBI BLAST+ computes it [13] (`ComputeUngappedKarlinParameters`: `BlastKarlinLtoH` `H = λ·Σ s·p_s·e^{λs}`, `BlastKarlinLHtoK` closed forms when the gcd-reduced lattice has lowest score −1 or highest +1, otherwise the convergent series over gapless score distributions, sum limit 10⁻⁴, ≤ 100 terms): `+1/−3 → K = 0.7106`, `+2/−3 → 0.4081` (blastn prints `0.711`, `0.408`); a caller-supplied `K` still overrides it.
+
+**BLAST+ blastn statistics (opt-in, `ComputeBlastnStatistics`).** For a *gapped* (affine) alignment score — e.g. the `AlignmentScore` of `AssessCrossHybridization`, produced by the canonical `SequenceAligner.LocalAlignAffine` — λ and K have no closed form; BLAST+ uses simulated values tabulated per reward/penalty/gap cost (`blastn_values_*` in `blast_stat.c` [13]; `+2/−3`, gap 5/2 — the blastn-task default and `SequenceAligner.BlastDna` — → `λ 0.625, K 0.41, H 0.78, α 0.8, β −2`; gap costs at or beyond the table's "infinite" domain use the ungapped values; scores of a gcd > 1 scheme rescale λ and α by the gcd; `2/−3`, `2/−5`, `2/−7`, `3/−4` round odd scores down to even for the E-value). The search space is corrected for edge effects: the length adjustment ℓ is the integer approximation of the fixed point of `ℓ = β + (α/λ)(ln K + ln((m − ℓ)(n − Nℓ)))` (`BLAST_ComputeLengthAdjustment`; ungapped `α/λ = 1/H`), and `E = K·(m − ℓ)·max(1, n − Nℓ)·e^{−λS}` with `N` database sequences, bit score `S' = (λS − ln K)/ln 2` on the raw score. The overload `ComputeBlastnStatistics(probe, subject)` aligns with `LocalAlignAffine` and evaluates the bl2seq search space (m = probe length, n = subject length, N = 1).
 
 ### 2.4 Properties and Invariants
 
@@ -62,6 +64,8 @@ with `p_i` the background base frequencies and `s_ij` the score matrix. For four
 | INV-07 | An indel-only off-target has `HasGaps == true` and is found by `ScanOffTargetsGapped` but not by the ungapped `ValidateProbe` scan | Gapped local alignment admits indels [1][2] |
 | INV-08 | `ComputeLambdaNucleotide` returns the unique positive root of `Σ p_i p_j e^{λ s_ij} = 1`; for `+1/−3`, `p=0.25` it equals `1.374` to numerical tolerance | Bisection on the strictly-crossing Karlin–Altschul equation [8] |
 | INV-09 | The two E-value forms agree: `K·m·n·e^{−λS} == m·n·2^{−S'}`; E decreases as `S` increases and scales linearly with `m·n` | Algebraic identity of the Karlin–Altschul formulas [8][9] |
+| INV-10 | `ComputeUngappedKarlinParameters`: `K > 0`, `H > 0`; K invariant and λ inversely scaled when all scores are multiplied by an integer | Karlin & Altschul (1990) lattice theory [8][13] |
+| INV-11 | `ComputeBlastnStatistics`: `0 ≤ ℓ`, `K(m − ℓ)(n − Nℓ) > max(m, n)` whenever `ℓ > 0`; E non-increasing in S; `EValueScore` is S or S rounded down to even | `BLAST_ComputeLengthAdjustment`, `Blast_HSPListGetEvalues` [13] |
 
 ## 3. Contract
 
@@ -140,8 +144,12 @@ Validation defaults preserved from the original document and source:
 - `ProbeDesigner.AssessCrossHybridization(string, IEnumerable<string>, double, int, bool, ScoringMatrix?)`: Kane et al. (2000) criteria per non-target strand.
 - `ProbeDesigner.CheckSpecificity(string, ISuffixTree, bool)`: exact-hit uniqueness from suffix-tree occurrence counts (optionally both strands).
 - `ProbeDesigner.ScanOffTargetsGapped(string, IEnumerable<string>, double, ScoringMatrix?)`: Opt-in gapped (Smith–Waterman) off-target scan. Returns a `GappedSpecificityResult` separating `OnTargetHits` (the perfect ungapped full-coverage exact match) from `OffTargetHits` (imperfect/indel hits ≥ `minIdentity`, default 0.75). Reuses `SequenceAligner.LocalAlign` for the indel-aware alignment.
-- `ProbeDesigner.ComputeLambdaNucleotide(int, int, double)`: Opt-in. Solves `Σ p_i p_j e^{λ s_ij} = 1` numerically (bisection) for a match/mismatch scheme under uniform base frequencies; returns the Karlin–Altschul `λ` [8][9]. Throws when the scheme has no positive score or a non-negative expected score.
-- `ProbeDesigner.ComputeKarlinAltschul(double, int, long, ScoringMatrix?, double, double)`: Opt-in. Returns a `KarlinAltschulStatistics` (`RawScore`, `Lambda`, `K`, `BitScore`, `EValue`, `QueryLength`, `DatabaseLength`) for a hit's raw score over a search space `m·n`, using `E = K·m·n·e^{−λS}` and `S' = (λS − ln K)/ln 2` [8][9]. `K` defaults to the published nucleotide value `0.711`.
+- `ProbeDesigner.ComputeLambdaNucleotide(int, int, double)`: Opt-in. Solves `Σ p_i p_j e^{λ s_ij} = 1` numerically (bisection) for a match/mismatch scheme under uniform base frequencies (`p(match) = 4p²`, `p` in (0, 0.5)); returns the Karlin–Altschul `λ` [8][9]. Throws when the scheme has no positive score or a non-negative expected score, or for `p` outside (0, 0.5).
+- `ProbeDesigner.ComputeUngappedKarlinParameters(int, int, double)` / `(int, int, IReadOnlyList<double>)`: ungapped `λ`, `K`, `H`, `α = λ/H`, `β` (BLAST+ `s_GetUngappedBeta`) under uniform or explicit A/C/G/T composition [8][13].
+- `ProbeDesigner.GetBlastnGappedKarlinParameters(int reward, int penalty, int gapOpen, int gapExtend)`: BLAST+ gapped `λ, K, H, α, β`, round-down flag (`blastn_values_*` tables, infinite domain → ungapped); unsupported combinations throw `ArgumentException` [13].
+- `ProbeDesigner.ComputeLengthAdjustment(double k, double alphaOverLambda, double beta, int m, long n, int N = 1)`: BLAST+ `BLAST_ComputeLengthAdjustment` [13].
+- `ProbeDesigner.ComputeBlastnStatistics(int rawScore, int m, long n, int N = 1, ScoringMatrix? = BlastDna, bool gapped = true)` and `ComputeBlastnStatistics(string probe, string subject, ScoringMatrix?)`: `BlastnStatistics` (raw and E-value score, parameters, bit score, E-value, ℓ, effective search space) as blastn computes them; the string overload aligns with `SequenceAligner.LocalAlignAffine` [13].
+- `ProbeDesigner.ComputeKarlinAltschul(double, int, long, ScoringMatrix?, double?, double)`: Opt-in. Returns a `KarlinAltschulStatistics` (`RawScore`, `Lambda`, `K`, `BitScore`, `EValue`, `QueryLength`, `DatabaseLength`) for a hit's raw score over a search space `m·n`, using `E = K·m·n·e^{−λS}` and `S' = (λS − ln K)/ln 2` [8][9]. `K` defaults to the value computed for the scoring scheme (`ComputeUngappedKarlinParameters`); ungapped statistics on the raw search space `m·n` (for gapped scores and the edge-effect correction use `ComputeBlastnStatistics`).
 
 ### 5.2 Current Behavior
 
@@ -161,7 +169,7 @@ The current validator treats an empty probe as invalid rather than throwing. It 
 - Sequence-only self-complementarity / stem screens as the documented fallback (> 60 nt: thal.c THAL_MAX_ALIGN; non-ACGT; `Heuristic`).
 - Uniqueness scoring as `0` or `1 / hits` (`ValidateProbe`, `CheckSpecificity`) — library-defined, not a published metric.
 - Off-target identity threshold (default 0.75 over the probe length) per Kane et al. (2000) [7].
-- Karlin–Altschul E-value, bit score, and the `λ` defining equation (`ComputeKarlinAltschul` / `ComputeLambdaNucleotide`), with the negative-expected-score and at-least-one-positive-score preconditions [8][9].
+- Karlin–Altschul E-value, bit score, and the `λ` defining equation (`ComputeKarlinAltschul` / `ComputeLambdaNucleotide`), with the negative-expected-score and at-least-one-positive-score preconditions [8][9]; `K` and `H` computed as BLAST+ computes them; BLAST+ gapped blastn parameters, edge-effect length adjustment and effective search space, even-score round-down (`ComputeBlastnStatistics`, equal to NCBI blastn 2.12.0+ E-values) [13].
 
 **Intentionally simplified:**
 
@@ -169,12 +177,10 @@ The current validator treats an empty probe as invalid rather than throwing. It 
 - `ValidateProbe`'s approximate matching is substitution-only and fixed-length, and its `OffTargetHits` pools the on-target match with off-targets; **consequence:** for indel-aware detection and on/off separation use `ScanOffTargetsGapped` instead.
 - Suffix-tree specificity uses exact hits only; **consequence:** approximate off-targets are only modeled through `ValidateProbe(...)`/`ScanOffTargetsGapped(...)`, not through `CheckSpecificity(...)`.
 - On/off-target labelling: the first perfect ungapped full-coverage exact match is taken as the intended on-target; **consequence:** when several identical perfect sites exist, the first is on-target and the rest are off-targets.
-- The Karlin–Altschul `K` parameter is a caller-supplied value (default the published nucleotide `0.711`) rather than computed from its full closed form; **consequence:** `λ`, the bit score, and the E-value's score-dependence are exact, but `K`'s value depends on the supplied constant (use the matching published `K` for a non-default scoring scheme).
 
 **Not implemented:**
 
 - A seeded BLAST k-mer index over a whole genome; `ScanOffTargetsGapped` is an exhaustive sliding Smith–Waterman scan (O(g · n·m)), not a genome-scale seed-and-extend index [2]; **users should rely on:** an external seeded aligner for genome-scale off-target *performance* (the exhaustive scan already finds every hit a seed would, so this is a speed, not a correctness, gap).
-- The Karlin–Altschul `K` closed form (score-probability lattice / geometric-spacing machinery of [8]); **users should rely on:** the caller-supplied `K` parameter (published values per scoring scheme).
 
 
 ## 6. Edge Cases and Limitations
@@ -206,3 +212,4 @@ The implementation is a screening tool. The opt-in `ScanOffTargetsGapped` adds i
 10. Satya RV, Zavaljevski N, Kumar K, Reifman J (2008) - A high-throughput pipeline for designing microarray-based pathogen diagnostic assays, BMC Bioinformatics 9:185 (summary of the Kane criteria: "overall sequence identity is > 75% or ... a contiguous match > 15 bp"); Chen H, Sharp BM (2002) Oliz, BMC Bioinformatics 3:27 (Kane criteria restated). Both via WebSearch snippets (publisher pages blocked).
 11. Untergasser A et al. (2012) Primer3 — new capabilities and interfaces, Nucleic Acids Res 40:e115; primer3 `libprimer3.cc` (`o_args` internal-oligo defaults, `oligo_compl_thermod`, `oligo_hairpin`); primer3-py 2.3.1 `calc_homodimer` / `calc_end_stability` / `calc_hairpin`.
 12. Rouillard JM, Zuker M, Gulari E (2003) - OligoArray 2.0: design of oligonucleotide probes for DNA microarrays using a thermodynamic approach, Nucleic Acids Res 31(12):3057–3062 (cross-hybridization by the duplex stability of the probe with each BLAST hit).
+13. NCBI C++ Toolkit BLAST+ core: `src/algo/blast/core/blast_stat.c` (`BlastScoreFreqCalc`, `Blast_KarlinBlkUngappedCalc`, `BlastKarlinLtoH`, `BlastKarlinLHtoK`, `blastn_values_*`, `Blast_KarlinBlkNuclGappedCalc`, `Blast_GetNuclAlphaBeta`, `BLAST_ComputeLengthAdjustment`), `blast_setup.c` (`BLAST_CalcEffLengths`), `blast_hits.c` (`Blast_HSPListGetEvalues`, `Blast_HSPListGetBitScores`). https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/algo/blast/core/blast_stat.c (retrieved 2026-10-01); NCBI blastn 2.12.0+ used as the numerical oracle.

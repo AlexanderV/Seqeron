@@ -56,8 +56,37 @@
 3. **Bit score:** "By normalizing a raw score using the formula" **S' = (λS − ln K)/ln 2** "one attains a 'bit score' *S'*, which has a standard set of units" (Altschul tutorial; Durand renders the same `S' = (λS − ln K)/ln 2`).
 4. **E from bit score:** "The *E*-value corresponding to a given bit score is simply" **E = m·n·2^(−S')** (both sources).
 5. **Scoring-scheme precondition:** "the expected score for aligning a random pair of … is required to be negative. Were this not the case, long alignments would tend to have high score independently of whether the segments aligned were related, and the statistical theory would break down" (Altschul tutorial). The complementary requirement — at least one positive score so the positive root exists — is the standard statement of the same theory ("for valid scoring matrices (ones where at least one positive score exists), λ will have a unique positive solution").
-6. **K:** "K is a constant that depends on S[i,j] and can be computed from the theory for any scoring function" (Durand). Its full closed form needs the score-probability lattice/geometric-spacing machinery of Karlin & Altschul (1990); it is therefore the parameter exposed to the caller (default the published nucleotide value, see cross-check).
+6. **K:** "K is a constant that depends on S[i,j] and can be computed from the theory for any scoring function" (Durand). It is computed exactly as NCBI BLAST+ computes it (`BlastKarlinLHtoK`, see the NCBI BLAST+ source entry below); a caller-supplied K still overrides it.
 7. **λ ≈ 1.37, K ≈ 0.711 cross-check (+1/−3, uniform 0.25):** NCBI blastn reports Lambda ≈ 1.37 and K ≈ 0.711 for match=+1/mismatch=−3 (https://www.biostars.org/p/9596760/ shows a blastn run with "matrix:1 -3 … Lambda: 1.37, K: 0.711"). Solving 0.25·e^(λ·1) + 0.75·e^(λ·(−3)) = 1 independently gives **λ = 1.3740631** (re-derived in this session by bisection), matching the published 1.37/1.374. The expected per-pair score is 0.25·1 + 0.75·(−3) = **−2.0 < 0** and a positive score (+1) exists, so both preconditions hold.
+
+### NCBI BLAST+ source (blast_stat.c / blast_setup.c / blast_hits.c / ncbi_math.c) + blastn 2.12.0+
+
+**URL:** https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/algo/blast/core/blast_stat.c (and `blast_setup.c`, `blast_hits.c`, `ncbi_math.c`; `include/algo/blast/core/blast_stat.h`), retrieved 2026-10-01. Oracle binary: NCBI blastn 2.12.0+ (Debian `ncbi-blast+`).
+
+**Authority rank:** 2 (reference implementation of the published method)
+
+**Key Extracted Points:**
+
+1. Ungapped λ, H, K (`Blast_KarlinBlkUngappedCalc`): λ by safeguarded Newton (`Blast_KarlinLambdaNR`), `H = λ·Σ s·p_s·e^{λs}` (`BlastKarlinLtoH`), K by `BlastKarlinLHtoK`: on the lattice reduced by δ = gcd, `K = (p₋₁ − p₁)²/p₋₁` when low = −1 and high = 1; `K = (H/λ)(1 − e^{−λ})` when high = 1; `K = (μ²/(H/λ))(1 − e^{−λ})` when low = −1; else `K = −exp(−2·Σ_j inner_j/j) / ((H/λ)·expm1(−λ))` with `inner_j = Σ_{i<0} P(i,j)e^{λi} + Σ_{i≥0} P(i,j)` over gapless alignments of j pairs (sum limit 10⁻⁴, ≤ 100 terms). Comment example in blast_stat.c: scores −2/0/3 with probabilities 0.7/0.1/0.2 → λ = 0.330, K = 0.154 (Python port: 0.32995, 0.15399).
+2. blastn ungapped uses the standard (uniform 0.25) nucleotide composition: a GC-rich query still prints 1.37/0.711/1.31 for +1/−3.
+3. Gapped λ/K/H/α/β are the `blastn_values_<reward>_<penalty>` tables (row {open, extend, λ, K, H, α, β, θ}); a leading {0,0} row is the non-affine (megablast greedy) entry (`s_SplitArrayOf8`) — e.g. 2/−3 {0,0} → 0.55/0.21 is NOT the ungapped value; gap costs ≥ (gap_open_max, gap_extend_max) copy the ungapped block; reward/penalty with gcd d > 1 use the reduced table with gap costs × d, λ and α ÷ d; 2/−3, 2/−5, 2/−7, 3/−4 set round_down (E-value from `score & ~1`).
+4. α/β: table values; otherwise α = λ_ungapped/H, β = −2 for 1/−1 and 2/−3 else 0 (`s_GetUngappedBeta`). Length adjustment `BLAST_ComputeLengthAdjustment(K, logK, α/λ, β, m, n, N)`; effective search space `(m − ℓ)·max(1, n − N·ℓ)` (`BLAST_CalcEffLengths`); `E = searchsp·exp(−λS + ln K)`; bit score `(S·λ − ln K)/ln 2` on the raw score.
+5. NCBI quirk: for a scheme whose scores share a divisor d > 1, `BlastKarlinLHtoK` indexes the probability array by the reduced offset from the unreduced lowest score, so blastn prints K = 1.17 for +4/−6 although K must be scale-invariant (+2/−3: 0.408). Seqeron computes K on the reduced lattice (= 0.408 for +4/−6).
+
+### Dataset: NCBI blastn 2.12.0+ statistics (oracle for `ComputeUngappedKarlinParameters`, `GetBlastnGappedKarlinParameters`, `ComputeBlastnStatistics`)
+
+| Case | blastn output | Python port of blast_stat.c |
+|---|---|---|
+| ungapped 1/−3 | λ 1.37, K 0.711, H 1.31 | 1.3740631224599753, 0.7106027952162398, 1.3072466039090012 |
+| ungapped 2/−3 | 0.634, 0.408, 0.912 | 0.6337314430979075, 0.4081456625463167, 0.9124383922742278 |
+| ungapped 1/−2 | 1.33, 0.621, 1.12 | 1.3327057628202603, 0.6209911172603866, 1.1240918464926624 |
+| gapped 2/−3 5/2 | 0.625, 0.410, 0.780 | table |
+| gapped 1/−3 2/2; 1/−2 2/2; 2/−3 4/4 | 1.37/0.700/1.20; 1.33/0.620/1.10; 0.630/0.420/0.840 | table |
+| m 40, n 3079, 2/−3 5/2 | eff. space 88972; S 80 → 73.4 bits, 7e-18; S 15 → 5.8 | ℓ 11, 88972, 7.035793990394873e-18, 73.42105622960482; S 15 → 14 → 5.780434617461434 |
+| same, N = 5, n = 6040 | 167440; S 80 → 1.32e-17 | ℓ 12, 167440, 1.3240944856266213e-17 |
+| m 40, n 3079, 1/−3 2/2 | 98272; S 31 → 2e-14 | ℓ 8, 98272, 2.4719585736391905e-14 |
+| m 40, n 3079, ungapped 2/−3 | 95170; S 80 → 74.4 bits, 4e-18 | ℓ 9, 95170, 3.725887650102598e-18 |
+| probe 40 nt vs 279-nt subject (1 mismatch + 1-nt deletion), 2/−3 5/2 | score 66, 60.8 bits, 4.33e-15, space 8672 | Biopython local score 66.0; 4.327686048582086e-15, 60.79747462182638 |
 
 ### Kane et al. (2000) — 50-mer oligonucleotide microarray specificity
 
@@ -138,7 +167,7 @@ WebSearch extract: specificity is computed from the thermodynamics of hybridizat
 |-----------|-------|
 | Scoring scheme | match = +1, mismatch = −3, base freq = 0.25 (NCBI blastn +1/−3) |
 | λ (root of 0.25·e^λ + 0.75·e^(−3λ) = 1) | 1.3740631224599755 (≈ published 1.37) |
-| Published K (caller-supplied) | 0.711 |
+| K (caller-supplied in this example; computed default 0.7106027952162398) | 0.711 |
 | Raw score S | 30 |
 | Query length m | 20 |
 | Database length n | 1000 |
@@ -211,3 +240,4 @@ At mv 100, dv 2, dntp 0.2, dna 250: ACGTACGTACGTACGTACGTACGT → 69.170698458234
 - **2026-06-24**: Initial Evidence for the gapped (Smith–Waterman) off-target scan + on/off-target separation (limitation fix). The prior ungapped-Hamming validation evidence is preserved in the TestSpec/algorithm doc.
 - **2026-10-01** (B07 PROBE-VALID-001 review): Kane contiguous-stretch criterion + strict > 75 % identity (`AssessCrossHybridization`, both strands), Primer3 ntthal self-structure screen in `ValidateProbe`, OligoArray-style site duplex Tm, `CheckSpecificity` both-strand option; datasets above.
 - **2026-06-24**: Added the Karlin–Altschul E-value / bit-score / λ evidence (sources 5–6), the +1/−3 λ≈1.374 cross-check, and the worked-example dataset, for the opt-in `ComputeLambdaNucleotide` / `ComputeKarlinAltschul` statistics.
+- **2026-10-01** (B07 PROBE-EVALUE-001 review): K computed as NCBI BLAST+ computes it (no longer the +1/−3 constant for every scheme); NCBI BLAST+ gapped tables, length adjustment and blastn E-values; NCBI source + blastn 2.12.0+ datasets above.
