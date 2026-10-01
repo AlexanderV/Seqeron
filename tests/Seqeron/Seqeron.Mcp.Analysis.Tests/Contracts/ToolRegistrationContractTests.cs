@@ -97,6 +97,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "is_disorder_promoting",
         "kmer_distance",
         "kmer_frequencies",
+        "kmer_jaccard",
         "kmer_positions",
         "kmer_spectrum",
         "kmers_with_min_count",

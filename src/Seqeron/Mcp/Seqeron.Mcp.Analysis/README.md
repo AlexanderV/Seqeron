@@ -98,8 +98,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy values for a protein sequence. |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |
 | `is_disorder_promoting` | Whether an amino acid is in Dunker's disorder-promoting set {A, R, G, Q, S, P, E, K} (Dunker 2001). |
-| `kmer_distance` | Euclidean distance between k-mer frequency vectors of two sequences. |
+| `kmer_distance` | Euclidean distance between k-mer frequency vectors of two sequences; optional `metric` (squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2). |
 | `kmer_frequencies` | Normalized k-mer counts (each value in [0,1], summing to 1). |
+| `kmer_jaccard` | Exact k-mer Jaccard index of the distinct k-mer sets and the Mash distance; optional `canonical` / `acgtOnly` (Mash/sourmash k-mers). |
 | `kmer_positions` | Zero-based positions of all (overlapping) occurrences of a k-mer. |
 | `kmer_spectrum` | Frequency-of-frequencies: for each occurrence count, how many distinct k-mers reach that count. |
 | `kmers_with_min_count` | k-mers occurring at least minCount (and, if given, at most maxCount) times — jellyfish dump -L/-U — sorted by count descending, ties by k-mer. |

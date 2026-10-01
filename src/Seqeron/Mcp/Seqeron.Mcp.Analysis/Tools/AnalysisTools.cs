@@ -86,11 +86,12 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "kmer_distance", Title = "k-mers — Euclidean Distance", ReadOnly = true)]
-    [Description("Euclidean distance between k-mer frequency vectors of two sequences. 0 means identical k-mer composition.")]
+    [Description("Euclidean distance between k-mer frequency vectors of two sequences. 0 means identical k-mer composition. Optional metric: euclidean (default, frequencies), squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity).")]
     public static KmerDistanceResult KmerDistance(
         [Description("First sequence.")] string seq1,
         [Description("Second sequence.")] string seq2,
-        [Description("k-mer length.")] int k)
+        [Description("k-mer length.")] int k,
+        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2.")] string metric = "euclidean")
     {
         if (string.IsNullOrEmpty(seq1))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
@@ -99,8 +100,44 @@ public class AnalysisTools
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        var d = KmerAnalyzer.KmerDistance(seq1, seq2, k);
+        var d = KmerAnalyzer.KmerDistance(seq1, seq2, k, ParseKmerDistanceMetric(metric));
         return new KmerDistanceResult(d);
+    }
+
+    private static KmerDistanceMetric ParseKmerDistanceMetric(string? metric) =>
+        (metric ?? "euclidean").Trim().ToLowerInvariant() switch
+        {
+            "" or "euclidean" => KmerDistanceMetric.Euclidean,
+            "squared_euclidean_counts" => KmerDistanceMetric.SquaredEuclideanCounts,
+            "manhattan" => KmerDistanceMetric.Manhattan,
+            "chebyshev" => KmerDistanceMetric.Chebyshev,
+            "canberra" => KmerDistanceMetric.Canberra,
+            "cosine" => KmerDistanceMetric.Cosine,
+            "d2" => KmerDistanceMetric.D2,
+            _ => throw new ArgumentException(
+                "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2", nameof(metric)),
+        };
+
+    [McpServerTool(Name = "kmer_jaccard", Title = "k-mers — Jaccard Similarity / Mash Distance", ReadOnly = true)]
+    [Description("Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]) and the Mash distance -ln(2J/(1+J))/k. Set canonical=true for Mash/sourmash k-mers (strand-collapsed, non-ACGT windows skipped).")]
+    public static KmerJaccardResult KmerJaccard(
+        [Description("First sequence.")] string seq1,
+        [Description("Second sequence.")] string seq2,
+        [Description("k-mer length.")] int k,
+        [Description("Canonical k-mers min(w, revcomp(w)) as Mash/sourmash/jellyfish -C (implies acgtOnly).")] bool canonical = false,
+        [Description("Skip k-mers containing a non-ACGT symbol (Mash -n / Jellyfish convention).")] bool acgtOnly = false)
+    {
+        if (string.IsNullOrEmpty(seq1))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
+        if (string.IsNullOrEmpty(seq2))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(seq2));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var options = new KmerCountingOptions(Canonical: canonical, AcgtOnly: acgtOnly);
+        return new KmerJaccardResult(
+            KmerAnalyzer.JaccardSimilarity(seq1, seq2, k, options),
+            KmerAnalyzer.MashDistance(seq1, seq2, k, options));
     }
 
     [McpServerTool(Name = "unique_kmers", Title = "k-mers — Unique (Singletons)", ReadOnly = true)]

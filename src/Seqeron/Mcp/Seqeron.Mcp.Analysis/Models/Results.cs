@@ -19,6 +19,9 @@ public record KmerFrequenciesResult(Dictionary<string, double> Frequencies);
 /// <summary>Euclidean distance between two k-mer frequency vectors.</summary>
 public record KmerDistanceResult(double Distance);
 
+/// <summary>Exact k-mer Jaccard index (fraction in [0,1]) and the Mash distance derived from it.</summary>
+public record KmerJaccardResult(double Jaccard, double MashDistance);
+
 /// <summary>k-mers paired with their occurrence count.</summary>
 public record KmerCountItem(string Kmer, int Count);
 

@@ -134,7 +134,10 @@ Euclidean distance = √((1.0−0.75)² + (0−0.25)²) = √(0.0625 + 0.0625) =
 1. Zielezinski A, Vinga S, Almeida J, Karlowski WM. (2017). Alignment-free sequence comparison: benefits, applications, and tools. Genome Biology 18:186. https://pmc.ncbi.nlm.nih.gov/articles/PMC5627421/ (DOI: 10.1186/s13059-017-1319-7)
 2. Lau AK, et al. (2022). Interpreting alignment-free sequence comparison: what makes a score a good score? NAR Genomics and Bioinformatics. https://pmc.ncbi.nlm.nih.gov/articles/PMC9442500/
 3. Vinga S, Almeida J. (2003). Alignment-free sequence comparison—a review. Bioinformatics 19(4):513–523. https://academic.oup.com/bioinformatics/article/19/4/513/218529 (DOI: 10.1093/bioinformatics/btg005)
-4. Boden M, et al. (2014). Fast alignment-free sequence comparison using spaced-word frequencies. Bioinformatics 30(14):1991–1999. https://pmc.ncbi.nlm.nih.gov/articles/PMC4080745/
+4. Leimeister C-A, Boden M, Horwege S, Lindner S, Morgenstern B. (2014). Fast alignment-free sequence comparison using spaced-word frequencies. Bioinformatics 30(14):1991–1999. https://academic.oup.com/bioinformatics/article/30/14/1991/2391234 (first author corrected 2026-10-01)
+5. Blaisdell BE. (1986). PNAS 83:5155–5159 (squared count Euclidean d_E).
+6. Torney et al. (1990); Lippert, Huang & Waterman (2005) PNAS 102:13980; Reinert, Chew, Sun & Waterman (2009) J Comput Biol 16:1615 (D2).
+7. Jaccard P. (1901, 1912); Ondov BD et al. (2016) Mash, Genome Biology 17:132.
 
 ---
 
@@ -162,7 +165,30 @@ quote d_E = Σ(c_i^X − c_i^Y)² and attribute it to Blaisdell 1986).
 Note: Lau et al. (2022) write "(i.e. the sequence length minus the k-mer length)"; the number of
 overlapping k-mers is L − k + 1, which is what both scikit-bio and the implementation use.
 
+## Audit round 1 (WP2, 2026-10-01) — metrics, exact Jaccard / Mash distance, spaced words
+
+Sources opened: Mash master `src/mash/CommandDistance.cpp` (`jaccard = common/denom`; `common == denom` → 0;
+`common == 0` → 1; `distance = -log(2*jaccard/(1.+jaccard))/kmerSize`, capped at 1) and `src/mash/Sketch.cpp`
+`addMinHashes` (upper-case unless `-Z`; k-mers containing a character outside the alphabet skipped;
+`memcmp(kmer_fwd, kmer_rev) <= 0 ? fwd : rev` canonical unless `-n`) — via raw.githubusercontent.com. alfpy 1.0.6
+sdist (PyPI) `word_distance.py` (`euclid_squared` cites Blaisdell 1986; `euclid_norm` cites Vinga & Almeida 2003;
+`manhattan`, `chebyshev`, `canberra` with 0/0 = 0), `word_vector.Freqs` (total = len − k + 1), `word_sets_distance`
+(set Jaccard). Leimeister et al. 2014 definition of spaced words (pattern over {0,1}, P[1] = P[ℓ] = 1, '1' = match,
+'0' = don't care) from search snippets of the OUP/ResearchGate pages; the PDF (OUP, Semantic Scholar) returned 403
+and spaced.gobics.de is not allow-listed, so the spaced-word reference is an independent Python replica of the
+definition.
+
+Executed references (all agree with C#; full table in docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.2):
+scipy 1.17.1 (`euclidean`, `sqeuclidean`, `cityblock`, `chebyshev`, `canberra`, `cosine`, `numpy.dot` for D2) on
+scikit-bio 0.7.4 count/frequency vectors; alfpy (identical to scipy up to the last ulp); Python set Jaccard;
+sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2.3 binary
+(`mash dist -k k -s 100000 [-n]`). Examples: Fig. 1 d_E = 3, Manhattan 0.6, Chebyshev 0.25, Canberra
+1.5726495726495728, cosine 0.16666666666666663, D2 5; Jaccard literal 0.75, canonical 1.0 (Mash 0, 3/3), `-n` Mash
+0.0513836 (3/4); R1/R2 k=5 canonical J = 58/158 = 0.3670886075949367, Mash 0.124338.
+
 ## Change History
+
+- **2026-10-01**: Audit round 1 WP2 — metric variants, exact Jaccard / Mash distance, spaced words; reference [4] first author corrected.
 
 - **2026-09-28**: 2026-09 review — added scikit-bio/scipy cross-check table and variant note.
 

@@ -369,23 +369,287 @@ public static class KmerAnalyzer
         if (k <= 0)
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
-        var freq1 = GetKmerFrequencies(seq1, k);
-        var freq2 = GetKmerFrequencies(seq2, k);
+        // Single word-vector loop: the metric overload (frequency Euclidean over the union of k-mers).
+        return KmerDistance(seq1, seq2, k, KmerDistanceMetric.Euclidean);
+    }
 
-        // Distance spans the union of k-mers in either sequence; absent k-mers are 0.
-        var allKmers = new HashSet<string>(freq1.Keys);
-        allKmers.UnionWith(freq2.Keys);
+    /// <summary>
+    /// Alignment-free word-vector dissimilarity between two sequences under an explicit
+    /// <see cref="KmerDistanceMetric"/> (literal k-mer counting, as <see cref="CountKmers(string, int)"/>).
+    /// </summary>
+    /// <remarks>
+    /// Counts both sequences with the canonical counter and delegates to
+    /// <see cref="KmerDistance(IReadOnlyDictionary{string, int}, IReadOnlyDictionary{string, int}, KmerDistanceMetric)"/>;
+    /// the per-metric vector (raw counts or relative frequencies) is documented on <see cref="KmerDistanceMetric"/>.
+    /// <see cref="KmerDistanceMetric.Euclidean"/> is bit-for-bit <see cref="KmerDistance(string, string, int)"/>.
+    /// </remarks>
+    /// <param name="seq1">First sequence (case-insensitive). Null/empty or shorter than <paramref name="k"/> gives the zero vector.</param>
+    /// <param name="seq2">Second sequence, same conventions.</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <param name="metric">The word-vector metric.</param>
+    /// <returns>The metric value (a dissimilarity for every member except <see cref="KmerDistanceMetric.D2"/>, a similarity).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive or <paramref name="metric"/> is undefined.</exception>
+    public static double KmerDistance(string seq1, string seq2, int k, KmerDistanceMetric metric)
+    {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
-        double sumSquares = 0;
-        foreach (var kmer in allKmers)
+        return KmerDistance(CountKmers(seq1, k), CountKmers(seq2, k), metric);
+    }
+
+    /// <summary>
+    /// Word-vector dissimilarity between two count tables (k-mer counts, Jellyfish <c>-C</c> canonical counts
+    /// from <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>,
+    /// or spaced-word counts from <see cref="CountSpacedWords(string, string)"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>The vectors span the union of keys of the two tables; a word absent from a table is a 0 component,
+    /// which equals the full |Σ|^k-dimensional vector because words absent from both contribute 0 to every
+    /// metric. Frequencies are f(w) = c(w) / Σc (Σc = L − k + 1 windows for contiguous k-mers, L − ℓ + 1 for a
+    /// spaced pattern of length ℓ; scikit-bio <c>kmer_frequencies(relative=True)</c>, alfpy <c>word_vector.Freqs</c>);
+    /// an empty table is the zero vector.</para>
+    /// <para>Definitions (see <see cref="KmerDistanceMetric"/>): Euclidean √Σ(f₁−f₂)² (Vinga &amp; Almeida 2003;
+    /// Zielezinski et al. 2017); squared Euclidean on counts Σ(c₁−c₂)² (Blaisdell 1986, d_E); Manhattan Σ|f₁−f₂|;
+    /// Chebyshev max|f₁−f₂|; Canberra Σ|f₁−f₂|/(f₁+f₂) (0/0 terms omitted, as scipy and alfpy); cosine distance
+    /// 1 − c₁·c₂/(‖c₁‖‖c₂‖) clipped to [0, 2] as scipy (scale-invariant, so counts and frequencies agree; a zero
+    /// vector has cosine similarity 0, so its distance is 1); D2 = Σ c₁(w)·c₂(w) (Torney et al. 1990; Lippert
+    /// et al. 2005; Reinert et al. 2009). Cross-checked against scipy.spatial.distance and alfpy 1.0.6
+    /// (docs/algorithms/K-mer/K-mer_Euclidean_Distance.md §7.2).</para>
+    /// </remarks>
+    /// <param name="counts1">First count table (non-negative counts).</param>
+    /// <param name="counts2">Second count table (non-negative counts).</param>
+    /// <param name="metric">The word-vector metric.</param>
+    /// <returns>The metric value.</returns>
+    /// <exception cref="ArgumentNullException">A table is null.</exception>
+    /// <exception cref="ArgumentException">A table contains a negative count.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="metric"/> is undefined.</exception>
+    public static double KmerDistance(
+        IReadOnlyDictionary<string, int> counts1,
+        IReadOnlyDictionary<string, int> counts2,
+        KmerDistanceMetric metric)
+    {
+        ArgumentNullException.ThrowIfNull(counts1);
+        ArgumentNullException.ThrowIfNull(counts2);
+        if (!Enum.IsDefined(metric))
+            throw new ArgumentOutOfRangeException(nameof(metric), metric, "Unknown k-mer distance metric.");
+
+        double total1 = SumNonNegative(counts1, nameof(counts1));
+        double total2 = SumNonNegative(counts2, nameof(counts2));
+
+        double acc = 0, dot = 0, norm1 = 0, norm2 = 0;
+
+        // Union of keys: counts1's keys in table order, then counts2's keys absent from counts1
+        // (the iteration order of the original frequency-Euclidean implementation, so its sum is bit-identical).
+        foreach (var (word, c1) in counts1)
+            Accumulate(c1, counts2.TryGetValue(word, out var c2) ? c2 : 0);
+        foreach (var (word, c2) in counts2)
         {
-            double f1 = freq1.GetValueOrDefault(kmer, 0);
-            double f2 = freq2.GetValueOrDefault(kmer, 0);
-            sumSquares += (f1 - f2) * (f1 - f2);
+            if (!counts1.ContainsKey(word))
+                Accumulate(0, c2);
         }
 
-        return Math.Sqrt(sumSquares);
+        return metric switch
+        {
+            KmerDistanceMetric.Euclidean => Math.Sqrt(acc),
+            KmerDistanceMetric.Cosine => norm1 == 0 || norm2 == 0
+                ? 1.0
+                : Math.Clamp(1.0 - dot / (Math.Sqrt(norm1) * Math.Sqrt(norm2)), 0.0, 2.0),
+            KmerDistanceMetric.D2 => dot,
+            _ => acc,
+        };
+
+        void Accumulate(int c1, int c2)
+        {
+            double f1 = total1 == 0 ? 0 : c1 / total1;
+            double f2 = total2 == 0 ? 0 : c2 / total2;
+            switch (metric)
+            {
+                case KmerDistanceMetric.Euclidean:
+                    acc += (f1 - f2) * (f1 - f2);
+                    break;
+                case KmerDistanceMetric.SquaredEuclideanCounts:
+                    acc += ((double)c1 - c2) * ((double)c1 - c2);
+                    break;
+                case KmerDistanceMetric.Manhattan:
+                    acc += Math.Abs(f1 - f2);
+                    break;
+                case KmerDistanceMetric.Chebyshev:
+                    acc = Math.Max(acc, Math.Abs(f1 - f2));
+                    break;
+                case KmerDistanceMetric.Canberra:
+                    if (f1 + f2 > 0)
+                        acc += Math.Abs(f1 - f2) / (f1 + f2);
+                    break;
+                default: // Cosine, D2: inner product and norms of the count vectors
+                    dot += (double)c1 * c2;
+                    norm1 += (double)c1 * c1;
+                    norm2 += (double)c2 * c2;
+                    break;
+            }
+        }
     }
+
+    private static double SumNonNegative(IReadOnlyDictionary<string, int> counts, string paramName)
+    {
+        long total = 0;
+        foreach (var count in counts.Values)
+        {
+            if (count < 0)
+                throw new ArgumentException("Counts must be non-negative.", paramName);
+            total += count;
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Exact k-mer Jaccard similarity J(A, B) = |K(A) ∩ K(B)| / |K(A) ∪ K(B)| of the two distinct k-mer sets
+    /// (literal counting, as <see cref="DistinctKmers(string, int)"/>), as a fraction in [0, 1].
+    /// </summary>
+    /// <remarks>
+    /// Jaccard (1901, 1912) coefficient of community applied to k-mer sets, the quantity Mash estimates by
+    /// MinHash (Ondov et al. 2016, Genome Biol 17:132, eq. 1). Canonical site of the k-mer Jaccard index
+    /// (DUP_MAP §16). Case-insensitive. Both sets empty (both sequences null/empty or shorter than
+    /// <paramref name="k"/>): the index is undefined (0/0) and 0 is returned — the convention of
+    /// <c>GenomicAnalyzer.CalculateSimilarity</c> and <c>ComparativeGenomics</c>' k-mer identity.
+    /// </remarks>
+    /// <param name="a">First sequence; null is treated as empty.</param>
+    /// <param name="b">Second sequence; null is treated as empty.</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <returns>The Jaccard index in [0, 1]; 1 for identical non-empty k-mer sets.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
+    public static double JaccardSimilarity(string a, string b, int k)
+        => JaccardSimilarity(a, b, k, default);
+
+    /// <summary>
+    /// Exact k-mer Jaccard similarity over the distinct k-mer sets taken under <paramref name="options"/>.
+    /// With <c>Canonical = true</c> this is the exact (unsketched) Jaccard index that <c>mash dist</c>
+    /// and sourmash (DNA MinHash, <c>scaled=1</c>) estimate: k-mers upper-cased, windows with a non-ACGT
+    /// base skipped, each k-mer keyed by min(w, RC(w)) (Mash <c>Sketch.cpp</c> <c>addMinHashes</c>).
+    /// </summary>
+    /// <param name="a">First sequence; null is treated as empty.</param>
+    /// <param name="b">Second sequence; null is treated as empty.</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <param name="options">Counting mode for both sequences.</param>
+    /// <returns>The Jaccard index in [0, 1]; 0 when both sets are empty.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
+    public static double JaccardSimilarity(string a, string b, int k, KmerCountingOptions options)
+    {
+        var (shared, union) = SharedAndUnionKmers(a, b, k, options);
+        return union == 0 ? 0.0 : (double)shared / union;
+    }
+
+    /// <summary>
+    /// Mash distance D = −(1/k)·ln(2J/(1 + J)) (Ondov et al. 2016, eq. 4) computed from the exact k-mer
+    /// Jaccard index under <paramref name="options"/>. Pass <c>new KmerCountingOptions(Canonical: true)</c>
+    /// for <c>mash dist</c>'s default, <c>AcgtOnly: true</c> for <c>mash sketch -n</c> (non-canonical).
+    /// </summary>
+    /// <remarks>
+    /// Boundary rules of Mash 2.x <c>CommandDistance.cpp</c>: shared = union (identical sets, including both empty)
+    /// → 0; no shared k-mer → 1; otherwise the formula, capped at 1. Mash estimates J from a bottom-s MinHash
+    /// sketch; this method uses the exact sets, so it equals <c>mash dist -s s</c> whenever s ≥ |K(A) ∪ K(B)|.
+    /// </remarks>
+    /// <param name="a">First sequence; null is treated as empty.</param>
+    /// <param name="b">Second sequence; null is treated as empty.</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <param name="options">Counting mode for both sequences.</param>
+    /// <returns>The Mash distance in [0, 1].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
+    public static double MashDistance(string a, string b, int k, KmerCountingOptions options)
+    {
+        var (shared, union) = SharedAndUnionKmers(a, b, k, options);
+        if (shared == union)
+            return 0.0;
+        return MashDistanceFromJaccard((double)shared / union, k);
+    }
+
+    /// <summary>
+    /// Converts a k-mer Jaccard index to the Mash distance D = −(1/k)·ln(2J/(1 + J)) (Ondov et al. 2016, eq. 4),
+    /// with Mash's boundary rules: J = 1 → 0, J = 0 → 1, results above 1 capped at 1.
+    /// </summary>
+    /// <param name="jaccard">Jaccard index in [0, 1].</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <returns>The Mash distance in [0, 1].</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="jaccard"/> is outside [0, 1] (or NaN), or <paramref name="k"/> is not positive.</exception>
+    public static double MashDistanceFromJaccard(double jaccard, int k)
+    {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+        if (!(jaccard >= 0.0 && jaccard <= 1.0))
+            throw new ArgumentOutOfRangeException(nameof(jaccard), jaccard, "Jaccard index must be in [0, 1].");
+
+        if (jaccard == 1.0)
+            return 0.0;
+        if (jaccard == 0.0)
+            return 1.0;
+
+        double distance = -Math.Log(2 * jaccard / (1.0 + jaccard)) / k;
+        return Math.Min(distance, 1.0);
+    }
+
+    private static (int Shared, int Union) SharedAndUnionKmers(string a, string b, int k, KmerCountingOptions options)
+    {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+
+        var setA = DistinctKmers(a ?? string.Empty, k, options);
+        var setB = DistinctKmers(b ?? string.Empty, k, options);
+        var (small, large) = setA.Count <= setB.Count ? (setA, setB) : (setB, setA);
+
+        int shared = 0;
+        foreach (var kmer in small)
+        {
+            if (large.Contains(kmer))
+                shared++;
+        }
+        return (shared, setA.Count + setB.Count - shared);
+    }
+
+    /// <summary>
+    /// Counts the spaced words of <paramref name="sequence"/> with respect to a binary match pattern
+    /// (Leimeister, Boden, Horwege, Lindner &amp; Morgenstern 2014, Bioinformatics 30:1991).
+    /// </summary>
+    /// <remarks>
+    /// A pattern P ∈ {0,1}^ℓ with P[1] = P[ℓ] = 1 has weight k = number of '1' (match) positions; '0' positions are
+    /// "don't care". The spaced word at window i (0 ≤ i ≤ L − ℓ) is the k-symbol string of
+    /// sequence[i + j] over the match positions j, in order; each window contributes one occurrence, so the
+    /// counts sum to L − ℓ + 1. The all-'1' pattern of length k gives exactly <see cref="CountKmers(string, int)"/>.
+    /// Counting is literal and case-insensitive (upper-cased keys), like <see cref="CountKmers(string, int)"/>.
+    /// Compare tables with <see cref="KmerDistance(IReadOnlyDictionary{string, int}, IReadOnlyDictionary{string, int}, KmerDistanceMetric)"/>
+    /// (Leimeister et al. use the Euclidean distance of spaced-word frequency vectors).
+    /// </remarks>
+    /// <param name="sequence">The sequence; null/empty or shorter than the pattern gives an empty table.</param>
+    /// <param name="pattern">Binary pattern over {'0','1'} that starts and ends with '1', e.g. "1101".</param>
+    /// <returns>Dictionary mapping spaced words (match-position symbols) to their counts.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pattern"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="pattern"/> is empty, contains a symbol other than '0'/'1',
+    /// or does not start and end with '1'.</exception>
+    public static Dictionary<string, int> CountSpacedWords(string sequence, string pattern)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        if (pattern.Length == 0 || pattern[0] != '1' || pattern[^1] != '1' || pattern.Any(c => c is not ('0' or '1')))
+            throw new ArgumentException("Pattern must be a non-empty string over {0,1} that starts and ends with '1'.", nameof(pattern));
+
+        var counts = new Dictionary<string, int>();
+        if (string.IsNullOrEmpty(sequence) || pattern.Length > sequence.Length)
+            return counts;
+
+        int[] matchPositions = Enumerable.Range(0, pattern.Length).Where(j => pattern[j] == '1').ToArray();
+        var seq = sequence.ToUpperInvariant();
+        var buffer = new char[matchPositions.Length];
+
+        for (int i = 0; i <= seq.Length - pattern.Length; i++)
+        {
+            for (int m = 0; m < matchPositions.Length; m++)
+                buffer[m] = seq[i + matchPositions[m]];
+
+            var word = new string(buffer);
+            if (!counts.TryAdd(word, 1))
+                counts[word]++;
+        }
+
+        return counts;
+    }
+
 
     // A k-mer is "unique" when it appears exactly once in the sequence
     // (frequency = 1), as opposed to "distinct" (each different k-mer counted
@@ -957,4 +1221,32 @@ public readonly record struct KmerCountingOptions(bool Canonical = false, bool A
 
     /// <summary>True when non-ACGT windows are skipped: <see cref="AcgtOnly"/> or <see cref="Canonical"/>.</summary>
     public bool SkipsNonAcgt => AcgtOnly || Canonical;
+}
+
+/// <summary>
+/// Word-vector metric for <see cref="KmerAnalyzer.KmerDistance(string, string, int, KmerDistanceMetric)"/>.
+/// Each member states the vector it is applied to: raw counts c(w) or relative frequencies f(w) = c(w)/Σc.
+/// </summary>
+public enum KmerDistanceMetric
+{
+    /// <summary>√Σ(f₁−f₂)² on relative frequencies — the original <c>KmerDistance</c> (Vinga &amp; Almeida 2003; Zielezinski et al. 2017 Fig. 1).</summary>
+    Euclidean = 0,
+
+    /// <summary>Σ(c₁−c₂)² on raw counts — Blaisdell (1986) d_E as reviewed by Vinga &amp; Almeida (2003); alfpy <c>euclid_squared</c> on <c>Counts</c>.</summary>
+    SquaredEuclideanCounts,
+
+    /// <summary>Σ|f₁−f₂| (L1, city block) on relative frequencies — scipy <c>cityblock</c>, alfpy <c>manhattan</c> on <c>Freqs</c>.</summary>
+    Manhattan,
+
+    /// <summary>max|f₁−f₂| (L∞) on relative frequencies — scipy <c>chebyshev</c>, alfpy <c>chebyshev</c> on <c>Freqs</c>.</summary>
+    Chebyshev,
+
+    /// <summary>Σ|f₁−f₂|/(f₁+f₂) on relative frequencies, 0/0 terms omitted — scipy <c>canberra</c>, alfpy <c>canberra</c> on <c>Freqs</c>.</summary>
+    Canberra,
+
+    /// <summary>1 − c₁·c₂/(‖c₁‖‖c₂‖) (scale-invariant: counts = frequencies), clipped to [0, 2] — scipy <c>cosine</c>; a zero vector has similarity 0 (distance 1).</summary>
+    Cosine,
+
+    /// <summary>D2 = Σ c₁(w)·c₂(w), the inner product of the count vectors — a similarity statistic, not a distance (Torney et al. 1990; Lippert et al. 2005; Reinert et al. 2009).</summary>
+    D2,
 }

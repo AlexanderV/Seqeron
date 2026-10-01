@@ -266,6 +266,7 @@
 | is_disorder_promoting | Analysis | DisorderPredictor.IsDisorderPromoting | DisorderPredictor.cs#L658 | 0/0 | – | – | Build-Ready |
 | kmer_distance | Analysis | KmerAnalyzer.KmerDistance | KmerAnalyzer.cs#L194 | 0/0 | – | – | Build-Ready |
 | kmer_frequencies | Analysis | KmerAnalyzer.GetKmerFrequencies | KmerAnalyzer.cs#L177 | 0/0 | – | – | Build-Ready |
+| kmer_jaccard | Analysis | KmerAnalyzer.JaccardSimilarity / KmerAnalyzer.MashDistance | KmerAnalyzer.cs | 0/0 | – | – | Build-Ready |
 | kmer_positions | Analysis | KmerAnalyzer.FindKmerPositions | KmerAnalyzer.cs#L342 | 0/0 | – | – | Build-Ready |
 | kmer_spectrum | Analysis | KmerAnalyzer.GetKmerSpectrum | KmerAnalyzer.cs#L142 | 0/0 | – | – | Build-Ready |
 | kmers_with_min_count | Analysis | KmerAnalyzer.FindKmersWithMinCount | KmerAnalyzer.cs#L222 | 0/0 | – | – | Build-Ready |

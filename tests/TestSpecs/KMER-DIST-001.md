@@ -5,7 +5,7 @@
 **Algorithm:** K-mer Euclidean Distance (alignment-free word-frequency distance)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-10-01 (audit round 1, WP2)
 
 ---
 
@@ -18,7 +18,11 @@
 | 1 | Zielezinski, Vinga, Almeida & Karlowski (2017). Alignment-free sequence comparison: benefits, applications, and tools. Genome Biology 18:186. | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC5627421/ (10.1186/s13059-017-1319-7) | 2026-06-13 |
 | 2 | Lau AK et al. (2022). Interpreting alignment-free sequence comparison: what makes a score a good score? NAR Genom Bioinform. | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC9442500/ | 2026-06-13 |
 | 3 | Vinga S, Almeida J (2003). Alignment-free sequence comparison—a review. Bioinformatics 19(4):513–523. | 1 | https://academic.oup.com/bioinformatics/article/19/4/513/218529 (10.1093/bioinformatics/btg005) | 2026-06-13 |
-| 4 | Boden M et al. (2014). Fast alignment-free sequence comparison using spaced-word frequencies. Bioinformatics 30(14). | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC4080745/ | 2026-06-13 |
+| 4 | Leimeister C-A, Boden M, Horwege S, Lindner S, Morgenstern B (2014). Fast alignment-free sequence comparison using spaced-word frequencies. Bioinformatics 30(14):1991. | 1 | https://academic.oup.com/bioinformatics/article/30/14/1991/2391234 | 2026-10-01 (definition via search snippets; PDF 403) |
+| 5 | Blaisdell BE (1986). PNAS 83:5155 — squared count Euclidean d_E. | 1 | 10.1073/pnas.83.14.5155 | 2026-10-01 (via alfpy citation + Vinga & Almeida 2003) |
+| 6 | Torney et al. 1990; Lippert, Huang & Waterman 2005; Reinert et al. 2009 — D2 = Σ X_w Y_w. | 1 | J Comput Biol 16:1615 | 2026-10-01 |
+| 7 | Ondov BD et al. (2016). Mash. Genome Biol 17:132 (eq. 1 Jaccard, eq. 4 Mash distance); Mash source `CommandDistance.cpp`, `Sketch.cpp`. | 1 | raw.githubusercontent.com/marbl/Mash/master/src/mash/ | 2026-10-01 |
+| 8 | Reference implementations: scipy 1.17.1 `spatial.distance`; scikit-bio 0.7.4; alfpy 1.0.6 (PyPI sdist); sourmash 4.9.4; Mash 2.3 binary. | 2 | PyPI / apt | 2026-10-01 |
 
 ### 1.2 Key Evidence Points
 
@@ -46,7 +50,11 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `KmerDistance(string seq1, string seq2, int k)` | KmerAnalyzer | Canonical | Euclidean distance over normalized k-mer frequency vectors |
+| `KmerDistance(string seq1, string seq2, int k)` | KmerAnalyzer | Canonical | Euclidean distance over normalized k-mer frequency vectors (delegates to the metric overload) |
+| `KmerDistance(string, string, int, KmerDistanceMetric)` / `KmerDistance(IReadOnlyDictionary<string,int>, IReadOnlyDictionary<string,int>, KmerDistanceMetric)` | KmerAnalyzer | Canonical (WP2) | Euclidean, SquaredEuclideanCounts, Manhattan, Chebyshev, Canberra, Cosine, D2 |
+| `JaccardSimilarity(string, string, int[, KmerCountingOptions])` | KmerAnalyzer | Canonical (WP2, DUP_MAP §16) | Exact k-mer set Jaccard, fraction, both-empty → 0 |
+| `MashDistance(string, string, int, KmerCountingOptions)`, `MashDistanceFromJaccard(double, int)` | KmerAnalyzer | Canonical (WP2) | Ondov 2016 eq. 4 + Mash boundary rules |
+| `CountSpacedWords(string, string)` | KmerAnalyzer | Canonical (WP2) | Leimeister 2014 spaced words |
 
 ---
 
@@ -89,6 +97,25 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Invalid k | k = 0 | throws ArgumentOutOfRangeException | Validation inherited from CountKmers |
 | C2 | Both sequences empty | "" vs "", k=3 | 0.0 | ASSUMPTION A2 (both empty ⇒ 0) |
+
+### 4.4 Audit round 1 (WP2) — metrics, Jaccard/Mash, spaced words (`KmerAnalyzer_DistanceMetrics_Tests.cs`)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| W1 | 7 metrics × 6 pairs (Fig.1, ACGTTGCAACGGT k=2, GATTACA k=3, lower-case/IUPAC k=3, R1/R2 k=5, k=11), both orders | values of algorithm doc §7.2 (tol 1e-12) | scipy + alfpy (Sources 5, 6, 8) |
+| W2 | Fig.1 SquaredEuclideanCounts | exactly 3 | Source 5 via Vinga & Almeida 2003 |
+| W3 | Euclidean metric = legacy KmerDistance | bit-identical (4 inputs) | refactor invariant |
+| W4 | identical inputs → 0 for every dissimilarity; D2(x,x) = Σc² (ATGTGTG k=3 → 9) | exact | definitions |
+| W5 | zero-vector conventions (additive metrics 0; cosine 1; one empty: Manhattan 1, Canberra = #words, d_E = Σc²) | exact | scipy clip / similarity-0 convention (A3) |
+| W6 | contracts: k ≤ 0, undefined metric, null table, negative count | throw | — |
+| W7 | metrics on canonical (-C) count tables | d_E 3, D2 6 | count-table overload |
+| W8 | Jaccard literal / ACGT-only / canonical and Mash D (canonical, -n) × 6 pairs | doc §7.2 table | Python sets, sourmash scaled=1, Mash 2.3 binary |
+| W9 | Mash binary shared-hashes = exact counts (58/158, 55/168) and printed distances 0.124338 / 0.141338 | exact / 5e-7 | Mash 2.3 |
+| W10 | Jaccard conventions (both empty 0, null, case-insensitive, Mash both-empty 0, nothing shared 1, k ≤ 0 throws) | exact | Mash `CommandDistance.cpp`; GenomicAnalyzer convention (A4) |
+| W11 | Jaccard = GenomicAnalyzer.CalculateSimilarity/100 (k = 2, 3, 5, 8) | equal | DUP_MAP §16 |
+| W12 | MashDistanceFromJaccard (1→0, 0→1, 0.5/k2, 0.75/k3, cap) and out-of-range throws | exact | Ondov eq. 4 + Mash cap |
+| W13 | spaced-word tables (101, 1101, 11011, lower-case), R1/1100111 108 distinct/114 total, all-ones = CountKmers, spaced distance 0.3149183286488868 / 12 | exact | Source 4 definition, Python replica |
+| W14 | invalid patterns ("", 0110, 1100, 1021), null pattern, short/empty sequence | throw / empty | Source 4 (P[1] = P[ℓ] = 1) |
 
 ---
 
@@ -166,12 +193,14 @@
 
 ## 6. Assumption Register
 
-**Total assumptions:** 2
+**Total assumptions:** 4
 
 | # | Assumption | Used In |
 |---|-----------|---------|
 | A1 | Inputs are upper-cased before counting (case-insensitive) | S3 |
 | A2 | A sequence with no k-mer windows (L < k, or empty) is treated as the zero frequency vector | S2, C2 |
+| A3 | Cosine with a zero vector: similarity 0 → distance 1 (scipy returns NaN there) | W5 |
+| A4 | Jaccard of two empty sets is 0 (undefined 0/0; GenomicAnalyzer / ComparativeGenomics convention) | W10 |
 
 ---
 
