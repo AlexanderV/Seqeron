@@ -1827,6 +1827,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L163"
   },
   {
+    "tool": "suffix_tree_all_lcs",
+    "server": "Core",
+    "methodId": "SuffixTree.FindAllDistinctLongestCommonSubstrings",
+    "docPath": "docs/mcp/tools/core/suffix_tree_all_lcs.md",
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Repeats.cs#L9"
+  },
+  {
     "tool": "suffix_tree_all_lrs",
     "server": "Core",
     "methodId": "SuffixTree.FindAllLongestRepeatedSubstrings",
@@ -1869,6 +1876,13 @@
     "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs#L213"
   },
   {
+    "tool": "suffix_tree_k_common_substrings",
+    "server": "Core",
+    "methodId": "SuffixTree.FindLongestCommonSubstrings",
+    "docPath": "docs/mcp/tools/core/suffix_tree_k_common_substrings.md",
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Repeats.cs#L27"
+  },
+  {
     "tool": "suffix_tree_lcs",
     "server": "Core",
     "methodId": "SuffixTree.LongestCommonSubstring",
@@ -1881,6 +1895,13 @@
     "methodId": "SuffixTree.LongestRepeatedSubstring",
     "docPath": "docs/mcp/tools/core/suffix_tree_lrs.md",
     "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs#L14"
+  },
+  {
+    "tool": "suffix_tree_maximal_repeats",
+    "server": "Core",
+    "methodId": "SuffixTree.FindMaximalRepeatedPairs",
+    "docPath": "docs/mcp/tools/core/suffix_tree_maximal_repeats.md",
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Repeats.cs#L17"
   },
   {
     "tool": "suffix_tree_stats",

@@ -19,7 +19,7 @@ namespace SuffixTree;
 /// This eliminates the need for stored DepthFromRoot while preserving O(n+m).
 /// </para>
 /// </summary>
-public static class SuffixTreeAlgorithms
+public static partial class SuffixTreeAlgorithms
 {
     /// <summary>
     /// Finds the longest common substring between the tree's text and <paramref name="other"/>
@@ -39,60 +39,7 @@ public static class SuffixTreeAlgorithms
     {
         ArgumentNullException.ThrowIfNull(other);
         ReadOnlySpan<char> otherSpan = other.AsSpan();
-        if (otherSpan.Length == 0 || nav.Text.Length == 0)
-            return (string.Empty, new List<int>(), new List<int>());
-
-        int maxLen = 0;
-        // (Node, MatchEndInOther, DepthFromRoot of Node)
-        var bestMatches = new List<(TNode Node, int MatchEndInOther, int DepthFromRoot)>();
-
-        TNode currentNode = nav.Root;
-        TNode currentEdge = nav.NullNode;
-        int edgeOffset = 0;
-        int currentMatchLen = 0;
-
-        // Depth to END of currentNode's edge (= GetNodeDepth(currentNode)).
-        // For root this is 0. Updated on suffix link follow (-1), edge
-        // completion (+edgeLen), and rescan (+edgeLen per full edge).
-        int currentNodeDepth = 0;
-
-        for (int i = 0; i < otherSpan.Length; i++)
-        {
-            int c = otherSpan[i];
-
-            while (true)
-            {
-                if (TryConsumeSymbol(ref nav, c, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth))
-                    break;
-
-                // Cannot extend — follow suffix link
-                if (currentMatchLen == 0) break;
-                FollowSuffixLinkAndRescan(ref nav, otherSpan, i, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth);
-            }
-
-            // Track best matches
-            if (currentMatchLen > maxLen)
-            {
-                maxLen = currentMatchLen;
-                bestMatches.Clear();
-                TNode matchNode = nav.IsNull(currentEdge) ? currentNode : currentEdge;
-                // DepthFromRoot of matchNode:
-                // - currentNode: currentNodeDepth - LengthOf(currentNode)
-                // - currentEdge: currentNodeDepth (= depth to END of parent = depth to START of child)
-                int matchDFR = nav.IsNull(currentEdge)
-                    ? currentNodeDepth - nav.LengthOf(currentNode)
-                    : currentNodeDepth;
-                bestMatches.Add((matchNode, i, matchDFR));
-            }
-            else if (currentMatchLen == maxLen && maxLen > 0 && !firstOnly)
-            {
-                TNode matchNode = nav.IsNull(currentEdge) ? currentNode : currentEdge;
-                int matchDFR = nav.IsNull(currentEdge)
-                    ? currentNodeDepth - nav.LengthOf(currentNode)
-                    : currentNodeDepth;
-                bestMatches.Add((matchNode, i, matchDFR));
-            }
-        }
+        var (maxLen, bestMatches) = CollectMaximalMatchingStatistics<TNode, TNav>(ref nav, other, firstOnly);
 
         if (maxLen == 0)
             return (string.Empty, new List<int>(), new List<int>());

@@ -56,6 +56,25 @@ public interface ISuffixTreeAnalysis
     (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other);
 
     /// <summary>
+    /// Every distinct longest common substring of the text and <paramref name="other"/> (all length ties,
+    /// unlike <see cref="FindAllLongestCommonSubstrings"/>, which reports only the canonical one), each with
+    /// all 0-based positions in the text and in <paramref name="other"/> (ascending, duplicate-free); ordered
+    /// by first occurrence in <paramref name="other"/>, so the first entry equals
+    /// <see cref="FindAllLongestCommonSubstrings"/>. Empty when no character is shared.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="other"/> is null.</exception>
+    /// <remarks>
+    /// The default implementation (for implementers outside this library) uses O(|text|·|other|) dynamic
+    /// programming over <see cref="ISuffixTreeSearch.Text"/>
+    /// (<see cref="SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstringsByDefinition"/>); the library
+    /// trees override it with matching statistics
+    /// (<see cref="SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstrings{TNode, TNav}"/>; identical output).
+    /// </remarks>
+    IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>
+        FindAllDistinctLongestCommonSubstrings(string other)
+        => SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstringsByDefinition(DefaultTextOf(this), other);
+
+    /// <summary>
     /// Finds exact-match anchors between this tree's text and a query string
     /// using suffix-link-based streaming traversal: one maximal exact match per maximal run of
     /// matching statistics ≥ <paramref name="minLength"/> (its first peak), ordered by query position.
@@ -107,5 +126,5 @@ public interface ISuffixTreeAnalysis
         => tree as ISuffixTreeSearch is { } search
             ? search.Text
             : throw new NotSupportedException(
-                "The default maximal-match implementation needs ISuffixTreeSearch.Text; override the method.");
+                "The default implementation needs ISuffixTreeSearch.Text; override the method.");
 }

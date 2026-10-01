@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace SuffixTree;
@@ -64,6 +65,19 @@ public interface ISuffixTree : ISuffixTreeSearch, ISuffixTreeAnalysis, ISuffixTr
     /// </summary>
     IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
         => SuffixTreeAlgorithms.FindAllLongestRepeatedSubstrings(this);
+
+    /// <summary>
+    /// Every maximal repeated pair (FirstPosition i &lt; SecondPosition j, Length L ≥ <paramref name="minLength"/>)
+    /// of the text: text[i..i+L) = text[j..j+L), not extendable to the left nor to the right (Gusfield 1997
+    /// §7.12; MUMmer 3 <c>repeat-match -f -n minLength</c>), 0-based, forward strand, copies may overlap.
+    /// Characters for which <paramref name="isUniqueSymbol"/> returns true never match (not even
+    /// themselves). Ordered by FirstPosition, then SecondPosition; identical for every implementation
+    /// (see <see cref="SuffixTreeAlgorithms.FindMaximalRepeatedPairs"/>).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minLength"/> &lt; 1.</exception>
+    IReadOnlyList<(int FirstPosition, int SecondPosition, int Length)> FindMaximalRepeatedPairs(
+        int minLength, Func<char, bool>? isUniqueSymbol = null)
+        => SuffixTreeAlgorithms.FindMaximalRepeatedPairs(this, minLength, isUniqueSymbol);
 }
 
 /// <summary>

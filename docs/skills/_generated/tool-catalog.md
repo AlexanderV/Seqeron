@@ -279,7 +279,7 @@
 | `predict_g_bands` | `ChromosomeAnalyzer.PredictGBands` | [doc](../../mcp/tools/chromosome/predict_g_bands.md) |
 | `repeat_content` | `GenomeAssemblyAnalyzer.CalculateRepeatContent` | [doc](../../mcp/tools/chromosome/repeat_content.md) |
 
-## Core (15 tools)
+## Core (18 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -289,14 +289,17 @@
 | `find_longest_common_region` | `GenomicAnalyzer.FindLongestCommonRegion` | [doc](../../mcp/tools/core/find_longest_common_region.md) |
 | `find_longest_repeat` | `GenomicAnalyzer.FindLongestRepeat` | [doc](../../mcp/tools/core/find_longest_repeat.md) |
 | `hamming_distance` | `ApproximateMatcher.HammingDistance` | [doc](../../mcp/tools/core/hamming_distance.md) |
+| `suffix_tree_all_lcs` | `SuffixTree.FindAllDistinctLongestCommonSubstrings` | [doc](../../mcp/tools/core/suffix_tree_all_lcs.md) |
 | `suffix_tree_all_lrs` | `SuffixTree.FindAllLongestRepeatedSubstrings` | [doc](../../mcp/tools/core/suffix_tree_all_lrs.md) |
 | `suffix_tree_contains` | `SuffixTree.Contains` | [doc](../../mcp/tools/core/suffix_tree_contains.md) |
 | `suffix_tree_count` | `SuffixTree.CountOccurrences` | [doc](../../mcp/tools/core/suffix_tree_count.md) |
 | `suffix_tree_find_all` | `SuffixTree.FindAllOccurrences` | [doc](../../mcp/tools/core/suffix_tree_find_all.md) |
 | `suffix_tree_find_mems` | `SuffixTree.FindMaximalExactMatches` | [doc](../../mcp/tools/core/suffix_tree_find_mems.md) |
 | `suffix_tree_find_mums` | `SuffixTree.FindMaximalUniqueMatches` | [doc](../../mcp/tools/core/suffix_tree_find_mums.md) |
+| `suffix_tree_k_common_substrings` | `SuffixTree.FindLongestCommonSubstrings` | [doc](../../mcp/tools/core/suffix_tree_k_common_substrings.md) |
 | `suffix_tree_lcs` | `SuffixTree.LongestCommonSubstring` | [doc](../../mcp/tools/core/suffix_tree_lcs.md) |
 | `suffix_tree_lrs` | `SuffixTree.LongestRepeatedSubstring` | [doc](../../mcp/tools/core/suffix_tree_lrs.md) |
+| `suffix_tree_maximal_repeats` | `SuffixTree.FindMaximalRepeatedPairs` | [doc](../../mcp/tools/core/suffix_tree_maximal_repeats.md) |
 | `suffix_tree_stats` | `SuffixTree.Properties` | [doc](../../mcp/tools/core/suffix_tree_stats.md) |
 
 ## Metagenomics (19 tools)

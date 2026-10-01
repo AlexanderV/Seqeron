@@ -149,7 +149,15 @@ Variants:
   (any-leaf walk — not necessarily leftmost, may differ between in-memory and persistent).
 - `FindAllLongestCommonSubstrings(other)` → canonical LCS string (same tie-break) + all its
   positions in both strings, each list ascending and duplicate-free. Other substrings of the
-  same maximal length are **not** reported.
+  same maximal length are not part of this result — use the next variant.
+- `FindAllDistinctLongestCommonSubstrings(other)` → **every** distinct LCS string (all length
+  ties), each with all positions in the text and in `other` (ascending, duplicate-free), ordered by
+  first occurrence in `other` (entry 0 = `FindAllLongestCommonSubstrings`). With L = max ms(i),
+  every occurrence in `other` of a length-L common substring ends exactly at an i with ms(i) = L,
+  so grouping those ends by substring yields all ties; text positions are the leaves below each
+  substring's locus. Default interface body for external implementers: O(n·m) DP over `Text`
+  (identical output). Validated against a Python brute force (1200 random pairs, 382 with ties)
+  and in-memory = persistent.
 
 ### 4.6 FindExactMatchAnchors — O(m + a·h), worst case O(n·m)
 
@@ -236,6 +244,71 @@ L ∈ {1,2,3} identical except the documented length-1 `-mum` sweep artefact (2 
 set also equals an independent brute-force implementation of the definitions (324 pairs).
 MUMmer-produced outputs are locked in `MaximalMatchTests` / `MaximalMatchParityTests`.
 
+### 4.10 Maximal repeated pairs (MUMmer `repeat-match -f`) — O(n + z) enumeration
+
+`FindMaximalRepeatedPairs(minLength, isUniqueSymbol = null)` (default member of `ISuffixTree`,
+shared code `SuffixTreeAlgorithms.FindMaximalRepeatedPairs` over `Traverse`, so `SuffixTree` and
+`PersistentSuffixTree` return identical lists).
+
+**Definition** (Gusfield 1997 §7.12): a triple (i, j, L), 0-based, i < j, L ≥ `minLength`, with
+text[i..i+L) = text[j..j+L), right-maximal (j + L = n or text[i+L] ≠ text[j+L]) and left-maximal
+(i = 0 or text[i−1] ≠ text[j−1]). Copies may overlap (tandem repeats: `acgtacgtacgt`, L 3 →
+(0, 4, 8), (0, 8, 4)). A pair (i, j) has exactly one maximal length. This is MUMmer 3
+`repeat-match -f -n minLength` (forward strand; repeat-match prints 1-based positions in tree order).
+
+**Unique symbols.** Characters for which `isUniqueSymbol` returns true match nothing, not even
+themselves (separators, `N`): a match stops before them (right-maximal) and a preceding unique
+character makes a pair left-maximal — the definition applied to the text with every such
+occurrence replaced by a fresh symbol (as `RepeatFinder.FindDirectRepeats`, non-ACGT unique, and
+Vmatch/REPuter separators). Without a predicate every character matches itself, like
+repeat-match (which also pairs `N` with `N`).
+
+**Algorithm** (Gusfield 1997 §7.12.3). Bottom-up over the tree, each node keeps its leaves in one
+linked list per left character (plus a "unique" class for position 0 / a unique left neighbour).
+Merging a child into its parent v of string depth d ≥ `minLength` pairs every leaf of the child
+with every leaf already merged into v whose left class differs (or is unique): their LCP is exactly
+d and the pair is left-maximal; then the lists are concatenated in O(1) per class (smaller class
+map into the larger). With unique symbols, a subtree whose edge contains the first unique
+character at string depth u (u(p) = distance from p to the next unique character) is "exploded":
+all of its leaves pair with each other at length u and nothing deeper is emitted. Every maximal
+pair is produced exactly once. O(n log σ′ + z) enumeration for z pairs plus O(z log z) for the sort.
+
+**Output order:** ascending FirstPosition, then SecondPosition.
+
+**Validation (2026-10-01).** MUMmer 3.23 `repeat-match -f -n L` (Ubuntu `mummer 3.23+dfsg-8`; source
+`src/tigr/repeat-match.cc` from the Ubuntu orig tarball, `List_Maximal_Matches` / `List_Matches`):
+40 random genomes 2 kb–200 kb ({AC, ACG, ACGT}, planted repeats, L 8–22) → 512 083 pairs identical;
+239 small random texts (L 1–6) → 32 283 pairs identical. B04 `RepeatFinder.FindDirectRepeats(seq, L,
+int.MaxValue, int.MinValue)` (independent suffix-array/LCP-interval enumeration, non-ACGT unique):
+20 sequences 1–50 kb with 2 % N → 381 139 pairs identical, plus 265 small cases. O(n³) brute force
+(with and without unique symbols): 1200 random texts, 124 565 pairs identical. In-memory =
+persistent (heap, hybrid, MMF, reload) on every run.
+
+### 4.11 Longest common substring of k strings / k-common substring — O(N log N)
+
+`SuffixTree.FindLongestCommonSubstrings(texts, minSupport = k)` and
+`SuffixTree.LongestCommonSubstringLengthsBySupport(texts)` (shared code
+`SuffixTreeAlgorithms.FindLongestCommonSubstrings(texts, minSupport, buildTree)` /
+`LongestCommonSubstringLengthsBySupport(texts, buildTree)`, so any tree implementation can be used,
+e.g. `s => PersistentSuffixTreeFactory.CreatePersistent(new StringTextSource(s))`; the built tree is
+disposed after use).
+
+Generalized suffix tree (Gusfield 1997 §7.6): the texts are concatenated as t₁$₁…t_k$_k with k
+distinct separator characters absent from every text (`BuildGeneralizedText`: Private Use Area
+U+E000 upward, then any other unused code unit). Each separator occurs once, so no internal node's
+path label contains one. C(v), the number of distinct texts with a leaf below v, is computed with
+Hui's (1992) colour-set-size method in one depth-first pass: coloured leaves minus one per pair of
+consecutive same-text leaves, charged to their lowest common ancestor (found by binary search on the
+DFS stack by entry time). l(q) = max string depth of an internal node with C(v) ≥ q; the answer for
+`minSupport` q ≥ 2 is the set of path labels of internal nodes of depth l(q) with C(v) ≥ q (a
+length-l(q) substring with support ≥ q ending inside an edge would make the node below it deeper with
+the same support). `minSupport` = 1 → the longest text(s). Results distinct, sorted ordinally;
+empty when nothing reaches the support (e.g. an empty text with q = k).
+
+**Validation.** Rosalind LCSM sample (GATTACA, TAGACCA, ATACA → sample answer `AC`; all longest:
+AC, CA, TA; q = 2 → TACA; l = [7, 4, 2]); Python brute force over all substrings: 800 random sets
+(k 1–6, lengths 0–25), every q; in-memory = persistent.
+
 ---
 
 ## 5. Interface Hierarchy
@@ -260,6 +333,8 @@ IReadOnlyList<string> GetAllSuffixes()
 string LongestCommonSubstring(string / ReadOnlySpan<char>)
 (string, int, int) LongestCommonSubstringInfo(string)
 (string, IReadOnlyList<int>, IReadOnlyList<int>) FindAllLongestCommonSubstrings(string)
+IReadOnlyList<(string, IReadOnlyList<int>, IReadOnlyList<int>)> FindAllDistinctLongestCommonSubstrings(string)   // default member
+IReadOnlyList<(int, int, int)> FindMaximalRepeatedPairs(int, Func<char, bool>? = null)   // default member
 string PrintTree()
 void Traverse(ISuffixTreeVisitor)
 IReadOnlyList<(int, int, int)> FindExactMatchAnchors(string, int)
@@ -324,6 +399,11 @@ var allLcs        = tree.FindAllLongestCommonSubstrings("bandana");
 var anchors       = tree.FindExactMatchAnchors("bandana", minLength: 3);
 var mems          = tree.FindMaximalExactMatches("bandana", minLength: 3);   // mummer -maxmatch
 var mums          = tree.FindMaximalUniqueMatches("bandana", 3, MumUniqueness.Both); // mummer -mum
+var ties          = tree.FindAllDistinctLongestCommonSubstrings("bandana"); // every tied LCS
+var pairs         = tree.FindMaximalRepeatedPairs(3);                      // repeat-match -f -n 3
+var pairsN        = tree.FindMaximalRepeatedPairs(3, c => c == 'N');       // N never matches
+var lcsK          = SuffixTree.FindLongestCommonSubstrings(new[] { "GATTACA", "TAGACCA", "ATACA" }); // AC, CA, TA
+var lBySupport    = SuffixTree.LongestCommonSubstringLengthsBySupport(texts); // Gusfield l(q)
 
 // Enumeration
 var suffixes      = tree.GetAllSuffixes();          // IReadOnlyList<string>
@@ -422,7 +502,7 @@ SuffixTree.Core  ←──  SuffixTree (in-memory)
 
 ## 8. MCP Integration
 
-The `SuffixTree.Mcp.Core` project exposes 15 tools via Model Context Protocol:
+The `SuffixTree.Mcp.Core` project exposes 18 tools via Model Context Protocol:
 
 | Tool | Method |
 |------|--------|
@@ -435,6 +515,9 @@ The `SuffixTree.Mcp.Core` project exposes 15 tools via Model Context Protocol:
 | `suffix_tree_all_lrs` | All tied longest repeated substrings with positions |
 | `suffix_tree_find_mems` | Maximal exact matches (MUMmer `-maxmatch`) |
 | `suffix_tree_find_mums` | Maximal unique matches (MUMmer `-mum` / `-mumreference`) |
+| `suffix_tree_maximal_repeats` | Maximal repeated pairs (MUMmer `repeat-match -f`; optional unique symbols) |
+| `suffix_tree_all_lcs` | All tied longest common substrings with positions in both texts |
+| `suffix_tree_k_common_substrings` | Longest common substring of k strings / ≥ minSupport (Rosalind LCSM) |
 | `find_longest_repeat` | DNA longest tandem repeat |
 | `find_longest_common_region` | DNA common region |
 | `calculate_similarity` | K-mer Jaccard similarity |
@@ -495,6 +578,10 @@ three phases testing small strings (all substrings), large strings
 - Delcher, A. et al. (1999). *Alignment of whole genomes.* Nucleic Acids Research (MUMmer — suffix tree anchor approach).
 - Kurtz, S. et al. (2004). *Versatile and open software for comparing large genomes.* Genome Biology 5:R12 (MUMmer 3 — MEMs, MUMs, MUM-candidates). Source consulted: MUMmer 3.23 `src/kurtz/mm3src/findmaxmat.c`, `findmumcand.c`, `libbasedir/cleanMUMcand.c` (Ubuntu source package `mummer 3.23+dfsg`); MUMmer 4 `include/mummer/sparseSA.hpp` (`findMAM_each`, `findMUM_each`, `collectMEMs_each`).
 - Khan, Z., Bloom, J.S., Kruglyak, L., Singh, M. (2009). *A practical algorithm for finding maximal exact matches in large sequence datasets using sparse suffix arrays.* Bioinformatics 25:1609–1616 (sparseMEM; MEM/MAM/MUM definitions reused by MUMmer 4).
+- Gusfield, D. (1997), §7.6 (k-common substring problem, generalized suffix tree) and §7.12 / §7.12.3 (maximal repeated pairs, left-character lists, O(n + z)).
+- Hui, L.C.K. (1992). *Color set size problem with applications to string matching.* CPM 1992, LNCS 644:230–243 (C(v) by LCA of consecutive same-colour leaves; as described in Gusfield 1997 §7.6 / §9.7 — the paper itself was not opened).
+- MUMmer 3.23 `src/tigr/repeat-match.cc` (A. Delcher; `List_Maximal_Matches`, `List_Matches`, `-f`, `-n`) — Ubuntu orig tarball `mummer_3.23+dfsg.orig.tar.xz`.
+- Rosalind LCSM "Finding a Shared Motif" (sample dataset GATTACA / TAGACCA / ATACA → `AC`; rosalind.info blocked, confirmed via WebSearch of solution repositories).
 - Chang, W.I., Lawler, E.L. (1994). *Sublinear approximate string matching and biological applications.* Algorithmica 12:327–344 (matching statistics).
 - https://visualgo.net/en/suffixtree
 

@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_k_common_substrings",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.FindLongestCommonSubstrings",
+  "docRef": "SuffixTree/SuffixTree.Repeats.cs#L27",
+  "description": "Find every distinct longest substring present in at least minSupport of the texts (default all: Rosalind LCSM) via a generalized suffix tree (Gusfield 1997 §7.6), plus l(q) for every q.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "texts": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The input texts (at least one; none null)",
+        "minItems": 1
+      },
+      "minSupport": {
+        "type": "integer",
+        "description": "Minimum number of texts that must contain the substring (1..k; default k = all)",
+        "minimum": 1
+      }
+    },
+    "required": [
+      "texts"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "substrings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Every longest substring present in at least minSupport texts, sorted ordinally"
+      },
+      "length": {
+        "type": "integer"
+      },
+      "minSupport": {
+        "type": "integer"
+      },
+      "lengthsBySupport": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "description": "Element q-1 = longest length present in at least q texts (q = 1..k)"
+      }
+    },
+    "required": [
+      "substrings",
+      "length",
+      "minSupport",
+      "lengthsBySupport"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Texts cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Texts cannot contain null"
+    },
+    {
+      "code": 1003,
+      "message": "minSupport must be between 1 and the number of texts"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Rosalind LCSM sample",
+      "input": {
+        "texts": [
+          "GATTACA",
+          "TAGACCA",
+          "ATACA"
+        ]
+      },
+      "output": {
+        "substrings": [
+          "AC",
+          "CA",
+          "TA"
+        ],
+        "length": 2,
+        "minSupport": 3,
+        "lengthsBySupport": [
+          7,
+          4,
+          2
+        ]
+      }
+    },
+    {
+      "name": "Present in at least two",
+      "input": {
+        "texts": [
+          "GATTACA",
+          "TAGACCA",
+          "ATACA"
+        ],
+        "minSupport": 2
+      },
+      "output": {
+        "substrings": [
+          "TACA"
+        ],
+        "length": 4,
+        "minSupport": 2,
+        "lengthsBySupport": [
+          7,
+          4,
+          2
+        ]
+      }
+    }
+  ]
+}

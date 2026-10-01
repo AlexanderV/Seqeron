@@ -112,14 +112,17 @@
 | `find_longest_common_region` | Core | `GenomicAnalyzer.FindLongestCommonRegion` | [doc](../../../../docs/mcp/tools/core/find_longest_common_region.md) |
 | `find_longest_repeat` | Core | `GenomicAnalyzer.FindLongestRepeat` | [doc](../../../../docs/mcp/tools/core/find_longest_repeat.md) |
 | `hamming_distance` | Core | `ApproximateMatcher.HammingDistance` | [doc](../../../../docs/mcp/tools/core/hamming_distance.md) |
+| `suffix_tree_all_lcs` | Core | `SuffixTree.FindAllDistinctLongestCommonSubstrings` | [doc](../../../../docs/mcp/tools/core/suffix_tree_all_lcs.md) |
 | `suffix_tree_all_lrs` | Core | `SuffixTree.FindAllLongestRepeatedSubstrings` | [doc](../../../../docs/mcp/tools/core/suffix_tree_all_lrs.md) |
 | `suffix_tree_contains` | Core | `SuffixTree.Contains` | [doc](../../../../docs/mcp/tools/core/suffix_tree_contains.md) |
 | `suffix_tree_count` | Core | `SuffixTree.CountOccurrences` | [doc](../../../../docs/mcp/tools/core/suffix_tree_count.md) |
 | `suffix_tree_find_all` | Core | `SuffixTree.FindAllOccurrences` | [doc](../../../../docs/mcp/tools/core/suffix_tree_find_all.md) |
 | `suffix_tree_find_mems` | Core | `SuffixTree.FindMaximalExactMatches` | [doc](../../../../docs/mcp/tools/core/suffix_tree_find_mems.md) |
 | `suffix_tree_find_mums` | Core | `SuffixTree.FindMaximalUniqueMatches` | [doc](../../../../docs/mcp/tools/core/suffix_tree_find_mums.md) |
+| `suffix_tree_k_common_substrings` | Core | `SuffixTree.FindLongestCommonSubstrings` | [doc](../../../../docs/mcp/tools/core/suffix_tree_k_common_substrings.md) |
 | `suffix_tree_lcs` | Core | `SuffixTree.LongestCommonSubstring` | [doc](../../../../docs/mcp/tools/core/suffix_tree_lcs.md) |
 | `suffix_tree_lrs` | Core | `SuffixTree.LongestRepeatedSubstring` | [doc](../../../../docs/mcp/tools/core/suffix_tree_lrs.md) |
+| `suffix_tree_maximal_repeats` | Core | `SuffixTree.FindMaximalRepeatedPairs` | [doc](../../../../docs/mcp/tools/core/suffix_tree_maximal_repeats.md) |
 | `suffix_tree_stats` | Core | `SuffixTree.Properties` | [doc](../../../../docs/mcp/tools/core/suffix_tree_stats.md) |
 
 <!-- END generated -->

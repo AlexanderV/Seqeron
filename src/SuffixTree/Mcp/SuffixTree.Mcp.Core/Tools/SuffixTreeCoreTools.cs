@@ -174,6 +174,75 @@ public class SuffixTreeCoreTools
         return ToMaximalMatchesResult(tree.FindMaximalUniqueMatches(query, minLength, mode));
     }
 
+    /// <summary>
+    /// Find every maximal repeated pair of a text (MUMmer repeat-match -f).
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_maximal_repeats", Title = "Suffix Tree — Maximal Repeated Pairs", ReadOnly = true)]
+    [Description("Find every maximal repeated pair (firstPosition < secondPosition, length >= minLength) of a text: two equal substrings that cannot be extended to the left or to the right (Gusfield 1997 §7.12; MUMmer 3 'repeat-match -f -n minLength', forward strand). Copies may overlap. Characters listed in uniqueSymbols (or every non-ACGT character with nonAcgtUnique) never match, not even themselves. 0-based; sorted by firstPosition, then secondPosition.")]
+    public static SuffixTreeMaximalRepeatsResult SuffixTreeMaximalRepeats(
+        [Description("The text to analyze")] string text,
+        [Description("Minimum repeat length (>= 1; repeat-match default 20)")] int minLength = 20,
+        [Description("Characters treated as unique separators that never match, e.g. \"N$\" (default: none, like repeat-match)")] string? uniqueSymbols = null,
+        [Description("Treat every character other than upper-case A, C, G, T as unique (default false)")] bool nonAcgtUnique = false)
+    {
+        if (string.IsNullOrEmpty(text))
+            throw new ArgumentException("Text cannot be null or empty", nameof(text));
+        if (minLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minLength), "minLength must be >= 1");
+
+        Func<char, bool>? isUnique = null;
+        if (nonAcgtUnique || !string.IsNullOrEmpty(uniqueSymbols))
+        {
+            string listed = uniqueSymbols ?? string.Empty;
+            isUnique = c => (nonAcgtUnique && c is not ('A' or 'C' or 'G' or 'T')) || listed.Contains(c);
+        }
+
+        var pairs = global::SuffixTree.SuffixTree.Build(text).FindMaximalRepeatedPairs(minLength, isUnique);
+        return new SuffixTreeMaximalRepeatsResult(
+            pairs.Select(p => new MaximalRepeatItem(p.FirstPosition, p.SecondPosition, p.Length)).ToArray());
+    }
+
+    /// <summary>
+    /// Find every distinct longest common substring of two texts (all ties) with all positions.
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_all_lcs", Title = "Suffix Tree — All Longest Common Substrings", ReadOnly = true)]
+    [Description("Find every distinct longest common substring of two texts (all length ties, unlike suffix_tree_lcs which returns one), each with all 0-based start positions in text1 and in text2 (ascending); substrings ordered by first occurrence in text2. Empty when no character is shared.")]
+    public static SuffixTreeAllLcsResult SuffixTreeAllLcs(
+        [Description("The first text (the suffix tree is built on it)")] string text1,
+        [Description("The second text")] string text2)
+    {
+        if (string.IsNullOrEmpty(text1))
+            throw new ArgumentException("Text1 cannot be null or empty", nameof(text1));
+        if (string.IsNullOrEmpty(text2))
+            throw new ArgumentException("Text2 cannot be null or empty", nameof(text2));
+
+        var all = global::SuffixTree.SuffixTree.Build(text1).FindAllDistinctLongestCommonSubstrings(text2);
+        var items = all.Select(a => new CommonSubstringItem(a.Substring, a.PositionsInText.ToArray(), a.PositionsInOther.ToArray())).ToArray();
+        return new SuffixTreeAllLcsResult(items, items.Length == 0 ? 0 : items[0].Substring.Length);
+    }
+
+    /// <summary>
+    /// Longest substring(s) common to k strings, or present in at least minSupport of them.
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_k_common_substrings", Title = "Suffix Tree — Longest Common Substring of k Strings", ReadOnly = true)]
+    [Description("Find every distinct longest substring that occurs in at least minSupport of the given texts (default: all of them = longest common substring of k strings, Rosalind LCSM), via a generalized suffix tree (Gusfield 1997 §7.6 k-common substring problem). Also returns lengthsBySupport[q] = length of the longest substring present in at least q texts (q = 1..k). Substrings sorted ordinally.")]
+    public static SuffixTreeKCommonSubstringsResult SuffixTreeKCommonSubstrings(
+        [Description("The input texts (at least one; none null)")] string[] texts,
+        [Description("Minimum number of texts that must contain the substring (1..k; default k = all)")] int? minSupport = null)
+    {
+        if (texts == null || texts.Length == 0)
+            throw new ArgumentException("Texts cannot be null or empty", nameof(texts));
+        if (texts.Any(t => t == null))
+            throw new ArgumentException("Texts cannot contain null", nameof(texts));
+        int q = minSupport ?? texts.Length;
+        if (q < 1 || q > texts.Length)
+            throw new ArgumentOutOfRangeException(nameof(minSupport), "minSupport must be between 1 and the number of texts");
+
+        var substrings = global::SuffixTree.SuffixTree.FindLongestCommonSubstrings(texts, q);
+        var lengths = global::SuffixTree.SuffixTree.LongestCommonSubstringLengthsBySupport(texts);
+        return new SuffixTreeKCommonSubstringsResult(substrings.ToArray(), lengths[q], q, lengths[1..]);
+    }
+
     private static SuffixTreeMaximalMatchesResult ToMaximalMatchesResult(
         IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> matches)
         => new(matches.Select(m => new MaximalMatchItem(m.PositionInText, m.PositionInQuery, m.Length)).ToArray());

@@ -21,7 +21,10 @@ public class ToolRegistrationContractTests
             "suffix_tree_stats",
             "suffix_tree_all_lrs",
             "suffix_tree_find_mems",
-            "suffix_tree_find_mums"
+            "suffix_tree_find_mums",
+            "suffix_tree_maximal_repeats",
+            "suffix_tree_all_lcs",
+            "suffix_tree_k_common_substrings"
         };
 
         Assert.That(registered.Values, Is.EquivalentTo(expected));

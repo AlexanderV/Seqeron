@@ -136,6 +136,23 @@ public sealed partial class PersistentSuffixTree
         return (results.Substring, results.PositionsInText, results.PositionsInOther);
     }
 
+    /// <inheritdoc />
+    public IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>
+        FindAllDistinctLongestCommonSubstrings(string other)
+    {
+        ThrowIfDisposed();
+        var nav = CreateNavigator();
+        return SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstrings<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, other);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<(int FirstPosition, int SecondPosition, int Length)> FindMaximalRepeatedPairs(
+        int minLength, Func<char, bool>? isUniqueSymbol = null)
+    {
+        ThrowIfDisposed();
+        return SuffixTreeAlgorithms.FindMaximalRepeatedPairs(this, minLength, isUniqueSymbol);
+    }
+
     /// <summary>
     /// O(m) LCS using suffix-link-based streaming — delegates to shared <see cref="SuffixTreeAlgorithms"/>.
     /// </summary>

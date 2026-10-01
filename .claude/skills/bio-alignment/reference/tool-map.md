@@ -1,4 +1,4 @@
-# bio-alignment tool map (41 tools)
+# bio-alignment tool map (44 tools)
 
 Grouped by sub-task. Each row: **[MCP] tool** · `Method ID` · one-line purpose. Open the linked
 per-tool doc for the full I/O schema — do not guess parameters. Servers: **Alignment** (26), **Core** (15).
@@ -59,6 +59,9 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`suffix_tree_all_lrs`](../../../../docs/mcp/tools/core/suffix_tree_all_lrs.md) | `SuffixTree.FindAllLongestRepeatedSubstrings` | Every tied longest repeated substring with all positions. |
 | [`suffix_tree_find_mems`](../../../../docs/mcp/tools/core/suffix_tree_find_mems.md) | `SuffixTree.FindMaximalExactMatches` | All maximal exact matches ≥ minLength between reference and query (MUMmer `-maxmatch`). |
 | [`suffix_tree_find_mums`](../../../../docs/mcp/tools/core/suffix_tree_find_mums.md) | `SuffixTree.FindMaximalUniqueMatches` | Maximal unique matches (MUMmer `-mum` / `-mumreference`). |
+| [`suffix_tree_all_lcs`](../../../../docs/mcp/tools/core/suffix_tree_all_lcs.md) | `SuffixTree.FindAllDistinctLongestCommonSubstrings` | Every tied longest common substring of two texts with all positions in both. |
+| [`suffix_tree_k_common_substrings`](../../../../docs/mcp/tools/core/suffix_tree_k_common_substrings.md) | `SuffixTree.FindLongestCommonSubstrings` | Longest substring(s) common to k strings or ≥ minSupport of them (Rosalind LCSM; l(q) for every q). |
+| [`suffix_tree_maximal_repeats`](../../../../docs/mcp/tools/core/suffix_tree_maximal_repeats.md) | `SuffixTree.FindMaximalRepeatedPairs` | All maximal repeated pairs ≥ minLength in one text (MUMmer `repeat-match -f`; optional unique symbols such as N). |
 
 ## Exact substring queries (Core suffix tree)
 

@@ -11,6 +11,9 @@
 | suffix_tree_all_lrs | Core | SuffixTree.FindAllLongestRepeatedSubstrings | SuffixTree.Algorithms.cs#L67 | 2/2 | ✓ | ✓ | Ready |
 | suffix_tree_find_mems | Core | SuffixTree.FindMaximalExactMatches | SuffixTree.Algorithms.cs#L205 | 2/2 | ✓ | ✓ | Ready |
 | suffix_tree_find_mums | Core | SuffixTree.FindMaximalUniqueMatches | SuffixTree.Algorithms.cs#L213 | 2/2 | ✓ | ✓ | Ready |
+| suffix_tree_maximal_repeats | Core | SuffixTree.FindMaximalRepeatedPairs | SuffixTree.Repeats.cs#L17 | 2/2 | ✓ | ✓ | Ready |
+| suffix_tree_all_lcs | Core | SuffixTree.FindAllDistinctLongestCommonSubstrings | SuffixTree.Repeats.cs#L9 | 2/2 | ✓ | ✓ | Ready |
+| suffix_tree_k_common_substrings | Core | SuffixTree.FindLongestCommonSubstrings | SuffixTree.Repeats.cs#L27 | 2/2 | ✓ | ✓ | Ready |
 | find_longest_repeat | Core | GenomicAnalyzer.FindLongestRepeat | GenomicAnalyzer.cs#L20 | 2/2 | ✓ | ✓ | Ready |
 | find_longest_common_region | Core | GenomicAnalyzer.FindLongestCommonRegion | GenomicAnalyzer.cs#L178 | 2/2 | ✓ | ✓ | Ready |
 | calculate_similarity | Core | GenomicAnalyzer.CalculateSimilarity | GenomicAnalyzer.cs#L238 | 2/2 | ✓ | ✓ | Ready |

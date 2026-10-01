@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_all_lcs",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.FindAllDistinctLongestCommonSubstrings",
+  "docRef": "SuffixTree/SuffixTree.Repeats.cs#L9",
+  "description": "Find every distinct longest common substring of two texts (all length ties), each with all 0-based positions in text1 and text2 (ascending); ordered by first occurrence in text2.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text1": {
+        "type": "string",
+        "description": "The first text (the suffix tree is built on it)",
+        "minLength": 1
+      },
+      "text2": {
+        "type": "string",
+        "description": "The second text",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "text1",
+      "text2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "substrings": {
+        "type": "array",
+        "description": "Every longest common substring, ordered by first occurrence in text2",
+        "items": {
+          "type": "object",
+          "properties": {
+            "substring": {
+              "type": "string"
+            },
+            "positionsInText1": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "positionsInText2": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          "required": [
+            "substring",
+            "positionsInText1",
+            "positionsInText2"
+          ]
+        }
+      },
+      "length": {
+        "type": "integer",
+        "description": "Common length of the substrings (0 when none)"
+      }
+    },
+    "required": [
+      "substrings",
+      "length"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Text1 cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Text2 cannot be null or empty"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Two tied LCS",
+      "input": {
+        "text1": "abcxyzabc",
+        "text2": "xyzqabcpxyz"
+      },
+      "output": {
+        "substrings": [
+          {
+            "substring": "xyz",
+            "positionsInText1": [
+              3
+            ],
+            "positionsInText2": [
+              0,
+              8
+            ]
+          },
+          {
+            "substring": "abc",
+            "positionsInText1": [
+              0,
+              6
+            ],
+            "positionsInText2": [
+              4
+            ]
+          }
+        ],
+        "length": 3
+      }
+    }
+  ]
+}

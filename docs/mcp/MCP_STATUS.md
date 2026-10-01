@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 443 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 446 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,15 +9,15 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 443 | 443 |
-| Schema+Binding tests | 443 | 443 |
-| Docs (.md + .mcp.json) | 443 | 443 |
+| Gold-standard binding | 446 | 446 |
+| Schema+Binding tests | 446 | 446 |
+| Docs (.md + .mcp.json) | 446 | 446 |
 
 ## Per-server summary
 
 | Server | Project | Tools | B | T | D | Status |
 |---|---|---:|:--:|:--:|:--:|---|
-| Core | SuffixTree.Mcp.Core | 15 | 15/15 | 15/15 | 15/15 | ✅ done |
+| Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 26 | 26/26 | 26/26 | 26/26 | ✅ done |
@@ -31,7 +31,7 @@
 
 ## Per-tool ledger
 
-### Core (SuffixTree.Mcp.Core) — 15 tools
+### Core (SuffixTree.Mcp.Core) — 18 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -41,15 +41,18 @@
 | 4 | `find_longest_common_region` | ☑ | ☑ | ☑ |
 | 5 | `find_longest_repeat` | ☑ | ☑ | ☑ |
 | 6 | `hamming_distance` | ☑ | ☑ | ☑ |
-| 7 | `suffix_tree_all_lrs` | ☑ | ☑ | ☑ |
-| 8 | `suffix_tree_contains` | ☑ | ☑ | ☑ |
-| 9 | `suffix_tree_count` | ☑ | ☑ | ☑ |
-| 10 | `suffix_tree_find_all` | ☑ | ☑ | ☑ |
-| 11 | `suffix_tree_find_mems` | ☑ | ☑ | ☑ |
-| 12 | `suffix_tree_find_mums` | ☑ | ☑ | ☑ |
-| 13 | `suffix_tree_lcs` | ☑ | ☑ | ☑ |
-| 14 | `suffix_tree_lrs` | ☑ | ☑ | ☑ |
-| 15 | `suffix_tree_stats` | ☑ | ☑ | ☑ |
+| 7 | `suffix_tree_all_lcs` | ☑ | ☑ | ☑ |
+| 8 | `suffix_tree_all_lrs` | ☑ | ☑ | ☑ |
+| 9 | `suffix_tree_contains` | ☑ | ☑ | ☑ |
+| 10 | `suffix_tree_count` | ☑ | ☑ | ☑ |
+| 11 | `suffix_tree_find_all` | ☑ | ☑ | ☑ |
+| 12 | `suffix_tree_find_mems` | ☑ | ☑ | ☑ |
+| 13 | `suffix_tree_find_mums` | ☑ | ☑ | ☑ |
+| 14 | `suffix_tree_k_common_substrings` | ☑ | ☑ | ☑ |
+| 15 | `suffix_tree_lcs` | ☑ | ☑ | ☑ |
+| 16 | `suffix_tree_lrs` | ☑ | ☑ | ☑ |
+| 17 | `suffix_tree_maximal_repeats` | ☑ | ☑ | ☑ |
+| 18 | `suffix_tree_stats` | ☑ | ☑ | ☑ |
 
 ### Sequence (Seqeron.Mcp.Sequence) — 35 tools
 

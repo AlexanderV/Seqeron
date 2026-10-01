@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_maximal_repeats",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.FindMaximalRepeatedPairs",
+  "docRef": "SuffixTree/SuffixTree.Repeats.cs#L17",
+  "description": "Find every maximal repeated pair (firstPosition < secondPosition, length >= minLength) of a text (MUMmer 3 'repeat-match -f -n minLength', forward strand); optional unique (never-matching) symbols; 0-based, sorted by first then second position.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text to analyze",
+        "minLength": 1
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum repeat length (>= 1; repeat-match default 20)",
+        "minimum": 1,
+        "default": 20
+      },
+      "uniqueSymbols": {
+        "type": "string",
+        "description": "Characters treated as unique separators that never match, e.g. \"N$\" (default: none, like repeat-match)"
+      },
+      "nonAcgtUnique": {
+        "type": "boolean",
+        "description": "Treat every character other than upper-case A, C, G, T as unique (default false)",
+        "default": false
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "pairs": {
+        "type": "array",
+        "description": "Maximal repeated pairs sorted by first, then second position",
+        "items": {
+          "type": "object",
+          "properties": {
+            "firstPosition": {
+              "type": "integer"
+            },
+            "secondPosition": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "firstPosition",
+            "secondPosition",
+            "length"
+          ]
+        }
+      }
+    },
+    "required": [
+      "pairs"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Text cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "minLength must be >= 1"
+    }
+  ],
+  "examples": [
+    {
+      "name": "repeat-match -f -n 3 (Gusfield xabcyabcwabcyz)",
+      "input": {
+        "text": "xabcyabcwabcyz",
+        "minLength": 3
+      },
+      "output": {
+        "pairs": [
+          {
+            "firstPosition": 1,
+            "secondPosition": 5,
+            "length": 3
+          },
+          {
+            "firstPosition": 1,
+            "secondPosition": 9,
+            "length": 4
+          },
+          {
+            "firstPosition": 5,
+            "secondPosition": 9,
+            "length": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "N as a unique symbol",
+      "input": {
+        "text": "ACGTNACGTNACGT",
+        "minLength": 3,
+        "uniqueSymbols": "N"
+      },
+      "output": {
+        "pairs": [
+          {
+            "firstPosition": 0,
+            "secondPosition": 5,
+            "length": 4
+          },
+          {
+            "firstPosition": 0,
+            "secondPosition": 10,
+            "length": 4
+          },
+          {
+            "firstPosition": 5,
+            "secondPosition": 10,
+            "length": 4
+          }
+        ]
+      }
+    }
+  ]
+}
