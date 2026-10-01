@@ -241,6 +241,32 @@ public class AnalysisTools
         return new KmerListResult(kmers);
     }
 
+    [McpServerTool(Name = "find_clump_windows", Title = "k-mers — Clump Windows", ReadOnly = true)]
+    [Description("(L, t)-clump k-mers with the windows in which they form clumps: for each k-mer, the maximal runs of consecutive 0-based window starts i such that sequence[i..i+windowSize-1] holds at least minOccurrences occurrences (run [first, last] covers sequence[first..last+windowSize-1]). Same k-mer set as find_clumps; ordered by first qualifying window, then k-mer. Bioinformatics Algorithms Ch. 1 / Rosalind BA1E.")]
+    public static KmerClumpWindowsResult FindClumpWindows(
+        [Description("Sequence to scan.")] string sequence,
+        [Description("k-mer length.")] int k,
+        [Description("Sliding window size L (>= k).")] int windowSize,
+        [Description("Minimum occurrences t within a window (>0).")] int minOccurrences)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+        if (windowSize < k)
+            throw new ArgumentException("Window size must be at least k", nameof(windowSize));
+        if (minOccurrences <= 0)
+            throw new ArgumentException("Minimum occurrences must be positive", nameof(minOccurrences));
+
+        var clumps = KmerAnalyzer.FindClumpWindows(sequence, k, windowSize, minOccurrences)
+            .Select(c => new KmerClumpItem(
+                c.Kmer,
+                c.FirstWindowStart,
+                c.WindowRuns.Select(r => new ClumpWindowRunItem(r.FirstWindowStart, r.LastWindowStart)).ToArray()))
+            .ToArray();
+        return new KmerClumpWindowsResult(clumps);
+    }
+
     [McpServerTool(Name = "kmer_positions", Title = "k-mers — Find Positions", ReadOnly = true)]
     [Description("Zero-based positions of all (overlapping) occurrences of a k-mer.")]
     public static KmerPositionsResult KmerPositions(

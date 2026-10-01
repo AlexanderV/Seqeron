@@ -40,7 +40,7 @@
 | complement_base | Sequence | SequenceExtensions.GetComplementBase | SequenceExtensions.cs#L83 | 2/2 | ✓ | ✓ | Ready |
 | is_valid_dna | Sequence | SequenceExtensions.IsValidDna | SequenceExtensions.cs#L210 | 2/2 | ✓ | ✓ | Ready |
 | is_valid_rna | Sequence | SequenceExtensions.IsValidRna | SequenceExtensions.cs#L225 | 2/2 | ✓ | ✓ | Ready |
-| kmer_entropy | Sequence | KmerAnalyzer.CalculateKmerEntropy | KmerAnalyzer.cs#L243 | 2/2 | ✓ | ✓ | Ready |
+| kmer_entropy | Sequence | KmerAnalyzer.CalculateKmerEntropy | KmerAnalyzer.cs#L1497 | 2/2 | ✓ | ✓ | Ready |
 | find_orfs | Annotation | GenomeAnnotator.FindOrfs | Annotation/GenomeAnnotator.cs#L90 | 0/0 | – | – | Build-Ready |
 | longest_orfs_per_frame | Annotation | GenomeAnnotator.FindLongestOrfsPerFrame | Annotation/GenomeAnnotator.cs#L217 | 0/0 | – | – | Build-Ready |
 | find_ribosome_binding_sites | Annotation | GenomeAnnotator.FindRibosomeBindingSites | Annotation/GenomeAnnotator.cs#L246 | 0/0 | – | – | Build-Ready |
@@ -188,7 +188,7 @@
 | alphabet_pwm_score_pvalue | Analysis | MotifFinder.AlphabetPwmScorePValue | MotifFinder.PwmPValue.cs#L190 | 2/2 | ✓ | ✓ | Ready |
 | alphabet_pwm_score_thresholds | Analysis | AlphabetPositionWeightMatrix.ScoreDistribution | MotifFinder.AlphabetPwm.cs#L394 | 1/1 | ✓ | ✓ | Ready |
 | analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L243 | 0/0 | – | – | Build-Ready |
-| analyze_kmers | Analysis | KmerAnalyzer.AnalyzeKmers | KmerAnalyzer.cs#L382 | 0/0 | – | – | Build-Ready |
+| analyze_kmers | Analysis | KmerAnalyzer.AnalyzeKmers | KmerAnalyzer.cs#L1887 | 0/0 | – | – | Build-Ready |
 | at_skew | Analysis | GcSkewCalculator.CalculateAtSkew | GcSkewCalculator.cs#L172 | 0/0 | – | – | Build-Ready |
 | base_pair_type | Analysis | RnaSecondaryStructure.GetBasePairType | RnaSecondaryStructure.cs#L565 | 0/0 | – | – | Build-Ready |
 | bulge_loop_energy | Analysis | RnaSecondaryStructure.CalculateBulgeLoopEnergy | RnaSecondaryStructure.cs#L890 | 0/0 | – | – | Build-Ready |
@@ -197,8 +197,8 @@
 | codon_frequencies | Analysis | SequenceStatistics.CalculateCodonFrequencies | SequenceStatistics.cs#L565 | 0/0 | – | – | Build-Ready |
 | compare_genomes | Analysis | ComparativeGenomics.CompareGenomes | ComparativeGenomics.cs#L390 | 0/0 | – | – | Build-Ready |
 | compression_ratio | Analysis | SequenceComplexity.EstimateCompressionRatio | SequenceComplexity.cs#L1772 | 0/0 | – | – | Build-Ready |
-| count_kmers | Analysis | KmerAnalyzer.CountKmers | KmerAnalyzer.cs#L20 | 0/0 | – | – | Build-Ready |
-| count_kmers_both_strands | Analysis | KmerAnalyzer.CountKmersBothStrands | KmerAnalyzer.cs#L361 | 0/0 | – | – | Build-Ready |
+| count_kmers | Analysis | KmerAnalyzer.CountKmers | KmerAnalyzer.cs#L83 | 0/0 | – | – | Build-Ready |
+| count_kmers_both_strands | Analysis | KmerAnalyzer.CountKmersBothStrands | KmerAnalyzer.cs#L1806 | 0/0 | – | – | Build-Ready |
 | create_alphabet_pwm | Analysis | MotifFinder.CreateAlphabetPwm | MotifFinder.AlphabetPwm.cs#L42 | 2/2 | ✓ | ✓ | Ready |
 | create_pwm | Analysis | MotifFinder.CreatePwm | MotifFinder.cs#L196 | 0/0 | – | – | Build-Ready |
 | cumulative_gc_skew | Analysis | GcSkewCalculator.CalculateCumulativeGcSkew | GcSkewCalculator.cs#L130 | 0/0 | – | – | Build-Ready |
@@ -214,7 +214,8 @@
 | entropy_profile | Analysis | SequenceStatistics.CalculateEntropyProfile | SequenceStatistics.cs#L730 | 0/0 | – | – | Build-Ready |
 | find_approximate_direct_repeats | Analysis | RepeatFinder.FindApproximateDirectRepeats | RepeatFinder.cs#L4847 | 2/2 | ✓ | ✓ | Ready |
 | find_approximate_tandem_repeats | Analysis | RepeatFinder.FindApproximateTandemRepeats | RepeatFinder.cs#L1002 | 2/2 | ✓ | ✓ | Ready |
-| find_clumps | Analysis | KmerAnalyzer.FindClumps | KmerAnalyzer.cs#L286 | 0/0 | – | – | Build-Ready |
+| find_clump_windows | Analysis | KmerAnalyzer.FindClumpWindows | KmerAnalyzer.cs#L1585 | 2/2 | ✓ | ✓ | Ready |
+| find_clumps | Analysis | KmerAnalyzer.FindClumps | KmerAnalyzer.cs#L1544 | 0/0 | – | – | Build-Ready |
 | find_common_regions | Analysis | GenomicAnalyzer.FindCommonRegions | GenomicAnalyzer.cs#L189 | 0/0 | – | – | Build-Ready |
 | find_conserved_clusters | Analysis | ComparativeGenomics.FindConservedClusters | ComparativeGenomics.cs#L460 | 0/0 | – | – | Build-Ready |
 | find_degenerate_motif | Analysis | MotifFinder.FindDegenerateMotif | MotifFinder.cs#L88 | 0/0 | – | – | Build-Ready |
@@ -253,7 +254,7 @@
 | flush_coaxial_stacking | Analysis | RnaSecondaryStructure.CalculateFlushCoaxialStacking | RnaSecondaryStructure.cs#L955 | 0/0 | – | – | Build-Ready |
 | gc_content_profile | Analysis | SequenceStatistics.CalculateGcContentProfile | SequenceStatistics.cs#L700 | 0/0 | – | – | Build-Ready |
 | gc_skew | Analysis | GcSkewCalculator.CalculateGcSkew | GcSkewCalculator.cs#L29 | 0/0 | – | – | Build-Ready |
-| generate_all_kmers | Analysis | KmerAnalyzer.GenerateAllKmers | KmerAnalyzer.cs#L236 | 0/0 | – | – | Build-Ready |
+| generate_all_kmers | Analysis | KmerAnalyzer.GenerateAllKmers | KmerAnalyzer.cs#L1437 | 0/0 | – | – | Build-Ready |
 | generate_cavener_consensus | Analysis | MotifFinder.GenerateCavenerConsensus | MotifFinder.cs#L492 | 2/2 | ✓ | ✓ | Ready |
 | generate_consensus | Analysis | MotifFinder.GenerateConsensus | MotifFinder.cs#L441 | 0/0 | – | – | Build-Ready |
 | generate_decipher_consensus | Analysis | MotifFinder.GenerateDecipherConsensus | MotifFinder.DecipherConsensus.cs#L110 | 3/3 | ✓ | ✓ | Ready |
@@ -264,19 +265,19 @@
 | hydrophobicity_profile | Analysis | SequenceStatistics.CalculateHydrophobicityProfile | SequenceStatistics.cs#L324 | 0/0 | – | – | Build-Ready |
 | internal_loop_energy | Analysis | RnaSecondaryStructure.CalculateInternalLoopEnergy | RnaSecondaryStructure.cs#L825 | 0/0 | – | – | Build-Ready |
 | is_disorder_promoting | Analysis | DisorderPredictor.IsDisorderPromoting | DisorderPredictor.cs#L658 | 0/0 | – | – | Build-Ready |
-| kmer_distance | Analysis | KmerAnalyzer.KmerDistance | KmerAnalyzer.cs#L194 | 0/0 | – | – | Build-Ready |
-| kmer_frequencies | Analysis | KmerAnalyzer.GetKmerFrequencies | KmerAnalyzer.cs#L177 | 0/0 | – | – | Build-Ready |
-| kmer_jaccard | Analysis | KmerAnalyzer.JaccardSimilarity / KmerAnalyzer.MashDistance | KmerAnalyzer.cs | 0/0 | – | – | Build-Ready |
-| kmer_positions | Analysis | KmerAnalyzer.FindKmerPositions | KmerAnalyzer.cs#L342 | 0/0 | – | – | Build-Ready |
-| kmer_spectrum | Analysis | KmerAnalyzer.GetKmerSpectrum | KmerAnalyzer.cs#L142 | 0/0 | – | – | Build-Ready |
-| kmers_with_min_count | Analysis | KmerAnalyzer.FindKmersWithMinCount | KmerAnalyzer.cs#L222 | 0/0 | – | – | Build-Ready |
+| kmer_distance | Analysis | KmerAnalyzer.KmerDistance | KmerAnalyzer.cs#L700 | 0/0 | – | – | Build-Ready |
+| kmer_frequencies | Analysis | KmerAnalyzer.GetKmerFrequencies | KmerAnalyzer.cs#L617 | 0/0 | – | – | Build-Ready |
+| kmer_jaccard | Analysis | KmerAnalyzer.JaccardSimilarity / KmerAnalyzer.MashDistance | KmerAnalyzer.cs#L1136 | 2/2 | ✓ | ✓ | Ready |
+| kmer_positions | Analysis | KmerAnalyzer.FindKmerPositions | KmerAnalyzer.cs#L1701 | 0/0 | – | – | Build-Ready |
+| kmer_spectrum | Analysis | KmerAnalyzer.GetKmerSpectrum | KmerAnalyzer.cs#L423 | 0/0 | – | – | Build-Ready |
+| kmers_with_min_count | Analysis | KmerAnalyzer.FindKmersWithMinCount | KmerAnalyzer.cs#L1382 | 0/0 | – | – | Build-Ready |
 | lempel_ziv_complexity | Analysis | SequenceComplexity.CalculateLempelZivComplexity | SequenceComplexity.cs#L1722 | 2/2 | ✓ | ✓ | Ready |
 | longdust_score | Analysis | SequenceComplexity.CalculateLongdustScore | SequenceComplexity.cs#L1273 | 2/2 | ✓ | ✓ | Ready |
 | mask_approximate_tandem_repeats | Analysis | RepeatFinder.MaskApproximateTandemRepeats | RepeatFinder.cs#L1039 | 2/2 | ✓ | ✓ | Ready |
 | mask_low_complexity | Analysis | SequenceComplexity.MaskLowComplexity | SequenceComplexity.cs#L979 | 0/0 | – | – | Build-Ready |
 | minimum_free_energy | Analysis | RnaSecondaryStructure.CalculateMinimumFreeEnergy | RnaSecondaryStructure.cs#L985 | 0/0 | – | – | Build-Ready |
 | mismatch_coaxial_stacking | Analysis | RnaSecondaryStructure.CalculateMismatchCoaxialStacking | RnaSecondaryStructure.cs#L965 | 0/0 | – | – | Build-Ready |
-| most_frequent_kmers | Analysis | KmerAnalyzer.FindMostFrequentKmers | KmerAnalyzer.cs#L160 | 0/0 | – | – | Build-Ready |
+| most_frequent_kmers | Analysis | KmerAnalyzer.FindMostFrequentKmers | KmerAnalyzer.cs#L590 | 0/0 | – | – | Build-Ready |
 | multibranch_loop_energy | Analysis | RnaSecondaryStructure.CalculateMultibranchLoopEnergy | RnaSecondaryStructure.cs#L940 | 0/0 | – | – | Build-Ready |
 | oligo_analysis | Analysis | MotifFinder.DiscoverMotifs | MotifFinder.OligoAnalysis.cs#L58 | 2/2 | ✓ | ✓ | Ready |
 | parse_dot_bracket | Analysis | RnaSecondaryStructure.ParseDotBracket | RnaSecondaryStructure.cs#L1395 | 0/0 | – | – | Build-Ready |
@@ -304,7 +305,7 @@
 | tandem_repeat_bernoulli_statistics | Analysis | RepeatFinder.ComputeBernoulliStatistics | RepeatFinder.cs#L3528 | 2/2 | ✓ | ✓ | Ready |
 | tandem_repeat_summary | Analysis | RepeatFinder.GetTandemRepeatSummary | RepeatFinder.cs#L6352 | 0/0 | – | – | Build-Ready |
 | terminal_mismatch_energy | Analysis | RnaSecondaryStructure.GetTerminalMismatchEnergy | RnaSecondaryStructure.cs#L725 | 0/0 | – | – | Build-Ready |
-| unique_kmers | Analysis | KmerAnalyzer.FindUniqueKmers | KmerAnalyzer.cs#L213 | 0/0 | – | – | Build-Ready |
+| unique_kmers | Analysis | KmerAnalyzer.FindUniqueKmers | KmerAnalyzer.cs#L1344 | 0/0 | – | – | Build-Ready |
 | validate_dot_bracket | Analysis | RnaSecondaryStructure.ValidateDotBracket | RnaSecondaryStructure.cs#L1418 | 0/0 | – | – | Build-Ready |
 | windowed_complexity | Analysis | SequenceComplexity.CalculateWindowedComplexity | SequenceComplexity.cs#L470 | 0/0 | – | – | Build-Ready |
 | windowed_gc_skew | Analysis | GcSkewCalculator.CalculateWindowedGcSkew | GcSkewCalculator.cs#L80 | 0/0 | – | – | Build-Ready |

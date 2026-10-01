@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **122 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **124 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (122)
+## Tools (124)
 
 | Tool | Description |
 |------|-------------|
@@ -48,6 +48,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `entropy_profile` | Shannon entropy in sliding windows along the sequence. |
 | `find_approximate_direct_repeats` | Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-… |
 | `find_approximate_tandem_repeats` | Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match… |
+| `find_clump_windows` | (L, t)-clump k-mers with the maximal runs of window starts in which they form clumps (same k-mer set as `find_clumps`). |
 | `find_clumps` | Finds k-mers that occur at least minOccurrences times within any sliding window of size windowSize. |
 | `find_common_regions` | All common regions between two DNA sequences with length >= minLength. |
 | `find_conserved_clusters` | Gene clusters preserved across multiple genomes. |

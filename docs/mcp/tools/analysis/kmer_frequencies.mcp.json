@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.GetKmerFrequencies",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L177",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L617",
   "description": "Normalized k-mer frequencies: each distinct k-mer's count divided by the total number of overlapping k-mers. Values are in [0,1] and sum to 1.",
   "inputSchema": {
     "type": "object",

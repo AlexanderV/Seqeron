@@ -22,7 +22,7 @@ sequence length the result is empty.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L156](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L156)
+- Source: [KmerAnalyzer.cs#L590](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L590)
 
 ## Input Schema
 

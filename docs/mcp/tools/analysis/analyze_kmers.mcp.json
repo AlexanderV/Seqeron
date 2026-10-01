@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.AnalyzeKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L680",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1887",
   "description": "Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters and canonical (count -C) / acgtOnly modes.",
   "inputSchema": {
     "type": "object",

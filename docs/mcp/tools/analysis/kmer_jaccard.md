@@ -8,13 +8,13 @@ Exact k-mer Jaccard similarity of two sequences and the Mash distance derived fr
 |----------|-------|
 | **Server** | Analysis |
 | **Tool Name** | `kmer_jaccard` |
-| **Method ID** | `KmerAnalyzer.JaccardSimilarity` (+ `KmerAnalyzer.MashDistance`) |
+| **Method ID** | `KmerAnalyzer.JaccardSimilarity` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 
 ## Description
 
-Decomposes each sequence into its **set** of distinct k-mers and returns the Jaccard index
+Delegates to `KmerAnalyzer.JaccardSimilarity` and `KmerAnalyzer.MashDistance` (same options). Decomposes each sequence into its **set** of distinct k-mers and returns the Jaccard index
 J = |A ∩ B| / |A ∪ B| (Jaccard 1901/1912) as a fraction in [0, 1], plus the Mash distance
 D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with Mash's boundary rules
 (identical sets → 0, nothing shared → 1, capped at 1). The value is exact (no MinHash sketch): it equals
@@ -28,7 +28,7 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L535](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L535)
+- Source: [KmerAnalyzer.cs#L1136](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1136)
 - Algorithm: [K-mer_Euclidean_Distance.md](../../../algorithms/K-mer/K-mer_Euclidean_Distance.md) §2.7
 
 ## Input Schema

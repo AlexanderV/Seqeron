@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.KmerDistance",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L392",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L700",
   "description": "Alignment-free word-vector distance between two sequences' k-mer composition. Default: Euclidean distance between the normalized k-mer frequency vectors (0 = identical composition). Optional metric: squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity). d2star / d2shepherd: background-adjusted d2* / d2S dissimilarities in [0,1] (Reinert et al. 2009; Song et al. 2014), Markov background of order markovOrder fitted to each sequence, ACGT words, k <= 12.",
   "inputSchema": {
     "type": "object",

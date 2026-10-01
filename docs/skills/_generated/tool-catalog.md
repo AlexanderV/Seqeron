@@ -36,7 +36,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (122 tools)
+## Analysis (124 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -69,6 +69,7 @@
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
 | `find_approximate_direct_repeats` | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/find_approximate_tandem_repeats.md) |
+| `find_clump_windows` | `KmerAnalyzer.FindClumpWindows` | [doc](../../mcp/tools/analysis/find_clump_windows.md) |
 | `find_clumps` | `KmerAnalyzer.FindClumps` | [doc](../../mcp/tools/analysis/find_clumps.md) |
 | `find_common_regions` | `GenomicAnalyzer.FindCommonRegions` | [doc](../../mcp/tools/analysis/find_common_regions.md) |
 | `find_conserved_clusters` | `ComparativeGenomics.FindConservedClusters` | [doc](../../mcp/tools/analysis/find_conserved_clusters.md) |
@@ -121,6 +122,7 @@
 | `is_disorder_promoting` | `DisorderPredictor.IsDisorderPromoting` | [doc](../../mcp/tools/analysis/is_disorder_promoting.md) |
 | `kmer_distance` | `KmerAnalyzer.KmerDistance` | [doc](../../mcp/tools/analysis/kmer_distance.md) |
 | `kmer_frequencies` | `KmerAnalyzer.GetKmerFrequencies` | [doc](../../mcp/tools/analysis/kmer_frequencies.md) |
+| `kmer_jaccard` | `KmerAnalyzer.JaccardSimilarity` | [doc](../../mcp/tools/analysis/kmer_jaccard.md) |
 | `kmer_positions` | `KmerAnalyzer.FindKmerPositions` | [doc](../../mcp/tools/analysis/kmer_positions.md) |
 | `kmer_spectrum` | `KmerAnalyzer.GetKmerSpectrum` | [doc](../../mcp/tools/analysis/kmer_spectrum.md) |
 | `kmers_with_min_count` | `KmerAnalyzer.FindKmersWithMinCount` | [doc](../../mcp/tools/analysis/kmers_with_min_count.md) |

@@ -32,7 +32,7 @@ Optional parameters (all additive; without them the result is unchanged):
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L136](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L136)
+- Source: [KmerAnalyzer.cs#L423](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L423)
 
 ## Input Schema
 

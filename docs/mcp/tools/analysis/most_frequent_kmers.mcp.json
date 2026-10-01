@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindMostFrequentKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L156",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L590",
   "description": "Returns every k-mer whose overlapping occurrence count equals the maximum (all k-mers tied for most frequent). Frequent Words Problem, Rosalind BA1B.",
   "inputSchema": {
     "type": "object",

@@ -52,4 +52,12 @@ public class KmerDistanceTests
         Assert.Throws<ArgumentException>(() => SequenceTools.KmerDistance(s1, s2, 3, "bogus"));
         Assert.Throws<ArgumentException>(() => SequenceTools.KmerDistance(s1, s2, 3, "cosine", 2));
     }
+
+    [Test]
+    public void KmerDistance_DocExample_MatchesScipy()
+    {
+        // docs/mcp/tools/sequence/kmer_distance.md Example 2: frequency vectors (ATG 2/6, TGC 2/6, GCA 1/6, CAT 1/6)
+        // vs (CCC 1); scipy.spatial.distance.euclidean = 1.130388330520878 (the old doc value 0.87 was wrong).
+        Assert.That(SequenceTools.KmerDistance("ATGCATGC", "CCCCCCCC", 3).Distance, Is.EqualTo(1.130388330520878).Within(1e-12));
+    }
 }

@@ -90,6 +90,7 @@ For clumps, the windows are the substrings `Genome[i..i+L-1]` for `i ∈ [0, |Ge
 - `KmerAnalyzer.FindUniqueKmers(string, int[, KmerCountingOptions])`: Returns all singleton k-mers (option-aware overload: `jellyfish count -C` + `dump -L 1 -U 1`, see Unique_And_MinCount_Kmers.md).
 - `KmerAnalyzer.FindClumps(string, int, int, int)`: Returns deduplicated clump-forming k-mers (streamed).
 - `KmerAnalyzer.FindClumpWindows(string, int, int, int)`: Returns `IReadOnlyList<KmerClump>` — each clump k-mer with its maximal runs of qualifying window starts (`ClumpWindowRun(FirstWindowStart, LastWindowStart)`, inclusive, 0-based; `KmerClump.FirstWindowStart` = leftmost qualifying window), ordered by first window then ordinal k-mer (B06 audit round 1 WP3, F12). Both methods consume one private sliding pass (`ScanClumpTransitions`), so the sliding logic exists once.
+- MCP (Seqeron.Mcp.Analysis): `most_frequent_kmers`, `unique_kmers`, `find_clumps` (k-mer set) and `find_clump_windows` (k-mers with their window runs; B06 audit round 1 WP5), each delegating to the method above.
 
 ### 5.2 Current Behavior
 

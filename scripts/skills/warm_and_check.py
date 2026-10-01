@@ -3,7 +3,7 @@
 
 Onboarding helper. The skills call the shipped ``Seqeron.Mcp.*`` servers **on
 demand** (spawn, call, tear down) via :mod:`seqeron_mcp_client` — they are never
-registered in an MCP config, so their 469 tool schemas never enter the model's
+registered in an MCP config, so their 471 tool schemas never enter the model's
 context. But the *build* has to happen once so the first real call is instant
 and any compile error surfaces at setup time, not mid-task.
 

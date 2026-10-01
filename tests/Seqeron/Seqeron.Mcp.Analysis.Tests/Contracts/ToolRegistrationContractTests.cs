@@ -45,6 +45,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "entropy_profile",
         "find_approximate_direct_repeats",
         "find_approximate_tandem_repeats",
+        "find_clump_windows",
         "find_clumps",
         "find_common_regions",
         "find_conserved_clusters",

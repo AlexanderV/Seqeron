@@ -214,7 +214,7 @@
     "server": "Analysis",
     "methodId": "KmerAnalyzer.AnalyzeKmers",
     "docPath": "docs/mcp/tools/analysis/analyze_kmers.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L528"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1887"
   },
   {
     "tool": "at_skew",
@@ -277,14 +277,14 @@
     "server": "Analysis",
     "methodId": "KmerAnalyzer.CountKmers",
     "docPath": "docs/mcp/tools/analysis/count_kmers.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L20"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L83"
   },
   {
     "tool": "count_kmers_both_strands",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.CountKmersBothStrands",
     "docPath": "docs/mcp/tools/analysis/count_kmers_both_strands.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L476"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1806"
   },
   {
     "tool": "create_alphabet_pwm",
@@ -392,11 +392,18 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L1002"
   },
   {
+    "tool": "find_clump_windows",
+    "server": "Analysis",
+    "methodId": "KmerAnalyzer.FindClumpWindows",
+    "docPath": "docs/mcp/tools/analysis/find_clump_windows.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1585"
+  },
+  {
     "tool": "find_clumps",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.FindClumps",
     "docPath": "docs/mcp/tools/analysis/find_clumps.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L356"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1544"
   },
   {
     "tool": "find_common_regions",
@@ -669,7 +676,7 @@
     "server": "Analysis",
     "methodId": "KmerAnalyzer.GenerateAllKmers",
     "docPath": "docs/mcp/tools/analysis/generate_all_kmers.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L299"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1437"
   },
   {
     "tool": "generate_cavener_consensus",
@@ -746,35 +753,42 @@
     "server": "Analysis",
     "methodId": "KmerAnalyzer.KmerDistance",
     "docPath": "docs/mcp/tools/analysis/kmer_distance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L212"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L700"
   },
   {
     "tool": "kmer_frequencies",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.GetKmerFrequencies",
     "docPath": "docs/mcp/tools/analysis/kmer_frequencies.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L177"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L617"
+  },
+  {
+    "tool": "kmer_jaccard",
+    "server": "Analysis",
+    "methodId": "KmerAnalyzer.JaccardSimilarity",
+    "docPath": "docs/mcp/tools/analysis/kmer_jaccard.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1136"
   },
   {
     "tool": "kmer_positions",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.FindKmerPositions",
     "docPath": "docs/mcp/tools/analysis/kmer_positions.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L432"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1701"
   },
   {
     "tool": "kmer_spectrum",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.GetKmerSpectrum",
     "docPath": "docs/mcp/tools/analysis/kmer_spectrum.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L136"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L423"
   },
   {
     "tool": "kmers_with_min_count",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.FindKmersWithMinCount",
     "docPath": "docs/mcp/tools/analysis/kmers_with_min_count.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L274"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1382"
   },
   {
     "tool": "lempel_ziv_complexity",
@@ -823,7 +837,7 @@
     "server": "Analysis",
     "methodId": "KmerAnalyzer.FindMostFrequentKmers",
     "docPath": "docs/mcp/tools/analysis/most_frequent_kmers.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L156"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L590"
   },
   {
     "tool": "multibranch_loop_energy",
@@ -1019,7 +1033,7 @@
     "server": "Analysis",
     "methodId": "KmerAnalyzer.FindUniqueKmers",
     "docPath": "docs/mcp/tools/analysis/unique_kmers.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L253"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1344"
   },
   {
     "tool": "validate_dot_bracket",
@@ -3168,28 +3182,28 @@
     "server": "Sequence",
     "methodId": "KmerAnalyzer.AnalyzeKmers",
     "docPath": "docs/mcp/tools/sequence/kmer_analyze.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L363"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1887"
   },
   {
     "tool": "kmer_count",
     "server": "Sequence",
     "methodId": "KmerAnalyzer.CountKmers",
     "docPath": "docs/mcp/tools/sequence/kmer_count.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L20"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L25"
   },
   {
     "tool": "kmer_distance",
     "server": "Sequence",
     "methodId": "KmerAnalyzer.KmerDistance",
     "docPath": "docs/mcp/tools/sequence/kmer_distance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L165"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L700"
   },
   {
     "tool": "kmer_entropy",
     "server": "Sequence",
     "methodId": "KmerAnalyzer.CalculateKmerEntropy",
     "docPath": "docs/mcp/tools/sequence/kmer_entropy.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L243"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1497"
   },
   {
     "tool": "linguistic_complexity",

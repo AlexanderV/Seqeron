@@ -795,7 +795,7 @@
 
 #### 4.2.28 `kmer_distance`
 - **HasDocs**: ✓
-- **DocRef**: KmerAnalyzer.cs:L165#xml
+- **DocRef**: KmerAnalyzer.cs:L700#xml
 - [x] a) Link MethodId: `KmerAnalyzer.KmerDistance`
 - [x] b) Freeze toolName: `kmer_distance`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence1: string, sequence2: string, k: integer }`

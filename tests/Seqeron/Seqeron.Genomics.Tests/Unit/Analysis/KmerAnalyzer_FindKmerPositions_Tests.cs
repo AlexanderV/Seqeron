@@ -232,4 +232,22 @@ public class KmerAnalyzer_FindKmerPositions_Tests
     }
 
     #endregion
+
+    #region Mismatch-tolerant counterpart (ApproximateMatcher, K-mer_Positions.md §5.3)
+
+    // The doc points mismatch-tolerant callers to ApproximateMatcher.FindWithMismatches (Rosalind BA1H).
+    // With d = 0 the approximate set is the exact set: BA1D sample 1 3 9, overlapping and case-insensitive.
+    [TestCase("GATATATGCATATACTT", "ATAT")]
+    [TestCase("AAAA", "AA")]
+    [TestCase("gatatatgcatatactt", "AtAt")]
+    [TestCase("ACGTACGT", "TTT")]
+    public void FindKmerPositions_EqualsApproximateMatcherWithZeroMismatches(string sequence, string kmer)
+    {
+        var exact = KmerAnalyzer.FindKmerPositions(sequence, kmer).ToList();
+        var approx = Seqeron.Genomics.Alignment.ApproximateMatcher.FindWithMismatches(sequence, kmer, 0)
+            .Select(m => m.Position).OrderBy(p => p).ToList();
+        Assert.That(approx, Is.EqualTo(exact));
+    }
+
+    #endregion
 }

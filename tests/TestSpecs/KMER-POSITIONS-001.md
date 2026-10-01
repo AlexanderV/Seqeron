@@ -165,8 +165,9 @@
 | C2 | ✅ Covered | FindKmerPositions_NullOrEmptyKmer_ReturnsEmpty |
 
 | R1–R6 | ✅ Covered | `#region Reference cross-checks` (B06 review 2026-10-01; 11 test cases) |
+| A1 | ✅ Covered | `FindKmerPositions_EqualsApproximateMatcherWithZeroMismatches` (B06 audit round 1 WP5; 4 cases): `ApproximateMatcher.FindWithMismatches(s, p, 0)` positions = `FindKmerPositions(s, p)` (BA1D sample 1 3 9; overlapping; case-insensitive; absent) — the mismatch-tolerant routine the algorithm doc points to |
 
-**✅ count: 17 = total in-scope cases (22 test cases).**
+**✅ count: 18 = total in-scope cases (26 test cases).**
 
 ---
 

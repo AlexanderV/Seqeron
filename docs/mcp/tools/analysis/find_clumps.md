@@ -21,7 +21,7 @@ case-insensitive and overlapping. The returned set is unordered. `windowSize` mu
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L356](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L356)
+- Source: [KmerAnalyzer.cs#L1544](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1544)
 
 ## Input Schema
 
@@ -65,5 +65,6 @@ case-insensitive and overlapping. The returned set is unordered. `windowSize` mu
 
 ## See Also
 
+- [find_clump_windows](find_clump_windows.md) — the windows in which each clump k-mer qualifies
 - [most_frequent_kmers](most_frequent_kmers.md)
 - [kmer_positions](kmer_positions.md)

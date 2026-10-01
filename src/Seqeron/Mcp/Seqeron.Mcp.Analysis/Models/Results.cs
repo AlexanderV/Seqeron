@@ -28,6 +28,15 @@ public record KmerDistanceResult(double Distance);
 /// <summary>Exact k-mer Jaccard index (fraction in [0,1]) and the Mash distance derived from it.</summary>
 public record KmerJaccardResult(double Jaccard, double MashDistance);
 
+/// <summary>A maximal run of consecutive qualifying window starts (0-based, both ends inclusive).</summary>
+public record ClumpWindowRunItem(int FirstWindowStart, int LastWindowStart);
+
+/// <summary>An (L, t)-clump k-mer, its leftmost qualifying window start and its maximal window runs.</summary>
+public record KmerClumpItem(string Kmer, int FirstWindowStart, ClumpWindowRunItem[] WindowRuns);
+
+/// <summary>Result of <c>find_clump_windows</c>.</summary>
+public record KmerClumpWindowsResult(KmerClumpItem[] Clumps);
+
 /// <summary>k-mers paired with their occurrence count.</summary>
 public record KmerCountItem(string Kmer, int Count);
 

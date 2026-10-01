@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.CalculateKmerEntropy",
-  "docRef": "Seqeron.Genomics/KmerAnalyzer.cs#L243",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1497",
   "description": "Calculate Shannon entropy based on k-mer frequencies. Higher values indicate more complexity.",
   "inputSchema": {
     "type": "object",
@@ -40,7 +40,7 @@
     {
       "name": "Dinucleotide entropy",
       "input": { "sequence": "ATGCATGCAT", "k": 2 },
-      "output": { "entropy": 3.17, "k": 2 }
+      "output": { "entropy": 1.974937501201927, "k": 2 }
     },
     {
       "name": "Low complexity",

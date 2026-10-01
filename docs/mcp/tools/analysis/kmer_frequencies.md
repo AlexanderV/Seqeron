@@ -22,7 +22,7 @@ alignment-free comparison (see `kmer_distance`). Counting is case-insensitive; w
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L177](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L177)
+- Source: [KmerAnalyzer.cs#L617](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L617)
 
 ## Input Schema
 

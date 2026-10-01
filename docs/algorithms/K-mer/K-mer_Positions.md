@@ -99,7 +99,9 @@ Implemented as a lazy `IEnumerable<int>` (`yield return`) over a single left-to-
 
 **Not implemented:**
 
-- Approximate / mismatch-tolerant matching; **users should rely on:** an alignment or approximate-search routine (out of scope for exact k-mer location).
+- Approximate / mismatch-tolerant location is not part of this exact method; it exists in the library as `Seqeron.Genomics.Alignment.ApproximateMatcher`, and callers should use it instead of re-implementing it:
+  - `FindWithMismatches(sequence, pattern, maxMismatches)` — every 0-based window start whose equal-length window is within Hamming distance d (Approximate Pattern Matching, Compeau & Pevzner ch. 1 / Rosalind BA1H); `CountApproximateOccurrences(...)` = Count_d (BA1H/BA1I). With `maxMismatches = 0` its positions equal `FindKmerPositions` (case-insensitive, overlapping). Spec: [Approximate_Matching_Hamming.md](../Pattern_Matching/Approximate_Matching_Hamming.md); MCP `find_with_mismatches`, `count_approximate_occurrences`.
+  - `FindWithEdits(sequence, pattern, maxEdits)` / `FindEditEndPositions(...)` — occurrences within Levenshtein distance k (insertions/deletions allowed). Spec: [Edit_Distance.md](../Pattern_Matching/Edit_Distance.md); MCP `find_with_edits`, `find_edit_end_positions`.
 
 ## 6. Edge Cases and Limitations
 

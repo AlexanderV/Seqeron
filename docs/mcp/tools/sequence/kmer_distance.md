@@ -35,7 +35,7 @@ the sums run over all 4^k words, windows with a non-ACGT symbol are skipped, and
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L165](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L165)
+- Source: [KmerAnalyzer.cs#L700](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L700)
 
 ## Input Schema
 
@@ -110,10 +110,12 @@ the sums run over all 4^k words, windows with a non-ACGT symbol are skipped, and
 **Response:**
 ```json
 {
-  "distance": 0.87,
+  "distance": 1.130388330520878,
   "k": 3
 }
 ```
+
+Euclidean distance of the 3-mer frequency vectors: ATGCATGC → ATG 2/6, TGC 2/6, GCA 1/6, CAT 1/6; CCCCCCCC → CCC 6/6; √(2·(1/3)² + 2·(1/6)² + 1²) = 1.130388330520878 (`scipy.spatial.distance.euclidean`, identical).
 
 ## Performance
 

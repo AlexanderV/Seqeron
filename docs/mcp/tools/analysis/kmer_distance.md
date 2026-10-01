@@ -42,7 +42,7 @@ the sums run over all 4^k words, windows with a non-ACGT symbol are skipped, and
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L392](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L392)
+- Source: [KmerAnalyzer.cs#L700](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L700)
 
 ## Input Schema
 

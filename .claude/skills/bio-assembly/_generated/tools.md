@@ -35,6 +35,7 @@
 | `entropy_profile` | Analysis | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../../../docs/mcp/tools/analysis/entropy_profile.md) |
 | `find_approximate_direct_repeats` | Analysis | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | Analysis | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_tandem_repeats.md) |
+| `find_clump_windows` | Analysis | `KmerAnalyzer.FindClumpWindows` | [doc](../../../../docs/mcp/tools/analysis/find_clump_windows.md) |
 | `find_clumps` | Analysis | `KmerAnalyzer.FindClumps` | [doc](../../../../docs/mcp/tools/analysis/find_clumps.md) |
 | `find_common_regions` | Analysis | `GenomicAnalyzer.FindCommonRegions` | [doc](../../../../docs/mcp/tools/analysis/find_common_regions.md) |
 | `find_conserved_clusters` | Analysis | `ComparativeGenomics.FindConservedClusters` | [doc](../../../../docs/mcp/tools/analysis/find_conserved_clusters.md) |
@@ -87,6 +88,7 @@
 | `is_disorder_promoting` | Analysis | `DisorderPredictor.IsDisorderPromoting` | [doc](../../../../docs/mcp/tools/analysis/is_disorder_promoting.md) |
 | `kmer_distance` | Analysis | `KmerAnalyzer.KmerDistance` | [doc](../../../../docs/mcp/tools/analysis/kmer_distance.md) |
 | `kmer_frequencies` | Analysis | `KmerAnalyzer.GetKmerFrequencies` | [doc](../../../../docs/mcp/tools/analysis/kmer_frequencies.md) |
+| `kmer_jaccard` | Analysis | `KmerAnalyzer.JaccardSimilarity` | [doc](../../../../docs/mcp/tools/analysis/kmer_jaccard.md) |
 | `kmer_positions` | Analysis | `KmerAnalyzer.FindKmerPositions` | [doc](../../../../docs/mcp/tools/analysis/kmer_positions.md) |
 | `kmer_spectrum` | Analysis | `KmerAnalyzer.GetKmerSpectrum` | [doc](../../../../docs/mcp/tools/analysis/kmer_spectrum.md) |
 | `kmers_with_min_count` | Analysis | `KmerAnalyzer.FindKmersWithMinCount` | [doc](../../../../docs/mcp/tools/analysis/kmers_with_min_count.md) |
