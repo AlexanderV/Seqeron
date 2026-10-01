@@ -80,10 +80,12 @@ public class MolToolsDesignDifferentialTests
     [Category("PRIMER-DESIGN-001")]
     public void DesignPrimers_MatchesBruteForcePrimer3PairSearch()
     {
+        // Random 160-mer (python random.seed(2026)); the earlier palindromic fixture admits no pair under
+        // Primer3's default thermodynamic structure limits (every candidate forms a > 47 °C hairpin/dimer).
         const string template =
-            "ACGTTGCAACGTTGCAACGTTGCAACGTTGCAACGTTGCAGGCCAATTGGCCAATTGGCCAATTACGTACGTACGTTGCAACGTTGCAACGTTGCAACGTTGCAACGTTGCA";
+            "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGTGTTTCGGAACTTGCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCA";
         var dna = new DnaSequence(template);
-        int targetStart = 50, targetEnd = 62;
+        int targetStart = 70, targetEnd = 90;
         var param = PrimerDesigner.DefaultParameters;
 
         var result = PrimerDesigner.DesignPrimers(dna, targetStart, targetEnd, param);
@@ -114,10 +116,15 @@ public class MolToolsDesignDifferentialTests
             {
                 double dTm = Math.Abs(PrimerDesigner.CalculateMeltingTemperaturePrimer3(f.Sequence)
                                       - PrimerDesigner.CalculateMeltingTemperaturePrimer3(r.Sequence));
-                if (dTm > 5.0 || PrimerDesigner.HasPrimerDimer(f.Sequence, r.Sequence)) continue;
+                if (dTm > 5.0) continue;
                 double q = f.Penalty + r.Penalty;
-                if (best is null || Better(q, f, r, best.Value.Q, best.Value.F, best.Value.R))
-                    best = (f, r, q);
+                if (best is not null && !Better(q, f, r, best.Value.Q, best.Value.F, best.Value.R))
+                    continue;
+                // Default screen: Primer3 PRIMER_PAIR_MAX_COMPL_ANY_TH / _COMPL_END_TH = 47 °C (ntthal);
+                // evaluated only for pairs that would improve on the current best (same optimum).
+                if (PrimerDesigner.CalculatePrimer3PairComplementarity(f.Sequence, r.Sequence)!.Value.Exceeds())
+                    continue;
+                best = (f, r, q);
             }
 
         Assert.That(best, Is.Not.Null, "fixture must admit a valid pair");

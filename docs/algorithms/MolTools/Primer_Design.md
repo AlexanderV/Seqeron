@@ -43,7 +43,7 @@ bonus) is reported for information only and does not drive selection.
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | `DesignPrimers(...)` returns `IsValid = false` when either side has no valid candidates | The source returns an invalid `PrimerPairResult` when either best candidate is missing |
-| INV-02 | Pair validity requires both `|Tm_f - Tm_r| <= 5` (unrounded Tm) and `!HasPrimerDimer(...)`; if any such pair exists among the valid candidates, `IsValid = true` | Exhaustive pair search |
+| INV-02 | Pair validity requires both `|Tm_f - Tm_r| <= 5` (unrounded Tm) and no primer-dimer (default: Primer3 `compl_any_th`/`compl_end_th` ≤ 47 °C, `CalculatePrimer3PairComplementarity`; `Heuristic` screen: `!HasPrimerDimer(...)`); if any such pair exists among the valid candidates, `IsValid = true` | Exhaustive pair search |
 | INV-04 | The returned valid pair minimises `Forward.Penalty + Reverse.Penalty` over all compatible pairs | Primer3 `choose_pair_or_triple` |
 | INV-03 | `ProductSize = reverse.Position + reverse.Sequence.Length - forward.Position` | The source computes product size directly from the chosen candidates |
 
@@ -118,7 +118,7 @@ Parameter ranges documented in the original file and current source:
 
 ### 5.2 Current Behavior
 
-Forward primers are taken directly from the template; reverse primers are reverse-complemented before evaluation, and their `Position` is the leftmost template coordinate of the binding site. Per-primer hard constraints: length, GC%, Primer3-default Tm window, homopolymer, dinucleotide repeat, heuristic hairpin (`HasHairpinPotential`), 3′ ΔG (`< −9` kcal/mol flagged; note that the SantaLucia 5-mer ΔG never goes below −6.86, so this gate never fires — consistent with Primer3's default PRIMER_MAX_END_STABILITY = 100), optional GC clamp, and no non-ACGT base (Primer3 PRIMER_MAX_NS_ACCEPTED = 0). Pair selection is the exhaustive Primer3 pair search described in §2.2.
+Forward primers are taken directly from the template; reverse primers are reverse-complemented before evaluation, and their `Position` is the leftmost template coordinate of the binding site. Per-primer hard constraints: length, GC%, Primer3-default Tm window, homopolymer, dinucleotide repeat, secondary structure (default `PrimerStructureScreen.Primer3Thermodynamic`: Primer3 ntthal self-any / self-end / hairpin Tm ≤ `MaxStructureTm` = 47 °C, evaluated lazily in the pair loop like Primer3's `characterize_pair`; `Heuristic`: `HasHairpinPotential`), 3′ ΔG (`< −9` kcal/mol flagged; note that the SantaLucia 5-mer ΔG never goes below −6.86, so this gate never fires — consistent with Primer3's default PRIMER_MAX_END_STABILITY = 100), optional GC clamp, and no non-ACGT base (Primer3 PRIMER_MAX_NS_ACCEPTED = 0). Pair selection is the exhaustive Primer3 pair search described in §2.2.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -127,7 +127,7 @@ Forward primers are taken directly from the template; reverse primers are revers
 - Primer3 default Tm: bit-identical to `primer3.calc_tm` (max |Δ| = 0 over 3 000 random 2–45-mers, incl. self-complementary and > 36 nt).
 - Primer3 per-primer penalty and pair search: `DesignPrimers` returned exactly Primer3's `PRIMER_LEFT_0`/`PRIMER_RIGHT_0` in 553/553 random templates (3 seeds × 300) where Primer3's best pair also passes this library's extra screens (settings mirroring `DefaultParameters`, thermodynamic structure limits disabled).
 
-**Deviations from Primer3 defaults (documented):** length 18–25 (Primer3 18–27), GC 40–60 % (20–80 %), poly-X 4 (5), pair ΔTm ≤ 5 °C (100), dinucleotide-repeat limit (no Primer3 equivalent), heuristic hairpin / primer-dimer screens instead of ntthal PRIMER_MAX_HAIRPIN_TH / PRIMER_PAIR_MAX_COMPL_*_TH (owned by PRIMER-STRUCT-001), no PRIMER_PRODUCT_SIZE_RANGE (the ±200 bp flanks bound the product). In ~30 % of random templates Primer3's best pair is rejected by the heuristic hairpin screen, so the returned pair differs from Primer3's.
+**Deviations from Primer3 defaults (documented):** length 18–25 (Primer3 18–27), GC 40–60 % (20–80 %), poly-X 4 (5), pair ΔTm ≤ 5 °C (100), dinucleotide-repeat limit (no Primer3 equivalent), no PRIMER_PRODUCT_SIZE_RANGE (the ±200 bp flanks bound the product). Structure limits are Primer3's default thermodynamic ones (PRIMER-STRUCT-001): with them `DesignPrimers` returned primer3-py's pair (same settings) in 574/600 random templates; the 26 differences all trace to ntthal engine values (PRIMER-DIMER-001 / PRIMER-HAIRPIN-001).
 
 **Not implemented:** mispriming libraries, internal oligos, multiple returned pairs, genome-wide specificity.
 
@@ -145,7 +145,7 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 ### 6.2 Limitations
 
-Structure screens (hairpin, primer-dimer) are the heuristic ones of PRIMER-STRUCT-001 rather than Primer3's ntthal Tm limits, and there is no product-size range or mispriming check.
+There is no product-size range or mispriming check. The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
 
 ## 7. Examples and Related Material
 

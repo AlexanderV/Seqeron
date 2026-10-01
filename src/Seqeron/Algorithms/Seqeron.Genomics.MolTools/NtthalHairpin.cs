@@ -77,7 +77,13 @@ internal static class NtthalHairpin
     /// </summary>
     /// <param name="oligo">The DNA oligo (5′→3').</param>
     /// <param name="mvMolar">Monovalent cation concentration in mol/L (ntthal mv is in mM).</param>
-    internal static Result? Run(string oligo, double mvMolar)
+    internal static Result? Run(string oligo, double mvMolar) => Run(oligo, mvMolar, 0.0, 0.0);
+
+    /// <summary>
+    /// Runs the ntthal hairpin DP with divalent-cation and dNTP concentrations (mol/L), which enter
+    /// only through ntthal's <c>saltCorrectS</c> (see <see cref="NtthalDimer.SaltCorrectS"/>).
+    /// </summary>
+    internal static Result? Run(string oligo, double mvMolar, double dvMolar, double dntpMolar)
     {
         double mv = mvMolar * 1000.0;
         int len1 = oligo.Length;
@@ -88,8 +94,8 @@ internal static class NtthalHairpin
         s[0] = s[len1 + 1] = 4;
         for (int k = 0; k < len1; k++) s[k + 1] = NtthalDimer.Str2Int(oligo[k]);
 
-        // saltCorrectS (thal.c 1042); dv = dntp = 0 so the divalent term vanishes.
-        double saltCorrection = 0.368 * Math.Log(mv / 1000.0);
+        // saltCorrectS (thal.c 1042).
+        double saltCorrection = NtthalDimer.SaltCorrectS(mv, dvMolar * 1000.0, dntpMolar * 1000.0);
 
         int Bp(int x, int y) => NtthalDimer.Bpi[x, y];
         double AtPenaltyH(int x, int y) => (x == 0 && y == 3) || (x == 3 && y == 0) ? AtH : 0.0;

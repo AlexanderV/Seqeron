@@ -40,7 +40,13 @@ public static class PrimerDesigner
     /// <item>the pair returned is the one with the <b>lowest pair penalty</b> (sum of the two primer
     /// penalties, Primer3 default <c>PRIMER_PAIR_WT_PR_PENALTY = 1</c>, all other pair weights 0) among
     /// all pairs satisfying the pair constraints |Tm_f − Tm_r| ≤ <see cref="MaxPairTmDifference"/> °C and
-    /// no primer-dimer (<see cref="HasPrimerDimer"/>). Ties (within 1e-6) are broken exactly as
+    /// no primer-dimer, and whose primers pass the per-primer secondary-structure screen. With the default
+    /// <see cref="PrimerStructureScreen.Primer3Thermodynamic"/> these are Primer3's default ntthal limits
+    /// (self-any/self-end/hairpin Tm and pair compl-any/compl-end Tm ≤ <see cref="Primer3MaxStructureTm"/>
+    /// = 47 °C; <see cref="CalculatePrimer3OligoStructure"/>, <see cref="CalculatePrimer3PairComplementarity"/>),
+    /// evaluated lazily in the pair loop as Primer3's <c>characterize_pair</c> does; with
+    /// <see cref="PrimerStructureScreen.Heuristic"/> they are <see cref="HasHairpinPotential"/> and
+    /// <see cref="HasPrimerDimer"/>. Ties (within 1e-6) are broken exactly as
     /// Primer3's <c>compare_primer_pair</c>: left primer further 3' (right), then right primer further
     /// 5' (left), then shorter left, then shorter right.</item>
     /// </list>
@@ -52,8 +58,8 @@ public static class PrimerDesigner
     /// individually lowest-penalty forward and reverse candidates are returned with
     /// <c>IsValid = false</c> and a message naming the violated constraint.
     /// Deviations from Primer3 defaults (documented): pair ΔTm ≤ 5 °C (Primer3 PRIMER_PAIR_MAX_DIFF_TM
-    /// = 100), the heuristic primer-dimer screen instead of ntthal PRIMER_PAIR_MAX_COMPL_*_TH, and
-    /// no PRIMER_PRODUCT_SIZE_RANGE (the ±200 bp search flanks bound the product instead).
+    /// = 100) and no PRIMER_PRODUCT_SIZE_RANGE (the ±200 bp search flanks bound the product instead);
+    /// the per-primer limits are those of <paramref name="parameters"/>.
     /// </summary>
     /// <param name="template">The DNA template sequence.</param>
     /// <param name="targetStart">0-based inclusive start of the target region.</param>
@@ -78,7 +84,7 @@ public static class PrimerDesigner
         {
             for (int len = param.MinLength; len <= param.MaxLength && start + len <= targetStart; len++)
             {
-                var (candidate, tm) = EvaluatePrimerCore(template.Sequence.Substring(start, len), start, true, param);
+                var (candidate, tm) = EvaluatePrimerCore(template.Sequence.Substring(start, len), start, true, param, evaluateStructure: false);
                 if (candidate.IsValid)
                     forwardCandidates.Add((candidate, tm));
             }
@@ -93,7 +99,7 @@ public static class PrimerDesigner
             {
                 int start = end - len;
                 var revComp = DnaSequence.GetReverseComplementString(template.Sequence.Substring(start, len));
-                var (candidate, tm) = EvaluatePrimerCore(revComp, start, false, param);
+                var (candidate, tm) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false);
                 if (candidate.IsValid)
                     reverseCandidates.Add((candidate, tm));
             }
@@ -112,14 +118,50 @@ public static class PrimerDesigner
         forwardCandidates.Sort((a, b) => CompareLeft(a.C, b.C));
         reverseCandidates.Sort((a, b) => CompareRight(a.C, b.C));
 
-        (PrimerCandidate C, double Tm)? bestF = null, bestR = null;
+        // Secondary-structure screen of individual primers, run lazily and cached exactly where
+        // Primer3 runs it (characterize_pair: the "expensive" per-primer checks are postponed until a
+        // primer takes part in a pair that passed the cheaper pair checks).
+        var forwardStructureOk = new bool?[forwardCandidates.Count];
+        var reverseStructureOk = new bool?[reverseCandidates.Count];
+        // Results depend only on the sequences, so they are also cached by sequence (templates with
+        // repeats yield many candidates with the same sequence at different positions).
+        var structureBySequence = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var dimerBySequencePair = new Dictionary<(string F, string R), bool>();
+        bool StructureOk(List<(PrimerCandidate C, double Tm)> list, bool?[] cache, int i)
+        {
+            if (cache[i] is { } known)
+                return known;
+            string seq = list[i].C.Sequence;
+            if (!structureBySequence.TryGetValue(seq, out bool ok))
+            {
+                var issues = new List<string>();
+                AddStructureIssues(seq, param, issues);
+                ok = issues.Count == 0;
+                structureBySequence[seq] = ok;
+            }
+            cache[i] = ok;
+            return ok;
+        }
+        bool FormsDimer(string f, string r)
+        {
+            if (!dimerBySequencePair.TryGetValue((f, r), out bool dimer))
+            {
+                dimer = PairFormsDimer(f, r, param);
+                dimerBySequencePair[(f, r)] = dimer;
+            }
+            return dimer;
+        }
+
+        int bestFi = -1, bestRi = -1;
         double bestQuality = double.PositiveInfinity;
         bool sawTmFailure = false, sawDimerFailure = false;
 
-        foreach (var r in reverseCandidates)
+        for (int ri = 0; ri < reverseCandidates.Count; ri++)
         {
-            foreach (var f in forwardCandidates)
+            var r = reverseCandidates[ri];
+            for (int fi = 0; fi < forwardCandidates.Count; fi++)
             {
+                var f = forwardCandidates[fi];
                 double quality = f.C.Penalty + r.C.Penalty;
                 // choose_pair_or_triple: no later forward primer can improve on the best pair.
                 if (quality > bestQuality)
@@ -130,25 +172,41 @@ public static class PrimerDesigner
                     sawTmFailure = true;
                     continue;
                 }
-                if (HasPrimerDimer(f.C.Sequence, r.C.Sequence))
+                if (!StructureOk(forwardCandidates, forwardStructureOk, fi))
+                    continue;
+                if (!StructureOk(reverseCandidates, reverseStructureOk, ri))
+                    break; // this reverse primer fails on its own; no pair with it can be valid
+                if (FormsDimer(f.C.Sequence, r.C.Sequence))
                 {
                     sawDimerFailure = true;
                     continue;
                 }
 
-                if (bestF is null || ComparePair(quality, f.C, r.C, bestQuality, bestF.Value.C, bestR!.Value.C) < 0)
+                if (bestFi < 0 || ComparePair(quality, f.C, r.C, bestQuality,
+                        forwardCandidates[bestFi].C, reverseCandidates[bestRi].C) < 0)
                 {
-                    bestF = f;
-                    bestR = r;
+                    bestFi = fi;
+                    bestRi = ri;
                     bestQuality = quality;
                 }
             }
         }
 
-        if (bestF is null)
+        if (bestFi < 0)
         {
-            var f0 = forwardCandidates[0].C;
-            var r0 = reverseCandidates[0].C;
+            // The individually lowest-penalty primers that pass their own (structure) constraints.
+            int f0i = FirstStructurallyValid(forwardCandidates, forwardStructureOk);
+            int r0i = FirstStructurallyValid(reverseCandidates, reverseStructureOk);
+            if (f0i < 0 || r0i < 0)
+            {
+                return new PrimerPairResult(
+                    null, null, false,
+                    "Could not find valid primers for the target region.",
+                    0
+                );
+            }
+            var f0 = Reevaluate(forwardCandidates[f0i].C);
+            var r0 = Reevaluate(reverseCandidates[r0i].C);
             string reason;
             if (sawTmFailure && !sawDimerFailure)
                 reason = $"No primer pair within the {MaxPairTmDifference:F0}°C Tm-difference limit (best primers: Tm {f0.MeltingTemperature:F1}/{r0.MeltingTemperature:F1}°C).";
@@ -164,8 +222,8 @@ public static class PrimerDesigner
                 ProductSize: r0.Position + r0.Length - f0.Position);
         }
 
-        var forward = bestF.Value.C;
-        var reverse = bestR!.Value.C;
+        var forward = Reevaluate(forwardCandidates[bestFi].C);
+        var reverse = Reevaluate(reverseCandidates[bestRi].C);
         return new PrimerPairResult(
             Forward: forward,
             Reverse: reverse,
@@ -173,6 +231,18 @@ public static class PrimerDesigner
             Message: "Valid primer pair found.",
             ProductSize: reverse.Position + reverse.Length - forward.Position
         );
+
+        int FirstStructurallyValid(List<(PrimerCandidate C, double Tm)> list, bool?[] cache)
+        {
+            for (int i = 0; i < list.Count; i++)
+                if (StructureOk(list, cache, i))
+                    return i;
+            return -1;
+        }
+
+        // Full evaluation (including the structure values) of a chosen primer.
+        PrimerCandidate Reevaluate(PrimerCandidate c) =>
+            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, param).Candidate;
     }
 
     /// <summary>Flank (bp) searched on each side of the target for primer candidates.</summary>
@@ -224,8 +294,12 @@ public static class PrimerDesigner
 
     /// <summary>
     /// Evaluates a single primer candidate against the per-primer constraints of
-    /// <paramref name="parameters"/> (length, GC%, Tm, homopolymer, dinucleotide repeat, hairpin,
-    /// 3'-end stability, optional GC clamp). The Tm is Primer3's default primer Tm
+    /// <paramref name="parameters"/> (length, GC%, Tm, homopolymer, dinucleotide repeat, secondary
+    /// structure, 3'-end stability, optional GC clamp). The secondary-structure screen is
+    /// <see cref="PrimerParameters.StructureScreen"/>: by default Primer3's thermodynamic limits
+    /// (ntthal self-dimer, 3′ self-dimer and hairpin Tm ≤ 47 °C, reported in
+    /// <see cref="PrimerCandidate.SelfAnyTh"/>/<see cref="PrimerCandidate.SelfEndTh"/>/<see cref="PrimerCandidate.HairpinTh"/>),
+    /// or the sequence-only <see cref="HasHairpinPotential"/>. The Tm is Primer3's default primer Tm
     /// (<see cref="CalculateMeltingTemperaturePrimer3"/>: SantaLucia 1998 nearest-neighbour,
     /// SantaLucia salt correction, 50 mM monovalent, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM oligo), the
     /// scale on which the Primer3-sourced Tm window 57–63 °C (opt 60) is defined. A sequence
@@ -244,11 +318,14 @@ public static class PrimerDesigner
         EvaluatePrimerCore(sequence, position, isForward, parameters ?? DefaultParameters).Candidate;
 
     // Evaluates a candidate and also returns its unrounded Tm (Primer3 compares unrounded Tm values).
+    // With evaluateStructure = false the secondary-structure screen is skipped (DesignPrimers runs it
+    // lazily, like Primer3's characterize_pair, and re-evaluates the chosen primers in full).
     private static (PrimerCandidate Candidate, double Tm) EvaluatePrimerCore(
         string sequence,
         int position,
         bool isForward,
-        PrimerParameters param)
+        PrimerParameters param,
+        bool evaluateStructure = true)
     {
         var seq = sequence.ToUpperInvariant();
 
@@ -258,7 +335,6 @@ public static class PrimerDesigner
         double tm = tmComputable ? tmRaw : 0.0;
         int homopolymer = FindLongestHomopolymer(seq);
         int dinucRepeat = FindLongestDinucleotideRepeat(seq);
-        bool hasHairpin = HasHairpinPotential(seq);
         double stability3Prime = Calculate3PrimeStability(seq);
 
         var issues = new List<string>();
@@ -281,8 +357,10 @@ public static class PrimerDesigner
         if (dinucRepeat > param.MaxDinucleotideRepeats)
             issues.Add($"Dinucleotide repeat of {dinucRepeat} exceeds max {param.MaxDinucleotideRepeats}");
 
-        if (hasHairpin)
-            issues.Add("Potential hairpin structure detected");
+        bool hasHairpin = false;
+        Primer3OligoStructure? structure = null;
+        if (evaluateStructure)
+            (hasHairpin, structure) = AddStructureIssues(seq, param, issues);
 
         if (param.Check3PrimeStability && stability3Prime < -9)
             issues.Add($"3' end too stable (ΔG = {stability3Prime:F1} kcal/mol)");
@@ -318,9 +396,56 @@ public static class PrimerDesigner
             IsValid: isValid,
             Issues: issues.AsReadOnly(),
             Score: Math.Round(score, 2),
-            Penalty: penalty
+            Penalty: penalty,
+            SelfAnyTh: structure?.SelfAnyTh,
+            SelfEndTh: structure?.SelfEndTh,
+            HairpinTh: structure?.HairpinTh
         );
         return (candidate, tm);
+    }
+
+    // Per-primer secondary-structure screen. Primer3Thermodynamic: Primer3's default
+    // (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1) ntthal limits PRIMER_MAX_SELF_ANY_TH / _SELF_END_TH /
+    // _HAIRPIN_TH = 47 °C (a non-ACGT primer has no ntthal structure; it is already invalid by Tm).
+    // Heuristic: the sequence-only stem-loop screen HasHairpinPotential (default stem 4, loop 3).
+    private static (bool HasHairpin, Primer3OligoStructure? Structure) AddStructureIssues(
+        string seq, PrimerParameters param, List<string> issues)
+    {
+        if (param.StructureScreen == PrimerStructureScreen.Heuristic)
+        {
+            bool hp = HasHairpinPotential(seq);
+            if (hp)
+                issues.Add("Potential hairpin structure detected");
+            return (hp, null);
+        }
+
+        var st = CalculatePrimer3OligoStructure(seq);
+        if (st is null)
+            return (false, null);
+        var v = st.Value;
+        double max = param.EffectiveMaxStructureTm;
+        bool hasHairpin = v.HairpinTh > max;
+        if (hasHairpin)
+            issues.Add($"Hairpin melting temperature {v.HairpinTh:F1}°C exceeds {max:0.##}°C (Primer3 PRIMER_MAX_HAIRPIN_TH)");
+        if (v.SelfAnyTh > max)
+            issues.Add($"Self-dimer melting temperature {v.SelfAnyTh:F1}°C exceeds {max:0.##}°C (Primer3 PRIMER_MAX_SELF_ANY_TH)");
+        if (v.SelfEndTh > max)
+            issues.Add($"3' self-dimer melting temperature {v.SelfEndTh:F1}°C exceeds {max:0.##}°C (Primer3 PRIMER_MAX_SELF_END_TH)");
+        return (hasHairpin, st);
+    }
+
+    // Pair-level complementarity screen used by DesignPrimers (Primer3 characterize_pair).
+    private static bool PairFormsDimer(string forward, string reverse, PrimerParameters param)
+    {
+        if (param.StructureScreen == PrimerStructureScreen.Heuristic)
+            return HasPrimerDimer(forward, reverse);
+        if (!IsAcgtOnly(forward) || !IsAcgtOnly(reverse))
+            return false;
+        // Same values as CalculatePrimer3PairComplementarity(...).Exceeds(max), stopping at the first
+        // alignment over the limit (characterize_pair also fails the pair on compl_any first).
+        var (any, end) = Primer3PairTms(forward.ToUpperInvariant(), reverse.ToUpperInvariant(),
+            0.050, 0.0015, 0.0006, 50e-9, param.EffectiveMaxStructureTm);
+        return any > param.EffectiveMaxStructureTm || end > param.EffectiveMaxStructureTm;
     }
 
     /// <summary>
@@ -542,29 +667,54 @@ public static class PrimerDesigner
         string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcContentFast();
 
     /// <summary>
-    /// Finds the longest homopolymer run (consecutive identical nucleotides).
+    /// Finds the longest homopolymer run (consecutive identical nucleotides, case-insensitive) — the
+    /// quantity Primer3 limits with <c>PRIMER_MAX_POLY_X</c> (a primer fails when the run exceeds
+    /// it; <c>libprimer3.cc</c> <c>_pr_violates_poly_x</c>). As in Primer3, N is a wildcard that takes
+    /// the worst case: a forward scan assigns each N to the preceding non-N base, a reverse scan to
+    /// the following one, and the longer run is reported (e.g. ANA → 3, GNGNG → 5, ANGNG → 4).
     /// </summary>
+    /// <returns>0 for null/empty input, otherwise ≥ 1.</returns>
     public static int FindLongestHomopolymer(string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        int maxRun = 1;
-        int currentRun = 1;
+        string seq = sequence.ToUpperInvariant();
+        int len = seq.Length;
 
-        for (int i = 1; i < sequence.Length; i++)
+        // Forward scan (N counts as the last seen non-N base; leading Ns as the first non-N base).
+        char lastNonN = seq[0];
+        if (lastNonN == 'N')
         {
-            if (char.ToUpperInvariant(sequence[i]) == char.ToUpperInvariant(sequence[i - 1]))
-            {
-                currentRun++;
-                maxRun = Math.Max(maxRun, currentRun);
-            }
-            else
-            {
-                currentRun = 1;
-            }
+            for (int i = 1; i < len; i++)
+                if (seq[i] != 'N') { lastNonN = seq[i]; break; }
         }
+        int run = 1, maxRun = 1;
+        bool hasN = false;
+        for (int i = 1; i < len; i++)
+        {
+            if (seq[i] == 'N') { hasN = true; run++; }
+            else if (seq[i] == lastNonN) run++;
+            else { run = 1; lastNonN = seq[i]; }
+            if (run > maxRun) maxRun = run;
+        }
+        if (!hasN)
+            return maxRun;
 
+        // Reverse scan (N counts as the next non-N base).
+        lastNonN = seq[len - 1];
+        if (lastNonN == 'N')
+        {
+            for (int i = len - 2; i >= 0; i--)
+                if (seq[i] != 'N') { lastNonN = seq[i]; break; }
+        }
+        run = 1;
+        for (int i = len - 2; i >= 0; i--)
+        {
+            if (seq[i] == 'N' || seq[i] == lastNonN) run++;
+            else { run = 1; lastNonN = seq[i]; }
+            if (run > maxRun) maxRun = run;
+        }
         return maxRun;
     }
 
@@ -598,8 +748,16 @@ public static class PrimerDesigner
     }
 
     /// <summary>
-    /// Checks if primer has potential to form hairpin structure.
-    /// Uses O(n²) algorithm for short sequences, suffix tree O(n) for long sequences.
+    /// Sequence-only stem-loop screen: <c>true</c> when the sequence contains two non-overlapping
+    /// segments of <paramref name="minStemLength"/> bases that are exact Watson–Crick reverse
+    /// complements of each other (an antiparallel stem) separated by at least
+    /// <paramref name="minLoopLength"/> unpaired bases (hairpin loops shorter than 3 nt are sterically
+    /// excluded; SantaLucia &amp; Hicks 2004). Case-insensitive; no G·T wobble, mismatches or energies.
+    /// This is a structural screen, not a thermodynamic model: the Primer3 hairpin Tm
+    /// (PRIMER_HAIRPIN_TH) is <see cref="CalculatePrimer3OligoStructure"/> /
+    /// <see cref="CalculateHairpinThermodynamicsNtthal(string, double)"/>, which
+    /// <see cref="EvaluatePrimer"/> uses by default. Uses an O(n²) scan below 100 nt and a suffix tree
+    /// at ≥ 100 nt (identical results).
     /// </summary>
     /// <param name="sequence">DNA sequence to check.</param>
     /// <param name="minStemLength">Minimum stem length (default 4).</param>
@@ -694,85 +852,284 @@ public static class PrimerDesigner
     }
 
     /// <summary>
-    /// Checks if two primers can form primer-dimer.
+    /// Checks whether two primers can form a 3′-end primer-dimer using Primer3's alignment-based
+    /// (non-thermodynamic, <c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0</c>) pair 3′-complementarity:
+    /// returns <c>true</c> when <see cref="CalculatePrimerDimerEndComplementarity"/> ≥
+    /// <paramref name="minComplementarity"/>. For ACGT primers the score is an integer, so the
+    /// default threshold 4 is exactly Primer3's default <c>PRIMER_PAIR_MAX_COMPL_END = 3.00</c>
+    /// (a pair fails when <c>compl_end &gt; 3</c>). The thermodynamic counterpart (Primer3's default
+    /// mode) is <see cref="CalculatePrimer3PairComplementarity"/>.
     /// </summary>
+    /// <param name="primer1">First primer (5′→3′).</param>
+    /// <param name="primer2">Second primer (5′→3′).</param>
+    /// <param name="minComplementarity">Minimum 3′-anchored complementarity score that flags a dimer (default 4).</param>
+    /// <returns><c>false</c> for null/empty primers.</returns>
     public static bool HasPrimerDimer(string primer1, string primer2, int minComplementarity = 4)
     {
         if (string.IsNullOrEmpty(primer1) || string.IsNullOrEmpty(primer2))
             return false;
-
-        var seq1 = primer1.ToUpperInvariant();
-        var seq2 = DnaSequence.GetReverseComplementString(primer2.ToUpperInvariant());
-
-        // Check 3' end complementarity (most problematic for extension)
-        int checkLength = Math.Min(8, Math.Min(seq1.Length, seq2.Length));
-        string end1 = seq1.Substring(seq1.Length - checkLength);
-        string end2 = seq2.Substring(0, checkLength);
-
-        int complementary = 0;
-        for (int i = 0; i < checkLength; i++)
-        {
-            if (IsComplementary(end1[i], end2[i]))
-                complementary++;
-        }
-
-        return complementary >= minComplementarity;
+        return CalculatePrimerDimerEndComplementarity(primer1, primer2) >= minComplementarity;
     }
 
     /// <summary>
-    /// Calculates the stability of the 3' end (last 5 bases) as a duplex ΔG°37.
-    /// Uses SantaLucia (1998) unified nearest-neighbor parameters with initiation.
-    /// More negative = more stable = potentially problematic.
-    /// Matches Primer3 PRIMER_MAX_END_STABILITY calculation.
+    /// Primer3 alignment-mode pair 3′-complementarity <c>compl_end</c> (Primer3 <c>libprimer3.cc</c>
+    /// <c>characterize_pair</c>, <c>PRIMER_PAIR_COMPL_END</c> with
+    /// <c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0</c>; Rozen &amp; Skaletsky 2000; Untergasser et al. 2012):
+    /// the maximum of <c>align(p1, revcomp(p2))</c> and <c>align(p2, revcomp(p1))</c>, where
+    /// <c>align</c> is the <c>dpal</c> end-anchored (<c>DPAL_GLOBAL_END</c>) alignment — it must end
+    /// at the 3′-terminal base of the first sequence — scored +1 per complementary base pair, −1 per
+    /// mismatch, −0.25 against N (any non-ACGT character is scored as N), −2 per single-base gap
+    /// (max gap 1), and floored at 0. Two primers whose 3′-terminal k bases are reverse complements
+    /// score k; a homopolymer against itself (e.g. A₈/A₈) scores 0 because it cannot pair.
     /// </summary>
-    public static double Calculate3PrimeStability(string sequence)
+    /// <param name="primer1">First primer (5′→3′), case-insensitive.</param>
+    /// <param name="primer2">Second primer (5′→3′), case-insensitive.</param>
+    /// <returns>The Primer3 <c>compl_end</c> score (≥ 0); 0 for null/empty input.</returns>
+    public static double CalculatePrimerDimerEndComplementarity(string primer1, string primer2)
     {
-        if (string.IsNullOrEmpty(sequence) || sequence.Length < 5)
+        if (string.IsNullOrEmpty(primer1) || string.IsNullOrEmpty(primer2))
             return 0;
+        string p1 = primer1.ToUpperInvariant();
+        string p2 = primer2.ToUpperInvariant();
+        // Primer3 compares s1 with s2 taken from the same (top) strand, i.e. the right primer's
+        // template-strand copy = revcomp(right primer); then also s2_rev against s1_rev.
+        double a = DpalGlobalEndScore(p1, ReverseComplementPrimer3(p2));
+        double b = DpalGlobalEndScore(p2, ReverseComplementPrimer3(p1));
+        return Math.Max(a, b);
+    }
 
-        var seq = sequence.ToUpperInvariant();
-        string last5 = seq.Substring(seq.Length - 5);
+    /// <summary>
+    /// Primer3 alignment-mode self 3′-complementarity <c>self_end</c>
+    /// (<c>oligo_compl</c>: <c>align(oligo, revcomp(oligo), DPAL_GLOBAL_END)</c>, Primer3
+    /// <c>PRIMER_LEFT/RIGHT_SELF_END</c>; default limit <c>PRIMER_MAX_SELF_END = 3.00</c>).
+    /// </summary>
+    /// <param name="primer">Primer (5′→3′), case-insensitive.</param>
+    /// <returns>The Primer3 <c>self_end</c> score (≥ 0); 0 for null/empty input.</returns>
+    public static double CalculatePrimerSelfEndComplementarity(string primer)
+    {
+        if (string.IsNullOrEmpty(primer))
+            return 0;
+        string p = primer.ToUpperInvariant();
+        return DpalGlobalEndScore(p, ReverseComplementPrimer3(p));
+    }
 
-        // Nearest-neighbor ΔG°37 values in kcal/mol
-        // Source: SantaLucia (1998) PNAS 95:1460-65, Table 1, unified parameters (1 M NaCl)
-        var deltaG = new Dictionary<string, double>
+    // Primer3 p3_reverse_complement: ACGT complemented, every other character becomes N.
+    private static string ReverseComplementPrimer3(string seq)
+    {
+        var chars = new char[seq.Length];
+        for (int i = 0; i < seq.Length; i++)
         {
-            ["AA"] = -1.0,
-            ["TT"] = -1.0,
-            ["AT"] = -0.88,
-            ["TA"] = -0.58,
-            ["CA"] = -1.45,
-            ["TG"] = -1.45,
-            ["GT"] = -1.44,
-            ["AC"] = -1.44,
-            ["CT"] = -1.28,
-            ["AG"] = -1.28,
-            ["GA"] = -1.30,
-            ["TC"] = -1.30,
-            ["CG"] = -2.17,
-            ["GC"] = -2.24,
-            ["GG"] = -1.84,
-            ["CC"] = -1.84
-        };
+            chars[seq.Length - 1 - i] = seq[i] switch
+            {
+                'A' => 'T',
+                'T' => 'A',
+                'G' => 'C',
+                'C' => 'G',
+                _ => 'N',
+            };
+        }
+        return new string(chars);
+    }
 
-        double totalDeltaG = 0;
-        for (int i = 0; i < last5.Length - 1; i++)
+    // dpal default primer-picking scoring (dpal.c set_dpal_args): identity matrix ×100.
+    private const int DpalMatch = 100, DpalMismatch = -100, DpalN = -25, DpalGap = -200;
+
+    private static int DpalSsm(char x, char y)
+    {
+        bool xn = x is not ('A' or 'C' or 'G' or 'T');
+        bool yn = y is not ('A' or 'C' or 'G' or 'T');
+        if (xn || yn) return DpalN;
+        return x == y ? DpalMatch : DpalMismatch;
+    }
+
+    /// <summary>
+    /// Primer3 <c>align(X, Y, DPAL_GLOBAL_END)</c> score / 100 floored at 0 (libprimer3.cc
+    /// <c>align</c>), computed by a line-by-line port of dpal.c
+    /// <c>_dpal_long_nopath_maxgap1_global_end</c> (the routine Primer3 runs in DPM_FAST mode with
+    /// max_gap = 1); inputs too short for that routine (|X| ≤ 3 or |Y| = 1, where the C code reads
+    /// past the sequence end) use dpal.c's <c>_dpal_generic</c> recurrence for GLOBAL_END.
+    /// </summary>
+    private static double DpalGlobalEndScore(string x, string y)
+    {
+        int xlen = x.Length, ylen = y.Length;
+        // The fast routine reads Y[ylen] (C's NUL terminator) when |X| ≤ 3 and Y[1] when |Y| = 1.
+        int smax = xlen < 4 || ylen < 2 ? DpalGlobalEndGeneric(x, y) : DpalGlobalEndFast(x, y);
+        return smax < 0 ? 0.0 : smax / 100.0;
+    }
+
+    private static int DpalGlobalEndFast(string x, string y)
+    {
+        int xlen = x.Length, ylen = y.Length;
+        const int gap = DpalGap;
+        var s0 = new int[xlen];
+        var s1 = new int[xlen];
+        var s2 = new int[xlen];
+        int score, a;
+
+        int smax = DpalSsm(x[xlen - 1], y[0]);
+        for (int j = 0; j < xlen; j++) s0[j] = DpalSsm(x[j], y[0]);
+
+        s1[0] = DpalSsm(x[0], y[1]);
+        for (int j = 1; j < xlen; j++)
         {
-            string dinuc = last5.Substring(i, 2);
-            if (deltaG.TryGetValue(dinuc, out double dg))
-                totalDeltaG += dg;
+            score = s0[j - 1];
+            if (j > 1 && (a = s0[j - 2] + gap) > score) score = a;
+            score += DpalSsm(x[j], y[1]);
+            if (score > smax && j == xlen - 1) smax = score;
+            s1[j] = score;
         }
 
-        // Initiation parameters per SantaLucia (1998) Table 1:
-        // Init w/terminal G·C: +0.98 kcal/mol
-        // Init w/terminal A·T: +1.03 kcal/mol
-        // Primer3 PRIMER_MAX_END_STABILITY includes these (GCGCG = -6.86, TATAT = -0.86).
-        totalDeltaG += IsGC(last5[0]) ? 0.98 : 1.03;
-        totalDeltaG += IsGC(last5[^1]) ? 0.98 : 1.03;
+        int k = ylen - xlen / 2 + 1;
+        if (k < 1) k = 1;
 
-        return totalDeltaG;
+        // Rectangular part.
+        for (int j = 2; j < k + 1; j++)
+        {
+            s2[0] = DpalSsm(x[0], y[j]);
+            score = s1[0];
+            if ((a = s0[0] + gap) > score) score = a;
+            score += DpalSsm(x[1], y[j]);
+            s2[1] = score;
+            for (int i = 2; i < xlen - 1; i++)
+            {
+                score = s1[i - 2];
+                if ((a = s0[i - 1]) > score) score = a;
+                score += gap;
+                if ((a = s1[i - 1]) > score) score = a;
+                score += DpalSsm(x[i], y[j]);
+                s2[i] = score;
+            }
+            score = s1[xlen - 3];
+            if ((a = s0[xlen - 2]) > score) score = a;
+            score += gap;
+            if ((a = s1[xlen - 2]) > score) score = a;
+            score += DpalSsm(x[xlen - 1], y[j]);
+            s2[xlen - 1] = score;
+            if (score > smax) smax = score;
+            (s0, s1, s2) = (s1, s2, s0);
+        }
 
-        static bool IsGC(char c) => c is 'G' or 'C';
+        // Triangular part (cells left of the band are not recomputed, exactly as dpal.c).
+        int t = 2;
+        for (int j = k + 1; j < ylen; j++)
+        {
+            for (int i = t; i < xlen - 1; i++)
+            {
+                score = s1[i - 2];
+                if ((a = s0[i - 1]) > score) score = a;
+                score += gap;
+                if ((a = s1[i - 1]) > score) score = a;
+                score += DpalSsm(x[i], y[j]);
+                s2[i] = score;
+            }
+            t += 2;
+            score = s1[xlen - 3];
+            if ((a = s0[xlen - 2]) > score) score = a;
+            score += gap;
+            if ((a = s1[xlen - 2]) > score) score = a;
+            score += DpalSsm(x[xlen - 1], y[j]);
+            s2[xlen - 1] = score;
+            if (score > smax) smax = score;
+            (s0, s1, s2) = (s1, s2, s0);
+        }
+        return smax;
+    }
+
+    // dpal.c _dpal_generic with flag DPAL_GLOBAL_END and max_gap = 1 (score only).
+    private static int DpalGlobalEndGeneric(string x, string y)
+    {
+        int xlen = x.Length, ylen = y.Length;
+        var sm = new int[xlen, ylen];
+        for (int i = 0; i < xlen; i++) sm[i, 0] = DpalSsm(x[i], y[0]);
+        int smax = sm[xlen - 1, 0];
+        for (int j = 0; j < ylen; j++) sm[0, j] = DpalSsm(x[0], y[j]);
+        for (int i = 1; i < xlen; i++)
+        {
+            for (int j = 1; j < ylen; j++)
+            {
+                long a = sm[i - 1, j - 1];
+                long b = i > 1 ? (long)sm[i - 2, j - 1] + DpalGap : long.MinValue;
+                long c = j > 1 ? (long)sm[i - 1, j - 2] + DpalGap : long.MinValue;
+                long best;
+                if (a >= b && a >= c) best = a;
+                else if (b > a && b >= c) best = b;
+                else best = c;
+                int score = (int)(best + DpalSsm(x[i], y[j]));
+                if (score >= smax && i == xlen - 1) smax = score;
+                sm[i, j] = score;
+            }
+        }
+        return smax;
+    }
+
+    /// <summary>
+    /// 3′-end stability: the duplex ΔG°37 (kcal/mol, 1 M NaCl) of the last five bases (the whole
+    /// primer when it is shorter than five), computed exactly as Primer3's
+    /// <c>end_oligodg(seq, 5, santalucia)</c> (<c>oligotm.c</c> <c>oligodg</c>; the value Primer3 reports
+    /// as <c>PRIMER_{LEFT,RIGHT}_n_END_STABILITY</c> and limits with <c>PRIMER_MAX_END_STABILITY</c>):
+    /// SantaLucia (1998) Table 1 unified NN ΔG°37 values summed over the steps, plus initiation
+    /// +1.96, +0.05 per terminal A·T base pair and +0.43 for a self-complementary (even-length)
+    /// sequence. For a 5-mer this is identical to SantaLucia (1998)'s "initiation with terminal G·C
+    /// +0.98 / terminal A·T +1.03" form (0.98+0.98 = 1.96, 1.03−0.98 = 0.05). N is accepted with
+    /// Primer3's N-row values (NA 0.58, NC 1.30, NG 1.28, NT 0.88, NN 0.58 negated, etc.) and no A·T
+    /// penalty.
+    /// <para><b>Sign convention:</b> this method returns the physical ΔG (negative = stable); Primer3's
+    /// END_STABILITY is the same quantity with the opposite sign (GCGCG → −6.86 here, 6.86 in
+    /// Primer3; TATAT → −0.86 / 0.86).</para>
+    /// </summary>
+    /// <param name="sequence">Primer sequence (5′→3′), case-insensitive.</param>
+    /// <returns>ΔG°37 in kcal/mol; 0 for null/empty input; <c>double.NaN</c> when the 3′ window
+    /// contains a character other than A, C, G, T, N (Primer3 <c>OLIGOTM_ERROR</c>).</returns>
+    public static double Calculate3PrimeStability(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return 0;
+
+        string window = (sequence.Length > 5 ? sequence[^5..] : sequence).ToUpperInvariant();
+        var idx = new int[window.Length];
+        for (int i = 0; i < window.Length; i++)
+        {
+            int b = window[i] switch { 'A' => 0, 'C' => 1, 'G' => 2, 'T' => 3, 'N' => 4, _ => -1 };
+            if (b < 0) return double.NaN;
+            idx[i] = b;
+        }
+
+        // oligodg (santalucia): dg = −1960 [−430 if symmetric] [−50 per terminal A/T] + Σ table, in cal/mol
+        // of −ΔG; the method returns ΔG = −dg/1000.
+        int dg = -1960;
+        if (IsPrimer3Symmetric(window)) dg += -430;
+        if (window[0] is 'A' or 'T') dg += -50;
+        for (int i = 0; i + 1 < idx.Length; i++)
+            dg += Primer3SantaLucia1998Dg[idx[i], idx[i + 1]];
+        if (window[^1] is 'A' or 'T') dg += -50;
+
+        return -dg / 1000.0;
+    }
+
+    // oligotm.c SantaLucia_1998_dG (−ΔG°37, cal/mol), rows/cols A, C, G, T, N.
+    private static readonly int[,] Primer3SantaLucia1998Dg =
+    {
+        { 1000, 1440, 1280,  880,  880 },
+        { 1450, 1840, 2170, 1280, 1450 },
+        { 1300, 2240, 1840, 1440, 1300 },
+        {  580, 1300, 1450, 1000,  580 },
+        {  580, 1300, 1280,  880,  580 },
+    };
+
+    // oligotm.c symmetry(): even length and every A/T and C/G position Watson-Crick paired with its mirror.
+    private static bool IsPrimer3Symmetric(string seq)
+    {
+        int n = seq.Length;
+        if (n % 2 == 1) return false;
+        for (int i = 0; i < n / 2; i++)
+        {
+            char s = seq[i], e = seq[n - 1 - i];
+            if ((s == 'A' && e != 'T') || (s == 'T' && e != 'A') || (e == 'A' && s != 'T') || (e == 'T' && s != 'A'))
+                return false;
+            if ((s == 'C' && e != 'G') || (s == 'G' && e != 'C') || (e == 'C' && s != 'G') || (e == 'G' && s != 'C'))
+                return false;
+        }
+        return true;
     }
 
     // ---- Nearest-neighbour salt-corrected Tm (PRIMER-TM-001, opt-in) ----------
@@ -2030,41 +2387,238 @@ public static class PrimerDesigner
     public readonly record struct HairpinThermodynamics(
         double DeltaH, double DeltaS, double DeltaG37, double TmCelsius, int BasePairs);
 
-    /// <summary>Watson-Crick complement of an ACGT string (same 5'→3'/left-to-right order).</summary>
-    private static string Complement(string seq)
+    /// <summary>
+    /// ntthal dimer alignment type (Primer3 <c>thal_alignment_type</c>, ntthal <c>-a</c>).
+    /// </summary>
+    public enum NtthalAlignmentMode
     {
-        var sb = new StringBuilder(seq.Length);
-        foreach (char c in seq)
-        {
-            sb.Append(c switch
-            {
-                'A' => 'T',
-                'T' => 'A',
-                'G' => 'C',
-                'C' => 'G',
-                _ => c
-            });
-        }
-        return sb.ToString();
+        /// <summary>THAL_ANY: the most stable duplex anywhere (primer3-py <c>calc_heterodimer</c>).</summary>
+        Any,
+        /// <summary>THAL_END1: the duplex must contain the 3′-terminal base of strand 1
+        /// (primer3-py <c>calc_end_stability(strand1, strand2)</c>).</summary>
+        End1,
+        /// <summary>THAL_END2: the duplex must contain the 3′-terminal base of strand 2
+        /// (= END1 with the strands swapped).</summary>
+        End2,
     }
 
-    /// <summary>GC fraction over A/C/G/T bases only (denominator excludes non-ACGT).</summary>
-    private static double GcFraction(string seq)
+    /// <summary>
+    /// Full <c>ntthal</c> dimer thermodynamics with an explicit alignment type and the complete
+    /// ntthal salt model (<c>saltCorrectS</c>: 0.368·ln((mv + 120·√max(0, dv − dntp))/1000), mM),
+    /// reproducing primer3-py <c>calc_heterodimer</c> (mode <see cref="NtthalAlignmentMode.Any"/>)
+    /// and <c>calc_end_stability</c> (mode <see cref="NtthalAlignmentMode.End1"/>) at any
+    /// mv/dv/dntp/dna_conc.
+    /// </summary>
+    /// <param name="strand1">First DNA oligo (5′→3′), ACGT only.</param>
+    /// <param name="strand2">Second DNA oligo (5′→3′), ACGT only.</param>
+    /// <param name="mode">ntthal alignment type.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration, mol/L.</param>
+    /// <param name="divalentMolar">Mg²⁺ concentration, mol/L.</param>
+    /// <param name="dntpMolar">dNTP concentration, mol/L.</param>
+    /// <param name="strandConcentrationMolar">Oligo concentration, mol/L (ntthal dna_conc).</param>
+    /// <returns>The thermodynamics, or <c>null</c> for invalid input or when no duplex forms.</returns>
+    public static DimerThermodynamics? CalculateDimerThermodynamicsNtthal(
+        string strand1,
+        string strand2,
+        NtthalAlignmentMode mode,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double strandConcentrationMolar)
     {
-        int gc = 0, valid = 0;
-        foreach (char c in seq)
+        if (!IsAcgtOnly(strand1) || !IsAcgtOnly(strand2))
+            return null;
+        var type = mode switch
         {
-            if (c is 'G' or 'C') { gc++; valid++; }
-            else if (c is 'A' or 'T') valid++;
-        }
-        return valid == 0 ? 0.0 : (double)gc / valid;
+            NtthalAlignmentMode.Any => NtthalDimer.AlignmentType.Any,
+            NtthalAlignmentMode.End1 => NtthalDimer.AlignmentType.End1,
+            NtthalAlignmentMode.End2 => NtthalDimer.AlignmentType.End2,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode)),
+        };
+        var r = NtthalDimer.Run(strand1.ToUpperInvariant(), strand2.ToUpperInvariant(),
+            sodiumMolar, strandConcentrationMolar, type, divalentMolar, dntpMolar);
+        if (r is null)
+            return null;
+        var v = r.Value;
+        return new DimerThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs);
     }
+
+    /// <summary>
+    /// Full <c>ntthal</c> hairpin thermodynamics with the complete ntthal salt model (divalent
+    /// cations and dNTPs enter through <c>saltCorrectS</c>), reproducing primer3-py
+    /// <c>calc_hairpin</c> at any mv/dv/dntp.
+    /// </summary>
+    /// <param name="sequence">DNA oligo (5′→3′), ACGT only.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration, mol/L.</param>
+    /// <param name="divalentMolar">Mg²⁺ concentration, mol/L.</param>
+    /// <param name="dntpMolar">dNTP concentration, mol/L.</param>
+    /// <returns>The thermodynamics, or <c>null</c> for invalid input or when no hairpin forms.</returns>
+    public static HairpinThermodynamics? CalculateHairpinThermodynamicsNtthal(
+        string sequence,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar)
+    {
+        if (!IsAcgtOnly(sequence))
+            return null;
+        var r = NtthalHairpin.Run(sequence.ToUpperInvariant(), sodiumMolar, divalentMolar, dntpMolar);
+        if (r is null)
+            return null;
+        var v = r.Value;
+        return new HairpinThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs);
+    }
+
+    private static bool IsAcgtOnly(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        foreach (char c in s)
+            if (c is not ('A' or 'C' or 'G' or 'T' or 'a' or 'c' or 'g' or 't')) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// Primer3's default (thermodynamic) limit, in °C, on every secondary-structure Tm:
+    /// <c>PRIMER_MAX_SELF_ANY_TH</c>, <c>PRIMER_MAX_SELF_END_TH</c>, <c>PRIMER_MAX_HAIRPIN_TH</c>,
+    /// <c>PRIMER_PAIR_MAX_COMPL_ANY_TH</c>, <c>PRIMER_PAIR_MAX_COMPL_END_TH</c> = 47.0
+    /// (<c>libprimer3.cc</c> <c>pr_set_default_global_args_2</c>). A value is a violation when it is
+    /// strictly greater than the limit.
+    /// </summary>
+    public const double Primer3MaxStructureTm = 47.0;
+
+    /// <summary>
+    /// Primer3 thermodynamic secondary-structure values of one primer (Tm in °C; 0 when ntthal finds
+    /// no structure or the Tm is below 0 °C, as <c>align_thermod</c> reports): <c>PRIMER_*_SELF_ANY_TH</c>, <c>PRIMER_*_SELF_END_TH</c>, <c>PRIMER_*_HAIRPIN_TH</c>.
+    /// </summary>
+    /// <param name="SelfAnyTh">Self-dimer Tm, ntthal ANY of (primer, primer).</param>
+    /// <param name="SelfEndTh">3′-anchored self-dimer Tm, ntthal END1 of (primer, primer).</param>
+    /// <param name="HairpinTh">Hairpin Tm, ntthal HAIRPIN of the primer.</param>
+    public readonly record struct Primer3OligoStructure(double SelfAnyTh, double SelfEndTh, double HairpinTh)
+    {
+        /// <summary>True when any value exceeds <paramref name="maxTm"/> (Primer3 rejects the primer).</summary>
+        public bool Exceeds(double maxTm = Primer3MaxStructureTm) =>
+            SelfAnyTh > maxTm || SelfEndTh > maxTm || HairpinTh > maxTm;
+    }
+
+    /// <summary>
+    /// Primer3 thermodynamic pair complementarity (Tm in °C; 0 when no structure or Tm &lt; 0 °C):
+    /// <c>PRIMER_PAIR_COMPL_ANY_TH</c> and <c>PRIMER_PAIR_COMPL_END_TH</c>.
+    /// </summary>
+    /// <param name="ComplAnyTh">Hetero-dimer Tm, ntthal ANY of (left, right).</param>
+    /// <param name="ComplEndTh">Max of ntthal END1/END2 of (left, right) and of (rc(right), rc(left)).</param>
+    public readonly record struct Primer3PairComplementarity(double ComplAnyTh, double ComplEndTh)
+    {
+        /// <summary>True when either value exceeds <paramref name="maxTm"/> (Primer3 rejects the pair).</summary>
+        public bool Exceeds(double maxTm = Primer3MaxStructureTm) => ComplAnyTh > maxTm || ComplEndTh > maxTm;
+    }
+
+    /// <summary>
+    /// Computes a primer's Primer3 thermodynamic secondary-structure Tm values exactly as Primer3
+    /// (default <c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1</c>) does in <c>oligo_compl_thermod</c> /
+    /// <c>oligo_hairpin</c>: self_any = ntthal ANY(primer, primer), self_end = ntthal END1(primer,
+    /// primer), hairpin = ntthal HAIRPIN(primer), each the Tm (°C) of the most stable structure, 0
+    /// when none forms (ntthal <c>no_structure</c>) or the Tm is negative (<c>align_thermod</c>). Conditions default to Primer3's primer
+    /// conditions (50 mM monovalent, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM oligo). Cross-checked against
+    /// primer3-py 2.3.1 <c>calc_homodimer</c>/<c>calc_end_stability</c>/<c>calc_hairpin</c> and the
+    /// <c>PRIMER_LEFT_0_SELF_ANY_TH</c>/<c>_SELF_END_TH</c>/<c>_HAIRPIN_TH</c> values of
+    /// <c>design_primers</c>.
+    /// </summary>
+    /// <param name="primer">Primer (5′→3′), case-insensitive, ACGT only.</param>
+    /// <param name="monovalentMillimolar">Monovalent cation concentration, mM.</param>
+    /// <param name="divalentMillimolar">Mg²⁺ concentration, mM.</param>
+    /// <param name="dntpMillimolar">dNTP concentration, mM.</param>
+    /// <param name="dnaConcentrationNanomolar">Oligo concentration, nM.</param>
+    /// <returns>The three Tm values, or <c>null</c> when the primer is null/empty or contains a
+    /// non-ACGT character.</returns>
+    public static Primer3OligoStructure? CalculatePrimer3OligoStructure(
+        string primer,
+        double monovalentMillimolar = 50.0,
+        double divalentMillimolar = 1.5,
+        double dntpMillimolar = 0.6,
+        double dnaConcentrationNanomolar = 50.0)
+    {
+        if (!IsAcgtOnly(primer))
+            return null;
+        string p = primer.ToUpperInvariant();
+        double mv = monovalentMillimolar / 1000.0, dv = divalentMillimolar / 1000.0, dntp = dntpMillimolar / 1000.0;
+        double conc = dnaConcentrationNanomolar * 1e-9;
+        double any = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.Any, dv, dntp));
+        double end = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.End1, dv, dntp));
+        var h = NtthalHairpin.Run(p, mv, dv, dntp);
+        return new Primer3OligoStructure(any, end, h is null ? 0.0 : Math.Max(0.0, h.Value.TmCelsius));
+    }
+
+    /// <summary>
+    /// Computes Primer3's thermodynamic pair complementarity between a left (forward) and a right
+    /// (reverse) primer, both given 5′→3′ as synthesised, exactly as <c>characterize_pair</c> does in
+    /// the default thermodynamic mode: compl_any = ntthal ANY(left, right); compl_end = the maximum of
+    /// ntthal END1(left, right), END2(left, right), END1(rc(right), rc(left)) and END2(rc(right), rc(left))
+    /// (Primer3 evaluates the last two on the reverse complements, <c>align_thermod(s2, s1_rev, …)</c>).
+    /// Tm in °C, 0 when no structure or Tm &lt; 0 °C. Conditions default to Primer3's primer conditions.
+    /// </summary>
+    /// <param name="leftPrimer">Forward primer (5′→3′), ACGT only.</param>
+    /// <param name="rightPrimer">Reverse primer (5′→3′), ACGT only.</param>
+    /// <param name="monovalentMillimolar">Monovalent cation concentration, mM.</param>
+    /// <param name="divalentMillimolar">Mg²⁺ concentration, mM.</param>
+    /// <param name="dntpMillimolar">dNTP concentration, mM.</param>
+    /// <param name="dnaConcentrationNanomolar">Oligo concentration, nM.</param>
+    /// <returns>The pair values, or <c>null</c> when either primer is null/empty or contains a
+    /// non-ACGT character.</returns>
+    public static Primer3PairComplementarity? CalculatePrimer3PairComplementarity(
+        string leftPrimer,
+        string rightPrimer,
+        double monovalentMillimolar = 50.0,
+        double divalentMillimolar = 1.5,
+        double dntpMillimolar = 0.6,
+        double dnaConcentrationNanomolar = 50.0)
+    {
+        if (!IsAcgtOnly(leftPrimer) || !IsAcgtOnly(rightPrimer))
+            return null;
+        string l = leftPrimer.ToUpperInvariant(), r = rightPrimer.ToUpperInvariant();
+        double mv = monovalentMillimolar / 1000.0, dv = divalentMillimolar / 1000.0, dntp = dntpMillimolar / 1000.0;
+        double conc = dnaConcentrationNanomolar * 1e-9;
+        var (any, end) = Primer3PairTms(l, r, mv, dv, dntp, conc, double.PositiveInfinity);
+        return new Primer3PairComplementarity(any, end);
+    }
+
+    // characterize_pair (thermodynamic mode): s1 = left, s2_rev = right, s2 = revcomp(right),
+    // s1_rev = revcomp(left); compl_any = ANY(s1, s2_rev), compl_end = max(END1/END2(s1, s2_rev),
+    // END1/END2(s2, s1_rev)). Stops as soon as a value exceeds stopAbove (the remaining values are
+    // then irrelevant to a pass/fail decision).
+    private static (double ComplAny, double ComplEnd) Primer3PairTms(
+        string l, string r, double mv, double dv, double dntp, double conc, double stopAbove)
+    {
+        double any = TmOrZero(NtthalDimer.Run(l, r, mv, conc, NtthalDimer.AlignmentType.Any, dv, dntp));
+        if (any > stopAbove)
+            return (any, 0.0);
+        string rcL = DnaSequence.GetReverseComplementString(l), rcR = DnaSequence.GetReverseComplementString(r);
+        double end = 0.0;
+        foreach (var (a, b, t) in new[]
+                 {
+                     (l, r, NtthalDimer.AlignmentType.End1), (l, r, NtthalDimer.AlignmentType.End2),
+                     (rcR, rcL, NtthalDimer.AlignmentType.End1), (rcR, rcL, NtthalDimer.AlignmentType.End2),
+                 })
+        {
+            end = Math.Max(end, TmOrZero(NtthalDimer.Run(a, b, mv, conc, t, dv, dntp)));
+            if (end > stopAbove)
+                break;
+        }
+        return (any, end);
+    }
+
+    // libprimer3.cc align_thermod: Tm of the structure, 0 when none forms or when Tm < 0 °C.
+    private static double TmOrZero(NtthalDimer.Result? r) => r is null ? 0.0 : Math.Max(0.0, r.Value.TmCelsius);
+
+    // Watson-Crick complement (same left-to-right order) via the canonical Core per-base complement
+    // (SequenceExtensions.TryGetComplement); identical to the former local ACGT switch on the
+    // validated ACGT duplexes it is applied to.
+    private static string Complement(string seq) =>
+        string.Create(seq.Length, seq, static (dest, src) => src.AsSpan().TryGetComplement(dest));
 
     // Owczarzy (2004) monovalent correction in 1/Tm form (Kelvin).
     private static double ApplyOwczarzy2004(double tmKelvin, string seq, double sodiumMolar)
     {
         double lnNa = Math.Log(sodiumMolar);
-        double fgc = GcFraction(seq);
+        double fgc = seq.CalculateGcFractionFast();
         double corr = (Owczarzy2004GcCoefficient * fgc - Owczarzy2004Constant) * lnNa
                       + Owczarzy2004QuadraticCoefficient * lnNa * lnNa;
         return 1.0 / (1.0 / tmKelvin + corr);
@@ -2087,7 +2641,7 @@ public static class PrimerDesigner
                               + 4.0 * ka * mg)) / (2.0 * ka);
         }
 
-        double fgc = GcFraction(seq);
+        double fgc = seq.CalculateGcFractionFast();
         double corr;
 
         // If essentially no divalent ion, fall back to the monovalent 2004 form.
@@ -2374,13 +2928,53 @@ public readonly record struct PrimerParameters(
     int MaxHomopolymer,
     int MaxDinucleotideRepeats,
     bool Avoid3PrimeGC,
-    bool Check3PrimeStability);
+    bool Check3PrimeStability,
+    PrimerStructureScreen StructureScreen = PrimerStructureScreen.Primer3Thermodynamic,
+    double MaxStructureTm = PrimerDesigner.Primer3MaxStructureTm)
+{
+    /// <summary>
+    /// Limit (°C) for every Primer3 thermodynamic structure value under
+    /// <see cref="PrimerStructureScreen.Primer3Thermodynamic"/> — Primer3's PRIMER_MAX_SELF_ANY_TH,
+    /// PRIMER_MAX_SELF_END_TH, PRIMER_MAX_HAIRPIN_TH, PRIMER_PAIR_MAX_COMPL_ANY_TH and
+    /// PRIMER_PAIR_MAX_COMPL_END_TH, all 47 °C by default. A value strictly greater fails.
+    /// The value <c>0</c> (e.g. from <c>default(PrimerParameters)</c>) also means 47 °C.
+    /// </summary>
+    public double EffectiveMaxStructureTm => MaxStructureTm > 0 ? MaxStructureTm : PrimerDesigner.Primer3MaxStructureTm;
+}
+
+/// <summary>
+/// Secondary-structure screen applied by <see cref="PrimerDesigner.EvaluatePrimer"/> and
+/// <see cref="PrimerDesigner.DesignPrimers"/>.
+/// </summary>
+public enum PrimerStructureScreen
+{
+    /// <summary>
+    /// Primer3's default thermodynamic screen (<c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1</c>): a
+    /// primer is rejected when its ntthal self-dimer, 3′ self-dimer or hairpin Tm exceeds 47 °C
+    /// (<see cref="PrimerDesigner.CalculatePrimer3OligoStructure"/>), a pair when its ntthal
+    /// hetero-dimer or 3′ hetero-dimer Tm exceeds 47 °C
+    /// (<see cref="PrimerDesigner.CalculatePrimer3PairComplementarity"/>).
+    /// </summary>
+    Primer3Thermodynamic = 0,
+
+    /// <summary>
+    /// Sequence-only screen: <see cref="PrimerDesigner.HasHairpinPotential"/> (a ≥ 4-bp
+    /// Watson–Crick stem closing a ≥ 3-nt loop) per primer and <see cref="PrimerDesigner.HasPrimerDimer"/>
+    /// (Primer3 alignment-mode pair 3′ complementarity ≥ 4) per pair.
+    /// </summary>
+    Heuristic = 1,
+}
 
 /// <summary>
 /// A primer candidate with quality metrics. <see cref="MeltingTemperature"/> is the Primer3-default
 /// Tm rounded to 0.1 °C; <see cref="Score"/> is an informational heuristic (higher is better);
 /// <see cref="Penalty"/> is the unrounded Primer3 per-primer penalty (lower is better) that
-/// <see cref="PrimerDesigner.DesignPrimers"/> ranks by.
+/// <see cref="PrimerDesigner.DesignPrimers"/> ranks by. Under the default
+/// <see cref="PrimerStructureScreen.Primer3Thermodynamic"/> screen <see cref="SelfAnyTh"/>,
+/// <see cref="SelfEndTh"/> and <see cref="HairpinTh"/> carry Primer3's PRIMER_*_SELF_ANY_TH /
+/// _SELF_END_TH / _HAIRPIN_TH (°C) and <see cref="HasHairpin"/> means HairpinTh &gt; 47 °C; under the
+/// heuristic screen they are <c>null</c> and <see cref="HasHairpin"/> is
+/// <see cref="PrimerDesigner.HasHairpinPotential"/>.
 /// </summary>
 public sealed record PrimerCandidate(
     string Sequence,
@@ -2395,7 +2989,10 @@ public sealed record PrimerCandidate(
     bool IsValid,
     IReadOnlyList<string> Issues,
     double Score,
-    double Penalty = 0.0);
+    double Penalty = 0.0,
+    double? SelfAnyTh = null,
+    double? SelfEndTh = null,
+    double? HairpinTh = null);
 
 /// <summary>
 /// Measured properties of a single primer used as input to the Primer3 penalty

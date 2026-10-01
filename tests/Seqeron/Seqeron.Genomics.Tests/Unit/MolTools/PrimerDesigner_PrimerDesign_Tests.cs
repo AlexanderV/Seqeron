@@ -331,20 +331,19 @@ public class PrimerDesigner_PrimerDesign_Tests
     [Test]
     public void HasPrimerDimer_ComplementaryPrimers_ReturnsTrue()
     {
-        // HasPrimerDimer checks: last 8 of primer1 vs first 8 of revcomp(primer2).
-        // For 8/8 complementarity: last8(primer1) must be reverse of last8(primer2).
-        //
-        // primer1 3' end: ATCGATCG
-        // primer2 3' end: GCTAGCTA (reverse of ATCGATCG)
-        // ⇒ revcomp(primer2) starts with TAGCTAGC
-        // ⇒ ATCGATCG vs TAGCTAGC: A↔T, T↔A, C↔G, G↔C... all 8 complementary
-        string primer1 = "AACCGGTTAACCATCGATCG"; // 20bp, ends ATCGATCG
-        string primer2 = "AACCGGTTAAGCTAGCTA";   // 18bp, ends GCTAGCTA
+        // A 3'-3' primer-dimer needs the 3'-terminal bases of primer2 to be the REVERSE COMPLEMENT
+        // of primer1's: primer1 ends ATCGATCG, primer2 ends CGATCGAT (= revcomp(ATCGATCG)).
+        // primer3-py check_primers (alignment mode): PRIMER_PAIR_0_COMPL_END = 8.0 ("high end compl").
+        // The former fixture (primer2 ending GCTAGCTA, the plain reverse) scores 1.0 in Primer3.
+        string primer1 = "AACCGGTTAACCATCGATCG";
+        string primer2 = "AACCGGTTAACGATCGAT";
 
         // Act
         bool hasDimer = PrimerDesigner.HasPrimerDimer(primer1, primer2);
 
         // Assert
+        Assert.That(PrimerDesigner.CalculatePrimerDimerEndComplementarity(primer1, primer2), Is.EqualTo(8.0));
+        Assert.That(PrimerDesigner.HasPrimerDimer(primer1, "AACCGGTTAAGCTAGCTA"), Is.False);
         Assert.That(hasDimer, Is.True,
             "Primers with fully complementary 3' ends should be detected as primer-dimer prone");
     }
@@ -946,10 +945,15 @@ public class PrimerDesigner_PrimerDesign_Tests
     [Test]
     public void DesignPrimers_RandomTemplate_MatchesPrimer3DesignPrimers()
     {
-        // Random 160-mer (python random.seed(2026)), SEQUENCE_TARGET = 70,20.
-        // primer3-py: PRIMER_LEFT_0 = [14,20] ATGCTGGGTAGAGGTCGAGG (penalty 0.7571876195438563),
-        // PRIMER_RIGHT_0 = [122,20] GATCGAGGACTGCCTTGGTA (Tm 58.88788714233573, penalty 1.1121128576642718),
-        // PRIMER_PAIR_0_PENALTY = 1.869300477208128, product size 122 − 14 + 1 = 109.
+        // Random 160-mer (python random.seed(2026)), SEQUENCE_TARGET = 70,20. primer3-py 2.3.1
+        // design_primers with Primer3's default thermodynamic structure limits (47 °C) and this
+        // library's default per-primer limits (PRIMER_MIN/MAX_GC 40/60, PRIMER_MAX_POLY_X 4,
+        // Tm 57–63, size 18–25, PRIMER_PAIR_MAX_DIFF_TM 5): PRIMER_LEFT_0 = [14,20]
+        // ATGCTGGGTAGAGGTCGAGG (penalty 0.7571876195438563), PRIMER_RIGHT_0 = [129,20]
+        // AGGAACGGATCGAGGACTGC (Tm 61.66810138313815), PRIMER_PAIR_0_PENALTY 2.425289002682007,
+        // product 129 − 14 + 1 = 116. The pair returned without structure limits (right
+        // GATCGAGGACTGCCTTGGTA) is rejected by Primer3: its hairpin Tm is 47.19 °C > 47 °C
+        // (PRIMER_RIGHT_EXPLAIN "high hairpin stability").
         const string template =
             "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGTGTTTCGGAACTTGCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCA";
         var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 70, 90);
@@ -959,11 +963,39 @@ public class PrimerDesigner_PrimerDesign_Tests
             Assert.That(result.IsValid, Is.True);
             Assert.That(result.Forward!.Sequence, Is.EqualTo("ATGCTGGGTAGAGGTCGAGG"));
             Assert.That(result.Forward.Position, Is.EqualTo(14));
-            Assert.That(result.Reverse!.Sequence, Is.EqualTo("GATCGAGGACTGCCTTGGTA"));
-            Assert.That(result.Reverse.Position, Is.EqualTo(103)); // Primer3 right start 122 = 103 + 20 − 1
-            Assert.That(result.Reverse.MeltingTemperature, Is.EqualTo(58.9));
-            Assert.That(result.Forward.Penalty + result.Reverse.Penalty, Is.EqualTo(1.869300477208128).Within(1e-9));
-            Assert.That(result.ProductSize, Is.EqualTo(109));
+            Assert.That(result.Reverse!.Sequence, Is.EqualTo("AGGAACGGATCGAGGACTGC"));
+            Assert.That(result.Reverse.Position, Is.EqualTo(110)); // Primer3 right start 129 = 110 + 20 − 1
+            Assert.That(result.Reverse.MeltingTemperature, Is.EqualTo(61.7));
+            Assert.That(result.Forward.Penalty + result.Reverse.Penalty, Is.EqualTo(2.425289002682007).Within(1e-9));
+            Assert.That(result.ProductSize, Is.EqualTo(116));
+            Assert.That(PrimerDesigner.CalculatePrimer3OligoStructure("GATCGAGGACTGCCTTGGTA")!.Value.HairpinTh,
+                Is.EqualTo(47.193593776115506).Within(1e-9)); // primer3-py calc_hairpin
+        });
+    }
+
+    [Test]
+    public void DesignPrimers_HeuristicScreen_KeepsSequenceOnlyChecks()
+    {
+        // With the sequence-only screen the Primer3 hairpin limit is not applied, so the pair is the
+        // one primer3-py returns when every *_TH limit is 100 °C: right [122,20] GATCGAGGACTGCCTTGGTA,
+        // PRIMER_PAIR_0_PENALTY 1.869300477208128 (HasHairpinPotential finds no 4-bp stem in it).
+        const string template =
+            "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGTGTTTCGGAACTTGCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCA";
+        var heuristic = PrimerDesigner.DesignPrimers(new DnaSequence(template), 70, 90,
+            PrimerDesigner.DefaultParameters with { StructureScreen = PrimerStructureScreen.Heuristic });
+        var relaxed = PrimerDesigner.DesignPrimers(new DnaSequence(template), 70, 90,
+            PrimerDesigner.DefaultParameters with { MaxStructureTm = 100 });
+
+        Assert.Multiple(() =>
+        {
+            foreach (var r in new[] { heuristic, relaxed })
+            {
+                Assert.That(r.IsValid, Is.True);
+                Assert.That(r.Reverse!.Sequence, Is.EqualTo("GATCGAGGACTGCCTTGGTA"));
+                Assert.That(r.Forward!.Penalty + r.Reverse.Penalty, Is.EqualTo(1.869300477208128).Within(1e-9));
+            }
+            Assert.That(heuristic.Reverse!.HairpinTh, Is.Null);
+            Assert.That(relaxed.Reverse!.HairpinTh, Is.EqualTo(47.193593776115506).Within(1e-9));
         });
     }
 
@@ -974,11 +1006,14 @@ public class PrimerDesigner_PrimerDesign_Tests
         // individually best primers LEFT [4,22] (Tm 57.300) + RIGHT [62,19] (Tm 62.882): ΔTm 5.58 > 5,
         // so choosing each side independently yields no valid pair. With PRIMER_PAIR_MAX_DIFF_TM = 5
         // primer3-py returns LEFT [3,23] (Tm 57.9563) + RIGHT [62,19], PRIMER_PAIR_0_PENALTY 8.925688222301858.
+        // (primer3-py run with every *_TH structure limit at 100 °C; with Primer3's default 47 °C the
+        // right primer ATGGAGCACGAGCGCAACA fails on its hairpin, 48.215 °C — see the next test.)
         const string template = "TAATTGGTGTAATAATCTAGGGGTGCTTTTTTTTTGCAGTCCGGTGTTGCGCTCGTGCTCCAT";
-        var bestForwardAlone = PrimerDesigner.EvaluatePrimer(template.Substring(4, 22), 4, true);
+        var param = PrimerDesigner.DefaultParameters with { MaxStructureTm = 100 };
+        var bestForwardAlone = PrimerDesigner.EvaluatePrimer(template.Substring(4, 22), 4, true, param);
         Assert.That(bestForwardAlone.IsValid, Is.True, "the individually best forward primer is itself valid");
 
-        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 26, 34);
+        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 26, 34, param);
 
         Assert.Multiple(() =>
         {
@@ -992,6 +1027,57 @@ public class PrimerDesigner_PrimerDesign_Tests
             Assert.That(result.Forward.Penalty + result.Reverse.Penalty, Is.EqualTo(8.925688222301858).Within(1e-9));
             Assert.That(bestForwardAlone.Penalty, Is.LessThan(result.Forward.Penalty),
                 "the chosen forward primer is not the individually best one");
+        });
+    }
+
+    [Test]
+    [CancelAfter(20000)]
+    public void DesignPrimers_RepetitiveTemplate_StructureChecksCachedBySequence()
+    {
+        // 250 A's: ~800 candidates per side but only 8 distinct sequences each (A18..A25 / T18..T25),
+        // many with equal penalties, so the pair loop meets each sequence pair many times. The ntthal
+        // results are cached per sequence (pair); without it this took hours. A18·T18 hetero-dimer
+        // Tm = 38.05 °C (primer3-py calc_heterodimer) ≤ 47 °C, so a pair exists.
+        var param = PrimerDesigner.DefaultParameters with
+        {
+            MinGcContent = 0, MaxGcContent = 0, MinTm = 0, MaxTm = 200,
+            MaxHomopolymer = 1000, MaxDinucleotideRepeats = 1000, Check3PrimeStability = false,
+        };
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var result = PrimerDesigner.DesignPrimers(new DnaSequence(new string('A', 250)), 120, 130, param);
+        sw.Stop();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsValid, Is.True);
+            Assert.That(result.Forward!.Sequence.Trim('A'), Is.Empty);
+            Assert.That(result.Reverse!.Sequence.Trim('T'), Is.Empty);
+            var pc = PrimerDesigner.CalculatePrimer3PairComplementarity(result.Forward.Sequence, result.Reverse.Sequence)!.Value;
+            Assert.That(pc.Exceeds(), Is.False);
+            Assert.That(PrimerDesigner.CalculatePrimer3PairComplementarity(new string('A', 18), new string('T', 18))!.Value.ComplAnyTh,
+                Is.EqualTo(38.04660273299868).Within(1e-9));
+            Assert.That(sw.Elapsed, Is.LessThan(TimeSpan.FromSeconds(20)));
+        });
+    }
+
+    [Test]
+    public void DesignPrimers_RightPrimerHairpinAbovePrimer3Limit_NoValidPrimers()
+    {
+        // primer3-py 2.3.1 design_primers (default 47 °C limits, this library's per-primer limits):
+        // PRIMER_RIGHT_EXPLAIN "considered 68, GC content failed 66, high tm 1, high hairpin
+        // stability 1, ok 0" — the only GC-compatible right primer ATGGAGCACGAGCGCAACA has hairpin
+        // Tm 48.21523465319416 °C (calc_hairpin), so no pair exists.
+        const string template = "TAATTGGTGTAATAATCTAGGGGTGCTTTTTTTTTGCAGTCCGGTGTTGCGCTCGTGCTCCAT";
+        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 26, 34);
+        var right = PrimerDesigner.EvaluatePrimer("ATGGAGCACGAGCGCAACA", 44, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.Message, Is.EqualTo("Could not find valid primers for the target region."));
+            Assert.That(right.HairpinTh, Is.EqualTo(48.21523465319416).Within(1e-9));
+            Assert.That(right.HasHairpin, Is.True);
+            Assert.That(right.IsValid, Is.False);
         });
     }
 

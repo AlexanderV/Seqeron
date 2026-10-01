@@ -69,7 +69,7 @@ public class MolToolsTools
         return new TmResult(PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, na_concentration));
     }
 
-    [McpServerTool(Name = "longest_homopolymer", Title = "MolTools — Longest Homopolymer Run", ReadOnly = true), Description("Returns the length of the longest run of identical consecutive nucleotides (e.g. AAAA = 4) in a sequence, case-insensitive. Call to flag homopolymer stretches that hurt primer/probe quality.")]
+    [McpServerTool(Name = "longest_homopolymer", Title = "MolTools — Longest Homopolymer Run", ReadOnly = true), Description("Returns the length of the longest run of identical consecutive nucleotides (e.g. AAAA = 4) in a sequence, case-insensitive — the quantity Primer3 limits with PRIMER_MAX_POLY_X; as in Primer3, N counts as the worst-case base (ANA = 3). Call to flag homopolymer stretches that hurt primer/probe quality.")]
     public static HomopolymerLengthResult longest_homopolymer(
         [Description("Nucleotide sequence.")] string sequence)
     {
@@ -105,49 +105,35 @@ public class MolToolsTools
         return new HairpinPotentialResult(PrimerDesigner.HasHairpinPotential(sequence, min_stem_length, min_loop_length));
     }
 
-    [McpServerTool(Name = "primer_dimer", Title = "MolTools — Primer-Dimer Check", ReadOnly = true), Description("Heuristic 3'-end primer-dimer check between two primers: reverse-complements primer2 and counts complementary positions in an up-to-8-bp 3'-end window. Flags a dimer when at least min_complementarity positions are complementary. Returns the boolean flag plus the complementary-base count. Call to screen a primer pair for 3'-dimer formation.")]
+    [McpServerTool(Name = "primer_dimer", Title = "MolTools — Primer-Dimer Check", ReadOnly = true), Description("Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0): the 3'-anchored dpal alignment score of each primer against the other's reverse complement (+1 per complementary pair, -1 mismatch, -2 per single-base gap; max of both orientations). Flags a dimer when the score is at least min_complementarity (default 4 = Primer3's default PRIMER_PAIR_MAX_COMPL_END 3.00 exceeded). Returns the flag, the integer score and the exact score. Call to screen a primer pair for 3'-dimer formation; for Primer3's default thermodynamic check use the C# API PrimerDesigner.CalculatePrimer3PairComplementarity.")]
     public static PrimerDimerResult primer_dimer(
-        [Description("First primer sequence.")] string primer1,
-        [Description("Second primer sequence.")] string primer2,
-        [Description("Minimum number of complementary 3'-end bases to flag a dimer (default 4).")] int min_complementarity = 4)
+        [Description("First primer sequence (5'->3').")] string primer1,
+        [Description("Second primer sequence (5'->3').")] string primer2,
+        [Description("Minimum 3'-end complementarity score to flag a dimer (default 4).")] int min_complementarity = 4)
     {
         if (string.IsNullOrEmpty(primer1))
             throw new System.ArgumentException("First primer cannot be null or empty.", nameof(primer1));
         if (string.IsNullOrEmpty(primer2))
             throw new System.ArgumentException("Second primer cannot be null or empty.", nameof(primer2));
 
-        bool hasDimer = PrimerDesigner.HasPrimerDimer(primer1, primer2, min_complementarity);
-
-        // Count complementary 3'-end positions (mirrors the inner loop in HasPrimerDimer).
-        int complementary = 0;
-        if (!string.IsNullOrEmpty(primer1) && !string.IsNullOrEmpty(primer2))
-        {
-            string seq1 = primer1.ToUpperInvariant();
-            string seq2 = DnaSequence.GetReverseComplementString(primer2.ToUpperInvariant());
-            int checkLength = System.Math.Min(8, System.Math.Min(seq1.Length, seq2.Length));
-            string end1 = seq1.Substring(seq1.Length - checkLength);
-            string end2 = seq2.Substring(0, checkLength);
-            for (int i = 0; i < checkLength; i++)
-            {
-                if (IsComplementary(end1[i], end2[i]))
-                    complementary++;
-            }
-        }
-        return new PrimerDimerResult(hasDimer, complementary);
-
-        static bool IsComplementary(char c1, char c2) =>
-            (c1 == 'A' && c2 == 'T') || (c1 == 'T' && c2 == 'A') ||
-            (c1 == 'G' && c2 == 'C') || (c1 == 'C' && c2 == 'G');
+        double score = PrimerDesigner.CalculatePrimerDimerEndComplementarity(primer1, primer2);
+        return new PrimerDimerResult(
+            PrimerDesigner.HasPrimerDimer(primer1, primer2, min_complementarity),
+            (int)System.Math.Floor(score),
+            score);
     }
 
-    [McpServerTool(Name = "three_prime_stability", Title = "MolTools — Primer 3' End Stability (ΔG°37)", ReadOnly = true), Description("SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol) of a primer's last 5 bases, including initiation terms (1 M NaCl), matching Primer3 PRIMER_MAX_END_STABILITY. More negative ΔG = a more stable (more problematic) 3' end. Sequences shorter than 5 bases return 0. Call to assess primer 3'-end stability for mispriming risk.")]
+    [McpServerTool(Name = "three_prime_stability", Title = "MolTools — Primer 3' End Stability (ΔG°37)", ReadOnly = true), Description("Primer3 3'-end stability (oligotm.c end_oligodg): SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol, 1 M NaCl) of the primer's last 5 bases (the whole primer if shorter), with initiation (+1.96, +0.05 per terminal A·T, +0.43 if self-complementary). Primer3 reports the same magnitude with the opposite sign as PRIMER_*_END_STABILITY. More negative ΔG = a more stable (more problematic) 3' end. N is accepted (Primer3 N parameters); other characters in the 3' window are rejected. Call to assess primer 3'-end stability for mispriming risk.")]
     public static ThreePrimeStabilityResult three_prime_stability(
         [Description("Primer sequence.")] string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
-        return new ThreePrimeStabilityResult(PrimerDesigner.Calculate3PrimeStability(sequence));
+        double dg = PrimerDesigner.Calculate3PrimeStability(sequence);
+        if (double.IsNaN(dg))
+            throw new System.ArgumentException("The 3'-terminal 5 bases may contain only A, C, G, T or N.", nameof(sequence));
+        return new ThreePrimeStabilityResult(dg);
     }
 
     [McpServerTool(Name = "generate_primer_candidates", Title = "MolTools — Generate Primer Candidates", ReadOnly = true), Description("Enumerates all primer candidates of admissible lengths (parameters.MinLength..MaxLength) at every start position within a region of the template and evaluates each one (candidates are emitted in generation order, NOT sorted by score). region_start is 0-based inclusive, region_end is exclusive; for a reverse request each candidate sequence is the reverse complement of the template substring. Useful when the caller wants the full candidate set to pick by custom criteria.")]

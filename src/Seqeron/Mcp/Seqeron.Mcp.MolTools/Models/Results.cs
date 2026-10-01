@@ -7,7 +7,7 @@ public sealed record TmResult(double Tm);
 public sealed record HomopolymerLengthResult(int Length);
 public sealed record DinucleotideRepeatResult(int Repeats);
 public sealed record HairpinPotentialResult(bool HasHairpin);
-public sealed record PrimerDimerResult(bool HasDimer, int ComplementaryBases);
+public sealed record PrimerDimerResult(bool HasDimer, int ComplementaryBases, double ComplEndScore);
 public sealed record ThreePrimeStabilityResult(double DeltaG);
 public sealed record PrimerCandidateListResult(IReadOnlyList<PrimerCandidate> Candidates);
 

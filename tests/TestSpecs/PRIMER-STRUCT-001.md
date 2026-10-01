@@ -8,7 +8,7 @@
 | **Title** | Primer Structure Analysis |
 | **Area** | Molecular Tools |
 | **Status** | ☑ Complete |
-| **Last Updated** | 2026-03-04 |
+| **Last Updated** | 2026-10-01 |
 | **Owner** | GitHub Copilot |
 
 ## Methods Under Test
@@ -16,7 +16,10 @@
 | Method | Class | Type | Complexity |
 |--------|-------|------|------------|
 | `HasHairpinPotential(seq, minStemLength, minLoopLength)` | PrimerDesigner | Canonical | O(n²) <100bp, O(n) ≥100bp* |
-| `HasPrimerDimer(primer1, primer2, minComp)` | PrimerDesigner | Canonical | O(n) |
+| `HasPrimerDimer(primer1, primer2, minComp)` | PrimerDesigner | Canonical | O(n·m) |
+| `CalculatePrimerDimerEndComplementarity(p1, p2)` / `CalculatePrimerSelfEndComplementarity(p)` | PrimerDesigner | Canonical (Primer3 alignment compl_end / self_end) | O(n·m) |
+| `CalculatePrimer3OligoStructure(p)` / `CalculatePrimer3PairComplementarity(l, r)` | PrimerDesigner | Canonical (Primer3 *_TH, ntthal) | O(n·m·L²) |
+| `CalculateDimerThermodynamicsNtthal(a, b, mode, mv, dv, dntp, c)` / `CalculateHairpinThermodynamicsNtthal(s, mv, dv, dntp)` | PrimerDesigner | ntthal END1/END2 + divalent salt | O(n·m·L²) |
 | `Calculate3PrimeStability(seq)` | PrimerDesigner | Canonical | O(1) |
 | `FindLongestHomopolymer(seq)` | PrimerDesigner | Canonical | O(n) |
 | `FindLongestDinucleotideRepeat(seq)` | PrimerDesigner | Canonical | O(n) |
@@ -33,6 +36,8 @@
 | Wikipedia - Nucleic acid thermodynamics | Encyclopedia | https://en.wikipedia.org/wiki/Nucleic_acid_thermodynamics |
 | Primer3 Manual | Tool Documentation | https://primer3.org/manual.html |
 | SantaLucia (1998) | Primary Literature | PNAS 95:1460-65 |
+| Primer3 source (libprimer3.cc, oligotm.c, dpal.c, thal.c) | Reference implementation | https://github.com/primer3-org/primer3 (oligotm.c and dpal.c compiled locally as oracles) |
+| primer3-py 2.3.1 | Reference implementation | `design_primers` (check_primers), `calc_hairpin`, `calc_homodimer`, `calc_heterodimer`, `calc_end_stability` |
 
 ## Invariants
 
@@ -40,7 +45,8 @@
 2. **Dinucleotide invariant:** Result ≥ 0; 0 for sequences < 4 bp
 3. **Hairpin invariant:** Requires minimum length (2×stem + loop) to return true
 4. **Stability invariant:** GC-rich 3' ends have more negative (stable) ΔG
-5. **Primer-dimer invariant:** Returns false for empty primers
+5. **Primer-dimer invariant:** Returns false for empty primers; the compl_end score is symmetric and ≥ 0
+6. **Primer3 structure invariant:** every *_TH value is ≥ 0 (negative Tm / no structure → 0)
 
 ## Test Cases
 
@@ -59,9 +65,14 @@
 | M9 | Hairpin | Non-self-complementary | false | Wikipedia Stem-loop |
 | M10 | Hairpin | Self-complementary | true | Wikipedia Stem-loop |
 | M11 | Primer-dimer | Null/empty primer (either side) | false | Null guard |
-| M12 | Primer-dimer | Non-complementary 3' ends | false | Wikipedia Primer-dimer |
-| M13 | Primer-dimer | Complementary 3' ends (A₈ vs A₈) | true | Wikipedia Primer-dimer |
-| M14 | 3' Stability | Null/empty/short (<5 bp) | 0 | Primer3 5-mer standard |
+| M12 | Primer-dimer | Non-complementary 3' ends (A₈ vs AAAACCCC) | false, compl_end 0 | primer3-py check_primers (alignment mode) |
+| M13 | Primer-dimer | Complementary 3' ends (A₈ vs T₈); identical poly-A (A₈ vs A₈) is NOT a dimer; GGCC/GGCC 3' ends ARE | true / false / true (8 / 0 / 4) | Primer3 dpal.c (compiled), primer3-py check_primers |
+| M13b | Primer-dimer | compl_end and self_end match Primer3 | PRIMER_PAIR_0_COMPL_END 1/8/4/0; SELF_END 6/4/0/0 | primer3-py check_primers (alignment mode) |
+| M14 | 3' Stability | Null/empty → 0; < 5 bp scored whole (ACGT −2.56, GC +0.15, A +2.06, AT +1.61); N (ACGTN −3.62, NNNNN −0.36, AAANA −1.40); invalid char in window → NaN | as listed | Primer3 end_oligodg (oligotm.c compiled) |
+| M18 | Thermodynamic screen | SELF_ANY_TH / SELF_END_TH / HAIRPIN_TH / COMPL_ANY_TH / COMPL_END_TH for 4 primer pairs | primer3-py values to 1e-9 | primer3-py design_primers check_primers |
+| M19 | ntthal modes | END1 / END2 / ANY at dv 1.5, dntp 0.6; hairpin at dv 1.5 and 0 | calc_end_stability / calc_heterodimer / calc_hairpin to 1e-9 | primer3-py |
+| M20 | Homopolymer N | NNG 3, ANA 3, CNN 3, TNNG 3, GNGNG 5, ANGNG 4 + 5 primers | Primer3 _pr_violates_poly_x | libprimer3.cc comment + primer3-py check_primers |
+| M21 | EvaluatePrimer | Thermodynamic screen populates SelfAnyTh/SelfEndTh/HairpinTh, rejects > 47 °C; Heuristic screen → null; MaxStructureTm 100 → no structure issue | ACGTACGTACGTACGTACGT 60.49/60.49/71.76 | primer3-py check_primers |
 | M15 | 3' Stability | GC-rich vs AT-rich (exact values) | GCGCG = -6.86, TATAT = -0.86 | SantaLucia (1998) + Primer3 Manual |
 | M16 | 3' Stability | GCGCG (most stable 5mer) | -6.86 kcal/mol | Primer3 Manual + SantaLucia (1998) |
 | M17 | 3' Stability | TATAT (least stable 5mer) | -0.86 kcal/mol | Primer3 Manual + SantaLucia (1998) |
@@ -74,7 +85,7 @@
 | S2 | Dinucleotide | ATATATAT pattern | 4 | Common microsatellite |
 | S3 | Hairpin | Custom minStemLength | Respects parameter | API contract |
 | S4 | Hairpin | Custom minLoopLength | Respects parameter | API contract / Wikipedia Stem-loop |
-| S5 | Primer-dimer | Custom minComplementarity | Respects parameter | API contract |
+| S5 | Primer-dimer | Custom minComplementarity (ACGTACGT self, score 8: min 8 true, min 9 false) | Respects parameter | dpal.c (compiled) |
 | S6 | 3' Stability | Exact 5-base input (TACGT) | -3.57 kcal/mol | SantaLucia (1998) |
 | S7 | 3' Stability | Case insensitive (GCGCG vs gcgcg) | Both = -6.86 | Universal DNA convention |
 
@@ -85,6 +96,7 @@
 | C1 | Homopolymer | Run at end / multiple runs | Detected correctly | Edge case |
 | C2 | Dinucleotide | Multiple repeat types | Returns longest | Logic verification |
 | C3 | Hairpin | Long sequence (>100bp) suffix tree path | Correct detection | Performance optimization |
+| C6 | DesignPrimers | Default thermodynamic screen = primer3-py design_primers (random template: right AGGAACGGATCGAGGACTGC, pair penalty 2.425289002682007); hairpin 48.215 °C right primer → no valid primers; Heuristic / MaxStructureTm 100 → pair 1.869300477208128 | Primer3 values | primer3-py design_primers |
 | C4 | Integration | Well-designed primer exact metrics | Homopolymer=1, dinuc=1, ΔG=-3.57 | Combined verification |
 | C5 | Integration | Problematic primer exact metrics | Homopolymer=20, ΔG=-5.40 | Primer3 failure modes |
 
@@ -102,6 +114,7 @@
 | `FindLongestHomopolymer_MixedCase_IsCaseInsensitive` | 1 | ✅ Covered | M4 |
 | `FindLongestHomopolymer_RunAtEnd_ReturnsRunLength` | 1 | ✅ Covered | C1 |
 | `FindLongestHomopolymer_MultipleRuns_ReturnsLongest` | 1 | ✅ Covered | C1 |
+| `FindLongestHomopolymer_NIsWorstCaseWildcard_MatchesPrimer3PolyX` | 11 | ✅ Covered | M20 |
 | `FindLongestDinucleotideRepeat_InvalidInput_ReturnsZero` | 3 | ✅ Covered | M5 (null+empty+short merged) |
 | `FindLongestDinucleotideRepeat_NoRepeat_ReturnsOne` | 1 | ✅ Covered | M6 (was ⚠ Weak: `≤1` → exact `1`) |
 | `FindLongestDinucleotideRepeat_AcRepeat_ReturnsCount` | 1 | ✅ Covered | M7 |
@@ -115,10 +128,16 @@
 | `HasHairpinPotential_LongSequence_UsesSuffixTreeOptimization` | 1 | ✅ Covered | C3 |
 | `HasHairpinPotential_LongSequenceNoHairpin_ReturnsFalse` | 1 | ✅ Covered | C3 |
 | `HasPrimerDimer_NullOrEmptyPrimer_ReturnsFalse` | 4 | ✅ Covered | M11 (4 cases: null/empty × both sides) |
-| `HasPrimerDimer_NonComplementary3Ends_ReturnsFalse` | 1 | ✅ Covered | M12 |
-| `HasPrimerDimer_Complementary3Ends_ReturnsTrue` | 1 | ✅ Covered | M13 |
-| `HasPrimerDimer_CustomMinComplementarity_RespectsParameter` | 1 | ✅ Covered | S5 |
-| `Calculate3PrimeStability_InvalidInput_ReturnsZero` | 3 | ✅ Covered | M14 (null+empty+short merged) |
+| `HasPrimerDimer_NonComplementary3Ends_ReturnsFalse` | 1 | ✅ Covered | M12 (fixture replaced 2026-10-01: the old AAAACCCCCCCC/GGGGGGGGTTTT pair is fully reverse-complementary, compl_end 12) |
+| `HasPrimerDimer_Complementary3Ends_ReturnsTrue` | 1 | ✅ Covered | M13 (A₈/T₈) |
+| `HasPrimerDimer_IdenticalPolyA_IsNotADimer` | 1 | ✅ Covered | M13 regression (A₈/A₈ was flagged) |
+| `HasPrimerDimer_SelfComplementaryGgccEnds_Detected` | 1 | ✅ Covered | M13 regression (GGCC ends) |
+| `CalculatePrimerDimerEndComplementarity_MatchesPrimer3ComplEnd` | 4 | ✅ Covered | M13b |
+| `CalculatePrimerSelfEndComplementarity_MatchesPrimer3SelfEnd` | 4 | ✅ Covered | M13b |
+| `HasPrimerDimer_CustomMinComplementarity_RespectsParameter` | 1 | ✅ Covered | S5 (old assertion min 8 → false was wrong: ACGTACGT self compl_end = 8) |
+| `Calculate3PrimeStability_InvalidInput_ReturnsZero` | 2 | ✅ Covered | M14 (null+empty) |
+| `Calculate3PrimeStability_MatchesPrimer3EndOligoDg` | 8 | ✅ Covered | M14 (short, N) |
+| `Calculate3PrimeStability_InvalidCharacterInWindow_ReturnsNaN` | 1 | ✅ Covered | M14 |
 | `Calculate3PrimeStability_Exact5Bases_ProducesCorrectDeltaG` | 1 | ✅ Covered | S6 (was ❌ Missing) |
 | `Calculate3PrimeStability_GcRich_MoreNegativeThanAtRich` | 1 | ✅ Covered | M15 (was ⚠ Weak: now exact -6.86/-0.86) |
 | `Calculate3PrimeStability_MixedCase_ReturnsSameExactValue` | 1 | ✅ Covered | S7 (was ⚠ Weak: now checks -6.86) |
@@ -126,6 +145,12 @@
 | `Calculate3PrimeStability_LeastStable5mer_MatchesPrimer3` | 1 | ✅ Covered | M17 |
 | `PrimerStructureAnalysis_WellDesignedPrimer_ExactMetrics` | 1 | ✅ Covered | C4 (was ⚠ Weak: `True.Or.False` → exact values) |
 | `PrimerStructureAnalysis_ProblematicPrimer_ExactMetrics` | 1 | ✅ Covered | C5 (was ⚠ Weak: `<-5.0` → exact -5.40) |
+| `Primer3ThermodynamicStructure_MatchesPrimer3CheckPrimers` | 4 | ✅ Covered | M18 |
+| `CalculateDimerThermodynamicsNtthal_AlignmentModes_MatchPrimer3Py` | 4 | ✅ Covered | M19 |
+| `CalculateHairpinThermodynamicsNtthal_Divalent_MatchesPrimer3Py` | 1 | ✅ Covered | M19 |
+| `Primer3ThermodynamicStructure_NoStructureAndInvalidInput` | 1 | ✅ Covered | invariant 6 |
+| `EvaluatePrimer_ThermodynamicScreen_ReportsPrimer3Values` | 1 | ✅ Covered | M21 |
+| `DesignPrimers_RandomTemplate_MatchesPrimer3DesignPrimers`, `DesignPrimers_HeuristicScreen_KeepsSequenceOnlyChecks`, `DesignPrimers_RightPrimerHairpinAbovePrimer3Limit_NoValidPrimers` (PrimerDesigner_PrimerDesign_Tests) | 3 | ✅ Covered | C6 |
 
 ### Classification Summary
 
@@ -147,10 +172,13 @@ All implementation details have been verified against external sources. No resid
 | NN ΔG°37 values (16 dinucleotides) | Exact match with SantaLucia (1998) Table 1 unified parameters | SantaLucia (1998) PNAS 95:1460-65, Table 1 |
 | Initiation parameters (+0.98 G·C, +1.03 A·T) | Included in Calculate3PrimeStability | SantaLucia (1998) Table 1 |
 | GCGCG = -6.86 kcal/mol | Exact match with Primer3 reference value | Primer3 Manual PRIMER_MAX_END_STABILITY |
+| 3' stability formula | Ours = −end_oligodg for 2000/2000 random 1–12-mers incl. N | oligotm.c compiled (2026-10-01) |
+| Primer-dimer compl_end | 3000/3000 vs dpal.c GLOBAL_END; 300/300 PRIMER_PAIR_0_COMPL_END; 600/600 SELF_END | dpal.c compiled; primer3-py check_primers |
+| Thermodynamic screen | Formulas = libprimer3.cc characterize_pair / oligo_compl_thermod / oligo_hairpin / align_thermod; values match design_primers where the ntthal engines match primer3-py | primer3-py 2.3.1 |
 | TATAT = -0.86 kcal/mol | Exact match with Primer3 reference value | Primer3 Manual PRIMER_MAX_END_STABILITY |
 | Minimum hairpin loop = 3 nt | "loops fewer than three bases long are sterically impossible" | Wikipedia Stem-loop |
 | Case-insensitive matching | Universal convention across all DNA tools | Standard bioinformatics practice |
-| 3' end complementarity for primer-dimers | "two primers anneal at their respective 3' ends" | Wikipedia Primer-dimer |
+| 3' end complementarity for primer-dimers | primer2's 3'-terminal bases must be the REVERSE COMPLEMENT of primer1's (the former window comparison tested parallel complementarity and flagged A₈/A₈) | Primer3 dpal GLOBAL_END / ntthal END1 |
 
 ### Design Parameters (Configurable, Not Assumptions)
 
@@ -159,12 +187,13 @@ All implementation details have been verified against external sources. No resid
 | `minStemLength` | 4 bp | Configurable; stems < 4 bp are generally unstable at PCR temperatures |
 | `minLoopLength` | 3 nt | Sterically required minimum (Wikipedia Stem-loop) |
 | `minComplementarity` | 4 bp | Configurable; controls primer-dimer detection sensitivity |
-| `checkLength` (primer-dimer) | 8 bp | 3' region window; 6-10 bp needed for stable hybridization at PCR temperatures |
+| `MaxStructureTm` | 47 °C | Primer3 PRIMER_MAX_*_TH / PRIMER_PAIR_MAX_COMPL_*_TH defaults |
 
 ### Cross-Spec Note
 
-The `EvaluatePrimer` threshold (`stability3Prime < -9`) in PRIMER-DESIGN-001 is now unreachable
-(most stable 5-mer GCGCG = -6.86 with initiation). Review needed in PRIMER-DESIGN-001.
+The `EvaluatePrimer` threshold (`stability3Prime < -9`) in PRIMER-DESIGN-001 is unreachable
+(most stable 5-mer GCGCG = -6.86), consistent with Primer3's default PRIMER_MAX_END_STABILITY = 100.
+The structure screen of `EvaluatePrimer`/`DesignPrimers` is Primer3's thermodynamic one by default (2026-10-01).
 
 ## Test File Location
 

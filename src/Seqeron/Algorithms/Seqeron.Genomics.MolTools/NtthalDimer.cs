@@ -99,8 +99,40 @@ internal static class NtthalDimer
     /// <param name="oligo2">Strand 2 (5′→3'), ACGT only.</param>
     /// <param name="mvMolar">Monovalent cation concentration in mol/L (ntthal mv is in mM).</param>
     /// <param name="dnaConcMolar">Total strand concentration in mol/L (ntthal dna_conc in nM).</param>
-    internal static Result? Run(string oligo1, string oligo2, double mvMolar, double dnaConcMolar)
+    internal static Result? Run(string oligo1, string oligo2, double mvMolar, double dnaConcMolar) =>
+        Run(oligo1, oligo2, mvMolar, dnaConcMolar, AlignmentType.Any, 0.0, 0.0);
+
+    /// <summary>
+    /// ntthal dimer alignment types (thal.h <c>thal_alignment_type</c>): <c>Any</c> = THAL_ANY
+    /// (type 1, best terminal pair anywhere), <c>End1</c> = THAL_END1 (type 2, the 3′ end of
+    /// oligo 1 must be in the terminal pair), <c>End2</c> = THAL_END2 (type 3, the oligos are swapped
+    /// and the END1 rule applied, i.e. the 3′ end of oligo 2 must be in the terminal pair).
+    /// </summary>
+    internal enum AlignmentType { Any = 1, End1 = 2, End2 = 3 }
+
+    /// <summary>
+    /// saltCorrectS (thal.c line 1039-1043): 0.368·ln((mv + 120·√max(0, dv − dntp))/1000), with all
+    /// concentrations in mM (von Ahsen et al. 2001 divalent→monovalent equivalence; dntp is ignored
+    /// when dv ≤ 0).
+    /// </summary>
+    internal static double SaltCorrectS(double mvMm, double dvMm, double dntpMm)
     {
+        if (dvMm <= 0) dntpMm = dvMm;
+        return 0.368 * Math.Log((mvMm + 120.0 * Math.Sqrt(Math.Max(0.0, dvMm - dntpMm))) / 1000.0);
+    }
+
+    /// <summary>
+    /// Runs the ntthal dimer DP with an explicit alignment type and divalent/dNTP concentrations
+    /// (all in mol/L; ntthal's mv/dv/dntp are mM, dna_conc nM).
+    /// </summary>
+    internal static Result? Run(
+        string oligo1, string oligo2, double mvMolar, double dnaConcMolar,
+        AlignmentType type, double dvMolar, double dntpMolar)
+    {
+        // THAL_END2 (type 3): oligo_r becomes oligo1 and oligo_f oligo2 (thal.c 568-578).
+        if (type == AlignmentType.End2)
+            (oligo1, oligo2) = (oligo2, oligo1);
+
         // ntthal mv is in mM, dna_conc in nM; convert from the SI (mol/L) the caller passes.
         double mv = mvMolar * 1000.0;
         double dnaConc = dnaConcMolar * 1e9;
@@ -119,8 +151,8 @@ internal static class NtthalDimer
         // RC = R·ln(dna_conc / x), x=1e9 if both palindromic (symmetry_thermo) else 4e9 (thal.c 590-593).
         bool symmetric = IsSymmetric(oligo1) && IsSymmetric(oligo2);
         double rc = symmetric ? R * Math.Log(dnaConc / 1e9) : R * Math.Log(dnaConc / 4e9);
-        // saltCorrectS (thal.c 1042); dv=dntp=0 here so the divalent term vanishes.
-        double saltCorrection = 0.368 * Math.Log(mv / 1000.0);
+        // saltCorrectS (thal.c 1042).
+        double saltCorrection = SaltCorrectS(mv, dvMolar * 1000.0, dntpMolar * 1000.0);
 
         // A·T penalty tables (thal.c tableStartATH/ATS): only A·T (0,3)/(3,0) carry the penalty.
         double AtPenaltyH(int x, int y) => (x == 0 && y == 3) || (x == 3 && y == 0) ? AtH : 0.0;
@@ -403,10 +435,11 @@ internal static class NtthalDimer
             }
         }
 
-        // Best terminal base pair over all (i,j) (type==1 / ANY) (thal.c 710-723).
+        // Best terminal base pair (thal.c 708-750): over all (i,j) for type 1 (ANY); with i fixed at
+        // len1 (the 3' end of oligo 1) for types 2/3 (END1/END2).
         double bestG = Inf;
         int bestI = 0, bestJ = 0;
-        for (int i = 1; i <= len1; i++)
+        for (int i = type == AlignmentType.Any ? 1 : len1; i <= len1; i++)
         {
             for (int j = 1; j <= len2; j++)
             {
@@ -415,7 +448,9 @@ internal static class NtthalDimer
                 if (g < bestG) { bestG = g; bestI = i; bestJ = j; }
             }
         }
-        if (!IsFinite(bestG)) return null; // ntthal no_structure
+        // thal.c 753: no finite terminal pair -> fall back to (1,1); no_structure unless that cell is finite.
+        if (!IsFinite(bestG)) { bestI = 1; bestJ = 1; }
+        if (!IsFinite(enH[bestI, bestJ])) return null; // ntthal no_structure
 
         var (bs, bh) = Rsh(bestI, bestJ);
         double dH = enH[bestI, bestJ] + bh + DplxInitH;

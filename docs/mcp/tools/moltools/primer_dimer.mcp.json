@@ -5,39 +5,101 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.HasPrimerDimer",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L398",
-  "description": "Heuristic 3'-end primer-dimer check between two primers (up to 8 bp of 3'-end complementarity).",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs (HasPrimerDimer, CalculatePrimerDimerEndComplementarity)",
+  "description": "Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END, dpal GLOBAL_END, max of both orientations).",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "primer1": { "type": "string", "description": "First primer sequence.", "minLength": 1 },
-      "primer2": { "type": "string", "description": "Second primer sequence.", "minLength": 1 },
-      "min_complementarity": { "type": "integer", "description": "Minimum complementary 3'-end bases to flag a dimer.", "default": 4 }
+      "primer1": {
+        "type": "string",
+        "description": "First primer sequence.",
+        "minLength": 1
+      },
+      "primer2": {
+        "type": "string",
+        "description": "Second primer sequence.",
+        "minLength": 1
+      },
+      "min_complementarity": {
+        "type": "integer",
+        "description": "Minimum 3'-end complementarity score to flag a dimer.",
+        "default": 4
+      }
     },
-    "required": ["primer1", "primer2"]
+    "required": [
+      "primer1",
+      "primer2"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "hasDimer": { "type": "boolean", "description": "True if a 3'-dimer is flagged." },
-      "complementaryBases": { "type": "integer", "description": "Complementary positions found in the 3'-end window." }
+      "hasDimer": {
+        "type": "boolean",
+        "description": "True if a 3'-dimer is flagged."
+      },
+      "complementaryBases": {
+        "type": "integer",
+        "description": "Primer3 compl_end score truncated to an integer (exact for ACGT primers)."
+      },
+      "complEndScore": {
+        "type": "number",
+        "description": "Primer3 PRIMER_PAIR_COMPL_END score."
+      }
     },
-    "required": ["hasDimer", "complementaryBases"]
+    "required": [
+      "hasDimer",
+      "complementaryBases",
+      "complEndScore"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "First primer cannot be null or empty" },
-    { "code": 1002, "message": "Second primer cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "First primer cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Second primer cannot be null or empty"
+    }
   ],
   "examples": [
     {
-      "name": "Strong dimer",
-      "input": { "primer1": "AAAAAAAA", "primer2": "AAAAAAAA" },
-      "output": { "hasDimer": true, "complementaryBases": 8 }
+      "name": "3'-complementary pair",
+      "input": {
+        "primer1": "AACCGGTTAACCATCGATCG",
+        "primer2": "AACCGGTTAACGATCGAT"
+      },
+      "output": {
+        "hasDimer": true,
+        "complementaryBases": 8,
+        "complEndScore": 8.0
+      }
     },
     {
-      "name": "Below threshold",
-      "input": { "primer1": "AAAAAAAA", "primer2": "AAAACCCC", "min_complementarity": 5 },
-      "output": { "hasDimer": false, "complementaryBases": 4 }
+      "name": "GGCC ends, threshold 5",
+      "input": {
+        "primer1": "TTCAGTCAGTCAGTGGCC",
+        "primer2": "ACTGACTGACTGAGGCC",
+        "min_complementarity": 5
+      },
+      "output": {
+        "hasDimer": false,
+        "complementaryBases": 4,
+        "complEndScore": 4.0
+      }
+    },
+    {
+      "name": "Identical poly-A",
+      "input": {
+        "primer1": "AAAAAAAA",
+        "primer2": "AAAAAAAA"
+      },
+      "output": {
+        "hasDimer": false,
+        "complementaryBases": 0,
+        "complEndScore": 0.0
+      }
     }
   ]
 }

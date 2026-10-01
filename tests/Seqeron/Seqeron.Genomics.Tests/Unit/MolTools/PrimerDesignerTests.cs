@@ -103,8 +103,9 @@ public class PrimerDesignerTests
     [Test]
     public void HasPrimerDimer_SmokeTest_ReturnsExpectedValue()
     {
-        bool hasDimer = PrimerDesigner.HasPrimerDimer("AAAAAAAA", "AAAAAAAA");
-        Assert.That(hasDimer, Is.True);
+        // Primer3 alignment-mode compl_end: A8 + T8 → 8 (dimer); A8 + A8 → 0 (A·A cannot pair).
+        Assert.That(PrimerDesigner.HasPrimerDimer("AAAAAAAA", "TTTTTTTT"), Is.True);
+        Assert.That(PrimerDesigner.HasPrimerDimer("AAAAAAAA", "AAAAAAAA"), Is.False);
     }
 
     /// <summary>

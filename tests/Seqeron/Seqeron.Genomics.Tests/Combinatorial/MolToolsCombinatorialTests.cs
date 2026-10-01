@@ -568,23 +568,23 @@ public class MolToolsCombinatorialTests
     // the primer-dimer decision boundary — over 3′-complementarity × minComplementarity ×
     // primerLen, with hairpin and 3′-stability covered as theory-anchored witnesses.
     //
-    // Model (Wikipedia Primer-dimer; Primer3): two primers dimerize when their 3′ ends
-    // are complementary. HasPrimerDimer compares the 3′ window (≤8 nt) of primer1 against
-    // the 3′ window of primer2 and reports a dimer iff the complementary-base count meets
-    // minComplementarity. So detection = (3′-complementary count ≥ minComplementarity),
-    // and — crucially — depends ONLY on the 3′ window, not on total primer length.
+    // Model (Primer3 alignment-mode PRIMER_PAIR_COMPL_END, libprimer3.cc characterize_pair +
+    // dpal.c DPAL_GLOBAL_END): two primers dimerize when their 3′ ends are complementary, i.e. the
+    // 3′-terminal K bases of primer2 are the reverse complement of the 3′-terminal K bases of
+    // primer1. HasPrimerDimer reports a dimer iff that 3′-anchored complementarity score meets
+    // minComplementarity, independently of the 5′ length.
     // ═══════════════════════════════════════════════════════════════════════
 
-    // Each pair is engineered so the 8-base 3′ comparison window holds EXACTLY K complementary
-    // bases: primer1's 3′ window is fixed (DimerP1Window); E2 is the first 8 bases that
-    // reverse-complement(primer2) must present, complementary to primer1 in its 3′-most K positions.
+    // primer1 = A-filler + DimerP1Window; primer2 = A-filler + revcomp(last K bases of the window).
+    // The A fillers cannot pair with each other, so the compl_end score is exactly K (verified
+    // against Primer3's dpal.c compiled from source: 200/400/600 for K = 2/4/6 at lengths 8/12/20).
     private const string DimerP1Window = "GACTGACT";
-    private static readonly (int K, string E2)[] DimerWindows = { (2, "AAACAAGA"), (4, "AAACCTGA"), (6, "AAGACTGA") };
+    private static readonly int[] DimerWindows = { 2, 4, 6 };
 
-    private static (string P1, string P2) MakeDimerPair(string e2, int length)
+    private static (string P1, string P2) MakeDimerPair(int k, int length)
     {
-        string p1 = new string('T', length - 8) + DimerP1Window;          // 5′ filler outside the 3′ window
-        string p2 = RevComp(e2 + new string('A', length - 8));            // revComp(p2) starts with E2
+        string p1 = new string('A', length - 8) + DimerP1Window;
+        string p2 = new string('A', length - k) + RevComp(DimerP1Window[^k..]);
         return (p1, p2);
     }
 
@@ -594,8 +594,8 @@ public class MolToolsCombinatorialTests
         [Values(3, 4, 5)] int minComplementarity,
         [Values(8, 12, 20)] int primerLen)
     {
-        var (k, e2) = DimerWindows[windowIdx];
-        var (p1, p2) = MakeDimerPair(e2, primerLen);
+        int k = DimerWindows[windowIdx];
+        var (p1, p2) = MakeDimerPair(k, primerLen);
 
         PrimerDesigner.HasPrimerDimer(p1, p2, minComplementarity)
             .Should().Be(k >= minComplementarity,
@@ -610,11 +610,11 @@ public class MolToolsCombinatorialTests
     [Test]
     public void PrimerStruct_Dimer_HasExactCount_AndIgnoresPrimerLength()
     {
-        foreach (var (k, e2) in DimerWindows)
+        foreach (int k in DimerWindows)
         {
             foreach (int len in new[] { 8, 12, 20 })
             {
-                var (p1, p2) = MakeDimerPair(e2, len);
+                var (p1, p2) = MakeDimerPair(k, len);
                 PrimerDesigner.HasPrimerDimer(p1, p2, k).Should().BeTrue($"the 3′ window has {k} complementary bases");
                 PrimerDesigner.HasPrimerDimer(p1, p2, k + 1).Should().BeFalse($"the 3′ window has only {k} complementary bases");
             }

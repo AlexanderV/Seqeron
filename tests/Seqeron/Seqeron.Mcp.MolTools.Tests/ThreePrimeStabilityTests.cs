@@ -28,8 +28,11 @@ public class ThreePrimeStabilityTests
             // Only the last 5 bases matter: a longer sequence ending GCGCG gives the same value.
             Assert.That(MolToolsTools.three_prime_stability("AAAAAGCGCG").DeltaG, Is.EqualTo(-6.86).Within(1e-9));
 
-            // Sequences shorter than 5 bases return 0.
-            Assert.That(MolToolsTools.three_prime_stability("ACGT").DeltaG, Is.EqualTo(0.0).Within(1e-9));
+            // Shorter primers are scored whole, as Primer3 end_oligodg (oligotm.c compiled from
+            // source: end_oligodg("ACGT", 5) = 2.56, i.e. ΔG = −2.56).
+            Assert.That(MolToolsTools.three_prime_stability("ACGT").DeltaG, Is.EqualTo(-2.56).Within(1e-9));
+            // A character other than A/C/G/T/N in the 3' window is rejected (Primer3 OLIGOTM_ERROR).
+            Assert.Throws<ArgumentException>(() => MolToolsTools.three_prime_stability("ACGTU"));
         });
     }
 }
