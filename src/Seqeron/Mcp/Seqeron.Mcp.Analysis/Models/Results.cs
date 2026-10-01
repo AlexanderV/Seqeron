@@ -35,7 +35,14 @@ public record AnalyzeKmersResult(
     int MaxCount,
     int MinCount,
     double AverageCount,
-    double Entropy);
+    double Entropy)
+{
+    /// <summary>Number of distinct k-mers (Jellyfish "Distinct"); same value as <see cref="UniqueKmers"/>.</summary>
+    public int DistinctKmers { get; init; }
+
+    /// <summary>Number of k-mers occurring exactly once (Jellyfish "Unique").</summary>
+    public int SingletonKmers { get; init; }
+}
 
 // ================================
 // SequenceStatistics Results

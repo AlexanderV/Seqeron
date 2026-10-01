@@ -618,7 +618,8 @@ public class KmerProperties
             bool ok = s.MinCount >= 1 && s.MaxCount >= s.MinCount
                       && s.UniqueKmers >= 1 && s.UniqueKmers <= s.TotalKmers
                       && s.Entropy >= -1e-9
-                      && Math.Abs(s.AverageCount - Math.Round((double)s.TotalKmers / s.UniqueKmers, 2)) < 1e-9;
+                      && Math.Abs(s.AverageCount - (double)s.TotalKmers / s.UniqueKmers) < 1e-12
+                      && s.SingletonKmers >= 0 && s.SingletonKmers <= s.UniqueKmers;
             return ok.Label($"inconsistent stats: {s}");
         });
     }

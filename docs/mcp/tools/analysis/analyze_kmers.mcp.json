@@ -5,27 +5,31 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.AnalyzeKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L528",
-  "description": "Aggregate k-mer statistics: total, unique (distinct), min/max/avg multiplicity, and Shannon entropy of the k-mer frequency distribution.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L680",
+  "description": "Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "lowerCount": { "type": "integer", "description": "Ignore k-mers with count below this value (Jellyfish stats -L)", "default": 0, "minimum": 0 },
+      "upperCount": { "type": "integer", "description": "Ignore k-mers with count above this value (Jellyfish stats -U)", "default": 2147483647, "minimum": 0 }
     },
     "required": ["sequence", "k"]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "totalKmers": { "type": "integer", "description": "Number of overlapping k-mers, L - k + 1" },
-      "uniqueKmers": { "type": "integer", "description": "Number of distinct k-mers" },
+      "totalKmers": { "type": "integer", "description": "Number of k-mers including multiplicity (Jellyfish Total); L - k + 1 when unfiltered" },
+      "uniqueKmers": { "type": "integer", "description": "Number of DISTINCT k-mers (legacy name; = distinctKmers; not Jellyfish Unique)" },
+      "distinctKmers": { "type": "integer", "description": "Number of distinct k-mers (Jellyfish Distinct)" },
+      "singletonKmers": { "type": "integer", "description": "Number of k-mers occurring exactly once (Jellyfish Unique)" },
       "maxCount": { "type": "integer", "description": "Maximum k-mer multiplicity" },
       "minCount": { "type": "integer", "description": "Minimum k-mer multiplicity" },
-      "averageCount": { "type": "number", "description": "Mean multiplicity total/distinct, rounded to 2 dp" },
+      "averageCount": { "type": "number", "description": "Exact mean multiplicity total/distinct" },
       "entropy": { "type": "number", "description": "Shannon entropy -Sum p*log2 p (bits)" }
     },
-    "required": ["totalKmers", "uniqueKmers", "maxCount", "minCount", "averageCount", "entropy"]
+    "required": ["totalKmers", "uniqueKmers", "maxCount", "minCount", "averageCount", "entropy", "distinctKmers", "singletonKmers"]
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
@@ -41,7 +45,9 @@
         "maxCount": 4,
         "minCount": 1,
         "averageCount": 2.5,
-        "entropy": 1.846439344671
+        "entropy": 1.846439344671,
+        "distinctKmers": 4,
+        "singletonKmers": 1
       }
     },
     {
@@ -53,7 +59,9 @@
         "maxCount": 1,
         "minCount": 1,
         "averageCount": 1.0,
-        "entropy": 3.0
+        "entropy": 3.0,
+        "distinctKmers": 8,
+        "singletonKmers": 8
       }
     }
   ]

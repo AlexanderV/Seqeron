@@ -61,6 +61,17 @@
 
 ---
 
+### Jellyfish `stats` (reference implementation; added 2026-10-01, B06)
+
+**URL:** https://raw.githubusercontent.com/gmarcais/Jellyfish/master/sub_commands/stats_main.cc and `stats_main_cmdline.yaggo` (opened)
+**Authority rank:** 1 (reference k-mer counter; Marçais & Kingsford 2011, Bioinformatics 27:764)
+
+1. Field definitions (yaggo description, verbatim): "Unique: Number of k-mers which occur only once. Distinct: Number of k-mers, not counting multiplicity. Total: Number of k-mers, including multiplicity. Max_count: Maximum number of occurrence of a k-mer."
+2. `compute_stats`: `if(reader.val() < low || reader.val() > high) continue; uniq += reader.val() == 1; total += reader.val(); max = std::max(max, reader.val()); ++distinct;` — options `-L/--lower-count` (default 0) and `-U/--upper-count` (default 2^64−1).
+3. Consequence: the library's legacy `UniqueKmers` field equals Jellyfish **Distinct**; Jellyfish **Unique** is now `SingletonKmers`.
+
+Reference numbers (Python `collections.Counter` replica of `compute_stats` + scipy 1.17.1 `entropy(base=2)`): see algorithm doc §7.2 (e.g. ATCGATCAC k=3 → Unique 5, Distinct 6, Total 7, Max 2; GTAGAGCTGT k=2 `-L 2 -U 2` → 0, 2, 4, 2, entropy 1.0).
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Wikipedia — K-mer
@@ -119,7 +130,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: AverageCount is rounded to 2 decimal places.** The literature defines average k-mer multiplicity as total/distinct = (L−k+1)/distinct, but does not prescribe a display rounding. The repository implementation rounds `AverageCount` to 2 decimals (`Math.Round(averageCount, 2)`). This is a non-correctness-affecting presentation choice (the underlying ratio is exact and verifiable); tests assert the rounded value to remain consistent with the public contract. The mathematically exact ratio is also confirmed in each dataset row.
+1. **(Superseded 2026-10-01, B06 F6 — AverageCount is now the exact ratio.) ASSUMPTION: AverageCount is rounded to 2 decimal places.** The literature defines average k-mer multiplicity as total/distinct = (L−k+1)/distinct, but does not prescribe a display rounding. The repository implementation rounds `AverageCount` to 2 decimals (`Math.Round(averageCount, 2)`). This is a non-correctness-affecting presentation choice (the underlying ratio is exact and verifiable); tests assert the rounded value to remain consistent with the public contract. The mathematically exact ratio is also confirmed in each dataset row.
 2. **ASSUMPTION: Entropy is reported unrounded in bits (log base 2).** Sources fix log base 2 (bits); the implementation returns the unrounded double. Tests assert exact values with `.Within(1e-10)`.
 
 ---
@@ -152,3 +163,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-10-01**: B06 review — Jellyfish `stats` source added; exact mean; SingletonKmers/DistinctKmers; `-L/-U` filter overload.

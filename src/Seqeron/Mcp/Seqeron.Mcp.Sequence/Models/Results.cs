@@ -110,7 +110,14 @@ public record KmerAnalyzeResult(
     int MinCount,
     double AverageCount,
     double Entropy,
-    int K);
+    int K)
+{
+    /// <summary>Number of distinct k-mers (Jellyfish "Distinct"); same value as <see cref="UniqueKmers"/>.</summary>
+    public int DistinctKmers { get; init; }
+
+    /// <summary>Number of k-mers occurring exactly once (Jellyfish "Unique").</summary>
+    public int SingletonKmers { get; init; }
+}
 
 // ================================
 // Complexity Results

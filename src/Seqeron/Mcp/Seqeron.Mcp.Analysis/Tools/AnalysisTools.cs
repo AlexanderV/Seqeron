@@ -197,19 +197,29 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "analyze_kmers", Title = "k-mers — Aggregate Statistics", ReadOnly = true)]
-    [Description("Aggregate k-mer statistics: total, unique, min/max/avg count, and Shannon entropy.")]
+    [Description("Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters.")]
     public static AnalyzeKmersResult AnalyzeKmers(
         [Description("Sequence to analyze.")] string sequence,
-        [Description("k-mer length (>0).")] int k)
+        [Description("k-mer length (>0).")] int k,
+        [Description("Ignore k-mers with count below this value (Jellyfish stats -L; default 0).")] int lowerCount = 0,
+        [Description("Ignore k-mers with count above this value (Jellyfish stats -U; default unbounded).")] int upperCount = int.MaxValue)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
+        if (lowerCount < 0)
+            throw new ArgumentException("lowerCount must be non-negative", nameof(lowerCount));
+        if (upperCount < 0)
+            throw new ArgumentException("upperCount must be non-negative", nameof(upperCount));
 
-        var s = KmerAnalyzer.AnalyzeKmers(sequence, k);
+        var s = KmerAnalyzer.AnalyzeKmers(sequence, k, lowerCount, upperCount);
         return new AnalyzeKmersResult(
-            s.TotalKmers, s.UniqueKmers, s.MaxCount, s.MinCount, s.AverageCount, s.Entropy);
+            s.TotalKmers, s.UniqueKmers, s.MaxCount, s.MinCount, s.AverageCount, s.Entropy)
+        {
+            DistinctKmers = s.DistinctKmers,
+            SingletonKmers = s.SingletonKmers,
+        };
     }
 
     #endregion

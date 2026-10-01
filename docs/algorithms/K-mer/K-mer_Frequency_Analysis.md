@@ -78,7 +78,7 @@ All three metrics delegate to `CountKmers(...)` for input handling. Null or empt
 |-----------|------|-------|-------|
 | `GetKmerFrequencies` | `O(n·k)` | `O(u·k)` | Derived from exact counts; each window builds/hashes a k-length string |
 | `GetKmerSpectrum` | `O(n·k)` | `O(u·k)` | Iterates over the count values |
-| `CalculateKmerEntropy` | `O(n·k)` | `O(u·k)` | Builds on normalized frequencies. Same quantity as `SequenceComplexity.CalculateKmerEntropy` (SEQ-COMPLEX-KMER-001); cross-checked equal in tests |
+| `CalculateKmerEntropy` | `O(n·k)` | `O(u·k)` | Delegates to the canonical `SequenceComplexity.CalculateKmerEntropy` (SEQ-COMPLEX-KMER-001; `StatisticsHelper.ShannonIndex` ÷ ln 2), bit-identical; own contract kept for empty input / k ≤ 0 (B06 KMER-STATS-001) |
 
 ## 5. Implementation Notes
 
@@ -92,7 +92,7 @@ All three metrics delegate to `CountKmers(...)` for input handling. Null or empt
 
 ### 5.2 Current Behavior
 
-The current implementation always computes these metrics from exact k-mer counts. Frequency normalization uses the sum of observed counts, not the theoretical number of possible k-mers. Entropy uses `Math.Log2` and skips zero-frequency terms by iterating only over observed frequencies.
+The current implementation always computes these metrics from exact k-mer counts. Frequency normalization uses the sum of observed counts, not the theoretical number of possible k-mers. Entropy delegates to `SequenceComplexity.CalculateKmerEntropy` (canonical `StatisticsHelper.ShannonIndex` in nats ÷ ln 2, the `scipy.stats.entropy(counts, base=2)` computation) over the observed counts; null/empty input returns 0 for any k and k ≤ 0 throws only for non-empty input. Until B06 (KMER-STATS-001) it was a separate `Math.Log2` loop over `GetKmerFrequencies`; the two differ by ≤ 4.6e-14 bits (20 000 random tables).
 
 ### 5.3 Conformance to Theory / Spec
 

@@ -54,4 +54,26 @@ public class AnalyzeKmersTests
             Assert.That(s3.Entropy, Is.EqualTo(3.0).Within(1e-10));
         });
     }
+
+    [Test]
+    public void AnalyzeKmers_JellyfishFieldsAndCountFilters()
+    {
+        // Jellyfish stats compute_stats replica (Python Counter) + scipy entropy(base=2):
+        // GTAGAGCTGT k=2: Unique 5, Distinct 7, Total 9, Max 2; with -L 2 -U 2: 0, 2, 4, 2, entropy 1.
+        var all = AnalysisTools.AnalyzeKmers("GTAGAGCTGT", 2);
+        var filt = AnalysisTools.AnalyzeKmers("GTAGAGCTGT", 2, lowerCount: 2, upperCount: 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(all.SingletonKmers, Is.EqualTo(5));
+            Assert.That(all.DistinctKmers, Is.EqualTo(7));
+            Assert.That(all.AverageCount, Is.EqualTo(9.0 / 7.0).Within(1e-15));
+            Assert.That(filt.SingletonKmers, Is.EqualTo(0));
+            Assert.That(filt.DistinctKmers, Is.EqualTo(2));
+            Assert.That(filt.TotalKmers, Is.EqualTo(4));
+            Assert.That(filt.MaxCount, Is.EqualTo(2));
+            Assert.That(filt.Entropy, Is.EqualTo(1.0).Within(1e-12));
+        });
+        Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeKmers("GTAG", 2, lowerCount: -1));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeKmers("GTAG", 2, upperCount: -1));
+    }
 }

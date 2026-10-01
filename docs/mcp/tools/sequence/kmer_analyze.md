@@ -18,7 +18,7 @@ Performs comprehensive k-mer analysis on a sequence, returning statistics about 
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L363](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L363)
+- Source: [KmerAnalyzer.cs#L654](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L654)
 
 ## Input Schema
 
@@ -31,11 +31,13 @@ Performs comprehensive k-mer analysis on a sequence, returning statistics about 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `totalKmers` | integer | Total number of k-mers in sequence |
-| `uniqueKmers` | integer | Number of distinct k-mers |
+| `totalKmers` | integer | Total number of k-mers including multiplicity (Jellyfish Total), `L − k + 1` |
+| `uniqueKmers` | integer | Number of **distinct** k-mers (legacy name; = `distinctKmers`; not Jellyfish "Unique") |
+| `distinctKmers` | integer | Number of distinct k-mers (Jellyfish Distinct) |
+| `singletonKmers` | integer | Number of k-mers occurring exactly once (Jellyfish Unique) |
 | `maxCount` | integer | Maximum frequency of any k-mer |
 | `minCount` | integer | Minimum frequency of any k-mer |
-| `averageCount` | number | Average k-mer frequency |
+| `averageCount` | number | Exact mean multiplicity `total/distinct` |
 | `entropy` | number | Shannon entropy of k-mer distribution (bits) |
 | `k` | integer | K-mer length used |
 
@@ -72,8 +74,10 @@ Performs comprehensive k-mer analysis on a sequence, returning statistics about 
   "maxCount": 3,
   "minCount": 2,
   "averageCount": 2.5,
-  "entropy": 1.97,
-  "k": 3
+  "entropy": 1.970950594454669,
+  "k": 3,
+  "distinctKmers": 4,
+  "singletonKmers": 0
 }
 ```
 

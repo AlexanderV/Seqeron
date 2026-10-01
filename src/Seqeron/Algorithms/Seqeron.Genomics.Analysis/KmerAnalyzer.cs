@@ -392,8 +392,11 @@ public static class KmerAnalyzer
     /// <remarks>
     /// H = −Σ p(w) log₂ p(w) with p(w) = count(w) / (L − k + 1) (Shannon, 1948), in bits;
     /// 0 ≤ H ≤ log₂(number of distinct k-mers). Not normalized. Returns 0 when no k-mer exists
-    /// (null/empty sequence or k &gt; L). Same quantity as
-    /// <see cref="SequenceComplexity.CalculateKmerEntropy(string, int)"/>.
+    /// (null/empty sequence or k &gt; L). Delegates to the canonical plug-in k-mer entropy
+    /// <see cref="SequenceComplexity.CalculateKmerEntropy(string, int)"/> (canonical
+    /// <see cref="StatisticsHelper.ShannonIndex"/> in nats ÷ ln 2 — the computation of
+    /// <c>scipy.stats.entropy(counts, base=2)</c>), keeping this method's own contract: null/empty
+    /// input returns 0 for any k, k ≤ 0 throws only for non-empty input.
     /// </remarks>
     /// <param name="sequence">The sequence to analyze (case-insensitive).</param>
     /// <param name="k">The k-mer length.</param>
@@ -401,20 +404,23 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static double CalculateKmerEntropy(string sequence, int k)
     {
-        var frequencies = GetKmerFrequencies(sequence, k);
-
-        if (frequencies.Count == 0)
+        if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        double entropy = 0;
-        foreach (var freq in frequencies.Values)
-        {
-            if (freq > 0)
-                entropy -= freq * Math.Log2(freq);
-        }
-
-        return entropy;
+        ValidateKmerLength(sequence, k);
+        return SequenceComplexity.CalculateKmerEntropy(sequence, k);
     }
+
+    /// <summary>
+    /// Shannon entropy in bits of a multiplicity table: the canonical
+    /// <see cref="StatisticsHelper.ShannonIndex"/> (nats) divided by ln 2 — the same operation, in the
+    /// same order, as <see cref="SequenceComplexity.CalculateKmerEntropy(string, int)"/>, so a table taken
+    /// from <see cref="CountKmers(string, int)"/> gives a bit-identical value. Requires a positive total.
+    /// </summary>
+    private static double ShannonEntropyBits(IReadOnlyList<int> counts)
+        => StatisticsHelper.ShannonIndex(counts) / Ln2;
+
+    private static readonly double Ln2 = Math.Log(2.0);
 
     /// <summary>
     /// Finds all distinct k-mers forming (L, t)-clumps: a k-mer forms an (L, t)-clump if some
@@ -617,70 +623,109 @@ public static class KmerAnalyzer
     /// <summary>
     /// Computes comprehensive k-mer composition statistics for a sequence: the
     /// total number of (overlapping) k-mers, the number of distinct k-mers, the
-    /// maximum/minimum/average multiplicity, and the Shannon entropy of the k-mer
-    /// frequency distribution.
+    /// number of singleton (count-1) k-mers, the maximum/minimum/mean multiplicity,
+    /// and the Shannon entropy of the k-mer frequency distribution.
     /// </summary>
     /// <remarks>
-    /// The total k-mer count is the number of overlapping length-k windows,
-    /// L − k + 1 (Wikipedia — K-mer; BioInfoLogics, k-mer counting part I, 2018).
-    /// <see cref="KmerStatistics.UniqueKmers"/> reports the number of <i>distinct</i>
-    /// k-mers (each different k-mer counted once) — not the count-1 "unique" set of
-    /// <see cref="FindUniqueKmers"/>. <see cref="KmerStatistics.AverageCount"/> is the
-    /// mean multiplicity total/distinct, rounded to two decimals for display.
+    /// Equivalent to <see cref="AnalyzeKmers(string, int, int, int)"/> with no count filter
+    /// (Jellyfish <c>stats</c> defaults: lower-count 0, upper-count unbounded). The total k-mer count is
+    /// the number of overlapping length-k windows, L − k + 1 (Wikipedia — K-mer; BioInfoLogics,
+    /// k-mer counting part I, 2018). Field definitions follow Jellyfish <c>stats</c>
+    /// (<c>sub_commands/stats_main.cc</c>, <c>compute_stats</c>): Total = Σ count, Distinct = number of
+    /// k-mers, Unique = number of k-mers with count 1, Max_count = max count. Note the naming:
+    /// <see cref="KmerStatistics.UniqueKmers"/> is kept for backward compatibility and reports the
+    /// number of <i>distinct</i> k-mers (Jellyfish "Distinct", also exposed as
+    /// <see cref="KmerStatistics.DistinctKmers"/>); Jellyfish's "Unique" (count == 1, the set returned
+    /// by <see cref="FindUniqueKmers"/>) is <see cref="KmerStatistics.SingletonKmers"/>.
+    /// <see cref="KmerStatistics.AverageCount"/> is the exact mean multiplicity total/distinct (not rounded).
     /// <see cref="KmerStatistics.Entropy"/> is the k-mer Shannon entropy
     /// E_k = −Σ p(α) log₂ p(α) with p(α) = mult(α) / (L − k + 1), the relative
     /// frequency of k-mer α over the L − k + 1 windows (Manca et al., 2021,
     /// "Spectral concepts in genome informational analysis", arXiv:2106.15351;
-    /// log base 2 ⇒ bits). An empty sequence or k exceeding the length yields an
-    /// all-zero result (L − k + 1 ≤ 0 ⇒ no k-mers).
+    /// log base 2 ⇒ bits), bit-identical to <see cref="CalculateKmerEntropy"/>. An empty sequence or
+    /// k exceeding the length yields an all-zero result (L − k + 1 ≤ 0 ⇒ no k-mers).
+    /// The count table is built once with <see cref="CountKmers(string, int)"/> and every statistic is
+    /// derived from it in one pass: O(L·k) time, O(D·k) space.
     /// </remarks>
     /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
     /// <param name="k">The k-mer length. Must be positive.</param>
     /// <returns>A <see cref="KmerStatistics"/> record with the composition statistics; all-zero when no k-mers exist.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static KmerStatistics AnalyzeKmers(string sequence, int k)
-    {
-        var counts = CountKmers(sequence, k);
+        => AnalyzeKmers(sequence, k, 0, int.MaxValue);
 
-        if (counts.Count == 0)
+    /// <summary>
+    /// Computes k-mer composition statistics over the k-mers whose count lies in
+    /// [<paramref name="lowerCount"/>, <paramref name="upperCount"/>] — the <c>-L/--lower-count</c> and
+    /// <c>-U/--upper-count</c> filters of Jellyfish <c>stats</c>.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors Jellyfish <c>compute_stats</c> (<c>sub_commands/stats_main.cc</c>): a k-mer with
+    /// count &lt; lower or count &gt; upper is skipped; for every retained k-mer, Unique (here
+    /// <see cref="KmerStatistics.SingletonKmers"/>) += (count == 1), Total += count, Max_count = max,
+    /// Distinct += 1. The remaining fields apply the same definitions to the retained multiset:
+    /// MinCount = min retained count, AverageCount = Total / Distinct, Entropy = −Σ p log₂ p with
+    /// p = count / Total (Total is the retained sum, which is L − k + 1 only when nothing is filtered).
+    /// No retained k-mer (including upper &lt; lower) ⇒ all-zero result, as Jellyfish prints zeros.
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="lowerCount">Ignore k-mers with count below this value (Jellyfish default 0).</param>
+    /// <param name="upperCount">Ignore k-mers with count above this value (Jellyfish default unbounded).</param>
+    /// <returns>Statistics over the retained k-mers; all-zero when none is retained.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="lowerCount"/> or <paramref name="upperCount"/> is negative (Jellyfish takes unsigned
+    /// values), or <paramref name="k"/> ≤ 0 and the sequence is non-empty.
+    /// </exception>
+    public static KmerStatistics AnalyzeKmers(string sequence, int k, int lowerCount, int upperCount = int.MaxValue)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(lowerCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(upperCount);
+
+        var counts = CountKmers(sequence, k);
+        var retained = new List<int>(counts.Count);
+        int total = 0, singletons = 0, maxCount = 0, minCount = int.MaxValue;
+
+        foreach (int count in counts.Values)
         {
-            return new KmerStatistics(
-                TotalKmers: 0,
-                UniqueKmers: 0,
-                MaxCount: 0,
-                MinCount: 0,
-                AverageCount: 0,
-                Entropy: 0
-            );
+            if (count < lowerCount || count > upperCount)
+                continue;
+
+            retained.Add(count);
+            total += count;
+            if (count == UniqueKmerCount) singletons++;
+            if (count > maxCount) maxCount = count;
+            if (count < minCount) minCount = count;
         }
 
-        var values = counts.Values.ToList();
-        int totalKmers = values.Sum();
-        int uniqueKmers = counts.Count;
-        int maxCount = values.Max();
-        int minCount = values.Min();
-        double averageCount = values.Average();
-        double entropy = CalculateKmerEntropy(sequence, k);
+        if (retained.Count == 0)
+            return new KmerStatistics(0, 0, 0, 0, 0, 0);
 
         return new KmerStatistics(
-            TotalKmers: totalKmers,
-            UniqueKmers: uniqueKmers,
+            TotalKmers: total,
+            UniqueKmers: retained.Count,
             MaxCount: maxCount,
             MinCount: minCount,
-            AverageCount: Math.Round(averageCount, 2),
-            Entropy: entropy
-        );
+            AverageCount: (double)total / retained.Count,
+            Entropy: ShannonEntropyBits(retained))
+        {
+            SingletonKmers = singletons,
+        };
     }
 }
 
 /// <summary>
-/// Comprehensive k-mer composition statistics for a sequence.
+/// Comprehensive k-mer composition statistics for a sequence (field definitions per Jellyfish <c>stats</c>:
+/// Total, Distinct, Unique = count-1, Max_count; plus min/mean multiplicity and k-mer Shannon entropy).
 /// </summary>
-/// <param name="TotalKmers">Total number of overlapping k-mers, L − k + 1.</param>
-/// <param name="UniqueKmers">Number of <i>distinct</i> k-mers (each different k-mer counted once).</param>
-/// <param name="MaxCount">Maximum k-mer multiplicity observed.</param>
+/// <param name="TotalKmers">Total number of k-mers including multiplicity (Jellyfish "Total"), L − k + 1 when unfiltered.</param>
+/// <param name="UniqueKmers">
+/// Number of <i>distinct</i> k-mers (Jellyfish "Distinct"; each different k-mer counted once). The name is kept
+/// for backward compatibility; it is <b>not</b> Jellyfish's "Unique" — see <see cref="SingletonKmers"/>.
+/// </param>
+/// <param name="MaxCount">Maximum k-mer multiplicity observed (Jellyfish "Max_count").</param>
 /// <param name="MinCount">Minimum k-mer multiplicity observed.</param>
-/// <param name="AverageCount">Mean multiplicity (TotalKmers / UniqueKmers), rounded to two decimals.</param>
+/// <param name="AverageCount">Exact mean multiplicity, TotalKmers / UniqueKmers.</param>
 /// <param name="Entropy">Shannon entropy of the k-mer frequency distribution, −Σ p log₂ p, in bits.</param>
 public readonly record struct KmerStatistics(
     int TotalKmers,
@@ -688,4 +733,14 @@ public readonly record struct KmerStatistics(
     int MaxCount,
     int MinCount,
     double AverageCount,
-    double Entropy);
+    double Entropy)
+{
+    /// <summary>Number of distinct k-mers (Jellyfish "Distinct"); same value as <see cref="UniqueKmers"/>.</summary>
+    public int DistinctKmers => UniqueKmers;
+
+    /// <summary>
+    /// Number of k-mers occurring exactly once — Jellyfish <c>stats</c> "Unique" (<c>uniq += val == 1</c>);
+    /// equals the size of <see cref="KmerAnalyzer.FindUniqueKmers"/>.
+    /// </summary>
+    public int SingletonKmers { get; init; }
+}

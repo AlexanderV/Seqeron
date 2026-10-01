@@ -19,11 +19,15 @@ number of overlapping k-mers (`L − k + 1`), the number of **distinct** k-mers,
 maximum/minimum/average multiplicity, and the Shannon entropy of the k-mer
 frequency distribution (`E_k = −Σ p·log₂ p` with `p = mult/(L−k+1)`, in bits).
 Counting is case-insensitive. When `k` exceeds the sequence length no k-mer exists
-and every statistic is 0.
+and every statistic is 0. Field definitions follow Jellyfish `stats`
+(`sub_commands/stats_main.cc`): Total, Distinct, Unique (= count 1, here
+`singletonKmers`), Max_count; `uniqueKmers` is a legacy name for the **distinct**
+count. Optional `lowerCount`/`upperCount` apply Jellyfish's `-L`/`-U` filters; all
+statistics are then computed over the retained k-mers.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L528](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L528)
+- Source: [KmerAnalyzer.cs#L680](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L680)
 - Evidence: `docs/Evidence/KMER-STATS-001-Evidence.md`
 
 ## Input Schema
@@ -32,16 +36,20 @@ and every statistic is 0.
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Sequence to analyze (min length 1) |
 | `k` | integer | Yes | k-mer length (> 0) |
+| `lowerCount` | integer | No | Ignore k-mers with count < lowerCount (Jellyfish `-L`; default 0) |
+| `upperCount` | integer | No | Ignore k-mers with count > upperCount (Jellyfish `-U`; default unbounded) |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `totalKmers` | integer | Number of overlapping k-mers, `L − k + 1` |
-| `uniqueKmers` | integer | Number of distinct k-mers |
+| `totalKmers` | integer | Number of k-mers including multiplicity (Jellyfish Total), `L − k + 1` when unfiltered |
+| `uniqueKmers` | integer | Number of **distinct** k-mers (legacy name; = `distinctKmers`) |
+| `distinctKmers` | integer | Number of distinct k-mers (Jellyfish Distinct) |
+| `singletonKmers` | integer | Number of k-mers occurring exactly once (Jellyfish Unique) |
 | `maxCount` | integer | Maximum k-mer multiplicity |
 | `minCount` | integer | Minimum k-mer multiplicity |
-| `averageCount` | number | Mean multiplicity `total/distinct`, rounded to 2 dp |
+| `averageCount` | number | Exact mean multiplicity `total/distinct` |
 | `entropy` | number | Shannon entropy `−Σ p·log₂ p` (bits) |
 
 ## Errors
@@ -74,7 +82,9 @@ and every statistic is 0.
   "maxCount": 4,
   "minCount": 1,
   "averageCount": 2.5,
-  "entropy": 1.846439344671
+  "entropy": 1.846439344671,
+  "distinctKmers": 4,
+  "singletonKmers": 1
 }
 ```
 Monomer table: G=4, T=3, A=2, C=1. Entropy of {0.4,0.3,0.2,0.1} = 1.84643934… bits.
@@ -100,7 +110,9 @@ Monomer table: G=4, T=3, A=2, C=1. Entropy of {0.4,0.3,0.2,0.1} = 1.84643934… 
   "maxCount": 1,
   "minCount": 1,
   "averageCount": 1.0,
-  "entropy": 3.0
+  "entropy": 3.0,
+  "distinctKmers": 8,
+  "singletonKmers": 8
 }
 ```
 All 8 trimers distinct ⇒ H = log₂(8) = 3 bits exactly.

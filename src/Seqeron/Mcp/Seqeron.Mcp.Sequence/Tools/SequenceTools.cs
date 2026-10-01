@@ -581,7 +581,7 @@ public class SequenceTools
     /// Analyze k-mer composition of a sequence.
     /// </summary>
     [McpServerTool(Name = "kmer_analyze", Title = "K-mer — Comprehensive Analysis", ReadOnly = true)]
-    [Description("Comprehensive k-mer analysis including statistics about frequency distribution, entropy, and unique k-mers.")]
+    [Description("Comprehensive k-mer analysis (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy.")]
     public static KmerAnalyzeResult KmerAnalyze(
         [Description("The sequence to analyze")] string sequence,
         [Description("K-mer length (default: 3)")] int k = 3)
@@ -600,7 +600,11 @@ public class SequenceTools
             stats.MinCount,
             stats.AverageCount,
             stats.Entropy,
-            k);
+            k)
+        {
+            DistinctKmers = stats.DistinctKmers,
+            SingletonKmers = stats.SingletonKmers,
+        };
     }
 
     /// <summary>
