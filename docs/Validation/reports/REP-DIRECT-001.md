@@ -4,6 +4,7 @@
 - **Area:** Repeats
 - **Canonical method(s):** `RepeatFinder.FindDirectRepeats(DnaSequence|string, minLength=5, maxLength=50, minSpacing=1)` — `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:2149/2167` (core `FindDirectRepeatsCore` :2193, shared engine `EnumerateMaximalPairs` :2254)
 - **Variants (audit WP2):** `FindReverseComplementRepeats` (:2432/2450), `FindApproximateDirectRepeats` (:2578/2596), `FindSupermaximalRepeats` (:2792/2803)
+- **Variant (audit WP8, 2026-10-01):** `FindDegenerateRepeats(DnaSequence|string, minLength, maxDifferences, ApproximateRepeatDistance, reverseComplement, maxLength, minSpacing)` — Vmatch `-e k` / `-p -e k` / `-p -h k` / `-h k -allmax`
 - **Stage A verdict:** FAIL → corrected (the 2026-06 description accepted "every (i, j, len) window"; the reporting convention is now sourced: maximal repeated pairs)
 - **Stage B verdict:** FAIL → fixed (B04 F11); variants added and reference-verified (B04 audit WP2)
 - **State:** FIXED
@@ -64,6 +65,7 @@ suffixes for supermaximal repeats.
 | `FindReverseComplementRepeats` | `vmatch -p`; brute force | 2 000 (186 444 pairs); 3 000 |
 | `FindApproximateDirectRepeats` | brute force (both modes); `vmatch -h k -allmax` | 3 000; 3 040 (1.09 M repeats) |
 | `FindSupermaximalRepeats` | `vmatch -supermax`; brute force | 3 060 (38 434 pairs); 3 000 |
+| `FindDegenerateRepeats` (4 modes) | brute force of Vmatch App. A; Vmatch 2.3.1 built from source with the left-extension seed shortcut disabled; stock Vmatch | 6 000 (78 507 repeats): 0 / 0; + 800 × 100–1 500 bp (534 587 repeats) and 1 Mb (2 333): 0 vs shortcut-free Vmatch; stock Vmatch differs only for edit mode (71 cases), only through the shortcut |
 
 Locked values: `AAAAAATTTTAAAAAA` 4–6 → the 5 pairs above; `ACGTACGTTTTTTTTTACGTACGT` min 4 → (0,16,8) (0,20,4)
 (3,15,5) (7,12,4) at spacing ≥ 1; RC `AAAAAAAACGTTGCAACGTAAAA` min 3 → (6,6,6) (7,7,12) (15,15,4) (repeat-match
@@ -71,6 +73,7 @@ Locked values: `AAAAAATTTTAAAAAA` 4–6 → the 5 pairs above; `ACGTACGTTTTTTTTT
 
 ### Tests
 `RepeatFinder_DirectRepeat_Tests` (re-locked to repeat-match), `RepeatFinder_RepeatVariants_Tests` (new, 21),
+`RepeatFinder_DegenerateRepeats_Tests` (WP8, 12: Vmatch-locked lists, brute force of the definition in all 4 modes),
 differential / combinatorial / snapshot / fuzz / property tests (F11), heavy tier `RepDirectVariantsProperties`
 (3 brute-force oracles), `RepDirectVariantsMetamorphicTests` (5 relations), `RepDirectVariantsFuzzTests` (5);
 MCP `FindDirectRepeatsTests`.
@@ -79,4 +82,4 @@ MCP `FindDirectRepeatsTests`.
 - Stage A: FAIL → corrected. Stage B: FAIL → fixed. **State: FIXED**; variants implemented and reference-identical.
 - MCP: `find_direct_repeats` delegates to `FindDirectRepeats`; the three variants are C# API only (new MCP tools
   would change hard-coded tool counts in files owned by other batches).
-- REPuter/Vmatch k-differences (edit-distance, `vmatch -e`) repeats are not provided (Hamming only).
+- ~~REPuter/Vmatch k-differences (edit-distance, `vmatch -e`) repeats are not provided (Hamming only).~~ Implemented in WP8 (`FindDegenerateRepeats`, B04 F47), incl. approximate palindromic repeats (`-p -h`, `-p -e`); Vmatch's left-extension seed shortcut (incomplete for edit matches) is documented, not reproduced.

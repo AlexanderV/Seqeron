@@ -22,6 +22,7 @@
 | `FindReverseComplementRepeats(DnaSequence\|string, minLength, maxLength, minSpacing)` | RepeatFinder | Variant (audit WP2) | Deep testing |
 | `FindApproximateDirectRepeats(DnaSequence\|string, minLength, maxMismatches, maxLength, minSpacing, excludeContained)` | RepeatFinder | Variant (audit WP2) | Deep testing |
 | `FindSupermaximalRepeats(DnaSequence\|string, minLength)` | RepeatFinder | Variant (audit WP2) | Deep testing |
+| `FindDegenerateRepeats(DnaSequence\|string, minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing)` | RepeatFinder | Variant (audit WP8) | Deep testing |
 
 ---
 
@@ -105,6 +106,26 @@ All MUST tests are justified by evidence or explicitly marked.
 | V12–V14 | k = 0 ≡ FindDirectRepeats; random maximality/Hamming; validation (`maxMismatches < minLength`) | definition |
 | V15 | Supermaximal_MatchesVmatchSupermax (4 cases) | e.g. `CAGCAGCAGTTTCAGCAG` 3 → CAGCAG at 0,3,12 |
 | V16–V18 | Supermaximal sequence/N; random = maximal and uncontained; validation | Gusfield §7.12.1 |
+
+### Degenerate-repeat tests (audit WP8, `RepeatFinder_DegenerateRepeats_Tests.cs`)
+
+Reference: Vmatch 2.3.1 `vmatch [-p] -l m (-e|-h) k -allmax` — Debian binary and the same release built from source
+with the left-extension seed shortcut disabled (`VM_NOPRUNE`); brute force of the Vmatch App. A definitions.
+Tuples (i, j, l, r, distance).
+
+| ID | Test | Expected (source) |
+|----|------|-------------------|
+| D1 | EditDirect_MatchesVmatchAllmax | `ACGTTGCATGCAAACGTAGCATGCAGGGTTTACGTTGCTTGCAAACG` -l 8 -e 1 → (0,13,12,12,1) (0,31,16,16,1) (5,18,8,8,1) (8,39,9,8,1) |
+| D2 | EditDirect_Indels | `GATTACAGATTACATTTTTGATTCAGATTACA` -l 6 -e 1 → 5 matches incl. (0,19,14,13,1) |
+| D3 | EditDirect_CompleteWhereVmatchShortcutMissesAMatch | -l 15 -e 3 → (0,21,16,18,3) (0,23,17,16,3) (0,24,18,15,3); stock Vmatch (0,22,16,17,3) instead of the first |
+| D4 | EditDirect_TandemArray_AcceptRuleAsVmatch | (AC)₉ -l 4 -e 1 → (0,1,16,17,1) (0,2,17,16,1) (`acceptmatch`) |
+| D5 | EditDirect_WildcardIsAnEditedSymbol | `GATTACANGATTACA` → (0,7,7,8,1) (0,8,8,7,1); lower case identical |
+| D6 | EditPalindromic_MatchesVmatchAllmax | `GGACCATGAAGG` -p -l 5 -e 3 → 9 matches incl. i = j with l ≠ r in both orientations |
+| D7 | Palindromic_EditAndHamming | `TTGACCGTAACCCCCGTTACGGTCAACC` -p -l 8: -e 1 → 3, -h 1 → 2 matches |
+| D8 | HammingDirect = FindApproximateDirectRepeats(excludeContained) | 40 random cases |
+| D9 | AllModes_EqualBruteForceOfDefinition | 160 random / repeat-rich cases, 4 modes |
+| D10 | Results_DistanceAndCopiesAreConsistent | `ApproximateMatcher.EditDistance` / `HammingDistance` of the copies = `Distance` |
+| D11–D12 | filters after maximality (defaults minSpacing 1, maxLength); DnaSequence ≡ string; validation (k ≥ 1, k < m, maxLength ≥ m, enum) | contract |
 
 ---
 

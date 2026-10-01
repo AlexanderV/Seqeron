@@ -109,6 +109,16 @@ All three reuse the same suffix-array/LCP maximal-pair engine (`EnumerateMaximal
 
 **Supermaximal repeats** — `FindSupermaximalRepeats(seq, minLength = 5)`. Definition (Gusfield 1997 §7.12.1 [7]; Vmatch `-supermax`): a maximal repeat that never occurs as a substring of any other maximal repeat. Gusfield Theorem 7.12.4 on the suffix array: an lcp-interval whose children are all singletons (a local maximum of the LCP array) whose suffixes have pairwise distinct left characters (position 0 / non-ACGT left neighbour = distinct). One record per repeated string with every occurrence (ascending; Vmatch prints each position pair instead). O(n log² n).
 
+### 4.5 Degenerate repeats: k-differences and palindromic (B04 audit WP8)
+
+`FindDegenerateRepeats(seq, minLength = 10, maxDifferences = 1, distance = Edit, reverseComplement = false, maxLength = ∞, minSpacing = 1)` → `DegenerateRepeatResult(FirstPosition, FirstLength, SecondPosition, SecondLength, Distance, Spacing, FirstCopy, SecondCopy, IsReverseComplement)` covers the four Vmatch degenerate modes `vmatch [-p] -l m (-h|-e) k -allmax` (REPuter [9]).
+
+- **Definitions** (Vmatch manual App. A [10]): a match `(l, i, r, j)` pairs `u = S[i..i+l)` with `w = S[j..j+r)`; direct `u ≈ w` (`i < j`), palindromic `u ≈ revcomp(w)` (`i ≤ j`). Hamming: `l = r`, `d_H ≤ k` ("k-mismatch match"); edit: unit-cost `d_E ≤ k` (mismatch, insertion, deletion; "k-differences match"). Contained: `i′ ≤ i ≤ i+l ≤ i′+l′` and `j′ ≤ j ≤ j+r ≤ j′+r′`; maximal = not contained in another match of the same kind; both `l, r ≥ minLength` (`-l`). Wildcards always mismatch.
+- **Vmatch conventions** (source `kurtz/extendED.c`, `mcontain.c`, Vmatch 2.3.1 [11]): direct edit matches pass `acceptmatch` — the right instance must not be embedded in the left one and overlapping instances need a non-overlapping part `(j − i) + (j + r) − (i + l)` larger than the distance (removes trivial self-alignments like `S[0..n)` vs `S[1..n)`); palindromic matches are compared in both orientations (the mirror `(r, j, l, i)` is the same pair of strings) and reported with `i ≤ j` (for `i = j`, `l ≠ r` both orientations).
+- **Algorithm**: pigeonhole seeds (exact maximal pairs ≥ ⌊m/(k+1)⌋; direct engine of §4.1, palindromic engine of §4.4 in both orientations). Hamming: the (k+1)-th-mismatch windows of §4.4 on `S` vs `S` or `S` vs `revcomp(S)`, then cross-diagonal containment. Edit: greedy furthest-reaching fronts (Ukkonen 1985 / Myers 1986 [12], as Vmatch `frontSEP.c` [11]) left and right of each seed, every combination of front points with a + b ≤ k is a candidate with distance min(a + b); per-seed then global containment (max segment tree over the u-intervals, output-sensitive). For a maximal match the rerouting argument (an optimal alignment through any error-free block can follow the seed diagonal) makes min(a + b) = `d_E`.
+- **Vmatch shortcut not reproduced**: Vmatch stops a left extension that crosses another exact match ≥ the seed length (`evalentrybackward`, "seed … detected while scanning"), assuming the match is found from that seed; for edit matches the other seed's alignment differs, so stock Vmatch misses some maximal matches (and then prints contained ones). The same Vmatch release built from source with that one test disabled (`VM_NOPRUNE`) and a brute force of the definition agree with this method on every case (Evidence §WP8).
+- Cost: O(n log² n + s·k⁴ + c log c) for s seeds and c candidates; 1 Mb random + planted repeats (m 30, k 2): direct 0.8 s, palindromic 1.8 s (Hamming 0.9 / 1.7 s).
+
 ## 5. Implementation Notes
 
 ### 5.1 Location and Entry Points
@@ -120,7 +130,8 @@ All three reuse the same suffix-array/LCP maximal-pair engine (`EnumerateMaximal
 - `RepeatFinder.FindReverseComplementRepeats(DnaSequence|string, int, int, int)` → `ReverseComplementRepeatResult` (§4.4).
 - `RepeatFinder.FindApproximateDirectRepeats(DnaSequence|string, int, int, int, int, bool)` → `ApproximateDirectRepeatResult` (§4.4).
 - `RepeatFinder.FindSupermaximalRepeats(DnaSequence|string, int)` → `SupermaximalRepeatResult` (§4.4).
-- MCP: `find_direct_repeats` wraps `FindDirectRepeats`; the three variants are C# API only (a new MCP tool would change the hard-coded tool counts owned by other batches).
+- `RepeatFinder.FindDegenerateRepeats(DnaSequence|string, int, int, ApproximateRepeatDistance, bool, int, int)` → `DegenerateRepeatResult` (§4.5).
+- MCP: `find_direct_repeats` wraps `FindDirectRepeats`; the variants are C# API only (a new MCP tool would change the hard-coded tool counts owned by other batches).
 
 ### 5.2 Current Behavior
 
@@ -136,6 +147,7 @@ See §4. The previous implementation (until 2026-09) enumerated every `(i, j, le
 - Reverse-complement maximal pairs identical to `repeat-match` (without `-f`) and Vmatch `-p` (§4.4; Evidence).
 - Maximal k-mismatch repeats identical to an independent brute force of the definition and, with `excludeContained`, to `vmatch -h k -allmax` (§4.4; Evidence).
 - Supermaximal repeats identical to Vmatch `-supermax` and a brute force of Gusfield's definition (§4.4; Evidence).
+- Degenerate repeats (`-e k`, `-p -e k`, `-p -h k`, `-h k -allmax`) identical to a brute force of the Vmatch App. A definitions (6 000 cases) and to Vmatch 2.3.1 with its left-extension shortcut disabled (6 800 cases + 1 Mb); stock Vmatch differs only in edit mode, only by that shortcut (§4.5; Evidence).
 
 ### 5.4 Deviations and Assumptions
 
@@ -163,7 +175,7 @@ See §4. The previous implementation (until 2026-09) enumerated every `(i, j, le
 
 ### 6.2 Limitations
 
-`FindDirectRepeats` / `FindReverseComplementRepeats`: one record per position pair (a repeat present in c copies yields c(c−1)/2 pairs, as in repeat-match); `FindSupermaximalRepeats` groups occurrences per string. `FindApproximateDirectRepeats` uses the Hamming distance (mismatches only); REPuter/Vmatch's k-differences (edit-distance, `-e`) repeats are a separate search not provided here. No biological annotation (LTR, recombination substrate, etc.).
+`FindDirectRepeats` / `FindReverseComplementRepeats`: one record per position pair (a repeat present in c copies yields c(c−1)/2 pairs, as in repeat-match); `FindSupermaximalRepeats` groups occurrences per string. `FindApproximateDirectRepeats` uses the Hamming distance (mismatches only); k-differences (edit-distance, Vmatch `-e`) and approximate palindromic (`-p -h` / `-p -e`) repeats are `FindDegenerateRepeats` (§4.5). Small ⌊m/(k+1)⌋ makes the number of seeds grow like n²·4^−⌊m/(k+1)⌋ (as in Vmatch). No biological annotation (LTR, recombination substrate, etc.).
 
 ## 7. Examples and Related Material
 
@@ -193,3 +205,5 @@ See §4. The previous implementation (until 2026-09) enumerated every `(i, j, le
 8. Abouelhoda MI, Kurtz S, Ohlebusch E. 2004. Replacing suffix trees with enhanced suffix arrays. J Discrete Algorithms 2:53–86.
 9. Kurtz S, Choudhuri JV, Ohlebusch E, Schleiermacher C, Stoye J, Giegerich R. 2001. REPuter: the manifold applications of repeat analysis on a genomic scale. Nucleic Acids Res 29(22):4633–4642.
 10. Kurtz S. The Vmatch large scale sequence analysis software — a manual (Vmatch 2.3.1, ISC licence; Debian/Ubuntu `vmatch` source package `vstree-2.3.1/src/doc/virtman.tex`): options `-p`, `-h`, `-allmax`, `-seedlength`, `-supermax`; Appendix A "Basic Notions" (palindromic match, k-mismatch match, maximality by containment, supermaximal repeat).
+11. Vmatch 2.3.1 source (`vstree-2.3.1`, Ubuntu `vmatch_2.3.1+dfsg.orig.tar.xz`): `kurtz/extendED.c` (`editextend`, `acceptmatch`), `kurtz/frontSEP.c` (greedy fronts, `evalentrybackward` seed shortcut), `kurtz/mcontain.c` (`matchcontainer`), `Vmengine/fself.c` (per-seed then global containment for `-allmax`); options `-e`, `-allmax`, `-seedlength` (`virtman.tex`).
+12. Ukkonen E. 1985. Algorithms for approximate string matching. Information and Control 64:100–118 (furthest-reaching diagonal fronts). Myers EW. 1986. An O(ND) difference algorithm and its variations. Algorithmica 1:251–266.

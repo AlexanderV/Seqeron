@@ -191,6 +191,62 @@ public static class RepeatFinder
     }
 
     /// <summary>
+    /// Finds microsatellites with a minimum number of copies per unit length and an explicit scan convention.
+    /// <see cref="MicrosatelliteScanMode.MaximalRuns"/> is
+    /// <see cref="FindMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},CancellationToken,IProgress{double})"/>;
+    /// <see cref="MicrosatelliteScanMode.MisaRegex"/> reproduces the SSR list of <c>misa.pl</c> v1.0 exactly
+    /// (Thiel et al. 2003): for each unit length p in ascending order the leftmost match of
+    /// <c>([acgt]{p})\2{t−1,}</c> (case-insensitive, all complete copies) is taken, the scan resumes at its end,
+    /// and a non-primitive motif (e.g. <c>ATAT</c>, <c>AA</c>) is rejected only after its bases were consumed. The two
+    /// conventions differ exactly in the two cases listed in the remarks of the map-based overload. Results are
+    /// ordered by unit length, then position — misa.pl's SSR numbering.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (≥ 1) → minimum number of complete copies (≥ 2); at least one entry.</param>
+    /// <param name="scanMode">Scan convention.</param>
+    /// <param name="cancellationToken">Cancellation token, checked every 1000 visited positions.</param>
+    /// <param name="progress">Optional progress reporter (non-decreasing values in [0, 1), final 1.0).</param>
+    public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
+        DnaSequence sequence,
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
+        MicrosatelliteScanMode scanMode,
+        CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength);
+        ValidateScanMode(scanMode);
+
+        return FindMicrosatellitesCore(sequence.Sequence, thresholds, cancellationToken, progress, scanMode);
+    }
+
+    /// <summary>
+    /// Raw-string counterpart (case-insensitive; <c>null</c>/empty input yields no results) of
+    /// <see cref="FindMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},MicrosatelliteScanMode,CancellationToken,IProgress{double})"/>.
+    /// </summary>
+    public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
+        string sequence,
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
+        MicrosatelliteScanMode scanMode,
+        CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null)
+    {
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength);
+        ValidateScanMode(scanMode);
+
+        if (string.IsNullOrEmpty(sequence))
+            return [];
+
+        return FindMicrosatellitesCore(sequence.ToUpperInvariant(), thresholds, cancellationToken, progress, scanMode);
+    }
+
+    private static void ValidateScanMode(MicrosatelliteScanMode scanMode)
+    {
+        if (scanMode is not (MicrosatelliteScanMode.MaximalRuns or MicrosatelliteScanMode.MisaRegex))
+            throw new ArgumentOutOfRangeException(nameof(scanMode), scanMode, "Unknown scan mode.");
+    }
+
+    /// <summary>
     /// Validates a per-unit-length threshold map and returns it as (unit length, minRepeats) pairs in ascending
     /// unit length.
     /// </summary>
@@ -241,18 +297,74 @@ public static class RepeatFinder
         string seq,
         (int UnitLength, int MinRepeats)[] thresholds,
         CancellationToken cancellationToken,
-        IProgress<double>? progress)
+        IProgress<double>? progress,
+        MicrosatelliteScanMode scanMode = MicrosatelliteScanMode.MaximalRuns)
     {
         int n = seq.Length;
         double totalPositions = Math.Max(1.0, (double)n * thresholds.Length);
         int sinceCheck = 0;
         const int checkInterval = 1000;
+        int[]? nonAcgtBefore = null; // MISA scan: prefix count of non-ACGT symbols
 
         for (int k = 0; k < thresholds.Length; k++)
         {
             var (unitLen, minRepeats) = thresholds[k];
             if ((long)unitLen * minRepeats > n)
                 continue; // minRepeats copies of this unit cannot fit
+
+            if (scanMode == MicrosatelliteScanMode.MisaRegex)
+            {
+                if (nonAcgtBefore is null)
+                {
+                    nonAcgtBefore = new int[n + 1];
+                    for (int x = 0; x < n; x++)
+                        nonAcgtBefore[x + 1] = nonAcgtBefore[x] + (AcgtCode(seq[x]) < 0 ? 1 : 0);
+                }
+
+                // misa.pl: while ($seq =~ /(([acgt]{p})\2{t-1,})/ig) — leftmost match at or after the end of the
+                // previous one, greedy (all complete copies); a non-primitive motif is rejected only after the match
+                // has consumed its bases ("next if $redundant" keeps pos()).
+                int start = 0;
+                int runEnd = -1; // S[x] == S[x − p] for every x in [start + p, runEnd)
+                while (start + unitLen * minRepeats <= n)
+                {
+                    if (++sinceCheck >= checkInterval)
+                    {
+                        sinceCheck = 0;
+                        cancellationToken.ThrowIfCancellationRequested();
+                        progress?.Report(((double)k * n + start) / totalPositions);
+                    }
+
+                    if (runEnd < start + unitLen)
+                    {
+                        runEnd = start + unitLen;
+                        while (runEnd < n && seq[runEnd] == seq[runEnd - unitLen])
+                            runEnd++;
+                    }
+
+                    int copies = (runEnd - start) / unitLen;
+                    if (copies < minRepeats || nonAcgtBefore[start + unitLen] != nonAcgtBefore[start])
+                    {
+                        start++; // no match here ([acgt]{p} fails, or fewer than t copies)
+                        continue;
+                    }
+
+                    string motif = seq.Substring(start, unitLen);
+                    if (!IsRedundantUnit(motif))
+                    {
+                        yield return new MicrosatelliteResult(
+                            Position: start,
+                            RepeatUnit: motif,
+                            RepeatCount: copies,
+                            TotalLength: copies * unitLen,
+                            RepeatType: ClassifyRepeatType(motif));
+                    }
+
+                    start += copies * unitLen; // resume the scan at pos()
+                }
+
+                continue;
+            }
 
             int i = 0;
             while (i + unitLen * minRepeats <= n)
@@ -409,6 +521,46 @@ public static class RepeatFinder
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maxInterruption);
         var ssrs = FindMicrosatellites(sequence, minRepeatsByUnitLength ?? MisaDefaultMinRepeats);
+        return string.IsNullOrEmpty(sequence) ? [] : AssembleCompoundsCore(sequence, ssrs, maxInterruption);
+    }
+
+    /// <summary>
+    /// Finds compound microsatellites with an explicit scan convention for the component SSRs. With
+    /// <see cref="MicrosatelliteScanMode.MisaRegex"/> the result equals the <c>c</c>/<c>c*</c> rows of <c>misa.pl</c>
+    /// v1.0 run with the same <c>misa.ini</c>, except that SSRs sharing a start position are chained in unit-length
+    /// order here, while misa.pl orders such ties by Perl's per-process randomised hash order
+    /// (<c>sort { $start{$a} &lt;=&gt; $start{$b} } keys %start</c>; different <c>PERL_HASH_SEED</c> values give different
+    /// misa.pl outputs). Ties need two primitive runs of different unit lengths starting at one position, which is
+    /// impossible with the MISA default thresholds (Fine–Wilf).
+    /// </summary>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minRepeatsByUnitLength">Unit length → minimum copies; <c>null</c> = MISA default <c>1-10 2-6 3-5 4-5 5-5 6-5</c>.</param>
+    /// <param name="maxInterruption">Maximal number of bases between two adjacent SSRs of a compound (≥ 0; MISA default 100).</param>
+    /// <param name="scanMode">Scan convention for the component SSRs.</param>
+    public static IReadOnlyList<CompoundMicrosatelliteResult> FindCompoundMicrosatellites(
+        DnaSequence sequence,
+        IReadOnlyDictionary<int, int>? minRepeatsByUnitLength,
+        int maxInterruption,
+        MicrosatelliteScanMode scanMode)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxInterruption);
+        var ssrs = FindMicrosatellites(sequence, minRepeatsByUnitLength ?? MisaDefaultMinRepeats, scanMode);
+        return AssembleCompoundsCore(sequence.Sequence, ssrs, maxInterruption);
+    }
+
+    /// <summary>
+    /// Raw-string counterpart of
+    /// <see cref="FindCompoundMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},int,MicrosatelliteScanMode)"/>.
+    /// </summary>
+    public static IReadOnlyList<CompoundMicrosatelliteResult> FindCompoundMicrosatellites(
+        string sequence,
+        IReadOnlyDictionary<int, int>? minRepeatsByUnitLength,
+        int maxInterruption,
+        MicrosatelliteScanMode scanMode)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxInterruption);
+        var ssrs = FindMicrosatellites(sequence, minRepeatsByUnitLength ?? MisaDefaultMinRepeats, scanMode);
         return string.IsNullOrEmpty(sequence) ? [] : AssembleCompoundsCore(sequence, ssrs, maxInterruption);
     }
 
@@ -3832,35 +3984,10 @@ public static class RepeatFinder
         if (n < minLength)
             return results;
 
-        // Text T = S · # · revcomp(S), length 2n + 1. A/C/G/T → 0..3; every other symbol and the separator
-        // get a unique code, so they never match (and the separator stops every common prefix).
-        int total = 2 * n + 1;
-        var symbols = new int[total];
-        var strandOf = new int[total];
-        for (int p = 0; p < n; p++)
+        foreach (var pair in EnumerateReverseComplementSeeds(seq, minLength, maxLength))
         {
-            int code = AcgtCode(seq[p]);
-            symbols[p] = code >= 0 ? code : 4 + p;
-
-            int t = n + 1 + (n - 1 - p);
-            int rc = code >= 0 ? AcgtCode(SequenceExtensions.GetComplementBase(seq[p])) : -1;
-            symbols[t] = rc >= 0 ? rc : 4 + t;
-            strandOf[t] = 1;
-        }
-        symbols[n] = 4 + n;
-        strandOf[n] = 0;
-
-        var leftClass = new int[total];
-        for (int p = 0; p < total; p++)
-            leftClass[p] = p > 0 && symbols[p - 1] < 4 ? symbols[p - 1] : UniqueLeftClass;
-
-        foreach (var pair in EnumerateMaximalPairs(symbols, leftClass, strandOf, minLength, maxLength))
-        {
-            int forward = pair.P < n ? pair.P : pair.Q;
-            int reverse = pair.P < n ? pair.Q : pair.P;
-
-            int i = forward;
-            int k = n - (reverse - (n + 1)) - pair.Length;
+            int i = pair.P;
+            int k = n - pair.Q - pair.Length;
             if (k < i) continue; // mirror image of the pair (k, i), which is also enumerated
 
             long spacing = (long)k - i - pair.Length;
@@ -3882,6 +4009,47 @@ public static class RepeatFinder
             return c != 0 ? c : a.Length.CompareTo(b.Length);
         });
         return results;
+    }
+
+    /// <summary>
+    /// Every maximal exact match between S and R = revcomp(S) with length in [minLength, maxLength], as
+    /// (<c>P</c> = start in S, <c>Q</c> = start in R, Length): the suffix array + LCP of <c>S · # · R</c>
+    /// traversed with per-(strand, left-character) lists, pairs across the two strands only. Each
+    /// palindromic pair appears in both orientations (its mirror is (n − Q − L, n − P − L)). A/C/G/T match;
+    /// every other symbol and the separator get a unique code.
+    /// </summary>
+    private static List<RawMaximalPair> EnumerateReverseComplementSeeds(string seq, int minLength, int maxLength)
+    {
+        int n = seq.Length;
+        int total = 2 * n + 1;
+        var symbols = new int[total];
+        var strandOf = new int[total];
+        for (int p = 0; p < n; p++)
+        {
+            int code = AcgtCode(seq[p]);
+            symbols[p] = code >= 0 ? code : 4 + p;
+
+            int t = n + 1 + (n - 1 - p);
+            int rc = code >= 0 ? AcgtCode(SequenceExtensions.GetComplementBase(seq[p])) : -1;
+            symbols[t] = rc >= 0 ? rc : 4 + t;
+            strandOf[t] = 1;
+        }
+        symbols[n] = 4 + n;
+        strandOf[n] = 0;
+
+        var leftClass = new int[total];
+        for (int p = 0; p < total; p++)
+            leftClass[p] = p > 0 && symbols[p - 1] < 4 ? symbols[p - 1] : UniqueLeftClass;
+
+        var pairs = EnumerateMaximalPairs(symbols, leftClass, strandOf, minLength, maxLength);
+        for (int x = 0; x < pairs.Count; x++)
+        {
+            var pair = pairs[x];
+            int forward = pair.P < n ? pair.P : pair.Q;
+            int reverse = pair.P < n ? pair.Q : pair.P;
+            pairs[x] = new RawMaximalPair(forward, reverse - (n + 1), pair.Length);
+        }
+        return pairs;
     }
 
     #endregion
@@ -4030,35 +4198,55 @@ public static class RepeatFinder
     /// </summary>
     private static List<MismatchWindow> FindMaximalMismatchWindows(string seq, int minLength, int k)
     {
-        int n = seq.Length;
-        var codes = new int[n];
-        for (int p = 0; p < n; p++)
-            codes[p] = AcgtCode(seq[p]);
-
+        int[] codes = AcgtCodes(seq);
         int seedLength = Math.Max(1, minLength / (k + 1));
+        return FindMaximalMismatchWindows(codes, codes, EnumerateForwardMaximalPairs(seq, seedLength, int.MaxValue), minLength, k);
+    }
+
+    /// <summary>A/C/G/T → 0..3, every other symbol → −1 (never matches), for an upper-cased sequence.</summary>
+    private static int[] AcgtCodes(string seq)
+    {
+        var codes = new int[seq.Length];
+        for (int p = 0; p < seq.Length; p++)
+            codes[p] = AcgtCode(seq[p]);
+        return codes;
+    }
+
+    /// <summary>
+    /// Every per-diagonal maximal window with ≤ k mismatches and length ≥ minLength between texts
+    /// <paramref name="u"/> and <paramref name="v"/> (codes; −1 never matches), grown from exact seeds
+    /// (<c>P</c> in u, <c>Q</c> in v; for a self-comparison <c>u == v</c> the pair is taken with P &lt; Q).
+    /// <c>Diagonal = Q − P</c> (negative allowed): the window [Start, Start + Length) of u faces
+    /// [Start + Diagonal, …) of v. Each window once.
+    /// </summary>
+    private static List<MismatchWindow> FindMaximalMismatchWindows(
+        int[] u, int[] v, IEnumerable<RawMaximalPair> seeds, int minLength, int k)
+    {
+        bool self = ReferenceEquals(u, v);
         var windows = new List<MismatchWindow>();
         var seen = new HashSet<(int, int, int)>();
         var left = new int[k + 2];
         var right = new int[k + 2];
 
-        foreach (var seed in EnumerateForwardMaximalPairs(seq, seedLength, int.MaxValue))
+        foreach (var seed in seeds)
         {
-            int i = Math.Min(seed.P, seed.Q);
-            int d = Math.Max(seed.P, seed.Q) - i;
+            int i = self ? Math.Min(seed.P, seed.Q) : seed.P;
+            int d = (self ? Math.Max(seed.P, seed.Q) : seed.Q) - i;
 
-            // left[a] = first-copy position of the a-th mismatch to the left of the seed (a = 1..k+1), right[b]
+            // left[a] = u-position of the a-th mismatch to the left of the seed (a = 1..k+1), right[b]
             // likewise to the right; scanning stops after k + 1 mismatches or at the diagonal boundary.
+            int leftLimit = Math.Max(0, -d); // first u-index whose partner v-index is ≥ 0
             int leftCount = 0;
-            for (int p = i - 1; p >= 0 && leftCount <= k; p--)
+            for (int p = i - 1; p >= leftLimit && leftCount <= k; p--)
             {
-                if (!IsAcgtMatch(codes, p, p + d)) left[++leftCount] = p;
+                if (!IsAcgtMatch(u, v, p, p + d)) left[++leftCount] = p;
             }
 
             int rightCount = 0;
-            int rightLimit = n - d; // first-copy index where the second copy would leave the sequence
+            int rightLimit = Math.Min(u.Length, v.Length - d); // u-index where either text would end
             for (int p = i + seed.Length; p < rightLimit && rightCount <= k; p++)
             {
-                if (!IsAcgtMatch(codes, p, p + d)) right[++rightCount] = p;
+                if (!IsAcgtMatch(u, v, p, p + d)) right[++rightCount] = p;
             }
 
             int maxA = Math.Min(k, leftCount);
@@ -4069,7 +4257,7 @@ public static class RepeatFinder
                 // (b < k − a already means the right side reached its boundary).
                 if (a + b != k && a != leftCount) continue;
 
-                int start = a < leftCount ? left[a + 1] + 1 : 0;
+                int start = a < leftCount ? left[a + 1] + 1 : leftLimit;
                 int end = b < rightCount ? right[b + 1] : rightLimit;
                 int length = end - start;
                 if (length < minLength) continue;
@@ -4122,7 +4310,402 @@ public static class RepeatFinder
         return kept;
     }
 
-    private static bool IsAcgtMatch(int[] codes, int p, int q) => codes[p] >= 0 && codes[p] == codes[q];
+    private static bool IsAcgtMatch(int[] u, int[] v, int p, int q) => u[p] >= 0 && u[p] == v[q];
+
+    #endregion
+
+    #region Degenerate Repeats — Vmatch -h / -e, direct and palindromic (REPuter)
+
+    /// <summary>
+    /// Finds <b>maximal degenerate repeats</b> — k-mismatch (Hamming) or k-differences (unit-cost edit
+    /// distance) repeats, direct or reverse-complement (palindromic) — with the exact Vmatch / REPuter
+    /// semantics (Kurtz et al. 2001 NAR 29:4633; Vmatch manual Appendix A; <c>vmatch [-p] -l m (-h|-e) k -allmax</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Definitions</b> (Vmatch manual App. A "Basic Notions"). A match <c>(l, i, r, j)</c> pairs the left
+    /// instance <c>u = S[i..i+l)</c> with the right instance <c>w = S[j..j+r)</c>: <i>direct</i> when
+    /// <c>u ≈ w</c> (<c>i &lt; j</c>), <i>palindromic</i> when <c>u ≈ wcc(reverse(w))</c>, the reverse complement
+    /// (<c>i ≤ j</c>). With <see cref="ApproximateRepeatDistance.Hamming"/> <c>≈</c> means <c>l = r</c> and
+    /// <c>d_H(u, w') ≤ k</c> (a <i>k-mismatch match</i>); with <see cref="ApproximateRepeatDistance.Edit"/> it
+    /// means <c>d_E(u, w') ≤ k</c>, the minimum number of mismatches, insertions and deletions (a
+    /// <i>k-differences match</i>; <c>l ≠ r</c> allowed). A match is <i>contained</i> in <c>(l′, i′, r′, j′)</c>
+    /// when <c>i′ ≤ i ≤ i+l ≤ i′+l′</c> and <c>j′ ≤ j ≤ j+r ≤ j′+r′</c>; it is <i>maximal</i> when it is not
+    /// contained in another match of the same kind. Both instances must have length ≥ <paramref name="minLength"/>
+    /// (Vmatch <c>-l</c>). Wildcards (N, IUPAC codes, U, gaps) always mismatch.
+    /// </para>
+    /// <para>
+    /// <b>Vmatch conventions reproduced</b> (source <c>kurtz/extendED.c</c>, <c>mcontain.c</c>, Vmatch 2.3.1):
+    /// (1) a direct k-differences match is admitted only when its right instance is not embedded in the left
+    /// one (<c>i + l &lt; j + r</c>) and, when the instances overlap, the non-overlapping part
+    /// <c>(j − i) + (j + r) − (i + l)</c> exceeds the distance (<c>acceptmatch</c>; this removes trivial
+    /// self-alignments such as <c>S[0..n)</c> against <c>S[1..n)</c>); (2) a palindromic match and its mirror
+    /// <c>(r, j, l, i)</c> are the same pair of strings, so maximality is decided over both orientations and the
+    /// orientation with <c>i ≤ j</c> is reported (for <c>i = j</c>, <c>l ≠ r</c>, both). Maximality is decided
+    /// before the <paramref name="maxLength"/> and <paramref name="minSpacing"/> filters.
+    /// </para>
+    /// <para>
+    /// <b>Algorithm</b> (REPuter / Vmatch seed-and-extend, complete): every match with an instance of length
+    /// ≥ m and ≤ k errors contains an exact match of length ≥ ⌊m/(k+1)⌋ (pigeonhole; Vmatch
+    /// <c>-seedlength</c> rule). Seeds are the exact maximal pairs (direct: <see cref="FindDirectRepeats(string,int,int,int)"/>'s
+    /// engine; palindromic: the S·#·revcomp(S) engine of <see cref="FindReverseComplementRepeats(string,int,int,int)"/>,
+    /// both orientations). Hamming: per seed, the windows bounded by the (k+1)-th mismatches on each side
+    /// (as in <see cref="FindApproximateDirectRepeats(string,int,int,int,int,bool)"/>). Edit: per seed, the
+    /// greedy furthest-reaching fronts of Ukkonen 1985 / Myers 1986 (Vmatch <c>frontSEP.c</c>) to the left and
+    /// right, ≤ k errors in total, every combination of a left and a right front point is a candidate whose
+    /// distance is the smallest a + b producing it; candidates are de-duplicated, filtered by rule (1) and
+    /// reduced to the maximal ones (a containing candidate is found by an output-sensitive segment-tree search).
+    /// Vmatch additionally stops a left extension that crosses another exact match of length ≥ the seed length
+    /// (<c>evalentrybackward</c> "seed … detected while scanning"), assuming it is found from that seed; for
+    /// k-differences matches this loses some maximal matches (and then reports contained ones). This method
+    /// returns the complete set: identical to Vmatch with that shortcut disabled, and to a brute-force
+    /// enumeration of the definition (Evidence REP-DIRECT-001 §WP8). Results ordered by
+    /// (FirstPosition, SecondPosition, FirstLength, SecondLength).
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minLength">Minimum length of each instance (Vmatch <c>-l</c>; default 10, ≥ 2, &gt; <paramref name="maxDifferences"/>).</param>
+    /// <param name="maxDifferences">Maximum distance k (Vmatch <c>-h k</c> / <c>-e k</c>; default 1, ≥ 1).</param>
+    /// <param name="distance">Hamming (k-mismatch) or unit-cost edit distance (k-differences; default).</param>
+    /// <param name="reverseComplement"><c>false</c> (default): direct repeats; <c>true</c>: palindromic (Vmatch <c>-p</c>).</param>
+    /// <param name="maxLength">Maximum length of each instance (default: unbounded; ≥ <paramref name="minLength"/>).</param>
+    /// <param name="minSpacing">
+    /// Minimum <c>Spacing = SecondPosition − FirstPosition − FirstLength</c> (default 1: non-overlapping copies, as
+    /// the other repeat finders; <c>int.MinValue</c> returns the complete Vmatch set).
+    /// </param>
+    /// <returns>Maximal degenerate repeats, sorted by (FirstPosition, SecondPosition, FirstLength, SecondLength).</returns>
+    public static IEnumerable<DegenerateRepeatResult> FindDegenerateRepeats(
+        DnaSequence sequence,
+        int minLength = 10,
+        int maxDifferences = 1,
+        ApproximateRepeatDistance distance = ApproximateRepeatDistance.Edit,
+        bool reverseComplement = false,
+        int maxLength = int.MaxValue,
+        int minSpacing = 1)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ValidateDegenerateParameters(minLength, maxDifferences, distance, maxLength);
+        return FindDegenerateRepeatsCore(sequence.Sequence, minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing);
+    }
+
+    /// <summary>
+    /// Finds maximal degenerate repeats in a raw sequence string (case-insensitive; non-ACGT symbols always
+    /// mismatch). <c>null</c> or empty input yields no results. See
+    /// <see cref="FindDegenerateRepeats(DnaSequence,int,int,ApproximateRepeatDistance,bool,int,int)"/>.
+    /// </summary>
+    public static IEnumerable<DegenerateRepeatResult> FindDegenerateRepeats(
+        string sequence,
+        int minLength = 10,
+        int maxDifferences = 1,
+        ApproximateRepeatDistance distance = ApproximateRepeatDistance.Edit,
+        bool reverseComplement = false,
+        int maxLength = int.MaxValue,
+        int minSpacing = 1)
+    {
+        ValidateDegenerateParameters(minLength, maxDifferences, distance, maxLength);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<DegenerateRepeatResult>();
+
+        return FindDegenerateRepeatsCore(sequence.ToUpperInvariant(), minLength, maxDifferences, distance, reverseComplement, maxLength, minSpacing);
+    }
+
+    private static void ValidateDegenerateParameters(int minLength, int maxDifferences, ApproximateRepeatDistance distance, int maxLength)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxDifferences, 1); // Vmatch: "-h k" / "-e k" with k > 0
+        // An instance of length ≥ minLength with ≤ k errors must contain a matching position (an exact seed).
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(maxDifferences, minLength);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
+        if (distance is not (ApproximateRepeatDistance.Hamming or ApproximateRepeatDistance.Edit))
+            throw new ArgumentOutOfRangeException(nameof(distance), distance, "Unknown distance.");
+    }
+
+    /// <summary>A degenerate match between text u = S and text v (S, or R = revcomp(S)): u[U..U+UL) ≈ v[V..V+VL).</summary>
+    private readonly record struct DegenerateMatch(int U, int ULength, int V, int VLength, int Distance)
+    {
+        public int UEnd => U + ULength;
+        public int VEnd => V + VLength;
+    }
+
+    private static List<DegenerateRepeatResult> FindDegenerateRepeatsCore(
+        string seq,
+        int minLength,
+        int k,
+        ApproximateRepeatDistance distance,
+        bool palindromic,
+        int maxLength,
+        int minSpacing)
+    {
+        var results = new List<DegenerateRepeatResult>();
+        int n = seq.Length;
+        if (n < minLength || (!palindromic && n <= minLength))
+            return results;
+
+        int[] u = AcgtCodes(seq);
+        int[] v = u;
+        int seedLength = Math.Max(1, minLength / (k + 1));
+        List<RawMaximalPair> seeds;
+        if (palindromic)
+        {
+            // R = revcomp(S): R[q] pairs with S[n − 1 − q].
+            v = new int[n];
+            for (int q = 0; q < n; q++)
+            {
+                int c = u[n - 1 - q];
+                v[q] = c >= 0 ? 3 - c : -1; // A C G T = 0 1 2 3 → complement 3 − c
+            }
+            seeds = EnumerateReverseComplementSeeds(seq, seedLength, int.MaxValue);
+        }
+        else
+        {
+            seeds = EnumerateForwardMaximalPairs(seq, seedLength, int.MaxValue);
+        }
+
+        List<DegenerateMatch> matches;
+        if (distance == ApproximateRepeatDistance.Hamming)
+        {
+            var windows = RemoveCrossDiagonalContained(FindMaximalMismatchWindows(u, v, seeds, minLength, k));
+            matches = windows.ConvertAll(w => new DegenerateMatch(w.Start, w.Length, w.Start + w.Diagonal, w.Length, w.Mismatches));
+        }
+        else
+        {
+            matches = RemoveContainedMatches(FindDifferenceMatchCandidates(u, v, seeds, minLength, k, selfDirect: !palindromic));
+        }
+
+        foreach (var m in matches)
+        {
+            int i = m.U;
+            int j = palindromic ? n - m.VEnd : m.V;
+            if (palindromic && j < i) continue; // the mirror (r, j, l, i) is reported instead
+            if (m.ULength > maxLength || m.VLength > maxLength) continue;
+            long spacing = (long)j - i - m.ULength;
+            if (spacing < minSpacing) continue;
+            results.Add(new DegenerateRepeatResult(
+                FirstPosition: i,
+                FirstLength: m.ULength,
+                SecondPosition: j,
+                SecondLength: m.VLength,
+                Distance: m.Distance,
+                Spacing: (int)spacing,
+                FirstCopy: seq.Substring(i, m.ULength),
+                SecondCopy: seq.Substring(j, m.VLength),
+                IsReverseComplement: palindromic));
+        }
+
+        results.Sort(static (x, y) =>
+        {
+            int c = x.FirstPosition.CompareTo(y.FirstPosition);
+            if (c != 0) return c;
+            c = x.SecondPosition.CompareTo(y.SecondPosition);
+            if (c != 0) return c;
+            c = x.FirstLength.CompareTo(y.FirstLength);
+            return c != 0 ? c : x.SecondLength.CompareTo(y.SecondLength);
+        });
+        return results;
+    }
+
+    /// <summary>
+    /// All candidate k-differences matches grown from the seeds: per seed, the furthest-reaching points of the
+    /// left and right greedy fronts (≤ a and ≤ b errors, a + b ≤ k) are combined; candidates with an instance
+    /// shorter than <paramref name="minLength"/> are dropped. For a self-comparison (<paramref name="selfDirect"/>)
+    /// the instances are ordered by start and the Vmatch <c>acceptmatch</c> rule is applied with the smallest
+    /// distance producing the candidate. Each candidate once, with its smallest distance; candidates contained
+    /// in another candidate of the same seed are already dropped.
+    /// </summary>
+    private static List<DegenerateMatch> FindDifferenceMatchCandidates(
+        int[] u, int[] v, List<RawMaximalPair> seeds, int minLength, int k, bool selfDirect)
+    {
+        int width = 2 * k + 1;
+        var leftFront = new int[(k + 1) * width];
+        var rightFront = new int[(k + 1) * width];
+        var perSeed = new Dictionary<(int, int, int, int), int>();
+        var seedMatches = new List<DegenerateMatch>();
+        var best = new Dictionary<(int, int, int, int), int>();
+
+        foreach (var seed in seeds)
+        {
+            int p = seed.P, q = seed.Q, m = seed.Length;
+            if (selfDirect && p > q) (p, q) = (q, p);
+
+            ComputeEditFronts(u, v, p, q, p, q, -1, k, leftFront);
+            ComputeEditFronts(u, v, p + m, q + m, u.Length - (p + m), v.Length - (q + m), +1, k, rightFront);
+
+            perSeed.Clear();
+            for (int a = 0; a <= k; a++)
+            {
+                for (int dl = -a; dl <= a; dl++)
+                {
+                    int xl = leftFront[a * width + dl + k];
+                    if (xl < 0) continue;
+                    int us = p - xl, vs = q - xl - dl;
+                    for (int b = 0; b <= k - a; b++)
+                    {
+                        for (int dr = -b; dr <= b; dr++)
+                        {
+                            int xr = rightFront[b * width + dr + k];
+                            if (xr < 0) continue;
+                            int ue = p + m + xr, ve = q + m + xr + dr;
+                            if (ue - us < minLength || ve - vs < minLength) continue;
+
+                            int s1 = us, e1 = ue, s2 = vs, e2 = ve;
+                            if (selfDirect && s1 > s2) (s1, e1, s2, e2) = (s2, e2, s1, e1);
+                            var key = (s1, e1, s2, e2);
+                            int dist = a + b;
+                            if (!perSeed.TryGetValue(key, out int old) || dist < old)
+                                perSeed[key] = dist;
+                        }
+                    }
+                }
+            }
+
+            seedMatches.Clear();
+            foreach (var (key, dist) in perSeed)
+            {
+                if (selfDirect && !IsAcceptedSelfMatch(key.Item1, key.Item2, key.Item3, key.Item4, dist)) continue;
+                seedMatches.Add(new DegenerateMatch(key.Item1, key.Item2 - key.Item1, key.Item3, key.Item4 - key.Item3, dist));
+            }
+
+            for (int x = 0; x < seedMatches.Count; x++)
+            {
+                var c = seedMatches[x];
+                bool contained = false;
+                for (int y = 0; y < seedMatches.Count && !contained; y++)
+                    contained = y != x && Contains(seedMatches[y], c);
+                if (contained) continue;
+                var key = (c.U, c.UEnd, c.V, c.VEnd);
+                if (!best.TryGetValue(key, out int old) || c.Distance < old)
+                    best[key] = c.Distance;
+            }
+        }
+
+        var result = new List<DegenerateMatch>(best.Count);
+        foreach (var (key, dist) in best)
+            result.Add(new DegenerateMatch(key.Item1, key.Item2 - key.Item1, key.Item3, key.Item4 - key.Item3, dist));
+        return result;
+    }
+
+    /// <summary>
+    /// Vmatch <c>acceptmatch</c> (kurtz/extendED.c) for a direct self-match with instances [s1, e1) and
+    /// [s2, e2), s1 ≤ s2: rejects identical starts, a right instance embedded in the left one, and overlapping
+    /// instances whose non-overlapping part <c>(s2 − s1) + e2 − e1</c> is at most the distance.
+    /// </summary>
+    private static bool IsAcceptedSelfMatch(int s1, int e1, int s2, int e2, int dist)
+    {
+        if (s1 >= s2) return false;
+        if (e1 <= s2) return true;     // no overlap
+        if (e1 >= e2) return false;    // embedded
+        return (s2 - s1) + e2 - e1 > dist;
+    }
+
+    private static bool Contains(DegenerateMatch outer, DegenerateMatch inner) =>
+        outer.U <= inner.U && inner.UEnd <= outer.UEnd && outer.V <= inner.V && inner.VEnd <= outer.VEnd;
+
+    /// <summary>
+    /// Greedy furthest-reaching fronts (Ukkonen 1985; Myers 1986; Vmatch <c>frontSEP.c</c>) of an alignment
+    /// anchored at u-position <paramref name="pu"/> / v-position <paramref name="pv"/> and extended in direction
+    /// <paramref name="dir"/> (+1 right, −1 left) over at most <paramref name="lu"/> / <paramref name="lv"/>
+    /// symbols. <c>fronts[a·(2k+1) + δ + k]</c> = largest number x of u-symbols consumed by an alignment with
+    /// a differences that ends on diagonal δ (v-symbols consumed = x + δ), or −1 when no such point exists.
+    /// Unit costs; codes −1 never match.
+    /// </summary>
+    private static void ComputeEditFronts(int[] u, int[] v, int pu, int pv, int lu, int lv, int dir, int k, int[] fronts)
+    {
+        int width = 2 * k + 1;
+        Array.Fill(fronts, -1);
+        fronts[k] = SlideFront(u, v, pu, pv, lu, lv, dir, 0, 0);
+
+        for (int a = 1; a <= k; a++)
+        {
+            int prev = (a - 1) * width + k, cur = a * width + k;
+            for (int d = -a; d <= a; d++)
+            {
+                int x = -1;
+                if (d > -a && d < a)
+                    x = Math.Max(x, ValidFrontPoint(fronts[prev + d], 1, d, lu, lv));           // mismatch
+                if (d + 1 <= a - 1)
+                    x = Math.Max(x, ValidFrontPoint(fronts[prev + d + 1], 1, d, lu, lv));       // u-symbol deleted
+                if (d - 1 >= -(a - 1))
+                    x = Math.Max(x, ValidFrontPoint(fronts[prev + d - 1], 0, d, lu, lv));       // v-symbol inserted
+                fronts[cur + d] = x < 0 ? -1 : SlideFront(u, v, pu, pv, lu, lv, dir, x, d);
+            }
+        }
+    }
+
+    private static int ValidFrontPoint(int previous, int step, int d, int lu, int lv)
+    {
+        if (previous < 0) return -1;
+        int x = previous + step;
+        return x <= lu && x + d <= lv ? x : -1;
+    }
+
+    private static int SlideFront(int[] u, int[] v, int pu, int pv, int lu, int lv, int dir, int x, int d)
+    {
+        if (dir > 0)
+        {
+            while (x < lu && x + d < lv && IsAcgtMatch(u, v, pu + x, pv + x + d)) x++;
+        }
+        else
+        {
+            while (x < lu && x + d < lv && IsAcgtMatch(u, v, pu - 1 - x, pv - 1 - x - d)) x++;
+        }
+        return x;
+    }
+
+    /// <summary>
+    /// Keeps the matches not contained in another one (Vmatch App. A maximality). Matches sorted by U; a max
+    /// segment tree over UEnd enumerates exactly the matches with U′ ≤ U and UEnd′ ≥ UEnd, which are then
+    /// checked on the v-interval. Input has no duplicates.
+    /// </summary>
+    private static List<DegenerateMatch> RemoveContainedMatches(List<DegenerateMatch> matches)
+    {
+        int count = matches.Count;
+        if (count < 2)
+            return matches;
+
+        var sorted = matches.ToArray();
+        Array.Sort(sorted, static (x, y) =>
+        {
+            int c = x.U.CompareTo(y.U);
+            return c != 0 ? c : y.UEnd.CompareTo(x.UEnd);
+        });
+
+        int size = 1;
+        while (size < count) size <<= 1;
+        var tree = new int[2 * size];
+        Array.Fill(tree, int.MinValue);
+        for (int x = 0; x < count; x++) tree[size + x] = sorted[x].UEnd;
+        for (int x = size - 1; x >= 1; x--) tree[x] = Math.Max(tree[2 * x], tree[2 * x + 1]);
+
+        var kept = new List<DegenerateMatch>(count);
+        var stack = new Stack<(int Node, int Lo, int Hi)>();
+        int upper = 0;
+        for (int x = 0; x < count; x++)
+        {
+            var m = sorted[x];
+            while (upper < count && sorted[upper].U <= m.U) upper++;
+
+            bool contained = false;
+            stack.Clear();
+            stack.Push((1, 0, size - 1));
+            while (stack.Count > 0 && !contained)
+            {
+                var (node, lo, hi) = stack.Pop();
+                if (lo >= upper || tree[node] < m.UEnd) continue;
+                if (lo == hi)
+                {
+                    contained = lo != x && sorted[lo].V <= m.V && m.VEnd <= sorted[lo].VEnd;
+                    continue;
+                }
+                int mid = (lo + hi) >> 1;
+                stack.Push((2 * node + 1, mid + 1, hi));
+                stack.Push((2 * node, lo, mid));
+            }
+
+            if (!contained) kept.Add(m);
+        }
+
+        return kept;
+    }
 
     #endregion
 
@@ -4309,6 +4892,28 @@ public static class RepeatFinder
         return SummarizeMicrosatellites(
             sequence,
             FindMicrosatellitesCore(sequence.Sequence, thresholds, CancellationToken.None, null).ToList());
+    }
+
+    /// <summary>
+    /// Summary statistics over the microsatellites found with a per-unit-length threshold map (unit lengths 1–6) and
+    /// an explicit scan convention; with <see cref="MicrosatelliteScanMode.MisaRegex"/> the counts are those of
+    /// misa.pl's SSR list (its <c>.statistics</c> totals per unit size).
+    /// </summary>
+    /// <param name="sequence">DNA sequence to analyze.</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (1–6) → minimum copies (≥ 2).</param>
+    /// <param name="scanMode">Scan convention.</param>
+    public static TandemRepeatSummary GetTandemRepeatSummary(
+        DnaSequence sequence,
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
+        MicrosatelliteScanMode scanMode)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength, maxUnitLength: 6);
+        ValidateScanMode(scanMode);
+
+        return SummarizeMicrosatellites(
+            sequence,
+            FindMicrosatellitesCore(sequence.Sequence, thresholds, CancellationToken.None, null, scanMode).ToList());
     }
 
     private static TandemRepeatSummary SummarizeMicrosatellites(
@@ -4498,6 +5103,19 @@ public static class RepeatFinder
     }
 
     #endregion
+}
+
+/// <summary>
+/// Scan convention of the per-unit-length microsatellite search (see
+/// <see cref="RepeatFinder.FindMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},MicrosatelliteScanMode,CancellationToken,IProgress{double})"/>).
+/// </summary>
+public enum MicrosatelliteScanMode
+{
+    /// <summary>Each maximal primitive ACGT run reported once at its left end (Kolpakov–Kucherov maximal repetitions; pytrf/Krait).</summary>
+    MaximalRuns,
+
+    /// <summary>misa.pl v1.0 regex scan: leftmost greedy match, resumed after each match; non-primitive matches consumed, then rejected.</summary>
+    MisaRegex,
 }
 
 /// <summary>
@@ -4818,6 +5436,37 @@ public readonly record struct ApproximateDirectRepeatResult(
     int Spacing,
     string FirstCopy,
     string SecondCopy);
+
+/// <summary>Distance used by <see cref="RepeatFinder.FindDegenerateRepeats(DnaSequence,int,int,ApproximateRepeatDistance,bool,int,int)"/>.</summary>
+public enum ApproximateRepeatDistance
+{
+    /// <summary>Hamming distance: equal-length instances, mismatches only (Vmatch <c>-h k</c>, "k-mismatch match").</summary>
+    Hamming,
+
+    /// <summary>Unit-cost edit (Levenshtein) distance: mismatches, insertions, deletions (Vmatch <c>-e k</c>, "k-differences match").</summary>
+    Edit,
+}
+
+/// <summary>
+/// Maximal degenerate repeat (see
+/// <see cref="RepeatFinder.FindDegenerateRepeats(DnaSequence,int,int,ApproximateRepeatDistance,bool,int,int)"/>):
+/// left instance <c>FirstCopy = S[FirstPosition..+FirstLength)</c>, right instance
+/// <c>SecondCopy = S[SecondPosition..+SecondLength)</c> (forward strand, 0-based; Vmatch prints exactly
+/// <c>FirstLength FirstPosition SecondLength SecondPosition Distance</c>). For a direct repeat
+/// <c>d(FirstCopy, SecondCopy) = Distance</c>; for a reverse-complement (palindromic) repeat
+/// <c>d(FirstCopy, revcomp(SecondCopy)) = Distance</c>. <c>Spacing = SecondPosition − FirstPosition − FirstLength</c>
+/// (negative when the instances overlap).
+/// </summary>
+public readonly record struct DegenerateRepeatResult(
+    int FirstPosition,
+    int FirstLength,
+    int SecondPosition,
+    int SecondLength,
+    int Distance,
+    int Spacing,
+    string FirstCopy,
+    string SecondCopy,
+    bool IsReverseComplement);
 
 /// <summary>
 /// Supermaximal repeat (see <see cref="RepeatFinder.FindSupermaximalRepeats(DnaSequence,int)"/>): the repeated

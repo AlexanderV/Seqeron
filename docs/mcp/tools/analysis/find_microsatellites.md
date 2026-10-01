@@ -28,6 +28,12 @@ Optional MISA behaviour (Thiel et al. 2003, `misa.pl` v1.0; verified against a r
 - `misaThresholds: true` — minimum copies per unit length from MISA's default `misa.ini`
   (`1-10 2-6 3-5 4-5 5-5 6-5`) for the unit lengths `minUnitLength..maxUnitLength` within 1–6;
   `minRepeats` is ignored. Items are ordered by unit length, then position.
+- `misaScan = true` — reproduces misa.pl v1.0's SSR list exactly (`RepeatFinder.FindMicrosatellites(…, MicrosatelliteScanMode.MisaRegex)`):
+  per unit length the leftmost greedy match of `([acgt]{p})\2{t-1,}` is taken and the scan resumes at its end;
+  a non-primitive match (e.g. `CTCTCT`) is rejected after consuming its bases. Differs from the default only where
+  a same-size run overlaps the previous match by < p bases or starts inside a rejected match (cross-checked:
+  6 000 sequences × 6 misa.ini settings, 0 differences; SSRs sharing a start are chained in unit-length order —
+  misa.pl orders them by Perl's randomised hash order).
 - `maxCompoundInterruption ≥ 0` — also returns `compounds`: MISA compound microsatellites, i.e.
   chains of STRs (in start order) where each STR starts at most that many bases after the previous
   one ends (adjacent and overlapping STRs always join; MISA default 100). `type` is `c`, or `c*`
@@ -48,6 +54,7 @@ Optional MISA behaviour (Thiel et al. 2003, `misa.pl` v1.0; verified against a r
 | `minRepeats` | integer | No | Minimum repeats (default 3, ≥ 2); ignored when `misaThresholds` is true |
 | `misaThresholds` | boolean | No | MISA default per-unit-size minimum copies `1-10 2-6 3-5 4-5 5-5 6-5` (default false) |
 | `maxCompoundInterruption` | integer | No | ≥ 0: also return MISA compound microsatellites with at most this many interrupting bases (MISA default 100); default −1 = none |
+| `misaScan` | boolean | No | misa.pl's regex scan instead of maximal primitive runs (default false); see below |
 
 ## Output Schema
 

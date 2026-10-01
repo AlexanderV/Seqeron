@@ -439,16 +439,31 @@ public class AnalysisTools
         [Description("Maximum unit length (default 6).")] int maxUnitLength = 6,
         [Description("Minimum number of repeats (default 3); ignored when misaThresholds is true.")] int minRepeats = 3,
         [Description("Use the MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) for the unit lengths minUnitLength..maxUnitLength within 1-6 instead of minRepeats (default false).")] bool misaThresholds = false,
-        [Description("When >= 0, also chain the reported STRs into MISA compound microsatellites with at most this many interrupting bases (MISA default 100); default -1 = no compounds.")] int maxCompoundInterruption = -1)
+        [Description("When >= 0, also chain the reported STRs into MISA compound microsatellites with at most this many interrupting bases (MISA default 100); default -1 = no compounds.")] int maxCompoundInterruption = -1,
+        [Description("Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs, reproducing misa.pl's SSR list exactly (default false).")] bool misaScan = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var found = misaThresholds
-            ? global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
-                sequence, MisaThresholdsForRange(minUnitLength, maxUnitLength)).ToList()
-            : global::Seqeron.Genomics.Analysis.RepeatFinder
-                .FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepeats).ToList();
+        List<global::Seqeron.Genomics.Analysis.MicrosatelliteResult> found;
+        if (misaScan)
+        {
+            var map = misaThresholds
+                ? MisaThresholdsForRange(minUnitLength, maxUnitLength)
+                : UniformThresholdsForRange(minUnitLength, maxUnitLength, minRepeats, sequence.Length);
+            found = map.Count == 0
+                ? []
+                : global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
+                    sequence, map, global::Seqeron.Genomics.Analysis.MicrosatelliteScanMode.MisaRegex).ToList();
+        }
+        else
+        {
+            found = misaThresholds
+                ? global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
+                    sequence, MisaThresholdsForRange(minUnitLength, maxUnitLength)).ToList()
+                : global::Seqeron.Genomics.Analysis.RepeatFinder
+                    .FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepeats).ToList();
+        }
 
         var items = found.Select(ToMicrosatelliteItem).ToArray();
 
@@ -479,6 +494,22 @@ public class AnalysisTools
             .ToDictionary(kv => kv.Key, kv => kv.Value);
         if (map.Count == 0)
             throw new ArgumentOutOfRangeException(nameof(minUnitLength), "MISA thresholds cover unit lengths 1-6 only.");
+        return map;
+    }
+
+    /// <summary>
+    /// One threshold per unit length in [min, max] for the MISA scan, capped at the longest unit whose
+    /// <paramref name="minRepeats"/> copies fit the sequence (longer units can never match).
+    /// </summary>
+    private static Dictionary<int, int> UniformThresholdsForRange(int minUnitLength, int maxUnitLength, int minRepeats, int length)
+    {
+        if (minUnitLength < 1 || maxUnitLength < minUnitLength)
+            throw new ArgumentOutOfRangeException(nameof(minUnitLength), "Invalid unit-length bounds.");
+        if (minRepeats < 2)
+            throw new ArgumentOutOfRangeException(nameof(minRepeats), "minRepeats must be at least 2.");
+        var map = new Dictionary<int, int>();
+        for (long p = minUnitLength; p <= Math.Min(maxUnitLength, length / minRepeats); p++)
+            map[(int)p] = minRepeats;
         return map;
     }
 

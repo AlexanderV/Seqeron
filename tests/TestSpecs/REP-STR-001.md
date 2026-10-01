@@ -371,3 +371,22 @@ compounds); with this library's SSR list, compound rows are identical wherever t
 difference is one of the two documented conventions (0 unexplained); MISA class names = misa.pl for all 5 356 primitive
 motifs of 1–6 bp; Krait standard motif = Krait for all 5 460 motifs of 1–6 bp at levels 0–4.
 
+## 12. misa.pl-parity scan (`MicrosatelliteScanMode.MisaRegex`, audit WP8, 2026-10-01)
+
+Source: `misa.pl` v1.0 lines 101–125 (scan loop `while ($seq =~ /(([acgt]{p})\2{t-1,})/ig)`, redundancy check, `pos()`),
+line 130 (`@order = sort { $start{$a} <=> $start{$b} } keys %start`). Tests: `RepeatFinder_MisaScan_Tests.cs`.
+
+| ID | Test | Expected (reference) |
+|----|------|----------|
+| M01 | overlap case / consumed case, MISA defaults | misa.pl SSR lists `AAAGA×9@1-45; AGAAA×8@46-85` and `G×12@83-94; CT×15@101-130; GCG×14@1-42; TAAACT×6@131-166`; `MaximalRuns` keeps `AAGAA×8@45-84` |
+| M02 | compounds, MISA defaults | misa.pl rows `c (AAAGA)9(AGAAA)8 85 1 85` and `c (GCG)14ggcacaaaaaagaaaactatcaggaatagagtatagagta(G)12aaacaa(CT)15(TAAACT)6 166 1 166` |
+| M03 | start tie, `1-3 2-2 3-2 4-2 5-2 6-2` / 10 | `c* (T)3(TTTG)5*(T)3*g(T)3g(T)3g(T)3g(T)3 1-23` (misa.pl PERL_HASH_SEED=2 and tie-by-SSR-number; seed 1 prints `(TTTG)5(T)3*…`) |
+| M04 | 400 random SSR-rich sequences × 3 definitions | transcription of the misa.pl scan loop on .NET `Regex` |
+| M05 | summary + progress (monotone, final 1.0) | 4 SSRs, 1 hexanucleotide; `MaximalRuns` summary ≡ map overload |
+| M06 | validation (unknown mode, null, empty map, negative interruption, cancellation) | contract |
+| MCP | `find_microsatellites` `misaScan: true` | misa.pl SSR list / compound of M01–M02 |
+
+Bulk cross-check (scratch harness `wp8/misa`): 6 000 sequences × 6 misa.ini settings (662 948 misa.pl SSRs, 99 300 rows):
+0 differing (sequence, setting) pairs vs misa.pl with ties broken by SSR number; vs stock misa.pl every difference is a
+start tie with the same SSR set (Perl hash order: outputs differ between PERL_HASH_SEED 1/2/3 in 3 of 6 settings, identical
+for a fixed seed).

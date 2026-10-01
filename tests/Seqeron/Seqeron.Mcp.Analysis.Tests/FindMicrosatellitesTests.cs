@@ -73,4 +73,27 @@ public class FindMicrosatellitesTests
             Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindMicrosatellites("CACACACA", 7, 8, 3, misaThresholds: true));
         });
     }
+
+    /// <summary>
+    /// misaScan: misa.pl's regex scan (misa.pl v1.0 run with the default misa.ini): the hexamer regex consumes the
+    /// non-primitive (CTCTCT)5, so misa.pl reports (TAAACT)6 at 131-166 and the compound
+    /// "(GCG)14…(G)12aaacaa(CT)15(TAAACT)6" (1-166); without misaScan the maximal run (CTTAAA)7 at 129-170 is reported.
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_MisaScan_MatchesMisaPlSsrList()
+    {
+        const string seq = "GCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGGCACAAAAAAGAAAACTATCAGGAATAGAGTATAGAGTAGGGGGGGGGGGGAAACAACTCTCTCTCTCTCTCTCTCTCTCTCTCTCTTAAACTTAAACTTAAACTTAAACTTAAACTTAAACTTAAAATTAAACT";
+        var misa = AnalysisTools.FindMicrosatellites(seq, 1, 6, 3, misaThresholds: true, maxCompoundInterruption: 100, misaScan: true);
+        var maximal = AnalysisTools.FindMicrosatellites(seq, 1, 6, 3, misaThresholds: true, misaScan: false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(misa.Items.Select(i => (i.Position + 1, i.RepeatUnit, i.RepeatCount)),
+                Is.EqualTo(new[] { (83, "G", 12), (101, "CT", 15), (1, "GCG", 14), (131, "TAAACT", 6) }));
+            Assert.That(misa.Compounds![0].Notation,
+                Is.EqualTo("(GCG)14ggcacaaaaaagaaaactatcaggaatagagtatagagta(G)12aaacaa(CT)15(TAAACT)6"));
+            Assert.That(maximal.Items.Select(i => (i.Position + 1, i.RepeatUnit, i.RepeatCount)), Does.Contain((129, "CTTAAA", 7)));
+            Assert.That(AnalysisTools.FindMicrosatellites("ACACACACAC", 2, int.MaxValue, 3, misaScan: true).Items
+                .Select(i => (i.Position, i.RepeatUnit, i.RepeatCount)), Is.EqualTo(new[] { (0, "AC", 5) }));
+        });
+    }
 }

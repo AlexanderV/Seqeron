@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RepeatFinder.FindMicrosatellites",
   "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L86",
-  "description": "Short Tandem Repeats (STRs / microsatellites): units of length minUnitLength..maxUnitLength repeated >= minRepeats times consecutively, each classified by repeat type. Redundant (self-repeating) units are skipped; each maximal run is reported once per unit length at its left end (complete copies only); non-ACGT units are not reported. Optional: MISA per-unit-size thresholds (misaThresholds: 1-10 2-6 3-5 4-5 5-5 6-5, Thiel et al. 2003) and MISA compound microsatellites (maxCompoundInterruption >= 0: SSRs separated by at most that many bases, types c / c*, MISA notation such as (TA)6tccgt(GA)7).",
+  "description": "Short Tandem Repeats (STRs / microsatellites): units of length minUnitLength..maxUnitLength repeated >= minRepeats times consecutively, each classified by repeat type. Redundant (self-repeating) units are skipped; each maximal run is reported once per unit length at its left end (complete copies only); non-ACGT units are not reported. Optional: MISA per-unit-size thresholds (misaThresholds: 1-10 2-6 3-5 4-5 5-5 6-5, Thiel et al. 2003) and MISA compound microsatellites (maxCompoundInterruption >= 0: SSRs separated by at most that many bases, types c / c*, MISA notation such as (TA)6tccgt(GA)7); misaScan reproduces misa.pl v1.0's regex scan exactly.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -41,6 +41,11 @@
         "type": "integer",
         "description": "When >= 0, also return MISA compound microsatellites with at most this many interrupting bases (MISA default 100); -1 = none",
         "default": -1
+      },
+      "misaScan": {
+        "type": "boolean",
+        "description": "Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs; reproduces misa.pl's SSR list exactly",
+        "default": false
       }
     },
     "required": [

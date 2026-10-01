@@ -157,6 +157,37 @@ defaults + `7-4 8-3 10-3` / 100 — 72 974 misa.pl SSRs, 12 330 compounds.
 unit lengths every 1000 visited run starts — non-decreasing, in [0, 1) — then exactly 1.0; the token is checked at
 the same points and before the final report. (The 2026-06 TestSpec entry "progress reporting not implemented" was wrong.)
 
+### misa.pl-parity scan (review 2026-10-01, audit WP8)
+
+**Source:** `misa.pl` v1.0 (raw GitHub `cfljam/SSR_marker_design`, re-downloaded; perl 5.38.2). Scan loop (lines
+101–125): `for` unit sizes in `sort { $a <=> $b } keys %typrep`; `$search = "(([acgt]{$motiflen})\\2{$minreps,})"`;
+`while ($seq =~ /$search/ig)`; redundancy test `([ACGT]{$j})\\1{($motiflen/$j-1)}` for `$j = $motiflen-1 … 1` —
+for j ∤ p the count is fractional, perl warns "Unescaped left brace in regex is passed through" and the brace is a
+literal, so only divisors can match; `next if $redundant` after `pos()` advanced; `$end = pos($seq)`,
+`$start = $end - length($ssr) + 1`. Order (line 130): `sort { $start{$a} <=> $start{$b} } keys %start`.
+
+**Hash order (task check):** misa.pl run with `PERL_HASH_SEED` = 1, 2, 3 on the 6 000-sequence set: outputs differ in
+the settings `1-3 2-2 3-2 4-2 5-2 6-2`/10 (933 `.misa` rows between seeds 1 and 2), `1-5 2-3 3-3 4-3 5-3 6-3`/0 (115),
+`1-2 3-2 5-2`/5 (1 667); identical for `1-10 2-6 3-5 4-5 5-5 6-5`/100, `1-12 2-4 3-4 4-3 5-3 6-3`/50, `2-3 4-2 6-2`/20
+(no start ties). Same seed twice: identical; two unseeded runs: differ. Example `TTTGTTTGTTTGTTTGTTTGTTT`
+(`1-3 2-2 …`/10): seed 1 `c* (TTTG)5(T)3*g(T)3g(T)3g(T)3g(T)3g(T)3 23 1 23`, seed 2
+`c* (T)3(TTTG)5*(T)3*g(T)3g(T)3g(T)3g(T)3 23 1 23`. Ties need two primitive runs of periods p ≠ q starting at one
+position; with run lengths ≥ p + q − gcd(p, q) they would share period gcd (Fine–Wilf), which the MISA default
+thresholds always guarantee — so default-setting output never depends on the hash order.
+
+**Cross-check (`scratchpad/wp8/misa`, C# harness `xcm`):** 6 000 SSR-rich sequences (20–600 bp; runs of 1–6-bp units
+incl. non-primitive ones, partial copies, AC/AT/A-rich spacers, N runs, 20 % mixed case) × 6 settings above; misa.pl
+instrumented to dump its SSR list, and a copy with the tie broken by SSR number (`|| $a <=> $b`).
+
+| Setting | misa.pl SSRs | `.misa` rows | `MisaRegex` vs misa.pl (tie by SSR nr): SSR lists / rows | vs stock misa.pl seed 1 / seed 2 (sequences) | all explained by start ties with equal SSR set | `MaximalRuns` SSR lists differing |
+|---|---|---|---|---|---|---|
+| 1-10 2-6 3-5 4-5 5-5 6-5 / 100 | 37 299 | 5 944 | 0 / 0 | 0 / 0 | — | 534 |
+| 1-3 2-2 3-2 4-2 5-2 6-2 / 10 | 174 866 | 8 772 | 0 / 0 | 908 / 900 | yes | 3 048 |
+| 1-5 2-3 3-3 4-3 5-3 6-3 / 0 | 58 909 | 41 103 | 0 / 0 | 14 / 10 | yes | 1 037 |
+| 1-12 2-4 3-4 4-3 5-3 6-3 / 50 | 41 252 | 6 965 | 0 / 0 | 0 / 0 | — | 868 |
+| 2-3 4-2 6-2 / 20 | 25 885 | 14 938 | 0 / 0 | 0 / 0 | — | 1 038 |
+| 1-2 3-2 5-2 / 5 | 324 737 | 21 578 | 0 / 0 | 1 501 / 1 556 | yes | 1 425 |
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Benson (1999)
@@ -312,3 +343,5 @@ default PM = 0.80; the `CACACATACACA` tract sits exactly on that threshold (PM =
 - **2026-06-24**: Added the TRF Bernoulli statistical-significance model (Benson 1999) — verbatim PM/PI/Bernoulli-trial definitions from the TRF desc/definitions pages, the adjacent-copy PM/PI dataset, and the supporting assumption — for the new opt-in `ComputeBernoulliStatistics`. The R(d,k,pM)/W(d,pI) k-tuple seeding remains the documented genome-scale-performance residual.
 - **2026-09-30** (review 2026-09, B04 audit WP3): MISA per-unit-size thresholds, compound SSRs (types c / c*), MISA
   repeat-type classes and Krait standard motifs — sources, misa.pl / Krait cross-checks; progress-reporting contract.
+- **2026-10-01** (B04 audit WP8): misa.pl-parity scan (`MicrosatelliteScanMode.MisaRegex`) — scan-loop source, Perl hash-order
+  check (PERL_HASH_SEED), 6 000 × 6 cross-check (0 differences with deterministic tie order).

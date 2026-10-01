@@ -149,3 +149,60 @@ Timing (1 Mb random DNA, Release): direct (min 20) 0.63 s; reverse-complement (m
 | k-mm `AAAAAAAACGTTGCAACGTAAAA`, 5, 1, excludeContained | 7 repeats | vmatch -h 1 -allmax |
 | k-mm `ACGTACGTACTTTTACGTNCGTAC`, 8, 1 | (0,4,8,1) (0,14,10,1) | vmatch -h 1 (N = wildcard) |
 | supermax `CAGCAGCAGTTTCAGCAG`, 3 | CAGCAG @ 0,3,12 | vmatch -supermax |
+
+## WP8 — degenerate repeats: k-differences (edit distance) and palindromic (B04 completeness audit, 2026-10-01)
+
+### Sources opened
+- Vmatch 2.3.1 source, Ubuntu `vmatch_2.3.1+dfsg.orig.tar.xz` (archive.ubuntu.com pool) + Debian patches
+  `vmatch_2.3.1+dfsg-9.debian.tar.xz`: `src/doc/virtman.tex` (options `-e`, `-h`, `-p`, `-allmax` "for compatibility with
+  REPuter", `-seedlength` = max(⌊ℓ/(k+1)⌋, m); App. A "Basic Notions": edit distance d_E, direct match `i < j`,
+  palindromic match `i ≤ j`, k-mismatch / k-differences match, containment, maximality "not contained in another match
+  of the same kind"); `kurtz/extendED.c` (`editextend`: left/right greedy fronts, every combination with
+  `lookindex + (dist − lookindex) = dist ≤ k`, both instances ≥ ℓ, swap to `pos1 ≤ pos2`, `acceptmatch`); `kurtz/frontSEP.c`
+  (Ukkonen/Myers furthest-reaching fronts; `evalentrybackward` stops a left extension that scans an exact run ≥ the seed
+  length — "seed … detected while scanning"); `kurtz/mcontain.c` (`matchcontainer`); `Vmengine/fself.c` (per-seed then
+  global container for `-allmax`); `Vmengine/extendgen.c`.
+- Kurtz et al. 2001 NAR 29:4633 (REPuter degenerate repeats, edit distance); Ukkonen 1985; Myers 1986.
+
+### Reference build
+`apt install vmatch` (2.3.1+dfsg-9) = stock binary. Same release built from source (Debian patches, `Makedef-debian`,
+genometools for prototype generation); `vmatch.x` reproduces the stock output byte for byte. One switch added: env
+`VM_NOPRUNE` passes `reachlength = UINT_MAX` to `extendedleftSEP` (disables the left-extension seed shortcut only).
+Brute force (`scratchpad/wp8/oracle.c`): DP over all (i, j, l, r), dominance closure for containment, `acceptmatch`
+for direct edit matches, palindromic containment over both orientations, output `l, r ≥ ℓ`.
+
+### Findings
+1. `vmatch -e k -allmax` (direct) = definition + `acceptmatch` (direct edit only; without it the brute force reports
+   trivial whole-sequence shifts in 297/300 cases) **except** for the seed shortcut: with `VM_NOPRUNE` 0 differences.
+2. Palindromic: Vmatch runs `-p` self-comparisons as a query of `revcomp(S)` against `S`; containment is decided in that
+   space (both orientations), output filtered to `i ≤ j`. A brute force restricting containers to `i ≤ j` differs on
+   264 matches with `i = j`, `l ≠ r` (e.g. `(7,6,6,6,1)` kept); with both orientations 0 differences.
+3. Hamming (`-h`, `-p -h`): stock Vmatch = definition (no shortcut in `extendHD.c`).
+
+### Cross-checks (`FindDegenerateRepeats`, `minSpacing = int.MinValue`; harness `scratchpad/wp8/cmp8.py` + `xc8`)
+| Mode | Cases | Repeats | vs brute force | vs Vmatch (`VM_NOPRUNE`) | vs stock Vmatch |
+|---|---|---|---|---|---|
+| `-e k` direct, 8–50 bp | 1 500 | 21 155 | 0 | 0 | 35 cases / 59 repeats differ (shortcut) |
+| `-p -e k`, 8–50 bp | 1 500 | 17 740 | 0 | 0 | 23 / 39 (shortcut) |
+| `-h k` direct (`-allmax`), 8–50 bp | 1 500 | 21 895 | 0 | 0 | 0 |
+| `-p -h k`, 8–50 bp | 1 500 | 17 717 | 0 | 0 | 0 |
+| `-e k` direct, 100–1 500 bp | 200 | 170 527 | — | 0 | 9 / 234 (shortcut) |
+| `-p -e k`, 100–1 500 bp | 200 | 124 752 | — | 0 | 4 / 316 (shortcut) |
+| `-h k`, 100–1 500 bp | 200 | 138 127 | — | 0 | 0 |
+| `-p -h k`, 100–1 500 bp | 200 | 101 181 | — | 0 | 0 |
+| `-e 2 -l 30`, direct + `-p`, 1 Mb random + 500 planted 100-bp copies (5 % noise) | 1 | 2 333 | — | 0 | 0 |
+
+k = 1–3 (edit) / 1–4 (Hamming), ℓ = k+1 … k+1+max(8, n/6); inputs: uniform ACGT, AC-only, ACGT with 5 % N, motif
+copies with substitutions/indels and spacers, single N. Timing 1 Mb (m 30, k 2): direct edit 0.83 s, palindromic edit
+1.78 s, Hamming 0.88 / 1.69 s.
+
+### Worked values locked in tests (`RepeatFinder_DegenerateRepeats_Tests`; tuples (i, j, l, r, d))
+| Call | Result | Reference |
+|---|---|---|
+| `ACGTTGCATGCAAACGTAGCATGCAGGGTTTACGTTGCTTGCAAACG` -l 8 -e 1 | (0,13,12,12,1) (0,31,16,16,1) (5,18,8,8,1) (8,39,9,8,1) | stock = VM_NOPRUNE = brute force |
+| `ATCTGGTGTACTCTGCCCACGACTATCGGTGTACTCTGC` -l 15 -e 3 | (0,21,16,18,3) (0,23,17,16,3) (0,24,18,15,3) | VM_NOPRUNE = brute force; stock (0,22,16,17,3) |
+| `ACACACACACACACACAC` -l 4 -e 1 | (0,1,16,17,1) (0,2,17,16,1) | all three |
+| `GATTACANGATTACA` -l 6 -e 1 | (0,7,7,8,1) (0,8,8,7,1) | all three |
+| `GGACCATGAAGG` -p -l 5 -e 3 | 9 matches incl. (0,0,5,7,3) (0,0,7,5,3) (1,4,7,7,3) | VM_NOPRUNE = brute force; stock (1,4,7,6,3) |
+| `TTGACCGTAACCCCCGTTACGGTCAACC` -p -l 8 -e 1 / -h 1 | 3 / 2 matches | all three |
+
