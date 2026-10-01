@@ -26,271 +26,665 @@ public static class PrimerDesigner
     );
 
     /// <summary>
-    /// Designs a forward/reverse primer pair flanking a target region, following Primer3's
-    /// pair-selection semantics (Untergasser et al. 2012; <c>libprimer3.cc</c>
-    /// <c>choose_pair_or_triple</c> / <c>compare_primer_pair</c>):
+    /// Primer3's default per-primer settings (<c>libprimer3.cc</c> <c>pr_set_default_global_args_1/_2</c>,
+    /// primer3-py 2.3.1 <c>design_primers</c> defaults): PRIMER_MIN/OPT/MAX_SIZE = 18/20/27,
+    /// PRIMER_MIN/MAX_GC = 20/80 %, PRIMER_MIN/OPT/MAX_TM = 57/60/63 °C, PRIMER_MAX_POLY_X = 5, no
+    /// dinucleotide-repeat limit (Primer3 has none), no GC clamp (PRIMER_GC_CLAMP = 0), no 3′-stability gate
+    /// (PRIMER_MAX_END_STABILITY = 100 cannot be exceeded), thermodynamic structure screen with every
+    /// limit 47 °C. With <see cref="PrimerPairOptions.Primer3Defaults"/> this makes
+    /// <see cref="DesignPrimerPairs"/> reproduce <c>primer3.design_primers</c> run with only
+    /// SEQUENCE_TEMPLATE / SEQUENCE_TARGET set. (<see cref="DefaultParameters"/> keeps the library's
+    /// stricter conventions: 18–25 nt, 40–60 % GC, poly-X ≤ 4, dinucleotide repeat ≤ 4.)
+    /// </summary>
+    public static readonly PrimerParameters Primer3DefaultParameters = new(
+        MinLength: 18,
+        MaxLength: 27,
+        OptimalLength: 20,
+        MinGcContent: 20,
+        MaxGcContent: 80,
+        MinTm: 57,
+        MaxTm: 63,
+        OptimalTm: 60,
+        MaxHomopolymer: 5,
+        MaxDinucleotideRepeats: int.MaxValue,
+        Avoid3PrimeGC: false,
+        Check3PrimeStability: false
+    );
+
+    /// <summary>
+    /// Designs the best forward/reverse primer pair for a target region with Primer3's pair-selection
+    /// algorithm (Untergasser et al. 2012; <c>libprimer3.cc</c> <c>make_detection_primer_lists</c>,
+    /// <c>choose_pair_or_triple</c>, <c>characterize_pair</c>, <c>obj_fn</c>, <c>compare_primer_pair</c>)
+    /// — the first pair (rank 0) of <see cref="DesignPrimerPairs"/>:
     /// <list type="number">
-    /// <item>every forward candidate that ends at or before <paramref name="targetStart"/> (within
-    /// <see cref="PrimerSearchFlank"/> bp) and every reverse candidate that starts at or after
-    /// <paramref name="targetEnd"/> (within <see cref="PrimerSearchFlank"/> bp) is evaluated by
-    /// <see cref="EvaluatePrimer"/>; only candidates passing every per-primer constraint are kept
-    /// (Primer3 <c>SEQUENCE_TARGET</c>: primers never overlap the target);</item>
-    /// <item>each kept candidate carries its Primer3 per-primer penalty (<see cref="PrimerCandidate.Penalty"/>,
-    /// Primer3 <c>p_obj_fn</c> with default weights = |Tm − OptimalTm| + |length − OptimalLength|);</item>
-    /// <item>the pair returned is the one with the <b>lowest pair penalty</b> (sum of the two primer
-    /// penalties, Primer3 default <c>PRIMER_PAIR_WT_PR_PENALTY = 1</c>, all other pair weights 0) among
-    /// all pairs satisfying the pair constraints |Tm_f − Tm_r| ≤ <see cref="MaxPairTmDifference"/> °C and
-    /// no primer-dimer, and whose primers pass the per-primer secondary-structure screen. With the default
-    /// <see cref="PrimerStructureScreen.Primer3Thermodynamic"/> these are Primer3's default ntthal limits
-    /// (self-any/self-end/hairpin Tm and pair compl-any/compl-end Tm ≤ <see cref="Primer3MaxStructureTm"/>
-    /// = 47 °C; <see cref="CalculatePrimer3OligoStructure"/>, <see cref="CalculatePrimer3PairComplementarity"/>),
-    /// evaluated lazily in the pair loop as Primer3's <c>characterize_pair</c> does; with
-    /// <see cref="PrimerStructureScreen.Heuristic"/> they are <see cref="HasHairpinPotential"/> and
-    /// <see cref="HasPrimerDimer"/>. Ties (within 1e-6) are broken exactly as
-    /// Primer3's <c>compare_primer_pair</c>: left primer further 3' (right), then right primer further
-    /// 5' (left), then shorter left, then shorter right.</item>
+    /// <item><b>Search region</b> (Primer3 <c>SEQUENCE_TARGET</c> / <c>SEQUENCE_INCLUDED_REGION</c> /
+    /// <c>PRIMER_PRODUCT_SIZE_RANGE</c>): forward candidates end at or before <paramref name="targetStart"/>,
+    /// reverse candidates start at or after <paramref name="targetEnd"/> (primers never overlap the target),
+    /// both inside <see cref="PrimerPairOptions.IncludedRegion"/> (default: the whole template); the
+    /// product-size ranges (default 100–300 bp, Primer3's default) bound the product. Every candidate is
+    /// evaluated by <see cref="EvaluatePrimer"/> (per-primer limits of <paramref name="parameters"/>) and
+    /// carries its Primer3 per-primer penalty (<see cref="PrimerCandidate.Penalty"/>).</item>
+    /// <item><b>Pair search</b>: candidates sorted as Primer3's <c>sort_primer_array</c>; pairs are examined
+    /// with Primer3's pruning and must satisfy, in <c>characterize_pair</c> order, the product size range
+    /// (ranges are tried in order: the next range is used only when no pair fits the current one), the
+    /// product Tm limits (<see cref="PrimerPairOptions.ProductMinTm"/>/<see cref="PrimerPairOptions.ProductMaxTm"/>,
+    /// Primer3 <c>long_seq_tm</c>), |Tm_f − Tm_r| ≤ <see cref="PrimerPairOptions.MaxTmDifference"/>
+    /// (PRIMER_PAIR_MAX_DIFF_TM), the per-primer secondary-structure screen and the pair complementarity
+    /// screen — with the default <see cref="PrimerStructureScreen.Primer3Thermodynamic"/> Primer3's ntthal
+    /// limits (self-any/self-end/hairpin and pair compl-any/compl-end Tm ≤ 47 °C), evaluated lazily as
+    /// <c>characterize_pair</c> does; with <see cref="PrimerStructureScreen.Heuristic"/>
+    /// <see cref="HasHairpinPotential"/> and <see cref="HasPrimerDimer"/> — and, with
+    /// <see cref="PrimerPairOptions.PickInternalOligo"/>, a hybridization oligo between the primers
+    /// (<c>choose_internal_oligo</c>).</item>
+    /// <item><b>Objective</b>: the pair penalty is Primer3's <c>obj_fn</c> with
+    /// <see cref="PrimerPairOptions.Weights"/> (default: PRIMER_PAIR_WT_PR_PENALTY = 1, all other pair weights
+    /// 0, i.e. the sum of the two primer penalties); ties within 1e-6 are broken as
+    /// <c>compare_primer_pair</c> (left primer further 3′, then right primer further 5′, then shorter left,
+    /// then shorter right).</item>
     /// </list>
     /// Coordinates: the target is the half-open interval [<paramref name="targetStart"/>,
     /// <paramref name="targetEnd"/>) (0-based). Reverse-primer <see cref="PrimerCandidate.Position"/> is
     /// the leftmost template coordinate of its binding site; the product size is
     /// <c>reverse.Position + reverse.Length − forward.Position</c> (Primer3 PRIMER_PAIR_PRODUCT_SIZE).
-    /// When candidates exist on both sides but no pair satisfies the pair constraints, the
-    /// individually lowest-penalty forward and reverse candidates are returned with
-    /// <c>IsValid = false</c> and a message naming the violated constraint.
-    /// Deviations from Primer3 defaults (documented): pair ΔTm ≤ 5 °C (Primer3 PRIMER_PAIR_MAX_DIFF_TM
-    /// = 100) and no PRIMER_PRODUCT_SIZE_RANGE (the ±200 bp search flanks bound the product instead);
-    /// the per-primer limits are those of <paramref name="parameters"/>.
+    /// When candidates exist but no pair satisfies the pair constraints, the individually lowest-penalty
+    /// forward and reverse candidates are returned with <c>IsValid = false</c> and a message naming the
+    /// violated constraint. Library defaults that differ from Primer3 (documented): the per-primer limits of
+    /// <see cref="DefaultParameters"/> and PRIMER_PAIR_MAX_DIFF_TM = 5 °C (Primer3: 100); pass
+    /// <see cref="Primer3DefaultParameters"/> and <see cref="PrimerPairOptions.Primer3Defaults"/> for
+    /// Primer3's defaults. Verified against primer3-py 2.3.1 <c>design_primers</c>.
     /// </summary>
     /// <param name="template">The DNA template sequence.</param>
     /// <param name="targetStart">0-based inclusive start of the target region.</param>
     /// <param name="targetEnd">0-based exclusive end of the target region; must be &lt; template length.</param>
-    /// <param name="parameters">Primer design parameters (optional).</param>
+    /// <param name="parameters">Per-primer design parameters (default <see cref="DefaultParameters"/>).</param>
+    /// <param name="pairOptions">Pair options (default <see cref="PrimerPairOptions.Default"/>).</param>
     /// <returns>Primer pair result.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
+    /// <exception cref="ArgumentException">Invalid target or options (see <see cref="PrimerPairOptions"/>).</exception>
     public static PrimerPairResult DesignPrimers(
         DnaSequence template,
         int targetStart,
         int targetEnd,
-        PrimerParameters? parameters = null)
+        PrimerParameters? parameters = null,
+        PrimerPairOptions? pairOptions = null)
     {
-        var param = parameters ?? DefaultParameters;
+        var search = new PrimerPairSearch(template, targetStart, targetEnd,
+            parameters ?? DefaultParameters, pairOptions ?? PrimerPairOptions.Default);
+        var pairs = search.Run(1);
+        return pairs.Count > 0 ? pairs[0] : search.Failure();
+    }
 
-        if (targetStart < 0 || targetEnd >= template.Length || targetStart >= targetEnd)
-            throw new ArgumentException("Invalid target region.");
+    /// <summary>
+    /// Returns up to <see cref="PrimerPairOptions.NumReturn"/> primer pairs (Primer3 PRIMER_NUM_RETURN,
+    /// default 5), best first, exactly as Primer3's <c>choose_pair_or_triple</c> picks them (see
+    /// <see cref="DesignPrimers"/>): after a pair is selected it is removed and the search is repeated;
+    /// primers may be reused in later pairs (Primer3 PRIMER_MIN_LEFT/RIGHT_THREE_PRIME_DISTANCE = −1);
+    /// product-size ranges are tried in order. Each result is valid and carries
+    /// <see cref="PrimerPairResult.PairPenalty"/> (PRIMER_PAIR_k_PENALTY),
+    /// <see cref="PrimerPairResult.ProductTm"/> (PRIMER_PAIR_k_PRODUCT_TM), the pair complementarity Tm
+    /// values and, with <see cref="PrimerPairOptions.PickInternalOligo"/>, the internal oligo
+    /// (PRIMER_INTERNAL_k_*). An empty list means no pair satisfies the constraints
+    /// (<see cref="DesignPrimers"/> then reports why).
+    /// </summary>
+    /// <param name="template">The DNA template sequence.</param>
+    /// <param name="targetStart">0-based inclusive start of the target region.</param>
+    /// <param name="targetEnd">0-based exclusive end of the target region; must be &lt; template length.</param>
+    /// <param name="parameters">Per-primer design parameters (default <see cref="DefaultParameters"/>).</param>
+    /// <param name="pairOptions">Pair options (default <see cref="PrimerPairOptions.Default"/>).</param>
+    /// <returns>The selected pairs, rank 0 first.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
+    /// <exception cref="ArgumentException">Invalid target or options.</exception>
+    public static IReadOnlyList<PrimerPairResult> DesignPrimerPairs(
+        DnaSequence template,
+        int targetStart,
+        int targetEnd,
+        PrimerParameters? parameters = null,
+        PrimerPairOptions? pairOptions = null)
+    {
+        var opts = pairOptions ?? PrimerPairOptions.Default;
+        return new PrimerPairSearch(template, targetStart, targetEnd, parameters ?? DefaultParameters, opts)
+            .Run(opts.NumReturn);
+    }
 
-        // Forward candidates (upstream of target, may not overlap it).
-        var forwardCandidates = new List<(PrimerCandidate C, double Tm)>();
-        int forwardSearchStart = Math.Max(0, targetStart - PrimerSearchFlank);
-        for (int start = forwardSearchStart; start < targetStart; start++)
+    /// <summary>
+    /// Former fixed search flank (bp). <see cref="DesignPrimers"/> now uses Primer3's search region
+    /// (included region + <see cref="PrimerPairOptions.ProductSizeRanges"/>); kept for source compatibility.
+    /// </summary>
+    [Obsolete("DesignPrimers now uses Primer3's search region: PrimerPairOptions.IncludedRegion and ProductSizeRanges.")]
+    public const int PrimerSearchFlank = 200;
+
+    /// <summary>
+    /// Library default maximum |Tm_forward − Tm_reverse| (°C) for a primer pair (Addgene "within 5 °C";
+    /// stricter than Primer3's PRIMER_PAIR_MAX_DIFF_TM default of 100) — the default of
+    /// <see cref="PrimerPairOptions.MaxTmDifference"/>.
+    /// </summary>
+    public const double MaxPairTmDifference = 5.0;
+
+    /// <summary>Primer3's default PRIMER_PAIR_MAX_DIFF_TM (°C), <c>pr_set_default_global_args_1</c>.</summary>
+    public const double Primer3MaxPairTmDifference = 100.0;
+
+    // Primer3 primer conditions (p_args) of DesignPrimers: PRIMER_SALT_MONOVALENT 50 mM + the von Ahsen
+    // divalent equivalent of PRIMER_SALT_DIVALENT 1.5 mM / PRIMER_DNTP_CONC 0.6 mM (oligotm.c
+    // divalent_to_monovalent), used by long_seq_tm for the product Tm.
+    private static readonly double Primer3PrimerMonovalentEquivalentMillimolar =
+        50.0 + Primer3DivalentFactor * Math.Sqrt(1.5 - 0.6);
+
+    /// <summary>
+    /// Primer3 product melting temperature (<c>oligotm.c</c> <c>long_seq_tm</c>, PRIMER_PAIR_k_PRODUCT_TM):
+    /// Tm = 81.5 + 16.6·log10([Mon]_eq/1000) + 41·(G+C)/N − 600/N, with [Mon]_eq = [Mon] +
+    /// 120·√([Mg²⁺] − [dNTP]) (mM) and N the product length (G/C counted case-insensitively; every
+    /// character counts towards N). Defaults are Primer3's primer conditions (50 mM, 1.5 mM Mg²⁺, 0.6 mM dNTP).
+    /// </summary>
+    /// <param name="product">Product (amplicon) sequence.</param>
+    /// <param name="monovalentMillimolar">Monovalent cation concentration, mM (≥ 0).</param>
+    /// <param name="divalentMillimolar">Mg²⁺ concentration, mM (≥ 0).</param>
+    /// <param name="dntpMillimolar">dNTP concentration, mM (≥ 0).</param>
+    /// <returns>Product Tm in °C.</returns>
+    /// <exception cref="ArgumentException">Empty product.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Negative concentrations or zero total cation.</exception>
+    public static double CalculateProductMeltingTemperaturePrimer3(
+        string product,
+        double monovalentMillimolar = 50.0,
+        double divalentMillimolar = 1.5,
+        double dntpMillimolar = 0.6)
+    {
+        if (string.IsNullOrEmpty(product))
+            throw new ArgumentException("Product cannot be null or empty.", nameof(product));
+        if (!(monovalentMillimolar >= 0) || !(divalentMillimolar >= 0) || !(dntpMillimolar >= 0))
+            throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), "Concentrations must be ≥ 0 mM.");
+        // divalent_to_monovalent: no divalent ⇒ dNTP ignored; Mg ≤ dNTP ⇒ no contribution.
+        double freeDivalent = divalentMillimolar == 0 ? 0 : Math.Max(0, divalentMillimolar - dntpMillimolar);
+        double monovalentEq = monovalentMillimolar + Primer3DivalentFactor * Math.Sqrt(freeDivalent);
+        if (!(monovalentEq > 0))
+            throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), "Total monovalent-equivalent cation concentration must be > 0 mM.");
+        int gc = 0;
+        foreach (char c in product)
+            if (c is 'G' or 'C' or 'g' or 'c') gc++;
+        return LongSeqTm(gc, product.Length, monovalentEq);
+    }
+
+    // long_seq_tm (oligotm.c) with DMSO = formamide = 0; the canonical salt-adjusted GC formula.
+    private static double LongSeqTm(int gc, int length, double monovalentEqMillimolar) =>
+        ThermoConstants.CalculateSaltAdjustedTm((double)gc / length, length, monovalentEqMillimolar / 1000.0);
+
+    // Primer3 pair search (make_detection_primer_lists + choose_pair_or_triple + characterize_pair + obj_fn).
+    private sealed class PrimerPairSearch
+    {
+        private readonly int _targetStart, _targetEnd, _incStart, _incEnd;
+        private readonly PrimerParameters _param;
+        private readonly PrimerPairOptions _opt;
+        private readonly Primer3PairWeights _w;
+        private readonly List<(PrimerCandidate C, double Tm)> _fwd = new(), _rev = new();
+        private readonly bool?[] _fwdOk, _revOk;
+        private readonly Dictionary<string, bool> _structureBySequence = new(StringComparer.Ordinal);
+        private readonly Dictionary<(string F, string R), (bool Fails, double? Any, double? End)> _dimer = new();
+        private readonly int[] _gcPrefix;
+        private readonly ProbeDesigner.Primer3ProbeSettings? _intlSettings;
+        private readonly List<ProbeDesigner.Primer3Probe>? _intl;
+        private readonly ProbeDesigner.Primer3Probe?[]? _intlChecked;
+        private readonly bool?[]? _intlOk;
+        private bool _sawCharacterized, _sawTm, _sawDimer, _sawProductTm, _sawInternal;
+
+        public PrimerPairSearch(DnaSequence template, int targetStart, int targetEnd,
+            PrimerParameters param, PrimerPairOptions opt)
         {
-            for (int len = param.MinLength; len <= param.MaxLength && start + len <= targetStart; len++)
+            ArgumentNullException.ThrowIfNull(template);
+            ArgumentNullException.ThrowIfNull(opt);
+            string seq = template.Sequence.ToUpperInvariant();
+            int n = seq.Length;
+            if (targetStart < 0 || targetEnd >= n || targetStart >= targetEnd)
+                throw new ArgumentException("Invalid target region.");
+            _targetStart = targetStart;
+            _targetEnd = targetEnd;
+            _param = param;
+            _opt = opt;
+            _w = opt.Weights ?? throw new ArgumentException("Pair weights cannot be null.", nameof(opt));
+            ValidateOptions(n);
+            (_incStart, _incEnd) = opt.IncludedRegion is { } inc ? (inc.Start, inc.Start + inc.Length) : (0, n);
+
+            _gcPrefix = new int[n + 1];
+            for (int i = 0; i < n; i++)
+                _gcPrefix[i + 1] = _gcPrefix[i] + (seq[i] is 'G' or 'C' ? 1 : 0);
+
+            int minProduct = int.MaxValue, maxProduct = 0;
+            foreach (var r in opt.ProductSizeRanges)
             {
-                var (candidate, tm) = EvaluatePrimerCore(template.Sequence.Substring(start, len), start, true, param, evaluateStructure: false);
-                if (candidate.IsValid)
-                    forwardCandidates.Add((candidate, tm));
+                minProduct = Math.Min(minProduct, r.Min);
+                maxProduct = Math.Max(maxProduct, r.Max);
+            }
+
+            // Forward candidates: 3' end before the target; Primer3 drops a left primer that starts past
+            // n − min product (pick_primer_range); starts that cannot reach any product range are skipped.
+            int fStartLo = Math.Max(_incStart, targetEnd + param.MinLength - maxProduct);
+            int fStartHi = Math.Min(targetStart - param.MinLength, _incEnd - minProduct);
+            for (int start = fStartLo; start <= fStartHi; start++)
+            {
+                for (int len = param.MinLength; len <= param.MaxLength && start + len <= targetStart; len++)
+                {
+                    var (candidate, tm) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false);
+                    if (candidate.IsValid)
+                        _fwd.Add((candidate, tm));
+                }
+            }
+
+            // Reverse candidates (evaluated as the reverse complement): 5' end on the top strand = end − 1.
+            int rEndLo = Math.Max(targetEnd + param.MinLength, _incStart + minProduct);
+            int rEndHi = Math.Min(_incEnd, targetStart - param.MinLength + maxProduct);
+            for (int end = rEndLo; end <= rEndHi; end++)
+            {
+                for (int len = param.MinLength; len <= param.MaxLength && end - len >= targetEnd; len++)
+                {
+                    int start = end - len;
+                    var revComp = DnaSequence.GetReverseComplementString(seq.Substring(start, len));
+                    var (candidate, tm) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false);
+                    if (candidate.IsValid)
+                        _rev.Add((candidate, tm));
+                }
+            }
+
+            // Primer3 examines primers in increasing penalty order (sort_primer_array).
+            _fwd.Sort((a, b) => CompareLeft(a.C, b.C));
+            _rev.Sort((a, b) => CompareRight(a.C, b.C));
+            _fwdOk = new bool?[_fwd.Count];
+            _revOk = new bool?[_rev.Count];
+
+            if (opt.PickInternalOligo)
+            {
+                _intlSettings = opt.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings();
+                // make_internal_oligo_list over the included region; choose_internal_oligo takes the
+                // lowest-penalty oligo (first in enumeration order among equals) → stable sort.
+                var list = ProbeDesigner.EnumeratePrimer3InternalOligos(seq, _incStart, _incEnd, _intlSettings, screenStructure: false);
+                _intl = list
+                    .Select((p, i) => (p, i))
+                    .OrderBy(t => t.p.Penalty).ThenBy(t => t.i)
+                    .Select(t => t.p)
+                    .ToList();
+                _intlChecked = new ProbeDesigner.Primer3Probe?[_intl.Count];
+                _intlOk = new bool?[_intl.Count];
             }
         }
 
-        // Reverse candidates (downstream of target, evaluated as the reverse complement).
-        var reverseCandidates = new List<(PrimerCandidate C, double Tm)>();
-        int reverseSearchEnd = Math.Min(template.Length, targetEnd + PrimerSearchFlank);
-        for (int end = targetEnd + param.MinLength; end <= reverseSearchEnd; end++)
+        private void ValidateOptions(int n)
         {
-            for (int len = param.MinLength; len <= param.MaxLength && end - len >= targetEnd; len++)
+            var o = _opt;
+            if (o.ProductSizeRanges is null || o.ProductSizeRanges.Count == 0)
+                throw new ArgumentException("At least one product size range is required (PRIMER_PRODUCT_SIZE_RANGE).");
+            int minProduct = int.MaxValue;
+            foreach (var r in o.ProductSizeRanges)
             {
-                int start = end - len;
-                var revComp = DnaSequence.GetReverseComplementString(template.Sequence.Substring(start, len));
-                var (candidate, tm) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false);
-                if (candidate.IsValid)
-                    reverseCandidates.Add((candidate, tm));
+                if (r.Min < 1 || r.Max < r.Min)
+                    throw new ArgumentException($"Invalid product size range {r.Min}-{r.Max}: need 1 ≤ min ≤ max.");
+                minProduct = Math.Min(minProduct, r.Min);
+            }
+            if (_param.MinLength < 1 || _param.MaxLength < _param.MinLength)
+                throw new ArgumentException("Primer sizes must satisfy 1 ≤ MinLength ≤ MaxLength.");
+            if (_param.MaxLength > minProduct)
+                throw new ArgumentException("PRIMER_MAX_SIZE > min PRIMER_PRODUCT_SIZE_RANGE (Primer3 _pr_data_control).");
+            if (!(o.MaxTmDifference >= 0))
+                throw new ArgumentException("MaxTmDifference must be ≥ 0 °C.");
+            if (o.NumReturn < 1)
+                throw new ArgumentException("PRIMER_NUM_RETURN < 1 (Primer3 _pr_data_control).");
+            if ((_w.ProductTmLt != 0 || _w.ProductTmGt != 0) && o.ProductOptTm is null)
+                throw new ArgumentException("Product temperature is part of objective function while optimum temperature is not defined (Primer3 _pr_data_control).");
+            if ((_w.ProductSizeLt != 0 || _w.ProductSizeGt != 0) && o.ProductOptSize is null)
+                throw new ArgumentException("Product size is part of objective function while optimum size is not defined (Primer3 _pr_data_control).");
+            if (_w.PrimerPenalty < 0 || _w.InternalOligoPenalty < 0 || _w.DiffTm < 0 || _w.ComplAnyTh < 0 || _w.ComplEndTh < 0
+                || _w.ProductTmLt < 0 || _w.ProductTmGt < 0 || _w.ProductSizeLt < 0 || _w.ProductSizeGt < 0)
+                throw new ArgumentException("Pair weights must be ≥ 0.");
+            if (o.IncludedRegion is { } inc)
+            {
+                if (inc.Start < 0 || inc.Length < 1 || inc.Start + inc.Length > n)
+                    throw new ArgumentException("Included region outside the template.");
+                if (_targetStart < inc.Start || _targetEnd > inc.Start + inc.Length)
+                    throw new ArgumentException("TARGET outside of INCLUDED_REGION (Primer3 _check_and_adjust_1_interval).");
+            }
+            if (o.PickInternalOligo)
+            {
+                var s = o.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings();
+                ProbeDesigner.ValidatePrimer3ProbeSettings(s, nameof(o.InternalOligo));
+                if (s.MaxSize > minProduct)
+                    throw new ArgumentException("PRIMER_INTERNAL_MAX_SIZE > min PRIMER_PRODUCT_SIZE_RANGE (Primer3 _pr_data_control).");
             }
         }
 
-        if (forwardCandidates.Count == 0 || reverseCandidates.Count == 0)
+        // Primer3 primer_rec_comp (sort_primer_array): penalty ascending, then Primer3 "start"
+        // descending, then shorter first. A left primer's start is its 5' end (Position); a right
+        // primer's start is its 5' end on the top strand (Position + Length − 1).
+        private static int CompareLeft(PrimerCandidate a, PrimerCandidate b)
         {
-            return new PrimerPairResult(
-                null, null, false,
-                "Could not find valid primers for the target region.",
-                0
-            );
+            int c = a.Penalty.CompareTo(b.Penalty);
+            if (c != 0) return c;
+            c = b.Position.CompareTo(a.Position);
+            return c != 0 ? c : a.Length.CompareTo(b.Length);
         }
 
-        // Primer3 examines primers in increasing penalty order (sort_primer_array).
-        forwardCandidates.Sort((a, b) => CompareLeft(a.C, b.C));
-        reverseCandidates.Sort((a, b) => CompareRight(a.C, b.C));
+        private static int CompareRight(PrimerCandidate a, PrimerCandidate b)
+        {
+            int c = a.Penalty.CompareTo(b.Penalty);
+            if (c != 0) return c;
+            c = (b.Position + b.Length).CompareTo(a.Position + a.Length);
+            return c != 0 ? c : a.Length.CompareTo(b.Length);
+        }
 
-        // Secondary-structure screen of individual primers, run lazily and cached exactly where
-        // Primer3 runs it (characterize_pair: the "expensive" per-primer checks are postponed until a
-        // primer takes part in a pair that passed the cheaper pair checks).
-        var forwardStructureOk = new bool?[forwardCandidates.Count];
-        var reverseStructureOk = new bool?[reverseCandidates.Count];
-        // Results depend only on the sequences, so they are also cached by sequence (templates with
-        // repeats yield many candidates with the same sequence at different positions).
-        var structureBySequence = new Dictionary<string, bool>(StringComparer.Ordinal);
-        var dimerBySequencePair = new Dictionary<(string F, string R), bool>();
-        bool StructureOk(List<(PrimerCandidate C, double Tm)> list, bool?[] cache, int i)
+        // Primer3 compare_primer_pair (libprimer3.cc): quality (±1e-6), then left start descending,
+        // right start (its 5' end) ascending, left length ascending, right length ascending.
+        private static int ComparePair(
+            double q1, PrimerCandidate l1, PrimerCandidate r1,
+            double q2, PrimerCandidate l2, PrimerCandidate r2)
+        {
+            if (q1 + PairQualityEpsilon < q2) return -1;
+            if (q1 > q2 + PairQualityEpsilon) return 1;
+            int c = l2.Position.CompareTo(l1.Position);
+            if (c != 0) return c;
+            c = (r1.Position + r1.Length).CompareTo(r2.Position + r2.Length);
+            if (c != 0) return c;
+            c = l1.Length.CompareTo(l2.Length);
+            return c != 0 ? c : r1.Length.CompareTo(r2.Length);
+        }
+
+        // Pair-level complementarity screen used by DesignPrimers (Primer3 characterize_pair): whether the
+        // pair fails, and (thermodynamic screen) PRIMER_PAIR_COMPL_ANY_TH / _COMPL_END_TH.
+        private static (bool Fails, double? Any, double? End) PairScreen(string forward, string reverse, PrimerParameters param)
+        {
+            if (param.StructureScreen == PrimerStructureScreen.Heuristic)
+                return (HasPrimerDimer(forward, reverse), null, null);
+            if (!IsAcgtOnly(forward) || !IsAcgtOnly(reverse))
+                return (false, null, null);
+            // Same values as CalculatePrimer3PairComplementarity(...), stopping at the first alignment over the
+            // limit (characterize_pair also fails the pair on compl_any first); complete when the pair passes.
+            double max = param.EffectiveMaxStructureTm;
+            var (any, end) = Primer3PairTms(forward.ToUpperInvariant(), reverse.ToUpperInvariant(),
+                0.050, 0.0015, 0.0006, 50e-9, max);
+            return (any > max || end > max, any, end);
+        }
+
+        private sealed record PairEval(
+            int Fi, int Ri, double Penalty, int ProductSize, double ProductTm,
+            double? ComplAny, double? ComplEnd, ProbeDesigner.Primer3Probe? Internal);
+
+        public List<PrimerPairResult> Run(int numReturn)
+        {
+            var results = new List<PrimerPairResult>();
+            if (_fwd.Count == 0 || _rev.Count == 0)
+                return results;
+
+            var ranges = _opt.ProductSizeRanges;
+            var cache = new Dictionary<(int Ri, int Fi), PairEval?>();
+            double wq = _w.PrimerPenalty;
+            int rangeIndex = 0;
+            while (true)
+            {
+                PairEval? best = null;
+                for (int i = 0; i < _rev.Count; i++)
+                {
+                    // Only primers that are (still) legal; their expensive checks run in characterize_pair.
+                    if (_revOk[i] == false)
+                        continue;
+                    // No pair with this or any later reverse primer can beat the best pair.
+                    if (wq * (_rev[i].C.Penalty + _fwd[0].C.Penalty) > BestQuality(best))
+                        break;
+
+                    for (int j = 0; j < _fwd.Count; j++)
+                    {
+                        if (_revOk[i] == false)
+                            break;
+                        if (_fwdOk[j] == false)
+                            continue;
+                        if (wq * (_fwd[j].C.Penalty + _rev[i].C.Penalty) > BestQuality(best))
+                            break;
+
+                        int product = ProductSize(j, i);
+                        var range = ranges[rangeIndex];
+                        if (product < range.Min || product > range.Max)
+                            continue;
+
+                        if (!cache.TryGetValue((i, j), out var e))
+                        {
+                            e = Characterize(j, i, product);
+                            cache[(i, j)] = e;
+                        }
+                        if (e is null)
+                            continue; // illegal, or already selected
+
+                        if (best is null || ComparePair(e.Penalty, _fwd[j].C, _rev[i].C,
+                                best.Penalty, _fwd[best.Fi].C, _rev[best.Ri].C) < 0)
+                            best = e;
+                        if (best.Penalty == 0)
+                            break; // there cannot be a better pair
+                    }
+                    if (best is { Penalty: 0 })
+                        break;
+                }
+
+                if (best is null)
+                {
+                    // No pair in this product-size range: try the next one, if any.
+                    if (++rangeIndex >= ranges.Count)
+                        break;
+                    continue;
+                }
+
+                results.Add(ToResult(best));
+                cache[(best.Ri, best.Fi)] = null; // mark as selected
+                if (results.Count == numReturn)
+                    break;
+            }
+            return results;
+        }
+
+        private static double BestQuality(PairEval? best) => best?.Penalty ?? double.MaxValue;
+
+        private int ProductSize(int fi, int ri) =>
+            _rev[ri].C.Position + _rev[ri].C.Length - _fwd[fi].C.Position;
+
+        // characterize_pair (+ choose_internal_oligo and obj_fn for a legal pair).
+        private PairEval? Characterize(int fi, int ri, int product)
+        {
+            _sawCharacterized = true;
+            var f = _fwd[fi];
+            var r = _rev[ri];
+
+            int fStart = f.C.Position;
+            int gc = _gcPrefix[fStart + product] - _gcPrefix[fStart];
+            double productTm = LongSeqTm(gc, product, Primer3PrimerMonovalentEquivalentMillimolar);
+            if ((_opt.ProductMinTm is { } minTm && productTm < minTm)
+                || (_opt.ProductMaxTm is { } maxTm && productTm > maxTm))
+            {
+                _sawProductTm = true;
+                return null;
+            }
+
+            double diffTm = Math.Abs(f.Tm - r.Tm);
+            if (diffTm > _opt.MaxTmDifference)
+            {
+                _sawTm = true;
+                return null;
+            }
+
+            if (!StructureOk(_fwd, _fwdOk, fi) || !StructureOk(_rev, _revOk, ri))
+                return null;
+
+            var (fails, any, end) = PairComplementarity(f.C.Sequence, r.C.Sequence);
+            if (fails)
+            {
+                _sawDimer = true;
+                return null;
+            }
+
+            ProbeDesigner.Primer3Probe? intl = null;
+            if (_intl is not null)
+            {
+                intl = ChooseInternalOligo(f.C, r.C);
+                if (intl is null)
+                {
+                    _sawInternal = true;
+                    return null;
+                }
+            }
+
+            double penalty = ObjectiveFunction(f, r, diffTm, any, end, productTm, product, intl);
+            return new PairEval(fi, ri, penalty, product, productTm, any, end, intl);
+        }
+
+        // obj_fn (libprimer3.cc), thermodynamic mode (ComplAnyTh/ComplEndTh terms) or, under the heuristic
+        // screen, without complementarity terms (Primer3's alignment-mode compl_any/compl_end weights are not offered).
+        private double ObjectiveFunction(
+            (PrimerCandidate C, double Tm) f, (PrimerCandidate C, double Tm) r, double diffTm,
+            double? complAny, double? complEnd, double productTm, int product, ProbeDesigner.Primer3Probe? intl)
+        {
+            double sum = 0.0;
+            double lowerTm = r.Tm;
+            if (f.Tm < r.Tm) lowerTm = f.Tm;
+
+            if (_w.PrimerPenalty != 0)
+                sum += _w.PrimerPenalty * (f.C.Penalty + r.C.Penalty);
+            if (_w.InternalOligoPenalty != 0 && intl is { } io)
+                sum += _w.InternalOligoPenalty * io.Penalty;
+            if (_w.DiffTm != 0)
+                sum += _w.DiffTm * diffTm;
+            if (complAny is { } a)
+                sum += ThermodynamicStructurePenalty(_w.ComplAnyTh, lowerTm, a);
+            if (complEnd is { } e)
+                sum += ThermodynamicStructurePenalty(_w.ComplEndTh, lowerTm, e);
+            if (_w.ProductTmLt != 0 && productTm < _opt.ProductOptTm!.Value)
+                sum += _w.ProductTmLt * (_opt.ProductOptTm.Value - productTm);
+            if (_w.ProductTmGt != 0 && productTm > _opt.ProductOptTm!.Value)
+                sum += _w.ProductTmGt * (productTm - _opt.ProductOptTm.Value);
+            if (_w.ProductSizeLt != 0 && product < _opt.ProductOptSize!.Value)
+                sum += _w.ProductSizeLt * (_opt.ProductOptSize.Value - product);
+            if (_w.ProductSizeGt != 0 && product > _opt.ProductOptSize!.Value)
+                sum += _w.ProductSizeGt * (product - _opt.ProductOptSize.Value);
+            return sum;
+        }
+
+        // choose_internal_oligo: the lowest-penalty internal oligo lying strictly between the primers
+        // (start after the left primer's 3' end, end before the right primer's 5'-most top-strand base)
+        // whose postponed self-any / self-end / hairpin checks pass; a failing oligo stays rejected.
+        private ProbeDesigner.Primer3Probe? ChooseInternalOligo(PrimerCandidate left, PrimerCandidate right)
+        {
+            int leftEnd = left.Position + left.Length - 1;
+            for (int k = 0; k < _intl!.Count; k++)
+            {
+                var h = _intl[k];
+                if (h.Start <= leftEnd || h.Start + h.Length - 1 >= right.Position)
+                    continue;
+                if (_intlOk![k] is null)
+                {
+                    _intlChecked![k] = ProbeDesigner.PassesPrimer3ProbeStructure(h, _intlSettings!);
+                    _intlOk[k] = _intlChecked[k] is not null;
+                }
+                if (_intlOk[k] == true)
+                    return _intlChecked![k];
+            }
+            return null;
+        }
+
+        private bool StructureOk(List<(PrimerCandidate C, double Tm)> list, bool?[] cache, int i)
         {
             if (cache[i] is { } known)
                 return known;
             string seq = list[i].C.Sequence;
-            if (!structureBySequence.TryGetValue(seq, out bool ok))
+            if (!_structureBySequence.TryGetValue(seq, out bool ok))
             {
                 var issues = new List<string>();
-                AddStructureIssues(seq, param, issues);
+                AddStructureIssues(seq, _param, issues);
                 ok = issues.Count == 0;
-                structureBySequence[seq] = ok;
+                _structureBySequence[seq] = ok;
             }
             cache[i] = ok;
             return ok;
         }
-        bool FormsDimer(string f, string r)
+
+        private (bool Fails, double? Any, double? End) PairComplementarity(string f, string r)
         {
-            if (!dimerBySequencePair.TryGetValue((f, r), out bool dimer))
+            if (!_dimer.TryGetValue((f, r), out var v))
             {
-                dimer = PairFormsDimer(f, r, param);
-                dimerBySequencePair[(f, r)] = dimer;
+                v = PairScreen(f, r, _param);
+                _dimer[(f, r)] = v;
             }
-            return dimer;
+            return v;
         }
 
-        int bestFi = -1, bestRi = -1;
-        double bestQuality = double.PositiveInfinity;
-        bool sawTmFailure = false, sawDimerFailure = false;
-
-        for (int ri = 0; ri < reverseCandidates.Count; ri++)
+        private PrimerPairResult ToResult(PairEval e)
         {
-            var r = reverseCandidates[ri];
-            for (int fi = 0; fi < forwardCandidates.Count; fi++)
-            {
-                var f = forwardCandidates[fi];
-                double quality = f.C.Penalty + r.C.Penalty;
-                // choose_pair_or_triple: no later forward primer can improve on the best pair.
-                if (quality > bestQuality)
-                    break;
-
-                if (Math.Abs(f.Tm - r.Tm) > MaxPairTmDifference)
-                {
-                    sawTmFailure = true;
-                    continue;
-                }
-                if (!StructureOk(forwardCandidates, forwardStructureOk, fi))
-                    continue;
-                if (!StructureOk(reverseCandidates, reverseStructureOk, ri))
-                    break; // this reverse primer fails on its own; no pair with it can be valid
-                if (FormsDimer(f.C.Sequence, r.C.Sequence))
-                {
-                    sawDimerFailure = true;
-                    continue;
-                }
-
-                if (bestFi < 0 || ComparePair(quality, f.C, r.C, bestQuality,
-                        forwardCandidates[bestFi].C, reverseCandidates[bestRi].C) < 0)
-                {
-                    bestFi = fi;
-                    bestRi = ri;
-                    bestQuality = quality;
-                }
-            }
+            var forward = Reevaluate(_fwd[e.Fi].C);
+            var reverse = Reevaluate(_rev[e.Ri].C);
+            return new PrimerPairResult(
+                Forward: forward,
+                Reverse: reverse,
+                IsValid: true,
+                Message: "Valid primer pair found.",
+                ProductSize: e.ProductSize,
+                PairPenalty: e.Penalty,
+                ProductTm: e.ProductTm,
+                ComplAnyTh: e.ComplAny,
+                ComplEndTh: e.ComplEnd,
+                InternalOligo: e.Internal);
         }
 
-        if (bestFi < 0)
+        // Full evaluation (including the structure values) of a chosen primer.
+        private PrimerCandidate Reevaluate(PrimerCandidate c) =>
+            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param).Candidate;
+
+        // Result when no pair qualifies: the individually lowest-penalty primers that pass their own
+        // (structure) constraints, with the violated pair constraint.
+        public PrimerPairResult Failure()
         {
-            // The individually lowest-penalty primers that pass their own (structure) constraints.
-            int f0i = FirstStructurallyValid(forwardCandidates, forwardStructureOk);
-            int r0i = FirstStructurallyValid(reverseCandidates, reverseStructureOk);
+            const string noPrimers = "Could not find valid primers for the target region.";
+            string noProduct = $"No primer pair with a product size in {string.Join(", ", _opt.ProductSizeRanges.Select(x => $"{x.Min}-{x.Max}"))} bp (PRIMER_PRODUCT_SIZE_RANGE).";
+            if (_fwd.Count == 0 || _rev.Count == 0)
+            {
+                // A search region shorter than the smallest product cannot hold any pair (Primer3
+                // _pr_data_control per-sequence error).
+                int minProduct = _opt.ProductSizeRanges.Min(x => x.Min);
+                return new PrimerPairResult(null, null, false,
+                    _incEnd - _incStart < minProduct ? "SEQUENCE_INCLUDED_REGION length < min PRIMER_PRODUCT_SIZE_RANGE" : noPrimers, 0);
+            }
+            int f0i = FirstStructurallyValid(_fwd, _fwdOk);
+            int r0i = FirstStructurallyValid(_rev, _revOk);
             if (f0i < 0 || r0i < 0)
-            {
-                return new PrimerPairResult(
-                    null, null, false,
-                    "Could not find valid primers for the target region.",
-                    0
-                );
-            }
-            var f0 = Reevaluate(forwardCandidates[f0i].C);
-            var r0 = Reevaluate(reverseCandidates[r0i].C);
+                return new PrimerPairResult(null, null, false, noPrimers, 0);
+
+            var f0 = Reevaluate(_fwd[f0i].C);
+            var r0 = Reevaluate(_rev[r0i].C);
+            double maxDiff = _opt.MaxTmDifference;
             string reason;
-            if (sawTmFailure && !sawDimerFailure)
-                reason = $"No primer pair within the {MaxPairTmDifference:F0}°C Tm-difference limit (best primers: Tm {f0.MeltingTemperature:F1}/{r0.MeltingTemperature:F1}°C).";
-            else if (sawDimerFailure && !sawTmFailure)
+            if (!_sawCharacterized)
+                reason = noProduct;
+            else if (_sawProductTm || _sawInternal)
+            {
+                var parts = new List<string>();
+                if (_sawProductTm) parts.Add("product Tm limits");
+                if (_sawTm) parts.Add($"the {maxDiff:0.##}°C Tm-difference limit");
+                if (_sawDimer) parts.Add("primer-dimer avoidance");
+                if (_sawInternal) parts.Add("an acceptable internal oligo between the primers");
+                reason = $"No primer pair satisfies {string.Join(", ", parts)}.";
+            }
+            else if (_sawTm && !_sawDimer)
+                reason = $"No primer pair within the {maxDiff:0.##}°C Tm-difference limit (best primers: Tm {f0.MeltingTemperature:F1}/{r0.MeltingTemperature:F1}°C).";
+            else if (_sawDimer && !_sawTm)
                 reason = "Every candidate primer pair forms a primer-dimer.";
             else
-                reason = $"No primer pair satisfies both the {MaxPairTmDifference:F0}°C Tm-difference limit and primer-dimer avoidance.";
+                reason = $"No primer pair satisfies both the {maxDiff:0.##}°C Tm-difference limit and primer-dimer avoidance.";
             return new PrimerPairResult(
                 Forward: f0,
                 Reverse: r0,
                 IsValid: false,
                 Message: reason,
                 ProductSize: r0.Position + r0.Length - f0.Position);
+
+            int FirstStructurallyValid(List<(PrimerCandidate C, double Tm)> list, bool?[] cache)
+            {
+                for (int i = 0; i < list.Count; i++)
+                    if (StructureOk(list, cache, i))
+                        return i;
+                return -1;
+            }
         }
-
-        var forward = Reevaluate(forwardCandidates[bestFi].C);
-        var reverse = Reevaluate(reverseCandidates[bestRi].C);
-        return new PrimerPairResult(
-            Forward: forward,
-            Reverse: reverse,
-            IsValid: true,
-            Message: "Valid primer pair found.",
-            ProductSize: reverse.Position + reverse.Length - forward.Position
-        );
-
-        int FirstStructurallyValid(List<(PrimerCandidate C, double Tm)> list, bool?[] cache)
-        {
-            for (int i = 0; i < list.Count; i++)
-                if (StructureOk(list, cache, i))
-                    return i;
-            return -1;
-        }
-
-        // Full evaluation (including the structure values) of a chosen primer.
-        PrimerCandidate Reevaluate(PrimerCandidate c) =>
-            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, param).Candidate;
     }
-
-    /// <summary>Flank (bp) searched on each side of the target for primer candidates.</summary>
-    public const int PrimerSearchFlank = 200;
-
-    /// <summary>
-    /// Maximum |Tm_forward − Tm_reverse| (°C) accepted for a primer pair (Addgene "within 5 °C";
-    /// stricter than Primer3's PRIMER_PAIR_MAX_DIFF_TM default of 100).
-    /// </summary>
-    public const double MaxPairTmDifference = 5.0;
 
     // Primer3 compare_primer_pair epsilon on pair_quality.
     private const double PairQualityEpsilon = 1e-6;
-
-    // Primer3 primer_rec_comp (sort_primer_array): penalty ascending, then Primer3 "start"
-    // descending, then shorter first. A left primer's start is its 5' end (Position); a right
-    // primer's start is its 5' end on the top strand (Position + Length − 1).
-    private static int CompareLeft(PrimerCandidate a, PrimerCandidate b)
-    {
-        int c = a.Penalty.CompareTo(b.Penalty);
-        if (c != 0) return c;
-        c = b.Position.CompareTo(a.Position);
-        return c != 0 ? c : a.Length.CompareTo(b.Length);
-    }
-
-    private static int CompareRight(PrimerCandidate a, PrimerCandidate b)
-    {
-        int c = a.Penalty.CompareTo(b.Penalty);
-        if (c != 0) return c;
-        c = (b.Position + b.Length).CompareTo(a.Position + a.Length);
-        return c != 0 ? c : a.Length.CompareTo(b.Length);
-    }
-
-    // Primer3 compare_primer_pair (libprimer3.cc): quality (±1e-6), then left start descending,
-    // right start (its 5' end) ascending, left length ascending, right length ascending.
-    private static int ComparePair(
-        double q1, PrimerCandidate l1, PrimerCandidate r1,
-        double q2, PrimerCandidate l2, PrimerCandidate r2)
-    {
-        if (q1 + PairQualityEpsilon < q2) return -1;
-        if (q1 > q2 + PairQualityEpsilon) return 1;
-        int c = l2.Position.CompareTo(l1.Position);
-        if (c != 0) return c;
-        c = (r1.Position + r1.Length).CompareTo(r2.Position + r2.Length);
-        if (c != 0) return c;
-        c = l1.Length.CompareTo(l2.Length);
-        return c != 0 ? c : r1.Length.CompareTo(r2.Length);
-    }
 
     /// <summary>
     /// Evaluates a single primer candidate against the per-primer constraints of
@@ -432,20 +826,6 @@ public static class PrimerDesigner
         if (v.SelfEndTh > max)
             issues.Add($"3' self-dimer melting temperature {v.SelfEndTh:F1}°C exceeds {max:0.##}°C (Primer3 PRIMER_MAX_SELF_END_TH)");
         return (hasHairpin, st);
-    }
-
-    // Pair-level complementarity screen used by DesignPrimers (Primer3 characterize_pair).
-    private static bool PairFormsDimer(string forward, string reverse, PrimerParameters param)
-    {
-        if (param.StructureScreen == PrimerStructureScreen.Heuristic)
-            return HasPrimerDimer(forward, reverse);
-        if (!IsAcgtOnly(forward) || !IsAcgtOnly(reverse))
-            return false;
-        // Same values as CalculatePrimer3PairComplementarity(...).Exceeds(max), stopping at the first
-        // alignment over the limit (characterize_pair also fails the pair on compl_any first).
-        var (any, end) = Primer3PairTms(forward.ToUpperInvariant(), reverse.ToUpperInvariant(),
-            0.050, 0.0015, 0.0006, 50e-9, param.EffectiveMaxStructureTm);
-        return any > param.EffectiveMaxStructureTm || end > param.EffectiveMaxStructureTm;
     }
 
     /// <summary>
@@ -3174,11 +3554,114 @@ public readonly record struct Primer3Optima(
     double OptGcPercent);
 
 /// <summary>
-/// Result of primer pair design.
+/// Result of primer pair design. For a valid pair the optional values are Primer3's
+/// PRIMER_PAIR_k_PENALTY (<see cref="PairPenalty"/>), PRIMER_PAIR_k_PRODUCT_TM (<see cref="ProductTm"/>),
+/// PRIMER_PAIR_k_COMPL_ANY_TH / _COMPL_END_TH (<see cref="ComplAnyTh"/>/<see cref="ComplEndTh"/>, thermodynamic
+/// screen only) and PRIMER_INTERNAL_k_* (<see cref="InternalOligo"/>, when an internal oligo was requested).
 /// </summary>
+/// <param name="Forward">Forward (left) primer.</param>
+/// <param name="Reverse">Reverse (right) primer.</param>
+/// <param name="IsValid">True when the pair satisfies every constraint.</param>
+/// <param name="Message">Human-readable status.</param>
+/// <param name="ProductSize">Product size (bp).</param>
+/// <param name="PairPenalty">Primer3 pair penalty (<c>obj_fn</c>) of a valid pair.</param>
+/// <param name="ProductTm">Primer3 product Tm (<c>long_seq_tm</c>, °C) of a valid pair.</param>
+/// <param name="ComplAnyTh">Pair hetero-dimer Tm (ntthal ANY, °C).</param>
+/// <param name="ComplEndTh">Pair 3′ hetero-dimer Tm (ntthal END1/END2, °C).</param>
+/// <param name="InternalOligo">Internal hybridization oligo picked for the pair (PRIMER_PICK_INTERNAL_OLIGO).</param>
 public sealed record PrimerPairResult(
     PrimerCandidate? Forward,
     PrimerCandidate? Reverse,
     bool IsValid,
     string Message,
-    int ProductSize);
+    int ProductSize,
+    double? PairPenalty = null,
+    double? ProductTm = null,
+    double? ComplAnyTh = null,
+    double? ComplEndTh = null,
+    ProbeDesigner.Primer3Probe? InternalOligo = null);
+
+/// <summary>A Primer3 product-size range (PRIMER_PRODUCT_SIZE_RANGE element), inclusive, in bp.</summary>
+/// <param name="Min">Smallest product size.</param>
+/// <param name="Max">Largest product size.</param>
+public readonly record struct ProductSizeRange(int Min, int Max);
+
+/// <summary>
+/// Weights of Primer3's pair objective function <c>obj_fn</c> (<c>libprimer3.cc</c>), the
+/// <c>PRIMER_PAIR_WT_*</c> tags; defaults are Primer3's (<c>pr_set_default_global_args_1</c>):
+/// PRIMER_PAIR_WT_PR_PENALTY = 1, every other weight 0. The thermodynamic complementarity terms use
+/// Primer3's fixed <c>temp_cutoff</c> = 5 °C relative to the lower primer Tm (<see cref="PrimerDesigner.Primer3TempCutoff"/>).
+/// </summary>
+/// <param name="PrimerPenalty">PRIMER_PAIR_WT_PR_PENALTY (× sum of the two primer penalties).</param>
+/// <param name="InternalOligoPenalty">PRIMER_PAIR_WT_IO_PENALTY (× internal-oligo penalty).</param>
+/// <param name="DiffTm">PRIMER_PAIR_WT_DIFF_TM (× |Tm_left − Tm_right|).</param>
+/// <param name="ComplAnyTh">PRIMER_PAIR_WT_COMPL_ANY_TH (thermodynamic screen only).</param>
+/// <param name="ComplEndTh">PRIMER_PAIR_WT_COMPL_END_TH (thermodynamic screen only).</param>
+/// <param name="ProductTmLt">PRIMER_PAIR_WT_PRODUCT_TM_LT (needs <see cref="PrimerPairOptions.ProductOptTm"/>).</param>
+/// <param name="ProductTmGt">PRIMER_PAIR_WT_PRODUCT_TM_GT (needs <see cref="PrimerPairOptions.ProductOptTm"/>).</param>
+/// <param name="ProductSizeLt">PRIMER_PAIR_WT_PRODUCT_SIZE_LT (needs <see cref="PrimerPairOptions.ProductOptSize"/>).</param>
+/// <param name="ProductSizeGt">PRIMER_PAIR_WT_PRODUCT_SIZE_GT (needs <see cref="PrimerPairOptions.ProductOptSize"/>).</param>
+public sealed record Primer3PairWeights(
+    double PrimerPenalty = 1.0,
+    double InternalOligoPenalty = 0.0,
+    double DiffTm = 0.0,
+    double ComplAnyTh = 0.0,
+    double ComplEndTh = 0.0,
+    double ProductTmLt = 0.0,
+    double ProductTmGt = 0.0,
+    double ProductSizeLt = 0.0,
+    double ProductSizeGt = 0.0);
+
+/// <summary>
+/// Pair-level options of <see cref="PrimerDesigner.DesignPrimers"/> / <see cref="PrimerDesigner.DesignPrimerPairs"/>,
+/// named after the Primer3 tags they implement. Defaults are Primer3's except
+/// <see cref="MaxTmDifference"/> (library default 5 °C; Primer3 100 °C — use <see cref="Primer3Defaults"/>).
+/// </summary>
+public sealed record PrimerPairOptions
+{
+    /// <summary>Library defaults (Primer3 defaults with PRIMER_PAIR_MAX_DIFF_TM = 5 °C).</summary>
+    public static PrimerPairOptions Default { get; } = new();
+
+    /// <summary>Primer3's own defaults (PRIMER_PAIR_MAX_DIFF_TM = 100 °C).</summary>
+    public static PrimerPairOptions Primer3Defaults { get; } = new() { MaxTmDifference = PrimerDesigner.Primer3MaxPairTmDifference };
+
+    /// <summary>
+    /// PRIMER_PRODUCT_SIZE_RANGE: product-size ranges in order of preference (default 100–300 bp). A later
+    /// range is used only when no further pair fits the earlier ones (Primer3 <c>choose_pair_or_triple</c>).
+    /// </summary>
+    public IReadOnlyList<ProductSizeRange> ProductSizeRanges { get; init; } = [new ProductSizeRange(100, 300)];
+
+    /// <summary>PRIMER_PAIR_MAX_DIFF_TM: maximum |Tm_left − Tm_right| (°C); library default <see cref="PrimerDesigner.MaxPairTmDifference"/> = 5.</summary>
+    public double MaxTmDifference { get; init; } = PrimerDesigner.MaxPairTmDifference;
+
+    /// <summary>PRIMER_NUM_RETURN: number of pairs returned by <see cref="PrimerDesigner.DesignPrimerPairs"/> (default 5, ≥ 1).</summary>
+    public int NumReturn { get; init; } = 5;
+
+    /// <summary>SEQUENCE_INCLUDED_REGION (start, length): primers and products must lie inside it (default: whole template).</summary>
+    public (int Start, int Length)? IncludedRegion { get; init; }
+
+    /// <summary>PRIMER_PRODUCT_OPT_SIZE (bp); required when a product-size weight is non-zero.</summary>
+    public int? ProductOptSize { get; init; }
+
+    /// <summary>PRIMER_PRODUCT_OPT_TM (°C); required when a product-Tm weight is non-zero.</summary>
+    public double? ProductOptTm { get; init; }
+
+    /// <summary>PRIMER_PRODUCT_MIN_TM (°C): pairs whose product Tm is lower fail (default: no limit).</summary>
+    public double? ProductMinTm { get; init; }
+
+    /// <summary>PRIMER_PRODUCT_MAX_TM (°C): pairs whose product Tm is higher fail (default: no limit).</summary>
+    public double? ProductMaxTm { get; init; }
+
+    /// <summary>PRIMER_PAIR_WT_* pair objective weights (default Primer3's).</summary>
+    public Primer3PairWeights Weights { get; init; } = new();
+
+    /// <summary>
+    /// PRIMER_PICK_INTERNAL_OLIGO: pick a hybridization (internal) oligo for every pair — the lowest-penalty
+    /// oligo of the Primer3 internal-oligo list (<see cref="ProbeDesigner.DesignProbesPrimer3"/> rules) lying
+    /// strictly between the primers; a pair without one fails (Primer3 <c>choose_internal_oligo</c>).
+    /// </summary>
+    public bool PickInternalOligo { get; init; }
+
+    /// <summary>PRIMER_INTERNAL_* settings of the internal oligo (default Primer3's).</summary>
+    public ProbeDesigner.Primer3ProbeSettings? InternalOligo { get; init; }
+}

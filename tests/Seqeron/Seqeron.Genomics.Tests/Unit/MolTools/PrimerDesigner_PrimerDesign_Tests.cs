@@ -90,21 +90,24 @@ public class PrimerDesigner_PrimerDesign_Tests
     }
 
     [Test]
-    public void DesignPrimers_ValidTemplate_ForwardWithinSearchRegion()
+    public void DesignPrimers_ValidTemplate_ProductWithinDefaultSizeRange()
     {
-        // Arrange
-        int targetStart = 100;
-        int targetEnd = 150;
-        int expectedMinPosition = Math.Max(0, targetStart - 200);
+        // Primer3 search region: products must fit PRIMER_PRODUCT_SIZE_RANGE (default 100-300 bp).
+        // primer3-py 2.3.1 (this library's per-primer limits, SEQUENCE_TARGET 100,50): PRIMER_LEFT_0 = [76,20],
+        // PRIMER_RIGHT_0 = [181,20], PRIMER_PAIR_0_PRODUCT_SIZE 106, PRIMER_PAIR_0_PENALTY 0.6983187292252637,
+        // PRIMER_PAIR_0_PRODUCT_TM 74.01606258306629.
+        var result = PrimerDesigner.DesignPrimers(_standardTemplate, 100, 150);
 
-        // Act
-        var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
-
-        // Assert
-        Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
-        Assert.That(result.Forward, Is.Not.Null);
-        Assert.That(result.Forward!.Position, Is.GreaterThanOrEqualTo(expectedMinPosition),
-            "Forward primer should be within 200bp upstream search region");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.ProductSize, Is.InRange(100, 300));
+            Assert.That(result.Forward!.Position, Is.EqualTo(76));
+            Assert.That(result.Reverse!.Position + result.Reverse.Length - 1, Is.EqualTo(181));
+            Assert.That(result.ProductSize, Is.EqualTo(106));
+            Assert.That(result.PairPenalty!.Value, Is.EqualTo(0.6983187292252637).Within(1e-9));
+            Assert.That(result.ProductTm!.Value, Is.EqualTo(74.01606258306629).Within(1e-9));
+        });
     }
 
     #endregion
@@ -129,21 +132,19 @@ public class PrimerDesigner_PrimerDesign_Tests
     }
 
     [Test]
-    public void DesignPrimers_ValidTemplate_ReverseWithinSearchRegion()
+    public void DesignPrimers_ProductSizeRange_IsConfigurable()
     {
-        // Arrange
-        int targetStart = 100;
-        int targetEnd = 150;
-        int expectedMaxPosition = Math.Min(_standardTemplate.Length - 1, targetEnd + 200);
+        // PRIMER_PRODUCT_SIZE_RANGE 130-300 excludes the default-range best pair (product 106); primer3-py
+        // then returns PRIMER_LEFT_0 = [76,20], PRIMER_RIGHT_0 = [205,20], PRIMER_PAIR_0_PRODUCT_SIZE 130,
+        // PRIMER_PAIR_0_PENALTY 0.6983187292252637.
+        var options = new PrimerPairOptions { ProductSizeRanges = [new ProductSizeRange(130, 300)] };
+        var result = PrimerDesigner.DesignPrimers(_standardTemplate, 100, 150, pairOptions: options);
 
-        // Act
-        var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
-
-        // Assert
-        Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
-        Assert.That(result.Reverse, Is.Not.Null);
-        Assert.That(result.Reverse!.Position, Is.LessThanOrEqualTo(expectedMaxPosition),
-            "Reverse primer should be within 200bp downstream search region");
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.ProductSize, Is.EqualTo(130));
+        Assert.That(result.Forward!.Position, Is.EqualTo(76));
+        Assert.That(result.Reverse!.Position + result.Reverse.Length - 1, Is.EqualTo(205));
+        Assert.That(result.PairPenalty!.Value, Is.EqualTo(0.6983187292252637).Within(1e-9));
     }
 
     #endregion
@@ -839,8 +840,7 @@ public class PrimerDesigner_PrimerDesign_Tests
     public void DesignPrimers_NullTemplate_ThrowsException()
     {
         // Act & Assert
-        // Implementation throws NullReferenceException (not ArgumentNullException)
-        Assert.Throws<NullReferenceException>(() =>
+        Assert.Throws<ArgumentNullException>(() =>
             PrimerDesigner.DesignPrimers(null!, 0, 100));
     }
 
@@ -1006,14 +1006,16 @@ public class PrimerDesigner_PrimerDesign_Tests
         // individually best primers LEFT [4,22] (Tm 57.300) + RIGHT [62,19] (Tm 62.882): ΔTm 5.58 > 5,
         // so choosing each side independently yields no valid pair. With PRIMER_PAIR_MAX_DIFF_TM = 5
         // primer3-py returns LEFT [3,23] (Tm 57.9563) + RIGHT [62,19], PRIMER_PAIR_0_PENALTY 8.925688222301858.
-        // (primer3-py run with every *_TH structure limit at 100 °C; with Primer3's default 47 °C the
+        // (primer3-py run with every *_TH structure limit at 100 °C and PRIMER_PRODUCT_SIZE_RANGE 30-1000 — the
+        // 63-bp template cannot hold a product of the default 100-300 bp; with Primer3's default 47 °C the
         // right primer ATGGAGCACGAGCGCAACA fails on its hairpin, 48.215 °C — see the next test.)
         const string template = "TAATTGGTGTAATAATCTAGGGGTGCTTTTTTTTTGCAGTCCGGTGTTGCGCTCGTGCTCCAT";
         var param = PrimerDesigner.DefaultParameters with { MaxStructureTm = 100 };
         var bestForwardAlone = PrimerDesigner.EvaluatePrimer(template.Substring(4, 22), 4, true, param);
         Assert.That(bestForwardAlone.IsValid, Is.True, "the individually best forward primer is itself valid");
 
-        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 26, 34, param);
+        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 26, 34, param,
+            new PrimerPairOptions { ProductSizeRanges = [new ProductSizeRange(30, 1000)] });
 
         Assert.Multiple(() =>
         {
@@ -1066,9 +1068,11 @@ public class PrimerDesigner_PrimerDesign_Tests
         // primer3-py 2.3.1 design_primers (default 47 °C limits, this library's per-primer limits):
         // PRIMER_RIGHT_EXPLAIN "considered 68, GC content failed 66, high tm 1, high hairpin
         // stability 1, ok 0" — the only GC-compatible right primer ATGGAGCACGAGCGCAACA has hairpin
-        // Tm 48.21523465319416 °C (calc_hairpin), so no pair exists.
+        // Tm 48.21523465319416 °C (calc_hairpin), so no pair exists (PRIMER_PRODUCT_SIZE_RANGE 30-1000; the
+        // 63-bp template is shorter than the default 100-bp minimum product).
         const string template = "TAATTGGTGTAATAATCTAGGGGTGCTTTTTTTTTGCAGTCCGGTGTTGCGCTCGTGCTCCAT";
-        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 26, 34);
+        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 26, 34,
+            pairOptions: new PrimerPairOptions { ProductSizeRanges = [new ProductSizeRange(30, 1000)] });
         var right = PrimerDesigner.EvaluatePrimer("ATGGAGCACGAGCGCAACA", 44, false);
 
         Assert.Multiple(() =>
@@ -1084,10 +1088,16 @@ public class PrimerDesigner_PrimerDesign_Tests
     [Test]
     public void DesignPrimers_NoPairWithinTmLimit_ReturnsInvalidWithTmMessage()
     {
-        // primer3-py: with PRIMER_PAIR_MAX_DIFF_TM = 100 the best pair is LEFT [0,20] (Tm 57.2614) +
-        // RIGHT [47,19] (Tm 62.6299); with PRIMER_PAIR_MAX_DIFF_TM = 5 no pair is returned.
+        // primer3-py (PRIMER_PRODUCT_SIZE_RANGE 30-1000; the 48-bp template cannot hold a 100-300 bp product):
+        // with PRIMER_PAIR_MAX_DIFF_TM = 100 the best pair is LEFT [0,20] (Tm 57.2614) + RIGHT [47,19]
+        // (Tm 62.6299), PRIMER_PAIR_0_PENALTY 6.368469212457285; with PRIMER_PAIR_MAX_DIFF_TM = 5 no pair is
+        // returned (PRIMER_PAIR_EXPLAIN "considered 1, tm diff too large 1, ok 0").
         const string template = "TTGACCACAGCCAGGTTTAATTTTTTTTCAAATACGGTCACGCGCGGA";
-        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 20, 28);
+        var range = new PrimerPairOptions { ProductSizeRanges = [new ProductSizeRange(30, 1000)] };
+        var result = PrimerDesigner.DesignPrimers(new DnaSequence(template), 20, 28, pairOptions: range);
+        var relaxed = PrimerDesigner.DesignPrimers(new DnaSequence(template), 20, 28,
+            pairOptions: range with { MaxTmDifference = PrimerDesigner.Primer3MaxPairTmDifference });
+        var defaultRange = PrimerDesigner.DesignPrimers(new DnaSequence(template), 20, 28);
 
         Assert.Multiple(() =>
         {
@@ -1098,6 +1108,11 @@ public class PrimerDesigner_PrimerDesign_Tests
             Assert.That(result.Reverse!.Position, Is.EqualTo(29)); // right start 47 = 29 + 19 − 1
             Assert.That(result.Reverse.MeltingTemperature, Is.EqualTo(62.6));
             Assert.That(result.Message, Does.StartWith("No primer pair within the 5°C Tm-difference limit"));
+            Assert.That(relaxed.IsValid, Is.True, "PRIMER_PAIR_MAX_DIFF_TM is configurable");
+            Assert.That(relaxed.PairPenalty!.Value, Is.EqualTo(6.368469212457285).Within(1e-9));
+            Assert.That(relaxed.ProductSize, Is.EqualTo(48));
+            Assert.That(defaultRange.IsValid, Is.False);
+            Assert.That(defaultRange.Message, Is.EqualTo("SEQUENCE_INCLUDED_REGION length < min PRIMER_PRODUCT_SIZE_RANGE"), "primer3-py raises this per-sequence error");
         });
     }
 

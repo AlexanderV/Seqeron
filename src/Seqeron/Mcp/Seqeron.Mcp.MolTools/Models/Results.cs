@@ -11,6 +11,23 @@ public sealed record PrimerDimerResult(bool HasDimer, int ComplementaryBases, do
 public sealed record ThreePrimeStabilityResult(double DeltaG);
 public sealed record PrimerCandidateListResult(IReadOnlyList<PrimerCandidate> Candidates);
 
+/// <summary>
+/// design_primers output: the best pair (same fields as <see cref="PrimerPairResult"/>; Primer3 PRIMER_PAIR_0_*)
+/// plus <see cref="Pairs"/>, the ranked valid pairs (PRIMER_NUM_RETURN; empty when no pair qualifies).
+/// </summary>
+public sealed record DesignPrimersResult(
+    PrimerCandidate? Forward,
+    PrimerCandidate? Reverse,
+    bool IsValid,
+    string Message,
+    int ProductSize,
+    double? PairPenalty,
+    double? ProductTm,
+    double? ComplAnyTh,
+    double? ComplEndTh,
+    ProbeDesigner.Primer3Probe? InternalOligo,
+    IReadOnlyList<PrimerPairResult> Pairs);
+
 // RestrictionAnalyzer result wrappers
 public sealed record EnzymeLookupResult(RestrictionEnzyme? Enzyme);
 public sealed record EnzymeListResult(IReadOnlyList<RestrictionEnzyme> Enzymes);

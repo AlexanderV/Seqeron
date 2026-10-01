@@ -14,12 +14,16 @@ public class MolToolsTools
 
     #region PrimerDesigner
 
-    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward and reverse PCR primers flanking a target region in a DNA template (Primer3 semantics): evaluates every candidate in a 200 bp flanking window on each side (Primer3-default SantaLucia Tm, 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM) and returns the pair with the lowest Primer3 pair penalty that satisfies |Tm_f - Tm_r| <= 5 C and no primer-dimer; reports product size. The target is the half-open 0-based interval [target_start, target_end); the region must satisfy 0 <= target_start < target_end < template.Length.")]
-    public static PrimerPairResult design_primers(
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3-default SantaLucia Tm at 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C; the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values, optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO) and up to num_return ranked pairs (PRIMER_NUM_RETURN). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
+    public static DesignPrimersResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
         [Description("0-based exclusive end of target region (primers never overlap [target_start, target_end)).")] int target_end,
-        [Description("Optional primer design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks). Defaults are used if null.")] PrimerParameters? parameters = null)
+        [Description("Optional primer design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks, structure screen). Defaults are used if null.")] PrimerParameters? parameters = null,
+        [Description("PRIMER_PRODUCT_SIZE_RANGE in Primer3 syntax, e.g. \"100-300\" or \"150-250 100-400\" (ranges in order of preference; default 100-300).")] string? product_size_range = null,
+        [Description("PRIMER_PAIR_MAX_DIFF_TM: maximum |Tm_forward - Tm_reverse| in °C (default 5; Primer3's own default is 100).")] double max_tm_difference = PrimerDesigner.MaxPairTmDifference,
+        [Description("PRIMER_NUM_RETURN: number of ranked pairs listed in 'pairs' (default 1).")] int num_return = 1,
+        [Description("PRIMER_PICK_INTERNAL_OLIGO: also pick an internal hybridization oligo between the primers (Primer3 PRIMER_INTERNAL_* defaults; default false).")] bool pick_internal_oligo = false)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -29,8 +33,45 @@ public class MolToolsTools
             throw new System.ArgumentException("Target end must be within the template.", nameof(target_end));
         if (target_start >= target_end)
             throw new System.ArgumentException("Target start must be strictly less than target end.", nameof(target_start));
+        if (num_return < 1)
+            throw new System.ArgumentException("num_return must be at least 1.", nameof(num_return));
+        if (!(max_tm_difference >= 0))
+            throw new System.ArgumentException("max_tm_difference must be non-negative.", nameof(max_tm_difference));
 
-        return PrimerDesigner.DesignPrimers(new DnaSequence(template), target_start, target_end, parameters);
+        var options = PrimerPairOptions.Default with
+        {
+            MaxTmDifference = max_tm_difference,
+            NumReturn = num_return,
+            PickInternalOligo = pick_internal_oligo,
+        };
+        if (product_size_range is not null)
+            options = options with { ProductSizeRanges = ParseProductSizeRanges(product_size_range) };
+
+        var dna = new DnaSequence(template);
+        var pairs = PrimerDesigner.DesignPrimerPairs(dna, target_start, target_end, parameters, options);
+        var best = pairs.Count > 0 ? pairs[0] : PrimerDesigner.DesignPrimers(dna, target_start, target_end, parameters, options);
+        return new DesignPrimersResult(
+            best.Forward, best.Reverse, best.IsValid, best.Message, best.ProductSize,
+            best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs);
+    }
+
+    // Primer3 PRIMER_PRODUCT_SIZE_RANGE syntax: space-separated "min-max" ranges.
+    private static List<ProductSizeRange> ParseProductSizeRanges(string text)
+    {
+        var ranges = new List<ProductSizeRange>();
+        foreach (var token in text.Split(new[] { ' ', ',', ';' }, System.StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = token.Split('-');
+            if (parts.Length != 2
+                || !int.TryParse(parts[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int min)
+                || !int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int max)
+                || min < 1 || max < min)
+                throw new System.ArgumentException($"Invalid product size range '{token}' (expected min-max with 1 <= min <= max).", nameof(text));
+            ranges.Add(new ProductSizeRange(min, max));
+        }
+        if (ranges.Count == 0)
+            throw new System.ArgumentException("product_size_range must contain at least one min-max range.", nameof(text));
+        return ranges;
     }
 
     [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, the Primer3 thermodynamic secondary-structure Tm values (hairpinTh / selfAnyTh / selfEndTh = primer3 calc_hairpin / calc_homodimer / calc_end_stability Tm at 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM; hasHairpin = hairpinTh > 47 °C, PRIMER_MAX_HAIRPIN_TH), 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. Call to QC one primer (position/strand are informational).")]

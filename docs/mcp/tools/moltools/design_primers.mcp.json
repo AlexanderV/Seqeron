@@ -5,50 +5,225 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.DesignPrimers",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L40",
-  "description": "Design forward and reverse PCR primers flanking a target region in a DNA template (Primer3 semantics); returns the lowest-penalty pair satisfying the pair constraints, product size, and pair compatibility.",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L104",
+  "description": "Design forward and reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): per-primer limits (length, GC%, Primer3-default SantaLucia Tm, poly-X, dinucleotide repeat) plus, by default, Primer3's thermodynamic structure screen (ntthal self-dimer, 3' self-dimer, hairpin Tm <= 47 °C); pairs need a product size in product_size_range (default 100-300 bp), |ΔTm| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer Tm <= 47 °C; returns the lowest Primer3 pair penalty pair, its product Tm and complementarity, an optional internal hybridization oligo and up to num_return ranked pairs.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "template": { "type": "string", "description": "DNA template (A/C/G/T).", "minLength": 1 },
-      "target_start": { "type": "integer", "description": "0-based inclusive start of the target region.", "minimum": 0 },
-      "target_end": { "type": "integer", "description": "0-based exclusive end of the target region (target_start < target_end < template.Length)." },
-      "parameters": { "type": ["object", "null"], "description": "Optional primer-design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks)." }
+      "template": {
+        "type": "string",
+        "description": "DNA template (A/C/G/T).",
+        "minLength": 1
+      },
+      "target_start": {
+        "type": "integer",
+        "description": "0-based inclusive start of the target region.",
+        "minimum": 0
+      },
+      "target_end": {
+        "type": "integer",
+        "description": "0-based exclusive end of the target region (target_start < target_end < template.Length)."
+      },
+      "parameters": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "Optional primer-design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks, structure screen and its Tm limit)."
+      },
+      "product_size_range": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "PRIMER_PRODUCT_SIZE_RANGE in Primer3 syntax, e.g. \"100-300\" or \"150-250 100-400\" (ranges in order of preference; default 100-300)."
+      },
+      "max_tm_difference": {
+        "type": "number",
+        "description": "PRIMER_PAIR_MAX_DIFF_TM: maximum |Tm_forward - Tm_reverse| in °C (default 5; Primer3's own default is 100).",
+        "minimum": 0,
+        "default": 5
+      },
+      "num_return": {
+        "type": "integer",
+        "description": "PRIMER_NUM_RETURN: number of ranked pairs listed in 'pairs' (default 1).",
+        "minimum": 1,
+        "default": 1
+      },
+      "pick_internal_oligo": {
+        "type": "boolean",
+        "description": "PRIMER_PICK_INTERNAL_OLIGO: also pick an internal hybridization oligo strictly between the primers (Primer3 PRIMER_INTERNAL_* defaults).",
+        "default": false
+      }
     },
-    "required": ["template", "target_start", "target_end"]
+    "required": [
+      "template",
+      "target_start",
+      "target_end"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "forward": { "type": ["object", "null"], "description": "Best forward primer candidate." },
-      "reverse": { "type": ["object", "null"], "description": "Best reverse primer candidate." },
-      "isValid": { "type": "boolean", "description": "True when a compatible pair was found." },
-      "message": { "type": "string", "description": "Human-readable status." },
-      "productSize": { "type": "integer", "description": "Amplicon size in bp." }
+      "forward": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "Best forward primer candidate (PRIMER_LEFT_0)."
+      },
+      "reverse": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "Best reverse primer candidate (PRIMER_RIGHT_0)."
+      },
+      "isValid": {
+        "type": "boolean",
+        "description": "True when a compatible pair was found."
+      },
+      "message": {
+        "type": "string",
+        "description": "Human-readable status."
+      },
+      "productSize": {
+        "type": "integer",
+        "description": "Amplicon size in bp."
+      },
+      "pairPenalty": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_0_PENALTY (Primer3 obj_fn)."
+      },
+      "productTm": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_0_PRODUCT_TM (Primer3 long_seq_tm, °C)."
+      },
+      "complAnyTh": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_0_COMPL_ANY_TH (ntthal hetero-dimer Tm, °C)."
+      },
+      "complEndTh": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_0_COMPL_END_TH (ntthal 3' hetero-dimer Tm, °C)."
+      },
+      "internalOligo": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_0_* (sequence, start, length, tm, gcPercent, selfAnyTh, selfEndTh, hairpinTh, penalty) when pick_internal_oligo."
+      },
+      "pairs": {
+        "type": "array",
+        "description": "Ranked valid pairs (PRIMER_PAIR_k, k < num_return), each with forward, reverse, productSize, pairPenalty, productTm, complAnyTh, complEndTh, internalOligo; empty when no pair qualifies."
+      }
     },
-    "required": ["forward", "reverse", "isValid", "message", "productSize"]
+    "required": [
+      "forward",
+      "reverse",
+      "isValid",
+      "message",
+      "productSize",
+      "pairs"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Template cannot be null or empty" },
-    { "code": 1002, "message": "Target start must be non-negative" },
-    { "code": 1003, "message": "Target end must be within the template" },
-    { "code": 1004, "message": "Target start must be strictly less than target end" }
+    {
+      "code": 1001,
+      "message": "Template cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Target start must be non-negative"
+    },
+    {
+      "code": 1003,
+      "message": "Target end must be within the template"
+    },
+    {
+      "code": 1004,
+      "message": "Target start must be strictly less than target end"
+    },
+    {
+      "code": 1005,
+      "message": "num_return must be at least 1"
+    },
+    {
+      "code": 1006,
+      "message": "max_tm_difference must be non-negative"
+    },
+    {
+      "code": 1007,
+      "message": "Invalid product size range"
+    }
   ],
   "examples": [
     {
       "name": "Standard 258 bp template, target [100,150)",
-      "input": { "target_start": 100, "target_end": 150 },
+      "input": {
+        "target_start": 100,
+        "target_end": 150
+      },
       "output": {
         "isValid": true,
-        "productSize": 98,
-        "forward": { "position": 76, "length": 20, "gcContent": 50.0, "meltingTemperature": 59.3 },
-        "reverse": { "position": 154, "length": 20, "gcContent": 55.0, "meltingTemperature": 60.0 }
+        "productSize": 106,
+        "pairPenalty": 0.6983187292252637,
+        "productTm": 74.01606258306629,
+        "forward": {
+          "position": 76,
+          "length": 20,
+          "gcContent": 50.0,
+          "meltingTemperature": 59.3
+        },
+        "reverse": {
+          "position": 162,
+          "length": 20,
+          "gcContent": 55.0,
+          "meltingTemperature": 60.0
+        }
+      }
+    },
+    {
+      "name": "Internal oligo (pick_internal_oligo = true)",
+      "input": {
+        "target_start": 100,
+        "target_end": 150,
+        "pick_internal_oligo": true
+      },
+      "output": {
+        "isValid": true,
+        "productSize": 122,
+        "internalOligo": {
+          "sequence": "TCCGAAGTTCCGAAGTTCCGAAGT",
+          "start": 154,
+          "length": 24,
+          "penalty": 5.875422099275511
+        }
       }
     },
     {
       "name": "Invalid target region (start >= end)",
-      "input": { "template": "ACGTACGTACGTACGT", "target_start": 150, "target_end": 100 },
-      "output": { "error": "ArgumentException" }
+      "input": {
+        "template": "ACGTACGTACGTACGT",
+        "target_start": 150,
+        "target_end": 100
+      },
+      "output": {
+        "error": "ArgumentException"
+      }
     }
   ]
 }

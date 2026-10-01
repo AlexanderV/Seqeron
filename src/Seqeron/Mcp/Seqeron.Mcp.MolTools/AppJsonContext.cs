@@ -25,6 +25,7 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(List<PrimerCandidate>))]
 [JsonSerializable(typeof(IReadOnlyList<PrimerCandidate>))]
 [JsonSerializable(typeof(PrimerPairResult))]
+[JsonSerializable(typeof(IReadOnlyList<PrimerPairResult>))]
 
 // PrimerDesigner result wrappers
 [JsonSerializable(typeof(TmResult))]
@@ -34,6 +35,7 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(PrimerDimerResult))]
 [JsonSerializable(typeof(ThreePrimeStabilityResult))]
 [JsonSerializable(typeof(PrimerCandidateListResult))]
+[JsonSerializable(typeof(DesignPrimersResult))]
 
 // RestrictionAnalyzer DTOs (from Seqeron.Genomics.MolTools) — fully qualified to avoid
 // any potential collision with future server-side types of the same simple name.

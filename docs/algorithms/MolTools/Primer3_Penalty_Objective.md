@@ -182,8 +182,13 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
   PRIMER_INSIDE/OUTSIDE_PENALTY), `seq_quality`, `repeat_sim`, `template_mispriming`; these need data the
   method does not receive (annealing model, mispriming library, base qualities, target geometry) and are
   0 under Primer3 defaults; **users should rely on:** adding `weight·value` themselves or Primer3.
-- The pair-level objective (`PRIMER_PAIR_*`, Tm-difference, product size); **users should rely on:**
-  a future pair-penalty unit or Primer3.
+
+**Implemented elsewhere:** the pair-level objective (Primer3 `obj_fn`: PRIMER_PAIR_WT_PR_PENALTY,
+_IO_PENALTY, _DIFF_TM, _COMPL_ANY_TH, _COMPL_END_TH, _PRODUCT_TM_LT/GT, _PRODUCT_SIZE_LT/GT with
+PRIMER_PRODUCT_OPT_TM / _OPT_SIZE and the `long_seq_tm` product Tm) is part of PRIMER-DESIGN-001
+(`PrimerDesigner.DesignPrimers` / `DesignPrimerPairs`, `PrimerPairOptions.Weights` = `Primer3PairWeights`),
+which sums this per-primer penalty for the two primers; verified against primer3-py 2.3.1
+`PRIMER_PAIR_k_PENALTY` with non-default pair weights (see `docs/algorithms/MolTools/Primer_Design.md`).
 
 ### 5.4 Deviations and Assumptions
 

@@ -5,8 +5,8 @@
 **Test Unit ID:** PRIMER-DESIGN-001
 **Area:** MolTools
 **Status:** ☑ Complete
-**Last Updated:** 2026-09-28
-**Total Tests:** 149 (canonical + smoke + mutation-killing)
+**Last Updated:** 2026-10-01
+**Total Tests:** 160 (canonical + smoke + mutation-killing)
 
 ---
 
@@ -37,7 +37,9 @@
 | Tm (Optimal) | 60°C | Primer3: 60°C | Exact match |
 | Pair Tm Difference | ≤ 5°C (unrounded Tm) | Wikipedia, Addgene | Exact match (Primer3 default PRIMER_PAIR_MAX_DIFF_TM=100.0 is unlimited; 5°C is the standard lab guideline) |
 | Tm model | Primer3 default (SantaLucia 1998 NN, SantaLucia salt, 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM) | Primer3 PRIMER_TM_FORMULA=1, PRIMER_SALT_CORRECTIONS=1 | Bit-identical to primer3.calc_tm |
-| Ranking / pair selection | Lowest pair penalty (Σ Primer3 per-primer penalty) over all compatible pairs; Primer3 tie-break | Primer3 `choose_pair_or_triple`, `compare_primer_pair` | 553/553 agreement with primer3-py design_primers where Primer3's best passes our extra screens |
+| Ranking / pair selection | Lowest Primer3 pair objective (`obj_fn`, default Σ per-primer penalty; PRIMER_PAIR_WT_* configurable) over all compatible pairs; Primer3 tie-break; PRIMER_NUM_RETURN ranked pairs (`DesignPrimerPairs`) | Primer3 `choose_pair_or_triple`, `characterize_pair`, `obj_fn`, `compare_primer_pair` | 1000/1000 random templates identical to primer3-py design_primers (ranks 0–4) with Primer3 defaults |
+| Product size range | PRIMER_PRODUCT_SIZE_RANGE, default 100–300 bp, ranges tried in order | Primer3 `pr_set_default_global_args_1` (pr_min/pr_max = 100/300), `choose_pair_or_triple` | Exact match (replaces the former ±200 bp flanks) |
+| Internal oligo | PRIMER_PICK_INTERNAL_OLIGO: lowest-penalty Primer3 internal oligo strictly between the primers | Primer3 `choose_internal_oligo` | primer3-py PRIMER_INTERNAL_k_* |
 | Homopolymer Max | 4 | Primer3: 5 | Stricter than Primer3; conservative choice |
 
 ### Key Design Principles
@@ -53,7 +55,9 @@
 
 | Method | Class | Type | Complexity |
 |--------|-------|------|------------|
-| `DesignPrimers(template, start, end, params)` | PrimerDesigner | Canonical | O(n²) |
+| `DesignPrimers(template, start, end, params, pairOptions)` | PrimerDesigner | Canonical | O(c log c + p) |
+| `DesignPrimerPairs(template, start, end, params, pairOptions)` | PrimerDesigner | Canonical (PRIMER_NUM_RETURN) | O(c log c + p) |
+| `CalculateProductMeltingTemperaturePrimer3(product, …)` | PrimerDesigner | Helper (`long_seq_tm`) | O(n) |
 | `EvaluatePrimer(seq, pos, isForward, params)` | PrimerDesigner | Helper | O(m²) |
 | `GeneratePrimerCandidates(template, region)` | PrimerDesigner | Helper | O(n×m) |
 
@@ -73,6 +77,11 @@
 | M6 | Primer pair Tm difference ≤ 5°C when valid | Standard requirement | Wikipedia, Addgene |
 | M14 | Primer3-default Tm equals primer3.calc_tm (default + non-default conditions, symmetric, > 36 nt) | Tm scale of the Primer3 window | Primer3 oligotm.c, primer3-py |
 | M15 | DesignPrimers returns the lowest-penalty compatible pair (primer3-py design_primers), incl. when the individually best primers are Tm-incompatible | Pair selection | Primer3 libprimer3.cc |
+| M16 | DesignPrimerPairs with Primer3 defaults returns primer3-py's PRIMER_LEFT/RIGHT_k, PRIMER_PAIR_k_PENALTY / _PRODUCT_TM / _COMPL_ANY_TH / _COMPL_END_TH / _PRODUCT_SIZE for k = 0..4 | PRIMER_NUM_RETURN, product Tm | Primer3 choose_pair_or_triple, long_seq_tm |
+| M17 | Default PRIMER_PRODUCT_SIZE_RANGE is 100–300; custom ranges are tried in order; product Tm limits and PRIMER_PAIR_MAX_DIFF_TM are configurable | Search region | Primer3 pr_set_default_global_args_1, characterize_pair |
+| M18 | Non-default PRIMER_PAIR_WT_* weights give primer3-py's PRIMER_PAIR_k_PENALTY | Pair objective | Primer3 obj_fn |
+| M19 | PRIMER_PICK_INTERNAL_OLIGO picks primer3-py's PRIMER_INTERNAL_k (inside the product, not overlapping the primers; PRIMER_PAIR_WT_IO_PENALTY) | Internal oligo | Primer3 choose_internal_oligo |
+| M20 | Primer3 data-control errors throw (weight without optimum, max size > min product, NUM_RETURN < 1, target outside included region) | Validation | Primer3 _pr_data_control |
 | M7 | EvaluatePrimer validates length constraints (18-25 bp) | Primer3 defaults | Primer3: 18-27 |
 | M8 | EvaluatePrimer validates GC content constraints (40-60%) | Addgene standard | Addgene: 40-60% |
 | M9 | EvaluatePrimer validates Tm constraints (57-63°C) | Primer3 defaults | Primer3: 57-63°C |
@@ -140,6 +149,11 @@ Applied systematic coverage classification (2026-03-04):
 | S4 | ✅ | `EvaluatePrimer_OptimalPrimer_HasHighScore`, `_SuboptimalLength_ScoreVaries`, `EvaluatePrimer_Penalty_IsPrimer3PerPrimerPenalty` | Informational Score; Primer3 penalty locked to primer3-py |
 | M14 | ✅ | `CalculateMeltingTemperaturePrimer3_DefaultConditions_MatchesPrimer3CalcTm` (7 cases), `_NonDefaultConditions_…`, `_InvalidInput_NaNOrThrows`, `EvaluatePrimer_NonAcgtBase_TmNotComputableAndInvalid` | primer3-py 2.3.1 values, 1e-9 |
 | M15 | ✅ | `DesignPrimers_RandomTemplate_MatchesPrimer3DesignPrimers`, `DesignPrimers_IndividuallyBestPrimersTmIncompatible_SearchesPairs`, `DesignPrimers_NoPairWithinTmLimit_ReturnsInvalidWithTmMessage`, `DesignPrimers_MatchesBruteForcePrimer3PairSearch` (Differential), `DesignPrimers_KnownTemplate_ProductSizeEqualsSpan` (Properties) | primer3-py design_primers pairs + penalties |
+| M16 | ✅ | `PrimerDesigner_PairSearch_Tests.DesignPrimerPairs_Primer3Defaults_MatchesPrimer3Ranks0To4`, `DesignPrimers_ReturnsRankZeroOfDesignPrimerPairs`, `CalculateProductMeltingTemperaturePrimer3_MatchesPrimer3ProductTm` | primer3-py design_primers ranks 0–4 |
+| M17 | ✅ | `DesignPrimerPairs_SizeRangesInOrderAndProductTmLimits_MatchesPrimer3`, `DesignPrimerPairs_IncludedRegion_MatchesPrimer3`, `DesignPrimers_DefaultProductSizeRange_Is100To300`, `DesignPrimers_ValidTemplate_ProductWithinDefaultSizeRange`, `DesignPrimers_ProductSizeRange_IsConfigurable`, `DesignPrimers_NoPairWithinTmLimit_ReturnsInvalidWithTmMessage` | primer3-py design_primers |
+| M18 | ✅ | `DesignPrimerPairs_NonDefaultPairWeights_MatchesPrimer3PairPenalty` | primer3-py PRIMER_PAIR_k_PENALTY |
+| M19 | ✅ | `DesignPrimerPairs_PickInternalOligo_MatchesPrimer3Triples`; MCP `DesignPrimers_PickInternalOligo_MatchesPrimer3` | primer3-py PRIMER_INTERNAL_k_* |
+| M20 | ✅ | `DesignPrimers_InvalidOptions_ThrowAsPrimer3DataControl` | primer3-py error strings |
 | S5 | ✅ | `DesignPrimers_HomopolymerRichTemplate_MayReturnInvalid`, `_VeryShortTemplate_ThrowsArgumentException` | Failure message + exception |
 
 ### COULD Tests

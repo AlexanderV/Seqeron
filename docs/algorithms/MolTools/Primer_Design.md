@@ -5,12 +5,12 @@
 | Algorithm Group | MolTools |
 | Test Unit ID | PRIMER-DESIGN-001 |
 | Related Projects | N/A |
-| Implementation Status | Implemented (Primer3 pair selection; heuristic structure screens) |
-| Last Reviewed | 2026-09-28 |
+| Implementation Status | Implemented (Primer3 pair search: product-size ranges, PRIMER_NUM_RETURN, pair objective, internal oligo; Primer3 thermodynamic structure screen by default) |
+| Last Reviewed | 2026-10-01 |
 
 ## 1. Overview
 
-Primer pair design selects forward and reverse oligonucleotides that can amplify a target DNA region by PCR. In this repository, primer design enumerates every candidate in the flanking regions, filters each by per-primer constraints, and then — exactly as Primer3 (`libprimer3.cc` `choose_pair_or_triple`) — returns the pair with the lowest Primer3 pair penalty among all pairs meeting the pair constraints (Tm agreement, primer-dimer avoidance). The Tm used everywhere in design is Primer3's default primer Tm, the scale on which the Primer3 Tm window 57–63 °C is defined.
+Primer pair design selects forward and reverse oligonucleotides that can amplify a target DNA region by PCR. In this repository, primer design enumerates every candidate on either side of the target inside the search region (Primer3 SEQUENCE_TARGET / SEQUENCE_INCLUDED_REGION / PRIMER_PRODUCT_SIZE_RANGE), filters each by per-primer constraints, and then — exactly as Primer3 (`libprimer3.cc` `choose_pair_or_triple`) — returns the pair(s) with the lowest Primer3 pair penalty among all pairs meeting the pair constraints (product size and Tm, Tm agreement, secondary structure and primer-dimer avoidance, optionally an internal hybridization oligo). The Tm used everywhere in design is Primer3's default primer Tm, the scale on which the Primer3 Tm window 57–63 °C is defined.
 
 ## 2. Scientific / Formal Basis
 
@@ -30,10 +30,24 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    Defaults 50 nM oligo, 50 mM monovalent, 1.5 mM Mg²⁺, 0.6 mM dNTP.
 2. **Per-primer penalty** (Primer3 `p_obj_fn`, default weights):
    $penalty = |T_m - OptimalTm| + |length - OptimalLength|$ (`CalculatePrimer3Penalty`).
-3. **Pair selection:** minimise $penalty_f + penalty_r$ (PRIMER_PAIR_WT_PR_PENALTY = 1, other pair
-   weights 0) over all pairs with $|T_{m,f} - T_{m,r}| \le 5$ °C and no primer-dimer; ties within
-   $10^{-6}$ broken as `compare_primer_pair` (left primer further 3′, right primer 5′ end further
-   left, shorter left, shorter right).
+3. **Pair constraints** (`characterize_pair` order): product size in the current PRIMER_PRODUCT_SIZE_RANGE
+   range (default 100–300 bp; ranges are tried in order, the next only when no further pair fits), product
+   Tm within PRIMER_PRODUCT_MIN_TM/MAX_TM (if set), $|T_{m,f} - T_{m,r}| \le$ PRIMER_PAIR_MAX_DIFF_TM
+   (library default 5 °C; Primer3 100), each primer's structure screen, pair compl-any/compl-end ntthal Tm
+   ≤ 47 °C and, with PRIMER_PICK_INTERNAL_OLIGO, an internal oligo strictly between the primers.
+4. **Pair objective** (`obj_fn`): $W_{pr}(penalty_f + penalty_r) + W_{io}\,penalty_{io} + W_{\Delta Tm}|T_{m,f} - T_{m,r}|$
+   $+ W_{any}\,g(compl\_any) + W_{end}\,g(compl\_end)$ $+ W_{tm<}(T_{opt} - T_{prod})^+ + W_{tm>}(T_{prod} - T_{opt})^+$
+   $+ W_{size<}(S_{opt} - S)^+ + W_{size>}(S - S_{opt})^+$, with $g(x) = x - (T_{low} - 5 - 1)$ if $T_{low} - 5 \le x$,
+   else $1/(T_{low} - 5 + 1 - x)$ ($T_{low}$ = lower primer Tm, `temp_cutoff` 5); defaults $W_{pr} = 1$, all
+   others 0 (`Primer3PairWeights`). Product Tm (`long_seq_tm`):
+   $81.5 + 16.6\log_{10}([Mon]_{eq}/1000) + 41\,GC/N - 600/N$ at the primer conditions.
+5. **Selection:** the minimum-objective pair; ties within $10^{-6}$ broken as `compare_primer_pair` (left
+   primer further 3′, right primer 5′ end further left, shorter left, shorter right). `DesignPrimerPairs`
+   repeats the search PRIMER_NUM_RETURN times, removing each selected pair (primers may be reused,
+   PRIMER_MIN_*_THREE_PRIME_DISTANCE = −1).
+6. **Internal oligo** (`choose_internal_oligo`): the lowest-penalty oligo of the Primer3 internal-oligo list
+   (`ProbeDesigner.DesignProbesPrimer3` rules, PRIMER_INTERNAL_* defaults; its self-any/self-end/hairpin checks
+   postponed until the oligo is considered) with start > left primer 3′ end and end < right primer 5′ base.
 
 `PrimerCandidate.Score` (100 − 2|len − opt| − 2|Tm − opt| − 0.5|GC − 50| − 5·homopolymer + 5 GC-clamp
 bonus) is reported for information only and does not drive selection.
@@ -43,8 +57,9 @@ bonus) is reported for information only and does not drive selection.
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | `DesignPrimers(...)` returns `IsValid = false` when either side has no valid candidates | The source returns an invalid `PrimerPairResult` when either best candidate is missing |
-| INV-02 | Pair validity requires both `|Tm_f - Tm_r| <= 5` (unrounded Tm) and no primer-dimer (default: Primer3 `compl_any_th`/`compl_end_th` ≤ 47 °C, `CalculatePrimer3PairComplementarity`; `Heuristic` screen: `!HasPrimerDimer(...)`); if any such pair exists among the valid candidates, `IsValid = true` | Exhaustive pair search |
-| INV-04 | The returned valid pair minimises `Forward.Penalty + Reverse.Penalty` over all compatible pairs | Primer3 `choose_pair_or_triple` |
+| INV-02 | Pair validity requires the product size in a PRIMER_PRODUCT_SIZE_RANGE range, `|Tm_f - Tm_r| <= MaxTmDifference` (unrounded Tm) and no primer-dimer (default: Primer3 `compl_any_th`/`compl_end_th` ≤ 47 °C, `CalculatePrimer3PairComplementarity`; `Heuristic` screen: `!HasPrimerDimer(...)`); if any such pair exists among the valid candidates, `IsValid = true` | Exhaustive pair search |
+| INV-04 | The returned valid pair minimises the pair objective (`PairPenalty`; default `Forward.Penalty + Reverse.Penalty`) over all compatible pairs of the first product-size range that has one | Primer3 `choose_pair_or_triple` |
+| INV-05 | `DesignPrimers(...)` = rank 0 of `DesignPrimerPairs(...)`; ranks are in non-decreasing `PairPenalty` order within a range and pairwise distinct | Primer3 `choose_pair_or_triple` while loop |
 | INV-03 | `ProductSize = reverse.Position + reverse.Sequence.Length - forward.Position` | The source computes product size directly from the chosen candidates |
 
 ## 3. Contract
@@ -56,7 +71,8 @@ bonus) is reported for information only and does not drive selection.
 | `template` | `DnaSequence` | required | Template DNA sequence |
 | `targetStart` | `int` | required | Start of the target region | Must satisfy `targetStart >= 0` |
 | `targetEnd` | `int` | required | Exclusive end of the target region (target = `[targetStart, targetEnd)`, Primer3 SEQUENCE_TARGET) | Must satisfy `targetEnd < template.Length` and `targetStart < targetEnd` |
-| `parameters` | `PrimerParameters?` | `PrimerDesigner.DefaultParameters` | Primer design thresholds | Defaults are `18-25` bp length, `40-60%` GC, `57-63°C` Tm, `OptimalLength = 20`, `OptimalTm = 60`, `MaxHomopolymer = 4`, `MaxDinucleotideRepeats = 4`, `Avoid3PrimeGC = false`, and `Check3PrimeStability = true` |
+| `parameters` | `PrimerParameters?` | `PrimerDesigner.DefaultParameters` | Primer design thresholds | Defaults are `18-25` bp length, `40-60%` GC, `57-63°C` Tm, `OptimalLength = 20`, `OptimalTm = 60`, `MaxHomopolymer = 4`, `MaxDinucleotideRepeats = 4`, `Avoid3PrimeGC = false`, and `Check3PrimeStability = true`; `PrimerDesigner.Primer3DefaultParameters` = Primer3's (18/20/27 nt, GC 20–80 %, poly-X 5, no dinucleotide or 3′-ΔG gate) |
+| `pairOptions` | `PrimerPairOptions?` | `PrimerPairOptions.Default` | Pair options: `ProductSizeRanges` (PRIMER_PRODUCT_SIZE_RANGE, default 100–300), `MaxTmDifference` (PRIMER_PAIR_MAX_DIFF_TM, default 5; `Primer3Defaults`: 100), `NumReturn` (PRIMER_NUM_RETURN, 5), `IncludedRegion` (SEQUENCE_INCLUDED_REGION), `ProductOptSize`/`ProductOptTm`/`ProductMinTm`/`ProductMaxTm`, `Weights` (PRIMER_PAIR_WT_*), `PickInternalOligo` + `InternalOligo` (PRIMER_PICK_INTERNAL_OLIGO, PRIMER_INTERNAL_*) | Primer3 `_pr_data_control` errors throw `ArgumentException` (weight without optimum, PRIMER_MAX_SIZE or PRIMER_INTERNAL_MAX_SIZE > min product size, NUM_RETURN < 1, target outside the included region) |
 
 ### 3.2 Output / Return Value
 
@@ -67,21 +83,26 @@ bonus) is reported for information only and does not drive selection.
 | `IsValid` | `bool` | Pair validity flag |
 | `Message` | `string` | Result explanation |
 | `ProductSize` | `int` | Predicted amplicon size |
+| `PairPenalty` | `double?` | PRIMER_PAIR_k_PENALTY (valid pair) |
+| `ProductTm` | `double?` | PRIMER_PAIR_k_PRODUCT_TM (`long_seq_tm`) |
+| `ComplAnyTh` / `ComplEndTh` | `double?` | PRIMER_PAIR_k_COMPL_ANY_TH / _COMPL_END_TH (thermodynamic screen) |
+| `InternalOligo` | `ProbeDesigner.Primer3Probe?` | PRIMER_INTERNAL_k_* (with `PickInternalOligo`) |
+
+`DesignPrimerPairs(...)` returns up to `NumReturn` such valid results, best first.
 
 ### 3.3 Preconditions and Validation
 
-`DesignPrimers(...)` throws `ArgumentException` when the requested target region is invalid. Forward candidates are searched up to 200 bp upstream of `targetStart`; reverse candidates are searched up to 200 bp downstream of `targetEnd`. Reverse-primer candidates are reverse-complemented before evaluation so that they are scored in primer orientation.
+`DesignPrimers(...)` throws `ArgumentNullException` for a null template and `ArgumentException` when the requested target region or the options are invalid. Forward candidates end at or before `targetStart` and reverse candidates start at or after `targetEnd`, both inside the included region (default: whole template); only positions that can form a product inside some product-size range are enumerated (Primer3 `pick_primer_range` additionally drops left primers starting past `n − min product` and right primers ending before `min product`; the further restriction is result-equivalent). Reverse-primer candidates are reverse-complemented before evaluation so that they are scored in primer orientation.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Define a forward search region up to 200 bp upstream of the target start.
-2. Define a reverse search region up to 200 bp downstream of the target end.
-3. Enumerate all candidate primers within the configured length range.
-4. Evaluate each candidate for GC content, Tm, homopolymers, dinucleotide repeats, hairpin potential, and 3' stability.
-5. Sort each side by Primer3 penalty; scan reverse × forward candidates with Primer3's pruning (stop a row once `penalty_f + penalty_r` exceeds the best pair found).
-6. Keep the lowest-penalty pair with Tm difference ≤ `5°C` and no primer-dimer; if none exists, return the individually best primers with `IsValid = false` and a message naming the violated constraint.
+1. Search region: included region, primers outside the target, product within the product-size ranges.
+2. Enumerate all candidate primers within the configured length range (reverse candidates reverse-complemented).
+3. Evaluate each candidate for GC content, Tm, homopolymers, dinucleotide repeats and 3′ stability (structure screen postponed).
+4. Sort each side by Primer3 penalty; scan reverse × forward candidates with Primer3's pruning (stop once `W_pr·(penalty_f + penalty_r)` exceeds the best pair found; stop at objective 0); characterize each pair once (cached): product size, product Tm, ΔTm, lazy primer structure, pair complementarity, internal oligo, objective.
+5. Keep the best pair; for `DesignPrimerPairs` mark it used and repeat until `NumReturn` pairs or no pair is left (then the next product-size range). If none exists, `DesignPrimers` returns the individually best primers with `IsValid = false` and a message naming the violated constraint.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -101,7 +122,7 @@ Parameter ranges documented in the original file and current source:
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `DesignPrimers` | `O(n²)` | `O(k)` | Candidate enumeration over positions and lengths |
+| `DesignPrimers` / `DesignPrimerPairs` | `O(c log c + p)` | `O(c + p)` | `c` candidates (positions × lengths in the product window), `p` characterized pairs (each up to 5 ntthal alignments; Primer3's pruning bounds `p`) |
 | `EvaluatePrimer` | `O(n)` | `O(1)` | Per-primer scan and helper calculations |
 
 ## 5. Implementation Notes
@@ -110,7 +131,9 @@ Parameter ranges documented in the original file and current source:
 
 **Implementation location:** [PrimerDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs)
 
-- `PrimerDesigner.DesignPrimers(DnaSequence, int, int, PrimerParameters?)`: Designs and validates a primer pair around a target region.
+- `PrimerDesigner.DesignPrimers(DnaSequence, int, int, PrimerParameters?, PrimerPairOptions?)`: Designs and validates the best primer pair around a target region.
+- `PrimerDesigner.DesignPrimerPairs(DnaSequence, int, int, PrimerParameters?, PrimerPairOptions?)`: PRIMER_NUM_RETURN ranked pairs.
+- `PrimerDesigner.CalculateProductMeltingTemperaturePrimer3(string, ...)`: Primer3 `long_seq_tm` product Tm.
 - `PrimerDesigner.EvaluatePrimer(string, int, bool, PrimerParameters?)`: Scores a single primer candidate.
 - `PrimerDesigner.CalculateMeltingTemperaturePrimer3(string, ...)`: Primer3-default primer Tm used by design.
 - `PrimerDesigner.CalculatePrimer3Penalty(...)`: Primer3 per-primer penalty used for ranking.
@@ -118,18 +141,19 @@ Parameter ranges documented in the original file and current source:
 
 ### 5.2 Current Behavior
 
-Forward primers are taken directly from the template; reverse primers are reverse-complemented before evaluation, and their `Position` is the leftmost template coordinate of the binding site. Per-primer hard constraints: length, GC%, Primer3-default Tm window, homopolymer, dinucleotide repeat, secondary structure (default `PrimerStructureScreen.Primer3Thermodynamic`: Primer3 ntthal self-any / self-end / hairpin Tm ≤ `MaxStructureTm` = 47 °C, evaluated lazily in the pair loop like Primer3's `characterize_pair`; `Heuristic`: `HasHairpinPotential`), 3′ ΔG (`< −9` kcal/mol flagged; note that the SantaLucia 5-mer ΔG never goes below −6.86, so this gate never fires — consistent with Primer3's default PRIMER_MAX_END_STABILITY = 100), optional GC clamp, and no non-ACGT base (Primer3 PRIMER_MAX_NS_ACCEPTED = 0). Pair selection is the exhaustive Primer3 pair search described in §2.2.
+Forward primers are taken directly from the template; reverse primers are reverse-complemented before evaluation, and their `Position` is the leftmost template coordinate of the binding site. Per-primer hard constraints: length, GC%, Primer3-default Tm window, homopolymer, dinucleotide repeat, secondary structure (default `PrimerStructureScreen.Primer3Thermodynamic`: Primer3 ntthal self-any / self-end / hairpin Tm ≤ `MaxStructureTm` = 47 °C, evaluated lazily in the pair loop like Primer3's `characterize_pair`; `Heuristic`: `HasHairpinPotential`), 3′ ΔG (`< −9` kcal/mol flagged; note that the SantaLucia 5-mer ΔG never goes below −6.86, so this gate never fires — consistent with Primer3's default PRIMER_MAX_END_STABILITY = 100), optional GC clamp, and no non-ACGT base (Primer3 PRIMER_MAX_NS_ACCEPTED = 0). Pair selection is the Primer3 pair search described in §2.2; the internal oligo reuses the `ProbeDesigner` Primer3 internal-oligo list (`EnumeratePrimer3InternalOligos`, shared with `DesignProbesPrimer3`).
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verified against primer3-py 2.3.1):**
 
 - Primer3 default Tm: bit-identical to `primer3.calc_tm` (max |Δ| = 0 over 3 000 random 2–45-mers, incl. self-complementary and > 36 nt).
-- Primer3 per-primer penalty and pair search: `DesignPrimers` returned exactly Primer3's `PRIMER_LEFT_0`/`PRIMER_RIGHT_0` in 553/553 random templates (3 seeds × 300) where Primer3's best pair also passes this library's extra screens (settings mirroring `DefaultParameters`, thermodynamic structure limits disabled).
+- Pair search with product-size ranges, PRIMER_NUM_RETURN, pair objective and internal oligo (audit round 1, 2026-10-01): with `Primer3DefaultParameters` + `PrimerPairOptions.Primer3Defaults`, `DesignPrimerPairs` reproduced `primer3.design_primers` (only SEQUENCE_TEMPLATE/SEQUENCE_TARGET set) for 1000/1000 random templates (150–700 bp, 4990 pairs; left/right position+length, PRIMER_PAIR_k_PENALTY, _PRODUCT_TM, _COMPL_ANY_TH, _COMPL_END_TH, _PRODUCT_SIZE, ranks 0–4, |Δ| ≤ 1e-9); with random non-default PRIMER_PAIR_WT_* / PRODUCT_OPT_* / PRODUCT_MIN/MAX_TM / PAIR_MAX_DIFF_TM / multi-range PRIMER_PRODUCT_SIZE_RANGE / SEQUENCE_INCLUDED_REGION settings and with PRIMER_PICK_INTERNAL_OLIGO = 1 (+ PRIMER_PAIR_WT_IO_PENALTY; PRIMER_INTERNAL_k position, penalty, Tm, self-any/self-end/hairpin Tm) the counts are in the PRIMER-DESIGN-001 F-entry of `docs/Validation/review-2026-09/B07.md`.
+- Primer3 per-primer penalty and pair search (before the audit, ±200 bp flanks): `DesignPrimers` returned exactly Primer3's `PRIMER_LEFT_0`/`PRIMER_RIGHT_0` in 553/553 random templates (3 seeds × 300) where Primer3's best pair also passes this library's extra screens (settings mirroring `DefaultParameters`, thermodynamic structure limits disabled).
 
-**Deviations from Primer3 defaults (documented):** length 18–25 (Primer3 18–27), GC 40–60 % (20–80 %), poly-X 4 (5), pair ΔTm ≤ 5 °C (100), dinucleotide-repeat limit (no Primer3 equivalent), no PRIMER_PRODUCT_SIZE_RANGE (the ±200 bp flanks bound the product). Structure limits are Primer3's default thermodynamic ones (PRIMER-STRUCT-001): with them `DesignPrimers` returned primer3-py's pair (same settings) in 574/600 random templates; the 26 differences all trace to ntthal engine values (PRIMER-DIMER-001 / PRIMER-HAIRPIN-001). After PRIMER-DIMER-001 (dimer engine bit-exact) a re-run on 1800 random templates (seeds 1–9 × 200) gave 1733 identical; all 67 differences trace to `calc_hairpin` values only (PRIMER-HAIRPIN-001). After PRIMER-HAIRPIN-001 (hairpin engine bit-exact) the same 1800 templates are 1800/1800 identical (primers and pair penalty).
+**Deviations from Primer3 defaults (documented; `Primer3DefaultParameters` / `PrimerPairOptions.Primer3Defaults` restore them):** length 18–25 (Primer3 18–27), GC 40–60 % (20–80 %), poly-X 4 (5), pair ΔTm ≤ 5 °C (100), dinucleotide-repeat limit (no Primer3 equivalent). The product-size range is Primer3's (default 100–300 bp; before audit round 1 the ±200 bp flanks bounded the product instead). Structure limits are Primer3's default thermodynamic ones (PRIMER-STRUCT-001): with them `DesignPrimers` returned primer3-py's pair (same settings) in 574/600 random templates; the 26 differences all trace to ntthal engine values (PRIMER-DIMER-001 / PRIMER-HAIRPIN-001). After PRIMER-DIMER-001 (dimer engine bit-exact) a re-run on 1800 random templates (seeds 1–9 × 200) gave 1733 identical; all 67 differences trace to `calc_hairpin` values only (PRIMER-HAIRPIN-001). After PRIMER-HAIRPIN-001 (hairpin engine bit-exact) the same 1800 templates are 1800/1800 identical (primers and pair penalty).
 
-**Not implemented:** mispriming libraries, internal oligos, multiple returned pairs, genome-wide specificity.
+**Not implemented:** mispriming libraries / template mispriming, position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_MIN_*_THREE_PRIME_DISTANCE ≥ 0, alignment-mode (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0) pair weights PRIMER_PAIR_WT_COMPL_ANY/_END, genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
 
@@ -139,13 +163,16 @@ Forward primers are taken directly from the template; reverse primers are revers
 |------|-------------------|-----------|
 | Invalid target region | Throws `ArgumentException` | Explicit source guard |
 | No valid forward or reverse candidates | Returns an invalid `PrimerPairResult` with null candidates | Explicit fallback in source |
-| No pair within 5 °C | Returns the individually best primers with `IsValid = false` | Pair compatibility requires `<= 5°C` |
+| No pair within `MaxTmDifference` (default 5 °C) | Returns the individually best primers with `IsValid = false` | PRIMER_PAIR_MAX_DIFF_TM |
+| No pair with a product size in any range | `IsValid = false`, message "No primer pair with a product size in … bp (PRIMER_PRODUCT_SIZE_RANGE)." | Primer3 "unacceptable product size" |
+| Included region (default: template) shorter than the smallest product size | `IsValid = false`, message "SEQUENCE_INCLUDED_REGION length < min PRIMER_PRODUCT_SIZE_RANGE" | Primer3 `_pr_data_control` per-sequence error (primer3-py raises it) |
+| `PickInternalOligo` and no acceptable oligo between the primers | Pair fails (Primer3 "no internal oligo") | `choose_internal_oligo` |
 | Primer-dimer detected for every pair | Returns `IsValid = false` | Pair compatibility requires no dimer signal |
 | Non-ACGT base in a candidate | Candidate invalid (Tm 0, issue "Tm not computable") | Primer3 PRIMER_MAX_NS_ACCEPTED = 0 |
 
 ### 6.2 Limitations
 
-There is no product-size range or mispriming check. The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
+There is no mispriming (library or template) check. The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
 
 ## 7. Examples and Related Material
 
@@ -163,5 +190,5 @@ Related material called out in the original document:
 3. [primer3.org/manual.html](https://primer3.org/manual.html) - Primer3 manual.
 4. SantaLucia JR (1998). "A unified view of polymer, dumbbell and oligonucleotide DNA nearest-neighbor thermodynamics", PNAS 95:1460-65.
 5. Untergasser A et al. (2012). "Primer3 — new capabilities and interfaces", NAR 40(15):e115.
-6. Primer3 source (primer3-org/primer3, `src/oligotm.c`: `oligotm`, `seqtm`, `long_seq_tm`, `divalent_to_monovalent`; `src/libprimer3.cc`: `choose_pair_or_triple`, `primer_rec_comp`, `compare_primer_pair`, `p_obj_fn`).
+6. Primer3 source (primer3-org/primer3, `src/oligotm.c`: `oligotm`, `seqtm`, `long_seq_tm`, `divalent_to_monovalent`; `src/libprimer3.cc`: `make_detection_primer_lists`, `pick_primer_range`, `choose_pair_or_triple`, `characterize_pair`, `obj_fn`, `choose_internal_oligo`, `primer_rec_comp`, `compare_primer_pair`, `p_obj_fn`, `_pr_data_control`, `pr_set_default_global_args_1`).
 7. von Ahsen N, Wittwer CT, Schütz E (2001). Clin Chem 47:1956-61 (divalent→monovalent equivalence).

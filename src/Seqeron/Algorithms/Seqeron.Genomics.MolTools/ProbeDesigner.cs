@@ -1145,14 +1145,48 @@ public static class ProbeDesigner
     {
         ArgumentNullException.ThrowIfNull(template);
         var s = settings ?? new Primer3ProbeSettings();
-        if (s.MinSize < 1 || s.MaxSize < s.MinSize || s.MaxSize > Primer3MaxOligoLength)
-            throw new ArgumentOutOfRangeException(nameof(settings),
-                $"Probe sizes must satisfy 1 ≤ MinSize ≤ MaxSize ≤ {Primer3MaxOligoLength}.");
+        ValidatePrimer3ProbeSettings(s, nameof(settings));
         if (numReturn < 0)
             throw new ArgumentOutOfRangeException(nameof(numReturn), "Must be ≥ 0.");
 
-        string seq = template.ToUpperInvariant();
-        int n = seq.Length;
+        var accepted = EnumeratePrimer3InternalOligos(template.ToUpperInvariant(), 0, template.Length, s, screenStructure: true);
+
+        // primer_rec_comp: quality ascending, then start descending, then length ascending.
+        accepted.Sort((a, b) =>
+        {
+            int c = a.Penalty.CompareTo(b.Penalty);
+            if (c != 0) return c;
+            c = b.Start.CompareTo(a.Start);
+            return c != 0 ? c : a.Length.CompareTo(b.Length);
+        });
+
+        return accepted.Count > numReturn ? accepted.GetRange(0, numReturn) : accepted;
+    }
+
+    // Primer3 settings check shared by the hybridization-probe picker and PrimerDesigner's
+    // PRIMER_PICK_INTERNAL_OLIGO path.
+    internal static void ValidatePrimer3ProbeSettings(Primer3ProbeSettings s, string paramName)
+    {
+        if (s.MinSize < 1 || s.MaxSize < s.MinSize || s.MaxSize > Primer3MaxOligoLength)
+            throw new ArgumentOutOfRangeException(paramName,
+                $"Probe sizes must satisfy 1 ≤ MinSize ≤ MaxSize ≤ {Primer3MaxOligoLength}.");
+    }
+
+    /// <summary>
+    /// Primer3 internal-oligo candidate list (<c>make_internal_oligo_list</c> → <c>pick_primer_range</c>
+    /// → <c>calc_and_check_oligo_features</c>, <c>OT_INTL</c>, thermodynamic mode) over
+    /// <c>seq[regionStart, regionEnd)</c>, in Primer3's enumeration order (3′ end descending, then length
+    /// ascending), with <see cref="Primer3Probe.Penalty"/> = <c>p_obj_fn</c> (internal-oligo weights).
+    /// With <paramref name="screenStructure"/> = true (PRIMER_TASK=pick_hyb_probe_only, a <c>primer_list</c>
+    /// output) the ntthal self-any / self-end / hairpin limits are applied while enumerating, exactly as
+    /// Primer3 does for list output (a too-stable self-dimer is a "five-prime problem" ending the extension);
+    /// with false (internal oligo for a primer pair, <c>primer_pairs</c> output) Primer3 postpones them to
+    /// <c>choose_internal_oligo</c>: the structure fields are then <see cref="double.NaN"/> and the caller
+    /// screens the oligo it picks (<see cref="PassesPrimer3ProbeStructure"/>).
+    /// </summary>
+    internal static List<Primer3Probe> EnumeratePrimer3InternalOligos(
+        string seq, int regionStart, int regionEnd, Primer3ProbeSettings s, bool screenStructure)
+    {
         var weights = PrimerDesigner.DefaultPrimer3Weights; // = Primer3 o_args.weights defaults
         var optima = new Primer3Optima(s.OptTm, s.OptSize, PrimerDesigner.DefaultPrimer3Optima.OptGcPercent);
         var accepted = new List<Primer3Probe>();
@@ -1161,12 +1195,12 @@ public static class ProbeDesigner
         // 5' extension can cure — too many Ns, poly-X, self-any (Primer3 five_prime_problem bits) — ends the
         // extension loop for that 3' end; checks run in calc_and_check_oligo_features order and stop at the
         // first failure (Ns, GC, poly-X, Tm, self-any, self-end, hairpin).
-        for (int end = n - 1; end >= s.MinSize - 1; end--)
+        for (int end = regionEnd - 1; end >= regionStart + s.MinSize - 1; end--)
         {
             for (int len = s.MinSize; len <= s.MaxSize; len++)
             {
                 int start = end - len + 1;
-                if (start < 0)
+                if (start < regionStart)
                     break;
 
                 string oligo = seq.Substring(start, len);
@@ -1194,30 +1228,40 @@ public static class ProbeDesigner
                 if (tm < s.MinTm || tm > s.MaxTm)
                     continue;
 
-                var st = PrimerDesigner.CalculatePrimer3OligoStructure(
-                    oligo, s.MonovalentMillimolar, s.DivalentMillimolar, s.DntpMillimolar, s.DnaConcentrationNanomolar)!.Value;
-                if (st.SelfAnyTh > s.MaxSelfAnyTh)
-                    break; // OP_HIGH_SELF_ANY: five-prime problem
-                if (st.SelfEndTh > s.MaxSelfEndTh || st.HairpinTh > s.MaxHairpinTh)
-                    continue;
+                double selfAny = double.NaN, selfEnd = double.NaN, hairpin = double.NaN;
+                if (screenStructure)
+                {
+                    var st = ComputePrimer3ProbeStructure(oligo, s);
+                    if (st.SelfAnyTh > s.MaxSelfAnyTh)
+                        break; // OP_HIGH_SELF_ANY: five-prime problem
+                    if (st.SelfEndTh > s.MaxSelfEndTh || st.HairpinTh > s.MaxHairpinTh)
+                        continue;
+                    (selfAny, selfEnd, hairpin) = (st.SelfAnyTh, st.SelfEndTh, st.HairpinTh);
+                }
 
                 double penalty = PrimerDesigner.CalculatePrimer3Penalty(
                     new Primer3PenaltyInputs(tm, len, gcPercent), weights, optima);
-                accepted.Add(new Primer3Probe(oligo, start, len, tm, gcPercent,
-                    st.SelfAnyTh, st.SelfEndTh, st.HairpinTh, penalty));
+                accepted.Add(new Primer3Probe(oligo, start, len, tm, gcPercent, selfAny, selfEnd, hairpin, penalty));
             }
         }
+        return accepted;
+    }
 
-        // primer_rec_comp: quality ascending, then start descending, then length ascending.
-        accepted.Sort((a, b) =>
-        {
-            int c = a.Penalty.CompareTo(b.Penalty);
-            if (c != 0) return c;
-            c = b.Start.CompareTo(a.Start);
-            return c != 0 ? c : a.Length.CompareTo(b.Length);
-        });
+    private static PrimerDesigner.Primer3OligoStructure ComputePrimer3ProbeStructure(string oligo, Primer3ProbeSettings s) =>
+        PrimerDesigner.CalculatePrimer3OligoStructure(
+            oligo, s.MonovalentMillimolar, s.DivalentMillimolar, s.DntpMillimolar, s.DnaConcentrationNanomolar)!.Value;
 
-        return accepted.Count > numReturn ? accepted.GetRange(0, numReturn) : accepted;
+    /// <summary>
+    /// Primer3 <c>choose_internal_oligo</c> postponed checks of one internal oligo (<c>oligo_compl_thermod</c>:
+    /// self-any and self-end Tm, then <c>oligo_hairpin</c>) at the settings' conditions; returns the oligo
+    /// with its structure values filled in, or <c>null</c> when a limit is exceeded.
+    /// </summary>
+    internal static Primer3Probe? PassesPrimer3ProbeStructure(Primer3Probe probe, Primer3ProbeSettings s)
+    {
+        var st = ComputePrimer3ProbeStructure(probe.Sequence, s);
+        if (st.SelfAnyTh > s.MaxSelfAnyTh || st.SelfEndTh > s.MaxSelfEndTh || st.HairpinTh > s.MaxHairpinTh)
+            return null;
+        return probe with { SelfAnyTh = st.SelfAnyTh, SelfEndTh = st.SelfEndTh, HairpinTh = st.HairpinTh };
     }
 
     // Tyagi & Kramer (1996) / Marras et al. design rule: the probe–target hybrid Tm and the stem
