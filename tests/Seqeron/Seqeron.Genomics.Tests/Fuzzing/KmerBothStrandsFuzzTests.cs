@@ -54,9 +54,11 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// unless they are the same string (K-mer_Counting.md §5.3 "Intentionally simplified:
 /// Both-strand counting sums forward and reverse-complement counts rather than
 /// canonicalizing… forward and reverse-complement words remain separate dictionary
-/// entries unless they are identical strings"; §5.3 "Not implemented: Canonical
-/// reverse-complement collapsing"). The tests assert the DOCUMENTED both-strands
-/// contract, not a canonical-collapse rule.
+/// entries unless they are identical strings"). Canonical collapsing is a separate
+/// API since B06 F10 (`CountKmers(sequence, k, new KmerCountingOptions(Canonical: true))`,
+/// Jellyfish `count -C`), and `CountKmersBothStrands(sequence, k, options)` rejects
+/// `Canonical` (B06 F25; K-mer_Counting.md §5.3). The tests assert the DOCUMENTED
+/// both-strands contract, not a canonical-collapse rule.
 ///
 /// THE KEY INVARIANT (KmerAnalyzer.cs lines 466): the total over ALL k-mer counts is
 /// exactly 2·(L − k + 1) — the forward strand contributes L − k + 1 windows and the
