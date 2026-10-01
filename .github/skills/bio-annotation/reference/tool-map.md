@@ -82,14 +82,14 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
 | `discover_motifs` | X | De novo overrepresented k-mer motifs | `MotifFinder.DiscoverMotifs` |
-| `oligo_analysis` | X | RSAT oligo-analysis: occ_P/occ_E/occ_sig vs equiprobable/Bernoulli/Markov/lexicon background, 1 or 2 strands; options zscore, -pseudo, -oneN/-onedeg, -calibN/-calib1, multi-sequence | `MotifFinder.DiscoverMotifs` (RSAT overload) / `MotifFinder.AnalyzeOligos` |
+| `oligo_analysis` | X | RSAT oligo-analysis: occ_P/occ_E/occ_sig vs equiprobable/Bernoulli/Markov/lexicon background, 1 or 2 strands; options zscore, -pseudo, -oneN/-onedeg, -calibN/-calib1, multi-sequence, protein / free-text input (`sequenceType`, -seqtype prot|other) | `MotifFinder.DiscoverMotifs` (RSAT overload) / `MotifFinder.AnalyzeOligos` / `MotifFinder.AnalyzeOligoStrings` |
 | `dyad_analysis` | X | RSAT dyad-analysis: spaced dyads M1 n{s} M2 (any/dr/ir/rep), monad-based exp_freq, z-score, occ_P/occ_E/occ_sig | `MotifFinder.AnalyzeDyads` |
 | `find_exact_motif` | X | Exact motif positions (suffix tree) | `MotifFinder.FindExactMotif` |
 | `find_motif` | X | Exact motif occurrences | `GenomicAnalyzer.FindMotif` |
 | `find_degenerate_motif` | X | IUPAC-degenerate matches | `MotifFinder.FindDegenerateMotif` |
 | `find_known_motifs` | X | Search a set of known motifs at once | `GenomicAnalyzer.FindKnownMotifs` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
-| `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance | `MotifFinder.FindSharedMotifs` (RSAT overload) |
+| `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |
 | `find_regulatory_elements_both_strands` | X | Regulatory scan with strand; orientation-independent elements on both strands | `MotifFinder.FindRegulatoryElements(seq, bothStrands)` |
 | `find_promoter_elements_by_matrix` | X | Bucher/JASPAR TATA, Inr, CCAAT, GC-box weight matrices at a background FPR | `MotifFinder.FindPromoterElementsByMatrix` |

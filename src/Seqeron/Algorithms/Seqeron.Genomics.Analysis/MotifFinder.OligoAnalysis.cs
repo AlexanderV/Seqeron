@@ -212,23 +212,7 @@ public static partial class MotifFinder
             {
                 var pattern = new OligoPattern(word, rc, new List<int>());
                 double logP = PatternLogProbability(pattern, logWordProbability);
-                double p = Math.Exp(logP);
-                double oneSequence = -StatisticsHelper.ExpM1(positionsPerSequence * StatisticsHelper.Log1P(-p));
-                double logOneSequence = oneSequence > 0
-                    ? Math.Log(oneSequence)
-                    : Math.Log(positionsPerSequence) + logP; // P₁ ≈ π·p when p underflows
-                double logMsP = StatisticsHelper.LogBinomialUpperTail(indices.Count, sequenceCount, logOneSequence);
-                double logMsE = logMsP + logNpo;
-                motifs.Add(new SignificantSharedMotif(
-                    Sequence: word,
-                    ReverseComplement: both ? rc : null,
-                    SequenceIndices: indices.AsReadOnly(),
-                    Prevalence: (double)indices.Count / sequenceCount,
-                    ExpectedFrequency: p,
-                    ExpectedMatchingSequences: sequenceCount * oneSequence,
-                    MatchingSequenceProbability: Math.Exp(logMsP),
-                    MatchingSequenceEValue: Math.Exp(logMsE),
-                    MatchingSequenceSignificance: -logMsE / Ln10));
+                motifs.Add(SharedMotifStatistics(word, both ? rc : null, indices, sequenceCount, positionsPerSequence, logP, logNpo));
             }
         }
 
@@ -239,6 +223,32 @@ public static partial class MotifFinder
             SequenceCount: seqs.Count,
             PossiblePositions: possiblePositions,
             PossibleOligos: PossibleOligos(k, both));
+    }
+
+    /// <summary>
+    /// RSAT <c>CalcExpected</c> / <c>CalcProba</c> matching-sequence statistics of one pattern with ln exp_freq
+    /// <paramref name="logP"/>: P₁ = 1 − (1 − p)^π, exp_ms = S·P₁, ms_P = P(X ≥ mseq) with X ~ Bin(S, P₁), ms_E = ms_P·NPO.
+    /// </summary>
+    private static SignificantSharedMotif SharedMotifStatistics(string word, string? reverseComplement, List<int> indices,
+        int sequenceCount, double positionsPerSequence, double logP, double logNpo)
+    {
+        double p = Math.Exp(logP);
+        double oneSequence = -StatisticsHelper.ExpM1(positionsPerSequence * StatisticsHelper.Log1P(-p));
+        double logOneSequence = oneSequence > 0
+            ? Math.Log(oneSequence)
+            : Math.Log(positionsPerSequence) + logP; // P₁ ≈ π·p when p underflows
+        double logMsP = StatisticsHelper.LogBinomialUpperTail(indices.Count, sequenceCount, logOneSequence);
+        double logMsE = logMsP + logNpo;
+        return new SignificantSharedMotif(
+            Sequence: word,
+            ReverseComplement: reverseComplement,
+            SequenceIndices: indices.AsReadOnly(),
+            Prevalence: (double)indices.Count / sequenceCount,
+            ExpectedFrequency: p,
+            ExpectedMatchingSequences: sequenceCount * oneSequence,
+            MatchingSequenceProbability: Math.Exp(logMsP),
+            MatchingSequenceEValue: Math.Exp(logMsE),
+            MatchingSequenceSignificance: -logMsE / Ln10);
     }
 
     /// <summary>A word (or reverse-complement pair) with its 0-based positions on the given strand.</summary>
@@ -634,6 +644,16 @@ public sealed class OligoBackgroundModel
     /// <summary>True for <see cref="Lexicon"/>.</summary>
     internal bool IsLexicon => _kind == ModelKind.Lexicon;
 
+    /// <summary>True for the models estimated from the input or alphabet-independent (equiprobable, input Bernoulli, input Markov, lexicon).</summary>
+    internal bool IsAlphabetGeneric => _kind is ModelKind.Equiprobable or ModelKind.BernoulliFromInput
+        or ModelKind.MarkovFromInput or ModelKind.Lexicon;
+
+    /// <summary>True for the Markov models (RSAT leaves <c>%residue_proba</c> empty for them).</summary>
+    internal bool IsMarkov => _kind is ModelKind.MarkovFromInput or ModelKind.MarkovTable;
+
+    /// <summary>True for <see cref="Equiprobable"/>.</summary>
+    internal bool IsEquiprobable => _kind == ModelKind.Equiprobable;
+
     /// <summary>
     /// Residue probabilities (A, C, G, T) RSAT <c>OverlapCoeff</c> uses for this model: the RSAT Bernoulli residue
     /// probabilities when the model is a Bernoulli one (equiprobable, given, or estimated from the input — the RSAT
@@ -662,7 +682,10 @@ public sealed class OligoBackgroundModel
         {
             if (s.Length < k) continue;
             foreach (var (residue, n) in s.AsSpan().CountKmersSpan(1))
-                counts[MotifFinder.AcgtIndex(residue[0])] += n;
+            {
+                int b = MotifFinder.AcgtIndex(residue[0]);
+                if (b >= 0) counts[b] += n; // RSAT: residues outside the DNA alphabet are discarded
+            }
         }
         double total = counts.Sum();
         var q = new double[4];
@@ -709,6 +732,84 @@ public sealed class OligoBackgroundModel
             default:
                 return MarkovTableLogProbability;
         }
+    }
+
+    /// <summary>
+    /// ln exp_freq(word) for words of an RSAT <c>-seqtype</c> alphabet (sequences prepared by
+    /// <see cref="MotifFinder.AnalyzeOligoStrings"/>): equiprobable 1 / |A|^k; input Bernoulli over the residues of the
+    /// alphabet; input Markov chains from RSAT's sub-word counts (<see cref="RsatSubWordLogFrequencies"/>); DNA-only
+    /// models (given Bernoulli, Markov table) as for DNA.
+    /// </summary>
+    internal Func<string, double> CreateLogProbability(IReadOnlyList<string> sequences, int k, bool bothStrands, OligoResidueAlphabet alphabet)
+    {
+        switch (_kind)
+        {
+            case ModelKind.Equiprobable:
+            {
+                double logP = alphabet.IsDna ? -k * Math.Log(4.0) : -alphabet.LogPossibleOligos(k);
+                return _ => logP;
+            }
+            case ModelKind.BernoulliFromInput:
+            {
+                if (alphabet.IsDna)
+                    return ResidueProduct(InputResidueProbabilities(sequences, k, bothStrands));
+                var logQ = alphabet.InputResidueProbabilities(sequences, k)
+                    .ToDictionary(e => e.Key, e => Math.Log(e.Value));
+                return word =>
+                {
+                    double sum = 0;
+                    foreach (char c in word) sum += logQ.TryGetValue(c, out double l) ? l : double.NegativeInfinity;
+                    return sum;
+                };
+            }
+            case ModelKind.MarkovFromInput:
+            {
+                int m = _order;
+                var longer = RsatSubWordLogFrequencies(sequences, k, m + 1, alphabet);
+                var shorter = m > 0 ? RsatSubWordLogFrequencies(sequences, k, m, alphabet) : null;
+                return word =>
+                {
+                    double sum = 0;
+                    for (int o = 0; o + m < word.Length; o++)
+                    {
+                        if (!longer.TryGetValue(word.Substring(o, m + 1), out double lf))
+                            return double.NegativeInfinity;
+                        sum += lf;
+                        if (m > 0 && o > 0) sum -= shorter![word.Substring(o, m)];
+                    }
+                    return sum;
+                };
+            }
+            default:
+                return CreateLogProbability(sequences, k, bothStrands);
+        }
+    }
+
+    /// <summary>
+    /// RSAT <c>CountOligos</c> + <c>CalcSubWordFrequencies</c> sub-word frequencies for <c>-markov</c>: ln(count / total) of the
+    /// w-mers (w &lt; k) that are prefixes of the valid k-mer windows of the sequences of length ≥ k, plus the w-mers starting
+    /// at L − k + 1 … L − w (RSAT's trailing sub-words, counted unfiltered; their total includes residues outside the
+    /// alphabet). Without such residues these are all overlapping w-mers.
+    /// </summary>
+    private static Dictionary<string, double> RsatSubWordLogFrequencies(IReadOnlyList<string> sequences, int k, int w, OligoResidueAlphabet alphabet)
+    {
+        var counts = new Dictionary<string, long>(StringComparer.Ordinal);
+        long total = 0;
+        foreach (string s in sequences)
+        {
+            if (s.Length < k) continue;
+            int[] invalid = alphabet.InvalidPrefixCounts(s);
+            for (int pos = 0; pos + w <= s.Length; pos++)
+            {
+                bool windowPrefix = pos + k <= s.Length;
+                if (windowPrefix && invalid[pos + k] != invalid[pos]) continue; // prefix of a discarded window
+                string x = s.Substring(pos, w);
+                counts[x] = counts.GetValueOrDefault(x) + 1;
+                total++;
+            }
+        }
+        double logTotal = Math.Log(total);
+        return counts.ToDictionary(e => e.Key, e => Math.Log(e.Value) - logTotal, StringComparer.Ordinal);
     }
 
     private static Func<string, double> ResidueProduct(double[] q)
@@ -850,4 +951,8 @@ public sealed record SharedMotifAnalysisResult(
     OligoStrandMode Strands,
     int SequenceCount,
     long PossiblePositions,
-    double PossibleOligos);
+    double PossibleOligos)
+{
+    /// <summary>Degenerate-word mode (RSAT <c>-oneN</c> / <c>-onedeg</c>); <see cref="OligoDegeneracy.None"/> for plain words.</summary>
+    public OligoDegeneracy Degeneracy { get; init; } = OligoDegeneracy.None;
+}

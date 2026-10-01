@@ -1529,7 +1529,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "oligo_analysis", Title = "Motifs — RSAT oligo-analysis Significance", ReadOnly = true)]
-    [Description("RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equiprobable, input Bernoulli, given Bernoulli, input Markov order m, Markov table, or lexicon), observed/expected ratio and binomial significance occ_P / occ_E / occ_sig; single strand or reverse-complement pairs (-2str); overlapping or non-overlapping (-noov) counts. RSAT options: z-scores with the expected variance and overlap coefficient (-return zscore), pseudo-frequency on expected frequencies (-pseudo), degenerate words with one N or one IUPAC code (-oneN / -onedeg), calibration tables with negative-binomial / Poisson P-values (-calibN / -calib1).")]
+    [Description("RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equiprobable, input Bernoulli, given Bernoulli, input Markov order m, Markov table, or lexicon), observed/expected ratio and binomial significance occ_P / occ_E / occ_sig; single strand or reverse-complement pairs (-2str); overlapping or non-overlapping (-noov) counts. RSAT options: z-scores with the expected variance and overlap coefficient (-return zscore), pseudo-frequency on expected frequencies (-pseudo), degenerate words with one N or one IUPAC code (-oneN / -onedeg), calibration tables with negative-binomial / Poisson P-values (-calibN / -calib1); protein or free-text input with sequenceType (-seqtype prot|other).")]
     public static OligoAnalysisResultDto OligoAnalysis(
         [Description("DNA sequence.")] string sequence,
         [Description("Oligonucleotide length k (>= 1, default 6).")] int k = 6,
@@ -1547,8 +1547,20 @@ public class AnalysisTools
         [Description("RSAT -pseudo: pseudo-frequency psi in [0,1] on the expected frequencies, exp_freq = (1 - psi)·exp_freq + psi / possibleOligos per strand (default 0 = off).")] double expectedFrequencyPseudo = 0,
         [Description("Degenerate words: 'none' (default), 'oneN' (-oneN, one N per word) or 'onedeg' (-onedeg, one IUPAC code R Y W S M K H B V D N per word).")] string degenerate = "none",
         [Description("RSAT calibration table text (-calibN / -calib1; RSAT fit-distribution layout: word [id] mean sd variance ...). When given, P-values use a negative binomial (mean < variance) or Poisson fitted to the table.")] string? calibrationTable = null,
-        [Description("Calibration mode: 'set' (-calibN, default) or 'sequence' (-calib1, mean and variance multiplied by the number of sequences).")] string calibrationMode = "set")
+        [Description("Calibration mode: 'set' (-calibN, default) or 'sequence' (-calib1, mean and variance multiplied by the number of sequences).")] string calibrationMode = "set",
+        [Description("RSAT -seqtype: 'dna' (default), 'protein' (20-amino-acid alphabet; windows with other residues such as X or * are discarded) or 'other' (any text; alphabet = the observed residues). Protein / other: single strand, no degenerate words or calibration, background input / equiprobable / markov / lexicon; case and white space are folded.")] string sequenceType = "dna")
     {
+        var seqType = (sequenceType ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "dna" => global::Seqeron.Genomics.Analysis.OligoSequenceType.Dna,
+            "protein" or "prot" => global::Seqeron.Genomics.Analysis.OligoSequenceType.Protein,
+            "other" => global::Seqeron.Genomics.Analysis.OligoSequenceType.Other,
+            _ => throw new ArgumentException("sequenceType must be 'dna', 'protein' or 'other'.", nameof(sequenceType)),
+        };
+        if (seqType != global::Seqeron.Genomics.Analysis.OligoSequenceType.Dna)
+            return OligoAnalysisResidueAlphabet(sequence, k, minCount, background, markovOrder, strands, countOverlapping,
+                extraSequences, zscore, expectedFrequencyPseudo, degenerate, calibrationTable, seqType);
+
         var dna = RequireDna(sequence, nameof(sequence));
         if (k < 1)
             throw new ArgumentOutOfRangeException(nameof(k), "k must be >= 1.");
@@ -1644,6 +1656,75 @@ public class AnalysisTools
         };
     }
 
+    // oligo_analysis with sequenceType 'protein' / 'other' (RSAT -seqtype prot|other): MotifFinder.AnalyzeOligoStrings.
+    private static OligoAnalysisResultDto OligoAnalysisResidueAlphabet(
+        string sequence, int k, int minCount, string background, int markovOrder, string strands, bool countOverlapping,
+        string[]? extraSequences, bool zscore, double expectedFrequencyPseudo, string degenerate, string? calibrationTable,
+        global::Seqeron.Genomics.Analysis.OligoSequenceType seqType)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (k < 1)
+            throw new ArgumentOutOfRangeException(nameof(k), "k must be >= 1.");
+        if (!(expectedFrequencyPseudo >= 0 && expectedFrequencyPseudo <= 1))
+            throw new ArgumentOutOfRangeException(nameof(expectedFrequencyPseudo), "expectedFrequencyPseudo must be in [0, 1].");
+        string type = seqType == global::Seqeron.Genomics.Analysis.OligoSequenceType.Protein ? "protein" : "other";
+        if (calibrationTable is not null)
+            throw new ArgumentException($"Calibration tables are DNA word tables; not available for sequenceType '{type}'.", nameof(calibrationTable));
+        if (!string.Equals((degenerate ?? "none").Trim(), "none", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"Degenerate words use IUPAC nucleotide codes; not available for sequenceType '{type}'.", nameof(degenerate));
+        var bgName = (background ?? string.Empty).Trim().ToLowerInvariant();
+        if (bgName is not ("input" or "equiprobable" or "markov" or "lexicon"))
+            throw new ArgumentException($"sequenceType '{type}' supports background 'input', 'equiprobable', 'markov' or 'lexicon'.", nameof(background));
+        var bg = ToOligoBackground(bgName, markovOrder, null, null, 0.01, false);
+        var mode = ToOligoStrandMode(strands);
+        if (mode == global::Seqeron.Genomics.Analysis.OligoStrandMode.Both)
+            throw new ArgumentException($"sequenceType '{type}' counts a single strand (RSAT -seqtype {type}).", nameof(strands));
+
+        var list = new List<string> { sequence };
+        foreach (var extra in extraSequences ?? Array.Empty<string>())
+        {
+            if (extra is null)
+                throw new ArgumentException("extraSequences cannot contain null.", nameof(extraSequences));
+            list.Add(extra);
+        }
+
+        var report = global::Seqeron.Genomics.Analysis.MotifFinder.AnalyzeOligoStrings(list, k,
+            new global::Seqeron.Genomics.Analysis.OligoAnalysisOptions
+            {
+                MinCount = minCount,
+                Background = bg,
+                CountOverlapping = countOverlapping,
+                PseudoFrequency = expectedFrequencyPseudo,
+                SequenceType = seqType,
+            });
+        var items = report.Patterns
+            .Where(p => p.FittedDistribution != global::Seqeron.Genomics.Analysis.OligoFittedDistribution.None)
+            .Select(p => new OligoMotifItem(
+                p.Pattern, null, p.Occurrences, p.Positions.Select(o => o.Position).ToArray(),
+                p.ExpectedFrequency, p.ExpectedOccurrences, FiniteOrNull(p.Ratio),
+                p.OccurrenceProbability, p.OccurrenceEValue, p.OccurrenceSignificance)
+            {
+                SequenceIndices = p.Positions.Select(o => o.SequenceIndex).ToArray(),
+                Overlaps = p.Overlaps,
+                ObservedFrequency = p.ObservedFrequency,
+                ExpectedVariance = zscore ? FiniteOrNull(p.ExpectedVariance) : null,
+                OverlapCoefficient = zscore ? FiniteOrNull(p.OverlapCoefficient) : null,
+                ZScore = zscore ? FiniteOrNull(p.ZScore) : null,
+                FittedDistribution = p.FittedDistribution.ToString(),
+                LexiconSegmentation = p.LexiconSegmentation is { } seg ? $"{seg.Prefix}|{seg.Suffix}" : null,
+            })
+            .ToArray();
+        return new OligoAnalysisResultDto(items, report.OligoLength, StrandName(report.Strands), report.CountOverlapping,
+            report.TotalOccurrences, report.TestedPatterns, FiniteOrNull(report.PossibleOligos))
+        {
+            SequenceCount = report.SequenceCount,
+            Degenerate = "none",
+            SequenceType = type,
+            AlphabetSize = report.AlphabetSize,
+        };
+    }
+
     [McpServerTool(Name = "dyad_analysis", Title = "Motifs — RSAT dyad-analysis (Spaced Dyads)", ReadOnly = true)]
     [Description("RSAT dyad-analysis: over-represented spaced dyads M1 n{s} M2 (two monads of length m separated by s unspecified residues, s in [minSpacing, maxSpacing]) in DNA sequences — any dyad, direct repeats (dr), inverted repeats (ir) or both (rep); expected frequency from the input monad frequencies (or a monad / dyad frequency table), expected occurrences, z-score, and binomial significance occ_P / occ_E / occ_sig over the T_s possible positions. RSAT defaults: m = 3, spacing 0-20, both strands, non-overlapping counts.")]
     public static DyadAnalysisResultDto DyadAnalysis(
@@ -1712,7 +1793,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "shared_motifs_significance", Title = "Motifs — Shared Motifs Significance (RSAT)", ReadOnly = true)]
-    [Description("RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA sequences, with expected matching sequences exp_ms and binomial significance ms_P / ms_E / ms_sig under a background model.")]
+    [Description("RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA sequences, with expected matching sequences exp_ms and binomial significance ms_P / ms_E / ms_sig under a background model; optionally degenerate words with one N or one IUPAC code (-oneN / -onedeg).")]
     public static SharedMotifSignificanceResult SharedMotifsSignificance(
         [Description("DNA sequences.")] string[] sequences,
         [Description("Word length k (>= 1, default 6).")] int k = 6,
@@ -1723,7 +1804,8 @@ public class AnalysisTools
         [Description("(m+1)-mer frequency table for background 'markov_table'.")] Dictionary<string, double>? oligoFrequencies = null,
         [Description("Pseudo-frequency in [0,1] for background 'markov_table' (default 0.01).")] double pseudoFrequency = 0.01,
         [Description("The 'markov_table' frequencies are strand-insensitive pair frequencies (default false).")] bool strandInsensitive = false,
-        [Description("Strands: 'single' (default) or 'both' (reverse-complement pairs).")] string strands = "single")
+        [Description("Strands: 'single' (default) or 'both' (reverse-complement pairs).")] string strands = "single",
+        [Description("Degenerate words: 'none' (default), 'oneN' (-oneN, one N per word) or 'onedeg' (-onedeg, one IUPAC code R Y W S M K H B V D N per word); a sequence matches a degenerate word when one of its k-mers matches it.")] string degenerate = "none")
     {
         if (sequences is null || sequences.Length == 0)
             throw new ArgumentException("At least one sequence is required", nameof(sequences));
@@ -1731,12 +1813,21 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(k), "k must be >= 1.");
         if (minSequences < 1)
             throw new ArgumentOutOfRangeException(nameof(minSequences), "minSequences must be >= 1.");
+        var degeneracy = (degenerate ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "none" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.None,
+            "onen" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneN,
+            "onedeg" => global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneDegenerate,
+            _ => throw new ArgumentException("degenerate must be 'none', 'oneN' or 'onedeg'.", nameof(degenerate)),
+        };
 
         var dnaList = sequences.Select(s => RequireDna(s, nameof(sequences))).ToList();
         var bg = ToOligoBackground(background, markovOrder, residueFrequencies, oligoFrequencies, pseudoFrequency, strandInsensitive);
         var mode = ToOligoStrandMode(strands);
 
-        var r = global::Seqeron.Genomics.Analysis.MotifFinder.FindSharedMotifs(dnaList, k, minSequences, bg, mode);
+        var r = degeneracy == global::Seqeron.Genomics.Analysis.OligoDegeneracy.None
+            ? global::Seqeron.Genomics.Analysis.MotifFinder.FindSharedMotifs(dnaList, k, minSequences, bg, mode)
+            : global::Seqeron.Genomics.Analysis.MotifFinder.FindSharedMotifs(dnaList, k, minSequences, bg, mode, 0.0, degeneracy);
         var items = r.Motifs
             .Select(m => new SharedMotifSignificanceItem(
                 m.Sequence, m.ReverseComplement, m.SequenceIndices.ToArray(), m.Prevalence,
@@ -1744,7 +1835,15 @@ public class AnalysisTools
                 FiniteOrNull(m.MatchingSequenceEValue), FiniteOrNull(m.MatchingSequenceSignificance)))
             .ToArray();
         return new SharedMotifSignificanceResult(items, r.OligoLength, StrandName(r.Strands), r.SequenceCount,
-            r.PossiblePositions, FiniteOrNull(r.PossibleOligos));
+            r.PossiblePositions, FiniteOrNull(r.PossibleOligos))
+        {
+            Degenerate = degeneracy switch
+            {
+                global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneN => "oneN",
+                global::Seqeron.Genomics.Analysis.OligoDegeneracy.OneDegenerate => "onedeg",
+                _ => null,
+            },
+        };
     }
 
     private static global::Seqeron.Genomics.Analysis.PositionWeightMatrix RequirePwm(PwmInput pwm)

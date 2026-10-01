@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "MotifFinder.FindSharedMotifs",
   "docRef": "Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs#L140",
-  "description": "RSAT `oligo-analysis -return mseq,proba` (the RSAT overload of `MotifFinder.FindSharedMotifs`): for each word (or reverse-complement pair with `strands` = `both`) present in at least `minSequences` of the S input sequences, the expected frequency, the expected number of matching sequences exp_ms = S·(1 − (1 − p)^(nb_pos/S)), and the binomial significance ms_P = P(X ≥ mseq), X ~ Bin(S, exp_ms/S), ms_E = ms_P × possible oligos, ms_sig = −log10 ms_E. Same background models as `oligo_analysis`. Values beyond the double range are returned as null.",
+  "description": "RSAT `oligo-analysis -return mseq,proba` (the RSAT overload of `MotifFinder.FindSharedMotifs`): for each word (or reverse-complement pair with `strands` = `both`) present in at least `minSequences` of the S input sequences, the expected frequency, the expected number of matching sequences exp_ms = S·(1 − (1 − p)^(nb_pos/S)), and the binomial significance ms_P = P(X ≥ mseq), X ~ Bin(S, exp_ms/S), ms_E = ms_P × possible oligos, ms_sig = −log10 ms_E. Same background models as `oligo_analysis`. Values beyond the double range are returned as null. `degenerate` = `oneN` / `onedeg` (RSAT `-oneN` / `-onedeg` with `-return mseq,proba`; `MotifFinder.FindSharedMotifs(…, pseudoFrequency, OligoDegeneracy)`): words with one N or one IUPAC code (R Y W S M K H B V D N); a sequence matches a degenerate word when one of its k-mers matches it (mseq = union of the matching sequences of its words), exp_freq = Σ over the matching words, NPO = k·|codes|·4^(k−1) (pairs with `-2str`).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -84,6 +84,16 @@
           "both"
         ],
         "default": "single"
+      },
+      "degenerate": {
+        "type": "string",
+        "enum": [
+          "none",
+          "oneN",
+          "onedeg"
+        ],
+        "default": "none",
+        "description": "'none' (default), 'oneN' (RSAT -oneN) or 'onedeg' (RSAT -onedeg: one of R Y W S M K H B V D N per word); a sequence matches a degenerate word when one of its k-mers matches it"
       }
     },
     "required": [
@@ -165,6 +175,12 @@
           "number",
           "null"
         ]
+      },
+      "degenerate": {
+        "type": [
+          "string",
+          "null"
+        ]
       }
     },
     "required": [
@@ -199,6 +215,10 @@
     {
       "code": 1005,
       "message": "Strands must be 'single' or 'both'"
+    },
+    {
+      "code": 1006,
+      "message": "degenerate must be 'none', 'oneN' or 'onedeg'."
     }
   ],
   "examples": [
@@ -267,6 +287,120 @@
         "sequenceCount": 4,
         "possiblePositions": 33,
         "possibleOligos": 256
+      }
+    },
+    {
+      "name": "RSAT -l 3 -2str -oneN -return mseq,proba -lth mseq 3",
+      "input": {
+        "sequences": [
+          "ACGTACGGATCC",
+          "ATGCATGAAC",
+          "ACGATGTT"
+        ],
+        "k": 3,
+        "minSequences": 3,
+        "strands": "both",
+        "degenerate": "oneN"
+      },
+      "output": {
+        "motifs": [
+          {
+            "sequence": "ANG",
+            "reverseComplement": "CNT",
+            "sequenceIndices": [
+              0,
+              1,
+              2
+            ],
+            "prevalence": 1,
+            "expectedFrequency": 0.12444444444444448,
+            "expectedMatchingSequences": 1.9639256569777699,
+            "matchingSequenceProbability": 0.28055070694211726,
+            "matchingSequenceEValue": 6.733216966610815,
+            "matchingSequenceSignificance": -0.8282226091038667
+          },
+          {
+            "sequence": "GTN",
+            "reverseComplement": "NAC",
+            "sequenceIndices": [
+              0,
+              1,
+              2
+            ],
+            "prevalence": 1,
+            "expectedFrequency": 0.12444444444444448,
+            "expectedMatchingSequences": 1.9639256569777699,
+            "matchingSequenceProbability": 0.28055070694211726,
+            "matchingSequenceEValue": 6.733216966610815,
+            "matchingSequenceSignificance": -0.8282226091038667
+          },
+          {
+            "sequence": "NGA",
+            "reverseComplement": "TCN",
+            "sequenceIndices": [
+              0,
+              1,
+              2
+            ],
+            "prevalence": 1,
+            "expectedFrequency": 0.12444444444444448,
+            "expectedMatchingSequences": 1.9639256569777699,
+            "matchingSequenceProbability": 0.28055070694211726,
+            "matchingSequenceEValue": 6.733216966610815,
+            "matchingSequenceSignificance": -0.8282226091038667
+          },
+          {
+            "sequence": "ATN",
+            "reverseComplement": "NAT",
+            "sequenceIndices": [
+              0,
+              1,
+              2
+            ],
+            "prevalence": 1,
+            "expectedFrequency": 0.14222222222222228,
+            "expectedMatchingSequences": 2.120735413209536,
+            "matchingSequenceProbability": 0.35326100605480804,
+            "matchingSequenceEValue": 8.478264145315396,
+            "matchingSequenceSignificance": -0.9283069431434835
+          },
+          {
+            "sequence": "ANC",
+            "reverseComplement": "GNT",
+            "sequenceIndices": [
+              0,
+              1,
+              2
+            ],
+            "prevalence": 1,
+            "expectedFrequency": 0.12444444444444448,
+            "expectedMatchingSequences": 1.9639256569777699,
+            "matchingSequenceProbability": 0.28055070694211726,
+            "matchingSequenceEValue": 6.733216966610815,
+            "matchingSequenceSignificance": -0.8282226091038667
+          },
+          {
+            "sequence": "GAN",
+            "reverseComplement": "NTC",
+            "sequenceIndices": [
+              0,
+              1,
+              2
+            ],
+            "prevalence": 1,
+            "expectedFrequency": 0.12444444444444448,
+            "expectedMatchingSequences": 1.9639256569777699,
+            "matchingSequenceProbability": 0.28055070694211726,
+            "matchingSequenceEValue": 6.733216966610815,
+            "matchingSequenceSignificance": -0.8282226091038667
+          }
+        ],
+        "oligoLength": 3,
+        "strands": "both",
+        "sequenceCount": 3,
+        "possiblePositions": 24,
+        "possibleOligos": 24,
+        "degenerate": "oneN"
       }
     }
   ]

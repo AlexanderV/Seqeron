@@ -75,19 +75,8 @@ public static partial class MotifFinder
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         options ??= new OligoAnalysisOptions();
-        options.Validate(nameof(options));
-        var background = options.Background;
-        var calibration = options.Calibration;
-        bool degenerate = options.Degeneracy != OligoDegeneracy.None;
-        if (calibration is null)
-            background.ValidateFor(k, nameof(options));
-        if (calibration is not null && degenerate)
-            throw new ArgumentException("Degenerate words cannot be combined with a calibration table.", nameof(options));
-        if (calibration is not null && calibration.WordLength != k)
-            throw new ArgumentException(
-                $"The calibration table holds {calibration.WordLength}-mers, the analysis uses k = {k}.", nameof(options));
+        ValidateOligoOptions(k, options);
 
-        bool both = options.Strands == OligoStrandMode.Both;
         var seqs = new List<string>();
         foreach (var dna in sequences)
         {
@@ -96,8 +85,44 @@ public static partial class MotifFinder
             seqs.Add(dna.Sequence);
         }
 
-        // 1. Counting (RSAT CountOligos).
-        var wordTallies = CountOligoTallies(seqs, k, both, options.CountOverlapping, out long possiblePositions);
+        // RSAT -seqtype prot / other: the residues of the DNA sequences are analysed as letters of that alphabet.
+        if (options.SequenceType != OligoSequenceType.Dna)
+            return AnalyzeOligosCore(seqs, k, options, OligoResidueAlphabet.For(options.SequenceType, seqs, k));
+        return AnalyzeOligosCore(seqs, k, options, null);
+    }
+
+    /// <summary>Option checks shared by the <see cref="AnalyzeOligos"/> entry points (thrown before the sequences are read).</summary>
+    private static void ValidateOligoOptions(int k, OligoAnalysisOptions options)
+    {
+        options.Validate(nameof(options));
+        var calibration = options.Calibration;
+        bool degenerate = options.Degeneracy != OligoDegeneracy.None;
+        if (calibration is null)
+            options.Background.ValidateFor(k, nameof(options));
+        if (calibration is not null && degenerate)
+            throw new ArgumentException("Degenerate words cannot be combined with a calibration table.", nameof(options));
+        if (calibration is not null && calibration.WordLength != k)
+            throw new ArgumentException(
+                $"The calibration table holds {calibration.WordLength}-mers, the analysis uses k = {k}.", nameof(options));
+        if (options.SequenceType != OligoSequenceType.Dna)
+            ValidateResidueAlphabetOptions(options);
+    }
+
+    /// <summary>
+    /// The RSAT <c>oligo-analysis</c> pipeline over prepared sequences. <paramref name="alphabet"/> null = upper-case ACGT DNA
+    /// (no residue filtering, the original code path); otherwise windows with residues outside the alphabet are discarded,
+    /// residues outside it are not counted, and NPO / equiprobable / residue probabilities use the alphabet (RSAT <c>-seqtype</c>).
+    /// </summary>
+    private static OligoAnalysisReport AnalyzeOligosCore(List<string> seqs, int k, OligoAnalysisOptions options, OligoResidueAlphabet? alphabet)
+    {
+        var background = options.Background;
+        var calibration = options.Calibration;
+        bool degenerate = options.Degeneracy != OligoDegeneracy.None;
+        bool both = options.Strands == OligoStrandMode.Both;
+        bool residueAlphabet = alphabet is { IsDna: false };
+
+        // 1. Counting (RSAT CountOligos; windows with residues outside the alphabet are discarded).
+        var wordTallies = CountOligoTallies(seqs, k, both, options.CountOverlapping, out long possiblePositions, alphabet);
         var tallies = wordTallies;
 
         // 2. Degenerate words (RSAT Degenerate).
@@ -122,17 +147,27 @@ public static partial class MotifFinder
         // 4. Reverse-complement grouping.
         var patterns = GroupTallies(tallies, both, options.MinCount <= 0 ? calibrated?.Keys : null);
 
-        double npo = RsatPossibleOligos(k, both, codes.Length);
-        double logNpo = Math.Log(npo);
+        double npo = residueAlphabet ? alphabet!.PossibleOligos(k) : RsatPossibleOligos(k, both, codes.Length);
+        double logNpo = residueAlphabet ? alphabet!.LogPossibleOligos(k) : Math.Log(npo);
         long n = possiblePositions;
         double logN = Math.Log(n);
         double psi = options.PseudoFrequency;
 
         Func<string, double>? logWord = null;
         OligoLexicon? lexicon = null;
-        double[] residues = calibration is null
-            ? background.OverlapResidueProbabilities(seqs, k, both)
-            : OligoBackgroundModel.InputResidueProbabilities(seqs, k, both);
+        Func<string, double> overlapCoefficient;
+        if (residueAlphabet)
+        {
+            var q = alphabet!.OverlapResidueProbabilities(background, seqs, k);
+            overlapCoefficient = w => OverlapCoefficient(w, c => q.GetValueOrDefault(c));
+        }
+        else
+        {
+            double[] residues = calibration is null
+                ? background.OverlapResidueProbabilities(seqs, k, both)
+                : OligoBackgroundModel.InputResidueProbabilities(seqs, k, both);
+            overlapCoefficient = w => OverlapCoefficient(w, residues);
+        }
         if (calibration is null && patterns.Count > 0)
         {
             if (background.IsLexicon)
@@ -145,7 +180,9 @@ public static partial class MotifFinder
             }
             else
             {
-                logWord = background.CreateLogProbability(seqs, k, both);
+                logWord = alphabet is null
+                    ? background.CreateLogProbability(seqs, k, both)
+                    : background.CreateLogProbability(seqs, k, both, alphabet);
             }
         }
 
@@ -168,7 +205,7 @@ public static partial class MotifFinder
                 draft.ExpectedFrequency = expFreq;
                 draft.ExpectedOccurrences = mean;
                 draft.ExpectedVariance = variance;
-                draft.Overlap = OverlapCoefficient(pattern.Word, residues);
+                draft.Overlap = overlapCoefficient(pattern.Word);
                 // RSAT tests exp_freq > 0; a zero mean (possible only with -pseudo) crashes RSAT's sum_of_poisson.
                 draft.Testable = expFreq > 0 && mean > 0;
             }
@@ -179,7 +216,7 @@ public static partial class MotifFinder
                 draft.ExpectedFrequency = Math.Exp(logP);
                 draft.ExpectedOccurrences = Math.Exp(logP + logN);
                 draft.Testable = !double.IsNegativeInfinity(logP);
-                draft.Overlap = OverlapCoefficient(pattern.Word, residues);
+                draft.Overlap = overlapCoefficient(pattern.Word);
                 if (!options.CountOverlapping)
                     draft.ExpectedVariance = draft.ExpectedOccurrences;
                 else
@@ -266,7 +303,11 @@ public static partial class MotifFinder
             PossiblePositions: possiblePositions,
             TotalOccurrences: n,
             TestedPatterns: tested,
-            PossibleOligos: npo);
+            PossibleOligos: npo)
+        {
+            SequenceType = alphabet?.Type ?? OligoSequenceType.Dna,
+            AlphabetSize = alphabet?.Size ?? 4,
+        };
     }
 
     /// <summary>
@@ -328,7 +369,7 @@ public static partial class MotifFinder
     /// min(k − 1, (L − k) − pos) forbidden positions to the word (and to its reverse complement with both strands).
     /// </summary>
     private static Dictionary<string, OligoTally> CountOligoTallies(
-        List<string> seqs, int k, bool both, bool overlapping, out long possiblePositions)
+        List<string> seqs, int k, bool both, bool overlapping, out long possiblePositions, OligoResidueAlphabet? alphabet = null)
     {
         var tallies = new Dictionary<string, OligoTally>(StringComparer.Ordinal);
         var rcCache = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -347,11 +388,24 @@ public static partial class MotifFinder
         {
             string s = seqs[si];
             if (s.Length < k) continue;
+            // RSAT: windows with a residue outside the alphabet are counted, then deleted together with their
+            // occurrences and overlaps (nb_possible_pos -= discarded); they never interact with valid words, so
+            // skipping them is equivalent.
+            int[]? invalidPrefix = alphabet?.InvalidPrefixCounts(s);
+            bool Valid(int pos) => invalidPrefix is null || invalidPrefix[pos + k] == invalidPrefix[pos];
             possiblePositions += s.Length - k + 1;
+            if (invalidPrefix is not null)
+            {
+                for (int pos = 0; pos + k <= s.Length; pos++)
+                {
+                    if (!Valid(pos)) possiblePositions--;
+                }
+            }
             if (overlapping)
             {
                 for (int pos = 0; pos + k <= s.Length; pos++)
                 {
+                    if (!Valid(pos)) continue;
                     var t = Tally(s.Substring(pos, k));
                     t.Occurrences++;
                     t.Positions.Add(new OligoOccurrence(si, pos));
@@ -363,6 +417,7 @@ public static partial class MotifFinder
             var lastCounted = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int pos = lastPos; pos >= 0; pos--)
             {
+                if (!Valid(pos)) continue;
                 string word = s.Substring(pos, k);
                 if (lastCounted.TryGetValue(word, out int last) && last - pos < k)
                 {
@@ -523,6 +578,10 @@ public static partial class MotifFinder
     /// Reverse-complement overlaps are not added (RSAT's <c>$sum_strands</c> is never set by oligo-analysis).
     /// </summary>
     internal static double OverlapCoefficient(string word, double[] acgt)
+        => OverlapCoefficient(word, c => ResidueProbability(c, acgt));
+
+    /// <summary><see cref="OverlapCoefficient(string, double[])"/> with any residue probability function (RSAT <c>%residue_proba</c>).</summary>
+    private static double OverlapCoefficient(string word, Func<char, double> q)
     {
         double coeff = 1;
         for (int i = 1; i < word.Length; i++)
@@ -533,7 +592,7 @@ public static partial class MotifFinder
             if (!period) continue;
             double add = 1;
             for (int j = 0; j < i; j++)
-                add *= ResidueProbability(word[j], acgt);
+                add *= q(word[j]);
             coeff += add;
         }
         return coeff;
@@ -752,6 +811,13 @@ public sealed record OligoAnalysisOptions
     /// <summary>Calibration table (RSAT <c>-calibN</c> / <c>-calib1</c>); null = background model.</summary>
     public OligoCalibration? Calibration { get; init; }
 
+    /// <summary>
+    /// Sequence type (RSAT <c>-seqtype dna|prot|other</c>, default <see cref="OligoSequenceType.Dna"/>). Protein and other
+    /// sequence types analyse single-strand words only, without degenerate words or calibration tables, with the
+    /// equiprobable, input Bernoulli, input Markov or lexicon background (see <see cref="OligoSequenceType"/>).
+    /// </summary>
+    public OligoSequenceType SequenceType { get; init; } = OligoSequenceType.Dna;
+
     internal void Validate(string paramName)
     {
         if (Background is null)
@@ -762,6 +828,8 @@ public sealed record OligoAnalysisOptions
             throw new ArgumentOutOfRangeException(paramName, Strands, "Unknown strand mode.");
         if (!Enum.IsDefined(Degeneracy))
             throw new ArgumentOutOfRangeException(paramName, Degeneracy, "Unknown degeneracy mode.");
+        if (!Enum.IsDefined(SequenceType))
+            throw new ArgumentOutOfRangeException(paramName, SequenceType, "Unknown sequence type.");
     }
 }
 
@@ -837,7 +905,14 @@ public sealed record OligoAnalysisReport(
     long PossiblePositions,
     long TotalOccurrences,
     int TestedPatterns,
-    double PossibleOligos);
+    double PossibleOligos)
+{
+    /// <summary>Sequence type of the analysis (RSAT <c>-seqtype</c>).</summary>
+    public OligoSequenceType SequenceType { get; init; } = OligoSequenceType.Dna;
+
+    /// <summary>RSAT <c>alphabet_size</c>: 4 (DNA), 20 (protein) or the number of distinct residues of the sequences of length ≥ k (other).</summary>
+    public int AlphabetSize { get; init; } = 4;
+}
 
 /// <summary>
 /// RSAT <c>-lexicon</c> sub-word tables: relative frequencies of the w-mer prefixes (1 ≤ w &lt; k) of the counted k-mer

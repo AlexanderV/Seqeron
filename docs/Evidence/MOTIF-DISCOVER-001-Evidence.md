@@ -159,6 +159,24 @@ monads; with `-return zscore` dyads with variance ≤ 0 are dropped; with `-pseu
 RSAT; with `-2str` a residue absent from the input gets no Bernoulli probability (`CalcAlphabet` loops over observed
 residues only), although its pooled value is positive. Cross-check counts in TestSpec §10.
 
+**Audit round 2, groups G2 + G4 (2026-10-01) — `-seqtype dna|prot|other` and degenerate matching sequences.** Sources
+opened and run: rsat-code 10043f2 `perl-scripts/oligo-analysis` 1.169 (`ReadArguments` `-seqtype` — prot/other set
+`$sum_rc = 0`; the alphabet / `%accepted_residue` / `%accepted_oligo` block; `CountOligos` residue counts, pattern / residue
+deletion, `$nb_possible_pos -= $discarded_occurrences`, the mseq block; `sub alphabet`; `CalcAlphabet`; `Degenerate`
+incl. `$deg_mseq{$deg} += …{mseq}`; `CalcExpected` equiprobable / Markov / `-pseudo` / exp_ms; `CalcProba` ms_P),
+`lib/RSA.disco.lib` `NbPossibleOligos` (`lc($seq_type) eq "dna"` guards the `-2str` / degenerate corrections),
+`lib/RSA.seq.lib` `FoldSequence`, `OverlapCoeff`, `ReadNextSequence`, `perl-scripts/calibrate-oligos` (no sequence type),
+`lib/RSA.lib` `ReadCalibration` (unconditional reverse-complement inference), `lib/RSAT/stats.pm` `binomial_boe`. RSAT code
+defects found by running the unmodified script (oracle copies `oligo-analysis-g2` / `-g4` fix only these lines, env-guarded):
+Markov `OverlapCoeff` fallback a,c,g,t = ¼ / other residues 0 for protein and text (LLL ovlp 1, AAA 1.3125; fixed: 1/|A|);
+`OverlapCoeff` regex built from the unquoted word (`.` `?` … act as operators for `-seqtype other`; fixed: `\Q…\E`); `-markov`
+dies with "Illegal division by zero" when a sub-word before a discarded residue was never counted (fixed: exp_freq stays 0);
+`-onedeg` / `-oneN` with `-return mseq,proba` print no row ("oligomers tested for significance 0"), and the summed
+`$deg_mseq` exceeds the number of sequences (AYG: 4 > 3 → "Successes (4) cannot be higher than trials (3)"; fixed: the union
+of the words' matching-sequence sets); k = 1 `-2str` degenerate pairs with exp_freq > 1 die in `sum_of_binomials` (not
+compared). Comparisons: `-seqtype` 450 runs / 15,066 patterns, every column ≤ 1.7e-13; degenerate mseq 300 runs / 68,997
+patterns, mseq exact, ms columns ≤ 1.3e-13. Locked values in TestSpec §11.
+
 ---
 
 ## References
@@ -174,3 +192,4 @@ residues only), although its pooled value is positive. Cross-check counts in Tes
 - **2026-09-29**: RSAT oligo-analysis source + Bernoulli-background and long-k reference values (review 2026-09, B05).
 - **2026-09-30**: RSAT oligo-analysis significance / Markov / `-2str` implemented; RSAT run + Python port + mpmath references (review 2026-09 follow-up, B05).
 - **2026-10-01**: RSAT options (`-zscore`, `-pseudo`, `-oneN`/`-onedeg`, `-lexicon`, `-calibN`/`-calib1`) and `dyad-analysis` (review 2026-09 audit group E, B05 F31).
+- **2026-10-01**: RSAT `-seqtype dna|prot|other` and degenerate matching-sequence statistics (review 2026-09 audit round 2, B05 F33).

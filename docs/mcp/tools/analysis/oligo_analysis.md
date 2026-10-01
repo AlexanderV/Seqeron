@@ -14,7 +14,7 @@ RSAT oligo-analysis k-mer over-representation with binomial significance.
 
 ## Description
 
-RSAT `oligo-analysis` (van Helden et al. 1998) over-representation of the length-k words of one DNA sequence (the RSAT overload of `MotifFinder.DiscoverMotifs`): for every word (or reverse-complement pair with `strands` = `both`, RSAT `-2str`) with occ ≥ `minCount`, the expected frequency under the background model, exp_occ, the ratio occ/exp_occ and the binomial right-tail significance occ_P = P(X ≥ occ), X ~ Bin(N−k+1, exp_freq), occ_E = occ_P × tested patterns, occ_sig = −log10 occ_E. Backgrounds: `equiprobable` (`-bg equi`), `input` (Bernoulli from input, RSAT default), `bernoulli` (given A,C,G,T), `markov` (order m from input, `-markov m`), `markov_table` (RSAT `-bgfile` oligo frequencies with pseudo-frequency). `countOverlapping` = false is RSAT `-noov`. Reproduces the RSAT perl code (≤ 1e-12). Values beyond the double range (`ratio`, `possibleOligos` for very long k) are returned as null. RSAT options (routed to `MotifFinder.AnalyzeOligos`): `extraSequences` (multi-sequence input), `zscore` (RSAT `-return zscore`: exp_var = n·p·(2·ovlp − 1 − (2k+1)·p), or exp_occ with `-noov`; ovlp = Pevzner overlap coefficient), `expectedFrequencyPseudo` (RSAT `-pseudo`: exp_freq ← (1 − ψ)·exp_freq + ψ/NPO per strand), `degenerate` (`oneN` / `onedeg`: one IUPAC position, occ and exp_freq summed over matching words), background `lexicon` (RSAT `-lexicon` segmentation frequencies), `calibrationTable` + `calibrationMode` (RSAT `-calibN` / `-calib1`: P(occ ≤ X ≤ n) under a negative binomial when mean < variance, else Poisson). Patterns without a valid expected frequency (RSAT "NA") are omitted in this mode.
+RSAT `oligo-analysis` (van Helden et al. 1998) over-representation of the length-k words of one DNA sequence (the RSAT overload of `MotifFinder.DiscoverMotifs`): for every word (or reverse-complement pair with `strands` = `both`, RSAT `-2str`) with occ ≥ `minCount`, the expected frequency under the background model, exp_occ, the ratio occ/exp_occ and the binomial right-tail significance occ_P = P(X ≥ occ), X ~ Bin(N−k+1, exp_freq), occ_E = occ_P × tested patterns, occ_sig = −log10 occ_E. Backgrounds: `equiprobable` (`-bg equi`), `input` (Bernoulli from input, RSAT default), `bernoulli` (given A,C,G,T), `markov` (order m from input, `-markov m`), `markov_table` (RSAT `-bgfile` oligo frequencies with pseudo-frequency). `countOverlapping` = false is RSAT `-noov`. Reproduces the RSAT perl code (≤ 1e-12). Values beyond the double range (`ratio`, `possibleOligos` for very long k) are returned as null. RSAT options (routed to `MotifFinder.AnalyzeOligos`): `extraSequences` (multi-sequence input), `zscore` (RSAT `-return zscore`: exp_var = n·p·(2·ovlp − 1 − (2k+1)·p), or exp_occ with `-noov`; ovlp = Pevzner overlap coefficient), `expectedFrequencyPseudo` (RSAT `-pseudo`: exp_freq ← (1 − ψ)·exp_freq + ψ/NPO per strand), `degenerate` (`oneN` / `onedeg`: one IUPAC position, occ and exp_freq summed over matching words), background `lexicon` (RSAT `-lexicon` segmentation frequencies), `calibrationTable` + `calibrationMode` (RSAT `-calibN` / `-calib1`: P(occ ≤ X ≤ n) under a negative binomial when mean < variance, else Poisson). Patterns without a valid expected frequency (RSAT "NA") are omitted in this mode. `sequenceType` (RSAT `-seqtype`, routed to `MotifFinder.AnalyzeOligoStrings`): `protein` (20 amino acids; windows with other residues such as X or * are discarded and n counts only the remaining windows; NPO = 20^k) or `other` (any text; alphabet = the distinct residues of the input, NPO = |A|^k); white space removed, ASCII case folded; single strand, no degenerate words or calibration; backgrounds input / equiprobable / markov / lexicon.
 
 ## Core Documentation Reference
 
@@ -41,6 +41,7 @@ RSAT `oligo-analysis` (van Helden et al. 1998) over-representation of the length
 | `degenerate` | string | No | 'none' (default), 'oneN' (RSAT -oneN) or 'onedeg' (RSAT -onedeg: one of R Y W S M K H B V D N per word) |
 | `calibrationTable` | string | No | RSAT calibration file text (-calibN / -calib1; word [id] mean sd variance ...) |
 | `calibrationMode` | string | No | 'set' (-calibN, default) or 'sequence' (-calib1: mean and variance × number of sequences) |
+| `sequenceType` | string | No | RSAT -seqtype: 'dna' (default), 'protein' (20-amino-acid alphabet) or 'other' (any text; alphabet = observed residues). Protein / other: single strand, no degenerate words or calibration, background input / equiprobable / markov / lexicon |
 
 ## Output Schema
 
@@ -57,6 +58,7 @@ RSAT `oligo-analysis` (van Helden et al. 1998) over-representation of the length
 | `motifs[].expectedVariance`, `overlapCoefficient`, `zScore` | number|null | With `zscore` (expectedVariance also with a calibration): RSAT exp_var, ovlp, z-score |
 | `motifs[].lexiconSegmentation` | string|null | Best lexicon split `prefix|suffix` (background `lexicon`) |
 | `sequenceCount`, `degenerate` | integer / string | RSAT-option runs: number of sequences, degenerate mode |
+| `sequenceType`, `alphabetSize` | string / integer | `sequenceType` 'protein' / 'other' runs: the sequence type and RSAT alphabet_size (20, or the number of distinct residues); null for DNA |
 
 ## Errors
 
@@ -72,6 +74,7 @@ RSAT `oligo-analysis` (van Helden et al. 1998) over-representation of the length
 | 1007 | degenerate must be 'none', 'oneN' or 'onedeg'. |
 | 1008 | expectedFrequencyPseudo must be in [0, 1]. |
 | 1009 | calibrationMode must be 'set' or 'sequence'. / Calibration line N: expected <pattern> [id] <mean> <sd> <variance> |
+| 1010 | sequenceType must be 'dna', 'protein' or 'other'. / sequenceType 'protein'/'other': single strand, background input/equiprobable/markov/lexicon, no degenerate words or calibration table |
 | — | Markov order > k − 2 or a zero-probability observed word (library ArgumentException) |
 
 ## Examples
@@ -392,6 +395,107 @@ RSAT `oligo-analysis` (van Helden et al. 1998) over-representation of the length
   "degenerate": "none"
 }
 ```
+### Example 5: RSAT -seqtype prot -l 2 -lth occ 4 (two protein sequences)
+
+**User Prompt:**
+> Which amino-acid pairs are over-represented in these two peptides?
+
+**Tool Call:**
+```json
+{
+  "tool": "oligo_analysis",
+  "arguments": {
+    "sequence": "MKLLVAAGLLKLMKXLLA*",
+    "k": 2,
+    "minCount": 4,
+    "extraSequences": ["mkllvqqKLLAA"],
+    "sequenceType": "protein"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "motifs": [
+    {
+      "sequence": "KL",
+      "reverseComplement": null,
+      "count": 4,
+      "positions": [
+        1,
+        10,
+        1,
+        7
+      ],
+      "expectedFrequency": 0.06539833531510107,
+      "expectedOccurrences": 1.700356718192628,
+      "ratio": 2.352447552447552,
+      "occurrenceProbability": 0.08653947270656044,
+      "occurrenceEValue": 0.17307894541312088,
+      "occurrenceSignificance": 0.7617557596638471,
+      "sequenceIndices": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "overlaps": 0,
+      "observedFrequency": 0.15384615384615385,
+      "expectedVariance": null,
+      "overlapCoefficient": null,
+      "zScore": null,
+      "fittedDistribution": "Binomial",
+      "lexiconSegmentation": null
+    },
+    {
+      "sequence": "LL",
+      "reverseComplement": null,
+      "count": 5,
+      "positions": [
+        2,
+        8,
+        15,
+        2,
+        8
+      ],
+      "expectedFrequency": 0.14387633769322233,
+      "expectedOccurrences": 3.740784780023781,
+      "ratio": 1.3366179275270185,
+      "occurrenceProbability": 0.3161933586536668,
+      "occurrenceEValue": 0.6323867173073336,
+      "occurrenceSignificance": 0.19901726059421093,
+      "sequenceIndices": [
+        0,
+        0,
+        0,
+        1,
+        1
+      ],
+      "overlaps": 0,
+      "observedFrequency": 0.19230769230769232,
+      "expectedVariance": null,
+      "overlapCoefficient": null,
+      "zScore": null,
+      "fittedDistribution": "Binomial",
+      "lexiconSegmentation": null
+    }
+  ],
+  "oligoLength": 2,
+  "strands": "single",
+  "countOverlapping": true,
+  "totalOccurrences": 26,
+  "testedPatterns": 2,
+  "possibleOligos": 400,
+  "sequenceCount": 2,
+  "degenerate": "none",
+  "sequenceType": "protein",
+  "alphabetSize": 20
+}
+```
+
+The windows KX, XL and A* are discarded (29 − 3 = 26 binomial trials, RSAT `nb possible positions 26`); the RSAT run (`oligo-analysis -seqtype prot -l 2 -1str`) gives LL occ_P 0.31619335865366638 and KL 0.0865394727065604 (occ_E here uses the 2 patterns that pass `minCount`).
+
 ## Worked Example
 
 occ_P for ATGC (6 of 60 windows, p = 1/256) equals scipy `binom.sf(5, 60, 1/256)` = 1.4845e-07 — the RSAT value; occ_E multiplies it by the number of tested patterns. With `zscore`, ATGC has exp_var = 60·(1/256)·(2·1 − 1 − 9/256) = 0.22613525390625 and z = (6 − 0.234375)/√0.22613525390625 = 12.124455829017547 (RSAT 12.124455829017547). In the calibration example ATG (mean 0.9 < variance 1.44) uses the negative binomial p = 0.6, size 1.5: P(6 ≤ X ≤ 61) = 0.0067142352257039 (mpmath; RSAT prints 0.0067141894 from 5-digit terms).

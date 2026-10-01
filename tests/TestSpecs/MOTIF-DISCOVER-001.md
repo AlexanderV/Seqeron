@@ -229,3 +229,22 @@ Test files: `Unit/Analysis/MotifFinder_OligoAnalysisOptions_Tests.cs`, `Unit/Ana
 | D4 | `-type rep` palindromic monads; `MinCount = 0`; dyad / monad tables | counted once (RSAT twice); 3267 tested; table value / monad fallback | brute force; RSAT run |
 | P1 | Poisson / negative binomial range probabilities | 8 + 5 cases = mpmath (≤ 1e-12) | mpmath; scipy |
 
+## 11. Review 2026-09 audit round 2 (G2 + G4) — `-seqtype` and degenerate matching sequences
+
+Tests: `Unit/Analysis/MotifFinder_OligoSequenceType_Tests.cs` (10), `Unit/Analysis/MotifFinder_SharedMotifsDegenerate_Tests.cs` (6),
+MCP `OligoSequenceTypeAndDegenerateSharedTests` (5). Oracle: RSAT oligo-analysis 1.169 copies `oligo-analysis-g2` / `-g4`
+(Evidence, audit round 2).
+
+| ID | Case | Expected | Source |
+|----|------|----------|--------|
+| S1 | `-seqtype prot -l 2` MKLLVAAGLLKLMKXLLA* / mkllvqqKLLAA | n 26 (3 windows discarded), NPO 400, 14 tested; LL occ 5 exp_freq 0.14387633769322233 ovlp 1.3793103448275863 z 0.63864701205606378 occ_P 0.31619335865366638; KL occ_P 0.0865394727065604 | RSAT run |
+| S2 | `-seqtype other -bg equi -l 2` "Hello, World! hello world. AbC abc" | alphabet 13, NPO 169, n 28, 18 tested; ll ovlp 1.0769230769230769 z 4.250165852579884 occ_P 0.01194994022319412; ab occ 2 (case folded) | RSAT run |
+| S3 | `-seqtype prot -markov 1 -l 3` LLLLAAAAMKLLLAA | AAA exp_freq 0.2040816326530612, LLL 0.27332361516034986; ovlp 1.0525 (RSAT fallback 1.3125 / 1); z NaN (exp_var < 0) | RSAT run, ovlp fix |
+| S4 | DNA with N/R `-2str -l 4` ACGTNACGTACGRTTACGTAC / ttacgtnnACGTAC | n 16, NPO 136, 4 tested; ACGT occ 5 occ_P 3.4909208986462239e-09 z 20.294579804259762; GTAC occ_P 3.0388746348848393e-05 | RSAT run |
+| S5 | DNA `-markov 2 -l 5` with Y / N | uncounted sub-word → exp_freq 0, untested (RSAT: division by zero) | RSAT run, fix |
+| S6 | Pure-ACGT strings (white space, lower case) vs `DnaSequence` path | bit-identical (5 option sets) | identity |
+| S7 | Protein + both strands / degeneracy / calibration / DNA-only background; unknown type; null | ArgumentException / ArgumentOutOfRangeException / ArgumentNullException | contract |
+| M1 | `-l 3 -1str -onedeg -return mseq,proba` ACGTACGGATCC / ATGCATGAAC / ACGATGTT | NPO 528; AYG mseq 3 (RSAT sum 4 > 3) exp_freq 0.032666666666666663 exp_ms 0.69998598816389546 ms_P 0.01270294085234148 ms_E 6.7071527700363012; ACN ms_P 0.41105031540287185; ATN 0.085427115865445352 | oracle `-g4` |
+| M2 | `-l 3 -2str -oneN -lth mseq 2` | NPO 24; ANG|CNT exp_freq 0.12444444444444444 exp_ms 1.9639256569777699 ms_P 0.28055070694211726; ACN|NGT 0.72456658149428699; ATN 0.35326100605480787 | oracle `-g4` |
+| M3 | mseq = brute-force union of matching sequences; `None` = plain overload; `-pseudo` uses the degenerate NPO | identity | definition |
+

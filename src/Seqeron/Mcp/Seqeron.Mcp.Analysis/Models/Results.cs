@@ -565,6 +565,12 @@ public record OligoAnalysisResultDto(
 
     /// <summary>Degenerate-word mode ('none', 'oneN', 'onedeg'); RSAT-option runs only.</summary>
     public string? Degenerate { get; init; }
+
+    /// <summary>Sequence type ('protein' or 'other', RSAT -seqtype); null for DNA.</summary>
+    public string? SequenceType { get; init; }
+
+    /// <summary>RSAT alphabet_size (20 for protein, number of distinct residues for other); null for DNA.</summary>
+    public int? AlphabetSize { get; init; }
 }
 
 /// <summary>A spaced dyad (or reverse-complement pair) scored by RSAT dyad-analysis.</summary>
@@ -629,7 +635,11 @@ public record SharedMotifSignificanceResult(
     string Strands,
     int SequenceCount,
     long PossiblePositions,
-    double? PossibleOligos);
+    double? PossibleOligos)
+{
+    /// <summary>Degenerate-word mode ('oneN' or 'onedeg', RSAT -oneN / -onedeg); null for plain words.</summary>
+    public string? Degenerate { get; init; }
+}
 
 // ================================
 // ProteinMotifFinder Results

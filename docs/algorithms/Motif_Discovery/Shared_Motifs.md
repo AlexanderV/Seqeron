@@ -157,10 +157,17 @@ scan is used; correctness is unchanged.
   deviation with strand-asymmetric backgrounds).
 - Input-estimated backgrounds use every sequence of length ≥ k (RSAT skips shorter sequences when counting).
 
-**Not implemented:**
+- Degenerate words (`FindSharedMotifs(…, pseudoFrequency, OligoDegeneracy)`, RSAT `-oneN` / `-onedeg` with
+  `-return mseq,proba`; MCP `shared_motifs_significance` `degenerate`): every word is replaced by the words with one
+  position replaced by N or by each IUPAC code containing its residue; mseq(D) = number of sequences containing a word
+  matching D (the union over its words — RSAT 1.169 sums per-word counts and can exceed S, see the discovery doc §5.5),
+  exp_freq(D) = Σ over the matching words, NPO = k·|codes|·4^(k−1) (`-2str`-reduced); checked against the repaired
+  RSAT oracle on 300 random runs (68,997 patterns, ≤ 1.3e-13).
 
-- Degenerate / substituted matching (e.g. dyad-analysis, spacer words); **users should rely on:**
-  `FindDegenerateMotif` for IUPAC-degenerate single-pattern search, or external RSAT for significance ranking.
+**Related RSAT analyses elsewhere:** spaced dyads (RSAT `dyad-analysis`) are `MotifFinder.AnalyzeDyads` / MCP
+`dyad_analysis`; occurrence significance with z-scores, calibrations, lexicon and degenerate occurrences is
+`MotifFinder.AnalyzeOligos` / MCP `oligo_analysis` (discovery doc §5.3–§5.5); a single IUPAC pattern is searched with
+`FindDegenerateMotif`.
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -184,9 +191,12 @@ scan is used; correctness is unchanged.
 
 ### 6.2 Limitations
 
-Exact words only — no mismatches, gaps, or degeneracy; fixed k (does not find variable-length shared
-substrings — see LCSM [4]). The quorum-only overload is `-1str` without significance; significance,
-background models and `-2str` are in the `OligoBackgroundModel` overload (§5.3).
+Fixed-length words with exact matching, or with one degenerate position in the `OligoDegeneracy` overload (no
+mismatches or gaps). Variable-length substrings shared by at least a given number of sequences are
+`SuffixTree.FindLongestCommonSubstrings(texts, minSupport)` (generalized suffix tree, k-common substrings; MCP
+`suffix_tree_k_common_substrings`; cf. LCSM [4]). The quorum-only overload is `-1str` without significance;
+significance, background models, `-2str`, `-pseudo` and degenerate words are in the `OligoBackgroundModel`
+overloads (§5.3).
 
 ## 7. Examples and Related Material (Optional)
 
