@@ -1,6 +1,6 @@
 # Validation Report: REP-TANDEM-001 — Tandem Repeat Detection / Tandem Repeat Summary
 
-- **Validated:** 2026-09-30 (review campaign 2026-09, batch B04: F8–F9 + completeness audit WP3; raw-string overloads WP11 / F51, 2026-10-01); first pass 2026-06-24 superseded
+- **Validated:** 2026-09-30 (review campaign 2026-09, batch B04: F8–F9 + completeness audit WP3; raw-string overloads WP11 / F51, 2026-10-01; unit sizes > 6 WP16 / F61, 2026-10-01); first pass 2026-06-24 superseded
 - **Area:** Repeats
 - **Methods:** B04 part — `RepeatFinder.GetTandemRepeatSummary(DnaSequence, int minRepeats = 3)` and (WP3)
   `GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int> minRepeatsByUnitLength)`
@@ -35,7 +35,7 @@
 1. (F8) penta/hexa class counts missing — classes did not sum to the total. (F9) `LongestRepeat` a default record instead of null.
 
 ### Additions (audit WP3)
-- `GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int>)` (unit lengths 1–6, copies ≥ 2, eager validation), shared
+- `GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int>)` (unit lengths 1–6 at the time — any size ≥ 1 since WP16 / F61; copies ≥ 2, eager validation), shared
   aggregation with the uniform overload; `MisaDefaultMinRepeats`.
 - `GetCanonicalMotifClass` (MISA class name), `GetStandardMotif(motif, level 0–4)` (Krait), frequency tables over any SSR list
   (reverse complement via canonical `DnaSequence.GetReverseComplementString`, complement via `SequenceExtensions.GetComplementBase`).
@@ -48,6 +48,14 @@
   optional `misaScan`.
 - Cross-check vs real `perl misa.pl` `.statistics`: 6 000 sequences (5 684 with N/IUPAC/lower case) × 6 definitions, aggregate
   totals and per-unit-size counts identical; per sequence 12 000 / 12 000 identical (default and `1-3 2-2 3-2 4-2 5-2 6-2`).
+
+### Additions (audit WP16, F61)
+- The map overloads accepted only unit sizes 1–6 although misa.pl accepts any size in its `def` line (lines 76–81, one regex per
+  size, lines 101–106) and its `.statistics` distribution has a row per size. Cap lifted; `TandemRepeatSummary.CountsByUnitLength`
+  (one count per searched size, sums to `TotalRepeats`; Mono…Hexa kept), `RepeatFinder.ParseMisaDefinition` (misa.ini `def`
+  syntax), MCP `misaDefinition` on `find_microsatellites` / `tandem_repeat_summary` + `countsByUnitLength` output (additive).
+- Cross-check vs real `perl misa.pl`: 6 000 sequences × 7 definitions with sizes 7–12 (434 008 SSRs, 107 762 with units > 6,
+  79 690 rows): SSR lists, rows, per-sequence per-size counts 0 mismatches; `.statistics` identical; 2 100 / 2 100 per-sequence runs.
 
 ### Cross-verification (0 mismatches)
 | Check | Reference | Cases |
@@ -68,6 +76,6 @@ Krait A 2, AC 4, ATAC 1; Krait levels e.g. CTG → CTG / TGC / AGC / ACG / ACG; 
 
 ## Verdict & follow-ups
 - Stage A: PASS-WITH-NOTES. Stage B: FAIL → fixed. **State: FIXED**; MISA thresholds and canonical motif tables implemented and reference-identical.
-- MCP: `tandem_repeat_summary` delegates; optional `misaThresholds`, `misaScan` (WP11), additive `canonicalMotifCounts` output; accepts N/IUPAC (WP11).
+- MCP: `tandem_repeat_summary` delegates; optional `misaThresholds`, `misaScan` (WP11), `misaDefinition` (WP16), additive `canonicalMotifCounts` / `countsByUnitLength` output; accepts N/IUPAC (WP11).
 - Cross-batch (B09, `GenomicAnalyzer.cs`): `FindTandemRepeats` validates its parameters but reports non-primitive units
   (`ATATATAT` → `AT×4` and `ATAT×2`) with an O(n²·m) substring scan; delegation to `RepeatFinder.FindMicrosatellites` is requested in the B04 report.

@@ -34,6 +34,11 @@ Optional MISA behaviour (Thiel et al. 2003, `misa.pl` v1.0; verified against a r
   a same-size run overlaps the previous match by < p bases or starts inside a rejected match (cross-checked:
   6 000 sequences × 6 misa.ini settings, 0 differences; SSRs sharing a start are chained in unit-length order —
   misa.pl orders them by Perl's randomised hash order).
+- `misaDefinition` — a custom MISA definition in misa.ini `def` syntax (e.g. `"1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5"`):
+  exactly these unit sizes are searched with these minimum copies — any unit size, as misa.pl accepts (unit sizes > 6 are
+  `repeatType` `Complex`); `minUnitLength`, `maxUnitLength`, `minRepeats` are ignored; cannot be combined with
+  `misaThresholds`; works with `misaScan` and `maxCompoundInterruption` (cross-checked with misa.pl on 6 000 sequences × 7
+  definitions with unit sizes 7–12: SSR lists and `.misa` rows 0 differences; B04 F61).
 - `maxCompoundInterruption ≥ 0` — also returns `compounds`: MISA compound microsatellites, i.e.
   chains of STRs (in start order) where each STR starts at most that many bases after the previous
   one ends (adjacent and overlapping STRs always join; MISA default 100). `type` is `c`, or `c*`
@@ -55,6 +60,7 @@ Optional MISA behaviour (Thiel et al. 2003, `misa.pl` v1.0; verified against a r
 | `misaThresholds` | boolean | No | MISA default per-unit-size minimum copies `1-10 2-6 3-5 4-5 5-5 6-5` (default false) |
 | `maxCompoundInterruption` | integer | No | ≥ 0: also return MISA compound microsatellites with at most this many interrupting bases (MISA default 100); default −1 = none |
 | `misaScan` | boolean | No | misa.pl's regex scan instead of maximal primitive runs (default false); see below |
+| `misaDefinition` | string/null | No | Custom MISA definition, misa.ini `def` syntax (`size-min` pairs, any unit size ≥ 1, min ≥ 2, each size once), e.g. `"1-10 2-6 3-5 4-5 5-5 6-5 7-5"`; replaces the unit-length range and `minRepeats`; not combinable with `misaThresholds` (default null) |
 
 ## Output Schema
 
@@ -69,6 +75,7 @@ Optional MISA behaviour (Thiel et al. 2003, `misa.pl` v1.0; verified against a r
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1002 | Invalid unit-length or minRepeats bounds |
+| 1001 | `misaDefinition`: not a MISA `size-min` pair / size defined twice / size < 1 / minimum < 2 / combined with `misaThresholds` |
 
 ## Examples
 
@@ -127,6 +134,26 @@ Optional MISA behaviour (Thiel et al. 2003, `misa.pl` v1.0; verified against a r
              { "position": 3, "repeatUnit": "TA", "repeatCount": 6, "totalLength": 12, "repeatType": "Dinucleotide" },
              { "position": 20, "repeatUnit": "GA", "repeatCount": 7, "totalLength": 14, "repeatType": "Dinucleotide" } ],
   "compounds": [ { "start": 3, "end": 51, "length": 48, "type": "c", "notation": "(TA)6tccgt(GA)7ttttt(A)12", "components": [ "…the three items in start order…" ] } ] }
+```
+
+### Example 4: Custom MISA definition with 7–10 bp units, misa.pl scan
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "find_microsatellites",
+  "arguments": { "sequence": "ACGTTGCACGTTGCACGTTGCGAAAAAAAAAAAACCTTAGGCATTAGGCATTAGGCATTCGACGTACGTACGTACGTACGTACGTGGATCCATGCAATCCATGCAATTGCACCTTGAGACCTTGAGANNACCTTGAGAGG", "misaScan": true, "maxCompoundInterruption": 10, "misaDefinition": "1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2" }
+}
+```
+
+**Response** (`perl misa.pl` with that `def` line and `int 10`: `c (ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2 105 1 105`; the 8-mer `ACGTACGT` is rejected as redundant):
+```json
+{ "items": [ { "position": 22, "repeatUnit": "A", "repeatCount": 12, "totalLength": 12, "repeatType": "Mononucleotide" },
+             { "position": 61, "repeatUnit": "ACGT", "repeatCount": 6, "totalLength": 24, "repeatType": "Tetranucleotide" },
+             { "position": 0, "repeatUnit": "ACGTTGC", "repeatCount": 3, "totalLength": 21, "repeatType": "Complex" },
+             { "position": 36, "repeatUnit": "TTAGGCA", "repeatCount": 3, "totalLength": 21, "repeatType": "Complex" },
+             { "position": 87, "repeatUnit": "ATCCATGCA", "repeatCount": 2, "totalLength": 18, "repeatType": "Complex" } ],
+  "compounds": [ { "start": 0, "end": 105, "length": 105, "type": "c", "notation": "(ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2", "components": [ "…the five items in start order…" ] } ] }
 ```
 
 ## Performance

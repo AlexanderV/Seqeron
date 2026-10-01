@@ -298,7 +298,7 @@
 | standardize_repeat_motif | Analysis | RepeatFinder.GetStandardMotif | RepeatFinder.cs#L740 | 2/2 | ✓ | ✓ | Ready |
 | stem_energy | Analysis | RnaSecondaryStructure.CalculateStemEnergy | RnaSecondaryStructure.cs#L685 | 0/0 | – | – | Build-Ready |
 | tandem_repeat_bernoulli_statistics | Analysis | RepeatFinder.ComputeBernoulliStatistics | RepeatFinder.cs#L3170 | 2/2 | ✓ | ✓ | Ready |
-| tandem_repeat_summary | Analysis | RepeatFinder.GetTandemRepeatSummary | RepeatFinder.cs#L5227 | 0/0 | – | – | Build-Ready |
+| tandem_repeat_summary | Analysis | RepeatFinder.GetTandemRepeatSummary | RepeatFinder.cs#L5994 | 0/0 | – | – | Build-Ready |
 | terminal_mismatch_energy | Analysis | RnaSecondaryStructure.GetTerminalMismatchEnergy | RnaSecondaryStructure.cs#L725 | 0/0 | – | – | Build-Ready |
 | unique_kmers | Analysis | KmerAnalyzer.FindUniqueKmers | KmerAnalyzer.cs#L213 | 0/0 | – | – | Build-Ready |
 | validate_dot_bracket | Analysis | RnaSecondaryStructure.ValidateDotBracket | RnaSecondaryStructure.cs#L1418 | 0/0 | – | – | Build-Ready |

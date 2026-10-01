@@ -96,4 +96,27 @@ public class FindMicrosatellitesTests
                 .Select(i => (i.Position, i.RepeatUnit, i.RepeatCount)), Is.EqualTo(new[] { (0, "AC", 5) }));
         });
     }
+
+    /// <summary>
+    /// misaDefinition (B04 F61): custom misa.ini definition with unit sizes 7-10. misa.pl v1.0 with
+    /// <c>1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2</c> / interruptions 10 reports (ACGTTGC)3 1-21, (A)12 23-34,
+    /// (TTAGGCA)3 37-57, (ACGT)6 62-85, (ATCCATGCA)2 88-105 and the row
+    /// <c>c (ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2 105 1 105</c>; .statistics distribution 1→1, 4→1, 7→2, 9→1.
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_MisaDefinition_UnitSizesAbove6_MatchMisaPl()
+    {
+        const string seq = "ACGTTGCACGTTGCACGTTGCGAAAAAAAAAAAACCTTAGGCATTAGGCATTAGGCATTCGACGTACGTACGTACGTACGTACGTGGATCCATGCAATCCATGCAATTGCACCTTGAGACCTTGAGANNACCTTGAGAGG";
+        var r = AnalysisTools.FindMicrosatellites(seq, maxCompoundInterruption: 10, misaScan: true,
+            misaDefinition: "1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2");
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Items.OrderBy(i => i.Position).Select(i => (i.Position + 1, i.RepeatUnit, i.RepeatCount)),
+                Is.EqualTo(new[] { (1, "ACGTTGC", 3), (23, "A", 12), (37, "TTAGGCA", 3), (62, "ACGT", 6), (88, "ATCCATGCA", 2) }));
+            Assert.That(r.Compounds!.Single().Notation, Is.EqualTo("(ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.FindMicrosatellites(seq, misaDefinition: "7-1"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.FindMicrosatellites(seq, misaDefinition: "1-10 x"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.FindMicrosatellites(seq, misaThresholds: true, misaDefinition: "7-3"));
+        });
+    }
 }

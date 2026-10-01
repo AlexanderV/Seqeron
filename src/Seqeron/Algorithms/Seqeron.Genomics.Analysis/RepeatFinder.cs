@@ -136,6 +136,66 @@ public static class RepeatFinder
     public const int MisaDefaultMaxInterruption = 100;
 
     /// <summary>
+    /// Parses a MISA microsatellite definition in <c>misa.ini</c> syntax (Thiel et al. 2003, <c>misa.pl</c> v1.0:
+    /// "pairs of numbers … the first number defines the unit size and the second number the lower threshold of repeats
+    /// for that specific unit"), e.g. <c>1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5</c>, into a unit length → minimum copies map
+    /// for the per-unit-length overloads. Any unit size ≥ 1 is accepted, as by misa.pl (its search pattern is
+    /// <c>([acgt]{size})\2{min−1,}</c> for every defined size). The whole <c>def</c> line may be given
+    /// (<c>definition(unit_size,min_repeats): 1-10 2-6 …</c>; the leading <c>def…</c> token is skipped, as misa.pl does).
+    /// </summary>
+    /// <remarks>
+    /// Stricter than misa.pl, which pairs up any digit groups of the line: each pair must be written
+    /// <c>size-min</c> (separated by whitespace or commas), a unit size may appear only once (misa.pl's hash would keep
+    /// the last value silently), and the minimum must be ≥ 2 (with 1, misa.pl reports every primitive
+    /// <c>size</c>-mer as an SSR).
+    /// </remarks>
+    /// <param name="definition">Definition string.</param>
+    /// <returns>Read-only map ordered by unit length.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="definition"/> is null.</exception>
+    /// <exception cref="ArgumentException">The string is empty, a token is not <c>size-min</c>, a size repeats, a size is
+    /// &lt; 1 or a minimum is &lt; 2.</exception>
+    public static IReadOnlyDictionary<int, int> ParseMisaDefinition(string definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        string pairs = definition.TrimStart();
+        if (pairs.StartsWith("def", StringComparison.OrdinalIgnoreCase))
+        {
+            // misa.pl: /^def\S*\s+(.*)/i — skip the first whitespace-delimited token (it may contain commas).
+            int ws = pairs.IndexOfAny([' ', '\t']);
+            pairs = ws < 0 ? string.Empty : pairs[ws..];
+        }
+
+        var tokens = pairs.Split([' ', '\t', ',', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0)
+            throw new ArgumentException("The MISA definition must contain at least one size-min pair.", nameof(definition));
+
+        var map = new SortedDictionary<int, int>();
+        foreach (string token in tokens)
+        {
+            int dash = token.IndexOf('-');
+            if (dash <= 0 || dash == token.Length - 1
+                || !int.TryParse(token.AsSpan(0, dash), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out int unitLength)
+                || !int.TryParse(token.AsSpan(dash + 1), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out int minRepeats))
+            {
+                throw new ArgumentException(
+                    $"'{token}' is not a MISA 'size-min' pair (e.g. 1-10 2-6 3-5).", nameof(definition));
+            }
+
+            if (unitLength < 1)
+                throw new ArgumentException($"Unit size must be at least 1 ('{token}').", nameof(definition));
+            if (minRepeats < 2)
+                throw new ArgumentException($"Minimum number of repeats must be at least 2 ('{token}').", nameof(definition));
+            if (!map.TryAdd(unitLength, minRepeats))
+                throw new ArgumentException($"Unit size {unitLength} is defined more than once.", nameof(definition));
+        }
+
+        return new System.Collections.ObjectModel.ReadOnlyDictionary<int, int>(map);
+    }
+
+    /// <summary>
     /// Finds microsatellites with a separate minimum number of copies per unit length (MISA-style definition,
     /// e.g. <see cref="MisaDefaultMinRepeats"/> = <c>1-10 2-6 3-5 4-5 5-5 6-5</c>). Only the unit lengths present as
     /// keys are searched. Detection semantics are those of
@@ -251,8 +311,7 @@ public static class RepeatFinder
     /// unit length.
     /// </summary>
     private static (int UnitLength, int MinRepeats)[] ThresholdsFromMap(
-        IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
-        int maxUnitLength = int.MaxValue)
+        IReadOnlyDictionary<int, int> minRepeatsByUnitLength)
     {
         ArgumentNullException.ThrowIfNull(minRepeatsByUnitLength);
         if (minRepeatsByUnitLength.Count == 0)
@@ -262,9 +321,9 @@ public static class RepeatFinder
         int k = 0;
         foreach (var (unitLength, minRepeats) in minRepeatsByUnitLength)
         {
-            if (unitLength < 1 || unitLength > maxUnitLength)
+            if (unitLength < 1)
                 throw new ArgumentOutOfRangeException(nameof(minRepeatsByUnitLength), unitLength,
-                    $"Unit lengths must be in [1, {maxUnitLength}].");
+                    "Unit lengths must be at least 1.");
             if (minRepeats < 2)
                 throw new ArgumentOutOfRangeException(nameof(minRepeatsByUnitLength), minRepeats,
                     $"The minimum number of copies for unit length {unitLength} must be at least 2.");
@@ -5908,8 +5967,11 @@ public static class RepeatFinder
     /// <list type="bullet">
     /// <item><description><c>TotalRepeats</c> — number of reported microsatellites (MISA "Total number of identified SSRs").</description></item>
     /// <item><description>Per-class counts for all six unit sizes, mono … hexa (MISA "Distribution to different repeat
-    /// type classes": one row per unit size; Krait <c>motifTypeStatis</c>: Mono, Di, Tri, Tetra, Penta, Hexa). The six
-    /// counts always sum to <c>TotalRepeats</c>.</description></item>
+    /// type classes": one row per unit size; Krait <c>motifTypeStatis</c>: Mono, Di, Tri, Tetra, Penta, Hexa), and
+    /// <c>CountsByUnitLength</c>, one count per searched unit length (here 1–6). With unit lengths 1–6 the six
+    /// counts sum to <c>TotalRepeats</c>; the per-unit-length map overloads accept any unit length (misa.pl accepts any
+    /// unit size in its <c>def</c> line), and then <c>CountsByUnitLength</c> — which always sums to <c>TotalRepeats</c> —
+    /// carries the sizes above 6.</description></item>
     /// <item><description><c>TotalRepeatBases</c> — sum of the repeat lengths (Krait "Length (bp)" = <c>SUM(length)</c>);
     /// runs of different unit lengths that overlap are each counted in full.</description></item>
     /// <item><description><c>PercentageOfSequence</c> — percent of the sequence's bases covered by at least one reported
@@ -5935,7 +5997,8 @@ public static class RepeatFinder
     {
         ArgumentNullException.ThrowIfNull(sequence);
 
-        return SummarizeMicrosatellites(sequence, FindMicrosatellites(sequence, 1, 6, minRepeats).ToList());
+        return SummarizeMicrosatellites(
+            sequence.Length, FindMicrosatellites(sequence, 1, 6, minRepeats).ToList(), ClassicUnitLengths);
     }
 
     /// <summary>
@@ -5943,32 +6006,37 @@ public static class RepeatFinder
     /// definition, e.g. <see cref="MisaDefaultMinRepeats"/> = <c>1-10 2-6 3-5 4-5 5-5 6-5</c>). Fields are defined as in
     /// <see cref="GetTandemRepeatSummary(DnaSequence,int)"/>; the SSR list is
     /// <see cref="FindMicrosatellites(DnaSequence,IReadOnlyDictionary{int,int},CancellationToken,IProgress{double})"/>
-    /// with the given thresholds. Unit lengths absent from the map are not searched (their class count is 0).
+    /// with the given thresholds. Unit lengths absent from the map are not searched (their class count is 0). Any unit
+    /// length ≥ 1 may be given (misa.pl <c>def</c> lines such as <c>1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5</c>); counts for
+    /// every searched size are in <see cref="TandemRepeatSummary.CountsByUnitLength"/> (sizes above 6 are not part of
+    /// the six named class fields).
     /// </summary>
     /// <param name="sequence">DNA sequence to summarize.</param>
-    /// <param name="minRepeatsByUnitLength">Unit length (1–6) → minimum number of complete copies (≥ 2).</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (≥ 1) → minimum number of complete copies (≥ 2).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">The map is empty.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A unit length is outside 1–6 or a threshold is &lt; 2.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A unit length is &lt; 1 or a threshold is &lt; 2.</exception>
     public static TandemRepeatSummary GetTandemRepeatSummary(
         DnaSequence sequence,
         IReadOnlyDictionary<int, int> minRepeatsByUnitLength)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength, maxUnitLength: 6);
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength);
 
         return SummarizeMicrosatellites(
-            sequence,
-            FindMicrosatellitesCore(sequence.Sequence, thresholds, CancellationToken.None, null).ToList());
+            sequence.Length,
+            FindMicrosatellitesCore(sequence.Sequence, thresholds, CancellationToken.None, null).ToList(),
+            UnitLengthsOf(thresholds));
     }
 
     /// <summary>
-    /// Summary statistics over the microsatellites found with a per-unit-length threshold map (unit lengths 1–6) and
+    /// Summary statistics over the microsatellites found with a per-unit-length threshold map (any unit length ≥ 1) and
     /// an explicit scan convention; with <see cref="MicrosatelliteScanMode.MisaRegex"/> the counts are those of
-    /// misa.pl's SSR list (its <c>.statistics</c> totals per unit size).
+    /// misa.pl's SSR list (its <c>.statistics</c> total and, in <see cref="TandemRepeatSummary.CountsByUnitLength"/>,
+    /// its "Distribution to different repeat type classes" rows for every unit size of the definition).
     /// </summary>
     /// <param name="sequence">DNA sequence to analyze.</param>
-    /// <param name="minRepeatsByUnitLength">Unit length (1–6) → minimum copies (≥ 2).</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (≥ 1) → minimum copies (≥ 2).</param>
     /// <param name="scanMode">Scan convention.</param>
     public static TandemRepeatSummary GetTandemRepeatSummary(
         DnaSequence sequence,
@@ -5976,12 +6044,13 @@ public static class RepeatFinder
         MicrosatelliteScanMode scanMode)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength, maxUnitLength: 6);
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength);
         ValidateScanMode(scanMode);
 
         return SummarizeMicrosatellites(
-            sequence,
-            FindMicrosatellitesCore(sequence.Sequence, thresholds, CancellationToken.None, null, scanMode).ToList());
+            sequence.Length,
+            FindMicrosatellitesCore(sequence.Sequence, thresholds, CancellationToken.None, null, scanMode).ToList(),
+            UnitLengthsOf(thresholds));
     }
 
     /// <summary>
@@ -6000,7 +6069,7 @@ public static class RepeatFinder
         int minRepeats = 3)
     {
         var found = FindMicrosatellites(sequence, 1, 6, minRepeats).ToList();
-        return SummarizeMicrosatellites(sequence?.Length ?? 0, found);
+        return SummarizeMicrosatellites(sequence?.Length ?? 0, found, ClassicUnitLengths);
     }
 
     /// <summary>
@@ -6010,10 +6079,10 @@ public static class RepeatFinder
     /// Denominator and <c>null</c>/empty handling as in <see cref="GetTandemRepeatSummary(string,int)"/>.
     /// </summary>
     /// <param name="sequence">Nucleotide string (any symbols; ACGT case-insensitive).</param>
-    /// <param name="minRepeatsByUnitLength">Unit length (1–6) → minimum number of complete copies (≥ 2).</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (≥ 1) → minimum number of complete copies (≥ 2).</param>
     /// <exception cref="ArgumentNullException">The map is null.</exception>
     /// <exception cref="ArgumentException">The map is empty.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A unit length is outside 1–6 or a threshold is &lt; 2.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A unit length is &lt; 1 or a threshold is &lt; 2.</exception>
     public static TandemRepeatSummary GetTandemRepeatSummary(
         string sequence,
         IReadOnlyDictionary<int, int> minRepeatsByUnitLength)
@@ -6024,36 +6093,46 @@ public static class RepeatFinder
     /// <see cref="GetTandemRepeatSummary(DnaSequence,IReadOnlyDictionary{int,int},MicrosatelliteScanMode)"/>; the SSR
     /// list is <see cref="FindMicrosatellites(string,IReadOnlyDictionary{int,int},MicrosatelliteScanMode,CancellationToken,IProgress{double})"/>.
     /// With <see cref="MicrosatelliteScanMode.MisaRegex"/> the total and the per-unit-size counts equal misa.pl's
-    /// <c>.statistics</c> ("Total number of identified SSRs", "Distribution to different repeat type classes") on
-    /// sequences containing N or IUPAC codes too. Denominator and <c>null</c>/empty handling as in
+    /// <c>.statistics</c> ("Total number of identified SSRs", "Distribution to different repeat type classes" =
+    /// <see cref="TandemRepeatSummary.CountsByUnitLength"/>, any unit size) on sequences containing N or IUPAC codes too. Denominator and <c>null</c>/empty handling as in
     /// <see cref="GetTandemRepeatSummary(string,int)"/>.
     /// </summary>
     /// <param name="sequence">Nucleotide string (any symbols; ACGT case-insensitive).</param>
-    /// <param name="minRepeatsByUnitLength">Unit length (1–6) → minimum number of complete copies (≥ 2).</param>
+    /// <param name="minRepeatsByUnitLength">Unit length (≥ 1) → minimum number of complete copies (≥ 2).</param>
     /// <param name="scanMode">Scan convention.</param>
     public static TandemRepeatSummary GetTandemRepeatSummary(
         string sequence,
         IReadOnlyDictionary<int, int> minRepeatsByUnitLength,
         MicrosatelliteScanMode scanMode)
     {
-        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength, maxUnitLength: 6);
+        var thresholds = ThresholdsFromMap(minRepeatsByUnitLength);
         ValidateScanMode(scanMode);
 
         if (string.IsNullOrEmpty(sequence))
-            return SummarizeMicrosatellites(0, []);
+            return SummarizeMicrosatellites(0, [], UnitLengthsOf(thresholds));
 
         return SummarizeMicrosatellites(
             sequence.Length,
-            FindMicrosatellitesCore(sequence.ToUpperInvariant(), thresholds, CancellationToken.None, null, scanMode).ToList());
+            FindMicrosatellitesCore(sequence.ToUpperInvariant(), thresholds, CancellationToken.None, null, scanMode).ToList(),
+            UnitLengthsOf(thresholds));
     }
 
-    private static TandemRepeatSummary SummarizeMicrosatellites(
-        DnaSequence sequence, List<MicrosatelliteResult> microsatellites)
-        => SummarizeMicrosatellites(sequence.Length, microsatellites);
+    /// <summary>Unit lengths searched by the uniform-threshold summary overloads (1–6 bp).</summary>
+    private static readonly int[] ClassicUnitLengths = [1, 2, 3, 4, 5, 6];
+
+    private static int[] UnitLengthsOf((int UnitLength, int MinRepeats)[] thresholds) =>
+        Array.ConvertAll(thresholds, t => t.UnitLength);
 
     private static TandemRepeatSummary SummarizeMicrosatellites(
-        int sequenceLength, List<MicrosatelliteResult> microsatellites)
+        int sequenceLength, List<MicrosatelliteResult> microsatellites, IReadOnlyList<int> searchedUnitLengths)
     {
+        // misa.pl: $count_class{$typ[$i]}++ per reported SSR (one class per unit size of the definition).
+        var countsByUnitLength = new Dictionary<int, int>(searchedUnitLengths.Count);
+        foreach (int unitLength in searchedUnitLengths)
+            countsByUnitLength[unitLength] = 0;
+        foreach (var m in microsatellites)
+            countsByUnitLength[m.RepeatUnit.Length] = countsByUnitLength.GetValueOrDefault(m.RepeatUnit.Length) + 1;
+
         var byType = microsatellites
             .GroupBy(m => m.RepeatType)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -6089,7 +6168,10 @@ public static class RepeatFinder
             MostFrequentUnit: microsatellites
                 .GroupBy(m => m.RepeatUnit)
                 .OrderByDescending(g => g.Count())
-                .FirstOrDefault()?.Key);
+                .FirstOrDefault()?.Key)
+        {
+            CountsByUnitLength = countsByUnitLength,
+        };
     }
 
     /// <summary>
@@ -6729,9 +6811,11 @@ public readonly record struct PalindromeResult(
     int Length);
 
 /// <summary>
-/// Summary of perfect microsatellites (1–6 bp units) in a sequence; see
+/// Summary of perfect microsatellites in a sequence; see
 /// <see cref="RepeatFinder.GetTandemRepeatSummary(DnaSequence,int)"/> for each field's definition.
-/// The six per-class counts (mono … hexa) sum to <see cref="TotalRepeats"/>.
+/// <see cref="CountsByUnitLength"/> holds one count per searched unit length (any size, e.g. 7–10 bp units of a
+/// custom MISA definition) and always sums to <see cref="TotalRepeats"/>; the six named class counts (mono … hexa)
+/// are its entries 1–6 and sum to <see cref="TotalRepeats"/> whenever no unit longer than 6 bp was searched.
 /// </summary>
 public readonly record struct TandemRepeatSummary(
     int TotalRepeats,
@@ -6744,4 +6828,66 @@ public readonly record struct TandemRepeatSummary(
     int PentanucleotideRepeats,
     int HexanucleotideRepeats,
     MicrosatelliteResult? LongestRepeat,
-    string? MostFrequentUnit);
+    string? MostFrequentUnit)
+{
+    private readonly IReadOnlyDictionary<int, int>? _countsByUnitLength;
+
+    /// <summary>
+    /// Number of reported microsatellites per unit length (bp) — misa.pl <c>.statistics</c> "Distribution to different
+    /// repeat type classes" (<c>Unit size / Number of SSRs</c>; misa.pl prints only the sizes with at least one SSR).
+    /// Keys are every unit length that was searched (the keys of a per-unit-length threshold map, or 1–6 for the
+    /// uniform overloads), in ascending order, with 0 for sizes without a microsatellite. Never <c>null</c>
+    /// (empty for a default-constructed value). Compared by content in <see cref="Equals(TandemRepeatSummary)"/>.
+    /// </summary>
+    public IReadOnlyDictionary<int, int> CountsByUnitLength
+    {
+        get => _countsByUnitLength ?? EmptyCounts;
+        init => _countsByUnitLength = value is null
+            ? null
+            : new System.Collections.ObjectModel.ReadOnlyDictionary<int, int>(
+                new SortedDictionary<int, int>(value.ToDictionary(kv => kv.Key, kv => kv.Value)));
+    }
+
+    private static readonly IReadOnlyDictionary<int, int> EmptyCounts =
+        new System.Collections.ObjectModel.ReadOnlyDictionary<int, int>(new Dictionary<int, int>());
+
+    /// <summary>Value equality over every field, <see cref="CountsByUnitLength"/> compared by content.</summary>
+    public bool Equals(TandemRepeatSummary other) =>
+        TotalRepeats == other.TotalRepeats
+        && TotalRepeatBases == other.TotalRepeatBases
+        && PercentageOfSequence.Equals(other.PercentageOfSequence)
+        && MononucleotideRepeats == other.MononucleotideRepeats
+        && DinucleotideRepeats == other.DinucleotideRepeats
+        && TrinucleotideRepeats == other.TrinucleotideRepeats
+        && TetranucleotideRepeats == other.TetranucleotideRepeats
+        && PentanucleotideRepeats == other.PentanucleotideRepeats
+        && HexanucleotideRepeats == other.HexanucleotideRepeats
+        && Nullable.Equals(LongestRepeat, other.LongestRepeat)
+        && string.Equals(MostFrequentUnit, other.MostFrequentUnit, StringComparison.Ordinal)
+        && CountsByUnitLength.Count == other.CountsByUnitLength.Count
+        && CountsByUnitLength.All(kv => other.CountsByUnitLength.TryGetValue(kv.Key, out int c) && c == kv.Value);
+
+    /// <inheritdoc/>
+    public override int GetHashCode()
+    {
+        var h = new HashCode();
+        h.Add(TotalRepeats);
+        h.Add(TotalRepeatBases);
+        h.Add(PercentageOfSequence);
+        h.Add(MononucleotideRepeats);
+        h.Add(DinucleotideRepeats);
+        h.Add(TrinucleotideRepeats);
+        h.Add(TetranucleotideRepeats);
+        h.Add(PentanucleotideRepeats);
+        h.Add(HexanucleotideRepeats);
+        h.Add(LongestRepeat);
+        h.Add(MostFrequentUnit, StringComparer.Ordinal);
+        foreach (var (unitLength, count) in CountsByUnitLength)
+        {
+            h.Add(unitLength);
+            h.Add(count);
+        }
+
+        return h.ToHashCode();
+    }
+}

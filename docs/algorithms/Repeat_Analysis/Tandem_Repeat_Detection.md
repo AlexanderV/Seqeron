@@ -44,7 +44,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 | INV-02 | `TotalLength = Unit.Length × Repetitions` for every `TandemRepeat`. | Total length is defined by the unit size and repetition count. |
 | INV-03 | `Position + Unit.Length × Repetitions <= sequence.Length`. | The counting loop stops when the next full unit would exceed sequence bounds. |
 | INV-04 | The summary percentages and totals are derived only from reported microsatellites. | `GetTandemRepeatSummary` delegates to `FindMicrosatellites(sequence, 1, 6, minRepeats)`. |
-| INV-06 | The six per-class counts (mono … hexa) sum to `TotalRepeats`; `0 ≤ PercentageOfSequence ≤ 100`; covered bases ≤ `TotalRepeatBases`. | Every reported unit has length 1–6; coverage is the union of spans, the base total is their sum [5][6]. |
+| INV-06 | `CountsByUnitLength` (one entry per searched unit size) sums to `TotalRepeats`; its entries 1–6 equal the six named class counts, which therefore sum to `TotalRepeats` whenever no size > 6 is searched (always for the uniform overloads); `0 ≤ PercentageOfSequence ≤ 100`; covered bases ≤ `TotalRepeatBases`. | Each reported SSR is counted once under its unit length (misa.pl `$count_class{size}++`); coverage is the union of spans, the base total is their sum [5][6]. |
 | INV-05 | Within a fixed candidate unit length, later starts inside a detected tandem block are skipped. | After yielding a result, the implementation advances the start index to the end of the detected tandem block for that unit-length pass. |
 
 ## 3. Contract
@@ -57,7 +57,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 | `minUnitLength` | `int` | `2` | Minimum candidate repeat-unit length for `FindTandemRepeats`. | Values below `1` throw `ArgumentOutOfRangeException` (eager). |
 | `minRepetitions` | `int` | `2` | Minimum number of consecutive unit copies for `FindTandemRepeats`. | Values below `2` throw `ArgumentOutOfRangeException` (eager). |
 | `minRepeats` | `int` | `3` | Minimum repeat count used by `GetTandemRepeatSummary(DnaSequence, int)` for every unit length 1–6. | Passed to `FindMicrosatellites(sequence, 1, 6, minRepeats)`, which rejects values below 2. |
-| `minRepeatsByUnitLength` | `IReadOnlyDictionary<int,int>` | — | Per-unit-size minimum copies for `GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int>)`, e.g. `RepeatFinder.MisaDefaultMinRepeats` = MISA `misa.ini` `1-10 2-6 3-5 4-5 5-5 6-5` [5]; unit lengths absent from the map are not searched. | Non-null, non-empty; unit lengths 1–6; values ≥ 2 (else `ArgumentNullException` / `ArgumentException` / `ArgumentOutOfRangeException`). |
+| `minRepeatsByUnitLength` | `IReadOnlyDictionary<int,int>` | — | Per-unit-size minimum copies for `GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int>)`, e.g. `RepeatFinder.MisaDefaultMinRepeats` = MISA `misa.ini` `1-10 2-6 3-5 4-5 5-5 6-5` [5]; unit lengths absent from the map are not searched; any unit length ≥ 1 (misa.pl accepts any size in its `def` line, e.g. `… 7-5 8-5`); `RepeatFinder.ParseMisaDefinition(string)` builds the map from misa.ini `def` syntax. | Non-null, non-empty; unit lengths ≥ 1; values ≥ 2 (else `ArgumentNullException` / `ArgumentException` / `ArgumentOutOfRangeException`). |
 
 ### 3.2 Output / Return Value
 
@@ -65,7 +65,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 |-------|------|-------------|
 | Tandem repeats | `IEnumerable<TandemRepeat>` | Exact tandem-repeat hits with unit, 0-based start position, repetition count, total length, and full repeated sequence. |
 | Repeat-type classes | `IReadOnlyDictionary<string,int>` | `RepeatFinder.GetCanonicalMotifFrequencies(ssrs)`: SSR count per MISA class "considering sequence complementary" — `X/Y` with X, Y the smallest rotations of the motif and of its reverse complement, smaller first (AC/CA/GT/TG → `AC/GT`) [5]; `GetStandardMotifFrequencies(ssrs, level)`: per Krait standard motif (`StandardMotif`, order A < T < C < G, levels 0–4; level 2 = rotations + reverse complement, e.g. ACAT → `ATAC`) [6]. |
-| Tandem summary | `TandemRepeatSummary` | Aggregate summary over the perfect microsatellites (1–6 bp units) reported by `FindMicrosatellites`: `TotalRepeats`; per-class counts for mono-, di-, tri-, tetra-, penta- and hexanucleotide repeats (MISA "Distribution to different repeat type classes", Krait Mono…Hexa [5][6]); `TotalRepeatBases` = sum of repeat lengths (Krait "Length (bp)" = `SUM(length)` [6]; overlapping runs of different unit lengths each count in full); `PercentageOfSequence` = bases covered by the union of repeat spans / length × 100; `LongestRepeat` (largest `TotalLength`, ties → shorter unit then leftmost; `null` when none); `MostFrequentUnit` (reported unit string — motif phase at run start, not rotation/strand-canonicalized, as in MISA's "Frequency of identified SSR motifs" [5]; ties → first in unit-length/position order; `null` when none). |
+| Tandem summary | `TandemRepeatSummary` | Aggregate summary over the perfect microsatellites reported by `FindMicrosatellites` (unit sizes 1–6 for the uniform overloads, the map's sizes — any size — for the per-unit-length overloads): `TotalRepeats`; `CountsByUnitLength` = count per searched unit size (MISA "Distribution to different repeat type classes", every size incl. > 6; 0 for searched sizes without SSRs, which misa.pl omits) and the named per-class counts for mono-, di-, tri-, tetra-, penta- and hexanucleotide repeats (Krait Mono…Hexa [5][6]); `TotalRepeatBases` = sum of repeat lengths (Krait "Length (bp)" = `SUM(length)` [6]; overlapping runs of different unit lengths each count in full); `PercentageOfSequence` = bases covered by the union of repeat spans / length × 100; `LongestRepeat` (largest `TotalLength`, ties → shorter unit then leftmost; `null` when none); `MostFrequentUnit` (reported unit string — motif phase at run start, not rotation/strand-canonicalized, as in MISA's "Frequency of identified SSR motifs" [5]; ties → first in unit-length/position order; `null` when none). |
 
 ### 3.3 Preconditions and Validation
 
@@ -79,7 +79,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 2. For each start position where at least `minRepetitions` copies could fit, extract the candidate unit.
 3. Count consecutive occurrences of that unit by advancing in `unitLength` increments until the pattern breaks.
 4. If the repetition count meets the threshold, yield a `TandemRepeat` and advance the scan to the end of that tandem block within the current unit-length pass.
-5. For summary mode, detect microsatellites with unit sizes 1-6 and aggregate counts, bases covered, repeat-type totals, longest repeat, and most frequent unit.
+5. For summary mode, detect microsatellites with unit sizes 1-6 (or the sizes of a per-unit-length MISA definition) and aggregate counts per unit size, bases covered, repeat-type totals, longest repeat, and most frequent unit.
 
 ### 4.3 Complexity
 
@@ -96,7 +96,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 - `GenomicAnalyzer.FindTandemRepeats(DnaSequence, int, int)`: Canonical exact detector for consecutive tandem repeats.
 - `RepeatFinder.GetTandemRepeatSummary(DnaSequence, int)`: Summary helper that aggregates microsatellite-sized tandem repeats.
-- `RepeatFinder.GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int>)`: Same summary with MISA-style per-unit-size thresholds (`RepeatFinder.MisaDefaultMinRepeats`).
+- `RepeatFinder.GetTandemRepeatSummary(DnaSequence, IReadOnlyDictionary<int,int>)`: Same summary with MISA-style per-unit-size thresholds (`RepeatFinder.MisaDefaultMinRepeats`). Any unit size (e.g. a misa.ini `def` line with 7–10 bp units, parsed by `RepeatFinder.ParseMisaDefinition`); per-size counts in `CountsByUnitLength` (B04 WP16, F61).
 - `RepeatFinder.GetTandemRepeatSummary(string, int)`, `(string, IReadOnlyDictionary<int,int>)`, `(string, IReadOnlyDictionary<int,int>, MicrosatelliteScanMode)`: raw-string, N/IUPAC-tolerant counterparts (case-insensitive; only A/C/G/T form units, so N/IUPAC never belong to an SSR — MISA `[acgt]`); `PercentageOfSequence` uses the full length incl. N (misa.pl `length $seq`); `null`/empty → empty summary. With `MisaRegex` the totals and per-unit-size counts equal misa.pl `.statistics` (6 000 N-containing sequences × 6 definitions, 0 mismatches; 12 000 per-sequence runs identical).
 - `RepeatFinder.GetCanonicalMotifClass(string)` / `GetCanonicalMotifFrequencies(IEnumerable<MicrosatelliteResult>)`: MISA repeat-type classes (rotation + reverse complement).
 - `RepeatFinder.GetStandardMotif(string, int level = 2)` / `GetStandardMotifFrequencies(IEnumerable<MicrosatelliteResult>, int level = 2)`: Krait standard motifs.
@@ -117,7 +117,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 **Intentionally simplified:**
 
 - Brute-force direct substring comparison instead of suffix-tree, suffix-array, or Tandem Repeats Finder style optimization; **consequence:** runtime grows rapidly on long sequences and the implementation is best suited to moderate sequence lengths [1][4].
-- `GetTandemRepeatSummary` is restricted to microsatellite-sized units from 1 to 6 bp; **consequence:** longer minisatellite and macrosatellite tandems are excluded from the summary even though `FindTandemRepeats` can detect longer exact units.
+- ~~`GetTandemRepeatSummary` is restricted to microsatellite-sized units from 1 to 6 bp~~ — **resolved 2026-10-01 (B04 audit WP16, F61):** the uniform-threshold overloads keep the classical 1–6 bp STR window, but the per-unit-length (MISA definition) overloads accept any unit size as misa.pl does (`def` = free list of `size-min` pairs, one regex per size; `.statistics` distribution row per size), with `TandemRepeatSummary.CountsByUnitLength` carrying every size (the six named fields stay 1–6) and MCP `misaDefinition` on `find_microsatellites` / `tandem_repeat_summary`. **Cross-check:** real `perl misa.pl` on 6 000 sequences × 7 definitions with unit sizes 7–12 (434 008 SSRs, 107 762 with units > 6; 79 690 `.misa` rows incl. compounds): SSR lists, rows and per-sequence per-size counts 0 mismatches (ties by SSR number, F48); `.statistics` totals and every distribution row identical; 2 100 / 2 100 per-sequence stock runs identical.
 
 **Implemented 2026-09-30 (MISA / Krait parity):**
 
@@ -150,7 +150,7 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 ### 6.2 Limitations
 
-`GenomicAnalyzer.FindTandemRepeats` is exact and does not score approximate tandem repeats, interrupted repeats, or noisy repeat families (use `RepeatFinder.FindApproximateTandemRepeats`, TRF model). The summary helper is narrower than the canonical detector because it only considers 1-6 bp units. The detector also does not canonicalize across competing unit-length interpretations, so the same genomic region can appear more than once when different repeat-unit sizes satisfy the threshold. There is also no raw-string overload for `FindTandemRepeats`, so callers must provide a `DnaSequence` and handle any normalization before calling the algorithm.
+`GenomicAnalyzer.FindTandemRepeats` is exact and does not score approximate tandem repeats, interrupted repeats, or noisy repeat families (use `RepeatFinder.FindApproximateTandemRepeats`, TRF model). The uniform-threshold summary considers 1-6 bp units only; for longer units pass a per-unit-length (MISA) definition with the wanted sizes. The detector also does not canonicalize across competing unit-length interpretations, so the same genomic region can appear more than once when different repeat-unit sizes satisfy the threshold. There is also no raw-string overload for `FindTandemRepeats`, so callers must provide a `DnaSequence` and handle any normalization before calling the algorithm.
 
 ## 7. Examples and Related Material
 

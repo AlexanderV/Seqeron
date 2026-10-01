@@ -977,7 +977,7 @@
     "server": "Analysis",
     "methodId": "RepeatFinder.GetTandemRepeatSummary",
     "docPath": "docs/mcp/tools/analysis/tandem_repeat_summary.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5227"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L5994"
   },
   {
     "tool": "terminal_mismatch_energy",

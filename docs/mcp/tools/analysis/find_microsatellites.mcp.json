@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RepeatFinder.FindMicrosatellites",
   "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L86",
-  "description": "Short Tandem Repeats (STRs / microsatellites): units of length minUnitLength..maxUnitLength repeated >= minRepeats times consecutively, each classified by repeat type. Redundant (self-repeating) units are skipped; each maximal run is reported once per unit length at its left end (complete copies only); non-ACGT units are not reported. Optional: MISA per-unit-size thresholds (misaThresholds: 1-10 2-6 3-5 4-5 5-5 6-5, Thiel et al. 2003) and MISA compound microsatellites (maxCompoundInterruption >= 0: SSRs separated by at most that many bases, types c / c*, MISA notation such as (TA)6tccgt(GA)7); misaScan reproduces misa.pl v1.0's regex scan exactly.",
+  "description": "Short Tandem Repeats (STRs / microsatellites): units of length minUnitLength..maxUnitLength repeated >= minRepeats times consecutively, each classified by repeat type. Redundant (self-repeating) units are skipped; each maximal run is reported once per unit length at its left end (complete copies only); non-ACGT units are not reported. Optional: MISA per-unit-size thresholds (misaThresholds: 1-10 2-6 3-5 4-5 5-5 6-5, Thiel et al. 2003) and MISA compound microsatellites (maxCompoundInterruption >= 0: SSRs separated by at most that many bases, types c / c*, MISA notation such as (TA)6tccgt(GA)7); misaScan reproduces misa.pl v1.0's regex scan exactly; misaDefinition takes a custom misa.ini definition with any unit sizes (e.g. 1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -46,6 +46,14 @@
         "type": "boolean",
         "description": "Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs; reproduces misa.pl's SSR list exactly",
         "default": false
+      },
+      "misaDefinition": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Custom MISA definition in misa.ini 'def' syntax: unit size-minimum copies pairs, any unit size (e.g. \"1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5\"); only these sizes are searched with these thresholds (minUnitLength, maxUnitLength, minRepeats ignored); cannot be combined with misaThresholds",
+        "default": null
       }
     },
     "required": [
@@ -241,6 +249,100 @@
                 "repeatCount": 12,
                 "totalLength": 12,
                 "repeatType": "Mononucleotide"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Custom MISA definition with 7-10 bp units + misa.pl scan + compound (misa.pl row c ... 105 1 105)",
+      "input": {
+        "sequence": "ACGTTGCACGTTGCACGTTGCGAAAAAAAAAAAACCTTAGGCATTAGGCATTAGGCATTCGACGTACGTACGTACGTACGTACGTGGATCCATGCAATCCATGCAATTGCACCTTGAGACCTTGAGANNACCTTGAGAGG",
+        "misaScan": true,
+        "maxCompoundInterruption": 10,
+        "misaDefinition": "1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2"
+      },
+      "output": {
+        "items": [
+          {
+            "position": 22,
+            "repeatUnit": "A",
+            "repeatCount": 12,
+            "totalLength": 12,
+            "repeatType": "Mononucleotide"
+          },
+          {
+            "position": 61,
+            "repeatUnit": "ACGT",
+            "repeatCount": 6,
+            "totalLength": 24,
+            "repeatType": "Tetranucleotide"
+          },
+          {
+            "position": 0,
+            "repeatUnit": "ACGTTGC",
+            "repeatCount": 3,
+            "totalLength": 21,
+            "repeatType": "Complex"
+          },
+          {
+            "position": 36,
+            "repeatUnit": "TTAGGCA",
+            "repeatCount": 3,
+            "totalLength": 21,
+            "repeatType": "Complex"
+          },
+          {
+            "position": 87,
+            "repeatUnit": "ATCCATGCA",
+            "repeatCount": 2,
+            "totalLength": 18,
+            "repeatType": "Complex"
+          }
+        ],
+        "compounds": [
+          {
+            "start": 0,
+            "end": 105,
+            "length": 105,
+            "type": "c",
+            "notation": "(ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2",
+            "components": [
+              {
+                "position": 0,
+                "repeatUnit": "ACGTTGC",
+                "repeatCount": 3,
+                "totalLength": 21,
+                "repeatType": "Complex"
+              },
+              {
+                "position": 22,
+                "repeatUnit": "A",
+                "repeatCount": 12,
+                "totalLength": 12,
+                "repeatType": "Mononucleotide"
+              },
+              {
+                "position": 36,
+                "repeatUnit": "TTAGGCA",
+                "repeatCount": 3,
+                "totalLength": 21,
+                "repeatType": "Complex"
+              },
+              {
+                "position": 61,
+                "repeatUnit": "ACGT",
+                "repeatCount": 6,
+                "totalLength": 24,
+                "repeatType": "Tetranucleotide"
+              },
+              {
+                "position": 87,
+                "repeatUnit": "ATCCATGCA",
+                "repeatCount": 2,
+                "totalLength": 18,
+                "repeatType": "Complex"
               }
             ]
           }

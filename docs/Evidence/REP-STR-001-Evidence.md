@@ -188,6 +188,42 @@ instrumented to dump its SSR list, and a copy with the tie broken by SSR number 
 | 2-3 4-2 6-2 / 20 | 25 885 | 14 938 | 0 / 0 | 0 / 0 | — | 1 038 |
 | 1-2 3-2 5-2 / 5 | 324 737 | 21 578 | 0 / 0 | 1 501 / 1 556 | yes | 1 425 |
 
+### MISA definitions with unit sizes above 6 (review 2026-10-01, audit WP16)
+
+**Source:** `misa.pl` v1.0 (raw GitHub `cfljam/SSR_marker_design`, re-downloaded 2026-10-01, sha1 `150418274728…`
+identical to the WP8 copy; perl 5.38.2). Lines 76–81: `%typrep = $1 =~ /(\d+)/gi if (/^def\S*\s+(.*)/i)` — every
+pair of numbers on the `def` line, no limit on the unit size; line 81 `@typ = sort { $a <=> $b } keys %typrep`;
+lines 101–106 one search `(([acgt]{$motiflen})\2{$minreps,})` per defined size; line 125 `$count_class{$typ[$i]}++`;
+lines 230–233 `.statistics` "Distribution to different repeat type classes" prints `Unit size / Number of SSRs` for
+every size with ≥ 1 SSR (`keys %count_class`). Hence the former 1–6 cap of the summary map overloads and of
+TestSpec REP-TANDEM-001 ("one count per unit size 1–6") was not misa.pl's behaviour. Observation: misa.pl's
+"Number of SSRs present in compound formation" adds 1 for the first pair of a compound and 1 per further SSR
+(lines 159/166/177/184), i.e. k − 1 for a k-SSR compound; the harness compares that figure as such.
+
+**Cross-check (`scratchpad/wp16`, public-API harness `xc16` — map from `RepeatFinder.ParseMisaDefinition` on the
+misa.ini `def` line, `FindMicrosatellites` / `FindCompoundMicrosatellites` / `GetTandemRepeatSummary(string, map,
+MisaRegex)`; `run16.py`, `perseq.py`):** 6 000 random sequences per setting (20–800 bp; units 1–12 bp with 7–12 bp
+over-represented, non-primitive units, partial copies, point mutations, AC/AT/A/ACG spacers, N runs, 20 % mixed
+case); misa.pl with ties broken by SSR number (F48) and stock misa.pl (`PERL_HASH_SEED=1`).
+
+| Setting (def / int) | misa.pl SSRs | of which unit > 6 | `.misa` rows | SSR lists / rows / per-sequence per-size counts differing (sequences) | `.statistics` vs tie-broken misa.pl | `.statistics` vs stock misa.pl | stock `.misa` differing sequences |
+|---|---|---|---|---|---|---|---|
+| 1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5 9-5 10-5 / 100 | 28 791 | 12 240 | 7 578 | 0 / 0 / 0 | identical | identical | 0 (all start ties: yes) |
+| 1-3 2-2 3-2 4-2 5-2 6-2 7-2 8-2 9-2 10-2 / 10 | 259 541 | 22 495 | 12 199 | 0 / 0 / 0 | identical | identical | 1477 (all start ties: yes) |
+| 7-2 8-2 9-2 10-2 / 0 | 22 481 | 22 481 | 20 249 | 0 / 0 / 0 | identical | identical except compound count (1 start-tie sequence) | 1 (all start ties: yes) |
+| 1-5 2-3 3-3 4-3 5-3 6-3 7-3 8-3 9-3 10-3 11-2 12-2 / 50 | 63 403 | 24 641 | 6 476 | 0 / 0 / 0 | identical | identical | 71 (all start ties: yes) |
+| 2-3 4-2 7-2 9-2 / 20 | 29 129 | 11 735 | 15 155 | 0 / 0 / 0 | identical | identical | 33 (all start ties: yes) |
+| 8-2 10-2 / 5 | 10 799 | 10 799 | 9 643 | 0 / 0 / 0 | identical | identical | 0 (all start ties: yes) |
+| 1-10 2-6 3-5 4-5 5-5 6-5 7-5 / 100 | 19 864 | 3 371 | 8 390 | 0 / 0 / 0 | identical | identical | 0 (all start ties: yes) |
+
+Totals: 434 008 SSRs (107 762 with units > 6), 79 690 `.misa` rows, 42 000 (sequence, setting) pairs — 0
+mismatches. `.statistics` compared on: sequences examined, total size, total SSRs, SSR-containing sequences,
+sequences with > 1 SSR, SSRs in compound formation and every distribution row. Per-sequence stock misa.pl runs
+(first 300 sequences of each setting, one run each): total and distribution rows **2 100 / 2 100** identical to
+`GetTandemRepeatSummary(…).CountsByUnitLength`. misa.pl's fractional redundancy counts (`{2.5}` for p = 7, j = 2,
+`{0.5}` for p = 9, j = 6, …) are literal braces (perl warns) and never match, so the divisor-only primitivity test
+is equivalent on all runs.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Benson (1999)
@@ -310,6 +346,16 @@ default PM = 0.80; the `CACACATACACA` tract sits exactly on that threshold (PM =
    exactly by the source ("average percent identity"); the closed-form mean/variance of the sum-of-heads
    R(d,k,pM) and its 95% percentile are NOT reproduced (non-redistributable simulation tables — the
    genome-scale seeding residual).
+   > **Superseded (2026-10-01, B04 audit WP16, F63)** — the "NOT reproduced" clause above is out of date.
+   > The sum-of-heads distribution and its 95 % cut-off are derived exactly (exact moments / distribution of
+   > R(d,k,PM)) and equal TRF's `sumdata80` for 2000/2000 d (B04 F14–F18) and `sumdata75` for 2000/2000 d
+   > (B04 **F41**). TRF's second simulated criterion, the apparent-size 95 % percentile, is derived exactly as
+   > well (README example y = 56 reproduced; equal to TRF's Monte-Carlo `waitdata` 825/2000 (PM 80) and
+   > 713/2000 (PM 75), the rest within its simulation noise; B04 **F43**). Callers who hold TRF's own
+   > `waitdata` table can supply it (`TandemRepeatsFinderParameters.ApparentSizeTable`), which makes the
+   > `.dat` / `-ngs` / HTML outputs byte-identical to compiled TRF 4.10.0 on all seven tested parameter sets
+   > (B04 **F56**). Only that table is not shipped (AGPL literal array, no generator). The adjacent-copy
+   > segmentation assumption for the Bernoulli PM/PI estimate itself is unchanged.
 
 ---
 
@@ -345,3 +391,6 @@ default PM = 0.80; the `CACACATACACA` tract sits exactly on that threshold (PM =
   repeat-type classes and Krait standard motifs — sources, misa.pl / Krait cross-checks; progress-reporting contract.
 - **2026-10-01** (B04 audit WP8): misa.pl-parity scan (`MicrosatelliteScanMode.MisaRegex`) — scan-loop source, Perl hash-order
   check (PERL_HASH_SEED), 6 000 × 6 cross-check (0 differences with deterministic tie order).
+- **2026-10-01** (B04 audit WP16): MISA definitions with unit sizes above 6 (misa.pl `def` parsing / per-size regex /
+  `.statistics` distribution), 6 000 × 7 cross-check incl. sizes 7–12 (0 mismatches; F61); Assumption 3 marked
+  superseded for R(d,k,PM) / the 95 % cut-offs (F41 / F43 / F56; F63).

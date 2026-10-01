@@ -20,7 +20,7 @@ public class RepeatFinder_MisaScan_Tests
     private const string ConsumedCase =
         "GCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGGCACAAAAAAGAAAACTATCAGGAATAGAGTATAGAGTAGGGGGGGGGGGGAAACAACTCTCTCTCTCTCTCTCTCTCTCTCTCTCTTAAACTTAAACTTAAACTTAAACTTAAACTTAAACTTAAAATTAAACT";
 
-    private static string Ssrs(IEnumerable<MicrosatelliteResult> r) =>
+    internal static string Ssrs(IEnumerable<MicrosatelliteResult> r) =>
         string.Join(";", r.Select(m => $"{m.RepeatUnit}x{m.RepeatCount}@{m.Position + 1}-{m.Position + m.TotalLength}"));
 
     [Test]
@@ -139,7 +139,7 @@ public class RepeatFinder_MisaScan_Tests
     /// redundant motifs (<c>([ACGT]{j})\1{p/j-1}</c> for j &lt; p — a fractional count is a literal brace and never
     /// matches); <c>$end = pos($seq)</c>, <c>$start = $end - length + 1</c>. Positions here 0-based.
     /// </summary>
-    private static List<MicrosatelliteResult> MisaPlScan(string seq, IReadOnlyDictionary<int, int> map)
+    internal static List<MicrosatelliteResult> MisaPlScan(string seq, IReadOnlyDictionary<int, int> map)
     {
         var result = new List<MicrosatelliteResult>();
         foreach (int p in map.Keys.OrderBy(x => x))

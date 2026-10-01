@@ -20,7 +20,7 @@ public class SequenceComplexity_CalculateKmerEntropy_Tests
 
     #region CalculateKmerEntropy(DnaSequence, k) — canonical exact values
 
-    // M1 — ACGT,k=1: 4 distinct monomers, uniform ⇒ H = log₂(4) = 2.0 (Çakır 2025 max; Shannon uniform).
+    // M1 — ACGT,k=1: 4 distinct monomers, uniform ⇒ H = log₂(4) = 2.0 (Pastore et al. 2025 max; Shannon uniform).
     [Test]
     public void CalculateKmerEntropy_UniformMonomers_ReturnsLog2Of4()
     {

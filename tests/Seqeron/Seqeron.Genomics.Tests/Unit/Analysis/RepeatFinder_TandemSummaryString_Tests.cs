@@ -145,7 +145,8 @@ public class RepeatFinder_TandemSummaryString_Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.GetTandemRepeatSummary("ACGT", 1));
             Assert.Throws<ArgumentNullException>(() => RepeatFinder.GetTandemRepeatSummary("ACGT", (IReadOnlyDictionary<int, int>)null!));
             Assert.Throws<ArgumentException>(() => RepeatFinder.GetTandemRepeatSummary("ACGT", new Dictionary<int, int>()));
-            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.GetTandemRepeatSummary("ACGT", new Dictionary<int, int> { [7] = 3 }));
+            // Unit sizes above 6 are valid (misa.pl accepts any size in its def line; B04 F61); size 0 is not.
+            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.GetTandemRepeatSummary("ACGT", new Dictionary<int, int> { [0] = 3 }));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 RepeatFinder.GetTandemRepeatSummary("ACGT", Uniform3, (MicrosatelliteScanMode)99));
         });

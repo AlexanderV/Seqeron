@@ -181,6 +181,9 @@ public record TandemRepeatSummaryResult(
     /// <summary>Count of hexanucleotide (6 bp unit) STRs.</summary>
     public int HexanucleotideRepeats { get; init; }
 
+    /// <summary>STR count per searched unit size in bp (1-6, or every size of misaDefinition, incl. sizes above 6); sums to TotalRepeats (misa.pl .statistics "Distribution to different repeat type classes").</summary>
+    public Dictionary<int, int>? CountsByUnitLength { get; init; }
+
     /// <summary>STR counts per MISA repeat-type class (rotations + reverse complement, e.g. "AC/GT").</summary>
     public Dictionary<string, int>? CanonicalMotifCounts { get; init; }
 

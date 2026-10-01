@@ -16,7 +16,7 @@
 | # | Source | Authority Rank | DOI or URL | Accessed |
 |---|--------|---------------|------------|----------|
 | 1 | Li, H. (2025). Finding low-complexity DNA sequences with longdust. arXiv:2509.07357 | 1 | https://arxiv.org/pdf/2509.07357 | 2026-06-14 |
-| 2 | Çakır et al. (2025). Entropy–Rank Ratio. arXiv:2511.05300 | 1 | https://arxiv.org/html/2511.05300 | 2026-06-14 |
+| 2 | Pastore E. P., Passarino G., Sapia P., De Rango F. (2025). Entropy–Rank Ratio. arXiv:2511.05300 (authors per the arXiv listing, B04 F60/F62; formerly mis-cited as "Çakır et al.") | 1 | https://arxiv.org/html/2511.05300 | 2026-06-14 |
 | 3 | Shannon, C.E. (1948) A Mathematical Theory of Communication (via citing secondaries) | 4 | https://en.wikipedia.org/wiki/Entropy_(information_theory) ; https://tcosmo.github.io/2019/04/21/shannon-entropy.html | 2026-06-14 |
 
 > **Review 2026-09 (B04):** source #1 does **not** define Shannon k-mer entropy — longdust's score is
@@ -31,7 +31,7 @@
 
 1. H = −Σ p_i log₂(p_i) where p_i is the frequency of the i-th k-mer — Li 2025.
 2. K-mers are overlapping (sliding window, step 1); a length-L sequence has N = L−k+1 k-mers; p_i = n_i/N — Li 2025.
-3. Logarithm base 2 → entropy in bits; single-nucleotide max = log₂(4) = 2 bits — Çakır 2025.
+3. Logarithm base 2 → entropy in bits; single-nucleotide max = log₂(4) = 2 bits — Pastore et al. 2025.
 4. Bounds: 0 ≤ H ≤ log_b(n); H = 0 for a deterministic distribution; H = log_b(n) for uniform over n symbols — Shannon 1948 (via secondaries).
 
 ### 1.3 Documented Corner Cases
@@ -41,8 +41,8 @@
 
 ### 1.4 Known Failure Modes / Pitfalls
 
-1. Confusing non-overlapping tuples (Çakır 2025, M=⌊L/n⌋) with overlapping k-mers (Li 2025, N=L−k+1). This unit uses the **overlapping** convention. — Li 2025 vs Çakır 2025.
-2. Wrong log base (must be 2 → bits). — Çakır 2025.
+1. Confusing non-overlapping tuples (Pastore et al. 2025, M=⌊L/n⌋) with overlapping k-mers (Li 2025, N=L−k+1). This unit uses the **overlapping** convention. — Li 2025 vs Pastore et al. 2025.
+2. Wrong log base (must be 2 → bits). — Pastore et al. 2025.
 
 ---
 
@@ -72,7 +72,7 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | `CalculateKmerEntropy_UniformMonomers_ReturnsLog2Of4` | `ACGT`, k=1 — 4 distinct monomers, uniform | 2.0 | Çakır 2025 (max=log₂4); Shannon uniform bound |
+| M1 | `CalculateKmerEntropy_UniformMonomers_ReturnsLog2Of4` | `ACGT`, k=1 — 4 distinct monomers, uniform | 2.0 | Pastore et al. 2025 (max=log₂4); Shannon uniform bound |
 | M2 | `CalculateKmerEntropy_AllDistinctDimers_ReturnsLog2OfN` | `ACGT`, k=2 — 3 distinct dimers, uniform | log₂(3) = 1.5849625007211562 | Li 2025 all-distinct; Shannon uniform |
 | M3 | `CalculateKmerEntropy_NonUniformDimers_ReturnsExact` | `ATATAT`, k=2 — AT=3,TA=2 (binary entropy of 0.6) | 0.9709505944546686 | Li 2025 formula H=−Σ p log₂ p |
 | M4 | `CalculateKmerEntropy_SingleRepeatedDimer_ReturnsZero` | `AAAA`, k=2 — only AA (deterministic) | 0.0 | Shannon H=0 for certainty; Li 2025 |
@@ -200,4 +200,4 @@
 
 ## 7. Open Questions / Decisions
 
-1. **Overlapping vs non-overlapping k-mers** — Decision: overlapping (Li 2025, N=L−k+1), which the existing implementation already uses; Çakır 2025's non-overlapping tuples are an alternative convention not adopted here. Documented in §1.4.
+1. **Overlapping vs non-overlapping k-mers** — Decision: overlapping (Li 2025, N=L−k+1), which the existing implementation already uses; Pastore et al. 2025's non-overlapping tuples are an alternative convention not adopted here. Documented in §1.4.

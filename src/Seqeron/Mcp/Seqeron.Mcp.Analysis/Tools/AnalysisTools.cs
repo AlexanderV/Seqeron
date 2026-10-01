@@ -432,7 +432,7 @@ public class AnalysisTools
     #region RepeatFinder
 
     [McpServerTool(Name = "find_microsatellites", Title = "Repeats — Microsatellites (STR)", ReadOnly = true)]
-    [Description("Short Tandem Repeats (STRs): 1-6 bp motif units repeated consecutively. Optional MISA per-unit-size thresholds (1-10 2-6 3-5 4-5 5-5 6-5) and MISA compound microsatellites (types c / c*).")]
+    [Description("Short Tandem Repeats (STRs): 1-6 bp motif units repeated consecutively. Optional MISA per-unit-size thresholds (default 1-10 2-6 3-5 4-5 5-5 6-5, or a custom misa.ini definition with any unit sizes, e.g. 7-10 bp units) and MISA compound microsatellites (types c / c*).")]
     public static FindMicrosatellitesResult FindMicrosatellites(
         [Description("DNA sequence.")] string sequence,
         [Description("Minimum unit length (default 1).")] int minUnitLength = 1,
@@ -440,13 +440,25 @@ public class AnalysisTools
         [Description("Minimum number of repeats (default 3); ignored when misaThresholds is true.")] int minRepeats = 3,
         [Description("Use the MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) for the unit lengths minUnitLength..maxUnitLength within 1-6 instead of minRepeats (default false).")] bool misaThresholds = false,
         [Description("When >= 0, also chain the reported STRs into MISA compound microsatellites with at most this many interrupting bases (MISA default 100); default -1 = no compounds.")] int maxCompoundInterruption = -1,
-        [Description("Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs, reproducing misa.pl's SSR list exactly (default false).")] bool misaScan = false)
+        [Description("Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs, reproducing misa.pl's SSR list exactly (default false).")] bool misaScan = false,
+        [Description("Optional custom MISA definition in misa.ini 'def' syntax: unit size-minimum copies pairs, any unit size, e.g. \"1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5\". When given, only these unit sizes are searched with these thresholds (minUnitLength, maxUnitLength, minRepeats are ignored; cannot be combined with misaThresholds). Default null.")] string? misaDefinition = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         List<global::Seqeron.Genomics.Analysis.MicrosatelliteResult> found;
-        if (misaScan)
+        if (misaDefinition is not null)
+        {
+            if (misaThresholds)
+                throw new ArgumentException("misaDefinition cannot be combined with misaThresholds.", nameof(misaDefinition));
+            var definition = global::Seqeron.Genomics.Analysis.RepeatFinder.ParseMisaDefinition(misaDefinition);
+            found = global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
+                sequence, definition,
+                misaScan
+                    ? global::Seqeron.Genomics.Analysis.MicrosatelliteScanMode.MisaRegex
+                    : global::Seqeron.Genomics.Analysis.MicrosatelliteScanMode.MaximalRuns).ToList();
+        }
+        else if (misaScan)
         {
             var map = misaThresholds
                 ? MisaThresholdsForRange(minUnitLength, maxUnitLength)
@@ -557,26 +569,33 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "tandem_repeat_summary", Title = "Repeats — Tandem Repeat Summary", ReadOnly = true)]
-    [Description("Aggregate statistics across all microsatellites in a DNA sequence, incl. MISA repeat-type classes (motif rotations + reverse complement, e.g. AC/GT). N and other IUPAC codes are accepted (case-insensitive) and never form or extend a microsatellite, as in find_microsatellites; the percentage uses the full length (N included) as denominator. Optional misa.pl regex scan (misaScan) reproducing misa.pl's .statistics counts.")]
+    [Description("Aggregate statistics across all microsatellites in a DNA sequence, incl. counts per unit size (any size) and MISA repeat-type classes (motif rotations + reverse complement, e.g. AC/GT). N and other IUPAC codes are accepted (case-insensitive) and never form or extend a microsatellite, as in find_microsatellites; the percentage uses the full length (N included) as denominator. Optional custom misa.ini definition (misaDefinition) and misa.pl regex scan (misaScan) reproducing misa.pl's .statistics counts.")]
     public static TandemRepeatSummaryResult TandemRepeatSummary(
         [Description("DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive).")] string sequence,
         [Description("Minimum number of repeats (default 3); ignored when misaThresholds is true.")] int minRepeats = 3,
         [Description("Use the MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) instead of minRepeats (default false).")] bool misaThresholds = false,
         [Description("When 0-4, also count STRs per Krait standard motif at this level (Du et al. 2018; 2 = rotations + reverse complement); default -1 = not reported.")] int standardMotifLevel = -1,
-        [Description("Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs, so the counts equal misa.pl's .statistics (default false).")] bool misaScan = false)
+        [Description("Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs, so the counts equal misa.pl's .statistics (default false).")] bool misaScan = false,
+        [Description("Optional custom MISA definition in misa.ini 'def' syntax: unit size-minimum copies pairs, any unit size, e.g. \"1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5\". When given, these thresholds replace minRepeats (cannot be combined with misaThresholds); countsByUnitLength then has one entry per defined size (misa.pl .statistics 'Distribution to different repeat type classes'). Default null.")] string? misaDefinition = null)
     {
         var dna = RequireIupacDna(sequence, nameof(sequence));
         if (standardMotifLevel is < -1 or > 4)
             throw new ArgumentOutOfRangeException(nameof(standardMotifLevel), "standardMotifLevel must be -1 (off) or 0-4.");
-        if (!misaThresholds && minRepeats < 2)
+        if (misaDefinition is not null && misaThresholds)
+            throw new ArgumentException("misaDefinition cannot be combined with misaThresholds.", nameof(misaDefinition));
+        if (!misaThresholds && misaDefinition is null && minRepeats < 2)
             throw new ArgumentOutOfRangeException(nameof(minRepeats), "minRepeats must be at least 2.");
 
         var scanMode = misaScan
             ? global::Seqeron.Genomics.Analysis.MicrosatelliteScanMode.MisaRegex
             : global::Seqeron.Genomics.Analysis.MicrosatelliteScanMode.MaximalRuns;
-        IReadOnlyDictionary<int, int> map = misaThresholds
-            ? global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats
-            : Enumerable.Range(1, 6).ToDictionary(p => p, _ => minRepeats);
+        IReadOnlyDictionary<int, int> map;
+        if (misaDefinition is not null)
+            map = global::Seqeron.Genomics.Analysis.RepeatFinder.ParseMisaDefinition(misaDefinition);
+        else if (misaThresholds)
+            map = global::Seqeron.Genomics.Analysis.RepeatFinder.MisaDefaultMinRepeats;
+        else
+            map = Enumerable.Range(1, 6).ToDictionary(p => p, _ => minRepeats);
         var s = global::Seqeron.Genomics.Analysis.RepeatFinder.GetTandemRepeatSummary(dna, map, scanMode);
         var ssrs = global::Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(dna, map, scanMode).ToList();
         var canonical = global::Seqeron.Genomics.Analysis.RepeatFinder.GetCanonicalMotifFrequencies(ssrs);
@@ -596,6 +615,7 @@ public class AnalysisTools
         {
             PentanucleotideRepeats = s.PentanucleotideRepeats,
             HexanucleotideRepeats = s.HexanucleotideRepeats,
+            CountsByUnitLength = new Dictionary<int, int>(s.CountsByUnitLength),
             CanonicalMotifCounts = new Dictionary<string, int>(canonical),
             StandardMotifCounts = standardMotifLevel >= 0
                 ? new Dictionary<string, int>(global::Seqeron.Genomics.Analysis.RepeatFinder.GetStandardMotifFrequencies(ssrs, standardMotifLevel))

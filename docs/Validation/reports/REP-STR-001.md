@@ -54,6 +54,7 @@
 | `FindMicrosatellites` (per-size map) | brute-force maximal primitive runs with per-size thresholds | 6 048 sequences, 6 `misa.ini` configurations, 72 974 SSRs: 0 |
 | `AssembleCompoundMicrosatellites` fed misa.pl's SSR list (misa.pl order) | real `perl misa.pl` `.misa` rows | 6 048 sequences, 12 330 compounds: 0 |
 | `FindMicrosatellites` / `FindCompoundMicrosatellites` with `MicrosatelliteScanMode.MisaRegex` (WP8) | real `perl misa.pl` (SSR ties broken by SSR number) | 6 000 sequences × 6 `misa.ini` settings (662 948 SSRs, 99 300 rows): 0; stock misa.pl differs only by start-tie order (Perl hash order, varies with `PERL_HASH_SEED`) |
+| `FindMicrosatellites` / `FindCompoundMicrosatellites` / `GetTandemRepeatSummary` (`MisaRegex`) with unit sizes 7–12 (WP16, F61) | real `perl misa.pl` (ties by SSR number; `.statistics` vs stock) | 6 000 sequences × 7 definitions (434 008 SSRs, 107 762 with units > 6, 79 690 rows): 0; 2 100 per-sequence `.statistics` runs: 0 |
 | `FindCompoundMicrosatellites` end to end | real `perl misa.pl` | rows identical wherever the SSR lists agree; SSR-list differences: 1 220 SSRs same-size overlap < p (MISA truncates), 1 365 SSRs consumed by a rejected non-primitive match, 53 equal-start tie orders (Perl hash order) — 0 unexplained |
 
 Locked values (misa.pl output): `ACGTATATATATATATccgtGAGAGAGAGAGAGAtttttAAAAAAAAAAAAT` → `c (TA)6tccgt(GA)7ttttt(A)12 48 4 51`;
@@ -63,11 +64,12 @@ Locked values (misa.pl output): `ACGTATATATATATATccgtGAGAGAGAGAGAGAtttttAAAAAAAA
 ### Tests
 `RepeatFinder_Microsatellite_Tests` (F5–F7), `RepeatFinder_MisaCompound_Tests` (thresholds, compounds, progress / cancellation),
 `RepeatFinderMutationTests`, `Properties/B04ComplexityRepeatsProperties` + `RepeatFinderProperties` (maximal runs),
-heavy tier `Properties/RepStrMisaProperties` + `Metamorphic/RepStrMisaMetamorphicTests` (WP3); `RepeatFinder_MisaScan_Tests` (WP8, 6); MCP `FindMicrosatellitesTests`
+heavy tier `Properties/RepStrMisaProperties` + `Metamorphic/RepStrMisaMetamorphicTests` (WP3); `RepeatFinder_MisaScan_Tests` (WP8, 6); `RepeatFinder_MisaUnitSizes_Tests` (WP16, 5); MCP `FindMicrosatellitesTests`
 (`misaThresholds`, `maxCompoundInterruption`).
 
 ## Verdict & follow-ups
 - Stage A: PASS-WITH-NOTES. Stage B: FAIL → fixed. **State: FIXED**; MISA thresholds, compound SSRs and the progress contract implemented and misa.pl-verified.
-- MCP: `find_microsatellites` delegates (`misaThresholds`, `maxCompoundInterruption`, `misaScan` optional parameters, additive).
+- MCP: `find_microsatellites` delegates (`misaThresholds`, `maxCompoundInterruption`, `misaScan`, `misaDefinition` (WP16) optional parameters, additive).
+- WP16 (B04 F61): misa.pl definitions with unit sizes above 6 — any size accepted by the map overloads (summary cap removed), `ParseMisaDefinition`, `TandemRepeatSummary.CountsByUnitLength`, MCP `misaDefinition`; misa.pl-identical on 6 000 × 7 definitions.
 - WP8 (B04 F48): the two documented convention differences vs misa.pl are now selectable — `MicrosatelliteScanMode.MisaRegex` reproduces misa.pl's regex scan exactly; tie order of equal-start SSRs is Perl's randomised hash order in misa.pl (confirmed with PERL_HASH_SEED 1/2/3) and unit-length order here.
 - Cross-batch: `GenomicAnalyzer.FindTandemRepeats` (B09) and `GenomeAnnotator` (B11) private tandem engines should delegate to `FindMicrosatellites` (B04 report).

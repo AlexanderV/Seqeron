@@ -152,4 +152,29 @@ public class TandemRepeatSummaryTests
             Assert.That(s.CanonicalMotifCounts, Is.EquivalentTo(new Dictionary<string, int> { ["C/G"] = 1, ["AC/GT"] = 2, ["AT/AT"] = 1 }));
         });
     }
+
+    /// <summary>
+    /// misaDefinition (B04 F61): custom misa.ini definition with unit sizes 7-10. misa.pl v1.0 with
+    /// <c>1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2</c> / interruptions 10 reports (ACGTTGC)3 1-21, (A)12 23-34,
+    /// (TTAGGCA)3 37-57, (ACGT)6 62-85, (ATCCATGCA)2 88-105 and the row
+    /// <c>c (ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2 105 1 105</c>; .statistics distribution 1→1, 4→1, 7→2, 9→1.
+    /// </summary>
+    [Test]
+    public void TandemRepeatSummary_MisaDefinition_CountsByUnitLength_MatchMisaPlStatistics()
+    {
+        const string seq = "ACGTTGCACGTTGCACGTTGCGAAAAAAAAAAAACCTTAGGCATTAGGCATTAGGCATTCGACGTACGTACGTACGTACGTACGTGGATCCATGCAATCCATGCAATTGCACCTTGAGACCTTGAGANNACCTTGAGAGG";
+        var s = AnalysisTools.TandemRepeatSummary(seq, misaScan: true, misaDefinition: "1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2");
+        var classic = AnalysisTools.TandemRepeatSummary(seq, misaThresholds: true, misaScan: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.TotalRepeats, Is.EqualTo(5));
+            Assert.That(s.CountsByUnitLength!.Where(kv => kv.Value > 0).OrderBy(kv => kv.Key).Select(kv => (kv.Key, kv.Value)),
+                Is.EqualTo(new[] { (1, 1), (4, 1), (7, 2), (9, 1) }));
+            Assert.That(s.CountsByUnitLength!.Keys.Order(), Is.EqualTo(Enumerable.Range(1, 10)));
+            Assert.That(classic.CountsByUnitLength!.Keys.Order(), Is.EqualTo(Enumerable.Range(1, 6)));
+            Assert.That(classic.CountsByUnitLength!.Values.Sum(), Is.EqualTo(classic.TotalRepeats));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.TandemRepeatSummary(seq, misaDefinition: ""));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.TandemRepeatSummary(seq, misaThresholds: true, misaDefinition: "7-3"));
+        });
+    }
 }

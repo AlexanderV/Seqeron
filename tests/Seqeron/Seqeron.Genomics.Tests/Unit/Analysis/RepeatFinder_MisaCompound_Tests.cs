@@ -115,7 +115,8 @@ public class RepeatFinder_MisaCompound_Tests
             Assert.Throws<ArgumentException>(() => RepeatFinder.FindMicrosatellites(dna, new Dictionary<int, int>()));
             Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.FindMicrosatellites(dna, new Dictionary<int, int> { [0] = 3 }));
             Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.FindMicrosatellites("ACGT", new Dictionary<int, int> { [2] = 1 }));
-            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.GetTandemRepeatSummary(dna, new Dictionary<int, int> { [7] = 3 }));
+            // Unit sizes above 6 are valid (misa.pl accepts any size in its def line; B04 F61); size 0 is not.
+            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.GetTandemRepeatSummary(dna, new Dictionary<int, int> { [0] = 3 }));
             Assert.That(RepeatFinder.FindMicrosatellites((string)null!, RepeatFinder.MisaDefaultMinRepeats), Is.Empty);
         });
     }

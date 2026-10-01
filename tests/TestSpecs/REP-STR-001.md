@@ -390,3 +390,23 @@ Bulk cross-check (scratch harness `wp8/misa`): 6 000 sequences × 6 misa.ini set
 0 differing (sequence, setting) pairs vs misa.pl with ties broken by SSR number; vs stock misa.pl every difference is a
 start tie with the same SSR set (Perl hash order: outputs differ between PERL_HASH_SEED 1/2/3 in 3 of 6 settings, identical
 for a fixed seed).
+
+## 13. MISA definitions with unit sizes above 6 (audit WP16, F61, 2026-10-01)
+
+Source: `misa.pl` v1.0 lines 76–81 (`def` line = any number of `size-min` pairs), 101–106 (one regex
+`(([acgt]{size})\2{min−1,})` per defined size), 125 / 230–233 (`$count_class{size}++`, `.statistics` distribution row per
+size). The per-unit-length overloads accept any unit size ≥ 1; `RepeatFinder.ParseMisaDefinition` parses misa.ini `def`
+syntax; `TandemRepeatSummary.CountsByUnitLength`; MCP `misaDefinition`. Tests: `RepeatFinder_MisaUnitSizes_Tests.cs`.
+
+| ID | Test | Expected (reference) |
+|----|------|----------|
+| U01 | 140-mer, `1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2` / 10, `MisaRegex` | misa.pl SSRs `ACGTTGC×3@1-21; A×12@23-34; TTAGGCA×3@37-57; ACGT×6@62-85; ATCCATGCA×2@88-105` (8-mer `ACGTACGT` redundant); row `c (ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2 105 1 105`; `.statistics` total 5, distribution 1→1, 4→1, 7→2, 9→1 |
+| U02 | `ParseMisaDefinition` | `1-10 2-6 3-5 4-5 5-5 6-5` = `MisaDefaultMinRepeats`; whole `def` line accepted; malformed / duplicate / size 0 / min < 2 → `ArgumentException` |
+| U03 | uniform summary | `CountsByUnitLength` keys 1–6 = the six named class counts, sum = total; default value → empty |
+| U04 | summary equality | content equality incl. `CountsByUnitLength` (string ≡ DnaSequence overload) |
+| U05 | 300 random long-unit sequences × 3 definitions (sizes ≤ 12) | transcription of the misa.pl scan loop; summary counts = per-size counts of that list |
+| MCP | `find_microsatellites` / `tandem_repeat_summary` `misaDefinition` | U01 SSRs, compound, distribution; invalid definitions and `misaThresholds` + `misaDefinition` rejected |
+
+Bulk cross-check (scratch harness `wp16`): 6 000 sequences × 7 definitions with sizes 7–12 (434 008 misa.pl SSRs, 107 762
+with units > 6; 79 690 rows): SSR lists, `.misa` rows, per-sequence per-size counts 0 differing; `.statistics` identical;
+2 100 / 2 100 per-sequence stock misa.pl runs identical.
