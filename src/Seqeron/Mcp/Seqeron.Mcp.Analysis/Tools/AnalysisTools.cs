@@ -41,18 +41,43 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "kmer_spectrum", Title = "k-mers — Spectrum", ReadOnly = true)]
-    [Description("Frequency-of-frequencies: for each occurrence count, how many distinct k-mers reach that count.")]
+    [Description("Frequency-of-frequencies: for each occurrence count, how many distinct k-mers reach that count. Optional Jellyfish modes (canonical = count -C, acgtOnly) and jellyfish histo options (low/high/increment/full) that add a binned 'histogram' (counts above high pooled in the last bin).")]
     public static KmerSpectrumResult KmerSpectrum(
         [Description("Sequence to analyze.")] string sequence,
-        [Description("k-mer length.")] int k)
+        [Description("k-mer length.")] int k,
+        [Description("Canonical counting (jellyfish count -C); implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip windows containing a non-ACGT symbol (Jellyfish convention). Default false.")] bool acgtOnly = false,
+        [Description("jellyfish histo -l/--low (default 1). Setting any histo option fills 'histogram'.")] long? low = null,
+        [Description("jellyfish histo -h/--high (default 10000); counts above it go to the last (cap) bin.")] long? high = null,
+        [Description("jellyfish histo -i/--increment, bucket width (default 1).")] long? increment = null,
+        [Description("jellyfish histo -f/--full: also list empty bins. Default false.")] bool full = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        var spectrum = KmerAnalyzer.GetKmerSpectrum(sequence, k);
-        return new KmerSpectrumResult(spectrum);
+        var options = new KmerCountingOptions(canonical, acgtOnly);
+        var spectrum = KmerAnalyzer.GetKmerSpectrum(sequence, k, options);
+        if (low is null && high is null && increment is null && !full)
+            return new KmerSpectrumResult(spectrum);
+
+        IReadOnlyList<KmerHistogramBin> rows;
+        try
+        {
+            rows = KmerAnalyzer.GetKmerHistogram(
+                sequence, k, options,
+                low ?? KmerAnalyzer.JellyfishHistoDefaultLow,
+                high ?? KmerAnalyzer.JellyfishHistoDefaultHigh,
+                increment ?? 1,
+                full);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new ArgumentException(ex.Message, ex.ParamName, ex);
+        }
+
+        return new KmerSpectrumResult(spectrum, rows.Select(r => new KmerHistogramRow(r.Bin, r.Frequency)).ToArray());
     }
 
     [McpServerTool(Name = "most_frequent_kmers", Title = "k-mers — Most Frequent", ReadOnly = true)]
@@ -141,27 +166,31 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "unique_kmers", Title = "k-mers — Unique (Singletons)", ReadOnly = true)]
-    [Description("k-mers that occur exactly once in the sequence (Jellyfish \"Unique\", count == 1; not the distinct k-mers), in lexicographic order.")]
+    [Description("k-mers that occur exactly once in the sequence (Jellyfish \"Unique\", count == 1; not the distinct k-mers), in lexicographic order. Optional canonical (jellyfish count -C + dump -L 1 -U 1) / acgtOnly modes.")]
     public static KmerListResult UniqueKmers(
         [Description("Sequence to analyze.")] string sequence,
-        [Description("k-mer length.")] int k)
+        [Description("k-mer length.")] int k,
+        [Description("Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip windows containing a non-ACGT symbol (Jellyfish convention). Default false.")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        var kmers = KmerAnalyzer.FindUniqueKmers(sequence, k).ToArray();
+        var kmers = KmerAnalyzer.FindUniqueKmers(sequence, k, new KmerCountingOptions(canonical, acgtOnly)).ToArray();
         return new KmerListResult(kmers);
     }
 
     [McpServerTool(Name = "kmers_with_min_count", Title = "k-mers — Min-Count Filter", ReadOnly = true)]
-    [Description("k-mers occurring at least minCount (and, if given, at most maxCount) times — jellyfish dump -L/-U — sorted by count descending, ties by k-mer.")]
+    [Description("k-mers occurring at least minCount (and, if given, at most maxCount) times — jellyfish dump -L/-U — sorted by count descending, ties by k-mer. Optional canonical (count -C) / acgtOnly modes.")]
     public static KmersWithMinCountResult KmersWithMinCount(
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length.")] int k,
         [Description("Minimum occurrence count (inclusive).")] int minCount,
-        [Description("Optional maximum occurrence count (inclusive, >= 0); omit for no upper bound.")] int? maxCount = null)
+        [Description("Optional maximum occurrence count (inclusive, >= 0); omit for no upper bound.")] int? maxCount = null,
+        [Description("Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip windows containing a non-ACGT symbol (Jellyfish convention). Default false.")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -171,7 +200,8 @@ public class AnalysisTools
         if (maxCount < 0)
             throw new ArgumentException("maxCount must be non-negative", nameof(maxCount));
 
-        var items = KmerAnalyzer.FindKmersWithMinCount(sequence, k, minCount, maxCount ?? int.MaxValue)
+        var items = KmerAnalyzer.FindKmersWithMinCount(
+                sequence, k, minCount, maxCount ?? int.MaxValue, new KmerCountingOptions(canonical, acgtOnly))
             .Select(t => new KmerCountItem(t.Kmer, t.Count))
             .ToArray();
         return new KmersWithMinCountResult(items);

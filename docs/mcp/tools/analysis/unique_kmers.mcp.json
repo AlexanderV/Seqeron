@@ -6,12 +6,14 @@
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindUniqueKmers",
   "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L296",
-  "description": "Returns the k-mers that occur exactly once (overlapping occurrence count = 1) in the sequence — the singleton k-mers.",
+  "description": "Returns the k-mers that occur exactly once (overlapping occurrence count = 1) in the sequence — the singleton k-mers. Optional Jellyfish modes: canonical (count -C + dump -L 1 -U 1) and acgtOnly.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "canonical": { "type": "boolean", "description": "Canonical k-mers (jellyfish count -C); implies acgtOnly", "default": false },
+      "acgtOnly": { "type": "boolean", "description": "Skip windows containing a symbol other than A/C/G/T (case-insensitive)", "default": false }
     },
     "required": ["sequence", "k"]
   },
@@ -40,6 +42,11 @@
       "name": "No singletons (homopolymer) AAAA k=2",
       "input": { "sequence": "AAAA", "k": 2 },
       "output": { "kmers": [] }
+    },
+    {
+      "name": "Canonical singletons of ATGATG k=3 (Jellyfish 2.3.1 count -C + dump -L 1 -U 1)",
+      "input": { "sequence": "ATGATG", "k": 3, "canonical": true },
+      "output": { "kmers": ["ATC", "TCA"] }
     }
   ]
 }

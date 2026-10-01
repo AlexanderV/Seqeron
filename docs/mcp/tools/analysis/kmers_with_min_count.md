@@ -22,6 +22,11 @@ k-mer order. The optional `maxCount` adds an inclusive upper bound; together the
 `maxCount < minCount` returns nothing. With `minCount ≤ 1` every distinct k-mer qualifies. Counting is case-insensitive; when `k` exceeds the sequence length
 the result is empty.
 
+Optional Jellyfish counting modes (same as `count_kmers`): `acgtOnly` skips windows with a non-ACGT
+symbol and `canonical` counts min(k-mer, reverse complement), so `canonical` + `minCount`/`maxCount` is
+`jellyfish count -C` + `jellyfish dump -L -U` (cross-checked against Jellyfish 2.3.1; e.g. the BA1B sample,
+k=4, `minCount 2`, `maxCount 3`, `canonical` → CATG:3, ATGA:2, TGCA:2).
+
 ## Core Documentation Reference
 
 - Source: [KmerAnalyzer.cs#L274](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L346)
@@ -34,6 +39,8 @@ the result is empty.
 | `k` | integer | Yes | k-mer length (> 0) |
 | `minCount` | integer | Yes | Inclusive minimum occurrence count |
 | `maxCount` | integer | No | Inclusive maximum occurrence count (≥ 0); omitted = unbounded |
+| `canonical` | boolean | No | Canonical k-mers (`jellyfish count -C`, key = min(k-mer, reverse complement)); implies `acgtOnly`. Default `false` |
+| `acgtOnly` | boolean | No | Skip windows containing a symbol other than A/C/G/T (Jellyfish convention). Default `false` |
 
 ## Output Schema
 

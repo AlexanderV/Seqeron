@@ -160,6 +160,23 @@ E. coli genome (Compeau & Pevzner textbook dataset), k=9, L=500, t=3 → 1904 di
 2. Remove FindMostFrequentKmers, FindUniqueKmers, FindClumps tests from KmerAnalyzerTests.cs
 3. Keep auxiliary methods (KmerDistance, GenerateAllKmers, FindKmerPositions, AnalyzeKmers, FindKmersWithMinCount) in KmerAnalyzerTests.cs
 
+### Audit round 1, WP3 (B06, F12) — `FindClumpWindows`
+
+`FindClumpWindows(sequence, k, L, t)` returns each clump k-mer with the maximal runs of window starts i for which
+`Genome[i..i+L−1]` holds ≥ t occurrences (Compeau & Pevzner ch. 1 definition; Rosalind BA1E window convention).
+`FindClumps` and `FindClumpWindows` share one sliding pass. Tests (`KmerAnalyzer_HistogramClumpWindowsFilters_Tests`):
+
+| ID | Test | Evidence |
+|---|---|---|
+| W1 | `FindClumpWindows_MatchesBruteForce` ×7 | Python brute force over every window: BA1E `CGACA:0-6 GAAGA:0-16 AATGT:16-21`; BA1B L=12 t=2 split runs `GCAT:4-5,11-12 CATG:5-6,12-13 ATGA:13-14`; homopolymers; lower case |
+| W2 | `FindClumpWindows_SameKmerSetAsFindClumps` ×7 | the k-mer set equals `FindClumps` |
+| W3 | `FindClumpWindows_FirstWindowStart_IsLeftmostQualifyingWindow` | AATGT at 21, 73, 81, 86 → windows [86+5−75, 21] = [16, 21] |
+| W4 | `FindClumpWindows_SameLeavingAndEnteringKmer_DoesNotSplitRun` | A^10 k=2 L=4 t=3 → one run 0–6 |
+| W5 | `FindClumpWindows_DegenerateInput_Empty` ×6 | same empty conditions as `FindClumps` |
+
+Out-of-suite: 3000 random cases vs the brute force, 0 mismatches; 2 Mbp random (k=6, L=300, t=4) vs an independent
+occurrence-interval method, 113 k-mers / 142 runs identical (K-mer_Search.md §7.3).
+
 ---
 
 ## Assumptions

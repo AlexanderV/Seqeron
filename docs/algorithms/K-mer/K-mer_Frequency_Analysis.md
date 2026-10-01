@@ -26,7 +26,7 @@ $$
 f_i = \frac{c_i}{\sum_j c_j}
 $$
 
-where `c_i` is the observed count of k-mer `i`; since every one of the `L - k + 1` overlapping windows is counted, `Σ c_j = L - k + 1` (same denominator as scikit-bio `kmer_frequencies(k, overlap=True, relative=True)`). The k-mer spectrum is the histogram mapping `count -> number of distinct k-mers with that count` [6] (Jellyfish `histo` semantics; only non-zero bins are returned, no upper cap bin, single strand). Shannon k-mer entropy is:
+where `c_i` is the observed count of k-mer `i`; since every one of the `L - k + 1` overlapping windows is counted, `Σ c_j = L - k + 1` (same denominator as scikit-bio `kmer_frequencies(k, overlap=True, relative=True)`). The k-mer spectrum is the histogram mapping `count -> number of distinct k-mers with that count` [6] (Jellyfish `histo` semantics; only non-zero bins are returned, no upper cap bin, single strand). The full `jellyfish histo` contract — `-l/--low` (default 1), `-h/--high` (default 10000), `-i/--increment` (default 1), the catch-all cap bin and `-f/--full` — is available as `GetKmerHistogram` (§5.1, §7.3) [7]. Shannon k-mer entropy is:
 
 $$
 H = -\sum_i f_i \log_2(f_i)
@@ -88,6 +88,8 @@ All three metrics delegate to `CountKmers(...)` for input handling. Null or empt
 
 - `KmerAnalyzer.GetKmerFrequencies(string, int)`: Returns normalized frequencies in `[0.0, 1.0]`.
 - `KmerAnalyzer.GetKmerSpectrum(string, int)`: Returns the count-of-counts histogram.
+- `KmerAnalyzer.GetKmerSpectrum(string, int, KmerCountingOptions)`: The same over literal / ACGT-only / canonical (`count -C`) counts.
+- `KmerAnalyzer.GetKmerHistogram(string, int, KmerCountingOptions = default, long low = 1, long high = 10000, long increment = 1, bool full = false)` and `GetKmerHistogram(IEnumerable<int> kmerCounts, …)`: `jellyfish count [-C]` + `jellyfish histo -l -h -i [-f]`, returning ordered `KmerHistogramBin(Bin, Frequency)` rows — exactly the lines Jellyfish prints (B06 audit round 1 WP3, F12).
 - `KmerAnalyzer.CalculateKmerEntropy(string, int)`: Returns Shannon entropy in bits.
 
 ### 5.2 Current Behavior
@@ -100,6 +102,7 @@ The current implementation always computes these metrics from exact k-mer counts
 
 - Frequency normalization by total observed k-mer count.
 - Spectrum construction as a histogram of k-mer multiplicities.
+- Jellyfish `histo` binning (`sub_commands/histo_main.cc`, verbatim): `base = inc >= low ? 0 : low − inc`, `ceil = high + inc`, `nb_buckets = (ceil + inc − base) / inc`; a count `< base` goes to bucket 0, `> ceil` to the last bucket, else to `(count − base) / inc`; bucket i is labelled `base + i·inc`; zero rows only with `--full`. Hence the last bucket (label ≥ high) is the cap for every count above `high`, counts below `low` are pooled in the first bucket, and with `inc ≥ low` the first label is 0. `high < low` is rejected (Jellyfish: "High count value must be >= to low count value"); `inc = 0` (a division by zero in Jellyfish) is rejected.
 - Shannon entropy over the observed k-mer distribution using base-2 logarithms.
 
 **Intentionally simplified:**
@@ -132,6 +135,26 @@ The current implementation always computes these metrics from exact k-mer counts
 The current implementation analyzes only observed k-mers and does not smooth the distribution or normalize against theoretical k-mer space. As with the underlying counting routine, memory usage grows with the number of unique observed k-mers.
 
 ## 7. Examples and Related Material
+
+### 7.3 Jellyfish `histo` cross-check (B06 audit round 1, WP3)
+
+Reference: the real **Jellyfish 2.3.1** binary (`apt jellyfish 2.3.1-3build1`): `jellyfish count -m k -s 10000 -t 1 [-C]` then `jellyfish histo [-l] [-h] [-i] [-f]`. 3 inputs (Rosalind KMER sample k=4, BA1B sample k=4, `A^31 CGTACGTACGTACGTTTGCA` k=3) × {plain, `-C`} × 12 option sets = 72 runs; a Python replica of `histo_main.cc` reproduces all 72, and `GetKmerHistogram` equals every row (`KmerAnalyzer_HistogramClumpWindowsFilters_Tests`). Selected rows (bin frequency …):
+
+| Input | Mode | histo options | Jellyfish 2.3.1 output |
+|---|---|---|---|
+| Rosalind k=4 | `-C` | (defaults) | 1 23 2 34 3 27 4 25 5 7 6 5 7 4 9 3 10 2 |
+| Rosalind k=4 | `-C` | `-h 5` | 1 23 2 34 3 27 4 25 5 7 6 14 (cap bin 6 = counts ≥ 6) |
+| Rosalind k=4 | `-C` | `-i 2` | 0 23 2 61 4 32 6 9 8 3 10 2 |
+| Rosalind k=4 | `-C` | `-l 3 -h 8 -i 2` | 1 57 3 52 5 12 7 4 9 5 |
+| Rosalind k=4 | `-C` | `-l 6 -h 9 -i 4` | 2 116 6 12 10 2 |
+| Rosalind k=4 | plain | `-l 4 -h 4` | 3 192 4 6 5 11 |
+| BA1B k=4 | `-C` | `-f -h 5` | 0 0 1 16 2 2 3 1 4 1 5 0 6 0 |
+| BA1B k=4 | `-C` | `-f -l 2 -h 6` | 1 16 2 2 3 1 4 1 5 0 6 0 7 0 |
+| A^31… k=3 | `-C` | (defaults) | 1 1 2 2 6 1 8 1 30 1 |
+| A^31… k=3 | plain | `-h 5` | 1 6 3 2 4 2 6 1 (count 29 → cap bin 6) |
+| A^31… k=3 | plain | `-f -l 3 -h 8 -i 2` | 1 6 3 4 5 0 7 0 9 1 |
+
+Defaults pool multiplicities > 10000 into bin 10001 (`A^10010`, k=1 → `10001 1`); `--full` with defaults lists the 10002 bins 0…10001. `GetKmerSpectrum` is unchanged (no cap).
 
 ### 7.2 Applications and Use Cases (Optional)
 

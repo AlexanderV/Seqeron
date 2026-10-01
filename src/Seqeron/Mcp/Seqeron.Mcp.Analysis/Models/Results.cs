@@ -7,8 +7,14 @@ namespace Seqeron.Mcp.Analysis.Tools;
 /// <summary>k-mer count map (k-mer → occurrence count).</summary>
 public record KmerCountsResult(Dictionary<string, int> Counts);
 
-/// <summary>k-mer frequency-of-frequencies spectrum.</summary>
-public record KmerSpectrumResult(Dictionary<int, int> Spectrum);
+/// <summary>
+/// k-mer frequency-of-frequencies spectrum; <paramref name="Histogram"/> holds the jellyfish-histo rows when any
+/// histo option (low/high/increment/full) was given, otherwise null.
+/// </summary>
+public record KmerSpectrumResult(Dictionary<int, int> Spectrum, KmerHistogramRow[]? Histogram = null);
+
+/// <summary>One jellyfish <c>histo</c> row: bucket label (low end point) and number of distinct k-mers in it.</summary>
+public record KmerHistogramRow(long Bin, long Frequency);
 
 /// <summary>List of k-mers.</summary>
 public record KmerListResult(string[] Kmers);

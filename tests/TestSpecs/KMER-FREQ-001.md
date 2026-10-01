@@ -171,6 +171,24 @@ spectrum has no upper cap bin (Jellyfish `-h` default 10000 bins higher counts t
 single-strand (Jellyfish `-C` counts canonical k-mers); per-window cost is O(k) (substring hashing),
 so total is O(n·k), not O(n).
 
+#### Audit round 1, WP3 (B06, F12) — Jellyfish `histo` options
+
+New method `GetKmerHistogram(sequence, k, KmerCountingOptions = default, low = 1, high = 10000, increment = 1, full = false)`
+(+ `GetKmerHistogram(IEnumerable<int> counts, …)`), a verbatim port of Jellyfish `sub_commands/histo_main.cc`.
+`GetKmerSpectrum` is unchanged (sparse, no cap). Tests (`KmerAnalyzer_HistogramClumpWindowsFilters_Tests`):
+
+| ID | Test | Evidence |
+|---|---|---|
+| H1 | `GetKmerHistogram_MatchesJellyfishHisto` ×72 | Jellyfish 2.3.1 binary: 3 inputs × {plain, `-C`} × 12 option sets (defaults, `-h 5`, `-i 2`, `-l 3 -h 8 -i 2`, `-l 2 -h 6`, `-l 1 -h 4 -i 3`, `-l 4 -h 4`, `-f -h 5`, `-f -l 3 -h 8 -i 2`, `-f -l 2 -h 6`, `-l 5 -h 7`, `-l 6 -h 9 -i 4`) |
+| H2 | `GetKmerHistogram_CountTableOverload_EqualsSequenceOverload` | table overload = sequence overload; Rosalind `-C -l 3 -h 8 -i 2` → 1 57 3 52 5 12 7 4 9 5 |
+| H3 | `GetKmerHistogram_DefaultsWithoutCap_EqualSortedSpectrum` | high above all counts → non-zero spectrum bins |
+| H4 | `GetKmerHistogram_DefaultHigh_PoolsCountsAboveTenThousandInCapBin10001` | `histo_main.cc`: ceil = high + inc; A^10010 k=1 → `10001 1` |
+| H5 | `GetKmerHistogram_FullDefaults_Has10002BinsFromZero` | nb_buckets = (ceil + inc − base)/inc = 10002, labels 0…10001 |
+| H6 | `GetKmerHistogram_FrequenciesSumToDistinctKmers` | every distinct k-mer lands in exactly one bucket |
+| H7 | `GetKmerHistogram_EmptyInput_NoRows_FullStillListsBins` | `-f` on an empty table lists the zero buckets |
+| H8 | `GetKmerHistogram_InvalidParameters_Throw` | high < low (Jellyfish error), inc < 1, low < 0, overflow, oversize full, null/negative counts |
+| H9 | `GetKmerSpectrum_Unchanged_NoCapBin` | backward compatibility |
+
 ---
 
 ## Deviations and Assumptions

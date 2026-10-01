@@ -31,4 +31,16 @@ public class UniqueKmersTests
         var none = AnalysisTools.UniqueKmers("AAAA", 2).Kmers;
         Assert.That(none, Is.Empty);
     }
+
+    [Test]
+    public void UniqueKmers_JellyfishModes_DelegateToOptionAwareOverload()
+    {
+        // Jellyfish 2.3.1: count -C -m 3 + dump -c -L 1 -U 1 on ATGATG -> ATC:1 TCA:1;
+        // plain (ACGT-only) count on acgtNNacgtacgRtTTGCAnA k=3 -> GCA GTA TAC TGC TTG TTT.
+        Assert.That(AnalysisTools.UniqueKmers("ATGATG", 3, canonical: true).Kmers, Is.EqualTo(new[] { "ATC", "TCA" }));
+        Assert.That(AnalysisTools.UniqueKmers("acgtNNacgtacgRtTTGCAnA", 3, acgtOnly: true).Kmers,
+            Is.EqualTo(new[] { "GCA", "GTA", "TAC", "TGC", "TTG", "TTT" }));
+        Assert.That(AnalysisTools.UniqueKmers("acgtNNacgtacgRtTTGCAnA", 3, canonical: true).Kmers,
+            Is.EqualTo(new[] { "AAA", "CAA" }));
+    }
 }

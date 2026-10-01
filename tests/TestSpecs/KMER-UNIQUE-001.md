@@ -113,6 +113,20 @@
 
 ---
 
+### 4.5 Audit round 1, WP3 (B06, F12) — option-aware overloads
+
+`FindUniqueKmers(seq, k, KmerCountingOptions)`, `FindKmersWithMinCount(seq, k, min, KmerCountingOptions)`,
+`FindKmersWithMinCount(seq, k, min, max, KmerCountingOptions)` = `jellyfish count [-C]` + `dump -L -U`. Tests (`KmerAnalyzer_HistogramClumpWindowsFilters_Tests`):
+
+| ID | Test | Evidence |
+|---|---|---|
+| O1 | `FindKmersWithMinCount_Options_MatchesJellyfishDump` ×20 | Jellyfish 2.3.1 binary `count [-C]` + `dump -c -L -U` (BA1B, mixed-case N/IUPAC, ATGATG, Rosalind KMER k=4/5) |
+| O2 | `FindUniqueKmers_Options_MatchesJellyfishDumpL1U1` ×4 | `dump -L 1 -U 1`, ordinal order |
+| O3 | `FindKmersWithMinCount_ThreeArgOptions_EqualsUnboundedRange` | 4-arg = 5-arg with `int.MaxValue` |
+| O4 | `OptionOverloads_DefaultOptions_EqualLiteralOverloads` ×3 | default options = literal overloads (backward compatibility) |
+| O5 | `FindUniqueKmers_Canonical_CountEqualsAnalyzeKmersSingletons` | Rosalind k=4 `-C` Unique 23 (Jellyfish `stats -C`, F10) |
+| O6 | `FindKmersWithMinCount_Options_Contracts` | negative maxCount (ParamName), k ≤ 0, null/empty, U < L |
+
 ## 5. Audit of Existing Tests
 
 ### 5.1 Discovery Summary

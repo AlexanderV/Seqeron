@@ -285,6 +285,142 @@ public static class KmerAnalyzer
         return spectrum;
     }
 
+    /// <summary>Jellyfish <c>histo</c> default <c>--low</c> (1).</summary>
+    public const long JellyfishHistoDefaultLow = 1;
+
+    /// <summary>Jellyfish <c>histo</c> default <c>--high</c> (10000).</summary>
+    public const long JellyfishHistoDefaultHigh = 10000;
+
+    /// <summary>
+    /// Jellyfish-<c>histo</c>-compatible k-mer histogram over counts produced under <paramref name="options"/>:
+    /// <c>jellyfish count [-C] -m k</c> followed by <c>jellyfish histo -l low -h high -i increment [-f]</c>.
+    /// </summary>
+    /// <remarks>
+    /// Delegates to <see cref="GetKmerHistogram(IEnumerable{int}, long, long, long, bool)"/> on the count table of
+    /// <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>; see that
+    /// overload for the exact bucket rule. With the defaults (low 1, high 10000, increment 1, not full) the rows
+    /// are the non-zero bins of <see cref="GetKmerSpectrum(string, int, KmerCountingOptions)"/> in ascending order,
+    /// except that multiplicities above 10000 are pooled in the cap bin 10001.
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze. Null/empty yields no k-mers.</param>
+    /// <param name="k">The k-mer length.</param>
+    /// <param name="options">Counting mode (literal, ACGT-only or canonical <c>-C</c>).</param>
+    /// <param name="low">Jellyfish <c>-l/--low</c> (default 1).</param>
+    /// <param name="high">Jellyfish <c>-h/--high</c> (default 10000).</param>
+    /// <param name="increment">Jellyfish <c>-i/--increment</c> (default 1).</param>
+    /// <param name="full">Jellyfish <c>-f/--full</c>: also emit empty bins.</param>
+    /// <returns>(Bin, Frequency) rows in ascending bin order, exactly the lines <c>jellyfish histo</c> prints.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">k ≤ 0 for non-empty input, or invalid histo parameters.</exception>
+    public static IReadOnlyList<KmerHistogramBin> GetKmerHistogram(
+        string sequence,
+        int k,
+        KmerCountingOptions options = default,
+        long low = JellyfishHistoDefaultLow,
+        long high = JellyfishHistoDefaultHigh,
+        long increment = 1,
+        bool full = false)
+    {
+        var layout = HistoLayout.Create(low, high, increment, full);
+        return BuildHistogram(CountKmers(sequence, k, options).Values, layout);
+    }
+
+    /// <summary>
+    /// Jellyfish-<c>histo</c>-compatible histogram of a k-mer count table (one entry per distinct k-mer),
+    /// e.g. the values of a <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/> table.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors <c>sub_commands/histo_main.cc</c> (gmarcais/Jellyfish) exactly:
+    /// <code>
+    /// base = increment &gt;= low ? 0 : low − increment
+    /// ceil = high + increment
+    /// nb_buckets = (ceil + increment − base) / increment        (integer division)
+    /// count &lt; base → bucket 0;  count &gt; ceil → bucket nb_buckets − 1;  else bucket (count − base) / increment
+    /// bucket i is labelled base + i·increment; rows with frequency 0 are printed only with --full
+    /// </code>
+    /// So the last bucket (label ≥ high) is the catch-all cap bin for every count above <paramref name="high"/>,
+    /// and counts below <paramref name="low"/> are pooled in the first bucket (when increment ≥ low the base is 0
+    /// and the first label is 0). Cross-checked against the Jellyfish 2.3.1 binary on 72 runs
+    /// (docs/algorithms/K-mer/K-mer_Frequency_Analysis.md §7.3). O(D) time for D counts; O(number of non-empty
+    /// buckets) memory, O(nb_buckets) output with <paramref name="full"/>.
+    /// </remarks>
+    /// <param name="kmerCounts">Multiplicity of each distinct k-mer (each ≥ 0).</param>
+    /// <param name="low">Jellyfish <c>-l/--low</c> (≥ 0, default 1).</param>
+    /// <param name="high">Jellyfish <c>-h/--high</c> (≥ <paramref name="low"/>, default 10000).</param>
+    /// <param name="increment">Jellyfish <c>-i/--increment</c> (≥ 1, default 1).</param>
+    /// <param name="full">Jellyfish <c>-f/--full</c>: also emit empty bins.</param>
+    /// <returns>(Bin, Frequency) rows in ascending bin order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="kmerCounts"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="low"/> &lt; 0, <paramref name="high"/> &lt; <paramref name="low"/> (Jellyfish: "High count value
+    /// must be &gt;= to low count value"), <paramref name="increment"/> &lt; 1 (Jellyfish divides by it),
+    /// high + 2·increment overflows, <paramref name="full"/> with more buckets than an array can hold,
+    /// or a negative count.
+    /// </exception>
+    public static IReadOnlyList<KmerHistogramBin> GetKmerHistogram(
+        IEnumerable<int> kmerCounts,
+        long low = JellyfishHistoDefaultLow,
+        long high = JellyfishHistoDefaultHigh,
+        long increment = 1,
+        bool full = false)
+    {
+        ArgumentNullException.ThrowIfNull(kmerCounts);
+        return BuildHistogram(kmerCounts, HistoLayout.Create(low, high, increment, full));
+    }
+
+    /// <summary>Bucket layout of Jellyfish <c>histo_main.cc</c> (base, ceil, nb_buckets, inc).</summary>
+    private readonly record struct HistoLayout(long Base, long Ceil, long Increment, long BucketCount, bool Full)
+    {
+        public static HistoLayout Create(long low, long high, long increment, bool full)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(low);
+            ArgumentOutOfRangeException.ThrowIfLessThan(increment, 1L);
+            if (high < low)
+                throw new ArgumentOutOfRangeException(nameof(high), high, "High count value must be >= low count value.");
+            if (increment > (long.MaxValue - high) / 2)
+                throw new ArgumentOutOfRangeException(nameof(high), high, "high + 2·increment overflows.");
+
+            long baseCount = increment >= low ? 0 : low - increment;
+            long ceil = high + increment;
+            long buckets = (ceil + increment - baseCount) / increment;
+            if (full && buckets > Array.MaxLength)
+                throw new ArgumentOutOfRangeException(nameof(full), full, "A full histogram would have more buckets than an array can hold.");
+            return new HistoLayout(baseCount, ceil, increment, buckets, full);
+        }
+
+        public long BucketOf(long count)
+        {
+            if (count < Base)
+                return 0;
+            if (count > Ceil)
+                return BucketCount - 1;
+            return (count - Base) / Increment;
+        }
+    }
+
+    private static List<KmerHistogramBin> BuildHistogram(IEnumerable<int> kmerCounts, HistoLayout layout)
+    {
+        var tally = new Dictionary<long, long>();
+        foreach (int count in kmerCounts)
+        {
+            if (count < 0)
+                throw new ArgumentOutOfRangeException(nameof(kmerCounts), count, "k-mer counts must be non-negative.");
+            long bucket = layout.BucketOf(count);
+            tally[bucket] = tally.TryGetValue(bucket, out long n) ? n + 1 : 1;
+        }
+
+        if (!layout.Full)
+        {
+            return tally.OrderBy(kvp => kvp.Key)
+                .Select(kvp => new KmerHistogramBin(layout.Base + kvp.Key * layout.Increment, kvp.Value))
+                .ToList();
+        }
+
+        var rows = new List<KmerHistogramBin>((int)layout.BucketCount);
+        for (long i = 0; i < layout.BucketCount; i++)
+            rows.Add(new KmerHistogramBin(layout.Base + i * layout.Increment, tally.GetValueOrDefault(i)));
+        return rows;
+    }
+
     /// <summary>
     /// Finds all most frequent k-mers in a sequence (Frequent Words Problem).
     /// </summary>
@@ -729,10 +865,61 @@ public static class KmerAnalyzer
     /// </exception>
     public static IEnumerable<(string Kmer, int Count)> FindKmersWithMinCount(
         string sequence, int k, int minCount, int maxCount)
+        => FindKmersWithMinCount(sequence, k, minCount, maxCount, KmerCountingOptions.Default);
+
+    /// <summary>
+    /// Unique k-mers (count exactly 1) under <paramref name="options"/> — with <c>Canonical = true</c> this is
+    /// <c>jellyfish count -C</c> followed by <c>jellyfish dump -L 1 -U 1</c>.
+    /// </summary>
+    /// <param name="sequence">The sequence to analyze (case-insensitive).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="options">Counting mode (literal, ACGT-only, canonical).</param>
+    /// <returns>The (canonical) k-mers whose count equals 1, in ascending ordinal order.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    public static IEnumerable<string> FindUniqueKmers(string sequence, int k, KmerCountingOptions options)
+        => FindKmersWithMinCount(sequence, k, UniqueKmerCount, UniqueKmerCount, options).Select(p => p.Kmer);
+
+    /// <summary>
+    /// k-mers with count ≥ <paramref name="minCount"/> under <paramref name="options"/>
+    /// (<c>jellyfish count [-C]</c> + <c>dump -L minCount</c>).
+    /// </summary>
+    /// <param name="sequence">The sequence to analyze (case-insensitive).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="minCount">Inclusive lower count bound (≤ 1 imposes no lower bound).</param>
+    /// <param name="options">Counting mode (literal, ACGT-only, canonical).</param>
+    /// <returns>(k-mer, Count) pairs, count descending then ordinal k-mer ascending.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    public static IEnumerable<(string Kmer, int Count)> FindKmersWithMinCount(
+        string sequence, int k, int minCount, KmerCountingOptions options)
+        => FindKmersWithMinCount(sequence, k, minCount, int.MaxValue, options);
+
+    /// <summary>
+    /// k-mers whose count lies in [<paramref name="minCount"/>, <paramref name="maxCount"/>] under
+    /// <paramref name="options"/> — <c>jellyfish count [-C]</c> followed by <c>jellyfish dump -L -U</c>
+    /// (Jellyfish dump filters are normally applied to a <c>-C</c> database).
+    /// </summary>
+    /// <remarks>
+    /// The single implementation behind every unique/min-count overload: the option-aware
+    /// <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/> table
+    /// filtered by the shared <c>SelectByCountRange</c> predicate. Default options give exactly
+    /// <see cref="FindKmersWithMinCount(string, int, int, int)"/>. Cross-checked against Jellyfish 2.3.1
+    /// <c>count [-C]</c> + <c>dump -c -L -U</c> (Unique_And_MinCount_Kmers.md §7.3).
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (case-insensitive).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="minCount">Inclusive lower count bound (≤ 1 imposes no lower bound).</param>
+    /// <param name="maxCount">Inclusive upper count bound; <see cref="int.MaxValue"/> = unbounded.</param>
+    /// <param name="options">Counting mode (literal, ACGT-only, canonical).</param>
+    /// <returns>(k-mer, Count) pairs in the range, count descending then ordinal k-mer ascending.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="maxCount"/> is negative, or <paramref name="k"/> ≤ 0 and the sequence is non-empty.
+    /// </exception>
+    public static IEnumerable<(string Kmer, int Count)> FindKmersWithMinCount(
+        string sequence, int k, int minCount, int maxCount, KmerCountingOptions options)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maxCount);
 
-        var counts = CountKmers(sequence, k);
+        var counts = CountKmers(sequence, k, options);
         return SelectByCountRange(counts, minCount, maxCount)
             .OrderByDescending(kvp => kvp.Value)
             .ThenBy(kvp => kvp.Key, StringComparer.Ordinal)
@@ -875,6 +1062,8 @@ public static class KmerAnalyzer
     /// canonical <see cref="CountKmers(string,int)"/>, then each slide decrements the k-mer leaving
     /// the window and increments the entering one. Only the entering k-mer's count can grow, so only
     /// it needs to be tested against t — O(|Genome|·k) time instead of rescanning the whole window.
+    /// The pass is the one shared with <see cref="FindClumpWindows"/> (which also reports the qualifying
+    /// windows); here only its run openings are used and results are streamed.
     /// Matching is case-insensitive (upper-cased), mirroring <see cref="CountKmers(string,int)"/>.
     /// Cross-check: E. coli genome (textbook dataset), k=9, L=500, t=3 → 1904 distinct 9-mers.
     /// </remarks>
@@ -883,41 +1072,132 @@ public static class KmerAnalyzer
     /// <param name="windowSize">Window length L.</param>
     /// <param name="minOccurrences">Minimum occurrences t within one window (inclusive).</param>
     /// <returns>
-    /// Each clump-forming k-mer exactly once, in order of first detection (order is not part of
-    /// the contract). Empty when the sequence is null/empty, k ≤ 0, L &lt; k, L &gt; |sequence|
+    /// Each clump-forming k-mer exactly once, in order of first detection (first window: ordinal order;
+    /// the order is not part of the contract). Empty when the sequence is null/empty, k ≤ 0, L &lt; k, L &gt; |sequence|
     /// (no window of length L exists) or t ≤ 0.
     /// </returns>
     public static IEnumerable<string> FindClumps(string sequence, int k, int windowSize, int minOccurrences)
     {
-        if (string.IsNullOrEmpty(sequence) || k <= 0 || windowSize < k || minOccurrences <= 0
-            || windowSize > sequence.Length)
+        if (!IsClumpScanPossible(sequence, k, windowSize, minOccurrences))
             yield break;
 
-        var seq = sequence.ToUpperInvariant();
-        var clumps = new HashSet<string>();
+        var clumps = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var transition in ScanClumpTransitions(sequence.ToUpperInvariant(), k, windowSize, minOccurrences))
+        {
+            if (transition.Qualifies && clumps.Add(transition.Kmer))
+                yield return transition.Kmer;
+        }
+    }
 
+    /// <summary>
+    /// Finds every (L, t)-clump k-mer together with the windows in which it forms a clump: for each k-mer, the
+    /// maximal runs of consecutive window starts i such that <c>Genome[i..i+L−1]</c> contains at least t of its
+    /// occurrences.
+    /// </summary>
+    /// <remarks>
+    /// Same clump definition and window convention as <see cref="FindClumps"/> (Compeau &amp; Pevzner,
+    /// <i>Bioinformatics Algorithms</i>, ch. 1; Rosalind BA1E): windows start at i ∈ [0, |Genome| − L] and an
+    /// occurrence at p counts when i ≤ p ≤ i + L − k. The qualifying windows of a k-mer form a set of window starts;
+    /// it is returned as its maximal runs [<see cref="ClumpWindowRun.FirstWindowStart"/>,
+    /// <see cref="ClumpWindowRun.LastWindowStart"/>] (inclusive). A run covers the genomic interval
+    /// [FirstWindowStart, LastWindowStart + L − 1], which holds the clump. <see cref="KmerClump.FirstWindowStart"/>
+    /// is the leftmost window in which the k-mer qualifies, i.e. where the textbook algorithm first detects it.
+    /// <para>One streaming pass shared with <see cref="FindClumps"/> (<c>BetterClumpFinding</c>): after each 1-bp
+    /// slide only the leaving k-mer's count can fall and only the entering k-mer's count can rise, so a run
+    /// opens when the entering k-mer reaches t and closes when the leaving k-mer drops to t − 1 (a slide whose
+    /// leaving and entering k-mers are equal changes nothing). O(|Genome|·k) time, O(L) window state plus the
+    /// output. Cross-checked against a Python brute force over every window (Find_Tests / K-mer_Search.md §7).</para>
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (Genome, case-insensitive).</param>
+    /// <param name="k">K-mer length.</param>
+    /// <param name="windowSize">Window length L.</param>
+    /// <param name="minOccurrences">Minimum occurrences t within one window (inclusive).</param>
+    /// <returns>
+    /// One <see cref="KmerClump"/> per clump k-mer (the same set as <see cref="FindClumps"/>), ordered by
+    /// <see cref="KmerClump.FirstWindowStart"/> then ordinal k-mer; runs in ascending order. Empty under the same
+    /// conditions as <see cref="FindClumps"/>.
+    /// </returns>
+    public static IReadOnlyList<KmerClump> FindClumpWindows(string sequence, int k, int windowSize, int minOccurrences)
+    {
+        var clumps = new List<KmerClump>();
+        if (!IsClumpScanPossible(sequence, k, windowSize, minOccurrences))
+            return clumps;
+
+        var runsByKmer = new Dictionary<string, List<ClumpWindowRun>>(StringComparer.Ordinal);
+        var openRunStart = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (kmer, window, qualifies) in ScanClumpTransitions(sequence.ToUpperInvariant(), k, windowSize, minOccurrences))
+        {
+            if (qualifies)
+            {
+                openRunStart[kmer] = window;
+                if (!runsByKmer.ContainsKey(kmer))
+                {
+                    var runs = new List<ClumpWindowRun>();
+                    runsByKmer[kmer] = runs;
+                    clumps.Add(new KmerClump(kmer, runs));
+                }
+            }
+            else
+            {
+                runsByKmer[kmer].Add(new ClumpWindowRun(openRunStart[kmer], window - 1));
+                openRunStart.Remove(kmer);
+            }
+        }
+
+        return clumps;
+    }
+
+    private static bool IsClumpScanPossible(string sequence, int k, int windowSize, int minOccurrences)
+        => !string.IsNullOrEmpty(sequence) && k > 0 && windowSize >= k && minOccurrences > 0
+           && windowSize <= sequence.Length;
+
+    /// <summary>
+    /// A change of a k-mer's clump status at a window start: <c>Qualifies = true</c> — the window
+    /// <c>Window</c> is the first of a run in which the k-mer has ≥ t occurrences; <c>false</c> — window
+    /// <c>Window</c> is the first after the run (the run ended at <c>Window − 1</c>).
+    /// </summary>
+    private readonly record struct ClumpTransition(string Kmer, int Window, bool Qualifies);
+
+    /// <summary>
+    /// The single (L, t)-clump sliding-window pass (Compeau &amp; Pevzner <c>BetterClumpFinding</c>) behind
+    /// <see cref="FindClumps"/> and <see cref="FindClumpWindows"/>. Emits run openings in window order (the first
+    /// window's in ordinal k-mer order), run closings when a count falls from t to t − 1, and after the last window
+    /// a closing at |Genome| − L + 1 for every still-open run (ordinal order). <paramref name="seq"/> is upper case.
+    /// </summary>
+    private static IEnumerable<ClumpTransition> ScanClumpTransitions(string seq, int k, int windowSize, int minOccurrences)
+    {
         // First window Genome[0..L−1]: canonical k-mer counting.
         var windowCounts = CountKmers(seq.Substring(0, windowSize), k);
-        foreach (var kvp in windowCounts)
-        {
-            if (kvp.Value >= minOccurrences && clumps.Add(kvp.Key))
-                yield return kvp.Key;
-        }
+        foreach (var kmer in windowCounts.Where(kvp => kvp.Value >= minOccurrences)
+                     .Select(kvp => kvp.Key).Order(StringComparer.Ordinal).ToList())
+            yield return new ClumpTransition(kmer, 0, true);
 
         // Slide: window i covers k-mer starts i..i+L−k.
-        for (int i = 1; i <= seq.Length - windowSize; i++)
+        int lastWindow = seq.Length - windowSize;
+        for (int i = 1; i <= lastWindow; i++)
         {
             string leaving = seq.Substring(i - 1, k);
-            if (--windowCounts[leaving] == 0)
-                windowCounts.Remove(leaving);
-
             string entering = seq.Substring(i + windowSize - k, k);
+            if (string.Equals(leaving, entering, StringComparison.Ordinal))
+                continue;
+
+            int left = windowCounts[leaving] - 1;
+            if (left == 0)
+                windowCounts.Remove(leaving);
+            else
+                windowCounts[leaving] = left;
+            if (left == minOccurrences - 1)
+                yield return new ClumpTransition(leaving, i, false);
+
             int count = windowCounts.TryGetValue(entering, out int c) ? c + 1 : 1;
             windowCounts[entering] = count;
-
-            if (count >= minOccurrences && clumps.Add(entering))
-                yield return entering;
+            if (count == minOccurrences)
+                yield return new ClumpTransition(entering, i, true);
         }
+
+        foreach (var kmer in windowCounts.Where(kvp => kvp.Value >= minOccurrences)
+                     .Select(kvp => kvp.Key).Order(StringComparer.Ordinal).ToList())
+            yield return new ClumpTransition(kmer, lastWindow + 1, false);
     }
 
     /// <summary>
@@ -1200,6 +1480,33 @@ public readonly record struct KmerStatistics(
     /// </summary>
     public int SingletonKmers { get; init; }
 }
+
+/// <summary>
+/// A maximal run of consecutive window starts in which a k-mer forms an (L, t)-clump
+/// (<see cref="KmerAnalyzer.FindClumpWindows"/>); both ends inclusive, 0-based.
+/// </summary>
+/// <param name="FirstWindowStart">First window start i of the run.</param>
+/// <param name="LastWindowStart">Last window start of the run; the run covers Genome[FirstWindowStart..LastWindowStart + L − 1].</param>
+public readonly record struct ClumpWindowRun(int FirstWindowStart, int LastWindowStart);
+
+/// <summary>
+/// An (L, t)-clump k-mer and the windows in which it forms a clump (<see cref="KmerAnalyzer.FindClumpWindows"/>).
+/// </summary>
+/// <param name="Kmer">The clump-forming k-mer (upper case).</param>
+/// <param name="WindowRuns">Maximal runs of qualifying window starts, ascending and disjoint (never empty).</param>
+public sealed record KmerClump(string Kmer, IReadOnlyList<ClumpWindowRun> WindowRuns)
+{
+    /// <summary>Leftmost window start in which the k-mer has at least t occurrences.</summary>
+    public int FirstWindowStart => WindowRuns[0].FirstWindowStart;
+}
+
+/// <summary>
+/// One row of a Jellyfish-<c>histo</c>-compatible k-mer histogram
+/// (<see cref="KmerAnalyzer.GetKmerHistogram(string, int, KmerCountingOptions, long, long, long, bool)"/>).
+/// </summary>
+/// <param name="Bin">Bucket label: its low end point, base + i·increment (Jellyfish first output column).</param>
+/// <param name="Frequency">Number of distinct k-mers tallied in the bucket (Jellyfish second column).</param>
+public readonly record struct KmerHistogramBin(long Bin, long Frequency);
 
 /// <summary>
 /// K-mer counting mode for the option-aware <see cref="KmerAnalyzer"/> overloads. The default value

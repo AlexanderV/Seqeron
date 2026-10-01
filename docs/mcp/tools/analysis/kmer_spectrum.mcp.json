@@ -6,12 +6,18 @@
   "stability": "stable",
   "methodId": "KmerAnalyzer.GetKmerSpectrum",
   "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L136",
-  "description": "Frequency-of-frequencies (k-mer spectrum): for each occurrence count c, how many distinct k-mers occur exactly c times.",
+  "description": "Frequency-of-frequencies (k-mer spectrum): for each occurrence count c, how many distinct k-mers occur exactly c times. Optional Jellyfish counting modes (canonical = count -C, acgtOnly) and jellyfish histo options (low, high, increment, full) that add a binned histogram (counts above high pooled in the last bin).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "canonical": { "type": "boolean", "description": "Canonical k-mers (jellyfish count -C); implies acgtOnly", "default": false },
+      "acgtOnly": { "type": "boolean", "description": "Skip windows containing a symbol other than A/C/G/T (case-insensitive)", "default": false },
+      "low": { "type": "integer", "description": "jellyfish histo -l/--low (default 1); giving any histo option fills histogram", "minimum": 0 },
+      "high": { "type": "integer", "description": "jellyfish histo -h/--high (default 10000, >= low); counts above it go to the last (cap) bin", "minimum": 0 },
+      "increment": { "type": "integer", "description": "jellyfish histo -i/--increment, bucket width (default 1)", "minimum": 1 },
+      "full": { "type": "boolean", "description": "jellyfish histo -f/--full: also list empty bins", "default": false }
     },
     "required": ["sequence", "k"]
   },
@@ -22,13 +28,24 @@
         "type": "object",
         "description": "Map from occurrence count to number of distinct k-mers reaching that count",
         "additionalProperties": { "type": "integer" }
+      },
+      "histogram": {
+        "type": ["array", "null"],
+        "description": "jellyfish histo rows (bin = bucket low end point, frequency = distinct k-mers in it), ascending; null unless a histo option is given",
+        "items": {
+          "type": "object",
+          "properties": { "bin": { "type": "integer" }, "frequency": { "type": "integer" } },
+          "required": ["bin", "frequency"]
+        }
       }
     },
     "required": ["spectrum"]
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "k must be positive" }
+    { "code": 1003, "message": "k must be positive" },
+    { "code": 1003, "message": "High count value must be >= low count value" },
+    { "code": 1003, "message": "increment must be >= 1; low must be >= 0" }
   ],
   "examples": [
     {
@@ -40,6 +57,17 @@
       "name": "Repeated trimer ATGATG k=3",
       "input": { "sequence": "ATGATG", "k": 3 },
       "output": { "spectrum": { "2": 1, "1": 2 } }
+    },
+    {
+      "name": "Canonical histo with cap bin (BA1B sample, k=4, -C, histo -f -l 2 -h 6; Jellyfish 2.3.1)",
+      "input": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4, "canonical": true, "low": 2, "high": 6, "full": true },
+      "output": {
+        "spectrum": { "1": 16, "2": 2, "3": 1, "4": 1 },
+        "histogram": [
+          { "bin": 1, "frequency": 16 }, { "bin": 2, "frequency": 2 }, { "bin": 3, "frequency": 1 }, { "bin": 4, "frequency": 1 },
+          { "bin": 5, "frequency": 0 }, { "bin": 6, "frequency": 0 }, { "bin": 7, "frequency": 0 }
+        ]
+      }
     }
   ]
 }

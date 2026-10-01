@@ -22,6 +22,11 @@ KMC `-ci1 -cx1`) and equals `SingletonKmers` of `analyze_kmers`. Counting is cas
 the k-mers are returned in ascending lexicographic (ordinal) order. When `k`
 exceeds the sequence length the result is empty.
 
+Optional Jellyfish counting modes (same as `count_kmers`): `acgtOnly` skips windows with a non-ACGT
+symbol and `canonical` counts min(k-mer, reverse complement) — together with the singleton filter this is
+`jellyfish count -C` + `jellyfish dump -L 1 -U 1` (cross-checked against Jellyfish 2.3.1; e.g. `ATGATG`, k=3,
+`canonical` → `ATC`, `TCA`).
+
 ## Core Documentation Reference
 
 - Source: [KmerAnalyzer.cs#L253](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L296)
@@ -32,6 +37,8 @@ exceeds the sequence length the result is empty.
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Sequence to analyze (min length 1) |
 | `k` | integer | Yes | k-mer length (> 0) |
+| `canonical` | boolean | No | Canonical k-mers (`jellyfish count -C`, key = min(k-mer, reverse complement)); implies `acgtOnly`. Default `false` |
+| `acgtOnly` | boolean | No | Skip windows containing a symbol other than A/C/G/T (Jellyfish convention). Default `false` |
 
 ## Output Schema
 

@@ -87,7 +87,8 @@ Input is upper-cased (T/U not normalised; standard string k-mers). Indexing is 0
 - `KmerAnalyzer.FindUniqueKmers(string, int)`: returns k-mers with count = 1 (ordinal order).
 - `KmerAnalyzer.FindKmersWithMinCount(string, int, int)`: returns (k-mer, count) with count ≥ minCount.
 - `KmerAnalyzer.FindKmersWithMinCount(string, int, int, int)`: returns (k-mer, count) with minCount ≤ count ≤ maxCount (Jellyfish `dump -L/-U`).
-- MCP: `unique_kmers` and `kmers_with_min_count` (Seqeron.Mcp.Analysis; optional `maxCount`) delegate.
+- `KmerAnalyzer.FindUniqueKmers(string, int, KmerCountingOptions)`, `FindKmersWithMinCount(string, int, int, KmerCountingOptions)` and `FindKmersWithMinCount(string, int, int, int, KmerCountingOptions)`: the same filters over literal / ACGT-only / canonical counts — `jellyfish count [-C]` + `jellyfish dump -L -U` (B06 audit round 1 WP3, F12). The 5-argument overload is the single implementation (option-aware `CountKmers` + the shared `SelectByCountRange` predicate); every other overload delegates to it, and default options reproduce the literal overloads exactly.
+- MCP: `unique_kmers` and `kmers_with_min_count` (Seqeron.Mcp.Analysis; optional `maxCount`, `canonical`, `acgtOnly`) delegate.
 
 ### 5.2 Current Behavior
 
@@ -107,9 +108,11 @@ Both methods delegate counting to `KmerAnalyzer.CountKmers`, inheriting its null
 
 - (none)
 
+- Jellyfish `count -C` / ACGT-only window rule before the filter (option-aware overloads, audit round 1 WP3); `AnalyzeKmers(sequence, k, options, L, U)` gives the matching `stats`, and `DistinctKmers(sequence, k, options)` the distinct set.
+
 **Not implemented:**
 
-- Option-aware (canonical / ACGT-only) overloads of `FindUniqueKmers` / `FindKmersWithMinCount` were not added, to keep the API small. The equivalent of `jellyfish count -C` + `dump -L/-U` is a count filter over `KmerAnalyzer.CountKmers(sequence, k, new KmerCountingOptions(Canonical: true))`. `AnalyzeKmers(sequence, k, options, L, U)` gives the matching `stats`, and `DistinctKmers(sequence, k, options)` the distinct set (B06 audit round 1).
+- (none) — the earlier "no option-aware overloads" item is resolved (B06 audit round 1 WP3).
 
 ## 6. Edge Cases and Limitations
 
@@ -162,9 +165,32 @@ Python replica of `dump_main.cc` over `collections.Counter`, sorted by (−count
 | ATCGATCAC | 3 | 1 | 1 | CAC CGA GAT TCA TCG |
 | AAAACGTAAA | 2 | 2 | ∞ / 2 | AA:5 / (none) |
 
-### 7.3 Related Tests, Evidence, or Documents
+### 7.3 Jellyfish 2.3.1 binary cross-check (option-aware overloads, audit round 1 WP3)
 
-- Tests: [KmerAnalyzer_FindUniqueAndMinCount_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_FindUniqueAndMinCount_Tests.cs) — covers `INV-01`..`INV-05`
+The real Jellyfish 2.3.1 binary: `jellyfish count -m k -s 10000 -t 1 [-C]` then `jellyfish dump -c -L l [-U u] | sort -k2,2nr -k1,1`. Plain Jellyfish = `KmerCountingOptions(AcgtOnly: true)`; `-C` = `KmerCountingOptions(Canonical: true)`. 20 runs; C# equals every row (`KmerAnalyzer_HistogramClumpWindowsFilters_Tests.FindKmersWithMinCount_Options_MatchesJellyfishDump`, `FindUniqueKmers_Options_MatchesJellyfishDumpL1U1`).
+
+| Sequence | k | Mode | -L | -U | Jellyfish output |
+|---|---|---|---|---|---|
+| BA1B sample | 4 | `-C` | 1 | 1 | 16 k-mers: AACG ACAT ACGT AGAG AGCT ATCA CAAC CATC CGAC CGCA CTCA GACA GAGA GAGC GCAA GCGA |
+| BA1B sample | 4 | `-C` | 2 | ∞ | ATGC:4 CATG:3 ATGA:2 TGCA:2 |
+| BA1B sample | 4 | `-C` | 2 | 3 | CATG:3 ATGA:2 TGCA:2 |
+| BA1B sample | 4 | plain | 2 | 3 | CATG:3 GCAT:3 ATGA:2 TGCA:2 |
+| `acgtNNacgtacgRtTTGCAnA` | 3 | `-C` | 1 | 1 | AAA CAA |
+| same | 3 | `-C` | 2 | ∞ | ACG:5 GCA:2 GTA:2 |
+| same | 3 | plain | 1 | 1 | GCA GTA TAC TGC TTG TTT |
+| same | 3 | plain | 2 | ∞ | ACG:3 CGT:2 |
+| ATGATG | 3 | `-C` | 1 / 2 | 1 / ∞ | ATC TCA / ATG:2 |
+| Rosalind KMER sample | 4 | `-C` | 7 | ∞ | AACT:10 ACTC:10 ACTG:9 AGTC:9 CTCA:9 AGAC:7 AGTA:7 CAGC:7 GTGA:7 |
+| same | 4 | `-C` | 5 | 6 | ACAG:6 CACA:6 CCAG:6 CCGA:6 CGAA:6 AAAA:5 AAGT:5 CCGC:5 CGGC:5 CTGC:5 GAAA:5 GTAA:5 |
+| same | 5 | `-C` | 4 | ∞ | CTCAC:6 AACTC:5 ACTCA:5 AGACT:4 AGTAC:4 CAGTC:4 |
+| same | 4 | plain | 7 | ∞ | CAGT:8 |
+| same | 5 | plain | 4 | ∞ | CAGTC:4 CTCAC:4 |
+
+`FindUniqueKmers(RosalindKmer, 4, Canonical)` has 23 k-mers = Jellyfish `stats -C` Unique 23 (F10).
+
+### 7.4 Related Tests, Evidence, or Documents
+
+- Tests: [KmerAnalyzer_FindUniqueAndMinCount_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_FindUniqueAndMinCount_Tests.cs) — covers `INV-01`..`INV-05`; [KmerAnalyzer_HistogramClumpWindowsFilters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_HistogramClumpWindowsFilters_Tests.cs) — option-aware overloads (§7.3)
 - Evidence: [KMER-UNIQUE-001-Evidence.md](../../../docs/Evidence/KMER-UNIQUE-001-Evidence.md)
 
 ## 8. References

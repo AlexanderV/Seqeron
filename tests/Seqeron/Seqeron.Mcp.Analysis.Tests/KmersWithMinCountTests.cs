@@ -59,4 +59,15 @@ public class KmersWithMinCountTests
 
         Assert.Throws<ArgumentException>(() => AnalysisTools.KmersWithMinCount("ATGATG", 3, 1, -1));
     }
+
+    [Test]
+    public void KmersWithMinCount_Canonical_MatchesJellyfishDump()
+    {
+        // Jellyfish 2.3.1: count -C -m 4 + dump -c -L 2 -U 3 on the BA1B sample -> CATG:3 ATGA:2 TGCA:2.
+        var items = AnalysisTools.KmersWithMinCount("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4, 2, 3, canonical: true).Items;
+        Assert.That(items.Select(i => $"{i.Kmer}:{i.Count}"), Is.EqualTo(new[] { "CATG:3", "ATGA:2", "TGCA:2" }));
+        // -L 2 without -U: ATGC:4 joins (ATGC + GCAT collapse to ATGC).
+        var all = AnalysisTools.KmersWithMinCount("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4, 2, canonical: true).Items;
+        Assert.That(all.Select(i => $"{i.Kmer}:{i.Count}"), Is.EqualTo(new[] { "ATGC:4", "CATG:3", "ATGA:2", "TGCA:2" }));
+    }
 }

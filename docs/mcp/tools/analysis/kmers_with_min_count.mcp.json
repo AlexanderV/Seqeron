@@ -6,14 +6,16 @@
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindKmersWithMinCount",
   "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L346",
-  "description": "Returns k-mers whose overlapping occurrence count is at least minCount and, if given, at most maxCount (jellyfish dump -L/-U), ordered by count descending then k-mer (ordinal).",
+  "description": "Returns k-mers whose overlapping occurrence count is at least minCount and, if given, at most maxCount (jellyfish dump -L/-U), ordered by count descending then k-mer (ordinal). Optional Jellyfish modes: canonical (count -C) and acgtOnly.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
       "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
       "minCount": { "type": "integer", "description": "Inclusive minimum occurrence count" },
-      "maxCount": { "type": "integer", "description": "Optional inclusive maximum occurrence count; omitted = unbounded", "minimum": 0 }
+      "maxCount": { "type": "integer", "description": "Optional inclusive maximum occurrence count; omitted = unbounded", "minimum": 0 },
+      "canonical": { "type": "boolean", "description": "Canonical k-mers (jellyfish count -C); implies acgtOnly", "default": false },
+      "acgtOnly": { "type": "boolean", "description": "Skip windows containing a symbol other than A/C/G/T (case-insensitive)", "default": false }
     },
     "required": ["sequence", "k", "minCount"]
   },
@@ -55,6 +57,11 @@
       "name": "Count range (maxCount=2)",
       "input": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4, "minCount": 2, "maxCount": 2 },
       "output": { "items": [ { "kmer": "ATGA", "count": 2 }, { "kmer": "TGCA", "count": 2 } ] }
+    },
+    {
+      "name": "Canonical count range (BA1B sample, k=4, jellyfish count -C + dump -L 2 -U 3; Jellyfish 2.3.1)",
+      "input": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4, "minCount": 2, "maxCount": 3, "canonical": true },
+      "output": { "items": [ { "kmer": "CATG", "count": 3 }, { "kmer": "ATGA", "count": 2 }, { "kmer": "TGCA", "count": 2 } ] }
     }
   ]
 }
