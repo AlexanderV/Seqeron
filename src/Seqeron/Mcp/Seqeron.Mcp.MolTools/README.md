@@ -2,7 +2,7 @@
 
 MCP server — **Primer/probe/CRISPR design, codon optimization, restriction analysis, thermodynamics.**
 
-Exposes **47 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **48 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.MolTools
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.MolTools"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (47)
+## Tools (48)
 
 | Tool | Description |
 |------|-------------|
@@ -35,6 +35,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `design_molecular_beacon` | Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse com… |
 | `design_primers` | Designs forward and reverse PCR primers flanking a target region in a DNA template; |
 | `design_probes` | Designs hybridization probes by scanning the target for length-window candidates and ranking by GC%, Tm, homopolymers, self-complementari… |
+| `design_probes_primer3` | Picks hybridization probes exactly as Primer3 does for PRIMER_TASK=pick_hyb_probe_only (internal-oligo picker; verified against primer3-py design_primers). |
 | `design_tiling_probes` | Generates fixed-length probes covering the entire target with a configurable overlap (step = probe_length − overlap). |
 | `digest_summary` | Aggregate statistics over a simulated linear restriction digest: total fragment count, fragment sizes (descending), largest/smallest frag… |
 | `effective_number_of_codons` | Effective Number of Codons (Wright's Nc), measuring how far a gene departs from uniform synonymous-codon usage. |
@@ -65,4 +66,4 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `rscu` | Relative Synonymous Codon Usage (RSCU) per codon: observed count / count-expected-if-uniform among its synonymous codons. |
 | `sticky_cutters` | Lists all built-in restriction enzymes that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang. |
 | `three_prime_stability` | SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol) of a primer's last 5 bases, including initiation terms (1 M NaCl), matching Primer3 P… |
-| `validate_probe` | Validates a probe against a set of reference sequences using ungapped k-mismatch (Hamming) approximate matching. |
+| `validate_probe` | Validates a hybridization probe: ungapped k-mismatch hits, Primer3 ntthal self-dimer/hairpin screen, optional Kane et al. (2000) cross-hybridization criteria against non-targets. |

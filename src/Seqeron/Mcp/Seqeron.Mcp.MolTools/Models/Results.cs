@@ -70,6 +70,7 @@ public sealed record SpecificityResult(double Specificity);
 
 // ProbeDesigner result wrappers
 public sealed record ProbesResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.Probe> Probes);
+public sealed record Primer3ProbesResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.Primer3Probe> Probes);
 public sealed record MolecularBeaconResult(global::Seqeron.Genomics.MolTools.ProbeDesigner.Probe? Probe);
 public sealed record OligoAnalysisResult(double? Tm, double GcContent, double MolecularWeight, double ExtinctionCoefficient);
 public sealed record ExtinctionCoefficientResult(double ExtinctionCoefficient);

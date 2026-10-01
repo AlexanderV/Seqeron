@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "design_probes_primer3",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.DesignProbesPrimer3",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1121",
+  "description": "Pick hybridization probes exactly as Primer3 pick_hyb_probe_only (internal-oligo picker; size/GC/poly-X/seqtm Tm/ntthal filters, Primer3 penalty order).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "template": { "type": "string", "description": "Template DNA sequence.", "minLength": 1 },
+      "num_return": { "type": "integer", "description": "PRIMER_NUM_RETURN.", "minimum": 0, "default": 5 },
+      "min_size": { "type": "integer", "description": "PRIMER_INTERNAL_MIN_SIZE.", "minimum": 1, "default": 18 },
+      "opt_size": { "type": "integer", "description": "PRIMER_INTERNAL_OPT_SIZE.", "default": 20 },
+      "max_size": { "type": "integer", "description": "PRIMER_INTERNAL_MAX_SIZE.", "maximum": 36, "default": 27 },
+      "min_tm": { "type": "number", "description": "PRIMER_INTERNAL_MIN_TM (°C).", "default": 57.0 },
+      "opt_tm": { "type": "number", "description": "PRIMER_INTERNAL_OPT_TM (°C).", "default": 60.0 },
+      "max_tm": { "type": "number", "description": "PRIMER_INTERNAL_MAX_TM (°C).", "default": 63.0 },
+      "min_gc_percent": { "type": "number", "description": "PRIMER_INTERNAL_MIN_GC (%).", "default": 20.0 },
+      "max_gc_percent": { "type": "number", "description": "PRIMER_INTERNAL_MAX_GC (%).", "default": 80.0 },
+      "max_poly_x": { "type": "integer", "description": "PRIMER_INTERNAL_MAX_POLY_X.", "default": 5 },
+      "max_self_any_th": { "type": "number", "description": "PRIMER_INTERNAL_MAX_SELF_ANY_TH (°C).", "default": 47.0 },
+      "max_self_end_th": { "type": "number", "description": "PRIMER_INTERNAL_MAX_SELF_END_TH (°C).", "default": 47.0 },
+      "max_hairpin_th": { "type": "number", "description": "PRIMER_INTERNAL_MAX_HAIRPIN_TH (°C).", "default": 47.0 },
+      "monovalent_mm": { "type": "number", "description": "PRIMER_INTERNAL_SALT_MONOVALENT (mM).", "default": 50.0 },
+      "divalent_mm": { "type": "number", "description": "PRIMER_INTERNAL_SALT_DIVALENT (mM).", "default": 0.0 },
+      "dntp_mm": { "type": "number", "description": "PRIMER_INTERNAL_DNTP_CONC (mM).", "default": 0.0 },
+      "dna_conc_nm": { "type": "number", "description": "PRIMER_INTERNAL_DNA_CONC (nM).", "default": 50.0 }
+    },
+    "required": ["template"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "probes": {
+        "type": "array",
+        "description": "Primer3Probe records, best first (PRIMER_INTERNAL_n_* values).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": { "type": "string" },
+            "start": { "type": "integer" },
+            "length": { "type": "integer" },
+            "tm": { "type": "number" },
+            "gcPercent": { "type": "number" },
+            "selfAnyTh": { "type": "number" },
+            "selfEndTh": { "type": "number" },
+            "hairpinTh": { "type": "number" },
+            "penalty": { "type": "number" }
+          }
+        }
+      }
+    },
+    "required": ["probes"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Template sequence cannot be null or empty" },
+    { "code": 1002, "message": "num_return cannot be negative" },
+    { "code": 1003, "message": "Sizes must satisfy 1 <= min_size <= max_size <= 36" }
+  ],
+  "examples": [
+    {
+      "name": "Primer3 defaults",
+      "input": { "template": "CAGATTTTCATATTATGCAGAAAATCTACTTCGCCTGATACGAGTCGGTTATCTTCGGATACTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTACCCAGAAAATAGCGACGGACC" },
+      "output": { "probes": [ { "start": 27, "length": 22, "tm": 57.57366111818777, "penalty": 4.426338881812228 } ] }
+    }
+  ]
+}

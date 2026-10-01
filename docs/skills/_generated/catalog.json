@@ -2345,6 +2345,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L493"
   },
   {
+    "tool": "design_probes_primer3",
+    "server": "MolTools",
+    "methodId": "ProbeDesigner.DesignProbesPrimer3",
+    "docPath": "docs/mcp/tools/moltools/design_probes_primer3.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1121"
+  },
+  {
     "tool": "design_tiling_probes",
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignTilingProbes",
@@ -2559,7 +2566,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.ValidateProbe",
     "docPath": "docs/mcp/tools/moltools/validate_probe.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L857"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1366"
   },
   {
     "tool": "bed_filter",

@@ -32,6 +32,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "design_molecular_beacon",
         "design_primers",
         "design_probes",
+        "design_probes_primer3",
         "design_tiling_probes",
         "digest_summary",
         "effective_number_of_codons",

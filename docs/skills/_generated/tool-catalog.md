@@ -353,7 +353,7 @@
 | `select_phylogenetic_markers` | `PanGenomeAnalyzer.SelectPhylogeneticMarkers` | [doc](../../mcp/tools/metagenomics/select_phylogenetic_markers.md) |
 | `taxonomic_profile` | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` | [doc](../../mcp/tools/metagenomics/taxonomic_profile.md) |
 
-## MolTools (47 tools)
+## MolTools (48 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -373,6 +373,7 @@
 | `design_molecular_beacon` | `ProbeDesigner.DesignMolecularBeacon` | [doc](../../mcp/tools/moltools/design_molecular_beacon.md) |
 | `design_primers` | `PrimerDesigner.DesignPrimers` | [doc](../../mcp/tools/moltools/design_primers.md) |
 | `design_probes` | `ProbeDesigner.DesignProbes` | [doc](../../mcp/tools/moltools/design_probes.md) |
+| `design_probes_primer3` | `ProbeDesigner.DesignProbesPrimer3` | [doc](../../mcp/tools/moltools/design_probes_primer3.md) |
 | `design_tiling_probes` | `ProbeDesigner.DesignTilingProbes` | [doc](../../mcp/tools/moltools/design_tiling_probes.md) |
 | `digest_summary` | `RestrictionAnalyzer.GetDigestSummary` | [doc](../../mcp/tools/moltools/digest_summary.md) |
 | `effective_number_of_codons` | `CodonUsageAnalyzer.CalculateEnc` | [doc](../../mcp/tools/moltools/effective_number_of_codons.md) |

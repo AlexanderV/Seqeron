@@ -3,5 +3,14 @@
   SpecificityScore: 0.3333333333333333,
   OffTargetHits: 3,
   SelfComplementarity: 1.0,
-  HasSecondaryStructure: false
+  HasSecondaryStructure: true,
+  ThermodynamicScreen: true,
+  SelfDimerTm: 59.185772,
+  SelfEndDimerTm: 59.185772,
+  HairpinTm: 67.291888,
+  Issues: [
+    3 potential off-target sites,
+    Self-complementarity: ntthal self-dimer Tm 59.2°C exceeds 47°C,
+    Potential secondary structure formation: ntthal hairpin Tm 67.3°C exceeds 47°C
+  ]
 }

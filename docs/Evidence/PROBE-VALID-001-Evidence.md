@@ -70,6 +70,15 @@
 1. **Off-target identity threshold:** "for a given oligonucleotide probe any 'non-target' transcripts (cDNAs) **>75% similar** over the 50 base target may show cross-hybridization." → 0.75 identity over the probe length is the empirically-grounded default above which a hit is called an off-target.
 2. **Gene-specific rule:** "oligonucleotide probes with **<75% overall sequence similarity** with non-target sequences and <14 contiguous complementary base pairs are gene-specific" — the complement of the off-target call.
 3. **Contiguous-stretch caveat:** "if the 50 base target region is marginally similar, it must not include a stretch of complementary sequence >15 contiguous bases."
+4. **Implemented decision rule (B07 review, 2026-10-01):** a non-target strand cross-hybridizes when identity (identical columns of the best local alignment ÷ probe length) **> 0.75** or the longest identical stretch **> 15 nt** — the reading used by later microarray-design pipelines ("a probe is likely to cross-hybridize with a nontarget if overall sequence identity is > 75% or if there is a contiguous match > 15 bp", Satya RV, Zavaljevski N, Kumar K, Reifman J (2008) BMC Bioinformatics 9:185; restated by Chen & Sharp (2002) Oliz, BMC Bioinformatics 3:27). Sources opened: WebSearch snippets of the Kane abstract (academic.oup.com, PubMed 11071945), Satya et al. 2008 and Oliz (publisher/PMC pages blocked). The paper's conclusion "<14 contiguous ... gene-specific" leaves 14–15 nt as a grey zone; `maxContiguousMatch` is configurable.
+
+### Primer3 hybridization-probe (internal-oligo) self-structure screen
+
+**Source:** primer3 `libprimer3.cc` (`o_args`: PRIMER_INTERNAL_MAX_SELF_ANY_TH = PRIMER_INTERNAL_MAX_SELF_END_TH = PRIMER_INTERNAL_MAX_HAIRPIN_TH = 47 °C; internal-oligo conditions 50 nM DNA, 50 mM monovalent, 0 Mg²⁺, 0 dNTP; `oligo_compl_thermod`, `oligo_hairpin`), opened in PROBE-DESIGN-001 (B07 F18). Reference: primer3-py 2.3.1 `calc_homodimer` / `calc_end_stability` / `calc_hairpin`.
+
+### OligoArray 2.0 (Rouillard, Zuker & Gulari 2003, NAR 31:3057) — duplex-Tm specificity
+
+WebSearch extract: specificity is computed from the thermodynamics of hybridization of the probe with every BLAST hit; "if there is no possible cross-hybridization with a Tm above the specificity threshold set by the user, the oligonucleotide is considered to be specific". → `CrossHybridizationAssessment.DuplexTm` (ntthal THAL_ANY Tm of the probe with the complementary strand of the aligned site) + optional `maxDuplexTm`.
 
 ---
 
@@ -138,6 +147,33 @@
 | Monotonicity | E(S=31) = 4.5052e−15 < E(S=30) (decreases with score) |
 | Linear in m·n | E(n=2000) = 2 × E(n=1000) |
 
+### Dataset: Kane criteria (Biopython 1.88 PairwiseAligner local, match 2 / mismatch −3 / open −7 / extend −2 = BLAST+ blastn 2/−3/5/2)
+
+Probe `TATGCCTCCGGTACATCAACTACAGTTAGCCTTAAGAGAAAAATCCCAAA` (random.seed 2000).
+
+| Non-target | Strand | Score | Identical / 50 | Longest contiguous | Kane |
+|---|---|---:|---:|---:|---|
+| A (substitution every 5th base, random flanks) | fwd | 53 | 40 (0.80) | 6 | identity |
+| B (probe[10..28) embedded) | fwd | 37 | 28 (0.56) | 18 | contiguous |
+| C (unrelated) | fwd / rc | 10 / 16 | 5 / 8 | 5 / 8 | — |
+| D (revcomp(probe) embedded) | rc | 100 | 50 (1.00) | 50 | both |
+| E (probe[0..15) embedded) | fwd | 30 | 15 (0.30) | 15 | — (15 is not > 15) |
+
+Site duplex Tm (primer3-py `calc_heterodimer(probe, revcomp(site))`, mv 50, dv 0, dntp 0, dna 50): A fwd site 20..68 → 36.11423712379826 °C; D rc site 15..64 → 66.04038852959525 °C.
+
+Random cross-check (this review): 420 probe/non-target pairs (20–70-nt probes, 0–9000-nt non-targets incl. mutated/indel/reverse-complement copies and chunk-boundary cases), 840 strands — alignment score and longest contiguous match identical to Biopython / DP LCS on all 840; reported identity always one of Biopython's co-optimal alignments' identities (48 strands have co-optimal alignments with different identities); duplex Tm identical to primer3-py `calc_heterodimer` on all 612 ≤ 60-nt cases (max |Δ| = 0).
+
+### Dataset: ntthal self-structure (primer3-py 2.3.1, mv 50, dv 0, dntp 0, dna 50)
+
+| Probe | calc_homodimer Tm | calc_end_stability Tm | calc_hairpin Tm | fold-back fraction |
+|---|---:|---:|---:|---:|
+| GCGCGCGCGCGCGCGCGCGC | 78.85652531616256 | 78.85652531616256 | 87.30265612393043 | 1.00 |
+| ACGTACGTACGTACGTACGTACGT | 59.1857717189107 | 59.1857717189107 | 67.29188756961071 | 1.00 |
+| CTAGAAATGCTGTCGGGACTTCTAC | −6.43 (→ 0) | −99.94 (→ 0) | 0 | 0.64 |
+| GCGCGCGCGC | 52.763 | 52.763 | 55.851 | 1.00 |
+
+At mv 100, dv 2, dntp 0.2, dna 250: ACGTACGTACGTACGTACGTACGT → 69.17069845823409 / 69.17069845823409 / 74.99462150250321.
+
 ---
 
 ## Assumptions
@@ -173,4 +209,5 @@
 ## Change History
 
 - **2026-06-24**: Initial Evidence for the gapped (Smith–Waterman) off-target scan + on/off-target separation (limitation fix). The prior ungapped-Hamming validation evidence is preserved in the TestSpec/algorithm doc.
+- **2026-10-01** (B07 PROBE-VALID-001 review): Kane contiguous-stretch criterion + strict > 75 % identity (`AssessCrossHybridization`, both strands), Primer3 ntthal self-structure screen in `ValidateProbe`, OligoArray-style site duplex Tm, `CheckSpecificity` both-strand option; datasets above.
 - **2026-06-24**: Added the Karlin–Altschul E-value / bit-score / λ evidence (sources 5–6), the +1/−3 λ≈1.374 cross-check, and the worked-example dataset, for the opt-in `ComputeLambdaNucleotide` / `ComputeKarlinAltschul` statistics.

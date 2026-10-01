@@ -8,10 +8,10 @@
 | **Area** | MolTools |
 | **Title** | Probe Validation |
 | **Canonical Class** | `ProbeDesigner` |
-| **Canonical Methods** | `ValidateProbe`, `CheckSpecificity`, `ScanOffTargetsGapped`, `ComputeLambdaNucleotide`, `ComputeKarlinAltschul` |
+| **Canonical Methods** | `ValidateProbe`, `CheckSpecificity`, `AssessCrossHybridization`, `ScanOffTargetsGapped`, `ComputeLambdaNucleotide`, `ComputeKarlinAltschul` |
 | **Complexity** | O(n × g) ungapped; O(g × n·m) gapped scan |
-| **Status** | ☐ Not Started (re-validation pending after limitation fix) |
-| **Last Updated** | 2026-06-24 |
+| **Status** | ☑ Reviewed (B07 campaign 2026-09, PROBE-VALID-001) |
+| **Last Updated** | 2026-10-01 |
 
 ---
 
@@ -26,7 +26,11 @@
 | Wikipedia: Off-target activity | Academic | Off-target detection methods, mismatch tolerance mechanisms |
 | Smith & Waterman (1981), J Mol Biol 147:195 | Primary paper | Local-alignment recurrence with zero floor; indel-aware (reused via `SequenceAligner.LocalAlign`) |
 | Altschul et al. (1990), J Mol Biol 215:403 | Primary paper | Gapped local alignment finds indels the ungapped scan misses ("BLAST-grade") |
-| Kane et al. (2000), Nucleic Acids Res 28(22):4552 | Primary paper | >75% identity over the probe → cross-hybridization (off-target identity threshold) |
+| Kane et al. (2000), Nucleic Acids Res 28(22):4552 | Primary paper | >75% identity over the probe or a >15-nt contiguous identical stretch → cross-hybridization |
+| Satya et al. (2008), BMC Bioinformatics 9:185 | Secondary | Kane rule as "identity > 75% or contiguous match > 15 bp" |
+| Primer3 `libprimer3.cc` / primer3-py 2.3.1 | Reference implementation | Internal-oligo ntthal self-dimer / 3′ self-dimer / hairpin Tm ≤ 47 °C; `calc_homodimer` / `calc_end_stability` / `calc_hairpin` / `calc_heterodimer` |
+| Rouillard et al. (2003), NAR 31:3057 (OligoArray 2.0) | Primary paper | Off-target duplex Tm vs a user specificity threshold |
+| Biopython 1.88 `PairwiseAligner` (local) | Reference implementation | Local-alignment score / identity cross-check |
 | Karlin & Altschul (1990), PNAS 87:2264 | Primary paper | λ = unique positive root of Σ p_i p_j e^{λ s_ij} = 1; E = K·m·n·e^{−λS}; negative-expected-score precondition |
 | Altschul et al. (1990), J Mol Biol 215:403 | Primary paper | Bit score S' = (λS − ln K)/ln 2; E = m·n·2^{−S'}; λ ≈ 1.37 / K ≈ 0.711 for +1/−3 (NCBI blastn) |
 
@@ -34,7 +38,7 @@
 
 ## Invariants
 
-1. **Specificity Range**: 0.0 ≤ specificityScore ≤ 1.0 (Source: Implementation)
+1. **Specificity Range**: 0.0 ≤ specificityScore ≤ 1.0 (Source: library-defined uniqueness score 1/N — not a published metric)
 2. **Self-Complementarity Range**: 0.0 ≤ selfComplementarity ≤ 1.0 (Source: Mathematical)
 3. **Off-Target Non-Negative**: offTargetHits ≥ 0 (Source: Implementation)
 4. **Unique Match Specificity**: offTargetHits == 1 → specificityScore == 1.0 (Source: Implementation)
@@ -46,6 +50,10 @@
 10. **Identity Threshold**: a hit is reported iff Identity ≥ `minIdentity` (default 0.75) (Source: Kane et al. 2000)
 11. **Karlin–Altschul λ**: `ComputeLambdaNucleotide` returns the unique positive root of Σ p_i p_j e^{λ s_ij} = 1; for +1/−3, p=0.25 it equals 1.3740631 ≈ published 1.374 (Source: Karlin & Altschul 1990; NCBI blastn cross-check). Requires a positive score and negative expected score.
 12. **Karlin–Altschul E-value/bit-score**: E = K·m·n·e^{−λS} = m·n·2^{−S'} with S' = (λS − ln K)/ln 2; E strictly decreases in S and is linear in m·n (Source: Karlin & Altschul 1990; Altschul et al. 1990)
+13. **Thermodynamic self-structure screen**: for ≤ 60-nt ACGT probes (Thermodynamic screen) SelfDimerTm / SelfEndDimerTm / HairpinTm equal primer3-py calc_homodimer / calc_end_stability / calc_hairpin at the stated conditions; a self-complementarity issue iff max(self-dimer, 3′ self-dimer) Tm > MaxStructureTm (47 °C), HasSecondaryStructure iff hairpin Tm > MaxStructureTm; otherwise the fallback screens (Source: Primer3 internal-oligo screen)
+14. **IsValid**: IsValid ⇔ Issues is empty (Source: Primer3 rejects an oligo violating any limit; Kane decision)
+15. **Kane criteria**: CrossHybridizes ⇔ Identity > maxIdentity (0.75) ∨ LongestContiguousMatch > maxContiguousMatch (15) ∨ (maxDuplexTm given ∧ DuplexTm > maxDuplexTm); AlignmentScore = Biopython local score; LongestContiguousMatch = LCS length; both strands by default (Source: Kane et al. 2000; OligoArray 2.0)
+16. **Site duplex Tm**: DuplexTm = primer3-py calc_heterodimer(probe, revcomp(site)).tm (0 if no duplex); null for > 60-nt / non-ACGT probes or no site (Source: thal.c, OligoArray 2.0)
 
 ---
 
@@ -78,6 +86,17 @@
 | KA5 | E strictly decreases as raw score S increases | Invariant #12 | Karlin & Altschul 1990 |
 | KA6 | E scales linearly with the search space m·n (double n → double E) | Invariant #12 | Karlin & Altschul 1990 |
 | KA7 | λ guards: non-positive match throws; non-negative expected score throws; non-positive m/n/K throws | Invariant #11 | Karlin & Altschul 1990 (preconditions) |
+| TH1 | ntthal Tm of GCGC…(20) = 78.85652531616256 / 78.85652531616256 / 87.30265612393043; issues + IsValid false | Invariant #13 | primer3-py 2.3.1 |
+| TH2 | Stated conditions (mv 100, dv 2, dntp 0.2, dna 250) → 69.17069845823409 / 69.17069845823409 / 74.99462150250321 | Invariant #13 | primer3-py 2.3.1 |
+| TH3 | Fold-back fraction 0.64 but no stable ntthal structure → no self-structure issue; Heuristic screen still flags it | Invariant #13 | primer3-py 2.3.1 |
+| TH4 | > 60-nt probe → fallback screens, ntthal fields null | Invariant #13 | thal.c THAL_MAX_ALIGN |
+| KN1 | Kane fixtures A–E: score / identical / LCS = Biopython | Invariant #15 | Biopython 1.88 |
+| KN2 | Kane thresholds strict (0.80 ↛ > 0.80; 15 nt ↛ > 15) | Invariant #15 | Kane et al. 2000 |
+| KN3 | Chunked long non-target score = canonical whole-strand LocalAlignAffine | Invariant #15 | SequenceAligner |
+| KN4 | Site duplex Tm = primer3-py calc_heterodimer (36.11423712379826, 66.04038852959525); maxDuplexTm flag | Invariant #16 | primer3-py; OligoArray 2.0 |
+| KN5 | ValidateProbe with non-targets records Kane issues, IsValid false | Invariant #14/#15 | Kane et al. 2000 |
+| KN6 | Argument guards (null/empty probe, identity ∉ [0,1], negative contiguous) | API | — |
+| CS1 | CheckSpecificity bothStrands counts reverse-complement sites, palindromes once | API | blastn strand = both |
 
 ### Should (Important)
 
@@ -119,7 +138,6 @@
 | M12 | `ValidateProbe_MixedCaseProbe_HandledCaseInsensitively` | ✅ Covered | Upper/lower/mixed → same results |
 | S1 | `ValidateProbe_PotentialHairpin_DetectsSecondaryStructure` | ✅ Covered | Exact: HasSecondaryStructure=true, issues contain text |
 | S2 | `ValidateProbe_ProblematicProbe_PopulatesIssuesList` | ✅ Covered | Exact: offTargetHits=16, issues contain "16 potential off-target sites" |
-| S3 | `ValidateProbe_MultipleProblems_IsValidFalse` | ✅ Covered | Exact: hits=12, selfComp=1.0, issues=2, IsValid=false |
 | S4 | `ValidateProbe_ApproximateMatching_FindsNearMatches` | ✅ Covered | Exact: 0 hits (strict) vs 1 hit (approx) |
 | C1 | `ValidateProbe_LongReference_FindsProbeCorrectly` | ✅ Covered | 20k-char ref, exact: hits=1, specificity=1.0 |
 | C2 | `ValidateProbe_MultipleReferences_AccumulatesHits` | ✅ Covered | 3 refs, exact: hits=3, specificity=1/3 |
@@ -142,6 +160,18 @@
 | KA5 | `ComputeKarlinAltschul_EValue_DecreasesAsScoreIncreases` | ✅ Covered | E(S+1) < E(S) |
 | KA6 | `ComputeKarlinAltschul_EValue_ScalesLinearlyWithSearchSpace` | ✅ Covered | E(2n) = 2·E(n) |
 | KA7 | `ComputeLambdaNucleotide_NonPositiveMatch_Throws` / `..._NonNegativeExpectedScore_Throws` / `ComputeKarlinAltschul_NonPositiveLength_Throws` | ✅ Covered | Preconditions + arg guards throw |
+| TH1 | `ValidateProbe_ThermodynamicScreen_ReportsPrimer3NtthalTm` | ✅ Covered | primer3-py values within 1e-9 |
+| TH2 | `ValidateProbe_ThermodynamicScreen_UsesStatedConditions` | ✅ Covered | primer3-py values within 1e-9 |
+| TH3 | `ValidateProbe_HighFoldBackFractionWithoutStableStructure_PassesThermodynamicScreen` | ✅ Covered | thermo vs heuristic |
+| TH4 | `ValidateProbe_ProbeLongerThan60nt_UsesSequenceOnlyFallback` | ✅ Covered | fallback |
+| KN1 | `AssessCrossHybridization_MatchesBiopythonLocalAlignmentAndLcs` | ✅ Covered | 10 strands |
+| KN2 | `AssessCrossHybridization_AppliesKaneThresholds` | ✅ Covered | strict thresholds |
+| KN3 | `AssessCrossHybridization_LongNonTarget_ChunkedScoreEqualsCanonicalWholeStrandAlignment` | ✅ Covered | 9-kb strand |
+| KN4 | `AssessCrossHybridization_SiteDuplexTm_MatchesPrimer3CalcHeterodimer` | ✅ Covered | calc_heterodimer within 1e-9 |
+| KN5 | `ValidateProbe_WithNonTargets_RecordsKaneCrossHybridizationIssues` | ✅ Covered | issue text exact |
+| KN6 | `AssessCrossHybridization_InvalidArguments_Throw` | ✅ Covered | guards |
+| CS1 | `CheckSpecificity_BothStrands_CountsReverseComplementSites` | ✅ Covered | 0 / 1 / 0.5 |
+| S3 | `ValidateProbe_MultipleProblems_IsValidFalse` (updated) | ✅ Covered | 3 issues: off-target + ntthal self-dimer 52.76 °C + hairpin 55.85 °C |
 
 ---
 
@@ -151,8 +181,11 @@ All configurable parameters have external evidence justification. No assumptions
 
 | Parameter | Default | Evidence | Source |
 |-----------|---------|----------|--------|
-| `maxMismatches` | 3 | Lower bound of CRISPR/Cas9 off-target tolerance: 3-5 bp mismatches per 20nt guide (Hsu et al. 2013, Fu et al. 2013). Configurable per caller. | Wikipedia: Off-target genome editing |
-| `selfComplementarityThreshold` | 0.3 | For random DNA (uniform base distribution), expected self-complementarity ≈ 0.25. Threshold of 0.3 (20% above baseline) detects statistically elevated palindromic character. Per-application defaults: qPCR=0.25, Microarray=0.3, NorthernBlot=0.35, FISH/SouthernBlot=0.4. | Wikipedia: Nucleic acid thermodynamics; `ProbeParameters.Defaults` |
+| `maxMismatches` | 3 | Screening tolerance of the ungapped site count (the figure comes from CRISPR/Cas9 guides — 3-5 bp mismatches per 20-nt guide, Hsu et al. 2013 — not from hybridization literature; kept for compatibility). The sourced hybridization cross-reactivity decision is the Kane assessment (`nonTargetSequences`). | Wikipedia: Off-target genome editing |
+| `selfComplementarityThreshold` | 0.3 | Fallback screen only (> 60 nt, non-ACGT, `Heuristic`): for random DNA the expected fold-back fraction ≈ 0.25; 0.3 flags elevated palindromic character. The default criterion for ≤ 60-nt ACGT probes is the Primer3 ntthal screen (47 °C). | `ProbeParameters.Defaults` (library convention) |
+| `MaxStructureTm` | 47 °C | PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH | Primer3 `libprimer3.cc` |
+| `maxNonTargetIdentity` / `maxContiguousMatch` | 0.75 / 15 (strict >) | Kane et al. (2000) | Kane et al. 2000; Satya et al. 2008 |
+| `maxDuplexTm` | none | OligoArray: user-set specificity threshold | Rouillard et al. 2003 |
 | `minIdentity` (gapped scan) | 0.75 | Kane et al. (2000): non-target transcripts >75% similar over the probe may cross-hybridize. Caller-configurable. | Kane et al. (2000), Nucleic Acids Res 28(22):4552 |
 | `scoring` (gapped scan) | `SequenceAligner.BlastDna` (+2/−3, gap −2) | Reuses the BLAST-style DNA scoring already used for the library's gapped ANI alignment (COMPGEN-ANI). | Altschul et al. (1990); reused infrastructure |
 | `k` (Karlin–Altschul) | 0.711 | Published nucleotide K for the +1/−3 scheme (NCBI blastn). K's full closed form needs the Karlin–Altschul score-lattice machinery, so it is a caller parameter; λ is computed (not assumed). | Karlin & Altschul (1990); NCBI blastn |

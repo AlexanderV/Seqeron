@@ -284,11 +284,12 @@ public class ProbeDesigner_ProbeValidation_Tests
     public void ValidateProbe_MultipleProblems_IsValidFalse()
     {
         // S3: IsValid false when multiple issues exist
-        // "GCGCGCGCGC" (10-mer) → selfComp = 1.0 (palindrome)
+        // "GCGCGCGCGC" (10-mer) → fold-back fraction 1.0 (palindrome)
         // In 32-char GC-repeat, only even positions match (odd positions are shifted by 1 → 10 mismatches)
         // Even positions 0,2,4,...,22 = 12 hits
-        // isValid formula: issues.Count==0 || (offTargetHits<=1 && selfComp<=0.4)
-        //   → false || (12<=1 && 1.0<=0.4) → false
+        // Thermodynamic screen (Primer3 probe conditions 50 nM / 50 mM / 0 Mg / 0 dNTP; primer3-py 2.3.1):
+        //   calc_homodimer Tm 52.763 °C and calc_hairpin Tm 55.851 °C both exceed 47 °C → 2 structure issues.
+        // IsValid = no recorded issue → false
         string probe = "GCGCGCGCGC";
         var references = new[] { "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC" }; // 32 chars
 
@@ -300,10 +301,11 @@ public class ProbeDesigner_ProbeValidation_Tests
                 "10-mer GC-repeat in 32-char GC-repeat: matches at 12 even positions");
             Assert.That(validation.SelfComplementarity, Is.EqualTo(1.0),
                 "GC-repeat is its own reverse complement");
-            Assert.That(validation.Issues.Count, Is.EqualTo(2),
-                "Should report off-target + self-complementarity issues");
+            Assert.That(validation.Issues.Count, Is.EqualTo(3),
+                "Should report off-target + ntthal self-dimer + ntthal hairpin issues");
+            Assert.That(validation.HasSecondaryStructure, Is.True, "ntthal hairpin Tm 55.85 °C > 47 °C");
             Assert.That(validation.IsValid, Is.False,
-                "offTargetHits>1 AND selfComp>0.4 → IsValid must be false");
+                "Issues recorded → IsValid must be false");
         });
     }
 
@@ -934,6 +936,309 @@ public class ProbeDesigner_ProbeValidation_Tests
 
         Assert.That(stats.Lambda, Is.EqualTo(0.6337314430979077).Within(1e-9),
             "Default scoring is BlastDna (+2/−3); λ is its uniform-0.25 root 0.6337314430979077");
+    }
+
+    #endregion
+
+    #region ValidateProbe - Primer3 thermodynamic self-structure screen (PROBE-VALID-001, B07)
+
+    // primer3-py 2.3.1 calc_homodimer / calc_end_stability / calc_hairpin Tm at the Primer3 probe conditions
+    // (mv 50 mM, dv 0, dntp 0, dna 50 nM) — the ValidateProbe default (Defaults.Microarray).
+
+    [Test]
+    public void ValidateProbe_ThermodynamicScreen_ReportsPrimer3NtthalTm()
+    {
+        var v = ProbeDesigner.ValidateProbe(PalindromicProbe, Enumerable.Empty<string>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.ThermodynamicScreen, Is.True);
+            Assert.That(v.SelfDimerTm!.Value, Is.EqualTo(78.85652531616256).Within(1e-9));
+            Assert.That(v.SelfEndDimerTm!.Value, Is.EqualTo(78.85652531616256).Within(1e-9));
+            Assert.That(v.HairpinTm!.Value, Is.EqualTo(87.30265612393043).Within(1e-9));
+            Assert.That(v.HasSecondaryStructure, Is.True, "hairpin Tm 87.3 °C > PRIMER_INTERNAL_MAX_HAIRPIN_TH 47 °C");
+            Assert.That(v.Issues, Has.Some.StartsWith("Self-complementarity: ntthal self-dimer Tm 78.9"));
+            Assert.That(v.Issues, Has.Some.StartsWith("Potential secondary structure formation: ntthal hairpin Tm 87.3"));
+            Assert.That(v.IsValid, Is.False);
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_ThermodynamicScreen_UsesStatedConditions()
+    {
+        // calc_homodimer / calc_end_stability / calc_hairpin at mv 100, dv 2, dntp 0.2, dna 250:
+        // 69.17069845823409 / 69.17069845823409 / 74.99462150250321.
+        var conditions = ProbeDesigner.Defaults.Microarray with
+        {
+            MonovalentMillimolar = 100, DivalentMillimolar = 2.0, DntpMillimolar = 0.2, DnaConcentrationNanomolar = 250,
+        };
+        var v = ProbeDesigner.ValidateProbe("ACGTACGTACGTACGTACGTACGT", Enumerable.Empty<string>(), conditions: conditions);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.SelfDimerTm!.Value, Is.EqualTo(69.17069845823409).Within(1e-9));
+            Assert.That(v.SelfEndDimerTm!.Value, Is.EqualTo(69.17069845823409).Within(1e-9));
+            Assert.That(v.HairpinTm!.Value, Is.EqualTo(74.99462150250321).Within(1e-9));
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_HighFoldBackFractionWithoutStableStructure_PassesThermodynamicScreen()
+    {
+        // Fold-back fraction 16/25 = 0.64 > 0.3, but primer3-py: homodimer Tm −6.43, end −99.94, hairpin 0
+        // (no stable structure; Primer3 reports negative Tm as 0) → no self-structure issue.
+        const string probe = "CTAGAAATGCTGTCGGGACTTCTAC";
+        var thermo = ProbeDesigner.ValidateProbe(probe, Enumerable.Empty<string>());
+        var heuristic = ProbeDesigner.ValidateProbe(probe, Enumerable.Empty<string>(),
+            conditions: ProbeDesigner.Defaults.Microarray with { StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thermo.SelfComplementarity, Is.EqualTo(0.64).Within(1e-12));
+            Assert.That(thermo.SelfDimerTm, Is.EqualTo(0.0));
+            Assert.That(thermo.SelfEndDimerTm, Is.EqualTo(0.0));
+            Assert.That(thermo.HairpinTm, Is.EqualTo(0.0));
+            Assert.That(thermo.Issues, Has.None.Contain("Self-complementarity"));
+            Assert.That(thermo.HasSecondaryStructure, Is.False);
+
+            Assert.That(heuristic.ThermodynamicScreen, Is.False);
+            Assert.That(heuristic.SelfDimerTm, Is.Null);
+            Assert.That(heuristic.Issues, Has.Some.StartsWith("Self-complementarity: 64"));
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_ProbeLongerThan60nt_UsesSequenceOnlyFallback()
+    {
+        // thal.c THAL_MAX_ALIGN = 60: a 64-nt probe has no ntthal self-structure.
+        string probe = string.Concat(Enumerable.Repeat("ACGT", 16));
+        var v = ProbeDesigner.ValidateProbe(probe, Enumerable.Empty<string>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.ThermodynamicScreen, Is.False);
+            Assert.That(v.SelfDimerTm, Is.Null);
+            Assert.That(v.HairpinTm, Is.Null);
+            Assert.That(v.SelfComplementarity, Is.EqualTo(1.0));
+            Assert.That(v.Issues, Has.Some.StartsWith("Self-complementarity: 100"));
+        });
+    }
+
+    #endregion
+
+    #region Kane et al. (2000) cross-hybridization criteria (PROBE-VALID-001, B07)
+
+    // Kane et al. (2000) NAR 28:4552: non-targets > 75 % similar over the probe, or sharing a stretch of
+    // > 15 contiguous identical bases, may cross-hybridize. Reference values: Biopython 1.88
+    // PairwiseAligner(mode='local', match 2, mismatch −3, open_gap_score −7, extend_gap_score −2) = BLAST+ blastn
+    // scoring (existence 5, extension 2) — score and the identical-column count of the (unique) optimal alignment;
+    // longest common substring by dynamic programming.
+    private const string KaneProbe = "TATGCCTCCGGTACATCAACTACAGTTAGCCTTAAGAGAAAAATCCCAAA";
+    // Probe with a substitution at every 5th position (40/50 identical), random flanks.
+    private const string KaneNonTargetA = "CCGCACCATGAGACTGTTTCTATGGCTCCTGTACCTCAAGTACATTTAGGCTTACGAGACAAATGCCAACCACATCGGCTTCGCACGTCT";
+    // Probe[10..28) (18 nt) embedded in random sequence.
+    private const string KaneNonTargetB = "GGTCCCACTGATAACGTGTTACCGGCTCTAGTACATCAACTACAGTTACCTAATGCAAAAAACTGTTAACACTTTAAA";
+    // Unrelated random sequence.
+    private const string KaneNonTargetC = "AATGTGATAGGATGTTAAAAGCGCCGAGACGGCGGTCTGCGATGTACCCCGCAACTGGTTCTTCCCCAGCCGCGGGGGTA";
+    // Reverse complement of the probe embedded in random sequence.
+    private const string KaneNonTargetD = "CCCCCGGCATTGTTCTTTGGGATTTTTCTCTTAAGGCTAACTGTAGTTGATGTACCGGAGGCATACGGCGCGGAATGACG";
+    // Probe[0..15) (exactly 15 nt) embedded in random sequence — at, not above, the contiguous threshold.
+    private const string KaneNonTargetE = "AAATTCCCGAAGAAGCGACTTGGTAGGGGATATGCCTCCGGTACACTAGTTCGTTATCCGTCTCGTATTCTGCTC";
+
+    [Test]
+    public void AssessCrossHybridization_MatchesBiopythonLocalAlignmentAndLcs()
+    {
+        var r = ProbeDesigner.AssessCrossHybridization(KaneProbe,
+            new[] { KaneNonTargetA, KaneNonTargetB, KaneNonTargetC, KaneNonTargetD, KaneNonTargetE });
+
+        Assert.That(r, Has.Count.EqualTo(10), "5 non-targets × 2 strands");
+        // (index, reverse, score, identical, lcs) — Biopython: A fwd 53/40/6, A rc 12/–/6, B fwd 37/28/18, B rc 12/6/6,
+        // C fwd 10/5/5, C rc 16/8/8, D fwd 12/6/6, D rc 100/50/50, E fwd 30/15/15, E rc 10/5/5.
+        var expected = new (int Score, int? Identical, int Lcs)[]
+        {
+            (53, 40, 6), (12, null, 6), (37, 28, 18), (12, 6, 6), (10, 5, 5),
+            (16, 8, 8), (12, 6, 6), (100, 50, 50), (30, 15, 15), (10, 5, 5),
+        };
+        Assert.Multiple(() =>
+        {
+            for (int k = 0; k < expected.Length; k++)
+            {
+                Assert.That(r[k].NonTargetIndex, Is.EqualTo(k / 2));
+                Assert.That(r[k].ReverseComplementStrand, Is.EqualTo(k % 2 == 1));
+                Assert.That(r[k].AlignmentScore, Is.EqualTo(expected[k].Score), $"score {k}");
+                Assert.That(r[k].LongestContiguousMatch, Is.EqualTo(expected[k].Lcs), $"lcs {k}");
+                if (expected[k].Identical is int id)
+                {
+                    Assert.That(r[k].IdenticalColumns, Is.EqualTo(id), $"identical {k}");
+                    Assert.That(r[k].Identity, Is.EqualTo(id / 50.0).Within(1e-12));
+                }
+                else
+                {
+                    // Biopython co-optimal alignments have 9 or 6 identical columns.
+                    Assert.That(r[k].IdenticalColumns, Is.AnyOf(9, 6), $"identical {k}");
+                }
+            }
+        });
+    }
+
+    [Test]
+    public void AssessCrossHybridization_AppliesKaneThresholds()
+    {
+        var r = ProbeDesigner.AssessCrossHybridization(KaneProbe,
+            new[] { KaneNonTargetA, KaneNonTargetB, KaneNonTargetC, KaneNonTargetD, KaneNonTargetE });
+
+        Assert.Multiple(() =>
+        {
+            // A: identity 0.80 > 0.75 (contiguous 6).
+            Assert.That(r[0].ExceedsIdentityThreshold, Is.True);
+            Assert.That(r[0].ExceedsContiguousThreshold, Is.False);
+            // B: identity 0.56 but an 18-nt identical stretch > 15.
+            Assert.That(r[2].ExceedsIdentityThreshold, Is.False);
+            Assert.That(r[2].ExceedsContiguousThreshold, Is.True);
+            Assert.That(r[2].CrossHybridizes, Is.True);
+            // C: unrelated.
+            Assert.That(r[4].CrossHybridizes || r[5].CrossHybridizes, Is.False);
+            // D: probe's reverse complement → reverse strand identical.
+            Assert.That(r[6].CrossHybridizes, Is.False);
+            Assert.That(r[7].Identity, Is.EqualTo(1.0));
+            Assert.That(r[7].CrossHybridizes, Is.True);
+            // E: exactly 15 contiguous identical bases is not > 15.
+            Assert.That(r[8].LongestContiguousMatch, Is.EqualTo(15));
+            Assert.That(r[8].CrossHybridizes, Is.False);
+        });
+
+        // Thresholds are strict: identity 0.80 is not > 0.80; 18 nt is > 17 but not > 18.
+        var strict = ProbeDesigner.AssessCrossHybridization(KaneProbe, new[] { KaneNonTargetA, KaneNonTargetB },
+            maxIdentity: 0.80, maxContiguousMatch: 18, bothStrands: false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(strict, Has.Count.EqualTo(2));
+            Assert.That(strict[0].ExceedsIdentityThreshold, Is.False);
+            Assert.That(strict[1].ExceedsContiguousThreshold, Is.False);
+        });
+    }
+
+    [Test]
+    public void AssessCrossHybridization_SiteDuplexTm_MatchesPrimer3CalcHeterodimer()
+    {
+        // Non-target A: best local alignment covers strand[20..68] (49 nt; the mismatched last probe base is trimmed).
+        // primer3-py 2.3.1 calc_heterodimer(probe, revcomp(site), mv 50, dv 0, dntp 0, dna 50).tm = 36.11423712379826;
+        // non-target D (reverse strand = the probe itself at 15..64): 66.04038852959525.
+        var r = ProbeDesigner.AssessCrossHybridization(KaneProbe, new[] { KaneNonTargetA, KaneNonTargetD });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((r[0].SiteStart, r[0].SiteEnd), Is.EqualTo((20, 68)));
+            Assert.That(r[0].DuplexTm!.Value, Is.EqualTo(36.11423712379826).Within(1e-9));
+            Assert.That((r[3].SiteStart, r[3].SiteEnd), Is.EqualTo((15, 64)));
+            Assert.That(r[3].DuplexTm!.Value, Is.EqualTo(66.04038852959525).Within(1e-9));
+        });
+
+        // Optional OligoArray-style duplex-Tm threshold (identity criterion relaxed to isolate it): 36.11 °C > 30 °C.
+        var t30 = ProbeDesigner.AssessCrossHybridization(KaneProbe, new[] { KaneNonTargetA }, maxIdentity: 0.9,
+            bothStrands: false, maxDuplexTm: 30);
+        var t40 = ProbeDesigner.AssessCrossHybridization(KaneProbe, new[] { KaneNonTargetA }, maxIdentity: 0.9,
+            bothStrands: false, maxDuplexTm: 40);
+        var v = ProbeDesigner.ValidateProbe(KaneProbe, Array.Empty<string>(), nonTargetSequences: new[] { KaneNonTargetA },
+            maxNonTargetIdentity: 0.9, maxDuplexTm: 30);
+        Assert.Multiple(() =>
+        {
+            Assert.That(t30[0].ExceedsIdentityThreshold, Is.False);
+            Assert.That(t30[0].ExceedsDuplexTmThreshold, Is.True);
+            Assert.That(t30[0].CrossHybridizes, Is.True);
+            Assert.That(t40[0].CrossHybridizes, Is.False);
+            Assert.That(v.Issues, Has.Some.EqualTo(
+                "Cross-hybridization risk with non-target 0: identity 80%, longest contiguous match 6 nt (Kane 2000), site duplex Tm 36.1°C > 30°C"));
+        });
+
+        // > 60-nt probe: thal.c THAL_MAX_ALIGN → no duplex Tm; empty strand → no site.
+        string longProbe = KaneProbe + "ACGTACGTACGT";
+        var l = ProbeDesigner.AssessCrossHybridization(longProbe, new[] { KaneNonTargetA, "" }, bothStrands: false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(l[0].DuplexTm, Is.Null);
+            Assert.That(l[0].SiteStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That((l[1].SiteStart, l[1].SiteEnd, l[1].DuplexTm), Is.EqualTo((-1, -1, (double?)null)));
+        });
+    }
+
+    [Test]
+    public void AssessCrossHybridization_LongNonTarget_ChunkedScoreEqualsCanonicalWholeStrandAlignment()
+    {
+        // 9 kb strand (> 4096-nt chunk) with a mutated probe copy straddling the first chunk boundary.
+        var rng = new Random(11);
+        char[] bases = { 'A', 'C', 'G', 'T' };
+        string Random(int n) => new string(Enumerable.Range(0, n).Select(_ => bases[rng.Next(4)]).ToArray());
+        char[] mutated = KaneProbe.ToCharArray();
+        mutated[7] = 'G'; mutated[22] = 'A';
+        string strand = Random(4070) + new string(mutated) + Random(4880);
+
+        var r = ProbeDesigner.AssessCrossHybridization(KaneProbe, new[] { strand }, bothStrands: false)[0];
+        var whole = Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(
+            KaneProbe, strand, Seqeron.Genomics.Alignment.SequenceAligner.BlastDna);
+
+        Assert.That(r.AlignmentScore, Is.EqualTo(whole.Score));
+        Assert.That(r.IdenticalColumns, Is.GreaterThanOrEqualTo(48));
+    }
+
+    [Test]
+    public void AssessCrossHybridization_InvalidArguments_Throw()
+    {
+        Assert.Throws<ArgumentNullException>(() => ProbeDesigner.AssessCrossHybridization(null!, new[] { "ACGT" }));
+        Assert.Throws<ArgumentNullException>(() => ProbeDesigner.AssessCrossHybridization("ACGT", null!));
+        Assert.Throws<ArgumentException>(() => ProbeDesigner.AssessCrossHybridization("", new[] { "ACGT" }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.AssessCrossHybridization("ACGT", new[] { "ACGT" }, maxIdentity: 1.5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.AssessCrossHybridization("ACGT", new[] { "ACGT" }, maxContiguousMatch: -1));
+        var empty = ProbeDesigner.AssessCrossHybridization("ACGT", new[] { "" });
+        Assert.That(empty.All(x => x.AlignmentScore == 0 && x.LongestContiguousMatch == 0 && !x.CrossHybridizes), Is.True);
+    }
+
+    [Test]
+    public void ValidateProbe_WithNonTargets_RecordsKaneCrossHybridizationIssues()
+    {
+        var v = ProbeDesigner.ValidateProbe(KaneProbe, new[] { "GGGG" + KaneProbe + "GGGG" },
+            nonTargetSequences: new[] { KaneNonTargetA, KaneNonTargetB, KaneNonTargetC });
+        var none = ProbeDesigner.ValidateProbe(KaneProbe, new[] { "GGGG" + KaneProbe + "GGGG" },
+            nonTargetSequences: new[] { KaneNonTargetC });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.CrossHybridization, Has.Count.EqualTo(6));
+            Assert.That(v.Issues.Count(i => i.StartsWith("Cross-hybridization risk")), Is.EqualTo(2));
+            Assert.That(v.Issues, Has.Some.EqualTo(
+                "Cross-hybridization risk with non-target 0: identity 80%, longest contiguous match 6 nt (Kane 2000)"));
+            Assert.That(v.Issues, Has.Some.EqualTo(
+                "Cross-hybridization risk with non-target 1: identity 56%, longest contiguous match 18 nt (Kane 2000)"));
+            Assert.That(v.IsValid, Is.False);
+            Assert.That(none.Issues, Has.None.StartsWith("Cross-hybridization risk"));
+            Assert.That(ProbeDesigner.ValidateProbe(KaneProbe, Array.Empty<string>()).CrossHybridization, Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region CheckSpecificity - both strands
+
+    [Test]
+    public void CheckSpecificity_BothStrands_CountsReverseComplementSites()
+    {
+        // Probe once on the indexed strand and once as its reverse complement (a site on the other strand).
+        string genome = "TTTT" + UniqueProbe + "TTTT" + DnaSequence.GetReverseComplementString("ACCGTTAGGCATCGATGCAA") + "TTTT";
+        var tree = global::SuffixTree.SuffixTree.Build(genome);
+        const string probe = "ACCGTTAGGCATCGATGCAA";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProbeDesigner.CheckSpecificity(probe, tree), Is.EqualTo(0.0), "indexed strand only: no site");
+            Assert.That(ProbeDesigner.CheckSpecificity(probe, tree, bothStrands: true), Is.EqualTo(1.0));
+            // Reverse-palindromic probe (GAATTC-like): its reverse complement is itself → counted once.
+            var pal = global::SuffixTree.SuffixTree.Build("TTTGAATTCTTT");
+            Assert.That(ProbeDesigner.CheckSpecificity("GAATTC", pal, bothStrands: true), Is.EqualTo(1.0));
+            // Probe and its reverse complement each present once → two binding sites.
+            var two = global::SuffixTree.SuffixTree.Build("AAAA" + probe + "AAAA" + DnaSequence.GetReverseComplementString(probe) + "AAAA");
+            Assert.That(ProbeDesigner.CheckSpecificity(probe, two, bothStrands: true), Is.EqualTo(0.5));
+            Assert.That(ProbeDesigner.CheckSpecificity(probe, two), Is.EqualTo(1.0));
+        });
     }
 
     #endregion

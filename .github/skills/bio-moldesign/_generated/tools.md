@@ -22,6 +22,7 @@
 | `design_molecular_beacon` | MolTools | `ProbeDesigner.DesignMolecularBeacon` | [doc](../../../../docs/mcp/tools/moltools/design_molecular_beacon.md) |
 | `design_primers` | MolTools | `PrimerDesigner.DesignPrimers` | [doc](../../../../docs/mcp/tools/moltools/design_primers.md) |
 | `design_probes` | MolTools | `ProbeDesigner.DesignProbes` | [doc](../../../../docs/mcp/tools/moltools/design_probes.md) |
+| `design_probes_primer3` | MolTools | `ProbeDesigner.DesignProbesPrimer3` | [doc](../../../../docs/mcp/tools/moltools/design_probes_primer3.md) |
 | `design_tiling_probes` | MolTools | `ProbeDesigner.DesignTilingProbes` | [doc](../../../../docs/mcp/tools/moltools/design_tiling_probes.md) |
 | `digest_summary` | MolTools | `RestrictionAnalyzer.GetDigestSummary` | [doc](../../../../docs/mcp/tools/moltools/digest_summary.md) |
 | `effective_number_of_codons` | MolTools | `CodonUsageAnalyzer.CalculateEnc` | [doc](../../../../docs/mcp/tools/moltools/effective_number_of_codons.md) |

@@ -25,14 +25,14 @@ guessing a number. Same math as the C# API; the tool call is just a different fr
 - **Auditable** — each answer comes with the exact tools called, in order (see the worked workflows).
 
 > **New here?** If you use Claude Code or Copilot, you usually don't touch MCP directly — the
-> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 473 tool
+> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 474 tool
 > schemas out of the model's context. This guide is for wiring the servers into any MCP client
 > yourself, or understanding what runs underneath.
 
 ## The servers
 
 Tools are split into focused, per-domain servers so you attach only what a task needs — a smaller
-tool surface loads faster and is easier for the model to reason about. **473 tools across 11 servers:**
+tool surface loads faster and is easier for the model to reason about. **474 tools across 11 servers:**
 
 | Server | What it's for | Tools |
 |--------|---------------|------:|
@@ -45,7 +45,7 @@ tool surface loads faster and is easier for the model to reason about. **473 too
 | [`Seqeron.Mcp.Population`](../../src/Seqeron/Mcp/Seqeron.Mcp.Population) | Population genetics (Fst, diversity, LD, selection) | 18 |
 | [`Seqeron.Mcp.Metagenomics`](../../src/Seqeron/Mcp/Seqeron.Mcp.Metagenomics) | Taxonomic classification & community profiling | 19 |
 | [`Seqeron.Mcp.Chromosome`](../../src/Seqeron/Mcp/Seqeron.Mcp.Chromosome) | Chromosome-scale analysis (karyotype, centromere, synteny) | 32 |
-| [`Seqeron.Mcp.MolTools`](../../src/Seqeron/Mcp/Seqeron.Mcp.MolTools) | Primer/probe/CRISPR design, codon optimization, restriction | 47 |
+| [`Seqeron.Mcp.MolTools`](../../src/Seqeron/Mcp/Seqeron.Mcp.MolTools) | Primer/probe/CRISPR design, codon optimization, restriction | 48 |
 | [`SuffixTree.Mcp.Core`](../../src/SuffixTree/Mcp/SuffixTree.Mcp.Core) | Suffix-tree search, edit/Hamming distance, k-mer similarity | 18 |
 
 Per-server rollout status lives in [`MCP_STATUS.md`](MCP_STATUS.md).
@@ -159,7 +159,7 @@ tm_diff_c = 4.1
 
 ## Tool catalog & schemas
 
-Every one of the 473 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
+Every one of the 474 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
 (`{tool}.mcp.json`) under [`tools/<server>/`](tools), and each server's own `README.md` lists its
 full tool table.
 

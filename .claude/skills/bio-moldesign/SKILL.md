@@ -1,7 +1,7 @@
 ---
 name: bio-moldesign
 description: >-
-  Design and QC molecular-biology reagents with Seqeron's MolTools server (47
+  Design and QC molecular-biology reagents with Seqeron's MolTools server (48
   tools) — PCR primer pairs and hybridization probes, CRISPR guide RNAs with
   off-target and specificity scoring, codon optimization of a CDS for a target
   organism (CAI/GC before-after), restriction-site finding and digest
@@ -17,7 +17,7 @@ allowed-tools: Read, Grep, Glob, Bash
 
 # bio-moldesign — molecular design & QC (MolTools)
 
-Routing + orchestration layer over the **MolTools** MCP server (47 tools) and the
+Routing + orchestration layer over the **MolTools** MCP server (48 tools) and the
 `Seqeron.Genomics.MolTools` C# namespace. It gives dual-mode recipes; it does **not**
 restate schemas — read the per-tool doc for exact I/O, and delegate all rigor to `bio-rigor`.
 
@@ -49,7 +49,7 @@ and `bio-rigor` [`reference/envelope.md`](../bio-rigor/reference/envelope.md).
 | **Codon-optimize** a CDS for an organism | codon | `optimize_codons` (reports CAI+GC before/after) |
 | Codon usage analysis (CAI, RSCU, ENC, rare codons) | codon | `codon_adaptation_index`, `rscu`, `effective_number_of_codons`, `find_rare_codons` |
 | **Restriction** sites / digest / enzyme choice | restriction | `find_restriction_sites`, `restriction_digest`, `digest_summary`, `compatible_enzymes` |
-| Design / validate a hybridization **probe** | probe | `design_probes`, `validate_probe`, `analyze_oligo` (see STOP rule for MGB) |
+| Design / validate a hybridization **probe** | probe | `design_probes`, `design_probes_primer3`, `validate_probe`, `analyze_oligo` (see STOP rule for MGB) |
 
 Full per-tool map: [`reference/tool-map.md`](reference/tool-map.md). Fuller recipes + parameter
 guidance: [`reference/pipelines.md`](reference/pipelines.md).

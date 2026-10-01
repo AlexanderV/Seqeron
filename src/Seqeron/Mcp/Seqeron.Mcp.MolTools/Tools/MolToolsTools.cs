@@ -654,12 +654,16 @@ public class MolToolsTools
             ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length, detection_temperature));
     }
 
-    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a probe against a set of reference sequences using ungapped k-mismatch (Hamming) approximate matching. Reports the off-target hit count, self-complementarity, a secondary-structure flag, an issues list, and a 0..1 specificity score (0 hits → 0.0, 1 hit → 1.0, N hits → 1/N). Call to check whether a designed probe is specific to its intended target.")]
+    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a hybridization probe. (1) Ungapped k-mismatch (Hamming) scan of the reference sequences: off-target hit count (intended site included; > 1 hit is an issue) and a library uniqueness score (0 hits → 0.0, N hits → 1/N). (2) Self-structure: for ≤ 60-nt A/C/G/T probes Primer3's thermodynamic probe screen — ntthal self-dimer, 3′ self-dimer and hairpin Tm at 50 nM oligo / 50 mM monovalent / no Mg²⁺ (Primer3 probe conditions) must not exceed 47 °C (PRIMER_INTERNAL_MAX_*_TH); longer or non-ACGT probes use the sequence-only fold-back fraction (> self_complementarity_threshold) and inverted-repeat screens. (3) Optional non_target_sequences: Kane et al. (2000) cross-hybridization criteria on both strands — overall identity of the best local (BLAST-scored Smith–Waterman–Gotoh) alignment over the probe length > 75 % or a contiguous identical stretch > 15 nt; each site also reports its ntthal duplex Tm with the probe (primer3-py calc_heterodimer), optionally thresholded by max_duplex_tm (OligoArray 2.0). isValid = no issue recorded. Call to check whether a designed probe is specific and structure-free.")]
     public static ProbeDesigner.ProbeValidation validate_probe(
         [Description("Probe sequence to validate.")] string probe_sequence,
         [Description("Reference sequences to scan for off-target hits.")] string[] reference_sequences,
         [Description("Maximum allowed mismatches (default 3).")] int max_mismatches = 3,
-        [Description("Self-complementarity warning threshold (default 0.3).")] double self_complementarity_threshold = 0.3)
+        [Description("Fold-back-fraction limit of the sequence-only fallback screen (default 0.3).")] double self_complementarity_threshold = 0.3,
+        [Description("Optional known non-target sequences for the Kane et al. (2000) cross-hybridization criteria (both strands).")] string[]? non_target_sequences = null,
+        [Description("Kane identity threshold in [0,1]; a non-target strand with identity strictly above it is flagged (default 0.75).")] double max_non_target_identity = 0.75,
+        [Description("Kane contiguous-identity threshold in nt; a longer identical stretch is flagged (default 15).")] int max_contiguous_match = 15,
+        [Description("Optional OligoArray-style threshold (°C): a non-target site whose ntthal duplex Tm with the probe is above it is flagged (default none).")] double? max_duplex_tm = null)
     {
         if (probe_sequence is null)
             throw new System.ArgumentException("Probe sequence cannot be null.", nameof(probe_sequence));
@@ -667,8 +671,50 @@ public class MolToolsTools
             throw new System.ArgumentException("Reference sequences cannot be null.", nameof(reference_sequences));
         if (max_mismatches < 0)
             throw new System.ArgumentException("Maximum mismatches cannot be negative.", nameof(max_mismatches));
+        if (double.IsNaN(max_non_target_identity) || max_non_target_identity < 0 || max_non_target_identity > 1)
+            throw new System.ArgumentException("Non-target identity threshold must be in [0, 1].", nameof(max_non_target_identity));
+        if (max_contiguous_match < 0)
+            throw new System.ArgumentException("Contiguous-match threshold cannot be negative.", nameof(max_contiguous_match));
 
-        return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold);
+        return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold,
+            nonTargetSequences: non_target_sequences,
+            maxNonTargetIdentity: max_non_target_identity,
+            maxContiguousMatch: max_contiguous_match,
+            maxDuplexTm: max_duplex_tm);
+    }
+
+    [McpServerTool(Name = "design_probes_primer3", Title = "MolTools — Primer3 Hybridization-Probe Picker", ReadOnly = true), Description("Picks hybridization probes exactly as Primer3 does for PRIMER_TASK=pick_hyb_probe_only (internal-oligo picker; verified against primer3-py design_primers): every A/C/G/T window of min_size..max_size within the G+C % window, poly-X ≤ max_poly_x, Primer3 seqtm Tm within [min_tm, max_tm] and ntthal self-dimer / 3′ self-dimer / hairpin Tm ≤ their limits, enumerated per 3′ end with Primer3's 5′-extension break; ranked by the Primer3 penalty |Tm − opt_tm| + |length − opt_size| (penalty ascending, then start descending, then length ascending). Defaults are Primer3's PRIMER_INTERNAL_* defaults (18/20/27 nt, Tm 57/60/63 °C, GC 20–80 %, poly-X 5, 47 °C structure limits, 50 mM monovalent, no Mg²⁺/dNTP, 50 nM). Returns up to num_return probes (start is 0-based).")]
+    public static Primer3ProbesResult design_probes_primer3(
+        [Description("Template DNA sequence (probes are picked on this strand; case-insensitive).")] string template,
+        [Description("PRIMER_NUM_RETURN: maximum probes to return (default 5).")] int num_return = 5,
+        [Description("PRIMER_INTERNAL_MIN_SIZE (default 18).")] int min_size = 18,
+        [Description("PRIMER_INTERNAL_OPT_SIZE (default 20).")] int opt_size = 20,
+        [Description("PRIMER_INTERNAL_MAX_SIZE (default 27; at most 36).")] int max_size = 27,
+        [Description("PRIMER_INTERNAL_MIN_TM in °C (default 57).")] double min_tm = 57.0,
+        [Description("PRIMER_INTERNAL_OPT_TM in °C (default 60).")] double opt_tm = 60.0,
+        [Description("PRIMER_INTERNAL_MAX_TM in °C (default 63).")] double max_tm = 63.0,
+        [Description("PRIMER_INTERNAL_MIN_GC in percent (default 20).")] double min_gc_percent = 20.0,
+        [Description("PRIMER_INTERNAL_MAX_GC in percent (default 80).")] double max_gc_percent = 80.0,
+        [Description("PRIMER_INTERNAL_MAX_POLY_X (default 5).")] int max_poly_x = 5,
+        [Description("PRIMER_INTERNAL_MAX_SELF_ANY_TH in °C (default 47).")] double max_self_any_th = PrimerDesigner.Primer3MaxStructureTm,
+        [Description("PRIMER_INTERNAL_MAX_SELF_END_TH in °C (default 47).")] double max_self_end_th = PrimerDesigner.Primer3MaxStructureTm,
+        [Description("PRIMER_INTERNAL_MAX_HAIRPIN_TH in °C (default 47).")] double max_hairpin_th = PrimerDesigner.Primer3MaxStructureTm,
+        [Description("PRIMER_INTERNAL_SALT_MONOVALENT in mM (default 50).")] double monovalent_mm = PrimerDesigner.Primer3InternalMonovalentMillimolar,
+        [Description("PRIMER_INTERNAL_SALT_DIVALENT (Mg²⁺) in mM (default 0).")] double divalent_mm = PrimerDesigner.Primer3InternalDivalentMillimolar,
+        [Description("PRIMER_INTERNAL_DNTP_CONC in mM (default 0).")] double dntp_mm = PrimerDesigner.Primer3InternalDntpMillimolar,
+        [Description("PRIMER_INTERNAL_DNA_CONC in nM (default 50).")] double dna_conc_nm = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar)
+    {
+        if (string.IsNullOrEmpty(template))
+            throw new System.ArgumentException("Template sequence cannot be null or empty.", nameof(template));
+        if (num_return < 0)
+            throw new System.ArgumentException("num_return cannot be negative.", nameof(num_return));
+        if (min_size < 1 || max_size < min_size || max_size > 36)
+            throw new System.ArgumentException("Sizes must satisfy 1 ≤ min_size ≤ max_size ≤ 36.", nameof(max_size));
+
+        var settings = new ProbeDesigner.Primer3ProbeSettings(
+            min_size, opt_size, max_size, min_tm, opt_tm, max_tm, min_gc_percent, max_gc_percent, max_poly_x,
+            max_self_any_th, max_self_end_th, max_hairpin_th, monovalent_mm, divalent_mm, dntp_mm, dna_conc_nm);
+        return new Primer3ProbesResult(ProbeDesigner.DesignProbesPrimer3(template, settings, num_return));
     }
 
     [McpServerTool(Name = "analyze_oligo", Title = "MolTools — Oligonucleotide Property Analysis", ReadOnly = true), Description("Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. Call when the user needs the basic physical properties of an oligo/primer/probe. Tm is Primer3's seqtm at the Primer3 hybridization-probe conditions (50 nM oligo, 50 mM monovalent, no Mg/dNTP; SantaLucia 1998 nearest-neighbour for ≤ 36 nt, long_seq_tm above) and is null when not computable (fewer than 2 bases or a non-ACGT base, e.g. RNA). Molecular weight is the single-stranded Biopython molecular_weight (RNA when the oligo has U and no T); ε260 is the mononucleotide sum. GC is returned as a fraction (0-1).")]

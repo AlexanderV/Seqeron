@@ -5,49 +5,240 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.ValidateProbe",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L857",
-  "description": "Validate a probe against reference sequences via ungapped k-mismatch matching; report off-target hits, self-complementarity, secondary structure, and a 0..1 specificity score.",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1366",
+  "description": "Validate a probe: ungapped k-mismatch hit count over references, Primer3 ntthal self-dimer/hairpin screen (<= 60-nt ACGT; sequence-only fallback otherwise), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "probe_sequence": { "type": "string", "description": "Probe sequence to validate." },
+      "probe_sequence": {
+        "type": "string",
+        "description": "Probe sequence to validate."
+      },
       "reference_sequences": {
         "type": "array",
         "description": "Reference sequences to scan for off-target hits.",
-        "items": { "type": "string" }
+        "items": {
+          "type": "string"
+        }
       },
-      "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches.", "minimum": 0, "default": 3 },
-      "self_complementarity_threshold": { "type": "number", "description": "Self-complementarity warning threshold.", "default": 0.3 }
+      "max_mismatches": {
+        "type": "integer",
+        "description": "Maximum allowed mismatches.",
+        "minimum": 0,
+        "default": 3
+      },
+      "self_complementarity_threshold": {
+        "type": "number",
+        "description": "Fold-back-fraction limit of the sequence-only fallback screen.",
+        "default": 0.3
+      },
+      "non_target_sequences": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "description": "Known non-target sequences for the Kane criteria (both strands).",
+        "items": {
+          "type": "string"
+        }
+      },
+      "max_non_target_identity": {
+        "type": "number",
+        "description": "Kane identity threshold (flagged when strictly above).",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.75
+      },
+      "max_contiguous_match": {
+        "type": "integer",
+        "description": "Kane contiguous-identity threshold in nt (flagged when strictly longer).",
+        "minimum": 0,
+        "default": 15
+      },
+      "max_duplex_tm": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Optional OligoArray-style threshold (°C) on each non-target site's ntthal duplex Tm.",
+        "default": null
+      }
     },
-    "required": ["probe_sequence", "reference_sequences"]
+    "required": [
+      "probe_sequence",
+      "reference_sequences"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "isValid": { "type": "boolean" },
-      "specificityScore": { "type": "number" },
-      "offTargetHits": { "type": "integer" },
-      "selfComplementarity": { "type": "number" },
-      "hasSecondaryStructure": { "type": "boolean" },
-      "issues": { "type": "array", "items": { "type": "string" } }
+      "isValid": {
+        "type": "boolean"
+      },
+      "specificityScore": {
+        "type": "number"
+      },
+      "offTargetHits": {
+        "type": "integer"
+      },
+      "selfComplementarity": {
+        "type": "number"
+      },
+      "hasSecondaryStructure": {
+        "type": "boolean"
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "thermodynamicScreen": {
+        "type": "boolean"
+      },
+      "selfDimerTm": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "selfEndDimerTm": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "hairpinTm": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "crossHybridization": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "nonTargetIndex": {
+              "type": "integer"
+            },
+            "reverseComplementStrand": {
+              "type": "boolean"
+            },
+            "identity": {
+              "type": "number"
+            },
+            "identicalColumns": {
+              "type": "integer"
+            },
+            "alignmentScore": {
+              "type": "integer"
+            },
+            "longestContiguousMatch": {
+              "type": "integer"
+            },
+            "exceedsIdentityThreshold": {
+              "type": "boolean"
+            },
+            "exceedsContiguousThreshold": {
+              "type": "boolean"
+            },
+            "crossHybridizes": {
+              "type": "boolean"
+            },
+            "siteStart": {
+              "type": "integer"
+            },
+            "siteEnd": {
+              "type": "integer"
+            },
+            "duplexTm": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "exceedsDuplexTmThreshold": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
     },
-    "required": ["isValid", "specificityScore", "offTargetHits", "selfComplementarity", "hasSecondaryStructure", "issues"]
+    "required": [
+      "isValid",
+      "specificityScore",
+      "offTargetHits",
+      "selfComplementarity",
+      "hasSecondaryStructure",
+      "issues"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Probe sequence cannot be null" },
-    { "code": 1002, "message": "Reference sequences cannot be null" },
-    { "code": 1003, "message": "Maximum mismatches cannot be negative" }
+    {
+      "code": 1001,
+      "message": "Probe sequence cannot be null"
+    },
+    {
+      "code": 1002,
+      "message": "Reference sequences cannot be null"
+    },
+    {
+      "code": 1003,
+      "message": "Maximum mismatches cannot be negative"
+    },
+    {
+      "code": 1004,
+      "message": "Non-target identity threshold must be in [0, 1]"
+    },
+    {
+      "code": 1005,
+      "message": "Contiguous-match threshold cannot be negative"
+    }
   ],
   "examples": [
     {
       "name": "Unique probe -> specificity 1.0",
-      "input": { "probe_sequence": "ATCGATCGATCGATCGATCG", "reference_sequences": ["NNNNNATCGATCGATCGATCGATCGNNNN"], "max_mismatches": 0 },
-      "output": { "offTargetHits": 1, "specificityScore": 1.0 }
+      "input": {
+        "probe_sequence": "ATCGATCGATCGATCGATCG",
+        "reference_sequences": [
+          "NNNNNATCGATCGATCGATCGATCGNNNN"
+        ],
+        "max_mismatches": 0
+      },
+      "output": {
+        "offTargetHits": 1,
+        "specificityScore": 1.0
+      }
     },
     {
       "name": "Repetitive probe -> 1/N specificity",
-      "input": { "probe_sequence": "AAAAAAAAAA", "reference_sequences": ["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"], "max_mismatches": 0 },
-      "output": { "offTargetHits": 25, "specificityScore": 0.04 }
+      "input": {
+        "probe_sequence": "AAAAAAAAAA",
+        "reference_sequences": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "max_mismatches": 0
+      },
+      "output": {
+        "offTargetHits": 25,
+        "specificityScore": 0.04
+      }
+    },
+    {
+      "name": "Kane cross-hybridization",
+      "input": {
+        "probe_sequence": "TATGCCTCCGGTACATCAACTACAGTTAGCCTTAAGAGAAAAATCCCAAA",
+        "reference_sequences": [
+          "TATGCCTCCGGTACATCAACTACAGTTAGCCTTAAGAGAAAAATCCCAAA"
+        ],
+        "non_target_sequences": [
+          "CCGCACCATGAGACTGTTTCTATGGCTCCTGTACCTCAAGTACATTTAGGCTTACGAGACAAATGCCAACCACATCGGCTTCGCACGTCT"
+        ]
+      },
+      "output": {
+        "isValid": false
+      }
     }
   ]
 }

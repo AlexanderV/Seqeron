@@ -1,7 +1,7 @@
 {
   "name": "seqeron-bio-skills",
   "version": "1.0.0",
-  "description": "Agent skills that turn the Seqeron.Genomics bioinformatics library (247 algorithms) and its 11 MCP servers (473 tools) into an assistant that solves whole biological tasks — with tool-only rigor and no schema bloat.",
+  "description": "Agent skills that turn the Seqeron.Genomics bioinformatics library (247 algorithms) and its 11 MCP servers (474 tools) into an assistant that solves whole biological tasks — with tool-only rigor and no schema bloat.",
   "author": "AlexanderV",
   "repository": "https://github.com/AlexanderV/Seqeron",
   "license": "MIT",
@@ -49,7 +49,7 @@
     {
       "name": "bio-moldesign",
       "path": "bio-moldesign",
-      "description": "Design and QC molecular-biology reagents with Seqeron's MolTools server (47 tools) — PCR primer pairs and hybridization probes, CRISPR guide RNAs with off-target and specificity scoring, codon optimization of a CDS for a target organism (CAI/GC before-after), restriction-site finding and digest simulation, and melting-temperature (Tm) with salt correction."
+      "description": "Design and QC molecular-biology reagents with Seqeron's MolTools server (48 tools) — PCR primer pairs and hybridization probes, CRISPR guide RNAs with off-target and specificity scoring, codon optimization of a CDS for a target organism (CAI/GC before-after), restriction-site finding and digest simulation, and melting-temperature (Tm) with salt correction."
     },
     {
       "name": "bio-phylo-popgen",
@@ -79,7 +79,7 @@
     {
       "name": "seqeron-discovery",
       "path": "seqeron-discovery",
-      "description": "Find the right Seqeron bioinformatics tool or algorithm for a task WITHOUT loading all 473 MCP tool schemas."
+      "description": "Find the right Seqeron bioinformatics tool or algorithm for a task WITHOUT loading all 474 MCP tool schemas."
     },
     {
       "name": "seqeron-epigenetics",

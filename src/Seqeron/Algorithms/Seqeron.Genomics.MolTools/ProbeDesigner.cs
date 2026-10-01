@@ -156,15 +156,94 @@ public static class ProbeDesigner
         double TmRange);
 
     /// <summary>
-    /// Probe validation result.
+    /// Probe validation result (<see cref="ValidateProbe"/>).
     /// </summary>
+    /// <param name="IsValid">True when no issue was recorded (no multiple hits, no self-structure flag, no
+    /// cross-hybridizing non-target).</param>
+    /// <param name="SpecificityScore">Library-defined uniqueness score 1/N over the N ungapped candidate binding
+    /// sites (0 when there is none); not a published metric — see <see cref="ValidateProbe"/>.</param>
+    /// <param name="OffTargetHits">Total ungapped k-mismatch hits across the references (the intended site
+    /// included).</param>
+    /// <param name="SelfComplementarity">Position-wise fold-back fraction (fraction of positions i with
+    /// s[i] = revcomp(s)[i]); reported always, used as the self-complementarity criterion only by the
+    /// sequence-only fallback screen.</param>
+    /// <param name="HasSecondaryStructure">Hairpin flag: ntthal hairpin Tm &gt; MaxStructureTm (thermodynamic
+    /// screen) or the inverted-repeat stem screen (fallback).</param>
+    /// <param name="Issues">Recorded validation issues.</param>
     public readonly record struct ProbeValidation(
         bool IsValid,
         double SpecificityScore,
         int OffTargetHits,
         double SelfComplementarity,
         bool HasSecondaryStructure,
-        IReadOnlyList<string> Issues);
+        IReadOnlyList<string> Issues)
+    {
+        /// <summary>True when the Primer3 thermodynamic self-structure screen was applied (≤ 60-nt A/C/G/T
+        /// probe with <see cref="ProbeStructureScreen.Thermodynamic"/>); false for the sequence-only fallback.</summary>
+        public bool ThermodynamicScreen { get; init; }
+
+        /// <summary>ntthal self-dimer (ANY) Tm in °C (Primer3 SELF_ANY_TH); null when the fallback screen was used.</summary>
+        public double? SelfDimerTm { get; init; }
+
+        /// <summary>ntthal 3′ self-dimer (END1) Tm in °C (Primer3 SELF_END_TH); null when the fallback screen was used.</summary>
+        public double? SelfEndDimerTm { get; init; }
+
+        /// <summary>ntthal hairpin Tm in °C (Primer3 HAIRPIN_TH); null when the fallback screen was used.</summary>
+        public double? HairpinTm { get; init; }
+
+        /// <summary>Kane et al. (2000) cross-hybridization assessment of every supplied non-target sequence/strand
+        /// (<see cref="AssessCrossHybridization"/>); empty when no non-target sequences were supplied.</summary>
+        public IReadOnlyList<CrossHybridizationAssessment> CrossHybridization { get; init; }
+            = Array.Empty<CrossHybridizationAssessment>();
+    }
+
+    /// <summary>
+    /// Kane et al. (2000) cross-hybridization assessment of a probe against one strand of one non-target
+    /// sequence (<see cref="AssessCrossHybridization"/>).
+    /// </summary>
+    /// <param name="NonTargetIndex">Zero-based index of the non-target sequence (in the supplied order).</param>
+    /// <param name="ReverseComplementStrand">False: the non-target as given; true: its reverse complement.</param>
+    /// <param name="Identity">Overall identity = identical columns of the best local (Smith–Waterman–Gotoh)
+    /// alignment of the probe with this strand ÷ probe length, in [0, 1] (Kane: "similar over the 50 base target").</param>
+    /// <param name="IdenticalColumns">Identical aligned columns of that alignment.</param>
+    /// <param name="AlignmentScore">Raw score of that alignment (0 when nothing aligns).</param>
+    /// <param name="LongestContiguousMatch">Length of the longest stretch identical between the probe and this
+    /// strand (longest common substring).</param>
+    /// <param name="ExceedsIdentityThreshold">Identity strictly above the identity threshold (Kane: &gt; 75 %).</param>
+    /// <param name="ExceedsContiguousThreshold">Contiguous match strictly longer than the threshold (Kane: &gt; 15 nt).</param>
+    public readonly record struct CrossHybridizationAssessment(
+        int NonTargetIndex,
+        bool ReverseComplementStrand,
+        double Identity,
+        int IdenticalColumns,
+        int AlignmentScore,
+        int LongestContiguousMatch,
+        bool ExceedsIdentityThreshold,
+        bool ExceedsContiguousThreshold)
+    {
+        /// <summary>True when a Kane criterion or the optional duplex-Tm threshold is met (the probe may
+        /// cross-hybridize with this strand).</summary>
+        public bool CrossHybridizes => ExceedsIdentityThreshold || ExceedsContiguousThreshold || ExceedsDuplexTmThreshold;
+
+        /// <summary>True when a duplex-Tm threshold was given and <see cref="DuplexTm"/> exceeds it (OligoArray 2.0:
+        /// a cross-hybridization with Tm above the user's specificity threshold makes the probe non-specific).</summary>
+        public bool ExceedsDuplexTmThreshold { get; init; }
+
+        /// <summary>0-based inclusive start of the aligned site in the assessed strand (−1 when nothing aligns).</summary>
+        public int SiteStart { get; init; }
+
+        /// <summary>0-based inclusive end of the aligned site in the assessed strand (−1 when nothing aligns).</summary>
+        public int SiteEnd { get; init; }
+
+        /// <summary>
+        /// Thermodynamic stability of the probe on this off-target site: ntthal duplex (THAL_ANY) Tm in °C of the
+        /// probe with the strand complementary to the aligned site (primer3-py <c>calc_heterodimer(probe,
+        /// revcomp(site))</c>; 0 when no duplex forms) at the assessment conditions — the duplex-Tm cross-hybridization
+        /// check of OligoArray (Rouillard et al. 2003). Null when the probe is longer than 60 nt (thal.c
+        /// THAL_MAX_ALIGN), probe or site contain a non-ACGT base, or nothing aligns.
+        /// </summary>
+        public double? DuplexTm { get; init; }
+    }
 
     /// <summary>
     /// A single gapped (Smith-Waterman) hit of a probe against a reference sequence.
@@ -761,13 +840,8 @@ public static class ProbeDesigner
     private static (bool SelfComp, string? SelfCompWarning, bool Structure, string? StructureWarning)
         EvaluateSelfStructure(string sequence, ProbeParameters param)
     {
-        if (param.StructureScreen == ProbeStructureScreen.Thermodynamic
-            && sequence.Length <= NtthalMaxLength)
+        if (ComputeThermodynamicSelfStructure(sequence, param) is { } v)
         {
-            var st = PrimerDesigner.CalculatePrimer3OligoStructure(
-                sequence, param.MonovalentMillimolar, param.DivalentMillimolar, param.DntpMillimolar,
-                param.DnaConcentrationNanomolar);
-            if (st is { } v)
             {
                 double max = param.MaxStructureTm;
                 bool selfComp = v.SelfAnyTh > max || v.SelfEndTh > max;
@@ -788,6 +862,20 @@ public static class ProbeDesigner
             high ? $"High self-complementarity {fraction:P0}" : null,
             stem,
             stem ? "Potential secondary structure" : null);
+    }
+
+    // Primer3 thermodynamic self-structure of a probe (ntthal ANY / END1 self-dimer and hairpin Tm at the
+    // parameters' conditions), or null when the sequence-only fallback applies (Heuristic screen, > 60 nt,
+    // or a non-ACGT base).
+    private static PrimerDesigner.Primer3OligoStructure? ComputeThermodynamicSelfStructure(
+        string sequence, ProbeParameters param)
+    {
+        if (param.StructureScreen != ProbeStructureScreen.Thermodynamic || sequence.Length > NtthalMaxLength)
+            return null;
+
+        return PrimerDesigner.CalculatePrimer3OligoStructure(
+            sequence, param.MonovalentMillimolar, param.DivalentMillimolar, param.DntpMillimolar,
+            param.DnaConcentrationNanomolar);
     }
 
     /// <summary>
@@ -1251,23 +1339,63 @@ public static class ProbeDesigner
     #region Probe Validation
 
     /// <summary>
-    /// Validates probe against a genome/transcriptome.
+    /// Validates a probe: ungapped k-mismatch hit count over the references, self-structure screen, and
+    /// (optionally) the Kane et al. (2000) cross-hybridization criteria against known non-target sequences.
     /// </summary>
-    /// <param name="probeSequence">Probe sequence to validate.</param>
-    /// <param name="referenceSequences">Reference sequences to search for off-target hits.</param>
-    /// <param name="maxMismatches">Maximum allowed mismatches for the ungapped (Hamming) scan
-    /// (canonical <see cref="ApproximateMatcher.FindWithMismatches(string, string, int)"/>; must be ≥ 0).
-    /// Default: 3, based on CRISPR/Cas9 off-target tolerance of 3-5 bp mismatches
-    /// per 20nt guide (Hsu et al. 2013, Fu et al. 2013).</param>
-    /// <param name="selfComplementarityThreshold">Threshold above which self-complementarity
-    /// generates a warning. Default: 0.3 (Microarray default). For random DNA the expected
-    /// self-complementarity is ~0.25; values above this threshold indicate elevated
-    /// palindromic character that may cause probe secondary structure.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>Hits.</b> Every reference is scanned with the canonical ungapped k-mismatch (Hamming) matcher
+    /// <see cref="ApproximateMatcher.FindWithMismatches(string, string, int)"/> (case-insensitive, overlapping, the
+    /// strand given only); <see cref="ProbeValidation.OffTargetHits"/> is the total and includes the intended site.
+    /// More than one hit records an issue. <see cref="ProbeValidation.SpecificityScore"/> = 1/N for N ≥ 1 hits
+    /// (0 for none) is a library-defined uniqueness score (the share of the probe's N candidate binding sites
+    /// taken by one site), not a published specificity metric; the sourced cross-hybridization decision is the
+    /// Kane assessment below.
+    /// </para>
+    /// <para>
+    /// <b>Self-structure.</b> The same screen as <see cref="DesignProbes(string, ProbeParameters?, int)"/>: with
+    /// <see cref="ProbeStructureScreen.Thermodynamic"/> (default) a ≤ 60-nt A/C/G/T probe is screened as Primer3
+    /// screens a hybridization probe — ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin Tm
+    /// (<see cref="PrimerDesigner.CalculatePrimer3OligoStructure"/>, primer3-py <c>calc_homodimer</c> /
+    /// <c>calc_end_stability</c> / <c>calc_hairpin</c> parity) at the <paramref name="conditions"/> salt/oligo
+    /// concentrations must not exceed <see cref="ProbeParameters.MaxStructureTm"/> (PRIMER_INTERNAL_MAX_SELF_ANY_TH
+    /// = _SELF_END_TH = _HAIRPIN_TH = 47 °C). Longer probes (thal.c THAL_MAX_ALIGN = 60), non-ACGT probes and
+    /// <see cref="ProbeStructureScreen.Heuristic"/> use the sequence-only screens: fold-back fraction &gt;
+    /// <paramref name="selfComplementarityThreshold"/> and the inverted-repeat stem.
+    /// </para>
+    /// <para>
+    /// <b>Cross-hybridization.</b> When <paramref name="nonTargetSequences"/> is given, every non-target (both
+    /// strands) is assessed with <see cref="AssessCrossHybridization"/> (Kane et al. 2000: overall identity &gt; 75 %
+    /// or a contiguous identical stretch &gt; 15 nt → the probe may cross-hybridize); each cross-hybridizing
+    /// non-target strand records an issue.
+    /// </para>
+    /// <para><see cref="ProbeValidation.IsValid"/> is true when no issue was recorded.</para>
+    /// </remarks>
+    /// <param name="probeSequence">Probe sequence to validate (case-insensitive). Null throws; empty → invalid result.</param>
+    /// <param name="referenceSequences">Reference sequences scanned for ungapped hits (target included).</param>
+    /// <param name="maxMismatches">Maximum mismatches of the ungapped site-counting scan (≥ 0; default 3, a screening
+    /// tolerance kept for compatibility — the sourced hybridization cross-reactivity decision is the Kane assessment).</param>
+    /// <param name="selfComplementarityThreshold">Fold-back-fraction limit of the sequence-only fallback screen
+    /// (default 0.3, the Microarray preset's <see cref="ProbeParameters.MaxSelfComplementarity"/>).</param>
+    /// <param name="conditions">Hybridization conditions and structure-screen settings (default
+    /// <see cref="Defaults.Microarray"/>: Primer3 probe conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, thermodynamic
+    /// screen, 47 °C); its <see cref="ProbeParameters.MaxSelfComplementarity"/> is replaced by
+    /// <paramref name="selfComplementarityThreshold"/>.</param>
+    /// <param name="nonTargetSequences">Optional known non-target sequences for the Kane assessment.</param>
+    /// <param name="maxNonTargetIdentity">Kane identity threshold (default 0.75; flagged when strictly above).</param>
+    /// <param name="maxContiguousMatch">Kane contiguous-identity threshold in nt (default 15; flagged when strictly longer).</param>
+    /// <param name="maxDuplexTm">Optional OligoArray-style off-target duplex-Tm threshold (°C; see
+    /// <see cref="AssessCrossHybridization"/>); null = Kane criteria only.</param>
     public static ProbeValidation ValidateProbe(
         string probeSequence,
         IEnumerable<string> referenceSequences,
         int maxMismatches = 3,
-        double selfComplementarityThreshold = 0.3)
+        double selfComplementarityThreshold = 0.3,
+        ProbeParameters? conditions = null,
+        IEnumerable<string>? nonTargetSequences = null,
+        double maxNonTargetIdentity = KaneMaxIdentity,
+        int maxContiguousMatch = KaneMaxContiguousMatch,
+        double? maxDuplexTm = null)
     {
         ArgumentNullException.ThrowIfNull(probeSequence);
         ArgumentNullException.ThrowIfNull(referenceSequences);
@@ -1301,64 +1429,272 @@ public static class ProbeDesigner
             issues.Add($"{offTargetHits} potential off-target sites");
         }
 
-        // Check self-complementarity
+        // Self-structure: the DesignProbes screen (Primer3 ntthal for ≤ 60-nt ACGT probes, sequence-only otherwise).
+        var param = (conditions ?? Defaults.Microarray) with { MaxSelfComplementarity = selfComplementarityThreshold };
         double selfComp = CalculateSelfComplementarity(probeSequence);
-        if (selfComp > selfComplementarityThreshold)
+        var thermo = ComputeThermodynamicSelfStructure(probeSequence, param);
+        bool selfCompIssue;
+        bool hasStructure;
+        if (thermo is { } t)
         {
-            issues.Add($"Self-complementarity: {selfComp:P0}");
+            double max = param.MaxStructureTm;
+            selfCompIssue = t.SelfAnyTh > max || t.SelfEndTh > max;
+            hasStructure = t.HairpinTh > max;
+            if (selfCompIssue)
+                issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Self-complementarity: ntthal self-dimer Tm {Math.Max(t.SelfAnyTh, t.SelfEndTh):F1}°C exceeds {max:0.##}°C"));
+            if (hasStructure)
+                issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Potential secondary structure formation: ntthal hairpin Tm {t.HairpinTh:F1}°C exceeds {max:0.##}°C"));
         }
-
-        // Check secondary structure
-        bool hasStructure = HasSecondaryStructurePotential(probeSequence);
-        if (hasStructure)
-        {
-            issues.Add("Potential secondary structure formation");
-        }
-
-        // Calculate specificity score:
-        // 0 hits → 0.0 (probe doesn't hybridize to target — useless)
-        // 1 hit  → 1.0 (unique match — ideal specificity)
-        // N hits → 1.0/N (specificity decreases with cross-hybridization)
-        double specificity;
-        if (offTargetHits == 0)
-            specificity = 0.0;
-        else if (offTargetHits == 1)
-            specificity = 1.0;
         else
-            specificity = 1.0 / offTargetHits;
+        {
+            selfCompIssue = selfComp > selfComplementarityThreshold;
+            hasStructure = HasSecondaryStructurePotential(probeSequence);
+            if (selfCompIssue)
+                issues.Add($"Self-complementarity: {selfComp:P0}");
+            if (hasStructure)
+                issues.Add("Potential secondary structure formation");
+        }
 
-        bool isValid = issues.Count == 0 || (offTargetHits <= 1 && selfComp <= 0.4);
+        // Kane et al. (2000) cross-hybridization criteria against known non-targets (optional).
+        IReadOnlyList<CrossHybridizationAssessment> cross = Array.Empty<CrossHybridizationAssessment>();
+        if (nonTargetSequences is not null)
+        {
+            cross = AssessCrossHybridization(probeSequence, nonTargetSequences, maxNonTargetIdentity, maxContiguousMatch,
+                conditions: param, maxDuplexTm: maxDuplexTm);
+            foreach (var c in cross.Where(c => c.CrossHybridizes))
+            {
+                issues.Add($"Cross-hybridization risk with non-target {c.NonTargetIndex}"
+                    + (c.ReverseComplementStrand ? " (reverse complement)" : "")
+                    + string.Create(System.Globalization.CultureInfo.InvariantCulture, $": identity {c.Identity * 100:F0}%, longest contiguous match {c.LongestContiguousMatch} nt (Kane 2000)")
+                    + (c.ExceedsDuplexTmThreshold
+                        ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $", site duplex Tm {c.DuplexTm:F1}°C > {maxDuplexTm:0.##}°C")
+                        : ""));
+            }
+        }
+
+        // Library uniqueness score: 0 hits → 0, N ≥ 1 hits → 1/N.
+        double specificity = offTargetHits == 0 ? 0.0 : 1.0 / offTargetHits;
 
         return new ProbeValidation(
-            isValid,
+            issues.Count == 0,
             specificity,
             offTargetHits,
             selfComp,
             hasStructure,
-            issues);
+            issues)
+        {
+            ThermodynamicScreen = thermo is not null,
+            SelfDimerTm = thermo?.SelfAnyTh,
+            SelfEndDimerTm = thermo?.SelfEndTh,
+            HairpinTm = thermo?.HairpinTh,
+            CrossHybridization = cross,
+        };
     }
 
     /// <summary>
-    /// Checks probe specificity using suffix tree (fast).
+    /// Exact-match uniqueness of a probe in a suffix-tree-indexed genome: N = number of occurrences of the probe
+    /// (and, with <paramref name="bothStrands"/>, of its reverse complement — the probe's binding sites on the
+    /// other strand of a double-stranded genome; a reverse-palindromic probe is counted once); returns 0 for
+    /// N = 0, else 1/N (the library uniqueness score of <see cref="ValidateProbe"/>).
     /// </summary>
+    /// <param name="probeSequence">Probe sequence (case-insensitive; matched against the index as upper case).</param>
+    /// <param name="genomeIndex">Suffix tree of the genome (built on upper-case text).</param>
+    /// <param name="bothStrands">Also count reverse-complement occurrences (default false: indexed strand only).</param>
     public static double CheckSpecificity(
         string probeSequence,
-        global::SuffixTree.ISuffixTree genomeIndex)
+        global::SuffixTree.ISuffixTree genomeIndex,
+        bool bothStrands = false)
     {
+        ArgumentNullException.ThrowIfNull(probeSequence);
+        ArgumentNullException.ThrowIfNull(genomeIndex);
         probeSequence = probeSequence.ToUpperInvariant();
 
         // Check if probe sequence exists in genome
-        var positions = genomeIndex.FindAllOccurrences(probeSequence);
-        int hitCount = positions.Count;
+        int hitCount = genomeIndex.CountOccurrences(probeSequence);
+        if (bothStrands)
+        {
+            string rc = DnaSequence.GetReverseComplementString(probeSequence);
+            if (!string.Equals(rc, probeSequence, StringComparison.Ordinal))
+                hitCount += genomeIndex.CountOccurrences(rc);
+        }
 
         if (hitCount == 0)
             return 0; // Probe doesn't match target
 
-        if (hitCount == 1)
-            return 1.0; // Unique match
-
-        // Multiple hits reduce specificity
         return 1.0 / hitCount;
+    }
+
+    // --- Kane et al. (2000) cross-hybridization criteria ---
+    // Kane MD et al. (2000) Nucleic Acids Res 28(22):4552-4557 (abstract): non-target transcripts ">75% similar
+    // over the 50 base target may show cross-hybridization", and a non-target region must not include a stretch
+    // of identical sequence ">15 contiguous bases"; summarised by later probe-design pipelines as "a probe is
+    // likely to cross-hybridize with a nontarget if overall sequence identity is > 75% or if there is a
+    // contiguous match > 15 bp".
+    private const double KaneMaxIdentity = 0.75;
+    private const int KaneMaxContiguousMatch = 15;
+
+    // Non-target strands longer than this are aligned in overlapping chunks (memory O(probe × chunk)).
+    private const int CrossHybridizationChunkLength = 4096;
+
+    /// <summary>
+    /// Kane et al. (2000) cross-hybridization criteria of a probe against known non-target sequences: for each
+    /// non-target strand the probe may cross-hybridize when (a) its overall identity — identical columns of the
+    /// best local alignment ÷ probe length — is strictly above <paramref name="maxIdentity"/> (Kane: &gt; 75 %
+    /// similar over the probe), or (b) the longest stretch identical between probe and non-target is strictly
+    /// longer than <paramref name="maxContiguousMatch"/> (Kane: &gt; 15 contiguous bases).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The local alignment is the canonical Smith–Waterman–Gotoh aligner
+    /// <see cref="SequenceAligner.LocalAlignAffine(string, string, ScoringMatrix?)"/> with BLAST+ blastn scoring
+    /// (<see cref="SequenceAligner.BlastDna"/>: +2/−3, gap existence 5, extension 2) by default — the reported
+    /// optimal alignment is one of those Biopython's local <c>PairwiseAligner</c> enumerates. Non-target strands
+    /// longer than 4096 nt are aligned in chunks overlapping by the longest reference span a positive-scoring
+    /// local alignment can have (m + ⌈m·match/|extend|⌉), so the best score equals the whole-strand score; among
+    /// equal-scoring chunks the first is reported. The longest contiguous match is the longest common substring
+    /// from the canonical suffix tree (<c>SuffixTree.LongestCommonSubstringInfo</c>). Comparison is
+    /// case-insensitive and literal (an N matches only N).
+    /// </para>
+    /// <para>
+    /// With <paramref name="bothStrands"/> (default) each non-target is assessed as given and as its reverse
+    /// complement, since a double-stranded non-target (genomic DNA, ds cDNA) offers the probe both strands;
+    /// pass false for single-stranded non-targets given in the probe's sense.
+    /// </para>
+    /// </remarks>
+    /// <param name="probeSequence">Probe sequence (non-empty).</param>
+    /// <param name="nonTargetSequences">Known non-target sequences (null entries are treated as empty).</param>
+    /// <param name="maxIdentity">Identity threshold in [0, 1] (default 0.75).</param>
+    /// <param name="maxContiguousMatch">Contiguous-identity threshold in nt (≥ 0; default 15).</param>
+    /// <param name="bothStrands">Assess the reverse complement of each non-target too (default true).</param>
+    /// <param name="scoring">Local-alignment scoring (default <see cref="SequenceAligner.BlastDna"/>, affine gaps).</param>
+    /// <param name="conditions">Hybridization conditions for the site duplex Tm
+    /// (<see cref="CrossHybridizationAssessment.DuplexTm"/>; default Primer3 probe conditions 50 nM / 50 mM / 0 / 0).</param>
+    /// <param name="maxDuplexTm">Optional OligoArray-style specificity threshold (°C): a strand whose site duplex Tm
+    /// is strictly above it is flagged (<see cref="CrossHybridizationAssessment.ExceedsDuplexTmThreshold"/>); null
+    /// (default) applies only the Kane criteria. The threshold is assay-specific (Rouillard et al. 2003: user-set).</param>
+    /// <returns>One assessment per non-target strand: index order, forward strand before reverse complement.</returns>
+    /// <exception cref="ArgumentNullException">A null probe or non-target collection.</exception>
+    /// <exception cref="ArgumentException">An empty probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxIdentity"/> outside [0, 1] or a negative
+    /// <paramref name="maxContiguousMatch"/>.</exception>
+    public static IReadOnlyList<CrossHybridizationAssessment> AssessCrossHybridization(
+        string probeSequence,
+        IEnumerable<string> nonTargetSequences,
+        double maxIdentity = KaneMaxIdentity,
+        int maxContiguousMatch = KaneMaxContiguousMatch,
+        bool bothStrands = true,
+        ScoringMatrix? scoring = null,
+        ProbeParameters? conditions = null,
+        double? maxDuplexTm = null)
+    {
+        ArgumentNullException.ThrowIfNull(probeSequence);
+        ArgumentNullException.ThrowIfNull(nonTargetSequences);
+        if (probeSequence.Length == 0)
+            throw new ArgumentException("Probe sequence cannot be empty.", nameof(probeSequence));
+        if (double.IsNaN(maxIdentity) || maxIdentity < 0 || maxIdentity > 1)
+            throw new ArgumentOutOfRangeException(nameof(maxIdentity), "Identity threshold must be in [0, 1].");
+        if (maxContiguousMatch < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxContiguousMatch), "Contiguous-match threshold cannot be negative.");
+
+        var matrix = scoring ?? SequenceAligner.BlastDna;
+        var cond = conditions ?? Defaults.Microarray;
+        string probe = probeSequence.ToUpperInvariant();
+        bool duplexComputable = probe.Length <= NtthalMaxLength && probe.All(c => c is 'A' or 'C' or 'G' or 'T');
+        var probeTree = global::SuffixTree.SuffixTree.Build(probe);
+        var result = new List<CrossHybridizationAssessment>();
+
+        int index = 0;
+        foreach (var nonTarget in nonTargetSequences)
+        {
+            string forward = (nonTarget ?? string.Empty).ToUpperInvariant();
+            result.Add(AssessStrand(index, false, forward));
+            if (bothStrands)
+                result.Add(AssessStrand(index, true, DnaSequence.GetReverseComplementString(forward)));
+            index++;
+        }
+
+        return result;
+
+        CrossHybridizationAssessment AssessStrand(int idx, bool reverse, string strand)
+        {
+            var (score, identical, siteStart, siteEnd) = BestLocalAlignment(probe, strand, matrix);
+            int contiguous = strand.Length == 0 ? 0 : probeTree.LongestCommonSubstringInfo(strand).Substring.Length;
+            double identity = (double)identical / probe.Length;
+            double? duplexTm = null;
+            if (duplexComputable && siteStart >= 0)
+            {
+                string site = strand.Substring(siteStart, siteEnd - siteStart + 1);
+                if (site.All(c => c is 'A' or 'C' or 'G' or 'T'))
+                {
+                    // The probe hybridizes to the strand complementary to the site (primer3-py calc_heterodimer).
+                    var d = PrimerDesigner.CalculateDimerThermodynamicsNtthal(
+                        probe, DnaSequence.GetReverseComplementString(site), PrimerDesigner.NtthalAlignmentMode.Any,
+                        cond.MonovalentMillimolar / 1000.0, cond.DivalentMillimolar / 1000.0, cond.DntpMillimolar / 1000.0,
+                        cond.DnaConcentrationNanomolar * 1e-9);
+                    duplexTm = d?.TmCelsius ?? 0.0;
+                }
+            }
+
+            return new CrossHybridizationAssessment(
+                idx, reverse, identity, identical, score, contiguous,
+                identity > maxIdentity, contiguous > maxContiguousMatch)
+            {
+                SiteStart = siteStart,
+                SiteEnd = siteEnd,
+                DuplexTm = duplexTm,
+                ExceedsDuplexTmThreshold = maxDuplexTm is double limit && duplexTm is double tm && tm > limit,
+            };
+        }
+    }
+
+    // Best local alignment (score, identical columns) of the probe with a strand via the canonical affine
+    // Smith–Waterman–Gotoh aligner, chunking long strands so that every positive-scoring alignment lies wholly
+    // inside one chunk (its reference span is at most m + ⌈m·match/|extend|⌉ residues).
+    private static (int Score, int Identical, int Start, int End) BestLocalAlignment(
+        string probe, string strand, ScoringMatrix matrix)
+    {
+        if (strand.Length == 0)
+            return (0, 0, -1, -1);
+
+        int m = probe.Length;
+        int overlap = matrix.GapExtend < 0 && matrix.Match > 0
+            ? m + (int)Math.Ceiling((double)m * matrix.Match / -matrix.GapExtend) + 1
+            : int.MaxValue;
+        int chunk = Math.Max(CrossHybridizationChunkLength, 2 * Math.Min(overlap, int.MaxValue / 4));
+        if (overlap == int.MaxValue || strand.Length <= chunk)
+            return Summarize(SequenceAligner.LocalAlignAffine(probe, strand, matrix), 0);
+
+        (int Score, int Identical, int Start, int End) best = (-1, 0, -1, -1);
+        int step = chunk - overlap;
+        bool last = false;
+        int start = 0;
+        while (!last)
+        {
+            int len = Math.Min(chunk, strand.Length - start);
+            last = start + len >= strand.Length;
+            var r = Summarize(SequenceAligner.LocalAlignAffine(probe, strand.Substring(start, len), matrix), start);
+            if (r.Score > best.Score)
+                best = r;
+
+            start += step;
+        }
+
+        return best;
+
+        static (int Score, int Identical, int Start, int End) Summarize(AlignmentResult aln, int offset)
+        {
+            int identical = 0;
+            for (int k = 0; k < aln.AlignedSequence1.Length; k++)
+            {
+                char c1 = aln.AlignedSequence1[k];
+                if (c1 != AlignmentGapChar && c1 == aln.AlignedSequence2[k])
+                    identical++;
+            }
+
+            return aln.Score > 0
+                ? (aln.Score, identical, offset + aln.StartPosition2, offset + aln.EndPosition2)
+                : (0, 0, -1, -1);
+        }
     }
 
     // --- Gapped off-target scan thresholds (sourced) ---
@@ -1402,8 +1738,11 @@ public static class ProbeDesigner
     /// <param name="probeSequence">Probe sequence to scan (5'→3'). Null throws; empty yields no hits.</param>
     /// <param name="referenceSequences">Reference sequences to scan for hits. Null throws.</param>
     /// <param name="minIdentity">
-    /// Minimum alignment identity (identical aligned columns / probe length) to call a hit.
-    /// Default 0.75 per Kane et al. (2000): non-targets &gt;75% similar over the probe may cross-hybridize.
+    /// Minimum alignment identity (identical aligned columns / probe length) to report a hit (hits with
+    /// identity ≥ <paramref name="minIdentity"/> are reported). Default 0.75 from Kane et al. (2000): non-targets
+    /// &gt; 75 % similar over the probe may cross-hybridize. This scan reports sites; the Kane decision rule itself
+    /// (identity strictly &gt; 75 % or a contiguous identical stretch &gt; 15 nt, per non-target, both strands) is
+    /// <see cref="AssessCrossHybridization"/>.
     /// </param>
     /// <param name="scoring">
     /// Scoring matrix for the local alignment. Defaults to <see cref="SequenceAligner.BlastDna"/>

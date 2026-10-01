@@ -805,8 +805,10 @@ public class MolToolsCombinatorialTests
         var (probe, expSelfComp) = ValidationProbes[probeIdx];
         string reference = BuildOffTargetReference(probe, offTargetCount);
 
+        // Sequence-only (fallback) self-structure screen: the fold-back fraction is the self-complementarity criterion.
         var v = ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0,
-            selfComplementarityThreshold: selfCompThreshold);
+            selfComplementarityThreshold: selfCompThreshold,
+            conditions: ProbeDesigner.Defaults.Microarray with { StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic });
 
         // Specificity invariants (#4/#5/#6) — depend solely on off-target multiplicity.
         double expSpec = offTargetCount == 0 ? 0.0 : offTargetCount == 1 ? 1.0 : 1.0 / offTargetCount;
@@ -818,11 +820,11 @@ public class MolToolsCombinatorialTests
         v.SelfComplementarity.Should().BeInRange(0.0, 1.0);
         v.HasSecondaryStructure.Should().BeFalse("the three probes are structure-free by construction");
 
-        // IsValid composes the off-target and self-comp checks (with the lenient clause).
+        // IsValid = no recorded issue (off-target multiplicity, self-complementarity).
         bool offIssue = offTargetCount > 1;
         bool selfIssue = expSelfComp > selfCompThreshold;
         int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0);
-        bool expectedValid = issueCount == 0 || (offTargetCount <= 1 && expSelfComp <= 0.4);
+        bool expectedValid = issueCount == 0;
 
         v.IsValid.Should().Be(expectedValid);
         v.Issues.Any(i => i.Contains("off-target")).Should().Be(offIssue);

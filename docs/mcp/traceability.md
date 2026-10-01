@@ -157,6 +157,7 @@
 | design_molecular_beacon | MolTools | ProbeDesigner.DesignMolecularBeacon | ProbeDesigner.cs#L419 | 0/0 | – | – | Build-Ready |
 | design_primers | MolTools | PrimerDesigner.DesignPrimers | PrimerDesigner.cs#L40 | 0/0 | – | – | Build-Ready |
 | design_probes | MolTools | ProbeDesigner.DesignProbes | ProbeDesigner.cs#L127 | 0/0 | – | – | Build-Ready |
+| design_probes_primer3 | MolTools | ProbeDesigner.DesignProbesPrimer3 | ProbeDesigner.cs#L1121 | 0/0 | – | – | Build-Ready |
 | design_tiling_probes | MolTools | ProbeDesigner.DesignTilingProbes | ProbeDesigner.cs#L341 | 0/0 | – | – | Build-Ready |
 | digest_summary | MolTools | RestrictionAnalyzer.GetDigestSummary | RestrictionAnalyzer.cs#L301 | 0/0 | – | – | Build-Ready |
 | effective_number_of_codons | MolTools | CodonUsageAnalyzer.CalculateEnc | CodonUsageAnalyzer.cs#L333 | 0/0 | – | – | Build-Ready |
@@ -187,7 +188,7 @@
 | rscu | MolTools | CodonUsageAnalyzer.CalculateRscu | CodonUsageAnalyzer.cs#L77 | 0/0 | – | – | Build-Ready |
 | sticky_cutters | MolTools | RestrictionAnalyzer.GetStickyCutters | RestrictionAnalyzer.cs#L94 | 0/0 | – | – | Build-Ready |
 | three_prime_stability | MolTools | PrimerDesigner.Calculate3PrimeStability | PrimerDesigner.cs#L427 | 0/0 | – | – | Build-Ready |
-| validate_probe | MolTools | ProbeDesigner.ValidateProbe | ProbeDesigner.cs#L491 | 0/0 | – | – | Build-Ready |
+| validate_probe | MolTools | ProbeDesigner.ValidateProbe | ProbeDesigner.cs#L1366 | 0/0 | – | – | Build-Ready |
 | alphabet_pwm_score_pvalue | Analysis | MotifFinder.AlphabetPwmScorePValue | MotifFinder.PwmPValue.cs#L190 | 2/2 | ✓ | ✓ | Ready |
 | alphabet_pwm_score_thresholds | Analysis | AlphabetPositionWeightMatrix.ScoreDistribution | MotifFinder.AlphabetPwm.cs#L394 | 1/1 | ✓ | ✓ | Ready |
 | analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L243 | 0/0 | – | – | Build-Ready |
