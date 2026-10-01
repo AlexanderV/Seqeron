@@ -132,6 +132,10 @@ parameter); an unsourced convenience metric → find the source or replace/renam
 definition. Only items with a real BLOCKED proof may remain in the Limitations section, and each
 must say why it is impossible or critically complex.
 
+If a source (paper, table, dataset) is unreachable, try alternatives briefly (WebSearch, PyPI/CRAN/Bioconductor
+packages, GitHub mirrors via raw.githubusercontent.com), then record the item as BLOCKED with the list of sources
+tried and **continue with the rest of the batch** — never stop to ask a human for the file.
+
 Never end the session with a question to the user or a list of "possible next steps": no human
 is watching. If something is doable, do it.
 
