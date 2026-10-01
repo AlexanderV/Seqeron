@@ -931,4 +931,61 @@ public class MotifFinder_PWM_Tests
     }
 
     #endregion
+
+    #region F35 — Biopython PositionSpecificScoringMatrix.max / min semantics
+
+    // Biopython 1.88 Bio/motifs/matrix.py PositionSpecificScoringMatrix.max/min = Σ over columns of Python's builtin
+    // max/min (seed = row A, replaced only on a strict > / <). Values printed by Biopython 1.88 itself
+    // (PositionSpecificScoringMatrix('ACGT', {...}).max / .min); matrices are rows A, C, G, T.
+    private static readonly object[] BiopythonExtremumCases =
+    {
+        // all −∞ second column → −∞ (previously −1.797e308 from the double.MinValue seed)
+        new object[] { new double[,] { { 1.5, double.NegativeInfinity }, { 0.25, double.NegativeInfinity }, { -2.0, double.NegativeInfinity }, { 0.5, double.NegativeInfinity } }, double.NegativeInfinity, double.NegativeInfinity },
+        new object[] { new double[,] { { double.NegativeInfinity, 2.0 }, { 1.0, double.NegativeInfinity }, { double.NegativeInfinity, 0.5 }, { 0.0, -1.25 } }, 3.0, double.NegativeInfinity },
+        // NaN in row A propagates; NaN in a later row is ignored (Python max/min seeded with the first item)
+        new object[] { new double[,] { { double.NaN, 1.0 }, { 1.0, 2.0 }, { 0.0, 0.0 }, { -1.0, 3.0 } }, double.NaN, double.NaN },
+        new object[] { new double[,] { { 0.5, 1.0 }, { double.NaN, 2.0 }, { 0.0, 0.0 }, { -1.0, 3.0 } }, 3.5, -1.0 },
+        new object[] { new double[,] { { double.PositiveInfinity, 1.0 }, { 0.0, 2.0 }, { 0.0, 0.0 }, { 0.0, 3.0 } }, double.PositiveInfinity, 0.0 },
+        new object[] { new double[,] { { 0.1, -0.3, 1.7 }, { 0.2, 0.9, -2.2 }, { -0.7, 0.33, 0.01 }, { 0.05, -1.1, 0.4 } }, 2.8, -4.0 },
+    };
+
+    [TestCaseSource(nameof(BiopythonExtremumCases))]
+    public void Pwm_MaxMinScore_EqualBiopythonPssmMaxMin(double[,] matrix, double expectedMax, double expectedMin)
+    {
+        var pwm = new PositionWeightMatrix(matrix, matrix.GetLength(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(pwm.MaxScore, Is.EqualTo(expectedMax), "max");
+            Assert.That(pwm.MinScore, Is.EqualTo(expectedMin), "min");
+        });
+    }
+
+    [Test]
+    public void Pwm_MaxMinScore_FiniteMatrix_BitIdenticalToMathMaxMinFold()
+    {
+        // The pre-F35 implementation (Math.Max/Math.Min fold seeded with double.MinValue/MaxValue); finite matrices
+        // must be unchanged bit for bit.
+        var rng = new Random(20261001);
+        for (int t = 0; t < 200; t++)
+        {
+            int len = rng.Next(1, 30);
+            var m = new double[4, len];
+            for (int b = 0; b < 4; b++)
+                for (int i = 0; i < len; i++)
+                    m[b, i] = rng.Next(5) == 0 ? (rng.Next(2) == 0 ? 0.0 : -0.0) : (rng.NextDouble() - 0.5) * 20;
+            double max = 0, min = 0;
+            for (int i = 0; i < len; i++)
+            {
+                double hi = double.MinValue, lo = double.MaxValue;
+                for (int b = 0; b < 4; b++) { hi = Math.Max(hi, m[b, i]); lo = Math.Min(lo, m[b, i]); }
+                max += hi;
+                min += lo;
+            }
+            var pwm = new PositionWeightMatrix(m, len);
+            Assert.That(BitConverter.DoubleToInt64Bits(pwm.MaxScore), Is.EqualTo(BitConverter.DoubleToInt64Bits(max)));
+            Assert.That(BitConverter.DoubleToInt64Bits(pwm.MinScore), Is.EqualTo(BitConverter.DoubleToInt64Bits(min)));
+        }
+    }
+
+    #endregion
 }

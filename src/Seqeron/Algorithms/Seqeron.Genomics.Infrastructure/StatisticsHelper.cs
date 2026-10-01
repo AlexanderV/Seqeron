@@ -340,13 +340,17 @@ namespace Seqeron.Genomics.Infrastructure
 
         /// <summary>
         /// ln(eᵃ + eᵇ) without overflow (numpy <c>logaddexp</c>): max + ln(e^(a−max) + e^(b−max)); when either argument is
-        /// −∞ (probability 0) the other is returned exactly, so ln 0 + ln 0 = −∞ (never NaN).
+        /// −∞ (probability 0) the other is returned exactly, so ln 0 + ln 0 = −∞ (never NaN). As numpy's
+        /// <c>npy_logaddexp</c> (numpy/_core/src/npymath/npy_math_internal.h.src), equal arguments give a + ln 2 — so
+        /// logaddexp(+∞, +∞) = +∞ — and a +∞ argument gives +∞; NaN propagates.
         /// </summary>
         public static double LogAddExp(double a, double b)
         {
+            if (a == b) return a + Math.Log(2.0); // handles infinities of the same sign (numpy); bit-identical for finite a
             if (double.IsNegativeInfinity(a)) return b;
             if (double.IsNegativeInfinity(b)) return a;
             double max = Math.Max(a, b);
+            if (double.IsPositiveInfinity(max)) return max; // (+∞, finite): never ∞ − ∞ = NaN
             return max + Math.Log(Math.Exp(a - max) + Math.Exp(b - max));
         }
 

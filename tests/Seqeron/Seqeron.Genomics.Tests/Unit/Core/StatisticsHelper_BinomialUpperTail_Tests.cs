@@ -121,6 +121,55 @@ public class StatisticsHelper_BinomialUpperTail_Tests
         });
     }
 
+    // numpy 2.4.6 np.logaddexp (npy_logaddexp: x == y → x + ln 2, handling same-sign infinities), printed with repr.
+    private static readonly object[] NumpyLogAddExpSpecialCases =
+    {
+        new object[] { double.PositiveInfinity, double.PositiveInfinity, double.PositiveInfinity },
+        new object[] { double.NegativeInfinity, double.NegativeInfinity, double.NegativeInfinity },
+        new object[] { double.PositiveInfinity, double.NegativeInfinity, double.PositiveInfinity },
+        new object[] { double.NegativeInfinity, double.PositiveInfinity, double.PositiveInfinity },
+        new object[] { double.PositiveInfinity, 1.0, double.PositiveInfinity },
+        new object[] { 1.0, double.PositiveInfinity, double.PositiveInfinity },
+        new object[] { double.NaN, 1.0, double.NaN },
+        new object[] { 1.0, double.NaN, double.NaN },
+        new object[] { double.NaN, double.NegativeInfinity, double.NaN },
+        new object[] { double.NegativeInfinity, double.NaN, double.NaN },
+        new object[] { double.PositiveInfinity, double.NaN, double.NaN },
+        new object[] { double.NaN, double.PositiveInfinity, double.NaN },
+        new object[] { 1.0, 1.0, 1.6931471805599454 },
+        new object[] { -3.5, -3.5, -2.8068528194400546 },
+        new object[] { 1e308, 1e308, 1e308 },
+    };
+
+    [TestCaseSource(nameof(NumpyLogAddExpSpecialCases))]
+    public void LogAddExp_SpecialValues_EqualNumpy(double a, double b, double expected)
+        => Assert.That(StatisticsHelper.LogAddExp(a, b), Is.EqualTo(expected));
+
+    [Test]
+    public void LogAddExp_NearEqualFinite_MatchesNumpy()
+    {
+        // numpy 2.4.6 np.logaddexp, repr-printed.
+        Assert.Multiple(() =>
+        {
+            Assert.That(StatisticsHelper.LogAddExp(1.0, 1.0 + Math.Pow(2, -52)), Is.EqualTo(1.6931471805599454).Within(1e-15));
+            Assert.That(StatisticsHelper.LogAddExp(-700.0, -700.0000000001), Is.EqualTo(-699.3068528194901).Within(1e-12));
+            Assert.That(StatisticsHelper.LogAddExp(0.5, 0.25), Is.EqualTo(1.0759394198788437).Within(1e-15));
+        });
+    }
+
+    [Test]
+    public void LogAddExp_EqualFinite_BitIdenticalToMaxPlusLogSum()
+    {
+        // a == b branch (numpy a + ln 2) equals the general formula max + ln(e^0 + e^0) bit for bit for finite a.
+        var rng = new Random(7);
+        for (int i = 0; i < 10000; i++)
+        {
+            double a = (rng.NextDouble() - 0.5) * Math.Pow(10, rng.Next(-20, 300));
+            double general = a + Math.Log(Math.Exp(a - a) + Math.Exp(a - a));
+            Assert.That(BitConverter.DoubleToInt64Bits(StatisticsHelper.LogAddExp(a, a)), Is.EqualTo(BitConverter.DoubleToInt64Bits(general)));
+        }
+    }
+
     private static double LogChoose(long n, long k)
     {
         double s = 0;

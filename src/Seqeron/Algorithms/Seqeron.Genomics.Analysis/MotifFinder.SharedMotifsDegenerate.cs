@@ -92,13 +92,7 @@ public static partial class MotifFinder
         }
 
         double npo = RsatPossibleOligos(k, both, codes.Length);
-        double logNpo = Math.Log(npo);
-        if (!double.IsFinite(npo))
-        {
-            // k·|codes|·4^(k−1) beyond the double range; the palindrome term is negligible against it.
-            logNpo = Math.Log(k) + Math.Log(codes.Length) + (k - 1) * Ln4;
-            if (both) logNpo -= Math.Log(2.0);
-        }
+        double logNpo = LogRsatPossibleOligos(k, both, codes.Length);
         var motifs = new List<SignificantSharedMotif>();
         var shared = matching.Where(e => e.Value.Indices.Count >= minSequences).ToList();
         if (shared.Count > 0)

@@ -119,7 +119,7 @@ Row 3 = T
 - `MotifFinder.CreatePwm(IEnumerable<string>, double)`: Builds a DNA PWM.
 - `MotifFinder.ScanWithPwm(DnaSequence, PositionWeightMatrix, double)`: Scores each sequence window against the PWM.
 - `MotifFinder.CreatePwm(IEnumerable<string>, double, IReadOnlyList<double>)`: Builds a DNA PWM against a non-uniform background.
-- `PositionWeightMatrix`: Holds `Matrix`, `Length`, `Consensus` (first maximum in A,C,G,T order — Biopython `consensus` tie rule), `MaxScore`, `MinScore` (sums of column extrema — Biopython `pssm.max`/`pssm.min`) and `ReverseComplement()`.
+- `PositionWeightMatrix`: Holds `Matrix`, `Length`, `Consensus` (first maximum in A,C,G,T order — Biopython `consensus` tie rule), `MaxScore`, `MinScore` (sums of column extrema — Biopython `pssm.max`/`pssm.min`, Python `max`/`min` seeded with row A and replaced only on strict `>`/`<`: an all −∞ column gives −∞, a NaN in row A propagates, a NaN in a later row is ignored; shared kernel with `AlphabetPositionWeightMatrix`) and `ReverseComplement()`.
 
 Additive members ([MotifFinder.PwmScoring.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmScoring.cs), 2026-09 B05 follow-up):
 

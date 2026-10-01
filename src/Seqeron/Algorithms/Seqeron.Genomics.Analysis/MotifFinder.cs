@@ -1245,40 +1245,15 @@ public sealed partial class PositionWeightMatrix
     }
 
     /// <summary>
-    /// Gets the maximum possible score for this PWM.
+    /// Gets the maximum possible score for this PWM: Σ over columns of the column maximum
+    /// (Biopython <c>PositionSpecificScoringMatrix.max</c> semantics — an all −∞ column gives −∞;
+    /// a NaN in row A propagates, a NaN in a later row is ignored).
     /// </summary>
-    public double MaxScore
-    {
-        get
-        {
-            double max = 0;
-            for (int i = 0; i < Length; i++)
-            {
-                double posMax = double.MinValue;
-                for (int b = 0; b < 4; b++)
-                    posMax = Math.Max(posMax, Matrix[b, i]);
-                max += posMax;
-            }
-            return max;
-        }
-    }
+    public double MaxScore => MotifFinder.ColumnExtremumSum(Matrix, maximum: true);
 
     /// <summary>
-    /// Gets the minimum possible score for this PWM.
+    /// Gets the minimum possible score for this PWM: Σ over columns of the column minimum
+    /// (Biopython <c>PositionSpecificScoringMatrix.min</c> semantics).
     /// </summary>
-    public double MinScore
-    {
-        get
-        {
-            double min = 0;
-            for (int i = 0; i < Length; i++)
-            {
-                double posMin = double.MaxValue;
-                for (int b = 0; b < 4; b++)
-                    posMin = Math.Min(posMin, Matrix[b, i]);
-                min += posMin;
-            }
-            return min;
-        }
-    }
+    public double MinScore => MotifFinder.ColumnExtremumSum(Matrix, maximum: false);
 }

@@ -248,22 +248,10 @@ public static partial class MotifFinder
     /// RSAT <c>NbPossibleOligos</c>: 4^k (single strand) or 4^k − (4^k − P)/2 = (4^k + P)/2 with P = 4^(k/2) reverse
     /// palindromes for even k, 0 for odd k (both strands). Exact powers of two; +∞ once 4^k exceeds the double range.
     /// </summary>
-    private static double PossibleOligos(int k, bool both)
-    {
-        double all = Math.ScaleB(1.0, 2 * k);
-        if (!both) return all;
-        double palindromes = k % 2 == 0 ? Math.ScaleB(1.0, k) : 0.0;
-        return (all + palindromes) / 2;
-    }
+    private static double PossibleOligos(int k, bool both) => RsatPossibleOligos(k, both, codes: 0);
 
     /// <summary>ln <see cref="PossibleOligos"/>, finite for every k.</summary>
-    private static double LogPossibleOligos(int k, bool both)
-    {
-        double npo = PossibleOligos(k, both);
-        if (double.IsFinite(npo)) return Math.Log(npo);
-        double logHalf = k * Ln4 - Math.Log(2.0);
-        return both ? logHalf : k * Ln4; // 4^(k/2) is negligible against 4^k here (k ≥ 512)
-    }
+    private static double LogPossibleOligos(int k, bool both) => LogRsatPossibleOligos(k, both, codes: 0);
 
     /// <summary>
     /// Groups single-strand words (first-occurrence order, ascending positions) into patterns: identity with one strand;

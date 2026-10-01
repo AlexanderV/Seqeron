@@ -16,6 +16,35 @@ namespace Seqeron.Genomics.Analysis;
 /// </remarks>
 public static partial class MotifFinder
 {
+    /// <summary>
+    /// Shared PWM column-extremum kernel (Biopython 1.88 <c>Bio/motifs/matrix.py</c>
+    /// <c>PositionSpecificScoringMatrix.max</c>/<c>min</c>): Σ over columns of Python's builtin
+    /// <c>max</c>/<c>min</c> of the column — seeded with the first row and replaced only on a strict
+    /// <c>&gt;</c>/<c>&lt;</c>, so an all −∞ column contributes −∞ (not <c>double.MinValue</c>), a NaN in
+    /// the first row propagates and a NaN in a later row is ignored. Used by both
+    /// <see cref="PositionWeightMatrix"/> and <see cref="AlphabetPositionWeightMatrix"/>.
+    /// </summary>
+    internal static double ColumnExtremumSum(double[,] matrix, bool maximum)
+    {
+        double score = 0.0;
+        int rows = matrix.GetLength(0);
+        int cols = matrix.GetLength(1);
+        for (int j = 0; j < cols; j++)
+        {
+            double best = matrix[0, j];
+            for (int a = 1; a < rows; a++)
+            {
+                double w = matrix[a, j];
+                if (maximum ? w > best : w < best)
+                    best = w;
+            }
+
+            score += best;
+        }
+
+        return score;
+    }
+
     #region Generic-alphabet PWM
 
     /// <summary>
@@ -414,23 +443,5 @@ public sealed class AlphabetPositionWeightMatrix
     }
 
     /// <summary>Biopython <c>max</c> / <c>min</c>: Σ over columns of Python's <c>max</c>/<c>min</c> of the column.</summary>
-    private double ColumnExtremumSum(bool maximum)
-    {
-        double score = 0.0;
-        int k = Alphabet.Length;
-        for (int j = 0; j < Length; j++)
-        {
-            double best = _matrix[0, j];
-            for (int a = 1; a < k; a++)
-            {
-                double w = _matrix[a, j];
-                if (maximum ? w > best : w < best)
-                    best = w;
-            }
-
-            score += best;
-        }
-
-        return score;
-    }
+    private double ColumnExtremumSum(bool maximum) => MotifFinder.ColumnExtremumSum(_matrix, maximum);
 }

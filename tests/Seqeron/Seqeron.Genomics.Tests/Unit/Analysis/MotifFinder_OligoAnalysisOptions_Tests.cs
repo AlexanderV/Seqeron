@@ -456,4 +456,48 @@ public class MotifFinder_OligoAnalysisOptions_Tests
             Assert.That(empty.TestedPatterns, Is.Zero);
         });
     }
+
+    #region F35 — NbPossibleOligos beyond the double range (k >= 512, both strands)
+
+    // Before F35, RsatPossibleOligos returned ∞ − ∞ = NaN for both strands once 4^k overflowed (k >= 512), so every
+    // -pseudo statistic was NaN while the plain AnalyzeOligos path gave NPO = +∞ and a finite ln NPO. Oracle (mpmath,
+    // 50 digits): one window of A^k, both strands, equiprobable, ψ = 0.1 → p = 2·(0.9·4^−k + 0.1/NPO),
+    // NPO = (4^k + 4^(k/2))/2 (RSAT NbPossibleOligos); occ_sig = −log10 P(X ≥ 1 | n = 1) = −log10 p. The plain path
+    // (ψ = 0) gives −log10(2·4^−k); the two differ by log10(1.1).
+    [TestCase(512, 307.91229287909453766, 307.9536855642527627)]
+    [TestCase(600, 360.89357211595522802, 360.93496480111345306)]
+    public void Pseudo_BothStrands_HugeK_PossibleOligosInfinite_StatisticsEqualLogSpaceOracle(int k, double sigPseudo, double sigPlain)
+    {
+        string seq = new('A', k);
+        var r = Run(k, new OligoAnalysisOptions { Background = OligoBackgroundModel.Equiprobable, Strands = OligoStrandMode.Both, PseudoFrequency = 0.1 }, seq);
+        var plain = Run(k, new OligoAnalysisOptions { Background = OligoBackgroundModel.Equiprobable, Strands = OligoStrandMode.Both }, seq);
+        var p = r.Patterns.Single();
+        var q = plain.Patterns.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.PossibleOligos, Is.EqualTo(double.PositiveInfinity));
+            Assert.That(r.PossibleOligos, Is.EqualTo(plain.PossibleOligos));
+            Assert.That(r.TestedPatterns, Is.EqualTo(1));
+            Assert.That(p.OccurrenceSignificance, Is.EqualTo(sigPseudo).Within(1e-12 * sigPseudo));
+            Assert.That(q.OccurrenceSignificance, Is.EqualTo(sigPlain).Within(1e-12 * sigPlain));
+            Assert.That(q.OccurrenceSignificance - p.OccurrenceSignificance, Is.EqualTo(Math.Log10(1.1)).Within(1e-11));
+            Assert.That(double.IsNaN(p.Ratio), Is.False);
+            Assert.That(double.IsNaN(p.ExpectedFrequency), Is.False);
+        });
+    }
+
+    [Test]
+    public void OneN_BothStrands_HugeK_PossibleOligosInfinite_NotNaN()
+    {
+        string seq = new('A', 512);
+        var r = Run(512, new OligoAnalysisOptions { Degeneracy = OligoDegeneracy.OneN, Strands = OligoStrandMode.Both, PseudoFrequency = 0.1 }, seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.PossibleOligos, Is.EqualTo(double.PositiveInfinity));
+            Assert.That(r.Patterns, Is.Not.Empty);
+            Assert.That(r.Patterns.All(x => !double.IsNaN(x.OccurrenceSignificance)), Is.True);
+        });
+    }
+
+    #endregion
 }

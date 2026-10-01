@@ -142,7 +142,7 @@ public static partial class MotifFinder
         var patterns = GroupTallies(tallies, both, options.MinCount <= 0 ? calibrated?.Keys : null);
 
         double npo = residueAlphabet ? alphabet!.PossibleOligos(k) : RsatPossibleOligos(k, both, codes.Length);
-        double logNpo = residueAlphabet ? alphabet!.LogPossibleOligos(k) : Math.Log(npo);
+        double logNpo = residueAlphabet ? alphabet!.LogPossibleOligos(k) : LogRsatPossibleOligos(k, both, codes.Length);
         long n = possiblePositions;
         double logN = Math.Log(n);
         double psi = options.PseudoFrequency;
@@ -618,13 +618,27 @@ public static partial class MotifFinder
     /// <summary>
     /// RSAT <c>NbPossibleOligos</c>: 4^k, or k·|codes|·4^(k−1) with one degenerate position; with both strands
     /// NPO − (NPO − P)/2, P = 4^(k/2) for even k and 0 for odd k (RSAT's palindrome count, also used for degenerate words).
+    /// +∞ once the count exceeds the double range (never ∞ − ∞ = NaN with both strands).
     /// </summary>
     private static double RsatPossibleOligos(int k, bool both, int codes)
     {
         double npo = codes == 0 ? Math.ScaleB(1.0, 2 * k) : k * (double)codes * Math.ScaleB(1.0, 2 * (k - 1));
-        if (!both) return npo;
+        if (!both || !double.IsFinite(npo)) return npo;
         double palindromes = k % 2 == 0 ? Math.ScaleB(1.0, k) : 0.0;
         return npo - (npo - palindromes) / 2;
+    }
+
+    /// <summary>
+    /// ln <see cref="RsatPossibleOligos"/>, finite for every k: the exact log when the count is finite, otherwise the
+    /// count in log space — k·ln 4 (plain) or ln k + ln|codes| + (k−1)·ln 4 (degenerate), minus ln 2 with both strands
+    /// (the palindrome term is negligible against 4^k there, k ≥ 512).
+    /// </summary>
+    private static double LogRsatPossibleOligos(int k, bool both, int codes)
+    {
+        double npo = RsatPossibleOligos(k, both, codes);
+        if (double.IsFinite(npo)) return Math.Log(npo);
+        double log = codes == 0 ? k * Ln4 : Math.Log(k) + Math.Log(codes) + (k - 1) * Ln4;
+        return both ? log - Math.Log(2.0) : log;
     }
 
     #endregion
