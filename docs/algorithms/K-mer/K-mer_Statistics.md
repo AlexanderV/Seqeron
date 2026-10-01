@@ -113,9 +113,9 @@ Input is upper-cased (case-insensitive); no alphabet restriction (any character 
 
 **Intentionally simplified:** none.
 
-**Not implemented:**
+- Statistics over canonical (`jellyfish count -C`) or ACGT-only counts: `AnalyzeKmers(sequence, k, KmerCountingOptions, lowerCount = 0, upperCount = ∞)` equals Jellyfish 2.3.1 `count [-C]` + `stats` (e.g. Rosalind KMER sample k=4 `-C`: Unique 23, Distinct 130, Total 412, Max_count 10; K-mer_Counting §7.3).
 
-- Canonical (reverse-complement-collapsed) k-mer statistics; **users should rely on:** `KmerAnalyzer.CountKmersBothStrands` for strand-aware counting (KMER-BOTH-001).
+**Not implemented:** none.
 
 ## 6. Edge Cases and Limitations
 
@@ -132,7 +132,7 @@ Input is upper-cased (case-insensitive); no alphabet restriction (any character 
 
 ### 6.2 Limitations
 
-The `UniqueKmers` field name denotes the **distinct** k-mer count — it is *not* Jellyfish's "Unique" (count 1) [5]. It is kept for backward compatibility; use `DistinctKmers` (same value) and `SingletonKmers` (Jellyfish Unique, = size of `FindUniqueKmers`) [2][5]. Jellyfish counts canonical k-mers with `-C` and skips non-ACGT windows; this method is single-strand with no alphabet filtering (see KMER-COUNT-001 / KMER-BOTH-001). No IUPAC-degenerate handling: ambiguous symbols form ordinary k-mers.
+The `UniqueKmers` field name denotes the **distinct** k-mer count — it is *not* Jellyfish's "Unique" (count 1) [5]. It is kept for backward compatibility; use `DistinctKmers` (same value) and `SingletonKmers` (Jellyfish Unique, = size of `FindUniqueKmers`) [2][5]. Jellyfish skips non-ACGT windows and counts canonical k-mers with `-C`; the option-less overloads are single-strand with no alphabet filtering, and the `KmerCountingOptions` overload reproduces both Jellyfish conventions (KMER-COUNT-001). No IUPAC-degenerate handling: ambiguous symbols form ordinary k-mers.
 
 ## 7. Examples and Related Material
 

@@ -24,17 +24,19 @@ public class AnalysisTools
     #region KmerAnalyzer
 
     [McpServerTool(Name = "count_kmers", Title = "k-mers — Count All", ReadOnly = true)]
-    [Description("Counts every k-mer (substring of length k) occurrence in a sequence. Returns k-mer → count.")]
+    [Description("Counts every k-mer (substring of length k) occurrence in a sequence. Returns k-mer → count. Optional Jellyfish modes: acgtOnly skips windows containing a non-ACGT symbol; canonical keys each k-mer by min(k-mer, reverse complement) (jellyfish count -C, implies acgtOnly).")]
     public static KmerCountsResult CountKmers(
         [Description("Sequence to analyze.")] string sequence,
-        [Description("k-mer length (>0).")] int k)
+        [Description("k-mer length (>0).")] int k,
+        [Description("Canonical counting (jellyfish count -C): key = lexicographically smaller of the k-mer and its reverse complement; implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip every window containing a symbol other than A/C/G/T (case-insensitive), as Jellyfish does. Default false (all symbols counted literally).")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        var counts = KmerAnalyzer.CountKmers(sequence, k);
+        var counts = KmerAnalyzer.CountKmers(sequence, k, new KmerCountingOptions(canonical, acgtOnly));
         return new KmerCountsResult(counts);
     }
 

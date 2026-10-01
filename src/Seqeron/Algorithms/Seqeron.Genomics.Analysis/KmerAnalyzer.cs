@@ -44,6 +44,100 @@ public static class KmerAnalyzer
         int k,
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
+        => CountKmersCore(sequence, k, acgtOnly: false, cancellationToken, progress);
+
+    /// <summary>
+    /// Counts k-mers under explicit <see cref="KmerCountingOptions"/>: literal (default), ACGT-only
+    /// (Jellyfish window convention) or canonical (Jellyfish <c>count -C</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>ACGT-only</b> (<see cref="KmerCountingOptions.AcgtOnly"/>): after case folding, a window is
+    /// counted only when all k symbols are A, C, G or T. This is Jellyfish's convention: in
+    /// <c>include/jellyfish/mer_iterator.hpp</c> a base whose 2-bit code (<c>mer_dna.hpp</c> <c>codes[256]</c>:
+    /// A/a=0, C/c=1, G/g=2, T/t=3, every other byte negative, IUPAC codes and U included) is negative
+    /// resets <c>filled_</c> to 0, so no k-mer overlapping it is emitted. Total = number of
+    /// all-ACGT windows (≤ L − k + 1).</para>
+    /// <para><b>Canonical</b> (<see cref="KmerCountingOptions.Canonical"/>): each k-mer w is keyed by
+    /// min(w, RC(w)) — Jellyfish <c>-C</c> "count both strand, canonical representation"
+    /// (<c>mer_iterator</c> returns <c>m_ &lt; rcm_ ? m_ : rcm_</c>; <c>mer_dna::get_canonical</c>;
+    /// Marçais &amp; Kingsford 2011, Bioinformatics 27:764). Jellyfish's 2-bit comparison A&lt;C&lt;G&lt;T is
+    /// ordinal string order on upper-case ACGT. Canonical counting is defined only over ACGT (Jellyfish
+    /// cannot encode another base), so <c>Canonical = true</c> always applies the ACGT-only window rule.
+    /// RC is the canonical <see cref="DnaSequence.GetReverseComplementString"/>, applied once per distinct
+    /// forward k-mer. Keys are upper-case; the counts sum to the number of all-ACGT windows.</para>
+    /// <para>Default options are exactly <see cref="CountKmers(string, int, CancellationToken, IProgress{double}?)"/>.
+    /// Cancellation and progress semantics are those of that overload (the canonical fold runs after the final
+    /// 1.0 report and is O(D·k)).</para>
+    /// <para>Cross-checked against Jellyfish 2.3.1 (<c>count [-C]</c> + <c>dump -c</c>) on 20 inputs incl.
+    /// N/IUPAC/lower-case/U (docs/algorithms/K-mer/K-mer_Counting.md §7.3).</para>
+    /// </remarks>
+    /// <param name="sequence">The sequence (case-insensitive). Null/empty returns an empty dictionary.</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <param name="options">Counting mode.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
+    /// <returns>Dictionary mapping (canonical) k-mers to their counts.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    public static Dictionary<string, int> CountKmers(
+        string sequence,
+        int k,
+        KmerCountingOptions options,
+        CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null)
+    {
+        var counts = CountKmersCore(sequence, k, options.SkipsNonAcgt, cancellationToken, progress);
+        return options.Canonical ? FoldToCanonical(counts) : counts;
+    }
+
+    /// <summary>
+    /// Returns the set of distinct k-mers of a sequence (literal counting, as <see cref="CountKmers(string, int)"/>).
+    /// </summary>
+    /// <param name="sequence">The sequence (case-insensitive). Null/empty returns an empty set.</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <returns>A new caller-owned ordinal set of the observed k-mers (upper-case).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    public static HashSet<string> DistinctKmers(string sequence, int k)
+        => DistinctKmers(sequence, k, default);
+
+    /// <summary>
+    /// Returns the set of distinct k-mers under <paramref name="options"/> — the key set of
+    /// <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>
+    /// (with <c>Canonical = true</c>: the distinct canonical k-mers, Jellyfish <c>stats -C</c> "Distinct").
+    /// </summary>
+    /// <param name="sequence">The sequence (case-insensitive). Null/empty returns an empty set.</param>
+    /// <param name="k">The k-mer length. Must be positive for non-empty input.</param>
+    /// <param name="options">Counting mode.</param>
+    /// <returns>A new caller-owned ordinal set of the observed (canonical) k-mers.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    public static HashSet<string> DistinctKmers(string sequence, int k, KmerCountingOptions options)
+        => new(CountKmers(sequence, k, options).Keys, StringComparer.Ordinal);
+
+    /// <summary>Folds a forward count table onto canonical keys min(w, RC(w)) (ordinal = Jellyfish 2-bit order).</summary>
+    private static Dictionary<string, int> FoldToCanonical(Dictionary<string, int> forward)
+    {
+        var canonical = new Dictionary<string, int>(forward.Count);
+        foreach (var (kmer, count) in forward)
+        {
+            var rc = DnaSequence.GetReverseComplementString(kmer);
+            var key = string.CompareOrdinal(rc, kmer) < 0 ? rc : kmer;
+            if (!canonical.TryAdd(key, count))
+                canonical[key] += count;
+        }
+        return canonical;
+    }
+
+    private static bool IsAcgt(char c) => c is 'A' or 'C' or 'G' or 'T';
+
+    /// <summary>
+    /// The single counting loop. With <paramref name="acgtOnly"/>, windows containing a non-ACGT symbol
+    /// (after upper-casing) are skipped — tracked in O(1) per window via the last non-ACGT index.
+    /// </summary>
+    private static Dictionary<string, int> CountKmersCore(
+        string sequence,
+        int k,
+        bool acgtOnly,
+        CancellationToken cancellationToken,
+        IProgress<double>? progress)
     {
         ValidateKmerLength(sequence, k);
 
@@ -58,6 +152,7 @@ public static class KmerAnalyzer
         var counts = new Dictionary<string, int>();
         int total = sequence.Length - k + 1;
         const int checkInterval = 1000;
+        int scanned = 0, lastInvalid = -1;
 
         for (int i = 0; i <= sequence.Length - k; i++)
         {
@@ -65,6 +160,18 @@ public static class KmerAnalyzer
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 progress?.Report((double)i / total);
+            }
+
+            if (acgtOnly)
+            {
+                for (; scanned < i + k; scanned++)
+                {
+                    if (!IsAcgt(seq[scanned]))
+                        lastInvalid = scanned;
+                }
+
+                if (lastInvalid >= i)
+                    continue;
             }
 
             var kmer = new string(seq.Slice(i, k));
@@ -152,8 +259,21 @@ public static class KmerAnalyzer
     /// <returns>Dictionary mapping multiplicity to the number of distinct k-mers with that multiplicity.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static Dictionary<int, int> GetKmerSpectrum(string sequence, int k)
+        => GetKmerSpectrum(sequence, k, default);
+
+    /// <summary>
+    /// Gets the k-mer spectrum over counts produced under <paramref name="options"/> — with
+    /// <c>Canonical = true</c> this is <c>jellyfish count -C</c> followed by <c>jellyfish histo</c>, the usual
+    /// genome-profiling input (e.g. GenomeScope).
+    /// </summary>
+    /// <param name="sequence">The sequence to analyze. Null/empty returns an empty dictionary.</param>
+    /// <param name="k">The k-mer length.</param>
+    /// <param name="options">Counting mode (see <see cref="KmerCountingOptions"/>).</param>
+    /// <returns>Dictionary mapping multiplicity to the number of distinct k-mers with that multiplicity.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
+    public static Dictionary<int, int> GetKmerSpectrum(string sequence, int k, KmerCountingOptions options)
     {
-        var counts = CountKmers(sequence, k);
+        var counts = CountKmers(sequence, k, options);
         var spectrum = new Dictionary<int, int>();
 
         foreach (var count in counts.Values)
@@ -734,11 +854,30 @@ public static class KmerAnalyzer
     /// values), or <paramref name="k"/> ≤ 0 and the sequence is non-empty.
     /// </exception>
     public static KmerStatistics AnalyzeKmers(string sequence, int k, int lowerCount, int upperCount = int.MaxValue)
+        => AnalyzeKmers(sequence, k, default, lowerCount, upperCount);
+
+    /// <summary>
+    /// Computes k-mer statistics over counts produced under <paramref name="options"/>, with the optional
+    /// Jellyfish <c>-L/-U</c> filters — with <c>Canonical = true</c> this is <c>jellyfish count -C</c> followed
+    /// by <c>jellyfish stats</c>. Field semantics are those of <see cref="AnalyzeKmers(string, int, int, int)"/>;
+    /// Total is the number of counted (all-ACGT, when filtering) windows.
+    /// </summary>
+    /// <param name="sequence">The sequence to analyze (case-insensitive).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="options">Counting mode (see <see cref="KmerCountingOptions"/>).</param>
+    /// <param name="lowerCount">Ignore k-mers with count below this value (Jellyfish default 0).</param>
+    /// <param name="upperCount">Ignore k-mers with count above this value (Jellyfish default unbounded).</param>
+    /// <returns>Statistics over the retained k-mers; all-zero when none is retained.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A bound is negative, or <paramref name="k"/> ≤ 0 and the sequence is non-empty.
+    /// </exception>
+    public static KmerStatistics AnalyzeKmers(
+        string sequence, int k, KmerCountingOptions options, int lowerCount = 0, int upperCount = int.MaxValue)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(lowerCount);
         ArgumentOutOfRangeException.ThrowIfNegative(upperCount);
 
-        var counts = CountKmers(sequence, k);
+        var counts = CountKmers(sequence, k, options);
         var retained = new List<int>(counts.Count);
         int total = 0, singletons = 0, maxCount = 0, minCount = int.MaxValue;
 
@@ -796,4 +935,26 @@ public readonly record struct KmerStatistics(
     /// equals the size of <see cref="KmerAnalyzer.FindUniqueKmers"/>.
     /// </summary>
     public int SingletonKmers { get; init; }
+}
+
+/// <summary>
+/// K-mer counting mode for the option-aware <see cref="KmerAnalyzer"/> overloads. The default value
+/// (both flags false) is the library's literal counting: every symbol, including N/IUPAC, forms k-mers.
+/// </summary>
+/// <param name="Canonical">
+/// Key each k-mer by min(w, RC(w)) in ordinal (= A&lt;C&lt;G&lt;T) order — Jellyfish <c>count -C</c>
+/// (Marçais &amp; Kingsford 2011). Implies the ACGT-only window rule, because the canonical form is defined
+/// only over ACGT.
+/// </param>
+/// <param name="AcgtOnly">
+/// Skip every window that contains a symbol other than A/C/G/T after case folding — Jellyfish
+/// <c>mer_iterator</c> resets its window on such a base (N, IUPAC codes, U, gaps).
+/// </param>
+public readonly record struct KmerCountingOptions(bool Canonical = false, bool AcgtOnly = false)
+{
+    /// <summary>Literal counting (both flags false); identical to the option-less overloads.</summary>
+    public static KmerCountingOptions Default => default;
+
+    /// <summary>True when non-ACGT windows are skipped: <see cref="AcgtOnly"/> or <see cref="Canonical"/>.</summary>
+    public bool SkipsNonAcgt => AcgtOnly || Canonical;
 }

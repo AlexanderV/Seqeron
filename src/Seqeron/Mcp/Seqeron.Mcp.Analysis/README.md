@@ -31,7 +31,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `codon_frequencies` | Codon usage frequencies in the specified reading frame (0..2). |
 | `compare_genomes` | End-to-end comparative pipeline: RBH orthologs + synteny + rearrangements + summary stats. |
 | `compression_ratio` | Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). |
-| `count_kmers` | Counts every k-mer (substring of length k) occurrence in a sequence. |
+| `count_kmers` | Counts every k-mer (substring of length k) occurrence in a sequence; optional `canonical` (jellyfish -C) and `acgtOnly` modes. |
 | `count_kmers_both_strands` | k-mer counts on the forward strand combined with counts on the reverse-complement strand. |
 | `create_alphabet_pwm` | Build a log-odds position weight matrix over an arbitrary alphabet (protein, RNA, gapped DNA, …) from aligned instances — Biopython motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background)… |
 | `create_pwm` | Build a log-odds Position Weight Matrix (4×L; rows A,C,G,T) from aligned, equal-length DNA sequences (Biopython counts.normalize(pseudocounts).log_odds(background)): scalar pseudocount, per-base pseudocounts, or JASPAR pseudocounts… |

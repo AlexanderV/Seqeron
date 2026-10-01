@@ -107,9 +107,7 @@ Counts forward k-mers via `CountKmers`, counts k-mers of `DnaSequence.GetReverse
 
 - (none)
 
-**Not implemented:**
-
-- Canonical-collapsing mode (lexicographically smaller of w, RC(w) as a single key); **users should rely on:** a future canonical k-mer unit or external tools (Jellyfish `-C`, Mash) [4][5].
+**Not implemented:** none in this unit. Canonical collapsing (the lexicographically smaller of w and RC(w) as a single key, Jellyfish `-C` [4]) is provided by `KmerAnalyzer.CountKmers(sequence, k, new KmerCountingOptions(Canonical: true))` (KMER-COUNT-001, B06 audit round 1; equal to Jellyfish 2.3.1 `count -C`, K-mer_Counting §7.3). For ACGT input, canonical_count[c] = count[c] here for a non-palindromic c, and count[w]/2 for a palindrome w; canonical mode also skips non-ACGT windows, whereas this method keeps them (below).
 
 ## 6. Edge Cases and Limitations
 

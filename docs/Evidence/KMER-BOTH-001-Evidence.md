@@ -64,6 +64,16 @@
 1. **Definition of the k-mer counting problem (verbatim):** Jellyfish counts "the number of occurrences of every k-mer (substring of length k) in a long string." This is the single-strand counting primitive (`CountKmers`) on which both-strand counting builds.
 2. **Canonical option contrast:** Jellyfish offers a canonical (`-C`) mode that collapses a k-mer and its reverse complement onto one representative. KMER-BOTH-001 is NOT canonical collapsing — it is the additive (kPAL "balance") both-strand profile that keeps a key per observed k-mer. (Recorded to distinguish the two strand-aware semantics; the canonical mode wording itself was not extractable from the man-page PDF stream.)
 
+### Jellyfish `count` window rule and `-C` canonical form (reference implementation; added 2026-10-01, B06 audit round 1)
+
+**URL:** https://raw.githubusercontent.com/gmarcais/Jellyfish/master/include/jellyfish/mer_iterator.hpp, `include/jellyfish/mer_dna.hpp`, `sub_commands/count_main_cmdline.yaggo` (all opened). **Executed:** Jellyfish 2.3.1 (Ubuntu package `jellyfish 2.3.1-3build1`).
+**Authority rank:** 1 (reference k-mer counter; Marçais & Kingsford 2011, Bioinformatics 27:764)
+
+1. `count_main_cmdline.yaggo`: `option("C", "canonical") { description "Count both strand, canonical representation"; flag; off }`.
+2. `mer_iterator::operator++`: `int code = m_.code(*cseq_++); if(code >= 0) { m_.shift_left(code); if(canonical_) rcm_.shift_right(rcm_.complement(code)); filled_ = std::min(filled_ + 1, mer_dna::k()); } else filled_ = 0;`, and `operator*` returns `!canonical_ || m_ < rcm_ ? m_ : rcm_`. So any non-ACGT base resets the window, and the canonical k-mer is the smaller of the forward and reverse-complement 2-bit words.
+3. `mer_dna.hpp` `codes[256]`: A/a=0, C/c=1, G/g=2, T/t=3. IUPAC letters including N (and `-`) map to R=−1, newline to I=−2, and everything else, including U, to O=−3; any negative code resets the window. `get_canonical()` returns `rc < *this ? rc : *this`. The 2-bit comparison A<C<G<T equals ordinal string comparison.
+4. Executed reference numbers (`count -m k -s 10000 -t 1 [-C]`, `dump -c`, `stats`, `histo`) for 10 inputs × {plain, -C}: algorithm doc K-mer_Counting.md §7.3. A Python replica of `mer_iterator` equals Jellyfish on all 20 rows, and so does the C# `CountKmers(seq, k, KmerCountingOptions)`.
+
 ### Mash issue #45 / Ondov et al. — canonical k-mer definition (contrast reference)
 
 **URL:** https://github.com/marbl/Mash/issues/45
@@ -172,3 +182,4 @@
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-28**: Review 2026-09 (B06) — kPAL `balance()` source executed as reference; datasets R1–R3 and IUPAC note added.
+- **2026-10-01**: B06 audit round 1 — Jellyfish `mer_iterator`/`mer_dna` source and executed Jellyfish 2.3.1 `count -C`; canonical collapsing now available via `KmerCountingOptions(Canonical: true)` (contrast table unchanged).

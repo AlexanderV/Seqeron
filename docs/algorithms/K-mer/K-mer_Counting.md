@@ -92,6 +92,8 @@ Entry points documented in the original file and confirmed in source:
 **Implementation location:** [KmerAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs), [SequenceExtensions.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs)
 
 - `KmerAnalyzer.CountKmers(...)`: Canonical counting overloads for strings and `DnaSequence` values.
+- `KmerAnalyzer.CountKmers(string, int, KmerCountingOptions, CancellationToken = default, IProgress<double>? = null)`: option-aware counting — literal (default), ACGT-only (Jellyfish window rule) or canonical (Jellyfish `count -C`).
+- `KmerAnalyzer.DistinctKmers(string, int[, KmerCountingOptions])`: the distinct k-mer set (key set of the option-aware counter; caller-owned ordinal `HashSet<string>`).
 - `KmerAnalyzer.CountKmersAsync(...)`: Async wrapper over cancellation-aware counting.
 - `KmerAnalyzer.CountKmersSpan(ReadOnlySpan<char>, int)`: Span-based counting entry point.
 - `KmerAnalyzer.CountKmersBothStrands(DnaSequence, int)`: Counts forward and reverse-complement k-mers and combines the totals.
@@ -100,6 +102,8 @@ Entry points documented in the original file and confirmed in source:
 
 All string-based entry points uppercase the input before counting. The synchronous `CountKmers(string, int)` delegates to the cancellation-aware overload with `CancellationToken.None`, so there is a single counting loop in `KmerAnalyzer`. The synchronous `CountKmers(...)` methods are stateless, and the cancellation-aware overload checks cancellation periodically while optionally reporting progress. `CountKmersSpan(...)` delegates to the span-based helper in `SequenceExtensions`, and `CountKmersBothStrands(...)` counts forward and reverse-complement sequences independently before summing counts. The implementation materializes string keys for observed windows, so runtime includes per-window length-`k` string allocation and hashing work in addition to the sliding-window scan. The raw-string and span-based paths do not restrict the alphabet, so ambiguous or non-ACGT symbols are preserved as literal k-mer keys.
 
+The option-aware overload uses the same single loop (`CountKmersCore`). With `KmerCountingOptions.AcgtOnly` it skips every window that contains a symbol other than A/C/G/T after upper-casing; the last non-ACGT index is tracked so the check is O(1) per window. This is Jellyfish's rule [5]: `mer_iterator.hpp` resets `filled_` to 0 whenever `mer_dna::code(c)` is negative, and `mer_dna.hpp` `codes[256]` maps only A/a, C/c, G/g, T/t to 0..3 (IUPAC codes, U, gaps and every other byte are negative). With `KmerCountingOptions.Canonical`, the forward ACGT-only table is folded once per distinct k-mer onto min(w, RC(w)) using the canonical `DnaSequence.GetReverseComplementString`. This is Jellyfish `count -C` [4][5]: `mer_iterator` returns `m_ < rcm_ ? m_ : rcm_`, and `mer_dna::get_canonical` does the same. Jellyfish compares 2-bit codes with A<C<G<T, the same as ordinal comparison of upper-case ACGT strings. Canonical counting is defined only over ACGT, because Jellyfish cannot encode any other base, so `Canonical = true` always applies the ACGT-only rule. The default options reproduce the literal overloads exactly.
+
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
@@ -107,15 +111,15 @@ All string-based entry points uppercase the input before counting. The synchrono
 - Overlapping sliding-window k-mer extraction.
 - Exact count accumulation in a dictionary keyed by the observed k-mer.
 - Case-insensitive normalization for string-based input.
+- ACGT-only window rule (option) — Jellyfish `mer_iterator` [5].
+- Canonical k-mer representation min(w, RC(w)) (option) — Jellyfish `count -C` [4][5]; numerically identical to Jellyfish 2.3.1 (§7.3).
 
 **Intentionally simplified:**
 
 - Both-strand counting sums forward and reverse-complement counts rather than canonicalizing each k-mer to a single representative key; **consequence:** forward and reverse-complement words remain separate dictionary entries unless they are identical strings.
-- Raw-string and span-based counting do not enforce a DNA alphabet; **consequence:** the usual `4^k` combinatorial bound applies only when the input is restricted to DNA symbols. Jellyfish (Marçais & Kingsford 2011; `include/jellyfish/mer_iterator.hpp`) resets the window on any non-ACGT base, i.e. k-mers containing `N` are not counted; this library keeps them as literal keys.
+- The option-less overloads and `CountKmersSpan` do not enforce a DNA alphabet (generic definition, also used for non-DNA text); **consequence:** the usual `4^k` bound applies only to DNA input. The Jellyfish behaviour (non-ACGT windows skipped) is available as `KmerCountingOptions.AcgtOnly`, and canonical keys as `KmerCountingOptions.Canonical`. The literal mode stays the default for backward compatibility.
 
-**Not implemented:**
-
-- Canonical reverse-complement collapsing as the default count representation; **users should rely on:** downstream post-processing if canonical k-mer keys are required.
+**Not implemented:** none (canonical collapsing and ACGT-only counting are available as options since B06 audit round 1).
 
 ## 6. Edge Cases and Limitations
 
@@ -129,10 +133,13 @@ All string-based entry points uppercase the input before counting. The synchrono
 | `k > sequence.Length` | Returns an empty dictionary | No valid windows exist |
 | Homopolymer such as `AAAA`, `k = 2` | Returns one key with count `L - k + 1` | Every window is identical |
 | String input with ambiguous or non-ACGT symbols | Counts those symbols literally after uppercasing | The string/span counting logic does not filter the alphabet |
+| Same, with `AcgtOnly` or `Canonical` | Windows containing such a symbol are skipped (`ACGTNACGT`, k=4 → ACGT:2) | Jellyfish `mer_iterator` window reset [5] |
+| `U` with `AcgtOnly`/`Canonical` | Treated as non-ACGT (`AAUUAA`, k=2 → AA:2) | Jellyfish `codes['U']` is negative |
+| Reverse-complement palindrome with `Canonical` | Counted once per occurrence under its own key | min(w, RC(w)) = w |
 
 ### 6.2 Limitations
 
-The current implementation uses string keys for observed k-mers and does not canonicalize reverse complements automatically. It is exact and general-purpose, but large genomes or large `k` values can still create substantial runtime and dictionary pressure because each window materializes and hashes a length-`k` key. For raw-string and span-based inputs, ambiguous symbols are retained rather than normalized to a DNA alphabet.
+The current implementation uses string keys for observed k-mers and does not canonicalize reverse complements automatically. It is exact and general-purpose, but large genomes or large `k` values can still create substantial runtime and dictionary pressure because each window materializes and hashes a length-`k` key. In the default (literal) mode ambiguous symbols are retained; use `KmerCountingOptions` for the Jellyfish conventions.
 
 ## 7. Examples and Related Material
 
@@ -144,9 +151,28 @@ The current implementation uses string keys for observed k-mers and does not can
 - Error detection through k-mer spectra.
 - Repeat analysis in repetitive regions.
 
+### 7.3 Reference cross-check — Jellyfish 2.3.1 (B06 audit round 1)
+
+Reference: the real Jellyfish 2.3.1 binary (Ubuntu package `jellyfish 2.3.1-3build1`), run as `jellyfish count -m k -s 10000 -t 1 [-C]` followed by `dump -c`, `stats` and `histo`. A Python replica of `mer_iterator` gave the same `dump` on all 20 rows (10 inputs × with/without `-C`). C# `CountKmers(seq, k, new KmerCountingOptions(Canonical: C, AcgtOnly: true))` equals every row (tests `KmerAnalyzer_CountingOptions_Tests`).
+
+| Input | k | -C | Unique | Distinct | Total | Max | Notes |
+|---|---|---|---|---|---|---|---|
+| GAATTCACGTTGCAGGATCCATGC | 3 | yes | 7 | 14 | 22 | 3 | GCA:3 |
+| GAATTCACGTTGCAGGATCCATGC | 4 | yes | 17 | 19 | 21 | 2 | ATCC:2, ATTC:2 |
+| ACGTTGCATGTCGCATGATGCATGAGAGCT (BA1B) | 4 | no / yes | 17 / 16 | 21 / 20 | 27 | 3 / 4 | -C: ATGC:4 (= ATGC + GCAT 3) |
+| acgtNNacgtacgRtTTGCAnA | 3 | no / yes | 6 / 2 | 8 / 5 | 11 | 3 / 5 | -C: AAA:1 ACG:5 CAA:1 GCA:2 GTA:2 |
+| ACGTNACGT | 4 | either | 0 | 1 | 2 | 2 | ACGT:2 |
+| AAUUAA | 2 | either | 0 | 1 | 2 | 2 | U resets |
+| ATGATG | 3 | yes | 2 | 3 | 4 | 2 | ATC:1 ATG:2 TCA:1 |
+| Rosalind KMER sample | 4 | no / yes | 91 / 23 | 209 / 130 | 412 | 8 / 10 | -C histo 1:23 2:34 3:27 4:25 5:7 6:5 7:4 9:3 10:2 |
+| Rosalind KMER sample | 5 | no / yes | 292 / 181 | 348 / 279 | 411 | 4 / 6 | -C histo 1:181 2:74 3:18 4:3 5:2 6:1 |
+
+Means and entropies on the `-C` tables (scipy 1.17.1 `entropy(counts, base=2)`): Rosalind k=4 mean 3.169230769230769, H 6.779144227048732; BA1B k=4 mean 1.35, H 4.1343361131944505; mixed k=3 mean 2.2, H 2.0403733936884962.
+
 ## 8. References
 
 1. Wikipedia. "K-mer." https://en.wikipedia.org/wiki/K-mer
 2. Rosalind. "K-mer Composition." https://rosalind.info/problems/kmer/
 3. Compeau, P.E.C., Pevzner, P.A., Tesler, G. (2011). "How to apply de Bruijn graphs to genome assembly." Nature Biotechnology, 29(11), 987–991.
 4. Marçais, G., Kingsford, C. (2011). "A fast, lock-free approach for efficient parallel counting of occurrences of k-mers." Bioinformatics, 27(6), 764–770.
+5. Jellyfish source (gmarcais/Jellyfish, master): `include/jellyfish/mer_iterator.hpp`, `include/jellyfish/mer_dna.hpp` (`codes[256]`, `get_canonical`), `sub_commands/count_main_cmdline.yaggo` (`-C, --canonical` "Count both strand, canonical representation"). https://github.com/gmarcais/Jellyfish

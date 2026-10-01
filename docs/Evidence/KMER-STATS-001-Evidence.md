@@ -72,6 +72,8 @@
 
 Reference numbers (Python `collections.Counter` replica of `compute_stats` + scipy 1.17.1 `entropy(base=2)`): see algorithm doc §7.2 (e.g. ATCGATCAC k=3 → Unique 5, Distinct 6, Total 7, Max 2; GTAGAGCTGT k=2 `-L 2 -U 2` → 0, 2, 4, 2, entropy 1.0).
 
+4. (B06 audit round 1) Jellyfish 2.3.1 executed on canonical (`count -C`) and ACGT-only counts, followed by `stats`/`histo`. Example: Rosalind KMER sample k=4 `-C` gives Unique 23, Distinct 130, Total 412, Max_count 10. Plain k=4 gives 91, 209, 412, 8. Mean 3.169230769230769 and scipy entropy 6.779144227048732 bits on the `-C` table. `AnalyzeKmers(seq, k, KmerCountingOptions, L, U)` reproduces them (K-mer_Counting.md §7.3).
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Wikipedia — K-mer
@@ -164,3 +166,4 @@ Reference numbers (Python `collections.Counter` replica of `compute_stats` + sci
 
 - **2026-06-14**: Initial documentation.
 - **2026-10-01**: B06 review — Jellyfish `stats` source added; exact mean; SingletonKmers/DistinctKmers; `-L/-U` filter overload.
+- **2026-10-01**: B06 audit round 1 — option-aware `AnalyzeKmers` / `GetKmerSpectrum` over canonical / ACGT-only counts, cross-checked against Jellyfish 2.3.1 `stats`/`histo`.

@@ -109,7 +109,7 @@ Both methods delegate counting to `KmerAnalyzer.CountKmers`, inheriting its null
 
 **Not implemented:**
 
-- Canonical (reverse-complement-merged) k-mer counting; users should rely on `KmerAnalyzer.CountKmersBothStrands` for strand-aware counts.
+- Option-aware (canonical / ACGT-only) overloads of `FindUniqueKmers` / `FindKmersWithMinCount` were not added, to keep the API small. The equivalent of `jellyfish count -C` + `dump -L/-U` is a count filter over `KmerAnalyzer.CountKmers(sequence, k, new KmerCountingOptions(Canonical: true))`. `AnalyzeKmers(sequence, k, options, L, U)` gives the matching `stats`, and `DistinctKmers(sequence, k, options)` the distinct set (B06 audit round 1).
 
 ## 6. Edge Cases and Limitations
 
@@ -128,7 +128,7 @@ Both methods delegate counting to `KmerAnalyzer.CountKmers`, inheriting its null
 
 ### 6.2 Limitations
 
-Counts forward-strand string k-mers only (no reverse-complement merging); does not normalise RNA/DNA (T vs U treated as different characters). Non-ACGT symbols are counted as literal k-mer characters (Jellyfish skips them; see K-mer_Counting §5.3).
+Counts forward-strand string k-mers only (no reverse-complement merging); does not normalise RNA/DNA (T vs U treated as different characters). Non-ACGT symbols are counted as literal k-mer characters (Jellyfish skips them; the Jellyfish rule is available through `KmerCountingOptions`, see K-mer_Counting §5.2).
 
 ## 7. Examples and Related Material
 
