@@ -198,3 +198,34 @@ Test file: `Unit/Analysis/MotifFinder_OligoAnalysis_Tests.cs`; binomial tail: `U
 | B1 | `StatisticsHelper.BinomialUpperTail` / `LogBinomialUpperTail` | 7 cases = mpmath exact sums (scipy ≤ 5e-14); p = e^−800: ln tail −1586.8786371229292547 (mpmath); bounds; pmf differences | Loader 2000; RSAT sum_of_binomials |
 
 Heavy tier: `Properties/MotifOligoAnalysisProperties.cs` (definitions consistency, monotone in occ, Markov-0 = input Bernoulli, uniform composition Markov-0 = 4^−k, `-2str` = forward + revcomp, ms consistency), `Metamorphic/MotifOligoAnalysisMetamorphicTests.cs` (reverse-complement input invariance under `-2str`), `Fuzzing/MotifOligoAnalysisFuzzTests.cs`.
+
+## 10. Review 2026-09 audit group E — RSAT oligo-analysis options and dyad-analysis
+
+Methods: `MotifFinder.AnalyzeOligos(sequences, k, OligoAnalysisOptions)` → `OligoAnalysisReport`; `OligoBackgroundModel.Lexicon`;
+`OligoCalibration.Parse/FromEntries`; `MotifFinder.FindSharedMotifs(…, double pseudoFrequency)`; `MotifFinder.AnalyzeDyads(sequences, DyadAnalysisOptions)`;
+`StatisticsHelper.LogPoissonRangeProbability` / `LogNegativeBinomialRangeProbability`.
+Reference: RSAT `oligo-analysis` 1.169 / `dyad-analysis` 1.78 (rsa-tools/rsat-code 10043f2) run with perl 5.38 and a %.17g dump of every
+pattern field before `PrintResult`; oracle fixes only where RSAT code is defective (stated per row); mpmath / scipy for Poisson / negative binomial.
+Random cross-checks (C# vs RSAT): z-score 100 runs / 3,390 patterns ≤ 1.5e-14; `-pseudo` 100 / 3,128 ≤ 1.5e-14; `-lexicon` 100 / 3,620 ≤ 1.6e-14;
+`-oneN`/`-onedeg` (fixed oracle) 100 / 26,168 ≤ 2.9e-14 (z ≤ 4e-13); calibration (exact-sum oracle) 100 / 3,822 ≤ 1.7e-14; mseq `-pseudo` 40 runs ≤ 4.7e-14;
+dyad single strand 200 runs / 14,746 dyads ≤ 1.3e-14, `-expfreq` 40/40, both strands vs an independent Python port 150/150.
+Test files: `Unit/Analysis/MotifFinder_OligoAnalysisOptions_Tests.cs`, `Unit/Analysis/MotifFinder_DyadAnalysis_Tests.cs`, `Unit/Core/StatisticsHelper_PoissonNegBinRange_Tests.cs`; MCP `OligoAnalysisOptionsAndDyadTests`.
+
+| ID | Test | Expected | Evidence |
+|----|------|----------|----------|
+| E1 | Default options vs `DiscoverMotifs` (equi, input `-2str` ±`-noov`, Markov 1/2, lexicon) | bit-identical words, counts, positions, exp_freq, exp_occ, ratio, occ_P/E/sig, tested | definition |
+| E2 | t2 k=4 `-1str -bg equi -return occ,proba,zscore -lth occ 2` | ATGC exp_var 0.22613525390625, z 12.124455829017547; TGCT ovlp 1.015625, exp_var 0.23345947265625, z 3.6542034172140836 | RSAT run |
+| E3 | t2 k=4 `-2str -noov` / `-ovlp` zscore | noov: ATGC occ 6, overlaps 3, exp_var = exp_occ 0.46662655992102053, z 8.1003774086907097; ovlp: exp_var 0.43396550795746169, z 12.953679437171939 | RSAT run |
+| E4 | `-markov 1 -pseudo 0.1`; `-2str -bg equi -pseudo 0.2` | ATGC exp_freq 0.030014297368480814, occ_P 0.0091641466020121916, z 3.6626693266117103; pair exp_freq 0.0091911764705882356 = 2(0.8/256 + 0.2/136) | RSAT run |
+| E5 | `-lexicon` k=4; k=5 with `-pseudo 0.01` | ATGC exp_freq 0.025, segments a·tgc (0.25, 0.1), occ_P 0.003853224500294343; ATGCA 0.025605858701702098, CATGC occ_E 0.10730819082725597 | RSAT run |
+| E6 | `-onedeg` k=3 `-lth occ 6`; `-2str -oneN` k=4 | NPO 528, 71 tested, AYG occ 8 exp_freq 0.03071422572556359 occ_P 0.00054574388255023234; ATGN|NCAT occ 11 occ_P 3.5186386968671786e-06 | RSAT with `Degenerate` fixed (RSAT 1.169: 0 tested, no output) |
+| E7 | `-calibN` (cal3.tab) k=3 | ATG negbin occ_P 0.0067142352257039137 (RSAT 5-digit terms 0.0067141894090253264); TGC Poisson 0.0044559807752478468 (RSAT `$prev_value` defect: 0.003529988861723204); GCA 0.009079857800153978, z 4 | RSAT run + exact-sum oracle; mpmath |
+| E8 | `-calib1` two sequences `-2str -noov` | ATG|CAT occ 6, overlaps 5, exp_occ 1.8, exp_var 2.88, exp_freq 0.092307692307692313, occ_P 0.03602153062820438 | exact-sum oracle |
+| E9 | mseq `-markov 1 -pseudo 0.1` (ms.fa) | ACGT exp_ms 1.1451050486269749, ms_P 0.073696629017800608, ms_E 18.866337028556956 | RSAT run |
+| E10 | Calibration parsing, rc inference, errors | `aac` → GTT inherits (1.5, 1); FormatException / ArgumentException | RSAT `ReadCalibration` |
+| D1 | dyad t2 `-l 3 -sp 0-2 -1str -lth occ 2` | 13 tested, spacings (58,54,4),(57,54,3),(56,54,2); ATGn{0}CAT occ 2, overlaps 1, exp_freq 0.008062348830959418, occ_P 0.079911679827561213, z 2.41 | RSAT run |
+| D2 | dyad `-l 2 -sp 0-6 -type dr -1str -ovlp -lth occ 2` | NPD 112, 6 tested, ATn{2}AT occ_P 0.015985324783370104 | RSAT run |
+| D3 | dyad RSAT defaults (`-2str -noov`) | spacings (58,50,8)…; ATGn{0}CAT occ_P 0.079911679827561213; 11 tested (RSAT 9: pairs seen only as the larger member lost) | RSAT run + pair rule |
+| D4 | `-type rep` palindromic monads; `MinCount = 0`; dyad / monad tables | counted once (RSAT twice); 3267 tested; table value / monad fallback | brute force; RSAT run |
+| P1 | Poisson / negative binomial range probabilities | 8 + 5 cases = mpmath (≤ 1e-12) | mpmath; scipy |
+

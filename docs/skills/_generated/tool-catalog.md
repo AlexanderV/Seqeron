@@ -35,7 +35,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (119 tools)
+## Analysis (120 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -62,6 +62,7 @@
 | `discover_motifs` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/discover_motifs.md) |
 | `disorder_propensity` | `DisorderPredictor.GetDisorderPropensity` | [doc](../../mcp/tools/analysis/disorder_propensity.md) |
 | `dust_score` | `SequenceComplexity.CalculateDustScore` | [doc](../../mcp/tools/analysis/dust_score.md) |
+| `dyad_analysis` | `MotifFinder.AnalyzeDyads` | [doc](../../mcp/tools/analysis/dyad_analysis.md) |
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
 | `find_approximate_direct_repeats` | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/find_approximate_tandem_repeats.md) |

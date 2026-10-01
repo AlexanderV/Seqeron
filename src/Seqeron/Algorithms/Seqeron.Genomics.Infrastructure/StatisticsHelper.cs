@@ -218,6 +218,116 @@ namespace Seqeron.Genomics.Infrastructure
         }
 
         /// <summary>
+        /// ln P(<paramref name="from"/> ≤ X ≤ <paramref name="to"/>) for X ~ Poisson(<paramref name="lambda"/>) — RSAT
+        /// <c>RSAT::stats::sum_of_poisson($lambda, $from, $to)</c> (used by <c>oligo-analysis -calibN</c> with the right tail
+        /// from occ to the number of positions); equals <c>log(scipy.stats.poisson.cdf(to, λ) − poisson.cdf(from − 1, λ))</c>
+        /// without cancellation. Terms ln P(x) = −λ + x·ln λ − ln x! (exact log-factorial), summed outward from the end of the
+        /// range nearest the mode with the ratio recurrence P(x + 1) = P(x)·λ/(x + 1) until the sum stops changing; a range
+        /// that contains the mode is 1 − P(X &lt; from) − P(X &gt; to).
+        /// </summary>
+        /// <param name="from">Lower bound (values &lt; 0 are treated as 0).</param>
+        /// <param name="to">Upper bound (inclusive).</param>
+        /// <param name="lambda">Mean, finite and &gt; 0.</param>
+        /// <returns>ln probability in [−∞, 0] (−∞ for an empty range).</returns>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="lambda"/> is not finite and positive.</exception>
+        public static double LogPoissonRangeProbability(long from, long to, double lambda)
+        {
+            if (!(lambda > 0) || double.IsPositiveInfinity(lambda))
+                throw new ArgumentOutOfRangeException(nameof(lambda), lambda, "The Poisson mean must be finite and positive.");
+            double logLambda = Math.Log(lambda);
+            long mode = Math.Max(0L, (long)Math.Ceiling(lambda - 1));
+            return LogDiscreteRangeSum(Math.Max(0L, from), to, mode,
+                x => -lambda + x * logLambda - LogFactorial(x),
+                x => lambda / (x + 1.0));
+        }
+
+        /// <summary>
+        /// ln P(<paramref name="from"/> ≤ X ≤ <paramref name="to"/>) for the negative binomial with the given mean m and
+        /// variance v &gt; m, parameterised as RSAT <c>RSAT::stats::sum_of_negbin2</c>: p = v/m − 1, k = m/p, q = 1 + p,
+        /// P(X = x) = C(k + x − 1, x)·p^x / q^(k + x) (= <c>scipy.stats.nbinom(k, 1/q)</c>). Terms follow RSAT's recurrence
+        /// ln P(0) = −k·ln q, ln P(x) = ln P(x − 1) + ln p + ln(k + x − 1) − ln q − ln x; summed as in
+        /// <see cref="LogPoissonRangeProbability"/>. RSAT rounds every term to 5 significant digits (<c>LogToEng</c>); the
+        /// exact sum is returned here.
+        /// </summary>
+        /// <param name="from">Lower bound (values &lt; 0 are treated as 0).</param>
+        /// <param name="to">Upper bound (inclusive).</param>
+        /// <param name="mean">Mean m, finite and &gt; 0.</param>
+        /// <param name="variance">Variance v, finite and &gt; m.</param>
+        /// <exception cref="ArgumentOutOfRangeException">m ≤ 0, v ≤ m, or a non-finite parameter (RSAT <c>negbin2</c> checks).</exception>
+        public static double LogNegativeBinomialRangeProbability(long from, long to, double mean, double variance)
+        {
+            if (!(mean > 0) || double.IsPositiveInfinity(mean))
+                throw new ArgumentOutOfRangeException(nameof(mean), mean, "The mean must be finite and strictly positive.");
+            if (!(variance > mean) || double.IsPositiveInfinity(variance))
+                throw new ArgumentOutOfRangeException(nameof(variance), variance, "The variance must be finite and greater than the mean.");
+            double p = variance / mean - 1;
+            double k = mean / p;
+            double q = 1 + p;
+            double logP = Math.Log(p), logQ = Math.Log(q);
+            double theta = p / q;
+            double crossing = (k * theta - 1) / (1 - theta);
+            long mode = crossing <= 0 ? 0 : (long)Math.Ceiling(crossing);
+            return LogDiscreteRangeSum(Math.Max(0L, from), to, mode,
+                x =>
+                {
+                    double log = -logQ * k;
+                    for (long i = 1; i <= x; i++)
+                        log += logP + Math.Log(k + i - 1) - logQ - Math.Log(i);
+                    return log;
+                },
+                x => (k + x) / (x + 1.0) * theta);
+        }
+
+        // ln Σ_{x=from}^{to} P(x) for a unimodal pmf: non-decreasing below mode, non-increasing from mode on, with
+        // ratioUp(x) = P(x + 1)/P(x). Each partial sum runs away from the mode so that the terms decrease.
+        private static double LogDiscreteRangeSum(long from, long to, long mode, Func<long, double> logPmf, Func<long, double> ratioUp)
+        {
+            if (from > to) return double.NegativeInfinity;
+            if (from == 0 && to == long.MaxValue) return 0.0;
+
+            // Σ_{x=start}^{end} running upward (terms non-increasing for start ≥ mode).
+            double Upward(long start, long end)
+            {
+                double first = logPmf(start), sum = 1.0, term = 1.0;
+                for (long x = start; x < end; x++)
+                {
+                    term *= ratioUp(x);
+                    double next = sum + term;
+                    if (next == sum) break;
+                    sum = next;
+                }
+                return first + Math.Log(sum);
+            }
+
+            // Σ_{x=end}^{start} running downward (terms non-increasing for start ≤ mode).
+            double Downward(long start, long end)
+            {
+                double first = logPmf(start), sum = 1.0, term = 1.0;
+                for (long x = start; x > end; x--)
+                {
+                    term /= ratioUp(x - 1);
+                    double next = sum + term;
+                    if (next == sum) break;
+                    sum = next;
+                }
+                return first + Math.Log(sum);
+            }
+
+            if (from == 0)
+            {
+                // 1 − P(X > to), never above 1.
+                if (to < mode) return Downward(to, 0);
+                return Log1P(-Math.Exp(Upward(to + 1, long.MaxValue)));
+            }
+            if (from >= mode) return Upward(from, to);
+            if (to <= mode) return Downward(to, from);
+
+            double lower = from == 0 ? 0.0 : Math.Exp(Downward(from - 1, 0));
+            double upper = to == long.MaxValue ? 0.0 : Math.Exp(Upward(to + 1, long.MaxValue));
+            return Log1P(-(lower + upper));
+        }
+
+        /// <summary>
         /// ln(1 + x) without cancellation for small |x| (Goldberg 1991, "What every computer scientist should know about
         /// floating-point arithmetic", Theorem 4). <c>double.LogP1</c> evaluates ln(x + 1) directly and returns 0 for
         /// x = 1e−20; this returns 1e−20 (= numpy.log1p).

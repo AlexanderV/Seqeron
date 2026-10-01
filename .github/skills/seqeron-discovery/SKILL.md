@@ -2,7 +2,7 @@
 name: seqeron-discovery
 description: >-
   Find the right Seqeron bioinformatics tool or algorithm for a task WITHOUT
-  loading all 465 MCP tool schemas. Use to answer "which Seqeron tool does X?",
+  loading all 466 MCP tool schemas. Use to answer "which Seqeron tool does X?",
   "is there a tool/algorithm for <biology thing>?", "find the tool for
   <task>", or before attaching MCP servers / writing a Seqeron C# API call and
   you need to pick the right tool. Covers melting temperature (Tm), primers,
@@ -14,7 +14,7 @@ allowed-tools: Bash, Read
 
 # Seqeron Discovery
 
-Seqeron exposes **465 MCP tools across 11 servers** plus **247 algorithm docs**.
+Seqeron exposes **466 MCP tools across 11 servers** plus **247 algorithm docs**.
 Attaching every server (or reading every schema) blows up context. This skill
 routes a plain-language need to the **right tool name + `Method ID` + doc path**
 by grepping the docs — cheap, deterministic, no schemas loaded.
@@ -23,7 +23,7 @@ by grepping the docs — cheap, deterministic, no schemas loaded.
 
 - The user asks "is there a Seqeron tool/algorithm for X?" or "which tool does X?".
 - **Before** attaching MCP servers or writing a `Seqeron.Genomics` C# call, to pick
-  the correct tool without loading 465 schemas into context.
+  the correct tool without loading 466 schemas into context.
 - To locate the full I/O schema (follow the doc path) or the C# entry point
   (`Method ID`, e.g. `PrimerDesigner.CalculateMeltingTemperature`).
 

@@ -6,7 +6,7 @@ agent reads this first. Source of the overall design: [`docs/skills/STRATEGY.md`
 ## What this repo is
 
 `Seqeron.Genomics` (+ `SuffixTree`) — a C#/.NET 10 bioinformatics library: 258 algorithm units,
-exposed both as a C# API and as **11 MCP servers = 465 tools**. Heavily documented and validated
+exposed both as a C# API and as **11 MCP servers = 466 tools**. Heavily documented and validated
 (10 test methodologies, an independent validation campaign, `docs/Validation/LIMITATIONS.md`, and a
 runtime `LimitationPolicy`). Pre-1.0 / alpha — **not for clinical use**.
 

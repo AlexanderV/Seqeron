@@ -143,6 +143,16 @@ public static partial class MotifFinder
         int minSequences,
         OligoBackgroundModel background,
         OligoStrandMode strands = OligoStrandMode.Single)
+        => FindSharedMotifsCore(sequences, k, minSequences, background, strands, null);
+
+    // Shared body; adjustWordProbability (RSAT -pseudo) maps the background's ln exp_freq(word) before the pair sum.
+    private static SharedMotifAnalysisResult FindSharedMotifsCore(
+        IEnumerable<DnaSequence> sequences,
+        int k,
+        int minSequences,
+        OligoBackgroundModel background,
+        OligoStrandMode strands,
+        Func<Func<string, double>, Func<string, double>>? adjustWordProbability)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentNullException.ThrowIfNull(background);
@@ -194,6 +204,8 @@ public static partial class MotifFinder
         if (shared.Count > 0)
         {
             Func<string, double> logWordProbability = background.CreateLogProbability(seqs, k, both);
+            if (adjustWordProbability is not null)
+                logWordProbability = adjustWordProbability(logWordProbability);
             int sequenceCount = seqs.Count;
             double positionsPerSequence = (double)possiblePositions / sequenceCount;
             foreach (var (word, (rc, indices)) in shared)
@@ -372,7 +384,7 @@ public enum OligoStrandMode
 /// </summary>
 public sealed class OligoBackgroundModel
 {
-    private enum ModelKind { Equiprobable, Bernoulli, BernoulliFromInput, MarkovFromInput, MarkovTable }
+    private enum ModelKind { Equiprobable, Bernoulli, BernoulliFromInput, MarkovFromInput, MarkovTable, Lexicon }
 
     private readonly ModelKind _kind;
     private readonly double[]? _residues;                 // Bernoulli: normalised A, C, G, T
@@ -536,9 +548,64 @@ public sealed class OligoBackgroundModel
             logAbsentTransition: psi > 0 ? Math.Log(0.25) : double.NegativeInfinity);
     }
 
+    /// <summary>
+    /// RSAT <c>oligo-analysis -lexicon</c>: expected word frequencies from sub-word frequencies of the input, in the
+    /// spirit of Bussemaker's dictionary segmentation. With f_w(x) the relative frequency of the w-mer x among the
+    /// w-mer prefixes of the k-mer windows of the input (single strand, sequences of length ≥ k; RSAT
+    /// <c>CalcSubWordFrequencies</c>, no trailing sub-words), the maximal segmentation frequency is
+    /// M(x) = f₁(x) for a residue and, for an observed sub-word of length 2 ≤ l ≤ k − 1,
+    /// M(x) = max(f_l(x), max_s M(x[0..s)) · M(x[s..l))) (0 for an unobserved sub-word); the expected frequency of a
+    /// k-mer is exp_freq(w) = max_{1 ≤ s &lt; k} M(w[0..s)) · M(w[s..k)) (RSAT <c>CalcExpected</c>, bg_method "lexicon").
+    /// Requires k ≥ 2. A word whose every segmentation contains an unobserved sub-word gets probability 0.
+    /// </summary>
+    public static OligoBackgroundModel Lexicon { get; } = new(ModelKind.Lexicon);
+
+    /// <summary>True for <see cref="Lexicon"/>.</summary>
+    internal bool IsLexicon => _kind == ModelKind.Lexicon;
+
+    /// <summary>
+    /// Residue probabilities (A, C, G, T) RSAT <c>OverlapCoeff</c> uses for this model: the RSAT Bernoulli residue
+    /// probabilities when the model is a Bernoulli one (equiprobable, given, or estimated from the input — the RSAT
+    /// default, also behind <c>-lexicon</c>; pooled over complementary residues with both strands), otherwise (Markov
+    /// models, for which RSAT leaves <c>%residue_proba</c> empty) ¼ each.
+    /// </summary>
+    internal double[] OverlapResidueProbabilities(IReadOnlyList<string> sequences, int k, bool bothStrands)
+    {
+        switch (_kind)
+        {
+            case ModelKind.Bernoulli:
+                return (double[])_residues!.Clone();
+            case ModelKind.BernoulliFromInput:
+            case ModelKind.Lexicon:
+                return InputResidueProbabilities(sequences, k, bothStrands);
+            default:
+                return new[] { 0.25, 0.25, 0.25, 0.25 };
+        }
+    }
+
+    /// <summary>RSAT <c>CalcAlphabet</c>: residue frequencies of the sequences of length ≥ k (pooled with both strands).</summary>
+    internal static double[] InputResidueProbabilities(IReadOnlyList<string> sequences, int k, bool bothStrands)
+    {
+        var counts = new double[4];
+        foreach (string s in sequences)
+        {
+            if (s.Length < k) continue;
+            foreach (var (residue, n) in s.AsSpan().CountKmersSpan(1))
+                counts[MotifFinder.AcgtIndex(residue[0])] += n;
+        }
+        double total = counts.Sum();
+        var q = new double[4];
+        for (int b = 0; b < 4; b++)
+            q[b] = bothStrands ? (counts[b] + counts[3 - b]) / (2 * total) : counts[b] / total;
+        return q;
+    }
+
     /// <summary>Checks that the model can score words of length <paramref name="k"/> (RSAT order constraints).</summary>
     internal void ValidateFor(int k, string paramName)
     {
+        if (_kind == ModelKind.Lexicon && k < 2)
+            throw new ArgumentOutOfRangeException(paramName, k,
+                "The lexicon background needs a word length of at least 2 (RSAT oligo-analysis -lexicon).");
         if (_kind == ModelKind.MarkovFromInput && _order > 0 && _order > k - 2)
             throw new ArgumentOutOfRangeException(paramName, _order,
                 $"Markov order ({_order}) cannot be higher than word length - 2 ({k - 2}) (RSAT oligo-analysis).");
@@ -560,22 +627,14 @@ public sealed class OligoBackgroundModel
             case ModelKind.Bernoulli:
                 return ResidueProduct(_residues!);
             case ModelKind.BernoulliFromInput:
-            {
-                var counts = new double[4];
-                foreach (string s in sequences)
-                {
-                    if (s.Length < k) continue;
-                    foreach (var (residue, n) in s.AsSpan().CountKmersSpan(1))
-                        counts[MotifFinder.AcgtIndex(residue[0])] += n;
-                }
-                double total = counts.Sum();
-                var q = new double[4];
-                for (int b = 0; b < 4; b++)
-                    q[b] = bothStrands ? (counts[b] + counts[3 - b]) / (2 * total) : counts[b] / total;
-                return ResidueProduct(q);
-            }
+                return ResidueProduct(InputResidueProbabilities(sequences, k, bothStrands));
             case ModelKind.MarkovFromInput:
                 return MarkovFromInputLogProbability(sequences, k);
+            case ModelKind.Lexicon:
+            {
+                var lexicon = OligoLexicon.FromWindows(sequences, k);
+                return word => Math.Log(lexicon.ExpectedFrequency(word).Frequency);
+            }
             default:
                 return MarkovTableLogProbability;
         }

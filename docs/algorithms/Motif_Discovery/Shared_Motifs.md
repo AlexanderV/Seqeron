@@ -114,7 +114,8 @@ sequence shorter than k yields no words (no length-k window). Matching is exact 
 **Implementation location:** [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs)
 
 - `MotifFinder.FindSharedMotifs(IEnumerable<DnaSequence>, int, int)`: enumerates fixed-length words and reports those meeting the matching-sequence quorum.
-- `MotifFinder.FindSharedMotifs(IEnumerable<DnaSequence>, int k, int minSequences, OligoBackgroundModel, OligoStrandMode = Single)` → `SharedMotifAnalysisResult` ([MotifFinder.OligoAnalysis.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs)): the same quorum words with RSAT `oligo-analysis -return mseq,proba` statistics — exp_freq, exp_ms, `ms_P`, `ms_E`, `ms_sig` — under any `OligoBackgroundModel` (equiprobable, input Bernoulli, given Bernoulli, `-markov m`, `-bgfile` table) and `-1str`/`-2str` [5].
+- `MotifFinder.FindSharedMotifs(IEnumerable<DnaSequence>, int k, int minSequences, OligoBackgroundModel, OligoStrandMode = Single)` → `SharedMotifAnalysisResult` ([MotifFinder.OligoAnalysis.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs)): the same quorum words with RSAT `oligo-analysis -return mseq,proba` statistics — exp_freq, exp_ms, `ms_P`, `ms_E`, `ms_sig` — under any `OligoBackgroundModel` (equiprobable, input Bernoulli, given Bernoulli, `-markov m`, `-bgfile` table, `-lexicon`) and `-1str`/`-2str` [5].
+- `MotifFinder.FindSharedMotifs(…, OligoStrandMode, double pseudoFrequency)`: the same with RSAT `-pseudo` — exp_freq ← (1 − ψ)·exp_freq + ψ/NPO per strand before the reverse-complement sum (`CalcExpected`); equals RSAT `-return mseq,proba -pseudo ψ` (40 random runs, all backgrounds, ≤ 4.7e-14); ψ = 0 is the plain overload.
 
 ### 5.2 Current Behavior
 

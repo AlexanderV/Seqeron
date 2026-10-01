@@ -144,6 +144,21 @@ Binomial tail vs mpmath exact sums ≤ 1e-13 (scipy ≤ 5e-14).
 occ_sig 5.8284214918614703; `-2str` input: ATGC|GCAT occ 9, occ_P 1.0760647330191343e-09, occ_sig 7.7920703428970466;
 `-markov 1`: ATGC exp_freq 0.032915191520534237, occ_P 0.013954892377198637; `-noov` t3 k = 2: AA occ 5 at {1,3,5,27,29}.
 
+
+**Audit group E (2026-10-01) — RSAT options and dyad-analysis.** Sources opened and run: rsa-tools/rsat-code 10043f2
+`perl-scripts/oligo-analysis` 1.169 (`CountOligos`, `Degenerate`, `CalcSubWordFrequencies`, `CalcExpected` lexicon / `-pseudo`
+blocks, `CalcOverlapCoefficient`, `CalcZscore`, `CalibrateSetFromSingleSequence`, `CalcProba`), `perl-scripts/dyad-analysis` 1.78,
+`perl-scripts/calibrate-oligos`, `perl-scripts/fit-distribution` (calibration file layout), `lib/RSA.lib` (`ReadCalibration`,
+`ReadExpectedFrequencies`), `lib/RSA.seq.lib` (`OverlapCoeff`, `IUPAC`), `lib/RSA.disco.lib` (`NbPossibleOligos`, `GroupRC`,
+`CheckPatternThresholds`), `lib/RSAT/stats.pm` (`sum_of_poisson`, `sum_of_negbin2`, `LogToEng`). RSAT code defects found by
+running the scripts (each bypassed with a documented rule, see the algorithm doc §5.3/§5.4): `-oneN`/`-onedeg` return nothing
+(global `%IUPAC` never filled, scalars stored in `%patterns`); `sum_of_poisson` keeps `$prev_value` global between calls
+(Poisson tails truncated: 0.003529988861723204 vs exact 0.0044559807752478468); negative-binomial terms rounded to 5 digits;
+dyad `-2str` loses pairs seen only as their larger member (9 vs 11 tested on t2); `-type rep` double-counts palindromic
+monads; with `-return zscore` dyads with variance ≤ 0 are dropped; with `-pseudo` an uncalibrated observed word crashes
+RSAT; with `-2str` a residue absent from the input gets no Bernoulli probability (`CalcAlphabet` loops over observed
+residues only), although its pooled value is positive. Cross-check counts in TestSpec §10.
+
 ---
 
 ## References
@@ -158,3 +173,4 @@ occ_sig 5.8284214918614703; `-2str` input: ATGC|GCAT occ 9, occ_P 1.076064733019
 - **2026-06-14**: Initial documentation.
 - **2026-09-29**: RSAT oligo-analysis source + Bernoulli-background and long-k reference values (review 2026-09, B05).
 - **2026-09-30**: RSAT oligo-analysis significance / Markov / `-2str` implemented; RSAT run + Python port + mpmath references (review 2026-09 follow-up, B05).
+- **2026-10-01**: RSAT options (`-zscore`, `-pseudo`, `-oneN`/`-onedeg`, `-lexicon`, `-calibN`/`-calib1`) and `dyad-analysis` (review 2026-09 audit group E, B05 F31).

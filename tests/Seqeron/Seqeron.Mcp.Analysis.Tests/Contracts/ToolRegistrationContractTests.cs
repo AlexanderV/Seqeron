@@ -38,6 +38,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "dinucleotide_ratios",
         "discover_motifs",
         "disorder_propensity",
+        "dyad_analysis",
         "dust_score",
         "entropy_profile",
         "find_approximate_direct_repeats",

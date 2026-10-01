@@ -343,6 +343,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L864"
   },
   {
+    "tool": "dyad_analysis",
+    "server": "Analysis",
+    "methodId": "MotifFinder.AnalyzeDyads",
+    "docPath": "docs/mcp/tools/analysis/dyad_analysis.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.DyadAnalysis.cs#L56"
+  },
+  {
     "tool": "entropy_profile",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateEntropyProfile",

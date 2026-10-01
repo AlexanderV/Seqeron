@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **119 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **120 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (119)
+## Tools (120)
 
 | Tool | Description |
 |------|-------------|
@@ -42,6 +42,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `discover_motifs` | Overrepresented k-mers (de novo motif discovery) in a DNA sequence. |
 | `disorder_propensity` | Returns the TOP-IDP propensity value for a single amino acid (Campen 2008). |
 | `dust_score` | DUST low-complexity score (BLAST-style, triplet-based) for a DNA sequence. |
+| `dyad_analysis` | RSAT dyad-analysis: over-represented spaced dyads M1 n{s} M2 (any / dr / ir / rep) with monad-based expected frequencies, z-scores and binomial occ_P / occ_E / occ_sig… |
 | `entropy_profile` | Shannon entropy in sliding windows along the sequence. |
 | `find_approximate_direct_repeats` | Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-… |
 | `find_approximate_tandem_repeats` | Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match… |
@@ -108,7 +109,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `mismatch_coaxial_stacking` | Mismatch-mediated coaxial stacking energy: terminal mismatch + base + WC/GU bonus. |
 | `most_frequent_kmers` | Returns all k-mers tied for the maximum occurrence count. |
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
-| `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence: occurrences, expected frequency under a background model (equipr… |
+| `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equipr… |
 | `parse_dot_bracket` | Parses dot-bracket notation into a list of base-pair coordinates. |
 | `predict_chou_fasman` | Per-window helix/sheet/turn propensities for a protein sequence (Chou-Fasman parameters). |
 | `predict_coiled_coils` | Heptad-repeat-based coiled-coil prediction. |

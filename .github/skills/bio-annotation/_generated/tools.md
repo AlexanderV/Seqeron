@@ -29,6 +29,7 @@
 | `discover_motifs` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/discover_motifs.md) |
 | `disorder_propensity` | Analysis | `DisorderPredictor.GetDisorderPropensity` | [doc](../../../../docs/mcp/tools/analysis/disorder_propensity.md) |
 | `dust_score` | Analysis | `SequenceComplexity.CalculateDustScore` | [doc](../../../../docs/mcp/tools/analysis/dust_score.md) |
+| `dyad_analysis` | Analysis | `MotifFinder.AnalyzeDyads` | [doc](../../../../docs/mcp/tools/analysis/dyad_analysis.md) |
 | `entropy_profile` | Analysis | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../../../docs/mcp/tools/analysis/entropy_profile.md) |
 | `find_approximate_direct_repeats` | Analysis | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | Analysis | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_tandem_repeats.md) |

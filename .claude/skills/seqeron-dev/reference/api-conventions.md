@@ -35,7 +35,7 @@ Each per-tool doc `docs/mcp/tools/<server>/<tool>.md` has a **`Method ID`** row 
 So the C# call is `PrimerDesigner.CalculateMeltingTemperature(primer)` in
 `Seqeron.Genomics.MolTools`. When you don't know the tool name, ask
 [`seqeron-discovery`](../../seqeron-discovery/SKILL.md) (it searches the tool + algorithm docs
-without loading all 465 schemas). Algorithm contracts / invariants / formulas live under
+without loading all 466 schemas). Algorithm contracts / invariants / formulas live under
 [`docs/algorithms/`](../../../../docs/algorithms/) — read the contract before relying on an edge case.
 
 ## Worked pipeline 1 — global align + statistics

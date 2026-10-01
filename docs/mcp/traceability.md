@@ -208,6 +208,7 @@
 | discover_motifs | Analysis | MotifFinder.DiscoverMotifs | MotifFinder.cs#L385 | 0/0 | – | – | Build-Ready |
 | disorder_propensity | Analysis | DisorderPredictor.GetDisorderPropensity | DisorderPredictor.cs#L645 | 0/0 | – | – | Build-Ready |
 | dust_score | Analysis | SequenceComplexity.CalculateDustScore | SequenceComplexity.cs#L864 | 0/0 | – | – | Build-Ready |
+| dyad_analysis | Analysis | MotifFinder.AnalyzeDyads | MotifFinder.DyadAnalysis.cs#L56 | 2/2 | ✓ | ✓ | Ready |
 | entropy_profile | Analysis | SequenceStatistics.CalculateEntropyProfile | SequenceStatistics.cs#L730 | 0/0 | – | – | Build-Ready |
 | find_approximate_direct_repeats | Analysis | RepeatFinder.FindApproximateDirectRepeats | RepeatFinder.cs#L4489 | 2/2 | ✓ | ✓ | Ready |
 | find_approximate_tandem_repeats | Analysis | RepeatFinder.FindApproximateTandemRepeats | RepeatFinder.cs#L1002 | 2/2 | ✓ | ✓ | Ready |

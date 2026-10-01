@@ -26,11 +26,11 @@ plain language and the matching domain skill (`bio-qc`, `bio-alignment`,
   in `.github/skills/` (Copilot / VS Code). Claude Code **auto-discovers** them —
   no install step. They are a thin routing + rigor layer, not the algorithms.
 - The algorithms run in the **11 shipped MCP servers** (`Seqeron.Mcp.*` +
-  `SuffixTree.Mcp.Core`, 465 tools). Skills call them **on demand** — spawn the
+  `SuffixTree.Mcp.Core`, 466 tools). Skills call them **on demand** — spawn the
   one server a task needs, call it, tear it down — via the stdlib client
   [`scripts/skills/seqeron_mcp_client.py`](../../../scripts/skills/seqeron_mcp_client.py).
 - **No MCP registration.** We deliberately do **not** write a `.mcp.json` or run
-  `claude mcp add`. Registering all 465 tools would load every schema into the
+  `claude mcp add`. Registering all 466 tools would load every schema into the
   model's context and drown it. On-demand keeps context lean and lets skills pull
   in only what the current task needs. The **only** thing that must happen up
   front is the **build**, so the first on-demand call is instant.
