@@ -5,7 +5,7 @@
 **Algorithm:** Unique K-mers / K-mers with Minimum Count (frequency filtering)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-10-01
 
 ---
 
@@ -18,6 +18,8 @@
 | 1 | Wikipedia — K-mer | 4 | https://en.wikipedia.org/wiki/K-mer | 2026-06-14 |
 | 2 | BioInfoLogics — k-mer counting, part I | 3 | https://bioinfologics.github.io/post/2018/09/17/k-mer-counting-part-i-introduction/ | 2026-06-14 |
 | 3 | Compeau & Pevzner — Bioinformatics Algorithms (2nd ed.) | 1 | https://www.amazon.com/BIOINFORMATICS-ALGORITHMS-Phillip-Compeau/dp/0990374637 | 2026-06-14 |
+| 4 | Jellyfish source — `sub_commands/dump_main.cc`, `dump_main_cmdline.yaggo`, `stats_main.cc` (Marçais & Kingsford 2011) | 2 | https://github.com/gmarcais/Jellyfish | 2026-10-01 |
+| 5 | KMC 3 CLI — `kmc_CLI/kmc.cpp` (`-ci`, `-cx`) (Kokot et al. 2017) | 2 | https://github.com/refresh-bio/KMC | 2026-10-01 |
 
 ### 1.2 Key Evidence Points
 
@@ -25,6 +27,7 @@
 2. **Unique k-mers** = k-mers that appear exactly once (frequency = 1); **distinct** = each different k-mer counted once — Source 2.
 3. Worked table (ATCGATCAC, k=3): 7 total, 6 distinct, 5 unique = {TCG, CGA, GAT, TCA, CAC}; ATC has Count 2 and is excluded — Source 2.
 4. Count(Text, Pattern) = number of overlapping occurrences; min-count filtering selects k-mers with Count ≥ t (recurrent k-mers) — Source 3.
+5. `jellyfish dump -L/-U` skips a k-mer when `val < lower_count || val > upper_count` (defaults 0 / 2^64); Jellyfish `stats` "Unique" = count 1 — Source 4. KMC `-ci`/`-cx` exclude k-mers below/above a count — Source 5. Unique = range [1, 1].
 
 ### 1.3 Documented Corner Cases
 
@@ -43,7 +46,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `FindUniqueKmers(string sequence, int k)` | KmerAnalyzer | Canonical | Returns k-mers with Count = 1 |
-| `FindKmersWithMinCount(string sequence, int k, int minCount)` | KmerAnalyzer | Canonical | Returns (k-mer, Count) with Count ≥ minCount, ordered by Count descending |
+| `FindKmersWithMinCount(string sequence, int k, int minCount)` | KmerAnalyzer | Canonical | Returns (k-mer, Count) with Count ≥ minCount, ordered by Count descending, ties ordinal |
+| `FindKmersWithMinCount(string sequence, int k, int minCount, int maxCount)` | KmerAnalyzer | Overload | Jellyfish `dump -L/-U` range [minCount, maxCount]; 3-arg = maxCount `int.MaxValue`; FindUniqueKmers = [1, 1] |
 
 ---
 
@@ -54,9 +58,10 @@
 | INV-1 | Every k-mer returned by `FindUniqueKmers` has Count exactly 1 in the sequence | Yes | Source 2 (unique = appears once) |
 | INV-2 | `FindUniqueKmers` ⊆ distinct k-mers; |unique| ≤ |distinct| ≤ L − k + 1 | Yes | Source 1, 2 |
 | INV-3 | Every pair returned by `FindKmersWithMinCount` has Count ≥ minCount and the reported Count equals the true overlapping occurrence count | Yes | Source 3 (Count ≥ t) |
-| INV-4 | `FindKmersWithMinCount` output is ordered by Count in non-increasing order | Yes | Implementation contract (recurrent-first); consistent with Source 3 most-frequent ranking |
+| INV-4 | `FindKmersWithMinCount` output is ordered by Count non-increasing, ties ascending ordinal; `FindUniqueKmers` ascending ordinal | Yes | Documented deterministic contract (Jellyfish dump is hash order, Source 4) |
 | INV-5 | `FindKmersWithMinCount(seq, k, 1)` set of keys equals the set of distinct k-mers | Yes | Source 2 (distinct), Source 3 (Count ≥ 1) |
 | INV-6 | k > L or empty sequence ⇒ both methods return empty | Yes | Source 1 (L − k + 1 ≤ 0) |
+| INV-7 | Range [L, U] output = k-mers summarised by `AnalyzeKmers(seq,k,L,U)` (Distinct, Total, SingletonKmers agree) | Yes | Source 4 (same predicate in dump and stats) |
 
 ---
 
@@ -92,6 +97,19 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | FindUniqueKmers k=1 monomers | Single-char k-mers unique iff appear once | per definition | Source 1 monomer example |
+
+### 4.4 B06 review additions (2026-10-01)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | Range rows (9) vs Jellyfish dump replica (BA1B sample k=4 L2/∞, L2/U2, L3/U3; GTAGAGCTGT; ATCGATCAC; AAAACGTAAA; ACGTACGT L0, L1U1) | exact ordered (k-mer:count) lists, §7.2 of the algorithm doc | Source 4 + Python Counter |
+| R2 | FindUniqueKmers = dump -L1 -U1, ordinal (4 rows; BA1B k=4 → 17) | exact ordered lists | Source 4 |
+| R3 | Ties ordinal: ATGATG k=3 min 1 → ATG:2, GAT:1, TGA:1 | exact | ordering contract |
+| R4 | 3-arg = 4-arg with int.MaxValue | equal sequences | overload contract |
+| R5 | minCount 0 / −5 → all 21 distinct (BA1B k=4) | 21 | Source 4 (-L 0 default) |
+| R6 | maxCount < minCount → empty; maxCount < 0 → ArgumentOutOfRangeException("maxCount") at call | — | Source 4 (unsigned bounds) |
+| R7 | null / empty sequence → empty for any k (incl. 0) | empty | CountKmers contract |
+| R8 | Agreement with AnalyzeKmers(seq,k,L,U) (6 rows) | Distinct, Total, SingletonKmers equal | INV-7 |
 
 ---
 
@@ -175,7 +193,7 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | minCount ≤ 1 returns all distinct k-mers (Count ≥ t consistent extension) | M5, M12, INV-5 |
+| 1 | minCount ≤ 1 returns all distinct k-mers (Count ≥ t consistent extension; = Jellyfish `-L 0` default, Source 4) | M5, M12, INV-5, R5 |
 | 2 | Case normalisation (upper-cased) so case variants are the same k-mer | S1 |
 
 ---

@@ -93,7 +93,7 @@ Input is upper-cased (case-insensitive); no alphabet restriction (any character 
 
 - `KmerAnalyzer.AnalyzeKmers(string, int)`: returns the `KmerStatistics` record.
 - `KmerAnalyzer.CountKmers(string, int)`: builds the count table (reused).
-- `KmerAnalyzer.AnalyzeKmers(string, int, int lowerCount, int upperCount = int.MaxValue)`: Jellyfish `-L/-U` filtered statistics.
+- `KmerAnalyzer.AnalyzeKmers(string, int, int lowerCount, int upperCount = int.MaxValue)`: Jellyfish `-L/-U` filtered statistics. The range predicate is the private `SelectByCountRange` helper shared with `FindKmersWithMinCount(string, int, int, int)` (`jellyfish dump -L/-U`), so the k-mers it summarises are exactly those that method lists (KMER-UNIQUE-001).
 - `StatisticsHelper.ShannonIndex`: canonical Shannon entropy (nats; ÷ ln 2 for bits), also behind `KmerAnalyzer.CalculateKmerEntropy` → `SequenceComplexity.CalculateKmerEntropy`.
 
 ### 5.2 Current Behavior

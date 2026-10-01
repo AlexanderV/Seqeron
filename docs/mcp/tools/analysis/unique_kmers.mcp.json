@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindUniqueKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L253",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L296",
   "description": "Returns the k-mers that occur exactly once (overlapping occurrence count = 1) in the sequence — the singleton k-mers.",
   "inputSchema": {
     "type": "object",
@@ -20,7 +20,7 @@
     "properties": {
       "kmers": {
         "type": "array",
-        "description": "k-mers occurring exactly once (order unspecified)",
+        "description": "k-mers occurring exactly once (ascending lexicographic order)",
         "items": { "type": "string" }
       }
     },
@@ -34,7 +34,7 @@
     {
       "name": "Singletons of ATGATG k=3",
       "input": { "sequence": "ATGATG", "k": 3 },
-      "output": { "kmers": ["TGA", "GAT"] }
+      "output": { "kmers": ["GAT", "TGA"] }
     },
     {
       "name": "No singletons (homopolymer) AAAA k=2",

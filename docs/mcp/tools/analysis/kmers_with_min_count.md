@@ -1,6 +1,6 @@
 # kmers_with_min_count
 
-k-mers occurring at least `minCount` times, ordered by count descending.
+k-mers occurring at least `minCount` (and optionally at most `maxCount`) times, ordered by count descending.
 
 ## Overview
 
@@ -16,13 +16,15 @@ k-mers occurring at least `minCount` times, ordered by count descending.
 
 Returns the **recurrent** k-mers — those whose overlapping occurrence count is at
 least `minCount` (`Count(Text, Pattern) ≥ t`, per Compeau & Pevzner) — as
-`(kmer, count)` pairs ordered by count descending. With `minCount ≤ 1` every distinct
-k-mer qualifies. Counting is case-insensitive; when `k` exceeds the sequence length
+`(kmer, count)` pairs ordered by count descending, ties in ascending lexicographic (ordinal)
+k-mer order. The optional `maxCount` adds an inclusive upper bound; together the two are the
+`-L/--lower-count` and `-U/--upper-count` filters of `jellyfish dump` (KMC `-ci`/`-cx`).
+`maxCount < minCount` returns nothing. With `minCount ≤ 1` every distinct k-mer qualifies. Counting is case-insensitive; when `k` exceeds the sequence length
 the result is empty.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L274](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L274)
+- Source: [KmerAnalyzer.cs#L274](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L346)
 
 ## Input Schema
 
@@ -31,12 +33,13 @@ the result is empty.
 | `sequence` | string | Yes | Sequence to analyze (min length 1) |
 | `k` | integer | Yes | k-mer length (> 0) |
 | `minCount` | integer | Yes | Inclusive minimum occurrence count |
+| `maxCount` | integer | No | Inclusive maximum occurrence count (≥ 0); omitted = unbounded |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `items` | array | `(kmer, count)` pairs with count ≥ minCount, ordered by count descending |
+| `items` | array | `(kmer, count)` pairs with count ≥ minCount, ordered by count descending, then k-mer |
 
 ## Errors
 
@@ -44,6 +47,7 @@ the result is empty.
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1003 | k must be positive |
+| 1003 | maxCount must be non-negative |
 
 ## Examples
 
@@ -80,9 +84,28 @@ the result is empty.
 
 **Response:**
 ```json
-{ "items": [ { "kmer": "ATG", "count": 2 }, { "kmer": "TGA", "count": 1 }, { "kmer": "GAT", "count": 1 } ] }
+{ "items": [ { "kmer": "ATG", "count": 2 }, { "kmer": "GAT", "count": 1 }, { "kmer": "TGA", "count": 1 } ] }
 ```
-ATG (count 2) sorts before the count-1 k-mers.
+ATG (count 2) sorts before the count-1 k-mers, which are ordered lexicographically.
+
+### Example 3: Count range (jellyfish dump -L 2 -U 2)
+
+**User Prompt:**
+> Which 4-mers occur exactly twice in "ACGTTGCATGTCGCATGATGCATGAGAGCT"?
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "kmers_with_min_count",
+  "arguments": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4, "minCount": 2, "maxCount": 2 }
+}
+```
+
+**Response:**
+```json
+{ "items": [ { "kmer": "ATGA", "count": 2 }, { "kmer": "TGCA", "count": 2 } ] }
+```
+CATG and GCAT (count 3) are excluded by `maxCount`.
 
 ## Performance
 

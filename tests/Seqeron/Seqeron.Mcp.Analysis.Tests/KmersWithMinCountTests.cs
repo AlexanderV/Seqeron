@@ -45,4 +45,18 @@ public class KmersWithMinCountTests
                 Is.EquivalentTo(new[] { "TGA", "GAT" }));
         });
     }
+
+    // Optional maxCount = jellyfish dump -U (additive parameter); BA1B sample k=4, -L 2 -U 2.
+    [Test]
+    public void KmersWithMinCount_MaxCount_AppliesUpperBoundAndOrder()
+    {
+        var items = AnalysisTools.KmersWithMinCount("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4, 2, 2).Items;
+        Assert.That(items.Select(i => (i.Kmer, i.Count)), Is.EqualTo(new[] { ("ATGA", 2), ("TGCA", 2) }));
+
+        var unbounded = AnalysisTools.KmersWithMinCount("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4, 2).Items;
+        Assert.That(unbounded.Select(i => (i.Kmer, i.Count)),
+            Is.EqualTo(new[] { ("CATG", 3), ("GCAT", 3), ("ATGA", 2), ("TGCA", 2) }));
+
+        Assert.Throws<ArgumentException>(() => AnalysisTools.KmersWithMinCount("ATGATG", 3, 1, -1));
+    }
 }

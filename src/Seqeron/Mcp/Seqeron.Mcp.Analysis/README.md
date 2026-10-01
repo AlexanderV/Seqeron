@@ -102,7 +102,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `kmer_frequencies` | Normalized k-mer counts (each value in [0,1], summing to 1). |
 | `kmer_positions` | Zero-based positions of all (overlapping) occurrences of a k-mer. |
 | `kmer_spectrum` | Frequency-of-frequencies: for each occurrence count, how many distinct k-mers reach that count. |
-| `kmers_with_min_count` | k-mers occurring at least minCount times, sorted descending by count. |
+| `kmers_with_min_count` | k-mers occurring at least minCount (and, if given, at most maxCount) times — jellyfish dump -L/-U — sorted by count descending, ties by k-mer. |
 | `lempel_ziv_complexity` | Returns the raw **Lempel–Ziv (1976) complexity** c — the number of components of the exhaustive history of the sequence (Lempel & Ziv 1976;… |
 | `longdust_score` | Computes the **longdust** score of a whole sequence x (Li & Li 2025, arXiv:2509.07357; lh3/longdust): S_L(x) = Σ_t log c_x(t)! − f(ℓ(x)/4^k… |
 | `mask_approximate_tandem_repeats` | Returns TRF's masked sequence (trf ... -m; TRF README: "every location that occurred in a tandem repeat changed to the letter 'N'"): every… |
@@ -137,7 +137,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `tandem_repeat_bernoulli_statistics` | Estimates the Tandem Repeats Finder Bernoulli-model parameters of a tandem-repeat tract (Benson 1999): **PM** (match probability) and **PI*… |
 | `tandem_repeat_summary` | Aggregate statistics across all microsatellites in a DNA sequence. |
 | `terminal_mismatch_energy` | Closing-pair × first-mismatch terminal stacking energy (Turner 2004). |
-| `unique_kmers` | k-mers that occur exactly once in the sequence. |
+| `unique_kmers` | k-mers that occur exactly once in the sequence (Jellyfish "Unique", count == 1; not the distinct k-mers), in lexicographic order. |
 | `validate_dot_bracket` | Validates that all bracket symbols in a dot-bracket string are balanced. |
 | `windowed_complexity` | Sliding-window Shannon entropy + linguistic complexity for a DNA sequence. |
 | `windowed_gc_skew` | Sliding-window GC skew along a sequence; |

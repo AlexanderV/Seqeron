@@ -17,12 +17,14 @@ The k-mers that occur exactly once (singletons).
 Returns the **unique** (singleton) k-mers — those whose overlapping occurrence count
 equals exactly 1. Note the distinction from *distinct*: a distinct-k-mer count counts
 each different k-mer once regardless of multiplicity, whereas a *unique* k-mer must
-appear only once. Counting is case-insensitive; order is unspecified. When `k`
+appear only once. This is Jellyfish's "Unique" (`jellyfish stats`; `jellyfish dump -L 1 -U 1`;
+KMC `-ci1 -cx1`) and equals `SingletonKmers` of `analyze_kmers`. Counting is case-insensitive;
+the k-mers are returned in ascending lexicographic (ordinal) order. When `k`
 exceeds the sequence length the result is empty.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L253](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L253)
+- Source: [KmerAnalyzer.cs#L253](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L296)
 
 ## Input Schema
 
@@ -35,7 +37,7 @@ exceeds the sequence length the result is empty.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `kmers` | array of string | k-mers occurring exactly once |
+| `kmers` | array of string | k-mers occurring exactly once, ascending lexicographic order |
 
 ## Errors
 
@@ -61,7 +63,7 @@ exceeds the sequence length the result is empty.
 
 **Response:**
 ```json
-{ "kmers": ["TGA", "GAT"] }
+{ "kmers": ["GAT", "TGA"] }
 ```
 ATG occurs twice (not unique); TGA and GAT once each.
 

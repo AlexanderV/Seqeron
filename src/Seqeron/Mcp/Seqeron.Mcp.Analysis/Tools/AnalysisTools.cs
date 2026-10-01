@@ -102,7 +102,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "unique_kmers", Title = "k-mers — Unique (Singletons)", ReadOnly = true)]
-    [Description("k-mers that occur exactly once in the sequence.")]
+    [Description("k-mers that occur exactly once in the sequence (Jellyfish \"Unique\", count == 1; not the distinct k-mers), in lexicographic order.")]
     public static KmerListResult UniqueKmers(
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length.")] int k)
@@ -117,18 +117,22 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "kmers_with_min_count", Title = "k-mers — Min-Count Filter", ReadOnly = true)]
-    [Description("k-mers occurring at least minCount times, sorted descending by count.")]
+    [Description("k-mers occurring at least minCount (and, if given, at most maxCount) times — jellyfish dump -L/-U — sorted by count descending, ties by k-mer.")]
     public static KmersWithMinCountResult KmersWithMinCount(
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length.")] int k,
-        [Description("Minimum occurrence count.")] int minCount)
+        [Description("Minimum occurrence count (inclusive).")] int minCount,
+        [Description("Optional maximum occurrence count (inclusive, >= 0); omit for no upper bound.")] int? maxCount = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         if (k <= 0)
             throw new ArgumentException("k must be positive", nameof(k));
 
-        var items = KmerAnalyzer.FindKmersWithMinCount(sequence, k, minCount)
+        if (maxCount < 0)
+            throw new ArgumentException("maxCount must be non-negative", nameof(maxCount));
+
+        var items = KmerAnalyzer.FindKmersWithMinCount(sequence, k, minCount, maxCount ?? int.MaxValue)
             .Select(t => new KmerCountItem(t.Kmer, t.Count))
             .ToArray();
         return new KmersWithMinCountResult(items);

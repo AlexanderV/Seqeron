@@ -277,43 +277,99 @@ public static class KmerAnalyzer
     /// Finds the unique k-mers of length <paramref name="k"/> — those that occur
     /// exactly once (overlapping occurrence count = 1) in <paramref name="sequence"/>.
     /// </summary>
+    /// <remarks>
+    /// "Unique" follows Jellyfish <c>stats</c> ("Unique" = number of k-mers with count 1,
+    /// <c>uniq += val == 1</c>) and BioInfoLogics (2018); it equals <c>jellyfish dump -L 1 -U 1</c>
+    /// (KMC <c>-ci1 -cx1</c>) and is the set counted by <see cref="KmerStatistics.SingletonKmers"/>.
+    /// It is <b>not</b> the number of distinct k-mers (<see cref="KmerStatistics.DistinctKmers"/>).
+    /// Implemented as <see cref="FindKmersWithMinCount(string, int, int, int)"/> with the range [1, 1]
+    /// over one canonical <see cref="CountKmers(string, int)"/> table.
+    /// </remarks>
     /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
     /// <param name="k">The k-mer length. Must be positive.</param>
     /// <returns>
-    /// The k-mers whose occurrence count equals 1. Empty when the sequence is
-    /// null/empty or when <paramref name="k"/> exceeds the sequence length
-    /// (L − k + 1 ≤ 0). Order is unspecified.
+    /// The k-mers whose occurrence count equals 1, in ascending ordinal (lexicographic) order.
+    /// Empty when the sequence is null/empty or when <paramref name="k"/> exceeds the sequence
+    /// length (L − k + 1 ≤ 0).
     /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static IEnumerable<string> FindUniqueKmers(string sequence, int k)
-    {
-        var counts = CountKmers(sequence, k);
-        return counts.Where(kvp => kvp.Value == UniqueKmerCount).Select(kvp => kvp.Key);
-    }
+        => FindKmersWithMinCount(sequence, k, UniqueKmerCount, UniqueKmerCount).Select(p => p.Kmer);
 
     /// <summary>
     /// Finds k-mers of length <paramref name="k"/> whose overlapping occurrence
     /// count is at least <paramref name="minCount"/> (recurrent k-mers,
     /// Count(Text, Pattern) ≥ t per Compeau &amp; Pevzner), ordered by count descending.
     /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="FindKmersWithMinCount(string, int, int, int)"/> with no upper bound
+    /// (<c>jellyfish dump -L minCount</c>).
+    /// </remarks>
     /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
     /// <param name="k">The k-mer length. Must be positive.</param>
     /// <param name="minCount">Inclusive minimum occurrence count threshold.</param>
     /// <returns>
     /// (k-mer, Count) pairs with Count ≥ <paramref name="minCount"/>, ordered by
-    /// Count descending. Empty when the sequence is null/empty or k exceeds the
-    /// sequence length. With <paramref name="minCount"/> ≤ 1 every distinct k-mer
-    /// qualifies.
+    /// Count descending, ties in ascending ordinal k-mer order. Empty when the sequence is
+    /// null/empty or k exceeds the sequence length. With <paramref name="minCount"/> ≤ 1
+    /// (including zero or negative values) every distinct k-mer qualifies.
     /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0 and the sequence is non-empty.</exception>
     public static IEnumerable<(string Kmer, int Count)> FindKmersWithMinCount(
         string sequence, int k, int minCount)
+        => FindKmersWithMinCount(sequence, k, minCount, int.MaxValue);
+
+    /// <summary>
+    /// Finds k-mers of length <paramref name="k"/> whose overlapping occurrence count lies in the
+    /// inclusive range [<paramref name="minCount"/>, <paramref name="maxCount"/>] — the
+    /// <c>-L/--lower-count</c> and <c>-U/--upper-count</c> filters of <c>jellyfish dump</c>
+    /// (KMC <c>-ci</c>/<c>-cx</c>).
+    /// </summary>
+    /// <remarks>
+    /// Mirrors Jellyfish <c>dump</c> (<c>sub_commands/dump_main.cc</c>:
+    /// <c>if(it.val() &lt; lower_count || it.val() &gt; upper_count) continue;</c>), applied to the one
+    /// canonical <see cref="CountKmers(string, int)"/> table through the same range filter that
+    /// <see cref="AnalyzeKmers(string, int, int, int)"/> uses. Jellyfish emits its hash order; this
+    /// method fixes a deterministic order instead: count descending, ties by ascending ordinal k-mer
+    /// (the order of <c>jellyfish dump -c | sort -k2,2nr -k1,1</c>). <paramref name="maxCount"/> &lt;
+    /// <paramref name="minCount"/> selects nothing, as in Jellyfish. O(L·k + d log d) time, O(d·k) space.
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="minCount">Inclusive lower count bound (≤ 1 imposes no lower bound).</param>
+    /// <param name="maxCount">Inclusive upper count bound; <see cref="int.MaxValue"/> = unbounded.</param>
+    /// <returns>(k-mer, Count) pairs in the range, count descending then ordinal k-mer ascending.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="maxCount"/> is negative (Jellyfish takes unsigned values), or <paramref name="k"/> ≤ 0
+    /// and the sequence is non-empty.
+    /// </exception>
+    public static IEnumerable<(string Kmer, int Count)> FindKmersWithMinCount(
+        string sequence, int k, int minCount, int maxCount)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxCount);
+
         var counts = CountKmers(sequence, k);
-        return counts
-            .Where(kvp => kvp.Value >= minCount)
-            .Select(kvp => (kvp.Key, kvp.Value))
-            .OrderByDescending(x => x.Value);
+        return SelectByCountRange(counts, minCount, maxCount)
+            .OrderByDescending(kvp => kvp.Value)
+            .ThenBy(kvp => kvp.Key, StringComparer.Ordinal)
+            .Select(kvp => (kvp.Key, kvp.Value));
+    }
+
+    /// <summary>
+    /// Canonical count-range filter shared by <see cref="FindKmersWithMinCount(string, int, int, int)"/>,
+    /// <see cref="FindUniqueKmers"/> and <see cref="AnalyzeKmers(string, int, int, int)"/>: keeps the entries
+    /// whose count is in [<paramref name="lowerCount"/>, <paramref name="upperCount"/>], i.e. skips
+    /// <c>count &lt; lower || count &gt; upper</c> exactly as Jellyfish <c>dump</c>/<c>stats</c> do.
+    /// </summary>
+    private static IEnumerable<KeyValuePair<string, int>> SelectByCountRange(
+        Dictionary<string, int> counts, int lowerCount, int upperCount)
+    {
+        foreach (var kvp in counts)
+        {
+            if (kvp.Value < lowerCount || kvp.Value > upperCount)
+                continue;
+            yield return kvp;
+        }
     }
 
     /// <summary>
@@ -686,11 +742,8 @@ public static class KmerAnalyzer
         var retained = new List<int>(counts.Count);
         int total = 0, singletons = 0, maxCount = 0, minCount = int.MaxValue;
 
-        foreach (int count in counts.Values)
+        foreach (var (_, count) in SelectByCountRange(counts, lowerCount, upperCount))
         {
-            if (count < lowerCount || count > upperCount)
-                continue;
-
             retained.Add(count);
             total += count;
             if (count == UniqueKmerCount) singletons++;

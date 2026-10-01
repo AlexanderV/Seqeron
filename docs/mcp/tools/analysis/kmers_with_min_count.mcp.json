@@ -5,14 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindKmersWithMinCount",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L274",
-  "description": "Returns k-mers whose overlapping occurrence count is at least minCount (recurrent k-mers), ordered by count descending.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L346",
+  "description": "Returns k-mers whose overlapping occurrence count is at least minCount and, if given, at most maxCount (jellyfish dump -L/-U), ordered by count descending then k-mer (ordinal).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
       "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
-      "minCount": { "type": "integer", "description": "Inclusive minimum occurrence count" }
+      "minCount": { "type": "integer", "description": "Inclusive minimum occurrence count" },
+      "maxCount": { "type": "integer", "description": "Optional inclusive maximum occurrence count; omitted = unbounded", "minimum": 0 }
     },
     "required": ["sequence", "k", "minCount"]
   },
@@ -21,7 +22,7 @@
     "properties": {
       "items": {
         "type": "array",
-        "description": "(k-mer, count) pairs with count >= minCount, ordered by count descending",
+        "description": "(k-mer, count) pairs with minCount <= count <= maxCount, ordered by count descending then k-mer",
         "items": {
           "type": "object",
           "properties": {
@@ -36,7 +37,8 @@
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "k must be positive" }
+    { "code": 1003, "message": "k must be positive" },
+    { "code": 1003, "message": "maxCount must be non-negative" }
   ],
   "examples": [
     {
@@ -47,7 +49,12 @@
     {
       "name": "All distinct trimers (minCount=1)",
       "input": { "sequence": "ATGATG", "k": 3, "minCount": 1 },
-      "output": { "items": [ { "kmer": "ATG", "count": 2 }, { "kmer": "TGA", "count": 1 }, { "kmer": "GAT", "count": 1 } ] }
+      "output": { "items": [ { "kmer": "ATG", "count": 2 }, { "kmer": "GAT", "count": 1 }, { "kmer": "TGA", "count": 1 } ] }
+    },
+    {
+      "name": "Count range (maxCount=2)",
+      "input": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4, "minCount": 2, "maxCount": 2 },
+      "output": { "items": [ { "kmer": "ATGA", "count": 2 }, { "kmer": "TGCA", "count": 2 } ] }
     }
   ]
 }

@@ -25,7 +25,7 @@ public class UniqueKmersTests
     {
         // "ATGATG" k=3: ATG:2 (not unique), TGA:1, GAT:1 -> {TGA, GAT}.
         var uniq = AnalysisTools.UniqueKmers("ATGATG", 3).Kmers;
-        Assert.That(uniq, Is.EquivalentTo(new[] { "TGA", "GAT" }));
+        Assert.That(uniq, Is.EqualTo(new[] { "GAT", "TGA" }), "lexicographic order");
 
         // "AAAA" k=2: AA:3 -> no singletons.
         var none = AnalysisTools.UniqueKmers("AAAA", 2).Kmers;
