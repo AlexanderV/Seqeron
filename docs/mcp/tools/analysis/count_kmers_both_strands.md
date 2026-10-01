@@ -30,7 +30,7 @@ accepted and every window containing a non-ACGT symbol is skipped on both strand
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L3023](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L3023)
+- Source: [KmerAnalyzer.cs#L3032](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L3032)
 
 ## Input Schema
 

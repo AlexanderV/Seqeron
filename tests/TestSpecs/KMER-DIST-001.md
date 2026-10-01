@@ -278,6 +278,8 @@ Tests in `KmerAnalyzer_SpacedEvAndFracMinHash_Tests.cs`; reference values K-mer_
 | V20 | One flat sketch; identical sketches; empty sketch; bad `Abundances` | angular null / Jaccard 0.63748031496063; 1; 0; `ArgumentException` |
 | V21 | `MashPValue(1, 1000, 1000, 600 / 33 / 0, 10)`; k = 32 | `ArgumentOutOfRangeException("k")` (Mash `-k` 1..32); 2.7105054312137606e-16 (scipy `binom.sf`) |
 | V22 | MCP `kmer_jaccard`: `scaled` without `canonical`; `trackAbundance` without `scaled`; S = 4294967295 / 4294967296; N1/N2 with N/IUPAC; S1/S2 `trackAbundance` S = 1/3 | `ArgumentException` (canonical / trackAbundance / scaled); sourmash `force=True` values; `angularSimilarity` 0.2363801370444173 / 0.3123095603640216 |
+| V23 | MCP `kmer_jaccard` S1/S2 k = 4 `trackAbundance` S = 1 / 3; without `trackAbundance` (WP11) | `weightedContainmentSeq1InSeq2` / `Seq2InSeq1` = sourmash `contained_by_weighted` 0.37662337662337664 / 0.417910447761194 (S = 1), 0.4642857142857143 / 0.5238095238095238 (S = 3); null |
+| V24 | `CompareMinHashSketches` with `MinHashSketch(40, 10, true, 42, true, 1000, {1,2,3})`, K = 0 / 33, `Use64` ≠ K > 16, 32-bit sketch with a hash > 2^32 − 1; `FromHashes(16, …, [2^32])` (WP11) | `ArgumentException` naming the sketch (Mash `-k` 1..32, `use64 = 4^k > 2^32`); K = 32 / K = 16 boundaries valid; `FromHashes` `ArgumentException("hashes")` |
 
 ## 6. Assumption Register
 

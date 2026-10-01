@@ -240,6 +240,10 @@ of 0 (Mash would compute r = 0/0 = NaN; an empty set has no hashes); earlier, th
 threw `ArgumentOutOfRangeException` from inside the binomial tail. Audit round 4 (WP10): k outside Mash's 1..32
 (`Command.cpp`: `Option(Option::Integer, "k", …, "21", 1, 32)`) is rejected with `ArgumentOutOfRangeException("k")`;
 before, k = 600 gave 4^600 = ∞, r = NaN and an undocumented `ArgumentOutOfRangeException("p")` from the binomial tail.
+Audit round 5 (WP11): `CompareMinHashSketches` validates each sketch's `K` (1..32) and `Use64` = (K > 16) (Mash
+`Sketch.cpp` `use64 = pow(alphabetSize, k) > 2^32`), and a 32-bit sketch's hashes ≤ 2^32 − 1, with `ArgumentException`
+naming the sketch; before, a hand-built `MinHashSketch(40, …)` reached `MashPValue` and threw its
+`ArgumentOutOfRangeException("k")`. `MinHashSketch.FromHashes` also rejects a 64-bit value for k ≤ 16.
 
 ### 2.11 FracMinHash (sourmash `scaled`) sketches (audit round 3, WP9)
 
@@ -419,11 +423,19 @@ sketch, `AngularSimilarity` is null (sourmash raises `TypeError`) and `similarit
 - Validation: `MashPValue` (x > s, x ≥ 1 with length 0), malformed sketches in `CompareMinHashSketches`; d2*/d2S
   clamped to [0, 1] (§2.9, §2.10).
 
+**Implemented in audit round 4 (WP10):**
+
+- sourmash `downsample` (`DownsampleFracMinHash`, `CompareFracMinHashSketches(…, downsample: true)`, containments as
+  `sourmash compare`) and `track_abundance` (`CreateFracMinHashSketch(…, trackAbundance: true)`: angular similarity,
+  `contained_by_weighted` both ways) (§2.12); = sourmash 4.9.4 on 6 downsample and 9 abundance comparisons (1e-15).
+- `scaled` over sourmash's u32 range 1..4294967295 (`MaxSourmashScaled`; S = 4294967295 → max_hash 4294967297) and
+  `MashPValue` k restricted to Mash's `-k` range 1..32 (§2.10, §2.12).
+
 **Not implemented:**
 
 - Mash `screen` (containment score with multiplicities, a different tool) and Mash's 32-bit `ARCH_32` hash variant
-  (two MurmurHash3_x86_32 calls; only in 32-bit builds); sourmash abundance tracking (angular similarity) and
-  protein/Dayhoff/HP hash functions (not k-mer DNA set measures).
+  (two MurmurHash3_x86_32 calls; only in 32-bit builds); sourmash protein/Dayhoff/HP hash functions (not k-mer DNA set
+  measures).
 - `spaced`'s randomised pattern-set generation (`variance::Improve`; not deterministic, so not reproducible).
 
 ### 5.4 Deviations and Assumptions

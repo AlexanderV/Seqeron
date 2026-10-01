@@ -298,7 +298,20 @@ sourmash 4.9.4 `MinHash(n=0, ksize=k, scaled=1)` (canonical Jaccard); the Mash 2
   denominator is not reproduced. ASM-D16: MCP `kmer_jaccard` with `scaled` requires `canonical = true` (no non-canonical
   sourmash DNA mode); non-ACGT k-mers are skipped (`force=True`). ASM-D17: `MashPValue` k ∈ 1..32 (Mash).
 
+## Audit round 5 (WP11, 2026-10-01) — MCP weighted containments, MinHash sketch K / Use64 validation
+
+- sourmash 4.9.4 (pip, executed): `MinHash(0, 4, scaled=S, track_abundance=True).add_sequence(force=True)` on the MCP
+  S1/S2 inputs: `S1.contained_by_weighted(S2)` / `S2.contained_by_weighted(S1)` = 0.37662337662337664 / 0.417910447761194
+  (S = 1), 0.4642857142857143 / 0.5238095238095238 (S = 3); `angular_similarity` 0.2363801370444173 / 0.3123095603640216
+  (unchanged). MCP `kmer_jaccard` returns them as `weightedContainmentSeq1InSeq2` / `weightedContainmentSeq2InSeq1`.
+- Mash (raw.githubusercontent.com marbl/Mash master): `src/mash/Sketch.cpp` line 1136 `parameters.use64 =
+  pow(parameters.alphabetSize, parameters.kmerSize) > pow(2, 32)` (DNA: k > 16; 32-bit sketches store uint32 hashes);
+  `Command.cpp` `-k` range 1..32. ASM-D18: `CompareMinHashSketches` rejects sketches with K ∉ 1..32, `Use64` ≠ K > 16
+  or a hash > 2^32 − 1 in a 32-bit sketch (`ArgumentException`); `FromHashes` rejects a 64-bit value for k ≤ 16.
+
 ## Change History
+
+- **2026-10-01**: Audit round 5 WP11 — MCP `kmer_jaccard` weighted containments; `CompareMinHashSketches` / `FromHashes` K, `Use64` and 32-bit hash validation.
 
 - **2026-10-01**: Audit round 4 WP10 — `DownsampleFracMinHash` / `downsample`, `trackAbundance` + angular similarity / weighted containment, u32 `scaled`, `MashPValue` k range, MCP `kmer_jaccard` canonical requirement + `trackAbundance`.
 

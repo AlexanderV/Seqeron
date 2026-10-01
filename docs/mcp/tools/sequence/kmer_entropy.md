@@ -18,7 +18,7 @@ Calculates Shannon entropy based on k-mer frequencies in a sequence. Higher entr
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L2681](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2681)
+- Source: [KmerAnalyzer.cs#L2690](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2690)
 
 ## Input Schema
 

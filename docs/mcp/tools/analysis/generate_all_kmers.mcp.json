@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.GenerateAllKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2621",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2630",
   "description": "Enumerates the entire k-mer universe over an alphabet (default \"ACGT\"): the k-fold Cartesian product. Result size = alphabet.Length^k. A sorted alphabet yields lexicographic (odometer) order. At most 1,048,576 (4^10) k-mers per call: larger alphabet.Length^k is rejected before enumeration.",
   "inputSchema": {
     "type": "object",

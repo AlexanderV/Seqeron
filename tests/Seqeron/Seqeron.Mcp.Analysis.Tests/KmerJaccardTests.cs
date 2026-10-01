@@ -156,6 +156,27 @@ public class KmerJaccardTests
         });
     }
 
+    [Test]
+    public void KmerJaccard_TrackAbundance_WeightedContainmentsMatchSourmashContainedByWeighted()
+    {
+        // sourmash 4.9.4 MinHash(0, 4, scaled=S, track_abundance=True).add_sequence(force=True) on S1/S2:
+        // S1.contained_by_weighted(S2) 0.37662337662337664 / S2.contained_by_weighted(S1) 0.417910447761194 (S = 1);
+        // 0.4642857142857143 / 0.5238095238095238 (S = 3). Null without trackAbundance.
+        var r1 = AnalysisTools.KmerJaccard(S1, S2, 4, canonical: true, scaled: 1, trackAbundance: true);
+        var r3 = AnalysisTools.KmerJaccard(S1, S2, 4, canonical: true, scaled: 3, trackAbundance: true);
+        var flat = AnalysisTools.KmerJaccard(S1, S2, 4, canonical: true, scaled: 3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r1.WeightedContainmentSeq1InSeq2!.Value, Is.EqualTo(0.37662337662337664).Within(1e-15));
+            Assert.That(r1.WeightedContainmentSeq2InSeq1!.Value, Is.EqualTo(0.417910447761194).Within(1e-15));
+            Assert.That(r3.WeightedContainmentSeq1InSeq2!.Value, Is.EqualTo(0.4642857142857143).Within(1e-15));
+            Assert.That(r3.WeightedContainmentSeq2InSeq1!.Value, Is.EqualTo(0.5238095238095238).Within(1e-15));
+            Assert.That(flat.WeightedContainmentSeq1InSeq2, Is.Null);
+            Assert.That(flat.WeightedContainmentSeq2InSeq1, Is.Null);
+            Assert.That(AnalysisTools.KmerJaccard(S1, S2, 4).WeightedContainmentSeq1InSeq2, Is.Null);
+        });
+    }
+
     private const string S1 = "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT";
     private const string S2 = "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC";
 }

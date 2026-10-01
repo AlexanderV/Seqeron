@@ -46,7 +46,8 @@ public record KmerD2StatisticsResult(
 /// With <c>scaled</c> &gt; 0 every value comes from sourmash FracMinHash sketches: <c>SharedHashes</c> = |A∩B|,
 /// <c>SketchDenominator</c> = |A∪B|, the containments are sourmash <c>contained_by</c> (bias-corrected) and
 /// <c>MaxContainment</c> = <c>max_containment</c> (null otherwise); with <c>trackAbundance</c>, <c>AngularSimilarity</c> =
-/// sourmash <c>angular_similarity</c> (null otherwise).
+/// sourmash <c>angular_similarity</c> and <c>WeightedContainmentSeq1InSeq2</c> / <c>WeightedContainmentSeq2InSeq1</c> =
+/// sourmash <c>contained_by_weighted</c> (Σ_{h∈A∩B} a_h / Σ_{h∈A} a_h; null otherwise).
 /// </summary>
 public record KmerJaccardResult(
     double Jaccard,
@@ -57,7 +58,9 @@ public record KmerJaccardResult(
     int? SketchDenominator = null,
     double? PValue = null,
     double? MaxContainment = null,
-    double? AngularSimilarity = null);
+    double? AngularSimilarity = null,
+    double? WeightedContainmentSeq1InSeq2 = null,
+    double? WeightedContainmentSeq2InSeq1 = null);
 
 /// <summary>A maximal run of consecutive qualifying window starts (0-based, both ends inclusive).</summary>
 public record ClumpWindowRunItem(int FirstWindowStart, int LastWindowStart);

@@ -699,6 +699,35 @@ public class KmerAnalyzer_SpacedEvAndFracMinHash_Tests
     }
 
     [Test]
+    public void CompareMinHashSketches_KOutsideMashRangeOrUse64Inconsistent_ThrowsArgumentException()
+    {
+        // WP11: K was not validated, so a hand-built sketch with K = 40 reached MashPValue and surfaced as an
+        // ArgumentOutOfRangeException("k") from the p-value. Mash Command.cpp: -k range 1..32; Sketch.cpp:
+        // use64 = alphabetSize^k > 2^32 (DNA: k > 16), so a 32-bit sketch holds only values <= 2^32 - 1.
+        var k40 = new MinHashSketch(40, 10, true, 42, true, 1000, new ulong[] { 1, 2, 3 });
+        var a = KmerAnalyzer.CreateMinHashSketch("ACGTACGGTTGCAACGTTAGCA", 4, 100);
+        var b = KmerAnalyzer.CreateMinHashSketch("ACGTACGGTTGCAACGTTAGCAACGGTACGTTTAGCAGT", 21, 100);
+        Assert.Multiple(() =>
+        {
+            Assert.That(Assert.Throws<ArgumentException>(() => KmerAnalyzer.CompareMinHashSketches(k40, k40))!.ParamName,
+                Is.EqualTo("reference"));
+            Assert.Throws<ArgumentException>(() => KmerAnalyzer.CompareMinHashSketches(k40 with { K = 0, Use64 = false }, k40 with { K = 0, Use64 = false }));
+            Assert.Throws<ArgumentException>(() => KmerAnalyzer.CompareMinHashSketches(k40 with { K = 33 }, k40 with { K = 33 }));
+            Assert.That(Assert.Throws<ArgumentException>(() => KmerAnalyzer.CompareMinHashSketches(a, a with { Use64 = true }))!.ParamName,
+                Is.EqualTo("query"));
+            Assert.That(Assert.Throws<ArgumentException>(() => KmerAnalyzer.CompareMinHashSketches(b with { Use64 = false }, b))!.ParamName,
+                Is.EqualTo("reference"));
+            Assert.Throws<ArgumentException>(() => KmerAnalyzer.CompareMinHashSketches(a, a with { Hashes = [1UL, (ulong)uint.MaxValue + 1] }));
+            // Boundaries stay valid: K = 32 (64-bit) and K = 16 (32-bit, largest value 2^32 - 1).
+            Assert.That(KmerAnalyzer.CompareMinHashSketches(k40 with { K = 32 }, k40 with { K = 32 }).Jaccard, Is.EqualTo(1.0));
+            var k16 = new MinHashSketch(16, 10, true, 42, false, 1000, new ulong[] { 1, uint.MaxValue });
+            Assert.That(KmerAnalyzer.CompareMinHashSketches(k16, k16).SharedHashes, Is.EqualTo(2));
+            Assert.That(KmerAnalyzer.CompareMinHashSketches(a, a).Jaccard, Is.EqualTo(1.0));
+            Assert.That(KmerAnalyzer.CompareMinHashSketches(b, b).Jaccard, Is.EqualTo(1.0));
+        });
+    }
+
+    [Test]
     public void MinHashSketch_FromHashes_NormalisesAndCompares()
     {
         var a = KmerAnalyzer.CreateMinHashSketch("ACGTACGGTTGCAACGTTAGCA", 4, 5);
@@ -715,6 +744,12 @@ public class KmerAnalyzer_SpacedEvAndFracMinHash_Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => MinHashSketch.FromHashes(33, 5, true, 42, 0, []));
             Assert.Throws<ArgumentOutOfRangeException>(() => MinHashSketch.FromHashes(4, 0, true, 42, 0, []));
             Assert.Throws<ArgumentOutOfRangeException>(() => MinHashSketch.FromHashes(4, 5, true, 42, -1, []));
+            // WP11: k <= 16 is a 32-bit sketch (Mash use64 = 4^k > 2^32); a 64-bit value cannot belong to it.
+            Assert.Throws<ArgumentOutOfRangeException>(() => MinHashSketch.FromHashes(0, 5, true, 42, 0, []));
+            Assert.That(Assert.Throws<ArgumentException>(() => MinHashSketch.FromHashes(16, 5, true, 42, 0, [(ulong)uint.MaxValue + 1]))!.ParamName,
+                Is.EqualTo("hashes"));
+            Assert.That(MinHashSketch.FromHashes(16, 5, true, 42, 0, [uint.MaxValue]).Use64, Is.False);
+            Assert.That(MinHashSketch.FromHashes(17, 5, true, 42, 0, [ulong.MaxValue]).Use64, Is.True);
         });
     }
 

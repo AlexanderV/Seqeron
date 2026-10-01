@@ -1597,8 +1597,9 @@ public static class KmerAnalyzer
     /// <returns>Shared hashes, denominator, Jaccard estimate, Mash distance and p-value.</returns>
     /// <exception cref="ArgumentNullException">A sketch is null.</exception>
     /// <exception cref="ArgumentException">The sketches differ in k, seed or canonical mode (Mash refuses to compare them), or a
-    /// sketch is malformed: <c>Hashes</c> null, not strictly ascending (sorted, distinct), longer than its <c>SketchSize</c>,
-    /// <c>SketchSize</c> &lt; 1 or <c>Length</c> &lt; 0 (build sketches with <see cref="CreateMinHashSketch(IEnumerable{string}, int, int, bool, uint)"/>
+    /// sketch is malformed: <c>K</c> outside 1..32 (Mash <c>-k</c> range), <c>Use64</c> ≠ (<c>K</c> &gt; 16) (Mash
+    /// <c>use64 = 4^k &gt; 2^32</c>), a hash &gt; 2^32 − 1 in a 32-bit sketch, <c>Hashes</c> null, not strictly ascending
+    /// (sorted, distinct), longer than its <c>SketchSize</c>, <c>SketchSize</c> &lt; 1 or <c>Length</c> &lt; 0 (build sketches with <see cref="CreateMinHashSketch(IEnumerable{string}, int, int, bool, uint)"/>
     /// or <see cref="MinHashSketch.FromHashes"/>).</exception>
     public static MashComparison CompareMinHashSketches(MinHashSketch reference, MinHashSketch query)
     {
@@ -1642,6 +1643,12 @@ public static class KmerAnalyzer
 
     private static void ValidateMinHashSketch(MinHashSketch sketch, string paramName)
     {
+        // Mash Command.cpp: -k is an integer option with range 1..32; Sketch.cpp: use64 = alphabetSize^k > 2^32,
+        // i.e. k > 16 for DNA, and a 32-bit sketch stores only 32-bit hash values.
+        if (sketch.K < 1 || sketch.K > MaxMashKmerSize)
+            throw new ArgumentException($"K must be in 1..{MaxMashKmerSize} (mash sketch -k).", paramName);
+        if (sketch.Use64 != sketch.K > 16)
+            throw new ArgumentException("Use64 must equal K > 16 (Mash: use64 = 4^k > 2^32).", paramName);
         if (sketch.SketchSize < 1 || sketch.Length < 0)
             throw new ArgumentException("SketchSize must be >= 1 and Length >= 0.", paramName);
         if (sketch.Hashes is null)
@@ -1649,6 +1656,8 @@ public static class KmerAnalyzer
         if (sketch.Hashes.Count > sketch.SketchSize)
             throw new ArgumentException("A bottom-s sketch holds at most SketchSize hashes.", paramName);
         ThrowIfNotStrictlyAscending(sketch.Hashes, paramName);
+        if (!sketch.Use64 && sketch.Hashes.Count > 0 && sketch.Hashes[^1] > uint.MaxValue)
+            throw new ArgumentException("A 32-bit sketch (Use64 = false) holds only hash values <= 2^32 - 1.", paramName);
     }
 
     private static void ThrowIfNotStrictlyAscending(IReadOnlyList<ulong> hashes, string paramName)
@@ -3256,6 +3265,8 @@ public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint S
     /// <exception cref="ArgumentNullException"><paramref name="hashes"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> outside 1..32, <paramref name="sketchSize"/> &lt; 1,
     /// or <paramref name="length"/> &lt; 0.</exception>
+    /// <exception cref="ArgumentException">k ≤ 16 (32-bit sketch, Mash <c>use64 = 4^k &gt; 2^32</c>) and a kept hash exceeds
+    /// 2^32 − 1.</exception>
     public static MinHashSketch FromHashes(int k, int sketchSize, bool canonical, uint seed, long length, IEnumerable<ulong> hashes)
     {
         ArgumentNullException.ThrowIfNull(hashes);
@@ -3263,8 +3274,11 @@ public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint S
             throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{KmerAnalyzer.MaxMashKmerSize} (mash sketch -k).");
         ArgumentOutOfRangeException.ThrowIfLessThan(sketchSize, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(length);
+        bool use64 = k > 16;
         var bottom = hashes.Distinct().Order().Take(sketchSize).ToArray();
-        return new MinHashSketch(k, sketchSize, canonical, seed, k > 16, length, bottom);
+        if (!use64 && bottom.Length > 0 && bottom[^1] > uint.MaxValue)
+            throw new ArgumentException("For k <= 16 Mash stores 32-bit hashes; every value must be <= 2^32 - 1.", nameof(hashes));
+        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, bottom);
     }
 }
 

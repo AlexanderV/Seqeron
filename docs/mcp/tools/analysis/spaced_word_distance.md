@@ -57,7 +57,7 @@ random optimisation) is not provided; pass the patterns.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L2273](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2273)
+- Source: [KmerAnalyzer.cs#L2282](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2282)
 - Algorithm: [K-mer_Euclidean_Distance.md](../../../algorithms/K-mer/K-mer_Euclidean_Distance.md) §7.5, §7.7
 
 ## Input Schema

@@ -176,7 +176,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "kmer_jaccard", Title = "k-mers — Jaccard Similarity / Mash Distance / Containment", ReadOnly = true)]
-    [Description("Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]), the Mash distance -ln(2J/(1+J))/k and the exact containment indices |A∩B|/|A| and |A∩B|/|B| (sourmash compare --containment). Set canonical=true for Mash/sourmash k-mers (strand-collapsed, non-ACGT windows skipped). sketchSize > 0 estimates J from Mash bottom-s MinHash sketches (MurmurHash3, seed 42; = mash dist -s sketchSize) and adds sharedHashes/sketchDenominator (Mash x/s) and the Mash p-value. scaled = S in 1..4294967295 (exclusive with sketchSize; requires canonical=true, as sourmash DNA hashing is always canonical and skips non-ACGT k-mers) uses sourmash FracMinHash sketches (keep hashes <= 2^64/S; = sourmash MinHash(n=0, scaled=S)): jaccard, containments (sourmash contained_by, bias-corrected), maxContainment (max_containment), sharedHashes and the union size in sketchDenominator; trackAbundance=true adds angularSimilarity (sourmash track_abundance=True, angular_similarity).")]
+    [Description("Exact k-mer Jaccard index |A∩B|/|A∪B| of the two distinct k-mer sets (fraction in [0,1]), the Mash distance -ln(2J/(1+J))/k and the exact containment indices |A∩B|/|A| and |A∩B|/|B| (sourmash compare --containment). Set canonical=true for Mash/sourmash k-mers (strand-collapsed, non-ACGT windows skipped). sketchSize > 0 estimates J from Mash bottom-s MinHash sketches (MurmurHash3, seed 42; = mash dist -s sketchSize) and adds sharedHashes/sketchDenominator (Mash x/s) and the Mash p-value. scaled = S in 1..4294967295 (exclusive with sketchSize; requires canonical=true, as sourmash DNA hashing is always canonical and skips non-ACGT k-mers) uses sourmash FracMinHash sketches (keep hashes <= 2^64/S; = sourmash MinHash(n=0, scaled=S)): jaccard, containments (sourmash contained_by, bias-corrected), maxContainment (max_containment), sharedHashes and the union size in sketchDenominator; trackAbundance=true adds angularSimilarity (sourmash track_abundance=True, angular_similarity) and weightedContainmentSeq1InSeq2/weightedContainmentSeq2InSeq1 (sourmash contained_by_weighted).")]
     public static KmerJaccardResult KmerJaccard(
         [Description("First sequence.")] string seq1,
         [Description("Second sequence.")] string seq2,
@@ -185,7 +185,7 @@ public class AnalysisTools
         [Description("Skip k-mers containing a non-ACGT symbol (Mash -n / Jellyfish convention).")] bool acgtOnly = false,
         [Description("0 (default) = exact sets; > 0 = Mash MinHash sketch size s (Mash default 1000). Jaccard/mashDistance are then sketch estimates; containment stays exact.")] int sketchSize = 0,
         [Description("0 (default) = no FracMinHash; 1..4294967295 = sourmash scaled factor S (sourmash default 1000; 1 = all hashes, exact). Requires canonical=true (sourmash DNA k-mers are always canonical; non-ACGT k-mers skipped as sourmash force=True). Not combinable with sketchSize.")] long scaled = 0,
-        [Description("With scaled > 0: track k-mer abundances (sourmash track_abundance=True) and return angularSimilarity (sourmash angular_similarity, 1 - 2*acos(cos)/pi of the abundance vectors). Default false.")] bool trackAbundance = false)
+        [Description("With scaled > 0: track k-mer abundances (sourmash track_abundance=True) and return angularSimilarity (sourmash angular_similarity, 1 - 2*acos(cos)/pi of the abundance vectors) and the weighted containments (sourmash contained_by_weighted, abundance-weighted fraction of each sketch shared with the other). Default false.")] bool trackAbundance = false)
     {
         if (string.IsNullOrEmpty(seq1))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
@@ -213,7 +213,9 @@ public class AnalysisTools
                 KmerAnalyzer.CreateFracMinHashSketch(seq2, k, scaled, trackAbundance: trackAbundance));
             return new KmerJaccardResult(frac.Jaccard, KmerAnalyzer.MashDistanceFromJaccard(frac.Jaccard, k),
                 frac.ContainmentAInB, frac.ContainmentBInA, frac.SharedHashes, frac.UnionHashes, MaxContainment: frac.MaxContainment,
-                AngularSimilarity: frac.AngularSimilarity);
+                AngularSimilarity: frac.AngularSimilarity,
+                WeightedContainmentSeq1InSeq2: frac.WeightedContainmentAInB,
+                WeightedContainmentSeq2InSeq1: frac.WeightedContainmentBInA);
         }
 
         var options = new KmerCountingOptions(Canonical: canonical, AcgtOnly: acgtOnly || sketchSize > 0);

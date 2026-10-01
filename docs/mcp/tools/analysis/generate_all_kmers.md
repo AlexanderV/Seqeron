@@ -28,7 +28,7 @@ library method `KmerAnalyzer.GenerateAllKmers` directly.
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L2621](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2621)
+- Source: [KmerAnalyzer.cs#L2630](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2630)
 
 ## Input Schema
 

@@ -1,6 +1,6 @@
 # kmer_jaccard
 
-k-mer Jaccard similarity of two sequences (exact, or from Mash MinHash sketches), the Mash distance derived from it, the Mash p-value in sketch mode, and the exact containment indices; or sourmash FracMinHash (`scaled`) estimates, optionally with the abundance-weighted angular similarity.
+k-mer Jaccard similarity of two sequences (exact, or from Mash MinHash sketches), the Mash distance derived from it, the Mash p-value in sketch mode, and the exact containment indices; or sourmash FracMinHash (`scaled`) estimates, optionally with the abundance-weighted angular similarity and weighted containments.
 
 ## Overview
 
@@ -9,7 +9,7 @@ k-mer Jaccard similarity of two sequences (exact, or from Mash MinHash sketches)
 | **Server** | Analysis |
 | **Tool Name** | `kmer_jaccard` |
 | **Method ID** | `KmerAnalyzer.JaccardSimilarity` |
-| **Version** | 1.3.0 |
+| **Version** | 1.4.0 |
 | **Stability** | Stable |
 
 ## Description
@@ -46,7 +46,10 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
 - `trackAbundance = true` (needs `scaled > 0`): both sketches record each hash's (canonical) k-mer count (sourmash
   `track_abundance=True`) and `angularSimilarity` = sourmash `angular_similarity` (= `similarity(ignore_abundance=False)`;
   Rust `KmerMinHash::angular_similarity`): cos = Σ_{h∈A∩B} a_h·b_h / (‖a‖·‖b‖) over the abundance vectors (capped at 1),
-  similarity = 1 − 2·acos(cos)/π (0 when a sketch is empty). The other fields are unchanged by abundance tracking.
+  similarity = 1 − 2·acos(cos)/π (0 when a sketch is empty). `weightedContainmentSeq1InSeq2` /
+  `weightedContainmentSeq2InSeq1` = sourmash `contained_by_weighted` = Σ_{h∈A∩B} a_h / Σ_{h∈A} a_h (the
+  abundance-weighted fraction of A's k-mers shared with B; not bias-corrected). The other fields are unchanged by
+  abundance tracking.
 
 ## Core Documentation Reference
 
@@ -64,7 +67,7 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
 | `acgtOnly` | boolean | No | Skip k-mers containing a non-ACGT symbol (default false) |
 | `sketchSize` | integer | No | 0 (default) = exact sets; s > 0 = Mash MinHash sketch size (Mash default 1000) |
 | `scaled` | integer | No | 0 (default) = no FracMinHash; 1..4294967295 = sourmash scaled factor (sourmash default 1000); requires `canonical = true`; not with `sketchSize` |
-| `trackAbundance` | boolean | No | With `scaled > 0`: track abundances and return `angularSimilarity` (default false) |
+| `trackAbundance` | boolean | No | With `scaled > 0`: track abundances and return `angularSimilarity` and the weighted containments (default false) |
 
 ## Output Schema
 
@@ -79,6 +82,8 @@ D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016, Genome Biol 17:132, eq. 4) with M
 | `pValue` | number \| null | Sketch mode: Mash p-value; null otherwise |
 | `maxContainment` | number \| null | Scaled mode: sourmash `max_containment`; null otherwise |
 | `angularSimilarity` | number \| null | `trackAbundance`: sourmash `angular_similarity`; null otherwise |
+| `weightedContainmentSeq1InSeq2` | number \| null | `trackAbundance`: sourmash `seq1.contained_by_weighted(seq2)`; null otherwise |
+| `weightedContainmentSeq2InSeq1` | number \| null | `trackAbundance`: sourmash `seq2.contained_by_weighted(seq1)`; null otherwise |
 
 ## Errors
 
@@ -143,10 +148,12 @@ Mash 2.3 `mash dist -k 2 -s 100000`: 0.202733, shared-hashes 5/10; sourmash `Min
 ```
 **Response:** `jaccard` 0.3103448275862069, `sharedHashes` 9, `sketchDenominator` 29, `containmentSeq1InSeq2`
 0.4285714285748822, `containmentSeq2InSeq1` 0.52941176525941, `maxContainment` 0.52941176525941, `mashDistance`
-0.18680360045755526, `angularSimilarity` 0.3123095603640216, `pValue` null. sourmash 4.9.4
+0.18680360045755526, `angularSimilarity` 0.3123095603640216, `weightedContainmentSeq1InSeq2` 0.4642857142857143,
+`weightedContainmentSeq2InSeq1` 0.5238095238095238, `pValue` null. sourmash 4.9.4
 `MinHash(n=0, ksize=4, scaled=3, track_abundance=True)`: len 21 / 17, `count_common` 9, `jaccard` 0.3103448275862069,
 `contained_by` 0.4285714285748822 / 0.52941176525941, `max_containment` 0.52941176525941, `angular_similarity`
-0.3123095603640216 (scaled=1: 0.2363801370444173).
+0.3123095603640216, `contained_by_weighted` 0.4642857142857143 / 0.5238095238095238 (scaled=1: 0.2363801370444173,
+0.37662337662337664 / 0.417910447761194).
 
 ## Performance
 

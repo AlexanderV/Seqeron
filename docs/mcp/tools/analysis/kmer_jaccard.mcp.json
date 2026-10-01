@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "kmer_jaccard",
   "serverName": "Analysis",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.JaccardSimilarity",
   "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1371",
@@ -50,7 +50,7 @@
       },
       "trackAbundance": {
         "type": "boolean",
-        "description": "With scaled > 0: track k-mer abundances (sourmash track_abundance=True) and return angularSimilarity (sourmash angular_similarity = 1 - 2*acos(cos)/pi of the abundance vectors)",
+        "description": "With scaled > 0: track k-mer abundances (sourmash track_abundance=True) and return angularSimilarity (sourmash angular_similarity = 1 - 2*acos(cos)/pi of the abundance vectors) and weightedContainmentSeq1InSeq2/weightedContainmentSeq2InSeq1 (sourmash contained_by_weighted)",
         "default": false
       }
     },
@@ -113,6 +113,20 @@
           "null"
         ],
         "description": "trackAbundance: sourmash angular_similarity of the two abundance-weighted FracMinHash sketches; null otherwise"
+      },
+      "weightedContainmentSeq1InSeq2": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "trackAbundance: sourmash contained_by_weighted of seq1 in seq2 (sum of seq1 abundances over shared hashes / sum of all seq1 abundances); null otherwise"
+      },
+      "weightedContainmentSeq2InSeq1": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "trackAbundance: sourmash contained_by_weighted of seq2 in seq1; null otherwise"
       }
     },
     "required": [
@@ -174,7 +188,9 @@
         "sketchDenominator": null,
         "pValue": null,
         "maxContainment": null,
-        "angularSimilarity": null
+        "angularSimilarity": null,
+        "weightedContainmentSeq1InSeq2": null,
+        "weightedContainmentSeq2InSeq1": null
       }
     },
     {
@@ -193,7 +209,9 @@
         "sketchDenominator": null,
         "pValue": null,
         "maxContainment": null,
-        "angularSimilarity": null
+        "angularSimilarity": null,
+        "weightedContainmentSeq1InSeq2": null,
+        "weightedContainmentSeq2InSeq1": null
       }
     },
     {
@@ -215,7 +233,9 @@
         "sketchDenominator": 29,
         "pValue": null,
         "maxContainment": 0.52941176525941,
-        "angularSimilarity": 0.3123095603640216
+        "angularSimilarity": 0.3123095603640216,
+        "weightedContainmentSeq1InSeq2": 0.4642857142857143,
+        "weightedContainmentSeq2InSeq1": 0.5238095238095238
       }
     }
   ]

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.CalculateKmerEntropy",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2681",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2690",
   "description": "Calculate Shannon entropy based on k-mer frequencies. Higher values indicate more complexity.",
   "inputSchema": {
     "type": "object",
