@@ -20,7 +20,7 @@ and commits it after every change. Batch definitions (units, owned files) are in
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
 ## State (2026-10-02 ~11:30 UTC)
-- **Running:** B07 (cloud session_01BqQH1AyNFGsM2pKjjKax9Z, audit round 3 of the completeness loop; worklist in B07.md).
+- **Running:** B07 (cloud session_01AJjD6znMPKvtM3iddFir9r since 10-02 16:12 after a session-limit stop; audit round 3 of the completeness loop; worklist in B07.md).
   To be moved to a local run (tools/review/prompts/B07.md) when the local setup is ready.
 - **Paused by user (10-01 22:05):** B08 — 2/6 units done (CRISPR-PAM-001, CRISPR-GUIDE-001). Resume only on the user's word
   (prompt: tools/review/prompts/B08.md).
