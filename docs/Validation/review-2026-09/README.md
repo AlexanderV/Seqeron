@@ -86,6 +86,15 @@ Batch sessions must not hold every unit in one context. The batch lead:
    covered by any unit; fixes what is in-ownership; records the rest.
 5. Final full test run, final push, report finished.
 
+**No lost work on interruption (session/usage limits can stop a session at any moment, e.g. at night):**
+- Keep every work package (WP) small: at most ~45 min of work or ~2 audit items. Split larger
+  items into several WPs. Each WP ends with fast tier green → commit → push before the next one starts.
+- Never accumulate several finished WPs locally; push each one immediately.
+- Write the auditor's item list (DOABLE/BLOCKED with ids) into `<BATCH>.md` and push it **before**
+  implementing, and tick items off in the report as they land. A resumed session then continues
+  from the list instead of re-auditing.
+- Large uncommitted state that is not yet fast-tier green must not exist for longer than one WP.
+
 ## Definition of Done — no doable leftovers (mandatory)
 
 A batch is **not finished** while anything doable remains. "Deferred", "follow-up", "optional",
