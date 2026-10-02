@@ -64,6 +64,119 @@
         "type": "number",
         "description": "PRIMER_PAIR_MAX_COMPL_END (alignment screen only).",
         "default": 3.0
+      },
+      "annealing_temp": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 each primer's (and internal oligo's) fraction bound at this temperature is computed (Primer3 oligotm, SantaLucia 1998 + SantaLucia salt correction) and reported as bound; the bound limits / weights apply.",
+        "maximum": 100,
+        "default": -10
+      },
+      "min_bound": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_MIN_BOUND: minimum fraction bound of a primer, % (only with annealing_temp > 0).",
+        "default": -10
+      },
+      "max_bound": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_MAX_BOUND: maximum fraction bound of a primer, % (only with annealing_temp > 0).",
+        "default": 110
+      },
+      "opt_bound": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_OPT_BOUND: optimum of the bound penalty terms, % (must lie in [min_bound, max_bound]).",
+        "default": 97
+      },
+      "wt_bound_gt": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (only with annealing_temp > 0).",
+        "default": 0
+      },
+      "wt_bound_lt": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (only with annealing_temp > 0).",
+        "default": 0
+      },
+      "internal_min_bound": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_MIN_BOUND: minimum fraction bound of the internal oligo, % (only with annealing_temp > 0).",
+        "default": -10
+      },
+      "internal_max_bound": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_MAX_BOUND: maximum fraction bound of the internal oligo, % (only with annealing_temp > 0).",
+        "default": 110
+      },
+      "internal_opt_bound": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_OPT_BOUND: optimum of the internal-oligo bound terms, %.",
+        "default": 97
+      },
+      "internal_wt_bound_gt": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_WT_BOUND_GT: internal-oligo penalty weight of the bound above internal_opt_bound.",
+        "default": 0
+      },
+      "internal_wt_bound_lt": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_WT_BOUND_LT: internal-oligo penalty weight of the bound below internal_opt_bound; as in Primer3 it also applies without annealing_temp (bound = -999999.9999).",
+        "default": 0
+      },
+      "inside_penalty": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INSIDE_PENALTY: per-base penalty of a primer 3' end inside the target. Any combination other than the defaults (-1 / 0) lets primers overlap the target up to its far end and scores each primer's 3'-end position (positionPenalty); the default -1 then makes inside positions negative, and a negative pair penalty is an error (Primer3 aborts).",
+        "default": -1
+      },
+      "outside_penalty": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_OUTSIDE_PENALTY: per-base penalty of the distance between a primer 3' end and the target (see inside_penalty).",
+        "default": 0
+      },
+      "wt_pos_penalty": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_POS_PENALTY: weight of the position penalty in the primer penalty.",
+        "default": 1
       }
     },
     "required": [
@@ -80,14 +193,14 @@
           "object",
           "null"
         ],
-        "description": "Best forward primer candidate (PRIMER_LEFT_0)."
+        "description": "Best forward primer candidate (PRIMER_LEFT_0). Includes bound (PRIMER_LEFT_0_BOUND, annealing_temp > 0) and positionPenalty (PRIMER_LEFT_0_POSITION_PENALTY, non-default inside/outside penalty)."
       },
       "reverse": {
         "type": [
           "object",
           "null"
         ],
-        "description": "Best reverse primer candidate (PRIMER_RIGHT_0)."
+        "description": "Best reverse primer candidate (PRIMER_RIGHT_0). Includes bound and positionPenalty (PRIMER_RIGHT_0_*)."
       },
       "isValid": {
         "type": "boolean",
@@ -134,7 +247,7 @@
           "object",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_0_* (sequence, start, length, tm, gcPercent, selfAnyTh, selfEndTh, hairpinTh, penalty) when pick_internal_oligo."
+        "description": "PRIMER_INTERNAL_0_* (sequence, start, length, tm, gcPercent, selfAnyTh, selfEndTh, hairpinTh, penalty) when pick_internal_oligo; bound (PRIMER_INTERNAL_0_BOUND) with annealing_temp > 0."
       },
       "pairs": {
         "type": "array",
@@ -192,6 +305,14 @@
     {
       "code": 1007,
       "message": "Invalid product size range"
+    },
+    {
+      "code": 1008,
+      "message": "Optimum primer / internal oligo fraction binding lower than minimum or higher than maximum; Annealing temperature higher than 100 C (Primer3 _pr_data_control)"
+    },
+    {
+      "code": 1009,
+      "message": "Negative primer-pair penalty (Primer3 obj_fn PR_ASSERT(sum >= 0.0)): negative per-primer position penalties"
     }
   ],
   "examples": [

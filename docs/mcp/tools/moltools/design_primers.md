@@ -30,7 +30,7 @@ Implements Primer3's pair search (`libprimer3.cc` `choose_pair_or_triple` / `cha
 |-----------|------|----------|-------------|
 | `template` | string | Yes | DNA template (A/C/G/T), non-empty. |
 | `target_start` | integer | Yes | 0-based inclusive start of the target region (≥ 0). |
-| `target_end` | integer | Yes | 0-based **exclusive** end of the target region (`target_start < target_end < template.Length`); primers never overlap `[target_start, target_end)`. |
+| `target_end` | integer | Yes | 0-based **exclusive** end of the target region (`target_start < target_end < template.Length`); with the default `inside_penalty` / `outside_penalty` primers never overlap `[target_start, target_end)`. |
 | `parameters` | object | No | Optional `PrimerParameters`; defaults (18–25 nt, 40–60% GC, 57–63 °C Tm, poly-X 4, dinucleotide repeat 4, Primer3 thermodynamic structure screen at 47 °C) when null. |
 | `product_size_range` | string | No | PRIMER_PRODUCT_SIZE_RANGE in Primer3 syntax, e.g. `"100-300"` or `"150-250 100-400"` (default `100-300`). |
 | `max_tm_difference` | number | No | PRIMER_PAIR_MAX_DIFF_TM in °C (default 5). |
@@ -53,6 +53,12 @@ Implements Primer3's pair search (`libprimer3.cc` `choose_pair_or_triple` / `cha
 | `max_template_mispriming` / `max_template_mispriming_th` | number | No | PRIMER_MAX_TEMPLATE_MISPRIMING (alignment mode) / _TH (thermodynamic mode, °C); default −100 = not checked; a primer whose template mispriming value is strictly greater is rejected. > 32767 in alignment mode → `ArgumentException`. |
 | `pair_max_template_mispriming` / `pair_max_template_mispriming_th` | number | No | PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING / _TH (default −100): pair value = max(left same-strand + right other-strand, left other-strand + right same-strand). Alignment mode checks a limit ≥ 0; thermodynamic mode, as Primer3, any non-zero limit — so `pair_wt_template_mispriming_th` > 0 with the default −100 rejects every pair; use 0 for "no limit". |
 | `wt_template_mispriming` / `wt_template_mispriming_th` / `pair_wt_template_mispriming` / `pair_wt_template_mispriming_th` | number | No | PRIMER_[PAIR_]WT_TEMPLATE_MISPRIMING[_TH] (default 0, must be ≥ 0): weight in the per-primer / pair penalty (alignment: linear; thermodynamic: Primer3's 5 °C `temp_cutoff` rule). Verified against primer3-py 2.3.1 `design_primers`: see F43 in `docs/Validation/review-2026-09/B07.md`. |
+| `annealing_temp` | number | No | PRIMER_ANNEALING_TEMP in °C (≤ 100; default −10 = off; also the internal oligo's annealing temperature). When > 0 Primer3's fraction bound at this temperature (`oligotm`: ΔG = ΔH − (Ta + 273.15)·ΔS of the SantaLucia 1998 duplex with the SantaLucia salt correction, K = exp(−ΔG/(R·(Ta + 273.15))), bound = 100/(1 + √(1/((C/4·10⁹)·K))), C/10⁹ for a self-complementary oligo) is computed for every primer (and internal oligo), reported as `bound`, and the bound limits / weights below apply. An oligo longer than 36 nt has no bound value (Primer3 OLIGOTM_ERROR −999999.9999) and fails any minimum. > 100 → `ArgumentOutOfRangeException`. |
+| `min_bound` / `max_bound` / `opt_bound` | number | No | PRIMER_MIN_BOUND / PRIMER_MAX_BOUND / PRIMER_OPT_BOUND (%; defaults −10 / 110 / 97): a primer whose bound is outside [min, max] is rejected (only with `annealing_temp` > 0); `opt_bound` outside [min, max] → `ArgumentOutOfRangeException` ("Optimum primer fraction binding lower than minimum or higher than maximum"). |
+| `wt_bound_gt` / `wt_bound_lt` | number | No | PRIMER_WT_BOUND_GT / _LT (default 0): weight × (bound − opt_bound) above / × (opt_bound − bound) below the optimum in the per-primer penalty (only with `annealing_temp` > 0, Primer3 `p_obj_fn`). |
+| `internal_min_bound` / `internal_max_bound` / `internal_opt_bound` / `internal_wt_bound_gt` / `internal_wt_bound_lt` | number | No | PRIMER_INTERNAL_MIN/MAX/OPT_BOUND (−10 / 110 / 97) and PRIMER_INTERNAL_WT_BOUND_GT / _LT (0) of the internal oligo. As in Primer3 the internal-oligo bound terms are not gated by `annealing_temp`: without it the bound is −999999.9999, so `internal_wt_bound_lt` w adds w × (opt + 999999.9999) to every internal-oligo penalty. |
+| `inside_penalty` / `outside_penalty` | number | No | PRIMER_INSIDE_PENALTY / PRIMER_OUTSIDE_PENALTY (defaults −1 / 0 = primers never overlap the target). Any other combination switches to Primer3's `compute_position_penalty`: a left primer's 3′ end may lie anywhere up to the target's last base (a right primer's from its first base), a 3′ end inside the target costs `inside_penalty` per base (distance from the target's near end + 1), one outside it `outside_penalty` per base of distance, and pairs must still span the target (left 3′ end before the right primer's 3′ end); reported as `positionPenalty` per primer. Primer3 multiplies with the value as given, so changing only `outside_penalty` gives inside positions a negative penalty, and a negative pair penalty — where primer3-py aborts (`obj_fn` `PR_ASSERT(sum >= 0.0)`) — raises `InvalidOperationException`. |
+| `wt_pos_penalty` | number | No | PRIMER_WT_POS_PENALTY (default 1): weight of the position penalty in the per-primer penalty. Bound and position settings verified against primer3-py 2.3.1 `design_primers`: see F44 in `docs/Validation/review-2026-09/B07.md`. |
 
 ## Output Schema
 
@@ -69,7 +75,8 @@ Implements Primer3's pair search (`libprimer3.cc` `choose_pair_or_triple` / `cha
 | `complAny` / `complEnd` | number \| null | PRIMER_PAIR_0_COMPL_ANY / _COMPL_END (alignment screen only; verified vs primer3-py `design_primers` with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0). |
 | `templateMispriming` | number \| null | PRIMER_PAIR_0_TEMPLATE_MISPRIMING (alignment mode) or _TH (thermodynamic mode); null unless a pair template limit / weight is set. Each `PrimerCandidate` carries PRIMER_LEFT/RIGHT_0_TEMPLATE_MISPRIMING[_TH] (`templateMispriming`) when a template-mispriming setting is active. |
 | `libraryMispriming` / `libraryMisprimingName` | number / string \| null | PRIMER_PAIR_0_LIBRARY_MISPRIMING (score, entry); null without `mispriming_library`. Each `PrimerCandidate` carries its PRIMER_LEFT/RIGHT_0_LIBRARY_MISPRIMING the same way (`libraryMispriming`, `libraryMisprimingName`). |
-| `internalOligo` | object \| null | PRIMER_INTERNAL_0_* (`sequence`, `start`, `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty`). |
+| `bound` / `positionPenalty` (per `PrimerCandidate`) | number \| null | PRIMER_LEFT/RIGHT_0_BOUND (with `annealing_temp` > 0) and PRIMER_LEFT/RIGHT_0_POSITION_PENALTY (with non-default `inside_penalty` / `outside_penalty`); null otherwise. |
+| `internalOligo` | object \| null | PRIMER_INTERNAL_0_* (`sequence`, `start`, `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty`, `bound` with `annealing_temp` > 0). |
 | `pairs` | array | Ranked valid pairs (k = 0 … num_return − 1), each with the fields above; empty when none qualifies. |
 
 ## Errors
@@ -83,6 +90,8 @@ Implements Primer3's pair search (`libprimer3.cc` `choose_pair_or_triple` / `cha
 | 1005 | num_return must be at least 1 |
 | 1006 | max_tm_difference must be non-negative |
 | 1007 | Invalid product size range |
+| 1008 | Optimum primer / internal oligo fraction binding lower than minimum or higher than maximum; Annealing temperature higher than 100 C (Primer3 `_pr_data_control`, `ArgumentOutOfRangeException`) |
+| 1009 | Negative primer-pair penalty (Primer3 `obj_fn` `PR_ASSERT(sum >= 0.0)`, `InvalidOperationException`) |
 
 ## Examples
 

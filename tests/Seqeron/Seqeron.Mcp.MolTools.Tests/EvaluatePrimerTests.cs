@@ -99,4 +99,25 @@ public class EvaluatePrimerTests
             Assert.That(MolToolsTools.evaluate_primer(primer, 20, true, p3, max_end_stability: 3.58).Issues, Has.None.Contains("PRIMER_MAX_END_STABILITY"));
         });
     }
+
+    [Test]
+    public void EvaluatePrimer_FractionBound_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 check_primers AGCTAGCTAGCTAGCTAGCT: PRIMER_ANNEALING_TEMP 60 → PRIMER_LEFT_0_BOUND
+        // 34.19287577114419; + PRIMER_WT_BOUND_LT 0.2, _GT 0.3 → PRIMER_LEFT_0_PENALTY 14.460414507505782;
+        // PRIMER_MIN_BOUND 40 → "low fraction bound".
+        const string primer = "AGCTAGCTAGCTAGCTAGCT";
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters with { MinTm = 0, MaxTm = 100 };
+        var c = MolToolsTools.evaluate_primer(primer, 0, true, p3, annealing_temp: 60, wt_bound_lt: 0.2, wt_bound_gt: 0.3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.Bound!.Value, Is.EqualTo(34.19287577114419).Within(1e-9));
+            Assert.That(c.Penalty, Is.EqualTo(14.460414507505782).Within(1e-9));
+            Assert.That(MolToolsTools.evaluate_primer(primer, 0, true, p3).Bound, Is.Null);
+            Assert.That(MolToolsTools.evaluate_primer(primer, 0, true, p3, annealing_temp: 60, min_bound: 40).Issues,
+                Has.Some.Contains("PRIMER_MIN_BOUND"));
+            Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.evaluate_primer(primer, 0, true, p3, opt_bound: 120));
+            Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.evaluate_primer(primer, 0, true, p3, annealing_temp: 101));
+        });
+    }
 }

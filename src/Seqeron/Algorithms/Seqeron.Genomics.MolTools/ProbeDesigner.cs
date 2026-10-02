@@ -1203,6 +1203,38 @@ public static class ProbeDesigner
 
         // The mishyb library in use: null when absent or empty (Primer3 seq_lib_num_seq == 0).
         internal PrimerMisprimingLibrary? ActiveMishybLibrary => MishybLibrary is { Count: > 0 } lib ? lib : null;
+
+        /// <summary>
+        /// PRIMER_ANNEALING_TEMP (°C; Primer3 default <see cref="PrimerDesigner.Primer3DefaultAnnealingTemperature"/> = −10
+        /// = off; at most 100). When &gt; 0 every oligo gets its fraction bound at this temperature
+        /// (<see cref="PrimerDesigner.CalculateFractionBoundPrimer3"/> at the settings' conditions,
+        /// <see cref="Primer3Probe.Bound"/>) and is rejected outside [<see cref="MinBound"/>, <see cref="MaxBound"/>].
+        /// Primer3 has one global setting: for the internal oligo of a primer pair
+        /// <see cref="PrimerParameters.AnnealingTemperature"/> is used instead.
+        /// </summary>
+        public double AnnealingTemperature { get; init; } = PrimerDesigner.Primer3DefaultAnnealingTemperature;
+
+        /// <summary>PRIMER_INTERNAL_MIN_BOUND (% bound; default −10), checked only when <see cref="AnnealingTemperature"/> &gt; 0.</summary>
+        public double MinBound { get; init; } = PrimerDesigner.Primer3MinBound;
+
+        /// <summary>PRIMER_INTERNAL_MAX_BOUND (% bound; default 110), checked only when <see cref="AnnealingTemperature"/> &gt; 0.</summary>
+        public double MaxBound { get; init; } = PrimerDesigner.Primer3MaxBound;
+
+        /// <summary>PRIMER_INTERNAL_OPT_BOUND (% bound; default 97; must lie in [<see cref="MinBound"/>, <see cref="MaxBound"/>]).</summary>
+        public double OptBound { get; init; } = PrimerDesigner.Primer3OptBound;
+
+        /// <summary>
+        /// PRIMER_INTERNAL_WT_BOUND_GT (default 0): weight × (bound − <see cref="OptBound"/>) above the optimum. Unlike the
+        /// primer terms, Primer3's internal-oligo <c>p_obj_fn</c> applies the bound terms whatever
+        /// <see cref="AnnealingTemperature"/> is; without an annealing temperature (or for an oligo with no bound value)
+        /// the bound is Primer3's OLIGOTM_ERROR = −999999.9999, so only <see cref="WeightBoundLt"/> then contributes —
+        /// weight × (OptBound + 999999.9999), reproduced as Primer3 computes it.
+        /// </summary>
+        public double WeightBoundGt { get; init; }
+
+        /// <summary>PRIMER_INTERNAL_WT_BOUND_LT (default 0): weight × (<see cref="OptBound"/> − bound) below the optimum
+        /// (see <see cref="WeightBoundGt"/> for the no-annealing-temperature case).</summary>
+        public double WeightBoundLt { get; init; }
     }
 
     /// <summary>
@@ -1246,6 +1278,10 @@ public static class ProbeDesigner
 
         /// <summary>The library entry named in PRIMER_INTERNAL_n_LIBRARY_MISHYB (with <see cref="LibraryMishyb"/>).</summary>
         public string? LibraryMishybName { get; init; }
+
+        /// <summary>PRIMER_INTERNAL_n_BOUND: the fraction (%) bound at <see cref="Primer3ProbeSettings.AnnealingTemperature"/>
+        /// when that is &gt; 0 (<see cref="PrimerDesigner.CalculateFractionBoundPrimer3"/>), otherwise <c>null</c>.</summary>
+        public double? Bound { get; init; }
     }
 
     // Primer3 MAX_PRIMER_LENGTH (oligo length limit of the picker and of seqtm's nearest-neighbour branch).
@@ -1329,6 +1365,11 @@ public static class ProbeDesigner
             throw new ArgumentException(
                 "Internal oligo mispriming score is part of objective function while mishyb library is not defined (Primer3 _pr_data_control).",
                 paramName);
+        // _pr_data_control: PRIMER_INTERNAL_OPT_BOUND within [MIN, MAX]; PRIMER_ANNEALING_TEMP ≤ 100.
+        if (double.IsNaN(s.WeightBoundGt) || double.IsNaN(s.WeightBoundLt))
+            throw new ArgumentOutOfRangeException(paramName, "PRIMER_INTERNAL_WT_BOUND_GT/_LT must not be NaN.");
+        PrimerDesigner.ValidatePrimer3Bound(s.AnnealingTemperature, s.MinBound, s.MaxBound, s.OptBound,
+            internalOligo: true, paramName);
     }
 
     /// <summary>
@@ -1353,12 +1394,18 @@ public static class ProbeDesigner
             GcGt = s.WeightGcPercentGt,
             GcLt = s.WeightGcPercentLt,
             LibraryMispriming = s.WeightLibraryMishyb,
+            BoundGt = s.WeightBoundGt,
+            BoundLt = s.WeightBoundLt,
         };
         // PRIMER_INTERNAL_MISHYB_LIBRARY: scored while enumerating for list output (three_conditions) or when weighted
         // (calc_and_check_oligo_features), otherwise postponed to choose_internal_oligo.
         var library = s.ActiveMishybLibrary;
         bool scoreLibrary = library is not null && (screenStructure || s.WeightLibraryMishyb != 0);
-        var optima = new Primer3Optima(s.OptTm, s.OptSize, s.OptGcPercent ?? PrimerDesigner.Primer3DefaultOptGcPercent);
+        var optima = new Primer3Optima(s.OptTm, s.OptSize, s.OptGcPercent ?? PrimerDesigner.Primer3DefaultOptGcPercent)
+        {
+            OptBound = s.OptBound,
+        };
+        double monovalentEq = PrimerDesigner.Primer3MonovalentEquivalent(s.MonovalentMillimolar, s.DivalentMillimolar, s.DntpMillimolar);
         var accepted = new List<Primer3Probe>();
 
         // pick_primer_range: for every 3' end, oligos of increasing length (5' extensions). A failure that no
@@ -1393,9 +1440,11 @@ public static class ProbeDesigner
                 if (other)
                     continue; // non-ACGT, non-N symbol: no Tm (seqtm error → low Tm)
 
-                double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(
-                    oligo, s.DnaConcentrationNanomolar, s.MonovalentMillimolar, s.DivalentMillimolar, s.DntpMillimolar);
+                var (tm, bound) = PrimerDesigner.Primer3SeqTm(oligo, s.DnaConcentrationNanomolar, monovalentEq, s.AnnealingTemperature);
                 if (tm < s.MinTm || tm > s.MaxTm)
+                    continue;
+                // Fraction bound (PRIMER_ANNEALING_TEMP > 0; not a five-prime problem).
+                if (s.AnnealingTemperature > 0.0 && (bound < s.MinBound || bound > s.MaxBound))
                     continue;
 
                 double selfAny = double.NaN, selfEnd = double.NaN, hairpin = double.NaN;
@@ -1431,13 +1480,14 @@ public static class ProbeDesigner
 
                 // p_obj_fn OT_INTL: no end_stability term (end_oligodg is computed for primers only).
                 double penalty = PrimerDesigner.CalculatePrimer3Penalty(
-                    new Primer3PenaltyInputs(tm, len, gcPercent) { LibraryMispriming = lib?.MaxScore ?? 0.0 }, weights, optima);
+                    new Primer3PenaltyInputs(tm, len, gcPercent) { LibraryMispriming = lib?.MaxScore ?? 0.0, Bound = bound }, weights, optima);
                 accepted.Add(new Primer3Probe(oligo, start, len, tm, gcPercent, selfAny, selfEnd, hairpin, penalty)
                 {
                     SelfAny = alnAny,
                     SelfEnd = alnEnd,
                     LibraryMishyb = lib?.MaxScore,
                     LibraryMishybName = lib?.Name,
+                    Bound = s.AnnealingTemperature > 0.0 && bound != PrimerDesigner.Primer3OligoTmError ? bound : null,
                 });
             }
         }

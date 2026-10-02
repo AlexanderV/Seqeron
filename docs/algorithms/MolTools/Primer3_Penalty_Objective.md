@@ -198,10 +198,14 @@ the caller (`Primer3PenaltyInputs`), but every value is available from the libra
 
 **Not implemented:**
 
-- `bound` (only with PRIMER_ANNEALING_TEMP > 0), `failure_rate`, `pos_penalty` (needs
-  PRIMER_INSIDE/OUTSIDE_PENALTY) and `seq_quality`; these need data the
-  method does not receive (annealing model, base qualities, target geometry) and are
-  0 under Primer3 defaults; **users should rely on:** adding `weight·value` themselves or Primer3.
+- `failure_rate` and `seq_quality`; these need data the method does not receive (masker / k-mer lists, base
+  qualities) and are 0 under Primer3 defaults; **users should rely on:** adding `weight·value` themselves or Primer3.
+  The `bound` terms (PRIMER_WT_BOUND_GT/_LT × the distance of `Primer3PenaltyInputs.Bound` from
+  `Primer3Optima.OptBound`, default 97; applied when `Bound` is set — for primers Primer3 adds them only with
+  PRIMER_ANNEALING_TEMP > 0, the internal-oligo branch always, with bound = −999999.9999 when none was computed;
+  `PrimerDesigner.CalculateFractionBoundPrimer3`) and the `pos_penalty` term (PRIMER_WT_POS_PENALTY, default 1, ×
+  `Primer3PenaltyInputs.PositionPenalty`, `PrimerDesigner.CalculatePositionPenaltyPrimer3`) are implemented (audit
+  round 3, A3-5 part 1; PRIMER-DESIGN-001 §2.2 items 9–10).
   The `template_mispriming` terms (PRIMER_WT_TEMPLATE_MISPRIMING: linear; PRIMER_WT_TEMPLATE_MISPRIMING_TH with
   `ThermodynamicTemplateAlignment`: the 5 °C `temp_cutoff` rule) are implemented (audit round 3, A3-4) from
   `Primer3PenaltyInputs.TemplateMispriming` (`PrimerDesigner.CalculateTemplateMispriming`; PRIMER-DESIGN-001 §2.2 item 8).
@@ -232,7 +236,7 @@ which sums this per-primer penalty for the two primers; verified against primer3
 
 ### 6.2 Limitations
 
-Per-primer only (no pair penalty); the bound, failure-rate, position and sequence-quality terms are not implemented (they are 0 under Primer3 defaults, so the default objective
+Per-primer only (no pair penalty); the failure-rate and sequence-quality terms are not implemented (they are 0 under Primer3 defaults, so the default objective
 is unaffected). self_any/self_end alignment scores
 are caller-supplied (§5.3).
 

@@ -13,7 +13,13 @@
       "sequence": { "type": "string", "description": "Primer sequence to evaluate.", "minLength": 1 },
       "position": { "type": "integer", "description": "0-based location in the template (informational)." },
       "is_forward": { "type": "boolean", "description": "True for a forward primer." },
-      "parameters": { "type": ["object", "null"], "description": "Optional primer-design parameters." }
+      "parameters": { "type": ["object", "null"], "description": "Optional primer-design parameters." },
+      "annealing_temp": { "type": ["number", "null"], "description": "PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 the primer's fraction bound at this temperature (Primer3 oligotm) is reported as bound, checked against min_bound / max_bound and weighted into the penalty.", "maximum": 100, "default": -10 },
+      "min_bound": { "type": ["number", "null"], "description": "PRIMER_MIN_BOUND: minimum fraction bound, % (only with annealing_temp > 0).", "default": -10 },
+      "max_bound": { "type": ["number", "null"], "description": "PRIMER_MAX_BOUND: maximum fraction bound, % (only with annealing_temp > 0).", "default": 110 },
+      "opt_bound": { "type": ["number", "null"], "description": "PRIMER_OPT_BOUND: optimum of the bound penalty terms, % (must lie in [min_bound, max_bound]).", "default": 97 },
+      "wt_bound_gt": { "type": ["number", "null"], "description": "PRIMER_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (only with annealing_temp > 0).", "default": 0 },
+      "wt_bound_lt": { "type": ["number", "null"], "description": "PRIMER_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (only with annealing_temp > 0).", "default": 0 }
     },
     "required": ["sequence", "position", "is_forward"]
   },
@@ -37,7 +43,8 @@
       "selfEndTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_SELF_END_TH: ntthal END1 self-dimer Tm (°C), 0 when none." },
       "hairpinTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_HAIRPIN_TH: ntthal hairpin Tm (°C) = primer3-py calc_hairpin, 0 when none." },
       "selfAny": { "type": ["number", "null"], "description": "Primer3 alignment-mode PRIMER_SELF_ANY (StructureScreen = Primer3Alignment only)." },
-      "selfEnd": { "type": ["number", "null"], "description": "Primer3 alignment-mode PRIMER_SELF_END (StructureScreen = Primer3Alignment only)." }
+      "selfEnd": { "type": ["number", "null"], "description": "Primer3 alignment-mode PRIMER_SELF_END (StructureScreen = Primer3Alignment only)." },
+      "bound": { "type": ["number", "null"], "description": "PRIMER_LEFT/RIGHT_0_BOUND: fraction bound (%) at annealing_temp when > 0 (null otherwise)." }
     },
     "required": ["sequence", "position", "isForward", "length", "gcContent", "meltingTemperature", "homopolymerLength", "hasHairpin", "stability3Prime", "isValid", "issues", "score"]
   },

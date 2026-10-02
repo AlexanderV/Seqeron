@@ -237,6 +237,9 @@ public static partial class PrimerDesigner
         private readonly bool _needPairTemplate;
         private readonly Dictionary<PrimerCandidate, TemplateMisprimingScore> _templateByCandidate = new(ReferenceEqualityComparer.Instance);
         private bool _sawTemplate;
+        // Non-default PRIMER_INSIDE/OUTSIDE_PENALTY: primers are scored against the target (compute_position_penalty)
+        // instead of being kept off it; null under Primer3's defaults.
+        private readonly TargetPosition? _position;
 
         public PrimerPairSearch(DnaSequence template, int targetStart, int targetEnd,
             PrimerParameters param, PrimerPairOptions opt)
@@ -277,15 +280,24 @@ public static partial class PrimerDesigner
                 maxProduct = Math.Max(maxProduct, r.Max);
             }
 
+            // Default position penalties: a primer may not overlap the target (oligo_overlaps_interval). Otherwise
+            // (compute_position_penalty) a left primer's 3' end may lie anywhere up to the target's last base and a
+            // right primer's from the target's first base on (make_detection_primer_lists then searches the whole
+            // included region); the pair must still span the target (pair_spans_target).
+            if (!opt.DefaultPositionPenalties)
+                _position = new TargetPosition(targetStart, targetEnd, opt.InsidePenalty, opt.OutsidePenalty);
+            int leftLimit = _position is null ? targetStart : targetEnd;   // left primer end (exclusive) ≤ leftLimit
+            int rightLimit = _position is null ? targetEnd : targetStart;  // right primer start ≥ rightLimit
+
             // Forward candidates: 3' end before the target; Primer3 drops a left primer that starts past
             // n − min product (pick_primer_range); starts that cannot reach any product range are skipped.
-            int fStartLo = Math.Max(_incStart, targetEnd + param.MinLength - maxProduct);
-            int fStartHi = Math.Min(targetStart - param.MinLength, _incEnd - minProduct);
+            int fStartLo = Math.Max(_incStart, rightLimit + param.MinLength - maxProduct);
+            int fStartHi = Math.Min(leftLimit - param.MinLength, _incEnd - minProduct);
             for (int start = fStartLo; start <= fStartHi; start++)
             {
-                for (int len = param.MinLength; len <= param.MaxLength && start + len <= targetStart; len++)
+                for (int len = param.MinLength; len <= param.MaxLength && start + len <= leftLimit; len++)
                 {
-                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template, target: _position);
                     if (candidate.IsValid)
                     {
                         _fwd.Add((candidate, tm));
@@ -296,15 +308,15 @@ public static partial class PrimerDesigner
             }
 
             // Reverse candidates (evaluated as the reverse complement): 5' end on the top strand = end − 1.
-            int rEndLo = Math.Max(targetEnd + param.MinLength, _incStart + minProduct);
-            int rEndHi = Math.Min(_incEnd, targetStart - param.MinLength + maxProduct);
+            int rEndLo = Math.Max(rightLimit + param.MinLength, _incStart + minProduct);
+            int rEndHi = Math.Min(_incEnd, leftLimit - param.MinLength + maxProduct);
             for (int end = rEndLo; end <= rEndHi; end++)
             {
-                for (int len = param.MinLength; len <= param.MaxLength && end - len >= targetEnd; len++)
+                for (int len = param.MinLength; len <= param.MaxLength && end - len >= rightLimit; len++)
                 {
                     int start = end - len;
                     var revComp = DnaSequence.GetReverseComplementString(seq.Substring(start, len));
-                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template, target: _position);
                     if (candidate.IsValid)
                     {
                         _rev.Add((candidate, tm));
@@ -328,8 +340,9 @@ public static partial class PrimerDesigner
                 _intlSettings = (opt.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings()) with
                 {
                     ThermodynamicOligoAlignment = param.StructureScreen != PrimerStructureScreen.Primer3Alignment,
-                    // PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS is global too.
+                    // PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS and PRIMER_ANNEALING_TEMP are global too.
                     LibraryAmbiguityCodesConsensus = param.EffectiveLibraryAmbiguityCodesConsensus,
+                    AnnealingTemperature = param.EffectiveAnnealingTemperature,
                 };
                 // make_internal_oligo_list over the included region; choose_internal_oligo takes the
                 // lowest-penalty oligo (first in enumeration order among equals) → stable sort.
@@ -400,6 +413,7 @@ public static partial class PrimerDesigner
                 var s = (o.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings()) with
                 {
                     ThermodynamicOligoAlignment = _param.StructureScreen != PrimerStructureScreen.Primer3Alignment,
+                    AnnealingTemperature = _param.EffectiveAnnealingTemperature,
                 };
                 ProbeDesigner.ValidatePrimer3ProbeSettings(s, nameof(o.InternalOligo));
                 if (s.MaxSize > minProduct)
@@ -606,6 +620,11 @@ public static partial class PrimerDesigner
             var f = _fwd[fi];
             var r = _rev[ri];
 
+            // pair_spans_target: the left primer's 3' end must precede the right primer's (always true when neither
+            // may overlap the target).
+            if (_position is not null && f.C.Position + f.C.Length - 1 >= r.C.Position)
+                return null;
+
             int fStart = f.C.Position;
             int gc = _gcPrefix[fStart + product] - _gcPrefix[fStart];
             double productTm = LongSeqTm(gc, product, _productMonovalentEq);
@@ -746,6 +765,11 @@ public static partial class PrimerDesigner
             }
             else
                 sum += ThermodynamicStructurePenalty(_w.TemplateMisprimingTh, lowerTm, templateScore);
+            // obj_fn ends with PR_ASSERT(sum >= 0.0): Primer3 aborts on a negative pair penalty, which only negative
+            // per-primer terms produce (e.g. the default PRIMER_INSIDE_PENALTY −1 with a changed PRIMER_OUTSIDE_PENALTY).
+            if (sum < 0.0)
+                throw new InvalidOperationException(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"Negative primer-pair penalty {sum} (Primer3 obj_fn PR_ASSERT(sum >= 0.0) aborts): negative per-primer penalties — e.g. PRIMER_INSIDE_PENALTY < 0 (default −1) with a non-default PRIMER_OUTSIDE_PENALTY — are not usable."));
             return sum;
         }
 
@@ -853,7 +877,7 @@ public static partial class PrimerDesigner
 
         // Full evaluation (including the structure values) of a chosen primer.
         private PrimerCandidate Reevaluate(PrimerCandidate c) =>
-            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template).Candidate;
+            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template, target: _position).Candidate;
 
         // Result when no pair qualifies: the individually lowest-penalty primers that pass their own
         // (structure) constraints, with the violated pair constraint.
@@ -967,13 +991,17 @@ public static partial class PrimerDesigner
         bool isForward,
         PrimerParameters param,
         bool evaluateStructure = true,
-        TemplateContext? template = null)
+        TemplateContext? template = null,
+        TargetPosition? target = null)
     {
         var seq = sequence.ToUpperInvariant();
 
         double gcContent = CalculateGcContent(seq);
-        double tmRaw = CalculateMeltingTemperaturePrimer3(seq, param.EffectiveDnaConcentrationNanomolar,
-            param.EffectiveMonovalentMillimolar, param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar);
+        // seqtm (MAX_NN_TM_LENGTH 36) with the fraction bound at PRIMER_ANNEALING_TEMP.
+        double annealing = param.EffectiveAnnealingTemperature;
+        var (tmRaw, boundRaw) = Primer3SeqTm(seq, param.EffectiveDnaConcentrationNanomolar,
+            Primer3MonovalentEquivalent(param.EffectiveMonovalentMillimolar, param.EffectiveDivalentMillimolar,
+                param.EffectiveDntpMillimolar), annealing);
         bool tmComputable = !double.IsNaN(tmRaw);
         double tm = tmComputable ? tmRaw : 0.0;
         int homopolymer = FindLongestHomopolymer(seq);
@@ -993,6 +1021,28 @@ public static partial class PrimerDesigner
             issues.Add("Tm not computable: sequence contains a non-ACGT base");
         else if (tm < param.MinTm || tm > param.MaxTm)
             issues.Add($"Tm {tm:F1}°C outside range [{param.MinTm}-{param.MaxTm}]°C");
+
+        // Primer3 fraction bound (calc_and_check_oligo_features, after the Tm checks): only when PRIMER_ANNEALING_TEMP > 0.
+        if (annealing > 0.0)
+        {
+            if (boundRaw < param.EffectiveMinBound)
+                issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"Fraction bound {BoundText(boundRaw)} below {param.EffectiveMinBound:0.##}% (Primer3 PRIMER_MIN_BOUND)"));
+            if (boundRaw > param.EffectiveMaxBound)
+                issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"Fraction bound {BoundText(boundRaw)} above {param.EffectiveMaxBound:0.##}% (Primer3 PRIMER_MAX_BOUND)"));
+        }
+
+        // Primer3 position penalty relative to the target (non-default PRIMER_INSIDE/OUTSIDE_PENALTY, pair search only):
+        // a 3' end past the target is an infinite position penalty (OP_OVERLAPS_TARGET).
+        double? positionPenalty = null;
+        if (target is { } tp)
+        {
+            positionPenalty = CalculatePositionPenaltyPrimer3(position, seq.Length, isForward, tp.Start, tp.End,
+                tp.InsidePenalty, tp.OutsidePenalty);
+            if (positionPenalty is null)
+                issues.Add("3' end beyond the target (Primer3 infinite position penalty, overlaps target)");
+        }
 
         if (homopolymer > param.MaxHomopolymer)
             issues.Add($"Homopolymer run of {homopolymer} exceeds max {param.MaxHomopolymer}");
@@ -1085,9 +1135,11 @@ public static partial class PrimerDesigner
             {
                 LibraryMispriming = library?.MaxScore ?? 0.0,
                 TemplateMispriming = templateScore?.Max ?? 0.0,
+                Bound = annealing > 0.0 ? boundRaw : null,
+                PositionPenalty = positionPenalty ?? 0.0,
             },
             weights,
-            new Primer3Optima(param.OptimalTm, param.OptimalLength, param.EffectiveOptimalGcPercent));
+            new Primer3Optima(param.OptimalTm, param.OptimalLength, param.EffectiveOptimalGcPercent) { OptBound = param.EffectiveOptBound });
 
         var candidate = new PrimerCandidate(
             Sequence: seq,
@@ -1113,9 +1165,19 @@ public static partial class PrimerDesigner
             LibraryMispriming = library?.MaxScore,
             LibraryMisprimingName = library?.Name,
             TemplateMispriming = templateScore?.Max,
+            Bound = annealing > 0.0 && boundRaw != Primer3OligoTmError ? boundRaw : null,
+            PositionPenalty = positionPenalty,
         };
         return (candidate, tm, library, templateScore);
+
+        static string BoundText(double b) => b == Primer3OligoTmError
+            ? "undefined (Primer3 OLIGOTM_ERROR: > 36 bases or non-ACGT)"
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{b:0.##}%");
     }
+
+    // The single target of a pair search when the position penalties are not Primer3's defaults
+    // (compute_position_penalty): [Start, End) 0-based, PRIMER_INSIDE_PENALTY / PRIMER_OUTSIDE_PENALTY.
+    private readonly record struct TargetPosition(int Start, int End, double InsidePenalty, double OutsidePenalty);
 
     // Primer3 secondary-structure values of one primer: ntthal Tm values (thermodynamic screen) or dpal
     // self_any / self_end scores (alignment screen).
@@ -1339,8 +1401,19 @@ public static partial class PrimerDesigner
             throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), monovalentMillimolar,
                 "Total monovalent-equivalent cation concentration must be > 0 mM.");
 
+        return Primer3SeqTm(primer, dnaConcentrationNanomolar, monovalentEq, Primer3DefaultAnnealingTemperature).Tm;
+    }
+
+    // Primer3 seqtm() / oligotm() (SantaLucia 1998 Tm, SantaLucia salt correction, MAX_NN_TM_LENGTH = 36) with the
+    // fraction bound at the annealing temperature (oligotm.c, PRIMER_ANNEALING_TEMP): Tm is NaN when Primer3 reports
+    // OLIGOTM_ERROR (fewer than 2 bases, a non-ACGT base); Bound is Primer3OligoTmError unless annealingTemperature > 0
+    // and the nearest-neighbour branch applies (long_seq_tm leaves bound = OLIGOTM_ERROR).
+    // Input: validated conditions, monovalentEq = [Mon] + 120·√([Mg²⁺] − [dNTP]) in mM.
+    internal static (double Tm, double Bound) Primer3SeqTm(
+        string? primer, double dnaConcentrationNanomolar, double monovalentEq, double annealingTemperature)
+    {
         if (string.IsNullOrEmpty(primer) || primer.Length < 2)
-            return double.NaN;
+            return (double.NaN, Primer3OligoTmError);
 
         string seq = primer.ToUpperInvariant();
         int n = seq.Length;
@@ -1348,11 +1421,11 @@ public static partial class PrimerDesigner
         foreach (char c in seq)
         {
             if (c is 'G' or 'C') gc++;
-            else if (c is not ('A' or 'T')) return double.NaN;
+            else if (c is not ('A' or 'T')) return (double.NaN, Primer3OligoTmError);
         }
 
         if (n > Primer3MaxNnTmLength)
-            return ThermoConstants.CalculateSaltAdjustedTm((double)gc / n, n, monovalentEq / 1000.0);
+            return (ThermoConstants.CalculateSaltAdjustedTm((double)gc / n, n, monovalentEq / 1000.0), Primer3OligoTmError);
 
         // oligotm(): integer accumulation, then ΔH = dh·(−100) cal/mol, ΔS = ds·(−0.1) cal/(K·mol).
         bool symmetric = IsSelfComplementary(seq);
@@ -1374,7 +1447,17 @@ public static partial class PrimerDesigner
         deltaS += SantaLuciaEntropySaltCoefficient * (n - 1) * Math.Log(monovalentEq / 1000.0);
         // Equation A (self-complementary, C_T/1) or Equation B (C_T/4) of oligotm.c.
         double strandDivisor = symmetric ? 1000000000.0 : 4000000000.0;
-        return deltaH / (deltaS + Primer3GasConstant * Math.Log(dnaConcentrationNanomolar / strandDivisor)) - KelvinOffset;
+        double tm = deltaH / (deltaS + Primer3GasConstant * Math.Log(dnaConcentrationNanomolar / strandDivisor)) - KelvinOffset;
+        double bound = Primer3OligoTmError;
+        if (annealingTemperature > 0.0)
+        {
+            // oligotm.c (santalucia salt correction): ddG = ΔH − (Ta + 273.15)·ΔS; Ka = exp(−ddG / (R·(Ta + 273.15)));
+            // bound = 100 / (1 + √(1 / ((C/x)·Ka))), x = 1e9 (Equation A) or 4e9 (Equation B).
+            double ddG = deltaH - (annealingTemperature + KelvinOffset) * deltaS;
+            double ka = Math.Exp(-ddG / (Primer3GasConstant * (annealingTemperature + KelvinOffset)));
+            bound = (1 / (1 + Math.Sqrt(1 / ((dnaConcentrationNanomolar / strandDivisor) * ka)))) * 100;
+        }
+        return (tm, bound);
 
         static int BaseIndex(char c) => c switch { 'A' => 0, 'C' => 1, 'G' => 2, _ => 3 };
     }
@@ -3597,7 +3680,7 @@ public static partial class PrimerDesigner
 
     // oligotm.c divalent_to_monovalent added to the monovalent salt: [Mon] + 120·√([Mg²⁺] − [dNTP]) (mM); no divalent ⇒
     // dNTP ignored, Mg ≤ dNTP ⇒ no contribution.
-    private static double Primer3MonovalentEquivalent(double monovalentMillimolar, double divalentMillimolar, double dntpMillimolar)
+    internal static double Primer3MonovalentEquivalent(double monovalentMillimolar, double divalentMillimolar, double dntpMillimolar)
     {
         double freeDivalent = divalentMillimolar == 0 ? 0 : Math.Max(0, divalentMillimolar - dntpMillimolar);
         return monovalentMillimolar + Primer3DivalentFactor * Math.Sqrt(freeDivalent);
@@ -3851,11 +3934,12 @@ public static partial class PrimerDesigner
     /// PRIMER_LEFT/RIGHT_n_PENALTY in both alignment modes.
     /// The library mispriming term <c>repeat_sim</c> is PRIMER_WT_LIBRARY_MISPRIMING
     /// (<see cref="Primer3PenaltyWeights.LibraryMispriming"/>) × <see cref="Primer3PenaltyInputs.LibraryMispriming"/>.
-    /// <para>Not modelled (all zero under Primer3 defaults): the annealing-temperature
-    /// <c>bound</c> term (only when PRIMER_ANNEALING_TEMP &gt; 0), <c>failure_rate</c>,
-    /// <c>pos_penalty</c> (needs
-    /// PRIMER_INSIDE/OUTSIDE_PENALTY) and <c>seq_quality</c> (needs base qualities); callers needing them add
-    /// weight·value themselves. The template mispriming terms (PRIMER_WT_TEMPLATE_MISPRIMING / _TH,
+    /// The fraction-bound terms PRIMER_WT_BOUND_GT / _LT (<see cref="Primer3PenaltyWeights.BoundGt"/> /
+    /// <see cref="Primer3PenaltyWeights.BoundLt"/> around <see cref="Primer3Optima.OptBound"/>) apply when
+    /// <see cref="Primer3PenaltyInputs.Bound"/> is set (Primer3: PRIMER_ANNEALING_TEMP &gt; 0); the position term is
+    /// PRIMER_WT_POS_PENALTY × <see cref="Primer3PenaltyInputs.PositionPenalty"/> (PRIMER_INSIDE/OUTSIDE_PENALTY).
+    /// <para>Not modelled (all zero under Primer3 defaults): <c>failure_rate</c> and <c>seq_quality</c> (needs base
+    /// qualities); callers needing them add weight·value themselves. The template mispriming terms (PRIMER_WT_TEMPLATE_MISPRIMING / _TH,
     /// <see cref="Primer3PenaltyWeights.TemplateMispriming"/> / <see cref="Primer3PenaltyWeights.TemplateMisprimingTh"/>)
     /// use <see cref="Primer3PenaltyInputs.TemplateMispriming"/>.</para>
     /// </summary>
@@ -3879,6 +3963,16 @@ public static partial class PrimerDesigner
             sum += w.TmGt * (inputs.Tm - o.OptTm);
         if (w.TmLt != 0 && inputs.Tm < o.OptTm)
             sum += w.TmLt * (o.OptTm - inputs.Tm);
+
+        // Fraction-bound terms (bound_gt / bound_lt around PRIMER_OPT_BOUND); for primers only when
+        // PRIMER_ANNEALING_TEMP > 0 (inputs.Bound is then set).
+        if (inputs.Bound is { } bound)
+        {
+            if (w.BoundGt != 0 && bound > o.OptBound)
+                sum += w.BoundGt * (bound - o.OptBound);
+            if (w.BoundLt != 0 && bound < o.OptBound)
+                sum += w.BoundLt * (o.OptBound - bound);
+        }
 
         // GC% term (gc_content is a percentage 0–100 in libprimer3.cc, line 3856).
         if (w.GcGt != 0 && inputs.GcPercent > o.OptGcPercent)
@@ -3917,6 +4011,10 @@ public static partial class PrimerDesigner
         // Library mispriming term (repeat_sim): weight · repeat_sim.score[repeat_sim.max].
         if (w.LibraryMispriming != 0)
             sum += w.LibraryMispriming * inputs.LibraryMispriming;
+
+        // Position term (pos_penalty): weight · position penalty relative to the target.
+        if (w.PositionPenalty != 0)
+            sum += w.PositionPenalty * inputs.PositionPenalty;
 
         // 3'-end stability term (end_stability): weight · ΔG magnitude (kcal/mol, as Primer3 reports it).
         if (w.EndStability != 0)
@@ -4163,6 +4261,39 @@ public readonly record struct PrimerParameters(
     /// </summary>
     public double? MaxTemplateMisprimingTh { get; init; }
 
+    /// <summary>
+    /// PRIMER_ANNEALING_TEMP (°C; null = Primer3's default −10 = off). When &gt; 0 Primer3 computes each primer's
+    /// fraction bound at this temperature (<see cref="PrimerDesigner.CalculateFractionBoundPrimer3"/>, reported in
+    /// <see cref="PrimerCandidate.Bound"/>), rejects primers outside [<see cref="MinBound"/>, <see cref="MaxBound"/>] and
+    /// adds the PRIMER_WT_BOUND_GT / _LT terms (<see cref="Primer3PenaltyWeights.BoundGt"/> /
+    /// <see cref="Primer3PenaltyWeights.BoundLt"/>) around <see cref="OptBound"/>. Must not exceed 100 °C. In a primer-pair
+    /// design it is also the internal oligo's annealing temperature (one global Primer3 setting).
+    /// </summary>
+    public double? AnnealingTemperature { get; init; }
+
+    /// <summary>PRIMER_MIN_BOUND (% bound; null = Primer3's −10); checked only when <see cref="AnnealingTemperature"/> &gt; 0.
+    /// A primer longer than 36 bases has no bound value (Primer3 OLIGOTM_ERROR = −999999.9999) and fails it.</summary>
+    public double? MinBound { get; init; }
+
+    /// <summary>PRIMER_MAX_BOUND (% bound; null = Primer3's 110); checked only when <see cref="AnnealingTemperature"/> &gt; 0.</summary>
+    public double? MaxBound { get; init; }
+
+    /// <summary>PRIMER_OPT_BOUND (% bound; null = Primer3's 97): the optimum of the PRIMER_WT_BOUND_GT/_LT terms; must lie
+    /// in [<see cref="MinBound"/>, <see cref="MaxBound"/>] (Primer3 <c>_pr_data_control</c>).</summary>
+    public double? OptBound { get; init; }
+
+    /// <summary>PRIMER_ANNEALING_TEMP in effect (Primer3 default −10 = off).</summary>
+    public double EffectiveAnnealingTemperature => AnnealingTemperature ?? PrimerDesigner.Primer3DefaultAnnealingTemperature;
+
+    /// <summary>PRIMER_MIN_BOUND in effect (default −10).</summary>
+    public double EffectiveMinBound => MinBound ?? PrimerDesigner.Primer3MinBound;
+
+    /// <summary>PRIMER_MAX_BOUND in effect (default 110).</summary>
+    public double EffectiveMaxBound => MaxBound ?? PrimerDesigner.Primer3MaxBound;
+
+    /// <summary>PRIMER_OPT_BOUND in effect (default 97).</summary>
+    public double EffectiveOptBound => OptBound ?? PrimerDesigner.Primer3OptBound;
+
     /// <summary>Effective PRIMER_MAX_TEMPLATE_MISPRIMING.</summary>
     public double EffectiveMaxTemplateMispriming => MaxTemplateMispriming ?? PrimerDesigner.Primer3UndefinedTemplateMispriming;
 
@@ -4244,6 +4375,9 @@ public readonly record struct PrimerParameters(
         // add the term (p_obj_fn: weight ≠ 0), which fails its PR_ASSERT.
         if (!((PenaltyWeights?.TemplateMispriming ?? 0) >= 0) || !((PenaltyWeights?.TemplateMisprimingTh ?? 0) >= 0))
             throw new ArgumentOutOfRangeException(paramName, "PRIMER_WT_TEMPLATE_MISPRIMING[_TH] must be ≥ 0.");
+        // _pr_data_control: PRIMER_OPT_BOUND within [PRIMER_MIN_BOUND, PRIMER_MAX_BOUND]; PRIMER_ANNEALING_TEMP ≤ 100.
+        PrimerDesigner.ValidatePrimer3Bound(EffectiveAnnealingTemperature, EffectiveMinBound, EffectiveMaxBound,
+            EffectiveOptBound, internalOligo: false, paramName);
     }
 }
 
@@ -4345,6 +4479,20 @@ public sealed record PrimerCandidate(
     /// when Primer3 computes it (a template-mispriming limit or weight is set); otherwise <c>null</c>.
     /// </summary>
     public double? TemplateMispriming { get; init; }
+
+    /// <summary>
+    /// Primer3 PRIMER_LEFT/RIGHT_n_BOUND: the fraction (%) bound at <see cref="PrimerParameters.AnnealingTemperature"/>
+    /// (<see cref="PrimerDesigner.CalculateFractionBoundPrimer3"/>) when that is &gt; 0 and the value is defined
+    /// (≤ 36 ACGT bases); otherwise <c>null</c>.
+    /// </summary>
+    public double? Bound { get; init; }
+
+    /// <summary>
+    /// Primer3 PRIMER_LEFT/RIGHT_n_POSITION_PENALTY (<see cref="PrimerDesigner.CalculatePositionPenaltyPrimer3"/>) of a
+    /// designed primer when <see cref="PrimerPairOptions.InsidePenalty"/> / <see cref="PrimerPairOptions.OutsidePenalty"/>
+    /// are not Primer3's defaults (−1 / 0); otherwise <c>null</c>.
+    /// </summary>
+    public double? PositionPenalty { get; init; }
 }
 
 /// <summary>
@@ -4385,6 +4533,20 @@ public readonly record struct Primer3PenaltyInputs(
     /// <see cref="PrimerDesigner.CalculateTemplateMispriming"/>); 0 when not computed.
     /// </summary>
     public double TemplateMispriming { get; init; }
+
+    /// <summary>
+    /// Fraction bound in % (Primer3 <c>h->bound</c>, <see cref="PrimerDesigner.CalculateFractionBoundPrimer3"/>), or
+    /// <c>null</c> when the bound terms do not apply: for a left/right primer Primer3 adds the PRIMER_WT_BOUND_GT/_LT
+    /// terms only when PRIMER_ANNEALING_TEMP &gt; 0 (pass null otherwise). The internal-oligo branch of <c>p_obj_fn</c>
+    /// has no such gate: an internal oligo without a bound value carries Primer3's OLIGOTM_ERROR (−999999.9999).
+    /// </summary>
+    public double? Bound { get; init; }
+
+    /// <summary>
+    /// Position penalty (Primer3 <c>h->position_penalty</c>, <see cref="PrimerDesigner.CalculatePositionPenaltyPrimer3"/>);
+    /// 0 under Primer3's default inside / outside penalties.
+    /// </summary>
+    public double PositionPenalty { get; init; }
 }
 
 /// <summary>
@@ -4453,6 +4615,18 @@ public readonly record struct Primer3PenaltyWeights(
     /// <see cref="PrimerParameters.ThermodynamicTemplateAlignment"/>.
     /// </summary>
     public bool ThermodynamicTemplateAlignment { get; init; }
+
+    /// <summary>PRIMER_WT_BOUND_GT (Primer3 <c>weights.bound_gt</c>, default 0): × (bound − <see cref="Primer3Optima.OptBound"/>)
+    /// when the fraction bound (<see cref="Primer3PenaltyInputs.Bound"/>) is above the optimum.</summary>
+    public double BoundGt { get; init; }
+
+    /// <summary>PRIMER_WT_BOUND_LT (<c>weights.bound_lt</c>, default 0): × (<see cref="Primer3Optima.OptBound"/> − bound)
+    /// when the fraction bound is below the optimum.</summary>
+    public double BoundLt { get; init; }
+
+    /// <summary>PRIMER_WT_POS_PENALTY (<c>weights.pos_penalty</c>, Primer3 default 1): × the position penalty
+    /// (<see cref="Primer3PenaltyInputs.PositionPenalty"/>).</summary>
+    public double PositionPenalty { get; init; } = PrimerDesigner.Primer3WeightPositionPenalty;
 }
 
 /// <summary>
@@ -4463,7 +4637,12 @@ public readonly record struct Primer3PenaltyWeights(
 public readonly record struct Primer3Optima(
     double OptTm,
     int OptSize,
-    double OptGcPercent);
+    double OptGcPercent)
+{
+    /// <summary>PRIMER_OPT_BOUND / PRIMER_INTERNAL_OPT_BOUND (% bound; Primer3 default
+    /// <see cref="PrimerDesigner.Primer3OptBound"/> = 97): the optimum of the bound terms.</summary>
+    public double OptBound { get; init; } = PrimerDesigner.Primer3OptBound;
+}
 
 /// <summary>
 /// Result of primer pair design. For a valid pair the optional values are Primer3's
@@ -4656,6 +4835,25 @@ public sealed record PrimerPairOptions
     /// pair weight every pair fails, and 0 means no limit (Primer3 behaviour, reproduced).
     /// </summary>
     public double MaxTemplateMisprimingTh { get; init; } = PrimerDesigner.Primer3UndefinedTemplateMispriming;
+
+    /// <summary>
+    /// PRIMER_INSIDE_PENALTY (default <see cref="PrimerDesigner.Primer3DefaultInsidePenalty"/> = −1). With the default
+    /// inside (−1) and outside (0) penalties primers never overlap the target. Any other combination makes Primer3 score
+    /// every primer's 3′ end against the (single) target instead (<see cref="PrimerDesigner.CalculatePositionPenaltyPrimer3"/>):
+    /// a primer may then extend into the target as long as its 3′ end does not pass the target's far end, a 3′ end
+    /// inside the target costs <c>InsidePenalty</c> per base, one outside it <see cref="OutsidePenalty"/> per base of
+    /// distance (× PRIMER_WT_POS_PENALTY, <see cref="Primer3PenaltyWeights.PositionPenalty"/>), and a pair must still
+    /// span the target (left 3′ end before the right primer's 3′ end). Primer3 applies the value as given, so the default
+    /// −1 makes inside positions negative when only <see cref="OutsidePenalty"/> is changed.
+    /// </summary>
+    public double InsidePenalty { get; init; } = PrimerDesigner.Primer3DefaultInsidePenalty;
+
+    /// <summary>PRIMER_OUTSIDE_PENALTY (default 0): per-base penalty of a 3′ end outside the target when the position
+    /// penalties are not Primer3's defaults (see <see cref="InsidePenalty"/>).</summary>
+    public double OutsidePenalty { get; init; } = PrimerDesigner.Primer3DefaultOutsidePenalty;
+
+    // Primer3 _PR_DEFAULT_POSITION_PENALTIES.
+    internal bool DefaultPositionPenalties => PrimerDesigner.IsDefaultPositionPenalties(InsidePenalty, OutsidePenalty);
 
     /// <summary>
     /// PRIMER_PICK_INTERNAL_OLIGO: pick a hybridization (internal) oligo for every pair — the lowest-penalty

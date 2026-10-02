@@ -114,6 +114,29 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    when the limit is ≥ 0 and exceeded, thermodynamic mode when the limit is **non-zero** and exceeded (Primer3's
    test — with the default −100 and a pair weight every pair fails; 0 = no limit); the weighted value enters `obj_fn`
    (thermodynamic: `temp_cutoff` rule relative to the lower primer Tm). Only the weights/limits of the active mode apply.
+9. **Fraction bound** (`oligotm` with PRIMER_ANNEALING_TEMP; `PrimerDesigner.CalculateFractionBoundPrimer3`,
+   PrimerDesigner.BoundAndPosition.cs): with `PrimerParameters.AnnealingTemperature` $T_a$ > 0 every primer (and the
+   internal oligo — one global Primer3 setting) gets, from the same SantaLucia 1998 ΔH/ΔS (SantaLucia salt correction)
+   as its Tm, $\Delta G = \Delta H - (T_a + 273.15)\Delta S$, $K = e^{-\Delta G / (1.987 (T_a + 273.15))}$,
+   bound $= 100 / (1 + \sqrt{1/((C/x) K)})$ % ($x = 4\cdot10^9$, $10^9$ for a self-complementary oligo; C in nM;
+   an oligo > 36 nt or with a non-ACGT base has none — Primer3's OLIGOTM_ERROR −999999.9999). Checked after the Tm
+   (`MinBound` / `MaxBound`, PRIMER_MIN/MAX_BOUND −10 / 110 %; not a five-prime problem) and penalised in `p_obj_fn`
+   by PRIMER_WT_BOUND_GT / _LT (`Primer3PenaltyWeights.BoundGt` / `BoundLt`) around PRIMER_OPT_BOUND (`OptBound`, 97 %).
+   Primer terms only when $T_a$ > 0; the internal-oligo terms (`Primer3ProbeSettings.WeightBoundGt` / `WeightBoundLt`,
+   `MinBound` / `MaxBound` / `OptBound`) are not gated, so without $T_a$ PRIMER_INTERNAL_WT_BOUND_LT adds
+   w·(opt + 999999.9999), exactly as Primer3. Output: `PrimerCandidate.Bound`, `Primer3Probe.Bound`
+   (PRIMER_LEFT/RIGHT/INTERNAL_k_BOUND, when $T_a$ > 0).
+10. **Position penalty** (`compute_position_penalty`; `PrimerDesigner.CalculatePositionPenaltyPrimer3`): with
+   `PrimerPairOptions.InsidePenalty` / `OutsidePenalty` other than Primer3's −1 / 0 (PRIMER_INSIDE/OUTSIDE_PENALTY)
+   primers are no longer kept off the target: `make_detection_primer_lists` searches the whole included region, a
+   left primer is allowed while its 3′ end ≤ the target's last base (a right primer while its 3′ end — leftmost
+   top-strand base — ≥ the target's first base), a 3′ end inside the target costs `InsidePenalty` × (distance from the
+   near target end + 1), one outside `OutsidePenalty` × (bases between it and the target), × PRIMER_WT_POS_PENALTY
+   (`Primer3PenaltyWeights.PositionPenalty`, default 1) in `p_obj_fn`, and a pair must still span the target
+   (`pair_spans_target`: left 3′ end < right 3′ end). Output `PrimerCandidate.PositionPenalty`
+   (PRIMER_LEFT/RIGHT_k_POSITION_PENALTY). Primer3 multiplies with the value as given, so changing only the outside
+   penalty leaves the inside multiplier at −1 (negative penalties); a negative pair penalty makes Primer3 abort
+   (`obj_fn` `PR_ASSERT(sum >= 0.0)`) — the library throws `InvalidOperationException`.
 
 `PrimerCandidate.Score` (100 − 2|len − opt| − 2|Tm − opt| − 0.5|GC − 50| − 5·homopolymer + 5 GC-clamp
 bonus) is reported for information only and does not drive selection.
@@ -138,7 +161,7 @@ bonus) is reported for information only and does not drive selection.
 | `targetStart` | `int` | required | Start of the target region | Must satisfy `targetStart >= 0` |
 | `targetEnd` | `int` | required | Exclusive end of the target region (target = `[targetStart, targetEnd)`, Primer3 SEQUENCE_TARGET) | Must satisfy `targetEnd < template.Length` and `targetStart < targetEnd` |
 | `parameters` | `PrimerParameters?` | `PrimerDesigner.DefaultParameters` | Primer design thresholds | Defaults are `18-25` bp length, `40-60%` GC, `57-63°C` Tm, `OptimalLength = 20`, `OptimalTm = 60`, `MaxHomopolymer = 4`, `MaxDinucleotideRepeats = 4`, `Avoid3PrimeGC = false`, and `Check3PrimeStability = true` (deprecated, no effect); `GcClamp` = 0, `MaxEndGc` = null (5) and `MaxEndStability` = null (100) are Primer3's defaults in both parameter sets; `PrimerDesigner.Primer3DefaultParameters` = Primer3's (18/20/27 nt, GC 20–80 %, poly-X 5, no dinucleotide limit) |
-| `pairOptions` | `PrimerPairOptions?` | `PrimerPairOptions.Default` | Pair options: `ProductSizeRanges` (PRIMER_PRODUCT_SIZE_RANGE, default 100–300), `MaxTmDifference` (PRIMER_PAIR_MAX_DIFF_TM, default 5; `Primer3Defaults`: 100), `NumReturn` (PRIMER_NUM_RETURN, 5), `IncludedRegion` (SEQUENCE_INCLUDED_REGION), `ProductOptSize`/`ProductOptTm`/`ProductMinTm`/`ProductMaxTm`, `Weights` (PRIMER_PAIR_WT_*), `PickInternalOligo` + `InternalOligo` (PRIMER_PICK_INTERNAL_OLIGO, PRIMER_INTERNAL_*) | Primer3 `_pr_data_control` errors throw `ArgumentException` (weight without optimum, PRIMER_MAX_SIZE or PRIMER_INTERNAL_MAX_SIZE > min product size, NUM_RETURN < 1, target outside the included region) |
+| `pairOptions` | `PrimerPairOptions?` | `PrimerPairOptions.Default` | Pair options: `InsidePenalty` / `OutsidePenalty` (PRIMER_INSIDE/OUTSIDE_PENALTY, −1 / 0, §2.2 item 10), `ProductSizeRanges` (PRIMER_PRODUCT_SIZE_RANGE, default 100–300), `MaxTmDifference` (PRIMER_PAIR_MAX_DIFF_TM, default 5; `Primer3Defaults`: 100), `NumReturn` (PRIMER_NUM_RETURN, 5), `IncludedRegion` (SEQUENCE_INCLUDED_REGION), `ProductOptSize`/`ProductOptTm`/`ProductMinTm`/`ProductMaxTm`, `Weights` (PRIMER_PAIR_WT_*), `PickInternalOligo` + `InternalOligo` (PRIMER_PICK_INTERNAL_OLIGO, PRIMER_INTERNAL_*) | Primer3 `_pr_data_control` errors throw `ArgumentException` (weight without optimum, PRIMER_MAX_SIZE or PRIMER_INTERNAL_MAX_SIZE > min product size, NUM_RETURN < 1, target outside the included region) |
 
 ### 3.2 Output / Return Value
 
@@ -215,6 +238,7 @@ Parameter ranges documented in the original file and current source:
 - `PrimerDesigner.CalculateLibraryMispriming(string, bool, PrimerMisprimingLibrary, bool)`: Primer3 library mispriming score of one primer ([PrimerDesigner.MisprimingLibrary.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.MisprimingLibrary.cs)).
 - `PrimerDesigner.CalculateTemplateMispriming(DnaSequence, int, int, bool, bool, …)`: Primer3 template mispriming scores (`TemplateMisprimingScore` same-strand / other-strand / max) of one primer site ([PrimerDesigner.TemplateMispriming.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.TemplateMispriming.cs)).
 - `PrimerDesigner.CalculateMeltingTemperaturePrimer3(string, ...)`: Primer3-default primer Tm used by design.
+- `PrimerDesigner.CalculateFractionBoundPrimer3(string, double, ...)` / `CalculatePositionPenaltyPrimer3(...)`: Primer3 fraction bound at the annealing temperature and position penalty relative to the target ([PrimerDesigner.BoundAndPosition.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.BoundAndPosition.cs)); `PrimerParameters.AnnealingTemperature` / `MinBound` / `MaxBound` / `OptBound`.
 - `PrimerDesigner.CalculatePrimer3Penalty(...)`: Primer3 per-primer penalty used for ranking.
 - `PrimerDesigner.CalculatePrimerScore(...)` (private): informational heuristic score.
 
@@ -242,7 +266,9 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 - Template mispriming (audit round 3, A3-4, 2026-10-02): random 150–500-bp templates (thermodynamic template mode 150–260 bp), 70 % made repetitive (1–6 copied 12–40-nt fragments, forward or reverse-complemented, 0–3 mutations; 30 % with a tandem repeat), PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT ∈ {0, 1}, PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT ∈ {0, 1}, PRIMER_MAX_TEMPLATE_MISPRIMING ∈ {−100, 6–15}, _TH ∈ {−100, 15–50}, PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING ∈ {−100, 14–24}, _TH ∈ {−100, 0, 30–80}, PRIMER_WT_TEMPLATE_MISPRIMING[_TH] ∈ {0, 0.1, 0.5, 1}, PRIMER_PAIR_WT_TEMPLATE_MISPRIMING[_TH] ∈ {0, 0.2, 1}, 14 % with a mispriming library, 15 % PRIMER_PICK_INTERNAL_OLIGO: 352/352 templates (1590 pairs; 183 thermodynamic; primers rejected by the template limit in 124 templates, pairs in 67) identical to primer3-py 2.3.1 `design_primers` on left/right start + length, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY (|Δ| ≤ 1e-9), PRIMER_LEFT/RIGHT_k_TEMPLATE_MISPRIMING (alignment mode; primer3-py omits the per-primer _TH keys in thermodynamic mode), PRIMER_PAIR_k_TEMPLATE_MISPRIMING[_TH] and PRIMER_INTERNAL_k position; per-strand END1 values against `primer3.calc_end_stability`.
 
-**Not implemented:** position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
+- Fraction bound and position penalty (audit round 3, A3-5 part 1, 2026-10-02): random 150–450-bp templates with a random 5–50-nt target, PRIMER_ANNEALING_TEMP ∈ {unset, −10, 0, 40–70}, random PRIMER_MIN/MAX/OPT_BOUND and PRIMER_INTERNAL_MIN/MAX/OPT_BOUND, PRIMER_[INTERNAL_]WT_BOUND_GT/_LT ∈ {0, 1e-7–0.5}, random reaction conditions, PRIMER_INSIDE_PENALTY ∈ {−1, 0, 0.1, 0.5, 1, 2} / PRIMER_OUTSIDE_PENALTY ∈ {0, 0.05–1} (60 % non-default), PRIMER_WT_POS_PENALTY ∈ {0, 0.5, 1, 2}, optional product-size ranges, PRIMER_PICK_INTERNAL_OLIGO (+ PRIMER_PAIR_WT_IO_PENALTY), both alignment modes, plus 85 pick_hyb_probe_only probe lists: 400/400 cases identical to primer3-py 2.3.1 `design_primers` (1304 pairs + 432 probes; left/right start + length, PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9, PRIMER_LEFT/RIGHT/INTERNAL_k_BOUND, PRIMER_LEFT/RIGHT_k_POSITION_PENALTY, PRIMER_INTERNAL_k position); the 34 settings where primer3-py aborts on a negative pair penalty throw `InvalidOperationException`. Details: F44 in `docs/Validation/review-2026-09/B07.md`.
+
+**Not implemented:** sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
 
@@ -262,6 +288,9 @@ Forward primers are taken directly from the template; reverse primers are revers
 | PRIMER_MAX_TEMPLATE_MISPRIMING / PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING > 32767 (alignment mode), negative template weight | `ArgumentOutOfRangeException` / `ArgumentException` | Primer3 `_pr_data_control`; a negative weight would trip Primer3's `p_obj_fn` assertion |
 | Pair template limit/weight with PRIMER_WT_LIBRARY_MISPRIMING ≠ 0 but no per-primer template weight | `InvalidOperationException` | Primer3 never scores the primers' template mispriming then and aborts (`PR_ASSERT` in `characterize_pair`) |
 | PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT = 1 with a template > 10000 nt | `ArgumentException` | thal THAL_MAX_SEQ |
+| PRIMER_OPT_BOUND / PRIMER_INTERNAL_OPT_BOUND outside [MIN, MAX]; PRIMER_ANNEALING_TEMP > 100 | `ArgumentOutOfRangeException` | Primer3 `_pr_data_control` ("Optimum primer fraction binding lower than minimum or higher than maximum", "Annealing temperature higher than 100 C") |
+| Bound weights without PRIMER_ANNEALING_TEMP | primer terms inert; internal-oligo terms use bound = −999999.9999 | `p_obj_fn` gates only the primer branch |
+| Non-default inside/outside penalty giving a negative pair penalty (e.g. only PRIMER_OUTSIDE_PENALTY changed, inside stays −1) | `InvalidOperationException` | Primer3 aborts (`obj_fn` `PR_ASSERT(sum >= 0.0)`) |
 | PRIMER_WT_LIBRARY_MISPRIMING / PRIMER_PAIR_WT_LIBRARY_MISPRIMING ≠ 0 without a library | `ArgumentException` | Primer3 `_pr_data_control` "Mispriming score is part of objective function, but mispriming library is not defined" |
 | Library entry with an empty sequence or an illegal `*weight` (missing, < 0, > 100) | `ArgumentException` | `add_seq_to_seq_lib` / `parse_seq_name` (primer3-py raises OSError) |
 | Library entry with a non-IUPAC character | Character becomes N, `PrimerMisprimingLibrary.Warnings` | `upcase_and_check_char` (primer3-py 2.3.1 aborts here: it passes a NULL `errfrag` to the warning) |

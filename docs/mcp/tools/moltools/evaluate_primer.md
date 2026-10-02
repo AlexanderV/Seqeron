@@ -31,6 +31,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3 
 | `salt_monovalent` / `salt_divalent` / `dntp_conc` / `dna_conc` | number | No | PRIMER_SALT_MONOVALENT (mM, > 0; default 50) / PRIMER_SALT_DIVALENT (mM, ≥ 0; 1.5) / PRIMER_DNTP_CONC (mM, ≥ 0; 0.6) / PRIMER_DNA_CONC (nM, > 0; 50) for the Tm and ntthal values; illegal values → `ArgumentOutOfRangeException`. |
 | `opt_gc_percent` / `wt_gc_percent_gt` / `wt_gc_percent_lt` | number | No | PRIMER_OPT_GC_PERCENT (default 50) and PRIMER_WT_GC_PERCENT_GT / _LT (default 0) of the `penalty`. |
 | `gc_clamp` / `max_end_gc` / `max_end_stability` | integer / integer / number | No | Primer3 3′-end checks: PRIMER_GC_CLAMP (default 0), PRIMER_MAX_END_GC (0–5, default 5), PRIMER_MAX_END_STABILITY (kcal/mol ≥ 0, default 100); a failure adds an issue naming the Primer3 tag (primer3-py `check_primers` parity). |
+| `annealing_temp` / `min_bound` / `max_bound` / `opt_bound` / `wt_bound_gt` / `wt_bound_lt` | number | No | PRIMER_ANNEALING_TEMP (°C ≤ 100; default −10 = off) and the fraction-bound settings PRIMER_MIN/MAX/OPT_BOUND (−10 / 110 / 97 %) and PRIMER_WT_BOUND_GT / _LT (0). With `annealing_temp` > 0 the primer's fraction bound (Primer3 `oligotm`) is reported as `bound`, a value outside [min, max] adds an issue naming PRIMER_MIN_BOUND / PRIMER_MAX_BOUND, and the weights add w × |bound − opt| to the penalty (primer3-py `check_primers` parity, F44). `opt_bound` outside [min, max] or `annealing_temp` > 100 → `ArgumentOutOfRangeException`. |
 
 ## Output Schema
 
@@ -41,6 +42,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3 
 | `selfAnyTh` / `selfEndTh` / `hairpinTh` | number \| null | Primer3 `PRIMER_*_SELF_ANY_TH` / `_SELF_END_TH` / `_HAIRPIN_TH` (°C). |
 | `selfAny` / `selfEnd` | number \| null | Primer3 alignment-mode `PRIMER_*_SELF_ANY` / `_SELF_END` (dpal scores) when `parameters.StructureScreen = Primer3Alignment` (limits `MaxSelfAny` 8 / `MaxSelfEnd` 3); null otherwise. |
 | `isValid` / `issues` / `score` / `penalty` | mixed | QC verdict; `penalty` is the Primer3 ranking penalty. |
+| `bound` | number \| null | Primer3 `PRIMER_LEFT/RIGHT_0_BOUND` (% bound at `annealing_temp`) when `annealing_temp` > 0; null otherwise. |
 
 ## Errors
 

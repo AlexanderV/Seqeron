@@ -91,6 +91,7 @@
 | TM11 | TaqMan Tm at stated conditions = primer3-py calc_tm; non-ACGT → gate fails | Probe Tm | primer3 |
 | P10 | `DesignProbesPrimer3` with PRIMER_INTERNAL_MISHYB_LIBRARY: probe positions, penalties (incl. PRIMER_INTERNAL_WT_LIBRARY_MISHYB term) and PRIMER_INTERNAL_n_LIBRARY_MISHYB score + entry (dpal unanchored LOCAL, IUPAC per PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS, short entries score their length) = primer3-py `mishyb_lib`, both alignment modes; `CalculateLibraryMishyb` = check_primers; weight without library / limit > 32767 in alignment mode throw (`ProbeDesigner_MishybLibrary_Tests`) | Mishyb library | primer3 libprimer3.c |
 | P11 | `DesignProbesPrimer3` / MCP `design_probes_primer3` reject numReturn < 1 (Primer3 "PRIMER_NUM_RETURN < 1") | Data control | primer3 _pr_data_control |
+| P12 | `DesignProbesPrimer3` with PRIMER_ANNEALING_TEMP: PRIMER_INTERNAL_n_BOUND, rejection outside PRIMER_INTERNAL_MIN/MAX_BOUND, PRIMER_INTERNAL_WT_BOUND_GT/LT terms (ungated: bound −999999.9999 without an annealing temperature) and the opt-bound / annealing-temperature data control = primer3-py pick_hyb_probe_only (`PrimerDesigner_BoundAndPosition_Tests.DesignProbesPrimer3_*`) | Fraction bound | primer3 libprimer3.c, oligotm.c |
 
 ### Should (Important)
 

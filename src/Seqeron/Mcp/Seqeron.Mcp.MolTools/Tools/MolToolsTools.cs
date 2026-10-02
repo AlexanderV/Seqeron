@@ -14,11 +14,11 @@ public class MolToolsTools
 
     #region PrimerDesigner
 
-    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat, Primer3 3'-end checks gc_clamp / max_end_gc / max_end_stability) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN; with min_left/right_three_prime_distance later pairs avoid primers whose 3' ends are too close to those of earlier pairs). With mispriming_library (Primer3 PRIMER_MISPRIMING_LIBRARY) primers whose weighted dpal similarity to a library entry exceeds max_library_mispriming (default 12) and pairs above pair_max_library_mispriming (default 24) are rejected; scores can be weighted into the penalties (wt_library_mispriming, pair_wt_library_mispriming). With internal_mishyb_library (Primer3 PRIMER_INTERNAL_MISHYB_LIBRARY) internal oligos above internal_max_library_mishyb (default 12) are rejected (weight: internal_wt_library_mishyb). Template mispriming (Primer3 PRIMER_MAX_TEMPLATE_MISPRIMING / PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING, dpal; with thermodynamic_template_alignment the _TH ntthal Tm variants) rejects primers / pairs that also prime elsewhere on the template and can be weighted into the penalties (wt_/pair_wt_template_mispriming[_th]); reported as templateMispriming per primer and pair. The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat, Primer3 3'-end checks gc_clamp / max_end_gc / max_end_stability) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN; with min_left/right_three_prime_distance later pairs avoid primers whose 3' ends are too close to those of earlier pairs). With mispriming_library (Primer3 PRIMER_MISPRIMING_LIBRARY) primers whose weighted dpal similarity to a library entry exceeds max_library_mispriming (default 12) and pairs above pair_max_library_mispriming (default 24) are rejected; scores can be weighted into the penalties (wt_library_mispriming, pair_wt_library_mispriming). With internal_mishyb_library (Primer3 PRIMER_INTERNAL_MISHYB_LIBRARY) internal oligos above internal_max_library_mishyb (default 12) are rejected (weight: internal_wt_library_mishyb). Template mispriming (Primer3 PRIMER_MAX_TEMPLATE_MISPRIMING / PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING, dpal; with thermodynamic_template_alignment the _TH ntthal Tm variants) rejects primers / pairs that also prime elsewhere on the template and can be weighted into the penalties (wt_/pair_wt_template_mispriming[_th]); reported as templateMispriming per primer and pair. With annealing_temp > 0 (Primer3 PRIMER_ANNEALING_TEMP) each primer's (and internal oligo's) fraction bound at that temperature is computed (reported as bound), primers outside [min_bound, max_bound] (internal oligo: internal_min/max_bound) are rejected and wt_bound_gt/lt (internal_wt_bound_gt/lt) weight the distance from opt_bound into the penalties. With inside_penalty / outside_penalty (Primer3 PRIMER_INSIDE_PENALTY / PRIMER_OUTSIDE_PENALTY, defaults -1 / 0 = primers never overlap the target) primers may extend into the target up to its far end and each primer's 3'-end distance from the target is penalised (reported as positionPenalty, weight wt_pos_penalty, default 1). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
     public static DesignPrimersResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
-        [Description("0-based exclusive end of target region (primers never overlap [target_start, target_end)).")] int target_end,
+        [Description("0-based exclusive end of target region (with the default inside_penalty/outside_penalty primers never overlap [target_start, target_end)).")] int target_end,
         [Description("Optional primer design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks, structure screen). Defaults are used if null.")] PrimerParameters? parameters = null,
         [Description("PRIMER_PRODUCT_SIZE_RANGE in Primer3 syntax, e.g. \"100-300\" or \"150-250 100-400\" (ranges in order of preference; default 100-300).")] string? product_size_range = null,
         [Description("PRIMER_PAIR_MAX_DIFF_TM: maximum |Tm_forward - Tm_reverse| in °C (default 5; Primer3's own default is 100).")] double max_tm_difference = PrimerDesigner.MaxPairTmDifference,
@@ -63,7 +63,21 @@ public class MolToolsTools
         [Description("PRIMER_WT_TEMPLATE_MISPRIMING: per-primer penalty weight of the template mispriming score (alignment mode; default 0).")] double? wt_template_mispriming = null,
         [Description("PRIMER_WT_TEMPLATE_MISPRIMING_TH: per-primer penalty weight of the template mispriming Tm (thermodynamic mode, Primer3 temp_cutoff rule; default 0).")] double? wt_template_mispriming_th = null,
         [Description("PRIMER_PAIR_WT_TEMPLATE_MISPRIMING: pair penalty weight of the pair template mispriming score (alignment mode; default 0).")] double? pair_wt_template_mispriming = null,
-        [Description("PRIMER_PAIR_WT_TEMPLATE_MISPRIMING_TH: pair penalty weight of the pair template mispriming value (thermodynamic mode; default 0).")] double? pair_wt_template_mispriming_th = null)
+        [Description("PRIMER_PAIR_WT_TEMPLATE_MISPRIMING_TH: pair penalty weight of the pair template mispriming value (thermodynamic mode; default 0).")] double? pair_wt_template_mispriming_th = null,
+        [Description("PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 the fraction of each primer / internal oligo bound at this temperature is computed (Primer3 oligotm, SantaLucia 1998) and the bound limits / weights below apply; it is also the internal oligo's annealing temperature.")] double? annealing_temp = null,
+        [Description("PRIMER_MIN_BOUND: minimum fraction bound of a primer, % (default -10; only with annealing_temp > 0).")] double? min_bound = null,
+        [Description("PRIMER_MAX_BOUND: maximum fraction bound of a primer, % (default 110; only with annealing_temp > 0).")] double? max_bound = null,
+        [Description("PRIMER_OPT_BOUND: optimum fraction bound of the bound penalty terms, % (default 97; must lie in [min_bound, max_bound]).")] double? opt_bound = null,
+        [Description("PRIMER_WT_BOUND_GT: per-primer penalty weight of the fraction bound above opt_bound (default 0; only with annealing_temp > 0).")] double? wt_bound_gt = null,
+        [Description("PRIMER_WT_BOUND_LT: per-primer penalty weight of the fraction bound below opt_bound (default 0; only with annealing_temp > 0).")] double? wt_bound_lt = null,
+        [Description("PRIMER_INTERNAL_MIN_BOUND: minimum fraction bound of the internal oligo, % (default -10; only with annealing_temp > 0).")] double? internal_min_bound = null,
+        [Description("PRIMER_INTERNAL_MAX_BOUND: maximum fraction bound of the internal oligo, % (default 110; only with annealing_temp > 0).")] double? internal_max_bound = null,
+        [Description("PRIMER_INTERNAL_OPT_BOUND: optimum fraction bound of the internal-oligo bound terms, % (default 97).")] double? internal_opt_bound = null,
+        [Description("PRIMER_INTERNAL_WT_BOUND_GT: internal-oligo penalty weight of the fraction bound above internal_opt_bound (default 0).")] double? internal_wt_bound_gt = null,
+        [Description("PRIMER_INTERNAL_WT_BOUND_LT: internal-oligo penalty weight of the fraction bound below internal_opt_bound (default 0). As in Primer3 it applies even without annealing_temp, where the bound is Primer3's error value -999999.9999.")] double? internal_wt_bound_lt = null,
+        [Description("PRIMER_INSIDE_PENALTY: penalty per base of a primer 3' end inside the target (default -1). Any value other than the defaults -1 / 0 of inside_penalty / outside_penalty lets primers overlap the target as long as their 3' end does not pass its far end; as in Primer3 the default -1 then makes inside positions negative, and a negative pair penalty is an error.")] double? inside_penalty = null,
+        [Description("PRIMER_OUTSIDE_PENALTY: penalty per base of distance between a primer 3' end and the target (default 0; see inside_penalty).")] double? outside_penalty = null,
+        [Description("PRIMER_WT_POS_PENALTY: weight of the position penalty in the primer penalty (default 1).")] double? wt_pos_penalty = null)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -89,6 +103,12 @@ public class MolToolsTools
             wt_library_mispriming, lib_ambiguity_codes_consensus);
         parameters = ApplyTemplateMispriming(parameters, thermodynamic_template_alignment, max_template_mispriming,
             max_template_mispriming_th, wt_template_mispriming, wt_template_mispriming_th);
+        parameters = ApplyFractionBound(parameters, annealing_temp, min_bound, max_bound, opt_bound, wt_bound_gt, wt_bound_lt);
+        if (wt_pos_penalty is { } wtPos)
+        {
+            var p = parameters ?? PrimerDesigner.DefaultParameters;
+            parameters = p with { PenaltyWeights = (p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights) with { PositionPenalty = wtPos } };
+        }
         var internalOligo = new ProbeDesigner.Primer3ProbeSettings(
             MonovalentMillimolar: internal_salt_monovalent ?? PrimerDesigner.Primer3InternalMonovalentMillimolar,
             DivalentMillimolar: internal_salt_divalent ?? PrimerDesigner.Primer3InternalDivalentMillimolar,
@@ -101,6 +121,11 @@ public class MolToolsTools
             MishybLibrary = internal_mishyb_library is null ? null : new PrimerMisprimingLibrary(internal_mishyb_library),
             MaxLibraryMishyb = internal_max_library_mishyb ?? PrimerDesigner.Primer3InternalMaxLibraryMishyb,
             WeightLibraryMishyb = internal_wt_library_mishyb ?? 0.0,
+            MinBound = internal_min_bound ?? PrimerDesigner.Primer3MinBound,
+            MaxBound = internal_max_bound ?? PrimerDesigner.Primer3MaxBound,
+            OptBound = internal_opt_bound ?? PrimerDesigner.Primer3OptBound,
+            WeightBoundGt = internal_wt_bound_gt ?? 0.0,
+            WeightBoundLt = internal_wt_bound_lt ?? 0.0,
         };
         var options = PrimerPairOptions.Default with
         {
@@ -115,6 +140,8 @@ public class MolToolsTools
             MaxLibraryMispriming = pair_max_library_mispriming ?? PrimerDesigner.Primer3PairMaxLibraryMispriming,
             MaxTemplateMispriming = pair_max_template_mispriming ?? PrimerDesigner.Primer3UndefinedTemplateMispriming,
             MaxTemplateMisprimingTh = pair_max_template_mispriming_th ?? PrimerDesigner.Primer3UndefinedTemplateMispriming,
+            InsidePenalty = inside_penalty ?? PrimerDesigner.Primer3DefaultInsidePenalty,
+            OutsidePenalty = outside_penalty ?? PrimerDesigner.Primer3DefaultOutsidePenalty,
             Weights = new Primer3PairWeights
             {
                 LibraryMispriming = pair_wt_library_mispriming ?? 0.0,
@@ -132,6 +159,27 @@ public class MolToolsTools
             best.Forward, best.Reverse, best.IsValid, best.Message, best.ProductSize,
             best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs,
             best.ComplAny, best.ComplEnd, best.LibraryMispriming, best.LibraryMisprimingName, best.TemplateMispriming);
+    }
+
+    // Overlays the optional Primer3 fraction-bound settings (PRIMER_ANNEALING_TEMP, PRIMER_MIN/MAX/OPT_BOUND,
+    // PRIMER_WT_BOUND_GT/LT); the library validates them (Primer3 _pr_data_control).
+    private static PrimerParameters? ApplyFractionBound(PrimerParameters? parameters, double? annealingTemp,
+        double? minBound, double? maxBound, double? optBound, double? wtBoundGt, double? wtBoundLt)
+    {
+        if (annealingTemp is null && minBound is null && maxBound is null && optBound is null && wtBoundGt is null && wtBoundLt is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            AnnealingTemperature = annealingTemp ?? p.AnnealingTemperature,
+            MinBound = minBound ?? p.MinBound,
+            MaxBound = maxBound ?? p.MaxBound,
+            OptBound = optBound ?? p.OptBound,
+            PenaltyWeights = wtBoundGt is null && wtBoundLt is null
+                ? p.PenaltyWeights
+                : w with { BoundGt = wtBoundGt ?? w.BoundGt, BoundLt = wtBoundLt ?? w.BoundLt },
+        };
     }
 
     // Overlays the optional Primer3 template-mispriming settings (PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT,
@@ -236,7 +284,7 @@ public class MolToolsTools
         return ranges;
     }
 
-    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, the Primer3 thermodynamic secondary-structure Tm values (hairpinTh / selfAnyTh / selfEndTh = primer3 calc_hairpin / calc_homodimer / calc_end_stability Tm at the reaction conditions salt_monovalent / salt_divalent / dntp_conc / dna_conc, Primer3 defaults 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM; hasHairpin = hairpinTh > 47 °C, PRIMER_MAX_HAIRPIN_TH), 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. With parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0) the structure values are instead Primer3's dpal alignment scores selfAny / selfEnd (PRIMER_SELF_ANY / PRIMER_SELF_END, limits parameters.MaxSelfAny 8 / MaxSelfEnd 3). Call to QC one primer (position/strand are informational).")]
+    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, the Primer3 thermodynamic secondary-structure Tm values (hairpinTh / selfAnyTh / selfEndTh = primer3 calc_hairpin / calc_homodimer / calc_end_stability Tm at the reaction conditions salt_monovalent / salt_divalent / dntp_conc / dna_conc, Primer3 defaults 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM; hasHairpin = hairpinTh > 47 °C, PRIMER_MAX_HAIRPIN_TH), 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. With parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0) the structure values are instead Primer3's dpal alignment scores selfAny / selfEnd (PRIMER_SELF_ANY / PRIMER_SELF_END, limits parameters.MaxSelfAny 8 / MaxSelfEnd 3). With annealing_temp > 0 (PRIMER_ANNEALING_TEMP) the Primer3 fraction bound at that temperature is reported as bound, checked against min_bound / max_bound and weighted into the penalty (wt_bound_gt/lt around opt_bound). Call to QC one primer (position/strand are informational).")]
     public static PrimerCandidate evaluate_primer(
         [Description("Primer sequence to evaluate.")] string sequence,
         [Description("0-based location of the primer in the template (informational).")] int position,
@@ -251,7 +299,13 @@ public class MolToolsTools
         [Description("PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double? wt_gc_percent_lt = null,
         [Description("PRIMER_GC_CLAMP: number of consecutive G/C required at the 3' end (default 0).")] int? gc_clamp = null,
         [Description("PRIMER_MAX_END_GC: maximum G/C among the five 3'-most bases (0-5; default 5 = no limit).")] int? max_end_gc = null,
-        [Description("PRIMER_MAX_END_STABILITY: maximum 3' end stability (-dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit).")] double? max_end_stability = null)
+        [Description("PRIMER_MAX_END_STABILITY: maximum 3' end stability (-dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit).")] double? max_end_stability = null,
+        [Description("PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 the fraction bound at this temperature is reported as bound and checked against min_bound / max_bound.")] double? annealing_temp = null,
+        [Description("PRIMER_MIN_BOUND: minimum fraction bound, % (default -10; only with annealing_temp > 0).")] double? min_bound = null,
+        [Description("PRIMER_MAX_BOUND: maximum fraction bound, % (default 110; only with annealing_temp > 0).")] double? max_bound = null,
+        [Description("PRIMER_OPT_BOUND: optimum fraction bound of the bound penalty terms, % (default 97).")] double? opt_bound = null,
+        [Description("PRIMER_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (default 0; only with annealing_temp > 0).")] double? wt_bound_gt = null,
+        [Description("PRIMER_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (default 0; only with annealing_temp > 0).")] double? wt_bound_lt = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
@@ -259,6 +313,7 @@ public class MolToolsTools
         parameters = ApplyPrimerConditions(parameters, salt_monovalent, salt_divalent, dntp_conc, dna_conc,
             opt_gc_percent, wt_gc_percent_gt, wt_gc_percent_lt);
         parameters = ApplyPrimerEndChecks(parameters, gc_clamp, max_end_gc, max_end_stability);
+        parameters = ApplyFractionBound(parameters, annealing_temp, min_bound, max_bound, opt_bound, wt_bound_gt, wt_bound_lt);
         return PrimerDesigner.EvaluatePrimer(sequence, position, is_forward, parameters);
     }
 
