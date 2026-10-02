@@ -41,14 +41,32 @@ public class MolToolsDesignDifferentialTests
         var noFilter = new GuideRnaParameters(0, 100, 0, false, false); // MinScore 0 -> keep every candidate
 
         var guides = CrisprDesigner.DesignGuideRnas(dna, regionStart, regionEnd, CrisprSystemType.SpCas9, noFilter)
-            .Select(g => (g.Sequence, g.Position, g.IsForwardStrand)).ToList();
+            .ToList();
 
-        // Independent oracle: PAM sites (validated in row 18) whose Cas9 cut (PAM.Position-3) is in region.
+        // Independent oracle: PAM sites (validated in row 18) whose SpCas9 blunt cut is in region.
+        // The cut lies 3 bp 5' of the PAM *on the PAM-bearing strand* (CRISPOR crispor.py: "the
+        // expected cleavage position located -3bp 5' of the PAM site"; its schematic draws the cut
+        // marker as `startFt = start - 3` on '+' and as `ftSeq + "---"` on '-'), so in forward
+        // coordinates it is Position-3 on the plus strand and Position+pamLen+2 on the minus strand.
+        // Transcribed here independently of CrisprDesigner.GetCutSite.
         var oracle = CrisprDesigner.FindPamSites(dna, CrisprSystemType.SpCas9)
-            .Where(p => { int cut = p.Position - 3; return cut >= regionStart && cut <= regionEnd; })
+            .Where(p =>
+            {
+                int cut = p.IsForwardStrand ? p.Position - 3 : p.Position + p.PamSequence.Length + 2;
+                return cut >= regionStart && cut <= regionEnd;
+            })
             .Select(p => (p.TargetSequence, p.TargetStart, p.IsForwardStrand)).ToList();
 
-        Assert.That(guides, Is.EqualTo(oracle));
+        Assert.That(oracle, Is.Not.Empty);
+        Assert.That(oracle.Any(o => !o.IsForwardStrand), Is.True,
+            "the oracle must cover reverse-strand guides (the strand whose cut frame was wrong)");
+        Assert.That(guides.Select(g => (g.Sequence, g.Position, g.IsForwardStrand)),
+            Is.EquivalentTo(oracle));
+
+        // DesignGuideRnas is documented (and CRISPOR's guide table is sorted) best-first; ties are
+        // broken by position and then forward strand first.
+        Assert.That(guides.Select(g => (g.Score, -g.Position, g.IsForwardStrand ? 1 : 0)),
+            Is.Ordered.Descending);
     }
 
     // ---- Row 20: CRISPR-OFF-001 — FindOffTargets vs brute Hamming over PAM targets ----

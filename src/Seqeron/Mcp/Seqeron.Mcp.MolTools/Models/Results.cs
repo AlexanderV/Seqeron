@@ -84,6 +84,7 @@ public sealed record PamSitesResult(IReadOnlyList<global::Seqeron.Genomics.MolTo
 public sealed record GuideRnasResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.GuideRnaCandidate> Guides);
 public sealed record OffTargetsResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.OffTargetSite> OffTargets);
 public sealed record SpecificityResult(double Specificity);
+public sealed record OnTargetScoreResult(double Score);
 
 // ProbeDesigner result wrappers
 public sealed record ProbesResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.Probe> Probes);

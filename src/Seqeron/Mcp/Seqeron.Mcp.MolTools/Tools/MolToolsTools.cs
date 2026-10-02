@@ -546,7 +546,7 @@ public class MolToolsTools
         return CrisprDesigner.GetSystem(system_type);
     }
 
-    [McpServerTool(Name = "find_pam_sites", Title = "MolTools — Find CRISPR PAM Sites", ReadOnly = true), Description("Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. PAM matching honours IUPAC codes (e.g. NGG, NNGRRT, TTTV). Each site reports the PAM, the adjacent guide/target window, its position and strand; sites whose target window falls outside the sequence are skipped. Call to enumerate targetable protospacers in a sequence.")]
+    [McpServerTool(Name = "find_pam_sites", Title = "MolTools — Find CRISPR PAM Sites", ReadOnly = true), Description("Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. PAM matching honours IUPAC codes (e.g. NGG, NNGRRT, TTTV). Each site reports the PAM, the adjacent guide/target window, its position and strand; sites whose target window falls outside the sequence are skipped. Coordinates (position, targetStart) are always 0-based forward-strand; the PAM and guide sequences are read on the protospacer strand (CRISPOR convention). Call to enumerate targetable protospacers in a sequence.")]
     public static PamSitesResult find_pam_sites(
         [Description("DNA sequence to scan.")] string sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
@@ -558,13 +558,13 @@ public class MolToolsTools
         return new PamSitesResult(sites);
     }
 
-    [McpServerTool(Name = "design_guide_rnas", Title = "MolTools — Design CRISPR Guide RNAs", ReadOnly = true), Description("Generates and scores guide-RNA candidates whose Cas9/Cas12a cut site falls inside the requested region. Candidates scoring below parameters.MinScore are filtered out. Region indices are 0-based; region_end is inclusive and must satisfy 0 <= region_start <= region_end < sequence.Length. Call to enumerate high-quality guides targeting a locus.")]
+    [McpServerTool(Name = "design_guide_rnas", Title = "MolTools — Design CRISPR Guide RNAs", ReadOnly = true), Description("Generates and scores guide-RNA candidates whose Cas9/Cas12a cut site falls inside the requested region, ranked best-first. The cut site follows the CRISPOR convention: 3 bp 5\u0027 of the PAM on the PAM-bearing strand for Cas9, after the 18th protospacer base for Cas12a - on both strands. Candidates scoring below parameters.MinScore are filtered out. 20-nt NGG guides with 4 nt of 5\u0027 and 3 nt of 3\u0027 flanking context additionally report context30Mer and onTargetScore (the published Doench 2016 Rule Set 2 / Azimuth on-target efficacy score, 0..1), and parameters.ranking = OnTargetRuleSet2 ranks by it; grafMotif flags the Graf 2019 TT-/GCC- inefficiency motifs. Region indices are 0-based; region_end is inclusive and must satisfy 0 <= region_start <= region_end < sequence.Length. Call to enumerate high-quality guides targeting a locus.")]
     public static GuideRnasResult design_guide_rnas(
         [Description("DNA sequence containing the target region.")] string sequence,
         [Description("0-based start of the target region.")] int region_start,
         [Description("0-based inclusive end of the target region.")] int region_end,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
-        [Description("Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity). Defaults are used when null.")] GuideRnaParameters? parameters = null)
+        [Description("Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity, ranking). Defaults are used when null.")] GuideRnaParameters? parameters = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
@@ -579,7 +579,7 @@ public class MolToolsTools
         return new GuideRnasResult(guides);
     }
 
-    [McpServerTool(Name = "evaluate_guide_rna", Title = "MolTools — Evaluate Guide RNA", ReadOnly = true), Description("Scores a single guide RNA against on-target quality heuristics: overall GC%, seed-region GC%, polyT (Pol III terminator) presence, self-complementarity, and common-restriction-site presence; returns a 0..100 score plus an issues list. Position is -1 for ad-hoc evaluation. Call to QC one guide sequence.")]
+    [McpServerTool(Name = "evaluate_guide_rna", Title = "MolTools — Evaluate Guide RNA", ReadOnly = true), Description("Scores a single guide RNA against on-target quality heuristics: overall GC%, seed-region GC%, polyT (Pol III terminator) presence, self-complementarity, and common-restriction-site presence; returns a 0..100 score plus an issues list. avoidPolyT / checkSelfComplementarity switch off the corresponding penalties. For NGG systems the Graf 2019 TT-/GCC- inefficiency motif is reported in grafMotif and in issues (a warning only, no deduction, as in CRISPOR). The published Doench 2016 Rule Set 2 score needs 30 nt of genomic context and is therefore only reported by design_guide_rnas or calculate_on_target_rule_set2. Position is -1 for ad-hoc evaluation. Call to QC one guide sequence.")]
     public static GuideRnaCandidate evaluate_guide_rna(
         [Description("Guide RNA sequence.")] string guide_sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
@@ -624,6 +624,35 @@ public class MolToolsTools
 
         return new SpecificityResult(
             CrisprDesigner.CalculateSpecificityScore(guide_sequence, new DnaSequence(genome), system_type));
+    }
+
+    [McpServerTool(Name = "calculate_on_target_doench2014", Title = "MolTools — On-Target Score (Doench 2014 Rule Set 1)", ReadOnly = true), Description("Doench et al. 2014 \"Rule Set 1\" on-target efficacy score for an SpCas9 guide, returned on a 0..100 scale (higher = predicted more active). This is the published logistic linear model (intercept + GC term over the protospacer + position-specific single/di-nucleotide weights, through a sigmoid). Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only. Call to rank guides by predicted cutting efficiency when the 30-nt context is known.")]
+    public static OnTargetScoreResult calculate_on_target_doench2014(
+        [Description("30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt NGG PAM + 3 nt downstream.")] string context_30mer)
+    {
+        if (string.IsNullOrEmpty(context_30mer))
+            throw new System.ArgumentException("Context 30-mer cannot be null or empty.", nameof(context_30mer));
+
+        return new OnTargetScoreResult(CrisprDesigner.CalculateOnTargetDoench2014(context_30mer));
+    }
+
+    [McpServerTool(Name = "calculate_on_target_rule_set2", Title = "MolTools — On-Target Score (Doench 2016 Rule Set 2 / Azimuth)", ReadOnly = true), Description("Doench et al. 2016 \"Rule Set 2\" / Azimuth on-target efficacy score for an SpCas9 guide, conventionally in 0..1 (higher = predicted more active) — the \"Doench '16\" efficiency score reported by CRISPOR. Rule Set 2 is a trained gradient-boosted-tree model, reproduced here from Microsoft Research's Azimuth model. Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only. Pass amino_acid_cut_position and percent_peptide together to use Azimuth's gene-context (full) model instead of the sequence-only one. Call to rank guides by the published on-target activity model.")]
+    public static OnTargetScoreResult calculate_on_target_rule_set2(
+        [Description("30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt NGG PAM + 3 nt downstream.")] string context_30mer,
+        [Description("Optional amino-acid position of the cut site in the target protein (requires percent_peptide); enables the gene-context model.")] int? amino_acid_cut_position = null,
+        [Description("Optional cut position as a percentage 0..100 along the coding sequence (requires amino_acid_cut_position).")] double? percent_peptide = null)
+    {
+        if (string.IsNullOrEmpty(context_30mer))
+            throw new System.ArgumentException("Context 30-mer cannot be null or empty.", nameof(context_30mer));
+        if (amino_acid_cut_position.HasValue != percent_peptide.HasValue)
+            throw new System.ArgumentException(
+                "amino_acid_cut_position and percent_peptide must be supplied together (gene-context model) or both omitted.",
+                nameof(amino_acid_cut_position));
+
+        double score = amino_acid_cut_position.HasValue
+            ? CrisprDesigner.CalculateOnTargetRuleSet2(context_30mer, amino_acid_cut_position.Value, percent_peptide!.Value)
+            : CrisprDesigner.CalculateOnTargetRuleSet2(context_30mer);
+        return new OnTargetScoreResult(score);
     }
 
     #endregion

@@ -124,7 +124,10 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(PamSitesResult))]
 [JsonSerializable(typeof(GuideRnasResult))]
 [JsonSerializable(typeof(OffTargetsResult))]
+[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.GuideRnaRanking))]
+[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.GrafMotifType))]
 [JsonSerializable(typeof(SpecificityResult))]
+[JsonSerializable(typeof(OnTargetScoreResult))]
 
 // ProbeDesigner DTOs (records nested in ProbeDesigner static class)
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.ProbeParameters))]

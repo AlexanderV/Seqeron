@@ -20,6 +20,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "blunt_cutters",
         "build_codon_table",
         "cai_from_organism_table",
+        "calculate_on_target_doench2014",
+        "calculate_on_target_rule_set2",
         "codon_adaptation_index",
         "codon_usage_statistics",
         "compare_codon_usage",

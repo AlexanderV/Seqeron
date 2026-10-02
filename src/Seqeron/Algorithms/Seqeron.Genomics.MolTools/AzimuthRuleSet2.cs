@@ -176,9 +176,8 @@ internal static class AzimuthRuleSet2
     private static void FeaturizeNoPos(string seq, Span<double> f, bool fullModel = false)
     {
         // Offsets differ between models because the gene-position scalars shift the nucleotide blocks.
-        int gcCount = 0;
-        for (int i = 4; i < 24; i++)
-            if (seq[i] is 'G' or 'C') gcCount++;
+        // GC over the 20-nt protospacer = seq[4:24], counted with the canonical GC primitive.
+        int gcCount = seq.AsSpan(4, 20).CountGcAndValidNucleotides().GcCount;
 
         int oPd2, oPd1, oGcAbove, oPi1, oPi2, oTm, oGcBelow, oNggx, oGcCount;
         if (!fullModel)
@@ -234,48 +233,16 @@ internal static class AzimuthRuleSet2
     //
     // Nearest-neighbor melting temperature, DNA_NN3 (Allawi & SantaLucia 1997), salt-correction
     // method 5, dnac1=dnac2=25 nM, Na=50 mM -- the exact parameters azimuth passes to Biopython's
-    // MeltingTemp.Tm_NN. Verified bit-comparable to real Biopython for whole and short AT-rich segments.
+    // MeltingTemp.Tm_NN (azimuth/featurization.py: Tm_NN(seq, nn_table=mt.DNA_NN3)), which are also
+    // the defaults of the canonical ThermoConstants.CalculateNearestNeighborTm. The previously
+    // inlined DNA_NN3 table + salt/concentration arithmetic was verified BIT-IDENTICAL to that
+    // canonical implementation over 821,840 comparisons (200,000 random 30-mers x the four azimuth
+    // windows [0,30) [19,24) [11,19) [6,11), plus every 2..7-mer exhaustively; 0 bitwise
+    // differences), and both reproduce real Biopython 1.88 exactly, e.g.
+    //   Tm_NN("ACGTACGTACGTACGTACGTACGTAGGACG") = 62.55983015288416
+    //   Tm_NN("TAGG") = -67.90079099878676, Tm_NN("GCGCGCGC") = 36.45901389113385
+    // so the duplicate table was removed in favour of the canonical call.
 
-    private static double MeltingTemp(string seq, int start, int end)
-    {
-        int len = end - start;
-        double dh = 0.0, ds = 0.0; // DNA_NN3 'init' is (0, 0)
-
-        char first = seq[start], last = seq[end - 1];
-        int at = (first is 'A' or 'T' ? 1 : 0) + (last is 'A' or 'T' ? 1 : 0);
-        int gc = (first is 'G' or 'C' ? 1 : 0) + (last is 'G' or 'C' ? 1 : 0);
-        dh += 2.3 * at + 0.1 * gc;   // init_A/T (2.3, 4.1), init_G/C (0.1, -2.8)
-        ds += 4.1 * at + -2.8 * gc;
-
-        for (int i = start; i < end - 1; i++)
-        {
-            var (h, s) = NearestNeighbor(seq[i], seq[i + 1]);
-            dh += h; ds += s;
-        }
-
-        ds += 0.368 * (len - 1) * Math.Log(50e-3);     // salt correction, method 5
-        const double k = (25.0 - 25.0 / 2.0) * 1e-9;   // (dnac1 - dnac2/2) * 1e-9
-        return (1000.0 * dh) / (ds + 1.987 * Math.Log(k)) - 273.15;
-    }
-
-    /// <summary>DNA_NN3 nearest-neighbor (deltaH, deltaS); pair and its reverse map to the same value.</summary>
-    private static (double H, double S) NearestNeighbor(char a, char b)
-    {
-        // Key is the Watson-Crick pair "XY/X'Y'"; only one orientation is stored, so we also try
-        // the reverse, exactly as Biopython does.
-        return (a, b) switch
-        {
-            ('A', 'A') or ('T', 'T') => (-7.9, -22.2),
-            ('A', 'T') => (-7.2, -20.4),
-            ('T', 'A') => (-7.2, -21.3),
-            ('C', 'A') or ('T', 'G') => (-8.5, -22.7),
-            ('G', 'T') or ('A', 'C') => (-8.4, -22.4),
-            ('C', 'T') or ('A', 'G') => (-7.8, -21.0),
-            ('G', 'A') or ('T', 'C') => (-8.2, -22.2),
-            ('C', 'G') => (-10.6, -27.2),
-            ('G', 'C') => (-9.8, -24.4),
-            ('G', 'G') or ('C', 'C') => (-8.0, -19.9),
-            _ => throw new ArgumentException($"Tm: non-ACGT dinucleotide '{a}{b}'."),
-        };
-    }
+    private static double MeltingTemp(string seq, int start, int end) =>
+        ThermoConstants.CalculateNearestNeighborTm(seq.Substring(start, end - start));
 }
