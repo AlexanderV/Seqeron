@@ -37,6 +37,8 @@
 | Tm (Optimal) | 60°C | Primer3: 60°C | Exact match |
 | Pair Tm Difference | ≤ 5°C (unrounded Tm) | Wikipedia, Addgene | Exact match (Primer3 default PRIMER_PAIR_MAX_DIFF_TM=100.0 is unlimited; 5°C is the standard lab guideline) |
 | Tm model | Primer3 default (SantaLucia 1998 NN, SantaLucia salt, 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM) | Primer3 PRIMER_TM_FORMULA=1, PRIMER_SALT_CORRECTIONS=1 | Bit-identical to primer3.calc_tm |
+| Reaction conditions | `PrimerParameters.MonovalentMillimolar` / `DivalentMillimolar` / `DntpMillimolar` / `DnaConcentrationNanomolar` (null = 50 mM / 1.5 mM / 0.6 mM / 50 nM) for primer Tm, ntthal structure, pair compl and product Tm; internal oligo `Primer3ProbeSettings` conditions | Primer3 PRIMER_SALT_MONOVALENT / _SALT_DIVALENT / PRIMER_DNTP_CONC / PRIMER_DNA_CONC (`p_args`, `create_thal_arg_holder`, `long_seq_tm`), PRIMER_INTERNAL_* (`o_args`) | 2500/2500 random-condition templates identical to primer3-py design_primers (audit round 3, A3-1) |
+| GC optimum | `PrimerParameters.OptimalGcPercent`, `Primer3ProbeSettings.OptGcPercent` (+ `WeightGcPercentGt/Lt`); null = 50 % | Primer3 PRIMER_OPT_GC_PERCENT / PRIMER_INTERNAL_OPT_GC_PERCENT (manual default 50; code: undefined, GC weights require it) | Exact match whenever Primer3 accepts the settings |
 | Ranking / pair selection | Lowest Primer3 pair objective (`obj_fn`, default Σ per-primer penalty; PRIMER_PAIR_WT_* configurable) over all compatible pairs; Primer3 tie-break; PRIMER_NUM_RETURN ranked pairs (`DesignPrimerPairs`) | Primer3 `choose_pair_or_triple`, `characterize_pair`, `obj_fn`, `compare_primer_pair` | 1000/1000 random templates identical to primer3-py design_primers (ranks 0–4) with Primer3 defaults |
 | Product size range | PRIMER_PRODUCT_SIZE_RANGE, default 100–300 bp, ranges tried in order | Primer3 `pr_set_default_global_args_1` (pr_min/pr_max = 100/300), `choose_pair_or_triple` | Exact match (replaces the former ±200 bp flanks) |
 | Internal oligo | PRIMER_PICK_INTERNAL_OLIGO: lowest-penalty Primer3 internal oligo strictly between the primers | Primer3 `choose_internal_oligo` | primer3-py PRIMER_INTERNAL_k_* |
@@ -82,6 +84,7 @@
 | M18 | Non-default PRIMER_PAIR_WT_* weights give primer3-py's PRIMER_PAIR_k_PENALTY | Pair objective | Primer3 obj_fn |
 | M19 | PRIMER_PICK_INTERNAL_OLIGO picks primer3-py's PRIMER_INTERNAL_k (inside the product, not overlapping the primers; PRIMER_PAIR_WT_IO_PENALTY) | Internal oligo | Primer3 choose_internal_oligo |
 | M20 | Primer3 data-control errors throw (weight without optimum, max size > min product, NUM_RETURN < 1, target outside included region) | Validation | Primer3 _pr_data_control |
+| M22 | Non-default PRIMER_SALT_MONOVALENT / _DIVALENT / PRIMER_DNTP_CONC / PRIMER_DNA_CONC / PRIMER_OPT_GC_PERCENT (+ PRIMER_INTERNAL_* counterparts) give primer3-py's Tm, structure values, product Tm, penalties and ranking; illegal conditions throw; null = Primer3 defaults | Reaction conditions | Primer3 libprimer3.c p_args/o_args, _pr_data_control |
 | M7 | EvaluatePrimer validates length constraints (18-25 bp) | Primer3 defaults | Primer3: 18-27 |
 | M8 | EvaluatePrimer validates GC content constraints (40-60%) | Addgene standard | Addgene: 40-60% |
 | M9 | EvaluatePrimer validates Tm constraints (57-63°C) | Primer3 defaults | Primer3: 57-63°C |
@@ -155,6 +158,7 @@ Applied systematic coverage classification (2026-03-04):
 | M19 | ✅ | `DesignPrimerPairs_PickInternalOligo_MatchesPrimer3Triples`; MCP `DesignPrimers_PickInternalOligo_MatchesPrimer3` | primer3-py PRIMER_INTERNAL_k_* |
 | M20 | ✅ | `DesignPrimers_InvalidOptions_ThrowAsPrimer3DataControl` | primer3-py error strings |
 | M21 | ✅ | `PrimerDesigner_EndStabilityWeight_Tests` (PRIMER_WT_END_STABILITY in `EvaluatePrimer` / `DesignPrimerPairs`, thermodynamic + alignment mode, internal oligo; audit round 3, A3-2) | primer3-py PRIMER_LEFT/RIGHT/PAIR_k_PENALTY |
+| M22 | ✅ | `PrimerDesigner_ReactionConditions_Tests` (EvaluatePrimer Tm / penalty / ntthal values, thermodynamic + alignment-mode 5-rank designs with product Tm, internal-oligo conditions + PRIMER_INTERNAL_OPT_GC_PERCENT, `DesignProbesPrimer3` internal GC weights, null = defaults, GC optimum inert without weights, 7 illegal-condition cases; audit round 3, A3-1); MCP `DesignPrimers_ReactionConditions_MatchPrimer3`, `EvaluatePrimer_ReactionConditions_MatchPrimer3` | primer3-py 2.3.1 design_primers |
 | S5 | ✅ | `DesignPrimers_HomopolymerRichTemplate_MayReturnInvalid`, `_VeryShortTemplate_ThrowsArgumentException` | Failure message + exception |
 
 ### COULD Tests

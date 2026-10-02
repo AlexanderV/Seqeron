@@ -91,7 +91,11 @@ public static class PrimerDesigner
     /// violated constraint. Library defaults that differ from Primer3 (documented): the per-primer limits of
     /// <see cref="DefaultParameters"/> and PRIMER_PAIR_MAX_DIFF_TM = 5 °C (Primer3: 100); pass
     /// <see cref="Primer3DefaultParameters"/> and <see cref="PrimerPairOptions.Primer3Defaults"/> for
-    /// Primer3's defaults. Verified against primer3-py 2.3.1 <c>design_primers</c>.
+    /// Primer3's defaults. Reaction conditions: the primer Tm, the ntthal structure / pair complementarity values and
+    /// the product Tm use the primer conditions of <paramref name="parameters"/> (PRIMER_SALT_MONOVALENT,
+    /// PRIMER_SALT_DIVALENT, PRIMER_DNTP_CONC, PRIMER_DNA_CONC; Primer3 defaults 50 mM / 1.5 mM / 0.6 mM / 50 nM), the
+    /// internal oligo those of <see cref="PrimerPairOptions.InternalOligo"/> (PRIMER_INTERNAL_*; defaults 50 mM / 0 / 0 /
+    /// 50 nM). Verified against primer3-py 2.3.1 <c>design_primers</c>, including random reaction conditions.
     /// </summary>
     /// <param name="template">The DNA template sequence.</param>
     /// <param name="targetStart">0-based inclusive start of the target region.</param>
@@ -163,12 +167,6 @@ public static class PrimerDesigner
     /// <summary>Primer3's default PRIMER_PAIR_MAX_DIFF_TM (°C), <c>pr_set_default_global_args_1</c>.</summary>
     public const double Primer3MaxPairTmDifference = 100.0;
 
-    // Primer3 primer conditions (p_args) of DesignPrimers: PRIMER_SALT_MONOVALENT 50 mM + the von Ahsen
-    // divalent equivalent of PRIMER_SALT_DIVALENT 1.5 mM / PRIMER_DNTP_CONC 0.6 mM (oligotm.c
-    // divalent_to_monovalent), used by long_seq_tm for the product Tm.
-    private static readonly double Primer3PrimerMonovalentEquivalentMillimolar =
-        50.0 + Primer3DivalentFactor * Math.Sqrt(1.5 - 0.6);
-
     /// <summary>
     /// Primer3 product melting temperature (<c>oligotm.c</c> <c>long_seq_tm</c>, PRIMER_PAIR_k_PRODUCT_TM):
     /// Tm = 81.5 + 16.6·log10([Mon]_eq/1000) + 41·(G+C)/N − 600/N, with [Mon]_eq = [Mon] +
@@ -184,17 +182,15 @@ public static class PrimerDesigner
     /// <exception cref="ArgumentOutOfRangeException">Negative concentrations or zero total cation.</exception>
     public static double CalculateProductMeltingTemperaturePrimer3(
         string product,
-        double monovalentMillimolar = 50.0,
-        double divalentMillimolar = 1.5,
-        double dntpMillimolar = 0.6)
+        double monovalentMillimolar = Primer3MonovalentMillimolar,
+        double divalentMillimolar = Primer3DivalentMillimolar,
+        double dntpMillimolar = Primer3DntpMillimolar)
     {
         if (string.IsNullOrEmpty(product))
             throw new ArgumentException("Product cannot be null or empty.", nameof(product));
         if (!(monovalentMillimolar >= 0) || !(divalentMillimolar >= 0) || !(dntpMillimolar >= 0))
             throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), "Concentrations must be ≥ 0 mM.");
-        // divalent_to_monovalent: no divalent ⇒ dNTP ignored; Mg ≤ dNTP ⇒ no contribution.
-        double freeDivalent = divalentMillimolar == 0 ? 0 : Math.Max(0, divalentMillimolar - dntpMillimolar);
-        double monovalentEq = monovalentMillimolar + Primer3DivalentFactor * Math.Sqrt(freeDivalent);
+        double monovalentEq = Primer3MonovalentEquivalent(monovalentMillimolar, divalentMillimolar, dntpMillimolar);
         if (!(monovalentEq > 0))
             throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), "Total monovalent-equivalent cation concentration must be > 0 mM.");
         int gc = 0;
@@ -219,6 +215,8 @@ public static class PrimerDesigner
         private readonly Dictionary<string, bool> _structureBySequence = new(StringComparer.Ordinal);
         private readonly Dictionary<(string F, string R), (bool Fails, double? Any, double? End)> _dimer = new();
         private readonly int[] _gcPrefix;
+        // long_seq_tm salt for the product Tm: Primer3 passes the primer conditions (p_args) — "skewed" by its own comment.
+        private readonly double _productMonovalentEq;
         private readonly ProbeDesigner.Primer3ProbeSettings? _intlSettings;
         private readonly List<ProbeDesigner.Primer3Probe>? _intl;
         private readonly ProbeDesigner.Primer3Probe?[]? _intlChecked;
@@ -240,6 +238,8 @@ public static class PrimerDesigner
             _opt = opt;
             _w = opt.Weights ?? throw new ArgumentException("Pair weights cannot be null.", nameof(opt));
             ValidateOptions(n);
+            _productMonovalentEq = Primer3MonovalentEquivalent(param.EffectiveMonovalentMillimolar,
+                param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar);
             (_incStart, _incEnd) = opt.IncludedRegion is { } inc ? (inc.Start, inc.Start + inc.Length) : (0, n);
 
             _gcPrefix = new int[n + 1];
@@ -320,6 +320,7 @@ public static class PrimerDesigner
                     throw new ArgumentException($"Invalid product size range {r.Min}-{r.Max}: need 1 ≤ min ≤ max.");
                 minProduct = Math.Min(minProduct, r.Min);
             }
+            _param.ValidateConditions("parameters");
             if (_param.MinLength < 1 || _param.MaxLength < _param.MinLength)
                 throw new ArgumentException("Primer sizes must satisfy 1 ≤ MinLength ≤ MaxLength.");
             if (_param.MaxLength > minProduct)
@@ -405,8 +406,10 @@ public static class PrimerDesigner
             // Same values as CalculatePrimer3PairComplementarity(...), stopping at the first alignment over the
             // limit (characterize_pair also fails the pair on compl_any first); complete when the pair passes.
             double max = param.EffectiveMaxStructureTm;
+            // characterize_pair uses the primer conditions (thal_arg_to_use = create_thal_arg_holder(p_args)).
             var (any, end) = Primer3PairTms(forward.ToUpperInvariant(), reverse.ToUpperInvariant(),
-                0.050, 0.0015, 0.0006, 50e-9, max);
+                param.EffectiveMonovalentMillimolar / 1000.0, param.EffectiveDivalentMillimolar / 1000.0,
+                param.EffectiveDntpMillimolar / 1000.0, param.EffectiveDnaConcentrationNanomolar * 1e-9, max);
             return (any > max || end > max, any, end);
         }
 
@@ -524,7 +527,7 @@ public static class PrimerDesigner
 
             int fStart = f.C.Position;
             int gc = _gcPrefix[fStart + product] - _gcPrefix[fStart];
-            double productTm = LongSeqTm(gc, product, Primer3PrimerMonovalentEquivalentMillimolar);
+            double productTm = LongSeqTm(gc, product, _productMonovalentEq);
             if ((_opt.ProductMinTm is { } minTm && productTm < minTm)
                 || (_opt.ProductMaxTm is { } maxTm && productTm > maxTm))
             {
@@ -749,23 +752,33 @@ public static class PrimerDesigner
     /// <see cref="PrimerCandidate.SelfAnyTh"/>/<see cref="PrimerCandidate.SelfEndTh"/>/<see cref="PrimerCandidate.HairpinTh"/>),
     /// Primer3's alignment-mode limits (<see cref="PrimerStructureScreen.Primer3Alignment"/>: dpal self_any ≤ 8,
     /// self_end ≤ 3, reported in <see cref="PrimerCandidate.SelfAny"/>/<see cref="PrimerCandidate.SelfEnd"/>),
-    /// or the sequence-only <see cref="HasHairpinPotential"/>. The Tm is Primer3's default primer Tm
+    /// or the sequence-only <see cref="HasHairpinPotential"/>. The Tm is Primer3's primer Tm
     /// (<see cref="CalculateMeltingTemperaturePrimer3"/>: SantaLucia 1998 nearest-neighbour,
-    /// SantaLucia salt correction, 50 mM monovalent, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM oligo), the
-    /// scale on which the Primer3-sourced Tm window 57–63 °C (opt 60) is defined. A sequence
+    /// SantaLucia salt correction) at the reaction conditions of <paramref name="parameters"/>
+    /// (<see cref="PrimerParameters.MonovalentMillimolar"/>, <see cref="PrimerParameters.DivalentMillimolar"/>,
+    /// <see cref="PrimerParameters.DntpMillimolar"/>, <see cref="PrimerParameters.DnaConcentrationNanomolar"/>; Primer3's
+    /// defaults 50 mM monovalent, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM oligo), the scale on which the Primer3-sourced Tm
+    /// window 57–63 °C (opt 60) is defined; the ntthal structure values use the same conditions (Primer3
+    /// <c>create_thal_arg_holder(p_args)</c>). A sequence
     /// containing a non-ACGT base has no computable Tm (Primer3 PRIMER_MAX_NS_ACCEPTED = 0): it is
     /// reported with Tm 0 and an issue. <see cref="PrimerCandidate.Penalty"/> is the Primer3
-    /// per-primer penalty (<see cref="CalculatePrimer3Penalty"/>, default weights, optima
-    /// OptimalTm / OptimalLength) used by <see cref="DesignPrimers"/> for ranking;
+    /// per-primer penalty (<see cref="CalculatePrimer3Penalty"/>, <see cref="PrimerParameters.PenaltyWeights"/>, optima
+    /// OptimalTm / OptimalLength / <see cref="PrimerParameters.OptimalGcPercent"/>) used by <see cref="DesignPrimers"/> for ranking;
     /// <see cref="PrimerCandidate.Score"/> is an informational additive quality score (0–100,
     /// higher is better) that does not drive selection.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Illegal reaction conditions (Primer3 <c>_pr_data_control</c>:
+    /// salt or DNA concentration ≤ 0, negative divalent / dNTP concentration, NaN / ∞).</exception>
     public static PrimerCandidate EvaluatePrimer(
         string sequence,
         int position,
         bool isForward,
-        PrimerParameters? parameters = null) =>
-        EvaluatePrimerCore(sequence, position, isForward, parameters ?? DefaultParameters).Candidate;
+        PrimerParameters? parameters = null)
+    {
+        var param = parameters ?? DefaultParameters;
+        param.ValidateConditions(nameof(parameters));
+        return EvaluatePrimerCore(sequence, position, isForward, param).Candidate;
+    }
 
     // Evaluates a candidate and also returns its unrounded Tm (Primer3 compares unrounded Tm values).
     // With evaluateStructure = false the secondary-structure screen is skipped (DesignPrimers runs it
@@ -780,7 +793,8 @@ public static class PrimerDesigner
         var seq = sequence.ToUpperInvariant();
 
         double gcContent = CalculateGcContent(seq);
-        double tmRaw = CalculateMeltingTemperaturePrimer3(seq);
+        double tmRaw = CalculateMeltingTemperaturePrimer3(seq, param.EffectiveDnaConcentrationNanomolar,
+            param.EffectiveMonovalentMillimolar, param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar);
         bool tmComputable = !double.IsNaN(tmRaw);
         double tm = tmComputable ? tmRaw : 0.0;
         int homopolymer = FindLongestHomopolymer(seq);
@@ -840,7 +854,7 @@ public static class PrimerDesigner
                 // end_oligodg(seq, 5, santalucia) = −ΔG of the 3′ pentamer (positive magnitude).
                 EndStability: double.IsNaN(stability3Prime) ? 0.0 : -stability3Prime),
             weights,
-            new Primer3Optima(param.OptimalTm, param.OptimalLength, DefaultPrimer3Optima.OptGcPercent));
+            new Primer3Optima(param.OptimalTm, param.OptimalLength, param.EffectiveOptimalGcPercent));
 
         var candidate = new PrimerCandidate(
             Sequence: seq,
@@ -889,7 +903,9 @@ public static class PrimerDesigner
     {
         PrimerStructureScreen.Primer3Alignment => new StructureValues(null,
             CalculatePrimerSelfAnyComplementarity(seq), CalculatePrimerSelfEndComplementarity(seq)),
-        PrimerStructureScreen.Primer3Thermodynamic => new StructureValues(CalculatePrimer3OligoStructure(seq), null, null),
+        PrimerStructureScreen.Primer3Thermodynamic => new StructureValues(CalculatePrimer3OligoStructure(seq,
+            param.EffectiveMonovalentMillimolar, param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar,
+            param.EffectiveDnaConcentrationNanomolar), null, null),
         _ => default,
     };
 
@@ -1052,10 +1068,10 @@ public static class PrimerDesigner
     /// concentrations, or a zero total monovalent-equivalent concentration.</exception>
     public static double CalculateMeltingTemperaturePrimer3(
         string primer,
-        double dnaConcentrationNanomolar = 50.0,
-        double monovalentMillimolar = 50.0,
-        double divalentMillimolar = 1.5,
-        double dntpMillimolar = 0.6)
+        double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar,
+        double monovalentMillimolar = Primer3MonovalentMillimolar,
+        double divalentMillimolar = Primer3DivalentMillimolar,
+        double dntpMillimolar = Primer3DntpMillimolar)
     {
         if (!(dnaConcentrationNanomolar > 0) || double.IsInfinity(dnaConcentrationNanomolar))
             throw new ArgumentOutOfRangeException(nameof(dnaConcentrationNanomolar), dnaConcentrationNanomolar,
@@ -1070,9 +1086,7 @@ public static class PrimerDesigner
             throw new ArgumentOutOfRangeException(nameof(dntpMillimolar), dntpMillimolar,
                 "dNTP concentration must be ≥ 0 mM.");
 
-        // divalent_to_monovalent (oligotm.c): no divalent ⇒ dNTP ignored; Mg ≤ dNTP ⇒ no contribution.
-        double freeDivalent = divalentMillimolar == 0 ? 0 : Math.Max(0, divalentMillimolar - dntpMillimolar);
-        double monovalentEq = monovalentMillimolar + Primer3DivalentFactor * Math.Sqrt(freeDivalent);
+        double monovalentEq = Primer3MonovalentEquivalent(monovalentMillimolar, divalentMillimolar, dntpMillimolar);
         if (!(monovalentEq > 0))
             throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), monovalentMillimolar,
                 "Total monovalent-equivalent cation concentration must be > 0 mM.");
@@ -3277,6 +3291,51 @@ public static class PrimerDesigner
     /// </summary>
     public const double Primer3MaxStructureTm = 47.0;
 
+    /// <summary>Primer3 primer default PRIMER_SALT_MONOVALENT = 50 mM (<c>libprimer3.c</c> <c>p_args.salt_conc</c>).</summary>
+    public const double Primer3MonovalentMillimolar = 50.0;
+
+    /// <summary>Primer3 primer default PRIMER_SALT_DIVALENT = 1.5 mM (<c>pr_set_default_global_args_2</c> <c>p_args.divalent_conc</c>).</summary>
+    public const double Primer3DivalentMillimolar = 1.5;
+
+    /// <summary>Primer3 primer default PRIMER_DNTP_CONC = 0.6 mM (<c>pr_set_default_global_args_2</c> <c>p_args.dntp_conc</c>).</summary>
+    public const double Primer3DntpMillimolar = 0.6;
+
+    /// <summary>Primer3 primer default PRIMER_DNA_CONC = 50 nM (<c>p_args.dna_conc</c>).</summary>
+    public const double Primer3DnaConcentrationNanomolar = 50.0;
+
+    /// <summary>
+    /// PRIMER_OPT_GC_PERCENT / PRIMER_INTERNAL_OPT_GC_PERCENT value used when none is given: 50 % (the Primer3 manual
+    /// default). Primer3's code keeps the optimum undefined (<c>DEFAULT_OPT_GC_PERCENT</c> = <c>PR_UNDEFINED_INT_OPT</c>)
+    /// and its <c>_pr_data_control</c> rejects a non-zero PRIMER_(INTERNAL_)WT_GC_PERCENT_GT/_LT without an explicit
+    /// optimum; the optimum only enters the GC terms of <c>p_obj_fn</c>, so with zero GC weights it is inert.
+    /// </summary>
+    public const double Primer3DefaultOptGcPercent = 50.0;
+
+    // Primer3 data control of one oligo-condition set (_pr_data_control: "Illegal value for primer salt or dna
+    // concentration" / "… divalent salt or dNTP concentration"): salt and DNA concentration > 0, divalent ≥ 0;
+    // a negative dNTP is also rejected here (seqtm has no meaning for it). NaN / ∞ are rejected.
+    internal static void ValidatePrimer3Conditions(
+        double monovalentMillimolar, double divalentMillimolar, double dntpMillimolar, double dnaConcentrationNanomolar,
+        string paramName)
+    {
+        if (!(monovalentMillimolar > 0) || double.IsInfinity(monovalentMillimolar)
+            || !(dnaConcentrationNanomolar > 0) || double.IsInfinity(dnaConcentrationNanomolar))
+            throw new ArgumentOutOfRangeException(paramName,
+                "Illegal value for salt or DNA concentration (Primer3: PRIMER_SALT_MONOVALENT and PRIMER_DNA_CONC must be > 0).");
+        if (!(divalentMillimolar >= 0) || double.IsInfinity(divalentMillimolar)
+            || !(dntpMillimolar >= 0) || double.IsInfinity(dntpMillimolar))
+            throw new ArgumentOutOfRangeException(paramName,
+                "Illegal value for divalent salt or dNTP concentration (Primer3: PRIMER_SALT_DIVALENT and PRIMER_DNTP_CONC must be ≥ 0).");
+    }
+
+    // oligotm.c divalent_to_monovalent added to the monovalent salt: [Mon] + 120·√([Mg²⁺] − [dNTP]) (mM); no divalent ⇒
+    // dNTP ignored, Mg ≤ dNTP ⇒ no contribution.
+    private static double Primer3MonovalentEquivalent(double monovalentMillimolar, double divalentMillimolar, double dntpMillimolar)
+    {
+        double freeDivalent = divalentMillimolar == 0 ? 0 : Math.Max(0, divalentMillimolar - dntpMillimolar);
+        return monovalentMillimolar + Primer3DivalentFactor * Math.Sqrt(freeDivalent);
+    }
+
     /// <summary>Primer3 hybridization-probe (internal-oligo) default PRIMER_INTERNAL_DNA_CONC = 50 nM (<c>libprimer3.cc</c> <c>o_args.dna_conc</c>).</summary>
     public const double Primer3InternalDnaConcentrationNanomolar = 50.0;
 
@@ -3335,10 +3394,10 @@ public static class PrimerDesigner
     /// non-ACGT character.</returns>
     public static Primer3OligoStructure? CalculatePrimer3OligoStructure(
         string primer,
-        double monovalentMillimolar = 50.0,
-        double divalentMillimolar = 1.5,
-        double dntpMillimolar = 0.6,
-        double dnaConcentrationNanomolar = 50.0)
+        double monovalentMillimolar = Primer3MonovalentMillimolar,
+        double divalentMillimolar = Primer3DivalentMillimolar,
+        double dntpMillimolar = Primer3DntpMillimolar,
+        double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar)
     {
         if (!IsAcgtOnly(primer))
             return null;
@@ -3370,10 +3429,10 @@ public static class PrimerDesigner
     public static Primer3PairComplementarity? CalculatePrimer3PairComplementarity(
         string leftPrimer,
         string rightPrimer,
-        double monovalentMillimolar = 50.0,
-        double divalentMillimolar = 1.5,
-        double dntpMillimolar = 0.6,
-        double dnaConcentrationNanomolar = 50.0)
+        double monovalentMillimolar = Primer3MonovalentMillimolar,
+        double divalentMillimolar = Primer3DivalentMillimolar,
+        double dntpMillimolar = Primer3DntpMillimolar,
+        double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar)
     {
         if (!IsAcgtOnly(leftPrimer) || !IsAcgtOnly(rightPrimer))
             return null;
@@ -3500,7 +3559,10 @@ public static class PrimerDesigner
     /// <summary>
     /// Primer3 default per-primer optima. OPT_TM = 60 °C and OPT_SIZE = 20 bases are
     /// from <c>libprimer3.cc</c> (opt_tm = 60.0, opt_size = 20); OPT_GC_PERCENT = 50.0 %
-    /// is the published default in the Primer3 manual (PRIMER_OPT_GC_PERCENT, default 50.0).
+    /// is the published default in the Primer3 manual (PRIMER_OPT_GC_PERCENT, default 50.0; Primer3's code keeps it
+    /// undefined and rejects GC weights without an explicit optimum — see <see cref="Primer3DefaultOptGcPercent"/>).
+    /// <see cref="EvaluatePrimer"/> / <see cref="DesignPrimers"/> take the GC optimum from
+    /// <see cref="PrimerParameters.OptimalGcPercent"/>.
     /// </summary>
     public static readonly Primer3Optima DefaultPrimer3Optima = new(
         OptTm: 60.0,         // PRIMER_OPT_TM (libprimer3.cc: opt_tm = 60.0) °C
@@ -3710,11 +3772,61 @@ public readonly record struct PrimerParameters(
     /// </summary>
     public Primer3PenaltyWeights? PenaltyWeights { get; init; }
 
+    /// <summary>
+    /// PRIMER_SALT_MONOVALENT: monovalent cation concentration (mM, &gt; 0) of the primer reaction; null = Primer3's
+    /// default <see cref="PrimerDesigner.Primer3MonovalentMillimolar"/> (50 mM). Primer3 uses the primer conditions
+    /// (<c>p_args</c>) for the primer Tm (<c>seqtm</c>), the ntthal self-dimer / 3′ self-dimer / hairpin and pair
+    /// complementarity values (<c>create_thal_arg_holder(p_args)</c>) and the product Tm (<c>long_seq_tm</c>).
+    /// The probe-side counterpart is <see cref="ProbeDesigner.ProbeParameters.MonovalentMillimolar"/>; the internal oligo
+    /// of a pair uses <see cref="ProbeDesigner.Primer3ProbeSettings.MonovalentMillimolar"/> (PRIMER_INTERNAL_SALT_MONOVALENT).
+    /// </summary>
+    public double? MonovalentMillimolar { get; init; }
+
+    /// <summary>PRIMER_SALT_DIVALENT: Mg²⁺ concentration (mM, ≥ 0); null = Primer3's default <see cref="PrimerDesigner.Primer3DivalentMillimolar"/> (1.5 mM).</summary>
+    public double? DivalentMillimolar { get; init; }
+
+    /// <summary>PRIMER_DNTP_CONC: dNTP concentration (mM, ≥ 0); null = Primer3's default <see cref="PrimerDesigner.Primer3DntpMillimolar"/> (0.6 mM).</summary>
+    public double? DntpMillimolar { get; init; }
+
+    /// <summary>PRIMER_DNA_CONC: primer (oligo) concentration (nM, &gt; 0); null = Primer3's default <see cref="PrimerDesigner.Primer3DnaConcentrationNanomolar"/> (50 nM).</summary>
+    public double? DnaConcentrationNanomolar { get; init; }
+
+    /// <summary>
+    /// PRIMER_OPT_GC_PERCENT: the GC optimum of the PRIMER_WT_GC_PERCENT_GT/_LT penalty terms
+    /// (<see cref="Primer3PenaltyWeights.GcGt"/>/<see cref="Primer3PenaltyWeights.GcLt"/>); null =
+    /// <see cref="PrimerDesigner.Primer3DefaultOptGcPercent"/> (50 %). It is inert while both GC weights are 0 (Primer3's default).
+    /// </summary>
+    public double? OptimalGcPercent { get; init; }
+
+    /// <summary>Effective PRIMER_SALT_MONOVALENT (mM).</summary>
+    public double EffectiveMonovalentMillimolar => MonovalentMillimolar ?? PrimerDesigner.Primer3MonovalentMillimolar;
+
+    /// <summary>Effective PRIMER_SALT_DIVALENT (mM).</summary>
+    public double EffectiveDivalentMillimolar => DivalentMillimolar ?? PrimerDesigner.Primer3DivalentMillimolar;
+
+    /// <summary>Effective PRIMER_DNTP_CONC (mM).</summary>
+    public double EffectiveDntpMillimolar => DntpMillimolar ?? PrimerDesigner.Primer3DntpMillimolar;
+
+    /// <summary>Effective PRIMER_DNA_CONC (nM).</summary>
+    public double EffectiveDnaConcentrationNanomolar => DnaConcentrationNanomolar ?? PrimerDesigner.Primer3DnaConcentrationNanomolar;
+
+    /// <summary>Effective PRIMER_OPT_GC_PERCENT (%).</summary>
+    public double EffectiveOptimalGcPercent => OptimalGcPercent ?? PrimerDesigner.Primer3DefaultOptGcPercent;
+
     /// <summary>Effective PRIMER_MAX_SELF_ANY (<see cref="MaxSelfAny"/> or 8.00).</summary>
     public double EffectiveMaxSelfAny => MaxSelfAny ?? PrimerDesigner.Primer3MaxSelfAny;
 
     /// <summary>Effective PRIMER_MAX_SELF_END (<see cref="MaxSelfEnd"/> or 3.00).</summary>
     public double EffectiveMaxSelfEnd => MaxSelfEnd ?? PrimerDesigner.Primer3MaxSelfEnd;
+
+    // Primer3 _pr_data_control checks of the primer conditions.
+    internal void ValidateConditions(string paramName)
+    {
+        PrimerDesigner.ValidatePrimer3Conditions(EffectiveMonovalentMillimolar, EffectiveDivalentMillimolar,
+            EffectiveDntpMillimolar, EffectiveDnaConcentrationNanomolar, paramName);
+        if (!double.IsFinite(EffectiveOptimalGcPercent))
+            throw new ArgumentOutOfRangeException(paramName, "PRIMER_OPT_GC_PERCENT must be finite.");
+    }
 }
 
 /// <summary>

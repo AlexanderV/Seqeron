@@ -58,4 +58,27 @@ public class EvaluatePrimerTests
             Assert.That(c.IsValid, Is.False);
         });
     }
+    [Test]
+    public void EvaluatePrimer_ReactionConditions_MatchPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers (PRIMER_SALT_MONOVALENT 20, _SALT_DIVALENT 3.0, PRIMER_DNTP_CONC 0.8,
+        // PRIMER_DNA_CONC 250, PRIMER_OPT_GC_PERCENT 45, PRIMER_WT_GC_PERCENT_GT 0.5, _LT 1.0): PRIMER_LEFT_0
+        // TACGGGCACTCGTTGGTA TM 61.39018622811568, PENALTY 8.66796400589346, SELF_ANY_TH 4.700639676931019,
+        // HAIRPIN_TH 44.063749383794345.
+        var c = MolToolsTools.evaluate_primer("TACGGGCACTCGTTGGTA", 36, true,
+            Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters,
+            salt_monovalent: 20, salt_divalent: 3.0, dntp_conc: 0.8, dna_conc: 250,
+            opt_gc_percent: 45, wt_gc_percent_gt: 0.5, wt_gc_percent_lt: 1.0);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.MeltingTemperature, Is.EqualTo(61.4));
+            Assert.That(c.Penalty, Is.EqualTo(8.66796400589346).Within(1e-9));
+            Assert.That(c.SelfAnyTh!.Value, Is.EqualTo(4.700639676931019).Within(1e-9));
+            Assert.That(c.HairpinTh!.Value, Is.EqualTo(44.063749383794345).Within(1e-9));
+        });
+        // No condition arguments = Primer3 defaults (penalty |57.363 − 60| on the library defaults, as above).
+        Assert.That(MolToolsTools.evaluate_primer(Primer, 0, true).Penalty, Is.EqualTo(60.0 - 57.363116239639965).Within(1e-9));
+        Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.evaluate_primer(Primer, 0, true, salt_monovalent: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.evaluate_primer(Primer, 0, true, dntp_conc: -0.5));
+    }
 }

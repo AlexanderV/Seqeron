@@ -130,7 +130,7 @@ Default weights and optima (Primer3 source / manual) [3][4]:
 | temp_cutoff | 5 °C | `weights.temp_cutoff` (not a user tag) |
 | OPT_TM | 60.0 °C | `opt_tm` |
 | OPT_SIZE | 20 bases | `opt_size` |
-| OPT_GC_PERCENT | 50.0 % | manual `PRIMER_OPT_GC_PERCENT` |
+| OPT_GC_PERCENT | 50.0 % | manual `PRIMER_OPT_GC_PERCENT` (Primer3 code: `DEFAULT_OPT_GC_PERCENT` = `PR_UNDEFINED_INT_OPT`; `_pr_data_control` rejects non-zero `WT_GC_PERCENT_GT/LT` without an explicit optimum). `EvaluatePrimer`/`DesignPrimers` take it from `PrimerParameters.OptimalGcPercent`, the internal oligo from `Primer3ProbeSettings.OptGcPercent` (+ `WeightGcPercentGt/Lt`); null = 50 % (audit round 3, A3-1) |
 
 ### 4.3 Complexity
 

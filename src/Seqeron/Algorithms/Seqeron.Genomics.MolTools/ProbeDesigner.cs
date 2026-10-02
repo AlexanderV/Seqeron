@@ -1156,6 +1156,19 @@ public static class ProbeDesigner
 
         /// <summary>PRIMER_INTERNAL_MAX_SELF_END (alignment mode; Primer3 default 12.00, must be in [0, 32767]).</summary>
         public double MaxSelfEnd { get; init; } = PrimerDesigner.Primer3InternalMaxSelfComplementarity;
+
+        /// <summary>
+        /// PRIMER_INTERNAL_OPT_GC_PERCENT: the GC optimum of the internal-oligo GC penalty terms
+        /// (<see cref="WeightGcPercentGt"/>/<see cref="WeightGcPercentLt"/>, <c>p_obj_fn</c> OT_INTL); null =
+        /// <see cref="PrimerDesigner.Primer3DefaultOptGcPercent"/> (50 %). Inert while both GC weights are 0 (Primer3's default).
+        /// </summary>
+        public double? OptGcPercent { get; init; }
+
+        /// <summary>PRIMER_INTERNAL_WT_GC_PERCENT_GT (Primer3 default 0): weight × (GC% − <see cref="OptGcPercent"/>) when GC% is above the optimum.</summary>
+        public double WeightGcPercentGt { get; init; }
+
+        /// <summary>PRIMER_INTERNAL_WT_GC_PERCENT_LT (Primer3 default 0): weight × (<see cref="OptGcPercent"/> − GC%) when GC% is below the optimum.</summary>
+        public double WeightGcPercentLt { get; init; }
     }
 
     /// <summary>
@@ -1259,6 +1272,10 @@ public static class ProbeDesigner
         if (!(s.MaxSelfAny >= 0 && s.MaxSelfAny <= short.MaxValue && s.MaxSelfEnd >= 0 && s.MaxSelfEnd <= short.MaxValue))
             throw new ArgumentOutOfRangeException(paramName,
                 "Illegal value for internal oligo complementarity restrictions (Primer3: 0 ≤ PRIMER_INTERNAL_MAX_SELF_ANY/_END ≤ 32767).");
+        PrimerDesigner.ValidatePrimer3Conditions(
+            s.MonovalentMillimolar, s.DivalentMillimolar, s.DntpMillimolar, s.DnaConcentrationNanomolar, paramName);
+        if (s.OptGcPercent is { } opt && !double.IsFinite(opt))
+            throw new ArgumentOutOfRangeException(paramName, "PRIMER_INTERNAL_OPT_GC_PERCENT must be finite.");
     }
 
     /// <summary>
@@ -1276,8 +1293,9 @@ public static class ProbeDesigner
     internal static List<Primer3Probe> EnumeratePrimer3InternalOligos(
         string seq, int regionStart, int regionEnd, Primer3ProbeSettings s, bool screenStructure)
     {
-        var weights = PrimerDesigner.DefaultPrimer3Weights; // = Primer3 o_args.weights defaults
-        var optima = new Primer3Optima(s.OptTm, s.OptSize, PrimerDesigner.DefaultPrimer3Optima.OptGcPercent);
+        // Primer3 o_args.weights defaults, with PRIMER_INTERNAL_WT_GC_PERCENT_GT/_LT and PRIMER_INTERNAL_OPT_GC_PERCENT.
+        var weights = PrimerDesigner.DefaultPrimer3Weights with { GcGt = s.WeightGcPercentGt, GcLt = s.WeightGcPercentLt };
+        var optima = new Primer3Optima(s.OptTm, s.OptSize, s.OptGcPercent ?? PrimerDesigner.Primer3DefaultOptGcPercent);
         var accepted = new List<Primer3Probe>();
 
         // pick_primer_range: for every 3' end, oligos of increasing length (5' extensions). A failure that no

@@ -171,4 +171,42 @@ public class DesignPrimersTests
         });
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 47, 64, p, pair_max_compl_any: -1));
     }
+    [Test]
+    public void DesignPrimers_ReactionConditions_MatchPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [100, 30], PRIMER_PAIR_MAX_DIFF_TM 100, PRIMER_SALT_MONOVALENT 20,
+        // PRIMER_SALT_DIVALENT 3.0, PRIMER_DNTP_CONC 0.8, PRIMER_DNA_CONC 250, PRIMER_OPT_GC_PERCENT 45,
+        // PRIMER_WT_GC_PERCENT_GT 0.5, _LT 1.0, PRIMER_PICK_INTERNAL_OLIGO 1, PRIMER_INTERNAL_SALT_MONOVALENT 120,
+        // _SALT_DIVALENT 2, _DNTP_CONC 0.2, _DNA_CONC 100, PRIMER_INTERNAL_OPT_GC_PERCENT 40, _WT_GC_PERCENT_GT/_LT 0.5):
+        // PRIMER_LEFT_0 [74,20], PRIMER_RIGHT_0 [278,20], PRIMER_PAIR_0_PENALTY 0.7052466341623926,
+        // PRODUCT_TM 87.49740375825182, COMPL_END_TH 17.360051093275388, PRIMER_INTERNAL_0 [122,20] PENALTY 2.1790501883629076.
+        const string t = "GATTTTCATATTATGCAGAAAATCTACTTCGCCTGATACGAGTCGGTTATCTTCGGATACTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTACCCAGAAAATAGCGACGGACCGCGGTGTTAAGTGTCGAGCTACATCACTTCTCATGTAGCCAGAAGGCTGCAACTCATCGACTCTATGTAGTGACCGCGTCGATGTCAAACCCCGGGGGGAGCTCAGATATCCGATACAGGGATGAAGAAATAACCTCATCCCATTGGTGACGAAAGGTTGTAAGTAGCT";
+        var r = MolToolsTools.design_primers(t, 100, 130, Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters,
+            max_tm_difference: 100, num_return: 5, pick_internal_oligo: true,
+            salt_monovalent: 20, salt_divalent: 3.0, dntp_conc: 0.8, dna_conc: 250,
+            opt_gc_percent: 45, wt_gc_percent_gt: 0.5, wt_gc_percent_lt: 1.0,
+            internal_salt_monovalent: 120, internal_salt_divalent: 2.0, internal_dntp_conc: 0.2, internal_dna_conc: 100,
+            internal_opt_gc_percent: 40, internal_wt_gc_percent_gt: 0.5, internal_wt_gc_percent_lt: 0.5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.IsValid, Is.True);
+            Assert.That(r.Pairs, Has.Count.EqualTo(5));
+            Assert.That(r.Forward!.Position, Is.EqualTo(74));
+            Assert.That(r.Reverse!.Position + r.Reverse.Length - 1, Is.EqualTo(278));
+            Assert.That(r.PairPenalty!.Value, Is.EqualTo(0.7052466341623926).Within(1e-9));
+            Assert.That(r.ProductTm!.Value, Is.EqualTo(87.49740375825182).Within(1e-9));
+            Assert.That(r.ComplEndTh!.Value, Is.EqualTo(17.360051093275388).Within(1e-9));
+            Assert.That(r.InternalOligo!.Value.Start, Is.EqualTo(122));
+            Assert.That(r.InternalOligo.Value.Penalty, Is.EqualTo(2.1790501883629076).Within(1e-9));
+            Assert.That(r.Pairs[4].PairPenalty!.Value, Is.EqualTo(1.1878536407214142).Within(1e-9));
+        });
+
+        // Primer3 _pr_data_control: salt / DNA concentration must be > 0, divalent / dNTP ≥ 0.
+        Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_primers(t, 100, 130, salt_monovalent: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_primers(t, 100, 130, dna_conc: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_primers(t, 100, 130, salt_divalent: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            MolToolsTools.design_primers(t, 100, 130, pick_internal_oligo: true, internal_dna_conc: 0));
+    }
 }
