@@ -584,5 +584,73 @@ public class PrimerDesigner_MeltingTemperature_Tests
         });
     }
 
+    /// <summary>
+    /// [Na+] ≤ 0 / NaN / ∞ is rejected (audit round 3, A3-16): Biopython <c>Tm_GC(…, Na=0)</c> and
+    /// <c>salt_correction(Na=0, method=1)</c> raise ValueError "Total ion concentration of zero is not allowed in this
+    /// method."; Na = −5 raises ValueError (math domain error). Unguarded, log10 returned −∞ / NaN.
+    /// </summary>
+    [TestCase(0.0)]
+    [TestCase(-5.0)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NegativeInfinity)]
+    public void ThermoConstants_SaltHelpers_NonPositiveSodium_Throw(double na)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateSaltCorrection(na));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateSaltAdjustedTm(0.5, 20, na));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateSaltAdjustedTm(0.5, 0, na));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateOligoCalcSaltAdjustedTm(20, 19, na));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateOligoCalcSaltAdjustedTm(4, 4, na));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateOligoCalcSaltAdjustedTm(0, 0, na));
+        });
+    }
+
+    /// <summary>Negative base counts / lengths are rejected (audit round 3, A3-16).</summary>
+    [Test]
+    public void ThermoConstants_CountHelpers_NegativeCountOrLength_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateSaltAdjustedTm(0.5, -20, 0.05));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateOligoCalcSaltAdjustedTm(-1, 19, 0.05));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateOligoCalcSaltAdjustedTm(20, -1, 0.05));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateMarmurDotyTm(10, -20));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateMarmurDotyTm(-1, 20));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateWallaceTm(-1, 4));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateWallaceTm(4, -1));
+        });
+    }
+
+    /// <summary>The GC fraction of the salt-adjusted GC formula must lie in [0, 1] (audit round 3, A3-16).</summary>
+    [TestCase(-0.01)]
+    [TestCase(1.01)]
+    [TestCase(double.NaN)]
+    public void ThermoConstants_CalculateSaltAdjustedTm_GcFractionOutOfRange_Throws(double gcFraction)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ThermoConstants.CalculateSaltAdjustedTm(gcFraction, 20, 0.05));
+    }
+
+    /// <summary>
+    /// Legitimate inputs are unchanged by the guards: Biopython Tm_GC(valueset=7) at Na = 1 mM / 1000 mM for
+    /// ACGTACGTACGTACGTACGT (22.199999999999996 / 72.0), salt_correction(Na=1000, method=1) = 0, GC fraction 0 and 1
+    /// boundaries (Tm_GC of A20 / G20 at 50 mM: 29.90290207197791 / 70.9029020719779), length 0 → 0.
+    /// </summary>
+    [Test]
+    public void ThermoConstants_SaltHelpers_PositiveInputs_Unchanged()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ThermoConstants.CalculateSaltAdjustedTm(0.5, 20, 0.001), Is.EqualTo(22.199999999999996).Within(1e-9));
+            Assert.That(ThermoConstants.CalculateSaltAdjustedTm(0.5, 20, 1.0), Is.EqualTo(72.0).Within(1e-9));
+            Assert.That(ThermoConstants.CalculateSaltCorrection(1000), Is.EqualTo(0.0).Within(1e-12));
+            Assert.That(ThermoConstants.CalculateSaltAdjustedTm(0.0, 20, 0.05), Is.EqualTo(29.90290207197791).Within(1e-9));
+            Assert.That(ThermoConstants.CalculateSaltAdjustedTm(1.0, 20, 0.05), Is.EqualTo(70.9029020719779).Within(1e-9));
+            Assert.That(ThermoConstants.CalculateSaltAdjustedTm(0.5, 0, 0.05), Is.EqualTo(0.0));
+            Assert.That(ThermoConstants.CalculateMarmurDotyTm(5, 0), Is.EqualTo(0.0));
+        });
+    }
+
     #endregion
 }

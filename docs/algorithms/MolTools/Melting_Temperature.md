@@ -137,6 +137,7 @@ The implementation centralizes the formula constants in `ThermoConstants`:
 - `ThermoConstants.CalculateMarmurDotyTm(int, int)`: Applies the longer-primer closed form.
 - `ThermoConstants.CalculateOligoCalcSaltAdjustedTm(int, int, double)`: OligoCalc salt-adjusted Tm from base counts and molar [Na+].
 - `ThermoConstants.CalculateSaltCorrection(double)`: absolute 16.6·log10([Na+]) term (Biopython `salt_correction` method 1); not used by the primer Tm.
+- Guards (B07 audit round 3, A3-16): every salt helper (`CalculateSaltCorrection`, `CalculateOligoCalcSaltAdjustedTm`, `CalculateSaltAdjustedTm`) throws `ArgumentOutOfRangeException` for [Na+] ≤ 0, NaN or ∞ (Biopython `Tm_GC` / `salt_correction` raise `ValueError` for [Na+] = 0 — "Total ion concentration of zero is not allowed" — and for [Na+] < 0 — math domain error); the count/length helpers (`CalculateWallaceTm`, `CalculateMarmurDotyTm`, `CalculateOligoCalcSaltAdjustedTm`, `CalculateSaltAdjustedTm`) throw for negative counts/lengths and `CalculateSaltAdjustedTm` for a GC fraction outside [0, 1]. Length 0 still returns 0.
 
 ### 5.2 Current Behavior
 

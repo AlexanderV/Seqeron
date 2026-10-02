@@ -108,17 +108,25 @@ public static class ThermoConstants
     /// <param name="countAT">Number of A and T nucleotides.</param>
     /// <param name="countGC">Number of G and C nucleotides.</param>
     /// <returns>Melting temperature in °C.</returns>
-    public static double CalculateWallaceTm(int countAT, int countGC) =>
-        WallaceAtContribution * countAT + WallaceGcContribution * countGC;
+    /// <exception cref="ArgumentOutOfRangeException">A negative base count.</exception>
+    public static double CalculateWallaceTm(int countAT, int countGC)
+    {
+        RequireNonNegativeCount(countAT, nameof(countAT));
+        RequireNonNegativeCount(countGC, nameof(countGC));
+        return WallaceAtContribution * countAT + WallaceGcContribution * countGC;
+    }
 
     /// <summary>
     /// Calculates Tm using Marmur-Doty formula for longer primers.
     /// </summary>
     /// <param name="gcCount">Number of G and C nucleotides.</param>
     /// <param name="length">Total sequence length.</param>
-    /// <returns>Melting temperature in °C.</returns>
+    /// <returns>Melting temperature in °C (0 for <paramref name="length"/> = 0).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A negative <paramref name="gcCount"/> or <paramref name="length"/>.</exception>
     public static double CalculateMarmurDotyTm(int gcCount, int length)
     {
+        RequireNonNegativeCount(gcCount, nameof(gcCount));
+        RequireNonNegativeCount(length, nameof(length));
         if (length == 0) return 0;
         return MarmurDotyBase + MarmurDotyGcCoefficient * (gcCount - MarmurDotyGcOffset) / length;
     }
@@ -127,11 +135,18 @@ public static class ThermoConstants
     /// Calculates salt-adjusted Tm.
     /// </summary>
     /// <param name="gcFraction">GC content as fraction (0-1).</param>
-    /// <param name="length">Sequence length.</param>
-    /// <param name="naConcentration">Na+ concentration in M (default 0.05 = 50mM).</param>
-    /// <returns>Melting temperature in °C.</returns>
+    /// <param name="length">Sequence length (≥ 0).</param>
+    /// <param name="naConcentration">Na+ concentration in M (default 0.05 = 50mM); must be a positive finite value.</param>
+    /// <returns>Melting temperature in °C (0 for <paramref name="length"/> = 0).</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="naConcentration"/> not a positive finite value
+    /// (Biopython <c>Tm_GC</c>/<c>salt_correction</c> raise ValueError for [Na+] ≤ 0), a negative
+    /// <paramref name="length"/>, or <paramref name="gcFraction"/> outside [0, 1].</exception>
     public static double CalculateSaltAdjustedTm(double gcFraction, int length, double naConcentration = DefaultNaConcentration)
     {
+        RequirePositiveConcentration(naConcentration, nameof(naConcentration));
+        RequireNonNegativeCount(length, nameof(length));
+        if (!(gcFraction >= 0 && gcFraction <= 1))
+            throw new ArgumentOutOfRangeException(nameof(gcFraction), gcFraction, "GC fraction must lie in [0, 1].");
         if (length == 0) return 0;
         return SaltAdjustedBase + SaltCoefficient * Math.Log10(naConcentration) +
                SaltAdjustedGcCoefficient * gcFraction - SaltAdjustedLengthFactor / length;
@@ -151,8 +166,13 @@ public static class ThermoConstants
     /// <param name="countGC">Number of G and C nucleotides.</param>
     /// <param name="naConcentrationMolar">Na+ concentration in M (must be &gt; 0).</param>
     /// <returns>Melting temperature in °C (0 when there are no counted bases).</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="naConcentrationMolar"/> not a positive finite
+    /// value, or a negative base count.</exception>
     public static double CalculateOligoCalcSaltAdjustedTm(int countAT, int countGC, double naConcentrationMolar)
     {
+        RequirePositiveConcentration(naConcentrationMolar, nameof(naConcentrationMolar));
+        RequireNonNegativeCount(countAT, nameof(countAT));
+        RequireNonNegativeCount(countGC, nameof(countGC));
         int length = countAT + countGC;
         if (length == 0) return 0;
         double saltTerm = SaltCoefficient * Math.Log10(naConcentrationMolar);
@@ -168,10 +188,29 @@ public static class ThermoConstants
     /// constant is referenced to 1 M Na+ (e.g. the 81.5 family); do not add it to the Wallace rule or to
     /// the 64.9 basic formula, which already assume 50 mM Na+.
     /// </summary>
-    /// <param name="naConcentrationMM">Na+ concentration in mM.</param>
+    /// <param name="naConcentrationMM">Na+ concentration in mM; must be a positive finite value.</param>
     /// <returns>Salt correction in °C.</returns>
-    public static double CalculateSaltCorrection(double naConcentrationMM) =>
-        SaltCoefficient * Math.Log10(naConcentrationMM / 1000.0);
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="naConcentrationMM"/> not a positive finite value
+    /// (Biopython <c>salt_correction(method=1)</c> raises ValueError for [Na+] ≤ 0).</exception>
+    public static double CalculateSaltCorrection(double naConcentrationMM)
+    {
+        RequirePositiveConcentration(naConcentrationMM, nameof(naConcentrationMM));
+        return SaltCoefficient * Math.Log10(naConcentrationMM / 1000.0);
+    }
+
+    // [Na+] enters log10: ≤ 0 would give −∞/NaN (Biopython: "Total ion concentration of zero is not allowed"
+    // / math domain error), NaN/∞ would propagate silently.
+    private static void RequirePositiveConcentration(double value, string paramName)
+    {
+        if (!(value > 0) || double.IsInfinity(value))
+            throw new ArgumentOutOfRangeException(paramName, value, "Na+ concentration must be a positive finite value.");
+    }
+
+    private static void RequireNonNegativeCount(int value, string paramName)
+    {
+        if (value < 0)
+            throw new ArgumentOutOfRangeException(paramName, value, "Base counts and lengths must be ≥ 0.");
+    }
 
     /// <summary>
     /// The canonical "basic" oligonucleotide melting temperature (OligoCalc basic Tm, Kibbe 2007,

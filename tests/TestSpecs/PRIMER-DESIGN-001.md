@@ -154,6 +154,7 @@ Applied systematic coverage classification (2026-03-04):
 | M18 | ✅ | `DesignPrimerPairs_NonDefaultPairWeights_MatchesPrimer3PairPenalty` | primer3-py PRIMER_PAIR_k_PENALTY |
 | M19 | ✅ | `DesignPrimerPairs_PickInternalOligo_MatchesPrimer3Triples`; MCP `DesignPrimers_PickInternalOligo_MatchesPrimer3` | primer3-py PRIMER_INTERNAL_k_* |
 | M20 | ✅ | `DesignPrimers_InvalidOptions_ThrowAsPrimer3DataControl` | primer3-py error strings |
+| M21 | ✅ | `PrimerDesigner_EndStabilityWeight_Tests` (PRIMER_WT_END_STABILITY in `EvaluatePrimer` / `DesignPrimerPairs`, thermodynamic + alignment mode, internal oligo; audit round 3, A3-2) | primer3-py PRIMER_LEFT/RIGHT/PAIR_k_PENALTY |
 | S5 | ✅ | `DesignPrimers_HomopolymerRichTemplate_MayReturnInvalid`, `_VeryShortTemplate_ThrowsArgumentException` | Failure message + exception |
 
 ### COULD Tests

@@ -1339,6 +1339,7 @@ public static class ProbeDesigner
                     (selfAny, selfEnd, hairpin) = (st.SelfAnyTh, st.SelfEndTh, st.HairpinTh);
                 }
 
+                // p_obj_fn OT_INTL: no end_stability term (end_oligodg is computed for primers only).
                 double penalty = PrimerDesigner.CalculatePrimer3Penalty(
                     new Primer3PenaltyInputs(tm, len, gcPercent), weights, optima);
                 accepted.Add(new Primer3Probe(oligo, start, len, tm, gcPercent, selfAny, selfEnd, hairpin, penalty)

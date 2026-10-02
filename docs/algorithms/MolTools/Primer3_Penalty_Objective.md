@@ -177,6 +177,12 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
   `PrimerStructureScreen.Primer3Alignment`, PRIMER_WT_SELF_ANY_TH/_SELF_END_TH/_HAIRPIN_TH under the default
   thermodynamic screen); verified against primer3-py 2.3.1 `design_primers` PRIMER_LEFT/RIGHT_n_PENALTY
   (B07 audit round 2, A1).
+- `EvaluatePrimer` / `DesignPrimers` feed `inputs.EndStability` = Primer3 `end_stability` =
+  `end_oligodg(seq, 5, santalucia)` = −`Calculate3PrimeStability(seq)` (positive kcal/mol; computed in
+  `calc_and_check_oligo_features` for left/right primers only), so `PRIMER_WT_END_STABILITY` ≠ 0 applies exactly as in
+  `p_obj_fn`; the internal-oligo (`OT_INTL`) branch has no end-stability term, so `PRIMER_INTERNAL_WT_END_STABILITY`
+  has no effect in Primer3 and none here. Verified against primer3-py 2.3.1 `design_primers` with
+  PRIMER_WT_END_STABILITY ∈ {0.1 … 5} (B07 audit round 3, A3-2 / F38).
 
 **Intentionally simplified:** none — a direct `CalculatePrimer3Penalty` call still takes the structure values from
 the caller (`Primer3PenaltyInputs`), but every value is available from the library methods above.

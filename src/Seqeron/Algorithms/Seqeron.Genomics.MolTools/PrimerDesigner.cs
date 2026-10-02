@@ -835,7 +835,10 @@ public static class PrimerDesigner
             new Primer3PenaltyInputs(tm, seq.Length, gcContent,
                 SelfAny: (weights.ThermodynamicOligoAlignment ? structure.Thermo?.SelfAnyTh : structure.SelfAny) ?? 0.0,
                 SelfEnd: (weights.ThermodynamicOligoAlignment ? structure.Thermo?.SelfEndTh : structure.SelfEnd) ?? 0.0,
-                HairpinTh: structure.Thermo?.HairpinTh ?? 0.0),
+                HairpinTh: structure.Thermo?.HairpinTh ?? 0.0,
+                // p_obj_fn end_stability term (left/right primers only): h->end_stability =
+                // end_oligodg(seq, 5, santalucia) = −ΔG of the 3′ pentamer (positive magnitude).
+                EndStability: double.IsNaN(stability3Prime) ? 0.0 : -stability3Prime),
             weights,
             new Primer3Optima(param.OptimalTm, param.OptimalLength, DefaultPrimer3Optima.OptGcPercent));
 
@@ -3700,7 +3703,10 @@ public readonly record struct PrimerParameters(
     /// <see cref="PrimerStructureScreen.Primer3Thermodynamic"/> PRIMER_WT_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH
     /// with the ntthal Tm values; the <see cref="PrimerStructureScreen.Heuristic"/> screen has no Primer3 structure
     /// values, so its structure terms are 0. When a structure weight is non-zero the values are computed for every
-    /// candidate (as Primer3's <c>calc_and_check_oligo_features</c> does).
+    /// candidate (as Primer3's <c>calc_and_check_oligo_features</c> does). PRIMER_WT_END_STABILITY
+    /// (<see cref="Primer3PenaltyWeights.EndStability"/>) multiplies Primer3's <c>end_stability</c> =
+    /// <c>end_oligodg(seq, 5)</c> = −<see cref="PrimerDesigner.Calculate3PrimeStability"/> (positive kcal/mol), as
+    /// <c>p_obj_fn</c> does for left/right primers (internal oligos have no such term).
     /// </summary>
     public Primer3PenaltyWeights? PenaltyWeights { get; init; }
 

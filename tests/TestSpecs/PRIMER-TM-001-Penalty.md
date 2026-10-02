@@ -101,6 +101,7 @@
 | R1 | Thermodynamic mode (Primer3 default) `*_TH` + end-stability + GC terms, 5 primers (both linear and reciprocal `temp_cutoff` branches) | primer3-py 2.3.1 `PRIMER_LEFT_0_PENALTY`, 1e-9 | `CalculatePrimer3Penalty_ThermodynamicMode_MatchesPrimer3Py` |
 | R2 | Alignment mode (`PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0`), 4 primers; hairpin ignored | primer3-py penalties, 1e-9 | `CalculatePrimer3Penalty_AlignmentMode_MatchesPrimer3Py` |
 | R3 | Defaults = thermodynamic mode with zero structure weights; temp_cutoff = 5 | penalty (62,21) = 3.0 | `DefaultPrimer3Weights_ThermodynamicModeWithZeroStructureWeights` |
+| R4 | `EvaluatePrimer`/`DesignPrimers` feed `end_stability` = −`Calculate3PrimeStability` (PRIMER_WT_END_STABILITY ≠ 0), both structure modes; internal oligo unaffected (audit round 3, A3-2) | primer3-py `design_primers` PRIMER_LEFT/RIGHT/PAIR_k_PENALTY ranks 0–4, 1e-9 | `PrimerDesigner_EndStabilityWeight_Tests` |
 
 Note: `WT_SELF_ANY`/`WT_SELF_END` (M7, M8, M10, S3) apply only in alignment mode (`p_obj_fn`:
 `thermodynamic_oligo_alignment==0`), so those tests set `ThermodynamicOligoAlignment = false`.

@@ -36,6 +36,12 @@ Melting temperature (Tm) is the temperature at which 50% of the DNA duplex is di
 | `CalculateSaltCorrection(Na_mM)` | 16.6 × log10(Na/1000) | Absolute Schildkraut–Lifson term (Biopython method 1); NOT used by the primer Tm |
 | `CalculateOligoCalcSaltAdjustedTm(at, gc, Na_M)` | N<14: 2AT+4GC+16.6·log10(Na/0.050); N≥14: 100.5+41·GC/N−820/N+16.6·log10(Na) | OligoCalc salt-adjusted Tm |
 
+Guards (B07 audit round 3, A3-16; Biopython `Tm_GC`/`salt_correction` raise `ValueError` for [Na+] ≤ 0): the salt
+helpers throw `ArgumentOutOfRangeException` for [Na+] ≤ 0 / NaN / ∞, the count/length helpers for negative
+counts/lengths, `CalculateSaltAdjustedTm` also for GC fraction ∉ [0, 1] — `ThermoConstants_SaltHelpers_NonPositiveSodium_Throw`,
+`ThermoConstants_CountHelpers_NegativeCountOrLength_Throw`, `ThermoConstants_CalculateSaltAdjustedTm_GcFractionOutOfRange_Throws`,
+`ThermoConstants_SaltHelpers_PositiveInputs_Unchanged`.
+
 ---
 
 ## 2. Evidence Summary
