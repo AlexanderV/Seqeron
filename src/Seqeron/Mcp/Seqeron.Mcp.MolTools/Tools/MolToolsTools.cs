@@ -88,7 +88,14 @@ public class MolToolsTools
         [Description("PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of the internal oligo (default 0; non-zero needs sequence_quality).")] int? internal_min_quality = null,
         [Description("PRIMER_INTERNAL_WT_SEQ_QUAL: internal-oligo penalty weight of (quality_range_max - its minimum base quality) (default 0; needs sequence_quality).")] double? internal_wt_seq_qual = null,
         [Description("PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1).")] double? internal_wt_end_qual = null,
-        [Description("PRIMER_PAIR_WT_IO_PENALTY: pair penalty weight of the internal-oligo penalty (default 0; non-zero requires pick_internal_oligo, as in Primer3).")] double? pair_wt_io_penalty = null)
+        [Description("PRIMER_PAIR_WT_IO_PENALTY: pair penalty weight of the internal-oligo penalty (default 0; non-zero requires pick_internal_oligo, as in Primer3).")] double? pair_wt_io_penalty = null,
+        [Description("PRIMER_MASK_TEMPLATE: mask the template with Primer3's k-mer masker (needs mask_kmers_11 and mask_kmers_16): primers whose 3' base is masked on their strand are rejected and each primer gets its predicted failure rate (reported as maskFailureRate; weight wt_mask_failure_rate). Default false.")] bool? mask_template = null,
+        [Description("The masker's 11-mer genome counts as a k-mer -> count object (the content of PRIMER_MASK_KMERLIST_PATH/<prefix>_11.list, e.g. a GenomeTester4 glistmaker list); k-mers absent here and as reverse complement count as 1.")] Dictionary<string, int>? mask_kmers_11 = null,
+        [Description("The masker's 16-mer genome counts (content of <prefix>_16.list), as mask_kmers_11.")] Dictionary<string, int>? mask_kmers_16 = null,
+        [Description("PRIMER_MASK_FAILURE_RATE: template positions where a primer would end with a predicted failure rate above this are masked (default 0.1; 0 = none).")] double? mask_failure_rate = null,
+        [Description("PRIMER_MASK_5P_DIRECTION: bases masked from such a 3' end towards the primer 5' end, including it (default 1).")] int? mask_5p_direction = null,
+        [Description("PRIMER_MASK_3P_DIRECTION: bases masked beyond such a 3' end (default 0).")] int? mask_3p_direction = null,
+        [Description("PRIMER_WT_MASK_FAILURE_RATE: per-primer penalty weight of the predicted failure rate (default 0; effective only with mask_template).")] double? wt_mask_failure_rate = null)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -122,6 +129,11 @@ public class MolToolsTools
         }
         parameters = ApplySequenceQuality(parameters, min_quality, min_end_quality, quality_range_min, quality_range_max,
             wt_seq_qual, wt_end_qual);
+        if (wt_mask_failure_rate is { } wtMask)
+        {
+            var p = parameters ?? PrimerDesigner.DefaultParameters;
+            parameters = p with { PenaltyWeights = (p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights) with { MaskFailureRate = wtMask } };
+        }
         var internalOligo = new ProbeDesigner.Primer3ProbeSettings(
             MonovalentMillimolar: internal_salt_monovalent ?? PrimerDesigner.Primer3InternalMonovalentMillimolar,
             DivalentMillimolar: internal_salt_divalent ?? PrimerDesigner.Primer3InternalDivalentMillimolar,
@@ -159,6 +171,13 @@ public class MolToolsTools
             InsidePenalty = inside_penalty ?? PrimerDesigner.Primer3DefaultInsidePenalty,
             OutsidePenalty = outside_penalty ?? PrimerDesigner.Primer3DefaultOutsidePenalty,
             SequenceQuality = sequence_quality,
+            MaskTemplate = mask_template ?? false,
+            MaskKmerLists = mask_kmers_11 is null && mask_kmers_16 is null
+                ? null
+                : new PrimerMaskingKmerLists(mask_kmers_11 ?? new Dictionary<string, int>(), mask_kmers_16 ?? new Dictionary<string, int>()),
+            MaskFailureRate = mask_failure_rate ?? PrimerDesigner.Primer3MaskFailureRate,
+            MaskFivePrimeDirection = mask_5p_direction ?? PrimerDesigner.Primer3MaskFivePrimeDirection,
+            MaskThreePrimeDirection = mask_3p_direction ?? PrimerDesigner.Primer3MaskThreePrimeDirection,
             Weights = new Primer3PairWeights(InternalOligoPenalty: pair_wt_io_penalty ?? 0.0)
             {
                 LibraryMispriming = pair_wt_library_mispriming ?? 0.0,

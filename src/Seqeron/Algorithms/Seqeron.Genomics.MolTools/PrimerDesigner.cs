@@ -242,6 +242,8 @@ public static partial class PrimerDesigner
         private readonly TargetPosition? _position;
         // SEQUENCE_QUALITY (null when absent).
         private readonly QualityContext? _quality;
+        // PRIMER_MASK_TEMPLATE: the masked copies of the included region (null without masking).
+        private readonly MaskContext? _mask;
 
         public PrimerPairSearch(DnaSequence template, int targetStart, int targetEnd,
             PrimerParameters param, PrimerPairOptions opt)
@@ -271,6 +273,9 @@ public static partial class PrimerDesigner
             _productMonovalentEq = Primer3MonovalentEquivalent(param.EffectiveMonovalentMillimolar,
                 param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar);
             (_incStart, _incEnd) = opt.IncludedRegion is { } inc ? (inc.Start, inc.Start + inc.Length) : (0, n);
+            // Primer3 masks the included region (trimmed_orig_seq) once per design, before the primer lists are built.
+            if (opt.MaskTemplate)
+                _mask = new MaskContext(seq, _incStart, _incEnd, opt);
 
             _gcPrefix = new int[n + 1];
             for (int i = 0; i < n; i++)
@@ -300,7 +305,7 @@ public static partial class PrimerDesigner
             {
                 for (int len = param.MinLength; len <= param.MaxLength && start + len <= leftLimit; len++)
                 {
-                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template, target: _position, quality: _quality);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template, target: _position, quality: _quality, mask: _mask);
                     if (candidate.IsValid)
                     {
                         _fwd.Add((candidate, tm));
@@ -319,7 +324,7 @@ public static partial class PrimerDesigner
                 {
                     int start = end - len;
                     var revComp = DnaSequence.GetReverseComplementString(seq.Substring(start, len));
-                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template, target: _position, quality: _quality);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template, target: _position, quality: _quality, mask: _mask);
                     if (candidate.IsValid)
                     {
                         _rev.Add((candidate, tm));
@@ -395,6 +400,12 @@ public static partial class PrimerDesigner
                 throw new ArgumentException("Product temperature is part of objective function while optimum temperature is not defined (Primer3 _pr_data_control).");
             if ((_w.ProductSizeLt != 0 || _w.ProductSizeGt != 0) && o.ProductOptSize is null)
                 throw new ArgumentException("Product size is part of objective function while optimum size is not defined (Primer3 _pr_data_control).");
+            // primer3-py: PRIMER_MASK_TEMPLATE needs the k-mer lists (PRIMER_MASK_KMERLIST_PATH).
+            if (o.MaskTemplate && o.MaskKmerLists is null)
+                throw new ArgumentException("masking template chosen, but path to PRIMER_MASK_KMERLIST_PATH not specified (primer3-py).");
+            ValidateMaskSettings(o.MaskFailureRate, o.MaskFivePrimeDirection, o.MaskThreePrimeDirection, nameof(o.MaskFailureRate));
+            if (double.IsNaN(_param.PenaltyWeights?.MaskFailureRate ?? 0.0))
+                throw new ArgumentException("PRIMER_WT_MASK_FAILURE_RATE must not be NaN.");
             // _pr_data_control: PRIMER_PAIR_WT_IO_PENALTY without PRIMER_PICK_INTERNAL_OLIGO.
             if (_w.InternalOligoPenalty != 0 && !o.PickInternalOligo)
                 throw new ArgumentException("Internal oligo quality is part of objective function while internal oligo choice is not required (Primer3 _pr_data_control).");
@@ -898,7 +909,7 @@ public static partial class PrimerDesigner
 
         // Full evaluation (including the structure values) of a chosen primer.
         private PrimerCandidate Reevaluate(PrimerCandidate c) =>
-            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template, target: _position, quality: _quality).Candidate;
+            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template, target: _position, quality: _quality, mask: _mask).Candidate;
 
         // Result when no pair qualifies: the individually lowest-penalty primers that pass their own
         // (structure) constraints, with the violated pair constraint.
@@ -1017,7 +1028,8 @@ public static partial class PrimerDesigner
         bool evaluateStructure = true,
         TemplateContext? template = null,
         TargetPosition? target = null,
-        QualityContext? quality = null)
+        QualityContext? quality = null,
+        MaskContext? mask = null)
     {
         var seq = sequence.ToUpperInvariant();
 
@@ -1057,6 +1069,11 @@ public static partial class PrimerDesigner
                 issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
                     $"Fraction bound {BoundText(boundRaw)} above {param.EffectiveMaxBound:0.##}% (Primer3 PRIMER_MAX_BOUND)"));
         }
+
+        // PRIMER_MASK_TEMPLATE (is_lowercase_masked, among the first checks of calc_and_check_oligo_features): the primer's
+        // 3' base must not be masked on its strand's copy of the template.
+        if (mask is not null && mask.ThreePrimeEndMasked(position, seq.Length, isForward))
+            issues.Add("3' end overlaps masked sequence (Primer3 PRIMER_MASK_TEMPLATE)");
 
         // Primer3 position penalty relative to the target (non-default PRIMER_INSIDE/OUTSIDE_PENALTY, pair search only):
         // a 3' end past the target is an infinite position penalty (OP_OVERLAPS_TARGET).
@@ -1158,6 +1175,9 @@ public static partial class PrimerDesigner
 
         bool isValid = issues.Count == 0;
 
+        // Masker failure rate (end of calc_and_check_oligo_features, 16-nt window): only with PRIMER_MASK_TEMPLATE.
+        double? failureRate = mask is null ? null : CalculateMaskFailureRatePrimer3(seq, mask.Lists);
+
         // Informational heuristic score and the Primer3 ranking penalty.
         double score = CalculatePrimerScore(seq, gcContent, tm, homopolymer, param);
         if (!evaluateStructure && UsesStructureTerms(weights, param.StructureScreen))
@@ -1177,6 +1197,7 @@ public static partial class PrimerDesigner
                 PositionPenalty = positionPenalty ?? 0.0,
                 SequenceQuality = minQuality,
                 QualityRangeMax = param.EffectiveQualityRangeMax,
+                MaskFailureRate = failureRate ?? 0.0,
             },
             weights,
             new Primer3Optima(param.OptimalTm, param.OptimalLength, param.EffectiveOptimalGcPercent) { OptBound = param.EffectiveOptBound });
@@ -1208,6 +1229,7 @@ public static partial class PrimerDesigner
             Bound = annealing > 0.0 && boundRaw != Primer3OligoTmError ? boundRaw : null,
             PositionPenalty = positionPenalty,
             MinSequenceQuality = minQuality,
+            MaskFailureRate = failureRate,
         };
         return (candidate, tm, library, templateScore);
 
@@ -3981,8 +4003,8 @@ public static partial class PrimerDesigner
     /// PRIMER_WT_POS_PENALTY × <see cref="Primer3PenaltyInputs.PositionPenalty"/> (PRIMER_INSIDE/OUTSIDE_PENALTY).
     /// The sequence-quality term is PRIMER_WT_SEQ_QUAL (<see cref="Primer3PenaltyWeights.SequenceQuality"/>) ×
     /// (<see cref="Primer3PenaltyInputs.QualityRangeMax"/> − <see cref="Primer3PenaltyInputs.SequenceQuality"/>).
-    /// <para>Not modelled (zero under Primer3 defaults): <c>failure_rate</c> (the k-mer masker); callers needing it add
-    /// weight·value themselves. The template mispriming terms (PRIMER_WT_TEMPLATE_MISPRIMING / _TH,
+    /// The masker term is PRIMER_WT_MASK_FAILURE_RATE (<see cref="Primer3PenaltyWeights.MaskFailureRate"/>) ×
+    /// <see cref="Primer3PenaltyInputs.MaskFailureRate"/>. <para>The template mispriming terms (PRIMER_WT_TEMPLATE_MISPRIMING / _TH,
     /// <see cref="Primer3PenaltyWeights.TemplateMispriming"/> / <see cref="Primer3PenaltyWeights.TemplateMisprimingTh"/>)
     /// use <see cref="Primer3PenaltyInputs.TemplateMispriming"/>.</para>
     /// </summary>
@@ -4028,6 +4050,10 @@ public static partial class PrimerDesigner
             sum += w.SizeLt * (o.OptSize - inputs.Length);
         if (w.SizeGt != 0 && inputs.Length > o.OptSize)
             sum += w.SizeGt * (inputs.Length - o.OptSize);
+
+        // Masker failure-rate term (failure_rate; left/right primers, PRIMER_MASK_TEMPLATE).
+        if (w.MaskFailureRate != 0)
+            sum += w.MaskFailureRate * inputs.MaskFailureRate;
 
         // Secondary-structure terms: p_obj_fn switches on thermodynamic_oligo_alignment.
         if (!w.ThermodynamicOligoAlignment)
@@ -4578,6 +4604,12 @@ public sealed record PrimerCandidate(
     /// (<see cref="PrimerPairOptions.SequenceQuality"/>) is given; otherwise <c>null</c>.
     /// </summary>
     public int? MinSequenceQuality { get; init; }
+
+    /// <summary>
+    /// The primer's predicted PCR failure rate (<see cref="PrimerDesigner.CalculateMaskFailureRatePrimer3"/>, the value Primer3
+    /// weights with PRIMER_WT_MASK_FAILURE_RATE) when <see cref="PrimerPairOptions.MaskTemplate"/> is set; otherwise <c>null</c>.
+    /// </summary>
+    public double? MaskFailureRate { get; init; }
 }
 
 /// <summary>
@@ -4642,6 +4674,10 @@ public readonly record struct Primer3PenaltyInputs(
 
     /// <summary>PRIMER_QUALITY_RANGE_MAX of the PRIMER_WT_SEQ_QUAL term (default 100).</summary>
     public int QualityRangeMax { get; init; } = PrimerDesigner.Primer3QualityRangeMax;
+
+    /// <summary>Predicted PCR failure rate of the primer (Primer3 <c>h->failure_rate</c>,
+    /// <see cref="PrimerDesigner.CalculateMaskFailureRatePrimer3"/>); 0 without template masking.</summary>
+    public double MaskFailureRate { get; init; }
 }
 
 /// <summary>
@@ -4736,6 +4772,14 @@ public readonly record struct Primer3PenaltyWeights(
     /// accepted and ignored.
     /// </summary>
     public double EndQuality { get; init; }
+
+    /// <summary>
+    /// PRIMER_WT_MASK_FAILURE_RATE (<c>weights.failure_rate</c>, default 0): × the primer's predicted failure rate
+    /// (<see cref="Primer3PenaltyInputs.MaskFailureRate"/>, <see cref="PrimerDesigner.CalculateMaskFailureRatePrimer3"/>), which
+    /// Primer3 computes only with PRIMER_MASK_TEMPLATE (<see cref="PrimerPairOptions.MaskTemplate"/>; otherwise 0). Left/right
+    /// primers only; added after the size terms as in <c>p_obj_fn</c>.
+    /// </summary>
+    public double MaskFailureRate { get; init; }
 }
 
 /// <summary>
@@ -4984,6 +5028,35 @@ public sealed record PrimerPairOptions
     /// <see cref="PrimerParameters.QualityRangeMax"/>] (Primer3 <c>_pr_data_control</c>).
     /// </summary>
     public IReadOnlyList<int>? SequenceQuality { get; init; }
+
+    /// <summary>
+    /// PRIMER_MASK_TEMPLATE: mask the included region with Primer3's k-mer masker (<see cref="PrimerDesigner.MaskTemplatePrimer3"/>,
+    /// <see cref="MaskKmerLists"/>, <see cref="MaskFailureRate"/>, <see cref="MaskFivePrimeDirection"/>,
+    /// <see cref="MaskThreePrimeDirection"/>): a left primer whose 3′ base is masked on the forward copy, or a right primer whose
+    /// 3′ base (its leftmost template base) is masked on the reverse copy, is rejected (Primer3 <c>is_lowercase_masked</c>), and
+    /// every primer gets its predicted failure rate (<see cref="PrimerDesigner.CalculateMaskFailureRatePrimer3"/>,
+    /// <see cref="PrimerCandidate.MaskFailureRate"/>) for PRIMER_WT_MASK_FAILURE_RATE
+    /// (<see cref="Primer3PenaltyWeights.MaskFailureRate"/>). Requires <see cref="MaskKmerLists"/> (primer3-py: "masking template
+    /// chosen, but path to PRIMER_MASK_KMERLIST_PATH not specified"). Internal oligos are not affected (Primer3 checks them on the
+    /// unmasked template).
+    /// </summary>
+    public bool MaskTemplate { get; init; }
+
+    /// <summary>The masker's 11-mer / 16-mer genome count lists (PRIMER_MASK_KMERLIST_PATH / _PREFIX; see
+    /// <see cref="PrimerMaskingKmerLists.FromGenomeTester4Files"/>). Not part of the JSON form.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public PrimerMaskingKmerLists? MaskKmerLists { get; init; }
+
+    /// <summary>PRIMER_MASK_FAILURE_RATE (default 0.1): a template position is masked when the failure rate of a primer ending
+    /// there exceeds it (0 = no masking by score).</summary>
+    public double MaskFailureRate { get; init; } = PrimerDesigner.Primer3MaskFailureRate;
+
+    /// <summary>PRIMER_MASK_5P_DIRECTION (default 1, ≥ 0): bases masked from a high-failure 3′ end towards the primer's 5′ end
+    /// (including the 3′ base).</summary>
+    public int MaskFivePrimeDirection { get; init; } = PrimerDesigner.Primer3MaskFivePrimeDirection;
+
+    /// <summary>PRIMER_MASK_3P_DIRECTION (default 0, 0–4984): bases masked beyond a high-failure 3′ end.</summary>
+    public int MaskThreePrimeDirection { get; init; } = PrimerDesigner.Primer3MaskThreePrimeDirection;
 
     /// <summary>
     /// PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE (≥ −1, default −1): once <see cref="PrimerDesigner.DesignPrimerPairs"/> has

@@ -369,6 +369,44 @@ public class DesignPrimersTests
     }
 
     [Test]
+    public void DesignPrimers_MaskTemplate_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [140, 20], PRIMER_MASK_TEMPLATE 1, PRIMER_MASK_KMERLIST_PATH with
+        // GenomeTester4 lists of the counts below, PRIMER_WT_MASK_FAILURE_RATE 1) on random.Random(5) 300 nt: rank 3 =
+        // [117,20] / [233,20], PAIR_PENALTY 0.5401089974063126, LEFT_PENALTY 0.43329038433534206; with
+        // PRIMER_MASK_FAILURE_RATE 0.05, PRIMER_MASK_5P_DIRECTION 2, PRIMER_MASK_3P_DIRECTION 1 (no weight): rank 0 = [117,20] /
+        // [233,20], PAIR_PENALTY 0.5003559657240544.
+        const string t = "GGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTTCAGAGTATGTATACCACTGGGTAGGATACGGCGGAGGGCACGTCAATACGGTTCAATGCCCTACTGCATGCTCTTGTGGTTCATCTGCATGGAGAGGGTGGGCATGGGTGGGGGTGCTGGCCCGTGATCTGGACCTCCCATCCACAGCTCATTGTACCGAGTGTAGAGAGGGGCTTGTCCTTCCAGATAGCGTTTCTGTTTCGGTGTAGGTGCTAATCGACTATGCTACTGCGGTTAACG";
+        var k11 = new Dictionary<string, int>();
+        for (int i = 0; i <= t.Length - 11; i++)
+            if (i % 3 == 0)
+            {
+                string k = t.Substring(i, 11);
+                k11[i % 2 == 1 ? Seqeron.Genomics.Core.DnaSequence.GetReverseComplementString(k) : k] = 2 + i * 37 % 1000;
+            }
+        var k16 = new Dictionary<string, int>();
+        for (int i = 0; i <= t.Length - 16; i++)
+            if (i % 7 == 0)
+                k16[t.Substring(i, 16)] = (int)Math.Pow(10, 1 + i % 5);
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters;
+        var r = MolToolsTools.design_primers(t, 140, 160, p3, max_tm_difference: 100, num_return: 5,
+            mask_template: true, mask_kmers_11: k11, mask_kmers_16: k16, wt_mask_failure_rate: 1);
+        var r2 = MolToolsTools.design_primers(t, 140, 160, p3, max_tm_difference: 100,
+            mask_template: true, mask_kmers_11: k11, mask_kmers_16: k16, mask_failure_rate: 0.05, mask_5p_direction: 2, mask_3p_direction: 1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Pairs, Has.Count.EqualTo(5));
+            Assert.That(r.Pairs[3].Forward!.Position, Is.EqualTo(117));
+            Assert.That(r.Pairs[3].PairPenalty!.Value, Is.EqualTo(0.5401089974063126).Within(1e-9));
+            Assert.That(r.Pairs[3].Forward!.Penalty, Is.EqualTo(0.43329038433534206).Within(1e-9));
+            Assert.That(r.Pairs[3].Forward!.MaskFailureRate, Is.Not.Null);
+            Assert.That(r2.Forward!.Position, Is.EqualTo(117));
+            Assert.That(r2.PairPenalty!.Value, Is.EqualTo(0.5003559657240544).Within(1e-9));
+            Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 140, 160, p3, mask_template: true));
+        });
+    }
+
+    [Test]
     public void DesignPrimers_MisprimingLibrary_MatchesPrimer3()
     {
         // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [100, 30], PRIMER_PAIR_MAX_DIFF_TM 100, misprime_lib = lib):

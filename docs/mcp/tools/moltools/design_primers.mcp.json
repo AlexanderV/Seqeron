@@ -267,6 +267,71 @@
         ],
         "description": "PRIMER_PAIR_WT_IO_PENALTY: pair penalty weight of the internal-oligo penalty; non-zero requires pick_internal_oligo (Primer3 _pr_data_control).",
         "default": 0
+      },
+      "mask_template": {
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "description": "PRIMER_MASK_TEMPLATE: mask the template with Primer3's k-mer masker (needs mask_kmers_11 and mask_kmers_16): primers whose 3' base is masked on their strand are rejected; each primer reports maskFailureRate.",
+        "default": false
+      },
+      "mask_kmers_11": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": "Masker 11-mer genome counts (k-mer -> count; content of <prefix>_11.list)."
+      },
+      "mask_kmers_16": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": "Masker 16-mer genome counts (content of <prefix>_16.list)."
+      },
+      "mask_failure_rate": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_MASK_FAILURE_RATE: mask positions where a primer would end with a predicted failure rate above this (0 = none).",
+        "default": 0.1
+      },
+      "mask_5p_direction": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0,
+        "description": "PRIMER_MASK_5P_DIRECTION: bases masked towards the primer 5' end, including the 3' base.",
+        "default": 1
+      },
+      "mask_3p_direction": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0,
+        "maximum": 4984,
+        "description": "PRIMER_MASK_3P_DIRECTION: bases masked beyond the 3' end.",
+        "default": 0
+      },
+      "wt_mask_failure_rate": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_MASK_FAILURE_RATE: per-primer penalty weight of the predicted failure rate (effective only with mask_template).",
+        "default": 0
       }
     },
     "required": [

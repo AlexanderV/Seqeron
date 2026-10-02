@@ -159,6 +159,27 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    Primer3's `make_internal_oligo_list` fails and no pair is examined (reproduced: no pairs). A non-zero
    PRIMER_PAIR_WT_IO_PENALTY without PRIMER_PICK_INTERNAL_OLIGO throws ("Internal oligo quality is part of objective
    function while internal oligo choice is not required", audit A3-23).
+12. **Template masking** (Primer3 masker, Kõressaar et al. 2018; masker.c; `PrimerDesigner.MaskTemplatePrimer3`,
+   `CalculateMaskFailureRatePrimer3`, PrimerDesigner.Masking.cs): with `PrimerPairOptions.MaskTemplate`
+   (PRIMER_MASK_TEMPLATE) and `MaskKmerLists` (`PrimerMaskingKmerLists`: caller-supplied 11-mer / 16-mer genome counts,
+   or the GenomeTester4 files `{PRIMER_MASK_KMERLIST_PATH}{PRIMER_MASK_KMERLIST_PREFIX}_11.list` / `_16.list` via
+   `FromGenomeTester4Files`), the predicted PCR failure rate of a primer ending with a 16-nt window is
+   $F = e^{s-4.336}/(1+e^{s-4.336})$, $s = 0.1772\ln n_{11} + 0.239\ln n_{16}$ ($n_k$ = count of the 3′-terminal k-mer,
+   else of its reverse complement, else 1; $F = 0$ when $s = 0$). The included region is masked once
+   (`read_and_mask_sequence`, both strands separately, soft masking): every window whose forward score exceeds
+   PRIMER_MASK_FAILURE_RATE (`MaskFailureRate`, 0.1; 0 = none) lower-cases its last base and the
+   PRIMER_MASK_5P_DIRECTION − 1 (`MaskFivePrimeDirection`, 1) bases before it and the PRIMER_MASK_3P_DIRECTION
+   (`MaskThreePrimeDirection`, 0) bases after it on the forward copy; a reverse score above the rate masks the window's
+   first base, the 5P − 1 bases after it and the 3P bases before it on the reverse copy (masker.c's 5000-character ring
+   buffer is reproduced). A left primer whose 3′ base is masked on the forward copy, or a right primer whose 3′ base (its
+   leftmost template base) is masked on the reverse copy, is rejected (`is_lowercase_masked`, "3' end overlaps masked
+   sequence"); every primer ≥ 16 nt gets `failure_rate` from its last 16 nt (`PrimerCandidate.MaskFailureRate`), weighted by
+   PRIMER_WT_MASK_FAILURE_RATE (`Primer3PenaltyWeights.MaskFailureRate`, default 0) after the size terms of `p_obj_fn`.
+   Internal oligos are checked on the unmasked template (no effect); without PRIMER_MASK_TEMPLATE the failure rate is 0.
+   PRIMER_MASK_TEMPLATE without lists throws (primer3-py: "masking template chosen, but path to
+   PRIMER_MASK_KMERLIST_PATH not specified"); negative directions or PRIMER_MASK_3P_DIRECTION > 4984 (undefined in
+   masker.c's unsigned counters / buffer) throw `ArgumentOutOfRangeException`. The template is upper case
+   (`DnaSequence`), so Primer3's PRIMER_LOWERCASE_MASKING of user lower-case bases has no counterpart.
 
 `PrimerCandidate.Score` (100 − 2|len − opt| − 2|Tm − opt| − 0.5|GC − 50| − 5·homopolymer + 5 GC-clamp
 bonus) is reported for information only and does not drive selection.
@@ -262,6 +283,7 @@ Parameter ranges documented in the original file and current source:
 - `PrimerDesigner.CalculateMeltingTemperaturePrimer3(string, ...)`: Primer3-default primer Tm used by design.
 - `PrimerDesigner.CalculateFractionBoundPrimer3(string, double, ...)` / `CalculatePositionPenaltyPrimer3(...)`: Primer3 fraction bound at the annealing temperature and position penalty relative to the target ([PrimerDesigner.BoundAndPosition.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.BoundAndPosition.cs)); `PrimerParameters.AnnealingTemperature` / `MinBound` / `MaxBound` / `OptBound`.
 - `PrimerDesigner.CalculateSequenceQualityPrimer3(IReadOnlyList<int>, int, int, bool, int)`: Primer3 `seq_quality` / `seq_end_quality` of one oligo ([PrimerDesigner.SequenceQuality.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.SequenceQuality.cs)); `PrimerPairOptions.SequenceQuality`, `PrimerParameters.MinQuality` / `MinEndQuality` / `QualityRangeMin` / `QualityRangeMax`.
+- `PrimerDesigner.MaskTemplatePrimer3(string, PrimerMaskingKmerLists, double, int, int)` / `CalculateMaskFailureRatePrimer3(string, PrimerMaskingKmerLists)` / `PrimerMaskingKmerLists` (+ `FromGenomeTester4Files`): Primer3's k-mer masker ([PrimerDesigner.Masking.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.Masking.cs)); `PrimerPairOptions.MaskTemplate` / `MaskKmerLists` / `MaskFailureRate` / `MaskFivePrimeDirection` / `MaskThreePrimeDirection`.
 - `PrimerDesigner.CalculatePrimer3Penalty(...)`: Primer3 per-primer penalty used for ranking.
 - `PrimerDesigner.CalculatePrimerScore(...)` (private): informational heuristic score.
 
@@ -291,6 +313,7 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 - Fraction bound and position penalty (audit round 3, A3-5 part 1, 2026-10-02): random 150–450-bp templates with a random 5–50-nt target, PRIMER_ANNEALING_TEMP ∈ {unset, −10, 0, 40–70}, random PRIMER_MIN/MAX/OPT_BOUND and PRIMER_INTERNAL_MIN/MAX/OPT_BOUND, PRIMER_[INTERNAL_]WT_BOUND_GT/_LT ∈ {0, 1e-7–0.5}, random reaction conditions, PRIMER_INSIDE_PENALTY ∈ {−1, 0, 0.1, 0.5, 1, 2} / PRIMER_OUTSIDE_PENALTY ∈ {0, 0.05–1} (60 % non-default), PRIMER_WT_POS_PENALTY ∈ {0, 0.5, 1, 2}, optional product-size ranges, PRIMER_PICK_INTERNAL_OLIGO (+ PRIMER_PAIR_WT_IO_PENALTY), both alignment modes, plus 85 pick_hyb_probe_only probe lists: 400/400 cases identical to primer3-py 2.3.1 `design_primers` (1304 pairs + 432 probes; left/right start + length, PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9, PRIMER_LEFT/RIGHT/INTERNAL_k_BOUND, PRIMER_LEFT/RIGHT_k_POSITION_PENALTY, PRIMER_INTERNAL_k position); the 34 settings where primer3-py aborts on a negative pair penalty throw `InvalidOperationException`. Details: F44 in `docs/Validation/review-2026-09/B07.md`.
 - Sequence quality and PRIMER_PAIR_WT_IO_PENALTY consistency (audit round 3, A3-5 part 2a + A3-23, 2026-10-02): 400 random cases (150–400-bp pair templates with a random 5–50-nt target, 20 % pick_hyb_probe_only lists of 40–160 nt; SEQUENCE_QUALITY uniform or high with low dips in 85 % of cases, occasionally one base short or one value out of range; PRIMER_QUALITY_RANGE_MIN/MAX ∈ {0–100, 0–60, 10–40, 5–93}; random PRIMER_[INTERNAL_]MIN_QUALITY, PRIMER_MIN_END_QUALITY, PRIMER_[INTERNAL_]WT_SEQ_QUAL / _WT_END_QUAL; PRIMER_PICK_INTERNAL_OLIGO 35 %, PRIMER_PAIR_WT_IO_PENALTY ∈ {0, 0.5, 1}; both alignment modes): 394/394 comparable cases identical to primer3-py 2.3.1 `design_primers` (1104 pairs + probes on start + length, PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9 and PRIMER_LEFT/RIGHT/INTERNAL_k_MIN_SEQ_QUALITY; 110 `_pr_data_control` error cases raise `ArgumentException` with Primer3's first message); 6 probe-only cases that set primer-side (p_args) quality settings have no `DesignProbesPrimer3` counterpart. Details: F45 in `docs/Validation/review-2026-09/B07.md`.
+- Template masking (audit round 3, A3-5 part 2b, 2026-10-02): masker.c compiled unchanged (primer3-py 2.3.1 sources) with a driver setting libprimer3's masker parameters: 300/300 random templates (1–12000 nt, i.e. across the 5000-character ring buffer; random lists incl. zero counts, k-mers listed in both orientations; PRIMER_MASK_FAILURE_RATE ∈ {0–0.5}, 5P ∈ {0–20}, 3P ∈ {0–4}) give identical forward / reverse masked copies (535 189 masked bases) and identical failure rates for 6000 primers (2025 non-zero, |Δ| ≤ 1e-15), with the lists given as dictionaries and read back from GenomeTester4 files. primer3-py 2.3.1 `design_primers` with PRIMER_MASK_TEMPLATE on 400 random 150–450-bp templates (per-case GenomeTester4 lists built from template k-mers, 10 % with PRIMER_MASK_TEMPLATE 0, random PRIMER_MASK_FAILURE_RATE / 5P / 3P / PRIMER_WT_MASK_FAILURE_RATE ∈ {0, 0.5–20}, included regions, internal oligos, product ranges, both alignment modes; primers rejected for a masked 3′ end in 227 templates): 400/400 identical — 1370 pairs on left/right start + length, PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY (|Δ| ≤ 1e-9). Details: F45 (part 2b) in `docs/Validation/review-2026-09/B07.md`.
 
 **Not implemented:** PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
 
@@ -312,6 +335,8 @@ Forward primers are taken directly from the template; reverse primers are revers
 | PRIMER_PAIR_WT_IO_PENALTY ≠ 0 without `PickInternalOligo` | `ArgumentException` | Primer3 `_pr_data_control` "Internal oligo quality is part of objective function while internal oligo choice is not required" |
 | `PickInternalOligo` and no acceptable internal oligo anywhere in the included region | No pairs (`DesignPrimers`: invalid result naming the internal oligo) | `make_internal_oligo_list` fails, Primer3 returns before the pair search |
 | PRIMER_WT_END_QUAL / PRIMER_INTERNAL_WT_END_QUAL ≠ 0 | No effect | Primer3 2.3.1 `p_obj_fn` never reads `weights.end_quality` |
+| `MaskTemplate` without `MaskKmerLists`; negative mask directions, PRIMER_MASK_3P_DIRECTION > 4984, non-finite failure rate | `ArgumentException` / `ArgumentOutOfRangeException` | primer3-py "masking template chosen, but path to PRIMER_MASK_KMERLIST_PATH not specified"; masker.c undefined for the others |
+| PRIMER_WT_MASK_FAILURE_RATE without `MaskTemplate` | No effect (failure rate 0) | `calc_and_check_oligo_features` computes `failure_rate` only with `mask_template` |
 | PRIMER_INTERNAL_WT_LIBRARY_MISHYB ≠ 0 without a mishyb library (with `PickInternalOligo`) | `ArgumentException` | Primer3 `_pr_data_control` "Internal oligo mispriming score is part of objective function while mishyb library is not defined" |
 | PRIMER_MAX_TEMPLATE_MISPRIMING / PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING > 32767 (alignment mode), negative template weight | `ArgumentOutOfRangeException` / `ArgumentException` | Primer3 `_pr_data_control`; a negative weight would trip Primer3's `p_obj_fn` assertion |
 | Pair template limit/weight with PRIMER_WT_LIBRARY_MISPRIMING ≠ 0 but no per-primer template weight | `InvalidOperationException` | Primer3 never scores the primers' template mispriming then and aborts (`PR_ASSERT` in `characterize_pair`) |

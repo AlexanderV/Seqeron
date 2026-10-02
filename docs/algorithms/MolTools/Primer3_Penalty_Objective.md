@@ -198,8 +198,10 @@ the caller (`Primer3PenaltyInputs`), but every value is available from the libra
 
 **Not implemented:**
 
-- `failure_rate`; it needs the Primer3 masker (genome k-mer lists) and is 0 under Primer3 defaults; **users should
-  rely on:** adding `weight·value` themselves or Primer3.
+- none of Primer3's per-primer terms. The `failure_rate` term (PRIMER_WT_MASK_FAILURE_RATE,
+  `Primer3PenaltyWeights.MaskFailureRate`, × `Primer3PenaltyInputs.MaskFailureRate`, after the size terms;
+  `PrimerDesigner.CalculateMaskFailureRatePrimer3` from the masker's 11-/16-mer genome counts, computed by Primer3 only
+  with PRIMER_MASK_TEMPLATE) is implemented (audit round 3, A3-5 part 2b; PRIMER-DESIGN-001 §2.2 item 12).
   The `seq_quality` term (PRIMER_WT_SEQ_QUAL / PRIMER_INTERNAL_WT_SEQ_QUAL, `Primer3PenaltyWeights.SequenceQuality`, ×
   (`Primer3PenaltyInputs.QualityRangeMax` − `Primer3PenaltyInputs.SequenceQuality`), 0 without quality data;
   `PrimerDesigner.CalculateSequenceQualityPrimer3`) is implemented (audit round 3, A3-5 part 2a; PRIMER-DESIGN-001 §2.2
@@ -241,8 +243,8 @@ which sums this per-primer penalty for the two primers; verified against primer3
 
 ### 6.2 Limitations
 
-Per-primer only (no pair penalty); the failure-rate and sequence-quality terms are not implemented (they are 0 under Primer3 defaults, so the default objective
-is unaffected). self_any/self_end alignment scores
+Per-primer only (no pair penalty); the failure-rate and sequence-quality terms take their values from the caller
+(`Primer3PenaltyInputs.MaskFailureRate` / `SequenceQuality`; `DesignPrimers` computes them, B07 F45). self_any/self_end alignment scores
 are caller-supplied (§5.3).
 
 ## 7. Examples and Related Material
