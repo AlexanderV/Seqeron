@@ -115,7 +115,9 @@ not-yet-green work so an interrupted session loses at most ~20 min. Main branch 
   apply it on top of the latest main: `git cherry-pick -n origin/claude/stoic-maxwell-0olr2z-wip-<BATCH>`,
   resolve conflicts, read its message to know which WP it was, and continue that WP.
 - When a WP lands on the main branch the WIP branch is simply overwritten by the next checkpoint.
-  At batch end (after the final report is pushed) delete it: `git push origin --delete claude/stoic-maxwell-0olr2z-wip-<BATCH>`.
+  At batch end (after the final report is pushed) mark it clean by force-pushing the main tip onto it:
+  `git push -f origin HEAD:refs/heads/claude/stoic-maxwell-0olr2z-wip-<BATCH>` (branch deletion is not permitted
+  through the session git proxy; a WIP branch whose tip is not a `WIP(...)` commit means "nothing pending").
 
 ## Definition of Done — no doable leftovers (mandatory)
 
