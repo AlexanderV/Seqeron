@@ -22,6 +22,9 @@ The implementation reproduces Primer3 (Untergasser et al. 2012; `libprimer3.cc`,
 | Pair hetero-dimer / 3′ hetero-dimer Tm (thermodynamic, Primer3 default) | `PRIMER_PAIR_COMPL_ANY_TH`, `_COMPL_END_TH` | `CalculatePrimer3PairComplementarity` |
 | Pair 3′ complementarity, alignment mode | `PRIMER_PAIR_COMPL_END` (`PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0`) | `CalculatePrimerDimerEndComplementarity`, `HasPrimerDimer` |
 | Self 3′ complementarity, alignment mode | `PRIMER_*_SELF_END` | `CalculatePrimerSelfEndComplementarity` |
+| Self complementarity (any), alignment mode | `PRIMER_*_SELF_ANY` (`PRIMER_INTERNAL_*_SELF_ANY`) | `CalculatePrimerSelfAnyComplementarity` |
+| Pair complementarity (any), alignment mode | `PRIMER_PAIR_COMPL_ANY` | `CalculatePrimerDimerAnyComplementarity` |
+| Alignment-mode structure screen (limits 8 / 3 / 8 / 3) | `PRIMER_MAX_SELF_ANY/_END`, `PRIMER_PAIR_MAX_COMPL_ANY/_END` | `PrimerStructureScreen.Primer3Alignment` |
 | 3′-end stability | `PRIMER_*_END_STABILITY` (opposite sign) | `Calculate3PrimeStability` |
 | Longest mononucleotide run | `PRIMER_MAX_POLY_X` check | `FindLongestHomopolymer` |
 | ntthal ANY / END1 / END2 dimer, hairpin with Mg²⁺/dNTP | `ntthal -a ANY/END1/END2/HAIRPIN` | `CalculateDimerThermodynamicsNtthal(…, mode, …)`, `CalculateHairpinThermodynamicsNtthal(…, dv, dntp)` |
@@ -69,6 +72,20 @@ limit `PRIMER_PAIR_MAX_COMPL_END = 3.00`, so `HasPrimerDimer(p1, p2, minCompleme
 (score ≥ 4) is exactly the default Primer3 rejection for ACGT primers (integral scores).
 `self_end = align(p, rc p)`.
 
+**Alignment-mode "any" complementarity.** `self_any = align(p, rc p)` and
+`compl_any = align(L, rc R)` (one orientation, as `characterize_pair`) with flag `DPAL_LOCAL`: the
+best local alignment, same scoring, every cell floored at 0 (port of dpal.c
+`_dpal_long_nopath_maxgap1_local`); Primer3's `align` returns the length of the second sequence
+when it is shorter than 3 nt. Under `PrimerStructureScreen.Primer3Alignment` a primer fails when
+`self_any > PRIMER_MAX_SELF_ANY` (8.00, `PrimerParameters.MaxSelfAny`) or `self_end >
+PRIMER_MAX_SELF_END` (3.00, `MaxSelfEnd`); a pair when `compl_any > PRIMER_PAIR_MAX_COMPL_ANY`
+(8.00, `PrimerPairOptions.MaxComplAny`) or `align(L, rc R, GLOBAL_END) > PRIMER_PAIR_MAX_COMPL_END`
+(3.00, `MaxComplEnd`) or, when larger, `align(R, rc L, GLOBAL_END) > PRIMER_MAX_SELF_END` (Primer3
+compares that orientation with the per-primer limit); an internal oligo when its self_any/self_end
+exceed `PRIMER_INTERNAL_MAX_SELF_ANY/_END` (12.00). No hairpin value exists in this mode. The
+penalty adds `PRIMER_WT_SELF_ANY/_END × score` (`PrimerParameters.PenaltyWeights`) and the pair
+objective `PRIMER_PAIR_WT_COMPL_ANY/_END × score` (`Primer3PairWeights.ComplAny/ComplEnd`).
+
 **3′-end stability.** Primer3 `end_oligodg(seq, 5, santalucia)`: over the last five bases (the
 whole primer if shorter) −ΔG = Σ SantaLucia (1998) NN −ΔG°37 − 1.96 − 0.05·(terminal A/T count)
 − 0.43·(self-complementary); the library returns ΔG (negative = stable). For a 5-mer this equals
@@ -102,6 +119,9 @@ base, longer run reported): ANA 3, GNGNG 5, ANGNG 4.
 | `[CalculateDimerThermodynamicsNtthal] mode` | `NtthalAlignmentMode` | — | `Any`, `End1`, `End2` |
 | `[PrimerParameters] StructureScreen` | `PrimerStructureScreen` | `Primer3Thermodynamic` | Screen used by `EvaluatePrimer` / `DesignPrimers` (`Heuristic` = `HasHairpinPotential` + `HasPrimerDimer`) |
 | `[PrimerParameters] MaxStructureTm` | `double` | 47 | Primer3 `*_TH` limit (0 → 47) |
+| `[PrimerParameters] MaxSelfAny / MaxSelfEnd` | `double?` | 8 / 3 | PRIMER_MAX_SELF_ANY / _END (alignment screen; null → default; [0, 32767]) |
+| `[PrimerParameters] PenaltyWeights` | `Primer3PenaltyWeights?` | Primer3 defaults | PRIMER_WT_* incl. SELF_ANY/_END (alignment) and *_TH (thermodynamic) |
+| `[PrimerPairOptions] MaxComplAny / MaxComplEnd` | `double` | 8 / 3 | PRIMER_PAIR_MAX_COMPL_ANY / _END (alignment screen) |
 
 ### 3.2 Output / Return Value
 
@@ -113,7 +133,8 @@ base, longer run reported): ANA 3, GNGNG 5, ANGNG 4.
 | `HasPrimerDimer` | `bool` |
 | `Calculate3PrimeStability` | ΔG°37 kcal/mol; 0 for null/empty; `NaN` when the 3′ window has a character other than ACGTN |
 | `FindLongestHomopolymer` / `FindLongestDinucleotideRepeat` | `int` |
-| `EvaluatePrimer` | `PrimerCandidate` with `SelfAnyTh`, `SelfEndTh`, `HairpinTh` (thermodynamic screen) and `HasHairpin` = `HairpinTh > MaxStructureTm` |
+| `EvaluatePrimer` | `PrimerCandidate` with `SelfAnyTh`, `SelfEndTh`, `HairpinTh` (thermodynamic screen) and `HasHairpin` = `HairpinTh > MaxStructureTm`; `SelfAny`, `SelfEnd` (alignment screen) |
+| `CalculatePrimerSelfAnyComplementarity` / `CalculatePrimerDimerAnyComplementarity` | Primer3 dpal LOCAL score (≥ 0; 0 for null/empty) |
 
 ### 3.3 Preconditions and Validation
 
@@ -136,7 +157,7 @@ methods score any non-ACGT character as N (Primer3 `p3_reverse_complement` turns
 | Operation | Time |
 |-----------|------|
 | ntthal dimer / hairpin | O(n·m·L²), L = max loop 30 |
-| dpal GLOBAL_END | O(n·m) |
+| dpal GLOBAL_END / LOCAL | O(n·m) time, O(m) memory (no length limit) |
 | 3′ stability, poly-X | O(1) / O(n) |
 | `HasHairpinPotential` | O(n²) below 100 nt, suffix tree at ≥ 100 nt |
 
@@ -149,7 +170,13 @@ methods score any non-ACGT character as N (Primer3 `p3_reverse_complement` turns
 ### 5.3 Conformance to Theory / Spec
 
 - Cross-checked against Primer3 (primer3-py 2.3.1, and Primer3 C sources compiled locally):
-  dpal compl_end 3000/3000 random pairs identical to `dpal.c`; 600/600 `END_STABILITY`, 600/600
+  dpal compl_end 3000/3000 random pairs identical to `dpal.c`; dpal LOCAL self_any / compl_any
+  40 000/40 000 values (20 000 random pairs, 1–400 nt, with N) identical to compiled `dpal.c` + `align()`;
+  `DesignPrimerPairs` with `Primer3Alignment` vs primer3-py 2.3.1 `design_primers`
+  (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0): 2000/2000 random templates (9135 pairs; 1000 with
+  random PRIMER_MAX_SELF_ANY/_END, PRIMER_PAIR_MAX_COMPL_ANY/_END, PRIMER_WT_SELF_ANY/_END,
+  PRIMER_PAIR_WT_COMPL_ANY/_END and internal oligos with PRIMER_INTERNAL_MAX_SELF_ANY/_END) identical in
+  positions, penalties, SELF_ANY/SELF_END, COMPL_ANY/COMPL_END and product Tm; 600/600 `END_STABILITY`, 600/600
   `SELF_END`, 300/300 `PAIR_COMPL_END` identical to `design_primers` (alignment mode);
   `end_oligodg` 2000/2000 identical (incl. N and primers < 5 nt); poly-X with N identical to
   `check_primers`.

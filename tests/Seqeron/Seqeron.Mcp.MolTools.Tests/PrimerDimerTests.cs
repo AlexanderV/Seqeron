@@ -28,6 +28,10 @@ public class PrimerDimerTests
         {
             Assert.That(strong.ComplementaryBases, Is.EqualTo(8));
             Assert.That(strong.ComplEndScore, Is.EqualTo(8.0));
+            // PRIMER_PAIR_0_COMPL_ANY (check_primers, alignment mode): 8.0 and 13.0; poly-A 0.
+            Assert.That(strong.ComplAnyScore, Is.EqualTo(8.0));
+            Assert.That(ggcc.ComplAnyScore, Is.EqualTo(13.0));
+            Assert.That(polyA.ComplAnyScore, Is.EqualTo(0.0));
             Assert.That(strong.HasDimer, Is.True);
             Assert.That(ggcc.ComplementaryBases, Is.EqualTo(4));
             Assert.That(ggcc.HasDimer, Is.False, "4 < min 5");

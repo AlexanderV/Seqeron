@@ -7,7 +7,8 @@ public sealed record TmResult(double Tm);
 public sealed record HomopolymerLengthResult(int Length);
 public sealed record DinucleotideRepeatResult(int Repeats);
 public sealed record HairpinPotentialResult(bool HasHairpin);
-public sealed record PrimerDimerResult(bool HasDimer, int ComplementaryBases, double ComplEndScore);
+/// <summary>primer_dimer output: Primer3 alignment-mode PRIMER_PAIR_COMPL_END (flag, floor, exact) and PRIMER_PAIR_COMPL_ANY.</summary>
+public sealed record PrimerDimerResult(bool HasDimer, int ComplementaryBases, double ComplEndScore, double ComplAnyScore = 0.0);
 public sealed record ThreePrimeStabilityResult(double DeltaG);
 public sealed record PrimerCandidateListResult(IReadOnlyList<PrimerCandidate> Candidates);
 
@@ -26,7 +27,9 @@ public sealed record DesignPrimersResult(
     double? ComplAnyTh,
     double? ComplEndTh,
     ProbeDesigner.Primer3Probe? InternalOligo,
-    IReadOnlyList<PrimerPairResult> Pairs);
+    IReadOnlyList<PrimerPairResult> Pairs,
+    double? ComplAny = null,
+    double? ComplEnd = null);
 
 // RestrictionAnalyzer result wrappers
 public sealed record EnzymeLookupResult(RestrictionEnzyme? Enzyme);

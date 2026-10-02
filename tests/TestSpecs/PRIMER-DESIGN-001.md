@@ -176,6 +176,8 @@ Applied systematic coverage classification (2026-03-04):
 | Mutation-killing (Hairpin) | `HasHairpinPotential_NullSequence_ReturnsFalse`, `_EmptySequence_ReturnsFalse`, `_SequenceExactlyAtThreshold_DoesNotReturnEarly` | Smoke |
 | Cross-reference smoke | `CalculateMeltingTemperature_SmokeTest_ReturnsValidValue`, `FindLongestHomopolymer_SmokeTest_ReturnsValidValue`, `FindLongestDinucleotideRepeat_SmokeTest_ReturnsValidValue`, `HasHairpinPotential_SmokeTest_ReturnsExpectedValue`, `HasPrimerDimer_SmokeTest_ReturnsExpectedValue`, `Calculate3PrimeStability_SmokeTest_ReturnsNegativeValue` | Smoke |
 
+| Primer3 alignment mode (audit round 2, A1) | `DesignPrimerPairs_Primer3AlignmentDefaults_MatchesPrimer3`, `_Primer3AlignmentNonDefaultLimitsWeightsAndInternalOligo_MatchesPrimer3`, `_ThermodynamicPerPrimerWeights_MatchesPrimer3`, `DesignPrimers_Primer3AlignmentScreen_ReturnsRankZero`, `DesignPrimerPairs_IllegalComplementarityLimits_Throw`, `DesignProbesPrimer3_AlignmentMode_MatchesPrimer3PickHybProbeOnly` (primer3-py 2.3.1, PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0) | `PrimerDesigner_AlignmentMode_Tests.cs` |
+
 ### Summary
 
 - **Missing:** 0

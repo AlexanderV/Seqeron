@@ -35,7 +35,9 @@
       "penalty": { "type": "number" },
       "selfAnyTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_SELF_ANY_TH: ntthal ANY self-dimer Tm (°C), 0 when none." },
       "selfEndTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_SELF_END_TH: ntthal END1 self-dimer Tm (°C), 0 when none." },
-      "hairpinTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_HAIRPIN_TH: ntthal hairpin Tm (°C) = primer3-py calc_hairpin, 0 when none." }
+      "hairpinTh": { "type": ["number", "null"], "description": "Primer3 PRIMER_*_HAIRPIN_TH: ntthal hairpin Tm (°C) = primer3-py calc_hairpin, 0 when none." },
+      "selfAny": { "type": ["number", "null"], "description": "Primer3 alignment-mode PRIMER_SELF_ANY (StructureScreen = Primer3Alignment only)." },
+      "selfEnd": { "type": ["number", "null"], "description": "Primer3 alignment-mode PRIMER_SELF_END (StructureScreen = Primer3Alignment only)." }
     },
     "required": ["sequence", "position", "isForward", "length", "gcContent", "meltingTemperature", "homopolymerLength", "hasHairpin", "stability3Prime", "isValid", "issues", "score"]
   },

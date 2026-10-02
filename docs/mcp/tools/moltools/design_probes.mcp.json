@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignProbes",
   "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L493",
-  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-scoring probes.",
+  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-scoring probes. Probes > 60 nt use Primer3's alignment-mode self_any/self_end (<= 12) self-dimer screen plus an inverted-repeat hairpin screen.",
   "inputSchema": {
     "type": "object",
     "properties": {

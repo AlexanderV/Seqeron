@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.HasPrimerDimer",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs (HasPrimerDimer, CalculatePrimerDimerEndComplementarity)",
-  "description": "Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END, dpal GLOBAL_END, max of both orientations).",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs (HasPrimerDimer, CalculatePrimerDimerEndComplementarity, CalculatePrimerDimerAnyComplementarity)",
+  "description": "Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END, dpal GLOBAL_END, max of both orientations). Also returns complAnyScore = PRIMER_PAIR_COMPL_ANY (dpal LOCAL of primer1 vs revcomp(primer2)).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -45,6 +45,10 @@
       "complEndScore": {
         "type": "number",
         "description": "Primer3 PRIMER_PAIR_COMPL_END score."
+      },
+      "complAnyScore": {
+        "type": "number",
+        "description": "Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY score (default limit 8.00)."
       }
     },
     "required": [
@@ -73,7 +77,8 @@
       "output": {
         "hasDimer": true,
         "complementaryBases": 8,
-        "complEndScore": 8.0
+        "complEndScore": 8.0,
+        "complAnyScore": 8.0
       }
     },
     {
@@ -86,7 +91,8 @@
       "output": {
         "hasDimer": false,
         "complementaryBases": 4,
-        "complEndScore": 4.0
+        "complEndScore": 4.0,
+        "complAnyScore": 13.0
       }
     },
     {
@@ -98,7 +104,8 @@
       "output": {
         "hasDimer": false,
         "complementaryBases": 0,
-        "complEndScore": 0.0
+        "complEndScore": 0.0,
+        "complAnyScore": 0.0
       }
     }
   ]

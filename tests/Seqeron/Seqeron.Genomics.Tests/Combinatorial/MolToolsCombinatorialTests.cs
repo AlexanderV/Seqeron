@@ -776,17 +776,19 @@ public class MolToolsCombinatorialTests
     // N ⇒ 1/N (invariants #4-6). A probe is reported invalid when it accumulates issues
     // (>1 off-target site, self-comp above threshold, secondary structure) UNLESS the
     // lenient clause holds (≤1 hit AND self-comp ≤ 0.4). The combinatorial point: the
-    // IsValid decision composes the off-target and self-complementarity checks, and the
-    // self-comp threshold interacts with the probe's self-comp to gate that issue.
+    // IsValid decision composes the off-target and self-complementarity checks. Since audit
+    // round 2 (B07 A6) the fallback self-complementarity issue is Primer3's alignment-mode
+    // self_any/self_end > 12.00; the legacy selfCompThreshold axis must have no effect.
     // ═══════════════════════════════════════════════════════════════════════
 
     // selfComp = fraction of positions Watson-Crick-paired with the mirror position; all
     // three probes are secondary-structure-free by construction (verified independently).
-    private static readonly (string Seq, double SelfComp)[] ValidationProbes =
+    // SelfAny = Primer3 alignment-mode self_any (dpal.c + align(), compiled): 0.00, 10.00, 20.00 (self_end equal).
+    private static readonly (string Seq, double SelfComp, double SelfAny)[] ValidationProbes =
     {
-        ("AAAAAAAAAAAAAAAAAAAA", 0.0),
-        ("TGGCGCGGGGTAACGCGCGC", 0.5),
-        ("ACGTACGTACGTACGTACGT", 1.0),
+        ("AAAAAAAAAAAAAAAAAAAA", 0.0, 0.0),
+        ("TGGCGCGGGGTAACGCGCGC", 0.5, 10.0),
+        ("ACGTACGTACGTACGTACGT", 1.0, 20.0),
     };
 
     /// <summary>Reference holding exactly <paramref name="k"/> exact copies of the probe, C-padded, G-spaced.</summary>
@@ -802,10 +804,12 @@ public class MolToolsCombinatorialTests
         [Values(0, 1, 2)] int probeIdx,
         [Values(0.25, 0.40, 0.60)] double selfCompThreshold)
     {
-        var (probe, expSelfComp) = ValidationProbes[probeIdx];
+        var (probe, expSelfComp, expSelfAny) = ValidationProbes[probeIdx];
         string reference = BuildOffTargetReference(probe, offTargetCount);
 
-        // Sequence-only (fallback) self-structure screen: the fold-back fraction is the self-complementarity criterion.
+        // Fallback self-structure screen: the self-complementarity criterion is Primer3 alignment-mode self_any /
+        // self_end > PRIMER_INTERNAL_MAX_SELF_ANY/_END 12.00 (audit round 2, A6); the fold-back fraction and the legacy
+        // selfComplementarityThreshold no longer gate the issue.
         var v = ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0,
             selfComplementarityThreshold: selfCompThreshold,
             conditions: ProbeDesigner.Defaults.Microarray with { StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic });
@@ -817,12 +821,13 @@ public class MolToolsCombinatorialTests
 
         // Self-complementarity measured exactly and bounded to [0,1] (#2).
         v.SelfComplementarity.Should().BeApproximately(expSelfComp, 1e-9);
+        v.SelfAny.Should().Be(expSelfAny);
         v.SelfComplementarity.Should().BeInRange(0.0, 1.0);
         v.HasSecondaryStructure.Should().BeFalse("the three probes are structure-free by construction");
 
         // IsValid = no recorded issue (off-target multiplicity, self-complementarity).
         bool offIssue = offTargetCount > 1;
-        bool selfIssue = expSelfComp > selfCompThreshold;
+        bool selfIssue = expSelfAny > PrimerDesigner.Primer3InternalMaxSelfComplementarity;
         int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0);
         bool expectedValid = issueCount == 0;
 
@@ -839,7 +844,7 @@ public class MolToolsCombinatorialTests
     [Test]
     public void ProbeValid_CheckSpecificity_AgreesWithValidateProbe()
     {
-        foreach (var (probe, _) in ValidationProbes)
+        foreach (var (probe, _, _) in ValidationProbes)
             foreach (int k in new[] { 0, 1, 3 })
             {
                 string reference = BuildOffTargetReference(probe, k);

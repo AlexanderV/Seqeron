@@ -290,7 +290,11 @@ public static class PrimerDesigner
 
             if (opt.PickInternalOligo)
             {
-                _intlSettings = opt.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings();
+                // PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT is global in Primer3: the internal oligo follows the primer screen.
+                _intlSettings = (opt.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings()) with
+                {
+                    ThermodynamicOligoAlignment = param.StructureScreen != PrimerStructureScreen.Primer3Alignment,
+                };
                 // make_internal_oligo_list over the included region; choose_internal_oligo takes the
                 // lowest-penalty oligo (first in enumeration order among equals) → stable sort.
                 var list = ProbeDesigner.EnumeratePrimer3InternalOligos(seq, _incStart, _incEnd, _intlSettings, screenStructure: false);
@@ -328,7 +332,12 @@ public static class PrimerDesigner
                 throw new ArgumentException("Product temperature is part of objective function while optimum temperature is not defined (Primer3 _pr_data_control).");
             if ((_w.ProductSizeLt != 0 || _w.ProductSizeGt != 0) && o.ProductOptSize is null)
                 throw new ArgumentException("Product size is part of objective function while optimum size is not defined (Primer3 _pr_data_control).");
+            if (!(o.MaxComplAny >= 0 && o.MaxComplAny <= short.MaxValue && o.MaxComplEnd >= 0 && o.MaxComplEnd <= short.MaxValue
+                  && _param.EffectiveMaxSelfAny >= 0 && _param.EffectiveMaxSelfAny <= short.MaxValue
+                  && _param.EffectiveMaxSelfEnd >= 0 && _param.EffectiveMaxSelfEnd <= short.MaxValue))
+                throw new ArgumentException("Illegal value for primer complementarity restrictions (Primer3 _pr_data_control: 0 ≤ limit ≤ 32767).");
             if (_w.PrimerPenalty < 0 || _w.InternalOligoPenalty < 0 || _w.DiffTm < 0 || _w.ComplAnyTh < 0 || _w.ComplEndTh < 0
+                || _w.ComplAny < 0 || _w.ComplEnd < 0
                 || _w.ProductTmLt < 0 || _w.ProductTmGt < 0 || _w.ProductSizeLt < 0 || _w.ProductSizeGt < 0)
                 throw new ArgumentException("Pair weights must be ≥ 0.");
             if (o.IncludedRegion is { } inc)
@@ -384,10 +393,13 @@ public static class PrimerDesigner
 
         // Pair-level complementarity screen used by DesignPrimers (Primer3 characterize_pair): whether the
         // pair fails, and (thermodynamic screen) PRIMER_PAIR_COMPL_ANY_TH / _COMPL_END_TH.
-        private static (bool Fails, double? Any, double? End) PairScreen(string forward, string reverse, PrimerParameters param)
+        private static (bool Fails, double? Any, double? End) PairScreen(
+            string forward, string reverse, PrimerParameters param, PrimerPairOptions opt)
         {
             if (param.StructureScreen == PrimerStructureScreen.Heuristic)
                 return (HasPrimerDimer(forward, reverse), null, null);
+            if (param.StructureScreen == PrimerStructureScreen.Primer3Alignment)
+                return AlignmentPairScreen(forward, reverse, param, opt);
             if (!IsAcgtOnly(forward) || !IsAcgtOnly(reverse))
                 return (false, null, null);
             // Same values as CalculatePrimer3PairComplementarity(...), stopping at the first alignment over the
@@ -396,6 +408,32 @@ public static class PrimerDesigner
             var (any, end) = Primer3PairTms(forward.ToUpperInvariant(), reverse.ToUpperInvariant(),
                 0.050, 0.0015, 0.0006, 50e-9, max);
             return (any > max || end > max, any, end);
+        }
+
+        // characterize_pair, PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0 (s1 = left, s2 = revcomp(right),
+        // s1_rev = revcomp(left), s2_rev = right): compl_any = align(s1, s2, LOCAL) > PRIMER_PAIR_MAX_COMPL_ANY fails;
+        // compl_end = align(s1, s2, GLOBAL_END) > PRIMER_PAIR_MAX_COMPL_END fails; then, when
+        // align(s2_rev, s1_rev, GLOBAL_END) is larger, it fails above PRIMER_MAX_SELF_END (Primer3 uses the
+        // per-primer limit there) and becomes compl_end.
+        private static (bool Fails, double? Any, double? End) AlignmentPairScreen(
+            string forward, string reverse, PrimerParameters param, PrimerPairOptions opt)
+        {
+            string l = forward.ToUpperInvariant(), r = reverse.ToUpperInvariant();
+            string rcL = ReverseComplementPrimer3(l), rcR = ReverseComplementPrimer3(r);
+            double any = DpalLocalScore(l, rcR);
+            if (any > opt.MaxComplAny)
+                return (true, any, null);
+            double end = DpalGlobalEndScore(l, rcR);
+            if (end > opt.MaxComplEnd)
+                return (true, any, end);
+            double end2 = DpalGlobalEndScore(r, rcL);
+            if (end2 > end)
+            {
+                if (end2 > param.EffectiveMaxSelfEnd)
+                    return (true, any, end2);
+                end = end2;
+            }
+            return (false, any, end);
         }
 
         private sealed record PairEval(
@@ -526,8 +564,8 @@ public static class PrimerDesigner
             return new PairEval(fi, ri, penalty, product, productTm, any, end, intl);
         }
 
-        // obj_fn (libprimer3.cc), thermodynamic mode (ComplAnyTh/ComplEndTh terms) or, under the heuristic
-        // screen, without complementarity terms (Primer3's alignment-mode compl_any/compl_end weights are not offered).
+        // obj_fn (libprimer3.cc): thermodynamic mode (ComplAnyTh/ComplEndTh terms), alignment mode (linear
+        // ComplAny/ComplEnd terms) or, under the heuristic screen, without complementarity terms.
         private double ObjectiveFunction(
             (PrimerCandidate C, double Tm) f, (PrimerCandidate C, double Tm) r, double diffTm,
             double? complAny, double? complEnd, double productTm, int product, ProbeDesigner.Primer3Probe? intl)
@@ -542,10 +580,21 @@ public static class PrimerDesigner
                 sum += _w.InternalOligoPenalty * io.Penalty;
             if (_w.DiffTm != 0)
                 sum += _w.DiffTm * diffTm;
-            if (complAny is { } a)
-                sum += ThermodynamicStructurePenalty(_w.ComplAnyTh, lowerTm, a);
-            if (complEnd is { } e)
-                sum += ThermodynamicStructurePenalty(_w.ComplEndTh, lowerTm, e);
+            if (_param.StructureScreen == PrimerStructureScreen.Primer3Alignment)
+            {
+                // PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0: linear PRIMER_PAIR_WT_COMPL_ANY / _COMPL_END terms.
+                if (_w.ComplAny != 0)
+                    sum += _w.ComplAny * complAny!.Value;
+                if (_w.ComplEnd != 0)
+                    sum += _w.ComplEnd * complEnd!.Value;
+            }
+            else
+            {
+                if (complAny is { } a)
+                    sum += ThermodynamicStructurePenalty(_w.ComplAnyTh, lowerTm, a);
+                if (complEnd is { } e)
+                    sum += ThermodynamicStructurePenalty(_w.ComplEndTh, lowerTm, e);
+            }
             if (_w.ProductTmLt != 0 && productTm < _opt.ProductOptTm!.Value)
                 sum += _w.ProductTmLt * (_opt.ProductOptTm.Value - productTm);
             if (_w.ProductTmGt != 0 && productTm > _opt.ProductOptTm!.Value)
@@ -599,7 +648,7 @@ public static class PrimerDesigner
         {
             if (!_dimer.TryGetValue((f, r), out var v))
             {
-                v = PairScreen(f, r, _param);
+                v = PairScreen(f, r, _param, _opt);
                 _dimer[(f, r)] = v;
             }
             return v;
@@ -609,6 +658,7 @@ public static class PrimerDesigner
         {
             var forward = Reevaluate(_fwd[e.Fi].C);
             var reverse = Reevaluate(_rev[e.Ri].C);
+            bool alignment = _param.StructureScreen == PrimerStructureScreen.Primer3Alignment;
             return new PrimerPairResult(
                 Forward: forward,
                 Reverse: reverse,
@@ -617,9 +667,13 @@ public static class PrimerDesigner
                 ProductSize: e.ProductSize,
                 PairPenalty: e.Penalty,
                 ProductTm: e.ProductTm,
-                ComplAnyTh: e.ComplAny,
-                ComplEndTh: e.ComplEnd,
-                InternalOligo: e.Internal);
+                ComplAnyTh: alignment ? null : e.ComplAny,
+                ComplEndTh: alignment ? null : e.ComplEnd,
+                InternalOligo: e.Internal)
+            {
+                ComplAny = alignment ? e.ComplAny : null,
+                ComplEnd = alignment ? e.ComplEnd : null,
+            };
         }
 
         // Full evaluation (including the structure values) of a chosen primer.
@@ -693,6 +747,8 @@ public static class PrimerDesigner
     /// <see cref="PrimerParameters.StructureScreen"/>: by default Primer3's thermodynamic limits
     /// (ntthal self-dimer, 3′ self-dimer and hairpin Tm ≤ 47 °C, reported in
     /// <see cref="PrimerCandidate.SelfAnyTh"/>/<see cref="PrimerCandidate.SelfEndTh"/>/<see cref="PrimerCandidate.HairpinTh"/>),
+    /// Primer3's alignment-mode limits (<see cref="PrimerStructureScreen.Primer3Alignment"/>: dpal self_any ≤ 8,
+    /// self_end ≤ 3, reported in <see cref="PrimerCandidate.SelfAny"/>/<see cref="PrimerCandidate.SelfEnd"/>),
     /// or the sequence-only <see cref="HasHairpinPotential"/>. The Tm is Primer3's default primer Tm
     /// (<see cref="CalculateMeltingTemperaturePrimer3"/>: SantaLucia 1998 nearest-neighbour,
     /// SantaLucia salt correction, 50 mM monovalent, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM oligo), the
@@ -752,7 +808,7 @@ public static class PrimerDesigner
             issues.Add($"Dinucleotide repeat of {dinucRepeat} exceeds max {param.MaxDinucleotideRepeats}");
 
         bool hasHairpin = false;
-        Primer3OligoStructure? structure = null;
+        StructureValues structure = default;
         if (evaluateStructure)
             (hasHairpin, structure) = AddStructureIssues(seq, param, issues);
 
@@ -772,9 +828,15 @@ public static class PrimerDesigner
 
         // Informational heuristic score and the Primer3 ranking penalty.
         double score = CalculatePrimerScore(seq, gcContent, tm, homopolymer, param);
+        var weights = EffectivePenaltyWeights(param);
+        if (!evaluateStructure && UsesStructureTerms(weights, param.StructureScreen))
+            structure = ComputeStructureValues(seq, param); // Primer3 computes them at pick time when weighted
         double penalty = CalculatePrimer3Penalty(
-            new Primer3PenaltyInputs(tm, seq.Length, gcContent),
-            DefaultPrimer3Weights,
+            new Primer3PenaltyInputs(tm, seq.Length, gcContent,
+                SelfAny: (weights.ThermodynamicOligoAlignment ? structure.Thermo?.SelfAnyTh : structure.SelfAny) ?? 0.0,
+                SelfEnd: (weights.ThermodynamicOligoAlignment ? structure.Thermo?.SelfEndTh : structure.SelfEnd) ?? 0.0,
+                HairpinTh: structure.Thermo?.HairpinTh ?? 0.0),
+            weights,
             new Primer3Optima(param.OptimalTm, param.OptimalLength, DefaultPrimer3Optima.OptGcPercent));
 
         var candidate = new PrimerCandidate(
@@ -791,18 +853,50 @@ public static class PrimerDesigner
             Issues: issues.AsReadOnly(),
             Score: Math.Round(score, 2),
             Penalty: penalty,
-            SelfAnyTh: structure?.SelfAnyTh,
-            SelfEndTh: structure?.SelfEndTh,
-            HairpinTh: structure?.HairpinTh
-        );
+            SelfAnyTh: structure.Thermo?.SelfAnyTh,
+            SelfEndTh: structure.Thermo?.SelfEndTh,
+            HairpinTh: structure.Thermo?.HairpinTh
+        )
+        {
+            SelfAny = structure.SelfAny,
+            SelfEnd = structure.SelfEnd,
+        };
         return (candidate, tm);
     }
+
+    // Primer3 secondary-structure values of one primer: ntthal Tm values (thermodynamic screen) or dpal
+    // self_any / self_end scores (alignment screen).
+    private readonly record struct StructureValues(Primer3OligoStructure? Thermo, double? SelfAny, double? SelfEnd);
+
+    // The per-primer weights with the structure mode of the screen (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT).
+    private static Primer3PenaltyWeights EffectivePenaltyWeights(PrimerParameters param) =>
+        (param.PenaltyWeights ?? DefaultPrimer3Weights) with
+        {
+            ThermodynamicOligoAlignment = param.StructureScreen != PrimerStructureScreen.Primer3Alignment,
+        };
+
+    private static bool UsesStructureTerms(Primer3PenaltyWeights w, PrimerStructureScreen screen) => screen switch
+    {
+        PrimerStructureScreen.Primer3Alignment => w.SelfAny != 0 || w.SelfEnd != 0,
+        PrimerStructureScreen.Primer3Thermodynamic => w.SelfAnyTh != 0 || w.SelfEndTh != 0 || w.HairpinTh != 0,
+        _ => false,
+    };
+
+    private static StructureValues ComputeStructureValues(string seq, PrimerParameters param) => param.StructureScreen switch
+    {
+        PrimerStructureScreen.Primer3Alignment => new StructureValues(null,
+            CalculatePrimerSelfAnyComplementarity(seq), CalculatePrimerSelfEndComplementarity(seq)),
+        PrimerStructureScreen.Primer3Thermodynamic => new StructureValues(CalculatePrimer3OligoStructure(seq), null, null),
+        _ => default,
+    };
 
     // Per-primer secondary-structure screen. Primer3Thermodynamic: Primer3's default
     // (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1) ntthal limits PRIMER_MAX_SELF_ANY_TH / _SELF_END_TH /
     // _HAIRPIN_TH = 47 °C (a non-ACGT primer has no ntthal structure; it is already invalid by Tm).
+    // Primer3Alignment: PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0 oligo_compl — dpal self_any > PRIMER_MAX_SELF_ANY,
+    // then self_end > PRIMER_MAX_SELF_END (no hairpin value in this mode).
     // Heuristic: the sequence-only stem-loop screen HasHairpinPotential (default stem 4, loop 3).
-    private static (bool HasHairpin, Primer3OligoStructure? Structure) AddStructureIssues(
+    private static (bool HasHairpin, StructureValues Structure) AddStructureIssues(
         string seq, PrimerParameters param, List<string> issues)
     {
         if (param.StructureScreen == PrimerStructureScreen.Heuristic)
@@ -810,13 +904,24 @@ public static class PrimerDesigner
             bool hp = HasHairpinPotential(seq);
             if (hp)
                 issues.Add("Potential hairpin structure detected");
-            return (hp, null);
+            return (hp, default);
         }
 
-        var st = CalculatePrimer3OligoStructure(seq);
-        if (st is null)
-            return (false, null);
-        var v = st.Value;
+        var values = ComputeStructureValues(seq, param);
+        if (param.StructureScreen == PrimerStructureScreen.Primer3Alignment)
+        {
+            double maxAny = param.EffectiveMaxSelfAny, maxEnd = param.EffectiveMaxSelfEnd;
+            if (values.SelfAny > maxAny)
+                issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"Self-complementarity {values.SelfAny:0.00} exceeds {maxAny:0.00} (Primer3 PRIMER_MAX_SELF_ANY)"));
+            if (values.SelfEnd > maxEnd)
+                issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"3' self-complementarity {values.SelfEnd:0.00} exceeds {maxEnd:0.00} (Primer3 PRIMER_MAX_SELF_END)"));
+            return (false, values);
+        }
+
+        if (values.Thermo is not { } v)
+            return (false, values);
         double max = param.EffectiveMaxStructureTm;
         bool hasHairpin = v.HairpinTh > max;
         if (hasHairpin)
@@ -825,7 +930,7 @@ public static class PrimerDesigner
             issues.Add($"Self-dimer melting temperature {v.SelfAnyTh:F1}°C exceeds {max:0.##}°C (Primer3 PRIMER_MAX_SELF_ANY_TH)");
         if (v.SelfEndTh > max)
             issues.Add($"3' self-dimer melting temperature {v.SelfEndTh:F1}°C exceeds {max:0.##}°C (Primer3 PRIMER_MAX_SELF_END_TH)");
-        return (hasHairpin, st);
+        return (hasHairpin, values);
     }
 
     /// <summary>
@@ -1260,6 +1365,153 @@ public static class PrimerDesigner
             return 0;
         string p = primer.ToUpperInvariant();
         return DpalGlobalEndScore(p, ReverseComplementPrimer3(p));
+    }
+
+    /// <summary>
+    /// Primer3 alignment-mode self-complementarity <c>self_any</c> (<c>libprimer3.cc</c> <c>oligo_compl</c>:
+    /// <c>align(oligo, revcomp(oligo), DPAL_LOCAL)</c>; Primer3 <c>PRIMER_LEFT/RIGHT/INTERNAL_n_SELF_ANY</c> with
+    /// <c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0</c>; default limits <c>PRIMER_MAX_SELF_ANY = 8.00</c>,
+    /// <c>PRIMER_INTERNAL_MAX_SELF_ANY = 12.00</c>): the best <c>dpal</c> local alignment of the oligo with its
+    /// reverse complement, scored +1 per complementary base pair, −1 per mismatch, −0.25 against N (any non-ACGT
+    /// character is scored as N), −2 per single-base gap (max gap 1), never below 0 — a line-by-line port of
+    /// dpal.c <c>_dpal_long_nopath_maxgap1_local</c> (the routine Primer3 runs in DPM_FAST mode) with Primer3's
+    /// <c>align</c> rule that a second sequence shorter than 3 scores its length. No length limit (dpal's
+    /// score-only routine is linear in memory). Bit-exact to dpal.c / primer3-py 2.3.1.
+    /// </summary>
+    /// <param name="oligo">Oligo (5′→3′), case-insensitive.</param>
+    /// <returns>The Primer3 <c>self_any</c> score (≥ 0); 0 for null/empty input.</returns>
+    public static double CalculatePrimerSelfAnyComplementarity(string oligo)
+    {
+        if (string.IsNullOrEmpty(oligo))
+            return 0;
+        string p = oligo.ToUpperInvariant();
+        return DpalLocalScore(p, ReverseComplementPrimer3(p));
+    }
+
+    /// <summary>
+    /// Primer3 alignment-mode pair complementarity <c>compl_any</c> (<c>libprimer3.cc</c> <c>characterize_pair</c>,
+    /// <c>PRIMER_PAIR_COMPL_ANY</c> with <c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0</c>; default limit
+    /// <c>PRIMER_PAIR_MAX_COMPL_ANY = 8.00</c>): <c>align(s1, s2, DPAL_LOCAL)</c> where s1 is the left primer and s2 the
+    /// right primer's top-strand copy, i.e. the dpal local alignment of <paramref name="leftPrimer"/> with
+    /// revcomp(<paramref name="rightPrimer"/>) (scoring as <see cref="CalculatePrimerSelfAnyComplementarity"/>).
+    /// Primer3 evaluates this one orientation only.
+    /// </summary>
+    /// <param name="leftPrimer">Left (forward) primer, 5′→3′, case-insensitive.</param>
+    /// <param name="rightPrimer">Right (reverse) primer, 5′→3′, case-insensitive.</param>
+    /// <returns>The Primer3 <c>compl_any</c> score (≥ 0); 0 for null/empty input.</returns>
+    public static double CalculatePrimerDimerAnyComplementarity(string leftPrimer, string rightPrimer)
+    {
+        if (string.IsNullOrEmpty(leftPrimer) || string.IsNullOrEmpty(rightPrimer))
+            return 0;
+        return DpalLocalScore(leftPrimer.ToUpperInvariant(), ReverseComplementPrimer3(rightPrimer.ToUpperInvariant()));
+    }
+
+    /// <summary>Primer3 default PRIMER_MAX_SELF_ANY (alignment mode, <c>pr_set_default_global_args_1</c>).</summary>
+    public const double Primer3MaxSelfAny = 8.0;
+
+    /// <summary>Primer3 default PRIMER_MAX_SELF_END (alignment mode).</summary>
+    public const double Primer3MaxSelfEnd = 3.0;
+
+    /// <summary>Primer3 default PRIMER_PAIR_MAX_COMPL_ANY (alignment mode).</summary>
+    public const double Primer3MaxPairComplAny = 8.0;
+
+    /// <summary>Primer3 default PRIMER_PAIR_MAX_COMPL_END (alignment mode).</summary>
+    public const double Primer3MaxPairComplEnd = 3.0;
+
+    /// <summary>Primer3 default PRIMER_INTERNAL_MAX_SELF_ANY and PRIMER_INTERNAL_MAX_SELF_END (alignment mode, 12.00).</summary>
+    public const double Primer3InternalMaxSelfComplementarity = 12.0;
+
+    // Primer3 oligo_compl decision (self_any > maxSelfAny, else self_end > maxSelfEnd) without computing the full
+    // scores: the dpal recurrences stop as soon as the running optimum exceeds the limit (the decision is identical
+    // to comparing the full scores, since the optimum never decreases). Used by the probe fallback screen, where
+    // probes of several hundred nt make the full O(n²) scores the dominant cost.
+    internal static bool ExceedsPrimer3SelfComplementarity(string oligo, double maxSelfAny, double maxSelfEnd,
+        out bool selfAnyExceeded)
+    {
+        selfAnyExceeded = false;
+        if (string.IsNullOrEmpty(oligo))
+            return false;
+        string x = oligo.ToUpperInvariant();
+        string y = ReverseComplementPrimer3(x);
+        if (y.Length < 3 ? y.Length > maxSelfAny : DpalLocalFast(x, y, maxSelfAny * 100.0) / 100.0 > maxSelfAny)
+            return selfAnyExceeded = true;
+        return DpalGlobalEndScore(x, y) > maxSelfEnd;
+    }
+
+    // Primer3 align() with DPAL_LOCAL: a second sequence shorter than 3 "maxes out" the score to its length
+    // (not divided by 100); otherwise dpal score / 100, floored at 0.
+    private static double DpalLocalScore(string x, string y)
+    {
+        if (y.Length < 3)
+            return y.Length;
+        int smax = DpalLocalFast(x, y);
+        return smax < 0 ? 0.0 : smax / 100.0;
+    }
+
+    // dpal.c _dpal_long_nopath_maxgap1_local (score only, max gap 1, cells floored at 0). With a finite
+    // stopAbove the scan returns as soon as the running optimum exceeds it (the value is then a lower bound).
+    private static int DpalLocalFast(string x, string y, double stopAbove = double.PositiveInfinity)
+    {
+        int xlen = x.Length, ylen = y.Length;
+        const int gap = DpalGap;
+        var s0 = new int[ylen];
+        var s1 = new int[ylen];
+        var s2 = new int[ylen];
+        int smax = 0, score, a;
+
+        // Row 0.
+        for (int j = 0; j < ylen; j++)
+        {
+            score = DpalSsm(x[0], y[j]);
+            if (score < 0) score = 0;
+            else if (score > smax) smax = score;
+            s0[j] = score;
+        }
+        // Row 1 (for |X| = 1 the C code reads X[1] = NUL, whose ssm row is INT_MIN: every cell is 0).
+        if (xlen == 1)
+            return smax;
+        score = DpalSsm(x[1], y[0]);
+        if (score < 0) score = 0;
+        else if (score > smax) smax = score;
+        s1[0] = score;
+        for (int j = 1; j < ylen; j++)
+        {
+            score = s0[j - 1];
+            if (j > 1 && (a = s0[j - 2] + gap) > score) score = a;
+            score += DpalSsm(x[1], y[j]);
+            if (score < 0) score = 0;
+            else if (score > smax) smax = score;
+            s1[j] = score;
+        }
+
+        for (int i = 2; i < xlen; i++)
+        {
+            score = DpalSsm(x[i], y[0]);
+            if (score < 0) score = 0;
+            else if (score > smax) smax = score;
+            s2[0] = score;
+            score = s1[0];
+            if ((a = s0[0] + gap) > score) score = a;
+            score += DpalSsm(x[i], y[1]);
+            if (score < 0) score = 0;
+            else if (score > smax) smax = score;
+            s2[1] = score;
+            for (int j = 2; j < ylen; j++)
+            {
+                score = s0[j - 1];
+                if ((a = s1[j - 2]) > score) score = a;
+                score += gap;
+                if ((a = s1[j - 1]) > score) score = a;
+                score += DpalSsm(x[i], y[j]);
+                if (score < 0) score = 0;
+                else if (score > smax) smax = score;
+                s2[j] = score;
+            }
+            if (smax > stopAbove)
+                return smax;
+            (s0, s1, s2) = (s1, s2, s0);
+        }
+        return smax;
     }
 
     // Primer3 p3_reverse_complement: ACGT complemented, every other character becomes N.
@@ -3423,6 +3675,40 @@ public readonly record struct PrimerParameters(
     /// The value <c>0</c> (e.g. from <c>default(PrimerParameters)</c>) also means 47 °C.
     /// </summary>
     public double EffectiveMaxStructureTm => MaxStructureTm > 0 ? MaxStructureTm : PrimerDesigner.Primer3MaxStructureTm;
+
+    /// <summary>
+    /// PRIMER_MAX_SELF_ANY under <see cref="PrimerStructureScreen.Primer3Alignment"/>: maximum Primer3 alignment-mode
+    /// <c>self_any</c> (<see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/>); null = Primer3's default
+    /// <see cref="PrimerDesigner.Primer3MaxSelfAny"/> (8.00). A value strictly greater fails. Must be in [0, 32767].
+    /// </summary>
+    public double? MaxSelfAny { get; init; }
+
+    /// <summary>
+    /// PRIMER_MAX_SELF_END under <see cref="PrimerStructureScreen.Primer3Alignment"/>: maximum Primer3 alignment-mode
+    /// <c>self_end</c> (<see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>); null = Primer3's default
+    /// <see cref="PrimerDesigner.Primer3MaxSelfEnd"/> (3.00). As in Primer3's <c>characterize_pair</c>, it also bounds the
+    /// pair's reverse-orientation 3′ complementarity <c>align(right, revcomp(left), DPAL_GLOBAL_END)</c>.
+    /// </summary>
+    public double? MaxSelfEnd { get; init; }
+
+    /// <summary>
+    /// Primer3 per-primer penalty weights (PRIMER_WT_*) used for <see cref="PrimerCandidate.Penalty"/>; null =
+    /// <see cref="PrimerDesigner.DefaultPrimer3Weights"/>. The secondary-structure mode of the weights follows
+    /// <see cref="PrimerParameters.StructureScreen"/> (Primer3 PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT):
+    /// <see cref="PrimerStructureScreen.Primer3Alignment"/> uses PRIMER_WT_SELF_ANY / _SELF_END
+    /// (<see cref="Primer3PenaltyWeights.SelfAny"/>/<see cref="Primer3PenaltyWeights.SelfEnd"/>) × the dpal scores,
+    /// <see cref="PrimerStructureScreen.Primer3Thermodynamic"/> PRIMER_WT_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH
+    /// with the ntthal Tm values; the <see cref="PrimerStructureScreen.Heuristic"/> screen has no Primer3 structure
+    /// values, so its structure terms are 0. When a structure weight is non-zero the values are computed for every
+    /// candidate (as Primer3's <c>calc_and_check_oligo_features</c> does).
+    /// </summary>
+    public Primer3PenaltyWeights? PenaltyWeights { get; init; }
+
+    /// <summary>Effective PRIMER_MAX_SELF_ANY (<see cref="MaxSelfAny"/> or 8.00).</summary>
+    public double EffectiveMaxSelfAny => MaxSelfAny ?? PrimerDesigner.Primer3MaxSelfAny;
+
+    /// <summary>Effective PRIMER_MAX_SELF_END (<see cref="MaxSelfEnd"/> or 3.00).</summary>
+    public double EffectiveMaxSelfEnd => MaxSelfEnd ?? PrimerDesigner.Primer3MaxSelfEnd;
 }
 
 /// <summary>
@@ -3446,6 +3732,24 @@ public enum PrimerStructureScreen
     /// (Primer3 alignment-mode pair 3′ complementarity ≥ 4) per pair.
     /// </summary>
     Heuristic = 1,
+
+    /// <summary>
+    /// Primer3's alignment-score screen (<c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0</c>, <c>libprimer3.cc</c>
+    /// <c>oligo_compl</c> / <c>characterize_pair</c>): a primer is rejected when its dpal self-complementarity
+    /// <c>self_any</c> (<see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/>) exceeds
+    /// <see cref="PrimerParameters.MaxSelfAny"/> (PRIMER_MAX_SELF_ANY, default 8.00) or its 3′ self-complementarity
+    /// <c>self_end</c> (<see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>) exceeds
+    /// <see cref="PrimerParameters.MaxSelfEnd"/> (PRIMER_MAX_SELF_END, 3.00); a pair when <c>compl_any</c>
+    /// (<see cref="PrimerDesigner.CalculatePrimerDimerAnyComplementarity"/>) exceeds
+    /// <see cref="PrimerPairOptions.MaxComplAny"/> (PRIMER_PAIR_MAX_COMPL_ANY, 8.00) or <c>align(left, rc(right),
+    /// GLOBAL_END)</c> exceeds <see cref="PrimerPairOptions.MaxComplEnd"/> (PRIMER_PAIR_MAX_COMPL_END, 3.00) or the
+    /// reverse orientation <c>align(right, rc(left), GLOBAL_END)</c>, when larger, exceeds PRIMER_MAX_SELF_END
+    /// (Primer3 compares that one with the per-primer limit). No hairpin value exists in this mode. An internal
+    /// oligo (<see cref="PrimerPairOptions.PickInternalOligo"/>) is screened with PRIMER_INTERNAL_MAX_SELF_ANY /
+    /// _SELF_END (12.00). Verified against primer3-py 2.3.1 <c>design_primers</c> with
+    /// PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0.
+    /// </summary>
+    Primer3Alignment = 2,
 }
 
 /// <summary>
@@ -3475,7 +3779,20 @@ public sealed record PrimerCandidate(
     double Penalty = 0.0,
     double? SelfAnyTh = null,
     double? SelfEndTh = null,
-    double? HairpinTh = null);
+    double? HairpinTh = null)
+{
+    /// <summary>
+    /// Primer3 alignment-mode PRIMER_*_SELF_ANY (<see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/>);
+    /// set under <see cref="PrimerStructureScreen.Primer3Alignment"/>, otherwise <c>null</c>.
+    /// </summary>
+    public double? SelfAny { get; init; }
+
+    /// <summary>
+    /// Primer3 alignment-mode PRIMER_*_SELF_END (<see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>);
+    /// set under <see cref="PrimerStructureScreen.Primer3Alignment"/>, otherwise <c>null</c>.
+    /// </summary>
+    public double? SelfEnd { get; init; }
+}
 
 /// <summary>
 /// Measured properties of a single primer used as input to the Primer3 penalty
@@ -3579,7 +3896,20 @@ public sealed record PrimerPairResult(
     double? ProductTm = null,
     double? ComplAnyTh = null,
     double? ComplEndTh = null,
-    ProbeDesigner.Primer3Probe? InternalOligo = null);
+    ProbeDesigner.Primer3Probe? InternalOligo = null)
+{
+    /// <summary>
+    /// Primer3 alignment-mode PRIMER_PAIR_k_COMPL_ANY (<see cref="PrimerDesigner.CalculatePrimerDimerAnyComplementarity"/>)
+    /// of a valid pair under <see cref="PrimerStructureScreen.Primer3Alignment"/>; otherwise <c>null</c>.
+    /// </summary>
+    public double? ComplAny { get; init; }
+
+    /// <summary>
+    /// Primer3 alignment-mode PRIMER_PAIR_k_COMPL_END (<see cref="PrimerDesigner.CalculatePrimerDimerEndComplementarity"/>)
+    /// of a valid pair under <see cref="PrimerStructureScreen.Primer3Alignment"/>; otherwise <c>null</c>.
+    /// </summary>
+    public double? ComplEnd { get; init; }
+}
 
 /// <summary>A Primer3 product-size range (PRIMER_PRODUCT_SIZE_RANGE element), inclusive, in bp.</summary>
 /// <param name="Min">Smallest product size.</param>
@@ -3610,7 +3940,14 @@ public sealed record Primer3PairWeights(
     double ProductTmLt = 0.0,
     double ProductTmGt = 0.0,
     double ProductSizeLt = 0.0,
-    double ProductSizeGt = 0.0);
+    double ProductSizeGt = 0.0)
+{
+    /// <summary>PRIMER_PAIR_WT_COMPL_ANY (× PRIMER_PAIR_COMPL_ANY; <see cref="PrimerStructureScreen.Primer3Alignment"/> only; Primer3 default 0).</summary>
+    public double ComplAny { get; init; }
+
+    /// <summary>PRIMER_PAIR_WT_COMPL_END (× PRIMER_PAIR_COMPL_END; <see cref="PrimerStructureScreen.Primer3Alignment"/> only; Primer3 default 0).</summary>
+    public double ComplEnd { get; init; }
+}
 
 /// <summary>
 /// Pair-level options of <see cref="PrimerDesigner.DesignPrimers"/> / <see cref="PrimerDesigner.DesignPrimerPairs"/>,
@@ -3651,6 +3988,18 @@ public sealed record PrimerPairOptions
 
     /// <summary>PRIMER_PRODUCT_MAX_TM (°C): pairs whose product Tm is higher fail (default: no limit).</summary>
     public double? ProductMaxTm { get; init; }
+
+    /// <summary>
+    /// PRIMER_PAIR_MAX_COMPL_ANY: maximum Primer3 alignment-mode pair <c>compl_any</c> under
+    /// <see cref="PrimerStructureScreen.Primer3Alignment"/> (default 8.00; must be in [0, 32767]).
+    /// </summary>
+    public double MaxComplAny { get; init; } = PrimerDesigner.Primer3MaxPairComplAny;
+
+    /// <summary>
+    /// PRIMER_PAIR_MAX_COMPL_END: maximum Primer3 alignment-mode pair <c>compl_end</c> (left vs. right orientation)
+    /// under <see cref="PrimerStructureScreen.Primer3Alignment"/> (default 3.00; must be in [0, 32767]).
+    /// </summary>
+    public double MaxComplEnd { get; init; } = PrimerDesigner.Primer3MaxPairComplEnd;
 
     /// <summary>PRIMER_PAIR_WT_* pair objective weights (default Primer3's).</summary>
     public Primer3PairWeights Weights { get; init; } = new();

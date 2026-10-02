@@ -89,4 +89,19 @@ public class ValidateProbeTests
         Assert.Throws<ArgumentException>(() => MolToolsTools.validate_probe(probe, new[] { probe }, max_non_target_identity: 1.5));
         Assert.Throws<ArgumentException>(() => MolToolsTools.validate_probe(probe, new[] { probe }, max_contiguous_match: -1));
     }
+
+    [Test]
+    public void ValidateProbe_LongProbe_ReportsPrimer3AlignmentSelfAny()
+    {
+        // > 60 nt: fallback self-dimer criterion = Primer3 alignment-mode self_any/self_end (dpal.c: (ACGT)16 → 64.00
+        // > PRIMER_INTERNAL_MAX_SELF_ANY 12.00).
+        var v = MolToolsTools.validate_probe(string.Concat(Enumerable.Repeat("ACGT", 16)), Array.Empty<string>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.ThermodynamicScreen, Is.False);
+            Assert.That(v.SelfAny, Is.EqualTo(64.0));
+            Assert.That(v.SelfEnd, Is.EqualTo(64.0));
+            Assert.That(v.Issues, Has.Some.EqualTo("Self-complementarity: Primer3 self_any 64.00 exceeds 12.00"));
+        });
+    }
 }

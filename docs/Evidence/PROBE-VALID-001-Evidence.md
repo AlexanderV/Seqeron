@@ -237,6 +237,7 @@ At mv 100, dv 2, dntp 0.2, dna 250: ACGTACGTACGTACGTACGTACGT → 69.170698458234
 
 ## Change History
 
+- **2026-10-02** (B07 audit round 2, A6): the fallback self-dimer criterion (> 60 nt, non-ACGT, `Heuristic`) is Primer3's alignment-mode internal-oligo `oligo_compl` (dpal `self_any` DPAL_LOCAL / `self_end` DPAL_GLOBAL_END, PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00; libprimer3.cc / dpal.c from raw.githubusercontent.com/primer3-org/primer3). Datasets: dpal.c compiled with Primer3's `align()` — CTAGAAATGCTGTCGGGACTTCTAC 9.00 / 7.00, (ACGT)16 64.00 / 64.00, 80-nt stem-loop GGATCACAG…GATCC 60.00, random 80-mer CCCTGAGTCC…GGTTCA 7.00 / 1.00; 40 000/40 000 random values identical. The fold-back fraction is no longer a criterion.
 - **2026-06-24**: Initial Evidence for the gapped (Smith–Waterman) off-target scan + on/off-target separation (limitation fix). The prior ungapped-Hamming validation evidence is preserved in the TestSpec/algorithm doc.
 - **2026-10-01** (B07 PROBE-VALID-001 review): Kane contiguous-stretch criterion + strict > 75 % identity (`AssessCrossHybridization`, both strands), Primer3 ntthal self-structure screen in `ValidateProbe`, OligoArray-style site duplex Tm, `CheckSpecificity` both-strand option; datasets above.
 - **2026-06-24**: Added the Karlin–Altschul E-value / bit-score / λ evidence (sources 5–6), the +1/−3 λ≈1.374 cross-check, and the worked-example dataset, for the opt-in `ComputeLambdaNucleotide` / `ComputeKarlinAltschul` statistics.

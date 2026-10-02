@@ -169,12 +169,17 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
   (random-template designs + four `check_primers` runs in both modes; agreement < 1e-9).
 - Default weights and optima taken verbatim from Primer3 source / manual [3][4].
 
-**Intentionally simplified:**
+- Alignment-mode self_any / self_end values are computed by the library: `CalculatePrimerSelfAnyComplementarity`
+  (dpal `DPAL_LOCAL`, port of dpal.c `_dpal_long_nopath_maxgap1_local`) and
+  `CalculatePrimerSelfEndComplementarity` (dpal `DPAL_GLOBAL_END`), bit-exact to compiled dpal.c on 20 000 random
+  pairs. `EvaluatePrimer` / `DesignPrimers` feed them (or, in thermodynamic mode, the ntthal Tm values) into this
+  penalty with `PrimerParameters.PenaltyWeights` (PRIMER_WT_SELF_ANY/_END under
+  `PrimerStructureScreen.Primer3Alignment`, PRIMER_WT_SELF_ANY_TH/_SELF_END_TH/_HAIRPIN_TH under the default
+  thermodynamic screen); verified against primer3-py 2.3.1 `design_primers` PRIMER_LEFT/RIGHT_n_PENALTY
+  (B07 audit round 2, A1).
 
-- self_any/self_end alignment scores are caller-supplied: the penalty arithmetic on them is
-  exact, but Primer3's `dpal` local-alignment computation of those scores is not reproduced;
-  **consequence:** with the default weights (0) the term is inert; with non-zero weights the
-  caller must supply a Primer3-scale alignment score (+1.00/−1.00/−2.00 [4]).
+**Intentionally simplified:** none — a direct `CalculatePrimer3Penalty` call still takes the structure values from
+the caller (`Primer3PenaltyInputs`), but every value is available from the library methods above.
 
 **Not implemented:**
 

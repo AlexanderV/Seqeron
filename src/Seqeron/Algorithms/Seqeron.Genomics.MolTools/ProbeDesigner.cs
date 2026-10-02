@@ -31,9 +31,15 @@ public static class ProbeDesigner
     /// (PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH = 47 °C). The self-dimer limit replaces
     /// <see cref="MaxSelfComplementarity"/>; the hairpin limit is applied when <see cref="AvoidSecondaryStructure"/>.
     /// Probes longer than 60 nt (thal.c <c>THAL_MAX_ALIGN</c>), probes with non-ACGT bases and
-    /// <see cref="ProbeStructureScreen.Heuristic"/> use the sequence-only screens: the position-wise
-    /// fold-back fraction (fraction of positions i with s[i] = revcomp(s)[i], compared with
-    /// <see cref="MaxSelfComplementarity"/>) and an inverted-repeat stem (≥ 4 bp, loop 3, ≥ 80 % matched).
+    /// <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: the self-dimer criterion is Primer3's
+    /// alignment-mode internal-oligo screen (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0, <c>oligo_compl</c>): the dpal
+    /// <c>self_any</c> (<see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/>) and <c>self_end</c>
+    /// (<see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>) scores, which have no length limit, must not
+    /// exceed <see cref="MaxSelfAny"/> / <see cref="MaxSelfEnd"/> (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00);
+    /// the hairpin criterion stays the sequence-only inverted-repeat stem screen (≥ 4 bp, loop 3, ≥ 80 % matched) —
+    /// a thermodynamic hairpin for &gt; 60-nt DNA needs a DNA-parameter MFE fold, which the library does not have yet
+    /// (cross-batch request to B12). <see cref="MaxSelfComplementarity"/> (position-wise fold-back fraction limit) is
+    /// no longer used by any screen; it is kept for source compatibility.
     /// </para>
     /// </remarks>
     public readonly record struct ProbeParameters(
@@ -67,6 +73,18 @@ public static class ProbeDesigner
         /// (Primer3 PRIMER_INTERNAL_MAX_SELF_ANY_TH = _SELF_END_TH = _HAIRPIN_TH = 47 °C).
         /// </summary>
         public double MaxStructureTm { get; init; } = PrimerDesigner.Primer3MaxStructureTm;
+
+        /// <summary>
+        /// Maximum Primer3 alignment-mode <c>self_any</c> of the fallback self-dimer screen
+        /// (PRIMER_INTERNAL_MAX_SELF_ANY, Primer3 default 12.00; flagged when strictly greater).
+        /// </summary>
+        public double MaxSelfAny { get; init; } = PrimerDesigner.Primer3InternalMaxSelfComplementarity;
+
+        /// <summary>
+        /// Maximum Primer3 alignment-mode <c>self_end</c> of the fallback self-dimer screen
+        /// (PRIMER_INTERNAL_MAX_SELF_END, Primer3 default 12.00; flagged when strictly greater).
+        /// </summary>
+        public double MaxSelfEnd { get; init; } = PrimerDesigner.Primer3InternalMaxSelfComplementarity;
     }
 
     /// <summary>Self-structure screen used by the probe designers (see <see cref="ProbeParameters"/>).</summary>
@@ -75,7 +93,9 @@ public static class ProbeDesigner
         /// <summary>Primer3 thermodynamic screen (ntthal self-dimer, 3′ self-dimer, hairpin Tm) for ≤ 60-nt ACGT probes.</summary>
         Thermodynamic,
 
-        /// <summary>Sequence-only screens (fold-back fraction and inverted-repeat stem) for every probe.</summary>
+        /// <summary>The fallback screens for every probe: Primer3 alignment-mode self_any / self_end (dpal, limits
+        /// <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>) and the sequence-only
+        /// inverted-repeat hairpin stem.</summary>
         Heuristic
     }
 
@@ -165,8 +185,9 @@ public static class ProbeDesigner
     /// <param name="OffTargetHits">Total ungapped k-mismatch hits across the references (the intended site
     /// included).</param>
     /// <param name="SelfComplementarity">Position-wise fold-back fraction (fraction of positions i with
-    /// s[i] = revcomp(s)[i]); reported always, used as the self-complementarity criterion only by the
-    /// sequence-only fallback screen.</param>
+    /// s[i] = revcomp(s)[i]); a library metric, reported for compatibility and not used by any screen (the
+    /// self-dimer criterion is ntthal or, in the fallback, Primer3 alignment-mode <see cref="SelfAny"/> /
+    /// <see cref="SelfEnd"/>).</param>
     /// <param name="HasSecondaryStructure">Hairpin flag: ntthal hairpin Tm &gt; MaxStructureTm (thermodynamic
     /// screen) or the inverted-repeat stem screen (fallback).</param>
     /// <param name="Issues">Recorded validation issues.</param>
@@ -179,7 +200,8 @@ public static class ProbeDesigner
         IReadOnlyList<string> Issues)
     {
         /// <summary>True when the Primer3 thermodynamic self-structure screen was applied (≤ 60-nt A/C/G/T
-        /// probe with <see cref="ProbeStructureScreen.Thermodynamic"/>); false for the sequence-only fallback.</summary>
+        /// probe with <see cref="ProbeStructureScreen.Thermodynamic"/>); false for the fallback screen (Primer3
+        /// alignment-mode self_any / self_end + inverted-repeat hairpin stem).</summary>
         public bool ThermodynamicScreen { get; init; }
 
         /// <summary>ntthal self-dimer (ANY) Tm in °C (Primer3 SELF_ANY_TH); null when the fallback screen was used.</summary>
@@ -190,6 +212,15 @@ public static class ProbeDesigner
 
         /// <summary>ntthal hairpin Tm in °C (Primer3 HAIRPIN_TH); null when the fallback screen was used.</summary>
         public double? HairpinTm { get; init; }
+
+        /// <summary>Primer3 alignment-mode internal-oligo <c>self_any</c> (PRIMER_INTERNAL_SELF_ANY with
+        /// PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0; <see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/>),
+        /// reported for every non-empty probe (any length); the self-dimer criterion of the fallback screen.</summary>
+        public double? SelfAny { get; init; }
+
+        /// <summary>Primer3 alignment-mode internal-oligo <c>self_end</c>
+        /// (<see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>), reported for every non-empty probe.</summary>
+        public double? SelfEnd { get; init; }
 
         /// <summary>Kane et al. (2000) cross-hybridization assessment of every supplied non-target sequence/strand
         /// (<see cref="AssessCrossHybridization"/>); empty when no non-target sequences were supplied.</summary>
@@ -854,18 +885,42 @@ public static class ProbeDesigner
             }
         }
 
-        double fraction = CalculateSelfComplementarity(sequence);
-        bool high = fraction > param.MaxSelfComplementarity;
-        bool stem = HasSecondaryStructurePotential(sequence);
+        var (selfDimer, selfDimerWarning) = AlignmentSelfDimerScreen(sequence, param);
+        // The stem flag is used only with AvoidSecondaryStructure (FinishProbe); skip the O(n³) scan otherwise.
+        bool stem = param.AvoidSecondaryStructure && HasSecondaryStructurePotential(sequence);
         return (
-            high,
-            high ? $"High self-complementarity {fraction:P0}" : null,
+            selfDimer,
+            selfDimerWarning,
             stem,
             stem ? "Potential secondary structure" : null);
     }
 
+    // Fallback self-dimer criterion: Primer3 alignment-mode internal-oligo oligo_compl (dpal self_any, self_end;
+    // PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END, default 12.00), no length limit. The decision only needs the
+    // threshold comparison (early-exit dpal), so the warning names the exceeded limit; ValidateProbe reports the
+    // exact values.
+    private static (bool Flag, string? Warning) AlignmentSelfDimerScreen(string sequence, ProbeParameters param)
+    {
+        if (!PrimerDesigner.ExceedsPrimer3SelfComplementarity(sequence, param.MaxSelfAny, param.MaxSelfEnd, out bool any))
+            return (false, null);
+        return (true, any
+            ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Self-complementarity: Primer3 self_any exceeds {param.MaxSelfAny:0.00}")
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Self-complementarity: Primer3 self_end exceeds {param.MaxSelfEnd:0.00}"));
+    }
+
+    private static (bool Flag, string? Warning) AlignmentSelfDimerScreen(double selfAny, double selfEnd, ProbeParameters param)
+    {
+        if (selfAny > param.MaxSelfAny)
+            return (true, string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"Self-complementarity: Primer3 self_any {selfAny:0.00} exceeds {param.MaxSelfAny:0.00}"));
+        if (selfEnd > param.MaxSelfEnd)
+            return (true, string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"Self-complementarity: Primer3 self_end {selfEnd:0.00} exceeds {param.MaxSelfEnd:0.00}"));
+        return (false, null);
+    }
+
     // Primer3 thermodynamic self-structure of a probe (ntthal ANY / END1 self-dimer and hairpin Tm at the
-    // parameters' conditions), or null when the sequence-only fallback applies (Heuristic screen, > 60 nt,
+    // parameters' conditions), or null when the fallback screen applies (Heuristic screen, > 60 nt,
     // or a non-ACGT base).
     private static PrimerDesigner.Primer3OligoStructure? ComputeThermodynamicSelfStructure(
         string sequence, ProbeParameters param)
@@ -1084,7 +1139,24 @@ public static class ProbeDesigner
         double MonovalentMillimolar = PrimerDesigner.Primer3InternalMonovalentMillimolar,
         double DivalentMillimolar = PrimerDesigner.Primer3InternalDivalentMillimolar,
         double DntpMillimolar = PrimerDesigner.Primer3InternalDntpMillimolar,
-        double DnaConcentrationNanomolar = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar);
+        double DnaConcentrationNanomolar = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar)
+    {
+        /// <summary>
+        /// PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT: true (Primer3 default) = ntthal self-any / self-end / hairpin Tm limits;
+        /// false = Primer3 alignment mode, dpal <c>self_any</c> / <c>self_end</c>
+        /// (<see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/> /
+        /// <see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>) limited by <see cref="MaxSelfAny"/> /
+        /// <see cref="MaxSelfEnd"/>, no hairpin check. For an internal oligo of a primer pair the mode follows the
+        /// primer screen (<see cref="PrimerStructureScreen.Primer3Alignment"/> ⇒ false).
+        /// </summary>
+        public bool ThermodynamicOligoAlignment { get; init; } = true;
+
+        /// <summary>PRIMER_INTERNAL_MAX_SELF_ANY (alignment mode; Primer3 default 12.00, must be in [0, 32767]).</summary>
+        public double MaxSelfAny { get; init; } = PrimerDesigner.Primer3InternalMaxSelfComplementarity;
+
+        /// <summary>PRIMER_INTERNAL_MAX_SELF_END (alignment mode; Primer3 default 12.00, must be in [0, 32767]).</summary>
+        public double MaxSelfEnd { get; init; } = PrimerDesigner.Primer3InternalMaxSelfComplementarity;
+    }
 
     /// <summary>
     /// A hybridization probe picked by <see cref="DesignProbesPrimer3"/> — the Primer3
@@ -1105,10 +1177,19 @@ public static class ProbeDesigner
         int Length,
         double Tm,
         double GcPercent,
-        double SelfAnyTh,
-        double SelfEndTh,
-        double HairpinTh,
-        double Penalty);
+        // NaN (alignment mode: no ntthal value) is written as the JSON literal "NaN" instead of failing serialization.
+        [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals)] double SelfAnyTh,
+        [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals)] double SelfEndTh,
+        [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals)] double HairpinTh,
+        double Penalty)
+    {
+        /// <summary>PRIMER_INTERNAL_n_SELF_ANY (Primer3 alignment mode, dpal score); null in thermodynamic mode, where
+        /// <see cref="SelfAnyTh"/>/<see cref="SelfEndTh"/>/<see cref="HairpinTh"/> are set (they are NaN in alignment mode).</summary>
+        public double? SelfAny { get; init; }
+
+        /// <summary>PRIMER_INTERNAL_n_SELF_END (Primer3 alignment mode, dpal score); null in thermodynamic mode.</summary>
+        public double? SelfEnd { get; init; }
+    }
 
     // Primer3 MAX_PRIMER_LENGTH (oligo length limit of the picker and of seqtm's nearest-neighbour branch).
     private const int Primer3MaxOligoLength = 36;
@@ -1129,7 +1210,12 @@ public static class ProbeDesigner
     /// would pass is not considered. Accepted probes are ranked by the Primer3 penalty |Tm − OptTm| + |length − OptSize|
     /// (<see cref="PrimerDesigner.CalculatePrimer3Penalty"/> with Primer3's default internal-oligo weights) and
     /// ordered as Primer3's <c>primer_rec_comp</c>: penalty ascending, then start descending, then length
-    /// ascending. Verified against primer3-py 2.3.1 <c>design_primers</c> (PRIMER_INTERNAL_n_* values).
+    /// ascending. With <see cref="Primer3ProbeSettings.ThermodynamicOligoAlignment"/> = false (Primer3
+    /// PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0) the structure limits are Primer3's alignment-mode ones instead: dpal
+    /// <c>self_any</c> &gt; <see cref="Primer3ProbeSettings.MaxSelfAny"/> (a five-prime problem) or <c>self_end</c> &gt;
+    /// <see cref="Primer3ProbeSettings.MaxSelfEnd"/> (both 12.00 by default) reject the window, no hairpin check, and the
+    /// values are reported in <see cref="Primer3Probe.SelfAny"/>/<see cref="Primer3Probe.SelfEnd"/>.
+    /// Verified against primer3-py 2.3.1 <c>design_primers</c> (PRIMER_INTERNAL_n_* values, both modes).
     /// </summary>
     /// <param name="template">Template sequence (case-insensitive); probes are picked on this strand.</param>
     /// <param name="settings">Picker settings (default: Primer3 defaults).</param>
@@ -1170,6 +1256,9 @@ public static class ProbeDesigner
         if (s.MinSize < 1 || s.MaxSize < s.MinSize || s.MaxSize > Primer3MaxOligoLength)
             throw new ArgumentOutOfRangeException(paramName,
                 $"Probe sizes must satisfy 1 ≤ MinSize ≤ MaxSize ≤ {Primer3MaxOligoLength}.");
+        if (!(s.MaxSelfAny >= 0 && s.MaxSelfAny <= short.MaxValue && s.MaxSelfEnd >= 0 && s.MaxSelfEnd <= short.MaxValue))
+            throw new ArgumentOutOfRangeException(paramName,
+                "Illegal value for internal oligo complementarity restrictions (Primer3: 0 ≤ PRIMER_INTERNAL_MAX_SELF_ANY/_END ≤ 32767).");
     }
 
     /// <summary>
@@ -1229,7 +1318,18 @@ public static class ProbeDesigner
                     continue;
 
                 double selfAny = double.NaN, selfEnd = double.NaN, hairpin = double.NaN;
-                if (screenStructure)
+                double? alnAny = null, alnEnd = null;
+                if (screenStructure && !s.ThermodynamicOligoAlignment)
+                {
+                    // oligo_compl (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0): self_any, then self_end; no hairpin.
+                    alnAny = PrimerDesigner.CalculatePrimerSelfAnyComplementarity(oligo);
+                    if (alnAny > s.MaxSelfAny)
+                        break; // OP_HIGH_SELF_ANY: five-prime problem
+                    alnEnd = PrimerDesigner.CalculatePrimerSelfEndComplementarity(oligo);
+                    if (alnEnd > s.MaxSelfEnd)
+                        continue;
+                }
+                else if (screenStructure)
                 {
                     var st = ComputePrimer3ProbeStructure(oligo, s);
                     if (st.SelfAnyTh > s.MaxSelfAnyTh)
@@ -1241,7 +1341,11 @@ public static class ProbeDesigner
 
                 double penalty = PrimerDesigner.CalculatePrimer3Penalty(
                     new Primer3PenaltyInputs(tm, len, gcPercent), weights, optima);
-                accepted.Add(new Primer3Probe(oligo, start, len, tm, gcPercent, selfAny, selfEnd, hairpin, penalty));
+                accepted.Add(new Primer3Probe(oligo, start, len, tm, gcPercent, selfAny, selfEnd, hairpin, penalty)
+                {
+                    SelfAny = alnAny,
+                    SelfEnd = alnEnd,
+                });
             }
         }
         return accepted;
@@ -1253,11 +1357,23 @@ public static class ProbeDesigner
 
     /// <summary>
     /// Primer3 <c>choose_internal_oligo</c> postponed checks of one internal oligo (<c>oligo_compl_thermod</c>:
-    /// self-any and self-end Tm, then <c>oligo_hairpin</c>) at the settings' conditions; returns the oligo
-    /// with its structure values filled in, or <c>null</c> when a limit is exceeded.
+    /// self-any and self-end Tm, then <c>oligo_hairpin</c>; alignment mode: <c>oligo_compl</c> dpal self_any /
+    /// self_end) at the settings' conditions; returns the oligo with its structure values filled in, or
+    /// <c>null</c> when a limit is exceeded.
     /// </summary>
     internal static Primer3Probe? PassesPrimer3ProbeStructure(Primer3Probe probe, Primer3ProbeSettings s)
     {
+        if (!s.ThermodynamicOligoAlignment)
+        {
+            // oligo_compl with o_args (alignment mode): self_any, then self_end.
+            double any = PrimerDesigner.CalculatePrimerSelfAnyComplementarity(probe.Sequence);
+            if (any > s.MaxSelfAny)
+                return null;
+            double end = PrimerDesigner.CalculatePrimerSelfEndComplementarity(probe.Sequence);
+            if (end > s.MaxSelfEnd)
+                return null;
+            return probe with { SelfAny = any, SelfEnd = end };
+        }
         var st = ComputePrimer3ProbeStructure(probe.Sequence, s);
         if (st.SelfAnyTh > s.MaxSelfAnyTh || st.SelfEndTh > s.MaxSelfEndTh || st.HairpinTh > s.MaxHairpinTh)
             return null;
@@ -1404,8 +1520,12 @@ public static class ProbeDesigner
     /// <c>calc_end_stability</c> / <c>calc_hairpin</c> parity) at the <paramref name="conditions"/> salt/oligo
     /// concentrations must not exceed <see cref="ProbeParameters.MaxStructureTm"/> (PRIMER_INTERNAL_MAX_SELF_ANY_TH
     /// = _SELF_END_TH = _HAIRPIN_TH = 47 °C). Longer probes (thal.c THAL_MAX_ALIGN = 60), non-ACGT probes and
-    /// <see cref="ProbeStructureScreen.Heuristic"/> use the sequence-only screens: fold-back fraction &gt;
-    /// <paramref name="selfComplementarityThreshold"/> and the inverted-repeat stem.
+    /// <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: Primer3 alignment-mode internal-oligo
+    /// self-complementarity (dpal <c>self_any</c> / <c>self_end</c> &gt; <see cref="ProbeParameters.MaxSelfAny"/> /
+    /// <see cref="ProbeParameters.MaxSelfEnd"/>, PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00, no length limit)
+    /// and the sequence-only inverted-repeat hairpin stem (no DNA MFE fold for &gt; 60 nt yet). The alignment-mode
+    /// values are reported for every probe in <see cref="ProbeValidation.SelfAny"/> / <see cref="ProbeValidation.SelfEnd"/>;
+    /// <see cref="ProbeValidation.SelfComplementarity"/> (fold-back fraction) is a library metric only.
     /// </para>
     /// <para>
     /// <b>Cross-hybridization.</b> When <paramref name="nonTargetSequences"/> is given, every non-target (both
@@ -1419,7 +1539,9 @@ public static class ProbeDesigner
     /// <param name="referenceSequences">Reference sequences scanned for ungapped hits (target included).</param>
     /// <param name="maxMismatches">Maximum mismatches of the ungapped site-counting scan (≥ 0; default 3, a screening
     /// tolerance kept for compatibility — the sourced hybridization cross-reactivity decision is the Kane assessment).</param>
-    /// <param name="selfComplementarityThreshold">Fold-back-fraction limit of the sequence-only fallback screen
+    /// <param name="selfComplementarityThreshold">Former fold-back-fraction limit of the fallback screen; kept for
+    /// source compatibility and copied into <see cref="ProbeParameters.MaxSelfComplementarity"/>, but no longer used by
+    /// any screen (the fallback self-dimer limits are <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>)
     /// (default 0.3, the Microarray preset's <see cref="ProbeParameters.MaxSelfComplementarity"/>).</param>
     /// <param name="conditions">Hybridization conditions and structure-screen settings (default
     /// <see cref="Defaults.Microarray"/>: Primer3 probe conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, thermodynamic
@@ -1473,9 +1595,12 @@ public static class ProbeDesigner
             issues.Add($"{offTargetHits} potential off-target sites");
         }
 
-        // Self-structure: the DesignProbes screen (Primer3 ntthal for ≤ 60-nt ACGT probes, sequence-only otherwise).
+        // Self-structure: the DesignProbes screen (Primer3 ntthal for ≤ 60-nt ACGT probes; otherwise Primer3
+        // alignment-mode self_any / self_end + the inverted-repeat hairpin stem).
         var param = (conditions ?? Defaults.Microarray) with { MaxSelfComplementarity = selfComplementarityThreshold };
         double selfComp = CalculateSelfComplementarity(probeSequence);
+        double alnSelfAny = PrimerDesigner.CalculatePrimerSelfAnyComplementarity(probeSequence);
+        double alnSelfEnd = PrimerDesigner.CalculatePrimerSelfEndComplementarity(probeSequence);
         var thermo = ComputeThermodynamicSelfStructure(probeSequence, param);
         bool selfCompIssue;
         bool hasStructure;
@@ -1491,10 +1616,10 @@ public static class ProbeDesigner
         }
         else
         {
-            selfCompIssue = selfComp > selfComplementarityThreshold;
+            (selfCompIssue, string? selfCompWarning) = AlignmentSelfDimerScreen(alnSelfAny, alnSelfEnd, param);
             hasStructure = HasSecondaryStructurePotential(probeSequence);
             if (selfCompIssue)
-                issues.Add($"Self-complementarity: {selfComp:P0}");
+                issues.Add(selfCompWarning!);
             if (hasStructure)
                 issues.Add("Potential secondary structure formation");
         }
@@ -1531,6 +1656,8 @@ public static class ProbeDesigner
             SelfDimerTm = thermo?.SelfAnyTh,
             SelfEndDimerTm = thermo?.SelfEndTh,
             HairpinTm = thermo?.HairpinTh,
+            SelfAny = alnSelfAny,
+            SelfEnd = alnSelfEnd,
             CrossHybridization = cross,
         };
     }

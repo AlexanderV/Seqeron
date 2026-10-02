@@ -1235,16 +1235,25 @@ public class ProbeDesigner_ProbeValidation_Tests
             Assert.That(thermo.Issues, Has.None.Contain("Self-complementarity"));
             Assert.That(thermo.HasSecondaryStructure, Is.False);
 
+            // Fallback self-dimer criterion = Primer3 alignment-mode internal-oligo oligo_compl (dpal.c, compiled):
+            // self_any 9.00, self_end 7.00 ≤ PRIMER_INTERNAL_MAX_SELF_ANY/_END 12.00 → no issue (the fold-back
+            // fraction 0.64 is only a reported library metric now).
             Assert.That(heuristic.ThermodynamicScreen, Is.False);
             Assert.That(heuristic.SelfDimerTm, Is.Null);
-            Assert.That(heuristic.Issues, Has.Some.StartsWith("Self-complementarity: 64"));
+            Assert.That(heuristic.SelfComplementarity, Is.EqualTo(0.64).Within(1e-12));
+            Assert.That(heuristic.SelfAny, Is.EqualTo(9.0));
+            Assert.That(heuristic.SelfEnd, Is.EqualTo(7.0));
+            Assert.That(thermo.SelfAny, Is.EqualTo(9.0), "alignment-mode values are reported for every probe");
+            Assert.That(heuristic.Issues, Has.None.Contain("Self-complementarity"));
         });
     }
 
     [Test]
-    public void ValidateProbe_ProbeLongerThan60nt_UsesSequenceOnlyFallback()
+    public void ValidateProbe_ProbeLongerThan60nt_UsesPrimer3AlignmentSelfDimerFallback()
     {
-        // thal.c THAL_MAX_ALIGN = 60: a 64-nt probe has no ntthal self-structure.
+        // thal.c THAL_MAX_ALIGN = 60: a 64-nt probe has no ntthal self-structure; the fallback self-dimer criterion is
+        // Primer3 alignment-mode oligo_compl (no length limit): (ACGT)16 is its own reverse complement, dpal.c
+        // self_any = self_end = 64.00 > PRIMER_INTERNAL_MAX_SELF_ANY 12.00.
         string probe = string.Concat(Enumerable.Repeat("ACGT", 16));
         var v = ProbeDesigner.ValidateProbe(probe, Enumerable.Empty<string>());
 
@@ -1254,7 +1263,9 @@ public class ProbeDesigner_ProbeValidation_Tests
             Assert.That(v.SelfDimerTm, Is.Null);
             Assert.That(v.HairpinTm, Is.Null);
             Assert.That(v.SelfComplementarity, Is.EqualTo(1.0));
-            Assert.That(v.Issues, Has.Some.StartsWith("Self-complementarity: 100"));
+            Assert.That(v.SelfAny, Is.EqualTo(64.0));
+            Assert.That(v.SelfEnd, Is.EqualTo(64.0));
+            Assert.That(v.Issues, Has.Some.EqualTo("Self-complementarity: Primer3 self_any 64.00 exceeds 12.00"));
         });
     }
 

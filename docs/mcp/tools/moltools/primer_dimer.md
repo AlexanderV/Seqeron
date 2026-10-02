@@ -44,6 +44,7 @@ Identical poly-A primers are not a dimer (A·A cannot pair). Primer3's default t
 | `hasDimer` | boolean | True if a 3′-dimer is flagged. |
 | `complementaryBases` | integer | The compl_end score truncated to an integer (exact for ACGT primers). |
 | `complEndScore` | number | Primer3 PRIMER_PAIR_COMPL_END score. |
+| `complAnyScore` | number | Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY: dpal local alignment of `primer1` with the reverse complement of `primer2` (same scoring; Primer3 default limit 8.00; `PrimerDesigner.CalculatePrimerDimerAnyComplementarity`). |
 
 ## Errors
 

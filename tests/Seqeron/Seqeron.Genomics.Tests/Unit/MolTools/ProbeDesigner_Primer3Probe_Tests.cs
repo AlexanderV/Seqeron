@@ -128,8 +128,8 @@ public class ProbeDesigner_Primer3Probe_Tests
         {
             Assert.That(st.SelfAnyTh, Is.GreaterThan(47));
             Assert.That(probe.Warnings, Has.Some.Contains("Self-dimer Tm"));
-            // Heuristic fold-back fraction is 1.0 (perfect palindrome) but the threshold 1.0 is not exceeded.
-            Assert.That(heuristic.Warnings, Has.None.Contains("self-complementarity"));
+            // Fallback screen = Primer3 alignment-mode self_any (dpal.c: 20.00 for this palindrome) > 12.00.
+            Assert.That(heuristic.Warnings, Has.Some.EqualTo("Self-complementarity: Primer3 self_any exceeds 12.00"));
         });
     }
 

@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignProbesPrimer3",
   "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1121",
-  "description": "Pick hybridization probes exactly as Primer3 pick_hyb_probe_only (internal-oligo picker; size/GC/poly-X/seqtm Tm/ntthal filters, Primer3 penalty order).",
+  "description": "Pick hybridization probes exactly as Primer3 pick_hyb_probe_only (internal-oligo picker; size/GC/poly-X/seqtm Tm/ntthal or, with thermodynamic_oligo_alignment = false, dpal self_any/self_end filters, Primer3 penalty order).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -27,7 +27,10 @@
       "monovalent_mm": { "type": "number", "description": "PRIMER_INTERNAL_SALT_MONOVALENT (mM).", "default": 50.0 },
       "divalent_mm": { "type": "number", "description": "PRIMER_INTERNAL_SALT_DIVALENT (mM).", "default": 0.0 },
       "dntp_mm": { "type": "number", "description": "PRIMER_INTERNAL_DNTP_CONC (mM).", "default": 0.0 },
-      "dna_conc_nm": { "type": "number", "description": "PRIMER_INTERNAL_DNA_CONC (nM).", "default": 50.0 }
+      "dna_conc_nm": { "type": "number", "description": "PRIMER_INTERNAL_DNA_CONC (nM).", "default": 50.0 },
+      "thermodynamic_oligo_alignment": { "type": "boolean", "description": "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT (false = alignment mode).", "default": true },
+      "max_self_any": { "type": "number", "description": "PRIMER_INTERNAL_MAX_SELF_ANY (alignment mode).", "default": 12.0 },
+      "max_self_end": { "type": "number", "description": "PRIMER_INTERNAL_MAX_SELF_END (alignment mode).", "default": 12.0 }
     },
     "required": ["template"]
   },
@@ -48,6 +51,8 @@
             "selfAnyTh": { "type": "number" },
             "selfEndTh": { "type": "number" },
             "hairpinTh": { "type": "number" },
+            "selfAny": { "type": ["number", "null"], "description": "PRIMER_INTERNAL_n_SELF_ANY (alignment mode)." },
+            "selfEnd": { "type": ["number", "null"], "description": "PRIMER_INTERNAL_n_SELF_END (alignment mode)." },
             "penalty": { "type": "number" }
           }
         }

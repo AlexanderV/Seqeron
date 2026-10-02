@@ -36,6 +36,7 @@ Implements Primer3's pair search (`libprimer3.cc` `choose_pair_or_triple` / `cha
 | `max_tm_difference` | number | No | PRIMER_PAIR_MAX_DIFF_TM in °C (default 5). |
 | `num_return` | integer | No | PRIMER_NUM_RETURN: number of ranked pairs in `pairs` (default 1, ≥ 1). |
 | `pick_internal_oligo` | boolean | No | PRIMER_PICK_INTERNAL_OLIGO (default false). |
+| `pair_max_compl_any` / `pair_max_compl_end` | number | No | PRIMER_PAIR_MAX_COMPL_ANY / _COMPL_END (default 8 / 3); used only with `parameters.StructureScreen = Primer3Alignment` (Primer3 PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0: per-primer dpal self_any ≤ `parameters.MaxSelfAny` 8, self_end ≤ `MaxSelfEnd` 3; internal oligo ≤ 12 / 12). |
 
 ## Output Schema
 
@@ -48,7 +49,8 @@ Implements Primer3's pair search (`libprimer3.cc` `choose_pair_or_triple` / `cha
 | `productSize` | integer | Amplicon size in bp. |
 | `pairPenalty` | number \| null | PRIMER_PAIR_0_PENALTY. |
 | `productTm` | number \| null | PRIMER_PAIR_0_PRODUCT_TM (Primer3 `long_seq_tm`, °C). |
-| `complAnyTh` / `complEndTh` | number \| null | PRIMER_PAIR_0_COMPL_ANY_TH / _COMPL_END_TH (°C). |
+| `complAnyTh` / `complEndTh` | number \| null | PRIMER_PAIR_0_COMPL_ANY_TH / _COMPL_END_TH (°C); null under the alignment screen. |
+| `complAny` / `complEnd` | number \| null | PRIMER_PAIR_0_COMPL_ANY / _COMPL_END (alignment screen only; verified vs primer3-py `design_primers` with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0). |
 | `internalOligo` | object \| null | PRIMER_INTERNAL_0_* (`sequence`, `start`, `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty`). |
 | `pairs` | array | Ranked valid pairs (k = 0 … num_return − 1), each with the fields above; empty when none qualifies. |
 

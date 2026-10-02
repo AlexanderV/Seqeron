@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ProbeDesigner.ValidateProbe",
   "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1366",
-  "description": "Validate a probe: ungapped k-mismatch hit count over references, Primer3 ntthal self-dimer/hairpin screen (<= 60-nt ACGT; sequence-only fallback otherwise), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
+  "description": "Validate a probe: ungapped k-mismatch hit count over references, Primer3 ntthal self-dimer/hairpin screen (<= 60-nt ACGT; otherwise Primer3 alignment-mode self_any/self_end <= 12 + inverted-repeat hairpin fallback), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -29,7 +29,7 @@
       },
       "self_complementarity_threshold": {
         "type": "number",
-        "description": "Fold-back-fraction limit of the sequence-only fallback screen.",
+        "description": "Legacy fold-back-fraction limit; kept for compatibility, no longer used by the screen (fallback self-dimer limit: Primer3 PRIMER_INTERNAL_MAX_SELF_ANY/_END = 12).",
         "default": 0.3
       },
       "non_target_sequences": {
@@ -113,6 +113,14 @@
           "number",
           "null"
         ]
+      },
+      "selfAny": {
+        "type": "number",
+        "description": "Primer3 alignment-mode internal-oligo self_any (dpal LOCAL); fallback self-dimer criterion (> 12)."
+      },
+      "selfEnd": {
+        "type": "number",
+        "description": "Primer3 alignment-mode internal-oligo self_end (dpal GLOBAL_END)."
       },
       "crossHybridization": {
         "type": "array",

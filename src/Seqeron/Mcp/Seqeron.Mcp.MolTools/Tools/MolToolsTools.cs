@@ -14,7 +14,7 @@ public class MolToolsTools
 
     #region PrimerDesigner
 
-    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3-default SantaLucia Tm at 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C; the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values, optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO) and up to num_return ranked pairs (PRIMER_NUM_RETURN). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3-default SantaLucia Tm at 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO) and up to num_return ranked pairs (PRIMER_NUM_RETURN). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
     public static DesignPrimersResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
@@ -23,7 +23,9 @@ public class MolToolsTools
         [Description("PRIMER_PRODUCT_SIZE_RANGE in Primer3 syntax, e.g. \"100-300\" or \"150-250 100-400\" (ranges in order of preference; default 100-300).")] string? product_size_range = null,
         [Description("PRIMER_PAIR_MAX_DIFF_TM: maximum |Tm_forward - Tm_reverse| in °C (default 5; Primer3's own default is 100).")] double max_tm_difference = PrimerDesigner.MaxPairTmDifference,
         [Description("PRIMER_NUM_RETURN: number of ranked pairs listed in 'pairs' (default 1).")] int num_return = 1,
-        [Description("PRIMER_PICK_INTERNAL_OLIGO: also pick an internal hybridization oligo between the primers (Primer3 PRIMER_INTERNAL_* defaults; default false).")] bool pick_internal_oligo = false)
+        [Description("PRIMER_PICK_INTERNAL_OLIGO: also pick an internal hybridization oligo between the primers (Primer3 PRIMER_INTERNAL_* defaults; default false).")] bool pick_internal_oligo = false,
+        [Description("PRIMER_PAIR_MAX_COMPL_ANY: maximum Primer3 alignment-mode pair compl_any (used only with parameters.StructureScreen = Primer3Alignment; default 8).")] double pair_max_compl_any = PrimerDesigner.Primer3MaxPairComplAny,
+        [Description("PRIMER_PAIR_MAX_COMPL_END: maximum Primer3 alignment-mode pair compl_end (used only with parameters.StructureScreen = Primer3Alignment; default 3).")] double pair_max_compl_end = PrimerDesigner.Primer3MaxPairComplEnd)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -43,6 +45,8 @@ public class MolToolsTools
             MaxTmDifference = max_tm_difference,
             NumReturn = num_return,
             PickInternalOligo = pick_internal_oligo,
+            MaxComplAny = pair_max_compl_any,
+            MaxComplEnd = pair_max_compl_end,
         };
         if (product_size_range is not null)
             options = options with { ProductSizeRanges = ParseProductSizeRanges(product_size_range) };
@@ -52,7 +56,8 @@ public class MolToolsTools
         var best = pairs.Count > 0 ? pairs[0] : PrimerDesigner.DesignPrimers(dna, target_start, target_end, parameters, options);
         return new DesignPrimersResult(
             best.Forward, best.Reverse, best.IsValid, best.Message, best.ProductSize,
-            best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs);
+            best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs,
+            best.ComplAny, best.ComplEnd);
     }
 
     // Primer3 PRIMER_PRODUCT_SIZE_RANGE syntax: space-separated "min-max" ranges.
@@ -74,7 +79,7 @@ public class MolToolsTools
         return ranges;
     }
 
-    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, the Primer3 thermodynamic secondary-structure Tm values (hairpinTh / selfAnyTh / selfEndTh = primer3 calc_hairpin / calc_homodimer / calc_end_stability Tm at 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM; hasHairpin = hairpinTh > 47 °C, PRIMER_MAX_HAIRPIN_TH), 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. Call to QC one primer (position/strand are informational).")]
+    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, the Primer3 thermodynamic secondary-structure Tm values (hairpinTh / selfAnyTh / selfEndTh = primer3 calc_hairpin / calc_homodimer / calc_end_stability Tm at 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM; hasHairpin = hairpinTh > 47 °C, PRIMER_MAX_HAIRPIN_TH), 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. With parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0) the structure values are instead Primer3's dpal alignment scores selfAny / selfEnd (PRIMER_SELF_ANY / PRIMER_SELF_END, limits parameters.MaxSelfAny 8 / MaxSelfEnd 3). Call to QC one primer (position/strand are informational).")]
     public static PrimerCandidate evaluate_primer(
         [Description("Primer sequence to evaluate.")] string sequence,
         [Description("0-based location of the primer in the template (informational).")] int position,
@@ -146,7 +151,7 @@ public class MolToolsTools
         return new HairpinPotentialResult(PrimerDesigner.HasHairpinPotential(sequence, min_stem_length, min_loop_length));
     }
 
-    [McpServerTool(Name = "primer_dimer", Title = "MolTools — Primer-Dimer Check", ReadOnly = true), Description("Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0): the 3'-anchored dpal alignment score of each primer against the other's reverse complement (+1 per complementary pair, -1 mismatch, -2 per single-base gap; max of both orientations). Flags a dimer when the score is at least min_complementarity (default 4 = Primer3's default PRIMER_PAIR_MAX_COMPL_END 3.00 exceeded). Returns the flag, the integer score and the exact score. Call to screen a primer pair for 3'-dimer formation; for Primer3's default thermodynamic check use the C# API PrimerDesigner.CalculatePrimer3PairComplementarity.")]
+    [McpServerTool(Name = "primer_dimer", Title = "MolTools — Primer-Dimer Check", ReadOnly = true), Description("Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0): the 3'-anchored dpal alignment score of each primer against the other's reverse complement (+1 per complementary pair, -1 mismatch, -2 per single-base gap; max of both orientations). Flags a dimer when the score is at least min_complementarity (default 4 = Primer3's default PRIMER_PAIR_MAX_COMPL_END 3.00 exceeded). Returns the flag, the integer score and the exact score, plus complAnyScore = Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY (dpal local alignment of primer1 with the reverse complement of primer2, same scoring; Primer3 default limit PRIMER_PAIR_MAX_COMPL_ANY 8.00). Call to screen a primer pair for 3'-dimer formation; for Primer3's default thermodynamic check use the C# API PrimerDesigner.CalculatePrimer3PairComplementarity.")]
     public static PrimerDimerResult primer_dimer(
         [Description("First primer sequence (5'->3').")] string primer1,
         [Description("Second primer sequence (5'->3').")] string primer2,
@@ -161,7 +166,8 @@ public class MolToolsTools
         return new PrimerDimerResult(
             PrimerDesigner.HasPrimerDimer(primer1, primer2, min_complementarity),
             (int)System.Math.Floor(score),
-            score);
+            score,
+            PrimerDesigner.CalculatePrimerDimerAnyComplementarity(primer1, primer2));
     }
 
     [McpServerTool(Name = "three_prime_stability", Title = "MolTools — Primer 3' End Stability (ΔG°37)", ReadOnly = true), Description("Primer3 3'-end stability (oligotm.c end_oligodg): SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol, 1 M NaCl) of the primer's last 5 bases (the whole primer if shorter), with initiation (+1.96, +0.05 per terminal A·T, +0.43 if self-complementary). Primer3 reports the same magnitude with the opposite sign as PRIMER_*_END_STABILITY. More negative ΔG = a more stable (more problematic) 3' end. N is accepted (Primer3 N parameters); other characters in the 3' window are rejected. Call to assess primer 3'-end stability for mispriming risk.")]
@@ -659,7 +665,7 @@ public class MolToolsTools
 
     #region ProbeDesigner
 
-    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking them with an additive penalty score (GC%, Tm, homopolymers, self-structure, simple repeats; returned sorted by score, descending). Tm is Primer3's seqtm (SantaLucia 1998 nearest-neighbour ≤ 36 nt, long_seq_tm above) at the parameters' conditions (default Primer3 probe conditions: 50 nM, 50 mM monovalent, no Mg/dNTP); probes ≤ 60 nt are screened with Primer3's ntthal self-dimer/hairpin Tm limit (47 °C). Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
+    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking them with an additive penalty score (GC%, Tm, homopolymers, self-structure, simple repeats; returned sorted by score, descending). Tm is Primer3's seqtm (SantaLucia 1998 nearest-neighbour ≤ 36 nt, long_seq_tm above) at the parameters' conditions (default Primer3 probe conditions: 50 nM, 50 mM monovalent, no Mg/dNTP); probes ≤ 60 nt are screened with Primer3's ntthal self-dimer/hairpin Tm limit (47 °C); longer probes (and StructureScreen = Heuristic) use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > MaxSelfAny / MaxSelfEnd, PRIMER_INTERNAL_MAX_SELF_ANY/_END default 12.00, no length limit) plus a sequence-only inverted-repeat hairpin screen. Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
     public static ProbesResult design_probes(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold). Defaults to Microarray when null.")] ProbeDesigner.ProbeParameters? parameters = null,
@@ -724,12 +730,12 @@ public class MolToolsTools
             ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length, detection_temperature));
     }
 
-    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a hybridization probe. (1) Ungapped k-mismatch (Hamming) scan of the reference sequences: off-target hit count (intended site included; > 1 hit is an issue) and a library uniqueness score (0 hits → 0.0, N hits → 1/N). (2) Self-structure: for ≤ 60-nt A/C/G/T probes Primer3's thermodynamic probe screen — ntthal self-dimer, 3′ self-dimer and hairpin Tm at 50 nM oligo / 50 mM monovalent / no Mg²⁺ (Primer3 probe conditions) must not exceed 47 °C (PRIMER_INTERNAL_MAX_*_TH); longer or non-ACGT probes use the sequence-only fold-back fraction (> self_complementarity_threshold) and inverted-repeat screens. (3) Optional non_target_sequences: Kane et al. (2000) cross-hybridization criteria on both strands — overall identity of the best local (BLAST-scored Smith–Waterman–Gotoh) alignment over the probe length > 75 % or a contiguous identical stretch > 15 nt; each site also reports its ntthal duplex Tm with the probe (primer3-py calc_heterodimer), optionally thresholded by max_duplex_tm (OligoArray 2.0). isValid = no issue recorded. Call to check whether a designed probe is specific and structure-free.")]
+    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a hybridization probe. (1) Ungapped k-mismatch (Hamming) scan of the reference sequences: off-target hit count (intended site included; > 1 hit is an issue) and a library uniqueness score (0 hits → 0.0, N hits → 1/N). (2) Self-structure: for ≤ 60-nt A/C/G/T probes Primer3's thermodynamic probe screen — ntthal self-dimer, 3′ self-dimer and hairpin Tm at 50 nM oligo / 50 mM monovalent / no Mg²⁺ (Primer3 probe conditions) must not exceed 47 °C (PRIMER_INTERNAL_MAX_*_TH); longer or non-ACGT probes use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > 12.00, PRIMER_INTERNAL_MAX_SELF_ANY/_END, no length limit) and a sequence-only inverted-repeat hairpin screen; selfAny / selfEnd are reported for every probe (selfComplementarity, the fold-back fraction, is an informational library metric). (3) Optional non_target_sequences: Kane et al. (2000) cross-hybridization criteria on both strands — overall identity of the best local (BLAST-scored Smith–Waterman–Gotoh) alignment over the probe length > 75 % or a contiguous identical stretch > 15 nt; each site also reports its ntthal duplex Tm with the probe (primer3-py calc_heterodimer), optionally thresholded by max_duplex_tm (OligoArray 2.0). isValid = no issue recorded. Call to check whether a designed probe is specific and structure-free.")]
     public static ProbeDesigner.ProbeValidation validate_probe(
         [Description("Probe sequence to validate.")] string probe_sequence,
         [Description("Reference sequences to scan for off-target hits.")] string[] reference_sequences,
         [Description("Maximum allowed mismatches (default 3).")] int max_mismatches = 3,
-        [Description("Fold-back-fraction limit of the sequence-only fallback screen (default 0.3).")] double self_complementarity_threshold = 0.3,
+        [Description("Legacy fold-back-fraction limit (default 0.3); kept for compatibility, no longer used by the screen (the fallback self-dimer limit is Primer3's PRIMER_INTERNAL_MAX_SELF_ANY/_END = 12).")] double self_complementarity_threshold = 0.3,
         [Description("Optional known non-target sequences for the Kane et al. (2000) cross-hybridization criteria (both strands).")] string[]? non_target_sequences = null,
         [Description("Kane identity threshold in [0,1]; a non-target strand with identity strictly above it is flagged (default 0.75).")] double max_non_target_identity = 0.75,
         [Description("Kane contiguous-identity threshold in nt; a longer identical stretch is flagged (default 15).")] int max_contiguous_match = 15,
@@ -753,7 +759,7 @@ public class MolToolsTools
             maxDuplexTm: max_duplex_tm);
     }
 
-    [McpServerTool(Name = "design_probes_primer3", Title = "MolTools — Primer3 Hybridization-Probe Picker", ReadOnly = true), Description("Picks hybridization probes exactly as Primer3 does for PRIMER_TASK=pick_hyb_probe_only (internal-oligo picker; verified against primer3-py design_primers): every A/C/G/T window of min_size..max_size within the G+C % window, poly-X ≤ max_poly_x, Primer3 seqtm Tm within [min_tm, max_tm] and ntthal self-dimer / 3′ self-dimer / hairpin Tm ≤ their limits, enumerated per 3′ end with Primer3's 5′-extension break; ranked by the Primer3 penalty |Tm − opt_tm| + |length − opt_size| (penalty ascending, then start descending, then length ascending). Defaults are Primer3's PRIMER_INTERNAL_* defaults (18/20/27 nt, Tm 57/60/63 °C, GC 20–80 %, poly-X 5, 47 °C structure limits, 50 mM monovalent, no Mg²⁺/dNTP, 50 nM). Returns up to num_return probes (start is 0-based).")]
+    [McpServerTool(Name = "design_probes_primer3", Title = "MolTools — Primer3 Hybridization-Probe Picker", ReadOnly = true), Description("Picks hybridization probes exactly as Primer3 does for PRIMER_TASK=pick_hyb_probe_only (internal-oligo picker; verified against primer3-py design_primers): every A/C/G/T window of min_size..max_size within the G+C % window, poly-X ≤ max_poly_x, Primer3 seqtm Tm within [min_tm, max_tm] and ntthal self-dimer / 3′ self-dimer / hairpin Tm ≤ their limits (or, with thermodynamic_oligo_alignment = false, Primer3 alignment-mode dpal self_any ≤ max_self_any and self_end ≤ max_self_end, default 12), enumerated per 3′ end with Primer3's 5′-extension break; ranked by the Primer3 penalty |Tm − opt_tm| + |length − opt_size| (penalty ascending, then start descending, then length ascending). Defaults are Primer3's PRIMER_INTERNAL_* defaults (18/20/27 nt, Tm 57/60/63 °C, GC 20–80 %, poly-X 5, 47 °C structure limits, 50 mM monovalent, no Mg²⁺/dNTP, 50 nM). Returns up to num_return probes (start is 0-based).")]
     public static Primer3ProbesResult design_probes_primer3(
         [Description("Template DNA sequence (probes are picked on this strand; case-insensitive).")] string template,
         [Description("PRIMER_NUM_RETURN: maximum probes to return (default 5).")] int num_return = 5,
@@ -772,7 +778,10 @@ public class MolToolsTools
         [Description("PRIMER_INTERNAL_SALT_MONOVALENT in mM (default 50).")] double monovalent_mm = PrimerDesigner.Primer3InternalMonovalentMillimolar,
         [Description("PRIMER_INTERNAL_SALT_DIVALENT (Mg²⁺) in mM (default 0).")] double divalent_mm = PrimerDesigner.Primer3InternalDivalentMillimolar,
         [Description("PRIMER_INTERNAL_DNTP_CONC in mM (default 0).")] double dntp_mm = PrimerDesigner.Primer3InternalDntpMillimolar,
-        [Description("PRIMER_INTERNAL_DNA_CONC in nM (default 50).")] double dna_conc_nm = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar)
+        [Description("PRIMER_INTERNAL_DNA_CONC in nM (default 50).")] double dna_conc_nm = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar,
+        [Description("PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT: true (default) = ntthal Tm limits; false = Primer3 alignment-mode dpal self_any / self_end limits.")] bool thermodynamic_oligo_alignment = true,
+        [Description("PRIMER_INTERNAL_MAX_SELF_ANY (alignment mode; default 12).")] double max_self_any = PrimerDesigner.Primer3InternalMaxSelfComplementarity,
+        [Description("PRIMER_INTERNAL_MAX_SELF_END (alignment mode; default 12).")] double max_self_end = PrimerDesigner.Primer3InternalMaxSelfComplementarity)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template sequence cannot be null or empty.", nameof(template));
@@ -783,7 +792,12 @@ public class MolToolsTools
 
         var settings = new ProbeDesigner.Primer3ProbeSettings(
             min_size, opt_size, max_size, min_tm, opt_tm, max_tm, min_gc_percent, max_gc_percent, max_poly_x,
-            max_self_any_th, max_self_end_th, max_hairpin_th, monovalent_mm, divalent_mm, dntp_mm, dna_conc_nm);
+            max_self_any_th, max_self_end_th, max_hairpin_th, monovalent_mm, divalent_mm, dntp_mm, dna_conc_nm)
+        {
+            ThermodynamicOligoAlignment = thermodynamic_oligo_alignment,
+            MaxSelfAny = max_self_any,
+            MaxSelfEnd = max_self_end,
+        };
         return new Primer3ProbesResult(ProbeDesigner.DesignProbesPrimer3(template, settings, num_return));
     }
 

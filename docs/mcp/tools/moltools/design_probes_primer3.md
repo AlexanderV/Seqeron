@@ -36,6 +36,8 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 | `divalent_mm` | number | No | PRIMER_INTERNAL_SALT_DIVALENT (0 mM). |
 | `dntp_mm` | number | No | PRIMER_INTERNAL_DNTP_CONC (0 mM). |
 | `dna_conc_nm` | number | No | PRIMER_INTERNAL_DNA_CONC (50 nM). |
+| `thermodynamic_oligo_alignment` | boolean | No | PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT (default true). false = Primer3 alignment mode: dpal `self_any` ≤ `max_self_any`, `self_end` ≤ `max_self_end`, no hairpin; `selfAny`/`selfEnd` reported, `*Th` fields NaN. |
+| `max_self_any` / `max_self_end` | number | No | PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END (12, alignment mode). |
 
 ## Output Schema
 

@@ -36,6 +36,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3-
 | `length` / `gcContent` / `meltingTemperature` | number | Basic metrics. |
 | `homopolymerLength` / `hasHairpin` / `stability3Prime` | mixed | Structural metrics. |
 | `selfAnyTh` / `selfEndTh` / `hairpinTh` | number \| null | Primer3 `PRIMER_*_SELF_ANY_TH` / `_SELF_END_TH` / `_HAIRPIN_TH` (°C). |
+| `selfAny` / `selfEnd` | number \| null | Primer3 alignment-mode `PRIMER_*_SELF_ANY` / `_SELF_END` (dpal scores) when `parameters.StructureScreen = Primer3Alignment` (limits `MaxSelfAny` 8 / `MaxSelfEnd` 3); null otherwise. |
 | `isValid` / `issues` / `score` / `penalty` | mixed | QC verdict; `penalty` is the Primer3 ranking penalty. |
 
 ## Errors

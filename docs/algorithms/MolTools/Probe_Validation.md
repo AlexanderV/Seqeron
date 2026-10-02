@@ -22,7 +22,7 @@ Cross-hybridization occurs when a probe binds sequences other than its intended 
 
 Off-target detection by *local alignment* follows the Smith–Waterman recurrence [1]: `H(i,j) = max{ H(i-1,j-1) + s(a_i,b_j), H(i-1,j) - W, H(i,j-1) - W, 0 }`, whose zero floor returns the best-scoring local subsequence match and whose gap terms admit insertions/deletions. The gapped local alignment is the recognized improvement over ungapped matching for similarity/homology search [2]. **Kane et al. (2000) criteria [7].** Kane et al. hybridized 50-mer oligonucleotide arrays with non-target cDNAs of graded similarity: "any 'non-target' transcripts (cDNAs) >75% similar over the 50 base target may show cross-hybridization", and a non-target must not share "a stretch of complementary sequence >15 contiguous bases" (abstract; later probe-design pipelines summarise the rule as "overall sequence identity > 75 % or a contiguous match > 15 bp" [10]). `AssessCrossHybridization` implements both criteria per non-target strand: identity = identical columns of the best local alignment (Smith–Waterman–Gotoh with BLAST+ blastn scoring +2/−3, gap existence 5 / extension 2 — the canonical `SequenceAligner.LocalAlignAffine`) ÷ probe length, flagged when strictly > `maxIdentity` (0.75); longest contiguous match = longest common substring (canonical suffix tree), flagged when strictly > `maxContiguousMatch` (15). Both strands are assessed by default (a double-stranded non-target offers both). `ScanOffTargetsGapped` uses the 0.75 value as its site-reporting threshold (identity ≥ `minIdentity`).
 
-**Self-structure (Primer3) [11].** Primer3 screens a hybridization probe (internal oligo) with ntthal: self-dimer (ANY) Tm ≤ PRIMER_INTERNAL_MAX_SELF_ANY_TH, 3′ self-dimer (END1) Tm ≤ PRIMER_INTERNAL_MAX_SELF_END_TH, hairpin Tm ≤ PRIMER_INTERNAL_MAX_HAIRPIN_TH, all 47 °C by default, at the internal-oligo conditions (50 nM, 50 mM monovalent, 0 Mg²⁺, 0 dNTP). `ValidateProbe` applies this screen (via `PrimerDesigner.CalculatePrimer3OligoStructure`, bit-exact to primer3-py) to ≤ 60-nt A/C/G/T probes; longer probes (thal.c `THAL_MAX_ALIGN` = 60) and non-ACGT probes fall back to the sequence-only fold-back fraction and inverted-repeat screens.
+**Self-structure (Primer3) [11].** Primer3 screens a hybridization probe (internal oligo) with ntthal: self-dimer (ANY) Tm ≤ PRIMER_INTERNAL_MAX_SELF_ANY_TH, 3′ self-dimer (END1) Tm ≤ PRIMER_INTERNAL_MAX_SELF_END_TH, hairpin Tm ≤ PRIMER_INTERNAL_MAX_HAIRPIN_TH, all 47 °C by default, at the internal-oligo conditions (50 nM, 50 mM monovalent, 0 Mg²⁺, 0 dNTP). `ValidateProbe` applies this screen (via `PrimerDesigner.CalculatePrimer3OligoStructure`, bit-exact to primer3-py) to ≤ 60-nt A/C/G/T probes; longer probes (thal.c `THAL_MAX_ALIGN` = 60) and non-ACGT probes fall back to Primer3's alignment-mode internal-oligo self-dimer screen (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0, `oligo_compl`: dpal `self_any` / `self_end` > PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00, `ProbeParameters.MaxSelfAny/MaxSelfEnd`; no length limit; bit-exact to compiled dpal.c) and the sequence-only inverted-repeat hairpin screen (no DNA MFE fold for > 60 nt yet; cross-batch request to B12). `ProbeValidation.SelfAny` / `SelfEnd` report the alignment-mode values for every probe; `SelfComplementarity` (position-wise fold-back fraction) is an informational library metric only.
 
 ### 2.2 Core Model
 
@@ -37,7 +37,7 @@ specificity =
 \end{cases}
 $$
 
-It then applies the Primer3 thermodynamic self-structure screen (fallback: fold-back fraction against the reverse complement and a sequence-level inverted-repeat screen), the optional Kane assessment, and sets `IsValid` = no issue recorded.
+It then applies the Primer3 thermodynamic self-structure screen (fallback: Primer3 alignment-mode self_any / self_end > 12.00 and a sequence-level inverted-repeat screen), the optional Kane assessment, and sets `IsValid` = no issue recorded.
 
 **Karlin–Altschul statistics of an off-target hit (opt-in).** For a hit's raw alignment score `S` against a search space of query length `m` and database length `n`, the statistical significance follows the Karlin–Altschul framework [8][9]:
 
@@ -76,7 +76,7 @@ with `p_i` the background base frequencies and `s_ij` the score matrix. For four
 | `probeSequence` | `string` | required | Probe sequence to validate | Null input throws `ArgumentNullException`; empty string yields a structured invalid result |
 | `referenceSequences` | `IEnumerable<string>` | required | Reference sequences scanned for approximate matches | Null input throws `ArgumentNullException` |
 | `maxMismatches` | `int` | `3` | Maximum mismatch tolerance for approximate matching | Passed through to the internal approximate-match search |
-| `selfComplementarityThreshold` | `double` | `0.3` | Fold-back-fraction limit of the sequence-only fallback screen | Used only when the thermodynamic screen does not apply |
+| `selfComplementarityThreshold` | `double` | `0.3` | Legacy fold-back-fraction limit | Kept for source compatibility; no screen uses it (fallback self-dimer limits: `ProbeParameters.MaxSelfAny/MaxSelfEnd` = 12.00) |
 | `conditions` | `ProbeParameters?` | `Defaults.Microarray` | Salt / oligo concentrations, `StructureScreen`, `MaxStructureTm` (47 °C) | Primer3 internal-oligo defaults |
 | `nonTargetSequences` | `IEnumerable<string>?` | `null` | Known non-targets for the Kane assessment | Optional |
 | `maxNonTargetIdentity` / `maxContiguousMatch` | `double` / `int` | `0.75` / `15` | Kane thresholds (strict `>`) | [7] |
@@ -91,7 +91,8 @@ with `p_i` the background base frequencies and `s_ij` the score matrix. For four
 | `IsValid` | `bool` | True when no issue was recorded |
 | `SpecificityScore` | `double` | Specificity value in the range `0.0-1.0` |
 | `OffTargetHits` | `int` | Total approximate hits across all reference sequences |
-| `SelfComplementarity` | `double` | Fold-back fraction (criterion only of the fallback screen) |
+| `SelfComplementarity` | `double` | Fold-back fraction (informational library metric) |
+| `SelfAny` / `SelfEnd` | `double?` | Primer3 alignment-mode internal-oligo self_any / self_end (dpal), every non-empty probe; fallback self-dimer criterion (> 12.00) |
 | `HasSecondaryStructure` | `bool` | ntthal hairpin Tm > `MaxStructureTm` (fallback: inverted-repeat stem) |
 | `Issues` | `IReadOnlyList<string>` | Recorded validation issues |
 | `ThermodynamicScreen` | `bool` | True when the Primer3 ntthal screen applied |
@@ -120,7 +121,8 @@ Validation defaults preserved from the original document and source:
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `maxMismatches` | `3` | Approximate-match tolerance |
-| `selfComplementarityThreshold` | `0.3` | Fallback-screen fold-back-fraction limit |
+| `selfComplementarityThreshold` | `0.3` | Legacy fold-back-fraction limit; kept for compatibility, unused by the screen |
+| `MaxSelfAny` / `MaxSelfEnd` | `12.00` | Fallback self-dimer limits (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END) |
 | `MaxStructureTm` | `47 °C` | Primer3 PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH |
 | Kane identity / contiguous | `> 0.75` / `> 15 nt` | Kane et al. (2000) [7] |
 | Secondary-structure check | enabled | `ValidateProbe(...)` always checks the hairpin |
@@ -153,7 +155,7 @@ Validation defaults preserved from the original document and source:
 
 ### 5.2 Current Behavior
 
-The current validator treats an empty probe as invalid rather than throwing. It records an issue when more than one hit is found across all references, when the ntthal self-dimer / 3′ self-dimer Tm exceeds `MaxStructureTm` (fallback: fold-back fraction > threshold), when the ntthal hairpin Tm exceeds it (fallback: inverted-repeat stem), and for every non-target strand meeting a Kane criterion. `ValidateProbe`'s approximate matching is an ungapped fixed-length sliding scan with mismatch tolerance (its `OffTargetHits` pools the on-target with off-targets). `IsValid` is `true` exactly when no issue was recorded (the former lenient rule "≤ 1 hit and fold-back fraction ≤ 0.4 ⇒ valid despite issues" had no source and was removed). `CheckSpecificity(...)` uses exact suffix-tree hits (optionally on both strands).
+The current validator treats an empty probe as invalid rather than throwing. It records an issue when more than one hit is found across all references, when the ntthal self-dimer / 3′ self-dimer Tm exceeds `MaxStructureTm` (fallback: Primer3 alignment-mode self_any / self_end > 12.00), when the ntthal hairpin Tm exceeds it (fallback: inverted-repeat stem), and for every non-target strand meeting a Kane criterion. `ValidateProbe`'s approximate matching is an ungapped fixed-length sliding scan with mismatch tolerance (its `OffTargetHits` pools the on-target with off-targets). `IsValid` is `true` exactly when no issue was recorded (the former lenient rule "≤ 1 hit and fold-back fraction ≤ 0.4 ⇒ valid despite issues" had no source and was removed). `CheckSpecificity(...)` uses exact suffix-tree hits (optionally on both strands).
 
 `ScanOffTargetsGapped(...)` is the opt-in gapped alternative. For each reference it slides a window of length `probeLen + 2` and runs `SequenceAligner.LocalAlign` (Smith–Waterman, `BlastDna` scoring by default), computes identity = identical aligned columns / probe length and coverage = ungapped columns / probe length, keeps every site whose identity ≥ `minIdentity`, and collapses overlapping window detections to one best (highest-identity, then highest-coverage, then leftmost) hit per site via greedy non-overlapping selection. The first perfect ungapped full-coverage exact match (identity = coverage = 1.0, no gaps) is classified as the intended on-target and excluded from the off-target count; all imperfect or indel-containing hits — and any additional perfect repeats — are off-targets.
 

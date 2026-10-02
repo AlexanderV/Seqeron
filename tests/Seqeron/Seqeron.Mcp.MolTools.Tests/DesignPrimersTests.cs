@@ -144,4 +144,31 @@ public class DesignPrimersTests
         Assert.That(strict.IsValid, Is.False);
         Assert.That(strict.Pairs, Is.Empty);
     }
+
+    [Test]
+    public void DesignPrimers_Primer3AlignmentScreen_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [47, 17], PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT 0):
+        // PRIMER_LEFT_0 (26, 20), PRIMER_RIGHT_0 (172, 20), PENALTY 0.353112963359024, COMPL_ANY 4, COMPL_END 2,
+        // PRIMER_LEFT_0_SELF_ANY 5, _SELF_END 3.
+        const string t = "GATTTTCATATTATGCAGAAAATCTACTTCGCCTGATACGAGTCGGTTATCTTCGGATACTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTACCCAGAAAATAGCGACGGACCGCGGTGTTAAGTGTCGAGCTACATCACTTCTCATGTAGCCAGAAGGCTGCAACTCATCGACTCTATGTAGTGACCGCGTCGATGTCAAACCCCGGGGGGAGCTCAGATATCCGATACAGGGATGAAGAAATAACCTCATCCCATTGGTGACGAAAGGTTGTAAGTAGCT";
+        var p = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters with
+        {
+            StructureScreen = Seqeron.Genomics.MolTools.PrimerStructureScreen.Primer3Alignment,
+        };
+        var r = MolToolsTools.design_primers(t, 47, 64, p, max_tm_difference: 100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Forward!.Position, Is.EqualTo(26));
+            Assert.That(r.Reverse!.Position + r.Reverse.Length - 1, Is.EqualTo(172));
+            Assert.That(r.PairPenalty!.Value, Is.EqualTo(0.353112963359024).Within(1e-9));
+            Assert.That(r.ComplAny, Is.EqualTo(4.0));
+            Assert.That(r.ComplEnd, Is.EqualTo(2.0));
+            Assert.That(r.ComplAnyTh, Is.Null);
+            Assert.That(r.Forward.SelfAny, Is.EqualTo(5.0));
+            Assert.That(r.Forward.SelfEnd, Is.EqualTo(3.0));
+        });
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 47, 64, p, pair_max_compl_any: -1));
+    }
 }

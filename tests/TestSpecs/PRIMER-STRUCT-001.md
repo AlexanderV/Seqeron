@@ -97,6 +97,7 @@
 | C2 | Dinucleotide | Multiple repeat types | Returns longest | Logic verification |
 | C3 | Hairpin | Long sequence (>100bp) suffix tree path | Correct detection | Performance optimization |
 | C6 | DesignPrimers | Default thermodynamic screen = primer3-py design_primers (random template: right AGGAACGGATCGAGGACTGC, pair penalty 2.425289002682007); hairpin 48.215 °C right primer → no valid primers; Heuristic / MaxStructureTm 100 → pair 1.869300477208128 | Primer3 values | primer3-py design_primers |
+| C7 | Alignment mode (A1, audit round 2) | dpal LOCAL `CalculatePrimerSelfAnyComplementarity` / `CalculatePrimerDimerAnyComplementarity` (+ self_end) = compiled dpal.c + `align()` (len < 3 rule, N −0.25, 136-nt input); `EvaluatePrimer` with `Primer3Alignment` limits 8/3 | dpal.c values (`PrimerDesigner_AlignmentMode_Tests`) | dpal.c, libprimer3.cc |
 | C4 | Integration | Well-designed primer exact metrics | Homopolymer=1, dinuc=1, ΔG=-3.57 | Combined verification |
 | C5 | Integration | Problematic primer exact metrics | Homopolymer=20, ΔG=-5.40 | Primer3 failure modes |
 

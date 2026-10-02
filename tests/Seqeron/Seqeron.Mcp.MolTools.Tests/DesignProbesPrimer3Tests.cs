@@ -65,4 +65,25 @@ public class DesignProbesPrimer3Tests
             Assert.That(probes[0].Penalty, Is.EqualTo(0.031854514611609375).Within(1e-9));
         });
     }
+
+    [Test]
+    public void DesignProbesPrimer3_AlignmentMode_MatchesPrimer3AndSerializes()
+    {
+        // primer3-py 2.3.1 pick_hyb_probe_only, PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT 0, PRIMER_INTERNAL_MAX_SELF_ANY 6:
+        // PRIMER_INTERNAL_0 (8, 23), PENALTY 4.850867227162098, SELF_ANY 6, SELF_END 2.
+        const string t = "ATTCTCAGAGGCTCGTACAAACGTATGCCCTAGCTTTTACCACTTAACGCCGTCAAAATGTGCCTATTTTGGAACGAAGGATTCTGTCCTTCGTTCCTTCTTAGTAT";
+        var r = MolToolsTools.design_probes_primer3(t, thermodynamic_oligo_alignment: false, max_self_any: 6);
+        var p0 = r.Probes[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((p0.Start, p0.Length), Is.EqualTo((8, 23)));
+            Assert.That(p0.Penalty, Is.EqualTo(4.850867227162098).Within(1e-9));
+            Assert.That(p0.SelfAny, Is.EqualTo(6.0));
+            Assert.That(p0.SelfEnd, Is.EqualTo(2.0));
+            Assert.That(p0.HairpinTh, Is.NaN);
+            Assert.That(System.Text.Json.JsonSerializer.Serialize(r), Does.Contain("\"NaN\""), "NaN Th fields serialize");
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_probes_primer3(t, max_self_end: -1));
+    }
 }

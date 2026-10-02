@@ -88,8 +88,8 @@
 | KA7 | λ guards: non-positive match throws; non-negative expected score throws; non-positive m/n/K throws | Invariant #11 | Karlin & Altschul 1990 (preconditions) |
 | TH1 | ntthal Tm of GCGC…(20) = 78.85652531616256 / 78.85652531616256 / 87.30265612393043; issues + IsValid false | Invariant #13 | primer3-py 2.3.1 |
 | TH2 | Stated conditions (mv 100, dv 2, dntp 0.2, dna 250) → 69.17069845823409 / 69.17069845823409 / 74.99462150250321 | Invariant #13 | primer3-py 2.3.1 |
-| TH3 | Fold-back fraction 0.64 but no stable ntthal structure → no self-structure issue; Heuristic screen still flags it | Invariant #13 | primer3-py 2.3.1 |
-| TH4 | > 60-nt probe → fallback screens, ntthal fields null | Invariant #13 | thal.c THAL_MAX_ALIGN |
+| TH3 | Fold-back fraction 0.64 but no stable ntthal structure → no self-structure issue; Heuristic (fallback) screen: Primer3 alignment-mode self_any 9.00 / self_end 7.00 ≤ 12.00 → no issue either (audit round 2, A6) | Invariant #13 | primer3-py 2.3.1; dpal.c |
+| TH4 | > 60-nt probe → fallback screens, ntthal fields null; (ACGT)16 self_any = self_end = 64.00 > PRIMER_INTERNAL_MAX_SELF_ANY 12.00 → issue | Invariant #13 | thal.c THAL_MAX_ALIGN; dpal.c |
 | KN1 | Kane fixtures A–E: score / identical / LCS = Biopython | Invariant #15 | Biopython 1.88 |
 | KN2 | Kane thresholds strict (0.80 ↛ > 0.80; 15 nt ↛ > 15) | Invariant #15 | Kane et al. 2000 |
 | KN3 | Chunked long non-target score = canonical whole-strand LocalAlignAffine | Invariant #15 | SequenceAligner |
@@ -182,7 +182,8 @@ All configurable parameters have external evidence justification. No assumptions
 | Parameter | Default | Evidence | Source |
 |-----------|---------|----------|--------|
 | `maxMismatches` | 3 | Screening tolerance of the ungapped site count (the figure comes from CRISPR/Cas9 guides — 3-5 bp mismatches per 20-nt guide, Hsu et al. 2013 — not from hybridization literature; kept for compatibility). The sourced hybridization cross-reactivity decision is the Kane assessment (`nonTargetSequences`). | Wikipedia: Off-target genome editing |
-| `selfComplementarityThreshold` | 0.3 | Fallback screen only (> 60 nt, non-ACGT, `Heuristic`): for random DNA the expected fold-back fraction ≈ 0.25; 0.3 flags elevated palindromic character. The default criterion for ≤ 60-nt ACGT probes is the Primer3 ntthal screen (47 °C). | `ProbeParameters.Defaults` (library convention) |
+| `selfComplementarityThreshold` | 0.3 | Legacy, unused by the screen since audit round 2 (A6); the fold-back fraction is only reported. | library convention (compatibility) |
+| `MaxSelfAny` / `MaxSelfEnd` (ProbeParameters) | 12.00 | Fallback self-dimer criterion (> 60 nt, non-ACGT, `Heuristic`): Primer3 alignment-mode PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END (dpal `self_any` / `self_end`). | Primer3 `libprimer3.cc` `pr_set_default_global_args_1`, `oligo_compl` |
 | `MaxStructureTm` | 47 °C | PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH | Primer3 `libprimer3.cc` |
 | `maxNonTargetIdentity` / `maxContiguousMatch` | 0.75 / 15 (strict >) | Kane et al. (2000) | Kane et al. 2000; Satya et al. 2008 |
 | `maxDuplexTm` | none | OligoArray: user-set specificity threshold | Rouillard et al. 2003 |
