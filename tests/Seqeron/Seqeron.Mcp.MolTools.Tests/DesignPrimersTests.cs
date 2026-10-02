@@ -301,4 +301,41 @@ public class DesignPrimersTests
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 100, 130, p3,
             mispriming_library: new Dictionary<string, string> { ["x"] = "" }));
     }
+
+    [Test]
+    public void DesignPrimers_InternalOligoMishybLibrary_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [100, 30], PRIMER_PAIR_MAX_DIFF_TM 100, PRIMER_PICK_INTERNAL_OLIGO 1,
+        // PRIMER_INTERNAL_MAX_LIBRARY_MISHYB 9, mishyb_lib = lib): PRIMER_INTERNAL_0 [108,19] (the library-free [108,20]
+        // scores 10 > 9), PRIMER_INTERNAL_0_PENALTY 1.2417931164713423, PRIMER_INTERNAL_0_LIBRARY_MISPRIMING (9.0, s1);
+        // PRIMER_INTERNAL_4 [194,21] (5.0, s1).
+        const string t = "GATTTTCATATTATGCAGAAAATCTACTTCGCCTGATACGAGTCGGTTATCTTCGGATACTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTACCCAGAAAATAGCGACGGACCGCGGTGTTAAGTGTCGAGCTACATCACTTCTCATGTAGCCAGAAGGCTGCAACTCATCGACTCTATGTAGTGACCGCGTCGATGTCAAACCCCGGGGGGAGCTCAGATATCCGATACAGGGATGAAGAAATAACCTCATCCCATTGGTGACGAAAGGTTGTAAGTAGCT";
+        var lib = new Dictionary<string, string>
+        {
+            ["s1"] = "GCGGTGTTAAGTGTCGAGCTACATCACTTCTC",
+            ["s2*0.5"] = "atgtagccagaaggctgcaactcatcgactctatg",
+            ["iu"] = "GGTGTTAAGTGTCRAGCTACAYC",
+        };
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters;
+        var r = MolToolsTools.design_primers(t, 100, 130, p3, max_tm_difference: 100, num_return: 5, pick_internal_oligo: true,
+            internal_mishyb_library: lib, internal_max_library_mishyb: 9);
+        var noLib = MolToolsTools.design_primers(t, 100, 130, p3, max_tm_difference: 100, pick_internal_oligo: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((noLib.InternalOligo!.Value.Start, noLib.InternalOligo.Value.Length), Is.EqualTo((108, 20)));
+            Assert.That(noLib.InternalOligo.Value.LibraryMishyb, Is.Null);
+            var io = r.InternalOligo!.Value;
+            Assert.That((io.Start, io.Length), Is.EqualTo((108, 19)));
+            Assert.That(io.Penalty, Is.EqualTo(1.2417931164713423).Within(1e-9));
+            Assert.That(io.LibraryMishyb, Is.EqualTo(9.0));
+            Assert.That(io.LibraryMishybName, Is.EqualTo("s1"));
+            var io4 = r.Pairs[4].InternalOligo!.Value;
+            Assert.That((io4.Start, io4.Length, io4.LibraryMishyb), Is.EqualTo((194, 21, (double?)5.0)));
+        });
+
+        // _pr_data_control: an internal-oligo mishyb weight without a mishyb library.
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 100, 130, p3, pick_internal_oligo: true,
+            internal_wt_library_mishyb: 1));
+    }
 }

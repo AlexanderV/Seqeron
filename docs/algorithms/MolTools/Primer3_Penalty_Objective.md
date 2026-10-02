@@ -188,7 +188,10 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
   (`PrimerParameters.MisprimingLibrary`, PRIMER_MISPRIMING_LIBRARY) `EvaluatePrimer` / `DesignPrimers` feed
   Primer3's `repeat_sim.score[repeat_sim.max]` (`PrimerDesigner.CalculateLibraryMispriming`); the pair objective adds
   PRIMER_PAIR_WT_LIBRARY_MISPRIMING × `pair_repeat_sim`. Verified against primer3-py 2.3.1
-  `design_primers(misprime_lib=…)` (B07 audit round 3, A3-3 part 1 / F41).
+  `design_primers(misprime_lib=…)` (B07 audit round 3, A3-3 part 1 / F41). The internal-oligo branch uses the same
+  term with PRIMER_INTERNAL_WT_LIBRARY_MISHYB (`ProbeDesigner.Primer3ProbeSettings.WeightLibraryMishyb`) × the
+  mishybridization-library score (`PrimerDesigner.CalculateLibraryMishyb`, PRIMER_INTERNAL_MISHYB_LIBRARY) in
+  `DesignProbesPrimer3` and the PRIMER_PICK_INTERNAL_OLIGO path (A3-3 part 2 / F42).
 
 **Intentionally simplified:** none — a direct `CalculatePrimer3Penalty` call still takes the structure values from
 the caller (`Primer3PenaltyInputs`), but every value is available from the library methods above.
@@ -196,8 +199,7 @@ the caller (`Primer3PenaltyInputs`), but every value is available from the libra
 **Not implemented:**
 
 - `bound` (only with PRIMER_ANNEALING_TEMP > 0), `failure_rate`, `pos_penalty` (needs
-  PRIMER_INSIDE/OUTSIDE_PENALTY), `seq_quality`, `template_mispriming`, and the internal-oligo `repeat_sim`
-  (PRIMER_INTERNAL_WT_LIBRARY_MISHYB / PRIMER_INTERNAL_MISHYB_LIBRARY, A3-3 part 2); these need data the
+  PRIMER_INSIDE/OUTSIDE_PENALTY), `seq_quality` and `template_mispriming`; these need data the
   method does not receive (annealing model, base qualities, target geometry, template alignment) and are
   0 under Primer3 defaults; **users should rely on:** adding `weight·value` themselves or Primer3.
 
@@ -227,8 +229,7 @@ which sums this per-primer penalty for the two primers; verified against primer3
 
 ### 6.2 Limitations
 
-Per-primer only (no pair penalty); the bound, failure-rate, position, sequence-quality, internal-oligo
-mishybridization and template-mispriming terms are not implemented (they are 0 under Primer3 defaults, so the default objective
+Per-primer only (no pair penalty); the bound, failure-rate, position, sequence-quality and template-mispriming terms are not implemented (they are 0 under Primer3 defaults, so the default objective
 is unaffected). self_any/self_end alignment scores
 are caller-supplied (§5.3).
 

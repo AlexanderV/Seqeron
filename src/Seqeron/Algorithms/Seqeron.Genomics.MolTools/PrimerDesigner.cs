@@ -313,6 +313,8 @@ public static partial class PrimerDesigner
                 _intlSettings = (opt.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings()) with
                 {
                     ThermodynamicOligoAlignment = param.StructureScreen != PrimerStructureScreen.Primer3Alignment,
+                    // PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS is global too.
+                    LibraryAmbiguityCodesConsensus = param.EffectiveLibraryAmbiguityCodesConsensus,
                 };
                 // make_internal_oligo_list over the included region; choose_internal_oligo takes the
                 // lowest-penalty oligo (first in enumeration order among equals) → stable sort.
@@ -376,7 +378,10 @@ public static partial class PrimerDesigner
             }
             if (o.PickInternalOligo)
             {
-                var s = o.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings();
+                var s = (o.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings()) with
+                {
+                    ThermodynamicOligoAlignment = _param.StructureScreen != PrimerStructureScreen.Primer3Alignment,
+                };
                 ProbeDesigner.ValidatePrimer3ProbeSettings(s, nameof(o.InternalOligo));
                 if (s.MaxSize > minProduct)
                     throw new ArgumentException("PRIMER_INTERNAL_MAX_SIZE > min PRIMER_PRODUCT_SIZE_RANGE (Primer3 _pr_data_control).");

@@ -26,7 +26,7 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `template` | string | Yes | Template DNA (non-empty; case-insensitive; probes are picked on this strand). |
-| `num_return` | integer | No | PRIMER_NUM_RETURN (≥ 0, default 5). |
+| `num_return` | integer | No | PRIMER_NUM_RETURN (≥ 1, default 5; Primer3 rejects < 1). |
 | `min_size` / `opt_size` / `max_size` | integer | No | PRIMER_INTERNAL_MIN/OPT/MAX_SIZE (18 / 20 / 27; 1 ≤ min ≤ max ≤ 36). |
 | `min_tm` / `opt_tm` / `max_tm` | number | No | PRIMER_INTERNAL_MIN/OPT/MAX_TM in °C (57 / 60 / 63). |
 | `min_gc_percent` / `max_gc_percent` | number | No | PRIMER_INTERNAL_MIN/MAX_GC (20 / 80 %). |
@@ -38,19 +38,24 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 | `dna_conc_nm` | number | No | PRIMER_INTERNAL_DNA_CONC (50 nM). |
 | `thermodynamic_oligo_alignment` | boolean | No | PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT (default true). false = Primer3 alignment mode: dpal `self_any` ≤ `max_self_any`, `self_end` ≤ `max_self_end`, no hairpin; `selfAny`/`selfEnd` reported, `*Th` fields NaN. |
 | `max_self_any` / `max_self_end` | number | No | PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END (12, alignment mode). |
+| `mishyb_library` | object | No | PRIMER_INTERNAL_MISHYB_LIBRARY as a name → sequence object (primer3-py `mishyb_lib`), e.g. `{"Alu*2": "GGCCGGGCGCGG…"}`; same entry format as `design_primers` `mispriming_library` (`*weight` 0–100, IUPAC codes, "reverse <name>" entries added). Each probe is aligned with every entry by Primer3's dpal unanchored local alignment (+1/−1/−0.25 N/−2 gap, max gap 1); a probe whose weighted score exceeds `max_library_mishyb` is rejected (and ends the 5′ extension of its 3′ end, as in Primer3). |
+| `max_library_mishyb` | number | No | PRIMER_INTERNAL_MAX_LIBRARY_MISHYB (default 12; compared as a C `short`; > 32767 rejected in alignment mode). |
+| `wt_library_mishyb` | number | No | PRIMER_INTERNAL_WT_LIBRARY_MISHYB (default 0): weight of the library score in the penalty; non-zero without `mishyb_library` → error (Primer3 `_pr_data_control`). |
+| `lib_ambiguity_codes_consensus` | boolean | No | PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS (default false = Primer3 0: IUPAC codes in the library never match; true: they match every base they represent). Verified against primer3-py 2.3.1 `design_primers(mishyb_lib=…)` (B07 F42). |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `probes` | object[] | Best first. Each: `sequence`, `start` (0-based), `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty` (the Primer3 `PRIMER_INTERNAL_n_*` values). |
+| `probes` | object[] | Best first. Each: `sequence`, `start` (0-based), `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty` (the Primer3 `PRIMER_INTERNAL_n_*` values); with `mishyb_library`: `libraryMishyb` / `libraryMishybName` (PRIMER_INTERNAL_n_LIBRARY_MISHYB score and entry; primer3-py key `…_LIBRARY_MISPRIMING`). |
 
 ## Errors
 
 | Code | Message |
 |------|---------|
 | 1001 | Template sequence cannot be null or empty |
-| 1002 | num_return cannot be negative |
+| 1002 | num_return must be at least 1 (Primer3: PRIMER_NUM_RETURN < 1) |
+| 1004 | Internal oligo mispriming score is part of objective function while mishyb library is not defined |
 | 1003 | Sizes must satisfy 1 ≤ min_size ≤ max_size ≤ 36 |
 
 ## Examples

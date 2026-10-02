@@ -85,7 +85,17 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    `LibraryMisprimingName` (PRIMER_LEFT/RIGHT/PAIR_k_LIBRARY_MISPRIMING).
 7. **Internal oligo** (`choose_internal_oligo`): the lowest-penalty oligo of the Primer3 internal-oligo list
    (`ProbeDesigner.DesignProbesPrimer3` rules, PRIMER_INTERNAL_* defaults; its self-any/self-end/hairpin checks
-   postponed until the oligo is considered) with start > left primer 3′ end and end < right primer 5′ base.
+   postponed until the oligo is considered) with start > left primer 3′ end and end < right primer 5′ base. With a
+   mishybridization library (PRIMER_INTERNAL_MISHYB_LIBRARY, `Primer3ProbeSettings.MishybLibrary`, primer3-py
+   `mishyb_lib`; same `PrimerMisprimingLibrary` type and dpal port as item 6) the oligo is scored by
+   `oligo_repeat_library_mispriming` OT_INTL: $w_i = weight_i \cdot align(oligo, y_i)$ with the **unanchored**
+   `DPAL_LOCAL` (`local` / `local_ambig` — PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS is global, so the pair search uses
+   `PrimerParameters.LibraryAmbiguityCodesConsensus`); an oligo with any $w_i$ > (short) PRIMER_INTERNAL_MAX_LIBRARY_MISHYB
+   (`MaxLibraryMishyb`, 12) is rejected. With PRIMER_INTERNAL_WT_LIBRARY_MISHYB (`WeightLibraryMishyb`, default 0) ≠ 0
+   oligos are scored while the list is built (a rejection is a "five-prime problem" ending the 5′ extension; the
+   weighted score enters the internal-oligo `p_obj_fn` and, via PRIMER_PAIR_WT_IO_PENALTY, the pair objective),
+   otherwise in `choose_internal_oligo` after the postponed structure checks. Output: `Primer3Probe.LibraryMishyb` /
+   `LibraryMishybName` (PRIMER_INTERNAL_k_LIBRARY_MISHYB; primer3-py key `…_LIBRARY_MISPRIMING`).
 
 `PrimerCandidate.Score` (100 − 2|len − opt| − 2|Tm − opt| − 0.5|GC − 50| − 5·homopolymer + 5 GC-clamp
 bonus) is reported for information only and does not drive selection.
@@ -205,7 +215,9 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 - Mispriming library (audit round 3, A3-3 part 1, 2026-10-02): random 150–500-bp templates with 1–8-entry random libraries (55 % template fragments, forward or reverse-complemented, with point mutations and IUPAC codes; random IUPAC-containing sequences; 1–2-nt entries; N-rich entries; `*w` weights 0–10), PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS ∈ {0, 1}, PRIMER_MAX_LIBRARY_MISPRIMING ∈ {6, 8, 10, 12, 12.9, 15, 20}, PRIMER_PAIR_MAX_LIBRARY_MISPRIMING ∈ {12–30}, PRIMER_WT_LIBRARY_MISPRIMING ∈ {0, 0.1, 0.5, 1}, PRIMER_PAIR_WT_LIBRARY_MISPRIMING ∈ {0, 0.2, 1}, both alignment modes, PRIMER_PICK_INTERNAL_OLIGO ∈ {0, 1}: 1240/1240 templates (4693 pairs; primers rejected by the library in 1005 templates, pairs in 202) identical to primer3-py 2.3.1 `design_primers(misprime_lib=…)` on left/right start + length, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY (|Δ| ≤ 1e-9), PRIMER_LEFT/RIGHT/PAIR_k_LIBRARY_MISPRIMING score and entry name, and PRIMER_INTERNAL_k position.
 
-**Not implemented:** internal-oligo mishybridization library (PRIMER_INTERNAL_MISHYB_LIBRARY, A3-3 part 2) / template mispriming, position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
+- Internal-oligo mishybridization library (audit round 3, A3-3 part 2, 2026-10-02): see §2.2 item 7 and the PROBE-DESIGN-001 / PRIMER-DESIGN-001 F42 entry of `docs/Validation/review-2026-09/B07.md` — primer3-py 2.3.1 `design_primers(mishyb_lib=…)` with PRIMER_PICK_INTERNAL_OLIGO = 1: 386/386 random 150–450-bp templates (1325 pairs; random 1–8-entry libraries, PRIMER_INTERNAL_MAX_LIBRARY_MISHYB ∈ {6–20}, PRIMER_INTERNAL_WT_LIBRARY_MISHYB ∈ {0, 0.1, 0.5, 1}, PRIMER_PAIR_WT_IO_PENALTY ∈ {0, 1}, both alignment modes and consensus settings, 137 with a primer mispriming library too; internal oligos rejected by the library in 315) identical on left/right start + length, PRIMER_PAIR_k_PENALTY, PRIMER_INTERNAL_k position / penalty (|Δ| ≤ 1e-9) and PRIMER_INTERNAL_k_LIBRARY_MISHYB score + entry name.
+
+**Not implemented:** template mispriming, position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
 
@@ -221,14 +233,15 @@ Forward primers are taken directly from the template; reverse primers are revers
 | `PickInternalOligo` and no acceptable oligo between the primers | Pair fails (Primer3 "no internal oligo") | `choose_internal_oligo` |
 | Primer-dimer detected for every pair | Returns `IsValid = false` | Pair compatibility requires no dimer signal |
 | Non-ACGT base in a candidate | Candidate invalid (Tm 0, issue "Tm not computable") | Primer3 PRIMER_MAX_NS_ACCEPTED = 0 |
+| PRIMER_INTERNAL_WT_LIBRARY_MISHYB ≠ 0 without a mishyb library (with `PickInternalOligo`) | `ArgumentException` | Primer3 `_pr_data_control` "Internal oligo mispriming score is part of objective function while mishyb library is not defined" |
 | PRIMER_WT_LIBRARY_MISPRIMING / PRIMER_PAIR_WT_LIBRARY_MISPRIMING ≠ 0 without a library | `ArgumentException` | Primer3 `_pr_data_control` "Mispriming score is part of objective function, but mispriming library is not defined" |
 | Library entry with an empty sequence or an illegal `*weight` (missing, < 0, > 100) | `ArgumentException` | `add_seq_to_seq_lib` / `parse_seq_name` (primer3-py raises OSError) |
 | Library entry with a non-IUPAC character | Character becomes N, `PrimerMisprimingLibrary.Warnings` | `upcase_and_check_char` (primer3-py 2.3.1 aborts here: it passes a NULL `errfrag` to the warning) |
 
 ### 6.2 Limitations
 
-There is no template-mispriming check and no internal-oligo mishybridization library (the primer mispriming library
-is Primer3's, §2.2 item 6). The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
+There is no template-mispriming check (the primer mispriming and internal-oligo mishybridization libraries are
+Primer3's, §2.2 items 6–7). The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
 
 ## 7. Examples and Related Material
 

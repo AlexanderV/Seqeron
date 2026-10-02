@@ -1169,6 +1169,40 @@ public static class ProbeDesigner
 
         /// <summary>PRIMER_INTERNAL_WT_GC_PERCENT_LT (Primer3 default 0): weight × (<see cref="OptGcPercent"/> − GC%) when GC% is below the optimum.</summary>
         public double WeightGcPercentLt { get; init; }
+
+        /// <summary>
+        /// PRIMER_INTERNAL_MISHYB_LIBRARY (primer3-py <c>mishyb_lib</c>): when set and non-empty, every oligo gets Primer3's
+        /// library mishybridization score (<see cref="PrimerDesigner.CalculateLibraryMishyb"/>,
+        /// <see cref="Primer3Probe.LibraryMishyb"/>) and is rejected when any entry's weighted score exceeds
+        /// <see cref="MaxLibraryMishyb"/> (Primer3 OP_HIGH_SIM_TO_NON_TEMPLATE_SEQ, a "five-prime problem" that also ends
+        /// the 5′ extension of that 3′ end). Null = no library (Primer3's default). Not part of the JSON form (the MCP tools
+        /// take the library as a separate name → sequence argument).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public PrimerMisprimingLibrary? MishybLibrary { get; init; }
+
+        /// <summary>
+        /// PRIMER_INTERNAL_MAX_LIBRARY_MISHYB (Primer3 default <see cref="PrimerDesigner.Primer3InternalMaxLibraryMishyb"/>,
+        /// 12.00): maximum weighted library score of one oligo; Primer3 compares with the value truncated to a C
+        /// <c>short</c>. In alignment mode (<see cref="ThermodynamicOligoAlignment"/> = false) it must not exceed 32767.
+        /// </summary>
+        public double MaxLibraryMishyb { get; init; } = PrimerDesigner.Primer3InternalMaxLibraryMishyb;
+
+        /// <summary>
+        /// PRIMER_INTERNAL_WT_LIBRARY_MISHYB (Primer3 default 0): penalty weight × <see cref="Primer3Probe.LibraryMishyb"/>
+        /// (<c>p_obj_fn</c> OT_INTL <c>repeat_sim</c> term). Non-zero requires <see cref="MishybLibrary"/>.
+        /// </summary>
+        public double WeightLibraryMishyb { get; init; }
+
+        /// <summary>
+        /// PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS for the mishyb library (Primer3 default 0 = false: an IUPAC code in an
+        /// entry never aligns). Primer3 has one global setting: for the internal oligo of a primer pair
+        /// <see cref="PrimerParameters.LibraryAmbiguityCodesConsensus"/> is used instead.
+        /// </summary>
+        public bool LibraryAmbiguityCodesConsensus { get; init; }
+
+        // The mishyb library in use: null when absent or empty (Primer3 seq_lib_num_seq == 0).
+        internal PrimerMisprimingLibrary? ActiveMishybLibrary => MishybLibrary is { Count: > 0 } lib ? lib : null;
     }
 
     /// <summary>
@@ -1202,6 +1236,16 @@ public static class ProbeDesigner
 
         /// <summary>PRIMER_INTERNAL_n_SELF_END (Primer3 alignment mode, dpal score); null in thermodynamic mode.</summary>
         public double? SelfEnd { get; init; }
+
+        /// <summary>
+        /// PRIMER_INTERNAL_n_LIBRARY_MISHYB score (primer3-py key PRIMER_INTERNAL_n_LIBRARY_MISPRIMING;
+        /// <see cref="PrimerDesigner.CalculateLibraryMishyb"/>) when <see cref="Primer3ProbeSettings.MishybLibrary"/> is
+        /// set, otherwise null.
+        /// </summary>
+        public double? LibraryMishyb { get; init; }
+
+        /// <summary>The library entry named in PRIMER_INTERNAL_n_LIBRARY_MISHYB (with <see cref="LibraryMishyb"/>).</summary>
+        public string? LibraryMishybName { get; init; }
     }
 
     // Primer3 MAX_PRIMER_LENGTH (oligo length limit of the picker and of seqtm's nearest-neighbour branch).
@@ -1232,11 +1276,12 @@ public static class ProbeDesigner
     /// </summary>
     /// <param name="template">Template sequence (case-insensitive); probes are picked on this strand.</param>
     /// <param name="settings">Picker settings (default: Primer3 defaults).</param>
-    /// <param name="numReturn">PRIMER_NUM_RETURN (default 5).</param>
+    /// <param name="numReturn">PRIMER_NUM_RETURN (default 5; at least 1, as Primer3's <c>_pr_data_control</c> requires).</param>
     /// <returns>Up to <paramref name="numReturn"/> probes, best first.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Invalid sizes (MinSize &lt; 1, MaxSize &lt; MinSize,
-    /// MaxSize &gt; 36) or a negative <paramref name="numReturn"/>.</exception>
+    /// MaxSize &gt; 36), an invalid mishyb limit, or <paramref name="numReturn"/> &lt; 1 (Primer3 "PRIMER_NUM_RETURN &lt; 1").</exception>
+    /// <exception cref="ArgumentException">A mishyb weight without a mishyb library (Primer3 <c>_pr_data_control</c>).</exception>
     public static IReadOnlyList<Primer3Probe> DesignProbesPrimer3(
         string template,
         Primer3ProbeSettings? settings = null,
@@ -1245,8 +1290,8 @@ public static class ProbeDesigner
         ArgumentNullException.ThrowIfNull(template);
         var s = settings ?? new Primer3ProbeSettings();
         ValidatePrimer3ProbeSettings(s, nameof(settings));
-        if (numReturn < 0)
-            throw new ArgumentOutOfRangeException(nameof(numReturn), "Must be ≥ 0.");
+        if (numReturn < 1)
+            throw new ArgumentOutOfRangeException(nameof(numReturn), "PRIMER_NUM_RETURN < 1 (Primer3 _pr_data_control).");
 
         var accepted = EnumeratePrimer3InternalOligos(template.ToUpperInvariant(), 0, template.Length, s, screenStructure: true);
 
@@ -1276,6 +1321,14 @@ public static class ProbeDesigner
             s.MonovalentMillimolar, s.DivalentMillimolar, s.DntpMillimolar, s.DnaConcentrationNanomolar, paramName);
         if (s.OptGcPercent is { } opt && !double.IsFinite(opt))
             throw new ArgumentOutOfRangeException(paramName, "PRIMER_INTERNAL_OPT_GC_PERCENT must be finite.");
+        // _pr_data_control: PRIMER_INTERNAL_MAX_LIBRARY_MISHYB > SHRT_MAX (alignment mode); a mishyb weight without a library.
+        if (double.IsNaN(s.MaxLibraryMishyb) || Math.Abs(s.MaxLibraryMishyb) >= int.MaxValue
+            || (s.MaxLibraryMishyb > short.MaxValue && !s.ThermodynamicOligoAlignment))
+            throw new ArgumentOutOfRangeException(paramName, "Value too large at tag PRIMER_INTERNAL_MAX_LIBRARY_MISHYB.");
+        if (s.WeightLibraryMishyb != 0 && s.ActiveMishybLibrary is null)
+            throw new ArgumentException(
+                "Internal oligo mispriming score is part of objective function while mishyb library is not defined (Primer3 _pr_data_control).",
+                paramName);
     }
 
     /// <summary>
@@ -1294,7 +1347,17 @@ public static class ProbeDesigner
         string seq, int regionStart, int regionEnd, Primer3ProbeSettings s, bool screenStructure)
     {
         // Primer3 o_args.weights defaults, with PRIMER_INTERNAL_WT_GC_PERCENT_GT/_LT and PRIMER_INTERNAL_OPT_GC_PERCENT.
-        var weights = PrimerDesigner.DefaultPrimer3Weights with { GcGt = s.WeightGcPercentGt, GcLt = s.WeightGcPercentLt };
+        // PRIMER_INTERNAL_WT_LIBRARY_MISHYB is the o_args repeat_sim weight.
+        var weights = PrimerDesigner.DefaultPrimer3Weights with
+        {
+            GcGt = s.WeightGcPercentGt,
+            GcLt = s.WeightGcPercentLt,
+            LibraryMispriming = s.WeightLibraryMishyb,
+        };
+        // PRIMER_INTERNAL_MISHYB_LIBRARY: scored while enumerating for list output (three_conditions) or when weighted
+        // (calc_and_check_oligo_features), otherwise postponed to choose_internal_oligo.
+        var library = s.ActiveMishybLibrary;
+        bool scoreLibrary = library is not null && (screenStructure || s.WeightLibraryMishyb != 0);
         var optima = new Primer3Optima(s.OptTm, s.OptSize, s.OptGcPercent ?? PrimerDesigner.Primer3DefaultOptGcPercent);
         var accepted = new List<Primer3Probe>();
 
@@ -1357,18 +1420,34 @@ public static class ProbeDesigner
                     (selfAny, selfEnd, hairpin) = (st.SelfAnyTh, st.SelfEndTh, st.HairpinTh);
                 }
 
+                // oligo_repeat_library_mispriming (OT_INTL), after the structure checks.
+                PrimerDesigner.LibraryMispriming? lib = null;
+                if (scoreLibrary)
+                {
+                    lib = ComputePrimer3ProbeLibrary(oligo, s, library!);
+                    if (lib.Exceeds)
+                        break; // OP_HIGH_SIM_TO_NON_TEMPLATE_SEQ: five-prime problem
+                }
+
                 // p_obj_fn OT_INTL: no end_stability term (end_oligodg is computed for primers only).
                 double penalty = PrimerDesigner.CalculatePrimer3Penalty(
-                    new Primer3PenaltyInputs(tm, len, gcPercent), weights, optima);
+                    new Primer3PenaltyInputs(tm, len, gcPercent) { LibraryMispriming = lib?.MaxScore ?? 0.0 }, weights, optima);
                 accepted.Add(new Primer3Probe(oligo, start, len, tm, gcPercent, selfAny, selfEnd, hairpin, penalty)
                 {
                     SelfAny = alnAny,
                     SelfEnd = alnEnd,
+                    LibraryMishyb = lib?.MaxScore,
+                    LibraryMishybName = lib?.Name,
                 });
             }
         }
         return accepted;
     }
+
+    private static PrimerDesigner.LibraryMispriming ComputePrimer3ProbeLibrary(
+        string oligo, Primer3ProbeSettings s, PrimerMisprimingLibrary library) =>
+        PrimerDesigner.ComputeLibraryMispriming(oligo, true, library, s.LibraryAmbiguityCodesConsensus,
+            s.MaxLibraryMishyb, isInternal: true);
 
     private static PrimerDesigner.Primer3OligoStructure ComputePrimer3ProbeStructure(string oligo, Primer3ProbeSettings s) =>
         PrimerDesigner.CalculatePrimer3OligoStructure(
@@ -1377,8 +1456,9 @@ public static class ProbeDesigner
     /// <summary>
     /// Primer3 <c>choose_internal_oligo</c> postponed checks of one internal oligo (<c>oligo_compl_thermod</c>:
     /// self-any and self-end Tm, then <c>oligo_hairpin</c>; alignment mode: <c>oligo_compl</c> dpal self_any /
-    /// self_end) at the settings' conditions; returns the oligo with its structure values filled in, or
-    /// <c>null</c> when a limit is exceeded.
+    /// self_end; then, unless already scored while enumerating, <c>oligo_repeat_library_mispriming</c> against the
+    /// mishyb library) at the settings' conditions; returns the oligo with its structure (and library) values filled
+    /// in, or <c>null</c> when a limit is exceeded.
     /// </summary>
     internal static Primer3Probe? PassesPrimer3ProbeStructure(Primer3Probe probe, Primer3ProbeSettings s)
     {
@@ -1391,12 +1471,23 @@ public static class ProbeDesigner
             double end = PrimerDesigner.CalculatePrimerSelfEndComplementarity(probe.Sequence);
             if (end > s.MaxSelfEnd)
                 return null;
-            return probe with { SelfAny = any, SelfEnd = end };
+            probe = probe with { SelfAny = any, SelfEnd = end };
         }
-        var st = ComputePrimer3ProbeStructure(probe.Sequence, s);
-        if (st.SelfAnyTh > s.MaxSelfAnyTh || st.SelfEndTh > s.MaxSelfEndTh || st.HairpinTh > s.MaxHairpinTh)
-            return null;
-        return probe with { SelfAnyTh = st.SelfAnyTh, SelfEndTh = st.SelfEndTh, HairpinTh = st.HairpinTh };
+        else
+        {
+            var st = ComputePrimer3ProbeStructure(probe.Sequence, s);
+            if (st.SelfAnyTh > s.MaxSelfAnyTh || st.SelfEndTh > s.MaxSelfEndTh || st.HairpinTh > s.MaxHairpinTh)
+                return null;
+            probe = probe with { SelfAnyTh = st.SelfAnyTh, SelfEndTh = st.SelfEndTh, HairpinTh = st.HairpinTh };
+        }
+        if (s.ActiveMishybLibrary is { } library && probe.LibraryMishyb is null)
+        {
+            var lib = ComputePrimer3ProbeLibrary(probe.Sequence, s, library);
+            if (lib.Exceeds)
+                return null;
+            probe = probe with { LibraryMishyb = lib.MaxScore, LibraryMishybName = lib.Name };
+        }
+        return probe;
     }
 
     // Tyagi & Kramer (1996) / Marras et al. design rule: the probe–target hybrid Tm and the stem

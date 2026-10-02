@@ -21,6 +21,8 @@ public class DesignProbesPrimer3Tests
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(""));
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(null!));
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(Template, num_return: -1));
+        // Primer3 _pr_data_control: "PRIMER_NUM_RETURN < 1".
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(Template, num_return: 0));
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(Template, min_size: 0));
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(Template, min_size: 20, max_size: 19));
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(Template, max_size: 37));
@@ -85,5 +87,34 @@ public class DesignProbesPrimer3Tests
             Assert.That(System.Text.Json.JsonSerializer.Serialize(r), Does.Contain("\"NaN\""), "NaN Th fields serialize");
         });
         Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_probes_primer3(t, max_self_end: -1));
+    }
+
+    [Test]
+    public void DesignProbesPrimer3_MishybLibrary_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers({SEQUENCE_TEMPLATE}, {PRIMER_TASK: pick_hyb_probe_only}, mishyb_lib = lib):
+        // PRIMER_INTERNAL_k = (27,22) (27,23) (26,23) (25,24) (24,25), PRIMER_INTERNAL_k_LIBRARY_MISPRIMING (8.0, site*2);
+        // with PRIMER_INTERNAL_WT_LIBRARY_MISHYB 0.5 and PRIMER_INTERNAL_MAX_LIBRARY_MISHYB 30: PRIMER_INTERNAL_0_PENALTY
+        // 8.426338881812228.
+        var lib = new Dictionary<string, string>
+        {
+            ["site*2"] = "CCCACCTGGTGATCCTATGCTTGTG",
+            ["mut"] = "CCCACCTGGTGTTCCTATGC",
+            ["amb"] = "GTCCCRCCTGGNGATCCTAYG",
+            ["tiny"] = "CA",
+        };
+        var probes = MolToolsTools.design_probes_primer3(Template, mishyb_library: lib).Probes;
+        var weighted = MolToolsTools.design_probes_primer3(Template, mishyb_library: lib, wt_library_mishyb: 0.5,
+            max_library_mishyb: 30).Probes;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(probes.Select(p => (p.Start, p.Length)),
+                Is.EqualTo(new[] { (27, 22), (27, 23), (26, 23), (25, 24), (24, 25) }));
+            Assert.That(probes.Select(p => p.LibraryMishyb), Is.All.EqualTo(8.0));
+            Assert.That(probes.Select(p => p.LibraryMishybName), Is.All.EqualTo("site*2"));
+            Assert.That(weighted[0].Penalty, Is.EqualTo(8.426338881812228).Within(1e-9));
+        });
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(Template, wt_library_mishyb: 1));
     }
 }

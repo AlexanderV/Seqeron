@@ -14,6 +14,9 @@ public static partial class PrimerDesigner
     /// <summary>Primer3 default PRIMER_PAIR_MAX_LIBRARY_MISPRIMING (<c>pair_repeat_compl</c> = 24.00).</summary>
     public const double Primer3PairMaxLibraryMispriming = 24.0;
 
+    /// <summary>Primer3 default PRIMER_INTERNAL_MAX_LIBRARY_MISHYB (<c>pr_set_default_global_args_1</c>: o_args.max_repeat_compl = 12.00).</summary>
+    public const double Primer3InternalMaxLibraryMishyb = 12.0;
+
     /// <summary>
     /// Primer3 library mispriming score of one primer (PRIMER_LEFT/RIGHT_n_LIBRARY_MISPRIMING "score, name";
     /// <c>libprimer3.c</c> <c>oligo_repeat_library_mispriming</c>): for every library entry i (the caller's entries
@@ -47,6 +50,36 @@ public static partial class PrimerDesigner
         return new LibraryMisprimingScore(r.MaxScore, r.Name);
     }
 
+    /// <summary>
+    /// Primer3 library mishybridization score of an internal (hybridization) oligo (PRIMER_INTERNAL_n_LIBRARY_MISHYB
+    /// "score, name"; primer3-py reports it as PRIMER_INTERNAL_n_LIBRARY_MISPRIMING; <c>libprimer3.c</c>
+    /// <c>oligo_repeat_library_mispriming</c>, OT_INTL branch): for every entry i of the PRIMER_INTERNAL_MISHYB_LIBRARY
+    /// (the caller's entries followed by their "reverse …" reverse complements) w_i = weight_i ·
+    /// <c>align</c>(oligo, y_i) with the oligo as given (template strand) and dpal's unanchored local alignment
+    /// (<c>DPAL_LOCAL</c>, Primer3's <c>local</c> / <c>local_ambig</c> arguments: +1 match, −1 mismatch, −0.25 against N,
+    /// −2 per single-base gap, max gap 1, floored at 0) — unlike a primer, the oligo is not anchored at its 3′ end. With
+    /// <paramref name="ambiguityCodesConsensus"/> (PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS = 1) an IUPAC code scores +1 against
+    /// every base it contains; by default it never aligns. An entry shorter than 3 nt scores its length. The reported
+    /// entry is Primer3's <c>repeat_sim.max</c> (see <see cref="CalculateLibraryMispriming"/>).
+    /// </summary>
+    /// <param name="oligo">Internal oligo, 5′→3′ on the template strand (case-insensitive).</param>
+    /// <param name="library">The mishybridization library.</param>
+    /// <param name="ambiguityCodesConsensus">PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS (default false = 0, Primer3's default).</param>
+    /// <returns>The library mishybridization score and entry name.</returns>
+    /// <exception cref="ArgumentNullException">Null oligo or library.</exception>
+    /// <exception cref="ArgumentException">Empty oligo.</exception>
+    public static LibraryMisprimingScore CalculateLibraryMishyb(
+        string oligo, PrimerMisprimingLibrary library, bool ambiguityCodesConsensus = false)
+    {
+        ArgumentNullException.ThrowIfNull(oligo);
+        ArgumentNullException.ThrowIfNull(library);
+        if (oligo.Length == 0)
+            throw new ArgumentException("Oligo cannot be empty.", nameof(oligo));
+        var r = ComputeLibraryMispriming(oligo.ToUpperInvariant(), true, library, ambiguityCodesConsensus,
+            double.PositiveInfinity, isInternal: true);
+        return new LibraryMisprimingScore(r.MaxScore, r.Name);
+    }
+
     // Per-primer repeat_sim (scores of every library entry, Primer3's max index) and the max_repeat_compl decision.
     internal sealed class LibraryMispriming
     {
@@ -58,11 +91,13 @@ public static partial class PrimerDesigner
     }
 
     // oligo_repeat_library_mispriming. Every entry is scored (Primer3 stops at the first entry over the limit only
-    // for a primer it then rejects; the accept/reject decision is the same).
+    // for an oligo it then rejects; the accept/reject decision is the same). isInternal: OT_INTL (mishyb library,
+    // o_args.max_repeat_compl; isLeft is then ignored).
     internal static LibraryMispriming ComputeLibraryMispriming(
-        string primer, bool isLeft, PrimerMisprimingLibrary lib, bool consensus, double maxLibraryMispriming)
+        string primer, bool isLeft, PrimerMisprimingLibrary lib, bool consensus, double maxLibraryMispriming,
+        bool isInternal = false)
     {
-        // max_lib_compl = (short) p_args.max_repeat_compl (C truncation toward zero, then 16-bit wrap).
+        // max_lib_compl = (short) p_args/o_args.max_repeat_compl (C truncation toward zero, then 16-bit wrap).
         int maxLibCompl = double.IsPositiveInfinity(maxLibraryMispriming)
             ? int.MaxValue
             : unchecked((short)(int)maxLibraryMispriming);
@@ -73,10 +108,11 @@ public static partial class PrimerDesigner
         for (int i = 0; i < n; i++)
         {
             // Left: align(s, seqs[i], local_end[_ambig]); right: align(s_r, rev_compl_seqs[i], consensus ?
-            // local_end_ambig : local) — Primer3 uses the non-anchored LOCAL alignment there.
+            // local_end_ambig : local) — Primer3 uses the non-anchored LOCAL alignment there; internal oligo:
+            // align(s, seqs[i], local[_ambig]).
             var matrix = consensus ? DpalAmbiguityMatrix : DpalPrimerMatrix;
-            double a = isLeft
-                ? AlignLibrary(primer, lib.SequenceAt(i), matrix, localEnd: true)
+            double a = isInternal || isLeft
+                ? AlignLibrary(primer, lib.SequenceAt(i), matrix, localEnd: !isInternal)
                 : AlignLibrary(primer, lib.ReverseComplementAt(i), matrix, localEnd: consensus);
             double w = lib.WeightAt(i) * a;
             if (w > short.MaxValue || w < short.MinValue)
