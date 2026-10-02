@@ -64,6 +64,16 @@ Batches run concurrently in separate sessions and push to the same branch.
     `dotnet test tests/Seqeron/Seqeron.Genomics.Tests/Seqeron.Genomics.Tests.csproj -c Debug --no-build --filter "FullyQualifiedName!~.Fuzzing.&FullyQualifiedName!~.Properties.&FullyQualifiedName!~.Metamorphic."`
     must be green (all Unit/Combinatorial/Algebraic/Snapshot/Mutation/Differential/Architecture tests, not only your class).
     Never disable, skip or `[Ignore]` a test — the slow tiers are deferred by the filter only.
+  - **Targeted tier — per work package inside the completeness-audit loop (user decision 2026-10-02):**
+    instead of the whole fast tier after every WP, run only the tests of the classes the WP touched
+    (fast-tier filter AND the touched classes), plus the touched MCP test project:
+    `--filter "(FullyQualifiedName~PrimerDesigner|FullyQualifiedName~ProbeDesigner)&FullyQualifiedName!~.Fuzzing.&FullyQualifiedName!~.Properties.&FullyQualifiedName!~.Metamorphic."`
+    (list every touched class: the edited classes, their direct callers in other files, and any
+    `*Tests` class whose expectations the WP changed). Build must still be 0 errors for the whole solution.
+    The **full fast tier runs once per audit round** (after the round's last WP, before the next
+    auditor pass), once after the duplication sweep, and before the heavy tier. If a full fast-tier
+    run fails, fix it before anything else (the failing WP is found from the round's commits).
+    Unit reviews (Stage A/B per unit, before the audit loop) still use the full fast tier per unit.
   - **Heavy tier — once, when the whole batch is done (mandatory, before the final push):**
     1. Find every test in `Fuzzing/`, `Properties/`, `Metamorphic/` that exercises your owned classes/methods.
     2. **Update** those whose expectations the batch's fixes legitimately changed (with the sourced justification in the report) — never weaken an invariant to make it pass.
@@ -88,7 +98,7 @@ Batch sessions must not hold every unit in one context. The batch lead:
 
 **No lost work on interruption (session/usage limits can stop a session at any moment, e.g. at night):**
 - Keep every work package (WP) small: at most ~45 min of work or ~2 audit items. Split larger
-  items into several WPs. Each WP ends with fast tier green → commit → push before the next one starts.
+  items into several WPs. Each WP ends with the targeted tier green (see "Targeted tier") → commit → push before the next one starts.
 - Never accumulate several finished WPs locally; push each one immediately.
 - Write the auditor's item list (DOABLE/BLOCKED with ids) into `<BATCH>.md` and push it **before**
   implementing, and tick items off in the report as they land. A resumed session then continues
