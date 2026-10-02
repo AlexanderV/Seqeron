@@ -12,11 +12,13 @@
     "properties": {
       "sequence": {
         "type": "string",
-        "description": "Oligonucleotide sequence (A/C/G/T/U, case-insensitive)",
+        "description": "Oligonucleotide sequence (non-empty; A/C/G/T/U, case-insensitive).",
         "minLength": 1
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",

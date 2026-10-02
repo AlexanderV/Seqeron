@@ -1079,7 +1079,13 @@ public class MolToolsTools
         [Description("PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - Primer3 'Hyb probe GC content is part of objective function while optimum gc_content is not defined').")] double? opt_gc_percent = null,
         [Description("PRIMER_INTERNAL_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).")] double wt_gc_percent_gt = 0.0,
         [Description("PRIMER_INTERNAL_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double wt_gc_percent_lt = 0.0,
-        [Description("PRIMER_LOWERCASE_MASKING: reject probes whose 3'-terminal template base is lower case (a/c/g/t of the template as given; lower case elsewhere is accepted). Default false.")] bool lowercase_masking = false)
+        [Description("PRIMER_LOWERCASE_MASKING: reject probes whose 3'-terminal template base is lower case (a/c/g/t of the template as given; lower case elsewhere is accepted). Default false.")] bool lowercase_masking = false,
+        [Description("PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 each probe's fraction bound at this temperature (Primer3 oligotm, at the probe conditions) is reported as bound and probes outside [min_bound, max_bound] are rejected.")] double annealing_temp = PrimerDesigner.Primer3DefaultAnnealingTemperature,
+        [Description("PRIMER_INTERNAL_MIN_BOUND: minimum fraction bound, % (default -10; only with annealing_temp > 0).")] double min_bound = PrimerDesigner.Primer3MinBound,
+        [Description("PRIMER_INTERNAL_MAX_BOUND: maximum fraction bound, % (default 110; only with annealing_temp > 0).")] double max_bound = PrimerDesigner.Primer3MaxBound,
+        [Description("PRIMER_INTERNAL_OPT_BOUND: optimum of the bound penalty terms, % (default 97; must lie in [min_bound, max_bound]).")] double opt_bound = PrimerDesigner.Primer3OptBound,
+        [Description("PRIMER_INTERNAL_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (default 0).")] double wt_bound_gt = 0.0,
+        [Description("PRIMER_INTERNAL_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (default 0). As in Primer3 the internal-oligo bound terms are not gated by annealing_temp: without it the bound is OLIGOTM_ERROR -999999.9999, so wt_bound_lt adds wt_bound_lt x (opt_bound + 999999.9999).")] double wt_bound_lt = 0.0)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template sequence cannot be null or empty.", nameof(template));
@@ -1108,6 +1114,12 @@ public class MolToolsTools
             WeightGcPercentGt = wt_gc_percent_gt,
             WeightGcPercentLt = wt_gc_percent_lt,
             LowercaseMasking = lowercase_masking,
+            AnnealingTemperature = annealing_temp,
+            MinBound = min_bound,
+            MaxBound = max_bound,
+            OptBound = opt_bound,
+            WeightBoundGt = wt_bound_gt,
+            WeightBoundLt = wt_bound_lt,
         };
         return new Primer3ProbesResult(ProbeDesigner.DesignProbesPrimer3(template, settings, num_return, sequence_quality));
     }

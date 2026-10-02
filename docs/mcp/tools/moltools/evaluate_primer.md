@@ -43,6 +43,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3 
 | `selfAny` / `selfEnd` | number \| null | Primer3 alignment-mode `PRIMER_*_SELF_ANY` / `_SELF_END` (dpal scores) when `parameters.StructureScreen = Primer3Alignment` (limits `MaxSelfAny` 8 / `MaxSelfEnd` 3); null otherwise. |
 | `isValid` / `issues` / `score` / `penalty` | mixed | QC verdict; `penalty` is the Primer3 ranking penalty. |
 | `bound` | number \| null | Primer3 `PRIMER_LEFT/RIGHT_0_BOUND` (% bound at `annealing_temp`) when `annealing_temp` > 0; null otherwise. |
+| `libraryMispriming` / `libraryMisprimingName` / `templateMispriming` / `positionPenalty` / `minSequenceQuality` / `maskFailureRate` | number / string / integer \| null | Filled only by `design_primers` (library, template, position-penalty, sequence-quality and masking options); always null here (no template). |
 
 ## Errors
 

@@ -23,13 +23,13 @@
       },
       "max_mismatches": {
         "type": "integer",
-        "description": "Maximum allowed mismatches.",
+        "description": "Maximum allowed mismatches (default 3).",
         "minimum": 0,
         "default": 3
       },
       "self_complementarity_threshold": {
         "type": "number",
-        "description": "Legacy fold-back-fraction limit; kept for compatibility, no longer used by the screen (fallback self-dimer limit: Primer3 PRIMER_INTERNAL_MAX_SELF_ANY/_END = 12).",
+        "description": "Legacy fold-back-fraction limit (default 0.3); kept for compatibility, no longer used by the screen (the fallback self-dimer limit is Primer3's PRIMER_INTERNAL_MAX_SELF_ANY/_END = 12).",
         "default": 0.3
       },
       "non_target_sequences": {
@@ -37,21 +37,25 @@
           "array",
           "null"
         ],
-        "description": "Known non-target sequences for the Kane criteria (both strands).",
+        "description": "Optional known non-target sequences for the Kane et al. (2000) cross-hybridization criteria (both strands).",
         "items": {
-          "type": "string"
-        }
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
       },
       "max_non_target_identity": {
         "type": "number",
-        "description": "Kane identity threshold (flagged when strictly above).",
+        "description": "Kane identity threshold in [0,1]; a non-target strand with identity strictly above it is flagged (default 0.75).",
         "minimum": 0,
         "maximum": 1,
         "default": 0.75
       },
       "max_contiguous_match": {
         "type": "integer",
-        "description": "Kane contiguous-identity threshold in nt (flagged when strictly longer).",
+        "description": "Kane contiguous-identity threshold in nt; a longer identical stretch is flagged (default 15).",
         "minimum": 0,
         "default": 15
       },
@@ -60,7 +64,7 @@
           "number",
           "null"
         ],
-        "description": "Optional OligoArray-style threshold (°C) on each non-target site's ntthal duplex Tm.",
+        "description": "Optional OligoArray-style threshold (°C): a non-target site whose ntthal duplex Tm with the probe is above it is flagged (default none).",
         "default": null
       }
     },

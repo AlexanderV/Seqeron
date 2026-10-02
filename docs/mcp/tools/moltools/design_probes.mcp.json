@@ -11,8 +11,8 @@
     "type": "object",
     "properties": {
       "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
-      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (defaults to Microarray)." },
-      "max_probes": { "type": "integer", "description": "Maximum probes to return.", "minimum": 1, "default": 10 }
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold). Defaults to Microarray when null.", "default": null },
+      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 10).", "minimum": 1, "default": 10 }
     },
     "required": ["target_sequence"]
   },

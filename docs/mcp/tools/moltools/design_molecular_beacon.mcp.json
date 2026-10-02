@@ -17,13 +17,13 @@
       },
       "probe_length": {
         "type": "integer",
-        "description": "Loop (target-specific) length in bp.",
+        "description": "Loop (target-specific) length in bp (default 25).",
         "minimum": 1,
         "default": 25
       },
       "stem_length": {
         "type": "integer",
-        "description": "Stem length in bp.",
+        "description": "Stem length in bp (default 5).",
         "minimum": 1,
         "default": 5
       },
@@ -32,7 +32,8 @@
           "number",
           "null"
         ],
-        "description": "Optional detection (annealing) temperature in °C; enables the Tyagi & Kramer rules (loop Tm in [T+7, T+10] °C, stem-loop Tm ≥ T+7 °C)."
+        "description": "Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules.",
+        "default": null
       }
     },
     "required": [

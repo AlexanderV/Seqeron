@@ -11,9 +11,9 @@
     "type": "object",
     "properties": {
       "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
-      "probe_length": { "type": "integer", "description": "Probe length in bp.", "minimum": 1, "default": 60 },
-      "overlap": { "type": "integer", "description": "Overlap between adjacent probes in bp (0 <= overlap < probe_length).", "minimum": 0, "default": 20 },
-      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters." }
+      "probe_length": { "type": "integer", "description": "Tiling probe length in bp (default 60).", "minimum": 1, "default": 60 },
+      "overlap": { "type": "integer", "description": "Overlap between adjacent probes in bp (default 20).", "minimum": 0, "default": 20 },
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (Tm/GC bounds etc.).", "default": null }
     },
     "required": ["target_sequence"]
   },

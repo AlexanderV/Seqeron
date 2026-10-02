@@ -158,4 +158,25 @@ public class DesignProbesPrimer3Tests
                 Throws.ArgumentException.With.Message.StartsWith("Hyb probe GC content is part of objective function while optimum gc_content is not defined"));
         });
     }
+
+    [Test]
+    public void DesignProbesPrimer3_AnnealingTempAndBound_MatchPrimer3()
+    {
+        // primer3-py 2.3.1 pick_hyb_probe_only (B07 F47, A3-24): PRIMER_ANNEALING_TEMP 58, PRIMER_INTERNAL_MIN_BOUND 30,
+        // _MAX_BOUND 95, _OPT_BOUND 80, _WT_BOUND_GT 0.1, _WT_BOUND_LT 0.05 → PRIMER_INTERNAL_k [start,len], _PENALTY, _BOUND.
+        const string t = "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGTGTTTCGGAACTTGCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAATCTACCCCCTGTTATGCGCGTTTGTCGTTAGACCAATGTCAGCGCAGCGGCAGATCAAGCAGGAGGCGGAATGTAAACA";
+        var r = MolToolsTools.design_probes_primer3(t, annealing_temp: 58, min_bound: 30, max_bound: 95, opt_bound: 80,
+            wt_bound_gt: 0.1, wt_bound_lt: 0.05);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Probes.Select(x => (x.Start, x.Length)), Is.EqualTo(new[] { (190, 21), (207, 21), (204, 21), (203, 20), (203, 21) }));
+            Assert.That(r.Probes.Select(x => x.Penalty), Is.EqualTo(new[]
+                { 1.6050180537723286, 1.839789087924995, 1.89282781939514, 1.977771607246725, 2.1862312882315003 }).Within(1e-9));
+            Assert.That(r.Probes.Select(x => x.Bound!.Value), Is.EqualTo(new[]
+                { 68.85867594939863, 72.0108455825062, 66.48320507817226, 59.67140687900378, 76.60080051354292 }).Within(1e-9));
+            // _pr_data_control: "Optimum internal oligo fraction binding lower than minimum or higher than maximum".
+            Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_probes_primer3(t, annealing_temp: 58,
+                min_bound: 30, max_bound: 95, opt_bound: 99));
+        });
+    }
 }

@@ -11,7 +11,7 @@
     "type": "object",
     "properties": {
       "primer": { "type": "string", "description": "Primer sequence.", "minLength": 1 },
-      "na_concentration": { "type": "number", "description": "Na+ concentration in mM.", "exclusiveMinimum": 0, "default": 50 }
+      "na_concentration": { "type": "number", "description": "Na+ concentration in mM (default 50).", "exclusiveMinimum": 0, "default": 50 }
     },
     "required": ["primer"]
   },

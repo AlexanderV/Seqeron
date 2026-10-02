@@ -10,9 +10,9 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "mrna_sequence": { "type": "string", "description": "mRNA-sense sequence (reverse-complemented internally).", "minLength": 1 },
-      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters." },
-      "max_probes": { "type": "integer", "description": "Maximum probes to return.", "minimum": 1, "default": 5 }
+      "mrna_sequence": { "type": "string", "description": "mRNA-sense sequence (will be reverse-complemented).", "minLength": 1 },
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters.", "default": null },
+      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 5).", "minimum": 1, "default": 5 }
     },
     "required": ["mrna_sequence"]
   },

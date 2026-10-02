@@ -17,26 +17,28 @@
       },
       "target_start": {
         "type": "integer",
-        "description": "0-based inclusive start of the target region.",
+        "description": "0-based inclusive start of target region.",
         "minimum": 0
       },
       "target_end": {
         "type": "integer",
-        "description": "0-based exclusive end of the target region (target_start < target_end < template.Length)."
+        "description": "0-based exclusive end of target region (with the default inside_penalty/outside_penalty primers never overlap [target_start, target_end))."
       },
       "parameters": {
         "type": [
           "object",
           "null"
         ],
-        "description": "Optional primer-design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks, structure screen and its Tm limit)."
+        "description": "Optional primer design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks, structure screen). Defaults are used if null.",
+        "default": null
       },
       "product_size_range": {
         "type": [
           "string",
           "null"
         ],
-        "description": "PRIMER_PRODUCT_SIZE_RANGE in Primer3 syntax, e.g. \"100-300\" or \"150-250 100-400\" (ranges in order of preference; default 100-300)."
+        "description": "PRIMER_PRODUCT_SIZE_RANGE in Primer3 syntax, e.g. \"100-300\" or \"150-250 100-400\" (ranges in order of preference; default 100-300).",
+        "default": null
       },
       "max_tm_difference": {
         "type": "number",
@@ -52,286 +54,611 @@
       },
       "pick_internal_oligo": {
         "type": "boolean",
-        "description": "PRIMER_PICK_INTERNAL_OLIGO: also pick an internal hybridization oligo strictly between the primers (Primer3 PRIMER_INTERNAL_* defaults).",
+        "description": "PRIMER_PICK_INTERNAL_OLIGO: also pick an internal hybridization oligo between the primers (Primer3 PRIMER_INTERNAL_* defaults; default false).",
         "default": false
       },
       "pair_max_compl_any": {
         "type": "number",
-        "description": "PRIMER_PAIR_MAX_COMPL_ANY (alignment screen only).",
-        "default": 8.0
+        "description": "PRIMER_PAIR_MAX_COMPL_ANY: maximum Primer3 alignment-mode pair compl_any (used only with parameters.StructureScreen = Primer3Alignment; default 8).",
+        "default": 8
       },
       "pair_max_compl_end": {
         "type": "number",
-        "description": "PRIMER_PAIR_MAX_COMPL_END (alignment screen only).",
-        "default": 3.0
+        "description": "PRIMER_PAIR_MAX_COMPL_END: maximum Primer3 alignment-mode pair compl_end (used only with parameters.StructureScreen = Primer3Alignment; default 3).",
+        "default": 3
+      },
+      "salt_monovalent": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_SALT_MONOVALENT: monovalent cation concentration in mM (> 0) for primer Tm, ntthal structure / pair complementarity and product Tm (default 50).",
+        "default": null
+      },
+      "salt_divalent": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_SALT_DIVALENT: Mg2+ concentration in mM (>= 0; default 1.5).",
+        "default": null
+      },
+      "dntp_conc": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_DNTP_CONC: dNTP concentration in mM (>= 0; default 0.6).",
+        "default": null
+      },
+      "dna_conc": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_DNA_CONC: primer concentration in nM (> 0; default 50).",
+        "default": null
+      },
+      "opt_gc_percent": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_OPT_GC_PERCENT: GC optimum of the primer GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - otherwise Primer3's error 'Primer GC content is part of objective function while optimum gc_content is not defined').",
+        "default": null
+      },
+      "wt_gc_percent_gt": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).",
+        "default": null
+      },
+      "wt_gc_percent_lt": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).",
+        "default": null
+      },
+      "internal_salt_monovalent": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_SALT_MONOVALENT for the internal oligo, mM (> 0; default 50).",
+        "default": null
+      },
+      "internal_salt_divalent": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_SALT_DIVALENT for the internal oligo, mM (>= 0; default 0).",
+        "default": null
+      },
+      "internal_dntp_conc": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_DNTP_CONC for the internal oligo, mM (>= 0; default 0).",
+        "default": null
+      },
+      "internal_dna_conc": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_DNA_CONC for the internal oligo, nM (> 0; default 50).",
+        "default": null
+      },
+      "internal_opt_gc_percent": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the internal-oligo GC penalty terms (default undefined; required when internal_wt_gc_percent_gt/lt != 0, even without pick_internal_oligo - Primer3 'Hyb probe GC content is part of objective function while optimum gc_content is not defined').",
+        "default": null
+      },
+      "internal_wt_gc_percent_gt": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_WT_GC_PERCENT_GT (default 0).",
+        "default": null
+      },
+      "internal_wt_gc_percent_lt": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_WT_GC_PERCENT_LT (default 0).",
+        "default": null
+      },
+      "gc_clamp": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_GC_CLAMP: number of consecutive G/C required at each primer's 3' end (default 0; must be <= the minimum primer length).",
+        "default": null
+      },
+      "max_end_gc": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_MAX_END_GC: maximum G/C among the five 3'-most bases of each primer (0-5; default 5 = no limit).",
+        "default": null
+      },
+      "max_end_stability": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_MAX_END_STABILITY: maximum 3' end stability (Primer3 end_stability = -dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit).",
+        "default": null
+      },
+      "min_left_three_prime_distance": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE: after a pair is selected, later pairs may not use a left primer whose 3' end is closer than this (0 = not the identical primer; default -1 = reuse allowed).",
+        "default": null
+      },
+      "min_right_three_prime_distance": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_MIN_RIGHT_THREE_PRIME_DISTANCE: as min_left_three_prime_distance for right primers (default -1).",
+        "default": null
+      },
+      "min_three_prime_distance": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_MIN_THREE_PRIME_DISTANCE: sets both the left and right minimum 3' distances (cannot be combined with min_left/right_three_prime_distance).",
+        "default": null
+      },
+      "mispriming_library": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "PRIMER_MISPRIMING_LIBRARY as a name -> sequence object (primer3-py misprime_lib), e.g. {\"Alu*2\": \"GGCCGGGCGCGG...\"}; an optional '*weight' (0-100) after the name scales that entry; IUPAC codes allowed. Each primer is scored against every entry and its reverse complement (Primer3 dpal, 3'-anchored); reported as libraryMispriming/libraryMisprimingName per primer and pair.",
+        "additionalProperties": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "max_library_mispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_MAX_LIBRARY_MISPRIMING: maximum weighted library score of one primer (default 12).",
+        "default": null
+      },
+      "pair_max_library_mispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_MAX_LIBRARY_MISPRIMING: maximum pair library score (integer part of left + right score for the same entry; default 24).",
+        "default": null
+      },
+      "wt_library_mispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_LIBRARY_MISPRIMING: per-primer penalty weight of the library score (default 0; needs mispriming_library).",
+        "default": null
+      },
+      "pair_wt_library_mispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_WT_LIBRARY_MISPRIMING: pair penalty weight of the pair library score (default 0; needs mispriming_library).",
+        "default": null
+      },
+      "lib_ambiguity_codes_consensus": {
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "description": "PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (Primer3 default 0) = IUPAC codes in the library never match; true = they match every base they represent (N matches anything).",
+        "default": null
+      },
+      "internal_mishyb_library": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_MISHYB_LIBRARY as a name -> sequence object (primer3-py mishyb_lib; same format as mispriming_library), used with pick_internal_oligo: each internal oligo is scored against every entry and its reverse complement (Primer3 dpal, unanchored local alignment); reported as internalOligo.libraryMishyb/libraryMishybName.",
+        "additionalProperties": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": null
+      },
+      "internal_max_library_mishyb": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_MAX_LIBRARY_MISHYB: maximum weighted library score of the internal oligo (default 12).",
+        "default": null
+      },
+      "internal_wt_library_mishyb": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_WT_LIBRARY_MISHYB: internal-oligo penalty weight of the library score (default 0; needs internal_mishyb_library).",
+        "default": null
+      },
+      "thermodynamic_template_alignment": {
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "description": "PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT: false (Primer3 default 0) = template mispriming is a dpal score (3'-anchored local alignment of the primer with the template outside its own site and with the opposite strand); true = the ntthal 3'-end (END1) Tm in °C (template <= 10000 nt). Uses the *_template_mispriming_th limits/weights.",
+        "default": null
+      },
+      "max_template_mispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_MAX_TEMPLATE_MISPRIMING: maximum template mispriming score of one primer (alignment mode; default -100 = not checked); reported as templateMispriming per primer.",
+        "default": null
+      },
+      "max_template_mispriming_th": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_MAX_TEMPLATE_MISPRIMING_TH: maximum template mispriming Tm of one primer, °C (thermodynamic mode; default -100 = not checked).",
+        "default": null
+      },
+      "pair_max_template_mispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING: maximum pair template mispriming score (max(left same-strand + right other-strand, left other-strand + right same-strand); alignment mode; default -100 = not checked).",
+        "default": null
+      },
+      "pair_max_template_mispriming_th": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING_TH: maximum pair template mispriming value (thermodynamic mode; default -100). As in Primer3 a pair fails when this is non-zero and exceeded, so with the default and a non-zero pair_wt_template_mispriming_th every pair fails; 0 = no limit.",
+        "default": null
+      },
+      "wt_template_mispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_TEMPLATE_MISPRIMING: per-primer penalty weight of the template mispriming score (alignment mode; default 0).",
+        "default": null
+      },
+      "wt_template_mispriming_th": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_TEMPLATE_MISPRIMING_TH: per-primer penalty weight of the template mispriming Tm (thermodynamic mode, Primer3 temp_cutoff rule; default 0).",
+        "default": null
+      },
+      "pair_wt_template_mispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_WT_TEMPLATE_MISPRIMING: pair penalty weight of the pair template mispriming score (alignment mode; default 0).",
+        "default": null
+      },
+      "pair_wt_template_mispriming_th": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_WT_TEMPLATE_MISPRIMING_TH: pair penalty weight of the pair template mispriming value (thermodynamic mode; default 0).",
+        "default": null
       },
       "annealing_temp": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 each primer's (and internal oligo's) fraction bound at this temperature is computed (Primer3 oligotm, SantaLucia 1998 + SantaLucia salt correction) and reported as bound; the bound limits / weights apply.",
+        "description": "PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 the fraction of each primer / internal oligo bound at this temperature is computed (Primer3 oligotm, SantaLucia 1998) and the bound limits / weights below apply; it is also the internal oligo's annealing temperature.",
         "maximum": 100,
-        "default": -10
+        "default": null
       },
       "min_bound": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_MIN_BOUND: minimum fraction bound of a primer, % (only with annealing_temp > 0).",
-        "default": -10
+        "description": "PRIMER_MIN_BOUND: minimum fraction bound of a primer, % (default -10; only with annealing_temp > 0).",
+        "default": null
       },
       "max_bound": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_MAX_BOUND: maximum fraction bound of a primer, % (only with annealing_temp > 0).",
-        "default": 110
+        "description": "PRIMER_MAX_BOUND: maximum fraction bound of a primer, % (default 110; only with annealing_temp > 0).",
+        "default": null
       },
       "opt_bound": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_OPT_BOUND: optimum of the bound penalty terms, % (must lie in [min_bound, max_bound]).",
-        "default": 97
+        "description": "PRIMER_OPT_BOUND: optimum fraction bound of the bound penalty terms, % (default 97; must lie in [min_bound, max_bound]).",
+        "default": null
       },
       "wt_bound_gt": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (only with annealing_temp > 0).",
-        "default": 0
+        "description": "PRIMER_WT_BOUND_GT: per-primer penalty weight of the fraction bound above opt_bound (default 0; only with annealing_temp > 0).",
+        "default": null
       },
       "wt_bound_lt": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (only with annealing_temp > 0).",
-        "default": 0
+        "description": "PRIMER_WT_BOUND_LT: per-primer penalty weight of the fraction bound below opt_bound (default 0; only with annealing_temp > 0).",
+        "default": null
       },
       "internal_min_bound": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_MIN_BOUND: minimum fraction bound of the internal oligo, % (only with annealing_temp > 0).",
-        "default": -10
+        "description": "PRIMER_INTERNAL_MIN_BOUND: minimum fraction bound of the internal oligo, % (default -10; only with annealing_temp > 0).",
+        "default": null
       },
       "internal_max_bound": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_MAX_BOUND: maximum fraction bound of the internal oligo, % (only with annealing_temp > 0).",
-        "default": 110
+        "description": "PRIMER_INTERNAL_MAX_BOUND: maximum fraction bound of the internal oligo, % (default 110; only with annealing_temp > 0).",
+        "default": null
       },
       "internal_opt_bound": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_OPT_BOUND: optimum of the internal-oligo bound terms, %.",
-        "default": 97
+        "description": "PRIMER_INTERNAL_OPT_BOUND: optimum fraction bound of the internal-oligo bound terms, % (default 97).",
+        "default": null
       },
       "internal_wt_bound_gt": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_WT_BOUND_GT: internal-oligo penalty weight of the bound above internal_opt_bound.",
-        "default": 0
+        "description": "PRIMER_INTERNAL_WT_BOUND_GT: internal-oligo penalty weight of the fraction bound above internal_opt_bound (default 0).",
+        "default": null
       },
       "internal_wt_bound_lt": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_WT_BOUND_LT: internal-oligo penalty weight of the bound below internal_opt_bound; as in Primer3 it also applies without annealing_temp (bound = -999999.9999).",
-        "default": 0
+        "description": "PRIMER_INTERNAL_WT_BOUND_LT: internal-oligo penalty weight of the fraction bound below internal_opt_bound (default 0). As in Primer3 it applies even without annealing_temp, where the bound is Primer3's error value -999999.9999.",
+        "default": null
       },
       "inside_penalty": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_INSIDE_PENALTY: per-base penalty of a primer 3' end inside the target. Any combination other than the defaults (-1 / 0) lets primers overlap the target up to its far end and scores each primer's 3'-end position (positionPenalty); the default -1 then makes inside positions negative, and a negative pair penalty is an error (Primer3 aborts).",
-        "default": -1
+        "description": "PRIMER_INSIDE_PENALTY: penalty per base of a primer 3' end inside the target (default -1). Any value other than the defaults -1 / 0 of inside_penalty / outside_penalty lets primers overlap the target as long as their 3' end does not pass its far end; as in Primer3 the default -1 then makes inside positions negative, and a negative pair penalty is an error.",
+        "default": null
       },
       "outside_penalty": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_OUTSIDE_PENALTY: per-base penalty of the distance between a primer 3' end and the target (see inside_penalty).",
-        "default": 0
+        "description": "PRIMER_OUTSIDE_PENALTY: penalty per base of distance between a primer 3' end and the target (default 0; see inside_penalty).",
+        "default": null
       },
       "wt_pos_penalty": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_WT_POS_PENALTY: weight of the position penalty in the primer penalty.",
-        "default": 1
+        "description": "PRIMER_WT_POS_PENALTY: weight of the position penalty in the primer penalty (default 1).",
+        "default": null
       },
       "sequence_quality": {
         "type": [
           "array",
           "null"
         ],
+        "description": "SEQUENCE_QUALITY: one integer base quality per template base (e.g. Phred scores; length = template length, values within [quality_range_min, quality_range_max]). Each primer / internal oligo then reports minSequenceQuality (its minimum base quality).",
         "items": {
           "type": "integer"
         },
-        "description": "SEQUENCE_QUALITY: one integer base quality per template base (length = template length, values within [quality_range_min, quality_range_max]); primers / internal oligo report minSequenceQuality."
+        "default": null
       },
       "min_quality": {
         "type": [
           "integer",
           "null"
         ],
-        "description": "PRIMER_MIN_QUALITY: minimum base quality of a primer (non-zero needs sequence_quality and must lie in the quality range).",
-        "default": 0
+        "description": "PRIMER_MIN_QUALITY: minimum base quality of a primer (default 0; non-zero needs sequence_quality and must lie in the quality range).",
+        "default": null
       },
       "min_end_quality": {
         "type": [
           "integer",
           "null"
         ],
-        "description": "PRIMER_MIN_END_QUALITY: minimum base quality of a primer's five 3'-most bases (only with sequence_quality).",
-        "default": 0
+        "description": "PRIMER_MIN_END_QUALITY: minimum base quality of a primer's five 3'-most bases (default 0; only with sequence_quality).",
+        "default": null
       },
       "quality_range_min": {
         "type": [
           "integer",
           "null"
         ],
-        "description": "PRIMER_QUALITY_RANGE_MIN: smallest allowed sequence_quality value.",
-        "default": 0
+        "description": "PRIMER_QUALITY_RANGE_MIN: smallest allowed sequence_quality value (default 0).",
+        "default": null
       },
       "quality_range_max": {
         "type": [
           "integer",
           "null"
         ],
-        "description": "PRIMER_QUALITY_RANGE_MAX: largest allowed sequence_quality value; the quality term is wt_seq_qual x (quality_range_max - min quality).",
-        "default": 100
+        "description": "PRIMER_QUALITY_RANGE_MAX: largest allowed sequence_quality value (default 100); the quality penalty is wt_seq_qual x (quality_range_max - min quality).",
+        "default": null
       },
       "wt_seq_qual": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_WT_SEQ_QUAL: per-primer penalty weight of (quality_range_max - minimum base quality); needs sequence_quality.",
-        "default": 0
+        "description": "PRIMER_WT_SEQ_QUAL: per-primer penalty weight of (quality_range_max - the primer's minimum base quality) (default 0; needs sequence_quality).",
+        "default": null
       },
       "wt_end_qual": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_WT_END_QUAL: accepted; no effect (Primer3 2.3.1 never uses it).",
-        "default": 0
+        "description": "PRIMER_WT_END_QUAL: accepted for Primer3 compatibility; Primer3 2.3.1 never uses it in the penalty (no effect).",
+        "default": null
       },
       "internal_min_quality": {
         "type": [
           "integer",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of the internal oligo (non-zero needs sequence_quality).",
-        "default": 0
+        "description": "PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of the internal oligo (default 0; non-zero needs sequence_quality).",
+        "default": null
       },
       "internal_wt_seq_qual": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_WT_SEQ_QUAL: internal-oligo penalty weight of (quality_range_max - minimum base quality); needs sequence_quality.",
-        "default": 0
+        "description": "PRIMER_INTERNAL_WT_SEQ_QUAL: internal-oligo penalty weight of (quality_range_max - its minimum base quality) (default 0; needs sequence_quality).",
+        "default": null
       },
       "internal_wt_end_qual": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_INTERNAL_WT_END_QUAL: accepted; no effect (as in Primer3 2.3.1).",
-        "default": 0
+        "description": "PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1).",
+        "default": null
       },
       "pair_wt_io_penalty": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_PAIR_WT_IO_PENALTY: pair penalty weight of the internal-oligo penalty; non-zero requires pick_internal_oligo (Primer3 _pr_data_control).",
-        "default": 0
+        "description": "PRIMER_PAIR_WT_IO_PENALTY: pair penalty weight of the internal-oligo penalty (default 0; non-zero requires pick_internal_oligo, as in Primer3).",
+        "default": null
       },
       "mask_template": {
         "type": [
           "boolean",
           "null"
         ],
-        "description": "PRIMER_MASK_TEMPLATE: mask the template with Primer3's k-mer masker (needs mask_kmers_11 and mask_kmers_16): primers whose 3' base is masked on their strand are rejected; each primer reports maskFailureRate.",
-        "default": false
+        "description": "PRIMER_MASK_TEMPLATE: mask the template with Primer3's k-mer masker (needs mask_kmers_11 and mask_kmers_16): primers whose 3' base is masked on their strand are rejected and each primer gets its predicted failure rate (reported as maskFailureRate; weight wt_mask_failure_rate). Default false.",
+        "default": null
       },
       "mask_kmers_11": {
         "type": [
           "object",
           "null"
         ],
+        "description": "The masker's 11-mer genome counts as a k-mer -> count object (the content of PRIMER_MASK_KMERLIST_PATH/<prefix>_11.list, e.g. a GenomeTester4 glistmaker list); k-mers absent here and as reverse complement count as 1.",
         "additionalProperties": {
-          "type": "integer",
-          "minimum": 0
+          "type": "integer"
         },
-        "description": "Masker 11-mer genome counts (k-mer -> count; content of <prefix>_11.list)."
+        "default": null
       },
       "mask_kmers_16": {
         "type": [
           "object",
           "null"
         ],
+        "description": "The masker's 16-mer genome counts (content of <prefix>_16.list), as mask_kmers_11.",
         "additionalProperties": {
-          "type": "integer",
-          "minimum": 0
+          "type": "integer"
         },
-        "description": "Masker 16-mer genome counts (content of <prefix>_16.list)."
+        "default": null
       },
       "mask_failure_rate": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_MASK_FAILURE_RATE: mask positions where a primer would end with a predicted failure rate above this (0 = none).",
-        "default": 0.1
+        "description": "PRIMER_MASK_FAILURE_RATE: template positions where a primer would end with a predicted failure rate above this are masked (default 0.1; 0 = none).",
+        "default": null
       },
       "mask_5p_direction": {
         "type": [
           "integer",
           "null"
         ],
+        "description": "PRIMER_MASK_5P_DIRECTION: bases masked from such a 3' end towards the primer 5' end, including it (default 1).",
         "minimum": 0,
-        "description": "PRIMER_MASK_5P_DIRECTION: bases masked towards the primer 5' end, including the 3' base.",
-        "default": 1
+        "default": null
       },
       "mask_3p_direction": {
         "type": [
           "integer",
           "null"
         ],
+        "description": "PRIMER_MASK_3P_DIRECTION: bases masked beyond such a 3' end (default 0).",
         "minimum": 0,
         "maximum": 4984,
-        "description": "PRIMER_MASK_3P_DIRECTION: bases masked beyond the 3' end.",
-        "default": 0
+        "default": null
       },
       "wt_mask_failure_rate": {
         "type": [
           "number",
           "null"
         ],
-        "description": "PRIMER_WT_MASK_FAILURE_RATE: per-primer penalty weight of the predicted failure rate (effective only with mask_template).",
-        "default": 0
+        "description": "PRIMER_WT_MASK_FAILURE_RATE: per-primer penalty weight of the predicted failure rate (default 0; effective only with mask_template).",
+        "default": null
+      },
+      "lowercase_masking": {
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "description": "PRIMER_LOWERCASE_MASKING: reject primers and internal oligos whose 3'-terminal template base is lower case (a/c/g/t of the template as given; lower case elsewhere in an oligo is accepted). Default false; mask_template implies it.",
+        "default": null
       }
     },
     "required": [
@@ -421,6 +748,27 @@
           "null"
         ],
         "description": "PRIMER_PAIR_0_COMPL_END (alignment screen only)."
+      },
+      "libraryMispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_0_LIBRARY_MISPRIMING: pair library mispriming score (with mispriming_library)."
+      },
+      "libraryMisprimingName": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Library entry of the pair libraryMispriming score."
+      },
+      "templateMispriming": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_0_TEMPLATE_MISPRIMING[_TH]: pair template mispriming (when Primer3 computes it)."
       }
     },
     "required": [

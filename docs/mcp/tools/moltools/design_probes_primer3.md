@@ -49,12 +49,15 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 | `opt_gc_percent` | number | No | PRIMER_INTERNAL_OPT_GC_PERCENT (default undefined, as in Primer3's code); required when `wt_gc_percent_gt` / `wt_gc_percent_lt` ≠ 0 (Primer3 "Hyb probe GC content is part of objective function while optimum gc_content is not defined"). |
 | `wt_gc_percent_gt` / `wt_gc_percent_lt` | number | No | PRIMER_INTERNAL_WT_GC_PERCENT_GT / _LT (default 0): weight × the GC% deviation above / below `opt_gc_percent`. |
 | `lowercase_masking` | boolean | No | PRIMER_LOWERCASE_MASKING (default false): reject probes whose 3′-terminal template base is lower case (a/c/g/t of the template as given); lower case elsewhere is accepted. |
+| `annealing_temp` | number | No | PRIMER_ANNEALING_TEMP in °C (≤ 100; default −10 = off). When > 0 each probe's fraction bound at this temperature (Primer3 `oligotm` at the probe conditions) is reported as `bound` and probes outside [`min_bound`, `max_bound`] are rejected. |
+| `min_bound` / `max_bound` / `opt_bound` | number | No | PRIMER_INTERNAL_MIN_BOUND / _MAX_BOUND / _OPT_BOUND in % (−10 / 110 / 97); `opt_bound` must lie in [`min_bound`, `max_bound`] (Primer3 `_pr_data_control`). |
+| `wt_bound_gt` / `wt_bound_lt` | number | No | PRIMER_INTERNAL_WT_BOUND_GT / _LT (default 0): weight × the bound deviation above / below `opt_bound`. Not gated by `annealing_temp` (as in Primer3): without it the bound is OLIGOTM_ERROR −999999.9999, so `wt_bound_lt` adds `wt_bound_lt` × (`opt_bound` + 999999.9999). Verified against primer3-py 2.3.1 (B07 F47). |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `probes` | object[] | Best first. Each: `sequence`, `start` (0-based), `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty` (the Primer3 `PRIMER_INTERNAL_n_*` values); with `mishyb_library`: `libraryMishyb` / `libraryMishybName` (PRIMER_INTERNAL_n_LIBRARY_MISHYB score and entry; primer3-py key `…_LIBRARY_MISPRIMING`); with `sequence_quality`: `minSequenceQuality`. |
+| `probes` | object[] | Best first. Each: `sequence`, `start` (0-based), `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty` (the Primer3 `PRIMER_INTERNAL_n_*` values); with `mishyb_library`: `libraryMishyb` / `libraryMishybName` (PRIMER_INTERNAL_n_LIBRARY_MISHYB score and entry; primer3-py key `…_LIBRARY_MISPRIMING`); with `sequence_quality`: `minSequenceQuality`; with `annealing_temp` > 0: `bound` (PRIMER_INTERNAL_n_BOUND, %). |
 
 ## Errors
 

@@ -12,17 +12,17 @@
     "properties": {
       "primer1": {
         "type": "string",
-        "description": "First primer sequence.",
+        "description": "First primer sequence (5'->3').",
         "minLength": 1
       },
       "primer2": {
         "type": "string",
-        "description": "Second primer sequence.",
+        "description": "Second primer sequence (5'->3').",
         "minLength": 1
       },
       "min_complementarity": {
         "type": "integer",
-        "description": "Minimum 3'-end complementarity score to flag a dimer.",
+        "description": "Minimum 3'-end complementarity score to flag a dimer (default 4).",
         "default": 4
       }
     },

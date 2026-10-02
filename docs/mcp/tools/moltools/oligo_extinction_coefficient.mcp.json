@@ -22,7 +22,7 @@
       },
       "is_dna": {
         "type": "boolean",
-        "description": "Nearest-neighbour table: true = DNA (A/C/G/T), false = RNA (A/C/G/U).",
+        "description": "For nearest_neighbor: true = DNA table (A/C/G/T), false = RNA table (A/C/G/U) (default true).",
         "default": true
       }
     },
