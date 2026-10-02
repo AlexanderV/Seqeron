@@ -42,12 +42,16 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 | `max_library_mishyb` | number | No | PRIMER_INTERNAL_MAX_LIBRARY_MISHYB (default 12; compared as a C `short`; > 32767 rejected in alignment mode). |
 | `wt_library_mishyb` | number | No | PRIMER_INTERNAL_WT_LIBRARY_MISHYB (default 0): weight of the library score in the penalty; non-zero without `mishyb_library` → error (Primer3 `_pr_data_control`). |
 | `lib_ambiguity_codes_consensus` | boolean | No | PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS (default false = Primer3 0: IUPAC codes in the library never match; true: they match every base they represent). Verified against primer3-py 2.3.1 `design_primers(mishyb_lib=…)` (B07 F42). |
+| `sequence_quality` | integer[] | No | SEQUENCE_QUALITY: one integer base quality per template base (length = template length, values within [`quality_range_min`, `quality_range_max`]); each probe reports `minSequenceQuality` (PRIMER_INTERNAL_n_MIN_SEQ_QUALITY). |
+| `min_quality` | integer | No | PRIMER_INTERNAL_MIN_QUALITY (default 0): probes whose minimum base quality is lower are rejected (a five-prime problem, as in Primer3); non-zero without `sequence_quality` → error ("Sequence quality data missing"). |
+| `quality_range_min` / `quality_range_max` | integer | No | PRIMER_QUALITY_RANGE_MIN / _MAX (defaults 0 / 100). |
+| `wt_seq_qual` / `wt_end_qual` | number | No | PRIMER_INTERNAL_WT_SEQ_QUAL (default 0): weight × (`quality_range_max` − minimum base quality), needs `sequence_quality`; PRIMER_INTERNAL_WT_END_QUAL is accepted with no effect (never read by Primer3 2.3.1). Verified against primer3-py 2.3.1 (B07 F45). |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `probes` | object[] | Best first. Each: `sequence`, `start` (0-based), `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty` (the Primer3 `PRIMER_INTERNAL_n_*` values); with `mishyb_library`: `libraryMishyb` / `libraryMishybName` (PRIMER_INTERNAL_n_LIBRARY_MISHYB score and entry; primer3-py key `…_LIBRARY_MISPRIMING`). |
+| `probes` | object[] | Best first. Each: `sequence`, `start` (0-based), `length`, `tm`, `gcPercent`, `selfAnyTh`, `selfEndTh`, `hairpinTh`, `penalty` (the Primer3 `PRIMER_INTERNAL_n_*` values); with `mishyb_library`: `libraryMishyb` / `libraryMishybName` (PRIMER_INTERNAL_n_LIBRARY_MISHYB score and entry; primer3-py key `…_LIBRARY_MISPRIMING`); with `sequence_quality`: `minSequenceQuality`. |
 
 ## Errors
 

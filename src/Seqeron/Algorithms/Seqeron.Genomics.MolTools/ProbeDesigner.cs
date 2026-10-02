@@ -1235,6 +1235,30 @@ public static class ProbeDesigner
         /// <summary>PRIMER_INTERNAL_WT_BOUND_LT (default 0): weight × (<see cref="OptBound"/> − bound) below the optimum
         /// (see <see cref="WeightBoundGt"/> for the no-annealing-temperature case).</summary>
         public double WeightBoundLt { get; init; }
+
+        /// <summary>
+        /// PRIMER_INTERNAL_MIN_QUALITY (default 0): with SEQUENCE_QUALITY an oligo whose minimum base quality
+        /// (<see cref="PrimerDesigner.CalculateSequenceQualityPrimer3"/>, <see cref="Primer3Probe.MinSequenceQuality"/>) is lower is
+        /// rejected (Primer3 <c>sequence_quality_is_ok</c>, a "five-prime problem"). A non-zero value requires quality data and must
+        /// lie in [<see cref="QualityRangeMin"/>, <see cref="QualityRangeMax"/>]. Internal oligos have no end-quality limit.
+        /// </summary>
+        public int MinQuality { get; init; }
+
+        /// <summary>PRIMER_INTERNAL_WT_SEQ_QUAL (default 0): × (<see cref="QualityRangeMax"/> − the oligo's minimum base quality),
+        /// the last term of Primer3's internal-oligo <c>p_obj_fn</c>. Non-zero requires SEQUENCE_QUALITY.</summary>
+        public double WeightSequenceQuality { get; init; }
+
+        /// <summary>PRIMER_INTERNAL_WT_END_QUAL (default 0): parsed by Primer3 2.3.1 but never read by <c>p_obj_fn</c> — accepted,
+        /// <b>no effect</b> (reproduced).</summary>
+        public double WeightEndQuality { get; init; }
+
+        /// <summary>PRIMER_QUALITY_RANGE_MIN (default 0). Primer3 has one global setting: for the internal oligo of a primer pair
+        /// <see cref="PrimerParameters.QualityRangeMin"/> is used instead.</summary>
+        public int QualityRangeMin { get; init; } = PrimerDesigner.Primer3QualityRangeMin;
+
+        /// <summary>PRIMER_QUALITY_RANGE_MAX (default 100). Primer3 has one global setting: for the internal oligo of a primer pair
+        /// <see cref="PrimerParameters.QualityRangeMax"/> is used instead.</summary>
+        public int QualityRangeMax { get; init; } = PrimerDesigner.Primer3QualityRangeMax;
     }
 
     /// <summary>
@@ -1282,6 +1306,10 @@ public static class ProbeDesigner
         /// <summary>PRIMER_INTERNAL_n_BOUND: the fraction (%) bound at <see cref="Primer3ProbeSettings.AnnealingTemperature"/>
         /// when that is &gt; 0 (<see cref="PrimerDesigner.CalculateFractionBoundPrimer3"/>), otherwise <c>null</c>.</summary>
         public double? Bound { get; init; }
+
+        /// <summary>PRIMER_INTERNAL_n_MIN_SEQ_QUALITY: the oligo's minimum base quality when SEQUENCE_QUALITY is given
+        /// (<see cref="PrimerDesigner.CalculateSequenceQualityPrimer3"/>), otherwise <c>null</c>.</summary>
+        public int? MinSequenceQuality { get; init; }
     }
 
     // Primer3 MAX_PRIMER_LENGTH (oligo length limit of the picker and of seqtm's nearest-neighbour branch).
@@ -1313,6 +1341,11 @@ public static class ProbeDesigner
     /// <param name="template">Template sequence (case-insensitive); probes are picked on this strand.</param>
     /// <param name="settings">Picker settings (default: Primer3 defaults).</param>
     /// <param name="numReturn">PRIMER_NUM_RETURN (default 5; at least 1, as Primer3's <c>_pr_data_control</c> requires).</param>
+    /// <param name="sequenceQuality">SEQUENCE_QUALITY: one integer quality per template base (null or empty = none). With it
+    /// every oligo gets <see cref="Primer3Probe.MinSequenceQuality"/>, is checked against
+    /// <see cref="Primer3ProbeSettings.MinQuality"/> and weighted by <see cref="Primer3ProbeSettings.WeightSequenceQuality"/>;
+    /// its length must equal the template length and its values lie in [<see cref="Primer3ProbeSettings.QualityRangeMin"/>,
+    /// <see cref="Primer3ProbeSettings.QualityRangeMax"/>] (Primer3 <c>_pr_data_control</c>).</param>
     /// <returns>Up to <paramref name="numReturn"/> probes, best first.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Invalid sizes (MinSize &lt; 1, MaxSize &lt; MinSize,
@@ -1321,15 +1354,19 @@ public static class ProbeDesigner
     public static IReadOnlyList<Primer3Probe> DesignProbesPrimer3(
         string template,
         Primer3ProbeSettings? settings = null,
-        int numReturn = 5)
+        int numReturn = 5,
+        IReadOnlyList<int>? sequenceQuality = null)
     {
         ArgumentNullException.ThrowIfNull(template);
         var s = settings ?? new Primer3ProbeSettings();
         ValidatePrimer3ProbeSettings(s, nameof(settings));
         if (numReturn < 1)
             throw new ArgumentOutOfRangeException(nameof(numReturn), "PRIMER_NUM_RETURN < 1 (Primer3 _pr_data_control).");
+        PrimerDesigner.ValidatePrimer3Quality(sequenceQuality, template.Length, 0, s.MinQuality, s.QualityRangeMin,
+            s.QualityRangeMax, 0.0, s.WeightSequenceQuality, nameof(sequenceQuality));
 
-        var accepted = EnumeratePrimer3InternalOligos(template.ToUpperInvariant(), 0, template.Length, s, screenStructure: true);
+        var accepted = EnumeratePrimer3InternalOligos(template.ToUpperInvariant(), 0, template.Length, s, screenStructure: true,
+            sequenceQuality is { Count: > 0 } ? sequenceQuality : null);
 
         // primer_rec_comp: quality ascending, then start descending, then length ascending.
         accepted.Sort((a, b) =>
@@ -1385,7 +1422,8 @@ public static class ProbeDesigner
     /// screens the oligo it picks (<see cref="PassesPrimer3ProbeStructure"/>).
     /// </summary>
     internal static List<Primer3Probe> EnumeratePrimer3InternalOligos(
-        string seq, int regionStart, int regionEnd, Primer3ProbeSettings s, bool screenStructure)
+        string seq, int regionStart, int regionEnd, Primer3ProbeSettings s, bool screenStructure,
+        IReadOnlyList<int>? quality = null)
     {
         // Primer3 o_args.weights defaults, with PRIMER_INTERNAL_WT_GC_PERCENT_GT/_LT and PRIMER_INTERNAL_OPT_GC_PERCENT.
         // PRIMER_INTERNAL_WT_LIBRARY_MISHYB is the o_args repeat_sim weight.
@@ -1396,6 +1434,7 @@ public static class ProbeDesigner
             LibraryMispriming = s.WeightLibraryMishyb,
             BoundGt = s.WeightBoundGt,
             BoundLt = s.WeightBoundLt,
+            SequenceQuality = s.WeightSequenceQuality,
         };
         // PRIMER_INTERNAL_MISHYB_LIBRARY: scored while enumerating for list output (three_conditions) or when weighted
         // (calc_and_check_oligo_features), otherwise postponed to choose_internal_oligo.
@@ -1435,6 +1474,15 @@ public static class ProbeDesigner
                 double gcPercent = 100.0 * gc / len;
                 if (gcPercent < s.MinGcPercent || gcPercent > s.MaxGcPercent)
                     continue;
+                // sequence_quality_is_ok (OT_INTL: the minimum quality only), after the GC check: OP_LOW_SEQUENCE_QUALITY
+                // is a five-prime problem (every 5' extension keeps the low base).
+                int? minQuality = null;
+                if (quality is not null)
+                {
+                    minQuality = PrimerDesigner.CalculateSequenceQualityPrimer3(quality, start, len, true, s.QualityRangeMax).Min;
+                    if (minQuality < s.MinQuality)
+                        break;
+                }
                 if (PrimerDesigner.FindLongestHomopolymer(oligo) > s.MaxPolyX)
                     break; // OP_HIGH_POLY_X: five-prime problem
                 if (other)
@@ -1480,7 +1528,13 @@ public static class ProbeDesigner
 
                 // p_obj_fn OT_INTL: no end_stability term (end_oligodg is computed for primers only).
                 double penalty = PrimerDesigner.CalculatePrimer3Penalty(
-                    new Primer3PenaltyInputs(tm, len, gcPercent) { LibraryMispriming = lib?.MaxScore ?? 0.0, Bound = bound }, weights, optima);
+                    new Primer3PenaltyInputs(tm, len, gcPercent)
+                    {
+                        LibraryMispriming = lib?.MaxScore ?? 0.0,
+                        Bound = bound,
+                        SequenceQuality = minQuality,
+                        QualityRangeMax = s.QualityRangeMax,
+                    }, weights, optima);
                 accepted.Add(new Primer3Probe(oligo, start, len, tm, gcPercent, selfAny, selfEnd, hairpin, penalty)
                 {
                     SelfAny = alnAny,
@@ -1488,6 +1542,7 @@ public static class ProbeDesigner
                     LibraryMishyb = lib?.MaxScore,
                     LibraryMishybName = lib?.Name,
                     Bound = s.AnnealingTemperature > 0.0 && bound != PrimerDesigner.Primer3OligoTmError ? bound : null,
+                    MinSequenceQuality = minQuality,
                 });
             }
         }

@@ -117,4 +117,23 @@ public class DesignProbesPrimer3Tests
         });
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(Template, wt_library_mishyb: 1));
     }
+
+    [Test]
+    public void DesignProbesPrimer3_SequenceQuality_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 pick_hyb_probe_only on random.Random(11) 120 nt with SEQUENCE_QUALITY q[i] = 12 if i % 37 == 4,
+        // 26 if i % 13 == 2, else 34 + i % 7; PRIMER_INTERNAL_MIN_QUALITY 20, PRIMER_INTERNAL_WT_SEQ_QUAL 0.3 →
+        // PRIMER_INTERNAL_0 [85,25], PENALTY 30.044504099519497, MIN_SEQ_QUALITY 26.
+        const string p = "TTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCTTATTCAGGACCTAACCTGAGGTAAACCAGGTCTCTCCGCC";
+        int[] q = Enumerable.Range(0, p.Length).Select(i => i % 37 == 4 ? 12 : i % 13 == 2 ? 26 : 34 + i % 7).ToArray();
+        var r = MolToolsTools.design_probes_primer3(p, sequence_quality: q, min_quality: 20, wt_seq_qual: 0.3, wt_end_qual: 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Probes[0].Start, Is.EqualTo(85));
+            Assert.That(r.Probes[0].Length, Is.EqualTo(25));
+            Assert.That(r.Probes[0].Penalty, Is.EqualTo(30.044504099519497).Within(1e-9));
+            Assert.That(r.Probes[0].MinSequenceQuality, Is.EqualTo(26));
+            Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(p, min_quality: 20));
+        });
+    }
 }

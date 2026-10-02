@@ -30,7 +30,13 @@
       "dna_conc_nm": { "type": "number", "description": "PRIMER_INTERNAL_DNA_CONC (nM).", "default": 50.0 },
       "thermodynamic_oligo_alignment": { "type": "boolean", "description": "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT (false = alignment mode).", "default": true },
       "max_self_any": { "type": "number", "description": "PRIMER_INTERNAL_MAX_SELF_ANY (alignment mode).", "default": 12.0 },
-      "max_self_end": { "type": "number", "description": "PRIMER_INTERNAL_MAX_SELF_END (alignment mode).", "default": 12.0 }
+      "max_self_end": { "type": "number", "description": "PRIMER_INTERNAL_MAX_SELF_END (alignment mode).", "default": 12.0 },
+      "sequence_quality": { "type": ["array", "null"], "items": { "type": "integer" }, "description": "SEQUENCE_QUALITY: one integer base quality per template base (length = template length, values within [quality_range_min, quality_range_max])." },
+      "min_quality": { "type": "integer", "description": "PRIMER_INTERNAL_MIN_QUALITY (non-zero needs sequence_quality).", "default": 0 },
+      "quality_range_min": { "type": "integer", "description": "PRIMER_QUALITY_RANGE_MIN.", "default": 0 },
+      "quality_range_max": { "type": "integer", "description": "PRIMER_QUALITY_RANGE_MAX.", "default": 100 },
+      "wt_seq_qual": { "type": "number", "description": "PRIMER_INTERNAL_WT_SEQ_QUAL: weight of (quality_range_max - minimum base quality); needs sequence_quality.", "default": 0.0 },
+      "wt_end_qual": { "type": "number", "description": "PRIMER_INTERNAL_WT_END_QUAL: accepted; no effect (as in Primer3 2.3.1).", "default": 0.0 }
     },
     "required": ["template"]
   },
@@ -53,7 +59,8 @@
             "hairpinTh": { "type": "number" },
             "selfAny": { "type": ["number", "null"], "description": "PRIMER_INTERNAL_n_SELF_ANY (alignment mode)." },
             "selfEnd": { "type": ["number", "null"], "description": "PRIMER_INTERNAL_n_SELF_END (alignment mode)." },
-            "penalty": { "type": "number" }
+            "penalty": { "type": "number" },
+            "minSequenceQuality": { "type": ["integer", "null"], "description": "PRIMER_INTERNAL_n_MIN_SEQ_QUALITY (with sequence_quality)." }
           }
         }
       }

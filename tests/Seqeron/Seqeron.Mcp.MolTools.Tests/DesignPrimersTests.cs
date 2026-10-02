@@ -332,6 +332,43 @@ public class DesignPrimersTests
     }
 
     [Test]
+    public void DesignPrimers_SequenceQuality_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [140, 20], SEQUENCE_QUALITY q[i] = 12 if i % 61 == 5, 28 if
+        // i % 23 == 7, else 35 + i % 6) on random.Random(5) 300 nt: PRIMER_MIN_QUALITY 20, PRIMER_MIN_END_QUALITY 30,
+        // PRIMER_WT_SEQ_QUAL 0.1 → PRIMER_LEFT_0 [46,20], RIGHT_0 [236,20], PAIR_0_PENALTY 14.273993465730893,
+        // LEFT/RIGHT_0_MIN_SEQ_QUALITY 28 / 35; PRIMER_PICK_INTERNAL_OLIGO + PRIMER_INTERNAL_MIN_QUALITY 25 +
+        // PRIMER_INTERNAL_WT_SEQ_QUAL 0.2 + PRIMER_PAIR_WT_IO_PENALTY 1 + PRIMER_QUALITY_RANGE_MAX 60 + PRIMER_WT_SEQ_QUAL 0.05 →
+        // PAIR_0_PENALTY 9.380853713532826, PRIMER_INTERNAL_0 [31,20], PENALTY 5.3889380835424845, MIN_SEQ_QUALITY 35.
+        const string t = "GGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTTCAGAGTATGTATACCACTGGGTAGGATACGGCGGAGGGCACGTCAATACGGTTCAATGCCCTACTGCATGCTCTTGTGGTTCATCTGCATGGAGAGGGTGGGCATGGGTGGGGGTGCTGGCCCGTGATCTGGACCTCCCATCCACAGCTCATTGTACCGAGTGTAGAGAGGGGCTTGTCCTTCCAGATAGCGTTTCTGTTTCGGTGTAGGTGCTAATCGACTATGCTACTGCGGTTAACG";
+        int[] q = Enumerable.Range(0, t.Length).Select(i => i % 61 == 5 ? 12 : i % 23 == 7 ? 28 : 35 + i % 6).ToArray();
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters;
+        var r = MolToolsTools.design_primers(t, 140, 160, p3, max_tm_difference: 100, num_return: 5,
+            sequence_quality: q, min_quality: 20, min_end_quality: 30, wt_seq_qual: 0.1, wt_end_qual: 7);
+        var intl = MolToolsTools.design_primers(t, 140, 160, p3, max_tm_difference: 100, pick_internal_oligo: true,
+            sequence_quality: q, quality_range_max: 60, wt_seq_qual: 0.05, internal_min_quality: 25, internal_wt_seq_qual: 0.2,
+            pair_wt_io_penalty: 1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Forward!.Position, Is.EqualTo(46));
+            Assert.That(r.Reverse!.Position + r.Reverse.Length - 1, Is.EqualTo(236));
+            Assert.That(r.PairPenalty!.Value, Is.EqualTo(14.273993465730893).Within(1e-9));
+            Assert.That(r.Forward.MinSequenceQuality, Is.EqualTo(28));
+            Assert.That(r.Reverse.MinSequenceQuality, Is.EqualTo(35));
+            Assert.That(r.Pairs, Has.Count.EqualTo(5));
+            Assert.That(intl.PairPenalty!.Value, Is.EqualTo(9.380853713532826).Within(1e-9));
+            Assert.That(intl.InternalOligo!.Value.Start, Is.EqualTo(31));
+            Assert.That(intl.InternalOligo.Value.Penalty, Is.EqualTo(5.3889380835424845).Within(1e-9));
+            Assert.That(intl.InternalOligo.Value.MinSequenceQuality, Is.EqualTo(35));
+            // _pr_data_control errors.
+            Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 140, 160, p3, min_quality: 20));
+            Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 140, 160, p3, wt_seq_qual: 1));
+            Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 140, 160, p3, sequence_quality: q[..^1]));
+            Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 140, 160, p3, pair_wt_io_penalty: 0.5));
+        });
+    }
+
+    [Test]
     public void DesignPrimers_MisprimingLibrary_MatchesPrimer3()
     {
         // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [100, 30], PRIMER_PAIR_MAX_DIFF_TM 100, misprime_lib = lib):

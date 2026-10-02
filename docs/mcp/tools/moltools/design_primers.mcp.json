@@ -177,6 +177,96 @@
         ],
         "description": "PRIMER_WT_POS_PENALTY: weight of the position penalty in the primer penalty.",
         "default": 1
+      },
+      "sequence_quality": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "integer"
+        },
+        "description": "SEQUENCE_QUALITY: one integer base quality per template base (length = template length, values within [quality_range_min, quality_range_max]); primers / internal oligo report minSequenceQuality."
+      },
+      "min_quality": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_MIN_QUALITY: minimum base quality of a primer (non-zero needs sequence_quality and must lie in the quality range).",
+        "default": 0
+      },
+      "min_end_quality": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_MIN_END_QUALITY: minimum base quality of a primer's five 3'-most bases (only with sequence_quality).",
+        "default": 0
+      },
+      "quality_range_min": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_QUALITY_RANGE_MIN: smallest allowed sequence_quality value.",
+        "default": 0
+      },
+      "quality_range_max": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_QUALITY_RANGE_MAX: largest allowed sequence_quality value; the quality term is wt_seq_qual x (quality_range_max - min quality).",
+        "default": 100
+      },
+      "wt_seq_qual": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_SEQ_QUAL: per-primer penalty weight of (quality_range_max - minimum base quality); needs sequence_quality.",
+        "default": 0
+      },
+      "wt_end_qual": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_WT_END_QUAL: accepted; no effect (Primer3 2.3.1 never uses it).",
+        "default": 0
+      },
+      "internal_min_quality": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of the internal oligo (non-zero needs sequence_quality).",
+        "default": 0
+      },
+      "internal_wt_seq_qual": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_WT_SEQ_QUAL: internal-oligo penalty weight of (quality_range_max - minimum base quality); needs sequence_quality.",
+        "default": 0
+      },
+      "internal_wt_end_qual": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_INTERNAL_WT_END_QUAL: accepted; no effect (as in Primer3 2.3.1).",
+        "default": 0
+      },
+      "pair_wt_io_penalty": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "PRIMER_PAIR_WT_IO_PENALTY: pair penalty weight of the internal-oligo penalty; non-zero requires pick_internal_oligo (Primer3 _pr_data_control).",
+        "default": 0
       }
     },
     "required": [

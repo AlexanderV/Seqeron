@@ -77,7 +77,18 @@ public class MolToolsTools
         [Description("PRIMER_INTERNAL_WT_BOUND_LT: internal-oligo penalty weight of the fraction bound below internal_opt_bound (default 0). As in Primer3 it applies even without annealing_temp, where the bound is Primer3's error value -999999.9999.")] double? internal_wt_bound_lt = null,
         [Description("PRIMER_INSIDE_PENALTY: penalty per base of a primer 3' end inside the target (default -1). Any value other than the defaults -1 / 0 of inside_penalty / outside_penalty lets primers overlap the target as long as their 3' end does not pass its far end; as in Primer3 the default -1 then makes inside positions negative, and a negative pair penalty is an error.")] double? inside_penalty = null,
         [Description("PRIMER_OUTSIDE_PENALTY: penalty per base of distance between a primer 3' end and the target (default 0; see inside_penalty).")] double? outside_penalty = null,
-        [Description("PRIMER_WT_POS_PENALTY: weight of the position penalty in the primer penalty (default 1).")] double? wt_pos_penalty = null)
+        [Description("PRIMER_WT_POS_PENALTY: weight of the position penalty in the primer penalty (default 1).")] double? wt_pos_penalty = null,
+        [Description("SEQUENCE_QUALITY: one integer base quality per template base (e.g. Phred scores; length = template length, values within [quality_range_min, quality_range_max]). Each primer / internal oligo then reports minSequenceQuality (its minimum base quality).")] int[]? sequence_quality = null,
+        [Description("PRIMER_MIN_QUALITY: minimum base quality of a primer (default 0; non-zero needs sequence_quality and must lie in the quality range).")] int? min_quality = null,
+        [Description("PRIMER_MIN_END_QUALITY: minimum base quality of a primer's five 3'-most bases (default 0; only with sequence_quality).")] int? min_end_quality = null,
+        [Description("PRIMER_QUALITY_RANGE_MIN: smallest allowed sequence_quality value (default 0).")] int? quality_range_min = null,
+        [Description("PRIMER_QUALITY_RANGE_MAX: largest allowed sequence_quality value (default 100); the quality penalty is wt_seq_qual x (quality_range_max - min quality).")] int? quality_range_max = null,
+        [Description("PRIMER_WT_SEQ_QUAL: per-primer penalty weight of (quality_range_max - the primer's minimum base quality) (default 0; needs sequence_quality).")] double? wt_seq_qual = null,
+        [Description("PRIMER_WT_END_QUAL: accepted for Primer3 compatibility; Primer3 2.3.1 never uses it in the penalty (no effect).")] double? wt_end_qual = null,
+        [Description("PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of the internal oligo (default 0; non-zero needs sequence_quality).")] int? internal_min_quality = null,
+        [Description("PRIMER_INTERNAL_WT_SEQ_QUAL: internal-oligo penalty weight of (quality_range_max - its minimum base quality) (default 0; needs sequence_quality).")] double? internal_wt_seq_qual = null,
+        [Description("PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1).")] double? internal_wt_end_qual = null,
+        [Description("PRIMER_PAIR_WT_IO_PENALTY: pair penalty weight of the internal-oligo penalty (default 0; non-zero requires pick_internal_oligo, as in Primer3).")] double? pair_wt_io_penalty = null)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -109,6 +120,8 @@ public class MolToolsTools
             var p = parameters ?? PrimerDesigner.DefaultParameters;
             parameters = p with { PenaltyWeights = (p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights) with { PositionPenalty = wtPos } };
         }
+        parameters = ApplySequenceQuality(parameters, min_quality, min_end_quality, quality_range_min, quality_range_max,
+            wt_seq_qual, wt_end_qual);
         var internalOligo = new ProbeDesigner.Primer3ProbeSettings(
             MonovalentMillimolar: internal_salt_monovalent ?? PrimerDesigner.Primer3InternalMonovalentMillimolar,
             DivalentMillimolar: internal_salt_divalent ?? PrimerDesigner.Primer3InternalDivalentMillimolar,
@@ -126,6 +139,9 @@ public class MolToolsTools
             OptBound = internal_opt_bound ?? PrimerDesigner.Primer3OptBound,
             WeightBoundGt = internal_wt_bound_gt ?? 0.0,
             WeightBoundLt = internal_wt_bound_lt ?? 0.0,
+            MinQuality = internal_min_quality ?? 0,
+            WeightSequenceQuality = internal_wt_seq_qual ?? 0.0,
+            WeightEndQuality = internal_wt_end_qual ?? 0.0,
         };
         var options = PrimerPairOptions.Default with
         {
@@ -142,7 +158,8 @@ public class MolToolsTools
             MaxTemplateMisprimingTh = pair_max_template_mispriming_th ?? PrimerDesigner.Primer3UndefinedTemplateMispriming,
             InsidePenalty = inside_penalty ?? PrimerDesigner.Primer3DefaultInsidePenalty,
             OutsidePenalty = outside_penalty ?? PrimerDesigner.Primer3DefaultOutsidePenalty,
-            Weights = new Primer3PairWeights
+            SequenceQuality = sequence_quality,
+            Weights = new Primer3PairWeights(InternalOligoPenalty: pair_wt_io_penalty ?? 0.0)
             {
                 LibraryMispriming = pair_wt_library_mispriming ?? 0.0,
                 TemplateMispriming = pair_wt_template_mispriming ?? 0.0,
@@ -159,6 +176,27 @@ public class MolToolsTools
             best.Forward, best.Reverse, best.IsValid, best.Message, best.ProductSize,
             best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs,
             best.ComplAny, best.ComplEnd, best.LibraryMispriming, best.LibraryMisprimingName, best.TemplateMispriming);
+    }
+
+    // Overlays the optional Primer3 sequence-quality settings (PRIMER_MIN_QUALITY, PRIMER_MIN_END_QUALITY,
+    // PRIMER_QUALITY_RANGE_MIN/MAX, PRIMER_WT_SEQ_QUAL, PRIMER_WT_END_QUAL); the library validates them (_pr_data_control).
+    private static PrimerParameters? ApplySequenceQuality(PrimerParameters? parameters, int? minQuality, int? minEndQuality,
+        int? rangeMin, int? rangeMax, double? wtSeqQual, double? wtEndQual)
+    {
+        if (minQuality is null && minEndQuality is null && rangeMin is null && rangeMax is null && wtSeqQual is null && wtEndQual is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            MinQuality = minQuality ?? p.MinQuality,
+            MinEndQuality = minEndQuality ?? p.MinEndQuality,
+            QualityRangeMin = rangeMin ?? p.QualityRangeMin,
+            QualityRangeMax = rangeMax ?? p.QualityRangeMax,
+            PenaltyWeights = wtSeqQual is null && wtEndQual is null
+                ? p.PenaltyWeights
+                : w with { SequenceQuality = wtSeqQual ?? w.SequenceQuality, EndQuality = wtEndQual ?? w.EndQuality },
+        };
     }
 
     // Overlays the optional Primer3 fraction-bound settings (PRIMER_ANNEALING_TEMP, PRIMER_MIN/MAX/OPT_BOUND,
@@ -1010,7 +1048,13 @@ public class MolToolsTools
         [Description("PRIMER_INTERNAL_MISHYB_LIBRARY as a name -> sequence object (primer3-py mishyb_lib), e.g. {\"Alu*2\": \"GGCCGGGCGCGG...\"}; an optional '*weight' (0-100) after the name scales that entry; IUPAC codes allowed. Each probe is scored against every entry and its reverse complement (Primer3 dpal, unanchored local alignment); reported as libraryMishyb/libraryMishybName.")] Dictionary<string, string>? mishyb_library = null,
         [Description("PRIMER_INTERNAL_MAX_LIBRARY_MISHYB: maximum weighted library score of a probe (default 12).")] double max_library_mishyb = PrimerDesigner.Primer3InternalMaxLibraryMishyb,
         [Description("PRIMER_INTERNAL_WT_LIBRARY_MISHYB: penalty weight of the library score (default 0; needs mishyb_library).")] double wt_library_mishyb = 0.0,
-        [Description("PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (Primer3 default 0) = IUPAC codes in the library never match; true = they match every base they represent.")] bool lib_ambiguity_codes_consensus = false)
+        [Description("PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (Primer3 default 0) = IUPAC codes in the library never match; true = they match every base they represent.")] bool lib_ambiguity_codes_consensus = false,
+        [Description("SEQUENCE_QUALITY: one integer base quality per template base (length = template length, values within [quality_range_min, quality_range_max]); each probe then reports minSequenceQuality.")] int[]? sequence_quality = null,
+        [Description("PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of a probe (default 0; non-zero needs sequence_quality).")] int min_quality = 0,
+        [Description("PRIMER_QUALITY_RANGE_MIN (default 0).")] int quality_range_min = PrimerDesigner.Primer3QualityRangeMin,
+        [Description("PRIMER_QUALITY_RANGE_MAX (default 100); the quality penalty is wt_seq_qual x (quality_range_max - min quality).")] int quality_range_max = PrimerDesigner.Primer3QualityRangeMax,
+        [Description("PRIMER_INTERNAL_WT_SEQ_QUAL: penalty weight of (quality_range_max - the probe's minimum base quality) (default 0; needs sequence_quality).")] double wt_seq_qual = 0.0,
+        [Description("PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1).")] double wt_end_qual = 0.0)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template sequence cannot be null or empty.", nameof(template));
@@ -1030,8 +1074,13 @@ public class MolToolsTools
             MaxLibraryMishyb = max_library_mishyb,
             WeightLibraryMishyb = wt_library_mishyb,
             LibraryAmbiguityCodesConsensus = lib_ambiguity_codes_consensus,
+            MinQuality = min_quality,
+            QualityRangeMin = quality_range_min,
+            QualityRangeMax = quality_range_max,
+            WeightSequenceQuality = wt_seq_qual,
+            WeightEndQuality = wt_end_qual,
         };
-        return new Primer3ProbesResult(ProbeDesigner.DesignProbesPrimer3(template, settings, num_return));
+        return new Primer3ProbesResult(ProbeDesigner.DesignProbesPrimer3(template, settings, num_return, sequence_quality));
     }
 
     [McpServerTool(Name = "analyze_oligo", Title = "MolTools — Oligonucleotide Property Analysis", ReadOnly = true), Description("Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. Call when the user needs the basic physical properties of an oligo/primer/probe. Tm is Primer3's seqtm at the Primer3 hybridization-probe conditions (50 nM oligo, 50 mM monovalent, no Mg/dNTP; SantaLucia 1998 nearest-neighbour for ≤ 36 nt, long_seq_tm above) and is null when not computable (fewer than 2 bases or a non-ACGT base, e.g. RNA). Molecular weight is the single-stranded Biopython molecular_weight (RNA when the oligo has U and no T); ε260 is the mononucleotide sum. GC is returned as a fraction (0-1).")]

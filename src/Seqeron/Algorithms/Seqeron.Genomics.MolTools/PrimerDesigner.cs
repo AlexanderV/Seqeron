@@ -240,6 +240,8 @@ public static partial class PrimerDesigner
         // Non-default PRIMER_INSIDE/OUTSIDE_PENALTY: primers are scored against the target (compute_position_penalty)
         // instead of being kept off it; null under Primer3's defaults.
         private readonly TargetPosition? _position;
+        // SEQUENCE_QUALITY (null when absent).
+        private readonly QualityContext? _quality;
 
         public PrimerPairSearch(DnaSequence template, int targetStart, int targetEnd,
             PrimerParameters param, PrimerPairOptions opt)
@@ -257,6 +259,7 @@ public static partial class PrimerDesigner
             _w = opt.Weights ?? throw new ArgumentException("Pair weights cannot be null.", nameof(opt));
             _library = param.ActiveLibrary;
             ValidateOptions(n);
+            _quality = QualityContext.Create(opt.SequenceQuality, param.EffectiveQualityRangeMax);
             // _pr_need_pair_template_mispriming[_thermod] / _pr_need_template_mispriming[_thermod].
             bool thermoTemplate = param.ThermodynamicTemplateAlignment;
             _needPairTemplate = thermoTemplate
@@ -297,7 +300,7 @@ public static partial class PrimerDesigner
             {
                 for (int len = param.MinLength; len <= param.MaxLength && start + len <= leftLimit; len++)
                 {
-                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template, target: _position);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template, target: _position, quality: _quality);
                     if (candidate.IsValid)
                     {
                         _fwd.Add((candidate, tm));
@@ -316,7 +319,7 @@ public static partial class PrimerDesigner
                 {
                     int start = end - len;
                     var revComp = DnaSequence.GetReverseComplementString(seq.Substring(start, len));
-                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template, target: _position);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template, target: _position, quality: _quality);
                     if (candidate.IsValid)
                     {
                         _rev.Add((candidate, tm));
@@ -343,10 +346,13 @@ public static partial class PrimerDesigner
                     // PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS and PRIMER_ANNEALING_TEMP are global too.
                     LibraryAmbiguityCodesConsensus = param.EffectiveLibraryAmbiguityCodesConsensus,
                     AnnealingTemperature = param.EffectiveAnnealingTemperature,
+                    // PRIMER_QUALITY_RANGE_MIN/MAX are global as well.
+                    QualityRangeMin = param.EffectiveQualityRangeMin,
+                    QualityRangeMax = param.EffectiveQualityRangeMax,
                 };
                 // make_internal_oligo_list over the included region; choose_internal_oligo takes the
                 // lowest-penalty oligo (first in enumeration order among equals) → stable sort.
-                var list = ProbeDesigner.EnumeratePrimer3InternalOligos(seq, _incStart, _incEnd, _intlSettings, screenStructure: false);
+                var list = ProbeDesigner.EnumeratePrimer3InternalOligos(seq, _incStart, _incEnd, _intlSettings, screenStructure: false, _quality?.Values);
                 _intl = list
                     .Select((p, i) => (p, i))
                     .OrderBy(t => t.p.Penalty).ThenBy(t => t.i)
@@ -380,10 +386,18 @@ public static partial class PrimerDesigner
                 throw new ArgumentException("PRIMER_NUM_RETURN < 1 (Primer3 _pr_data_control).");
             if (o.MinLeftThreePrimeDistance < -1 || o.MinRightThreePrimeDistance < -1)
                 throw new ArgumentException("Minimum 3' distance must be >= -1 (min_*_three_prime_distance) (Primer3 _pr_data_control).");
+            // _pr_data_control sequence-quality checks (they precede the objective-function checks; the PRIMER_INTERNAL_*
+            // values count whether or not an internal oligo is picked).
+            var io = o.InternalOligo ?? new ProbeDesigner.Primer3ProbeSettings();
+            ValidatePrimer3Quality(o.SequenceQuality, n, _param.MinQuality, io.MinQuality, _param.EffectiveQualityRangeMin,
+                _param.EffectiveQualityRangeMax, _param.PenaltyWeights?.SequenceQuality ?? 0.0, io.WeightSequenceQuality, nameof(o.SequenceQuality));
             if ((_w.ProductTmLt != 0 || _w.ProductTmGt != 0) && o.ProductOptTm is null)
                 throw new ArgumentException("Product temperature is part of objective function while optimum temperature is not defined (Primer3 _pr_data_control).");
             if ((_w.ProductSizeLt != 0 || _w.ProductSizeGt != 0) && o.ProductOptSize is null)
                 throw new ArgumentException("Product size is part of objective function while optimum size is not defined (Primer3 _pr_data_control).");
+            // _pr_data_control: PRIMER_PAIR_WT_IO_PENALTY without PRIMER_PICK_INTERNAL_OLIGO.
+            if (_w.InternalOligoPenalty != 0 && !o.PickInternalOligo)
+                throw new ArgumentException("Internal oligo quality is part of objective function while internal oligo choice is not required (Primer3 _pr_data_control).");
             if (!(o.MaxComplAny >= 0 && o.MaxComplAny <= short.MaxValue && o.MaxComplEnd >= 0 && o.MaxComplEnd <= short.MaxValue
                   && _param.EffectiveMaxSelfAny >= 0 && _param.EffectiveMaxSelfAny <= short.MaxValue
                   && _param.EffectiveMaxSelfEnd >= 0 && _param.EffectiveMaxSelfEnd <= short.MaxValue))
@@ -513,6 +527,13 @@ public static partial class PrimerDesigner
             var results = new List<PrimerPairResult>();
             if (_fwd.Count == 0 || _rev.Count == 0)
                 return results;
+            // PRIMER_PICK_INTERNAL_OLIGO with no acceptable internal oligo: make_internal_oligo_list fails and Primer3 returns
+            // before examining any pair.
+            if (_intl is { Count: 0 })
+            {
+                _sawCharacterized = _sawInternal = true;
+                return results;
+            }
 
             var ranges = _opt.ProductSizeRanges;
             var cache = new Dictionary<(int Ri, int Fi), PairEval?>();
@@ -877,7 +898,7 @@ public static partial class PrimerDesigner
 
         // Full evaluation (including the structure values) of a chosen primer.
         private PrimerCandidate Reevaluate(PrimerCandidate c) =>
-            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template, target: _position).Candidate;
+            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template, target: _position, quality: _quality).Candidate;
 
         // Result when no pair qualifies: the individually lowest-penalty primers that pass their own
         // (structure) constraints, with the violated pair constraint.
@@ -977,6 +998,9 @@ public static partial class PrimerDesigner
     {
         var param = parameters ?? DefaultParameters;
         param.ValidateConditions(nameof(parameters));
+        // No template, hence no SEQUENCE_QUALITY: Primer3 rejects PRIMER_MIN_QUALITY / PRIMER_WT_SEQ_QUAL without it.
+        ValidatePrimer3Quality(null, 0, param.MinQuality, 0, param.EffectiveQualityRangeMin, param.EffectiveQualityRangeMax,
+            param.PenaltyWeights?.SequenceQuality ?? 0.0, 0.0, nameof(parameters));
         return EvaluatePrimerCore(sequence, position, isForward, param).Candidate;
     }
 
@@ -992,7 +1016,8 @@ public static partial class PrimerDesigner
         PrimerParameters param,
         bool evaluateStructure = true,
         TemplateContext? template = null,
-        TargetPosition? target = null)
+        TargetPosition? target = null,
+        QualityContext? quality = null)
     {
         var seq = sequence.ToUpperInvariant();
 
@@ -1080,6 +1105,19 @@ public static partial class PrimerDesigner
                 issues.Add($"{endGc} G/C in the last 5 bases exceeds max {maxEndGc} (PRIMER_MAX_END_GC)");
         }
 
+        // Primer3 sequence_quality_is_ok (after the end-GC check; only with SEQUENCE_QUALITY): the minimum base quality,
+        // then the minimum over the five 3'-most bases.
+        int? minQuality = null;
+        if (quality is not null)
+        {
+            var (qMin, qEnd) = CalculateSequenceQualityPrimer3(quality.Values, position, seq.Length, isForward, quality.RangeMax);
+            minQuality = qMin;
+            if (qMin < param.MinQuality)
+                issues.Add($"Minimum base quality {qMin} below {param.MinQuality} (Primer3 PRIMER_MIN_QUALITY)");
+            else if (qEnd < param.MinEndQuality)
+                issues.Add($"Minimum 3'-end base quality {qEnd} below {param.MinEndQuality} (Primer3 PRIMER_MIN_END_QUALITY)");
+        }
+
         double endStability = -stability3Prime;
         if (endStability > param.EffectiveMaxEndStability)
             issues.Add($"3' end stability {endStability:F2} kcal/mol exceeds max {param.EffectiveMaxEndStability} (PRIMER_MAX_END_STABILITY)");
@@ -1137,6 +1175,8 @@ public static partial class PrimerDesigner
                 TemplateMispriming = templateScore?.Max ?? 0.0,
                 Bound = annealing > 0.0 ? boundRaw : null,
                 PositionPenalty = positionPenalty ?? 0.0,
+                SequenceQuality = minQuality,
+                QualityRangeMax = param.EffectiveQualityRangeMax,
             },
             weights,
             new Primer3Optima(param.OptimalTm, param.OptimalLength, param.EffectiveOptimalGcPercent) { OptBound = param.EffectiveOptBound });
@@ -1167,6 +1207,7 @@ public static partial class PrimerDesigner
             TemplateMispriming = templateScore?.Max,
             Bound = annealing > 0.0 && boundRaw != Primer3OligoTmError ? boundRaw : null,
             PositionPenalty = positionPenalty,
+            MinSequenceQuality = minQuality,
         };
         return (candidate, tm, library, templateScore);
 
@@ -3938,8 +3979,10 @@ public static partial class PrimerDesigner
     /// <see cref="Primer3PenaltyWeights.BoundLt"/> around <see cref="Primer3Optima.OptBound"/>) apply when
     /// <see cref="Primer3PenaltyInputs.Bound"/> is set (Primer3: PRIMER_ANNEALING_TEMP &gt; 0); the position term is
     /// PRIMER_WT_POS_PENALTY × <see cref="Primer3PenaltyInputs.PositionPenalty"/> (PRIMER_INSIDE/OUTSIDE_PENALTY).
-    /// <para>Not modelled (all zero under Primer3 defaults): <c>failure_rate</c> and <c>seq_quality</c> (needs base
-    /// qualities); callers needing them add weight·value themselves. The template mispriming terms (PRIMER_WT_TEMPLATE_MISPRIMING / _TH,
+    /// The sequence-quality term is PRIMER_WT_SEQ_QUAL (<see cref="Primer3PenaltyWeights.SequenceQuality"/>) ×
+    /// (<see cref="Primer3PenaltyInputs.QualityRangeMax"/> − <see cref="Primer3PenaltyInputs.SequenceQuality"/>).
+    /// <para>Not modelled (zero under Primer3 defaults): <c>failure_rate</c> (the k-mer masker); callers needing it add
+    /// weight·value themselves. The template mispriming terms (PRIMER_WT_TEMPLATE_MISPRIMING / _TH,
     /// <see cref="Primer3PenaltyWeights.TemplateMispriming"/> / <see cref="Primer3PenaltyWeights.TemplateMisprimingTh"/>)
     /// use <see cref="Primer3PenaltyInputs.TemplateMispriming"/>.</para>
     /// </summary>
@@ -4020,7 +4063,13 @@ public static partial class PrimerDesigner
         if (w.EndStability != 0)
             sum += w.EndStability * inputs.EndStability;
 
-        // Template mispriming terms (after seq_quality, which is not modelled): alignment mode linear
+        // Sequence quality term (seq_quality): weight · (PRIMER_QUALITY_RANGE_MAX − h->seq_quality); 0 without quality
+        // data (seq_quality = range max). Internal oligos: the last term of the OT_INTL branch (the end-stability,
+        // position and template inputs are 0 there). PRIMER_WT_END_QUAL is never read by p_obj_fn.
+        if (w.SequenceQuality != 0)
+            sum += w.SequenceQuality * (inputs.QualityRangeMax - (inputs.SequenceQuality ?? inputs.QualityRangeMax));
+
+        // Template mispriming terms (after seq_quality): alignment mode linear
         // (weights.template_mispriming), thermodynamic mode the temp_cutoff rule (weights.template_mispriming_th).
         if (!w.ThermodynamicTemplateAlignment)
         {
@@ -4282,6 +4331,35 @@ public readonly record struct PrimerParameters(
     /// in [<see cref="MinBound"/>, <see cref="MaxBound"/>] (Primer3 <c>_pr_data_control</c>).</summary>
     public double? OptBound { get; init; }
 
+    /// <summary>
+    /// PRIMER_MIN_QUALITY (default 0): with SEQUENCE_QUALITY (<see cref="PrimerPairOptions.SequenceQuality"/>) a primer
+    /// whose minimum base quality (<see cref="PrimerDesigner.CalculateSequenceQualityPrimer3"/>,
+    /// <see cref="PrimerCandidate.MinSequenceQuality"/>) is lower fails (Primer3 <c>sequence_quality_is_ok</c>). A non-zero
+    /// value requires quality data and must lie in [<see cref="QualityRangeMin"/>, <see cref="QualityRangeMax"/>]
+    /// (Primer3 <c>_pr_data_control</c>; <see cref="PrimerDesigner.EvaluatePrimer"/> has no quality data, so it rejects it).
+    /// </summary>
+    public int MinQuality { get; init; }
+
+    /// <summary>
+    /// PRIMER_MIN_END_QUALITY (default 0): with SEQUENCE_QUALITY a primer whose minimum quality over its five 3′-most bases
+    /// is lower fails (checked after <see cref="MinQuality"/>; left/right primers only). Not range-checked by Primer3.
+    /// </summary>
+    public int MinEndQuality { get; init; }
+
+    /// <summary>PRIMER_QUALITY_RANGE_MIN (null = Primer3's 0): every SEQUENCE_QUALITY value must be ≥ it. One global
+    /// Primer3 setting: it also applies to the internal oligo of a pair.</summary>
+    public int? QualityRangeMin { get; init; }
+
+    /// <summary>PRIMER_QUALITY_RANGE_MAX (null = Primer3's 100): every SEQUENCE_QUALITY value must be ≤ it; the PRIMER_WT_SEQ_QUAL
+    /// term is weight × (QualityRangeMax − min quality). One global Primer3 setting (also used for the internal oligo).</summary>
+    public int? QualityRangeMax { get; init; }
+
+    /// <summary>Effective PRIMER_QUALITY_RANGE_MIN.</summary>
+    public int EffectiveQualityRangeMin => QualityRangeMin ?? PrimerDesigner.Primer3QualityRangeMin;
+
+    /// <summary>Effective PRIMER_QUALITY_RANGE_MAX.</summary>
+    public int EffectiveQualityRangeMax => QualityRangeMax ?? PrimerDesigner.Primer3QualityRangeMax;
+
     /// <summary>PRIMER_ANNEALING_TEMP in effect (Primer3 default −10 = off).</summary>
     public double EffectiveAnnealingTemperature => AnnealingTemperature ?? PrimerDesigner.Primer3DefaultAnnealingTemperature;
 
@@ -4493,6 +4571,13 @@ public sealed record PrimerCandidate(
     /// are not Primer3's defaults (−1 / 0); otherwise <c>null</c>.
     /// </summary>
     public double? PositionPenalty { get; init; }
+
+    /// <summary>
+    /// Primer3 PRIMER_LEFT/RIGHT_n_MIN_SEQ_QUALITY: the primer's minimum base quality
+    /// (<see cref="PrimerDesigner.CalculateSequenceQualityPrimer3"/>) when SEQUENCE_QUALITY
+    /// (<see cref="PrimerPairOptions.SequenceQuality"/>) is given; otherwise <c>null</c>.
+    /// </summary>
+    public int? MinSequenceQuality { get; init; }
 }
 
 /// <summary>
@@ -4547,6 +4632,16 @@ public readonly record struct Primer3PenaltyInputs(
     /// 0 under Primer3's default inside / outside penalties.
     /// </summary>
     public double PositionPenalty { get; init; }
+
+    /// <summary>
+    /// Minimum base quality of the oligo (Primer3 <c>h->seq_quality</c>, <see cref="PrimerDesigner.CalculateSequenceQualityPrimer3"/>),
+    /// or <c>null</c> without SEQUENCE_QUALITY (Primer3 then sets it to <see cref="QualityRangeMax"/>, so the
+    /// PRIMER_WT_SEQ_QUAL term is 0).
+    /// </summary>
+    public int? SequenceQuality { get; init; }
+
+    /// <summary>PRIMER_QUALITY_RANGE_MAX of the PRIMER_WT_SEQ_QUAL term (default 100).</summary>
+    public int QualityRangeMax { get; init; } = PrimerDesigner.Primer3QualityRangeMax;
 }
 
 /// <summary>
@@ -4627,6 +4722,20 @@ public readonly record struct Primer3PenaltyWeights(
     /// <summary>PRIMER_WT_POS_PENALTY (<c>weights.pos_penalty</c>, Primer3 default 1): × the position penalty
     /// (<see cref="Primer3PenaltyInputs.PositionPenalty"/>).</summary>
     public double PositionPenalty { get; init; } = PrimerDesigner.Primer3WeightPositionPenalty;
+
+    /// <summary>
+    /// PRIMER_WT_SEQ_QUAL / PRIMER_INTERNAL_WT_SEQ_QUAL (<c>weights.seq_quality</c>, default 0): × (PRIMER_QUALITY_RANGE_MAX −
+    /// the oligo's minimum base quality) (<see cref="Primer3PenaltyInputs.SequenceQuality"/>,
+    /// <see cref="Primer3PenaltyInputs.QualityRangeMax"/>). Non-zero requires SEQUENCE_QUALITY (Primer3 <c>_pr_data_control</c>).
+    /// </summary>
+    public double SequenceQuality { get; init; }
+
+    /// <summary>
+    /// PRIMER_WT_END_QUAL / PRIMER_INTERNAL_WT_END_QUAL (<c>weights.end_quality</c>, default 0). Primer3 2.3.1 parses and stores
+    /// this weight but its <c>p_obj_fn</c> never reads it, so it has <b>no effect</b> on the penalty — reproduced: it is
+    /// accepted and ignored.
+    /// </summary>
+    public double EndQuality { get; init; }
 }
 
 /// <summary>
@@ -4864,6 +4973,17 @@ public sealed record PrimerPairOptions
 
     /// <summary>PRIMER_INTERNAL_* settings of the internal oligo (default Primer3's).</summary>
     public ProbeDesigner.Primer3ProbeSettings? InternalOligo { get; init; }
+
+    /// <summary>
+    /// SEQUENCE_QUALITY: one integer quality per template base (null or empty = none, Primer3's default). With it every
+    /// primer (and internal oligo) gets its minimum base quality (<see cref="PrimerDesigner.CalculateSequenceQualityPrimer3"/>,
+    /// <see cref="PrimerCandidate.MinSequenceQuality"/>), checked against <see cref="PrimerParameters.MinQuality"/> /
+    /// <see cref="PrimerParameters.MinEndQuality"/> (<see cref="ProbeDesigner.Primer3ProbeSettings.MinQuality"/>) and
+    /// weighted by PRIMER_WT_SEQ_QUAL (<see cref="Primer3PenaltyWeights.SequenceQuality"/>). Its length must equal the
+    /// template length and every value must lie in [<see cref="PrimerParameters.QualityRangeMin"/>,
+    /// <see cref="PrimerParameters.QualityRangeMax"/>] (Primer3 <c>_pr_data_control</c>).
+    /// </summary>
+    public IReadOnlyList<int>? SequenceQuality { get; init; }
 
     /// <summary>
     /// PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE (≥ −1, default −1): once <see cref="PrimerDesigner.DesignPrimerPairs"/> has

@@ -137,6 +137,28 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    (PRIMER_LEFT/RIGHT_k_POSITION_PENALTY). Primer3 multiplies with the value as given, so changing only the outside
    penalty leaves the inside multiplier at −1 (negative penalties); a negative pair penalty makes Primer3 abort
    (`obj_fn` `PR_ASSERT(sum >= 0.0)`) — the library throws `InvalidOperationException`.
+11. **Sequence quality** (`sequence_quality_is_ok`; `PrimerDesigner.CalculateSequenceQualityPrimer3`,
+   PrimerDesigner.SequenceQuality.cs): with SEQUENCE_QUALITY (`PrimerPairOptions.SequenceQuality`, one integer per
+   template base; `DesignProbesPrimer3(…, sequenceQuality)`) every oligo gets `seq_quality` = min(PRIMER_QUALITY_RANGE_MAX,
+   qualities over the oligo) and `seq_end_quality` = the same over its five 3′-most bases (left primer / internal oligo:
+   the last five template positions; right primer: the first five). Checked after the end-GC check: `seq_quality` <
+   PRIMER_MIN_QUALITY (`PrimerParameters.MinQuality`; internal oligo `Primer3ProbeSettings.MinQuality`) or, for primers
+   only, `seq_end_quality` < PRIMER_MIN_END_QUALITY (`MinEndQuality`) rejects the oligo (both five-prime problems; a
+   5′ extension keeps the low base, so the result equals Primer3's extension break). `p_obj_fn` adds
+   PRIMER_WT_SEQ_QUAL × (PRIMER_QUALITY_RANGE_MAX − `seq_quality`) (`Primer3PenaltyWeights.SequenceQuality`; internal
+   oligo `WeightSequenceQuality`, the last internal-oligo term); PRIMER_[INTERNAL_]WT_END_QUAL is parsed by Primer3 but
+   never read by `p_obj_fn` — accepted with no effect (`EndQuality` / `WeightEndQuality`). Output
+   `PrimerCandidate.MinSequenceQuality` / `Primer3Probe.MinSequenceQuality` (PRIMER_LEFT/RIGHT/INTERNAL_k_MIN_SEQ_QUALITY).
+   `_pr_data_control`: SEQUENCE_QUALITY length ≠ template length ("Error in sequence quality data"), a non-zero
+   PRIMER_[INTERNAL_]MIN_QUALITY without quality ("Sequence quality data missing"), with quality a non-zero minimum
+   outside [PRIMER_QUALITY_RANGE_MIN, PRIMER_QUALITY_RANGE_MAX] (`QualityRangeMin` / `QualityRangeMax`, 0 / 100, global —
+   also used for the internal oligo) or a quality value outside it ("Sequence quality score out of range"), a non-zero
+   PRIMER_[INTERNAL_]WT_SEQ_QUAL without quality — all `ArgumentException`; the PRIMER_INTERNAL_* values are checked even
+   without PRIMER_PICK_INTERNAL_OLIGO, as in Primer3. `EvaluatePrimer` has no template, hence no quality: a non-zero
+   `MinQuality` or quality weight throws there. With PRIMER_PICK_INTERNAL_OLIGO and no acceptable internal oligo at all,
+   Primer3's `make_internal_oligo_list` fails and no pair is examined (reproduced: no pairs). A non-zero
+   PRIMER_PAIR_WT_IO_PENALTY without PRIMER_PICK_INTERNAL_OLIGO throws ("Internal oligo quality is part of objective
+   function while internal oligo choice is not required", audit A3-23).
 
 `PrimerCandidate.Score` (100 − 2|len − opt| − 2|Tm − opt| − 0.5|GC − 50| − 5·homopolymer + 5 GC-clamp
 bonus) is reported for information only and does not drive selection.
@@ -239,6 +261,7 @@ Parameter ranges documented in the original file and current source:
 - `PrimerDesigner.CalculateTemplateMispriming(DnaSequence, int, int, bool, bool, …)`: Primer3 template mispriming scores (`TemplateMisprimingScore` same-strand / other-strand / max) of one primer site ([PrimerDesigner.TemplateMispriming.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.TemplateMispriming.cs)).
 - `PrimerDesigner.CalculateMeltingTemperaturePrimer3(string, ...)`: Primer3-default primer Tm used by design.
 - `PrimerDesigner.CalculateFractionBoundPrimer3(string, double, ...)` / `CalculatePositionPenaltyPrimer3(...)`: Primer3 fraction bound at the annealing temperature and position penalty relative to the target ([PrimerDesigner.BoundAndPosition.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.BoundAndPosition.cs)); `PrimerParameters.AnnealingTemperature` / `MinBound` / `MaxBound` / `OptBound`.
+- `PrimerDesigner.CalculateSequenceQualityPrimer3(IReadOnlyList<int>, int, int, bool, int)`: Primer3 `seq_quality` / `seq_end_quality` of one oligo ([PrimerDesigner.SequenceQuality.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.SequenceQuality.cs)); `PrimerPairOptions.SequenceQuality`, `PrimerParameters.MinQuality` / `MinEndQuality` / `QualityRangeMin` / `QualityRangeMax`.
 - `PrimerDesigner.CalculatePrimer3Penalty(...)`: Primer3 per-primer penalty used for ranking.
 - `PrimerDesigner.CalculatePrimerScore(...)` (private): informational heuristic score.
 
@@ -267,8 +290,9 @@ Forward primers are taken directly from the template; reverse primers are revers
 - Template mispriming (audit round 3, A3-4, 2026-10-02): random 150–500-bp templates (thermodynamic template mode 150–260 bp), 70 % made repetitive (1–6 copied 12–40-nt fragments, forward or reverse-complemented, 0–3 mutations; 30 % with a tandem repeat), PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT ∈ {0, 1}, PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT ∈ {0, 1}, PRIMER_MAX_TEMPLATE_MISPRIMING ∈ {−100, 6–15}, _TH ∈ {−100, 15–50}, PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING ∈ {−100, 14–24}, _TH ∈ {−100, 0, 30–80}, PRIMER_WT_TEMPLATE_MISPRIMING[_TH] ∈ {0, 0.1, 0.5, 1}, PRIMER_PAIR_WT_TEMPLATE_MISPRIMING[_TH] ∈ {0, 0.2, 1}, 14 % with a mispriming library, 15 % PRIMER_PICK_INTERNAL_OLIGO: 352/352 templates (1590 pairs; 183 thermodynamic; primers rejected by the template limit in 124 templates, pairs in 67) identical to primer3-py 2.3.1 `design_primers` on left/right start + length, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY (|Δ| ≤ 1e-9), PRIMER_LEFT/RIGHT_k_TEMPLATE_MISPRIMING (alignment mode; primer3-py omits the per-primer _TH keys in thermodynamic mode), PRIMER_PAIR_k_TEMPLATE_MISPRIMING[_TH] and PRIMER_INTERNAL_k position; per-strand END1 values against `primer3.calc_end_stability`.
 
 - Fraction bound and position penalty (audit round 3, A3-5 part 1, 2026-10-02): random 150–450-bp templates with a random 5–50-nt target, PRIMER_ANNEALING_TEMP ∈ {unset, −10, 0, 40–70}, random PRIMER_MIN/MAX/OPT_BOUND and PRIMER_INTERNAL_MIN/MAX/OPT_BOUND, PRIMER_[INTERNAL_]WT_BOUND_GT/_LT ∈ {0, 1e-7–0.5}, random reaction conditions, PRIMER_INSIDE_PENALTY ∈ {−1, 0, 0.1, 0.5, 1, 2} / PRIMER_OUTSIDE_PENALTY ∈ {0, 0.05–1} (60 % non-default), PRIMER_WT_POS_PENALTY ∈ {0, 0.5, 1, 2}, optional product-size ranges, PRIMER_PICK_INTERNAL_OLIGO (+ PRIMER_PAIR_WT_IO_PENALTY), both alignment modes, plus 85 pick_hyb_probe_only probe lists: 400/400 cases identical to primer3-py 2.3.1 `design_primers` (1304 pairs + 432 probes; left/right start + length, PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9, PRIMER_LEFT/RIGHT/INTERNAL_k_BOUND, PRIMER_LEFT/RIGHT_k_POSITION_PENALTY, PRIMER_INTERNAL_k position); the 34 settings where primer3-py aborts on a negative pair penalty throw `InvalidOperationException`. Details: F44 in `docs/Validation/review-2026-09/B07.md`.
+- Sequence quality and PRIMER_PAIR_WT_IO_PENALTY consistency (audit round 3, A3-5 part 2a + A3-23, 2026-10-02): 400 random cases (150–400-bp pair templates with a random 5–50-nt target, 20 % pick_hyb_probe_only lists of 40–160 nt; SEQUENCE_QUALITY uniform or high with low dips in 85 % of cases, occasionally one base short or one value out of range; PRIMER_QUALITY_RANGE_MIN/MAX ∈ {0–100, 0–60, 10–40, 5–93}; random PRIMER_[INTERNAL_]MIN_QUALITY, PRIMER_MIN_END_QUALITY, PRIMER_[INTERNAL_]WT_SEQ_QUAL / _WT_END_QUAL; PRIMER_PICK_INTERNAL_OLIGO 35 %, PRIMER_PAIR_WT_IO_PENALTY ∈ {0, 0.5, 1}; both alignment modes): 394/394 comparable cases identical to primer3-py 2.3.1 `design_primers` (1104 pairs + probes on start + length, PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9 and PRIMER_LEFT/RIGHT/INTERNAL_k_MIN_SEQ_QUALITY; 110 `_pr_data_control` error cases raise `ArgumentException` with Primer3's first message); 6 probe-only cases that set primer-side (p_args) quality settings have no `DesignProbesPrimer3` counterpart. Details: F45 in `docs/Validation/review-2026-09/B07.md`.
 
-**Not implemented:** sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
+**Not implemented:** PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
 
@@ -284,6 +308,10 @@ Forward primers are taken directly from the template; reverse primers are revers
 | `PickInternalOligo` and no acceptable oligo between the primers | Pair fails (Primer3 "no internal oligo") | `choose_internal_oligo` |
 | Primer-dimer detected for every pair | Returns `IsValid = false` | Pair compatibility requires no dimer signal |
 | Non-ACGT base in a candidate | Candidate invalid (Tm 0, issue "Tm not computable") | Primer3 PRIMER_MAX_NS_ACCEPTED = 0 |
+| SEQUENCE_QUALITY length ≠ template, PRIMER_[INTERNAL_]MIN_QUALITY ≠ 0 without quality or outside the quality range, a quality value outside [PRIMER_QUALITY_RANGE_MIN, MAX], PRIMER_[INTERNAL_]WT_SEQ_QUAL ≠ 0 without quality | `ArgumentException` | Primer3 `_pr_data_control` ("Error in sequence quality data", "Sequence quality data missing", "PRIMER_[INTERNAL_]MIN_QUALITY < / > PRIMER_QUALITY_RANGE_MIN / MAX", "Sequence quality score out of range", "Sequence quality is part of objective function but sequence quality is not defined") |
+| PRIMER_PAIR_WT_IO_PENALTY ≠ 0 without `PickInternalOligo` | `ArgumentException` | Primer3 `_pr_data_control` "Internal oligo quality is part of objective function while internal oligo choice is not required" |
+| `PickInternalOligo` and no acceptable internal oligo anywhere in the included region | No pairs (`DesignPrimers`: invalid result naming the internal oligo) | `make_internal_oligo_list` fails, Primer3 returns before the pair search |
+| PRIMER_WT_END_QUAL / PRIMER_INTERNAL_WT_END_QUAL ≠ 0 | No effect | Primer3 2.3.1 `p_obj_fn` never reads `weights.end_quality` |
 | PRIMER_INTERNAL_WT_LIBRARY_MISHYB ≠ 0 without a mishyb library (with `PickInternalOligo`) | `ArgumentException` | Primer3 `_pr_data_control` "Internal oligo mispriming score is part of objective function while mishyb library is not defined" |
 | PRIMER_MAX_TEMPLATE_MISPRIMING / PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING > 32767 (alignment mode), negative template weight | `ArgumentOutOfRangeException` / `ArgumentException` | Primer3 `_pr_data_control`; a negative weight would trip Primer3's `p_obj_fn` assertion |
 | Pair template limit/weight with PRIMER_WT_LIBRARY_MISPRIMING ≠ 0 but no per-primer template weight | `InvalidOperationException` | Primer3 never scores the primers' template mispriming then and aborts (`PR_ASSERT` in `characterize_pair`) |

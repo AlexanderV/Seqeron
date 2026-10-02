@@ -198,8 +198,13 @@ the caller (`Primer3PenaltyInputs`), but every value is available from the libra
 
 **Not implemented:**
 
-- `failure_rate` and `seq_quality`; these need data the method does not receive (masker / k-mer lists, base
-  qualities) and are 0 under Primer3 defaults; **users should rely on:** adding `weight·value` themselves or Primer3.
+- `failure_rate`; it needs the Primer3 masker (genome k-mer lists) and is 0 under Primer3 defaults; **users should
+  rely on:** adding `weight·value` themselves or Primer3.
+  The `seq_quality` term (PRIMER_WT_SEQ_QUAL / PRIMER_INTERNAL_WT_SEQ_QUAL, `Primer3PenaltyWeights.SequenceQuality`, ×
+  (`Primer3PenaltyInputs.QualityRangeMax` − `Primer3PenaltyInputs.SequenceQuality`), 0 without quality data;
+  `PrimerDesigner.CalculateSequenceQualityPrimer3`) is implemented (audit round 3, A3-5 part 2a; PRIMER-DESIGN-001 §2.2
+  item 11), after `end_stability` as in `p_obj_fn`; PRIMER_WT_END_QUAL (`EndQuality`) is accepted but, as in Primer3
+  2.3.1 (`weights.end_quality` is never read), has no effect.
   The `bound` terms (PRIMER_WT_BOUND_GT/_LT × the distance of `Primer3PenaltyInputs.Bound` from
   `Primer3Optima.OptBound`, default 97; applied when `Bound` is set — for primers Primer3 adds them only with
   PRIMER_ANNEALING_TEMP > 0, the internal-oligo branch always, with bound = −999999.9999 when none was computed;
