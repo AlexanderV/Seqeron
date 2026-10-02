@@ -5,7 +5,7 @@ namespace Seqeron.Genomics.MolTools;
 /// <summary>
 /// Designs PCR primers for DNA sequences with various quality criteria.
 /// </summary>
-public static class PrimerDesigner
+public static partial class PrimerDesigner
 {
     /// <summary>
     /// Default primer design parameters (library conventions; the Primer3 3′-end checks PRIMER_GC_CLAMP,
@@ -228,7 +228,10 @@ public static class PrimerDesigner
         private readonly List<ProbeDesigner.Primer3Probe>? _intl;
         private readonly ProbeDesigner.Primer3Probe?[]? _intlChecked;
         private readonly bool?[]? _intlOk;
-        private bool _sawCharacterized, _sawTm, _sawDimer, _sawProductTm, _sawInternal;
+        private bool _sawCharacterized, _sawTm, _sawDimer, _sawProductTm, _sawInternal, _sawLibrary;
+        // PRIMER_MISPRIMING_LIBRARY (null when absent / empty) and each candidate's repeat_sim scores.
+        private readonly PrimerMisprimingLibrary? _library;
+        private readonly Dictionary<PrimerCandidate, LibraryMispriming> _libraryByCandidate = new(ReferenceEqualityComparer.Instance);
 
         public PrimerPairSearch(DnaSequence template, int targetStart, int targetEnd,
             PrimerParameters param, PrimerPairOptions opt)
@@ -244,6 +247,7 @@ public static class PrimerDesigner
             _param = param;
             _opt = opt;
             _w = opt.Weights ?? throw new ArgumentException("Pair weights cannot be null.", nameof(opt));
+            _library = param.ActiveLibrary;
             ValidateOptions(n);
             _productMonovalentEq = Primer3MonovalentEquivalent(param.EffectiveMonovalentMillimolar,
                 param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar);
@@ -268,9 +272,12 @@ public static class PrimerDesigner
             {
                 for (int len = param.MinLength; len <= param.MaxLength && start + len <= targetStart; len++)
                 {
-                    var (candidate, tm) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false);
+                    var (candidate, tm, lib) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false);
                     if (candidate.IsValid)
+                    {
                         _fwd.Add((candidate, tm));
+                        if (lib is not null) _libraryByCandidate[candidate] = lib;
+                    }
                 }
             }
 
@@ -283,9 +290,12 @@ public static class PrimerDesigner
                 {
                     int start = end - len;
                     var revComp = DnaSequence.GetReverseComplementString(seq.Substring(start, len));
-                    var (candidate, tm) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false);
+                    var (candidate, tm, lib) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false);
                     if (candidate.IsValid)
+                    {
                         _rev.Add((candidate, tm));
+                        if (lib is not null) _libraryByCandidate[candidate] = lib;
+                    }
                 }
             }
 
@@ -348,8 +358,13 @@ public static class PrimerDesigner
                   && _param.EffectiveMaxSelfAny >= 0 && _param.EffectiveMaxSelfAny <= short.MaxValue
                   && _param.EffectiveMaxSelfEnd >= 0 && _param.EffectiveMaxSelfEnd <= short.MaxValue))
                 throw new ArgumentException("Illegal value for primer complementarity restrictions (Primer3 _pr_data_control: 0 ≤ limit ≤ 32767).");
+            if (double.IsNaN(o.MaxLibraryMispriming)
+                || (o.MaxLibraryMispriming > short.MaxValue && _param.StructureScreen == PrimerStructureScreen.Primer3Alignment))
+                throw new ArgumentException("Value too large at tag PRIMER_PAIR_MAX_LIBRARY_MISPRIMING (Primer3 _pr_data_control).");
+            if (_w.LibraryMispriming != 0 && _library is null)
+                throw new ArgumentException("Mispriming score is part of objective function, but mispriming library is not defined (Primer3 _pr_data_control).");
             if (_w.PrimerPenalty < 0 || _w.InternalOligoPenalty < 0 || _w.DiffTm < 0 || _w.ComplAnyTh < 0 || _w.ComplEndTh < 0
-                || _w.ComplAny < 0 || _w.ComplEnd < 0
+                || _w.ComplAny < 0 || _w.ComplEnd < 0 || _w.LibraryMispriming < 0
                 || _w.ProductTmLt < 0 || _w.ProductTmGt < 0 || _w.ProductSizeLt < 0 || _w.ProductSizeGt < 0)
                 throw new ArgumentException("Pair weights must be ≥ 0.");
             if (o.IncludedRegion is { } inc)
@@ -452,7 +467,8 @@ public static class PrimerDesigner
 
         private sealed record PairEval(
             int Fi, int Ri, double Penalty, int ProductSize, double ProductTm,
-            double? ComplAny, double? ComplEnd, ProbeDesigner.Primer3Probe? Internal);
+            double? ComplAny, double? ComplEnd, ProbeDesigner.Primer3Probe? Internal,
+            int? LibraryScore = null, string? LibraryName = null);
 
         public List<PrimerPairResult> Run(int numReturn)
         {
@@ -593,6 +609,20 @@ public static class PrimerDesigner
                 return null;
             }
 
+            // pair_repeat_sim > PRIMER_PAIR_MAX_LIBRARY_MISPRIMING fails the pair.
+            int? libScore = null;
+            string? libName = null;
+            if (_library is not null)
+            {
+                (int score, libName) = PairLibraryMispriming(LibraryOf(f.C), LibraryOf(r.C), _library);
+                if (score > _opt.MaxLibraryMispriming)
+                {
+                    _sawLibrary = true;
+                    return null;
+                }
+                libScore = score;
+            }
+
             ProbeDesigner.Primer3Probe? intl = null;
             if (_intl is not null)
             {
@@ -604,15 +634,28 @@ public static class PrimerDesigner
                 }
             }
 
-            double penalty = ObjectiveFunction(f, r, diffTm, any, end, productTm, product, intl);
-            return new PairEval(fi, ri, penalty, product, productTm, any, end, intl);
+            double penalty = ObjectiveFunction(f, r, diffTm, any, end, productTm, product, intl, libScore ?? 0);
+            return new PairEval(fi, ri, penalty, product, productTm, any, end, intl, libScore, libName);
+        }
+
+        // The candidate's repeat_sim scores (computed at pick time when weighted, otherwise now).
+        private LibraryMispriming LibraryOf(PrimerCandidate c)
+        {
+            if (!_libraryByCandidate.TryGetValue(c, out var lib))
+            {
+                lib = ComputeLibraryMispriming(c.Sequence, c.IsForward, _library!,
+                    _param.EffectiveLibraryAmbiguityCodesConsensus, _param.EffectiveMaxLibraryMispriming);
+                _libraryByCandidate[c] = lib;
+            }
+            return lib;
         }
 
         // obj_fn (libprimer3.cc): thermodynamic mode (ComplAnyTh/ComplEndTh terms), alignment mode (linear
         // ComplAny/ComplEnd terms) or, under the heuristic screen, without complementarity terms.
         private double ObjectiveFunction(
             (PrimerCandidate C, double Tm) f, (PrimerCandidate C, double Tm) r, double diffTm,
-            double? complAny, double? complEnd, double productTm, int product, ProbeDesigner.Primer3Probe? intl)
+            double? complAny, double? complEnd, double productTm, int product, ProbeDesigner.Primer3Probe? intl,
+            int libraryScore)
         {
             double sum = 0.0;
             double lowerTm = r.Tm;
@@ -647,6 +690,8 @@ public static class PrimerDesigner
                 sum += _w.ProductSizeLt * (_opt.ProductOptSize.Value - product);
             if (_w.ProductSizeGt != 0 && product > _opt.ProductOptSize!.Value)
                 sum += _w.ProductSizeGt * (product - _opt.ProductOptSize.Value);
+            if (_w.LibraryMispriming != 0)
+                sum += _w.LibraryMispriming * libraryScore;
             return sum;
         }
 
@@ -684,6 +729,12 @@ public static class PrimerDesigner
                 ok = issues.Count == 0;
                 _structureBySequence[seq] = ok;
             }
+            // characterize_pair then checks the primer against the mispriming library (oligo_repeat_library_mispriming).
+            if (ok && _library is not null && LibraryOf(list[i].C).Exceeds)
+            {
+                ok = false;
+                _sawLibrary = true;
+            }
             cache[i] = ok;
             return ok;
         }
@@ -717,6 +768,8 @@ public static class PrimerDesigner
             {
                 ComplAny = alignment ? e.ComplAny : null,
                 ComplEnd = alignment ? e.ComplEnd : null,
+                LibraryMispriming = e.LibraryScore,
+                LibraryMisprimingName = e.LibraryName,
             };
         }
 
@@ -749,9 +802,10 @@ public static class PrimerDesigner
             string reason;
             if (!_sawCharacterized)
                 reason = noProduct;
-            else if (_sawProductTm || _sawInternal)
+            else if (_sawProductTm || _sawInternal || _sawLibrary)
             {
                 var parts = new List<string>();
+                if (_sawLibrary) parts.Add("the mispriming-library limits");
                 if (_sawProductTm) parts.Add("product Tm limits");
                 if (_sawTm) parts.Add($"the {maxDiff:0.##}°C Tm-difference limit");
                 if (_sawDimer) parts.Add("primer-dimer avoidance");
@@ -826,7 +880,7 @@ public static class PrimerDesigner
     // Evaluates a candidate and also returns its unrounded Tm (Primer3 compares unrounded Tm values).
     // With evaluateStructure = false the secondary-structure screen is skipped (DesignPrimers runs it
     // lazily, like Primer3's characterize_pair, and re-evaluates the chosen primers in full).
-    private static (PrimerCandidate Candidate, double Tm) EvaluatePrimerCore(
+    private static (PrimerCandidate Candidate, double Tm, LibraryMispriming? Library) EvaluatePrimerCore(
         string sequence,
         int position,
         bool isForward,
@@ -907,11 +961,23 @@ public static class PrimerDesigner
                 issues.Add("No GC clamp at 3' end");
         }
 
+        // Primer3 mispriming library (oligo_repeat_library_mispriming): at pick time only when weighted
+        // (PRIMER_WT_LIBRARY_MISPRIMING ≠ 0), otherwise in characterize_pair — the pair search does that lazily.
+        var weights = EffectivePenaltyWeights(param);
+        LibraryMispriming? library = null;
+        if (param.ActiveLibrary is { } lib && (evaluateStructure || weights.LibraryMispriming != 0))
+        {
+            library = ComputeLibraryMispriming(seq, isForward, lib, param.EffectiveLibraryAmbiguityCodesConsensus,
+                param.EffectiveMaxLibraryMispriming);
+            if (library.Exceeds)
+                issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"Library mispriming score {library.Scores.Max():0.00} exceeds {param.EffectiveMaxLibraryMispriming:0.00} (Primer3 PRIMER_MAX_LIBRARY_MISPRIMING)"));
+        }
+
         bool isValid = issues.Count == 0;
 
         // Informational heuristic score and the Primer3 ranking penalty.
         double score = CalculatePrimerScore(seq, gcContent, tm, homopolymer, param);
-        var weights = EffectivePenaltyWeights(param);
         if (!evaluateStructure && UsesStructureTerms(weights, param.StructureScreen))
             structure = ComputeStructureValues(seq, param); // Primer3 computes them at pick time when weighted
         double penalty = CalculatePrimer3Penalty(
@@ -921,7 +987,10 @@ public static class PrimerDesigner
                 HairpinTh: structure.Thermo?.HairpinTh ?? 0.0,
                 // p_obj_fn end_stability term (left/right primers only): h->end_stability =
                 // end_oligodg(seq, 5, santalucia) = −ΔG of the 3′ pentamer (positive magnitude).
-                EndStability: double.IsNaN(stability3Prime) ? 0.0 : -stability3Prime),
+                EndStability: double.IsNaN(stability3Prime) ? 0.0 : -stability3Prime)
+            {
+                LibraryMispriming = library?.MaxScore ?? 0.0,
+            },
             weights,
             new Primer3Optima(param.OptimalTm, param.OptimalLength, param.EffectiveOptimalGcPercent));
 
@@ -946,8 +1015,10 @@ public static class PrimerDesigner
         {
             SelfAny = structure.SelfAny,
             SelfEnd = structure.SelfEnd,
+            LibraryMispriming = library?.MaxScore,
+            LibraryMisprimingName = library?.Name,
         };
-        return (candidate, tm);
+        return (candidate, tm, library);
     }
 
     // Primer3 secondary-structure values of one primer: ntthal Tm values (thermodynamic screen) or dpal
@@ -1536,8 +1607,10 @@ public static class PrimerDesigner
 
     // dpal.c _dpal_long_nopath_maxgap1_local (score only, max gap 1, cells floored at 0). With a finite
     // stopAbove the scan returns as soon as the running optimum exceeds it (the value is then a lower bound).
-    private static int DpalLocalFast(string x, string y, double stopAbove = double.PositiveInfinity)
+    // matrix: a dpal substitution matrix (MatrixSsm); null = DpalSsm (non-ACGT scored as N).
+    private static int DpalLocalFast(string x, string y, double stopAbove = double.PositiveInfinity, int[]? matrix = null)
     {
+        int Ssm(char a, char b) => matrix is null ? DpalSsm(a, b) : MatrixSsm(matrix, a, b);
         int xlen = x.Length, ylen = y.Length;
         const int gap = DpalGap;
         var s0 = new int[ylen];
@@ -1548,7 +1621,7 @@ public static class PrimerDesigner
         // Row 0.
         for (int j = 0; j < ylen; j++)
         {
-            score = DpalSsm(x[0], y[j]);
+            score = Ssm(x[0], y[j]);
             if (score < 0) score = 0;
             else if (score > smax) smax = score;
             s0[j] = score;
@@ -1556,7 +1629,7 @@ public static class PrimerDesigner
         // Row 1 (for |X| = 1 the C code reads X[1] = NUL, whose ssm row is INT_MIN: every cell is 0).
         if (xlen == 1)
             return smax;
-        score = DpalSsm(x[1], y[0]);
+        score = Ssm(x[1], y[0]);
         if (score < 0) score = 0;
         else if (score > smax) smax = score;
         s1[0] = score;
@@ -1564,7 +1637,7 @@ public static class PrimerDesigner
         {
             score = s0[j - 1];
             if (j > 1 && (a = s0[j - 2] + gap) > score) score = a;
-            score += DpalSsm(x[1], y[j]);
+            score += Ssm(x[1], y[j]);
             if (score < 0) score = 0;
             else if (score > smax) smax = score;
             s1[j] = score;
@@ -1572,13 +1645,13 @@ public static class PrimerDesigner
 
         for (int i = 2; i < xlen; i++)
         {
-            score = DpalSsm(x[i], y[0]);
+            score = Ssm(x[i], y[0]);
             if (score < 0) score = 0;
             else if (score > smax) smax = score;
             s2[0] = score;
             score = s1[0];
             if ((a = s0[0] + gap) > score) score = a;
-            score += DpalSsm(x[i], y[1]);
+            score += Ssm(x[i], y[1]);
             if (score < 0) score = 0;
             else if (score > smax) smax = score;
             s2[1] = score;
@@ -1588,7 +1661,7 @@ public static class PrimerDesigner
                 if ((a = s1[j - 2]) > score) score = a;
                 score += gap;
                 if ((a = s1[j - 1]) > score) score = a;
-                score += DpalSsm(x[i], y[j]);
+                score += Ssm(x[i], y[j]);
                 if (score < 0) score = 0;
                 else if (score > smax) smax = score;
                 s2[j] = score;
@@ -3668,9 +3741,11 @@ public static class PrimerDesigner
     /// matching sign), so the result is always ≥ 0; <b>lower is better</b>, exactly as Primer3
     /// sorts candidates. Cross-checked against primer3-py 2.3.1 <c>design_primers</c>
     /// PRIMER_LEFT/RIGHT_n_PENALTY in both alignment modes.
+    /// The library mispriming term <c>repeat_sim</c> is PRIMER_WT_LIBRARY_MISPRIMING
+    /// (<see cref="Primer3PenaltyWeights.LibraryMispriming"/>) × <see cref="Primer3PenaltyInputs.LibraryMispriming"/>.
     /// <para>Not modelled (all zero under Primer3 defaults): the annealing-temperature
     /// <c>bound</c> term (only when PRIMER_ANNEALING_TEMP &gt; 0), <c>failure_rate</c>,
-    /// <c>repeat_sim</c> (needs a mispriming library), <c>pos_penalty</c> (needs
+    /// <c>pos_penalty</c> (needs
     /// PRIMER_INSIDE/OUTSIDE_PENALTY), <c>seq_quality</c> (needs base qualities) and
     /// <c>template_mispriming</c>; callers needing them add weight·value themselves.</para>
     /// </summary>
@@ -3728,6 +3803,10 @@ public static class PrimerDesigner
         // Number-of-Ns term (num_ns).
         if (w.NumNs != 0)
             sum += w.NumNs * inputs.NumNs;
+
+        // Library mispriming term (repeat_sim): weight · repeat_sim.score[repeat_sim.max].
+        if (w.LibraryMispriming != 0)
+            sum += w.LibraryMispriming * inputs.LibraryMispriming;
 
         // 3'-end stability term (end_stability): weight · ΔG magnitude (kcal/mol, as Primer3 reports it).
         if (w.EndStability != 0)
@@ -3912,6 +3991,43 @@ public readonly record struct PrimerParameters(
     /// </summary>
     public int? MaxEndGc { get; init; }
 
+    /// <summary>
+    /// PRIMER_MISPRIMING_LIBRARY (primer3-py <c>misprime_lib</c>): when set and non-empty, every primer gets Primer3's
+    /// library mispriming score (<see cref="PrimerDesigner.CalculateLibraryMispriming"/>,
+    /// <see cref="PrimerCandidate.LibraryMispriming"/>) and fails when any entry's weighted score exceeds
+    /// <see cref="MaxLibraryMispriming"/>; pairs are limited by <see cref="PrimerPairOptions.MaxLibraryMispriming"/>.
+    /// As in Primer3's <c>calc_and_check_oligo_features</c> / <c>characterize_pair</c>, the pair search scores primers
+    /// when they are picked only if PRIMER_WT_LIBRARY_MISPRIMING (<see cref="Primer3PenaltyWeights.LibraryMispriming"/>)
+    /// is non-zero, otherwise lazily when a pair is characterized (same results). Null = no library (Primer3's default).
+    /// Not part of the JSON form of the parameters (the MCP tools take the library as a separate name → sequence argument).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public PrimerMisprimingLibrary? MisprimingLibrary { get; init; }
+
+    /// <summary>
+    /// PRIMER_MAX_LIBRARY_MISPRIMING: maximum weighted library score of one primer; null = Primer3's default
+    /// <see cref="PrimerDesigner.Primer3MaxLibraryMispriming"/> (12.00). Primer3 compares with the value truncated to a
+    /// C <c>short</c> (12.9 acts as 12). Under <see cref="PrimerStructureScreen.Primer3Alignment"/> it must not exceed
+    /// 32767 (Primer3 <c>_pr_data_control</c>).
+    /// </summary>
+    public double? MaxLibraryMispriming { get; init; }
+
+    /// <summary>
+    /// PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (null, Primer3's default 0 — <c>pr_set_default_global_args_2</c>, used by
+    /// primer3-py; the "version 1" defaults had 1) = an IUPAC code in a library entry never aligns and N scores −0.25;
+    /// true (1) = an IUPAC code matches every base it represents (so runs of N match any primer).
+    /// </summary>
+    public bool? LibraryAmbiguityCodesConsensus { get; init; }
+
+    /// <summary>Effective PRIMER_MAX_LIBRARY_MISPRIMING.</summary>
+    public double EffectiveMaxLibraryMispriming => MaxLibraryMispriming ?? PrimerDesigner.Primer3MaxLibraryMispriming;
+
+    /// <summary>Effective PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS.</summary>
+    public bool EffectiveLibraryAmbiguityCodesConsensus => LibraryAmbiguityCodesConsensus ?? false;
+
+    // The library in use: null when absent or empty (Primer3 seq_lib_num_seq == 0).
+    internal PrimerMisprimingLibrary? ActiveLibrary => MisprimingLibrary is { Count: > 0 } lib ? lib : null;
+
     /// <summary>Effective PRIMER_MAX_END_STABILITY (kcal/mol).</summary>
     public double EffectiveMaxEndStability => MaxEndStability ?? PrimerDesigner.Primer3MaxEndStability;
 
@@ -3954,6 +4070,13 @@ public readonly record struct PrimerParameters(
             throw new ArgumentOutOfRangeException(paramName, "PRIMER_MAX_END_STABILITY must be non-negative.");
         if (GcClamp > MinLength)
             throw new ArgumentOutOfRangeException(paramName, "PRIMER_GC_CLAMP > PRIMER_MIN_SIZE.");
+        // _pr_data_control: PRIMER_MAX_LIBRARY_MISPRIMING > SHRT_MAX (alignment mode); a library weight without a library.
+        double maxLib = EffectiveMaxLibraryMispriming;
+        if (double.IsNaN(maxLib) || Math.Abs(maxLib) >= int.MaxValue
+            || (maxLib > short.MaxValue && StructureScreen == PrimerStructureScreen.Primer3Alignment))
+            throw new ArgumentOutOfRangeException(paramName, "Value too large at tag PRIMER_MAX_LIBRARY_MISPRIMING.");
+        if ((PenaltyWeights?.LibraryMispriming ?? 0) != 0 && ActiveLibrary is null)
+            throw new ArgumentException("Mispriming score is part of objective function, but mispriming library is not defined (Primer3 _pr_data_control).", paramName);
     }
 }
 
@@ -4038,6 +4161,15 @@ public sealed record PrimerCandidate(
     /// set under <see cref="PrimerStructureScreen.Primer3Alignment"/>, otherwise <c>null</c>.
     /// </summary>
     public double? SelfEnd { get; init; }
+
+    /// <summary>
+    /// Primer3 PRIMER_LEFT/RIGHT_n_LIBRARY_MISPRIMING score (<see cref="PrimerDesigner.CalculateLibraryMispriming"/>) when
+    /// <see cref="PrimerParameters.MisprimingLibrary"/> is set, otherwise <c>null</c>.
+    /// </summary>
+    public double? LibraryMispriming { get; init; }
+
+    /// <summary>The library entry named in PRIMER_LEFT/RIGHT_n_LIBRARY_MISPRIMING (with <see cref="LibraryMispriming"/>).</summary>
+    public string? LibraryMisprimingName { get; init; }
 }
 
 /// <summary>
@@ -4065,7 +4197,14 @@ public readonly record struct Primer3PenaltyInputs(
     double SelfEnd = 0.0,
     int NumNs = 0,
     double HairpinTh = 0.0,
-    double EndStability = 0.0);
+    double EndStability = 0.0)
+{
+    /// <summary>
+    /// Library mispriming score (Primer3 <c>repeat_sim.score[repeat_sim.max]</c>, PRIMER_LEFT/RIGHT_n_LIBRARY_MISPRIMING;
+    /// <see cref="PrimerDesigner.CalculateLibraryMispriming"/>); 0 without a mispriming library.
+    /// </summary>
+    public double LibraryMispriming { get; init; }
+}
 
 /// <summary>
 /// Weights for the Primer3 per-primer penalty objective (the <c>PRIMER_WT_*</c>
@@ -4104,7 +4243,16 @@ public readonly record struct Primer3PenaltyWeights(
     double SelfEndTh = 0.0,
     double HairpinTh = 0.0,
     double EndStability = 0.0,
-    bool ThermodynamicOligoAlignment = false);
+    bool ThermodynamicOligoAlignment = false)
+{
+    /// <summary>
+    /// PRIMER_WT_LIBRARY_MISPRIMING (Primer3 <c>weights.repeat_sim</c>, default 0): × the library mispriming score
+    /// (<see cref="Primer3PenaltyInputs.LibraryMispriming"/>). Non-zero requires
+    /// <see cref="PrimerParameters.MisprimingLibrary"/> in <see cref="PrimerDesigner.EvaluatePrimer"/> /
+    /// <see cref="PrimerDesigner.DesignPrimers"/> (Primer3 <c>_pr_data_control</c>).
+    /// </summary>
+    public double LibraryMispriming { get; init; }
+}
 
 /// <summary>
 /// Optimal parameter values for the Primer3 penalty objective
@@ -4155,6 +4303,16 @@ public sealed record PrimerPairResult(
     /// of a valid pair under <see cref="PrimerStructureScreen.Primer3Alignment"/>; otherwise <c>null</c>.
     /// </summary>
     public double? ComplEnd { get; init; }
+
+    /// <summary>
+    /// Primer3 PRIMER_PAIR_k_LIBRARY_MISPRIMING score of a valid pair (<c>pair_repeat_sim</c>: the maximum over library
+    /// entries of the integer part of the left + right primer scores) when <see cref="PrimerParameters.MisprimingLibrary"/>
+    /// is set; otherwise <c>null</c>.
+    /// </summary>
+    public double? LibraryMispriming { get; init; }
+
+    /// <summary>The library entry named in PRIMER_PAIR_k_LIBRARY_MISPRIMING (with <see cref="LibraryMispriming"/>).</summary>
+    public string? LibraryMisprimingName { get; init; }
 }
 
 /// <summary>A Primer3 product-size range (PRIMER_PRODUCT_SIZE_RANGE element), inclusive, in bp.</summary>
@@ -4193,6 +4351,12 @@ public sealed record Primer3PairWeights(
 
     /// <summary>PRIMER_PAIR_WT_COMPL_END (× PRIMER_PAIR_COMPL_END; <see cref="PrimerStructureScreen.Primer3Alignment"/> only; Primer3 default 0).</summary>
     public double ComplEnd { get; init; }
+
+    /// <summary>
+    /// PRIMER_PAIR_WT_LIBRARY_MISPRIMING (× PRIMER_PAIR_LIBRARY_MISPRIMING, <see cref="PrimerPairResult.LibraryMispriming"/>;
+    /// Primer3 default 0). Non-zero requires <see cref="PrimerParameters.MisprimingLibrary"/>.
+    /// </summary>
+    public double LibraryMispriming { get; init; }
 }
 
 /// <summary>
@@ -4249,6 +4413,14 @@ public sealed record PrimerPairOptions
 
     /// <summary>PRIMER_PAIR_WT_* pair objective weights (default Primer3's).</summary>
     public Primer3PairWeights Weights { get; init; } = new();
+
+    /// <summary>
+    /// PRIMER_PAIR_MAX_LIBRARY_MISPRIMING (default 24.00): with a <see cref="PrimerParameters.MisprimingLibrary"/>, a pair
+    /// fails when its library mispriming score (Primer3 <c>pair_repeat_sim</c>: the maximum over library entries of the
+    /// integer part of left score + right score, <see cref="PrimerPairResult.LibraryMispriming"/>) is strictly greater.
+    /// Under <see cref="PrimerStructureScreen.Primer3Alignment"/> it must not exceed 32767 (Primer3 <c>_pr_data_control</c>).
+    /// </summary>
+    public double MaxLibraryMispriming { get; init; } = PrimerDesigner.Primer3PairMaxLibraryMispriming;
 
     /// <summary>
     /// PRIMER_PICK_INTERNAL_OLIGO: pick a hybridization (internal) oligo for every pair — the lowest-penalty

@@ -14,7 +14,8 @@ public sealed record PrimerCandidateListResult(IReadOnlyList<PrimerCandidate> Ca
 
 /// <summary>
 /// design_primers output: the best pair (same fields as <see cref="PrimerPairResult"/>; Primer3 PRIMER_PAIR_0_*)
-/// plus <see cref="Pairs"/>, the ranked valid pairs (PRIMER_NUM_RETURN; empty when no pair qualifies).
+/// plus <see cref="Pairs"/>, the ranked valid pairs (PRIMER_NUM_RETURN; empty when no pair qualifies). With a mispriming
+/// library, <c>LibraryMispriming</c>/<c>LibraryMisprimingName</c> are PRIMER_PAIR_0_LIBRARY_MISPRIMING (score, entry).
 /// </summary>
 public sealed record DesignPrimersResult(
     PrimerCandidate? Forward,
@@ -29,7 +30,9 @@ public sealed record DesignPrimersResult(
     ProbeDesigner.Primer3Probe? InternalOligo,
     IReadOnlyList<PrimerPairResult> Pairs,
     double? ComplAny = null,
-    double? ComplEnd = null);
+    double? ComplEnd = null,
+    double? LibraryMispriming = null,
+    string? LibraryMisprimingName = null);
 
 // RestrictionAnalyzer result wrappers
 public sealed record EnzymeLookupResult(RestrictionEnzyme? Enzyme);

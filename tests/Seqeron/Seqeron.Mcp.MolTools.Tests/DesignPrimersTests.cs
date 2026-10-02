@@ -251,4 +251,54 @@ public class DesignPrimersTests
         Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_primers(t, 54, 75, p3, gc_clamp: 19));
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 54, 75, min_three_prime_distance: -2));
     }
+
+    [Test]
+    public void DesignPrimers_MisprimingLibrary_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [100, 30], PRIMER_PAIR_MAX_DIFF_TM 100, misprime_lib = lib):
+        // default PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS 0 → PRIMER_LEFT_0 [26,20] (the library-free [68,20] scores 20 > 12),
+        // PRIMER_RIGHT_0 [180,20], PRIMER_PAIR_0_PENALTY 0.42552744112833807, PRIMER_LEFT_0_LIBRARY_MISPRIMING
+        // (4.0, reverse site1), PRIMER_RIGHT_0_ (10.0, site2*0.5), PRIMER_PAIR_0_ (11.0, site2*0.5);
+        // PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS 1 → PRIMER_LEFT_0_LIBRARY_MISPRIMING (9.0, iupac), PRIMER_PAIR_0_ (17.0, iupac).
+        const string t = "GATTTTCATATTATGCAGAAAATCTACTTCGCCTGATACGAGTCGGTTATCTTCGGATACTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTACCCAGAAAATAGCGACGGACCGCGGTGTTAAGTGTCGAGCTACATCACTTCTCATGTAGCCAGAAGGCTGCAACTCATCGACTCTATGTAGTGACCGCGTCGATGTCAAACCCCGGGGGGAGCTCAGATATCCGATACAGGGATGAAGAAATAACCTCATCCCATTGGTGACGAAAGGTTGTAAGTAGCT";
+        var lib = new Dictionary<string, string>
+        {
+            ["site1"] = "TGTATAGTCCCACCTGGTGATCCTATGCTTGTGAG",
+            ["site2*0.5"] = "gccagaaggctgcaactcatcgactctatg",
+            ["iupac"] = "NNRYCCAGAAAATAGCGWSKMBDHV",
+        };
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters;
+        var r = MolToolsTools.design_primers(t, 100, 130, p3, max_tm_difference: 100, num_return: 5, mispriming_library: lib);
+        var cons = MolToolsTools.design_primers(t, 100, 130, p3, max_tm_difference: 100, num_return: 5, mispriming_library: lib,
+            lib_ambiguity_codes_consensus: true);
+        var noLib = MolToolsTools.design_primers(t, 100, 130, p3, max_tm_difference: 100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(noLib.Forward!.Position, Is.EqualTo(68));
+            Assert.That(noLib.LibraryMispriming, Is.Null);
+            Assert.That(r.Forward!.Position, Is.EqualTo(26));
+            Assert.That(r.Reverse!.Position + r.Reverse.Length - 1, Is.EqualTo(180));
+            Assert.That(r.PairPenalty!.Value, Is.EqualTo(0.42552744112833807).Within(1e-9));
+            Assert.That(r.Forward.LibraryMispriming, Is.EqualTo(4.0));
+            Assert.That(r.Forward.LibraryMisprimingName, Is.EqualTo("reverse site1"));
+            Assert.That(r.Reverse.LibraryMispriming, Is.EqualTo(10.0));
+            Assert.That(r.Reverse.LibraryMisprimingName, Is.EqualTo("site2*0.5"));
+            Assert.That(r.LibraryMispriming, Is.EqualTo(11.0));
+            Assert.That(r.LibraryMisprimingName, Is.EqualTo("site2*0.5"));
+            Assert.That(r.Pairs[4].LibraryMispriming, Is.EqualTo(7.0));
+            Assert.That(cons.Forward!.LibraryMispriming, Is.EqualTo(9.0));
+            Assert.That(cons.Forward.LibraryMisprimingName, Is.EqualTo("iupac"));
+            Assert.That(cons.LibraryMispriming, Is.EqualTo(17.0));
+            Assert.That(System.Text.Json.JsonSerializer.Serialize(r), Does.Contain("\"LibraryMisprimingName\":\"site2*0.5\""));
+        });
+
+        // _pr_data_control: a library weight without a library; add_seq_to_seq_lib: illegal weight / empty sequence.
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 100, 130, p3, wt_library_mispriming: 1));
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 100, 130, p3, pair_wt_library_mispriming: 1));
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 100, 130, p3,
+            mispriming_library: new Dictionary<string, string> { ["x*101"] = "ACGT" }));
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 100, 130, p3,
+            mispriming_library: new Dictionary<string, string> { ["x"] = "" }));
+    }
 }

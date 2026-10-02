@@ -46,7 +46,8 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    range (default 100–300 bp; ranges are tried in order, the next only when no further pair fits), product
    Tm within PRIMER_PRODUCT_MIN_TM/MAX_TM (if set), $|T_{m,f} - T_{m,r}| \le$ PRIMER_PAIR_MAX_DIFF_TM
    (library default 5 °C; Primer3 100), each primer's structure screen, pair compl-any/compl-end ntthal Tm
-   ≤ 47 °C and, with PRIMER_PICK_INTERNAL_OLIGO, an internal oligo strictly between the primers.
+   ≤ 47 °C, the pair library mispriming score (below) and, with PRIMER_PICK_INTERNAL_OLIGO, an internal oligo
+   strictly between the primers.
 4. **Pair objective** (`obj_fn`): $W_{pr}(penalty_f + penalty_r) + W_{io}\,penalty_{io} + W_{\Delta Tm}|T_{m,f} - T_{m,r}|$
    $+ W_{any}\,g(compl\_any) + W_{end}\,g(compl\_end)$ $+ W_{tm<}(T_{opt} - T_{prod})^+ + W_{tm>}(T_{prod} - T_{opt})^+$
    $+ W_{size<}(S_{opt} - S)^+ + W_{size>}(S - S_{opt})^+$, with $g(x) = x - (T_{low} - 5 - 1)$ if $T_{low} - 5 \le x$,
@@ -63,7 +64,26 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    `choose_pair_or_triple` + `left/right_oligo_in_pair_overlaps_used_oligo` (left 3′ end = start + length − 1,
    right 3′ end = its leftmost top-strand base). PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE acts only with
    SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST (not modelled).
-6. **Internal oligo** (`choose_internal_oligo`): the lowest-penalty oligo of the Primer3 internal-oligo list
+6. **Mispriming library** (PRIMER_MISPRIMING_LIBRARY, `PrimerParameters.MisprimingLibrary` =
+   `PrimerMisprimingLibrary`, primer3-py `misprime_lib`; `libprimer3.c` `oligo_repeat_library_mispriming`,
+   `pair_repeat_sim`, `p3_seq_lib.c`): entries name → sequence, an optional `*w` weight (0–100, `parse_seq_name`) in
+   the name; sequences upper-cased, whitespace removed, IUPAC kept, other characters → N; Primer3 appends each
+   entry's reverse complement as "reverse <name>". Primer score $w_i = weight_i \cdot align(primer, y_i)$ with dpal
+   (+100 match, −100 mismatch, −25 N, −200 gap, max gap 1, score / 100, floored at 0; an entry shorter than 3 nt scores
+   its length) anchored at the primer 3′ end (`DPAL_LOCAL_END`, port of `_dpal_long_nopath_maxgap1_local_end`); a left
+   primer is aligned with entry $i$, a right primer (5′→3′) with its reverse complement. PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS
+   (`LibraryAmbiguityCodesConsensus`, Primer3 default 0): 0 — IUPAC codes never align (`set_dpal_args`: INT_MIN) and,
+   Primer3 quirk, a right primer uses unanchored `DPAL_LOCAL`; 1 — `dpal_set_ambiguity_code_matrix` (a code matches every
+   base it represents). A primer fails when any $w_i$ > (short) PRIMER_MAX_LIBRARY_MISPRIMING (default 12); the reported
+   score is Primer3's `repeat_sim.max` entry (first entry whose $w$ exceeds the integer part of the running maximum).
+   Pair score = $\max_i \lfloor w_i^{left} + w_i^{right} \rfloor$ (≥ 0), failing above PRIMER_PAIR_MAX_LIBRARY_MISPRIMING
+   (`PrimerPairOptions.MaxLibraryMispriming`, 24). Weights: PRIMER_WT_LIBRARY_MISPRIMING
+   (`Primer3PenaltyWeights.LibraryMispriming`, per-primer `p_obj_fn`; primers are then scored at pick time) and
+   PRIMER_PAIR_WT_LIBRARY_MISPRIMING (`Primer3PairWeights.LibraryMispriming`, `obj_fn` after the product-size terms);
+   otherwise primers are scored lazily in `characterize_pair` (after the structure checks). Outputs:
+   `PrimerCandidate.LibraryMispriming` / `LibraryMisprimingName`, `PrimerPairResult.LibraryMispriming` /
+   `LibraryMisprimingName` (PRIMER_LEFT/RIGHT/PAIR_k_LIBRARY_MISPRIMING).
+7. **Internal oligo** (`choose_internal_oligo`): the lowest-penalty oligo of the Primer3 internal-oligo list
    (`ProbeDesigner.DesignProbesPrimer3` rules, PRIMER_INTERNAL_* defaults; its self-any/self-end/hairpin checks
    postponed until the oligo is considered) with start > left primer 3′ end and end < right primer 5′ base.
 
@@ -137,6 +157,10 @@ Parameter ranges documented in the original file and current source:
 | `MaxEndGc` (PRIMER_MAX_END_GC) | 0 | N/A | 5 | Max G/C among the five 3′-most bases; checked only when < 5 (default 5) |
 | `MaxEndStability` (PRIMER_MAX_END_STABILITY) | 0 | N/A | 100 | Fails when `end_stability` = −`Calculate3PrimeStability` > limit (default 100; an ACGT pentamer reaches at most 6.86, GCGCG/CGCGC) |
 | `Avoid3PrimeGC` | N/A | N/A | `false` | Deprecated library rule (not Primer3): despite the name it *requires* at least one `G`/`C` in the last two bases; kept for source compatibility — use `GcClamp` / `MaxEndGc` |
+| `MisprimingLibrary` (PRIMER_MISPRIMING_LIBRARY) | N/A | N/A | null | name → sequence entries (`PrimerMisprimingLibrary`); null = no library check |
+| `MaxLibraryMispriming` (PRIMER_MAX_LIBRARY_MISPRIMING) | N/A | N/A | 12 | Truncated to a C `short`; > 32767 rejected in alignment mode (`_pr_data_control`) |
+| `PrimerPairOptions.MaxLibraryMispriming` (PRIMER_PAIR_MAX_LIBRARY_MISPRIMING) | N/A | N/A | 24 | Pair score = max over entries of ⌊left + right⌋ |
+| `LibraryAmbiguityCodesConsensus` (PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS) | N/A | N/A | false (0) | Primer3 v2 default (`pr_set_default_global_args_2`); 1 makes IUPAC codes match their bases |
 | `Check3PrimeStability` | N/A | N/A | `true` | Deprecated, no effect: it gated ΔG(3′ pentamer) < −9 kcal/mol, which no ACGT pentamer reaches (minimum −6.86), so it never fired; the Primer3 limit is `MaxEndStability` |
 
 ### 4.3 Complexity
@@ -156,6 +180,7 @@ Parameter ranges documented in the original file and current source:
 - `PrimerDesigner.DesignPrimerPairs(DnaSequence, int, int, PrimerParameters?, PrimerPairOptions?)`: PRIMER_NUM_RETURN ranked pairs.
 - `PrimerDesigner.CalculateProductMeltingTemperaturePrimer3(string, ...)`: Primer3 `long_seq_tm` product Tm.
 - `PrimerDesigner.EvaluatePrimer(string, int, bool, PrimerParameters?)`: Scores a single primer candidate.
+- `PrimerDesigner.CalculateLibraryMispriming(string, bool, PrimerMisprimingLibrary, bool)`: Primer3 library mispriming score of one primer ([PrimerDesigner.MisprimingLibrary.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.MisprimingLibrary.cs)).
 - `PrimerDesigner.CalculateMeltingTemperaturePrimer3(string, ...)`: Primer3-default primer Tm used by design.
 - `PrimerDesigner.CalculatePrimer3Penalty(...)`: Primer3 per-primer penalty used for ranking.
 - `PrimerDesigner.CalculatePrimerScore(...)` (private): informational heuristic score.
@@ -178,7 +203,9 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 - 3′-end checks and 3′ distance (audit round 3, A3-6 + A3-7, 2026-10-02): random 150–600-bp templates (GC bias 35–60 %), PRIMER_GC_CLAMP ∈ {0–3}, PRIMER_MAX_END_GC ∈ {0–5}, PRIMER_MAX_END_STABILITY ∈ {4–9, 100}, PRIMER_MIN_THREE_PRIME_DISTANCE or PRIMER_MIN_LEFT/RIGHT_THREE_PRIME_DISTANCE ∈ {−1, 0, 1, 2, 3, 5, 10, 20}, PRIMER_NUM_RETURN 5–10, PRIMER_WT_END_STABILITY ∈ {0, 0.5}, both alignment modes, PRIMER_PICK_INTERNAL_OLIGO ∈ {0, 1}: 2200/2200 templates (9590 pairs) identical on left/right start + length, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY, _END_STABILITY and PRIMER_INTERNAL_k position (|Δ| ≤ 1e-9); without the new options 36/2000.
 
-**Not implemented:** mispriming libraries / template mispriming, position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
+- Mispriming library (audit round 3, A3-3 part 1, 2026-10-02): random 150–500-bp templates with 1–8-entry random libraries (55 % template fragments, forward or reverse-complemented, with point mutations and IUPAC codes; random IUPAC-containing sequences; 1–2-nt entries; N-rich entries; `*w` weights 0–10), PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS ∈ {0, 1}, PRIMER_MAX_LIBRARY_MISPRIMING ∈ {6, 8, 10, 12, 12.9, 15, 20}, PRIMER_PAIR_MAX_LIBRARY_MISPRIMING ∈ {12–30}, PRIMER_WT_LIBRARY_MISPRIMING ∈ {0, 0.1, 0.5, 1}, PRIMER_PAIR_WT_LIBRARY_MISPRIMING ∈ {0, 0.2, 1}, both alignment modes, PRIMER_PICK_INTERNAL_OLIGO ∈ {0, 1}: 1240/1240 templates (4693 pairs; primers rejected by the library in 1005 templates, pairs in 202) identical to primer3-py 2.3.1 `design_primers(misprime_lib=…)` on left/right start + length, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY (|Δ| ≤ 1e-9), PRIMER_LEFT/RIGHT/PAIR_k_LIBRARY_MISPRIMING score and entry name, and PRIMER_INTERNAL_k position.
+
+**Not implemented:** internal-oligo mishybridization library (PRIMER_INTERNAL_MISHYB_LIBRARY, A3-3 part 2) / template mispriming, position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
 
@@ -194,10 +221,14 @@ Forward primers are taken directly from the template; reverse primers are revers
 | `PickInternalOligo` and no acceptable oligo between the primers | Pair fails (Primer3 "no internal oligo") | `choose_internal_oligo` |
 | Primer-dimer detected for every pair | Returns `IsValid = false` | Pair compatibility requires no dimer signal |
 | Non-ACGT base in a candidate | Candidate invalid (Tm 0, issue "Tm not computable") | Primer3 PRIMER_MAX_NS_ACCEPTED = 0 |
+| PRIMER_WT_LIBRARY_MISPRIMING / PRIMER_PAIR_WT_LIBRARY_MISPRIMING ≠ 0 without a library | `ArgumentException` | Primer3 `_pr_data_control` "Mispriming score is part of objective function, but mispriming library is not defined" |
+| Library entry with an empty sequence or an illegal `*weight` (missing, < 0, > 100) | `ArgumentException` | `add_seq_to_seq_lib` / `parse_seq_name` (primer3-py raises OSError) |
+| Library entry with a non-IUPAC character | Character becomes N, `PrimerMisprimingLibrary.Warnings` | `upcase_and_check_char` (primer3-py 2.3.1 aborts here: it passes a NULL `errfrag` to the warning) |
 
 ### 6.2 Limitations
 
-There is no mispriming (library or template) check. The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
+There is no template-mispriming check and no internal-oligo mishybridization library (the primer mispriming library
+is Primer3's, §2.2 item 6). The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
 
 ## 7. Examples and Related Material
 

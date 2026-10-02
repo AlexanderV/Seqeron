@@ -16,6 +16,7 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(IReadOnlyList<int>))]
 [JsonSerializable(typeof(double))]
 [JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 
 // PrimerDesigner DTOs (from Seqeron.Genomics.MolTools)
 [JsonSerializable(typeof(PrimerParameters))]

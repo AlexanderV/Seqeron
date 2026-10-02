@@ -14,7 +14,7 @@ public class MolToolsTools
 
     #region PrimerDesigner
 
-    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat, Primer3 3'-end checks gc_clamp / max_end_gc / max_end_stability) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN; with min_left/right_three_prime_distance later pairs avoid primers whose 3' ends are too close to those of earlier pairs). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat, Primer3 3'-end checks gc_clamp / max_end_gc / max_end_stability) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN; with min_left/right_three_prime_distance later pairs avoid primers whose 3' ends are too close to those of earlier pairs). With mispriming_library (Primer3 PRIMER_MISPRIMING_LIBRARY) primers whose weighted dpal similarity to a library entry exceeds max_library_mispriming (default 12) and pairs above pair_max_library_mispriming (default 24) are rejected; scores can be weighted into the penalties (wt_library_mispriming, pair_wt_library_mispriming). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
     public static DesignPrimersResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
@@ -45,7 +45,13 @@ public class MolToolsTools
         [Description("PRIMER_MAX_END_STABILITY: maximum 3' end stability (Primer3 end_stability = -dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit).")] double? max_end_stability = null,
         [Description("PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE: after a pair is selected, later pairs may not use a left primer whose 3' end is closer than this (0 = not the identical primer; default -1 = reuse allowed).")] int? min_left_three_prime_distance = null,
         [Description("PRIMER_MIN_RIGHT_THREE_PRIME_DISTANCE: as min_left_three_prime_distance for right primers (default -1).")] int? min_right_three_prime_distance = null,
-        [Description("PRIMER_MIN_THREE_PRIME_DISTANCE: sets both the left and right minimum 3' distances (cannot be combined with min_left/right_three_prime_distance).")] int? min_three_prime_distance = null)
+        [Description("PRIMER_MIN_THREE_PRIME_DISTANCE: sets both the left and right minimum 3' distances (cannot be combined with min_left/right_three_prime_distance).")] int? min_three_prime_distance = null,
+        [Description("PRIMER_MISPRIMING_LIBRARY as a name -> sequence object (primer3-py misprime_lib), e.g. {\"Alu*2\": \"GGCCGGGCGCGG...\"}; an optional '*weight' (0-100) after the name scales that entry; IUPAC codes allowed. Each primer is scored against every entry and its reverse complement (Primer3 dpal, 3'-anchored); reported as libraryMispriming/libraryMisprimingName per primer and pair.")] Dictionary<string, string>? mispriming_library = null,
+        [Description("PRIMER_MAX_LIBRARY_MISPRIMING: maximum weighted library score of one primer (default 12).")] double? max_library_mispriming = null,
+        [Description("PRIMER_PAIR_MAX_LIBRARY_MISPRIMING: maximum pair library score (integer part of left + right score for the same entry; default 24).")] double? pair_max_library_mispriming = null,
+        [Description("PRIMER_WT_LIBRARY_MISPRIMING: per-primer penalty weight of the library score (default 0; needs mispriming_library).")] double? wt_library_mispriming = null,
+        [Description("PRIMER_PAIR_WT_LIBRARY_MISPRIMING: pair penalty weight of the pair library score (default 0; needs mispriming_library).")] double? pair_wt_library_mispriming = null,
+        [Description("PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (Primer3 default 0) = IUPAC codes in the library never match; true = they match every base they represent (N matches anything).")] bool? lib_ambiguity_codes_consensus = null)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -67,6 +73,8 @@ public class MolToolsTools
         parameters = ApplyPrimerConditions(parameters, salt_monovalent, salt_divalent, dntp_conc, dna_conc,
             opt_gc_percent, wt_gc_percent_gt, wt_gc_percent_lt);
         parameters = ApplyPrimerEndChecks(parameters, gc_clamp, max_end_gc, max_end_stability);
+        parameters = ApplyMisprimingLibrary(parameters, mispriming_library, max_library_mispriming,
+            wt_library_mispriming, lib_ambiguity_codes_consensus);
         var internalOligo = new ProbeDesigner.Primer3ProbeSettings(
             MonovalentMillimolar: internal_salt_monovalent ?? PrimerDesigner.Primer3InternalMonovalentMillimolar,
             DivalentMillimolar: internal_salt_divalent ?? PrimerDesigner.Primer3InternalDivalentMillimolar,
@@ -87,6 +95,8 @@ public class MolToolsTools
             MaxComplEnd = pair_max_compl_end,
             MinLeftThreePrimeDistance = min_left_three_prime_distance ?? min_three_prime_distance ?? -1,
             MinRightThreePrimeDistance = min_right_three_prime_distance ?? min_three_prime_distance ?? -1,
+            MaxLibraryMispriming = pair_max_library_mispriming ?? PrimerDesigner.Primer3PairMaxLibraryMispriming,
+            Weights = new Primer3PairWeights { LibraryMispriming = pair_wt_library_mispriming ?? 0.0 },
         };
         if (product_size_range is not null)
             options = options with { ProductSizeRanges = ParseProductSizeRanges(product_size_range) };
@@ -97,7 +107,26 @@ public class MolToolsTools
         return new DesignPrimersResult(
             best.Forward, best.Reverse, best.IsValid, best.Message, best.ProductSize,
             best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs,
-            best.ComplAny, best.ComplEnd);
+            best.ComplAny, best.ComplEnd, best.LibraryMispriming, best.LibraryMisprimingName);
+    }
+
+    // Overlays the optional Primer3 mispriming library (PRIMER_MISPRIMING_LIBRARY as primer3-py's name → sequence
+    // misprime_lib), PRIMER_MAX_LIBRARY_MISPRIMING, PRIMER_WT_LIBRARY_MISPRIMING and PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS;
+    // the library builds and validates the entries (Primer3 add_seq_to_seq_lib / _pr_data_control).
+    private static PrimerParameters? ApplyMisprimingLibrary(PrimerParameters? parameters,
+        Dictionary<string, string>? library, double? maxLibraryMispriming, double? wtLibraryMispriming, bool? consensus)
+    {
+        if (library is null && maxLibraryMispriming is null && wtLibraryMispriming is null && consensus is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            MisprimingLibrary = library is null ? p.MisprimingLibrary : new PrimerMisprimingLibrary(library),
+            MaxLibraryMispriming = maxLibraryMispriming ?? p.MaxLibraryMispriming,
+            LibraryAmbiguityCodesConsensus = consensus ?? p.LibraryAmbiguityCodesConsensus,
+            PenaltyWeights = wtLibraryMispriming is null ? p.PenaltyWeights : w with { LibraryMispriming = wtLibraryMispriming.Value },
+        };
     }
 
     // Overlays the optional Primer3 reaction-condition / GC-optimum arguments on the given (or library default)
