@@ -95,6 +95,28 @@ Batch sessions must not hold every unit in one context. The batch lead:
   from the list instead of re-auditing.
 - Large uncommitted state that is not yet fast-tier green must not exist for longer than one WP.
 
+**WIP checkpoint branch (mandatory, user decision 2026-10-02).** Each batch has its own checkpoint
+branch `claude/stoic-maxwell-0olr2z-wip-<BATCH>` (e.g. `…-wip-B07`). It holds unfinished,
+not-yet-green work so an interrupted session loses at most ~20 min. Main branch rules are unchanged
+(only fast-tier-green commits go to `claude/stoic-maxwell-0olr2z`).
+- **Who:** whoever is editing files — the batch lead AND every subagent. The lead copies this
+  block into every subagent prompt.
+- **When:** every ~20 min of editing, and always right before starting any build/test run longer
+  than a few minutes, and before spawning/waiting on anything long.
+- **How** (keeps the working tree; the local branch is not changed):
+  ```bash
+  B=claude/stoic-maxwell-0olr2z-wip-B07   # your batch
+  git add -A && git commit -q --no-verify -m "WIP(B07): <WP id> <what> $(date -u +%H:%M)" \
+    && git push -q -f origin HEAD:refs/heads/$B && git reset -q --soft HEAD~1
+  ```
+  (`git reset --soft` drops the local WIP commit but keeps all changes staged. Retry the push like any push.)
+- **On (re)start of a batch session:** `git fetch origin`; if `origin/claude/stoic-maxwell-0olr2z-wip-<BATCH>`
+  exists and its tip commit is a `WIP(...)` commit whose changes are not yet on the main branch,
+  apply it on top of the latest main: `git cherry-pick -n origin/claude/stoic-maxwell-0olr2z-wip-<BATCH>`,
+  resolve conflicts, read its message to know which WP it was, and continue that WP.
+- When a WP lands on the main branch the WIP branch is simply overwritten by the next checkpoint.
+  At batch end (after the final report is pushed) delete it: `git push origin --delete claude/stoic-maxwell-0olr2z-wip-<BATCH>`.
+
 ## Definition of Done — no doable leftovers (mandatory)
 
 A batch is **not finished** while anything doable remains. "Deferred", "follow-up", "optional",
