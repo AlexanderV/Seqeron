@@ -96,6 +96,24 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    weighted score enters the internal-oligo `p_obj_fn` and, via PRIMER_PAIR_WT_IO_PENALTY, the pair objective),
    otherwise in `choose_internal_oligo` after the postponed structure checks. Output: `Primer3Probe.LibraryMishyb` /
    `LibraryMishybName` (PRIMER_INTERNAL_k_LIBRARY_MISHYB; primer3-py key `…_LIBRARY_MISPRIMING`).
+8. **Template mispriming** (`oligo_template_mispriming`; `PrimerDesigner.CalculateTemplateMispriming`,
+   PrimerDesigner.TemplateMispriming.cs): each primer (5′→3′ as synthesised) is aligned with the template strand it
+   anneals to, once 5′ and once 3′ of its own site ($T$ = the larger), and with the whole opposite strand ($T_r$).
+   PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT = 0 (`PrimerParameters.ThermodynamicTemplateAlignment` false, default):
+   dpal `DPAL_LOCAL_END` (the item-6 port; a segment < 3 nt scores its length); = 1: the ntthal THAL_END1 Tm
+   (`use_end_for_th_template_mispriming`, `NtthalDimer`, primer reaction conditions; empty segment / no structure /
+   negative Tm → 0; Primer3 swaps the strand roles of the two thermodynamic calls, reproduced; template ≤ 10000 nt).
+   PRIMER_LEFT/RIGHT_k_TEMPLATE_MISPRIMING[_TH] = max($T$, $T_r$) (`PrimerCandidate.TemplateMispriming`); a primer fails
+   when PRIMER_MAX_TEMPLATE_MISPRIMING[_TH] (`MaxTemplateMispriming[Th]`, default −100) ≥ 0 and is exceeded. Scored
+   at pick time when PRIMER_WT_TEMPLATE_MISPRIMING[_TH] ≠ 0 (the weighted term enters `p_obj_fn`: linear, or the 5 °C
+   `temp_cutoff` rule in thermodynamic mode), otherwise in `characterize_pair` — only when the primer's library scores
+   were not computed at pick time (no library or PRIMER_WT_LIBRARY_MISPRIMING = 0), exactly as Primer3. Pair:
+   PRIMER_PAIR_k_TEMPLATE_MISPRIMING[_TH] = max($T^L + T_r^R$, $T_r^L + T^R$) (`PrimerPairResult.TemplateMispriming`),
+   computed when PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING[_TH] ≥ 0 or PRIMER_PAIR_WT_TEMPLATE_MISPRIMING[_TH] > 0
+   (`PrimerPairOptions.MaxTemplateMispriming[Th]`, `Primer3PairWeights.TemplateMispriming[Th]`); alignment mode fails
+   when the limit is ≥ 0 and exceeded, thermodynamic mode when the limit is **non-zero** and exceeded (Primer3's
+   test — with the default −100 and a pair weight every pair fails; 0 = no limit); the weighted value enters `obj_fn`
+   (thermodynamic: `temp_cutoff` rule relative to the lower primer Tm). Only the weights/limits of the active mode apply.
 
 `PrimerCandidate.Score` (100 − 2|len − opt| − 2|Tm − opt| − 0.5|GC − 50| − 5·homopolymer + 5 GC-clamp
 bonus) is reported for information only and does not drive selection.
@@ -171,6 +189,10 @@ Parameter ranges documented in the original file and current source:
 | `MaxLibraryMispriming` (PRIMER_MAX_LIBRARY_MISPRIMING) | N/A | N/A | 12 | Truncated to a C `short`; > 32767 rejected in alignment mode (`_pr_data_control`) |
 | `PrimerPairOptions.MaxLibraryMispriming` (PRIMER_PAIR_MAX_LIBRARY_MISPRIMING) | N/A | N/A | 24 | Pair score = max over entries of ⌊left + right⌋ |
 | `LibraryAmbiguityCodesConsensus` (PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS) | N/A | N/A | false (0) | Primer3 v2 default (`pr_set_default_global_args_2`); 1 makes IUPAC codes match their bases |
+| `ThermodynamicTemplateAlignment` (PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT) | N/A | N/A | false (0) | true = ntthal END1 Tm instead of dpal score (§2.2 item 8) |
+| `MaxTemplateMispriming` / `MaxTemplateMisprimingTh` (PRIMER_MAX_TEMPLATE_MISPRIMING[_TH]) | N/A | N/A | −100 | Negative = not checked; only the active mode's limit applies |
+| `PrimerPairOptions.MaxTemplateMispriming` / `MaxTemplateMisprimingTh` (PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING[_TH]) | N/A | N/A | −100 | Alignment: ≥ 0 checked; thermodynamic: non-zero checked (Primer3) |
+| `Primer3PenaltyWeights.TemplateMispriming[Th]`, `Primer3PairWeights.TemplateMispriming[Th]` (PRIMER_[PAIR_]WT_TEMPLATE_MISPRIMING[_TH]) | N/A | N/A | 0 | Must be ≥ 0 |
 | `Check3PrimeStability` | N/A | N/A | `true` | Deprecated, no effect: it gated ΔG(3′ pentamer) < −9 kcal/mol, which no ACGT pentamer reaches (minimum −6.86), so it never fired; the Primer3 limit is `MaxEndStability` |
 
 ### 4.3 Complexity
@@ -191,6 +213,7 @@ Parameter ranges documented in the original file and current source:
 - `PrimerDesigner.CalculateProductMeltingTemperaturePrimer3(string, ...)`: Primer3 `long_seq_tm` product Tm.
 - `PrimerDesigner.EvaluatePrimer(string, int, bool, PrimerParameters?)`: Scores a single primer candidate.
 - `PrimerDesigner.CalculateLibraryMispriming(string, bool, PrimerMisprimingLibrary, bool)`: Primer3 library mispriming score of one primer ([PrimerDesigner.MisprimingLibrary.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.MisprimingLibrary.cs)).
+- `PrimerDesigner.CalculateTemplateMispriming(DnaSequence, int, int, bool, bool, …)`: Primer3 template mispriming scores (`TemplateMisprimingScore` same-strand / other-strand / max) of one primer site ([PrimerDesigner.TemplateMispriming.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.TemplateMispriming.cs)).
 - `PrimerDesigner.CalculateMeltingTemperaturePrimer3(string, ...)`: Primer3-default primer Tm used by design.
 - `PrimerDesigner.CalculatePrimer3Penalty(...)`: Primer3 per-primer penalty used for ranking.
 - `PrimerDesigner.CalculatePrimerScore(...)` (private): informational heuristic score.
@@ -217,7 +240,9 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 - Internal-oligo mishybridization library (audit round 3, A3-3 part 2, 2026-10-02): see §2.2 item 7 and the PROBE-DESIGN-001 / PRIMER-DESIGN-001 F42 entry of `docs/Validation/review-2026-09/B07.md` — primer3-py 2.3.1 `design_primers(mishyb_lib=…)` with PRIMER_PICK_INTERNAL_OLIGO = 1: 386/386 random 150–450-bp templates (1325 pairs; random 1–8-entry libraries, PRIMER_INTERNAL_MAX_LIBRARY_MISHYB ∈ {6–20}, PRIMER_INTERNAL_WT_LIBRARY_MISHYB ∈ {0, 0.1, 0.5, 1}, PRIMER_PAIR_WT_IO_PENALTY ∈ {0, 1}, both alignment modes and consensus settings, 137 with a primer mispriming library too; internal oligos rejected by the library in 315) identical on left/right start + length, PRIMER_PAIR_k_PENALTY, PRIMER_INTERNAL_k position / penalty (|Δ| ≤ 1e-9) and PRIMER_INTERNAL_k_LIBRARY_MISHYB score + entry name.
 
-**Not implemented:** template mispriming, position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
+- Template mispriming (audit round 3, A3-4, 2026-10-02): random 150–500-bp templates (thermodynamic template mode 150–260 bp), 70 % made repetitive (1–6 copied 12–40-nt fragments, forward or reverse-complemented, 0–3 mutations; 30 % with a tandem repeat), PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT ∈ {0, 1}, PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT ∈ {0, 1}, PRIMER_MAX_TEMPLATE_MISPRIMING ∈ {−100, 6–15}, _TH ∈ {−100, 15–50}, PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING ∈ {−100, 14–24}, _TH ∈ {−100, 0, 30–80}, PRIMER_WT_TEMPLATE_MISPRIMING[_TH] ∈ {0, 0.1, 0.5, 1}, PRIMER_PAIR_WT_TEMPLATE_MISPRIMING[_TH] ∈ {0, 0.2, 1}, 14 % with a mispriming library, 15 % PRIMER_PICK_INTERNAL_OLIGO: 352/352 templates (1590 pairs; 183 thermodynamic; primers rejected by the template limit in 124 templates, pairs in 67) identical to primer3-py 2.3.1 `design_primers` on left/right start + length, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY (|Δ| ≤ 1e-9), PRIMER_LEFT/RIGHT_k_TEMPLATE_MISPRIMING (alignment mode; primer3-py omits the per-primer _TH keys in thermodynamic mode), PRIMER_PAIR_k_TEMPLATE_MISPRIMING[_TH] and PRIMER_INTERNAL_k position; per-strand END1 values against `primer3.calc_end_stability`.
+
+**Not implemented:** position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
 
@@ -234,14 +259,18 @@ Forward primers are taken directly from the template; reverse primers are revers
 | Primer-dimer detected for every pair | Returns `IsValid = false` | Pair compatibility requires no dimer signal |
 | Non-ACGT base in a candidate | Candidate invalid (Tm 0, issue "Tm not computable") | Primer3 PRIMER_MAX_NS_ACCEPTED = 0 |
 | PRIMER_INTERNAL_WT_LIBRARY_MISHYB ≠ 0 without a mishyb library (with `PickInternalOligo`) | `ArgumentException` | Primer3 `_pr_data_control` "Internal oligo mispriming score is part of objective function while mishyb library is not defined" |
+| PRIMER_MAX_TEMPLATE_MISPRIMING / PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING > 32767 (alignment mode), negative template weight | `ArgumentOutOfRangeException` / `ArgumentException` | Primer3 `_pr_data_control`; a negative weight would trip Primer3's `p_obj_fn` assertion |
+| Pair template limit/weight with PRIMER_WT_LIBRARY_MISPRIMING ≠ 0 but no per-primer template weight | `InvalidOperationException` | Primer3 never scores the primers' template mispriming then and aborts (`PR_ASSERT` in `characterize_pair`) |
+| PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT = 1 with a template > 10000 nt | `ArgumentException` | thal THAL_MAX_SEQ |
 | PRIMER_WT_LIBRARY_MISPRIMING / PRIMER_PAIR_WT_LIBRARY_MISPRIMING ≠ 0 without a library | `ArgumentException` | Primer3 `_pr_data_control` "Mispriming score is part of objective function, but mispriming library is not defined" |
 | Library entry with an empty sequence or an illegal `*weight` (missing, < 0, > 100) | `ArgumentException` | `add_seq_to_seq_lib` / `parse_seq_name` (primer3-py raises OSError) |
 | Library entry with a non-IUPAC character | Character becomes N, `PrimerMisprimingLibrary.Warnings` | `upcase_and_check_char` (primer3-py 2.3.1 aborts here: it passes a NULL `errfrag` to the warning) |
 
 ### 6.2 Limitations
 
-There is no template-mispriming check (the primer mispriming and internal-oligo mishybridization libraries are
-Primer3's, §2.2 items 6–7). The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
+Template mispriming, the primer mispriming library and the internal-oligo mishybridization library are Primer3's
+(§2.2 items 6–8); `EvaluatePrimer` has no template, so it never applies the template terms (use
+`CalculateTemplateMispriming` + `CalculatePrimer3Penalty`). The secondary-structure screen is Primer3's thermodynamic one by default (the sequence-only screen is available as `PrimerStructureScreen.Heuristic`).
 
 ## 7. Examples and Related Material
 

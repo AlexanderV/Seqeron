@@ -14,7 +14,7 @@ public class MolToolsTools
 
     #region PrimerDesigner
 
-    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat, Primer3 3'-end checks gc_clamp / max_end_gc / max_end_stability) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN; with min_left/right_three_prime_distance later pairs avoid primers whose 3' ends are too close to those of earlier pairs). With mispriming_library (Primer3 PRIMER_MISPRIMING_LIBRARY) primers whose weighted dpal similarity to a library entry exceeds max_library_mispriming (default 12) and pairs above pair_max_library_mispriming (default 24) are rejected; scores can be weighted into the penalties (wt_library_mispriming, pair_wt_library_mispriming). With internal_mishyb_library (Primer3 PRIMER_INTERNAL_MISHYB_LIBRARY) internal oligos above internal_max_library_mishyb (default 12) are rejected (weight: internal_wt_library_mishyb). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat, Primer3 3'-end checks gc_clamp / max_end_gc / max_end_stability) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN; with min_left/right_three_prime_distance later pairs avoid primers whose 3' ends are too close to those of earlier pairs). With mispriming_library (Primer3 PRIMER_MISPRIMING_LIBRARY) primers whose weighted dpal similarity to a library entry exceeds max_library_mispriming (default 12) and pairs above pair_max_library_mispriming (default 24) are rejected; scores can be weighted into the penalties (wt_library_mispriming, pair_wt_library_mispriming). With internal_mishyb_library (Primer3 PRIMER_INTERNAL_MISHYB_LIBRARY) internal oligos above internal_max_library_mishyb (default 12) are rejected (weight: internal_wt_library_mishyb). Template mispriming (Primer3 PRIMER_MAX_TEMPLATE_MISPRIMING / PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING, dpal; with thermodynamic_template_alignment the _TH ntthal Tm variants) rejects primers / pairs that also prime elsewhere on the template and can be weighted into the penalties (wt_/pair_wt_template_mispriming[_th]); reported as templateMispriming per primer and pair. The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
     public static DesignPrimersResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
@@ -54,7 +54,16 @@ public class MolToolsTools
         [Description("PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (Primer3 default 0) = IUPAC codes in the library never match; true = they match every base they represent (N matches anything).")] bool? lib_ambiguity_codes_consensus = null,
         [Description("PRIMER_INTERNAL_MISHYB_LIBRARY as a name -> sequence object (primer3-py mishyb_lib; same format as mispriming_library), used with pick_internal_oligo: each internal oligo is scored against every entry and its reverse complement (Primer3 dpal, unanchored local alignment); reported as internalOligo.libraryMishyb/libraryMishybName.")] Dictionary<string, string>? internal_mishyb_library = null,
         [Description("PRIMER_INTERNAL_MAX_LIBRARY_MISHYB: maximum weighted library score of the internal oligo (default 12).")] double? internal_max_library_mishyb = null,
-        [Description("PRIMER_INTERNAL_WT_LIBRARY_MISHYB: internal-oligo penalty weight of the library score (default 0; needs internal_mishyb_library).")] double? internal_wt_library_mishyb = null)
+        [Description("PRIMER_INTERNAL_WT_LIBRARY_MISHYB: internal-oligo penalty weight of the library score (default 0; needs internal_mishyb_library).")] double? internal_wt_library_mishyb = null,
+        [Description("PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT: false (Primer3 default 0) = template mispriming is a dpal score (3'-anchored local alignment of the primer with the template outside its own site and with the opposite strand); true = the ntthal 3'-end (END1) Tm in °C (template <= 10000 nt). Uses the *_template_mispriming_th limits/weights.")] bool? thermodynamic_template_alignment = null,
+        [Description("PRIMER_MAX_TEMPLATE_MISPRIMING: maximum template mispriming score of one primer (alignment mode; default -100 = not checked); reported as templateMispriming per primer.")] double? max_template_mispriming = null,
+        [Description("PRIMER_MAX_TEMPLATE_MISPRIMING_TH: maximum template mispriming Tm of one primer, °C (thermodynamic mode; default -100 = not checked).")] double? max_template_mispriming_th = null,
+        [Description("PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING: maximum pair template mispriming score (max(left same-strand + right other-strand, left other-strand + right same-strand); alignment mode; default -100 = not checked).")] double? pair_max_template_mispriming = null,
+        [Description("PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING_TH: maximum pair template mispriming value (thermodynamic mode; default -100). As in Primer3 a pair fails when this is non-zero and exceeded, so with the default and a non-zero pair_wt_template_mispriming_th every pair fails; 0 = no limit.")] double? pair_max_template_mispriming_th = null,
+        [Description("PRIMER_WT_TEMPLATE_MISPRIMING: per-primer penalty weight of the template mispriming score (alignment mode; default 0).")] double? wt_template_mispriming = null,
+        [Description("PRIMER_WT_TEMPLATE_MISPRIMING_TH: per-primer penalty weight of the template mispriming Tm (thermodynamic mode, Primer3 temp_cutoff rule; default 0).")] double? wt_template_mispriming_th = null,
+        [Description("PRIMER_PAIR_WT_TEMPLATE_MISPRIMING: pair penalty weight of the pair template mispriming score (alignment mode; default 0).")] double? pair_wt_template_mispriming = null,
+        [Description("PRIMER_PAIR_WT_TEMPLATE_MISPRIMING_TH: pair penalty weight of the pair template mispriming value (thermodynamic mode; default 0).")] double? pair_wt_template_mispriming_th = null)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -78,6 +87,8 @@ public class MolToolsTools
         parameters = ApplyPrimerEndChecks(parameters, gc_clamp, max_end_gc, max_end_stability);
         parameters = ApplyMisprimingLibrary(parameters, mispriming_library, max_library_mispriming,
             wt_library_mispriming, lib_ambiguity_codes_consensus);
+        parameters = ApplyTemplateMispriming(parameters, thermodynamic_template_alignment, max_template_mispriming,
+            max_template_mispriming_th, wt_template_mispriming, wt_template_mispriming_th);
         var internalOligo = new ProbeDesigner.Primer3ProbeSettings(
             MonovalentMillimolar: internal_salt_monovalent ?? PrimerDesigner.Primer3InternalMonovalentMillimolar,
             DivalentMillimolar: internal_salt_divalent ?? PrimerDesigner.Primer3InternalDivalentMillimolar,
@@ -102,7 +113,14 @@ public class MolToolsTools
             MinLeftThreePrimeDistance = min_left_three_prime_distance ?? min_three_prime_distance ?? -1,
             MinRightThreePrimeDistance = min_right_three_prime_distance ?? min_three_prime_distance ?? -1,
             MaxLibraryMispriming = pair_max_library_mispriming ?? PrimerDesigner.Primer3PairMaxLibraryMispriming,
-            Weights = new Primer3PairWeights { LibraryMispriming = pair_wt_library_mispriming ?? 0.0 },
+            MaxTemplateMispriming = pair_max_template_mispriming ?? PrimerDesigner.Primer3UndefinedTemplateMispriming,
+            MaxTemplateMisprimingTh = pair_max_template_mispriming_th ?? PrimerDesigner.Primer3UndefinedTemplateMispriming,
+            Weights = new Primer3PairWeights
+            {
+                LibraryMispriming = pair_wt_library_mispriming ?? 0.0,
+                TemplateMispriming = pair_wt_template_mispriming ?? 0.0,
+                TemplateMisprimingTh = pair_wt_template_mispriming_th ?? 0.0,
+            },
         };
         if (product_size_range is not null)
             options = options with { ProductSizeRanges = ParseProductSizeRanges(product_size_range) };
@@ -113,7 +131,31 @@ public class MolToolsTools
         return new DesignPrimersResult(
             best.Forward, best.Reverse, best.IsValid, best.Message, best.ProductSize,
             best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs,
-            best.ComplAny, best.ComplEnd, best.LibraryMispriming, best.LibraryMisprimingName);
+            best.ComplAny, best.ComplEnd, best.LibraryMispriming, best.LibraryMisprimingName, best.TemplateMispriming);
+    }
+
+    // Overlays the optional Primer3 template-mispriming settings (PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT,
+    // PRIMER_MAX_TEMPLATE_MISPRIMING[_TH], PRIMER_WT_TEMPLATE_MISPRIMING[_TH]); the library validates them.
+    private static PrimerParameters? ApplyTemplateMispriming(PrimerParameters? parameters, bool? thermodynamic,
+        double? maxTemplate, double? maxTemplateTh, double? wtTemplate, double? wtTemplateTh)
+    {
+        if (thermodynamic is null && maxTemplate is null && maxTemplateTh is null && wtTemplate is null && wtTemplateTh is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            ThermodynamicTemplateAlignment = thermodynamic ?? p.ThermodynamicTemplateAlignment,
+            MaxTemplateMispriming = maxTemplate ?? p.MaxTemplateMispriming,
+            MaxTemplateMisprimingTh = maxTemplateTh ?? p.MaxTemplateMisprimingTh,
+            PenaltyWeights = wtTemplate is null && wtTemplateTh is null
+                ? p.PenaltyWeights
+                : w with
+                {
+                    TemplateMispriming = wtTemplate ?? w.TemplateMispriming,
+                    TemplateMisprimingTh = wtTemplateTh ?? w.TemplateMisprimingTh,
+                },
+        };
     }
 
     // Overlays the optional Primer3 mispriming library (PRIMER_MISPRIMING_LIBRARY as primer3-py's name → sequence

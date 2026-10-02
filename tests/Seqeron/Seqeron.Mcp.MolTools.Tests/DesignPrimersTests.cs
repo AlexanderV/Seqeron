@@ -253,6 +253,45 @@ public class DesignPrimersTests
     }
 
     [Test]
+    public void DesignPrimers_TemplateMispriming_MatchesPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [100, 20]) on a repetitive template:
+        // PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT 0, PRIMER_MAX_TEMPLATE_MISPRIMING 9, PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING 16,
+        // PRIMER_WT_TEMPLATE_MISPRIMING 0.5, PRIMER_PAIR_WT_TEMPLATE_MISPRIMING 0.2 → PRIMER_LEFT_0 [59,21], PRIMER_RIGHT_0
+        // [237,20], PRIMER_PAIR_0_PENALTY 10.14045393659626, LEFT/RIGHT/PAIR_0_TEMPLATE_MISPRIMING 6 / 4 / 10;
+        // PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT 1, PRIMER_MAX_TEMPLATE_MISPRIMING_TH 45, PRIMER_WT_TEMPLATE_MISPRIMING_TH 0.5,
+        // PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING_TH 0, PRIMER_PAIR_WT_TEMPLATE_MISPRIMING_TH 0.2 → [58,20] / [208,20],
+        // PRIMER_PAIR_0_PENALTY 1.1607262752978076, PRIMER_PAIR_0_TEMPLATE_MISPRIMING_TH 29.881724966610534.
+        const string t = "AGACTTTCAATGTCAAACCAATCTACCCCCTTCCGTATTATTTGTTACCAATTCTCATTGTGTTTCGGAACTTGCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAATCTACCCCCTTCCGAAACACAATGAGAATTGGTAACAAACAGCGCAGCGGCAGATCAAGCAGGAGGCGGAATGTAAACA";
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters;
+        var align = MolToolsTools.design_primers(t, 100, 120,
+            p3 with { StructureScreen = Seqeron.Genomics.MolTools.PrimerStructureScreen.Primer3Alignment },
+            max_tm_difference: 100, num_return: 5, max_template_mispriming: 9, pair_max_template_mispriming: 16,
+            wt_template_mispriming: 0.5, pair_wt_template_mispriming: 0.2);
+        var thermo = MolToolsTools.design_primers(t, 100, 120, p3, max_tm_difference: 100, num_return: 5,
+            thermodynamic_template_alignment: true, max_template_mispriming_th: 45, wt_template_mispriming_th: 0.5,
+            pair_max_template_mispriming_th: 0, pair_wt_template_mispriming_th: 0.2);
+        var none = MolToolsTools.design_primers(t, 100, 120, p3, max_tm_difference: 100);
+        Assert.Multiple(() =>
+        {
+            Assert.That(none.Forward!.Position, Is.EqualTo(16));
+            Assert.That(none.TemplateMispriming, Is.Null);
+            Assert.That(align.Forward!.Position, Is.EqualTo(59));
+            Assert.That(align.Forward.Length, Is.EqualTo(21));
+            Assert.That(align.Reverse!.Position + align.Reverse.Length - 1, Is.EqualTo(237));
+            Assert.That(align.PairPenalty!.Value, Is.EqualTo(10.14045393659626).Within(1e-9));
+            Assert.That(align.Forward.TemplateMispriming, Is.EqualTo(6.0));
+            Assert.That(align.Reverse.TemplateMispriming, Is.EqualTo(4.0));
+            Assert.That(align.TemplateMispriming, Is.EqualTo(10.0));
+            Assert.That(align.Pairs, Has.Count.EqualTo(5));
+            Assert.That(thermo.Forward!.Position, Is.EqualTo(58));
+            Assert.That(thermo.Reverse!.Position + thermo.Reverse.Length - 1, Is.EqualTo(208));
+            Assert.That(thermo.PairPenalty!.Value, Is.EqualTo(1.1607262752978076).Within(1e-9));
+            Assert.That(thermo.TemplateMispriming!.Value, Is.EqualTo(29.881724966610534).Within(1e-9));
+        });
+    }
+
+    [Test]
     public void DesignPrimers_MisprimingLibrary_MatchesPrimer3()
     {
         // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [100, 30], PRIMER_PAIR_MAX_DIFF_TM 100, misprime_lib = lib):

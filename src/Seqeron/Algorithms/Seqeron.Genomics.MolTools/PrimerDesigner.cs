@@ -232,6 +232,11 @@ public static partial class PrimerDesigner
         // PRIMER_MISPRIMING_LIBRARY (null when absent / empty) and each candidate's repeat_sim scores.
         private readonly PrimerMisprimingLibrary? _library;
         private readonly Dictionary<PrimerCandidate, LibraryMispriming> _libraryByCandidate = new(ReferenceEqualityComparer.Instance);
+        // Template mispriming (null when Primer3 never computes it: no limit / weight set in the active mode).
+        private readonly TemplateContext? _template;
+        private readonly bool _needPairTemplate;
+        private readonly Dictionary<PrimerCandidate, TemplateMisprimingScore> _templateByCandidate = new(ReferenceEqualityComparer.Instance);
+        private bool _sawTemplate;
 
         public PrimerPairSearch(DnaSequence template, int targetStart, int targetEnd,
             PrimerParameters param, PrimerPairOptions opt)
@@ -249,6 +254,14 @@ public static partial class PrimerDesigner
             _w = opt.Weights ?? throw new ArgumentException("Pair weights cannot be null.", nameof(opt));
             _library = param.ActiveLibrary;
             ValidateOptions(n);
+            // _pr_need_pair_template_mispriming[_thermod] / _pr_need_template_mispriming[_thermod].
+            bool thermoTemplate = param.ThermodynamicTemplateAlignment;
+            _needPairTemplate = thermoTemplate
+                ? opt.MaxTemplateMisprimingTh >= 0 || _w.TemplateMisprimingTh > 0
+                : opt.MaxTemplateMispriming >= 0 || _w.TemplateMispriming > 0;
+            if (_needPairTemplate || param.ActiveMaxTemplateMispriming >= 0 || param.ActiveTemplateMisprimingWeight > 0)
+                _template = new TemplateContext(seq, thermoTemplate, param.EffectiveMonovalentMillimolar,
+                    param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar, param.EffectiveDnaConcentrationNanomolar);
             _productMonovalentEq = Primer3MonovalentEquivalent(param.EffectiveMonovalentMillimolar,
                 param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar);
             (_incStart, _incEnd) = opt.IncludedRegion is { } inc ? (inc.Start, inc.Start + inc.Length) : (0, n);
@@ -272,11 +285,12 @@ public static partial class PrimerDesigner
             {
                 for (int len = param.MinLength; len <= param.MaxLength && start + len <= targetStart; len++)
                 {
-                    var (candidate, tm, lib) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template);
                     if (candidate.IsValid)
                     {
                         _fwd.Add((candidate, tm));
                         if (lib is not null) _libraryByCandidate[candidate] = lib;
+                        if (tmp is { } t) _templateByCandidate[candidate] = t;
                     }
                 }
             }
@@ -290,11 +304,12 @@ public static partial class PrimerDesigner
                 {
                     int start = end - len;
                     var revComp = DnaSequence.GetReverseComplementString(seq.Substring(start, len));
-                    var (candidate, tm, lib) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template);
                     if (candidate.IsValid)
                     {
                         _rev.Add((candidate, tm));
                         if (lib is not null) _libraryByCandidate[candidate] = lib;
+                        if (tmp is { } t) _templateByCandidate[candidate] = t;
                     }
                 }
             }
@@ -365,8 +380,12 @@ public static partial class PrimerDesigner
                 throw new ArgumentException("Value too large at tag PRIMER_PAIR_MAX_LIBRARY_MISPRIMING (Primer3 _pr_data_control).");
             if (_w.LibraryMispriming != 0 && _library is null)
                 throw new ArgumentException("Mispriming score is part of objective function, but mispriming library is not defined (Primer3 _pr_data_control).");
+            if (double.IsNaN(o.MaxTemplateMispriming) || double.IsNaN(o.MaxTemplateMisprimingTh)
+                || (o.MaxTemplateMispriming > short.MaxValue && !_param.ThermodynamicTemplateAlignment))
+                throw new ArgumentException("Value too large at tag PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING (Primer3 _pr_data_control).");
             if (_w.PrimerPenalty < 0 || _w.InternalOligoPenalty < 0 || _w.DiffTm < 0 || _w.ComplAnyTh < 0 || _w.ComplEndTh < 0
                 || _w.ComplAny < 0 || _w.ComplEnd < 0 || _w.LibraryMispriming < 0
+                || !(_w.TemplateMispriming >= 0) || !(_w.TemplateMisprimingTh >= 0)
                 || _w.ProductTmLt < 0 || _w.ProductTmGt < 0 || _w.ProductSizeLt < 0 || _w.ProductSizeGt < 0)
                 throw new ArgumentException("Pair weights must be ≥ 0.");
             if (o.IncludedRegion is { } inc)
@@ -473,7 +492,7 @@ public static partial class PrimerDesigner
         private sealed record PairEval(
             int Fi, int Ri, double Penalty, int ProductSize, double ProductTm,
             double? ComplAny, double? ComplEnd, ProbeDesigner.Primer3Probe? Internal,
-            int? LibraryScore = null, string? LibraryName = null);
+            int? LibraryScore = null, string? LibraryName = null, double? TemplateScore = null);
 
         public List<PrimerPairResult> Run(int numReturn)
         {
@@ -628,6 +647,29 @@ public static partial class PrimerDesigner
                 libScore = score;
             }
 
+            // Pair template mispriming (end of characterize_pair): max(left.T + right.T_r, left.T_r + right.T); fails
+            // above PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING when that is ≥ 0, or (thermodynamic mode) above
+            // PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING_TH when that is non-zero.
+            double? templateScore = null;
+            if (_needPairTemplate)
+            {
+                if (!_templateByCandidate.TryGetValue(f.C, out var lt) || !_templateByCandidate.TryGetValue(r.C, out var rt))
+                    throw new InvalidOperationException(
+                        "Primer3 PR_ASSERT(template_mispriming != ALIGN_SCORE_UNDEF): with a mispriming library scored at pick time (PRIMER_WT_LIBRARY_MISPRIMING ≠ 0) Primer3 never scores template mispriming for the pair unless PRIMER_WT_TEMPLATE_MISPRIMING[_TH] ≠ 0.");
+                double v = lt.SameStrand + rt.OtherStrand;
+                if (lt.OtherStrand + rt.SameStrand > v)
+                    v = lt.OtherStrand + rt.SameStrand;
+                bool templateFails = _param.ThermodynamicTemplateAlignment
+                    ? _opt.MaxTemplateMisprimingTh != 0 && v > _opt.MaxTemplateMisprimingTh
+                    : _opt.MaxTemplateMispriming >= 0 && v > _opt.MaxTemplateMispriming;
+                if (templateFails)
+                {
+                    _sawTemplate = true;
+                    return null;
+                }
+                templateScore = v;
+            }
+
             ProbeDesigner.Primer3Probe? intl = null;
             if (_intl is not null)
             {
@@ -639,8 +681,8 @@ public static partial class PrimerDesigner
                 }
             }
 
-            double penalty = ObjectiveFunction(f, r, diffTm, any, end, productTm, product, intl, libScore ?? 0);
-            return new PairEval(fi, ri, penalty, product, productTm, any, end, intl, libScore, libName);
+            double penalty = ObjectiveFunction(f, r, diffTm, any, end, productTm, product, intl, libScore ?? 0, templateScore ?? 0);
+            return new PairEval(fi, ri, penalty, product, productTm, any, end, intl, libScore, libName, templateScore);
         }
 
         // The candidate's repeat_sim scores (computed at pick time when weighted, otherwise now).
@@ -660,7 +702,7 @@ public static partial class PrimerDesigner
         private double ObjectiveFunction(
             (PrimerCandidate C, double Tm) f, (PrimerCandidate C, double Tm) r, double diffTm,
             double? complAny, double? complEnd, double productTm, int product, ProbeDesigner.Primer3Probe? intl,
-            int libraryScore)
+            int libraryScore, double templateScore)
         {
             double sum = 0.0;
             double lowerTm = r.Tm;
@@ -697,6 +739,13 @@ public static partial class PrimerDesigner
                 sum += _w.ProductSizeGt * (product - _opt.ProductOptSize.Value);
             if (_w.LibraryMispriming != 0)
                 sum += _w.LibraryMispriming * libraryScore;
+            if (!_param.ThermodynamicTemplateAlignment)
+            {
+                if (_w.TemplateMispriming != 0)
+                    sum += _w.TemplateMispriming * templateScore;
+            }
+            else
+                sum += ThermodynamicStructurePenalty(_w.TemplateMisprimingTh, lowerTm, templateScore);
             return sum;
         }
 
@@ -740,6 +789,15 @@ public static partial class PrimerDesigner
                 ok = false;
                 _sawLibrary = true;
             }
+            // ... and, when its library scores were not computed at pick time (repeat_sim.score == NULL: no library, or
+            // PRIMER_WT_LIBRARY_MISPRIMING = 0), against the template (oligo_template_mispriming).
+            if (ok && _template is not null
+                && (_library is null || EffectivePenaltyWeights(_param).LibraryMispriming == 0)
+                && TemplateMisprimingExceeds(TemplateOf(list[i].C), _param))
+            {
+                ok = false;
+                _sawTemplate = true;
+            }
             cache[i] = ok;
             return ok;
         }
@@ -754,10 +812,21 @@ public static partial class PrimerDesigner
             return v;
         }
 
+        // The candidate's template mispriming scores (computed at pick time when weighted, otherwise now).
+        private TemplateMisprimingScore TemplateOf(PrimerCandidate c)
+        {
+            if (!_templateByCandidate.TryGetValue(c, out var t))
+            {
+                t = _template!.Score(c.Sequence, c.Position, c.IsForward);
+                _templateByCandidate[c] = t;
+            }
+            return t;
+        }
+
         private PrimerPairResult ToResult(PairEval e)
         {
-            var forward = Reevaluate(_fwd[e.Fi].C);
-            var reverse = Reevaluate(_rev[e.Ri].C);
+            var forward = WithTemplate(Reevaluate(_fwd[e.Fi].C), _fwd[e.Fi].C);
+            var reverse = WithTemplate(Reevaluate(_rev[e.Ri].C), _rev[e.Ri].C);
             bool alignment = _param.StructureScreen == PrimerStructureScreen.Primer3Alignment;
             return new PrimerPairResult(
                 Forward: forward,
@@ -775,12 +844,16 @@ public static partial class PrimerDesigner
                 ComplEnd = alignment ? e.ComplEnd : null,
                 LibraryMispriming = e.LibraryScore,
                 LibraryMisprimingName = e.LibraryName,
+                TemplateMispriming = e.TemplateScore,
             };
         }
 
+        private PrimerCandidate WithTemplate(PrimerCandidate full, PrimerCandidate picked) =>
+            _templateByCandidate.TryGetValue(picked, out var t) ? full with { TemplateMispriming = t.Max } : full;
+
         // Full evaluation (including the structure values) of a chosen primer.
         private PrimerCandidate Reevaluate(PrimerCandidate c) =>
-            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param).Candidate;
+            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template).Candidate;
 
         // Result when no pair qualifies: the individually lowest-penalty primers that pass their own
         // (structure) constraints, with the violated pair constraint.
@@ -807,10 +880,11 @@ public static partial class PrimerDesigner
             string reason;
             if (!_sawCharacterized)
                 reason = noProduct;
-            else if (_sawProductTm || _sawInternal || _sawLibrary)
+            else if (_sawProductTm || _sawInternal || _sawLibrary || _sawTemplate)
             {
                 var parts = new List<string>();
                 if (_sawLibrary) parts.Add("the mispriming-library limits");
+                if (_sawTemplate) parts.Add("the template-mispriming limits");
                 if (_sawProductTm) parts.Add("product Tm limits");
                 if (_sawTm) parts.Add($"the {maxDiff:0.##}°C Tm-difference limit");
                 if (_sawDimer) parts.Add("primer-dimer avoidance");
@@ -885,12 +959,15 @@ public static partial class PrimerDesigner
     // Evaluates a candidate and also returns its unrounded Tm (Primer3 compares unrounded Tm values).
     // With evaluateStructure = false the secondary-structure screen is skipped (DesignPrimers runs it
     // lazily, like Primer3's characterize_pair, and re-evaluates the chosen primers in full).
-    private static (PrimerCandidate Candidate, double Tm, LibraryMispriming? Library) EvaluatePrimerCore(
+    // template (pair search only): Primer3 scores template mispriming at pick time when the active template weight is
+    // non-zero (calc_and_check_oligo_features), for an oligo that passed every earlier check.
+    private static (PrimerCandidate Candidate, double Tm, LibraryMispriming? Library, TemplateMisprimingScore? Template) EvaluatePrimerCore(
         string sequence,
         int position,
         bool isForward,
         PrimerParameters param,
-        bool evaluateStructure = true)
+        bool evaluateStructure = true,
+        TemplateContext? template = null)
     {
         var seq = sequence.ToUpperInvariant();
 
@@ -979,6 +1056,18 @@ public static partial class PrimerDesigner
                     $"Library mispriming score {library.Scores.Max():0.00} exceeds {param.EffectiveMaxLibraryMispriming:0.00} (Primer3 PRIMER_MAX_LIBRARY_MISPRIMING)"));
         }
 
+        TemplateMisprimingScore? templateScore = null;
+        if (template is not null && issues.Count == 0 && param.ActiveTemplateMisprimingWeight != 0)
+        {
+            templateScore = template.Score(seq, position, isForward);
+            if (TemplateMisprimingExceeds(templateScore.Value, param))
+                issues.Add(TemplateMisprimingIssue(templateScore.Value, param));
+        }
+        // Without a template (EvaluatePrimer) the template mispriming score is undefined: no template term
+        // (callers combine CalculateTemplateMispriming with CalculatePrimer3Penalty themselves).
+        if (templateScore is null)
+            weights = weights with { TemplateMispriming = 0.0, TemplateMisprimingTh = 0.0 };
+
         bool isValid = issues.Count == 0;
 
         // Informational heuristic score and the Primer3 ranking penalty.
@@ -995,6 +1084,7 @@ public static partial class PrimerDesigner
                 EndStability: double.IsNaN(stability3Prime) ? 0.0 : -stability3Prime)
             {
                 LibraryMispriming = library?.MaxScore ?? 0.0,
+                TemplateMispriming = templateScore?.Max ?? 0.0,
             },
             weights,
             new Primer3Optima(param.OptimalTm, param.OptimalLength, param.EffectiveOptimalGcPercent));
@@ -1022,8 +1112,9 @@ public static partial class PrimerDesigner
             SelfEnd = structure.SelfEnd,
             LibraryMispriming = library?.MaxScore,
             LibraryMisprimingName = library?.Name,
+            TemplateMispriming = templateScore?.Max,
         };
-        return (candidate, tm, library);
+        return (candidate, tm, library, templateScore);
     }
 
     // Primer3 secondary-structure values of one primer: ntthal Tm values (thermodynamic screen) or dpal
@@ -1035,7 +1126,19 @@ public static partial class PrimerDesigner
         (param.PenaltyWeights ?? DefaultPrimer3Weights) with
         {
             ThermodynamicOligoAlignment = param.StructureScreen != PrimerStructureScreen.Primer3Alignment,
+            ThermodynamicTemplateAlignment = param.ThermodynamicTemplateAlignment,
         };
+
+    // primer_mispriming_to_template[_thermod]: max_template_mispriming[_th] ≥ 0 and the max score strictly greater.
+    private static bool TemplateMisprimingExceeds(TemplateMisprimingScore score, PrimerParameters param)
+    {
+        double max = param.ActiveMaxTemplateMispriming;
+        return max >= 0 && score.Max > max;
+    }
+
+    private static string TemplateMisprimingIssue(TemplateMisprimingScore score, PrimerParameters param) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"Template mispriming score {score.Max:0.00} exceeds {param.ActiveMaxTemplateMispriming:0.00} (Primer3 PRIMER_MAX_TEMPLATE_MISPRIMING{(param.ThermodynamicTemplateAlignment ? "_TH" : "")})");
 
     private static bool UsesStructureTerms(Primer3PenaltyWeights w, PrimerStructureScreen screen) => screen switch
     {
@@ -3751,8 +3854,10 @@ public static partial class PrimerDesigner
     /// <para>Not modelled (all zero under Primer3 defaults): the annealing-temperature
     /// <c>bound</c> term (only when PRIMER_ANNEALING_TEMP &gt; 0), <c>failure_rate</c>,
     /// <c>pos_penalty</c> (needs
-    /// PRIMER_INSIDE/OUTSIDE_PENALTY), <c>seq_quality</c> (needs base qualities) and
-    /// <c>template_mispriming</c>; callers needing them add weight·value themselves.</para>
+    /// PRIMER_INSIDE/OUTSIDE_PENALTY) and <c>seq_quality</c> (needs base qualities); callers needing them add
+    /// weight·value themselves. The template mispriming terms (PRIMER_WT_TEMPLATE_MISPRIMING / _TH,
+    /// <see cref="Primer3PenaltyWeights.TemplateMispriming"/> / <see cref="Primer3PenaltyWeights.TemplateMisprimingTh"/>)
+    /// use <see cref="Primer3PenaltyInputs.TemplateMispriming"/>.</para>
     /// </summary>
     /// <param name="inputs">Measured primer properties (Tm in °C, length in bases, GC in
     /// percent 0–100, self/3' local-alignment scores, count of N bases).</param>
@@ -3816,6 +3921,16 @@ public static partial class PrimerDesigner
         // 3'-end stability term (end_stability): weight · ΔG magnitude (kcal/mol, as Primer3 reports it).
         if (w.EndStability != 0)
             sum += w.EndStability * inputs.EndStability;
+
+        // Template mispriming terms (after seq_quality, which is not modelled): alignment mode linear
+        // (weights.template_mispriming), thermodynamic mode the temp_cutoff rule (weights.template_mispriming_th).
+        if (!w.ThermodynamicTemplateAlignment)
+        {
+            if (w.TemplateMispriming != 0)
+                sum += w.TemplateMispriming * inputs.TemplateMispriming;
+        }
+        else
+            sum += ThermodynamicStructurePenalty(w.TemplateMisprimingTh, inputs.Tm, inputs.TemplateMispriming);
 
         return sum;
     }
@@ -4024,6 +4139,45 @@ public readonly record struct PrimerParameters(
     /// </summary>
     public bool? LibraryAmbiguityCodesConsensus { get; init; }
 
+    /// <summary>
+    /// PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT: false (Primer3's default 0) = template mispriming is scored with dpal
+    /// (<see cref="MaxTemplateMispriming"/>, PRIMER_WT_TEMPLATE_MISPRIMING); true (1) = with the ntthal THAL_END1 Tm
+    /// (<see cref="MaxTemplateMisprimingTh"/>, PRIMER_WT_TEMPLATE_MISPRIMING_TH; template ≤ 10000 nt). Independent of
+    /// <see cref="StructureScreen"/> (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT). See
+    /// <see cref="PrimerDesigner.CalculateTemplateMispriming"/>.
+    /// </summary>
+    public bool ThermodynamicTemplateAlignment { get; init; }
+
+    /// <summary>
+    /// PRIMER_MAX_TEMPLATE_MISPRIMING (alignment mode): in <see cref="PrimerDesigner.DesignPrimers"/> /
+    /// <see cref="PrimerDesigner.DesignPrimerPairs"/> a primer whose template mispriming score
+    /// (<see cref="PrimerDesigner.CalculateTemplateMispriming"/>, <see cref="PrimerCandidate.TemplateMispriming"/>) is
+    /// strictly greater fails. Null = Primer3's default <see cref="PrimerDesigner.Primer3UndefinedTemplateMispriming"/>
+    /// (−100); a negative value is not checked. Must not exceed 32767 (Primer3 <c>_pr_data_control</c>).
+    /// </summary>
+    public double? MaxTemplateMispriming { get; init; }
+
+    /// <summary>
+    /// PRIMER_MAX_TEMPLATE_MISPRIMING_TH (thermodynamic mode, °C): as <see cref="MaxTemplateMispriming"/> for the ntthal
+    /// template-mispriming Tm; null = −100 (not checked).
+    /// </summary>
+    public double? MaxTemplateMisprimingTh { get; init; }
+
+    /// <summary>Effective PRIMER_MAX_TEMPLATE_MISPRIMING.</summary>
+    public double EffectiveMaxTemplateMispriming => MaxTemplateMispriming ?? PrimerDesigner.Primer3UndefinedTemplateMispriming;
+
+    /// <summary>Effective PRIMER_MAX_TEMPLATE_MISPRIMING_TH.</summary>
+    public double EffectiveMaxTemplateMisprimingTh => MaxTemplateMisprimingTh ?? PrimerDesigner.Primer3UndefinedTemplateMispriming;
+
+    // The per-primer limit and weight of the active template alignment mode.
+    internal double ActiveMaxTemplateMispriming =>
+        ThermodynamicTemplateAlignment ? EffectiveMaxTemplateMisprimingTh : EffectiveMaxTemplateMispriming;
+
+    internal double ActiveTemplateMisprimingWeight =>
+        ThermodynamicTemplateAlignment
+            ? PenaltyWeights?.TemplateMisprimingTh ?? 0.0
+            : PenaltyWeights?.TemplateMispriming ?? 0.0;
+
     /// <summary>Effective PRIMER_MAX_LIBRARY_MISPRIMING.</summary>
     public double EffectiveMaxLibraryMispriming => MaxLibraryMispriming ?? PrimerDesigner.Primer3MaxLibraryMispriming;
 
@@ -4082,6 +4236,14 @@ public readonly record struct PrimerParameters(
             throw new ArgumentOutOfRangeException(paramName, "Value too large at tag PRIMER_MAX_LIBRARY_MISPRIMING.");
         if ((PenaltyWeights?.LibraryMispriming ?? 0) != 0 && ActiveLibrary is null)
             throw new ArgumentException("Mispriming score is part of objective function, but mispriming library is not defined (Primer3 _pr_data_control).", paramName);
+        // _pr_data_control: PRIMER_MAX_TEMPLATE_MISPRIMING > SHRT_MAX in alignment mode.
+        if (double.IsNaN(EffectiveMaxTemplateMispriming) || double.IsNaN(EffectiveMaxTemplateMisprimingTh)
+            || (EffectiveMaxTemplateMispriming > short.MaxValue && !ThermodynamicTemplateAlignment))
+            throw new ArgumentOutOfRangeException(paramName, "Value too large at tag PRIMER_MAX_TEMPLATE_MISPRIMING.");
+        // A negative template weight makes Primer3 skip the score (_pr_need_template_mispriming: weight > 0) but still
+        // add the term (p_obj_fn: weight ≠ 0), which fails its PR_ASSERT.
+        if (!((PenaltyWeights?.TemplateMispriming ?? 0) >= 0) || !((PenaltyWeights?.TemplateMisprimingTh ?? 0) >= 0))
+            throw new ArgumentOutOfRangeException(paramName, "PRIMER_WT_TEMPLATE_MISPRIMING[_TH] must be ≥ 0.");
     }
 }
 
@@ -4175,6 +4337,14 @@ public sealed record PrimerCandidate(
 
     /// <summary>The library entry named in PRIMER_LEFT/RIGHT_n_LIBRARY_MISPRIMING (with <see cref="LibraryMispriming"/>).</summary>
     public string? LibraryMisprimingName { get; init; }
+
+    /// <summary>
+    /// Primer3 PRIMER_LEFT/RIGHT_n_TEMPLATE_MISPRIMING (alignment mode) or _TEMPLATE_MISPRIMING_TH (thermodynamic mode,
+    /// °C) — <see cref="TemplateMisprimingScore.Max"/> of <see cref="PrimerDesigner.CalculateTemplateMispriming"/> —
+    /// for a primer of a pair returned by <see cref="PrimerDesigner.DesignPrimers"/> / <see cref="PrimerDesigner.DesignPrimerPairs"/>
+    /// when Primer3 computes it (a template-mispriming limit or weight is set); otherwise <c>null</c>.
+    /// </summary>
+    public double? TemplateMispriming { get; init; }
 }
 
 /// <summary>
@@ -4209,6 +4379,12 @@ public readonly record struct Primer3PenaltyInputs(
     /// <see cref="PrimerDesigner.CalculateLibraryMispriming"/>); 0 without a mispriming library.
     /// </summary>
     public double LibraryMispriming { get; init; }
+
+    /// <summary>
+    /// Template mispriming score (Primer3 <c>oligo_max_template_mispriming</c>, PRIMER_LEFT/RIGHT_n_TEMPLATE_MISPRIMING[_TH];
+    /// <see cref="PrimerDesigner.CalculateTemplateMispriming"/>); 0 when not computed.
+    /// </summary>
+    public double TemplateMispriming { get; init; }
 }
 
 /// <summary>
@@ -4257,6 +4433,26 @@ public readonly record struct Primer3PenaltyWeights(
     /// <see cref="PrimerDesigner.DesignPrimers"/> (Primer3 <c>_pr_data_control</c>).
     /// </summary>
     public double LibraryMispriming { get; init; }
+
+    /// <summary>
+    /// PRIMER_WT_TEMPLATE_MISPRIMING (Primer3 <c>weights.template_mispriming</c>, default 0): × the template mispriming
+    /// score (<see cref="Primer3PenaltyInputs.TemplateMispriming"/>) when <see cref="ThermodynamicTemplateAlignment"/> is false.
+    /// </summary>
+    public double TemplateMispriming { get; init; }
+
+    /// <summary>
+    /// PRIMER_WT_TEMPLATE_MISPRIMING_TH (<c>weights.template_mispriming_th</c>, default 0): thermodynamic template term
+    /// (when <see cref="ThermodynamicTemplateAlignment"/> is true) with the 5 °C <c>temp_cutoff</c> rule of the other
+    /// thermodynamic terms: s ≥ Tm − 5 → w·(s − (Tm − 6)), else w / (Tm − 4 − s).
+    /// </summary>
+    public double TemplateMisprimingTh { get; init; }
+
+    /// <summary>
+    /// PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT for the template terms (default false = 0, Primer3's default);
+    /// <see cref="PrimerDesigner.EvaluatePrimer"/> / <see cref="PrimerDesigner.DesignPrimers"/> take it from
+    /// <see cref="PrimerParameters.ThermodynamicTemplateAlignment"/>.
+    /// </summary>
+    public bool ThermodynamicTemplateAlignment { get; init; }
 }
 
 /// <summary>
@@ -4318,6 +4514,13 @@ public sealed record PrimerPairResult(
 
     /// <summary>The library entry named in PRIMER_PAIR_k_LIBRARY_MISPRIMING (with <see cref="LibraryMispriming"/>).</summary>
     public string? LibraryMisprimingName { get; init; }
+
+    /// <summary>
+    /// Primer3 PRIMER_PAIR_k_TEMPLATE_MISPRIMING (alignment mode) or _TEMPLATE_MISPRIMING_TH (thermodynamic mode, °C) of a
+    /// valid pair — max(left same-strand + right other-strand, left other-strand + right same-strand)
+    /// (<see cref="TemplateMisprimingScore"/>) — when a pair template-mispriming limit or weight is set; otherwise <c>null</c>.
+    /// </summary>
+    public double? TemplateMispriming { get; init; }
 }
 
 /// <summary>A Primer3 product-size range (PRIMER_PRODUCT_SIZE_RANGE element), inclusive, in bp.</summary>
@@ -4362,6 +4565,18 @@ public sealed record Primer3PairWeights(
     /// Primer3 default 0). Non-zero requires <see cref="PrimerParameters.MisprimingLibrary"/>.
     /// </summary>
     public double LibraryMispriming { get; init; }
+
+    /// <summary>
+    /// PRIMER_PAIR_WT_TEMPLATE_MISPRIMING (× PRIMER_PAIR_k_TEMPLATE_MISPRIMING, <see cref="PrimerPairResult.TemplateMispriming"/>;
+    /// alignment mode, <see cref="PrimerParameters.ThermodynamicTemplateAlignment"/> false; Primer3 default 0).
+    /// </summary>
+    public double TemplateMispriming { get; init; }
+
+    /// <summary>
+    /// PRIMER_PAIR_WT_TEMPLATE_MISPRIMING_TH (thermodynamic mode; Primer3 default 0): the 5 °C <c>temp_cutoff</c> rule
+    /// relative to the lower primer Tm, as for <see cref="ComplAnyTh"/>.
+    /// </summary>
+    public double TemplateMisprimingTh { get; init; }
 }
 
 /// <summary>
@@ -4426,6 +4641,21 @@ public sealed record PrimerPairOptions
     /// Under <see cref="PrimerStructureScreen.Primer3Alignment"/> it must not exceed 32767 (Primer3 <c>_pr_data_control</c>).
     /// </summary>
     public double MaxLibraryMispriming { get; init; } = PrimerDesigner.Primer3PairMaxLibraryMispriming;
+
+    /// <summary>
+    /// PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING (alignment mode; default −100 = not checked): a pair whose template mispriming
+    /// score (<see cref="PrimerPairResult.TemplateMispriming"/>) is strictly greater fails; a negative value is not checked.
+    /// Must not exceed 32767 (Primer3 <c>_pr_data_control</c>).
+    /// </summary>
+    public double MaxTemplateMispriming { get; init; } = PrimerDesigner.Primer3UndefinedTemplateMispriming;
+
+    /// <summary>
+    /// PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING_TH (thermodynamic mode, °C; default −100). As in Primer3's
+    /// <c>characterize_pair</c> the pair score is computed when this is ≥ 0 or PRIMER_PAIR_WT_TEMPLATE_MISPRIMING_TH &gt; 0,
+    /// and a pair fails when the limit is non-zero and the score exceeds it — so with the default −100 and a non-zero
+    /// pair weight every pair fails, and 0 means no limit (Primer3 behaviour, reproduced).
+    /// </summary>
+    public double MaxTemplateMisprimingTh { get; init; } = PrimerDesigner.Primer3UndefinedTemplateMispriming;
 
     /// <summary>
     /// PRIMER_PICK_INTERNAL_OLIGO: pick a hybridization (internal) oligo for every pair — the lowest-penalty

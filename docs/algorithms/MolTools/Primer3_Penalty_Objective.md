@@ -199,9 +199,12 @@ the caller (`Primer3PenaltyInputs`), but every value is available from the libra
 **Not implemented:**
 
 - `bound` (only with PRIMER_ANNEALING_TEMP > 0), `failure_rate`, `pos_penalty` (needs
-  PRIMER_INSIDE/OUTSIDE_PENALTY), `seq_quality` and `template_mispriming`; these need data the
-  method does not receive (annealing model, base qualities, target geometry, template alignment) and are
+  PRIMER_INSIDE/OUTSIDE_PENALTY) and `seq_quality`; these need data the
+  method does not receive (annealing model, base qualities, target geometry) and are
   0 under Primer3 defaults; **users should rely on:** adding `weight·value` themselves or Primer3.
+  The `template_mispriming` terms (PRIMER_WT_TEMPLATE_MISPRIMING: linear; PRIMER_WT_TEMPLATE_MISPRIMING_TH with
+  `ThermodynamicTemplateAlignment`: the 5 °C `temp_cutoff` rule) are implemented (audit round 3, A3-4) from
+  `Primer3PenaltyInputs.TemplateMispriming` (`PrimerDesigner.CalculateTemplateMispriming`; PRIMER-DESIGN-001 §2.2 item 8).
 
 **Implemented elsewhere:** the pair-level objective (Primer3 `obj_fn`: PRIMER_PAIR_WT_PR_PENALTY,
 _IO_PENALTY, _DIFF_TM, _COMPL_ANY_TH, _COMPL_END_TH, _PRODUCT_TM_LT/GT, _PRODUCT_SIZE_LT/GT with
@@ -229,7 +232,7 @@ which sums this per-primer penalty for the two primers; verified against primer3
 
 ### 6.2 Limitations
 
-Per-primer only (no pair penalty); the bound, failure-rate, position, sequence-quality and template-mispriming terms are not implemented (they are 0 under Primer3 defaults, so the default objective
+Per-primer only (no pair penalty); the bound, failure-rate, position and sequence-quality terms are not implemented (they are 0 under Primer3 defaults, so the default objective
 is unaffected). self_any/self_end alignment scores
 are caller-supplied (§5.3).
 

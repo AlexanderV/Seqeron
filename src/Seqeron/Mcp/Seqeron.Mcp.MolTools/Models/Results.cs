@@ -32,7 +32,8 @@ public sealed record DesignPrimersResult(
     double? ComplAny = null,
     double? ComplEnd = null,
     double? LibraryMispriming = null,
-    string? LibraryMisprimingName = null);
+    string? LibraryMisprimingName = null,
+    double? TemplateMispriming = null);
 
 // RestrictionAnalyzer result wrappers
 public sealed record EnzymeLookupResult(RestrictionEnzyme? Enzyme);
