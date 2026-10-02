@@ -39,9 +39,13 @@ PCR primer design balances primer length, GC content, melting temperature, repet
 2. **Per-primer penalty** (Primer3 `p_obj_fn`, default weights):
    $penalty = |T_m - OptimalTm| + |length - OptimalLength|$ (`CalculatePrimer3Penalty`); with non-zero
    PRIMER_WT_GC_PERCENT_GT/_LT (`PenaltyWeights.GcGt/GcLt`) the GC terms are taken around
-   `PrimerParameters.OptimalGcPercent` (PRIMER_OPT_GC_PERCENT; null = 50 %, the manual's default — Primer3's code keeps
-   it undefined and rejects GC weights without it). Internal oligo: `Primer3ProbeSettings.OptGcPercent` /
-   `WeightGcPercentGt` / `WeightGcPercentLt` (PRIMER_INTERNAL_OPT_GC_PERCENT / _WT_GC_PERCENT_GT / _LT).
+   `PrimerParameters.OptimalGcPercent` (PRIMER_OPT_GC_PERCENT; null = undefined, as in Primer3's code —
+   `DEFAULT_OPT_GC_PERCENT = PR_UNDEFINED_INT_OPT`; the manual's "50" is not applied). A non-zero GC weight without the
+   optimum is Primer3's `_pr_data_control` error ("Primer GC content is part of objective function while optimum
+   gc_content is not defined", `ArgumentException`). Internal oligo: `Primer3ProbeSettings.OptGcPercent` /
+   `WeightGcPercentGt` / `WeightGcPercentLt` (PRIMER_INTERNAL_OPT_GC_PERCENT / _WT_GC_PERCENT_GT / _LT; "Hyb probe GC
+   content is part of objective function while optimum gc_content is not defined" — checked whether or not an internal
+   oligo is picked).
 3. **Pair constraints** (`characterize_pair` order): product size in the current PRIMER_PRODUCT_SIZE_RANGE
    range (default 100–300 bp; ranges are tried in order, the next only when no further pair fits), product
    Tm within PRIMER_PRODUCT_MIN_TM/MAX_TM (if set), $|T_{m,f} - T_{m,r}| \le$ PRIMER_PAIR_MAX_DIFF_TM
@@ -175,11 +179,20 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    leftmost template base) is masked on the reverse copy, is rejected (`is_lowercase_masked`, "3' end overlaps masked
    sequence"); every primer ≥ 16 nt gets `failure_rate` from its last 16 nt (`PrimerCandidate.MaskFailureRate`), weighted by
    PRIMER_WT_MASK_FAILURE_RATE (`Primer3PenaltyWeights.MaskFailureRate`, default 0) after the size terms of `p_obj_fn`.
-   Internal oligos are checked on the unmasked template (no effect); without PRIMER_MASK_TEMPLATE the failure rate is 0.
+   Internal oligos are not masked (only the lower-case check below applies to them); without PRIMER_MASK_TEMPLATE the
+   failure rate is 0.
    PRIMER_MASK_TEMPLATE without lists throws (primer3-py: "masking template chosen, but path to
    PRIMER_MASK_KMERLIST_PATH not specified"); negative directions or PRIMER_MASK_3P_DIRECTION > 4984 (undefined in
-   masker.c's unsigned counters / buffer) throw `ArgumentOutOfRangeException`. The template is upper case
-   (`DnaSequence`), so Primer3's PRIMER_LOWERCASE_MASKING of user lower-case bases has no counterpart.
+   masker.c's unsigned counters / buffer) throw `ArgumentOutOfRangeException`.
+13. **Lower-case masking** (PRIMER_LOWERCASE_MASKING, `PrimerPairOptions.LowercaseMasking`; `calc_and_check_oligo_features` →
+   `is_lowercase_masked`): with a case-preserving template — the `string` overloads `DesignPrimers(string, …)` /
+   `DesignPrimerPairs(string, …)` (validated as `DnaSequence`, A/C/G/T only) — a left primer or internal oligo whose 3′ base
+   (rightmost template base), or a right primer whose 3′ base (leftmost template base), is a lower-case a/c/g/t of the
+   template as given (`trimmed_orig_seq`) is rejected ("3' end overlaps lower-case masked sequence"); lower case elsewhere
+   in the oligo is accepted. PRIMER_MASK_TEMPLATE implies it (primer3-py sets `lowercase_masking = mask_template`): primers
+   are then checked on the masked copies, which keep the input's lower case (masker.c COND0), internal oligos on the
+   case-preserving template. `DesignProbesPrimer3` has `Primer3ProbeSettings.LowercaseMasking`. A `DnaSequence` template
+   is upper case, so the option has no effect there.
 
 `PrimerCandidate.Score` (100 − 2|len − opt| − 2|Tm − opt| − 0.5|GC − 50| − 5·homopolymer + 5 GC-clamp
 bonus) is reported for information only and does not drive selection.
@@ -276,6 +289,7 @@ Parameter ranges documented in the original file and current source:
 
 - `PrimerDesigner.DesignPrimers(DnaSequence, int, int, PrimerParameters?, PrimerPairOptions?)`: Designs and validates the best primer pair around a target region.
 - `PrimerDesigner.DesignPrimerPairs(DnaSequence, int, int, PrimerParameters?, PrimerPairOptions?)`: PRIMER_NUM_RETURN ranked pairs.
+- `PrimerDesigner.DesignPrimers(string, …)` / `DesignPrimerPairs(string, …)`: the same on a case-preserving template string (PRIMER_LOWERCASE_MASKING, `PrimerPairOptions.LowercaseMasking`).
 - `PrimerDesigner.CalculateProductMeltingTemperaturePrimer3(string, ...)`: Primer3 `long_seq_tm` product Tm.
 - `PrimerDesigner.EvaluatePrimer(string, int, bool, PrimerParameters?)`: Scores a single primer candidate.
 - `PrimerDesigner.CalculateLibraryMispriming(string, bool, PrimerMisprimingLibrary, bool)`: Primer3 library mispriming score of one primer ([PrimerDesigner.MisprimingLibrary.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.MisprimingLibrary.cs)).
@@ -315,6 +329,8 @@ Forward primers are taken directly from the template; reverse primers are revers
 - Sequence quality and PRIMER_PAIR_WT_IO_PENALTY consistency (audit round 3, A3-5 part 2a + A3-23, 2026-10-02): 400 random cases (150–400-bp pair templates with a random 5–50-nt target, 20 % pick_hyb_probe_only lists of 40–160 nt; SEQUENCE_QUALITY uniform or high with low dips in 85 % of cases, occasionally one base short or one value out of range; PRIMER_QUALITY_RANGE_MIN/MAX ∈ {0–100, 0–60, 10–40, 5–93}; random PRIMER_[INTERNAL_]MIN_QUALITY, PRIMER_MIN_END_QUALITY, PRIMER_[INTERNAL_]WT_SEQ_QUAL / _WT_END_QUAL; PRIMER_PICK_INTERNAL_OLIGO 35 %, PRIMER_PAIR_WT_IO_PENALTY ∈ {0, 0.5, 1}; both alignment modes): 394/394 comparable cases identical to primer3-py 2.3.1 `design_primers` (1104 pairs + probes on start + length, PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9 and PRIMER_LEFT/RIGHT/INTERNAL_k_MIN_SEQ_QUALITY; 110 `_pr_data_control` error cases raise `ArgumentException` with Primer3's first message); 6 probe-only cases that set primer-side (p_args) quality settings have no `DesignProbesPrimer3` counterpart. Details: F45 in `docs/Validation/review-2026-09/B07.md`.
 - Template masking (audit round 3, A3-5 part 2b, 2026-10-02): masker.c compiled unchanged (primer3-py 2.3.1 sources) with a driver setting libprimer3's masker parameters: 300/300 random templates (1–12000 nt, i.e. across the 5000-character ring buffer; random lists incl. zero counts, k-mers listed in both orientations; PRIMER_MASK_FAILURE_RATE ∈ {0–0.5}, 5P ∈ {0–20}, 3P ∈ {0–4}) give identical forward / reverse masked copies (535 189 masked bases) and identical failure rates for 6000 primers (2025 non-zero, |Δ| ≤ 1e-15), with the lists given as dictionaries and read back from GenomeTester4 files. primer3-py 2.3.1 `design_primers` with PRIMER_MASK_TEMPLATE on 400 random 150–450-bp templates (per-case GenomeTester4 lists built from template k-mers, 10 % with PRIMER_MASK_TEMPLATE 0, random PRIMER_MASK_FAILURE_RATE / 5P / 3P / PRIMER_WT_MASK_FAILURE_RATE ∈ {0, 0.5–20}, included regions, internal oligos, product ranges, both alignment modes; primers rejected for a masked 3′ end in 227 templates): 400/400 identical — 1370 pairs on left/right start + length, PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY (|Δ| ≤ 1e-9). Details: F45 (part 2b) in `docs/Validation/review-2026-09/B07.md`.
 
+- Undefined GC optimum and lower-case masking (audit round 3, A3-25 + A3-26, 2026-10-02): 600 random cases (150–450-bp templates, 85 % with random lower-case runs and isolated lower-case bases; PRIMER_LOWERCASE_MASKING ∈ {unset, 0, 1}; 20 % of the pair cases with PRIMER_MASK_TEMPLATE and per-case k-mer lists; 25 % pick_hyb_probe_only; PRIMER_PICK_INTERNAL_OLIGO 35 %; random PRIMER_[INTERNAL_]OPT_GC_PERCENT set or unset with PRIMER_[INTERNAL_]WT_GC_PERCENT_GT/_LT ∈ {unset, 0, 0.25–1}; both alignment modes): 600/600 identical to primer3-py 2.3.1 `design_primers` (1316 pairs + probes on start + length and PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9; 266 `_pr_data_control` GC-optimum errors reproduced with Primer3's message). Ignoring the template case: 471/600. Details: F46 in `docs/Validation/review-2026-09/B07.md`.
+
 **Not implemented:** PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
@@ -334,6 +350,8 @@ Forward primers are taken directly from the template; reverse primers are revers
 | SEQUENCE_QUALITY length ≠ template, PRIMER_[INTERNAL_]MIN_QUALITY ≠ 0 without quality or outside the quality range, a quality value outside [PRIMER_QUALITY_RANGE_MIN, MAX], PRIMER_[INTERNAL_]WT_SEQ_QUAL ≠ 0 without quality | `ArgumentException` | Primer3 `_pr_data_control` ("Error in sequence quality data", "Sequence quality data missing", "PRIMER_[INTERNAL_]MIN_QUALITY < / > PRIMER_QUALITY_RANGE_MIN / MAX", "Sequence quality score out of range", "Sequence quality is part of objective function but sequence quality is not defined") |
 | PRIMER_PAIR_WT_IO_PENALTY ≠ 0 without `PickInternalOligo` | `ArgumentException` | Primer3 `_pr_data_control` "Internal oligo quality is part of objective function while internal oligo choice is not required" |
 | `PickInternalOligo` and no acceptable internal oligo anywhere in the included region | No pairs (`DesignPrimers`: invalid result naming the internal oligo) | `make_internal_oligo_list` fails, Primer3 returns before the pair search |
+| PRIMER_[INTERNAL_]WT_GC_PERCENT_GT/_LT ≠ 0 without PRIMER_[INTERNAL_]OPT_GC_PERCENT (also the internal-oligo values without `PickInternalOligo`) | `ArgumentException` | Primer3 `_pr_data_control` "Primer GC content …" / "Hyb probe GC content is part of objective function while optimum gc_content is not defined" (optimum undefined by default) |
+| Lower-case template base at an oligo's 3′ end with `LowercaseMasking` (or `MaskTemplate`) and the `string` template overload | Oligo rejected | `is_lowercase_masked` |
 | PRIMER_WT_END_QUAL / PRIMER_INTERNAL_WT_END_QUAL ≠ 0 | No effect | Primer3 2.3.1 `p_obj_fn` never reads `weights.end_quality` |
 | `MaskTemplate` without `MaskKmerLists`; negative mask directions, PRIMER_MASK_3P_DIRECTION > 4984, non-finite failure rate | `ArgumentException` / `ArgumentOutOfRangeException` | primer3-py "masking template chosen, but path to PRIMER_MASK_KMERLIST_PATH not specified"; masker.c undefined for the others |
 | PRIMER_WT_MASK_FAILURE_RATE without `MaskTemplate` | No effect (failure rate 0) | `calc_and_check_oligo_features` computes `failure_rate` only with `mask_template` |

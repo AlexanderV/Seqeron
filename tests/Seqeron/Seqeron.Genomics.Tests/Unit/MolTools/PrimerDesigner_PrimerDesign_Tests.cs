@@ -841,7 +841,7 @@ public class PrimerDesigner_PrimerDesign_Tests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            PrimerDesigner.DesignPrimers(null!, 0, 100));
+            PrimerDesigner.DesignPrimers((DnaSequence)null!, 0, 100));
     }
 
     [Test]

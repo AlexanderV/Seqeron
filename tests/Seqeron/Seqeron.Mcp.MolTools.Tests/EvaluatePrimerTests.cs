@@ -120,4 +120,13 @@ public class EvaluatePrimerTests
             Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.evaluate_primer(primer, 0, true, p3, annealing_temp: 101));
         });
     }
+
+    [Test]
+    public void EvaluatePrimer_GcWeightWithoutOptimum_ThrowsPrimer3Error()
+    {
+        // primer3-py 2.3.1 check_primers with PRIMER_WT_GC_PERCENT_GT 1 and no PRIMER_OPT_GC_PERCENT (B07 F46).
+        Assert.That(() => MolToolsTools.evaluate_primer("GTTACCGGCCGAGTGCTAC", 0, true,
+                Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters, wt_gc_percent_gt: 1),
+            Throws.ArgumentException.With.Message.StartsWith("Primer GC content is part of objective function while optimum gc_content is not defined"));
+    }
 }

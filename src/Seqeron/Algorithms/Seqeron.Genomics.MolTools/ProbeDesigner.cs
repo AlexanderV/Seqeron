@@ -1159,8 +1159,10 @@ public static class ProbeDesigner
 
         /// <summary>
         /// PRIMER_INTERNAL_OPT_GC_PERCENT: the GC optimum of the internal-oligo GC penalty terms
-        /// (<see cref="WeightGcPercentGt"/>/<see cref="WeightGcPercentLt"/>, <c>p_obj_fn</c> OT_INTL); null =
-        /// <see cref="PrimerDesigner.Primer3DefaultOptGcPercent"/> (50 %). Inert while both GC weights are 0 (Primer3's default).
+        /// (<see cref="WeightGcPercentGt"/>/<see cref="WeightGcPercentLt"/>, <c>p_obj_fn</c> OT_INTL); null = undefined, as in
+        /// Primer3's code (<c>DEFAULT_OPT_GC_PERCENT</c> = <c>PR_UNDEFINED_INT_OPT</c>). Inert while both GC weights are 0
+        /// (Primer3's default); a non-zero GC weight without it is rejected with Primer3's <c>_pr_data_control</c> error ("Hyb
+        /// probe GC content is part of objective function while optimum gc_content is not defined", <see cref="ArgumentException"/>).
         /// </summary>
         public double? OptGcPercent { get; init; }
 
@@ -1243,6 +1245,14 @@ public static class ProbeDesigner
         /// lie in [<see cref="QualityRangeMin"/>, <see cref="QualityRangeMax"/>]. Internal oligos have no end-quality limit.
         /// </summary>
         public int MinQuality { get; init; }
+
+        /// <summary>
+        /// PRIMER_LOWERCASE_MASKING (default false): an oligo whose 3′ base (its rightmost template base) is a lower-case
+        /// a/c/g/t of the template as given is rejected (Primer3 <c>is_lowercase_masked</c> on <c>trimmed_orig_seq</c>);
+        /// lower-case bases elsewhere are accepted. Used by <see cref="DesignProbesPrimer3"/>; for PRIMER_PICK_INTERNAL_OLIGO the
+        /// pair search's <see cref="PrimerPairOptions.LowercaseMasking"/> applies.
+        /// </summary>
+        public bool LowercaseMasking { get; init; }
 
         /// <summary>PRIMER_INTERNAL_WT_SEQ_QUAL (default 0): × (<see cref="QualityRangeMax"/> − the oligo's minimum base quality),
         /// the last term of Primer3's internal-oligo <c>p_obj_fn</c>. Non-zero requires SEQUENCE_QUALITY.</summary>
@@ -1350,7 +1360,8 @@ public static class ProbeDesigner
     /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Invalid sizes (MinSize &lt; 1, MaxSize &lt; MinSize,
     /// MaxSize &gt; 36), an invalid mishyb limit, or <paramref name="numReturn"/> &lt; 1 (Primer3 "PRIMER_NUM_RETURN &lt; 1").</exception>
-    /// <exception cref="ArgumentException">A mishyb weight without a mishyb library (Primer3 <c>_pr_data_control</c>).</exception>
+    /// <exception cref="ArgumentException">A GC weight without <see cref="Primer3ProbeSettings.OptGcPercent"/> or a mishyb weight
+    /// without a mishyb library (Primer3 <c>_pr_data_control</c>).</exception>
     public static IReadOnlyList<Primer3Probe> DesignProbesPrimer3(
         string template,
         Primer3ProbeSettings? settings = null,
@@ -1366,7 +1377,7 @@ public static class ProbeDesigner
             s.QualityRangeMax, 0.0, s.WeightSequenceQuality, nameof(sequenceQuality));
 
         var accepted = EnumeratePrimer3InternalOligos(template.ToUpperInvariant(), 0, template.Length, s, screenStructure: true,
-            sequenceQuality is { Count: > 0 } ? sequenceQuality : null);
+            sequenceQuality is { Count: > 0 } ? sequenceQuality : null, s.LowercaseMasking ? template : null);
 
         // primer_rec_comp: quality ascending, then start descending, then length ascending.
         accepted.Sort((a, b) =>
@@ -1378,6 +1389,13 @@ public static class ProbeDesigner
         });
 
         return accepted.Count > numReturn ? accepted.GetRange(0, numReturn) : accepted;
+    }
+
+    // _pr_data_control: PRIMER_INTERNAL_WT_GC_PERCENT_GT/_LT need PRIMER_INTERNAL_OPT_GC_PERCENT.
+    internal static void ValidatePrimer3ProbeGcOptimum(Primer3ProbeSettings s, string paramName)
+    {
+        if ((s.WeightGcPercentGt != 0 || s.WeightGcPercentLt != 0) && s.OptGcPercent is null)
+            throw new ArgumentException(PrimerDesigner.ProbeGcOptimumUndefinedMessage, paramName);
     }
 
     // Primer3 settings check shared by the hybridization-probe picker and PrimerDesigner's
@@ -1394,6 +1412,7 @@ public static class ProbeDesigner
             s.MonovalentMillimolar, s.DivalentMillimolar, s.DntpMillimolar, s.DnaConcentrationNanomolar, paramName);
         if (s.OptGcPercent is { } opt && !double.IsFinite(opt))
             throw new ArgumentOutOfRangeException(paramName, "PRIMER_INTERNAL_OPT_GC_PERCENT must be finite.");
+        ValidatePrimer3ProbeGcOptimum(s, paramName);
         // _pr_data_control: PRIMER_INTERNAL_MAX_LIBRARY_MISHYB > SHRT_MAX (alignment mode); a mishyb weight without a library.
         if (double.IsNaN(s.MaxLibraryMishyb) || Math.Abs(s.MaxLibraryMishyb) >= int.MaxValue
             || (s.MaxLibraryMishyb > short.MaxValue && !s.ThermodynamicOligoAlignment))
@@ -1423,7 +1442,7 @@ public static class ProbeDesigner
     /// </summary>
     internal static List<Primer3Probe> EnumeratePrimer3InternalOligos(
         string seq, int regionStart, int regionEnd, Primer3ProbeSettings s, bool screenStructure,
-        IReadOnlyList<int>? quality = null)
+        IReadOnlyList<int>? quality = null, string? lowercase = null)
     {
         // Primer3 o_args.weights defaults, with PRIMER_INTERNAL_WT_GC_PERCENT_GT/_LT and PRIMER_INTERNAL_OPT_GC_PERCENT.
         // PRIMER_INTERNAL_WT_LIBRARY_MISHYB is the o_args repeat_sim weight.
@@ -1440,7 +1459,7 @@ public static class ProbeDesigner
         // (calc_and_check_oligo_features), otherwise postponed to choose_internal_oligo.
         var library = s.ActiveMishybLibrary;
         bool scoreLibrary = library is not null && (screenStructure || s.WeightLibraryMishyb != 0);
-        var optima = new Primer3Optima(s.OptTm, s.OptSize, s.OptGcPercent ?? PrimerDesigner.Primer3DefaultOptGcPercent)
+        var optima = new Primer3Optima(s.OptTm, s.OptSize, s.OptGcPercent)
         {
             OptBound = s.OptBound,
         };
@@ -1453,6 +1472,10 @@ public static class ProbeDesigner
         // first failure (Ns, GC, poly-X, Tm, self-any, self-end, hairpin).
         for (int end = regionEnd - 1; end >= regionStart + s.MinSize - 1; end--)
         {
+            // PRIMER_LOWERCASE_MASKING (is_lowercase_masked, before every other check): a lower-case 3' base rejects every
+            // oligo ending here (lowercase = the case-preserving template, null when masking is off).
+            if (lowercase is not null && PrimerDesigner.IsLowercaseMaskedBase(lowercase[end]))
+                continue;
             for (int len = s.MinSize; len <= s.MaxSize; len++)
             {
                 int start = end - len + 1;

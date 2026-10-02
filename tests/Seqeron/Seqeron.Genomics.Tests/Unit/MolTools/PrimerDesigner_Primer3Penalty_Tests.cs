@@ -17,6 +17,9 @@ public class PrimerDesigner_Primer3Penalty_Tests
 {
     private const double Tol = 1e-10;
 
+    // PRIMER_OPT_GC_PERCENT = 50: Primer3 leaves the optimum undefined and requires it with a GC weight (_pr_data_control).
+    private static readonly Primer3Optima Opt50 = PrimerDesigner.DefaultPrimer3Optima with { OptGcPercent = 50.0 };
+
     #region CalculatePrimer3Penalty — default weights/optima
 
     // M1 — At the optimum (Tm=60, len=20, GC=50, no N) every term is 0.
@@ -69,7 +72,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     {
         var w = PrimerDesigner.DefaultPrimer3Weights with { GcGt = 0.5 };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
-            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 60.0), w);
+            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 60.0), w, Opt50);
         Assert.That(p, Is.EqualTo(5.0).Within(Tol),
             "WT_GC_GT=0.5, OPT_GC=50: penalty = 0.5*(60-50) = 5.0.");
     }
@@ -80,7 +83,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     {
         var w = PrimerDesigner.DefaultPrimer3Weights with { GcLt = 0.5 };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
-            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 40.0), w);
+            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 40.0), w, Opt50);
         Assert.That(p, Is.EqualTo(5.0).Within(Tol),
             "WT_GC_LT=0.5, OPT_GC=50: penalty = 0.5*(50-40) = 5.0.");
     }
@@ -125,7 +128,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     {
         var w = PrimerDesigner.DefaultPrimer3Weights with { GcGt = 0.5, SelfAny = 0.25, NumNs = 1.0, ThermodynamicOligoAlignment = false };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
-            new Primer3PenaltyInputs(Tm: 62.0, Length: 22, GcPercent: 55.0, SelfAny: 2.0, NumNs: 1), w);
+            new Primer3PenaltyInputs(Tm: 62.0, Length: 22, GcPercent: 55.0, SelfAny: 2.0, NumNs: 1), w, Opt50);
         Assert.That(p, Is.EqualTo(8.0).Within(Tol),
             "1*(62-60)+1*(22-20)+0.5*(55-50)+0.25*2+1*1 = 2+2+2.5+0.5+1 = 8.0.");
     }
@@ -153,7 +156,24 @@ public class PrimerDesigner_Primer3Penalty_Tests
             Assert.That(w.NumNs, Is.EqualTo(0.0).Within(Tol), "PRIMER_WT_NUM_NS default = 0 (num_ns).");
             Assert.That(o.OptTm, Is.EqualTo(60.0).Within(Tol), "PRIMER_OPT_TM default = 60.0 (opt_tm).");
             Assert.That(o.OptSize, Is.EqualTo(20), "PRIMER_OPT_SIZE default = 20 (opt_size).");
-            Assert.That(o.OptGcPercent, Is.EqualTo(50.0).Within(Tol), "PRIMER_OPT_GC_PERCENT default = 50.0 (manual).");
+            Assert.That(o.OptGcPercent, Is.Null, "PRIMER_OPT_GC_PERCENT default undefined (libprimer3.c DEFAULT_OPT_GC_PERCENT = PR_UNDEFINED_INT_OPT).");
+        });
+    }
+
+    // A3-25 — a GC weight without PRIMER_OPT_GC_PERCENT is Primer3's _pr_data_control error (primer3-py 2.3.1:
+    // "Primer GC content is part of objective function while optimum gc_content is not defined").
+    [Test]
+    public void CalculatePrimer3Penalty_GcWeightWithoutOptimum_ThrowsPrimer3Error()
+    {
+        var inputs = new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 60.0);
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => PrimerDesigner.CalculatePrimer3Penalty(inputs, PrimerDesigner.DefaultPrimer3Weights with { GcGt = 0.5 }),
+                NUnit.Framework.Throws.ArgumentException.With.Message.StartsWith("Primer GC content is part of objective function while optimum gc_content is not defined"));
+            Assert.That(() => PrimerDesigner.CalculatePrimer3Penalty(inputs, PrimerDesigner.DefaultPrimer3Weights with { GcLt = 0.5 }),
+                NUnit.Framework.Throws.ArgumentException);
+            // Zero GC weights: the undefined optimum is never used.
+            Assert.That(PrimerDesigner.CalculatePrimer3Penalty(inputs), Is.EqualTo(0.0).Within(Tol));
         });
     }
 
@@ -214,7 +234,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
         Assert.Multiple(() =>
         {
             foreach (var c in cases)
-                Assert.That(PrimerDesigner.CalculatePrimer3Penalty(c, w), Is.GreaterThanOrEqualTo(0.0),
+                Assert.That(PrimerDesigner.CalculatePrimer3Penalty(c, w, Opt50), Is.GreaterThanOrEqualTo(0.0),
                     "Every penalty term is weight*non-negative deviation, so the total is >= 0 (INV-01).");
         });
     }
@@ -241,7 +261,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     {
         var w = PrimerDesigner.DefaultPrimer3Weights with { GcGt = 1.0, GcLt = 1.0 };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
-            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 50.0), w);
+            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 50.0), w, Opt50);
         Assert.That(p, Is.EqualTo(0.0).Within(Tol),
             "GC% is a percentage (0-100); GC=50 equals OPT_GC=50 so the GC term is 0 (libprimer3.cc gc_content = 100*num_gc/num_gcat).");
     }
@@ -274,7 +294,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     {
         var w = PrimerDesigner.DefaultPrimer3Weights with { GcGt = 0.5, GcLt = 0.0 };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
-            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 40.0), w);
+            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 40.0), w, Opt50);
 
         Assert.That(p, Is.EqualTo(0.0).Within(Tol),
             "GC_GT only penalises GC ABOVE optimum; GC=40 < 50 leaves the GC term at 0 (p_obj_fn gc_content_gt).");
@@ -286,7 +306,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     {
         var w = PrimerDesigner.DefaultPrimer3Weights with { GcLt = 0.5, GcGt = 0.0 };
         var p = PrimerDesigner.CalculatePrimer3Penalty(
-            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 60.0), w);
+            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 60.0), w, Opt50);
 
         Assert.That(p, Is.EqualTo(0.0).Within(Tol),
             "GC_LT only penalises GC BELOW optimum; GC=60 > 50 leaves the GC term at 0 (p_obj_fn gc_content_lt).");
@@ -321,7 +341,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     {
         var inputs = new Primer3PenaltyInputs(tm, seq.Length, gc, SelfAny: selfAnyTh, SelfEnd: selfEndTh,
             HairpinTh: hairpinTh, EndStability: endStab);
-        Assert.That(PrimerDesigner.CalculatePrimer3Penalty(inputs, ReferenceWeights(true)),
+        Assert.That(PrimerDesigner.CalculatePrimer3Penalty(inputs, ReferenceWeights(true), Opt50),
             Is.EqualTo(expected).Within(1e-9), $"primer3-py PRIMER_LEFT_0_PENALTY for {seq}");
     }
 
@@ -336,7 +356,7 @@ public class PrimerDesigner_Primer3Penalty_Tests
     {
         var inputs = new Primer3PenaltyInputs(tm, seq.Length, gc, SelfAny: selfAny, SelfEnd: selfEnd,
             HairpinTh: 999.0, EndStability: endStab); // hairpin must be ignored in alignment mode
-        Assert.That(PrimerDesigner.CalculatePrimer3Penalty(inputs, ReferenceWeights(false)),
+        Assert.That(PrimerDesigner.CalculatePrimer3Penalty(inputs, ReferenceWeights(false), Opt50),
             Is.EqualTo(expected).Within(1e-9), $"primer3-py PRIMER_LEFT_0_PENALTY for {seq}");
     }
 

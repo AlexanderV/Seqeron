@@ -492,4 +492,32 @@ public class DesignPrimersTests
         Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 100, 130, p3, pick_internal_oligo: true,
             internal_wt_library_mishyb: 1));
     }
+
+    [Test]
+    public void DesignPrimers_LowercaseMaskingAndGcOptimum_MatchPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [100,20], PRIMER_LOWERCASE_MASKING 1, PRIMER_PICK_INTERNAL_OLIGO 1)
+        // on a mixed-case template (B07 F46): PRIMER_PAIR_1 [14,20] / [232,20] 0.936221987820943 (without masking the
+        // second pair is [14,20] / [188,20] 0.9201203739298762 — its right primer ends on a lower-case base).
+        const string t = "AGACTTTCAAagatatgctgggtagaggtcGAGGTTATTAtTTGTTAcCAATtCTCATTGTGTTTCGGAActtgCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGatCCGTTCcTAaTAAGGAATGGTGATTCCCtgtcataccaatctaccccctgttaTGCGCGTTTGTCGTTaGACCAaTGtCAGCGcAGCGGCAGATCAAGCAGGAGGCGGAATGTAAACA";
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters;
+        var on = MolToolsTools.design_primers(t, 100, 120, p3, max_tm_difference: 100, num_return: 5, pick_internal_oligo: true,
+            lowercase_masking: true);
+        var off = MolToolsTools.design_primers(t, 100, 120, p3, max_tm_difference: 100, num_return: 5, pick_internal_oligo: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(on.Pairs.Select(x => (x.Forward!.Position, x.Reverse!.Position + x.Reverse.Length - 1)),
+                Is.EqualTo(new[] { (14, 235), (14, 232), (16, 235), (14, 205), (16, 232) }));
+            Assert.That(on.Pairs[1].PairPenalty!.Value, Is.EqualTo(0.936221987820943).Within(1e-9));
+            Assert.That(on.Pairs[3].InternalOligo!.Value.Start, Is.EqualTo(104));
+            Assert.That(off.Pairs[1].Reverse!.Position + off.Pairs[1].Reverse!.Length - 1, Is.EqualTo(188));
+            Assert.That(off.Pairs[1].PairPenalty!.Value, Is.EqualTo(0.9201203739298762).Within(1e-9));
+        });
+
+        // Primer3 _pr_data_control: a GC weight without PRIMER_[INTERNAL_]OPT_GC_PERCENT (undefined by default).
+        Assert.That(() => MolToolsTools.design_primers(t, 100, 120, p3, wt_gc_percent_gt: 0.5),
+            Throws.ArgumentException.With.Message.StartsWith("Primer GC content is part of objective function while optimum gc_content is not defined"));
+        Assert.That(() => MolToolsTools.design_primers(t, 100, 120, p3, internal_wt_gc_percent_lt: 0.5),
+            Throws.ArgumentException.With.Message.StartsWith("Hyb probe GC content is part of objective function while optimum gc_content is not defined"));
+    }
 }

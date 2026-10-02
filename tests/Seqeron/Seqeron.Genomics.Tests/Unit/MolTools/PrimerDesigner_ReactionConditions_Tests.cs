@@ -204,7 +204,7 @@ public class PrimerDesigner_ReactionConditions_Tests
             DivalentMillimolar = PrimerDesigner.Primer3DivalentMillimolar,
             DntpMillimolar = PrimerDesigner.Primer3DntpMillimolar,
             DnaConcentrationNanomolar = PrimerDesigner.Primer3DnaConcentrationNanomolar,
-            OptimalGcPercent = PrimerDesigner.Primer3DefaultOptGcPercent,
+            OptimalGcPercent = 50.0,
         };
         var implicitPairs = PrimerDesigner.DesignPrimerPairs(new DnaSequence(T), 54, 75,
             PrimerDesigner.Primer3DefaultParameters, PrimerPairOptions.Primer3Defaults);
@@ -220,7 +220,8 @@ public class PrimerDesigner_ReactionConditions_Tests
             Assert.That(PrimerDesigner.Primer3DefaultParameters.EffectiveDivalentMillimolar, Is.EqualTo(1.5));
             Assert.That(PrimerDesigner.Primer3DefaultParameters.EffectiveDntpMillimolar, Is.EqualTo(0.6));
             Assert.That(PrimerDesigner.Primer3DefaultParameters.EffectiveDnaConcentrationNanomolar, Is.EqualTo(50.0));
-            Assert.That(PrimerDesigner.Primer3DefaultParameters.EffectiveOptimalGcPercent, Is.EqualTo(50.0));
+            Assert.That(PrimerDesigner.Primer3DefaultParameters.OptimalGcPercent, Is.Null,
+                "PRIMER_OPT_GC_PERCENT undefined by default (libprimer3.c DEFAULT_OPT_GC_PERCENT = PR_UNDEFINED_INT_OPT).");
         });
     }
 

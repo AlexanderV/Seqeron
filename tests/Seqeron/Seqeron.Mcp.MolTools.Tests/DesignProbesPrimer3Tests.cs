@@ -136,4 +136,26 @@ public class DesignProbesPrimer3Tests
             Assert.Throws<ArgumentException>(() => MolToolsTools.design_probes_primer3(p, min_quality: 20));
         });
     }
+
+    [Test]
+    public void DesignProbesPrimer3_LowercaseMaskingAndGcOptimum_MatchPrimer3()
+    {
+        // primer3-py 2.3.1 pick_hyb_probe_only (B07 F46) on a mixed-case template.
+        const string t = "AGACTTTCAAagatatgctgggtagaggtcGAGGTTATTAtTTGTTAcCAATtCTCATTGTGTTTCGGAActtgCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGatCCGTTCcTAaTAAGGAATGGTGATTCCCtgtcataccaatctaccccctgttaTGCGCGTTTGTCGTTaGACCAaTGtCAGCGcAGCGgCAGATCAAGCAgGAGGCGGAATGTAAACA";
+        var on = MolToolsTools.design_probes_primer3(t, lowercase_masking: true);
+        var off = MolToolsTools.design_probes_primer3(t);
+        // PRIMER_INTERNAL_OPT_GC_PERCENT 45, _WT_GC_PERCENT_GT 0.5, _LT 1 (upper-case template).
+        var gc = MolToolsTools.design_probes_primer3(t.ToUpperInvariant(), opt_gc_percent: 45, wt_gc_percent_gt: 0.5, wt_gc_percent_lt: 1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(on.Probes.Select(x => (x.Start, x.Length)), Is.EqualTo(new[] { (204, 21), (204, 20), (207, 21), (190, 20), (203, 21) }));
+            Assert.That(on.Probes[3].Penalty, Is.EqualTo(2.001596012010225).Within(1e-9));
+            Assert.That(off.Probes.Select(x => (x.Start, x.Length)), Is.EqualTo(new[] { (203, 20), (190, 21), (204, 21), (204, 20), (207, 21) }));
+            Assert.That(gc.Probes.Select(x => (x.Start, x.Length)), Is.EqualTo(new[] { (174, 24), (175, 23), (174, 23), (175, 25), (174, 26) }));
+            Assert.That(gc.Probes[0].Penalty, Is.EqualTo(6.376853569713585).Within(1e-9));
+            Assert.That(gc.Probes[4].Penalty, Is.EqualTo(6.589971304417002).Within(1e-9));
+            Assert.That(() => MolToolsTools.design_probes_primer3(t, wt_gc_percent_lt: 1),
+                Throws.ArgumentException.With.Message.StartsWith("Hyb probe GC content is part of objective function while optimum gc_content is not defined"));
+        });
+    }
 }

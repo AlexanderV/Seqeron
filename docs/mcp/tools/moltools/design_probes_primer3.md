@@ -25,7 +25,7 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `template` | string | Yes | Template DNA (non-empty; case-insensitive; probes are picked on this strand). |
+| `template` | string | Yes | Template DNA (non-empty; case-insensitive unless `lowercase_masking`; probes are picked on this strand). |
 | `num_return` | integer | No | PRIMER_NUM_RETURN (≥ 1, default 5; Primer3 rejects < 1). |
 | `min_size` / `opt_size` / `max_size` | integer | No | PRIMER_INTERNAL_MIN/OPT/MAX_SIZE (18 / 20 / 27; 1 ≤ min ≤ max ≤ 36). |
 | `min_tm` / `opt_tm` / `max_tm` | number | No | PRIMER_INTERNAL_MIN/OPT/MAX_TM in °C (57 / 60 / 63). |
@@ -46,6 +46,9 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 | `min_quality` | integer | No | PRIMER_INTERNAL_MIN_QUALITY (default 0): probes whose minimum base quality is lower are rejected (a five-prime problem, as in Primer3); non-zero without `sequence_quality` → error ("Sequence quality data missing"). |
 | `quality_range_min` / `quality_range_max` | integer | No | PRIMER_QUALITY_RANGE_MIN / _MAX (defaults 0 / 100). |
 | `wt_seq_qual` / `wt_end_qual` | number | No | PRIMER_INTERNAL_WT_SEQ_QUAL (default 0): weight × (`quality_range_max` − minimum base quality), needs `sequence_quality`; PRIMER_INTERNAL_WT_END_QUAL is accepted with no effect (never read by Primer3 2.3.1). Verified against primer3-py 2.3.1 (B07 F45). |
+| `opt_gc_percent` | number | No | PRIMER_INTERNAL_OPT_GC_PERCENT (default undefined, as in Primer3's code); required when `wt_gc_percent_gt` / `wt_gc_percent_lt` ≠ 0 (Primer3 "Hyb probe GC content is part of objective function while optimum gc_content is not defined"). |
+| `wt_gc_percent_gt` / `wt_gc_percent_lt` | number | No | PRIMER_INTERNAL_WT_GC_PERCENT_GT / _LT (default 0): weight × the GC% deviation above / below `opt_gc_percent`. |
+| `lowercase_masking` | boolean | No | PRIMER_LOWERCASE_MASKING (default false): reject probes whose 3′-terminal template base is lower case (a/c/g/t of the template as given); lower case elsewhere is accepted. |
 
 ## Output Schema
 

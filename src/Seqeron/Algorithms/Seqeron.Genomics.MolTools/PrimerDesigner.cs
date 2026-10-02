@@ -115,7 +115,40 @@ public static partial class PrimerDesigner
         PrimerParameters? parameters = null,
         PrimerPairOptions? pairOptions = null)
     {
-        var search = new PrimerPairSearch(template, targetStart, targetEnd,
+        ArgumentNullException.ThrowIfNull(template);
+        return DesignPrimersCore(template.Sequence, null, targetStart, targetEnd, parameters, pairOptions);
+    }
+
+    /// <summary>
+    /// <see cref="DesignPrimers(DnaSequence, int, int, PrimerParameters?, PrimerPairOptions?)"/> on a case-preserving
+    /// template string (Primer3 SEQUENCE_TEMPLATE as given): with <see cref="PrimerPairOptions.LowercaseMasking"/>
+    /// (PRIMER_LOWERCASE_MASKING) or <see cref="PrimerPairOptions.MaskTemplate"/> a primer or internal oligo whose 3′-terminal
+    /// template base is lower case is rejected (Primer3 <c>is_lowercase_masked</c>); otherwise case is ignored and the result
+    /// equals the <see cref="DnaSequence"/> overload. All other computations use the upper-cased template.
+    /// </summary>
+    /// <param name="template">Template (A/C/G/T, any case; lower case marks masked bases).</param>
+    /// <param name="targetStart">0-based inclusive start of the target region.</param>
+    /// <param name="targetEnd">0-based exclusive end of the target region; must be &lt; template length.</param>
+    /// <param name="parameters">Per-primer design parameters (default <see cref="DefaultParameters"/>).</param>
+    /// <param name="pairOptions">Pair options (default <see cref="PrimerPairOptions.Default"/>).</param>
+    /// <returns>Primer pair result.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
+    /// <exception cref="ArgumentException">A character other than A/C/G/T, an invalid target or options.</exception>
+    public static PrimerPairResult DesignPrimers(
+        string template,
+        int targetStart,
+        int targetEnd,
+        PrimerParameters? parameters = null,
+        PrimerPairOptions? pairOptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        return DesignPrimersCore(new DnaSequence(template).Sequence, template, targetStart, targetEnd, parameters, pairOptions);
+    }
+
+    private static PrimerPairResult DesignPrimersCore(string seq, string? caseTemplate, int targetStart, int targetEnd,
+        PrimerParameters? parameters, PrimerPairOptions? pairOptions)
+    {
+        var search = new PrimerPairSearch(seq, caseTemplate, targetStart, targetEnd,
             parameters ?? DefaultParameters, pairOptions ?? PrimerPairOptions.Default);
         var pairs = search.Run(1);
         return pairs.Count > 0 ? pairs[0] : search.Failure();
@@ -150,9 +183,37 @@ public static partial class PrimerDesigner
         PrimerParameters? parameters = null,
         PrimerPairOptions? pairOptions = null)
     {
+        ArgumentNullException.ThrowIfNull(template);
         var opts = pairOptions ?? PrimerPairOptions.Default;
-        return new PrimerPairSearch(template, targetStart, targetEnd, parameters ?? DefaultParameters, opts)
+        return new PrimerPairSearch(template.Sequence, null, targetStart, targetEnd, parameters ?? DefaultParameters, opts)
             .Run(opts.NumReturn);
+    }
+
+    /// <summary>
+    /// <see cref="DesignPrimerPairs(DnaSequence, int, int, PrimerParameters?, PrimerPairOptions?)"/> on a case-preserving
+    /// template string: with <see cref="PrimerPairOptions.LowercaseMasking"/> (PRIMER_LOWERCASE_MASKING) or
+    /// <see cref="PrimerPairOptions.MaskTemplate"/> primers and internal oligos whose 3′-terminal template base is lower case
+    /// are rejected (Primer3 <c>is_lowercase_masked</c>); otherwise case is ignored.
+    /// </summary>
+    /// <param name="template">Template (A/C/G/T, any case; lower case marks masked bases).</param>
+    /// <param name="targetStart">0-based inclusive start of the target region.</param>
+    /// <param name="targetEnd">0-based exclusive end of the target region; must be &lt; template length.</param>
+    /// <param name="parameters">Per-primer design parameters (default <see cref="DefaultParameters"/>).</param>
+    /// <param name="pairOptions">Pair options (default <see cref="PrimerPairOptions.Default"/>).</param>
+    /// <returns>The selected pairs, rank 0 first.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
+    /// <exception cref="ArgumentException">A character other than A/C/G/T, an invalid target or options.</exception>
+    public static IReadOnlyList<PrimerPairResult> DesignPrimerPairs(
+        string template,
+        int targetStart,
+        int targetEnd,
+        PrimerParameters? parameters = null,
+        PrimerPairOptions? pairOptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        var opts = pairOptions ?? PrimerPairOptions.Default;
+        return new PrimerPairSearch(new DnaSequence(template).Sequence, template, targetStart, targetEnd,
+            parameters ?? DefaultParameters, opts).Run(opts.NumReturn);
     }
 
     /// <summary>
@@ -244,13 +305,15 @@ public static partial class PrimerDesigner
         private readonly QualityContext? _quality;
         // PRIMER_MASK_TEMPLATE: the masked copies of the included region (null without masking).
         private readonly MaskContext? _mask;
+        // PRIMER_LOWERCASE_MASKING (forced on by PRIMER_MASK_TEMPLATE): the case-preserving template (trimmed_orig_seq);
+        // null when lower-case masking is off or the template has no case information.
+        private readonly string? _lowercase;
 
-        public PrimerPairSearch(DnaSequence template, int targetStart, int targetEnd,
+        // seq: the upper-case template; caseTemplate: the same template as given (null = upper case only).
+        public PrimerPairSearch(string seq, string? caseTemplate, int targetStart, int targetEnd,
             PrimerParameters param, PrimerPairOptions opt)
         {
-            ArgumentNullException.ThrowIfNull(template);
             ArgumentNullException.ThrowIfNull(opt);
-            string seq = template.Sequence.ToUpperInvariant();
             int n = seq.Length;
             if (targetStart < 0 || targetEnd >= n || targetStart >= targetEnd)
                 throw new ArgumentException("Invalid target region.");
@@ -273,9 +336,14 @@ public static partial class PrimerDesigner
             _productMonovalentEq = Primer3MonovalentEquivalent(param.EffectiveMonovalentMillimolar,
                 param.EffectiveDivalentMillimolar, param.EffectiveDntpMillimolar);
             (_incStart, _incEnd) = opt.IncludedRegion is { } inc ? (inc.Start, inc.Start + inc.Length) : (0, n);
-            // Primer3 masks the included region (trimmed_orig_seq) once per design, before the primer lists are built.
+            // primer3-py sets lowercase_masking = mask_template when masking (thermoanalysis.pyx), so PRIMER_MASK_TEMPLATE implies
+            // PRIMER_LOWERCASE_MASKING.
+            if ((opt.LowercaseMasking || opt.MaskTemplate) && caseTemplate is not null)
+                _lowercase = caseTemplate;
+            // Primer3 masks the included region (trimmed_orig_seq, original case: input lower case stays masked) once per
+            // design, before the primer lists are built.
             if (opt.MaskTemplate)
-                _mask = new MaskContext(seq, _incStart, _incEnd, opt);
+                _mask = new MaskContext(_lowercase ?? seq, _incStart, _incEnd, opt);
 
             _gcPrefix = new int[n + 1];
             for (int i = 0; i < n; i++)
@@ -305,7 +373,7 @@ public static partial class PrimerDesigner
             {
                 for (int len = param.MinLength; len <= param.MaxLength && start + len <= leftLimit; len++)
                 {
-                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template, target: _position, quality: _quality, mask: _mask);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(seq.Substring(start, len), start, true, param, evaluateStructure: false, template: _template, target: _position, quality: _quality, mask: _mask, lowercase: _lowercase);
                     if (candidate.IsValid)
                     {
                         _fwd.Add((candidate, tm));
@@ -324,7 +392,7 @@ public static partial class PrimerDesigner
                 {
                     int start = end - len;
                     var revComp = DnaSequence.GetReverseComplementString(seq.Substring(start, len));
-                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template, target: _position, quality: _quality, mask: _mask);
+                    var (candidate, tm, lib, tmp) = EvaluatePrimerCore(revComp, start, false, param, evaluateStructure: false, template: _template, target: _position, quality: _quality, mask: _mask, lowercase: _lowercase);
                     if (candidate.IsValid)
                     {
                         _rev.Add((candidate, tm));
@@ -357,7 +425,7 @@ public static partial class PrimerDesigner
                 };
                 // make_internal_oligo_list over the included region; choose_internal_oligo takes the
                 // lowest-penalty oligo (first in enumeration order among equals) → stable sort.
-                var list = ProbeDesigner.EnumeratePrimer3InternalOligos(seq, _incStart, _incEnd, _intlSettings, screenStructure: false, _quality?.Values);
+                var list = ProbeDesigner.EnumeratePrimer3InternalOligos(seq, _incStart, _incEnd, _intlSettings, screenStructure: false, _quality?.Values, _lowercase);
                 _intl = list
                     .Select((p, i) => (p, i))
                     .OrderBy(t => t.p.Penalty).ThenBy(t => t.i)
@@ -400,6 +468,10 @@ public static partial class PrimerDesigner
                 throw new ArgumentException("Product temperature is part of objective function while optimum temperature is not defined (Primer3 _pr_data_control).");
             if ((_w.ProductSizeLt != 0 || _w.ProductSizeGt != 0) && o.ProductOptSize is null)
                 throw new ArgumentException("Product size is part of objective function while optimum size is not defined (Primer3 _pr_data_control).");
+            // _pr_data_control: GC weights without PRIMER_[INTERNAL_]OPT_GC_PERCENT (the internal-oligo check applies whether or
+            // not an internal oligo is picked).
+            _param.ValidateGcOptimum("parameters");
+            ProbeDesigner.ValidatePrimer3ProbeGcOptimum(io, nameof(o.InternalOligo));
             // primer3-py: PRIMER_MASK_TEMPLATE needs the k-mer lists (PRIMER_MASK_KMERLIST_PATH).
             if (o.MaskTemplate && o.MaskKmerLists is null)
                 throw new ArgumentException("masking template chosen, but path to PRIMER_MASK_KMERLIST_PATH not specified (primer3-py).");
@@ -909,7 +981,7 @@ public static partial class PrimerDesigner
 
         // Full evaluation (including the structure values) of a chosen primer.
         private PrimerCandidate Reevaluate(PrimerCandidate c) =>
-            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template, target: _position, quality: _quality, mask: _mask).Candidate;
+            EvaluatePrimerCore(c.Sequence, c.Position, c.IsForward, _param, template: _template, target: _position, quality: _quality, mask: _mask, lowercase: _lowercase).Candidate;
 
         // Result when no pair qualifies: the individually lowest-penalty primers that pass their own
         // (structure) constraints, with the violated pair constraint.
@@ -1001,6 +1073,8 @@ public static partial class PrimerDesigner
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">Illegal reaction conditions (Primer3 <c>_pr_data_control</c>:
     /// salt or DNA concentration ≤ 0, negative divalent / dNTP concentration, NaN / ∞).</exception>
+    /// <exception cref="ArgumentException">PRIMER_MIN_QUALITY / a quality weight without a template, or a GC weight without
+    /// <see cref="PrimerParameters.OptimalGcPercent"/> (Primer3 <c>_pr_data_control</c>).</exception>
     public static PrimerCandidate EvaluatePrimer(
         string sequence,
         int position,
@@ -1012,8 +1086,12 @@ public static partial class PrimerDesigner
         // No template, hence no SEQUENCE_QUALITY: Primer3 rejects PRIMER_MIN_QUALITY / PRIMER_WT_SEQ_QUAL without it.
         ValidatePrimer3Quality(null, 0, param.MinQuality, 0, param.EffectiveQualityRangeMin, param.EffectiveQualityRangeMax,
             param.PenaltyWeights?.SequenceQuality ?? 0.0, 0.0, nameof(parameters));
+        param.ValidateGcOptimum(nameof(parameters));
         return EvaluatePrimerCore(sequence, position, isForward, param).Candidate;
     }
+
+    // Primer3 is_lowercase_masked: only a / c / g / t count as masked.
+    internal static bool IsLowercaseMaskedBase(char c) => c is 'a' or 'c' or 'g' or 't';
 
     // Evaluates a candidate and also returns its unrounded Tm (Primer3 compares unrounded Tm values).
     // With evaluateStructure = false the secondary-structure screen is skipped (DesignPrimers runs it
@@ -1029,7 +1107,8 @@ public static partial class PrimerDesigner
         TemplateContext? template = null,
         TargetPosition? target = null,
         QualityContext? quality = null,
-        MaskContext? mask = null)
+        MaskContext? mask = null,
+        string? lowercase = null)
     {
         var seq = sequence.ToUpperInvariant();
 
@@ -1072,8 +1151,12 @@ public static partial class PrimerDesigner
 
         // PRIMER_MASK_TEMPLATE (is_lowercase_masked, among the first checks of calc_and_check_oligo_features): the primer's
         // 3' base must not be masked on its strand's copy of the template.
+        // With masking the masked copies (built from the case-preserving template) carry the input's lower case too.
         if (mask is not null && mask.ThreePrimeEndMasked(position, seq.Length, isForward))
             issues.Add("3' end overlaps masked sequence (Primer3 PRIMER_MASK_TEMPLATE)");
+        else if (mask is null && lowercase is not null
+                 && IsLowercaseMaskedBase(lowercase[isForward ? position + seq.Length - 1 : position]))
+            issues.Add("3' end overlaps lower-case masked sequence (Primer3 PRIMER_LOWERCASE_MASKING)");
 
         // Primer3 position penalty relative to the target (non-default PRIMER_INSIDE/OUTSIDE_PENALTY, pair search only):
         // a 3' end past the target is an infinite position penalty (OP_OVERLAPS_TARGET).
@@ -1200,7 +1283,7 @@ public static partial class PrimerDesigner
                 MaskFailureRate = failureRate ?? 0.0,
             },
             weights,
-            new Primer3Optima(param.OptimalTm, param.OptimalLength, param.EffectiveOptimalGcPercent) { OptBound = param.EffectiveOptBound });
+            new Primer3Optima(param.OptimalTm, param.OptimalLength, param.OptimalGcPercent) { OptBound = param.EffectiveOptBound });
 
         var candidate = new PrimerCandidate(
             Sequence: seq,
@@ -3699,12 +3782,20 @@ public static partial class PrimerDesigner
     /// <summary>Primer3 primer default PRIMER_DNA_CONC = 50 nM (<c>p_args.dna_conc</c>).</summary>
     public const double Primer3DnaConcentrationNanomolar = 50.0;
 
+    // Primer3 _pr_data_control messages for a GC weight without PRIMER_[INTERNAL_]OPT_GC_PERCENT.
+    internal const string PrimerGcOptimumUndefinedMessage =
+        "Primer GC content is part of objective function while optimum gc_content is not defined (Primer3 _pr_data_control).";
+    internal const string ProbeGcOptimumUndefinedMessage =
+        "Hyb probe GC content is part of objective function while optimum gc_content is not defined (Primer3 _pr_data_control).";
+
     /// <summary>
-    /// PRIMER_OPT_GC_PERCENT / PRIMER_INTERNAL_OPT_GC_PERCENT value used when none is given: 50 % (the Primer3 manual
-    /// default). Primer3's code keeps the optimum undefined (<c>DEFAULT_OPT_GC_PERCENT</c> = <c>PR_UNDEFINED_INT_OPT</c>)
-    /// and its <c>_pr_data_control</c> rejects a non-zero PRIMER_(INTERNAL_)WT_GC_PERCENT_GT/_LT without an explicit
-    /// optimum; the optimum only enters the GC terms of <c>p_obj_fn</c>, so with zero GC weights it is inert.
+    /// The Primer3 manual's documented PRIMER_OPT_GC_PERCENT (50 %). It is <b>not</b> applied by default: Primer3's code keeps
+    /// the optimum undefined (<c>DEFAULT_OPT_GC_PERCENT</c> = <c>PR_UNDEFINED_INT_OPT</c>, <c>pr_set_default_global_args_1</c>)
+    /// and its <c>_pr_data_control</c> rejects a non-zero PRIMER_(INTERNAL_)WT_GC_PERCENT_GT/_LT without an explicit optimum,
+    /// as <see cref="PrimerParameters.OptimalGcPercent"/> / <see cref="ProbeDesigner.Primer3ProbeSettings.OptGcPercent"/> /
+    /// <see cref="Primer3Optima.OptGcPercent"/> = null now do.
     /// </summary>
+    [Obsolete("Primer3 leaves PRIMER_OPT_GC_PERCENT undefined by default; set PrimerParameters.OptimalGcPercent explicitly.")]
     public const double Primer3DefaultOptGcPercent = 50.0;
 
     /// <summary>
@@ -3971,16 +4062,16 @@ public static partial class PrimerDesigner
 
     /// <summary>
     /// Primer3 default per-primer optima. OPT_TM = 60 °C and OPT_SIZE = 20 bases are
-    /// from <c>libprimer3.cc</c> (opt_tm = 60.0, opt_size = 20); OPT_GC_PERCENT = 50.0 %
-    /// is the published default in the Primer3 manual (PRIMER_OPT_GC_PERCENT, default 50.0; Primer3's code keeps it
-    /// undefined and rejects GC weights without an explicit optimum — see <see cref="Primer3DefaultOptGcPercent"/>).
+    /// from <c>libprimer3.c</c> (opt_tm = 60.0, opt_size = 20); OPT_GC_PERCENT is undefined (null) as in Primer3's code
+    /// (<c>DEFAULT_OPT_GC_PERCENT</c> = <c>PR_UNDEFINED_INT_OPT</c>; the manual's 50 is not applied): a non-zero GC weight
+    /// then needs an explicit optimum (Primer3 <c>_pr_data_control</c>).
     /// <see cref="EvaluatePrimer"/> / <see cref="DesignPrimers"/> take the GC optimum from
     /// <see cref="PrimerParameters.OptimalGcPercent"/>.
     /// </summary>
     public static readonly Primer3Optima DefaultPrimer3Optima = new(
         OptTm: 60.0,         // PRIMER_OPT_TM (libprimer3.cc: opt_tm = 60.0) °C
         OptSize: 20,         // PRIMER_OPT_SIZE (libprimer3.cc: opt_size = 20) bases
-        OptGcPercent: 50.0   // PRIMER_OPT_GC_PERCENT (manual default 50.0) %
+        OptGcPercent: null   // PRIMER_OPT_GC_PERCENT (libprimer3.c: PR_UNDEFINED_INT_OPT) %
     );
 
     /// <summary>
@@ -4039,11 +4130,16 @@ public static partial class PrimerDesigner
                 sum += w.BoundLt * (o.OptBound - bound);
         }
 
-        // GC% term (gc_content is a percentage 0–100 in libprimer3.cc, line 3856).
-        if (w.GcGt != 0 && inputs.GcPercent > o.OptGcPercent)
-            sum += w.GcGt * (inputs.GcPercent - o.OptGcPercent);
-        if (w.GcLt != 0 && inputs.GcPercent < o.OptGcPercent)
-            sum += w.GcLt * (o.OptGcPercent - inputs.GcPercent);
+        // GC% term (gc_content is a percentage 0–100 in libprimer3.c); a GC weight needs a defined optimum
+        // (_pr_data_control: "Primer GC content is part of objective function while optimum gc_content is not defined").
+        if (w.GcGt != 0 || w.GcLt != 0)
+        {
+            double optGc = o.OptGcPercent ?? throw new ArgumentException(PrimerGcOptimumUndefinedMessage, nameof(optima));
+            if (w.GcGt != 0 && inputs.GcPercent > optGc)
+                sum += w.GcGt * (inputs.GcPercent - optGc);
+            if (w.GcLt != 0 && inputs.GcPercent < optGc)
+                sum += w.GcLt * (optGc - inputs.GcPercent);
+        }
 
         // Length/size term (p_obj_fn length_lt / length_gt).
         if (w.SizeLt != 0 && inputs.Length < o.OptSize)
@@ -4259,7 +4355,10 @@ public readonly record struct PrimerParameters(
     /// <summary>
     /// PRIMER_OPT_GC_PERCENT: the GC optimum of the PRIMER_WT_GC_PERCENT_GT/_LT penalty terms
     /// (<see cref="Primer3PenaltyWeights.GcGt"/>/<see cref="Primer3PenaltyWeights.GcLt"/>); null =
-    /// <see cref="PrimerDesigner.Primer3DefaultOptGcPercent"/> (50 %). It is inert while both GC weights are 0 (Primer3's default).
+    /// undefined, as in Primer3's code (<c>DEFAULT_OPT_GC_PERCENT</c> = <c>PR_UNDEFINED_INT_OPT</c>; the manual's 50 is not
+    /// applied). It is inert while both GC weights are 0 (Primer3's default); a non-zero GC weight without it is rejected with
+    /// Primer3's <c>_pr_data_control</c> error ("Primer GC content is part of objective function while optimum gc_content is
+    /// not defined", <see cref="ArgumentException"/>).
     /// </summary>
     public double? OptimalGcPercent { get; init; }
 
@@ -4440,21 +4539,25 @@ public readonly record struct PrimerParameters(
     /// <summary>Effective PRIMER_DNA_CONC (nM).</summary>
     public double EffectiveDnaConcentrationNanomolar => DnaConcentrationNanomolar ?? PrimerDesigner.Primer3DnaConcentrationNanomolar;
 
-    /// <summary>Effective PRIMER_OPT_GC_PERCENT (%).</summary>
-    public double EffectiveOptimalGcPercent => OptimalGcPercent ?? PrimerDesigner.Primer3DefaultOptGcPercent;
-
     /// <summary>Effective PRIMER_MAX_SELF_ANY (<see cref="MaxSelfAny"/> or 8.00).</summary>
     public double EffectiveMaxSelfAny => MaxSelfAny ?? PrimerDesigner.Primer3MaxSelfAny;
 
     /// <summary>Effective PRIMER_MAX_SELF_END (<see cref="MaxSelfEnd"/> or 3.00).</summary>
     public double EffectiveMaxSelfEnd => MaxSelfEnd ?? PrimerDesigner.Primer3MaxSelfEnd;
 
+    // Primer3 _pr_data_control: PRIMER_WT_GC_PERCENT_GT/_LT need PRIMER_OPT_GC_PERCENT.
+    internal void ValidateGcOptimum(string paramName)
+    {
+        if ((PenaltyWeights is { } w && (w.GcGt != 0 || w.GcLt != 0)) && OptimalGcPercent is null)
+            throw new ArgumentException(PrimerDesigner.PrimerGcOptimumUndefinedMessage, paramName);
+    }
+
     // Primer3 _pr_data_control checks of the primer conditions.
     internal void ValidateConditions(string paramName)
     {
         PrimerDesigner.ValidatePrimer3Conditions(EffectiveMonovalentMillimolar, EffectiveDivalentMillimolar,
             EffectiveDntpMillimolar, EffectiveDnaConcentrationNanomolar, paramName);
-        if (!double.IsFinite(EffectiveOptimalGcPercent))
+        if (OptimalGcPercent is { } optGc && !double.IsFinite(optGc))
             throw new ArgumentOutOfRangeException(paramName, "PRIMER_OPT_GC_PERCENT must be finite.");
         // _pr_data_control: PRIMER_MAX_END_GC must be between 0 to 5; PRIMER_MAX_END_STABILITY must be non-negative;
         // PRIMER_GC_CLAMP > PRIMER_MIN_SIZE.
@@ -4790,7 +4893,7 @@ public readonly record struct Primer3PenaltyWeights(
 public readonly record struct Primer3Optima(
     double OptTm,
     int OptSize,
-    double OptGcPercent)
+    double? OptGcPercent)
 {
     /// <summary>PRIMER_OPT_BOUND / PRIMER_INTERNAL_OPT_BOUND (% bound; Primer3 default
     /// <see cref="PrimerDesigner.Primer3OptBound"/> = 97): the optimum of the bound terms.</summary>
@@ -5037,10 +5140,22 @@ public sealed record PrimerPairOptions
     /// every primer gets its predicted failure rate (<see cref="PrimerDesigner.CalculateMaskFailureRatePrimer3"/>,
     /// <see cref="PrimerCandidate.MaskFailureRate"/>) for PRIMER_WT_MASK_FAILURE_RATE
     /// (<see cref="Primer3PenaltyWeights.MaskFailureRate"/>). Requires <see cref="MaskKmerLists"/> (primer3-py: "masking template
-    /// chosen, but path to PRIMER_MASK_KMERLIST_PATH not specified"). Internal oligos are not affected (Primer3 checks them on the
-    /// unmasked template).
+    /// chosen, but path to PRIMER_MASK_KMERLIST_PATH not specified"). Internal oligos are not masked (Primer3 checks them on the
+    /// unmasked, case-preserving template — <see cref="LowercaseMasking"/>, which masking implies).
     /// </summary>
     public bool MaskTemplate { get; init; }
+
+    /// <summary>
+    /// PRIMER_LOWERCASE_MASKING (default false): with a case-preserving template (the <c>string</c> overloads of
+    /// <see cref="PrimerDesigner.DesignPrimers(string, int, int, PrimerParameters?, PrimerPairOptions?)"/> /
+    /// <see cref="PrimerDesigner.DesignPrimerPairs(string, int, int, PrimerParameters?, PrimerPairOptions?)"/>) a left primer
+    /// or internal oligo whose 3′ base (rightmost template base), or a right primer whose 3′ base (leftmost template base), is a
+    /// lower-case a/c/g/t is rejected (Primer3 <c>calc_and_check_oligo_features</c> → <c>is_lowercase_masked</c> on
+    /// <c>trimmed_orig_seq</c>); lower-case bases elsewhere in the oligo are accepted. <see cref="MaskTemplate"/> implies it
+    /// (primer3-py sets <c>lowercase_masking = mask_template</c>; primers are then checked on the masked copies, which keep the
+    /// input's lower case). No effect with a <see cref="DnaSequence"/> template (upper case).
+    /// </summary>
+    public bool LowercaseMasking { get; init; }
 
     /// <summary>The masker's 11-mer / 16-mer genome count lists (PRIMER_MASK_KMERLIST_PATH / _PREFIX; see
     /// <see cref="PrimerMaskingKmerLists.FromGenomeTester4Files"/>). Not part of the JSON form.</summary>

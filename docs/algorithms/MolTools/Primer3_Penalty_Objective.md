@@ -65,7 +65,7 @@ percentage in [0, 100] (`gc_content = 100·num_gc/num_gcat` in Primer3 source) [
 | INV-02 | penalty = 0 ⇔ Tm=OPT_TM, len=OPT_SIZE, GC=OPT_GC and SELF_ANY=SELF_END=N=0 | sign-gated terms; all contributions vanish at the optimum [3] |
 | INV-03 | a parameter at its optimum contributes 0 to its term | strict `>` / `<` gates exclude the equality case [3] |
 | INV-04 | each term scales linearly with its weight | term = weight·deviation [3][4] |
-| INV-05 | default weights TM/SIZE = 1, GC/SELF/NUM_NS = 0; optima OPT_TM=60 °C, OPT_SIZE=20 bases, OPT_GC=50 % | Primer3 `pr_set_default_global_args_2` (TM/SIZE/GC) and manual (OPT_GC 50.0) [3][4] |
+| INV-05 | default weights TM/SIZE = 1, GC/SELF/NUM_NS = 0; optima OPT_TM=60 °C, OPT_SIZE=20 bases, OPT_GC undefined (GC weights then require an explicit optimum) | Primer3 `pr_set_default_global_args_1/_2` (`DEFAULT_OPT_GC_PERCENT = PR_UNDEFINED_INT_OPT`), `_pr_data_control` [3] |
 
 ## 3. Contract
 
@@ -130,7 +130,7 @@ Default weights and optima (Primer3 source / manual) [3][4]:
 | temp_cutoff | 5 °C | `weights.temp_cutoff` (not a user tag) |
 | OPT_TM | 60.0 °C | `opt_tm` |
 | OPT_SIZE | 20 bases | `opt_size` |
-| OPT_GC_PERCENT | 50.0 % | manual `PRIMER_OPT_GC_PERCENT` (Primer3 code: `DEFAULT_OPT_GC_PERCENT` = `PR_UNDEFINED_INT_OPT`; `_pr_data_control` rejects non-zero `WT_GC_PERCENT_GT/LT` without an explicit optimum). `EvaluatePrimer`/`DesignPrimers` take it from `PrimerParameters.OptimalGcPercent`, the internal oligo from `Primer3ProbeSettings.OptGcPercent` (+ `WeightGcPercentGt/Lt`); null = 50 % (audit round 3, A3-1) |
+| OPT_GC_PERCENT | undefined (null) | Primer3 code `DEFAULT_OPT_GC_PERCENT` = `PR_UNDEFINED_INT_OPT` (the manual lists 50.0, which the code does not apply); `_pr_data_control` rejects non-zero `WT_GC_PERCENT_GT/LT` without an explicit optimum ("Primer GC content is part of objective function while optimum gc_content is not defined"; internal oligo: "Hyb probe GC content …"), and so do `CalculatePrimer3Penalty` (`Primer3Optima.OptGcPercent` = null) and `EvaluatePrimer`/`DesignPrimers` (`PrimerParameters.OptimalGcPercent`; internal oligo `Primer3ProbeSettings.OptGcPercent` + `WeightGcPercentGt/Lt`), `ArgumentException` (audit round 3, A3-25; before: 50 %). |
 
 ### 4.3 Complexity
 

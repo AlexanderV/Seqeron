@@ -131,6 +131,8 @@ Fraction bound (PRIMER_ANNEALING_TEMP; audit round 3, A3-5 part 1): `Primer3Prob
 
 Sequence quality (SEQUENCE_QUALITY; audit round 3, A3-5 part 2a): `DesignProbesPrimer3(template, settings, numReturn, sequenceQuality)` takes one integer quality per template base; every window gets `Primer3Probe.MinSequenceQuality` (PRIMER_INTERNAL_n_MIN_SEQ_QUALITY = min(PRIMER_QUALITY_RANGE_MAX, qualities over the window), `PrimerDesigner.CalculateSequenceQualityPrimer3`), is rejected when it is below `Primer3ProbeSettings.MinQuality` (PRIMER_INTERNAL_MIN_QUALITY, checked after the GC check; a five-prime problem) and gets `WeightSequenceQuality` × (`QualityRangeMax` − min quality) (PRIMER_INTERNAL_WT_SEQ_QUAL, the last internal-oligo `p_obj_fn` term). PRIMER_INTERNAL_WT_END_QUAL (`WeightEndQuality`) has no effect (never read by Primer3 2.3.1). `_pr_data_control`: quality length ≠ template, MinQuality ≠ 0 without quality or outside [`QualityRangeMin`, `QualityRangeMax`] (0 / 100), a value outside the range, a weight without quality → `ArgumentException`. For the internal oligo of a primer pair the quality comes from `PrimerPairOptions.SequenceQuality` and the range from `PrimerParameters.QualityRangeMin/Max`. Cross-check: the F45 harness (primer3-py 2.3.1, probe-only and PRIMER_PICK_INTERNAL_OLIGO cases, position / penalty / MIN_SEQ_QUALITY identical).
 
+GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeSettings.OptGcPercent` (PRIMER_INTERNAL_OPT_GC_PERCENT) is undefined (null) by default, as in Primer3's code (`DEFAULT_OPT_GC_PERCENT = PR_UNDEFINED_INT_OPT`); a non-zero `WeightGcPercentGt/Lt` without it throws `ArgumentException` with Primer3's `_pr_data_control` message "Hyb probe GC content is part of objective function while optimum gc_content is not defined". `Primer3ProbeSettings.LowercaseMasking` (PRIMER_LOWERCASE_MASKING, default false) rejects every window whose 3′ base (its rightmost template base) is a lower-case a/c/g/t of the template as given (`is_lowercase_masked` on `trimmed_orig_seq`, before every other check); lower case elsewhere is accepted. Verified against primer3-py 2.3.1 pick_hyb_probe_only on random mixed-case templates (F46).
+
 ### 4.5 Oligo properties
 
 - Molecular weight: canonical `SequenceStatistics.CalculateNucleotideMolecularWeight` (= Biopython `molecular_weight`, single-stranded; `CalculateMolecularWeight(seq)` infers RNA when the oligo has U and no T).
@@ -201,6 +203,7 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 | Candidate with score `<= 0` | Rejected | The evaluator returns `null` for non-positive scores |
 | Specificity check with no genome hits | Returns `0` | The probe does not match the indexed genome |
 | `DesignProbesPrimer3` with `numReturn` < 1 | `ArgumentOutOfRangeException` | Primer3 `_pr_data_control` "PRIMER_NUM_RETURN < 1" |
+| `DesignProbesPrimer3` with `WeightGcPercentGt/Lt` ≠ 0 and no `OptGcPercent` | `ArgumentException` | Primer3 "Hyb probe GC content is part of objective function while optimum gc_content is not defined" |
 | `DesignProbesPrimer3` with `WeightLibraryMishyb` ≠ 0 and no mishyb library | `ArgumentException` | Primer3 "Internal oligo mispriming score is part of objective function while mishyb library is not defined" |
 
 ### 6.2 Limitations

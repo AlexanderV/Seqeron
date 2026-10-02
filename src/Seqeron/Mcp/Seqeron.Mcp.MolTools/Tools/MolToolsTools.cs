@@ -30,14 +30,14 @@ public class MolToolsTools
         [Description("PRIMER_SALT_DIVALENT: Mg2+ concentration in mM (>= 0; default 1.5).")] double? salt_divalent = null,
         [Description("PRIMER_DNTP_CONC: dNTP concentration in mM (>= 0; default 0.6).")] double? dntp_conc = null,
         [Description("PRIMER_DNA_CONC: primer concentration in nM (> 0; default 50).")] double? dna_conc = null,
-        [Description("PRIMER_OPT_GC_PERCENT: GC optimum of the primer GC penalty terms (default 50; inert unless wt_gc_percent_gt/lt > 0).")] double? opt_gc_percent = null,
+        [Description("PRIMER_OPT_GC_PERCENT: GC optimum of the primer GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - otherwise Primer3's error 'Primer GC content is part of objective function while optimum gc_content is not defined').")] double? opt_gc_percent = null,
         [Description("PRIMER_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).")] double? wt_gc_percent_gt = null,
         [Description("PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double? wt_gc_percent_lt = null,
         [Description("PRIMER_INTERNAL_SALT_MONOVALENT for the internal oligo, mM (> 0; default 50).")] double? internal_salt_monovalent = null,
         [Description("PRIMER_INTERNAL_SALT_DIVALENT for the internal oligo, mM (>= 0; default 0).")] double? internal_salt_divalent = null,
         [Description("PRIMER_INTERNAL_DNTP_CONC for the internal oligo, mM (>= 0; default 0).")] double? internal_dntp_conc = null,
         [Description("PRIMER_INTERNAL_DNA_CONC for the internal oligo, nM (> 0; default 50).")] double? internal_dna_conc = null,
-        [Description("PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the internal-oligo GC penalty terms (default 50; inert unless internal_wt_gc_percent_gt/lt > 0).")] double? internal_opt_gc_percent = null,
+        [Description("PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the internal-oligo GC penalty terms (default undefined; required when internal_wt_gc_percent_gt/lt != 0, even without pick_internal_oligo - Primer3 'Hyb probe GC content is part of objective function while optimum gc_content is not defined').")] double? internal_opt_gc_percent = null,
         [Description("PRIMER_INTERNAL_WT_GC_PERCENT_GT (default 0).")] double? internal_wt_gc_percent_gt = null,
         [Description("PRIMER_INTERNAL_WT_GC_PERCENT_LT (default 0).")] double? internal_wt_gc_percent_lt = null,
         [Description("PRIMER_GC_CLAMP: number of consecutive G/C required at each primer's 3' end (default 0; must be <= the minimum primer length).")] int? gc_clamp = null,
@@ -95,7 +95,8 @@ public class MolToolsTools
         [Description("PRIMER_MASK_FAILURE_RATE: template positions where a primer would end with a predicted failure rate above this are masked (default 0.1; 0 = none).")] double? mask_failure_rate = null,
         [Description("PRIMER_MASK_5P_DIRECTION: bases masked from such a 3' end towards the primer 5' end, including it (default 1).")] int? mask_5p_direction = null,
         [Description("PRIMER_MASK_3P_DIRECTION: bases masked beyond such a 3' end (default 0).")] int? mask_3p_direction = null,
-        [Description("PRIMER_WT_MASK_FAILURE_RATE: per-primer penalty weight of the predicted failure rate (default 0; effective only with mask_template).")] double? wt_mask_failure_rate = null)
+        [Description("PRIMER_WT_MASK_FAILURE_RATE: per-primer penalty weight of the predicted failure rate (default 0; effective only with mask_template).")] double? wt_mask_failure_rate = null,
+        [Description("PRIMER_LOWERCASE_MASKING: reject primers and internal oligos whose 3'-terminal template base is lower case (a/c/g/t of the template as given; lower case elsewhere in an oligo is accepted). Default false; mask_template implies it.")] bool? lowercase_masking = null)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -172,6 +173,7 @@ public class MolToolsTools
             OutsidePenalty = outside_penalty ?? PrimerDesigner.Primer3DefaultOutsidePenalty,
             SequenceQuality = sequence_quality,
             MaskTemplate = mask_template ?? false,
+            LowercaseMasking = lowercase_masking ?? false,
             MaskKmerLists = mask_kmers_11 is null && mask_kmers_16 is null
                 ? null
                 : new PrimerMaskingKmerLists(mask_kmers_11 ?? new Dictionary<string, int>(), mask_kmers_16 ?? new Dictionary<string, int>()),
@@ -188,9 +190,9 @@ public class MolToolsTools
         if (product_size_range is not null)
             options = options with { ProductSizeRanges = ParseProductSizeRanges(product_size_range) };
 
-        var dna = new DnaSequence(template);
-        var pairs = PrimerDesigner.DesignPrimerPairs(dna, target_start, target_end, parameters, options);
-        var best = pairs.Count > 0 ? pairs[0] : PrimerDesigner.DesignPrimers(dna, target_start, target_end, parameters, options);
+        // The case-preserving template overloads (PRIMER_LOWERCASE_MASKING); case is ignored otherwise.
+        var pairs = PrimerDesigner.DesignPrimerPairs(template, target_start, target_end, parameters, options);
+        var best = pairs.Count > 0 ? pairs[0] : PrimerDesigner.DesignPrimers(template, target_start, target_end, parameters, options);
         return new DesignPrimersResult(
             best.Forward, best.Reverse, best.IsValid, best.Message, best.ProductSize,
             best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs,
@@ -351,7 +353,7 @@ public class MolToolsTools
         [Description("PRIMER_SALT_DIVALENT: Mg2+ concentration in mM (>= 0; default 1.5).")] double? salt_divalent = null,
         [Description("PRIMER_DNTP_CONC: dNTP concentration in mM (>= 0; default 0.6).")] double? dntp_conc = null,
         [Description("PRIMER_DNA_CONC: primer concentration in nM (> 0; default 50).")] double? dna_conc = null,
-        [Description("PRIMER_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default 50; inert unless wt_gc_percent_gt/lt > 0).")] double? opt_gc_percent = null,
+        [Description("PRIMER_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - Primer3 'Primer GC content is part of objective function while optimum gc_content is not defined').")] double? opt_gc_percent = null,
         [Description("PRIMER_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).")] double? wt_gc_percent_gt = null,
         [Description("PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double? wt_gc_percent_lt = null,
         [Description("PRIMER_GC_CLAMP: number of consecutive G/C required at the 3' end (default 0).")] int? gc_clamp = null,
@@ -1073,7 +1075,11 @@ public class MolToolsTools
         [Description("PRIMER_QUALITY_RANGE_MIN (default 0).")] int quality_range_min = PrimerDesigner.Primer3QualityRangeMin,
         [Description("PRIMER_QUALITY_RANGE_MAX (default 100); the quality penalty is wt_seq_qual x (quality_range_max - min quality).")] int quality_range_max = PrimerDesigner.Primer3QualityRangeMax,
         [Description("PRIMER_INTERNAL_WT_SEQ_QUAL: penalty weight of (quality_range_max - the probe's minimum base quality) (default 0; needs sequence_quality).")] double wt_seq_qual = 0.0,
-        [Description("PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1).")] double wt_end_qual = 0.0)
+        [Description("PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1).")] double wt_end_qual = 0.0,
+        [Description("PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - Primer3 'Hyb probe GC content is part of objective function while optimum gc_content is not defined').")] double? opt_gc_percent = null,
+        [Description("PRIMER_INTERNAL_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).")] double wt_gc_percent_gt = 0.0,
+        [Description("PRIMER_INTERNAL_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double wt_gc_percent_lt = 0.0,
+        [Description("PRIMER_LOWERCASE_MASKING: reject probes whose 3'-terminal template base is lower case (a/c/g/t of the template as given; lower case elsewhere is accepted). Default false.")] bool lowercase_masking = false)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template sequence cannot be null or empty.", nameof(template));
@@ -1098,6 +1104,10 @@ public class MolToolsTools
             QualityRangeMax = quality_range_max,
             WeightSequenceQuality = wt_seq_qual,
             WeightEndQuality = wt_end_qual,
+            OptGcPercent = opt_gc_percent,
+            WeightGcPercentGt = wt_gc_percent_gt,
+            WeightGcPercentLt = wt_gc_percent_lt,
+            LowercaseMasking = lowercase_masking,
         };
         return new Primer3ProbesResult(ProbeDesigner.DesignProbesPrimer3(template, settings, num_return, sequence_quality));
     }
