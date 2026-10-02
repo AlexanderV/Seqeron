@@ -30,6 +30,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3 
 | `parameters` | object | No | Optional design parameters. |
 | `salt_monovalent` / `salt_divalent` / `dntp_conc` / `dna_conc` | number | No | PRIMER_SALT_MONOVALENT (mM, > 0; default 50) / PRIMER_SALT_DIVALENT (mM, ≥ 0; 1.5) / PRIMER_DNTP_CONC (mM, ≥ 0; 0.6) / PRIMER_DNA_CONC (nM, > 0; 50) for the Tm and ntthal values; illegal values → `ArgumentOutOfRangeException`. |
 | `opt_gc_percent` / `wt_gc_percent_gt` / `wt_gc_percent_lt` | number | No | PRIMER_OPT_GC_PERCENT (default 50) and PRIMER_WT_GC_PERCENT_GT / _LT (default 0) of the `penalty`. |
+| `gc_clamp` / `max_end_gc` / `max_end_stability` | integer / integer / number | No | Primer3 3′-end checks: PRIMER_GC_CLAMP (default 0), PRIMER_MAX_END_GC (0–5, default 5), PRIMER_MAX_END_STABILITY (kcal/mol ≥ 0, default 100); a failure adds an issue naming the Primer3 tag (primer3-py `check_primers` parity). |
 
 ## Output Schema
 

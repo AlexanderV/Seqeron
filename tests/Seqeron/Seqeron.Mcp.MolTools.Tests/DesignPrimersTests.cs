@@ -209,4 +209,46 @@ public class DesignPrimersTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             MolToolsTools.design_primers(t, 100, 130, pick_internal_oligo: true, internal_dna_conc: 0));
     }
+
+    [Test]
+    public void DesignPrimers_ThreePrimeEndChecksAndDistance_MatchPrimer3()
+    {
+        // primer3-py 2.3.1 design_primers(SEQUENCE_TARGET [54, 21], PRIMER_PAIR_MAX_DIFF_TM 100):
+        // PRIMER_GC_CLAMP 2 → PRIMER_LEFT_0 [34,18], PRIMER_RIGHT_0 [143,21], PRIMER_PAIR_0_PENALTY 3.8176034305392363;
+        // PRIMER_MAX_END_GC 2 → [19,19] / [136,20], 2.2130093738348933; PRIMER_MAX_END_STABILITY 3.0 → no pair;
+        // PRIMER_MIN_THREE_PRIME_DISTANCE 3 → PRIMER_PAIR_1 [35,19] / [140,20], 2.570253724637439;
+        // PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE 5 + _RIGHT_ 0 → PRIMER_PAIR_2 [16,18] / [140,20], 4.073043969173341.
+        const string t = "GGTCCTAATTGGAGCGCCCAGTTACCGGCCGAGTGCTACGGGCACTCGTTGGTAGTGGGCTCCCTAAGTCGGCGCATCCGTTCCTAGCTTTAAAATATCCGTTGAAAGAATGTTCTGAGTCTCGCCTAGTGAAAGCCAACTCCTTTGGATTTTGTCATA";
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters;
+        var clamp = MolToolsTools.design_primers(t, 54, 75, p3, max_tm_difference: 100, num_return: 5, gc_clamp: 2);
+        var endGc = MolToolsTools.design_primers(t, 54, 75, p3, max_tm_difference: 100, num_return: 5, max_end_gc: 2);
+        var stab = MolToolsTools.design_primers(t, 54, 75, p3, max_tm_difference: 100, num_return: 5, max_end_stability: 3.0);
+        var alias = MolToolsTools.design_primers(t, 54, 75, p3, max_tm_difference: 100, num_return: 5, min_three_prime_distance: 3);
+        var lr = MolToolsTools.design_primers(t, 54, 75, p3, max_tm_difference: 100, num_return: 5,
+            min_left_three_prime_distance: 5, min_right_three_prime_distance: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clamp.Forward!.Position, Is.EqualTo(34));
+            Assert.That(clamp.Reverse!.Position + clamp.Reverse.Length - 1, Is.EqualTo(143));
+            Assert.That(clamp.PairPenalty!.Value, Is.EqualTo(3.8176034305392363).Within(1e-9));
+            Assert.That(endGc.Forward!.Position, Is.EqualTo(19));
+            Assert.That(endGc.PairPenalty!.Value, Is.EqualTo(2.2130093738348933).Within(1e-9));
+            Assert.That(stab.IsValid, Is.False);
+            Assert.That(stab.Pairs, Is.Empty);
+            Assert.That(alias.Pairs, Has.Count.EqualTo(5));
+            Assert.That(alias.Pairs[1].Forward!.Position, Is.EqualTo(35));
+            Assert.That(alias.Pairs[1].Reverse!.Position + alias.Pairs[1].Reverse!.Length - 1, Is.EqualTo(140));
+            Assert.That(alias.Pairs[1].PairPenalty!.Value, Is.EqualTo(2.570253724637439).Within(1e-9));
+            Assert.That(lr.Pairs[2].Forward!.Position, Is.EqualTo(16));
+            Assert.That(lr.Pairs[2].PairPenalty!.Value, Is.EqualTo(4.073043969173341).Within(1e-9));
+        });
+
+        // read_boulder: "Both PRIMER_MIN_THREE_PRIME_DISTANCE and PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE specified";
+        // _pr_data_control: PRIMER_MAX_END_GC ∉ [0, 5], PRIMER_GC_CLAMP > PRIMER_MIN_SIZE, distance < −1.
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 54, 75, min_three_prime_distance: 3, min_left_three_prime_distance: 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_primers(t, 54, 75, max_end_gc: 6));
+        Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.design_primers(t, 54, 75, p3, gc_clamp: 19));
+        Assert.Throws<ArgumentException>(() => MolToolsTools.design_primers(t, 54, 75, min_three_prime_distance: -2));
+    }
 }

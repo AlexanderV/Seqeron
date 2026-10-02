@@ -55,8 +55,14 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    $81.5 + 16.6\log_{10}([Mon]_{eq}/1000) + 41\,GC/N - 600/N$ at the primer conditions.
 5. **Selection:** the minimum-objective pair; ties within $10^{-6}$ broken as `compare_primer_pair` (left
    primer further 3′, right primer 5′ end further left, shorter left, shorter right). `DesignPrimerPairs`
-   repeats the search PRIMER_NUM_RETURN times, removing each selected pair (primers may be reused,
-   PRIMER_MIN_*_THREE_PRIME_DISTANCE = −1).
+   repeats the search PRIMER_NUM_RETURN times, removing each selected pair. By default primers may be reused
+   (PRIMER_MIN_LEFT/RIGHT_THREE_PRIME_DISTANCE = −1, `PrimerPairOptions.MinLeftThreePrimeDistance` /
+   `MinRightThreePrimeDistance`, shorthand `MinThreePrimeDistance` = PRIMER_MIN_THREE_PRIME_DISTANCE); with
+   $d \ge 0$ a selected pair excludes from all later pairs every left (right) primer whose 3′ end lies fewer than $d$
+   bases from the selected left (right) primer's 3′ end ($d = 0$: only the identical primer) — Primer3
+   `choose_pair_or_triple` + `left/right_oligo_in_pair_overlaps_used_oligo` (left 3′ end = start + length − 1,
+   right 3′ end = its leftmost top-strand base). PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE acts only with
+   SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST (not modelled).
 6. **Internal oligo** (`choose_internal_oligo`): the lowest-penalty oligo of the Primer3 internal-oligo list
    (`ProbeDesigner.DesignProbesPrimer3` rules, PRIMER_INTERNAL_* defaults; its self-any/self-end/hairpin checks
    postponed until the oligo is considered) with start > left primer 3′ end and end < right primer 5′ base.
@@ -83,7 +89,7 @@ bonus) is reported for information only and does not drive selection.
 | `template` | `DnaSequence` | required | Template DNA sequence |
 | `targetStart` | `int` | required | Start of the target region | Must satisfy `targetStart >= 0` |
 | `targetEnd` | `int` | required | Exclusive end of the target region (target = `[targetStart, targetEnd)`, Primer3 SEQUENCE_TARGET) | Must satisfy `targetEnd < template.Length` and `targetStart < targetEnd` |
-| `parameters` | `PrimerParameters?` | `PrimerDesigner.DefaultParameters` | Primer design thresholds | Defaults are `18-25` bp length, `40-60%` GC, `57-63°C` Tm, `OptimalLength = 20`, `OptimalTm = 60`, `MaxHomopolymer = 4`, `MaxDinucleotideRepeats = 4`, `Avoid3PrimeGC = false`, and `Check3PrimeStability = true`; `PrimerDesigner.Primer3DefaultParameters` = Primer3's (18/20/27 nt, GC 20–80 %, poly-X 5, no dinucleotide or 3′-ΔG gate) |
+| `parameters` | `PrimerParameters?` | `PrimerDesigner.DefaultParameters` | Primer design thresholds | Defaults are `18-25` bp length, `40-60%` GC, `57-63°C` Tm, `OptimalLength = 20`, `OptimalTm = 60`, `MaxHomopolymer = 4`, `MaxDinucleotideRepeats = 4`, `Avoid3PrimeGC = false`, and `Check3PrimeStability = true` (deprecated, no effect); `GcClamp` = 0, `MaxEndGc` = null (5) and `MaxEndStability` = null (100) are Primer3's defaults in both parameter sets; `PrimerDesigner.Primer3DefaultParameters` = Primer3's (18/20/27 nt, GC 20–80 %, poly-X 5, no dinucleotide limit) |
 | `pairOptions` | `PrimerPairOptions?` | `PrimerPairOptions.Default` | Pair options: `ProductSizeRanges` (PRIMER_PRODUCT_SIZE_RANGE, default 100–300), `MaxTmDifference` (PRIMER_PAIR_MAX_DIFF_TM, default 5; `Primer3Defaults`: 100), `NumReturn` (PRIMER_NUM_RETURN, 5), `IncludedRegion` (SEQUENCE_INCLUDED_REGION), `ProductOptSize`/`ProductOptTm`/`ProductMinTm`/`ProductMaxTm`, `Weights` (PRIMER_PAIR_WT_*), `PickInternalOligo` + `InternalOligo` (PRIMER_PICK_INTERNAL_OLIGO, PRIMER_INTERNAL_*) | Primer3 `_pr_data_control` errors throw `ArgumentException` (weight without optimum, PRIMER_MAX_SIZE or PRIMER_INTERNAL_MAX_SIZE > min product size, NUM_RETURN < 1, target outside the included region) |
 
 ### 3.2 Output / Return Value
@@ -127,8 +133,11 @@ Parameter ranges documented in the original file and current source:
 | Melting Temp (°C) | 55 | 60 | 65 | Original document summary; current source defaults narrow this to `57-63` |
 | Homopolymer Run | N/A | N/A | 4 | Current source default |
 | Dinucleotide Repeats | N/A | N/A | 4 | Current source default |
-| `Avoid3PrimeGC` | N/A | N/A | `false` | When enabled, the current check requires at least one `G`/`C` in the last two bases |
-| `Check3PrimeStability` | N/A | N/A | `true` | Gates whether `EvaluatePrimer(...)` records the `ΔG < -9` issue |
+| `GcClamp` (PRIMER_GC_CLAMP) | 0 | N/A | `MinLength` | Number of consecutive G/C required at the 3′ end (Primer3 default 0; > PRIMER_MIN_SIZE throws) |
+| `MaxEndGc` (PRIMER_MAX_END_GC) | 0 | N/A | 5 | Max G/C among the five 3′-most bases; checked only when < 5 (default 5) |
+| `MaxEndStability` (PRIMER_MAX_END_STABILITY) | 0 | N/A | 100 | Fails when `end_stability` = −`Calculate3PrimeStability` > limit (default 100; an ACGT pentamer reaches at most 6.86, GCGCG/CGCGC) |
+| `Avoid3PrimeGC` | N/A | N/A | `false` | Deprecated library rule (not Primer3): despite the name it *requires* at least one `G`/`C` in the last two bases; kept for source compatibility — use `GcClamp` / `MaxEndGc` |
+| `Check3PrimeStability` | N/A | N/A | `true` | Deprecated, no effect: it gated ΔG(3′ pentamer) < −9 kcal/mol, which no ACGT pentamer reaches (minimum −6.86), so it never fired; the Primer3 limit is `MaxEndStability` |
 
 ### 4.3 Complexity
 
@@ -153,7 +162,7 @@ Parameter ranges documented in the original file and current source:
 
 ### 5.2 Current Behavior
 
-Forward primers are taken directly from the template; reverse primers are reverse-complemented before evaluation, and their `Position` is the leftmost template coordinate of the binding site. Per-primer hard constraints: length, GC%, Primer3-default Tm window, homopolymer, dinucleotide repeat, secondary structure (default `PrimerStructureScreen.Primer3Thermodynamic`: Primer3 ntthal self-any / self-end / hairpin Tm ≤ `MaxStructureTm` = 47 °C, evaluated lazily in the pair loop like Primer3's `characterize_pair`; `Heuristic`: `HasHairpinPotential`), 3′ ΔG (`< −9` kcal/mol flagged; note that the SantaLucia 5-mer ΔG never goes below −6.86, so this gate never fires — consistent with Primer3's default PRIMER_MAX_END_STABILITY = 100), optional GC clamp, and no non-ACGT base (Primer3 PRIMER_MAX_NS_ACCEPTED = 0). Pair selection is the Primer3 pair search described in §2.2; the internal oligo reuses the `ProbeDesigner` Primer3 internal-oligo list (`EnumeratePrimer3InternalOligos`, shared with `DesignProbesPrimer3`).
+Forward primers are taken directly from the template; reverse primers are reverse-complemented before evaluation, and their `Position` is the leftmost template coordinate of the binding site. Per-primer hard constraints: length, GC%, Primer3 3′-end checks (PRIMER_GC_CLAMP / PRIMER_MAX_END_GC / PRIMER_MAX_END_STABILITY, `calc_and_check_oligo_features`), Primer3-default Tm window, homopolymer, dinucleotide repeat, secondary structure (default `PrimerStructureScreen.Primer3Thermodynamic`: Primer3 ntthal self-any / self-end / hairpin Tm ≤ `MaxStructureTm` = 47 °C, evaluated lazily in the pair loop like Primer3's `characterize_pair`; `Heuristic`: `HasHairpinPotential`), the deprecated library rule `Avoid3PrimeGC` (≥ 1 G/C in the last two bases), and no non-ACGT base (Primer3 PRIMER_MAX_NS_ACCEPTED = 0). Pair selection is the Primer3 pair search described in §2.2; the internal oligo reuses the `ProbeDesigner` Primer3 internal-oligo list (`EnumeratePrimer3InternalOligos`, shared with `DesignProbesPrimer3`).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -167,7 +176,9 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 **Deviations from Primer3 defaults (documented; `Primer3DefaultParameters` / `PrimerPairOptions.Primer3Defaults` restore them):** length 18–25 (Primer3 18–27), GC 40–60 % (20–80 %), poly-X 4 (5), pair ΔTm ≤ 5 °C (100), dinucleotide-repeat limit (no Primer3 equivalent). The product-size range is Primer3's (default 100–300 bp; before audit round 1 the ±200 bp flanks bounded the product instead). Structure limits are Primer3's default thermodynamic ones (PRIMER-STRUCT-001): with them `DesignPrimers` returned primer3-py's pair (same settings) in 574/600 random templates; the 26 differences all trace to ntthal engine values (PRIMER-DIMER-001 / PRIMER-HAIRPIN-001). After PRIMER-DIMER-001 (dimer engine bit-exact) a re-run on 1800 random templates (seeds 1–9 × 200) gave 1733 identical; all 67 differences trace to `calc_hairpin` values only (PRIMER-HAIRPIN-001). After PRIMER-HAIRPIN-001 (hairpin engine bit-exact) the same 1800 templates are 1800/1800 identical (primers and pair penalty).
 
-**Not implemented:** mispriming libraries / template mispriming, position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_MIN_*_THREE_PRIME_DISTANCE ≥ 0, genome-wide specificity.
+- 3′-end checks and 3′ distance (audit round 3, A3-6 + A3-7, 2026-10-02): random 150–600-bp templates (GC bias 35–60 %), PRIMER_GC_CLAMP ∈ {0–3}, PRIMER_MAX_END_GC ∈ {0–5}, PRIMER_MAX_END_STABILITY ∈ {4–9, 100}, PRIMER_MIN_THREE_PRIME_DISTANCE or PRIMER_MIN_LEFT/RIGHT_THREE_PRIME_DISTANCE ∈ {−1, 0, 1, 2, 3, 5, 10, 20}, PRIMER_NUM_RETURN 5–10, PRIMER_WT_END_STABILITY ∈ {0, 0.5}, both alignment modes, PRIMER_PICK_INTERNAL_OLIGO ∈ {0, 1}: 2200/2200 templates (9590 pairs) identical on left/right start + length, PRIMER_PAIR/LEFT/RIGHT_k_PENALTY, _END_STABILITY and PRIMER_INTERNAL_k position (|Δ| ≤ 1e-9); without the new options 36/2000.
+
+**Not implemented:** mispriming libraries / template mispriming, position penalties (PRIMER_INSIDE/OUTSIDE_PENALTY), sequence quality, PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
 
 ## 6. Edge Cases and Limitations
 

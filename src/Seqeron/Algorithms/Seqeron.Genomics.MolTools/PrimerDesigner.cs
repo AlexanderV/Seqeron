@@ -8,7 +8,9 @@ namespace Seqeron.Genomics.MolTools;
 public static class PrimerDesigner
 {
     /// <summary>
-    /// Default primer design parameters.
+    /// Default primer design parameters (library conventions; the Primer3 3′-end checks PRIMER_GC_CLAMP,
+    /// PRIMER_MAX_END_GC and PRIMER_MAX_END_STABILITY are at their Primer3 defaults, i.e. inactive;
+    /// <c>Check3PrimeStability</c> is deprecated and has no effect, see <see cref="PrimerParameters"/>).
     /// </summary>
     public static readonly PrimerParameters DefaultParameters = new(
         MinLength: 18,
@@ -29,9 +31,10 @@ public static class PrimerDesigner
     /// Primer3's default per-primer settings (<c>libprimer3.cc</c> <c>pr_set_default_global_args_1/_2</c>,
     /// primer3-py 2.3.1 <c>design_primers</c> defaults): PRIMER_MIN/OPT/MAX_SIZE = 18/20/27,
     /// PRIMER_MIN/MAX_GC = 20/80 %, PRIMER_MIN/OPT/MAX_TM = 57/60/63 °C, PRIMER_MAX_POLY_X = 5, no
-    /// dinucleotide-repeat limit (Primer3 has none), no GC clamp (PRIMER_GC_CLAMP = 0), no 3′-stability gate
-    /// (PRIMER_MAX_END_STABILITY = 100 cannot be exceeded), thermodynamic structure screen with every
-    /// limit 47 °C. With <see cref="PrimerPairOptions.Primer3Defaults"/> this makes
+    /// dinucleotide-repeat limit (Primer3 has none), PRIMER_GC_CLAMP = 0, PRIMER_MAX_END_GC = 5 and
+    /// PRIMER_MAX_END_STABILITY = 100 (<see cref="PrimerParameters.GcClamp"/>, <see cref="PrimerParameters.MaxEndGc"/>,
+    /// <see cref="PrimerParameters.MaxEndStability"/> left at their Primer3 defaults; 100 cannot be exceeded by an ACGT
+    /// 3′ pentamer), thermodynamic structure screen with every limit 47 °C. With <see cref="PrimerPairOptions.Primer3Defaults"/> this makes
     /// <see cref="DesignPrimerPairs"/> reproduce <c>primer3.design_primers</c> run with only
     /// SEQUENCE_TEMPLATE / SEQUENCE_TARGET set. (<see cref="DefaultParameters"/> keeps the library's
     /// stricter conventions: 18–25 nt, 40–60 % GC, poly-X ≤ 4, dinucleotide repeat ≤ 4.)
@@ -122,8 +125,10 @@ public static class PrimerDesigner
     /// Returns up to <see cref="PrimerPairOptions.NumReturn"/> primer pairs (Primer3 PRIMER_NUM_RETURN,
     /// default 5), best first, exactly as Primer3's <c>choose_pair_or_triple</c> picks them (see
     /// <see cref="DesignPrimers"/>): after a pair is selected it is removed and the search is repeated;
-    /// primers may be reused in later pairs (Primer3 PRIMER_MIN_LEFT/RIGHT_THREE_PRIME_DISTANCE = −1);
-    /// product-size ranges are tried in order. Each result is valid and carries
+    /// by default primers may be reused in later pairs (Primer3 PRIMER_MIN_LEFT/RIGHT_THREE_PRIME_DISTANCE = −1),
+    /// otherwise a selected pair excludes every left / right primer whose 3′ end lies closer than
+    /// <see cref="PrimerPairOptions.MinLeftThreePrimeDistance"/> / <see cref="PrimerPairOptions.MinRightThreePrimeDistance"/>
+    /// to its own (0: only the identical primer) from all later pairs; product-size ranges are tried in order. Each result is valid and carries
     /// <see cref="PrimerPairResult.PairPenalty"/> (PRIMER_PAIR_k_PENALTY),
     /// <see cref="PrimerPairResult.ProductTm"/> (PRIMER_PAIR_k_PRODUCT_TM), the pair complementarity Tm
     /// values and, with <see cref="PrimerPairOptions.PickInternalOligo"/>, the internal oligo
@@ -212,6 +217,8 @@ public static class PrimerDesigner
         private readonly Primer3PairWeights _w;
         private readonly List<(PrimerCandidate C, double Tm)> _fwd = new(), _rev = new();
         private readonly bool?[] _fwdOk, _revOk;
+        // Primer3 primer_rec.overlaps: excluded by PRIMER_MIN_LEFT/RIGHT_THREE_PRIME_DISTANCE after a pair was selected.
+        private readonly bool[] _fwdUsed, _revUsed;
         private readonly Dictionary<string, bool> _structureBySequence = new(StringComparer.Ordinal);
         private readonly Dictionary<(string F, string R), (bool Fails, double? Any, double? End)> _dimer = new();
         private readonly int[] _gcPrefix;
@@ -287,6 +294,8 @@ public static class PrimerDesigner
             _rev.Sort((a, b) => CompareRight(a.C, b.C));
             _fwdOk = new bool?[_fwd.Count];
             _revOk = new bool?[_rev.Count];
+            _fwdUsed = new bool[_fwd.Count];
+            _revUsed = new bool[_rev.Count];
 
             if (opt.PickInternalOligo)
             {
@@ -329,6 +338,8 @@ public static class PrimerDesigner
                 throw new ArgumentException("MaxTmDifference must be ≥ 0 °C.");
             if (o.NumReturn < 1)
                 throw new ArgumentException("PRIMER_NUM_RETURN < 1 (Primer3 _pr_data_control).");
+            if (o.MinLeftThreePrimeDistance < -1 || o.MinRightThreePrimeDistance < -1)
+                throw new ArgumentException("Minimum 3' distance must be >= -1 (min_*_three_prime_distance) (Primer3 _pr_data_control).");
             if ((_w.ProductTmLt != 0 || _w.ProductTmGt != 0) && o.ProductOptTm is null)
                 throw new ArgumentException("Product temperature is part of objective function while optimum temperature is not defined (Primer3 _pr_data_control).");
             if ((_w.ProductSizeLt != 0 || _w.ProductSizeGt != 0) && o.ProductOptSize is null)
@@ -464,6 +475,8 @@ public static class PrimerDesigner
                     // No pair with this or any later reverse primer can beat the best pair.
                     if (wq * (_rev[i].C.Penalty + _fwd[0].C.Penalty) > BestQuality(best))
                         break;
+                    if (_revUsed[i])
+                        continue; // 3′ end too close to a right primer of a selected pair
 
                     for (int j = 0; j < _fwd.Count; j++)
                     {
@@ -473,6 +486,8 @@ public static class PrimerDesigner
                             continue;
                         if (wq * (_fwd[j].C.Penalty + _rev[i].C.Penalty) > BestQuality(best))
                             break;
+                        if (_fwdUsed[j])
+                            continue;
 
                         int product = ProductSize(j, i);
                         var range = ranges[rangeIndex];
@@ -507,6 +522,7 @@ public static class PrimerDesigner
 
                 results.Add(ToResult(best));
                 cache[(best.Ri, best.Fi)] = null; // mark as selected
+                MarkUsedPrimers(best);
                 if (results.Count == numReturn)
                     break;
             }
@@ -514,6 +530,31 @@ public static class PrimerDesigner
         }
 
         private static double BestQuality(PairEval? best) => best?.Penalty ?? double.MaxValue;
+
+        // Primer3 left/right_oligo_in_pair_overlaps_used_oligo after a pair is selected: min distance −1 → nothing;
+        // 0 → the identical primer (same start and length); d > 0 → every primer whose 3′ end is < d bases from the
+        // selected primer's 3′ end (left 3′ end = Position + Length − 1; right 3′ end on the top strand = Position).
+        private void MarkUsedPrimers(PairEval best)
+        {
+            MarkUsed(_fwd, _fwdUsed, _fwd[best.Fi].C, _opt.MinLeftThreePrimeDistance, c => c.Position + c.Length - 1);
+            MarkUsed(_rev, _revUsed, _rev[best.Ri].C, _opt.MinRightThreePrimeDistance, c => c.Position);
+
+            static void MarkUsed(List<(PrimerCandidate C, double Tm)> list, bool[] used, PrimerCandidate chosen,
+                int minDistance, Func<PrimerCandidate, int> threePrime)
+            {
+                if (minDistance == -1)
+                    return;
+                int chosenEnd = threePrime(chosen);
+                for (int k = 0; k < list.Count; k++)
+                {
+                    var c = list[k].C;
+                    if (minDistance == 0
+                        ? c.Position == chosen.Position && c.Length == chosen.Length
+                        : Math.Abs(threePrime(c) - chosenEnd) < minDistance)
+                        used[k] = true;
+                }
+            }
+        }
 
         private int ProductSize(int fi, int ri) =>
             _rev[ri].C.Position + _rev[ri].C.Length - _fwd[fi].C.Position;
@@ -746,7 +787,9 @@ public static class PrimerDesigner
     /// <summary>
     /// Evaluates a single primer candidate against the per-primer constraints of
     /// <paramref name="parameters"/> (length, GC%, Tm, homopolymer, dinucleotide repeat, secondary
-    /// structure, 3'-end stability, optional GC clamp). The secondary-structure screen is
+    /// structure, Primer3's 3′-end checks PRIMER_GC_CLAMP / PRIMER_MAX_END_GC / PRIMER_MAX_END_STABILITY
+    /// (<see cref="PrimerParameters.GcClamp"/>, <see cref="PrimerParameters.MaxEndGc"/>,
+    /// <see cref="PrimerParameters.MaxEndStability"/>), the deprecated library rule <c>Avoid3PrimeGC</c>). The secondary-structure screen is
     /// <see cref="PrimerParameters.StructureScreen"/>: by default Primer3's thermodynamic limits
     /// (ntthal self-dimer, 3′ self-dimer and hairpin Tm ≤ 47 °C, reported in
     /// <see cref="PrimerCandidate.SelfAnyTh"/>/<see cref="PrimerCandidate.SelfEndTh"/>/<see cref="PrimerCandidate.HairpinTh"/>),
@@ -826,10 +869,36 @@ public static class PrimerDesigner
         if (evaluateStructure)
             (hasHairpin, structure) = AddStructureIssues(seq, param, issues);
 
-        if (param.Check3PrimeStability && stability3Prime < -9)
-            issues.Add($"3' end too stable (ΔG = {stability3Prime:F1} kcal/mol)");
+        // Primer3 3′-end checks of left/right primers (calc_and_check_oligo_features): PRIMER_GC_CLAMP — the
+        // gc_clamp 3′-most bases must all be G/C; PRIMER_MAX_END_GC — checked only when < 5, at most max_end_gc
+        // G/C among the five 3′-most bases (a shorter primer counts its own bases); PRIMER_MAX_END_STABILITY —
+        // end_stability = end_oligodg(seq, 5) = −ΔG of the 3′ pentamer must not exceed the limit.
+        int gcClamp = param.GcClamp;
+        for (int i = 0; i < gcClamp; i++)
+        {
+            int k = seq.Length - 1 - i;
+            if (k < 0 || seq[k] is not ('G' or 'C'))
+            {
+                issues.Add($"No GC clamp: the {gcClamp} 3'-most bases must be G/C (PRIMER_GC_CLAMP)");
+                break;
+            }
+        }
 
-        // Check 3' end for GC clamp
+        int maxEndGc = param.EffectiveMaxEndGc;
+        if (maxEndGc < Primer3MaxEndGc)
+        {
+            int endGc = 0;
+            for (int k = Math.Max(0, seq.Length - 5); k < seq.Length; k++)
+                if (seq[k] is 'G' or 'C') endGc++;
+            if (endGc > maxEndGc)
+                issues.Add($"{endGc} G/C in the last 5 bases exceeds max {maxEndGc} (PRIMER_MAX_END_GC)");
+        }
+
+        double endStability = -stability3Prime;
+        if (endStability > param.EffectiveMaxEndStability)
+            issues.Add($"3' end stability {endStability:F2} kcal/mol exceeds max {param.EffectiveMaxEndStability} (PRIMER_MAX_END_STABILITY)");
+
+        // Library rule kept for source compatibility (not Primer3; superseded by GcClamp / MaxEndGc).
         if (param.Avoid3PrimeGC && seq.Length >= 2)
         {
             string last2 = seq.Substring(seq.Length - 2);
@@ -3311,6 +3380,23 @@ public static class PrimerDesigner
     /// </summary>
     public const double Primer3DefaultOptGcPercent = 50.0;
 
+    /// <summary>
+    /// Primer3 default PRIMER_MAX_END_STABILITY = 100 kcal/mol (<c>pr_set_default_global_args_1</c>
+    /// <c>max_end_stability</c>): a left/right primer fails when its <c>end_stability</c> =
+    /// <c>end_oligodg(seq, 5)</c> = −<see cref="Calculate3PrimeStability"/> is strictly greater. The largest
+    /// value an ACGT 3′ pentamer reaches is 6.86 (GCGCG), so the default never rejects a primer.
+    /// </summary>
+    public const double Primer3MaxEndStability = 100.0;
+
+    /// <summary>Primer3 default PRIMER_GC_CLAMP = 0 (no G/C required at the 3′ end; <c>gc_clamp</c>).</summary>
+    public const int Primer3GcClamp = 0;
+
+    /// <summary>
+    /// Primer3 default PRIMER_MAX_END_GC = 5 (<c>max_end_gc</c>): the maximum number of G/C among the five 3′-most
+    /// bases of a left/right primer; Primer3 only checks it when it is &lt; 5. Legal range 0–5.
+    /// </summary>
+    public const int Primer3MaxEndGc = 5;
+
     // Primer3 data control of one oligo-condition set (_pr_data_control: "Illegal value for primer salt or dna
     // concentration" / "… divalent salt or dNTP concentration"): salt and DNA concentration > 0, divalent ≥ 0;
     // a negative dNTP is also rejected here (seqtm has no meaning for it). NaN / ∞ are rejected.
@@ -3714,7 +3800,14 @@ public static class PrimerDesigner
 }
 
 /// <summary>
-/// Parameters for primer design.
+/// Parameters for primer design. Primer3's 3′-end checks are <see cref="GcClamp"/> (PRIMER_GC_CLAMP),
+/// <see cref="MaxEndGc"/> (PRIMER_MAX_END_GC) and <see cref="MaxEndStability"/> (PRIMER_MAX_END_STABILITY).
+/// Two positional members predate them and are kept only for source compatibility (deprecated):
+/// <c>Avoid3PrimeGC</c> is a library rule, not Primer3's — despite its name it <i>requires</i> at least one G/C
+/// among the two 3′-most bases (use <see cref="GcClamp"/> = 1 for Primer3's "3′-most base is G/C", or
+/// <see cref="MaxEndGc"/> to limit 3′ G/C); <c>Check3PrimeStability</c> no longer has any effect — it gated
+/// ΔG(3′ pentamer) &lt; −9 kcal/mol, which no ACGT pentamer reaches (minimum −6.86, GCGCG), so it never rejected a
+/// primer; Primer3's end-stability limit is <see cref="MaxEndStability"/>, always applied.
 /// </summary>
 public readonly record struct PrimerParameters(
     int MinLength,
@@ -3798,6 +3891,33 @@ public readonly record struct PrimerParameters(
     /// </summary>
     public double? OptimalGcPercent { get; init; }
 
+    /// <summary>
+    /// PRIMER_MAX_END_STABILITY (kcal/mol, ≥ 0): a primer fails when its Primer3 <c>end_stability</c> =
+    /// <c>end_oligodg(seq, 5)</c> = −<see cref="PrimerDesigner.Calculate3PrimeStability"/> (the positive −ΔG°37 of the
+    /// 3′ pentamer) is strictly greater; null = Primer3's default <see cref="PrimerDesigner.Primer3MaxEndStability"/>
+    /// (100, never exceeded). Primer3 applies it to left/right primers only (no internal-oligo counterpart).
+    /// </summary>
+    public double? MaxEndStability { get; init; }
+
+    /// <summary>
+    /// PRIMER_GC_CLAMP: number of consecutive G/C required at the 3′ end of a primer (0 = none, Primer3's default);
+    /// must not exceed <see cref="MinLength"/> (Primer3 <c>_pr_data_control</c>). A negative value requires nothing,
+    /// as in Primer3. Left/right primers only.
+    /// </summary>
+    public int GcClamp { get; init; }
+
+    /// <summary>
+    /// PRIMER_MAX_END_GC (0–5): maximum number of G/C among the five 3′-most bases of a primer; null = Primer3's default
+    /// <see cref="PrimerDesigner.Primer3MaxEndGc"/> (5, not checked). Left/right primers only.
+    /// </summary>
+    public int? MaxEndGc { get; init; }
+
+    /// <summary>Effective PRIMER_MAX_END_STABILITY (kcal/mol).</summary>
+    public double EffectiveMaxEndStability => MaxEndStability ?? PrimerDesigner.Primer3MaxEndStability;
+
+    /// <summary>Effective PRIMER_MAX_END_GC.</summary>
+    public int EffectiveMaxEndGc => MaxEndGc ?? PrimerDesigner.Primer3MaxEndGc;
+
     /// <summary>Effective PRIMER_SALT_MONOVALENT (mM).</summary>
     public double EffectiveMonovalentMillimolar => MonovalentMillimolar ?? PrimerDesigner.Primer3MonovalentMillimolar;
 
@@ -3826,6 +3946,14 @@ public readonly record struct PrimerParameters(
             EffectiveDntpMillimolar, EffectiveDnaConcentrationNanomolar, paramName);
         if (!double.IsFinite(EffectiveOptimalGcPercent))
             throw new ArgumentOutOfRangeException(paramName, "PRIMER_OPT_GC_PERCENT must be finite.");
+        // _pr_data_control: PRIMER_MAX_END_GC must be between 0 to 5; PRIMER_MAX_END_STABILITY must be non-negative;
+        // PRIMER_GC_CLAMP > PRIMER_MIN_SIZE.
+        if (EffectiveMaxEndGc is < 0 or > PrimerDesigner.Primer3MaxEndGc)
+            throw new ArgumentOutOfRangeException(paramName, "PRIMER_MAX_END_GC must be between 0 to 5.");
+        if (!(EffectiveMaxEndStability >= 0))
+            throw new ArgumentOutOfRangeException(paramName, "PRIMER_MAX_END_STABILITY must be non-negative.");
+        if (GcClamp > MinLength)
+            throw new ArgumentOutOfRangeException(paramName, "PRIMER_GC_CLAMP > PRIMER_MIN_SIZE.");
     }
 }
 
@@ -4131,4 +4259,34 @@ public sealed record PrimerPairOptions
 
     /// <summary>PRIMER_INTERNAL_* settings of the internal oligo (default Primer3's).</summary>
     public ProbeDesigner.Primer3ProbeSettings? InternalOligo { get; init; }
+
+    /// <summary>
+    /// PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE (≥ −1, default −1): once <see cref="PrimerDesigner.DesignPrimerPairs"/> has
+    /// selected a pair, no later pair may use a left primer whose 3′ end is fewer than this many bases from the selected
+    /// left primer's 3′ end; 0 excludes only the identical left primer; −1 allows reuse (Primer3
+    /// <c>choose_pair_or_triple</c>, <c>left_oligo_in_pair_overlaps_used_oligo</c>).
+    /// </summary>
+    public int MinLeftThreePrimeDistance { get; init; } = -1;
+
+    /// <summary>
+    /// PRIMER_MIN_RIGHT_THREE_PRIME_DISTANCE (≥ −1, default −1): as <see cref="MinLeftThreePrimeDistance"/> for right
+    /// primers (3′ end = the leftmost top-strand base, <see cref="PrimerCandidate.Position"/>).
+    /// </summary>
+    public int MinRightThreePrimeDistance { get; init; } = -1;
+
+    /// <summary>
+    /// PRIMER_MIN_THREE_PRIME_DISTANCE: Primer3's shorthand that sets <see cref="MinLeftThreePrimeDistance"/> and
+    /// <see cref="MinRightThreePrimeDistance"/> to the same value (and PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE, which
+    /// Primer3 applies only with SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST — not modelled here, so it has no effect).
+    /// Reading it returns the common value, or null when the left and right distances differ.
+    /// </summary>
+    public int? MinThreePrimeDistance
+    {
+        get => MinLeftThreePrimeDistance == MinRightThreePrimeDistance ? MinLeftThreePrimeDistance : null;
+        init
+        {
+            MinLeftThreePrimeDistance = value ?? -1;
+            MinRightThreePrimeDistance = value ?? -1;
+        }
+    }
 }

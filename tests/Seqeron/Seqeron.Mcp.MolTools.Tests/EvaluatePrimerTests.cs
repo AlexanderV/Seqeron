@@ -81,4 +81,22 @@ public class EvaluatePrimerTests
         Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.evaluate_primer(Primer, 0, true, salt_monovalent: 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.evaluate_primer(Primer, 0, true, dntp_conc: -0.5));
     }
+
+    [Test]
+    public void EvaluatePrimer_ThreePrimeEndChecks_MatchPrimer3()
+    {
+        // primer3-py 2.3.1 check_primers GTTACCGGCCGAGTGCTAC: PRIMER_GC_CLAMP 2 → "GC clamp failed 1", PRIMER_MAX_END_GC 2
+        // → rejected (TGCTAC: 3 G/C in the last 5), PRIMER_MAX_END_STABILITY 3.5 → "high 3' stability 1" (END_STABILITY 3.58).
+        const string primer = "GTTACCGGCCGAGTGCTAC";
+        var p3 = Seqeron.Genomics.MolTools.PrimerDesigner.Primer3DefaultParameters;
+        Assert.Multiple(() =>
+        {
+            Assert.That(MolToolsTools.evaluate_primer(primer, 20, true, p3, gc_clamp: 2).Issues, Has.Some.Contains("PRIMER_GC_CLAMP"));
+            Assert.That(MolToolsTools.evaluate_primer(primer, 20, true, p3, gc_clamp: 1).Issues, Has.None.Contains("PRIMER_GC_CLAMP"));
+            Assert.That(MolToolsTools.evaluate_primer(primer, 20, true, p3, max_end_gc: 2).Issues, Has.Some.Contains("PRIMER_MAX_END_GC"));
+            Assert.That(MolToolsTools.evaluate_primer(primer, 20, true, p3, max_end_gc: 3).Issues, Has.None.Contains("PRIMER_MAX_END_GC"));
+            Assert.That(MolToolsTools.evaluate_primer(primer, 20, true, p3, max_end_stability: 3.5).Issues, Has.Some.Contains("PRIMER_MAX_END_STABILITY"));
+            Assert.That(MolToolsTools.evaluate_primer(primer, 20, true, p3, max_end_stability: 3.58).Issues, Has.None.Contains("PRIMER_MAX_END_STABILITY"));
+        });
+    }
 }

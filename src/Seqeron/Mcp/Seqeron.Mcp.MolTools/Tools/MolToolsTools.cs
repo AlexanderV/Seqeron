@@ -14,7 +14,7 @@ public class MolToolsTools
 
     #region PrimerDesigner
 
-    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat, Primer3 3'-end checks gc_clamp / max_end_gc / max_end_stability) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN; with min_left/right_three_prime_distance later pairs avoid primers whose 3' ends are too close to those of earlier pairs). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
     public static DesignPrimersResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
@@ -39,7 +39,13 @@ public class MolToolsTools
         [Description("PRIMER_INTERNAL_DNA_CONC for the internal oligo, nM (> 0; default 50).")] double? internal_dna_conc = null,
         [Description("PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the internal-oligo GC penalty terms (default 50; inert unless internal_wt_gc_percent_gt/lt > 0).")] double? internal_opt_gc_percent = null,
         [Description("PRIMER_INTERNAL_WT_GC_PERCENT_GT (default 0).")] double? internal_wt_gc_percent_gt = null,
-        [Description("PRIMER_INTERNAL_WT_GC_PERCENT_LT (default 0).")] double? internal_wt_gc_percent_lt = null)
+        [Description("PRIMER_INTERNAL_WT_GC_PERCENT_LT (default 0).")] double? internal_wt_gc_percent_lt = null,
+        [Description("PRIMER_GC_CLAMP: number of consecutive G/C required at each primer's 3' end (default 0; must be <= the minimum primer length).")] int? gc_clamp = null,
+        [Description("PRIMER_MAX_END_GC: maximum G/C among the five 3'-most bases of each primer (0-5; default 5 = no limit).")] int? max_end_gc = null,
+        [Description("PRIMER_MAX_END_STABILITY: maximum 3' end stability (Primer3 end_stability = -dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit).")] double? max_end_stability = null,
+        [Description("PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE: after a pair is selected, later pairs may not use a left primer whose 3' end is closer than this (0 = not the identical primer; default -1 = reuse allowed).")] int? min_left_three_prime_distance = null,
+        [Description("PRIMER_MIN_RIGHT_THREE_PRIME_DISTANCE: as min_left_three_prime_distance for right primers (default -1).")] int? min_right_three_prime_distance = null,
+        [Description("PRIMER_MIN_THREE_PRIME_DISTANCE: sets both the left and right minimum 3' distances (cannot be combined with min_left/right_three_prime_distance).")] int? min_three_prime_distance = null)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -54,8 +60,13 @@ public class MolToolsTools
         if (!(max_tm_difference >= 0))
             throw new System.ArgumentException("max_tm_difference must be non-negative.", nameof(max_tm_difference));
 
+        if (min_three_prime_distance is not null && (min_left_three_prime_distance is not null || min_right_three_prime_distance is not null))
+            throw new System.ArgumentException(
+                "Both PRIMER_MIN_THREE_PRIME_DISTANCE and PRIMER_MIN_{LEFT/RIGHT}_THREE_PRIME_DISTANCE specified.", nameof(min_three_prime_distance));
+
         parameters = ApplyPrimerConditions(parameters, salt_monovalent, salt_divalent, dntp_conc, dna_conc,
             opt_gc_percent, wt_gc_percent_gt, wt_gc_percent_lt);
+        parameters = ApplyPrimerEndChecks(parameters, gc_clamp, max_end_gc, max_end_stability);
         var internalOligo = new ProbeDesigner.Primer3ProbeSettings(
             MonovalentMillimolar: internal_salt_monovalent ?? PrimerDesigner.Primer3InternalMonovalentMillimolar,
             DivalentMillimolar: internal_salt_divalent ?? PrimerDesigner.Primer3InternalDivalentMillimolar,
@@ -74,6 +85,8 @@ public class MolToolsTools
             InternalOligo = internalOligo,
             MaxComplAny = pair_max_compl_any,
             MaxComplEnd = pair_max_compl_end,
+            MinLeftThreePrimeDistance = min_left_three_prime_distance ?? min_three_prime_distance ?? -1,
+            MinRightThreePrimeDistance = min_right_three_prime_distance ?? min_three_prime_distance ?? -1,
         };
         if (product_size_range is not null)
             options = options with { ProductSizeRanges = ParseProductSizeRanges(product_size_range) };
@@ -111,6 +124,22 @@ public class MolToolsTools
         };
     }
 
+    // Overlays the optional Primer3 3'-end checks (PRIMER_GC_CLAMP, PRIMER_MAX_END_GC, PRIMER_MAX_END_STABILITY);
+    // the library validates them (Primer3 _pr_data_control).
+    private static PrimerParameters? ApplyPrimerEndChecks(PrimerParameters? parameters,
+        int? gcClamp, int? maxEndGc, double? maxEndStability)
+    {
+        if (gcClamp is null && maxEndGc is null && maxEndStability is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        return p with
+        {
+            GcClamp = gcClamp ?? p.GcClamp,
+            MaxEndGc = maxEndGc ?? p.MaxEndGc,
+            MaxEndStability = maxEndStability ?? p.MaxEndStability,
+        };
+    }
+
     // Primer3 PRIMER_PRODUCT_SIZE_RANGE syntax: space-separated "min-max" ranges.
     private static List<ProductSizeRange> ParseProductSizeRanges(string text)
     {
@@ -142,13 +171,17 @@ public class MolToolsTools
         [Description("PRIMER_DNA_CONC: primer concentration in nM (> 0; default 50).")] double? dna_conc = null,
         [Description("PRIMER_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default 50; inert unless wt_gc_percent_gt/lt > 0).")] double? opt_gc_percent = null,
         [Description("PRIMER_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).")] double? wt_gc_percent_gt = null,
-        [Description("PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double? wt_gc_percent_lt = null)
+        [Description("PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double? wt_gc_percent_lt = null,
+        [Description("PRIMER_GC_CLAMP: number of consecutive G/C required at the 3' end (default 0).")] int? gc_clamp = null,
+        [Description("PRIMER_MAX_END_GC: maximum G/C among the five 3'-most bases (0-5; default 5 = no limit).")] int? max_end_gc = null,
+        [Description("PRIMER_MAX_END_STABILITY: maximum 3' end stability (-dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit).")] double? max_end_stability = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
         parameters = ApplyPrimerConditions(parameters, salt_monovalent, salt_divalent, dntp_conc, dna_conc,
             opt_gc_percent, wt_gc_percent_gt, wt_gc_percent_lt);
+        parameters = ApplyPrimerEndChecks(parameters, gc_clamp, max_end_gc, max_end_stability);
         return PrimerDesigner.EvaluatePrimer(sequence, position, is_forward, parameters);
     }
 
