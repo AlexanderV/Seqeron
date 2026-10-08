@@ -8,7 +8,8 @@ namespace Seqeron.Genomics.MolTools;
 public static partial class PrimerDesigner
 {
     /// <summary>
-    /// Default primer design parameters (library conventions; the Primer3 3′-end checks PRIMER_GC_CLAMP,
+    /// Default primer design parameters (library conventions — <c>MaxDinucleotideRepeats</c> = 4 is an unsourced
+    /// library screen, see <see cref="FindLongestDinucleotideRepeat"/>; the Primer3 3′-end checks PRIMER_GC_CLAMP,
     /// PRIMER_MAX_END_GC and PRIMER_MAX_END_STABILITY are at their Primer3 defaults, i.e. inactive;
     /// <c>Check3PrimeStability</c> is deprecated and has no effect, see <see cref="PrimerParameters"/>).
     /// </summary>
@@ -1370,7 +1371,8 @@ public static partial class PrimerDesigner
     // _HAIRPIN_TH = 47 °C (a non-ACGT primer has no ntthal structure; it is already invalid by Tm).
     // Primer3Alignment: PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0 oligo_compl — dpal self_any > PRIMER_MAX_SELF_ANY,
     // then self_end > PRIMER_MAX_SELF_END (no hairpin value in this mode).
-    // Heuristic: the sequence-only stem-loop screen HasHairpinPotential (default stem 4, loop 3).
+    // Heuristic: the sequence-only library stem-loop screen HasHairpinPotential (default stem 4 = unsourced library
+    // threshold, loop 3 = thal.c min_hrpn_loop); not Primer3's hairpin screen.
     private static (bool HasHairpin, StructureValues Structure) AddStructureIssues(
         string seq, PrimerParameters param, List<string> issues)
     {
@@ -1667,8 +1669,20 @@ public static partial class PrimerDesigner
     }
 
     /// <summary>
-    /// Finds the longest dinucleotide repeat (e.g., ATATAT).
+    /// Library screen (unsourced heuristic, no Primer3 counterpart): the number of consecutive copies of the
+    /// most-repeated 2-mer (e.g. ATATAT = 3 units of AT), case-insensitive; inputs shorter than 4 nt return 0.
+    /// Any 2-mer counts, including homo-dinucleotides (AAAA = 2 units of AA), and no base is treated as a
+    /// wildcard. <see cref="PrimerParameters.MaxDinucleotideRepeats"/> limits this count in
+    /// <see cref="EvaluatePrimer"/> (library default 4 in <see cref="DefaultParameters"/>). No authoritative
+    /// published definition of this screen or of the limit 4 was found (audit round 3, A3-8): Primer3 has no
+    /// dinucleotide-repeat setting (<c>primer3_manual.htm</c> lists only PRIMER_MAX_POLY_X, the mononucleotide run =
+    /// <see cref="FindLongestHomopolymer"/>, and repeat-library mispriming PRIMER_MISPRIMING_LIBRARY), so
+    /// <see cref="Primer3DefaultParameters"/> disables it (<see cref="int.MaxValue"/>). For Primer3's sourced
+    /// alternatives use PRIMER_MAX_POLY_X (<see cref="PrimerParameters.MaxHomopolymer"/>) and the mispriming
+    /// library PRIMER_MISPRIMING_LIBRARY (<see cref="PrimerParameters.MisprimingLibrary"/>).
     /// </summary>
+    /// <param name="sequence">Nucleotide sequence.</param>
+    /// <returns>Unit count of the longest dinucleotide tandem repeat (≥ 1 for inputs of ≥ 4 nt), 0 below 4 nt.</returns>
     public static int FindLongestDinucleotideRepeat(string sequence)
     {
         if (string.IsNullOrEmpty(sequence) || sequence.Length < 4)
@@ -1696,15 +1710,20 @@ public static partial class PrimerDesigner
     }
 
     /// <summary>
-    /// Sequence-only stem-loop screen: <c>true</c> when the sequence contains two non-overlapping
-    /// segments of <paramref name="minStemLength"/> bases that are exact Watson–Crick reverse
+    /// Library screen (sequence-only heuristic, no Primer3 counterpart): <c>true</c> when the sequence contains
+    /// two non-overlapping segments of <paramref name="minStemLength"/> bases that are exact Watson–Crick reverse
     /// complements of each other (an antiparallel stem) separated by at least
-    /// <paramref name="minLoopLength"/> unpaired bases (hairpin loops shorter than 3 nt are sterically
-    /// excluded; SantaLucia &amp; Hicks 2004). Case-insensitive; no G·T wobble, mismatches or energies.
-    /// This is a structural screen, not a thermodynamic model: the Primer3 hairpin Tm
+    /// <paramref name="minLoopLength"/> unpaired bases. Case-insensitive; no G·T wobble, mismatches or energies.
+    /// The default minimum loop of 3 nt is Primer3's hairpin minimum (<c>thal.c</c> <c>min_hrpn_loop = 3</c>); the
+    /// default minimum stem of 4 bp is an unsourced library threshold (no published definition of a
+    /// "≥ 4-bp stem + ≥ 3-nt loop" rule was found, audit round 3, A3-8). It is not equivalent to Primer3's
+    /// hairpin screen: e.g. <c>AAAACCCTTTT</c> is flagged although Primer3 <c>calc_hairpin</c> finds no structure,
+    /// and <c>CAGTAAAACCCTTTTGCAGC</c> is flagged although its hairpin Tm is 37.65 °C (primer3-py 2.3.1,
+    /// 50 mM / 1.5 mM / 0.6 mM / 50 nM), below PRIMER_MAX_HAIRPIN_TH = 47 °C. The sourced Primer3 hairpin screen
     /// (PRIMER_HAIRPIN_TH) is <see cref="CalculatePrimer3OligoStructure"/> /
     /// <see cref="CalculateHairpinThermodynamicsNtthal(string, double)"/>, which
-    /// <see cref="EvaluatePrimer"/> uses by default. Uses an O(n²) scan below 100 nt and a suffix tree
+    /// <see cref="EvaluatePrimer"/> uses by default; this screen is used only with
+    /// <see cref="PrimerStructureScreen.Heuristic"/>. Uses an O(n²) scan below 100 nt and a suffix tree
     /// at ≥ 100 nt (identical results).
     /// </summary>
     /// <param name="sequence">DNA sequence to check.</param>
@@ -4273,7 +4292,9 @@ public static partial class PrimerDesigner
 }
 
 /// <summary>
-/// Parameters for primer design. Primer3's 3′-end checks are <see cref="GcClamp"/> (PRIMER_GC_CLAMP),
+/// Parameters for primer design. <c>MaxDinucleotideRepeats</c> limits the unsourced library screen
+/// <see cref="PrimerDesigner.FindLongestDinucleotideRepeat"/> (no Primer3 counterpart; <see cref="int.MaxValue"/> disables
+/// it, as in <see cref="PrimerDesigner.Primer3DefaultParameters"/>). Primer3's 3′-end checks are <see cref="GcClamp"/> (PRIMER_GC_CLAMP),
 /// <see cref="MaxEndGc"/> (PRIMER_MAX_END_GC) and <see cref="MaxEndStability"/> (PRIMER_MAX_END_STABILITY).
 /// Two positional members predate them and are kept only for source compatibility (deprecated):
 /// <c>Avoid3PrimeGC</c> is a library rule, not Primer3's — despite its name it <i>requires</i> at least one G/C
@@ -4609,8 +4630,9 @@ public enum PrimerStructureScreen
     Primer3Thermodynamic = 0,
 
     /// <summary>
-    /// Sequence-only screen: <see cref="PrimerDesigner.HasHairpinPotential"/> (a ≥ 4-bp
-    /// Watson–Crick stem closing a ≥ 3-nt loop) per primer and <see cref="PrimerDesigner.HasPrimerDimer"/>
+    /// Sequence-only library screen: <see cref="PrimerDesigner.HasHairpinPotential"/> (a ≥ 4-bp
+    /// Watson–Crick stem closing a ≥ 3-nt loop; unsourced library heuristic, not Primer3's hairpin screen) per
+    /// primer and <see cref="PrimerDesigner.HasPrimerDimer"/>
     /// (Primer3 alignment-mode pair 3′ complementarity ≥ 4) per pair.
     /// </summary>
     Heuristic = 1,

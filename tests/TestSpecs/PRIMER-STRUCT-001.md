@@ -42,8 +42,8 @@
 ## Invariants
 
 1. **Homopolymer invariant:** Result ≥ 1 for non-empty sequences, 0 for empty
-2. **Dinucleotide invariant:** Result ≥ 0; 0 for sequences < 4 bp
-3. **Hairpin invariant:** Requires minimum length (2×stem + loop) to return true
+2. **Dinucleotide invariant:** Result ≥ 0; 0 for sequences < 4 bp (unsourced library screen, no Primer3 counterpart — audit round 3, A3-8)
+3. **Hairpin invariant:** Requires minimum length (2×stem + loop) to return true (`HasHairpinPotential` is a sequence-only library screen: default loop 3 = Primer3 `thal.c` `min_hrpn_loop`, default stem 4 unsourced; it can disagree with Primer3's ntthal hairpin, see M10b)
 4. **Stability invariant:** GC-rich 3' ends have more negative (stable) ΔG
 5. **Primer-dimer invariant:** Returns false for empty primers; the compl_end score is symmetric and ≥ 0
 6. **Primer3 structure invariant:** every *_TH value is ≥ 0 (negative Tm / no structure → 0)
@@ -59,11 +59,12 @@
 | M3 | Homopolymer | All same (AAAAAA) | 6 | Primer3 PRIMER_MAX_POLY_X |
 | M4 | Homopolymer | Mixed case (AaAaAa) | 6 (case insensitive) | Universal DNA convention |
 | M5 | Dinucleotide | Null/empty/short (<4 bp) | 0 | Implementation bounds |
-| M6 | Dinucleotide | No repeat (ACGT) | 1 | Primer3 behavior |
-| M7 | Dinucleotide | ACACACAC | 4 | Primer3 behavior |
+| M6 | Dinucleotide | No repeat (ACGT) | 1 | Library screen contract (unsourced; Primer3 has no dinucleotide limit — A3-8) |
+| M7 | Dinucleotide | ACACACAC | 4 | Library screen contract (unsourced; Primer3 has no dinucleotide limit — A3-8) |
 | M8 | Hairpin | Null/empty/too-short | false | Stem-loop theory (min 2×stem + loop) |
 | M9 | Hairpin | Non-self-complementary | false | Wikipedia Stem-loop |
 | M10 | Hairpin | Self-complementary | true | Wikipedia Stem-loop |
+| M10b | Hairpin | Library screen ≠ Primer3: `CAGTAAAACCCTTTTGCAGC` flagged; `AAAACCCTTTT` flagged | true / true, while Primer3 ntthal hairpin Tm 37.65 °C (< 47) / no structure | primer3-py 2.3.1 `calc_hairpin` (50 mM / 1.5 mM / 0.6 mM / 50 nM) |
 | M11 | Primer-dimer | Null/empty primer (either side) | false | Null guard |
 | M12 | Primer-dimer | Non-complementary 3' ends (A₈ vs AAAACCCC) | false, compl_end 0 | primer3-py check_primers (alignment mode) |
 | M13 | Primer-dimer | Complementary 3' ends (A₈ vs T₈); identical poly-A (A₈ vs A₈) is NOT a dimer; GGCC/GGCC 3' ends ARE | true / false / true (8 / 0 / 4) | Primer3 dpal.c (compiled), primer3-py check_primers |
@@ -126,6 +127,7 @@
 | `HasHairpinPotential_SelfComplementary_ReturnsTrue` | 1 | ✅ Covered | M10 |
 | `HasHairpinPotential_CustomMinStem_RespectsParameter` | 1 | ✅ Covered | S3 |
 | `HasHairpinPotential_CustomMinLoopLength_RespectsParameter` | 1 | ✅ Covered | S4 (was ❌ Missing) |
+| `HasHairpinPotential_LibraryScreen_DiffersFromPrimer3NtthalHairpin` | 2 | ✅ Covered | M10b |
 | `HasHairpinPotential_LongSequence_UsesSuffixTreeOptimization` | 1 | ✅ Covered | C3 |
 | `HasHairpinPotential_LongSequenceNoHairpin_ReturnsFalse` | 1 | ✅ Covered | C3 |
 | `HasPrimerDimer_NullOrEmptyPrimer_ReturnsFalse` | 4 | ✅ Covered | M11 (4 cases: null/empty × both sides) |

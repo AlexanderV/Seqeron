@@ -99,7 +99,7 @@
 | M8 | EvaluatePrimer validates GC content constraints (40-60%) | Addgene standard | Addgene: 40-60% |
 | M9 | EvaluatePrimer validates Tm constraints (57-63°C) | Primer3 defaults | Primer3: 57-63°C |
 | M10 | EvaluatePrimer detects homopolymer runs (max 4) | Avoid repeats | Primer3: max 5 |
-| M11 | EvaluatePrimer detects dinucleotide repeats | Avoid repeats | Primer3, Wikipedia |
+| M11 | EvaluatePrimer detects dinucleotide repeats | Avoid repeats | Library screen contract (unsourced; Primer3 has no dinucleotide limit — A3-8) |
 | M12 | GeneratePrimerCandidates generates forward primers correctly | Correctness | Implementation |
 | M13 | GeneratePrimerCandidates generates reverse primers as reverse complement | Correctness | Implementation |
 
@@ -220,5 +220,6 @@ Applied systematic coverage classification (2026-03-04):
 - **Homopolymer Max**: 4 — stricter than Primer3 default (5); conservative choice.
 - **GC Content**: 40-60% — follows Addgene guideline; stricter than Primer3 (20-80%).
 - **Pair Tm Difference**: ≤ 5°C — follows Addgene/Wikipedia; Primer3 default (100.0°C) is unlimited.
-- **Structure screens**: heuristic hairpin / primer-dimer / dinucleotide checks (PRIMER-STRUCT-001) instead of Primer3's ntthal Tm limits; no product-size range. In ~30% of random templates Primer3's best pair fails the heuristic hairpin screen, so the chosen pair differs from Primer3's there.
+- **Dinucleotide-repeat limit**: 4 — unsourced library screen (`FindLongestDinucleotideRepeat`; Primer3 has no dinucleotide limit, `Primer3DefaultParameters` disables it — audit round 3, A3-8).
+- **Structure screens**: Primer3's ntthal Tm limits by default (`PrimerStructureScreen.Primer3Thermodynamic`); the sequence-only library screens `HasHairpinPotential` / `HasPrimerDimer` only with `PrimerStructureScreen.Heuristic` (PRIMER-STRUCT-001).
 - **Target coordinates**: `targetEnd` is exclusive (target = `[targetStart, targetEnd)`, Primer3 SEQUENCE_TARGET start,length).

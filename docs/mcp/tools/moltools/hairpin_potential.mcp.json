@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "PrimerDesigner.HasHairpinPotential",
   "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L307",
-  "description": "Detect whether a sequence can fold into a hairpin (self-complementary stem + loop).",
+  "description": "Sequence-only library hairpin screen: exact self-complementary stem (default ≥ 4 bp, unsourced) + loop (default ≥ 3 nt, Primer3 thal.c min_hrpn_loop). Not Primer3's hairpin screen; for that use evaluate_primer hairpinTh (ntthal hairpin Tm).",
   "inputSchema": {
     "type": "object",
     "properties": {

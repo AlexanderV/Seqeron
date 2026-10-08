@@ -269,6 +269,28 @@ public class PrimerDesigner_PrimerStructure_Tests
     }
 
     /// <summary>
+    /// M10b — <c>HasHairpinPotential</c> is a sequence-only library screen (default stem 4 unsourced, loop 3 =
+    /// Primer3 thal.c min_hrpn_loop), not Primer3's hairpin screen: it flags both sequences although Primer3's
+    /// ntthal hairpin (PRIMER_HAIRPIN_TH, limit 47 °C) accepts them.
+    /// Source: primer3-py 2.3.1 <c>calc_hairpin</c> at 50 mM Na⁺ / 1.5 mM Mg²⁺ / 0.6 mM dNTP / 50 nM:
+    /// AAAACCCTTTT → structure_found False (Tm 0); CAGTAAAACCCTTTTGCAGC → Tm 37.65 °C.
+    /// </summary>
+    [TestCase("AAAACCCTTTT", 0.0)]
+    [TestCase("CAGTAAAACCCTTTTGCAGC", 37.65)]
+    public void HasHairpinPotential_LibraryScreen_DiffersFromPrimer3NtthalHairpin(string sequence, double primer3HairpinTm)
+    {
+        var primer3 = PrimerDesigner.CalculatePrimer3OligoStructure(sequence);
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.HasHairpinPotential(sequence), Is.True, "library screen flags the exact 4-bp stem");
+            Assert.That(primer3, Is.Not.Null);
+            Assert.That(primer3!.Value.HairpinTh, Is.EqualTo(primer3HairpinTm).Within(0.005), "Primer3 ntthal hairpin Tm");
+            Assert.That(primer3.Value.HairpinTh, Is.LessThanOrEqualTo(PrimerDesigner.Primer3MaxStructureTm),
+                "Primer3 PRIMER_MAX_HAIRPIN_TH accepts it");
+        });
+    }
+
+    /// <summary>
     /// Long sequence (>100bp) uses suffix tree optimization.
     /// Source: Performance optimization test.
     /// </summary>

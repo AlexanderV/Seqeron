@@ -50,7 +50,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_restriction_sites` | Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. |
 | `generate_primer_candidates` | Enumerates all primer candidates of admissible lengths (parameters.MinLength..MaxLength) at every start position within a region of the t… |
 | `get_enzyme` | Looks up a built-in restriction enzyme by name (case-insensitive) and returns its recognition sequence, cut positions and organism. |
-| `hairpin_potential` | Detects whether a sequence can fold into a hairpin: a self-complementary stem of at least min_stem_length separated by a loop of at least… |
+| `hairpin_potential` | Sequence-only library hairpin screen (heuristic, not Primer3's): true when an exact Watson-Crick self-complementary stem of at least… |
 | `longest_dinucleotide_repeat` | Returns the number of repeat units in the longest dinucleotide tandem repeat (e.g. |
 | `longest_homopolymer` | Returns the length of the longest run of identical consecutive nucleotides (e.g. |
 | `oligo_concentration_from_absorbance` | Computes oligonucleotide concentration in µM from the Beer–Lambert law: c = A₂₆₀ / (ε · path) · 1e6. |

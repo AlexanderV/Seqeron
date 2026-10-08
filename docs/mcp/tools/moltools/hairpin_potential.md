@@ -14,7 +14,22 @@ Detect whether a sequence can fold into a hairpin.
 
 ## Description
 
-Returns true if the sequence contains a self-complementary stem of at least `min_stem_length` separated by a loop of at least `min_loop_length`. A short-sequence O(n²) scan is used below 100 bp; a suffix-tree scan is used at or above 100 bp. Sequences shorter than `2·min_stem_length + min_loop_length` cannot form a hairpin and return false.
+Returns true if the sequence contains an exact Watson–Crick self-complementary stem of at least `min_stem_length` bp separated by a loop of at least `min_loop_length` nt (no G·T wobble, mismatches or energies). A short-sequence O(n²) scan is used below 100 bp; a suffix-tree scan is used at or above 100 bp. Sequences shorter than `2·min_stem_length + min_loop_length` cannot form a hairpin and return false.
+
+**Library screen (sequence-only heuristic, not Primer3's).** The default minimum loop of 3 nt is Primer3's
+hairpin minimum (`thal.c`: `static const int min_hrpn_loop = 3;`); the default minimum stem of 4 bp is an
+unsourced library threshold — no published definition of a "≥ 4-bp stem + ≥ 3-nt loop" rule was found
+(audit round 3, A3-8). The screen can disagree with Primer3's thermodynamic hairpin screen (primer3-py 2.3.1
+`calc_hairpin`, 50 mM Na⁺ / 1.5 mM Mg²⁺ / 0.6 mM dNTP / 50 nM):
+
+| Sequence | `hasHairpin` | Primer3 hairpin |
+|----------|--------------|-----------------|
+| `AAAACCCTTTT` | true | no structure found |
+| `CAGTAAAACCCTTTTGCAGC` | true | Tm 37.65 °C (< `PRIMER_MAX_HAIRPIN_TH` 47 °C, passes) |
+
+For Primer3's sourced hairpin screen use [evaluate_primer](evaluate_primer.md) (`hairpinTh` = ntthal hairpin
+Tm, rejected above 47 °C) or the C# API `PrimerDesigner.CalculateHairpinThermodynamicsNtthal` /
+`CalculatePrimer3OligoStructure`.
 
 ## Core Documentation Reference
 

@@ -409,7 +409,7 @@ public class MolToolsTools
         return new HomopolymerLengthResult(PrimerDesigner.FindLongestHomopolymer(sequence));
     }
 
-    [McpServerTool(Name = "longest_dinucleotide_repeat", Title = "MolTools — Longest Dinucleotide Repeat", ReadOnly = true), Description("Returns the number of repeat units in the longest dinucleotide tandem repeat (e.g. ATATAT = 3 units of AT), case-insensitive. Sequences shorter than 4 nt return 0. Call to flag microsatellite-like dinucleotide repeats in a primer/probe.")]
+    [McpServerTool(Name = "longest_dinucleotide_repeat", Title = "MolTools — Longest Dinucleotide Repeat", ReadOnly = true), Description("Returns the number of repeat units in the longest dinucleotide tandem repeat (e.g. ATATAT = 3 units of AT; any 2-mer counts, so AAAA = 2 units of AA), case-insensitive. Sequences shorter than 4 nt return 0. Library screen (unsourced heuristic): Primer3 has no dinucleotide-repeat limit and no published definition of this screen or of the library default limit 4 was found; Primer3's sourced alternatives are PRIMER_MAX_POLY_X (longest_homopolymer) and repeat-library mispriming (design_primers mispriming_library). Call to flag microsatellite-like dinucleotide repeats in a primer/probe.")]
     public static DinucleotideRepeatResult longest_dinucleotide_repeat(
         [Description("Nucleotide sequence.")] string sequence)
     {
@@ -419,7 +419,7 @@ public class MolToolsTools
         return new DinucleotideRepeatResult(PrimerDesigner.FindLongestDinucleotideRepeat(sequence));
     }
 
-    [McpServerTool(Name = "hairpin_potential", Title = "MolTools — Hairpin Potential", ReadOnly = true), Description("Detects whether a sequence can fold into a hairpin: a self-complementary stem of at least min_stem_length separated by a loop of at least min_loop_length. Uses an O(n²) scan for short sequences and a suffix-tree scan for sequences ≥ 100 bp. Call to screen a primer/probe for secondary structure.")]
+    [McpServerTool(Name = "hairpin_potential", Title = "MolTools — Hairpin Potential", ReadOnly = true), Description("Sequence-only library hairpin screen (heuristic, not Primer3's): true when an exact Watson-Crick self-complementary stem of at least min_stem_length bp is separated by a loop of at least min_loop_length nt (no wobble, mismatches or energies). The default loop minimum 3 is Primer3's (thal.c min_hrpn_loop); the default stem minimum 4 is an unsourced library threshold. It can disagree with Primer3 (e.g. AAAACCCTTTT is flagged although Primer3 calc_hairpin finds no structure). For Primer3's sourced hairpin screen (ntthal hairpin Tm vs PRIMER_MAX_HAIRPIN_TH 47 °C) use evaluate_primer (hairpinTh). Uses an O(n²) scan for short sequences and a suffix-tree scan for sequences ≥ 100 bp. Call for a quick exact-stem check of a primer/probe.")]
     public static HairpinPotentialResult hairpin_potential(
         [Description("Nucleotide sequence.")] string sequence,
         [Description("Minimum stem length (default 4).")] int min_stem_length = 4,
