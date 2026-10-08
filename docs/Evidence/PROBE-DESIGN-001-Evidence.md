@@ -209,3 +209,26 @@ WebSearch result extract)
 - **Source opened:** BLAST+ 2.12.0 `blastn -help` (`-strand` default `both`); `CheckSpecificity(…, bothStrands)` contract (F24: reverse-palindromic probe counted once).
 - **Oracle:** Python `str.find` overlapping-occurrence counts + Biopython `reverse_complement` over the dumped fixture strings (X, Y from C# `System.Random(7)`; index X + T10 + Y + T10 + rc(X), target X + Y): of the 4686 candidate windows (50–60 nt) 3806 have (indexed-strand, both-strand) sites (1, 2), 297 (1, 1) — all inside Y —, 561 (0, 0) and 22 (0, 1) (X|Y-crossing windows with Y's first 1–2 nt `AA`, whose reverse complement `TT` lies in the T10 before rc(X)).
 - **Result:** default unchanged (indexed strand); `bothStrands = true`, Microarray, `maxProbes = 2`, `requireUnique` → 351 (X|Y-crossing window `GTCTTTGATCGCCACGACCTACCCCTAACAAACATTAGTCCAATTTAATA`, G+C 0.40, Python 0 / 1 sites — present only as its reverse complement; score 0.98) / 402 (0.85); brute force over all candidates equals the overload for `requireUnique` × `maxProbes` ∈ {3, 100000}.
+
+## 2026-10-08 review (B07, F67, audit round 7 A7-2) — tiling covers the 3′ tail; argument guards
+
+- **Source opened:** CATCH v1.5.2 (Metsky HC et al. 2019, Nat Biotechnol 37:160–168; git tag `v1.5.2` of
+  github.com/broadinstitute/catch, cloned 2026-10-08) `catch/filter/candidate_probes.py`
+  `make_candidate_probes_from_sequence(seq, probe_length, probe_stride, …)`:
+  - grid: `for start in np.arange(0, len(seq), probe_stride): if start + probe_length > len(seq): break` — the same
+    grid as `DesignTilingProbes` (`step = probeLength − overlap`);
+  - end anchor: `if len(seq) % probe_stride != 0: # There are bases on the right that were never covered, so add
+    another probe for this` → `add_probe_from_subsequence(len(seq) - probe_length, len(seq))`;
+  - short sequence: `if len(seq) < probe_length:` → `ValueError("An input sequence is smaller than the probe length …")`
+    unless `allow_small_seqs`.
+- **Adopted:** the end-anchored final window (start `L − probeLength`) and rejection of a target shorter than the probe.
+  **Not adopted (documented):** CATCH's trigger `len(seq) mod stride ≠ 0` — it does not test what its comment states:
+  100 nt / 60 / stride 40 adds start 40 a second time (CATCH notes duplicates are possible), 120 nt / 60 / stride 40
+  (120 mod 40 = 0) leaves 100–119 uncovered. The library adds the window exactly when the last grid window ends before
+  the target end, `(L − probeLength) mod step ≠ 0`.
+- **Repros (auditor):** 30-nt target, default 60 → `InvalidOperationException` ("Sequence contains no elements") also
+  through MCP; `probeLength ≤ 0` or `overlap ≥ probeLength` → infinite loop (MCP guarded); 110 nt / 60 / 20 → starts
+  0, 40 only, positions 100–109 uncovered while the doc claimed full coverage. After: `ArgumentOutOfRangeException`,
+  `ArgumentOutOfRangeException`, starts 0, 40, 50 with Coverage 110.
+- **Oracle:** tests compute the expected starts by hand from the rule above and Coverage independently (boolean
+  union over `[start, start + P)`), for 9 (L, P, overlap) cases incl. both CATCH corner cases and negative overlap.

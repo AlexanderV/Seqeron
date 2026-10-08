@@ -301,20 +301,22 @@ public class ProbeDesigner_ProbeDesign_Tests
     {
         // M9: Tiling probes cover expected positions
         // 208-char sequence, probeLength=50, overlap=10 → step=40
-        // Expected probes at positions: 0, 40, 80, 120 (160 > 208-50=158)
-        // Coverage: positions 0-169 = 170
+        // Grid starts 0, 40, 80, 120 (160 > 208-50=158) end at 169; (158 mod 40 = 38 ≠ 0) → end-anchored window at
+        // 158 (CATCH make_candidate_probes_from_sequence) covers 158..207. Coverage: positions 0-207 = 208.
+        // (B07 audit round 7, A7-2: previously 4 probes / coverage 170 — the 3' tail 170..207 was never tiled.)
         string target = new string('A', 100) + "GCGCGCGC" + new string('T', 100);
 
         var tiling = ProbeDesigner.DesignTilingProbes(target, probeLength: 50, overlap: 10);
 
         Assert.Multiple(() =>
         {
-            Assert.That(tiling.Probes.Count, Is.EqualTo(4), "Expected 4 tiling probes");
-            Assert.That(tiling.Coverage, Is.EqualTo(170), "Expected coverage of 170 positions");
+            Assert.That(tiling.Probes.Count, Is.EqualTo(5), "Expected 4 grid probes + 1 end-anchored probe");
+            Assert.That(tiling.Coverage, Is.EqualTo(208), "Expected coverage of all 208 positions");
 
             var starts = tiling.Probes.Select(p => p.Start).ToList();
-            Assert.That(starts, Is.EqualTo(new[] { 0, 40, 80, 120 }),
+            Assert.That(starts, Is.EqualTo(new[] { 0, 40, 80, 120, 158 }),
                 "Tiling probes should start at exact positions");
+            Assert.That(tiling.Probes[^1].Sequence, Is.EqualTo(target.Substring(158, 50)));
         });
     }
 
@@ -335,12 +337,12 @@ public class ProbeDesigner_ProbeDesign_Tests
     {
         // S5: Tiling probes calculate mean Tm correctly
         // 150-char sequence, probeLength=40, overlap=10 → step=30
-        // Probes at positions 0, 30, 60, 90 (120 > 110)
+        // Grid probes at positions 0, 30, 60, 90 (120 > 110) + end-anchored probe at 110 (110 mod 30 ≠ 0; A7-2)
         string target = new string('G', 50) + new string('C', 50) + new string('A', 50);
 
         var tiling = ProbeDesigner.DesignTilingProbes(target, probeLength: 40, overlap: 10);
 
-        Assert.That(tiling.Probes.Count, Is.EqualTo(4), "Expected 4 tiling probes");
+        Assert.That(tiling.Probes.Count, Is.EqualTo(5), "Expected 5 tiling probes");
 
         double expectedMean = tiling.Probes.Average(p => p.Tm);
         double expectedRange = tiling.Probes.Max(p => p.Tm) - tiling.Probes.Min(p => p.Tm);
@@ -354,6 +356,90 @@ public class ProbeDesigner_ProbeDesign_Tests
             Assert.That(tiling.TmRange, Is.GreaterThan(0),
                 "Mixed GC sequence should produce probes with different Tm values");
         });
+    }
+
+    // ── B07 audit round 7, A7-2: argument guards, end-anchored window, truthful coverage ─────────────────────────
+
+    [Test]
+    public void DesignTilingProbes_TargetShorterThanProbe_ThrowsArgumentOutOfRange()
+    {
+        // Repro 1: 30-nt target with the default 60-nt probe used to throw InvalidOperationException
+        // ("Sequence contains no elements", Average over no windows). CATCH rejects such a sequence (ValueError).
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.DesignTilingProbes(new string('A', 30)));
+        Assert.That(ex!.ParamName, Is.EqualTo("probeLength"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.DesignTilingProbes("", probeLength: 20, overlap: 0));
+        Assert.Throws<ArgumentNullException>(() => ProbeDesigner.DesignTilingProbes(null!, probeLength: 20, overlap: 0));
+    }
+
+    [TestCase(0, 0, "probeLength")]
+    [TestCase(-5, -10, "probeLength")]
+    [TestCase(20, 20, "overlap")]
+    [TestCase(20, 25, "overlap")]
+    public void DesignTilingProbes_NonAdvancingStep_ThrowsInsteadOfLooping(int probeLength, int overlap, string param)
+    {
+        // Repro 2: probeLength ≤ 0 or overlap ≥ probeLength (step ≤ 0) used to loop forever.
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            ProbeDesigner.DesignTilingProbes(new string('A', 100), probeLength, overlap));
+        Assert.That(ex!.ParamName, Is.EqualTo(param));
+    }
+
+    [Test]
+    public void DesignTilingProbes_110nt_60_20_TilesThe3PrimeTail()
+    {
+        // Repro 3: 110 nt, probe 60, overlap 20 → grid starts 0, 40 (80 > 50) cover 0..99 only; the last 10 nt were
+        // never covered yet the set claimed full coverage. CATCH anchors a final probe at 110 − 60 = 50.
+        string target = string.Concat(Enumerable.Repeat("ACGTTGCAAG", 10)) + "GATCCGATCA"; // 110 nt
+        Assert.That(target, Has.Length.EqualTo(110));
+        var tiling = ProbeDesigner.DesignTilingProbes(target, probeLength: 60, overlap: 20);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tiling.Probes.Select(p => p.Start), Is.EqualTo(new[] { 0, 40, 50 }));
+            Assert.That(tiling.Probes[^1].End, Is.EqualTo(109));
+            Assert.That(tiling.Probes[^1].Sequence, Is.EqualTo(target[50..]));
+            Assert.That(tiling.Coverage, Is.EqualTo(IndependentCoverage(110, new[] { 0, 40, 50 }, 60)).And.EqualTo(110));
+        });
+    }
+
+    // Starts = the grid 0, step, … ≤ L − P, plus L − P iff (L − P) mod step ≠ 0; Coverage = independently counted
+    // union of [start, start + P). Includes CATCH's own corner cases: 100/60/40 (CATCH duplicates start 40) and
+    // 120/60/40 (CATCH's len mod stride = 0 test misses the 100..119 tail), P = L, step 1, and negative overlap (gaps).
+    [TestCase(100, 60, 20, new[] { 0, 40 })]
+    [TestCase(120, 60, 20, new[] { 0, 40, 60 })]
+    [TestCase(60, 60, 20, new[] { 0 })]
+    [TestCase(61, 60, 20, new[] { 0, 1 })]
+    [TestCase(25, 10, 9, new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 })]
+    [TestCase(22, 10, 4, new[] { 0, 6, 12 })]
+    [TestCase(30, 10, 4, new[] { 0, 6, 12, 18, 20 })]
+    [TestCase(45, 10, -5, new[] { 0, 15, 30, 35 })]
+    [TestCase(55, 10, -5, new[] { 0, 15, 30, 45 })]
+    public void DesignTilingProbes_StartsAndCoverage_MatchIndependentTiling(int length, int probeLength, int overlap, int[] expectedStarts)
+    {
+        string target = string.Concat(Enumerable.Repeat("GATTACAGCG", (length + 9) / 10))[..length];
+        var param = new ProbeDesigner.ProbeParameters(
+            MinLength: probeLength, MaxLength: probeLength, MinTm: -1000, MaxTm: 1000, MinGc: 0.0, MaxGc: 1.0,
+            MaxHomopolymer: 10, AvoidSecondaryStructure: false, MaxSelfComplementarity: 1.0);
+
+        var tiling = ProbeDesigner.DesignTilingProbes(target, probeLength, overlap, param);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tiling.Probes.Select(p => p.Start), Is.EqualTo(expectedStarts));
+            Assert.That(tiling.Probes.Select(p => p.Sequence), Is.EqualTo(expectedStarts.Select(s => target.Substring(s, probeLength))));
+            Assert.That(tiling.Probes.Select(p => p.End), Is.EqualTo(expectedStarts.Select(s => s + probeLength - 1)));
+            Assert.That(tiling.Coverage, Is.EqualTo(IndependentCoverage(length, expectedStarts, probeLength)));
+            if (overlap >= 0)
+                Assert.That(tiling.Coverage, Is.EqualTo(length), "non-negative overlap covers every base");
+        });
+    }
+
+    private static int IndependentCoverage(int length, int[] starts, int probeLength)
+    {
+        var covered = new bool[length];
+        foreach (int s in starts)
+            for (int i = s; i < s + probeLength; i++)
+                covered[i] = true;
+        return covered.Count(c => c);
     }
 
     #endregion

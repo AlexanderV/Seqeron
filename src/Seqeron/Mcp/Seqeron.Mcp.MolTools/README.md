@@ -36,7 +36,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `design_primers` | Designs forward and reverse PCR primers flanking a target region in a DNA template; |
 | `design_probes` | Designs hybridization probes by scanning the target for length-window candidates and ranking by GC%, Tm, homopolymers, self-complementari… |
 | `design_probes_primer3` | Picks hybridization probes exactly as Primer3 does for PRIMER_TASK=pick_hyb_probe_only (internal-oligo picker; verified against primer3-py design_primers). |
-| `design_tiling_probes` | Generates fixed-length probes covering the entire target with a configurable overlap (step = probe_length − overlap). |
+| `design_tiling_probes` | Generates fixed-length probes covering the entire target with a configurable overlap (step = probe_length − overlap), plus a final probe anchored at the target end when the step grid stops short of it. |
 | `digest_summary` | Aggregate statistics over a simulated linear restriction digest: total fragment count, fragment sizes (descending), largest/smallest frag… |
 | `effective_number_of_codons` | Effective Number of Codons (Wright's Nc), measuring how far a gene departs from uniform synonymous-codon usage. |
 | `enzymes_by_cut_length` | Lists all built-in restriction enzymes whose recognition sequence has exactly the specified length in base pairs (e.g. |

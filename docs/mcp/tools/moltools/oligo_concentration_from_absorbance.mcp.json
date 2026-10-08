@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.CalculateConcentration",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3636",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3661",
   "description": "Beer-Lambert oligonucleotide concentration (uM) from A260, extinction coefficient and path length.",
   "inputSchema": {
     "type": "object",

@@ -973,7 +973,7 @@ public class MolToolsTools
         return new ProbesResult(probes);
     }
 
-    [McpServerTool(Name = "design_tiling_probes", Title = "MolTools — Design Tiling Probes", ReadOnly = true), Description("Generates fixed-length probes covering the entire target with a configurable overlap (step = probe_length − overlap). Sub-optimal candidates are still emitted (each with a 'Suboptimal probe' warning) so coverage is preserved. Returns the probe set plus covered-position count, mean Tm, and Tm range.")]
+    [McpServerTool(Name = "design_tiling_probes", Title = "MolTools — Design Tiling Probes", ReadOnly = true), Description("Generates fixed-length probes covering the entire target: starts 0, step, 2·step, … (step = probe_length − overlap) while they fit, plus one probe anchored at the target end (start = length − probe_length) when that grid stops short of the 3' end (CATCH end-anchored probe). Sub-optimal candidates are still emitted (each with a 'Suboptimal probe' warning) so coverage is preserved. The target must be at least probe_length long. Returns the probe set plus covered-position count (= target length), mean Tm, and Tm range.")]
     public static ProbeDesigner.TilingProbeSet design_tiling_probes(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Tiling probe length in bp (default 60).")] int probe_length = 60,
@@ -987,6 +987,8 @@ public class MolToolsTools
             throw new System.ArgumentException("Probe length must be positive.", nameof(probe_length));
         if (overlap < 0 || overlap >= probe_length)
             throw new System.ArgumentException("Overlap must be non-negative and less than the probe length.", nameof(overlap));
+        if (probe_length > target_sequence.Length)
+            throw new System.ArgumentException("Probe length must not exceed the target length.", nameof(probe_length));
 
         // The library's default for null parameters: the Microarray preset at the tiling length.
         var defaults = ProbeDesigner.Defaults.Microarray with { MinLength = probe_length, MaxLength = probe_length };

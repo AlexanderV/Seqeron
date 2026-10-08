@@ -18,7 +18,7 @@ Chooses the highest-scoring `probe_length`-bp loop in the target (GC 40–60%, l
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L1931](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1931)
+- Source: [ProbeDesigner.cs#L1956](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1956)
 
 ## Input Schema
 

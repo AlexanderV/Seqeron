@@ -287,8 +287,13 @@ public static class ProbeDesigner
     }
 
     /// <summary>
-    /// Probe set for tiling.
+    /// Probe set for tiling (<see cref="DesignTilingProbes"/>).
     /// </summary>
+    /// <param name="Probes">Tiling windows in start order (the last one may be anchored at the target end).</param>
+    /// <param name="Coverage">Number of target positions covered by at least one window (= target length unless the
+    /// overlap is negative).</param>
+    /// <param name="MeanTm">Mean probe Tm.</param>
+    /// <param name="TmRange">max(Tm) − min(Tm).</param>
     public readonly record struct TilingProbeSet(
         IReadOnlyList<Probe> Probes,
         int Coverage,
@@ -1296,22 +1301,46 @@ public static class ProbeDesigner
     }
 
     /// <summary>
-    /// Designs tiling probes to cover entire sequence.
+    /// Designs tiling probes that cover the whole target: windows every <c>probeLength − overlap</c> bases plus,
+    /// when the last of them stops short of the 3′ end, one window anchored at the target end.
     /// </summary>
     /// <remarks>
-    /// Windows of <paramref name="probeLength"/> start every <c>probeLength − overlap</c> bases; each is scored
+    /// Windows of <paramref name="probeLength"/> start at <c>0, step, 2·step, …</c> (<c>step = probeLength − overlap</c>)
+    /// while they fit; if the last one ends before the target end, a final window starts at
+    /// <c>targetSequence.Length − probeLength</c> so the 3′ tail is covered — the end-anchored probe of CATCH
+    /// (Metsky et al. 2019, <c>candidate_probes.make_candidate_probes_from_sequence</c>: "There are bases on the right
+    /// that were never covered, so add another probe for this"). It is added exactly when
+    /// <c>(Length − probeLength) mod step ≠ 0</c> (CATCH's own test, <c>len(seq) mod stride ≠ 0</c>, can duplicate the
+    /// last window or miss a tail, e.g. 120 nt / 60 / stride 40); it overlaps its predecessor by more than
+    /// <paramref name="overlap"/>. With <paramref name="overlap"/> ≥ 0 every base is covered
+    /// (<see cref="TilingProbeSet.Coverage"/> = target length); a negative overlap leaves gaps between windows and
+    /// <see cref="TilingProbeSet.Coverage"/> counts the positions actually covered. Each window is scored
     /// like <see cref="DesignProbes(string, ProbeParameters?, int)"/> (Tm = Primer3 <c>seqtm</c> at the
     /// parameters' conditions, thermodynamic self-structure screen for ≤ ThermodynamicScreenMaxLength nt, default 60). A window whose score is
     /// ≤ 0 is still emitted (score 0.3, warning "Suboptimal probe…") so coverage is preserved. Windows keep their
-    /// tiling order; with <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/> each scored
+    /// tiling order (start ascending); with <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/> each scored
     /// window also carries <see cref="Probe.Primer3Penalty"/>.
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="targetSequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="probeLength"/> ≤ 0 or longer than the target
+    /// (CATCH rejects a sequence shorter than the probe length), or <paramref name="overlap"/> ≥
+    /// <paramref name="probeLength"/> (the step would not advance).</exception>
     public static TilingProbeSet DesignTilingProbes(
         string targetSequence,
         int probeLength = 60,
         int overlap = 20,
         ProbeParameters? parameters = null)
     {
+        ArgumentNullException.ThrowIfNull(targetSequence);
+        if (probeLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(probeLength), probeLength, "Probe length must be positive.");
+        if (overlap >= probeLength)
+            throw new ArgumentOutOfRangeException(nameof(overlap), overlap,
+                $"Overlap must be less than the probe length ({probeLength}) so the tiling step is positive.");
+        if (probeLength > targetSequence.Length)
+            throw new ArgumentOutOfRangeException(nameof(probeLength), probeLength,
+                $"Probe length must not exceed the target length ({targetSequence.Length}).");
+
         var param = parameters ?? Defaults.Microarray with
         {
             MinLength = probeLength,
@@ -1323,47 +1352,43 @@ public static class ProbeDesigner
         targetSequence = targetSequence.ToUpperInvariant();
         var probes = new List<Probe>();
         int step = probeLength - overlap;
+        int lastStart = targetSequence.Length - probeLength;
 
-        for (int start = 0; start <= targetSequence.Length - probeLength; start += step)
-        {
-            string probeSeq = targetSequence.Substring(start, probeLength);
-            var probe = EvaluateProbe(probeSeq, start, param);
+        for (int start = 0; start <= lastStart; start += step)
+            probes.Add(TilingWindow(targetSequence, start, probeLength, param));
 
-            if (probe.HasValue)
-            {
-                probes.Add(probe.Value with { Type = ProbeType.Tiling });
-            }
-            else
-            {
-                // Add with warnings for coverage
-                double tm = CalculateProbeTm(probeSeq, param);
-                double gc = probeSeq.CalculateGcFractionFast();
-                probes.Add(new Probe(
-                    probeSeq, start, start + probeLength - 1,
-                    double.IsNaN(tm) ? 0.0 : tm, gc, 0.3, ProbeType.Tiling,
-                    new List<string> { "Suboptimal probe, included for coverage" }));
-            }
-        }
+        // End-anchored window (CATCH) when the regular grid stops short of the 3' end.
+        if (lastStart % step != 0)
+            probes.Add(TilingWindow(targetSequence, lastStart, probeLength, param));
 
-        // Calculate coverage
-        int covered = 0;
-        var coveredPositions = new bool[targetSequence.Length];
+        // Covered positions: union of the windows (sorted by start).
+        int covered = 0, coveredEnd = 0;
         foreach (var probe in probes)
         {
-            for (int i = probe.Start; i <= probe.End && i < targetSequence.Length; i++)
-            {
-                if (!coveredPositions[i])
-                {
-                    coveredPositions[i] = true;
-                    covered++;
-                }
-            }
+            covered += Math.Max(0, probe.End + 1 - Math.Max(probe.Start, coveredEnd));
+            coveredEnd = Math.Max(coveredEnd, probe.End + 1);
         }
 
         double meanTm = probes.Average(p => p.Tm);
         double tmRange = probes.Max(p => p.Tm) - probes.Min(p => p.Tm);
 
         return new TilingProbeSet(probes, covered, meanTm, tmRange);
+    }
+
+    private static Probe TilingWindow(string targetSequence, int start, int probeLength, ProbeParameters param)
+    {
+        string probeSeq = targetSequence.Substring(start, probeLength);
+        var probe = EvaluateProbe(probeSeq, start, param);
+        if (probe.HasValue)
+            return probe.Value with { Type = ProbeType.Tiling };
+
+        // Add with warnings for coverage
+        double tm = CalculateProbeTm(probeSeq, param);
+        double gc = probeSeq.CalculateGcFractionFast();
+        return new Probe(
+            probeSeq, start, start + probeLength - 1,
+            double.IsNaN(tm) ? 0.0 : tm, gc, 0.3, ProbeType.Tiling,
+            new List<string> { "Suboptimal probe, included for coverage" });
     }
 
     /// <summary>

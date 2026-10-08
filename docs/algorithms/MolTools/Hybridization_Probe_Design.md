@@ -154,7 +154,7 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 |-----------|------|-------|-------|
 | `DesignProbes` | `O(n × m)` | `O(k)` | `n` is sequence length, `m` is the scanned length range, and `k` is the number of retained candidates |
 | `CheckSpecificity` | `O(m)` | `O(1)` | Uses suffix-tree lookups per probe |
-| `DesignTilingProbes` | `O(n)` over fixed-length windows | `O(k)` | Produces overlapping probes for coverage |
+| `DesignTilingProbes` | `O(n)` over fixed-length windows | `O(k)` | Produces overlapping probes covering the whole target (grid + end-anchored window) |
 
 ## 5. Implementation Notes
 
@@ -164,7 +164,7 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 
 - `ProbeDesigner.DesignProbes(string, ProbeParameters?, int)`: Main probe-generation and ranking routine.
 - `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool, bool)`: Uniqueness-aware overload using a suffix tree (lazy walk of all candidates; `EnumerateRankedProbes(...)` is the shared ranking stream; opt-in `bothStrands` counts reverse-complement occurrences too).
-- `ProbeDesigner.DesignTilingProbes(...)`: Generates overlapping tiling probes for coverage.
+- `ProbeDesigner.DesignTilingProbes(...)`: Generates overlapping tiling probes covering the whole target.
 - `ProbeDesigner.CheckSpecificity(string, ISuffixTree)`: Maps suffix-tree hit counts to a specificity score.
 - `ProbeDesigner.EvaluateTaqManProbe(string, double?, int, int)`: Opt-in TaqMan rule check; returns a `TaqManProbeEvaluation` with one boolean per rule and a `PassesAll` conjunction.
 - `ProbeDesigner.SelectTaqManStrand(string, double?)`: Chooses the sense strand or its reverse complement, whichever better satisfies the TaqMan rules (no 5'-G, more C than G first).
@@ -173,7 +173,7 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 
 ### 5.2 Current Behavior
 
-The implementation evaluates candidates with prefix-sum GC optimization and keeps the raw-score-positive ones. Probe sequences are uppercased before evaluation. `EnumerateRankedProbes(...)` yields them lazily in the ranking order — the self-structure screens (and the specificity scaling) can only lower a score, so finished candidates are released through a priority queue as soon as no unfinished candidate can outrank them, and the enumeration equals an exhaustive evaluation followed by a stable sort. The suffix-tree overload consumes that stream, so it considers **every** candidate (`maxProbes * 5` shortlist removed, audit round 4, A4-1, F59) while costing only the candidates a prefix of the output needs: it enforces uniqueness (`CheckSpecificity(...) < 1` dropped) or scales the score by `1 / hitCount` and re-ranks on the scaled score; with `requireUnique = false` a probe with specificity `0` stays in the output with score `0` (ranked last). `DesignTilingProbes(...)` includes suboptimal probes when needed for coverage and reports coverage, mean Tm, and Tm range. The source also defines probe types `Standard`, `Tiling`, `Antisense`, `LNA`, and `MolecularBeacon`.
+The implementation evaluates candidates with prefix-sum GC optimization and keeps the raw-score-positive ones. Probe sequences are uppercased before evaluation. `EnumerateRankedProbes(...)` yields them lazily in the ranking order — the self-structure screens (and the specificity scaling) can only lower a score, so finished candidates are released through a priority queue as soon as no unfinished candidate can outrank them, and the enumeration equals an exhaustive evaluation followed by a stable sort. The suffix-tree overload consumes that stream, so it considers **every** candidate (`maxProbes * 5` shortlist removed, audit round 4, A4-1, F59) while costing only the candidates a prefix of the output needs: it enforces uniqueness (`CheckSpecificity(...) < 1` dropped) or scales the score by `1 / hitCount` and re-ranks on the scaled score; with `requireUnique = false` a probe with specificity `0` stays in the output with score `0` (ranked last). `DesignTilingProbes(...)` places windows of `probeLength` at `0, step, 2·step, …` (`step = probeLength − overlap`) while they fit and, when the last grid window ends before the target end (`(L − probeLength) mod step ≠ 0`), one more window anchored at the end (start `L − probeLength`) — the end-anchored probe of CATCH (Metsky et al. 2019, `candidate_probes.make_candidate_probes_from_sequence`, "There are bases on the right that were never covered, so add another probe for this"; the test is ours: CATCH's `len(seq) mod stride ≠ 0` duplicates the last window for e.g. 100 nt / 60 / stride 40 and misses the 100–119 tail for 120 nt / 60 / stride 40). That window overlaps its predecessor by more than `overlap`. With `overlap ≥ 0` every base is covered (`Coverage` = L); a negative overlap leaves gaps and `Coverage` counts the covered positions. Like CATCH (which raises unless `allow_small_seqs`), a target shorter than `probeLength` is rejected (`ArgumentOutOfRangeException`), as are `probeLength ≤ 0` and `overlap ≥ probeLength` (non-advancing step); a null target is `ArgumentNullException` (audit round 7, A7-2, F67 — before: `InvalidOperationException` "Sequence contains no elements" for a short target, an infinite loop for a non-advancing step, and the 3′ tail after the last grid window left untiled, e.g. 110 nt / 60 / 20 → starts 0, 40 only, positions 100–109 uncovered). Suboptimal windows are included for coverage; the set reports coverage, mean Tm, and Tm range. The source also defines probe types `Standard`, `Tiling`, `Antisense`, `LNA`, and `MolecularBeacon`.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -213,6 +213,8 @@ The implementation evaluates candidates with prefix-sum GC optimization and keep
 | Sequence shorter than `MinLength` | Returns no probes | No valid candidate window exists |
 | Candidate with score `<= 0` | Rejected | The evaluator returns `null` for non-positive scores |
 | Specificity check with no genome hits | Returns `0` | The probe does not match the indexed genome |
+| `DesignTilingProbes` with target shorter than `probeLength`, `probeLength ≤ 0` or `overlap ≥ probeLength` | `ArgumentOutOfRangeException` (null target: `ArgumentNullException`) | CATCH rejects a sequence shorter than the probe; a step ≤ 0 cannot advance (A7-2, F67) |
+| `DesignTilingProbes` with `(L − probeLength) mod step ≠ 0` | Extra window anchored at the target end; `Coverage` = L | CATCH end-anchored probe (A7-2, F67) |
 | `DesignProbesPrimer3` with `numReturn` < 1 | `ArgumentOutOfRangeException` | Primer3 `_pr_data_control` "PRIMER_NUM_RETURN < 1" |
 | `DesignProbesPrimer3` with `WeightGcPercentGt/Lt` ≠ 0 and no `OptGcPercent` | `ArgumentException` | Primer3 "Hyb probe GC content is part of objective function while optimum gc_content is not defined" |
 | `DesignProbesPrimer3` with `WeightLibraryMishyb` ≠ 0 and no mishyb library | `ArgumentException` | Primer3 "Internal oligo mispriming score is part of objective function while mishyb library is not defined" |
@@ -236,3 +238,4 @@ The implementation evaluates candidates with prefix-sum GC optimization and keep
 11. Cantor CR, Warshaw MM, Shapiro H (1970) Biopolymers 9:1059–1077; Warshaw MM, Tinoco I (1966) J Mol Biol 20:29–38 (ε260 nearest-neighbour tables as tabulated by OligoCalc / ATDBio; values confirmed via WebSearch extracts).
 12. Tyagi S, Kramer FR (1996) Nat Biotechnol 14:303–308; Marras SAE et al. molecular-beacon design rules (stem 5–7 bp; probe and stem Tm 7–10 °C above the detection temperature).
 13. Rozen S, Skaletsky H (2000) Primer3 on the WWW; Untergasser A et al. (2012) Nucleic Acids Res 40:e115; primer3 `libprimer3.cc` (raw.githubusercontent.com/primer3-org/primer3).
+14. Metsky HC et al. (2019) "Capturing sequence diversity in metagenomes with comprehensive and scalable probe design." Nat Biotechnol 37:160–168; CATCH v1.5.2 `catch/filter/candidate_probes.py` `make_candidate_probes_from_sequence` (github.com/broadinstitute/catch) — tiling grid with an end-anchored final probe.

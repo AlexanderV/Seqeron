@@ -18,7 +18,7 @@ Scans the target for every candidate of admissible length (`parameters.MinLength
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L838](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L838)
+- Source: [ProbeDesigner.cs#L843](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L843)
 
 ## Input Schema
 

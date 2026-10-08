@@ -21,7 +21,7 @@ Estimates an oligonucleotide's molar extinction coefficient at 260 nm (case-inse
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L3549](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3549)
+- Source: [ProbeDesigner.cs#L3574](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3574)
 
 ## Input Schema
 
