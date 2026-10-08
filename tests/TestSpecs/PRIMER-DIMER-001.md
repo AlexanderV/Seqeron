@@ -33,7 +33,9 @@
   with negative Tm and/or positive ΔG (e.g. primer3-py `calc_heterodimer('A','T')`: Tm −437.07 °C,
   ΔG +2087.8 cal/mol; END2 `CGGGCG`/`CGTCCGAATCAGTTGTGAT`: ΔG +1967.85 cal/mol) — reported, as primer3-py does.
 - **L (limits):** both strands > 60 nt or either > 10 000 nt → `ArgumentException` (thal.c CHECK_ERROR);
-  max_loop outside 0–30 → `ArgumentOutOfRangeException` (primer3-py setter).
+  max_loop outside 0–30 → `ArgumentOutOfRangeException` (primer3-py setter). Opt-in overloads with a trailing
+  `maxAlignLength` (60–10 000, else `ArgumentOutOfRangeException`) replace 60 by that THAL_MAX_ALIGN — identical to
+  thal.c compiled with `-DTHAL_MAX_ALIGN=…` (audit round 3, A3-9, F55; `PrimerDesigner_NtthalMaxAlign_Tests`).
 - **T (temperature):** temp_c changes only ΔG (= ΔH − (temp_c+273.15)·ΔS), not Tm / ΔH / ΔS.
 - **M (monotonicity):** a longer/stronger complementary core has the lower (more stable) ΔG / higher Tm.
 - **D (determinism):** identical inputs ⇒ identical outputs.

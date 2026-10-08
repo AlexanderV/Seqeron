@@ -185,6 +185,7 @@ Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE
 | P8 | ExtinctionCoefficientNearestNeighbor_MatchesCantorTable | ✅ Covered |
 | P9 | CalculateMolecularWeight_MatchesBiopython, AnalyzeOligo_Tm_MatchesPrimer3CalcTmAtProbeDefaults | ✅ Covered |
 | TM11 | EvaluateTaqManProbe_TmAtStatedConditions_MatchesPrimer3CalcTm | ✅ Covered |
+| LA1 | `ProbeParameters.ThermodynamicScreenMaxLength` (opt-in THAL_MAX_ALIGN, default 60 = unchanged): an 82-nt stem-loop gets the ntthal hairpin warning "Hairpin Tm 68.1°C exceeds 47°C (ntthal)" (thal.c compiled with `-DTHAL_MAX_ALIGN=10000`: 68.102992186803021; self-dimer 45.92 / 43.01 ≤ 47 not flagged); default → fallback; outside 60–10 000 → `ArgumentOutOfRangeException` (audit round 3, A3-9, F55) — `PrimerDesigner_NtthalMaxAlign_Tests.DesignProbes_ThermodynamicScreenMaxLength_ScreensLongProbeWithNtthal` | ✅ Covered |
 
 ---
 

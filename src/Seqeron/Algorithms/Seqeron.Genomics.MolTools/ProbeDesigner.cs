@@ -28,20 +28,22 @@ public static class ProbeDesigner
     /// </para>
     /// <para>
     /// <b>Self-structure.</b> With <see cref="StructureScreen"/> = <see cref="ProbeStructureScreen.Thermodynamic"/>
-    /// (default) a probe of ≤ 60 nt made of A/C/G/T is screened as Primer3 screens a hybridization probe
+    /// (default) a probe of ≤ <see cref="ThermodynamicScreenMaxLength"/> (default 60) nt made of A/C/G/T is screened as Primer3 screens a hybridization probe
     /// (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 1): ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin
     /// Tm (<see cref="PrimerDesigner.CalculatePrimer3OligoStructure"/>) must not exceed <see cref="MaxStructureTm"/>
     /// (PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH = 47 °C). The self-dimer limit replaces
     /// <see cref="MaxSelfComplementarity"/>; the hairpin limit is applied when <see cref="AvoidSecondaryStructure"/>.
-    /// Probes longer than 60 nt (thal.c <c>THAL_MAX_ALIGN</c>), probes with non-ACGT bases and
-    /// <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: the self-dimer criterion is Primer3's
+    /// Probes longer than <see cref="ThermodynamicScreenMaxLength"/> (thal.c <c>THAL_MAX_ALIGN</c>, default 60; a
+    /// larger value is an opt-in that runs the unchanged ntthal recursions on longer probes), probes with non-ACGT
+    /// bases and <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: the self-dimer criterion is Primer3's
     /// alignment-mode internal-oligo screen (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0, <c>oligo_compl</c>): the dpal
     /// <c>self_any</c> (<see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/>) and <c>self_end</c>
     /// (<see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>) scores, which have no length limit, must not
     /// exceed <see cref="MaxSelfAny"/> / <see cref="MaxSelfEnd"/> (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00);
     /// the hairpin criterion stays the sequence-only inverted-repeat stem screen (≥ 4 bp, loop 3, ≥ 80 % matched) —
-    /// a thermodynamic hairpin for &gt; 60-nt DNA needs a DNA-parameter MFE fold, which the library does not have yet
-    /// (cross-batch request to B12). <see cref="MaxSelfComplementarity"/> (position-wise fold-back fraction limit) is
+    /// with the default THAL_MAX_ALIGN = 60 a &gt; 60-nt probe gets no thermodynamic hairpin; raise
+    /// <see cref="ThermodynamicScreenMaxLength"/> for the ntthal hairpin of longer probes (audit round 3, A3-9).
+    /// <see cref="MaxSelfComplementarity"/> (position-wise fold-back fraction limit) is
     /// no longer used by any screen; it is kept for source compatibility.
     /// </para>
     /// </remarks>
@@ -83,6 +85,17 @@ public static class ProbeDesigner
         /// (Primer3 PRIMER_INTERNAL_MAX_SELF_ANY_TH = _SELF_END_TH = _HAIRPIN_TH = 47 °C).
         /// </summary>
         public double MaxStructureTm { get; init; } = PrimerDesigner.Primer3MaxStructureTm;
+
+        /// <summary>
+        /// Longest probe (nt) screened by the <see cref="ProbeStructureScreen.Thermodynamic"/> ntthal screen — thal.h
+        /// <c>THAL_MAX_ALIGN</c>. Default <see cref="PrimerDesigner.NtthalMaxAlignLength"/> = 60 (Primer3 / primer3-py;
+        /// unchanged behaviour). THAL_MAX_ALIGN is only a compile-time guard of thal.c, so a larger value (opt-in,
+        /// ≤ <see cref="PrimerDesigner.NtthalMaxSequenceLength"/>) screens longer ACGT probes with the unchanged ntthal
+        /// self-dimer / 3′ self-dimer / hairpin recursions (= ntthal compiled with <c>-DTHAL_MAX_ALIGN=…</c>) instead of
+        /// the fallback screens. Cost grows as O(n²·30²) per probe and screen — keep it to the probe lengths in use.
+        /// Outside 60–10 000 → <see cref="ArgumentOutOfRangeException"/>.
+        /// </summary>
+        public int ThermodynamicScreenMaxLength { get; init; } = PrimerDesigner.NtthalMaxAlignLength;
 
         /// <summary>
         /// Maximum Primer3 alignment-mode <c>self_any</c> of the fallback self-dimer screen
@@ -145,7 +158,7 @@ public static class ProbeDesigner
     /// <summary>Self-structure screen used by the probe designers (see <see cref="ProbeParameters"/>).</summary>
     public enum ProbeStructureScreen
     {
-        /// <summary>Primer3 thermodynamic screen (ntthal self-dimer, 3′ self-dimer, hairpin Tm) for ≤ 60-nt ACGT probes.</summary>
+        /// <summary>Primer3 thermodynamic screen (ntthal self-dimer, 3′ self-dimer, hairpin Tm) for ACGT probes of ≤ <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (default 60) nt.</summary>
         Thermodynamic,
 
         /// <summary>The fallback screens for every probe: Primer3 alignment-mode self_any / self_end (dpal, limits
@@ -301,7 +314,7 @@ public static class ProbeDesigner
         bool HasSecondaryStructure,
         IReadOnlyList<string> Issues)
     {
-        /// <summary>True when the Primer3 thermodynamic self-structure screen was applied (≤ 60-nt A/C/G/T
+        /// <summary>True when the Primer3 thermodynamic self-structure screen was applied (A/C/G/T, ≤ ThermodynamicScreenMaxLength nt
         /// probe with <see cref="ProbeStructureScreen.Thermodynamic"/>); false for the fallback screen (Primer3
         /// alignment-mode self_any / self_end + inverted-repeat hairpin stem).</summary>
         public bool ThermodynamicScreen { get; init; }
@@ -797,7 +810,8 @@ public static class ProbeDesigner
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">With the <see cref="ProbeRanking.Primer3Penalty"/> ranking:
     /// <see cref="ProbeParameters.OptLength"/> outside [MinLength, MaxLength] or <see cref="ProbeParameters.OptTm"/> outside
-    /// [MinTm, MaxTm] (Primer3 <c>_pr_data_control</c>); an undefined <see cref="ProbeParameters.Ranking"/> value.</exception>
+    /// [MinTm, MaxTm] (Primer3 <c>_pr_data_control</c>); an undefined <see cref="ProbeParameters.Ranking"/> value;
+    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> outside 60–10 000.</exception>
     public static IEnumerable<Probe> DesignProbes(
         string targetSequence,
         ProbeParameters? parameters = null,
@@ -805,6 +819,7 @@ public static class ProbeDesigner
     {
         var param = parameters ?? Defaults.Microarray;
         ValidateRanking(param, nameof(parameters));
+        ValidateThermodynamicScreenMaxLength(param, nameof(parameters));
         return DesignProbesIterator(targetSequence, param, maxProbes);
     }
 
@@ -846,6 +861,7 @@ public static class ProbeDesigner
     {
         var param = parameters ?? Defaults.Microarray;
         ValidateRanking(param, nameof(parameters));
+        ValidateThermodynamicScreenMaxLength(param, nameof(parameters));
         return DesignProbesIterator(targetSequence, genomeIndex, param, maxProbes, requireUnique);
     }
 
@@ -1102,17 +1118,26 @@ public static class ProbeDesigner
     }
 
     // Primer3 thermodynamic self-structure of a probe (ntthal ANY / END1 self-dimer and hairpin Tm at the
-    // parameters' conditions), or null when the fallback screen applies (Heuristic screen, > 60 nt,
-    // or a non-ACGT base).
+    // parameters' conditions), or null when the fallback screen applies (Heuristic screen, longer than
+    // ThermodynamicScreenMaxLength = THAL_MAX_ALIGN (default 60), or a non-ACGT base).
     private static PrimerDesigner.Primer3OligoStructure? ComputeThermodynamicSelfStructure(
         string sequence, ProbeParameters param)
     {
-        if (param.StructureScreen != ProbeStructureScreen.Thermodynamic || sequence.Length > NtthalMaxLength)
+        if (param.StructureScreen != ProbeStructureScreen.Thermodynamic || sequence.Length > param.ThermodynamicScreenMaxLength)
             return null;
 
         return PrimerDesigner.CalculatePrimer3OligoStructure(
             sequence, param.MonovalentMillimolar, param.DivalentMillimolar, param.DntpMillimolar,
-            param.DnaConcentrationNanomolar);
+            param.DnaConcentrationNanomolar, param.ThermodynamicScreenMaxLength);
+    }
+
+    // ProbeParameters.ThermodynamicScreenMaxLength: THAL_MAX_ALIGN override range 60 (Primer3) … 10 000 (THAL_MAX_SEQ).
+    private static void ValidateThermodynamicScreenMaxLength(ProbeParameters param, string paramName)
+    {
+        if (param.ThermodynamicScreenMaxLength < PrimerDesigner.NtthalMaxAlignLength
+            || param.ThermodynamicScreenMaxLength > PrimerDesigner.NtthalMaxSequenceLength)
+            throw new ArgumentOutOfRangeException(paramName,
+                "ThermodynamicScreenMaxLength (THAL_MAX_ALIGN) must be in 60..10000.");
     }
 
     /// <summary>
@@ -1236,7 +1261,7 @@ public static class ProbeDesigner
     /// <remarks>
     /// Windows of <paramref name="probeLength"/> start every <c>probeLength − overlap</c> bases; each is scored
     /// like <see cref="DesignProbes(string, ProbeParameters?, int)"/> (Tm = Primer3 <c>seqtm</c> at the
-    /// parameters' conditions, thermodynamic self-structure screen for ≤ 60 nt). A window whose score is
+    /// parameters' conditions, thermodynamic self-structure screen for ≤ ThermodynamicScreenMaxLength nt, default 60). A window whose score is
     /// ≤ 0 is still emitted (score 0.3, warning "Suboptimal probe…") so coverage is preserved. Windows keep their
     /// tiling order; with <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/> each scored
     /// window also carries <see cref="Probe.Primer3Penalty"/>.
@@ -1253,6 +1278,7 @@ public static class ProbeDesigner
             MaxLength = probeLength
         };
         ValidateRanking(param, nameof(parameters));
+        ValidateThermodynamicScreenMaxLength(param, nameof(parameters));
 
         targetSequence = targetSequence.ToUpperInvariant();
         var probes = new List<Probe>();
@@ -1968,16 +1994,17 @@ public static class ProbeDesigner
     /// </para>
     /// <para>
     /// <b>Self-structure.</b> The same screen as <see cref="DesignProbes(string, ProbeParameters?, int)"/>: with
-    /// <see cref="ProbeStructureScreen.Thermodynamic"/> (default) a ≤ 60-nt A/C/G/T probe is screened as Primer3
+    /// <see cref="ProbeStructureScreen.Thermodynamic"/> (default) an A/C/G/T probe of ≤ <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (default 60) nt is screened as Primer3
     /// screens a hybridization probe — ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin Tm
     /// (<see cref="PrimerDesigner.CalculatePrimer3OligoStructure"/>, primer3-py <c>calc_homodimer</c> /
     /// <c>calc_end_stability</c> / <c>calc_hairpin</c> parity) at the <paramref name="conditions"/> salt/oligo
     /// concentrations must not exceed <see cref="ProbeParameters.MaxStructureTm"/> (PRIMER_INTERNAL_MAX_SELF_ANY_TH
-    /// = _SELF_END_TH = _HAIRPIN_TH = 47 °C). Longer probes (thal.c THAL_MAX_ALIGN = 60), non-ACGT probes and
+    /// = _SELF_END_TH = _HAIRPIN_TH = 47 °C). Probes longer than <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/>
+    /// (thal.c THAL_MAX_ALIGN, default 60; opt-in larger values run ntthal on longer probes), non-ACGT probes and
     /// <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: Primer3 alignment-mode internal-oligo
     /// self-complementarity (dpal <c>self_any</c> / <c>self_end</c> &gt; <see cref="ProbeParameters.MaxSelfAny"/> /
     /// <see cref="ProbeParameters.MaxSelfEnd"/>, PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00, no length limit)
-    /// and the sequence-only inverted-repeat hairpin stem (no DNA MFE fold for &gt; 60 nt yet). The alignment-mode
+    /// and the sequence-only inverted-repeat hairpin stem. The alignment-mode
     /// values are reported for every probe in <see cref="ProbeValidation.SelfAny"/> / <see cref="ProbeValidation.SelfEnd"/>;
     /// <see cref="ProbeValidation.SelfComplementarity"/> (fold-back fraction) is a library metric only.
     /// </para>
@@ -2005,7 +2032,8 @@ public static class ProbeDesigner
     /// <paramref name="selfComplementarityThreshold"/>. Used: the salt / dNTP / oligo concentrations (ntthal screen and
     /// non-target duplex Tm; Primer3 <c>_pr_data_control</c> legality — monovalent and oligo &gt; 0, Mg²⁺ and dNTP ≥ 0,
     /// else <see cref="ArgumentOutOfRangeException"/>), <see cref="ProbeParameters.StructureScreen"/>,
-    /// <see cref="ProbeParameters.MaxStructureTm"/>, <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>.</param>
+    /// <see cref="ProbeParameters.MaxStructureTm"/>, <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>,
+    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (60–10 000, else <see cref="ArgumentOutOfRangeException"/>).</param>
     /// <param name="nonTargetSequences">Optional known non-target sequences for the Kane assessment.</param>
     /// <param name="maxNonTargetIdentity">Kane identity threshold in [0, 1] (default 0.75; flagged when strictly above),
     /// for the reference sites and the non-targets; outside [0, 1] or NaN → <see cref="ArgumentOutOfRangeException"/>.</param>
@@ -2031,8 +2059,11 @@ public static class ProbeDesigner
         if (maxContiguousMatch < 0)
             throw new ArgumentOutOfRangeException(nameof(maxContiguousMatch), "Contiguous-match threshold cannot be negative.");
         if (conditions is { } stated)
+        {
             PrimerDesigner.ValidatePrimer3Conditions(stated.MonovalentMillimolar, stated.DivalentMillimolar,
                 stated.DntpMillimolar, stated.DnaConcentrationNanomolar, nameof(conditions));
+            ValidateThermodynamicScreenMaxLength(stated, nameof(conditions));
+        }
 
         probeSequence = probeSequence.ToUpperInvariant();
         var issues = new List<string>();
@@ -2071,7 +2102,7 @@ public static class ProbeDesigner
                 $"{crossHybridizingHits} potential off-target sites (Kane 2000: identity > {maxNonTargetIdentity * 100:0.##}% or > {maxContiguousMatch} contiguous identical nt)"));
         }
 
-        // Self-structure: the DesignProbes screen (Primer3 ntthal for ≤ 60-nt ACGT probes; otherwise Primer3
+        // Self-structure: the DesignProbes screen (Primer3 ntthal for ACGT probes ≤ ThermodynamicScreenMaxLength; otherwise Primer3
         // alignment-mode self_any / self_end + the inverted-repeat hairpin stem).
         var param = (conditions ?? Primer3ProbeConditions) with { MaxSelfComplementarity = selfComplementarityThreshold };
         double selfComp = CalculateSelfComplementarity(probeSequence);

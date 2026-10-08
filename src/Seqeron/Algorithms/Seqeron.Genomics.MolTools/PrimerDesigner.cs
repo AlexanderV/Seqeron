@@ -3631,6 +3631,20 @@ public static partial class PrimerDesigner
     public const int NtthalDefaultMaxLoop = 30;
 
     /// <summary>
+    /// thal.h <c>THAL_MAX_ALIGN</c> = 60: Primer3 / primer3-py refuse a dimer whose two strands are both longer, and a
+    /// hairpin of a longer oligo ("At least one sequence must be equal to or shorter than 60bp …"). It is a
+    /// compile-time constant of thal.c (<c>#ifndef THAL_MAX_ALIGN</c>, used only by <c>thal_check_errors</c>; the DP
+    /// tables are allocated from the actual lengths) chosen by the Primer3 authors as "the maximum reasonable length
+    /// for nearest neighbor models … only two states of melting" (thal.h). The ntthal overloads taking
+    /// <c>maxAlignLength</c> raise it (opt-in) and then reproduce ntthal built with <c>-DTHAL_MAX_ALIGN=…</c>.
+    /// </summary>
+    public const int NtthalMaxAlignLength = 60;
+
+    /// <summary>thal.h <c>THAL_MAX_SEQ</c> = 10 000: maximum length of either strand (and the largest
+    /// <c>maxAlignLength</c> accepted).</summary>
+    public const int NtthalMaxSequenceLength = 10000;
+
+    /// <summary>
     /// Full <c>ntthal</c> dimer thermodynamics with every primer3-py <c>calc_heterodimer</c> /
     /// <c>calc_end_stability</c> argument: alignment type, mv/dv/dntp/dna_conc, <c>temp_c</c> (the
     /// temperature at which ΔG is evaluated: ΔG = ΔH − (temp_c + 273.15)·ΔS, thal.c <c>calcDimer</c>;
@@ -3662,7 +3676,45 @@ public static partial class PrimerDesigner
         double temperatureCelsius,
         int maxLoop) =>
         CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
-            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: false)?.Thermodynamics;
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: false,
+            NtthalMaxAlignLength)?.Thermodynamics;
+
+    /// <summary>
+    /// As <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>
+    /// with thal.h <c>THAL_MAX_ALIGN</c> raised to <paramref name="maxAlignLength"/> (opt-in; see
+    /// <see cref="NtthalMaxAlignLength"/>): the unchanged ntthal recursions run when at least one strand is at most
+    /// <paramref name="maxAlignLength"/> nt — identical to ntthal / thal.c compiled with
+    /// <c>-DTHAL_MAX_ALIGN=maxAlignLength</c>. With 60 it is the 9-argument overload. Cost is O(len1·len2·maxLoop²).
+    /// </summary>
+    /// <param name="maxAlignLength">THAL_MAX_ALIGN, <see cref="NtthalMaxAlignLength"/> (60) …
+    /// <see cref="NtthalMaxSequenceLength"/> (10 000) — smaller values would refuse what Primer3 accepts.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30 or
+    /// <paramref name="maxAlignLength"/> outside 60–10 000.</exception>
+    /// <exception cref="ArgumentException">Both strands are longer than <paramref name="maxAlignLength"/>, or either
+    /// is longer than 10 000 nt.</exception>
+    public static DimerThermodynamics? CalculateDimerThermodynamicsNtthal(
+        string strand1,
+        string strand2,
+        NtthalAlignmentMode mode,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double strandConcentrationMolar,
+        double temperatureCelsius,
+        int maxLoop,
+        int maxAlignLength) =>
+        CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: false,
+            CheckedMaxAlignLength(maxAlignLength))?.Thermodynamics;
+
+    // Public THAL_MAX_ALIGN override range: 60 (Primer3) … 10 000 (THAL_MAX_SEQ).
+    private static int CheckedMaxAlignLength(int maxAlignLength)
+    {
+        if (maxAlignLength < NtthalMaxAlignLength || maxAlignLength > NtthalMaxSequenceLength)
+            throw new ArgumentOutOfRangeException(nameof(maxAlignLength), maxAlignLength,
+                "THAL_MAX_ALIGN override must be in 60..10000 (Primer3 default .. THAL_MAX_SEQ).");
+        return maxAlignLength;
+    }
 
     /// <summary>
     /// As <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>,
@@ -3686,11 +3738,32 @@ public static partial class PrimerDesigner
         double temperatureCelsius = NtthalDefaultTemperatureCelsius,
         int maxLoop = NtthalDefaultMaxLoop) =>
         CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
-            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: true);
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: true, NtthalMaxAlignLength);
+
+    /// <summary>
+    /// As <see cref="CalculateDimerStructureNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>
+    /// with THAL_MAX_ALIGN raised to <paramref name="maxAlignLength"/> (opt-in, 60–10 000; see
+    /// <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int, int)"/>).
+    /// </summary>
+    public static NtthalDimerStructure? CalculateDimerStructureNtthal(
+        string strand1,
+        string strand2,
+        NtthalAlignmentMode mode,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double strandConcentrationMolar,
+        double temperatureCelsius,
+        int maxLoop,
+        int maxAlignLength) =>
+        CalculateDimerStructureNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure: true,
+            CheckedMaxAlignLength(maxAlignLength));
 
     private static NtthalDimerStructure? CalculateDimerStructureNtthal(
         string strand1, string strand2, NtthalAlignmentMode mode, double sodiumMolar, double divalentMolar,
-        double dntpMolar, double strandConcentrationMolar, double temperatureCelsius, int maxLoop, bool withStructure)
+        double dntpMolar, double strandConcentrationMolar, double temperatureCelsius, int maxLoop, bool withStructure,
+        int maxAlign)
     {
         if (!IsAcgtOnly(strand1) || !IsAcgtOnly(strand2))
             return null;
@@ -3703,7 +3776,7 @@ public static partial class PrimerDesigner
         };
         var r = NtthalDimer.Run(strand1.ToUpperInvariant(), strand2.ToUpperInvariant(),
             sodiumMolar, strandConcentrationMolar, type, divalentMolar, dntpMolar,
-            temperatureCelsius + KelvinOffset, maxLoop, withStructure);
+            temperatureCelsius + KelvinOffset, maxLoop, withStructure, maxAlign);
         if (r is null)
             return null;
         var v = r.Value;
@@ -3765,7 +3838,32 @@ public static partial class PrimerDesigner
         double temperatureCelsius,
         int maxLoop) =>
         CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
-            temperatureCelsius, maxLoop, withStructure: false)?.Thermodynamics;
+            temperatureCelsius, maxLoop, withStructure: false, NtthalMaxAlignLength)?.Thermodynamics;
+
+    /// <summary>
+    /// As <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int)"/> with thal.h
+    /// <c>THAL_MAX_ALIGN</c> raised to <paramref name="maxAlignLength"/> (opt-in; see <see cref="NtthalMaxAlignLength"/>):
+    /// oligos up to <paramref name="maxAlignLength"/> nt are folded by the unchanged ntthal hairpin recursions —
+    /// identical to ntthal / thal.c compiled with <c>-DTHAL_MAX_ALIGN=maxAlignLength</c> (verified on 61–120-mers
+    /// against thal.c from primer3-py 2.3.1 built with a larger THAL_MAX_ALIGN). With 60 it is the 6-argument
+    /// overload. Cost is O(n²·maxLoop²). Note that the Primer3 authors chose 60 as the limit of the two-state
+    /// nearest-neighbour model (thal.h); longer oligos are folded with the same single-structure model.
+    /// </summary>
+    /// <param name="maxAlignLength">THAL_MAX_ALIGN, <see cref="NtthalMaxAlignLength"/> (60) …
+    /// <see cref="NtthalMaxSequenceLength"/> (10 000).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30 or
+    /// <paramref name="maxAlignLength"/> outside 60–10 000.</exception>
+    /// <exception cref="ArgumentException">The sequence is longer than <paramref name="maxAlignLength"/>.</exception>
+    public static HairpinThermodynamics? CalculateHairpinThermodynamicsNtthal(
+        string sequence,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double temperatureCelsius,
+        int maxLoop,
+        int maxAlignLength) =>
+        CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius, maxLoop, withStructure: false, CheckedMaxAlignLength(maxAlignLength))?.Thermodynamics;
 
     /// <summary>
     /// As <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int)"/>,
@@ -3788,16 +3886,32 @@ public static partial class PrimerDesigner
         double temperatureCelsius = NtthalDefaultTemperatureCelsius,
         int maxLoop = NtthalDefaultMaxLoop) =>
         CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
-            temperatureCelsius, maxLoop, withStructure: true);
+            temperatureCelsius, maxLoop, withStructure: true, NtthalMaxAlignLength);
+
+    /// <summary>
+    /// As <see cref="CalculateHairpinStructureNtthal(string, double, double, double, double, int)"/> with THAL_MAX_ALIGN
+    /// raised to <paramref name="maxAlignLength"/> (opt-in, 60–10 000; see
+    /// <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int, int)"/>).
+    /// </summary>
+    public static NtthalHairpinStructure? CalculateHairpinStructureNtthal(
+        string sequence,
+        double sodiumMolar,
+        double divalentMolar,
+        double dntpMolar,
+        double temperatureCelsius,
+        int maxLoop,
+        int maxAlignLength) =>
+        CalculateHairpinStructureNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius, maxLoop, withStructure: true, CheckedMaxAlignLength(maxAlignLength));
 
     private static NtthalHairpinStructure? CalculateHairpinStructureNtthal(
         string sequence, double sodiumMolar, double divalentMolar, double dntpMolar,
-        double temperatureCelsius, int maxLoop, bool withStructure)
+        double temperatureCelsius, int maxLoop, bool withStructure, int maxAlign)
     {
         if (!IsAcgtOnly(sequence))
             return null;
         var r = NtthalHairpin.Run(sequence.ToUpperInvariant(), sodiumMolar, divalentMolar, dntpMolar,
-            temperatureCelsius + KelvinOffset, maxLoop, withStructure);
+            temperatureCelsius + KelvinOffset, maxLoop, withStructure, maxAlign);
         if (r is null)
             return null;
         var v = r.Value;
@@ -3962,16 +4076,42 @@ public static partial class PrimerDesigner
         double monovalentMillimolar = Primer3MonovalentMillimolar,
         double divalentMillimolar = Primer3DivalentMillimolar,
         double dntpMillimolar = Primer3DntpMillimolar,
-        double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar)
+        double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar) =>
+        CalculatePrimer3OligoStructureCore(primer, monovalentMillimolar, divalentMillimolar, dntpMillimolar,
+            dnaConcentrationNanomolar, NtthalMaxAlignLength);
+
+    /// <summary>
+    /// As <see cref="CalculatePrimer3OligoStructure(string, double, double, double, double)"/> with thal.h
+    /// <c>THAL_MAX_ALIGN</c> raised to <paramref name="maxAlignLength"/> (opt-in; see <see cref="NtthalMaxAlignLength"/>):
+    /// self_any / self_end / hairpin of oligos up to <paramref name="maxAlignLength"/> nt by the unchanged ntthal
+    /// recursions (= thal.c compiled with <c>-DTHAL_MAX_ALIGN=maxAlignLength</c>). Primer3 itself never sees such
+    /// oligos (PRIMER_MAX_SIZE ≤ 35 / internal ≤ 36 nt and THAL_MAX_ALIGN = 60).
+    /// </summary>
+    /// <param name="maxAlignLength">THAL_MAX_ALIGN, 60 … 10 000.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAlignLength"/> outside 60–10 000.</exception>
+    /// <exception cref="ArgumentException">The oligo is longer than <paramref name="maxAlignLength"/>.</exception>
+    public static Primer3OligoStructure? CalculatePrimer3OligoStructure(
+        string primer,
+        double monovalentMillimolar,
+        double divalentMillimolar,
+        double dntpMillimolar,
+        double dnaConcentrationNanomolar,
+        int maxAlignLength) =>
+        CalculatePrimer3OligoStructureCore(primer, monovalentMillimolar, divalentMillimolar, dntpMillimolar,
+            dnaConcentrationNanomolar, CheckedMaxAlignLength(maxAlignLength));
+
+    private static Primer3OligoStructure? CalculatePrimer3OligoStructureCore(
+        string primer, double monovalentMillimolar, double divalentMillimolar, double dntpMillimolar,
+        double dnaConcentrationNanomolar, int maxAlign)
     {
         if (!IsAcgtOnly(primer))
             return null;
         string p = primer.ToUpperInvariant();
         double mv = monovalentMillimolar / 1000.0, dv = divalentMillimolar / 1000.0, dntp = dntpMillimolar / 1000.0;
         double conc = dnaConcentrationNanomolar * 1e-9;
-        double any = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.Any, dv, dntp));
-        double end = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.End1, dv, dntp));
-        var h = NtthalHairpin.Run(p, mv, dv, dntp);
+        double any = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.Any, dv, dntp, maxAlign: maxAlign));
+        double end = TmOrZero(NtthalDimer.Run(p, p, mv, conc, NtthalDimer.AlignmentType.End1, dv, dntp, maxAlign: maxAlign));
+        var h = NtthalHairpin.Run(p, mv, dv, dntp, maxAlign: maxAlign);
         return new Primer3OligoStructure(any, end, h is null ? 0.0 : Math.Max(0.0, h.Value.TmCelsius));
     }
 

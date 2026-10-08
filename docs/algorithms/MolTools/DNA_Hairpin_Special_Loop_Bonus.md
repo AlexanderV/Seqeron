@@ -87,7 +87,9 @@ partner) and `"STR\t"` + the upper-case oligo.
 
 null / empty / any non-ACGT character → `null` (thal.c would read other characters as N). The
 sequence is uppercased internally. Longer than 60 nt → `ArgumentException` (thal.c `THAL_MAX_ALIGN`:
-both "sequences" of a hairpin are the oligo; primer3-py raises the same message). A homopolymer
+both "sequences" of a hairpin are the oligo; primer3-py raises the same message). The overloads with a trailing
+`maxAlignLength` (60–10 000) raise that compile-time guard (opt-in; identical to thal.c compiled with
+`-DTHAL_MAX_ALIGN=…`, verified on 61–120-mers; audit round 3, A3-9, F55). A homopolymer
 or an oligo too short to close a ≥ 3-nt loop returns `null` (matching primer3 `structure_found=False`).
 
 ## 4. Algorithm
@@ -169,7 +171,7 @@ Table 4 model) are unchanged and still accept a caller-supplied `loopBonusDeltaG
 
 ### 6.2 Limitations
 
-Input limited to ACGT and ≤ 60 nt (as thal.c / primer3-py). Special bonus tables exist only for 3-nt and 4-nt loops (the
+Input limited to ACGT and ≤ 60 nt (as thal.c / primer3-py; opt-in `maxAlignLength` overloads up to 10 000 nt, where Primer3's two-state rationale for 60 no longer holds — the same single-structure model is applied). Special bonus tables exist only for 3-nt and 4-nt loops (the
 biology — there are no measured 5-nt+ special-loop tables).
 
 ## 7. Examples and Related Material

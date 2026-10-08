@@ -35,7 +35,7 @@
 - Loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15. Stem = NN stacks only (no bimolecular init).
 - Tm is unimolecular/concentration-independent: Tm = ΔH°·1000/ΔS° − 273.15 (no R·ln(C_T/x) term).
 - D (deterministic): same input → same output.
-- ntthal path: identical to primer3-py 2.3.1 `calc_hairpin` (Tm, ΔG at `temp_c`, ΔH, ΔS, ASCII structure, `structure_found`); > 60 nt → `ArgumentException`; `maxLoop` outside 0–30 → `ArgumentOutOfRangeException`; non-ACGT / empty → `null`.
+- ntthal path: identical to primer3-py 2.3.1 `calc_hairpin` (Tm, ΔG at `temp_c`, ΔH, ΔS, ASCII structure, `structure_found`); > 60 nt → `ArgumentException` (opt-in `maxAlignLength` overloads: > maxAlignLength, 60–10 000; = thal.c compiled with `-DTHAL_MAX_ALIGN=…`, 61–120-nt values locked in `PrimerDesigner_NtthalMaxAlign_Tests`, A3-9 / F55); `maxLoop` outside 0–30 → `ArgumentOutOfRangeException`; non-ACGT / empty → `null`.
 
 ## 4. Cross-check / Differential Oracle
 

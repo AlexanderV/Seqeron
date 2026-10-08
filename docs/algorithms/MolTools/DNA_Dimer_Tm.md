@@ -75,7 +75,7 @@ The most stable duplex is the contiguous WC run (over all antiparallel offsets) 
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| strand1 / strand2 | string | required | DNA oligos (5'→3'); same string twice ⇒ self-dimer | ACGT, case-insensitive; at least one ≤ 60 nt and both ≤ 10 000 nt (thal.c `THAL_MAX_ALIGN`/`THAL_MAX_SEQ`, else `ArgumentException`) |
+| strand1 / strand2 | string | required | DNA oligos (5'→3'); same string twice ⇒ self-dimer | ACGT, case-insensitive; at least one ≤ 60 nt and both ≤ 10 000 nt (thal.c `THAL_MAX_ALIGN`/`THAL_MAX_SEQ`, else `ArgumentException`); the overloads with a trailing `maxAlignLength` (60–10 000, opt-in) replace 60 by that value = thal.c compiled with `-DTHAL_MAX_ALIGN=…` (A3-9, F55) |
 | mode | `NtthalAlignmentMode` | Any | ntthal alignment type: Any (`calc_heterodimer`), End1 (`calc_end_stability(s1, s2)`), End2 (= End1 with the strands swapped) | — |
 | sodiumMolar | double | 0.05 (50 mM) | monovalent cations, mol/L | > 0 |
 | divalentMolar / dntpMolar | double | 0 / 0 (4-argument overloads); 1.5 mM / 0.6 mM (`CalculateDimerStructureNtthal`) | Mg²⁺ / dNTP, mol/L; enter only `saltCorrectS` = 0.368·ln((mv + 120·√max(0, dv − dntp))/1000) | ≥ 0 |

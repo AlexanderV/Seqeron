@@ -70,6 +70,18 @@ internal static class NtthalDimer
     /// <summary>thal.h THAL_MAX_SEQ: maximum length of either strand.</summary>
     internal const int ThalMaxSeq = 10000;
 
+    // thal.c thal_check_errors message ("… shorter than " XSTR(THAL_MAX_ALIGN) "bp …").
+    internal static string MaxAlignMessage(int maxAlign) =>
+        $"At least one sequence must be equal to or shorter than {maxAlign}bp for thermodynamic calculations";
+
+    // Valid THAL_MAX_ALIGN override: 1 … THAL_MAX_SEQ.
+    internal static void CheckMaxAlign(int maxAlign)
+    {
+        if (maxAlign < 1 || maxAlign > ThalMaxSeq)
+            throw new ArgumentOutOfRangeException(nameof(maxAlign), maxAlign,
+                "THAL_MAX_ALIGN must be in 1..10000 (THAL_MAX_SEQ).");
+    }
+
     // bp index matrix BPI[5][5] (A,C,G,T,N): 1 = Watson-Crick pair, 0 = none (thal.c lines 140-145).
     internal static readonly int[,] Bpi =
     {
@@ -142,17 +154,23 @@ internal static class NtthalDimer
     /// <param name="tempKelvin">ntthal <c>temp</c> (K): the temperature at which the reported ΔG is
     /// evaluated (<c>calcDimer</c>: G = H − temp·S). The DP itself always ranks at 310.15 K.</param>
     /// <param name="maxLoop">ntthal <c>maxLoop</c>: maximum internal-loop / bulge size (0–30).</param>
+    /// <param name="maxAlign">thal.h <c>THAL_MAX_ALIGN</c> (default 60): at least one strand must be at most this
+    /// long. It is a compile-time guard of thal.c (<c>#ifndef THAL_MAX_ALIGN</c>, checked only in
+    /// <c>thal_check_errors</c>; the DP tables are sized from the actual lengths), so a larger value runs the same
+    /// recursions on longer strands — as ntthal built with <c>-DTHAL_MAX_ALIGN=…</c> does. 1 ≤ maxAlign ≤
+    /// <see cref="ThalMaxSeq"/>.</param>
     internal static Result? Run(
         string oligo1, string oligo2, double mvMolar, double dnaConcMolar,
         AlignmentType type, double dvMolar, double dntpMolar,
-        double tempKelvin = TempKelvin, int maxLoop = MaxLoop, bool withStructure = false)
+        double tempKelvin = TempKelvin, int maxLoop = MaxLoop, bool withStructure = false,
+        int maxAlign = ThalMaxAlign)
     {
         if (maxLoop < 0 || maxLoop > MaxLoop)
             throw new ArgumentOutOfRangeException(nameof(maxLoop), maxLoop, "ntthal max_loop must be in 0..30.");
+        CheckMaxAlign(maxAlign);
         // thal.c CHECK_ERROR: at least one sequence must be ≤ THAL_MAX_ALIGN (60) nt, neither > THAL_MAX_SEQ.
-        if (oligo1.Length > ThalMaxAlign && oligo2.Length > ThalMaxAlign)
-            throw new ArgumentException(
-                "At least one sequence must be equal to or shorter than 60bp for thermodynamic calculations");
+        if (oligo1.Length > maxAlign && oligo2.Length > maxAlign)
+            throw new ArgumentException(MaxAlignMessage(maxAlign));
         if (oligo1.Length > ThalMaxSeq || oligo2.Length > ThalMaxSeq)
             throw new ArgumentException(
                 "Target sequence length > maximum allowed (10000) in thermodynamic alignment");

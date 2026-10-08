@@ -104,17 +104,21 @@ internal static class NtthalHairpin
     /// <param name="maxLoop">ntthal <c>maxLoop</c>: maximum internal-loop / bulge size (0–30).</param>
     /// <param name="withStructure">Also return the thal.c <c>drawHairpin</c> ASCII lines.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30.</exception>
-    /// <exception cref="ArgumentException">The oligo is longer than 60 nt (thal.c
+    /// <param name="maxAlign">thal.h <c>THAL_MAX_ALIGN</c> (default <see cref="NtthalDimer.ThalMaxAlign"/> = 60):
+    /// a compile-time guard only, so a larger value folds longer oligos with the unchanged recursions (ntthal built
+    /// with <c>-DTHAL_MAX_ALIGN=…</c>). 1 ≤ maxAlign ≤ 10 000.</param>
+    /// <exception cref="ArgumentException">The oligo is longer than <paramref name="maxAlign"/> nt (thal.c
     /// <c>THAL_MAX_ALIGN</c>: both "sequences" of a hairpin are the oligo).</exception>
     internal static Result? Run(
         string oligo, double mvMolar, double dvMolar, double dntpMolar,
-        double tempKelvin = TempKelvin, int maxLoop = MaxLoop, bool withStructure = false)
+        double tempKelvin = TempKelvin, int maxLoop = MaxLoop, bool withStructure = false,
+        int maxAlign = NtthalDimer.ThalMaxAlign)
     {
         if (maxLoop < 0 || maxLoop > MaxLoop)
             throw new ArgumentOutOfRangeException(nameof(maxLoop), maxLoop, "ntthal max_loop must be in 0..30.");
-        if (oligo.Length > NtthalDimer.ThalMaxAlign)
-            throw new ArgumentException(
-                "At least one sequence must be equal to or shorter than 60bp for thermodynamic calculations");
+        NtthalDimer.CheckMaxAlign(maxAlign);
+        if (oligo.Length > maxAlign)
+            throw new ArgumentException(NtthalDimer.MaxAlignMessage(maxAlign));
 
         int len1 = oligo.Length;
         int len2 = len1; // monomer: numSeq2 == numSeq1 (NOT reversed for type 4)
