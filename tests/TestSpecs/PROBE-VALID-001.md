@@ -186,7 +186,7 @@
 | TH1 | `ValidateProbe_ThermodynamicScreen_ReportsPrimer3NtthalTm` | ✅ Covered | primer3-py values within 1e-9 |
 | TH2 | `ValidateProbe_ThermodynamicScreen_UsesStatedConditions` | ✅ Covered | primer3-py values within 1e-9 |
 | TH3 | `ValidateProbe_HighFoldBackFractionWithoutStableStructure_PassesThermodynamicScreen` | ✅ Covered | thermo vs heuristic |
-| TH4 | `ValidateProbe_ProbeLongerThan60nt_UsesSequenceOnlyFallback` | ✅ Covered | fallback |
+| TH4 | `ValidateProbe_ProbeLongerThan60nt_UsesPrimer3AlignmentSelfDimerFallback` | ✅ Covered | > 60 nt fallback (Primer3 alignment self-dimer) |
 | KN1 | `AssessCrossHybridization_MatchesBiopythonLocalAlignmentAndLcs` | ✅ Covered | 10 strands |
 | KN7 | `PrimerDesigner_NtthalMaxAlign_Tests.AssessCrossHybridization_MaxAlignOptIn_SiteDuplexTm_MatchesThal`, `ValidateProbe_ThermodynamicScreenMaxLength_AppliesToNonTargetDuplexTm`, `AssessCrossHybridization_SiteDuplexTm_MatchesPrimer3CalcHeterodimer` (62-nt probe) | ✅ Covered | thal.c / primer3-py within 1e-9 |
 | KN2 | `AssessCrossHybridization_AppliesKaneThresholds` | ✅ Covered | strict thresholds |

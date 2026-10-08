@@ -165,8 +165,8 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 - `ProbeDesigner.DesignProbes(string, ProbeParameters?, int)`: Main probe-generation and ranking routine.
 - `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool, bool)`: Uniqueness-aware overload using a suffix tree (lazy walk of all candidates; `EnumerateRankedProbes(...)` is the shared ranking stream; opt-in `bothStrands` counts reverse-complement occurrences too).
 - `ProbeDesigner.DesignTilingProbes(...)`: Generates overlapping tiling probes covering the whole target.
-- `ProbeDesigner.CheckSpecificity(string, ISuffixTree)`: Maps suffix-tree hit counts to a specificity score.
-- `ProbeDesigner.EvaluateTaqManProbe(string, double?, int, int)`: Opt-in TaqMan rule check; returns a `TaqManProbeEvaluation` with one boolean per rule and a `PassesAll` conjunction.
+- `ProbeDesigner.CheckSpecificity(string probeSequence, ISuffixTree genomeIndex, bool bothStrands = false)`: Maps suffix-tree hit counts to a specificity score (opt-in `bothStrands` also counts the reverse complement).
+- `ProbeDesigner.EvaluateTaqManProbe(string probeSequence, double? primerTm = null, int minLength = 18, int maxLength = 22, double dnaConcentrationNanomolar = 50, double monovalentMillimolar = 50, double divalentMillimolar = 0, double dntpMillimolar = 0)` (Tm conditions default to the Primer3 internal-oligo conditions): Opt-in TaqMan rule check; returns a `TaqManProbeEvaluation` with one boolean per rule and a `PassesAll` conjunction.
 - `ProbeDesigner.SelectTaqManStrand(string, double?)`: Chooses the sense strand or its reverse complement, whichever better satisfies the TaqMan rules (no 5'-G, more C than G first).
 - `ProbeDesigner.DesignProbesPrimer3(string, Primer3ProbeSettings?, int, IReadOnlyList<int>?)`: Primer3 `pick_hyb_probe_only` picker (§4.4), incl. the mishybridization library.
 - `PrimerDesigner.CalculateLibraryMishyb(string, PrimerMisprimingLibrary, bool)`: Primer3 internal-oligo library mishybridization score and entry.

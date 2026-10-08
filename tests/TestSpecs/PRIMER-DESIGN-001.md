@@ -138,7 +138,7 @@ Applied systematic coverage classification (2026-03-04):
 
 | ID | Status | Test Method(s) | Notes |
 |----|--------|----------------|-------|
-| M1 | ✅ | `DesignPrimers_ValidTemplate_ForwardIsUpstreamOfTarget`, `_ForwardWithinSearchRegion` | Asserts `result.IsValid == true` — non-vacuous |
+| M1 | ✅ | `DesignPrimers_ValidTemplate_ForwardIsUpstreamOfTarget`, `_ProductWithinDefaultSizeRange` | Asserts `result.IsValid == true` — non-vacuous; the former ForwardWithinSearchRegion test (fixed ±200 bp window) was replaced in 2aff637 by the Primer3 search region (PRIMER_PRODUCT_SIZE_RANGE, exact primer3-py pair) |
 | M2 | ✅ | `DesignPrimers_TargetEndBeforeStart_ThrowsArgumentException` | Exact exception type |
 | M3 | ✅ | `DesignPrimers_TargetBeyondTemplate_ThrowsArgumentException`, `_NegativeCoordinates_ThrowsArgumentException` | Two edge cases |
 | M4 | ✅ | `DesignPrimers_ValidTemplate_ForwardIsUpstreamOfTarget` | Forward.Position < targetStart |
