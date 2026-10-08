@@ -23,7 +23,7 @@ OligoCalc "Salt Adjusted" Tm (Kibbe 2007, NAR 35:W43), the [Na+]-aware counterpa
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L1443](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1443)
+- Source: [PrimerDesigner.cs#L1445](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1445)
 
 ## Input Schema
 

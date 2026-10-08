@@ -2237,7 +2237,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.AnalyzeOligo",
     "docPath": "docs/mcp/tools/moltools/analyze_oligo.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3531"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3538"
   },
   {
     "tool": "blunt_cutters",
@@ -2314,7 +2314,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignAntisenseProbes",
     "docPath": "docs/mcp/tools/moltools/design_antisense_probes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1397"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1398"
   },
   {
     "tool": "design_guide_rnas",
@@ -2328,7 +2328,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignMolecularBeacon",
     "docPath": "docs/mcp/tools/moltools/design_molecular_beacon.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1956"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1960"
   },
   {
     "tool": "design_primers",
@@ -2349,7 +2349,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignProbesPrimer3",
     "docPath": "docs/mcp/tools/moltools/design_probes_primer3.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1671"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1672"
   },
   {
     "tool": "design_tiling_probes",
@@ -2398,7 +2398,7 @@
     "server": "MolTools",
     "methodId": "PrimerDesigner.EvaluatePrimer",
     "docPath": "docs/mcp/tools/moltools/evaluate_primer.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1079"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1080"
   },
   {
     "tool": "find_all_restriction_sites",
@@ -2440,7 +2440,7 @@
     "server": "MolTools",
     "methodId": "PrimerDesigner.GeneratePrimerCandidates",
     "docPath": "docs/mcp/tools/moltools/generate_primer_candidates.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4444"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4457"
   },
   {
     "tool": "get_enzyme",
@@ -2454,35 +2454,35 @@
     "server": "MolTools",
     "methodId": "PrimerDesigner.HasHairpinPotential",
     "docPath": "docs/mcp/tools/moltools/hairpin_potential.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1781"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1786"
   },
   {
     "tool": "longest_dinucleotide_repeat",
     "server": "MolTools",
     "methodId": "PrimerDesigner.FindLongestDinucleotideRepeat",
     "docPath": "docs/mcp/tools/moltools/longest_dinucleotide_repeat.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1731"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1733"
   },
   {
     "tool": "longest_homopolymer",
     "server": "MolTools",
     "methodId": "PrimerDesigner.FindLongestHomopolymer",
     "docPath": "docs/mcp/tools/moltools/longest_homopolymer.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1672"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1674"
   },
   {
     "tool": "oligo_concentration_from_absorbance",
     "server": "MolTools",
     "methodId": "ProbeDesigner.CalculateConcentration",
     "docPath": "docs/mcp/tools/moltools/oligo_concentration_from_absorbance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3661"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3673"
   },
   {
     "tool": "oligo_extinction_coefficient",
     "server": "MolTools",
     "methodId": "ProbeDesigner.CalculateExtinctionCoefficient",
     "docPath": "docs/mcp/tools/moltools/oligo_extinction_coefficient.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3574"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3584"
   },
   {
     "tool": "optimize_codons",
@@ -2496,21 +2496,21 @@
     "server": "MolTools",
     "methodId": "PrimerDesigner.HasPrimerDimer",
     "docPath": "docs/mcp/tools/moltools/primer_dimer.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1890"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1899"
   },
   {
     "tool": "primer_melting_temperature",
     "server": "MolTools",
     "methodId": "PrimerDesigner.CalculateMeltingTemperature",
     "docPath": "docs/mcp/tools/moltools/primer_melting_temperature.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1424"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1426"
   },
   {
     "tool": "primer_melting_temperature_salt",
     "server": "MolTools",
     "methodId": "PrimerDesigner.CalculateMeltingTemperatureWithSalt",
     "docPath": "docs/mcp/tools/moltools/primer_melting_temperature_salt.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1443"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1445"
   },
   {
     "tool": "reduce_secondary_structure",
@@ -2559,14 +2559,14 @@
     "server": "MolTools",
     "methodId": "PrimerDesigner.Calculate3PrimeStability",
     "docPath": "docs/mcp/tools/moltools/three_prime_stability.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L2255"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L2264"
   },
   {
     "tool": "validate_probe",
     "server": "MolTools",
     "methodId": "ProbeDesigner.ValidateProbe",
     "docPath": "docs/mcp/tools/moltools/validate_probe.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2140"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2147"
   },
   {
     "tool": "bed_filter",

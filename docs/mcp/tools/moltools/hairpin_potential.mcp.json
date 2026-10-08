@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.HasHairpinPotential",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1781",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1786",
   "description": "Sequence-only library hairpin screen: exact self-complementary stem (default ≥ 4 bp, unsourced) + loop (default ≥ 3 nt, Primer3 thal.c min_hrpn_loop). Not Primer3's hairpin screen; for that use evaluate_primer hairpinTh (ntthal hairpin Tm).",
   "inputSchema": {
     "type": "object",

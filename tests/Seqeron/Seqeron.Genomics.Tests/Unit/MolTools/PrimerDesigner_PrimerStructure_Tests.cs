@@ -805,4 +805,87 @@ public class PrimerDesigner_PrimerStructure_Tests
     }
 
     #endregion
+
+    #region B07 audit round 7, A7-3 + A7-4: degenerate / null arguments
+
+    // A7-3: minStemLength 0 returned true for any long-enough sequence (a 0-bp "stem"); a negative stem or loop threw a
+    // raw Substring AOORE ('length' / 'startIndex'). A stem has ≥ 1 bp; a loop of 0 (abutting arms) is degenerate but
+    // well defined.
+    [TestCase(0, 3, "minStemLength")]
+    [TestCase(-1, 3, "minStemLength")]
+    [TestCase(int.MinValue, 3, "minStemLength")]
+    [TestCase(4, -1, "minLoopLength")]
+    [TestCase(4, int.MinValue, "minLoopLength")]
+    public void HasHairpinPotential_IllegalStemOrLoop_ThrowsArgumentOutOfRange(int stem, int loop, string param)
+    {
+        foreach (var seq in new[] { "GGGGAAACCCC", "", null, new string('A', 60) + "GGGGAAACCCC" + new string('T', 60) })
+        {
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.HasHairpinPotential(seq!, stem, loop));
+            Assert.That(ex!.ParamName, Is.EqualTo(param));
+        }
+    }
+
+    [TestCase("GGGGCCCC", 4, 0, true)]      // arms abut: GGGG / CCCC
+    [TestCase("GGGGCCCC", 4, 1, false)]
+    [TestCase("GGGGAAACCCC", 4, 3, true)]   // unchanged default behaviour
+    [TestCase("GGGGAAACCCC", 1, 3, true)]
+    [TestCase("GGGGAAACCCC", int.MaxValue, 3, false)] // 2·stem + loop no longer overflows
+    [TestCase("GGGGAAACCCC", 4, int.MaxValue, false)]
+    public void HasHairpinPotential_BoundaryArguments(string seq, int stem, int loop, bool expected)
+    {
+        Assert.That(PrimerDesigner.HasHairpinPotential(seq, stem, loop), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void EvaluatePrimer_Null_ThrowsArgumentNull()
+    {
+        // A7-4: was NullReferenceException in EvaluatePrimerCore (DesignPrimers & co. throw ArgumentNullException).
+        var ex = Assert.Throws<ArgumentNullException>(() => PrimerDesigner.EvaluatePrimer(null!, 0, true));
+        Assert.That(ex!.ParamName, Is.EqualTo("sequence"));
+    }
+
+    [Test]
+    public void GeneratePrimerCandidates_NullTemplate_ThrowsArgumentNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => PrimerDesigner.GeneratePrimerCandidates(null!, 0, 30));
+    }
+
+    [TestCase(-1, 30, "regionStart")]
+    [TestCase(int.MinValue, 30, "regionStart")]
+    [TestCase(int.MaxValue, 40, "regionStart")]
+    [TestCase(0, 41, "regionEnd")]
+    [TestCase(0, int.MaxValue, "regionEnd")]
+    public void GeneratePrimerCandidates_RegionOutsideTemplate_ThrowsArgumentOutOfRangeEagerly(int start, int end, string param)
+    {
+        // Sweep: these crashed with a raw Substring AOORE (or start + MinLength overflow) during enumeration.
+        var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT"); // 40 nt
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.GeneratePrimerCandidates(template, start, end));
+        Assert.That(ex!.ParamName, Is.EqualTo(param));
+    }
+
+    [Test]
+    public void GeneratePrimerCandidates_FullAndEmptyRegion_Unchanged()
+    {
+        var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT"); // 40 nt
+        var all = PrimerDesigner.GeneratePrimerCandidates(template, 0, 40).ToList();
+        int min = PrimerDesigner.DefaultParameters.MinLength, max = PrimerDesigner.DefaultParameters.MaxLength;
+        int expected = 0;
+        for (int s = 0; s + min <= 40; s++)
+            expected += Math.Min(max, 40 - s) - min + 1;
+        Assert.That(all, Has.Count.EqualTo(expected));
+        Assert.That(PrimerDesigner.GeneratePrimerCandidates(template, 40, 40), Is.Empty);
+        Assert.That(PrimerDesigner.GeneratePrimerCandidates(template, 30, 10), Is.Empty);
+    }
+
+    [Test]
+    public void CalculateTemplateMispriming_PositionPlusLengthOverflow_ThrowsArgumentOutOfRange()
+    {
+        // Sweep: position + length overflowed past the site check and crashed in Substring ('startIndex').
+        var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => PrimerDesigner.CalculateTemplateMispriming(template, int.MaxValue, 20, true));
+        Assert.That(ex!.ParamName, Is.EqualTo("position"));
+    }
+
+    #endregion
 }

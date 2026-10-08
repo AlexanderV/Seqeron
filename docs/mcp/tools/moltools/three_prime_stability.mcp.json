@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.Calculate3PrimeStability",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L2255 (Calculate3PrimeStability)",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L2264 (Calculate3PrimeStability)",
   "description": "Primer3 end_oligodg: SantaLucia (1998) nearest-neighbor delta-G 37C of a primer's last 5 bases (Primer3 PRIMER_*_END_STABILITY with opposite sign).",
   "inputSchema": {
     "type": "object",

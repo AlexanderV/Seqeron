@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.FindLongestHomopolymer",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1672",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1674",
   "description": "Length of the longest run of identical consecutive nucleotides in a sequence.",
   "inputSchema": {
     "type": "object",

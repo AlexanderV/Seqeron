@@ -1072,6 +1072,7 @@ public static partial class PrimerDesigner
     /// <see cref="PrimerCandidate.Score"/> is an informational additive quality score (0–100,
     /// higher is better) that does not drive selection.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Illegal reaction conditions (Primer3 <c>_pr_data_control</c>:
     /// salt or DNA concentration ≤ 0, negative divalent / dNTP concentration, NaN / ∞).</exception>
     /// <exception cref="ArgumentException">PRIMER_MIN_QUALITY / a quality weight without a template, or a GC weight without
@@ -1082,6 +1083,7 @@ public static partial class PrimerDesigner
         bool isForward,
         PrimerParameters? parameters = null)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
         var param = parameters ?? DefaultParameters;
         param.ValidateConditions(nameof(parameters));
         // No template, hence no SEQUENCE_QUALITY: Primer3 rejects PRIMER_MIN_QUALITY / PRIMER_WT_SEQ_QUAL without it.
@@ -1775,12 +1777,19 @@ public static partial class PrimerDesigner
     /// at ≥ 100 nt (identical results).
     /// </summary>
     /// <param name="sequence">DNA sequence to check.</param>
-    /// <param name="minStemLength">Minimum stem length (default 4).</param>
-    /// <param name="minLoopLength">Minimum loop length (default 3).</param>
-    /// <returns>True if hairpin potential detected.</returns>
+    /// <param name="minStemLength">Minimum stem length (default 4; ≥ 1 — a stem has at least one base pair).</param>
+    /// <param name="minLoopLength">Minimum loop length (default 3; ≥ 0 — 0 allows the two arms to abut, below
+    /// Primer3's 3-nt hairpin minimum).</param>
+    /// <returns>True if hairpin potential detected; <c>false</c> for a null or empty sequence.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minStemLength"/> &lt; 1 or
+    /// <paramref name="minLoopLength"/> &lt; 0.</exception>
     public static bool HasHairpinPotential(string sequence, int minStemLength = 4, int minLoopLength = 3)
     {
-        if (string.IsNullOrEmpty(sequence) || sequence.Length < minStemLength * 2 + minLoopLength)
+        // Audit round 7, A7-3: a 0-bp stem is no stem (it returned true for any long-enough sequence) and a negative
+        // stem / loop crashed in Substring.
+        ArgumentOutOfRangeException.ThrowIfLessThan(minStemLength, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < 2L * minStemLength + minLoopLength)
             return false;
 
         var seq = sequence.ToUpperInvariant();
@@ -4441,6 +4450,10 @@ public static partial class PrimerDesigner
     /// <summary>
     /// Generates all possible primers for a region.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="regionStart"/> &lt; 0, or
+    /// <paramref name="regionStart"/> / <paramref name="regionEnd"/> beyond the end of the template
+    /// (<paramref name="regionEnd"/> is exclusive; an empty region yields no candidates).</exception>
     public static IEnumerable<PrimerCandidate> GeneratePrimerCandidates(
         DnaSequence template,
         int regionStart,
@@ -4448,8 +4461,17 @@ public static partial class PrimerDesigner
         bool forward = true,
         PrimerParameters? parameters = null)
     {
-        var param = parameters ?? DefaultParameters;
+        // Validated eagerly (audit round 7, A7-3/A7-4): out-of-template regions crashed in Substring on enumeration.
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentOutOfRangeException.ThrowIfNegative(regionStart);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(regionStart, template.Length);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(regionEnd, template.Length);
+        return GeneratePrimerCandidatesIterator(template, regionStart, regionEnd, forward, parameters ?? DefaultParameters);
+    }
 
+    private static IEnumerable<PrimerCandidate> GeneratePrimerCandidatesIterator(
+        DnaSequence template, int regionStart, int regionEnd, bool forward, PrimerParameters param)
+    {
         for (int start = regionStart; start + param.MinLength <= regionEnd; start++)
         {
             for (int len = param.MinLength; len <= param.MaxLength && start + len <= regionEnd; len++)

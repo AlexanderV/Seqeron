@@ -18,7 +18,7 @@ For every start position `s` in `[region_start, region_end)` and every admissibl
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L4444](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4444)
+- Source: [PrimerDesigner.cs#L4457](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4457)
 
 ## Input Schema
 

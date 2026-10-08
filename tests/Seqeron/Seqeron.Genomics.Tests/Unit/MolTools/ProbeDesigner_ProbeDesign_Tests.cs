@@ -717,4 +717,82 @@ public class ProbeDesigner_ProbeDesign_Tests
     }
 
     #endregion
+
+    #region B07 audit round 7, A7-3 + A7-4: degenerate / null arguments
+
+    private const string BeaconTarget = "ATGCGTACGTTAGCCGATCGATCGGCTAGCTAGGATCCGATCGTAGCTAGCATCGACTGAC";
+
+    // A7-3: probeLength 0 returned a stem-only beacon (empty loop), stemLength 0 a loop with no arms, negatives threw a
+    // raw string AOORE ('length' / 'count'). A beacon needs a loop and two arms (Tyagi & Kramer 1996); the 15–30 nt /
+    // 5–7 bp ranges are documented recommendations, so only impossible values (≤ 0) are rejected.
+    [TestCase(0, 5, "probeLength")]
+    [TestCase(-1, 5, "probeLength")]
+    [TestCase(int.MinValue, 5, "probeLength")]
+    [TestCase(25, 0, "stemLength")]
+    [TestCase(25, -1, "stemLength")]
+    [TestCase(25, int.MinValue, "stemLength")]
+    public void DesignMolecularBeacon_NonPositiveLoopOrStem_ThrowsArgumentOutOfRange(int probeLength, int stemLength, string param)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => ProbeDesigner.DesignMolecularBeacon(BeaconTarget, probeLength, stemLength));
+        Assert.That(ex!.ParamName, Is.EqualTo(param));
+    }
+
+    [TestCase(1, 1)]
+    [TestCase(10, 3)]
+    [TestCase(35, 9)]
+    public void DesignMolecularBeacon_PositiveOutsideRecommendedRanges_StillDesigned(int probeLength, int stemLength)
+    {
+        // Recommendations are not requirements: the smallest legal beacon still has a loop of probeLength and two arms.
+        var beacon = ProbeDesigner.DesignMolecularBeacon(BeaconTarget, probeLength, stemLength);
+        Assert.That(beacon, Is.Not.Null);
+        Assert.That(beacon!.Value.Sequence, Has.Length.EqualTo(probeLength + 2 * stemLength));
+    }
+
+    [Test]
+    public void DesignMolecularBeacon_Null_ThrowsArgumentNull()
+    {
+        // A7-4: was NullReferenceException.
+        var ex = Assert.Throws<ArgumentNullException>(() => ProbeDesigner.DesignMolecularBeacon(null!));
+        Assert.That(ex!.ParamName, Is.EqualTo("targetSequence"));
+    }
+
+    [Test]
+    public void AnalyzeOligo_Null_ThrowsArgumentNull()
+    {
+        // A7-4: was NullReferenceException (ProbeDesigner's design/evaluate siblings throw ArgumentNullException).
+        var ex = Assert.Throws<ArgumentNullException>(() => ProbeDesigner.AnalyzeOligo(null!));
+        Assert.That(ex!.ParamName, Is.EqualTo("sequence"));
+    }
+
+    [TestCase(null)]
+    [TestCase("")]
+    public void CalculateExtinctionCoefficient_NullOrEmpty_ReturnsZero(string? sequence)
+    {
+        // A7-4: null was NullReferenceException; the siblings CalculateExtinctionCoefficientNearestNeighbor and
+        // CalculateMolecularWeight return 0 for null / empty, and so does the mononucleotide sum of no bases.
+        Assert.That(ProbeDesigner.CalculateExtinctionCoefficient(sequence!), Is.EqualTo(0));
+        Assert.That(ProbeDesigner.CalculateExtinctionCoefficientNearestNeighbor(sequence!), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void CalculateExtinctionCoefficient_NonDegenerate_Unchanged()
+    {
+        // Mononucleotide sum: A 15400 + C 7400 + G 11500 + T 8700 + U 9900 + N 10000.
+        Assert.That(ProbeDesigner.CalculateExtinctionCoefficient("acgtUN"), Is.EqualTo(62900));
+    }
+
+    [Test]
+    public void DesignTilingProbes_HugeNegativeOverlap_NoStepOverflow()
+    {
+        // Sweep: overlap = int.MinValue overflowed step = probeLength − overlap to a negative value and crashed in
+        // Substring. A negative overlap is gapped tiling; with a step beyond the target only window 0 and the
+        // end-anchored window remain.
+        string target = new string('A', 40) + new string('G', 40);
+        var tiling = ProbeDesigner.DesignTilingProbes(target, probeLength: 20, overlap: int.MinValue);
+        Assert.That(tiling.Probes.Select(p => p.Start), Is.EqualTo(new[] { 0, 60 }));
+        Assert.That(tiling.Coverage, Is.EqualTo(40));
+    }
+
+    #endregion
 }

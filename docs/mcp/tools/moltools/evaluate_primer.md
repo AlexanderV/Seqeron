@@ -18,7 +18,7 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3 
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L1079](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1079)
+- Source: [PrimerDesigner.cs#L1080](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1080)
 
 ## Input Schema
 

@@ -77,6 +77,7 @@
 | M15 | 3' Stability | GC-rich vs AT-rich (exact values) | GCGCG = -6.86, TATAT = -0.86 | SantaLucia (1998) + Primer3 Manual |
 | M16 | 3' Stability | GCGCG (most stable 5mer) | -6.86 kcal/mol | Primer3 Manual + SantaLucia (1998) |
 | M17 | 3' Stability | TATAT (least stable 5mer) | -0.86 kcal/mol | Primer3 Manual + SantaLucia (1998) |
+| M18 | Argument contract (A7-3/A7-4, F68) | `HasHairpinPotential` minStemLength < 1 / minLoopLength < 0 → `ArgumentOutOfRangeException` (was true for a 0-bp stem, raw Substring AOORE for negatives); loop 0 allowed (GGGGCCCC, 4, 0 → true); int.MaxValue stem/loop → false (no 2·stem + loop overflow); `EvaluatePrimer(null)` → `ArgumentNullException` (was NRE); `GeneratePrimerCandidates` null template / region outside the template → eager `ArgumentNullException` / `ArgumentOutOfRangeException`; `CalculateTemplateMispriming` position + length overflow → `ArgumentOutOfRangeException` (`position`) | ≥ 1-bp stem; library argument contract | Primer3 thal.c min_hrpn_loop (loop semantics) |
 
 ### SHOULD Tests (Recommended)
 
@@ -149,6 +150,7 @@
 | `Calculate3PrimeStability_MixedCase_ReturnsSameExactValue` | 1 | ✅ Covered | S7 (was ⚠ Weak: now checks -6.86) |
 | `Calculate3PrimeStability_MostStable5mer_MatchesPrimer3` | 1 | ✅ Covered | M16 |
 | `Calculate3PrimeStability_LeastStable5mer_MatchesPrimer3` | 1 | ✅ Covered | M17 |
+| `HasHairpinPotential_IllegalStemOrLoop_ThrowsArgumentOutOfRange` ×5, `HasHairpinPotential_BoundaryArguments` ×6, `EvaluatePrimer_Null_ThrowsArgumentNull`, `GeneratePrimerCandidates_NullTemplate_ThrowsArgumentNull`, `GeneratePrimerCandidates_RegionOutsideTemplate_ThrowsArgumentOutOfRangeEagerly` ×5, `GeneratePrimerCandidates_FullAndEmptyRegion_Unchanged`, `CalculateTemplateMispriming_PositionPlusLengthOverflow_ThrowsArgumentOutOfRange` | 20 | ✅ Covered | M18 |
 | `PrimerStructureAnalysis_WellDesignedPrimer_ExactMetrics` | 1 | ✅ Covered | C4 (was ⚠ Weak: `True.Or.False` → exact values) |
 | `PrimerStructureAnalysis_ProblematicPrimer_ExactMetrics` | 1 | ✅ Covered | C5 (was ⚠ Weak: `<-5.0` → exact -5.40) |
 | `Primer3ThermodynamicStructure_MatchesPrimer3CheckPrimers` | 4 | ✅ Covered | M18 |

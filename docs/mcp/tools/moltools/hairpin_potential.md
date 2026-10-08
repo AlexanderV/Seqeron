@@ -33,7 +33,7 @@ Tm, rejected above 47 °C) or the C# API `PrimerDesigner.CalculateHairpinThermod
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L1781](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1781)
+- Source: [PrimerDesigner.cs#L1786](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1786)
 
 ## Input Schema
 

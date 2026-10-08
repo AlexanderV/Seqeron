@@ -1351,11 +1351,12 @@ public static class ProbeDesigner
 
         targetSequence = targetSequence.ToUpperInvariant();
         var probes = new List<Probe>();
-        int step = probeLength - overlap;
+        // long: a very negative overlap (gapped tiling) must not overflow the step (audit round 7, A7-3).
+        long step = (long)probeLength - overlap;
         int lastStart = targetSequence.Length - probeLength;
 
-        for (int start = 0; start <= lastStart; start += step)
-            probes.Add(TilingWindow(targetSequence, start, probeLength, param));
+        for (long start = 0; start <= lastStart; start += step)
+            probes.Add(TilingWindow(targetSequence, (int)start, probeLength, param));
 
         // End-anchored window (CATCH) when the regular grid stops short of the 3' end.
         if (lastStart % step != 0)
@@ -1952,7 +1953,10 @@ public static class ProbeDesigner
     /// (<see cref="PrimerDesigner.NtthalMaxAlignLength"/> = 60, Primer3's compile-time default, …
     /// <see cref="PrimerDesigner.NtthalMaxSequenceLength"/> = 10 000): beacons up to this length get the ntthal hairpin
     /// Tm (opt-in for beacons longer than 60 nt; = thal.c compiled with <c>-DTHAL_MAX_ALIGN=…</c>; audit round 3, A3-27).</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAlignLength"/> outside 60–10 000.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="targetSequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="probeLength"/> or <paramref name="stemLength"/> ≤ 0
+    /// (a beacon needs a loop and two arms; the Tyagi &amp; Kramer ranges are recommendations and are not enforced),
+    /// or <paramref name="maxAlignLength"/> outside 60–10 000.</exception>
     public static Probe? DesignMolecularBeacon(
         string targetSequence,
         int probeLength = 25,
@@ -1960,6 +1964,9 @@ public static class ProbeDesigner
         double? detectionTemperatureCelsius = null,
         int maxAlignLength = PrimerDesigner.NtthalMaxAlignLength)
     {
+        ArgumentNullException.ThrowIfNull(targetSequence);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(probeLength);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stemLength);
         if (maxAlignLength < PrimerDesigner.NtthalMaxAlignLength || maxAlignLength > PrimerDesigner.NtthalMaxSequenceLength)
             throw new ArgumentOutOfRangeException(nameof(maxAlignLength), maxAlignLength,
                 "THAL_MAX_ALIGN must be in 60..10000.");
@@ -2813,8 +2820,8 @@ public static class ProbeDesigner
     /// <param name="databaseLength">Database (reference) length n (&gt; 0).</param>
     /// <param name="scoring">
     /// The scoring scheme. Its <see cref="ScoringMatrix.Match"/>/<see cref="ScoringMatrix.Mismatch"/>
-    /// determine λ. Defaults to <see cref="SequenceAligner.BlastDna"/> (+2/−3). Pass a +1/−3 matrix to
-    /// reproduce the published λ ≈ 1.374.
+    /// determine λ. Null (the default) means <see cref="SequenceAligner.BlastDna"/> (+2/−3); it is not an error.
+    /// Pass a +1/−3 matrix to reproduce the published λ ≈ 1.374.
     /// </param>
     /// <param name="k">
     /// The Karlin–Altschul K parameter; null (default) computes it for <paramref name="scoring"/> and
@@ -2827,7 +2834,6 @@ public static class ProbeDesigner
     /// blastn's printed K, e.g. 1.17 for +4/−6). Ignored when <paramref name="k"/> is given.
     /// </param>
     /// <returns>The <see cref="KarlinAltschulStatistics"/> for the hit.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="scoring"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown for non-positive lengths or K, or a scheme for which λ is undefined.</exception>
     public static KarlinAltschulStatistics ComputeKarlinAltschul(
         double rawScore,
@@ -3527,9 +3533,11 @@ public static class ProbeDesigner
     /// G+C fraction, single-stranded molecular weight (<see cref="CalculateMolecularWeight(string)"/>) and the
     /// mononucleotide-sum ε260 (<see cref="CalculateExtinctionCoefficient(string)"/>).
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static (double Tm, double GcContent, double MolecularWeight, double ExtinctionCoefficient)
         AnalyzeOligo(string sequence)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
         sequence = sequence.ToUpperInvariant();
 
         double tm = CalculateProbeTm(sequence, Primer3ProbeConditions);
@@ -3571,8 +3579,12 @@ public static class ProbeDesigner
     /// (A 15400, C 7400, G 11500, T 8700, U 9900; any other symbol 10000). This ignores base-stacking
     /// hypochromicity; the nearest-neighbour value is <see cref="CalculateExtinctionCoefficientNearestNeighbor"/>.
     /// </summary>
+    /// <returns>ε260 in M⁻¹·cm⁻¹; 0 for a null or empty sequence (as <see cref="CalculateExtinctionCoefficientNearestNeighbor"/>
+    /// and <see cref="CalculateMolecularWeight(string)"/>).</returns>
     public static double CalculateExtinctionCoefficient(string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            return 0;
         double coefficient = 0;
         sequence = sequence.ToUpperInvariant();
 

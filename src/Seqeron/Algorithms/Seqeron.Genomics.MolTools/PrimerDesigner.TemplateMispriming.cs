@@ -58,7 +58,7 @@ public static partial class PrimerDesigner
     {
         ArgumentNullException.ThrowIfNull(template);
         string seq = template.Sequence.ToUpperInvariant();
-        if (length < 1 || position < 0 || position + length > seq.Length)
+        if (length < 1 || position < 0 || position > seq.Length - length)
             throw new ArgumentOutOfRangeException(nameof(position), "The primer site must lie inside the template.");
         ValidatePrimer3Conditions(monovalentMillimolar, divalentMillimolar, dntpMillimolar, dnaConcentrationNanomolar,
             nameof(monovalentMillimolar));

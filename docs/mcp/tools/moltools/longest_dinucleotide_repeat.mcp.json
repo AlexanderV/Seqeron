@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.FindLongestDinucleotideRepeat",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1731",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1733",
   "description": "Number of repeat units in the longest dinucleotide tandem repeat (e.g. ATATAT = 3). Unsourced library screen (Primer3 has no dinucleotide-repeat limit; use PRIMER_MAX_POLY_X / mispriming library for Primer3's sourced checks).",
   "inputSchema": {
     "type": "object",

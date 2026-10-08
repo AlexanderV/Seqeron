@@ -18,7 +18,7 @@ Scans the sequence (case-insensitive) and returns the length of its longest homo
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L1672](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1672)
+- Source: [PrimerDesigner.cs#L1674](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1674)
 
 ## Input Schema
 
