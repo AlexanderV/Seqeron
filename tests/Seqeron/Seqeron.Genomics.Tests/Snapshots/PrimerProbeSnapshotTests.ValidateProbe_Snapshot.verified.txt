@@ -9,7 +9,7 @@
   SelfEndDimerTm: 59.185772,
   HairpinTm: 67.291888,
   Issues: [
-    3 potential off-target sites,
+    3 potential off-target sites (Kane 2000: identity > 75% or > 15 contiguous identical nt),
     Self-complementarity: ntthal self-dimer Tm 59.2°C exceeds 47°C,
     Potential secondary structure formation: ntthal hairpin Tm 67.3°C exceeds 47°C
   ]

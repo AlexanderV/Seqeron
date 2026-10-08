@@ -279,10 +279,11 @@ public static class ProbeDesigner
     /// <summary>
     /// Probe validation result (<see cref="ValidateProbe"/>).
     /// </summary>
-    /// <param name="IsValid">True when no issue was recorded (no multiple hits, no self-structure flag, no
-    /// cross-hybridizing non-target).</param>
+    /// <param name="IsValid">True when no issue was recorded (at most one reference site meeting the Kane et al. (2000)
+    /// criteria, no self-structure flag, no cross-hybridizing non-target).</param>
     /// <param name="SpecificityScore">Library-defined uniqueness score 1/N over the N ungapped candidate binding
-    /// sites (0 when there is none); not a published metric — see <see cref="ValidateProbe"/>.</param>
+    /// sites (0 when there is none); a library convention, not a published metric, and not used by
+    /// <paramref name="IsValid"/> — see <see cref="ValidateProbe"/>.</param>
     /// <param name="OffTargetHits">Total ungapped k-mismatch hits across the references (the intended site
     /// included).</param>
     /// <param name="SelfComplementarity">Position-wise fold-back fraction (fraction of positions i with
@@ -327,6 +328,12 @@ public static class ProbeDesigner
         /// (<see cref="AssessCrossHybridization"/>); empty when no non-target sequences were supplied.</summary>
         public IReadOnlyList<CrossHybridizationAssessment> CrossHybridization { get; init; }
             = Array.Empty<CrossHybridizationAssessment>();
+
+        /// <summary>Number of the <see cref="OffTargetHits"/> ungapped sites that meet a Kane et al. (2000)
+        /// cross-hybridization criterion (identity (L − mismatches) / L &gt; the identity threshold, default 0.75, or a
+        /// run of identical positions longer than the contiguous threshold, default 15 nt); more than one such site
+        /// records the off-target issue (audit round 3, A3-12).</summary>
+        public int CrossHybridizingHits { get; init; }
     }
 
     /// <summary>
@@ -1947,10 +1954,17 @@ public static class ProbeDesigner
     /// <b>Hits.</b> Every reference is scanned with the canonical ungapped k-mismatch (Hamming) matcher
     /// <see cref="ApproximateMatcher.FindWithMismatches(string, string, int)"/> (case-insensitive, overlapping, the
     /// strand given only); <see cref="ProbeValidation.OffTargetHits"/> is the total and includes the intended site.
-    /// More than one hit records an issue. <see cref="ProbeValidation.SpecificityScore"/> = 1/N for N ≥ 1 hits
+    /// Each hit is judged by the Kane et al. (2000) criteria on its ungapped diagonal — identity (L − mismatches) / L
+    /// over the probe length &gt; <paramref name="maxNonTargetIdentity"/> or a run of identical positions longer than
+    /// <paramref name="maxContiguousMatch"/> (<see cref="ProbeValidation.CrossHybridizingHits"/>); more than one such
+    /// site records an issue (the probe can bind somewhere besides its intended site). With the default 3 mismatches
+    /// every hit of a probe ≥ 13 nt meets the identity criterion ((L − 3) / L &gt; 0.75), so the decision equals the
+    /// former "more than one hit" rule there. <see cref="ProbeValidation.SpecificityScore"/> = 1/N for N ≥ 1 hits
     /// (0 for none) is a library-defined uniqueness score (the share of the probe's N candidate binding sites
-    /// taken by one site), not a published specificity metric; the sourced cross-hybridization decision is the
-    /// Kane assessment below.
+    /// taken by one site), not a published specificity metric (no published 1/N score was found — Kane 2000,
+    /// OligoArray 2.0, Li &amp; Stormo 2001 and Primer3's PRIMER_INTERNAL_MAX_LIBRARY_MISHYB judge a site by
+    /// identity / free energy / alignment score, not by a hit count); it is reported only and does not enter
+    /// <see cref="ProbeValidation.IsValid"/>.
     /// </para>
     /// <para>
     /// <b>Self-structure.</b> The same screen as <see cref="DesignProbes(string, ProbeParameters?, int)"/>: with
@@ -1977,8 +1991,10 @@ public static class ProbeDesigner
     /// </remarks>
     /// <param name="probeSequence">Probe sequence to validate (case-insensitive). Null throws; empty → invalid result.</param>
     /// <param name="referenceSequences">Reference sequences scanned for ungapped hits (target included).</param>
-    /// <param name="maxMismatches">Maximum mismatches of the ungapped site-counting scan (≥ 0; default 3, a screening
-    /// tolerance kept for compatibility — the sourced hybridization cross-reactivity decision is the Kane assessment).</param>
+    /// <param name="maxMismatches">Search radius of the ungapped site scan (≥ 0; default 3 — a library convention kept for
+    /// compatibility, no published hybridization source: the figure is the CRISPR guide mismatch tolerance). Whether a
+    /// found site is a problem is decided by the Kane criteria; to find every ungapped site that meets the Kane identity
+    /// criterion pass ⌈L/4⌉ − 1 (the largest d with (L − d) / L &gt; 0.75).</param>
     /// <param name="selfComplementarityThreshold">Former fold-back-fraction limit of the fallback screen; kept for
     /// source compatibility and copied into <see cref="ProbeParameters.MaxSelfComplementarity"/>, but no longer used by
     /// any screen (the fallback self-dimer limits are <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>)
@@ -1986,10 +2002,15 @@ public static class ProbeDesigner
     /// <param name="conditions">Hybridization conditions and structure-screen settings (default: Primer3 probe
     /// conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, thermodynamic screen, 47 °C — the settings of
     /// <see cref="Defaults.Microarray"/> at those conditions); its <see cref="ProbeParameters.MaxSelfComplementarity"/> is replaced by
-    /// <paramref name="selfComplementarityThreshold"/>.</param>
+    /// <paramref name="selfComplementarityThreshold"/>. Used: the salt / dNTP / oligo concentrations (ntthal screen and
+    /// non-target duplex Tm; Primer3 <c>_pr_data_control</c> legality — monovalent and oligo &gt; 0, Mg²⁺ and dNTP ≥ 0,
+    /// else <see cref="ArgumentOutOfRangeException"/>), <see cref="ProbeParameters.StructureScreen"/>,
+    /// <see cref="ProbeParameters.MaxStructureTm"/>, <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>.</param>
     /// <param name="nonTargetSequences">Optional known non-target sequences for the Kane assessment.</param>
-    /// <param name="maxNonTargetIdentity">Kane identity threshold (default 0.75; flagged when strictly above).</param>
-    /// <param name="maxContiguousMatch">Kane contiguous-identity threshold in nt (default 15; flagged when strictly longer).</param>
+    /// <param name="maxNonTargetIdentity">Kane identity threshold in [0, 1] (default 0.75; flagged when strictly above),
+    /// for the reference sites and the non-targets; outside [0, 1] or NaN → <see cref="ArgumentOutOfRangeException"/>.</param>
+    /// <param name="maxContiguousMatch">Kane contiguous-identity threshold in nt (≥ 0, default 15; flagged when strictly
+    /// longer), for the reference sites and the non-targets; negative → <see cref="ArgumentOutOfRangeException"/>.</param>
     /// <param name="maxDuplexTm">Optional OligoArray-style off-target duplex-Tm threshold (°C; see
     /// <see cref="AssessCrossHybridization"/>); null = Kane criteria only.</param>
     public static ProbeValidation ValidateProbe(
@@ -2005,6 +2026,13 @@ public static class ProbeDesigner
     {
         ArgumentNullException.ThrowIfNull(probeSequence);
         ArgumentNullException.ThrowIfNull(referenceSequences);
+        if (double.IsNaN(maxNonTargetIdentity) || maxNonTargetIdentity < 0 || maxNonTargetIdentity > 1)
+            throw new ArgumentOutOfRangeException(nameof(maxNonTargetIdentity), "Identity threshold must be in [0, 1].");
+        if (maxContiguousMatch < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxContiguousMatch), "Contiguous-match threshold cannot be negative.");
+        if (conditions is { } stated)
+            PrimerDesigner.ValidatePrimer3Conditions(stated.MonovalentMillimolar, stated.DivalentMillimolar,
+                stated.DntpMillimolar, stated.DnaConcentrationNanomolar, nameof(conditions));
 
         probeSequence = probeSequence.ToUpperInvariant();
         var issues = new List<string>();
@@ -2022,17 +2050,25 @@ public static class ProbeDesigner
         }
 
         int offTargetHits = 0;
+        int crossHybridizingHits = 0;
 
-        // Check off-target hits via approximate matching
+        // Canonical ungapped k-mismatch (Hamming) scan; case-insensitive, overlapping hits included. Each hit is a
+        // candidate binding site; it counts as a cross-hybridizing site when it meets a Kane et al. (2000) criterion.
         foreach (var reference in referenceSequences)
         {
-            // Canonical ungapped k-mismatch (Hamming) scan; case-insensitive, overlapping hits included.
-            offTargetHits += ApproximateMatcher.FindWithMismatches(reference, probeSequence, maxMismatches).Count();
+            foreach (var hit in ApproximateMatcher.FindWithMismatches(reference, probeSequence, maxMismatches))
+            {
+                offTargetHits++;
+                if (UngappedSiteMeetsKaneCriteria(hit.MismatchPositions, probeSequence.Length, maxNonTargetIdentity, maxContiguousMatch))
+                    crossHybridizingHits++;
+            }
         }
 
-        if (offTargetHits > 1)
+        // More than one site meeting the Kane criteria = the probe can bind somewhere besides its intended site.
+        if (crossHybridizingHits > 1)
         {
-            issues.Add($"{offTargetHits} potential off-target sites");
+            issues.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"{crossHybridizingHits} potential off-target sites (Kane 2000: identity > {maxNonTargetIdentity * 100:0.##}% or > {maxContiguousMatch} contiguous identical nt)"));
         }
 
         // Self-structure: the DesignProbes screen (Primer3 ntthal for ≤ 60-nt ACGT probes; otherwise Primer3
@@ -2099,7 +2135,28 @@ public static class ProbeDesigner
             SelfAny = alnSelfAny,
             SelfEnd = alnSelfEnd,
             CrossHybridization = cross,
+            CrossHybridizingHits = crossHybridizingHits,
         };
+    }
+
+    // Kane et al. (2000) criteria applied to an ungapped k-mismatch site of a probe of length L with mismatches at the
+    // given (ascending, probe-relative) positions: identity (L − d) / L over the probe length > maxIdentity, or the
+    // longest run of identical positions > maxContiguousMatch (the same measures AssessCrossHybridization takes from the
+    // best local alignment / longest common substring, here on the ungapped diagonal of the hit).
+    private static bool UngappedSiteMeetsKaneCriteria(
+        IReadOnlyList<int> mismatchPositions, int probeLength, double maxIdentity, int maxContiguousMatch)
+    {
+        double identity = (double)(probeLength - mismatchPositions.Count) / probeLength;
+        if (identity > maxIdentity)
+            return true;
+        int longest = 0, previous = -1;
+        foreach (int position in mismatchPositions)
+        {
+            longest = Math.Max(longest, position - previous - 1);
+            previous = position;
+        }
+        longest = Math.Max(longest, probeLength - previous - 1);
+        return longest > maxContiguousMatch;
     }
 
     /// <summary>

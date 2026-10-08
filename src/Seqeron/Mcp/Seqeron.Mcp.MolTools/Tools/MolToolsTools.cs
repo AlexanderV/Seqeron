@@ -1014,16 +1014,24 @@ public class MolToolsTools
             ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length, detection_temperature));
     }
 
-    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a hybridization probe. (1) Ungapped k-mismatch (Hamming) scan of the reference sequences: off-target hit count (intended site included; > 1 hit is an issue) and a library uniqueness score (0 hits → 0.0, N hits → 1/N). (2) Self-structure: for ≤ 60-nt A/C/G/T probes Primer3's thermodynamic probe screen — ntthal self-dimer, 3′ self-dimer and hairpin Tm at 50 nM oligo / 50 mM monovalent / no Mg²⁺ (Primer3 probe conditions) must not exceed 47 °C (PRIMER_INTERNAL_MAX_*_TH); longer or non-ACGT probes use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > 12.00, PRIMER_INTERNAL_MAX_SELF_ANY/_END, no length limit) and a sequence-only inverted-repeat hairpin screen; selfAny / selfEnd are reported for every probe (selfComplementarity, the fold-back fraction, is an informational library metric). (3) Optional non_target_sequences: Kane et al. (2000) cross-hybridization criteria on both strands — overall identity of the best local (BLAST-scored Smith–Waterman–Gotoh) alignment over the probe length > 75 % or a contiguous identical stretch > 15 nt; each site also reports its ntthal duplex Tm with the probe (primer3-py calc_heterodimer), optionally thresholded by max_duplex_tm (OligoArray 2.0). isValid = no issue recorded. Call to check whether a designed probe is specific and structure-free.")]
+    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a hybridization probe. (1) Ungapped k-mismatch (Hamming) scan of the reference sequences (search radius max_mismatches, default 3 — a library convention): off-target hit count (intended site included) and a library uniqueness score (0 hits → 0.0, N hits → 1/N; reported only, not a published metric); each hit is judged by the Kane et al. (2000) criteria on its ungapped diagonal (identity (L − mismatches)/L > max_non_target_identity or > max_contiguous_match contiguous identical nt; counted in crossHybridizingHits) and more than one such site is an issue. (2) Self-structure: for ≤ 60-nt A/C/G/T probes with thermodynamic_screen (default) Primer3's thermodynamic probe screen — ntthal self-dimer, 3′ self-dimer and hairpin Tm at the reaction conditions (monovalent_mm / divalent_mm / dntp_mm / dna_conc_nm; default Primer3 probe conditions 50 mM / 0 / 0 / 50 nM) must not exceed max_structure_tm (default 47 °C, PRIMER_INTERNAL_MAX_*_TH); longer or non-ACGT probes (or thermodynamic_screen = false) use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > max_self_any / max_self_end, default 12.00, PRIMER_INTERNAL_MAX_SELF_ANY/_END, no length limit) and a sequence-only inverted-repeat hairpin screen; selfAny / selfEnd are reported for every probe (selfComplementarity, the fold-back fraction, is an informational library metric). (3) Optional non_target_sequences: Kane et al. (2000) cross-hybridization criteria on both strands — overall identity of the best local (BLAST-scored Smith–Waterman–Gotoh) alignment over the probe length > 75 % or a contiguous identical stretch > 15 nt; each site also reports its ntthal duplex Tm with the probe (primer3-py calc_heterodimer, at the reaction conditions), optionally thresholded by max_duplex_tm (OligoArray 2.0). isValid = no issue recorded. Call to check whether a designed probe is specific and structure-free.")]
     public static ProbeDesigner.ProbeValidation validate_probe(
         [Description("Probe sequence to validate.")] string probe_sequence,
         [Description("Reference sequences to scan for off-target hits.")] string[] reference_sequences,
-        [Description("Maximum allowed mismatches (default 3).")] int max_mismatches = 3,
+        [Description("Search radius of the ungapped reference scan: maximum mismatches per site (default 3, a library convention; a found site is an issue only when it meets the Kane criteria — pass ceil(L/4) - 1 to reach every site above 75 % identity).")] int max_mismatches = 3,
         [Description("Legacy fold-back-fraction limit (default 0.3); kept for compatibility, no longer used by the screen (the fallback self-dimer limit is Primer3's PRIMER_INTERNAL_MAX_SELF_ANY/_END = 12).")] double self_complementarity_threshold = 0.3,
         [Description("Optional known non-target sequences for the Kane et al. (2000) cross-hybridization criteria (both strands).")] string[]? non_target_sequences = null,
-        [Description("Kane identity threshold in [0,1]; a non-target strand with identity strictly above it is flagged (default 0.75).")] double max_non_target_identity = 0.75,
-        [Description("Kane contiguous-identity threshold in nt; a longer identical stretch is flagged (default 15).")] int max_contiguous_match = 15,
-        [Description("Optional OligoArray-style threshold (°C): a non-target site whose ntthal duplex Tm with the probe is above it is flagged (default none).")] double? max_duplex_tm = null)
+        [Description("Kane identity threshold in [0,1]; a reference site or non-target strand with identity strictly above it is flagged (default 0.75).")] double max_non_target_identity = 0.75,
+        [Description("Kane contiguous-identity threshold in nt; a reference site or non-target strand with a longer identical stretch is flagged (default 15).")] int max_contiguous_match = 15,
+        [Description("Optional OligoArray-style threshold (°C): a non-target site whose ntthal duplex Tm with the probe is above it is flagged (default none).")] double? max_duplex_tm = null,
+        [Description("PRIMER_INTERNAL_SALT_MONOVALENT: monovalent cation concentration in mM (> 0) for the ntthal screen and the non-target duplex Tm (default 50).")] double monovalent_mm = PrimerDesigner.Primer3InternalMonovalentMillimolar,
+        [Description("PRIMER_INTERNAL_SALT_DIVALENT: Mg²⁺ concentration in mM (>= 0; default 0).")] double divalent_mm = PrimerDesigner.Primer3InternalDivalentMillimolar,
+        [Description("PRIMER_INTERNAL_DNTP_CONC: dNTP concentration in mM (>= 0; default 0).")] double dntp_mm = PrimerDesigner.Primer3InternalDntpMillimolar,
+        [Description("PRIMER_INTERNAL_DNA_CONC: probe (oligo) concentration in nM (> 0; default 50).")] double dna_conc_nm = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar,
+        [Description("true (default) = Primer3 ntthal self-dimer / 3' self-dimer / hairpin Tm screen for <= 60-nt A/C/G/T probes (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1); false = the fallback screens for every probe (Primer3 alignment-mode self_any / self_end + inverted-repeat hairpin stem).")] bool thermodynamic_screen = true,
+        [Description("PRIMER_INTERNAL_MAX_SELF_ANY_TH = _SELF_END_TH = _HAIRPIN_TH: maximum ntthal self-dimer / 3' self-dimer / hairpin Tm in °C of the thermodynamic screen (default 47).")] double max_structure_tm = PrimerDesigner.Primer3MaxStructureTm,
+        [Description("PRIMER_INTERNAL_MAX_SELF_ANY: maximum Primer3 alignment-mode self_any of the fallback screen (default 12).")] double max_self_any = PrimerDesigner.Primer3InternalMaxSelfComplementarity,
+        [Description("PRIMER_INTERNAL_MAX_SELF_END: maximum Primer3 alignment-mode self_end of the fallback screen (default 12).")] double max_self_end = PrimerDesigner.Primer3InternalMaxSelfComplementarity)
     {
         if (probe_sequence is null)
             throw new System.ArgumentException("Probe sequence cannot be null.", nameof(probe_sequence));
@@ -1036,7 +1044,22 @@ public class MolToolsTools
         if (max_contiguous_match < 0)
             throw new System.ArgumentException("Contiguous-match threshold cannot be negative.", nameof(max_contiguous_match));
 
+        // Primer3 probe conditions (the library default of ValidateProbe) with the stated reaction / screen settings;
+        // the library checks their legality (Primer3 _pr_data_control).
+        var conditions = ProbeDesigner.Defaults.Microarray with
+        {
+            MonovalentMillimolar = monovalent_mm,
+            DivalentMillimolar = divalent_mm,
+            DntpMillimolar = dntp_mm,
+            DnaConcentrationNanomolar = dna_conc_nm,
+            MaxNearestNeighborLength = PrimerDesigner.Primer3MaxNnTmLength,
+            StructureScreen = thermodynamic_screen ? ProbeDesigner.ProbeStructureScreen.Thermodynamic : ProbeDesigner.ProbeStructureScreen.Heuristic,
+            MaxStructureTm = max_structure_tm,
+            MaxSelfAny = max_self_any,
+            MaxSelfEnd = max_self_end,
+        };
         return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold,
+            conditions: conditions,
             nonTargetSequences: non_target_sequences,
             maxNonTargetIdentity: max_non_target_identity,
             maxContiguousMatch: max_contiguous_match,

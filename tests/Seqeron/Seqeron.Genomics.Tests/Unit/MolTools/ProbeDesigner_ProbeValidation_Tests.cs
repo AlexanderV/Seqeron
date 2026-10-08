@@ -1487,4 +1487,86 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     #endregion
+
+    #region ValidateProbe - reference sites judged by the Kane criteria (audit round 3, A3-12)
+
+    // Fixtures (random.seed(20261008)); expected values from an independent Python brute-force Hamming scan
+    // (identity (L - d) / L, longest run of identical positions; Kane et al. 2000: > 0.75 or > 15 nt).
+    private const string KaneSiteProbe12 = "GATCCGACGCTA";
+    private const string KaneSiteProbe40 = "TATGCCGTACAGTTTTAAGATAGAGCGAAAGCGCAGACAA";
+
+    // Exact site at 10; probe with positions 0..11 substituted at 60 (identity 0.70, run 28); probe with positions
+    // 1, 4, …, 34 substituted at 110 (identity 0.70, longest run 5).
+    private const string KaneSiteReference40 =
+        "AAAAAAAAAATATGCCGTACAGTTTTAAGATAGAGCGAAAGCGCAGACAAAAAAAAAAAAACATGGTACGCTTTTTAAGATAGAGCGAAAGCGCAGACAA"
+        + "AAAAAAAAAATCTGGCGAACCGTATTCAGCTATAGGGACAGGGCCGACAAAAAAAAAAAA";
+
+    [Test]
+    public void ValidateProbe_ShortProbe_ThreeMismatchSiteAtSeventyFivePercent_IsNotAnOffTargetIssue()
+    {
+        // 12-mer: exact site (1.0), a 3-mismatch site (9/12 = 0.75, longest run 3 — no Kane criterion) and a
+        // 2-mismatch site (10/12 = 0.8333 > 0.75). Ungapped hits 3 → uniqueness score 1/3 (library convention).
+        var noIssue = ProbeDesigner.ValidateProbe(KaneSiteProbe12,
+            new[] { "TTTTTGATCCGACGCTATTTTTGCTCCTACGGTATTTTT" });
+        var issue = ProbeDesigner.ValidateProbe(KaneSiteProbe12,
+            new[] { "TTTTTGATCCGACGCTATTTTTGCTCCTACGGTATTTTT", "GGGGGGAACCGAGGCTAGGGGG" });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(noIssue.OffTargetHits, Is.EqualTo(2));
+            Assert.That(noIssue.SpecificityScore, Is.EqualTo(0.5).Within(1e-12));
+            Assert.That(noIssue.CrossHybridizingHits, Is.EqualTo(1));
+            Assert.That(noIssue.Issues, Has.None.Contain("off-target"));
+            Assert.That(issue.OffTargetHits, Is.EqualTo(3));
+            Assert.That(issue.SpecificityScore, Is.EqualTo(1.0 / 3).Within(1e-12));
+            Assert.That(issue.CrossHybridizingHits, Is.EqualTo(2));
+            Assert.That(issue.Issues, Has.Some.EqualTo(
+                "2 potential off-target sites (Kane 2000: identity > 75% or > 15 contiguous identical nt)"));
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_ReferenceSites_FollowKaneIdentityAndContiguityCriteria()
+    {
+        var k3 = ProbeDesigner.ValidateProbe(KaneSiteProbe40, new[] { KaneSiteReference40 });
+        var k12 = ProbeDesigner.ValidateProbe(KaneSiteProbe40, new[] { KaneSiteReference40 }, maxMismatches: 12);
+        var identity069 = ProbeDesigner.ValidateProbe(KaneSiteProbe40, new[] { KaneSiteReference40 }, maxMismatches: 12,
+            maxNonTargetIdentity: 0.69);
+        var contiguous28 = ProbeDesigner.ValidateProbe(KaneSiteProbe40, new[] { KaneSiteReference40 }, maxMismatches: 12,
+            maxContiguousMatch: 28);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((k3.OffTargetHits, k3.CrossHybridizingHits), Is.EqualTo((1, 1)), "3 mismatches: exact site only");
+            // 12 mismatches: the clustered site meets the contiguity criterion (28 > 15), the spread one neither.
+            Assert.That((k12.OffTargetHits, k12.CrossHybridizingHits), Is.EqualTo((3, 2)));
+            Assert.That(k12.Issues, Has.Some.StartWith("2 potential off-target sites"));
+            Assert.That((identity069.OffTargetHits, identity069.CrossHybridizingHits), Is.EqualTo((3, 3)), "0.70 > 0.69");
+            Assert.That(identity069.Issues, Has.Some.EqualTo(
+                "3 potential off-target sites (Kane 2000: identity > 69% or > 15 contiguous identical nt)"));
+            Assert.That((contiguous28.OffTargetHits, contiguous28.CrossHybridizingHits), Is.EqualTo((3, 1)), "28 is not > 28");
+            Assert.That(contiguous28.Issues, Has.None.Contain("off-target"));
+            Assert.That(contiguous28.SpecificityScore, Is.EqualTo(1.0 / 3).Within(1e-12), "uniqueness score is reported only");
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_InvalidKaneThresholdsOrConditions_Throw()
+    {
+        string[] refs = { KaneSiteReference40 };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, maxNonTargetIdentity: 1.5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, maxNonTargetIdentity: double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, maxContiguousMatch: -1));
+            // Primer3 _pr_data_control: internal-oligo salt / DNA concentration > 0, divalent / dNTP >= 0.
+            var p = ProbeDesigner.Defaults.Microarray;
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, conditions: p with { MonovalentMillimolar = 0 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, conditions: p with { DnaConcentrationNanomolar = 0 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, conditions: p with { DivalentMillimolar = -1 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.ValidateProbe(KaneSiteProbe40, refs, conditions: p with { DntpMillimolar = -1 }));
+        });
+    }
+
+    #endregion
 }

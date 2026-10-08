@@ -11,7 +11,7 @@
 | **Canonical Methods** | `ValidateProbe`, `CheckSpecificity`, `AssessCrossHybridization`, `ScanOffTargetsGapped`, `ComputeLambdaNucleotide`, `ComputeKarlinAltschul` |
 | **Complexity** | O(n × g) ungapped; O(g × n·m) gapped scan |
 | **Status** | ☑ Reviewed (B07 campaign 2026-09, PROBE-VALID-001) |
-| **Last Updated** | 2026-10-01 |
+| **Last Updated** | 2026-10-08 |
 
 ---
 
@@ -51,7 +51,8 @@
 11. **Karlin–Altschul λ**: `ComputeLambdaNucleotide` returns the unique positive root of Σ p_i p_j e^{λ s_ij} = 1; for +1/−3, p=0.25 it equals 1.3740631 ≈ published 1.374 (Source: Karlin & Altschul 1990; NCBI blastn cross-check). Requires a positive score and negative expected score.
 12. **Karlin–Altschul E-value/bit-score**: E = K·m·n·e^{−λS} = m·n·2^{−S'} with S' = (λS − ln K)/ln 2; E strictly decreases in S and is linear in m·n (Source: Karlin & Altschul 1990; Altschul et al. 1990)
 13. **Thermodynamic self-structure screen**: for ≤ 60-nt ACGT probes (Thermodynamic screen) SelfDimerTm / SelfEndDimerTm / HairpinTm equal primer3-py calc_homodimer / calc_end_stability / calc_hairpin at the stated conditions; a self-complementarity issue iff max(self-dimer, 3′ self-dimer) Tm > MaxStructureTm (47 °C), HasSecondaryStructure iff hairpin Tm > MaxStructureTm; otherwise the fallback screens (Source: Primer3 internal-oligo screen)
-14. **IsValid**: IsValid ⇔ Issues is empty (Source: Primer3 rejects an oligo violating any limit; Kane decision)
+14. **IsValid**: IsValid ⇔ Issues is empty (Source: Primer3 rejects an oligo violating any limit; Kane decision); SpecificityScore never enters it (library convention)
+17. **Reference sites (Kane)**: CrossHybridizingHits = #{hits with (L − d)/L > maxNonTargetIdentity ∨ longest identical run > maxContiguousMatch}; off-target issue ⇔ CrossHybridizingHits > 1; for L ≥ 13 and maxMismatches ≤ 3, CrossHybridizingHits = OffTargetHits (Source: Kane et al. 2000; audit round 3, A3-12)
 15. **Kane criteria**: CrossHybridizes ⇔ Identity > maxIdentity (0.75) ∨ LongestContiguousMatch > maxContiguousMatch (15) ∨ (maxDuplexTm given ∧ DuplexTm > maxDuplexTm); AlignmentScore = Biopython local score; LongestContiguousMatch = LCS length; both strands by default (Source: Kane et al. 2000; OligoArray 2.0)
 16. **Site duplex Tm**: DuplexTm = primer3-py calc_heterodimer(probe, revcomp(site)).tm (0 if no duplex); null for > 60-nt / non-ACGT probes or no site (Source: thal.c, OligoArray 2.0)
 
@@ -97,6 +98,9 @@
 | KN5 | ValidateProbe with non-targets records Kane issues, IsValid false | Invariant #14/#15 | Kane et al. 2000 |
 | KN6 | Argument guards (null/empty probe, identity ∉ [0,1], negative contiguous) | API | — |
 | CS1 | CheckSpecificity bothStrands counts reverse-complement sites, palindromes once | API | blastn strand = both |
+| KS1 | 12-mer: 3-mismatch site (9/12 = 0.75) not a Kane site → no off-target issue; + 2-mismatch site (10/12) → 2 Kane sites → issue | Invariant #17 | Kane et al. 2000; Python brute-force oracle |
+| KS2 | 40-mer, radius 12: clustered 12-mismatch site (0.70, run 28) counts, spread one (0.70, run 5) not; thresholds 0.69 / 28 move the count 2 → 3 / 1 | Invariant #17 | Kane et al. 2000; Python brute-force oracle |
+| KS3 | Guards: identity ∉ [0,1] / NaN, contiguous < 0, illegal stated conditions (Primer3 `_pr_data_control`) throw | API | Primer3 `libprimer3.cc` |
 
 ### Should (Important)
 
@@ -172,16 +176,20 @@
 | KN6 | `AssessCrossHybridization_InvalidArguments_Throw` | ✅ Covered | guards |
 | CS1 | `CheckSpecificity_BothStrands_CountsReverseComplementSites` | ✅ Covered | 0 / 1 / 0.5 |
 | S3 | `ValidateProbe_MultipleProblems_IsValidFalse` (updated) | ✅ Covered | 3 issues: off-target + ntthal self-dimer 52.76 °C + hairpin 55.85 °C |
+| KS1 | `ValidateProbe_ShortProbe_ThreeMismatchSiteAtSeventyFivePercent_IsNotAnOffTargetIssue` | ✅ Covered | hits 2/3, Kane sites 1/2, issue text exact |
+| KS2 | `ValidateProbe_ReferenceSites_FollowKaneIdentityAndContiguityCriteria` | ✅ Covered | (1,1), (3,2), (3,3), (3,1) |
+| KS3 | `ValidateProbe_InvalidKaneThresholdsOrConditions_Throw` | ✅ Covered | 7 guards |
 
 ---
 
 ## Evidence-Backed Parameters
 
-All configurable parameters have external evidence justification. No assumptions remain.
+Every parameter is either externally sourced or marked as a library convention below.
 
 | Parameter | Default | Evidence | Source |
 |-----------|---------|----------|--------|
-| `maxMismatches` | 3 | Screening tolerance of the ungapped site count (the figure comes from CRISPR/Cas9 guides — 3-5 bp mismatches per 20-nt guide, Hsu et al. 2013 — not from hybridization literature; kept for compatibility). The sourced hybridization cross-reactivity decision is the Kane assessment (`nonTargetSequences`). | Wikipedia: Off-target genome editing |
+| `maxMismatches` | 3 | **Library convention** — search radius of the ungapped site scan (the figure comes from CRISPR/Cas9 guides — 3-5 bp mismatches per 20-nt guide, Hsu et al. 2013 — not from hybridization literature; kept for compatibility). Whether a found site is an issue is decided by the Kane criteria (identity > 0.75 or > 15-nt run); ⌈L/4⌉ − 1 reaches every site above 75 % identity. | library convention (Wikipedia: Off-target genome editing for the figure) |
+| `SpecificityScore` | 1/N | **Library convention** — no published 1/N specificity score found (Kane 2000, OligoArray 2.0, Li & Stormo 2001 abstract, Primer3 PRIMER_INTERNAL_MAX_LIBRARY_MISHYB judge by identity / ΔG / alignment score); reported only, not used by `IsValid`. | library convention |
 | `selfComplementarityThreshold` | 0.3 | Legacy, unused by the screen since audit round 2 (A6); the fold-back fraction is only reported. | library convention (compatibility) |
 | `MaxSelfAny` / `MaxSelfEnd` (ProbeParameters) | 12.00 | Fallback self-dimer criterion (> 60 nt, non-ACGT, `Heuristic`): Primer3 alignment-mode PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END (dpal `self_any` / `self_end`). | Primer3 `libprimer3.cc` `pr_set_default_global_args_1`, `oligo_compl` |
 | `MaxStructureTm` | 47 °C | PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH | Primer3 `libprimer3.cc` |

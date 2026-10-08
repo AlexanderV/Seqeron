@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.ValidateProbe",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1366",
-  "description": "Validate a probe: ungapped k-mismatch hit count over references, Primer3 ntthal self-dimer/hairpin screen (<= 60-nt ACGT; otherwise Primer3 alignment-mode self_any/self_end <= 12 + inverted-repeat hairpin fallback), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2016",
+  "description": "Validate a probe: ungapped k-mismatch site scan over references (sites judged by the Kane et al. 2000 criteria — > 1 such site is an issue; 1/N uniqueness score and the 3-mismatch radius are library conventions), Primer3 ntthal self-dimer/hairpin screen at the stated reaction conditions (<= 60-nt ACGT; otherwise Primer3 alignment-mode self_any/self_end + inverted-repeat hairpin fallback), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -23,7 +23,7 @@
       },
       "max_mismatches": {
         "type": "integer",
-        "description": "Maximum allowed mismatches (default 3).",
+        "description": "Search radius of the ungapped reference scan: maximum mismatches per site (default 3, a library convention; a found site is an issue only when it meets the Kane criteria — pass ceil(L/4) - 1 to reach every site above 75 % identity).",
         "minimum": 0,
         "default": 3
       },
@@ -48,14 +48,14 @@
       },
       "max_non_target_identity": {
         "type": "number",
-        "description": "Kane identity threshold in [0,1]; a non-target strand with identity strictly above it is flagged (default 0.75).",
+        "description": "Kane identity threshold in [0,1]; a reference site or non-target strand with identity strictly above it is flagged (default 0.75).",
         "minimum": 0,
         "maximum": 1,
         "default": 0.75
       },
       "max_contiguous_match": {
         "type": "integer",
-        "description": "Kane contiguous-identity threshold in nt; a longer identical stretch is flagged (default 15).",
+        "description": "Kane contiguous-identity threshold in nt; a reference site or non-target strand with a longer identical stretch is flagged (default 15).",
         "minimum": 0,
         "default": 15
       },
@@ -66,6 +66,50 @@
         ],
         "description": "Optional OligoArray-style threshold (°C): a non-target site whose ntthal duplex Tm with the probe is above it is flagged (default none).",
         "default": null
+      },
+      "monovalent_mm": {
+        "type": "number",
+        "description": "PRIMER_INTERNAL_SALT_MONOVALENT: monovalent cation concentration in mM (> 0) for the ntthal screen and the non-target duplex Tm (default 50).",
+        "exclusiveMinimum": 0,
+        "default": 50
+      },
+      "divalent_mm": {
+        "type": "number",
+        "description": "PRIMER_INTERNAL_SALT_DIVALENT: Mg²⁺ concentration in mM (>= 0; default 0).",
+        "minimum": 0,
+        "default": 0
+      },
+      "dntp_mm": {
+        "type": "number",
+        "description": "PRIMER_INTERNAL_DNTP_CONC: dNTP concentration in mM (>= 0; default 0).",
+        "minimum": 0,
+        "default": 0
+      },
+      "dna_conc_nm": {
+        "type": "number",
+        "description": "PRIMER_INTERNAL_DNA_CONC: probe (oligo) concentration in nM (> 0; default 50).",
+        "exclusiveMinimum": 0,
+        "default": 50
+      },
+      "thermodynamic_screen": {
+        "type": "boolean",
+        "description": "true (default) = Primer3 ntthal self-dimer / 3' self-dimer / hairpin Tm screen for <= 60-nt A/C/G/T probes (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1); false = the fallback screens for every probe (Primer3 alignment-mode self_any / self_end + inverted-repeat hairpin stem).",
+        "default": true
+      },
+      "max_structure_tm": {
+        "type": "number",
+        "description": "PRIMER_INTERNAL_MAX_SELF_ANY_TH = _SELF_END_TH = _HAIRPIN_TH: maximum ntthal self-dimer / 3' self-dimer / hairpin Tm in °C of the thermodynamic screen (default 47).",
+        "default": 47
+      },
+      "max_self_any": {
+        "type": "number",
+        "description": "PRIMER_INTERNAL_MAX_SELF_ANY: maximum Primer3 alignment-mode self_any of the fallback screen (default 12).",
+        "default": 12
+      },
+      "max_self_end": {
+        "type": "number",
+        "description": "PRIMER_INTERNAL_MAX_SELF_END: maximum Primer3 alignment-mode self_end of the fallback screen (default 12).",
+        "default": 12
       }
     },
     "required": [
@@ -80,7 +124,8 @@
         "type": "boolean"
       },
       "specificityScore": {
-        "type": "number"
+        "type": "number",
+        "description": "Library uniqueness score 1/N over the N ungapped sites (0 for none); a library convention, reported only (not used by isValid)."
       },
       "offTargetHits": {
         "type": "integer"
@@ -175,6 +220,10 @@
             }
           }
         }
+      },
+      "crossHybridizingHits": {
+        "type": "integer",
+        "description": "Ungapped reference sites meeting a Kane criterion (identity (L - mismatches)/L > max_non_target_identity or > max_contiguous_match contiguous identical nt); > 1 is an issue."
       }
     },
     "required": [
@@ -206,6 +255,14 @@
     {
       "code": 1005,
       "message": "Contiguous-match threshold cannot be negative"
+    },
+    {
+      "code": 1006,
+      "message": "Illegal value for salt or DNA concentration (Primer3: PRIMER_SALT_MONOVALENT and PRIMER_DNA_CONC must be > 0)"
+    },
+    {
+      "code": 1007,
+      "message": "Illegal value for divalent salt or dNTP concentration (Primer3: PRIMER_SALT_DIVALENT and PRIMER_DNTP_CONC must be ≥ 0)"
     }
   ],
   "examples": [
@@ -249,6 +306,22 @@
         ]
       },
       "output": {
+        "isValid": false
+      }
+    },
+    {
+      "name": "Stated reaction conditions",
+      "input": {
+        "probe_sequence": "GCGCGCGCGCGCGCGCGCGC",
+        "reference_sequences": [],
+        "monovalent_mm": 100,
+        "divalent_mm": 2,
+        "dntp_mm": 0.2,
+        "dna_conc_nm": 250
+      },
+      "output": {
+        "selfDimerTm": 88.57933031369095,
+        "hairpinTm": 93.4845818217363,
         "isValid": false
       }
     }
