@@ -77,7 +77,7 @@ with `p_i` the background base frequencies and `s_ij` the score matrix. For four
 | `referenceSequences` | `IEnumerable<string>` | required | Reference sequences scanned for approximate matches | Null input throws `ArgumentNullException` |
 | `maxMismatches` | `int` | `3` | Maximum mismatch tolerance for approximate matching | Passed through to the internal approximate-match search |
 | `selfComplementarityThreshold` | `double` | `0.3` | Legacy fold-back-fraction limit | Kept for source compatibility; no screen uses it (fallback self-dimer limits: `ProbeParameters.MaxSelfAny/MaxSelfEnd` = 12.00) |
-| `conditions` | `ProbeParameters?` | `Defaults.Microarray` | Salt / oligo concentrations, `StructureScreen`, `MaxStructureTm` (47 °C) | Primer3 internal-oligo defaults |
+| `conditions` | `ProbeParameters?` | Primer3 probe conditions (the `Defaults.Microarray` settings at 50 nM / 50 mM / 0 / 0) | Salt / oligo concentrations, `StructureScreen`, `MaxStructureTm` (47 °C) | Primer3 internal-oligo defaults |
 | `nonTargetSequences` | `IEnumerable<string>?` | `null` | Known non-targets for the Kane assessment | Optional |
 | `maxNonTargetIdentity` / `maxContiguousMatch` | `double` / `int` | `0.75` / `15` | Kane thresholds (strict `>`) | [7] |
 | `maxDuplexTm` | `double?` | `null` | Optional off-target site duplex-Tm threshold (°C) | [12] |

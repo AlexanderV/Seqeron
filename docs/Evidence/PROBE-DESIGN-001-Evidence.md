@@ -158,6 +158,15 @@ WebSearch result extract)
 - **Applied Biosystems Primer Express TaqMan guidelines** (WebSearch extracts; Thermo/Fisher PDFs blocked):
   "the melting temperature (Tm) should be 68 to 70 °C when using Primer Express software", "Keep G-C content in the
   30-80% range", "runs of four or more Gs should be avoided", "as short as possible, without being shorter than 13 nucleotides".
+- **OligoArray 2.0** (Rouillard, Zuker & Gulari 2003, NAR 31:3057; WebSearch extracts — academic.oup.com, PMC,
+  ResearchGate and the umich OligoArray site blocked; audit round 3, A3-10): "This Tm is computed using the nearest
+  neighbor (NN) model (10) with Na+ and DNA concentrations set to 1 M and 1 µM" (the PDF extract reads 1 mM; 1 µM taken,
+  1 mM oligo is not a hybridization condition); A. thaliana design: length 45–47 nt, Tm range 82–90 °C; OligoArray 2.1
+  installation example `-l 45 -L 47 -t 82 -T 88`. Microarray preset: 1 M / 1 µM, NN over the whole oligo, Tm 82–90 °C.
+  Primer3 `oligotm.c` `seqtm` (raw.githubusercontent.com): `if (len > nn_max_len) long_seq_tm … else oligotm`.
+  Cross-check: primer3-py 2.3.1 `calc_tm(AGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAAT, mv 1000, dv 0, dntp 0,
+  dna 1000, max_nn_length 60)` = 86.25468810488348 = Biopython `Tm_NN(DNA_NN3, Na 1000, dnac1 = dnac2 = 500,
+  saltcorr 0)` 86.2547; old window max (60-mer, 60 % G+C, 50 mM, long_seq_tm) 74.5029020719779 < 75.
 - **Kane et al. 2000** (NAR 28:4552; WebSearch extracts): 50-mer probes; > 75 % identity or a ≥ 15-nt contiguous stretch to
   non-targets may cross-hybridize (specificity rule — PROBE-VALID-001 scope).
 - **Molecular beacons** (Tyagi & Kramer 1996; Marras/Vet design protocol; WebSearch extracts, publisher pages blocked):

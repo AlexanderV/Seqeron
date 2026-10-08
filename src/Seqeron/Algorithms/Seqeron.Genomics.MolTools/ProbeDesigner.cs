@@ -21,7 +21,10 @@ public static class ProbeDesigner
     /// <see cref="DnaConcentrationNanomolar"/>, <see cref="MonovalentMillimolar"/>, <see cref="DivalentMillimolar"/>,
     /// <see cref="DntpMillimolar"/>. The defaults are Primer3's hybridization-probe (internal-oligo) conditions
     /// PRIMER_INTERNAL_DNA_CONC = 50 nM, PRIMER_INTERNAL_SALT_MONOVALENT = 50 mM, PRIMER_INTERNAL_SALT_DIVALENT = 0,
-    /// PRIMER_INTERNAL_DNTP_CONC = 0 (<c>libprimer3.cc</c> <c>pr_set_default_global_args</c>).
+    /// PRIMER_INTERNAL_DNTP_CONC = 0 (<c>libprimer3.cc</c> <c>pr_set_default_global_args</c>). The nearest-neighbour
+    /// length limit is <see cref="MaxNearestNeighborLength"/> (Primer3 <c>nn_max_len</c>, default 36). The presets in
+    /// <see cref="Defaults"/> state their own conditions; each preset's Tm window is reachable on this scale for its
+    /// length and G+C window (audit round 3, A3-10).
     /// </para>
     /// <para>
     /// <b>Self-structure.</b> With <see cref="StructureScreen"/> = <see cref="ProbeStructureScreen.Thermodynamic"/>
@@ -65,6 +68,13 @@ public static class ProbeDesigner
         /// <summary>dNTP concentration in mM (Primer3 PRIMER_INTERNAL_DNTP_CONC, default 0).</summary>
         public double DntpMillimolar { get; init; } = PrimerDesigner.Primer3InternalDntpMillimolar;
 
+        /// <summary>
+        /// Longest probe (nt) whose Tm is the SantaLucia 1998 nearest-neighbour Tm; longer probes get Primer3's
+        /// <c>long_seq_tm</c> (Primer3 <c>seqtm</c> <c>nn_max_len</c>; default <see cref="PrimerDesigner.Primer3MaxNnTmLength"/>
+        /// = 36, Primer3's MAX_NN_TM_LENGTH; ≥ 0).
+        /// </summary>
+        public int MaxNearestNeighborLength { get; init; } = PrimerDesigner.Primer3MaxNnTmLength;
+
         /// <summary>Self-structure screen (default <see cref="ProbeStructureScreen.Thermodynamic"/>).</summary>
         public ProbeStructureScreen StructureScreen { get; init; } = ProbeStructureScreen.Thermodynamic;
 
@@ -102,16 +112,50 @@ public static class ProbeDesigner
     /// <summary>
     /// Default probe parameters for different applications.
     /// </summary>
+    /// <remarks>
+    /// Every preset's Tm window is reachable on its own Tm scale and conditions for its length and G+C window
+    /// (audit round 3, A3-10; primer3-py 2.3.1 <c>calc_tm</c> witnesses in the PROBE-DESIGN-001 tests). Primer3
+    /// <c>long_seq_tm</c> (the Tm of every probe &gt; <see cref="ProbeParameters.MaxNearestNeighborLength"/>) at the
+    /// 50 mM Primer3 probe conditions spans 71.25–85.35 °C over the FISH window (200–500 nt, G+C 35–65 %),
+    /// 70.30–82.50 °C over the Northern window (100–300 nt, G+C 40–60 %) and 70.32–85.35 °C over the Southern window
+    /// (150–500 nt, G+C 35–65 %); their Tm windows are library conventions (no published Tm window for these long
+    /// probes was found — set them for the protocol's hybridization buffer). The qPCR window (68–70 °C, Primer Express)
+    /// is reachable for 20–30-nt probes with G+C 30–80 % (nearest-neighbour Tm at the Primer3 probe conditions).
+    /// </remarks>
     public static class Defaults
     {
+        /// <summary>OligoArray 2.0 microarray Tm conditions: [Na⁺] = 1 M, oligo 1 µM (Rouillard, Zuker &amp; Gulari 2003).</summary>
+        public const double OligoArrayMonovalentMillimolar = 1000.0;
+
+        /// <summary>OligoArray 2.0 oligo concentration for the Tm, 1 µM = 1000 nM (Rouillard, Zuker &amp; Gulari 2003).</summary>
+        public const double OligoArrayDnaConcentrationNanomolar = 1000.0;
+
+        /// <summary>
+        /// Long-oligo microarray probe preset (50–60 nt: Kane et al. 2000 50-mers, Agilent 60-mers; G+C 40–60 %) with
+        /// OligoArray 2.0's Tm (Rouillard, Zuker &amp; Gulari 2003, NAR 31:3057): nearest-neighbour Tm over the whole
+        /// oligo at [Na⁺] = 1 M and 1 µM oligo, Tm window 82–90 °C (the paper's microarray design setting). Here the
+        /// nearest-neighbour Tm is Primer3 <c>oligotm</c> (SantaLucia 1998 unified parameters, C/4 for a
+        /// non-self-complementary oligo) with <see cref="ProbeParameters.MaxNearestNeighborLength"/> = 60, no Mg²⁺/dNTP.
+        /// The previous window 75–85 °C at the 50 mM Primer3 conditions was unreachable for 50–60-mers with G+C ≤ 60 %
+        /// (<c>long_seq_tm</c> maximum 74.50 °C). The structure screen runs at the same conditions.
+        /// </summary>
         public static ProbeParameters Microarray => new(
             MinLength: 50, MaxLength: 60,
-            MinTm: 75, MaxTm: 85,
+            MinTm: 82, MaxTm: 90,
             MinGc: 0.40, MaxGc: 0.60,
             MaxHomopolymer: 5,
             AvoidSecondaryStructure: true,
-            MaxSelfComplementarity: 0.3);
+            MaxSelfComplementarity: 0.3)
+        {
+            MonovalentMillimolar = OligoArrayMonovalentMillimolar,
+            DnaConcentrationNanomolar = OligoArrayDnaConcentrationNanomolar,
+            DivalentMillimolar = 0,
+            DntpMillimolar = 0,
+            MaxNearestNeighborLength = 60
+        };
 
+        /// <summary>FISH probe preset (200–500 nt, G+C 35–65 %, Tm 70–90 °C at the Primer3 probe conditions; library
+        /// convention, reachable: <c>long_seq_tm</c> 71.25–85.35 °C over the window).</summary>
         public static ProbeParameters FISH => new(
             MinLength: 200, MaxLength: 500,
             MinTm: 70, MaxTm: 90,
@@ -120,6 +164,8 @@ public static class ProbeDesigner
             AvoidSecondaryStructure: false,
             MaxSelfComplementarity: 0.4);
 
+        /// <summary>Northern-blot probe preset (100–300 nt, G+C 40–60 %, Tm 65–80 °C at the Primer3 probe conditions;
+        /// library convention, reachable: <c>long_seq_tm</c> 70.30–82.50 °C over the window).</summary>
         public static ProbeParameters NorthernBlot => new(
             MinLength: 100, MaxLength: 300,
             MinTm: 65, MaxTm: 80,
@@ -144,6 +190,8 @@ public static class ProbeDesigner
             AvoidSecondaryStructure: true,
             MaxSelfComplementarity: 0.25);
 
+        /// <summary>Southern-blot probe preset (150–500 nt, G+C 35–65 %, Tm 65–75 °C at the Primer3 probe conditions;
+        /// library convention, reachable: <c>long_seq_tm</c> 70.32–85.35 °C over the window).</summary>
         public static ProbeParameters SouthernBlot => new(
             MinLength: 150, MaxLength: 500,
             MinTm: 65, MaxTm: 75,
@@ -1663,7 +1711,7 @@ public static class ProbeDesigner
             return null;
 
         targetSequence = targetSequence.ToUpperInvariant();
-        var conditions = Defaults.Microarray; // only the (default Primer3 internal-oligo) conditions are used
+        var conditions = Primer3ProbeConditions; // only the (default Primer3 internal-oligo) conditions are used
 
         double minLoopTm = detectionTemperatureCelsius is { } t0 ? t0 + BeaconMinTmAboveDetection : 55;
         double maxLoopTm = detectionTemperatureCelsius is { } t1 ? t1 + BeaconMaxTmAboveDetection : 65;
@@ -1786,9 +1834,9 @@ public static class ProbeDesigner
     /// source compatibility and copied into <see cref="ProbeParameters.MaxSelfComplementarity"/>, but no longer used by
     /// any screen (the fallback self-dimer limits are <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>)
     /// (default 0.3, the Microarray preset's <see cref="ProbeParameters.MaxSelfComplementarity"/>).</param>
-    /// <param name="conditions">Hybridization conditions and structure-screen settings (default
-    /// <see cref="Defaults.Microarray"/>: Primer3 probe conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, thermodynamic
-    /// screen, 47 °C); its <see cref="ProbeParameters.MaxSelfComplementarity"/> is replaced by
+    /// <param name="conditions">Hybridization conditions and structure-screen settings (default: Primer3 probe
+    /// conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, thermodynamic screen, 47 °C — the settings of
+    /// <see cref="Defaults.Microarray"/> at those conditions); its <see cref="ProbeParameters.MaxSelfComplementarity"/> is replaced by
     /// <paramref name="selfComplementarityThreshold"/>.</param>
     /// <param name="nonTargetSequences">Optional known non-target sequences for the Kane assessment.</param>
     /// <param name="maxNonTargetIdentity">Kane identity threshold (default 0.75; flagged when strictly above).</param>
@@ -1840,7 +1888,7 @@ public static class ProbeDesigner
 
         // Self-structure: the DesignProbes screen (Primer3 ntthal for ≤ 60-nt ACGT probes; otherwise Primer3
         // alignment-mode self_any / self_end + the inverted-repeat hairpin stem).
-        var param = (conditions ?? Defaults.Microarray) with { MaxSelfComplementarity = selfComplementarityThreshold };
+        var param = (conditions ?? Primer3ProbeConditions) with { MaxSelfComplementarity = selfComplementarityThreshold };
         double selfComp = CalculateSelfComplementarity(probeSequence);
         double alnSelfAny = PrimerDesigner.CalculatePrimerSelfAnyComplementarity(probeSequence);
         double alnSelfEnd = PrimerDesigner.CalculatePrimerSelfEndComplementarity(probeSequence);
@@ -2011,7 +2059,7 @@ public static class ProbeDesigner
             throw new ArgumentOutOfRangeException(nameof(maxContiguousMatch), "Contiguous-match threshold cannot be negative.");
 
         var matrix = scoring ?? SequenceAligner.BlastDna;
-        var cond = conditions ?? Defaults.Microarray;
+        var cond = conditions ?? Primer3ProbeConditions;
         string probe = probeSequence.ToUpperInvariant();
         bool duplexComputable = probe.Length <= NtthalMaxLength && probe.All(c => c is 'A' or 'C' or 'G' or 'T');
         var probeTree = global::SuffixTree.SuffixTree.Build(probe);
@@ -3035,7 +3083,7 @@ public static class ProbeDesigner
     {
         sequence = sequence.ToUpperInvariant();
 
-        double tm = CalculateProbeTm(sequence, Defaults.Microarray);
+        double tm = CalculateProbeTm(sequence, Primer3ProbeConditions);
         double gc = sequence.CalculateGcFractionFast();
         double mw = CalculateMolecularWeight(sequence);
         double extinction = CalculateExtinctionCoefficient(sequence);
@@ -3185,7 +3233,21 @@ public static class ProbeDesigner
             param.DnaConcentrationNanomolar,
             param.MonovalentMillimolar,
             param.DivalentMillimolar,
-            param.DntpMillimolar);
+            param.DntpMillimolar,
+            param.MaxNearestNeighborLength);
+
+    // Primer3 hybridization-probe (internal-oligo) conditions 50 nM / 50 mM / 0 Mg²⁺ / 0 dNTP, nearest-neighbour Tm up to
+    // 36 nt, with the remaining settings of the Microarray preset (thermodynamic screen, 47 °C): the default conditions of
+    // ValidateProbe, AssessCrossHybridization, DesignMolecularBeacon and AnalyzeOligo (the Microarray preset's own
+    // conditions are OligoArray's 1 M / 1 µM since A3-10).
+    private static ProbeParameters Primer3ProbeConditions => Defaults.Microarray with
+    {
+        DnaConcentrationNanomolar = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar,
+        MonovalentMillimolar = PrimerDesigner.Primer3InternalMonovalentMillimolar,
+        DivalentMillimolar = PrimerDesigner.Primer3InternalDivalentMillimolar,
+        DntpMillimolar = PrimerDesigner.Primer3InternalDntpMillimolar,
+        MaxNearestNeighborLength = PrimerDesigner.Primer3MaxNnTmLength
+    };
 
     private static double CalculateSelfComplementarity(string sequence)
     {

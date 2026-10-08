@@ -2248,9 +2248,10 @@ public class MolToolsFuzzTests
     /// chosen MUTUALLY SATISFIABLE for the salt-adjusted Tm model: for a 50–60-nt probe the
     /// source computes Tm = 81.5 + 16.6·log10(0.05) + 41·GC − 600/length, so a 0.40–0.60-GC
     /// window maps to roughly 64–74 °C — hence the GC window [0.40, 0.60] is paired with a Tm
-    /// window [60, 80] (the Microarray Tm default of 75–85 is, by contrast, unreachable at
-    /// ≤ 0.60 GC for this formula, which is exactly why the inverted-range test asserts on
-    /// warnings rather than the default ranges). The target is a 300-nt fixed-seed sequence;
+    /// window [60, 80] (the former Microarray Tm default of 75–85 was unreachable at ≤ 0.60 GC
+    /// for this formula; since audit round 3 A3-10 the Microarray preset uses OligoArray's
+    /// 1 M / 1 µM nearest-neighbour scale with a reachable 82–90 window — this test keeps the
+    /// Primer3 50 mM conditions of a plain ProbeParameters). The target is a 300-nt fixed-seed sequence;
     /// AT LEAST ONE returned probe must satisfy INV-01 (Score &gt; 0), INV-02
     /// (0 ≤ GcContent ≤ 1), have GC within [MinGc, MaxGc] AND Tm within [MinTm, MaxTm], and —
     /// being fully in-range — carry NO GC or Tm out-of-range warning.

@@ -1529,8 +1529,42 @@ public static partial class PrimerDesigner
         double dnaConcentrationNanomolar = Primer3DnaConcentrationNanomolar,
         double monovalentMillimolar = Primer3MonovalentMillimolar,
         double divalentMillimolar = Primer3DivalentMillimolar,
-        double dntpMillimolar = Primer3DntpMillimolar)
+        double dntpMillimolar = Primer3DntpMillimolar) =>
+        CalculateMeltingTemperaturePrimer3(primer, dnaConcentrationNanomolar, monovalentMillimolar,
+            divalentMillimolar, dntpMillimolar, Primer3MaxNnTmLength);
+
+    /// <summary>
+    /// Primer3 <c>seqtm</c> (<see cref="CalculateMeltingTemperaturePrimer3(string, double, double, double, double)"/>)
+    /// with the nearest-neighbour length limit as an argument: oligos of at most
+    /// <paramref name="maxNearestNeighborLength"/> nt get the SantaLucia 1998 nearest-neighbour Tm, longer ones
+    /// Primer3's <c>long_seq_tm</c> (<c>oligotm.c</c> <c>seqtm</c>: <c>if (len &gt; nn_max_len) long_seq_tm … else
+    /// oligotm</c>; primer3-py <c>calc_tm(…, max_nn_length)</c>). Primer3's own primer/probe picker uses
+    /// <see cref="Primer3MaxNnTmLength"/> = 36; e.g. OligoArray-style microarray probes of 50–60 nt need the
+    /// nearest-neighbour Tm over the whole oligo (limit ≥ 60).
+    /// </summary>
+    /// <param name="primer">Oligo sequence (case-insensitive).</param>
+    /// <param name="dnaConcentrationNanomolar">Oligo concentration, nM (&gt; 0).</param>
+    /// <param name="monovalentMillimolar">Monovalent cation concentration, mM (≥ 0).</param>
+    /// <param name="divalentMillimolar">Mg²⁺ concentration, mM (≥ 0).</param>
+    /// <param name="dntpMillimolar">dNTP concentration, mM (≥ 0).</param>
+    /// <param name="maxNearestNeighborLength">Longest oligo (nt) that gets the nearest-neighbour Tm (Primer3
+    /// <c>nn_max_len</c>, ≥ 0).</param>
+    /// <returns>Tm in °C, or <c>double.NaN</c> when the sequence is null/shorter than 2 bases or contains a
+    /// non-ACGT character.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">For a non-positive DNA concentration, negative ion
+    /// concentrations, a zero total monovalent-equivalent concentration or a negative
+    /// <paramref name="maxNearestNeighborLength"/>.</exception>
+    public static double CalculateMeltingTemperaturePrimer3(
+        string primer,
+        double dnaConcentrationNanomolar,
+        double monovalentMillimolar,
+        double divalentMillimolar,
+        double dntpMillimolar,
+        int maxNearestNeighborLength)
     {
+        if (maxNearestNeighborLength < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxNearestNeighborLength), maxNearestNeighborLength,
+                "The nearest-neighbour length limit must be ≥ 0 nt.");
         if (!(dnaConcentrationNanomolar > 0) || double.IsInfinity(dnaConcentrationNanomolar))
             throw new ArgumentOutOfRangeException(nameof(dnaConcentrationNanomolar), dnaConcentrationNanomolar,
                 "DNA concentration must be a positive finite value in nM.");
@@ -1549,16 +1583,19 @@ public static partial class PrimerDesigner
             throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), monovalentMillimolar,
                 "Total monovalent-equivalent cation concentration must be > 0 mM.");
 
-        return Primer3SeqTm(primer, dnaConcentrationNanomolar, monovalentEq, Primer3DefaultAnnealingTemperature).Tm;
+        return Primer3SeqTm(primer, dnaConcentrationNanomolar, monovalentEq, Primer3DefaultAnnealingTemperature,
+            maxNearestNeighborLength).Tm;
     }
 
-    // Primer3 seqtm() / oligotm() (SantaLucia 1998 Tm, SantaLucia salt correction, MAX_NN_TM_LENGTH = 36) with the
+    // Primer3 seqtm() / oligotm() (SantaLucia 1998 Tm, SantaLucia salt correction, nn_max_len = maxNnLength, Primer3's
+    // MAX_NN_TM_LENGTH = 36 by default) with the
     // fraction bound at the annealing temperature (oligotm.c, PRIMER_ANNEALING_TEMP): Tm is NaN when Primer3 reports
     // OLIGOTM_ERROR (fewer than 2 bases, a non-ACGT base); Bound is Primer3OligoTmError unless annealingTemperature > 0
     // and the nearest-neighbour branch applies (long_seq_tm leaves bound = OLIGOTM_ERROR).
     // Input: validated conditions, monovalentEq = [Mon] + 120·√([Mg²⁺] − [dNTP]) in mM.
     internal static (double Tm, double Bound) Primer3SeqTm(
-        string? primer, double dnaConcentrationNanomolar, double monovalentEq, double annealingTemperature)
+        string? primer, double dnaConcentrationNanomolar, double monovalentEq, double annealingTemperature,
+        int maxNnLength = Primer3MaxNnTmLength)
     {
         if (string.IsNullOrEmpty(primer) || primer.Length < 2)
             return (double.NaN, Primer3OligoTmError);
@@ -1572,7 +1609,7 @@ public static partial class PrimerDesigner
             else if (c is not ('A' or 'T')) return (double.NaN, Primer3OligoTmError);
         }
 
-        if (n > Primer3MaxNnTmLength)
+        if (n > maxNnLength)
             return (ThermoConstants.CalculateSaltAdjustedTm((double)gc / n, n, monovalentEq / 1000.0), Primer3OligoTmError);
 
         // oligotm(): integer accumulation, then ΔH = dh·(−100) cal/mol, ΔS = ds·(−0.1) cal/(K·mol).

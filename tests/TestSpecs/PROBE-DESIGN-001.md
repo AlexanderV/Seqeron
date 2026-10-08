@@ -34,6 +34,8 @@
 | Cantor, Warshaw & Shapiro 1970; Warshaw & Tinoco 1966 | Research | Nearest-neighbour ε260 tables |
 | Tyagi & Kramer 1996 / Marras et al. | Research | Molecular beacon: stem 5–7 bp; probe and stem Tm 7–10 °C above the detection temperature |
 | Applied Biosystems Primer Express guidelines | Manufacturer | TaqMan probe Tm 68–70 °C, G+C 30–80 % (qPCR preset) |
+| Rouillard, Zuker & Gulari 2003 (OligoArray 2.0, NAR 31:3057; WebSearch extracts, journal/PMC blocked) | Research / tool | Microarray probe Tm = nearest-neighbour Tm at [Na⁺] 1 M and 1 µM oligo; design Tm window 82–90 °C (Microarray preset, audit round 3 A3-10) |
+| primer3 `oligotm.c` `seqtm` (raw.githubusercontent.com) + primer3-py 2.3.1 `calc_tm(max_nn_length)` | Reference implementation | `len > nn_max_len` → `long_seq_tm`, else nearest-neighbour `oligotm` (`ProbeParameters.MaxNearestNeighborLength`) |
 
 ---
 
@@ -68,6 +70,7 @@
 | M13 | High GC content (100%) results in GcContent ≈ 1.0 | Edge case | Mathematical |
 | M14 | Low GC content (all A/T) results in low GcContent | Edge case | Mathematical |
 | M15 | maxProbes parameter limits returned count | API contract | Implementation |
+| M17 | Each preset's Tm window is reachable on its own scale for its length × G+C window: witness probe per preset (primer3-py calc_tm at the preset conditions: Microarray 86.25468810488348 at 1 M / 1 µM, NN ≤ 60; qPCR 68.58490905493761; FISH 77.4029020719779; Northern 74.4029020719779; Southern 73.30290207197791); long-probe presets' exact long_seq_tm range (FISH 71.25–85.35, Northern 70.30–82.50, Southern 70.32–85.35) overlaps the window; the former Microarray window 75–85 °C at 50 mM had maximum 74.5029020719779 (unreachable) | Preset contract | OligoArray 2.0; primer3 oligotm.c |
 | M16 | GC of a window with N = G+C over the non-N bases (Primer3 `gc_and_n_content`; primer3-py PRIMER_INTERNAL_0_GC_PERCENT 50.0 for `GACNTGAAGCNCTTAGCAAC`), `DesignProbes` prefix sums = tiling (eager) path | Invariant #2 | primer3 libprimer3.cc |
 | TM1 | TaqMan probe with 5' G is flagged (`NoGuanineAt5Prime == false`) and `PassesAll == false` | 5' G quenches reporter even after cleavage | ABI / ScienceDirect |
 | TM2 | Run of ≥4 consecutive Gs flagged (`NoRunOfFourOrMoreG == false`) | No ≥4-G runs | PREMIER Biosoft |
@@ -142,6 +145,7 @@ Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE
 | M14 | DesignProbes_AllAT_ReturnsProbesWithLowGcContent | ✅ Covered |
 | M15 | DesignProbes_MaxProbesParameter_LimitsResultCount | ✅ Covered |
 | M16 | DesignProbes_WindowWithN_GcIsFractionOfNonNBases_MatchesPrimer3 | ✅ Covered |
+| M17 | ProbeDesigner_Primer3Probe_Tests.Defaults_Microarray_UsesOligoArrayConditionsAndTmWindow, Defaults_OldMicroarrayWindow_WasUnreachableAtPrimer3Conditions, Defaults_TmWindow_IsReachableForLengthAndGcWindow (5), Defaults_LongProbePresets_AttainableTmRangeOverlapsWindow (3), CalculateMeltingTemperaturePrimer3_MaxNearestNeighborLength_MatchesPrimer3SeqTm, DefaultConditions_OfValidateAnalyzeBeacon_StayPrimer3ProbeConditions | ✅ Covered |
 | S1 | DesignProbes_HomopolymerSequence_GeneratesWarnings | ✅ Covered |
 | S2 | DesignProbes_CaseInsensitiveInput_ProducesConsistentResults | ✅ Covered |
 | S3 | DesignAntisenseProbes_ReturnsAntisenseType | ✅ Covered |
