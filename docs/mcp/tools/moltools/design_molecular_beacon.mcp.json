@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignMolecularBeacon",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1960",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1950",
   "description": "Design a hairpin molecular-beacon probe (GC-rich complementary stems flanking a target-specific loop) for real-time detection.",
   "inputSchema": {
     "type": "object",

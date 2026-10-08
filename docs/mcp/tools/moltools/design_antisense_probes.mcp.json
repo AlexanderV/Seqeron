@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignAntisenseProbes",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1398",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1388",
   "description": "Reverse-complement an mRNA-sense sequence and design antisense hybridization probes on it.",
   "inputSchema": {
     "type": "object",

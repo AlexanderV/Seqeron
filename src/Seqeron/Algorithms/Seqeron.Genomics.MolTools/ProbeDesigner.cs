@@ -1292,15 +1292,6 @@ public static class ProbeDesigner
     }
 
     /// <summary>
-    /// Evaluates a potential probe sequence (all screens, eager).
-    /// </summary>
-    private static Probe? EvaluateProbe(string sequence, int start, ProbeParameters param)
-    {
-        double gc = sequence.CalculateGcFractionFast();
-        return FinishProbe(EvaluateProbeBase(sequence, start, 0, param, gc), param);
-    }
-
-    /// <summary>
     /// Designs tiling probes that cover the whole target: windows every <c>probeLength − overlap</c> bases plus,
     /// when the last of them stops short of the 3′ end, one window anchored at the target end.
     /// </summary>
@@ -1379,16 +1370,15 @@ public static class ProbeDesigner
     private static Probe TilingWindow(string targetSequence, int start, int probeLength, ProbeParameters param)
     {
         string probeSeq = targetSequence.Substring(start, probeLength);
-        var probe = EvaluateProbe(probeSeq, start, param);
-        if (probe.HasValue)
-            return probe.Value with { Type = ProbeType.Tiling };
+        // One evaluation (all screens, eager); a window scoring ≤ 0 is still emitted for coverage with the same Tm
+        // (0 when not computable) and GC, instead of recomputing them.
+        var b = EvaluateProbeBase(probeSeq, start, 0, param, probeSeq.CalculateGcFractionFast());
+        if (FinishProbe(b, param) is { } probe)
+            return probe with { Type = ProbeType.Tiling };
 
-        // Add with warnings for coverage
-        double tm = CalculateProbeTm(probeSeq, param);
-        double gc = probeSeq.CalculateGcFractionFast();
         return new Probe(
             probeSeq, start, start + probeLength - 1,
-            double.IsNaN(tm) ? 0.0 : tm, gc, 0.3, ProbeType.Tiling,
+            b.Tm, b.Gc, 0.3, ProbeType.Tiling,
             new List<string> { "Suboptimal probe, included for coverage" });
     }
 

@@ -18,7 +18,7 @@ Walks the target in steps of `probe_length − overlap`, emitting a `probe_lengt
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L1328](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1328)
+- Source: [ProbeDesigner.cs#L1319](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1319)
 
 ## Input Schema
 

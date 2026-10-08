@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignProbesPrimer3",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1672",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1662",
   "description": "Pick hybridization probes exactly as Primer3 pick_hyb_probe_only (internal-oligo picker; size/GC/poly-X/seqtm Tm/ntthal or, with thermodynamic_oligo_alignment = false, dpal self_any/self_end filters, Primer3 penalty order).",
   "inputSchema": {
     "type": "object",

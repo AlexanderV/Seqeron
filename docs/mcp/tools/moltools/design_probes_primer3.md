@@ -18,7 +18,7 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L1672](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1672)
+- Source: [ProbeDesigner.cs#L1662](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1662)
 - Algorithm doc: [Hybridization_Probe_Design.md](../../../algorithms/MolTools/Hybridization_Probe_Design.md)
 
 ## Input Schema

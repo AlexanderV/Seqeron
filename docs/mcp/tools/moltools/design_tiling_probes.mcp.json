@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignTilingProbes",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1328",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1319",
   "description": "Tile a target with fixed-length overlapping probes for full coverage (grid every probe_length − overlap bases plus a CATCH-style probe anchored at the target end when the grid stops short of it), reporting covered positions and Tm statistics.",
   "inputSchema": {
     "type": "object",

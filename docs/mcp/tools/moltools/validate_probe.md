@@ -22,7 +22,7 @@ Validate a probe's specificity against reference sequences.
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L2147](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2147)
+- Source: [ProbeDesigner.cs#L2137](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2137)
 - Algorithm doc: [Probe_Validation.md](../../../algorithms/MolTools/Probe_Validation.md)
 
 ## Input Schema
