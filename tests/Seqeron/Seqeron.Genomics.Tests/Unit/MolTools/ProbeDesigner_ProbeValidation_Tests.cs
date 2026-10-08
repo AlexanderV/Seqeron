@@ -2068,6 +2068,45 @@ public class ProbeDesigner_ProbeValidation_Tests
         Assert.That(p.H, Is.EqualTo(1.39).Within(0.005));
     }
 
+    // Audit round 9 (A9-1): the BLAST score-range guard (and the other scheme preconditions) report the PUBLIC
+    // method's own parameter name — match/mismatch, reward/penalty, or scoring for a ScoringMatrix argument.
+    [TestCase("ComputeLambdaNucleotide", 1, int.MinValue, "mismatch")]
+    [TestCase("ComputeLambdaNucleotide", short.MaxValue, -3, "match")]
+    [TestCase("ComputeUngappedKarlinParameters", 1, short.MinValue, "mismatch")]
+    [TestCase("ComputeUngappedKarlinParameters(frequencies)", 1, int.MinValue, "mismatch")]
+    [TestCase("ComputeUngappedKarlinParameters(frequencies)", int.MaxValue, -3, "match")]
+    [TestCase("GetBlastnGappedKarlinParameters", 2, int.MinValue, "penalty")]
+    [TestCase("GetBlastnGappedKarlinParameters", short.MaxValue, -3, "reward")]
+    [TestCase("GetBlastnGappedKarlinParameters", 0, -3, "reward")]
+    [TestCase("GetBlastnGappedKarlinParameters", 5, -1, "reward")]   // unsupported scheme (ArgumentException)
+    [TestCase("ComputeKarlinAltschul", 1, int.MinValue, "scoring")]
+    [TestCase("ComputeKarlinAltschul", short.MaxValue, -3, "scoring")]
+    [TestCase("ComputeKarlinAltschul", 4, -1, "scoring")]            // expected score ≥ 0
+    [TestCase("ComputeBlastnStatistics", 2, int.MinValue, "scoring")]
+    [TestCase("ComputeBlastnStatistics", short.MaxValue, -3, "scoring")]
+    [TestCase("ComputeBlastnStatistics", 5, -1, "scoring")]          // unsupported gapped scheme (ArgumentException)
+    [TestCase("ComputeBlastnStatistics(ungapped)", 2, int.MinValue, "scoring")]
+    [TestCase("ComputeBlastnStatistics(ungapped)", 4, -1, "scoring")] // expected score ≥ 0
+    [TestCase("ComputeBlastnStatistics(sequences)", 2, int.MinValue, "scoring")]
+    public void KarlinAltschulEntryPoints_InvalidScheme_ThrowWithOwnParamName(string method, int match, int mismatch, string param)
+    {
+        var m = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: match, Mismatch: mismatch, GapOpen: -5, GapExtend: -2);
+        TestDelegate call = method switch
+        {
+            "ComputeLambdaNucleotide" => () => ProbeDesigner.ComputeLambdaNucleotide(match, mismatch),
+            "ComputeUngappedKarlinParameters" => () => ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch),
+            "ComputeUngappedKarlinParameters(frequencies)" =>
+                () => ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch, new[] { 0.25, 0.25, 0.25, 0.25 }),
+            "GetBlastnGappedKarlinParameters" => () => ProbeDesigner.GetBlastnGappedKarlinParameters(match, mismatch, 5, 2),
+            "ComputeKarlinAltschul" => () => ProbeDesigner.ComputeKarlinAltschul(20, 20, 1000, m),
+            "ComputeBlastnStatistics" => () => ProbeDesigner.ComputeBlastnStatistics(20, 20, 1000, 1, m),
+            "ComputeBlastnStatistics(ungapped)" => () => ProbeDesigner.ComputeBlastnStatistics(20, 20, 1000, 1, m, gapped: false),
+            "ComputeBlastnStatistics(sequences)" => () => ProbeDesigner.ComputeBlastnStatistics("ACGTACGT", "ACGTACGT", m),
+            _ => throw new ArgumentException(method),
+        };
+        Assert.That(call, NUnit.Framework.Throws.InstanceOf<ArgumentException>().With.Property("ParamName").EqualTo(param));
+    }
+
     // Audit round 8 (A8-2): Beer–Lambert c = A/(ε·l) in µM; ε, l ≤ 0 or non-finite arguments are undefined.
     [TestCase(0.5, 200000.0, 1.0, 2.5)]
     [TestCase(1.0, 100000.0, 0.5, 20.0)]

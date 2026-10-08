@@ -18,15 +18,15 @@ Applies the Beer–Lambert law to convert a 260 nm absorbance reading into an ol
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L3687](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3687)
+- Source: [ProbeDesigner.cs#L3721](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3721)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `absorbance260` | number | Yes | Absorbance at 260 nm. |
-| `extinction_coefficient` | number | Yes | ε in M⁻¹·cm⁻¹ (positive). |
-| `path_length` | number | No | Path length in cm (default 1.0, positive). |
+| `absorbance260` | number | Yes | Absorbance at 260 nm (finite). |
+| `extinction_coefficient` | number | Yes | ε in M⁻¹·cm⁻¹ (finite, positive). |
+| `path_length` | number | No | Path length in cm (default 1.0; finite, positive). |
 
 ## Output Schema
 
@@ -40,6 +40,9 @@ Applies the Beer–Lambert law to convert a 260 nm absorbance reading into an ol
 |------|---------|
 | 1001 | Extinction coefficient must be positive |
 | 1002 | Path length must be positive |
+| 1003 | Absorbance must be finite (NaN/±∞; `absorbance260`) |
+| 1004 | Extinction coefficient must be finite (NaN/±∞; `extinction_coefficient`) |
+| 1005 | Path length must be finite (NaN/±∞; `path_length`) |
 
 ## Examples
 

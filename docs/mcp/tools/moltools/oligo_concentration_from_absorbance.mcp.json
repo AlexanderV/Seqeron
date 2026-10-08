@@ -5,14 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.CalculateConcentration",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3687",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3721",
   "description": "Beer-Lambert oligonucleotide concentration (uM) from A260, extinction coefficient and path length.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "absorbance260": { "type": "number", "description": "Absorbance at 260 nm (A260)." },
-      "extinction_coefficient": { "type": "number", "description": "Extinction coefficient ε in M⁻¹·cm⁻¹.", "exclusiveMinimum": 0 },
-      "path_length": { "type": "number", "description": "Path length in cm (default 1.0).", "exclusiveMinimum": 0, "default": 1 }
+      "absorbance260": { "type": "number", "description": "Absorbance at 260 nm (A260; finite)." },
+      "extinction_coefficient": { "type": "number", "description": "Extinction coefficient ε in M⁻¹·cm⁻¹ (finite, positive).", "exclusiveMinimum": 0 },
+      "path_length": { "type": "number", "description": "Path length in cm (default 1.0; finite, positive).", "exclusiveMinimum": 0, "default": 1 }
     },
     "required": ["absorbance260", "extinction_coefficient"]
   },
@@ -25,7 +25,10 @@
   },
   "errors": [
     { "code": 1001, "message": "Extinction coefficient must be positive" },
-    { "code": 1002, "message": "Path length must be positive" }
+    { "code": 1002, "message": "Path length must be positive" },
+    { "code": 1003, "message": "Absorbance must be finite" },
+    { "code": 1004, "message": "Extinction coefficient must be finite" },
+    { "code": 1005, "message": "Path length must be finite" }
   ],
   "examples": [
     {

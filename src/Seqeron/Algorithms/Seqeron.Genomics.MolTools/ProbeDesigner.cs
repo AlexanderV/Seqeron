@@ -2770,16 +2770,22 @@ public static class ProbeDesigner
     /// <returns>The positive λ solving the Karlin–Altschul equation.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
     /// Thrown when the scheme cannot define λ: the match score is not positive, the mismatch score is
-    /// not negative, or the expected per-pair score is not negative (the theory's preconditions); or when
+    /// not negative, or the expected per-pair score is not negative (the theory's preconditions); a score outside
+    /// BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN) (ParamName <c>match</c> / <c>mismatch</c>); or when
     /// <paramref name="baseFrequency"/> is outside (0, 0.5) (p(match) = 4·p² would not be a probability in (0, 1)).
     /// </exception>
     public static double ComputeLambdaNucleotide(
         int match,
         int mismatch,
         double baseFrequency = UniformBaseFrequency)
+        => LambdaNucleotide(match, mismatch, baseFrequency, nameof(match), nameof(mismatch));
+
+    // ComputeLambdaNucleotide with the caller's parameter names for the scheme (A9-1: each public method reports its own).
+    private static double LambdaNucleotide(
+        int match, int mismatch, double baseFrequency, string matchParam, string mismatchParam)
     {
         // Karlin–Altschul preconditions: at least one positive score, and negative expected score.
-        ValidateMatchMismatch(match, mismatch);
+        ValidateMatchMismatch(match, mismatch, matchParam, mismatchParam);
 
         // p(match) = 4 · p² (the four identical ordered pairs); p(mismatch) = 1 − p(match).
         double pMatch = MatchProbability(baseFrequency);
@@ -2788,7 +2794,7 @@ public static class ProbeDesigner
         // Expected per-pair score must be negative for the theory to hold.
         double expectedScore = pMatch * match + pMismatch * mismatch;
         if (expectedScore >= 0)
-            throw new ArgumentOutOfRangeException(nameof(mismatch),
+            throw new ArgumentOutOfRangeException(mismatchParam,
                 "Karlin–Altschul λ is undefined: the expected per-pair score must be negative.");
 
         // f(λ) = p(match)·e^{λ·match} + p(mismatch)·e^{λ·mismatch} − 1: f(0) = 0, f'(0) = expectedScore < 0,
@@ -2834,7 +2840,10 @@ public static class ProbeDesigner
     /// blastn's printed K, e.g. 1.17 for +4/−6). Ignored when <paramref name="k"/> is given.
     /// </param>
     /// <returns>The <see cref="KarlinAltschulStatistics"/> for the hit.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown for non-positive lengths or K, or a scheme for which λ is undefined.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown for non-positive lengths or K, a base frequency outside (0, 0.5),
+    /// an undefined <paramref name="kMethod"/>, or (ParamName <c>scoring</c>) a scheme for which λ is undefined (non-positive
+    /// match, non-negative mismatch or non-negative expected score) or with a score outside
+    /// BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN).</exception>
     public static KarlinAltschulStatistics ComputeKarlinAltschul(
         double rawScore,
         int queryLength,
@@ -2853,8 +2862,9 @@ public static class ProbeDesigner
         if (k is double given && !(given > 0))
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
-        double lambda = ComputeLambdaNucleotide(matrix.Match, matrix.Mismatch, baseFrequency);
-        double kValue = k ?? ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch, baseFrequency, kMethod).K;
+        double lambda = LambdaNucleotide(matrix.Match, matrix.Mismatch, baseFrequency, nameof(scoring), nameof(scoring));
+        double kValue = k ?? UngappedKarlinParameters(
+            matrix.Match, matrix.Mismatch, MatchProbability(baseFrequency), kMethod, nameof(scoring)).K;
 
         // S' = (λS − ln K) / ln 2  (Altschul et al. 1990).
         double bitScore = (lambda * rawScore - Math.Log(kValue)) / Math.Log(2.0);
@@ -3046,8 +3056,8 @@ public static class ProbeDesigner
         int match, int mismatch, double baseFrequency = UniformBaseFrequency,
         KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
     {
-        ValidateMatchMismatch(match, mismatch);
-        return UngappedKarlinParameters(match, mismatch, MatchProbability(baseFrequency), kMethod);
+        ValidateMatchMismatch(match, mismatch, nameof(match), nameof(mismatch));
+        return UngappedKarlinParameters(match, mismatch, MatchProbability(baseFrequency), kMethod, nameof(mismatch));
     }
 
     /// <summary>
@@ -3063,7 +3073,8 @@ public static class ProbeDesigner
     /// <see cref="KarlinKMethod.ReducedLattice"/>; <see cref="KarlinKMethod.NcbiBlast"/> = BLAST+ indexing).</param>
     /// <exception cref="ArgumentNullException"><paramref name="baseFrequencies"/> is null.</exception>
     /// <exception cref="ArgumentException">Not exactly four frequencies, a negative/non-finite one, or a zero sum.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">λ undefined for the scheme and composition.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">λ undefined for the scheme and composition, a score outside
+    /// BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN) (ParamName <c>match</c> / <c>mismatch</c>), or an undefined <paramref name="kMethod"/>.</exception>
     public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
         int match, int mismatch, IReadOnlyList<double> baseFrequencies,
         KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
@@ -3083,12 +3094,12 @@ public static class ProbeDesigner
         if (!(sum > 0))
             throw new ArgumentException("Base frequencies must have a positive sum.", nameof(baseFrequencies));
 
-        ValidateMatchMismatch(match, mismatch);
+        ValidateMatchMismatch(match, mismatch, nameof(match), nameof(mismatch));
         double pMatch = sumSquares / (sum * sum);
         if (!(pMatch < 1.0))
             throw new ArgumentOutOfRangeException(nameof(baseFrequencies),
                 "Karlin–Altschul λ is undefined: a single-base composition has no mismatch (expected score not negative).");
-        return UngappedKarlinParameters(match, mismatch, pMatch, kMethod);
+        return UngappedKarlinParameters(match, mismatch, pMatch, kMethod, nameof(mismatch));
     }
 
     /// <summary>
@@ -3111,23 +3122,34 @@ public static class ProbeDesigner
     /// <see cref="KarlinKMethod.NcbiBlast"/> (default — what BLAST+ copies; blastn +4/−6 gap 12/8 prints "Gapped …
     /// 0.317 1.17 0.912") or <see cref="KarlinKMethod.ReducedLattice"/> (scale-invariant). The tabulated rows are unaffected.
     /// </param>
-    /// <exception cref="ArgumentOutOfRangeException">Non-positive reward, non-negative penalty, negative gap costs or
-    /// an undefined <paramref name="kMethod"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Non-positive reward, non-negative penalty, a reward ≥ 32767 or penalty
+    /// ≤ −32768 (BLAST+'s score range, <c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive; ParamName
+    /// <c>reward</c> / <c>penalty</c>), negative gap costs or an undefined <paramref name="kMethod"/>.</exception>
     /// <exception cref="ArgumentException">A reward/penalty or gap-cost combination BLAST+ does not support.</exception>
     public static KarlinAltschulParameters GetBlastnGappedKarlinParameters(
         int reward, int penalty, int gapOpen, int gapExtend, KarlinKMethod kMethod = KarlinKMethod.NcbiBlast)
     {
-        ValidateMatchMismatch(reward, penalty);
+        ValidateMatchMismatch(reward, penalty, nameof(reward), nameof(penalty));
         if (gapOpen < 0)
             throw new ArgumentOutOfRangeException(nameof(gapOpen), "Gap existence cost cannot be negative.");
         if (gapExtend < 0)
             throw new ArgumentOutOfRangeException(nameof(gapExtend), "Gap extension cost cannot be negative.");
+        return BlastnGappedKarlinParameters(
+            reward, penalty, gapOpen, gapExtend, kMethod, nameof(reward), nameof(penalty), nameof(gapOpen));
+    }
+
+    // GetBlastnGappedKarlinParameters after the argument checks; rewardParam/penaltyParam/gapParam are the public
+    // caller's parameter names for an unsupported scheme or gap-cost combination (A9-1).
+    private static KarlinAltschulParameters BlastnGappedKarlinParameters(
+        int reward, int penalty, int gapOpen, int gapExtend, KarlinKMethod kMethod,
+        string rewardParam, string penaltyParam, string gapParam)
+    {
 
         int divisor = Gcd(reward, -penalty);
         if (!BlastnValueTables.TryGetValue((reward / divisor, penalty / divisor), out var table))
             throw new ArgumentException(
                 $"Substitution scores {reward} and {penalty} are not supported by NCBI BLAST+ blastn statistics.",
-                nameof(reward));
+                rewardParam);
 
         // s_SplitArrayOf8: a leading {0, 0} row is the non-affine entry; the remaining rows are the affine ones.
         bool split = table.Rows[0][0] == 0 && table.Rows[0][1] == 0;
@@ -3155,7 +3177,8 @@ public static class ProbeDesigner
         if (gapOpen >= table.GapOpenMax * divisor && gapExtend >= table.GapExtendMax * divisor)
         {
             // Infinite gap-cost domain: Blast_KarlinBlkCopy(kbp, kbp_ungap); α/β fall back to the ungapped values.
-            var ungapped = UngappedKarlinParameters(reward, penalty, MatchProbability(UniformBaseFrequency), kMethod);
+            var ungapped = UngappedKarlinParameters(
+                reward, penalty, MatchProbability(UniformBaseFrequency), kMethod, penaltyParam);
             return ungapped with { RoundDown = table.RoundDown, Gapped = true };
         }
 
@@ -3164,7 +3187,7 @@ public static class ProbeDesigner
             $"{reward} and {penalty}; supported: " +
             string.Join(", ", normal.Select(r => $"{(int)r[0] * divisor}/{(int)r[1] * divisor}")) +
             $", or any values at least {table.GapOpenMax * divisor}/{table.GapExtendMax * divisor}.",
-            nameof(gapOpen));
+            gapParam);
     }
 
     /// <summary>
@@ -3287,8 +3310,10 @@ public static class ProbeDesigner
     /// K 1.17, effective search space 573996 for a 200-nt query vs a 3100-nt subject) or
     /// <see cref="KarlinKMethod.ReducedLattice"/> (scale-invariant K, = the reduced scheme's). No effect for δ = 1.
     /// </param>
-    /// <exception cref="ArgumentOutOfRangeException">Non-positive lengths/count, or positive gap scores.</exception>
-    /// <exception cref="ArgumentException">A scoring scheme BLAST+ has no gapped statistics for.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Non-positive lengths/count, positive gap scores, an undefined
+    /// <paramref name="kMethod"/>, or (ParamName <c>scoring</c>) a non-positive match, non-negative mismatch, a
+    /// non-negative expected score (ungapped) or a score outside BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN).</exception>
+    /// <exception cref="ArgumentException">A scoring scheme BLAST+ has no gapped statistics for (ParamName <c>scoring</c>).</exception>
     public static BlastnStatistics ComputeBlastnStatistics(
         int rawScore,
         int queryLength,
@@ -3308,9 +3333,12 @@ public static class ProbeDesigner
         if (matrix.GapOpen > 0 || matrix.GapExtend > 0)
             throw new ArgumentOutOfRangeException(nameof(scoring), "Gap scores must be non-positive (penalties).");
 
+        ValidateMatchMismatch(matrix.Match, matrix.Mismatch, nameof(scoring), nameof(scoring));
         KarlinAltschulParameters p = gapped
-            ? GetBlastnGappedKarlinParameters(matrix.Match, matrix.Mismatch, -matrix.GapOpen, -matrix.GapExtend, kMethod)
-            : ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch, UniformBaseFrequency, kMethod);
+            ? BlastnGappedKarlinParameters(matrix.Match, matrix.Mismatch, -matrix.GapOpen, -matrix.GapExtend, kMethod,
+                nameof(scoring), nameof(scoring), nameof(scoring))
+            : UngappedKarlinParameters(
+                matrix.Match, matrix.Mismatch, MatchProbability(UniformBaseFrequency), kMethod, nameof(scoring));
 
         // Blast_GetNuclAlphaBeta returns s_GetNuclValuesArray's error status without setting α/β when the reduced
         // reward/penalty has no blastn_values_* table; BLAST_CalcEffLengths ignores the status and keeps its
@@ -3347,7 +3375,9 @@ public static class ProbeDesigner
     /// <param name="subjectSequence">Subject (off-target) sequence (non-empty).</param>
     /// <param name="scoring">Scoring scheme (default <see cref="SequenceAligner.BlastDna"/>).</param>
     /// <exception cref="ArgumentNullException">A null sequence.</exception>
-    /// <exception cref="ArgumentException">An empty sequence or an unsupported scoring scheme.</exception>
+    /// <exception cref="ArgumentException">An empty sequence or an unsupported scoring scheme (ParamName <c>scoring</c>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">(ParamName <c>scoring</c>) a non-positive match, non-negative mismatch,
+    /// positive gap scores, or a score outside BLAST+'s score range (<c>BlastScoreBlkMaxScoreSet</c>, blast_stat.h INT2 limits, exclusive): a match score ≥ 32767 (BLAST_SCORE_MAX) or a mismatch score ≤ −32768 (BLAST_SCORE_MIN).</exception>
     public static BlastnStatistics ComputeBlastnStatistics(
         string probeSequence, string subjectSequence, ScoringMatrix? scoring = null)
     {
@@ -3359,6 +3389,7 @@ public static class ProbeDesigner
             throw new ArgumentException("Subject sequence cannot be empty.", nameof(subjectSequence));
 
         var matrix = scoring ?? SequenceAligner.BlastDna;
+        ValidateMatchMismatch(matrix.Match, matrix.Mismatch, nameof(scoring), nameof(scoring));
         var (score, _, _, _) = BestLocalAlignment(
             probeSequence.ToUpperInvariant(), subjectSequence.ToUpperInvariant(), matrix);
         return ComputeBlastnStatistics(score, probeSequence.Length, subjectSequence.Length, 1, matrix, gapped: true);
@@ -3371,20 +3402,22 @@ public static class ProbeDesigner
         return BlastnValueTables.ContainsKey((reward / divisor, penalty / divisor));
     }
 
-    private static void ValidateMatchMismatch(int match, int mismatch)
+    // matchParam/mismatchParam: the public caller's parameter names (match/mismatch, reward/penalty, or scoring for a
+    // ScoringMatrix argument), so each public method throws with its own ParamName (audit round 9, A9-1).
+    private static void ValidateMatchMismatch(int match, int mismatch, string matchParam, string mismatchParam)
     {
         if (match <= 0)
-            throw new ArgumentOutOfRangeException(nameof(match),
+            throw new ArgumentOutOfRangeException(matchParam,
                 "Karlin–Altschul λ is undefined: the scoring scheme must have at least one positive score.");
         if (mismatch >= 0)
-            throw new ArgumentOutOfRangeException(nameof(mismatch),
+            throw new ArgumentOutOfRangeException(mismatchParam,
                 "Karlin–Altschul λ is undefined: the mismatch score must be negative.");
         // BLAST+ blast_stat.h: BLAST_SCORE_MIN = INT2_MIN, BLAST_SCORE_MAX = INT2_MAX (one-letter comparison scores).
         // BlastScoreBlkMaxScoreSet skips scores <= BLAST_SCORE_MIN or >= BLAST_SCORE_MAX, so the limits are exclusive.
         if (match >= short.MaxValue)
-            throw new ArgumentOutOfRangeException(nameof(match), "Match score must be below BLAST_SCORE_MAX (32767).");
+            throw new ArgumentOutOfRangeException(matchParam, "Match score must be below BLAST_SCORE_MAX (32767).");
         if (mismatch <= short.MinValue)
-            throw new ArgumentOutOfRangeException(nameof(mismatch), "Mismatch score must be above BLAST_SCORE_MIN (−32768).");
+            throw new ArgumentOutOfRangeException(mismatchParam, "Mismatch score must be above BLAST_SCORE_MIN (−32768).");
     }
 
     // p(match) = 4·p² for four equiprobable bases of frequency p (p must keep it a probability in (0, 1)).
@@ -3396,8 +3429,9 @@ public static class ProbeDesigner
     }
 
     // Blast_KarlinBlkUngappedCalc for the two-score distribution {match: pMatch, mismatch: 1 − pMatch}.
+    // mismatchParam: the public caller's parameter name reported when the expected score is not negative (A9-1).
     private static KarlinAltschulParameters UngappedKarlinParameters(
-        int match, int mismatch, double pMatch, KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
+        int match, int mismatch, double pMatch, KarlinKMethod kMethod, string mismatchParam)
     {
         if (kMethod is not (KarlinKMethod.ReducedLattice or KarlinKMethod.NcbiBlast))
             throw new ArgumentOutOfRangeException(nameof(kMethod), kMethod, "Unknown K method.");
@@ -3405,7 +3439,7 @@ public static class ProbeDesigner
         double pMismatch = 1.0 - pMatch;
         double expected = pMatch * match + pMismatch * mismatch;
         if (expected >= 0)
-            throw new ArgumentOutOfRangeException(nameof(mismatch),
+            throw new ArgumentOutOfRangeException(mismatchParam,
                 "Karlin–Altschul λ is undefined: the expected per-pair score must be negative.");
 
         double lambda = SolveLambda(pMatch, match, pMismatch, mismatch);

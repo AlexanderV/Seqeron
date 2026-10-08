@@ -16,6 +16,20 @@ public class OligoConcentrationFromAbsorbanceTests
         Assert.Throws<ArgumentException>(() => MolToolsTools.oligo_concentration_from_absorbance(1.0, 10000, -1));
     }
 
+    // Audit round 9 (A9-2): NaN/±∞ are rejected by the wrapper with the TOOL's parameter names.
+    [TestCase(double.NaN, 10000.0, 1.0, "absorbance260")]
+    [TestCase(double.PositiveInfinity, 10000.0, 1.0, "absorbance260")]
+    [TestCase(1.0, double.NaN, 1.0, "extinction_coefficient")]
+    [TestCase(1.0, double.PositiveInfinity, 1.0, "extinction_coefficient")]
+    [TestCase(1.0, double.NegativeInfinity, 1.0, "extinction_coefficient")]
+    [TestCase(1.0, 10000.0, double.NaN, "path_length")]
+    [TestCase(1.0, 10000.0, double.PositiveInfinity, "path_length")]
+    public void OligoConcentrationFromAbsorbance_NonFinite_ThrowsWithToolParamName(double a, double eps, double l, string param)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => MolToolsTools.oligo_concentration_from_absorbance(a, eps, l));
+        Assert.That(ex!.ParamName, Is.EqualTo(param));
+    }
+
     [Test]
     public void OligoConcentrationFromAbsorbance_Binding_InvokesSuccessfully()
     {
