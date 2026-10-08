@@ -93,7 +93,8 @@ public static class ProbeDesigner
         /// ≤ <see cref="PrimerDesigner.NtthalMaxSequenceLength"/>) screens longer ACGT probes with the unchanged ntthal
         /// self-dimer / 3′ self-dimer / hairpin recursions (= ntthal compiled with <c>-DTHAL_MAX_ALIGN=…</c>) instead of
         /// the fallback screens. Cost grows as O(n²·30²) per probe and screen — keep it to the probe lengths in use.
-        /// Outside 60–10 000 → <see cref="ArgumentOutOfRangeException"/>.
+        /// Also the THAL_MAX_ALIGN of the <see cref="AssessCrossHybridization"/> / <see cref="ValidateProbe"/> non-target site
+        /// duplex Tm (audit round 3, A3-27). Outside 60–10 000 → <see cref="ArgumentOutOfRangeException"/>.
         /// </summary>
         public int ThermodynamicScreenMaxLength { get; init; } = PrimerDesigner.NtthalMaxAlignLength;
 
@@ -391,8 +392,10 @@ public static class ProbeDesigner
         /// Thermodynamic stability of the probe on this off-target site: ntthal duplex (THAL_ANY) Tm in °C of the
         /// probe with the strand complementary to the aligned site (primer3-py <c>calc_heterodimer(probe,
         /// revcomp(site))</c>; 0 when no duplex forms) at the assessment conditions — the duplex-Tm cross-hybridization
-        /// check of OligoArray (Rouillard et al. 2003). Null when the probe is longer than 60 nt (thal.c
-        /// THAL_MAX_ALIGN), probe or site contain a non-ACGT base, or nothing aligns.
+        /// check of OligoArray (Rouillard et al. 2003). Null when both the probe and the site are longer than the
+        /// conditions' <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (thal.c <c>THAL_MAX_ALIGN</c>, default
+        /// 60: thal_check_errors refuses only when both strands are longer — primer3-py raises), either is longer than
+        /// 10 000 nt (THAL_MAX_SEQ), probe or site contain a non-ACGT base, or nothing aligns.
         /// </summary>
         public double? DuplexTm { get; init; }
     }
@@ -1874,7 +1877,7 @@ public static class ProbeDesigner
     /// checked against T + 7 °C; without it the library's default window 55–65 °C is used.
     /// </para>
     /// <para>
-    /// Warnings carry the stem/loop sizes and, for a beacon of ≤ 60 nt, the ntthal hairpin Tm of the whole
+    /// Warnings carry the stem/loop sizes and, for a beacon of ≤ <c>maxAlignLength</c> (default 60) nt, the ntthal hairpin Tm of the whole
     /// beacon (the stem melting temperature; <see cref="PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, double, double, double)"/>
     /// at the same conditions). <see cref="Probe.Tm"/> is the loop (probe–target) Tm.
     /// </para>
@@ -1883,12 +1886,21 @@ public static class ProbeDesigner
     /// <param name="probeLength">Loop length (Tyagi &amp; Kramer: 15–30 nt; default 25).</param>
     /// <param name="stemLength">Arm length in bp (Tyagi &amp; Kramer: 5–7 bp; default 5).</param>
     /// <param name="detectionTemperatureCelsius">Optional detection (annealing) temperature T in °C.</param>
+    /// <param name="maxAlignLength">ntthal <c>THAL_MAX_ALIGN</c> of the stem-loop hairpin Tm
+    /// (<see cref="PrimerDesigner.NtthalMaxAlignLength"/> = 60, Primer3's compile-time default, …
+    /// <see cref="PrimerDesigner.NtthalMaxSequenceLength"/> = 10 000): beacons up to this length get the ntthal hairpin
+    /// Tm (opt-in for beacons longer than 60 nt; = thal.c compiled with <c>-DTHAL_MAX_ALIGN=…</c>; audit round 3, A3-27).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxAlignLength"/> outside 60–10 000.</exception>
     public static Probe? DesignMolecularBeacon(
         string targetSequence,
         int probeLength = 25,
         int stemLength = 5,
-        double? detectionTemperatureCelsius = null)
+        double? detectionTemperatureCelsius = null,
+        int maxAlignLength = PrimerDesigner.NtthalMaxAlignLength)
     {
+        if (maxAlignLength < PrimerDesigner.NtthalMaxAlignLength || maxAlignLength > PrimerDesigner.NtthalMaxSequenceLength)
+            throw new ArgumentOutOfRangeException(nameof(maxAlignLength), maxAlignLength,
+                "THAL_MAX_ALIGN must be in 60..10000.");
         if (targetSequence.Length < probeLength)
             return null;
 
@@ -1936,13 +1948,16 @@ public static class ProbeDesigner
         string beaconSequence = stem5 + bestLoop + stem3;
         var warnings = new List<string> { $"Stem: {stemLength}bp, Loop: {loopLength}bp" };
 
-        if (beaconSequence.Length <= NtthalMaxLength)
+        if (beaconSequence.Length <= maxAlignLength)
         {
             var hp = PrimerDesigner.CalculateHairpinThermodynamicsNtthal(
                 beaconSequence,
                 conditions.MonovalentMillimolar / 1000.0,
                 conditions.DivalentMillimolar / 1000.0,
-                conditions.DntpMillimolar / 1000.0);
+                conditions.DntpMillimolar / 1000.0,
+                PrimerDesigner.NtthalDefaultTemperatureCelsius,
+                PrimerDesigner.NtthalDefaultMaxLoop,
+                maxAlignLength);
             if (hp is { } h)
             {
                 warnings.Add($"Stem-loop (hairpin) Tm {h.TmCelsius:F1}°C (ntthal)");
@@ -2033,7 +2048,8 @@ public static class ProbeDesigner
     /// non-target duplex Tm; Primer3 <c>_pr_data_control</c> legality — monovalent and oligo &gt; 0, Mg²⁺ and dNTP ≥ 0,
     /// else <see cref="ArgumentOutOfRangeException"/>), <see cref="ProbeParameters.StructureScreen"/>,
     /// <see cref="ProbeParameters.MaxStructureTm"/>, <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>,
-    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (60–10 000, else <see cref="ArgumentOutOfRangeException"/>).</param>
+    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> (THAL_MAX_ALIGN of the screen and of the non-target duplex
+    /// Tm; 60–10 000, else <see cref="ArgumentOutOfRangeException"/>).</param>
     /// <param name="nonTargetSequences">Optional known non-target sequences for the Kane assessment.</param>
     /// <param name="maxNonTargetIdentity">Kane identity threshold in [0, 1] (default 0.75; flagged when strictly above),
     /// for the reference sites and the non-targets; outside [0, 1] or NaN → <see cref="ArgumentOutOfRangeException"/>.</param>
@@ -2267,15 +2283,18 @@ public static class ProbeDesigner
     /// <param name="bothStrands">Assess the reverse complement of each non-target too (default true).</param>
     /// <param name="scoring">Local-alignment scoring (default <see cref="SequenceAligner.BlastDna"/>, affine gaps).</param>
     /// <param name="conditions">Hybridization conditions for the site duplex Tm
-    /// (<see cref="CrossHybridizationAssessment.DuplexTm"/>; default Primer3 probe conditions 50 nM / 50 mM / 0 / 0).</param>
+    /// (<see cref="CrossHybridizationAssessment.DuplexTm"/>; default Primer3 probe conditions 50 nM / 50 mM / 0 / 0).
+    /// Its <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> is the ntthal <c>THAL_MAX_ALIGN</c> of the
+    /// duplex (default 60; opt-in up to 10 000 for longer probes and sites — audit round 3, A3-27).</param>
     /// <param name="maxDuplexTm">Optional OligoArray-style specificity threshold (°C): a strand whose site duplex Tm
     /// is strictly above it is flagged (<see cref="CrossHybridizationAssessment.ExceedsDuplexTmThreshold"/>); null
     /// (default) applies only the Kane criteria. The threshold is assay-specific (Rouillard et al. 2003: user-set).</param>
     /// <returns>One assessment per non-target strand: index order, forward strand before reverse complement.</returns>
     /// <exception cref="ArgumentNullException">A null probe or non-target collection.</exception>
     /// <exception cref="ArgumentException">An empty probe.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxIdentity"/> outside [0, 1] or a negative
-    /// <paramref name="maxContiguousMatch"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxIdentity"/> outside [0, 1], a negative
+    /// <paramref name="maxContiguousMatch"/>, or a <paramref name="conditions"/>
+    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> outside 60–10 000.</exception>
     public static IReadOnlyList<CrossHybridizationAssessment> AssessCrossHybridization(
         string probeSequence,
         IEnumerable<string> nonTargetSequences,
@@ -2295,10 +2314,17 @@ public static class ProbeDesigner
         if (maxContiguousMatch < 0)
             throw new ArgumentOutOfRangeException(nameof(maxContiguousMatch), "Contiguous-match threshold cannot be negative.");
 
+        if (conditions is { } stated)
+            ValidateThermodynamicScreenMaxLength(stated, nameof(conditions));
+
         var matrix = scoring ?? SequenceAligner.BlastDna;
         var cond = conditions ?? Primer3ProbeConditions;
         string probe = probeSequence.ToUpperInvariant();
-        bool duplexComputable = probe.Length <= NtthalMaxLength && probe.All(c => c is 'A' or 'C' or 'G' or 'T');
+        // thal.c thal_check_errors: at least one strand ≤ THAL_MAX_ALIGN (ThermodynamicScreenMaxLength, default 60)
+        // and neither longer than THAL_MAX_SEQ (10 000).
+        int maxAlign = cond.ThermodynamicScreenMaxLength;
+        bool duplexComputable = probe.Length <= PrimerDesigner.NtthalMaxSequenceLength
+            && probe.All(c => c is 'A' or 'C' or 'G' or 'T');
         var probeTree = global::SuffixTree.SuffixTree.Build(probe);
         var result = new List<CrossHybridizationAssessment>();
 
@@ -2323,13 +2349,16 @@ public static class ProbeDesigner
             if (duplexComputable && siteStart >= 0)
             {
                 string site = strand.Substring(siteStart, siteEnd - siteStart + 1);
-                if (site.All(c => c is 'A' or 'C' or 'G' or 'T'))
+                if (Math.Min(probe.Length, site.Length) <= maxAlign
+                    && site.Length <= PrimerDesigner.NtthalMaxSequenceLength
+                    && site.All(c => c is 'A' or 'C' or 'G' or 'T'))
                 {
                     // The probe hybridizes to the strand complementary to the site (primer3-py calc_heterodimer).
                     var d = PrimerDesigner.CalculateDimerThermodynamicsNtthal(
                         probe, DnaSequence.GetReverseComplementString(site), PrimerDesigner.NtthalAlignmentMode.Any,
                         cond.MonovalentMillimolar / 1000.0, cond.DivalentMillimolar / 1000.0, cond.DntpMillimolar / 1000.0,
-                        cond.DnaConcentrationNanomolar * 1e-9);
+                        cond.DnaConcentrationNanomolar * 1e-9, PrimerDesigner.NtthalDefaultTemperatureCelsius,
+                        PrimerDesigner.NtthalDefaultMaxLoop, maxAlign);
                     duplexTm = d?.TmCelsius ?? 0.0;
                 }
             }
@@ -3520,9 +3549,6 @@ public static class ProbeDesigner
     #endregion
 
     #region Helper Methods
-
-    // thal.c THAL_MAX_ALIGN: ntthal cannot align two strands both longer than 60 nt (self-dimer, hairpin).
-    private const int NtthalMaxLength = 60;
 
     // Probe Tm = Primer3 seqtm at the parameters' hybridization conditions (NaN when not computable).
     private static double CalculateProbeTm(string sequence, ProbeParameters param) =>

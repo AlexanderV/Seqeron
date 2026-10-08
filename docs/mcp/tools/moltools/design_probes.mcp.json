@@ -6,13 +6,14 @@
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignProbes",
   "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L493",
-  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-ranked probes (default: additive library-heuristic score; parameters.Ranking = Primer3Penalty: Primer3 internal-oligo penalty p_obj_fn, sourced). Probes > 60 nt use Primer3's alignment-mode self_any/self_end (<= 12) self-dimer screen plus an inverted-repeat hairpin screen.",
+  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-ranked probes (default: additive library-heuristic score; parameters.Ranking = Primer3Penalty: Primer3 internal-oligo penalty p_obj_fn, sourced). Probes longer than thermodynamic_screen_max_length (default 60 = THAL_MAX_ALIGN; opt-in up to 10000) use Primer3's alignment-mode self_any/self_end (<= 12) self-dimer screen plus an inverted-repeat hairpin screen.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
       "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold; Ranking = AdditiveScore (default, library heuristic) or Primer3Penalty (Primer3 internal-oligo p_obj_fn around OptTm / OptLength)). Defaults to Microarray when null.", "default": null },
-      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 10).", "minimum": 1, "default": 10 }
+      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 10).", "minimum": 1, "default": 10 },
+      "thermodynamic_screen_max_length": { "type": ["integer", "null"], "description": "THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe.", "default": null }
     },
     "required": ["target_sequence"]
   },

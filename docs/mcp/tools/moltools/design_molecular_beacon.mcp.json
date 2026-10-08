@@ -34,6 +34,13 @@
         ],
         "description": "Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules.",
         "default": null
+      },
+      "max_align_length": {
+        "type": "integer",
+        "description": "THAL_MAX_ALIGN of the ntthal stem-loop (hairpin) Tm: longest beacon (nt) that gets it (default 60 = Primer3; opt-in 61..10000 = thal.c compiled with -DTHAL_MAX_ALIGN, for beacons longer than 60 nt).",
+        "minimum": 60,
+        "maximum": 10000,
+        "default": 60
       }
     },
     "required": [

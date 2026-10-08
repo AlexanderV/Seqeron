@@ -949,18 +949,27 @@ public class MolToolsTools
 
     #region ProbeDesigner
 
-    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking them, by default, with an additive penalty score (GC%, Tm, homopolymers, self-structure, simple repeats; returned sorted by score, descending) — a library heuristic whose penalty values have no published source. Set parameters.Ranking = Primer3Penalty for the sourced ranking: Primer3's internal-oligo objective p_obj_fn (PRIMER_INTERNAL_n_PENALTY = |Tm − parameters.OptTm| + |length − parameters.OptLength|, defaults 60 °C / 20 nt, which must lie in the Tm / length window) in Primer3 primer_rec_comp order (penalty ascending, start descending, length ascending), reported per probe as primer3Penalty. Tm is Primer3's seqtm (SantaLucia 1998 nearest-neighbour up to parameters.MaxNearestNeighborLength, default 36 nt, long_seq_tm above) at the parameters' conditions (default Microarray preset: OligoArray 2.0 conditions 1 M Na+, 1 µM oligo, nearest-neighbour Tm up to 60 nt, Tm window 82–90 °C; other presets: Primer3 probe conditions 50 nM, 50 mM monovalent, no Mg/dNTP); probes ≤ 60 nt are screened with Primer3's ntthal self-dimer/hairpin Tm limit (47 °C); longer probes (and StructureScreen = Heuristic) use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > MaxSelfAny / MaxSelfEnd, PRIMER_INTERNAL_MAX_SELF_ANY/_END default 12.00, no length limit) plus a sequence-only inverted-repeat hairpin screen. Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
+    // ProbeParameters with an MCP-stated THAL_MAX_ALIGN (ThermodynamicScreenMaxLength; audit round 3, A3-28): null keeps
+    // the caller's parameters (or the library default for null parameters) unchanged.
+    private static ProbeDesigner.ProbeParameters? WithThermodynamicScreenMaxLength(
+        ProbeDesigner.ProbeParameters? parameters, ProbeDesigner.ProbeParameters libraryDefault, int? maxLength) =>
+        maxLength is int m ? (parameters ?? libraryDefault) with { ThermodynamicScreenMaxLength = m } : parameters;
+
+    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking them, by default, with an additive penalty score (GC%, Tm, homopolymers, self-structure, simple repeats; returned sorted by score, descending) — a library heuristic whose penalty values have no published source. Set parameters.Ranking = Primer3Penalty for the sourced ranking: Primer3's internal-oligo objective p_obj_fn (PRIMER_INTERNAL_n_PENALTY = |Tm − parameters.OptTm| + |length − parameters.OptLength|, defaults 60 °C / 20 nt, which must lie in the Tm / length window) in Primer3 primer_rec_comp order (penalty ascending, start descending, length ascending), reported per probe as primer3Penalty. Tm is Primer3's seqtm (SantaLucia 1998 nearest-neighbour up to parameters.MaxNearestNeighborLength, default 36 nt, long_seq_tm above) at the parameters' conditions (default Microarray preset: OligoArray 2.0 conditions 1 M Na+, 1 µM oligo, nearest-neighbour Tm up to 60 nt, Tm window 82–90 °C; other presets: Primer3 probe conditions 50 nM, 50 mM monovalent, no Mg/dNTP); probes ≤ thermodynamic_screen_max_length nt (default 60 = Primer3's THAL_MAX_ALIGN; opt-in up to 10000) are screened with Primer3's ntthal self-dimer/hairpin Tm limit (47 °C); longer probes (and StructureScreen = Heuristic) use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > MaxSelfAny / MaxSelfEnd, PRIMER_INTERNAL_MAX_SELF_ANY/_END default 12.00, no length limit) plus a sequence-only inverted-repeat hairpin screen. Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
     public static ProbesResult design_probes(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold; Ranking = AdditiveScore (default, library heuristic) or Primer3Penalty (Primer3 internal-oligo p_obj_fn around OptTm / OptLength)). Defaults to Microarray when null.")] ProbeDesigner.ProbeParameters? parameters = null,
-        [Description("Maximum probes to return (default 10).")] int max_probes = 10)
+        [Description("Maximum probes to return (default 10).")] int max_probes = 10,
+        [Description("THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe.")] int? thermodynamic_screen_max_length = null)
     {
         if (string.IsNullOrEmpty(target_sequence))
             throw new System.ArgumentException("Target sequence cannot be null or empty.", nameof(target_sequence));
         if (max_probes <= 0)
             throw new System.ArgumentException("Maximum probes must be positive.", nameof(max_probes));
 
-        var probes = ProbeDesigner.DesignProbes(target_sequence, parameters, max_probes).ToList();
+        var probes = ProbeDesigner.DesignProbes(target_sequence,
+            WithThermodynamicScreenMaxLength(parameters, ProbeDesigner.Defaults.Microarray, thermodynamic_screen_max_length),
+            max_probes).ToList();
         return new ProbesResult(probes);
     }
 
@@ -969,7 +978,8 @@ public class MolToolsTools
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Tiling probe length in bp (default 60).")] int probe_length = 60,
         [Description("Overlap between adjacent probes in bp (default 20).")] int overlap = 20,
-        [Description("Optional probe-design parameters (Tm/GC bounds etc.).")] ProbeDesigner.ProbeParameters? parameters = null)
+        [Description("Optional probe-design parameters (Tm/GC bounds etc.).")] ProbeDesigner.ProbeParameters? parameters = null,
+        [Description("THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe.")] int? thermodynamic_screen_max_length = null)
     {
         if (string.IsNullOrEmpty(target_sequence))
             throw new System.ArgumentException("Target sequence cannot be null or empty.", nameof(target_sequence));
@@ -978,30 +988,37 @@ public class MolToolsTools
         if (overlap < 0 || overlap >= probe_length)
             throw new System.ArgumentException("Overlap must be non-negative and less than the probe length.", nameof(overlap));
 
-        return ProbeDesigner.DesignTilingProbes(target_sequence, probe_length, overlap, parameters);
+        // The library's default for null parameters: the Microarray preset at the tiling length.
+        var defaults = ProbeDesigner.Defaults.Microarray with { MinLength = probe_length, MaxLength = probe_length };
+        return ProbeDesigner.DesignTilingProbes(target_sequence, probe_length, overlap,
+            WithThermodynamicScreenMaxLength(parameters, defaults, thermodynamic_screen_max_length));
     }
 
     [McpServerTool(Name = "design_antisense_probes", Title = "MolTools — Design Antisense Probes", ReadOnly = true), Description("Reverse-complements the supplied mRNA-sense sequence and runs the probe designer on it; every returned probe is tagged type=Antisense. Returns up to max_probes top-scoring antisense probes.")]
     public static ProbesResult design_antisense_probes(
         [Description("mRNA-sense sequence (will be reverse-complemented).")] string mrna_sequence,
         [Description("Optional probe-design parameters.")] ProbeDesigner.ProbeParameters? parameters = null,
-        [Description("Maximum probes to return (default 5).")] int max_probes = 5)
+        [Description("Maximum probes to return (default 5).")] int max_probes = 5,
+        [Description("THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe.")] int? thermodynamic_screen_max_length = null)
     {
         if (string.IsNullOrEmpty(mrna_sequence))
             throw new System.ArgumentException("mRNA sequence cannot be null or empty.", nameof(mrna_sequence));
         if (max_probes <= 0)
             throw new System.ArgumentException("Maximum probes must be positive.", nameof(max_probes));
 
-        var probes = ProbeDesigner.DesignAntisenseProbes(mrna_sequence, parameters, max_probes).ToList();
+        var probes = ProbeDesigner.DesignAntisenseProbes(mrna_sequence,
+            WithThermodynamicScreenMaxLength(parameters, ProbeDesigner.Defaults.Microarray, thermodynamic_screen_max_length),
+            max_probes).ToList();
         return new ProbesResult(probes);
     }
 
-    [McpServerTool(Name = "design_molecular_beacon", Title = "MolTools — Design Molecular Beacon", ReadOnly = true), Description("Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse complement) flanking the best target-specific loop of probe_length bases, for real-time detection. The reported Tm is the loop (probe–target) Tm (Primer3 seqtm) and Start/End mark the loop in the target; warnings carry the ntthal stem-loop Tm. With detection_temperature T the loop Tm window is [T+7, T+10] °C and the stem-loop Tm is checked against T+7 °C (Tyagi & Kramer molecular-beacon rules). Returns probe=null when the target is shorter than probe_length.")]
+    [McpServerTool(Name = "design_molecular_beacon", Title = "MolTools — Design Molecular Beacon", ReadOnly = true), Description("Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse complement) flanking the best target-specific loop of probe_length bases, for real-time detection. The reported Tm is the loop (probe–target) Tm (Primer3 seqtm) and Start/End mark the loop in the target; warnings carry the ntthal stem-loop Tm (beacons ≤ max_align_length nt, default 60). With detection_temperature T the loop Tm window is [T+7, T+10] °C and the stem-loop Tm is checked against T+7 °C (Tyagi & Kramer molecular-beacon rules). Returns probe=null when the target is shorter than probe_length.")]
     public static MolecularBeaconResult design_molecular_beacon(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Loop (target-specific) length in bp (default 25).")] int probe_length = 25,
         [Description("Stem length in bp (default 5).")] int stem_length = 5,
-        [Description("Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules.")] double? detection_temperature = null)
+        [Description("Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules.")] double? detection_temperature = null,
+        [Description("THAL_MAX_ALIGN of the ntthal stem-loop (hairpin) Tm: longest beacon (nt) that gets it (default 60 = Primer3; opt-in 61..10000 = thal.c compiled with -DTHAL_MAX_ALIGN, for beacons longer than 60 nt).")] int max_align_length = PrimerDesigner.NtthalMaxAlignLength)
     {
         if (string.IsNullOrEmpty(target_sequence))
             throw new System.ArgumentException("Target sequence cannot be null or empty.", nameof(target_sequence));
@@ -1011,10 +1028,10 @@ public class MolToolsTools
             throw new System.ArgumentException("Stem length must be positive.", nameof(stem_length));
 
         return new MolecularBeaconResult(
-            ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length, detection_temperature));
+            ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length, detection_temperature, max_align_length));
     }
 
-    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a hybridization probe. (1) Ungapped k-mismatch (Hamming) scan of the reference sequences (search radius max_mismatches, default 3 — a library convention): off-target hit count (intended site included) and a library uniqueness score (0 hits → 0.0, N hits → 1/N; reported only, not a published metric); each hit is judged by the Kane et al. (2000) criteria on its ungapped diagonal (identity (L − mismatches)/L > max_non_target_identity or > max_contiguous_match contiguous identical nt; counted in crossHybridizingHits) and more than one such site is an issue. (2) Self-structure: for ≤ 60-nt A/C/G/T probes with thermodynamic_screen (default) Primer3's thermodynamic probe screen — ntthal self-dimer, 3′ self-dimer and hairpin Tm at the reaction conditions (monovalent_mm / divalent_mm / dntp_mm / dna_conc_nm; default Primer3 probe conditions 50 mM / 0 / 0 / 50 nM) must not exceed max_structure_tm (default 47 °C, PRIMER_INTERNAL_MAX_*_TH); longer or non-ACGT probes (or thermodynamic_screen = false) use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > max_self_any / max_self_end, default 12.00, PRIMER_INTERNAL_MAX_SELF_ANY/_END, no length limit) and a sequence-only inverted-repeat hairpin screen; selfAny / selfEnd are reported for every probe (selfComplementarity, the fold-back fraction, is an informational library metric). (3) Optional non_target_sequences: Kane et al. (2000) cross-hybridization criteria on both strands — overall identity of the best local (BLAST-scored Smith–Waterman–Gotoh) alignment over the probe length > 75 % or a contiguous identical stretch > 15 nt; each site also reports its ntthal duplex Tm with the probe (primer3-py calc_heterodimer, at the reaction conditions), optionally thresholded by max_duplex_tm (OligoArray 2.0). isValid = no issue recorded. Call to check whether a designed probe is specific and structure-free.")]
+    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a hybridization probe. (1) Ungapped k-mismatch (Hamming) scan of the reference sequences (search radius max_mismatches, default 3 — a library convention): off-target hit count (intended site included) and a library uniqueness score (0 hits → 0.0, N hits → 1/N; reported only, not a published metric); each hit is judged by the Kane et al. (2000) criteria on its ungapped diagonal (identity (L − mismatches)/L > max_non_target_identity or > max_contiguous_match contiguous identical nt; counted in crossHybridizingHits) and more than one such site is an issue. (2) Self-structure: for A/C/G/T probes of ≤ thermodynamic_screen_max_length nt (default 60 = Primer3's THAL_MAX_ALIGN; opt-in up to 10000) with thermodynamic_screen (default) Primer3's thermodynamic probe screen — ntthal self-dimer, 3′ self-dimer and hairpin Tm at the reaction conditions (monovalent_mm / divalent_mm / dntp_mm / dna_conc_nm; default Primer3 probe conditions 50 mM / 0 / 0 / 50 nM) must not exceed max_structure_tm (default 47 °C, PRIMER_INTERNAL_MAX_*_TH); longer or non-ACGT probes (or thermodynamic_screen = false) use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > max_self_any / max_self_end, default 12.00, PRIMER_INTERNAL_MAX_SELF_ANY/_END, no length limit) and a sequence-only inverted-repeat hairpin screen; selfAny / selfEnd are reported for every probe (selfComplementarity, the fold-back fraction, is an informational library metric). (3) Optional non_target_sequences: Kane et al. (2000) cross-hybridization criteria on both strands — overall identity of the best local (BLAST-scored Smith–Waterman–Gotoh) alignment over the probe length > 75 % or a contiguous identical stretch > 15 nt; each site also reports its ntthal duplex Tm with the probe (primer3-py calc_heterodimer, at the reaction conditions; null when probe and site are both longer than thermodynamic_screen_max_length), optionally thresholded by max_duplex_tm (OligoArray 2.0). isValid = no issue recorded. Call to check whether a designed probe is specific and structure-free.")]
     public static ProbeDesigner.ProbeValidation validate_probe(
         [Description("Probe sequence to validate.")] string probe_sequence,
         [Description("Reference sequences to scan for off-target hits.")] string[] reference_sequences,
@@ -1028,10 +1045,11 @@ public class MolToolsTools
         [Description("PRIMER_INTERNAL_SALT_DIVALENT: Mg²⁺ concentration in mM (>= 0; default 0).")] double divalent_mm = PrimerDesigner.Primer3InternalDivalentMillimolar,
         [Description("PRIMER_INTERNAL_DNTP_CONC: dNTP concentration in mM (>= 0; default 0).")] double dntp_mm = PrimerDesigner.Primer3InternalDntpMillimolar,
         [Description("PRIMER_INTERNAL_DNA_CONC: probe (oligo) concentration in nM (> 0; default 50).")] double dna_conc_nm = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar,
-        [Description("true (default) = Primer3 ntthal self-dimer / 3' self-dimer / hairpin Tm screen for <= 60-nt A/C/G/T probes (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1); false = the fallback screens for every probe (Primer3 alignment-mode self_any / self_end + inverted-repeat hairpin stem).")] bool thermodynamic_screen = true,
+        [Description("true (default) = Primer3 ntthal self-dimer / 3' self-dimer / hairpin Tm screen for A/C/G/T probes <= thermodynamic_screen_max_length nt (default 60) (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1); false = the fallback screens for every probe (Primer3 alignment-mode self_any / self_end + inverted-repeat hairpin stem).")] bool thermodynamic_screen = true,
         [Description("PRIMER_INTERNAL_MAX_SELF_ANY_TH = _SELF_END_TH = _HAIRPIN_TH: maximum ntthal self-dimer / 3' self-dimer / hairpin Tm in °C of the thermodynamic screen (default 47).")] double max_structure_tm = PrimerDesigner.Primer3MaxStructureTm,
         [Description("PRIMER_INTERNAL_MAX_SELF_ANY: maximum Primer3 alignment-mode self_any of the fallback screen (default 12).")] double max_self_any = PrimerDesigner.Primer3InternalMaxSelfComplementarity,
-        [Description("PRIMER_INTERNAL_MAX_SELF_END: maximum Primer3 alignment-mode self_end of the fallback screen (default 12).")] double max_self_end = PrimerDesigner.Primer3InternalMaxSelfComplementarity)
+        [Description("PRIMER_INTERNAL_MAX_SELF_END: maximum Primer3 alignment-mode self_end of the fallback screen (default 12).")] double max_self_end = PrimerDesigner.Primer3InternalMaxSelfComplementarity,
+        [Description("THAL_MAX_ALIGN of ntthal (ProbeParameters.ThermodynamicScreenMaxLength): longest A/C/G/T probe given the thermodynamic self-structure screen, and the length limit of the non-target duplex Tm (computed when the probe or the site is at most this long). Default 60 = Primer3; opt-in 61..10000 = thal.c compiled with -DTHAL_MAX_ALIGN (cost grows as n^2).")] int thermodynamic_screen_max_length = PrimerDesigner.NtthalMaxAlignLength)
     {
         if (probe_sequence is null)
             throw new System.ArgumentException("Probe sequence cannot be null.", nameof(probe_sequence));
@@ -1057,6 +1075,7 @@ public class MolToolsTools
             MaxStructureTm = max_structure_tm,
             MaxSelfAny = max_self_any,
             MaxSelfEnd = max_self_end,
+            ThermodynamicScreenMaxLength = thermodynamic_screen_max_length,
         };
         return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold,
             conditions: conditions,

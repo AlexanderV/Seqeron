@@ -212,4 +212,89 @@ public class PrimerDesigner_NtthalMaxAlign_Tests
                 NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
         });
     }
+
+    // --- A3-27 (F56): AssessCrossHybridization site duplex Tm and DesignMolecularBeacon stem-loop Tm ---
+
+    // 75-nt probe = Random120[0..75); non-target A = flanks + the probe with substitutions at 10, 35, 60 (site 75 nt);
+    // non-target B = flanks + probe[20..60) (site 40 nt).
+    private static readonly string Probe75 = Random120.Substring(0, 75);
+    private const string CrossNonTargetA =
+        "GATTACAGATTACAGTTTCGGAACATGCGTTTTAGGTATGTCTTAGTGAATCTAAATACCAAGGCAGTCCTCGAACCGTTCCTAATAAGCCTTGGAACC";
+    private static readonly string CrossNonTargetB = string.Concat("TTTTTGGGGG", Probe75.AsSpan(20, 40), "AAAAACCCCC");
+    private static ProbeDesigner.ProbeParameters ProbeConditions => new(20, 120, -1000, 1000, 0, 1, 100, true, 0.3);
+
+    [Test]
+    public void AssessCrossHybridization_MaxAlignOptIn_SiteDuplexTm_MatchesThal()
+    {
+        var nonTargets = new[] { CrossNonTargetA, CrossNonTargetB };
+        var byDefault = ProbeDesigner.AssessCrossHybridization(Probe75, nonTargets);
+        var optIn = ProbeDesigner.AssessCrossHybridization(Probe75, nonTargets,
+            conditions: ProbeConditions with { ThermodynamicScreenMaxLength = 120 });
+        Assert.Multiple(() =>
+        {
+            Assert.That((optIn[0].SiteStart, optIn[0].SiteEnd), Is.EqualTo((14, 88)));
+            // Probe 75 nt and site 75 nt both > 60: thal.c THAL_MAX_ALIGN 60 refuses (primer3-py raises) → null.
+            Assert.That(byDefault[0].DuplexTm, Is.Null);
+            // thal.c compiled with -DTHAL_MAX_ALIGN=10000, THAL_ANY probe vs revcomp(site), 50 mM / 0 / 0 / 50 nM, 37 °C.
+            Assert.That(optIn[0].DuplexTm, Is.EqualTo(66.457703046655695).Within(TmTol));
+            // Sites ≤ 60 nt (7, 40, 13 nt): computed by default too (thal_check_errors needs one strand ≤ 60) and
+            // equal to primer3-py calc_heterodimer(probe, revcomp(site)); the opt-in leaves them unchanged.
+            foreach (var r in new[] { byDefault, optIn })
+            {
+                Assert.That(r[1].DuplexTm, Is.EqualTo(19.05924515571178).Within(TmTol));
+                Assert.That(r[2].DuplexTm, Is.EqualTo(63.99555300270714).Within(TmTol));
+                Assert.That(r[3].DuplexTm, Is.EqualTo(-33.229679404433625).Within(TmTol));
+            }
+            Assert.That(() => ProbeDesigner.AssessCrossHybridization(Probe75, nonTargets,
+                    conditions: ProbeConditions with { ThermodynamicScreenMaxLength = 59 }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_ThermodynamicScreenMaxLength_AppliesToNonTargetDuplexTm()
+    {
+        var v = ProbeDesigner.ValidateProbe(Probe75, Enumerable.Empty<string>(),
+            conditions: ProbeConditions with { ThermodynamicScreenMaxLength = 120 },
+            nonTargetSequences: new[] { CrossNonTargetA }, maxDuplexTm: 60);
+        Assert.Multiple(() =>
+        {
+            // thal.c (THAL_MAX_ALIGN 10000) at 50/0/0/50 nM: hairpin 36.318725375690178, ANY 23.325175622075108,
+            // END1 17.579447109879538; duplex with the site 66.457703046655695.
+            Assert.That(v.ThermodynamicScreen, Is.True);
+            Assert.That(v.HairpinTm, Is.EqualTo(36.318725375690178).Within(TmTol));
+            Assert.That(v.SelfDimerTm, Is.EqualTo(23.325175622075108).Within(TmTol));
+            Assert.That(v.SelfEndDimerTm, Is.EqualTo(17.579447109879538).Within(TmTol));
+            Assert.That(v.CrossHybridization[0].DuplexTm, Is.EqualTo(66.457703046655695).Within(TmTol));
+            Assert.That(v.CrossHybridization[0].ExceedsDuplexTmThreshold, Is.True);
+            Assert.That(v.Issues, Has.Some.EqualTo(
+                "Cross-hybridization risk with non-target 0: identity 96%, longest contiguous match 24 nt (Kane 2000), site duplex Tm 66.5°C > 60°C"));
+        });
+    }
+
+    [Test]
+    public void DesignMolecularBeacon_MaxAlignOptIn_ReportsStemLoopTmOfLongBeacon()
+    {
+        // Loop 60 + stem 7 → 74-nt beacon GGGCCCC + Random120[0..60) + GGGGCCC. thal.c -DTHAL_MAX_ALIGN=10000 hairpin at
+        // 50 mM / 0 / 0, 37 °C: 45.449128344157543 °C (the 60-nt build and primer3-py calc_hairpin raise).
+        const string beacon = "GGGCCCCGTTTCGGAACTTGCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGAGGGGCCC";
+        var byDefault = ProbeDesigner.DesignMolecularBeacon(Random120, 60, 7)!.Value;
+        var optIn = ProbeDesigner.DesignMolecularBeacon(Random120, 60, 7, maxAlignLength: 100)!.Value;
+        var detect = ProbeDesigner.DesignMolecularBeacon(Random120, 60, 7, detectionTemperatureCelsius: 60, maxAlignLength: 100)!.Value;
+        var hp = PrimerDesigner.CalculateHairpinThermodynamicsNtthal(beacon, 0.05, 0, 0, 37, 30, 100)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(optIn.Sequence, Is.EqualTo(beacon));
+            Assert.That(hp.TmCelsius, Is.EqualTo(45.449128344157543).Within(TmTol));
+            Assert.That(byDefault.Warnings, Is.EqualTo(new[] { "Stem: 7bp, Loop: 60bp" }));
+            Assert.That(optIn.Warnings, Is.EqualTo(new[] { "Stem: 7bp, Loop: 60bp", "Stem-loop (hairpin) Tm 45.4°C (ntthal)" }));
+            Assert.That(detect.Warnings, Has.Some.EqualTo(
+                "Stem-loop Tm 45.4°C is less than 7 °C above the detection temperature 60°C"));
+            Assert.That((optIn.Start, optIn.End, optIn.Tm), Is.EqualTo((byDefault.Start, byDefault.End, byDefault.Tm)));
+            Assert.That(() => ProbeDesigner.DesignMolecularBeacon(Random120, 60, 7, maxAlignLength: 59),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => ProbeDesigner.DesignMolecularBeacon(Random120, 60, 7, maxAlignLength: 10001),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+        });
+    }
 }

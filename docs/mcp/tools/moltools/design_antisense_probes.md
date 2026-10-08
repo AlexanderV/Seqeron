@@ -27,6 +27,7 @@ Reverse-complements the supplied mRNA-sense sequence and runs the probe designer
 | `mrna_sequence` | string | Yes | mRNA-sense sequence (reverse-complemented internally), non-empty. |
 | `parameters` | object | No | Optional `ProbeParameters` (defaults to Microarray). |
 | `max_probes` | integer | No | Maximum probes to return (> 0, default 5). |
+| `thermodynamic_screen_max_length` | integer | No | THAL_MAX_ALIGN of the ntthal self-structure screen (`ProbeParameters.ThermodynamicScreenMaxLength`): A/C/G/T probes up to this length get the ntthal screen. Default null = the parameters' value (60 = Primer3); opt-in 61–10 000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with `-DTHAL_MAX_ALIGN`; cost O(n²) per probe). |
 
 ## Output Schema
 

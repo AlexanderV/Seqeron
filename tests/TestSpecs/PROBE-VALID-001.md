@@ -54,7 +54,7 @@
 14. **IsValid**: IsValid ⇔ Issues is empty (Source: Primer3 rejects an oligo violating any limit; Kane decision); SpecificityScore never enters it (library convention)
 17. **Reference sites (Kane)**: CrossHybridizingHits = #{hits with (L − d)/L > maxNonTargetIdentity ∨ longest identical run > maxContiguousMatch}; off-target issue ⇔ CrossHybridizingHits > 1; for L ≥ 13 and maxMismatches ≤ 3, CrossHybridizingHits = OffTargetHits (Source: Kane et al. 2000; audit round 3, A3-12)
 15. **Kane criteria**: CrossHybridizes ⇔ Identity > maxIdentity (0.75) ∨ LongestContiguousMatch > maxContiguousMatch (15) ∨ (maxDuplexTm given ∧ DuplexTm > maxDuplexTm); AlignmentScore = Biopython local score; LongestContiguousMatch = LCS length; both strands by default (Source: Kane et al. 2000; OligoArray 2.0)
-16. **Site duplex Tm**: DuplexTm = primer3-py calc_heterodimer(probe, revcomp(site)).tm (0 if no duplex); null for > 60-nt / non-ACGT probes or no site (Source: thal.c, OligoArray 2.0)
+16. **Site duplex Tm**: DuplexTm = primer3-py calc_heterodimer(probe, revcomp(site)).tm (0 if no duplex); null when the probe and the site are both longer than the conditions' `ThermodynamicScreenMaxLength` (THAL_MAX_ALIGN, default 60; thal.c `thal_check_errors` needs only one strand ≤ it — primer3-py raises otherwise), for non-ACGT probes/sites or no site (Source: thal.c, OligoArray 2.0; A3-27)
 
 ---
 
@@ -92,6 +92,7 @@
 | TH3 | Fold-back fraction 0.64 but no stable ntthal structure → no self-structure issue; Heuristic (fallback) screen: Primer3 alignment-mode self_any 9.00 / self_end 7.00 ≤ 12.00 → no issue either (audit round 2, A6) | Invariant #13 | primer3-py 2.3.1; dpal.c |
 | TH4 | > 60-nt probe → fallback screens, ntthal fields null; (ACGT)16 self_any = self_end = 64.00 > PRIMER_INTERNAL_MAX_SELF_ANY 12.00 → issue | Invariant #13 | thal.c THAL_MAX_ALIGN; dpal.c |
 | TH5 | Opt-in `ThermodynamicScreenMaxLength` = 64 / 100 (THAL_MAX_ALIGN override): (ACGT)16 hairpin 77.098245155727511, self-dimer = 3′ self-dimer 72.769499884640766 → both issues; 82-nt stem-loop hairpin 68.102992186803021 (issue), self-dimer 45.91673334496744 (none); 59 → `ArgumentOutOfRangeException` (A3-9, F55; `PrimerDesigner_NtthalMaxAlign_Tests.ValidateProbe_ThermodynamicScreenMaxLength_ScreensLongProbeWithNtthal`) | Invariant #13 | thal.c compiled with -DTHAL_MAX_ALIGN=10000 |
+| KN7 | Opt-in THAL_MAX_ALIGN for the site duplex (A3-27, F56): 75-nt probe vs 75-nt site → null by default, 66.457703046655695 with `ThermodynamicScreenMaxLength` = 120; ≤ 60-nt sites (7 / 40 / 13 nt) computed by default = primer3-py calc_heterodimer 19.05924515571178 / 63.99555300270714 / −33.229679404433625; 62-nt probe / 49-nt site 36.11423712379826; `ValidateProbe` passes the conditions' value (hairpin 36.318725375690178, ANY 23.325175622075108, END1 17.579447109879538) | Invariant #16 | thal.c -DTHAL_MAX_ALIGN=10000; primer3-py 2.3.1 |
 | KN1 | Kane fixtures A–E: score / identical / LCS = Biopython | Invariant #15 | Biopython 1.88 |
 | KN2 | Kane thresholds strict (0.80 ↛ > 0.80; 15 nt ↛ > 15) | Invariant #15 | Kane et al. 2000 |
 | KN3 | Chunked long non-target score = canonical whole-strand LocalAlignAffine | Invariant #15 | SequenceAligner |
@@ -170,6 +171,7 @@
 | TH3 | `ValidateProbe_HighFoldBackFractionWithoutStableStructure_PassesThermodynamicScreen` | ✅ Covered | thermo vs heuristic |
 | TH4 | `ValidateProbe_ProbeLongerThan60nt_UsesSequenceOnlyFallback` | ✅ Covered | fallback |
 | KN1 | `AssessCrossHybridization_MatchesBiopythonLocalAlignmentAndLcs` | ✅ Covered | 10 strands |
+| KN7 | `PrimerDesigner_NtthalMaxAlign_Tests.AssessCrossHybridization_MaxAlignOptIn_SiteDuplexTm_MatchesThal`, `ValidateProbe_ThermodynamicScreenMaxLength_AppliesToNonTargetDuplexTm`, `AssessCrossHybridization_SiteDuplexTm_MatchesPrimer3CalcHeterodimer` (62-nt probe) | ✅ Covered | thal.c / primer3-py within 1e-9 |
 | KN2 | `AssessCrossHybridization_AppliesKaneThresholds` | ✅ Covered | strict thresholds |
 | KN3 | `AssessCrossHybridization_LongNonTarget_ChunkedScoreEqualsCanonicalWholeStrandAlignment` | ✅ Covered | 9-kb strand |
 | KN4 | `AssessCrossHybridization_SiteDuplexTm_MatchesPrimer3CalcHeterodimer` | ✅ Covered | calc_heterodimer within 1e-9 |

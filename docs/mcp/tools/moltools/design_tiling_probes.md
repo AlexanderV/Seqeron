@@ -28,6 +28,7 @@ Walks the target in steps of `probe_length − overlap`, emitting a `probe_lengt
 | `probe_length` | integer | No | Probe length in bp (> 0, default 60). |
 | `overlap` | integer | No | Overlap in bp (`0 ≤ overlap < probe_length`, default 20). |
 | `parameters` | object | No | Optional `ProbeParameters` (Tm/GC bounds etc.). |
+| `thermodynamic_screen_max_length` | integer | No | THAL_MAX_ALIGN of the ntthal self-structure screen (`ProbeParameters.ThermodynamicScreenMaxLength`): A/C/G/T probes up to this length get the ntthal screen. Default null = the parameters' value (60 = Primer3); opt-in 61–10 000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with `-DTHAL_MAX_ALIGN`; cost O(n²) per probe). |
 
 ## Output Schema
 

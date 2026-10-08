@@ -12,7 +12,8 @@
     "properties": {
       "mrna_sequence": { "type": "string", "description": "mRNA-sense sequence (will be reverse-complemented).", "minLength": 1 },
       "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters.", "default": null },
-      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 5).", "minimum": 1, "default": 5 }
+      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 5).", "minimum": 1, "default": 5 },
+      "thermodynamic_screen_max_length": { "type": ["integer", "null"], "description": "THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe.", "default": null }
     },
     "required": ["mrna_sequence"]
   },

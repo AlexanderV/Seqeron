@@ -1505,13 +1505,15 @@ public class ProbeDesigner_ProbeValidation_Tests
                 "Cross-hybridization risk with non-target 0: identity 80%, longest contiguous match 6 nt (Kane 2000), site duplex Tm 36.1°C > 30°C"));
         });
 
-        // > 60-nt probe: thal.c THAL_MAX_ALIGN → no duplex Tm; empty strand → no site.
+        // 62-nt probe, 49-nt site [20, 68]: thal.c thal_check_errors refuses only when BOTH strands exceed THAL_MAX_ALIGN
+        // (60), so the duplex Tm is computed (A3-27; primer3-py calc_heterodimer(probe, revcomp(site)) at 50/0/0/50 nM:
+        // 36.11423712379826); empty strand → no site.
         string longProbe = KaneProbe + "ACGTACGTACGT";
         var l = ProbeDesigner.AssessCrossHybridization(longProbe, new[] { KaneNonTargetA, "" }, bothStrands: false);
         Assert.Multiple(() =>
         {
-            Assert.That(l[0].DuplexTm, Is.Null);
-            Assert.That(l[0].SiteStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That((l[0].SiteStart, l[0].SiteEnd), Is.EqualTo((20, 68)));
+            Assert.That(l[0].DuplexTm, Is.EqualTo(36.11423712379826).Within(1e-9));
             Assert.That((l[1].SiteStart, l[1].SiteEnd, l[1].DuplexTm), Is.EqualTo((-1, -1, (double?)null)));
         });
     }
