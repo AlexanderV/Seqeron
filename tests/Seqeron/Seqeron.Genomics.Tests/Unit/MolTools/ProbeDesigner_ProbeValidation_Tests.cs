@@ -2046,8 +2046,11 @@ public class ProbeDesigner_ProbeValidation_Tests
     // (blast_stat.h) limits one-letter scores to BLAST_SCORE_MIN = INT2_MIN … BLAST_SCORE_MAX = INT2_MAX.
     [TestCase(1, int.MinValue, "mismatch")]
     [TestCase(1, short.MinValue - 1, "mismatch")]
+    [TestCase(1, short.MinValue, "mismatch")]   // blastn 2.12: 1/−32768 "Could not calculate ungapped Karlin-Altschul parameters"
+    [TestCase(2, short.MinValue, "mismatch")]   // blastn 2.12: 2/−32768 likewise
     [TestCase(int.MaxValue, -3, "match")]
     [TestCase(short.MaxValue + 1, -3, "match")]
+    [TestCase(short.MaxValue, -32767, "match")] // blastn 2.12: 32767/−32767 likewise
     public void ComputeUngappedKarlinParameters_ScoreOutsideBlastScoreRange_Throws(int match, int mismatch, string param)
     {
         foreach (var method in new[] { ProbeDesigner.KarlinKMethod.ReducedLattice, ProbeDesigner.KarlinKMethod.NcbiBlast })
@@ -2058,7 +2061,32 @@ public class ProbeDesigner_ProbeValidation_Tests
     [Test]
     public void ComputeUngappedKarlinParameters_BlastScoreRangeLimits_Accepted()
     {
-        var p = ProbeDesigner.ComputeUngappedKarlinParameters(1, short.MinValue);
-        Assert.That(double.IsFinite(p.Lambda) && p.Lambda > 0, Is.True);
+        // blastn 2.12.0+ -ungapped -reward 1 -penalty -32767: lambda 1.39, K 0.750, H 1.39.
+        var p = ProbeDesigner.ComputeUngappedKarlinParameters(1, short.MinValue + 1);
+        Assert.That(p.Lambda, Is.EqualTo(1.39).Within(0.005));
+        Assert.That(p.K, Is.EqualTo(0.750).Within(0.0005));
+        Assert.That(p.H, Is.EqualTo(1.39).Within(0.005));
+    }
+
+    // Audit round 8 (A8-2): Beer–Lambert c = A/(ε·l) in µM; ε, l ≤ 0 or non-finite arguments are undefined.
+    [TestCase(0.5, 200000.0, 1.0, 2.5)]
+    [TestCase(1.0, 100000.0, 0.5, 20.0)]
+    [TestCase(-0.01, 100000.0, 1.0, -0.1)]
+    public void CalculateConcentration_BeerLambert_Micromolar(double a, double eps, double l, double expected)
+    {
+        Assert.That(ProbeDesigner.CalculateConcentration(a, eps, l), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    [TestCase(0.5, 0.0, 1.0, "extinctionCoefficient")]
+    [TestCase(0.5, -10000.0, 1.0, "extinctionCoefficient")]
+    [TestCase(0.5, double.NaN, 1.0, "extinctionCoefficient")]
+    [TestCase(0.5, 10000.0, 0.0, "pathLength")]
+    [TestCase(0.5, 10000.0, -1.0, "pathLength")]
+    [TestCase(0.5, 10000.0, double.PositiveInfinity, "pathLength")]
+    [TestCase(double.NaN, 10000.0, 1.0, "absorbance260")]
+    public void CalculateConcentration_UndefinedArguments_Throw(double a, double eps, double l, string param)
+    {
+        Assert.That(() => ProbeDesigner.CalculateConcentration(a, eps, l),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo(param));
     }
 }

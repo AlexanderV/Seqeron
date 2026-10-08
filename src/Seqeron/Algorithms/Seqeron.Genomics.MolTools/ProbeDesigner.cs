@@ -3040,7 +3040,7 @@ public static class ProbeDesigner
     /// as blastn prints it: +4/−6 → 1.1666856431064105). Identical for δ = 1.
     /// </param>
     /// <exception cref="ArgumentOutOfRangeException">λ undefined (no positive score, non-negative mismatch or
-    /// non-negative expected score), a score outside BLAST+'s BLAST_SCORE_MIN … BLAST_SCORE_MAX (INT2 range), a base
+    /// non-negative expected score), a score at or beyond BLAST+'s BLAST_SCORE_MIN / BLAST_SCORE_MAX (INT2 limits, exclusive), a base
     /// frequency outside (0, 0.5), or an undefined <paramref name="kMethod"/>.</exception>
     public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
         int match, int mismatch, double baseFrequency = UniformBaseFrequency,
@@ -3380,10 +3380,11 @@ public static class ProbeDesigner
             throw new ArgumentOutOfRangeException(nameof(mismatch),
                 "Karlin–Altschul λ is undefined: the mismatch score must be negative.");
         // BLAST+ blast_stat.h: BLAST_SCORE_MIN = INT2_MIN, BLAST_SCORE_MAX = INT2_MAX (one-letter comparison scores).
-        if (match > short.MaxValue)
-            throw new ArgumentOutOfRangeException(nameof(match), "Match score exceeds BLAST_SCORE_MAX (32767).");
-        if (mismatch < short.MinValue)
-            throw new ArgumentOutOfRangeException(nameof(mismatch), "Mismatch score is below BLAST_SCORE_MIN (−32768).");
+        // BlastScoreBlkMaxScoreSet skips scores <= BLAST_SCORE_MIN or >= BLAST_SCORE_MAX, so the limits are exclusive.
+        if (match >= short.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(match), "Match score must be below BLAST_SCORE_MAX (32767).");
+        if (mismatch <= short.MinValue)
+            throw new ArgumentOutOfRangeException(nameof(mismatch), "Mismatch score must be above BLAST_SCORE_MIN (−32768).");
     }
 
     // p(match) = 4·p² for four equiprobable bases of frequency p (p must keep it a probability in (0, 1)).
@@ -3675,16 +3676,26 @@ public static class ProbeDesigner
     }
 
     /// <summary>
-    /// Calculates concentration from absorbance.
+    /// Oligonucleotide concentration from absorbance by the Beer–Lambert law, A = ε·c·l ⇒ c = A / (ε·l).
     /// </summary>
+    /// <param name="absorbance260">Absorbance at 260 nm (finite; blank-subtracted readings may be ≤ 0).</param>
+    /// <param name="extinctionCoefficient">Molar extinction coefficient ε₂₆₀ in L·mol⁻¹·cm⁻¹ (finite, &gt; 0),
+    /// e.g. from <see cref="CalculateExtinctionCoefficient"/>.</param>
+    /// <param name="pathLength">Optical path length l in cm (finite, &gt; 0; default 1).</param>
+    /// <returns>Concentration in µM (mol/L × 10⁶).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A non-finite argument, or ε or l ≤ 0 (c undefined).</exception>
     public static double CalculateConcentration(
         double absorbance260,
         double extinctionCoefficient,
         double pathLength = 1.0)
     {
-        // Beer-Lambert law: A = εcl
-        // c = A / (ε * l)
-        return absorbance260 / (extinctionCoefficient * pathLength) * 1e6; // µM
+        if (!double.IsFinite(absorbance260))
+            throw new ArgumentOutOfRangeException(nameof(absorbance260), "Absorbance must be finite.");
+        if (!double.IsFinite(extinctionCoefficient) || extinctionCoefficient <= 0)
+            throw new ArgumentOutOfRangeException(nameof(extinctionCoefficient), "Extinction coefficient must be finite and positive.");
+        if (!double.IsFinite(pathLength) || pathLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(pathLength), "Path length must be finite and positive.");
+        return absorbance260 / (extinctionCoefficient * pathLength) * 1e6;
     }
 
     #endregion
