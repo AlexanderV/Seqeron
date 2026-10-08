@@ -103,6 +103,11 @@ internal static class NtthalDimer
 
     internal static bool IsFinite(double x) => !double.IsInfinity(x);
 
+    // Table accessors shared by the dimer and hairpin engines: 4-D flat arrays indexed [i][ii][j][jj] ->
+    // ((i*5+ii)*5+j)*5+jj; 3-D dangle tables i*25 + col*5 + col2.
+    internal static double T4(double[] t, int i, int ii, int j, int jj) => t[((i * 5 + ii) * 5 + j) * 5 + jj];
+    internal static double T3(double[] t, int i, int j, int k) => t[(i * 5 + j) * 5 + k];
+
     /// <summary>The most stable dimer's ntthal thermodynamics (native ntthal units).</summary>
     /// <param name="DeltaH">Dimer ΔH° in cal/mol (salt-independent).</param>
     /// <param name="DeltaS">Dimer ΔS° in cal/(K·mol), including the N·saltCorrection term.</param>
@@ -140,13 +145,12 @@ internal static class NtthalDimer
     /// <summary>
     /// saltCorrectS (thal.c line 1039-1043): 0.368·ln((mv + 120·√max(0, dv − dntp))/1000), with all
     /// concentrations in mM (von Ahsen et al. 2001 divalent→monovalent equivalence; dntp is ignored
-    /// when dv ≤ 0).
+    /// when dv ≤ 0). The equivalent monovalent concentration is the one oligotm.c conversion
+    /// <see cref="PrimerDesigner.Primer3MonovalentEquivalent"/> (thal.c's "dv ≤ 0 ⇒ dntp = dv" is its
+    /// "no divalent ⇒ no contribution" once a non-positive dv is read as 0; bit-identical for every input).
     /// </summary>
-    internal static double SaltCorrectS(double mvMm, double dvMm, double dntpMm)
-    {
-        if (dvMm <= 0) dntpMm = dvMm;
-        return 0.368 * Math.Log((mvMm + 120.0 * Math.Sqrt(Math.Max(0.0, dvMm - dntpMm))) / 1000.0);
-    }
+    internal static double SaltCorrectS(double mvMm, double dvMm, double dntpMm) =>
+        0.368 * Math.Log(PrimerDesigner.Primer3MonovalentEquivalent(mvMm, dvMm <= 0 ? 0.0 : dvMm, dntpMm) / 1000.0);
 
     /// <summary>
     /// Runs the ntthal dimer DP with an explicit alignment type and divalent/dNTP concentrations
@@ -209,10 +213,6 @@ internal static class NtthalDimer
         // DP tables (1-indexed). EnthalpyDPT/EntropyDPT.
         var enH = new double[len1 + 2, len2 + 2];
         var enS = new double[len1 + 2, len2 + 2];
-
-        // ---- table accessors (4-D flat arrays indexed [i][ii][j][jj] -> i*125+ii*25+j*5+jj) ----
-        static double T4(double[] t, int i, int ii, int j, int jj) => t[((i * 5 + ii) * 5 + j) * 5 + jj];
-        static double T3(double[] t, int i, int j, int k) => t[(i * 5 + j) * 5 + k];
 
         // initMatrix (thal.c 1547-1562).
         for (int i = 1; i <= len1; i++)
@@ -509,8 +509,6 @@ internal static class NtthalDimer
     internal static (double S, double H) RightTerminalPair(
         int[] a, int[] b, int i, int j, double dplxInitH, double dplxInitS, double rc)
     {
-        static double T4(double[] t, int i, int ii, int j, int jj) => t[((i * 5 + ii) * 5 + j) * 5 + jj];
-        static double T3(double[] t, int i, int j, int k) => t[(i * 5 + j) * 5 + k];
         if (Bpi[a[i], b[j]] == 0) return (-1.0, Inf);
         double s1 = AtPenaltySOf(a[i], b[j]) + T4(Tstack2S, a[i], a[i + 1], b[j], b[j + 1]);
         double h1 = AtPenaltyHOf(a[i], b[j]) + T4(Tstack2H, a[i], a[i + 1], b[j], b[j + 1]);
@@ -531,7 +529,7 @@ internal static class NtthalDimer
         return TerminalPair(s1, h1, unpaired && (d3 || d5), s2, h2, a[i], b[j], dplxInitH, dplxInitS, rc);
     }
 
-    private static string ReverseString(string s)
+    internal static string ReverseString(string s)
     {
         var c = s.ToCharArray();
         Array.Reverse(c);
@@ -594,9 +592,11 @@ internal static class NtthalDimer
     /// <summary>
     /// Reverse-complement palindrome test, a port of thal.c <c>symmetry_thermo</c>: odd length is
     /// never symmetric; each mirrored pair fails only when one side is A/T/C/G and the other is not
-    /// its Watson–Crick partner (two non-ACGT characters pass, as in thal.c).
+    /// its Watson–Crick partner (two non-ACGT characters pass, as in thal.c). Also oligotm.c
+    /// <c>symmetry()</c> (the same test on raw characters), used by <see cref="PrimerDesigner.Calculate3PrimeStability"/>
+    /// on its upper-cased window.
     /// </summary>
-    private static bool IsSymmetric(string oligo)
+    internal static bool IsSymmetric(string oligo)
     {
         int len = oligo.Length;
         if (len % 2 != 0) return false;

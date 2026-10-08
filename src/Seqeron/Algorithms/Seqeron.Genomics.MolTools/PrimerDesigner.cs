@@ -1818,7 +1818,7 @@ public static partial class PrimerDesigner
             for (int j = i + minStemLength + minLoopLength; j <= seq.Length - minStemLength; j++)
             {
                 string target = seq.Substring(j, minStemLength);
-                if (AreComplementary(fragment, Reverse(target)))
+                if (AreComplementary(fragment, NtthalDimer.ReverseString(target)))
                     return true;
             }
         }
@@ -2278,7 +2278,7 @@ public static partial class PrimerDesigner
         // oligodg (santalucia): dg = −1960 [−430 if symmetric] [−50 per terminal A/T] + Σ table, in cal/mol
         // of −ΔG; the method returns ΔG = −dg/1000.
         int dg = -1960;
-        if (IsPrimer3Symmetric(window)) dg += -430;
+        if (NtthalDimer.IsSymmetric(window)) dg += -430; // oligotm.c symmetry() = thal.c symmetry_thermo on upper case
         if (window[0] is 'A' or 'T') dg += -50;
         for (int i = 0; i + 1 < idx.Length; i++)
             dg += Primer3SantaLucia1998Dg[idx[i], idx[i + 1]];
@@ -2296,22 +2296,6 @@ public static partial class PrimerDesigner
         {  580, 1300, 1450, 1000,  580 },
         {  580, 1300, 1280,  880,  580 },
     };
-
-    // oligotm.c symmetry(): even length and every A/T and C/G position Watson-Crick paired with its mirror.
-    private static bool IsPrimer3Symmetric(string seq)
-    {
-        int n = seq.Length;
-        if (n % 2 == 1) return false;
-        for (int i = 0; i < n / 2; i++)
-        {
-            char s = seq[i], e = seq[n - 1 - i];
-            if ((s == 'A' && e != 'T') || (s == 'T' && e != 'A') || (e == 'A' && s != 'T') || (e == 'T' && s != 'A'))
-                return false;
-            if ((s == 'C' && e != 'G') || (s == 'G' && e != 'C') || (e == 'C' && s != 'G') || (e == 'G' && s != 'C'))
-                return false;
-        }
-        return true;
-    }
 
     // ---- Nearest-neighbour salt-corrected Tm (PRIMER-NNTM-001, opt-in) ----------
     // SantaLucia & Hicks (2004) Watson-Crick NN ΔH°/ΔS° (1 M NaCl; Biopython DNA_NN4 — NOT the
@@ -3506,7 +3490,7 @@ public static partial class PrimerDesigner
         double saltPerStack = SantaLuciaEntropySaltCoefficient * Math.Log(sodiumMolar);
 
         // Strand 2 read 3'→5' so its index i pairs base-for-base under strand 1 read 5'→3'.
-        string s2Rev = Reverse(s2);
+        string s2Rev = NtthalDimer.ReverseString(s2);
         int n = s1.Length, m = s2.Length;
 
         DimerResult? best = null;
@@ -4705,13 +4689,6 @@ public static partial class PrimerDesigner
         }
 
         return Math.Max(0, score);
-    }
-
-    private static string Reverse(string s)
-    {
-        var chars = s.ToCharArray();
-        Array.Reverse(chars);
-        return new string(chars);
     }
 
     private static bool AreComplementary(string s1, string s2)

@@ -84,10 +84,7 @@ internal static class NtthalHairpin
         -18.61, -18.84, -19.05, -19.26, -19.66, -19.85, -20.04, -20.21, -20.38, -20.31,
     };
 
-    // table accessors (4-D flat arrays indexed [i][ii][j][jj] -> ((i*5+ii)*5+j)*5+jj) — same
-    // layout NtthalDimer uses. 3-D dangle: i*25 + col*5 + col2.
-    private static double T4(double[] t, int i, int ii, int j, int jj) => t[((i * 5 + ii) * 5 + j) * 5 + jj];
-    private static double T3(double[] t, int i, int j, int k) => t[(i * 5 + j) * 5 + k];
+    // Table accessors: the shared NtthalDimer.T4 / NtthalDimer.T3 (same flat layout as the dimer engine).
 
     /// <summary>
     /// Runs the full ntthal hairpin DP on one oligo (5′→3′, ACGT only). Returns <c>null</c> when
@@ -143,22 +140,22 @@ internal static class NtthalHairpin
         double Ss2(int i, int j)
         {
             if (i >= j || i == len1 || j == len2 + 1) return -1.0;
-            return T4(NtthalDimer.StackS, s[i], s[i + 1], s[j], s[j - 1]);
+            return NtthalDimer.T4(NtthalDimer.StackS, s[i], s[i + 1], s[j], s[j - 1]);
         }
         double Hs2(int i, int j)
         {
             if (i >= j || i == len1 || j == len2 + 1) return Inf;
-            double v = T4(NtthalDimer.StackH, s[i], s[i + 1], s[j], s[j - 1]);
+            double v = NtthalDimer.T4(NtthalDimer.StackH, s[i], s[i + 1], s[j], s[j - 1]);
             return IsFinite(v) ? v : Inf;
         }
 
         // dangle / tstack2 helpers (thal.c Sd5/Hd5/Sd3/Hd3/Ststack/Htstack, all on numSeq1).
-        double Sd5(int i, int j) => T3(NtthalDimer.Dangle5S, s[i], s[j], s[j - 1]);
-        double Hd5(int i, int j) => T3(NtthalDimer.Dangle5H, s[i], s[j], s[j - 1]);
-        double Sd3(int i, int j) => T3(NtthalDimer.Dangle3S, s[i], s[i + 1], s[j]);
-        double Hd3(int i, int j) => T3(NtthalDimer.Dangle3H, s[i], s[i + 1], s[j]);
-        double Ststack(int i, int j) => T4(NtthalDimer.Tstack2S, s[i], s[i + 1], s[j], s[j - 1]);
-        double Htstack(int i, int j) => T4(NtthalDimer.Tstack2H, s[i], s[i + 1], s[j], s[j - 1]);
+        double Sd5(int i, int j) => NtthalDimer.T3(NtthalDimer.Dangle5S, s[i], s[j], s[j - 1]);
+        double Hd5(int i, int j) => NtthalDimer.T3(NtthalDimer.Dangle5H, s[i], s[j], s[j - 1]);
+        double Sd3(int i, int j) => NtthalDimer.T3(NtthalDimer.Dangle3S, s[i], s[i + 1], s[j]);
+        double Hd3(int i, int j) => NtthalDimer.T3(NtthalDimer.Dangle3H, s[i], s[i + 1], s[j]);
+        double Ststack(int i, int j) => NtthalDimer.T4(NtthalDimer.Tstack2S, s[i], s[i + 1], s[j], s[j - 1]);
+        double Htstack(int i, int j) => NtthalDimer.T4(NtthalDimer.Tstack2H, s[i], s[i + 1], s[j], s[j - 1]);
 
         static bool Equal(double a, double b) =>
             IsFinite(a) && IsFinite(b) && Math.Abs(a - b) < EqualTolerance;
@@ -177,8 +174,8 @@ internal static class NtthalHairpin
 
             if (loopSize > 3)
             {
-                eH += T4(NtthalDimer.Tstack2H, s[i], s[i + 1], s[j], s[j - 1]);
-                eS += T4(NtthalDimer.Tstack2S, s[i], s[i + 1], s[j], s[j - 1]);
+                eH += NtthalDimer.T4(NtthalDimer.Tstack2H, s[i], s[i + 1], s[j], s[j - 1]);
+                eS += NtthalDimer.T4(NtthalDimer.Tstack2S, s[i], s[i + 1], s[j], s[j - 1]);
             }
             else if (loopSize == 3)
             {
@@ -233,8 +230,8 @@ internal static class NtthalHairpin
                 {
                     if ((loopSize2 == 1 && loopSize1 == 0) || (loopSize2 == 0 && loopSize1 == 1))
                     {
-                        h = NtthalDimer.BulgeH[loopSize] + T4(NtthalDimer.StackH, s[i], s[ii], s[j], s[jj]);
-                        sv = NtthalDimer.BulgeS[loopSize] + T4(NtthalDimer.StackS, s[i], s[ii], s[j], s[jj]);
+                        h = NtthalDimer.BulgeH[loopSize] + NtthalDimer.T4(NtthalDimer.StackH, s[i], s[ii], s[j], s[jj]);
+                        sv = NtthalDimer.BulgeS[loopSize] + NtthalDimer.T4(NtthalDimer.StackS, s[i], s[ii], s[j], s[jj]);
                     }
                 }
                 else
@@ -250,11 +247,11 @@ internal static class NtthalHairpin
             }
             else if (loopSize1 == 1 && loopSize2 == 1) // single internal mismatch (1×1)
             {
-                sv = T4(NtthalDimer.Int2S, s[i], s[i + 1], s[j], s[j - 1]) +
-                     T4(NtthalDimer.Int2S, s[jj], s[jj + 1], s[ii], s[ii - 1]);
+                sv = NtthalDimer.T4(NtthalDimer.Int2S, s[i], s[i + 1], s[j], s[j - 1]) +
+                     NtthalDimer.T4(NtthalDimer.Int2S, s[jj], s[jj + 1], s[ii], s[ii - 1]);
                 if (traceback != 1) sv += enS[ii, jj];
-                h = T4(NtthalDimer.Int2H, s[i], s[i + 1], s[j], s[j - 1]) +
-                    T4(NtthalDimer.Int2H, s[jj], s[jj + 1], s[ii], s[ii - 1]);
+                h = NtthalDimer.T4(NtthalDimer.Int2H, s[i], s[i + 1], s[j], s[j - 1]) +
+                    NtthalDimer.T4(NtthalDimer.Int2H, s[jj], s[jj + 1], s[ii], s[ii - 1]);
                 if (traceback != 1) h += enH[ii, jj];
                 if (!IsFinite(h)) { h = Inf; sv = -1.0; }
                 t1 = Tm(h, sv);
@@ -267,11 +264,11 @@ internal static class NtthalHairpin
             }
             else // general internal loop
             {
-                h = NtthalDimer.InteriorH[loopSize] + T4(NtthalDimer.TstackH, s[i], s[i + 1], s[j], s[j - 1]) +
-                    T4(NtthalDimer.TstackH, s[jj], s[jj + 1], s[ii], s[ii - 1]) + IlAh * Math.Abs(loopSize1 - loopSize2);
+                h = NtthalDimer.InteriorH[loopSize] + NtthalDimer.T4(NtthalDimer.TstackH, s[i], s[i + 1], s[j], s[j - 1]) +
+                    NtthalDimer.T4(NtthalDimer.TstackH, s[jj], s[jj + 1], s[ii], s[ii - 1]) + IlAh * Math.Abs(loopSize1 - loopSize2);
                 if (traceback != 1) h += enH[ii, jj];
-                sv = NtthalDimer.InteriorS[loopSize] + T4(NtthalDimer.TstackS, s[i], s[i + 1], s[j], s[j - 1]) +
-                     T4(NtthalDimer.TstackS, s[jj], s[jj + 1], s[ii], s[ii - 1]) + IlAs * Math.Abs(loopSize1 - loopSize2);
+                sv = NtthalDimer.InteriorS[loopSize] + NtthalDimer.T4(NtthalDimer.TstackS, s[i], s[i + 1], s[j], s[j - 1]) +
+                     NtthalDimer.T4(NtthalDimer.TstackS, s[jj], s[jj + 1], s[ii], s[ii - 1]) + IlAs * Math.Abs(loopSize1 - loopSize2);
                 if (traceback != 1) sv += enS[ii, jj];
                 if (!IsFinite(h)) { h = Inf; sv = -1.0; }
                 t1 = Tm(h, sv);
