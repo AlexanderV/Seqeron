@@ -113,9 +113,10 @@ internal static class NtthalDimer
     /// <param name="Strand2End">1-based paired index on the reversed strand 2 (ntthal align_end_2).</param>
     /// <param name="AsciiStructure">The four thal.c <c>drawDimer</c> lines ("SEQ\t…", "SEQ\t…",
     /// "STR\t…", "STR\t…"; primer3-py <c>ascii_structure_lines</c>) when requested, else null.</param>
+    /// <param name="Strand1Start">1-based 5′-most paired index on strand 1 (the end of the thal.c traceback).</param>
     internal readonly record struct Result(
         double DeltaH, double DeltaS, double DeltaG37, double TmCelsius,
-        int BasePairs, int Strand1End, int Strand2End, string[]? AsciiStructure = null);
+        int BasePairs, int Strand1End, int Strand2End, string[]? AsciiStructure = null, int Strand1Start = 0);
 
     /// <summary>
     /// Runs the full ntthal dimer DP for two oligos (5′→3′). Returns <c>null</c> when no duplex
@@ -454,7 +455,9 @@ internal static class NtthalDimer
         string[]? structure = withStructure
             ? DrawDimer(oligo1.ToUpperInvariant(), ReverseString(oligo2.ToUpperInvariant()), ps1, ps2)
             : null;
-        return new Result(dH, dsOut, dg, tm, n + 1, bestI, bestJ, structure);
+        int firstPaired1 = 1;
+        while (firstPaired1 < len1 && ps1[firstPaired1 - 1] == 0) firstPaired1++;
+        return new Result(dH, dsOut, dg, tm, n + 1, bestI, bestJ, structure, firstPaired1);
     }
 
     // A·T penalty tables (thal.c tableStartATH/ATS): only A·T (0,3)/(3,0) carry the penalty.

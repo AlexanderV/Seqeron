@@ -55,7 +55,7 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-1 | The returned hairpin minimises ΔG°37 over all stem/loop placements (MFE). | Yes | Source 1 (folding = minimum free energy) |
+| INV-1 | The returned hairpin minimises ΔG°37 over all stem/loop placements (MFE) — every stem length closing a ≥ 3-nt loop, not only the maximal extension (GGGGCCCC → 2 bp + 3 nt; audit round 3, A3-13 / F57). | Yes | Source 1 (folding = minimum free energy) |
 | INV-2 | A homopolymer / oligo with no WC stem closing a ≥3-nt loop returns null (no hairpin). | Yes | Source 1 (no stem possible) |
 | INV-3 | Hairpin Tm is concentration-independent: Tm = ΔH°·1000/ΔS° − 273.15, no C_T term. | Yes | Source 1 Eq.11; Source 3 |
 | INV-4 | Loop ΔH° contribution is 0; loop ΔS° = −ΔG°37·1000/310.15. | Yes | Source 1 Table 4 footnote a |

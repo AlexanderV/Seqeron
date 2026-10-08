@@ -6,7 +6,7 @@
 | Test Unit ID | PRIMER-TM-001 (self-/hetero-dimer extension); PRIMER-DIMER-001 (ntthal dimer engine) |
 | Related Projects | Seqeron.Genomics.MolTools |
 | Implementation Status | Complete (full ntthal DP; `FindMostStableDimer` = separate contiguous-helix scorer) |
-| Last Reviewed | 2026-10-01 |
+| Last Reviewed | 2026-10-08 (audit round 3, A3-13 / F58) |
 
 ## 1. Overview
 
@@ -82,14 +82,15 @@ The most stable duplex is the contiguous WC run (over all antiparallel offsets) 
 | strandConcentrationMolar | double | 50e-9 (50 nM) | total strand concentration C_T (Primer3/ntthal convention) | > 0 |
 | temperatureCelsius | double | 37 | primer3-py `temp_c`: ΔG reported at this temperature (ΔG = ΔH − (temp_c + 273.15)·ΔS); the DP ranking and Tm do not depend on it | — |
 | maxLoop | int | 30 | primer3-py `max_loop`: largest internal loop / bulge | 0–30, else `ArgumentOutOfRangeException` |
+| model | `StructureModel` | — (overload) | `FindMostStableDimer(s1, s2, model, double? mv, dv, dntp, C_T, temp_c, int? max_loop)`: `SingleHelix` = the contiguous scorer `FindMostStableDimer(s1, s2, mv ?? 0.05, C_T ?? 50 nM)` (dv/dntp/temp_c/max_loop must be `null`, else `ArgumentException`); `Ntthal` = primer3-py `calc_heterodimer` / `calc_homodimer` (mode ANY; null = 50 mM / 1.5 mM / 0.6 mM / 50 nM / 37 °C / 30) mapped onto `DimerResult` | opt-in (A3-13, F58) |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `DimerResult.Strand1Start` / `Strand2Start` | int | 0-based 5' indices of the aligned duplex on each strand |
-| `DimerResult.BasePairs` | int | contiguous Watson-Crick base pairs in the duplex |
-| `DimerResult.DeltaH` / `DeltaS` / `DeltaG37` | double | ΔH° (kcal/mol), ΔS° (cal/(K·mol), salt-corrected), ΔG°37 (kcal/mol) |
+| `DimerResult.BasePairs` | int | contiguous Watson-Crick base pairs in the duplex (`StructureModel.Ntthal`: paired bases of the ntthal structure, which may include mismatches, bulges, internal loops and dangling ends; single-pair structures are reported, as by primer3-py) |
+| `DimerResult.DeltaH` / `DeltaS` / `DeltaG37` | double | ΔH° (kcal/mol), ΔS° (cal/(K·mol), salt-corrected), ΔG°37 (kcal/mol; `Ntthal`: primer3-py `dh`/1000, `ds`, `dg`/1000 at `temp_c`). `Ntthal` spans: 0-based 5′-most paired base on each strand |
 | Tm methods | double | bimolecular Tm in °C, or `NaN` if no dimer / invalid input |
 | `DimerThermodynamics` | record | ΔH° (kcal/mol), ΔS° (cal/(K·mol), salt-corrected), ΔG (kcal/mol, at `temperatureCelsius`), Tm (°C), paired bases |
 | `NtthalDimerStructure.AsciiStructureLines` | string[4] | thal.c `drawDimer` duplex = primer3-py `ascii_structure_lines` |
@@ -134,6 +135,7 @@ from SantaLucia & Hicks (2004) Table 1 [1], cross-checked against Primer3 `thal.
 - `PrimerDesigner.CalculateSelfDimerMeltingTemperature(sequence, sodiumMolar, strandConcentrationMolar)`: self-dimer convenience wrapper.
 - `PrimerDesigner.CalculateDimerThermodynamicsNtthal(...)`: the full ntthal DP — monovalent-only overload, `(mode, mv, dv, dntp, C_T)` overload and `(…, temperatureCelsius, maxLoop)` overload (= primer3-py `calc_heterodimer` / `calc_homodimer` / `calc_end_stability` with every argument).
 - `PrimerDesigner.CalculateDimerStructureNtthal(...)`: as above plus the ASCII duplex (`output_structure=True`).
+- `PrimerDesigner.FindMostStableDimer(strand1, strand2, StructureModel, …)`: `SingleHelix` (the contiguous scorer) or `Ntthal` (delegates to the same `NtthalDimer` engine and maps the structure onto `DimerResult`).
 - `NtthalDimer.Run` (internal engine, [NtthalDimer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalDimer.cs)), also used by Primer3's thermodynamic structure screen (`CalculatePrimer3OligoStructure`, `CalculatePrimer3PairComplementarity`, `DesignPrimers`).
 
 ### 5.2 Current Behavior
@@ -157,7 +159,7 @@ made: the repository suffix tree was **not** used — dimer scoring is an O(n·m
 
 **Separate model (kept by design):**
 
-- `FindMostStableDimer` (the public `DimerResult` record) keeps its original gapless contiguous-WC scorer for its `BasePairs`/spans/ΔH°/ΔS° fields; the loop/bulge/overhang model is exposed through `CalculateDimerThermodynamicsNtthal` and the Tm methods.
+- `FindMostStableDimer` (the public `DimerResult` record) keeps its original gapless contiguous-WC scorer by default for its `BasePairs`/spans/ΔH°/ΔS° fields; the loop/bulge/overhang model is exposed through `CalculateDimerThermodynamicsNtthal`, the Tm methods and — on the same `DimerResult` record — `FindMostStableDimer(s1, s2, StructureModel.Ntthal, …)` (= primer3-py `calc_heterodimer`, 8000 random pairs incl. random conditions: 0 differences, |Δ| = 0; F58).
 
 **Not implemented:**
 
@@ -167,7 +169,7 @@ made: the repository suffix tree was **not** used — dimer scoring is an O(n·m
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `FindMostStableDimer` reports the contiguous-WC optimum only | Simplification | Its `DimerResult` underestimates overhang/loop-stabilized dimers | accepted | The full DP (`CalculateDimerThermodynamicsNtthal`) and the Tm methods model loops/bulges/overhangs at full ntthal parity |
+| 1 | `FindMostStableDimer` (default `SingleHelix`) reports the contiguous-WC optimum only | Simplification | Its default `DimerResult` underestimates overhang/loop-stabilized dimers | accepted (opt-in fix) | `StructureModel.Ntthal` returns the full ntthal structure in the same record; the full DP (`CalculateDimerThermodynamicsNtthal`) and the Tm methods model loops/bulges/overhangs at full ntthal parity |
 
 ## 6. Edge Cases and Limitations
 
@@ -183,8 +185,8 @@ made: the repository suffix tree was **not** used — dimer scoring is an O(n·m
 ### 6.2 Limitations
 
 The full `CalculateDimerThermodynamicsNtthal` DP models internal mismatches/loops, bulges and
-terminal overhangs at full ntthal parity; the legacy `FindMostStableDimer` record reports the
-contiguous-WC optimum only (monovalent salt). Two-state model. Non-ACGT input is rejected (`null` /
+terminal overhangs at full ntthal parity; the default `FindMostStableDimer` record reports the
+contiguous-WC optimum only (monovalent salt) unless `StructureModel.Ntthal` is passed. Two-state model. Non-ACGT input is rejected (`null` /
 `NaN`), whereas thal.c maps any other character to N (no pairing).
 
 ## 7. Examples and Related Material
@@ -219,6 +221,7 @@ palindrome ⇒ x = 1; Tm = −70800/(−192.617 + 1.9872·ln(50e-9/1)) − 273.1
 |------|---------|---------|
 | 2026-06-25 | 1.0 | Initial self-/hetero-dimer Tm via thermodynamic alignment |
 | 2026-10-01 | 1.1 | PRIMER-DIMER-001: LSH/RSH terminal selection fixed to thal.c (≈1.4 % of random dimers were off); temp_c / max_loop / ASCII structure / thal length limits added; divalent salt (PRIMER-STRUCT-001) documented |
+| 2026-10-08 | 1.2 | Audit round 3 A3-13 / F58: `FindMostStableDimer(…, StructureModel.Ntthal, …)` opt-in (full ntthal structure in `DimerResult`) |
 
 ## 8. References
 

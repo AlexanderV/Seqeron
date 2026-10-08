@@ -24,6 +24,7 @@
 - `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, double sodiumMolar=0.05)` → `HairpinThermodynamics?` (bundled special tri/tetraloop bonuses; dv = dntp = 0)
 - `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, mv, dv, dntp[, temperatureCelsius, maxLoop])` → `HairpinThermodynamics?` (= primer3-py `calc_hairpin`)
 - `PrimerDesigner.CalculateHairpinStructureNtthal(string, mv=0.05, dv=0.0015, dntp=0.0006, temperatureCelsius=37, maxLoop=30)` → `NtthalHairpinStructure?` (+ `ascii_structure_lines`)
+- `PrimerDesigner.FindMostStableHairpin(string, StructureModel, double? mv, dv, dntp, temperatureCelsius, int? maxLoop)` / `CalculateHairpinMeltingTemperature(string, StructureModel, …)` (audit round 3, A3-13 / F57): `SingleHelix` = the default single-stem core (no condition arguments), `Ntthal` = `calc_hairpin` mapped onto `HairpinResult` (StemStart = 5′-most paired base, StemEnd = its partner, StemLength = pairs of that stem across bulges/internal loops, LoopSize = unpaired bases inside its innermost pair)
 
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs` (+ `NtthalHairpin.cs`)
 - **Test fixtures:** `PrimerDesigner_HairpinTm_Tests.cs`, `PrimerDesigner_HairpinSpecialLoop_Tests.cs`
@@ -49,6 +50,21 @@
 - `GGGGCGAAAGCCCC` (ntthal, GAAA tetraloop): ΔH=−40900 cal, ΔS=−114.1872884299936, ΔG37=−5484.812493437487 cal, Tm=85.03347700825856 °C (primer3 parity).
 - `GGGCGAAGCCC` (ntthal, GAA triloop): ΔH=−27800 cal, Tm=84.7060915802943 °C (primer3 parity).
 - Former discrepancies (calc_hairpin defaults): `GGGAGACAGTAGTCGCCCAT` Tm 64.43690682436392 (old 69.31), `TGTTGAATATCAGCG` ΔG +530.6133132321556 cal, `TTTGCCACTAATAATATGATCAACCGGAGGGTCTCCATT` Tm 83.58095561848427 (old 139.59), a 53-mer with no structure (old: 32.64 °C) — `PrimerDesigner_HairpinTm_Tests.CalculateHairpinThermodynamicsNtthal_FormerDiscrepancies_MatchPrimer3Py`, `_FormerFalseStructure_IsNoStructure`, `_ConditionsTemperatureAndMaxLoop_MatchPrimer3Py`, `CalculateHairpinStructureNtthal_AsciiStructure_MatchesPrimer3Py`, `_ThalLimits`.
+
+### Audit round 3, A3-13 (F57)
+- Single-stem core: every stem length closing a ≥ 3-nt loop is scored (INV-1/INV-2; was maximal extension only):
+  `GGGGCCCC` → 0/6, 2 bp, loop 3, ΔH −8.0, ΔS −31.18486216346929, ΔG°37 +1.6719850000000012, Tm −16.61527625921667 °C
+  (was null); `GCGCGCGCGC` → 0/9, 3 bp, loop 4, ΔH −20.4, ΔS −62.884862163469286, ΔG°37 −0.8962600000000016,
+  Tm 51.25239666853645 °C (was null; primer3-py `calc_hairpin` draws the same 3-bp/4-nt shape). Hand-derived from
+  Table 1 + Table 4. Table 4 loop values re-checked against primer3 `loops.ds` (hairpin column, −ΔS·310.15/1000:
+  3.4985/3.4985/3.300/3.998/4.199/4.299/4.497/4.600/5.000/5.099/5.297/5.499/5.697/6.098/6.299 for 3…30) and the
+  Jacobson–Stockmayer fill (n = 11: 4.7433 vs 4.742; n = 13: 5.120 vs 5.117).
+- `StructureModel.Ntthal` vs `calc_hairpin(…, output_structure=True)`: 8000 random oligos (seeds 1–2; 5–60 nt; 40 % random,
+  60 % designed stem-loops with mismatches/indels and flanks; half at the defaults, half at random
+  mv/dv/dntp/temp_c/max_loop) — 0 differences (ΔH/ΔS/ΔG/Tm |Δ| = 0; span/stem/loop = `ascii_structure_lines`).
+  Locked: `GGGCTTTTGCCC` 0/11/4/4, −32.4, −93.71131562841765, −3.335435457846266, Tm 72.59266493570397;
+  `CCCTGAGTCCGAGGAGAGGGT` 0/19/6/4 (internal loop), ΔG +0.40853085538899177, Tm 34.24603584502296;
+  `TTTGCCACTAATAATATGATCAACCGGAGGGTCTCCATT` 21/31/3/3, Tm 83.58095561848427 — `PrimerDesigner_StructureModel_Tests`.
 
 ## 5. Validation Checklist (restored ☑)
 

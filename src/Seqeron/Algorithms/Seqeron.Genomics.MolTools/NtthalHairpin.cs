@@ -68,9 +68,11 @@ internal static class NtthalHairpin
     /// stem length.</param>
     /// <param name="AsciiStructure">thal.c <c>drawHairpin</c> lines ("SEQ\t…", "STR\t…"; primer3-py
     /// <c>ascii_structure_lines</c>) when requested, else null.</param>
+    /// <param name="PairPartners">thal.c traceback <c>bp</c>: for each 0-based position the 1-based index of its
+    /// partner, 0 when unpaired (the table <c>drawHairpin</c> draws).</param>
     internal readonly record struct Result(
         double DeltaH, double DeltaS, double DeltaG37, double TmCelsius, int BasePairs,
-        string[]? AsciiStructure = null);
+        string[]? AsciiStructure = null, int[]? PairPartners = null);
 
     // Hairpin-loop ΔS by size (loops.ds hairpin column, sizes 1..30). ΔH = 0 for sizes 3..30
     // (loops.dh hairpin column; sizes 1-2 are never used, MIN_HRPN_LOOP = 3). thal.c indexes
@@ -515,7 +517,7 @@ internal static class NtthalHairpin
         double tm = mh / dsOut - AbsoluteZero;
         double dg = mh - tempKelvin * dsOut;
         string[]? structure = withStructure ? DrawHairpin(oligo.ToUpperInvariant(), bp) : null;
-        return new Result(mh, dsOut, dg, tm, half, structure);
+        return new Result(mh, dsOut, dg, tm, half, structure, bp);
     }
 
     /// <summary>

@@ -267,10 +267,10 @@ public class PrimerHairpinFuzzTests
 
     /// <summary>
     /// BE (true full palindrome, no interior loop — KEY min-loop boundary): a sequence whose reverse
-    /// complement equals itself with NO unpaired interior (e.g. GGGGCCCC) can ONLY pair into a stem
-    /// that closes a 0-nt loop. A 0-nt loop is below the 3-nt minimum (sterically prohibited), so the
-    /// MFE folder must return NULL — it must NOT return a hairpin with a sub-3 loop. This is the
-    /// palindrome-meets-min-loop edge: the perfect palindrome forms no VALID hairpin.
+    /// complement equals itself with NO unpaired interior (e.g. GGGGCCCC) pairs maximally into a stem
+    /// that closes a 0-nt loop, which is below the 3-nt minimum (sterically prohibited). The folder must
+    /// NOT return a hairpin with a sub-3 loop; it returns a shorter stem closing a ≥ 3-nt loop when one
+    /// exists (GGGGCCCC: 2 bp + 3-nt loop; audit round 3, A3-13/F57). This is the palindrome-meets-min-loop edge.
     /// </summary>
     [Test]
     public void FullPalindrome_NoInteriorLoop_ReturnsNull()
@@ -287,9 +287,14 @@ public class PrimerHairpinFuzzTests
             }
         }
 
-        // The canonical no-interior-loop palindrome: the only stem closes a 0-nt loop → null.
-        PrimerDesigner.FindMostStableHairpin("GGGGCCCC").Should().BeNull(
-            "GGGGCCCC's only stem closes a 0-nt loop (< 3 nt, sterically prohibited) → null");
+        // GGGGCCCC's MAXIMAL stem closes a 0-nt loop, but a shorter 2-bp stem closes a valid ≥ 3-nt loop
+        // (the loop bases stay unpaired; SantaLucia & Hicks 2004, INV-01/INV-02; audit round 3 A3-13/F57):
+        // that hairpin — never a sub-3 loop — is returned (hand-derived values locked in
+        // PrimerDesigner_HairpinTm_Tests.FindMostStableHairpin_PalindromeMaximalStemClosesNoLoop_UsesShorterStem).
+        var gggg = PrimerDesigner.FindMostStableHairpin("GGGGCCCC");
+        gggg.Should().NotBeNull("a 2-bp stem of GGGGCCCC closes a ≥ 3-nt loop");
+        gggg!.Value.StemLength.Should().Be(2);
+        AssertWellFormedHairpin(gggg.Value, "GGGGCCCC", effectiveMinStem: 2);
     }
 
     #endregion

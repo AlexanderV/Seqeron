@@ -3031,6 +3031,9 @@ public static partial class PrimerDesigner
     // here. They are exposed as an OPT-IN caller-supplied additive ΔG°37/ΔH° adjustment
     // (default 0) so a caller who has those tables can supply the increment; without it the
     // result is the stem-stack + loop-initiation core, which is exact and fully sourced.
+    // The complete model (thal.c: terminal mismatches, special loops, bulges/internal loops,
+    // dangles, Mg²⁺/dNTP) is selected with StructureModel.Ntthal on the model overloads below,
+    // which delegate to the canonical ntthal engine (audit round 3, A3-13).
 
     /// <summary>Hairpin loop ΔG°37 increment (kcal/mol, 1 M NaCl) by loop size (number of
     /// unpaired loop nucleotides). SantaLucia &amp; Hicks (2004) Table 4 "Hairpin loops" column;
@@ -3102,9 +3105,13 @@ public static partial class PrimerDesigner
     /// Watson-Crick stem closing one hairpin loop — in <paramref name="sequence"/>, using the
     /// SantaLucia &amp; Hicks (2004) Table 1 nearest-neighbour stem stacks and their
     /// Table 4 hairpin-loop initiation increments. <b>Opt-in</b>: the duplex Tm methods
-    /// are unchanged. Returns <c>null</c> when the sequence is empty, contains a non-ACGT
+    /// are unchanged. Every stem length from <paramref name="minStemLength"/> up to the maximal
+    /// Watson–Crick extension of each closing pair is a candidate as long as it closes a loop of
+    /// ≥ 3 nt (so GGGGCCCC folds into a 2-bp stem + 3-nt loop). Returns <c>null</c> when the sequence is empty, contains a non-ACGT
     /// character, or admits no hairpin at all (no stem of ≥ 2 bp can close a loop of ≥ 3 nt,
-    /// e.g. a homopolymer such as poly-A).
+    /// e.g. a homopolymer such as poly-A). The full thal.c hairpin model is the
+    /// <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/> overload with
+    /// <see cref="StructureModel.Ntthal"/>.
     /// <para>
     /// Model: ΔG°37 = Σ stem NN stacks (Table 1) + ΔG°37(loop of N) (Table 4); the bimolecular
     /// duplex-initiation term is intentionally excluded for this unimolecular structure. Loop
@@ -3146,7 +3153,11 @@ public static partial class PrimerDesigner
                     continue;
 
                 double dH = 0.0, dS = 0.0;
-                // Extend the stem from the outermost pair (i, j) inward.
+                // Extend the stem from the outermost pair (i, j) inward. EVERY stem length that closes a
+                // loop of ≥ 3 nt is a candidate (not only the maximal Watson–Crick extension): a stem that
+                // could pair further but would then close a < 3-nt loop (e.g. GGGGCCCC, GCGCGCGCGC) still
+                // forms the shorter stem + loop, as the loop bases are simply unpaired (SantaLucia & Hicks
+                // 2004 Eqs 8–10; INV-01/INV-02).
                 int a = i, b = j;
                 int stemPairs = 0;
                 while (a < b && IsWatsonCrickPair(seq[a], seq[b]))
@@ -3161,30 +3172,29 @@ public static partial class PrimerDesigner
                         dS += p.DeltaS;
                     }
                     stemPairs++;
+
+                    // Innermost pair is (a, b); the loop is the bases strictly between them.
+                    int loopSize = b - a - 1;
+                    if (loopSize < MinHairpinLoopSize)
+                        break; // a longer stem only shrinks the loop further
+
+                    if (stemPairs >= minStemLength)
+                    {
+                        double loopDg = HairpinLoopDeltaG(loopSize) + loopBonusDeltaG37;
+                        // Loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15 (destabilising loop).
+                        double loopDs = -loopDg * 1000.0 / ReferenceTemperatureKelvin;
+
+                        double totalDh = dH;                       // loop ΔH° contribution is 0
+                        double totalDs = dS + loopDs;
+                        double dG37 = totalDh - ReferenceTemperatureKelvin * totalDs / 1000.0;
+
+                        if (best is null || dG37 < best.Value.DeltaG37)
+                            best = new HairpinResult(i, j, stemPairs, loopSize, totalDh, totalDs, dG37);
+                    }
+
                     a++;
                     b--;
                 }
-
-                if (stemPairs < minStemLength)
-                    continue;
-
-                // Innermost pair is (a-1, b+1); loop is the bases strictly between them.
-                int innerLeft = a - 1;
-                int innerRight = b + 1;
-                int loopSize = innerRight - innerLeft - 1;
-                if (loopSize < MinHairpinLoopSize)
-                    continue;
-
-                double loopDg = HairpinLoopDeltaG(loopSize) + loopBonusDeltaG37;
-                // Loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15 (destabilising loop).
-                double loopDs = -loopDg * 1000.0 / ReferenceTemperatureKelvin;
-
-                double totalDh = dH;                       // loop ΔH° contribution is 0
-                double totalDs = dS + loopDs;
-                double dG37 = totalDh - ReferenceTemperatureKelvin * totalDs / 1000.0;
-
-                if (best is null || dG37 < best.Value.DeltaG37)
-                    best = new HairpinResult(i, j, stemPairs, loopSize, totalDh, totalDs, dG37);
             }
         }
 
@@ -3217,6 +3227,135 @@ public static partial class PrimerDesigner
         var h = hairpin.Value;
         // Unimolecular: NO concentration term (Eq. 11).
         return (h.DeltaH * 1000.0) / h.DeltaS - KelvinOffset;
+    }
+
+    /// <summary>
+    /// Thermodynamic structure model of <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/>,
+    /// <see cref="CalculateHairpinMeltingTemperature(string, StructureModel, double?, double?, double?, double?, int?)"/> and
+    /// <see cref="FindMostStableDimer(string, string, StructureModel, double?, double?, double?, double?, double?, int?)"/>.
+    /// </summary>
+    public enum StructureModel
+    {
+        /// <summary>The default single-helix models: the hairpin single-stem core (SantaLucia &amp; Hicks 2004
+        /// Table 1 stem stacks + Table 4 loop initiation, 1 M NaCl, no terminal-mismatch / special-loop /
+        /// bulge / internal-loop terms) and the gapless contiguous Watson–Crick dimer scorer.</summary>
+        SingleHelix = 0,
+
+        /// <summary>The complete Primer3 <c>ntthal</c> (thal.c) dynamic program — SantaLucia &amp; Hicks (2004)
+        /// stacks with terminal mismatches (<c>tstack</c>/<c>tstack2</c>), dangling ends, single mismatches,
+        /// bulges, internal loops, size-keyed hairpin loops with the triloop/tetraloop bonus tables and the
+        /// Mg²⁺/dNTP salt model — identical to primer3-py 2.3.1 <c>calc_hairpin</c> /
+        /// <c>calc_homodimer</c> / <c>calc_heterodimer</c> (delegates to
+        /// <see cref="CalculateHairpinStructureNtthal(string, double, double, double, double, int)"/> /
+        /// <see cref="CalculateDimerStructureNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>).</summary>
+        Ntthal = 1,
+    }
+
+    /// <summary>
+    /// <see cref="FindMostStableHairpin(string, int, double)"/> with a selectable <paramref name="model"/>.
+    /// <see cref="StructureModel.SingleHelix"/> is exactly <c>FindMostStableHairpin(sequence)</c> (the SantaLucia &amp;
+    /// Hicks 2004 single-stem core at 1 M NaCl; every condition argument must then be <c>null</c>).
+    /// <see cref="StructureModel.Ntthal"/> folds the oligo with the full thal.c hairpin DP (primer3-py
+    /// <c>calc_hairpin</c>) and maps the optimal structure onto <see cref="HairpinResult"/>:
+    /// <c>StemStart</c> = the 5′-most paired base, <c>StemEnd</c> = its partner, <c>StemLength</c> = base pairs of the
+    /// stem closed by that pair (counted across bulges / internal loops), <c>LoopSize</c> = unpaired bases enclosed by
+    /// its innermost pair, and ΔH°/ΔS°/ΔG = the ntthal values of the whole structure (kcal/mol, cal/(K·mol) incl. the
+    /// ntthal salt term, kcal/mol at <paramref name="temperatureCelsius"/>) — exactly primer3-py <c>dh</c>/1000,
+    /// <c>ds</c>, <c>dg</c>/1000. When ntthal places more than one hairpin on the oligo, the span / stem / loop fields
+    /// describe the 5′-most one.
+    /// </summary>
+    /// <param name="sequence">DNA oligo (5′→3′), ACGT only (case-insensitive).</param>
+    /// <param name="model">Structure model.</param>
+    /// <param name="sodiumMolar">Ntthal only: mv, mol/L (null = 0.05, the calc_hairpin default).</param>
+    /// <param name="divalentMolar">Ntthal only: dv, mol/L (null = 0.0015).</param>
+    /// <param name="dntpMolar">Ntthal only: dNTP, mol/L (null = 0.0006).</param>
+    /// <param name="temperatureCelsius">Ntthal only: temp_c (null = 37).</param>
+    /// <param name="maxLoop">Ntthal only: max_loop 0–30 (null = 30).</param>
+    /// <returns>The hairpin, or <c>null</c> for invalid input / no hairpin (ntthal <c>no_structure</c>).</returns>
+    /// <exception cref="ArgumentException"><see cref="StructureModel.SingleHelix"/> with a non-null condition argument,
+    /// or <see cref="StructureModel.Ntthal"/> with an oligo longer than 60 nt (thal.c <c>THAL_MAX_ALIGN</c>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="model"/> undefined or max_loop outside 0–30.</exception>
+    public static HairpinResult? FindMostStableHairpin(
+        string sequence,
+        StructureModel model,
+        double? sodiumMolar = null,
+        double? divalentMolar = null,
+        double? dntpMolar = null,
+        double? temperatureCelsius = null,
+        int? maxLoop = null)
+    {
+        if (!UseNtthal(model, sodiumMolar, divalentMolar, dntpMolar, null, temperatureCelsius, maxLoop))
+            return FindMostStableHairpin(sequence);
+
+        var r = RunHairpinNtthal(sequence, sodiumMolar ?? 0.05, divalentMolar ?? 0.0015, dntpMolar ?? 0.0006,
+            temperatureCelsius ?? NtthalDefaultTemperatureCelsius, maxLoop ?? NtthalDefaultMaxLoop,
+            withStructure: false, NtthalMaxAlignLength);
+        if (r is null)
+            return null;
+        var v = r.Value;
+        int[] bp = v.PairPartners!;
+        int first = Array.FindIndex(bp, p => p > 0); // 0-based 5'-most paired base
+        int a = first, b = bp[first] - 1, stem = 1;
+        while (true)
+        {
+            // Next pair nested inside (a, b): the first paired base after a (a hairpin stem has no branches).
+            int k = a + 1;
+            while (k < b && bp[k] == 0) k++;
+            if (k >= b) break;
+            a = k;
+            b = bp[k] - 1;
+            stem++;
+        }
+        return new HairpinResult(first, bp[first] - 1, stem, b - a - 1,
+            v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0);
+    }
+
+    /// <summary>
+    /// <see cref="CalculateHairpinMeltingTemperature(string, int, double)"/> with a selectable <paramref name="model"/>:
+    /// <see cref="StructureModel.SingleHelix"/> is exactly <c>CalculateHairpinMeltingTemperature(sequence)</c> (every
+    /// condition argument must be <c>null</c>); <see cref="StructureModel.Ntthal"/> returns the ntthal hairpin Tm
+    /// (primer3-py <c>calc_hairpin(...).tm</c>, <see cref="CalculateHairpinThermodynamicsNtthal(string, double, double, double, double, int)"/>).
+    /// Parameters as in <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/>.
+    /// </summary>
+    /// <returns>The hairpin Tm in °C, or <c>double.NaN</c> for invalid input / no hairpin.</returns>
+    /// <exception cref="ArgumentException">As <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">As <see cref="FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)"/>.</exception>
+    public static double CalculateHairpinMeltingTemperature(
+        string sequence,
+        StructureModel model,
+        double? sodiumMolar = null,
+        double? divalentMolar = null,
+        double? dntpMolar = null,
+        double? temperatureCelsius = null,
+        int? maxLoop = null)
+    {
+        if (!UseNtthal(model, sodiumMolar, divalentMolar, dntpMolar, null, temperatureCelsius, maxLoop))
+            return CalculateHairpinMeltingTemperature(sequence);
+
+        var r = RunHairpinNtthal(sequence, sodiumMolar ?? 0.05, divalentMolar ?? 0.0015, dntpMolar ?? 0.0006,
+            temperatureCelsius ?? NtthalDefaultTemperatureCelsius, maxLoop ?? NtthalDefaultMaxLoop,
+            withStructure: false, NtthalMaxAlignLength);
+        return r is null ? double.NaN : r.Value.TmCelsius;
+    }
+
+    // Validates a StructureModel and its ntthal-only condition arguments: true = Ntthal; false = SingleHelix, which
+    // takes no ntthal condition (its own conditions, if any, are passed separately by the caller).
+    private static bool UseNtthal(StructureModel model, double? mv, double? dv, double? dntp, double? dnaConc,
+        double? tempC, int? maxLoop)
+    {
+        switch (model)
+        {
+            case StructureModel.Ntthal:
+                return true;
+            case StructureModel.SingleHelix:
+                if (mv is not null || dv is not null || dntp is not null || dnaConc is not null || tempC is not null || maxLoop is not null)
+                    throw new ArgumentException(
+                        "The SingleHelix model has fixed conditions (hairpin: 1 M NaCl, 37 °C; dimer: monovalent salt and " +
+                        "strand concentration only); ntthal condition arguments require StructureModel.Ntthal.");
+                return false;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(model), model, "Unknown StructureModel.");
+        }
     }
 
     // ---- Self-dimer / hetero-dimer (intermolecular) Tm via thermodynamic alignment ----
@@ -3283,7 +3422,9 @@ public static partial class PrimerDesigner
     /// Finds the most stable (highest-Tm) gapless, contiguous Watson–Crick intermolecular DNA duplex between two
     /// oligonucleotides, scored with the <c>ntthal</c> duplex terms over the SantaLucia &amp; Hicks (2004) unified
     /// nearest-neighbour model (the full <c>ntthal</c> alignment with mismatches, loops, bulges and terminal
-    /// overhangs is <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double)"/>). A <b>self-dimer</b> is obtained by passing the same
+    /// overhangs is <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double)"/>,
+    /// and the <see cref="FindMostStableDimer(string, string, StructureModel, double?, double?, double?, double?, double?, int?)"/>
+    /// overload with <see cref="StructureModel.Ntthal"/> maps that structure onto this record). A <b>self-dimer</b> is obtained by passing the same
     /// sequence as both strands; a <b>hetero/cross-dimer</b> by passing two different sequences.
     /// <b>Opt-in</b>: the duplex (<see cref="CalculateMeltingTemperatureNN"/>) and hairpin Tm
     /// methods, and the default <see cref="CalculateMeltingTemperature(string)"/>, are unchanged.
@@ -3404,6 +3545,63 @@ public static partial class PrimerDesigner
                 best = new DimerResult(runStart, strand2Start5, basePairs, dH, dS, dG37);
             }
         }
+    }
+
+    /// <summary>
+    /// <see cref="FindMostStableDimer(string, string, double, double)"/> with a selectable <paramref name="model"/>.
+    /// <see cref="StructureModel.SingleHelix"/> is exactly <c>FindMostStableDimer(strand1, strand2, sodiumMolar,
+    /// strandConcentrationMolar)</c> (the gapless contiguous Watson–Crick scorer; null = its defaults 50 mM / 50 nM;
+    /// <paramref name="divalentMolar"/>, <paramref name="dntpMolar"/>, <paramref name="temperatureCelsius"/> and
+    /// <paramref name="maxLoop"/> must be <c>null</c>). <see cref="StructureModel.Ntthal"/> runs the full thal.c dimer
+    /// DP in mode ANY (primer3-py <c>calc_heterodimer(strand1, strand2, …)</c>; a self-dimer —
+    /// <c>calc_homodimer</c> — by passing the same sequence twice) and maps its optimal structure onto
+    /// <see cref="DimerResult"/>: <c>Strand1Start</c> / <c>Strand2Start</c> = the 0-based 5′-most paired base on each
+    /// strand, <c>BasePairs</c> = paired bases of the structure (ntthal reports single-pair structures too), and
+    /// ΔH°/ΔS°/ΔG = the ntthal values (kcal/mol; cal/(K·mol) incl. the ntthal salt term; kcal/mol at
+    /// <paramref name="temperatureCelsius"/>) — exactly primer3-py <c>dh</c>/1000, <c>ds</c>, <c>dg</c>/1000. The
+    /// structure may contain mismatches, bulges, internal loops and dangling ends; its Tm is
+    /// <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double, double, int)"/>.
+    /// </summary>
+    /// <param name="strand1">First DNA oligo (5′→3′), ACGT only (case-insensitive).</param>
+    /// <param name="strand2">Second DNA oligo (5′→3′); the same string for a self-dimer.</param>
+    /// <param name="model">Structure model.</param>
+    /// <param name="sodiumMolar">mv, mol/L (null = 0.05 for both models).</param>
+    /// <param name="divalentMolar">Ntthal only: dv, mol/L (null = 0.0015, the primer3-py default).</param>
+    /// <param name="dntpMolar">Ntthal only: dNTP, mol/L (null = 0.0006).</param>
+    /// <param name="strandConcentrationMolar">Oligo concentration, mol/L (null = 50 nM for both models).</param>
+    /// <param name="temperatureCelsius">Ntthal only: temp_c (null = 37).</param>
+    /// <param name="maxLoop">Ntthal only: max_loop 0–30 (null = 30).</param>
+    /// <returns>The dimer, or <c>null</c> for invalid input / no duplex (ntthal <c>no_structure</c>).</returns>
+    /// <exception cref="ArgumentException"><see cref="StructureModel.SingleHelix"/> with a non-null ntthal-only argument,
+    /// or <see cref="StructureModel.Ntthal"/> with both strands longer than 60 nt / either longer than 10 000 nt
+    /// (thal.c <c>THAL_MAX_ALIGN</c> / <c>THAL_MAX_SEQ</c>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="model"/> undefined or max_loop outside 0–30.</exception>
+    public static DimerResult? FindMostStableDimer(
+        string strand1,
+        string strand2,
+        StructureModel model,
+        double? sodiumMolar = null,
+        double? divalentMolar = null,
+        double? dntpMolar = null,
+        double? strandConcentrationMolar = null,
+        double? temperatureCelsius = null,
+        int? maxLoop = null)
+    {
+        double mv = sodiumMolar ?? ThermoConstants.DefaultNaConcentration;
+        double dnaConc = strandConcentrationMolar ?? DefaultDimerStrandConcentrationMolar;
+        if (!UseNtthal(model, null, divalentMolar, dntpMolar, null, temperatureCelsius, maxLoop))
+            return FindMostStableDimer(strand1, strand2, mv, dnaConc);
+
+        var r = RunDimerNtthal(strand1, strand2, NtthalAlignmentMode.Any, mv, divalentMolar ?? 0.0015,
+            dntpMolar ?? 0.0006, dnaConc, temperatureCelsius ?? NtthalDefaultTemperatureCelsius,
+            maxLoop ?? NtthalDefaultMaxLoop, withStructure: false, NtthalMaxAlignLength);
+        if (r is null)
+            return null;
+        var v = r.Value;
+        // thal.c pairs strand 1 (1-based i) with the REVERSED strand 2 (1-based j); the traceback starts at the
+        // 3'-most strand-1 pair (Strand1End, Strand2End), whose partner is the 5'-most paired base of strand 2.
+        return new DimerResult(v.Strand1Start - 1, strand2.Length - v.Strand2End, v.BasePairs,
+            v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0);
     }
 
     // Minimum base pairs for a dimer duplex (at least one NN stack). ntthal requires a paired
@@ -3765,6 +3963,22 @@ public static partial class PrimerDesigner
         double dntpMolar, double strandConcentrationMolar, double temperatureCelsius, int maxLoop, bool withStructure,
         int maxAlign)
     {
+        var r = RunDimerNtthal(strand1, strand2, mode, sodiumMolar, divalentMolar, dntpMolar,
+            strandConcentrationMolar, temperatureCelsius, maxLoop, withStructure, maxAlign);
+        if (r is null)
+            return null;
+        var v = r.Value;
+        return new NtthalDimerStructure(
+            new DimerThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs),
+            v.AsciiStructure ?? Array.Empty<string>());
+    }
+
+    // The one entry into the ntthal dimer engine (ACGT check, upper-casing, mode mapping, °C → K).
+    private static NtthalDimer.Result? RunDimerNtthal(
+        string strand1, string strand2, NtthalAlignmentMode mode, double sodiumMolar, double divalentMolar,
+        double dntpMolar, double strandConcentrationMolar, double temperatureCelsius, int maxLoop, bool withStructure,
+        int maxAlign)
+    {
         if (!IsAcgtOnly(strand1) || !IsAcgtOnly(strand2))
             return null;
         var type = mode switch
@@ -3774,15 +3988,9 @@ public static partial class PrimerDesigner
             NtthalAlignmentMode.End2 => NtthalDimer.AlignmentType.End2,
             _ => throw new ArgumentOutOfRangeException(nameof(mode)),
         };
-        var r = NtthalDimer.Run(strand1.ToUpperInvariant(), strand2.ToUpperInvariant(),
+        return NtthalDimer.Run(strand1.ToUpperInvariant(), strand2.ToUpperInvariant(),
             sodiumMolar, strandConcentrationMolar, type, divalentMolar, dntpMolar,
             temperatureCelsius + KelvinOffset, maxLoop, withStructure, maxAlign);
-        if (r is null)
-            return null;
-        var v = r.Value;
-        return new NtthalDimerStructure(
-            new DimerThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs),
-            v.AsciiStructure ?? Array.Empty<string>());
     }
 
     /// <summary>
@@ -3908,10 +4116,8 @@ public static partial class PrimerDesigner
         string sequence, double sodiumMolar, double divalentMolar, double dntpMolar,
         double temperatureCelsius, int maxLoop, bool withStructure, int maxAlign)
     {
-        if (!IsAcgtOnly(sequence))
-            return null;
-        var r = NtthalHairpin.Run(sequence.ToUpperInvariant(), sodiumMolar, divalentMolar, dntpMolar,
-            temperatureCelsius + KelvinOffset, maxLoop, withStructure, maxAlign);
+        var r = RunHairpinNtthal(sequence, sodiumMolar, divalentMolar, dntpMolar,
+            temperatureCelsius, maxLoop, withStructure, maxAlign);
         if (r is null)
             return null;
         var v = r.Value;
@@ -3919,6 +4125,15 @@ public static partial class PrimerDesigner
             new HairpinThermodynamics(v.DeltaH / 1000.0, v.DeltaS, v.DeltaG37 / 1000.0, v.TmCelsius, v.BasePairs),
             v.AsciiStructure ?? Array.Empty<string>());
     }
+
+    // The one entry into the ntthal hairpin engine (ACGT check, upper-casing, °C → K).
+    private static NtthalHairpin.Result? RunHairpinNtthal(
+        string sequence, double sodiumMolar, double divalentMolar, double dntpMolar,
+        double temperatureCelsius, int maxLoop, bool withStructure, int maxAlign) =>
+        IsAcgtOnly(sequence)
+            ? NtthalHairpin.Run(sequence.ToUpperInvariant(), sodiumMolar, divalentMolar, dntpMolar,
+                temperatureCelsius + KelvinOffset, maxLoop, withStructure, maxAlign)
+            : null;
 
     /// <summary>
     /// ntthal hairpin thermodynamics plus the thal.c <c>drawHairpin</c> ASCII structure

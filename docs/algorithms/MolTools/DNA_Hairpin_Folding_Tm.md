@@ -6,7 +6,7 @@
 | Test Unit ID | PRIMER-TM-001 (hairpin / secondary-structure Tm extension), PRIMER-HAIRPIN-001 |
 | Related Projects | Seqeron.Genomics.MolTools |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-10-01 (PRIMER-HAIRPIN-001, review-2026-09 B07) |
+| Last Reviewed | 2026-10-08 (PRIMER-HAIRPIN-001, review-2026-09 B07 audit round 3, A3-13 / F57) |
 
 ## 1. Overview
 
@@ -21,7 +21,9 @@ terminal-mismatch increments are not part of this single-stem core (see §5.3, �
 (special loops, terminal mismatches, bulges/internal loops, exterior dangles, Mg²⁺/dNTP salt) is
 `PrimerDesigner.CalculateHairpinThermodynamicsNtthal` — a bit-exact port of primer3-py 2.3.1 `calc_hairpin`
 ([DNA_Hairpin_Special_Loop_Bonus](DNA_Hairpin_Special_Loop_Bonus.md)) and the hairpin model used by
-`DesignPrimers`.
+`DesignPrimers`. `FindMostStableHairpin` / `CalculateHairpinMeltingTemperature` select it with the
+`StructureModel.Ntthal` overloads (opt-in; §3.1), which delegate to that engine and map its structure onto
+`HairpinResult`.
 
 ## 2. Scientific / Formal Basis
 
@@ -63,7 +65,7 @@ Jacobson-Stockmayer extrapolation `ΔG°37(n) = ΔG°37(x) + 2.44·R·310.15·ln
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | The returned hairpin minimises ΔG°37 over all stem/loop placements (MFE). | The folder scans every closing pair, extends each stem maximally, and keeps the minimum ΔG°37. |
+| INV-01 | The returned hairpin minimises ΔG°37 over all stem/loop placements (MFE). | The folder scans every closing pair and every stem length from it (up to the maximal Watson–Crick extension) that closes a ≥ 3-nt loop, and keeps the minimum ΔG°37 (before F57 only the maximal extension was scored, so e.g. GGGGCCCC / GCGCGCGCGC returned null). |
 | INV-02 | An oligo with no Watson-Crick stem of ≥2 bp closing a ≥3-nt loop returns null. | No candidate satisfies the stem/loop constraints (e.g. homopolymer). |
 | INV-03 | Hairpin Tm = ΔH°·1000/ΔS° − 273.15 with no concentration term. | Unimolecular transition (Eq.11 [1]; concentration-independence [3]). |
 | INV-04 | Loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15. | Table 4 footnote a [1]. |
@@ -79,6 +81,14 @@ Jacobson-Stockmayer extrapolation `ΔG°37(n) = ΔG°37(x) + 2.44·R·310.15·ln
 | sequence | string | required | DNA oligo, 5'→3' | A/C/G/T only (case-insensitive); else null |
 | minStemLength | int | 2 | minimum stem base pairs (≥1 NN stack) | must be ≥ 2 |
 | loopBonusDeltaG37 | double | 0.0 | opt-in caller-supplied terminal-mismatch / special-loop ΔG°37 increment (kcal/mol) | the bundled tables are used by `CalculateHairpinThermodynamicsNtthal`, not by this core |
+
+**Model overloads** `FindMostStableHairpin(sequence, StructureModel model, double? sodiumMolar, double? divalentMolar,
+double? dntpMolar, double? temperatureCelsius, int? maxLoop)` and the same for `CalculateHairpinMeltingTemperature`:
+
+| model | Behaviour |
+|-------|-----------|
+| `SingleHelix` | exactly the default `FindMostStableHairpin(sequence)` / `CalculateHairpinMeltingTemperature(sequence)` (1 M NaCl, 37 °C); every condition argument must be `null` (`ArgumentException`) |
+| `Ntthal` | primer3-py `calc_hairpin(seq, mv, dv, dntp, temp_c, max_loop)` (null = 50 mM / 1.5 mM / 0.6 mM / 37 °C / 30) via `CalculateHairpinStructureNtthal`'s engine. `StemStart` = 5′-most paired base, `StemEnd` = its partner, `StemLength` = base pairs of that stem across bulges/internal loops, `LoopSize` = unpaired bases inside its innermost pair; ΔH°/ΔS°/ΔG = the ntthal values of the whole structure (ΔG at `temp_c`, ΔS incl. the ntthal salt term); Tm = `calc_hairpin().tm`. When ntthal places two hairpins, the span fields describe the 5′-most. > 60 nt → `ArgumentException` (THAL_MAX_ALIGN); max_loop ∉ 0..30 → `ArgumentOutOfRangeException`; no structure → `null` / NaN |
 
 ### 3.2 Output / Return Value
 
@@ -103,9 +113,10 @@ Null / empty / non-ACGT / `minStemLength < 2` → `null` (and `NaN` Tm). Sequenc
 ### 4.1 High-Level Steps
 
 1. Validate input (non-empty, ACGT-only, `minStemLength ≥ 2`).
-2. For every candidate outermost closing pair (i, j) that is Watson-Crick: extend the stem inward as far as
-   pairing allows, summing the NN stem stacks (ΔH°/ΔS°).
-3. The remaining inner bases form the hairpin loop; reject loops < 3 nt and stems < `minStemLength`.
+2. For every candidate outermost closing pair (i, j) that is Watson-Crick: extend the stem inward one pair at a
+   time as far as pairing allows, summing the NN stem stacks (ΔH°/ΔS°).
+3. After each added pair the remaining inner bases form the hairpin loop: every stem length ≥ `minStemLength`
+   closing a loop ≥ 3 nt is a candidate (the extension stops once the loop would drop below 3 nt).
 4. Add the loop initiation (ΔG°37 by size + optional bonus; ΔH° = 0; ΔS° = −ΔG°37·1000/310.15).
 5. Keep the hairpin with the minimum total ΔG°37.
 6. Tm (Eq.11, unimolecular): `ΔH°·1000/ΔS° − 273.15`.
@@ -134,6 +145,9 @@ substring matching; the suffix tree fits exact-occurrence enumeration, not energ
 - `PrimerDesigner.FindMostStableHairpin(string, int, double)`: MFE hairpin (stem span/length, loop size, ΔH°/ΔS°/ΔG°37).
 - `PrimerDesigner.CalculateHairpinMeltingTemperature(string, int, double)`: unimolecular hairpin Tm (Eq.11).
 - `PrimerDesigner.HairpinResult` (record struct): the returned structure.
+- `PrimerDesigner.FindMostStableHairpin(string, StructureModel, double?, double?, double?, double?, int?)` /
+  `CalculateHairpinMeltingTemperature(string, StructureModel, …)`: `SingleHelix` (= the above) or `Ntthal`
+  (full thal.c hairpin, delegates to the `NtthalHairpin` engine; = primer3-py `calc_hairpin`).
 
 ### 5.2 Current Behavior
 
@@ -164,7 +178,8 @@ lets a caller add the supplementary terminal-mismatch / triloop-tetraloop increm
   internal loops and exterior dangles are outside a single-stem model. **Users should rely on:**
   `CalculateHairpinThermodynamicsNtthal` / `CalculateHairpinStructureNtthal`, which implement all of them
   (primer3 `thal.c` with the libprimer3 `triloop`/`tetraloop`/`tstack2`/`dangle` tables; exact to
-  primer3-py 2.3.1 `calc_hairpin`). Self-/cross-dimers: `CalculateDimerThermodynamicsNtthal`.
+  primer3-py 2.3.1 `calc_hairpin`), also reachable as `FindMostStableHairpin(seq, StructureModel.Ntthal, …)`.
+  Self-/cross-dimers: `CalculateDimerThermodynamicsNtthal`.
 
 ### 5.4 Deviations and Assumptions
 
@@ -181,6 +196,7 @@ lets a caller add the supplementary terminal-mismatch / triloop-tetraloop increm
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
 | Homopolymer (poly-A) | null / NaN Tm | no Watson-Crick stem [1] |
+| Maximal stem closes < 3 nt (GGGGCCCC, GCGCGCGCGC) | the longest shorter stem closing ≥ 3 nt (GGGGCCCC: 2 bp + 3 nt, ΔG°37 = +1.671985; GCGCGCGCGC: 3 bp + 4 nt, ΔG°37 = −0.89626, Tm 51.25239666853645 °C) | loop bases stay unpaired [1]; F57 |
 | Loop would be < 3 nt | not returned (null if it is the only option) | loops < 3 sterically prohibited [1] |
 | Non-ACGT base | null / NaN | strict alphabet, as duplex NN methods |
 | null / empty | null / NaN | invalid input |
@@ -190,8 +206,8 @@ lets a caller add the supplementary terminal-mismatch / triloop-tetraloop increm
 
 Single hairpin only — no bulges, internal loops, multibranch, or pseudoknots; no self-dimer/cross-dimer
 (intermolecular) Tm; the length-3/4 special-loop bonuses and terminal mismatch are caller-supplied. For the
-complete DNA hairpin model use `CalculateHairpinThermodynamicsNtthal` (primer3 ntthal, exact to primer3-py
-2.3.1); for multibranch secondary structure use UNAFold or ViennaRNA.
+complete DNA hairpin model use `StructureModel.Ntthal` / `CalculateHairpinThermodynamicsNtthal` (primer3 ntthal,
+exact to primer3-py 2.3.1); for multibranch secondary structure use UNAFold or ViennaRNA.
 
 ## 7. Examples and Related Material
 

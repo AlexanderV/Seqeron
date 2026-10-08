@@ -307,15 +307,51 @@ public class PrimerDesigner_HairpinTm_Tests
         });
     }
 
-    // E3 — a self-complementary palindrome with NO interior loop forms no hairpin. GGGGCCCC pairs
-    // fully (4-bp stem) but closes a 0-nt loop, which is sterically prohibited (< 3) → null.
+    // E3 (audit round 3, A3-13/F57) — a self-complementary palindrome whose MAXIMAL stem would close a
+    // 0-nt loop still forms a SHORTER stem closing a ≥ 3-nt loop: the loop bases are simply unpaired
+    // (SantaLucia & Hicks 2004 Eqs 8–10; INV-01 "all stem/loop placements", INV-02). GGGGCCCC: the
+    // 2-bp stems G0·C6/G1·C5 (loop GGC, 3 nt), G0·C7/G1·C6 (loop GGCC, 4 nt) and G1·C7/G2·C6 (loop GCC)
+    // all have one GG stack (-8.0, -19.9) and a Table 4 loop of 3.5 kcal/mol, so ΔG°37 ties; the scan
+    // keeps the first (closing pair 0·6). Hand-derived: ΔS° = -19.9 - 3.5·1000/310.15 = -31.18486216346929,
+    // ΔG°37 = -8.0 + 310.15·31.18486216346929/1000 = 1.6719850000000012 (unstable but the minimum).
+    // Before F57 the maximal-extension-only scan returned null. A 4-mer like GCGC still has no hairpin (M10).
     [Test]
-    public void FindMostStableHairpin_PalindromeNoLoop_ReturnsNull()
+    public void FindMostStableHairpin_PalindromeMaximalStemClosesNoLoop_UsesShorterStem()
     {
         var hp = PrimerDesigner.FindMostStableHairpin("GGGGCCCC");
 
-        Assert.That(hp, Is.Null,
-            "A perfect palindrome leaves no ≥3-nt loop (0-nt loop is sterically prohibited) → null.");
+        Assert.That(hp, Is.Not.Null, "A 2-bp stem closing a ≥ 3-nt loop exists → a hairpin is returned.");
+        var h = hp!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That((h.StemStart, h.StemEnd, h.StemLength, h.LoopSize), Is.EqualTo((0, 6, 2, 3)));
+            Assert.That(h.DeltaH, Is.EqualTo(-8.0).Within(Tol), "One GG stack.");
+            Assert.That(h.DeltaS, Is.EqualTo(-31.18486216346929).Within(Tol), "GG ΔS° + loop-3 ΔS°.");
+            Assert.That(h.DeltaG37, Is.EqualTo(1.6719850000000012).Within(Tol), "ΔG°37 hand-derived.");
+            Assert.That(PrimerDesigner.CalculateHairpinMeltingTemperature("GGGGCCCC"),
+                Is.EqualTo(-16.61527625921667).Within(1e-9), "Tm = -8.0·1000/ΔS° - 273.15.");
+        });
+    }
+
+    // E3b (F57) — GCGCGCGCGC: the maximal stems close 0–2-nt loops; the MFE single stem is the 3-bp
+    // G0·C9/C1·G8/G2·C7 stem closing GCGC (4 nt) — the same shape primer3-py calc_hairpin reports
+    // (SEQ "///----" + three closing marks). Stacks GC(-9.8,-24.4) + CG(-10.6,-27.2), loop-4 3.5:
+    // ΔS° = -51.6 - 11.28486216346929 = -62.884862163469286, ΔG°37 = -0.8962600000000016,
+    // Tm = -20.4·1000/ΔS° - 273.15 = 51.25239666853645 °C. Before F57: null.
+    [Test]
+    public void FindMostStableHairpin_AlternatingGc_TruncatedStemClosingFourNtLoop()
+    {
+        var h = PrimerDesigner.FindMostStableHairpin("GCGCGCGCGC")!.Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((h.StemStart, h.StemEnd, h.StemLength, h.LoopSize), Is.EqualTo((0, 9, 3, 4)));
+            Assert.That(h.DeltaH, Is.EqualTo(-20.4).Within(Tol));
+            Assert.That(h.DeltaS, Is.EqualTo(-62.884862163469286).Within(Tol));
+            Assert.That(h.DeltaG37, Is.EqualTo(-0.8962600000000016).Within(Tol));
+            Assert.That(PrimerDesigner.CalculateHairpinMeltingTemperature("GCGCGCGCGC"),
+                Is.EqualTo(51.25239666853645).Within(1e-9));
+        });
     }
 
     // E4 — a long oligo with a 6-bp stem closing a 10-nt loop. 5'-arm GGGGGG = 5 GG stacks
