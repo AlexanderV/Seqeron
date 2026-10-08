@@ -6,9 +6,9 @@
 
 > **Superseded (2026-10-01, B07 F26–F28):** the canonical spec is `tests/TestSpecs/PROBE-LNATM-001.md`. Base DNA set is now SantaLucia (1998) unified / Allawi & SantaLucia (1997) (not the SantaLucia & Hicks 2004 set), the default model is Owczarzy et al. (2011), and the values below that assume the old base set (−80.014 / −216.6 / 63.5276 °C) are obsolete — MELTING-exact values are in `ProbeDesigner_LnaTm_Tests`.
 
-**Status:** ☐ In Progress
+**Status:** ☑ Complete — superseded by `tests/TestSpecs/PROBE-LNATM-001.md` (all 12 items covered by `ProbeDesigner_LnaTm_Tests` with MELTING-exact values, see §5.6 note; audit round 4, A4-4)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-06-24; status 2026-10-08
 
 ---
 
@@ -113,7 +113,7 @@
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_LnaTm_Tests.cs` — all LNA-Tm + MGB-rule tests.
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/ProbeDesigner_LnaTm_Tests.cs` — all LNA-Tm + MGB-rule tests.
 - **Remove:** none.
 
 ### 5.4 Final State After Consolidation
@@ -159,6 +159,17 @@
 | S4 | ✅ | 32-key completeness |
 | C1 | ✅ | two LNA positions |
 
+**Audit round 4 (A4-4, 2026-10-08) — current test per item** (`Unit/MolTools/ProbeDesigner_LnaTm_Tests.cs`; the
+expected values above that assume the old base set are superseded by the MELTING-exact values of
+PROBE-LNATM-001): M1/M2 `WorkedExample_McTigue2004_CCATTLGCTACC_MatchesMelting` (−80.314 kcal/mol, −217.4,
+63.614259353345176 °C); M3 `InternalLna_RaisesTmAboveUnmodifiedDna_BothModels`; M4
+`NoLna_ReducesToBiopythonTmNN_DnaNn3` / `NoLna_SelfComplementary_At50mM_ReducesToBiopythonTmNN_Method6`; M5, S1,
+S3 `NotComputable_Cases`; M6 `WorkedExample_McTigue2004_…` (negative `TLG/AC` −1.540 / −3.0) +
+`McTigueSet_BothModels_MatchMelting`; M7 `EvaluateMgbProbeDesign_LengthWindowAndThreePrimePlacement`; S2
+`NotComputable_Cases` (out of range) + `DuplicateAndUnorderedPositions_SetSemantics`; S4
+`EveryInternalLnaContext_IsParameterised_BothModels`; C1 `McTigue2004_ConsecutiveRun_UsesOwczarzyTables_AsMelting`,
+`DuplicateAndUnorderedPositions_SetSemantics` ({4, 6}).
+
 ---
 
 ## 6. Assumption Register
@@ -167,7 +178,7 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Base DNA NN = SantaLucia 1998 unified (library's existing model); the ~0.09 °C offset vs MELTING `mct04` is from this base-model choice, not the increments. | M2 (tolerance vs MELTING) |
+| 1 | ~~Base-set offset of ~0.09 °C vs MELTING `mct04`~~ — eliminated by B07 F26 (SantaLucia 1998 unified / Allawi–SantaLucia 1997 base: MELTING `mct04` 63.61426 °C reproduced exactly). | M2 |
 
 ---
 

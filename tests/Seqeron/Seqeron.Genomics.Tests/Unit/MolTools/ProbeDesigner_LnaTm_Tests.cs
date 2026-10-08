@@ -94,6 +94,25 @@ public class ProbeDesigner_LnaTm_Tests
         });
     }
 
+    /// <summary>
+    /// PROBE-DESIGN-001-LNA M3 (McTigue 2004 / Owczarzy 2011: an internal LNA stabilises the duplex): the
+    /// worked-example LNA at index 4 raises the Tm above the unmodified DNA duplex in both models
+    /// (C_T 1e-4 M, 1 M Na⁺, no salt correction; MELTING mct04 63.61426 °C vs all-DNA ≈ 59.8 °C).
+    /// </summary>
+    [Test]
+    public void InternalLna_RaisesTmAboveUnmodifiedDna_BothModels()
+    {
+        var (seq, lna) = Parse("CCATTLGCTACC");
+        double Tm(int[] positions, PrimerDesigner.LnaNearestNeighborModel model) =>
+            PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, positions, model, null, 1e-4, 1.0,
+                saltMode: PrimerDesigner.SaltCorrectionMode.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(Tm(lna, Mct), Is.GreaterThan(Tm(Array.Empty<int>(), Mct)));
+            Assert.That(Tm(lna, Owc), Is.GreaterThan(Tm(Array.Empty<int>(), Owc)));
+        });
+    }
+
     #endregion
 
     #region Owczarzy et al. (2011) LNA triplet duplexes — 2 µM, 1 M Na⁺ (MELTING test set)

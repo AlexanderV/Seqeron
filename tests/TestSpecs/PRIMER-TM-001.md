@@ -3,9 +3,9 @@
 ## Test Unit: Melting Temperature Calculation
 
 **Area:** MolTools
-**Status:** Active
+**Status:** ☑ Complete
 **Created:** 2026-01-22
-**Last Verified:** 2026-09-28 (review-2026-09 B07: salt-adjusted Tm corrected)
+**Last Verified:** 2026-10-08 (review-2026-09 B07: salt-adjusted Tm corrected; U read as T per F16; status set complete in audit round 4, A4-4)
 **Evidence Sources:** Thein & Wallace (1986), Marmur & Doty (1962), OligoCalc (Kibbe 2007, NAR 35:W43), Schildkraut & Lifson (1965), Biopython `Bio.SeqUtils.MeltingTemp` 1.88, Sigma-Aldrich/Merck Technical Docs
 
 ---
@@ -124,16 +124,17 @@ primer3 `calc_tm` (NN, 50 mM, no Mg) 53.99. **Fixed defect (2026-09):** the prev
 
 ### 3.1 Input Alphabet
 
-Only standard DNA bases (A, C, G, T) are recognized. All other characters — including
-IUPAC ambiguity codes (N, R, Y, etc.) and RNA bases (U) — are ignored.
-Both threshold determination and formula computation use the count of valid ACGT bases only.
+Standard DNA bases (A, C, G, T) are recognized; RNA uracil (U) is read as T, as Biopython
+`MeltingTemp._check` back-transcribes RNA (review-2026-09 B07 F16 / R24). All other characters — including
+IUPAC ambiguity codes (N, R, Y, etc.) — are ignored.
+Both threshold determination and formula computation use the count of valid A/C/G/T/U bases only.
 
 | Input | Valid Bases | Behavior |
 |-------|------------|----------|
 | `"ACNGT"` | A,C,G,T (4 valid) | N ignored; Wallace: 2×2 + 4×2 = 12 |
 | `"ACGTNNNNACGT"` | 8 valid | N's ignored; Wallace: 2×4 + 4×4 = 24 |
 | `"NNNNN"` | 0 valid | Returns 0 |
-| `"ACGUACGU"` | A,C,G,A,C,G (6 valid, U ignored) | Wallace: 2×2 + 4×4 = 20 |
+| `"ACGUACGU"` | 8 valid (U read as T) | Wallace: 2×4 + 4×4 = 24 (= Biopython `Tm_Wallace`) |
 
 ### 3.2 Case Insensitivity
 
@@ -257,11 +258,11 @@ Input: "ACNGT" (4 valid bases: A,C,G,T)
 Expected: Wallace 2×2 + 4×2 = 12.0
 ```
 
-#### M16: RNA Base (U) Not Recognized
-**Evidence:** Defined behavior — DNA-only tool (Section 3.1)
+#### M16: RNA Base (U) Read as T
+**Evidence:** Biopython 1.88 `Tm_Wallace("ACGUACGU")` = 24.0 (`MeltingTemp._check` back-transcribes U → T; B07 F16)
 ```
-Input: "ACGUACGU" (6 valid bases: A,C,G,A,C,G)
-Expected: Wallace 2×2 + 4×4 = 20.0
+Input: "ACGUACGU" (8 valid bases, U counted as T)
+Expected: Wallace 2×4 + 4×4 = 24.0
 ```
 
 #### M17: All Non-Standard Returns 0
@@ -311,7 +312,7 @@ Expected: 64.9 + 41×(0-16.4)/16 = 22.875
 | Lowercase | "acgt" | Case-insensitive |
 | Non-ACGT (N) | "ACNGT" | Only ACGT counted |
 | Only non-ACGT | "NNNNN" | Returns 0.0 |
-| RNA (U) | "ACGUACGU" | U ignored; only ACGT counted |
+| RNA (U) | "ACGUACGU" | U read as T (24.0, Biopython parity) |
 
 ---
 
@@ -324,7 +325,7 @@ Expected: 64.9 + 41×(0-16.4)/16 = 22.875
 | Long primer formula | Marmur-Doty: 64.9 + 41(GC−16.4)/N | Nearest-neighbor (SantaLucia 1998) | **Simplified** — Marmur-Doty is a simpler, well-published alternative |
 | Salt adjustment | OligoCalc salt-adjusted Tm (relative to the 50 mM basis for N<14) | Integrated into NN formula | Matches OligoCalc output |
 | Non-ACGT handling | Ignored (only ACGT counted) | Not documented (clean input expected) | Defined behavior |
-| RNA (U) | Not supported (ignored) | Not applicable (DNA tool) | Defined behavior |
+| RNA (U) | Read as T (Biopython `MeltingTemp._check`) | Not applicable (DNA tool) | Matches Biopython |
 
 ### Known Variant: −7 Correction Factor
 
@@ -339,7 +340,7 @@ For a different [Na+] use `CalculateMeltingTemperatureWithSalt` (OligoCalc salt-
 
 ## 8. Coverage Classification
 
-All spec test cases verified against `PrimerDesigner_MeltingTemperature_Tests.cs` (34 tests).
+All spec test cases verified against `PrimerDesigner_MeltingTemperature_Tests.cs` (44 test methods).
 
 | ID | Test Case | Status | Test Method |
 |----|-----------|--------|-------------|
@@ -357,7 +358,7 @@ All spec test cases verified against `PrimerDesigner_MeltingTemperature_Tests.cs
 | M12–M14 | Salt-adjusted ≥14 nt | ✅ Covered | `CalculateMeltingTemperatureWithSalt_Long_OligoCalcSaltAdjusted` (50/10/200/1000 mM) |
 | M14b | Salt-adjusted <14 nt, OligoCalc example, invalid Na | ✅ Covered | `_Short_WallaceRelativeCorrection`, `_OligoCalcWorkedExample_39mer`, `_Short_At50mM_EqualsBasicWallace`, `_IncreasesBy16_6PerDecade`, `_InvalidSodium_Throws` |
 | M15 | Non-ACGT Ignored | ✅ Covered | `_NonAcgtIgnored_OnlyValidBasesCounted` |
-| M16 | RNA U Ignored | ✅ Covered | `_RnaUracil_NotCountedAsDnaBase` |
+| M16 | RNA U read as T | ✅ Covered | `_RnaUracil_ReadAsThymine_MatchesBiopythonTmWallace` |
 | M17 | All Non-Standard → 0 | ✅ Covered | `_AllNonAcgt_Returns0` |
 | M18 | Salt Empty/Null → 0 | ✅ Covered | `_EmptyPrimer_Returns0` + `_NullPrimer_Returns0` |
 | M19 | All Same Base 16bp | ✅ Covered | `_MarmurDoty_AllSameBase16bp_ReturnsExpected` |
@@ -382,5 +383,5 @@ All spec test cases verified against `PrimerDesigner_MeltingTemperature_Tests.cs
 - [x] Evidence documented
 - [x] External sources verified (Sigma-Aldrich/Merck, Wikipedia, Marmur & Doty 1962)
 - [x] All assumptions eliminated (see Section 3: Defined Behaviors)
-- [x] Tests implemented (34 tests in PrimerDesigner_MeltingTemperature_Tests.cs)
+- [x] Tests implemented (44 test methods in PrimerDesigner_MeltingTemperature_Tests.cs)
 - [x] All tests pass

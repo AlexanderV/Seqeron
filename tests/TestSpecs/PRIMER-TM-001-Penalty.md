@@ -3,9 +3,9 @@
 **Test Unit ID:** PRIMER-TM-001
 **Area:** MolTools
 **Algorithm:** Primer3 weighted per-primer penalty (objective function)
-**Status:** ☐ In Progress
+**Status:** ☑ Complete (all items ✅ Done, tests verified present; audit round 4, A4-4)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-23
+**Last Updated:** 2026-06-23; status 2026-10-08
 
 <!-- Companion to tests/TestSpecs/PRIMER-TM-001.md (which covers the Tm calculation,
      validated under SEQ-THERMO-001). This spec covers the Primer3 penalty objective
@@ -119,7 +119,7 @@ Note: `WT_SELF_ANY`/`WT_SELF_END` (M7, M8, M10, S3) apply only in alignment mode
 
 ### 5.1 Discovery Summary
 
-- `tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner*.cs` cover Tm, structure, and the legacy heuristic `Score`. No test exercises a Primer3 penalty objective — the method is new for this unit.
+- `tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner*.cs` cover Tm, structure, and the legacy heuristic `Score`. No test exercises a Primer3 penalty objective — the method is new for this unit.
 
 ### 5.2 Coverage Classification
 
@@ -131,7 +131,7 @@ Note: `WT_SELF_ANY`/`WT_SELF_END` (M7, M8, M10, S3) apply only in alignment mode
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_Primer3Penalty_Tests.cs` — all PRIMER-TM-001 penalty tests.
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_Primer3Penalty_Tests.cs` — all PRIMER-TM-001 penalty tests.
 - **Remove:** nothing.
 
 ### 5.4 Final State After Consolidation
@@ -163,7 +163,7 @@ Note: `WT_SELF_ANY`/`WT_SELF_END` (M7, M8, M10, S3) apply only in alignment mode
 | 17 | C2 | ❌ Missing | Implemented | ✅ Done |
 
 **Total items:** 17
-**✅ Done:** 17 | **⛔ Blocked:** 0 | **Remaining:** must be 0
+**✅ Done:** 17 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 

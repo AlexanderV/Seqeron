@@ -219,7 +219,7 @@ The implementation evaluates candidates with prefix-sum GC optimization and keep
 
 ### 6.2 Limitations
 
-`DesignProbes` ranks with heuristic additive penalties over Primer3-exact measurements (seqtm Tm; ntthal self-dimer / hairpin Tm for ≤ 60-nt ACGT probes, dpal self_any / self_end and a sequence-only hairpin stem otherwise); specificity is exact-hit uniqueness through the suffix tree over **all** candidates (mismatch-aware off-target assessment is `ValidateProbe` / `ScanOffTargetsGapped`, PROBE-VALID-001). A unique-probe request can therefore cost a suffix-tree lookup per candidate window when few candidates are unique (the lookup is O(probe length); the walk stops at `maxProbes` probes). It is suitable for fast candidate generation and filtering, but not for high-confidence experimental validation by itself.
+`DesignProbes` ranks with heuristic additive penalties over Primer3-exact measurements (seqtm Tm; ntthal self-dimer / hairpin Tm for ACGT probes ≤ `ThermodynamicScreenMaxLength` (default 60 = Primer3 THAL_MAX_ALIGN; opt-in up to 10 000, F55/F56), dpal self_any / self_end and a sequence-only hairpin stem otherwise); specificity is exact-hit uniqueness through the suffix tree over **all** candidates (mismatch-aware off-target assessment is `ValidateProbe` / `ScanOffTargetsGapped`, PROBE-VALID-001). A unique-probe request can therefore cost a suffix-tree lookup per candidate window when few candidates are unique (the lookup is O(probe length); the walk stops at `maxProbes` probes). It is suitable for fast candidate generation and filtering, but not for high-confidence experimental validation by itself.
 
 ## 8. References
 

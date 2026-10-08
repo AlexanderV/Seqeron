@@ -206,7 +206,7 @@ The current validator treats an empty probe as invalid rather than throwing. It 
 
 ### 6.2 Limitations
 
-The implementation is a screening tool. The opt-in `ScanOffTargetsGapped` adds indel-aware (gapped) off-target detection and on/off-target separation, and `ComputeKarlinAltschul` adds the Karlin–Altschul bit-score / E-value significance of a hit; but off-target search remains an exhaustive sliding Smith–Waterman scan, not a seeded BLAST k-mer index over a whole genome (a genome-scale *performance* technique — the exhaustive scan already finds every hit a seed would). Off-target sites assessed by `AssessCrossHybridization` carry the ntthal duplex Tm (≤ 60-nt ACGT probes); mismatch-position weighting and assay stringency are not modelled, and the suffix-tree helper only captures exact-hit uniqueness.
+The implementation is a screening tool. The opt-in `ScanOffTargetsGapped` adds indel-aware (gapped) off-target detection and on/off-target separation, and `ComputeKarlinAltschul` adds the Karlin–Altschul bit-score / E-value significance of a hit; but off-target search remains an exhaustive sliding Smith–Waterman scan, not a seeded BLAST k-mer index over a whole genome (a genome-scale *performance* technique — the exhaustive scan already finds every hit a seed would). Off-target sites assessed by `AssessCrossHybridization` carry the ntthal duplex Tm (ACGT; computed when the probe or the site is ≤ the conditions' `ThermodynamicScreenMaxLength`, default 60 = Primer3 THAL_MAX_ALIGN, opt-in up to 10 000 — F55/F56); mismatch-position weighting and assay stringency are not modelled, and the suffix-tree helper only captures exact-hit uniqueness.
 
 ## 8. References
 

@@ -3,9 +3,9 @@
 **Test Unit ID:** PRIMER-TM-001 (hairpin / secondary-structure Tm extension)
 **Area:** MolTools
 **Algorithm:** DNA hairpin (stem + loop) MFE folding + unimolecular hairpin Tm
-**Status:** ☐ In Progress
+**Status:** ☑ Complete (all items ✅ Done, tests verified present; audit round 4, A4-4)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-06-25; status 2026-10-08
 
 ---
 
@@ -114,7 +114,7 @@
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinTm_Tests.cs` — all hairpin tests.
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_HairpinTm_Tests.cs` — all hairpin tests.
 - **Remove:** none.
 
 ### 5.4 Final State After Consolidation
