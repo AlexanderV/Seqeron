@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.GeneratePrimerCandidates",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4436",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4438",
   "description": "Enumerate every primer candidate of admissible length at each start position in a region and evaluate each (returned in generation order, not sorted).",
   "inputSchema": {
     "type": "object",

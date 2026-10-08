@@ -333,6 +333,55 @@ public class PrimerDesigner_PrimerStructure_Tests
         });
     }
 
+    /// <summary>
+    /// A6-1: the canonical reverse complement maps U→A, so before the fix a U stem window became "AAAA", passed the
+    /// pattern-only non-ACGT guard and matched an A run on the ≥ 100-nt suffix-tree path, while the &lt; 100-nt scan
+    /// (strict A·T / G·C) never pairs U. Lowercase input is upper-cased before either path, so it pairs identically.
+    /// </summary>
+    [TestCase("AAAAACCCCUUUUU", false, TestName = "U_never_pairs_with_A")]
+    [TestCase("AAAAACCCCuuuuu", false, TestName = "lowercase_u_never_pairs_with_A")]
+    [TestCase("AAAAACCCCTTTTT", true, TestName = "control_T_pairs_with_A")]
+    [TestCase("aaaaaccccttttt", true, TestName = "lowercase_pairs_like_uppercase")]
+    [TestCase("AAAAACCCCCCCCC", false, TestName = "control_no_stem")]
+    public void HasHairpinPotential_UracilAndLowercase_SameOnBothPaths(string core, bool expected)
+    {
+        string longSeq = core + string.Concat(Enumerable.Repeat("AC", 60)); // 134 nt → suffix-tree path
+        Assert.Multiple(() =>
+        {
+            Assert.That(core.Length, Is.LessThan(100));
+            Assert.That(longSeq.Length, Is.GreaterThanOrEqualTo(100));
+            Assert.That(PrimerDesigner.HasHairpinPotential(core), Is.EqualTo(expected), "< 100-nt scan");
+            Assert.That(PrimerDesigner.HasHairpinPotential(longSeq), Is.EqualTo(expected), "≥ 100-nt suffix tree");
+        });
+    }
+
+    /// <summary>
+    /// A6-1: randomized equivalence of the two scan paths. Padding a &lt; 100-nt sequence with N (which never pairs on
+    /// either path) up to ≥ 100 nt switches it to the suffix-tree path without adding or removing any A·T / G·C stem,
+    /// so the result must be unchanged — over an alphabet that includes U, N, an IUPAC code and lowercase.
+    /// </summary>
+    [Test]
+    public void HasHairpinPotential_ShortScanAndSuffixTree_AgreeOnRandomSequences()
+    {
+        const string alphabet = "ACGTACGTUNSacgtu";
+        var rng = new Random(20261008);
+        int positives = 0;
+        for (int trial = 0; trial < 2000; trial++)
+        {
+            int len = rng.Next(11, 99);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++)
+                chars[i] = alphabet[rng.Next(alphabet.Length)];
+            string s = new(chars);
+            int stem = rng.Next(3, 6), loop = rng.Next(3, 5);
+            bool shortResult = PrimerDesigner.HasHairpinPotential(s, stem, loop);
+            bool longResult = PrimerDesigner.HasHairpinPotential(s + new string('N', 100), stem, loop);
+            Assert.That(longResult, Is.EqualTo(shortResult), $"seq={s} stem={stem} loop={loop}");
+            if (shortResult) positives++;
+        }
+        Assert.That(positives, Is.InRange(200, 1800), "both outcomes are exercised");
+    }
+
     [Test]
     public void HasHairpinPotential_LongSequenceNoHairpin_ReturnsFalse()
     {

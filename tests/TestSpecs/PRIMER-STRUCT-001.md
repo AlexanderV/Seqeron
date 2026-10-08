@@ -131,6 +131,8 @@
 | `HasHairpinPotential_LongSequence_UsesSuffixTreeOptimization` | 1 | ✅ Covered | C3 |
 | `HasHairpinPotential_LongSequenceNoHairpin_ReturnsFalse` | 1 | ✅ Covered | C3 |
 | `HasHairpinPotential_NonAcgtBlocks_NeverPair_OnBothPaths` | 2 | ✅ Covered | C3: only A·T/G·C pair on both paths (97 nt O(n²), 113 nt suffix tree; the suffix path used the IUPAC N→N complement before audit round 5, A5-2) |
+| `HasHairpinPotential_UracilAndLowercase_SameOnBothPaths` | 5 | ✅ Covered | C3: U never pairs with A and lowercase pairs like uppercase on both paths (14 nt O(n²), 134 nt suffix tree; the suffix path mapped U→A before audit round 6, A6-1) |
+| `HasHairpinPotential_ShortScanAndSuffixTree_AgreeOnRandomSequences` | 1 | ✅ Covered | C3: 2000 seeded random < 100-nt sequences (ACGTUNS + lowercase) give the same result as their 100-N-padded suffix-tree extension (A6-1) |
 | `HasPrimerDimer_NullOrEmptyPrimer_ReturnsFalse` | 4 | ✅ Covered | M11 (4 cases: null/empty × both sides) |
 | `HasPrimerDimer_NonComplementary3Ends_ReturnsFalse` | 1 | ✅ Covered | M12 (fixture replaced 2026-10-01: the old AAAACCCCCCCC/GGGGGGGGTTTT pair is fully reverse-complementary, compl_end 12) |
 | `HasPrimerDimer_Complementary3Ends_ReturnsTrue` | 1 | ✅ Covered | M13 (A₈/T₈) |

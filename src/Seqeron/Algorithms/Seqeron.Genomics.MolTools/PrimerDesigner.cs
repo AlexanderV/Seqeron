@@ -1844,8 +1844,10 @@ public static partial class PrimerDesigner
         {
             var pattern = revComp.AsSpan(p, minStemLength);
             // Only Watson–Crick A·T / G·C pairs form a stem (IsComplementary, as in the < 100-nt scan): the IUPAC
-            // reverse complement maps N→N, S→S, W→W, so a stem window with a non-ACGT base would otherwise match itself.
-            if (pattern.ContainsAnyExcept(AcgtBases))
+            // reverse complement maps N→N, S→S, W→W, so a stem window with a non-ACGT base would otherwise match itself;
+            // and it maps U→A, so the source window seq[n-p-k..n-p) must itself be ACGT (audit round 6, A6-1).
+            if (pattern.ContainsAnyExcept(AcgtBases)
+                || seq.AsSpan(n - p - minStemLength, minStemLength).ContainsAnyExcept(AcgtBases))
                 continue;
             var matches = tree.FindAllOccurrences(pattern);
 
