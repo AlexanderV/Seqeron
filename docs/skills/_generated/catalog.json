@@ -2335,7 +2335,7 @@
     "server": "MolTools",
     "methodId": "PrimerDesigner.DesignPrimers",
     "docPath": "docs/mcp/tools/moltools/design_primers.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L40"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L104"
   },
   {
     "tool": "design_probes",

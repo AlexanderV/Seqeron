@@ -1476,11 +1476,11 @@ public class MolToolsMetamorphicTests
     //
     // API under test (PrimerDesigner.cs):
     //   HasPrimerDimer(primer1, primer2, minComplementarity = 4) → bool
-    //     1. seq1 = primer1.upper();  seq2 = revComp(primer2.upper()).
-    //     2. checkLength = min(8, len1, len2).
-    //     3. end1 = last `checkLength` bases of seq1; end2 = first `checkLength` bases of seq2.
-    //     4. complementary = #{ i : IsComplementary(end1[i], end2[i]) }.
-    //     5. return complementary >= minComplementarity.
+    //     = CalculatePrimerDimerEndComplementarity(primer1, primer2) >= minComplementarity, where the
+    //     score is Primer3's alignment-mode compl_end (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0):
+    //     max(align(p1, revcomp(p2)), align(p2, revcomp(p1))), dpal end-anchored (DPAL_GLOBAL_END —
+    //     the alignment must end at p1's 3'-terminal base), +1 per identical (= complementary across
+    //     the antiparallel duplex) base, −1 mismatch, −2 single-base gap, floored at 0.
     //   HasHairpinPotential(seq, minStemLength = 4, minLoopLength = 3) → bool
     //     true ⇔ ∃ a length-minStemLength window at i complementary (reversed) to a
     //     window at j with j ≥ i + minStemLength + minLoopLength (i.e. a stem-loop
@@ -1496,27 +1496,23 @@ public class MolToolsMetamorphicTests
     //   the existence of such a stem-loop.
     //
     // ── Self-dimer score (the MON subject) ──
-    //   For a SELF-dimer we evaluate HasPrimerDimer(primer, primer, ·). The hidden
-    //   score is the complementary-pair count of step 4. Because HasPrimerDimer exposes
-    //   only the boolean `count >= minComplementarity`, we RECOVER the exact score by a
-    //   threshold sweep: SelfDimerScore = the largest threshold t in [0, checkLen] for
-    //   which HasPrimerDimer(primer, primer, t) is still true; that t equals `count`.
-    //   This is the genuine score the implementation computes, read through its only
-    //   public surface — not an output-fitted proxy.
+    //   For a SELF-dimer we evaluate HasPrimerDimer(primer, primer, ·), whose hidden score is
+    //   Primer3's self_end = align(p, revcomp(p), DPAL_GLOBAL_END). Because HasPrimerDimer exposes
+    //   only the boolean `score >= minComplementarity`, we RECOVER the exact score by a threshold
+    //   sweep: SelfDimerScore = the largest threshold t in [0, len] for which
+    //   HasPrimerDimer(primer, primer, t) is still true.
     //
-    //   Geometry of the SELF window (derived, not observed): for self-dimer
-    //   seq2 = revComp(primer), so end2[i] = complement(w[checkLen-1-i]) where w is the
-    //   terminal checkLen-mer and end1[i] = w[i]. IsComplementary(w[i], complement(x))
-    //   holds iff w[i] == x, so a comparison position i pairs iff w[i] == w[checkLen-1-i].
-    //   So the self-dimer score COUNTS the positions where the terminal checkLen-mer
-    //   equals its own REVERSE (a reverse-EQUAL palindrome — A·T/C·G pairing across the
-    //   antiparallel self-fold maps "complementary" back to "equal"):
-    //     • a terminal window that is a perfect reverse-palindrome (w == reverse(w))
-    //       scores checkLen (the MAXIMUM, fully self-complementary 3' end);
-    //     • a window whose every mirror pair (i, checkLen-1-i) differs scores 0.
-    //   (The matched count is always even: a matched mirror pair contributes 2 positions.)
-    //   MON: a primer with MORE self-complementary terminal pairs has a score ≥ one with
-    //   fewer; strictly higher when the added pairing is real.
+    //   Geometry (derived, not observed): if the 3'-terminal k-mer w of p is a reverse-complement
+    //   palindrome (w == revcomp(w)), then revcomp(p) STARTS with w, so the end-anchored alignment
+    //   of p's last k bases with the first k bases of revcomp(p) scores +k — the two copies' 3' ends
+    //   pair antiparallel over k bases. Hence:
+    //     • score(p) ≥ k for any p ending in a k-base reverse-complement palindrome (lower bound);
+    //     • nesting palindromes AT ⊂ GATC ⊂ AGATCT ⊂ GAGATCTC (each adds one outer Watson–Crick
+    //       mirror pair) behind a leader that cannot pair with them raises the score 2 → 4 → 6 → 8;
+    //     • a 3' end with no Watson–Crick partner anywhere in revcomp(p) (e.g. …AAAA with no T in p)
+    //       scores 0. Note that an all-A window equals its own REVERSE but is NOT self-complementary.
+    //   Every anchor value below was checked against primer3-py 2.3.1 check_primers
+    //   (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0, PRIMER_LEFT_0_SELF_END).
     //
     // ── Hairpin INV/MON dependency (the exact thing tested) ──
     //   The hairpin boolean depends ONLY on whether some self-complementary stem pair
@@ -1533,22 +1529,18 @@ public class MolToolsMetamorphicTests
     //   stem added and none removable, HasHairpinPotential is preserved exactly, both ways.
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The terminal comparison window cap used by HasPrimerDimer (min(8, len1, len2)).</summary>
-    private const int DimerCheckCap = 8;
-
     private const int HairpinMinStem = 4;
     private const int HairpinMinLoop = 3;
 
     /// <summary>
-    /// Recovers the implementation's hidden self-dimer score — the complementary-pair
-    /// count in the 3' window — via the only public surface (HasPrimerDimer's boolean
-    /// `count &gt;= threshold`): the largest threshold still returning true equals the count.
+    /// Recovers the implementation's hidden self-dimer score — Primer3's integer self_end for ACGT
+    /// input — via the only boolean surface (HasPrimerDimer's `score &gt;= threshold`): the largest
+    /// threshold still returning true equals the score.
     /// </summary>
     private static int SelfDimerScore(string primer)
     {
-        int checkLen = Math.Min(DimerCheckCap, primer.Length);
         int score = 0;
-        for (int t = 1; t <= checkLen; t++)
+        for (int t = 1; t <= primer.Length; t++)
             if (PrimerDesigner.HasPrimerDimer(primer, primer, minComplementarity: t))
                 score = t;
         return score;
@@ -1586,81 +1578,72 @@ public class MolToolsMetamorphicTests
     #region MON — more self-complementary 3' end → higher self-dimer score
 
     [Test]
-    [Description("MON: making one more terminal mirror-pair self-complementary STRICTLY raises the self-dimer score; the chain is monotonically non-decreasing up to the window cap.")]
+    [Description("MON: extending the 3'-terminal reverse-complement palindrome by one more Watson–Crick mirror pair STRICTLY raises the self-dimer score (2 → 4 → 6 → 8).")]
     public void HasPrimerDimer_ExtendSelfComplementaryCore_ScoreStrictlyIncreasing()
     {
-        // A fixed 5' leader keeps the discriminating signal in the 3' terminal 8-base
-        // window. Each tail below is the previous one with one MORE mirror pair
-        // (i, 7-i) made equal — turning two more comparison positions into self-paired
-        // ones. So the recovered self-dimer score (reverse-palindrome position count of
-        // the last 8 bases) rises by exactly 2 at each step: 0, 2, 4, 6, 8.
-        const string leader = "AAAA"; // primer = leader + 8-base tail ⇒ window == tail
-        string[] tailsByRisingSelfComp =
+        // A fixed poly-C leader: its partner (poly-G) sits at the far 3' end of revcomp(p), away from
+        // the tails' 3'-end alignments, so the score is set by the terminal palindrome (each value
+        // checked with primer3-py).
+        const string leader = "CCCC";
+        (string tail, int score)[] tailsByRisingSelfComp =
         {
-            "ACGTACGT", // 0 matched mirror pairs: (A,T)(C,G)(G,C)(T,A) all differ
-            "ACGTTCGT", // + pair (3,4)=T,T            ⇒ 2
-            "ACGTTGGT", // + pair (2,5)=G,G            ⇒ 4
-            "ACGTTGCT", // + pair (1,6)=C,C            ⇒ 6
-            "ACGTTGCA", // + pair (0,7)=A,A (reverse-palindrome) ⇒ 8 (window cap)
+            ("AAAAAAAA", 0),    // no Watson–Crick partner for the 3' A anywhere in revcomp(p)
+            ("AAAAAAAT", 2),    // …AT:       one mirror pair  (A·T)
+            ("AAAAGATC", 4),    // …GATC:     + outer G·C
+            ("AAAAAGATCT", 6),  // …AGATCT:   + outer A·T
+            ("AAAGAGATCTC", 8), // …GAGATCTC: + outer G·C
         };
 
         int previous = -1;
-        foreach (var tail in tailsByRisingSelfComp)
+        foreach (var (tail, expected) in tailsByRisingSelfComp)
         {
             int score = SelfDimerScore(leader + tail);
 
             score.Should().BeGreaterThan(previous,
-                because: $"making one more terminal mirror pair self-complementary (tail '{tail}') turns two more " +
-                         "comparison positions into pairing ones, so the self-dimer score must strictly rise");
+                because: $"adding one more Watson–Crick mirror pair to the 3'-terminal palindrome (tail '{tail}') " +
+                         "lengthens the antiparallel 3'-end duplex, so the self-dimer score must strictly rise");
+            score.Should().Be(expected,
+                because: $"Primer3 self_end of '{leader + tail}' (primer3-py 2.3.1: {expected}.0)");
             previous = score;
         }
-
-        // The fully self-complementary (reverse-palindromic) terminal window saturates the cap.
-        SelfDimerScore(leader + "ACGTTGCA").Should().Be(DimerCheckCap,
-            because: "the 8-base 3' window 'ACGTTGCA' equals its own reverse, so every comparison position pairs — the maximum");
     }
 
     [Test]
-    [Description("MON: a primer with strictly more self-complementary terminal pairs never scores below one with fewer — checked across several primers incl. fixed-seed random.")]
+    [Description("MON (lower bound): a primer ending in a k-base reverse-complement palindrome has a self-dimer score of at least k — across several bodies incl. fixed-seed random.")]
     public void HasPrimerDimer_MoreSelfComplementaryTerminus_ScoresAtLeastAsHigh()
     {
-        // For each body we compare its self-dimer score to the same body with one MORE
-        // mirror pair made self-complementary at the 3' end. We make the terminal window
-        // self-palindromic by overwriting its outermost mismatching mirror pair, which
-        // can only turn a non-paired terminal position into a paired one.
+        // revcomp(body + w) starts with revcomp(w) = w, so the end-anchored alignment of the last k
+        // bases with the first k bases of the reverse complement scores +k: Primer3's self_end can
+        // only find that alignment or a better one.
+        string[] palindromes = { "AT", "GATC", "AGATCT", "GAGATCTC" };
         foreach (var body in StructureSamples())
         {
-            int baseScore = SelfDimerScore(body);
-
-            // Force a perfectly self-complementary 8-base 3' end: append a window that
-            // equals its own reverse. This is the self-complementarity MAXIMUM.
-            string maximallySelfComp = body + "ACGTTGCA"; // 8-base reverse-palindrome tail
-            int maxScore = SelfDimerScore(maximallySelfComp);
-
-            maxScore.Should().BeGreaterThanOrEqualTo(baseScore,
-                because: "replacing the 3' terminus with a fully self-complementary window can only add complementary " +
-                         "pairs to the compared window, so its self-dimer score is ≥ the original");
-            maxScore.Should().Be(DimerCheckCap,
-                because: "a reverse-palindromic 3' window (window == reverse(window)) pairs at every comparison position — the documented maximum");
+            foreach (string w in palindromes)
+            {
+                SelfDimerScore(body + w).Should().BeGreaterThanOrEqualTo(w.Length,
+                    because: $"'{body}' + the {w.Length}-base reverse-complement palindrome '{w}' pairs its 3' end " +
+                             "antiparallel with a second copy over at least those bases");
+            }
         }
     }
 
     [Test]
-    [Description("MON anchors: a fully self-complementary (palindromic) 3' end scores the maximum; a 3' end with no self-complementary mirror pair scores the minimum (0).")]
+    [Description("MON anchors: a self-complementary (reverse-complement palindromic) 3' end scores its length; a 3' end with no Watson–Crick partner scores the minimum (0).")]
     public void HasPrimerDimer_KnownExtremes_MaxForPalindromeZeroForNonComplementary()
     {
-        // Maximum: the 8-base 3' window equals its own reverse (every mirror pair matches).
-        SelfDimerScore("AAAAACGTTGCA").Should().Be(DimerCheckCap,
-            because: "the 8-base 3' window 'ACGTTGCA' equals reverse('ACGTTGCA'), so all 8 comparison positions pair — the maximum");
-        // An all-same 3' end is the trivial reverse-palindrome and also hits the maximum.
-        SelfDimerScore("GCGCAAAAAAAA").Should().Be(DimerCheckCap,
-            because: "an all-A 8-base 3' window is its own reverse, so every comparison position pairs — the maximum");
-
-        // Minimum: build an 8-base 3' window whose every mirror pair (i, 7-i) DIFFERS,
-        // so no comparison position is self-paired → score 0.
-        //   window 'ACGTACGT': pairs (A,T)(C,G)(G,C)(T,A) — every mirror pair differs.
-        SelfDimerScore("AAAAACGTACGT").Should().Be(0,
-            because: "in the 3' window 'ACGTACGT' every mirror pair (i, 7-i) differs, so none is self-complementary — the minimum 0");
+        // 'ACGTACGT' == revcomp('ACGTACGT'): the 8-base 3' end pairs antiparallel with itself.
+        SelfDimerScore("CCCCACGTACGT").Should().Be(8,
+            because: "the 3' window 'ACGTACGT' is its own reverse complement, so the two 3' ends pair over 8 bases (primer3-py 2.3.1: 8.0)");
+        // An all-A 3' end equals its own REVERSE but is NOT self-complementary: with no T in the
+        // primer, the terminal A has no partner anywhere in revcomp(p).
+        SelfDimerScore("GCGCAAAAAAAA").Should().Be(0,
+            because: "A·A does not pair and the primer has no T, so the 3' end cannot anneal to a second copy — the minimum 0");
+        SelfDimerScore("CCCCAAAAAAAA").Should().Be(0,
+            because: "an all-A 3' end with a poly-C leader has no Watson–Crick partner in revcomp(p) (primer3-py 2.3.1: 0.0)");
+        // 'ACGTTGCA' equals its own REVERSE (the maximum of the superseded mirror-equality count)
+        // but is not its own reverse complement: Primer3 scores it 4, not 8.
+        SelfDimerScore("CCCCACGTTGCA").Should().Be(4,
+            because: "a reverse-EQUAL (not reverse-complement) window is not fully self-complementary (primer3-py 2.3.1: 4.0)");
     }
 
     #endregion
@@ -3028,7 +3011,7 @@ public class MolToolsMetamorphicTests
     #region PROBE-LNATM-001 — LNA-adjusted NN Tm
 
     [Test]
-    [Description("INV: with no LNA positions the LNA-adjusted Tm degenerates to the standard SantaLucia NN Tm exactly — the LNA model is a pure extension.")]
+    [Description("INV-01: with no LNA positions the LNA-adjusted Tm degenerates to the unified DNA NN Tm (Biopython DNA_NN3, the MELTING LNA base table, same R) — the LNA model is a pure extension.")]
     public void LnaTm_AllDnaInput_ReducesToStandardNnTm()
     {
         var sequences = new[] { "CAGGTGGCACCTTAACG", "GCTAGCATCGGATCCAA", "ATGCGGTCAATTGCAACGT", "GGGCGCGGCACCGTCCA" };
@@ -3038,10 +3021,12 @@ public class MolToolsMetamorphicTests
             foreach (double na in new[] { 0.05, 0.50 })
             {
                 double lnaNoMods = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, System.Array.Empty<int>(), sodiumMolar: na);
-                double standard = PrimerDesigner.CalculateMeltingTemperatureNN(seq, sodiumMolar: na);
+                // Independent DNA_NN3 reference at the API defaults (C_T = 0.5 µM, Owczarzy 2004 salt).
+                double standard = Fuzzing.ProbeLnaTmFuzzTests.DnaNn3Tm(seq, 0.5e-6, na,
+                    PrimerDesigner.SaltCorrectionMode.Owczarzy2004Monovalent);
 
-                lnaNoMods.Should().BeApproximately(standard, 1e-12,
-                    because: $"an empty LNA-position set reproduces the standard NN Tm of '{seq}' exactly at [Na⁺]={na} M");
+                lnaNoMods.Should().BeApproximately(standard, 1e-9,
+                    because: $"an empty LNA-position set reproduces the DNA_NN3 NN Tm of '{seq}' at [Na⁺]={na} M (doc INV-01)");
             }
         }
     }

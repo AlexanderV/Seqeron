@@ -135,9 +135,34 @@ public class ProbeLnaTmFuzzTests
         PrimerDesigner.CalculateMeltingTemperatureNNLna(
             seq, mask.ToArray(), strandConcentrationMolar: RefConc, sodiumMolar: RefNa, saltMode: mode);
 
+    /// <summary>
+    /// Bare-DNA counterpart of the LNA model (doc §2.4 INV-01): the unified DNA NN model —
+    /// Biopython <c>Tm_NN(nn_table=DNA_NN3)</c>, the MELTING 5 LNA base table — evaluated
+    /// independently through the canonical <see cref="ThermoConstants.CalculateNearestNeighborDuplex"/>
+    /// at the same conditions and R = 1.9872. (Not <c>CalculateMeltingTemperatureNN</c>, which uses
+    /// the SantaLucia &amp; Hicks 2004 <c>DNA_NN4</c> table.)
+    /// </summary>
     private static double DnaTm(string seq, PrimerDesigner.SaltCorrectionMode mode = None) =>
-        PrimerDesigner.CalculateMeltingTemperatureNN(
-            seq, strandConcentrationMolar: RefConc, sodiumMolar: RefNa, saltMode: mode);
+        DnaNn3Tm(seq, RefConc, RefNa, mode);
+
+    internal static double DnaNn3Tm(string seq, double strandConcentrationMolar, double sodiumMolar,
+        PrimerDesigner.SaltCorrectionMode mode)
+    {
+        string s = seq.ToUpperInvariant();
+        bool selfComp = s == DnaSequence.GetReverseComplementString(s);
+        double dnac = selfComp ? strandConcentrationMolar * 1e9 : strandConcentrationMolar * 1e9 / 2.0;
+        var method = mode switch
+        {
+            None => NnSaltCorrection.None,
+            SantaLucia => NnSaltCorrection.SantaLucia1998Entropy,
+            Owczarzy04 => NnSaltCorrection.Owczarzy2004,
+            _ => NnSaltCorrection.Owczarzy2008,
+        };
+        return ThermoConstants.CalculateNearestNeighborDuplex(
+            s, parameterSet: NnParameterSet.AllawiSantaLucia1997, dnac1: dnac, dnac2: dnac,
+            selfComplementary: selfComp, sodium: sodiumMolar * 1000.0, saltCorrection: method,
+            gasConstant: ThermoConstants.NnGasConstantSantaLuciaHicks2004).MeltingTemperature;
+    }
 
     #endregion
 
@@ -383,8 +408,10 @@ public class ProbeLnaTmFuzzTests
 
     /// <summary>
     /// INV-01 (doc §2.4): an EMPTY LNA-position set adds no increment, so it reproduces the
-    /// perfect-match NN Tm EXACTLY. Pinned across random probes and every salt mode against the
-    /// non-LNA CalculateMeltingTemperatureNN. (Both finite; bit-for-bit equal.)
+    /// perfect-match unified DNA NN Tm (Biopython <c>DNA_NN3</c>, the MELTING LNA base table, same R).
+    /// Pinned across random probes and every salt mode against the independent canonical
+    /// <c>ThermoConstants.CalculateNearestNeighborDuplex(DNA_NN3)</c> (both finite; equal to 1e-9 °C —
+    /// the two paths sum the same NN terms in a different order).
     /// </summary>
     [Test]
     public void EmptyMask_ReproducesPerfectMatchNnTm_Exactly()
@@ -397,7 +424,8 @@ public class ProbeLnaTmFuzzTests
                 double lna = LnaTm(seq, Array.Empty<int>(), mode);
                 double dna = DnaTm(seq, mode);
                 double.IsNaN(lna).Should().BeFalse($"empty-mask LNA Tm of '{seq}' must be finite ({mode})");
-                lna.Should().Be(dna, $"empty LNA mask reproduces the perfect-match NN Tm exactly (INV-01, {mode}) for '{seq}'");
+                lna.Should().BeApproximately(dna, 1e-9,
+                    $"empty LNA mask reproduces the perfect-match DNA_NN3 Tm (INV-01, {mode}) for '{seq}'");
             }
         }
     }
@@ -462,19 +490,28 @@ public class ProbeLnaTmFuzzTests
     /// We pin <c>LNA-C Tm ≥ bare-DNA Tm</c> on probes whose chosen internal position is a 'C'. This is
     /// deliberately the LNA-C case ONLY: we do NOT generalise to LNA-A/G/T, whose mixed-sign
     /// increments can LOWER Tm (the campaign rule). The doc §7.1 worked example is a T-locked
-    /// stabilisation (+3.84 °C) and is also pinned here as a numeric ground truth.
+    /// stabilisation (+3.69 °C, default Owczarzy 2011 model) and is also pinned here as a numeric
+    /// ground truth.
     /// </summary>
     [Test]
     public void InternalLnaC_DoesNotLowerTm_AndWorkedExample()
     {
         // 1) The §7.1 worked example: CCATT(L)GCTACC, LNA@4 (a 'T'), C=1e-4, Na=1, mode None.
+        //    Owczarzy 2011: ΔH° = −80.314 kcal/mol, ΔS° = −217.493 eu (doc §7.1);
+        //    Tm = 80314 / (217.493 + R·ln(4/1e-4)) − 273.15 = 63.524857 °C at R = 1.9872 and
+        //    63.482987 °C at MELTING's R = 1.99 (MELTING 5 default: 63.48299).
+        //    All-DNA (DNA_NN3, ΔH° −81.1 / ΔS° −222.5): 59.830737 °C at R = 1.9872
+        //    (Biopython Tm_NN(DNA_NN3, dnac1=dnac2=50000, Na=1000, saltcorr=0), R = 1.987: 59.833635).
         const string worked = "CCATTGCTACC";
         double lnaWorked = LnaTm(worked, new[] { 4 });
         double dnaWorked = DnaTm(worked);
-        lnaWorked.Should().BeApproximately(63.527594, 1e-3, "doc §7.1 LNA-adjusted Tm");
-        dnaWorked.Should().BeApproximately(59.692264, 1e-3, "doc §7.1 all-DNA Tm");
-        (lnaWorked - dnaWorked).Should().BeApproximately(63.527594 - 59.692264, 1e-3,
-            "doc §7.1: the single internal LNA raises Tm by +3.84 °C");
+        double lnaMelting = PrimerDesigner.CalculateMeltingTemperatureNNLna(worked, new[] { 4 },
+            PrimerDesigner.LnaNearestNeighborModel.Owczarzy2011, null, RefConc, RefNa, 0, 0, None, gasConstant: 1.99);
+        lnaWorked.Should().BeApproximately(63.524857, 1e-5, "doc §7.1 LNA-adjusted Tm (Owczarzy 2011, R = 1.9872)");
+        lnaMelting.Should().BeApproximately(63.48299, 1e-5, "MELTING 5 default (owc11, R = 1.99) for doc §7.1");
+        dnaWorked.Should().BeApproximately(59.830737, 1e-5, "doc §7.1 all-DNA (DNA_NN3) Tm");
+        (lnaWorked - dnaWorked).Should().BeApproximately(63.524857 - 59.830737, 1e-5,
+            "doc §7.1: the single internal LNA raises Tm by +3.69 °C");
 
         // 2) LNA-C reliable stabilisation: for several probes, lock an internal 'C' and assert the
         //    Tm does NOT drop below bare DNA.

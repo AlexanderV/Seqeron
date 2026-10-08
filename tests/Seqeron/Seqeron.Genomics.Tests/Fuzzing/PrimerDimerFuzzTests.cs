@@ -472,9 +472,15 @@ public class PrimerDimerFuzzTests
         AssertWellFormedDimer(d!.Value, longPal, longPal);
         d.Value.DeltaG37.Should().BeLessThan(0.0, "a long all-G·C self-dimer is net-stable (negative ΔG°37)");
 
-        double tmLong = PrimerDesigner.CalculateSelfDimerMeltingTemperature(longPal);
-        double.IsNaN(tmLong).Should().BeFalse("the long self-dimer has a finite Tm");
-        double.IsInfinity(tmLong).Should().BeFalse("the long self-dimer Tm is finite, not ±Inf");
+        // The ntthal-based dimer Tm is bounded by thal.c THAL_MAX_ALIGN = 60: a 400-nt self-dimer is
+        // rejected with the documented ArgumentException (primer3-py 2.3.1 calc_homodimer raises
+        // "At least one sequence must be equal to or shorter than 60bp …" for the same input) — a
+        // prompt, typed refusal rather than a blow-up. At the 60-nt limit the Tm is finite.
+        var tmLongAct = () => PrimerDesigner.CalculateSelfDimerMeltingTemperature(longPal);
+        tmLongAct.Should().Throw<ArgumentException>("ntthal accepts at most 60 nt (THAL_MAX_ALIGN)");
+        double tmAtLimit = PrimerDesigner.CalculateSelfDimerMeltingTemperature(longPal[..60]);
+        double.IsNaN(tmAtLimit).Should().BeFalse("the 60-nt (GC)-repeat self-dimer has a finite Tm");
+        double.IsInfinity(tmAtLimit).Should().BeFalse("the 60-nt self-dimer Tm is finite, not ±Inf");
 
         // A long pair of independent random oligos: either a structurally-valid dimer or null.
         string longA = RandomDna(length: 600, seed: 242_777);

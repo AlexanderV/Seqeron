@@ -2019,22 +2019,27 @@ public class MolToolsFuzzTests
     }
 
     /// <summary>
-    /// BE (all-G, dimer surface — deliberate biochemical contrast): two SEPARATE poly-G
-    /// primers DO form an INTER-molecular dimer, because reverse-complementing the second
-    /// poly-G yields poly-C, which is fully complementary to the first poly-G's 3' end. So
-    /// HasPrimerDimer(G…, G…) is TRUE — and this is correct, NOT a bug: it is duplex
-    /// (G:C) pairing between two molecules, not the absent intramolecular self-structure. We
-    /// pin it to document that "all-G ⇒ no SELF structure" is a hairpin fact, while the dimer
-    /// predicate correctly sees the G:C complementarity across two strands.
+    /// BE (all-G, dimer surface): two SEPARATE poly-G primers form NO inter-molecular dimer either —
+    /// a dimer needs the second strand to be Watson–Crick complementary to the first, and G·G does
+    /// not pair, exactly as for the hairpin. Primer3's alignment-mode <c>compl_end</c>
+    /// (<c>align(p1, revcomp(p2))</c>, end-anchored; <see cref="PrimerDesigner.CalculatePrimerDimerEndComplementarity"/>)
+    /// is 0 for G₃₀/G₃₀ (primer3-py 2.3.1 <c>check_primers</c>, <c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0</c>:
+    /// <c>PRIMER_LEFT_0_SELF_END = 0.0</c>), so HasPrimerDimer(G…, G…) is FALSE. The genuine G:C
+    /// contrast is poly-G against poly-C, whose 3′ ends are fully complementary (compl_end = 30).
     /// </summary>
     [Test]
     [CancelAfter(5000)]
     public void HasPrimerDimer_TwoAllGPrimers_DetectsGcDimerAcrossStrands()
     {
         string g30 = new string('G', 30);
+        string c30 = new string('C', 30);
 
-        PrimerDesigner.HasPrimerDimer(g30, g30).Should().BeTrue(
-            "revcomp(poly-G) is poly-C, which pairs the first poly-G's 3' end — a correct inter-molecular G:C dimer, distinct from a (absent) hairpin");
+        PrimerDesigner.HasPrimerDimer(g30, g30).Should().BeFalse(
+            "G·G does not pair, so two poly-G primers cannot anneal to each other (Primer3 compl_end = 0)");
+        PrimerDesigner.CalculatePrimerDimerEndComplementarity(g30, g30).Should().Be(0);
+        PrimerDesigner.HasPrimerDimer(g30, c30).Should().BeTrue(
+            "poly-C is the reverse complement of poly-G, so their 3' ends pair G:C over the full length (compl_end = 30)");
+        PrimerDesigner.CalculatePrimerDimerEndComplementarity(g30, c30).Should().Be(30);
     }
 
     #endregion
