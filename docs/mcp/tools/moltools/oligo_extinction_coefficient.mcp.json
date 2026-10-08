@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.CalculateExtinctionCoefficient",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3502",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3530",
   "description": "Molar extinction coefficient at 260 nm: per-base sum (default) or the nearest-neighbour model (Cantor, Warshaw & Shapiro 1970 DNA / Warshaw & Tinoco 1966 RNA).",
   "inputSchema": {
     "type": "object",

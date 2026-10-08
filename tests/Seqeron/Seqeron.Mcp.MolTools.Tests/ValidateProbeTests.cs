@@ -106,6 +106,27 @@ public class ValidateProbeTests
     }
 
     [Test]
+    public void ValidateProbe_LongProbe_FallbackStemFlagIsWarning()
+    {
+        // Audit round 5, A5-5: random 61-mer (thal.c -DTHAL_MAX_ALIGN=10000: hairpin 33.98 °C, ANY / END1 below 0 °C)
+        // carries exact 4-bp stems → the fallback stem-loop flag is reported as a warning but isValid stays true;
+        // with thermodynamic_screen_max_length = 61 the sourced ntthal hairpin Tm decides (33.98 °C ≤ 47 °C).
+        const string random61 = "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGT";
+        var v = MolToolsTools.validate_probe(random61, new[] { random61 });
+        var thermo = MolToolsTools.validate_probe(random61, new[] { random61 }, thermodynamic_screen_max_length: 61);
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.ThermodynamicScreen, Is.False);
+            Assert.That(v.HasSecondaryStructure, Is.True);
+            Assert.That(v.Warnings, Is.EqualTo(new[] { "Potential secondary structure formation" }));
+            Assert.That(v.Issues, Is.Empty);
+            Assert.That(v.IsValid, Is.True);
+            Assert.That(thermo.HairpinTm!.Value, Is.EqualTo(33.980529935122263).Within(1e-6));
+            Assert.That(thermo.IsValid, Is.True);
+        });
+    }
+
+    [Test]
     public void ValidateProbe_ReactionConditions_DelegateToNtthalScreen()
     {
         // primer3-py 2.3.1 calc_homodimer / calc_end_stability / calc_hairpin of GCGC…(20 nt) at mv 100, dv 2, dntp 0.2,

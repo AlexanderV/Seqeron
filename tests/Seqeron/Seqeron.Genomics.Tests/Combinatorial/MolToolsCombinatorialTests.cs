@@ -827,16 +827,19 @@ public class MolToolsCombinatorialTests
         v.SelfComplementarity.Should().BeInRange(0.0, 1.0);
         v.HasSecondaryStructure.Should().Be(expHairpin, "fallback hairpin = PrimerDesigner.HasHairpinPotential");
 
-        // IsValid = no recorded issue (off-target multiplicity, self-complementarity, secondary structure).
+        // IsValid = no recorded issue (off-target multiplicity, self-complementarity). The fallback stem-loop flag
+        // (library convention) is a warning, not an issue (audit round 5, A5-5).
         bool offIssue = offTargetCount > 1;
         bool selfIssue = expSelfAny > PrimerDesigner.Primer3InternalMaxSelfComplementarity;
-        int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0) + (expHairpin ? 1 : 0);
+        int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0);
         bool expectedValid = issueCount == 0;
 
         v.IsValid.Should().Be(expectedValid);
+        v.Issues.Should().HaveCount(issueCount);
         v.Issues.Any(i => i.Contains("off-target")).Should().Be(offIssue);
         v.Issues.Any(i => i.StartsWith("Self-complementarity")).Should().Be(selfIssue);
-        v.Issues.Contains("Potential secondary structure formation").Should().Be(expHairpin);
+        v.Issues.Should().NotContain("Potential secondary structure formation");
+        v.Warnings.Contains("Potential secondary structure formation").Should().Be(expHairpin);
     }
 
     /// <summary>

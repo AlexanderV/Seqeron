@@ -2237,7 +2237,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.AnalyzeOligo",
     "docPath": "docs/mcp/tools/moltools/analyze_oligo.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3459"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3487"
   },
   {
     "tool": "blunt_cutters",
@@ -2314,7 +2314,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignAntisenseProbes",
     "docPath": "docs/mcp/tools/moltools/design_antisense_probes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1356"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1372"
   },
   {
     "tool": "design_guide_rnas",
@@ -2328,7 +2328,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignMolecularBeacon",
     "docPath": "docs/mcp/tools/moltools/design_molecular_beacon.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1915"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1931"
   },
   {
     "tool": "design_primers",
@@ -2342,21 +2342,21 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignProbes",
     "docPath": "docs/mcp/tools/moltools/design_probes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L822"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L838"
   },
   {
     "tool": "design_probes_primer3",
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignProbesPrimer3",
     "docPath": "docs/mcp/tools/moltools/design_probes_primer3.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1630"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1646"
   },
   {
     "tool": "design_tiling_probes",
     "server": "MolTools",
     "methodId": "ProbeDesigner.DesignTilingProbes",
     "docPath": "docs/mcp/tools/moltools/design_tiling_probes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1293"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1309"
   },
   {
     "tool": "digest_summary",
@@ -2475,14 +2475,14 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.CalculateConcentration",
     "docPath": "docs/mcp/tools/moltools/oligo_concentration_from_absorbance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3589"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3617"
   },
   {
     "tool": "oligo_extinction_coefficient",
     "server": "MolTools",
     "methodId": "ProbeDesigner.CalculateExtinctionCoefficient",
     "docPath": "docs/mcp/tools/moltools/oligo_extinction_coefficient.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3502"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3530"
   },
   {
     "tool": "optimize_codons",
@@ -2566,7 +2566,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.ValidateProbe",
     "docPath": "docs/mcp/tools/moltools/validate_probe.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2093"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2115"
   },
   {
     "tool": "bed_filter",

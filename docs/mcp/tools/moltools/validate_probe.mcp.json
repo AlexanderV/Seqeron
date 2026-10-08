@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.ValidateProbe",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2093",
-  "description": "Validate a probe: ungapped k-mismatch site scan over references (given strand, or with both_strands also the probe's reverse complement; sites judged by the Kane et al. 2000 criteria — > 1 such site is an issue; 1/N uniqueness score and the 3-mismatch radius are library conventions), Primer3 ntthal self-dimer/hairpin screen at the stated reaction conditions (ACGT probes <= thermodynamic_screen_max_length nt, default 60 = THAL_MAX_ALIGN, opt-in up to 10000; otherwise Primer3 alignment-mode self_any/self_end + inverted-repeat hairpin fallback), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2115",
+  "description": "Validate a probe: ungapped k-mismatch site scan over references (given strand, or with both_strands also the probe's reverse complement; sites judged by the Kane et al. 2000 criteria — > 1 such site is an issue; 1/N uniqueness score and the 3-mismatch radius are library conventions), Primer3 ntthal self-dimer/hairpin screen at the stated reaction conditions (ACGT probes <= thermodynamic_screen_max_length nt, default 60 = THAL_MAX_ALIGN, opt-in up to 10000; otherwise Primer3 alignment-mode self_any/self_end + inverted-repeat hairpin fallback, the latter reported as a warning that does not decide isValid), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -146,7 +146,8 @@
         "type": "number"
       },
       "hasSecondaryStructure": {
-        "type": "boolean"
+        "type": "boolean",
+        "description": "ntthal hairpin Tm > max_structure_tm (an issue), or the fallback stem-loop screen (a warning only, not deciding isValid)."
       },
       "issues": {
         "type": "array",
@@ -236,6 +237,13 @@
       "crossHybridizingHits": {
         "type": "integer",
         "description": "Ungapped reference sites meeting a Kane criterion (identity (L - mismatches)/L > max_non_target_identity or > max_contiguous_match contiguous identical nt); > 1 is an issue."
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Reported findings that do not decide isValid: the fallback stem-loop flag 'Potential secondary structure formation' (stem >= 4 bp, library convention; audit round 5, A5-5)."
       }
     },
     "required": [

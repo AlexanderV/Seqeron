@@ -1814,10 +1814,87 @@ public class ProbeDesigner_ProbeValidation_Tests
         {
             Assert.That(fallback.ThermodynamicScreen, Is.False, "74 nt > THAL_MAX_ALIGN 60 → fallback screens");
             Assert.That(fallback.HasSecondaryStructure, Is.True, "10-bp stem + 4-nt loop must be flagged (was False)");
-            Assert.That(fallback.Issues, Has.Some.EqualTo("Potential secondary structure formation"));
+            // A5-5: the fallback stem flag is a warning, not an issue.
+            Assert.That(fallback.Warnings, Is.EqualTo(new[] { "Potential secondary structure formation" }));
+            Assert.That(fallback.Issues, Has.None.Contain("secondary structure"));
             Assert.That(thermo.HairpinTm, Is.EqualTo(77.95325865166825).Within(1e-6));
             Assert.That(thermo.HasSecondaryStructure, Is.True);
             Assert.That(thermoMicroarray.HairpinTm, Is.EqualTo(92.272558368972682).Within(1e-6));
+        });
+    }
+
+    // F55's random 61-mer (PrimerDesigner_NtthalMaxAlign_Tests.Random61): thal.c -DTHAL_MAX_ALIGN=10000 at
+    // 50 mM / 0 / 0 / 50 nM: hairpin 33.980529935122263 °C, ANY −0.968 °C, END1 −79.6 °C (all ≤ 47 °C: no sourced
+    // structure). It contains exact 4-bp stems closing ≥ 3-nt loops (independent Python scan: True), as 98 % of random
+    // 61-mers do (F61 coverage).
+    private const string Random61 = "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGT";
+
+    [Test]
+    public void ValidateProbe_LongProbeFallback_StemFlagIsWarning_NotValidityCriterion()
+    {
+        // Audit round 5, A5-5: validity rests on sourced criteria only (F52). The fallback stem-loop presence test
+        // (stem ≥ 4 bp, library convention) is reported but does not make IsValid false.
+        var fallback = ProbeDesigner.ValidateProbe(Random61, new[] { Random61 });
+        var heuristic = ProbeDesigner.ValidateProbe(Random61, new[] { Random61 },
+            conditions: ProbeDesigner.Defaults.Microarray with
+            {
+                MonovalentMillimolar = 50, DnaConcentrationNanomolar = 50,
+                StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic,
+            });
+        var thermo = ProbeDesigner.ValidateProbe(Random61, new[] { Random61 },
+            conditions: ProbeDesigner.Defaults.Microarray with
+            {
+                MonovalentMillimolar = 50, DivalentMillimolar = 0, DntpMillimolar = 0, DnaConcentrationNanomolar = 50,
+                ThermodynamicScreenMaxLength = 61,
+            });
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.ThermodynamicScreen, Is.False, "61 nt > THAL_MAX_ALIGN 60");
+            Assert.That(fallback.HasSecondaryStructure, Is.True, "exact 4-bp stem + ≥ 3-nt loop present");
+            Assert.That(fallback.Warnings, Is.EqualTo(new[] { "Potential secondary structure formation" }));
+            Assert.That(fallback.SelfAny, Is.EqualTo(7.0), "independent Smith–Waterman vs reverse complement (+1/−1, gap −2): 7");
+            Assert.That(fallback.SelfEnd, Is.LessThanOrEqualTo(12.0));
+            Assert.That(fallback.Issues, Is.Empty);
+            Assert.That(fallback.IsValid, Is.True, "was false before A5-5 (the stem flag was an issue)");
+            Assert.That(heuristic.HasSecondaryStructure, Is.True);
+            Assert.That(heuristic.IsValid, Is.True);
+            // Opt-in ntthal (F55): the sourced hairpin decision, 33.98 °C ≤ PRIMER_INTERNAL_MAX_HAIRPIN_TH 47 °C.
+            Assert.That(thermo.ThermodynamicScreen, Is.True);
+            Assert.That(thermo.HairpinTm, Is.EqualTo(33.980529935122263).Within(1e-6));
+            Assert.That(thermo.HasSecondaryStructure, Is.False);
+            Assert.That(thermo.Warnings, Is.Empty);
+            Assert.That(thermo.IsValid, Is.True);
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_LongProbeFallback_StemLoopRepro_StemFlagIsNotAnIssue_NtthalHairpinDecidesWithOptIn()
+    {
+        // F61 repro (74 nt, 10-bp stem + TTTT loop): by default the fallback still reports the structure as a warning;
+        // the probe is invalid only by sourced criteria — Primer3 alignment-mode self_any 16.00 > 12.00 (independent
+        // Python Smith–Waterman of the probe vs its reverse complement, +1/−1, gap −2: 16) and, with the opt-in, the
+        // ntthal hairpin Tm (thal.c 77.95325865166825 °C > 47 °C).
+        var fallback = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 });
+        var thermo = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 },
+            conditions: ProbeDesigner.Defaults.Microarray with
+            {
+                MonovalentMillimolar = 50, DivalentMillimolar = 0, DntpMillimolar = 0, DnaConcentrationNanomolar = 50,
+                ThermodynamicScreenMaxLength = 100,
+            });
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.HasSecondaryStructure, Is.True);
+            Assert.That(fallback.Warnings, Is.EqualTo(new[] { "Potential secondary structure formation" }));
+            Assert.That(fallback.SelfAny, Is.EqualTo(16.0));
+            Assert.That(fallback.Issues, Is.EqualTo(new[] { "Self-complementarity: Primer3 self_any 16.00 exceeds 12.00" }),
+                "the stem flag is not an issue; the sourced self_any limit is");
+            Assert.That(fallback.IsValid, Is.False);
+            Assert.That(thermo.ThermodynamicScreen, Is.True);
+            Assert.That(thermo.HairpinTm, Is.EqualTo(77.95325865166825).Within(1e-6));
+            Assert.That(thermo.HasSecondaryStructure, Is.True);
+            Assert.That(thermo.Issues, Has.Some.EqualTo("Potential secondary structure formation: ntthal hairpin Tm 78.0°C exceeds 47°C"));
+            Assert.That(thermo.Warnings, Is.Empty);
+            Assert.That(thermo.IsValid, Is.False);
         });
     }
 

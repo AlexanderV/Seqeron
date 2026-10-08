@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.AnalyzeOligo",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3459",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3487",
   "description": "Return Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide.",
   "inputSchema": {
     "type": "object",

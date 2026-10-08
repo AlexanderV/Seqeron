@@ -44,7 +44,9 @@ public static class ProbeDesigner
     /// <see cref="PrimerDesigner.HasHairpinPotential"/> (an exactly complementary stem of ≥ 4 bp — library convention,
     /// no published source — closing a loop of ≥ 3 nt, thal.c <c>min_hrpn_loop</c> = 3; audit round 5, A5-2). It is a
     /// conservative presence test, not a stability estimate: almost every random probe of &gt; 60 nt contains such a
-    /// stem. With the default THAL_MAX_ALIGN = 60 a &gt; 60-nt probe gets no thermodynamic hairpin; raise
+    /// stem. It therefore only lowers the additive library score in <see cref="DesignProbes(string, ProbeParameters?, int)"/>
+    /// (with <see cref="AvoidSecondaryStructure"/>) and is reported, but does not decide validity, in
+    /// <see cref="ValidateProbe"/> (audit round 5, A5-5). With the default THAL_MAX_ALIGN = 60 a &gt; 60-nt probe gets no thermodynamic hairpin; raise
     /// <see cref="ThermodynamicScreenMaxLength"/> for the ntthal hairpin of longer probes (audit round 3, A3-9).
     /// <see cref="MaxSelfComplementarity"/> (position-wise fold-back fraction limit) is
     /// no longer used by any screen; it is kept for source compatibility.
@@ -297,7 +299,10 @@ public static class ProbeDesigner
     /// Probe validation result (<see cref="ValidateProbe"/>).
     /// </summary>
     /// <param name="IsValid">True when no issue was recorded (at most one reference site meeting the Kane et al. (2000)
-    /// criteria, no self-structure flag, no cross-hybridizing non-target).</param>
+    /// criteria, no sourced self-structure flag — ntthal self-dimer / 3′ self-dimer / hairpin Tm or, in the fallback,
+    /// Primer3 alignment-mode self_any / self_end — and no cross-hybridizing non-target). The fallback sequence-only
+    /// stem-loop flag is reported in <see cref="HasSecondaryStructure"/> / <see cref="Warnings"/> and does not enter it
+    /// (audit round 5, A5-5).</param>
     /// <param name="SpecificityScore">Library-defined uniqueness score 1/N over the N ungapped candidate binding
     /// sites (0 when there is none); a library convention, not a published metric, and not used by
     /// <paramref name="IsValid"/> — see <see cref="ValidateProbe"/>.</param>
@@ -308,9 +313,11 @@ public static class ProbeDesigner
     /// self-dimer criterion is ntthal or, in the fallback, Primer3 alignment-mode <see cref="SelfAny"/> /
     /// <see cref="SelfEnd"/>).</param>
     /// <param name="HasSecondaryStructure">Hairpin flag: ntthal hairpin Tm &gt; MaxStructureTm (thermodynamic
-    /// screen) or the sequence-only stem-loop screen <see cref="PrimerDesigner.HasHairpinPotential"/> (fallback: an exactly
-    /// complementary stem of ≥ 4 bp closing a loop of ≥ 3 nt).</param>
-    /// <param name="Issues">Recorded validation issues.</param>
+    /// screen; an issue, so <see cref="IsValid"/> is false) or the sequence-only stem-loop screen
+    /// <see cref="PrimerDesigner.HasHairpinPotential"/> (fallback: an exactly complementary stem of ≥ 4 bp closing a loop
+    /// of ≥ 3 nt; a library-convention presence test, recorded as a <see cref="Warnings"/> entry and not deciding
+    /// <see cref="IsValid"/>).</param>
+    /// <param name="Issues">Recorded validation issues (sourced criteria; any issue makes <see cref="IsValid"/> false).</param>
     public readonly record struct ProbeValidation(
         bool IsValid,
         double SpecificityScore,
@@ -352,6 +359,15 @@ public static class ProbeDesigner
         /// run of identical positions longer than the contiguous threshold, default 15 nt); more than one such site
         /// records the off-target issue (audit round 3, A3-12).</summary>
         public int CrossHybridizingHits { get; init; }
+
+        /// <summary>Reported findings that do not decide <see cref="IsValid"/>: the fallback sequence-only stem-loop flag
+        /// ("Potential secondary structure formation", <see cref="PrimerDesigner.HasHairpinPotential"/> — stem ≥ 4 bp is a
+        /// library convention without a published source, and almost every random probe of &gt; 60 nt has such a stem),
+        /// set for probes screened by the fallback (longer than ThermodynamicScreenMaxLength, non-ACGT, or
+        /// <see cref="ProbeStructureScreen.Heuristic"/>). Until audit round 5 (A5-5) this entry was an issue and made
+        /// the probe invalid; raise <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> for a sourced hairpin
+        /// decision (ntthal hairpin Tm) on long probes.</summary>
+        public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
     }
 
     /// <summary>
@@ -2048,7 +2064,12 @@ public static class ProbeDesigner
     /// and the sequence-only stem-loop screen <see cref="PrimerDesigner.HasHairpinPotential"/> (an exactly complementary
     /// stem of ≥ 4 bp — library convention — closing a loop of ≥ 3 nt, thal.c <c>min_hrpn_loop</c>; almost every random
     /// probe of &gt; 60 nt is flagged, so raise <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> for a hairpin
-    /// Tm decision on long probes). The alignment-mode
+    /// Tm decision on long probes). The fallback stem-loop flag is reported in
+    /// <see cref="ProbeValidation.HasSecondaryStructure"/> and <see cref="ProbeValidation.Warnings"/> but is not an issue:
+    /// validity rests on sourced criteria only (audit round 3, A3-12), and a stem ≥ 4 bp is a library convention
+    /// (audit round 5, A5-5 — a correction of the validity rule; before it, this flag made almost every &gt; 60-nt probe
+    /// invalid). The ntthal hairpin Tm limit (PRIMER_INTERNAL_MAX_HAIRPIN_TH) and the fallback alignment-mode self_any /
+    /// self_end limits (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END) are issues. The alignment-mode
     /// values are reported for every probe in <see cref="ProbeValidation.SelfAny"/> / <see cref="ProbeValidation.SelfEnd"/>;
     /// <see cref="ProbeValidation.SelfComplementarity"/> (fold-back fraction) is a library metric only.
     /// </para>
@@ -2058,7 +2079,8 @@ public static class ProbeDesigner
     /// or a contiguous identical stretch &gt; 15 nt → the probe may cross-hybridize); each cross-hybridizing
     /// non-target strand records an issue.
     /// </para>
-    /// <para><see cref="ProbeValidation.IsValid"/> is true when no issue was recorded.</para>
+    /// <para><see cref="ProbeValidation.IsValid"/> is true when no issue was recorded
+    /// (<see cref="ProbeValidation.Warnings"/> do not count).</para>
     /// </remarks>
     /// <param name="probeSequence">Probe sequence to validate (case-insensitive). Null throws; empty → invalid result.</param>
     /// <param name="referenceSequences">Reference sequences scanned for ungapped hits (target included).</param>
@@ -2117,6 +2139,7 @@ public static class ProbeDesigner
 
         probeSequence = probeSequence.ToUpperInvariant();
         var issues = new List<string>();
+        var warnings = new List<string>();
 
         // Empty probe is a degenerate input — cannot hybridize specifically
         if (probeSequence.Length == 0)
@@ -2193,8 +2216,12 @@ public static class ProbeDesigner
             hasStructure = HasSecondaryStructurePotential(probeSequence);
             if (selfCompIssue)
                 issues.Add(selfCompWarning!);
+            // The sequence-only stem-loop screen (stem >= 4 bp: library convention) is a presence test that flags almost
+            // every random probe of > 60 nt; per the validity rule it is reported (HasSecondaryStructure, Warnings) but
+            // does not decide IsValid (audit round 5, A5-5). The ntthal hairpin Tm above (Primer3
+            // PRIMER_INTERNAL_MAX_HAIRPIN_TH) decides validity wherever it runs.
             if (hasStructure)
-                issues.Add("Potential secondary structure formation");
+                warnings.Add("Potential secondary structure formation");
         }
 
         // Kane et al. (2000) cross-hybridization criteria against known non-targets (optional).
@@ -2233,6 +2260,7 @@ public static class ProbeDesigner
             SelfEnd = alnSelfEnd,
             CrossHybridization = cross,
             CrossHybridizingHits = crossHybridizingHits,
+            Warnings = warnings,
         };
     }
 
