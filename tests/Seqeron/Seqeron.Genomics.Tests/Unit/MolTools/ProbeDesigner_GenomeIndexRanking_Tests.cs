@@ -220,4 +220,110 @@ public class ProbeDesigner_GenomeIndexRanking_Tests
             Assert.That(ProbeDesigner.DesignProbes(x, duplicated, FastScreen, -1, requireUnique: false), Is.Empty);
         });
     }
+
+    // --- bothStrands (audit round 4, A4-2, B07.md F60) ---
+    // Same X / Y; the index holds X + T10 + Y + T10 + rc(X): every X window occurs once on the indexed strand and once
+    // as its reverse complement, every Y window once. Python cross-check (str.find over the dumped strings, probe and
+    // Biopython reverse complement, union of positions): of the 4686 candidate windows 3806 have 1 site on the indexed
+    // strand and 2 on both strands, 297 (all inside Y) 1 / 1, 561 (crossing X|Y) 0 / 0 and 22 (crossing X|Y with only
+    // Y's first 1–2 nt "AA", whose reverse complement "TT" lies in the T10 before rc(X)) 0 / 1.
+    private static readonly string StrandGenome =
+        Fixture.Target[..400] + new string('T', 10) + Fixture.Target[400..] + new string('T', 10)
+        + DnaSequence.GetReverseComplementString(Fixture.Target[..400]);
+    private static readonly global::SuffixTree.ISuffixTree StrandIndex = global::SuffixTree.SuffixTree.Build(StrandGenome);
+
+    // Binding sites on both strands by naive scanning (independent of the suffix tree): the union of the overlapping
+    // occurrence positions of the probe and of its reverse complement.
+    private static int NaiveBothStrandSites(string probe)
+    {
+        var positions = new HashSet<int>();
+        foreach (string pattern in new[] { probe, DnaSequence.GetReverseComplementString(probe) })
+            for (int i = StrandGenome.IndexOf(pattern, StringComparison.Ordinal); i >= 0;
+                 i = StrandGenome.IndexOf(pattern, i + 1, StringComparison.Ordinal))
+                positions.Add(i);
+        return positions.Count;
+    }
+
+    [Test]
+    public void BothStrands_RequireUnique_DropsProbesWhoseReverseComplementOccurs()
+    {
+        var single = ProbeDesigner.DesignProbes(Fixture.Target, StrandIndex, ProbeDesigner.Defaults.Microarray,
+            maxProbes: 2, requireUnique: true).ToList();
+        var both = ProbeDesigner.DesignProbes(Fixture.Target, StrandIndex, ProbeDesigner.Defaults.Microarray,
+            maxProbes: 2, requireUnique: true, bothStrands: true).ToList();
+
+        Assert.Multiple(() =>
+        {
+            // Default (backward compatible): the indexed strand only — the X windows count as unique.
+            Assert.That(single, Has.Count.EqualTo(2));
+            Assert.That(single.Select(p => p.Start), Is.All.LessThan(400), "X probes unique on the indexed strand");
+            foreach (var p in single)
+                Assert.That(NaiveBothStrandSites(p.Sequence), Is.EqualTo(2), $"X probe at {p.Start} binds rc(X)");
+            // Both strands: the X windows bind rc(X) and drop out. The leader is the X|Y-crossing 50-mer at 351 (Y part "A";
+            // G+C 0.40, score 0.98): absent from the indexed strand (specificity 0, dropped by the default) but its reverse
+            // complement "T" + rc(X[351..400]) lies once in T10 + rc(X) — one binding site, on the other strand (Python:
+            // 0 / 1 sites). Next the unique Y 50-mer at 402 (score 0.85, F59's repro).
+            Assert.That(both.Select(p => (p.Start, p.Sequence.Length)), Is.EqualTo(new[] { (351, 50), (402, 50) }));
+            Assert.That(both[0].Sequence, Is.EqualTo("GTCTTTGATCGCCACGACCTACCCCTAACAAACATTAGTCCAATTTAATA"));
+            Assert.That(both.Select(p => p.Score), Is.EqualTo(new[] { 0.98, 0.85 }).Within(1e-12));
+            Assert.That(ProbeDesigner.CheckSpecificity(both[0].Sequence, StrandIndex), Is.EqualTo(0.0));
+            foreach (var p in both)
+            {
+                Assert.That(NaiveBothStrandSites(p.Sequence), Is.EqualTo(1));
+                Assert.That(ProbeDesigner.CheckSpecificity(p.Sequence, StrandIndex, bothStrands: true), Is.EqualTo(1.0));
+            }
+        });
+    }
+
+    [TestCase(true, 3)]
+    [TestCase(true, 100_000)]
+    [TestCase(false, 3)]
+    [TestCase(false, 100_000)]
+    public void BothStrands_EqualsBruteForceOverAllCandidates(bool requireUnique, int maxProbes)
+    {
+        // Brute force: every candidate, specificity 1 / (naive both-strand sites); requireUnique keeps the unique ones in
+        // the base order, otherwise Score × specificity re-ranked stably (score descending, ties by length then start).
+        var all = Candidates(FastScreen);
+        double Specificity(string probe) { int n = NaiveBothStrandSites(probe); return n == 0 ? 0 : 1.0 / n; }
+        var expected = requireUnique
+            ? all.Where(p => Specificity(p.Sequence) == 1.0).Take(maxProbes).ToList()
+            : all.Select(p => p with { Score = p.Score * Specificity(p.Sequence) })
+                .OrderByDescending(p => p.Score).ThenBy(p => p.Sequence.Length).ThenBy(p => p.Start)
+                .Take(maxProbes).ToList();
+
+        var probes = ProbeDesigner.DesignProbes(Fixture.Target, StrandIndex, FastScreen, maxProbes, requireUnique,
+            bothStrands: true).ToList();
+
+        Assert.Multiple(() =>
+        {
+            AssertSameProbes(probes, expected);
+            Assert.That(probes, Is.Not.Empty);
+            if (requireUnique)
+                foreach (var p in probes)
+                    Assert.That(NaiveBothStrandSites(p.Sequence), Is.EqualTo(1), $"probe at {p.Start} has one site on both strands");
+        });
+    }
+
+    [Test]
+    public void BothStrands_CandidateSiteCounts_MatchThePythonCrossCheck()
+    {
+        // Every candidate window of lengths 50–60 (the Microarray preset range): (indexed-strand sites, both-strand
+        // sites) tallied; Python str.find on the dumped strings gives 3806 × (1, 2), 297 × (1, 1), 561 × (0, 0), 22 × (0, 1).
+        var tally = new Dictionary<(int, int), int>();
+        string target = Fixture.Target;
+        for (int len = 50; len <= 60; len++)
+            for (int start = 0; start + len <= target.Length; start++)
+            {
+                string w = target.Substring(start, len);
+                double s1 = ProbeDesigner.CheckSpecificity(w, StrandIndex);
+                double s2 = ProbeDesigner.CheckSpecificity(w, StrandIndex, bothStrands: true);
+                var key = (s1 == 0 ? 0 : (int)Math.Round(1 / s1), s2 == 0 ? 0 : (int)Math.Round(1 / s2));
+                tally[key] = tally.GetValueOrDefault(key) + 1;
+            }
+
+        Assert.That(tally, Is.EquivalentTo(new Dictionary<(int, int), int>
+        {
+            [(1, 2)] = 3806, [(1, 1)] = 297, [(0, 0)] = 561, [(0, 1)] = 22,
+        }));
+    }
 }

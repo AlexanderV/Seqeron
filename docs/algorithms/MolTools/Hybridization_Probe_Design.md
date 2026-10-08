@@ -84,6 +84,7 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 | `parameters.OptTm` / `OptLength` | `double` / `int` | `60` / `20` | PRIMER_INTERNAL_OPT_TM / _OPT_SIZE of the Primer3 ranking | Within [MinTm, MaxTm] / [MinLength, MaxLength] when `Ranking = Primer3Penalty` |
 | `genomeIndex` | `ISuffixTree` | required for specificity overload | Pre-built suffix tree for genome-wide uniqueness filtering | Used only by the overload with specificity checking |
 | `requireUnique` | `bool` | `true` | Whether non-unique probes are excluded when `genomeIndex` is provided | Filters candidates with specificity `< 1.0` |
+| `bothStrands` | `bool` | `false` | Genome-index overload: also count the probe's reverse-complement occurrences (`CheckSpecificity(…, bothStrands)`) — a probe binds the other strand of a double-stranded genome wherever its reverse complement occurs, as blastn `-strand both` searches | Optional (audit round 4, A4-2); reverse-palindromic probes counted once; default = indexed strand only |
 
 ### 3.2 Output / Return Value
 
@@ -100,7 +101,7 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 
 ### 3.3 Preconditions and Validation
 
-`DesignProbes(...)` returns no probes when the target sequence is null, empty, shorter than the configured minimum length, or when `maxProbes <= 0`. All sequences are converted to uppercase before processing. The suffix-tree overload walks **every** candidate in the ranking order (lazily, stopping once `maxProbes` probes have been produced) and applies the specificity value returned by `CheckSpecificity(...)`: with `requireUnique` a candidate occurring more than once is dropped (the surviving probes keep their score and order), otherwise the score is multiplied by the specificity and the probes are re-ranked on the scaled score (stable — equal scores keep the documented `(length, start)` tie order; the `Primer3Penalty` order is unchanged because the specificity does not enter the penalty). With `requireUnique = false` a probe whose specificity is `0` (not present in the index) therefore still appears, with final score `0`, last.
+`DesignProbes(...)` returns no probes when the target sequence is null, empty, shorter than the configured minimum length, or when `maxProbes <= 0`. All sequences are converted to uppercase before processing. The suffix-tree overload walks **every** candidate in the ranking order (lazily, stopping once `maxProbes` probes have been produced) and applies the specificity value returned by `CheckSpecificity(...)` (with `bothStrands` on both strands of the indexed genome — occurrences of the probe and of its reverse complement, a reverse-palindromic probe once; default the indexed strand only): with `requireUnique` a candidate occurring more than once is dropped (the surviving probes keep their score and order), otherwise the score is multiplied by the specificity and the probes are re-ranked on the scaled score (stable — equal scores keep the documented `(length, start)` tie order; the `Primer3Penalty` order is unchanged because the specificity does not enter the penalty). With `requireUnique = false` a probe whose specificity is `0` (not present in the index) therefore still appears, with final score `0`, last.
 
 ## 4. Algorithm
 
@@ -162,7 +163,7 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 **Implementation location:** [ProbeDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs), [ThermoConstants.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ThermoConstants.cs)
 
 - `ProbeDesigner.DesignProbes(string, ProbeParameters?, int)`: Main probe-generation and ranking routine.
-- `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool)`: Uniqueness-aware overload using a suffix tree (lazy walk of all candidates; `EnumerateRankedProbes(...)` is the shared ranking stream).
+- `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool, bool)`: Uniqueness-aware overload using a suffix tree (lazy walk of all candidates; `EnumerateRankedProbes(...)` is the shared ranking stream; opt-in `bothStrands` counts reverse-complement occurrences too).
 - `ProbeDesigner.DesignTilingProbes(...)`: Generates overlapping tiling probes for coverage.
 - `ProbeDesigner.CheckSpecificity(string, ISuffixTree)`: Maps suffix-tree hit counts to a specificity score.
 - `ProbeDesigner.EvaluateTaqManProbe(string, double?, int, int)`: Opt-in TaqMan rule check; returns a `TaqManProbeEvaluation` with one boolean per rule and a `PassesAll` conjunction.
@@ -180,7 +181,7 @@ The implementation evaluates candidates with prefix-sum GC optimization and keep
 
 - Application-specific probe-length, GC, and Tm windows.
 - Heuristic penalties for GC, Tm, self-complementarity, secondary structure, and repeats.
-- Genome-index-based uniqueness checking through a suffix tree, over the **whole** ranked candidate list (`requireUnique` returns the best `maxProbes` unique probes; without it the score is scaled by `1 / hits` and the probes are re-ranked) — audit round 4, A4-1, F59.
+- Genome-index-based uniqueness checking through a suffix tree, over the **whole** ranked candidate list (`requireUnique` returns the best `maxProbes` unique probes; without it the score is scaled by `1 / hits` and the probes are re-ranked) — audit round 4, A4-1, F59; opt-in on both strands of a double-stranded genome (`bothStrands`, as blastn `-strand both`) — audit round 4, A4-2, F60.
 - Opt-in TaqMan rules (no 5'-G, more C than G, no ≥4-G run, GC 30–80%, length 18–22 nt, probe Tm ≥ primer Tm + 10 °C) and strand selection. [7][8][9]
 
 **Intentionally simplified:**

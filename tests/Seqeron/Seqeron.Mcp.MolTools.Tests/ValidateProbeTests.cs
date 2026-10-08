@@ -164,4 +164,27 @@ public class ValidateProbeTests
             Assert.That(two.Issues, Has.Some.StartWith("2 potential off-target sites"));
         });
     }
+
+    [Test]
+    public void ValidateProbe_BothStrands_DelegatesReverseComplementScan()
+    {
+        // Reference = exact site + rc(probe with 2 substitutions) + rc(probe with 5 substitutions) (random.seed(20261008));
+        // independent Python brute force over both strands: radius 3 → (1, 1) given strand, (2, 2) both strands;
+        // radius 5 → (3, 2) both strands (the 5-substitution site is 15/20 = 0.75, longest run 3).
+        const string probe = "GATCCGACGCTATATGCCGT";
+        string[] refs = { "ACAGTTTTAAGATAGGATCCGACGCTATATGCCGTAGCGAAAGCGCAGACACGGCATAGAGCGTCGCATCAATAAATAATCCGTAACCGCAGATACCGTAGGAGCGGGAGACCTGGCACA" };
+        var single = MolToolsTools.validate_probe(probe, refs);
+        var both = MolToolsTools.validate_probe(probe, refs, both_strands: true);
+        var both5 = MolToolsTools.validate_probe(probe, refs, max_mismatches: 5, both_strands: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That((single.OffTargetHits, single.CrossHybridizingHits, single.IsValid), Is.EqualTo((1, 1, true)));
+            Assert.That((both.OffTargetHits, both.CrossHybridizingHits, both.IsValid), Is.EqualTo((2, 2, false)));
+            Assert.That(both.SpecificityScore, Is.EqualTo(0.5).Within(1e-12));
+            Assert.That((both5.OffTargetHits, both5.CrossHybridizingHits), Is.EqualTo((3, 2)));
+            // Reverse-palindromic probe: one site, not two.
+            var pal = MolToolsTools.validate_probe("GAATTCCGGAATTC", new[] { "TTTTTGAATTCCGGAATTCAAAAA" }, both_strands: true);
+            Assert.That((pal.OffTargetHits, pal.CrossHybridizingHits), Is.EqualTo((1, 1)));
+        });
+    }
 }

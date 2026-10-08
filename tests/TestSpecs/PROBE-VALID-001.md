@@ -53,6 +53,7 @@
 13. **Thermodynamic self-structure screen**: for ACGT probes of ≤ `ThermodynamicScreenMaxLength` nt (THAL_MAX_ALIGN, default 60; larger = opt-in, thal.c compiled with a larger THAL_MAX_ALIGN parity) (Thermodynamic screen) SelfDimerTm / SelfEndDimerTm / HairpinTm equal primer3-py calc_homodimer / calc_end_stability / calc_hairpin at the stated conditions; a self-complementarity issue iff max(self-dimer, 3′ self-dimer) Tm > MaxStructureTm (47 °C), HasSecondaryStructure iff hairpin Tm > MaxStructureTm; otherwise the fallback screens (Source: Primer3 internal-oligo screen)
 14. **IsValid**: IsValid ⇔ Issues is empty (Source: Primer3 rejects an oligo violating any limit; Kane decision); SpecificityScore never enters it (library convention)
 17. **Reference sites (Kane)**: CrossHybridizingHits = #{hits with (L − d)/L > maxNonTargetIdentity ∨ longest identical run > maxContiguousMatch}; off-target issue ⇔ CrossHybridizingHits > 1; for L ≥ 13 and maxMismatches ≤ 3, CrossHybridizingHits = OffTargetHits (Source: Kane et al. 2000; audit round 3, A3-12)
+18. **Both strands (opt-in `bothStrands`)**: sites = ∪ over references of the hit positions of the probe and of its reverse complement; a position hit in both orientations is one site, a Kane site when either orientation meets a criterion; a reverse-palindromic probe or site is counted once (= `CheckSpecificity(bothStrands)` for exact matching); default false = given strand only, bit-identical to before; OffTargetHits(both) ≥ OffTargetHits(single), CrossHybridizingHits likewise (Source: blastn 2.12.0+ `-strand both` default; audit round 4, A4-2)
 15. **Kane criteria**: CrossHybridizes ⇔ Identity > maxIdentity (0.75) ∨ LongestContiguousMatch > maxContiguousMatch (15) ∨ (maxDuplexTm given ∧ DuplexTm > maxDuplexTm); AlignmentScore = Biopython local score; LongestContiguousMatch = LCS length; both strands by default (Source: Kane et al. 2000; OligoArray 2.0)
 16. **Site duplex Tm**: DuplexTm = primer3-py calc_heterodimer(probe, revcomp(site)).tm (0 if no duplex); null when the probe and the site are both longer than the conditions' `ThermodynamicScreenMaxLength` (THAL_MAX_ALIGN, default 60; thal.c `thal_check_errors` needs only one strand ≤ it — primer3-py raises otherwise), for non-ACGT probes/sites or no site (Source: thal.c, OligoArray 2.0; A3-27)
 
@@ -103,6 +104,9 @@
 | KS1 | 12-mer: 3-mismatch site (9/12 = 0.75) not a Kane site → no off-target issue; + 2-mismatch site (10/12) → 2 Kane sites → issue | Invariant #17 | Kane et al. 2000; Python brute-force oracle |
 | KS2 | 40-mer, radius 12: clustered 12-mismatch site (0.70, run 28) counts, spread one (0.70, run 5) not; thresholds 0.69 / 28 move the count 2 → 3 / 1 | Invariant #17 | Kane et al. 2000; Python brute-force oracle |
 | KS3 | Guards: identity ∉ [0,1] / NaN, contiguous < 0, illegal stated conditions (Primer3 `_pr_data_control`) throw | API | Primer3 `libprimer3.cc` |
+| BS1 | 20-mer + reference with exact site, rc site (2 subst., 0.90) and rc site (5 subst., 0.75, run 3): given strand (1,1); both strands radius 3 → (2,2) + issue, specificity 0.5; radius 5 → (3,2) | Invariant #18 | Python brute force over both strands; blastn 2.12.0+ `-strand plus` vs `both` |
+| BS2 | Reverse-palindromic probe `GAATTCCGGAATTC` and reverse-palindromic site `GACGTCAGCTGACGTC` (probe 1 subst. from it, rc too) counted once on both strands | Invariant #18 | Python brute force; CheckSpecificity rule |
+| BS3 | 11 random cases (Python random.Random(7)) where the modes differ: (hits, Kane sites) for both modes = oracle | Invariant #18 | Python brute force over both strands |
 
 ### Should (Important)
 
@@ -182,6 +186,9 @@
 | KS1 | `ValidateProbe_ShortProbe_ThreeMismatchSiteAtSeventyFivePercent_IsNotAnOffTargetIssue` | ✅ Covered | hits 2/3, Kane sites 1/2, issue text exact |
 | KS2 | `ValidateProbe_ReferenceSites_FollowKaneIdentityAndContiguityCriteria` | ✅ Covered | (1,1), (3,2), (3,3), (3,1) |
 | KS3 | `ValidateProbe_InvalidKaneThresholdsOrConditions_Throw` | ✅ Covered | 7 guards |
+| BS1 | `ValidateProbe_BothStrands_CountsReverseComplementSitesByKaneCriteria`; MCP `ValidateProbeTests.ValidateProbe_BothStrands_DelegatesReverseComplementScan` | ✅ Covered | (1,1) / (2,2) / (1,1) / (3,2) |
+| BS2 | `ValidateProbe_BothStrands_PalindromicProbeOrSiteCountedOnce` | ✅ Covered | (1,1) in both modes |
+| BS3 | `ValidateProbe_BothStrands_MatchesPythonBruteForce` (11 cases) | ✅ Covered | oracle tuples |
 
 ---
 
@@ -198,6 +205,7 @@ Every parameter is either externally sourced or marked as a library convention b
 | `MaxStructureTm` | 47 °C | PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH | Primer3 `libprimer3.cc` |
 | `maxNonTargetIdentity` / `maxContiguousMatch` | 0.75 / 15 (strict >) | Kane et al. (2000) | Kane et al. 2000; Satya et al. 2008 |
 | `maxDuplexTm` | none | OligoArray: user-set specificity threshold | Rouillard et al. 2003 |
+| `bothStrands` (`ValidateProbe`) | false | Opt-in reverse-complement scan of the references (backward-compatible default; blastn defaults to `-strand both`) | blastn 2.12.0+ `-help`; audit round 4, A4-2 |
 | `minIdentity` (gapped scan) | 0.75 | Kane et al. (2000): non-target transcripts >75% similar over the probe may cross-hybridize. Caller-configurable. | Kane et al. (2000), Nucleic Acids Res 28(22):4552 |
 | `scoring` (gapped scan) | `SequenceAligner.BlastDna` (+2/−3, gap −2) | Reuses the BLAST-style DNA scoring already used for the library's gapped ANI alignment (COMPGEN-ANI). | Altschul et al. (1990); reused infrastructure |
 | `k` (Karlin–Altschul) | 0.711 | Published nucleotide K for the +1/−3 scheme (NCBI blastn). K's full closed form needs the Karlin–Altschul score-lattice machinery, so it is a caller parameter; λ is computed (not assumed). | Karlin & Altschul (1990); NCBI blastn |

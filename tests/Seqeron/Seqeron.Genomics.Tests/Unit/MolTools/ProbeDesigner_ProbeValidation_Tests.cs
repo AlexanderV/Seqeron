@@ -1680,4 +1680,108 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     #endregion
+
+    #region ValidateProbe - both strands (audit round 4, A4-2, F60)
+
+    // Expected values: independent Python brute force over both strands (oracle.py — every reference window compared
+    // position by position with the probe and with its Biopython reverse complement; the union of the hit positions per
+    // reference is the site set, a position cross-hybridizing when either orientation meets a Kane criterion:
+    // identity (L - d) / L > 0.75 or a run of identical positions > 15). Fixture random.seed(20261008):
+    // reference = A + P + B + rc(P with positions 3, 11 substituted) + C + rc(P with 1, 5, 9, 13, 17 substituted) + D.
+    private const string BothStrandsProbe = "GATCCGACGCTATATGCCGT";
+    private const string BothStrandsReference =
+        "ACAGTTTTAAGATAGGATCCGACGCTATATGCCGTAGCGAAAGCGCAGACACGGCATAGAGCGTCGCATCAATAAATAATCCGTAACCGCAGATACCGTAGGAGCGGGAGACCTGGCACA";
+
+    [Test]
+    public void ValidateProbe_BothStrands_CountsReverseComplementSitesByKaneCriteria()
+    {
+        string[] refs = { BothStrandsReference };
+        var single3 = ProbeDesigner.ValidateProbe(BothStrandsProbe, refs);
+        var both3 = ProbeDesigner.ValidateProbe(BothStrandsProbe, refs, bothStrands: true);
+        var single5 = ProbeDesigner.ValidateProbe(BothStrandsProbe, refs, maxMismatches: 5);
+        var both5 = ProbeDesigner.ValidateProbe(BothStrandsProbe, refs, maxMismatches: 5, bothStrands: true);
+
+        Assert.Multiple(() =>
+        {
+            // Default (backward compatible): the given strand only — the exact site.
+            Assert.That((single3.OffTargetHits, single3.CrossHybridizingHits), Is.EqualTo((1, 1)));
+            Assert.That(single3.Issues, Has.None.Contain("off-target"));
+            // Both strands: + the 2-mismatch reverse-complement site (18/20 = 0.90 > 0.75) → off-target issue.
+            Assert.That((both3.OffTargetHits, both3.CrossHybridizingHits), Is.EqualTo((2, 2)));
+            Assert.That(both3.SpecificityScore, Is.EqualTo(0.5).Within(1e-12));
+            Assert.That(both3.Issues, Has.Some.EqualTo(
+                "2 potential off-target sites (Kane 2000: identity > 75% or > 15 contiguous identical nt)"));
+            Assert.That(both3.IsValid, Is.False);
+            // Radius 5 reaches the 5-mismatch reverse-complement site (15/20 = 0.75, longest run 3 — no Kane criterion).
+            Assert.That((single5.OffTargetHits, single5.CrossHybridizingHits), Is.EqualTo((1, 1)));
+            Assert.That((both5.OffTargetHits, both5.CrossHybridizingHits), Is.EqualTo((3, 2)));
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_BothStrands_PalindromicProbeOrSiteCountedOnce()
+    {
+        // Reverse-palindromic probe (rc = itself): its reverse-complement hits are the same sites — counted once,
+        // as CheckSpecificity(bothStrands) counts a palindromic probe once.
+        const string palindrome = "GAATTCCGGAATTC";
+        Assert.That(DnaSequence.GetReverseComplementString(palindrome), Is.EqualTo(palindrome));
+        // Non-palindromic probe = the reverse-palindromic site GACGTCAGCTGACGTC with position 0 substituted: the site is
+        // 1 mismatch from the probe AND from its reverse complement (same position) → one site, not two.
+        const string palindromicSite = "GACGTCAGCTGACGTC";
+        const string nearPalindromicProbe = "TACGTCAGCTGACGTC";
+        Assert.That(DnaSequence.GetReverseComplementString(palindromicSite), Is.EqualTo(palindromicSite));
+
+        Assert.Multiple(() =>
+        {
+            foreach (int k in new[] { 0, 2 })
+            {
+                var single = ProbeDesigner.ValidateProbe(palindrome, new[] { "TTTTT" + palindrome + "AAAAA" }, k);
+                var both = ProbeDesigner.ValidateProbe(palindrome, new[] { "TTTTT" + palindrome + "AAAAA" }, k, bothStrands: true);
+                Assert.That((single.OffTargetHits, single.CrossHybridizingHits), Is.EqualTo((1, 1)), $"palindromic probe, k {k}");
+                Assert.That((both.OffTargetHits, both.CrossHybridizingHits), Is.EqualTo((1, 1)), $"palindromic probe both strands, k {k}");
+            }
+            string[] siteRef = { "CCCCC" + palindromicSite + "CCCCC" };
+            var siteSingle = ProbeDesigner.ValidateProbe(nearPalindromicProbe, siteRef, maxMismatches: 1);
+            var siteBoth = ProbeDesigner.ValidateProbe(nearPalindromicProbe, siteRef, maxMismatches: 1, bothStrands: true);
+            Assert.That((siteSingle.OffTargetHits, siteSingle.CrossHybridizingHits), Is.EqualTo((1, 1)));
+            Assert.That((siteBoth.OffTargetHits, siteBoth.CrossHybridizingHits), Is.EqualTo((1, 1)), "palindromic site once");
+            Assert.That(siteBoth.SpecificityScore, Is.EqualTo(1.0));
+        });
+    }
+
+    // Random cases (Python random.Random(7): probe 8–30 nt, 1–3 references of 0–120 random nt with 0–3 planted copies of
+    // the probe or its reverse complement carrying 0–4 substitutions; radius 0–4) where the two modes differ. Columns:
+    // probe, references, radius, (hits, Kane sites) given strand, (hits, Kane sites) both strands — from oracle.py.
+    private static IEnumerable<TestCaseData> BothStrandsOracleCases()
+    {
+        yield return new TestCaseData("CCCCCCAATGCCCCGC", new[] { "TAGGGCGGTGCGCGCCCAATGCGCGGGGCATTGGGGGGGCCGGATTTGGTGGGTAA" }, 4, 0, 0, 1, 1);
+        yield return new TestCaseData("ACTAAAGCAAGCTCCCTTGGACTA", new[] { "TTCCGTTCCCTAGCAGTCGGCGCTAGTCCAAGTGCGCTTGCTTTAGTTAACGAGAAG" }, 4, 0, 0, 1, 1);
+        yield return new TestCaseData("AGCGGAGACGGTAG", new[] { "GAACGGCTATAATCTACCGTCTCCGCTAAGCCGTCGGTAAGCTTAAACTTCTTCAGGCG" }, 1, 0, 0, 1, 1);
+        yield return new TestCaseData("AGGTTCTAAAGGCTATGC", new[] { "GTGAGTAACATTGCATAGCCTTTAGAACCTCGCGCCACAGGTTCAAAAGGCAATGCATGAGCACG" }, 1, 0, 0, 1, 1);
+        yield return new TestCaseData("CGATGCAAATTCCTCTGTTTCTAGT", new[] { "ACTAGAAACAGAGGAATTTGCATCGACATGACTAGAAACCGAGGAATTTGCATCGTCTACTTTAACTATTCGT" }, 1, 0, 0, 2, 2);
+        yield return new TestCaseData("CTGCCCACCAGTCGCGAGGCAA", new[] { "TCCACTAACAGTACAGGCACGATCTCTATTCATTCACCAACAGCAGTCCCGAAGCCTTGCCTCGCGACTGGTGGGCAG" }, 0, 0, 0, 1, 1);
+        yield return new TestCaseData("ACGGCGCTTTTATTTCGGGGTC", new[] { "AATACCCCGAAATCAAAGCGCCGTGGTCGTCCAAGGAGTGCAGCTATATTCATTTGCTTCAAAAAGTAGTCATTCCGGT" }, 3, 0, 0, 1, 1);
+        yield return new TestCaseData("TATGAGAAAAGTTG", new[] { "CTTATTAATCCAACTTTTCTCATATCATGTAGCCGGCCCGCAGAAGCAGCCGGTTTTTGTTAGATATTAGAAAAGTAGCG" }, 2, 1, 1, 2, 2);
+        yield return new TestCaseData("CTTGGCAT", new[] { "TTCGAGGTTTATTTCTTGGCATGTGAGCAGCATCGATAAGTATGCCAAGTATGGGCCTTGGCATAAAATTACGGGGGTAACGCCACCAGTTC" }, 4, 11, 2, 20, 3);
+        yield return new TestCaseData("TGTTGAGC", new[] { "CGCTATGTCTAAACGCCGCGCTTAAGGCACAAGAGTTTCTTTTGAGGAGAAGTTCTATGAGTTTGTCGAGCACGGCACTCGCAAGAGAGACTCG" }, 2, 2, 1, 3, 1);
+        yield return new TestCaseData("TCGCGATATAA", new[] { "TTATATTTATATCGGGACGGGAGCTGGCGATAAACTTTC", "TAATTAGTTATATCGGGAATACTCGCGATATAAGCGCGCGCTCCATTTACAGCCCAACGCTACAAGG" }, 4, 2, 1, 6, 3);
+    }
+
+    [TestCaseSource(nameof(BothStrandsOracleCases))]
+    public void ValidateProbe_BothStrands_MatchesPythonBruteForce(
+        string probe, string[] references, int maxMismatches,
+        int singleHits, int singleKane, int bothHits, int bothKane)
+    {
+        var single = ProbeDesigner.ValidateProbe(probe, references, maxMismatches);
+        var both = ProbeDesigner.ValidateProbe(probe, references, maxMismatches, bothStrands: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That((single.OffTargetHits, single.CrossHybridizingHits), Is.EqualTo((singleHits, singleKane)), "given strand");
+            Assert.That((both.OffTargetHits, both.CrossHybridizingHits), Is.EqualTo((bothHits, bothKane)), "both strands");
+            Assert.That(both.SpecificityScore, Is.EqualTo(bothHits == 0 ? 0.0 : 1.0 / bothHits).Within(1e-12));
+            Assert.That(both.Issues.Any(i => i.Contains("off-target")), Is.EqualTo(bothKane > 1));
+        });
+    }
+
+    #endregion
 }

@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.ValidateProbe",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2016",
-  "description": "Validate a probe: ungapped k-mismatch site scan over references (sites judged by the Kane et al. 2000 criteria — > 1 such site is an issue; 1/N uniqueness score and the 3-mismatch radius are library conventions), Primer3 ntthal self-dimer/hairpin screen at the stated reaction conditions (ACGT probes <= thermodynamic_screen_max_length nt, default 60 = THAL_MAX_ALIGN, opt-in up to 10000; otherwise Primer3 alignment-mode self_any/self_end + inverted-repeat hairpin fallback), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2006",
+  "description": "Validate a probe: ungapped k-mismatch site scan over references (given strand, or with both_strands also the probe's reverse complement; sites judged by the Kane et al. 2000 criteria — > 1 such site is an issue; 1/N uniqueness score and the 3-mismatch radius are library conventions), Primer3 ntthal self-dimer/hairpin screen at the stated reaction conditions (ACGT probes <= thermodynamic_screen_max_length nt, default 60 = THAL_MAX_ALIGN, opt-in up to 10000; otherwise Primer3 alignment-mode self_any/self_end + inverted-repeat hairpin fallback), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -117,6 +117,11 @@
         "minimum": 60,
         "maximum": 10000,
         "default": 60
+      },
+      "both_strands": {
+        "type": "boolean",
+        "description": "true = also scan the reference sequences for the probe's reverse complement (the probe's sites on the other strand of a double-stranded reference, as blastn -strand both); a position hit in both orientations (reverse-palindromic probe or site) counts once. Default false = the given strand only.",
+        "default": false
       }
     },
     "required": [
@@ -313,6 +318,22 @@
         ]
       },
       "output": {
+        "isValid": false
+      }
+    },
+    {
+      "name": "Reverse-complement site counted with both_strands",
+      "input": {
+        "probe_sequence": "GATCCGACGCTATATGCCGT",
+        "reference_sequences": [
+          "ACAGTTTTAAGATAGGATCCGACGCTATATGCCGTAGCGAAAGCGCAGACACGGCATAGAGCGTCGCATCAATAAATAATCCGTAACCGCAGATACCGTAGGAGCGGGAGACCTGGCACA"
+        ],
+        "both_strands": true
+      },
+      "output": {
+        "offTargetHits": 2,
+        "crossHybridizingHits": 2,
+        "specificityScore": 0.5,
         "isValid": false
       }
     },

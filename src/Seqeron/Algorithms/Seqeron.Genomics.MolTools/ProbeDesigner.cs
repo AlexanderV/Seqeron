@@ -859,6 +859,11 @@ public static class ProbeDesigner
     /// <param name="parameters">Probe design parameters.</param>
     /// <param name="maxProbes">Maximum number of probes to return (none when ≤ 0).</param>
     /// <param name="requireUnique">If true, only return probes unique in the genome.</param>
+    /// <param name="bothStrands">Count the probe's reverse-complement occurrences in the index too (passed to
+    /// <see cref="CheckSpecificity(string, global::SuffixTree.ISuffixTree, bool)"/>: a probe whose reverse complement
+    /// occurs in a double-stranded genome binds the other strand there; a reverse-palindromic probe is counted once).
+    /// Default false: the indexed strand only (the behaviour before audit round 4, B07 F60) — pass true when the index
+    /// holds one strand of a double-stranded genome.</param>
     /// <remarks>Candidates come in the order of <see cref="ProbeParameters.Ranking"/> (see
     /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>), after the specificity scaling when
     /// <paramref name="requireUnique"/> is false. Before audit round 4 (B07 F59) only the top
@@ -870,12 +875,13 @@ public static class ProbeDesigner
         global::SuffixTree.ISuffixTree genomeIndex,
         ProbeParameters? parameters = null,
         int maxProbes = 10,
-        bool requireUnique = true)
+        bool requireUnique = true,
+        bool bothStrands = false)
     {
         var param = parameters ?? Defaults.Microarray;
         ValidateRanking(param, nameof(parameters));
         ValidateThermodynamicScreenMaxLength(param, nameof(parameters));
-        return DesignProbesIterator(targetSequence, genomeIndex, param, maxProbes, requireUnique);
+        return DesignProbesIterator(targetSequence, genomeIndex, param, maxProbes, requireUnique, bothStrands);
     }
 
     private static IEnumerable<Probe> DesignProbesIterator(
@@ -883,7 +889,8 @@ public static class ProbeDesigner
         global::SuffixTree.ISuffixTree genomeIndex,
         ProbeParameters param,
         int maxProbes,
-        bool requireUnique)
+        bool requireUnique,
+        bool bothStrands)
     {
         if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength || maxProbes <= 0)
             yield break;
@@ -894,8 +901,8 @@ public static class ProbeDesigner
         // requireUnique drops a probe with specificity < 1 (its score is unchanged, so the order is the base ranking);
         // otherwise the score is scaled by the specificity (never raised) and EnumerateRankedProbes re-ranks on it.
         Func<Probe, Probe?> applySpecificity = requireUnique
-            ? probe => CheckSpecificity(probe.Sequence, genomeIndex) < 1.0 ? null : probe
-            : probe => probe with { Score = probe.Score * CheckSpecificity(probe.Sequence, genomeIndex) };
+            ? probe => CheckSpecificity(probe.Sequence, genomeIndex, bothStrands) < 1.0 ? null : probe
+            : probe => probe with { Score = probe.Score * CheckSpecificity(probe.Sequence, genomeIndex, bothStrands) };
 
         int returned = 0;
         foreach (var probe in EnumerateRankedProbes(targetSequence, param, applySpecificity))
@@ -2003,8 +2010,13 @@ public static class ProbeDesigner
     /// <remarks>
     /// <para>
     /// <b>Hits.</b> Every reference is scanned with the canonical ungapped k-mismatch (Hamming) matcher
-    /// <see cref="ApproximateMatcher.FindWithMismatches(string, string, int)"/> (case-insensitive, overlapping, the
-    /// strand given only); <see cref="ProbeValidation.OffTargetHits"/> is the total and includes the intended site.
+    /// <see cref="ApproximateMatcher.FindWithMismatches(string, string, int)"/> (case-insensitive, overlapping; the
+    /// strand given only by default, and with <paramref name="bothStrands"/> also for the probe's reverse complement —
+    /// the probe's sites on the other strand of a double-stranded reference, as blastn <c>-strand both</c> and
+    /// <see cref="CheckSpecificity(string, global::SuffixTree.ISuffixTree, bool)"/> with <c>bothStrands</c>; a reference
+    /// position hit in both orientations — a reverse-palindromic probe, or a reverse-palindromic site — is one site,
+    /// counted once, as <see cref="CheckSpecificity(string, global::SuffixTree.ISuffixTree, bool)"/> counts a
+    /// palindromic probe once); <see cref="ProbeValidation.OffTargetHits"/> is the total and includes the intended site.
     /// Each hit is judged by the Kane et al. (2000) criteria on its ungapped diagonal — identity (L − mismatches) / L
     /// over the probe length &gt; <paramref name="maxNonTargetIdentity"/> or a run of identical positions longer than
     /// <paramref name="maxContiguousMatch"/> (<see cref="ProbeValidation.CrossHybridizingHits"/>); more than one such
@@ -2067,6 +2079,10 @@ public static class ProbeDesigner
     /// longer), for the reference sites and the non-targets; negative → <see cref="ArgumentOutOfRangeException"/>.</param>
     /// <param name="maxDuplexTm">Optional OligoArray-style off-target duplex-Tm threshold (°C; see
     /// <see cref="AssessCrossHybridization"/>); null = Kane criteria only.</param>
+    /// <param name="bothStrands">Also scan the references for the probe's reverse complement (default false: the
+    /// references' given strand only, the behaviour before audit round 4, B07 F60). A site found in both orientations
+    /// at the same reference position is counted once and is cross-hybridizing when either orientation meets a Kane
+    /// criterion. The non-target assessment is two-stranded regardless (<see cref="AssessCrossHybridization"/>).</param>
     public static ProbeValidation ValidateProbe(
         string probeSequence,
         IEnumerable<string> referenceSequences,
@@ -2076,7 +2092,8 @@ public static class ProbeDesigner
         IEnumerable<string>? nonTargetSequences = null,
         double maxNonTargetIdentity = KaneMaxIdentity,
         int maxContiguousMatch = KaneMaxContiguousMatch,
-        double? maxDuplexTm = null)
+        double? maxDuplexTm = null,
+        bool bothStrands = false)
     {
         ArgumentNullException.ThrowIfNull(probeSequence);
         ArgumentNullException.ThrowIfNull(referenceSequences);
@@ -2111,14 +2128,30 @@ public static class ProbeDesigner
 
         // Canonical ungapped k-mismatch (Hamming) scan; case-insensitive, overlapping hits included. Each hit is a
         // candidate binding site; it counts as a cross-hybridizing site when it meets a Kane et al. (2000) criterion.
+        // With bothStrands the probe's reverse complement is scanned too (the probe's sites on the other strand of a
+        // double-stranded reference, as blastn -strand both / CheckSpecificity(bothStrands)); a reference position hit
+        // in both orientations (a reverse-palindromic probe, or a site that is itself a reverse palindrome) is one
+        // site, cross-hybridizing when either orientation meets a Kane criterion (audit round 4, A4-2, F60).
+        string[] patterns = [probeSequence];
+        if (bothStrands)
+        {
+            string reverseComplement = DnaSequence.GetReverseComplementString(probeSequence);
+            if (!string.Equals(reverseComplement, probeSequence, StringComparison.Ordinal))
+                patterns = [probeSequence, reverseComplement];
+        }
         foreach (var reference in referenceSequences)
         {
-            foreach (var hit in ApproximateMatcher.FindWithMismatches(reference, probeSequence, maxMismatches))
+            var sites = new Dictionary<int, bool>();
+            foreach (string pattern in patterns)
             {
-                offTargetHits++;
-                if (UngappedSiteMeetsKaneCriteria(hit.MismatchPositions, probeSequence.Length, maxNonTargetIdentity, maxContiguousMatch))
-                    crossHybridizingHits++;
+                foreach (var hit in ApproximateMatcher.FindWithMismatches(reference, pattern, maxMismatches))
+                {
+                    bool kane = UngappedSiteMeetsKaneCriteria(hit.MismatchPositions, probeSequence.Length, maxNonTargetIdentity, maxContiguousMatch);
+                    sites[hit.Position] = sites.TryGetValue(hit.Position, out bool seen) ? seen || kane : kane;
+                }
             }
+            offTargetHits += sites.Count;
+            crossHybridizingHits += sites.Values.Count(kane => kane);
         }
 
         // More than one site meeting the Kane criteria = the probe can bind somewhere besides its intended site.

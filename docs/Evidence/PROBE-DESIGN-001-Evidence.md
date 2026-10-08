@@ -203,3 +203,9 @@ WebSearch result extract)
   In-test oracle: the exhaustive non-index `DesignProbes(target, param, int.MaxValue)` candidate list (the documented
   ranking) filtered / scaled with that naive occurrence count reproduces the overload's output for
   `maxProbes` ∈ {1, 3, 100000} and both `requireUnique` values, and for the `Primer3Penalty` ranking (F51).
+
+## 2026-10-08 review (B07, F60, audit round 4 A4-2) — genome-index overload on both strands (opt-in)
+
+- **Source opened:** BLAST+ 2.12.0 `blastn -help` (`-strand` default `both`); `CheckSpecificity(…, bothStrands)` contract (F24: reverse-palindromic probe counted once).
+- **Oracle:** Python `str.find` overlapping-occurrence counts + Biopython `reverse_complement` over the dumped fixture strings (X, Y from C# `System.Random(7)`; index X + T10 + Y + T10 + rc(X), target X + Y): of the 4686 candidate windows (50–60 nt) 3806 have (indexed-strand, both-strand) sites (1, 2), 297 (1, 1) — all inside Y —, 561 (0, 0) and 22 (0, 1) (X|Y-crossing windows with Y's first 1–2 nt `AA`, whose reverse complement `TT` lies in the T10 before rc(X)).
+- **Result:** default unchanged (indexed strand); `bothStrands = true`, Microarray, `maxProbes = 2`, `requireUnique` → 351 (X|Y-crossing window `GTCTTTGATCGCCACGACCTACCCCTAACAAACATTAGTCCAATTTAATA`, G+C 0.40, Python 0 / 1 sites — present only as its reverse complement; score 0.98) / 402 (0.85); brute force over all candidates equals the overload for `requireUnique` × `maxProbes` ∈ {3, 100000}.
