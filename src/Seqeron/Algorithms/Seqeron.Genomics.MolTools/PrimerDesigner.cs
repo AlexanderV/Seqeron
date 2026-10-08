@@ -5625,8 +5625,10 @@ public sealed record PrimerPairOptions
 
     /// <summary>
     /// PRIMER_MIN_THREE_PRIME_DISTANCE: Primer3's shorthand that sets <see cref="MinLeftThreePrimeDistance"/> and
-    /// <see cref="MinRightThreePrimeDistance"/> to the same value (and PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE, which
-    /// Primer3 applies only with SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST — not modelled here, so it has no effect).
+    /// <see cref="MinRightThreePrimeDistance"/> to the same value. Primer3's shorthand also sets
+    /// PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE, which <c>choose_pair_or_triple</c> reads only with a non-empty
+    /// SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST; junction lists are outside this API's scope, so — exactly as in Primer3
+    /// without that list — internal oligos are never excluded by distance (primer3-py 2.3.1 parity, audit round 5, A5-3).
     /// Reading it returns the common value, or null when the left and right distances differ.
     /// </summary>
     public int? MinThreePrimeDistance

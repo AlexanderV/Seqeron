@@ -66,8 +66,13 @@ PCR primer design balances primer length, GC content, melting temperature, repet
    $d \ge 0$ a selected pair excludes from all later pairs every left (right) primer whose 3′ end lies fewer than $d$
    bases from the selected left (right) primer's 3′ end ($d = 0$: only the identical primer) — Primer3
    `choose_pair_or_triple` + `left/right_oligo_in_pair_overlaps_used_oligo` (left 3′ end = start + length − 1,
-   right 3′ end = its leftmost top-strand base). PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE acts only with
-   SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST (not modelled).
+   right 3′ end = its leftmost top-strand base). PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (which Primer3's
+   shorthand also sets, `read_boulder.c`) is read by `choose_pair_or_triple` only when
+   SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST is non-empty (`pick_internal_oligo && intl_overlap_junctions_count > 0`);
+   this unit takes no junction list (§5.3, outside its scope), so it is inert here exactly as in Primer3 without
+   that list — no separate option exists (primer3-py 2.3.1, PRIMER_PICK_INTERNAL_OLIGO = 1: 1000/1000 designs on 200
+   random 200–500-bp templates, 1319 pairs, identical for PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE ∈ {−1, 0, 1, 5, 20}
+   and unset; audit round 5, A5-3).
 6. **Mispriming library** (PRIMER_MISPRIMING_LIBRARY, `PrimerParameters.MisprimingLibrary` =
    `PrimerMisprimingLibrary`, primer3-py `misprime_lib`; `libprimer3.c` `oligo_repeat_library_mispriming`,
    `pair_repeat_sim`, `p3_seq_lib.c`): entries name → sequence, an optional `*w` weight (0–100, `parse_seq_name`) in
@@ -331,7 +336,17 @@ Forward primers are taken directly from the template; reverse primers are revers
 
 - Undefined GC optimum and lower-case masking (audit round 3, A3-25 + A3-26, 2026-10-02): 600 random cases (150–450-bp templates, 85 % with random lower-case runs and isolated lower-case bases; PRIMER_LOWERCASE_MASKING ∈ {unset, 0, 1}; 20 % of the pair cases with PRIMER_MASK_TEMPLATE and per-case k-mer lists; 25 % pick_hyb_probe_only; PRIMER_PICK_INTERNAL_OLIGO 35 %; random PRIMER_[INTERNAL_]OPT_GC_PERCENT set or unset with PRIMER_[INTERNAL_]WT_GC_PERCENT_GT/_LT ∈ {unset, 0, 0.25–1}; both alignment modes): 600/600 identical to primer3-py 2.3.1 `design_primers` (1316 pairs + probes on start + length and PRIMER_PAIR/LEFT/RIGHT/INTERNAL_k_PENALTY |Δ| ≤ 1e-9; 266 `_pr_data_control` GC-optimum errors reproduced with Primer3's message). Ignoring the template case: 471/600. Details: F46 in `docs/Validation/review-2026-09/B07.md`.
 
-**Not implemented:** PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE (needs SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST), genome-wide specificity.
+**Outside this unit's scope (Primer3 tags not modelled; not in the PRIMER-DESIGN-001 test spec):**
+SEQUENCE_OVERLAP_JUNCTION_LIST / SEQUENCE_INTERNAL_OVERLAP_JUNCTION_LIST with PRIMER_MIN_5/3_PRIME_OVERLAP_OF_JUNCTION
+and PRIMER_INTERNAL_MIN_5/3_PRIME_OVERLAP_OF_JUNCTION — Primer3's junction-spanning mode (e.g. exon–exon junctions of a
+cDNA template), a separate feature that the API has no input for. Without a junction list Primer3 itself never reads
+PRIMER_INTERNAL_MIN_THREE_PRIME_DISTANCE, so the library equals Primer3 for every input it accepts (§2.2 item 5;
+audit round 5, A5-3).
+
+**BLOCKED — genome-wide specificity:** needs a BLAST search of the primers against a genome / nucleotide database
+(NCBI Primer-BLAST [8] is a web service that couples Primer3 with BLAST over NCBI databases); Primer3 itself has no
+genome search and the API receives only the template. The in-scope Primer3 specificity checks are the mispriming
+library (§2.2 item 6) and template mispriming (item 8); approximate probe off-target search is PROBE-VALID-001.
 
 ## 6. Edge Cases and Limitations
 
@@ -390,3 +405,4 @@ Related material called out in the original document:
 5. Untergasser A et al. (2012). "Primer3 — new capabilities and interfaces", NAR 40(15):e115.
 6. Primer3 source (primer3-org/primer3, `src/oligotm.c`: `oligotm`, `seqtm`, `long_seq_tm`, `divalent_to_monovalent`; `src/libprimer3.cc`: `make_detection_primer_lists`, `pick_primer_range`, `choose_pair_or_triple`, `characterize_pair`, `obj_fn`, `choose_internal_oligo`, `primer_rec_comp`, `compare_primer_pair`, `p_obj_fn`, `_pr_data_control`, `pr_set_default_global_args_1`).
 7. von Ahsen N, Wittwer CT, Schütz E (2001). Clin Chem 47:1956-61 (divalent→monovalent equivalence).
+8. Ye J, Coulouris G, Zaretskaya I, Cutcutache I, Rozen S, Madden TL (2012). "Primer-BLAST: a tool to design target-specific primers for polymerase chain reaction", BMC Bioinformatics 13:134.

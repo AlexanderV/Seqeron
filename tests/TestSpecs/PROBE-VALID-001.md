@@ -129,6 +129,7 @@
 | S4 | Approximate matching with maxMismatches works correctly | Off-target detection | Wikipedia (Off-target) |
 | SG1 | minIdentity threshold gates hits (0.8333 admitted at 0.75, rejected at 0.90) | Invariant #10 | Kane et al. 2000 |
 | SG2 | Specific probe (1 on-target, 0 off-target) → IsSpecific true | API contract | Implementation |
+| SG3 | Two identical perfect copies: one intended site (first in reference order), the other on-target-class and off-target; counts / IsSpecific independent of reference order (A5-3) | API contract | Implementation |
 
 ### Could (Optional)
 
@@ -171,6 +172,7 @@
 | MG4 | `ScanOffTargetsGapped_IndelPlusMismatch_IdentityIsHandDerivedFraction` | ✅ Covered | identity=10/12=0.8333, HasGaps, off=1 |
 | SG1 | `ScanOffTargetsGapped_IdentityThreshold_GatesHits` | ✅ Covered | 0.75→1 hit, 0.90→0 hits |
 | SG2 | `ScanOffTargetsGapped_SpecificProbe_IsSpecificTrue` | ✅ Covered | on=1, off=0, IsSpecific |
+| SG3 | `ScanOffTargetsGapped_TwoPerfectCopies_CountsIndependentOfReferenceOrder` | ✅ Covered | both orders: on=2, off=1 (ref 1, start 5), IsSpecific false |
 | — | `ScanOffTargetsGapped_NullProbe_ThrowsArgumentNullException` | ✅ Covered | ArgumentNullException |
 | — | `ScanOffTargetsGapped_NullReferences_ThrowsArgumentNullException` | ✅ Covered | ArgumentNullException |
 | — | `ScanOffTargetsGapped_EmptyProbe_ReturnsNoHits` | ✅ Covered | Empty probe → no hits |

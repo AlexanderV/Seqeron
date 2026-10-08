@@ -687,6 +687,34 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     [Test]
+    public void ScanOffTargetsGapped_TwoPerfectCopies_CountsIndependentOfReferenceOrder()
+    {
+        // A5-3: the scan has no target coordinate, so exactly one perfect, ungapped, full-coverage copy (the first in
+        // reference order) is the intended site; every further perfect copy is listed as on-target-class AND counted as
+        // an off-target. Identical copies are indistinguishable, so the counts and IsSpecific must not depend on which
+        // copy comes first.
+        const string probe = "ACGTGGCATTACGGCATTCA"; // 20 nt
+        string copyA = "TTTTT" + probe + "TTTTT";
+        string copyB = "GGGGG" + probe + "GGGGG";
+
+        var forward = ProbeDesigner.ScanOffTargetsGapped(probe, new[] { copyA, copyB });
+        var reversed = ProbeDesigner.ScanOffTargetsGapped(probe, new[] { copyB, copyA });
+
+        Assert.Multiple(() =>
+        {
+            foreach (var result in new[] { forward, reversed })
+            {
+                Assert.That(result.OnTargetHits, Has.Count.EqualTo(2), "Both perfect copies are on-target-class");
+                Assert.That(result.OffTargetCount, Is.EqualTo(1), "Only the second perfect copy is an off-target");
+                Assert.That(result.OnTargetHits[0].ReferenceIndex, Is.EqualTo(0), "First copy = intended site");
+                Assert.That(result.OffTargetHits[0].ReferenceIndex, Is.EqualTo(1), "Extra copy = off-target");
+                Assert.That(result.OffTargetHits[0].Start, Is.EqualTo(5), "Extra copy site after the 5-nt flank");
+                Assert.That(result.IsSpecific, Is.False, "A second binding site makes the probe non-specific");
+            }
+        });
+    }
+
+    [Test]
     public void ScanOffTargetsGapped_NullProbe_ThrowsArgumentNullException()
     {
         // Guard: null probe must throw.
